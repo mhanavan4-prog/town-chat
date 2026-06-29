@@ -137,17 +137,28 @@
   }
   #chatPanel.arcadeMode #chatLog { max-height:780px; min-height:270px; }
   #textView { display:flex; flex-direction:column; gap:10px; }
-  #textPhoneInput, #textBodyInput {
+  #twilioLoginFields, #textSendFields { display:flex; flex-direction:column; gap:10px; }
+  #twilioLoginNote { color:#9bc49a; font-size:11px; line-height:1.4; }
+  #textPhoneInput, #textBodyInput,
+  #twilioAccountSid, #twilioApiKeySid, #twilioSecret, #twilioFromNumber {
     pointer-events:auto;
     padding:10px 12px; border-radius:8px; border:1px solid rgba(217,138,79,0.35);
     background:rgba(0,0,0,0.35); color:#eafff0; font-size:13px; outline:none;
     font-family:inherit; resize:vertical;
   }
-  #textPhoneInput::placeholder, #textBodyInput::placeholder { color:#8a7560; }
-  /* Sizing/color comes from the shared .btn class (see top of file); this
-     panel just needs to re-enable clicks since #chatPanel blocks them by
+  #textPhoneInput::placeholder, #textBodyInput::placeholder,
+  #twilioAccountSid::placeholder, #twilioApiKeySid::placeholder,
+  #twilioSecret::placeholder, #twilioFromNumber::placeholder { color:#8a7560; }
+  #twilioLoggedInRow {
+    pointer-events:auto;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    color:#cfe9cf; font-size:12px;
+  }
+  #twilioLoggedInRow a { color:#7ad9ff; cursor:pointer; }
+  /* Sizing/color comes from the shared .btn class (see top of file); these
+     panels just need to re-enable clicks since #chatPanel blocks them by
      default. */
-  #textSendBtn { pointer-events:auto; }
+  #textSendBtn, #twilioSaveBtn { pointer-events:auto; }
   #textStatus { color:#9bc49a; font-size:11.5px; line-height:1.4; min-height:14px; }
   #textStatus.err { color:#ff9b9b; }
   .chatLine {
@@ -351,9 +362,23 @@
     </div>
   </div>
   <div id="textView" class="hidden">
-    <input id="textPhoneInput" type="tel" placeholder="Phone number, e.g. +15551234567" autocomplete="off">
-    <textarea id="textBodyInput" rows="4" maxlength="300" placeholder="Your message…"></textarea>
-    <button class="btn" id="textSendBtn">Send Text</button>
+    <div id="twilioLoginFields">
+      <div id="twilioLoginNote">Log in with your own Twilio account to text from here. Stored only in this browser — never sent anywhere except directly to Twilio when you hit Send.</div>
+      <input id="twilioAccountSid" type="text" placeholder="Account SID (starts with AC)" autocomplete="off">
+      <input id="twilioApiKeySid" type="text" placeholder="API Key SID (optional, starts with SK)" autocomplete="off">
+      <input id="twilioSecret" type="password" placeholder="Auth Token (or API Key Secret)" autocomplete="off">
+      <input id="twilioFromNumber" type="text" placeholder="Your Twilio number, e.g. +15551234567" autocomplete="off">
+      <button class="btn" id="twilioSaveBtn">Save Twilio Login</button>
+    </div>
+    <div id="twilioLoggedInRow" class="hidden">
+      <span id="twilioLoggedInText"></span>
+      <a href="#" id="twilioLogoutLink">log out</a>
+    </div>
+    <div id="textSendFields" class="hidden">
+      <input id="textPhoneInput" type="tel" placeholder="Phone number, e.g. +15551234567" autocomplete="off">
+      <textarea id="textBodyInput" rows="4" maxlength="300" placeholder="Your message…"></textarea>
+      <button class="btn" id="textSendBtn">Send Text</button>
+    </div>
     <div id="textStatus"></div>
   </div>
 </div>

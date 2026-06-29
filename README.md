@@ -47,11 +47,12 @@ Walk back out through the door and you're back in the open-air town square.
   client-side mini-game — no server involvement, no shared/competitive
   state, just something to do while you're in there chatting.
 - 📱 The Arcade's chat panel is also 3x the normal size and has a second
-  **Text** tab next to Chat — it sends a real SMS to a real phone number via
-  Twilio (see **Texting (Twilio)** below). An earlier version of this tab
-  tried to embed a web browser instead; that's gone now since most real
-  sites refuse to render inside another page anyway (`X-Frame-Options`/CSP),
-  so it never reliably worked.
+  **Text** tab next to Chat — log in with your own Twilio account once and
+  send a real SMS to a real phone number from there (see **Texting
+  (Twilio)** below for how each player sets this up). An earlier version of
+  this tab tried to embed a web browser instead; that's gone now since most
+  real sites refuse to render inside another page anyway
+  (`X-Frame-Options`/CSP), so it never reliably worked.
 - 🎒 Inventory (top-left button): write a private note to any other player
   currently in the town. Notes aren't stored anywhere — they're relayed
   straight to the recipient's inbox and never touch a database. Reading a
@@ -108,10 +109,11 @@ npm start
 
 Then open **http://localhost:3000**.
 
-- All optional features below (passcode, Stripe payments, Twilio texting)
-  are configured the same way: copy `.env.example` to `.env` and fill in
-  whichever lines you need. Leave the rest blank and those features just
-  stay off.
+- The passcode and Stripe payments below are both configured the same way:
+  copy `.env.example` to `.env` and fill in whichever lines you need. Leave
+  the rest blank and those features just stay off. (Twilio texting is
+  different — it's set up per-player inside the game, not in `.env`; see
+  **Texting (Twilio)** below.)
 - Friends on your same WiFi can join at `http://<your-computer's-local-IP>:3000`
   (find your local IP with `ipconfig` on Windows or `ifconfig`/`ipconfig getifaddr en0` on Mac).
 - Friends elsewhere on the internet **cannot** reach `localhost`, so for that
@@ -173,48 +175,61 @@ over to another.
 
 ## Texting (Twilio)
 
-The Arcade's **Text** tab sends a real SMS through [Twilio](https://www.twilio.com):
+The Arcade's **Text** tab sends a real SMS through [Twilio](https://www.twilio.com)
+— but unlike Stripe, **this is not something the server operator configures
+once for everyone.** Each player logs in with their *own* Twilio account
+from inside the Text tab, and texts they send are sent (and billed) through
+that account, not the operator's. There's nothing to set up in `.env` for
+this one.
+
+**For each player who wants to use it:**
 
 1. Create a Twilio account and buy/activate a phone number capable of
    sending SMS (a trial account can usually text your own verified number
-   for free, useful for testing before you pay for a real number — but see
-   the trial-account caveat below).
-2. From the Twilio Console, grab your **Account SID**, **Auth Token**, and
-   the **phone number** you bought (in `+1XXXXXXXXXX` international format).
-3. Set all three as environment variables — same rule as the Stripe key,
-   **never paste these into chat or commit them**. Easiest way locally:
-   copy `.env.example` to a new file named `.env` in the project root and
-   fill in the three `TWILIO_...` lines:
-   ```bash
-   cp .env.example .env
-   # then edit .env in any text editor
-   ```
-   `.env` is gitignored and loaded automatically on `npm start` (via the
-   `dotenv` package) — no need to retype the variables every time you start
-   the server. If you'd rather not use a file, the old inline form still
-   works too:
-   ```bash
-   # Mac/Linux
-   TWILIO_ACCOUNT_SID=ACxxxxx TWILIO_AUTH_TOKEN=xxxxx TWILIO_FROM_NUMBER=+15551234567 npm start
-   ```
-   On a host like Render/Railway/Fly.io, there's no `.env` file at all —
-   add these under that service's **Environment** settings instead.
-4. Leave any of the three unset (or missing from `.env`) and the Text tab
-   just explains it's not configured yet — nothing else breaks.
+   for free — see the trial-account gotcha below).
+2. From the Twilio Console, grab your **Account SID** (starts with `AC`)
+   and **Auth Token**, plus the **phone number** you bought, in
+   international format (e.g. `+15551234567`).
+3. In the Arcade, open the chat panel's **Text** tab and fill in the login
+   form: Account SID, Auth Token, and your Twilio number. Hit **Save
+   Twilio Login**.
+4. That's it — the form switches to a simple "phone number + message"
+   sender from then on. Logging in is sticky (saved in your browser), so
+   you only need to do this once per device/browser; there's a **log out**
+   link if you want to clear it.
 5. **Trial-account gotcha:** an unupgraded Twilio trial account can only
    send SMS to phone numbers you've manually verified in the Console (under
    **Phone Numbers → Manage → Verified Caller IDs**) — texting any other
-   number fails even with correct credentials. Add your own phone there
-   first, or upgrade the Twilio account to remove that restriction.
+   number fails even with correct credentials. Add the destination phone
+   there first, or upgrade the Twilio account to remove that restriction.
 
-This sends real texts at **your** Twilio account's expense, so a few
-deliberate limits are baked in server-side: phone numbers must be in strict
-international (`+1...`) format, messages are capped at 300 characters, and
-each visitor is limited to 3 texts per 10 minutes (tracked in memory by IP,
-so it resets on restart same as everything else non-account-related here).
-None of that is real bot/abuse protection — there's no CAPTCHA or login
-requirement to use it — so only turn this on for a town you trust the
-players of.
+**Where your credentials actually go:** typing them into the Text tab
+saves them in that browser's `localStorage` only — they are never written
+to this server's disk or any database. Every time you hit Send, your
+browser sends them to this game's own server for that one request, which
+relays a single message to Twilio using them and then discards them; they
+aren't logged or kept around between requests. That's a real trust
+boundary, though — this server's operator (or anyone with access to that
+server while it's running) could in principle intercept a request in
+transit. **For extra safety, use a Twilio API Key instead of your main
+Auth Token:** in the Twilio Console under **Account → API keys & tokens →
+Create API key**, then put the **API Key SID** (starts with `SK`) in the
+Text tab's optional "API Key SID" field and the **API Key Secret** in the
+Auth Token field. An API key can be revoked independently at any time
+without resetting your whole account's credentials — your main Auth Token
+can't be limited or revoked without regenerating it (which breaks
+everything else using it too).
+
+A couple of light server-side guardrails still apply regardless of whose
+account is used: phone numbers must be in strict international (`+1...`)
+format, messages are capped at 300 characters, and each visitor's IP is
+limited to 3 send requests per 10 minutes (an in-memory counter — resets on
+server restart). That's there to stop this server's `/api/send-sms`
+endpoint from being usable as a high-volume, IP-hiding relay for *anyone's*
+Twilio credentials (including stolen ones), not to protect anyone's
+texting budget. None of it is real bot/abuse protection — there's no
+CAPTCHA — so don't expose a deployed copy of this game publicly unless
+you're comfortable with that.
 
 ## Deploy it so friends anywhere can join (free)
 

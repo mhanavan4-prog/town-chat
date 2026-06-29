@@ -350,7 +350,6 @@ let paymentsEnabled = false;
 let premiumPriceCents = 300;
 let roomPassPriceCents = 100;
 let roomPassHours = 4;
-let smsEnabled = false;
 
 // Single-room, time-limited passes (bought from the statue in the free
 // building) — separate from the all-access Town Pass above. Stored as an
@@ -605,9 +604,7 @@ fetch('/api/config')
     premiumPriceCents = cfg.premiumPriceCents || premiumPriceCents;
     roomPassPriceCents = cfg.roomPassPriceCents || roomPassPriceCents;
     roomPassHours = cfg.roomPassHours || roomPassHours;
-    smsEnabled = !!cfg.smsEnabled;
     refreshUnlockUI();
-    if (!smsEnabled) setTextStatus('Texting is not set up on this server (no Twilio credentials configured).', false);
   })
   .catch(() => {});
 
@@ -886,15 +883,29 @@ function renderChatLog() {
 
 // ---------------------------------------------------------------------------
 // Arcade-only: the (3x larger) chat panel can switch into a "send a text"
-// mode. Unlike chat, this leaves the game entirely — it calls the server's
-// /api/send-sms endpoint, which relays through Twilio to a real phone
-// number. Disabled server-side (and explained as such here) unless the
-// host has Twilio credentials configured; see server.js.
+// mode. Unlike chat, this leaves the game entirely — each player logs in
+// with their OWN Twilio account (not a shared one this game's operator
+// pays for) and the server just relays one send request through to Twilio
+// using those credentials. See server.js for what's validated/rate-limited
+// there. The credentials themselves live only in this browser's
+// localStorage — this client never sends them anywhere but to this game's
+// own server, and the server never writes them to disk or keeps them
+// beyond the single request that uses them.
 // ---------------------------------------------------------------------------
 const chatTabChatBtn = document.getElementById('chatTabChat');
 const chatTabTextBtn = document.getElementById('chatTabText');
 const chatLogView = document.getElementById('chatLogView');
 const textView = document.getElementById('textView');
+const twilioLoginFields = document.getElementById('twilioLoginFields');
+const twilioAccountSidInput = document.getElementById('twilioAccountSid');
+const twilioApiKeySidInput = document.getElementById('twilioApiKeySid');
+const twilioSecretInput = document.getElementById('twilioSecret');
+const twilioFromNumberInput = document.getElementById('twilioFromNumber');
+const twilioSaveBtn = document.getElementById('twilioSaveBtn');
+const twilioLoggedInRow = document.getElementById('twilioLoggedInRow');
+const twilioLoggedInText = document.getElementById('twilioLoggedInText');
+const twilioLogoutLink = document.getElementById('twilioLogoutLink');
+const textSendFields = document.getElementById('textSendFields');
 const textPhoneInput = document.getElementById('textPhoneInput');
 const textBodyInput = document.getElementById('textBodyInput');
 const textSendBtn = document.getElementById('textSendBtn');
@@ -904,6 +915,62 @@ function setTextStatus(text, isError) {
   if (!textStatusEl) return;
   textStatusEl.textContent = text;
   textStatusEl.classList.toggle('err', !!isError);
+}
+
+let twilioCreds = null; // { accountSid, apiKeySid, secret, fromNumber }
+(function loadTwilioCreds() {
+  try {
+    const raw = localStorage.getItem('tc_twilio');
+    if (raw) twilioCreds = JSON.parse(raw);
+  } catch (e) { twilioCreds = null; }
+})();
+
+function renderTwilioLoginState() {
+  const loggedIn = !!(twilioCreds && twilioCreds.accountSid);
+  twilioLoginFields.classList.toggle('hidden', loggedIn);
+  twilioLoggedInRow.classList.toggle('hidden', !loggedIn);
+  textSendFields.classList.toggle('hidden', !loggedIn);
+  if (loggedIn) {
+    const sid = twilioCreds.accountSid;
+    twilioLoggedInText.textContent = `Twilio: ${sid.slice(0, 6)}…${sid.slice(-4)} / ${twilioCreds.fromNumber}`;
+  }
+}
+renderTwilioLoginState();
+
+function saveTwilioCreds(creds) {
+  twilioCreds = creds;
+  localStorage.setItem('tc_twilio', JSON.stringify(creds));
+  renderTwilioLoginState();
+}
+
+function logoutTwilio() {
+  twilioCreds = null;
+  localStorage.removeItem('tc_twilio');
+  renderTwilioLoginState();
+  setTextStatus('Logged out of Twilio.');
+}
+
+function saveTwilioLogin() {
+  const accountSid = twilioAccountSidInput.value.trim();
+  const apiKeySid = twilioApiKeySidInput.value.trim();
+  const secret = twilioSecretInput.value.trim();
+  const fromNumber = twilioFromNumberInput.value.trim();
+  if (!/^AC[a-zA-Z0-9]{32}$/.test(accountSid)) {
+    setTextStatus('Account SID looks wrong — it should start with "AC" (34 characters total).', true);
+    return;
+  }
+  if (apiKeySid && !/^SK[a-zA-Z0-9]{32}$/.test(apiKeySid)) {
+    setTextStatus('API Key SID looks wrong — it should start with "SK" (34 characters total).', true);
+    return;
+  }
+  if (!secret) { setTextStatus('Enter your Auth Token or API Key Secret.', true); return; }
+  if (!/^\+[1-9]\d{6,14}$/.test(fromNumber)) {
+    setTextStatus('Your Twilio number should look like +15551234567.', true);
+    return;
+  }
+  saveTwilioCreds({ accountSid, apiKeySid, secret, fromNumber });
+  twilioSecretInput.value = ''; // don't leave the secret sitting in the field after it's saved
+  setTextStatus('Twilio account saved in this browser.');
 }
 
 function showChatTab() {
@@ -921,7 +988,7 @@ function showTextTab() {
 }
 
 function sendText() {
-  if (!smsEnabled) { setTextStatus('Texting is not set up on this server (no Twilio credentials configured).', true); return; }
+  if (!twilioCreds) { setTextStatus('Log in with your Twilio account first.', true); return; }
   const to = textPhoneInput.value.trim();
   const body = textBodyInput.value.trim();
   if (!to || !body) { setTextStatus('Enter a phone number and a message.', true); return; }
@@ -930,7 +997,13 @@ function sendText() {
   fetch('/api/send-sms', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, body })
+    body: JSON.stringify({
+      accountSid: twilioCreds.accountSid,
+      apiKeySid: twilioCreds.apiKeySid || '',
+      secret: twilioCreds.secret,
+      from: twilioCreds.fromNumber,
+      to, body
+    })
   })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
@@ -947,14 +1020,15 @@ function sendText() {
 
 if (chatTabChatBtn) chatTabChatBtn.addEventListener('click', showChatTab);
 if (chatTabTextBtn) chatTabTextBtn.addEventListener('click', showTextTab);
+if (twilioSaveBtn) twilioSaveBtn.addEventListener('click', saveTwilioLogin);
+if (twilioLogoutLink) twilioLogoutLink.addEventListener('click', (e) => { e.preventDefault(); logoutTwilio(); });
 if (textSendBtn) textSendBtn.addEventListener('click', sendText);
-if (textPhoneInput) {
-  textPhoneInput.addEventListener('focus', () => { typing = true; });
-  textPhoneInput.addEventListener('blur', () => { typing = false; });
+for (const el of [twilioAccountSidInput, twilioApiKeySidInput, twilioSecretInput, twilioFromNumberInput, textPhoneInput, textBodyInput]) {
+  if (!el) continue;
+  el.addEventListener('focus', () => { typing = true; });
+  el.addEventListener('blur', () => { typing = false; });
 }
 if (textBodyInput) {
-  textBodyInput.addEventListener('focus', () => { typing = true; });
-  textBodyInput.addEventListener('blur', () => { typing = false; });
   textBodyInput.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') textBodyInput.blur();
   });
