@@ -560,8 +560,8 @@ function update(dt) {
   if (!typing) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
-    if (keys.left) turnInput -= 1;
-    if (keys.right) turnInput += 1;
+    if (keys.left) turnInput += 1;
+    if (keys.right) turnInput -= 1;
   }
   if (joyVec.x || joyVec.y) {
     moveInput += -joyVec.y; // push stick up = walk forward
