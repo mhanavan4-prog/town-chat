@@ -124,20 +124,23 @@ const wss = new WebSocketServer({ server, maxPayload: 2 * 1024 * 1024 });
 // that room's chat channel. "outside" is the open-air town-square channel.
 // ---------------------------------------------------------------------------
 const WORLD = {
-  width: 2400,
-  height: 1650,
-  spawn: { x: 1200, y: 825 },
-  doorWidth: 64,
+  width: 3200,
+  height: 2200,
+  spawn: { x: 1600, y: 1100 },
+  // Widened from the original 64 — a narrow gap on a map this size made
+  // walking back in after leaving feel needlessly fiddly (see also the
+  // camera-orbit reset in client.js enterBuilding()/exitBuilding()).
+  doorWidth: 100,
   wallThickness: 14,
   // "door" picks which wall the entrance/exit gap is cut into ('south' if
   // omitted). Every building's door faces whichever wall points back toward
-  // the spawn hub at (1200, 825), so walking out always faces the town square.
+  // the spawn hub at (1600, 1100), so walking out always faces the town square.
   buildings: [
-    { id: 'cafe',    name: '☕ The Cafe',          x: 220,  y: 280,  w: 380, h: 260, color: '#d98a4f', door: 'east' },
-    { id: 'library', name: '📚 The Library',       x: 1750, y: 280,  w: 300, h: 200, color: '#6f8fae', door: 'west' },
-    { id: 'arcade',  name: '🎮 The Arcade',        x: 220,  y: 1150, w: 300, h: 200, color: '#9b5fc0', door: 'east' },
-    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 1750, y: 1150, w: 300, h: 200, color: '#c0596f', door: 'west' },
-    { id: 'hall',    name: '🏛️ Town Hall',        x: 1020, y: 80,   w: 360, h: 220, color: '#8a9a5b', door: 'south' }
+    { id: 'cafe',    name: '☕ The Cafe',          x: 300,  y: 375,  w: 500, h: 340, color: '#d98a4f', door: 'east' },
+    { id: 'library', name: '📚 The Library',       x: 2330, y: 375,  w: 400, h: 260, color: '#6f8fae', door: 'west' },
+    { id: 'arcade',  name: '🎮 The Arcade',        x: 295,  y: 1530, w: 400, h: 270, color: '#9b5fc0', door: 'east' },
+    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 2335, y: 1530, w: 400, h: 270, color: '#c0596f', door: 'west' },
+    { id: 'hall',    name: '🏛️ Town Hall',        x: 1360, y: 110,  w: 480, h: 290, color: '#8a9a5b', door: 'south' }
   ]
 };
 const ROOM_IDS = new Set(['outside', ...WORLD.buildings.map(b => b.id)]);

@@ -22,8 +22,13 @@ Walk back out through the door and you're back in the open-air town square.
   attach an image (resized/compressed in your browser before sending) to a
   message. Relayed by the server exactly like a text message, scoped to
   whichever room you're in.
-- A large open town square with grass, dirt paths, and scattered trees/shrubs
-  around the edges.
+- A large open town square (3200x2200) with grass, dirt paths, scattered
+  trees/shrubs, rock clusters, and flower patches around the edges.
+- 🐇 A handful of rabbits wander the grass and gently bound away if you get
+  close, settling back into wandering/grazing once you back off. They're
+  purely decorative and purely client-side — each player's game runs the
+  same flee logic independently, reacting only to that player, so it's not
+  networked or synced between players.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
   (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
   🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,

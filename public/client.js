@@ -1029,10 +1029,10 @@ const INTERIOR_THEMES = {
 //    footprint's size when the door is on its far side; it's only safe to
 //    shrink when the door is on the *near* (low-x/low-y) side instead.
 const INTERIOR_SIZE_OVERRIDES = {
-  cafe:    { w: 520, h: 260 },  // door axis (h) matches outdoor; wide sprawling tavern hall
-  library: { w: 220, h: 200 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
-  lounge:  { w: 640, h: 200 },  // door axis (h) matches outdoor; wide for stairs + terrace
-  hall:    { w: 360, h: 380 }   // door axis (w) matches outdoor; deep great hall
+  cafe:    { w: 600, h: 340 },  // door axis (h) matches outdoor; wide sprawling tavern hall
+  library: { w: 260, h: 260 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
+  lounge:  { w: 760, h: 270 },  // door axis (h) matches outdoor; wide for stairs + terrace
+  hall:    { w: 480, h: 500 }   // door axis (w) matches outdoor; deep great hall
 };
 
 // The Rooftop Lounge is the one two-story interior: ground floor on the west
@@ -1128,6 +1128,7 @@ function initScene(w) {
   }
 
   addNatureDecor(scene);
+  addAnimals(scene);
 
   outdoorScene = scene;
   outdoorCamera = camera;
@@ -1215,25 +1216,76 @@ function makeShrub(x, z, scale) {
   return g;
 }
 
+function makeRock(x, z, scale) {
+  const g = new THREE.Group();
+  const s = scale || 1;
+  const colors = [0x7a7a72, 0x6b6b63, 0x8a8a80];
+  const n = 2 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < n; i++) {
+    const r = (7 + Math.random() * 5) * s;
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(r, 0),
+      new THREE.MeshLambertMaterial({ color: colors[i % colors.length] })
+    );
+    rock.position.set((Math.random() - 0.5) * 10 * s, r * 0.55, (Math.random() - 0.5) * 10 * s);
+    rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    g.add(rock);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeFlowerPatch(x, z, scale) {
+  const g = new THREE.Group();
+  const s = scale || 1;
+  const colors = [0xff6b9b, 0xffd43b, 0xf783ac, 0xffa94d, 0xeebbff];
+  for (let i = 0; i < 7; i++) {
+    const stem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6 * s, 0.6 * s, 6 * s, 4),
+      new THREE.MeshLambertMaterial({ color: 0x3a7a3f })
+    );
+    const px = (Math.random() - 0.5) * 16 * s, pz = (Math.random() - 0.5) * 16 * s;
+    stem.position.set(px, 3 * s, pz);
+    g.add(stem);
+    const bloom = new THREE.Mesh(
+      new THREE.SphereGeometry(2 * s, 6, 6),
+      new THREE.MeshLambertMaterial({ color: colors[i % colors.length] })
+    );
+    bloom.position.set(px, 6.5 * s, pz);
+    g.add(bloom);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
 // Fixed (not random-per-load) positions so every connected client sees the
-// same tree/shrub layout. Kept clear of building footprints, the spawn hub,
-// and the dirt paths radiating from it. Trees get a small trunk collision
-// box pushed into the same `walls` array buildings use, so you can't walk
-// through them; shrubs are purely decorative ground cover (walk-through).
+// same nature layout, scaled up to match the world's current footprint.
+// Kept clear of building footprints, the spawn hub, and the dirt paths
+// radiating from it. Trees get a small trunk collision box pushed into the
+// same `walls` array buildings use, so you can't walk through them; shrubs,
+// rocks, and flower patches are purely decorative ground cover (walk-through).
 const NATURE_DECOR = [
-  { type: 'tree', x: 60,   y: 700,  scale: 1.1 }, { type: 'tree', x: 110, y: 880, scale: 0.9 },
-  { type: 'tree', x: 50,   y: 1020, scale: 1.0 }, { type: 'shrub', x: 130, y: 760, scale: 1.0 },
-  { type: 'shrub', x: 90,  y: 960,  scale: 0.8 }, { type: 'tree', x: 700, y: 60,   scale: 1.0 },
-  { type: 'tree', x: 870,  y: 40,   scale: 0.85 },{ type: 'shrub', x: 780, y: 90,   scale: 1.0 },
-  { type: 'tree', x: 2300, y: 700,  scale: 1.0 }, { type: 'tree', x: 2350, y: 880,  scale: 0.9 },
-  { type: 'tree', x: 2310, y: 1020, scale: 1.05 },{ type: 'shrub', x: 2240, y: 770,  scale: 0.9 },
-  { type: 'shrub', x: 2280, y: 950,  scale: 1.0 },{ type: 'tree', x: 700,  y: 1600, scale: 1.0 },
-  { type: 'tree', x: 900,  y: 1620, scale: 0.95 },{ type: 'tree', x: 1500, y: 1610, scale: 1.0 },
-  { type: 'tree', x: 1700, y: 1590, scale: 0.9 }, { type: 'shrub', x: 800, y: 1570, scale: 1.0 },
-  { type: 'shrub', x: 1600, y: 1560, scale: 0.85 },{ type: 'tree', x: 1480, y: 60,   scale: 0.9 },
-  { type: 'tree', x: 1620, y: 80,   scale: 1.0 }, { type: 'shrub', x: 1550, y: 40,   scale: 0.9 },
-  { type: 'tree', x: 80,   y: 250,  scale: 0.95 },{ type: 'tree', x: 2330, y: 250,  scale: 0.95 },
-  { type: 'shrub', x: 60,  y: 1400, scale: 1.0 }, { type: 'shrub', x: 2340, y: 1400, scale: 1.0 }
+  { type: 'tree', x: 80,   y: 935,  scale: 1.1 },  { type: 'tree', x: 145,  y: 1175, scale: 0.9 },
+  { type: 'tree', x: 65,   y: 1360, scale: 1.0 },  { type: 'shrub', x: 175, y: 1015, scale: 1.0 },
+  { type: 'shrub', x: 120, y: 1280, scale: 0.8 },  { type: 'tree', x: 935,  y: 80,   scale: 1.0 },
+  { type: 'tree', x: 1160, y: 55,   scale: 0.85 }, { type: 'shrub', x: 1040,y: 120,  scale: 1.0 },
+  { type: 'tree', x: 3065, y: 935,  scale: 1.0 },  { type: 'tree', x: 3135, y: 1175, scale: 0.9 },
+  { type: 'tree', x: 3080, y: 1360, scale: 1.05 }, { type: 'shrub', x: 2985,y: 1025, scale: 0.9 },
+  { type: 'shrub', x: 3040,y: 1265, scale: 1.0 },  { type: 'tree', x: 935,  y: 2135, scale: 1.0 },
+  { type: 'tree', x: 1200, y: 2160, scale: 0.95 }, { type: 'tree', x: 2000, y: 2145, scale: 1.0 },
+  { type: 'tree', x: 2265, y: 2120, scale: 0.9 },  { type: 'shrub', x: 1065,y: 2095, scale: 1.0 },
+  { type: 'shrub', x: 2135,y: 2080, scale: 0.85 }, { type: 'tree', x: 1975, y: 80,   scale: 0.9 },
+  { type: 'tree', x: 2160, y: 105,  scale: 1.0 },  { type: 'shrub', x: 2065,y: 55,   scale: 0.9 },
+  { type: 'tree', x: 105,  y: 335,  scale: 0.95 }, { type: 'tree', x: 3105, y: 335,  scale: 0.95 },
+  { type: 'shrub', x: 80,  y: 1865, scale: 1.0 },  { type: 'shrub', x: 3120,y: 1865, scale: 1.0 },
+  // Extra growth for the larger map — rocks and flower patches dotted
+  // through the open grass for more visual variety/realism.
+  { type: 'rock', x: 500,  y: 1100, scale: 1.0 },  { type: 'rock', x: 1100, y: 1700, scale: 0.9 },
+  { type: 'rock', x: 2100, y: 1700, scale: 1.1 },  { type: 'rock', x: 2700, y: 1100, scale: 0.9 },
+  { type: 'rock', x: 1600, y: 1700, scale: 1.0 },  { type: 'rock', x: 1050, y: 650,  scale: 0.85 },
+  { type: 'flower', x: 950,  y: 1200, scale: 1.0 },{ type: 'flower', x: 1700, y: 750,  scale: 1.0 },
+  { type: 'flower', x: 2450, y: 1300, scale: 1.0 },{ type: 'flower', x: 1300, y: 900,  scale: 0.9 },
+  { type: 'flower', x: 2000, y: 1500, scale: 1.0 },{ type: 'flower', x: 600,  y: 1400, scale: 0.95 }
 ];
 
 function addNatureDecor(scene) {
@@ -1242,9 +1294,129 @@ function addNatureDecor(scene) {
       scene.add(makeTree(d.x, d.y, d.scale));
       const r = 8 * (d.scale || 1);
       walls.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
-    } else {
+    } else if (d.type === 'shrub') {
       scene.add(makeShrub(d.x, d.y, d.scale));
+    } else if (d.type === 'rock') {
+      scene.add(makeRock(d.x, d.y, d.scale));
+    } else if (d.type === 'flower') {
+      scene.add(makeFlowerPatch(d.x, d.y, d.scale));
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wildlife — a handful of rabbits wandering the open grass, purely cosmetic.
+// Each connected client runs this same flee/wander logic independently,
+// reacting only to its own player; there's no server involvement and no
+// shared/synced state, so two players standing near the same rabbit may see
+// it dodge in very slightly different directions. That's an acceptable
+// tradeoff for something this lightweight — it's flavor, not gameplay.
+// ---------------------------------------------------------------------------
+const ANIMAL_SPAWNS = [
+  { x: 1600, y: 700 },  { x: 1600, y: 1500 }, { x: 1000, y: 1100 },
+  { x: 2200, y: 1100 }, { x: 1300, y: 1750 }, { x: 1950, y: 520 },
+  { x: 500,  y: 1300 }, { x: 2700, y: 1300 }, { x: 1100, y: 600 },
+  { x: 2100, y: 1850 }
+];
+const ANIMAL_FLEE_RADIUS = 130; // start running once the player gets this close
+const ANIMAL_SAFE_RADIUS = 190; // ...and don't relax back to wandering until clearly clear, to avoid flicker
+const ANIMAL_FLEE_SPEED = 110;
+const ANIMAL_WANDER_SPEED = 26;
+const ANIMAL_R = 9;
+let animals = [];
+
+function makeRabbit() {
+  const g = new THREE.Group();
+  const furColors = [0xcfc2a8, 0xab8f6b, 0xe8e2d8];
+  const fur = furColors[Math.floor(Math.random() * furColors.length)];
+  const bodyMat = new THREE.MeshLambertMaterial({ color: fur });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(7, 8, 8), bodyMat);
+  body.scale.set(1.3, 0.85, 1);
+  body.position.y = 6;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(4.2, 8, 8), bodyMat);
+  head.position.set(0, 9, 7);
+  g.add(head);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(1.2, 7, 6), bodyMat);
+    ear.position.set(side * 2, 14, 7);
+    ear.rotation.x = -0.3;
+    g.add(ear);
+  }
+  const tail = new THREE.Mesh(
+    new THREE.SphereGeometry(2.2, 6, 6),
+    new THREE.MeshLambertMaterial({ color: 0xffffff })
+  );
+  tail.position.set(0, 7, -7);
+  g.add(tail);
+  return g;
+}
+
+function addAnimals(scene) {
+  animals = ANIMAL_SPAWNS.map(p => ({
+    x: p.x, y: p.y,
+    facing: Math.random() * Math.PI * 2,
+    fleeing: false,
+    wanderTimer: Math.random() * 2,
+    wanderAngle: 0,
+    grazing: false,
+    hopPhase: Math.random() * Math.PI * 2,
+    mesh: makeRabbit()
+  }));
+  for (const a of animals) {
+    a.mesh.position.set(a.x, 0, a.y);
+    scene.add(a.mesh);
+  }
+}
+
+// Reuses the same wall-rect list buildings/trees collide against, just with
+// a much smaller radius, so rabbits steer around buildings and tree trunks
+// instead of clipping through them while fleeing.
+function animalBlocked(x, y) {
+  for (const wl of walls) {
+    if (x > wl.x - ANIMAL_R && x < wl.x + wl.w + ANIMAL_R && y > wl.y - ANIMAL_R && y < wl.y + wl.h + ANIMAL_R) return true;
+  }
+  return false;
+}
+
+function updateAnimals(dt) {
+  if (!world || !me) return;
+  for (const a of animals) {
+    const dx = a.x - me.x, dy = a.y - me.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < ANIMAL_FLEE_RADIUS) a.fleeing = true;
+    else if (dist > ANIMAL_SAFE_RADIUS) a.fleeing = false;
+
+    let vx = 0, vy = 0;
+    if (a.fleeing) {
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * ANIMAL_FLEE_SPEED;
+      vy = dy * inv * ANIMAL_FLEE_SPEED;
+    } else {
+      a.wanderTimer -= dt;
+      if (a.wanderTimer <= 0) {
+        a.wanderTimer = 1.5 + Math.random() * 2.5;
+        a.grazing = Math.random() < 0.35; // pause to "graze" sometimes instead of always wandering
+        a.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!a.grazing) {
+        vx = Math.sin(a.wanderAngle) * ANIMAL_WANDER_SPEED;
+        vy = Math.cos(a.wanderAngle) * ANIMAL_WANDER_SPEED;
+      }
+    }
+
+    const margin = 60;
+    const nx = a.x + vx * dt, ny = a.y + vy * dt;
+    if (vx !== 0 && !animalBlocked(nx, a.y) && nx > margin && nx < world.width - margin) a.x = nx;
+    if (vy !== 0 && !animalBlocked(a.x, ny) && ny > margin && ny < world.height - margin) a.y = ny;
+
+    const moving = vx !== 0 || vy !== 0;
+    if (moving) a.facing = Math.atan2(vx, vy);
+    a.hopPhase += dt * (a.fleeing ? 14 : 5);
+    const hop = moving ? Math.abs(Math.sin(a.hopPhase)) * (a.fleeing ? 6 : 2.5) : 0;
+
+    a.mesh.position.set(a.x, hop, a.y);
+    a.mesh.rotation.y = a.facing;
   }
 }
 
@@ -2634,6 +2806,12 @@ function enterBuilding(roomId) {
   mode = 'indoor';
   indoorBuildingId = roomId;
   me.room = roomId;
+  // Whatever direction you were looking outside (especially up/down, which
+  // doesn't auto-reset on movement like the left/right orbit does) carries
+  // no useful meaning indoors — start every room facing level and centered
+  // behind the character.
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
   if (roomId === FREE_BUILDING_ID) startMusic(); else stopMusic();
@@ -2644,6 +2822,10 @@ function enterBuilding(roomId) {
 function exitBuilding(b) {
   mode = 'outdoor';
   indoorBuildingId = null;
+  // Same reasoning as enterBuilding(): don't let a leftover look-angle from
+  // inside make it confusing to see/walk back toward the door you just left.
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
   const side = getDoorSide(b);
   // nudge just outside the door (whichever wall it's on) so they don't
   // immediately re-enter
@@ -2793,6 +2975,7 @@ function update(dt) {
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
+    updateAnimals(dt);
   } else {
     updateIndoor(stepX, stepY);
   }
