@@ -10,9 +10,12 @@ Walk back out through the door and you're back in the open-air town square.
   left/right arrows) turn in place, Q/E strafe left/right, Space to jump —
   desktop. On-screen joystick on mobile/touch. F interacts (sit, Town Pass
   kiosk) while indoors.
-- Click and drag anywhere on the game view to look around — this only
-  orbits the camera around your character, it doesn't change which way
-  you're walking.
+- Click and drag anywhere on the game view to look around, left/right and
+  up/down — this only orbits the camera around your character, it doesn't
+  change which way you're walking. The instant you move or turn, the
+  camera's left/right orbit snaps back behind the character (pitch/looking
+  up-and-down stays put) so "forward on screen" and "forward for the
+  character" can't end up pointing two different ways.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
 - 📷 Pictures in chat: the camera-icon button next to the chat box lets you
@@ -33,6 +36,11 @@ Walk back out through the door and you're back in the open-air town square.
   with a staircase up to an open-air terrace overlooking it, with 3 more
   tables. Walking up/down the stairs is just walking normally — your
   character's height rises and falls to match as you cross the staircase.
+- 🎮 The Arcade has two actual playable cabinets — 🐍 Snake and 🧱 Breakout.
+  Walk up to one and press F to play (arrow keys to control, Space to retry
+  after a game over, Esc to step away). Each is a small self-contained
+  client-side mini-game — no server involvement, no shared/competitive
+  state, just something to do while you're in there chatting.
 - 🎒 Inventory (top-left button): write a private note to any other player
   currently in the town. Notes aren't stored anywhere — they're relayed
   straight to the recipient's inbox and never touch a database. Reading a
@@ -40,11 +48,41 @@ Walk back out through the door and you're back in the open-air town square.
   few seconds after being opened, and the sender gets notified it was read),
   so a note can only ever be read once, by the one person it was sent to.
 - Optional shared passcode to keep the town private to your friends.
+- Optional accounts — see **Accounts & logging in as the same user** below.
+  Everything else is still in-memory and accounts are opt-in: join as a
+  Guest and nothing changes from before.
 
-No accounts, no database — it's all in-memory, so the chat history and
-player list reset whenever the server restarts. The premium-unlock flag is
+Other than accounts, there's no database — chat history and the player
+list reset whenever the server restarts. The premium-unlock flag is
 likewise just a flag in that browser's `localStorage` once a real payment is
 verified — not a real account system.
+
+## Accounts & logging in as the same user
+
+On the join screen, the **Account** tab lets you create a username +
+password and log in as that same identity every time, instead of typing a
+fresh name each visit. Logging in always gives you the same display name
+and the same color (picked deterministically from your username), even
+across different browsers/devices — unlike the Guest tab, which is just
+whatever you type, per-browser, with a color that cycles round-robin.
+
+How it's built, and what that means for you:
+- Accounts are stored server-side in `accounts.json` (gitignored — **never
+  commit it**, it holds password hashes). Passwords are never stored or
+  logged in plaintext: each one is hashed with `scrypt` and a random
+  per-account salt, verified with a constant-time comparison.
+- There's no real database — `accounts.json` is just a JSON file on the
+  server's local disk. That's fine for running this on a normal VM/box,
+  but **on a host with an ephemeral filesystem (e.g. Render's free tier),
+  accounts won't survive a redeploy** — only restarts of the same running
+  instance. If you need accounts to truly persist long-term, this would
+  need to move to an actual hosted database; ask if you want that.
+- Login sessions (the token your browser holds after logging in) are
+  in-memory only and don't survive a server restart at all — you'll just
+  need to log in again, same as any normal session expiring.
+- This is intentionally lightweight: no rate-limiting on login attempts, no
+  email/password recovery, no admin tooling. Fine for a casual game among
+  friends; not something to put sensitive credentials into.
 
 ## Run it locally
 

@@ -2,6 +2,7 @@
 // Express serves the static client; "ws" handles realtime player movement + room-scoped chat.
 
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const { WebSocketServer } = require('ws');
@@ -144,6 +145,98 @@ const ROOM_IDS = new Set(['outside', ...WORLD.buildings.map(b => b.id)]);
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
 // ---------------------------------------------------------------------------
+// Accounts — the only persistence in this whole project. Stored as one JSON
+// file (accounts.json, gitignored — never commit it, it holds password
+// hashes). No durable database, so on hosts with an ephemeral filesystem
+// (e.g. Render's free tier wipes it on every redeploy) accounts won't
+// survive a redeploy, only restarts of the same running instance. Sessions
+// (login tokens) are purely in-memory and don't survive a restart at all —
+// that's normal for a session token, just log in again.
+//
+// Passwords are never stored or logged in plaintext: each account gets a
+// random salt, and the password is hashed with scrypt (deliberately slow,
+// resistant to brute force) before being written to disk. Verifying a
+// login uses a constant-time comparison to avoid leaking timing info.
+// There's no rate-limiting or email recovery here — this is a lightweight
+// account system for a casual game, not production-grade auth.
+// ---------------------------------------------------------------------------
+const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
+
+function loadAccounts() {
+  try {
+    return JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'));
+  } catch (e) {
+    return {};
+  }
+}
+function saveAccounts() {
+  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
+}
+
+const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
+const sessions = new Map();      // token -> usernameLower
+
+function hashPassword(password, saltHex) {
+  return crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), 64).toString('hex');
+}
+function verifyPassword(password, saltHex, hashHex) {
+  const actual = Buffer.from(hashPassword(password, saltHex), 'hex');
+  const expected = Buffer.from(hashHex, 'hex');
+  if (actual.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actual, expected);
+}
+// A username always gets the same color, derived from the name itself, so
+// "log in as the same user" also means showing up in the same color every
+// time — unlike guests, who just cycle through COLORS round-robin.
+function colorForUsername(usernameLower) {
+  let h = 0;
+  for (let i = 0; i < usernameLower.length; i++) h = (h * 31 + usernameLower.charCodeAt(i)) >>> 0;
+  return COLORS[h % COLORS.length];
+}
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,18}$/;
+
+app.post('/api/register', (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  if (!USERNAME_RE.test(username)) {
+    return res.status(400).json({ error: 'Username must be 3-18 letters, numbers, or underscores.' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+  }
+  const key = username.toLowerCase();
+  if (accounts[key]) {
+    return res.status(409).json({ error: 'That username is already taken.' });
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  accounts[key] = {
+    username,
+    salt,
+    hash: hashPassword(password, salt),
+    color: colorForUsername(key),
+    createdAt: Date.now()
+  };
+  saveAccounts();
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, key);
+  res.json({ token, username, color: accounts[key].color });
+});
+
+app.post('/api/login', (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  const key = username.toLowerCase();
+  const account = accounts[key];
+  if (!account || !verifyPassword(password, account.salt, account.hash)) {
+    return res.status(401).json({ error: 'Wrong username or password.' });
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, key);
+  res.json({ token, username: account.username, color: account.color });
+});
+
+// ---------------------------------------------------------------------------
 // Player state
 // ---------------------------------------------------------------------------
 /** @type {Map<string, {ws:any,id:string,name:string,color:string,x:number,y:number,room:string}>} */
@@ -211,10 +304,18 @@ wss.on('connection', (ws) => {
         return;
       }
       const id = makeId();
-      const color = COLORS[colorIdx++ % COLORS.length];
+      // Logged-in players always get their account's username + color,
+      // regardless of whatever name was typed in the box. Guests (or a
+      // stale/expired token — sessions don't survive a server restart)
+      // fall back to the old behavior: whatever name they typed, with the
+      // next color in the round-robin.
+      const accountKey = msg.accountToken ? sessions.get(String(msg.accountToken)) : null;
+      const account = accountKey ? accounts[accountKey] : null;
+      const name = account ? account.username : sanitizeName(msg.name);
+      const color = account ? account.color : COLORS[colorIdx++ % COLORS.length];
       player = {
         ws, id,
-        name: sanitizeName(msg.name),
+        name,
         color,
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,

@@ -48,6 +48,18 @@
   .btn:hover { transform:translateY(-1px); }
   .err { color:#ff9b9b; font-size:12.5px; margin-top:8px; min-height:14px; }
 
+  #joinModeTabs { display:flex; gap:8px; margin-bottom:14px; }
+  #joinModeTabs button {
+    flex:1; padding:8px; border-radius:8px; border:1px solid rgba(160,220,160,0.25);
+    background:rgba(0,0,0,0.2); color:#cfe9cf; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  #joinModeTabs button.active { background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#08130a; }
+  #accountBtnRow { display:flex; gap:8px; }
+  #accountBtnRow .btn { margin-top:0; }
+  #accountRegisterBtn { background:linear-gradient(90deg,#7ad9ff,#5ee7c0); }
+  #accountStatus { text-align:left; font-size:11.5px; color:#9bc49a; margin-top:8px; min-height:14px; line-height:1.4; }
+  #accountStatus a { color:#7ad9ff; }
+
   #hud {
     position:fixed; top:0; left:0; right:0; z-index:5;
     display:flex; justify-content:space-between; padding:14px 18px;
@@ -235,6 +247,13 @@
     background:rgba(255,255,255,0.08); color:#eafff0; margin-top:8px;
   }
 
+  #arcadeCard { width:auto; }
+  #arcadeCanvas {
+    display:block; margin:0 auto; border-radius:8px; border:2px solid rgba(230,190,120,0.4);
+    background:#000;
+  }
+  #arcadeCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; margin-top:10px; }
+
   #inventoryBtn {
     position:fixed; top:64px; left:16px; z-index:6;
     pointer-events:auto;
@@ -357,6 +376,15 @@
   </div>
 </div>
 
+<div id="arcadeModal" class="overlay hidden">
+  <div class="card" id="arcadeCard">
+    <div class="title" id="arcadeTitle" style="font-size:20px;">🐍 Snake</div>
+    <canvas id="arcadeCanvas" width="320" height="320"></canvas>
+    <div class="subtitle">Arrow keys to play. Space to retry after game over. Esc to close.</div>
+    <button class="btn" id="arcadeCloseBtn">Close (Esc)</button>
+  </div>
+</div>
+
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
 
 <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
@@ -375,8 +403,27 @@
 <div id="joinScreen" class="overlay">
   <div class="card">
     <div class="title">TOWN CHAT</div>
-    <div class="subtitle">Wander the town with friends. Walk into a building for a full medieval interior and its private chat — The Cafe is free, the rest need a Town Pass.</div>
-    <input id="nameInput" type="text" placeholder="Your name" maxlength="18" autocomplete="off">
+    <div class="subtitle">Wander the town with friends. Walk into a building for a full medieval interior and its private chat.</div>
+
+    <div id="joinModeTabs">
+      <button id="joinModeGuestBtn" class="active">Guest</button>
+      <button id="joinModeAccountBtn">Account</button>
+    </div>
+
+    <div id="guestFields">
+      <input id="nameInput" type="text" placeholder="Your name" maxlength="18" autocomplete="off">
+    </div>
+
+    <div id="accountFields" class="hidden">
+      <input id="accountUserInput" type="text" placeholder="Username" maxlength="18" autocomplete="username">
+      <input id="accountPassInput" type="password" placeholder="Password" autocomplete="current-password">
+      <div id="accountBtnRow">
+        <button class="btn" id="accountLoginBtn">Log In</button>
+        <button class="btn" id="accountRegisterBtn">Create Account</button>
+      </div>
+      <div id="accountStatus"></div>
+    </div>
+
     <input id="passInput" type="password" placeholder="Passcode (if your town has one)" autocomplete="off">
     <button class="btn" id="joinBtn">ENTER TOWN</button>
     <div class="err" id="joinErr"></div>

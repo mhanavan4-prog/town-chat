@@ -159,18 +159,111 @@ function isTouchDevice() {
 }
 
 // ---------------------------------------------------------------------------
-// Join flow
+// Join flow — guest (just a name, never persisted) or account (username +
+// password, verified server-side, same name/color every time you log back
+// in). See server.js for the account model and its caveats (no durable
+// database, file-based storage that won't survive a redeploy on hosts with
+// an ephemeral filesystem).
 // ---------------------------------------------------------------------------
 const nameInput = document.getElementById('nameInput');
 const passInput = document.getElementById('passInput');
 const joinBtn = document.getElementById('joinBtn');
 
+const joinModeGuestBtn = document.getElementById('joinModeGuestBtn');
+const joinModeAccountBtn = document.getElementById('joinModeAccountBtn');
+const guestFields = document.getElementById('guestFields');
+const accountFields = document.getElementById('accountFields');
+const accountUserInput = document.getElementById('accountUserInput');
+const accountPassInput = document.getElementById('accountPassInput');
+const accountLoginBtn = document.getElementById('accountLoginBtn');
+const accountRegisterBtn = document.getElementById('accountRegisterBtn');
+const accountStatusEl = document.getElementById('accountStatus');
+
+let joinMode = 'guest';
+let savedAccount = null; // { token, username, color }
+
+function setJoinMode(mode) {
+  joinMode = mode;
+  joinModeGuestBtn.classList.toggle('active', mode === 'guest');
+  joinModeAccountBtn.classList.toggle('active', mode === 'account');
+  guestFields.classList.toggle('hidden', mode !== 'guest');
+  accountFields.classList.toggle('hidden', mode !== 'account');
+}
+joinModeGuestBtn.addEventListener('click', () => setJoinMode('guest'));
+joinModeAccountBtn.addEventListener('click', () => setJoinMode('account'));
+
+function setAccountStatus(text, isError) {
+  accountStatusEl.textContent = text;
+  accountStatusEl.style.color = isError ? '#ff9b9b' : '#9bc49a';
+}
+
+function renderLoggedInStatus() {
+  accountStatusEl.innerHTML = '';
+  const span = document.createElement('span');
+  span.textContent = `Logged in as ${savedAccount.username} — `;
+  accountStatusEl.style.color = '#9bc49a';
+  accountStatusEl.appendChild(span);
+  const logout = document.createElement('a');
+  logout.href = '#';
+  logout.textContent = 'log out';
+  logout.addEventListener('click', (e) => { e.preventDefault(); logoutAccount(); });
+  accountStatusEl.appendChild(logout);
+}
+
+function logoutAccount() {
+  savedAccount = null;
+  localStorage.removeItem('tc_account');
+  setAccountStatus('');
+}
+
+(function loadSavedAccount() {
+  try {
+    const raw = localStorage.getItem('tc_account');
+    if (raw) savedAccount = JSON.parse(raw);
+  } catch (e) { savedAccount = null; }
+  if (savedAccount && savedAccount.username && savedAccount.token) {
+    setJoinMode('account');
+    renderLoggedInStatus();
+  }
+})();
+
+function submitAccount(endpoint) {
+  const username = accountUserInput.value.trim();
+  const password = accountPassInput.value;
+  if (!username || !password) { setAccountStatus('Enter a username and password.', true); return; }
+  setAccountStatus(endpoint === 'register' ? 'Creating account…' : 'Logging in…');
+  fetch('/api/' + endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) { setAccountStatus(data.error || 'Something went wrong.', true); return; }
+      savedAccount = { token: data.token, username: data.username, color: data.color };
+      localStorage.setItem('tc_account', JSON.stringify(savedAccount));
+      accountPassInput.value = '';
+      renderLoggedInStatus();
+    })
+    .catch(() => setAccountStatus('Could not reach the server.', true));
+}
+accountLoginBtn.addEventListener('click', () => submitAccount('login'));
+accountRegisterBtn.addEventListener('click', () => submitAccount('register'));
+accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('login'); });
+
 function attemptJoin() {
-  const name = nameInput.value.trim();
-  if (!name) { showJoinError('Enter a name first.'); return; }
+  let name;
+  if (joinMode === 'account') {
+    if (!savedAccount) { showJoinError('Log in or create an account first.'); return; }
+    name = savedAccount.username;
+  } else {
+    name = nameInput.value.trim();
+    if (!name) { showJoinError('Enter a name first.'); return; }
+  }
   showJoinError('');
   ensureAudio(); // the click is a user gesture — set up Web Audio here so it's unblocked later
   const payload = { type: 'join', name, password: passInput.value };
+  if (joinMode === 'account' && savedAccount) payload.accountToken = savedAccount.token;
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   } else {
@@ -591,13 +684,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -647,21 +740,28 @@ joystickEl.addEventListener('touchend', () => {
 // ---------------------------------------------------------------------------
 // Mouse-drag camera orbit — click and drag on the game canvas to look
 // around independently of which way the character is walking. This only
-// ever offsets the CAMERA's angle (cameraYawOffset, used in updateCamera());
-// it never touches me.facing, so movement (driven by A/D and the joystick)
-// and the character model's own rotation are completely unaffected.
+// ever offsets the CAMERA's angle (cameraYawOffset/cameraPitchOffset, used
+// in updateCamera()); it never touches me.facing, so movement (driven by
+// A/D and the joystick) and the character model's own rotation are
+// completely unaffected.
 // ---------------------------------------------------------------------------
 let cameraYawOffset = 0;
-let dragging = false, lastDragX = 0;
+let cameraPitchOffset = 0; // radians; +ve = looking up, -ve = looking down
+const CAMERA_PITCH_LIMIT = 1.2; // ~69°, short of straight up/down to avoid a degenerate orbit
+let dragging = false, lastDragX = 0, lastDragY = 0;
 
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
   lastDragX = e.clientX;
+  lastDragY = e.clientY;
 });
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
   cameraYawOffset -= (e.clientX - lastDragX) * 0.006;
+  cameraPitchOffset -= (e.clientY - lastDragY) * 0.006; // drag up = look up
+  cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset));
   lastDragX = e.clientX;
+  lastDragY = e.clientY;
 });
 window.addEventListener('mouseup', () => { dragging = false; });
 window.addEventListener('mouseleave', () => { dragging = false; });
@@ -1733,6 +1833,37 @@ function makeStatue(x, z) {
   return g;
 }
 
+// A playable arcade cabinet — the kiosk point registered alongside it (see
+// the 'alchemist' branch of buildFurniture()) is what actually opens the
+// mini-game; this is just the standing geometry.
+function makeArcadeCabinet(x, z, rotY, screenColor) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(30, 64, 26),
+    new THREE.MeshLambertMaterial({ color: 0x3a2a4a })
+  );
+  body.position.y = 32;
+  g.add(body);
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 18),
+    new THREE.MeshBasicMaterial({ color: screenColor })
+  );
+  screen.position.set(0, 44, 13.1);
+  g.add(screen);
+  const trim = new THREE.Mesh(
+    new THREE.BoxGeometry(32, 5, 28),
+    new THREE.MeshLambertMaterial({ color: 0xffd27a })
+  );
+  trim.position.y = 64;
+  g.add(trim);
+  const glow = new THREE.PointLight(screenColor, 0.6, 60);
+  glow.position.set(0, 44, 16);
+  g.add(glow);
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY || 0;
+  return g;
+}
+
 function makeWindowGlow(x, y, z, rotY) {
   const glow = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 30),
@@ -1856,11 +1987,29 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBanner(cx, 90, 8, 0, 0x6f8fae));
   } else if (type === 'alchemist') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x4a3a6b));
-    scene.add(makeTable(cx, cz - 15));
     scene.add(makeCauldron(cx, cz + 30));
     scene.add(makeBarrel(24, 24));
     scene.add(makeBarrel(roomW - 24, 24));
     scene.add(makeBanner(cx, 90, 8, 0, 0x9b5fc0));
+
+    // Two playable arcade cabinets where the old table used to be — F to
+    // play, opening the matching mini-game (see openArcadeGame()).
+    if (kiosksOut) {
+      const cabZ = cz - 15;
+      const cab1X = cx - roomW * 0.2, cab2X = cx + roomW * 0.2;
+
+      scene.add(makeArcadeCabinet(cab1X, cabZ, 0, 0x4cff7a));
+      const sign1 = makeSignSprite('🐍 Snake');
+      sign1.position.set(cab1X, 92, cabZ);
+      scene.add(sign1);
+      kiosksOut.push({ id: 'arcade_game_snake', x: cab1X, z: cabZ, game: 'snake' });
+
+      scene.add(makeArcadeCabinet(cab2X, cabZ, 0, 0xff7a4c));
+      const sign2 = makeSignSprite('🧱 Breakout');
+      sign2.position.set(cab2X, 92, cabZ);
+      scene.add(sign2);
+      kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
+    }
   } else if (type === 'parlor') {
     // Two-story Rooftop Lounge: ground floor on the west side, a staircase,
     // and an upstairs terrace overlooking it on the east side.
@@ -2093,10 +2242,18 @@ function updateCamera(dt) {
     back = Math.max(24, Math.min(back, maxX, maxZ));
   }
 
+  // Pitch orbits the camera vertically around the same fixed look-at point:
+  // shrink the horizontal pull-back by cos(pitch) and raise/lower the
+  // camera by sin(pitch) of the (pre-shrink) distance, so it swings through
+  // roughly the same radius whether looking flat ahead, up, or down.
+  const pitch = cameraPitchOffset;
+  const horizBack = back * Math.cos(pitch);
+  const verticalRise = -Math.sin(pitch) * back;
+
   const floorYOffset = getFloorHeight(me.room, rp.x);
-  const targetX = rp.x + dirX * back;
-  const targetZ = rp.z + dirZ * back;
-  const targetY = groundY + cam.height + floorYOffset;
+  const targetX = rp.x + dirX * horizBack;
+  const targetZ = rp.z + dirZ * horizBack;
+  const targetY = groundY + cam.height + floorYOffset + verticalRise;
 
   const ease = 1 - Math.exp(-dt * 6);
   activeCamera.position.x += (targetX - activeCamera.position.x) * ease;
@@ -2208,6 +2365,197 @@ if (roomPassBuyBtn) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Playable arcade cabinets — two simple, fully client-side mini-games
+// (Snake, Breakout) opened from a kiosk point (see findNearestKiosk()) with
+// `game: 'snake'|'breakout'`. Runs its own requestAnimationFrame loop on a
+// 320x320 2D canvas while the modal is open; movement/keys are fully gated
+// off elsewhere (arcadeModalOpen) so this can freely use the arrow keys.
+// ---------------------------------------------------------------------------
+let arcadeModalOpen = false;
+let arcadeGameType = null; // 'snake' | 'breakout'
+let arcadeRAF = null;
+let arcadeCtx = null;
+let arcadeLast = 0;
+let snakeState = null;
+let breakoutState = null;
+
+const ARCADE_GRID = 16, ARCADE_CELL = 20;
+
+function resetSnake() {
+  snakeState = {
+    cells: [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }],
+    dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 },
+    food: { x: 12, y: 8 },
+    tickAcc: 0, tickRate: 0.12,
+    score: 0, gameOver: false
+  };
+}
+
+function randomFoodCell(cells) {
+  let fx, fy;
+  do {
+    fx = Math.floor(Math.random() * ARCADE_GRID);
+    fy = Math.floor(Math.random() * ARCADE_GRID);
+  } while (cells.some(c => c.x === fx && c.y === fy));
+  return { x: fx, y: fy };
+}
+
+function updateSnake(dt) {
+  const s = snakeState;
+  if (s.gameOver) return;
+  s.tickAcc += dt;
+  if (s.tickAcc < s.tickRate) return;
+  s.tickAcc = 0;
+  s.dir = s.nextDir;
+  const head = s.cells[0];
+  const nx = head.x + s.dir.x, ny = head.y + s.dir.y;
+  if (nx < 0 || nx >= ARCADE_GRID || ny < 0 || ny >= ARCADE_GRID || s.cells.some(c => c.x === nx && c.y === ny)) {
+    s.gameOver = true;
+    return;
+  }
+  s.cells.unshift({ x: nx, y: ny });
+  if (nx === s.food.x && ny === s.food.y) {
+    s.score++;
+    s.food = randomFoodCell(s.cells);
+  } else {
+    s.cells.pop();
+  }
+}
+
+function drawArcadeOverlay(ctx, lines) {
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 130, 320, 60);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.font = '14px monospace';
+  ctx.fillText(lines[0], 160, 155);
+  ctx.fillText(lines[1], 160, 175);
+  ctx.textAlign = 'left';
+}
+
+function renderSnake(ctx) {
+  ctx.fillStyle = '#0a160c'; ctx.fillRect(0, 0, 320, 320);
+  ctx.fillStyle = '#ff6b6b';
+  ctx.fillRect(snakeState.food.x * ARCADE_CELL, snakeState.food.y * ARCADE_CELL, ARCADE_CELL - 1, ARCADE_CELL - 1);
+  ctx.fillStyle = '#5ee37d';
+  for (const c of snakeState.cells) ctx.fillRect(c.x * ARCADE_CELL, c.y * ARCADE_CELL, ARCADE_CELL - 1, ARCADE_CELL - 1);
+  ctx.fillStyle = '#eafff0'; ctx.font = '14px monospace';
+  ctx.fillText('Score: ' + snakeState.score, 8, 16);
+  if (snakeState.gameOver) drawArcadeOverlay(ctx, ['Game Over — Score ' + snakeState.score, 'Press Space to retry']);
+}
+
+function resetBreakout() {
+  const bricks = [];
+  const rows = 5, cols = 10, bw = 30, bh = 12, gap = 2, top = 30;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      bricks.push({ x: c * (bw + gap) + 5, y: top + r * (bh + gap), w: bw, h: bh, alive: true });
+    }
+  }
+  breakoutState = {
+    paddleX: 140, paddleW: 50, paddleY: 300,
+    ballX: 160, ballY: 290, ballVX: 90, ballVY: -140,
+    bricks, score: 0, gameOver: false, won: false,
+    leftHeld: false, rightHeld: false
+  };
+}
+
+function updateBreakout(dt) {
+  const s = breakoutState;
+  if (s.gameOver || s.won) return;
+  const speed = 220;
+  if (s.leftHeld) s.paddleX -= speed * dt;
+  if (s.rightHeld) s.paddleX += speed * dt;
+  s.paddleX = Math.max(0, Math.min(320 - s.paddleW, s.paddleX));
+  s.ballX += s.ballVX * dt; s.ballY += s.ballVY * dt;
+  if (s.ballX < 4 || s.ballX > 316) s.ballVX *= -1;
+  if (s.ballY < 4) s.ballVY *= -1;
+  if (s.ballY > 320) { s.gameOver = true; return; }
+  if (s.ballY > 290 && s.ballY < 300 && s.ballX > s.paddleX && s.ballX < s.paddleX + s.paddleW && s.ballVY > 0) {
+    s.ballVY *= -1;
+    const hitFrac = (s.ballX - (s.paddleX + s.paddleW / 2)) / (s.paddleW / 2);
+    s.ballVX = hitFrac * 180;
+  }
+  for (const b of s.bricks) {
+    if (!b.alive) continue;
+    if (s.ballX > b.x && s.ballX < b.x + b.w && s.ballY > b.y && s.ballY < b.y + b.h) {
+      b.alive = false; s.score++; s.ballVY *= -1; break;
+    }
+  }
+  if (s.bricks.every(b => !b.alive)) s.won = true;
+}
+
+function renderBreakout(ctx) {
+  const s = breakoutState;
+  ctx.fillStyle = '#10101c'; ctx.fillRect(0, 0, 320, 320);
+  ctx.fillStyle = '#7ad9ff';
+  for (const b of s.bricks) if (b.alive) ctx.fillRect(b.x, b.y, b.w, b.h);
+  ctx.fillStyle = '#ffd27a'; ctx.fillRect(s.paddleX, s.paddleY, s.paddleW, 8);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.ballX, s.ballY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#eafff0'; ctx.font = '14px monospace';
+  ctx.fillText('Score: ' + s.score, 8, 16);
+  if (s.gameOver || s.won) {
+    drawArcadeOverlay(ctx, [s.won ? 'You win! Score ' + s.score : 'Game Over — Score ' + s.score, 'Press Space to retry']);
+  }
+}
+
+function resetArcadeGame(type) {
+  if (type === 'snake') resetSnake(); else resetBreakout();
+}
+
+function arcadeLoop(now) {
+  if (!arcadeModalOpen) return;
+  const dt = Math.min(0.05, (now - arcadeLast) / 1000);
+  arcadeLast = now;
+  if (arcadeGameType === 'snake') { updateSnake(dt); renderSnake(arcadeCtx); }
+  else { updateBreakout(dt); renderBreakout(arcadeCtx); }
+  arcadeRAF = requestAnimationFrame(arcadeLoop);
+}
+
+function openArcadeGame(type) {
+  arcadeGameType = type;
+  arcadeModalOpen = true;
+  resetArcadeGame(type);
+  document.getElementById('arcadeTitle').textContent = type === 'snake' ? '🐍 Snake' : '🧱 Breakout';
+  document.getElementById('arcadeModal').classList.remove('hidden');
+  arcadeCtx = document.getElementById('arcadeCanvas').getContext('2d');
+  arcadeLast = performance.now();
+  arcadeRAF = requestAnimationFrame(arcadeLoop);
+}
+
+function closeArcadeGame() {
+  if (!arcadeModalOpen) return;
+  arcadeModalOpen = false;
+  if (arcadeRAF) cancelAnimationFrame(arcadeRAF);
+  document.getElementById('arcadeModal').classList.add('hidden');
+}
+
+const arcadeCloseBtn = document.getElementById('arcadeCloseBtn');
+if (arcadeCloseBtn) arcadeCloseBtn.addEventListener('click', closeArcadeGame);
+
+window.addEventListener('keydown', (e) => {
+  if (!arcadeModalOpen) return;
+  if (e.key === 'Escape' && !e.repeat) { closeArcadeGame(); return; }
+  if (arcadeGameType === 'snake') {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') snakeState.nextDir = { x: 0, y: -1 };
+    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') snakeState.nextDir = { x: 0, y: 1 };
+    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') snakeState.nextDir = { x: -1, y: 0 };
+    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') snakeState.nextDir = { x: 1, y: 0 };
+    else if (snakeState.gameOver && (e.key === ' ' || e.key === 'Enter')) resetArcadeGame('snake');
+  } else if (arcadeGameType === 'breakout') {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') breakoutState.leftHeld = true;
+    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') breakoutState.rightHeld = true;
+    else if ((breakoutState.gameOver || breakoutState.won) && (e.key === ' ' || e.key === 'Enter')) resetArcadeGame('breakout');
+  }
+  e.preventDefault();
+});
+window.addEventListener('keyup', (e) => {
+  if (!arcadeModalOpen || arcadeGameType !== 'breakout' || !breakoutState) return;
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') breakoutState.leftHeld = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') breakoutState.rightHeld = false;
+});
+
 function sitDown(seat) {
   const b = world.buildings.find(bb => bb.id === indoorBuildingId);
   seatedAt = seat;
@@ -2230,13 +2578,14 @@ function tryInteract() {
     return;
   }
   const kiosk = findNearestKiosk();
+  if (kiosk && kiosk.game) { openArcadeGame(kiosk.game); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to stand';
@@ -2249,6 +2598,11 @@ function updateInteractHint() {
     return;
   }
   const kiosk = findNearestKiosk();
+  if (kiosk && kiosk.game) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press F to play ' + (kiosk.game === 'snake' ? 'Snake' : 'Breakout');
+    return;
+  }
   if (PAYWALLS_ENABLED && kiosk) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to view Town Pass';
@@ -2263,6 +2617,7 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) closePassModal();
     return;
   }
+  if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
   }
@@ -2299,6 +2654,7 @@ function exitBuilding(b) {
   me.room = 'outside';
   stopMusic();
   clearPendingImage();
+  closeArcadeGame();
   // tell the server so it can wipe our messages from this room's chat for
   // everyone — leaving a building clears what we said in there.
   if (ws.readyState === WebSocket.OPEN) {
@@ -2399,7 +2755,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
