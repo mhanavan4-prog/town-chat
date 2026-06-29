@@ -324,7 +324,63 @@ function initScene(w) {
   grid.position.set(w.width / 2, 0.2, w.height / 2);
   scene.add(grid);
 
-  for (const b of w.buildings) scene.add(buildBuildingMesh(b, w));
+  const dirtTex = makeDirtTexture();
+
+  // Town-square hub: a circular dirt clearing at the spawn point that every
+  // building's path connects back to.
+  const hubRadius = 130;
+  const hub = new THREE.Mesh(
+    new THREE.CircleGeometry(hubRadius, 28),
+    new THREE.MeshLambertMaterial({ map: dirtTex })
+  );
+  hub.rotation.x = -Math.PI / 2;
+  hub.position.set(w.spawn.x, 0.22, w.spawn.y);
+  scene.add(hub);
+
+  for (const b of w.buildings) {
+    scene.add(buildBuildingMesh(b, w));
+    const doorX = b.x + b.w / 2, doorY = b.y + b.h;
+    scene.add(buildPathSegment(doorX, doorY, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
+  }
+}
+
+function makeDirtTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#8a6b46';
+  cx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 320; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    const r = 1 + Math.random() * 3;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(58,40,22,0.30)' : 'rgba(178,150,108,0.30)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    cx.fillStyle = 'rgba(40,28,16,0.4)';
+    cx.fillRect(x, y, 1.5, 1.5);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function buildPathSegment(x1, y1, x2, y2, width, sharedTex, hubRadius) {
+  const dx = x2 - x1, dz = y2 - y1;
+  const fullLen = Math.hypot(dx, dz);
+  const len = Math.max(10, fullLen - hubRadius * 0.55); // stop short, into the hub circle
+  const tex = sharedTex.clone();
+  tex.needsUpdate = true;
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(width / 40, len / 40);
+  const geo = new THREE.BoxGeometry(width, 0.55, len);
+  const mat = new THREE.MeshLambertMaterial({ map: tex });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.y = Math.atan2(dx, dz);
+  const midFrac = len / 2 / fullLen;
+  mesh.position.set(x1 + dx * midFrac, 0.18, y1 + dz * midFrac);
+  return mesh;
 }
 
 function buildBuildingMesh(b, w) {
@@ -338,16 +394,54 @@ function buildBuildingMesh(b, w) {
     mesh.position.set(r.x + r.w / 2, WALL_HEIGHT / 2, r.y + r.h / 2);
     group.add(mesh);
   }
-  // roof
-  const roofGeo = new THREE.BoxGeometry(b.w + 18, 14, b.h + 18);
-  const roofMat = new THREE.MeshLambertMaterial({ color: 0x2a2a30 });
-  const roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.position.set(b.x + b.w / 2, WALL_HEIGHT + 7, b.y + b.h / 2);
+
+  // foundation plinth — a low, dark base so the building looks grounded
+  const foundation = new THREE.Mesh(
+    new THREE.BoxGeometry(b.w + 14, 6, b.h + 14),
+    new THREE.MeshLambertMaterial({ color: 0x4a4a4a })
+  );
+  foundation.position.set(b.x + b.w / 2, 3, b.y + b.h / 2);
+  group.add(foundation);
+
+  // hip/pyramid roof — a 4-sided cone rotated 45° so its flat faces line up
+  // with the building's walls, then scaled non-uniformly to match the
+  // rectangular footprint (with a little overhang past the eaves).
+  const overhang = 14, roofHeight = 58;
+  const apothem = Math.cos(Math.PI / 4);
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(1, roofHeight, 4),
+    new THREE.MeshLambertMaterial({ color: 0x7a3c2c })
+  );
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set((b.w / 2 + overhang) / apothem, 1, (b.h / 2 + overhang) / apothem);
+  roof.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight / 2, b.y + b.h / 2);
   group.add(roof);
+
+  // a visible door slab filling the gap in the front wall
+  const t = w.wallThickness, doorH = 72;
+  const door = new THREE.Mesh(
+    new THREE.BoxGeometry(w.doorWidth - 6, doorH, t * 0.7),
+    new THREE.MeshLambertMaterial({ color: 0x3c2616 })
+  );
+  door.position.set(b.x + b.w / 2, doorH / 2, b.y + b.h - t / 2);
+  group.add(door);
+
+  // glowing windows on the three solid walls (back, left, right)
+  const winMat = new THREE.MeshBasicMaterial({ color: 0xfff1b0 });
+  const winY = WALL_HEIGHT * 0.56;
+  const backWin = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
+  backWin.position.set(b.x + b.w / 2, winY, b.y - 0.6);
+  group.add(backWin);
+  const leftWin = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
+  leftWin.position.set(b.x - 0.6, winY, b.y + b.h / 2);
+  group.add(leftWin);
+  const rightWin = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
+  rightWin.position.set(b.x + b.w + 0.6, winY, b.y + b.h / 2);
+  group.add(rightWin);
 
   // floating sign with the building name, billboarded each frame
   const sign = makeSignSprite(b.name);
-  sign.position.set(b.x + b.w / 2, WALL_HEIGHT + 40, b.y + b.h / 2);
+  sign.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight + 22, b.y + b.h / 2);
   group.add(sign);
 
   return group;
