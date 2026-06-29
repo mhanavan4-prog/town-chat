@@ -32,10 +32,10 @@ Walk back out through the door and you're back in the open-air town square.
 - A large open town square (3200x2200) with grass, dirt paths, scattered
   trees/shrubs, rock clusters, and flower patches around the edges.
 - 🐇 A handful of rabbits wander the grass and gently bound away if you get
-  close, settling back into wandering/grazing once you back off. They're
-  purely decorative and purely client-side — each player's game runs the
-  same flee logic independently, reacting only to that player, so it's not
-  networked or synced between players.
+  close, settling back into wandering/grazing once you back off. Their
+  flee/wander behavior is simulated server-side and broadcast to everyone,
+  so every connected player sees the same rabbit in the same place doing
+  the same thing — not each client running its own disconnected copy.
 - ☀️🌕 A day/night cycle outdoors: 20 real-world minutes of day, 20 of
   night, on a continuous loop, with a few minutes of dawn/dusk blending in
   between rather than an instant flip. The sun arcs across the sky during
@@ -50,15 +50,16 @@ Walk back out through the door and you're back in the open-air town square.
   night falls and wander the area obliviously until dawn, when they
   disappear again. They do **not** flee from you (unlike the rabbits) and
   do **not** attack — that's deliberately not built yet, this is just the
-  atmosphere/foundation for it. Like the rabbits, purely decorative and
-  client-side.
-- 5 buildings, each with its own medieval interior theme: ☕ The Cafe
+  atmosphere/foundation for it. Like the rabbits, server-simulated and
+  synced so everyone sees the same mobs in the same places.
+- 6 buildings, each with its own medieval interior theme: ☕ The Cafe
   (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
   🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,
-  the building straight ahead when you spawn). All five are free to enter
-  for now — the Stripe paywall code is still in place but disabled (see
-  **Premium buildings & Stripe payments** below) so it can be turned back on
-  later without rebuilding it.
+  the building straight ahead when you spawn), 🏦 The Bank (see **In-game
+  economy** below). All six are free to *enter* for now — the Stripe
+  paywall code is still in place but disabled (see **Premium buildings &
+  Stripe payments** below) so it can be turned back on later without
+  rebuilding it.
 - 🛋️ The Rooftop Lounge is two stories, inside and out: a ground-floor
   parlor (5 tables — a cozy fireside table plus 4 more in a dining grid)
   with a staircase up to an open-air terrace overlooking it, with 3 more
@@ -86,11 +87,15 @@ Walk back out through the door and you're back in the open-air town square.
 - Optional accounts — see **Accounts & logging in as the same user** below.
   Everything else is still in-memory and accounts are opt-in: join as a
   Guest and nothing changes from before.
+- 🏦 An in-game economy — bank accounts with a gold balance and 24 item
+  slots, plus an auction house to buy/sell between players. Requires an
+  account (see above); see **In-game economy: the Bank & Auction House**
+  below.
 
-Other than accounts, there's no database — chat history and the player
-list reset whenever the server restarts. The premium-unlock flag is
-likewise just a flag in that browser's `localStorage` once a real payment is
-verified — not a real account system.
+Other than accounts, bank balances, and auction listings, there's no
+database — chat history and the player list reset whenever the server
+restarts. The premium-unlock flag is likewise just a flag in that browser's
+`localStorage` once a real payment is verified — not a real account system.
 
 ## Accounts & logging in as the same user
 
@@ -118,6 +123,57 @@ How it's built, and what that means for you:
 - This is intentionally lightweight: no rate-limiting on login attempts, no
   email/password recovery, no admin tooling. Fine for a casual game among
   friends; not something to put sensitive credentials into.
+
+## In-game economy: the Bank & Auction House
+
+🏦 The Bank is the 6th building (south of spawn, gold-trimmed roof). Walk in
+and you'll find two NPCs standing behind the counter — walk up to either and
+press F:
+
+- **🏦 Bank Teller** — opens your bank account: a gold balance and a 24-slot
+  item grid. First visit creates the account automatically (100 starting
+  gold + 3 random items); every visit after that just shows its current
+  state. Click any filled slot to bring up a small form for listing that
+  item at auction.
+- **🔨 Auctioneer** — opens the Auction House: every active listing from
+  every player, with a bid box (and a Buyout button, if the seller set a
+  buyout price) on each one, plus a **+ List an item** button to put up
+  something from your own bank slots.
+
+**This needs an account** (see **Accounts & logging in as the same user**
+above) — log in via the join screen's **Account** tab *before* entering the
+world. Guests can walk into the Bank and talk to either NPC, but get a clear
+explanation instead of an account: a guest identity is a fresh one every
+visit, so there's nowhere for a balance to durably attach to. Logging in
+mid-session doesn't retroactively grant one either — log in on the join
+screen, then join.
+
+How listings work:
+- Pick an item + quantity from your bank slots, set a starting bid, an
+  optional buyout price, and a duration of **1 hour, 12 hours, or 24
+  hours**. The item leaves your slots the moment the listing goes up (so
+  you can't also use or re-list it mid-auction) and either returns to you
+  if nobody bids, or converts to gold once it sells.
+- Bidding is escrowed: placing a bid deducts that amount from your balance
+  immediately, so you can never bid more than you actually have. Getting
+  outbid refunds you automatically. Hitting (or exceeding) the buyout price
+  ends the auction immediately in your favor instead of waiting for the
+  timer.
+- A listing that expires with no bids just returns the item to the
+  seller's slots, gold untouched.
+- You'll see the result the next time you open your bank account even if
+  you're offline when an auction you're part of resolves — the sweep that
+  resolves expired listings runs on a timer regardless of who's connected,
+  and writes straight to `bankAccounts.json`. If you happen to be online
+  with the panel open, it updates live instead of waiting for you to reopen
+  it.
+
+Persistence works the same way `accounts.json` does, and has the same
+caveat: `bankAccounts.json` (balances + items, keyed by username) and
+`listings.json` (active auctions) are plain gitignored JSON files on local
+disk, rewritten on every change. Fine on a normal VM/box; **on a host with
+an ephemeral filesystem (Render's free tier, etc.) neither survives a
+redeploy** — only restarts of the same running instance.
 
 ## Run it locally
 
@@ -284,7 +340,10 @@ automatically by this server already (`process.env.PORT`).
   "outside"). Gate-keeps joining with `TOWN_PASSWORD` if set. Also exposes
   `/api/config`, `/api/checkout`, and `/api/verify-session` for the Stripe
   paywall — these are the only parts of the server that know about payments;
-  movement/chat are untouched by it.
+  movement/chat are untouched by it. Also simulates the rabbits/mobs
+  (server-authoritative, broadcast ~7x/sec) and owns the bank/auction
+  economy entirely — balances, item slots, and listings are never trusted
+  from the client, only ever read back from what the server already has.
 - `public/index.html` — join screen, HUD, chat panel, unlock-banner markup/styles.
 - `public/client.js` — Three.js rendering for both the outdoor town and each
   building's interior, movement + wall collision, room detection/transitions,

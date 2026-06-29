@@ -45,6 +45,24 @@ const CHARACTER_PRESETS = [
   { name: 'Wanderer',   skin: 0x7a4a2f, hair: 0xe0e0e0, hairStyle: 'mohawk',   eye: 0xa57b3c, shirt: 0xc0596f, pants: 0x2f2f2f }
 ];
 
+// Must stay in sync with ITEM_CATALOG in server.js — the server is the
+// source of truth for which itemIds are valid, this just supplies the
+// icon/name to render for whatever ids it sends down in bank/auction state.
+const ITEM_CATALOG = {
+  iron_sword:     { name: 'Iron Sword',     icon: '⚔️' },
+  healing_potion: { name: 'Healing Potion', icon: '🧪' },
+  magic_scroll:   { name: 'Magic Scroll',   icon: '📜' },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍' },
+  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉' },
+  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎' },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢' },
+  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️' },
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆' },
+  spell_tome:     { name: 'Spell Tome',     icon: '📕' }
+};
+
 ws.addEventListener('open', () => setStatus(true));
 ws.addEventListener('close', () => setStatus(false));
 ws.addEventListener('error', () => setStatus(false));
@@ -99,6 +117,33 @@ ws.addEventListener('message', (ev) => {
         addPlayer(p);
       }
     }
+    return;
+  }
+
+  if (msg.type === 'wildlife_state') {
+    lastWildlifeIsNight = !!msg.isNight;
+    applyAnimalState(msg.animals);
+    applyMobState(msg.mobs);
+    return;
+  }
+
+  if (msg.type === 'bank_state') {
+    lastBankState = { balance: msg.balance, slots: msg.slots };
+    renderBankModal();
+    if (auctionModalOpen) populateAuctionItemSelect();
+    return;
+  }
+
+  if (msg.type === 'bank_error') {
+    if (bankModalOpen) document.getElementById('bankModalErr').textContent = msg.message;
+    else if (auctionModalOpen) document.getElementById('auctionModalErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'auction_state') {
+    lastAuctionListings = msg.listings;
+    renderAuctionModal();
     return;
   }
 
@@ -718,13 +763,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -1146,7 +1191,8 @@ const INTERIOR_THEMES = {
   library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library',   floorTint: 0xb9c6ff },
   arcade:  { label: "Alchemist's Den", wall: 0x55506a, banner: 0x9b5fc0, furniture: 'alchemist',  floorTint: 0xd9b8ff },
   lounge:  { label: 'Noble Parlor & Terrace', wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor', floorTint: 0xffc9d2 },
-  hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 }
+  hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 },
+  bank:    { label: 'Grand Bank Hall', wall: 0x4a4538, banner: 0xd4af37, furniture: 'bank',       floorTint: 0xe8d9a0 }
 };
 
 // A building's visual/walkable interior can be larger than its literal
@@ -1178,7 +1224,8 @@ const INTERIOR_SIZE_OVERRIDES = {
   cafe:    { w: 600, h: 340 },  // door axis (h) matches outdoor; wide sprawling tavern hall
   library: { w: 260, h: 260 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
   lounge:  { w: 760, h: 270 },  // door axis (h) matches outdoor; wide for stairs + terrace
-  hall:    { w: 480, h: 500 }   // door axis (w) matches outdoor; deep great hall
+  hall:    { w: 480, h: 500 },  // door axis (w) matches outdoor; deep great hall
+  bank:    { w: 440, h: 600 }   // door axis (w) matches outdoor; door's on the near side (north), so deeper h is safe
 };
 
 // The Rooftop Lounge is the one two-story interior: ground floor on the west
@@ -1375,6 +1422,13 @@ function updateDayNightCycle() {
   updateDayNightHud(isNight);
 }
 
+// Whether mobs should currently be visible — set from the server's
+// authoritative 'wildlife_state' broadcast (see ws message handler near
+// the top of this file), not derived locally, so mob visibility agrees
+// with the server's simulation even if a client's clock drifts slightly
+// from the lighting-only getDayNightState() above.
+let lastWildlifeIsNight = false;
+
 let lastDayNightHudState = null;
 function updateDayNightHud(isNight) {
   if (isNight === lastDayNightHudState) return;
@@ -1390,18 +1444,13 @@ function updateDayNightHud(isNight) {
 // buildings once night falls. Deliberately NOT aggressive yet: no chasing,
 // no attacking, no fleeing either (that's what makes them read as
 // "hostile" rather than timid like the rabbits) — just there, for now.
+//
+// Positions/behavior are server-authoritative (see server.js) so every
+// player sees the same mob in the same place — this client only builds the
+// mesh the first time it hears about a given mob id and then interpolates
+// toward whatever position the server broadcasts in 'wildlife_state'
+// messages, exactly like remote players' movement already works.
 // ---------------------------------------------------------------------------
-const MOB_SPAWNS = [
-  { x: 250, y: 300 },  { x: 250, y: 750 },     // around the Cafe
-  { x: 2780, y: 420 }, { x: 2780, y: 580 },    // around the Library
-  { x: 245, y: 1560 }, { x: 245, y: 1730 },    // around the Arcade
-  { x: 2785, y: 1560 },{ x: 2785, y: 1730 },   // around the Rooftop Lounge
-  { x: 1450, y: 60 },  { x: 1750, y: 60 }      // around Town Hall
-];
-const MOB_WANDER_SPEED = 22;
-const MOB_R = 10;
-let mobs = [];
-
 function makeMob() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
@@ -1425,48 +1474,43 @@ function makeMob() {
   return g;
 }
 
+let mobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, initialized }
+
 function addMobs(scene) {
-  mobs = MOB_SPAWNS.map(p => ({
-    x: p.x, y: p.y,
-    facing: Math.random() * Math.PI * 2,
-    wanderTimer: Math.random() * 2,
-    wanderAngle: 0,
-    paused: false,
-    mesh: makeMob()
-  }));
-  for (const m of mobs) {
-    m.mesh.position.set(m.x, 0, m.y);
-    m.mesh.visible = false;
-    scene.add(m.mesh);
+  for (const id in mobVisuals) scene.remove(mobVisuals[id].mesh);
+  mobVisuals = {};
+}
+
+function getOrCreateMobVisual(id) {
+  let v = mobVisuals[id];
+  if (!v) {
+    const mesh = makeMob();
+    mesh.visible = false;
+    outdoorScene.add(mesh);
+    v = mobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false };
+  }
+  return v;
+}
+
+function applyMobState(list) {
+  if (!outdoorScene) return;
+  for (const m of list) {
+    const v = getOrCreateMobVisual(m.id);
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing;
+    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
   }
 }
 
-function updateMobs(dt) {
-  if (!world) return;
-  const isNight = getDayNightState().isNight;
-  for (const m of mobs) {
-    m.mesh.visible = isNight;
-    if (!isNight) continue;
-
-    m.wanderTimer -= dt;
-    if (m.wanderTimer <= 0) {
-      m.wanderTimer = 1.5 + Math.random() * 2.5;
-      m.paused = Math.random() < 0.3;
-      m.wanderAngle = Math.random() * Math.PI * 2;
-    }
-    let vx = 0, vy = 0;
-    if (!m.paused) {
-      vx = Math.sin(m.wanderAngle) * MOB_WANDER_SPEED;
-      vy = Math.cos(m.wanderAngle) * MOB_WANDER_SPEED;
-    }
-    const margin = 60;
-    const nx = m.x + vx * dt, ny = m.y + vy * dt;
-    if (vx !== 0 && !animalBlocked(nx, m.y) && nx > margin && nx < world.width - margin) m.x = nx;
-    if (vy !== 0 && !animalBlocked(m.x, ny) && ny > margin && ny < world.height - margin) m.y = ny;
-    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
-
-    m.mesh.position.set(m.x, 0, m.y);
-    m.mesh.rotation.y = m.facing;
+function updateMobVisuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in mobVisuals) {
+    const v = mobVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    v.mesh.position.set(v.x, 0, v.y);
+    v.mesh.rotation.y = v.facing;
+    v.mesh.visible = lastWildlifeIsNight;
   }
 }
 
@@ -1637,26 +1681,13 @@ function addNatureDecor(scene) {
 }
 
 // ---------------------------------------------------------------------------
-// Wildlife — a handful of rabbits wandering the open grass, purely cosmetic.
-// Each connected client runs this same flee/wander logic independently,
-// reacting only to its own player; there's no server involvement and no
-// shared/synced state, so two players standing near the same rabbit may see
-// it dodge in very slightly different directions. That's an acceptable
-// tradeoff for something this lightweight — it's flavor, not gameplay.
+// Wildlife — a handful of rabbits wandering the open grass, purely cosmetic
+// flavor. Positions/flee state are server-authoritative (see server.js) so
+// every connected player sees the same rabbit doing the same thing — this
+// client only builds the mesh the first time it hears about a given
+// rabbit id and then interpolates toward whatever position the server
+// broadcasts in 'wildlife_state' messages, exactly like remote players.
 // ---------------------------------------------------------------------------
-const ANIMAL_SPAWNS = [
-  { x: 1600, y: 700 },  { x: 1600, y: 1500 }, { x: 1000, y: 1100 },
-  { x: 2200, y: 1100 }, { x: 1300, y: 1750 }, { x: 1950, y: 520 },
-  { x: 500,  y: 1300 }, { x: 2700, y: 1300 }, { x: 1100, y: 600 },
-  { x: 2100, y: 1850 }
-];
-const ANIMAL_FLEE_RADIUS = 130; // start running once the player gets this close
-const ANIMAL_SAFE_RADIUS = 190; // ...and don't relax back to wandering until clearly clear, to avoid flicker
-const ANIMAL_FLEE_SPEED = 110;
-const ANIMAL_WANDER_SPEED = 26;
-const ANIMAL_R = 9;
-let animals = [];
-
 function makeRabbit() {
   const g = new THREE.Group();
   const furColors = [0xcfc2a8, 0xab8f6b, 0xe8e2d8];
@@ -1684,71 +1715,49 @@ function makeRabbit() {
   return g;
 }
 
+let animalVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, fleeing, hopPhase, initialized }
+
 function addAnimals(scene) {
-  animals = ANIMAL_SPAWNS.map(p => ({
-    x: p.x, y: p.y,
-    facing: Math.random() * Math.PI * 2,
-    fleeing: false,
-    wanderTimer: Math.random() * 2,
-    wanderAngle: 0,
-    grazing: false,
-    hopPhase: Math.random() * Math.PI * 2,
-    mesh: makeRabbit()
-  }));
-  for (const a of animals) {
-    a.mesh.position.set(a.x, 0, a.y);
-    scene.add(a.mesh);
+  for (const id in animalVisuals) scene.remove(animalVisuals[id].mesh);
+  animalVisuals = {};
+}
+
+function getOrCreateAnimalVisual(id) {
+  let v = animalVisuals[id];
+  if (!v) {
+    const mesh = makeRabbit();
+    outdoorScene.add(mesh);
+    v = animalVisuals[id] = {
+      mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      fleeing: false, hopPhase: Math.random() * Math.PI * 2, initialized: false
+    };
+  }
+  return v;
+}
+
+function applyAnimalState(list) {
+  if (!outdoorScene) return;
+  for (const a of list) {
+    const v = getOrCreateAnimalVisual(a.id);
+    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing;
+    if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
   }
 }
 
-// Reuses the same wall-rect list buildings/trees collide against, just with
-// a much smaller radius, so rabbits steer around buildings and tree trunks
-// instead of clipping through them while fleeing.
-function animalBlocked(x, y) {
-  for (const wl of walls) {
-    if (x > wl.x - ANIMAL_R && x < wl.x + wl.w + ANIMAL_R && y > wl.y - ANIMAL_R && y < wl.y + wl.h + ANIMAL_R) return true;
-  }
-  return false;
-}
+function updateAnimalVisuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in animalVisuals) {
+    const v = animalVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
 
-function updateAnimals(dt) {
-  if (!world || !me) return;
-  for (const a of animals) {
-    const dx = a.x - me.x, dy = a.y - me.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < ANIMAL_FLEE_RADIUS) a.fleeing = true;
-    else if (dist > ANIMAL_SAFE_RADIUS) a.fleeing = false;
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 1;
+    v.hopPhase += dt * (v.fleeing ? 14 : 5);
+    const hop = moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0;
 
-    let vx = 0, vy = 0;
-    if (a.fleeing) {
-      const inv = dist > 0.01 ? 1 / dist : 0;
-      vx = dx * inv * ANIMAL_FLEE_SPEED;
-      vy = dy * inv * ANIMAL_FLEE_SPEED;
-    } else {
-      a.wanderTimer -= dt;
-      if (a.wanderTimer <= 0) {
-        a.wanderTimer = 1.5 + Math.random() * 2.5;
-        a.grazing = Math.random() < 0.35; // pause to "graze" sometimes instead of always wandering
-        a.wanderAngle = Math.random() * Math.PI * 2;
-      }
-      if (!a.grazing) {
-        vx = Math.sin(a.wanderAngle) * ANIMAL_WANDER_SPEED;
-        vy = Math.cos(a.wanderAngle) * ANIMAL_WANDER_SPEED;
-      }
-    }
-
-    const margin = 60;
-    const nx = a.x + vx * dt, ny = a.y + vy * dt;
-    if (vx !== 0 && !animalBlocked(nx, a.y) && nx > margin && nx < world.width - margin) a.x = nx;
-    if (vy !== 0 && !animalBlocked(a.x, ny) && ny > margin && ny < world.height - margin) a.y = ny;
-
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) a.facing = Math.atan2(vx, vy);
-    a.hopPhase += dt * (a.fleeing ? 14 : 5);
-    const hop = moving ? Math.abs(Math.sin(a.hopPhase)) * (a.fleeing ? 6 : 2.5) : 0;
-
-    a.mesh.position.set(a.x, hop, a.y);
-    a.mesh.rotation.y = a.facing;
+    v.mesh.position.set(v.x, hop, v.y);
+    v.mesh.rotation.y = v.facing;
   }
 }
 
@@ -2547,7 +2556,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     for (const x of terraceXs) {
       addElevatedTable(scene, x, roomD * 0.5, LOUNGE_PLATFORM_HEIGHT);
     }
-  } else { // greathall
+  } else if (type === 'greathall') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x6a6a3a));
     scene.add(makeThrone(cx, 30, 0));
     scene.add(makeTable(cx, cz + 15));
@@ -2555,6 +2564,77 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBench(cx + 26, cz + 30, 0));
     scene.add(makeBanner(20, 95, 6, 0, 0x8a9a5b));
     scene.add(makeBanner(roomW - 20, 95, 6, 0, 0x8a9a5b));
+  } else { // bank — door is north, so "deeper into the room" means higher z
+    scene.add(makeRug(cx, roomD * 0.38, roomW * 0.32, roomD * 0.5, 0x7a1f1f));
+    scene.add(makeBanner(30, 100, 6, 0, 0xd4af37));
+    scene.add(makeBanner(roomW - 30, 100, 6, 0, 0xd4af37));
+
+    // Vault door, purely decorative, mounted flat on the back wall.
+    const vault = new THREE.Mesh(
+      new THREE.CylinderGeometry(70, 70, 8, 24),
+      new THREE.MeshLambertMaterial({ color: 0x6b6b6b })
+    );
+    vault.rotation.x = Math.PI / 2;
+    vault.position.set(cx, 95, roomD - 10);
+    scene.add(vault);
+    const vaultHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(16, 16, 12, 12),
+      new THREE.MeshLambertMaterial({ color: 0xd4af37 })
+    );
+    vaultHub.rotation.x = Math.PI / 2;
+    vaultHub.position.set(cx, 95, roomD - 6);
+    scene.add(vaultHub);
+
+    // Two service stations side by side, set well back from the door so
+    // there's open floor to walk in on: a teller counter and an
+    // auctioneer's podium. Each NPC stands just behind its counter/podium;
+    // the kiosk interact point sits just in front, where a player
+    // naturally ends up walking up to it.
+    const stationZ = roomD * 0.58;
+    const tellerX = cx - roomW * 0.2;
+    const auctioneerX = cx + roomW * 0.22;
+
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(roomW * 0.3, 34, 22),
+      new THREE.MeshLambertMaterial({ color: 0x3c3528 })
+    );
+    counter.position.set(tellerX, 17, stationZ);
+    scene.add(counter);
+    const counterTop = new THREE.Mesh(
+      new THREE.BoxGeometry(roomW * 0.32, 3, 25),
+      new THREE.MeshLambertMaterial({ color: 0xd4af37 })
+    );
+    counterTop.position.set(tellerX, 35, stationZ);
+    scene.add(counterTop);
+
+    const podium = new THREE.Mesh(
+      new THREE.CylinderGeometry(20, 24, 38, 8),
+      new THREE.MeshLambertMaterial({ color: 0x4a3320 })
+    );
+    podium.position.set(auctioneerX, 19, stationZ);
+    scene.add(podium);
+
+    if (kiosksOut) {
+      const npcZ = stationZ + 28, kioskZ = stationZ - 26;
+
+      const teller = createHumanoid(3).group; // "Knight" preset — reads well as a uniform
+      teller.position.set(tellerX, 0, npcZ);
+      teller.rotation.y = Math.PI;
+      scene.add(teller);
+      const tellerSign = makeSignSprite('🏦 Bank Teller');
+      tellerSign.position.set(tellerX, 92, npcZ);
+      scene.add(tellerSign);
+      kiosksOut.push({ id: 'bank_teller', x: tellerX, z: kioskZ, npc: 'teller' });
+
+      const auctioneer = createHumanoid(2).group; // "Mystic" — visually distinct from the teller
+      auctioneer.position.set(auctioneerX, 0, npcZ);
+      auctioneer.rotation.y = Math.PI;
+      scene.add(auctioneer);
+      const auctioneerSign = makeSignSprite('🔨 Auctioneer');
+      auctioneerSign.position.set(auctioneerX, 92, npcZ);
+      scene.add(auctioneerSign);
+      kiosksOut.push({ id: 'bank_auctioneer', x: auctioneerX, z: kioskZ, npc: 'auctioneer' });
+    }
   }
 }
 
@@ -2907,6 +2987,252 @@ function closePassModal() {
 const passModalCloseBtn = document.getElementById('passModalCloseBtn');
 if (passModalCloseBtn) passModalCloseBtn.addEventListener('click', closePassModal);
 
+// ---------------------------------------------------------------------------
+// Bank & Auction House UI. Neither modal tracks its own copy of truth —
+// they just render whatever the server last sent in bank_state/auction_state
+// and fire off requests/actions, the same trust split as the rest of this
+// client (server decides, client displays + asks).
+// ---------------------------------------------------------------------------
+let bankModalOpen = false;
+let auctionModalOpen = false;
+let lastBankState = null; // { balance, slots }
+let lastAuctionListings = [];
+let selectedBankSlotIdx = null;
+
+function openBankModal() {
+  if (auctionModalOpen) closeAuctionModal();
+  const modal = document.getElementById('bankModal');
+  if (!modal) return;
+  document.getElementById('bankModalErr').textContent = '';
+  document.getElementById('bankListForm').classList.add('hidden');
+  selectedBankSlotIdx = null;
+  modal.classList.remove('hidden');
+  bankModalOpen = true;
+  ws.send(JSON.stringify({ type: 'bank_open' }));
+}
+
+function closeBankModal() {
+  const modal = document.getElementById('bankModal');
+  if (modal) modal.classList.add('hidden');
+  bankModalOpen = false;
+}
+
+const bankModalCloseBtn = document.getElementById('bankModalCloseBtn');
+if (bankModalCloseBtn) bankModalCloseBtn.addEventListener('click', closeBankModal);
+
+function renderBankModal() {
+  if (!lastBankState) return;
+  document.getElementById('bankBalance').textContent = String(lastBankState.balance);
+  const grid = document.getElementById('bankSlotsGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  lastBankState.slots.forEach((slot, idx) => {
+    const cell = document.createElement('div');
+    cell.className = 'bankSlot' + (slot ? '' : ' empty') + (selectedBankSlotIdx === idx ? ' selected' : '');
+    if (slot) {
+      const item = ITEM_CATALOG[slot.itemId];
+      const icon = document.createElement('span');
+      icon.textContent = item ? item.icon : '❓';
+      const qty = document.createElement('span');
+      qty.className = 'slotQty';
+      qty.textContent = String(slot.qty);
+      cell.appendChild(icon);
+      cell.appendChild(qty);
+      cell.title = (item ? item.name : slot.itemId) + ' x' + slot.qty;
+      cell.addEventListener('click', () => selectBankSlot(idx));
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function selectBankSlot(idx) {
+  selectedBankSlotIdx = idx;
+  renderBankModal();
+  const slot = lastBankState.slots[idx];
+  const form = document.getElementById('bankListForm');
+  if (!slot) { form.classList.add('hidden'); return; }
+  const item = ITEM_CATALOG[slot.itemId];
+  document.getElementById('bankListItemLabel').textContent =
+    (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+  const qtyInput = document.getElementById('bankListQty');
+  qtyInput.max = String(slot.qty);
+  qtyInput.value = '1';
+  document.getElementById('bankListStartBid').value = '';
+  document.getElementById('bankListBuyout').value = '';
+  form.classList.remove('hidden');
+}
+
+const bankListSubmitBtn = document.getElementById('bankListSubmitBtn');
+if (bankListSubmitBtn) bankListSubmitBtn.addEventListener('click', () => {
+  if (selectedBankSlotIdx === null || !lastBankState) return;
+  const slot = lastBankState.slots[selectedBankSlotIdx];
+  const err = document.getElementById('bankModalErr');
+  if (!slot) { err.textContent = 'Pick an item first.'; return; }
+  const qty = parseInt(document.getElementById('bankListQty').value, 10);
+  const startingBid = parseInt(document.getElementById('bankListStartBid').value, 10);
+  const buyoutRaw = document.getElementById('bankListBuyout').value;
+  const buyoutPrice = buyoutRaw ? parseInt(buyoutRaw, 10) : null;
+  const durationHours = parseInt(document.getElementById('bankListDuration').value, 10);
+  if (!Number.isInteger(qty) || qty < 1 || qty > slot.qty) { err.textContent = 'Enter a valid quantity.'; return; }
+  if (!Number.isInteger(startingBid) || startingBid < 1) { err.textContent = 'Enter a valid starting bid.'; return; }
+  if (buyoutPrice !== null && (!Number.isInteger(buyoutPrice) || buyoutPrice <= startingBid)) {
+    err.textContent = 'Buyout must be higher than the starting bid.';
+    return;
+  }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours }));
+});
+
+function openAuctionModal() {
+  if (bankModalOpen) closeBankModal();
+  const modal = document.getElementById('auctionModal');
+  if (!modal) return;
+  document.getElementById('auctionModalErr').textContent = '';
+  document.getElementById('auctionCreateForm').classList.add('hidden');
+  modal.classList.remove('hidden');
+  auctionModalOpen = true;
+  ws.send(JSON.stringify({ type: 'bank_open' }));
+  ws.send(JSON.stringify({ type: 'auction_browse' }));
+}
+
+function closeAuctionModal() {
+  const modal = document.getElementById('auctionModal');
+  if (modal) modal.classList.add('hidden');
+  auctionModalOpen = false;
+}
+
+const auctionModalCloseBtn = document.getElementById('auctionModalCloseBtn');
+if (auctionModalCloseBtn) auctionModalCloseBtn.addEventListener('click', closeAuctionModal);
+
+const auctionCreateToggleBtn = document.getElementById('auctionCreateToggleBtn');
+if (auctionCreateToggleBtn) auctionCreateToggleBtn.addEventListener('click', () => {
+  const form = document.getElementById('auctionCreateForm');
+  if (!form) return;
+  if (form.classList.contains('hidden')) populateAuctionItemSelect();
+  form.classList.toggle('hidden');
+});
+
+function populateAuctionItemSelect() {
+  const select = document.getElementById('auctionItemSelect');
+  if (!select || !lastBankState) return;
+  select.innerHTML = '';
+  lastBankState.slots.forEach((slot, idx) => {
+    if (!slot) return;
+    const item = ITEM_CATALOG[slot.itemId];
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+    select.appendChild(opt);
+  });
+}
+
+const auctionCreateSubmitBtn = document.getElementById('auctionCreateSubmitBtn');
+if (auctionCreateSubmitBtn) auctionCreateSubmitBtn.addEventListener('click', () => {
+  const err = document.getElementById('auctionModalErr');
+  const idx = parseInt(document.getElementById('auctionItemSelect').value, 10);
+  if (!lastBankState || !Number.isInteger(idx) || !lastBankState.slots[idx]) { err.textContent = 'Pick an item first.'; return; }
+  const slot = lastBankState.slots[idx];
+  const qty = parseInt(document.getElementById('auctionQty').value, 10);
+  const startingBid = parseInt(document.getElementById('auctionStartBid').value, 10);
+  const buyoutRaw = document.getElementById('auctionBuyout').value;
+  const buyoutPrice = buyoutRaw ? parseInt(buyoutRaw, 10) : null;
+  const durationHours = parseInt(document.getElementById('auctionDuration').value, 10);
+  if (!Number.isInteger(qty) || qty < 1 || qty > slot.qty) { err.textContent = 'Enter a valid quantity.'; return; }
+  if (!Number.isInteger(startingBid) || startingBid < 1) { err.textContent = 'Enter a valid starting bid.'; return; }
+  if (buyoutPrice !== null && (!Number.isInteger(buyoutPrice) || buyoutPrice <= startingBid)) {
+    err.textContent = 'Buyout must be higher than the starting bid.';
+    return;
+  }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours }));
+  document.getElementById('auctionCreateForm').classList.add('hidden');
+});
+
+function formatTimeRemaining(expiresAt) {
+  const ms = expiresAt - Date.now();
+  if (ms <= 0) return 'ending…';
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  return hrs >= 1 ? (hrs + 'h ' + (mins % 60) + 'm left') : (mins + 'm left');
+}
+
+// Builds each row's text via .textContent (never innerHTML) specifically
+// because sellerName/currentBidderName are other players' display names —
+// arbitrary-ish user input. textContent never parses its string as markup
+// no matter what's in it, so this is safe regardless of what characters a
+// name contains, consistent with how chat messages render player names
+// elsewhere in this file.
+function renderAuctionModal() {
+  const list = document.getElementById('auctionListings');
+  const empty = document.getElementById('auctionEmptyMsg');
+  if (!list || !empty) return;
+  list.innerHTML = '';
+  if (lastAuctionListings.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  for (const l of lastAuctionListings) {
+    const item = ITEM_CATALOG[l.itemId];
+    const row = document.createElement('div');
+    row.className = 'auctionRow';
+
+    const itemLine = document.createElement('div');
+    itemLine.className = 'auctionItemLine';
+    itemLine.textContent = (item ? item.icon + ' ' + item.name : l.itemId) + ' x' + l.qty;
+    row.appendChild(itemLine);
+
+    const bidLine = l.currentBid != null
+      ? ('Current bid: ' + l.currentBid + ' 🪙 by ' + l.currentBidderName)
+      : ('Starting bid: ' + l.startingBid + ' 🪙');
+    const buyoutLine = l.buyoutPrice ? (' · Buyout: ' + l.buyoutPrice + ' 🪙') : '';
+    const metaLine = document.createElement('div');
+    metaLine.className = 'auctionMeta';
+    metaLine.textContent = 'Seller: ' + l.sellerName + ' · ' + bidLine + buyoutLine + ' · ' + formatTimeRemaining(l.expiresAt);
+    row.appendChild(metaLine);
+
+    const bidRow = document.createElement('div');
+    bidRow.className = 'auctionBidRow';
+    const minBid = l.currentBid != null ? l.currentBid + 1 : l.startingBid;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = String(minBid);
+    input.placeholder = String(minBid);
+    const bidBtn = document.createElement('button');
+    bidBtn.className = 'btn';
+    bidBtn.textContent = 'Bid';
+    bidBtn.addEventListener('click', () => {
+      const amount = parseInt(input.value, 10);
+      const err = document.getElementById('auctionModalErr');
+      if (!Number.isInteger(amount)) { err.textContent = 'Enter a bid amount.'; return; }
+      err.textContent = '';
+      ws.send(JSON.stringify({ type: 'auction_bid', listingId: l.id, amount }));
+    });
+    bidRow.appendChild(input);
+    bidRow.appendChild(bidBtn);
+
+    if (l.buyoutPrice) {
+      const buyoutBtn = document.createElement('button');
+      buyoutBtn.className = 'btn';
+      buyoutBtn.textContent = 'Buyout';
+      buyoutBtn.addEventListener('click', () => {
+        document.getElementById('auctionModalErr').textContent = '';
+        ws.send(JSON.stringify({ type: 'auction_bid', listingId: l.id, amount: l.buyoutPrice }));
+      });
+      bidRow.appendChild(buyoutBtn);
+    }
+
+    row.appendChild(bidRow);
+    list.appendChild(row);
+  }
+}
+
+// Listings carry a live countdown ("Xh Ym left"); refresh the text once a
+// minute so it doesn't go stale while the modal sits open without a bid
+// changing anything (which would otherwise be the only thing triggering
+// a re-render via auction_state).
+setInterval(() => { if (auctionModalOpen) renderAuctionModal(); }, 60000);
+
 const roomPassBuyBtn = document.getElementById('roomPassBuyBtn');
 if (roomPassBuyBtn) {
   roomPassBuyBtn.addEventListener('click', () => {
@@ -3154,13 +3480,15 @@ function tryInteract() {
   }
   const kiosk = findNearestKiosk();
   if (kiosk && kiosk.game) { openArcadeGame(kiosk.game); return; }
+  if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
+  if (kiosk && kiosk.npc === 'auctioneer') { openAuctionModal(); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to stand';
@@ -3178,7 +3506,17 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = 'Press F to play ' + (kiosk.game === 'snake' ? 'Snake' : 'Breakout');
     return;
   }
-  if (PAYWALLS_ENABLED && kiosk) {
+  if (kiosk && kiosk.npc === 'teller') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press F to open your bank account';
+    return;
+  }
+  if (kiosk && kiosk.npc === 'auctioneer') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press F to visit the auction house';
+    return;
+  }
+  if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to view Town Pass';
     return;
@@ -3190,6 +3528,14 @@ window.addEventListener('keydown', (e) => {
   if (typing) return;
   if (passModalOpen) {
     if (e.key === 'Escape' && !e.repeat) closePassModal();
+    return;
+  }
+  if (bankModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeBankModal();
+    return;
+  }
+  if (auctionModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeAuctionModal();
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
@@ -3340,7 +3686,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
@@ -3378,13 +3724,14 @@ function update(dt) {
 
   // Runs regardless of indoor/outdoor so the lighting is already correct
   // the instant anyone steps back outside, not just for players currently
-  // out there to see it change.
+  // out there to see it change. Wildlife visuals interpolate unconditionally
+  // too, same reasoning as remote players just below.
   updateDayNightCycle();
+  updateAnimalVisuals(dt);
+  updateMobVisuals(dt);
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
-    updateAnimals(dt);
-    updateMobs(dt);
   } else {
     updateIndoor(stepX, stepY);
   }

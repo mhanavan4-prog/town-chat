@@ -33,7 +33,7 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
   .subtitle { color:#9bc49a; font-size:12.5px; margin-bottom:20px; line-height:1.5; }
-  input[type=text], input[type=password] {
+  input[type=text], input[type=password], input[type=number], select {
     width:100%; padding:11px 14px; margin-bottom:12px; font-size:14px;
     border-radius:8px; border:1px solid rgba(160,220,160,0.25);
     background:rgba(0,0,0,0.25); color:#eafff0; outline:none;
@@ -284,6 +284,43 @@
   }
   #arcadeCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; margin-top:10px; }
 
+  #bankCard, #auctionCard { width:min(480px, 92vw); max-height:88vh; overflow-y:auto; }
+  #bankBalance { color:#ffe9c2; font-weight:700; }
+  #bankSlotsGrid {
+    display:grid; grid-template-columns:repeat(6, 1fr); gap:6px;
+    margin:14px 0;
+  }
+  .bankSlot {
+    aspect-ratio:1; border-radius:8px; border:1px solid rgba(230,190,120,0.25);
+    background:rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; font-size:20px; color:#ffe9c2;
+  }
+  .bankSlot.empty { opacity:0.3; cursor:default; }
+  .bankSlot.selected { border-color:#9ee37d; box-shadow:0 0 0 2px rgba(158,227,125,0.4); }
+  .bankSlot .slotQty {
+    position:absolute; bottom:1px; right:3px; font-size:10px; color:#cfe9cf; font-weight:700;
+    text-shadow:0 1px 2px #000;
+  }
+  #bankListForm, #auctionCreateForm { text-align:left; margin-top:6px; }
+  #bankListForm label, #auctionCreateForm label {
+    display:block; font-size:11.5px; color:#cfe9cf; margin-bottom:4px;
+  }
+  #bankModalCloseBtn, #auctionModalCloseBtn, #auctionCreateToggleBtn {
+    background:rgba(255,255,255,0.08); color:#eafff0;
+  }
+  #auctionListings { max-height:280px; overflow-y:auto; margin:14px 0; text-align:left; }
+  .auctionRow {
+    background:rgba(0,0,0,0.25); border-radius:8px; padding:10px; margin-bottom:8px; font-size:12px;
+  }
+  .auctionRow .auctionItemLine { font-weight:700; color:#ffe9c2; margin-bottom:3px; }
+  .auctionRow .auctionMeta { color:#9bc49a; font-size:11px; margin-bottom:6px; }
+  .auctionRow .auctionBidRow { display:flex; gap:6px; align-items:center; }
+  .auctionRow .auctionBidRow input { margin-bottom:0; flex:1; padding:7px 9px; font-size:12px; }
+  .auctionRow .auctionBidRow button {
+    width:auto; padding:7px 12px; font-size:12px; margin-top:0; white-space:nowrap;
+  }
+  #auctionEmptyMsg { color:#9bc49a; font-size:12.5px; padding:10px 0; }
+
   #inventoryBtn {
     position:fixed; top:64px; left:16px; z-index:6;
     pointer-events:auto;
@@ -425,6 +462,65 @@
     <canvas id="arcadeCanvas" width="320" height="320"></canvas>
     <div class="subtitle">Arrow keys to play. Space to retry after game over. Esc to close.</div>
     <button class="btn" id="arcadeCloseBtn">Close (Esc)</button>
+  </div>
+</div>
+
+<div id="bankModal" class="overlay hidden">
+  <div class="card" id="bankCard">
+    <div class="title" style="font-size:20px;">🏦 Your Bank Account</div>
+    <div class="subtitle">Balance: <span id="bankBalance">0</span> 🪙 gold — 24 slots below</div>
+    <div id="bankSlotsGrid"></div>
+    <div id="bankListForm" class="hidden">
+      <div class="passInfo">
+        <div class="passTitle" id="bankListItemLabel">Item</div>
+        <label>Quantity to list</label>
+        <input type="number" id="bankListQty" min="1" value="1">
+        <label>Starting bid (gold)</label>
+        <input type="number" id="bankListStartBid" min="1" placeholder="e.g. 10">
+        <label>Buyout price (optional)</label>
+        <input type="number" id="bankListBuyout" min="1" placeholder="None">
+        <label>Duration</label>
+        <select id="bankListDuration">
+          <option value="1">1 hour</option>
+          <option value="12">12 hours</option>
+          <option value="24">24 hours</option>
+        </select>
+      </div>
+      <button class="btn" id="bankListSubmitBtn">List at Auction</button>
+    </div>
+    <button class="btn" id="bankModalCloseBtn">Close (Esc)</button>
+    <div class="err" id="bankModalErr"></div>
+  </div>
+</div>
+
+<div id="auctionModal" class="overlay hidden">
+  <div class="card" id="auctionCard">
+    <div class="title" style="font-size:20px;">🔨 Auction House</div>
+    <div class="subtitle">Browse active listings, or list one of your own bank items.</div>
+    <button class="btn" id="auctionCreateToggleBtn">+ List an item</button>
+    <div id="auctionCreateForm" class="hidden">
+      <div class="passInfo">
+        <label>Item (from your bank account)</label>
+        <select id="auctionItemSelect"></select>
+        <label>Quantity</label>
+        <input type="number" id="auctionQty" min="1" value="1">
+        <label>Starting bid (gold)</label>
+        <input type="number" id="auctionStartBid" min="1" placeholder="e.g. 10">
+        <label>Buyout price (optional)</label>
+        <input type="number" id="auctionBuyout" min="1" placeholder="None">
+        <label>Duration</label>
+        <select id="auctionDuration">
+          <option value="1">1 hour</option>
+          <option value="12">12 hours</option>
+          <option value="24">24 hours</option>
+        </select>
+      </div>
+      <button class="btn" id="auctionCreateSubmitBtn">Create Listing</button>
+    </div>
+    <div id="auctionListings"></div>
+    <div id="auctionEmptyMsg" class="hidden">No active listings right now — be the first!</div>
+    <button class="btn" id="auctionModalCloseBtn">Close (Esc)</button>
+    <div class="err" id="auctionModalErr"></div>
   </div>
 </div>
 
