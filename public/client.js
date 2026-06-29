@@ -452,8 +452,20 @@ if (unlockBtn) {
 // ---------------------------------------------------------------------------
 // Input — keyboard + touch joystick (unchanged)
 // ---------------------------------------------------------------------------
-const keys = { up:false, down:false, left:false, right:false };
+const keys = { up:false, down:false, left:false, right:false, strafeLeft:false, strafeRight:false };
 let typing = false;
+
+// Jump is a purely cosmetic vertical bounce on the local player's model —
+// there's no gravity/physics system in this game, just an arc over a fixed
+// duration (see syncVisuals()/update()).
+const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
+let jumpActive = false, jumpT = 0;
+
+function tryJump() {
+  if (jumpActive || typing || passModalOpen || seatedAt) return;
+  jumpActive = true;
+  jumpT = 0;
+}
 
 window.addEventListener('keydown', (e) => {
   if (typing || passModalOpen) return;
@@ -461,12 +473,17 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+  if (e.key === 'q' || e.key === 'Q') keys.strafeLeft = true;
+  if (e.key === 'e' || e.key === 'E') keys.strafeRight = true;
+  if (e.key === ' ' && !e.repeat) { tryJump(); e.preventDefault(); }
 });
 window.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = false;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+  if (e.key === 'q' || e.key === 'Q') keys.strafeLeft = false;
+  if (e.key === 'e' || e.key === 'E') keys.strafeRight = false;
 });
 
 const joystickEl = document.getElementById('joystick');
@@ -1439,7 +1456,8 @@ function syncVisuals(dt) {
     if (shouldShow) {
       const rp = getRenderPos(p);
       const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
-      v.group.position.set(rp.x, groundY + seatedYOffset, rp.z);
+      const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT : 0;
+      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset, rp.z);
       v.group.rotation.y = p.facing;
     }
 
@@ -1648,19 +1666,19 @@ function updateInteractHint() {
   if (mode !== 'indoor' || !me || passModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press E to stand';
+    document.getElementById('interactHintText').textContent = 'Press F to stand';
     return;
   }
   const seat = findNearestSeat();
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press E to sit';
+    document.getElementById('interactHintText').textContent = 'Press F to sit';
     return;
   }
   const kiosk = findNearestKiosk();
   if (PAYWALLS_ENABLED && kiosk) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press E to view Town Pass';
+    document.getElementById('interactHintText').textContent = 'Press F to view Town Pass';
     return;
   }
   hint.classList.add('hidden');
@@ -1672,7 +1690,7 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) closePassModal();
     return;
   }
-  if ((e.key === 'e' || e.key === 'E') && !e.repeat) {
+  if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
   }
   if (e.key === 'Escape' && !e.repeat) {
@@ -1803,14 +1821,17 @@ function update(dt) {
 
   // Relative controls: W/up = walk forward in whatever direction you're
   // currently facing, S/down = walk backward, A/D or left/right = turn in
-  // place. Nothing here is bound to map axes — "forward" always means
-  // "the way the character is currently pointed." Identical indoors and out.
-  let moveInput = 0, turnInput = 0;
+  // place, Q/E = strafe sideways without turning. Nothing here is bound to
+  // map axes — "forward" always means "the way the character is currently
+  // pointed." Identical indoors and out.
+  let moveInput = 0, turnInput = 0, strafeInput = 0;
   if (!typing && !seatedAt && !passModalOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
     if (keys.right) turnInput -= 1;
+    if (keys.strafeRight) strafeInput += 1;
+    if (keys.strafeLeft) strafeInput -= 1;
     if (joyVec.x || joyVec.y) {
       moveInput += -joyVec.y; // push stick up = walk forward
       turnInput += joyVec.x;  // push stick sideways = turn
@@ -1818,14 +1839,21 @@ function update(dt) {
   }
   moveInput = Math.max(-1, Math.min(1, moveInput));
   turnInput = Math.max(-1, Math.min(1, turnInput));
+  strafeInput = Math.max(-1, Math.min(1, strafeInput));
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
+  const rx = Math.cos(me.facing), ry = -Math.sin(me.facing); // perpendicular "right" vector
   // Indoors is cramped and decorated with furniture underfoot, so movement
   // is throttled slightly compared to the open town square.
   const speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
-  const stepX = fx * moveInput * speed * dt;
-  const stepY = fy * moveInput * speed * dt;
+  const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
+  const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
+
+  if (jumpActive) {
+    jumpT += dt;
+    if (jumpT >= JUMP_DURATION) { jumpActive = false; jumpT = 0; }
+  }
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);

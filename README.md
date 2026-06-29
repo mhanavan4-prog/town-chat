@@ -7,8 +7,9 @@ that building's inside, where you're chatting with whoever else is in there.
 Walk back out through the door and you're back in the open-air town square.
 
 - Move: W/S walk forward/backward in the direction you're facing, A/D (or
-  left/right arrows) turn in place — desktop. On-screen joystick on
-  mobile/touch.
+  left/right arrows) turn in place, Q/E strafe left/right, Space to jump —
+  desktop. On-screen joystick on mobile/touch. F interacts (sit, Town Pass
+  kiosk) while indoors.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
