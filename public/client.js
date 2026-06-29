@@ -92,6 +92,15 @@ ws.addEventListener('message', (ev) => {
     if (m.room === currentRoom) renderChatLog();
     return;
   }
+
+  if (msg.type === 'clear_user_messages') {
+    // Someone left a building — drop everything they said in that room's
+    // log, for everyone, including us.
+    const list = messagesByRoom[msg.room];
+    if (list) messagesByRoom[msg.room] = list.filter(m => m.id !== msg.id);
+    if (msg.room === currentRoom) renderChatLog();
+    return;
+  }
 });
 
 function addPlayer(p) {
@@ -1457,6 +1466,9 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'e' || e.key === 'E') && !e.repeat) {
     tryInteract();
   }
+  if (e.key === 'Escape' && !e.repeat) {
+    leaveCurrentBuilding();
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1470,6 +1482,8 @@ function enterBuilding(roomId) {
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
   if (roomId === FREE_BUILDING_ID) startMusic(); else stopMusic();
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) leaveBtn.classList.remove('hidden');
 }
 
 function exitBuilding(b) {
@@ -1484,9 +1498,30 @@ function exitBuilding(b) {
   else { me.x = b.x + b.w / 2; me.y = b.y + b.h + 26; }
   me.room = 'outside';
   stopMusic();
+  // tell the server so it can wipe our messages from this room's chat for
+  // everyone — leaving a building clears what we said in there.
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'leave_room', room: b.id }));
+  }
   setActiveContext(outdoorScene, outdoorCamera, null);
   maybeUpdateRoomUI('outside');
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) leaveBtn.classList.add('hidden');
 }
+
+// Explicit "leave" action — a button/keypress that always works, regardless
+// of where the player is standing or whether they're seated. Backstop for
+// the walk-through-the-door exit, which can be easy to miss/get stuck near.
+function leaveCurrentBuilding() {
+  if (mode !== 'indoor' || !indoorBuildingId) return;
+  const b = world.buildings.find(bb => bb.id === indoorBuildingId);
+  if (!b) return;
+  if (seatedAt) standUp();
+  exitBuilding(b);
+}
+
+const leaveBtn = document.getElementById('leaveBtn');
+if (leaveBtn) leaveBtn.addEventListener('click', leaveCurrentBuilding);
 
 // ---------------------------------------------------------------------------
 // Main loop

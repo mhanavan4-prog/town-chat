@@ -190,6 +190,17 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'leave_room') {
+      // A player just walked out of (or hit "Leave" in) a building. Wipe
+      // everything they said in that room from every connected client's
+      // chat log — chat in a building doesn't outlive your visit there.
+      const room = String(msg.room || '');
+      if (!ROOM_IDS.has(room) || room === 'outside') return;
+      player.room = 'outside';
+      broadcastAll({ type: 'clear_user_messages', room, id: player.id });
+      return;
+    }
+
     if (msg.type === 'chat') {
       const text = sanitizeText(msg.text);
       if (!text) return;
@@ -211,6 +222,10 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (player) {
+      // Disconnecting while inside a building counts as leaving it too.
+      if (player.room !== 'outside') {
+        broadcastAll({ type: 'clear_user_messages', room: player.room, id: player.id });
+      }
       players.delete(player.id);
       broadcastAll({ type: 'player_left', id: player.id });
     }

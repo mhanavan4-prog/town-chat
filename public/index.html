@@ -123,6 +123,16 @@
     border-radius:18px; backdrop-filter:blur(4px);
   }
 
+  #leaveBtn {
+    position:fixed; top:64px; right:16px; z-index:6;
+    pointer-events:auto;
+    background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
+    color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
+    border-radius:18px; backdrop-filter:blur(4px); cursor:pointer;
+  }
+  #leaveBtn:hover { background:rgba(40,20,14,0.85); }
+  #leaveBtn.hidden { display:none !important; }
+
   .nameTag {
     position:absolute; pointer-events:none; transform:translate(-50%,-100%);
     color:#fff; font-size:12px; font-weight:700; text-align:center;
@@ -199,6 +209,8 @@
 </div>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
+
+<button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
 
 <div id="joystick"><div id="stick"></div></div>
 
