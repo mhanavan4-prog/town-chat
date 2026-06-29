@@ -112,7 +112,10 @@ app.get('/api/verify-session', async (req, res) => {
 });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+// maxPayload guards against an oversized image (or anything else) blowing up
+// server memory — the client already resizes/compresses images well under
+// this before sending, this is just the backstop.
+const wss = new WebSocketServer({ server, maxPayload: 2 * 1024 * 1024 });
 
 // ---------------------------------------------------------------------------
 // World definition — single source of truth, sent to every client on join.
@@ -158,6 +161,17 @@ function sanitizeName(raw) {
 
 function sanitizeText(raw) {
   return String(raw || '').replace(/[<>]/g, '').trim().slice(0, 240);
+}
+
+// The client already resizes/compresses images to well under this before
+// sending (see client.js), this just rejects anything malformed or abusive
+// — a data: URL of an allowed image type, capped at ~350KB of base64 text.
+const MAX_IMAGE_DATA_URL_LENGTH = 350000;
+function sanitizeImage(raw) {
+  if (typeof raw !== 'string') return null;
+  if (raw.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
+  if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(raw)) return null;
+  return raw;
 }
 
 function publicPlayer(p) {
@@ -272,7 +286,8 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'chat') {
       const text = sanitizeText(msg.text);
-      if (!text) return;
+      const image = sanitizeImage(msg.image);
+      if (!text && !image) return;
       const chatMsg = {
         type: 'chat',
         message: {
@@ -280,6 +295,7 @@ wss.on('connection', (ws) => {
           name: player.name,
           color: player.color,
           text,
+          image,
           room: player.room,
           ts: Date.now()
         }

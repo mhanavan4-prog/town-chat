@@ -10,8 +10,15 @@ Walk back out through the door and you're back in the open-air town square.
   left/right arrows) turn in place, Q/E strafe left/right, Space to jump —
   desktop. On-screen joystick on mobile/touch. F interacts (sit, Town Pass
   kiosk) while indoors.
+- Click and drag anywhere on the game view to look around — this only
+  orbits the camera around your character, it doesn't change which way
+  you're walking.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
+- 📷 Pictures in chat: the camera-icon button next to the chat box lets you
+  attach an image (resized/compressed in your browser before sending) to a
+  message. Relayed by the server exactly like a text message, scoped to
+  whichever room you're in.
 - A large open town square with grass, dirt paths, and scattered trees/shrubs
   around the edges.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
@@ -21,10 +28,10 @@ Walk back out through the door and you're back in the open-air town square.
   for now — the Stripe paywall code is still in place but disabled (see
   **Premium buildings & Stripe payments** below) so it can be turned back on
   later without rebuilding it.
-- 🛋️ The Rooftop Lounge is two stories: a ground-floor parlor (5 tables —
-  a cozy fireside table plus 4 more in a dining grid) with a staircase up to
-  an open-air terrace overlooking it, with 3 more tables and a railing to
-  look out from. Walking up/down the stairs is just walking normally — your
+- 🛋️ The Rooftop Lounge is two stories, inside and out: a ground-floor
+  parlor (5 tables — a cozy fireside table plus 4 more in a dining grid)
+  with a staircase up to an open-air terrace overlooking it, with 3 more
+  tables. Walking up/down the stairs is just walking normally — your
   character's height rises and falls to match as you cross the staircase.
 - 🎒 Inventory (top-left button): write a private note to any other player
   currently in the town. Notes aren't stored anywhere — they're relayed

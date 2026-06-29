@@ -645,6 +645,28 @@ joystickEl.addEventListener('touchend', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mouse-drag camera orbit — click and drag on the game canvas to look
+// around independently of which way the character is walking. This only
+// ever offsets the CAMERA's angle (cameraYawOffset, used in updateCamera());
+// it never touches me.facing, so movement (driven by A/D and the joystick)
+// and the character model's own rotation are completely unaffected.
+// ---------------------------------------------------------------------------
+let cameraYawOffset = 0;
+let dragging = false, lastDragX = 0;
+
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  lastDragX = e.clientX;
+});
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  cameraYawOffset -= (e.clientX - lastDragX) * 0.006;
+  lastDragX = e.clientX;
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mouseleave', () => { dragging = false; });
+
+// ---------------------------------------------------------------------------
 // Chat UI — chat only exists once you're inside a building; the open world
 // ("outside") has no chat panel at all.
 // ---------------------------------------------------------------------------
@@ -655,13 +677,85 @@ chatInput.addEventListener('blur', () => { typing = false; });
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     if (currentRoom === 'outside') { chatInput.value = ''; return; } // defense in depth
-    const text = chatInput.value.trim();
-    if (text) ws.send(JSON.stringify({ type: 'chat', text }));
-    chatInput.value = '';
+    sendChatMessage();
   } else if (e.key === 'Escape') {
     chatInput.blur();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Picture sharing — pick an image, shrink it client-side (no point sending a
+// multi-megabyte phone photo over a chat socket), preview it, then send it
+// alongside whatever text is in the box. Images are relayed by the server
+// exactly like text, scoped to the same room.
+// ---------------------------------------------------------------------------
+const chatImageBtn = document.getElementById('chatImageBtn');
+const chatImageFile = document.getElementById('chatImageFile');
+const chatImagePreview = document.getElementById('chatImagePreview');
+const chatImagePreviewImg = document.getElementById('chatImagePreviewImg');
+const chatImageRemoveBtn = document.getElementById('chatImageRemoveBtn');
+let pendingImage = null;
+
+const MAX_IMAGE_DIM = 480;
+
+function resizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+        const scale = MAX_IMAGE_DIM / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const c = document.createElement('canvas');
+      c.width = width; c.height = height;
+      c.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(c.toDataURL('image/jpeg', 0.72));
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function clearPendingImage() {
+  pendingImage = null;
+  chatImagePreview.classList.remove('show');
+  chatImagePreviewImg.src = '';
+  chatImageFile.value = '';
+}
+
+if (chatImageBtn) {
+  chatImageBtn.addEventListener('click', () => {
+    if (currentRoom === 'outside') return;
+    chatImageFile.click();
+  });
+}
+if (chatImageFile) {
+  chatImageFile.addEventListener('change', () => {
+    const file = chatImageFile.files && chatImageFile.files[0];
+    if (!file) return;
+    resizeImageFile(file)
+      .then(dataUrl => {
+        pendingImage = dataUrl;
+        chatImagePreviewImg.src = dataUrl;
+        chatImagePreview.classList.add('show');
+      })
+      .catch(() => setUnlockToast('⚠️ Could not read that image.'));
+  });
+}
+if (chatImageRemoveBtn) chatImageRemoveBtn.addEventListener('click', clearPendingImage);
+
+function sendChatMessage() {
+  const text = chatInput.value.trim();
+  if (!text && !pendingImage) return;
+  const payload = { type: 'chat', text };
+  if (pendingImage) payload.image = pendingImage;
+  ws.send(JSON.stringify(payload));
+  chatInput.value = '';
+  clearPendingImage();
+}
 
 function renderChatLog() {
   const msgs = messagesByRoom[currentRoom] || [];
@@ -673,7 +767,15 @@ function renderChatLog() {
     b.style.color = m.color;
     b.textContent = m.name + ':';
     div.appendChild(b);
-    div.appendChild(document.createTextNode(' ' + m.text));
+    if (m.text) div.appendChild(document.createTextNode(' ' + m.text));
+    if (m.image) {
+      const img = document.createElement('img');
+      img.className = 'chatImg';
+      img.src = m.image;
+      img.title = 'Click to view full size';
+      img.addEventListener('click', () => window.open(m.image, '_blank'));
+      div.appendChild(img);
+    }
     chatLog.appendChild(div);
   }
   chatLog.scrollTop = chatLog.scrollHeight;
@@ -738,22 +840,29 @@ const INTERIOR_THEMES = {
 // building's real outdoor x/y corner (see updateIndoor()), so this is safe
 // as long as b.x+w and b.y+h stay within the world bounds.
 //
-// IMPORTANT constraint: the player always walks in/out through the door cut
-// into the *outdoor* footprint (server.js WORLD.buildings), but
-// collidesIndoor()/the exiting check use the door gap computed from THIS
-// override. For an east/west door, that gap is derived from `h`; for a
-// north/south door, from `w`. If that one axis doesn't match the outdoor
-// footprint's, the indoor door gap is shifted relative to where the player
-// actually enters — they walk straight into what the engine thinks is solid
-// wall and get stuck unable to move (this actually happened: lounge's
-// override had a `h` that didn't match its outdoor footprint). So: the
-// door-axis dimension below is always copied from the outdoor footprint;
-// only the perpendicular axis is free to use for giving each room a
-// different shape.
+// IMPORTANT constraints — both learned the hard way:
+// 1) The player always walks in/out through the door cut into the *outdoor*
+//    footprint (server.js WORLD.buildings), but collidesIndoor()/the exiting
+//    check use the door gap computed from THIS override. For an east/west
+//    door, that gap is derived from `h`; for a north/south door, from `w`.
+//    If that one axis doesn't match the outdoor footprint's, the indoor
+//    door gap is shifted relative to where the player actually enters —
+//    they walk straight into what the engine thinks is solid wall and get
+//    stuck unable to move (lounge's `h` didn't match). So that axis is
+//    always copied from the outdoor footprint.
+// 2) Local coordinates anchor at the building's outdoor (b.x, b.y) corner —
+//    they don't recenter. If the door is on the *far* side of the other
+//    axis (e.g. an 'east' door sits at the high-x end), the player's entry
+//    point is near that footprint's far edge. Shrinking that axis below the
+//    outdoor footprint's size in the override then puts the entry point
+//    past the override's own far wall — outside the room entirely, which
+//    immediately satisfies the "exiting" check and bounces them straight
+//    back out (arcade's `w` did this). That axis must stay >= the outdoor
+//    footprint's size when the door is on its far side; it's only safe to
+//    shrink when the door is on the *near* (low-x/low-y) side instead.
 const INTERIOR_SIZE_OVERRIDES = {
   cafe:    { w: 520, h: 260 },  // door axis (h) matches outdoor; wide sprawling tavern hall
-  library: { w: 220, h: 200 },  // door axis (h) matches outdoor; narrower stacks
-  arcade:  { w: 200, h: 200 },  // door axis (h) matches outdoor; square den
+  library: { w: 220, h: 200 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
   lounge:  { w: 640, h: 200 },  // door axis (h) matches outdoor; wide for stairs + terrace
   hall:    { w: 360, h: 380 }   // door axis (w) matches outdoor; deep great hall
 };
@@ -1581,9 +1690,11 @@ function addElevatedTable(scene, tx, tz, baseY) {
 
 // The Rooftop Lounge's structural staircase + upstairs terrace: a row of
 // rising steps from the ground floor up to a platform at
-// LOUNGE_PLATFORM_HEIGHT, a railing along the drop-off, and a couple of
-// glowing "view" windows along the outer wall up there. getFloorHeight()
-// mirrors this same stairStart/stairEnd math to move the player's render Y.
+// LOUNGE_PLATFORM_HEIGHT, plus a couple of glowing "view" windows along the
+// outer wall up there. No railing mesh — there's no collision physics in
+// this engine, so a solid-looking railing you can walk straight through is
+// worse than no railing at all. getFloorHeight() mirrors this same
+// stairStart/stairEnd math to move the player's render Y.
 function buildLoungeStructure(scene, roomW, roomD) {
   const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
   const stairEnd = roomW * LOUNGE_STAIR_END_FRAC;
@@ -1606,19 +1717,6 @@ function buildLoungeStructure(scene, roomW, roomD) {
   );
   platform.position.set((stairEnd + roomW) / 2, platformH - 4, roomD / 2);
   scene.add(platform);
-
-  // railing along the drop-off edge, overlooking the staircase/ground floor
-  const railing = new THREE.Mesh(
-    new THREE.BoxGeometry(4, 30, roomD),
-    new THREE.MeshLambertMaterial({ color: 0x4a3320 })
-  );
-  railing.position.set(stairEnd, platformH + 15, roomD / 2);
-  scene.add(railing);
-  for (const fz of [roomD * 0.12, roomD * 0.5, roomD * 0.88]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 30, 6), new THREE.MeshLambertMaterial({ color: 0x3c2616 }));
-    post.position.set(stairEnd, platformH + 15, fz);
-    scene.add(post);
-  }
 
   scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.25, -Math.PI / 2));
   scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.75, -Math.PI / 2));
@@ -1904,7 +2002,7 @@ function syncLabels() {
 function updateCamera(dt) {
   if (!me) return;
   const rp = getRenderPos(me);
-  const f = me.facing;
+  const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   const cam = mode === 'outdoor' ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
@@ -2132,6 +2230,7 @@ function exitBuilding(b) {
   else { me.x = b.x + b.w / 2; me.y = b.y + b.h + 26; }
   me.room = 'outside';
   stopMusic();
+  clearPendingImage();
   // tell the server so it can wipe our messages from this room's chat for
   // everyone — leaving a building clears what we said in there.
   if (ws.readyState === WebSocket.OPEN) {
@@ -2241,7 +2340,7 @@ function update(dt) {
     if (keys.strafeLeft) strafeInput -= 1;
     if (joyVec.x || joyVec.y) {
       moveInput += -joyVec.y; // push stick up = walk forward
-      turnInput += joyVec.x;  // push stick sideways = turn
+      turnInput -= joyVec.x;  // push stick right = turn right (was inverted)
     }
   }
   moveInput = Math.max(-1, Math.min(1, moveInput));

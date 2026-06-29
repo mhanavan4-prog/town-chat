@@ -110,6 +110,23 @@
     background:rgba(0,0,0,0.35); color:#eafff0; font-size:13.5px; outline:none;
   }
   #chatInput::placeholder { color:#8a7560; }
+  #chatImageBtn {
+    flex-shrink:0; width:40px; border-radius:20px; border:1px solid rgba(217,138,79,0.35);
+    background:rgba(0,0,0,0.35); color:#ffd9a0; font-size:16px; cursor:pointer;
+  }
+  #chatImagePreview {
+    display:none; align-items:center; gap:8px; margin-bottom:8px;
+    background:rgba(0,0,0,0.3); border-radius:8px; padding:6px 8px;
+  }
+  #chatImagePreview.show { display:flex; }
+  #chatImagePreview img { width:40px; height:40px; object-fit:cover; border-radius:6px; }
+  #chatImagePreview span { flex:1; color:#cfe9cf; font-size:11.5px; }
+  #chatImagePreview button {
+    background:none; border:none; color:#ff9b9b; font-size:13px; cursor:pointer; padding:4px;
+  }
+  .chatLine img.chatImg {
+    display:block; max-width:220px; max-height:220px; border-radius:8px; margin-top:5px; cursor:pointer;
+  }
 
   #interactHint {
     position:fixed; left:50%; bottom:96px; z-index:6;
@@ -254,7 +271,14 @@
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">💬 Town Square</div>
   <div id="chatLog"></div>
+  <div id="chatImagePreview">
+    <img id="chatImagePreviewImg" alt="">
+    <span>Image ready — press Enter or Send</span>
+    <button id="chatImageRemoveBtn" title="Remove image">✕</button>
+  </div>
   <div id="chatInputRow">
+    <button id="chatImageBtn" title="Send a picture">📷</button>
+    <input id="chatImageFile" type="file" accept="image/*" class="hidden">
     <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
   </div>
 </div>
