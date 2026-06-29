@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
+    "stripe": "^16.0.0",
     "ws": "^8.17.0"
   }
 }

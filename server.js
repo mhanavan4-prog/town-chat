@@ -6,14 +6,69 @@ const http = require('http');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
+const Stripe = require('stripe');
 
 const PORT = process.env.PORT || 3000;
 // Set TOWN_PASSWORD as an environment variable on your host to gate the town.
 // Leave unset for no password (anyone with the link can join).
 const TOWN_PASSWORD = process.env.TOWN_PASSWORD || '';
 
+// Optional real-money paywall for the premium buildings. Leave
+// STRIPE_SECRET_KEY unset on a host and the "Unlock" button simply stays
+// hidden on the client — everything else still works with only the free
+// building enterable.
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+const PREMIUM_PRICE_CENTS = parseInt(process.env.PREMIUM_PRICE_CENTS, 10) || 300;
+const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
+
 const app = express();
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/api/config', (req, res) => {
+  res.json({ paymentsEnabled: !!stripeClient, premiumPriceCents: PREMIUM_PRICE_CENTS });
+});
+
+app.post('/api/checkout', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ error: 'Payments are not set up on this server yet.' });
+  try {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const session = await stripeClient.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: PREMIUM_PRICE_CENTS,
+          product_data: {
+            name: 'Town Chat — All-Access Pass',
+            description: 'Unlocks every premium building in town for this browser.'
+          }
+        },
+        quantity: 1
+      }],
+      success_url: `${origin}/?unlock_session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/`
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err.message);
+    res.status(500).json({ error: 'Could not start checkout.' });
+  }
+});
+
+app.get('/api/verify-session', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ unlocked: false, error: 'Payments are not set up on this server yet.' });
+  const sessionId = req.query.session_id;
+  if (!sessionId) return res.status(400).json({ unlocked: false, error: 'Missing session_id.' });
+  try {
+    const session = await stripeClient.checkout.sessions.retrieve(String(sessionId));
+    res.json({ unlocked: session.payment_status === 'paid' });
+  } catch (err) {
+    console.error('Stripe verify error:', err.message);
+    res.status(500).json({ unlocked: false, error: 'Could not verify payment.' });
+  }
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -171,4 +226,5 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
   if (TOWN_PASSWORD) console.log('Passcode protection: ON');
+  console.log(stripeClient ? `Stripe payments: ON ($${(PREMIUM_PRICE_CENTS / 100).toFixed(2)})` : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable)');
 });

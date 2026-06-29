@@ -109,6 +109,33 @@
     white-space:nowrap; z-index:7;
   }
 
+  #unlockBar {
+    position:fixed; top:64px; left:0; right:0; z-index:6;
+    display:flex; justify-content:center; pointer-events:none;
+  }
+  #unlockBar.hidden { display:none !important; }
+  #unlockInner {
+    pointer-events:auto;
+    display:flex; align-items:center; gap:10px;
+    background:rgba(20,10,8,0.72); border:1px solid rgba(230,190,120,0.35);
+    color:#ffe9c2; font-size:12.5px; padding:8px 10px 8px 16px;
+    border-radius:20px; backdrop-filter:blur(4px);
+  }
+  #unlockBtn {
+    border:none; border-radius:16px; padding:7px 14px; font-size:12.5px; font-weight:700;
+    color:#2a1605; cursor:pointer;
+    background:linear-gradient(90deg,#ffd27a,#ff9d5c);
+  }
+  #unlockToast {
+    position:fixed; top:104px; left:0; right:0; z-index:6;
+    display:flex; justify-content:center; pointer-events:none;
+  }
+  #unlockToast.hidden { display:none !important; }
+  #unlockToast span {
+    background:rgba(20,10,8,0.82); border:1px solid rgba(230,190,120,0.35);
+    color:#ffe9c2; font-size:12.5px; padding:7px 16px; border-radius:16px;
+  }
+
   #joystick {
     position:fixed; bottom:90px; right:30px; z-index:6;
     width:110px; height:110px; border-radius:50%;
@@ -131,6 +158,14 @@
   <div id="peopleTag"><span id="peopleCount">1</span> in town</div>
 </div>
 
+<div id="unlockBar" class="hidden">
+  <div id="unlockInner">
+    🔒 Premium buildings need a Town Pass
+    <button id="unlockBtn">🔓 Unlock all — <span id="unlockPrice">$3.00</span></button>
+  </div>
+</div>
+<div id="unlockToast" class="hidden"><span id="unlockToastText"></span></div>
+
 <div id="chatPanel" class="hidden">
   <div id="chatLog"></div>
   <div id="chatInputRow">
@@ -143,7 +178,7 @@
 <div id="joinScreen" class="overlay">
   <div class="card">
     <div class="title">TOWN CHAT</div>
-    <div class="subtitle">Wander the town with friends. Walk into a building to join its chatroom — walk out to leave it.</div>
+    <div class="subtitle">Wander the town with friends. Walk into a building for a full medieval interior and its private chat — The Cafe is free, the rest need a Town Pass.</div>
     <input id="nameInput" type="text" placeholder="Your name" maxlength="18" autocomplete="off">
     <input id="passInput" type="password" placeholder="Passcode (if your town has one)" autocomplete="off">
     <button class="btn" id="joinBtn">ENTER TOWN</button>
