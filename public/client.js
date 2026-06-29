@@ -736,15 +736,26 @@ const INTERIOR_THEMES = {
 // A building's visual/walkable interior can be larger than its literal
 // outdoor footprint. Local-to-world conversion still anchors at the
 // building's real outdoor x/y corner (see updateIndoor()), so this is safe
-// as long as b.x+w and b.y+h stay within the world bounds. Each building
-// gets its own room shape (not just a different paint job) so the five
-// interiors read as genuinely different spaces.
+// as long as b.x+w and b.y+h stay within the world bounds.
+//
+// IMPORTANT constraint: the player always walks in/out through the door cut
+// into the *outdoor* footprint (server.js WORLD.buildings), but
+// collidesIndoor()/the exiting check use the door gap computed from THIS
+// override. For an east/west door, that gap is derived from `h`; for a
+// north/south door, from `w`. If that one axis doesn't match the outdoor
+// footprint's, the indoor door gap is shifted relative to where the player
+// actually enters — they walk straight into what the engine thinks is solid
+// wall and get stuck unable to move (this actually happened: lounge's
+// override had a `h` that didn't match its outdoor footprint). So: the
+// door-axis dimension below is always copied from the outdoor footprint;
+// only the perpendicular axis is free to use for giving each room a
+// different shape.
 const INTERIOR_SIZE_OVERRIDES = {
-  cafe:    { w: 480, h: 320 },  // sprawling tavern hall
-  library: { w: 260, h: 420 },  // tall, narrow stacks
-  arcade:  { w: 360, h: 360 },  // square den
-  lounge:  { w: 640, h: 260 },  // ground floor + staircase + upstairs terrace, side by side
-  hall:    { w: 440, h: 300 }   // wide great hall
+  cafe:    { w: 520, h: 260 },  // door axis (h) matches outdoor; wide sprawling tavern hall
+  library: { w: 220, h: 200 },  // door axis (h) matches outdoor; narrower stacks
+  arcade:  { w: 200, h: 200 },  // door axis (h) matches outdoor; square den
+  lounge:  { w: 640, h: 200 },  // door axis (h) matches outdoor; wide for stairs + terrace
+  hall:    { w: 360, h: 380 }   // door axis (w) matches outdoor; deep great hall
 };
 
 // The Rooftop Lounge is the one two-story interior: ground floor on the west
@@ -1021,15 +1032,29 @@ function buildPathSegment(x1, y1, x2, y2, width, sharedTex, hubRadius) {
   return mesh;
 }
 
+// A glowing rectangular window for an OUTDOOR building wall. `onEastWest`
+// picks the long axis: false = wide along x (north/south wall), true = wide
+// along z (east/west wall) — matching the inline pattern used for the
+// building's first-floor windows.
+function makeRectWindow(mat, wide, tall, x, y, z, onEastWest) {
+  const geo = onEastWest ? new THREE.BoxGeometry(2, tall, wide) : new THREE.BoxGeometry(wide, tall, 2);
+  const win = new THREE.Mesh(geo, mat);
+  win.position.set(x, y, z);
+  return win;
+}
+
 function buildBuildingMesh(b, w) {
   const group = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: b.color });
+  // The Rooftop Lounge gets a taller exterior shell to read as two stories,
+  // matching its two-story interior (see buildLoungeStructure()/getFloorHeight()).
+  const wallH = b.id === 'lounge' ? WALL_HEIGHT * 1.8 : WALL_HEIGHT;
   const wallRects = buildWallsForOne(b, w);
   for (const r of wallRects) {
     if (r.w <= 0 || r.h <= 0) continue;
-    const geo = new THREE.BoxGeometry(r.w, WALL_HEIGHT, r.h);
+    const geo = new THREE.BoxGeometry(r.w, wallH, r.h);
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(r.x + r.w / 2, WALL_HEIGHT / 2, r.y + r.h / 2);
+    mesh.position.set(r.x + r.w / 2, wallH / 2, r.y + r.h / 2);
     group.add(mesh);
   }
 
@@ -1040,6 +1065,27 @@ function buildBuildingMesh(b, w) {
   );
   foundation.position.set(b.x + b.w / 2, 3, b.y + b.h / 2);
   group.add(foundation);
+
+  // A second-story floor band — a darker trim strip wrapping the perimeter
+  // partway up — plus an extra row of windows above it, so the Lounge reads
+  // as two distinct stories rather than just one tall building.
+  if (b.id === 'lounge') {
+    const bandY = wallH * 0.52;
+    const band = new THREE.Mesh(
+      new THREE.BoxGeometry(b.w + 6, 8, b.h + 6),
+      new THREE.MeshLambertMaterial({ color: 0x3c2616 })
+    );
+    band.position.set(b.x + b.w / 2, bandY, b.y + b.h / 2);
+    group.add(band);
+
+    const upperWinMat = new THREE.MeshBasicMaterial({ color: 0xfff1b0 });
+    const upperWinY = wallH * 0.78;
+    const side2 = getDoorSide(b);
+    if (side2 !== 'north') group.add(makeRectWindow(upperWinMat, 26, 22, b.x + b.w / 2, upperWinY, b.y - 0.6, false));
+    if (side2 !== 'south') group.add(makeRectWindow(upperWinMat, 26, 22, b.x + b.w / 2, upperWinY, b.y + b.h + 0.6, false));
+    if (side2 !== 'west') group.add(makeRectWindow(upperWinMat, 26, 22, b.x - 0.6, upperWinY, b.y + b.h / 2, true));
+    if (side2 !== 'east') group.add(makeRectWindow(upperWinMat, 26, 22, b.x + b.w + 0.6, upperWinY, b.y + b.h / 2, true));
+  }
 
   // hip/pyramid roof — a 4-sided cone rotated 45° so its flat faces line up
   // with the building's walls, then scaled non-uniformly to match the
@@ -1052,7 +1098,7 @@ function buildBuildingMesh(b, w) {
   );
   roof.rotation.y = Math.PI / 4;
   roof.scale.set((b.w / 2 + overhang) / apothem, 1, (b.h / 2 + overhang) / apothem);
-  roof.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight / 2, b.y + b.h / 2);
+  roof.position.set(b.x + b.w / 2, wallH + roofHeight / 2, b.y + b.h / 2);
   group.add(roof);
 
   // a visible door slab filling the gap in whichever wall faces the door —
@@ -1083,7 +1129,7 @@ function buildBuildingMesh(b, w) {
 
   // glowing windows on the three walls that don't have the door
   const winMat = new THREE.MeshBasicMaterial({ color: 0xfff1b0 });
-  const winY = WALL_HEIGHT * 0.56;
+  const winY = wallH * (b.id === 'lounge' ? 0.32 : 0.56);
   if (side !== 'north') {
     const win = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
     win.position.set(b.x + b.w / 2, winY, b.y - 0.6);
@@ -1107,14 +1153,14 @@ function buildBuildingMesh(b, w) {
 
   // floating sign with the building name, billboarded each frame
   const sign = makeSignSprite(b.name);
-  sign.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight + 22, b.y + b.h / 2);
+  sign.position.set(b.x + b.w / 2, wallH + roofHeight + 22, b.y + b.h / 2);
   group.add(sign);
 
   // a second sign disclosing free-vs-premium status
   const tag = locked
     ? makeSignSprite('🔒 Premium — Unlock to enter')
     : makeSignSprite('✓ Free to enter');
-  tag.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight - 4, b.y + b.h / 2);
+  tag.position.set(b.x + b.w / 2, wallH + roofHeight - 4, b.y + b.h / 2);
   group.add(tag);
 
   lockVisuals[b.id] = { door, lockSign: tag };
