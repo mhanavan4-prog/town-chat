@@ -729,7 +729,7 @@ const INTERIOR_THEMES = {
   cafe:    { label: 'Tavern',          wall: 0x8a6a4a, banner: 0xd98a4f, furniture: 'tavern',    floorTint: 0xffffff },
   library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library',   floorTint: 0xb9c6ff },
   arcade:  { label: "Alchemist's Den", wall: 0x55506a, banner: 0x9b5fc0, furniture: 'alchemist',  floorTint: 0xd9b8ff },
-  lounge:  { label: 'Noble Parlor',    wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor',     floorTint: 0xffc9d2 },
+  lounge:  { label: 'Noble Parlor & Terrace', wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor', floorTint: 0xffc9d2 },
   hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 }
 };
 
@@ -743,9 +743,33 @@ const INTERIOR_SIZE_OVERRIDES = {
   cafe:    { w: 480, h: 320 },  // sprawling tavern hall
   library: { w: 260, h: 420 },  // tall, narrow stacks
   arcade:  { w: 360, h: 360 },  // square den
-  lounge:  { w: 320, h: 220 },  // cozy, low-ceiling-feeling parlor
+  lounge:  { w: 640, h: 260 },  // ground floor + staircase + upstairs terrace, side by side
   hall:    { w: 440, h: 300 }   // wide great hall
 };
+
+// The Rooftop Lounge is the one two-story interior: ground floor on the west
+// side (x: 0..stairs), a staircase ramping up through the middle, and an
+// upstairs terrace on the east side (x: stairs..roomW) at a fixed height.
+// There's no real verticality/physics engine here — a player's vertical
+// position is just a function of their current local x (see getFloorHeight),
+// recomputed every frame for every visible player, so walking up/down the
+// stairs is just walking normally in x/z while this function makes their
+// rendered Y rise and fall to match. Collision (collidesIndoor) doesn't
+// change at all — it only ever cared about x/z.
+const LOUNGE_STAIR_START_FRAC = 0.45;
+const LOUNGE_STAIR_END_FRAC = 0.62;
+const LOUNGE_PLATFORM_HEIGHT = 76;
+
+function getFloorHeight(roomId, rx) {
+  if (roomId !== 'lounge') return 0;
+  const interior = interiorScenes.lounge;
+  if (!interior) return 0;
+  const stairStart = interior.roomW * LOUNGE_STAIR_START_FRAC;
+  const stairEnd = interior.roomW * LOUNGE_STAIR_END_FRAC;
+  if (rx <= stairStart) return 0;
+  if (rx >= stairEnd) return LOUNGE_PLATFORM_HEIGHT;
+  return LOUNGE_PLATFORM_HEIGHT * (rx - stairStart) / (stairEnd - stairStart);
+}
 
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
 
@@ -786,16 +810,15 @@ function initScene(w) {
   sun.position.set(400, 600, 300);
   scene.add(sun);
 
+  const grassTex = makeGrassTexture();
+  const groundSpan = Math.max(w.width, w.height) + 600;
+  grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
   const groundGeo = new THREE.PlaneGeometry(w.width + 600, w.height + 600);
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0x2f5a35 });
+  const groundMat = new THREE.MeshLambertMaterial({ map: grassTex });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(w.width / 2, 0, w.height / 2);
   scene.add(ground);
-
-  const grid = new THREE.GridHelper(Math.max(w.width, w.height) + 600, 60, 0x3f7a48, 0x3f7a48);
-  grid.position.set(w.width / 2, 0.2, w.height / 2);
-  scene.add(grid);
 
   const dirtTex = makeDirtTexture();
 
@@ -816,12 +839,125 @@ function initScene(w) {
     scene.add(buildPathSegment(doorPos.x, doorPos.y, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
   }
 
+  addNatureDecor(scene);
+
   outdoorScene = scene;
   outdoorCamera = camera;
   mode = 'outdoor';
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
   refreshBuildingLockVisuals();
+}
+
+function makeGrassTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#3c6b40';
+  cx.fillRect(0, 0, 256, 256);
+  // mottled patches of lighter/darker green underneath the blades
+  for (let i = 0; i < 140; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const r = 10 + Math.random() * 26;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(70,120,68,0.25)' : 'rgba(40,80,42,0.25)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // individual blade strokes for texture
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const len = 3 + Math.random() * 6;
+    const ang = Math.random() * Math.PI * 2;
+    const shade = 90 + Math.random() * 70;
+    cx.strokeStyle = `rgba(${shade - 40}, ${shade + 30}, ${shade - 40}, 0.55)`;
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+    cx.stroke();
+  }
+  // sparse dry/yellow blades for variation
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    cx.fillStyle = 'rgba(180,170,90,0.3)';
+    cx.fillRect(x, y, 2, 4);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function makeTree(x, z, scale) {
+  const g = new THREE.Group();
+  const s = scale || 1;
+  const trunkH = 42 * s;
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(4 * s, 5.5 * s, trunkH, 6),
+    new THREE.MeshLambertMaterial({ color: 0x5a3d24 })
+  );
+  trunk.position.y = trunkH / 2;
+  g.add(trunk);
+  const foliageColors = [0x2f6b35, 0x386f3c, 0x356633];
+  for (let i = 0; i < 3; i++) {
+    const r = (24 - i * 5) * s;
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(r, 28 * s, 8),
+      new THREE.MeshLambertMaterial({ color: foliageColors[i] })
+    );
+    cone.position.y = trunkH + i * 15 * s + 8 * s;
+    g.add(cone);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeShrub(x, z, scale) {
+  const g = new THREE.Group();
+  const s = scale || 1;
+  const colors = [0x3a7a3f, 0x2f6b35, 0x4a8a4f];
+  for (let i = 0; i < 3; i++) {
+    const r = (9 + Math.random() * 4) * s;
+    const bush = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 8, 8),
+      new THREE.MeshLambertMaterial({ color: colors[i] })
+    );
+    bush.position.set((Math.random() - 0.5) * 9 * s, r * 0.7, (Math.random() - 0.5) * 9 * s);
+    g.add(bush);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// Fixed (not random-per-load) positions so every connected client sees the
+// same tree/shrub layout. Kept clear of building footprints, the spawn hub,
+// and the dirt paths radiating from it. Trees get a small trunk collision
+// box pushed into the same `walls` array buildings use, so you can't walk
+// through them; shrubs are purely decorative ground cover (walk-through).
+const NATURE_DECOR = [
+  { type: 'tree', x: 60,   y: 700,  scale: 1.1 }, { type: 'tree', x: 110, y: 880, scale: 0.9 },
+  { type: 'tree', x: 50,   y: 1020, scale: 1.0 }, { type: 'shrub', x: 130, y: 760, scale: 1.0 },
+  { type: 'shrub', x: 90,  y: 960,  scale: 0.8 }, { type: 'tree', x: 700, y: 60,   scale: 1.0 },
+  { type: 'tree', x: 870,  y: 40,   scale: 0.85 },{ type: 'shrub', x: 780, y: 90,   scale: 1.0 },
+  { type: 'tree', x: 2300, y: 700,  scale: 1.0 }, { type: 'tree', x: 2350, y: 880,  scale: 0.9 },
+  { type: 'tree', x: 2310, y: 1020, scale: 1.05 },{ type: 'shrub', x: 2240, y: 770,  scale: 0.9 },
+  { type: 'shrub', x: 2280, y: 950,  scale: 1.0 },{ type: 'tree', x: 700,  y: 1600, scale: 1.0 },
+  { type: 'tree', x: 900,  y: 1620, scale: 0.95 },{ type: 'tree', x: 1500, y: 1610, scale: 1.0 },
+  { type: 'tree', x: 1700, y: 1590, scale: 0.9 }, { type: 'shrub', x: 800, y: 1570, scale: 1.0 },
+  { type: 'shrub', x: 1600, y: 1560, scale: 0.85 },{ type: 'tree', x: 1480, y: 60,   scale: 0.9 },
+  { type: 'tree', x: 1620, y: 80,   scale: 1.0 }, { type: 'shrub', x: 1550, y: 40,   scale: 0.9 },
+  { type: 'tree', x: 80,   y: 250,  scale: 0.95 },{ type: 'tree', x: 2330, y: 250,  scale: 0.95 },
+  { type: 'shrub', x: 60,  y: 1400, scale: 1.0 }, { type: 'shrub', x: 2340, y: 1400, scale: 1.0 }
+];
+
+function addNatureDecor(scene) {
+  for (const d of NATURE_DECOR) {
+    if (d.type === 'tree') {
+      scene.add(makeTree(d.x, d.y, d.scale));
+      const r = 8 * (d.scale || 1);
+      walls.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
+    } else {
+      scene.add(makeShrub(d.x, d.y, d.scale));
+    }
+  }
 }
 
 function makeDirtTexture() {
@@ -1384,6 +1520,67 @@ function makeWindowGlow(x, y, z, rotY) {
   return glow;
 }
 
+// A table + two benches at a fixed vertical offset, with no seats registered
+// — used for the Rooftop Lounge's upstairs terrace, since the sit-down
+// interaction (findNearestSeat()) only ever checks render-space x/z, not
+// height, and isn't worth teaching about a second floor for purely
+// decorative furniture.
+function addElevatedTable(scene, tx, tz, baseY) {
+  const table = makeTable(tx, tz);
+  table.position.y += baseY;
+  scene.add(table);
+  const benchA = makeBench(tx, tz - 18, 0); benchA.position.y += baseY; scene.add(benchA);
+  const benchB = makeBench(tx, tz + 18, 0); benchB.position.y += baseY; scene.add(benchB);
+}
+
+// The Rooftop Lounge's structural staircase + upstairs terrace: a row of
+// rising steps from the ground floor up to a platform at
+// LOUNGE_PLATFORM_HEIGHT, a railing along the drop-off, and a couple of
+// glowing "view" windows along the outer wall up there. getFloorHeight()
+// mirrors this same stairStart/stairEnd math to move the player's render Y.
+function buildLoungeStructure(scene, roomW, roomD) {
+  const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
+  const stairEnd = roomW * LOUNGE_STAIR_END_FRAC;
+  const platformH = LOUNGE_PLATFORM_HEIGHT;
+
+  const stepCount = 6;
+  const stepWidth = (stairEnd - stairStart) / stepCount;
+  const stepMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2e });
+  for (let i = 0; i < stepCount; i++) {
+    const stepH = platformH * (i + 1) / stepCount;
+    const stepX = stairStart + stepWidth * (i + 0.5);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(stepWidth + 0.5, stepH, roomD * 0.86), stepMat);
+    step.position.set(stepX, stepH / 2, roomD / 2);
+    scene.add(step);
+  }
+
+  const platform = new THREE.Mesh(
+    new THREE.BoxGeometry(roomW - stairEnd, 8, roomD),
+    new THREE.MeshLambertMaterial({ color: 0x8a6b46 })
+  );
+  platform.position.set((stairEnd + roomW) / 2, platformH - 4, roomD / 2);
+  scene.add(platform);
+
+  // railing along the drop-off edge, overlooking the staircase/ground floor
+  const railing = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 30, roomD),
+    new THREE.MeshLambertMaterial({ color: 0x4a3320 })
+  );
+  railing.position.set(stairEnd, platformH + 15, roomD / 2);
+  scene.add(railing);
+  for (const fz of [roomD * 0.12, roomD * 0.5, roomD * 0.88]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 30, 6), new THREE.MeshLambertMaterial({ color: 0x3c2616 }));
+    post.position.set(stairEnd, platformH + 15, fz);
+    scene.add(post);
+  }
+
+  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.25, -Math.PI / 2));
+  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.75, -Math.PI / 2));
+  const lookoutSign = makeSignSprite('🌄 Lookout Terrace');
+  lookoutSign.position.set((stairEnd + roomW) / 2, platformH + 60, roomD * 0.5);
+  scene.add(lookoutSign);
+}
+
 // A dining set = one table + two benches + four registered seats (render-
 // space coords), used for the sit-down interaction.
 function addDiningSet(scene, seatsOut, tx, tz) {
@@ -1453,13 +1650,38 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBarrel(roomW - 24, 24));
     scene.add(makeBanner(cx, 90, 8, 0, 0x9b5fc0));
   } else if (type === 'parlor') {
-    scene.add(makeRug(cx, cz, roomW * 0.55, roomD * 0.4, 0x8a5a64));
-    scene.add(makeFireplace(cx, 14, Math.PI));
-    scene.add(makeBench(cx - 40, cz + 20, Math.PI / 2));
-    scene.add(makeBench(cx + 40, cz + 20, -Math.PI / 2));
-    scene.add(makeTable(cx, cz + 20));
+    // Two-story Rooftop Lounge: ground floor on the west side, a staircase,
+    // and an upstairs terrace overlooking it on the east side.
+    const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
+    const groundCx = stairStart / 2;
+
+    scene.add(makeRug(groundCx, roomD * 0.42, stairStart * 0.5, roomD * 0.4, 0x8a5a64));
+    scene.add(makeFireplace(groundCx, 14, Math.PI));
+    scene.add(makeBench(groundCx - 40, roomD * 0.7, Math.PI / 2));
+    scene.add(makeBench(groundCx + 40, roomD * 0.7, -Math.PI / 2));
+    scene.add(makeTable(groundCx, roomD * 0.7));
     scene.add(makeBanner(30, 90, 8, 0, 0xc0596f));
-    scene.add(makeBanner(roomW - 30, 90, 8, 0, 0xc0596f));
+    scene.add(makeBanner(stairStart - 30, 90, 8, 0, 0xc0596f));
+
+    // 4 more dining tables downstairs, arranged in a neat 2x2 grid in the
+    // rest of the ground floor.
+    const groundColX = [stairStart * 0.28, stairStart * 0.78];
+    const groundRowZ = [roomD * 0.22, roomD * 0.82];
+    for (const z of groundRowZ) {
+      for (const x of groundColX) {
+        addDiningSet(scene, seatsOut, x, z);
+      }
+    }
+
+    buildLoungeStructure(scene, roomW, roomD);
+
+    // 3 tables up on the terrace, evenly spaced, overlooking the railing
+    const stairEnd = roomW * LOUNGE_STAIR_END_FRAC;
+    const platformWidth = roomW - stairEnd;
+    const terraceXs = [stairEnd + platformWidth * 0.22, stairEnd + platformWidth * 0.52, stairEnd + platformWidth * 0.82];
+    for (const x of terraceXs) {
+      addElevatedTable(scene, x, roomD * 0.5, LOUNGE_PLATFORM_HEIGHT);
+    }
   } else { // greathall
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x6a6a3a));
     scene.add(makeThrone(cx, 30, 0));
@@ -1593,7 +1815,8 @@ function syncVisuals(dt) {
       const rp = getRenderPos(p);
       const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
       const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT : 0;
-      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset, rp.z);
+      const floorYOffset = getFloorHeight(p.room, rp.x);
+      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset + floorYOffset, rp.z);
       v.group.rotation.y = p.facing;
     }
 
@@ -1620,7 +1843,8 @@ function syncLabels() {
       continue;
     }
     const rp = getRenderPos(p);
-    const headScreen = worldToScreen(rp.x, groundY + CHAR.headY, rp.z);
+    const floorYOffset = getFloorHeight(p.room, rp.x);
+    const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
     if (!headScreen.visible) {
       v.nameEl.style.display = 'none';
       continue;
@@ -1657,16 +1881,17 @@ function updateCamera(dt) {
     back = Math.max(24, Math.min(back, maxX, maxZ));
   }
 
+  const floorYOffset = getFloorHeight(me.room, rp.x);
   const targetX = rp.x + dirX * back;
   const targetZ = rp.z + dirZ * back;
-  const targetY = groundY + cam.height;
+  const targetY = groundY + cam.height + floorYOffset;
 
   const ease = 1 - Math.exp(-dt * 6);
   activeCamera.position.x += (targetX - activeCamera.position.x) * ease;
   activeCamera.position.y += (targetY - activeCamera.position.y) * ease;
   activeCamera.position.z += (targetZ - activeCamera.position.z) * ease;
 
-  activeCamera.lookAt(rp.x, groundY + cam.lookUp, rp.z);
+  activeCamera.lookAt(rp.x, groundY + cam.lookUp + floorYOffset, rp.z);
 }
 
 // ---------------------------------------------------------------------------

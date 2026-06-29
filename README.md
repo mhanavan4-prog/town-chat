@@ -12,13 +12,20 @@ Walk back out through the door and you're back in the open-air town square.
   kiosk) while indoors.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
+- A large open town square with grass, dirt paths, and scattered trees/shrubs
+  around the edges.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
   (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
-  🛋️ Rooftop Lounge (noble's parlor), 🏛️ Town Hall (great hall, the
-  building straight ahead when you spawn). All five are free to enter for
-  now — the Stripe paywall code is still in place but disabled (see
+  🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,
+  the building straight ahead when you spawn). All five are free to enter
+  for now — the Stripe paywall code is still in place but disabled (see
   **Premium buildings & Stripe payments** below) so it can be turned back on
   later without rebuilding it.
+- 🛋️ The Rooftop Lounge is two stories: a ground-floor parlor (5 tables —
+  a cozy fireside table plus 4 more in a dining grid) with a staircase up to
+  an open-air terrace overlooking it, with 3 more tables and a railing to
+  look out from. Walking up/down the stairs is just walking normally — your
+  character's height rises and falls to match as you cross the staircase.
 - 🎒 Inventory (top-left button): write a private note to any other player
   currently in the town. Notes aren't stored anywhere — they're relayed
   straight to the recipient's inbox and never touch a database. Reading a
