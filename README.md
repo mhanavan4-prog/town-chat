@@ -77,12 +77,20 @@ Walk back out through the door and you're back in the open-air town square.
   this tab tried to embed a web browser instead; that's gone now since most
   real sites refuse to render inside another page anyway
   (`X-Frame-Options`/CSP), so it never reliably worked.
-- 🎒 Inventory (top-left button): write a private note to any other player
-  currently in the town. Notes aren't stored anywhere — they're relayed
-  straight to the recipient's inbox and never touch a database. Reading a
-  note destroys it permanently (it disappears from the recipient's inbox a
-  few seconds after being opened, and the sender gets notified it was read),
-  so a note can only ever be read once, by the one person it was sent to.
+- 🎒 Inventory (top-left button), two tabs:
+  - **Items** — what you're actually carrying: 24 slots plus a ⚔️ Weapon and
+    🛡️ Armor equip slot. Click a slot to equip whatever's eligible; click an
+    equip slot to take it off again. This is separate from the Bank's own
+    24 slots (see **In-game economy** below) — move things between the two
+    from inside the Bank modal. Works for guests too, not just logged-in
+    accounts (see that section for why the split matters).
+  - **Notes** — the original feature: write a private note to any other
+    player currently in the town. Notes aren't stored anywhere — they're
+    relayed straight to the recipient's inbox and never touch a database.
+    Reading a note destroys it permanently (it disappears from the
+    recipient's inbox a few seconds after being opened, and the sender gets
+    notified it was read), so a note can only ever be read once, by the one
+    person it was sent to.
 - Optional shared passcode to keep the town private to your friends.
 - Optional accounts — see **Accounts & logging in as the same user** below.
   Everything else is still in-memory and accounts are opt-in: join as a
@@ -91,9 +99,13 @@ Walk back out through the door and you're back in the open-air town square.
   slots, plus an auction house to buy/sell between players. Requires an
   account (see above); see **In-game economy: the Bank & Auction House**
   below.
+- 🎒 A real personal inventory — 24 carried slots plus weapon/armor equip
+  slots, separate from the bank. Works for guests too; see **Bank slots vs.
+  your personal inventory** below.
 
-Other than accounts, bank balances, and auction listings, there's no
-database — chat history and the player list reset whenever the server
+Other than accounts, bank balances, auction listings, and logged-in
+players' inventories, there's no database — chat history and the player
+list reset whenever the server
 restarts. The premium-unlock flag is likewise just a flag in that browser's
 `localStorage` once a real payment is verified — not a real account system.
 
@@ -133,12 +145,31 @@ press F:
 - **🏦 Bank Teller** — opens your bank account: a gold balance and a 24-slot
   item grid. First visit creates the account automatically (100 starting
   gold + 3 random items); every visit after that just shows its current
-  state. Click any filled slot to bring up a small form for listing that
-  item at auction.
+  state. Click any filled slot to bring up a form for listing that item at
+  auction *or* withdrawing it to your personal inventory; a separate
+  **Deposit from Inventory** box moves things the other way.
 - **🔨 Auctioneer** — opens the Auction House: every active listing from
   every player, with a bid box (and a Buyout button, if the seller set a
   buyout price) on each one, plus a **+ List an item** button to put up
   something from your own bank slots.
+
+### Bank slots vs. your personal inventory
+
+The Bank's 24 slots and your personal carried inventory (🎒 Inventory button,
+**Items** tab — see above) are two separate pools, on purpose: the bank is
+the economy feature (account-gated, what auctions draw from), while your
+inventory is what you actually carry and can equip from, available to
+guests too. The Bank modal is the only place that moves items between
+them — **Withdraw to Inventory** (bank → carried) and **Deposit from
+Inventory** (carried → bank). Auctions only ever list from bank slots, so
+something you want to sell needs to be deposited first if you withdrew or
+equipped it.
+
+Equipping works the same regardless of account vs. guest: click an eligible
+item in your **Items** tab to equip it as a weapon or armor (whatever was
+equipped before swaps back into your inventory automatically), or click the
+equip slot itself to take it off. Other players see your equipped gear on
+your character model too — it's synced, not just a local display.
 
 **This needs an account** (see **Accounts & logging in as the same user**
 above) — log in via the join screen's **Account** tab *before* entering the
@@ -169,11 +200,15 @@ How listings work:
   it.
 
 Persistence works the same way `accounts.json` does, and has the same
-caveat: `bankAccounts.json` (balances + items, keyed by username) and
-`listings.json` (active auctions) are plain gitignored JSON files on local
-disk, rewritten on every change. Fine on a normal VM/box; **on a host with
-an ephemeral filesystem (Render's free tier, etc.) neither survives a
-redeploy** — only restarts of the same running instance.
+caveat: `bankAccounts.json` (balances + items, keyed by username),
+`listings.json` (active auctions), and `inventories.json` (logged-in
+players' carried items + equipped gear, also keyed by username) are plain
+gitignored JSON files on local disk, rewritten on every change. Fine on a
+normal VM/box; **on a host with an ephemeral filesystem (Render's free
+tier, etc.) none of them survive a redeploy** — only restarts of the same
+running instance. A guest's personal inventory never touches disk at all —
+it lives only on their in-memory connection and is gone the moment they
+disconnect, same as the rest of a guest identity.
 
 ## Run it locally
 
@@ -342,8 +377,11 @@ automatically by this server already (`process.env.PORT`).
   paywall — these are the only parts of the server that know about payments;
   movement/chat are untouched by it. Also simulates the rabbits/mobs
   (server-authoritative, broadcast ~7x/sec) and owns the bank/auction
-  economy entirely — balances, item slots, and listings are never trusted
-  from the client, only ever read back from what the server already has.
+  economy *and* personal inventories/equip state entirely — balances, item
+  slots, listings, and what's equipped are never trusted from the client,
+  only ever read back from what the server already has. Equipped
+  weapon/armor rides along on the same player-state broadcast as position,
+  so other clients pick it up within one tick.
 - `public/index.html` — join screen, HUD, chat panel, unlock-banner markup/styles.
 - `public/client.js` — Three.js rendering for both the outdoor town and each
   building's interior, movement + wall collision, room detection/transitions,

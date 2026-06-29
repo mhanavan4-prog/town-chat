@@ -371,19 +371,23 @@ app.post('/api/login', (req, res) => {
 // an ephemeral filesystem (Render free tier, etc.) won't carry balances
 // across a redeploy, only across restarts of the same running instance.
 // ---------------------------------------------------------------------------
+// "slot" marks what an item can be equipped as ('weapon'/'armor'), or null
+// for things that are only ever carried/banked/traded (potions, materials,
+// curios) — both inventory_equip and the client's slot-action UI key off
+// this to decide what a given item can actually do.
 const ITEM_CATALOG = {
-  iron_sword:     { name: 'Iron Sword',     icon: '⚔️' },
-  healing_potion: { name: 'Healing Potion', icon: '🧪' },
-  magic_scroll:   { name: 'Magic Scroll',   icon: '📜' },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍' },
-  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉' },
-  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎' },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢' },
-  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️' },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆' },
-  spell_tome:     { name: 'Spell Tome',     icon: '📕' }
+  iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
+  spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'armor' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'armor' },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'armor' },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'armor' },
+  healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
+  magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
+  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
+  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
+  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 const BANK_SLOT_COUNT = 24;
@@ -450,6 +454,109 @@ function removeItemFromAccount(account, itemId, qty) {
 function bankStatePayload(key) {
   const account = ensureBankAccount(key);
   return { balance: account.balance, slots: account.slots };
+}
+
+// ---------------------------------------------------------------------------
+// Personal inventory — what a player actually carries, as opposed to what
+// sits in their bank. Separate 24-slot pool, plus two equip slots
+// (weapon/armor). Unlike the bank, this isn't account-gated: equipping
+// gear is core gameplay, not the economy feature, so guests get one too —
+// it just lives only on their in-memory player object (player.guestInventory)
+// and is gone the moment they disconnect, the same as everything else about
+// a guest identity. Logged-in players get theirs persisted to
+// inventories.json, same model/caveats as bankAccounts.json.
+// ---------------------------------------------------------------------------
+const INVENTORY_FILE = path.join(__dirname, 'inventories.json');
+function loadInventories() {
+  try { return JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveInventories() {
+  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(inventories, null, 2));
+}
+const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedArmor }
+const INVENTORY_STARTER_ITEM_COUNT = 2;
+
+function freshInventory() {
+  const slots = emptySlots();
+  for (let i = 0; i < INVENTORY_STARTER_ITEM_COUNT; i++) {
+    slots[i] = { itemId: ITEM_IDS[Math.floor(Math.random() * ITEM_IDS.length)], qty: 1 };
+  }
+  return { slots, equippedWeapon: null, equippedArmor: null };
+}
+
+// The live inventory object for this connection — loaded/created in
+// inventories.json for a logged-in account, or created once on the
+// in-memory player object for a guest. Either way, callers just get back
+// an object with .slots/.equippedWeapon/.equippedArmor to read or mutate;
+// addItemToAccount/removeItemFromAccount/countItemQty (written for the
+// bank above) work on it unchanged since they only ever touch .slots.
+function getInventory(player) {
+  if (player.accountKey) {
+    if (!inventories[player.accountKey]) {
+      inventories[player.accountKey] = freshInventory();
+      saveInventories();
+    }
+    return inventories[player.accountKey];
+  }
+  if (!player.guestInventory) player.guestInventory = freshInventory();
+  return player.guestInventory;
+}
+
+function inventoryStatePayload(player) {
+  const inv = getInventory(player);
+  return { slots: inv.slots, equippedWeapon: inv.equippedWeapon, equippedArmor: inv.equippedArmor };
+}
+
+// Keeps the connection's broadcastable equip state (read by publicPlayer())
+// in sync with whatever's actually equipped in their inventory. Called
+// after anything that can change equip state, and once at join.
+function syncEquipToPlayer(player) {
+  const inv = getInventory(player);
+  player.equippedWeapon = inv.equippedWeapon;
+  player.equippedArmor = inv.equippedArmor;
+}
+
+// Equips one unit of whatever's in inv.slots[slotIdx] into the named equip
+// slot ('weapon'/'armor'), swapping anything already equipped there back
+// into the inventory first. Returns null on success, or an error string.
+// Mutates nothing if it fails, so the caller can always trust inv's state
+// matches what gets sent back to the client either way.
+function equipFromSlot(inv, slotIdx, equipKind) {
+  const stack = inv.slots[slotIdx];
+  if (!stack) return 'That slot is empty.';
+  const meta = ITEM_CATALOG[stack.itemId];
+  if (!meta || meta.slot !== equipKind) return `That item can't be equipped as ${equipKind}.`;
+  const itemId = stack.itemId;
+  const equippedField = equipKind === 'weapon' ? 'equippedWeapon' : 'equippedArmor';
+  const previousItemId = inv[equippedField];
+
+  if (stack.qty > 1) stack.qty -= 1;
+  else inv.slots[slotIdx] = null;
+
+  if (previousItemId) {
+    const added = addItemToAccount(inv, previousItemId, 1);
+    if (!added) {
+      // No room to swap the old one back in — restore exactly what we
+      // touched above and bail rather than leave the new item half-equipped.
+      if (inv.slots[slotIdx]) inv.slots[slotIdx].qty += 1;
+      else inv.slots[slotIdx] = { itemId, qty: 1 };
+      return `No room to unequip your current ${equipKind} first — free up a slot.`;
+    }
+  }
+
+  inv[equippedField] = itemId;
+  return null;
+}
+
+// Inverse of equipFromSlot: moves whatever's equipped back into the
+// inventory as a normal stack. Returns null on success, or an error string.
+function unequipToInventory(inv, equipKind) {
+  const equippedField = equipKind === 'weapon' ? 'equippedWeapon' : 'equippedArmor';
+  const itemId = inv[equippedField];
+  if (!itemId) return 'Nothing is equipped there.';
+  if (!addItemToAccount(inv, itemId, 1)) return 'No room in your inventory to unequip that.';
+  inv[equippedField] = null;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +685,10 @@ function sanitizeImage(raw) {
 const CHARACTER_COUNT = 5;
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room };
+  return {
+    id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room,
+    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null
+  };
 }
 
 function send(ws, data) {
@@ -814,6 +924,11 @@ wss.on('connection', (ws) => {
         room: 'outside'
       };
       players.set(id, player);
+      // Loads (or creates) their inventory immediately rather than lazily
+      // on first panel-open, so a returning account holder's equipped gear
+      // shows up on their model from the moment they spawn, not after they
+      // happen to open the inventory panel once.
+      syncEquipToPlayer(player);
 
       send(ws, {
         type: 'init',
@@ -995,6 +1110,67 @@ wss.on('connection', (ws) => {
         saveListings();
       }
       broadcastAuctionState();
+      return;
+    }
+
+    if (msg.type === 'inventory_open') {
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    if (msg.type === 'inventory_equip' || msg.type === 'inventory_unequip') {
+      const inv = getInventory(player);
+      const equipKind = msg.equipSlot === 'weapon' || msg.equipSlot === 'armor' ? msg.equipSlot : null;
+      if (!equipKind) {
+        send(ws, { type: 'bank_error', message: 'Invalid equip request.' });
+        return;
+      }
+      let err;
+      if (msg.type === 'inventory_equip') {
+        const slotIdx = Math.floor(Number(msg.slotIdx));
+        if (!Number.isInteger(slotIdx) || slotIdx < 0 || slotIdx >= inv.slots.length) {
+          send(ws, { type: 'bank_error', message: 'Invalid equip request.' });
+          return;
+        }
+        err = equipFromSlot(inv, slotIdx, equipKind);
+      } else {
+        err = unequipToInventory(inv, equipKind);
+      }
+      if (player.accountKey) saveInventories();
+      if (err) {
+        send(ws, { type: 'bank_error', message: err });
+      } else {
+        syncEquipToPlayer(player);
+      }
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    if (msg.type === 'bank_deposit' || msg.type === 'bank_withdraw') {
+      if (!player.accountKey) {
+        send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to use the bank.' });
+        return;
+      }
+      const bankAccount = ensureBankAccount(player.accountKey);
+      const inv = getInventory(player);
+      const fromPool = msg.type === 'bank_deposit' ? inv : bankAccount;
+      const toPool = msg.type === 'bank_deposit' ? bankAccount : inv;
+      const slotIdx = Math.floor(Number(msg.slotIdx));
+      const qty = Math.floor(Number(msg.qty));
+      const stack = fromPool.slots[slotIdx];
+      if (!stack || !Number.isInteger(qty) || qty < 1 || qty > stack.qty) {
+        send(ws, { type: 'bank_error', message: 'Invalid transfer.' });
+        return;
+      }
+      if (!addItemToAccount(toPool, stack.itemId, qty)) {
+        send(ws, { type: 'bank_error', message: msg.type === 'bank_deposit' ? 'Your bank is full.' : 'Your inventory is full.' });
+        return;
+      }
+      removeItemFromAccount(fromPool, stack.itemId, qty);
+      saveBankAccounts();
+      saveInventories();
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       return;
     }
   });

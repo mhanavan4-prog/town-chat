@@ -286,26 +286,26 @@
 
   #bankCard, #auctionCard { width:min(480px, 92vw); max-height:88vh; overflow-y:auto; }
   #bankBalance { color:#ffe9c2; font-weight:700; }
-  #bankSlotsGrid {
+  .itemSlotsGrid {
     display:grid; grid-template-columns:repeat(6, 1fr); gap:6px;
     margin:14px 0;
   }
-  .bankSlot {
+  .itemSlot {
     aspect-ratio:1; border-radius:8px; border:1px solid rgba(230,190,120,0.25);
     background:rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center;
     cursor:pointer; position:relative; font-size:20px; color:#ffe9c2;
   }
-  .bankSlot.empty { opacity:0.3; cursor:default; }
-  .bankSlot.selected { border-color:#9ee37d; box-shadow:0 0 0 2px rgba(158,227,125,0.4); }
-  .bankSlot .slotQty {
+  .itemSlot.empty { opacity:0.3; cursor:default; }
+  .itemSlot.selected { border-color:#9ee37d; box-shadow:0 0 0 2px rgba(158,227,125,0.4); }
+  .itemSlot .slotQty {
     position:absolute; bottom:1px; right:3px; font-size:10px; color:#cfe9cf; font-weight:700;
     text-shadow:0 1px 2px #000;
   }
-  #bankListForm, #auctionCreateForm { text-align:left; margin-top:6px; }
-  #bankListForm label, #auctionCreateForm label {
+  #bankListForm, #auctionCreateForm, #invActionPanel, #bankDepositPanel { text-align:left; margin-top:6px; }
+  #bankListForm label, #auctionCreateForm label, #invActionPanel label, #bankDepositPanel label {
     display:block; font-size:11.5px; color:#cfe9cf; margin-bottom:4px;
   }
-  #bankModalCloseBtn, #auctionModalCloseBtn, #auctionCreateToggleBtn {
+  #bankModalCloseBtn, #auctionModalCloseBtn, #auctionCreateToggleBtn, #bankWithdrawBtn, .invActionSecondary {
     background:rgba(255,255,255,0.08); color:#eafff0;
   }
   #auctionListings { max-height:280px; overflow-y:auto; margin:14px 0; text-align:left; }
@@ -331,7 +331,7 @@
   #inventoryBtn.hidden { display:none !important; }
   #inventoryPanel {
     position:fixed; top:112px; left:16px; z-index:6;
-    width:300px; max-width:80vw;
+    width:340px; max-width:84vw; max-height:78vh; overflow-y:auto;
     background:linear-gradient(160deg, rgba(28,20,14,0.95), rgba(16,12,8,0.97));
     border:2px solid rgba(230,190,120,0.4);
     border-radius:14px; padding:14px;
@@ -349,6 +349,21 @@
   }
   #inventoryPanel .btn { font-size:12.5px; padding:9px; }
   #inboxList { margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
+  #invTabs { pointer-events:auto; display:flex; gap:6px; margin-bottom:12px; }
+  #invTabs button {
+    flex:1; padding:7px; border-radius:8px; border:1px solid rgba(230,190,120,0.3);
+    background:rgba(0,0,0,0.25); color:#cfe9cf; font-size:12px; font-weight:700; cursor:pointer;
+  }
+  #invTabs button.active { background:linear-gradient(90deg,#ffd27a,#ff9d5c); color:#2a1605; }
+  #equipSlotsRow { display:flex; gap:10px; margin-bottom:12px; }
+  .equipSlotWrap { flex:1; text-align:center; }
+  .equipSlotWrap .itemSlot { width:100%; font-size:26px; margin-bottom:4px; }
+  .equipSlotLabel { font-size:11px; color:#9bc49a; }
+  #invSlotsGrid.itemSlotsGrid { margin-top:0; }
+  #invActionPanel .passTitle { margin-bottom:8px; }
+  #invActionButtons { display:flex; flex-direction:column; gap:6px; }
+  #invActionButtons .btn { margin-top:0; }
+  #invEquippableNote { font-size:11.5px; color:#9bc49a; }
   .noteItem {
     background:rgba(0,0,0,0.3); border:1px solid rgba(230,190,120,0.25);
     border-radius:8px; padding:8px 10px; font-size:12px; color:#eafff0;
@@ -469,13 +484,13 @@
   <div class="card" id="bankCard">
     <div class="title" style="font-size:20px;">🏦 Your Bank Account</div>
     <div class="subtitle">Balance: <span id="bankBalance">0</span> 🪙 gold — 24 slots below</div>
-    <div id="bankSlotsGrid"></div>
+    <div id="bankSlotsGrid" class="itemSlotsGrid"></div>
     <div id="bankListForm" class="hidden">
       <div class="passInfo">
         <div class="passTitle" id="bankListItemLabel">Item</div>
-        <label>Quantity to list</label>
+        <label>Quantity</label>
         <input type="number" id="bankListQty" min="1" value="1">
-        <label>Starting bid (gold)</label>
+        <label>Starting bid (gold) — for listing at auction</label>
         <input type="number" id="bankListStartBid" min="1" placeholder="e.g. 10">
         <label>Buyout price (optional)</label>
         <input type="number" id="bankListBuyout" min="1" placeholder="None">
@@ -487,6 +502,14 @@
         </select>
       </div>
       <button class="btn" id="bankListSubmitBtn">List at Auction</button>
+      <button class="btn" id="bankWithdrawBtn">🎒 Withdraw to Inventory</button>
+    </div>
+    <div class="passInfo" id="bankDepositPanel">
+      <div class="passTitle">📥 Deposit from Inventory</div>
+      <select id="bankDepositItemSelect"></select>
+      <label>Quantity</label>
+      <input type="number" id="bankDepositQty" min="1" value="1">
+      <button class="btn" id="bankDepositSubmitBtn">Deposit to Bank</button>
     </div>
     <button class="btn" id="bankModalCloseBtn">Close (Esc)</button>
     <div class="err" id="bankModalErr"></div>
@@ -528,13 +551,41 @@
 
 <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
 <div id="inventoryPanel" class="hidden">
-  <h3>✉️ Write a note</h3>
-  <select id="noteRecipient"></select>
-  <textarea id="noteText" rows="3" maxlength="240" placeholder="Your message…"></textarea>
-  <button class="btn" id="noteSendBtn">Send note</button>
-  <h3 style="margin-top:14px;">📬 Inbox</h3>
-  <div id="inboxList"></div>
-  <div id="inventoryEmpty">No notes yet.</div>
+  <div id="invTabs">
+    <button id="invTabItems" class="active">🎒 Items</button>
+    <button id="invTabNotes">✉️ Notes</button>
+  </div>
+
+  <div id="invItemsView">
+    <div id="equipSlotsRow">
+      <div class="equipSlotWrap">
+        <div class="itemSlot" id="equipWeaponSlot"></div>
+        <div class="equipSlotLabel">⚔️ Weapon</div>
+      </div>
+      <div class="equipSlotWrap">
+        <div class="itemSlot" id="equipArmorSlot"></div>
+        <div class="equipSlotLabel">🛡️ Armor</div>
+      </div>
+    </div>
+    <div id="invSlotsGrid" class="itemSlotsGrid"></div>
+    <div id="invActionPanel" class="hidden">
+      <div class="passInfo">
+        <div class="passTitle" id="invActionItemLabel">Item</div>
+        <div id="invActionButtons"></div>
+      </div>
+    </div>
+    <div class="err" id="invModalErr"></div>
+  </div>
+
+  <div id="invNotesView" class="hidden">
+    <h3>✉️ Write a note</h3>
+    <select id="noteRecipient"></select>
+    <textarea id="noteText" rows="3" maxlength="240" placeholder="Your message…"></textarea>
+    <button class="btn" id="noteSendBtn">Send note</button>
+    <h3 style="margin-top:14px;">📬 Inbox</h3>
+    <div id="inboxList"></div>
+    <div id="inventoryEmpty">No notes yet.</div>
+  </div>
 </div>
 
 <div id="joystick"><div id="stick"></div></div>

@@ -46,21 +46,22 @@ const CHARACTER_PRESETS = [
 ];
 
 // Must stay in sync with ITEM_CATALOG in server.js — the server is the
-// source of truth for which itemIds are valid, this just supplies the
-// icon/name to render for whatever ids it sends down in bank/auction state.
+// source of truth for which itemIds are valid and equippable as what,
+// this just supplies the icon/name/slot to render and to decide which
+// "Equip as..." buttons to show for a given item.
 const ITEM_CATALOG = {
-  iron_sword:     { name: 'Iron Sword',     icon: '⚔️' },
-  healing_potion: { name: 'Healing Potion', icon: '🧪' },
-  magic_scroll:   { name: 'Magic Scroll',   icon: '📜' },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍' },
-  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉' },
-  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎' },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢' },
-  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️' },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆' },
-  spell_tome:     { name: 'Spell Tome',     icon: '📕' }
+  iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
+  spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'armor' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'armor' },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'armor' },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'armor' },
+  healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
+  magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
+  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
+  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
+  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null }
 };
 
 ws.addEventListener('open', () => setStatus(true));
@@ -113,6 +114,8 @@ ws.addEventListener('message', (ev) => {
       const existing = players[p.id];
       if (existing) {
         existing.targetX = p.x; existing.targetY = p.y; existing.room = p.room; existing.name = p.name; existing.color = p.color;
+        existing.equippedWeapon = p.equippedWeapon || null; existing.equippedArmor = p.equippedArmor || null;
+        applyEquipVisual(p.id, existing.equippedWeapon, existing.equippedArmor);
       } else {
         addPlayer(p);
       }
@@ -137,6 +140,7 @@ ws.addEventListener('message', (ev) => {
   if (msg.type === 'bank_error') {
     if (bankModalOpen) document.getElementById('bankModalErr').textContent = msg.message;
     else if (auctionModalOpen) document.getElementById('auctionModalErr').textContent = msg.message;
+    else if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -144,6 +148,14 @@ ws.addEventListener('message', (ev) => {
   if (msg.type === 'auction_state') {
     lastAuctionListings = msg.listings;
     renderAuctionModal();
+    return;
+  }
+
+  if (msg.type === 'inventory_state') {
+    lastInventoryState = { slots: msg.slots, equippedWeapon: msg.equippedWeapon, equippedArmor: msg.equippedArmor };
+    renderInventoryItemsPanel();
+    if (bankModalOpen) populateBankDepositSelect();
+    applyMyEquipVisual(msg.equippedWeapon, msg.equippedArmor);
     return;
   }
 
@@ -194,6 +206,7 @@ function addPlayer(p) {
     x: p.x, y: p.y, targetX: p.x, targetY: p.y,
     renderPrevX: p.x, renderPrevY: p.y,
     room: p.room,
+    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -544,25 +557,131 @@ if (muteBtn) {
 }
 
 // ---------------------------------------------------------------------------
-// Inventory — currently holds one item type: private written notes, passed
-// player-to-player. Notes are never stored server-side (see server.js), so
-// the only copy that ever exists is sitting in the recipient's inbox array
-// here until they read it — reading it removes it immediately and tells the
-// server to let the sender know it's gone. No accounts/persistence, so this
-// is all just in-memory for the current tab/session like everything else.
+// Inventory panel — two tabs. "Items" is the player's real 24-slot carried
+// inventory + weapon/armor equip slots (server-authoritative, see
+// inventory_state handling above and the Bank's deposit/withdraw, which is
+// the only way items cross over from the separate bank-account slots).
+// "Notes" is the original feature: private written notes, passed
+// player-to-player, never stored server-side (see server.js) — the only
+// copy that ever exists is sitting in the recipient's inbox array here
+// until they read it, which removes it immediately and tells the server
+// to let the sender know it's gone. No accounts/persistence, so notes stay
+// purely in-memory for the current tab/session like before.
 // ---------------------------------------------------------------------------
 const inbox = []; // { id, fromId, fromName, text, read }
 
 const inventoryBtn = document.getElementById('inventoryBtn');
 const inventoryPanel = document.getElementById('inventoryPanel');
 let inventoryOpen = false;
+let invItemsTabActive = true;
 
 function toggleInventory() {
   inventoryOpen = !inventoryOpen;
   inventoryPanel.classList.toggle('hidden', !inventoryOpen);
-  if (inventoryOpen) refreshNoteRecipients();
+  if (inventoryOpen) {
+    refreshNoteRecipients();
+    ws.send(JSON.stringify({ type: 'inventory_open' }));
+  }
 }
 if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
+
+const invTabItemsBtn = document.getElementById('invTabItems');
+const invTabNotesBtn = document.getElementById('invTabNotes');
+function showInvItemsTab() {
+  invItemsTabActive = true;
+  document.getElementById('invItemsView').classList.remove('hidden');
+  document.getElementById('invNotesView').classList.add('hidden');
+  if (invTabItemsBtn) invTabItemsBtn.classList.add('active');
+  if (invTabNotesBtn) invTabNotesBtn.classList.remove('active');
+}
+function showInvNotesTab() {
+  invItemsTabActive = false;
+  document.getElementById('invItemsView').classList.add('hidden');
+  document.getElementById('invNotesView').classList.remove('hidden');
+  if (invTabItemsBtn) invTabItemsBtn.classList.remove('active');
+  if (invTabNotesBtn) invTabNotesBtn.classList.add('active');
+}
+if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
+if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
+
+// ---------------------------------------------------------------------------
+// Items tab — equip slots + 24-slot grid. Click a slot to see what can be
+// done with it (equip as weapon/armor if eligible); click an equip slot to
+// immediately unequip. Deposit/withdraw between this and the bank's own 24
+// slots lives in the Bank modal instead (see openBankModal()/bankWithdrawBtn
+// above) since that's themed as something you do "at the bank."
+// ---------------------------------------------------------------------------
+function renderInventoryItemsPanel() {
+  if (!lastInventoryState) return;
+  renderEquipSlot('equipWeaponSlot', lastInventoryState.equippedWeapon, 'weapon');
+  renderEquipSlot('equipArmorSlot', lastInventoryState.equippedArmor, 'armor');
+
+  const grid = document.getElementById('invSlotsGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  lastInventoryState.slots.forEach((slot, idx) => {
+    const cell = document.createElement('div');
+    cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedInvSlotIdx === idx ? ' selected' : '');
+    if (slot) {
+      const item = ITEM_CATALOG[slot.itemId];
+      const icon = document.createElement('span');
+      icon.textContent = item ? item.icon : '❓';
+      const qty = document.createElement('span');
+      qty.className = 'slotQty';
+      qty.textContent = String(slot.qty);
+      cell.appendChild(icon);
+      cell.appendChild(qty);
+      cell.title = (item ? item.name : slot.itemId) + ' x' + slot.qty;
+      cell.addEventListener('click', () => selectInvSlot(idx));
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function renderEquipSlot(elId, itemId, equipKind) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = '';
+  el.classList.toggle('empty', !itemId);
+  if (!itemId) { el.title = ''; el.onclick = null; return; }
+  const item = ITEM_CATALOG[itemId];
+  el.textContent = item ? item.icon : '❓';
+  el.title = (item ? item.name : itemId) + ' — click to unequip';
+  el.onclick = () => {
+    document.getElementById('invModalErr').textContent = '';
+    ws.send(JSON.stringify({ type: 'inventory_unequip', equipSlot: equipKind }));
+  };
+}
+
+function selectInvSlot(idx) {
+  selectedInvSlotIdx = idx;
+  renderInventoryItemsPanel();
+  const slot = lastInventoryState.slots[idx];
+  const panel = document.getElementById('invActionPanel');
+  if (!slot) { panel.classList.add('hidden'); return; }
+  const item = ITEM_CATALOG[slot.itemId];
+  document.getElementById('invActionItemLabel').textContent =
+    (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+  const buttons = document.getElementById('invActionButtons');
+  buttons.innerHTML = '';
+  const meta = item;
+  if (meta && meta.slot) {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = meta.slot === 'weapon' ? '⚔️ Equip as Weapon' : '🛡️ Equip as Armor';
+    btn.addEventListener('click', () => {
+      document.getElementById('invModalErr').textContent = '';
+      ws.send(JSON.stringify({ type: 'inventory_equip', slotIdx: idx, equipSlot: meta.slot }));
+    });
+    buttons.appendChild(btn);
+  } else {
+    const note = document.createElement('div');
+    note.id = 'invEquippableNote';
+    note.textContent = "Can't be equipped — visit the Bank to deposit or auction it.";
+    buttons.appendChild(note);
+  }
+  panel.classList.remove('hidden');
+}
 
 function refreshNoteRecipients() {
   const select = document.getElementById('noteRecipient');
@@ -2750,6 +2869,72 @@ function createHumanoid(charId) {
   return { group, armL, armR, legL, legR };
 }
 
+// One generic blade for any equipped weapon and one generic chest overlay
+// for any equipped armor — not a unique model per item. With only two
+// equip slots and items otherwise differing just by name/icon, a per-item
+// 3D model isn't worth the cost here; what matters for gameplay/visual
+// feedback is just "this player has a weapon/armor equipped or doesn't."
+function makeEquippedWeaponMesh() {
+  const g = new THREE.Group();
+  const metalMat = new THREE.MeshLambertMaterial({ color: 0xcfd6dd });
+  const hiltMat = new THREE.MeshLambertMaterial({ color: 0x4a3320 });
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(1.6, 15, 0.6), metalMat);
+  blade.position.y = -9;
+  g.add(blade);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(5, 1, 1), new THREE.MeshLambertMaterial({ color: 0xb89a4a }));
+  guard.position.y = -1.5;
+  g.add(guard);
+  const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 4, 6), hiltMat);
+  hilt.position.y = 0.5;
+  g.add(hilt);
+  return g;
+}
+
+function makeEquippedArmorMesh() {
+  return new THREE.Mesh(
+    new THREE.CylinderGeometry(9.6, 11.6, CHAR.torsoH * 0.85, 8),
+    new THREE.MeshLambertMaterial({ color: 0x8a8f99 })
+  );
+}
+
+// Creates/removes the weapon/armor overlay meshes for a given visuals[]
+// entry to match whatever's actually equipped, identified by itemId or
+// null. Cheap to call repeatedly with unchanged state (e.g. every periodic
+// 'state' broadcast for every player) since it only touches the scene
+// graph on an actual equipped/unequipped transition.
+function applyEquipVisual(id, weaponItemId, armorItemId) {
+  const v = visuals[id];
+  if (!v) return;
+  if (weaponItemId && !v.weaponMesh) {
+    v.weaponMesh = makeEquippedWeaponMesh();
+    v.weaponMesh.position.set(0, -CHAR.armLen + 1, 1.2);
+    v.armR.add(v.weaponMesh);
+  } else if (!weaponItemId && v.weaponMesh) {
+    v.armR.remove(v.weaponMesh);
+    v.weaponMesh = null;
+  }
+  if (armorItemId && !v.armorMesh) {
+    v.armorMesh = makeEquippedArmorMesh();
+    v.armorMesh.position.y = CHAR.hipY + CHAR.torsoH / 2;
+    v.group.add(v.armorMesh);
+  } else if (!armorItemId && v.armorMesh) {
+    v.group.remove(v.armorMesh);
+    v.armorMesh = null;
+  }
+}
+
+// inventory_state only ever describes the local player, and arrives with
+// no id field (it's implicitly "you") — this just routes it to the same
+// place applyEquipVisual(id, ...) would for anyone else.
+function applyMyEquipVisual(weaponItemId, armorItemId) {
+  if (!myId) return;
+  if (players[myId]) {
+    players[myId].equippedWeapon = weaponItemId || null;
+    players[myId].equippedArmor = armorItemId || null;
+  }
+  applyEquipVisual(myId, weaponItemId, armorItemId);
+}
+
 function ensurePlayerVisual(p) {
   if (visuals[p.id]) return;
   const built = createHumanoid(p.charId || 0);
@@ -2761,7 +2946,11 @@ function ensurePlayerVisual(p) {
 
   // Not parented into any scene yet — syncVisuals() adds/removes it from
   // whichever scene matches the player's current room each frame.
-  visuals[p.id] = { ...built, nameEl, inScene: false, parentScene: null };
+  // weaponMesh/armorMesh start null and are created/removed lazily by
+  // applyEquipVisual() the first time this player actually has something
+  // equipped, rather than built upfront for every character.
+  visuals[p.id] = { ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null };
+  applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
 }
 
 function destroyPlayerVisual(id) {
@@ -2996,6 +3185,8 @@ if (passModalCloseBtn) passModalCloseBtn.addEventListener('click', closePassModa
 let bankModalOpen = false;
 let auctionModalOpen = false;
 let lastBankState = null; // { balance, slots }
+let lastInventoryState = null; // { slots, equippedWeapon, equippedArmor }
+let selectedInvSlotIdx = null;
 let lastAuctionListings = [];
 let selectedBankSlotIdx = null;
 
@@ -3009,6 +3200,7 @@ function openBankModal() {
   modal.classList.remove('hidden');
   bankModalOpen = true;
   ws.send(JSON.stringify({ type: 'bank_open' }));
+  ws.send(JSON.stringify({ type: 'inventory_open' })); // populates the "Deposit from Inventory" dropdown
 }
 
 function closeBankModal() {
@@ -3028,7 +3220,7 @@ function renderBankModal() {
   grid.innerHTML = '';
   lastBankState.slots.forEach((slot, idx) => {
     const cell = document.createElement('div');
-    cell.className = 'bankSlot' + (slot ? '' : ' empty') + (selectedBankSlotIdx === idx ? ' selected' : '');
+    cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedBankSlotIdx === idx ? ' selected' : '');
     if (slot) {
       const item = ITEM_CATALOG[slot.itemId];
       const icon = document.createElement('span');
@@ -3081,6 +3273,44 @@ if (bankListSubmitBtn) bankListSubmitBtn.addEventListener('click', () => {
   }
   err.textContent = '';
   ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours }));
+});
+
+const bankWithdrawBtn = document.getElementById('bankWithdrawBtn');
+if (bankWithdrawBtn) bankWithdrawBtn.addEventListener('click', () => {
+  if (selectedBankSlotIdx === null || !lastBankState) return;
+  const slot = lastBankState.slots[selectedBankSlotIdx];
+  const err = document.getElementById('bankModalErr');
+  if (!slot) { err.textContent = 'Pick an item first.'; return; }
+  const qty = parseInt(document.getElementById('bankListQty').value, 10);
+  if (!Number.isInteger(qty) || qty < 1 || qty > slot.qty) { err.textContent = 'Enter a valid quantity.'; return; }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'bank_withdraw', slotIdx: selectedBankSlotIdx, qty }));
+});
+
+function populateBankDepositSelect() {
+  const select = document.getElementById('bankDepositItemSelect');
+  if (!select || !lastInventoryState) return;
+  select.innerHTML = '';
+  lastInventoryState.slots.forEach((slot, idx) => {
+    if (!slot) return;
+    const item = ITEM_CATALOG[slot.itemId];
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+    select.appendChild(opt);
+  });
+}
+
+const bankDepositSubmitBtn = document.getElementById('bankDepositSubmitBtn');
+if (bankDepositSubmitBtn) bankDepositSubmitBtn.addEventListener('click', () => {
+  const err = document.getElementById('bankModalErr');
+  const idx = parseInt(document.getElementById('bankDepositItemSelect').value, 10);
+  if (!lastInventoryState || !Number.isInteger(idx) || !lastInventoryState.slots[idx]) { err.textContent = 'Pick an item first.'; return; }
+  const slot = lastInventoryState.slots[idx];
+  const qty = parseInt(document.getElementById('bankDepositQty').value, 10);
+  if (!Number.isInteger(qty) || qty < 1 || qty > slot.qty) { err.textContent = 'Enter a valid quantity.'; return; }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'bank_deposit', slotIdx: idx, qty }));
 });
 
 function openAuctionModal() {
