@@ -38,7 +38,11 @@ const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
 // "color" (server-assigned, separate from this) still only drives the
 // name-tag/chat-bubble color, unchanged from before this feature existed.
 const CHARACTER_PRESETS = [
-  { name: 'Adventurer', skin: 0xffd9b3, hair: 0x4a2f1f, hairStyle: 'short',    eye: 0x4a3320, shirt: 0x4caf50, pants: 0x2b2b3a },
+  // charId 0 is special: it's the only character that can open a Spellbook
+  // and cast spells (see SPELL_CATALOG / the Spellbook button below) — the
+  // hat is what reads "witch" at a glance, the green robe is unchanged from
+  // when this preset was just "Adventurer."
+  { name: 'Witch', skin: 0xffd9b3, hair: 0x1a1410, hairStyle: 'witchhat', eye: 0x4a3320, shirt: 0x4caf50, pants: 0x2b2b3a },
   { name: 'Scout',      skin: 0xe8b48a, hair: 0xf2c94c, hairStyle: 'ponytail', eye: 0x3a6ea5, shirt: 0xff7a4c, pants: 0x3a3a3a },
   { name: 'Mystic',     skin: 0xc98a5b, hair: 0x222222, hairStyle: 'long',     eye: 0x3c7a4f, shirt: 0x9b5fc0, pants: 0x1c1c2e },
   { name: 'Knight',     skin: 0xffe0c2, hair: 0xb0b0b0, hairStyle: 'buzz',     eye: 0x6f6f6f, shirt: 0x6f8fae, pants: 0x4a4a4a },
@@ -64,6 +68,39 @@ const ITEM_CATALOG = {
   golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null }
 };
 
+// Must stay in sync with SPELL_CATALOG in server.js — the server enforces
+// who can cast what and owns all the validation, this just supplies what
+// the Spellbook UI displays and which target picker (or none) to show.
+// kind 'self' spells never show a target picker; effect 'camera' is Open
+// 3rd Eye, the one spell that doesn't apply an immediate status (see
+// SPELL_STATUS_HANDLERS below for how the other 10 statuses render).
+const SPELL_CATALOG = {
+  open_third_eye:  { name: 'Open 3rd Eye',       icon: '👁️', kind: 'targeted', effect: 'camera',
+    description: "Asks to peer through a target's own eyes — with their permission — and sends what it sees back to you as a note." },
+  toads_tongue:    { name: "Toad's Tongue",      icon: '🐸', kind: 'targeted', effect: 'status',
+    description: 'Curses the target to croak mid-sentence in chat for a while.' },
+  stumble_hex:     { name: 'Stumble Hex',        icon: '🦶', kind: 'targeted', effect: 'status',
+    description: "Hexes the target's feet — halves their walking speed." },
+  featherfall:     { name: 'Featherfall Curse',  icon: '🪶', kind: 'targeted', effect: 'status',
+    description: 'Fills the target with helium dread — they bounce absurdly high when they jump.' },
+  shrinking_curse: { name: 'Shrinking Curse',    icon: '🔻', kind: 'targeted', effect: 'status',
+    description: 'Shrinks the target down to half size.' },
+  giants_folly:    { name: "Giant's Folly",      icon: '🔺', kind: 'targeted', effect: 'status',
+    description: 'Swells the target up to twice their size.' },
+  pumpkin_head:    { name: 'Pumpkin Head',       icon: '🎃', kind: 'targeted', effect: 'status',
+    description: "Replaces the target's head with a jack-o'-lantern." },
+  bat_swarm:       { name: 'Bat Swarm',          icon: '🦇', kind: 'targeted', effect: 'status',
+    description: 'Summons a circling swarm of bats around the target.' },
+  color_curse:     { name: 'Color Curse',        icon: '🌈', kind: 'targeted', effect: 'status',
+    description: "Curses the target's clothes to cycle through every color." },
+  silver_tongue:   { name: 'Silver Tongue Hex',  icon: '🗣️', kind: 'targeted', effect: 'status',
+    description: "Tangles the target's words into nonsense in chat for a while." },
+  ravens_cloak:    { name: "Raven's Cloak",      icon: '🪽', kind: 'self', effect: 'status',
+    description: 'Wraps the caster in a swirl of dark feathers.' },
+  glimpse_future:  { name: 'Glimpse the Future', icon: '🔮', kind: 'targeted', effect: 'reveal',
+    description: "Reveals a target's current location to the caster." }
+};
+
 ws.addEventListener('open', () => setStatus(true));
 ws.addEventListener('close', () => setStatus(false));
 ws.addEventListener('error', () => setStatus(false));
@@ -83,6 +120,8 @@ ws.addEventListener('message', (ev) => {
     document.getElementById('joinScreen').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('inventoryBtn').classList.remove('hidden');
+    // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
+    if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
     if (isTouchDevice()) document.getElementById('joystick').classList.add('show');
     refreshUnlockUI();
     resize();
@@ -110,12 +149,23 @@ ws.addEventListener('message', (ev) => {
 
   if (msg.type === 'state') {
     for (const p of msg.players) {
-      if (p.id === myId) continue; // trust local prediction for ourselves
+      if (p.id === myId) {
+        // Trust local prediction for our own position/room, but status
+        // effects are cast by *other* players — there's no local
+        // prediction for those, so they still need to flow in for us too.
+        if (me) {
+          me.activeStatus = p.activeStatus || null;
+          applyStatusVisual(myId, me.activeStatus);
+        }
+        continue;
+      }
       const existing = players[p.id];
       if (existing) {
         existing.targetX = p.x; existing.targetY = p.y; existing.room = p.room; existing.name = p.name; existing.color = p.color;
         existing.equippedWeapon = p.equippedWeapon || null; existing.equippedArmor = p.equippedArmor || null;
         applyEquipVisual(p.id, existing.equippedWeapon, existing.equippedArmor);
+        existing.activeStatus = p.activeStatus || null;
+        applyStatusVisual(p.id, existing.activeStatus);
       } else {
         addPlayer(p);
       }
@@ -156,6 +206,24 @@ ws.addEventListener('message', (ev) => {
     renderInventoryItemsPanel();
     if (bankModalOpen) populateBankDepositSelect();
     applyMyEquipVisual(msg.equippedWeapon, msg.equippedArmor);
+    return;
+  }
+
+  if (msg.type === 'spell_result') {
+    if (spellbookOpen) document.getElementById('spellbookErr').textContent = '';
+    setUnlockToast(msg.message);
+    if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
+    return;
+  }
+
+  if (msg.type === 'spell_error') {
+    if (spellbookOpen) document.getElementById('spellbookErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'spell_consent_request') {
+    openSpellConsentPrompt(msg.requestId, msg.casterName, msg.spellName);
     return;
   }
 
@@ -207,6 +275,7 @@ function addPlayer(p) {
     renderPrevX: p.x, renderPrevY: p.y,
     room: p.room,
     equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
+    activeStatus: p.activeStatus || null,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -718,17 +787,24 @@ if (noteSendBtn) {
   });
 }
 
-function readNote(noteId) {
+// Opening a note just reveals its contents — it no longer starts a
+// destruct timer on its own. The note sticks around (and the sender isn't
+// told anything yet) until the recipient explicitly clicks the burn icon
+// rendered below, which is destroyNote()'s job.
+function openNote(noteId) {
   const note = inbox.find(n => n.id === noteId);
   if (!note || note.read) return;
   note.read = true;
-  ws.send(JSON.stringify({ type: 'read_note', id: note.id, fromId: note.fromId }));
   renderInventory();
-  setTimeout(() => {
-    const idx = inbox.findIndex(n => n.id === noteId);
-    if (idx !== -1) inbox.splice(idx, 1);
-    renderInventory();
-  }, 4000);
+}
+
+function destroyNote(noteId) {
+  const note = inbox.find(n => n.id === noteId);
+  if (!note) return;
+  ws.send(JSON.stringify({ type: 'destroy_note', id: note.id, fromId: note.fromId }));
+  const idx = inbox.findIndex(n => n.id === noteId);
+  if (idx !== -1) inbox.splice(idx, 1);
+  renderInventory();
 }
 
 function renderInventory() {
@@ -748,18 +824,27 @@ function renderInventory() {
     from.textContent = 'From ' + note.fromName;
     div.appendChild(from);
     if (note.read) {
-      const body = document.createElement('div');
-      body.textContent = note.text;
-      div.appendChild(body);
-      const burning = document.createElement('div');
-      burning.className = 'noteBurning';
-      burning.textContent = '🔥 Self-destructing…';
-      div.appendChild(burning);
+      if (note.text) {
+        const body = document.createElement('div');
+        body.textContent = note.text;
+        div.appendChild(body);
+      }
+      if (note.image) {
+        const img = document.createElement('img');
+        img.className = 'noteImage';
+        img.src = note.image;
+        div.appendChild(img);
+      }
+      const destroyBtn = document.createElement('button');
+      destroyBtn.className = 'noteDestroyBtn';
+      destroyBtn.textContent = '🔥 Destroy this note';
+      destroyBtn.addEventListener('click', () => destroyNote(note.id));
+      div.appendChild(destroyBtn);
     } else {
       const btn = document.createElement('button');
       btn.className = 'noteReadBtn';
-      btn.textContent = '📖 Read (self-destructs)';
-      btn.addEventListener('click', () => readNote(note.id));
+      btn.textContent = '📖 Read';
+      btn.addEventListener('click', () => openNote(note.id));
       div.appendChild(btn);
     }
     list.appendChild(div);
@@ -882,13 +967,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -1045,10 +1130,42 @@ if (chatImageFile) {
 }
 if (chatImageRemoveBtn) chatImageRemoveBtn.addEventListener('click', clearPendingImage);
 
+// Toad's Tongue / Silver Tongue Hex are baked into the outgoing text right
+// here at send time, rather than mangled for display later — that way a
+// message already sent stays however it was cursed, even after the curse
+// itself expires. Nothing in chat history silently "un-curses" itself.
+function mangleToad(text) {
+  const words = text.split(' ');
+  const out = [];
+  for (const w of words) {
+    out.push(w);
+    if (Math.random() < 0.35) out.push('*croak*');
+  }
+  return out.join(' ');
+}
+
+function mangleGibberish(text) {
+  return text.split(' ').map(word => {
+    if (word.length <= 3) return word;
+    const letters = word.split('');
+    const middle = letters.slice(1, -1);
+    for (let i = middle.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [middle[i], middle[j]] = [middle[j], middle[i]];
+    }
+    return letters[0] + middle.join('') + letters[letters.length - 1];
+  }).join(' ');
+}
+
 function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text && !pendingImage) return;
-  const payload = { type: 'chat', text };
+  let outText = text;
+  if (text && me && me.activeStatus) {
+    if (me.activeStatus.type === 'toad') outText = mangleToad(text);
+    else if (me.activeStatus.type === 'gibberish') outText = mangleGibberish(text);
+  }
+  const payload = { type: 'chat', text: outText };
   if (pendingImage) payload.image = pendingImage;
   ws.send(JSON.stringify(payload));
   chatInput.value = '';
@@ -2825,6 +2942,17 @@ function addHair(group, headY, headR, style, color) {
     ridge.position.y = headY + headR * 0.9;
     group.add(ridge);
   }
+  if (style === 'witchhat') {
+    const brim = new THREE.Mesh(
+      new THREE.CylinderGeometry(headR * 1.6, headR * 1.6, headR * 0.18, 16),
+      mat
+    );
+    brim.position.y = headY + headR * 0.5;
+    group.add(brim);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(headR * 0.8, headR * 2.4, 10), mat);
+    cone.position.y = headY + headR * 0.5 + headR * 1.2;
+    group.add(cone);
+  }
 }
 
 function createHumanoid(charId) {
@@ -2866,7 +2994,7 @@ function createHumanoid(charId) {
   const legL = makeLimb(false, -1), legR = makeLimb(false, 1);
   group.add(armL, armR, legL, legR);
 
-  return { group, armL, armR, legL, legR };
+  return { group, armL, armR, legL, legR, torso, head, baseShirtColor: preset.shirt };
 }
 
 // One generic blade for any equipped weapon and one generic chest overlay
@@ -2935,6 +3063,136 @@ function applyMyEquipVisual(weaponItemId, armorItemId) {
   applyEquipVisual(myId, weaponItemId, armorItemId);
 }
 
+// ---------------------------------------------------------------------------
+// Spell status visuals — six of the ten curse/blessing statuses change how
+// a player looks (shrink/giant/pumpkin/bats/colorcycle/ravencloak); the
+// other four (toad/gibberish/stumble/feather) are pure gameplay/text
+// effects handled elsewhere (chat send, movement/jump) and have no mesh
+// here at all. Only one status — and so only one visual — can be active
+// on a given player at a time, matching the server's single activeStatus
+// slot.
+// ---------------------------------------------------------------------------
+function makePumpkinHeadMesh() {
+  const g = new THREE.Group();
+  const pumpkin = new THREE.Mesh(
+    new THREE.SphereGeometry(CHAR.headR * 1.15, 12, 10),
+    new THREE.MeshLambertMaterial({ color: 0xe87b1e })
+  );
+  pumpkin.scale.set(1, 0.85, 1);
+  g.add(pumpkin);
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.8, 4, 6),
+    new THREE.MeshLambertMaterial({ color: 0x4a7a2e })
+  );
+  stem.position.y = CHAR.headR * 0.9;
+  g.add(stem);
+  const faceMat = new THREE.MeshBasicMaterial({ color: 0x2a1505 });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.2, 4), faceMat);
+    eye.rotation.x = Math.PI;
+    eye.position.set(side * CHAR.headR * 0.38, CHAR.headR * 0.12, CHAR.headR * 0.95);
+    g.add(eye);
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(CHAR.headR * 0.7, CHAR.headR * 0.18, 1.5), faceMat);
+  mouth.position.set(0, -CHAR.headR * 0.35, CHAR.headR * 0.95);
+  g.add(mouth);
+  return g;
+}
+
+function makeBatSwarm() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x16131a });
+  const count = 5;
+  for (let i = 0; i < count; i++) {
+    const bat = new THREE.Mesh(new THREE.ConeGeometry(2.2, 1.4, 4), mat);
+    const angle = (i / count) * Math.PI * 2;
+    bat.position.set(Math.cos(angle) * 16, CHAR.headY + 8, Math.sin(angle) * 16);
+    bat.userData.offset = Math.random() * Math.PI * 2;
+    g.add(bat);
+  }
+  return g;
+}
+
+function makeRavenCloak() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x1a1018, side: THREE.DoubleSide });
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(14, 1, 9), mat);
+    wing.position.set(side * 9, CHAR.shoulderY - 4, -6);
+    wing.rotation.z = side * 0.3;
+    wing.rotation.y = side * 0.4;
+    g.add(wing);
+  }
+  return g;
+}
+
+// Reverts whatever visual the previous status applied, back to a plain
+// unmodified character. Always safe to call even if nothing was active.
+function clearStatusVisual(v) {
+  if (!v) return;
+  v.group.scale.setScalar(1);
+  if (v.pumpkinMesh) {
+    v.group.remove(v.pumpkinMesh);
+    v.pumpkinMesh = null;
+    if (v.head) v.head.visible = true;
+  }
+  if (v.batsGroup) { v.group.remove(v.batsGroup); v.batsGroup = null; }
+  if (v.cloakMesh) { v.group.remove(v.cloakMesh); v.cloakMesh = null; }
+  if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
+  v.statusType = null;
+}
+
+// Called both on first creating a player's visual and whenever their
+// activeStatus changes (including becoming null on expiry). Cheap to call
+// with an unchanged status — it bails immediately rather than tearing
+// down and rebuilding meshes every broadcast tick.
+function applyStatusVisual(id, status) {
+  const v = visuals[id];
+  if (!v) return;
+  const newType = status ? status.type : null;
+  if (v.statusType === newType) return;
+  clearStatusVisual(v);
+  v.statusType = newType;
+  if (newType === 'shrink') {
+    v.group.scale.setScalar(0.5);
+  } else if (newType === 'giant') {
+    v.group.scale.setScalar(2);
+  } else if (newType === 'pumpkin') {
+    if (v.head) v.head.visible = false;
+    v.pumpkinMesh = makePumpkinHeadMesh();
+    v.pumpkinMesh.position.y = CHAR.headY;
+    v.group.add(v.pumpkinMesh);
+  } else if (newType === 'bats') {
+    v.batsGroup = makeBatSwarm();
+    v.group.add(v.batsGroup);
+  } else if (newType === 'ravencloak') {
+    v.cloakMesh = makeRavenCloak();
+    v.group.add(v.cloakMesh);
+  }
+  // 'colorcycle' needs no setup here — updateStatusVisuals(dt) drives its
+  // hue directly off v.statusType every frame instead. 'toad'/'gibberish'/
+  // 'stumble'/'feather' have no 3D visual at all.
+}
+
+// Per-frame animation for the statuses whose visual isn't a static
+// add/remove — orbiting bats, a cycling shirt color, a fluttering cloak.
+function updateStatusVisuals(dt) {
+  const now = performance.now();
+  for (const id in visuals) {
+    const v = visuals[id];
+    if (v.statusType === 'bats' && v.batsGroup) {
+      v.batsGroup.rotation.y += dt * 2.2;
+      for (const bat of v.batsGroup.children) {
+        bat.position.y = CHAR.headY + 8 + Math.sin(now * 0.004 + bat.userData.offset) * 4;
+      }
+    } else if (v.statusType === 'colorcycle' && v.torso) {
+      v.torso.material.color.setHSL((now * 0.0006) % 1, 0.7, 0.55);
+    } else if (v.statusType === 'ravencloak' && v.cloakMesh) {
+      v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
+    }
+  }
+}
+
 function ensurePlayerVisual(p) {
   if (visuals[p.id]) return;
   const built = createHumanoid(p.charId || 0);
@@ -2949,8 +3207,12 @@ function ensurePlayerVisual(p) {
   // weaponMesh/armorMesh start null and are created/removed lazily by
   // applyEquipVisual() the first time this player actually has something
   // equipped, rather than built upfront for every character.
-  visuals[p.id] = { ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null };
+  visuals[p.id] = {
+    ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null,
+    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null
+  };
   applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
+  applyStatusVisual(p.id, p.activeStatus);
 }
 
 function destroyPlayerVisual(id) {
@@ -3019,7 +3281,8 @@ function syncVisuals(dt) {
     if (shouldShow) {
       const rp = getRenderPos(p);
       const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
-      const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT : 0;
+      const featherMult = (id === myId && me.activeStatus && me.activeStatus.type === 'feather') ? 2.4 : 1;
+      const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
       const floorYOffset = getFloorHeight(p.room, rp.x);
       v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset + floorYOffset, rp.z);
       v.group.rotation.y = p.facing;
@@ -3463,6 +3726,221 @@ function renderAuctionModal() {
 // a re-render via auction_state).
 setInterval(() => { if (auctionModalOpen) renderAuctionModal(); }, 60000);
 
+// ---------------------------------------------------------------------------
+// Spellbook UI — Witch-only (spellbookBtn is only ever unhidden for charId
+// 0, see the 'init' handler above). Renders entirely from the local
+// SPELL_CATALOG mirror, no server round-trip just to list spells — the
+// catalog isn't per-player/dynamic. Casting is the only thing that talks
+// to the server, which owns all real validation/cooldown/effects; this is
+// just the menu and the request.
+// ---------------------------------------------------------------------------
+let spellbookOpen = false;
+let selectedSpellId = null;
+
+function openSpellbook() {
+  const modal = document.getElementById('spellbookModal');
+  if (!modal) return;
+  document.getElementById('spellbookErr').textContent = '';
+  selectedSpellId = null;
+  document.getElementById('spellTargetPanel').classList.add('hidden');
+  renderSpellList();
+  modal.classList.remove('hidden');
+  spellbookOpen = true;
+}
+
+function closeSpellbook() {
+  const modal = document.getElementById('spellbookModal');
+  if (modal) modal.classList.add('hidden');
+  spellbookOpen = false;
+}
+
+const spellbookBtn = document.getElementById('spellbookBtn');
+if (spellbookBtn) spellbookBtn.addEventListener('click', () => { if (spellbookOpen) closeSpellbook(); else openSpellbook(); });
+const spellbookCloseBtn = document.getElementById('spellbookCloseBtn');
+if (spellbookCloseBtn) spellbookCloseBtn.addEventListener('click', closeSpellbook);
+
+function renderSpellList() {
+  const list = document.getElementById('spellList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const id in SPELL_CATALOG) {
+    const spell = SPELL_CATALOG[id];
+    const row = document.createElement('div');
+    row.className = 'spellRow' + (selectedSpellId === id ? ' selected' : '');
+    const name = document.createElement('div');
+    name.className = 'spellName';
+    name.textContent = spell.icon + ' ' + spell.name;
+    const desc = document.createElement('div');
+    desc.className = 'spellDesc';
+    desc.textContent = spell.description;
+    row.appendChild(name);
+    row.appendChild(desc);
+    row.addEventListener('click', () => selectSpell(id));
+    list.appendChild(row);
+  }
+}
+
+function selectSpell(id) {
+  selectedSpellId = id;
+  renderSpellList();
+  const spell = SPELL_CATALOG[id];
+  document.getElementById('spellbookErr').textContent = '';
+  const select = document.getElementById('spellTargetSelect');
+  const label = document.getElementById('spellTargetLabel');
+  if (spell.kind === 'targeted') {
+    select.classList.remove('hidden');
+    label.classList.remove('hidden');
+    refreshSpellTargets();
+  } else {
+    select.classList.add('hidden');
+    label.classList.add('hidden');
+  }
+  document.getElementById('spellTargetPanel').classList.remove('hidden');
+}
+
+function refreshSpellTargets() {
+  const select = document.getElementById('spellTargetSelect');
+  if (!select) return;
+  const prev = select.value;
+  select.innerHTML = '';
+  const others = Object.values(players).filter(p => p.id !== myId);
+  if (others.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No one else is here';
+    select.appendChild(opt);
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const p of others) {
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  if (others.some(p => p.id === prev)) select.value = prev;
+}
+
+const spellCastBtn = document.getElementById('spellCastBtn');
+if (spellCastBtn) spellCastBtn.addEventListener('click', () => {
+  if (!selectedSpellId) return;
+  const spell = SPELL_CATALOG[selectedSpellId];
+  const err = document.getElementById('spellbookErr');
+  const payload = { type: 'cast_spell', spellId: selectedSpellId };
+  if (spell.kind === 'targeted') {
+    const targetId = document.getElementById('spellTargetSelect').value;
+    if (!targetId) { err.textContent = 'Pick a target first.'; return; }
+    payload.targetId = targetId;
+  }
+  err.textContent = '';
+  ws.send(JSON.stringify(payload));
+});
+
+// A brief highlight on the target's existing name tag — Glimpse the
+// Future's whole effect, since every player's position is already shared
+// with everyone continuously (see the periodic 'state' broadcast); there's
+// no new data to reveal, just a moment of "look, there" for the caster.
+function showGlimpseBeacon(targetId) {
+  const v = visuals[targetId];
+  if (!v || !v.nameEl) return;
+  v.nameEl.classList.add('glimpseHighlight');
+  setTimeout(() => { if (v.nameEl) v.nameEl.classList.remove('glimpseHighlight'); }, 10000);
+}
+
+// ---------------------------------------------------------------------------
+// Open 3rd Eye consent prompt + camera capture. This is the one spell that
+// never fires automatically: whoever cast it only ever sees a result after
+// THIS prompt has shown up on the target's own screen, naming the caster
+// and saying exactly what allowing it does, and the target has clicked
+// Allow themselves. Deny — or just leaving the prompt up — sends nothing
+// and touches no camera at all.
+// ---------------------------------------------------------------------------
+let spellConsentOpen = false;
+let activeSpellConsent = null; // { requestId }
+
+function openSpellConsentPrompt(requestId, casterName, spellName) {
+  activeSpellConsent = { requestId };
+  spellConsentOpen = true;
+  document.getElementById('spellConsentText').textContent =
+    `${casterName} wants to cast ${spellName} on you — if you allow it, your camera will take one photo and send it to ${casterName}. Allow it?`;
+  document.getElementById('spellConsentStatus').textContent = '';
+  document.getElementById('spellConsentAllowBtn').disabled = false;
+  document.getElementById('spellConsentDenyBtn').disabled = false;
+  document.getElementById('spellConsentModal').classList.remove('hidden');
+}
+
+function closeSpellConsentPrompt() {
+  document.getElementById('spellConsentModal').classList.add('hidden');
+  spellConsentOpen = false;
+  activeSpellConsent = null;
+}
+
+function denySpellConsent() {
+  if (!activeSpellConsent) return;
+  ws.send(JSON.stringify({ type: 'spell_consent_response', requestId: activeSpellConsent.requestId, allow: false }));
+  closeSpellConsentPrompt();
+}
+
+const spellConsentDenyBtn = document.getElementById('spellConsentDenyBtn');
+if (spellConsentDenyBtn) spellConsentDenyBtn.addEventListener('click', denySpellConsent);
+
+const spellConsentAllowBtn = document.getElementById('spellConsentAllowBtn');
+if (spellConsentAllowBtn) spellConsentAllowBtn.addEventListener('click', async () => {
+  if (!activeSpellConsent) return;
+  const requestId = activeSpellConsent.requestId;
+  const statusEl = document.getElementById('spellConsentStatus');
+  spellConsentAllowBtn.disabled = true;
+  spellConsentDenyBtn.disabled = true;
+  statusEl.textContent = 'Opening camera…';
+  let image = null;
+  try {
+    image = await captureSelfiePhoto();
+    statusEl.textContent = 'Sent.';
+  } catch (e) {
+    statusEl.textContent = 'Could not access the camera — letting them know it fizzled.';
+  }
+  ws.send(JSON.stringify({ type: 'spell_photo', requestId, image }));
+  setTimeout(closeSpellConsentPrompt, image ? 700 : 1600);
+});
+
+// Opens the camera only after the Allow click above, grabs exactly one
+// frame, then immediately stops the stream — nothing keeps recording or
+// stays connected to the camera once the snapshot is taken.
+function captureSelfiePhoto() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      reject(new Error('Camera not available'));
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      .then(stream => {
+        const video = document.getElementById('spellCaptureVideo');
+        video.srcObject = stream;
+        const stop = () => { stream.getTracks().forEach(t => t.stop()); video.srcObject = null; };
+        video.onloadedmetadata = () => {
+          video.play();
+          // A short delay so the first (often dark/unfocused) frame isn't
+          // what gets captured.
+          setTimeout(() => {
+            try {
+              const w = video.videoWidth || MAX_IMAGE_DIM, h = video.videoHeight || MAX_IMAGE_DIM;
+              const size = Math.min(w, h, MAX_IMAGE_DIM);
+              const canvas = document.createElement('canvas');
+              canvas.width = size; canvas.height = size;
+              canvas.getContext('2d').drawImage(video, (w - Math.min(w, h)) / 2, (h - Math.min(w, h)) / 2, Math.min(w, h), Math.min(w, h), 0, 0, size, size);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+              stop();
+              resolve(dataUrl);
+            } catch (err) {
+              stop();
+              reject(err);
+            }
+          }, 250);
+        };
+      })
+      .catch(reject);
+  });
+}
+
 const roomPassBuyBtn = document.getElementById('roomPassBuyBtn');
 if (roomPassBuyBtn) {
   roomPassBuyBtn.addEventListener('click', () => {
@@ -3718,7 +4196,7 @@ function tryInteract() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to stand';
@@ -3766,6 +4244,14 @@ window.addEventListener('keydown', (e) => {
   }
   if (auctionModalOpen) {
     if (e.key === 'Escape' && !e.repeat) closeAuctionModal();
+    return;
+  }
+  if (spellbookOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeSpellbook();
+    return;
+  }
+  if (spellConsentOpen) {
+    if (e.key === 'Escape' && !e.repeat) denySpellConsent(); // treat backing out the same as an explicit Deny
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
@@ -3916,7 +4402,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !spellbookOpen && !spellConsentOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
@@ -3942,8 +4428,11 @@ function update(dt) {
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
   const rx = Math.cos(me.facing), ry = -Math.sin(me.facing); // perpendicular "right" vector
   // Indoors is cramped and decorated with furniture underfoot, so movement
-  // is throttled slightly compared to the open town square.
-  const speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
+  // is throttled slightly compared to the open town square. Stumble Hex is
+  // self-enforced client-side like everything else movement-related in
+  // this game — there's no server-side anti-cheat anywhere to back it up.
+  let speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
+  if (me.activeStatus && me.activeStatus.type === 'stumble') speed *= 0.5;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
 
@@ -3976,6 +4465,7 @@ function update(dt) {
   }
 
   syncVisuals(dt);
+  updateStatusVisuals(dt);
   updateCamera(dt);
   updateInteractHint();
 

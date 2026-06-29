@@ -25,6 +25,9 @@ Walk back out through the door and you're back in the open-air town square.
   choice is remembered in that browser for next time, but it's just a
   cosmetic, per-session pick — not tied to your account/login the way your
   name and color are.
+- 🧙 One of those 5 — the **Witch** (witch hat, green robe) — also gets a
+  Spellbook of 12 starting spells, castable on yourself or another player
+  in town. See **The Witch's Spellbook** below.
 - 📷 Pictures in chat: the camera-icon button next to the chat box lets you
   attach an image (resized/compressed in your browser before sending) to a
   message. Relayed by the server exactly like a text message, scoped to
@@ -42,10 +45,10 @@ Walk back out through the door and you're back in the open-air town square.
   the day; a full moon (with its own dim, cool-toned moonlight — enough to
   still see by, just bluer and darker than daytime) arcs opposite it at
   night. There's a small ☀️/🌕 indicator in the top HUD. This is computed
-  from each browser's own clock (like the self-destructing notes feature),
-  not tracked by the server — every connected client lands on the same
-  phase just by agreeing what time it is, with no network traffic and no
-  state that resets if the server restarts.
+  from each browser's own clock, not tracked by the server — every
+  connected client lands on the same phase just by agreeing what time it
+  is, with no network traffic and no state that resets if the server
+  restarts.
 - 👹 Hostile-looking mobs spawn outside (not inside) the buildings once
   night falls and wander the area obliviously until dawn, when they
   disappear again. They do **not** flee from you (unlike the rabbits) and
@@ -87,10 +90,11 @@ Walk back out through the door and you're back in the open-air town square.
   - **Notes** — the original feature: write a private note to any other
     player currently in the town. Notes aren't stored anywhere — they're
     relayed straight to the recipient's inbox and never touch a database.
-    Reading a note destroys it permanently (it disappears from the
-    recipient's inbox a few seconds after being opened, and the sender gets
-    notified it was read), so a note can only ever be read once, by the one
-    person it was sent to.
+    Opening a note just reveals it; it sticks around after that until the
+    recipient clicks the 🔥 **Destroy this note** button underneath it,
+    which deletes it from their inbox and tells the sender it's gone. So a
+    note can only ever be read by the one person it was sent to, but
+    they're the one who decides when it actually disappears, not a timer.
 - Optional shared passcode to keep the town private to your friends.
 - Optional accounts — see **Accounts & logging in as the same user** below.
   Everything else is still in-memory and accounts are opt-in: join as a
@@ -209,6 +213,61 @@ tier, etc.) none of them survive a redeploy** — only restarts of the same
 running instance. A guest's personal inventory never touches disk at all —
 it lives only on their in-memory connection and is gone the moment they
 disconnect, same as the rest of a guest identity.
+
+## The Witch's Spellbook
+
+Pick the **Witch** on the join screen (witch hat, green robe — character
+slot 0) and you get a 📖 **Spellbook** button next to 🎒 Inventory, with 12
+starting spells. Other characters never see this button at all — casting is
+validated server-side too, so it's not just a hidden client button standing
+between anyone and a spell. Open the book, click a spell to see what it
+does, pick a target if it needs one, and Cast. There's an 8-second cooldown
+between casts of anything.
+
+Most spells are a timed curse/blessing stamped onto a player (yourself for
+**Raven's Cloak**, someone else for the rest) — only one can be active on a
+given player at a time, so casting a new one on someone simply replaces
+whatever they had:
+
+- 🐸 **Toad's Tongue** — the target starts croaking mid-sentence in chat.
+- 🦶 **Stumble Hex** — halves the target's walking speed.
+- 🪶 **Featherfall Curse** — the target bounces absurdly high off a jump.
+- 🔻 **Shrinking Curse** / 🔺 **Giant's Folly** — shrinks or grows the target.
+- 🎃 **Pumpkin Head** — swaps the target's head for a jack-o'-lantern.
+- 🦇 **Bat Swarm** — circles the target with bats.
+- 🌈 **Color Curse** — cycles the target's shirt through every color.
+- 🗣️ **Silver Tongue Hex** — tangles the target's chat into nonsense.
+- 🪽 **Raven's Cloak** — wraps the *caster* in dark feathers (self-cast,
+  no target needed).
+
+Movement/jump effects are self-enforced on the affected player's own
+client, same trust model as the rest of this game's movement (there's no
+anti-cheat here, full stop). Chat-mangling spells (Toad's Tongue, Silver
+Tongue Hex) rewrite the message text once, at the moment it's sent — a
+message already sent stays however it was cursed even after the curse
+itself wears off, rather than every line in the chat log un-cursing itself
+retroactively the instant the timer runs out.
+
+🔮 **Glimpse the Future** doesn't curse anyone — every player's position is
+already visible to everyone via the normal player-list sync, so this just
+puts a brief glowing highlight on the target's name tag for the caster, for
+10 seconds. No new data is revealed that wasn't already shared.
+
+👁️ **Open 3rd Eye** is the one spell that works differently on purpose. The
+obvious version of "peer through someone's eyes" is a covert camera
+trigger — cast it, their device silently takes a photo, it gets shipped off
+to you. That's not what this does, because silently activating someone
+else's camera and exfiltrating the photo without their knowledge is a
+spyware pattern no matter how playful the framing is. Instead: casting it
+sends the **target** an explicit on-screen prompt naming the caster and
+saying exactly what allowing it does ("if you allow it, your camera will
+take one photo and send it to them"). Nothing happens until the target
+clicks **Allow** — only then does their browser even ask for camera
+permission, snap one frame, and deliver it to the caster as an image note.
+Clicking **Deny** (or just not responding) sends nothing and never touches
+the camera; the caster just sees a "spell fizzled" message either way. Same
+payoff for the Witch, but the target is always the one in control of their
+own camera.
 
 ## Run it locally
 

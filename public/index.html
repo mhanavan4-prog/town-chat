@@ -239,6 +239,12 @@
     text-shadow:0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.5);
     white-space:nowrap; z-index:7;
   }
+  /* Glimpse the Future's whole effect: a brief glow on the target's
+     existing name tag, visible only to whoever cast it. */
+  .nameTag.glimpseHighlight {
+    color:#e0c8ff;
+    text-shadow:0 1px 3px rgba(0,0,0,0.8), 0 0 10px #9b5fc0, 0 0 18px #9b5fc0;
+  }
 
   #unlockBar {
     position:fixed; top:64px; left:0; right:0; z-index:6;
@@ -321,14 +327,18 @@
   }
   #auctionEmptyMsg { color:#9bc49a; font-size:12.5px; padding:10px 0; }
 
-  #inventoryBtn {
+  #leftHudButtons {
     position:fixed; top:64px; left:16px; z-index:6;
+    display:flex; gap:8px; pointer-events:none;
+  }
+  #inventoryBtn, #spellbookBtn {
     pointer-events:auto;
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
     color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
     border-radius:18px; backdrop-filter:blur(4px); cursor:pointer;
   }
-  #inventoryBtn.hidden { display:none !important; }
+  #spellbookBtn { border-color:rgba(155,95,192,0.5); }
+  #inventoryBtn.hidden, #spellbookBtn.hidden { display:none !important; }
   #inventoryPanel {
     position:fixed; top:112px; left:16px; z-index:6;
     width:340px; max-width:84vw; max-height:78vh; overflow-y:auto;
@@ -364,6 +374,33 @@
   #invActionButtons { display:flex; flex-direction:column; gap:6px; }
   #invActionButtons .btn { margin-top:0; }
   #invEquippableNote { font-size:11.5px; color:#9bc49a; }
+
+  #spellbookCard { width:min(440px, 92vw); max-height:88vh; overflow-y:auto; }
+  #spellList {
+    max-height:300px; overflow-y:auto; margin:14px 0;
+    text-align:left; display:flex; flex-direction:column; gap:6px;
+  }
+  .spellRow {
+    background:rgba(0,0,0,0.25); border:1px solid rgba(155,95,192,0.3); border-radius:8px;
+    padding:9px 10px; cursor:pointer;
+  }
+  .spellRow.selected { border-color:#c89cf0; box-shadow:0 0 0 2px rgba(155,95,192,0.4); }
+  .spellRow .spellName { font-weight:700; color:#e0c8ff; font-size:12.5px; }
+  .spellRow .spellDesc { color:#b9a8cf; font-size:11px; margin-top:2px; }
+  #spellTargetPanel { text-align:left; }
+  #spellTargetPanel.hidden { display:none !important; }
+  #spellbookCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
+  #spellCooldownNote { font-size:11px; color:#9bc49a; margin-top:6px; }
+
+  #spellConsentCard { width:min(420px, 90vw); }
+  #spellConsentCard .title { color:#ffb3b3; }
+  #spellConsentButtons { display:flex; gap:10px; margin-top:10px; }
+  #spellConsentButtons button { flex:1; margin-top:0; }
+  #spellConsentDenyBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
+  #spellConsentStatus { font-size:12px; color:#9bc49a; margin-top:10px; min-height:14px; }
+  /* Needs to actually be rendering (not display:none) for some browsers to
+     keep decoding frames into it, so it's pushed off-screen instead. */
+  #spellCaptureVideo { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
   .noteItem {
     background:rgba(0,0,0,0.3); border:1px solid rgba(230,190,120,0.25);
     border-radius:8px; padding:8px 10px; font-size:12px; color:#eafff0;
@@ -374,7 +411,15 @@
     border:none; border-radius:8px; cursor:pointer; color:#2a1605;
     background:linear-gradient(90deg,#ffd27a,#ff9d5c);
   }
-  .noteItem .noteBurning { color:#ff9b9b; font-style:italic; font-size:11.5px; margin-top:4px; }
+  .noteItem .noteDestroyBtn {
+    margin-top:6px; width:100%; padding:7px; font-size:12px; font-weight:700;
+    border:none; border-radius:8px; cursor:pointer; color:#fff0ee;
+    background:linear-gradient(90deg,#c0392b,#922b21);
+  }
+  .noteItem .noteImage {
+    display:block; width:100%; max-height:160px; object-fit:cover;
+    border-radius:6px; margin-top:6px;
+  }
   #inventoryEmpty { color:#9bc49a; font-size:11.5px; }
 
   #joystick {
@@ -547,9 +592,41 @@
   </div>
 </div>
 
+<div id="spellbookModal" class="overlay hidden">
+  <div class="card" id="spellbookCard">
+    <div class="title" style="font-size:20px;">📖 Spellbook of Evil Recipes</div>
+    <div class="subtitle">Pick a spell, choose a target if it needs one, and cast.</div>
+    <div id="spellList"></div>
+    <div id="spellTargetPanel" class="passInfo hidden">
+      <label id="spellTargetLabel">Target</label>
+      <select id="spellTargetSelect"></select>
+      <button class="btn" id="spellCastBtn">Cast</button>
+      <div id="spellCooldownNote"></div>
+    </div>
+    <button class="btn" id="spellbookCloseBtn">Close (Esc)</button>
+    <div class="err" id="spellbookErr"></div>
+  </div>
+</div>
+
+<div id="spellConsentModal" class="overlay hidden">
+  <div class="card" id="spellConsentCard">
+    <div class="title" style="font-size:20px;">👁️ A Spell Is Being Cast On You</div>
+    <div class="subtitle" id="spellConsentText"></div>
+    <div id="spellConsentButtons">
+      <button class="btn" id="spellConsentAllowBtn">Allow</button>
+      <button class="btn" id="spellConsentDenyBtn">Deny</button>
+    </div>
+    <div id="spellConsentStatus"></div>
+  </div>
+</div>
+<video id="spellCaptureVideo" autoplay playsinline></video>
+
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
 
-<button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
+<div id="leftHudButtons">
+  <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
+  <button id="spellbookBtn" class="hidden">📖 Spellbook</button>
+</div>
 <div id="inventoryPanel" class="hidden">
   <div id="invTabs">
     <button id="invTabItems" class="active">🎒 Items</button>
@@ -597,8 +674,8 @@
 
     <div id="charSelectLabel">Choose your character</div>
     <div id="charSelectRow">
-      <button class="charOption" data-char="0" title="Adventurer">
-        <span class="charHair" style="background:#4a2f1f"></span>
+      <button class="charOption" data-char="0" title="Witch — casts spells from a Spellbook">
+        <span class="charHair" style="background:#1a1410"></span>
         <span class="charHead" style="background:#ffd9b3"></span>
         <span class="charBody" style="background:#4caf50"></span>
       </button>

@@ -685,9 +685,14 @@ function sanitizeImage(raw) {
 const CHARACTER_COUNT = 5;
 
 function publicPlayer(p) {
+  // activeStatus is only ever included while still live — expired ones are
+  // cleared in the periodic tick below, so clients never have to separately
+  // track/guess expiry themselves; if it's present, it's still in effect.
+  const status = p.activeStatus && p.activeStatus.expiresAt > Date.now() ? p.activeStatus : null;
   return {
     id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room,
-    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null
+    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
+    activeStatus: status
   };
 }
 
@@ -878,6 +883,90 @@ setInterval(() => {
   });
 }, 150);
 
+// ---------------------------------------------------------------------------
+// Spells — a Witch-only (charId 0) feature, cast from the client's
+// Spellbook. Most are a timed "status effect" stamped onto a player and
+// synced via publicPlayer() above, the same way equipped gear already is;
+// the client owns all the actual visual/gameplay behavior per status type
+// (scale, movement multiplier, chat text mangling, etc.) — this server only
+// tracks who has what and until when. Only one status can be active on a
+// given player at a time; a new cast simply overwrites whatever was there.
+//
+// Open 3rd Eye is the deliberate exception: instead of an immediate
+// status, it sends the TARGET an explicit consent request and waits.
+// There is no code path here that captures or transmits a photo without
+// that target's own in-the-moment Allow — a Deny (or no response at all)
+// just lets the request expire with nothing sent anywhere.
+// ---------------------------------------------------------------------------
+const SPELL_CATALOG = {
+  open_third_eye: {
+    name: 'Open 3rd Eye', icon: '👁️', kind: 'targeted', effect: 'camera',
+    description: "Asks to peer through a target's own eyes — with their permission — and sends what it sees back to you as a note."
+  },
+  toads_tongue: {
+    name: "Toad's Tongue", icon: '🐸', kind: 'targeted', effect: 'status', statusType: 'toad', durationMs: 45000,
+    description: 'Curses the target to croak mid-sentence in chat for a while.'
+  },
+  stumble_hex: {
+    name: 'Stumble Hex', icon: '🦶', kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 20000,
+    description: "Hexes the target's feet — halves their walking speed."
+  },
+  featherfall: {
+    name: 'Featherfall Curse', icon: '🪶', kind: 'targeted', effect: 'status', statusType: 'feather', durationMs: 20000,
+    description: 'Fills the target with helium dread — they bounce absurdly high when they jump.'
+  },
+  shrinking_curse: {
+    name: 'Shrinking Curse', icon: '🔻', kind: 'targeted', effect: 'status', statusType: 'shrink', durationMs: 20000,
+    description: 'Shrinks the target down to half size.'
+  },
+  giants_folly: {
+    name: "Giant's Folly", icon: '🔺', kind: 'targeted', effect: 'status', statusType: 'giant', durationMs: 20000,
+    description: 'Swells the target up to twice their size.'
+  },
+  pumpkin_head: {
+    name: 'Pumpkin Head', icon: '🎃', kind: 'targeted', effect: 'status', statusType: 'pumpkin', durationMs: 30000,
+    description: "Replaces the target's head with a jack-o'-lantern."
+  },
+  bat_swarm: {
+    name: 'Bat Swarm', icon: '🦇', kind: 'targeted', effect: 'status', statusType: 'bats', durationMs: 15000,
+    description: 'Summons a circling swarm of bats around the target.'
+  },
+  color_curse: {
+    name: 'Color Curse', icon: '🌈', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
+    description: "Curses the target's clothes to cycle through every color."
+  },
+  silver_tongue: {
+    name: 'Silver Tongue Hex', icon: '🗣️', kind: 'targeted', effect: 'status', statusType: 'gibberish', durationMs: 30000,
+    description: "Tangles the target's words into nonsense in chat for a while."
+  },
+  ravens_cloak: {
+    name: "Raven's Cloak", icon: '🪽', kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000,
+    description: 'Wraps the caster in a swirl of dark feathers.'
+  },
+  glimpse_future: {
+    name: 'Glimpse the Future', icon: '🔮', kind: 'targeted', effect: 'reveal',
+    description: "Reveals a target's current location to the caster."
+  }
+};
+const SPELL_COOLDOWN_MS = 8000;
+
+function describeRoom(roomId) {
+  if (roomId === 'outside') return 'the Town Square';
+  const b = WORLD.buildings.find(x => x.id === roomId);
+  return b ? b.name : roomId;
+}
+
+// requestId -> { casterId, casterName, targetId, expiresAt }. Entries are
+// removed as soon as they're resolved (deny, photo, or success); the sweep
+// below only exists to clean up ones the target never responded to at all.
+const pendingSpellConsents = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, p] of pendingSpellConsents) {
+    if (p.expiresAt <= now) pendingSpellConsents.delete(id);
+  }
+}, 30000);
+
 wss.on('connection', (ws) => {
   let player = null;
 
@@ -969,23 +1058,27 @@ wss.on('connection', (ws) => {
       // Private, point-to-point note — never stored server-side, so there's
       // nothing left behind for anyone to read twice. Delivered only if the
       // recipient is currently connected; not queued for later (no accounts
-      // means no durable identity to deliver to once they leave).
+      // means no durable identity to deliver to once they leave). image is
+      // optional — only the Open 3rd Eye spell result currently uses it
+      // (see spell_photo below), the normal "write a note" UI is text-only.
       const toId = String(msg.to || '');
       const text = sanitizeText(msg.text);
+      const image = sanitizeImage(msg.image);
       const target = players.get(toId);
-      if (!text || !target || toId === player.id) {
+      if ((!text && !image) || !target || toId === player.id) {
         send(ws, { type: 'note_error', message: 'Could not deliver that note.' });
         return;
       }
       const noteId = makeId();
-      send(target.ws, { type: 'note_received', note: { id: noteId, fromId: player.id, fromName: player.name, text } });
+      send(target.ws, { type: 'note_received', note: { id: noteId, fromId: player.id, fromName: player.name, text, image } });
       send(ws, { type: 'note_sent', toName: target.name });
       return;
     }
 
-    if (msg.type === 'read_note') {
-      // Recipient just read (and locally destroyed) a note. Let the original
-      // sender know it's gone, if they're still around.
+    if (msg.type === 'destroy_note') {
+      // Recipient explicitly clicked the burn icon on a note they'd already
+      // read (notes no longer auto-destruct just from opening them). Let
+      // the original sender know it's gone, if they're still around.
       const fromId = String(msg.fromId || '');
       const sender = players.get(fromId);
       if (sender) send(sender.ws, { type: 'note_destroyed', byName: player.name });
@@ -1171,6 +1264,107 @@ wss.on('connection', (ws) => {
       saveInventories();
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    if (msg.type === 'cast_spell') {
+      if (player.charId !== 0) {
+        send(ws, { type: 'spell_error', message: 'Only the Witch can cast spells.' });
+        return;
+      }
+      const spellId = String(msg.spellId || '');
+      const spell = SPELL_CATALOG[spellId];
+      if (!spell) {
+        send(ws, { type: 'spell_error', message: 'Unknown spell.' });
+        return;
+      }
+      const now = Date.now();
+      if (player.lastSpellCastAt && now - player.lastSpellCastAt < SPELL_COOLDOWN_MS) {
+        send(ws, { type: 'spell_error', message: 'Your magic needs to recharge a moment.' });
+        return;
+      }
+
+      let target = null;
+      if (spell.kind === 'targeted') {
+        target = players.get(String(msg.targetId || ''));
+        if (!target || target.id === player.id) {
+          send(ws, { type: 'spell_error', message: 'Pick a target first.' });
+          return;
+        }
+      }
+
+      player.lastSpellCastAt = now;
+
+      if (spell.effect === 'status') {
+        const recipient = spell.kind === 'self' ? player : target;
+        recipient.activeStatus = { type: spell.statusType, expiresAt: now + spell.durationMs };
+        send(ws, {
+          type: 'spell_result', spellId,
+          message: `${spell.icon} ${spell.name} cast${spell.kind === 'targeted' ? ' on ' + target.name : ''}.`
+        });
+        return;
+      }
+
+      if (spell.effect === 'reveal') {
+        send(ws, {
+          type: 'spell_result', spellId,
+          message: `${spell.icon} ${target.name} is in ${describeRoom(target.room)}.`,
+          revealTargetId: target.id
+        });
+        return;
+      }
+
+      if (spell.effect === 'camera') {
+        const requestId = makeId();
+        pendingSpellConsents.set(requestId, { casterId: player.id, casterName: player.name, targetId: target.id, expiresAt: now + 30000 });
+        send(target.ws, { type: 'spell_consent_request', requestId, casterName: player.name, spellName: spell.name });
+        send(ws, { type: 'spell_result', spellId, message: `${spell.icon} Waiting to see if ${target.name} allows it…` });
+        return;
+      }
+      return;
+    }
+
+    if (msg.type === 'spell_consent_response') {
+      // Only matters for an explicit Deny — an Allow leads straight to a
+      // spell_photo (success or failure) below, with no separate ack.
+      const requestId = String(msg.requestId || '');
+      const pending = pendingSpellConsents.get(requestId);
+      if (!pending || pending.targetId !== player.id) return;
+      if (!msg.allow) {
+        pendingSpellConsents.delete(requestId);
+        const caster = players.get(pending.casterId);
+        if (caster) {
+          send(caster.ws, {
+            type: 'spell_result', spellId: 'open_third_eye',
+            message: `👁️ ${player.name} sensed it and resisted — the spell fizzled.`
+          });
+        }
+      }
+      return;
+    }
+
+    if (msg.type === 'spell_photo') {
+      const requestId = String(msg.requestId || '');
+      const pending = pendingSpellConsents.get(requestId);
+      if (!pending || pending.targetId !== player.id) return;
+      pendingSpellConsents.delete(requestId);
+      const caster = players.get(pending.casterId);
+      if (!caster) return; // caster disconnected — nothing to deliver to
+      const image = sanitizeImage(msg.image);
+      if (!image) {
+        send(caster.ws, {
+          type: 'spell_result', spellId: 'open_third_eye',
+          message: `👁️ The vision through ${player.name}'s third eye came back blank — the spell fizzled.`
+        });
+        return;
+      }
+      send(caster.ws, {
+        type: 'note_received',
+        note: {
+          id: makeId(), fromId: player.id, fromName: `👁️ ${player.name}'s Third Eye`,
+          text: 'A vision arrives, captured the moment the eye opened…', image
+        }
+      });
       return;
     }
   });
