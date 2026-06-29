@@ -26,7 +26,7 @@ const ws = new WebSocket(proto + '://' + location.host);
 let myId = null;
 let world = null;
 let walls = [];           // generated collision rects, derived from world.buildings
-let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,lastMsg,...visual state}
+let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
 let me = null;            // convenience pointer to players[myId]
 let currentRoom = 'outside';
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
@@ -89,7 +89,6 @@ ws.addEventListener('message', (ev) => {
     const m = msg.message;
     if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
     messagesByRoom[m.room].push(m);
-    if (players[m.id]) players[m.id].lastMsg = { text: m.text, ts: m.ts };
     if (m.room === currentRoom) renderChatLog();
     return;
   }
@@ -101,7 +100,7 @@ function addPlayer(p) {
     id: p.id, name: p.name, color: p.color,
     x: p.x, y: p.y, targetX: p.x, targetY: p.y,
     renderPrevX: p.x, renderPrevY: p.y,
-    room: p.room, lastMsg: null,
+    room: p.room,
     facing: 0, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -389,6 +388,8 @@ function maybeUpdateRoomUI(room) {
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside');
+  const header = document.getElementById('chatHeader');
+  if (header) header.textContent = '💬 ' + roomLabel(room);
   renderChatLog();
 }
 
@@ -411,6 +412,7 @@ const CHAR = {
 const WALL_HEIGHT = 110;
 const OUTDOOR_CAM = { back: 165, height: 125, lookUp: 50 };
 const INDOOR_CAM  = { back: 92,  height: 78,  lookUp: 42 };
+const INDOOR_SEATED_CAM = { back: 55, height: 60, lookUp: 28 };
 const INDOOR_SCALE = 1.8;
 const INDOOR_WALL_HEIGHT = 150;
 
@@ -421,7 +423,7 @@ let mode = 'outdoor';          // 'outdoor' | 'indoor'
 let indoorBuildingId = null;
 let currentInterior = null;    // { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal }
 let groundY = 0;
-const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, bubbleEl, inScene, parentScene }
+const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, parentScene }
 const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
@@ -432,6 +434,16 @@ const INTERIOR_THEMES = {
   lounge:  { label: 'Noble Parlor',    wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor' },
   hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall' }
 };
+
+// A building's visual/walkable interior can be larger than its literal
+// outdoor footprint. Local-to-world conversion still anchors at the
+// building's real outdoor x/y corner (see updateIndoor()), so this is safe
+// as long as b.x+w and b.y+h stay within the world bounds.
+const INTERIOR_SIZE_OVERRIDES = {
+  cafe: { w: 420, h: 300 }
+};
+
+let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
 
 function setActiveContext(sceneObj, cameraObj, interiorRecord) {
   activeScene = sceneObj;
@@ -696,8 +708,11 @@ function getInteriorScene(buildingId) {
   if (interiorScenes[buildingId]) return interiorScenes[buildingId];
 
   const b = world.buildings.find(bb => bb.id === buildingId);
-  const wallsLocal = buildWallsForOne({ x: 0, y: 0, w: b.w, h: b.h }, world);
-  const roomW = b.w * INDOOR_SCALE, roomD = b.h * INDOOR_SCALE;
+  const override = INTERIOR_SIZE_OVERRIDES[buildingId];
+  const localW = override ? override.w : b.w;
+  const localH = override ? override.h : b.h;
+  const wallsLocal = buildWallsForOne({ x: 0, y: 0, w: localW, h: localH }, world);
+  const roomW = localW * INDOOR_SCALE, roomD = localH * INDOOR_SCALE;
   const dw = world.doorWidth * INDOOR_SCALE;
   const doorStart = (roomW - dw) / 2, doorEnd = doorStart + dw;
   const theme = INTERIOR_THEMES[buildingId] || INTERIOR_THEMES.cafe;
@@ -754,9 +769,10 @@ function getInteriorScene(buildingId) {
   exitSign.position.set(roomW / 2, 95, roomD - 4);
   scene.add(exitSign);
 
-  buildFurniture(scene, theme.furniture, roomW, roomD);
+  const seats = [];
+  buildFurniture(scene, theme.furniture, roomW, roomD, seats);
 
-  const record = { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal };
+  const record = { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal, localW, localH, seats };
   interiorScenes[buildingId] = record;
   return record;
 }
@@ -877,21 +893,115 @@ function makeRug(x, z, w, d, color) {
   return rug;
 }
 
-function buildFurniture(scene, type, roomW, roomD) {
+function makeBarCounter(x, z1, z2) {
+  const g = new THREE.Group();
+  const len = Math.abs(z2 - z1);
+  const midZ = (z1 + z2) / 2;
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(20, 34, len), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
+  counter.position.set(x, 17, midZ);
+  g.add(counter);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(24, 3, len + 4), new THREE.MeshLambertMaterial({ color: 0x3c2616 }));
+  top.position.set(x, 35, midZ);
+  g.add(top);
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(8, 50, len * 0.88), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+  shelf.position.set(x - 18, 25, midZ);
+  g.add(shelf);
+  const bottleColors = [0x4a8a3a, 0x8a2e2e, 0x2e5a8a, 0x6b4a2e, 0x8a6b2e];
+  const count = Math.max(3, Math.floor(len / 12));
+  for (let i = 0; i < count; i++) {
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.6, 2, 7 + Math.random() * 3, 6),
+      new THREE.MeshLambertMaterial({ color: bottleColors[i % bottleColors.length] })
+    );
+    bottle.position.set(x - 18, 52, z1 + (i + 0.5) * (len / count));
+    g.add(bottle);
+  }
+  return g;
+}
+
+function makeChandelier(x, z) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(16, 1.6, 6, 16), new THREE.MeshLambertMaterial({ color: 0x3c2a1a }));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = INDOOR_WALL_HEIGHT - 38;
+  g.add(ring);
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 22, 5), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
+  chain.position.y = INDOOR_WALL_HEIGHT - 22;
+  g.add(chain);
+  const candleCount = 6;
+  for (let i = 0; i < candleCount; i++) {
+    const ang = (i / candleCount) * Math.PI * 2;
+    const cdx = Math.cos(ang) * 16, cdz = Math.sin(ang) * 16;
+    const candle = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 6, 6), new THREE.MeshLambertMaterial({ color: 0xe8dcb0 }));
+    candle.position.set(cdx, INDOOR_WALL_HEIGHT - 35, cdz);
+    g.add(candle);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.4, 6), new THREE.MeshBasicMaterial({ color: 0xffb84c }));
+    flame.position.set(cdx, INDOOR_WALL_HEIGHT - 31, cdz);
+    g.add(flame);
+  }
+  const light = new THREE.PointLight(0xffb86c, 0.9, 220);
+  light.position.y = INDOOR_WALL_HEIGHT - 36;
+  g.add(light);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeShield(x, y, z, rotY, color) {
+  const shield = new THREE.Mesh(
+    new THREE.CircleGeometry(13, 8),
+    new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
+  );
+  shield.position.set(x, y, z);
+  shield.rotation.y = rotY || 0;
+  return shield;
+}
+
+function makeWindowGlow(x, y, z, rotY) {
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(22, 30),
+    new THREE.MeshBasicMaterial({ color: 0xffd98a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+  );
+  glow.position.set(x, y, z);
+  glow.rotation.y = rotY || 0;
+  return glow;
+}
+
+// A dining set = one table + two benches + four registered seats (render-
+// space coords), used for the sit-down interaction.
+function addDiningSet(scene, seatsOut, tx, tz) {
+  scene.add(makeTable(tx, tz));
+  scene.add(makeBench(tx, tz - 18, 0));
+  scene.add(makeBench(tx, tz + 18, 0));
+  const seatOffsets = [
+    { dx: -14, dz: -18, facing: Math.PI },
+    { dx: 14,  dz: -18, facing: Math.PI },
+    { dx: -14, dz: 18,  facing: 0 },
+    { dx: 14,  dz: 18,  facing: 0 }
+  ];
+  for (const s of seatOffsets) {
+    seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
+  }
+}
+
+function buildFurniture(scene, type, roomW, roomD, seatsOut) {
   const cx = roomW / 2, cz = roomD / 2;
   if (type === 'tavern') {
-    scene.add(makeRug(cx, cz, roomW * 0.55, roomD * 0.4, 0x7a2e2e));
-    scene.add(makeTable(cx - 50, cz - 20));
-    scene.add(makeBench(cx - 50, cz - 38, 0));
-    scene.add(makeBench(cx - 50, cz - 2, 0));
-    scene.add(makeTable(cx + 50, cz - 20));
-    scene.add(makeBench(cx + 50, cz - 38, 0));
-    scene.add(makeBench(cx + 50, cz - 2, 0));
-    scene.add(makeBarrel(24, roomD - 30));
-    scene.add(makeBarrel(roomW - 24, roomD - 30));
+    scene.add(makeRug(cx, cz - roomD * 0.05, roomW * 0.5, roomD * 0.3, 0x7a2e2e));
     scene.add(makeFireplace(cx, 14, Math.PI));
-    scene.add(makeBanner(30, 90, 8, 0, 0xd98a4f));
-    scene.add(makeBanner(roomW - 30, 90, 8, 0, 0xd98a4f));
+    scene.add(makeBarCounter(roomW - 28, 26, roomD * 0.42));
+    scene.add(makeChandelier(cx - roomW * 0.12, cz - roomD * 0.1));
+    scene.add(makeChandelier(cx - roomW * 0.12, cz + roomD * 0.28));
+    addDiningSet(scene, seatsOut, cx - roomW * 0.24, cz - roomD * 0.02);
+    addDiningSet(scene, seatsOut, cx - roomW * 0.24, cz + roomD * 0.3);
+    addDiningSet(scene, seatsOut, cx + roomW * 0.06, cz + roomD * 0.3);
+    scene.add(makeBarrel(24, roomD - 28));
+    scene.add(makeBarrel(24, roomD - 64));
+    scene.add(makeBanner(28, 100, 8, 0, 0xd98a4f));
+    scene.add(makeBanner(roomW - 28, 100, 8, 0, 0xd98a4f));
+    scene.add(makeShield(60, 82, 6, 0, 0xb0392b));
+    scene.add(makeShield(roomW - 90, 82, 6, 0, 0x3b5fb0));
+    scene.add(makeWindowGlow(6, 80, roomD * 0.32, Math.PI / 2));
+    scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.7, -Math.PI / 2));
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
     scene.add(makeBookshelf(20, cz - 40, Math.PI / 2));
@@ -976,14 +1086,9 @@ function ensurePlayerVisual(p) {
   nameEl.textContent = p.name;
   document.body.appendChild(nameEl);
 
-  const bubbleEl = document.createElement('div');
-  bubbleEl.className = 'bubble';
-  bubbleEl.style.display = 'none';
-  document.body.appendChild(bubbleEl);
-
   // Not parented into any scene yet — syncVisuals() adds/removes it from
   // whichever scene matches the player's current room each frame.
-  visuals[p.id] = { ...built, nameEl, bubbleEl, inScene: false, parentScene: null };
+  visuals[p.id] = { ...built, nameEl, inScene: false, parentScene: null };
 }
 
 function destroyPlayerVisual(id) {
@@ -991,7 +1096,6 @@ function destroyPlayerVisual(id) {
   if (!v) return;
   if (v.inScene && v.parentScene) v.parentScene.remove(v.group);
   v.nameEl.remove();
-  v.bubbleEl.remove();
   delete visuals[id];
 }
 
@@ -1021,7 +1125,14 @@ function syncVisuals(dt) {
       p.facing = lerpAngle(p.facing, targetFacing, Math.min(1, dt * 10));
     }
 
-    if (isMoving) {
+    if (id === myId && seatedAt) {
+      const ease = Math.min(1, dt * 8);
+      const legBend = -Math.PI / 2.1, armBend = 0.15;
+      v.legL.rotation.x += (legBend - v.legL.rotation.x) * ease;
+      v.legR.rotation.x += (legBend - v.legR.rotation.x) * ease;
+      v.armL.rotation.x += (armBend - v.armL.rotation.x) * ease;
+      v.armR.rotation.x += (armBend - v.armR.rotation.x) * ease;
+    } else if (isMoving) {
       p.walkPhase += dt * 9;
       const swing = Math.sin(p.walkPhase) * 0.6;
       v.armL.rotation.x = swing; v.armR.rotation.x = -swing;
@@ -1045,7 +1156,8 @@ function syncVisuals(dt) {
 
     if (shouldShow) {
       const rp = getRenderPos(p);
-      v.group.position.set(rp.x, groundY, rp.z);
+      const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
+      v.group.position.set(rp.x, groundY + seatedYOffset, rp.z);
       v.group.rotation.y = p.facing;
     }
 
@@ -1069,28 +1181,17 @@ function syncLabels() {
     if (!v) continue;
     if (!v.inScene) {
       v.nameEl.style.display = 'none';
-      v.bubbleEl.style.display = 'none';
       continue;
     }
     const rp = getRenderPos(p);
     const headScreen = worldToScreen(rp.x, groundY + CHAR.headY, rp.z);
     if (!headScreen.visible) {
       v.nameEl.style.display = 'none';
-      v.bubbleEl.style.display = 'none';
       continue;
     }
     v.nameEl.style.display = 'block';
     v.nameEl.style.left = headScreen.x + 'px';
     v.nameEl.style.top = (headScreen.y - 14) + 'px';
-
-    if (p.lastMsg && Date.now() - p.lastMsg.ts < 4500) {
-      v.bubbleEl.style.display = 'block';
-      v.bubbleEl.textContent = p.lastMsg.text;
-      v.bubbleEl.style.left = headScreen.x + 'px';
-      v.bubbleEl.style.top = (headScreen.y - 34) + 'px';
-    } else {
-      v.bubbleEl.style.display = 'none';
-    }
   }
 }
 
@@ -1098,7 +1199,7 @@ function updateCamera(dt) {
   if (!me) return;
   const rp = getRenderPos(me);
   const f = me.facing;
-  const cam = mode === 'outdoor' ? OUTDOOR_CAM : INDOOR_CAM;
+  const cam = mode === 'outdoor' ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const targetX = rp.x - Math.sin(f) * cam.back;
   const targetZ = rp.z - Math.cos(f) * cam.back;
   const targetY = groundY + cam.height;
@@ -1116,6 +1217,81 @@ function updateCamera(dt) {
 
   activeCamera.lookAt(rp.x, groundY + cam.lookUp, rp.z);
 }
+
+// ---------------------------------------------------------------------------
+// Sit-down interaction — seats are registered in render-space coordinates
+// (matching furniture placement) by addDiningSet(). Occupancy is inferred
+// dynamically from other players' current render positions, no new network
+// messages needed. Movement is fully locked while seated; only an explicit
+// E-press stands back up.
+// ---------------------------------------------------------------------------
+function seatIsOccupied(seat) {
+  for (const id in players) {
+    if (id === myId) continue;
+    const p = players[id];
+    if (p.room !== indoorBuildingId) continue;
+    const rp = getRenderPos(p);
+    if (Math.hypot(rp.x - seat.x, rp.z - seat.z) < 14) return true;
+  }
+  return false;
+}
+
+function findNearestSeat() {
+  if (!currentInterior || !currentInterior.seats || !me) return null;
+  const rp = getRenderPos(me);
+  let best = null, bestDist = 46;
+  for (const seat of currentInterior.seats) {
+    const d = Math.hypot(rp.x - seat.x, rp.z - seat.z);
+    if (d < bestDist) { bestDist = d; best = seat; }
+  }
+  return best;
+}
+
+function sitDown(seat) {
+  const b = world.buildings.find(bb => bb.id === indoorBuildingId);
+  seatedAt = seat;
+  me.x = b.x + seat.x / INDOOR_SCALE;
+  me.y = b.y + seat.z / INDOOR_SCALE;
+  me.facing = seat.facing;
+}
+
+function standUp() {
+  seatedAt = null;
+}
+
+function tryInteract() {
+  if (mode !== 'indoor' || !me) return;
+  if (seatedAt) { standUp(); return; }
+  const seat = findNearestSeat();
+  if (!seat) return;
+  if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
+  sitDown(seat);
+}
+
+function updateInteractHint() {
+  const hint = document.getElementById('interactHint');
+  if (!hint) return;
+  if (mode !== 'indoor' || !me) { hint.classList.add('hidden'); return; }
+  if (seatedAt) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press E to stand';
+    return;
+  }
+  const seat = findNearestSeat();
+  if (seat && !seatIsOccupied(seat)) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press E to sit';
+  } else {
+    hint.classList.add('hidden');
+  }
+}
+
+window.addEventListener('keydown', (e) => {
+  if (typing) return;
+  if ((e.key === 'e' || e.key === 'E') && !e.repeat) {
+    tryInteract();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Entering / leaving a building
@@ -1178,15 +1354,18 @@ function updateIndoor(stepX, stepY) {
   if (!collidesIndoor(localX, ny, interior.wallsLocal)) localY = ny;
 
   // Walking through the door gap (south wall, local space) exits the building.
+  // Uses the interior's own local bounds (which may be larger than the
+  // building's literal outdoor footprint, see INTERIOR_SIZE_OVERRIDES), not
+  // b.w/b.h directly.
   const localDoorStart = interior.doorStart / INDOOR_SCALE;
   const localDoorEnd = interior.doorEnd / INDOOR_SCALE;
-  if (localY > b.h - PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd) {
+  if (localY > interior.localH - PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd) {
     exitBuilding(b);
     return;
   }
 
-  localX = Math.max(PLAYER_R, Math.min(b.w - PLAYER_R, localX));
-  localY = Math.max(PLAYER_R, Math.min(b.h - PLAYER_R, localY));
+  localX = Math.max(PLAYER_R, Math.min(interior.localW - PLAYER_R, localX));
+  localY = Math.max(PLAYER_R, Math.min(interior.localH - PLAYER_R, localY));
   me.x = b.x + localX;
   me.y = b.y + localY;
 }
@@ -1199,15 +1378,15 @@ function update(dt) {
   // place. Nothing here is bound to map axes — "forward" always means
   // "the way the character is currently pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0;
-  if (!typing) {
+  if (!typing && !seatedAt) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
     if (keys.right) turnInput -= 1;
-  }
-  if (joyVec.x || joyVec.y) {
-    moveInput += -joyVec.y; // push stick up = walk forward
-    turnInput += joyVec.x;  // push stick sideways = turn
+    if (joyVec.x || joyVec.y) {
+      moveInput += -joyVec.y; // push stick up = walk forward
+      turnInput += joyVec.x;  // push stick sideways = turn
+    }
   }
   moveInput = Math.max(-1, Math.min(1, moveInput));
   turnInput = Math.max(-1, Math.min(1, turnInput));
@@ -1234,6 +1413,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateCamera(dt);
+  updateInteractHint();
 
   moveSendTimer -= dt;
   if (moveSendTimer <= 0) {
