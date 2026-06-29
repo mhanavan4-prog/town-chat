@@ -110,7 +110,7 @@ function addPlayer(p) {
     x: p.x, y: p.y, targetX: p.x, targetY: p.y,
     renderPrevX: p.x, renderPrevY: p.y,
     room: p.room,
-    facing: 0, walkPhase: Math.random() * 10
+    facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
 }
@@ -222,7 +222,11 @@ function roomLabel(roomId) {
 // payment. Gating is enforced client-side only (no accounts/database in
 // this project), persisted in localStorage once a payment is verified.
 // ---------------------------------------------------------------------------
-const FREE_BUILDING_ID = 'cafe';
+const FREE_BUILDING_ID = 'hall';
+// Paywalls are off for now — every building is free to enter. The checks
+// below are left in place (rather than deleted) so a future change can
+// re-enable them without re-plumbing this logic.
+const PAYWALLS_ENABLED = false;
 let unlocked = localStorage.getItem('tc_unlocked') === '1';
 let paymentsEnabled = false;
 let premiumPriceCents = 300;
@@ -242,6 +246,7 @@ function grantRoomPass(roomId, hours) {
 }
 
 function isLockedRoom(roomId) {
+  if (!PAYWALLS_ENABLED) return false;
   if (roomId === 'outside' || roomId === FREE_BUILDING_ID || unlocked) return false;
   return !hasRoomPass(roomId);
 }
@@ -250,6 +255,7 @@ function isLockedRoom(roomId) {
 // look — same rule as isLockedRoom but as a per-building helper since
 // buildings (not rooms) are what get rendered outdoors.
 function isVisuallyLocked(b) {
+  if (!PAYWALLS_ENABLED) return false;
   return b.id !== FREE_BUILDING_ID && !unlocked && !hasRoomPass(b.id);
 }
 
@@ -345,7 +351,7 @@ function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 function refreshUnlockUI() {
   const bar = document.getElementById('unlockBar');
   if (!bar) return;
-  if (unlocked || !paymentsEnabled) { bar.classList.add('hidden'); return; }
+  if (!PAYWALLS_ENABLED || unlocked || !paymentsEnabled) { bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
   document.getElementById('unlockPrice').textContent = formatPrice(premiumPriceCents);
 }
@@ -1633,7 +1639,7 @@ function tryInteract() {
     return;
   }
   const kiosk = findNearestKiosk();
-  if (kiosk && kiosk.id === 'town_pass') { openPassModal(); }
+  if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
 function updateInteractHint() {
@@ -1652,7 +1658,7 @@ function updateInteractHint() {
     return;
   }
   const kiosk = findNearestKiosk();
-  if (kiosk) {
+  if (PAYWALLS_ENABLED && kiosk) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press E to view Town Pass';
     return;
