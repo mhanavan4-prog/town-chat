@@ -781,6 +781,56 @@ function renderChatLog() {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+// ---------------------------------------------------------------------------
+// Arcade-only: the (3x larger) chat panel can switch into an embedded web
+// browser. This is purely client-side — the iframe loads whatever URL the
+// player types directly in their own browser, same as opening a new tab.
+// Many sites set headers (X-Frame-Options/CSP frame-ancestors) that block
+// being embedded like this; that's the site's own restriction and shows up
+// as a blank/refused frame, not an error in this game.
+// ---------------------------------------------------------------------------
+const chatTabChatBtn = document.getElementById('chatTabChat');
+const chatTabBrowserBtn = document.getElementById('chatTabBrowser');
+const chatLogView = document.getElementById('chatLogView');
+const browserView = document.getElementById('browserView');
+const browserFrame = document.getElementById('browserFrame');
+const browserUrlInput = document.getElementById('browserUrlInput');
+const browserGoBtn = document.getElementById('browserGoBtn');
+
+function showChatTab() {
+  chatLogView.classList.remove('hidden');
+  browserView.classList.add('hidden');
+  if (chatTabChatBtn) chatTabChatBtn.classList.add('active');
+  if (chatTabBrowserBtn) chatTabBrowserBtn.classList.remove('active');
+  browserFrame.src = 'about:blank'; // stop whatever was loaded/playing while out of view
+}
+
+function showBrowserTab() {
+  chatLogView.classList.add('hidden');
+  browserView.classList.remove('hidden');
+  if (chatTabChatBtn) chatTabChatBtn.classList.remove('active');
+  if (chatTabBrowserBtn) chatTabBrowserBtn.classList.add('active');
+}
+
+function navigateBrowser() {
+  let url = browserUrlInput.value.trim();
+  if (!url) return;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url)) url = 'https://' + url;
+  browserFrame.src = url;
+}
+
+if (chatTabChatBtn) chatTabChatBtn.addEventListener('click', showChatTab);
+if (chatTabBrowserBtn) chatTabBrowserBtn.addEventListener('click', showBrowserTab);
+if (browserGoBtn) browserGoBtn.addEventListener('click', navigateBrowser);
+if (browserUrlInput) {
+  browserUrlInput.addEventListener('focus', () => { typing = true; });
+  browserUrlInput.addEventListener('blur', () => { typing = false; });
+  browserUrlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') navigateBrowser();
+    else if (e.key === 'Escape') browserUrlInput.blur();
+  });
+}
+
 let lastRoom = 'outside';
 function maybeUpdateRoomUI(room) {
   if (room === lastRoom) return;
@@ -788,6 +838,9 @@ function maybeUpdateRoomUI(room) {
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside');
+  document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
+  document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
+  if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
   const header = document.getElementById('chatHeader');
   if (header) header.textContent = '💬 ' + roomLabel(room);
   renderChatLog();
@@ -2346,6 +2399,12 @@ function update(dt) {
   moveInput = Math.max(-1, Math.min(1, moveInput));
   turnInput = Math.max(-1, Math.min(1, turnInput));
   strafeInput = Math.max(-1, Math.min(1, strafeInput));
+
+  // The instant the player actually moves or turns, snap any mouse-drag
+  // camera orbit back to normal (directly behind the character) — otherwise
+  // "forward" on screen and "forward" for the character can point two
+  // different ways, which is exactly the confusing case being avoided here.
+  if (moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) cameraYawOffset = 0;
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);

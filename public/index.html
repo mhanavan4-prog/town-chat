@@ -85,7 +85,18 @@
     border-radius:16px;
     padding:10px 12px 12px;
     box-shadow:0 0 40px rgba(0,0,0,0.4), 0 8px 30px rgba(0,0,0,0.5);
+    transition:width .2s ease;
   }
+  /* The Arcade's chat panel is 3x the normal size and can switch into an
+     embedded-browser mode — see #chatTabs/#browserView below. */
+  #chatPanel.arcadeMode { width:1080px; max-width:92vw; }
+  #chatTabs { pointer-events:auto; display:flex; gap:6px; margin-bottom:8px; }
+  #chatTabs.hidden { display:none !important; }
+  #chatTabs button {
+    flex:1; padding:7px; border-radius:8px; border:1px solid rgba(217,138,79,0.3);
+    background:rgba(0,0,0,0.25); color:#cfe9cf; font-size:12px; font-weight:700; cursor:pointer;
+  }
+  #chatTabs button.active { background:linear-gradient(90deg,#ffd27a,#ff9d5c); color:#2a1605; }
   #chatHeader {
     pointer-events:none;
     color:#ffd9a0; font-size:13px; font-weight:700;
@@ -97,6 +108,21 @@
     max-height:260px; min-height:90px; overflow-y:auto; margin-bottom:8px;
     display:flex; flex-direction:column; gap:5px;
   }
+  #chatPanel.arcadeMode #chatLog { max-height:780px; min-height:270px; }
+  #browserView { display:flex; flex-direction:column; gap:8px; }
+  #browserBar { pointer-events:auto; display:flex; gap:6px; }
+  #browserUrlInput {
+    flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(217,138,79,0.35);
+    background:rgba(0,0,0,0.35); color:#eafff0; font-size:13px; outline:none;
+  }
+  #browserGoBtn {
+    border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700;
+    color:#08130a; cursor:pointer; background:linear-gradient(90deg,#9ee37d,#5ee7c0);
+  }
+  #browserFrame {
+    pointer-events:auto; width:100%; height:560px; border:none; border-radius:8px; background:#fff;
+  }
+  #browserNote { color:#9bc49a; font-size:11px; line-height:1.4; }
   .chatLine {
     background:rgba(0,0,0,0.28); border-radius:8px; padding:7px 11px;
     font-size:13px; color:#eafff0; line-height:1.35; backdrop-filter:blur(3px);
@@ -270,16 +296,30 @@
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">💬 Town Square</div>
-  <div id="chatLog"></div>
-  <div id="chatImagePreview">
-    <img id="chatImagePreviewImg" alt="">
-    <span>Image ready — press Enter or Send</span>
-    <button id="chatImageRemoveBtn" title="Remove image">✕</button>
+  <div id="chatTabs" class="hidden">
+    <button id="chatTabChat" class="active">💬 Chat</button>
+    <button id="chatTabBrowser">🌐 Browser</button>
   </div>
-  <div id="chatInputRow">
-    <button id="chatImageBtn" title="Send a picture">📷</button>
-    <input id="chatImageFile" type="file" accept="image/*" class="hidden">
-    <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
+  <div id="chatLogView">
+    <div id="chatLog"></div>
+    <div id="chatImagePreview">
+      <img id="chatImagePreviewImg" alt="">
+      <span>Image ready — press Enter or Send</span>
+      <button id="chatImageRemoveBtn" title="Remove image">✕</button>
+    </div>
+    <div id="chatInputRow">
+      <button id="chatImageBtn" title="Send a picture">📷</button>
+      <input id="chatImageFile" type="file" accept="image/*" class="hidden">
+      <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
+    </div>
+  </div>
+  <div id="browserView" class="hidden">
+    <div id="browserBar">
+      <input id="browserUrlInput" type="text" placeholder="Enter a URL and press Go…">
+      <button id="browserGoBtn">Go</button>
+    </div>
+    <iframe id="browserFrame" title="In-game browser"></iframe>
+    <div id="browserNote">Some sites block being shown inside another page like this — if a page won't load, that's the site's own restriction, not a bug here.</div>
   </div>
 </div>
 
