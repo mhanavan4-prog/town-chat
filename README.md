@@ -18,6 +18,13 @@ Walk back out through the door and you're back in the open-air town square.
   character" can't end up pointing two different ways.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
+- 🧑 Characters have actual faces now (eyes, brows, a mouth) and one of 5
+  distinct looks — different skin tone, hair color **and** hair shape
+  (short/ponytail/long/buzzed/mohawk), shirt, and pants per preset, not
+  just a recolor. Pick one on the join screen before entering town; your
+  choice is remembered in that browser for next time, but it's just a
+  cosmetic, per-session pick — not tied to your account/login the way your
+  name and color are.
 - 📷 Pictures in chat: the camera-icon button next to the chat box lets you
   attach an image (resized/compressed in your browser before sending) to a
   message. Relayed by the server exactly like a text message, scoped to
@@ -29,6 +36,22 @@ Walk back out through the door and you're back in the open-air town square.
   purely decorative and purely client-side — each player's game runs the
   same flee logic independently, reacting only to that player, so it's not
   networked or synced between players.
+- ☀️🌕 A day/night cycle outdoors: 20 real-world minutes of day, 20 of
+  night, on a continuous loop, with a few minutes of dawn/dusk blending in
+  between rather than an instant flip. The sun arcs across the sky during
+  the day; a full moon (with its own dim, cool-toned moonlight — enough to
+  still see by, just bluer and darker than daytime) arcs opposite it at
+  night. There's a small ☀️/🌕 indicator in the top HUD. This is computed
+  from each browser's own clock (like the self-destructing notes feature),
+  not tracked by the server — every connected client lands on the same
+  phase just by agreeing what time it is, with no network traffic and no
+  state that resets if the server restarts.
+- 👹 Hostile-looking mobs spawn outside (not inside) the buildings once
+  night falls and wander the area obliviously until dawn, when they
+  disappear again. They do **not** flee from you (unlike the rabbits) and
+  do **not** attack — that's deliberately not built yet, this is just the
+  atmosphere/foundation for it. Like the rabbits, purely decorative and
+  client-side.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
   (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
   🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,

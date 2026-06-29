@@ -383,8 +383,13 @@ function sanitizeImage(raw) {
   return raw;
 }
 
+// Must match CHARACTER_PRESETS.length in client.js — the server doesn't
+// know or care what the presets actually look like, it just needs to
+// validate the index a client claims and relay it to everyone else.
+const CHARACTER_COUNT = 5;
+
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, x: p.x, y: p.y, room: p.room };
+  return { id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room };
 }
 
 function send(ws, data) {
@@ -429,10 +434,18 @@ wss.on('connection', (ws) => {
       const account = accountKey ? accounts[accountKey] : null;
       const name = account ? account.username : sanitizeName(msg.name);
       const color = account ? account.color : COLORS[colorIdx++ % COLORS.length];
+      // Character look is a per-session cosmetic choice, not tied to the
+      // account itself (unlike name/color above) — just trust whatever
+      // valid index the client picked on the join screen, falling back to
+      // a random one if it's missing or out of range.
+      const charId = Number.isInteger(msg.charId) && msg.charId >= 0 && msg.charId < CHARACTER_COUNT
+        ? msg.charId
+        : Math.floor(Math.random() * CHARACTER_COUNT);
       player = {
         ws, id,
         name,
         color,
+        charId,
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,
         room: 'outside'

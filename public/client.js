@@ -31,6 +31,20 @@ let me = null;            // convenience pointer to players[myId]
 let currentRoom = 'outside';
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
 
+// Picked once on the join screen (and remembered in localStorage), sent to
+// the server as charId, and echoed back on every player's record so every
+// client renders the same look for everyone — see createHumanoid() far
+// below for how each of these actually gets built into a 3D model.
+// "color" (server-assigned, separate from this) still only drives the
+// name-tag/chat-bubble color, unchanged from before this feature existed.
+const CHARACTER_PRESETS = [
+  { name: 'Adventurer', skin: 0xffd9b3, hair: 0x4a2f1f, hairStyle: 'short',    eye: 0x4a3320, shirt: 0x4caf50, pants: 0x2b2b3a },
+  { name: 'Scout',      skin: 0xe8b48a, hair: 0xf2c94c, hairStyle: 'ponytail', eye: 0x3a6ea5, shirt: 0xff7a4c, pants: 0x3a3a3a },
+  { name: 'Mystic',     skin: 0xc98a5b, hair: 0x222222, hairStyle: 'long',     eye: 0x3c7a4f, shirt: 0x9b5fc0, pants: 0x1c1c2e },
+  { name: 'Knight',     skin: 0xffe0c2, hair: 0xb0b0b0, hairStyle: 'buzz',     eye: 0x6f6f6f, shirt: 0x6f8fae, pants: 0x4a4a4a },
+  { name: 'Wanderer',   skin: 0x7a4a2f, hair: 0xe0e0e0, hairStyle: 'mohawk',   eye: 0xa57b3c, shirt: 0xc0596f, pants: 0x2f2f2f }
+];
+
 ws.addEventListener('open', () => setStatus(true));
 ws.addEventListener('close', () => setStatus(false));
 ws.addEventListener('error', () => setStatus(false));
@@ -131,7 +145,7 @@ ws.addEventListener('message', (ev) => {
 function addPlayer(p) {
   if (players[p.id]) return;
   players[p.id] = {
-    id: p.id, name: p.name, color: p.color,
+    id: p.id, name: p.name, color: p.color, charId: p.charId || 0,
     x: p.x, y: p.y, targetX: p.x, targetY: p.y,
     renderPrevX: p.x, renderPrevY: p.y,
     room: p.room,
@@ -251,6 +265,26 @@ accountLoginBtn.addEventListener('click', () => submitAccount('login'));
 accountRegisterBtn.addEventListener('click', () => submitAccount('register'));
 accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('login'); });
 
+// Character picker — remembered per-browser like the other join-screen
+// preferences, but re-pickable any time before hitting Enter Town.
+let selectedCharId = parseInt(localStorage.getItem('tc_charid'), 10);
+if (!Number.isInteger(selectedCharId) || selectedCharId < 0 || selectedCharId >= CHARACTER_PRESETS.length) {
+  selectedCharId = Math.floor(Math.random() * CHARACTER_PRESETS.length);
+}
+function renderCharSelect() {
+  document.querySelectorAll('.charOption').forEach((btn) => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.char, 10) === selectedCharId);
+  });
+}
+document.querySelectorAll('.charOption').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    selectedCharId = parseInt(btn.dataset.char, 10);
+    localStorage.setItem('tc_charid', String(selectedCharId));
+    renderCharSelect();
+  });
+});
+renderCharSelect();
+
 function attemptJoin() {
   let name;
   if (joinMode === 'account') {
@@ -262,7 +296,7 @@ function attemptJoin() {
   }
   showJoinError('');
   ensureAudio(); // the click is a user gesture — set up Web Audio here so it's unblocked later
-  const payload = { type: 'join', name, password: passInput.value };
+  const payload = { type: 'join', name, password: passInput.value, charId: selectedCharId };
   if (joinMode === 'account' && savedAccount) payload.accountToken = savedAccount.token;
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
@@ -1095,6 +1129,15 @@ let indoorBuildingId = null;
 let currentInterior = null;    // { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal }
 let groundY = 0;
 const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, parentScene }
+
+// Outdoor-only day/night lighting — set once in initScene(), then mutated
+// every frame by updateDayNightCycle(). Indoor scenes are unaffected (each
+// building's interior already has its own fixed lighting).
+let outdoorAmbient = null;
+let outdoorSun = null;
+let outdoorMoonLight = null;
+let moonMesh = null;
+let dayNightWorldRadius = 1500; // how far out the sun/moon arc and ground span — set from world size
 const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
@@ -1196,10 +1239,25 @@ function initScene(w) {
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-  const sun = new THREE.DirectionalLight(0xfff3d6, 0.9);
-  sun.position.set(400, 600, 300);
-  scene.add(sun);
+  outdoorAmbient = new THREE.AmbientLight(0xffffff, 0.65);
+  scene.add(outdoorAmbient);
+  outdoorSun = new THREE.DirectionalLight(0xfff3d6, 0.9);
+  outdoorSun.position.set(400, 600, 300);
+  scene.add(outdoorSun);
+
+  // Moon: a separate, dimmer/cooler light plus a visible glowing sprite in
+  // the sky, both only really active at night — see updateDayNightCycle().
+  outdoorMoonLight = new THREE.DirectionalLight(0xcfd9ff, 0);
+  outdoorMoonLight.position.set(-400, 500, -300);
+  scene.add(outdoorMoonLight);
+
+  moonMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(50, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0 })
+  );
+  scene.add(moonMesh);
+
+  dayNightWorldRadius = Math.max(w.width, w.height) * 0.9;
 
   const grassTex = makeGrassTexture();
   const groundSpan = Math.max(w.width, w.height) + 600;
@@ -1232,6 +1290,7 @@ function initScene(w) {
 
   addNatureDecor(scene);
   addAnimals(scene);
+  addMobs(scene);
 
   outdoorScene = scene;
   outdoorCamera = camera;
@@ -1239,6 +1298,176 @@ function initScene(w) {
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
   refreshBuildingLockVisuals();
+}
+
+// ---------------------------------------------------------------------------
+// Day/night cycle — 20 real-world minutes of day, 20 of night, derived
+// purely from wall-clock time (Date.now()) rather than anything the server
+// tracks. Every connected client computes the exact same phase independently
+// just from agreeing on what time it is, the same way the self-destructing
+// notes feature trusts each client's clock — no WS messages, no server
+// state, and it survives a server restart without skipping a beat.
+// ---------------------------------------------------------------------------
+const DAY_MS = 20 * 60 * 1000;
+const NIGHT_MS = 20 * 60 * 1000;
+const CYCLE_MS = DAY_MS + NIGHT_MS;
+const DAY_NIGHT_TRANSITION_MS = 90 * 1000; // dawn/dusk blend window, eats into the tail of each phase
+
+const SKY_DAY = new THREE.Color(0x8fd0ef);
+const SKY_NIGHT = new THREE.Color(0x0a1230);
+const AMBIENT_DAY = new THREE.Color(0xffffff);
+const AMBIENT_NIGHT = new THREE.Color(0x8fa0ff);
+const _skyColor = new THREE.Color();
+const _ambientColor = new THREE.Color();
+
+// Returns a continuous 0..1 "how much daylight" value — 1 through most of
+// the day, ramping down over the last DAY_NIGHT_TRANSITION_MS of daytime,
+// 0 through most of the night, ramping back up over the last
+// DAY_NIGHT_TRANSITION_MS of nighttime (i.e. dawn, right before it wraps
+// back to a fresh day) — plus the raw cycle position, used to arc the sun
+// and moon across the sky.
+function getDayNightState() {
+  const cyclePos = Date.now() % CYCLE_MS;
+  let lightAmount;
+  if (cyclePos < DAY_MS - DAY_NIGHT_TRANSITION_MS) {
+    lightAmount = 1;
+  } else if (cyclePos < DAY_MS) {
+    lightAmount = 1 - (cyclePos - (DAY_MS - DAY_NIGHT_TRANSITION_MS)) / DAY_NIGHT_TRANSITION_MS;
+  } else if (cyclePos < CYCLE_MS - DAY_NIGHT_TRANSITION_MS) {
+    lightAmount = 0;
+  } else {
+    lightAmount = (cyclePos - (CYCLE_MS - DAY_NIGHT_TRANSITION_MS)) / DAY_NIGHT_TRANSITION_MS;
+  }
+  const dayProgress = Math.min(1, cyclePos / DAY_MS);
+  const nightProgress = cyclePos > DAY_MS ? (cyclePos - DAY_MS) / NIGHT_MS : 0;
+  return { cyclePos, lightAmount, isNight: cyclePos >= DAY_MS, dayProgress, nightProgress };
+}
+
+function updateDayNightCycle() {
+  if (!outdoorScene || !outdoorAmbient || !outdoorSun) return;
+  const { lightAmount, isNight, dayProgress, nightProgress } = getDayNightState();
+
+  _skyColor.copy(SKY_NIGHT).lerp(SKY_DAY, lightAmount);
+  outdoorScene.background.copy(_skyColor);
+  if (outdoorScene.fog) outdoorScene.fog.color.copy(_skyColor);
+
+  _ambientColor.copy(AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
+  outdoorAmbient.color.copy(_ambientColor);
+  outdoorAmbient.intensity = 0.38 + lightAmount * 0.27;
+
+  // Sun arcs from one horizon to the other across the day; moon mirrors it
+  // across the night. Using sin() for height means both rise and set
+  // smoothly rather than popping in at a fixed height.
+  const r = dayNightWorldRadius;
+  const sunAngle = Math.PI * dayProgress;
+  outdoorSun.position.set(Math.cos(sunAngle) * r, Math.max(40, Math.sin(sunAngle) * r * 0.6), r * 0.4);
+  outdoorSun.intensity = lightAmount * 0.9;
+
+  const moonAngle = Math.PI * nightProgress;
+  const moonY = Math.sin(moonAngle) * r * 0.6; // nightProgress in [0,1] -> angle in [0,π] -> always >= 0, horizon to horizon
+  moonMesh.position.set(Math.cos(moonAngle) * -r, Math.max(-80, moonY), -r * 0.4);
+  outdoorMoonLight.position.copy(moonMesh.position);
+  const moonStrength = 1 - lightAmount;
+  outdoorMoonLight.intensity = moonStrength * 0.55;
+  moonMesh.material.opacity = moonStrength;
+  moonMesh.visible = moonStrength > 0.02;
+
+  updateDayNightHud(isNight);
+}
+
+let lastDayNightHudState = null;
+function updateDayNightHud(isNight) {
+  if (isNight === lastDayNightHudState) return;
+  lastDayNightHudState = isNight;
+  const tag = document.getElementById('dayNightTag');
+  if (!tag) return;
+  tag.textContent = isNight ? '🌕 Night' : '☀️ Day';
+  tag.classList.toggle('nightTag', isNight);
+}
+
+// ---------------------------------------------------------------------------
+// Night-only hostile mobs — ambient, wandering presence outside the
+// buildings once night falls. Deliberately NOT aggressive yet: no chasing,
+// no attacking, no fleeing either (that's what makes them read as
+// "hostile" rather than timid like the rabbits) — just there, for now.
+// ---------------------------------------------------------------------------
+const MOB_SPAWNS = [
+  { x: 250, y: 300 },  { x: 250, y: 750 },     // around the Cafe
+  { x: 2780, y: 420 }, { x: 2780, y: 580 },    // around the Library
+  { x: 245, y: 1560 }, { x: 245, y: 1730 },    // around the Arcade
+  { x: 2785, y: 1560 },{ x: 2785, y: 1730 },   // around the Rooftop Lounge
+  { x: 1450, y: 60 },  { x: 1750, y: 60 }      // around Town Hall
+];
+const MOB_WANDER_SPEED = 22;
+const MOB_R = 10;
+let mobs = [];
+
+function makeMob() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(11, 8, 8), bodyMat);
+  body.scale.set(1, 0.8, 1.1);
+  body.position.y = 11;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6.5, 8, 8), bodyMat);
+  head.position.set(0, 20, 6);
+  g.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(1.3, 6, 6), eyeMat);
+    eye.position.set(side * 2.6, 21, 11.5);
+    g.add(eye);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(1.4, 7, 6), bodyMat);
+    horn.position.set(side * 3.2, 26, 4);
+    horn.rotation.z = side * 0.3;
+    g.add(horn);
+  }
+  return g;
+}
+
+function addMobs(scene) {
+  mobs = MOB_SPAWNS.map(p => ({
+    x: p.x, y: p.y,
+    facing: Math.random() * Math.PI * 2,
+    wanderTimer: Math.random() * 2,
+    wanderAngle: 0,
+    paused: false,
+    mesh: makeMob()
+  }));
+  for (const m of mobs) {
+    m.mesh.position.set(m.x, 0, m.y);
+    m.mesh.visible = false;
+    scene.add(m.mesh);
+  }
+}
+
+function updateMobs(dt) {
+  if (!world) return;
+  const isNight = getDayNightState().isNight;
+  for (const m of mobs) {
+    m.mesh.visible = isNight;
+    if (!isNight) continue;
+
+    m.wanderTimer -= dt;
+    if (m.wanderTimer <= 0) {
+      m.wanderTimer = 1.5 + Math.random() * 2.5;
+      m.paused = Math.random() < 0.3;
+      m.wanderAngle = Math.random() * Math.PI * 2;
+    }
+    let vx = 0, vy = 0;
+    if (!m.paused) {
+      vx = Math.sin(m.wanderAngle) * MOB_WANDER_SPEED;
+      vy = Math.cos(m.wanderAngle) * MOB_WANDER_SPEED;
+    }
+    const margin = 60;
+    const nx = m.x + vx * dt, ny = m.y + vy * dt;
+    if (vx !== 0 && !animalBlocked(nx, m.y) && nx > margin && nx < world.width - margin) m.x = nx;
+    if (vy !== 0 && !animalBlocked(m.x, ny) && ny > margin && ny < world.height - margin) m.y = ny;
+    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+
+    m.mesh.position.set(m.x, 0, m.y);
+    m.mesh.rotation.y = m.facing;
+  }
 }
 
 function makeGrassTexture() {
@@ -2332,13 +2561,81 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 // ---------------------------------------------------------------------------
 // Player visuals
 // ---------------------------------------------------------------------------
-function createHumanoid(color) {
+// Eyes/brows/mouth, placed at a fixed local +Z offset on the head sphere —
+// +Z is "forward" at rotation.y = 0 in this engine's convention (matches
+// how facing angles are derived elsewhere, e.g. Math.atan2(dx, dz)), so
+// these always end up on the front of the face once the whole group is
+// rotated to the character's actual facing.
+function addFace(group, headY, headR, eyeColor) {
+  const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
+  const browMat = new THREE.MeshLambertMaterial({ color: 0x2a1a12 });
+  const mouthMat = new THREE.MeshLambertMaterial({ color: 0x6b3a3a });
+  const eyeR = headR * 0.16;
+  const eyeY = headY + headR * 0.08;
+  const eyeZ = headR * 0.88;
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 8), eyeMat);
+    eye.position.set(side * headR * 0.38, eyeY, eyeZ);
+    group.add(eye);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(headR * 0.32, headR * 0.08, headR * 0.08), browMat);
+    brow.position.set(side * headR * 0.38, eyeY + headR * 0.32, eyeZ - headR * 0.05);
+    group.add(brow);
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(headR * 0.5, headR * 0.1, headR * 0.08), mouthMat);
+  mouth.position.set(0, headY - headR * 0.42, eyeZ - headR * 0.02);
+  group.add(mouth);
+}
+
+// Five distinct silhouettes (not just recolors) so characters read as
+// different from across the room, not just up close.
+function addHair(group, headY, headR, style, color) {
+  if (style === 'bald') return;
+  const mat = new THREE.MeshLambertMaterial({ color });
+  if (style === 'short' || style === 'long' || style === 'ponytail') {
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(headR * 1.05, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      mat
+    );
+    cap.position.y = headY + headR * 0.15;
+    group.add(cap);
+  }
+  if (style === 'buzz') {
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(headR * 1.02, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.4),
+      mat
+    );
+    cap.position.y = headY + headR * 0.25;
+    group.add(cap);
+  }
+  if (style === 'long') {
+    const drape = new THREE.Mesh(
+      new THREE.CylinderGeometry(headR * 0.9, headR * 0.6, headR * 1.8, 8),
+      mat
+    );
+    drape.position.set(0, headY - headR * 0.6, -headR * 0.3);
+    group.add(drape);
+  }
+  if (style === 'ponytail') {
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(headR * 0.35, headR * 1.6, 8), mat);
+    tail.position.set(0, headY - headR * 0.3, -headR * 1.1);
+    tail.rotation.x = Math.PI * 0.55;
+    group.add(tail);
+  }
+  if (style === 'mohawk') {
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(headR * 0.35, headR * 0.9, headR * 1.7), mat);
+    ridge.position.y = headY + headR * 0.9;
+    group.add(ridge);
+  }
+}
+
+function createHumanoid(charId) {
+  const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const group = new THREE.Group();
-  const skin = 0xffd9b3, pants = 0x2b2b3a;
+  const skin = preset.skin, pants = preset.pants;
 
   const torso = new THREE.Mesh(
     new THREE.CylinderGeometry(9, 11, CHAR.torsoH, 8),
-    new THREE.MeshLambertMaterial({ color })
+    new THREE.MeshLambertMaterial({ color: preset.shirt })
   );
   torso.position.y = CHAR.hipY + CHAR.torsoH / 2;
   group.add(torso);
@@ -2349,6 +2646,9 @@ function createHumanoid(color) {
   );
   head.position.y = CHAR.headY;
   group.add(head);
+
+  addFace(group, CHAR.headY, CHAR.headR, preset.eye);
+  addHair(group, CHAR.headY, CHAR.headR, preset.hairStyle, preset.hair);
 
   function makeLimb(isArm, side) {
     const pivot = new THREE.Group();
@@ -2372,7 +2672,7 @@ function createHumanoid(color) {
 
 function ensurePlayerVisual(p) {
   if (visuals[p.id]) return;
-  const built = createHumanoid(p.color);
+  const built = createHumanoid(p.charId || 0);
 
   const nameEl = document.createElement('div');
   nameEl.className = 'nameTag';
@@ -3076,9 +3376,15 @@ function update(dt) {
     if (jumpT >= JUMP_DURATION) { jumpActive = false; jumpT = 0; }
   }
 
+  // Runs regardless of indoor/outdoor so the lighting is already correct
+  // the instant anyone steps back outside, not just for players currently
+  // out there to see it change.
+  updateDayNightCycle();
+
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
     updateAnimals(dt);
+    updateMobs(dt);
   } else {
     updateIndoor(stepX, stepY);
   }
