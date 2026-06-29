@@ -49,6 +49,7 @@ ws.addEventListener('message', (ev) => {
     me = players[myId];
     document.getElementById('joinScreen').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('inventoryBtn').classList.remove('hidden');
     if (isTouchDevice()) document.getElementById('joystick').classList.add('show');
     refreshUnlockUI();
     resize();
@@ -64,11 +65,13 @@ ws.addEventListener('message', (ev) => {
 
   if (msg.type === 'player_joined') {
     addPlayer(msg.player);
+    if (inventoryOpen) refreshNoteRecipients();
     return;
   }
 
   if (msg.type === 'player_left') {
     removePlayer(msg.id);
+    if (inventoryOpen) refreshNoteRecipients();
     return;
   }
 
@@ -90,6 +93,28 @@ ws.addEventListener('message', (ev) => {
     if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
     messagesByRoom[m.room].push(m);
     if (m.room === currentRoom) renderChatLog();
+    return;
+  }
+
+  if (msg.type === 'note_received') {
+    inbox.push({ ...msg.note, read: false });
+    setUnlockToast(`📜 New note from ${msg.note.fromName}`);
+    renderInventory();
+    return;
+  }
+
+  if (msg.type === 'note_sent') {
+    setUnlockToast(`✉️ Note sent to ${msg.toName}`);
+    return;
+  }
+
+  if (msg.type === 'note_destroyed') {
+    setUnlockToast(`🔥 Your note was read and destroyed by ${msg.byName}`);
+    return;
+  }
+
+  if (msg.type === 'note_error') {
+    setUnlockToast('⚠️ ' + msg.message);
     return;
   }
 
@@ -346,6 +371,110 @@ if (muteBtn) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Inventory — currently holds one item type: private written notes, passed
+// player-to-player. Notes are never stored server-side (see server.js), so
+// the only copy that ever exists is sitting in the recipient's inbox array
+// here until they read it — reading it removes it immediately and tells the
+// server to let the sender know it's gone. No accounts/persistence, so this
+// is all just in-memory for the current tab/session like everything else.
+// ---------------------------------------------------------------------------
+const inbox = []; // { id, fromId, fromName, text, read }
+
+const inventoryBtn = document.getElementById('inventoryBtn');
+const inventoryPanel = document.getElementById('inventoryPanel');
+let inventoryOpen = false;
+
+function toggleInventory() {
+  inventoryOpen = !inventoryOpen;
+  inventoryPanel.classList.toggle('hidden', !inventoryOpen);
+  if (inventoryOpen) refreshNoteRecipients();
+}
+if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
+
+function refreshNoteRecipients() {
+  const select = document.getElementById('noteRecipient');
+  if (!select) return;
+  const prev = select.value;
+  select.innerHTML = '';
+  const others = Object.values(players).filter(p => p.id !== myId);
+  if (others.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No one else is here';
+    select.appendChild(opt);
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const p of others) {
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  if (others.some(p => p.id === prev)) select.value = prev;
+}
+
+const noteSendBtn = document.getElementById('noteSendBtn');
+if (noteSendBtn) {
+  noteSendBtn.addEventListener('click', () => {
+    const select = document.getElementById('noteRecipient');
+    const textEl = document.getElementById('noteText');
+    const to = select.value;
+    const text = textEl.value.trim();
+    if (!to || !text) return;
+    ws.send(JSON.stringify({ type: 'send_note', to, text }));
+    textEl.value = '';
+  });
+}
+
+function readNote(noteId) {
+  const note = inbox.find(n => n.id === noteId);
+  if (!note || note.read) return;
+  note.read = true;
+  ws.send(JSON.stringify({ type: 'read_note', id: note.id, fromId: note.fromId }));
+  renderInventory();
+  setTimeout(() => {
+    const idx = inbox.findIndex(n => n.id === noteId);
+    if (idx !== -1) inbox.splice(idx, 1);
+    renderInventory();
+  }, 4000);
+}
+
+function renderInventory() {
+  const list = document.getElementById('inboxList');
+  const empty = document.getElementById('inventoryEmpty');
+  const badge = document.getElementById('inventoryBadge');
+  if (!list) return;
+  list.innerHTML = '';
+  const unreadCount = inbox.filter(n => !n.read).length;
+  if (badge) badge.textContent = unreadCount > 0 ? `(${unreadCount})` : '';
+  if (empty) empty.style.display = inbox.length === 0 ? 'block' : 'none';
+  for (const note of inbox) {
+    const div = document.createElement('div');
+    div.className = 'noteItem';
+    const from = document.createElement('span');
+    from.className = 'noteFrom';
+    from.textContent = 'From ' + note.fromName;
+    div.appendChild(from);
+    if (note.read) {
+      const body = document.createElement('div');
+      body.textContent = note.text;
+      div.appendChild(body);
+      const burning = document.createElement('div');
+      burning.className = 'noteBurning';
+      burning.textContent = '🔥 Self-destructing…';
+      div.appendChild(burning);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'noteReadBtn';
+      btn.textContent = '📖 Read (self-destructs)';
+      btn.addEventListener('click', () => readNote(note.id));
+      div.appendChild(btn);
+    }
+    list.appendChild(div);
+  }
+}
+
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
 function refreshUnlockUI() {
@@ -473,8 +602,8 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
-  if (e.key === 'q' || e.key === 'Q') keys.strafeLeft = true;
-  if (e.key === 'e' || e.key === 'E') keys.strafeRight = true;
+  if (e.key === 'q' || e.key === 'Q') keys.strafeRight = true;
+  if (e.key === 'e' || e.key === 'E') keys.strafeLeft = true;
   if (e.key === ' ' && !e.repeat) { tryJump(); e.preventDefault(); }
 });
 window.addEventListener('keyup', (e) => {
@@ -482,8 +611,8 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
-  if (e.key === 'q' || e.key === 'Q') keys.strafeLeft = false;
-  if (e.key === 'e' || e.key === 'E') keys.strafeRight = false;
+  if (e.key === 'q' || e.key === 'Q') keys.strafeRight = false;
+  if (e.key === 'e' || e.key === 'E') keys.strafeLeft = false;
 });
 
 const joystickEl = document.getElementById('joystick');

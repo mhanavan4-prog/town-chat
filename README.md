@@ -13,10 +13,18 @@ Walk back out through the door and you're back in the open-air town square.
 - Chat only exists **inside buildings** — the open world has no chat at all.
 - Speech bubbles pop up over a player's head when they send a message.
 - 5 buildings, each with its own medieval interior theme: ☕ The Cafe
-  (tavern — **free to enter**), 📚 The Library (scriptorium), 🎮 The Arcade
-  (alchemist's den), 🛋️ Rooftop Lounge (noble's parlor), 🏛️ Town Hall
-  (great hall). The four non-Cafe buildings are locked behind a one-time
-  "Town Pass" payment (see **Premium buildings & Stripe payments** below).
+  (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
+  🛋️ Rooftop Lounge (noble's parlor), 🏛️ Town Hall (great hall, the
+  building straight ahead when you spawn). All five are free to enter for
+  now — the Stripe paywall code is still in place but disabled (see
+  **Premium buildings & Stripe payments** below) so it can be turned back on
+  later without rebuilding it.
+- 🎒 Inventory (top-left button): write a private note to any other player
+  currently in the town. Notes aren't stored anywhere — they're relayed
+  straight to the recipient's inbox and never touch a database. Reading a
+  note destroys it permanently (it disappears from the recipient's inbox a
+  few seconds after being opened, and the sender gets notified it was read),
+  so a note can only ever be read once, by the one person it was sent to.
 - Optional shared passcode to keep the town private to your friends.
 
 No accounts, no database — it's all in-memory, so the chat history and

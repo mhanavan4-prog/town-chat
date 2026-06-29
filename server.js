@@ -243,6 +243,33 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'send_note') {
+      // Private, point-to-point note — never stored server-side, so there's
+      // nothing left behind for anyone to read twice. Delivered only if the
+      // recipient is currently connected; not queued for later (no accounts
+      // means no durable identity to deliver to once they leave).
+      const toId = String(msg.to || '');
+      const text = sanitizeText(msg.text);
+      const target = players.get(toId);
+      if (!text || !target || toId === player.id) {
+        send(ws, { type: 'note_error', message: 'Could not deliver that note.' });
+        return;
+      }
+      const noteId = makeId();
+      send(target.ws, { type: 'note_received', note: { id: noteId, fromId: player.id, fromName: player.name, text } });
+      send(ws, { type: 'note_sent', toName: target.name });
+      return;
+    }
+
+    if (msg.type === 'read_note') {
+      // Recipient just read (and locally destroyed) a note. Let the original
+      // sender know it's gone, if they're still around.
+      const fromId = String(msg.fromId || '');
+      const sender = players.get(fromId);
+      if (sender) send(sender.ws, { type: 'note_destroyed', byName: player.name });
+      return;
+    }
+
     if (msg.type === 'chat') {
       const text = sanitizeText(msg.text);
       if (!text) return;

@@ -177,6 +177,47 @@
     background:rgba(255,255,255,0.08); color:#eafff0; margin-top:8px;
   }
 
+  #inventoryBtn {
+    position:fixed; top:64px; left:16px; z-index:6;
+    pointer-events:auto;
+    background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
+    color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
+    border-radius:18px; backdrop-filter:blur(4px); cursor:pointer;
+  }
+  #inventoryBtn.hidden { display:none !important; }
+  #inventoryPanel {
+    position:fixed; top:112px; left:16px; z-index:6;
+    width:300px; max-width:80vw;
+    background:linear-gradient(160deg, rgba(28,20,14,0.95), rgba(16,12,8,0.97));
+    border:2px solid rgba(230,190,120,0.4);
+    border-radius:14px; padding:14px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  #inventoryPanel.hidden { display:none !important; }
+  #inventoryPanel h3 {
+    color:#ffe9c2; font-size:13px; margin-bottom:10px;
+  }
+  #inventoryPanel select, #inventoryPanel textarea {
+    width:100%; padding:8px 10px; margin-bottom:8px; font-size:12.5px;
+    border-radius:8px; border:1px solid rgba(230,190,120,0.3);
+    background:rgba(0,0,0,0.3); color:#eafff0; outline:none; resize:none;
+    font-family:inherit;
+  }
+  #inventoryPanel .btn { font-size:12.5px; padding:9px; }
+  #inboxList { margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
+  .noteItem {
+    background:rgba(0,0,0,0.3); border:1px solid rgba(230,190,120,0.25);
+    border-radius:8px; padding:8px 10px; font-size:12px; color:#eafff0;
+  }
+  .noteItem .noteFrom { color:#ffd9a0; font-weight:700; margin-bottom:4px; display:block; }
+  .noteItem .noteReadBtn {
+    margin-top:6px; width:100%; padding:7px; font-size:12px; font-weight:700;
+    border:none; border-radius:8px; cursor:pointer; color:#2a1605;
+    background:linear-gradient(90deg,#ffd27a,#ff9d5c);
+  }
+  .noteItem .noteBurning { color:#ff9b9b; font-style:italic; font-size:11.5px; margin-top:4px; }
+  #inventoryEmpty { color:#9bc49a; font-size:11.5px; }
+
   #joystick {
     position:fixed; bottom:90px; right:30px; z-index:6;
     width:110px; height:110px; border-radius:50%;
@@ -235,6 +276,17 @@
 </div>
 
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
+
+<button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
+<div id="inventoryPanel" class="hidden">
+  <h3>✉️ Write a note</h3>
+  <select id="noteRecipient"></select>
+  <textarea id="noteText" rows="3" maxlength="240" placeholder="Your message…"></textarea>
+  <button class="btn" id="noteSendBtn">Send note</button>
+  <h3 style="margin-top:14px;">📬 Inbox</h3>
+  <div id="inboxList"></div>
+  <div id="inventoryEmpty">No notes yet.</div>
+</div>
 
 <div id="joystick"><div id="stick"></div></div>
 
