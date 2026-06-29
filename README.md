@@ -108,6 +108,10 @@ npm start
 
 Then open **http://localhost:3000**.
 
+- All optional features below (passcode, Stripe payments, Twilio texting)
+  are configured the same way: copy `.env.example` to `.env` and fill in
+  whichever lines you need. Leave the rest blank and those features just
+  stay off.
 - Friends on your same WiFi can join at `http://<your-computer's-local-IP>:3000`
   (find your local IP with `ipconfig` on Windows or `ifconfig`/`ipconfig getifaddr en0` on Mac).
 - Friends elsewhere on the internet **cannot** reach `localhost`, so for that
@@ -173,19 +177,35 @@ The Arcade's **Text** tab sends a real SMS through [Twilio](https://www.twilio.c
 
 1. Create a Twilio account and buy/activate a phone number capable of
    sending SMS (a trial account can usually text your own verified number
-   for free, useful for testing before you pay for a real number).
+   for free, useful for testing before you pay for a real number — but see
+   the trial-account caveat below).
 2. From the Twilio Console, grab your **Account SID**, **Auth Token**, and
    the **phone number** you bought (in `+1XXXXXXXXXX` international format).
 3. Set all three as environment variables — same rule as the Stripe key,
-   **never paste these into chat or commit them**:
+   **never paste these into chat or commit them**. Easiest way locally:
+   copy `.env.example` to a new file named `.env` in the project root and
+   fill in the three `TWILIO_...` lines:
+   ```bash
+   cp .env.example .env
+   # then edit .env in any text editor
+   ```
+   `.env` is gitignored and loaded automatically on `npm start` (via the
+   `dotenv` package) — no need to retype the variables every time you start
+   the server. If you'd rather not use a file, the old inline form still
+   works too:
    ```bash
    # Mac/Linux
    TWILIO_ACCOUNT_SID=ACxxxxx TWILIO_AUTH_TOKEN=xxxxx TWILIO_FROM_NUMBER=+15551234567 npm start
    ```
-   On a host like Render/Railway/Fly.io, add these under that service's
-   **Environment** settings instead.
-4. Leave any of the three unset and the Text tab just explains it's not
-   configured yet — nothing else breaks.
+   On a host like Render/Railway/Fly.io, there's no `.env` file at all —
+   add these under that service's **Environment** settings instead.
+4. Leave any of the three unset (or missing from `.env`) and the Text tab
+   just explains it's not configured yet — nothing else breaks.
+5. **Trial-account gotcha:** an unupgraded Twilio trial account can only
+   send SMS to phone numbers you've manually verified in the Console (under
+   **Phone Numbers → Manage → Verified Caller IDs**) — texting any other
+   number fails even with correct credentials. Add your own phone there
+   first, or upgrade the Twilio account to remove that restriction.
 
 This sends real texts at **your** Twilio account's expense, so a few
 deliberate limits are baked in server-side: phone numbers must be in strict

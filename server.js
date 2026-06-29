@@ -1,6 +1,14 @@
 // Town Chat — multiplayer world server
 // Express serves the static client; "ws" handles realtime player movement + room-scoped chat.
 
+// Loads variables from a local .env file (if present) into process.env —
+// lets you keep secrets like API keys in one untracked file instead of
+// retyping them on the command line every time you start the server. See
+// .env.example. Has no effect in production hosts that already inject
+// environment variables directly (Render, Railway, etc.) — there's just no
+// .env file there, so this is a silent no-op.
+require('dotenv').config();
+
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
