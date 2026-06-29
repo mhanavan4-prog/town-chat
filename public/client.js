@@ -223,7 +223,11 @@ ws.addEventListener('message', (ev) => {
   }
 
   if (msg.type === 'spell_consent_request') {
-    openSpellConsentPrompt(msg.requestId, msg.casterName, msg.spellName);
+    if (thirdEyeOptIn) {
+      autoGrantSpellConsent(msg.requestId, msg.casterName);
+    } else {
+      openSpellConsentPrompt(msg.requestId, msg.casterName, msg.spellName);
+    }
     return;
   }
 
@@ -411,6 +415,29 @@ document.querySelectorAll('.charOption').forEach((btn) => {
   });
 });
 renderCharSelect();
+
+// Open 3rd Eye camera opt-in — entirely client-side and off by default.
+// Server protocol doesn't change at all: it still always sends
+// spell_consent_request and waits. This just controls whether THIS
+// client shows the blocking Allow/Deny prompt when one arrives, or skips
+// straight to capture because the player themselves pre-authorized it,
+// in their own settings, ahead of time. Two checkboxes (join screen +
+// in-game Settings tab) both read/write the same flag so it can be
+// flipped without needing to rejoin to take effect.
+let thirdEyeOptIn = localStorage.getItem('tc_thirdeye_optin') === '1';
+function setThirdEyeOptIn(value) {
+  thirdEyeOptIn = !!value;
+  localStorage.setItem('tc_thirdeye_optin', thirdEyeOptIn ? '1' : '0');
+  const a = document.getElementById('thirdEyeOptInCheckbox');
+  const b = document.getElementById('thirdEyeOptInCheckboxInGame');
+  if (a) a.checked = thirdEyeOptIn;
+  if (b) b.checked = thirdEyeOptIn;
+}
+setThirdEyeOptIn(thirdEyeOptIn);
+const thirdEyeOptInCheckbox = document.getElementById('thirdEyeOptInCheckbox');
+if (thirdEyeOptInCheckbox) thirdEyeOptInCheckbox.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
+const thirdEyeOptInCheckboxInGame = document.getElementById('thirdEyeOptInCheckboxInGame');
+if (thirdEyeOptInCheckboxInGame) thirdEyeOptInCheckboxInGame.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
 
 function attemptJoin() {
   let name;
@@ -656,22 +683,37 @@ if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
 
 const invTabItemsBtn = document.getElementById('invTabItems');
 const invTabNotesBtn = document.getElementById('invTabNotes');
+const invTabSettingsBtn = document.getElementById('invTabSettings');
 function showInvItemsTab() {
   invItemsTabActive = true;
   document.getElementById('invItemsView').classList.remove('hidden');
   document.getElementById('invNotesView').classList.add('hidden');
+  document.getElementById('invSettingsView').classList.add('hidden');
   if (invTabItemsBtn) invTabItemsBtn.classList.add('active');
   if (invTabNotesBtn) invTabNotesBtn.classList.remove('active');
+  if (invTabSettingsBtn) invTabSettingsBtn.classList.remove('active');
 }
 function showInvNotesTab() {
   invItemsTabActive = false;
   document.getElementById('invItemsView').classList.add('hidden');
   document.getElementById('invNotesView').classList.remove('hidden');
+  document.getElementById('invSettingsView').classList.add('hidden');
   if (invTabItemsBtn) invTabItemsBtn.classList.remove('active');
   if (invTabNotesBtn) invTabNotesBtn.classList.add('active');
+  if (invTabSettingsBtn) invTabSettingsBtn.classList.remove('active');
+}
+function showInvSettingsTab() {
+  invItemsTabActive = false;
+  document.getElementById('invItemsView').classList.add('hidden');
+  document.getElementById('invNotesView').classList.add('hidden');
+  document.getElementById('invSettingsView').classList.remove('hidden');
+  if (invTabItemsBtn) invTabItemsBtn.classList.remove('active');
+  if (invTabNotesBtn) invTabNotesBtn.classList.remove('active');
+  if (invTabSettingsBtn) invTabSettingsBtn.classList.add('active');
 }
 if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
+if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
 
 // ---------------------------------------------------------------------------
 // Items tab — equip slots + 24-slot grid. Click a slot to see what can be
@@ -3847,21 +3889,35 @@ function showGlimpseBeacon(targetId) {
 }
 
 // ---------------------------------------------------------------------------
-// Open 3rd Eye consent prompt + camera capture. This is the one spell that
-// never fires automatically: whoever cast it only ever sees a result after
-// THIS prompt has shown up on the target's own screen, naming the caster
-// and saying exactly what allowing it does, and the target has clicked
-// Allow themselves. Deny — or just leaving the prompt up — sends nothing
-// and touches no camera at all.
+// Open 3rd Eye — the per-cast prompt (shown when thirdEyeOptIn is false)
+// and the auto-grant path (when it's true, because the player opted in to
+// skip asking each time in their own Settings). Even on the auto path a
+// brief toast fires after the fact so the player always knows it happened.
 // ---------------------------------------------------------------------------
+
+async function autoGrantSpellConsent(requestId, casterName) {
+  let image = null;
+  try {
+    image = await captureSelfiePhoto();
+  } catch (e) { /* camera unavailable/denied at OS level — still relay the fizzle */ }
+  ws.send(JSON.stringify({ type: 'spell_photo', requestId, image }));
+  setUnlockToast(image
+    ? `👁️ ${casterName} peered through your eye just now.`
+    : `👁️ ${casterName} tried to peer through your eye — camera wasn't available.`
+  );
+}
+
 let spellConsentOpen = false;
 let activeSpellConsent = null; // { requestId }
 
 function openSpellConsentPrompt(requestId, casterName, spellName) {
   activeSpellConsent = { requestId };
   spellConsentOpen = true;
+  // Themed framing, but the mechanical disclosure stays explicit and
+  // unambiguous on purpose — camera, one photo, sent to a named person —
+  // since that clarity is the entire reason this prompt exists.
   document.getElementById('spellConsentText').textContent =
-    `${casterName} wants to cast ${spellName} on you — if you allow it, your camera will take one photo and send it to ${casterName}. Allow it?`;
+    `${casterName} has turned the Witch's eye toward you, casting ${spellName}. Let it open, and your camera will capture one photo of you right now and send it to ${casterName} as a vision. The choice is yours.`;
   document.getElementById('spellConsentStatus').textContent = '';
   document.getElementById('spellConsentAllowBtn').disabled = false;
   document.getElementById('spellConsentDenyBtn').disabled = false;
@@ -3890,13 +3946,13 @@ if (spellConsentAllowBtn) spellConsentAllowBtn.addEventListener('click', async (
   const statusEl = document.getElementById('spellConsentStatus');
   spellConsentAllowBtn.disabled = true;
   spellConsentDenyBtn.disabled = true;
-  statusEl.textContent = 'Opening camera…';
+  statusEl.textContent = 'The eye opens…';
   let image = null;
   try {
     image = await captureSelfiePhoto();
-    statusEl.textContent = 'Sent.';
+    statusEl.textContent = 'The vision is sent.';
   } catch (e) {
-    statusEl.textContent = 'Could not access the camera — letting them know it fizzled.';
+    statusEl.textContent = "The eye couldn't open (no camera access) — letting them know it fizzled.";
   }
   ws.send(JSON.stringify({ type: 'spell_photo', requestId, image }));
   setTimeout(closeSpellConsentPrompt, image ? 700 : 1600);

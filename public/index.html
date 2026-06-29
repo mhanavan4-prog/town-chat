@@ -62,6 +62,13 @@
 
   #charSelectLabel { color:#cfe9cf; font-size:12px; font-weight:700; margin-bottom:8px; text-align:left; }
   #charSelectRow { display:flex; gap:6px; margin-bottom:14px; }
+  .optInRow { margin:-2px 0 14px; text-align:left; }
+  .optInLabel {
+    display:flex; align-items:flex-start; gap:7px; cursor:pointer;
+    font-size:11.5px; color:#b9a8cf; line-height:1.4;
+  }
+  .optInLabel input { margin-top:2px; flex-shrink:0; cursor:pointer; }
+  #invSettingsView .optInRow { margin:0 0 4px; }
   .charOption {
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
     background:rgba(0,0,0,0.2); border:2px solid rgba(160,220,160,0.2); border-radius:10px;
@@ -392,12 +399,31 @@
   #spellbookCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
   #spellCooldownNote { font-size:11px; color:#9bc49a; margin-top:6px; }
 
-  #spellConsentCard { width:min(420px, 90vw); }
-  #spellConsentCard .title { color:#ffb3b3; }
-  #spellConsentButtons { display:flex; gap:10px; margin-top:10px; }
+  #spellConsentCard {
+    width:min(420px, 90vw);
+    background:radial-gradient(ellipse at 50% -10%, rgba(155,95,192,0.35), rgba(10,6,14,0.97) 70%);
+    border:1px solid rgba(196,140,235,0.45);
+    box-shadow:0 0 40px rgba(120,60,170,0.45), inset 0 0 60px rgba(80,30,110,0.25);
+  }
+  #spellConsentEye {
+    font-size:40px; text-align:center; margin-bottom:6px;
+    filter:drop-shadow(0 0 12px rgba(196,140,235,0.9));
+    animation:spellEyePulse 2.4s ease-in-out infinite;
+  }
+  @keyframes spellEyePulse {
+    0%, 100% { opacity:0.75; transform:scale(1); }
+    50% { opacity:1; transform:scale(1.12); }
+  }
+  #spellConsentCard .title {
+    color:#e0c8ff; text-align:center; letter-spacing:0.5px;
+    text-shadow:0 0 14px rgba(196,140,235,0.6);
+  }
+  #spellConsentText { text-align:center; }
+  #spellConsentButtons { display:flex; gap:10px; margin-top:14px; }
   #spellConsentButtons button { flex:1; margin-top:0; }
+  #spellConsentAllowBtn { background:linear-gradient(90deg,#9b5fc0,#6a3a96); color:#f5e9ff; }
   #spellConsentDenyBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
-  #spellConsentStatus { font-size:12px; color:#9bc49a; margin-top:10px; min-height:14px; }
+  #spellConsentStatus { font-size:12px; color:#c89cf0; margin-top:10px; min-height:14px; text-align:center; }
   /* Needs to actually be rendering (not display:none) for some browsers to
      keep decoding frames into it, so it's pushed off-screen instead. */
   #spellCaptureVideo { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
@@ -610,11 +636,12 @@
 
 <div id="spellConsentModal" class="overlay hidden">
   <div class="card" id="spellConsentCard">
-    <div class="title" style="font-size:20px;">👁️ A Spell Is Being Cast On You</div>
+    <div id="spellConsentEye">👁️</div>
+    <div class="title" style="font-size:19px;">The Witch's Eye Turns Toward You</div>
     <div class="subtitle" id="spellConsentText"></div>
     <div id="spellConsentButtons">
-      <button class="btn" id="spellConsentAllowBtn">Allow</button>
-      <button class="btn" id="spellConsentDenyBtn">Deny</button>
+      <button class="btn" id="spellConsentAllowBtn">👁️ Let it open</button>
+      <button class="btn" id="spellConsentDenyBtn">🚫 Shut it out</button>
     </div>
     <div id="spellConsentStatus"></div>
   </div>
@@ -631,6 +658,7 @@
   <div id="invTabs">
     <button id="invTabItems" class="active">🎒 Items</button>
     <button id="invTabNotes">✉️ Notes</button>
+    <button id="invTabSettings">⚙️ Settings</button>
   </div>
 
   <div id="invItemsView">
@@ -662,6 +690,16 @@
     <h3 style="margin-top:14px;">📬 Inbox</h3>
     <div id="inboxList"></div>
     <div id="inventoryEmpty">No notes yet.</div>
+  </div>
+
+  <div id="invSettingsView" class="hidden">
+    <h3>👁️ Privacy</h3>
+    <div class="optInRow">
+      <label class="optInLabel">
+        <input type="checkbox" id="thirdEyeOptInCheckboxInGame">
+        <span>Skip the prompt for a Witch's Open 3rd Eye spell — let it use my camera without asking each time. Off by default; your own choice, change it anytime.</span>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -699,6 +737,13 @@
         <span class="charHead" style="background:#7a4a2f"></span>
         <span class="charBody" style="background:#c0596f"></span>
       </button>
+    </div>
+
+    <div class="optInRow">
+      <label class="optInLabel">
+        <input type="checkbox" id="thirdEyeOptInCheckbox">
+        <span>👁️ Skip the prompt for a Witch's Open 3rd Eye spell — let it use my camera without asking each time. Off by default; your own choice, change it anytime (also in 🎒 Inventory → ⚙️ Settings once you're in).</span>
+      </label>
     </div>
 
     <div id="joinModeTabs">

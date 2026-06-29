@@ -258,16 +258,20 @@ obvious version of "peer through someone's eyes" is a covert camera
 trigger — cast it, their device silently takes a photo, it gets shipped off
 to you. That's not what this does, because silently activating someone
 else's camera and exfiltrating the photo without their knowledge is a
-spyware pattern no matter how playful the framing is. Instead: casting it
-sends the **target** an explicit on-screen prompt naming the caster and
-saying exactly what allowing it does ("if you allow it, your camera will
-take one photo and send it to them"). Nothing happens until the target
-clicks **Allow** — only then does their browser even ask for camera
-permission, snap one frame, and deliver it to the caster as an image note.
-Clicking **Deny** (or just not responding) sends nothing and never touches
-the camera; the caster just sees a "spell fizzled" message either way. Same
-payoff for the Witch, but the target is always the one in control of their
-own camera.
+spyware pattern no matter how playful the framing is — and a one-time
+disclosure buried in a join screen or a Terms-of-Service-style click-through
+doesn't fix that either, since the target still has no say over the
+specific moment their camera actually turns on. Instead: casting it sends
+the **target** a themed on-screen prompt ("The Witch's Eye Turns Toward
+You") naming the caster and saying exactly what allowing it does in plain
+language ("your camera will capture one photo of you right now and send it
+to them as a vision"). Nothing happens until the target clicks **👁️ Let it
+open** — only then does their browser even ask for camera permission, snap
+one frame, and deliver it to the caster as an image note. Clicking **🚫 Shut
+it out** (or just not responding) sends nothing and never touches the
+camera; the caster just sees a "spell fizzled" message either way. Same
+payoff for the Witch, but the target is always the one deciding, in that
+specific moment, whether their own camera turns on.
 
 ## Run it locally
 
