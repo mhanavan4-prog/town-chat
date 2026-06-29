@@ -100,15 +100,15 @@
     box-shadow:0 0 40px rgba(0,0,0,0.4), 0 8px 30px rgba(0,0,0,0.5);
     transition:width .2s ease;
   }
-  /* The Arcade's chat panel is 3x the normal size and can switch into an
-     embedded-browser mode — see #chatTabs/#browserView below. */
+  /* The Arcade's chat panel is 3x the normal size and can switch into a
+     send-a-text mode — see #chatTabs/#textView below. */
   #chatPanel.arcadeMode { width:1080px; max-width:92vw; }
   /* Minimized: only the header bar (with its restore button) stays visible,
      so the room behind the panel is unobstructed. */
   #chatPanel.minimized { max-height:none; overflow:visible; }
   #chatPanel.minimized #chatTabs,
   #chatPanel.minimized #chatLogView,
-  #chatPanel.minimized #browserView { display:none !important; }
+  #chatPanel.minimized #textView { display:none !important; }
   #chatTabs { pointer-events:auto; display:flex; gap:6px; margin-bottom:8px; }
   #chatTabs.hidden { display:none !important; }
   #chatTabs button {
@@ -136,20 +136,20 @@
     display:flex; flex-direction:column; gap:5px;
   }
   #chatPanel.arcadeMode #chatLog { max-height:780px; min-height:270px; }
-  #browserView { display:flex; flex-direction:column; gap:8px; }
-  #browserBar { pointer-events:auto; display:flex; gap:6px; }
-  #browserUrlInput {
-    flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(217,138,79,0.35);
+  #textView { display:flex; flex-direction:column; gap:10px; }
+  #textPhoneInput, #textBodyInput {
+    pointer-events:auto;
+    padding:10px 12px; border-radius:8px; border:1px solid rgba(217,138,79,0.35);
     background:rgba(0,0,0,0.35); color:#eafff0; font-size:13px; outline:none;
+    font-family:inherit; resize:vertical;
   }
-  #browserGoBtn {
-    border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700;
-    color:#08130a; cursor:pointer; background:linear-gradient(90deg,#9ee37d,#5ee7c0);
-  }
-  #browserFrame {
-    pointer-events:auto; width:100%; height:560px; border:none; border-radius:8px; background:#fff;
-  }
-  #browserNote { color:#9bc49a; font-size:11px; line-height:1.4; }
+  #textPhoneInput::placeholder, #textBodyInput::placeholder { color:#8a7560; }
+  /* Sizing/color comes from the shared .btn class (see top of file); this
+     panel just needs to re-enable clicks since #chatPanel blocks them by
+     default. */
+  #textSendBtn { pointer-events:auto; }
+  #textStatus { color:#9bc49a; font-size:11.5px; line-height:1.4; min-height:14px; }
+  #textStatus.err { color:#ff9b9b; }
   .chatLine {
     background:rgba(0,0,0,0.28); border-radius:8px; padding:7px 11px;
     font-size:13px; color:#eafff0; line-height:1.35; backdrop-filter:blur(3px);
@@ -335,7 +335,7 @@
   </div>
   <div id="chatTabs" class="hidden">
     <button id="chatTabChat" class="active">💬 Chat</button>
-    <button id="chatTabBrowser">🌐 Browser</button>
+    <button id="chatTabText">📱 Text</button>
   </div>
   <div id="chatLogView">
     <div id="chatLog"></div>
@@ -350,13 +350,11 @@
       <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
     </div>
   </div>
-  <div id="browserView" class="hidden">
-    <div id="browserBar">
-      <input id="browserUrlInput" type="text" placeholder="Enter a URL and press Go…">
-      <button id="browserGoBtn">Go</button>
-    </div>
-    <iframe id="browserFrame" title="In-game browser"></iframe>
-    <div id="browserNote">Some sites block being shown inside another page like this — if a page won't load, that's the site's own restriction, not a bug here.</div>
+  <div id="textView" class="hidden">
+    <input id="textPhoneInput" type="tel" placeholder="Phone number, e.g. +15551234567" autocomplete="off">
+    <textarea id="textBodyInput" rows="4" maxlength="300" placeholder="Your message…"></textarea>
+    <button class="btn" id="textSendBtn">Send Text</button>
+    <div id="textStatus"></div>
   </div>
 </div>
 

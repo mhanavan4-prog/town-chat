@@ -350,6 +350,7 @@ let paymentsEnabled = false;
 let premiumPriceCents = 300;
 let roomPassPriceCents = 100;
 let roomPassHours = 4;
+let smsEnabled = false;
 
 // Single-room, time-limited passes (bought from the statue in the free
 // building) — separate from the all-access Town Pass above. Stored as an
@@ -604,7 +605,9 @@ fetch('/api/config')
     premiumPriceCents = cfg.premiumPriceCents || premiumPriceCents;
     roomPassPriceCents = cfg.roomPassPriceCents || roomPassPriceCents;
     roomPassHours = cfg.roomPassHours || roomPassHours;
+    smsEnabled = !!cfg.smsEnabled;
     refreshUnlockUI();
+    if (!smsEnabled) setTextStatus('Texting is not set up on this server (no Twilio credentials configured).', false);
   })
   .catch(() => {});
 
@@ -882,52 +885,78 @@ function renderChatLog() {
 }
 
 // ---------------------------------------------------------------------------
-// Arcade-only: the (3x larger) chat panel can switch into an embedded web
-// browser. This is purely client-side — the iframe loads whatever URL the
-// player types directly in their own browser, same as opening a new tab.
-// Many sites set headers (X-Frame-Options/CSP frame-ancestors) that block
-// being embedded like this; that's the site's own restriction and shows up
-// as a blank/refused frame, not an error in this game.
+// Arcade-only: the (3x larger) chat panel can switch into a "send a text"
+// mode. Unlike chat, this leaves the game entirely — it calls the server's
+// /api/send-sms endpoint, which relays through Twilio to a real phone
+// number. Disabled server-side (and explained as such here) unless the
+// host has Twilio credentials configured; see server.js.
 // ---------------------------------------------------------------------------
 const chatTabChatBtn = document.getElementById('chatTabChat');
-const chatTabBrowserBtn = document.getElementById('chatTabBrowser');
+const chatTabTextBtn = document.getElementById('chatTabText');
 const chatLogView = document.getElementById('chatLogView');
-const browserView = document.getElementById('browserView');
-const browserFrame = document.getElementById('browserFrame');
-const browserUrlInput = document.getElementById('browserUrlInput');
-const browserGoBtn = document.getElementById('browserGoBtn');
+const textView = document.getElementById('textView');
+const textPhoneInput = document.getElementById('textPhoneInput');
+const textBodyInput = document.getElementById('textBodyInput');
+const textSendBtn = document.getElementById('textSendBtn');
+const textStatusEl = document.getElementById('textStatus');
+
+function setTextStatus(text, isError) {
+  if (!textStatusEl) return;
+  textStatusEl.textContent = text;
+  textStatusEl.classList.toggle('err', !!isError);
+}
 
 function showChatTab() {
   chatLogView.classList.remove('hidden');
-  browserView.classList.add('hidden');
+  textView.classList.add('hidden');
   if (chatTabChatBtn) chatTabChatBtn.classList.add('active');
-  if (chatTabBrowserBtn) chatTabBrowserBtn.classList.remove('active');
-  browserFrame.src = 'about:blank'; // stop whatever was loaded/playing while out of view
+  if (chatTabTextBtn) chatTabTextBtn.classList.remove('active');
 }
 
-function showBrowserTab() {
+function showTextTab() {
   chatLogView.classList.add('hidden');
-  browserView.classList.remove('hidden');
+  textView.classList.remove('hidden');
   if (chatTabChatBtn) chatTabChatBtn.classList.remove('active');
-  if (chatTabBrowserBtn) chatTabBrowserBtn.classList.add('active');
+  if (chatTabTextBtn) chatTabTextBtn.classList.add('active');
 }
 
-function navigateBrowser() {
-  let url = browserUrlInput.value.trim();
-  if (!url) return;
-  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url)) url = 'https://' + url;
-  browserFrame.src = url;
+function sendText() {
+  if (!smsEnabled) { setTextStatus('Texting is not set up on this server (no Twilio credentials configured).', true); return; }
+  const to = textPhoneInput.value.trim();
+  const body = textBodyInput.value.trim();
+  if (!to || !body) { setTextStatus('Enter a phone number and a message.', true); return; }
+  setTextStatus('Sending…');
+  textSendBtn.disabled = true;
+  fetch('/api/send-sms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, body })
+  })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      textSendBtn.disabled = false;
+      if (!ok) { setTextStatus(data.error || 'Could not send that text.', true); return; }
+      setTextStatus('Sent!');
+      textBodyInput.value = '';
+    })
+    .catch(() => {
+      textSendBtn.disabled = false;
+      setTextStatus('Could not reach the server.', true);
+    });
 }
 
 if (chatTabChatBtn) chatTabChatBtn.addEventListener('click', showChatTab);
-if (chatTabBrowserBtn) chatTabBrowserBtn.addEventListener('click', showBrowserTab);
-if (browserGoBtn) browserGoBtn.addEventListener('click', navigateBrowser);
-if (browserUrlInput) {
-  browserUrlInput.addEventListener('focus', () => { typing = true; });
-  browserUrlInput.addEventListener('blur', () => { typing = false; });
-  browserUrlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') navigateBrowser();
-    else if (e.key === 'Escape') browserUrlInput.blur();
+if (chatTabTextBtn) chatTabTextBtn.addEventListener('click', showTextTab);
+if (textSendBtn) textSendBtn.addEventListener('click', sendText);
+if (textPhoneInput) {
+  textPhoneInput.addEventListener('focus', () => { typing = true; });
+  textPhoneInput.addEventListener('blur', () => { typing = false; });
+}
+if (textBodyInput) {
+  textBodyInput.addEventListener('focus', () => { typing = true; });
+  textBodyInput.addEventListener('blur', () => { typing = false; });
+  textBodyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') textBodyInput.blur();
   });
 }
 

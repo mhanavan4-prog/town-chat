@@ -4,6 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
@@ -27,7 +28,23 @@ const ROOM_PASS_HOURS = parseFloat(process.env.ROOM_PASS_HOURS) || 4;
 const ROOM_PASS_ROOMS = { arcade: { label: 'Arcade', name: 'Town Chat — Arcade Pass' } };
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
 
+// Optional real-SMS sending from inside the Arcade (replaces the old
+// in-game web browser, which most sites refuse to be embedded in anyway).
+// Uses Twilio's REST API directly over https — no SDK dependency. Leave
+// these unset on a host and the "Text" tab just tells the player it's not
+// configured; nothing else breaks.
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
+const smsEnabled = !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
+
 const app = express();
+// Trust exactly one hop of reverse proxy (Render/Railway/Heroku/Fly all sit
+// in front of the app like this) so req.ip below is the real visitor IP —
+// without this, every request looks like it comes from the proxy, and the
+// SMS rate limit below would silently become "3 texts total for the whole
+// app" instead of "3 texts per visitor."
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -36,8 +53,74 @@ app.get('/api/config', (req, res) => {
     paymentsEnabled: !!stripeClient,
     premiumPriceCents: PREMIUM_PRICE_CENTS,
     roomPassPriceCents: ROOM_PASS_PRICE_CENTS,
-    roomPassHours: ROOM_PASS_HOURS
+    roomPassHours: ROOM_PASS_HOURS,
+    smsEnabled
   });
+});
+
+// This sends real text messages at the operator's expense, so it's locked
+// down harder than the rest of this otherwise-casual project: a strict
+// E.164 phone format, a short message cap, and a per-IP rate limit (an
+// in-memory sliding window — resets on restart, same caveat as everything
+// else here that isn't accounts.json). None of this is bot-proof; don't
+// expose this publicly unless you trust whoever can reach it.
+const SMS_MAX_BODY_LEN = 300;
+const SMS_RATE_LIMIT = 3;
+const SMS_RATE_WINDOW_MS = 10 * 60 * 1000;
+const smsRateLog = new Map(); // ip -> [timestamps]
+const E164_RE = /^\+[1-9]\d{6,14}$/;
+
+function smsRateLimited(ip) {
+  const now = Date.now();
+  const hits = (smsRateLog.get(ip) || []).filter(t => now - t < SMS_RATE_WINDOW_MS);
+  if (hits.length >= SMS_RATE_LIMIT) { smsRateLog.set(ip, hits); return true; }
+  hits.push(now);
+  smsRateLog.set(ip, hits);
+  return false;
+}
+
+app.post('/api/send-sms', (req, res) => {
+  if (!smsEnabled) return res.status(503).json({ error: 'Texting is not set up on this server yet.' });
+  const to = String(req.body.to || '').trim();
+  const body = String(req.body.body || '').trim();
+  if (!E164_RE.test(to)) {
+    return res.status(400).json({ error: 'Enter a phone number in international format, e.g. +15551234567.' });
+  }
+  if (!body) return res.status(400).json({ error: 'Message is empty.' });
+  if (body.length > SMS_MAX_BODY_LEN) {
+    return res.status(400).json({ error: `Message is too long (max ${SMS_MAX_BODY_LEN} characters).` });
+  }
+  if (smsRateLimited(req.ip)) {
+    return res.status(429).json({ error: 'Too many texts sent recently — try again later.' });
+  }
+
+  const payload = new URLSearchParams({ To: to, From: TWILIO_FROM_NUMBER, Body: body }).toString();
+  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+  const apiReq = https.request({
+    hostname: 'api.twilio.com',
+    path: `/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  }, (twilioRes) => {
+    let raw = '';
+    twilioRes.on('data', (chunk) => { raw += chunk; });
+    twilioRes.on('end', () => {
+      if (twilioRes.statusCode >= 200 && twilioRes.statusCode < 300) {
+        res.json({ ok: true });
+      } else {
+        let message = 'Twilio rejected the message.';
+        try { message = JSON.parse(raw).message || message; } catch (e) {}
+        res.status(502).json({ error: message });
+      }
+    });
+  });
+  apiReq.on('error', () => res.status(502).json({ error: 'Could not reach Twilio.' }));
+  apiReq.write(payload);
+  apiReq.end();
 });
 
 app.post('/api/checkout', async (req, res) => {

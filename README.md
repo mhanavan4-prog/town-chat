@@ -46,6 +46,12 @@ Walk back out through the door and you're back in the open-air town square.
   after a game over, Esc to step away). Each is a small self-contained
   client-side mini-game — no server involvement, no shared/competitive
   state, just something to do while you're in there chatting.
+- 📱 The Arcade's chat panel is also 3x the normal size and has a second
+  **Text** tab next to Chat — it sends a real SMS to a real phone number via
+  Twilio (see **Texting (Twilio)** below). An earlier version of this tab
+  tried to embed a web browser instead; that's gone now since most real
+  sites refuse to render inside another page anyway (`X-Frame-Options`/CSP),
+  so it never reliably worked.
 - 🎒 Inventory (top-left button): write a private note to any other player
   currently in the town. Notes aren't stored anywhere — they're relayed
   straight to the recipient's inbox and never touch a database. Reading a
@@ -160,6 +166,35 @@ through before unlocking), so it can't be spoofed by editing the page. The
 in `localStorage`, consistent with this project's no-database design: it's
 per-browser, not a real login, so paying on one device/browser won't carry
 over to another.
+
+## Texting (Twilio)
+
+The Arcade's **Text** tab sends a real SMS through [Twilio](https://www.twilio.com):
+
+1. Create a Twilio account and buy/activate a phone number capable of
+   sending SMS (a trial account can usually text your own verified number
+   for free, useful for testing before you pay for a real number).
+2. From the Twilio Console, grab your **Account SID**, **Auth Token**, and
+   the **phone number** you bought (in `+1XXXXXXXXXX` international format).
+3. Set all three as environment variables — same rule as the Stripe key,
+   **never paste these into chat or commit them**:
+   ```bash
+   # Mac/Linux
+   TWILIO_ACCOUNT_SID=ACxxxxx TWILIO_AUTH_TOKEN=xxxxx TWILIO_FROM_NUMBER=+15551234567 npm start
+   ```
+   On a host like Render/Railway/Fly.io, add these under that service's
+   **Environment** settings instead.
+4. Leave any of the three unset and the Text tab just explains it's not
+   configured yet — nothing else breaks.
+
+This sends real texts at **your** Twilio account's expense, so a few
+deliberate limits are baked in server-side: phone numbers must be in strict
+international (`+1...`) format, messages are capped at 300 characters, and
+each visitor is limited to 3 texts per 10 minutes (tracked in memory by IP,
+so it resets on restart same as everything else non-account-related here).
+None of that is real bot/abuse protection — there's no CAPTCHA or login
+requirement to use it — so only turn this on for a town you trust the
+players of.
 
 ## Deploy it so friends anywhere can join (free)
 
