@@ -126,12 +126,13 @@ const WORLD = {
   doorWidth: 64,
   wallThickness: 14,
   // "door" picks which wall the entrance/exit gap is cut into ('south' if
-  // omitted). The Cafe's door faces 'east' so it opens toward the spawn hub.
+  // omitted). Every building's door faces whichever wall points back toward
+  // the spawn hub at (800, 560), so walking out always faces the town square.
   buildings: [
     { id: 'cafe',    name: '☕ The Cafe',          x: 180,  y: 190, w: 320, h: 220, color: '#d98a4f', door: 'east' },
-    { id: 'library', name: '📚 The Library',       x: 1190, y: 190, w: 230, h: 160, color: '#6f8fae', door: 'south' },
-    { id: 'arcade',  name: '🎮 The Arcade',        x: 180,  y: 760, w: 230, h: 160, color: '#9b5fc0', door: 'south' },
-    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 1190, y: 760, w: 230, h: 160, color: '#c0596f', door: 'south' },
+    { id: 'library', name: '📚 The Library',       x: 1190, y: 190, w: 230, h: 160, color: '#6f8fae', door: 'west' },
+    { id: 'arcade',  name: '🎮 The Arcade',        x: 180,  y: 760, w: 230, h: 160, color: '#9b5fc0', door: 'east' },
+    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 1190, y: 760, w: 230, h: 160, color: '#c0596f', door: 'west' },
     { id: 'hall',    name: '🏛️ Town Hall',        x: 685,  y: 55,  w: 230, h: 150, color: '#8a9a5b', door: 'south' }
   ]
 };
