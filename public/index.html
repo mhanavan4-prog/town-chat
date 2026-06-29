@@ -167,6 +167,16 @@
     color:#ffe9c2; font-size:12.5px; padding:7px 16px; border-radius:16px;
   }
 
+  .passInfo {
+    text-align:left; background:rgba(0,0,0,0.25); border-radius:10px;
+    padding:14px; margin-bottom:14px;
+  }
+  .passInfo .passTitle { font-weight:700; color:#ffe9c2; margin-bottom:4px; }
+  .passInfo .passDetail { font-size:12px; color:#cfe9cf; }
+  #passModalCloseBtn {
+    background:rgba(255,255,255,0.08); color:#eafff0; margin-top:8px;
+  }
+
   #joystick {
     position:fixed; bottom:90px; right:30px; z-index:6;
     width:110px; height:110px; border-radius:50%;
@@ -209,6 +219,20 @@
 </div>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
+
+<div id="passModal" class="overlay hidden">
+  <div class="card">
+    <div class="title" style="font-size:22px;">🗿 Town Pass Statue</div>
+    <div class="subtitle">A weathered stone statue, etched with a ledger of town privileges.</div>
+    <div class="passInfo">
+      <div class="passTitle">🎮 Arcade Pass — <span id="roomPassPrice">$1.00</span></div>
+      <div class="passDetail">Grants entry to the Arcade for <span id="roomPassHours">4</span> hours.</div>
+    </div>
+    <button class="btn" id="roomPassBuyBtn">Buy Arcade Pass</button>
+    <button class="btn" id="passModalCloseBtn">Maybe later</button>
+    <div class="err" id="passModalErr"></div>
+  </div>
+</div>
 
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
 

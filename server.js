@@ -19,6 +19,11 @@ const TOWN_PASSWORD = process.env.TOWN_PASSWORD || '';
 // building enterable.
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const PREMIUM_PRICE_CENTS = parseInt(process.env.PREMIUM_PRICE_CENTS, 10) || 300;
+// A cheaper, single-room, time-limited pass — bought from the statue inside
+// the free building. Defaults to $1.00 for 4 hours of Arcade access.
+const ROOM_PASS_PRICE_CENTS = parseInt(process.env.ROOM_PASS_PRICE_CENTS, 10) || 100;
+const ROOM_PASS_HOURS = parseFloat(process.env.ROOM_PASS_HOURS) || 4;
+const ROOM_PASS_ROOMS = { arcade: { label: 'Arcade', name: 'Town Chat — Arcade Pass' } };
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
 
 const app = express();
@@ -26,7 +31,12 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (req, res) => {
-  res.json({ paymentsEnabled: !!stripeClient, premiumPriceCents: PREMIUM_PRICE_CENTS });
+  res.json({
+    paymentsEnabled: !!stripeClient,
+    premiumPriceCents: PREMIUM_PRICE_CENTS,
+    roomPassPriceCents: ROOM_PASS_PRICE_CENTS,
+    roomPassHours: ROOM_PASS_HOURS
+  });
 });
 
 app.post('/api/checkout', async (req, res) => {
@@ -53,6 +63,37 @@ app.post('/api/checkout', async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('Stripe checkout error:', err.message);
+    res.status(500).json({ error: 'Could not start checkout.' });
+  }
+});
+
+app.post('/api/checkout-room', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ error: 'Payments are not set up on this server yet.' });
+  const room = String(req.body.room || '');
+  const roomInfo = ROOM_PASS_ROOMS[room];
+  if (!roomInfo) return res.status(400).json({ error: 'Unknown room pass.' });
+  try {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const session = await stripeClient.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: ROOM_PASS_PRICE_CENTS,
+          product_data: {
+            name: roomInfo.name,
+            description: `${ROOM_PASS_HOURS}-hour access to the ${roomInfo.label}.`
+          }
+        },
+        quantity: 1
+      }],
+      success_url: `${origin}/?room_pass_session={CHECKOUT_SESSION_ID}&pass_room=${room}`,
+      cancel_url: `${origin}/`
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe room-pass checkout error:', err.message);
     res.status(500).json({ error: 'Could not start checkout.' });
   }
 });
@@ -243,5 +284,7 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
   if (TOWN_PASSWORD) console.log('Passcode protection: ON');
-  console.log(stripeClient ? `Stripe payments: ON ($${(PREMIUM_PRICE_CENTS / 100).toFixed(2)})` : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable)');
+  console.log(stripeClient
+    ? `Stripe payments: ON (All-Access $${(PREMIUM_PRICE_CENTS / 100).toFixed(2)}, Arcade Pass $${(ROOM_PASS_PRICE_CENTS / 100).toFixed(2)}/${ROOM_PASS_HOURS}h)`
+    : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable)');
 });

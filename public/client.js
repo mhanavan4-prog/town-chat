@@ -226,9 +226,31 @@ const FREE_BUILDING_ID = 'cafe';
 let unlocked = localStorage.getItem('tc_unlocked') === '1';
 let paymentsEnabled = false;
 let premiumPriceCents = 300;
+let roomPassPriceCents = 100;
+let roomPassHours = 4;
+
+// Single-room, time-limited passes (bought from the statue in the free
+// building) — separate from the all-access Town Pass above. Stored as an
+// expiry timestamp per room, same client-side-only trust model.
+function roomPassKey(roomId) { return 'tc_room_pass_' + roomId + '_expiry'; }
+function hasRoomPass(roomId) {
+  const exp = parseInt(localStorage.getItem(roomPassKey(roomId)) || '0', 10);
+  return Number.isFinite(exp) && Date.now() < exp;
+}
+function grantRoomPass(roomId, hours) {
+  localStorage.setItem(roomPassKey(roomId), String(Date.now() + hours * 60 * 60 * 1000));
+}
 
 function isLockedRoom(roomId) {
-  return roomId !== 'outside' && roomId !== FREE_BUILDING_ID && !unlocked;
+  if (roomId === 'outside' || roomId === FREE_BUILDING_ID || unlocked) return false;
+  return !hasRoomPass(roomId);
+}
+
+// Whether a building's outdoor signage/door should render in its "locked"
+// look — same rule as isLockedRoom but as a per-building helper since
+// buildings (not rooms) are what get rendered outdoors.
+function isVisuallyLocked(b) {
+  return b.id !== FREE_BUILDING_ID && !unlocked && !hasRoomPass(b.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +374,8 @@ fetch('/api/config')
   .then(cfg => {
     paymentsEnabled = !!cfg.paymentsEnabled;
     premiumPriceCents = cfg.premiumPriceCents || premiumPriceCents;
+    roomPassPriceCents = cfg.roomPassPriceCents || roomPassPriceCents;
+    roomPassHours = cfg.roomPassHours || roomPassHours;
     refreshUnlockUI();
   })
   .catch(() => {});
@@ -383,22 +407,40 @@ if (unlockBtn) {
 (function checkReturnFromCheckout() {
   const params = new URLSearchParams(location.search);
   const sessionId = params.get('unlock_session');
-  if (!sessionId) return;
-  history.replaceState(null, '', location.pathname);
-  fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId))
-    .then(r => r.json())
-    .then(data => {
-      if (data.unlocked) {
-        unlocked = true;
-        localStorage.setItem('tc_unlocked', '1');
-        setUnlockToast('✅ Payment verified — every building is unlocked!');
-        refreshUnlockUI();
-        refreshBuildingLockVisuals();
-      } else {
-        setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
-      }
-    })
-    .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
+  const roomPassSessionId = params.get('room_pass_session');
+  const passRoom = params.get('pass_room');
+
+  if (sessionId) {
+    history.replaceState(null, '', location.pathname);
+    fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId))
+      .then(r => r.json())
+      .then(data => {
+        if (data.unlocked) {
+          unlocked = true;
+          localStorage.setItem('tc_unlocked', '1');
+          setUnlockToast('✅ Payment verified — every building is unlocked!');
+          refreshUnlockUI();
+          refreshBuildingLockVisuals();
+        } else {
+          setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
+        }
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
+  } else if (roomPassSessionId && passRoom) {
+    history.replaceState(null, '', location.pathname);
+    fetch('/api/verify-session?session_id=' + encodeURIComponent(roomPassSessionId))
+      .then(r => r.json())
+      .then(data => {
+        if (data.unlocked) {
+          grantRoomPass(passRoom, roomPassHours);
+          setUnlockToast(`✅ Arcade Pass active — ${roomPassHours}h of access unlocked!`);
+          refreshBuildingLockVisuals();
+        } else {
+          setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
+        }
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
+  }
 })();
 
 // ---------------------------------------------------------------------------
@@ -408,7 +450,7 @@ const keys = { up:false, down:false, left:false, right:false };
 let typing = false;
 
 window.addEventListener('keydown', (e) => {
-  if (typing) return;
+  if (typing || passModalOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -724,7 +766,7 @@ function buildBuildingMesh(b, w) {
   // unlocked ones get a normal wooden door (kept in sync via
   // refreshBuildingLockVisuals()).
   const t = w.wallThickness, doorH = 72;
-  const locked = b.id !== FREE_BUILDING_ID && !unlocked;
+  const locked = isVisuallyLocked(b);
   const side = getDoorSide(b);
   const doorMat = new THREE.MeshLambertMaterial({ color: locked ? 0x5a1f1f : 0x3c2616 });
   let doorGeo, doorX, doorZ;
@@ -833,7 +875,7 @@ function refreshBuildingLockVisuals() {
   for (const b of world.buildings) {
     const lv = lockVisuals[b.id];
     if (!lv) continue;
-    const locked = b.id !== FREE_BUILDING_ID && !unlocked;
+    const locked = isVisuallyLocked(b);
     lv.door.material.color.set(locked ? 0x5a1f1f : 0x3c2616);
     lv.lockSign.visible = true; // sign texture already reflects current text at build time
   }
@@ -939,9 +981,10 @@ function getInteriorScene(buildingId) {
   scene.add(exitSign);
 
   const seats = [];
-  buildFurniture(scene, theme.furniture, roomW, roomD, seats);
+  const kiosks = [];
+  buildFurniture(scene, theme.furniture, roomW, roomD, seats, kiosks);
 
-  const record = { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal, localW, localH, seats };
+  const record = { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal, localW, localH, seats, kiosks };
   interiorScenes[buildingId] = record;
   return record;
 }
@@ -1125,6 +1168,53 @@ function makeShield(x, y, z, rotY, color) {
   return shield;
 }
 
+// A weathered stone statue holding out a plaque/seal — doubles as the
+// physical "buy a Town Pass" object. Purely decorative geometry; the
+// interaction itself is driven by the kiosk point registered alongside it.
+function makeStatue(x, z) {
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x9a9a90 });
+  const darkStoneMat = new THREE.MeshLambertMaterial({ color: 0x6e6e64 });
+
+  const base = new THREE.Mesh(new THREE.BoxGeometry(36, 10, 36), darkStoneMat);
+  base.position.y = 5; g.add(base);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(24, 38, 24), stoneMat);
+  plinth.position.y = 10 + 19; g.add(plinth);
+
+  const figY = 10 + 38;
+  const robe = new THREE.Mesh(new THREE.ConeGeometry(13, 46, 10), stoneMat);
+  robe.position.y = figY + 23; g.add(robe);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(8, 10, 10), stoneMat);
+  head.position.y = figY + 50; g.add(head);
+
+  const armGeo = new THREE.CylinderGeometry(2.4, 2.4, 20, 6);
+  const armL = new THREE.Mesh(armGeo, stoneMat);
+  armL.position.set(-11, figY + 28, 4); armL.rotation.z = 0.6; g.add(armL);
+  const armR = new THREE.Mesh(armGeo, stoneMat);
+  armR.position.set(11, figY + 28, 4); armR.rotation.z = -0.6; g.add(armR);
+
+  // a plaque held out in front, representing the pass itself
+  const plaque = new THREE.Mesh(
+    new THREE.BoxGeometry(16, 12, 1.5),
+    new THREE.MeshLambertMaterial({ color: 0xd9c89a })
+  );
+  plaque.position.set(0, figY + 18, 15);
+  g.add(plaque);
+  const seal = new THREE.Mesh(
+    new THREE.CircleGeometry(4, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffd27a })
+  );
+  seal.position.set(0, figY + 18, 15.8);
+  g.add(seal);
+
+  const glow = new THREE.PointLight(0xfff1c0, 0.5, 90);
+  glow.position.set(0, figY + 18, 30);
+  g.add(glow);
+
+  g.position.set(x, 0, z);
+  return g;
+}
+
 function makeWindowGlow(x, y, z, rotY) {
   const glow = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 30),
@@ -1152,7 +1242,7 @@ function addDiningSet(scene, seatsOut, tx, tz) {
   }
 }
 
-function buildFurniture(scene, type, roomW, roomD, seatsOut) {
+function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
   const cx = roomW / 2, cz = roomD / 2;
   if (type === 'tavern') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.55, 0x7a2e2e));
@@ -1177,6 +1267,17 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut) {
     scene.add(makeShield(roomW - 90, 82, 6, 0, 0x3b5fb0));
     scene.add(makeWindowGlow(6, 80, roomD * 0.18, Math.PI / 2));
     scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.85, -Math.PI / 2));
+
+    // The Town Pass statue — a free-standing corner near the entrance,
+    // clear of the dining grid, the bar, and the doorway swing.
+    if (kiosksOut) {
+      const statueX = roomW * 0.9, statueZ = roomD * 0.12;
+      scene.add(makeStatue(statueX, statueZ));
+      const statueSign = makeSignSprite('🗿 Town Pass');
+      statueSign.position.set(statueX, 108, statueZ);
+      scene.add(statueSign);
+      kiosksOut.push({ id: 'town_pass', x: statueX, z: statueZ });
+    }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
     scene.add(makeBookshelf(20, cz - 40, Math.PI / 2));
@@ -1375,20 +1476,35 @@ function updateCamera(dt) {
   const rp = getRenderPos(me);
   const f = me.facing;
   const cam = mode === 'outdoor' ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
-  const targetX = rp.x - Math.sin(f) * cam.back;
-  const targetZ = rp.z - Math.cos(f) * cam.back;
+  const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
+
+  // Indoors, rooms are small enough that a fixed pull-back distance can put
+  // the camera past a wall. Rather than clamping the camera's x/z
+  // independently (which can yank it off the behind-the-player line —
+  // sometimes right on top of the character, or even past them, hiding
+  // them entirely), shrink the pull-back distance along that same line so
+  // the camera always stays directly behind the player, just closer when a
+  // wall is near. This guarantees you can always see your own character.
+  let back = cam.back;
+  if (mode === 'indoor' && currentInterior) {
+    const margin = 16;
+    const maxX = dirX > 0.001 ? (currentInterior.roomW - margin - rp.x) / dirX
+               : dirX < -0.001 ? (margin - rp.x) / dirX
+               : Infinity;
+    const maxZ = dirZ > 0.001 ? (currentInterior.roomD - margin - rp.z) / dirZ
+               : dirZ < -0.001 ? (margin - rp.z) / dirZ
+               : Infinity;
+    back = Math.max(24, Math.min(back, maxX, maxZ));
+  }
+
+  const targetX = rp.x + dirX * back;
+  const targetZ = rp.z + dirZ * back;
   const targetY = groundY + cam.height;
 
   const ease = 1 - Math.exp(-dt * 6);
   activeCamera.position.x += (targetX - activeCamera.position.x) * ease;
   activeCamera.position.y += (targetY - activeCamera.position.y) * ease;
   activeCamera.position.z += (targetZ - activeCamera.position.z) * ease;
-
-  if (mode === 'indoor' && currentInterior) {
-    const margin = 18;
-    activeCamera.position.x = Math.max(margin, Math.min(currentInterior.roomW - margin, activeCamera.position.x));
-    activeCamera.position.z = Math.max(margin, Math.min(currentInterior.roomD - margin, activeCamera.position.z));
-  }
 
   activeCamera.lookAt(rp.x, groundY + cam.lookUp, rp.z);
 }
@@ -1422,6 +1538,79 @@ function findNearestSeat() {
   return best;
 }
 
+// ---------------------------------------------------------------------------
+// Town Pass statue — a physical, walk-up-to-it kiosk inside the free
+// building. Pressing E near it opens the purchase modal for the cheaper,
+// single-room Arcade pass.
+// ---------------------------------------------------------------------------
+function findNearestKiosk() {
+  if (!currentInterior || !currentInterior.kiosks || !me) return null;
+  const rp = getRenderPos(me);
+  let best = null, bestDist = 50;
+  for (const k of currentInterior.kiosks) {
+    const d = Math.hypot(rp.x - k.x, rp.z - k.z);
+    if (d < bestDist) { bestDist = d; best = k; }
+  }
+  return best;
+}
+
+let passModalOpen = false;
+
+function openPassModal() {
+  const modal = document.getElementById('passModal');
+  if (!modal) return;
+  document.getElementById('roomPassPrice').textContent = formatPrice(roomPassPriceCents);
+  document.getElementById('roomPassHours').textContent = String(roomPassHours);
+  const err = document.getElementById('passModalErr');
+  if (err) err.textContent = '';
+  const buyBtn = document.getElementById('roomPassBuyBtn');
+  if (buyBtn) { buyBtn.disabled = false; buyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`; }
+  modal.classList.remove('hidden');
+  passModalOpen = true;
+}
+
+function closePassModal() {
+  const modal = document.getElementById('passModal');
+  if (modal) modal.classList.add('hidden');
+  passModalOpen = false;
+}
+
+const passModalCloseBtn = document.getElementById('passModalCloseBtn');
+if (passModalCloseBtn) passModalCloseBtn.addEventListener('click', closePassModal);
+
+const roomPassBuyBtn = document.getElementById('roomPassBuyBtn');
+if (roomPassBuyBtn) {
+  roomPassBuyBtn.addEventListener('click', () => {
+    const err = document.getElementById('passModalErr');
+    if (!paymentsEnabled) {
+      if (err) err.textContent = 'Payments are not set up on this server yet.';
+      return;
+    }
+    roomPassBuyBtn.disabled = true;
+    roomPassBuyBtn.textContent = 'Redirecting…';
+    fetch('/api/checkout-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: 'arcade' })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          if (err) err.textContent = data.error || 'Could not start checkout.';
+          roomPassBuyBtn.disabled = false;
+          roomPassBuyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`;
+        }
+      })
+      .catch(() => {
+        if (err) err.textContent = 'Could not reach the server.';
+        roomPassBuyBtn.disabled = false;
+        roomPassBuyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`;
+      });
+  });
+}
+
 function sitDown(seat) {
   const b = world.buildings.find(bb => bb.id === indoorBuildingId);
   seatedAt = seat;
@@ -1438,15 +1627,19 @@ function tryInteract() {
   if (mode !== 'indoor' || !me) return;
   if (seatedAt) { standUp(); return; }
   const seat = findNearestSeat();
-  if (!seat) return;
-  if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
-  sitDown(seat);
+  if (seat) {
+    if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
+    sitDown(seat);
+    return;
+  }
+  const kiosk = findNearestKiosk();
+  if (kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press E to stand';
@@ -1456,13 +1649,23 @@ function updateInteractHint() {
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press E to sit';
-  } else {
-    hint.classList.add('hidden');
+    return;
   }
+  const kiosk = findNearestKiosk();
+  if (kiosk) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press E to view Town Pass';
+    return;
+  }
+  hint.classList.add('hidden');
 }
 
 window.addEventListener('keydown', (e) => {
   if (typing) return;
+  if (passModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closePassModal();
+    return;
+  }
   if ((e.key === 'e' || e.key === 'E') && !e.repeat) {
     tryInteract();
   }
@@ -1597,7 +1800,7 @@ function update(dt) {
   // place. Nothing here is bound to map axes — "forward" always means
   // "the way the character is currently pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0;
-  if (!typing && !seatedAt) {
+  if (!typing && !seatedAt && !passModalOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
@@ -1612,8 +1815,11 @@ function update(dt) {
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
-  const stepX = fx * moveInput * SPEED * dt;
-  const stepY = fy * moveInput * SPEED * dt;
+  // Indoors is cramped and decorated with furniture underfoot, so movement
+  // is throttled slightly compared to the open town square.
+  const speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
+  const stepX = fx * moveInput * speed * dt;
+  const stepY = fy * moveInput * speed * dt;
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
