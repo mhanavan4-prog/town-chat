@@ -84,12 +84,14 @@ const WORLD = {
   spawn: { x: 800, y: 560 },
   doorWidth: 64,
   wallThickness: 14,
+  // "door" picks which wall the entrance/exit gap is cut into ('south' if
+  // omitted). The Cafe's door faces 'east' so it opens toward the spawn hub.
   buildings: [
-    { id: 'cafe',    name: '☕ The Cafe',          x: 180,  y: 190, w: 230, h: 160, color: '#d98a4f' },
-    { id: 'library', name: '📚 The Library',       x: 1190, y: 190, w: 230, h: 160, color: '#6f8fae' },
-    { id: 'arcade',  name: '🎮 The Arcade',        x: 180,  y: 760, w: 230, h: 160, color: '#9b5fc0' },
-    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 1190, y: 760, w: 230, h: 160, color: '#c0596f' },
-    { id: 'hall',    name: '🏛️ Town Hall',        x: 685,  y: 55,  w: 230, h: 150, color: '#8a9a5b' }
+    { id: 'cafe',    name: '☕ The Cafe',          x: 180,  y: 190, w: 320, h: 220, color: '#d98a4f', door: 'east' },
+    { id: 'library', name: '📚 The Library',       x: 1190, y: 190, w: 230, h: 160, color: '#6f8fae', door: 'south' },
+    { id: 'arcade',  name: '🎮 The Arcade',        x: 180,  y: 760, w: 230, h: 160, color: '#9b5fc0', door: 'south' },
+    { id: 'lounge',  name: '🛋️ Rooftop Lounge',   x: 1190, y: 760, w: 230, h: 160, color: '#c0596f', door: 'south' },
+    { id: 'hall',    name: '🏛️ Town Hall',        x: 685,  y: 55,  w: 230, h: 150, color: '#8a9a5b', door: 'south' }
   ]
 };
 const ROOM_IDS = new Set(['outside', ...WORLD.buildings.map(b => b.id)]);

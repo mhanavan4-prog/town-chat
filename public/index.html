@@ -67,12 +67,17 @@
     pointer-events:auto;
     background:rgba(10,16,12,0.6); border:1px solid rgba(160,220,160,0.2);
     color:#cfe9cf; font-size:12px; padding:8px 14px; border-radius:20px;
+    display:flex; align-items:center; gap:10px;
+  }
+  #muteBtn {
+    pointer-events:auto;
+    background:none; border:none; color:#cfe9cf; font-size:14px;
+    cursor:pointer; line-height:1; padding:0;
   }
 
   #chatPanel {
-    position:fixed; left:50%; bottom:18px; z-index:6;
-    width:460px; max-width:88vw;
-    transform:translateX(-50%);
+    position:fixed; left:16px; top:112px; z-index:6;
+    width:360px; max-width:70vw;
     display:flex; flex-direction:column;
     pointer-events:none;
     background:linear-gradient(160deg, rgba(28,20,14,0.88), rgba(16,12,8,0.92));
@@ -171,7 +176,10 @@
 
 <div id="hud" class="hidden">
   <div id="roomTag"><span id="statusDot"></span><span id="roomLabel">Town Square</span></div>
-  <div id="peopleTag"><span id="peopleCount">1</span> in town</div>
+  <div id="peopleTag">
+    <span><span id="peopleCount">1</span> in town</span>
+    <button id="muteBtn" title="Mute music">🔈</button>
+  </div>
 </div>
 
 <div id="unlockBar" class="hidden">

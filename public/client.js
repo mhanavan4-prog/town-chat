@@ -135,6 +135,7 @@ function attemptJoin() {
   const name = nameInput.value.trim();
   if (!name) { showJoinError('Enter a name first.'); return; }
   showJoinError('');
+  ensureAudio(); // the click is a user gesture — set up Web Audio here so it's unblocked later
   const payload = { type: 'join', name, password: passInput.value };
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
@@ -152,18 +153,25 @@ passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptJoi
 // collision/room logic itself doesn't care, it's all plain numbers.
 // ---------------------------------------------------------------------------
 function buildWalls(w) {
-  const t = w.wallThickness, dw = w.doorWidth;
   const list = [];
-  for (const b of w.buildings) {
-    const doorStart = b.x + (b.w - dw) / 2;
-    const doorEnd = doorStart + dw;
-    list.push({ x: b.x, y: b.y, w: b.w, h: t });                                  // top
-    list.push({ x: b.x, y: b.y, w: t, h: b.h });                                  // left
-    list.push({ x: b.x + b.w - t, y: b.y, w: t, h: b.h });                        // right
-    list.push({ x: b.x, y: b.y + b.h - t, w: doorStart - b.x, h: t });            // bottom-left
-    list.push({ x: doorEnd, y: b.y + b.h - t, w: (b.x + b.w) - doorEnd, h: t });   // bottom-right
-  }
+  for (const b of w.buildings) list.push(...buildWallsForOne(b, w));
   return list;
+}
+
+// Which wall a building's door is cut into. Defaults to 'south'; a building
+// can override via a `door` field (e.g. the Cafe uses 'east' to face spawn).
+function getDoorSide(b) {
+  return (b && b.door) || 'south';
+}
+
+// World-space point just outside a building's door, used to anchor the dirt
+// path that connects it back to the spawn hub.
+function getDoorWorldPos(b) {
+  const side = getDoorSide(b);
+  if (side === 'east') return { x: b.x + b.w, y: b.y + b.h / 2 };
+  if (side === 'west') return { x: b.x, y: b.y + b.h / 2 };
+  if (side === 'north') return { x: b.x + b.w / 2, y: b.y };
+  return { x: b.x + b.w / 2, y: b.y + b.h };
 }
 
 function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -212,6 +220,93 @@ let premiumPriceCents = 300;
 
 function isLockedRoom(roomId) {
   return roomId !== 'outside' && roomId !== FREE_BUILDING_ID && !unlocked;
+}
+
+// ---------------------------------------------------------------------------
+// Music — a tiny procedural ambient tavern loop, synthesized entirely with
+// the Web Audio API (no external audio files). Plays only while inside the
+// Cafe; fades out everywhere else.
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+let musicGain = null;
+let musicMuted = false;
+let musicPlaying = false;
+let musicTimer = null;
+let musicStep = 0;
+
+const TAVERN_SCALE = [196.00, 220.00, 246.94, 293.66, 329.63, 392.00]; // G3 pentatonic-ish run
+const TAVERN_MELODY = [0, 2, 4, 2, 1, 3, 5, 3, 0, 4, 2, 0, 1, 3, 2, 0];
+
+function ensureAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = 0;
+    musicGain.connect(audioCtx.destination);
+  } catch (e) { /* Web Audio unavailable — music simply won't play */ }
+}
+
+function playNote(freq, time, dur, vol) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(vol, time + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+  osc.connect(gain);
+  gain.connect(musicGain);
+  osc.start(time);
+  osc.stop(time + dur + 0.05);
+}
+
+function scheduleMusicStep() {
+  if (!musicPlaying || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const note = TAVERN_MELODY[musicStep % TAVERN_MELODY.length];
+  playNote(TAVERN_SCALE[note], now, 0.5, 0.18);
+  if (musicStep % 4 === 0) playNote(TAVERN_SCALE[0] / 2, now, 0.9, 0.1); // soft bass drone
+  musicStep++;
+  musicTimer = setTimeout(scheduleMusicStep, 330);
+}
+
+function startMusic() {
+  ensureAudio();
+  if (!audioCtx || musicPlaying) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  musicPlaying = true;
+  musicStep = 0;
+  musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  musicGain.gain.linearRampToValueAtTime(musicMuted ? 0 : 0.5, audioCtx.currentTime + 1.2);
+  scheduleMusicStep();
+}
+
+function stopMusic() {
+  if (!musicPlaying) return;
+  musicPlaying = false;
+  clearTimeout(musicTimer);
+  if (audioCtx && musicGain) {
+    musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+  }
+}
+
+function setMusicMuted(muted) {
+  musicMuted = muted;
+  if (audioCtx && musicGain && musicPlaying) {
+    musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(muted ? 0 : 0.5, audioCtx.currentTime + 0.3);
+  }
+}
+
+const muteBtn = document.getElementById('muteBtn');
+if (muteBtn) {
+  muteBtn.addEventListener('click', () => {
+    setMusicMuted(!musicMuted);
+    muteBtn.textContent = musicMuted ? '🔇' : '🔈';
+  });
 }
 
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
@@ -508,8 +603,8 @@ function initScene(w) {
 
   for (const b of w.buildings) {
     scene.add(buildBuildingMesh(b, w));
-    const doorX = b.x + b.w / 2, doorY = b.y + b.h;
-    scene.add(buildPathSegment(doorX, doorY, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
+    const doorPos = getDoorWorldPos(b);
+    scene.add(buildPathSegment(doorPos.x, doorPos.y, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
   }
 
   outdoorScene = scene;
@@ -615,30 +710,55 @@ function buildBuildingMesh(b, w) {
   roof.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight / 2, b.y + b.h / 2);
   group.add(roof);
 
-  // a visible door slab filling the gap in the front wall — locked buildings
-  // get a barred reddish door; the free building and unlocked ones get a
-  // normal wooden door (kept in sync via refreshBuildingLockVisuals()).
+  // a visible door slab filling the gap in whichever wall faces the door —
+  // locked buildings get a barred reddish door; the free building and
+  // unlocked ones get a normal wooden door (kept in sync via
+  // refreshBuildingLockVisuals()).
   const t = w.wallThickness, doorH = 72;
   const locked = b.id !== FREE_BUILDING_ID && !unlocked;
-  const door = new THREE.Mesh(
-    new THREE.BoxGeometry(w.doorWidth - 6, doorH, t * 0.7),
-    new THREE.MeshLambertMaterial({ color: locked ? 0x5a1f1f : 0x3c2616 })
-  );
-  door.position.set(b.x + b.w / 2, doorH / 2, b.y + b.h - t / 2);
+  const side = getDoorSide(b);
+  const doorMat = new THREE.MeshLambertMaterial({ color: locked ? 0x5a1f1f : 0x3c2616 });
+  let doorGeo, doorX, doorZ;
+  if (side === 'east') {
+    doorGeo = new THREE.BoxGeometry(t * 0.7, doorH, w.doorWidth - 6);
+    doorX = b.x + b.w - t / 2; doorZ = b.y + b.h / 2;
+  } else if (side === 'west') {
+    doorGeo = new THREE.BoxGeometry(t * 0.7, doorH, w.doorWidth - 6);
+    doorX = b.x + t / 2; doorZ = b.y + b.h / 2;
+  } else if (side === 'north') {
+    doorGeo = new THREE.BoxGeometry(w.doorWidth - 6, doorH, t * 0.7);
+    doorX = b.x + b.w / 2; doorZ = b.y + t / 2;
+  } else {
+    doorGeo = new THREE.BoxGeometry(w.doorWidth - 6, doorH, t * 0.7);
+    doorX = b.x + b.w / 2; doorZ = b.y + b.h - t / 2;
+  }
+  const door = new THREE.Mesh(doorGeo, doorMat);
+  door.position.set(doorX, doorH / 2, doorZ);
   group.add(door);
 
-  // glowing windows on the three solid walls (back, left, right)
+  // glowing windows on the three walls that don't have the door
   const winMat = new THREE.MeshBasicMaterial({ color: 0xfff1b0 });
   const winY = WALL_HEIGHT * 0.56;
-  const backWin = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
-  backWin.position.set(b.x + b.w / 2, winY, b.y - 0.6);
-  group.add(backWin);
-  const leftWin = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
-  leftWin.position.set(b.x - 0.6, winY, b.y + b.h / 2);
-  group.add(leftWin);
-  const rightWin = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
-  rightWin.position.set(b.x + b.w + 0.6, winY, b.y + b.h / 2);
-  group.add(rightWin);
+  if (side !== 'north') {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
+    win.position.set(b.x + b.w / 2, winY, b.y - 0.6);
+    group.add(win);
+  }
+  if (side !== 'south') {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
+    win.position.set(b.x + b.w / 2, winY, b.y + b.h + 0.6);
+    group.add(win);
+  }
+  if (side !== 'west') {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
+    win.position.set(b.x - 0.6, winY, b.y + b.h / 2);
+    group.add(win);
+  }
+  if (side !== 'east') {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(2, 22, 26), winMat);
+    win.position.set(b.x + b.w + 0.6, winY, b.y + b.h / 2);
+    group.add(win);
+  }
 
   // floating sign with the building name, billboarded each frame
   const sign = makeSignSprite(b.name);
@@ -659,6 +779,35 @@ function buildBuildingMesh(b, w) {
 
 function buildWallsForOne(b, w) {
   const t = w.wallThickness, dw = w.doorWidth;
+  const side = getDoorSide(b);
+
+  if (side === 'east' || side === 'west') {
+    const doorStart = b.y + (b.h - dw) / 2;
+    const doorEnd = doorStart + dw;
+    const sideWallX = side === 'east' ? b.x + b.w - t : b.x;
+    const otherWallX = side === 'east' ? b.x : b.x + b.w - t;
+    return [
+      { x: b.x, y: b.y, w: b.w, h: t },                                  // north
+      { x: b.x, y: b.y + b.h - t, w: b.w, h: t },                        // south
+      { x: otherWallX, y: b.y, w: t, h: b.h },                           // solid side wall
+      { x: sideWallX, y: b.y, w: t, h: doorStart - b.y },                // door wall, above gap
+      { x: sideWallX, y: doorEnd, w: t, h: (b.y + b.h) - doorEnd }       // door wall, below gap
+    ];
+  }
+
+  if (side === 'north') {
+    const doorStart = b.x + (b.w - dw) / 2;
+    const doorEnd = doorStart + dw;
+    return [
+      { x: b.x, y: b.y + b.h - t, w: b.w, h: t },                        // south
+      { x: b.x, y: b.y, w: t, h: b.h },                                  // west
+      { x: b.x + b.w - t, y: b.y, w: t, h: b.h },                        // east
+      { x: b.x, y: b.y, w: doorStart - b.x, h: t },                      // north, left of gap
+      { x: doorEnd, y: b.y, w: (b.x + b.w) - doorEnd, h: t }             // north, right of gap
+    ];
+  }
+
+  // south (default)
   const doorStart = b.x + (b.w - dw) / 2;
   const doorEnd = doorStart + dw;
   return [
@@ -708,13 +857,21 @@ function getInteriorScene(buildingId) {
   if (interiorScenes[buildingId]) return interiorScenes[buildingId];
 
   const b = world.buildings.find(bb => bb.id === buildingId);
+  const side = getDoorSide(b);
   const override = INTERIOR_SIZE_OVERRIDES[buildingId];
   const localW = override ? override.w : b.w;
   const localH = override ? override.h : b.h;
-  const wallsLocal = buildWallsForOne({ x: 0, y: 0, w: localW, h: localH }, world);
+  const wallsLocal = buildWallsForOne({ x: 0, y: 0, w: localW, h: localH, door: side }, world);
   const roomW = localW * INDOOR_SCALE, roomD = localH * INDOOR_SCALE;
   const dw = world.doorWidth * INDOOR_SCALE;
-  const doorStart = (roomW - dw) / 2, doorEnd = doorStart + dw;
+  // South/north doors run along the room's width; east/west doors run along
+  // its depth — match whichever axis that wall actually spans.
+  let doorStart, doorEnd;
+  if (side === 'east' || side === 'west') {
+    doorStart = (roomD - dw) / 2; doorEnd = doorStart + dw;
+  } else {
+    doorStart = (roomW - dw) / 2; doorEnd = doorStart + dw;
+  }
   const theme = INTERIOR_THEMES[buildingId] || INTERIOR_THEMES.cafe;
 
   const scene = new THREE.Scene();
@@ -764,9 +921,12 @@ function getInteriorScene(buildingId) {
   scene.add(buildTorch(30, 30));
   scene.add(buildTorch(roomW - 30, roomD - 30));
 
-  // exit sign above the doorway
-  const exitSign = makeSignSprite('🚪 Walk south to leave');
-  exitSign.position.set(roomW / 2, 95, roomD - 4);
+  // exit sign above the doorway — wherever the door actually is
+  const exitSign = makeSignSprite(`🚪 Walk ${side} to leave`);
+  if (side === 'east') exitSign.position.set(roomW - 4, 95, roomD / 2);
+  else if (side === 'west') exitSign.position.set(4, 95, roomD / 2);
+  else if (side === 'north') exitSign.position.set(roomW / 2, 95, 4);
+  else exitSign.position.set(roomW / 2, 95, roomD - 4);
   scene.add(exitSign);
 
   const seats = [];
@@ -986,22 +1146,28 @@ function addDiningSet(scene, seatsOut, tx, tz) {
 function buildFurniture(scene, type, roomW, roomD, seatsOut) {
   const cx = roomW / 2, cz = roomD / 2;
   if (type === 'tavern') {
-    scene.add(makeRug(cx, cz - roomD * 0.05, roomW * 0.5, roomD * 0.3, 0x7a2e2e));
+    scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.55, 0x7a2e2e));
     scene.add(makeFireplace(cx, 14, Math.PI));
-    scene.add(makeBarCounter(roomW - 28, 26, roomD * 0.42));
-    scene.add(makeChandelier(cx - roomW * 0.12, cz - roomD * 0.1));
-    scene.add(makeChandelier(cx - roomW * 0.12, cz + roomD * 0.28));
-    addDiningSet(scene, seatsOut, cx - roomW * 0.24, cz - roomD * 0.02);
-    addDiningSet(scene, seatsOut, cx - roomW * 0.24, cz + roomD * 0.3);
-    addDiningSet(scene, seatsOut, cx + roomW * 0.06, cz + roomD * 0.3);
+    // bar runs along the west wall, clear of the (east-facing) doorway
+    scene.add(makeBarCounter(50, 50, 210));
+    // 3 columns x 2 rows of dining sets, in neat aligned rows, with a
+    // chandelier hung centered above each row
+    const colX = [roomW * 0.26, roomW * 0.5, roomW * 0.74];
+    const rowZ = [roomD * 0.35, roomD * 0.68];
+    for (const z of rowZ) {
+      scene.add(makeChandelier(roomW * 0.5, z));
+      for (const x of colX) {
+        addDiningSet(scene, seatsOut, x, z);
+      }
+    }
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
     scene.add(makeBanner(28, 100, 8, 0, 0xd98a4f));
     scene.add(makeBanner(roomW - 28, 100, 8, 0, 0xd98a4f));
     scene.add(makeShield(60, 82, 6, 0, 0xb0392b));
     scene.add(makeShield(roomW - 90, 82, 6, 0, 0x3b5fb0));
-    scene.add(makeWindowGlow(6, 80, roomD * 0.32, Math.PI / 2));
-    scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.7, -Math.PI / 2));
+    scene.add(makeWindowGlow(6, 80, roomD * 0.18, Math.PI / 2));
+    scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.85, -Math.PI / 2));
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
     scene.add(makeBookshelf(20, cz - 40, Math.PI / 2));
@@ -1303,14 +1469,21 @@ function enterBuilding(roomId) {
   me.room = roomId;
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
+  if (roomId === FREE_BUILDING_ID) startMusic(); else stopMusic();
 }
 
 function exitBuilding(b) {
   mode = 'outdoor';
   indoorBuildingId = null;
-  me.x = b.x + b.w / 2;
-  me.y = b.y + b.h + 26; // nudge just outside the door so they don't immediately re-enter
+  const side = getDoorSide(b);
+  // nudge just outside the door (whichever wall it's on) so they don't
+  // immediately re-enter
+  if (side === 'east') { me.x = b.x + b.w + 26; me.y = b.y + b.h / 2; }
+  else if (side === 'west') { me.x = b.x - 26; me.y = b.y + b.h / 2; }
+  else if (side === 'north') { me.x = b.x + b.w / 2; me.y = b.y - 26; }
+  else { me.x = b.x + b.w / 2; me.y = b.y + b.h + 26; }
   me.room = 'outside';
+  stopMusic();
   setActiveContext(outdoorScene, outdoorCamera, null);
   maybeUpdateRoomUI('outside');
 }
@@ -1346,6 +1519,7 @@ function updateOutdoor(stepX, stepY) {
 function updateIndoor(stepX, stepY) {
   const b = world.buildings.find(bb => bb.id === indoorBuildingId);
   const interior = currentInterior;
+  const side = getDoorSide(b);
 
   let localX = me.x - b.x, localY = me.y - b.y;
   const nx = localX + stepX, ny = localY + stepY;
@@ -1353,13 +1527,23 @@ function updateIndoor(stepX, stepY) {
   if (!collidesIndoor(nx, localY, interior.wallsLocal)) localX = nx;
   if (!collidesIndoor(localX, ny, interior.wallsLocal)) localY = ny;
 
-  // Walking through the door gap (south wall, local space) exits the building.
-  // Uses the interior's own local bounds (which may be larger than the
-  // building's literal outdoor footprint, see INTERIOR_SIZE_OVERRIDES), not
-  // b.w/b.h directly.
+  // Walking through the door gap (whichever wall it's on, local space) exits
+  // the building. Uses the interior's own local bounds (which may be larger
+  // than the building's literal outdoor footprint, see
+  // INTERIOR_SIZE_OVERRIDES), not b.w/b.h directly.
   const localDoorStart = interior.doorStart / INDOOR_SCALE;
   const localDoorEnd = interior.doorEnd / INDOOR_SCALE;
-  if (localY > interior.localH - PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd) {
+  let exiting;
+  if (side === 'east') {
+    exiting = localX > interior.localW - PLAYER_R * 0.4 && localY > localDoorStart && localY < localDoorEnd;
+  } else if (side === 'west') {
+    exiting = localX < PLAYER_R * 0.4 && localY > localDoorStart && localY < localDoorEnd;
+  } else if (side === 'north') {
+    exiting = localY < PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd;
+  } else {
+    exiting = localY > interior.localH - PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd;
+  }
+  if (exiting) {
     exitBuilding(b);
     return;
   }
