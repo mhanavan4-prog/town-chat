@@ -78,6 +78,7 @@
   #chatPanel {
     position:fixed; left:16px; top:112px; z-index:6;
     width:360px; max-width:70vw;
+    max-height:calc(100vh - 130px); overflow-y:auto;
     display:flex; flex-direction:column;
     pointer-events:none;
     background:linear-gradient(160deg, rgba(28,20,14,0.88), rgba(16,12,8,0.92));
@@ -90,6 +91,12 @@
   /* The Arcade's chat panel is 3x the normal size and can switch into an
      embedded-browser mode — see #chatTabs/#browserView below. */
   #chatPanel.arcadeMode { width:1080px; max-width:92vw; }
+  /* Minimized: only the header bar (with its restore button) stays visible,
+     so the room behind the panel is unobstructed. */
+  #chatPanel.minimized { max-height:none; overflow:visible; }
+  #chatPanel.minimized #chatTabs,
+  #chatPanel.minimized #chatLogView,
+  #chatPanel.minimized #browserView { display:none !important; }
   #chatTabs { pointer-events:auto; display:flex; gap:6px; margin-bottom:8px; }
   #chatTabs.hidden { display:none !important; }
   #chatTabs button {
@@ -99,10 +106,18 @@
   #chatTabs button.active { background:linear-gradient(90deg,#ffd27a,#ff9d5c); color:#2a1605; }
   #chatHeader {
     pointer-events:none;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
     color:#ffd9a0; font-size:13px; font-weight:700;
     margin-bottom:8px; padding-bottom:6px;
     border-bottom:1px solid rgba(217,138,79,0.3);
   }
+  #chatMinimizeBtn {
+    pointer-events:auto;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(217,138,79,0.3);
+    color:#ffd9a0; font-size:13px; line-height:1; cursor:pointer;
+    width:22px; height:22px; border-radius:6px; flex-shrink:0;
+  }
+  #chatMinimizeBtn:hover { background:rgba(255,255,255,0.18); }
   #chatLog {
     pointer-events:auto;
     max-height:260px; min-height:90px; overflow-y:auto; margin-bottom:8px;
@@ -295,7 +310,10 @@
 <div id="unlockToast" class="hidden"><span id="unlockToastText"></span></div>
 
 <div id="chatPanel" class="hidden">
-  <div id="chatHeader">💬 Town Square</div>
+  <div id="chatHeader">
+    <span id="chatHeaderText">💬 Town Square</span>
+    <button id="chatMinimizeBtn" title="Minimize">–</button>
+  </div>
   <div id="chatTabs" class="hidden">
     <button id="chatTabChat" class="active">💬 Chat</button>
     <button id="chatTabBrowser">🌐 Browser</button>

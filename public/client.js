@@ -831,6 +831,21 @@ if (browserUrlInput) {
   });
 }
 
+// Minimize collapses the panel down to just its header bar, so the room
+// behind it (especially the Arcade's 3x-size panel) isn't blocked while
+// walking around. Sticky across room changes until toggled back.
+let chatMinimized = false;
+const chatMinimizeBtn = document.getElementById('chatMinimizeBtn');
+function setChatMinimized(min) {
+  chatMinimized = min;
+  document.getElementById('chatPanel').classList.toggle('minimized', chatMinimized);
+  if (chatMinimizeBtn) {
+    chatMinimizeBtn.textContent = chatMinimized ? '▢' : '–';
+    chatMinimizeBtn.title = chatMinimized ? 'Restore chat' : 'Minimize';
+  }
+}
+if (chatMinimizeBtn) chatMinimizeBtn.addEventListener('click', () => setChatMinimized(!chatMinimized));
+
 let lastRoom = 'outside';
 function maybeUpdateRoomUI(room) {
   if (room === lastRoom) return;
@@ -841,8 +856,8 @@ function maybeUpdateRoomUI(room) {
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
   document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
   if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
-  const header = document.getElementById('chatHeader');
-  if (header) header.textContent = '💬 ' + roomLabel(room);
+  const headerText = document.getElementById('chatHeaderText');
+  if (headerText) headerText.textContent = '💬 ' + roomLabel(room);
   renderChatLog();
 }
 
