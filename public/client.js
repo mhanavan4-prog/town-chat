@@ -726,19 +726,25 @@ const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
 const INTERIOR_THEMES = {
-  cafe:    { label: 'Tavern',          wall: 0x8a6a4a, banner: 0xd98a4f, furniture: 'tavern' },
-  library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library' },
-  arcade:  { label: "Alchemist's Den", wall: 0x55506a, banner: 0x9b5fc0, furniture: 'alchemist' },
-  lounge:  { label: 'Noble Parlor',    wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor' },
-  hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall' }
+  cafe:    { label: 'Tavern',          wall: 0x8a6a4a, banner: 0xd98a4f, furniture: 'tavern',    floorTint: 0xffffff },
+  library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library',   floorTint: 0xb9c6ff },
+  arcade:  { label: "Alchemist's Den", wall: 0x55506a, banner: 0x9b5fc0, furniture: 'alchemist',  floorTint: 0xd9b8ff },
+  lounge:  { label: 'Noble Parlor',    wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor',     floorTint: 0xffc9d2 },
+  hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 }
 };
 
 // A building's visual/walkable interior can be larger than its literal
 // outdoor footprint. Local-to-world conversion still anchors at the
 // building's real outdoor x/y corner (see updateIndoor()), so this is safe
-// as long as b.x+w and b.y+h stay within the world bounds.
+// as long as b.x+w and b.y+h stay within the world bounds. Each building
+// gets its own room shape (not just a different paint job) so the five
+// interiors read as genuinely different spaces.
 const INTERIOR_SIZE_OVERRIDES = {
-  cafe: { w: 420, h: 300 }
+  cafe:    { w: 480, h: 320 },  // sprawling tavern hall
+  library: { w: 260, h: 420 },  // tall, narrow stacks
+  arcade:  { w: 360, h: 360 },  // square den
+  lounge:  { w: 320, h: 220 },  // cozy, low-ceiling-feeling parlor
+  hall:    { w: 440, h: 300 }   // wide great hall
 };
 
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
@@ -971,7 +977,7 @@ function buildBuildingMesh(b, w) {
   // a second sign disclosing free-vs-premium status
   const tag = locked
     ? makeSignSprite('🔒 Premium — Unlock to enter')
-    : (b.id === FREE_BUILDING_ID ? makeSignSprite('✓ Free to enter') : makeSignSprite('🔓 Unlocked'));
+    : makeSignSprite('✓ Free to enter');
   tag.position.set(b.x + b.w / 2, WALL_HEIGHT + roofHeight - 4, b.y + b.h / 2);
   group.add(tag);
 
@@ -1091,12 +1097,13 @@ function getInteriorScene(buildingId) {
   torch2.position.set(roomW - 30, 70, roomD - 30);
   scene.add(torch2);
 
-  // stone floor
+  // stone floor, tinted per theme so each building's interior reads as its
+  // own space rather than the same room repainted
   const floorTex = makeStoneTexture();
   floorTex.repeat.set(roomW / 60, roomD / 60);
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(roomW, roomD),
-    new THREE.MeshLambertMaterial({ map: floorTex })
+    new THREE.MeshLambertMaterial({ map: floorTex, color: theme.floorTint || 0xffffff })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(roomW / 2, 0, roomD / 2);
