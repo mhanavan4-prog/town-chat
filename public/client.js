@@ -310,14 +310,30 @@ function onWsMessage(ev) {
     lastBankState = { balance: msg.balance, slots: msg.slots };
     renderBankModal();
     if (auctionModalOpen) populateAuctionItemSelect();
+    if (sendMoneyModalOpen) {
+      const bal = document.getElementById('sendMoneyBalance');
+      if (bal) bal.textContent = String(msg.balance);
+    }
     return;
   }
 
   if (msg.type === 'bank_error') {
     if (bankModalOpen) document.getElementById('bankModalErr').textContent = msg.message;
     else if (auctionModalOpen) document.getElementById('auctionModalErr').textContent = msg.message;
+    else if (sendMoneyModalOpen) document.getElementById('sendMoneyErr').textContent = msg.message;
     else if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'money_sent') {
+    if (sendMoneyModalOpen) document.getElementById('sendMoneyErr').textContent = '';
+    setUnlockToast(`💸 Sent ${msg.amount} gold to ${msg.toName}`);
+    return;
+  }
+
+  if (msg.type === 'money_received') {
+    setUnlockToast(`💰 ${msg.fromName} sent you ${msg.amount} gold!`);
     return;
   }
 
@@ -413,6 +429,11 @@ function onWsMessage(ev) {
 
   if (msg.type === 'note_sent') {
     setUnlockToast(`✉️ Note sent to ${msg.toName}`);
+    return;
+  }
+
+  if (msg.type === 'auction_payout') {
+    setUnlockToast(msg.message);
     return;
   }
 
@@ -1315,13 +1336,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -3229,27 +3250,42 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     vaultHub.position.set(cx, 95, roomD - 6);
     scene.add(vaultHub);
 
-    // Two service stations side by side, set well back from the door so
-    // there's open floor to walk in on: a teller counter and an
-    // auctioneer's podium. Each NPC stands just behind its counter/podium;
-    // the kiosk interact point sits just in front, where a player
-    // naturally ends up walking up to it.
+    // Three service stations side by side, set well back from the door so
+    // there's open floor to walk in on: a teller counter, an auctioneer's
+    // podium, and a wire clerk's desk for sending gold to other players.
+    // Each NPC stands just behind its counter/podium/desk; the kiosk
+    // interact point sits just in front, where a player naturally ends up
+    // walking up to it.
     const stationZ = roomD * 0.58;
-    const tellerX = cx - roomW * 0.2;
-    const auctioneerX = cx + roomW * 0.22;
+    const tellerX = cx - roomW * 0.28;
+    const courierX = cx;
+    const auctioneerX = cx + roomW * 0.28;
 
     const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(roomW * 0.3, 34, 22),
+      new THREE.BoxGeometry(roomW * 0.22, 34, 22),
       new THREE.MeshLambertMaterial({ color: 0x3c3528 })
     );
     counter.position.set(tellerX, 17, stationZ);
     scene.add(counter);
     const counterTop = new THREE.Mesh(
-      new THREE.BoxGeometry(roomW * 0.32, 3, 25),
+      new THREE.BoxGeometry(roomW * 0.24, 3, 25),
       new THREE.MeshLambertMaterial({ color: 0xd4af37 })
     );
     counterTop.position.set(tellerX, 35, stationZ);
     scene.add(counterTop);
+
+    const wireDesk = new THREE.Mesh(
+      new THREE.BoxGeometry(roomW * 0.2, 30, 20),
+      new THREE.MeshLambertMaterial({ color: 0x33424a })
+    );
+    wireDesk.position.set(courierX, 15, stationZ);
+    scene.add(wireDesk);
+    const wireDeskTop = new THREE.Mesh(
+      new THREE.BoxGeometry(roomW * 0.22, 3, 23),
+      new THREE.MeshLambertMaterial({ color: 0x8fb8c9 })
+    );
+    wireDeskTop.position.set(courierX, 31, stationZ);
+    scene.add(wireDeskTop);
 
     const podium = new THREE.Mesh(
       new THREE.CylinderGeometry(20, 24, 38, 8),
@@ -3269,6 +3305,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       tellerSign.position.set(tellerX, 92, npcZ);
       scene.add(tellerSign);
       kiosksOut.push({ id: 'bank_teller', x: tellerX, z: kioskZ, npc: 'teller' });
+
+      const courier = createHumanoid(4).group; // "Wanderer" preset — distinct from teller/auctioneer
+      courier.position.set(courierX, 0, npcZ);
+      courier.rotation.y = Math.PI;
+      scene.add(courier);
+      const courierSign = makeSignSprite('💸 Wire Clerk');
+      courierSign.position.set(courierX, 92, npcZ);
+      scene.add(courierSign);
+      kiosksOut.push({ id: 'bank_courier', x: courierX, z: kioskZ, npc: 'courier' });
 
       const auctioneer = createHumanoid(2).group; // "Mystic" — visually distinct from the teller
       auctioneer.position.set(auctioneerX, 0, npcZ);
@@ -3909,6 +3954,7 @@ if (passModalCloseBtn) passModalCloseBtn.addEventListener('click', closePassModa
 // ---------------------------------------------------------------------------
 let bankModalOpen = false;
 let auctionModalOpen = false;
+let sendMoneyModalOpen = false;
 let lastBankState = null; // { balance, slots }
 let lastInventoryState = null; // { slots, equippedWeapon, equippedArmor }
 let selectedInvSlotIdx = null;
@@ -3917,6 +3963,7 @@ let selectedBankSlotIdx = null;
 
 function openBankModal() {
   if (auctionModalOpen) closeAuctionModal();
+  if (sendMoneyModalOpen) closeSendMoneyModal();
   const modal = document.getElementById('bankModal');
   if (!modal) return;
   document.getElementById('bankModalErr').textContent = '';
@@ -3936,6 +3983,68 @@ function closeBankModal() {
 
 const bankModalCloseBtn = document.getElementById('bankModalCloseBtn');
 if (bankModalCloseBtn) bankModalCloseBtn.addEventListener('click', closeBankModal);
+
+// ---------------------------------------------------------------------------
+// Send Money modal — the Wire Clerk NPC's whole job. Recipient must be
+// another currently-online player with their own bank account (the server
+// enforces this; this just picks from whoever's visible right now). Pure
+// request/response like the rest of the bank: ws.send the request, server
+// validates balance/recipient and replies with bank_state or bank_error.
+// ---------------------------------------------------------------------------
+function openSendMoneyModal() {
+  if (bankModalOpen) closeBankModal();
+  if (auctionModalOpen) closeAuctionModal();
+  const modal = document.getElementById('sendMoneyModal');
+  if (!modal) return;
+  document.getElementById('sendMoneyErr').textContent = '';
+  document.getElementById('sendMoneyAmount').value = '';
+  refreshSendMoneyRecipients();
+  modal.classList.remove('hidden');
+  sendMoneyModalOpen = true;
+  ws.send(JSON.stringify({ type: 'bank_open' })); // populates the balance readout
+}
+
+function closeSendMoneyModal() {
+  const modal = document.getElementById('sendMoneyModal');
+  if (modal) modal.classList.add('hidden');
+  sendMoneyModalOpen = false;
+}
+
+const sendMoneyModalCloseBtn = document.getElementById('sendMoneyModalCloseBtn');
+if (sendMoneyModalCloseBtn) sendMoneyModalCloseBtn.addEventListener('click', closeSendMoneyModal);
+
+function refreshSendMoneyRecipients() {
+  const select = document.getElementById('sendMoneyRecipient');
+  if (!select) return;
+  const prev = select.value;
+  select.innerHTML = '';
+  const others = Object.values(players).filter(p => p.id !== myId);
+  if (others.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No one else is here';
+    select.appendChild(opt);
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const p of others) {
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  if (others.some(p => p.id === prev)) select.value = prev;
+}
+
+const sendMoneySubmitBtn = document.getElementById('sendMoneySubmitBtn');
+if (sendMoneySubmitBtn) sendMoneySubmitBtn.addEventListener('click', () => {
+  const err = document.getElementById('sendMoneyErr');
+  const toId = document.getElementById('sendMoneyRecipient').value;
+  const amount = parseInt(document.getElementById('sendMoneyAmount').value, 10);
+  if (!toId) { err.textContent = 'Pick someone to send money to.'; return; }
+  if (!Number.isInteger(amount) || amount < 1) { err.textContent = 'Enter a valid amount.'; return; }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'send_money', toId, amount }));
+});
 
 function renderBankModal() {
   if (!lastBankState) return;
@@ -4040,6 +4149,7 @@ if (bankDepositSubmitBtn) bankDepositSubmitBtn.addEventListener('click', () => {
 
 function openAuctionModal() {
   if (bankModalOpen) closeBankModal();
+  if (sendMoneyModalOpen) closeSendMoneyModal();
   const modal = document.getElementById('auctionModal');
   if (!modal) return;
   document.getElementById('auctionModalErr').textContent = '';
@@ -4108,14 +4218,14 @@ if (auctionSelfieSubmitBtn) auctionSelfieSubmitBtn.addEventListener('click', () 
   const startingBid = parseInt(document.getElementById('auctionSelfieStartBid').value, 10);
   const buyoutRaw = document.getElementById('auctionSelfieBuyout').value;
   const buyoutPrice = buyoutRaw ? parseInt(buyoutRaw, 10) : null;
-  const durationHours = parseInt(document.getElementById('auctionSelfieDuration').value, 10);
+  const durationMinutes = parseInt(document.getElementById('auctionSelfieDuration').value, 10);
   if (!Number.isInteger(startingBid) || startingBid < 1) { err.textContent = 'Enter a valid starting bid.'; return; }
   if (buyoutPrice !== null && (!Number.isInteger(buyoutPrice) || buyoutPrice <= startingBid)) {
     err.textContent = 'Buyout must be higher than the starting bid.';
     return;
   }
   err.textContent = '';
-  ws.send(JSON.stringify({ type: 'auction_list_selfie', image: pendingSelfieImage, startingBid, buyoutPrice, durationHours }));
+  ws.send(JSON.stringify({ type: 'auction_list_selfie', image: pendingSelfieImage, startingBid, buyoutPrice, durationMinutes }));
   pendingSelfieImage = null;
   document.getElementById('auctionSelfiePreview').classList.add('hidden');
   document.getElementById('auctionSelfieCaptureBtn').textContent = 'Take selfie';
@@ -5073,13 +5183,14 @@ function tryInteract() {
   if (kiosk && kiosk.game) { openArcadeGame(kiosk.game); return; }
   if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
   if (kiosk && kiosk.npc === 'auctioneer') { openAuctionModal(); return; }
+  if (kiosk && kiosk.npc === 'courier') { openSendMoneyModal(); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to stand';
@@ -5107,6 +5218,11 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = 'Press F to visit the auction house';
     return;
   }
+  if (kiosk && kiosk.npc === 'courier') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = 'Press F to send money to another player';
+    return;
+  }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to view Town Pass';
@@ -5127,6 +5243,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (auctionModalOpen) {
     if (e.key === 'Escape' && !e.repeat) closeAuctionModal();
+    return;
+  }
+  if (sendMoneyModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeSendMoneyModal();
     return;
   }
   if (spellbookOpen) {
@@ -5296,7 +5416,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !spellbookOpen && !spellConsentOpen && !attackPanelOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !sendMoneyModalOpen && !spellbookOpen && !spellConsentOpen && !attackPanelOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;

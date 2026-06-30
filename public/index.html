@@ -690,6 +690,23 @@
   </div>
 </div>
 
+<div id="sendMoneyModal" class="overlay hidden">
+  <div class="card" id="sendMoneyCard">
+    <div class="title" style="font-size:20px;">💸 Wire Clerk</div>
+    <div class="subtitle">Send gold straight from your bank balance to another player who's online right now.</div>
+    <div class="passInfo">
+      <div class="passTitle">Your balance: <span id="sendMoneyBalance">0</span> 🪙 gold</div>
+      <label>Send to</label>
+      <select id="sendMoneyRecipient"></select>
+      <label>Amount (gold)</label>
+      <input type="number" id="sendMoneyAmount" min="1" placeholder="e.g. 25">
+    </div>
+    <button class="btn" id="sendMoneySubmitBtn">Send Money</button>
+    <button class="btn" id="sendMoneyModalCloseBtn">Close (Esc)</button>
+    <div class="err" id="sendMoneyErr"></div>
+  </div>
+</div>
+
 <div id="auctionModal" class="overlay hidden">
   <div class="card" id="auctionCard">
     <div class="title" style="font-size:20px;">🔨 Auction House</div>
@@ -725,9 +742,9 @@
         <input type="number" id="auctionSelfieBuyout" min="1" placeholder="None">
         <label>Duration</label>
         <select id="auctionSelfieDuration">
-          <option value="1">1 hour</option>
-          <option value="12">12 hours</option>
-          <option value="24">24 hours</option>
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="20">20 minutes</option>
         </select>
       </div>
       <button class="btn" id="auctionSelfieSubmitBtn">List Selfie</button>

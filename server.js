@@ -640,6 +640,10 @@ function saveListings() {
 let listings = loadListings();
 
 const AUCTION_DURATIONS_MS = { 1: 3600000, 12: 12 * 3600000, 24: 24 * 3600000 };
+// Selfie listings run much shorter than item listings — minutes, not hours
+// — since guests (who can list selfies but have no bank account to escrow
+// gold for a long-running auction) are expected to be the main sellers.
+const SELFIE_AUCTION_DURATIONS_MS = { 5: 5 * 60000, 10: 10 * 60000, 20: 20 * 60000 };
 
 function publicListing(l) {
   return {
@@ -681,10 +685,25 @@ function resolveListing(listing) {
     // the winner as a note (not silently — the winner sees exactly where it
     // came from).
     if (listing.currentBidderKey) {
-      const sellerAccount = ensureBankAccount(listing.sellerKey);
-      sellerAccount.balance += listing.currentBid;
-      saveBankAccounts();
-      pushBankStateIfOnline(listing.sellerKey);
+      if (listing.sellerKey) {
+        const sellerAccount = ensureBankAccount(listing.sellerKey);
+        sellerAccount.balance += listing.currentBid;
+        saveBankAccounts();
+        pushBankStateIfOnline(listing.sellerKey);
+      } else {
+        // A guest seller has no bank account to pay into — gold only
+        // reaches them if they're still connected, as a one-time payout
+        // notice. If they've disconnected by the time the auction closes,
+        // there's nowhere for it to go, the same way a guest's inventory
+        // or notes don't survive a disconnect either.
+        const seller = players.get(listing.sellerId);
+        if (seller) {
+          send(seller.ws, {
+            type: 'auction_payout',
+            message: `📸 Your selfie sold to ${listing.currentBidderName} for ${listing.currentBid} gold! (Guest sales aren't banked — log in to an account to keep earnings.)`
+          });
+        }
+      }
       pushBankStateIfOnline(listing.currentBidderKey);
       const winner = findConnectionByAccountKey(listing.currentBidderKey);
       const note = {
@@ -1345,23 +1364,25 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'auction_list_selfie') {
-      if (!player.accountKey) {
-        send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to list a selfie at auction.' });
-        return;
-      }
+      // Unlike item listings, selfies don't need a bank account to sell —
+      // there's no inventory slot to hold the photo, so a guest can list
+      // one too. The payout for a guest seller is handled differently at
+      // resolution time (see resolveListing) since they have nowhere to
+      // bank gold; that's also why selfie auctions run in minutes instead
+      // of hours, so a guest isn't expected to stay connected for long.
       const image = sanitizeImage(msg.image);
       const startingBid = Math.floor(Number(msg.startingBid));
       const buyoutPrice = msg.buyoutPrice != null && msg.buyoutPrice !== '' ? Math.floor(Number(msg.buyoutPrice)) : null;
-      const durationHours = Number(msg.durationHours);
+      const durationMinutes = Number(msg.durationMinutes);
       const validBuyout = buyoutPrice == null || (Number.isInteger(buyoutPrice) && buyoutPrice > startingBid);
       if (!image || !Number.isInteger(startingBid) || startingBid < 1 ||
-          !validBuyout || !AUCTION_DURATIONS_MS[durationHours]) {
+          !validBuyout || !SELFIE_AUCTION_DURATIONS_MS[durationMinutes]) {
         send(ws, { type: 'bank_error', message: 'That selfie listing isn’t valid — check the photo, starting bid, and duration.' });
         return;
       }
       const listing = {
         id: makeId(),
-        sellerKey: player.accountKey,
+        sellerKey: player.accountKey || null,
         sellerId: player.id,
         sellerName: player.name,
         isSelfie: true, image,
@@ -1370,7 +1391,7 @@ wss.on('connection', (ws) => {
         currentBidderKey: null,
         currentBidderName: null,
         createdAt: Date.now(),
-        expiresAt: Date.now() + AUCTION_DURATIONS_MS[durationHours]
+        expiresAt: Date.now() + SELFIE_AUCTION_DURATIONS_MS[durationMinutes]
       };
       listings.push(listing);
       saveListings();
@@ -1586,6 +1607,41 @@ wss.on('connection', (ws) => {
       saveInventories();
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    if (msg.type === 'send_money') {
+      if (!player.accountKey) {
+        send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to send money.' });
+        return;
+      }
+      const target = players.get(String(msg.toId || ''));
+      if (!target || target.id === player.id) {
+        send(ws, { type: 'bank_error', message: 'Pick someone else to send money to.' });
+        return;
+      }
+      if (!target.accountKey) {
+        send(ws, { type: 'bank_error', message: `${target.name} doesn't have a bank account to receive money.` });
+        return;
+      }
+      const amount = Math.floor(Number(msg.amount));
+      if (!Number.isInteger(amount) || amount < 1) {
+        send(ws, { type: 'bank_error', message: 'Enter a valid amount.' });
+        return;
+      }
+      const senderAccount = ensureBankAccount(player.accountKey);
+      if (senderAccount.balance < amount) {
+        send(ws, { type: 'bank_error', message: 'You don’t have enough gold for that.' });
+        return;
+      }
+      senderAccount.balance -= amount;
+      const recipientAccount = ensureBankAccount(target.accountKey);
+      recipientAccount.balance += amount;
+      saveBankAccounts();
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      pushBankStateIfOnline(target.accountKey);
+      send(target.ws, { type: 'money_received', fromName: player.name, amount });
+      send(ws, { type: 'money_sent', toName: target.name, amount });
       return;
     }
 
