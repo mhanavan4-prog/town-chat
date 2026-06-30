@@ -2316,7 +2316,7 @@ function initScene(w) {
 
   if (world2) {
     scene.add(buildPortalMesh(world2.portalInTown.x, world2.portalInTown.y));
-    OUTDOOR_KIOSKS.push({ x: world2.portalInTown.x, y: world2.portalInTown.y, portal: 'wilds' });
+    OUTDOOR_KIOSKS.push({ x: world2.portalInTown.x, z: world2.portalInTown.y, portal: 'wilds' });
   }
 
   outdoorScene = scene;
@@ -2465,7 +2465,7 @@ function buildWildsScene(w2) {
   // standing close enough to immediately re-trigger it.
   const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
   scene.add(buildPortalMesh(returnPortalX, returnPortalY));
-  WILDS_KIOSKS.push({ x: returnPortalX, y: returnPortalY, portal: 'town' });
+  WILDS_KIOSKS.push({ x: returnPortalX, z: returnPortalY, portal: 'town' });
 
   wildsScene = scene;
   wildsCamera = camera;
