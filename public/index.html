@@ -246,6 +246,17 @@
   }
   #interactHint:active span { background:rgba(40,24,16,0.9); }
 
+  #targetingBanner {
+    position:fixed; left:50%; top:74px; z-index:7;
+    transform:translateX(-50%); pointer-events:none;
+  }
+  #targetingBanner.hidden { display:none !important; }
+  #targetingBanner span {
+    background:rgba(58,12,18,0.82); border:1px solid rgba(230,90,90,0.5);
+    color:#ffd8d8; font-size:13px; font-weight:700; padding:9px 18px;
+    border-radius:18px; backdrop-filter:blur(4px); display:inline-block;
+  }
+
   #leaveBtn {
     position:fixed; top:64px; right:16px; z-index:6;
     pointer-events:auto;
@@ -331,6 +342,8 @@
     position:absolute; bottom:1px; right:3px; font-size:10px; color:#cfe9cf; font-weight:700;
     text-shadow:0 1px 2px #000;
   }
+  .itemIconSvg { display:flex; width:1.3em; height:1.3em; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
+  .itemIconSvg svg { width:100%; height:100%; }
 
   #pickpocketCard { width:min(360px, 92vw); }
   #pickpocketGrid { display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; margin:14px 0; }
@@ -794,11 +807,9 @@
 <div id="spellbookModal" class="overlay hidden">
   <div class="card" id="spellbookCard">
     <div class="title" style="font-size:20px;">📖 Spellbook of Evil Recipes</div>
-    <div class="subtitle">Pick a spell, choose a target if it needs one, and cast.</div>
+    <div class="subtitle">Pick a spell — targeted ones close this and let you click who to cast on; self-cast ones just need Cast.</div>
     <div id="spellList"></div>
     <div id="spellTargetPanel" class="passInfo hidden">
-      <label id="spellTargetLabel">Target</label>
-      <select id="spellTargetSelect"></select>
       <button class="btn" id="spellCastBtn">Cast</button>
       <div id="spellCooldownNote"></div>
     </div>
@@ -824,7 +835,7 @@
 <div id="attackModal" class="overlay hidden">
   <div class="card" id="attackCard">
     <div class="title" style="font-size:20px;" id="attackModalTitle">⚔️ Attacks</div>
-    <div class="subtitle">Pick an attack. AoE attacks hit everyone nearby automatically.</div>
+    <div class="subtitle">Pick an attack — targeted ones close this and let you click who to hit; AoE hits everyone nearby automatically.</div>
     <div id="attackList"></div>
     <div id="attackTargetPanel" class="passInfo hidden">
       <label id="attackTargetLabel">Target</label>
@@ -944,6 +955,10 @@
 </div>
 
 <div id="hotbar" class="hidden"></div>
+
+<div id="targetingBanner" class="hidden">
+  <span id="targetingBannerText"></span>
+</div>
 
 <div id="joystick"><div id="stick"></div></div>
 

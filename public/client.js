@@ -71,8 +71,51 @@ const ITEM_CATALOG = {
   dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
   enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null }
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
+  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
+  wood:           { name: 'Wood',           icon: '🪵', slot: null },
+  berries:        { name: 'Berries',        icon: '🍓', slot: null },
+  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null }
 };
+
+// A small hand-drawn flower (5 petals + center, on a short stem/leaf) used
+// in place of the 🌸 emoji wherever a Flower item's icon is rendered as a
+// real DOM element (inventory/bank grid cells) rather than plain text — the
+// flat emoji read poorly at icon size, this reads as an actual bloom.
+// Petal positions: each petal sits at (0,-4) relative to the flower center
+// and is rotated 0/72/144/216/288° around that center to ring all five
+// evenly (360°/5).
+const FLOWER_ICON_SVG = `<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+  <path d="M11 22 L11 13" stroke="#3a7a3f" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <path d="M11 18c-2-0.3-3.4-1.8-3.6-3.6 2 0.2 3.4 1.7 3.6 3.6z" fill="#3a7a3f"/>
+  <g transform="translate(12,9)">
+    <g fill="#ff8fb3">
+      <ellipse cx="0" cy="-4" rx="2.6" ry="4" transform="rotate(0)"/>
+      <ellipse cx="0" cy="-4" rx="2.6" ry="4" transform="rotate(72)"/>
+      <ellipse cx="0" cy="-4" rx="2.6" ry="4" transform="rotate(144)"/>
+      <ellipse cx="0" cy="-4" rx="2.6" ry="4" transform="rotate(216)"/>
+      <ellipse cx="0" cy="-4" rx="2.6" ry="4" transform="rotate(288)"/>
+    </g>
+    <circle r="2.6" fill="#ffd43b"/>
+  </g>
+</svg>`;
+
+// Used everywhere an item's icon needs to be a real DOM element (grid
+// cells) rather than concatenated into a text label/title. Falls back to
+// the plain emoji span for every item except the Flower, which gets the
+// SVG above instead.
+function buildItemIconEl(itemId) {
+  if (itemId === 'flower_bloom') {
+    const wrap = document.createElement('span');
+    wrap.className = 'itemIconSvg';
+    wrap.innerHTML = FLOWER_ICON_SVG;
+    return wrap;
+  }
+  const item = ITEM_CATALOG[itemId];
+  const span = document.createElement('span');
+  span.textContent = item ? item.icon : '❓';
+  return span;
+}
 
 // Must stay in sync with SPELL_CATALOG in server.js — the server enforces
 // who can cast what and owns all the validation, this just supplies what
@@ -949,6 +992,7 @@ function toggleInventory() {
   inventoryOpen = !inventoryOpen;
   inventoryPanel.classList.toggle('hidden', !inventoryOpen);
   if (inventoryOpen) {
+    cancelTargeting();
     refreshNoteRecipients();
     ws.send(JSON.stringify({ type: 'inventory_open' }));
   }
@@ -998,8 +1042,7 @@ function renderInventoryItemsPanel() {
     cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedInvSlotIdx === idx ? ' selected' : '');
     if (slot) {
       const item = ITEM_CATALOG[slot.itemId];
-      const icon = document.createElement('span');
-      icon.textContent = item ? item.icon : '❓';
+      const icon = buildItemIconEl(slot.itemId);
       const qty = document.createElement('span');
       qty.className = 'slotQty';
       qty.textContent = String(slot.qty);
@@ -1578,9 +1621,40 @@ function buildEmojiCursor(emoji, size) {
 }
 const SWORD_CURSOR = buildEmojiCursor('⚔️');
 
+// ---------------------------------------------------------------------------
+// Armed targeting — picking a targeted attack/spell from the Attacks panel
+// or Spellbook closes that panel and "arms" it instead of showing the old
+// target dropdown; the next valid click/tap on another player in the world
+// fires it at them, the same gesture as the universal Strike below. Escape
+// (see the keydown chain) or clicking something that isn't a player cancels
+// it. Only ever targets players — animals/mobs/decor aren't valid targets
+// for curse-attacks/spells, so a click on one of those while armed is just
+// ignored rather than falling through to a Strike/harvest.
+// ---------------------------------------------------------------------------
+let armedTarget = null; // { msgType, idField, attackId, name } or null
+
+function armTargeting(msgType, idField, attackId, name) {
+  armedTarget = { msgType, idField, attackId, name };
+  const banner = document.getElementById('targetingBanner');
+  if (banner) {
+    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click a player to target (Esc to cancel)`;
+    banner.classList.remove('hidden');
+  }
+}
+
+function cancelTargeting() {
+  armedTarget = null;
+  const banner = document.getElementById('targetingBanner');
+  if (banner) banner.classList.add('hidden');
+}
+
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
   const hit = raycastHitAt(e.clientX, e.clientY);
+  if (armedTarget) {
+    canvas.style.cursor = (hit && hit.kind === 'player') ? SWORD_CURSOR : 'default';
+    return;
+  }
   if (hit && (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob')) canvas.style.cursor = SWORD_CURSOR;
   else if (hit && hit.kind === 'decor') canvas.style.cursor = 'pointer';
   else canvas.style.cursor = 'default';
@@ -1589,6 +1663,13 @@ window.addEventListener('mousemove', (e) => {
 function handleCanvasClick(clientX, clientY) {
   if (!gameStarted || !me || anyOverlayOpen()) return;
   const hit = raycastHitAt(clientX, clientY);
+  if (armedTarget) {
+    if (hit && hit.kind === 'player') {
+      ws.send(JSON.stringify({ type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId }));
+      cancelTargeting();
+    }
+    return;
+  }
   if (!hit) return;
   if (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob') {
     ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
@@ -4182,6 +4263,7 @@ let lastAuctionListings = [];
 let selectedBankSlotIdx = null;
 
 function openBankModal() {
+  cancelTargeting();
   if (auctionModalOpen) closeAuctionModal();
   if (sendMoneyModalOpen) closeSendMoneyModal();
   const modal = document.getElementById('bankModal');
@@ -4212,6 +4294,7 @@ if (bankModalCloseBtn) bankModalCloseBtn.addEventListener('click', closeBankModa
 // validates balance/recipient and replies with bank_state or bank_error.
 // ---------------------------------------------------------------------------
 function openSendMoneyModal() {
+  cancelTargeting();
   if (bankModalOpen) closeBankModal();
   if (auctionModalOpen) closeAuctionModal();
   const modal = document.getElementById('sendMoneyModal');
@@ -4277,8 +4360,7 @@ function renderBankModal() {
     cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedBankSlotIdx === idx ? ' selected' : '');
     if (slot) {
       const item = ITEM_CATALOG[slot.itemId];
-      const icon = document.createElement('span');
-      icon.textContent = item ? item.icon : '❓';
+      const icon = buildItemIconEl(slot.itemId);
       const qty = document.createElement('span');
       qty.className = 'slotQty';
       qty.textContent = String(slot.qty);
@@ -4368,6 +4450,7 @@ if (bankDepositSubmitBtn) bankDepositSubmitBtn.addEventListener('click', () => {
 });
 
 function openAuctionModal() {
+  cancelTargeting();
   if (bankModalOpen) closeBankModal();
   if (sendMoneyModalOpen) closeSendMoneyModal();
   const modal = document.getElementById('auctionModal');
@@ -4598,6 +4681,7 @@ let spellbookOpen = false;
 let selectedSpellId = null;
 
 function openSpellbook() {
+  cancelTargeting();
   const modal = document.getElementById('spellbookModal');
   if (!modal) return;
   document.getElementById('spellbookErr').textContent = '';
@@ -4640,59 +4724,28 @@ function renderSpellList() {
   }
 }
 
+// Targeted spells skip the panel entirely now — picking one closes the
+// Spellbook and arms targeting (see armTargeting() above), so the only
+// kind that still shows this panel is 'self', which just needs the Cast
+// button with no target picker at all.
 function selectSpell(id) {
   selectedSpellId = id;
   renderSpellList();
   const spell = SPELL_CATALOG[id];
   document.getElementById('spellbookErr').textContent = '';
-  const select = document.getElementById('spellTargetSelect');
-  const label = document.getElementById('spellTargetLabel');
   if (spell.kind === 'targeted') {
-    select.classList.remove('hidden');
-    label.classList.remove('hidden');
-    refreshSpellTargets();
-  } else {
-    select.classList.add('hidden');
-    label.classList.add('hidden');
-  }
-  document.getElementById('spellTargetPanel').classList.remove('hidden');
-}
-
-function refreshSpellTargets() {
-  const select = document.getElementById('spellTargetSelect');
-  if (!select) return;
-  const prev = select.value;
-  select.innerHTML = '';
-  const others = Object.values(players).filter(p => p.id !== myId);
-  if (others.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = 'No one else is here';
-    select.appendChild(opt);
-    select.disabled = true;
+    closeSpellbook();
+    armTargeting('cast_spell', 'spellId', id, spell.name);
     return;
   }
-  select.disabled = false;
-  for (const p of others) {
-    const opt = document.createElement('option');
-    opt.value = p.id; opt.textContent = p.name;
-    select.appendChild(opt);
-  }
-  if (others.some(p => p.id === prev)) select.value = prev;
+  document.getElementById('spellTargetPanel').classList.remove('hidden');
 }
 
 const spellCastBtn = document.getElementById('spellCastBtn');
 if (spellCastBtn) spellCastBtn.addEventListener('click', () => {
   if (!selectedSpellId) return;
-  const spell = SPELL_CATALOG[selectedSpellId];
-  const err = document.getElementById('spellbookErr');
-  const payload = { type: 'cast_spell', spellId: selectedSpellId };
-  if (spell.kind === 'targeted') {
-    const targetId = document.getElementById('spellTargetSelect').value;
-    if (!targetId) { err.textContent = 'Pick a target first.'; return; }
-    payload.targetId = targetId;
-  }
-  err.textContent = '';
-  ws.send(JSON.stringify(payload));
+  document.getElementById('spellbookErr').textContent = '';
+  ws.send(JSON.stringify({ type: 'cast_spell', spellId: selectedSpellId }));
 });
 
 // A brief highlight on the target's existing name tag — Glimpse the
@@ -4775,6 +4828,7 @@ function castFromHotbar(id) {
   if (!myActionCatalog || !myActionMsgType) return;
   const atk = myActionCatalog[id];
   if (!atk) return;
+  cancelTargeting(); // a hotbar press means "do this nearest-target cast now", not "wait for my next click"
   const payload = { type: myActionMsgType, [myActionIdField]: id };
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
     const target = nearestOtherPlayer();
@@ -4801,6 +4855,7 @@ let selectedAttackId = null;
 const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 4: '🥾 Wanderer Skills' };
 
 function openAttackPanel() {
+  cancelTargeting();
   const modal = document.getElementById('attackModal');
   if (!modal || !myAttackCatalog) return;
   document.getElementById('attackErr').textContent = '';
@@ -4845,19 +4900,24 @@ function renderAttackList() {
   }
 }
 
+// Targeted/reveal attacks skip the panel entirely now — picking one closes
+// the Attacks panel and arms targeting (see armTargeting() above) so the
+// next click in the world picks the target, instead of the old dropdown.
+// 'building' still uses the dropdown (Spy Glass targets a building, not an
+// entity you can click on); 'self'/'aoe' just need the bare Cast button.
 function selectAttack(id) {
   selectedAttackId = id;
   renderAttackList();
   const atk = myAttackCatalog[id];
   document.getElementById('attackErr').textContent = '';
+  if (atk.kind === 'targeted' || atk.kind === 'reveal') {
+    closeAttackPanel();
+    armTargeting('cast_attack', 'attackId', id, atk.name);
+    return;
+  }
   const select = document.getElementById('attackTargetSelect');
   const label = document.getElementById('attackTargetLabel');
-  if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    label.textContent = 'Target';
-    select.classList.remove('hidden');
-    label.classList.remove('hidden');
-    refreshAttackTargets();
-  } else if (atk.kind === 'building') {
+  if (atk.kind === 'building') {
     label.textContent = 'Building';
     select.classList.remove('hidden');
     label.classList.remove('hidden');
@@ -4867,26 +4927,6 @@ function selectAttack(id) {
     label.classList.add('hidden');
   }
   document.getElementById('attackTargetPanel').classList.remove('hidden');
-}
-
-function refreshAttackTargets() {
-  const select = document.getElementById('attackTargetSelect');
-  if (!select) return;
-  const prev = select.value;
-  select.innerHTML = '';
-  const others = Object.values(players).filter(p => p.id !== myId);
-  if (others.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = 'No one else is here';
-    select.appendChild(opt); select.disabled = true; return;
-  }
-  select.disabled = false;
-  for (const p of others) {
-    const opt = document.createElement('option');
-    opt.value = p.id; opt.textContent = p.name;
-    select.appendChild(opt);
-  }
-  if (others.some(p => p.id === prev)) select.value = prev;
 }
 
 function refreshAttackBuildings() {
@@ -4907,11 +4947,7 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
   const atk = myAttackCatalog[selectedAttackId];
   const err = document.getElementById('attackErr');
   const payload = { type: 'cast_attack', attackId: selectedAttackId };
-  if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    const targetId = document.getElementById('attackTargetSelect').value;
-    if (!targetId) { err.textContent = 'Pick a target first.'; return; }
-    payload.targetId = targetId;
-  } else if (atk.kind === 'building') {
+  if (atk.kind === 'building') {
     const buildingId = document.getElementById('attackTargetSelect').value;
     if (!buildingId) { err.textContent = 'Pick a building first.'; return; }
     payload.buildingId = buildingId;
@@ -5502,6 +5538,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
+  if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
     if (slot !== -1) {
