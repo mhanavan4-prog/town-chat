@@ -970,19 +970,19 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 // Character attacks — charId-gated (see ATTACK_CATALOGS below). AoE attacks
 // use AOE_RADIUS to find nearby players automatically; targeted/reveal
-// attacks require a targetId. Historical Swipe is the unique one: it reads
-// recentRooms (the server tracks which buildings each connected player has
-// visited this session) rather than accessing any real-world data — the
-// browser provides no API to read actual browser history, so "history" here
-// means their in-game footsteps. Deep Meditation (Wanderer) is similar in
-// spirit: it only ever surfaces chat that was already broadcast out loud to
-// everyone in the same room while it was happening — not a private read of
-// anything the meditating player couldn't already see in their own chat log.
-// Target players receive a non-blocking attack_hit notification; the caster
-// gets an attack_result toast and notes for the data-reveal effects.
+// attacks require a targetId. Rapid Swipe is the unique one: it lifts one
+// still-undestroyed note out of the target's inbox (see player.inbox above,
+// kept in sync with send_note/destroy_note below) and delivers it to the
+// caster instead — not a read-only peek, the note is actually gone from the
+// target's inbox afterward. Deep Meditation (Wanderer) only ever surfaces
+// chat that was already broadcast out loud to everyone in the same room
+// while it was happening — not a private read of anything the meditating
+// player couldn't already see in their own chat log. Target players receive
+// a non-blocking attack_hit notification; the caster gets an attack_result
+// toast and notes for the data-reveal effects.
 // ---------------------------------------------------------------------------
 const WEREWOLF_ATTACK_CATALOG = {
-  historical_swipe: { name: 'Historical Swipe', kind: 'aoe', effect: 'history' },
+  rapid_swipe:      { name: 'Rapid Swipe',       kind: 'targeted', effect: 'note_steal' },
   lunar_howl:       { name: 'Lunar Howl',       kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
   terrifying_roar:  { name: 'Terrifying Roar',  kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
   alpha_bite:       { name: 'Alpha Bite',        kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 25000 },
@@ -1091,7 +1091,7 @@ wss.on('connection', (ws) => {
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,
         room: 'outside',
-        recentRooms: [] // last 5 buildings visited this session, for Historical Swipe
+        inbox: [] // undestroyed notes currently held, mirrors the client's inbox array — for Rapid Swipe to steal from
       };
       players.set(id, player);
       // Loads (or creates) their inventory immediately rather than lazily
@@ -1119,11 +1119,7 @@ wss.on('connection', (ws) => {
         player.y = Math.max(0, Math.min(WORLD.height, y));
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
-        const prevRoom = player.room;
         player.room = msg.room;
-        if (msg.room !== 'outside' && msg.room !== prevRoom) {
-          player.recentRooms = [msg.room, ...(player.recentRooms || []).filter(r => r !== msg.room)].slice(0, 5);
-        }
       }
       return;
     }
@@ -1140,12 +1136,14 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'send_note') {
-      // Private, point-to-point note — never stored server-side, so there's
-      // nothing left behind for anyone to read twice. Delivered only if the
-      // recipient is currently connected; not queued for later (no accounts
-      // means no durable identity to deliver to once they leave). image is
-      // optional — only the Open 3rd Eye spell result currently uses it
-      // (see spell_photo below), the normal "write a note" UI is text-only.
+      // Private, point-to-point note — not durably stored (no DB, nothing
+      // survives a restart), but kept in target.inbox in memory for as long
+      // as it's undestroyed so Rapid Swipe has something to actually steal.
+      // Delivered only if the recipient is currently connected; not queued
+      // for later (no accounts means no durable identity to deliver to once
+      // they leave). image is optional — only the Open 3rd Eye spell result
+      // currently uses it (see spell_photo below), the normal "write a note"
+      // UI is text-only.
       const toId = String(msg.to || '');
       const text = sanitizeText(msg.text);
       const image = sanitizeImage(msg.image);
@@ -1155,15 +1153,21 @@ wss.on('connection', (ws) => {
         return;
       }
       const noteId = makeId();
-      send(target.ws, { type: 'note_received', note: { id: noteId, fromId: player.id, fromName: player.name, text, image } });
+      const note = { id: noteId, fromId: player.id, fromName: player.name, text, image };
+      target.inbox.push(note);
+      send(target.ws, { type: 'note_received', note });
       send(ws, { type: 'note_sent', toName: target.name });
       return;
     }
 
     if (msg.type === 'destroy_note') {
       // Recipient explicitly clicked the burn icon on a note they'd already
-      // read (notes no longer auto-destruct just from opening them). Let
-      // the original sender know it's gone, if they're still around.
+      // read (notes no longer auto-destruct just from opening them). Drop
+      // it from their server-side inbox too, then let the original sender
+      // know it's gone, if they're still around.
+      const noteId = String(msg.id || '');
+      const idx = player.inbox.findIndex(n => n.id === noteId);
+      if (idx !== -1) player.inbox.splice(idx, 1);
       const fromId = String(msg.fromId || '');
       const sender = players.get(fromId);
       if (sender) send(sender.ws, { type: 'note_destroyed', byName: player.name });
@@ -1449,13 +1453,12 @@ wss.on('connection', (ws) => {
         });
         return;
       }
-      send(caster.ws, {
-        type: 'note_received',
-        note: {
-          id: makeId(), fromId: player.id, fromName: `👁️ ${player.name}'s Third Eye`,
-          text: 'A vision arrives, captured the moment the eye opened…', image
-        }
-      });
+      const visionNote = {
+        id: makeId(), fromId: player.id, fromName: `👁️ ${player.name}'s Third Eye`,
+        text: 'A vision arrives, captured the moment the eye opened…', image
+      };
+      caster.inbox.push(visionNote);
+      send(caster.ws, { type: 'note_received', note: visionNote });
       return;
     }
 
@@ -1564,25 +1567,22 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (attack.effect === 'history') {
-        if (targets.length === 0) {
-          send(ws, { type: 'attack_result', message: '🐾 Historical Swipe — no one in range to read.' });
+      if (attack.effect === 'note_steal') {
+        const t = targets[0];
+        if (t.inbox.length === 0) {
+          send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — ${t.name} has no notes to take.` });
           return;
         }
-        for (const t of targets) {
-          const rooms = (t.recentRooms || []).map(r => describeRoom(r));
-          const trailText = rooms.length > 0 ? rooms.join(' → ') : 'nowhere yet this session';
-          const noteText = `🐾 Your claws trace ${t.name}'s recent path: ${trailText}.`;
-          send(ws, {
-            type: 'note_received',
-            note: { id: makeId(), fromId: t.id, fromName: `🐾 Trail of ${t.name}`, text: noteText }
-          });
-          send(t.ws, {
-            type: 'attack_hit', attackName: attack.name, casterName: player.name,
-            detail: `Your recent path in town was revealed: ${trailText}.`
-          });
-        }
-        send(ws, { type: 'attack_result', message: `🐾 Historical Swipe tore through ${targets.length} trail${targets.length === 1 ? '' : 's'}.` });
+        const stolen = t.inbox.shift();
+        send(t.ws, { type: 'note_stolen', id: stolen.id });
+        send(t.ws, {
+          type: 'attack_hit', attackName: attack.name, casterName: player.name,
+          detail: `${player.name} swiped a note out of your inbox before you could destroy it.`
+        });
+        const deliveredNote = { id: makeId(), fromId: stolen.fromId, fromName: stolen.fromName, text: stolen.text, image: stolen.image };
+        player.inbox.push(deliveredNote);
+        send(ws, { type: 'note_received', note: deliveredNote });
+        send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — swiped a note from ${t.name}.` });
         return;
       }
 

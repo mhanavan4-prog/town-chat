@@ -111,10 +111,10 @@ const SPELL_CATALOG = {
 // kind: 'aoe' = hits every player within AOE_RADIUS (no target picker shown)
 //       'self' = only affects the Werewolf themselves
 //       'targeted' = single target picker required
-// effect: 'history' = Historical Swipe's unique data-reveal
+// effect: 'note_steal' = Rapid Swipe's unique note theft
 const WEREWOLF_ATTACK_CATALOG = {
-  historical_swipe: { name: 'Historical Swipe', icon: '🐾', kind: 'aoe', effect: 'history',
-    description: 'Tears through the footsteps of everyone nearby — reveals which buildings they\'ve visited this session as a note.' },
+  rapid_swipe:      { name: 'Rapid Swipe',       icon: '🐾', kind: 'targeted', effect: 'note_steal',
+    description: "Lifts one undestroyed note straight out of the target's inbox before they can burn it — or comes up empty if they have none." },
   lunar_howl:       { name: 'Lunar Howl',       icon: '🌕', kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000,
     description: 'A moon-splitting howl halves the movement speed of everyone in range.' },
   terrifying_roar:  { name: 'Terrifying Roar',  icon: '😱', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
@@ -407,6 +407,13 @@ function onWsMessage(ev) {
 
   if (msg.type === 'note_destroyed') {
     setUnlockToast(`🔥 Your note was read and destroyed by ${msg.byName}`);
+    return;
+  }
+
+  if (msg.type === 'note_stolen') {
+    const idx = inbox.findIndex(n => n.id === msg.id);
+    if (idx !== -1) inbox.splice(idx, 1);
+    renderInventory();
     return;
   }
 
@@ -4233,6 +4240,7 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
   }
   err.textContent = '';
   ws.send(JSON.stringify(payload));
+  closeAttackPanel();
 });
 
 // ---------------------------------------------------------------------------
