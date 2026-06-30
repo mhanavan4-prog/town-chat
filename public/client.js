@@ -153,8 +153,8 @@ const WANDERER_ATTACK_CATALOG = {
     description: "Peek into a target's pockets and try to lift an item — about a 1-in-3 chance of actually taking something. They'll always know it happened." },
   echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
     description: "A canyon echo scrambles everyone nearby's words in chat." },
-  desert_mirage:      { name: 'Desert Mirage',      icon: '🌅', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
-    description: "Conjures a shimmering mirage that warps the target's colors." },
+  deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'status', statusType: 'meditate', durationMs: 60000,
+    description: 'Sit and meditate, then rise off the ground for a minute — you can still move freely while floating.' },
   heavy_pack:         { name: 'Heavy Pack',         icon: '🎒', kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000,
     description: "Stuffs the target's pack with stones, shrinking them under the weight." },
   endless_road:       { name: 'Endless Road',       icon: '🥿', kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000,
@@ -361,7 +361,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_hit') {
-    showAttackHitNotification(msg.casterName, msg.attackName, msg.detail);
+    showAttackHitNotification(msg.casterName, msg.attackName, msg.detail, msg.effect);
     return;
   }
 
@@ -3408,6 +3408,11 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'wolfmark') {
     v.wolfMarkMesh = makeWolfMarkMesh();
     v.group.add(v.wolfMarkMesh);
+  } else if (newType === 'meditate') {
+    // No mesh — just a timestamp so syncVisuals knows how far into the
+    // sit-then-rise it is. The cross-legged pose and the rising Y offset
+    // are both driven from there, every player who can see this player.
+    v.meditateStartedAt = performance.now();
   }
   // 'colorcycle'/'speedboost' animate every frame in updateStatusVisuals.
   // 'toad'/'gibberish'/'stumble'/'feather'/'speedboost' have no 3D mesh.
@@ -3488,7 +3493,7 @@ function syncVisuals(dt) {
       p.facing = lerpAngle(p.facing, targetFacing, Math.min(1, dt * 10));
     }
 
-    if (id === myId && seatedAt) {
+    if (v.statusType === 'meditate' || (id === myId && seatedAt)) {
       const ease = Math.min(1, dt * 8);
       const legBend = -Math.PI / 2.1, armBend = 0.15;
       v.legL.rotation.x += (legBend - v.legL.rotation.x) * ease;
@@ -3523,7 +3528,20 @@ function syncVisuals(dt) {
       const featherMult = (id === myId && me.activeStatus && me.activeStatus.type === 'feather') ? 2.4 : 1;
       const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
       const floorYOffset = getFloorHeight(p.room, rp.x);
-      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset + floorYOffset, rp.z);
+      // Deep Meditation: sits at ground level, then rises into a hover over
+      // the first couple seconds and gently bobs there for the rest of the
+      // duration — x/z still track the player's real position every frame,
+      // so they can walk/float around freely while up there.
+      let meditateYOffset = 0;
+      if (v.statusType === 'meditate') {
+        const elapsedMs = performance.now() - (v.meditateStartedAt || performance.now());
+        const riseT = Math.min(1, elapsedMs / 2000);
+        const riseEase = riseT * riseT * (3 - 2 * riseT);
+        const hoverHeight = 22;
+        const bob = riseT >= 1 ? Math.sin(performance.now() * 0.0012) * 2 : 0;
+        meditateYOffset = riseEase * hoverHeight + bob;
+      }
+      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset + floorYOffset + meditateYOffset, rp.z);
       v.group.rotation.y = p.facing;
     }
 
@@ -4224,14 +4242,18 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 let attackHitTimer = null;
 
-function showAttackHitNotification(casterName, attackName, detail) {
+function showAttackHitNotification(casterName, attackName, detail, effect) {
   const el = document.getElementById('attackHitNotification');
   if (!el) return;
   document.getElementById('attackHitTitle').textContent = `💥 ${casterName}'s ${attackName} hit you`;
   document.getElementById('attackHitDetail').textContent = detail || '';
+  // Sleight of Hand just needs a quick heads-up, not something the player
+  // has to dismiss themselves — auto-close it fast and hide the button.
+  const quick = effect === 'pickpocket';
+  document.getElementById('attackHitDismiss').classList.toggle('hidden', quick);
   el.classList.add('show');
   clearTimeout(attackHitTimer);
-  attackHitTimer = setTimeout(() => el.classList.remove('show'), 8000);
+  attackHitTimer = setTimeout(() => el.classList.remove('show'), quick ? 2000 : 8000);
 }
 
 const attackHitDismiss = document.getElementById('attackHitDismiss');

@@ -1012,7 +1012,7 @@ const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
   echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
-  desert_mirage:      { name: 'Desert Mirage',       kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
+  deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'status', statusType: 'meditate', durationMs: 60000 },
   heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000 },
   endless_road:       { name: 'Endless Road',        kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000 },
   featherlight_pack:  { name: 'Featherlight Pack',   kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000 },
@@ -1545,7 +1545,7 @@ wss.on('connection', (ws) => {
         }
 
         send(t.ws, {
-          type: 'attack_hit', attackName: attack.name, casterName: player.name,
+          type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: attack.effect,
           detail: stolen
             ? `${player.name} lifted your ${stolen.icon} ${stolen.name}!`
             : `${player.name} rifled through your pockets but came up empty.`
