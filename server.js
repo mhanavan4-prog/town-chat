@@ -1778,18 +1778,21 @@ wss.on('connection', (ws) => {
           }
         }
 
-        send(t.ws, {
-          type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: attack.effect,
-          detail: stolen
-            ? `${player.name} lifted your ${stolen.icon} ${stolen.name}!`
-            : `${player.name} rifled through your pockets but came up empty.`
-        });
+        // Only a failed attempt tips the target off — a successful swipe is
+        // silent on their end, they just find the item gone later. The
+        // caster, on the other hand, always learns the outcome either way.
+        if (!stolen) {
+          send(t.ws, {
+            type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: attack.effect,
+            detail: `${player.name} rifled through your pockets but came up empty — you caught them!`
+          });
+        }
 
         send(ws, {
           type: 'attack_result',
           message: stolen
             ? `🤏 ${attack.name} — you swiped ${stolen.icon} ${stolen.name} from ${t.name}!`
-            : `🤏 ${attack.name} — you saw ${t.name}'s pockets but didn't manage to take anything.`,
+            : `🤏 ${attack.name} — ${t.name} caught you trying to pick their pocket!`,
           pickpocketTargetId: t.id,
           pickpocketTargetName: t.name,
           itemsSeen,
