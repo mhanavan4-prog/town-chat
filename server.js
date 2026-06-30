@@ -387,7 +387,8 @@ const ITEM_CATALOG = {
   dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
   enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null }
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
+  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 const BANK_SLOT_COUNT = 24;
@@ -507,6 +508,66 @@ function inventoryStatePayload(player) {
   return { slots: inv.slots, equippedWeapon: inv.equippedWeapon, equippedArmor: inv.equippedArmor };
 }
 
+// ---------------------------------------------------------------------------
+// Hard Drive — a password-lockable note vault (up to HARDDRIVE_NOTE_CAPACITY
+// notes). The physical "Hard Drive" item in a player's inventory is just a
+// key that unlocks access to *their own* vault below; it's not itself the
+// container, so stealing the physical item (when unlocked, see Sleight of
+// Hand below) only denies the victim access to their own vault — it can
+// never hand the thief someone else's stored notes, since every handler
+// here always operates on getHardDrive(player) for whichever connection
+// sent the request. When a password is set, every operation (view, store,
+// retrieve, destroy, even clearing the password itself) requires it, so the
+// vault is fully inert to outside tampering — including Rapid Swipe and
+// Sleight of Hand, which only ever read player.inbox / inventory slots and
+// never reach into hardDrives at all.
+// ---------------------------------------------------------------------------
+const HARDDRIVE_FILE = path.join(__dirname, 'hardDrives.json');
+function loadHardDrives() {
+  try { return JSON.parse(fs.readFileSync(HARDDRIVE_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveHardDrives() {
+  fs.writeFileSync(HARDDRIVE_FILE, JSON.stringify(hardDrives, null, 2));
+}
+const hardDrives = loadHardDrives(); // usernameLower -> { passwordSalt, passwordHash, notes: [] }
+const HARDDRIVE_NOTE_CAPACITY = 24;
+
+function getHardDrive(player) {
+  if (player.accountKey) {
+    if (!hardDrives[player.accountKey]) {
+      hardDrives[player.accountKey] = { passwordSalt: null, passwordHash: null, notes: [] };
+      saveHardDrives();
+    }
+    return hardDrives[player.accountKey];
+  }
+  if (!player.guestHardDrive) player.guestHardDrive = { passwordSalt: null, passwordHash: null, notes: [] };
+  return player.guestHardDrive;
+}
+
+function persistHardDrive(player) {
+  if (player.accountKey) saveHardDrives();
+}
+
+function ownsHardDriveItem(player) {
+  const inv = getInventory(player);
+  return inv.slots.some(s => s && s.itemId === 'hard_drive');
+}
+
+// Returns null if access is granted, or an error message string if not —
+// covers both "no password set" (always granted) and "wrong/missing
+// password" cases in one check used by every mutating/viewing handler.
+function checkHardDrivePassword(hd, suppliedPassword) {
+  if (!hd.passwordHash) return null;
+  if (!suppliedPassword || !verifyPassword(String(suppliedPassword), hd.passwordSalt, hd.passwordHash)) {
+    return 'Incorrect Hard Drive password.';
+  }
+  return null;
+}
+
+function hardDriveStatePayload(hd) {
+  return { hasPassword: !!hd.passwordHash, notes: hd.notes, capacity: HARDDRIVE_NOTE_CAPACITY };
+}
+
 // Keeps the connection's broadcastable equip state (read by publicPlayer())
 // in sync with whatever's actually equipped in their inventory. Called
 // after anything that can change equip state, and once at join.
@@ -582,7 +643,8 @@ const AUCTION_DURATIONS_MS = { 1: 3600000, 12: 12 * 3600000, 24: 24 * 3600000 };
 
 function publicListing(l) {
   return {
-    id: l.id, sellerName: l.sellerName, itemId: l.itemId, qty: l.qty,
+    id: l.id, sellerName: l.sellerName, itemId: l.itemId || null, qty: l.qty || null,
+    isSelfie: !!l.isSelfie, image: l.isSelfie ? l.image : null,
     startingBid: l.startingBid, buyoutPrice: l.buyoutPrice || null,
     currentBid: l.currentBid, currentBidderName: l.currentBidderName || null,
     expiresAt: l.expiresAt
@@ -611,6 +673,33 @@ function pushBankStateIfOnline(key) {
 
 function resolveListing(listing) {
   listings = listings.filter(l => l.id !== listing.id);
+
+  if (listing.isSelfie) {
+    // The selfie itself isn't a bank-held item — it only ever exists as the
+    // listing's image, so there's nothing to physically return on a no-bid
+    // expiry. A winning bid just pays the seller and delivers the photo to
+    // the winner as a note (not silently — the winner sees exactly where it
+    // came from).
+    if (listing.currentBidderKey) {
+      const sellerAccount = ensureBankAccount(listing.sellerKey);
+      sellerAccount.balance += listing.currentBid;
+      saveBankAccounts();
+      pushBankStateIfOnline(listing.sellerKey);
+      pushBankStateIfOnline(listing.currentBidderKey);
+      const winner = findConnectionByAccountKey(listing.currentBidderKey);
+      const note = {
+        id: makeId(), fromId: listing.sellerId || '', fromName: `📸 ${listing.sellerName}'s Auction Selfie`,
+        text: `You won ${listing.sellerName}'s auctioned selfie for ${listing.currentBid} gold!`, image: listing.image
+      };
+      if (winner) {
+        winner.inbox.push(note);
+        send(winner.ws, { type: 'note_received', note });
+      }
+    }
+    saveListings();
+    return;
+  }
+
   if (listing.currentBidderKey) {
     const winnerAccount = ensureBankAccount(listing.currentBidderKey);
     const added = addItemToAccount(winnerAccount, listing.itemId, listing.qty);
@@ -1255,6 +1344,40 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'auction_list_selfie') {
+      if (!player.accountKey) {
+        send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to list a selfie at auction.' });
+        return;
+      }
+      const image = sanitizeImage(msg.image);
+      const startingBid = Math.floor(Number(msg.startingBid));
+      const buyoutPrice = msg.buyoutPrice != null && msg.buyoutPrice !== '' ? Math.floor(Number(msg.buyoutPrice)) : null;
+      const durationHours = Number(msg.durationHours);
+      const validBuyout = buyoutPrice == null || (Number.isInteger(buyoutPrice) && buyoutPrice > startingBid);
+      if (!image || !Number.isInteger(startingBid) || startingBid < 1 ||
+          !validBuyout || !AUCTION_DURATIONS_MS[durationHours]) {
+        send(ws, { type: 'bank_error', message: 'That selfie listing isn’t valid — check the photo, starting bid, and duration.' });
+        return;
+      }
+      const listing = {
+        id: makeId(),
+        sellerKey: player.accountKey,
+        sellerId: player.id,
+        sellerName: player.name,
+        isSelfie: true, image,
+        startingBid, buyoutPrice,
+        currentBid: null,
+        currentBidderKey: null,
+        currentBidderName: null,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + AUCTION_DURATIONS_MS[durationHours]
+      };
+      listings.push(listing);
+      saveListings();
+      broadcastAuctionState();
+      return;
+    }
+
     if (msg.type === 'auction_bid') {
       if (!player.accountKey) {
         send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to bid.' });
@@ -1331,6 +1454,110 @@ wss.on('connection', (ws) => {
         syncEquipToPlayer(player);
       }
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_open') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to open it.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_set_password') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to lock it.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      const err = checkHardDrivePassword(hd, msg.currentPassword);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      const newPassword = String(msg.newPassword || '');
+      if (newPassword) {
+        const salt = crypto.randomBytes(16).toString('hex');
+        hd.passwordSalt = salt;
+        hd.passwordHash = hashPassword(newPassword, salt);
+      } else {
+        hd.passwordSalt = null;
+        hd.passwordHash = null;
+      }
+      persistHardDrive(player);
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_store') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store notes.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      if (hd.notes.length >= HARDDRIVE_NOTE_CAPACITY) {
+        send(ws, { type: 'harddrive_error', message: 'Your Hard Drive is full.' });
+        return;
+      }
+      const noteId = String(msg.noteId || '');
+      const idx = player.inbox.findIndex(n => n.id === noteId);
+      if (idx === -1) {
+        send(ws, { type: 'harddrive_error', message: 'That note is no longer in your inbox.' });
+        return;
+      }
+      const [note] = player.inbox.splice(idx, 1);
+      hd.notes.push(note);
+      persistHardDrive(player);
+      send(ws, { type: 'note_stolen', id: note.id }); // reuses the client's "remove from local inbox" handler
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_retrieve') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to retrieve notes.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      const noteId = String(msg.noteId || '');
+      const idx = hd.notes.findIndex(n => n.id === noteId);
+      if (idx === -1) {
+        send(ws, { type: 'harddrive_error', message: 'That note isn’t on your Hard Drive.' });
+        return;
+      }
+      const [note] = hd.notes.splice(idx, 1);
+      player.inbox.push(note);
+      persistHardDrive(player);
+      send(ws, { type: 'note_received', note });
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_destroy') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to manage it.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      const noteId = String(msg.noteId || '');
+      const idx = hd.notes.findIndex(n => n.id === noteId);
+      if (idx === -1) {
+        send(ws, { type: 'harddrive_error', message: 'That note isn’t on your Hard Drive.' });
+        return;
+      }
+      const [note] = hd.notes.splice(idx, 1);
+      persistHardDrive(player);
+      const sender = players.get(note.fromId);
+      if (sender) send(sender.ws, { type: 'note_destroyed', byName: player.name });
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
       return;
     }
 
@@ -1527,9 +1754,13 @@ wss.on('connection', (ws) => {
       if (attack.effect === 'pickpocket') {
         const t = targets[0];
         const targetInv = getInventory(t);
+        // A password-locked Hard Drive is invisible to a pickpocket peek
+        // entirely — not just protected from the steal roll, hidden from
+        // itemsSeen too, so a locked vault can't even be confirmed to exist.
+        const targetHdLocked = !!getHardDrive(t).passwordHash;
         const peekedSlots = targetInv.slots
           .map((s, idx) => s ? { idx, itemId: s.itemId, qty: s.qty } : null)
-          .filter(Boolean);
+          .filter(s => s && !(targetHdLocked && s.itemId === 'hard_drive'));
         const itemsSeen = peekedSlots.map(s => ({
           itemId: s.itemId, qty: s.qty, name: ITEM_CATALOG[s.itemId].name, icon: ITEM_CATALOG[s.itemId].icon
         }));

@@ -417,6 +417,33 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'harddrive_state') {
+    lastHardDriveState = { hasPassword: msg.hasPassword, notes: msg.notes, capacity: msg.capacity };
+    document.getElementById('hdErr').textContent = '';
+    document.getElementById('hdLocked').classList.add('hidden');
+    document.getElementById('hdUnlocked').classList.remove('hidden');
+    document.getElementById('hdPasswordInput').value = '';
+    document.getElementById('hdCurrentPasswordInput').value = '';
+    document.getElementById('hdNewPasswordInput').value = '';
+    renderHardDriveUnlocked();
+    return;
+  }
+
+  if (msg.type === 'harddrive_error') {
+    const hdTabVisible = !document.getElementById('invHardDriveView').classList.contains('hidden');
+    if (!hdTabVisible) {
+      setUnlockToast('💽 ' + (msg.message || 'Hard Drive error.'));
+      return;
+    }
+    if (/password/i.test(msg.message || '')) {
+      document.getElementById('hdLocked').classList.remove('hidden');
+      document.getElementById('hdUnlocked').classList.add('hidden');
+      pendingHdPassword = '';
+    }
+    document.getElementById('hdErr').textContent = msg.message || 'Hard Drive error.';
+    return;
+  }
+
   if (msg.type === 'note_error') {
     setUnlockToast('⚠️ ' + msg.message);
     return;
@@ -851,36 +878,25 @@ if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
 
 const invTabItemsBtn = document.getElementById('invTabItems');
 const invTabNotesBtn = document.getElementById('invTabNotes');
+const invTabHardDriveBtn = document.getElementById('invTabHardDrive');
 const invTabSettingsBtn = document.getElementById('invTabSettings');
-function showInvItemsTab() {
-  invItemsTabActive = true;
-  document.getElementById('invItemsView').classList.remove('hidden');
-  document.getElementById('invNotesView').classList.add('hidden');
-  document.getElementById('invSettingsView').classList.add('hidden');
-  if (invTabItemsBtn) invTabItemsBtn.classList.add('active');
-  if (invTabNotesBtn) invTabNotesBtn.classList.remove('active');
-  if (invTabSettingsBtn) invTabSettingsBtn.classList.remove('active');
+const INV_VIEW_IDS = ['invItemsView', 'invNotesView', 'invHardDriveView', 'invSettingsView'];
+const INV_TAB_BTNS = { invItemsView: invTabItemsBtn, invNotesView: invTabNotesBtn, invHardDriveView: invTabHardDriveBtn, invSettingsView: invTabSettingsBtn };
+function showInvTab(viewId) {
+  invItemsTabActive = viewId === 'invItemsView';
+  for (const id of INV_VIEW_IDS) {
+    document.getElementById(id).classList.toggle('hidden', id !== viewId);
+    const btn = INV_TAB_BTNS[id];
+    if (btn) btn.classList.toggle('active', id === viewId);
+  }
+  if (viewId === 'invHardDriveView') refreshHardDriveTab();
 }
-function showInvNotesTab() {
-  invItemsTabActive = false;
-  document.getElementById('invItemsView').classList.add('hidden');
-  document.getElementById('invNotesView').classList.remove('hidden');
-  document.getElementById('invSettingsView').classList.add('hidden');
-  if (invTabItemsBtn) invTabItemsBtn.classList.remove('active');
-  if (invTabNotesBtn) invTabNotesBtn.classList.add('active');
-  if (invTabSettingsBtn) invTabSettingsBtn.classList.remove('active');
-}
-function showInvSettingsTab() {
-  invItemsTabActive = false;
-  document.getElementById('invItemsView').classList.add('hidden');
-  document.getElementById('invNotesView').classList.add('hidden');
-  document.getElementById('invSettingsView').classList.remove('hidden');
-  if (invTabItemsBtn) invTabItemsBtn.classList.remove('active');
-  if (invTabNotesBtn) invTabNotesBtn.classList.remove('active');
-  if (invTabSettingsBtn) invTabSettingsBtn.classList.add('active');
-}
+function showInvItemsTab() { showInvTab('invItemsView'); }
+function showInvNotesTab() { showInvTab('invNotesView'); }
+function showInvSettingsTab() { showInvTab('invSettingsView'); }
 if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
+if (invTabHardDriveBtn) invTabHardDriveBtn.addEventListener('click', () => showInvTab('invHardDriveView'));
 if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
 
 // ---------------------------------------------------------------------------
@@ -1017,6 +1033,97 @@ function destroyNote(noteId) {
   renderInventory();
 }
 
+// ---------------------------------------------------------------------------
+// Hard Drive — a separate, capped (24-note) vault layered on top of the
+// regular inbox. Filing a note here pulls it out of the inbox entirely
+// (server splices it from player.inbox), which is what makes it safe from
+// Rapid Swipe — that attack only ever reads player.inbox. A password, if
+// set, is required by the server for every operation including by the
+// owner, and the locked Hard Drive item is hidden from Sleight of Hand's
+// peek/steal entirely (see server.js cast_attack pickpocket branch).
+// ---------------------------------------------------------------------------
+let lastHardDriveState = null; // { hasPassword, notes, capacity } once unlocked/known
+let hdUnlockAttempted = false;
+
+function ownsHardDrive() {
+  return !!(lastInventoryState && lastInventoryState.slots.some(s => s && s.itemId === 'hard_drive'));
+}
+
+function storeNoteOnHardDrive(noteId) {
+  ws.send(JSON.stringify({ type: 'harddrive_store', noteId, password: pendingHdPassword }));
+}
+
+let pendingHdPassword = '';
+
+function refreshHardDriveTab() {
+  document.getElementById('hdErr').textContent = '';
+  if (!ownsHardDrive()) {
+    document.getElementById('hdNoItem').classList.remove('hidden');
+    document.getElementById('hdLocked').classList.add('hidden');
+    document.getElementById('hdUnlocked').classList.add('hidden');
+    return;
+  }
+  document.getElementById('hdNoItem').classList.add('hidden');
+  ws.send(JSON.stringify({ type: 'harddrive_open', password: pendingHdPassword }));
+}
+
+const hdUnlockBtn = document.getElementById('hdUnlockBtn');
+if (hdUnlockBtn) hdUnlockBtn.addEventListener('click', () => {
+  pendingHdPassword = document.getElementById('hdPasswordInput').value;
+  ws.send(JSON.stringify({ type: 'harddrive_open', password: pendingHdPassword }));
+});
+
+const hdSetPasswordBtn = document.getElementById('hdSetPasswordBtn');
+if (hdSetPasswordBtn) hdSetPasswordBtn.addEventListener('click', () => {
+  const currentPassword = document.getElementById('hdCurrentPasswordInput').value;
+  const newPassword = document.getElementById('hdNewPasswordInput').value;
+  ws.send(JSON.stringify({ type: 'harddrive_set_password', currentPassword, newPassword }));
+});
+
+function renderHardDriveUnlocked() {
+  const cap = document.getElementById('hdCapacityRow');
+  cap.textContent = `${lastHardDriveState.notes.length} / ${lastHardDriveState.capacity} notes stored` +
+    (lastHardDriveState.hasPassword ? ' — 🔒 password-protected' : ' — no password set');
+  const list = document.getElementById('hdNotesList');
+  const empty = document.getElementById('hdEmpty');
+  list.innerHTML = '';
+  empty.classList.toggle('hidden', lastHardDriveState.notes.length > 0);
+  for (const note of lastHardDriveState.notes) {
+    const div = document.createElement('div');
+    div.className = 'noteItem';
+    const from = document.createElement('span');
+    from.className = 'noteFrom';
+    from.textContent = 'From ' + note.fromName;
+    div.appendChild(from);
+    if (note.text) {
+      const body = document.createElement('div');
+      body.textContent = note.text;
+      div.appendChild(body);
+    }
+    if (note.image) {
+      const img = document.createElement('img');
+      img.className = 'noteImage';
+      img.src = note.image;
+      div.appendChild(img);
+    }
+    const retrieveBtn = document.createElement('button');
+    retrieveBtn.className = 'noteReadBtn';
+    retrieveBtn.textContent = '📤 Move back to Inbox';
+    retrieveBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'harddrive_retrieve', noteId: note.id, password: pendingHdPassword }));
+    });
+    div.appendChild(retrieveBtn);
+    const destroyBtn = document.createElement('button');
+    destroyBtn.className = 'noteDestroyBtn';
+    destroyBtn.textContent = '🔥 Destroy this note';
+    destroyBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'harddrive_destroy', noteId: note.id, password: pendingHdPassword }));
+    });
+    div.appendChild(destroyBtn);
+    list.appendChild(div);
+  }
+}
+
 function renderInventory() {
   const list = document.getElementById('inboxList');
   const empty = document.getElementById('inventoryEmpty');
@@ -1044,6 +1151,13 @@ function renderInventory() {
         img.className = 'noteImage';
         img.src = note.image;
         div.appendChild(img);
+      }
+      if (ownsHardDrive()) {
+        const storeBtn = document.createElement('button');
+        storeBtn.className = 'noteReadBtn';
+        storeBtn.textContent = '💽 Store on Hard Drive';
+        storeBtn.addEventListener('click', () => storeNoteOnHardDrive(note.id));
+        div.appendChild(storeBtn);
       }
       const destroyBtn = document.createElement('button');
       destroyBtn.className = 'noteDestroyBtn';
@@ -2404,6 +2518,69 @@ function buildBuildingMesh(b, w) {
   return group;
 }
 
+// A real doorway at an interior wall gap: wooden jamb posts + a header beam
+// framing the opening, plus a door panel hinged at the doorStart edge and
+// swung ajar into the room (with a handle), so it reads as an actual door
+// rather than an empty gap. Exit detection stays purely positional (see
+// updateIndoor) — this mesh is cosmetic only.
+function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
+  const g = new THREE.Group();
+  const t = (world.wallThickness || 12) * INDOOR_SCALE;
+  const dw = doorEnd - doorStart;
+  const doorH = INDOOR_WALL_HEIGHT * 0.74;
+  const jambW = 8, jambD = t * 1.3;
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x2a1a10 });
+  const doorMat = new THREE.MeshLambertMaterial({ color: theme.doorColor || 0x3c2616 });
+  const handleMat = new THREE.MeshLambertMaterial({ color: 0xd8b35c });
+
+  const axisIsX = side === 'north' || side === 'south';
+  let wallCoord, openAngle;
+  if (side === 'north') { wallCoord = 0; openAngle = -0.9; }
+  else if (side === 'south') { wallCoord = roomD; openAngle = 0.9; }
+  else if (side === 'west') { wallCoord = 0; openAngle = 0.9; }
+  else { wallCoord = roomW; openAngle = -0.9; }
+
+  const header = new THREE.Mesh(
+    axisIsX ? new THREE.BoxGeometry(dw + jambW * 2, 10, jambD) : new THREE.BoxGeometry(jambD, 10, dw + jambW * 2),
+    frameMat
+  );
+  if (axisIsX) header.position.set((doorStart + doorEnd) / 2, doorH + 5, wallCoord);
+  else header.position.set(wallCoord, doorH + 5, (doorStart + doorEnd) / 2);
+  g.add(header);
+
+  for (const pos of [doorStart, doorEnd]) {
+    const jamb = new THREE.Mesh(
+      axisIsX ? new THREE.BoxGeometry(jambW, doorH, jambD) : new THREE.BoxGeometry(jambD, doorH, jambW),
+      frameMat
+    );
+    if (axisIsX) jamb.position.set(pos, doorH / 2, wallCoord);
+    else jamb.position.set(wallCoord, doorH / 2, pos);
+    g.add(jamb);
+  }
+
+  const panelW = dw - 12, panelT = 4;
+  const panel = new THREE.Mesh(
+    axisIsX ? new THREE.BoxGeometry(panelW, doorH - 8, panelT) : new THREE.BoxGeometry(panelT, doorH - 8, panelW),
+    doorMat
+  );
+  panel.position.set(axisIsX ? panelW / 2 : 0, doorH / 2, axisIsX ? 0 : panelW / 2);
+  const handle = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), handleMat);
+  handle.position.set(
+    axisIsX ? panelW - 8 : panelT / 2 + 2.5,
+    0,
+    axisIsX ? panelT / 2 + 2.5 : panelW - 8
+  );
+  panel.add(handle);
+
+  const hinge = new THREE.Group();
+  hinge.add(panel);
+  hinge.rotation.y = openAngle;
+  hinge.position.set(axisIsX ? doorStart : wallCoord, 0, axisIsX ? wallCoord : doorStart);
+  g.add(hinge);
+
+  return g;
+}
+
 function buildWallsForOne(b, w) {
   const t = w.wallThickness, dw = w.doorWidth;
   const side = getDoorSide(b);
@@ -2549,13 +2726,10 @@ function getInteriorScene(buildingId) {
   scene.add(buildTorch(30, 30));
   scene.add(buildTorch(roomW - 30, roomD - 30));
 
-  // exit sign above the doorway — wherever the door actually is
-  const exitSign = makeSignSprite(`🚪 Walk ${side} to leave`);
-  if (side === 'east') exitSign.position.set(roomW - 4, 95, roomD / 2);
-  else if (side === 'west') exitSign.position.set(4, 95, roomD / 2);
-  else if (side === 'north') exitSign.position.set(roomW / 2, 95, 4);
-  else exitSign.position.set(roomW / 2, 95, roomD - 4);
-  scene.add(exitSign);
+  // a real doorway at the gap — wooden frame around the opening plus a door
+  // panel hinged open against the inside wall, so it reads as an actual door
+  // you're walking past rather than an empty gap with a floating label.
+  scene.add(buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme));
 
   const seats = [];
   const kiosks = [];
@@ -3846,6 +4020,7 @@ function openAuctionModal() {
   if (!modal) return;
   document.getElementById('auctionModalErr').textContent = '';
   document.getElementById('auctionCreateForm').classList.add('hidden');
+  document.getElementById('auctionSelfieForm').classList.add('hidden');
   modal.classList.remove('hidden');
   auctionModalOpen = true;
   ws.send(JSON.stringify({ type: 'bank_open' }));
@@ -3865,8 +4040,62 @@ const auctionCreateToggleBtn = document.getElementById('auctionCreateToggleBtn')
 if (auctionCreateToggleBtn) auctionCreateToggleBtn.addEventListener('click', () => {
   const form = document.getElementById('auctionCreateForm');
   if (!form) return;
+  document.getElementById('auctionSelfieForm').classList.add('hidden');
   if (form.classList.contains('hidden')) populateAuctionItemSelect();
   form.classList.toggle('hidden');
+});
+
+let pendingSelfieImage = null;
+
+const auctionSelfieToggleBtn = document.getElementById('auctionSelfieToggleBtn');
+if (auctionSelfieToggleBtn) auctionSelfieToggleBtn.addEventListener('click', () => {
+  const form = document.getElementById('auctionSelfieForm');
+  if (!form) return;
+  document.getElementById('auctionCreateForm').classList.add('hidden');
+  form.classList.toggle('hidden');
+});
+
+const auctionSelfieCaptureBtn = document.getElementById('auctionSelfieCaptureBtn');
+if (auctionSelfieCaptureBtn) auctionSelfieCaptureBtn.addEventListener('click', () => {
+  const err = document.getElementById('auctionModalErr');
+  err.textContent = '';
+  auctionSelfieCaptureBtn.disabled = true;
+  auctionSelfieCaptureBtn.textContent = 'Opening camera…';
+  captureSelfiePhoto()
+    .then(image => {
+      pendingSelfieImage = image;
+      const preview = document.getElementById('auctionSelfiePreview');
+      preview.src = image;
+      preview.classList.remove('hidden');
+      auctionSelfieCaptureBtn.textContent = 'Retake selfie';
+      auctionSelfieCaptureBtn.disabled = false;
+    })
+    .catch(() => {
+      err.textContent = 'Could not access the camera.';
+      auctionSelfieCaptureBtn.textContent = 'Take selfie';
+      auctionSelfieCaptureBtn.disabled = false;
+    });
+});
+
+const auctionSelfieSubmitBtn = document.getElementById('auctionSelfieSubmitBtn');
+if (auctionSelfieSubmitBtn) auctionSelfieSubmitBtn.addEventListener('click', () => {
+  const err = document.getElementById('auctionModalErr');
+  if (!pendingSelfieImage) { err.textContent = 'Take a selfie first.'; return; }
+  const startingBid = parseInt(document.getElementById('auctionSelfieStartBid').value, 10);
+  const buyoutRaw = document.getElementById('auctionSelfieBuyout').value;
+  const buyoutPrice = buyoutRaw ? parseInt(buyoutRaw, 10) : null;
+  const durationHours = parseInt(document.getElementById('auctionSelfieDuration').value, 10);
+  if (!Number.isInteger(startingBid) || startingBid < 1) { err.textContent = 'Enter a valid starting bid.'; return; }
+  if (buyoutPrice !== null && (!Number.isInteger(buyoutPrice) || buyoutPrice <= startingBid)) {
+    err.textContent = 'Buyout must be higher than the starting bid.';
+    return;
+  }
+  err.textContent = '';
+  ws.send(JSON.stringify({ type: 'auction_list_selfie', image: pendingSelfieImage, startingBid, buyoutPrice, durationHours }));
+  pendingSelfieImage = null;
+  document.getElementById('auctionSelfiePreview').classList.add('hidden');
+  document.getElementById('auctionSelfieCaptureBtn').textContent = 'Take selfie';
+  document.getElementById('auctionSelfieForm').classList.add('hidden');
 });
 
 function populateAuctionItemSelect() {
@@ -3934,10 +4163,23 @@ function renderAuctionModal() {
     const row = document.createElement('div');
     row.className = 'auctionRow';
 
-    const itemLine = document.createElement('div');
-    itemLine.className = 'auctionItemLine';
-    itemLine.textContent = (item ? item.icon + ' ' + item.name : l.itemId) + ' x' + l.qty;
-    row.appendChild(itemLine);
+    if (l.isSelfie) {
+      const thumb = document.createElement('img');
+      thumb.className = 'auctionSelfieThumb';
+      thumb.src = l.image;
+      thumb.title = 'Click to view full size';
+      thumb.addEventListener('click', () => window.open(l.image, '_blank'));
+      row.appendChild(thumb);
+      const itemLine = document.createElement('div');
+      itemLine.className = 'auctionItemLine';
+      itemLine.textContent = `📸 ${l.sellerName}'s Selfie`;
+      row.appendChild(itemLine);
+    } else {
+      const itemLine = document.createElement('div');
+      itemLine.className = 'auctionItemLine';
+      itemLine.textContent = (item ? item.icon + ' ' + item.name : l.itemId) + ' x' + l.qty;
+      row.appendChild(itemLine);
+    }
 
     const bidLine = l.currentBid != null
       ? ('Current bid: ' + l.currentBid + ' 🪙 by ' + l.currentBidderName)
