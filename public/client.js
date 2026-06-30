@@ -27,7 +27,13 @@ let gameStarted = false;
 let reconnectTimer = null;
 
 let myId = null;
-let world = null;
+let world = null;       // whichever outdoor map is currently active (town's world, or world2) — see enterWilds()/exitWilds()
+let TOWN_WORLD = null;  // stable reference to the town's world object, since `world` gets reassigned on map-switch
+let world2 = null;      // The Wilds — see buildWildsScene()/enterWilds()
+let TOWN_WALLS = [];    // snapshot of `walls` once initScene() finishes building the town (incl. tree colliders)
+const WILDS_WALLS = []; // the Wilds has no collidable decor, so this just stays empty
+let OUTDOOR_KIOSKS = []; // interact points in the town's outdoor scene — currently just the portal
+let WILDS_KIOSKS = [];   // interact points in the Wilds scene — currently just the return portal
 let walls = [];           // generated collision rects, derived from world.buildings
 let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
 let me = null;            // convenience pointer to players[myId]
@@ -75,8 +81,33 @@ const ITEM_CATALOG = {
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
   wood:           { name: 'Wood',           icon: '🪵', slot: null },
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
-  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null }
+  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
+  // The Wilds' 16 harvestable plants — name/icon mirrored from server.js's
+  // PLANT_CATALOG. The actual effect (what happens when used) is resolved
+  // server-side; the client only needs to know these exist and are usable.
+  swift_root:           { name: 'Swift Root',          icon: '🥕', slot: null },
+  featherleaf:           { name: 'Featherleaf',          icon: '🍃', slot: null },
+  giants_cap:             { name: "Giant's Cap",           icon: '🍄', slot: null },
+  shrinking_violet:       { name: 'Shrinking Violet',      icon: '🌷', slot: null },
+  pumpkin_blossom:        { name: 'Pumpkin Blossom',       icon: '🎃', slot: null },
+  bats_breath:            { name: "Bat's Breath Flower",   icon: '🦇', slot: null },
+  rainbow_petal:          { name: 'Rainbow Petal',         icon: '🌈', slot: null },
+  ravens_feather_plant:   { name: "Raven's Feather Plant", icon: '🪶', slot: null },
+  stumbleweed:            { name: 'Stumbleweed',           icon: '🌾', slot: null },
+  gibberish_root:         { name: 'Gibberish Root',        icon: '🫚', slot: null },
+  toadstool:              { name: 'Toadstool',             icon: '🐸', slot: null },
+  wolfsbane_bloom:        { name: 'Wolfsbane Bloom',       icon: '🌺', slot: null },
+  meditation_lotus:       { name: 'Meditation Lotus',      icon: '🪷', slot: null },
+  healing_herb:           { name: 'Healing Herb',          icon: '🌿', slot: null },
+  regen_root:             { name: 'Regen Root',            icon: '🫘', slot: null },
+  cleansing_clover:       { name: 'Cleansing Clover',      icon: '🍀', slot: null }
 };
+
+const PLANT_EFFECTS = new Set([
+  'swift_root', 'featherleaf', 'giants_cap', 'shrinking_violet', 'pumpkin_blossom',
+  'bats_breath', 'rainbow_petal', 'ravens_feather_plant', 'stumbleweed', 'gibberish_root',
+  'toadstool', 'wolfsbane_bloom', 'meditation_lotus', 'healing_herb', 'regen_root', 'cleansing_clover'
+]);
 
 // A small hand-drawn flower (5 petals + center, on a short stem/leaf) used
 // in place of the 🌸 emoji wherever a Flower item's icon is rendered as a
@@ -245,6 +276,8 @@ function onWsMessage(ev) {
     const wasStarted = gameStarted;
     myId = msg.id;
     world = msg.world;
+    TOWN_WORLD = world;
+    world2 = msg.world2 || world2;
     walls = buildWalls(world);
     // Clear all existing remote-player meshes before rebuilding the list,
     // whether this is the first join or a reconnect after a dropped connection.
@@ -253,15 +286,14 @@ function onWsMessage(ev) {
     if (!wasStarted) {
       initScene(world);
     } else {
-      // Reconnect: scene is already built. If we were inside a building,
-      // force back to outdoor — server spawns us at the outside spawn point.
-      if (mode === 'indoor') {
+      // Reconnect: scene is already built. The server never remembers
+      // where a connection was — every (re)connect lands fresh at the town
+      // spawn — so if we were indoors, or out in the Wilds, force the
+      // client's view back to outdoor/town to match.
+      if (mode === 'indoor' || activeScene === wildsScene) {
         mode = 'outdoor';
-        indoorBuildingId = null;
         currentRoom = 'outside';
-        if (outdoorScene && outdoorCamera) setActiveContext(outdoorScene, outdoorCamera, null);
-        const leaveBtn = document.getElementById('leaveBtn');
-        if (leaveBtn) leaveBtn.classList.add('hidden');
+        swapToTownMap();
       }
     }
     for (const p of msg.players) addPlayer(p);
@@ -353,6 +385,8 @@ function onWsMessage(ev) {
     lastWildlifeIsNight = !!msg.isNight;
     applyAnimalState(msg.animals);
     applyMobState(msg.mobs);
+    if (msg.animals2) applyAnimal2State(msg.animals2);
+    if (msg.mobs2) applyMob2State(msg.mobs2);
     if (msg.decor) applyDecorState(msg.decor);
     return;
   }
@@ -372,26 +406,41 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'use_result') {
+    setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'use_error') {
+    if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
+    return;
+  }
+
   if (msg.type === 'struck') {
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     return;
   }
 
   if (msg.type === 'defeated') {
-    if (me) { me.x = msg.x; me.y = msg.y; me.room = 'outside'; me.health = 100; }
+    const room = msg.room === 'wilds' ? 'wilds' : 'outside';
+    if (me) { me.x = msg.x; me.y = msg.y; me.room = room; me.health = 100; }
     seatedAt = null; // a teleport-out shouldn't leave the avatar stuck in a sitting pose
-    // Server always sends a defeated player back outside — mirror the same
-    // forced-outdoor reset used on reconnect, in case they were indoors.
-    if (mode === 'indoor') {
+    if (room === 'wilds') {
+      // Defeated by a Wilds mob — stay on that map, just respawn at its own
+      // spawn point near the return portal. mode is forced to 'outdoor'
+      // defensively even though Wilds mobs can't reach an indoor player.
       mode = 'outdoor';
-      indoorBuildingId = null;
-      currentRoom = 'outside';
-      if (outdoorScene && outdoorCamera) setActiveContext(outdoorScene, outdoorCamera, null);
-      const leaveBtn = document.getElementById('leaveBtn');
-      if (leaveBtn) leaveBtn.classList.add('hidden');
+      swapToWildsMap();
+    } else {
+      // Server always sends a town defeat back outside — mirror the same
+      // forced-outdoor reset used on reconnect, in case they were indoors
+      // or out in the Wilds (PvP can happen there too).
+      mode = 'outdoor';
+      swapToTownMap();
     }
     updateHealthHud();
-    setUnlockToast(`💀 ${msg.byName} defeated you — back to the town square.`);
+    setUnlockToast(`💀 ${msg.byName} defeated you — back to the ${room === 'wilds' ? 'Wilds spawn' : 'town square'}.`);
     return;
   }
 
@@ -836,6 +885,7 @@ function roomAt(x, y) {
 
 function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
+  if (roomId === 'wilds') return '🌲 The Wilds';
   const b = world.buildings.find(x => x.id === roomId);
   return b ? b.name : roomId;
 }
@@ -1089,6 +1139,24 @@ function selectInvSlot(idx) {
     btn.addEventListener('click', () => {
       document.getElementById('invModalErr').textContent = '';
       ws.send(JSON.stringify({ type: 'inventory_equip', slotIdx: idx, equipSlot: meta.slot }));
+    });
+    buttons.appendChild(btn);
+  } else if (slot.itemId === 'hard_drive') {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '💽 Open Hard Drive';
+    btn.addEventListener('click', () => {
+      panel.classList.add('hidden');
+      showInvTab('invHardDriveView');
+    });
+    buttons.appendChild(btn);
+  } else if (PLANT_EFFECTS.has(slot.itemId)) {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '🌿 Use ' + (item ? item.name : slot.itemId);
+    btn.addEventListener('click', () => {
+      document.getElementById('invModalErr').textContent = '';
+      ws.send(JSON.stringify({ type: 'use_item', slotIdx: idx }));
     });
     buttons.appendChild(btn);
   } else {
@@ -1573,7 +1641,10 @@ function getRaycastCandidates() {
     const v = visuals[id];
     if (v.inScene && v.parentScene === activeScene) list.push(v.group);
   }
-  if (mode === 'outdoor') {
+  // mode stays 'outdoor' for both the town and the Wilds (the latter is
+  // just a second free-roam map, not a different mode) — so which map's
+  // wildlife/decor are valid targets depends on activeScene, not mode.
+  if (activeScene === outdoorScene) {
     for (const id in animalVisuals) {
       const v = animalVisuals[id];
       if (!v.dead) list.push(v.mesh);
@@ -1584,6 +1655,19 @@ function getRaycastCandidates() {
     }
     for (const id in decorVisuals) {
       const v = decorVisuals[id];
+      if (!v.harvested) list.push(v.group);
+    }
+  } else if (activeScene === wildsScene) {
+    for (const id in animalVisuals2) {
+      const v = animalVisuals2[id];
+      if (!v.dead) list.push(v.mesh);
+    }
+    for (const id in mobVisuals2) {
+      const v = mobVisuals2[id];
+      if (v.mesh.visible) list.push(v.mesh);
+    }
+    for (const id in decorVisuals2) {
+      const v = decorVisuals2[id];
       if (!v.harvested) list.push(v.group);
     }
   }
@@ -1648,6 +1732,8 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2']);
+
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
   const hit = raycastHitAt(e.clientX, e.clientY);
@@ -1655,7 +1741,7 @@ window.addEventListener('mousemove', (e) => {
     canvas.style.cursor = (hit && hit.kind === 'player') ? SWORD_CURSOR : 'default';
     return;
   }
-  if (hit && (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob')) canvas.style.cursor = SWORD_CURSOR;
+  if (hit && ATTACKABLE_KINDS.has(hit.kind)) canvas.style.cursor = SWORD_CURSOR;
   else if (hit && hit.kind === 'decor') canvas.style.cursor = 'pointer';
   else canvas.style.cursor = 'default';
 });
@@ -1671,7 +1757,7 @@ function handleCanvasClick(clientX, clientY) {
     return;
   }
   if (!hit) return;
-  if (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob') {
+  if (ATTACKABLE_KINDS.has(hit.kind)) {
     ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
   } else if (hit.kind === 'decor') {
     ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
@@ -2017,7 +2103,8 @@ function maybeUpdateRoomUI(room) {
   lastRoom = room;
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
-  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside');
+  // The Wilds is open-world like the town square, not a private room — no chat panel there either.
+  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds');
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
   document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
   if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
@@ -2051,6 +2138,7 @@ const INDOOR_WALL_HEIGHT = 150;
 
 let renderer;
 let outdoorScene, outdoorCamera;
+let wildsScene, wildsCamera; // The Wilds — a second outdoor map reached via the portal, see buildWildsScene()/enterWilds()
 let activeScene, activeCamera;
 let mode = 'outdoor';          // 'outdoor' | 'indoor'
 let indoorBuildingId = null;
@@ -2148,14 +2236,18 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
 }
 
 function contextMatches(room) {
-  return mode === 'outdoor' ? room === 'outside' : room === indoorBuildingId;
+  if (mode === 'indoor') return room === indoorBuildingId;
+  // mode stays 'outdoor' for both the town and the Wilds, so which one a
+  // remote player should actually be visible in depends on activeScene.
+  if (activeScene === wildsScene) return room === 'wilds';
+  return room === 'outside';
 }
 
 function initScene(w) {
@@ -2218,9 +2310,14 @@ function initScene(w) {
     scene.add(buildPathSegment(doorPos.x, doorPos.y, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
   }
 
-  addNatureDecor(scene, w);
+  addNatureDecor(scene, w, decorVisuals);
   addAnimals(scene);
   addMobs(scene);
+
+  if (world2) {
+    scene.add(buildPortalMesh(world2.portalInTown.x, world2.portalInTown.y));
+    OUTDOOR_KIOSKS.push({ x: world2.portalInTown.x, y: world2.portalInTown.y, portal: 'wilds' });
+  }
 
   outdoorScene = scene;
   outdoorCamera = camera;
@@ -2228,6 +2325,150 @@ function initScene(w) {
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
   refreshBuildingLockVisuals();
+  TOWN_WALLS = walls; // snapshot now that tree colliders from addNatureDecor are in place
+
+  if (world2) buildWildsScene(world2);
+}
+
+// ---------------------------------------------------------------------------
+// Crossing the portal — swaps which outdoor map is "active" the same way
+// entering/exiting a building swaps scenes, just without the indoor-scaled
+// coordinate system: the Wilds is its own free-roam map, not a room.
+// swapToWildsMap()/swapToTownMap() do only the scene/lighting/bounds half
+// (re-parenting the shared sun/moon/ambient lights into whichever scene is
+// now active, swapping world/walls/dayNightWorldRadius to match) so the
+// 'defeated' handler can reuse just that half without also re-sending a
+// redundant move or popping a second "you stepped through the portal"
+// toast on top of the defeat one.
+// ---------------------------------------------------------------------------
+function swapToWildsMap() {
+  if (!wildsScene || !world2 || activeScene === wildsScene) return;
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh]) {
+    outdoorScene.remove(light);
+    wildsScene.add(light);
+  }
+  world = world2;
+  walls = WILDS_WALLS;
+  dayNightWorldRadius = Math.max(world2.width, world2.height) * 0.9;
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(wildsScene, wildsCamera, null);
+}
+
+function swapToTownMap() {
+  if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh]) {
+    wildsScene.remove(light);
+    outdoorScene.add(light);
+  }
+  world = TOWN_WORLD;
+  walls = TOWN_WALLS;
+  dayNightWorldRadius = Math.max(TOWN_WORLD.width, TOWN_WORLD.height) * 0.9;
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(outdoorScene, outdoorCamera, null);
+  indoorBuildingId = null;
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) leaveBtn.classList.add('hidden');
+}
+
+function enterWilds() {
+  if (!wildsScene || !world2 || !me) return;
+  swapToWildsMap();
+  me.room = 'wilds';
+  me.x = world2.spawn.x;
+  me.y = world2.spawn.y;
+  ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
+  setUnlockToast('🌀 You step through the portal into the Wilds.');
+}
+
+function exitWilds() {
+  if (!outdoorScene || !TOWN_WORLD || !me || !world2) return;
+  swapToTownMap();
+  me.room = 'outside';
+  // Nudge clear of the town-side portal kiosk so stepping back through
+  // doesn't immediately re-trigger it (same idea as the Wilds-side return
+  // portal's own offset in buildWildsScene()).
+  me.x = world2.portalInTown.x;
+  me.y = world2.portalInTown.y + 70;
+  ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
+  setUnlockToast('🌀 You step back through the portal into town.');
+}
+
+// ---------------------------------------------------------------------------
+// A standing ring with a glowing, slowly-spinning disc inside — used for
+// both ends of the portal between town and the Wilds. Purely decorative;
+// the actual teleport trigger is the proximity-based kiosk system (see
+// OUTDOOR_KIOSKS/WILDS_KIOSKS, findNearestKiosk(), tryInteract()), exactly
+// like every other walk-up-and-press-F interaction in this game.
+// ---------------------------------------------------------------------------
+let portalDiscs = [];
+function buildPortalMesh(x, y) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(34, 6, 12, 28),
+    new THREE.MeshLambertMaterial({ color: 0x4a2a8a })
+  );
+  ring.position.y = 38;
+  g.add(ring);
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(30, 28),
+    new THREE.MeshBasicMaterial({ color: 0x9b6fff, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+  );
+  disc.position.y = 38;
+  g.add(disc);
+  const glow = new THREE.PointLight(0x9b6fff, 1.4, 160);
+  glow.position.y = 38;
+  g.add(glow);
+  g.position.set(x, 0, y);
+  portalDiscs.push(disc);
+  return g;
+}
+
+function updatePortals(dt) {
+  for (const disc of portalDiscs) disc.rotation.z += dt * 1.2;
+}
+
+// ---------------------------------------------------------------------------
+// The Wilds — built once at startup right alongside the town (see the
+// world2 check above), kept inactive (not the active scene/camera) until
+// the player actually steps through the portal. Reuses the same sun/moon/
+// ambient light objects as the town scene instead of duplicating a whole
+// lighting rig — see enterWilds()/exitWilds(), which re-parent them between
+// the two scenes, so updateDayNightCycle() keeps working unmodified no
+// matter which one currently owns them.
+// ---------------------------------------------------------------------------
+function buildWildsScene(w2) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fd0ef);
+  scene.fog = new THREE.Fog(0x8fd0ef, 350, 1300);
+
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
+
+  const grassTex = makeGrassTexture();
+  const groundSpan = Math.max(w2.width, w2.height) + 200;
+  grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(w2.width + 200, w2.height + 200),
+    new THREE.MeshLambertMaterial({ map: grassTex })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(w2.width / 2, 0, w2.height / 2);
+  scene.add(ground);
+
+  addNatureDecor(scene, w2, decorVisuals2);
+  addAnimals2(scene);
+  addMobs2(scene);
+
+  // The return portal back to town — offset from the landing spawn point
+  // (not placed directly on top of it) so a player who just arrived isn't
+  // standing close enough to immediately re-trigger it.
+  const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
+  scene.add(buildPortalMesh(returnPortalX, returnPortalY));
+  WILDS_KIOSKS.push({ x: returnPortalX, y: returnPortalY, portal: 'town' });
+
+  wildsScene = scene;
+  wildsCamera = camera;
 }
 
 // ---------------------------------------------------------------------------
@@ -2280,6 +2521,13 @@ function updateDayNightCycle() {
   _skyColor.copy(SKY_NIGHT).lerp(SKY_DAY, lightAmount);
   outdoorScene.background.copy(_skyColor);
   if (outdoorScene.fog) outdoorScene.fog.color.copy(_skyColor);
+  // Kept in sync even while inactive — the Wilds shares the same day/night
+  // clock, so its sky shouldn't be stuck wherever it was at startup the
+  // first time a player actually steps through the portal.
+  if (wildsScene) {
+    wildsScene.background.copy(_skyColor);
+    if (wildsScene.fog) wildsScene.fog.color.copy(_skyColor);
+  }
 
   _ambientColor.copy(AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   outdoorAmbient.color.copy(_ambientColor);
@@ -2389,6 +2637,72 @@ function updateMobVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in mobVisuals) {
     const v = mobVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    v.mesh.position.set(v.x, 0, v.y);
+    v.mesh.rotation.y = v.facing;
+    v.mesh.visible = lastWildlifeIsNight && !v.dead;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The Wilds' 4 dangerous mob types — same base shape as a town mob, just
+// recolored/rescaled per type (see MOB2_VISUALS) so the 4 read as distinct
+// threats at a glance, matching their distinct stats from server.js.
+// ---------------------------------------------------------------------------
+const MOB2_VISUALS = {
+  shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85 },
+  bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35 },
+  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0 },
+  will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 }
+};
+
+function makeMob2(mobType) {
+  const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
+  const g = makeMob();
+  g.traverse(child => {
+    if (!child.isMesh) return;
+    const isEye = child.geometry.type === 'SphereGeometry' && child.geometry.parameters.radius < 2;
+    child.material = child.material.clone();
+    child.material.color.set(isEye ? visual.eyeColor : visual.color);
+  });
+  g.scale.setScalar(visual.scale);
+  return g;
+}
+
+let mobVisuals2 = {};
+
+function addMobs2(scene) {
+  for (const id in mobVisuals2) scene.remove(mobVisuals2[id].mesh);
+  mobVisuals2 = {};
+}
+
+function getOrCreateMob2Visual(id, mobType) {
+  let v = mobVisuals2[id];
+  if (!v) {
+    const mesh = makeMob2(mobType);
+    mesh.visible = false;
+    mesh.userData = { kind: 'mob2', targetId: id };
+    wildsScene.add(mesh);
+    v = mobVisuals2[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
+  }
+  return v;
+}
+
+function applyMob2State(list) {
+  if (!wildsScene) return;
+  for (const m of list) {
+    const v = getOrCreateMob2Visual(m.id, m.mobType);
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+  }
+}
+
+function updateMob2Visuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in mobVisuals2) {
+    const v = mobVisuals2[id];
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
@@ -2518,16 +2832,117 @@ function makeFlowerPatch(x, z, scale) {
   return g;
 }
 
+// ---------------------------------------------------------------------------
+// The Wilds' 16 harvestable plants — each gets a distinct color and one of
+// 3 simple shape families (bloom/mushroom/sprout) so all 16 read as
+// different at a glance even without 16 fully bespoke models. Their actual
+// gameplay differences (the 16 different effects) live server-side in
+// PLANT_CATALOG; this is purely the look.
+// ---------------------------------------------------------------------------
+const PLANT_VISUALS = {
+  swift_root:           { shape: 'sprout',   color: 0xff9f4d },
+  featherleaf:           { shape: 'sprout',   color: 0x9fe3a0 },
+  giants_cap:             { shape: 'mushroom', color: 0xc0392b },
+  shrinking_violet:       { shape: 'bloom',    color: 0x8a5fc0 },
+  pumpkin_blossom:        { shape: 'bloom',    color: 0xff8a1f },
+  bats_breath:            { shape: 'bloom',    color: 0x4a2a5a },
+  rainbow_petal:          { shape: 'bloom',    color: 0xff6b9b },
+  ravens_feather_plant:   { shape: 'sprout',   color: 0x2a1a22 },
+  stumbleweed:            { shape: 'sprout',   color: 0xc9a227 },
+  gibberish_root:         { shape: 'sprout',   color: 0xe0c08a },
+  toadstool:              { shape: 'mushroom', color: 0xd83a3a },
+  wolfsbane_bloom:        { shape: 'bloom',    color: 0x9b59b6 },
+  meditation_lotus:       { shape: 'bloom',    color: 0xf783ac },
+  healing_herb:           { shape: 'sprout',   color: 0x4caf50 },
+  regen_root:             { shape: 'sprout',   color: 0xffd43b },
+  cleansing_clover:       { shape: 'sprout',   color: 0x6fcf60 }
+};
+
+function makePlantBloom(x, z, color) {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.7, 0.7, 9, 5),
+    new THREE.MeshLambertMaterial({ color: 0x3a7a3f })
+  );
+  stem.position.y = 4.5;
+  g.add(stem);
+  const bloomMat = new THREE.MeshLambertMaterial({ color });
+  for (let i = 0; i < 5; i++) {
+    const petal = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6), bloomMat);
+    const ang = (i / 5) * Math.PI * 2;
+    petal.position.set(Math.cos(ang) * 2, 10, Math.sin(ang) * 2);
+    g.add(petal);
+  }
+  const center = new THREE.Mesh(
+    new THREE.SphereGeometry(1.6, 6, 6),
+    new THREE.MeshLambertMaterial({ color: 0xffd43b })
+  );
+  center.position.y = 10;
+  g.add(center);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makePlantMushroom(x, z, capColor) {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.8, 7, 6),
+    new THREE.MeshLambertMaterial({ color: 0xe8d8c0 })
+  );
+  stem.position.y = 3.5;
+  g.add(stem);
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(4, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: capColor })
+  );
+  cap.position.y = 7;
+  g.add(cap);
+  for (let i = 0; i < 4; i++) {
+    const spot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0xfff6e8 })
+    );
+    const ang = (i / 4) * Math.PI * 2;
+    spot.position.set(Math.cos(ang) * 2.2, 8.2, Math.sin(ang) * 2.2);
+    g.add(spot);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makePlantSprout(x, z, color) {
+  const g = new THREE.Group();
+  const leafMat = new THREE.MeshLambertMaterial({ color });
+  for (let i = 0; i < 4; i++) {
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1, 7, 5), leafMat);
+    const ang = (i / 4) * Math.PI * 2;
+    leaf.position.set(Math.cos(ang) * 1.5, 3.5, Math.sin(ang) * 1.5);
+    leaf.rotation.z = Math.cos(ang) * -0.4;
+    leaf.rotation.x = Math.sin(ang) * 0.4;
+    g.add(leaf);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makePlant(type, x, z) {
+  const v = PLANT_VISUALS[type] || PLANT_VISUALS.healing_herb;
+  if (v.shape === 'bloom') return makePlantBloom(x, z, v.color);
+  if (v.shape === 'mushroom') return makePlantMushroom(x, z, v.color);
+  return makePlantSprout(x, z, v.color);
+}
+
 // Positions/types/scales are server-authoritative now (world.natureDecor,
 // sent at init) so harvesting can be agreed on by every client — this used
 // to be a fixed local array before harvesting existed. Trees get a small
 // trunk collision box pushed into the same `walls` array buildings use, so
-// you can't walk through them; shrubs, rocks, and flower patches are purely
-// decorative ground cover (walk-through). tree/shrub/flower are harvestable;
-// rocks are still just scenery.
-const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower']);
-let decorVisuals = {}; // decorId -> { group, type, available, originalMaterials: [{mesh, material}] }
-let decorAvailability = {}; // decorId -> bool, from server's wildlife_state/decor_state
+// you can't walk through them; shrubs, rocks, flower patches, and the
+// Wilds' 16 plants are purely decorative ground cover (walk-through).
+// tree/shrub/flower/(any plant key) are harvestable; rocks are scenery.
+const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower', ...Object.keys(PLANT_VISUALS)]);
+let decorVisuals = {};  // town (world.natureDecor) decorId -> { group, type, harvested, originalMaterials }
+let decorVisuals2 = {}; // Wilds (world2.natureDecor), same shape, separate pool/scene
+let decorAvailability = {}; // decorId -> bool, from server's wildlife_state/decor_state — shared, ids are globally unique
 
 function applyDecorHarvestedLook(v, harvested) {
   if (harvested) {
@@ -2546,15 +2961,16 @@ function applyDecorHarvestedLook(v, harvested) {
 function applyDecorState(list) {
   for (const d of list) {
     decorAvailability[d.id] = d.available;
-    const v = decorVisuals[d.id];
+    const v = decorVisuals[d.id] || decorVisuals2[d.id];
     if (!v) continue;
     const harvested = !d.available;
     if (v.harvested !== harvested) { v.harvested = harvested; applyDecorHarvestedLook(v, harvested); }
   }
 }
 
-function addNatureDecor(scene, w) {
-  decorVisuals = {};
+// `pool` lets this build into either decorVisuals (town) or decorVisuals2
+// (Wilds) without one call wiping the other's entries out.
+function addNatureDecor(scene, w, pool) {
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
@@ -2567,6 +2983,8 @@ function addNatureDecor(scene, w) {
       group = makeRock(d.x, d.y, d.scale);
     } else if (d.type === 'flower') {
       group = makeFlowerPatch(d.x, d.y, d.scale);
+    } else if (PLANT_VISUALS[d.type]) {
+      group = makePlant(d.type, d.x, d.y);
     } else {
       continue;
     }
@@ -2575,7 +2993,7 @@ function addNatureDecor(scene, w) {
       const originalMaterials = [];
       group.traverse(child => { if (child.isMesh) originalMaterials.push({ mesh: child, material: child.material }); });
       group.userData = { kind: 'decor', decorId: d.id, decorType: d.type };
-      const v = decorVisuals[d.id] = { group, type: d.type, harvested: false, originalMaterials };
+      const v = pool[d.id] = { group, type: d.type, harvested: false, originalMaterials };
       if (decorAvailability[d.id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
     }
   }
@@ -2650,6 +3068,57 @@ function updateAnimalVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in animalVisuals) {
     const v = animalVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 1;
+    v.hopPhase += dt * (v.fleeing ? 14 : 5);
+    const hop = moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0;
+
+    v.mesh.position.set(v.x, hop, v.y);
+    v.mesh.rotation.y = v.facing;
+    v.mesh.visible = !v.dead;
+  }
+}
+
+// The Wilds' friendly animals — same rabbit, separate pool/scene since
+// they're a wholly different population from town's (different spawns,
+// different ids from the server).
+let animalVisuals2 = {};
+
+function addAnimals2(scene) {
+  for (const id in animalVisuals2) scene.remove(animalVisuals2[id].mesh);
+  animalVisuals2 = {};
+}
+
+function getOrCreateAnimal2Visual(id) {
+  let v = animalVisuals2[id];
+  if (!v) {
+    const mesh = makeRabbit();
+    mesh.userData = { kind: 'animal2', targetId: id };
+    wildsScene.add(mesh);
+    v = animalVisuals2[id] = {
+      mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      fleeing: false, hopPhase: Math.random() * Math.PI * 2, initialized: false, dead: false
+    };
+  }
+  return v;
+}
+
+function applyAnimal2State(list) {
+  if (!wildsScene) return;
+  for (const a of list) {
+    const v = getOrCreateAnimal2Visual(a.id);
+    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
+    if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
+  }
+}
+
+function updateAnimal2Visuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in animalVisuals2) {
+    const v = animalVisuals2[id];
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
@@ -4212,15 +4681,29 @@ function findNearestSeat() {
 // building. Pressing E near it opens the purchase modal for the cheaper,
 // single-room Arcade pass.
 // ---------------------------------------------------------------------------
-function findNearestKiosk() {
-  if (!currentInterior || !currentInterior.kiosks || !me) return null;
-  const rp = getRenderPos(me);
+function nearestKioskIn(list, x, z) {
   let best = null, bestDist = 50;
-  for (const k of currentInterior.kiosks) {
-    const d = Math.hypot(rp.x - k.x, rp.z - k.z);
+  for (const k of list) {
+    const d = Math.hypot(x - k.x, z - k.z);
     if (d < bestDist) { bestDist = d; best = k; }
   }
   return best;
+}
+
+// Indoor kiosks (bank/auctioneer/arcade/etc.) live on currentInterior, set
+// per-room by getInteriorScene(); outdoor ones — currently just the portal,
+// one on each side — aren't tied to any one room, so they're matched
+// against whichever outdoor scene is actually active.
+function findNearestKiosk() {
+  if (!me) return null;
+  if (mode === 'indoor') {
+    if (!currentInterior || !currentInterior.kiosks) return null;
+    const rp = getRenderPos(me);
+    return nearestKioskIn(currentInterior.kiosks, rp.x, rp.z);
+  }
+  if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
+  if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
+  return null;
 }
 
 let passModalOpen = false;
@@ -5439,9 +5922,9 @@ if (interactHintEl) {
 }
 
 function tryInteract() {
-  if (mode !== 'indoor' || !me) return;
+  if (!me) return;
   if (seatedAt) { standUp(); return; }
-  const seat = findNearestSeat();
+  const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
   if (seat) {
     if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
     sitDown(seat);
@@ -5452,6 +5935,8 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
   if (kiosk && kiosk.npc === 'auctioneer') { openAuctionModal(); return; }
   if (kiosk && kiosk.npc === 'courier') { openSendMoneyModal(); return; }
+  if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
+  if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
@@ -5466,7 +5951,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -5497,6 +5982,16 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'courier') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} send money to another player`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'wilds') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} step through the portal to the Wilds`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'town') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} step through the portal back to town`;
     return;
   }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
@@ -5629,6 +6124,22 @@ const TURN_SPEED = 3.0;  // radians/sec
 function updateOutdoor(stepX, stepY) {
   const nx = me.x + stepX, ny = me.y + stepY;
 
+  // The Wilds has no buildings/locked rooms to detect — just move, clamp
+  // to its (much smaller) bounds, and stay in room 'wilds'. Letting this
+  // fall through to the town's door/lock logic below would, at best, do
+  // nothing useful (world.buildings is empty there) and at worst stomp
+  // me.room back to 'outside' every frame via the unconditional set at the
+  // bottom of the town path.
+  if (world === world2) {
+    if (!collides(nx, me.y)) me.x = nx;
+    if (!collides(me.x, ny)) me.y = ny;
+    me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
+    me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
+    me.room = 'wilds';
+    maybeUpdateRoomUI('wilds');
+    return;
+  }
+
   const blockedX = isLockedRoom(roomAt(nx, me.y));
   const blockedY = isLockedRoom(roomAt(me.x, ny));
   if (blockedX) { showLockMessage(); } else if (!collides(nx, me.y)) { me.x = nx; }
@@ -5740,6 +6251,9 @@ function update(dt) {
   updateDayNightCycle();
   updateAnimalVisuals(dt);
   updateMobVisuals(dt);
+  updateAnimal2Visuals(dt);
+  updateMob2Visuals(dt);
+  updatePortals(dt);
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);

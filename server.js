@@ -287,20 +287,96 @@ WORLD.natureDecor = [
   { id: 'decor_34', type: 'flower', x: 2450, y: 1300, scale: 1.0 },  { id: 'decor_35', type: 'flower', x: 1300, y: 900,  scale: 0.9 },
   { id: 'decor_36', type: 'flower', x: 2000, y: 1500, scale: 1.0 },  { id: 'decor_37', type: 'flower', x: 600,  y: 1400, scale: 0.95 }
 ];
-const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower']);
+// ---------------------------------------------------------------------------
+// The Wilds — a second, smaller (1000x1000) outdoor map reached through a
+// portal in the town square. No buildings; it exists purely as a wildlife/
+// harvesting area with its own friendly animals, 4 dangerous mob types that
+// come out at night, and 16 unique harvestable plants. Shares the same
+// day/night clock as town (isNightNow() below). Player room 'wilds' is a
+// peer of 'outside', not nested under it — see ROOM_IDS.
+// ---------------------------------------------------------------------------
+const WORLD2 = {
+  id: 'wilds',
+  width: 1000,
+  height: 1000,
+  // Both ends of the portal: where you land stepping into the Wilds, and
+  // the spot in town the portal occupies (used for the kiosk's position and
+  // for nudging a returning player just outside it, same idea as
+  // getDoorWorldPos for buildings).
+  spawn: { x: 500, y: 880 },
+  portalInTown: { x: 1600, y: 700 },
+  buildings: []
+};
+
+// 16 harvestable plants, each a one-shot consumable with a distinct effect
+// applied when used from the inventory (see 'use_item' below) rather than
+// on harvest itself. 13 reuse existing status-effect types the curse/spell
+// system already renders client-side; heal/regen/cleanse are new, simple
+// effects that don't need a new visual.
+const PLANT_CATALOG = {
+  swift_root:           { name: 'Swift Root',           icon: '🥕', effect: 'status',  statusType: 'speedboost', durationMs: 12000 },
+  featherleaf:           { name: 'Featherleaf',           icon: '🍃', effect: 'status',  statusType: 'feather',    durationMs: 20000 },
+  giants_cap:             { name: "Giant's Cap",            icon: '🍄', effect: 'status',  statusType: 'giant',      durationMs: 15000 },
+  shrinking_violet:       { name: 'Shrinking Violet',       icon: '🌷', effect: 'status',  statusType: 'shrink',     durationMs: 20000 },
+  pumpkin_blossom:        { name: 'Pumpkin Blossom',        icon: '🎃', effect: 'status',  statusType: 'pumpkin',    durationMs: 30000 },
+  bats_breath:            { name: "Bat's Breath Flower",    icon: '🦇', effect: 'status',  statusType: 'bats',       durationMs: 15000 },
+  rainbow_petal:          { name: 'Rainbow Petal',          icon: '🌈', effect: 'status',  statusType: 'colorcycle', durationMs: 20000 },
+  ravens_feather_plant:   { name: "Raven's Feather Plant",  icon: '🪶', effect: 'status',  statusType: 'ravencloak', durationMs: 30000 },
+  stumbleweed:            { name: 'Stumbleweed',            icon: '🌾', effect: 'status',  statusType: 'stumble',    durationMs: 15000 },
+  gibberish_root:         { name: 'Gibberish Root',         icon: '🫚', effect: 'status',  statusType: 'gibberish',  durationMs: 20000 },
+  toadstool:              { name: 'Toadstool',              icon: '🐸', effect: 'status',  statusType: 'toad',       durationMs: 20000 },
+  wolfsbane_bloom:        { name: 'Wolfsbane Bloom',        icon: '🌺', effect: 'status',  statusType: 'wolfmark',   durationMs: 30000 },
+  meditation_lotus:       { name: 'Meditation Lotus',       icon: '🪷', effect: 'status',  statusType: 'meditate',   durationMs: 60000 },
+  healing_herb:           { name: 'Healing Herb',           icon: '🌿', effect: 'heal',    amount: 40 },
+  regen_root:             { name: 'Regen Root',             icon: '🫘', effect: 'status',  statusType: 'regen',      durationMs: 15000 },
+  cleansing_clover:       { name: 'Cleansing Clover',       icon: '🍀', effect: 'cleanse' }
+};
+// Two of each plant, scattered across the 1000x1000 map, clear of the
+// portal landing spot at (500, 880).
+const PLANT_KEYS = Object.keys(PLANT_CATALOG);
+const PLANT_POSITIONS = [
+  [120, 120], [860, 140], [180, 380], [760, 360], [300, 600], [680, 640],
+  [140, 820], [820, 760], [420, 90],  [560, 110], [80, 540],  [920, 520],
+  [320, 250], [660, 230], [240, 700], [740, 700], [460, 420], [520, 760],
+  [60, 280],  [940, 300], [380, 850], [620, 870], [160, 480], [840, 460],
+  [500, 320], [500, 600], [220, 180], [780, 180], [100, 660], [900, 660],
+  [340, 480], [640, 480]
+];
+WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
+  const a = PLANT_POSITIONS[i * 2], b = PLANT_POSITIONS[i * 2 + 1];
+  return [
+    { id: `wdecor_${i}_0`, type, x: a[0], y: a[1], scale: 1 },
+    { id: `wdecor_${i}_1`, type, x: b[0], y: b[1], scale: 1 }
+  ];
+});
+
+const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
+for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
 const HARVEST_RANGE = 70;
 const decorHarvestedAt = {}; // id -> timestamp of last harvest, absent/expired = available
 
+// Finds a decor entry by id across both maps and reports which room it
+// belongs to, so the harvest handler can confirm the player is actually
+// standing in the right place (coordinates alone aren't enough to tell —
+// the two maps' coordinate spaces overlap).
+function findDecorById(id) {
+  let d = WORLD.natureDecor.find(x => x.id === id);
+  if (d) return { decor: d, room: 'outside' };
+  d = WORLD2.natureDecor.find(x => x.id === id);
+  if (d) return { decor: d, room: 'wilds' };
+  return null;
+}
+
 function decorPublicState() {
   const now = Date.now();
-  return WORLD.natureDecor
+  return [...WORLD.natureDecor, ...WORLD2.natureDecor]
     .filter(d => HARVEST_TYPES.has(d.type))
     .map(d => ({ id: d.id, available: !decorHarvestedAt[d.id] || now - decorHarvestedAt[d.id] >= HARVEST_COOLDOWN_MS }));
 }
 
-const ROOM_IDS = new Set(['outside', ...WORLD.buildings.map(b => b.id)]);
+const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
@@ -434,6 +510,12 @@ const ITEM_CATALOG = {
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
+// Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
+// Flower, they're deliberately excluded from the random-starter-item pool,
+// since the whole point is going out to the Wilds to harvest them.
+for (const key in PLANT_CATALOG) {
+  ITEM_CATALOG[key] = { name: PLANT_CATALOG[key].name, icon: PLANT_CATALOG[key].icon, slot: null };
+}
 const BANK_SLOT_COUNT = 24;
 const BANK_STARTING_BALANCE = 100;
 const BANK_STARTER_ITEM_COUNT = 3;
@@ -1056,18 +1138,186 @@ function tickWildlife(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The Wilds' own wildlife — friendly animals that behave exactly like
+// town's rabbits, plus 4 dangerous mob types that, unlike town's mobs,
+// actually fight back: at night, one that notices a nearby player chases
+// them and lands periodic damage if it catches up, using the same
+// health-reduction/defeat pattern as a player's own Strike. Reusing
+// 'struck'/'defeated' for this means the client doesn't need any new
+// message handling to feel it.
+// ---------------------------------------------------------------------------
+const ANIMAL2_SPAWNS = [
+  { x: 220, y: 220 }, { x: 780, y: 220 }, { x: 220, y: 780 }, { x: 780, y: 780 },
+  { x: 500, y: 300 }, { x: 300, y: 500 }, { x: 700, y: 500 }, { x: 500, y: 700 }
+];
+const ANIMAL2_MAX_HEALTH = 30;
+const ANIMAL2_RESPAWN_MS = 90 * 1000;
+const animals2 = ANIMAL2_SPAWNS.map((p, i) => ({
+  id: 'animal2_' + i,
+  spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+  facing: Math.random() * Math.PI * 2,
+  fleeing: false, wanderTimer: Math.random() * 2, wanderAngle: 0, grazing: false,
+  health: ANIMAL2_MAX_HEALTH, dead: false, respawnAt: 0
+}));
+
+// 4 distinct designs — color/size for now-quick visual variety client-side,
+// plus genuinely different combat stats so they read as different threats
+// rather than reskins: a glass-cannon, a slow tank, a balanced classic
+// wolf-type, and an erratic-but-fragile one.
+const MOB2_TYPES = {
+  shade_stalker: { name: 'Shade Stalker', color: 0x3a1a4a, scale: 0.85, maxHealth: 35, speed: 70, aggroRadius: 160, strikeRange: 50, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1400 },
+  bog_brute:     { name: 'Bog Brute',     color: 0x3a4a26, scale: 1.35, maxHealth: 90, speed: 16, aggroRadius: 120, strikeRange: 60, dmgMin: 12, dmgMax: 18, hitCooldownMs: 2200 },
+  night_howler:  { name: 'Night Howler',  color: 0x1a1a22, scale: 1.0,  maxHealth: 55, speed: 36, aggroRadius: 200, strikeRange: 50, dmgMin: 8,  dmgMax: 13, hitCooldownMs: 1800 },
+  will_o_wisp:   { name: "Will-o'-Wisp",  color: 0x6fd8ff, scale: 0.6,  maxHealth: 18, speed: 50, aggroRadius: 140, strikeRange: 45, dmgMin: 4,  dmgMax: 7,  hitCooldownMs: 1200 }
+};
+const MOB2_KEYS = Object.keys(MOB2_TYPES);
+const MOB2_SPAWNS = [
+  { x: 150, y: 500, type: 'shade_stalker' }, { x: 850, y: 500, type: 'shade_stalker' },
+  { x: 500, y: 150, type: 'bog_brute' },     { x: 500, y: 850, type: 'bog_brute' },
+  { x: 320, y: 320, type: 'night_howler' },  { x: 680, y: 680, type: 'night_howler' },
+  { x: 680, y: 320, type: 'will_o_wisp' },   { x: 320, y: 680, type: 'will_o_wisp' }
+];
+const MOB2_RESPAWN_MS = 120 * 1000;
+const mobs2 = MOB2_SPAWNS.map((p, i) => ({
+  id: 'mob2_' + i,
+  mobType: p.type,
+  spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+  facing: Math.random() * Math.PI * 2,
+  wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
+  health: MOB2_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
+  lastHitAt: 0
+}));
+
+function nearestWildsPlayer(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const p of players.values()) {
+    if (p.room !== 'wilds') continue;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return { player: best, dist: bestDist };
+}
+
+function tickRespawns2(now) {
+  for (const a of animals2) {
+    if (a.dead && now >= a.respawnAt) {
+      a.dead = false; a.health = ANIMAL2_MAX_HEALTH;
+      a.x = a.spawnX; a.y = a.spawnY; a.fleeing = false;
+    }
+  }
+  for (const m of mobs2) {
+    if (m.dead && now >= m.respawnAt) {
+      m.dead = false; m.health = MOB2_TYPES[m.mobType].maxHealth;
+      m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
+    }
+  }
+}
+
+function tickWilds(dt) {
+  tickRespawns2(Date.now());
+  const margin = 30; // smaller than town's — the Wilds is a much smaller map
+  for (const a of animals2) {
+    if (a.dead) continue;
+    const { player: nearestP, dist } = nearestWildsPlayer(a.x, a.y);
+    if (dist < ANIMAL_FLEE_RADIUS) a.fleeing = true;
+    else if (dist > ANIMAL_SAFE_RADIUS) a.fleeing = false;
+
+    let vx = 0, vy = 0;
+    if (a.fleeing && nearestP) {
+      const dx = a.x - nearestP.x, dy = a.y - nearestP.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * ANIMAL_FLEE_SPEED;
+      vy = dy * inv * ANIMAL_FLEE_SPEED;
+    } else if (!a.fleeing) {
+      a.wanderTimer -= dt;
+      if (a.wanderTimer <= 0) {
+        a.wanderTimer = 1.5 + Math.random() * 2.5;
+        a.grazing = Math.random() < 0.35;
+        a.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!a.grazing) {
+        vx = Math.sin(a.wanderAngle) * ANIMAL_WANDER_SPEED;
+        vy = Math.cos(a.wanderAngle) * ANIMAL_WANDER_SPEED;
+      }
+    }
+    const nx = a.x + vx * dt, ny = a.y + vy * dt;
+    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) a.x = nx;
+    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) a.y = ny;
+    if (vx !== 0 || vy !== 0) a.facing = Math.atan2(vx, vy);
+  }
+
+  if (!isNightNow()) return;
+  const now = Date.now();
+  for (const m of mobs2) {
+    if (m.dead) continue;
+    const preset = MOB2_TYPES[m.mobType];
+    const { player: nearestP, dist } = nearestWildsPlayer(m.x, m.y);
+    let vx = 0, vy = 0;
+    if (nearestP && dist < preset.aggroRadius) {
+      const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+      if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+        m.lastHitAt = now;
+        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        nearestP.health = Math.max(0, nearestP.health - dmg);
+        if (nearestP.health <= 0) {
+          nearestP.health = 100;
+          nearestP.x = WORLD2.spawn.x; nearestP.y = WORLD2.spawn.y;
+          send(nearestP.ws, { type: 'defeated', byName: preset.name, x: nearestP.x, y: nearestP.y, room: 'wilds' });
+        } else {
+          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
+        }
+      }
+    } else {
+      m.wanderTimer -= dt;
+      if (m.wanderTimer <= 0) {
+        m.wanderTimer = 1.5 + Math.random() * 2.5;
+        m.paused = Math.random() < 0.3;
+        m.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!m.paused) {
+        vx = Math.sin(m.wanderAngle) * (preset.speed * 0.4);
+        vy = Math.cos(m.wanderAngle) * (preset.speed * 0.4);
+      }
+    }
+    const nx = m.x + vx * dt, ny = m.y + vy * dt;
+    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
+    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
+    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+  }
+}
+
+// The one status effect that isn't purely client-cosmetic — Regen Root
+// actually heals over time, so unlike every other status it needs the
+// server to do something with it each tick rather than just track expiry.
+const REGEN_HP_PER_SEC = 2.5;
+function tickPlayerRegen(now, dt) {
+  for (const p of players.values()) {
+    if (p.activeStatus && p.activeStatus.type === 'regen' && p.activeStatus.expiresAt > now) {
+      p.health = Math.min(100, p.health + REGEN_HP_PER_SEC * dt);
+    }
+  }
+}
+
 let lastWildlifeTick = Date.now();
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min(0.5, (now - lastWildlifeTick) / 1000);
   lastWildlifeTick = now;
   tickWildlife(dt);
+  tickWilds(dt);
+  tickPlayerRegen(now, dt);
   if (players.size === 0) return;
   broadcastAll({
     type: 'wildlife_state',
     isNight: isNightNow(),
     animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead })),
+    animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
+    mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead })),
     decor: decorPublicState()
   });
 }, 150);
@@ -1294,6 +1544,7 @@ wss.on('connection', (ws) => {
         type: 'init',
         id,
         world: WORLD,
+        world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer)
       });
       broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
@@ -1304,9 +1555,13 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'move') {
       const x = Number(msg.x), y = Number(msg.y);
+      // 'wilds' is its own 1000x1000 space; every other room (the open
+      // town map and every building interior alike) stays clamped against
+      // the town's bounds, which are large enough to never matter indoors.
+      const bounds = msg.room === 'wilds' ? WORLD2 : WORLD;
       if (Number.isFinite(x) && Number.isFinite(y)) {
-        player.x = Math.max(0, Math.min(WORLD.width, x));
-        player.y = Math.max(0, Math.min(WORLD.height, y));
+        player.x = Math.max(0, Math.min(bounds.width, x));
+        player.y = Math.max(0, Math.min(bounds.height, y));
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
         player.room = msg.room;
@@ -1862,26 +2117,34 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (player.room !== 'outside') return; // wildlife/mobs only exist outdoors
-      const pool = targetType === 'animal' ? animals : targetType === 'mob' ? mobs : null;
-      if (!pool) return;
-      const t = pool.find(x => x.id === targetId);
+      // Each pool only exists in (and is only reachable from) its own map.
+      const POOLS = {
+        animal: { list: animals, room: 'outside', respawnMs: ANIMAL_RESPAWN_MS },
+        mob: { list: mobs, room: 'outside', respawnMs: MOB_RESPAWN_MS },
+        animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
+        mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS }
+      };
+      const poolInfo = POOLS[targetType];
+      if (!poolInfo || player.room !== poolInfo.room) return;
+      const t = poolInfo.list.find(x => x.id === targetId);
       if (!t || t.dead) return;
       if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
       player.lastStrikeAt = now;
       t.health = Math.max(0, t.health - dmg);
       if (t.health <= 0) {
         t.dead = true;
-        t.respawnAt = now + (targetType === 'animal' ? ANIMAL_RESPAWN_MS : MOB_RESPAWN_MS);
+        t.respawnAt = now + poolInfo.respawnMs;
       }
       return;
     }
 
     if (msg.type === 'harvest') {
-      if (player.room !== 'outside') return;
+      if (player.room !== 'outside' && player.room !== 'wilds') return;
       const decorId = String(msg.decorId || '');
-      const decor = WORLD.natureDecor.find(d => d.id === decorId);
-      if (!decor || !HARVEST_TYPES.has(decor.type)) return;
+      const found = findDecorById(decorId);
+      if (!found || found.room !== player.room) return;
+      const decor = found.decor;
+      if (!HARVEST_TYPES.has(decor.type)) return;
       if (Math.hypot(decor.x - player.x, decor.y - player.y) > HARVEST_RANGE) {
         send(ws, { type: 'harvest_error', message: 'Get closer to harvest that.' });
         return;
@@ -1902,6 +2165,30 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}.` });
       broadcastAll({ type: 'decor_state', decor: decorPublicState() });
+      return;
+    }
+
+    if (msg.type === 'use_item') {
+      const inv = getInventory(player);
+      const slotIdx = Math.floor(Number(msg.slotIdx));
+      const stack = inv.slots[slotIdx];
+      const plant = stack && PLANT_CATALOG[stack.itemId];
+      if (!stack || !plant) {
+        send(ws, { type: 'use_error', message: 'That item can’t be used.' });
+        return;
+      }
+      removeItemFromAccount(inv, stack.itemId, 1);
+      if (player.accountKey) saveInventories();
+      const now = Date.now();
+      if (plant.effect === 'status') {
+        player.activeStatus = { type: plant.statusType, expiresAt: now + plant.durationMs };
+      } else if (plant.effect === 'heal') {
+        player.health = Math.min(100, player.health + plant.amount);
+      } else if (plant.effect === 'cleanse') {
+        player.activeStatus = null;
+      }
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'use_result', message: `${plant.icon} Used ${plant.name}.` });
       return;
     }
 
