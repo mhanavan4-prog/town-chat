@@ -1457,6 +1457,90 @@ function renderInventory() {
 // damage source (an attack, a status effect, etc.) has somewhere to report
 // to — so today it'll just sit at 100% for everyone.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Draggable panels — any fixed-position panel can be grabbed by its handle
+// and freely repositioned. setDefaultFloatPos() sets the initial position
+// once (respects any position the user already dragged it to).
+// ---------------------------------------------------------------------------
+function setDefaultFloatPos(el, defaultLeft, defaultTop) {
+  if (el.dataset.dragged) return; // user already moved it — respect that
+  el.style.left = Math.min(defaultLeft, window.innerWidth - el.offsetWidth - 8) + 'px';
+  el.style.top  = Math.min(defaultTop,  window.innerHeight - 120) + 'px';
+  el.style.right = 'auto';
+  el.style.bottom = 'auto';
+}
+
+function makeDraggable(panel, handle) {
+  if (!panel || !handle) return;
+  let startPX, startPY, startLeft, startTop;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== undefined && e.button !== 0) return; // left button only
+    e.preventDefault();
+    const rect = panel.getBoundingClientRect();
+    startPX = e.clientX;
+    startPY = e.clientY;
+    startLeft = rect.left;
+    startTop  = rect.top;
+    handle.setPointerCapture(e.pointerId);
+    handle.style.cursor = 'grabbing';
+    const onMove = (ev) => {
+      const dx = ev.clientX - startPX;
+      const dy = ev.clientY - startPY;
+      const maxL = window.innerWidth  - panel.offsetWidth  - 4;
+      const maxT = window.innerHeight - 44;
+      panel.style.left   = Math.max(0, Math.min(maxL, startLeft + dx)) + 'px';
+      panel.style.top    = Math.max(0, Math.min(maxT, startTop  + dy)) + 'px';
+      panel.style.right  = 'auto';
+      panel.style.bottom = 'auto';
+      panel.dataset.dragged = '1';
+    };
+    const onUp = () => {
+      handle.style.cursor = 'grab';
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+}
+
+// Wire up all draggable panels. inventoryPanel uses its tab row as handle;
+// the floating attack/spellbook panels use their own floatPanelHandle.
+// questTracker uses itself as its own handle.
+(function initDraggables() {
+  makeDraggable(document.getElementById('inventoryPanel'), document.getElementById('invTabs'));
+  makeDraggable(document.getElementById('questTracker'), document.getElementById('questTracker'));
+  makeDraggable(document.getElementById('attackModal'),    document.querySelector('#attackModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('spellbookModal'), document.querySelector('#spellbookModal .floatPanelHandle'));
+})();
+
+// ---------------------------------------------------------------------------
+// Strike hotkey — Q quick-attacks the nearest visible enemy without needing
+// to click on them. Uses the same strike WS message as a canvas click so
+// cooldowns/range are still enforced by the server.
+// ---------------------------------------------------------------------------
+function strikeNearestEnemy() {
+  if (!me || anyOverlayOpen()) return;
+  const candidates = getRaycastCandidates();
+  let nearest = null, nearestDist = 120; // max auto-strike range (world units)
+  for (const obj of candidates) {
+    const uid = obj.userData;
+    if (!ATTACKABLE_KINDS.has(uid.kind)) continue;
+    // Find world position from the mesh
+    const pos = new THREE.Vector3();
+    obj.getWorldPosition(pos);
+    // Convert player position to 3D render coords
+    const myRp = getRenderPos(me);
+    const d = Math.hypot(pos.x - myRp.x, pos.z - myRp.z);
+    if (d < nearestDist) { nearestDist = d; nearest = uid; }
+  }
+  if (nearest) {
+    ws.send(JSON.stringify({ type: 'strike', targetType: nearest.kind, targetId: nearest.targetId }));
+  } else {
+    setUnlockToast('No enemies nearby to strike.');
+  }
+}
+
 function updateHealthHud() {
   const path = document.getElementById('healthHeartPath');
   const text = document.getElementById('healthPercentText');
@@ -1685,13 +1769,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -1861,7 +1945,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || inventoryOpen;
+    sendMoneyModalOpen || spellConsentOpen || inventoryOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -5578,6 +5662,7 @@ function openSpellbook() {
   document.getElementById('spellTargetPanel').classList.add('hidden');
   renderSpellList();
   modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 370, 112);
   spellbookOpen = true;
 }
 
@@ -5754,6 +5839,7 @@ function openAttackPanel() {
   if (title) title.textContent = (me && ATTACK_PANEL_TITLES[me.charId]) || '⚔️ Attacks';
   renderAttackList();
   modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 370, 112);
   attackPanelOpen = true;
 }
 
@@ -6358,7 +6444,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -6446,6 +6532,8 @@ window.addEventListener('keydown', (e) => {
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
+  // R = quick-strike nearest enemy
+  if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
     if (slot !== -1) {
@@ -6616,7 +6704,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !sendMoneyModalOpen && !spellbookOpen && !spellConsentOpen && !attackPanelOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !sendMoneyModalOpen && !spellConsentOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;

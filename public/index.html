@@ -260,9 +260,31 @@
   /* Quest dialogue card */
   #questDialogueCard { width:min(340px, 90vw); }
 
-  /* Quest tracker — small panel at top-left below the room tag */
+  /* Floating panels — attack, spellbook, and inventory all share this base */
+  .floatPanel {
+    position:fixed; z-index:10; width:300px; max-width:90vw;
+    background:linear-gradient(160deg, rgba(28,20,14,0.97), rgba(16,12,8,0.98));
+    border:2px solid rgba(230,190,120,0.35); border-radius:12px;
+    padding:0 14px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.55);
+    max-height:78vh; overflow-y:auto;
+  }
+  .floatPanel.hidden { display:none !important; }
+  .floatPanelHandle {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 0 8px; font-size:16px; font-weight:700; color:#ffe9c2;
+    cursor:grab; user-select:none; border-bottom:1px solid rgba(230,190,120,0.15);
+    margin-bottom:8px;
+  }
+  .floatPanelHandle:active { cursor:grabbing; }
+  .floatPanelDrag { font-size:18px; opacity:0.4; letter-spacing:2px; }
+
+  /* Also make the inventory panel drag-handle its tab row */
+  #invTabs { cursor:grab; user-select:none; }
+  #invTabs:active { cursor:grabbing; }
+
+  /* Quest tracker — moved to right side so it doesn't overlap inventory/attacks */
   #questTracker {
-    position:fixed; left:16px; top:60px; z-index:6;
+    position:fixed; right:16px; top:112px; z-index:6;
     background:rgba(10,24,18,0.82); border:1px solid rgba(120,220,140,0.28);
     border-radius:10px; padding:10px 12px; min-width:200px; max-width:240px;
     color:#cfe9cf; font-size:12px;
@@ -841,18 +863,18 @@
   </div>
 </div>
 
-<div id="spellbookModal" class="overlay hidden">
-  <div class="card" id="spellbookCard">
-    <div class="title" style="font-size:20px;">📖 Spellbook of Evil Recipes</div>
-    <div class="subtitle">Pick a spell — targeted ones close this and let you click who to cast on; self-cast ones just need Cast.</div>
-    <div id="spellList"></div>
-    <div id="spellTargetPanel" class="passInfo hidden">
-      <button class="btn" id="spellCastBtn">Cast</button>
-      <div id="spellCooldownNote"></div>
-    </div>
-    <button class="btn" id="spellbookCloseBtn">Close (Esc)</button>
-    <div class="err" id="spellbookErr"></div>
+<div id="spellbookModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>📖 Spellbook</span><span class="floatPanelDrag">⠿</span>
   </div>
+  <div class="subtitle" style="margin:6px 0 8px; font-size:12px;">Targeted spells close this — then click who to cast on.</div>
+  <div id="spellList"></div>
+  <div id="spellTargetPanel" class="passInfo hidden">
+    <button class="btn" id="spellCastBtn">Cast</button>
+    <div id="spellCooldownNote"></div>
+  </div>
+  <button class="btn" id="spellbookCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+  <div class="err" id="spellbookErr"></div>
 </div>
 
 <div id="spellConsentModal" class="overlay hidden">
@@ -869,19 +891,19 @@
 </div>
 <video id="spellCaptureVideo" autoplay playsinline></video>
 
-<div id="attackModal" class="overlay hidden">
-  <div class="card" id="attackCard">
-    <div class="title" style="font-size:20px;" id="attackModalTitle">⚔️ Attacks</div>
-    <div class="subtitle">Pick an attack — targeted ones close this and let you click who to hit; AoE hits everyone nearby automatically.</div>
-    <div id="attackList"></div>
-    <div id="attackTargetPanel" class="passInfo hidden">
-      <label id="attackTargetLabel">Target</label>
-      <select id="attackTargetSelect"></select>
-      <button class="btn" id="attackCastBtn">⚔️ Strike</button>
-    </div>
-    <button class="btn" id="attackCloseBtn">Close (Esc)</button>
-    <div class="err" id="attackErr"></div>
+<div id="attackModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span id="attackModalTitle">⚔️ Attacks</span><span class="floatPanelDrag">⠿</span>
   </div>
+  <div class="subtitle" style="margin:6px 0 8px; font-size:12px;">Targeted ones close this — then click who to hit. AoE hits everyone nearby.</div>
+  <div id="attackList"></div>
+  <div id="attackTargetPanel" class="passInfo hidden">
+    <label id="attackTargetLabel">Target</label>
+    <select id="attackTargetSelect"></select>
+    <button class="btn" id="attackCastBtn">⚔️ Strike</button>
+  </div>
+  <button class="btn" id="attackCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+  <div class="err" id="attackErr"></div>
 </div>
 
 <div id="attackHitNotification">
