@@ -310,10 +310,16 @@
   }
   .itemSlot.empty { opacity:0.3; cursor:default; }
   .itemSlot.selected { border-color:#9ee37d; box-shadow:0 0 0 2px rgba(158,227,125,0.4); }
+  .itemSlot.stolen { border-color:#ffb84d; box-shadow:0 0 0 2px rgba(255,184,77,0.5); cursor:default; }
   .itemSlot .slotQty {
     position:absolute; bottom:1px; right:3px; font-size:10px; color:#cfe9cf; font-weight:700;
     text-shadow:0 1px 2px #000;
   }
+
+  #pickpocketCard { width:min(360px, 92vw); }
+  #pickpocketGrid { display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; margin:14px 0; }
+  #pickpocketGrid .itemSlot { cursor:default; }
+  #pickpocketEmpty { color:#cfe9cf; font-size:13px; padding:14px 0; }
   #bankListForm, #auctionCreateForm, #invActionPanel, #bankDepositPanel { text-align:left; margin-top:6px; }
   #bankListForm label, #auctionCreateForm label, #invActionPanel label, #bankDepositPanel label {
     display:block; font-size:11.5px; color:#cfe9cf; margin-bottom:4px;
@@ -752,6 +758,14 @@
     <button id="spyGlassCloseBtn">✕</button>
   </div>
   <div id="spyGlassLog"></div>
+</div>
+
+<div id="pickpocketPanel" class="hidden overlay">
+  <div class="card" id="pickpocketCard">
+    <div class="title" style="font-size:18px;" id="pickpocketTitle"></div>
+    <div id="pickpocketGrid"></div>
+    <button class="btn" id="pickpocketCloseBtn">Got it</button>
+  </div>
 </div>
 
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>

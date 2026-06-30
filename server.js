@@ -1003,9 +1003,14 @@ const WEREWOLF_ATTACK_CATALOG = {
 // see, so it is NOT covert: everyone physically in the target room gets a
 // spyglass_notice the moment it's cast, naming the caster (see cast_attack
 // below and roomChatLogs for the rolling per-room buffer it reads from).
+// effect 'pickpocket' (Sleight of Hand) is the other one: kind 'targeted' —
+// peeks at the target's carried inventory (not equipped gear) and rolls
+// stealChance to lift one item from it. Also not covert: the target always
+// gets an attack_hit naming the caster, whether or not the steal actually
+// landed, the same as every other targeted attack.
 const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
-  dust_devil:         { name: 'Dust Devil',          kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
+  sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
   echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
   desert_mirage:      { name: 'Desert Mirage',       kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
   heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000 },
@@ -1512,6 +1517,49 @@ wss.on('connection', (ws) => {
         send(ws, {
           type: 'attack_result', message: `🎯 ${t.name} is in ${describeRoom(t.room)}.`,
           revealTargetId: t.id
+        });
+        return;
+      }
+
+      if (attack.effect === 'pickpocket') {
+        const t = targets[0];
+        const targetInv = getInventory(t);
+        const peekedSlots = targetInv.slots
+          .map((s, idx) => s ? { idx, itemId: s.itemId, qty: s.qty } : null)
+          .filter(Boolean);
+        const itemsSeen = peekedSlots.map(s => ({
+          itemId: s.itemId, qty: s.qty, name: ITEM_CATALOG[s.itemId].name, icon: ITEM_CATALOG[s.itemId].icon
+        }));
+
+        let stolen = null;
+        if (peekedSlots.length > 0 && Math.random() < attack.stealChance) {
+          const pick = peekedSlots[Math.floor(Math.random() * peekedSlots.length)];
+          const callerInv = getInventory(player);
+          if (addItemToAccount(callerInv, pick.itemId, 1)) {
+            removeItemFromAccount(targetInv, pick.itemId, 1);
+            stolen = { itemId: pick.itemId, name: ITEM_CATALOG[pick.itemId].name, icon: ITEM_CATALOG[pick.itemId].icon };
+            if (player.accountKey) saveInventories();
+            if (t.accountKey) saveInventories();
+            send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+          }
+        }
+
+        send(t.ws, {
+          type: 'attack_hit', attackName: attack.name, casterName: player.name,
+          detail: stolen
+            ? `${player.name} lifted your ${stolen.icon} ${stolen.name}!`
+            : `${player.name} rifled through your pockets but came up empty.`
+        });
+
+        send(ws, {
+          type: 'attack_result',
+          message: stolen
+            ? `🤏 ${attack.name} — you swiped ${stolen.icon} ${stolen.name} from ${t.name}!`
+            : `🤏 ${attack.name} — you saw ${t.name}'s pockets but didn't manage to take anything.`,
+          pickpocketTargetId: t.id,
+          pickpocketTargetName: t.name,
+          itemsSeen,
+          stolenItemId: stolen ? stolen.itemId : null
         });
         return;
       }

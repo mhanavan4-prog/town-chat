@@ -149,8 +149,8 @@ const WEREWOLF_ATTACK_CATALOG = {
 const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',          icon: '🔭', kind: 'building', effect: 'spyglass', durationMs: 60000,
     description: "Peer into a building of your choice from anywhere — opens a live window into that room's chat for 60 seconds. Everyone in that room is told the moment you cast it." },
-  dust_devil:         { name: 'Dust Devil',         icon: '🌪️', kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000,
-    description: 'Kicks up a blinding dust devil that slows everyone nearby.' },
+  sleight_of_hand:    { name: 'Sleight of Hand',    icon: '🤏', kind: 'targeted', effect: 'pickpocket', stealChance: 0.35,
+    description: "Peek into a target's pockets and try to lift an item — about a 1-in-3 chance of actually taking something. They'll always know it happened." },
   echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
     description: "A canyon echo scrambles everyone nearby's words in chat." },
   desert_mirage:      { name: 'Desert Mirage',      icon: '🌅', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
@@ -350,6 +350,7 @@ function onWsMessage(ev) {
     if (attackPanelOpen) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
+    if (msg.itemsSeen) openPickpocketPanel(msg.pickpocketTargetName, msg.itemsSeen, msg.stolenItemId);
     return;
   }
 
@@ -4294,6 +4295,48 @@ function closeSpyGlassPanel() {
 
 const spyGlassCloseBtn = document.getElementById('spyGlassCloseBtn');
 if (spyGlassCloseBtn) spyGlassCloseBtn.addEventListener('click', closeSpyGlassPanel);
+
+// ---------------------------------------------------------------------------
+// Sleight of Hand peek — shows the caster what was in the target's carried
+// inventory at cast time (reuses the .itemSlot grid styling from the real
+// Inventory panel), with whatever got stolen (if anything) highlighted.
+// ---------------------------------------------------------------------------
+function openPickpocketPanel(targetName, itemsSeen, stolenItemId) {
+  const panel = document.getElementById('pickpocketPanel');
+  if (!panel) return;
+  document.getElementById('pickpocketTitle').textContent = `🤏 ${targetName}'s Pockets`;
+  const grid = document.getElementById('pickpocketGrid');
+  grid.innerHTML = '';
+  if (itemsSeen.length === 0) {
+    const empty = document.createElement('div');
+    empty.id = 'pickpocketEmpty';
+    empty.textContent = 'Their pockets were empty.';
+    grid.appendChild(empty);
+  } else {
+    for (const item of itemsSeen) {
+      const cell = document.createElement('div');
+      cell.className = 'itemSlot' + (item.itemId === stolenItemId ? ' stolen' : '');
+      const icon = document.createElement('span');
+      icon.textContent = item.icon;
+      const qty = document.createElement('span');
+      qty.className = 'slotQty';
+      qty.textContent = String(item.qty);
+      cell.appendChild(icon);
+      cell.appendChild(qty);
+      cell.title = item.name + ' x' + item.qty + (item.itemId === stolenItemId ? ' — stolen!' : '');
+      grid.appendChild(cell);
+    }
+  }
+  panel.classList.remove('hidden');
+}
+
+function closePickpocketPanel() {
+  const panel = document.getElementById('pickpocketPanel');
+  if (panel) panel.classList.add('hidden');
+}
+
+const pickpocketCloseBtn = document.getElementById('pickpocketCloseBtn');
+if (pickpocketCloseBtn) pickpocketCloseBtn.addEventListener('click', closePickpocketPanel);
 
 // ---------------------------------------------------------------------------
 // Open 3rd Eye — the per-cast prompt (shown when thirdEyeOptIn is false)
