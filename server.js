@@ -967,6 +967,33 @@ setInterval(() => {
   }
 }, 30000);
 
+// ---------------------------------------------------------------------------
+// Werewolf attacks — charId 1 only. AoE attacks use AOE_RADIUS to find
+// nearby players automatically; targeted/reveal attacks require a targetId.
+// Historical Swipe is the unique one: it reads recentRooms (the server
+// tracks which buildings each connected player has visited this session)
+// rather than accessing any real-world data — the browser provides no API
+// to read actual browser history, so "history" here means their in-game
+// footsteps. Target players receive a non-blocking wolf_hit notification;
+// the caster gets an attack_result toast and notes for Historical Swipe hits.
+// ---------------------------------------------------------------------------
+const WEREWOLF_ATTACK_CATALOG = {
+  historical_swipe: { name: 'Historical Swipe', kind: 'aoe', effect: 'history' },
+  lunar_howl:       { name: 'Lunar Howl',       kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
+  terrifying_roar:  { name: 'Terrifying Roar',  kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
+  alpha_bite:       { name: 'Alpha Bite',        kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 25000 },
+  feral_dash:       { name: 'Feral Dash',        kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
+  blood_frenzy:     { name: 'Blood Frenzy',      kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000 },
+  bone_crunch:      { name: 'Bone Crunch',       kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000 },
+  shadow_claws:     { name: 'Shadow Claws',      kind: 'targeted', effect: 'status', statusType: 'pumpkin',    durationMs: 30000 },
+  wolf_mark:        { name: 'Wolf Mark',          kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 30000 },
+  feral_haze:       { name: 'Feral Haze',        kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
+  snarl:            { name: 'Snarl',             kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
+  scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'reveal' }
+};
+const ATTACK_COOLDOWN_MS = 8000;
+const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
+
 wss.on('connection', (ws) => {
   let player = null;
 
@@ -1010,7 +1037,8 @@ wss.on('connection', (ws) => {
         accountKey,
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,
-        room: 'outside'
+        room: 'outside',
+        recentRooms: [] // last 5 buildings visited this session, for Historical Swipe
       };
       players.set(id, player);
       // Loads (or creates) their inventory immediately rather than lazily
@@ -1038,7 +1066,11 @@ wss.on('connection', (ws) => {
         player.y = Math.max(0, Math.min(WORLD.height, y));
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
+        const prevRoom = player.room;
         player.room = msg.room;
+        if (msg.room !== 'outside' && msg.room !== prevRoom) {
+          player.recentRooms = [msg.room, ...(player.recentRooms || []).filter(r => r !== msg.room)].slice(0, 5);
+        }
       }
       return;
     }
@@ -1365,6 +1397,88 @@ wss.on('connection', (ws) => {
           text: 'A vision arrives, captured the moment the eye opened…', image
         }
       });
+      return;
+    }
+
+    if (msg.type === 'cast_attack') {
+      if (player.charId !== 1) {
+        send(ws, { type: 'attack_error', message: 'Only the Werewolf can use attacks.' });
+        return;
+      }
+      const attackId = String(msg.attackId || '');
+      const attack = WEREWOLF_ATTACK_CATALOG[attackId];
+      if (!attack) {
+        send(ws, { type: 'attack_error', message: 'Unknown attack.' });
+        return;
+      }
+      const now = Date.now();
+      if (player.lastAttackCastAt && now - player.lastAttackCastAt < ATTACK_COOLDOWN_MS) {
+        send(ws, { type: 'attack_error', message: 'Still recovering — wait a moment.' });
+        return;
+      }
+      player.lastAttackCastAt = now;
+
+      // Resolve the set of players this attack affects.
+      let targets = [];
+      if (attack.kind === 'aoe') {
+        targets = [...players.values()].filter(p =>
+          p.id !== player.id && Math.hypot(p.x - player.x, p.y - player.y) < AOE_RADIUS
+        );
+      } else if (attack.kind === 'self') {
+        targets = [player];
+      } else {
+        const t = players.get(String(msg.targetId || ''));
+        if (!t || t.id === player.id) {
+          send(ws, { type: 'attack_error', message: 'Pick a target first.' });
+          return;
+        }
+        targets = [t];
+      }
+
+      if (attack.effect === 'status') {
+        for (const t of targets) {
+          t.activeStatus = { type: attack.statusType, expiresAt: now + attack.durationMs };
+          if (t.id !== player.id) {
+            send(t.ws, { type: 'wolf_hit', attackName: attack.name, casterName: player.name });
+          }
+        }
+        const scope = attack.kind === 'aoe'
+          ? (targets.length ? `hit ${targets.length} player${targets.length === 1 ? '' : 's'}` : 'no one in range')
+          : attack.kind === 'self' ? 'yourself' : targets[0].name;
+        send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — ${scope}.` });
+        return;
+      }
+
+      if (attack.effect === 'reveal') {
+        const t = targets[0];
+        send(ws, {
+          type: 'attack_result', message: `🎯 ${t.name} is in ${describeRoom(t.room)}.`,
+          revealTargetId: t.id
+        });
+        return;
+      }
+
+      if (attack.effect === 'history') {
+        if (targets.length === 0) {
+          send(ws, { type: 'attack_result', message: '🐾 Historical Swipe — no one in range to read.' });
+          return;
+        }
+        for (const t of targets) {
+          const rooms = (t.recentRooms || []).map(r => describeRoom(r));
+          const trailText = rooms.length > 0 ? rooms.join(' → ') : 'nowhere yet this session';
+          const noteText = `🐾 Your claws trace ${t.name}'s recent path: ${trailText}.`;
+          send(ws, {
+            type: 'note_received',
+            note: { id: makeId(), fromId: t.id, fromName: `🐾 Trail of ${t.name}`, text: noteText }
+          });
+          send(t.ws, {
+            type: 'wolf_hit', attackName: attack.name, casterName: player.name,
+            detail: `Your recent path in town was revealed: ${trailText}.`
+          });
+        }
+        send(ws, { type: 'attack_result', message: `🐾 Historical Swipe tore through ${targets.length} trail${targets.length === 1 ? '' : 's'}.` });
+        return;
+      }
       return;
     }
   });
