@@ -260,6 +260,46 @@ const WORLD = {
     { id: 'bank',    name: '🏦 The Bank',          x: 1380, y: 1810, w: 440, h: 280, color: '#c9a227', door: 'north' }
   ]
 };
+// Nature decor — trees/shrubs/rocks/flowers scattered around the outdoor
+// map. Used to live purely client-side as static decoration; now lives
+// here instead (with stable ids) so harvesting can be server-authoritative
+// and every client agrees on which ones are currently picked clean. Only
+// tree/shrub/flower types are harvestable — rocks are still just scenery.
+// Positions/scales copied over unchanged from the old client.js constant.
+WORLD.natureDecor = [
+  { id: 'decor_0',  type: 'tree',   x: 80,   y: 935,  scale: 1.1 },  { id: 'decor_1',  type: 'tree',   x: 145,  y: 1175, scale: 0.9 },
+  { id: 'decor_2',  type: 'tree',   x: 65,   y: 1360, scale: 1.0 },  { id: 'decor_3',  type: 'shrub',  x: 175,  y: 1015, scale: 1.0 },
+  { id: 'decor_4',  type: 'shrub',  x: 120,  y: 1280, scale: 0.8 },  { id: 'decor_5',  type: 'tree',   x: 935,  y: 80,   scale: 1.0 },
+  { id: 'decor_6',  type: 'tree',   x: 1160, y: 55,   scale: 0.85 }, { id: 'decor_7',  type: 'shrub',  x: 1040, y: 120,  scale: 1.0 },
+  { id: 'decor_8',  type: 'tree',   x: 3065, y: 935,  scale: 1.0 },  { id: 'decor_9',  type: 'tree',   x: 3135, y: 1175, scale: 0.9 },
+  { id: 'decor_10', type: 'tree',   x: 3080, y: 1360, scale: 1.05 }, { id: 'decor_11', type: 'shrub',  x: 2985, y: 1025, scale: 0.9 },
+  { id: 'decor_12', type: 'shrub',  x: 3040, y: 1265, scale: 1.0 },  { id: 'decor_13', type: 'tree',   x: 935,  y: 2135, scale: 1.0 },
+  { id: 'decor_14', type: 'tree',   x: 1200, y: 2160, scale: 0.95 }, { id: 'decor_15', type: 'tree',   x: 2000, y: 2145, scale: 1.0 },
+  { id: 'decor_16', type: 'tree',   x: 2265, y: 2120, scale: 0.9 },  { id: 'decor_17', type: 'shrub',  x: 1065, y: 2095, scale: 1.0 },
+  { id: 'decor_18', type: 'shrub',  x: 2135, y: 2080, scale: 0.85 }, { id: 'decor_19', type: 'tree',   x: 1975, y: 80,   scale: 0.9 },
+  { id: 'decor_20', type: 'tree',   x: 2160, y: 105,  scale: 1.0 },  { id: 'decor_21', type: 'shrub',  x: 2065, y: 55,   scale: 0.9 },
+  { id: 'decor_22', type: 'tree',   x: 105,  y: 335,  scale: 0.95 }, { id: 'decor_23', type: 'tree',   x: 3105, y: 335,  scale: 0.95 },
+  { id: 'decor_24', type: 'shrub',  x: 80,   y: 1865, scale: 1.0 },  { id: 'decor_25', type: 'shrub',  x: 3120, y: 1865, scale: 1.0 },
+  { id: 'decor_26', type: 'rock',   x: 500,  y: 1100, scale: 1.0 },  { id: 'decor_27', type: 'rock',   x: 1100, y: 1700, scale: 0.9 },
+  { id: 'decor_28', type: 'rock',   x: 2100, y: 1700, scale: 1.1 },  { id: 'decor_29', type: 'rock',   x: 2700, y: 1100, scale: 0.9 },
+  { id: 'decor_30', type: 'rock',   x: 1600, y: 1700, scale: 1.0 },  { id: 'decor_31', type: 'rock',   x: 1050, y: 650,  scale: 0.85 },
+  { id: 'decor_32', type: 'flower', x: 950,  y: 1200, scale: 1.0 },  { id: 'decor_33', type: 'flower', x: 1700, y: 750,  scale: 1.0 },
+  { id: 'decor_34', type: 'flower', x: 2450, y: 1300, scale: 1.0 },  { id: 'decor_35', type: 'flower', x: 1300, y: 900,  scale: 0.9 },
+  { id: 'decor_36', type: 'flower', x: 2000, y: 1500, scale: 1.0 },  { id: 'decor_37', type: 'flower', x: 600,  y: 1400, scale: 0.95 }
+];
+const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower']);
+const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
+const HARVEST_RANGE = 70;
+const decorHarvestedAt = {}; // id -> timestamp of last harvest, absent/expired = available
+
+function decorPublicState() {
+  const now = Date.now();
+  return WORLD.natureDecor
+    .filter(d => HARVEST_TYPES.has(d.type))
+    .map(d => ({ id: d.id, available: !decorHarvestedAt[d.id] || now - decorHarvestedAt[d.id] >= HARVEST_COOLDOWN_MS }));
+}
+
 const ROOM_IDS = new Set(['outside', ...WORLD.buildings.map(b => b.id)]);
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
@@ -388,7 +428,10 @@ const ITEM_CATALOG = {
   enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
   golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
-  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null }
+  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
+  wood:           { name: 'Wood',           icon: '🪵', slot: null },
+  berries:        { name: 'Berries',        icon: '🍓', slot: null },
+  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 const BANK_SLOT_COUNT = 24;
@@ -800,7 +843,7 @@ function publicPlayer(p) {
   return {
     id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room,
     equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
-    activeStatus: status
+    activeStatus: status, health: p.health
   };
 }
 
@@ -881,14 +924,21 @@ const ANIMAL_FLEE_SPEED = 110;
 const ANIMAL_WANDER_SPEED = 26;
 const ANIMAL_R = 9;
 
+const ANIMAL_MAX_HEALTH = 30;
+const ANIMAL_RESPAWN_MS = 90 * 1000;
+
 const animals = ANIMAL_SPAWNS.map((p, i) => ({
   id: 'animal_' + i,
+  spawnX: p.x, spawnY: p.y,
   x: p.x, y: p.y,
   facing: Math.random() * Math.PI * 2,
   fleeing: false,
   wanderTimer: Math.random() * 2,
   wanderAngle: 0,
-  grazing: false
+  grazing: false,
+  health: ANIMAL_MAX_HEALTH,
+  dead: false,
+  respawnAt: 0
 }));
 
 const MOB_SPAWNS = [
@@ -901,13 +951,20 @@ const MOB_SPAWNS = [
 const MOB_WANDER_SPEED = 22;
 const MOB_R = 10;
 
+const MOB_MAX_HEALTH = 50;
+const MOB_RESPAWN_MS = 120 * 1000;
+
 const mobs = MOB_SPAWNS.map((p, i) => ({
   id: 'mob_' + i,
+  spawnX: p.x, spawnY: p.y,
   x: p.x, y: p.y,
   facing: Math.random() * Math.PI * 2,
   wanderTimer: Math.random() * 2,
   wanderAngle: 0,
-  paused: false
+  paused: false,
+  health: MOB_MAX_HEALTH,
+  dead: false,
+  respawnAt: 0
 }));
 
 // Animals only react to (and mobs are only ever relevant to) players who
@@ -923,8 +980,30 @@ function nearestOutdoorPlayer(x, y) {
   return { player: best, dist: bestDist };
 }
 
-function tickWildlife(dt) {
+// Shared by animals and mobs: once dead, sit out of the simulation (no
+// movement, invisible client-side) until respawnAt passes, then pop back
+// at full health at the original spawn point — simplest possible respawn,
+// no need to pick a new location since the spawn points are already spread
+// around the map.
+function tickRespawns(now) {
   for (const a of animals) {
+    if (a.dead && now >= a.respawnAt) {
+      a.dead = false; a.health = ANIMAL_MAX_HEALTH;
+      a.x = a.spawnX; a.y = a.spawnY; a.fleeing = false;
+    }
+  }
+  for (const m of mobs) {
+    if (m.dead && now >= m.respawnAt) {
+      m.dead = false; m.health = MOB_MAX_HEALTH;
+      m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
+    }
+  }
+}
+
+function tickWildlife(dt) {
+  tickRespawns(Date.now());
+  for (const a of animals) {
+    if (a.dead) continue;
     const { player: nearestP, dist } = nearestOutdoorPlayer(a.x, a.y);
     if (dist < ANIMAL_FLEE_RADIUS) a.fleeing = true;
     else if (dist > ANIMAL_SAFE_RADIUS) a.fleeing = false;
@@ -957,6 +1036,7 @@ function tickWildlife(dt) {
 
   if (!isNightNow()) return;
   for (const m of mobs) {
+    if (m.dead) continue;
     m.wanderTimer -= dt;
     if (m.wanderTimer <= 0) {
       m.wanderTimer = 1.5 + Math.random() * 2.5;
@@ -986,8 +1066,9 @@ setInterval(() => {
   broadcastAll({
     type: 'wildlife_state',
     isNight: isNightNow(),
-    animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing })),
-    mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing }))
+    animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
+    mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead })),
+    decor: decorPublicState()
   });
 }, 150);
 
@@ -1199,7 +1280,8 @@ wss.on('connection', (ws) => {
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,
         room: 'outside',
-        inbox: [] // undestroyed notes currently held, mirrors the client's inbox array — for Rapid Swipe to steal from
+        inbox: [], // undestroyed notes currently held, mirrors the client's inbox array — for Rapid Swipe to steal from
+        health: 100 // 0-100, shown as the heart HUD's percentage; nothing currently drains it
       };
       players.set(id, player);
       // Loads (or creates) their inventory immediately rather than lazily
@@ -1742,6 +1824,84 @@ wss.on('connection', (ws) => {
       };
       caster.inbox.push(visionNote);
       send(caster.ws, { type: 'note_received', note: visionNote });
+      return;
+    }
+
+    // A universal basic melee attack, available to every character
+    // regardless of class — separate from the Werewolf/Wanderer's named
+    // curse-attacks (cast_attack below) or the Witch's spells, both of
+    // which are debuffs/utility rather than damage. This is the thing that
+    // actually drains the health heart: click any attackable target
+    // (player/animal/mob) in range and it lands for a small random amount,
+    // gated by a short per-player cooldown so it reads as a sword swing
+    // rather than a machine-gun click.
+    const STRIKE_RANGE = 70;
+    const STRIKE_COOLDOWN_MS = 500;
+    const STRIKE_MIN_DMG = 8, STRIKE_MAX_DMG = 14;
+    if (msg.type === 'strike') {
+      const now = Date.now();
+      if (player.lastStrikeAt && now - player.lastStrikeAt < STRIKE_COOLDOWN_MS) return;
+      const targetType = msg.targetType;
+      const targetId = String(msg.targetId || '');
+      const dmg = STRIKE_MIN_DMG + Math.floor(Math.random() * (STRIKE_MAX_DMG - STRIKE_MIN_DMG + 1));
+
+      if (targetType === 'player') {
+        const t = players.get(targetId);
+        if (!t || t.id === player.id || t.room !== player.room) return;
+        if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
+        player.lastStrikeAt = now;
+        t.health = Math.max(0, t.health - dmg);
+        if (t.health <= 0) {
+          t.health = 100;
+          t.x = WORLD.spawn.x; t.y = WORLD.spawn.y; t.room = 'outside';
+          send(t.ws, { type: 'defeated', byName: player.name, x: t.x, y: t.y });
+          send(ws, { type: 'attack_result', message: `⚔️ You defeated ${t.name}!` });
+        } else {
+          send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
+        }
+        return;
+      }
+
+      if (player.room !== 'outside') return; // wildlife/mobs only exist outdoors
+      const pool = targetType === 'animal' ? animals : targetType === 'mob' ? mobs : null;
+      if (!pool) return;
+      const t = pool.find(x => x.id === targetId);
+      if (!t || t.dead) return;
+      if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
+      player.lastStrikeAt = now;
+      t.health = Math.max(0, t.health - dmg);
+      if (t.health <= 0) {
+        t.dead = true;
+        t.respawnAt = now + (targetType === 'animal' ? ANIMAL_RESPAWN_MS : MOB_RESPAWN_MS);
+      }
+      return;
+    }
+
+    if (msg.type === 'harvest') {
+      if (player.room !== 'outside') return;
+      const decorId = String(msg.decorId || '');
+      const decor = WORLD.natureDecor.find(d => d.id === decorId);
+      if (!decor || !HARVEST_TYPES.has(decor.type)) return;
+      if (Math.hypot(decor.x - player.x, decor.y - player.y) > HARVEST_RANGE) {
+        send(ws, { type: 'harvest_error', message: 'Get closer to harvest that.' });
+        return;
+      }
+      const lastAt = decorHarvestedAt[decorId];
+      if (lastAt && Date.now() - lastAt < HARVEST_COOLDOWN_MS) {
+        send(ws, { type: 'harvest_error', message: 'Already harvested — it needs time to grow back.' });
+        return;
+      }
+      const itemId = HARVEST_ITEM_BY_TYPE[decor.type];
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, itemId, 1)) {
+        send(ws, { type: 'harvest_error', message: 'Your inventory is full.' });
+        return;
+      }
+      if (player.accountKey) saveInventories();
+      decorHarvestedAt[decorId] = Date.now();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}.` });
+      broadcastAll({ type: 'decor_state', decor: decorPublicState() });
       return;
     }
 

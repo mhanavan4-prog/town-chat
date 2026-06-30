@@ -226,6 +226,8 @@ function onWsMessage(ev) {
     if (!wasStarted) {
       document.getElementById('joinScreen').classList.add('hidden');
       document.getElementById('hud').classList.remove('hidden');
+      document.getElementById('healthHud').classList.remove('hidden');
+      updateHealthHud();
       document.getElementById('inventoryBtn').classList.remove('hidden');
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
@@ -252,6 +254,7 @@ function onWsMessage(ev) {
     } else {
       showReconnectBanner(false);
       setUnlockToast('Reconnected.');
+      updateHealthHud();
     }
     return;
   }
@@ -282,6 +285,10 @@ function onWsMessage(ev) {
         if (me) {
           me.activeStatus = p.activeStatus || null;
           applyStatusVisual(myId, me.activeStatus);
+          if (typeof p.health === 'number' && p.health !== me.health) {
+            me.health = p.health;
+            updateHealthHud();
+          }
         }
         continue;
       }
@@ -303,6 +310,45 @@ function onWsMessage(ev) {
     lastWildlifeIsNight = !!msg.isNight;
     applyAnimalState(msg.animals);
     applyMobState(msg.mobs);
+    if (msg.decor) applyDecorState(msg.decor);
+    return;
+  }
+
+  if (msg.type === 'decor_state') {
+    applyDecorState(msg.decor);
+    return;
+  }
+
+  if (msg.type === 'harvest_result') {
+    setUnlockToast('🌿 ' + msg.message);
+    return;
+  }
+
+  if (msg.type === 'harvest_error') {
+    setUnlockToast('🌿 ' + msg.message);
+    return;
+  }
+
+  if (msg.type === 'struck') {
+    setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
+    return;
+  }
+
+  if (msg.type === 'defeated') {
+    if (me) { me.x = msg.x; me.y = msg.y; me.room = 'outside'; me.health = 100; }
+    seatedAt = null; // a teleport-out shouldn't leave the avatar stuck in a sitting pose
+    // Server always sends a defeated player back outside — mirror the same
+    // forced-outdoor reset used on reconnect, in case they were indoors.
+    if (mode === 'indoor') {
+      mode = 'outdoor';
+      indoorBuildingId = null;
+      currentRoom = 'outside';
+      if (outdoorScene && outdoorCamera) setActiveContext(outdoorScene, outdoorCamera, null);
+      const leaveBtn = document.getElementById('leaveBtn');
+      if (leaveBtn) leaveBtn.classList.add('hidden');
+    }
+    updateHealthHud();
+    setUnlockToast(`💀 ${msg.byName} defeated you — back to the town square.`);
     return;
   }
 
@@ -501,6 +547,7 @@ function addPlayer(p) {
     room: p.room,
     equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
     activeStatus: p.activeStatus || null,
+    health: typeof p.health === 'number' ? p.health : 100,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -1209,6 +1256,24 @@ function renderInventory() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Health HUD — a heart icon with the current percentage rendered inside it.
+// Server is authoritative (player.health in server.js, synced the same way
+// as activeStatus/equipped gear via publicPlayer()/the periodic 'state'
+// broadcast); the client only ever displays whatever it's told. Nothing in
+// the game currently drains health — this lays the readout down so a future
+// damage source (an attack, a status effect, etc.) has somewhere to report
+// to — so today it'll just sit at 100% for everyone.
+// ---------------------------------------------------------------------------
+function updateHealthHud() {
+  const path = document.getElementById('healthHeartPath');
+  const text = document.getElementById('healthPercentText');
+  if (!path || !text) return;
+  const pct = me ? Math.max(0, Math.min(100, Math.round(me.health))) : 100;
+  text.textContent = pct + '%';
+  path.style.fill = pct > 60 ? '#e0455a' : pct > 30 ? '#e0a93f' : '#8a2030';
+}
+
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
 function refreshUnlockUI() {
@@ -1402,23 +1467,153 @@ joystickEl.addEventListener('touchend', () => {
 let cameraYawOffset = 0;
 let cameraPitchOffset = 0; // radians; +ve = looking up, -ve = looking down
 const CAMERA_PITCH_LIMIT = 1.2; // ~69°, short of straight up/down to avoid a degenerate orbit
-let dragging = false, lastDragX = 0, lastDragY = 0;
+let dragging = false, lastDragX = 0, lastDragY = 0, dragMoved = 0;
+const CLICK_DRAG_THRESHOLD = 6; // total px moved below which a mousedown+up counts as a click, not a look-drag
 
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
   lastDragX = e.clientX;
   lastDragY = e.clientY;
+  dragMoved = 0;
 });
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
+  dragMoved += Math.abs(e.clientX - lastDragX) + Math.abs(e.clientY - lastDragY);
   cameraYawOffset -= (e.clientX - lastDragX) * 0.006;
   cameraPitchOffset -= (e.clientY - lastDragY) * 0.006; // drag up = look up
   cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset));
   lastDragX = e.clientX;
   lastDragY = e.clientY;
 });
-window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mouseup', (e) => {
+  dragging = false;
+  if (dragMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(e.clientX, e.clientY);
+});
 window.addEventListener('mouseleave', () => { dragging = false; });
+
+// ---------------------------------------------------------------------------
+// Attack/harvest targeting — raycasts the mouse (or a tap) against whatever
+// is actually rendered in the active scene right now (other players,
+// wildlife, mobs, harvestable nature decor) and either fires a basic Strike
+// at it or harvests it, depending on what got hit. A real click (see the
+// drag-distance check above) is required, not just a mousedown, so this
+// never fires while the player is dragging the camera to look around.
+// Hovering an attackable target swaps the cursor to a sword so it's
+// obvious what's a valid target before you click it.
+// ---------------------------------------------------------------------------
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
+
+function ndcFromClient(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+// Mesh children don't carry userData themselves — only the root group does
+// (see ensurePlayerVisual/getOrCreateAnimalVisual/getOrCreateMobVisual/
+// addNatureDecor) — so a raycast hit on some child mesh has to walk back up
+// to find it.
+function findRaycastRoot(obj) {
+  let o = obj;
+  while (o) {
+    if (o.userData && o.userData.kind) return o;
+    o = o.parent;
+  }
+  return null;
+}
+
+function getRaycastCandidates() {
+  const list = [];
+  for (const id in visuals) {
+    if (id === myId) continue;
+    const v = visuals[id];
+    if (v.inScene && v.parentScene === activeScene) list.push(v.group);
+  }
+  if (mode === 'outdoor') {
+    for (const id in animalVisuals) {
+      const v = animalVisuals[id];
+      if (!v.dead) list.push(v.mesh);
+    }
+    for (const id in mobVisuals) {
+      const v = mobVisuals[id];
+      if (v.mesh.visible) list.push(v.mesh);
+    }
+    for (const id in decorVisuals) {
+      const v = decorVisuals[id];
+      if (!v.harvested) list.push(v.group);
+    }
+  }
+  return list;
+}
+
+function raycastHitAt(clientX, clientY) {
+  if (!activeCamera) return null;
+  ndcFromClient(clientX, clientY);
+  raycaster.setFromCamera(pointerNDC, activeCamera);
+  const hits = raycaster.intersectObjects(getRaycastCandidates(), true);
+  if (hits.length === 0) return null;
+  const root = findRaycastRoot(hits[0].object);
+  return root ? root.userData : null;
+}
+
+// Same gate every other overlay/panel in the game uses to decide whether
+// canvas input should be live right now — reused here so a click that
+// lands on, say, the inventory panel doesn't also strike whatever's behind
+// it on the canvas.
+function anyOverlayOpen() {
+  return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
+    sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || inventoryOpen;
+}
+
+function buildEmojiCursor(emoji, size) {
+  size = size || 32;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const cx = c.getContext('2d');
+  cx.font = Math.floor(size * 0.82) + 'px serif';
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(emoji, size / 2, size / 2 + 1);
+  return `url(${c.toDataURL()}) ${Math.floor(size / 2)} ${Math.floor(size / 2)}, auto`;
+}
+const SWORD_CURSOR = buildEmojiCursor('⚔️');
+
+window.addEventListener('mousemove', (e) => {
+  if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
+  const hit = raycastHitAt(e.clientX, e.clientY);
+  if (hit && (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob')) canvas.style.cursor = SWORD_CURSOR;
+  else if (hit && hit.kind === 'decor') canvas.style.cursor = 'pointer';
+  else canvas.style.cursor = 'default';
+});
+
+function handleCanvasClick(clientX, clientY) {
+  if (!gameStarted || !me || anyOverlayOpen()) return;
+  const hit = raycastHitAt(clientX, clientY);
+  if (!hit) return;
+  if (hit.kind === 'player' || hit.kind === 'animal' || hit.kind === 'mob') {
+    ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
+  } else if (hit.kind === 'decor') {
+    ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
+  }
+}
+
+// Touch has no hover/drag-to-look distinction set up yet (see the joystick
+// for movement instead), so a tap just needs its own small drag-threshold
+// check the same way the mouse path does above.
+let touchTapStartX = 0, touchTapStartY = 0, touchTapMoved = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) return;
+  touchTapStartX = e.touches[0].clientX;
+  touchTapStartY = e.touches[0].clientY;
+  touchTapMoved = 0;
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  if (e.touches.length !== 1) return;
+  touchTapMoved += Math.abs(e.touches[0].clientX - touchTapStartX) + Math.abs(e.touches[0].clientY - touchTapStartY);
+}, { passive: true });
+canvas.addEventListener('touchend', (e) => {
+  if (touchTapMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(touchTapStartX, touchTapStartY);
+}, { passive: true });
 
 // ---------------------------------------------------------------------------
 // Chat UI — chat only exists once you're inside a building; the open world
@@ -1942,7 +2137,7 @@ function initScene(w) {
     scene.add(buildPathSegment(doorPos.x, doorPos.y, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
   }
 
-  addNatureDecor(scene);
+  addNatureDecor(scene, w);
   addAnimals(scene);
   addMobs(scene);
 
@@ -2093,8 +2288,9 @@ function getOrCreateMobVisual(id) {
   if (!v) {
     const mesh = makeMob();
     mesh.visible = false;
+    mesh.userData = { kind: 'mob', targetId: id };
     outdoorScene.add(mesh);
-    v = mobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false };
+    v = mobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
   }
   return v;
 }
@@ -2103,7 +2299,7 @@ function applyMobState(list) {
   if (!outdoorScene) return;
   for (const m of list) {
     const v = getOrCreateMobVisual(m.id);
-    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing;
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
   }
 }
@@ -2117,7 +2313,7 @@ function updateMobVisuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     v.mesh.position.set(v.x, 0, v.y);
     v.mesh.rotation.y = v.facing;
-    v.mesh.visible = lastWildlifeIsNight;
+    v.mesh.visible = lastWildlifeIsNight && !v.dead;
   }
 }
 
@@ -2241,48 +2437,65 @@ function makeFlowerPatch(x, z, scale) {
   return g;
 }
 
-// Fixed (not random-per-load) positions so every connected client sees the
-// same nature layout, scaled up to match the world's current footprint.
-// Kept clear of building footprints, the spawn hub, and the dirt paths
-// radiating from it. Trees get a small trunk collision box pushed into the
-// same `walls` array buildings use, so you can't walk through them; shrubs,
-// rocks, and flower patches are purely decorative ground cover (walk-through).
-const NATURE_DECOR = [
-  { type: 'tree', x: 80,   y: 935,  scale: 1.1 },  { type: 'tree', x: 145,  y: 1175, scale: 0.9 },
-  { type: 'tree', x: 65,   y: 1360, scale: 1.0 },  { type: 'shrub', x: 175, y: 1015, scale: 1.0 },
-  { type: 'shrub', x: 120, y: 1280, scale: 0.8 },  { type: 'tree', x: 935,  y: 80,   scale: 1.0 },
-  { type: 'tree', x: 1160, y: 55,   scale: 0.85 }, { type: 'shrub', x: 1040,y: 120,  scale: 1.0 },
-  { type: 'tree', x: 3065, y: 935,  scale: 1.0 },  { type: 'tree', x: 3135, y: 1175, scale: 0.9 },
-  { type: 'tree', x: 3080, y: 1360, scale: 1.05 }, { type: 'shrub', x: 2985,y: 1025, scale: 0.9 },
-  { type: 'shrub', x: 3040,y: 1265, scale: 1.0 },  { type: 'tree', x: 935,  y: 2135, scale: 1.0 },
-  { type: 'tree', x: 1200, y: 2160, scale: 0.95 }, { type: 'tree', x: 2000, y: 2145, scale: 1.0 },
-  { type: 'tree', x: 2265, y: 2120, scale: 0.9 },  { type: 'shrub', x: 1065,y: 2095, scale: 1.0 },
-  { type: 'shrub', x: 2135,y: 2080, scale: 0.85 }, { type: 'tree', x: 1975, y: 80,   scale: 0.9 },
-  { type: 'tree', x: 2160, y: 105,  scale: 1.0 },  { type: 'shrub', x: 2065,y: 55,   scale: 0.9 },
-  { type: 'tree', x: 105,  y: 335,  scale: 0.95 }, { type: 'tree', x: 3105, y: 335,  scale: 0.95 },
-  { type: 'shrub', x: 80,  y: 1865, scale: 1.0 },  { type: 'shrub', x: 3120,y: 1865, scale: 1.0 },
-  // Extra growth for the larger map — rocks and flower patches dotted
-  // through the open grass for more visual variety/realism.
-  { type: 'rock', x: 500,  y: 1100, scale: 1.0 },  { type: 'rock', x: 1100, y: 1700, scale: 0.9 },
-  { type: 'rock', x: 2100, y: 1700, scale: 1.1 },  { type: 'rock', x: 2700, y: 1100, scale: 0.9 },
-  { type: 'rock', x: 1600, y: 1700, scale: 1.0 },  { type: 'rock', x: 1050, y: 650,  scale: 0.85 },
-  { type: 'flower', x: 950,  y: 1200, scale: 1.0 },{ type: 'flower', x: 1700, y: 750,  scale: 1.0 },
-  { type: 'flower', x: 2450, y: 1300, scale: 1.0 },{ type: 'flower', x: 1300, y: 900,  scale: 0.9 },
-  { type: 'flower', x: 2000, y: 1500, scale: 1.0 },{ type: 'flower', x: 600,  y: 1400, scale: 0.95 }
-];
+// Positions/types/scales are server-authoritative now (world.natureDecor,
+// sent at init) so harvesting can be agreed on by every client — this used
+// to be a fixed local array before harvesting existed. Trees get a small
+// trunk collision box pushed into the same `walls` array buildings use, so
+// you can't walk through them; shrubs, rocks, and flower patches are purely
+// decorative ground cover (walk-through). tree/shrub/flower are harvestable;
+// rocks are still just scenery.
+const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower']);
+let decorVisuals = {}; // decorId -> { group, type, available, originalMaterials: [{mesh, material}] }
+let decorAvailability = {}; // decorId -> bool, from server's wildlife_state/decor_state
 
-function addNatureDecor(scene) {
-  for (const d of NATURE_DECOR) {
+function applyDecorHarvestedLook(v, harvested) {
+  if (harvested) {
+    v.group.scale.setScalar(0.42);
+    for (const { mesh, material } of v.originalMaterials) {
+      const dull = material.clone();
+      dull.color.set(0x6b5a45);
+      mesh.material = dull;
+    }
+  } else {
+    v.group.scale.setScalar(1);
+    for (const { mesh, material } of v.originalMaterials) mesh.material = material;
+  }
+}
+
+function applyDecorState(list) {
+  for (const d of list) {
+    decorAvailability[d.id] = d.available;
+    const v = decorVisuals[d.id];
+    if (!v) continue;
+    const harvested = !d.available;
+    if (v.harvested !== harvested) { v.harvested = harvested; applyDecorHarvestedLook(v, harvested); }
+  }
+}
+
+function addNatureDecor(scene, w) {
+  decorVisuals = {};
+  for (const d of (w.natureDecor || [])) {
+    let group;
     if (d.type === 'tree') {
-      scene.add(makeTree(d.x, d.y, d.scale));
+      group = makeTree(d.x, d.y, d.scale);
       const r = 8 * (d.scale || 1);
       walls.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
     } else if (d.type === 'shrub') {
-      scene.add(makeShrub(d.x, d.y, d.scale));
+      group = makeShrub(d.x, d.y, d.scale);
     } else if (d.type === 'rock') {
-      scene.add(makeRock(d.x, d.y, d.scale));
+      group = makeRock(d.x, d.y, d.scale);
     } else if (d.type === 'flower') {
-      scene.add(makeFlowerPatch(d.x, d.y, d.scale));
+      group = makeFlowerPatch(d.x, d.y, d.scale);
+    } else {
+      continue;
+    }
+    scene.add(group);
+    if (HARVESTABLE_DECOR_TYPES.has(d.type)) {
+      const originalMaterials = [];
+      group.traverse(child => { if (child.isMesh) originalMaterials.push({ mesh: child, material: child.material }); });
+      group.userData = { kind: 'decor', decorId: d.id, decorType: d.type };
+      const v = decorVisuals[d.id] = { group, type: d.type, harvested: false, originalMaterials };
+      if (decorAvailability[d.id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
     }
   }
 }
@@ -2333,10 +2546,11 @@ function getOrCreateAnimalVisual(id) {
   let v = animalVisuals[id];
   if (!v) {
     const mesh = makeRabbit();
+    mesh.userData = { kind: 'animal', targetId: id };
     outdoorScene.add(mesh);
     v = animalVisuals[id] = {
       mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
-      fleeing: false, hopPhase: Math.random() * Math.PI * 2, initialized: false
+      fleeing: false, hopPhase: Math.random() * Math.PI * 2, initialized: false, dead: false
     };
   }
   return v;
@@ -2346,7 +2560,7 @@ function applyAnimalState(list) {
   if (!outdoorScene) return;
   for (const a of list) {
     const v = getOrCreateAnimalVisual(a.id);
-    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing;
+    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
   }
 }
@@ -2365,6 +2579,7 @@ function updateAnimalVisuals(dt) {
 
     v.mesh.position.set(v.x, hop, v.y);
     v.mesh.rotation.y = v.facing;
+    v.mesh.visible = !v.dead;
   }
 }
 
@@ -3707,6 +3922,9 @@ function ensurePlayerVisual(p) {
     ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null,
     statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
   };
+  // Tags the root group so raycastHitAt() can identify what got clicked —
+  // see the attack/harvest targeting section below.
+  built.group.userData = { kind: 'player', targetId: p.id };
   applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
   applyStatusVisual(p.id, p.activeStatus);
 }
