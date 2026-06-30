@@ -2441,7 +2441,10 @@ function updatePortals(dt) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
-  scene.fog = new THREE.Fog(0x8fd0ef, 350, 1300);
+  // Fog/camera-far tuned the same way the town's are — distances like this
+  // don't need to scale with total map size, just with how far the
+  // close-behind third-person camera can usefully see along the ground.
+  scene.fog = new THREE.Fog(0x8fd0ef, 700, 2200);
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
 

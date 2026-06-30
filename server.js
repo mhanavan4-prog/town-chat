@@ -297,13 +297,13 @@ WORLD.natureDecor = [
 // ---------------------------------------------------------------------------
 const WORLD2 = {
   id: 'wilds',
-  width: 1000,
-  height: 1000,
+  width: 10000,
+  height: 10000,
   // Both ends of the portal: where you land stepping into the Wilds, and
   // the spot in town the portal occupies (used for the kiosk's position and
   // for nudging a returning player just outside it, same idea as
   // getDoorWorldPos for buildings).
-  spawn: { x: 500, y: 880 },
+  spawn: { x: 5000, y: 8800 },
   portalInTown: { x: 1600, y: 700 },
   buildings: []
 };
@@ -334,6 +334,9 @@ const PLANT_CATALOG = {
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
 const PLANT_KEYS = Object.keys(PLANT_CATALOG);
+// Laid out on the original 1000x1000 footprint for readability, then
+// scaled up to match WORLD2's actual (10x larger) size below.
+const WILDS_SCALE = WORLD2.width / 1000;
 const PLANT_POSITIONS = [
   [120, 120], [860, 140], [180, 380], [760, 360], [300, 600], [680, 640],
   [140, 820], [820, 760], [420, 90],  [560, 110], [80, 540],  [920, 520],
@@ -341,7 +344,7 @@ const PLANT_POSITIONS = [
   [60, 280],  [940, 300], [380, 850], [620, 870], [160, 480], [840, 460],
   [500, 320], [500, 600], [220, 180], [780, 180], [100, 660], [900, 660],
   [340, 480], [640, 480]
-];
+].map(([x, y]) => [x * WILDS_SCALE, y * WILDS_SCALE]);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   const a = PLANT_POSITIONS[i * 2], b = PLANT_POSITIONS[i * 2 + 1];
   return [
@@ -1150,7 +1153,7 @@ function tickWildlife(dt) {
 const ANIMAL2_SPAWNS = [
   { x: 220, y: 220 }, { x: 780, y: 220 }, { x: 220, y: 780 }, { x: 780, y: 780 },
   { x: 500, y: 300 }, { x: 300, y: 500 }, { x: 700, y: 500 }, { x: 500, y: 700 }
-];
+].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE }));
 const ANIMAL2_MAX_HEALTH = 30;
 const ANIMAL2_RESPAWN_MS = 90 * 1000;
 const animals2 = ANIMAL2_SPAWNS.map((p, i) => ({
@@ -1177,7 +1180,7 @@ const MOB2_SPAWNS = [
   { x: 500, y: 150, type: 'bog_brute' },     { x: 500, y: 850, type: 'bog_brute' },
   { x: 320, y: 320, type: 'night_howler' },  { x: 680, y: 680, type: 'night_howler' },
   { x: 680, y: 320, type: 'will_o_wisp' },   { x: 320, y: 680, type: 'will_o_wisp' }
-];
+].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE, type: p.type }));
 const MOB2_RESPAWN_MS = 120 * 1000;
 const mobs2 = MOB2_SPAWNS.map((p, i) => ({
   id: 'mob2_' + i,
