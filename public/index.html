@@ -540,6 +540,26 @@
     position:absolute; width:46px; height:46px; border-radius:50%;
     background:rgba(255,255,255,0.35); top:32px; left:32px;
   }
+
+  #hotbar {
+    position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+    z-index:6; display:flex; gap:6px;
+    background:rgba(20,20,24,0.55); border:1px solid rgba(255,255,255,0.14);
+    border-radius:10px; padding:6px;
+  }
+  #hotbar.hidden { display:none; }
+  .hotbarSlot {
+    position:relative; width:44px; height:44px; border-radius:7px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; cursor:pointer; user-select:none;
+  }
+  .hotbarSlot:hover { background:rgba(255,255,255,0.16); }
+  .hotbarSlot:active { background:rgba(255,255,255,0.26); }
+  .hotbarKey {
+    position:absolute; bottom:2px; right:3px; font-size:9px;
+    color:#cfd8c8; opacity:0.8; line-height:1;
+  }
 </style>
 </head>
 <body>
@@ -870,6 +890,8 @@
     </div>
   </div>
 </div>
+
+<div id="hotbar" class="hidden"></div>
 
 <div id="joystick"><div id="stick"></div></div>
 

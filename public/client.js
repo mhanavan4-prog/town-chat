@@ -232,6 +232,17 @@ function onWsMessage(ev) {
       // Any character with an entry in ATTACK_CATALOGS gets the Attacks button.
       myAttackCatalog = me ? ATTACK_CATALOGS[me.charId] || null : null;
       if (myAttackCatalog) document.getElementById('attackBtn').classList.remove('hidden');
+      // The hotbar mirrors whichever 12-ability catalog this character has
+      // (Witch's spells or Werewolf/Wanderer's attacks) so number/dash/equals
+      // keys cast instantly without opening the Spellbook/Attacks modal.
+      if (me && me.charId === 0) {
+        myActionCatalog = SPELL_CATALOG; myActionMsgType = 'cast_spell'; myActionIdField = 'spellId';
+      } else if (myAttackCatalog) {
+        myActionCatalog = myAttackCatalog; myActionMsgType = 'cast_attack'; myActionIdField = 'attackId';
+      } else {
+        myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
+      }
+      buildHotbar();
       if (isTouchDevice()) document.getElementById('joystick').classList.add('show');
       refreshUnlockUI();
       resize();
@@ -1283,6 +1294,19 @@ if (unlockBtn) {
 // ---------------------------------------------------------------------------
 const keys = { up:false, down:false, left:false, right:false, strafeLeft:false, strafeRight:false };
 let typing = false;
+
+// Catch-all so any text input/textarea anywhere (note composer, Hard Drive
+// password fields, auction bid amounts, etc.) suppresses hotbar/movement
+// keys while focused — without this, typing a digit into a password would
+// also fire whatever ability is bound to that number key.
+document.addEventListener('focusin', (e) => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') typing = true;
+});
+document.addEventListener('focusout', (e) => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') typing = false;
+});
 
 // Jump is a purely cosmetic vertical bounce on the local player's model —
 // there's no gravity/physics system in this game, just an arc over a fixed
@@ -4353,6 +4377,87 @@ function showGlimpseBeacon(targetId) {
 }
 
 // ---------------------------------------------------------------------------
+// Hotbar — a bottom action bar mirroring whichever 12-ability catalog the
+// current character has (Witch's SPELL_CATALOG or a Werewolf/Wanderer
+// ATTACK_CATALOGS entry), bound one-to-one to the keys 1234567890-=. This
+// exists purely as a fast path: every slot resolves a target/building on
+// its own (nearest other player in the same room, or nearest building) and
+// fires the same cast_attack/cast_spell message the Attacks/Spellbook
+// modals send — it never replaces those modals, which still exist for
+// picking a *specific* target instead of "nearest."
+// ---------------------------------------------------------------------------
+let myActionCatalog = null;
+let myActionMsgType = null;
+let myActionIdField = null;
+const HOTBAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+const HOTBAR_KEY_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+
+function buildHotbar() {
+  const bar = document.getElementById('hotbar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  if (!myActionCatalog) { bar.classList.add('hidden'); return; }
+  const ids = Object.keys(myActionCatalog);
+  ids.forEach((id, idx) => {
+    if (idx >= HOTBAR_KEYS.length) return;
+    const atk = myActionCatalog[id];
+    const slot = document.createElement('div');
+    slot.className = 'hotbarSlot';
+    slot.title = atk.name;
+    const icon = document.createElement('span');
+    icon.className = 'hotbarIcon';
+    icon.textContent = atk.icon;
+    const key = document.createElement('span');
+    key.className = 'hotbarKey';
+    key.textContent = HOTBAR_KEY_LABELS[idx];
+    slot.appendChild(icon);
+    slot.appendChild(key);
+    slot.addEventListener('click', () => castFromHotbar(id));
+    bar.appendChild(slot);
+  });
+  bar.classList.remove('hidden');
+}
+
+function nearestOtherPlayer() {
+  if (!me) return null;
+  let best = null, bestDist = Infinity;
+  for (const p of Object.values(players)) {
+    if (p.id === myId || p.room !== me.room) continue;
+    const d = Math.hypot(p.x - me.x, p.y - me.y);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+function nearestBuilding() {
+  if (!me || !world) return null;
+  let best = null, bestDist = Infinity;
+  for (const b of world.buildings) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const d = Math.hypot(cx - me.x, cy - me.y);
+    if (d < bestDist) { bestDist = d; best = b; }
+  }
+  return best;
+}
+
+function castFromHotbar(id) {
+  if (!myActionCatalog || !myActionMsgType) return;
+  const atk = myActionCatalog[id];
+  if (!atk) return;
+  const payload = { type: myActionMsgType, [myActionIdField]: id };
+  if (atk.kind === 'targeted' || atk.kind === 'reveal') {
+    const target = nearestOtherPlayer();
+    if (!target) { setUnlockToast('No one else is here to target.'); return; }
+    payload.targetId = target.id;
+  } else if (atk.kind === 'building') {
+    const building = nearestBuilding();
+    if (!building) { setUnlockToast('No building nearby.'); return; }
+    payload.buildingId = building.id;
+  }
+  ws.send(JSON.stringify(payload));
+}
+
+// ---------------------------------------------------------------------------
 // Attacks UI — generic across any charId with an entry in ATTACK_CATALOGS
 // (currently Werewolf charId 1, Wanderer charId 4). AoE attacks (kind:'aoe')
 // hit everyone within server-computed radius; the UI shows no target picker
@@ -5037,6 +5142,13 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
+  if (myActionCatalog && !e.repeat) {
+    const slot = HOTBAR_KEYS.indexOf(e.key);
+    if (slot !== -1) {
+      const id = Object.keys(myActionCatalog)[slot];
+      if (id) { castFromHotbar(id); return; }
+    }
+  }
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
   }
