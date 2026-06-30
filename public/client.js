@@ -1184,13 +1184,15 @@ function renderInventory() {
         img.src = note.image;
         div.appendChild(img);
       }
-      if (ownsHardDrive()) {
-        const storeBtn = document.createElement('button');
-        storeBtn.className = 'noteReadBtn';
-        storeBtn.textContent = '💽 Store on Hard Drive';
-        storeBtn.addEventListener('click', () => storeNoteOnHardDrive(note.id));
-        div.appendChild(storeBtn);
-      }
+      // Always shown, even without a Hard Drive on hand — clicking it
+      // without one just surfaces the server's "you need a Hard Drive"
+      // error as a toast, which is more discoverable than hiding the
+      // option entirely until you happen to own one.
+      const storeBtn = document.createElement('button');
+      storeBtn.className = 'noteReadBtn';
+      storeBtn.textContent = '💽 Store on Hard Drive';
+      storeBtn.addEventListener('click', () => storeNoteOnHardDrive(note.id));
+      div.appendChild(storeBtn);
       const destroyBtn = document.createElement('button');
       destroyBtn.className = 'noteDestroyBtn';
       destroyBtn.textContent = '🔥 Destroy this note';
@@ -4506,6 +4508,7 @@ function buildHotbar() {
   const bar = document.getElementById('hotbar');
   if (!bar) return;
   bar.innerHTML = '';
+  bar.classList.toggle('mobile', isTouchDevice());
   if (!myActionCatalog) { bar.classList.add('hidden'); return; }
   const ids = Object.keys(myActionCatalog);
   ids.forEach((id, idx) => {
@@ -5170,6 +5173,17 @@ function standUp() {
   seatedAt = null;
 }
 
+// The on-screen interact prompt is a real tap target (not just decorative
+// text) specifically so mobile players — who have no F key — have some way
+// to reach the bank teller/auctioneer/wire clerk and every other kiosk.
+// touchstart fires the action and prevents the default so a phantom click
+// doesn't also fire a moment later.
+const interactHintEl = document.getElementById('interactHint');
+if (interactHintEl) {
+  interactHintEl.addEventListener('touchstart', (e) => { e.preventDefault(); tryInteract(); }, { passive: false });
+  interactHintEl.addEventListener('click', tryInteract);
+}
+
 function tryInteract() {
   if (mode !== 'indoor' || !me) return;
   if (seatedAt) { standUp(); return; }
@@ -5187,45 +5201,53 @@ function tryInteract() {
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
+// The hint doubles as a tap target on touch devices — see the
+// touchstart/click listeners below — since there's no F key to press on a
+// phone. Walking up to a kiosk/seat/NPC is still required either way; this
+// just gives touch players a physical-feeling button to tap once they have.
+function interactVerb() {
+  return isTouchDevice() ? 'Tap to' : 'Press F to';
+}
+
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
   if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to stand';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
     return;
   }
   const seat = findNearestSeat();
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to sit';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} sit`;
     return;
   }
   const kiosk = findNearestKiosk();
   if (kiosk && kiosk.game) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to play ' + (kiosk.game === 'snake' ? 'Snake' : 'Breakout');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} play ` + (kiosk.game === 'snake' ? 'Snake' : 'Breakout');
     return;
   }
   if (kiosk && kiosk.npc === 'teller') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to open your bank account';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} open your bank account`;
     return;
   }
   if (kiosk && kiosk.npc === 'auctioneer') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to visit the auction house';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} visit the auction house`;
     return;
   }
   if (kiosk && kiosk.npc === 'courier') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to send money to another player';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} send money to another player`;
     return;
   }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = 'Press F to view Town Pass';
+    document.getElementById('interactHintText').textContent = `${interactVerb()} view Town Pass`;
     return;
   }
   hint.classList.add('hidden');

@@ -221,14 +221,16 @@
   #interactHint {
     position:fixed; left:50%; bottom:96px; z-index:6;
     transform:translateX(-50%);
-    pointer-events:none;
+    pointer-events:auto; cursor:pointer;
   }
   #interactHint.hidden { display:none !important; }
   #interactHint span {
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
-    color:#ffe9c2; font-size:13px; font-weight:600; padding:8px 18px;
-    border-radius:18px; backdrop-filter:blur(4px);
+    color:#ffe9c2; font-size:13px; font-weight:600; padding:12px 22px;
+    border-radius:18px; backdrop-filter:blur(4px); display:inline-block;
+    -webkit-tap-highlight-color:transparent; user-select:none;
   }
+  #interactHint:active span { background:rgba(40,24,16,0.9); }
 
   #leaveBtn {
     position:fixed; top:64px; right:16px; z-index:6;
@@ -553,6 +555,7 @@
     background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18);
     display:flex; align-items:center; justify-content:center;
     font-size:20px; cursor:pointer; user-select:none;
+    -webkit-tap-highlight-color:transparent;
   }
   .hotbarSlot:hover { background:rgba(255,255,255,0.16); }
   .hotbarSlot:active { background:rgba(255,255,255,0.26); }
@@ -560,6 +563,17 @@
     position:absolute; bottom:2px; right:3px; font-size:9px;
     color:#cfd8c8; opacity:0.8; line-height:1;
   }
+  /* Mobile: no keyboard, so lay the 12 abilities out as 2 rows of 6 large
+     touch targets instead of 1 cramped row of 12 — accuracy matters more
+     than density when you're tapping with a fingertip, not a mouse. */
+  #hotbar.mobile {
+    flex-wrap:wrap; width:392px; max-width:calc(100vw - 16px); gap:8px; justify-content:center;
+    bottom:104px; /* clear of the joystick, which sits at bottom:90px */
+  }
+  #hotbar.mobile .hotbarSlot {
+    width:56px; height:56px; font-size:28px; flex:0 0 56px;
+  }
+  #hotbar.mobile .hotbarKey { display:none; }
 </style>
 </head>
 <body>
