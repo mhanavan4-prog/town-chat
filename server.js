@@ -996,12 +996,15 @@ const WEREWOLF_ATTACK_CATALOG = {
   scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'reveal' }
 };
 
-// charId 4 — Wanderer. effect 'chatlog' is the unique one (Deep Meditation):
-// self-only, no immediate result — it schedules a note 15s later containing
-// whatever was said out loud in the player's current room during that
-// window (see roomChatLogs below).
+// charId 4 — Wanderer. effect 'spyglass' is the unique one (Spy Glass):
+// kind 'building' — caster picks any building (not necessarily one they're
+// in), gets a live window into that room's chat for durationMs. Unlike the
+// other reveal effects this exposes something the caster couldn't already
+// see, so it is NOT covert: everyone physically in the target room gets a
+// spyglass_notice the moment it's cast, naming the caster (see cast_attack
+// below and roomChatLogs for the rolling per-room buffer it reads from).
 const WANDERER_ATTACK_CATALOG = {
-  deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'chatlog', durationMs: 15000 },
+  spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   dust_devil:         { name: 'Dust Devil',          kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
   echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
   desert_mirage:      { name: 'Desert Mirage',       kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
@@ -1023,13 +1026,10 @@ const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG
 const ATTACK_COOLDOWN_MS = 8000;
 const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
 
-// Rolling chat history per room, used only by Deep Meditation's chatlog
-// effect — chat itself is still never stored anywhere else (see the 'chat'
-// handler's note about not persisting it). This is a small capped buffer
-// purely so a meditating player can get a recap of what was said out loud
-// in their own room while they were in it; everyone in that room already
-// saw each line live in their own chat log when it was sent, so this isn't
-// surfacing anything that wasn't already visible to whoever was present.
+// Rolling chat history per room, used only by Spy Glass's spyglass effect
+// to seed the window with whatever was already said before the cast — chat
+// itself is still never persisted anywhere else (see the 'chat' handler's
+// note about not storing it long-term).
 const ROOM_CHAT_LOG_LIMIT = 50;
 const roomChatLogs = new Map(); // roomId -> [{name, text, ts}]
 function recordRoomChat(room, name, text) {
@@ -1181,6 +1181,13 @@ wss.on('connection', (ws) => {
       };
       recordRoomChat(player.room, player.name, text);
       broadcastRoom(player.room, chatMsg);
+      if (text) {
+        for (const watcher of players.values()) {
+          if (watcher.spyGlass && watcher.spyGlass.room === player.room && watcher.spyGlass.expiresAt > Date.now()) {
+            send(watcher.ws, { type: 'spyglass_chat', name: player.name, text });
+          }
+        }
+      }
       return;
     }
 
@@ -1474,6 +1481,9 @@ wss.on('connection', (ws) => {
         );
       } else if (attack.kind === 'self') {
         targets = [player];
+      } else if (attack.kind === 'building') {
+        // Resolved directly from msg.buildingId in the 'spyglass' effect
+        // below — not a player target, so nothing to gather here.
       } else {
         const t = players.get(String(msg.targetId || ''));
         if (!t || t.id === player.id) {
@@ -1528,28 +1538,42 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (attack.effect === 'chatlog') {
-        const room = player.room;
-        const startAt = now;
+      if (attack.effect === 'spyglass') {
+        const buildingId = String(msg.buildingId || '');
+        if (!ROOM_IDS.has(buildingId) || buildingId === 'outside') {
+          send(ws, { type: 'attack_error', message: 'Pick a building to spy on first.' });
+          return;
+        }
         const endAt = now + attack.durationMs;
-        player.activeStatus = { type: 'meditation', expiresAt: endAt };
+        player.spyGlass = { room: buildingId, expiresAt: endAt };
         const playerId = player.id;
-        // Delivered after the meditation window closes, not immediately —
-        // it's a recap of what got said in the room while it was running,
-        // so there's nothing meaningful to capture at cast time.
+
+        // Everyone actually in the room gets told right away — chat in
+        // there is normally only visible to people physically present, so
+        // remotely watching it has to announce itself the same way every
+        // other attack notifies whoever it affects.
+        for (const occupant of players.values()) {
+          if (occupant.room === buildingId) {
+            send(occupant.ws, {
+              type: 'spyglass_notice', casterName: player.name, buildingName: describeRoom(buildingId)
+            });
+          }
+        }
+
+        send(ws, {
+          type: 'spyglass_start',
+          buildingName: describeRoom(buildingId),
+          durationMs: attack.durationMs,
+          log: roomChatLogs.get(buildingId) || []
+        });
         setTimeout(() => {
           const p = players.get(playerId);
-          if (!p) return; // disconnected mid-meditation — nothing to deliver
-          const log = (roomChatLogs.get(room) || []).filter(e => e.ts >= startAt && e.ts <= endAt);
-          const transcript = log.length > 0
-            ? log.map(e => `${e.name}: ${e.text}`).join('\n')
-            : `${describeRoom(room)} stayed quiet the whole time.`;
-          send(p.ws, {
-            type: 'note_received',
-            note: { id: makeId(), fromId: p.id, fromName: `🧘 Meditation in ${describeRoom(room)}`, text: transcript }
-          });
+          if (p && p.spyGlass && p.spyGlass.expiresAt <= Date.now()) {
+            delete p.spyGlass;
+            send(p.ws, { type: 'spyglass_end' });
+          }
         }, attack.durationMs);
-        send(ws, { type: 'attack_result', message: `🧘 ${attack.name} — settling into stillness in ${describeRoom(room)}.` });
+        send(ws, { type: 'attack_result', message: `🔭 ${attack.name} — watching ${describeRoom(buildingId)} for ${Math.round(attack.durationMs / 1000)}s.` });
         return;
       }
       return;

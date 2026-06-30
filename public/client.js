@@ -140,14 +140,15 @@ const WEREWOLF_ATTACK_CATALOG = {
 };
 
 // Must stay in sync with WANDERER_ATTACK_CATALOG in server.js. charId 4 only.
-// effect 'chatlog' is Deep Meditation's unique one — self-only, no immediate
-// result; 15s after casting, a note arrives with whatever was said out loud
-// in the room the Wanderer was in during that window (see 'meditation'
-// status visual + the note delivery in onWsMessage's note_received handler;
-// the server only ever surfaces chat everyone in that room already saw live).
+// effect 'spyglass' is Spy Glass's unique one — kind 'building' shows a
+// picker of every building (not the usual player target picker); casting
+// opens a live spyglassPanel window into that room's chat for durationMs.
+// Not covert: the server tells everyone actually in that room the moment
+// it's cast (spyglass_notice), the same way every other attack notifies
+// whoever it affects — see openSpyGlassPanel/spyglass_* handlers below.
 const WANDERER_ATTACK_CATALOG = {
-  deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'chatlog', durationMs: 15000,
-    description: 'Settle into stillness — 15 seconds later, a note arrives with whatever was said out loud in this room while you meditated.' },
+  spy_glass:          { name: 'Spy Glass',          icon: '🔭', kind: 'building', effect: 'spyglass', durationMs: 60000,
+    description: "Peer into a building of your choice from anywhere — opens a live window into that room's chat for 60 seconds. Everyone in that room is told the moment you cast it." },
   dust_devil:         { name: 'Dust Devil',         icon: '🌪️', kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000,
     description: 'Kicks up a blinding dust devil that slows everyone nearby.' },
   echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
@@ -360,6 +361,26 @@ function onWsMessage(ev) {
 
   if (msg.type === 'attack_hit') {
     showAttackHitNotification(msg.casterName, msg.attackName, msg.detail);
+    return;
+  }
+
+  if (msg.type === 'spyglass_start') {
+    openSpyGlassPanel(msg.buildingName, msg.log || [], msg.durationMs);
+    return;
+  }
+
+  if (msg.type === 'spyglass_chat') {
+    appendSpyGlassLine(msg.name, msg.text);
+    return;
+  }
+
+  if (msg.type === 'spyglass_end') {
+    closeSpyGlassPanel();
+    return;
+  }
+
+  if (msg.type === 'spyglass_notice') {
+    setUnlockToast(`🔭 ${msg.casterName} is watching this room through Spy Glass.`);
     return;
   }
 
@@ -3346,19 +3367,6 @@ function makeWolfMarkMesh() {
   return g;
 }
 
-function makeMeditationAura() {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: 0x7fd9c4, transparent: true, opacity: 0.55 });
-  for (let i = 0; i < 3; i++) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(CHAR.headR * (1.1 + i * 0.45), 0.8, 6, 20), mat);
-    ring.position.y = CHAR.headY * 0.4;
-    ring.rotation.x = Math.PI / 2;
-    ring.userData.offset = i * 1.4;
-    g.add(ring);
-  }
-  return g;
-}
-
 function clearStatusVisual(v) {
   if (!v) return;
   v.group.scale.setScalar(1);
@@ -3370,7 +3378,6 @@ function clearStatusVisual(v) {
   if (v.batsGroup) { v.group.remove(v.batsGroup); v.batsGroup = null; }
   if (v.cloakMesh) { v.group.remove(v.cloakMesh); v.cloakMesh = null; }
   if (v.wolfMarkMesh) { v.group.remove(v.wolfMarkMesh); v.wolfMarkMesh = null; }
-  if (v.meditationAura) { v.group.remove(v.meditationAura); v.meditationAura = null; }
   if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
   v.statusType = null;
 }
@@ -3400,9 +3407,6 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'wolfmark') {
     v.wolfMarkMesh = makeWolfMarkMesh();
     v.group.add(v.wolfMarkMesh);
-  } else if (newType === 'meditation') {
-    v.meditationAura = makeMeditationAura();
-    v.group.add(v.meditationAura);
   }
   // 'colorcycle'/'speedboost' animate every frame in updateStatusVisuals.
   // 'toad'/'gibberish'/'stumble'/'feather'/'speedboost' have no 3D mesh.
@@ -3423,11 +3427,6 @@ function updateStatusVisuals(dt) {
       v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
     } else if (v.statusType === 'wolfmark' && v.wolfMarkMesh) {
       v.wolfMarkMesh.rotation.y += dt * 1.6;
-    } else if (v.statusType === 'meditation' && v.meditationAura) {
-      v.meditationAura.rotation.y += dt * 0.6;
-      for (const ring of v.meditationAura.children) {
-        ring.position.y = CHAR.headY * 0.4 + Math.sin(now * 0.0015 + ring.userData.offset) * 3;
-      }
     }
   }
 }
@@ -3448,8 +3447,7 @@ function ensurePlayerVisual(p) {
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
     ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null,
-    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null,
-    meditationAura: null
+    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
   };
   applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
   applyStatusVisual(p.id, p.activeStatus);
@@ -4132,7 +4130,7 @@ function renderAttackList() {
     row.className = 'attackRow' + (selectedAttackId === id ? ' selected' : '');
     const name = document.createElement('div');
     name.className = 'attackName';
-    name.textContent = atk.icon + ' ' + atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : '');
+    name.textContent = atk.icon + ' ' + atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : atk.kind === 'building' ? ' (pick building)' : '');
     const desc = document.createElement('div');
     desc.className = 'attackDesc';
     desc.textContent = atk.description;
@@ -4151,9 +4149,15 @@ function selectAttack(id) {
   const select = document.getElementById('attackTargetSelect');
   const label = document.getElementById('attackTargetLabel');
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
+    label.textContent = 'Target';
     select.classList.remove('hidden');
     label.classList.remove('hidden');
     refreshAttackTargets();
+  } else if (atk.kind === 'building') {
+    label.textContent = 'Building';
+    select.classList.remove('hidden');
+    label.classList.remove('hidden');
+    refreshAttackBuildings();
   } else {
     select.classList.add('hidden');
     label.classList.add('hidden');
@@ -4181,6 +4185,18 @@ function refreshAttackTargets() {
   if (others.some(p => p.id === prev)) select.value = prev;
 }
 
+function refreshAttackBuildings() {
+  const select = document.getElementById('attackTargetSelect');
+  if (!select || !world) return;
+  select.disabled = false;
+  select.innerHTML = '';
+  for (const b of world.buildings) {
+    const opt = document.createElement('option');
+    opt.value = b.id; opt.textContent = b.name;
+    select.appendChild(opt);
+  }
+}
+
 const attackCastBtn = document.getElementById('attackCastBtn');
 if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
   if (!selectedAttackId || !myAttackCatalog) return;
@@ -4191,6 +4207,10 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
     const targetId = document.getElementById('attackTargetSelect').value;
     if (!targetId) { err.textContent = 'Pick a target first.'; return; }
     payload.targetId = targetId;
+  } else if (atk.kind === 'building') {
+    const buildingId = document.getElementById('attackTargetSelect').value;
+    if (!buildingId) { err.textContent = 'Pick a building first.'; return; }
+    payload.buildingId = buildingId;
   }
   err.textContent = '';
   ws.send(JSON.stringify(payload));
@@ -4219,6 +4239,47 @@ if (attackHitDismiss) attackHitDismiss.addEventListener('click', () => {
   const el = document.getElementById('attackHitNotification');
   if (el) el.classList.remove('show');
 });
+
+// ---------------------------------------------------------------------------
+// Spy Glass live window — Wanderer's spy_glass attack. Non-blocking floating
+// panel that stays open for durationMs showing whatever's said in the chosen
+// building, seeded with whatever was already in roomChatLogs server-side.
+// Auto-closes on spyglass_end (or manual dismiss, which doesn't tell the
+// server to stop early — the room notice already fired, so there's nothing
+// extra to protect by closing it client-side sooner).
+// ---------------------------------------------------------------------------
+let spyGlassTimer = null;
+
+function openSpyGlassPanel(buildingName, log, durationMs) {
+  const panel = document.getElementById('spyGlassPanel');
+  if (!panel) return;
+  document.getElementById('spyGlassTitle').textContent = `🔭 Spying on ${buildingName}`;
+  const logEl = document.getElementById('spyGlassLog');
+  logEl.innerHTML = '';
+  for (const e of log) appendSpyGlassLine(e.name, e.text);
+  panel.classList.remove('hidden');
+  clearTimeout(spyGlassTimer);
+  spyGlassTimer = setTimeout(closeSpyGlassPanel, durationMs);
+}
+
+function appendSpyGlassLine(name, text) {
+  const logEl = document.getElementById('spyGlassLog');
+  if (!logEl) return;
+  const line = document.createElement('div');
+  line.className = 'spyGlassLine';
+  line.textContent = `${name}: ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function closeSpyGlassPanel() {
+  clearTimeout(spyGlassTimer);
+  const panel = document.getElementById('spyGlassPanel');
+  if (panel) panel.classList.add('hidden');
+}
+
+const spyGlassCloseBtn = document.getElementById('spyGlassCloseBtn');
+if (spyGlassCloseBtn) spyGlassCloseBtn.addEventListener('click', closeSpyGlassPanel);
 
 // ---------------------------------------------------------------------------
 // Open 3rd Eye — the per-cast prompt (shown when thirdEyeOptIn is false)
