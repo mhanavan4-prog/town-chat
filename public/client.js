@@ -68,10 +68,10 @@ const CHARACTER_PRESETS = [
 const ITEM_CATALOG = {
   iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
   spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'armor' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'armor' },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'armor' },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'armor' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'chest' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'head'  },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'feet'  },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'ring'  },
   healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
   magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
   dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
@@ -82,6 +82,21 @@ const ITEM_CATALOG = {
   wood:           { name: 'Wood',           icon: '🪵', slot: null },
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
+  // Character starter sets
+  witch_robe:     { name: "Witch's Robe",   icon: '🌑', slot: 'chest' },
+  hexed_boots:    { name: 'Hexed Boots',    icon: '🌙', slot: 'feet'  },
+  hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring'  },
+  beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head'  },
+  beast_hide:     { name: 'Beast Hide',     icon: '🐺', slot: 'chest' },
+  paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet'  },
+  spirit_veil:    { name: 'Spirit Veil',    icon: '✨', slot: 'head'  },
+  spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest' },
+  spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring'  },
+  knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head' },
+  order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring'  },
+  travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
+  travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
+  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
   // The Wilds' 16 harvestable plants — name/icon mirrored from server.js's
   // PLANT_CATALOG. The actual effect (what happens when used) is resolved
   // server-side; the client only needs to know these exist and are usable.
@@ -303,6 +318,7 @@ function onWsMessage(ev) {
       document.getElementById('hud').classList.remove('hidden');
       document.getElementById('healthHud').classList.remove('hidden');
       updateHealthHud();
+      updateXPDisplay();
       document.getElementById('inventoryBtn').classList.remove('hidden');
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
@@ -370,8 +386,12 @@ function onWsMessage(ev) {
       const existing = players[p.id];
       if (existing) {
         existing.targetX = p.x; existing.targetY = p.y; existing.room = p.room; existing.name = p.name; existing.color = p.color;
-        existing.equippedWeapon = p.equippedWeapon || null; existing.equippedArmor = p.equippedArmor || null;
-        applyEquipVisual(p.id, existing.equippedWeapon, existing.equippedArmor);
+        existing.equippedWeapon = p.equippedWeapon || null;
+        existing.equippedHead   = p.equippedHead   || null;
+        existing.equippedChest  = p.equippedChest  || null;
+        existing.equippedFeet   = p.equippedFeet   || null;
+        existing.equippedRing   = p.equippedRing   || null;
+        applyEquipVisual(p.id, p);
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
       } else {
@@ -414,6 +434,51 @@ function onWsMessage(ev) {
   if (msg.type === 'use_error') {
     if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'quest_offer') {
+    if (msg.questId) {
+      showQuestOffer(msg);
+    } else {
+      setUnlockToast(`💬 ${msg.npcName}: "${msg.message}"`);
+    }
+    return;
+  }
+
+  if (msg.type === 'quest_started') {
+    closeQuestDialogue();
+    setUnlockToast(`📜 Quest started: "${msg.questName}" — ${msg.description}`);
+    updateQuestTracker(msg.questId, msg.questName, 0, msg.target);
+    return;
+  }
+
+  if (msg.type === 'quest_update') {
+    updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target);
+    return;
+  }
+
+  if (msg.type === 'quest_complete') {
+    clearQuestTracker();
+    setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'quest_cancelled') {
+    clearQuestTracker();
+    return;
+  }
+
+  if (msg.type === 'xp_gain') {
+    if (me) { me.xp = msg.xp; me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    updateXPDisplay();
+    return;
+  }
+
+  if (msg.type === 'level_up') {
+    if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    updateXPDisplay();
+    setUnlockToast(msg.message);
     return;
   }
 
@@ -482,10 +547,17 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'inventory_state') {
-    lastInventoryState = { slots: msg.slots, equippedWeapon: msg.equippedWeapon, equippedArmor: msg.equippedArmor };
+    lastInventoryState = {
+      slots: msg.slots,
+      equippedWeapon: msg.equippedWeapon || null,
+      equippedHead:   msg.equippedHead   || null,
+      equippedChest:  msg.equippedChest  || null,
+      equippedFeet:   msg.equippedFeet   || null,
+      equippedRing:   msg.equippedRing   || null
+    };
     renderInventoryItemsPanel();
     if (bankModalOpen) populateBankDepositSelect();
-    applyMyEquipVisual(msg.equippedWeapon, msg.equippedArmor);
+    applyMyEquipVisual(msg);
     return;
   }
 
@@ -637,9 +709,14 @@ function addPlayer(p) {
     x: p.x, y: p.y, targetX: p.x, targetY: p.y,
     renderPrevX: p.x, renderPrevY: p.y,
     room: p.room,
-    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
+    equippedWeapon: p.equippedWeapon || null,
+    equippedHead:   p.equippedHead   || null,
+    equippedChest:  p.equippedChest  || null,
+    equippedFeet:   p.equippedFeet   || null,
+    equippedRing:   p.equippedRing   || null,
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
+    level: p.level || 1, skillPoints: p.skillPoints || 0, xp: p.xp || 0,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -1082,7 +1159,10 @@ if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettin
 function renderInventoryItemsPanel() {
   if (!lastInventoryState) return;
   renderEquipSlot('equipWeaponSlot', lastInventoryState.equippedWeapon, 'weapon');
-  renderEquipSlot('equipArmorSlot', lastInventoryState.equippedArmor, 'armor');
+  renderEquipSlot('equipHeadSlot',   lastInventoryState.equippedHead,   'head');
+  renderEquipSlot('equipChestSlot',  lastInventoryState.equippedChest,  'chest');
+  renderEquipSlot('equipFeetSlot',   lastInventoryState.equippedFeet,   'feet');
+  renderEquipSlot('equipRingSlot',   lastInventoryState.equippedRing,   'ring');
 
   const grid = document.getElementById('invSlotsGrid');
   if (!grid) return;
@@ -1133,9 +1213,10 @@ function selectInvSlot(idx) {
   buttons.innerHTML = '';
   const meta = item;
   if (meta && meta.slot) {
+    const SLOT_LABELS = { weapon:'⚔️ Equip Weapon', head:'🎩 Equip Head', chest:'🛡️ Equip Chest', feet:'👢 Equip Feet', ring:'💍 Equip Ring' };
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.textContent = meta.slot === 'weapon' ? '⚔️ Equip as Weapon' : '🛡️ Equip as Armor';
+    btn.textContent = SLOT_LABELS[meta.slot] || '⚙️ Equip';
     btn.addEventListener('click', () => {
       document.getElementById('invModalErr').textContent = '';
       ws.send(JSON.stringify({ type: 'inventory_equip', slotIdx: idx, equipSlot: meta.slot }));
@@ -1384,6 +1465,96 @@ function updateHealthHud() {
   text.textContent = pct + '%';
   path.style.fill = pct > 60 ? '#e0455a' : pct > 30 ? '#e0a93f' : '#8a2030';
 }
+
+// ---------------------------------------------------------------------------
+// XP / level strip
+// ---------------------------------------------------------------------------
+// XP thresholds mirror server's XP_THRESHOLDS for computing the bar fill —
+// the server is authoritative; this is purely cosmetic interpolation.
+const CLIENT_XP_THRESHOLDS = [0,100,250,500,900,1400,2100,3000,4200,6000,
+                               8200,11000,14500,19000,25000,32500,42000,54000,69000,87000];
+const CLIENT_MAX_LEVEL = CLIENT_XP_THRESHOLDS.length - 1;
+
+function updateXPDisplay() {
+  const strip = document.getElementById('xpStrip');
+  if (!strip || !gameStarted) return;
+  strip.classList.remove('hidden');
+  const level = me ? (me.level || 1) : 1;
+  const xp = me ? (me.xp || 0) : 0;
+  const sp = me ? (me.skillPoints || 0) : 0;
+  document.getElementById('xpStripLevel').textContent = `Lv ${level}`;
+  document.getElementById('xpStripSP').textContent = `${sp} SP`;
+  let pct = 0;
+  if (level < CLIENT_MAX_LEVEL) {
+    const lo = CLIENT_XP_THRESHOLDS[level - 1] || 0;
+    const hi = CLIENT_XP_THRESHOLDS[level];
+    pct = Math.min(100, Math.round(100 * (xp - lo) / Math.max(1, hi - lo)));
+  } else {
+    pct = 100;
+  }
+  document.getElementById('xpBarFill').style.width = pct + '%';
+}
+
+// ---------------------------------------------------------------------------
+// Quest tracker (persistent progress panel)
+// ---------------------------------------------------------------------------
+let activeQuestId = null, activeQuestTarget = 0;
+
+function updateQuestTracker(questId, questName, progress, target) {
+  activeQuestId = questId;
+  activeQuestTarget = target;
+  const el = document.getElementById('questTracker');
+  if (!el) return;
+  el.classList.remove('hidden');
+  document.getElementById('questTrackerName').textContent = questName;
+  const pct = Math.min(100, Math.round(100 * progress / Math.max(1, target)));
+  document.getElementById('questTrackerFill').style.width = pct + '%';
+  document.getElementById('questTrackerCount').textContent = `${progress} / ${target}`;
+}
+
+function clearQuestTracker() {
+  activeQuestId = null;
+  const el = document.getElementById('questTracker');
+  if (el) el.classList.add('hidden');
+}
+
+const questCancelBtn = document.getElementById('questCancelBtn');
+if (questCancelBtn) questCancelBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'quest_cancel' }));
+});
+
+// ---------------------------------------------------------------------------
+// Quest dialogue (shown when talking to an NPC)
+// ---------------------------------------------------------------------------
+let pendingQuestNpcId = null;
+
+function openQuestDialogue(npcId, npcName) {
+  pendingQuestNpcId = npcId;
+  ws.send(JSON.stringify({ type: 'quest_talk', npcId }));
+}
+
+function showQuestOffer(msg) {
+  document.getElementById('questDialogueNpc').textContent = `💬 ${msg.npcName}`;
+  document.getElementById('questDialogueName').textContent = msg.questName || '';
+  document.getElementById('questDialogueDesc').textContent = msg.description || '';
+  document.getElementById('questDialogueXP').textContent = msg.xpReward || 0;
+  document.getElementById('questDialogue').classList.remove('hidden');
+}
+
+function closeQuestDialogue() {
+  document.getElementById('questDialogue').classList.add('hidden');
+  pendingQuestNpcId = null;
+}
+
+const questAcceptBtn = document.getElementById('questAcceptBtn');
+if (questAcceptBtn) questAcceptBtn.addEventListener('click', () => {
+  if (!pendingQuestNpcId) return;
+  ws.send(JSON.stringify({ type: 'quest_accept', npcId: pendingQuestNpcId }));
+  closeQuestDialogue();
+});
+
+const questDeclineBtn = document.getElementById('questDeclineBtn');
+if (questDeclineBtn) questDeclineBtn.addEventListener('click', closeQuestDialogue);
 
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
@@ -2319,6 +2490,8 @@ function initScene(w) {
     OUTDOOR_KIOSKS.push({ x: world2.portalInTown.x, z: world2.portalInTown.y, portal: 'wilds' });
   }
 
+  buildTownNPCs(scene, w);
+
   outdoorScene = scene;
   outdoorCamera = camera;
   mode = 'outdoor';
@@ -2427,6 +2600,33 @@ function buildPortalMesh(x, y) {
 
 function updatePortals(dt) {
   for (const disc of portalDiscs) disc.rotation.z += dt * 1.2;
+}
+
+// ---------------------------------------------------------------------------
+// Town NPCs — 4 named quest-givers positioned around the spawn hub, each
+// associated with one Wilds quest. Walk up and press F / tap to talk to
+// them; the server dispatches a quest_offer in response to quest_talk.
+// They're stationary (no AI wander) — the Wilds has plenty of movement.
+// ---------------------------------------------------------------------------
+const TOWN_NPCS = [
+  { id: 'npc_mara', name: 'Ranger Mara',    charId: 3, x: 1350, y:  950 },
+  { id: 'npc_finn', name: 'Herbalist Finn', charId: 0, x: 1850, y:  950 },
+  { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1350, y: 1250 },
+  { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 1850, y: 1250 }
+];
+
+function buildTownNPCs(scene) {
+  for (const npc of TOWN_NPCS) {
+    const mesh = createHumanoid(npc.charId).group;
+    mesh.position.set(npc.x, 0, npc.y);
+    // Face toward the spawn hub (1600, 1100) so they look natural
+    mesh.rotation.y = Math.atan2(1600 - npc.x, 1100 - npc.y);
+    scene.add(mesh);
+    const label = makeSignSprite(`💬 ${npc.name}`);
+    label.position.set(npc.x, 90, npc.y);
+    scene.add(label);
+    OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'quest', npcId: npc.id, npcName: npc.name });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -4204,40 +4404,147 @@ function addHair(group, headY, headR, style, color) {
 function createHumanoid(charId) {
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const group = new THREE.Group();
-  const skin = preset.skin, pants = preset.pants;
+
+  const skinMat  = () => new THREE.MeshLambertMaterial({ color: preset.skin });
+  const shirtMat = () => new THREE.MeshLambertMaterial({ color: preset.shirt });
+  const pantsMat = () => new THREE.MeshLambertMaterial({ color: preset.pants });
+
+  // ── Torso: three stacked segments give waist, chest, and shoulder silhouette
+  const hips = new THREE.Mesh(
+    new THREE.CylinderGeometry(9.5, 10, 7, 8),
+    pantsMat()
+  );
+  hips.position.y = CHAR.hipY + 3.5;
+  group.add(hips);
 
   const torso = new THREE.Mesh(
-    new THREE.CylinderGeometry(9, 11, CHAR.torsoH, 8),
-    new THREE.MeshLambertMaterial({ color: preset.shirt })
+    new THREE.CylinderGeometry(10, 8.5, 20, 8),
+    shirtMat()
   );
-  torso.position.y = CHAR.hipY + CHAR.torsoH / 2;
+  torso.position.y = CHAR.hipY + 7 + 10;
   group.add(torso);
 
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(CHAR.headR, 14, 12),
-    new THREE.MeshLambertMaterial({ color: skin })
+  // Collar bone / neck ridge — a thin disc at shoulder level
+  const collar = new THREE.Mesh(
+    new THREE.CylinderGeometry(10.5, 10.5, 2, 8),
+    shirtMat()
   );
+  collar.position.y = CHAR.shoulderY - 1;
+  group.add(collar);
+
+  // Neck
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.5, 4.5, 5, 8),
+    skinMat()
+  );
+  neck.position.y = CHAR.shoulderY + 2.5;
+  group.add(neck);
+
+  // ── Head: slightly taller than wide for a less "ball" feel
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(CHAR.headR, 16, 14),
+    skinMat()
+  );
+  head.scale.y = 1.1;
   head.position.y = CHAR.headY;
   group.add(head);
 
   addFace(group, CHAR.headY, CHAR.headR, preset.eye);
   addHair(group, CHAR.headY, CHAR.headR, preset.hairStyle, preset.hair);
 
-  function makeLimb(isArm, side) {
-    const pivot = new THREE.Group();
-    const length = isArm ? CHAR.armLen : CHAR.legLen;
-    const radius = isArm ? 3.2 : 4.2;
-    const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius * 0.85, length, 6),
-      new THREE.MeshLambertMaterial({ color: isArm ? skin : pants })
+  // Shoulder caps — small rounded bumps where arms meet the body
+  for (const side of [-1, 1]) {
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(5, 8, 8),
+      shirtMat()
     );
-    mesh.position.y = -length / 2;
-    pivot.add(mesh);
-    pivot.position.set(side * (isArm ? 11 : 5), isArm ? CHAR.shoulderY : CHAR.hipY, 0);
+    cap.scale.y = 0.75;
+    cap.position.set(side * 11, CHAR.shoulderY - 2, 0);
+    group.add(cap);
+  }
+
+  // ── Arms: upper arm + elbow joint + forearm + hand
+  function makeArm(side) {
+    const pivot = new THREE.Group();
+
+    // Upper arm (thicker near shoulder, tapers to elbow)
+    const upper = new THREE.Mesh(
+      new THREE.CylinderGeometry(3, 2.8, 12, 7),
+      shirtMat()
+    );
+    upper.position.y = -6;
+    pivot.add(upper);
+
+    // Elbow joint sphere
+    const elbow = new THREE.Mesh(
+      new THREE.SphereGeometry(2.9, 8, 8),
+      skinMat()
+    );
+    elbow.position.y = -12;
+    pivot.add(elbow);
+
+    // Forearm (slightly thinner)
+    const lower = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.6, 2.2, 9, 7),
+      skinMat()
+    );
+    lower.position.y = -12 - 4.5;
+    pivot.add(lower);
+
+    // Hand — a small rounded box
+    const hand = new THREE.Mesh(
+      new THREE.BoxGeometry(4.5, 3, 3),
+      skinMat()
+    );
+    hand.position.y = -12 - 9 - 1.5;
+    pivot.add(hand);
+
+    pivot.position.set(side * 12, CHAR.shoulderY - 1, 0);
     return pivot;
   }
-  const armL = makeLimb(true, -1), armR = makeLimb(true, 1);
-  const legL = makeLimb(false, -1), legR = makeLimb(false, 1);
+
+  // ── Legs: thigh + knee joint + calf + foot
+  function makeLeg(side) {
+    const pivot = new THREE.Group();
+
+    // Thigh (wide at top, tapers to knee)
+    const thigh = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.8, 3.8, 14, 7),
+      pantsMat()
+    );
+    thigh.position.y = -7;
+    pivot.add(thigh);
+
+    // Knee cap — a visible rounded sphere
+    const knee = new THREE.Mesh(
+      new THREE.SphereGeometry(3.9, 8, 8),
+      pantsMat()
+    );
+    knee.position.y = -14;
+    pivot.add(knee);
+
+    // Calf (tapers toward ankle)
+    const calf = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 2.5, 11, 7),
+      pantsMat()
+    );
+    calf.position.y = -14 - 5.5;
+    pivot.add(calf);
+
+    // Foot — a wedge box: wider front-to-back than side, slightly angled
+    const foot = new THREE.Mesh(
+      new THREE.BoxGeometry(5, 2.5, 8),
+      skinMat()
+    );
+    foot.position.set(0, -26, 2);  // slightly forward to read as a foot
+    pivot.add(foot);
+
+    pivot.position.set(side * 5.5, CHAR.hipY, 0);
+    return pivot;
+  }
+
+  const armL = makeArm(-1), armR = makeArm(1);
+  const legL = makeLeg(-1), legR = makeLeg(1);
   group.add(armL, armR, legL, legR);
 
   return { group, armL, armR, legL, legR, torso, head, baseShirtColor: preset.shirt };
@@ -4264,49 +4571,138 @@ function makeEquippedWeaponMesh() {
   return g;
 }
 
-function makeEquippedArmorMesh() {
+// Per-item appearance palettes — each piece gets a distinct color so you
+// can tell at a glance which character is wearing what. One entry per
+// equippable item; falls back to a neutral default if the key is missing.
+const EQUIP_COLORS = {
+  // chest
+  steel_shield:   0x8a8f99, witch_robe:  0x1a0a2a, beast_hide:    0x5a3a1a,
+  spirit_robe:    0x3a2a5a, travelers_vest: 0x6b4a2a,
+  // head  — cap color / brim color
+  wizard_hat:     [0x1a1a22, 0x2a2a3a], knights_helm: [0x7a8a9a, 0x6a7a8a],
+  beast_crown:    [0x2a1a0a, 0x4a2a0a], spirit_veil:  [0x3a1a5a, 0x5a2a8a],
+  travelers_hood: [0x4a3a2a, 0x6a5a3a],
+  // feet
+  leather_boots:  0x5a3a24, hexed_boots: 0x1a0a2a, paw_boots: 0x3a2a1a,
+  // ring (emissive glow color)
+  silver_ring:    0xd8e0f0, hex_amulet:  0x8a3aff, spirit_ring: 0xb040ff,
+  order_signet:   0xd4af37, trail_ring:  0x4a9a6a
+};
+
+function makeEquippedChestMesh(itemId) {
+  const color = EQUIP_COLORS[itemId] || 0x8a8f99;
   return new THREE.Mesh(
     new THREE.CylinderGeometry(9.6, 11.6, CHAR.torsoH * 0.85, 8),
-    new THREE.MeshLambertMaterial({ color: 0x8a8f99 })
+    new THREE.MeshLambertMaterial({ color })
   );
 }
 
-// Creates/removes the weapon/armor overlay meshes for a given visuals[]
-// entry to match whatever's actually equipped, identified by itemId or
-// null. Cheap to call repeatedly with unchanged state (e.g. every periodic
-// 'state' broadcast for every player) since it only touches the scene
-// graph on an actual equipped/unequipped transition.
-function applyEquipVisual(id, weaponItemId, armorItemId) {
-  const v = visuals[id];
-  if (!v) return;
-  if (weaponItemId && !v.weaponMesh) {
-    v.weaponMesh = makeEquippedWeaponMesh();
-    v.weaponMesh.position.set(0, -CHAR.armLen + 1, 1.2);
-    v.armR.add(v.weaponMesh);
-  } else if (!weaponItemId && v.weaponMesh) {
-    v.armR.remove(v.weaponMesh);
-    v.weaponMesh = null;
+function makeEquippedHeadMesh(itemId) {
+  const palette = EQUIP_COLORS[itemId] || [0x7a8a9a, 0x6a7a8a];
+  const [capColor, brimColor] = Array.isArray(palette) ? palette : [palette, palette];
+  const g = new THREE.Group();
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(CHAR.headR * 1.12, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: capColor })
+  );
+  const brim = new THREE.Mesh(
+    new THREE.CylinderGeometry(CHAR.headR * 1.28, CHAR.headR * 1.28, 1.5, 10),
+    new THREE.MeshLambertMaterial({ color: brimColor })
+  );
+  brim.position.y = -CHAR.headR * 0.02;
+  g.add(cap);
+  g.add(brim);
+  return g;
+}
+
+function makeEquippedFeetMesh(itemId) {
+  const color = EQUIP_COLORS[itemId] || 0x5a3a24;
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color });
+  for (const side of [-1, 1]) {
+    const boot = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 4, 6), mat);
+    boot.position.set(side * 4.5, 2, 0);
+    g.add(boot);
   }
-  if (armorItemId && !v.armorMesh) {
-    v.armorMesh = makeEquippedArmorMesh();
-    v.armorMesh.position.y = CHAR.hipY + CHAR.torsoH / 2;
-    v.group.add(v.armorMesh);
-  } else if (!armorItemId && v.armorMesh) {
-    v.group.remove(v.armorMesh);
-    v.armorMesh = null;
+  return g;
+}
+
+function makeEquippedRingMesh(itemId) {
+  const color = EQUIP_COLORS[itemId] || 0xffd43b;
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(2, 6, 6),
+    new THREE.MeshBasicMaterial({ color })
+  );
+}
+
+// Reusable helper: remove the old mesh from parent if it changed or was
+// cleared, build a fresh one with the current item's look, add it back.
+function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
+  const changed = v[meshKey + 'ItemId'] !== itemId;
+  if (changed && v[meshKey]) {
+    v[parentKey].remove(v[meshKey]);
+    v[meshKey] = null;
+    v[meshKey + 'ItemId'] = null;
+  }
+  if (itemId && !v[meshKey]) {
+    v[meshKey] = makeFn(itemId);
+    positionFn(v[meshKey]);
+    v[parentKey].add(v[meshKey]);
+    v[meshKey + 'ItemId'] = itemId;
   }
 }
 
-// inventory_state only ever describes the local player, and arrives with
-// no id field (it's implicitly "you") — this just routes it to the same
-// place applyEquipVisual(id, ...) would for anyone else.
-function applyMyEquipVisual(weaponItemId, armorItemId) {
-  if (!myId) return;
-  if (players[myId]) {
-    players[myId].equippedWeapon = weaponItemId || null;
-    players[myId].equippedArmor = armorItemId || null;
-  }
-  applyEquipVisual(myId, weaponItemId, armorItemId);
+// Toggle helpers that attach/detach/swap one equip-slot mesh on a given
+// visual. Now keyed by itemId (or null) instead of a plain boolean so that
+// swapping pieces updates the mesh appearance instead of reusing the old one.
+const EQUIP_ATTACH = {
+  weapon: (v, itemId) => _reattachMesh(v, 'weaponMesh', 'armR',
+    () => makeEquippedWeaponMesh(),
+    itemId,
+    m => m.position.set(0, -CHAR.armLen + 1, 1.2)),
+  chest: (v, itemId) => _reattachMesh(v, 'chestMesh', 'group',
+    id => makeEquippedChestMesh(id),
+    itemId,
+    m => { m.position.y = CHAR.hipY + CHAR.torsoH / 2; }),
+  head: (v, itemId) => _reattachMesh(v, 'headMesh', 'group',
+    id => makeEquippedHeadMesh(id),
+    itemId,
+    m => { m.position.y = CHAR.headY; }),
+  feet: (v, itemId) => _reattachMesh(v, 'feetMesh', 'group',
+    id => makeEquippedFeetMesh(id),
+    itemId,
+    m => { m.position.y = 0; }),
+  ring: (v, itemId) => _reattachMesh(v, 'ringMesh', 'armL',
+    id => makeEquippedRingMesh(id),
+    itemId,
+    m => m.position.set(5, -CHAR.armLen * 0.7, 1))
+};
+
+// Creates/removes equip-slot overlay meshes for a given visuals[] entry.
+// `equipped` is any object with equippedWeapon/Head/Chest/Feet/Ring fields.
+// Safe to call every periodic 'state' broadcast — only touches the scene
+// graph on an actual equipped/unequipped transition.
+function applyEquipVisual(id, equipped) {
+  const v = visuals[id];
+  if (!v) return;
+  // Pass itemIds directly so each slot can pick the right color/look.
+  EQUIP_ATTACH.weapon(v, equipped.equippedWeapon || null);
+  EQUIP_ATTACH.chest (v, equipped.equippedChest  || null);
+  EQUIP_ATTACH.head  (v, equipped.equippedHead   || null);
+  EQUIP_ATTACH.feet  (v, equipped.equippedFeet   || null);
+  EQUIP_ATTACH.ring  (v, equipped.equippedRing   || null);
+}
+
+// inventory_state only ever describes the local player — routes it into
+// applyEquipVisual and also keeps players[myId] in sync.
+function applyMyEquipVisual(msg) {
+  if (!myId || !players[myId]) return;
+  players[myId].equippedWeapon = msg.equippedWeapon || null;
+  players[myId].equippedHead   = msg.equippedHead   || null;
+  players[myId].equippedChest  = msg.equippedChest  || null;
+  players[myId].equippedFeet   = msg.equippedFeet   || null;
+  players[myId].equippedRing   = msg.equippedRing   || null;
+  applyEquipVisual(myId, players[myId]);
 }
 
 // ---------------------------------------------------------------------------
@@ -4472,13 +4868,14 @@ function ensurePlayerVisual(p) {
   // applyEquipVisual() the first time this player actually has something
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
-    ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null,
+    ...built, nameEl, inScene: false, parentScene: null,
+    weaponMesh: null, chestMesh: null, headMesh: null, feetMesh: null, ringMesh: null,
     statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
   };
   // Tags the root group so raycastHitAt() can identify what got clicked —
   // see the attack/harvest targeting section below.
   built.group.userData = { kind: 'player', targetId: p.id };
-  applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
+  applyEquipVisual(p.id, p);
   applyStatusVisual(p.id, p.activeStatus);
 }
 
@@ -4749,7 +5146,7 @@ let bankModalOpen = false;
 let auctionModalOpen = false;
 let sendMoneyModalOpen = false;
 let lastBankState = null; // { balance, slots }
-let lastInventoryState = null; // { slots, equippedWeapon, equippedArmor }
+let lastInventoryState = null; // { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
 let selectedInvSlotIdx = null;
 let lastAuctionListings = [];
 let selectedBankSlotIdx = null;
@@ -5946,6 +6343,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'courier') { openSendMoneyModal(); return; }
   if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
   if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
+  if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
@@ -6001,6 +6399,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'town') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} step through the portal back to town`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'quest') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
     return;
   }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {

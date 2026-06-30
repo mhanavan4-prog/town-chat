@@ -257,6 +257,44 @@
     border-radius:18px; backdrop-filter:blur(4px); display:inline-block;
   }
 
+  /* Quest dialogue card */
+  #questDialogueCard { width:min(340px, 90vw); }
+
+  /* Quest tracker — small panel at top-left below the room tag */
+  #questTracker {
+    position:fixed; left:16px; top:60px; z-index:6;
+    background:rgba(10,24,18,0.82); border:1px solid rgba(120,220,140,0.28);
+    border-radius:10px; padding:10px 12px; min-width:200px; max-width:240px;
+    color:#cfe9cf; font-size:12px;
+    pointer-events:auto;
+  }
+  #questTracker.hidden { display:none !important; }
+  #questTrackerName { font-weight:700; font-size:12.5px; margin-bottom:6px; color:#9ee37d; }
+  #questTrackerBar {
+    height:5px; background:rgba(255,255,255,0.12); border-radius:3px; margin-bottom:4px;
+  }
+  #questTrackerFill { height:5px; border-radius:3px; background:#9ee37d; width:0%; transition:width 0.4s; }
+  #questTrackerCount { color:#aacfaa; font-size:11px; }
+  #questCancelBtn {
+    position:absolute; top:6px; right:8px; background:none; border:none;
+    color:#7a9a7a; font-size:11px; cursor:pointer; padding:0; line-height:1;
+  }
+  #questCancelBtn:hover { color:#ff8a8a; }
+
+  /* XP / level strip — thin bar at bottom center, left of hotbar */
+  #xpStrip {
+    position:fixed; left:50%; bottom:90px; transform:translateX(-50%);
+    z-index:6; display:flex; align-items:center; gap:8px;
+    background:rgba(10,16,12,0.72); border:1px solid rgba(160,220,160,0.2);
+    border-radius:12px; padding:5px 12px; pointer-events:none;
+    white-space:nowrap;
+  }
+  #xpStrip.hidden { display:none !important; }
+  #xpStripLevel { color:#9ee37d; font-size:12px; font-weight:800; }
+  #xpBarWrap { width:100px; height:5px; background:rgba(255,255,255,0.12); border-radius:3px; }
+  #xpBarFill { height:5px; border-radius:3px; background:#ffd43b; width:0%; transition:width 0.4s; }
+  #xpStripSP { color:#ffd43b; font-size:11px; font-weight:700; }
+
   #leaveBtn {
     position:fixed; top:64px; right:16px; z-index:6;
     pointer-events:auto;
@@ -891,8 +929,20 @@
         <div class="equipSlotLabel">⚔️ Weapon</div>
       </div>
       <div class="equipSlotWrap">
-        <div class="itemSlot" id="equipArmorSlot"></div>
-        <div class="equipSlotLabel">🛡️ Armor</div>
+        <div class="itemSlot" id="equipHeadSlot"></div>
+        <div class="equipSlotLabel">🎩 Head</div>
+      </div>
+      <div class="equipSlotWrap">
+        <div class="itemSlot" id="equipChestSlot"></div>
+        <div class="equipSlotLabel">🛡️ Chest</div>
+      </div>
+      <div class="equipSlotWrap">
+        <div class="itemSlot" id="equipFeetSlot"></div>
+        <div class="equipSlotLabel">👢 Feet</div>
+      </div>
+      <div class="equipSlotWrap">
+        <div class="itemSlot" id="equipRingSlot"></div>
+        <div class="equipSlotLabel">💍 Ring</div>
       </div>
     </div>
     <div id="invSlotsGrid" class="itemSlotsGrid"></div>
@@ -957,6 +1007,33 @@
 
 <div id="targetingBanner" class="hidden">
   <span id="targetingBannerText"></span>
+</div>
+
+<!-- Quest dialogue — shown when the player talks to an NPC quest-giver -->
+<div id="questDialogue" class="overlay hidden">
+  <div class="card" id="questDialogueCard">
+    <div class="title" style="font-size:18px;" id="questDialogueNpc">NPC Name</div>
+    <div class="subtitle" id="questDialogueName"></div>
+    <div style="margin:12px 0 14px; line-height:1.55; color:#cfe9cf; font-size:13px;" id="questDialogueDesc"></div>
+    <div style="color:#ffd43b; font-size:12.5px; margin-bottom:14px;">🌟 Reward: <span id="questDialogueXP"></span> XP</div>
+    <button class="btn" id="questAcceptBtn">Accept Quest</button>
+    <button class="btn" id="questDeclineBtn">Not now</button>
+  </div>
+</div>
+
+<!-- Quest tracker — small persistent overlay showing active quest progress -->
+<div id="questTracker" class="hidden">
+  <div id="questTrackerName"></div>
+  <div id="questTrackerBar"><div id="questTrackerFill"></div></div>
+  <div id="questTrackerCount"></div>
+  <button id="questCancelBtn" title="Abandon quest">✕</button>
+</div>
+
+<!-- XP/level strip — sits in the bottom HUD area -->
+<div id="xpStrip" class="hidden">
+  <span id="xpStripLevel">Lv 1</span>
+  <div id="xpBarWrap"><div id="xpBarFill"></div></div>
+  <span id="xpStripSP">0 SP</span>
 </div>
 
 <div id="joystick"><div id="stick"></div></div>

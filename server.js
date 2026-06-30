@@ -526,17 +526,17 @@ app.post('/api/login', (req, res) => {
 // an ephemeral filesystem (Render free tier, etc.) won't carry balances
 // across a redeploy, only across restarts of the same running instance.
 // ---------------------------------------------------------------------------
-// "slot" marks what an item can be equipped as ('weapon'/'armor'), or null
+// "slot" marks what an item can be equipped as ('weapon'/'head'/'chest'/'feet'/'ring'), or null
 // for things that are only ever carried/banked/traded (potions, materials,
 // curios) — both inventory_equip and the client's slot-action UI key off
 // this to decide what a given item can actually do.
 const ITEM_CATALOG = {
   iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
   spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'armor' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'armor' },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'armor' },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'armor' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'chest' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'head'  },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'feet'  },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'ring'  },
   healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
   magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
   dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
@@ -546,7 +546,26 @@ const ITEM_CATALOG = {
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
   wood:           { name: 'Wood',           icon: '🪵', slot: null },
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
-  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null }
+  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
+  // ---- Witch starter set ----
+  witch_robe:     { name: "Witch's Robe",   icon: '🌑', slot: 'chest' },
+  hexed_boots:    { name: 'Hexed Boots',    icon: '🌙', slot: 'feet'  },
+  hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring'  },
+  // ---- Werewolf starter set ----
+  beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head'  },
+  beast_hide:     { name: 'Beast Hide',     icon: '🐺', slot: 'chest' },
+  paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet'  },
+  // ---- Mystic starter set ----
+  spirit_veil:    { name: 'Spirit Veil',    icon: '✨', slot: 'head'  },
+  spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest' },
+  spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring'  },
+  // ---- Knight starter set ----
+  knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head' },
+  order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring'  },
+  // ---- Wanderer starter set ----
+  travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
+  travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
+  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
@@ -638,38 +657,81 @@ function loadInventories() {
 function saveInventories() {
   fs.writeFileSync(INVENTORY_FILE, JSON.stringify(inventories, null, 2));
 }
-const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedArmor }
+const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
 const INVENTORY_STARTER_ITEM_COUNT = 2;
+// All possible equip slot keys — used throughout to avoid scattered literals.
+const EQUIP_SLOTS = ['weapon', 'head', 'chest', 'feet', 'ring'];
+
+// Each character class starts with a full themed loadout — every equip slot
+// filled, nothing left to chance. These items are pre-equipped (not sitting
+// in slots): the inventory starts empty so they immediately appear on the
+// character's model, and the player can unequip them into slots if they want
+// to swap something out later.
+const STARTER_GEAR = {
+  0: { weapon: 'spell_tome',  head: 'wizard_hat',    chest: 'witch_robe',    feet: 'hexed_boots',    ring: 'hex_amulet'   },
+  1: { weapon: 'iron_sword',  head: 'beast_crown',   chest: 'beast_hide',    feet: 'paw_boots',      ring: 'silver_ring'  },
+  2: { weapon: 'spell_tome',  head: 'spirit_veil',   chest: 'spirit_robe',   feet: 'leather_boots',  ring: 'spirit_ring'  },
+  3: { weapon: 'iron_sword',  head: 'knights_helm',  chest: 'steel_shield',  feet: 'leather_boots',  ring: 'order_signet' },
+  4: { weapon: 'iron_sword',  head: 'travelers_hood',chest: 'travelers_vest',feet: 'leather_boots',  ring: 'trail_ring'   }
+};
+
+function starterInventory(charId) {
+  const gear = STARTER_GEAR[charId] || STARTER_GEAR[0];
+  return {
+    slots: emptySlots(),
+    equippedWeapon: gear.weapon || null,
+    equippedHead:   gear.head   || null,
+    equippedChest:  gear.chest  || null,
+    equippedFeet:   gear.feet   || null,
+    equippedRing:   gear.ring   || null
+  };
+}
 
 function freshInventory() {
   const slots = emptySlots();
   for (let i = 0; i < INVENTORY_STARTER_ITEM_COUNT; i++) {
     slots[i] = { itemId: ITEM_IDS[Math.floor(Math.random() * ITEM_IDS.length)], qty: 1 };
   }
-  return { slots, equippedWeapon: null, equippedArmor: null };
+  return { slots, equippedWeapon: null, equippedHead: null, equippedChest: null, equippedFeet: null, equippedRing: null };
 }
 
 // The live inventory object for this connection — loaded/created in
 // inventories.json for a logged-in account, or created once on the
 // in-memory player object for a guest. Either way, callers just get back
-// an object with .slots/.equippedWeapon/.equippedArmor to read or mutate;
-// addItemToAccount/removeItemFromAccount/countItemQty (written for the
-// bank above) work on it unchanged since they only ever touch .slots.
+// an object with .slots and equippedXxx fields to read or mutate;
+// addItemToAccount/removeItemFromAccount/countItemQty work unchanged
+// since they only ever touch .slots.
 function getInventory(player) {
   if (player.accountKey) {
     if (!inventories[player.accountKey]) {
-      inventories[player.accountKey] = freshInventory();
+      inventories[player.accountKey] = starterInventory(player.charId);
       saveInventories();
     }
     return inventories[player.accountKey];
   }
-  if (!player.guestInventory) player.guestInventory = freshInventory();
+  if (!player.guestInventory) player.guestInventory = starterInventory(player.charId);
   return player.guestInventory;
+}
+
+function invEquipField(slotKind) {
+  if (slotKind === 'weapon') return 'equippedWeapon';
+  if (slotKind === 'head')   return 'equippedHead';
+  if (slotKind === 'chest')  return 'equippedChest';
+  if (slotKind === 'feet')   return 'equippedFeet';
+  if (slotKind === 'ring')   return 'equippedRing';
+  return null;
 }
 
 function inventoryStatePayload(player) {
   const inv = getInventory(player);
-  return { slots: inv.slots, equippedWeapon: inv.equippedWeapon, equippedArmor: inv.equippedArmor };
+  return {
+    slots: inv.slots,
+    equippedWeapon: inv.equippedWeapon || null,
+    equippedHead:   inv.equippedHead   || null,
+    equippedChest:  inv.equippedChest  || null,
+    equippedFeet:   inv.equippedFeet   || null,
+    equippedRing:   inv.equippedRing   || null
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -717,6 +779,142 @@ function ownsHardDriveItem(player) {
   return inv.slots.some(s => s && s.itemId === 'hard_drive');
 }
 
+// ---------------------------------------------------------------------------
+// XP / leveling / skill-point system
+// Persisted per account key the same way inventories/bank accounts are;
+// guests get ephemeral progress that resets on disconnect, consistent with
+// the rest of the guest-identity model.
+// ---------------------------------------------------------------------------
+const PROGRESS_FILE = path.join(__dirname, 'playerProgress.json');
+function loadProgress() {
+  try { return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveProgress() {
+  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(playerProgress, null, 2));
+}
+const playerProgress = loadProgress(); // accountKey -> { xp, level, skillPoints, questCooldowns: {} }
+
+// XP needed to reach each level (index = level). Level cap at 20.
+const XP_THRESHOLDS = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 6000,
+                        8200, 11000, 14500, 19000, 25000, 32500, 42000, 54000, 69000, 87000];
+const MAX_LEVEL = XP_THRESHOLDS.length - 1;
+
+function getProgress(player) {
+  if (player.accountKey) {
+    if (!playerProgress[player.accountKey]) {
+      playerProgress[player.accountKey] = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {} };
+      saveProgress();
+    }
+    return playerProgress[player.accountKey];
+  }
+  if (!player.guestProgress) player.guestProgress = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {} };
+  return player.guestProgress;
+}
+
+// Award XP to a player, leveling up as many times as thresholds are crossed,
+// and broadcasting the change so their HUD updates immediately.
+function grantXP(player, amount) {
+  if (amount <= 0) return;
+  const prog = getProgress(player);
+  prog.xp += amount;
+  let leveled = false;
+  while (prog.level < MAX_LEVEL && prog.xp >= XP_THRESHOLDS[prog.level]) {
+    prog.level++;
+    prog.skillPoints++;
+    leveled = true;
+    send(player.ws, {
+      type: 'level_up',
+      level: prog.level,
+      skillPoints: prog.skillPoints,
+      message: `⬆️ Level up! You are now Level ${prog.level}. Skill points: ${prog.skillPoints}.`
+    });
+  }
+  if (player.accountKey && (leveled || amount >= 5)) saveProgress();
+  send(player.ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: amount });
+}
+
+// Attach current progress fields to the in-memory player object so
+// publicPlayer() can expose them without a separate lookup per broadcast.
+function syncProgressToPlayer(player) {
+  const prog = getProgress(player);
+  player.xp = prog.xp;
+  player.level = prog.level;
+  player.skillPoints = prog.skillPoints;
+}
+
+// ---------------------------------------------------------------------------
+// Quest system — 4 NPCs wandering town, each offering one repeatable quest
+// tied to Wilds activities (killing mobs, harvesting plants). Quests go on a
+// 24h cooldown after completion so they can't be farmed in seconds, but are
+// otherwise repeatable. Only one quest can be active at a time.
+// ---------------------------------------------------------------------------
+const QUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const QUEST_CATALOG = {
+  rangers_cull: {
+    npcId: 'npc_mara', npcName: 'Ranger Mara',
+    name: 'Cull the Night Creatures',
+    type: 'kill_mob', target: 3, xpReward: 75,
+    description: 'Three night creatures have been spotted near the Wilds portal. Put them down before dawn.'
+  },
+  herbalists_gather: {
+    npcId: 'npc_finn', npcName: 'Herbalist Finn',
+    name: 'Gather Wild Herbs',
+    type: 'harvest_plant', target: 5, xpReward: 60,
+    description: 'My supply is running low. Bring me five plants from the Wilds — any kind will do.'
+  },
+  hunters_hunt: {
+    npcId: 'npc_dex', npcName: 'Hunter Dex',
+    name: 'Slay the Greater Beasts',
+    type: 'kill_mob', target: 5, xpReward: 120,
+    description: 'The Wilds are crawling with foul things at night. Hunt five of them and I\'ll make it worth your while.'
+  },
+  scholars_find: {
+    npcId: 'npc_lyra', npcName: 'Scholar Lyra',
+    name: 'Find Healing Herbs',
+    type: 'harvest_specific', targetItemId: 'healing_herb', target: 3, xpReward: 90,
+    description: 'I need healing herbs for my research — three of them from the Wilds. They\'re the bright green sprouts.'
+  }
+};
+// Reverse-lookup: npcId → questId
+const QUEST_BY_NPC = {};
+for (const [id, q] of Object.entries(QUEST_CATALOG)) QUEST_BY_NPC[q.npcId] = id;
+
+function advanceQuestProgress(player, eventType, itemId) {
+  const aq = player.activeQuest;
+  if (!aq) return;
+  const quest = QUEST_CATALOG[aq.questId];
+  if (!quest) return;
+  let matches = false;
+  if (quest.type === 'kill_mob' && eventType === 'kill_mob') matches = true;
+  if (quest.type === 'harvest_plant' && eventType === 'harvest_plant') matches = true;
+  if (quest.type === 'harvest_specific' && eventType === 'harvest_plant' && itemId === quest.targetItemId) matches = true;
+  if (!matches) return;
+
+  aq.progress++;
+  if (aq.progress >= quest.target) {
+    player.activeQuest = null;
+    grantXP(player, quest.xpReward);
+    const prog = getProgress(player);
+    prog.questCooldowns[aq.questId] = Date.now();
+    if (player.accountKey) saveProgress();
+    send(player.ws, {
+      type: 'quest_complete',
+      questId: aq.questId,
+      questName: quest.name,
+      xpReward: quest.xpReward,
+      message: `✅ Quest complete: "${quest.name}" — +${quest.xpReward} XP!`
+    });
+  } else {
+    send(player.ws, {
+      type: 'quest_update',
+      questId: aq.questId,
+      questName: quest.name,
+      progress: aq.progress,
+      target: quest.target
+    });
+  }
+}
+
 // Returns null if access is granted, or an error message string if not —
 // covers both "no password set" (always granted) and "wrong/missing
 // password" cases in one check used by every mutating/viewing handler.
@@ -737,23 +935,26 @@ function hardDriveStatePayload(hd) {
 // after anything that can change equip state, and once at join.
 function syncEquipToPlayer(player) {
   const inv = getInventory(player);
-  player.equippedWeapon = inv.equippedWeapon;
-  player.equippedArmor = inv.equippedArmor;
+  player.equippedWeapon = inv.equippedWeapon || null;
+  player.equippedHead   = inv.equippedHead   || null;
+  player.equippedChest  = inv.equippedChest  || null;
+  player.equippedFeet   = inv.equippedFeet   || null;
+  player.equippedRing   = inv.equippedRing   || null;
 }
 
-// Equips one unit of whatever's in inv.slots[slotIdx] into the named equip
-// slot ('weapon'/'armor'), swapping anything already equipped there back
-// into the inventory first. Returns null on success, or an error string.
-// Mutates nothing if it fails, so the caller can always trust inv's state
-// matches what gets sent back to the client either way.
+// Equips one unit of whatever's in inv.slots[slotIdx] into the correct equip
+// slot for that item (weapon/head/chest/feet/ring), swapping anything already
+// equipped there back into the inventory first. Returns null on success, or
+// an error string. Mutates nothing if it fails.
 function equipFromSlot(inv, slotIdx, equipKind) {
   const stack = inv.slots[slotIdx];
   if (!stack) return 'That slot is empty.';
   const meta = ITEM_CATALOG[stack.itemId];
   if (!meta || meta.slot !== equipKind) return `That item can't be equipped as ${equipKind}.`;
+  const field = invEquipField(equipKind);
+  if (!field) return 'Unknown equip slot.';
   const itemId = stack.itemId;
-  const equippedField = equipKind === 'weapon' ? 'equippedWeapon' : 'equippedArmor';
-  const previousItemId = inv[equippedField];
+  const previousItemId = inv[field];
 
   if (stack.qty > 1) stack.qty -= 1;
   else inv.slots[slotIdx] = null;
@@ -761,26 +962,25 @@ function equipFromSlot(inv, slotIdx, equipKind) {
   if (previousItemId) {
     const added = addItemToAccount(inv, previousItemId, 1);
     if (!added) {
-      // No room to swap the old one back in — restore exactly what we
-      // touched above and bail rather than leave the new item half-equipped.
       if (inv.slots[slotIdx]) inv.slots[slotIdx].qty += 1;
       else inv.slots[slotIdx] = { itemId, qty: 1 };
       return `No room to unequip your current ${equipKind} first — free up a slot.`;
     }
   }
 
-  inv[equippedField] = itemId;
+  inv[field] = itemId;
   return null;
 }
 
 // Inverse of equipFromSlot: moves whatever's equipped back into the
 // inventory as a normal stack. Returns null on success, or an error string.
 function unequipToInventory(inv, equipKind) {
-  const equippedField = equipKind === 'weapon' ? 'equippedWeapon' : 'equippedArmor';
-  const itemId = inv[equippedField];
+  const field = invEquipField(equipKind);
+  if (!field) return 'Unknown equip slot.';
+  const itemId = inv[field];
   if (!itemId) return 'Nothing is equipped there.';
   if (!addItemToAccount(inv, itemId, 1)) return 'No room in your inventory to unequip that.';
-  inv[equippedField] = null;
+  inv[field] = null;
   return null;
 }
 
@@ -963,8 +1163,13 @@ function publicPlayer(p) {
   const status = p.activeStatus && p.activeStatus.expiresAt > Date.now() ? p.activeStatus : null;
   return {
     id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room,
-    equippedWeapon: p.equippedWeapon || null, equippedArmor: p.equippedArmor || null,
-    activeStatus: status, health: p.health
+    equippedWeapon: p.equippedWeapon || null,
+    equippedHead:   p.equippedHead   || null,
+    equippedChest:  p.equippedChest  || null,
+    equippedFeet:   p.equippedFeet   || null,
+    equippedRing:   p.equippedRing   || null,
+    activeStatus: status, health: p.health,
+    level: p.level || 1, skillPoints: p.skillPoints || 0
   };
 }
 
@@ -1568,9 +1773,12 @@ wss.on('connection', (ws) => {
         y: WORLD.spawn.y,
         room: 'outside',
         inbox: [], // undestroyed notes currently held, mirrors the client's inbox array — for Rapid Swipe to steal from
-        health: 100 // 0-100, shown as the heart HUD's percentage; nothing currently drains it
+        health: 100, // 0-100, shown as the heart HUD's percentage
+        xp: 0, level: 1, skillPoints: 0, // overwritten by syncProgressToPlayer() below
+        activeQuest: null // { questId, progress } or null
       };
       players.set(id, player);
+      syncProgressToPlayer(player);
       // Loads (or creates) their inventory immediately rather than lazily
       // on first panel-open, so a returning account holder's equipped gear
       // shows up on their model from the moment they spawn, not after they
@@ -1826,7 +2034,7 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'inventory_equip' || msg.type === 'inventory_unequip') {
       const inv = getInventory(player);
-      const equipKind = msg.equipSlot === 'weapon' || msg.equipSlot === 'armor' ? msg.equipSlot : null;
+      const equipKind = EQUIP_SLOTS.includes(msg.equipSlot) ? msg.equipSlot : null;
       if (!equipKind) {
         send(ws, { type: 'bank_error', message: 'Invalid equip request.' });
         return;
@@ -2019,6 +2227,62 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'quest_talk') {
+      const npcId = String(msg.npcId || '');
+      const questId = QUEST_BY_NPC[npcId];
+      if (!questId) return;
+      const quest = QUEST_CATALOG[questId];
+      const prog = getProgress(player);
+      // Busy with another quest
+      if (player.activeQuest && player.activeQuest.questId !== questId) {
+        const activeQ = QUEST_CATALOG[player.activeQuest.questId];
+        send(ws, { type: 'quest_offer', questId: null, npcId, npcName: quest.npcName,
+          message: `You're already working on "${activeQ ? activeQ.name : 'another quest'}". Finish that first.` });
+        return;
+      }
+      // Already on this quest
+      if (player.activeQuest && player.activeQuest.questId === questId) {
+        send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName,
+          questName: quest.name, progress: player.activeQuest.progress, target: quest.target,
+          message: `You're on it! Progress: ${player.activeQuest.progress}/${quest.target}.` });
+        return;
+      }
+      // On cooldown
+      const lastDone = prog.questCooldowns && prog.questCooldowns[questId];
+      if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) {
+        const hoursLeft = Math.ceil((QUEST_COOLDOWN_MS - (Date.now() - lastDone)) / 3600000);
+        send(ws, { type: 'quest_offer', questId: null, npcId, npcName: quest.npcName,
+          message: `You've already done that recently. Come back in about ${hoursLeft}h.` });
+        return;
+      }
+      // Offer the quest
+      send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName,
+        questName: quest.name, description: quest.description,
+        target: quest.target, xpReward: quest.xpReward });
+      return;
+    }
+
+    if (msg.type === 'quest_accept') {
+      const npcId = String(msg.npcId || '');
+      const questId = QUEST_BY_NPC[npcId];
+      if (!questId || !QUEST_CATALOG[questId]) return;
+      if (player.activeQuest) return; // already on a quest
+      const prog = getProgress(player);
+      const lastDone = prog.questCooldowns && prog.questCooldowns[questId];
+      if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) return;
+      player.activeQuest = { questId, progress: 0 };
+      const quest = QUEST_CATALOG[questId];
+      send(ws, { type: 'quest_started', questId, questName: quest.name,
+        target: quest.target, description: quest.description });
+      return;
+    }
+
+    if (msg.type === 'quest_cancel') {
+      player.activeQuest = null;
+      send(ws, { type: 'quest_cancelled' });
+      return;
+    }
+
     if (msg.type === 'cast_spell') {
       if (player.charId !== 0) {
         send(ws, { type: 'spell_error', message: 'Only the Witch can cast spells.' });
@@ -2171,6 +2435,11 @@ wss.on('connection', (ws) => {
       if (t.health <= 0) {
         t.dead = true;
         t.respawnAt = now + poolInfo.respawnMs;
+        // XP only for Wilds mobs (mob2), not town wildlife
+        if (targetType === 'mob2') {
+          grantXP(player, 15);
+          advanceQuestProgress(player, 'kill_mob', null);
+        }
       }
       return;
     }
@@ -2202,6 +2471,11 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}.` });
       broadcastAll({ type: 'decor_state', decor: decorPublicState() });
+      // XP for Wilds plants only (not town trees/shrubs/flowers)
+      if (found.room === 'wilds') {
+        grantXP(player, 5);
+        advanceQuestProgress(player, 'harvest_plant', itemId);
+      }
       return;
     }
 
