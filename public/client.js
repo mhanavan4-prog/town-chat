@@ -4540,6 +4540,12 @@ function syncVisuals(dt) {
     } else if (!shouldShow && v.inScene) {
       v.parentScene.remove(v.group);
       v.inScene = false; v.parentScene = null;
+    } else if (shouldShow && v.inScene && v.parentScene !== activeScene) {
+      // Switching between two outdoor scenes (town ↔ Wilds): the group is
+      // already in some scene but it's the wrong one — move it over.
+      v.parentScene.remove(v.group);
+      activeScene.add(v.group);
+      v.parentScene = activeScene;
     }
 
     if (shouldShow) {

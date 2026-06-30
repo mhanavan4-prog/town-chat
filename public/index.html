@@ -114,16 +114,16 @@
   }
 
   #healthHud {
-    position:fixed; top:60px; left:18px; z-index:5;
-    width:46px; height:42px; pointer-events:none;
+    pointer-events:none; align-self:flex-start;
+    position:relative; width:36px; height:33px;
   }
   #healthHud.hidden { display:none !important; }
   #healthHeartSvg { position:absolute; top:0; left:0; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
   #healthHeartPath { fill:#e0455a; stroke:rgba(255,255,255,0.25); stroke-width:0.6; }
   #healthPercentText {
-    position:absolute; top:0; left:0; width:46px; height:38px;
+    position:absolute; top:0; left:0; width:36px; height:30px;
     display:flex; align-items:center; justify-content:center;
-    color:#fff; font-size:10.5px; font-weight:800;
+    color:#fff; font-size:9px; font-weight:800;
     text-shadow:0 1px 2px rgba(0,0,0,0.85);
   }
 
@@ -612,17 +612,16 @@
 <div id="hud" class="hidden">
   <div id="roomTag"><span id="statusDot"></span><span id="roomLabel">Town Square</span></div>
   <div id="dayNightTag">☀️ Day</div>
+  <div id="healthHud" class="hidden" title="Health">
+    <svg id="healthHeartSvg" viewBox="0 0 32 29" width="36" height="33">
+      <path id="healthHeartPath" d="M16 29 C16 29 0 18 0 8.5 C0 3.2 4.2 0 8.7 0 C12 0 14.6 1.9 16 5 C17.4 1.9 20 0 23.3 0 C27.8 0 32 3.2 32 8.5 C32 18 16 29 16 29 Z"/>
+    </svg>
+    <span id="healthPercentText">100%</span>
+  </div>
   <div id="peopleTag">
     <span><span id="peopleCount">1</span> in town</span>
     <button id="muteBtn" title="Mute music">🔈</button>
   </div>
-</div>
-
-<div id="healthHud" class="hidden" title="Health">
-  <svg id="healthHeartSvg" viewBox="0 0 32 29" width="46" height="42">
-    <path id="healthHeartPath" d="M16 29 C16 29 0 18 0 8.5 C0 3.2 4.2 0 8.7 0 C12 0 14.6 1.9 16 5 C17.4 1.9 20 0 23.3 0 C27.8 0 32 3.2 32 8.5 C32 18 16 29 16 29 Z"/>
-  </svg>
-  <span id="healthPercentText">100%</span>
 </div>
 
 <div id="unlockBar" class="hidden">
