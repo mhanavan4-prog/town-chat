@@ -337,20 +337,56 @@ const PLANT_KEYS = Object.keys(PLANT_CATALOG);
 // Laid out on the original 1000x1000 footprint for readability, then
 // scaled up to match WORLD2's actual (10x larger) size below.
 const WILDS_SCALE = WORLD2.width / 1000;
-const PLANT_POSITIONS = [
-  [120, 120], [860, 140], [180, 380], [760, 360], [300, 600], [680, 640],
-  [140, 820], [820, 760], [420, 90],  [560, 110], [80, 540],  [920, 520],
-  [320, 250], [660, 230], [240, 700], [740, 700], [460, 420], [520, 760],
-  [60, 280],  [940, 300], [380, 850], [620, 870], [160, 480], [840, 460],
-  [500, 320], [500, 600], [220, 180], [780, 180], [100, 660], [900, 660],
-  [340, 480], [640, 480]
-].map(([x, y]) => [x * WILDS_SCALE, y * WILDS_SCALE]);
+
+// Deterministic pseudo-random scatter — laid out on the same readable
+// 1000x1000 design footprint as before (then scaled up by WILDS_SCALE),
+// using a fixed-seed PRNG so the layout is stable across server restarts
+// instead of reshuffling on every deploy. Cells of a coarse grid are
+// shuffled and handed out one at a time so instances spread across the
+// whole map rather than clumping, with a keep-out radius around the
+// landing spawn point so you're never dropped right on top of one.
+function seededRandom(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+function makeWildsScatter(seed, gridSize, count) {
+  const rand = seededRandom(seed);
+  const cells = [];
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) cells.push([gx, gy]);
+  }
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [cells[i], cells[j]] = [cells[j], cells[i]];
+  }
+  const cellSize = 1000 / gridSize;
+  const spawnKeepOut = 130;
+  const out = [];
+  for (const [gx, gy] of cells) {
+    if (out.length >= count) break;
+    const x = (gx + 0.2 + rand() * 0.6) * cellSize;
+    const y = (gy + 0.2 + rand() * 0.6) * cellSize;
+    if (Math.hypot(x - 500, y - 880) < spawnKeepOut) continue;
+    out.push([x * WILDS_SCALE, y * WILDS_SCALE]);
+  }
+  return out;
+}
+
+// 5 of each of the 16 plants (80 total) and 24 friendly animals — mob
+// count is intentionally left at the original 8 (2 of each of the 4
+// dangerous types), see MOB2_SPAWNS below.
+const PLANTS_PER_TYPE = 5;
+const PLANT_POSITIONS = makeWildsScatter(0x9a17, 14, PLANT_KEYS.length * PLANTS_PER_TYPE);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
-  const a = PLANT_POSITIONS[i * 2], b = PLANT_POSITIONS[i * 2 + 1];
-  return [
-    { id: `wdecor_${i}_0`, type, x: a[0], y: a[1], scale: 1 },
-    { id: `wdecor_${i}_1`, type, x: b[0], y: b[1], scale: 1 }
-  ];
+  const out = [];
+  for (let n = 0; n < PLANTS_PER_TYPE; n++) {
+    const [x, y] = PLANT_POSITIONS[i * PLANTS_PER_TYPE + n];
+    out.push({ id: `wdecor_${i}_${n}`, type, x, y, scale: 1 });
+  }
+  return out;
 });
 
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS]);
@@ -1150,10 +1186,8 @@ function tickWildlife(dt) {
 // 'struck'/'defeated' for this means the client doesn't need any new
 // message handling to feel it.
 // ---------------------------------------------------------------------------
-const ANIMAL2_SPAWNS = [
-  { x: 220, y: 220 }, { x: 780, y: 220 }, { x: 220, y: 780 }, { x: 780, y: 780 },
-  { x: 500, y: 300 }, { x: 300, y: 500 }, { x: 700, y: 500 }, { x: 500, y: 700 }
-].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE }));
+const ANIMALS2_COUNT = 24;
+const ANIMAL2_SPAWNS = makeWildsScatter(0x5e21, 14, ANIMALS2_COUNT).map(([x, y]) => ({ x, y }));
 const ANIMAL2_MAX_HEALTH = 30;
 const ANIMAL2_RESPAWN_MS = 90 * 1000;
 const animals2 = ANIMAL2_SPAWNS.map((p, i) => ({
