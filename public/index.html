@@ -338,34 +338,34 @@
     position:fixed; top:64px; left:16px; z-index:6;
     display:flex; gap:8px; pointer-events:none;
   }
-  #inventoryBtn, #spellbookBtn, #wolfAttackBtn {
+  #inventoryBtn, #spellbookBtn, #attackBtn {
     pointer-events:auto;
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
     color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
     border-radius:18px; backdrop-filter:blur(4px); cursor:pointer;
   }
   #spellbookBtn { border-color:rgba(155,95,192,0.5); }
-  #wolfAttackBtn { border-color:rgba(210,110,30,0.6); }
-  #inventoryBtn.hidden, #spellbookBtn.hidden, #wolfAttackBtn.hidden { display:none !important; }
+  #attackBtn { border-color:rgba(210,110,30,0.6); }
+  #inventoryBtn.hidden, #spellbookBtn.hidden, #attackBtn.hidden { display:none !important; }
 
-  #wolfAttackCard { width:min(440px, 92vw); max-height:88vh; overflow-y:auto; }
-  #wolfAttackList {
+  #attackCard { width:min(440px, 92vw); max-height:88vh; overflow-y:auto; }
+  #attackList {
     max-height:300px; overflow-y:auto; margin:14px 0;
     text-align:left; display:flex; flex-direction:column; gap:6px;
   }
-  .wolfAttackRow {
+  .attackRow {
     background:rgba(0,0,0,0.25); border:1px solid rgba(210,110,30,0.3); border-radius:8px;
     padding:9px 10px; cursor:pointer;
   }
-  .wolfAttackRow.selected { border-color:#f5a623; box-shadow:0 0 0 2px rgba(210,110,30,0.4); }
-  .wolfAttackRow .attackName { font-weight:700; color:#ffd09a; font-size:12.5px; }
-  .wolfAttackRow .attackDesc { color:#c4a07a; font-size:11px; margin-top:2px; }
-  #wolfAttackTargetPanel { text-align:left; }
-  #wolfAttackTargetPanel.hidden { display:none !important; }
-  #wolfAttackCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
+  .attackRow.selected { border-color:#f5a623; box-shadow:0 0 0 2px rgba(210,110,30,0.4); }
+  .attackRow .attackName { font-weight:700; color:#ffd09a; font-size:12.5px; }
+  .attackRow .attackDesc { color:#c4a07a; font-size:11px; margin-top:2px; }
+  #attackTargetPanel { text-align:left; }
+  #attackTargetPanel.hidden { display:none !important; }
+  #attackCloseBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
 
-  /* Wolf hit notification — non-blocking, floats top-center, auto-fades */
-  #wolfHitNotification {
+  /* Attack hit notification — non-blocking, floats top-center, auto-fades */
+  #attackHitNotification {
     position:fixed; top:72px; left:50%; transform:translateX(-50%);
     z-index:20; max-width:360px; width:90vw; pointer-events:none;
     background:radial-gradient(ellipse at 50% -20%, rgba(192,100,20,0.4), rgba(14,8,4,0.97) 70%);
@@ -374,18 +374,18 @@
     border-radius:18px; padding:14px 18px; text-align:center;
     opacity:0; transition:opacity 0.4s;
   }
-  #wolfHitNotification.show { opacity:1; pointer-events:auto; }
-  #wolfHitPaw {
+  #attackHitNotification.show { opacity:1; pointer-events:auto; }
+  #attackHitIcon {
     font-size:32px; margin-bottom:4px;
     filter:drop-shadow(0 0 10px rgba(245,166,35,0.8));
-    animation:wolfPawPulse 1.8s ease-in-out infinite;
+    animation:attackHitPulse 1.8s ease-in-out infinite;
   }
-  @keyframes wolfPawPulse {
+  @keyframes attackHitPulse {
     0%,100%{opacity:0.75;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)}
   }
-  #wolfHitTitle { color:#ffd09a; font-weight:700; font-size:14px; margin-bottom:4px; }
-  #wolfHitDetail { color:#c4a07a; font-size:12px; margin-bottom:10px; }
-  #wolfHitDismiss {
+  #attackHitTitle { color:#ffd09a; font-weight:700; font-size:14px; margin-bottom:4px; }
+  #attackHitDetail { color:#c4a07a; font-size:12px; margin-bottom:10px; }
+  #attackHitDismiss {
     pointer-events:auto; background:rgba(210,110,30,0.3); border:1px solid rgba(245,166,35,0.4);
     color:#ffd09a; font-size:12px; font-weight:700; padding:6px 14px;
     border-radius:12px; cursor:pointer;
@@ -694,26 +694,26 @@
 </div>
 <video id="spellCaptureVideo" autoplay playsinline></video>
 
-<div id="wolfAttackModal" class="overlay hidden">
-  <div class="card" id="wolfAttackCard">
-    <div class="title" style="font-size:20px;">🐺 Wolf Attacks</div>
+<div id="attackModal" class="overlay hidden">
+  <div class="card" id="attackCard">
+    <div class="title" style="font-size:20px;" id="attackModalTitle">⚔️ Attacks</div>
     <div class="subtitle">Pick an attack. AoE attacks hit everyone nearby automatically.</div>
-    <div id="wolfAttackList"></div>
-    <div id="wolfAttackTargetPanel" class="passInfo hidden">
-      <label id="wolfAttackTargetLabel">Target</label>
-      <select id="wolfAttackTargetSelect"></select>
-      <button class="btn" id="wolfAttackCastBtn">🐾 Strike</button>
+    <div id="attackList"></div>
+    <div id="attackTargetPanel" class="passInfo hidden">
+      <label id="attackTargetLabel">Target</label>
+      <select id="attackTargetSelect"></select>
+      <button class="btn" id="attackCastBtn">⚔️ Strike</button>
     </div>
-    <button class="btn" id="wolfAttackCloseBtn">Close (Esc)</button>
-    <div class="err" id="wolfAttackErr"></div>
+    <button class="btn" id="attackCloseBtn">Close (Esc)</button>
+    <div class="err" id="attackErr"></div>
   </div>
 </div>
 
-<div id="wolfHitNotification">
-  <div id="wolfHitPaw">🐾</div>
-  <div id="wolfHitTitle"></div>
-  <div id="wolfHitDetail"></div>
-  <button id="wolfHitDismiss">Got it 🐺</button>
+<div id="attackHitNotification">
+  <div id="attackHitIcon">💥</div>
+  <div id="attackHitTitle"></div>
+  <div id="attackHitDetail"></div>
+  <button id="attackHitDismiss">Got it</button>
 </div>
 
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
@@ -721,7 +721,7 @@
 <div id="leftHudButtons">
   <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
   <button id="spellbookBtn" class="hidden">📖 Spellbook</button>
-  <button id="wolfAttackBtn" class="hidden">🐺 Attacks</button>
+  <button id="attackBtn" class="hidden">⚔️ Attacks</button>
 </div>
 <div id="inventoryPanel" class="hidden">
   <div id="invTabs">
@@ -801,7 +801,7 @@
         <span class="charHead" style="background:#ffe0c2"></span>
         <span class="charBody" style="background:#6f8fae"></span>
       </button>
-      <button class="charOption" data-char="4" title="Wanderer">
+      <button class="charOption" data-char="4" title="Wanderer — unleashes 12 wandering skills">
         <span class="charHair" style="background:#e0e0e0"></span>
         <span class="charHead" style="background:#7a4a2f"></span>
         <span class="charBody" style="background:#c0596f"></span>

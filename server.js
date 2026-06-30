@@ -968,14 +968,18 @@ setInterval(() => {
 }, 30000);
 
 // ---------------------------------------------------------------------------
-// Werewolf attacks — charId 1 only. AoE attacks use AOE_RADIUS to find
-// nearby players automatically; targeted/reveal attacks require a targetId.
-// Historical Swipe is the unique one: it reads recentRooms (the server
-// tracks which buildings each connected player has visited this session)
-// rather than accessing any real-world data — the browser provides no API
-// to read actual browser history, so "history" here means their in-game
-// footsteps. Target players receive a non-blocking wolf_hit notification;
-// the caster gets an attack_result toast and notes for Historical Swipe hits.
+// Character attacks — charId-gated (see ATTACK_CATALOGS below). AoE attacks
+// use AOE_RADIUS to find nearby players automatically; targeted/reveal
+// attacks require a targetId. Historical Swipe is the unique one: it reads
+// recentRooms (the server tracks which buildings each connected player has
+// visited this session) rather than accessing any real-world data — the
+// browser provides no API to read actual browser history, so "history" here
+// means their in-game footsteps. Deep Meditation (Wanderer) is similar in
+// spirit: it only ever surfaces chat that was already broadcast out loud to
+// everyone in the same room while it was happening — not a private read of
+// anything the meditating player couldn't already see in their own chat log.
+// Target players receive a non-blocking attack_hit notification; the caster
+// gets an attack_result toast and notes for the data-reveal effects.
 // ---------------------------------------------------------------------------
 const WEREWOLF_ATTACK_CATALOG = {
   historical_swipe: { name: 'Historical Swipe', kind: 'aoe', effect: 'history' },
@@ -991,8 +995,50 @@ const WEREWOLF_ATTACK_CATALOG = {
   snarl:            { name: 'Snarl',             kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
   scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'reveal' }
 };
+
+// charId 4 — Wanderer. effect 'chatlog' is the unique one (Deep Meditation):
+// self-only, no immediate result — it schedules a note 15s later containing
+// whatever was said out loud in the player's current room during that
+// window (see roomChatLogs below).
+const WANDERER_ATTACK_CATALOG = {
+  deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'chatlog', durationMs: 15000 },
+  dust_devil:         { name: 'Dust Devil',          kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
+  echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
+  desert_mirage:      { name: 'Desert Mirage',       kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
+  heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000 },
+  endless_road:       { name: 'Endless Road',        kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000 },
+  featherlight_pack:  { name: 'Featherlight Pack',   kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000 },
+  shadow_owls:        { name: 'Shadow Owls',         kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
+  wanderlust:         { name: 'Wanderlust',          kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
+  campfire_tale:      { name: 'Campfire Tale',       kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000 },
+  nightwatch_cloak:   { name: "Nightwatch Cloak",    kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000 },
+  compass_trick:      { name: 'Compass Trick',       kind: 'targeted', effect: 'reveal' }
+};
+
+// charId -> attack catalog. cast_attack below looks itself up here instead
+// of hardcoding a single charId, so adding a third attack-using character
+// later is just one more entry.
+const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG };
+
 const ATTACK_COOLDOWN_MS = 8000;
 const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
+
+// Rolling chat history per room, used only by Deep Meditation's chatlog
+// effect — chat itself is still never stored anywhere else (see the 'chat'
+// handler's note about not persisting it). This is a small capped buffer
+// purely so a meditating player can get a recap of what was said out loud
+// in their own room while they were in it; everyone in that room already
+// saw each line live in their own chat log when it was sent, so this isn't
+// surfacing anything that wasn't already visible to whoever was present.
+const ROOM_CHAT_LOG_LIMIT = 50;
+const roomChatLogs = new Map(); // roomId -> [{name, text, ts}]
+function recordRoomChat(room, name, text) {
+  if (!text) return;
+  const log = roomChatLogs.get(room) || [];
+  log.push({ name, text, ts: Date.now() });
+  if (log.length > ROOM_CHAT_LOG_LIMIT) log.shift();
+  roomChatLogs.set(room, log);
+}
 
 wss.on('connection', (ws) => {
   let player = null;
@@ -1133,6 +1179,7 @@ wss.on('connection', (ws) => {
           ts: Date.now()
         }
       };
+      recordRoomChat(player.room, player.name, text);
       broadcastRoom(player.room, chatMsg);
       return;
     }
@@ -1401,12 +1448,13 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'cast_attack') {
-      if (player.charId !== 1) {
-        send(ws, { type: 'attack_error', message: 'Only the Werewolf can use attacks.' });
+      const catalog = ATTACK_CATALOGS[player.charId];
+      if (!catalog) {
+        send(ws, { type: 'attack_error', message: 'This character has no attacks.' });
         return;
       }
       const attackId = String(msg.attackId || '');
-      const attack = WEREWOLF_ATTACK_CATALOG[attackId];
+      const attack = catalog[attackId];
       if (!attack) {
         send(ws, { type: 'attack_error', message: 'Unknown attack.' });
         return;
@@ -1439,13 +1487,13 @@ wss.on('connection', (ws) => {
         for (const t of targets) {
           t.activeStatus = { type: attack.statusType, expiresAt: now + attack.durationMs };
           if (t.id !== player.id) {
-            send(t.ws, { type: 'wolf_hit', attackName: attack.name, casterName: player.name });
+            send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name });
           }
         }
         const scope = attack.kind === 'aoe'
           ? (targets.length ? `hit ${targets.length} player${targets.length === 1 ? '' : 's'}` : 'no one in range')
           : attack.kind === 'self' ? 'yourself' : targets[0].name;
-        send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — ${scope}.` });
+        send(ws, { type: 'attack_result', message: `⚔️ ${attack.name} — ${scope}.` });
         return;
       }
 
@@ -1472,11 +1520,36 @@ wss.on('connection', (ws) => {
             note: { id: makeId(), fromId: t.id, fromName: `🐾 Trail of ${t.name}`, text: noteText }
           });
           send(t.ws, {
-            type: 'wolf_hit', attackName: attack.name, casterName: player.name,
+            type: 'attack_hit', attackName: attack.name, casterName: player.name,
             detail: `Your recent path in town was revealed: ${trailText}.`
           });
         }
         send(ws, { type: 'attack_result', message: `🐾 Historical Swipe tore through ${targets.length} trail${targets.length === 1 ? '' : 's'}.` });
+        return;
+      }
+
+      if (attack.effect === 'chatlog') {
+        const room = player.room;
+        const startAt = now;
+        const endAt = now + attack.durationMs;
+        player.activeStatus = { type: 'meditation', expiresAt: endAt };
+        const playerId = player.id;
+        // Delivered after the meditation window closes, not immediately —
+        // it's a recap of what got said in the room while it was running,
+        // so there's nothing meaningful to capture at cast time.
+        setTimeout(() => {
+          const p = players.get(playerId);
+          if (!p) return; // disconnected mid-meditation — nothing to deliver
+          const log = (roomChatLogs.get(room) || []).filter(e => e.ts >= startAt && e.ts <= endAt);
+          const transcript = log.length > 0
+            ? log.map(e => `${e.name}: ${e.text}`).join('\n')
+            : `${describeRoom(room)} stayed quiet the whole time.`;
+          send(p.ws, {
+            type: 'note_received',
+            note: { id: makeId(), fromId: p.id, fromName: `🧘 Meditation in ${describeRoom(room)}`, text: transcript }
+          });
+        }, attack.durationMs);
+        send(ws, { type: 'attack_result', message: `🧘 ${attack.name} — settling into stillness in ${describeRoom(room)}.` });
         return;
       }
       return;

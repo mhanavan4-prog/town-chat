@@ -139,6 +139,44 @@ const WEREWOLF_ATTACK_CATALOG = {
     description: "The wolf nose finds the target's location anywhere on the map." }
 };
 
+// Must stay in sync with WANDERER_ATTACK_CATALOG in server.js. charId 4 only.
+// effect 'chatlog' is Deep Meditation's unique one — self-only, no immediate
+// result; 15s after casting, a note arrives with whatever was said out loud
+// in the room the Wanderer was in during that window (see 'meditation'
+// status visual + the note delivery in onWsMessage's note_received handler;
+// the server only ever surfaces chat everyone in that room already saw live).
+const WANDERER_ATTACK_CATALOG = {
+  deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'chatlog', durationMs: 15000,
+    description: 'Settle into stillness — 15 seconds later, a note arrives with whatever was said out loud in this room while you meditated.' },
+  dust_devil:         { name: 'Dust Devil',         icon: '🌪️', kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000,
+    description: 'Kicks up a blinding dust devil that slows everyone nearby.' },
+  echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
+    description: "A canyon echo scrambles everyone nearby's words in chat." },
+  desert_mirage:      { name: 'Desert Mirage',      icon: '🌅', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
+    description: "Conjures a shimmering mirage that warps the target's colors." },
+  heavy_pack:         { name: 'Heavy Pack',         icon: '🎒', kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000,
+    description: "Stuffs the target's pack with stones, shrinking them under the weight." },
+  endless_road:       { name: 'Endless Road',       icon: '🥿', kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000,
+    description: "Curses the target's boots — the road stretches on forever, halving their speed." },
+  featherlight_pack:  { name: 'Featherlight Pack',  icon: '🪶', kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000,
+    description: "Lightens the target's pack — they bounce absurdly high when they jump." },
+  shadow_owls:        { name: 'Shadow Owls',        icon: '🦉', kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000,
+    description: 'Summons a circling swarm of night owls around the target.' },
+  wanderlust:         { name: 'Wanderlust',         icon: '🥾', kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000,
+    description: 'A surge of wanderlust quickens your pace for a short burst.' },
+  campfire_tale:      { name: 'Campfire Tale',      icon: '🔥', kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000,
+    description: 'Tall tales by the campfire make you feel larger than life.' },
+  nightwatch_cloak:   { name: 'Nightwatch Cloak',   icon: '🌌', kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000,
+    description: 'Wraps you in the hush of the night watch.' },
+  compass_trick:      { name: 'Compass Trick',      icon: '🧭', kind: 'targeted', effect: 'reveal',
+    description: "Bends the target's compass needle back toward you, revealing where they are." }
+};
+
+// charId -> attack catalog the player can use. Drives both which characters
+// get the Attacks button at all and which catalog the panel renders from —
+// adding a third attack-using character later is just one more entry here.
+const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG };
+
 function setupWs() {
   ws = new WebSocket(proto + '://' + location.host);
   ws.addEventListener('open', onWsOpen);
@@ -190,7 +228,9 @@ function onWsMessage(ev) {
       document.getElementById('inventoryBtn').classList.remove('hidden');
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
-      if (me && me.charId === 1) document.getElementById('wolfAttackBtn').classList.remove('hidden');
+      // Any character with an entry in ATTACK_CATALOGS gets the Attacks button.
+      myAttackCatalog = me ? ATTACK_CATALOGS[me.charId] || null : null;
+      if (myAttackCatalog) document.getElementById('attackBtn').classList.remove('hidden');
       if (isTouchDevice()) document.getElementById('joystick').classList.add('show');
       refreshUnlockUI();
       resize();
@@ -306,20 +346,20 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
-    if (wolfAttackOpen) document.getElementById('wolfAttackErr').textContent = '';
+    if (attackPanelOpen) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
     return;
   }
 
   if (msg.type === 'attack_error') {
-    if (wolfAttackOpen) document.getElementById('wolfAttackErr').textContent = msg.message;
+    if (attackPanelOpen) document.getElementById('attackErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
 
-  if (msg.type === 'wolf_hit') {
-    showWolfHitNotification(msg.casterName, msg.attackName, msg.detail);
+  if (msg.type === 'attack_hit') {
+    showAttackHitNotification(msg.casterName, msg.attackName, msg.detail);
     return;
   }
 
@@ -1108,13 +1148,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || wolfAttackOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || wolfAttackOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -3306,6 +3346,19 @@ function makeWolfMarkMesh() {
   return g;
 }
 
+function makeMeditationAura() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x7fd9c4, transparent: true, opacity: 0.55 });
+  for (let i = 0; i < 3; i++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(CHAR.headR * (1.1 + i * 0.45), 0.8, 6, 20), mat);
+    ring.position.y = CHAR.headY * 0.4;
+    ring.rotation.x = Math.PI / 2;
+    ring.userData.offset = i * 1.4;
+    g.add(ring);
+  }
+  return g;
+}
+
 function clearStatusVisual(v) {
   if (!v) return;
   v.group.scale.setScalar(1);
@@ -3317,6 +3370,7 @@ function clearStatusVisual(v) {
   if (v.batsGroup) { v.group.remove(v.batsGroup); v.batsGroup = null; }
   if (v.cloakMesh) { v.group.remove(v.cloakMesh); v.cloakMesh = null; }
   if (v.wolfMarkMesh) { v.group.remove(v.wolfMarkMesh); v.wolfMarkMesh = null; }
+  if (v.meditationAura) { v.group.remove(v.meditationAura); v.meditationAura = null; }
   if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
   v.statusType = null;
 }
@@ -3346,6 +3400,9 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'wolfmark') {
     v.wolfMarkMesh = makeWolfMarkMesh();
     v.group.add(v.wolfMarkMesh);
+  } else if (newType === 'meditation') {
+    v.meditationAura = makeMeditationAura();
+    v.group.add(v.meditationAura);
   }
   // 'colorcycle'/'speedboost' animate every frame in updateStatusVisuals.
   // 'toad'/'gibberish'/'stumble'/'feather'/'speedboost' have no 3D mesh.
@@ -3366,6 +3423,11 @@ function updateStatusVisuals(dt) {
       v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
     } else if (v.statusType === 'wolfmark' && v.wolfMarkMesh) {
       v.wolfMarkMesh.rotation.y += dt * 1.6;
+    } else if (v.statusType === 'meditation' && v.meditationAura) {
+      v.meditationAura.rotation.y += dt * 0.6;
+      for (const ring of v.meditationAura.children) {
+        ring.position.y = CHAR.headY * 0.4 + Math.sin(now * 0.0015 + ring.userData.offset) * 3;
+      }
     }
   }
 }
@@ -3386,7 +3448,8 @@ function ensurePlayerVisual(p) {
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
     ...built, nameEl, inScene: false, parentScene: null, weaponMesh: null, armorMesh: null,
-    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
+    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null,
+    meditationAura: null
   };
   applyEquipVisual(p.id, p.equippedWeapon, p.equippedArmor);
   applyStatusVisual(p.id, p.activeStatus);
@@ -4024,43 +4087,49 @@ function showGlimpseBeacon(targetId) {
 }
 
 // ---------------------------------------------------------------------------
-// Wolf Attack UI — Werewolf-only (wolfAttackBtn unhidden for charId 1 only).
-// AoE attacks (kind:'aoe') hit everyone within server-computed radius; the
-// UI shows no target picker for those. Targeted attacks show a dropdown.
+// Attacks UI — generic across any charId with an entry in ATTACK_CATALOGS
+// (currently Werewolf charId 1, Wanderer charId 4). AoE attacks (kind:'aoe')
+// hit everyone within server-computed radius; the UI shows no target picker
+// for those. Targeted attacks show a dropdown.
 // ---------------------------------------------------------------------------
-let wolfAttackOpen = false;
+let myAttackCatalog = null;
+let attackPanelOpen = false;
 let selectedAttackId = null;
 
-function openWolfAttackPanel() {
-  const modal = document.getElementById('wolfAttackModal');
-  if (!modal) return;
-  document.getElementById('wolfAttackErr').textContent = '';
+const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 4: '🥾 Wanderer Skills' };
+
+function openAttackPanel() {
+  const modal = document.getElementById('attackModal');
+  if (!modal || !myAttackCatalog) return;
+  document.getElementById('attackErr').textContent = '';
   selectedAttackId = null;
-  document.getElementById('wolfAttackTargetPanel').classList.add('hidden');
-  renderWolfAttackList();
+  document.getElementById('attackTargetPanel').classList.add('hidden');
+  const title = document.getElementById('attackModalTitle');
+  if (title) title.textContent = (me && ATTACK_PANEL_TITLES[me.charId]) || '⚔️ Attacks';
+  renderAttackList();
   modal.classList.remove('hidden');
-  wolfAttackOpen = true;
+  attackPanelOpen = true;
 }
 
-function closeWolfAttackPanel() {
-  const modal = document.getElementById('wolfAttackModal');
+function closeAttackPanel() {
+  const modal = document.getElementById('attackModal');
   if (modal) modal.classList.add('hidden');
-  wolfAttackOpen = false;
+  attackPanelOpen = false;
 }
 
-const wolfAttackBtn = document.getElementById('wolfAttackBtn');
-if (wolfAttackBtn) wolfAttackBtn.addEventListener('click', () => { if (wolfAttackOpen) closeWolfAttackPanel(); else openWolfAttackPanel(); });
-const wolfAttackCloseBtn = document.getElementById('wolfAttackCloseBtn');
-if (wolfAttackCloseBtn) wolfAttackCloseBtn.addEventListener('click', closeWolfAttackPanel);
+const attackBtn = document.getElementById('attackBtn');
+if (attackBtn) attackBtn.addEventListener('click', () => { if (attackPanelOpen) closeAttackPanel(); else openAttackPanel(); });
+const attackCloseBtn = document.getElementById('attackCloseBtn');
+if (attackCloseBtn) attackCloseBtn.addEventListener('click', closeAttackPanel);
 
-function renderWolfAttackList() {
-  const list = document.getElementById('wolfAttackList');
-  if (!list) return;
+function renderAttackList() {
+  const list = document.getElementById('attackList');
+  if (!list || !myAttackCatalog) return;
   list.innerHTML = '';
-  for (const id in WEREWOLF_ATTACK_CATALOG) {
-    const atk = WEREWOLF_ATTACK_CATALOG[id];
+  for (const id in myAttackCatalog) {
+    const atk = myAttackCatalog[id];
     const row = document.createElement('div');
-    row.className = 'wolfAttackRow' + (selectedAttackId === id ? ' selected' : '');
+    row.className = 'attackRow' + (selectedAttackId === id ? ' selected' : '');
     const name = document.createElement('div');
     name.className = 'attackName';
     name.textContent = atk.icon + ' ' + atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : '');
@@ -4076,24 +4145,24 @@ function renderWolfAttackList() {
 
 function selectAttack(id) {
   selectedAttackId = id;
-  renderWolfAttackList();
-  const atk = WEREWOLF_ATTACK_CATALOG[id];
-  document.getElementById('wolfAttackErr').textContent = '';
-  const select = document.getElementById('wolfAttackTargetSelect');
-  const label = document.getElementById('wolfAttackTargetLabel');
+  renderAttackList();
+  const atk = myAttackCatalog[id];
+  document.getElementById('attackErr').textContent = '';
+  const select = document.getElementById('attackTargetSelect');
+  const label = document.getElementById('attackTargetLabel');
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
     select.classList.remove('hidden');
     label.classList.remove('hidden');
-    refreshWolfTargets();
+    refreshAttackTargets();
   } else {
     select.classList.add('hidden');
     label.classList.add('hidden');
   }
-  document.getElementById('wolfAttackTargetPanel').classList.remove('hidden');
+  document.getElementById('attackTargetPanel').classList.remove('hidden');
 }
 
-function refreshWolfTargets() {
-  const select = document.getElementById('wolfAttackTargetSelect');
+function refreshAttackTargets() {
+  const select = document.getElementById('attackTargetSelect');
   if (!select) return;
   const prev = select.value;
   select.innerHTML = '';
@@ -4112,14 +4181,14 @@ function refreshWolfTargets() {
   if (others.some(p => p.id === prev)) select.value = prev;
 }
 
-const wolfAttackCastBtn = document.getElementById('wolfAttackCastBtn');
-if (wolfAttackCastBtn) wolfAttackCastBtn.addEventListener('click', () => {
-  if (!selectedAttackId) return;
-  const atk = WEREWOLF_ATTACK_CATALOG[selectedAttackId];
-  const err = document.getElementById('wolfAttackErr');
+const attackCastBtn = document.getElementById('attackCastBtn');
+if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
+  if (!selectedAttackId || !myAttackCatalog) return;
+  const atk = myAttackCatalog[selectedAttackId];
+  const err = document.getElementById('attackErr');
   const payload = { type: 'cast_attack', attackId: selectedAttackId };
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    const targetId = document.getElementById('wolfAttackTargetSelect').value;
+    const targetId = document.getElementById('attackTargetSelect').value;
     if (!targetId) { err.textContent = 'Pick a target first.'; return; }
     payload.targetId = targetId;
   }
@@ -4128,26 +4197,26 @@ if (wolfAttackCastBtn) wolfAttackCastBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Wolf hit notification — non-blocking amber-themed banner shown to anyone
-// caught in the Werewolf's attacks. Auto-fades after 8s; also manually
+// Attack hit notification — non-blocking amber-themed banner shown to anyone
+// caught in another player's attack. Auto-fades after 8s; also manually
 // dismissable. Does NOT pause movement (it's an attack that already hit).
 // ---------------------------------------------------------------------------
-let wolfHitTimer = null;
+let attackHitTimer = null;
 
-function showWolfHitNotification(casterName, attackName, detail) {
-  const el = document.getElementById('wolfHitNotification');
+function showAttackHitNotification(casterName, attackName, detail) {
+  const el = document.getElementById('attackHitNotification');
   if (!el) return;
-  document.getElementById('wolfHitTitle').textContent = `🐺 ${casterName}'s ${attackName} hit you`;
-  document.getElementById('wolfHitDetail').textContent = detail || '';
+  document.getElementById('attackHitTitle').textContent = `💥 ${casterName}'s ${attackName} hit you`;
+  document.getElementById('attackHitDetail').textContent = detail || '';
   el.classList.add('show');
-  clearTimeout(wolfHitTimer);
-  wolfHitTimer = setTimeout(() => el.classList.remove('show'), 8000);
+  clearTimeout(attackHitTimer);
+  attackHitTimer = setTimeout(() => el.classList.remove('show'), 8000);
 }
 
-const wolfHitDismiss = document.getElementById('wolfHitDismiss');
-if (wolfHitDismiss) wolfHitDismiss.addEventListener('click', () => {
-  clearTimeout(wolfHitTimer);
-  const el = document.getElementById('wolfHitNotification');
+const attackHitDismiss = document.getElementById('attackHitDismiss');
+if (attackHitDismiss) attackHitDismiss.addEventListener('click', () => {
+  clearTimeout(attackHitTimer);
+  const el = document.getElementById('attackHitNotification');
   if (el) el.classList.remove('show');
 });
 
@@ -4515,7 +4584,7 @@ function tryInteract() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || wolfAttackOpen) { hint.classList.add('hidden'); return; }
+  if (mode !== 'indoor' || !me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || spellbookOpen || spellConsentOpen || attackPanelOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = 'Press F to stand';
@@ -4573,8 +4642,8 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) denySpellConsent();
     return;
   }
-  if (wolfAttackOpen) {
-    if (e.key === 'Escape' && !e.repeat) closeWolfAttackPanel();
+  if (attackPanelOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
@@ -4725,7 +4794,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !spellbookOpen && !spellConsentOpen && !wolfAttackOpen) {
+  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !spellbookOpen && !spellConsentOpen && !attackPanelOpen) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
