@@ -370,7 +370,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spyglass_chat') {
-    appendSpyGlassLine(msg.name, msg.text);
+    appendSpyGlassLine(msg.name, msg.color, msg.text, msg.image);
     return;
   }
 
@@ -4256,19 +4256,33 @@ function openSpyGlassPanel(buildingName, log, durationMs) {
   document.getElementById('spyGlassTitle').textContent = `🔭 Spying on ${buildingName}`;
   const logEl = document.getElementById('spyGlassLog');
   logEl.innerHTML = '';
-  for (const e of log) appendSpyGlassLine(e.name, e.text);
+  for (const e of log) appendSpyGlassLine(e.name, e.color, e.text, e.image);
   panel.classList.remove('hidden');
   clearTimeout(spyGlassTimer);
   spyGlassTimer = setTimeout(closeSpyGlassPanel, durationMs);
 }
 
-function appendSpyGlassLine(name, text) {
+// Mirrors renderChatLog()'s line markup exactly (same .chatLine/.chatImg
+// classes) so a spied-on room's chat looks identical here, images included.
+function appendSpyGlassLine(name, color, text, image) {
   const logEl = document.getElementById('spyGlassLog');
   if (!logEl) return;
-  const line = document.createElement('div');
-  line.className = 'spyGlassLine';
-  line.textContent = `${name}: ${text}`;
-  logEl.appendChild(line);
+  const div = document.createElement('div');
+  div.className = 'chatLine';
+  const b = document.createElement('b');
+  b.style.color = color;
+  b.textContent = name + ':';
+  div.appendChild(b);
+  if (text) div.appendChild(document.createTextNode(' ' + text));
+  if (image) {
+    const img = document.createElement('img');
+    img.className = 'chatImg';
+    img.src = image;
+    img.title = 'Click to view full size';
+    img.addEventListener('click', () => window.open(image, '_blank'));
+    div.appendChild(img);
+  }
+  logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
 }
 

@@ -391,29 +391,34 @@
     border-radius:12px; cursor:pointer;
   }
 
-  /* Spy Glass live window — floats bottom-right, non-blocking, scrollable log */
+  /* Spy Glass live window — floats bottom-right, non-blocking. Styled to
+     match #chatPanel exactly (same gradient/border/header look) and reuses
+     .chatLine/.chatImg for its lines, so the spied-on room's chat — images
+     included — looks identical to that room's own chat window. */
   #spyGlassPanel {
     position:fixed; bottom:16px; right:16px; z-index:18;
-    width:min(320px, 80vw); max-height:280px; display:flex; flex-direction:column;
-    background:radial-gradient(ellipse at 50% -20%, rgba(40,90,85,0.4), rgba(8,14,13,0.97) 70%);
-    border:1px solid rgba(127,217,196,0.5);
-    box-shadow:0 0 24px rgba(40,140,120,0.35);
-    border-radius:14px; overflow:hidden;
+    width:min(340px, 88vw); max-height:320px; display:flex; flex-direction:column;
+    background:linear-gradient(160deg, rgba(28,20,14,0.88), rgba(16,12,8,0.92));
+    border:2px solid rgba(217,138,79,0.45);
+    border-radius:16px; padding:10px 12px 12px;
+    box-shadow:0 0 40px rgba(0,0,0,0.4), 0 8px 30px rgba(0,0,0,0.5);
   }
   #spyGlassPanel.hidden { display:none !important; }
   #spyGlassHeader {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:8px 10px; background:rgba(127,217,196,0.12);
-    color:#bdf5e6; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    color:#ffd9a0; font-size:13px; font-weight:700;
+    margin-bottom:8px; padding-bottom:6px;
+    border-bottom:1px solid rgba(217,138,79,0.3);
   }
   #spyGlassCloseBtn {
-    background:none; border:none; color:#bdf5e6; font-size:13px; cursor:pointer; padding:2px 6px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(217,138,79,0.3);
+    color:#ffd9a0; font-size:13px; line-height:1; cursor:pointer;
+    width:22px; height:22px; border-radius:6px; flex-shrink:0;
   }
+  #spyGlassCloseBtn:hover { background:rgba(255,255,255,0.18); }
   #spyGlassLog {
-    flex:1; overflow-y:auto; padding:8px 10px; font-size:11.5px; color:#cfe9e2;
-    display:flex; flex-direction:column; gap:4px;
+    flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px;
   }
-  .spyGlassLine { word-break:break-word; }
 
   #inventoryPanel {
     position:fixed; top:112px; left:16px; z-index:6;

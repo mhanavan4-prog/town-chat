@@ -1029,13 +1029,15 @@ const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
 // Rolling chat history per room, used only by Spy Glass's spyglass effect
 // to seed the window with whatever was already said before the cast — chat
 // itself is still never persisted anywhere else (see the 'chat' handler's
-// note about not storing it long-term).
+// note about not storing it long-term). Stores color/image too so the
+// Spy Glass window can render each line identically to the room's own
+// chat log, not just a stripped-down text echo.
 const ROOM_CHAT_LOG_LIMIT = 50;
-const roomChatLogs = new Map(); // roomId -> [{name, text, ts}]
-function recordRoomChat(room, name, text) {
-  if (!text) return;
+const roomChatLogs = new Map(); // roomId -> [{name, color, text, image, ts}]
+function recordRoomChat(room, name, color, text, image) {
+  if (!text && !image) return;
   const log = roomChatLogs.get(room) || [];
-  log.push({ name, text, ts: Date.now() });
+  log.push({ name, color, text, image, ts: Date.now() });
   if (log.length > ROOM_CHAT_LOG_LIMIT) log.shift();
   roomChatLogs.set(room, log);
 }
@@ -1179,13 +1181,11 @@ wss.on('connection', (ws) => {
           ts: Date.now()
         }
       };
-      recordRoomChat(player.room, player.name, text);
+      recordRoomChat(player.room, player.name, player.color, text, image);
       broadcastRoom(player.room, chatMsg);
-      if (text) {
-        for (const watcher of players.values()) {
-          if (watcher.spyGlass && watcher.spyGlass.room === player.room && watcher.spyGlass.expiresAt > Date.now()) {
-            send(watcher.ws, { type: 'spyglass_chat', name: player.name, text });
-          }
+      for (const watcher of players.values()) {
+        if (watcher.spyGlass && watcher.spyGlass.room === player.room && watcher.spyGlass.expiresAt > Date.now()) {
+          send(watcher.ws, { type: 'spyglass_chat', name: player.name, color: player.color, text, image });
         }
       }
       return;
