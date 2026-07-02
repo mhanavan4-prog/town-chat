@@ -661,6 +661,10 @@
     width:56px; height:56px; font-size:28px; flex:0 0 56px;
   }
   #hotbar.mobile .hotbarKey { display:none; }
+  @keyframes ghostFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
 </style>
 </head>
 <body>
@@ -668,6 +672,40 @@
 <canvas id="game"></canvas>
 
 <div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;">⚡ Connection lost — reconnecting…</div>
+
+<div id="ghostOverlay" class="hidden" style="position:fixed;inset:0;z-index:15;pointer-events:none;background:rgba(40,60,120,0.18);backdrop-filter:blur(1px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;">
+    <div style="font-size:72px;margin-bottom:12px;animation:ghostFloat 2s ease-in-out infinite;">👻</div>
+    <div style="color:#aaddff;font-size:22px;font-weight:700;margin-bottom:8px;">You are a ghost...</div>
+    <div style="color:#7799bb;font-size:14px;margin-bottom:20px;">Wander freely until you're ready to return.</div>
+    <button id="respawnBtn" style="background:linear-gradient(90deg,#5588cc,#3366aa);color:#fff;border:none;padding:14px 32px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">✨ Respawn</button>
+  </div>
+</div>
+
+<div id="npcShopModal" class="overlay hidden">
+  <div class="card" style="width:min(400px,92vw);">
+    <div class="title" style="font-size:20px;" id="npcShopTitle">🛒 Shop</div>
+    <div class="subtitle" id="npcShopBalance">Balance: 0 🪙</div>
+    <div id="npcShopItems" style="margin:14px 0;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
+    <div class="err" id="npcShopErr"></div>
+    <button class="btn" id="npcShopQuestBtn">💬 Talk Quest</button>
+    <button class="btn" id="npcShopCloseBtn" style="background:rgba(255,255,255,0.08);color:#eafff0;margin-top:6px;">Close (Esc)</button>
+  </div>
+</div>
+
+<div id="partyInviteNotif" class="hidden" style="position:fixed;top:120px;right:16px;z-index:12;background:rgba(20,30,60,0.92);border:1px solid rgba(100,160,255,0.45);border-radius:12px;padding:14px 16px;min-width:240px;color:#cce8ff;">
+  <div style="font-weight:700;margin-bottom:8px;" id="partyInviteText">Invited to party!</div>
+  <div style="display:flex;gap:8px;">
+    <button id="partyAcceptBtn" style="flex:1;padding:8px;background:#3366aa;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">✓ Accept</button>
+    <button id="partyDeclineBtn" style="flex:1;padding:8px;background:rgba(255,255,255,0.1);color:#cce8ff;border:none;border-radius:8px;cursor:pointer;">✕ Decline</button>
+  </div>
+</div>
+
+<div id="partyHud" class="hidden" style="position:fixed;right:16px;bottom:100px;z-index:6;background:rgba(10,20,50,0.82);border:1px solid rgba(100,160,255,0.28);border-radius:10px;padding:10px 12px;min-width:160px;color:#aaddff;font-size:12px;">
+  <div style="font-weight:700;margin-bottom:6px;color:#88ccff;">⚔️ Party</div>
+  <div id="partyMemberList" style="display:flex;flex-direction:column;gap:3px;"></div>
+  <button id="partyLeaveBtn" style="margin-top:8px;padding:5px 10px;background:rgba(255,80,80,0.2);border:1px solid rgba(255,80,80,0.3);color:#ff9999;border-radius:6px;cursor:pointer;font-size:11px;width:100%;">Leave Party</button>
+</div>
 
 <div id="hud" class="hidden">
   <div id="roomTag"><span id="statusDot"></span><span id="roomLabel">Town Square</span></div>

@@ -1170,7 +1170,8 @@ function publicPlayer(p) {
     equippedFeet:   p.equippedFeet   || null,
     equippedRing:   p.equippedRing   || null,
     activeStatus: status, health: p.health,
-    level: p.level || 1, skillPoints: p.skillPoints || 0
+    level: p.level || 1, skillPoints: p.skillPoints || 0,
+    isDead: !!p.isDead
   };
 }
 
@@ -1300,7 +1301,7 @@ const mobs = MOB_SPAWNS.map((p, i) => ({
 function nearestOutdoorPlayer(x, y) {
   let best = null, bestDist = Infinity;
   for (const p of players.values()) {
-    if (p.room !== 'outside') continue;
+    if (p.room !== 'outside' || p.isDead) continue;
     const d = Math.hypot(x - p.x, y - p.y);
     if (d < bestDist) { bestDist = d; best = p; }
   }
@@ -1435,7 +1436,7 @@ const mobs2 = MOB2_SPAWNS.map((p, i) => ({
 function nearestWildsPlayer(x, y) {
   let best = null, bestDist = Infinity;
   for (const p of players.values()) {
-    if (p.room !== 'wilds') continue;
+    if (p.room !== 'wilds' || p.isDead) continue;
     const d = Math.hypot(x - p.x, y - p.y);
     if (d < bestDist) { bestDist = d; best = p; }
   }
@@ -1507,9 +1508,9 @@ function tickWilds(dt) {
         const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         if (nearestP.health <= 0) {
-          nearestP.health = 100;
-          nearestP.x = WORLD2.spawn.x; nearestP.y = WORLD2.spawn.y;
-          send(nearestP.ws, { type: 'defeated', byName: preset.name, x: nearestP.x, y: nearestP.y, room: 'wilds' });
+          nearestP.health = 0;
+          nearestP.isDead = true;
+          send(nearestP.ws, { type: 'you_died', byName: preset.name });
         } else {
           send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
         }
@@ -1641,7 +1642,7 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
 function nearestDungeonPlayer(room, x, y) {
   let best = null, bestDist = Infinity;
   for (const p of players.values()) {
-    if (p.room !== room) continue;
+    if (p.room !== room || p.isDead) continue;
     const d = Math.hypot(x - p.x, y - p.y);
     if (d < bestDist) { bestDist = d; best = p; }
   }
@@ -1673,13 +1674,9 @@ function tickDungeon(dt) {
         const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         if (nearestP.health <= 0) {
-          nearestP.health = 100;
-          const returnRoom = nearestP.dungeonReturnRoom || 'outside';
-          const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
-          nearestP.x = returnPos.x; nearestP.y = returnPos.y;
-          nearestP.room = returnRoom;
-          nearestP.dungeonReturnRoom = null;
-          send(nearestP.ws, { type: 'defeated', byName: preset.name, x: nearestP.x, y: nearestP.y, room: returnRoom });
+          nearestP.health = 0;
+          nearestP.isDead = true;
+          send(nearestP.ws, { type: 'you_died', byName: preset.name });
         } else {
           send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
         }
@@ -1803,6 +1800,71 @@ const SPELL_CATALOG = {
   }
 };
 const SPELL_COOLDOWN_MS = 8000;
+
+const NPC_SHOPS = {
+  npc_mara: { name: 'Ranger Mara', items: [
+    { id: 'iron_sword', price: 50 }, { id: 'leather_boots', price: 30 },
+    { id: 'steel_shield', price: 40 }, { id: 'healing_potion', price: 15 }
+  ]},
+  npc_finn: { name: 'Herbalist Finn', items: [
+    { id: 'healing_potion', price: 15 }, { id: 'magic_scroll', price: 25 },
+    { id: 'regen_root', price: 20 }, { id: 'cleansing_clover', price: 18 }
+  ]},
+  npc_dex: { name: 'Hunter Dex', items: [
+    { id: 'iron_sword', price: 50 }, { id: 'beast_crown', price: 35 },
+    { id: 'beast_hide', price: 40 }, { id: 'paw_boots', price: 30 }
+  ]},
+  npc_lyra: { name: 'Scholar Lyra', items: [
+    { id: 'spell_tome', price: 60 }, { id: 'wizard_hat', price: 35 },
+    { id: 'spirit_ring', price: 45 }, { id: 'enchanted_gem', price: 30 }
+  ]}
+};
+
+const parties = new Map();
+const playerParty = new Map();
+const partyInvites = new Map();
+
+function getOrCreateParty(leaderId) {
+  let partyId = playerParty.get(leaderId);
+  if (!partyId) {
+    partyId = makeId();
+    parties.set(partyId, { leaderId, members: new Set([leaderId]) });
+    playerParty.set(leaderId, partyId);
+  }
+  return partyId;
+}
+
+function leaveParty(p) {
+  const partyId = playerParty.get(p.id);
+  if (!partyId) return;
+  const party = parties.get(partyId);
+  playerParty.delete(p.id);
+  if (!party) return;
+  party.members.delete(p.id);
+  if (party.members.size === 0) { parties.delete(partyId); return; }
+  if (party.leaderId === p.id) party.leaderId = [...party.members][0];
+  broadcastPartyUpdate(partyId);
+}
+
+function broadcastPartyUpdate(partyId) {
+  const party = parties.get(partyId);
+  if (!party) return;
+  const memberList = [...party.members].map(id => {
+    const p = players.get(id);
+    return p ? { id: p.id, name: p.name, isDead: !!p.isDead } : null;
+  }).filter(Boolean);
+  for (const memberId of party.members) {
+    const p = players.get(memberId);
+    if (p) send(p.ws, { type: 'party_state', partyId, leaderId: party.leaderId, members: memberList });
+  }
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, inv] of partyInvites) {
+    if (inv.expiresAt <= now) partyInvites.delete(id);
+  }
+}, 15000);
 
 function describeRoom(roomId) {
   if (roomId === 'outside') return 'the Town Square';
@@ -2569,6 +2631,7 @@ wss.on('connection', (ws) => {
     const STRIKE_COOLDOWN_MS = 500;
     const STRIKE_MIN_DMG = 8, STRIKE_MAX_DMG = 14;
     if (msg.type === 'strike') {
+      if (player.isDead) return;
       const now = Date.now();
       if (player.lastStrikeAt && now - player.lastStrikeAt < STRIKE_COOLDOWN_MS) return;
       const targetType = msg.targetType;
@@ -2577,14 +2640,14 @@ wss.on('connection', (ws) => {
 
       if (targetType === 'player') {
         const t = players.get(targetId);
-        if (!t || t.id === player.id || t.room !== player.room) return;
+        if (!t || t.id === player.id || t.room !== player.room || t.isDead) return;
         if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
         player.lastStrikeAt = now;
         t.health = Math.max(0, t.health - dmg);
         if (t.health <= 0) {
-          t.health = 100;
-          t.x = WORLD.spawn.x; t.y = WORLD.spawn.y; t.room = 'outside';
-          send(t.ws, { type: 'defeated', byName: player.name, x: t.x, y: t.y });
+          t.health = 0;
+          t.isDead = true;
+          send(t.ws, { type: 'you_died', byName: player.name });
           send(ws, { type: 'attack_result', message: `⚔️ You defeated ${t.name}!` });
         } else {
           send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
@@ -2875,14 +2938,36 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'use_dungeon_token') {
       if (player.room && player.room.startsWith('dungeon_')) return;
+      if (player.isDead) return;
       const prog = getProgress(player);
       const tier = dungeonTierForLevel(prog.level);
       const room = DUNGEON_ROOMS[tier];
+      const spawnWithJitter = () => ({
+        x: DUNGEON_SPAWN.x + (Math.random() - 0.5) * 60,
+        y: DUNGEON_SPAWN.y + (Math.random() - 0.5) * 60
+      });
+      const partyId = playerParty.get(player.id);
+      const partyMembers = [];
+      if (partyId) {
+        const party = parties.get(partyId);
+        if (party) {
+          for (const memberId of party.members) {
+            if (memberId === player.id) continue;
+            const member = players.get(memberId);
+            if (member && member.room === player.room && !member.isDead) partyMembers.push(member);
+          }
+        }
+      }
       player.dungeonReturnRoom = player.room || 'outside';
-      player.x = DUNGEON_SPAWN.x;
-      player.y = DUNGEON_SPAWN.y;
-      player.room = room;
-      send(ws, { type: 'dungeon_entered', tier, room, spawn: DUNGEON_SPAWN, level: prog.level });
+      const sp = spawnWithJitter();
+      player.x = sp.x; player.y = sp.y; player.room = room;
+      send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level });
+      for (const member of partyMembers) {
+        member.dungeonReturnRoom = member.room || 'outside';
+        const msp = spawnWithJitter();
+        member.x = msp.x; member.y = msp.y; member.room = room;
+        send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level });
+      }
       return;
     }
 
@@ -2897,11 +2982,107 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'dungeon_exited', room: returnRoom, x: returnPos.x, y: returnPos.y });
       return;
     }
+
+    if (msg.type === 'respawn') {
+      if (!player.isDead) return;
+      player.isDead = false;
+      player.health = 100;
+      if (player.room && player.room.startsWith('dungeon_')) {
+        const returnRoom = player.dungeonReturnRoom || 'outside';
+        const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+        player.x = returnPos.x; player.y = returnPos.y;
+        player.room = returnRoom;
+        player.dungeonReturnRoom = null;
+        send(ws, { type: 'you_respawned', room: returnRoom, x: returnPos.x, y: returnPos.y });
+      } else if (player.room === 'wilds') {
+        player.x = WORLD2.spawn.x; player.y = WORLD2.spawn.y;
+        send(ws, { type: 'you_respawned', room: 'wilds', x: player.x, y: player.y });
+      } else {
+        player.x = WORLD.spawn.x; player.y = WORLD.spawn.y;
+        send(ws, { type: 'you_respawned', room: 'outside', x: player.x, y: player.y });
+      }
+      return;
+    }
+
+    if (msg.type === 'npc_shop_open') {
+      const npcId = String(msg.npcId || '');
+      const shop = NPC_SHOPS[npcId];
+      if (!shop) return;
+      send(ws, { type: 'npc_shop_state', npcId, npcName: shop.name, items: shop.items.map(s => ({
+        id: s.id, price: s.price,
+        name: ITEM_CATALOG[s.id]?.name || s.id,
+        icon: ITEM_CATALOG[s.id]?.icon || '?'
+      })) });
+      return;
+    }
+
+    if (msg.type === 'npc_buy_item') {
+      if (!player.accountKey) { send(ws, { type: 'shop_error', message: 'Log in to buy items.' }); return; }
+      const npcId = String(msg.npcId || '');
+      const itemId = String(msg.itemId || '');
+      const shop = NPC_SHOPS[npcId];
+      if (!shop) return;
+      const shopItem = shop.items.find(s => s.id === itemId);
+      if (!shopItem) { send(ws, { type: 'shop_error', message: "That item isn't sold here." }); return; }
+      const account = ensureBankAccount(player.accountKey);
+      if (account.balance < shopItem.price) {
+        send(ws, { type: 'shop_error', message: `Need ${shopItem.price} gold, you have ${account.balance}.` });
+        return;
+      }
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, itemId, 1)) { send(ws, { type: 'shop_error', message: 'Inventory full.' }); return; }
+      account.balance -= shopItem.price;
+      saveBankAccounts();
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'shop_bought', itemId, itemName: ITEM_CATALOG[itemId]?.name, price: shopItem.price });
+      return;
+    }
+
+    if (msg.type === 'party_invite') {
+      const target = players.get(String(msg.targetId || ''));
+      if (!target || target.id === player.id) return;
+      const partyId = getOrCreateParty(player.id);
+      if (parties.get(partyId).leaderId !== player.id) {
+        send(ws, { type: 'party_error', message: 'Only the leader can invite.' }); return;
+      }
+      partyInvites.set(target.id, { fromId: player.id, fromName: player.name, partyId, expiresAt: Date.now() + 30000 });
+      send(target.ws, { type: 'party_invite_received', fromName: player.name, fromId: player.id });
+      broadcastPartyUpdate(partyId);
+      return;
+    }
+
+    if (msg.type === 'party_invite_accept') {
+      const invite = partyInvites.get(player.id);
+      if (!invite || Date.now() > invite.expiresAt) { send(ws, { type: 'party_error', message: 'Invite expired.' }); return; }
+      partyInvites.delete(player.id);
+      leaveParty(player);
+      playerParty.set(player.id, invite.partyId);
+      parties.get(invite.partyId).members.add(player.id);
+      broadcastPartyUpdate(invite.partyId);
+      return;
+    }
+
+    if (msg.type === 'party_invite_decline') {
+      const invite = partyInvites.get(player.id);
+      if (invite) {
+        partyInvites.delete(player.id);
+        const fromP = players.get(invite.fromId);
+        if (fromP) send(fromP.ws, { type: 'party_info', message: `${player.name} declined.` });
+      }
+      return;
+    }
+
+    if (msg.type === 'party_leave') {
+      leaveParty(player);
+      send(ws, { type: 'party_disbanded' });
+      return;
+    }
   });
 
   ws.on('close', () => {
     if (player) {
-      // Disconnecting while inside a building counts as leaving it too.
+      leaveParty(player);
       if (player.room !== 'outside') {
         broadcastAll({ type: 'clear_user_messages', room: player.room, id: player.id });
       }

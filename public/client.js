@@ -397,6 +397,7 @@ function onWsMessage(ev) {
         applyEquipVisual(p.id, p);
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
+        existing.isDead = !!p.isDead;
       } else {
         addPlayer(p);
       }
@@ -491,25 +492,29 @@ function onWsMessage(ev) {
     return;
   }
 
-  if (msg.type === 'defeated') {
-    const room = msg.room === 'wilds' ? 'wilds' : 'outside';
-    if (me) { me.x = msg.x; me.y = msg.y; me.room = room; me.health = 100; }
-    seatedAt = null; // a teleport-out shouldn't leave the avatar stuck in a sitting pose
-    if (room === 'wilds') {
-      // Defeated by a Wilds mob — stay on that map, just respawn at its own
-      // spawn point near the return portal. mode is forced to 'outdoor'
-      // defensively even though Wilds mobs can't reach an indoor player.
-      mode = 'outdoor';
-      swapToWildsMap();
-    } else {
-      // Server always sends a town defeat back outside — mirror the same
-      // forced-outdoor reset used on reconnect, in case they were indoors
-      // or out in the Wilds (PvP can happen there too).
-      mode = 'outdoor';
-      swapToTownMap();
+  if (msg.type === 'you_died') {
+    if (me) { me.isDead = true; me.health = 0; }
+    updateHealthHud();
+    const v = visuals[myId];
+    if (v) { v.deathAnimStartAt = performance.now(); }
+    showGhostOverlay(msg.byName);
+    setUnlockToast(`💀 Slain by ${msg.byName}. You are a ghost.`);
+    return;
+  }
+
+  if (msg.type === 'you_respawned') {
+    if (me) { me.isDead = false; me.health = 100; me.x = msg.x; me.y = msg.y; me.room = msg.room; }
+    seatedAt = null;
+    hideGhostOverlay();
+    const v = visuals[myId];
+    if (v) { v.deathAnimStartAt = null; v.group.rotation.x = 0; }
+    if (msg.room === 'wilds') {
+      mode = 'outdoor'; swapToWildsMap();
+    } else if (msg.room === 'outside') {
+      mode = 'outdoor'; swapToTownMap();
     }
     updateHealthHud();
-    setUnlockToast(`💀 ${msg.byName} defeated you — back to the ${room === 'wilds' ? 'Wilds spawn' : 'town square'}.`);
+    setUnlockToast('✨ You have respawned!');
     return;
   }
 
@@ -724,6 +729,53 @@ function onWsMessage(ev) {
     if (msg.room === currentRoom) renderChatLog();
     return;
   }
+
+  if (msg.type === 'npc_shop_state') {
+    renderNpcShop(msg);
+    return;
+  }
+
+  if (msg.type === 'shop_error') {
+    const errEl = document.getElementById('npcShopErr');
+    if (errEl) errEl.textContent = msg.message;
+    return;
+  }
+
+  if (msg.type === 'shop_bought') {
+    setUnlockToast(`🛒 Bought ${msg.itemName} for ${msg.price} gold!`);
+    // Refresh balance display next time shop is opened
+    return;
+  }
+
+  if (msg.type === 'party_state') {
+    myParty = { partyId: msg.partyId, leaderId: msg.leaderId, members: msg.members };
+    renderPartyHud();
+    return;
+  }
+
+  if (msg.type === 'party_disbanded') {
+    myParty = null;
+    renderPartyHud();
+    const hud = document.getElementById('partyHud');
+    if (hud) hud.classList.add('hidden');
+    return;
+  }
+
+  if (msg.type === 'party_invite_received') {
+    pendingPartyInvite = { fromId: msg.fromId, fromName: msg.fromName };
+    const notif = document.getElementById('partyInviteNotif');
+    const text = document.getElementById('partyInviteText');
+    if (notif && text) {
+      text.textContent = `⚔️ ${msg.fromName} invited you to their party!`;
+      notif.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (msg.type === 'party_error' || msg.type === 'party_info') {
+    setUnlockToast(msg.message);
+    return;
+  }
 }
 setupWs();
 
@@ -742,6 +794,7 @@ function addPlayer(p) {
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
     level: p.level || 1, skillPoints: p.skillPoints || 0, xp: p.xp || 0,
+    isDead: p.isDead || false,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -1649,6 +1702,146 @@ if (questCancelBtn) questCancelBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Ghost helpers
+// ---------------------------------------------------------------------------
+function makeGhostMesh() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xaaddff, transparent: true, opacity: 0.5, depthWrite: false });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 10), mat.clone());
+  body.scale.y = 1.5; body.position.y = 30; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(9, 12, 10), mat.clone());
+  head.position.y = 55; g.add(head);
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x4488ff, emissive: 0x2244aa });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6), eyeMat);
+    eye.position.set(side * 3.5, 56, 8); g.add(eye);
+  }
+  return g;
+}
+
+function showGhostOverlay() {
+  const el = document.getElementById('ghostOverlay');
+  if (el) el.classList.remove('hidden');
+}
+function hideGhostOverlay() {
+  const el = document.getElementById('ghostOverlay');
+  if (el) el.classList.add('hidden');
+}
+
+const respawnBtn = document.getElementById('respawnBtn');
+if (respawnBtn) respawnBtn.addEventListener('click', () => {
+  if (me && me.isDead) ws.send(JSON.stringify({ type: 'respawn' }));
+});
+
+// ---------------------------------------------------------------------------
+// NPC Shop
+// ---------------------------------------------------------------------------
+let npcShopOpen = false;
+let currentShopNpcId = null;
+
+function openNpcShopModal(npcId) {
+  currentShopNpcId = npcId;
+  ws.send(JSON.stringify({ type: 'npc_shop_open', npcId }));
+}
+
+function closeNpcShopModal() {
+  npcShopOpen = false;
+  currentShopNpcId = null;
+  const el = document.getElementById('npcShopModal');
+  if (el) el.classList.add('hidden');
+}
+
+function renderNpcShop(msg) {
+  npcShopOpen = true;
+  currentShopNpcId = msg.npcId;
+  document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
+  const bal = lastBankState ? lastBankState.balance : '?';
+  document.getElementById('npcShopBalance').textContent = `Balance: ${bal} 🪙`;
+  const container = document.getElementById('npcShopItems');
+  container.innerHTML = '';
+  for (const item of msg.items) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
+    row.innerHTML = `<span style="font-size:20px;">${item.icon}</span>
+      <span style="flex:1;color:#eafff0;">${item.name}</span>
+      <span style="color:#ffd700;font-weight:700;">${item.price} 🪙</span>
+      <button data-item="${item.id}" style="padding:5px 14px;background:#3366aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'npc_buy_item', npcId: currentShopNpcId, itemId: item.id }));
+    });
+    container.appendChild(row);
+  }
+  document.getElementById('npcShopErr').textContent = '';
+  document.getElementById('npcShopModal').classList.remove('hidden');
+}
+
+const npcShopCloseBtn = document.getElementById('npcShopCloseBtn');
+if (npcShopCloseBtn) npcShopCloseBtn.addEventListener('click', closeNpcShopModal);
+
+const npcShopQuestBtn = document.getElementById('npcShopQuestBtn');
+if (npcShopQuestBtn) npcShopQuestBtn.addEventListener('click', () => {
+  if (currentShopNpcId) {
+    closeNpcShopModal();
+    const npc = TOWN_NPCS.find(n => n.id === currentShopNpcId);
+    openQuestDialogue(currentShopNpcId, npc ? npc.name : currentShopNpcId);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Party system
+// ---------------------------------------------------------------------------
+let myParty = null;
+let pendingPartyInvite = null;
+
+function renderPartyHud() {
+  const hud = document.getElementById('partyHud');
+  const list = document.getElementById('partyMemberList');
+  if (!hud || !list) return;
+  if (!myParty || myParty.members.length === 0) {
+    hud.classList.add('hidden'); return;
+  }
+  hud.classList.remove('hidden');
+  list.innerHTML = '';
+  for (const m of myParty.members) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    const crown = m.id === myParty.leaderId ? '👑 ' : '';
+    const ghost = m.isDead ? ' 👻' : '';
+    row.innerHTML = `<span style="color:${m.isDead ? '#88aacc' : '#aaddff'};">${crown}${m.name}${ghost}</span>`;
+    if (m.id !== myId && !m.isDead && me && !me.isDead) {
+      const invBtn = document.createElement('button');
+      invBtn.textContent = '⚔️';
+      invBtn.title = `Invite ${m.name}`;
+      invBtn.style.cssText = 'padding:2px 6px;background:rgba(100,160,255,0.15);border:1px solid rgba(100,160,255,0.3);color:#aaddff;border-radius:4px;cursor:pointer;font-size:10px;';
+      list.appendChild(row);
+      continue;
+    }
+    list.appendChild(row);
+  }
+}
+
+function inviteToParty(targetId) {
+  ws.send(JSON.stringify({ type: 'party_invite', targetId }));
+}
+
+const partyLeaveBtn = document.getElementById('partyLeaveBtn');
+if (partyLeaveBtn) partyLeaveBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'party_leave' }));
+});
+
+const partyAcceptBtn = document.getElementById('partyAcceptBtn');
+if (partyAcceptBtn) partyAcceptBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'party_invite_accept' }));
+  document.getElementById('partyInviteNotif').classList.add('hidden');
+});
+
+const partyDeclineBtn = document.getElementById('partyDeclineBtn');
+if (partyDeclineBtn) partyDeclineBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'party_invite_decline' }));
+  document.getElementById('partyInviteNotif').classList.add('hidden');
+});
+
+// ---------------------------------------------------------------------------
 // Quest dialogue (shown when talking to an NPC)
 // ---------------------------------------------------------------------------
 let pendingQuestNpcId = null;
@@ -1810,13 +2003,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -1991,7 +2184,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || inventoryOpen;
+    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -2772,7 +2965,7 @@ function buildTownNPCs(scene) {
     const label = makeSignSprite(`💬 ${npc.name}`);
     label.position.set(npc.x, 90, npc.y);
     scene.add(label);
-    OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'quest', npcId: npc.id, npcName: npc.name });
+    OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'npc', npcId: npc.id, npcName: npc.name });
   }
 }
 
@@ -5227,6 +5420,8 @@ function ensurePlayerVisual(p) {
   nameEl.textContent = p.name;
   document.body.appendChild(nameEl);
 
+  const ghostGroup = makeGhostMesh();
+
   // Not parented into any scene yet — syncVisuals() adds/removes it from
   // whichever scene matches the player's current room each frame.
   // weaponMesh/armorMesh start null and are created/removed lazily by
@@ -5234,6 +5429,8 @@ function ensurePlayerVisual(p) {
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
     ...built, nameEl, inScene: false, parentScene: null,
+    ghostGroup, ghostInScene: false, ghostParentScene: null,
+    deathAnimStartAt: null,
     weaponMesh: null, chestMesh: null, headMesh: null, feetMesh: null, ringMesh: null,
     statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
   };
@@ -5248,6 +5445,7 @@ function destroyPlayerVisual(id) {
   const v = visuals[id];
   if (!v) return;
   if (v.inScene && v.parentScene) v.parentScene.remove(v.group);
+  if (v.ghostInScene && v.ghostParentScene) v.ghostParentScene.remove(v.ghostGroup);
   v.nameEl.remove();
   delete visuals[id];
 }
@@ -5298,19 +5496,47 @@ function syncVisuals(dt) {
       v.legR.rotation.x += (0 - v.legR.rotation.x) * ease;
     }
 
+    const isDead = !!p.isDead;
     const shouldShow = contextMatches(p.room);
-    if (shouldShow && !v.inScene) {
+
+    // Normal body — hidden when dead (for remote players, or after death anim completes for local)
+    const bodyVisible = shouldShow && !isDead;
+    if (bodyVisible && !v.inScene) {
       activeScene.add(v.group);
       v.inScene = true; v.parentScene = activeScene;
-    } else if (!shouldShow && v.inScene) {
+    } else if (!bodyVisible && v.inScene) {
       v.parentScene.remove(v.group);
       v.inScene = false; v.parentScene = null;
-    } else if (shouldShow && v.inScene && v.parentScene !== activeScene) {
-      // Switching between two outdoor scenes (town ↔ Wilds): the group is
-      // already in some scene but it's the wrong one — move it over.
+    } else if (bodyVisible && v.inScene && v.parentScene !== activeScene) {
       v.parentScene.remove(v.group);
       activeScene.add(v.group);
       v.parentScene = activeScene;
+    }
+
+    // Death animation for local player (tip forward over 0.8s)
+    if (id === myId && isDead && v.deathAnimStartAt !== null) {
+      const elapsed = (performance.now() - v.deathAnimStartAt) / 800;
+      const t = Math.min(1, elapsed);
+      v.group.rotation.x = -Math.PI / 2 * t;
+      if (t >= 1) {
+        // Body done falling — now hide the body, show ghost
+        if (v.inScene && v.parentScene) { v.parentScene.remove(v.group); v.inScene = false; }
+        v.deathAnimStartAt = null;
+      }
+    }
+
+    // Ghost mesh — shown when dead and in the right room
+    const ghostVisible = shouldShow && isDead && v.deathAnimStartAt === null;
+    if (ghostVisible && !v.ghostInScene) {
+      activeScene.add(v.ghostGroup);
+      v.ghostInScene = true; v.ghostParentScene = activeScene;
+    } else if (!ghostVisible && v.ghostInScene) {
+      if (v.ghostParentScene) v.ghostParentScene.remove(v.ghostGroup);
+      v.ghostInScene = false; v.ghostParentScene = null;
+    } else if (ghostVisible && v.ghostInScene && v.ghostParentScene !== activeScene) {
+      if (v.ghostParentScene) v.ghostParentScene.remove(v.ghostGroup);
+      activeScene.add(v.ghostGroup);
+      v.ghostParentScene = activeScene;
     }
 
     if (shouldShow) {
@@ -5332,8 +5558,17 @@ function syncVisuals(dt) {
         const bob = riseT >= 1 ? Math.sin(performance.now() * 0.0012) * 2 : 0;
         meditateYOffset = riseEase * hoverHeight + bob;
       }
-      v.group.position.set(rp.x, groundY + seatedYOffset + jumpYOffset + floorYOffset + meditateYOffset, rp.z);
-      v.group.rotation.y = p.facing;
+      const posY = groundY + seatedYOffset + jumpYOffset + floorYOffset + meditateYOffset;
+      if (!isDead || v.deathAnimStartAt !== null) {
+        v.group.position.set(rp.x, posY, rp.z);
+        v.group.rotation.y = p.facing;
+      }
+      // Ghost floats slightly above ground with a gentle bob
+      if (ghostVisible) {
+        const ghostBob = Math.sin(performance.now() * 0.002) * 6;
+        v.ghostGroup.position.set(rp.x, posY + 10 + ghostBob, rp.z);
+        v.ghostGroup.rotation.y = p.facing;
+      }
     }
 
     p.renderPrevX = p.x; p.renderPrevY = p.y;
@@ -6712,6 +6947,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
   if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
+  if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
@@ -6727,7 +6963,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -6816,6 +7052,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (attackPanelOpen) {
     if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
+    return;
+  }
+  if (npcShopOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeNpcShopModal();
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
