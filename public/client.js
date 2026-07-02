@@ -831,6 +831,8 @@ function onWsMessage(ev) {
   }
 }
 setupWs();
+// Pre-warm the face detection model in the background so the first purchase is fast.
+_ensureFaceApi();
 
 function addPlayer(p) {
   if (players[p.id]) return;
@@ -7252,21 +7254,31 @@ if (spellConsentAllowBtn) spellConsentAllowBtn.addEventListener('click', async (
 // Opens the camera only after the Allow click above, grabs exactly one
 // frame, then immediately stops the stream — nothing keeps recording or
 // stays connected to the camera once the snapshot is taken.
-// Returns true if a human face is detected in the data URL using the browser's
-// built-in FaceDetector API (Chrome/Edge). Falls back to true on unsupported
-// browsers so the server-side check can take over.
+// Loads the tiny face detector model once and caches it.
+let _faceApiReady = false;
+async function _ensureFaceApi() {
+  if (_faceApiReady) return true;
+  if (typeof faceapi === 'undefined') return false;
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+    _faceApiReady = true;
+    return true;
+  } catch { return false; }
+}
+
+// Returns true if a human face is detected in the data URL.
+// Uses face-api.js tiny face detector (works in all browsers, no API key needed).
+// Falls back to true only if the library itself failed to load.
 async function clientFaceCheck(dataUrl) {
-  if (!('FaceDetector' in window)) return true;
+  const ready = await _ensureFaceApi();
+  if (!ready) return true; // library not loaded — fall through to server check
   try {
     const img = new Image();
     img.src = dataUrl;
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-    const detector = new FaceDetector({ fastMode: false, maxDetectedFaces: 1 });
-    const faces = await detector.detect(img);
-    return faces.length > 0;
-  } catch {
-    return true;
-  }
+    const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
+    return detections.length > 0;
+  } catch { return true; }
 }
 
 function captureSelfiePhoto() {
