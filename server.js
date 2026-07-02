@@ -1167,10 +1167,11 @@ function sanitizeImage(raw) {
 
 const WITCH_DENIAL_LINES = [
   "I see no soul in this image… only trickery. Come back with your true face!",
-  "My cauldron rejects fakes! That's not a human — try again with your real face, dearie.",
-  "The spirits whisper of deception. Show me YOUR face, not a picture of a picture.",
-  "Hmm… my crystal ball sees right through you. That face is not of flesh and blood!",
-  "Do you think me a fool?! Bring me a REAL selfie or take your gold and leave!",
+  "My cauldron rejects fakes! That's not a human face — try again, dearie.",
+  "The spirits whisper of deception. I need to see your FACE, not some other body part.",
+  "Hmm… my crystal ball sees right through you. Show me a face — eyes, nose, mouth — not a hand!",
+  "Do you think me a fool?! I need to see your FACE, not… whatever that was.",
+  "That is not a face! I am a witch, not a palm reader. Point the camera at your actual face.",
 ];
 
 // Calls Claude Haiku vision API to check whether the image contains a real human face.
@@ -1187,11 +1188,12 @@ function detectHumanFace(dataUrl) {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 16,
+      system: 'You are a strict face-verification system. Answer only YES or NO — no other text.',
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
-          { type: 'text', text: 'Does this image contain a real human face? Reply with only YES or NO.' }
+          { type: 'text', text: 'Does this image show a human face as the main subject, with clearly visible facial features (eyes, nose, mouth)? Hands, arms, pets, objects, drawings, or photos-of-photos do NOT qualify. Only YES if you can see a real human face.' }
         ]
       }]
     });
