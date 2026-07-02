@@ -3064,7 +3064,7 @@ function initScene(w) {
 
   if (world2) buildWildsScene(world2);
   buildDungeonScene();
-  buildCaveScene();
+  try { buildCaveScene(); } catch(e) { console.error('buildCaveScene failed:', e); }
 }
 
 // ---------------------------------------------------------------------------
@@ -6205,8 +6205,8 @@ function findNearestSeat() {
 // building. Pressing E near it opens the purchase modal for the cheaper,
 // single-room Arcade pass.
 // ---------------------------------------------------------------------------
-function nearestKioskIn(list, x, z) {
-  let best = null, bestDist = 50;
+function nearestKioskIn(list, x, z, radius) {
+  let best = null, bestDist = radius || 80;
   for (const k of list) {
     const d = Math.hypot(x - k.x, z - k.z);
     if (d < bestDist) { bestDist = d; best = k; }
@@ -6225,10 +6225,13 @@ function findNearestKiosk() {
     const rp = getRenderPos(me);
     return nearestKioskIn(currentInterior.kiosks, rp.x, rp.z);
   }
+  // Room-based check for cave comes first — covers the case where caveScene
+  // failed to build (buildCaveScene threw before assigning caveScene) so
+  // activeScene !== caveScene, but me.room is already 'witch_cave'.
+  if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
-  if (activeScene === caveScene) return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   return null;
 }
 
