@@ -1188,12 +1188,12 @@ function detectHumanFace(dataUrl) {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 16,
-      system: 'You are a strict face-verification system. Answer only YES or NO — no other text.',
+      system: 'You are a strict selfie-gate. Reply only YES or NO — never any other text.',
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
-          { type: 'text', text: 'Does this image show a human face as the main subject, with clearly visible facial features (eyes, nose, mouth)? Hands, arms, pets, objects, drawings, or photos-of-photos do NOT qualify. Only YES if you can see a real human face.' }
+          { type: 'text', text: `Selfie verification check. Answer NO for ANY of these:\n- hand, fingers, arm, leg, foot, or any body part that is not a face\n- pet, animal, or object\n- blank wall, ceiling, floor, or background\n- drawing, screen, or photo-of-a-photo\n- face not visible, covered, or looking away\n\nAnswer YES only if: a human face is the clear main subject AND eyes + nose + mouth are all visible.\n\nWhat is the primary subject? Is it a human face meeting ALL requirements above?` }
         ]
       }]
     });
@@ -1217,6 +1217,7 @@ function detectHumanFace(dataUrl) {
         try {
           const parsed = JSON.parse(data);
           const text = (parsed?.content?.[0]?.text || '').trim().toUpperCase();
+          console.log('[witch face-check]', text);
           resolve(text.startsWith('YES'));
         } catch { resolve(true); }
       });
