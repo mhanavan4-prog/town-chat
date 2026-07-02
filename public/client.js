@@ -69,50 +69,50 @@ const CHARACTER_PRESETS = [
 // this just supplies the icon/name/slot to render and to decide which
 // "Equip as..." buttons to show for a given item.
 const ITEM_CATALOG = {
-  iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
-  spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'chest' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'head'  },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'feet'  },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'ring'  },
-  healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
-  magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
-  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
-  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
-  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
-  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
-  wood:           { name: 'Wood',           icon: '🪵', slot: null },
-  berries:        { name: 'Berries',        icon: '🍓', slot: null },
-  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
+  iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon', atk: 12, desc: 'A reliable blade forged from iron.' },
+  spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon', atk: 10, desc: 'Channels arcane energy into strikes.' },
+  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'chest',  def: 10, desc: 'Heavy protection for the torso.' },
+  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'head',   def: 5,  desc: 'Classic headwear for the studious mage.' },
+  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'feet',   def: 4,  spd: 5,  desc: 'Light boots that let you move freely.' },
+  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'ring',   def: 3,  desc: 'A finely crafted silver band.' },
+  healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null, desc: 'Restores 30 HP when used.' },
+  magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null, desc: 'A scroll sealed with arcane energy.' },
+  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null, desc: 'Rare scale from a fallen dragon.' },
+  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null, desc: 'Pulsing with raw magical potential.' },
+  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null, desc: 'Currency from a forgotten kingdom.' },
+  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null, desc: 'A ceremonial goblet of pure gold.' },
+  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null, desc: 'Holds 24 notes with password protection.' },
+  wood:           { name: 'Wood',           icon: '🪵', slot: null, desc: 'Sturdy timber from the forest.' },
+  berries:        { name: 'Berries',        icon: '🍓', slot: null, desc: 'Wild berries. Probably edible.' },
+  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null, desc: 'A delicate wildflower.' },
   // Character starter sets
-  witch_robe:     { name: "Witch's Robe",   icon: '🌑', slot: 'chest' },
-  hexed_boots:    { name: 'Hexed Boots',    icon: '🌙', slot: 'feet'  },
-  hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring'  },
-  beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head'  },
-  beast_hide:     { name: 'Beast Hide',     icon: '🐺', slot: 'chest' },
-  paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet'  },
-  spirit_veil:    { name: 'Spirit Veil',    icon: '✨', slot: 'head'  },
-  spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest' },
-  spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring'  },
-  knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head' },
-  order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring'  },
-  travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
-  travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
-  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
+  witch_robe:     { name: "Witch's Robe",   icon: '🌑', slot: 'chest', def: 6,  desc: "Robes woven with shadow magic." },
+  hexed_boots:    { name: 'Hexed Boots',    icon: '🌙', slot: 'feet',  def: 5,  desc: 'Boots cursed to never wear out.' },
+  hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring',  def: 4,  desc: 'Amplifies the wearer\'s hex power.' },
+  beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head',  def: 6,  desc: 'Thorned crown of the alpha.' },
+  beast_hide:     { name: 'Beast Hide',     icon: '🐺', slot: 'chest', def: 8,  desc: 'Thick fur that shrugs off blows.' },
+  paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet',  def: 6,  spd: 8, desc: 'Swift paws for the hunt.' },
+  spirit_veil:    { name: 'Spirit Veil',    icon: '✨', slot: 'head',  def: 5,  desc: 'A veil woven from starlight.' },
+  spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest', def: 6,  desc: 'Shimmering robes of the cosmos.' },
+  spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring',  def: 4,  desc: 'Resonates with ethereal forces.' },
+  knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head',  def: 8,  desc: 'Forged for those who stand their ground.' },
+  order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring',  def: 5,  desc: 'Seal of an ancient knightly order.' },
+  travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head',  def: 5,  desc: 'Keeps the wind and eyes off you.' },
+  travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest', def: 7,  desc: 'Many pockets. Well-worn leather.' },
+  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring',  def: 3,  spd: 3, desc: 'Keeps the road beneath your feet.' },
   // Witch Hazel's shop items — mirrored from server.js ITEM_CATALOG
-  cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️',  slot: 'weapon' },
-  shadow_staff:   { name: 'Shadow Staff',   icon: '🪄',  slot: 'weapon' },
-  bone_armor:     { name: 'Bone Armor',     icon: '🦴',  slot: 'chest'  },
-  shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑',  slot: 'chest'  },
-  witches_boon:   { name: "Witch's Boon",   icon: '🔮',  slot: 'ring'   },
-  dread_helm:     { name: 'Dread Helm',     icon: '💀',  slot: 'head'   },
-  soul_treads:    { name: 'Soul Treads',    icon: '👁️',  slot: 'feet'   },
-  void_staff:     { name: 'Void Staff',     icon: '☄️',  slot: 'weapon' },
-  shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
-  abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
-  death_ring:     { name: 'Death Ring',     icon: '💍',  slot: 'ring'   },
-  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   },
+  cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️', slot: 'weapon', atk: 20, desc: 'A blade that hungers for shadow.' },
+  shadow_staff:   { name: 'Shadow Staff',   icon: '🪄', slot: 'weapon', atk: 18, desc: 'Channels dark energy into spells.' },
+  bone_armor:     { name: 'Bone Armor',     icon: '🦴', slot: 'chest',  def: 16, desc: 'Crafted from the bones of the fallen.' },
+  shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑', slot: 'chest',  def: 14, desc: 'Wraps the wearer in living shadow.' },
+  witches_boon:   { name: "Witch's Boon",   icon: '🔮', slot: 'ring',   def: 8,  desc: "Hazel's blessing sealed in glass." },
+  dread_helm:     { name: 'Dread Helm',     icon: '💀', slot: 'head',   def: 12, desc: 'Inspires fear in all who see it.' },
+  soul_treads:    { name: 'Soul Treads',    icon: '👁️', slot: 'feet',   def: 10, spd: 6, desc: 'The eyes on the soles watch your path.' },
+  void_staff:     { name: 'Void Staff',     icon: '☄️', slot: 'weapon', atk: 24, desc: 'Tears holes in reality with each swing.' },
+  shadow_crown:   { name: 'Shadow Crown',   icon: '🌙', slot: 'head',   def: 15, desc: 'Crown of the night, cold as midnight.' },
+  abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫', slot: 'chest',  def: 20, desc: 'Forged in the deepest dark.' },
+  death_ring:     { name: 'Death Ring',     icon: '💍', slot: 'ring',   def: 10, desc: 'Only the doomed dare to wear it.' },
+  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️', slot: 'feet',   def: 12, spd: 10, desc: 'Step between shadows like a ghost.' },
   // The Wilds' 16 harvestable plants — name/icon mirrored from server.js's
   // PLANT_CATALOG. The actual effect (what happens when used) is resolved
   // server-side; the client only needs to know these exist and are usable.
@@ -1324,7 +1324,9 @@ function renderInventoryItemsPanel() {
       qty.textContent = String(slot.qty);
       cell.appendChild(icon);
       cell.appendChild(qty);
-      cell.title = (item ? item.name : slot.itemId) + ' x' + slot.qty;
+      cell.title = '';
+      cell.addEventListener('mouseenter', (e) => showItemTooltip(e, slot.itemId));
+      cell.addEventListener('mouseleave', hideTooltip);
       cell.addEventListener('click', () => selectInvSlot(idx));
     }
     grid.appendChild(cell);
@@ -1339,7 +1341,9 @@ function renderEquipSlot(elId, itemId, equipKind) {
   if (!itemId) { el.title = ''; el.onclick = null; return; }
   const item = ITEM_CATALOG[itemId];
   el.textContent = item ? item.icon : '❓';
-  el.title = (item ? item.name : itemId) + ' — click to unequip';
+  el.title = '';
+  el.onmouseenter = (e) => showItemTooltip(e, itemId);
+  el.onmouseleave = hideTooltip;
   el.onclick = () => {
     document.getElementById('invModalErr').textContent = '';
     ws.send(JSON.stringify({ type: 'inventory_unequip', equipSlot: equipKind }));
@@ -6389,7 +6393,9 @@ function renderBankModal() {
       qty.textContent = String(slot.qty);
       cell.appendChild(icon);
       cell.appendChild(qty);
-      cell.title = (item ? item.name : slot.itemId) + ' x' + slot.qty;
+      cell.title = '';
+      cell.addEventListener('mouseenter', (e) => showItemTooltip(e, slot.itemId));
+      cell.addEventListener('mouseleave', hideTooltip);
       cell.addEventListener('click', () => selectBankSlot(idx));
     }
     grid.appendChild(cell);
@@ -6794,6 +6800,62 @@ function showGlimpseBeacon(targetId) {
 // picking a *specific* target instead of "nearest."
 // ---------------------------------------------------------------------------
 let myActionCatalog = null;
+
+// ---------------------------------------------------------------------------
+// Item / action tooltip — shared floating panel, positioned near the cursor
+// ---------------------------------------------------------------------------
+const _tt = document.getElementById('itemTooltip');
+const _ttName  = document.getElementById('ttName');
+const _ttSlot  = document.getElementById('ttSlot');
+const _ttStats = document.getElementById('ttStats');
+const _ttDesc  = document.getElementById('ttDesc');
+const SLOT_LABELS = { weapon: 'Weapon', head: 'Head', chest: 'Chest', feet: 'Feet', ring: 'Ring' };
+const KIND_LABELS  = { targeted: 'Targeted', aoe: 'Area of Effect', self: 'Self', building: 'Building' };
+
+function _positionTooltip(e) {
+  if (!_tt) return;
+  const margin = 14, w = _tt.offsetWidth || 180, h = _tt.offsetHeight || 80;
+  let x = e.clientX + margin, y = e.clientY + margin;
+  if (x + w > window.innerWidth)  x = e.clientX - w - margin;
+  if (y + h > window.innerHeight) y = e.clientY - h - margin;
+  _tt.style.left = x + 'px';
+  _tt.style.top  = y + 'px';
+}
+
+function showItemTooltip(e, itemId) {
+  if (!_tt) return;
+  const item = ITEM_CATALOG[itemId];
+  if (!item) return;
+  _ttName.textContent  = item.icon + '  ' + item.name;
+  _ttSlot.textContent  = item.slot ? (SLOT_LABELS[item.slot] || item.slot) : 'Item';
+  const lines = [];
+  if (item.atk) lines.push('⚔️ ATK  +' + item.atk);
+  if (item.def) lines.push('🛡️ DEF  +' + item.def);
+  if (item.spd) lines.push('⚡ SPD  +' + item.spd + '%');
+  _ttStats.innerHTML = lines.join('<br>');
+  _ttDesc.textContent = item.desc || '';
+  _ttDesc.style.display = item.desc ? '' : 'none';
+  _tt.classList.remove('hidden');
+  _positionTooltip(e);
+}
+
+function showActionTooltip(e, action) {
+  if (!_tt || !action) return;
+  _ttName.textContent  = action.icon + '  ' + action.name;
+  _ttSlot.textContent  = KIND_LABELS[action.kind] || (action.kind || '');
+  _ttStats.innerHTML   = '';
+  _ttDesc.textContent  = action.description || '';
+  _ttDesc.style.display = action.description ? '' : 'none';
+  _tt.classList.remove('hidden');
+  _positionTooltip(e);
+}
+
+function hideTooltip() { if (_tt) _tt.classList.add('hidden'); }
+
+document.addEventListener('mousemove', (e) => {
+  if (_tt && !_tt.classList.contains('hidden')) _positionTooltip(e);
+});
+
 let myActionMsgType = null;
 let myActionIdField = null;
 const HOTBAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
@@ -6811,7 +6873,6 @@ function buildHotbar() {
     const atk = myActionCatalog[id];
     const slot = document.createElement('div');
     slot.className = 'hotbarSlot';
-    slot.title = atk.name;
     const icon = document.createElement('span');
     icon.className = 'hotbarIcon';
     icon.textContent = atk.icon;
@@ -6820,6 +6881,8 @@ function buildHotbar() {
     key.textContent = HOTBAR_KEY_LABELS[idx];
     slot.appendChild(icon);
     slot.appendChild(key);
+    slot.addEventListener('mouseenter', (e) => showActionTooltip(e, atk));
+    slot.addEventListener('mouseleave', hideTooltip);
     slot.addEventListener('click', () => castFromHotbar(id));
     bar.appendChild(slot);
   });

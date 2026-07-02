@@ -246,6 +246,18 @@
   }
   #interactHint:active span { background:rgba(40,24,16,0.9); }
 
+  #itemTooltip {
+    position:fixed; z-index:9999; pointer-events:none;
+    background:rgba(8,5,18,0.97); border:1px solid rgba(140,80,220,0.45);
+    border-radius:9px; padding:10px 14px; min-width:150px; max-width:230px;
+    box-shadow:0 6px 24px rgba(0,0,0,0.85), 0 0 0 1px rgba(80,40,120,0.3);
+  }
+  #itemTooltip.hidden { display:none; }
+  #ttName { font-size:13px; font-weight:700; color:#e4d0ff; margin-bottom:3px; }
+  #ttSlot { font-size:10px; color:#7850aa; text-transform:uppercase; letter-spacing:.07em; margin-bottom:7px; }
+  #ttStats { font-size:12px; color:#90f0b0; line-height:1.7; }
+  #ttDesc { font-size:11px; color:#9080a8; margin-top:6px; font-style:italic; line-height:1.45; }
+
   #targetingBanner {
     position:fixed; left:50%; top:74px; z-index:7;
     transform:translateX(-50%); pointer-events:none;
@@ -820,6 +832,13 @@
 </div>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
+
+<div id="itemTooltip" class="hidden">
+  <div id="ttName"></div>
+  <div id="ttSlot"></div>
+  <div id="ttStats"></div>
+  <div id="ttDesc"></div>
+</div>
 
 <div id="passModal" class="overlay hidden">
   <div class="card">
