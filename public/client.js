@@ -3407,9 +3407,9 @@ function buildCaveScene() {
   exitSign.position.set(400, 110, 650);
   scene.add(exitSign);
 
-  // Kiosks: witch NPC near north, cave exit near south
+  // Kiosks: witch NPC at her mesh position, cave exit near south
   CAVE_KIOSKS = [
-    { x: 400, z: 220, witch: 'hazel' },
+    { x: 400, z: 165, witch: 'hazel' },
     { x: 400, z: 640, portal: 'cave_exit' }
   ];
 
