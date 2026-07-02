@@ -34,6 +34,9 @@ let TOWN_WALLS = [];    // snapshot of `walls` once initScene() finishes buildin
 const WILDS_WALLS = []; // the Wilds has no collidable decor, so this just stays empty
 let OUTDOOR_KIOSKS = []; // interact points in the town's outdoor scene — currently just the portal
 let WILDS_KIOSKS = [];   // interact points in the Wilds scene — currently just the return portal
+let DUNGEON_KIOSKS = []; // interact points in the dungeon — the exit portal, rebuilt per-entry
+const DUNGEON_WORLD = { width: 800, height: 800, buildings: [], spawn: { x: 400, y: 700 } };
+let dungeonMobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, dead, initialized }
 let walls = [];           // generated collision rects, derived from world.buildings
 let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
 let me = null;            // convenience pointer to players[myId]
@@ -305,7 +308,7 @@ function onWsMessage(ev) {
       // where a connection was — every (re)connect lands fresh at the town
       // spawn — so if we were indoors, or out in the Wilds, force the
       // client's view back to outdoor/town to match.
-      if (mode === 'indoor' || activeScene === wildsScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -408,6 +411,7 @@ function onWsMessage(ev) {
     if (msg.animals2) applyAnimal2State(msg.animals2);
     if (msg.mobs2) applyMob2State(msg.mobs2);
     if (msg.decor) applyDecorState(msg.decor);
+    if (msg.dungeonMobs) applyDungeonMobState(msg.dungeonMobs);
     return;
   }
 
@@ -506,6 +510,27 @@ function onWsMessage(ev) {
     }
     updateHealthHud();
     setUnlockToast(`💀 ${msg.byName} defeated you — back to the ${room === 'wilds' ? 'Wilds spawn' : 'town square'}.`);
+    return;
+  }
+
+  if (msg.type === 'dungeon_entered') {
+    if (me) { me.x = msg.spawn.x; me.y = msg.spawn.y; me.room = msg.room; }
+    mode = 'outdoor';
+    swapToDungeonMap();
+    ws.send(JSON.stringify({ type: 'move', x: msg.spawn.x, y: msg.spawn.y, room: msg.room }));
+    setUnlockToast(`⚡ Entered dungeon tier ${msg.tier} — Level ${msg.level} Wildlands`);
+    return;
+  }
+
+  if (msg.type === 'dungeon_exited') {
+    if (me) { me.x = msg.x; me.y = msg.y; me.room = msg.room; }
+    mode = 'outdoor';
+    if (msg.room === 'wilds') {
+      swapToWildsMap();
+    } else {
+      swapToTownMap();
+    }
+    setUnlockToast('⚡ You exit the dungeon.');
     return;
   }
 
@@ -963,7 +988,11 @@ function roomAt(x, y) {
 function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
   if (roomId === 'wilds') return '🌲 The Wilds';
-  const b = world.buildings.find(x => x.id === roomId);
+  if (roomId === 'dungeon_t1') return '⚔️ Dungeon — Tier 1 (Lv 1–5)';
+  if (roomId === 'dungeon_t2') return '⚔️ Dungeon — Tier 2 (Lv 6–10)';
+  if (roomId === 'dungeon_t3') return '⚔️ Dungeon — Tier 3 (Lv 11–15)';
+  if (roomId === 'dungeon_t4') return '⚔️ Dungeon — Tier 4 (Lv 16–20)';
+  const b = world && world.buildings.find(x => x.id === roomId);
   return b ? b.name : roomId;
 }
 
@@ -1122,6 +1151,8 @@ function toggleInventory() {
     cancelTargeting();
     refreshNoteRecipients();
     ws.send(JSON.stringify({ type: 'inventory_open' }));
+    const levelSpan = document.getElementById('dungeonTokenLevel');
+    if (levelSpan && me) levelSpan.textContent = String(me.level || 1);
   }
 }
 if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
@@ -1148,6 +1179,15 @@ if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
 if (invTabHardDriveBtn) invTabHardDriveBtn.addEventListener('click', () => showInvTab('invHardDriveView'));
 if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
+
+const useDungeonTokenBtn = document.getElementById('useDungeonTokenBtn');
+if (useDungeonTokenBtn) {
+  useDungeonTokenBtn.addEventListener('click', () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'use_dungeon_token' }));
+    toggleInventory();
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Items tab — equip slots + 24-slot grid. Click a slot to see what can be
@@ -1536,6 +1576,7 @@ function strikeNearestEnemy() {
   }
   if (nearest) {
     ws.send(JSON.stringify({ type: 'strike', targetType: nearest.kind, targetId: nearest.targetId }));
+    flashCreatureHit(nearest.kind, nearest.targetId);
   } else {
     setUnlockToast('No enemies nearby to strike.');
   }
@@ -1925,6 +1966,11 @@ function getRaycastCandidates() {
       const v = decorVisuals2[id];
       if (!v.harvested) list.push(v.group);
     }
+  } else if (activeScene === dungeonScene) {
+    for (const id in dungeonMobVisuals) {
+      const v = dungeonMobVisuals[id];
+      if (v.mesh.visible) list.push(v.mesh);
+    }
   }
   return list;
 }
@@ -1987,7 +2033,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'dungeon']);
 
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
@@ -2014,6 +2060,7 @@ function handleCanvasClick(clientX, clientY) {
   if (!hit) return;
   if (ATTACKABLE_KINDS.has(hit.kind)) {
     ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
+    flashCreatureHit(hit.kind, hit.targetId);
   } else if (hit.kind === 'decor') {
     ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
   }
@@ -2359,7 +2406,7 @@ function maybeUpdateRoomUI(room) {
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   // The Wilds is open-world like the town square, not a private room — no chat panel there either.
-  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds');
+  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room.startsWith('dungeon_'));
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
   document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
   if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
@@ -2394,6 +2441,7 @@ const INDOOR_WALL_HEIGHT = 150;
 let renderer;
 let outdoorScene, outdoorCamera;
 let wildsScene, wildsCamera; // The Wilds — a second outdoor map reached via the portal, see buildWildsScene()/enterWilds()
+let dungeonScene = null, dungeonCamera = null; // Personal Dungeon — see buildDungeonScene()/swapToDungeonMap()
 let activeScene, activeCamera;
 let mode = 'outdoor';          // 'outdoor' | 'indoor'
 let indoorBuildingId = null;
@@ -2491,7 +2539,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -2501,6 +2549,7 @@ function contextMatches(room) {
   if (mode === 'indoor') return room === indoorBuildingId;
   // mode stays 'outdoor' for both the town and the Wilds, so which one a
   // remote player should actually be visible in depends on activeScene.
+  if (activeScene === dungeonScene) return me && room === me.room;
   if (activeScene === wildsScene) return room === 'wilds';
   return room === 'outside';
 }
@@ -2585,6 +2634,7 @@ function initScene(w) {
   TOWN_WALLS = walls; // snapshot now that tree colliders from addNatureDecor are in place
 
   if (world2) buildWildsScene(world2);
+  buildDungeonScene();
 }
 
 // ---------------------------------------------------------------------------
@@ -2627,6 +2677,19 @@ function swapToTownMap() {
   indoorBuildingId = null;
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.classList.add('hidden');
+}
+
+function swapToDungeonMap() {
+  if (!dungeonScene || activeScene === dungeonScene) return;
+  world = DUNGEON_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(dungeonScene, dungeonCamera, null);
+}
+
+function exitDungeon() {
+  ws.send(JSON.stringify({ type: 'dungeon_exit' }));
 }
 
 function enterWilds() {
@@ -2759,6 +2822,61 @@ function buildWildsScene(w2) {
 }
 
 // ---------------------------------------------------------------------------
+// Personal Dungeon scene — built once at init, swapped in when the player
+// uses the Wildlands Token. Uses its own lights so the shared sun/moon
+// objects never need to be re-parented here. 800×800 dark stone arena with
+// torch-style point lights and stone pillars.
+// ---------------------------------------------------------------------------
+function buildDungeonScene() {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080410);
+  scene.fog = new THREE.Fog(0x080410, 300, 950);
+
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
+
+  // Dark stone floor
+  const floorGeo = new THREE.PlaneGeometry(800, 800);
+  const floorMat = new THREE.MeshLambertMaterial({ color: 0x201828 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(400, 0, 400);
+  scene.add(floor);
+
+  // Dim red ambient
+  scene.add(new THREE.AmbientLight(0x3a1020, 0.5));
+
+  // Torch point lights with small torch posts
+  const torchSpots = [[150, 150], [650, 150], [150, 650], [650, 650], [400, 380]];
+  for (const [tx, tz] of torchSpots) {
+    const tLight = new THREE.PointLight(0xff6600, 1.0, 320);
+    tLight.position.set(tx, 80, tz);
+    scene.add(tLight);
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(4, 4, 40, 6),
+      new THREE.MeshLambertMaterial({ color: 0x6b5030 })
+    );
+    post.position.set(tx, 20, tz);
+    scene.add(post);
+  }
+
+  // Stone pillars around the arena
+  const pillarGeo = new THREE.CylinderGeometry(18, 22, 160, 8);
+  const pillarMat = new THREE.MeshLambertMaterial({ color: 0x2e283a });
+  for (const [px, pz] of [[80,80],[720,80],[80,720],[720,720],[80,400],[720,400],[400,80],[400,720]]) {
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(px, 80, pz);
+    scene.add(pillar);
+  }
+
+  // Exit portal at the north end (top of the 800×800 space)
+  scene.add(buildPortalMesh(400, 50));
+  DUNGEON_KIOSKS = [{ x: 400, z: 50, portal: 'dungeon_exit' }];
+
+  dungeonScene = scene;
+  dungeonCamera = camera;
+}
+
+// ---------------------------------------------------------------------------
 // Day/night cycle — 20 real-world minutes of day, 20 of night, derived
 // purely from wall-clock time (Date.now()) rather than anything the server
 // tracks. Every connected client computes the exact same phase independently
@@ -2869,6 +2987,56 @@ function updateDayNightHud(isNight) {
 // toward whatever position the server broadcasts in 'wildlife_state'
 // messages, exactly like remote players' movement already works.
 // ---------------------------------------------------------------------------
+// Floating billboard health bar for creatures. Hidden at full health; becomes
+// visible as soon as damage is taken and color-shifts green→orange→red.
+function makeHealthBarSprite(yOffset) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 8;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#222'; ctx.fillRect(0, 0, 64, 8);
+  ctx.fillStyle = '#22cc55'; ctx.fillRect(1, 1, 62, 6);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.name = 'healthBar';
+  sp.scale.set(24, 3, 1);
+  sp.position.y = yOffset;
+  sp.renderOrder = 100;
+  sp.visible = false; // hidden until first damage
+  sp._hpC = c; sp._hpCtx = ctx; sp._hpTex = tex;
+  return sp;
+}
+
+function updateHealthBar(sprite, hp, maxHp) {
+  const pct = maxHp > 0 ? Math.max(0, hp / maxHp) : 0;
+  sprite.visible = pct < 0.999;
+  if (!sprite.visible) return;
+  const ctx = sprite._hpCtx;
+  ctx.clearRect(0, 0, 64, 8);
+  ctx.fillStyle = '#222'; ctx.fillRect(0, 0, 64, 8);
+  ctx.fillStyle = pct > 0.5 ? '#22cc55' : pct > 0.25 ? '#ffaa00' : '#dd2222';
+  ctx.fillRect(1, 1, Math.max(0, Math.floor(62 * pct)), 6);
+  sprite._hpTex.needsUpdate = true;
+}
+
+// Briefly flash a struck creature's material red as hit confirmation.
+function flashCreatureHit(kind, targetId) {
+  let v;
+  if (kind === 'mob')     v = mobVisuals[targetId];
+  else if (kind === 'mob2')    v = mobVisuals2[targetId];
+  else if (kind === 'animal')  v = animalVisuals[targetId];
+  else if (kind === 'animal2') v = animalVisuals2[targetId];
+  else if (kind === 'dungeon') v = dungeonMobVisuals[targetId];
+  if (!v || !v.mesh) return;
+  v.mesh.traverse(child => {
+    if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0xff2200);
+  });
+  setTimeout(() => {
+    v.mesh.traverse(child => {
+      if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0x000000);
+    });
+  }, 180);
+}
+
 function makeMob() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
@@ -2889,6 +3057,7 @@ function makeMob() {
     horn.rotation.z = side * 0.3;
     g.add(horn);
   }
+  g.add(makeHealthBarSprite(35));
   return g;
 }
 
@@ -2917,6 +3086,10 @@ function applyMobState(list) {
     const v = getOrCreateMobVisual(m.id);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+    if (m.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+    }
   }
 }
 
@@ -2943,6 +3116,46 @@ const MOB2_VISUALS = {
   bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35 },
   night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0 },
   will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 }
+};
+
+// Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
+const DUNGEON_MOB_VISUALS = {
+  // Tier 1
+  cave_rat:        { color: 0x6b4c2a, eyeColor: 0xff9944, scale: 0.55 },
+  stone_bat:       { color: 0x5a5a6e, eyeColor: 0xccccff, scale: 0.6  },
+  moss_crawler:    { color: 0x3d5c2a, eyeColor: 0x99ff44, scale: 0.75 },
+  fungal_grunt:    { color: 0x7a5f3a, eyeColor: 0xffdd88, scale: 1.0  },
+  mud_slinger:     { color: 0x5a4a2e, eyeColor: 0xaabb66, scale: 0.85 },
+  tunnel_rat:      { color: 0x7a5a3a, eyeColor: 0xff8833, scale: 0.65 },
+  rock_beetle:     { color: 0x4a4a4a, eyeColor: 0x88ff44, scale: 0.9  },
+  pale_sprite:     { color: 0xd4c8ff, eyeColor: 0xffffff, scale: 0.5  },
+  // Tier 2
+  shadow_wolf:     { color: 0x2a2a3a, eyeColor: 0xff4444, scale: 1.05 },
+  dark_adder:      { color: 0x1e2b1e, eyeColor: 0x44ff88, scale: 0.75 },
+  crypt_spider:    { color: 0x3a1a3a, eyeColor: 0xdd44ff, scale: 0.85 },
+  bone_hound:      { color: 0xd8d0b8, eyeColor: 0xff2222, scale: 1.0  },
+  venom_crawler:   { color: 0x2a4a1a, eyeColor: 0x88ff22, scale: 0.9  },
+  swamp_lurker:    { color: 0x2e4a2a, eyeColor: 0x66ff44, scale: 1.15 },
+  cave_troll:      { color: 0x4a5a3a, eyeColor: 0xffaa00, scale: 1.4  },
+  marsh_specter:   { color: 0x6aafcc, eyeColor: 0xeaffff, scale: 0.7  },
+  // Tier 3
+  blood_bat:       { color: 0x8a0020, eyeColor: 0xff0000, scale: 0.8  },
+  iron_golem:      { color: 0x5a6070, eyeColor: 0x4488ff, scale: 1.7  },
+  feral_warden:    { color: 0x6a2020, eyeColor: 0xff6600, scale: 1.1  },
+  chaos_imp:       { color: 0xcc4400, eyeColor: 0xffdd00, scale: 0.65 },
+  plague_hound:    { color: 0x4a5a1a, eyeColor: 0x88ff00, scale: 1.05 },
+  void_walker:     { color: 0x1a0a2a, eyeColor: 0xaa44ff, scale: 0.75 },
+  stone_giant:     { color: 0x6a6a5a, eyeColor: 0xffcc44, scale: 1.8  },
+  dusk_wraith:     { color: 0x4a2060, eyeColor: 0xcc88ff, scale: 0.9  },
+  // Tier 4
+  nightmare_beast: { color: 0x1a0022, eyeColor: 0xff00ff, scale: 1.3  },
+  shadow_titan:    { color: 0x0a0010, eyeColor: 0x8800ff, scale: 1.9  },
+  void_serpent:    { color: 0x220033, eyeColor: 0xdd00ff, scale: 0.85 },
+  abyssal_hound:   { color: 0x1a0030, eyeColor: 0xff22aa, scale: 1.15 },
+  infernal_brute:  { color: 0x8a1a00, eyeColor: 0xff4400, scale: 1.6  },
+  death_knight:    { color: 0x1a1a2a, eyeColor: 0x4444ff, scale: 1.2  },
+  chaos_dragon:    { color: 0x660000, eyeColor: 0xff6600, scale: 1.5  },
+  void_leviathan:  { color: 0x000022, eyeColor: 0x0066ff, scale: 2.0  }
 };
 
 function makeMob2(mobType) {
@@ -2983,6 +3196,10 @@ function applyMob2State(list) {
     const v = getOrCreateMob2Visual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+    if (m.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+    }
   }
 }
 
@@ -2996,6 +3213,61 @@ function updateMob2Visuals(dt) {
     v.mesh.position.set(v.x, 0, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = lastWildlifeIsNight && !v.dead;
+  }
+}
+
+function makeDungeonMob(mobType) {
+  const visual = DUNGEON_MOB_VISUALS[mobType] || { color: 0x2a1a33, eyeColor: 0xff2222, scale: 1.0 };
+  const g = makeMob();
+  g.traverse(child => {
+    if (!child.isMesh) return;
+    const isEye = child.geometry.type === 'SphereGeometry' && child.geometry.parameters.radius < 2;
+    child.material = child.material.clone();
+    child.material.color.set(isEye ? visual.eyeColor : visual.color);
+  });
+  g.scale.setScalar(visual.scale);
+  return g;
+}
+
+function getOrCreateDungeonMobVisual(id, mobType) {
+  let v = dungeonMobVisuals[id];
+  if (!v) {
+    const mesh = makeDungeonMob(mobType);
+    mesh.visible = false;
+    mesh.userData = { kind: 'dungeon', targetId: id };
+    mesh.traverse(c => { if (c !== mesh) c.userData = mesh.userData; });
+    if (dungeonScene) dungeonScene.add(mesh);
+    v = dungeonMobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
+  }
+  return v;
+}
+
+function applyDungeonMobState(list) {
+  if (!dungeonScene) return;
+  for (const m of list) {
+    const v = getOrCreateDungeonMobVisual(m.id, m.mobType);
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.room = m.room;
+    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+    if (m.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+    }
+  }
+}
+
+function updateDungeonMobVisuals(dt) {
+  const inDungeon = dungeonScene && activeScene === dungeonScene;
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in dungeonMobVisuals) {
+    const v = dungeonMobVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    v.mesh.position.set(v.x, 0, v.y);
+    v.mesh.rotation.y = v.facing;
+    const shouldShow = inDungeon && !v.dead && me && v.room === me.room;
+    v.mesh.visible = shouldShow;
   }
 }
 
@@ -3318,6 +3590,7 @@ function makeRabbit() {
   );
   tail.position.set(0, 7, -7);
   g.add(tail);
+  g.add(makeHealthBarSprite(22));
   return g;
 }
 
@@ -3348,6 +3621,10 @@ function applyAnimalState(list) {
     const v = getOrCreateAnimalVisual(a.id);
     v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
+    if (a.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, a.health, a.maxHealth);
+    }
   }
 }
 
@@ -3399,6 +3676,10 @@ function applyAnimal2State(list) {
     const v = getOrCreateAnimal2Visual(a.id);
     v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
+    if (a.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, a.health, a.maxHealth);
+    }
   }
 }
 
@@ -5193,6 +5474,7 @@ function findNearestKiosk() {
   }
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
+  if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
   return null;
 }
 
@@ -6429,6 +6711,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'courier') { openSendMoneyModal(); return; }
   if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
   if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
+  if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
@@ -6487,6 +6770,11 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} step through the portal back to town`;
     return;
   }
+  if (kiosk && kiosk.portal === 'dungeon_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} exit the dungeon`;
+    return;
+  }
   if (kiosk && kiosk.npc === 'quest') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
@@ -6531,6 +6819,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
+  if (inventoryOpen && e.key === 'Escape' && !e.repeat) { toggleInventory(); return; }
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
@@ -6630,13 +6919,13 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2) {
+  if (world === world2 || world === DUNGEON_WORLD) {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
     me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
-    me.room = 'wilds';
-    maybeUpdateRoomUI('wilds');
+    if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
+    maybeUpdateRoomUI(me.room);
     return;
   }
 
@@ -6753,6 +7042,7 @@ function update(dt) {
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);
   updateMob2Visuals(dt);
+  updateDungeonMobVisuals(dt);
   updatePortals(dt);
 
   if (mode === 'outdoor') {

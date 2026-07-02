@@ -416,6 +416,7 @@ function decorPublicState() {
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4'].forEach(r => ROOM_IDS.add(r));
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
@@ -1532,6 +1533,176 @@ function tickWilds(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Personal Dungeon — 4 tier rooms (dungeon_t1 through dungeon_t4), each
+// entered via the inventory Wildlands Token. Level range → tier:
+//   Tier 1: levels  1-5   → dungeon_t1
+//   Tier 2: levels  6-10  → dungeon_t2
+//   Tier 3: levels 11-15  → dungeon_t3
+//   Tier 4: levels 16-20  → dungeon_t4
+// 32 mob types (8 per tier × 2 instances each = 64 dungeon mob objects).
+// Always active — no day/night gate. Each room is 800×800.
+// ---------------------------------------------------------------------------
+const DUNGEON_SIZE = 800;
+const DUNGEON_SPAWN = { x: 400, y: 700 };
+const DUNGEON_RESPAWN_MS = 60 * 1000;
+const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' };
+
+function dungeonTierForLevel(level) {
+  if (level <= 5)  return 1;
+  if (level <= 10) return 2;
+  if (level <= 15) return 3;
+  return 4;
+}
+
+const DUNGEON_MOB_TYPES = {
+  // Tier 1 — levels 1-5
+  cave_rat:         { name: 'Cave Rat',         tier: 1, xp: 8,  color: 0x6b4c2a, scale: 0.55, maxHealth: 20,  speed: 70,  aggroRadius: 150, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1400 },
+  stone_bat:        { name: 'Stone Bat',         tier: 1, xp: 8,  color: 0x5a5a6e, scale: 0.6,  maxHealth: 18,  speed: 85,  aggroRadius: 180, strikeRange: 40, dmgMin: 2,  dmgMax: 5,  hitCooldownMs: 1200 },
+  moss_crawler:     { name: 'Moss Crawler',      tier: 1, xp: 8,  color: 0x3d5c2a, scale: 0.75, maxHealth: 35,  speed: 35,  aggroRadius: 100, strikeRange: 50, dmgMin: 4,  dmgMax: 7,  hitCooldownMs: 1800 },
+  fungal_grunt:     { name: 'Fungal Grunt',      tier: 1, xp: 8,  color: 0x7a5f3a, scale: 1.0,  maxHealth: 45,  speed: 30,  aggroRadius: 120, strikeRange: 55, dmgMin: 5,  dmgMax: 8,  hitCooldownMs: 2000 },
+  mud_slinger:      { name: 'Mud Slinger',       tier: 1, xp: 8,  color: 0x5a4a2e, scale: 0.85, maxHealth: 30,  speed: 45,  aggroRadius: 140, strikeRange: 48, dmgMin: 4,  dmgMax: 7,  hitCooldownMs: 1600 },
+  tunnel_rat:       { name: 'Tunnel Rat',        tier: 1, xp: 8,  color: 0x7a5a3a, scale: 0.65, maxHealth: 25,  speed: 75,  aggroRadius: 160, strikeRange: 42, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1300 },
+  rock_beetle:      { name: 'Rock Beetle',       tier: 1, xp: 8,  color: 0x4a4a4a, scale: 0.9,  maxHealth: 50,  speed: 22,  aggroRadius: 90,  strikeRange: 52, dmgMin: 6,  dmgMax: 9,  hitCooldownMs: 2200 },
+  pale_sprite:      { name: 'Pale Sprite',       tier: 1, xp: 8,  color: 0xd4c8ff, scale: 0.5,  maxHealth: 15,  speed: 90,  aggroRadius: 170, strikeRange: 38, dmgMin: 2,  dmgMax: 4,  hitCooldownMs: 1100 },
+  // Tier 2 — levels 6-10
+  shadow_wolf:      { name: 'Shadow Wolf',       tier: 2, xp: 18, color: 0x2a2a3a, scale: 1.05, maxHealth: 65,  speed: 80,  aggroRadius: 200, strikeRange: 52, dmgMin: 10, dmgMax: 15, hitCooldownMs: 1500 },
+  dark_adder:       { name: 'Dark Adder',        tier: 2, xp: 18, color: 0x1e2b1e, scale: 0.75, maxHealth: 55,  speed: 65,  aggroRadius: 160, strikeRange: 45, dmgMin: 8,  dmgMax: 14, hitCooldownMs: 1400 },
+  crypt_spider:     { name: 'Crypt Spider',      tier: 2, xp: 18, color: 0x3a1a3a, scale: 0.85, maxHealth: 60,  speed: 90,  aggroRadius: 175, strikeRange: 44, dmgMin: 9,  dmgMax: 13, hitCooldownMs: 1300 },
+  bone_hound:       { name: 'Bone Hound',        tier: 2, xp: 18, color: 0xd8d0b8, scale: 1.0,  maxHealth: 80,  speed: 55,  aggroRadius: 180, strikeRange: 50, dmgMin: 12, dmgMax: 16, hitCooldownMs: 1700 },
+  venom_crawler:    { name: 'Venom Crawler',     tier: 2, xp: 18, color: 0x2a4a1a, scale: 0.9,  maxHealth: 70,  speed: 40,  aggroRadius: 130, strikeRange: 54, dmgMin: 14, dmgMax: 18, hitCooldownMs: 2000 },
+  swamp_lurker:     { name: 'Swamp Lurker',      tier: 2, xp: 18, color: 0x2e4a2a, scale: 1.15, maxHealth: 90,  speed: 28,  aggroRadius: 110, strikeRange: 58, dmgMin: 13, dmgMax: 17, hitCooldownMs: 2200 },
+  cave_troll:       { name: 'Cave Troll',        tier: 2, xp: 18, color: 0x4a5a3a, scale: 1.4,  maxHealth: 120, speed: 18,  aggroRadius: 100, strikeRange: 62, dmgMin: 16, dmgMax: 20, hitCooldownMs: 2500 },
+  marsh_specter:    { name: 'Marsh Specter',     tier: 2, xp: 18, color: 0x6aafcc, scale: 0.7,  maxHealth: 45,  speed: 100, aggroRadius: 190, strikeRange: 42, dmgMin: 11, dmgMax: 15, hitCooldownMs: 1200 },
+  // Tier 3 — levels 11-15
+  blood_bat:        { name: 'Blood Bat',         tier: 3, xp: 35, color: 0x8a0020, scale: 0.8,  maxHealth: 130, speed: 105, aggroRadius: 220, strikeRange: 44, dmgMin: 18, dmgMax: 24, hitCooldownMs: 1300 },
+  iron_golem:       { name: 'Iron Golem',        tier: 3, xp: 35, color: 0x5a6070, scale: 1.7,  maxHealth: 220, speed: 12,  aggroRadius: 90,  strikeRange: 70, dmgMin: 25, dmgMax: 32, hitCooldownMs: 2800 },
+  feral_warden:     { name: 'Feral Warden',      tier: 3, xp: 35, color: 0x6a2020, scale: 1.1,  maxHealth: 160, speed: 60,  aggroRadius: 195, strikeRange: 54, dmgMin: 20, dmgMax: 27, hitCooldownMs: 1800 },
+  chaos_imp:        { name: 'Chaos Imp',         tier: 3, xp: 35, color: 0xcc4400, scale: 0.65, maxHealth: 100, speed: 120, aggroRadius: 200, strikeRange: 40, dmgMin: 18, dmgMax: 26, hitCooldownMs: 1200 },
+  plague_hound:     { name: 'Plague Hound',      tier: 3, xp: 35, color: 0x4a5a1a, scale: 1.05, maxHealth: 145, speed: 80,  aggroRadius: 210, strikeRange: 50, dmgMin: 22, dmgMax: 28, hitCooldownMs: 1600 },
+  void_walker:      { name: 'Void Walker',       tier: 3, xp: 35, color: 0x1a0a2a, scale: 0.75, maxHealth: 90,  speed: 95,  aggroRadius: 230, strikeRange: 42, dmgMin: 22, dmgMax: 30, hitCooldownMs: 1300 },
+  stone_giant:      { name: 'Stone Giant',       tier: 3, xp: 35, color: 0x6a6a5a, scale: 1.8,  maxHealth: 210, speed: 10,  aggroRadius: 85,  strikeRange: 72, dmgMin: 28, dmgMax: 36, hitCooldownMs: 3000 },
+  dusk_wraith:      { name: 'Dusk Wraith',       tier: 3, xp: 35, color: 0x4a2060, scale: 0.9,  maxHealth: 120, speed: 85,  aggroRadius: 240, strikeRange: 46, dmgMin: 24, dmgMax: 31, hitCooldownMs: 1400 },
+  // Tier 4 — levels 16-20
+  nightmare_beast:  { name: 'Nightmare Beast',   tier: 4, xp: 65, color: 0x1a0022, scale: 1.3,  maxHealth: 280, speed: 100, aggroRadius: 250, strikeRange: 56, dmgMin: 32, dmgMax: 42, hitCooldownMs: 1400 },
+  shadow_titan:     { name: 'Shadow Titan',      tier: 4, xp: 65, color: 0x0a0010, scale: 1.9,  maxHealth: 400, speed: 14,  aggroRadius: 100, strikeRange: 72, dmgMin: 40, dmgMax: 52, hitCooldownMs: 2600 },
+  void_serpent:     { name: 'Void Serpent',      tier: 4, xp: 65, color: 0x220033, scale: 0.85, maxHealth: 240, speed: 90,  aggroRadius: 230, strikeRange: 50, dmgMin: 34, dmgMax: 44, hitCooldownMs: 1500 },
+  abyssal_hound:    { name: 'Abyssal Hound',     tier: 4, xp: 65, color: 0x1a0030, scale: 1.15, maxHealth: 300, speed: 95,  aggroRadius: 260, strikeRange: 54, dmgMin: 36, dmgMax: 46, hitCooldownMs: 1500 },
+  infernal_brute:   { name: 'Infernal Brute',    tier: 4, xp: 65, color: 0x8a1a00, scale: 1.6,  maxHealth: 360, speed: 20,  aggroRadius: 110, strikeRange: 68, dmgMin: 42, dmgMax: 54, hitCooldownMs: 2800 },
+  death_knight:     { name: 'Death Knight',      tier: 4, xp: 65, color: 0x1a1a2a, scale: 1.2,  maxHealth: 320, speed: 55,  aggroRadius: 220, strikeRange: 58, dmgMin: 38, dmgMax: 48, hitCooldownMs: 1800 },
+  chaos_dragon:     { name: 'Chaos Dragon',      tier: 4, xp: 65, color: 0x660000, scale: 1.5,  maxHealth: 350, speed: 80,  aggroRadius: 270, strikeRange: 60, dmgMin: 44, dmgMax: 56, hitCooldownMs: 1500 },
+  void_leviathan:   { name: 'Void Leviathan',    tier: 4, xp: 65, color: 0x000022, scale: 2.0,  maxHealth: 450, speed: 10,  aggroRadius: 95,  strikeRange: 80, dmgMin: 50, dmgMax: 65, hitCooldownMs: 3200 }
+};
+
+const DUNGEON_MOB_KEYS_BY_TIER = {
+  1: ['cave_rat','stone_bat','moss_crawler','fungal_grunt','mud_slinger','tunnel_rat','rock_beetle','pale_sprite'],
+  2: ['shadow_wolf','dark_adder','crypt_spider','bone_hound','venom_crawler','swamp_lurker','cave_troll','marsh_specter'],
+  3: ['blood_bat','iron_golem','feral_warden','chaos_imp','plague_hound','void_walker','stone_giant','dusk_wraith'],
+  4: ['nightmare_beast','shadow_titan','void_serpent','abyssal_hound','infernal_brute','death_knight','chaos_dragon','void_leviathan']
+};
+
+const DUNGEON_SPAWN_POSITIONS = [
+  { x: 150, y: 150 }, { x: 400, y: 120 }, { x: 650, y: 150 },
+  { x: 120, y: 350 }, { x: 680, y: 350 },
+  { x: 120, y: 450 }, { x: 680, y: 450 },
+  { x: 150, y: 600 }, { x: 400, y: 580 }, { x: 650, y: 600 },
+  { x: 250, y: 250 }, { x: 550, y: 250 },
+  { x: 250, y: 500 }, { x: 550, y: 500 },
+  { x: 200, y: 400 }, { x: 600, y: 400 }
+];
+
+// Build dungeonMobs: 8 types × 4 tiers × 2 instances = 64 total
+const dungeonMobs = [];
+let _dmIdx = 0;
+for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
+  const tier = Number(tierStr);
+  const room = DUNGEON_ROOMS[tier];
+  for (const key of keys) {
+    const preset = DUNGEON_MOB_TYPES[key];
+    for (let inst = 0; inst < 2; inst++) {
+      const sp = DUNGEON_SPAWN_POSITIONS[_dmIdx % DUNGEON_SPAWN_POSITIONS.length];
+      _dmIdx++;
+      const jitter = () => (Math.random() - 0.5) * 60;
+      const sx = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.x + jitter()));
+      const sy = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.y + jitter()));
+      dungeonMobs.push({
+        id: `dung_${key}_${inst}`,
+        mobType: key, tier, room,
+        spawnX: sx, spawnY: sy, x: sx, y: sy,
+        facing: Math.random() * Math.PI * 2,
+        wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
+        health: preset.maxHealth, dead: false, respawnAt: 0,
+        lastHitAt: 0
+      });
+    }
+  }
+}
+
+function nearestDungeonPlayer(room, x, y) {
+  let best = null, bestDist = Infinity;
+  for (const p of players.values()) {
+    if (p.room !== room) continue;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return { player: best, dist: bestDist };
+}
+
+function tickDungeon(dt) {
+  const now = Date.now();
+  const margin = 40;
+  for (const m of dungeonMobs) {
+    if (m.dead) {
+      if (now >= m.respawnAt) {
+        m.dead = false;
+        m.health = DUNGEON_MOB_TYPES[m.mobType].maxHealth;
+        m.x = m.spawnX; m.y = m.spawnY;
+      }
+      continue;
+    }
+    const preset = DUNGEON_MOB_TYPES[m.mobType];
+    const { player: nearestP, dist } = nearestDungeonPlayer(m.room, m.x, m.y);
+    let vx = 0, vy = 0;
+    if (nearestP && dist < preset.aggroRadius) {
+      const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+      if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+        m.lastHitAt = now;
+        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        nearestP.health = Math.max(0, nearestP.health - dmg);
+        if (nearestP.health <= 0) {
+          nearestP.health = 100;
+          const returnRoom = nearestP.dungeonReturnRoom || 'outside';
+          const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+          nearestP.x = returnPos.x; nearestP.y = returnPos.y;
+          nearestP.room = returnRoom;
+          nearestP.dungeonReturnRoom = null;
+          send(nearestP.ws, { type: 'defeated', byName: preset.name, x: nearestP.x, y: nearestP.y, room: returnRoom });
+        } else {
+          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
+        }
+      }
+    } else {
+      m.wanderTimer -= dt;
+      if (m.wanderTimer <= 0) {
+        m.wanderTimer = 1.5 + Math.random() * 2.5;
+        m.paused = Math.random() < 0.3;
+        m.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!m.paused) {
+        vx = Math.sin(m.wanderAngle) * (preset.speed * 0.35);
+        vy = Math.cos(m.wanderAngle) * (preset.speed * 0.35);
+      }
+    }
+    const nx = m.x + vx * dt, ny = m.y + vy * dt;
+    if (vx !== 0 && nx > margin && nx < DUNGEON_SIZE - margin) m.x = nx;
+    if (vy !== 0 && ny > margin && ny < DUNGEON_SIZE - margin) m.y = ny;
+    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+  }
+}
+
 // The one status effect that isn't purely client-cosmetic — Regen Root
 // actually heals over time, so unlike every other status it needs the
 // server to do something with it each tick rather than just track expiry.
@@ -1551,6 +1722,7 @@ setInterval(() => {
   lastWildlifeTick = now;
   tickWildlife(dt);
   tickWilds(dt);
+  tickDungeon(dt);
   tickPlayerRegen(now, dt);
   if (players.size === 0) return;
   broadcastAll({
@@ -1560,7 +1732,8 @@ setInterval(() => {
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead })),
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
     mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead })),
-    decor: decorPublicState()
+    decor: decorPublicState(),
+    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead }))
   });
 }, 150);
 
@@ -1803,7 +1976,8 @@ wss.on('connection', (ws) => {
       // 'wilds' is its own 1000x1000 space; every other room (the open
       // town map and every building interior alike) stays clamped against
       // the town's bounds, which are large enough to never matter indoors.
-      const bounds = msg.room === 'wilds' ? WORLD2 : WORLD;
+      const bounds = msg.room === 'wilds' ? WORLD2
+        : (typeof msg.room === 'string' && msg.room.startsWith('dungeon_') ? { width: DUNGEON_SIZE, height: DUNGEON_SIZE } : WORLD);
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
         player.y = Math.max(0, Math.min(bounds.height, y));
@@ -2418,6 +2592,25 @@ wss.on('connection', (ws) => {
         return;
       }
 
+      if (targetType === 'dungeon') {
+        const t = dungeonMobs.find(m => m.id === targetId);
+        if (!t || t.dead || t.room !== player.room) return;
+        if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
+        player.lastStrikeAt = now;
+        t.health = Math.max(0, t.health - dmg);
+        const preset = DUNGEON_MOB_TYPES[t.mobType];
+        if (t.health <= 0) {
+          t.dead = true;
+          t.respawnAt = now + DUNGEON_RESPAWN_MS;
+          grantXP(player, preset.xp);
+          advanceQuestProgress(player, 'kill_mob', null);
+          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)` });
+        } else {
+          send(ws, { type: 'attack_result', message: `⚔️ Hit ${preset.name} for ${dmg}!` });
+        }
+        return;
+      }
+
       // Each pool only exists in (and is only reachable from) its own map.
       const POOLS = {
         animal: { list: animals, room: 'outside', respawnMs: ANIMAL_RESPAWN_MS },
@@ -2439,7 +2632,12 @@ wss.on('connection', (ws) => {
         if (targetType === 'mob2') {
           grantXP(player, 15);
           advanceQuestProgress(player, 'kill_mob', null);
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)` });
+        } else {
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!` });
         }
+      } else {
+        send(ws, { type: 'attack_result', message: `⚔️ Hit for ${dmg}!` });
       }
       return;
     }
@@ -2672,6 +2870,31 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'attack_result', message: `🔭 ${attack.name} — watching ${describeRoom(buildingId)} for ${Math.round(attack.durationMs / 1000)}s.` });
         return;
       }
+      return;
+    }
+
+    if (msg.type === 'use_dungeon_token') {
+      if (player.room && player.room.startsWith('dungeon_')) return;
+      const prog = getProgress(player);
+      const tier = dungeonTierForLevel(prog.level);
+      const room = DUNGEON_ROOMS[tier];
+      player.dungeonReturnRoom = player.room || 'outside';
+      player.x = DUNGEON_SPAWN.x;
+      player.y = DUNGEON_SPAWN.y;
+      player.room = room;
+      send(ws, { type: 'dungeon_entered', tier, room, spawn: DUNGEON_SPAWN, level: prog.level });
+      return;
+    }
+
+    if (msg.type === 'dungeon_exit') {
+      if (!player.room || !player.room.startsWith('dungeon_')) return;
+      const returnRoom = player.dungeonReturnRoom || 'outside';
+      const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+      player.x = returnPos.x;
+      player.y = returnPos.y;
+      player.room = returnRoom;
+      player.dungeonReturnRoom = null;
+      send(ws, { type: 'dungeon_exited', room: returnRoom, x: returnPos.x, y: returnPos.y });
       return;
     }
   });
