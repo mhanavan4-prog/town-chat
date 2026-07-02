@@ -1625,6 +1625,7 @@ function makeDraggable(panel, handle) {
   let startPX, startPY, startLeft, startTop;
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== undefined && e.button !== 0) return; // left button only
+    if (e.target.closest('button, a, input, select, textarea')) return; // let interactive children fire normally
     e.preventDefault();
     const rect = panel.getBoundingClientRect();
     startPX = e.clientX;
