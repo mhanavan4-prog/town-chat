@@ -2969,7 +2969,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -3319,7 +3319,7 @@ function addSpookyDecor(scene, w2) {
 // Witch Cave scene — small dark stone room with purple crystal lights
 // ---------------------------------------------------------------------------
 let caveScene, caveCamera;
-const CAVE_WORLD = { width: 800, height: 600, buildings: [], spawn: { x: 400, y: 500 } };
+const CAVE_WORLD = { width: 800, height: 700, buildings: [], spawn: { x: 400, y: 450 } };
 let CAVE_KIOSKS = [];
 
 const WITCH_CAVE_ENTRANCE_X = 2000;
@@ -3327,43 +3327,49 @@ const WITCH_CAVE_ENTRANCE_Z = 2000;
 
 function buildCaveScene() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050210);
-  scene.fog = new THREE.Fog(0x050210, 200, 650);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1200);
+  scene.background = new THREE.Color(0x0d0520);
+  // Fog starts further out so the full cave is visible; indoor cam back=92 stays well inside 500.
+  scene.fog = new THREE.Fog(0x0d0520, 350, 900);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
 
-  scene.add(new THREE.AmbientLight(0x180828, 0.7));
+  // Bright purple ambient so stone surfaces are actually visible
+  scene.add(new THREE.AmbientLight(0xaa55dd, 2.5));
+  // Soft fill from above so the witch/player aren't silhouettes
+  const fillLight = new THREE.DirectionalLight(0xcc88ff, 0.9);
+  fillLight.position.set(400, 300, 300);
+  scene.add(fillLight);
 
   // Stone floor
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(800, 600),
-    new THREE.MeshLambertMaterial({ color: 0x181020 })
+    new THREE.PlaneGeometry(800, 800),
+    new THREE.MeshLambertMaterial({ color: 0x2a1840 })
   );
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(400, 0, 300);
+  floor.position.set(400, 0, 350);
   scene.add(floor);
 
-  // Cave walls (rough box shapes)
-  const wallMat = new THREE.MeshLambertMaterial({ color: 0x1a1025 });
+  // Cave walls — pushed further out so the indoor camera (back=92) never clips them
+  const wallMat = new THREE.MeshLambertMaterial({ color: 0x3a1a55 });
   for (const [wx, wy, wz, ww, wh, wd] of [
-    [400, 50, -10, 800, 200, 30],   // back wall
-    [400, 50, 610, 800, 200, 30],   // front wall
-    [-10, 50, 300, 30, 200, 600],   // left wall
-    [810, 50, 300, 30, 200, 600],   // right wall
-    [400, 200, 300, 900, 30, 700],  // ceiling
+    [400, 60, -20,  900, 240, 40],   // back wall (north)
+    [400, 60, 730,  900, 240, 40],   // front wall (south) — pushed to 730 so camera at z≈540 can't reach it
+    [-20, 60, 355,  40, 240, 800],   // left wall
+    [820, 60, 355,  40, 240, 800],   // right wall
+    [400, 240, 355, 1000, 40, 900],  // ceiling
   ]) {
     const w = new THREE.Mesh(new THREE.BoxGeometry(ww, wh, wd), wallMat);
     w.position.set(wx, wy, wz);
     scene.add(w);
   }
 
-  // Purple crystal torch lights
-  const crystalMat = new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0x660088 });
-  for (const [tx, tz] of [[120, 100], [680, 100], [120, 490], [680, 490], [400, 260]]) {
-    const light = new THREE.PointLight(0x9922dd, 1.2, 300);
-    light.position.set(tx, 75, tz);
+  // Purple crystal torch lights — brighter so the stone reads
+  const crystalMat = new THREE.MeshLambertMaterial({ color: 0xdd66ff, emissive: 0x8800cc });
+  for (const [tx, tz] of [[120, 100], [680, 100], [120, 490], [680, 490], [400, 280], [200, 300], [600, 300]]) {
+    const light = new THREE.PointLight(0xaa33ff, 2.2, 420);
+    light.position.set(tx, 90, tz);
     scene.add(light);
-    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(9, 0), crystalMat);
-    crystal.position.set(tx, 12, tz);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(10, 0), crystalMat);
+    crystal.position.set(tx, 14, tz);
     scene.add(crystal);
   }
 
@@ -3384,15 +3390,27 @@ function buildCaveScene() {
   cauldron.position.set(400, 0, 200);
   scene.add(cauldron);
 
-  // Sign above entrance
-  const signMesh = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');
-  signMesh.position.set(400, 100, 155);
-  scene.add(signMesh);
+  // Sign above witch
+  const witchSign = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');
+  witchSign.position.set(400, 110, 140);
+  scene.add(witchSign);
 
-  // Kiosks: witch NPC at front, cave exit at rear
+  // Exit arch near south end of cave
+  const exitMat = new THREE.MeshLambertMaterial({ color: 0x2a104a });
+  const exitArch = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 30), exitMat);
+  exitArch.position.set(400, 40, 650);
+  scene.add(exitArch);
+  const exitGlow = new THREE.PointLight(0x4488ff, 1.4, 180);
+  exitGlow.position.set(400, 40, 630);
+  scene.add(exitGlow);
+  const exitSign = makeSignSprite('🌫️ Exit Cave — Press F to leave');
+  exitSign.position.set(400, 110, 650);
+  scene.add(exitSign);
+
+  // Kiosks: witch NPC near north, cave exit near south
   CAVE_KIOSKS = [
     { x: 400, z: 220, witch: 'hazel' },
-    { x: 400, z: 520, portal: 'cave_exit' }
+    { x: 400, z: 640, portal: 'cave_exit' }
   ];
 
   caveScene = scene;
@@ -6109,7 +6127,8 @@ function updateCamera(dt) {
   if (!me) return;
   const rp = getRenderPos(me);
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
-  const cam = mode === 'outdoor' ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
+  // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
+  const cam = (mode === 'outdoor' && activeScene !== caveScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
   // Indoors, rooms are small enough that a fixed pull-back distance can put
@@ -7466,7 +7485,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -7512,6 +7531,26 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'dungeon_exit') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} exit the dungeon`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'cave_enter') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} enter the Witch's Cave`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'cave_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} leave the cave`;
+    return;
+  }
+  if (kiosk && kiosk.witch === 'hazel') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Witch Hazel`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'npc') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} browse the shop`;
     return;
   }
   if (kiosk && kiosk.npc === 'quest') {

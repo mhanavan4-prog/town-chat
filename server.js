@@ -416,7 +416,7 @@ function decorPublicState() {
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave'].forEach(r => ROOM_IDS.add(r));
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
@@ -2086,6 +2086,7 @@ wss.on('connection', (ws) => {
       // town map and every building interior alike) stays clamped against
       // the town's bounds, which are large enough to never matter indoors.
       const bounds = msg.room === 'wilds' ? WORLD2
+        : msg.room === 'witch_cave' ? { width: 800, height: 700 }
         : (typeof msg.room === 'string' && msg.room.startsWith('dungeon_') ? { width: DUNGEON_SIZE, height: DUNGEON_SIZE } : WORLD);
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
