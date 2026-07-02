@@ -2045,7 +2045,6 @@ if (witchConsentAllowBtn) witchConsentAllowBtn.addEventListener('click', async (
   let image = null;
   try {
     image = await captureSelfiePhoto();
-    statusEl.textContent = 'Photo taken. Completing your purchase…';
   } catch (e) {
     statusEl.textContent = 'Camera unavailable — purchase cancelled.';
     setTimeout(() => {
@@ -2054,6 +2053,15 @@ if (witchConsentAllowBtn) witchConsentAllowBtn.addEventListener('click', async (
     }, 1600);
     return;
   }
+  statusEl.textContent = 'Checking for a face…';
+  const hasFace = await clientFaceCheck(image);
+  if (!hasFace) {
+    statusEl.textContent = 'No face detected — show your face and try again.';
+    witchConsentAllowBtn.disabled = false;
+    witchConsentDenyBtn.disabled = false;
+    return;
+  }
+  statusEl.textContent = 'Photo taken. Completing your purchase…';
   ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId, image }));
   setTimeout(closeWitchSelfieConsent, 800);
 });
@@ -7244,6 +7252,23 @@ if (spellConsentAllowBtn) spellConsentAllowBtn.addEventListener('click', async (
 // Opens the camera only after the Allow click above, grabs exactly one
 // frame, then immediately stops the stream — nothing keeps recording or
 // stays connected to the camera once the snapshot is taken.
+// Returns true if a human face is detected in the data URL using the browser's
+// built-in FaceDetector API (Chrome/Edge). Falls back to true on unsupported
+// browsers so the server-side check can take over.
+async function clientFaceCheck(dataUrl) {
+  if (!('FaceDetector' in window)) return true;
+  try {
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const detector = new FaceDetector({ fastMode: false, maxDetectedFaces: 1 });
+    const faces = await detector.detect(img);
+    return faces.length > 0;
+  } catch {
+    return true;
+  }
+}
+
 function captureSelfiePhoto() {
   return new Promise((resolve, reject) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {

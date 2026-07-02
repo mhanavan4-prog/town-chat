@@ -1179,7 +1179,10 @@ const WITCH_DENIAL_LINES = [
 function detectHumanFace(dataUrl) {
   return new Promise((resolve) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return resolve(true);
+    if (!apiKey) {
+      console.warn('[witch face-check] ANTHROPIC_API_KEY not set — server-side check skipped (client FaceDetector is primary)');
+      return resolve(true);
+    }
 
     const match = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/s);
     if (!match) return resolve(false);
