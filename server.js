@@ -329,7 +329,16 @@ const PLANT_CATALOG = {
   meditation_lotus:       { name: 'Meditation Lotus',       icon: '🪷', effect: 'status',  statusType: 'meditate',   durationMs: 60000 },
   healing_herb:           { name: 'Healing Herb',           icon: '🌿', effect: 'heal',    amount: 40 },
   regen_root:             { name: 'Regen Root',             icon: '🫘', effect: 'status',  statusType: 'regen',      durationMs: 15000 },
-  cleansing_clover:       { name: 'Cleansing Clover',       icon: '🍀', effect: 'cleanse' }
+  cleansing_clover:       { name: 'Cleansing Clover',       icon: '🍀', effect: 'cleanse' },
+  // --- Witch-brewed potions (same use_item flow, enhanced durations) ---
+  health_potion_ii:       { name: 'Greater Healing Potion', icon: '❤️‍🔥', effect: 'heal',   amount: 80 },
+  regen_brew:             { name: 'Regen Brew',             icon: '🫧',  effect: 'status', statusType: 'regen',      durationMs: 45000 },
+  swift_brew:             { name: 'Swift Brew',             icon: '💨',  effect: 'status', statusType: 'speedboost', durationMs: 45000 },
+  shadow_draught:         { name: 'Shadow Draught',         icon: '🌘',  effect: 'status', statusType: 'ravencloak', durationMs: 60000 },
+  giants_elixir:          { name: "Giant's Elixir",         icon: '🍄‍🟫', effect: 'status', statusType: 'giant',      durationMs: 45000 },
+  bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🦇',  effect: 'status', statusType: 'bats',       durationMs: 45000 },
+  clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  effect: 'cleanse' },
+  chaos_brew:             { name: 'Chaos Brew',             icon: '🌈',  effect: 'status', statusType: 'colorcycle', durationMs: 60000 },
 };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
@@ -579,7 +588,15 @@ const ITEM_CATALOG = {
   shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
   abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
   death_ring:     { name: 'Death Ring',     icon: '💍',  slot: 'ring'   },
-  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   }
+  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   },
+  // ---- Loot materials (mob drops) ----
+  fur_scrap:      { name: 'Fur Scrap',       icon: '🧶', slot: null },
+  animal_pelt:    { name: 'Animal Pelt',     icon: '🐻', slot: null },
+  bone_shard:     { name: 'Bone Shard',      icon: '🦴', slot: null },
+  leather_hide:   { name: 'Leather Hide',    icon: '🟤', slot: null },
+  iron_ore:       { name: 'Iron Ore',        icon: '⛏️', slot: null },
+  enchanted_fur:  { name: 'Enchanted Fur',   icon: '🌟', slot: null },
+  shadow_essence: { name: 'Shadow Essence',  icon: '🫥', slot: null },
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
@@ -588,6 +605,131 @@ const ITEM_IDS = Object.keys(ITEM_CATALOG);
 for (const key in PLANT_CATALOG) {
   ITEM_CATALOG[key] = { name: PLANT_CATALOG[key].name, icon: PLANT_CATALOG[key].icon, slot: null };
 }
+// ---------------------------------------------------------------------------
+// Potion crafting recipes (witch cave)
+// ---------------------------------------------------------------------------
+const POTION_RECIPES = [
+  { id: 'health_potion_ii', result: 'health_potion_ii',
+    ingredients: [{ id: 'healing_herb', qty: 2 }],
+    desc: '2× Healing Herb → Greater Healing Potion (restores 80 HP)' },
+  { id: 'regen_brew', result: 'regen_brew',
+    ingredients: [{ id: 'regen_root', qty: 1 }, { id: 'healing_herb', qty: 1 }],
+    desc: 'Regen Root + Healing Herb → Regen Brew (regenerates HP over 45s)' },
+  { id: 'swift_brew', result: 'swift_brew',
+    ingredients: [{ id: 'swift_root', qty: 2 }],
+    desc: '2× Swift Root → Swift Brew (speed boost for 45s)' },
+  { id: 'shadow_draught', result: 'shadow_draught',
+    ingredients: [{ id: 'wolfsbane_bloom', qty: 1 }, { id: 'ravens_feather_plant', qty: 1 }],
+    desc: 'Wolfsbane Bloom + Raven\'s Feather → Shadow Draught (raven cloak 60s)' },
+  { id: 'giants_elixir', result: 'giants_elixir',
+    ingredients: [{ id: 'giants_cap', qty: 2 }],
+    desc: "2× Giant's Cap → Giant's Elixir (giant form 45s)" },
+  { id: 'bat_swarm_potion', result: 'bat_swarm_potion',
+    ingredients: [{ id: 'bats_breath', qty: 2 }],
+    desc: "2× Bat's Breath → Bat Swarm Potion (summon bats 45s)" },
+  { id: 'clarity_draught', result: 'clarity_draught',
+    ingredients: [{ id: 'meditation_lotus', qty: 1 }, { id: 'cleansing_clover', qty: 1 }],
+    desc: 'Meditation Lotus + Cleansing Clover → Clarity Draught (cleanse all effects)' },
+  { id: 'chaos_brew', result: 'chaos_brew',
+    ingredients: [{ id: 'rainbow_petal', qty: 1 }, { id: 'pumpkin_blossom', qty: 1 }, { id: 'toadstool', qty: 1 }],
+    desc: 'Rainbow Petal + Pumpkin Blossom + Toadstool → Chaos Brew (wild colour effects 60s)' },
+];
+
+// ---------------------------------------------------------------------------
+// Mob loot tables
+// ---------------------------------------------------------------------------
+const LOOT_TABLES = {
+  town_mob: [
+    { itemId: 'fur_scrap',   qty: 1, chance: 0.40 },
+    { itemId: 'bone_shard',  qty: 1, chance: 0.20 },
+    { gold: true, min: 1, max: 3, chance: 0.45 },
+  ],
+  // Wilds mobs keyed by mobType
+  shade_stalker: [
+    { itemId: 'fur_scrap',      qty: 1, chance: 0.55 },
+    { itemId: 'shadow_essence', qty: 1, chance: 0.15 },
+    { gold: true, min: 2, max: 8, chance: 0.60 },
+  ],
+  bog_brute: [
+    { itemId: 'animal_pelt',  qty: 1, chance: 0.65 },
+    { itemId: 'leather_hide', qty: 1, chance: 0.30 },
+    { gold: true, min: 4, max: 14, chance: 0.55 },
+    { itemId: 'iron_sword',   qty: 1, chance: 0.04 },
+  ],
+  night_howler: [
+    { itemId: 'fur_scrap',     qty: 1, chance: 0.60 },
+    { itemId: 'enchanted_fur', qty: 1, chance: 0.12 },
+    { gold: true, min: 3, max: 10, chance: 0.55 },
+  ],
+  will_o_wisp: [
+    { itemId: 'shadow_essence', qty: 1, chance: 0.70 },
+    { gold: true, min: 2, max: 6,  chance: 0.50 },
+    { itemId: 'silver_ring',    qty: 1, chance: 0.06 },
+  ],
+  // Dungeon keyed by xp tier
+  dungeon_t1: [ // xp=8
+    { itemId: 'bone_shard',  qty: 1, chance: 0.55 },
+    { itemId: 'fur_scrap',   qty: 1, chance: 0.30 },
+    { gold: true, min: 1, max: 4,  chance: 0.50 },
+  ],
+  dungeon_t2: [ // xp=18
+    { itemId: 'leather_hide', qty: 1, chance: 0.45 },
+    { itemId: 'bone_shard',   qty: 1, chance: 0.35 },
+    { gold: true, min: 3, max: 10,  chance: 0.60 },
+    { itemId: 'iron_sword',   qty: 1, chance: 0.05 },
+    { itemId: 'steel_shield', qty: 1, chance: 0.04 },
+  ],
+  dungeon_t3: [ // xp=35
+    { itemId: 'iron_ore',      qty: 1, chance: 0.50 },
+    { itemId: 'enchanted_fur', qty: 1, chance: 0.25 },
+    { gold: true, min: 8, max: 22,  chance: 0.65 },
+    { itemId: 'cursed_blade',  qty: 1, chance: 0.05 },
+    { itemId: 'bone_armor',    qty: 1, chance: 0.04 },
+    { itemId: 'dread_helm',    qty: 1, chance: 0.04 },
+  ],
+  dungeon_t4: [ // xp=65
+    { itemId: 'shadow_essence', qty: 1, chance: 0.60 },
+    { itemId: 'dragon_scale',   qty: 1, chance: 0.20 },
+    { gold: true, min: 18, max: 50, chance: 0.70 },
+    { itemId: 'void_staff',     qty: 1, chance: 0.06 },
+    { itemId: 'abyssal_armor',  qty: 1, chance: 0.05 },
+    { itemId: 'shadow_crown',   qty: 1, chance: 0.04 },
+    { itemId: 'wraith_treads',  qty: 1, chance: 0.04 },
+  ],
+};
+
+function dungeonLootTable(xp) {
+  if (xp <= 8)  return LOOT_TABLES.dungeon_t1;
+  if (xp <= 18) return LOOT_TABLES.dungeon_t2;
+  if (xp <= 35) return LOOT_TABLES.dungeon_t3;
+  return LOOT_TABLES.dungeon_t4;
+}
+
+// Rolls loot drops, adds items to inventory and gold to bank, returns label strings.
+function rollLoot(table, player) {
+  const inv = getInventory(player);
+  const earned = [];
+  for (const drop of table) {
+    if (Math.random() > drop.chance) continue;
+    if (drop.gold) {
+      const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+      if (player.accountKey) {
+        const acct = ensureBankAccount(player.accountKey);
+        acct.balance += amount;
+        saveBankAccounts();
+      }
+      earned.push(`🪙 ${amount}g`);
+    } else {
+      if (addItemToAccount(inv, drop.itemId, drop.qty || 1)) {
+        if (player.accountKey) saveInventories();
+        const meta = ITEM_CATALOG[drop.itemId];
+        earned.push(`${meta?.icon || '?'} ${meta?.name || drop.itemId}`);
+      }
+    }
+  }
+  return earned;
+}
+
 const BANK_SLOT_COUNT = 24;
 const BANK_STARTING_BALANCE = 100;
 const BANK_STARTER_ITEM_COUNT = 3;
@@ -2783,7 +2925,10 @@ wss.on('connection', (ws) => {
           t.respawnAt = now + DUNGEON_RESPAWN_MS;
           grantXP(player, preset.xp);
           advanceQuestProgress(player, 'kill_mob', null);
-          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)` });
+          const loot = rollLoot(dungeonLootTable(preset.xp), player);
+          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootStr}` });
+          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
         } else {
           send(ws, { type: 'attack_result', message: `⚔️ Hit ${preset.name} for ${dmg}!` });
         }
@@ -2807,11 +2952,19 @@ wss.on('connection', (ws) => {
       if (t.health <= 0) {
         t.dead = true;
         t.respawnAt = now + poolInfo.respawnMs;
-        // XP only for Wilds mobs (mob2), not town wildlife
         if (targetType === 'mob2') {
           grantXP(player, 15);
           advanceQuestProgress(player, 'kill_mob', null);
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)` });
+          const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
+          const loot = rollLoot(lootTable, player);
+          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)${lootStr}` });
+          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
+        } else if (targetType === 'mob') {
+          const loot = rollLoot(LOOT_TABLES.town_mob, player);
+          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!${lootStr}` });
+          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
         } else {
           send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!` });
         }
@@ -3232,6 +3385,36 @@ wss.on('connection', (ws) => {
       player.witchCaveReturnX = null;
       player.witchCaveReturnY = null;
       send(ws, { type: 'witch_cave_exited', x: retX, y: retY });
+      return;
+    }
+
+    if (msg.type === 'witch_craft') {
+      if (player.room !== 'witch_cave') return;
+      const recipeId = String(msg.recipeId || '');
+      const recipe = POTION_RECIPES.find(r => r.id === recipeId);
+      if (!recipe) { send(ws, { type: 'witch_craft_error', message: 'Unknown recipe.' }); return; }
+      const inv = getInventory(player);
+      for (const ing of recipe.ingredients) {
+        if (countItemQty(inv, ing.id) < ing.qty) {
+          const item = ITEM_CATALOG[ing.id] || PLANT_CATALOG[ing.id];
+          send(ws, { type: 'witch_craft_error', message: `You need ${ing.qty}× ${item?.name || ing.id}.` });
+          return;
+        }
+      }
+      for (const ing of recipe.ingredients) removeItemFromAccount(inv, ing.id, ing.qty);
+      const resultItem = ITEM_CATALOG[recipe.result] || PLANT_CATALOG[recipe.result];
+      if (!addItemToAccount(inv, recipe.result, 1)) {
+        // Undo removals if inventory is full (re-add ingredients)
+        for (const ing of recipe.ingredients) addItemToAccount(inv, ing.id, ing.qty);
+        send(ws, { type: 'witch_craft_error', message: 'Your inventory is full.' }); return;
+      }
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'witch_craft_result',
+        resultIcon: resultItem?.icon || '🧪',
+        resultName: resultItem?.name || recipe.result,
+        message: `🧪 Hazel brews your herbs into ${resultItem?.name || recipe.result}!`
+      });
       return;
     }
 

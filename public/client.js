@@ -129,15 +129,35 @@ const ITEM_CATALOG = {
   toadstool:              { name: 'Toadstool',             icon: '🐸', slot: null },
   wolfsbane_bloom:        { name: 'Wolfsbane Bloom',       icon: '🌺', slot: null },
   meditation_lotus:       { name: 'Meditation Lotus',      icon: '🪷', slot: null },
-  healing_herb:           { name: 'Healing Herb',          icon: '🌿', slot: null },
-  regen_root:             { name: 'Regen Root',            icon: '🫘', slot: null },
-  cleansing_clover:       { name: 'Cleansing Clover',      icon: '🍀', slot: null }
+  healing_herb:           { name: 'Healing Herb',          icon: '🌿', slot: null, desc: 'Restores 40 HP when consumed.' },
+  regen_root:             { name: 'Regen Root',            icon: '🫘', slot: null, desc: 'Regenerates HP over 15 seconds.' },
+  cleansing_clover:       { name: 'Cleansing Clover',      icon: '🍀', slot: null, desc: 'Removes all status effects.' },
+  // --- Witch-brewed potions ---
+  health_potion_ii:       { name: 'Greater Healing Potion', icon: '❤️‍🔥', slot: null, desc: 'Restores 80 HP. Brewed by Witch Hazel.' },
+  regen_brew:             { name: 'Regen Brew',             icon: '🫧',  slot: null, desc: 'Regenerates HP over 45 seconds.' },
+  swift_brew:             { name: 'Swift Brew',             icon: '💨',  slot: null, desc: 'Speed boost for 45 seconds.' },
+  shadow_draught:         { name: 'Shadow Draught',         icon: '🌘',  slot: null, desc: 'Raven cloak for 60 seconds.' },
+  giants_elixir:          { name: "Giant's Elixir",         icon: '🍄‍🟫', slot: null, desc: 'Giant form for 45 seconds.' },
+  bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🦇',  slot: null, desc: 'Surrounds you with bats for 45 seconds.' },
+  clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  slot: null, desc: 'Cleanses all status effects.' },
+  chaos_brew:             { name: 'Chaos Brew',             icon: '🌈',  slot: null, desc: 'Wild colour effects for 60 seconds.' },
+  // --- Loot materials ---
+  fur_scrap:      { name: 'Fur Scrap',      icon: '🧶', slot: null, desc: 'Rough scraps of fur. Used in leatherworking.' },
+  animal_pelt:    { name: 'Animal Pelt',    icon: '🐻', slot: null, desc: 'A cured pelt from a wilds creature.' },
+  bone_shard:     { name: 'Bone Shard',     icon: '🦴', slot: null, desc: 'Jagged bone. Useful for crafting.' },
+  leather_hide:   { name: 'Leather Hide',   icon: '🟤', slot: null, desc: 'Thick hide. Core material for armor.' },
+  iron_ore:       { name: 'Iron Ore',       icon: '⛏️', slot: null, desc: 'Raw iron ore. Smelt it into weapons.' },
+  enchanted_fur:  { name: 'Enchanted Fur',  icon: '🌟', slot: null, desc: 'Fur imbued with magical energy.' },
+  shadow_essence: { name: 'Shadow Essence', icon: '🫥', slot: null, desc: 'Distilled darkness from shadow creatures.' },
 };
 
 const PLANT_EFFECTS = new Set([
   'swift_root', 'featherleaf', 'giants_cap', 'shrinking_violet', 'pumpkin_blossom',
   'bats_breath', 'rainbow_petal', 'ravens_feather_plant', 'stumbleweed', 'gibberish_root',
-  'toadstool', 'wolfsbane_bloom', 'meditation_lotus', 'healing_herb', 'regen_root', 'cleansing_clover'
+  'toadstool', 'wolfsbane_bloom', 'meditation_lotus', 'healing_herb', 'regen_root', 'cleansing_clover',
+  // Witch-brewed potions use the same server-side plant handler
+  'health_potion_ii', 'regen_brew', 'swift_brew', 'shadow_draught',
+  'giants_elixir', 'bat_swarm_potion', 'clarity_draught', 'chaos_brew',
 ]);
 
 // A small hand-drawn flower (5 petals + center, on a short stem/leaf) used
@@ -826,6 +846,26 @@ function onWsMessage(ev) {
 
   if (msg.type === 'witch_shop_error') {
     const errEl = document.getElementById('witchShopErr');
+    if (errEl) errEl.textContent = msg.message;
+    return;
+  }
+
+  if (msg.type === 'loot_drop') {
+    if (msg.items && msg.items.length) {
+      setUnlockToast('💀 Loot: ' + msg.items.join('  '));
+    }
+    return;
+  }
+
+  if (msg.type === 'witch_craft_result') {
+    const errEl = document.getElementById('witchCraftErr');
+    if (errEl) errEl.textContent = '';
+    setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'witch_craft_error') {
+    const errEl = document.getElementById('witchCraftErr');
     if (errEl) errEl.textContent = msg.message;
     return;
   }
@@ -1967,30 +2007,97 @@ if (_partyChatSend) _partyChatSend.addEventListener('click', sendPartyChatMsg);
 let witchShopOpen = false;
 let witchShopItems = [];
 
+const POTION_RECIPES_CLIENT = [
+  { id: 'health_potion_ii', icon: '❤️‍🔥', name: 'Greater Healing Potion', desc: '2× Healing Herb',            ingredients: [{ id: 'healing_herb', qty: 2 }] },
+  { id: 'regen_brew',       icon: '🫧',  name: 'Regen Brew',             desc: 'Regen Root + Healing Herb',   ingredients: [{ id: 'regen_root', qty: 1 }, { id: 'healing_herb', qty: 1 }] },
+  { id: 'swift_brew',       icon: '💨',  name: 'Swift Brew',             desc: '2× Swift Root',               ingredients: [{ id: 'swift_root', qty: 2 }] },
+  { id: 'shadow_draught',   icon: '🌘',  name: 'Shadow Draught',         desc: 'Wolfsbane + Raven\'s Feather',ingredients: [{ id: 'wolfsbane_bloom', qty: 1 }, { id: 'ravens_feather_plant', qty: 1 }] },
+  { id: 'giants_elixir',    icon: '🍄‍🟫', name: "Giant's Elixir",         desc: "2× Giant's Cap",             ingredients: [{ id: 'giants_cap', qty: 2 }] },
+  { id: 'bat_swarm_potion', icon: '🦇',  name: 'Bat Swarm Potion',       desc: "2× Bat's Breath",            ingredients: [{ id: 'bats_breath', qty: 2 }] },
+  { id: 'clarity_draught',  icon: '✨',  name: 'Clarity Draught',        desc: 'Lotus + Cleansing Clover',    ingredients: [{ id: 'meditation_lotus', qty: 1 }, { id: 'cleansing_clover', qty: 1 }] },
+  { id: 'chaos_brew',       icon: '🌈',  name: 'Chaos Brew',             desc: 'Rainbow + Pumpkin + Toadstool',ingredients: [{ id: 'rainbow_petal', qty: 1 }, { id: 'pumpkin_blossom', qty: 1 }, { id: 'toadstool', qty: 1 }] },
+];
+
+let _witchActiveTab = 'shop';
+
 function openWitchModal(msg) {
   witchShopOpen = true;
   witchShopItems = msg.shopItems || [];
   const modal = document.getElementById('witchModal');
   if (!modal) return;
   document.getElementById('witchGreeting').textContent = msg.greeting || '';
-  const itemsEl = document.getElementById('witchShopItems');
-  itemsEl.innerHTML = '';
-  for (const item of witchShopItems) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);';
-    row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
-      <span style="flex:1;color:#e8d0ff;font-weight:600;">${item.name}</span>
-      <span style="color:#cc88ff;font-size:12px;">📸 selfie</span>
-      <button data-id="${item.id}" style="padding:5px 14px;background:#6622aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
-    row.querySelector('button').addEventListener('click', () => {
-      document.getElementById('witchShopErr').textContent = '';
-      ws.send(JSON.stringify({ type: 'witch_buy_item', itemId: item.id }));
+
+  // Tab bar
+  const tabBar = modal.querySelector('#witchTabBar');
+  if (tabBar) {
+    tabBar.querySelectorAll('button').forEach(btn => {
+      btn.style.background = btn.dataset.tab === _witchActiveTab ? '#6622aa' : 'transparent';
     });
-    itemsEl.appendChild(row);
   }
+
+  _renderWitchTab();
   document.getElementById('witchShopErr').textContent = '';
   modal.classList.remove('hidden');
 }
+
+function _renderWitchTab() {
+  const shopPanel  = document.getElementById('witchShopPanel');
+  const craftPanel = document.getElementById('witchCraftPanel');
+  if (!shopPanel || !craftPanel) return;
+  if (_witchActiveTab === 'shop') {
+    shopPanel.style.display = '';
+    craftPanel.style.display = 'none';
+    const itemsEl = document.getElementById('witchShopItems');
+    itemsEl.innerHTML = '';
+    for (const item of witchShopItems) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);';
+      row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+        <span style="flex:1;color:#e8d0ff;font-weight:600;">${item.name}</span>
+        <span style="color:#cc88ff;font-size:12px;">📸 selfie</span>
+        <button data-id="${item.id}" style="padding:5px 14px;background:#6622aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
+      row.querySelector('button').addEventListener('click', () => {
+        document.getElementById('witchShopErr').textContent = '';
+        ws.send(JSON.stringify({ type: 'witch_buy_item', itemId: item.id }));
+      });
+      itemsEl.appendChild(row);
+    }
+  } else {
+    shopPanel.style.display = 'none';
+    craftPanel.style.display = '';
+    const craftList = document.getElementById('witchCraftList');
+    craftList.innerHTML = '';
+    for (const recipe of POTION_RECIPES_CLIENT) {
+      const ingText = recipe.ingredients.map(i => {
+        const meta = ITEM_CATALOG[i.id];
+        return `${meta?.icon || '?'} ${i.qty}× ${meta?.name || i.id}`;
+      }).join(' + ');
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);flex-wrap:wrap;';
+      row.innerHTML = `<span style="font-size:22px;">${recipe.icon}</span>
+        <span style="flex:1;min-width:120px;color:#e8d0ff;font-weight:600;">${recipe.name}</span>
+        <span style="color:#cc88ff;font-size:11px;flex-basis:100%;padding-left:36px;">${ingText}</span>
+        <button data-rid="${recipe.id}" style="margin-left:auto;padding:5px 14px;background:#3a1866;color:#ddb0ff;border:1px solid #6622aa;border-radius:6px;cursor:pointer;font-size:12px;">Brew</button>`;
+      row.querySelector('button').addEventListener('click', () => {
+        document.getElementById('witchCraftErr').textContent = '';
+        ws.send(JSON.stringify({ type: 'witch_craft', recipeId: recipe.id }));
+      });
+      craftList.appendChild(row);
+    }
+  }
+}
+
+function witchSwitchTab(tab) {
+  _witchActiveTab = tab;
+  const tabBar = document.getElementById('witchTabBar');
+  if (tabBar) {
+    tabBar.querySelectorAll('button').forEach(btn => {
+      btn.style.background = btn.dataset.tab === tab ? '#6622aa' : 'transparent';
+    });
+  }
+  _renderWitchTab();
+}
+window.witchSwitchTab = witchSwitchTab;
 
 function closeWitchModal() {
   witchShopOpen = false;
@@ -3423,6 +3530,219 @@ function buildCaveScene() {
   cauldron.add(brew);
   cauldron.position.set(400, 0, 200);
   scene.add(cauldron);
+
+  // -------------------------------------------------------------------------
+  // Tarot cards — painted canvas textures hung on cave walls
+  // -------------------------------------------------------------------------
+  const TAROT_CARDS = [
+    { sym: '🌙', name: 'THE MOON',        num: 'XVIII' },
+    { sym: '☀️', name: 'THE SUN',         num: 'XIX'  },
+    { sym: '⭐', name: 'THE STAR',        num: 'XVII' },
+    { sym: '💀', name: 'DEATH',           num: 'XIII' },
+    { sym: '⚡', name: 'THE TOWER',       num: 'XVI'  },
+    { sym: '🔮', name: 'HIGH PRIESTESS',  num: 'II'   },
+    { sym: '💫', name: 'THE WORLD',       num: 'XXI'  },
+    { sym: '🌑', name: 'THE DEVIL',       num: 'XV'   },
+    { sym: '♾️', name: 'WHEEL OF FATE',   num: 'X'    },
+    { sym: '🌿', name: 'THE HERMIT',      num: 'IX'   },
+    { sym: '🔥', name: 'THE CHARIOT',     num: 'VII'  },
+    { sym: '🌊', name: 'HANGED MAN',      num: 'XII'  },
+  ];
+
+  function makeTarotTexture(card) {
+    const cw = 64, ch = 104;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const ctx = c.getContext('2d');
+    // Card background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, '#120826'); grad.addColorStop(1, '#1e0a3c');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
+    // Outer gold border
+    ctx.strokeStyle = '#c8a000'; ctx.lineWidth = 2.5;
+    ctx.strokeRect(3, 3, cw - 6, ch - 6);
+    // Inner border
+    ctx.strokeStyle = '#7a5500'; ctx.lineWidth = 1;
+    ctx.strokeRect(7, 7, cw - 14, ch - 14);
+    // Corner ornaments
+    for (const [ox, oy] of [[10, 10], [cw-10, 10], [10, ch-10], [cw-10, ch-10]]) {
+      ctx.fillStyle = '#c8a000'; ctx.beginPath();
+      ctx.arc(ox, oy, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    // Roman numeral
+    ctx.fillStyle = '#aa8800'; ctx.font = '7px serif'; ctx.textAlign = 'center';
+    ctx.fillText(card.num, cw / 2, 20);
+    // Main symbol
+    ctx.font = '30px serif'; ctx.textAlign = 'center';
+    ctx.fillText(card.sym, cw / 2, 58);
+    // Card name
+    ctx.fillStyle = '#e0c060'; ctx.font = 'bold 6px sans-serif';
+    ctx.fillText(card.name, cw / 2, 82);
+    // Decorative dots
+    ctx.fillStyle = '#7a5500';
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.arc(12 + i * 10, 90, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  const cardW = 60, cardH = 96;
+
+  // Back wall (north, z≈0) — 6 cards spread across x=100..700
+  const backCardXs = [110, 230, 350, 470, 590, 710];
+  backCardXs.forEach((cx, i) => {
+    const card = TAROT_CARDS[i];
+    const mat = new THREE.MeshLambertMaterial({ map: makeTarotTexture(card), emissive: 0x110022, emissiveIntensity: 0.5 });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(cardW, cardH), mat);
+    mesh.position.set(cx, 90, 2);   // just in front of back wall
+    scene.add(mesh);
+  });
+
+  // Left wall (x≈0) — 3 cards facing right (+x)
+  [{ z: 220, idx: 6 }, { z: 380, idx: 7 }, { z: 520, idx: 8 }].forEach(({ z, idx }) => {
+    const mat = new THREE.MeshLambertMaterial({ map: makeTarotTexture(TAROT_CARDS[idx]), emissive: 0x110022, emissiveIntensity: 0.5 });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(cardW, cardH), mat);
+    mesh.position.set(2, 90, z);
+    mesh.rotation.y = Math.PI / 2;
+    scene.add(mesh);
+  });
+
+  // Right wall (x≈800) — 3 cards facing left (-x)
+  [{ z: 220, idx: 9 }, { z: 380, idx: 10 }, { z: 520, idx: 11 }].forEach(({ z, idx }) => {
+    const mat = new THREE.MeshLambertMaterial({ map: makeTarotTexture(TAROT_CARDS[idx]), emissive: 0x110022, emissiveIntensity: 0.5 });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(cardW, cardH), mat);
+    mesh.position.set(798, 90, z);
+    mesh.rotation.y = -Math.PI / 2;
+    scene.add(mesh);
+  });
+
+  // -------------------------------------------------------------------------
+  // Rune circle painted on the floor under the cauldron
+  // -------------------------------------------------------------------------
+  (function() {
+    const rc = document.createElement('canvas'); rc.width = 256; rc.height = 256;
+    const rx = rc.getContext('2d');
+    // Faint circle
+    rx.strokeStyle = 'rgba(180,80,255,0.6)'; rx.lineWidth = 3;
+    rx.beginPath(); rx.arc(128, 128, 110, 0, Math.PI * 2); rx.stroke();
+    rx.beginPath(); rx.arc(128, 128, 88, 0, Math.PI * 2); rx.stroke();
+    // Inner star
+    rx.strokeStyle = 'rgba(200,120,255,0.5)'; rx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const a2 = ((i + 3) / 6) * Math.PI * 2 - Math.PI / 2;
+      rx.beginPath();
+      rx.moveTo(128 + Math.cos(a) * 88, 128 + Math.sin(a) * 88);
+      rx.lineTo(128 + Math.cos(a2) * 88, 128 + Math.sin(a2) * 88);
+      rx.stroke();
+    }
+    // Rune glyphs around the ring
+    rx.fillStyle = 'rgba(220,160,255,0.7)'; rx.font = '18px serif'; rx.textAlign = 'center';
+    const runes = ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ'];
+    runes.forEach((r, i) => {
+      const a = (i / runes.length) * Math.PI * 2 - Math.PI / 2;
+      rx.fillText(r, 128 + Math.cos(a) * 102, 128 + Math.sin(a) * 102 + 6);
+    });
+    const runeTex = new THREE.CanvasTexture(rc);
+    const runeCircle = new THREE.Mesh(
+      new THREE.PlaneGeometry(220, 220),
+      new THREE.MeshLambertMaterial({ map: runeTex, transparent: true, opacity: 0.85 })
+    );
+    runeCircle.rotation.x = -Math.PI / 2;
+    runeCircle.position.set(400, 1, 200);
+    scene.add(runeCircle);
+  })();
+
+  // -------------------------------------------------------------------------
+  // Alchemy table (northwest corner) with potion supplies
+  // -------------------------------------------------------------------------
+  (function() {
+    const woodMat  = new THREE.MeshLambertMaterial({ color: 0x3a1800 });
+    const darkWood = new THREE.MeshLambertMaterial({ color: 0x250e00 });
+    const tableG = new THREE.Group();
+    // Tabletop
+    const top = new THREE.Mesh(new THREE.BoxGeometry(130, 8, 75), woodMat);
+    top.position.y = 40; tableG.add(top);
+    // Legs
+    for (const [lx, lz] of [[-58, 32], [58, 32], [-58, -32], [58, -32]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(7, 40, 7), darkWood);
+      leg.position.set(lx, 20, lz); tableG.add(leg);
+    }
+    tableG.position.set(180, 0, 260);
+    scene.add(tableG);
+
+    // Potion bottles on the table
+    const bottleColors = [0xee2222, 0x2266ee, 0x22bb44, 0xddaa00, 0xaa22dd, 0x22cccc];
+    bottleColors.forEach((col, i) => {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.5, 5.5, 16, 8),
+        new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.25 })
+      );
+      body.position.y = 8; g.add(body);
+      const neck = new THREE.Mesh(
+        new THREE.CylinderGeometry(2, 3.5, 7, 8),
+        new THREE.MeshLambertMaterial({ color: 0x334455 })
+      );
+      neck.position.y = 19.5; g.add(neck);
+      const stopper = new THREE.Mesh(
+        new THREE.SphereGeometry(2.5, 6, 6),
+        new THREE.MeshLambertMaterial({ color: 0x222200 })
+      );
+      stopper.position.y = 23.5; g.add(stopper);
+      g.position.set(120 + i * 18, 44, 244 + (i % 2 === 0 ? -8 : 8));
+      scene.add(g);
+    });
+
+    // Mortar & pestle
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x556677 });
+    const mortar = new THREE.Mesh(new THREE.CylinderGeometry(9, 8, 10, 10), stoneMat);
+    mortar.position.set(228, 45, 280); scene.add(mortar);
+    const pestle = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2, 18, 8), stoneMat);
+    pestle.position.set(228, 55, 275); pestle.rotation.z = 0.4; scene.add(pestle);
+
+    // Scattered herbs on the table
+    const herbMat = new THREE.MeshLambertMaterial({ color: 0x226622 });
+    for (let i = 0; i < 4; i++) {
+      const herb = new THREE.Mesh(new THREE.SphereGeometry(3 + i * 0.5, 5, 4), herbMat);
+      herb.scale.y = 0.4;
+      herb.position.set(140 + i * 22, 45, 268);
+      scene.add(herb);
+    }
+
+    // Glowing candle on table corner
+    const candleMat = new THREE.MeshLambertMaterial({ color: 0xeecc88 });
+    const candle = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 20, 8), candleMat);
+    candle.position.set(236, 50, 252); scene.add(candle);
+    const flame = new THREE.Mesh(
+      new THREE.SphereGeometry(3, 5, 5),
+      new THREE.MeshLambertMaterial({ color: 0xff8800, emissive: 0xff5500, emissiveIntensity: 1 })
+    );
+    flame.position.set(236, 62, 252); scene.add(flame);
+    const candleLight = new THREE.PointLight(0xff8822, 1.2, 160);
+    candleLight.position.set(236, 65, 252); scene.add(candleLight);
+
+    // A bookshelf on the left wall
+    const shelfMat = new THREE.MeshLambertMaterial({ color: 0x2a1000 });
+    for (let shelf = 0; shelf < 3; shelf++) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(100, 6, 22), shelfMat);
+      plank.position.set(55, 60 + shelf * 40, 350);
+      scene.add(plank);
+      // Books on shelf
+      const bookCols = [0x883333, 0x334488, 0x338833, 0x884488, 0x888833];
+      for (let b = 0; b < 5; b++) {
+        const book = new THREE.Mesh(
+          new THREE.BoxGeometry(10 + b * 2, 28 + b, 16),
+          new THREE.MeshLambertMaterial({ color: bookCols[b] })
+        );
+        book.position.set(14 + b * 18, 78 + shelf * 40, 350);
+        scene.add(book);
+      }
+    }
+    // Shelf backing board
+    const backBoard = new THREE.Mesh(new THREE.BoxGeometry(110, 135, 5), shelfMat);
+    backBoard.position.set(55, 88, 363); scene.add(backBoard);
+  })();
 
   // Sign above witch
   const witchSign = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');

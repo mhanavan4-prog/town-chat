@@ -737,15 +737,28 @@
 
 <!-- Witch shop modal -->
 <div id="witchModal" class="overlay hidden">
-  <div style="background:rgba(18,8,36,0.97);border:1px solid rgba(160,80,255,0.55);border-radius:16px;padding:28px 26px;max-width:420px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(80,0,200,0.5);">
+  <div style="background:rgba(18,8,36,0.97);border:1px solid rgba(160,80,255,0.55);border-radius:16px;padding:28px 26px;max-width:440px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(80,0,200,0.5);">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       <span style="font-size:30px;">🧙‍♀️</span>
       <span style="font-size:20px;font-weight:800;color:#cc88ff;">Witch Hazel</span>
     </div>
-    <div id="witchGreeting" style="color:#e0c8ff;font-size:13px;margin-bottom:16px;line-height:1.5;font-style:italic;"></div>
-    <div style="font-weight:700;color:#bb77ff;font-size:13px;margin-bottom:10px;">⚗️ Her Wares</div>
-    <div id="witchShopItems" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
-    <div id="witchShopErr" style="color:#ff8888;font-size:12px;min-height:16px;margin-bottom:8px;"></div>
+    <div id="witchGreeting" style="color:#e0c8ff;font-size:13px;margin-bottom:14px;line-height:1.5;font-style:italic;"></div>
+    <!-- Tab bar -->
+    <div id="witchTabBar" style="display:flex;gap:6px;margin-bottom:14px;">
+      <button data-tab="shop"  style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(160,80,255,0.4);color:#cc88ff;cursor:pointer;font-size:12px;font-weight:700;background:#6622aa;" onclick="witchSwitchTab('shop')">⚗️ Shop</button>
+      <button data-tab="craft" style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(160,80,255,0.4);color:#cc88ff;cursor:pointer;font-size:12px;font-weight:700;background:transparent;" onclick="witchSwitchTab('craft')">🧪 Brew</button>
+    </div>
+    <!-- Shop panel -->
+    <div id="witchShopPanel">
+      <div id="witchShopItems" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+      <div id="witchShopErr" style="color:#ff8888;font-size:12px;min-height:16px;margin-bottom:8px;"></div>
+    </div>
+    <!-- Craft panel -->
+    <div id="witchCraftPanel" style="display:none;">
+      <div style="color:#cc88ff;font-size:12px;margin-bottom:10px;">Bring me herbs from the Wilds and I'll brew them into something powerful.</div>
+      <div id="witchCraftList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+      <div id="witchCraftErr" style="color:#ff8888;font-size:12px;min-height:16px;margin-bottom:8px;"></div>
+    </div>
     <button id="witchModalClose" style="width:100%;padding:9px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:#ccbbee;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
   </div>
 </div>
