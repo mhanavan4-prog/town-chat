@@ -1165,6 +1165,68 @@ function sanitizeImage(raw) {
   return raw;
 }
 
+const WITCH_DENIAL_LINES = [
+  "I see no soul in this image… only trickery. Come back with your true face!",
+  "My cauldron rejects fakes! That's not a human — try again with your real face, dearie.",
+  "The spirits whisper of deception. Show me YOUR face, not a picture of a picture.",
+  "Hmm… my crystal ball sees right through you. That face is not of flesh and blood!",
+  "Do you think me a fool?! Bring me a REAL selfie or take your gold and leave!",
+];
+
+// Calls Claude Haiku vision API to check whether the image contains a real human face.
+// Fails open (returns true) on network/API errors so purchases aren't blocked by outages.
+function detectHumanFace(dataUrl) {
+  return new Promise((resolve) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return resolve(true);
+
+    const match = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/s);
+    if (!match) return resolve(false);
+    const [, mediaType, base64Data] = match;
+
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 16,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+          { type: 'text', text: 'Does this image contain a real human face? Reply with only YES or NO.' }
+        ]
+      }]
+    });
+
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = (parsed?.content?.[0]?.text || '').trim().toUpperCase();
+          resolve(text.startsWith('YES'));
+        } catch { resolve(true); }
+      });
+    });
+
+    req.on('error', () => resolve(true));
+    req.setTimeout(10000, () => { req.destroy(); resolve(true); });
+    req.write(body);
+    req.end();
+  });
+}
+
 // Must match CHARACTER_PRESETS.length in client.js — the server doesn't
 // know or care what the presets actually look like, it just needs to
 // validate the index a client claims and relay it to everyone else.
@@ -3218,25 +3280,53 @@ wss.on('connection', (ws) => {
       const image = sanitizeImage(msg.image);
       if (!image) { send(ws, { type: 'witch_shop_error', message: 'Invalid image.' }); return; }
       const { itemId } = pending;
-      const inv = getInventory(player);
-      if (!addItemToAccount(inv, itemId, 1)) {
-        send(ws, { type: 'witch_shop_error', message: 'Inventory full.' }); return;
-      }
-      if (player.accountKey) saveInventories();
-      // List selfie on auction for 25 gold (10-min duration)
-      listings.push({
-        id: makeId(),
-        sellerKey: null, sellerId: 'witch', sellerName: 'Witch Hazel',
-        isSelfie: true, image,
-        startingBid: 25, buyoutPrice: null,
-        currentBid: null, currentBidderKey: null, currentBidderName: null,
-        createdAt: Date.now(), expiresAt: Date.now() + 10 * 60000
-      });
-      saveListings();
-      broadcastAuctionState();
-      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'witch_purchase_complete',
-        itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
+      // Async: verify the selfie contains a real human face before completing the sale.
+      detectHumanFace(image).then(isHuman => {
+        if (!isHuman) {
+          const denial = WITCH_DENIAL_LINES[Math.floor(Math.random() * WITCH_DENIAL_LINES.length)];
+          send(ws, { type: 'witch_dialogue', greeting: denial, shopItems: [] });
+          return;
+        }
+        const inv = getInventory(player);
+        if (!addItemToAccount(inv, itemId, 1)) {
+          send(ws, { type: 'witch_shop_error', message: 'Inventory full.' }); return;
+        }
+        if (player.accountKey) saveInventories();
+        listings.push({
+          id: makeId(),
+          sellerKey: null, sellerId: 'witch', sellerName: 'Witch Hazel',
+          isSelfie: true, image,
+          startingBid: 25, buyoutPrice: null,
+          currentBid: null, currentBidderKey: null, currentBidderName: null,
+          createdAt: Date.now(), expiresAt: Date.now() + 10 * 60000
+        });
+        saveListings();
+        broadcastAuctionState();
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'witch_purchase_complete',
+          itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
+        });
+      }).catch(() => {
+        // API failure — fail open so a network blip doesn't block every purchase.
+        const inv = getInventory(player);
+        if (!addItemToAccount(inv, itemId, 1)) {
+          send(ws, { type: 'witch_shop_error', message: 'Inventory full.' }); return;
+        }
+        if (player.accountKey) saveInventories();
+        listings.push({
+          id: makeId(),
+          sellerKey: null, sellerId: 'witch', sellerName: 'Witch Hazel',
+          isSelfie: true, image,
+          startingBid: 25, buyoutPrice: null,
+          currentBid: null, currentBidderKey: null, currentBidderName: null,
+          createdAt: Date.now(), expiresAt: Date.now() + 10 * 60000
+        });
+        saveListings();
+        broadcastAuctionState();
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'witch_purchase_complete',
+          itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
+        });
       });
       return;
     }
