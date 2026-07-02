@@ -7459,6 +7459,12 @@ function tryInteract() {
     sitDown(seat);
     return;
   }
+  // Cave: zone-based — no kiosk distance needed
+  if (me.room === 'witch_cave') {
+    if (me.y < 300) { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
+    exitWitchCave();
+    return;
+  }
   const kiosk = findNearestKiosk();
   if (kiosk && kiosk.game) { openArcadeGame(kiosk.game); return; }
   if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
@@ -7496,6 +7502,19 @@ function updateInteractHint() {
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} sit`;
+    return;
+  }
+  // Cave interactions bypass the kiosk distance system — zone-based on y position
+  if (me.room === 'witch_cave') {
+    if (me.y < 300) {
+      hint.classList.remove('hidden');
+      document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Witch Hazel`;
+    } else if (me.y > 560) {
+      hint.classList.remove('hidden');
+      document.getElementById('interactHintText').textContent = `${interactVerb()} leave the cave`;
+    } else {
+      hint.classList.add('hidden');
+    }
     return;
   }
   const kiosk = findNearestKiosk();
@@ -7713,12 +7732,15 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD) {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || me.room === 'witch_cave') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
-    me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
-    me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
-    if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
+    const boundsW = (world === CAVE_WORLD || me.room === 'witch_cave') ? CAVE_WORLD.width : world.width;
+    const boundsH = (world === CAVE_WORLD || me.room === 'witch_cave') ? CAVE_WORLD.height : world.height;
+    me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
+    me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
+    if (world === CAVE_WORLD || me.room === 'witch_cave') { me.room = 'witch_cave'; }
+    else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
     return;
   }
