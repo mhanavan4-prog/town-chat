@@ -3320,7 +3320,11 @@ function addSpookyDecor(scene, w2) {
 // ---------------------------------------------------------------------------
 let caveScene, caveCamera;
 const CAVE_WORLD = { width: 800, height: 700, buildings: [], spawn: { x: 400, y: 450 } };
-let CAVE_KIOSKS = [];
+// Kiosks defined here so they work even if buildCaveScene() fails before reaching its end
+const CAVE_KIOSKS = [
+  { x: 400, z: 165, witch: 'hazel' },
+  { x: 400, z: 640, portal: 'cave_exit' }
+];
 
 const WITCH_CAVE_ENTRANCE_X = 2000;
 const WITCH_CAVE_ENTRANCE_Z = 2000;
@@ -3328,9 +3332,11 @@ const WITCH_CAVE_ENTRANCE_Z = 2000;
 function buildCaveScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d0520);
-  // Fog starts further out so the full cave is visible; indoor cam back=92 stays well inside 500.
   scene.fog = new THREE.Fog(0x0d0520, 350, 900);
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
+  // Assign early so swapToCaveMap works even if geometry building throws below
+  caveScene = scene;
+  caveCamera = camera;
 
   // Bright purple ambient so stone surfaces are actually visible
   scene.add(new THREE.AmbientLight(0xaa55dd, 2.5));
@@ -3407,14 +3413,6 @@ function buildCaveScene() {
   exitSign.position.set(400, 110, 650);
   scene.add(exitSign);
 
-  // Kiosks: witch NPC at her mesh position, cave exit near south
-  CAVE_KIOSKS = [
-    { x: 400, z: 165, witch: 'hazel' },
-    { x: 400, z: 640, portal: 'cave_exit' }
-  ];
-
-  caveScene = scene;
-  caveCamera = camera;
 }
 
 function swapToCaveMap() {
