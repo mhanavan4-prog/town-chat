@@ -100,6 +100,19 @@ const ITEM_CATALOG = {
   travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
   travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
   trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
+  // Witch Hazel's shop items — mirrored from server.js ITEM_CATALOG
+  cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️',  slot: 'weapon' },
+  shadow_staff:   { name: 'Shadow Staff',   icon: '🪄',  slot: 'weapon' },
+  bone_armor:     { name: 'Bone Armor',     icon: '🦴',  slot: 'chest'  },
+  shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑',  slot: 'chest'  },
+  witches_boon:   { name: "Witch's Boon",   icon: '🔮',  slot: 'ring'   },
+  dread_helm:     { name: 'Dread Helm',     icon: '💀',  slot: 'head'   },
+  soul_treads:    { name: 'Soul Treads',    icon: '👁️',  slot: 'feet'   },
+  void_staff:     { name: 'Void Staff',     icon: '☄️',  slot: 'weapon' },
+  shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
+  abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
+  death_ring:     { name: 'Death Ring',     icon: '💍',  slot: 'ring'   },
+  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   },
   // The Wilds' 16 harvestable plants — name/icon mirrored from server.js's
   // PLANT_CATALOG. The actual effect (what happens when used) is resolved
   // server-side; the client only needs to know these exist and are usable.
