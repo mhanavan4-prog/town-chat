@@ -566,7 +566,20 @@ const ITEM_CATALOG = {
   // ---- Wanderer starter set ----
   travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
   travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
-  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  }
+  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
+  // ---- Witch cave exclusive (selfie-gated) ----
+  cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️',  slot: 'weapon' },
+  shadow_staff:   { name: 'Shadow Staff',   icon: '🪄',  slot: 'weapon' },
+  bone_armor:     { name: 'Bone Armor',     icon: '🦴',  slot: 'chest'  },
+  shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑',  slot: 'chest'  },
+  witches_boon:   { name: "Witch's Boon",   icon: '🔮',  slot: 'ring'   },
+  dread_helm:     { name: 'Dread Helm',     icon: '💀',  slot: 'head'   },
+  soul_treads:    { name: 'Soul Treads',    icon: '👁️',  slot: 'feet'   },
+  void_staff:     { name: 'Void Staff',     icon: '☄️',  slot: 'weapon' },
+  shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
+  abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
+  death_ring:     { name: 'Death Ring',     icon: '💍',  slot: 'ring'   },
+  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   }
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
@@ -1819,6 +1832,40 @@ const NPC_SHOPS = {
     { id: 'spirit_ring', price: 45 }, { id: 'enchanted_gem', price: 30 }
   ]}
 };
+
+// Witch cave — entrance in the Wilds, leads to a small cave room
+const WITCH_CAVE_ENTRANCE = { x: 2000, y: 2000 };
+const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
+
+const WITCH_SHOP_TIERS = [
+  // tier 0: lvl 1-5
+  [
+    { id: 'cursed_blade' }, { id: 'shadow_cloak' },
+    { id: 'dread_helm' },   { id: 'witches_boon' }, { id: 'soul_treads' }
+  ],
+  // tier 1: lvl 6-10
+  [
+    { id: 'shadow_staff' }, { id: 'bone_armor' },
+    { id: 'shadow_crown' }, { id: 'witches_boon' }, { id: 'soul_treads' }
+  ],
+  // tier 2: lvl 11-15
+  [
+    { id: 'void_staff' },   { id: 'abyssal_armor' },
+    { id: 'shadow_crown' }, { id: 'death_ring' }, { id: 'wraith_treads' }
+  ],
+  // tier 3: lvl 16-20
+  [
+    { id: 'void_staff' },   { id: 'abyssal_armor' },
+    { id: 'shadow_crown' }, { id: 'death_ring' }, { id: 'wraith_treads' }
+  ]
+];
+
+function witchShopTierForLevel(level) {
+  if (level >= 16) return 3;
+  if (level >= 11) return 2;
+  if (level >= 6) return 1;
+  return 0;
+}
 
 const parties = new Map();
 const playerParty = new Map();
@@ -3076,6 +3123,120 @@ wss.on('connection', (ws) => {
     if (msg.type === 'party_leave') {
       leaveParty(player);
       send(ws, { type: 'party_disbanded' });
+      return;
+    }
+
+    if (msg.type === 'party_chat') {
+      const text = String(msg.text || '').trim().slice(0, 200);
+      if (!text) return;
+      const partyId = playerParty.get(player.id);
+      if (!partyId) return;
+      const party = parties.get(partyId);
+      if (!party) return;
+      for (const memberId of party.members) {
+        const m = players.get(memberId);
+        if (m) send(m.ws, { type: 'party_msg', fromName: player.name, fromId: player.id, text });
+      }
+      return;
+    }
+
+    if (msg.type === 'enter_witch_cave') {
+      if (player.room !== 'wilds' || player.isDead) return;
+      const dist = Math.hypot(player.x - WITCH_CAVE_ENTRANCE.x, player.y - WITCH_CAVE_ENTRANCE.y);
+      if (dist > 140) return;
+      player.witchCaveReturnX = player.x;
+      player.witchCaveReturnY = player.y;
+      player.room = 'witch_cave';
+      player.x = WITCH_CAVE_SPAWN.x;
+      player.y = WITCH_CAVE_SPAWN.y;
+      send(ws, { type: 'witch_cave_entered', spawn: WITCH_CAVE_SPAWN });
+      return;
+    }
+
+    if (msg.type === 'exit_witch_cave') {
+      if (player.room !== 'witch_cave') return;
+      const retX = player.witchCaveReturnX || WITCH_CAVE_ENTRANCE.x;
+      const retY = player.witchCaveReturnY || WITCH_CAVE_ENTRANCE.y + 50;
+      player.room = 'wilds';
+      player.x = retX;
+      player.y = retY;
+      player.witchCaveReturnX = null;
+      player.witchCaveReturnY = null;
+      send(ws, { type: 'witch_cave_exited', x: retX, y: retY });
+      return;
+    }
+
+    if (msg.type === 'witch_talk') {
+      if (player.room !== 'witch_cave') return;
+      const prog = getProgress(player);
+      const tier = witchShopTierForLevel(prog.level);
+      const tierItems = WITCH_SHOP_TIERS[tier];
+      send(ws, { type: 'witch_dialogue',
+        greeting: "Ah... another wandering soul finds my cave. 🕯️ I trade in something more valuable than gold — a glimpse of you, captured in the moment. Each selfie you give me goes on the auction block for 25 gold. Agree to my terms, and you may browse my wares.",
+        shopItems: tierItems.map(s => ({
+          id: s.id,
+          name: ITEM_CATALOG[s.id]?.name || s.id,
+          icon: ITEM_CATALOG[s.id]?.icon || '?'
+        })),
+        level: prog.level, tier
+      });
+      return;
+    }
+
+    if (msg.type === 'witch_buy_item') {
+      if (player.room !== 'witch_cave') return;
+      const itemId = String(msg.itemId || '');
+      const prog = getProgress(player);
+      const tierItems = WITCH_SHOP_TIERS[witchShopTierForLevel(prog.level)];
+      if (!tierItems.find(s => s.id === itemId) || !ITEM_CATALOG[itemId]) {
+        send(ws, { type: 'witch_shop_error', message: 'That item is not in my collection for your level.' });
+        return;
+      }
+      const consentId = makeId();
+      player.pendingWitchPurchase = { consentId, itemId };
+      // The client MUST show an explicit consent prompt before capturing any camera.
+      send(ws, { type: 'witch_selfie_request', consentId,
+        itemName: ITEM_CATALOG[itemId]?.name,
+        itemIcon: ITEM_CATALOG[itemId]?.icon
+      });
+      return;
+    }
+
+    if (msg.type === 'witch_selfie_payment') {
+      if (player.room !== 'witch_cave') return;
+      const pending = player.pendingWitchPurchase;
+      if (!pending || pending.consentId !== String(msg.consentId || '')) {
+        send(ws, { type: 'witch_shop_error', message: 'No pending purchase.' });
+        return;
+      }
+      player.pendingWitchPurchase = null;
+      if (!msg.image) {
+        send(ws, { type: 'witch_shop_error', message: 'No selfie captured — purchase cancelled.' });
+        return;
+      }
+      const image = sanitizeImage(msg.image);
+      if (!image) { send(ws, { type: 'witch_shop_error', message: 'Invalid image.' }); return; }
+      const { itemId } = pending;
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, itemId, 1)) {
+        send(ws, { type: 'witch_shop_error', message: 'Inventory full.' }); return;
+      }
+      if (player.accountKey) saveInventories();
+      // List selfie on auction for 25 gold (10-min duration)
+      listings.push({
+        id: makeId(),
+        sellerKey: null, sellerId: 'witch', sellerName: 'Witch Hazel',
+        isSelfie: true, image,
+        startingBid: 25, buyoutPrice: null,
+        currentBid: null, currentBidderKey: null, currentBidderName: null,
+        createdAt: Date.now(), expiresAt: Date.now() + 10 * 60000
+      });
+      saveListings();
+      broadcastAuctionState();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'witch_purchase_complete',
+        itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
+      });
       return;
     }
   });

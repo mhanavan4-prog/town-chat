@@ -776,6 +776,46 @@ function onWsMessage(ev) {
     setUnlockToast(msg.message);
     return;
   }
+
+  if (msg.type === 'party_msg') {
+    appendPartyChatLine(msg.fromName, msg.text);
+    return;
+  }
+
+  if (msg.type === 'witch_cave_entered') {
+    if (me) { me.room = 'witch_cave'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToCaveMap();
+    return;
+  }
+
+  if (msg.type === 'witch_cave_exited') {
+    if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
+    swapToWildsMap();
+    setUnlockToast('You leave the Witch\'s cave.');
+    return;
+  }
+
+  if (msg.type === 'witch_dialogue') {
+    openWitchModal(msg);
+    return;
+  }
+
+  if (msg.type === 'witch_selfie_request') {
+    openWitchSelfieConsent(msg.consentId, msg.itemName, msg.itemIcon);
+    return;
+  }
+
+  if (msg.type === 'witch_purchase_complete') {
+    closeWitchSelfieConsent();
+    setUnlockToast(`🧙‍♀️ ${msg.itemIcon} ${msg.itemName} added to your inventory!`);
+    return;
+  }
+
+  if (msg.type === 'witch_shop_error') {
+    const errEl = document.getElementById('witchShopErr');
+    if (errEl) errEl.textContent = msg.message;
+    return;
+  }
 }
 setupWs();
 
@@ -1630,6 +1670,7 @@ function strikeNearestEnemy() {
   if (nearest) {
     ws.send(JSON.stringify({ type: 'strike', targetType: nearest.kind, targetId: nearest.targetId }));
     flashCreatureHit(nearest.kind, nearest.targetId);
+    triggerAttackAnim();
   } else {
     setUnlockToast('No enemies nearby to strike.');
   }
@@ -1842,6 +1883,164 @@ if (partyDeclineBtn) partyDeclineBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Player context menu (appears on clicking another player)
+// ---------------------------------------------------------------------------
+const _playerCtxMenu = document.getElementById('playerContextMenu');
+const _playerCtxAttackBtn = document.getElementById('playerContextAttack');
+const _playerCtxInviteBtn = document.getElementById('playerContextInvite');
+if (_playerCtxAttackBtn) _playerCtxAttackBtn.addEventListener('click', () => {
+  if (!playerContextMenuId) return;
+  const id = playerContextMenuId;
+  hidePlayerContextMenu();
+  ws.send(JSON.stringify({ type: 'strike', targetType: 'player', targetId: id }));
+  triggerAttackAnim();
+});
+if (_playerCtxInviteBtn) _playerCtxInviteBtn.addEventListener('click', () => {
+  if (!playerContextMenuId) return;
+  inviteToParty(playerContextMenuId);
+  hidePlayerContextMenu();
+  setUnlockToast('Party invite sent!');
+});
+// Click anywhere else to dismiss the context menu
+document.addEventListener('click', (e) => {
+  if (_playerCtxMenu && !_playerCtxMenu.contains(e.target)) hidePlayerContextMenu();
+});
+
+// ---------------------------------------------------------------------------
+// Party chat
+// ---------------------------------------------------------------------------
+const _partyChatLog = document.getElementById('partyChatLog');
+const _partyChatInput = document.getElementById('partyChatInput');
+const _partyChatSend = document.getElementById('partyChatSend');
+
+function appendPartyChatLine(fromName, text) {
+  if (!_partyChatLog) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(100,160,255,0.08);font-size:11px;';
+  const isMe = fromName === (me ? me.name : '');
+  line.innerHTML = `<span style="color:${isMe ? '#88ccff' : '#ccaaff'};font-weight:700;">${fromName}:</span> <span style="color:#ddeeff;">${text}</span>`;
+  _partyChatLog.appendChild(line);
+  _partyChatLog.scrollTop = _partyChatLog.scrollHeight;
+}
+
+function sendPartyChatMsg() {
+  if (!_partyChatInput) return;
+  const text = _partyChatInput.value.trim();
+  if (!text || !myParty) return;
+  ws.send(JSON.stringify({ type: 'party_chat', text }));
+  _partyChatInput.value = '';
+}
+
+if (_partyChatInput) {
+  _partyChatInput.addEventListener('focus', () => { typing = true; });
+  _partyChatInput.addEventListener('blur', () => { typing = false; });
+  _partyChatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendPartyChatMsg();
+    e.stopPropagation();
+  });
+}
+if (_partyChatSend) _partyChatSend.addEventListener('click', sendPartyChatMsg);
+
+// ---------------------------------------------------------------------------
+// Witch dialogue / shop modal
+// ---------------------------------------------------------------------------
+let witchShopOpen = false;
+let witchShopItems = [];
+
+function openWitchModal(msg) {
+  witchShopOpen = true;
+  witchShopItems = msg.shopItems || [];
+  const modal = document.getElementById('witchModal');
+  if (!modal) return;
+  document.getElementById('witchGreeting').textContent = msg.greeting || '';
+  const itemsEl = document.getElementById('witchShopItems');
+  itemsEl.innerHTML = '';
+  for (const item of witchShopItems) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);';
+    row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+      <span style="flex:1;color:#e8d0ff;font-weight:600;">${item.name}</span>
+      <span style="color:#cc88ff;font-size:12px;">📸 selfie</span>
+      <button data-id="${item.id}" style="padding:5px 14px;background:#6622aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      document.getElementById('witchShopErr').textContent = '';
+      ws.send(JSON.stringify({ type: 'witch_buy_item', itemId: item.id }));
+    });
+    itemsEl.appendChild(row);
+  }
+  document.getElementById('witchShopErr').textContent = '';
+  modal.classList.remove('hidden');
+}
+
+function closeWitchModal() {
+  witchShopOpen = false;
+  const modal = document.getElementById('witchModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+const witchModalCloseBtn = document.getElementById('witchModalClose');
+if (witchModalCloseBtn) witchModalCloseBtn.addEventListener('click', closeWitchModal);
+
+// ---------------------------------------------------------------------------
+// Witch selfie consent — MUST be explicit, per memory constraint
+// ---------------------------------------------------------------------------
+let witchConsentOpen = false;
+let activeWitchConsentId = null;
+
+function openWitchSelfieConsent(consentId, itemName, itemIcon) {
+  activeWitchConsentId = consentId;
+  witchConsentOpen = true;
+  closeWitchModal();
+  const modal = document.getElementById('witchConsentModal');
+  if (!modal) return;
+  document.getElementById('witchConsentText').textContent =
+    `Witch Hazel wants to take ONE photo of you right now using your camera, and list it on the Auction House for 25 gold as payment for ${itemIcon} ${itemName}. You can Allow or Decline — your camera will not open unless you click Allow.`;
+  document.getElementById('witchConsentStatus').textContent = '';
+  document.getElementById('witchConsentAllowBtn').disabled = false;
+  document.getElementById('witchConsentDenyBtn').disabled = false;
+  modal.classList.remove('hidden');
+}
+
+function closeWitchSelfieConsent() {
+  witchConsentOpen = false;
+  activeWitchConsentId = null;
+  const modal = document.getElementById('witchConsentModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+const witchConsentDenyBtn = document.getElementById('witchConsentDenyBtn');
+if (witchConsentDenyBtn) witchConsentDenyBtn.addEventListener('click', () => {
+  if (!activeWitchConsentId) return;
+  ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId: activeWitchConsentId, image: null }));
+  closeWitchSelfieConsent();
+  setUnlockToast('Purchase cancelled.');
+});
+
+const witchConsentAllowBtn = document.getElementById('witchConsentAllowBtn');
+if (witchConsentAllowBtn) witchConsentAllowBtn.addEventListener('click', async () => {
+  if (!activeWitchConsentId) return;
+  const consentId = activeWitchConsentId;
+  const statusEl = document.getElementById('witchConsentStatus');
+  witchConsentAllowBtn.disabled = true;
+  witchConsentDenyBtn.disabled = true;
+  statusEl.textContent = 'Opening camera for one photo…';
+  let image = null;
+  try {
+    image = await captureSelfiePhoto();
+    statusEl.textContent = 'Photo taken. Completing your purchase…';
+  } catch (e) {
+    statusEl.textContent = 'Camera unavailable — purchase cancelled.';
+    setTimeout(() => {
+      ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId, image: null }));
+      closeWitchSelfieConsent();
+    }, 1600);
+    return;
+  }
+  ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId, image }));
+  setTimeout(closeWitchSelfieConsent, 800);
+});
+
+// ---------------------------------------------------------------------------
 // Quest dialogue (shown when talking to an NPC)
 // ---------------------------------------------------------------------------
 let pendingQuestNpcId = null;
@@ -2003,13 +2202,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -2184,7 +2383,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen;
+    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -2240,8 +2439,40 @@ window.addEventListener('mousemove', (e) => {
   else canvas.style.cursor = 'default';
 });
 
+function triggerAttackAnim() {
+  const v = visuals[myId];
+  if (!v || !me) return;
+  const weapon = me.equippedWeapon || null;
+  let type = 'punch';
+  if (weapon === 'iron_sword' || weapon === 'cursed_blade' || weapon === 'void_staff') type = 'slash';
+  else if (weapon === 'spell_tome' || weapon === 'shadow_staff' || weapon === 'magic_scroll') type = 'cast';
+  v.attackAnimStartAt = performance.now();
+  v.attackAnimType = type;
+}
+
+let playerContextMenuId = null;
+function showPlayerContextMenu(targetId, x, y) {
+  playerContextMenuId = targetId;
+  const menu = document.getElementById('playerContextMenu');
+  const p = players[targetId];
+  if (menu) {
+    document.getElementById('playerContextName').textContent = p ? p.name : 'Player';
+    // Position so it doesn't clip off screen
+    menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
+    menu.classList.remove('hidden');
+  }
+}
+function hidePlayerContextMenu() {
+  const menu = document.getElementById('playerContextMenu');
+  if (menu) menu.classList.add('hidden');
+  playerContextMenuId = null;
+}
+
 function handleCanvasClick(clientX, clientY) {
   if (!gameStarted || !me || anyOverlayOpen()) return;
+  // Dismiss any open context menu first
+  if (playerContextMenuId !== null) { hidePlayerContextMenu(); return; }
   const hit = raycastHitAt(clientX, clientY);
   if (armedTarget) {
     if (hit && hit.kind === 'player') {
@@ -2251,9 +2482,15 @@ function handleCanvasClick(clientX, clientY) {
     return;
   }
   if (!hit) return;
+  // Clicking another player opens a context menu (attack / invite) instead of auto-striking
+  if (hit.kind === 'player' && hit.targetId !== myId) {
+    showPlayerContextMenu(hit.targetId, clientX, clientY);
+    return;
+  }
   if (ATTACKABLE_KINDS.has(hit.kind)) {
     ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
     flashCreatureHit(hit.kind, hit.targetId);
+    triggerAttackAnim();
   } else if (hit.kind === 'decor') {
     ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
   }
@@ -2740,10 +2977,9 @@ function getRenderPos(p) {
 
 function contextMatches(room) {
   if (mode === 'indoor') return room === indoorBuildingId;
-  // mode stays 'outdoor' for both the town and the Wilds, so which one a
-  // remote player should actually be visible in depends on activeScene.
   if (activeScene === dungeonScene) return me && room === me.room;
   if (activeScene === wildsScene) return room === 'wilds';
+  if (activeScene === caveScene) return room === 'witch_cave';
   return room === 'outside';
 }
 
@@ -2828,6 +3064,7 @@ function initScene(w) {
 
   if (world2) buildWildsScene(world2);
   buildDungeonScene();
+  buildCaveScene();
 }
 
 // ---------------------------------------------------------------------------
@@ -2978,6 +3215,213 @@ function buildTownNPCs(scene) {
 // the two scenes, so updateDayNightCycle() keeps working unmodified no
 // matter which one currently owns them.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Spooky wilds decor — twisted trees, graveyards, ruined buildings
+// ---------------------------------------------------------------------------
+function makeSpookyTree(x, z) {
+  const g = new THREE.Group();
+  const darkMat = new THREE.MeshLambertMaterial({ color: 0x12080a });
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 6, 65, 5), darkMat);
+  trunk.rotation.z = (Math.random() - 0.5) * 0.3;
+  trunk.position.y = 32;
+  g.add(trunk);
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2 + Math.random() * 0.5;
+    const len = 25 + Math.random() * 20;
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(1, 2.5, len, 4), darkMat);
+    br.rotation.z = Math.cos(angle) * 0.65 + (Math.random() - 0.5) * 0.2;
+    br.rotation.x = Math.sin(angle) * 0.55;
+    br.position.set(Math.cos(angle) * 14, 58 + Math.random() * 12, Math.sin(angle) * 14);
+    g.add(br);
+  }
+  const foliageMat = new THREE.MeshLambertMaterial({ color: 0x1e0a30, transparent: true, opacity: 0.8 });
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(9 - i * 1.5, 14, 5), foliageMat);
+    c.position.set(Math.cos(a) * 9, 60 + i * 10, Math.sin(a) * 9);
+    c.rotation.y = a;
+    g.add(c);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeGravestone(x, z) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(14, 22, 5), mat);
+  stone.position.y = 11;
+  stone.rotation.y = (Math.random() - 0.5) * 0.5;
+  stone.rotation.z = (Math.random() - 0.5) * 0.18;
+  g.add(stone);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(7, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  top.position.y = 22 + stone.position.y * 0;
+  top.position.copy(stone.position);
+  top.position.y = 22;
+  g.add(top);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(18, 4, 8), mat);
+  base.position.y = 2;
+  g.add(base);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeRuinedWall(x, z) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x3a3030 });
+  const h = 25 + Math.random() * 45;
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(55 + Math.random() * 50, h, 10), mat);
+  wall.position.y = h / 2;
+  wall.rotation.y = (Math.random() - 0.5) * 0.4;
+  g.add(wall);
+  // Notched top (missing chunks)
+  for (let i = 0; i < 3; i++) {
+    const notch = new THREE.Mesh(new THREE.BoxGeometry(10, 14, 14), new THREE.MeshLambertMaterial({ color: 0x1a1010 }));
+    notch.position.set((i - 1) * 20, h - 4, 0);
+    g.add(notch);
+  }
+  // Rubble
+  for (let i = 0; i < 4; i++) {
+    const rb = new THREE.Mesh(new THREE.BoxGeometry(6 + Math.random() * 9, 5 + Math.random() * 5, 6 + Math.random() * 9), mat);
+    rb.position.set((Math.random() - 0.5) * 80, 3, (Math.random() - 0.5) * 40);
+    rb.rotation.y = Math.random() * Math.PI;
+    g.add(rb);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function addSpookyDecor(scene, w2) {
+  const rng = (a, b) => a + Math.random() * (b - a);
+  // Spooky trees — thick clusters near the cave and scattered throughout
+  for (let i = 0; i < 90; i++) {
+    scene.add(makeSpookyTree(rng(300, w2.width - 300), rng(300, w2.height - 300)));
+  }
+  // Graveyard clusters
+  for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[5000,8500]]) {
+    for (let i = 0; i < 9; i++) {
+      scene.add(makeGravestone(cx + rng(-110, 110), cz + rng(-110, 110)));
+    }
+    // Spooky trees around graveyard
+    for (let i = 0; i < 5; i++) {
+      scene.add(makeSpookyTree(cx + rng(-200, 200), cz + rng(-200, 200)));
+    }
+  }
+  // Ruined buildings
+  for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000]]) {
+    for (let i = 0; i < 4; i++) {
+      scene.add(makeRuinedWall(cx + rng(-160, 160), cz + rng(-160, 160)));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Witch Cave scene — small dark stone room with purple crystal lights
+// ---------------------------------------------------------------------------
+let caveScene, caveCamera;
+const CAVE_WORLD = { width: 800, height: 600, buildings: [], spawn: { x: 400, y: 500 } };
+let CAVE_KIOSKS = [];
+
+const WITCH_CAVE_ENTRANCE_X = 2000;
+const WITCH_CAVE_ENTRANCE_Z = 2000;
+
+function buildCaveScene() {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050210);
+  scene.fog = new THREE.Fog(0x050210, 200, 650);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1200);
+
+  scene.add(new THREE.AmbientLight(0x180828, 0.7));
+
+  // Stone floor
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(800, 600),
+    new THREE.MeshLambertMaterial({ color: 0x181020 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(400, 0, 300);
+  scene.add(floor);
+
+  // Cave walls (rough box shapes)
+  const wallMat = new THREE.MeshLambertMaterial({ color: 0x1a1025 });
+  for (const [wx, wy, wz, ww, wh, wd] of [
+    [400, 50, -10, 800, 200, 30],   // back wall
+    [400, 50, 610, 800, 200, 30],   // front wall
+    [-10, 50, 300, 30, 200, 600],   // left wall
+    [810, 50, 300, 30, 200, 600],   // right wall
+    [400, 200, 300, 900, 30, 700],  // ceiling
+  ]) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(ww, wh, wd), wallMat);
+    w.position.set(wx, wy, wz);
+    scene.add(w);
+  }
+
+  // Purple crystal torch lights
+  const crystalMat = new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0x660088 });
+  for (const [tx, tz] of [[120, 100], [680, 100], [120, 490], [680, 490], [400, 260]]) {
+    const light = new THREE.PointLight(0x9922dd, 1.2, 300);
+    light.position.set(tx, 75, tz);
+    scene.add(light);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(9, 0), crystalMat);
+    crystal.position.set(tx, 12, tz);
+    scene.add(crystal);
+  }
+
+  // Witch NPC (charId 0) sitting at the back
+  const witchMesh = createHumanoid(0).group;
+  witchMesh.position.set(400, 0, 160);
+  witchMesh.rotation.y = Math.PI;
+  scene.add(witchMesh);
+
+  // Cauldron
+  const cauldron = new THREE.Group();
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(18, 14, 22, 10), new THREE.MeshLambertMaterial({ color: 0x222222 }));
+  pot.position.y = 11;
+  cauldron.add(pot);
+  const brew = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 4, 10), new THREE.MeshLambertMaterial({ color: 0x228822, emissive: 0x115511 }));
+  brew.position.y = 21;
+  cauldron.add(brew);
+  cauldron.position.set(400, 0, 200);
+  scene.add(cauldron);
+
+  // Sign above entrance
+  const signMesh = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');
+  signMesh.position.set(400, 100, 155);
+  scene.add(signMesh);
+
+  // Kiosks: witch NPC at front, cave exit at rear
+  CAVE_KIOSKS = [
+    { x: 400, z: 220, witch: 'hazel' },
+    { x: 400, z: 520, portal: 'cave_exit' }
+  ];
+
+  caveScene = scene;
+  caveCamera = camera;
+}
+
+function swapToCaveMap() {
+  if (!caveScene || activeScene === caveScene) return;
+  world = CAVE_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(caveScene, caveCamera, null);
+}
+
+function enterWitchCave() {
+  if (!me || me.isDead) return;
+  swapToCaveMap();
+  me.room = 'witch_cave';
+  me.x = CAVE_WORLD.spawn.x;
+  me.y = CAVE_WORLD.spawn.y;
+  ws.send(JSON.stringify({ type: 'enter_witch_cave' }));
+  setUnlockToast('🕯️ You enter the Witch\'s cave...');
+}
+
+function exitWitchCave() {
+  ws.send(JSON.stringify({ type: 'exit_witch_cave' }));
+}
+
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -3002,13 +3446,30 @@ function buildWildsScene(w2) {
   addNatureDecor(scene, w2, decorVisuals2);
   addAnimals2(scene);
   addMobs2(scene);
+  addSpookyDecor(scene, w2);
 
-  // The return portal back to town — offset from the landing spawn point
-  // (not placed directly on top of it) so a player who just arrived isn't
-  // standing close enough to immediately re-trigger it.
+  // The return portal back to town
   const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
   scene.add(buildPortalMesh(returnPortalX, returnPortalY));
   WILDS_KIOSKS.push({ x: returnPortalX, z: returnPortalY, portal: 'town' });
+
+  // Witch cave entrance — a dark rocky arch
+  const caveEntranceMat = new THREE.MeshLambertMaterial({ color: 0x1a0f1a });
+  const archBase = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 40), caveEntranceMat);
+  archBase.position.set(WITCH_CAVE_ENTRANCE_X, 40, WITCH_CAVE_ENTRANCE_Z);
+  scene.add(archBase);
+  // Arch opening (dark inset)
+  const opening = new THREE.Mesh(new THREE.BoxGeometry(40, 60, 50), new THREE.MeshLambertMaterial({ color: 0x040106 }));
+  opening.position.set(WITCH_CAVE_ENTRANCE_X, 35, WITCH_CAVE_ENTRANCE_Z);
+  scene.add(opening);
+  // Purple glow from within
+  const caveGlow = new THREE.PointLight(0x8822cc, 0.8, 200);
+  caveGlow.position.set(WITCH_CAVE_ENTRANCE_X, 30, WITCH_CAVE_ENTRANCE_Z - 20);
+  scene.add(caveGlow);
+  const caveSign = makeSignSprite('🕯️ Witch\'s Cave — Press F to enter');
+  caveSign.position.set(WITCH_CAVE_ENTRANCE_X, 100, WITCH_CAVE_ENTRANCE_Z);
+  scene.add(caveSign);
+  WILDS_KIOSKS.push({ x: WITCH_CAVE_ENTRANCE_X, z: WITCH_CAVE_ENTRANCE_Z, portal: 'cave_enter' });
 
   wildsScene = scene;
   wildsCamera = camera;
@@ -5431,6 +5892,7 @@ function ensurePlayerVisual(p) {
     ...built, nameEl, inScene: false, parentScene: null,
     ghostGroup, ghostInScene: false, ghostParentScene: null,
     deathAnimStartAt: null,
+    attackAnimStartAt: null, attackAnimType: 'punch',
     weaponMesh: null, chestMesh: null, headMesh: null, feetMesh: null, ringMesh: null,
     statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
   };
@@ -5476,7 +5938,44 @@ function syncVisuals(dt) {
       p.facing = lerpAngle(p.facing, targetFacing, Math.min(1, dt * 10));
     }
 
-    if (v.statusType === 'meditate' || (id === myId && seatedAt)) {
+    // Attack animation — overrides walk/idle arms for ~0.35s
+    const ATTACK_DUR = 0.35;
+    const attackElapsed = v.attackAnimStartAt ? (performance.now() - v.attackAnimStartAt) / 1000 : null;
+    const attackActive = attackElapsed !== null && attackElapsed < ATTACK_DUR;
+    if (attackActive) {
+      const t = attackElapsed / ATTACK_DUR;
+      v.legL.rotation.x = 0; v.legR.rotation.x = 0;
+      if (v.attackAnimType === 'slash') {
+        // Wind-up then overhead slam: arm sweeps back then cracks forward
+        const ang = t < 0.35
+          ? -Math.PI * 0.65 * (t / 0.35)           // swing back
+          : -Math.PI * 0.65 + (t - 0.35) / 0.65 * Math.PI * 0.9; // crack forward
+        v.armR.rotation.x = ang;
+        v.armL.rotation.x = ang * 0.3;
+        v.armR.rotation.z = -0.15;
+      } else if (v.attackAnimType === 'cast') {
+        // Both arms thrust forward, body follows
+        const thrust = Math.sin(t * Math.PI) * -1.0;
+        v.armR.rotation.x = thrust; v.armL.rotation.x = thrust;
+        v.armR.rotation.z = 0; v.armL.rotation.z = 0;
+        if (v.group) v.group.rotation.z = Math.sin(t * Math.PI) * 0.08;
+      } else {
+        // Punch: right jab forward
+        const jab = Math.sin(t * Math.PI) * -0.85;
+        v.armR.rotation.x = jab;
+        v.armL.rotation.x = jab * 0.2;
+        v.armR.rotation.z = 0;
+      }
+    } else if (!attackActive && attackElapsed !== null) {
+      // Reset z-rotation after attack
+      v.armR.rotation.z = 0;
+      if (v.group) v.group.rotation.z = 0;
+      v.attackAnimStartAt = null;
+    }
+
+    if (attackActive) {
+      // skip walk/idle arm logic below
+    } else if (v.statusType === 'meditate' || (id === myId && seatedAt)) {
       const ease = Math.min(1, dt * 8);
       const legBend = -Math.PI / 2.1, armBend = 0.15;
       v.legL.rotation.x += (legBend - v.legL.rotation.x) * ease;
@@ -5710,6 +6209,7 @@ function findNearestKiosk() {
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
+  if (activeScene === caveScene) return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   return null;
 }
 
@@ -6947,6 +7447,9 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
   if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
+  if (kiosk && kiosk.portal === 'cave_enter') { enterWitchCave(); return; }
+  if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
+  if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
@@ -7056,6 +7559,17 @@ window.addEventListener('keydown', (e) => {
   }
   if (npcShopOpen) {
     if (e.key === 'Escape' && !e.repeat) closeNpcShopModal();
+    return;
+  }
+  if (witchConsentOpen) {
+    if (e.key === 'Escape' && !e.repeat) {
+      ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId: activeWitchConsentId, image: null }));
+      closeWitchSelfieConsent();
+    }
+    return;
+  }
+  if (witchShopOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeWitchModal();
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
