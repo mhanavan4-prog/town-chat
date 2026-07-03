@@ -604,6 +604,11 @@ const ITEM_CATALOG = {
   iron_ingot:     { name: 'Iron Ingot',      icon: '⚙️', slot: null },
   druid_stone:    { name: 'Druid Stone',     icon: '🔮', slot: null },
   hollow_shard:   { name: 'Hollow Shard',    icon: '💠', slot: null },
+  // ---- Lexton's Howl Trade exclusive (voice-gated, see werewolf_buy_item) ----
+  moonhowl_pelt:    { name: 'Moonhowl Pelt',    icon: '🌕', slot: 'chest'  },
+  alpha_fang:       { name: 'Alpha Fang',       icon: '🦷', slot: 'weapon' },
+  packbound_ring:   { name: 'Packbound Ring',   icon: '🐾', slot: 'ring'   },
+  nightfang_boots:  { name: 'Nightfang Boots',  icon: '🐺', slot: 'feet'   },
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
@@ -1401,6 +1406,16 @@ function sanitizeImage(raw) {
   if (typeof raw !== 'string') return null;
   if (raw.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
   if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(raw)) return null;
+  return raw;
+}
+
+// A few seconds of compressed audio (webm/opus or mp4/aac) comfortably fits
+// well under this — same rejection-only role as sanitizeImage above.
+const MAX_AUDIO_DATA_URL_LENGTH = 800000;
+function sanitizeAudio(raw) {
+  if (typeof raw !== 'string') return null;
+  if (raw.length > MAX_AUDIO_DATA_URL_LENGTH) return null;
+  if (!/^data:audio\/(webm|ogg|mp4|mpeg|wav);base64,/.test(raw)) return null;
   return raw;
 }
 
@@ -2290,6 +2305,17 @@ function witchShopTierForLevel(level) {
   if (level >= 6) return 1;
   return 0;
 }
+
+// Lexton Greyfur's "Join the Howl" trade — separate from his free daily
+// Blood Pact (wolf_pact, no real data). This one is real: the player's own
+// microphone, only after an explicit per-purchase consent prompt (see
+// werewolf_voice_request below), a few seconds long, capturing the howl
+// itself rather than anything spoken. Not level-gated, unlike the Witch's
+// tiers — small, flat pool.
+const WEREWOLF_HOWL_ITEMS = [
+  { id: 'moonhowl_pelt' }, { id: 'alpha_fang' },
+  { id: 'packbound_ring' }, { id: 'nightfang_boots' }
+];
 
 const parties = new Map();
 const playerParty = new Map();
@@ -3844,6 +3870,81 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'wolf_pact_result', ok: true,
         message: '🐺 Lexton presses the vial into your hand. "The pact is sealed. Use it when the moon is right — your power doubles for an hour."' });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
+    // Lexton's second offer — distinct from wolf_pact above. That one is a
+    // free daily ritual that explicitly touches no real data; this one is
+    // real: it trades an item for the player's own recorded howl, which
+    // then goes on the Auction House. See werewolf_voice_request/
+    // werewolf_voice_payment below for the consent-first capture flow.
+    if (msg.type === 'werewolf_talk') {
+      if (player.room !== 'wilds') return;
+      send(ws, { type: 'werewolf_dialogue',
+        greeting: "Lexton throws back his head and howls at the moon. \"Join me, wanderer — howl with me, and I'll teach you something worth having. Your howl will be recorded and listed on the Auction House for any wandering ear to hear. That's the whole of the price.\"",
+        shopItems: WEREWOLF_HOWL_ITEMS.map(s => ({
+          id: s.id,
+          name: ITEM_CATALOG[s.id]?.name || s.id,
+          icon: ITEM_CATALOG[s.id]?.icon || '?'
+        }))
+      });
+      return;
+    }
+
+    if (msg.type === 'werewolf_buy_item') {
+      if (player.room !== 'wilds') return;
+      const itemId = String(msg.itemId || '');
+      if (!WEREWOLF_HOWL_ITEMS.find(s => s.id === itemId) || !ITEM_CATALOG[itemId]) {
+        send(ws, { type: 'werewolf_shop_error', message: "That's not one of the things I can teach you." });
+        return;
+      }
+      const consentId = makeId();
+      player.pendingHowlVoicePurchase = { consentId, itemId };
+      // The client MUST show an explicit consent prompt before capturing any microphone audio.
+      send(ws, { type: 'werewolf_voice_request', consentId,
+        itemName: ITEM_CATALOG[itemId]?.name,
+        itemIcon: ITEM_CATALOG[itemId]?.icon
+      });
+      return;
+    }
+
+    if (msg.type === 'werewolf_voice_payment') {
+      if (player.room !== 'wilds') return;
+      const pending = player.pendingHowlVoicePurchase;
+      if (!pending || pending.consentId !== String(msg.consentId || '')) {
+        send(ws, { type: 'werewolf_shop_error', message: 'No pending trade.' });
+        return;
+      }
+      player.pendingHowlVoicePurchase = null;
+      if (!msg.audio) {
+        send(ws, { type: 'werewolf_shop_error', message: 'No howl recorded — the trade is off.' });
+        return;
+      }
+      const audio = sanitizeAudio(msg.audio);
+      if (!audio) { send(ws, { type: 'werewolf_shop_error', message: 'Invalid recording.' }); return; }
+      const { itemId } = pending;
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, itemId, 1)) {
+        send(ws, { type: 'werewolf_shop_error', message: 'Inventory full.' }); return;
+      }
+      if (player.accountKey) saveInventories();
+      // sellerName is Lexton, not the player — same anonymization the
+      // Witch's selfie listings already use, so a voice clip on the
+      // Auction House is never tied back to whichever player it came from.
+      listings.push({
+        id: makeId(),
+        sellerKey: null, sellerId: 'lexton', sellerName: 'Lexton Greyfur',
+        isVoice: true, audio,
+        startingBid: 25, buyoutPrice: null,
+        currentBid: null, currentBidderKey: null, currentBidderName: null,
+        createdAt: Date.now(), expiresAt: Date.now() + 10 * 60000
+      });
+      saveListings();
+      broadcastAuctionState();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'werewolf_purchase_complete',
+        itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
+      });
       return;
     }
   });

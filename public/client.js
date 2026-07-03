@@ -126,6 +126,11 @@ const ITEM_CATALOG = {
   abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫', slot: 'chest',  def: 20, desc: 'Forged in the deepest dark.' },
   death_ring:     { name: 'Death Ring',     icon: '💍', slot: 'ring',   def: 10, desc: 'Only the doomed dare to wear it.' },
   wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️', slot: 'feet',   def: 12, spd: 10, desc: 'Step between shadows like a ghost.' },
+  // Lexton Greyfur's Howl Trade items — mirrored from server.js ITEM_CATALOG
+  moonhowl_pelt:    { name: 'Moonhowl Pelt',   icon: '🌕', slot: 'chest',  def: 18, desc: 'A pelt that shimmers silver under the full moon.' },
+  alpha_fang:       { name: 'Alpha Fang',      icon: '🦷', slot: 'weapon', atk: 22, desc: "Torn from the pack's first alpha." },
+  packbound_ring:   { name: 'Packbound Ring',  icon: '🐾', slot: 'ring',   def: 9,  desc: 'Binds you to the pack, wherever you roam.' },
+  nightfang_boots:  { name: 'Nightfang Boots', icon: '🐺', slot: 'feet',   def: 11, spd: 8, desc: 'Silent steps, sharp turns.' },
   // The Wilds' 16 harvestable plants — name/icon mirrored from server.js's
   // PLANT_CATALOG. The actual effect (what happens when used) is resolved
   // server-side; the client only needs to know these exist and are usable.
@@ -875,6 +880,28 @@ function onWsMessage(ev) {
 
   if (msg.type === 'witch_shop_error') {
     const errEl = document.getElementById('witchShopErr');
+    if (errEl) errEl.textContent = msg.message;
+    return;
+  }
+
+  if (msg.type === 'werewolf_dialogue') {
+    openWerewolfModal(msg);
+    return;
+  }
+
+  if (msg.type === 'werewolf_voice_request') {
+    openWerewolfVoiceConsent(msg.consentId, msg.itemName, msg.itemIcon);
+    return;
+  }
+
+  if (msg.type === 'werewolf_purchase_complete') {
+    closeWerewolfVoiceConsent();
+    setUnlockToast(`🐺 ${msg.itemIcon} ${msg.itemName} added to your inventory!`);
+    return;
+  }
+
+  if (msg.type === 'werewolf_shop_error') {
+    const errEl = document.getElementById('werewolfShopErr');
     if (errEl) errEl.textContent = msg.message;
     return;
   }
@@ -2254,6 +2281,150 @@ if (bpAcceptBtn) bpAcceptBtn.addEventListener('click', () => {
 const bpDeclineBtn = document.getElementById('bpDeclineBtn');
 if (bpDeclineBtn) bpDeclineBtn.addEventListener('click', closeBloodPactModal);
 
+const bpHowlBtn = document.getElementById('bpHowlBtn');
+if (bpHowlBtn) bpHowlBtn.addEventListener('click', () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'werewolf_talk' }));
+  closeBloodPactModal();
+});
+
+// Lexton's second offer — same shape as the Witch's shop modal (item list
+// with Buy buttons), opened via the "Join the Howl" button in his Blood
+// Pact modal above.
+let werewolfShopOpen = false;
+let werewolfShopItems = [];
+
+function openWerewolfModal(msg) {
+  werewolfShopOpen = true;
+  werewolfShopItems = msg.shopItems || [];
+  const modal = document.getElementById('werewolfModal');
+  if (!modal) return;
+  document.getElementById('werewolfGreeting').textContent = msg.greeting || '';
+  const itemsEl = document.getElementById('werewolfShopItems');
+  itemsEl.innerHTML = '';
+  for (const item of werewolfShopItems) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(80,50,20,0.18);border-radius:8px;border:1px solid rgba(200,140,80,0.25);';
+    row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+      <span style="flex:1;color:#f0d8b8;font-weight:600;">${item.name}</span>
+      <span style="color:#e0a060;font-size:12px;">🎤 howl</span>
+      <button data-id="${item.id}" style="padding:5px 14px;background:#8a4a1a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Trade</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      document.getElementById('werewolfShopErr').textContent = '';
+      ws.send(JSON.stringify({ type: 'werewolf_buy_item', itemId: item.id }));
+    });
+    itemsEl.appendChild(row);
+  }
+  document.getElementById('werewolfShopErr').textContent = '';
+  modal.classList.remove('hidden');
+}
+
+function closeWerewolfModal() {
+  werewolfShopOpen = false;
+  const modal = document.getElementById('werewolfModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+const werewolfModalClose = document.getElementById('werewolfModalClose');
+if (werewolfModalClose) werewolfModalClose.addEventListener('click', closeWerewolfModal);
+
+// Voice consent modal — same requirement as the Witch's selfie consent:
+// mechanical disclosure (mic, recording, public Auction House listing) has
+// to stay explicit no matter how it's themed.
+let werewolfConsentOpen = false;
+let activeWerewolfConsentId = null;
+
+function openWerewolfVoiceConsent(consentId, itemName, itemIcon) {
+  activeWerewolfConsentId = consentId;
+  werewolfConsentOpen = true;
+  closeWerewolfModal();
+  const modal = document.getElementById('werewolfConsentModal');
+  if (!modal) return;
+  document.getElementById('werewolfConsentText').textContent =
+    `Lexton wants you to howl with him — a few seconds of your own voice, recorded once, then listed on the Auction House for 25 gold as payment for ${itemIcon} ${itemName}. Anyone browsing the Auction House will be able to listen to it; it's never linked to your name there. You can Allow or Decline — your microphone will not open unless you click Allow.`;
+  document.getElementById('werewolfConsentStatus').textContent = '';
+  document.getElementById('werewolfConsentAllowBtn').disabled = false;
+  document.getElementById('werewolfConsentDenyBtn').disabled = false;
+  modal.classList.remove('hidden');
+}
+
+function closeWerewolfVoiceConsent() {
+  werewolfConsentOpen = false;
+  activeWerewolfConsentId = null;
+  const modal = document.getElementById('werewolfConsentModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+const werewolfConsentDenyBtn = document.getElementById('werewolfConsentDenyBtn');
+if (werewolfConsentDenyBtn) werewolfConsentDenyBtn.addEventListener('click', () => {
+  if (!activeWerewolfConsentId) return;
+  ws.send(JSON.stringify({ type: 'werewolf_voice_payment', consentId: activeWerewolfConsentId, audio: null }));
+  closeWerewolfVoiceConsent();
+  setUnlockToast('Trade cancelled.');
+});
+
+const werewolfConsentAllowBtn = document.getElementById('werewolfConsentAllowBtn');
+if (werewolfConsentAllowBtn) werewolfConsentAllowBtn.addEventListener('click', async () => {
+  if (!activeWerewolfConsentId) return;
+  const consentId = activeWerewolfConsentId;
+  const statusEl = document.getElementById('werewolfConsentStatus');
+  werewolfConsentAllowBtn.disabled = true;
+  werewolfConsentDenyBtn.disabled = true;
+  statusEl.textContent = 'Opening the mic for one howl…';
+  let audio = null;
+  try {
+    audio = await captureHowlClip();
+  } catch (e) {
+    statusEl.textContent = 'Microphone unavailable — trade cancelled.';
+    setTimeout(() => {
+      ws.send(JSON.stringify({ type: 'werewolf_voice_payment', consentId, audio: null }));
+      closeWerewolfVoiceConsent();
+    }, 1600);
+    return;
+  }
+  statusEl.textContent = 'Howl captured. Completing the trade…';
+  ws.send(JSON.stringify({ type: 'werewolf_voice_payment', consentId, audio }));
+  setTimeout(closeWerewolfVoiceConsent, 800);
+});
+
+// Records ~3 seconds of mic audio, encoded as a data: URL — only ever
+// called after the Allow click above. Stops the mic stream immediately
+// once the recording ends; nothing keeps listening afterward.
+function captureHowlClip(durationMs = 3000) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+      reject(new Error('Microphone not available'));
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        const stop = () => stream.getTracks().forEach(t => t.stop());
+        let mimeType = '';
+        for (const candidate of ['audio/webm', 'audio/mp4', 'audio/ogg']) {
+          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidate)) { mimeType = candidate; break; }
+        }
+        let recorder;
+        try {
+          recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        } catch (e) { stop(); reject(e); return; }
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onerror = (e) => { stop(); reject(e.error || new Error('Recorder error')); };
+        recorder.onstop = () => {
+          stop();
+          const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Could not encode audio'));
+          reader.readAsDataURL(blob);
+        };
+        recorder.start();
+        setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
+      })
+      .catch(reject);
+  });
+}
+
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
 function refreshUnlockUI() {
@@ -2383,13 +2554,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -2564,7 +2735,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen;
+    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -8137,6 +8308,16 @@ function renderAuctionModal() {
       itemLine.className = 'auctionItemLine';
       itemLine.textContent = `📸 ${l.sellerName}'s Selfie`;
       row.appendChild(itemLine);
+    } else if (l.isVoice) {
+      const itemLine = document.createElement('div');
+      itemLine.className = 'auctionItemLine';
+      itemLine.textContent = `🎤 A Howl, gathered by ${l.sellerName}`;
+      row.appendChild(itemLine);
+      const player = document.createElement('audio');
+      player.className = 'auctionVoicePlayer';
+      player.controls = true;
+      player.src = l.audio;
+      row.appendChild(player);
     } else {
       const itemLine = document.createElement('div');
       itemLine.className = 'auctionItemLine';
@@ -9165,7 +9346,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -9315,6 +9496,17 @@ window.addEventListener('keydown', (e) => {
   }
   if (witchShopOpen) {
     if (e.key === 'Escape' && !e.repeat) closeWitchModal();
+    return;
+  }
+  if (werewolfConsentOpen) {
+    if (e.key === 'Escape' && !e.repeat) {
+      ws.send(JSON.stringify({ type: 'werewolf_voice_payment', consentId: activeWerewolfConsentId, audio: null }));
+      closeWerewolfVoiceConsent();
+    }
+    return;
+  }
+  if (werewolfShopOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeWerewolfModal();
     return;
   }
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
