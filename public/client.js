@@ -3746,6 +3746,8 @@ function buildCaveScene() {
     backBoard.position.set(55, 88, 363); scene.add(backBoard);
   })();
 
+  addCaveWallShelves(scene);
+
   // Sign above witch
   const witchSign = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');
   witchSign.position.set(400, 110, 140);
@@ -3763,6 +3765,310 @@ function buildCaveScene() {
   exitSign.position.set(400, 110, 650);
   scene.add(exitSign);
 
+}
+
+function addCaveWallShelves(scene) {
+  const shelfMat  = new THREE.MeshLambertMaterial({ color: 0x2a1408 });
+  const brktMat   = new THREE.MeshLambertMaterial({ color: 0x1a0c05 });
+  const boneMat   = new THREE.MeshLambertMaterial({ color: 0xc8bba0 });
+  const skullMat  = new THREE.MeshLambertMaterial({ color: 0xc4b898 });
+  const eyeBlack  = new THREE.MeshLambertMaterial({ color: 0x110011 });
+  const pageMat   = new THREE.MeshLambertMaterial({ color: 0xd4c89a });
+  const corkMat   = new THREE.MeshLambertMaterial({ color: 0x4a2a10 });
+  const baseMat   = new THREE.MeshLambertMaterial({ color: 0x1a0830 });
+  const sandMat   = new THREE.MeshLambertMaterial({ color: 0xddaa44 });
+
+  function makePotion(x, y, z, col) {
+    const g = new THREE.Group();
+    const bH = 10, bR = 3;
+    const mat = new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.22 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(bR, bR + 0.8, bH, 7), mat);
+    body.position.y = bH / 2; g.add(body);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(1.2, bR * 0.55, 4, 6), mat);
+    neck.position.y = bH + 2; g.add(neck);
+    const cork = new THREE.Mesh(new THREE.SphereGeometry(1.7, 6, 5), corkMat);
+    cork.position.y = bH + 4.5; g.add(cork);
+    g.position.set(x, y, z);
+    g.rotation.z = Math.sin(x * 7 + z * 3) * 0.12;
+    scene.add(g);
+  }
+
+  function makeSkull(x, y, z, sc) {
+    sc = sc || 1;
+    const g = new THREE.Group();
+    const head = new THREE.Mesh(new THREE.SphereGeometry(5.5 * sc, 8, 8), skullMat);
+    head.scale.set(1, 0.88, 1.1); head.position.y = 5.5 * sc; g.add(head);
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(7 * sc, 2.5 * sc, 4.5 * sc), skullMat);
+    jaw.position.set(0, 0.8 * sc, 2.5 * sc); g.add(jaw);
+    for (const ex of [-2 * sc, 2 * sc]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(1.5 * sc, 6, 6), eyeBlack);
+      eye.position.set(ex, 6.5 * sc, 4.5 * sc); g.add(eye);
+    }
+    g.position.set(x, y, z);
+    g.rotation.y = Math.sin(x * 5 + z) * Math.PI;
+    scene.add(g);
+  }
+
+  let candleLights = 0;
+  function makeCandle(x, y, z, col) {
+    const g = new THREE.Group();
+    const cH = 14 + Math.abs(Math.sin(x * 3 + z * 2)) * 10;
+    const cMat = new THREE.MeshLambertMaterial({ color: col || 0x1a0a0a });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, cH, 7), cMat);
+    body.position.y = cH / 2; g.add(body);
+    const drip = new THREE.Mesh(new THREE.CylinderGeometry(3, 2.8, 2, 7), cMat);
+    drip.position.y = 1; g.add(drip);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0xff8800, emissive: 0xff4400, emissiveIntensity: 1 }));
+    flame.scale.y = 1.6; flame.position.y = cH + 2.5; g.add(flame);
+    g.position.set(x, y, z);
+    g.rotation.z = Math.sin(x * 9 + z) * 0.08;
+    scene.add(g);
+    if (candleLights < 8) {
+      const light = new THREE.PointLight(0xff6600, 0.55, 100);
+      light.position.set(x, y + cH + 3, z);
+      scene.add(light);
+      candleLights++;
+    }
+  }
+
+  function makeCrystal(x, y, z, col) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.38, transparent: true, opacity: 0.72 });
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), mat);
+    ball.position.y = 7.5; g.add(ball);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4.5, 3, 8), baseMat);
+    base.position.y = 1.5; g.add(base);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeBook(x, y, z, col) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: col });
+    const book = new THREE.Mesh(new THREE.BoxGeometry(9, 12, 4.5), mat);
+    book.position.y = 6; g.add(book);
+    const pages = new THREE.Mesh(new THREE.BoxGeometry(7.5, 10.5, 4), pageMat);
+    pages.position.set(1.5, 6, 0); g.add(pages);
+    g.position.set(x, y, z);
+    g.rotation.z = Math.sin(x * 4 + z * 2.3) * 0.2;
+    g.rotation.y = Math.sin(x * 3) * 0.12;
+    scene.add(g);
+  }
+
+  function makeHourglass(x, y, z) {
+    const g = new THREE.Group();
+    const glassMat = new THREE.MeshLambertMaterial({ color: 0x334455, transparent: true, opacity: 0.75 });
+    const fMat = new THREE.MeshLambertMaterial({ color: 0x2a1a00 });
+    const topCone = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), glassMat);
+    topCone.position.y = 13.5; topCone.rotation.z = Math.PI; g.add(topCone);
+    const botCone = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), glassMat);
+    botCone.position.y = 4.5; g.add(botCone);
+    const sand = new THREE.Mesh(new THREE.ConeGeometry(4, 5, 8), sandMat);
+    sand.position.y = 2.5; sand.rotation.z = Math.PI; g.add(sand);
+    for (const fz of [-3, 3]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 19, 5), fMat);
+      post.position.set(fz, 9, 0); g.add(post);
+    }
+    const disc1 = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 1.5, 8), fMat);
+    disc1.position.y = 18.5; g.add(disc1);
+    const disc2 = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 1.5, 8), fMat);
+    disc2.position.y = 0.75; g.add(disc2);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeEyeJar(x, y, z) {
+    const g = new THREE.Group();
+    const jMat = new THREE.MeshLambertMaterial({ color: 0x1a3322, transparent: true, opacity: 0.68 });
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 13, 9), jMat);
+    jar.position.y = 6.5; g.add(jar);
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 2.5, 9), brktMat);
+    lid.position.y = 14; g.add(lid);
+    const ew = new THREE.Mesh(new THREE.SphereGeometry(3.5, 8, 8),
+      new THREE.MeshLambertMaterial({ color: 0xeeeedd }));
+    ew.position.y = 7; g.add(ew);
+    const ep = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0x880000, emissive: 0x440000, emissiveIntensity: 0.4 }));
+    ep.position.set(0, 7, 3.2); g.add(ep);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeBone(x, y, z) {
+    const g = new THREE.Group();
+    const ang = Math.abs(Math.sin(x * 6 + z * 2)) * 0.5 + 0.2;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 18, 6), boneMat);
+    shaft.position.y = 9; shaft.rotation.z = ang; g.add(shaft);
+    const cosA = Math.cos(ang), sinA = Math.sin(ang);
+    const e1 = new THREE.Mesh(new THREE.SphereGeometry(2.2, 6, 6), boneMat);
+    e1.position.set(-sinA * 9, 9 + cosA * 9, 0); g.add(e1);
+    const e2 = new THREE.Mesh(new THREE.SphereGeometry(2.2, 6, 6), boneMat);
+    e2.position.set(sinA * 9, 9 - cosA * 9, 0); g.add(e2);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeJar(x, y, z, col) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: col || 0x221133 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 5.5, 11, 9), mat);
+    body.position.y = 5.5; g.add(body);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(3, 4.5, 3, 9), mat);
+    neck.position.y = 12.5; g.add(neck);
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2.5, 9), brktMat);
+    lid.position.y = 15.5; g.add(lid);
+    const runeMat = new THREE.MeshLambertMaterial({ color: 0x8855aa });
+    for (let ri = 0; ri < 3; ri++) {
+      const r = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 0.6), runeMat);
+      r.position.set(Math.cos(ri * 2.1) * 5.6, 5.5, Math.sin(ri * 2.1) * 5.6);
+      g.add(r);
+    }
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeMoon(x, y, z) {
+    const g = new THREE.Group();
+    const mMat = new THREE.MeshLambertMaterial({ color: 0xddcc66, emissive: 0x554411, emissiveIntensity: 0.5 });
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), mMat);
+    sphere.position.y = 11; g.add(sphere);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 10, 5), brktMat);
+    post.position.y = 5; g.add(post);
+    const s1 = new THREE.Mesh(new THREE.SphereGeometry(1.5, 5, 5), mMat);
+    s1.position.set(7, 14, 0); g.add(s1);
+    const s2 = new THREE.Mesh(new THREE.SphereGeometry(1, 5, 5), mMat);
+    s2.position.set(3, 17, 0); g.add(s2);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeMushroom(x, y, z, col) {
+    const g = new THREE.Group();
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0xc8bfa8 });
+    const capCol  = col || 0xcc2200;
+    const capMat  = new THREE.MeshLambertMaterial({ color: capCol, emissive: capCol, emissiveIntensity: 0.12 });
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2, 8, 7), stemMat);
+    stem.position.y = 4; g.add(stem);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(6, 9, 7), capMat);
+    cap.scale.y = 0.6; cap.position.y = 10; g.add(cap);
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(1.2, 5, 5),
+      new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    spot.position.set(3, 11, 0); g.add(spot);
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  function makeFeatherBundle(x, y, z) {
+    const g = new THREE.Group();
+    const FCOLS = [0x2a2a44, 0x1a3a2a, 0x4a1a2a, 0x332244, 0x1a1a3a];
+    const bind = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 4, 8), brktMat);
+    bind.position.y = 2; g.add(bind);
+    for (let fi = 0; fi < 5; fi++) {
+      const angle = (fi / 5) * Math.PI * 2;
+      const fMat = new THREE.MeshLambertMaterial({ color: FCOLS[fi] });
+      const quill = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.3, 22, 5), fMat);
+      quill.position.set(Math.cos(angle) * 2, 14, Math.sin(angle) * 2);
+      quill.rotation.z = Math.cos(angle) * 0.28;
+      quill.rotation.x = Math.sin(angle) * 0.28;
+      g.add(quill);
+    }
+    g.position.set(x, y, z);
+    scene.add(g);
+  }
+
+  // ── Shelf plank + wall brackets ──────────────────────────────
+  const TILTS_Z = [0.032, -0.041, 0.022, -0.037, 0.048, -0.026, 0.038, -0.052];
+  const TILTS_X = [0.009, -0.007, 0.011, -0.008, 0.006, -0.010, 0.013, -0.005];
+
+  function addShelfSegment(isLeft, y, z0, z1, idx) {
+    const len = z1 - z0;
+    const cx  = isLeft ? 11 : 789;
+    const bx  = isLeft ?  2 : 798;
+    const tz  = isLeft ? TILTS_Z[idx % TILTS_Z.length] : -TILTS_Z[idx % TILTS_Z.length];
+    const tx  = TILTS_X[idx % TILTS_X.length];
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(22, 6, len), shelfMat);
+    plank.position.set(cx, y, (z0 + z1) / 2);
+    plank.rotation.z = tz;
+    plank.rotation.x = tx;
+    scene.add(plank);
+    // Wall bracket at each end: vertical post + horizontal arm
+    for (const bz of [z0 + 5, z1 - 5]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(3.5, y - 3, 3.5), brktMat);
+      post.position.set(bx, (y - 3) / 2, bz);
+      scene.add(post);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(22, 3, 3.5), brktMat);
+      arm.position.set(cx, y - 4.5, bz);
+      scene.add(arm);
+    }
+  }
+
+  // ── Item sequences (one per wall, cycled by position) ────────
+  const LEFT_SEQ = [
+    (x,y,z) => makePotion(x,y,z,0x662288),
+    (x,y,z) => makeSkull(x,y,z),
+    (x,y,z) => makeCandle(x,y,z,0x110011),
+    (x,y,z) => makeBone(x,y,z),
+    (x,y,z) => makePotion(x,y,z,0x117733),
+    (x,y,z) => makeEyeJar(x,y,z),
+    (x,y,z) => makeMushroom(x,y,z,0xcc2200),
+    (x,y,z) => makeBook(x,y,z,0x440022),
+    (x,y,z) => makeHourglass(x,y,z),
+    (x,y,z) => makeJar(x,y,z,0x221133),
+    (x,y,z) => makeMoon(x,y,z),
+    (x,y,z) => makeFeatherBundle(x,y,z),
+    (x,y,z) => makePotion(x,y,z,0x884400),
+    (x,y,z) => makeSkull(x,y,z,0.7),
+    (x,y,z) => makeCandle(x,y,z,0x0a0a1a),
+    (x,y,z) => makeBook(x,y,z,0x002244),
+    (x,y,z) => makeCrystal(x,y,z,0x00cccc),
+    (x,y,z) => makeJar(x,y,z,0x332200),
+    (x,y,z) => makeMushroom(x,y,z,0x8800cc),
+    (x,y,z) => makePotion(x,y,z,0xcc4488),
+  ];
+  const RIGHT_SEQ = [
+    (x,y,z) => makeCrystal(x,y,z,0x4400cc),
+    (x,y,z) => makeBook(x,y,z,0x110011),
+    (x,y,z) => makeHourglass(x,y,z),
+    (x,y,z) => makeMoon(x,y,z),
+    (x,y,z) => makeJar(x,y,z,0x113322),
+    (x,y,z) => makeCandle(x,y,z,0x1a001a),
+    (x,y,z) => makeSkull(x,y,z),
+    (x,y,z) => makeCrystal(x,y,z,0x880099),
+    (x,y,z) => makeFeatherBundle(x,y,z),
+    (x,y,z) => makePotion(x,y,z,0x991100),
+    (x,y,z) => makeEyeJar(x,y,z),
+    (x,y,z) => makeBook(x,y,z,0x1a0a2a),
+    (x,y,z) => makeMushroom(x,y,z,0x440099),
+    (x,y,z) => makeCandle(x,y,z,0x001a0a),
+    (x,y,z) => makeBone(x,y,z),
+    (x,y,z) => makeJar(x,y,z,0x113300),
+    (x,y,z) => makeCrystal(x,y,z,0xddaa00),
+    (x,y,z) => makeSkull(x,y,z,0.65),
+    (x,y,z) => makePotion(x,y,z,0xcc44aa),
+    (x,y,z) => makeMoon(x,y,z),
+  ];
+
+  // ── Build shelves + populate items ───────────────────────────
+  const SHELF_LEVELS = [38, 77, 116, 155];
+  const SEGS = [[25, 190], [195, 360], [365, 530], [535, 635]];
+  const ITEM_SPACING = 22;
+
+  let li = 0, ri = 0;
+  for (let si = 0; si < SEGS.length; si++) {
+    const [z0, z1] = SEGS[si];
+    for (let lv = 0; lv < SHELF_LEVELS.length; lv++) {
+      const shelfY = SHELF_LEVELS[lv];
+      addShelfSegment(true,  shelfY, z0, z1, si * 4 + lv);
+      addShelfSegment(false, shelfY, z0, z1, si * 4 + lv + 2);
+      const surfY = shelfY + 3;
+      for (let iz = z0 + 14; iz < z1 - 8; iz += ITEM_SPACING) {
+        LEFT_SEQ[li % LEFT_SEQ.length](11, surfY, iz);
+        RIGHT_SEQ[ri % RIGHT_SEQ.length](789, surfY, iz);
+        li++; ri++;
+      }
+    }
+  }
 }
 
 function swapToCaveMap() {
@@ -6041,13 +6347,14 @@ function createHumanoid(charId) {
   addFace(group, CHAR.headY, CHAR.headR, preset.eye);
   addHair(group, CHAR.headY, CHAR.headR, preset.hairStyle, preset.hair);
 
-  // Shoulder caps — small rounded bumps where arms meet the body
+  // Shoulder caps — joint connectors between arm and torso; skin-toned so
+  // they don't bleed the shirt color into a visible floating sphere.
   for (const side of [-1, 1]) {
     const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(5, 8, 8),
-      shirtMat()
+      new THREE.SphereGeometry(4.5, 8, 8),
+      skinMat()
     );
-    cap.scale.y = 0.75;
+    cap.scale.set(1, 0.6, 1);
     cap.position.set(side * 11, CHAR.shoulderY - 2, 0);
     group.add(cap);
   }
@@ -6552,17 +6859,21 @@ function syncVisuals(dt) {
       v.legR.rotation.x += (legBend - v.legR.rotation.x) * ease;
       v.armL.rotation.x += (armBend - v.armL.rotation.x) * ease;
       v.armR.rotation.x += (armBend - v.armR.rotation.x) * ease;
+      v.group.position.y += (0 - v.group.position.y) * ease;
     } else if (isMoving) {
       p.walkPhase += dt * 9;
       const swing = Math.sin(p.walkPhase) * 0.6;
       v.armL.rotation.x = swing; v.armR.rotation.x = -swing;
       v.legL.rotation.x = -swing; v.legR.rotation.x = swing;
+      // Bob the whole body up/down so feet visibly lift off the ground each step
+      v.group.position.y = Math.abs(Math.sin(p.walkPhase)) * 3.5;
     } else {
       const ease = Math.min(1, dt * 8);
       v.armL.rotation.x += (0 - v.armL.rotation.x) * ease;
       v.armR.rotation.x += (0 - v.armR.rotation.x) * ease;
       v.legL.rotation.x += (0 - v.legL.rotation.x) * ease;
       v.legR.rotation.x += (0 - v.legR.rotation.x) * ease;
+      v.group.position.y += (0 - v.group.position.y) * ease;
     }
 
     const isDead = !!p.isDead;
