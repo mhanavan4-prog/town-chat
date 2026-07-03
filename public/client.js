@@ -4396,7 +4396,6 @@ function addUnboundCircleSet(scene) {
   scene.add(innerFlame);
 
   // Arcane glow illuminating the whole circle
-  scene.add(Object.assign(new THREE.PointLight(0x7700cc, 1.2, 350), { position: { x: CX, y: 40, z: CZ } }));
   const circleGlow = new THREE.PointLight(0x7700cc, 1.2, 350);
   circleGlow.position.set(CX, 40, CZ);
   scene.add(circleGlow);
