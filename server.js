@@ -1472,6 +1472,39 @@ function detectHumanFace(dataUrl) {
   });
 }
 
+// Turns coordinates into a coarse "near <city>, <region>" label via
+// OpenStreetMap's free Nominatim reverse-geocoder (no API key). zoom=10
+// caps the lookup at city-level, so nothing street- or building-level ever
+// comes back — the caller also pre-rounds lat/lon before this even runs,
+// so no path to an exact address exists at any point in the chain. Resolves
+// null (never rejects) on any failure so a lookup hiccup just fizzles the
+// spell instead of leaking raw coordinates as a fallback.
+function reverseGeocodeCoarse(lat, lon) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'nominatim.openstreetmap.org',
+      path: `/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
+      method: 'GET',
+      headers: { 'User-Agent': 'town-chat-game/1.0 (in-game howl spell flavor text, no address lookups)' }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const addr = JSON.parse(data).address || {};
+          const place = addr.city || addr.town || addr.village || addr.county || null;
+          const region = addr.state || addr.country || null;
+          resolve(place && region ? `${place}, ${region}` : (place || region || null));
+        } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(8000, () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
+
 // Must match CHARACTER_PRESETS.length in client.js — the server doesn't
 // know or care what the presets actually look like, it just needs to
 // validate the index a client claims and relay it to everyone else.
@@ -2321,6 +2354,16 @@ setInterval(() => {
   }
 }, 30000);
 
+// Same shape/lifecycle as pendingSpellConsents above, for the Werewolf's
+// Scent Trail (see howl_location handling in cast_attack).
+const pendingHowlConsents = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, p] of pendingHowlConsents) {
+    if (p.expiresAt <= now) pendingHowlConsents.delete(id);
+  }
+}, 30000);
+
 // ---------------------------------------------------------------------------
 // Character attacks — charId-gated (see ATTACK_CATALOGS below). AoE attacks
 // use AOE_RADIUS to find nearby players automatically; targeted/reveal
@@ -2347,7 +2390,14 @@ const WEREWOLF_ATTACK_CATALOG = {
   wolf_mark:        { name: 'Wolf Mark',          kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 30000 },
   feral_haze:       { name: 'Feral Haze',        kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
   snarl:            { name: 'Snarl',             kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
-  scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'reveal' }
+  // Unlike the other 'reveal' attacks (e.g. compass_trick below), this one
+  // doesn't read anything the server already knows — it asks the target's
+  // own device for their real location. See howl_location handling in
+  // cast_attack below: target gets an explicit consent prompt naming the
+  // caster before anything is requested, and the result the caster
+  // eventually sees is a coarse city-level label, never raw coordinates,
+  // sent only to the caster (never posted anywhere public).
+  scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'howl_location' }
 };
 
 // charId 4 — Wanderer. effect 'spyglass' is the unique one (Spy Glass):
@@ -3276,6 +3326,20 @@ wss.on('connection', (ws) => {
         return;
       }
 
+      // The target must explicitly join the howl before anything is
+      // requested from their device — see howl_consent_response and
+      // howl_location_result below. Only a coarse place name (never raw
+      // coordinates) goes back, and only to this caster; it's never stored
+      // or shown to anyone else.
+      if (attack.effect === 'howl_location') {
+        const t = targets[0];
+        const consentId = makeId();
+        pendingHowlConsents.set(consentId, { casterId: player.id, casterName: player.name, targetId: t.id, expiresAt: now + 30000 });
+        send(t.ws, { type: 'howl_consent_request', consentId, casterName: player.name });
+        send(ws, { type: 'attack_result', message: `🐺 ${attack.name} — you howl at the moon, waiting to see if ${t.name} answers…` });
+        return;
+      }
+
       if (attack.effect === 'pickpocket') {
         const t = targets[0];
         const targetInv = getInventory(t);
@@ -3383,6 +3447,66 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'attack_result', message: `🔭 ${attack.name} — watching ${describeRoom(buildingId)} for ${Math.round(attack.durationMs / 1000)}s.` });
         return;
       }
+      return;
+    }
+
+    if (msg.type === 'howl_consent_response') {
+      // Only matters for an explicit Decline — joining the howl leads
+      // straight to a howl_location_result (success or failure) below,
+      // with no separate ack needed here.
+      const consentId = String(msg.consentId || '');
+      const pending = pendingHowlConsents.get(consentId);
+      if (!pending || pending.targetId !== player.id) return;
+      if (!msg.allow) {
+        pendingHowlConsents.delete(consentId);
+        const caster = players.get(pending.casterId);
+        if (caster) {
+          send(caster.ws, {
+            type: 'attack_result',
+            message: `🐺 Scent Trail — ${player.name} stayed silent. The howl fades unanswered.`
+          });
+        }
+      }
+      return;
+    }
+
+    if (msg.type === 'howl_location_result') {
+      const consentId = String(msg.consentId || '');
+      const pending = pendingHowlConsents.get(consentId);
+      if (!pending || pending.targetId !== player.id) return;
+      pendingHowlConsents.delete(consentId);
+      const caster = players.get(pending.casterId);
+      if (!caster) return; // caster disconnected — nothing to deliver to
+      // msg.lat/lon are null when the target declined or their device
+      // couldn't get a location — Number(null) is 0, not NaN, so that has
+      // to be checked before the Number() conversion below or a failed
+      // capture would silently resolve to real coordinates (0,0).
+      if (msg.lat == null || msg.lon == null) {
+        send(caster.ws, { type: 'attack_result', message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
+        return;
+      }
+      const lat = Number(msg.lat), lon = Number(msg.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        send(caster.ws, { type: 'attack_result', message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
+        return;
+      }
+      // Defense in depth: re-round server-side too, regardless of what
+      // precision the client already sent — a coarse label is the only
+      // thing that's ever allowed to reach the caster.
+      const roundedLat = Math.round(lat * 100) / 100;
+      const roundedLon = Math.round(lon * 100) / 100;
+      const targetName = player.name;
+      const casterId = pending.casterId;
+      reverseGeocodeCoarse(roundedLat, roundedLon).then(place => {
+        const c = players.get(casterId); // re-fetch: lookup is async, caster may have left
+        if (!c) return;
+        send(c.ws, {
+          type: 'attack_result',
+          message: place
+            ? `🐺 Scent Trail — ${targetName}'s trail leads toward ${place}.`
+            : `🐺 Scent Trail — you caught ${targetName}'s scent, but couldn't place where it leads.`
+        });
+      });
       return;
     }
 

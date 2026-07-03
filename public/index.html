@@ -615,6 +615,28 @@
   /* Needs to actually be rendering (not display:none) for some browsers to
      keep decoding frames into it, so it's pushed off-screen instead. */
   #spellCaptureVideo { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
+
+  #howlConsentCard {
+    width:min(420px, 90vw);
+    background:radial-gradient(ellipse at 50% -10%, rgba(120,150,200,0.3), rgba(6,8,16,0.97) 70%);
+    border:1px solid rgba(170,195,230,0.4);
+    box-shadow:0 0 40px rgba(80,100,160,0.4), inset 0 0 60px rgba(30,40,80,0.25);
+  }
+  #howlConsentMoon {
+    font-size:40px; text-align:center; margin-bottom:6px;
+    filter:drop-shadow(0 0 12px rgba(200,215,240,0.9));
+    animation:spellEyePulse 2.4s ease-in-out infinite;
+  }
+  #howlConsentCard .title {
+    color:#dbe6ff; text-align:center; letter-spacing:0.5px;
+    text-shadow:0 0 14px rgba(170,195,230,0.6);
+  }
+  #howlConsentText { text-align:center; }
+  #howlConsentButtons { display:flex; gap:10px; margin-top:14px; }
+  #howlConsentButtons button { flex:1; margin-top:0; }
+  #howlConsentAllowBtn { background:linear-gradient(90deg,#5f79b0,#33456f); color:#eef3ff; }
+  #howlConsentDenyBtn { background:rgba(255,255,255,0.08); color:#eafff0; }
+  #howlConsentStatus { font-size:12px; color:#a9c0e8; margin-top:10px; min-height:14px; text-align:center; }
   .noteItem {
     background:rgba(0,0,0,0.3); border:1px solid rgba(230,190,120,0.25);
     border-radius:8px; padding:8px 10px; font-size:12px; color:#eafff0;
@@ -1011,6 +1033,19 @@
   </div>
 </div>
 <video id="spellCaptureVideo" autoplay playsinline></video>
+
+<div id="howlConsentModal" class="overlay hidden">
+  <div class="card" id="howlConsentCard">
+    <div id="howlConsentMoon">🌕🐺</div>
+    <div class="title" style="font-size:19px;">A Howl Rises in the Distance</div>
+    <div class="subtitle" id="howlConsentText"></div>
+    <div id="howlConsentButtons">
+      <button class="btn" id="howlConsentAllowBtn">🐺 Join the howl</button>
+      <button class="btn" id="howlConsentDenyBtn">🚫 Stay silent</button>
+    </div>
+    <div id="howlConsentStatus"></div>
+  </div>
+</div>
 
 <div id="attackModal" class="floatPanel hidden">
   <div class="floatPanelHandle">

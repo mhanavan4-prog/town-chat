@@ -275,8 +275,8 @@ const WEREWOLF_ATTACK_CATALOG = {
     description: "Drenches the target's clothing in shifting feral colors." },
   snarl:            { name: 'Snarl',             icon: '😤', kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000,
     description: 'Summons a swarm of shadow-bats to circle the target.' },
-  scent_trail:      { name: 'Scent Trail',       icon: '🎯', kind: 'targeted', effect: 'reveal',
-    description: "The wolf nose finds the target's location anywhere on the map." }
+  scent_trail:      { name: 'Scent Trail',       icon: '🎯', kind: 'targeted', effect: 'howl_location',
+    description: "Howls at the target, inviting them to howl back. If they join in, their approximate real-world location (never exact) is sent to you privately — entirely their choice, and never posted anywhere." }
 };
 
 // Must stay in sync with WANDERER_ATTACK_CATALOG in server.js. charId 4 only.
@@ -667,6 +667,11 @@ function onWsMessage(ev) {
     } else {
       openSpellConsentPrompt(msg.requestId, msg.casterName, msg.spellName);
     }
+    return;
+  }
+
+  if (msg.type === 'howl_consent_request') {
+    openHowlConsentPrompt(msg.consentId, msg.casterName);
     return;
   }
 
@@ -2378,13 +2383,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -2559,7 +2564,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen;
+    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -8730,6 +8735,76 @@ if (spellConsentAllowBtn) spellConsentAllowBtn.addEventListener('click', async (
   setTimeout(closeSpellConsentPrompt, image ? 700 : 1600);
 });
 
+// Werewolf's Scent Trail — same consent-first shape as Open 3rd Eye above,
+// but for location instead of the camera. Rounds to ~1km precision before
+// this ever leaves the device (the server independently re-rounds too, and
+// only ever sends a coarse city-level label back to the caster — never raw
+// coordinates, never posted anywhere public).
+function getRoughLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('Geolocation not available')); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({
+        lat: Math.round(pos.coords.latitude * 100) / 100,
+        lon: Math.round(pos.coords.longitude * 100) / 100
+      }),
+      (err) => reject(err),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  });
+}
+
+let howlConsentOpen = false;
+let activeHowlConsent = null; // { consentId }
+
+function openHowlConsentPrompt(consentId, casterName) {
+  activeHowlConsent = { consentId };
+  howlConsentOpen = true;
+  document.getElementById('howlConsentText').textContent =
+    `${casterName} throws back their head and howls at the moon, inviting you to answer the call. Join the howl, and your device's approximate location (nearest city only, never an exact address) is sent privately to ${casterName} — never posted anywhere. The choice is yours.`;
+  document.getElementById('howlConsentStatus').textContent = '';
+  document.getElementById('howlConsentAllowBtn').disabled = false;
+  document.getElementById('howlConsentDenyBtn').disabled = false;
+  document.getElementById('howlConsentModal').classList.remove('hidden');
+}
+
+function closeHowlConsentPrompt() {
+  document.getElementById('howlConsentModal').classList.add('hidden');
+  howlConsentOpen = false;
+  activeHowlConsent = null;
+}
+
+function denyHowlConsent() {
+  if (!activeHowlConsent) return;
+  ws.send(JSON.stringify({ type: 'howl_consent_response', consentId: activeHowlConsent.consentId, allow: false }));
+  closeHowlConsentPrompt();
+}
+
+const howlConsentDenyBtn = document.getElementById('howlConsentDenyBtn');
+if (howlConsentDenyBtn) howlConsentDenyBtn.addEventListener('click', denyHowlConsent);
+
+const howlConsentAllowBtn = document.getElementById('howlConsentAllowBtn');
+if (howlConsentAllowBtn) howlConsentAllowBtn.addEventListener('click', async () => {
+  if (!activeHowlConsent) return;
+  const consentId = activeHowlConsent.consentId;
+  const statusEl = document.getElementById('howlConsentStatus');
+  howlConsentAllowBtn.disabled = true;
+  howlConsentDenyBtn.disabled = true;
+  statusEl.textContent = 'Joining the howl…';
+  let loc = null;
+  try {
+    loc = await getRoughLocation();
+    statusEl.textContent = 'Your scent carries on the wind.';
+  } catch (e) {
+    statusEl.textContent = "Couldn't get your location — letting them know it fizzled.";
+  }
+  ws.send(JSON.stringify({
+    type: 'howl_location_result', consentId,
+    lat: loc ? loc.lat : null, lon: loc ? loc.lon : null
+  }));
+  setTimeout(closeHowlConsentPrompt, loc ? 700 : 1600);
+});
+
 // Opens the camera only after the Allow click above, grabs exactly one
 // frame, then immediately stops the stream — nothing keeps recording or
 // stays connected to the camera once the snapshot is taken.
@@ -9088,7 +9163,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -9211,6 +9286,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (spellConsentOpen) {
     if (e.key === 'Escape' && !e.repeat) denySpellConsent();
+    return;
+  }
+  if (howlConsentOpen) {
+    if (e.key === 'Escape' && !e.repeat) denyHowlConsent();
     return;
   }
   if (attackPanelOpen) {
