@@ -3768,6 +3768,11 @@ function buildCaveScene() {
 }
 
 function addCaveWallShelves(scene) {
+  // Shelves line the SOUTH wall (interior face z=710) on both sides of the exit door.
+  // Door is centred at x=400, so left shelves run x≈22–345, right x≈455–778.
+  const WALL_Z  = 710;
+  const SHELF_Z = WALL_Z - 11;   // shelf centre — protrudes 22 units into room
+
   const shelfMat  = new THREE.MeshLambertMaterial({ color: 0x2a1408 });
   const brktMat   = new THREE.MeshLambertMaterial({ color: 0x1a0c05 });
   const boneMat   = new THREE.MeshLambertMaterial({ color: 0xc8bba0 });
@@ -3977,33 +3982,32 @@ function addCaveWallShelves(scene) {
     scene.add(g);
   }
 
-  // ── Shelf plank + wall brackets ──────────────────────────────
+  // ── Shelf plank + wall brackets (south wall, runs along x) ──
   const TILTS_Z = [0.032, -0.041, 0.022, -0.037, 0.048, -0.026, 0.038, -0.052];
   const TILTS_X = [0.009, -0.007, 0.011, -0.008, 0.006, -0.010, 0.013, -0.005];
 
-  function addShelfSegment(isLeft, y, z0, z1, idx) {
-    const len = z1 - z0;
-    const cx  = isLeft ? 11 : 789;
-    const bx  = isLeft ?  2 : 798;
-    const tz  = isLeft ? TILTS_Z[idx % TILTS_Z.length] : -TILTS_Z[idx % TILTS_Z.length];
-    const tx  = TILTS_X[idx % TILTS_X.length];
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(22, 6, len), shelfMat);
-    plank.position.set(cx, y, (z0 + z1) / 2);
+  function addShelfSegment(x0, x1, y, idx) {
+    const len = x1 - x0;
+    const cx  = (x0 + x1) / 2;
+    const tz  = TILTS_Z[idx % TILTS_Z.length];  // tilts one x-end up/down (crooked)
+    const tx  = TILTS_X[idx % TILTS_X.length];  // slight front/back lean
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(len, 6, 22), shelfMat);
+    plank.position.set(cx, y, SHELF_Z);
     plank.rotation.z = tz;
     plank.rotation.x = tx;
     scene.add(plank);
-    // Wall bracket at each end: vertical post + horizontal arm
-    for (const bz of [z0 + 5, z1 - 5]) {
+    // Bracket at each x-end: vertical post + horizontal arm toward room
+    for (const bx of [x0 + 4, x1 - 4]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(3.5, y - 3, 3.5), brktMat);
-      post.position.set(bx, (y - 3) / 2, bz);
+      post.position.set(bx, (y - 3) / 2, WALL_Z - 2);
       scene.add(post);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(22, 3, 3.5), brktMat);
-      arm.position.set(cx, y - 4.5, bz);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3, 22), brktMat);
+      arm.position.set(bx, y - 4.5, SHELF_Z);
       scene.add(arm);
     }
   }
 
-  // ── Item sequences (one per wall, cycled by position) ────────
+  // ── Item sequences (left side of door / right side of door) ─
   const LEFT_SEQ = [
     (x,y,z) => makePotion(x,y,z,0x662288),
     (x,y,z) => makeSkull(x,y,z),
@@ -4050,22 +4054,31 @@ function addCaveWallShelves(scene) {
   ];
 
   // ── Build shelves + populate items ───────────────────────────
-  const SHELF_LEVELS = [38, 77, 116, 155];
-  const SEGS = [[25, 190], [195, 360], [365, 530], [535, 635]];
-  const ITEM_SPACING = 22;
+  // Door spans x=360–440 (80 wide, centred at 400). Leave 20-unit gap each side.
+  const SHELF_LEVELS  = [38, 77, 116, 155];
+  const LEFT_SEGS     = [[22, 130], [135, 245], [250, 340]];   // left of door
+  const RIGHT_SEGS    = [[460, 555], [560, 665], [670, 778]];  // right of door
+  const ITEM_SPACING  = 22;
 
   let li = 0, ri = 0;
-  for (let si = 0; si < SEGS.length; si++) {
-    const [z0, z1] = SEGS[si];
-    for (let lv = 0; lv < SHELF_LEVELS.length; lv++) {
-      const shelfY = SHELF_LEVELS[lv];
-      addShelfSegment(true,  shelfY, z0, z1, si * 4 + lv);
-      addShelfSegment(false, shelfY, z0, z1, si * 4 + lv + 2);
-      const surfY = shelfY + 3;
-      for (let iz = z0 + 14; iz < z1 - 8; iz += ITEM_SPACING) {
-        LEFT_SEQ[li % LEFT_SEQ.length](11, surfY, iz);
-        RIGHT_SEQ[ri % RIGHT_SEQ.length](789, surfY, iz);
-        li++; ri++;
+  for (let lv = 0; lv < SHELF_LEVELS.length; lv++) {
+    const shelfY = SHELF_LEVELS[lv];
+    const surfY  = shelfY + 3;
+
+    for (let si = 0; si < LEFT_SEGS.length; si++) {
+      const [x0, x1] = LEFT_SEGS[si];
+      addShelfSegment(x0, x1, shelfY, si * 4 + lv);
+      for (let ix = x0 + 12; ix < x1 - 8; ix += ITEM_SPACING) {
+        LEFT_SEQ[li % LEFT_SEQ.length](ix, surfY, SHELF_Z);
+        li++;
+      }
+    }
+    for (let si = 0; si < RIGHT_SEGS.length; si++) {
+      const [x0, x1] = RIGHT_SEGS[si];
+      addShelfSegment(x0, x1, shelfY, si * 4 + lv + 2);
+      for (let ix = x0 + 12; ix < x1 - 8; ix += ITEM_SPACING) {
+        RIGHT_SEQ[ri % RIGHT_SEQ.length](ix, surfY, SHELF_Z);
+        ri++;
       }
     }
   }
