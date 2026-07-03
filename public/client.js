@@ -8320,8 +8320,12 @@ function renderAuctionModal() {
     } else if (l.isVoice) {
       const itemLine = document.createElement('div');
       itemLine.className = 'auctionItemLine';
-      itemLine.textContent = `🎤 A Howl, gathered by ${l.sellerName}`;
+      itemLine.textContent = `📜 Blood Oath, witnessed by ${l.sellerName}`;
       row.appendChild(itemLine);
+      const oathDesc = document.createElement('div');
+      oathDesc.style.cssText = 'color:#c9a878;font-size:11px;font-style:italic;margin-bottom:6px;';
+      oathDesc.textContent = 'A howl sworn under the full moon, sealed into this record as binding testimony.';
+      row.appendChild(oathDesc);
       const player = document.createElement('audio');
       player.className = 'auctionVoicePlayer';
       player.controls = true;

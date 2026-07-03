@@ -1415,7 +1415,12 @@ const MAX_AUDIO_DATA_URL_LENGTH = 800000;
 function sanitizeAudio(raw) {
   if (typeof raw !== 'string') return null;
   if (raw.length > MAX_AUDIO_DATA_URL_LENGTH) return null;
-  if (!/^data:audio\/(webm|ogg|mp4|mpeg|wav);base64,/.test(raw)) return null;
+  // MediaRecorder.mimeType typically comes back with codec params attached
+  // (e.g. "audio/webm;codecs=opus") even when a bare type was requested at
+  // construction, so the data: URL carries that extra ";codecs=..." segment
+  // before ";base64," — allow any number of such parameters here rather
+  // than requiring an exact match, or every real recording gets rejected.
+  if (!/^data:audio\/[a-z0-9.+-]+(;[a-z0-9=._-]+)*;base64,/i.test(raw)) return null;
   return raw;
 }
 
