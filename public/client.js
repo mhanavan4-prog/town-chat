@@ -3336,7 +3336,7 @@ function buildTownNPCs(scene) {
     // Face toward the spawn hub (1600, 1100) so they look natural
     mesh.rotation.y = Math.atan2(1600 - npc.x, 1100 - npc.y);
     scene.add(mesh);
-    const label = makeSignSprite(`💬 ${npc.name}`);
+    const label = makeNpcNameSprite(npc.name);
     label.position.set(npc.x, 90, npc.y);
     scene.add(label);
     OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'npc', npcId: npc.id, npcName: npc.name });
@@ -3749,8 +3749,8 @@ function buildCaveScene() {
   addCaveWallShelves(scene);
 
   // Sign above witch
-  const witchSign = makeSignSprite('🧙‍♀️ Witch Hazel — Press F to speak');
-  witchSign.position.set(400, 110, 140);
+  const witchSign = makeNpcNameSprite('Witch Hazel', 'Queen of the Fifth Hand');
+  witchSign.position.set(400, 118, 140);
   scene.add(witchSign);
 
   // Exit arch near south end of cave
@@ -5571,6 +5571,75 @@ function makeSignSprite(text) {
   const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(110, 28, 1);
+  return sprite;
+}
+
+// Stylised two-line (or one-line) nameplate for NPC characters.
+// name  — displayed large in warm gold on the top line
+// title — optional smaller italic line below a thin rule
+function makeNpcNameSprite(name, title) {
+  const hasTtl = !!title;
+  const W = hasTtl ? 360 : 240, H = hasTtl ? 80 : 52;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  ctx.fillStyle = 'rgba(8, 4, 18, 0.80)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Outer border — two-tone: gold outer, purple inner
+  ctx.strokeStyle = 'rgba(160, 120, 50, 0.50)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1, 1, W - 2, H - 2);
+  ctx.strokeStyle = 'rgba(110, 60, 190, 0.45)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(3, 3, W - 6, H - 6);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  if (hasTtl) {
+    // Name — warm gold, larger
+    ctx.font = 'bold 26px Georgia, "Times New Roman", serif';
+    ctx.shadowColor = 'rgba(210, 160, 30, 0.55)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#edd08a';
+    ctx.fillText(name, W / 2, H * 0.30);
+
+    // Thin rule
+    ctx.shadowBlur = 0;
+    const ry = Math.round(H / 2) - 1;
+    ctx.strokeStyle = 'rgba(170, 130, 55, 0.38)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(26, ry); ctx.lineTo(W - 26, ry); ctx.stroke();
+
+    // Small diamond glyphs at rule ends
+    ctx.fillStyle = 'rgba(200, 160, 70, 0.45)';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('◆', 18, ry + 1);
+    ctx.fillText('◆', W - 18, ry + 1);
+
+    // Title — soft lavender, italic
+    ctx.font = 'italic 15px Georgia, "Times New Roman", serif';
+    ctx.shadowColor = 'rgba(130, 70, 210, 0.45)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#bca0e0';
+    ctx.fillText(title, W / 2, H * 0.73);
+  } else {
+    // Single line — warm cream
+    ctx.font = 'bold 22px Georgia, "Times New Roman", serif';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#e0d4b2';
+    ctx.fillText(name, W / 2, H / 2 + 1);
+  }
+
+  ctx.shadowBlur = 0;
+
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(hasTtl ? 158 : 102, hasTtl ? 35 : 23, 1);
   return sprite;
 }
 

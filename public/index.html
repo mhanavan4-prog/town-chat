@@ -341,12 +341,18 @@
 
   .nameTag {
     position:absolute; pointer-events:none; transform:translate(-50%,-100%);
-    color:#fff; font-size:12px; font-weight:700; text-align:center;
-    text-shadow:0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.5);
+    color:#edd08a;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size:12px; font-style:italic; font-weight:600; letter-spacing:0.04em;
+    text-align:center;
+    text-shadow:0 1px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8);
     white-space:nowrap; z-index:7;
+    padding:2px 8px;
+    background:rgba(8,4,18,0.52);
+    border:0.5px solid rgba(140,100,200,0.32);
+    border-radius:3px;
   }
-  /* Glimpse the Future's whole effect: a brief glow on the target's
-     existing name tag, visible only to whoever cast it. */
+  /* Glimpse the Future glow — overrides colour while spell is active */
   .nameTag.glimpseHighlight {
     color:#e0c8ff;
     text-shadow:0 1px 3px rgba(0,0,0,0.8), 0 0 10px #9b5fc0, 0 0 18px #9b5fc0;
