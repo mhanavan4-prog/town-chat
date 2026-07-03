@@ -446,6 +446,7 @@ function onWsMessage(ev) {
     if (msg.mobs2) applyMob2State(msg.mobs2);
     if (msg.decor) applyDecorState(msg.decor);
     if (msg.dungeonMobs) applyDungeonMobState(msg.dungeonMobs);
+    if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
     return;
   }
 
@@ -3260,6 +3261,7 @@ function exitDungeon() {
 function enterWilds() {
   if (!wildsScene || !world2 || !me) return;
   swapToWildsMap();
+  cameraYawOffset = Math.PI;
   me.room = 'wilds';
   me.x = world2.spawn.x;
   me.y = world2.spawn.y;
@@ -3811,6 +3813,7 @@ function buildWildsScene(w2) {
   addAnimals2(scene);
   addMobs2(scene);
   addSpookyDecor(scene, w2);
+  addVillageBuildings(scene);
 
   // The return portal back to town
   const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
@@ -3837,6 +3840,145 @@ function buildWildsScene(w2) {
 
   wildsScene = scene;
   wildsCamera = camera;
+}
+
+// ---------------------------------------------------------------------------
+// Village buildings — placed in the wildlands scene at server-matching coords.
+// All positions use world (x, z) → Three.js (x, 0, z). Called once from
+// buildWildsScene(); no dynamic state — the NPCs are handled separately.
+// ---------------------------------------------------------------------------
+const VX = 5000, VZ = 3000; // village center (mirrors VILLAGE_CENTER on server)
+
+function addVillageBuildings(scene) {
+  const woodMat  = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a7c6e });
+  const roofMat  = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
+  const thatchMat = new THREE.MeshLambertMaterial({ color: 0xb8933a });
+  const darkWood = new THREE.MeshLambertMaterial({ color: 0x3d2410 });
+
+  function box(w, h, d, mat, px, py, pz) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(px, py, pz);
+    scene.add(m);
+    return m;
+  }
+
+  // ── Longhouse (main hall) centered at village origin
+  box(260, 85, 110, woodMat, VX, 42, VZ);
+  // Roof — two sloped panels meeting at a ridge
+  const roofA = new THREE.Mesh(new THREE.BoxGeometry(275, 12, 75), roofMat);
+  roofA.rotation.z = 0.45; roofA.position.set(VX, 107, VZ - 22); scene.add(roofA);
+  const roofB = new THREE.Mesh(new THREE.BoxGeometry(275, 12, 75), roofMat);
+  roofB.rotation.z = -0.45; roofB.position.set(VX, 107, VZ + 22); scene.add(roofB);
+  // Ridge cap
+  box(280, 10, 10, darkWood, VX, 120, VZ);
+  // Door opening (dark box slightly proud of front wall)
+  box(32, 52, 8, darkWood, VX, 26, VZ - 57);
+  // Label sprite above longhouse
+  const lhSign = makeSignSprite('🏚️ Village Hall');
+  lhSign.position.set(VX, 145, VZ); scene.add(lhSign);
+
+  // ── Blacksmith/Workshop (east of hall)
+  box(90, 70, 80, stoneMat, VX + 135, 35, VZ - 50);
+  // Chimney
+  box(22, 55, 22, stoneMat, VX + 145, 75, VZ - 40);
+  // Chimney cap (slightly wider)
+  box(28, 8, 28, darkWood, VX + 145, 105, VZ - 40);
+  box(35, 52, 8, darkWood, VX + 135, 26, VZ - 93); // door
+
+  // ── Barn (west of hall)
+  box(130, 80, 95, woodMat, VX - 135, 40, VZ - 45);
+  // Barn roof (gambrel-ish — two-section pitched)
+  const barnRoofA = new THREE.Mesh(new THREE.BoxGeometry(142, 10, 60), roofMat);
+  barnRoofA.rotation.z = 0.4; barnRoofA.position.set(VX - 135, 90, VZ - 67); scene.add(barnRoofA);
+  const barnRoofB = new THREE.Mesh(new THREE.BoxGeometry(142, 10, 60), roofMat);
+  barnRoofB.rotation.z = -0.4; barnRoofB.position.set(VX - 135, 90, VZ - 23); scene.add(barnRoofB);
+  box(138, 8, 8, darkWood, VX - 135, 97, VZ - 45); // ridge
+
+  // ── Guard Tower (north of hall)
+  box(58, 150, 58, stoneMat, VX + 50, 75, VZ - 175);
+  // Battlements (4 merlons on top)
+  for (let i = -1; i <= 1; i += 2) {
+    box(14, 22, 12, stoneMat, VX + 50 + i * 18, 162, VZ - 175 - 27);
+    box(14, 22, 12, stoneMat, VX + 50 + i * 18, 162, VZ - 175 + 27);
+    box(12, 22, 14, stoneMat, VX + 50 - 27, 162, VZ - 175 + i * 18);
+    box(12, 22, 14, stoneMat, VX + 50 + 27, 162, VZ - 175 + i * 18);
+  }
+  // Tower door
+  box(22, 45, 8, darkWood, VX + 50, 22, VZ - 175 + 32);
+
+  // ── Well (south of hall center)
+  const wellBase = new THREE.Mesh(new THREE.CylinderGeometry(22, 24, 38, 10), stoneMat);
+  wellBase.position.set(VX - 20, 19, VZ + 75); scene.add(wellBase);
+  const wellTop = new THREE.Mesh(new THREE.CylinderGeometry(24, 22, 6, 10), darkWood);
+  wellTop.position.set(VX - 20, 41, VZ + 75); scene.add(wellTop);
+  // Well frame posts
+  box(5, 50, 5, darkWood, VX - 20 - 18, 60, VZ + 75 - 18);
+  box(5, 50, 5, darkWood, VX - 20 + 18, 60, VZ + 75 - 18);
+  box(40, 5, 5, darkWood, VX - 20, 83, VZ + 75 - 18); // crossbar
+
+  // ── Fire pit (southeast of hall)
+  const emberMat = new THREE.MeshLambertMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 0.8 });
+  const fireMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 6), emberMat);
+  fireMesh.position.set(VX + 60, 8, VZ + 80); scene.add(fireMesh);
+  // Stone ring around fire
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(14, 10, 10), stoneMat);
+    stone.position.set(VX + 60 + Math.cos(a) * 22, 5, VZ + 80 + Math.sin(a) * 22);
+    stone.rotation.y = a; scene.add(stone);
+  }
+  const fireLight = new THREE.PointLight(0xff6600, 1.4, 320);
+  fireLight.position.set(VX + 60, 35, VZ + 80); scene.add(fireLight);
+
+  // ── Cottage A (southwest)
+  box(80, 58, 68, woodMat, VX - 105, 29, VZ + 115);
+  const cotARoofA = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
+  cotARoofA.rotation.z = 0.5; cotARoofA.position.set(VX - 105, 68, VZ + 115 - 16); scene.add(cotARoofA);
+  const cotARoofB = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
+  cotARoofB.rotation.z = -0.5; cotARoofB.position.set(VX - 105, 68, VZ + 115 + 16); scene.add(cotARoofB);
+  box(90, 6, 6, darkWood, VX - 105, 78, VZ + 115); // ridge
+  box(24, 40, 8, darkWood, VX - 105, 20, VZ + 115 - 37); // door
+
+  // ── Cottage B (southeast)
+  box(80, 58, 68, woodMat, VX + 105, 29, VZ + 115);
+  const cotBRoofA = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
+  cotBRoofA.rotation.z = 0.5; cotBRoofA.position.set(VX + 105, 68, VZ + 115 - 16); scene.add(cotBRoofA);
+  const cotBRoofB = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
+  cotBRoofB.rotation.z = -0.5; cotBRoofB.position.set(VX + 105, 68, VZ + 115 + 16); scene.add(cotBRoofB);
+  box(90, 6, 6, darkWood, VX + 105, 78, VZ + 115); // ridge
+  box(24, 40, 8, darkWood, VX + 105, 20, VZ + 115 - 37); // door
+
+  // ── Construction site (north — half-built wall segments + scaffolding)
+  const csMat = new THREE.MeshLambertMaterial({ color: 0x9a8a76 });
+  // Partial foundation walls at varying heights
+  box(90, 30, 10, csMat, VX - 40, 15, VZ - 120);
+  box(10, 55, 80, csMat, VX - 85, 27, VZ - 120);
+  box(10, 42, 80, csMat, VX + 5,  21, VZ - 120);
+  // Wooden floor boards (flat)
+  box(100, 4, 85, woodMat, VX - 40, 3, VZ - 120);
+  // Scaffolding poles
+  const poleMat = new THREE.MeshLambertMaterial({ color: 0x8b6330 });
+  for (const [px, pz] of [[VX - 80, VZ - 80], [VX - 80, VZ - 160], [VX + 5, VZ - 80], [VX + 5, VZ - 160]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 90, 6), poleMat);
+    pole.position.set(px, 45, pz); scene.add(pole);
+  }
+  // Horizontal scaffold planks
+  box(92, 5, 8, woodMat, VX - 38, 72, VZ - 80);
+  box(92, 5, 8, woodMat, VX - 38, 72, VZ - 160);
+  box(8, 5, 88, woodMat, VX - 80, 72, VZ - 120);
+  box(8, 5, 88, woodMat, VX + 5, 72, VZ - 120);
+
+  // ── Dirt path from spawn toward village (just a flattened discolored strip)
+  const pathMat = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(55, 4200), pathMat);
+  path.rotation.x = -Math.PI / 2;
+  path.position.set(VX, 0.5, (VZ + 8800) / 2); // midpoint between village and spawn
+  scene.add(path);
+
+  // ── Village entrance sign (south approach)
+  const entranceSign = makeSignSprite('🏘️ Wildlands Village');
+  entranceSign.position.set(VX, 110, VZ + 240); scene.add(entranceSign);
 }
 
 // ---------------------------------------------------------------------------
@@ -4190,6 +4332,7 @@ function makeMob2(mobType) {
 }
 
 let mobVisuals2 = {};
+let villageNpcVisuals = {};
 
 function addMobs2(scene) {
   for (const id in mobVisuals2) scene.remove(mobVisuals2[id].mesh);
@@ -4231,6 +4374,69 @@ function updateMob2Visuals(dt) {
     v.mesh.position.set(v.x, 0, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = lastWildlifeIsNight && !v.dead;
+  }
+}
+
+function getOrCreateVillageNpcVisual(id, charId) {
+  if (!villageNpcVisuals[id]) {
+    const built = createHumanoid(charId);
+    built.group.visible = false;
+    if (wildsScene) wildsScene.add(built.group);
+    villageNpcVisuals[id] = {
+      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      working: false, walkPhase: 0, initialized: false
+    };
+  }
+  return villageNpcVisuals[id];
+}
+
+function applyVillageNpcState(npcs) {
+  if (!wildsScene) return;
+  for (const n of npcs) {
+    const v = getOrCreateVillageNpcVisual(n.id, n.charId);
+    v.targetX = n.x; v.targetY = n.y; v.targetFacing = n.facing; v.working = n.working;
+    if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
+  }
+}
+
+function updateVillageNpcVisuals(dt) {
+  if (!wildsScene) return;
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in villageNpcVisuals) {
+    const v = villageNpcVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    v.group.position.set(v.x, 0, v.y);
+    v.group.rotation.y = v.facing;
+
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
+    v.walkPhase += dt * (moving ? 5.5 : v.working ? 4 : 0);
+
+    if (moving) {
+      const swing = Math.sin(v.walkPhase) * 0.45;
+      v.armL.rotation.x = swing;
+      v.armR.rotation.x = -swing;
+      v.legL.rotation.x = -swing * 0.65;
+      v.legR.rotation.x = swing * 0.65;
+      v.group.position.y = Math.abs(Math.sin(v.walkPhase)) * 2;
+    } else if (v.working) {
+      // Hammering motion — arms pump down, slight body bob
+      const hammer = Math.abs(Math.sin(v.walkPhase * 2)) * 0.65;
+      v.armL.rotation.x = -hammer;
+      v.armR.rotation.x = -hammer;
+      v.legL.rotation.x = 0;
+      v.legR.rotation.x = 0;
+      v.group.position.y = Math.abs(Math.sin(v.walkPhase)) * 2.5;
+    } else {
+      v.armL.rotation.x *= 0.85;
+      v.armR.rotation.x *= 0.85;
+      v.legL.rotation.x *= 0.85;
+      v.legR.rotation.x *= 0.85;
+      v.group.position.y = 0;
+    }
+    v.group.visible = true;
   }
 }
 
@@ -8292,6 +8498,7 @@ function update(dt) {
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);
   updateMob2Visuals(dt);
+  updateVillageNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
   updatePortals(dt);
 

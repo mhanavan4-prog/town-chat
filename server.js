@@ -1758,6 +1758,88 @@ function tickWilds(dt) {
 }
 
 // ---------------------------------------------------------------------------
+// Village — A settlement in the wildlands. 8 NPCs (5 builders + 3 guards).
+// Day: builders walk between construction sites and work; night: all patrol.
+// ---------------------------------------------------------------------------
+const VILLAGE_CENTER = { x: 5000, y: 3000 };
+const VILLAGE_RADIUS = 370;
+
+const VILLAGE_BUILD_SITES = [
+  { x: 4960, y: 2885 }, // construction site left
+  { x: 5040, y: 2885 }, // construction site right
+  { x: 5135, y: 2955 }, // workshop/forge
+  { x: 4865, y: 2955 }, // barn
+  { x: 5000, y: 3005 }, // longhouse front
+  { x: 4895, y: 3115 }, // cottage A
+  { x: 5105, y: 3115 }, // cottage B
+  { x: 5050, y: 2830 }, // guard tower base
+];
+
+const VILLAGE_PATROL_POINTS = (() => {
+  const pts = [], N = 12;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    pts.push({ x: VILLAGE_CENTER.x + Math.cos(a) * VILLAGE_RADIUS, y: VILLAGE_CENTER.y + Math.sin(a) * VILLAGE_RADIUS });
+  }
+  return pts;
+})();
+
+const villageNpcs = [
+  { id: 'vnpc_0', name: 'Carpenter',   charId: 1, x: 4960, y: 2885, facing: 0, buildSites: [0, 1],       siteIdx: 0, workTimer: 0, working: false, patrolIdx: 0  },
+  { id: 'vnpc_1', name: 'Mason',       charId: 2, x: 5040, y: 2885, facing: 0, buildSites: [0, 1, 4],    siteIdx: 1, workTimer: 0, working: false, patrolIdx: 3  },
+  { id: 'vnpc_2', name: 'Blacksmith',  charId: 3, x: 5135, y: 2955, facing: 0, buildSites: [2, 4],       siteIdx: 0, workTimer: 0, working: false, patrolIdx: 6  },
+  { id: 'vnpc_3', name: 'Farmer',      charId: 1, x: 4865, y: 2955, facing: 0, buildSites: [3, 5, 6],    siteIdx: 0, workTimer: 0, working: false, patrolIdx: 9  },
+  { id: 'vnpc_4', name: 'Lumberjack',  charId: 4, x: 5000, y: 3005, facing: 0, buildSites: [4, 5, 6, 7], siteIdx: 0, workTimer: 0, working: false, patrolIdx: 1  },
+  { id: 'vnpc_5', name: 'Guard',       charId: 3, x: 5370, y: 3000, facing: 0, buildSites: [4, 7],       siteIdx: 0, workTimer: 0, working: false, patrolIdx: 0  },
+  { id: 'vnpc_6', name: 'Guard',       charId: 3, x: 5000, y: 3370, facing: 0, buildSites: [4, 7],       siteIdx: 1, workTimer: 0, working: false, patrolIdx: 4  },
+  { id: 'vnpc_7', name: 'Guard',       charId: 3, x: 4630, y: 3000, facing: 0, buildSites: [4, 7],       siteIdx: 0, workTimer: 0, working: false, patrolIdx: 8  },
+];
+
+const VILLAGER_SPEED = 65;
+
+function tickVillageNpcs(dt) {
+  const night = isNightNow();
+  for (const npc of villageNpcs) {
+    if (night) {
+      const pt = VILLAGE_PATROL_POINTS[npc.patrolIdx % VILLAGE_PATROL_POINTS.length];
+      const dx = pt.x - npc.x, dy = pt.y - npc.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 18) {
+        npc.patrolIdx = (npc.patrolIdx + 1) % VILLAGE_PATROL_POINTS.length;
+      } else {
+        const inv = 1 / dist;
+        npc.x += dx * inv * VILLAGER_SPEED * dt;
+        npc.y += dy * inv * VILLAGER_SPEED * dt;
+        npc.facing = Math.atan2(dx, dy);
+      }
+      npc.working = false;
+    } else {
+      if (npc.working) {
+        npc.workTimer -= dt;
+        if (npc.workTimer <= 0) {
+          npc.working = false;
+          npc.siteIdx = (npc.siteIdx + 1) % npc.buildSites.length;
+        }
+      } else {
+        const site = VILLAGE_BUILD_SITES[npc.buildSites[npc.siteIdx]];
+        const dx = site.x - npc.x, dy = site.y - npc.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 18) {
+          npc.working = true;
+          npc.workTimer = 6 + Math.random() * 8;
+          npc.facing = Math.atan2(site.x - VILLAGE_CENTER.x, site.y - VILLAGE_CENTER.y);
+        } else {
+          const inv = 1 / dist;
+          npc.x += dx * inv * VILLAGER_SPEED * dt;
+          npc.y += dy * inv * VILLAGER_SPEED * dt;
+          npc.facing = Math.atan2(dx, dy);
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Personal Dungeon — 4 tier rooms (dungeon_t1 through dungeon_t4), each
 // entered via the inventory Wildlands Token. Level range → tier:
 //   Tier 1: levels  1-5   → dungeon_t1
@@ -1942,6 +2024,7 @@ setInterval(() => {
   lastWildlifeTick = now;
   tickWildlife(dt);
   tickWilds(dt);
+  tickVillageNpcs(dt);
   tickDungeon(dt);
   tickPlayerRegen(now, dt);
   if (players.size === 0) return;
@@ -1953,7 +2036,8 @@ setInterval(() => {
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
     mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead })),
     decor: decorPublicState(),
-    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead }))
+    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead })),
+    villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working }))
   });
 }, 150);
 
