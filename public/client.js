@@ -33,7 +33,20 @@ let world2 = null;      // The Wilds — see buildWildsScene()/enterWilds()
 let TOWN_WALLS = [];    // snapshot of `walls` once initScene() finishes building the town (incl. tree colliders)
 const WILDS_WALLS = []; // the Wilds has no collidable decor, so this just stays empty
 let OUTDOOR_KIOSKS = []; // interact points in the town's outdoor scene — currently just the portal
-let WILDS_KIOSKS = [];   // interact points in the Wilds scene — currently just the return portal
+let WILDS_KIOSKS = [];   // interact points in the Wilds scene
+
+// ── Wildlands NPC factions ────────────────────────────────────────────────────
+// The Unbound Circle: wandering druids in the western wilds (~2200, 5000)
+// The Thornwarden Scouts: militant camp in the eastern wilds (~7800, 5000)
+// Both factions tie into "The Thornreach Chronicles" storyline.
+const WILDS_NPCS = [
+  { id: 'npc_morvaine', name: 'Elder Morvaine',       charId: 2, x: 2200, y: 5100 },
+  { id: 'npc_talwyn',   name: 'Sister Talwyn',         charId: 0, x: 2360, y: 5010 },
+  { id: 'npc_caelum',   name: 'Brother Caelum',        charId: 3, x: 2210, y: 4890 },
+  { id: 'npc_rhedyn',   name: 'Captain Rhedyn',        charId: 1, x: 7800, y: 4900 },
+  { id: 'npc_brynn',    name: 'Quartermaster Brynn',   charId: 3, x: 7960, y: 5010 },
+  { id: 'npc_elara',    name: 'Scout Elara',           charId: 4, x: 7800, y: 5110 },
+];
 let DUNGEON_KIOSKS = []; // interact points in the dungeon — the exit portal, rebuilt per-entry
 const DUNGEON_WORLD = { width: 800, height: 800, buildings: [], spawn: { x: 400, y: 700 } };
 let dungeonMobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, dead, initialized }
@@ -141,6 +154,7 @@ const ITEM_CATALOG = {
   bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🦇',  slot: null, desc: 'Surrounds you with bats for 45 seconds.' },
   clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  slot: null, desc: 'Cleanses all status effects.' },
   chaos_brew:             { name: 'Chaos Brew',             icon: '🌈',  slot: null, desc: 'Wild colour effects for 60 seconds.' },
+  wolf_pact_brew:         { name: "Wolf's Pact Brew",       icon: '🐺',  slot: null, desc: 'Doubles all stats for 1 hour. A gift from Lexton Greyfur.' },
   // --- Loot materials ---
   fur_scrap:      { name: 'Fur Scrap',      icon: '🧶', slot: null, desc: 'Rough scraps of fur. Used in leatherworking.' },
   animal_pelt:    { name: 'Animal Pelt',    icon: '🐻', slot: null, desc: 'A cured pelt from a wilds creature.' },
@@ -158,6 +172,7 @@ const PLANT_EFFECTS = new Set([
   // Witch-brewed potions use the same server-side plant handler
   'health_potion_ii', 'regen_brew', 'swift_brew', 'shadow_draught',
   'giants_elixir', 'bat_swarm_potion', 'clarity_draught', 'chaos_brew',
+  'wolf_pact_brew',
 ]);
 
 // A small hand-drawn flower (5 petals + center, on a short stem/leaf) used
@@ -500,11 +515,19 @@ function onWsMessage(ev) {
   if (msg.type === 'quest_complete') {
     clearQuestTracker();
     setUnlockToast(msg.message);
+    // Refresh inventory so newly granted items appear immediately
+    ws.send(JSON.stringify({ type: 'inventory_open' }));
     return;
   }
 
   if (msg.type === 'quest_cancelled') {
     clearQuestTracker();
+    return;
+  }
+
+  if (msg.type === 'wolf_pact_result') {
+    closeBloodPactModal();
+    setUnlockToast(msg.message);
     return;
   }
 
@@ -2209,6 +2232,25 @@ if (questAcceptBtn) questAcceptBtn.addEventListener('click', () => {
 const questDeclineBtn = document.getElementById('questDeclineBtn');
 if (questDeclineBtn) questDeclineBtn.addEventListener('click', closeQuestDialogue);
 
+// Blood Pact modal — Lexton Greyfur's deal
+let bloodPactOpen = false;
+function openBloodPactModal() {
+  bloodPactOpen = true;
+  document.getElementById('bloodPactModal').classList.remove('hidden');
+}
+function closeBloodPactModal() {
+  bloodPactOpen = false;
+  document.getElementById('bloodPactModal').classList.add('hidden');
+}
+const bpAcceptBtn = document.getElementById('bpAcceptBtn');
+if (bpAcceptBtn) bpAcceptBtn.addEventListener('click', () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'wolf_pact' }));
+  closeBloodPactModal();
+});
+const bpDeclineBtn = document.getElementById('bpDeclineBtn');
+if (bpDeclineBtn) bpDeclineBtn.addEventListener('click', closeBloodPactModal);
+
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
 function refreshUnlockUI() {
@@ -2338,13 +2380,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -2519,7 +2561,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen;
+    sendMoneyModalOpen || spellConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -3007,6 +3049,7 @@ const INDOOR_WALL_HEIGHT = 150;
 let renderer;
 let outdoorScene, outdoorCamera;
 let wildsScene, wildsCamera; // The Wilds — a second outdoor map reached via the portal, see buildWildsScene()/enterWilds()
+let lextonNpc = null; // { armL, armR, head } refs for night howling animation
 let dungeonScene = null, dungeonCamera = null; // Personal Dungeon — see buildDungeonScene()/swapToDungeonMap()
 let activeScene, activeCamera;
 let mode = 'outdoor';          // 'outdoor' | 'indoor'
@@ -4133,6 +4176,10 @@ function buildWildsScene(w2) {
   addMobs2(scene);
   addSpookyDecor(scene, w2);
   addVillageBuildings(scene);
+  addUnboundCircleSet(scene);
+  addThornwardenCamp(scene);
+  addGiantWerewolfTree(scene);
+  buildWildsNPCs(scene);
 
   // The return portal back to town
   const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
@@ -4298,6 +4345,463 @@ function addVillageBuildings(scene) {
   // ── Village entrance sign (south approach)
   const entranceSign = makeSignSprite('🏘️ Wildlands Village');
   entranceSign.position.set(VX, 110, VZ + 240); scene.add(entranceSign);
+}
+
+// ---------------------------------------------------------------------------
+// Wildlands NPC factions — set pieces + humanoid meshes + kiosk registration
+// ---------------------------------------------------------------------------
+
+// The Unbound Circle — standing-stone ritual site in the western wilds
+function addUnboundCircleSet(scene) {
+  const CX = 2200, CZ = 5000;   // world coords (Three.js x/z)
+  const stoneMat  = new THREE.MeshLambertMaterial({ color: 0x4a4a5a });
+  const altarMat  = new THREE.MeshLambertMaterial({ color: 0x2a2035 });
+  const runeMat   = new THREE.MeshLambertMaterial({ color: 0x7722cc, emissive: 0x4411aa, emissiveIntensity: 0.6 });
+  const fireMat   = new THREE.MeshLambertMaterial({ color: 0x8800ff, emissive: 0x5500cc, emissiveIntensity: 1 });
+
+  // 8 standing megaliths arranged in a ring, radius 110
+  const stoneHeights = [105, 88, 115, 78, 98, 120, 85, 95];
+  const stoneWidths  = [22,  18, 25,  16, 20, 24,  17, 21];
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const sx = CX + Math.sin(angle) * 110;
+    const sz = CZ + Math.cos(angle) * 110;
+    const h  = stoneHeights[i], w = stoneWidths[i];
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(w, h, 15), stoneMat);
+    stone.position.set(sx, h / 2, sz);
+    stone.rotation.y = angle + 0.08 * (i % 3 - 1);   // slight individual tilt
+    stone.rotation.z = (Math.sin(i * 2.7) * 0.04);
+    scene.add(stone);
+    // Carved rune glyph on inner face
+    const rune = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, h * 0.3, 1), runeMat);
+    rune.position.set(sx - Math.sin(angle) * 8, h * 0.55, sz - Math.cos(angle) * 8);
+    rune.rotation.y = angle;
+    scene.add(rune);
+  }
+
+  // Flat central altar slab
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(70, 18, 45), altarMat);
+  altar.position.set(CX, 9, CZ);
+  scene.add(altar);
+  // Glowing rune surface on top of altar
+  const runeTop = new THREE.Mesh(new THREE.BoxGeometry(58, 1, 35), runeMat);
+  runeTop.position.set(CX, 18.5, CZ);
+  scene.add(runeTop);
+
+  // Ritual fire above altar — two concentric spheres
+  const outerFlame = new THREE.Mesh(new THREE.SphereGeometry(9, 9, 9), fireMat);
+  outerFlame.position.set(CX, 32, CZ);
+  scene.add(outerFlame);
+  const innerFlame = new THREE.Mesh(new THREE.SphereGeometry(5, 8, 8),
+    new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0xaa22ee, emissiveIntensity: 1 }));
+  innerFlame.position.set(CX, 34, CZ);
+  scene.add(innerFlame);
+
+  // Arcane glow illuminating the whole circle
+  scene.add(Object.assign(new THREE.PointLight(0x7700cc, 1.2, 350), { position: { x: CX, y: 40, z: CZ } }));
+  const circleGlow = new THREE.PointLight(0x7700cc, 1.2, 350);
+  circleGlow.position.set(CX, 40, CZ);
+  scene.add(circleGlow);
+  const ambientPurple = new THREE.PointLight(0x440088, 0.5, 600);
+  ambientPurple.position.set(CX, 5, CZ);
+  scene.add(ambientPurple);
+
+  // 4 torch sticks around the perimeter (inside the ring)
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.PI / 8;
+    const tx = CX + Math.sin(angle) * 70, tz = CZ + Math.cos(angle) * 70;
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3, 55, 6),
+      new THREE.MeshLambertMaterial({ color: 0x3a2208 }));
+    stick.position.set(tx, 27.5, tz);
+    scene.add(stick);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(5, 7, 7),
+      new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0x8800bb, emissiveIntensity: 1 }));
+    flame.scale.y = 1.5; flame.position.set(tx, 60, tz);
+    scene.add(flame);
+    const tLight = new THREE.PointLight(0xaa33cc, 0.7, 130);
+    tLight.position.set(tx, 62, tz);
+    scene.add(tLight);
+  }
+
+  // Scattered boundary stones (smaller, leaning markers outside the ring)
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const bx = CX + Math.sin(angle) * 155, bz = CZ + Math.cos(angle) * 155;
+    const bh = 20 + (i % 3) * 8;
+    const bstone = new THREE.Mesh(new THREE.BoxGeometry(10, bh, 8), stoneMat);
+    bstone.position.set(bx, bh / 2, bz);
+    bstone.rotation.y = angle;
+    bstone.rotation.z = Math.sin(i * 1.9) * 0.15;
+    scene.add(bstone);
+  }
+
+  // Circle name sign
+  const circleSign = makeNpcNameSprite('The Unbound Circle');
+  circleSign.position.set(CX, 155, CZ);
+  scene.add(circleSign);
+}
+
+// The Thornwarden Scouts — fortified camp in the eastern wilds
+function addThornwardenCamp(scene) {
+  const CX = 7800, CZ = 5000;
+  const postMat   = new THREE.MeshLambertMaterial({ color: 0x2a1a08 });
+  const tentMat   = new THREE.MeshLambertMaterial({ color: 0x7a5a28 });
+  const tentDkMat = new THREE.MeshLambertMaterial({ color: 0x5a3e18 });
+  const stoneMat  = new THREE.MeshLambertMaterial({ color: 0x4a4a44 });
+  const metalMat  = new THREE.MeshLambertMaterial({ color: 0x6a6a74 });
+  const fireMat   = new THREE.MeshLambertMaterial({ color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 1 });
+
+  // Palisade perimeter: staked posts in a rough rectangle 320×240
+  const pW = 320, pH = 240, postSpacing = 38;
+  const perimeter = [];
+  for (let x = -pW/2; x <= pW/2; x += postSpacing) perimeter.push([x, -pH/2], [x, pH/2]);
+  for (let z = -pH/2 + postSpacing; z < pH/2; z += postSpacing) perimeter.push([-pW/2, z], [pW/2, z]);
+  for (const [px, pz] of perimeter) {
+    const h = 72 + Math.sin(px * 0.3 + pz * 0.2) * 12;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(5, 7, h, 5), postMat);
+    post.position.set(CX + px, h / 2, CZ + pz);
+    post.rotation.y = Math.sin(px + pz) * 0.08;
+    scene.add(post);
+    // Sharpened top cap
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(5, 18, 5), postMat);
+    tip.position.set(CX + px, h + 9, CZ + pz);
+    scene.add(tip);
+  }
+
+  // Top crossbeam rails connecting posts on north/south edges
+  for (const pz of [-pH/2, pH/2]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(pW, 10, 10), postMat);
+    rail.position.set(CX, 70, CZ + pz);
+    scene.add(rail);
+  }
+
+  // Tent 1 — western half (pyramid/cone tent)
+  function addTent(tx, tz, rot) {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(110, 4, 80), tentDkMat);
+    base.position.set(tx, 2, tz);
+    scene.add(base);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0, 64, 90, 4, 1), tentMat);
+    body.position.set(tx, 47, tz);
+    body.rotation.y = rot;
+    scene.add(body);
+    const opening = new THREE.Mesh(new THREE.BoxGeometry(28, 55, 6), tentDkMat);
+    opening.position.set(tx, 28, tz + 42);
+    opening.rotation.y = rot;
+    scene.add(opening);
+  }
+  addTent(CX - 80, CZ - 60, Math.PI / 4);
+  addTent(CX + 80, CZ - 60, Math.PI / 4);
+
+  // Supply crates — stacked in corner
+  for (let ci = 0; ci < 5; ci++) {
+    const cw = 35 + (ci % 2) * 5, ch = 30 + (ci % 3) * 5;
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, 30),
+      new THREE.MeshLambertMaterial({ color: 0x5a3a18 }));
+    const row = Math.floor(ci / 3), col = ci % 3;
+    crate.position.set(CX - 110 + col * 38, ch / 2 + row * 32, CZ + 70);
+    scene.add(crate);
+    // Iron banding on crate
+    const band = new THREE.Mesh(new THREE.BoxGeometry(cw + 2, 5, 32), metalMat);
+    band.position.set(CX - 110 + col * 38, ch / 2 + row * 32, CZ + 70);
+    scene.add(band);
+  }
+
+  // Watch tower — north-east corner
+  const twX = CX + 120, twZ = CZ - 95;
+  for (const [ox, oz] of [[-22,-22],[22,-22],[-22,22],[22,22]]) {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(6, 8, 130, 6), postMat);
+    pillar.position.set(twX + ox, 65, twZ + oz);
+    scene.add(pillar);
+  }
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(80, 12, 80), postMat);
+  platform.position.set(twX, 131, twZ);
+  scene.add(platform);
+  const railing = new THREE.Mesh(new THREE.BoxGeometry(84, 18, 84), postMat);
+  railing.position.set(twX, 149, twZ);
+  // Hollow it out with an inner box — use wireframe approximation with 4 thin planks
+  for (const [rox, roz, rw, rd] of [
+    [0, -42, 84, 6], [0, 42, 84, 6], [-42, 0, 6, 84], [42, 0, 6, 84]
+  ]) {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(rw, 18, rd), postMat);
+    plank.position.set(twX + rox, 149, twZ + roz);
+    scene.add(plank);
+  }
+  // Ladder rungs on south face of tower
+  for (let ri = 0; ri < 6; ri++) {
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 38, 5), postMat);
+    rung.rotation.z = Math.PI / 2;
+    rung.position.set(twX, 18 + ri * 18, twZ + 23);
+    scene.add(rung);
+  }
+
+  // Central bonfire
+  const fireRing = [0x888,0.85,0.5];
+  const fireBase = new THREE.Mesh(new THREE.CylinderGeometry(24, 28, 8, 10),
+    new THREE.MeshLambertMaterial({ color: 0x555544 }));
+  fireBase.position.set(CX, 4, CZ + 55);
+  scene.add(fireBase);
+  for (let fi = 0; fi < 8; fi++) {
+    const angle = (fi / 8) * Math.PI * 2;
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 50, 6),
+      new THREE.MeshLambertMaterial({ color: 0x3a2208 }));
+    log.rotation.z = Math.PI / 2 - 0.3;
+    log.rotation.y = angle;
+    log.position.set(CX + Math.sin(angle) * 12, 8, CZ + 55 + Math.cos(angle) * 12);
+    scene.add(log);
+  }
+  const fireFlame = new THREE.Mesh(new THREE.SphereGeometry(14, 9, 9), fireMat);
+  fireFlame.scale.y = 1.8; fireFlame.position.set(CX, 28, CZ + 55);
+  scene.add(fireFlame);
+  const campLight = new THREE.PointLight(0xff6600, 1.4, 320);
+  campLight.position.set(CX, 35, CZ + 55);
+  scene.add(campLight);
+
+  // Weapon rack — crossed swords shape
+  const rackX = CX + 90, rackZ = CZ + 40;
+  const rackPost = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 80, 6), postMat);
+  rackPost.position.set(rackX, 40, rackZ);
+  scene.add(rackPost);
+  const crossBar = new THREE.Mesh(new THREE.BoxGeometry(70, 8, 8), postMat);
+  crossBar.position.set(rackX, 65, rackZ);
+  scene.add(crossBar);
+  for (const ox of [-28, -10, 10, 28]) {
+    const sword = new THREE.Mesh(new THREE.BoxGeometry(7, 45, 4), metalMat);
+    sword.position.set(rackX + ox, 43, rackZ);
+    sword.rotation.z = (ox < 0 ? 1 : -1) * 0.15;
+    scene.add(sword);
+  }
+
+  // Flag pole with pennant
+  const flagX = CX, flagZ = CZ - 108;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 140, 5), metalMat);
+  pole.position.set(flagX, 70, flagZ);
+  scene.add(pole);
+  const pennant = new THREE.Mesh(new THREE.BoxGeometry(50, 30, 2),
+    new THREE.MeshLambertMaterial({ color: 0x8a1010 }));
+  pennant.position.set(flagX + 25, 135, flagZ);
+  scene.add(pennant);
+
+  // Camp sign
+  const campSign = makeNpcNameSprite('Thornwarden Scout Camp');
+  campSign.position.set(CX, 160, CZ);
+  scene.add(campSign);
+}
+
+// ---------------------------------------------------------------------------
+// The Ancient One — a massive primordial oak at (6500, 6200) in the Wilds,
+// with a treehouse platform where Lexton Greyfur (werewolf) lives. He offers
+// the Wolf's Pact Brew in exchange for the player's "contact list" (flavor
+// only). At night he howls at the moon, arms raised, head tilted back.
+// ---------------------------------------------------------------------------
+function addGiantWerewolfTree(scene) {
+  const TX = 6500, TZ = 6200;
+  const TRUNK_H = 400, TRUNK_TOP_Y = TRUNK_H / 2; // top face of trunk geometry
+  const PLATFORM_Y = 180; // treehouse floor height
+
+  const darkBark  = new THREE.MeshLambertMaterial({ color: 0x2d1a0a });
+  const midBark   = new THREE.MeshLambertMaterial({ color: 0x3d2510 });
+  const woodPlank = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
+  const darkWood  = new THREE.MeshLambertMaterial({ color: 0x3d2010 });
+  const roofMat   = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
+  const leafMat   = new THREE.MeshLambertMaterial({ color: 0x1a3d0a });
+  const leafMat2  = new THREE.MeshLambertMaterial({ color: 0x0f2d04 });
+  const leafMat3  = new THREE.MeshLambertMaterial({ color: 0x243d10 });
+  const ropeMat   = new THREE.MeshLambertMaterial({ color: 0x8a7040 });
+
+  function box(w, h, d, mat, x, y, z) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    scene.add(m);
+    return m;
+  }
+  function cyl(rt, rb, h, seg, mat, x, y, z) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+    m.position.set(x, y, z);
+    scene.add(m);
+    return m;
+  }
+
+  // ── Trunk — ancient, gnarled, widens at base
+  cyl(60, 85, TRUNK_H, 14, darkBark, TX, TRUNK_H / 2, TZ);
+  // Outer texture ring (lighter band)
+  cyl(62, 87, TRUNK_H, 14, midBark,  TX, TRUNK_H / 2, TZ);
+
+  // ── Surface roots — 6 large buttress wedges radiating from base
+  const ROOT_ANGLES = [0, 60, 120, 180, 240, 300];
+  for (const deg of ROOT_ANGLES) {
+    const ang = deg * Math.PI / 180;
+    const rx = TX + Math.cos(ang) * 90, rz = TZ + Math.sin(ang) * 90;
+    const rootMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(30, 22, 60),
+      darkBark
+    );
+    rootMesh.position.set(rx, 11, rz);
+    rootMesh.rotation.y = ang;
+    rootMesh.rotation.z = Math.PI * 0.08;
+    scene.add(rootMesh);
+    // Tapered knob at end
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(14, 7, 7), darkBark);
+    knob.position.set(TX + Math.cos(ang) * 115, 5, TZ + Math.sin(ang) * 115);
+    scene.add(knob);
+  }
+
+  // ── Foliage — stacked sphere clusters spanning y=320 to y=580
+  const FOLIAGE = [
+    { r: 130, y: 350, dx:  0,  dz:  0,  mat: leafMat  },
+    { r: 110, y: 430, dx: 30,  dz:-20,  mat: leafMat2 },
+    { r: 115, y: 395, dx:-40,  dz: 30,  mat: leafMat3 },
+    { r: 120, y: 460, dx: 20,  dz: 40,  mat: leafMat  },
+    { r:  95, y: 500, dx:-25,  dz:-35,  mat: leafMat2 },
+    { r: 105, y: 525, dx: 10,  dz: 10,  mat: leafMat3 },
+    { r:  80, y: 555, dx:-10,  dz: 20,  mat: leafMat  },
+  ];
+  for (const f of FOLIAGE) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(f.r, 9, 8), f.mat);
+    m.position.set(TX + f.dx, f.y, TZ + f.dz);
+    scene.add(m);
+  }
+
+  // ── Ladder — cylinder rungs on trunk's south-east face, y=20 to PLATFORM_Y
+  const LADDER_ANG = Math.PI * 0.25; // SE side
+  const ladderX = TX + Math.cos(LADDER_ANG) * 68;
+  const ladderZ = TZ + Math.sin(LADDER_ANG) * 68;
+  const sideX = Math.cos(LADDER_ANG + Math.PI / 2);
+  const sideZ = Math.sin(LADDER_ANG + Math.PI / 2);
+  for (let ry = 22; ry < PLATFORM_Y - 10; ry += 14) {
+    // Left rail
+    const rungL = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 2, 6), ropeMat);
+    rungL.position.set(ladderX + sideX * 8, ry, ladderZ + sideZ * 8);
+    scene.add(rungL);
+    // Right rail
+    const rungR = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 2, 6), ropeMat);
+    rungR.position.set(ladderX - sideX * 8, ry, ladderZ - sideZ * 8);
+    scene.add(rungR);
+    // Rung crossbar
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 16, 5), darkWood);
+    rung.rotation.z = Math.PI / 2;
+    rung.rotation.y = LADDER_ANG;
+    rung.position.set(ladderX, ry, ladderZ);
+    scene.add(rung);
+  }
+
+  // ── Treehouse platform — circular ring around trunk at PLATFORM_Y
+  // Represented as 8 planks forming a hexadecagonal deck
+  const PLANK_COUNT = 12, PLANK_W = 38, PLANK_D = 50, PLANK_H = 6;
+  const PLANK_R = 105; // distance from trunk center to plank center
+  for (let i = 0; i < PLANK_COUNT; i++) {
+    const ang = (i / PLANK_COUNT) * Math.PI * 2;
+    const px = TX + Math.cos(ang) * PLANK_R;
+    const pz = TZ + Math.sin(ang) * PLANK_R;
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(PLANK_W, PLANK_H, PLANK_D), woodPlank);
+    plank.position.set(px, PLATFORM_Y + PLANK_H / 2, pz);
+    plank.rotation.y = ang;
+    scene.add(plank);
+  }
+  // Center infill boards (cover the gap around trunk)
+  box(120, PLANK_H, 120, woodPlank, TX, PLATFORM_Y + PLANK_H / 2, TZ);
+
+  // Platform railing posts and rails
+  for (let i = 0; i < PLANK_COUNT; i++) {
+    const ang = (i / PLANK_COUNT) * Math.PI * 2;
+    const rx = TX + Math.cos(ang) * 148;
+    const rz = TZ + Math.sin(ang) * 148;
+    cyl(2, 2, 26, 5, darkWood, rx, PLATFORM_Y + 19, rz);
+  }
+  // Two rail rings at different heights
+  for (const yOff of [8, 18]) {
+    for (let i = 0; i < PLANK_COUNT; i++) {
+      const a0 = (i / PLANK_COUNT) * Math.PI * 2;
+      const a1 = ((i + 1) / PLANK_COUNT) * Math.PI * 2;
+      const x0 = TX + Math.cos(a0) * 148, z0 = TZ + Math.sin(a0) * 148;
+      const x1 = TX + Math.cos(a1) * 148, z1 = TZ + Math.sin(a1) * 148;
+      const midX = (x0 + x1) / 2, midZ = (z0 + z1) / 2;
+      const span = Math.hypot(x1 - x0, z1 - z0);
+      const railAng = Math.atan2(x1 - x0, z1 - z0);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(span, 2, 3), ropeMat);
+      rail.position.set(midX, PLATFORM_Y + PLANK_H + yOff, midZ);
+      rail.rotation.y = railAng;
+      scene.add(rail);
+    }
+  }
+
+  // ── Treehouse cabin — small wooden hut on the north side of the platform
+  const HX = TX, HZ = TZ - 80;
+  const HOUSE_Y = PLATFORM_Y + PLANK_H;
+  // Walls (four separate panels to avoid z-fighting)
+  box(92, 60, 6, woodPlank, HX,       HOUSE_Y + 30, HZ - 33); // back wall
+  box(92, 60, 6, woodPlank, HX,       HOUSE_Y + 30, HZ + 33); // front wall (with door gap below)
+  box(6, 60, 66, woodPlank, HX - 46,  HOUSE_Y + 30, HZ);       // left wall
+  box(6, 60, 66, woodPlank, HX + 46,  HOUSE_Y + 30, HZ);       // right wall
+  box(92, 6, 66, woodPlank, HX,       HOUSE_Y + 57, HZ);        // ceiling
+  // Door opening — black inset on front wall
+  box(20, 36, 8, new THREE.MeshLambertMaterial({ color: 0x080408 }), HX, HOUSE_Y + 18, HZ + 33);
+  // Glowing windows on side walls
+  for (const side of [-1, 1]) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(8, 14, 8),
+      new THREE.MeshLambertMaterial({ color: 0xffd06a, emissive: 0xffd06a, emissiveIntensity: 0.5 }));
+    win.position.set(HX + side * 46, HOUSE_Y + 35, HZ);
+    scene.add(win);
+  }
+  // Peaked roof
+  const roofGeo = new THREE.CylinderGeometry(0, 60, 50, 4);
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(HX, HOUSE_Y + 60 + 25, HZ);
+  roof.rotation.y = Math.PI / 4;
+  scene.add(roof);
+
+  // ── Point lights
+  // Warm candle glow from inside the treehouse
+  const houseLight = new THREE.PointLight(0xffcc66, 1.2, 320);
+  houseLight.position.set(HX, HOUSE_Y + 35, HZ);
+  scene.add(houseLight);
+  // Eerie moonlit blue light at base of tree
+  const treeGlow = new THREE.PointLight(0x3355aa, 0.5, 280);
+  treeGlow.position.set(TX, 40, TZ);
+  scene.add(treeGlow);
+
+  // ── Tree sign
+  const treeSign = makeNpcNameSprite('The Ancient One');
+  treeSign.position.set(TX, 620, TZ);
+  scene.add(treeSign);
+
+  // ── Lexton Greyfur — werewolf NPC on the treehouse platform
+  const lextonBuilt = createHumanoid(1); // charId 1 = Werewolf
+  const lextonMesh = lextonBuilt.group;
+  lextonMesh.position.set(TX, PLATFORM_Y + PLANK_H, TZ - 40);
+  lextonMesh.rotation.y = Math.PI; // faces south (toward approaching players)
+  scene.add(lextonMesh);
+
+  const lextonLabel = makeNpcNameSprite('Lexton Greyfur', 'Keeper of the Blood Pact');
+  lextonLabel.position.set(TX, PLATFORM_Y + PLANK_H + 95, TZ - 40);
+  scene.add(lextonLabel);
+
+  // Store arm/head refs for night-howl animation
+  lextonNpc = {
+    armL: lextonBuilt.armL,
+    armR: lextonBuilt.armR,
+    head: lextonBuilt.head,
+    group: lextonMesh,
+    lastHowlAt: 0,
+  };
+
+  // ── Register kiosk — 'wolf_pact' type. Large radius so players can interact
+  // from anywhere around the wide trunk base without needing to clip into it.
+  WILDS_KIOSKS.push({ x: TX, z: TZ, npc: 'wolf_pact', npcName: 'Lexton Greyfur', radius: 200 });
+}
+
+// Spawn humanoid NPCs for both factions and register quest kiosks
+function buildWildsNPCs(scene) {
+  for (const npc of WILDS_NPCS) {
+    const mesh = createHumanoid(npc.charId).group;
+    mesh.position.set(npc.x, 0, npc.y);
+    // Face roughly toward the center of the map (spawn side)
+    mesh.rotation.y = Math.atan2(5000 - npc.x, 8800 - npc.y);
+    scene.add(mesh);
+    const label = makeNpcNameSprite(npc.name);
+    label.position.set(npc.x, 90, npc.y);
+    scene.add(label);
+    WILDS_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'quest', npcId: npc.id, npcName: npc.name });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -6762,6 +7266,29 @@ function makeWolfMarkMesh() {
   return g;
 }
 
+function makeWolfPactAura() {
+  const g = new THREE.Group();
+  // Spinning ring of golden wolf eyes — 8 small glowing spheres in a circle
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(2.5, 7, 7),
+      new THREE.MeshLambertMaterial({ color: 0xffaa00, emissive: 0xffaa00, emissiveIntensity: 1.0 })
+    );
+    s.position.set(Math.cos(ang) * 20, CHAR.headY + 18, Math.sin(ang) * 20);
+    g.add(s);
+  }
+  // Outer golden ring
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(20, 1.5, 6, 20),
+    new THREE.MeshLambertMaterial({ color: 0xffcc22, emissive: 0xffaa00, emissiveIntensity: 0.7 })
+  );
+  ring.position.y = CHAR.headY + 18;
+  ring.rotation.x = Math.PI / 2;
+  g.add(ring);
+  return g;
+}
+
 function clearStatusVisual(v) {
   if (!v) return;
   v.group.scale.setScalar(1);
@@ -6770,9 +7297,10 @@ function clearStatusVisual(v) {
     v.pumpkinMesh = null;
     if (v.head) v.head.visible = true;
   }
-  if (v.batsGroup) { v.group.remove(v.batsGroup); v.batsGroup = null; }
-  if (v.cloakMesh) { v.group.remove(v.cloakMesh); v.cloakMesh = null; }
-  if (v.wolfMarkMesh) { v.group.remove(v.wolfMarkMesh); v.wolfMarkMesh = null; }
+  if (v.batsGroup)     { v.group.remove(v.batsGroup);     v.batsGroup     = null; }
+  if (v.cloakMesh)     { v.group.remove(v.cloakMesh);     v.cloakMesh     = null; }
+  if (v.wolfMarkMesh)  { v.group.remove(v.wolfMarkMesh);  v.wolfMarkMesh  = null; }
+  if (v.wolfPactMesh)  { v.group.remove(v.wolfPactMesh);  v.wolfPactMesh  = null; }
   if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
   v.statusType = null;
 }
@@ -6802,13 +7330,16 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'wolfmark') {
     v.wolfMarkMesh = makeWolfMarkMesh();
     v.group.add(v.wolfMarkMesh);
+  } else if (newType === 'wolfpact') {
+    v.wolfPactMesh = makeWolfPactAura();
+    v.group.add(v.wolfPactMesh);
   } else if (newType === 'meditate') {
     // No mesh — just a timestamp so syncVisuals knows how far into the
     // sit-then-rise it is. The cross-legged pose and the rising Y offset
     // are both driven from there, every player who can see this player.
     v.meditateStartedAt = performance.now();
   }
-  // 'colorcycle'/'speedboost' animate every frame in updateStatusVisuals.
+  // 'colorcycle'/'speedboost'/'wolfpact' animate every frame in updateStatusVisuals.
   // 'toad'/'gibberish'/'stumble'/'feather'/'speedboost' have no 3D mesh.
 }
 
@@ -6827,7 +7358,37 @@ function updateStatusVisuals(dt) {
       v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
     } else if (v.statusType === 'wolfmark' && v.wolfMarkMesh) {
       v.wolfMarkMesh.rotation.y += dt * 1.6;
+    } else if (v.statusType === 'wolfpact' && v.wolfPactMesh) {
+      v.wolfPactMesh.rotation.y += dt * 2.0;
     }
+  }
+}
+
+// Animate Lexton Greyfur: arms raised and head tilted during night, idle by day.
+// A "Awooooo!" chat bubble is shown near him every ~45 s at night.
+let _lastLextonHowlNotice = 0;
+function updateWerewolfNpc(dt) {
+  if (!lextonNpc) return;
+  const { isNight } = getDayNightState();
+  const now = performance.now();
+  // Smooth arm animation: raised (howling) at night, lowered in day
+  const TARGET_ARM_Z = isNight ? -Math.PI * 0.72 : 0;
+  const SPEED = 2.0;
+  if (lextonNpc.armL) {
+    lextonNpc.armL.rotation.z += (TARGET_ARM_Z - lextonNpc.armL.rotation.z) * Math.min(1, SPEED * dt);
+  }
+  if (lextonNpc.armR) {
+    lextonNpc.armR.rotation.z += (-TARGET_ARM_Z - lextonNpc.armR.rotation.z) * Math.min(1, SPEED * dt);
+  }
+  // Head tilts back during howl
+  if (lextonNpc.head) {
+    const TARGET_HEAD_X = isNight ? -0.55 : 0;
+    lextonNpc.head.rotation.x += (TARGET_HEAD_X - lextonNpc.head.rotation.x) * Math.min(1, SPEED * dt);
+  }
+  // Periodic howl notice — only visible while in the Wilds
+  if (isNight && activeScene === wildsScene && now - _lastLextonHowlNotice > 45000) {
+    _lastLextonHowlNotice = now;
+    setUnlockToast('🌕 A mournful howl echoes from the Ancient One... "Awooooo!"');
   }
 }
 
@@ -6853,7 +7414,7 @@ function ensurePlayerVisual(p) {
     deathAnimStartAt: null,
     attackAnimStartAt: null, attackAnimType: 'punch',
     weaponMesh: null, chestMesh: null, headMesh: null, feetMesh: null, ringMesh: null,
-    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null
+    statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null, wolfPactMesh: null
   };
   // Tags the root group so raycastHitAt() can identify what got clicked —
   // see the attack/harvest targeting section below.
@@ -7151,10 +7712,12 @@ function findNearestSeat() {
 // single-room Arcade pass.
 // ---------------------------------------------------------------------------
 function nearestKioskIn(list, x, z, radius) {
-  let best = null, bestDist = radius || 80;
+  const defaultR = radius || 80;
+  let best = null, bestDist = Infinity;
   for (const k of list) {
+    const r = k.radius || defaultR;
     const d = Math.hypot(x - k.x, z - k.z);
-    if (d < bestDist) { bestDist = d; best = k; }
+    if (d < r && d < bestDist) { bestDist = d; best = k; }
   }
   return best;
 }
@@ -8511,6 +9074,7 @@ function tryInteract() {
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
+  if (kiosk && kiosk.npc === 'wolf_pact') { openBloodPactModal(); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
@@ -8525,7 +9089,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -8611,6 +9175,11 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
     return;
   }
+  if (kiosk && kiosk.npc === 'wolf_pact') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Lexton Greyfur`;
+    return;
+  }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} view Town Pass`;
@@ -8647,6 +9216,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (attackPanelOpen) {
     if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
+    return;
+  }
+  if (bloodPactOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeBloodPactModal();
     return;
   }
   if (npcShopOpen) {
@@ -8874,6 +9447,7 @@ function update(dt) {
   let speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
   if (me.activeStatus && me.activeStatus.type === 'stumble') speed *= 0.5;
   if (me.activeStatus && me.activeStatus.type === 'speedboost') speed *= 2;
+  if (me.activeStatus && me.activeStatus.type === 'wolfpact') speed *= 2;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
 
@@ -8912,6 +9486,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateStatusVisuals(dt);
+  updateWerewolfNpc(dt);
   updateCamera(dt);
   updateInteractHint();
 

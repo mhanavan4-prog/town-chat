@@ -339,6 +339,7 @@ const PLANT_CATALOG = {
   bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🦇',  effect: 'status', statusType: 'bats',       durationMs: 45000 },
   clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  effect: 'cleanse' },
   chaos_brew:             { name: 'Chaos Brew',             icon: '🌈',  effect: 'status', statusType: 'colorcycle', durationMs: 60000 },
+  wolf_pact_brew:         { name: "Wolf's Pact Brew",       icon: '🐺',  effect: 'status', statusType: 'wolfpact',   durationMs: 3600000 },
 };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
@@ -597,6 +598,12 @@ const ITEM_CATALOG = {
   iron_ore:       { name: 'Iron Ore',        icon: '⛏️', slot: null },
   enchanted_fur:  { name: 'Enchanted Fur',   icon: '🌟', slot: null },
   shadow_essence: { name: 'Shadow Essence',  icon: '🫥', slot: null },
+  // ---- Wildlands quest rewards ----
+  lumber_bundle:  { name: 'Lumber Bundle',   icon: '🪵', slot: null },
+  stone_block:    { name: 'Stone Block',     icon: '🪨', slot: null },
+  iron_ingot:     { name: 'Iron Ingot',      icon: '⚙️', slot: null },
+  druid_stone:    { name: 'Druid Stone',     icon: '🔮', slot: null },
+  hollow_shard:   { name: 'Hollow Shard',    icon: '💠', slot: null },
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
@@ -971,6 +978,10 @@ function getProgress(player) {
 // and broadcasting the change so their HUD updates immediately.
 function grantXP(player, amount) {
   if (amount <= 0) return;
+  const now = Date.now();
+  if (player.activeStatus && player.activeStatus.type === 'wolfpact' && player.activeStatus.expiresAt > now) {
+    amount *= 2;
+  }
   const prog = getProgress(player);
   prog.xp += amount;
   let leveled = false;
@@ -1005,30 +1016,89 @@ function syncProgressToPlayer(player) {
 // otherwise repeatable. Only one quest can be active at a time.
 // ---------------------------------------------------------------------------
 const QUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+// ── The Thornreach Chronicles ─────────────────────────────────────────────────
+// Five centuries ago the Old Circle performed "The Fifth Severance" — a ritual
+// meant to seal the Hollow, a void of corrupted spirits. The ritual shattered,
+// splitting the order into two factions and infusing the Wildlands with dark
+// energy. Witch Hazel, keeper of the ritual key (the Fifth Hand), can still
+// close it — but both factions need the player's help first.
+// ─────────────────────────────────────────────────────────────────────────────
 const QUEST_CATALOG = {
+  // ── Town quests (Ranger / Herbalist / Hunter / Scholar) ──────────────────
   rangers_cull: {
     npcId: 'npc_mara', npcName: 'Ranger Mara',
     name: 'Cull the Night Creatures',
-    type: 'kill_mob', target: 3, xpReward: 75,
+    type: 'kill_mob', target: 3, xpReward: 75, goldReward: 40,
+    itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
     description: 'Three night creatures have been spotted near the Wilds portal. Put them down before dawn.'
   },
   herbalists_gather: {
     npcId: 'npc_finn', npcName: 'Herbalist Finn',
     name: 'Gather Wild Herbs',
-    type: 'harvest_plant', target: 5, xpReward: 60,
+    type: 'harvest_plant', target: 5, xpReward: 60, goldReward: 30,
+    itemRewards: [{ itemId: 'magic_scroll', qty: 1 }],
     description: 'My supply is running low. Bring me five plants from the Wilds — any kind will do.'
   },
   hunters_hunt: {
     npcId: 'npc_dex', npcName: 'Hunter Dex',
     name: 'Slay the Greater Beasts',
-    type: 'kill_mob', target: 5, xpReward: 120,
+    type: 'kill_mob', target: 5, xpReward: 120, goldReward: 60,
+    itemRewards: [{ itemId: 'animal_pelt', qty: 2 }],
     description: 'The Wilds are crawling with foul things at night. Hunt five of them and I\'ll make it worth your while.'
   },
   scholars_find: {
     npcId: 'npc_lyra', npcName: 'Scholar Lyra',
     name: 'Find Healing Herbs',
-    type: 'harvest_specific', targetItemId: 'healing_herb', target: 3, xpReward: 90,
+    type: 'harvest_specific', targetItemId: 'healing_herb', target: 3, xpReward: 90, goldReward: 50,
+    itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }],
     description: 'I need healing herbs for my research — three of them from the Wilds. They\'re the bright green sprouts.'
+  },
+
+  // ── The Unbound Circle (western wilds, ~2200,5000) ────────────────────────
+  circles_first_rite: {
+    npcId: 'npc_morvaine', npcName: 'Elder Morvaine',
+    name: 'Spirits of the Corrupted',
+    type: 'kill_mob', target: 6, xpReward: 100, goldReward: 80,
+    itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'healing_potion', qty: 2 }],
+    description: 'The corruption that bled from the Hollow has twisted the creatures of the Thornreach. Six of them must be put down. This is the first step of the old rite — do not falter.'
+  },
+  circles_second_rite: {
+    npcId: 'npc_talwyn', npcName: 'Sister Talwyn',
+    name: 'The Ancient Harvest',
+    type: 'harvest_plant', target: 8, xpReward: 120, goldReward: 100,
+    itemRewards: [{ itemId: 'druid_stone', qty: 1 }, { itemId: 'magic_scroll', qty: 2 }],
+    description: 'The Fifth Severance requires the living essence of untouched plants — the old grove still holds some. Gather eight offerings from the Wilds. I can feel the seal weakening as we speak.'
+  },
+  circles_final_rite: {
+    npcId: 'npc_caelum', npcName: 'Brother Caelum',
+    name: 'Thornreach\'s Last Hunt',
+    type: 'kill_mob', target: 10, xpReward: 180, goldReward: 200,
+    itemRewards: [{ itemId: 'spirit_ring', qty: 1 }, { itemId: 'hollow_shard', qty: 2 }],
+    description: 'The Hollow draws strength from its servants. Ten more must fall before Elder Morvaine can attempt the sealing ritual. Every corrupted creature you slay brings the Thornreach closer to peace.'
+  },
+
+  // ── The Thornwarden Scouts (eastern wilds, ~7800,5000) ───────────────────
+  thorns_sweep: {
+    npcId: 'npc_rhedyn', npcName: 'Captain Rhedyn',
+    name: 'Eastern Sweep',
+    type: 'kill_mob', target: 8, xpReward: 120, goldReward: 100,
+    itemRewards: [{ itemId: 'leather_hide', qty: 3 }, { itemId: 'healing_potion', qty: 1 }],
+    description: 'Corrupted creatures have broken through the eastern perimeter. Eight of them need to fall before they regroup. Move fast — we cannot let them reach the village.'
+  },
+  thorns_salvage: {
+    npcId: 'npc_brynn', npcName: 'Quartermaster Brynn',
+    name: 'Material Salvage',
+    type: 'harvest_plant', target: 10, xpReward: 140, goldReward: 150,
+    itemRewards: [{ itemId: 'lumber_bundle', qty: 3 }, { itemId: 'iron_ore', qty: 2 }],
+    description: 'The camp fortifications are deteriorating. I need raw material from the Wilds — harvest what you can find. The builders need lumber desperately. Every bundle helps.'
+  },
+  thorns_assault: {
+    npcId: 'npc_elara', npcName: 'Scout Elara',
+    name: 'Storm the Hollows',
+    type: 'kill_mob', target: 12, xpReward: 200, goldReward: 250,
+    itemRewards: [{ itemId: 'stone_block', qty: 3 }, { itemId: 'iron_ingot', qty: 2 }, { itemId: 'enchanted_fur', qty: 1 }],
+    description: 'My scouts tracked a corrupted convergence node east of the camp. Twelve of them must be destroyed before they coalesce into something none of us can stop. This is our moment — do not waste it.'
   }
 };
 // Reverse-lookup: npcId → questId
@@ -1053,12 +1123,39 @@ function advanceQuestProgress(player, eventType, itemId) {
     const prog = getProgress(player);
     prog.questCooldowns[aq.questId] = Date.now();
     if (player.accountKey) saveProgress();
+
+    // Gold reward → bank balance
+    if (quest.goldReward && player.accountKey) {
+      const acct = ensureBankAccount(player.accountKey);
+      acct.balance += quest.goldReward;
+      saveBankAccounts();
+    }
+
+    // Item rewards → inventory
+    const inv = getInventory(player);
+    const itemsGranted = [];
+    if (quest.itemRewards) {
+      for (const r of quest.itemRewards) {
+        if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
+          const meta = ITEM_CATALOG[r.itemId];
+          itemsGranted.push(`${meta?.icon || '?'} ${meta?.name || r.itemId}`);
+        }
+      }
+      if (player.accountKey) saveInventories();
+    }
+
+    const rewardParts = [`+${quest.xpReward} XP`];
+    if (quest.goldReward) rewardParts.push(`+${quest.goldReward}🪙`);
+    if (itemsGranted.length) rewardParts.push(itemsGranted.join(', '));
+
     send(player.ws, {
       type: 'quest_complete',
       questId: aq.questId,
       questName: quest.name,
       xpReward: quest.xpReward,
-      message: `✅ Quest complete: "${quest.name}" — +${quest.xpReward} XP!`
+      goldReward: quest.goldReward || 0,
+      itemsGranted,
+      message: `✅ "${quest.name}" complete — ${rewardParts.join(' · ')}`
     });
   } else {
     send(player.ws, {
@@ -3601,6 +3698,28 @@ wss.on('connection', (ws) => {
           itemId, itemName: ITEM_CATALOG[itemId]?.name, itemIcon: ITEM_CATALOG[itemId]?.icon
         });
       });
+      return;
+    }
+
+    if (msg.type === 'wolf_pact') {
+      const now = Date.now();
+      const PACT_COOLDOWN = 24 * 60 * 60 * 1000;
+      if (player.wolfPactLastAt && now - player.wolfPactLastAt < PACT_COOLDOWN) {
+        const hoursLeft = Math.ceil((player.wolfPactLastAt + PACT_COOLDOWN - now) / 3600000);
+        send(ws, { type: 'wolf_pact_result', ok: false,
+          message: `Lexton's amber eyes glow. "The pact must rest, wanderer. Return in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}."` });
+        return;
+      }
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, 'wolf_pact_brew', 1)) {
+        send(ws, { type: 'wolf_pact_result', ok: false, message: 'Your inventory is full — make room first.' });
+        return;
+      }
+      player.wolfPactLastAt = now;
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'wolf_pact_result', ok: true,
+        message: '🐺 Lexton presses the vial into your hand. "The pact is sealed. Use it when the moon is right — your power doubles for an hour."' });
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       return;
     }
   });
