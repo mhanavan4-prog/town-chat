@@ -7099,16 +7099,13 @@ function makeEquippedHeadMesh(itemId) {
   return g;
 }
 
+// One boot — called once per leg (see EQUIP_ATTACH.feet below) and
+// attached to that leg's own pivot, so it walks with the leg instead of
+// sitting fixed under the static torso group while the legs swing under it.
 function makeEquippedFeetMesh(itemId) {
   const color = EQUIP_COLORS[itemId] || 0x5a3a24;
-  const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color });
-  for (const side of [-1, 1]) {
-    const boot = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 4, 6), mat);
-    boot.position.set(side * 4.5, 2, 0);
-    g.add(boot);
-  }
-  return g;
+  return new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 4, 6), mat);
 }
 
 function makeEquippedRingMesh(itemId) {
@@ -7152,10 +7149,15 @@ const EQUIP_ATTACH = {
     id => makeEquippedHeadMesh(id),
     itemId,
     m => { m.position.y = CHAR.headY; }),
-  feet: (v, itemId) => _reattachMesh(v, 'feetMesh', 'group',
-    id => makeEquippedFeetMesh(id),
-    itemId,
-    m => { m.position.y = 0; }),
+  // Two separate boots, one parented to each leg's own pivot (legL/legR)
+  // instead of one pair parented to the static torso group — legL/legR
+  // swing independently during the walk cycle, so a shared parent can't
+  // follow both feet at once. y/z here mirror the bare foot's own local
+  // offset inside makeLeg() so the boot sits right where the foot is.
+  feet: (v, itemId) => {
+    _reattachMesh(v, 'feetMeshL', 'legL', id => makeEquippedFeetMesh(id), itemId, m => m.position.set(0, -24, 2));
+    _reattachMesh(v, 'feetMeshR', 'legR', id => makeEquippedFeetMesh(id), itemId, m => m.position.set(0, -24, 2));
+  },
   ring: (v, itemId) => _reattachMesh(v, 'ringMesh', 'armL',
     id => makeEquippedRingMesh(id),
     itemId,
@@ -7415,7 +7417,7 @@ function ensurePlayerVisual(p) {
     ghostGroup, ghostInScene: false, ghostParentScene: null,
     deathAnimStartAt: null,
     attackAnimStartAt: null, attackAnimType: 'punch',
-    weaponMesh: null, chestMesh: null, headMesh: null, feetMesh: null, ringMesh: null,
+    weaponMesh: null, chestMesh: null, headMesh: null, feetMeshL: null, feetMeshR: null, ringMesh: null,
     statusType: null, pumpkinMesh: null, batsGroup: null, cloakMesh: null, wolfMarkMesh: null, wolfPactMesh: null
   };
   // Tags the root group so raycastHitAt() can identify what got clicked —
