@@ -1264,6 +1264,15 @@
   </div>
 </div>
 
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#8a0000;color:#fff;padding:16px 20px;z-index:99999;font-family:monospace;font-size:13px;word-break:break-all;cursor:pointer;';
+  banner.textContent = '⚠ JS Error: ' + msg + ' (line ' + line + ')';
+  banner.onclick = function() { banner.remove(); };
+  document.body.appendChild(banner);
+};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="face-api.min.js"></script>
 <script src="client.js"></script>

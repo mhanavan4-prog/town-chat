@@ -895,8 +895,6 @@ function onWsMessage(ev) {
   }
 }
 setupWs();
-// Pre-warm the face detection model in the background so the first purchase is fast.
-_ensureFaceApi();
 
 function addPlayer(p) {
   if (players[p.id]) return;
@@ -8747,6 +8745,8 @@ async function _ensureFaceApi() {
     return true;
   } catch { return false; }
 }
+// Pre-warm the face detection model in the background so the first purchase is fast.
+_ensureFaceApi();
 
 // Returns true if a human face is detected in the data URL.
 // Uses face-api.js tiny face detector (works in all browsers, no API key needed).
