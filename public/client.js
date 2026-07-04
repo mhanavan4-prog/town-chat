@@ -512,6 +512,11 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'npc_hint_dialogue') {
+    showNpcHintDialogue(msg);
+    return;
+  }
+
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target);
     return;
@@ -2261,6 +2266,27 @@ if (questAcceptBtn) questAcceptBtn.addEventListener('click', () => {
 
 const questDeclineBtn = document.getElementById('questDeclineBtn');
 if (questDeclineBtn) questDeclineBtn.addEventListener('click', closeQuestDialogue);
+
+// ---------------------------------------------------------------------------
+// Generic building-interior NPC hint dialogue — one modal reused by every
+// non-shop, non-quest-giving NPC across every building (see npc_hint_talk).
+// ---------------------------------------------------------------------------
+function openNpcHintTalk(npcId) {
+  ws.send(JSON.stringify({ type: 'npc_hint_talk', npcId }));
+}
+
+function showNpcHintDialogue(msg) {
+  document.getElementById('npcHintName').textContent = `💬 ${msg.npcName}`;
+  document.getElementById('npcHintText').textContent = msg.message || '';
+  document.getElementById('npcHintModal').classList.remove('hidden');
+}
+
+function closeNpcHintModal() {
+  document.getElementById('npcHintModal').classList.add('hidden');
+}
+
+const npcHintCloseBtn = document.getElementById('npcHintCloseBtn');
+if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal);
 
 // Blood Pact modal — Lexton Greyfur's deal
 let bloodPactOpen = false;
@@ -6559,6 +6585,12 @@ function makeFireplace(x, z, rotY) {
   body.position.y = 30; g.add(body);
   const hole = new THREE.Mesh(new THREE.BoxGeometry(30, 34, 10), new THREE.MeshBasicMaterial({ color: 0xff7a30 }));
   hole.position.set(0, 20, 2); g.add(hole);
+  // The unlit hole reads as bright regardless of scene lighting, but never
+  // actually lit anything around it — a real hearth should throw warm light
+  // across the room, not just glow in place.
+  const glow = new THREE.PointLight(0xff8a3a, 1.1, 260);
+  glow.position.set(0, 24, 12);
+  g.add(glow);
   g.position.set(x, 0, z); g.rotation.y = rotY || 0;
   return g;
 }
@@ -6847,6 +6879,31 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       statueSign.position.set(statueX, 108, statueZ);
       scene.add(statueSign);
       kiosksOut.push({ id: 'town_pass', x: statueX, z: statueZ });
+
+      // Two NPCs — same interact pattern as every other NPC in the game
+      // (proximity + F, see tryInteract/updateInteractHint). Barkeep Joss
+      // sells consumables (reuses the existing NPC_SHOPS/openNpcShopModal
+      // flow, same as the outdoor town NPCs); Old Mabel doesn't sell
+      // anything — she just gives a hint about whatever quest you're
+      // currently on (npc_hint_talk), or tells you to come back once you
+      // are on one.
+      const bartender = createHumanoid(3).group;
+      bartender.position.set(78, 0, 130);
+      bartender.rotation.y = Math.atan2(cx - 78, cz - 130);
+      scene.add(bartender);
+      const bartenderLabel = makeNpcNameSprite('Barkeep Joss', 'Tavern Keeper');
+      bartenderLabel.position.set(78, 90, 130);
+      scene.add(bartenderLabel);
+      kiosksOut.push({ x: 78, z: 130, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss' });
+
+      const patron = createHumanoid(0).group;
+      patron.position.set(460, 0, 90);
+      patron.rotation.y = Math.atan2(cx - 460, cz - 90);
+      scene.add(patron);
+      const patronLabel = makeNpcNameSprite('Old Mabel', 'Fireside Regular');
+      patronLabel.position.set(460, 90, 90);
+      scene.add(patronLabel);
+      kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
@@ -9413,6 +9470,7 @@ function tryInteract() {
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
+  if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { openBloodPactModal(); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
@@ -9515,6 +9573,11 @@ function updateInteractHint() {
     return;
   }
   if (kiosk && kiosk.npc === 'quest') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'hint') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
     return;

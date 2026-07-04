@@ -266,19 +266,24 @@ const WORLD = {
 // and every client agrees on which ones are currently picked clean. Only
 // tree/shrub/flower types are harvestable — rocks are still just scenery.
 // Positions/scales copied over unchanged from the old client.js constant.
+// Tree scales are ~3x their original values — makeTree()'s whole geometry
+// (trunk + foliage cones, and the collision radius derived from the same
+// scale in addNatureDecor) grows uniformly with it, so at this scale a town
+// tree stands several times taller than a player character instead of just
+// slightly taller. Shrub/rock/flower scales are untouched.
 WORLD.natureDecor = [
-  { id: 'decor_0',  type: 'tree',   x: 80,   y: 935,  scale: 1.1 },  { id: 'decor_1',  type: 'tree',   x: 145,  y: 1175, scale: 0.9 },
-  { id: 'decor_2',  type: 'tree',   x: 65,   y: 1360, scale: 1.0 },  { id: 'decor_3',  type: 'shrub',  x: 175,  y: 1015, scale: 1.0 },
-  { id: 'decor_4',  type: 'shrub',  x: 120,  y: 1280, scale: 0.8 },  { id: 'decor_5',  type: 'tree',   x: 935,  y: 80,   scale: 1.0 },
-  { id: 'decor_6',  type: 'tree',   x: 1160, y: 55,   scale: 0.85 }, { id: 'decor_7',  type: 'shrub',  x: 1040, y: 120,  scale: 1.0 },
-  { id: 'decor_8',  type: 'tree',   x: 3065, y: 935,  scale: 1.0 },  { id: 'decor_9',  type: 'tree',   x: 3135, y: 1175, scale: 0.9 },
-  { id: 'decor_10', type: 'tree',   x: 3080, y: 1360, scale: 1.05 }, { id: 'decor_11', type: 'shrub',  x: 2985, y: 1025, scale: 0.9 },
-  { id: 'decor_12', type: 'shrub',  x: 3040, y: 1265, scale: 1.0 },  { id: 'decor_13', type: 'tree',   x: 935,  y: 2135, scale: 1.0 },
-  { id: 'decor_14', type: 'tree',   x: 1200, y: 2160, scale: 0.95 }, { id: 'decor_15', type: 'tree',   x: 2000, y: 2145, scale: 1.0 },
-  { id: 'decor_16', type: 'tree',   x: 2265, y: 2120, scale: 0.9 },  { id: 'decor_17', type: 'shrub',  x: 1065, y: 2095, scale: 1.0 },
-  { id: 'decor_18', type: 'shrub',  x: 2135, y: 2080, scale: 0.85 }, { id: 'decor_19', type: 'tree',   x: 1975, y: 80,   scale: 0.9 },
-  { id: 'decor_20', type: 'tree',   x: 2160, y: 105,  scale: 1.0 },  { id: 'decor_21', type: 'shrub',  x: 2065, y: 55,   scale: 0.9 },
-  { id: 'decor_22', type: 'tree',   x: 105,  y: 335,  scale: 0.95 }, { id: 'decor_23', type: 'tree',   x: 3105, y: 335,  scale: 0.95 },
+  { id: 'decor_0',  type: 'tree',   x: 80,   y: 935,  scale: 3.3 },  { id: 'decor_1',  type: 'tree',   x: 145,  y: 1175, scale: 2.7 },
+  { id: 'decor_2',  type: 'tree',   x: 65,   y: 1360, scale: 3.0 },  { id: 'decor_3',  type: 'shrub',  x: 175,  y: 1015, scale: 1.0 },
+  { id: 'decor_4',  type: 'shrub',  x: 120,  y: 1280, scale: 0.8 },  { id: 'decor_5',  type: 'tree',   x: 935,  y: 80,   scale: 3.0 },
+  { id: 'decor_6',  type: 'tree',   x: 1160, y: 55,   scale: 2.55 }, { id: 'decor_7',  type: 'shrub',  x: 1040, y: 120,  scale: 1.0 },
+  { id: 'decor_8',  type: 'tree',   x: 3065, y: 935,  scale: 3.0 },  { id: 'decor_9',  type: 'tree',   x: 3135, y: 1175, scale: 2.7 },
+  { id: 'decor_10', type: 'tree',   x: 3080, y: 1360, scale: 3.15 }, { id: 'decor_11', type: 'shrub',  x: 2985, y: 1025, scale: 0.9 },
+  { id: 'decor_12', type: 'shrub',  x: 3040, y: 1265, scale: 1.0 },  { id: 'decor_13', type: 'tree',   x: 935,  y: 2135, scale: 3.0 },
+  { id: 'decor_14', type: 'tree',   x: 1200, y: 2160, scale: 2.85 }, { id: 'decor_15', type: 'tree',   x: 2000, y: 2145, scale: 3.0 },
+  { id: 'decor_16', type: 'tree',   x: 2265, y: 2120, scale: 2.7 },  { id: 'decor_17', type: 'shrub',  x: 1065, y: 2095, scale: 1.0 },
+  { id: 'decor_18', type: 'shrub',  x: 2135, y: 2080, scale: 0.85 }, { id: 'decor_19', type: 'tree',   x: 1975, y: 80,   scale: 2.7 },
+  { id: 'decor_20', type: 'tree',   x: 2160, y: 105,  scale: 3.0 },  { id: 'decor_21', type: 'shrub',  x: 2065, y: 55,   scale: 0.9 },
+  { id: 'decor_22', type: 'tree',   x: 105,  y: 335,  scale: 2.85 }, { id: 'decor_23', type: 'tree',   x: 3105, y: 335,  scale: 2.85 },
   { id: 'decor_24', type: 'shrub',  x: 80,   y: 1865, scale: 1.0 },  { id: 'decor_25', type: 'shrub',  x: 3120, y: 1865, scale: 1.0 },
   { id: 'decor_26', type: 'rock',   x: 500,  y: 1100, scale: 1.0 },  { id: 'decor_27', type: 'rock',   x: 1100, y: 1700, scale: 0.9 },
   { id: 'decor_28', type: 'rock',   x: 2100, y: 1700, scale: 1.1 },  { id: 'decor_29', type: 'rock',   x: 2700, y: 1100, scale: 0.9 },
@@ -2274,8 +2279,40 @@ const NPC_SHOPS = {
   npc_lyra: { name: 'Scholar Lyra', items: [
     { id: 'spell_tome', price: 60 }, { id: 'wizard_hat', price: 35 },
     { id: 'spirit_ring', price: 45 }, { id: 'enchanted_gem', price: 30 }
+  ]},
+  // ---- Building-interior NPCs (see buildFurniture's per-theme branches) ----
+  npc_bartender: { name: 'Barkeep Joss', items: [
+    { id: 'healing_potion', price: 12 }, { id: 'berries', price: 5 },
+    { id: 'regen_root', price: 18 }, { id: 'cleansing_clover', price: 15 }
   ]}
 };
+
+// Building-interior hint-givers — not quest-givers themselves (not in
+// QUEST_BY_NPC), just a friendly local who'll point a stuck player back at
+// whatever quest they're already on. See npc_hint_talk below and
+// getQuestHint() for how the actual hint text is derived from the quest's
+// own type/target rather than being hand-authored per quest.
+const NPC_HINT_GIVERS = {
+  npc_patron: { name: 'Old Mabel' }
+};
+
+// Generic, type-driven hint text — works for any quest without needing a
+// hand-written line per quest id, so new quests/hint-NPCs don't need this
+// touched.
+function getQuestHint(quest, progress) {
+  const remaining = Math.max(0, quest.target - progress);
+  if (quest.type === 'kill_mob') {
+    return `Night creatures come out in the Wilds after dark — look near the portal and the wooded edges. ${remaining} more to go.`;
+  }
+  if (quest.type === 'harvest_plant') {
+    return `Plants are scattered all through the Wilds — walk up to any sprout, flower, or mushroom and interact with it. ${remaining} more to go.`;
+  }
+  if (quest.type === 'harvest_specific') {
+    const item = ITEM_CATALOG[quest.targetItemId];
+    return `You need ${item ? item.icon + ' ' + item.name : quest.targetItemId} specifically, not just any plant. ${remaining} more to go.`;
+  }
+  return `Keep at it — you're ${progress}/${quest.target} of the way there.`;
+}
 
 // Witch cave — entrance in the Wilds, leads to a small cave room
 const WITCH_CAVE_ENTRANCE = { x: 2000, y: 2000 };
@@ -3015,6 +3052,24 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName,
         questName: quest.name, description: quest.description,
         target: quest.target, xpReward: quest.xpReward });
+      return;
+    }
+
+    if (msg.type === 'npc_hint_talk') {
+      const npcId = String(msg.npcId || '');
+      const giver = NPC_HINT_GIVERS[npcId];
+      if (!giver) return;
+      const aq = player.activeQuest;
+      let message;
+      if (!aq) {
+        message = `${giver.name} shrugs. "You're not chasing anything right now — find someone with work for you, then come find me again."`;
+      } else {
+        const quest = QUEST_CATALOG[aq.questId];
+        message = quest
+          ? `${giver.name} leans in. "${getQuestHint(quest, aq.progress)}"`
+          : `${giver.name} tilts their head. "Can't place what you're on about — ask whoever sent you."`;
+      }
+      send(ws, { type: 'npc_hint_dialogue', npcId, npcName: giver.name, message });
       return;
     }
 

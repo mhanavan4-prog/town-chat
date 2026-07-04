@@ -1205,6 +1205,16 @@
   </div>
 </div>
 
+<!-- Generic building-interior NPC hint dialogue — reused across every
+     building's non-shop, non-quest-giving NPC (see npc_hint_talk). -->
+<div id="npcHintModal" class="overlay hidden">
+  <div class="card" id="npcHintCard">
+    <div class="title" style="font-size:18px;" id="npcHintName">NPC Name</div>
+    <div style="margin:12px 0 14px; line-height:1.55; color:#cfe9cf; font-size:13px;" id="npcHintText"></div>
+    <button class="btn" id="npcHintCloseBtn">Close</button>
+  </div>
+</div>
+
 <!-- Blood Pact modal — Lexton Greyfur's deal at the Ancient One treehouse -->
 <div id="bloodPactModal" class="overlay hidden">
   <div class="card" style="width:min(400px,90vw); background:linear-gradient(160deg,rgba(18,8,12,0.98),rgba(8,4,10,0.98)); border-color:rgba(160,60,60,0.35); box-shadow:0 0 60px rgba(160,40,40,0.18), 0 10px 40px rgba(0,0,0,0.6);">
