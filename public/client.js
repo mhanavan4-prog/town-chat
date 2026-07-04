@@ -1898,6 +1898,7 @@ if (respawnBtn) respawnBtn.addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 let npcShopOpen = false;
 let currentShopNpcId = null;
+let currentShopNpcName = null;
 
 function openNpcShopModal(npcId) {
   currentShopNpcId = npcId;
@@ -1907,6 +1908,7 @@ function openNpcShopModal(npcId) {
 function closeNpcShopModal() {
   npcShopOpen = false;
   currentShopNpcId = null;
+  currentShopNpcName = null;
   const el = document.getElementById('npcShopModal');
   if (el) el.classList.add('hidden');
 }
@@ -1914,6 +1916,7 @@ function closeNpcShopModal() {
 function renderNpcShop(msg) {
   npcShopOpen = true;
   currentShopNpcId = msg.npcId;
+  currentShopNpcName = msg.npcName;
   document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
   const bal = lastBankState ? lastBankState.balance : '?';
   document.getElementById('npcShopBalance').textContent = `Balance: ${bal} 🪙`;
@@ -1941,9 +1944,9 @@ if (npcShopCloseBtn) npcShopCloseBtn.addEventListener('click', closeNpcShopModal
 const npcShopQuestBtn = document.getElementById('npcShopQuestBtn');
 if (npcShopQuestBtn) npcShopQuestBtn.addEventListener('click', () => {
   if (currentShopNpcId) {
+    const npcId = currentShopNpcId, npcName = currentShopNpcName || currentShopNpcId;
     closeNpcShopModal();
-    const npc = TOWN_NPCS.find(n => n.id === currentShopNpcId);
-    openQuestDialogue(currentShopNpcId, npc ? npc.name : currentShopNpcId);
+    openQuestDialogue(npcId, npcName);
   }
 });
 
@@ -2241,7 +2244,10 @@ let pendingQuestNpcId = null;
 
 function openQuestDialogue(npcId, npcName) {
   pendingQuestNpcId = npcId;
-  ws.send(JSON.stringify({ type: 'quest_talk', npcId }));
+  // npcName only matters server-side as a display fallback for NPCs that
+  // aren't quest-givers at all (see quest_talk) — quest-givers already
+  // have their own name in QUEST_CATALOG and ignore this.
+  ws.send(JSON.stringify({ type: 'quest_talk', npcId, npcName }));
 }
 
 function showQuestOffer(msg) {

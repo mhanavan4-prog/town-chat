@@ -3044,7 +3044,16 @@ wss.on('connection', (ws) => {
     if (msg.type === 'quest_talk') {
       const npcId = String(msg.npcId || '');
       const questId = QUEST_BY_NPC[npcId];
-      if (!questId) return;
+      if (!questId) {
+        // Not a quest-giver at all (e.g. a shop/hint NPC) — used to just
+        // return here with no response, so clicking "Ask for a Quest"
+        // closed the shop box and left nothing behind. npcName is a
+        // client-supplied display fallback only used for this message.
+        const npcName = sanitizeText(msg.npcName) || 'They';
+        send(ws, { type: 'quest_offer', questId: null, npcId, npcName,
+          message: `${npcName} doesn't have any work for you right now.` });
+        return;
+      }
       const quest = QUEST_CATALOG[questId];
       const prog = getProgress(player);
       // Busy with another quest
