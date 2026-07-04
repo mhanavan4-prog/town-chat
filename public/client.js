@@ -6129,25 +6129,32 @@ function buildBuildingMesh(b, w) {
 
 // A real doorway at an interior wall gap: wooden jamb posts + a header beam
 // framing the opening, plus a door panel hinged at the doorStart edge and
-// swung ajar into the room (with a handle), so it reads as an actual door
+// left ajar into the room (with a handle), so it reads as an actual door
 // rather than an empty gap. Exit detection stays purely positional (see
 // updateIndoor) — this mesh is cosmetic only.
+//
+// Swing angle is deliberately modest (a crack, not a wide-open panel) —
+// it used to be 0.9 rad (~52°), which swings a door this wide roughly
+// 130 units into the room, clean across most small interiors. A door
+// left barely ajar also reads as more unsettling than one standing wide
+// open, which fits the game's spookier theme better anyway.
 function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
   const g = new THREE.Group();
   const t = (world.wallThickness || 12) * INDOOR_SCALE;
   const dw = doorEnd - doorStart;
   const doorH = INDOOR_WALL_HEIGHT * 0.74;
   const jambW = 8, jambD = t * 1.3;
-  const frameMat = new THREE.MeshLambertMaterial({ color: 0x2a1a10 });
-  const doorMat = new THREE.MeshLambertMaterial({ color: theme.doorColor || 0x3c2616 });
-  const handleMat = new THREE.MeshLambertMaterial({ color: 0xd8b35c });
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x160d08 });
+  const doorMat = new THREE.MeshLambertMaterial({ color: theme.doorColor || 0x2a1a10 });
+  const handleMat = new THREE.MeshLambertMaterial({ color: 0x4a4238 });
+  const ironMat = new THREE.MeshLambertMaterial({ color: 0x1c1c1c });
 
   const axisIsX = side === 'north' || side === 'south';
   let wallCoord, openAngle;
-  if (side === 'north') { wallCoord = 0; openAngle = -0.9; }
-  else if (side === 'south') { wallCoord = roomD; openAngle = 0.9; }
-  else if (side === 'west') { wallCoord = 0; openAngle = 0.9; }
-  else { wallCoord = roomW; openAngle = -0.9; }
+  if (side === 'north') { wallCoord = 0; openAngle = -0.35; }
+  else if (side === 'south') { wallCoord = roomD; openAngle = 0.35; }
+  else if (side === 'west') { wallCoord = 0; openAngle = 0.35; }
+  else { wallCoord = roomW; openAngle = -0.35; }
 
   const header = new THREE.Mesh(
     axisIsX ? new THREE.BoxGeometry(dw + jambW * 2, 10, jambD) : new THREE.BoxGeometry(jambD, 10, dw + jambW * 2),
@@ -6181,11 +6188,32 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
   );
   panel.add(handle);
 
+  // A couple of aged iron straps across the panel, top and bottom — reads
+  // as old ironwork rather than a plain hinge pin.
+  for (const hy of [doorH * 0.28, -doorH * 0.28]) {
+    const strap = new THREE.Mesh(
+      axisIsX ? new THREE.BoxGeometry(14, 4, panelT + 1.5) : new THREE.BoxGeometry(panelT + 1.5, 4, 14),
+      ironMat
+    );
+    strap.position.set(axisIsX ? 7 : 0, hy, axisIsX ? 0 : 7);
+    panel.add(strap);
+  }
+
   const hinge = new THREE.Group();
   hinge.add(panel);
   hinge.rotation.y = openAngle;
   hinge.position.set(axisIsX ? doorStart : wallCoord, 0, axisIsX ? wallCoord : doorStart);
   g.add(hinge);
+
+  // A faint sickly glow bleeding through the gap left by the ajar door —
+  // just enough to suggest something's lit beyond it, not a real light source.
+  const glow = new THREE.PointLight(0x3a5a3a, 0.5, 70);
+  glow.position.set(
+    axisIsX ? (doorStart + doorEnd) / 2 : wallCoord,
+    doorH * 0.4,
+    axisIsX ? wallCoord : (doorStart + doorEnd) / 2
+  );
+  g.add(glow);
 
   return g;
 }
