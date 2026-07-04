@@ -3510,16 +3510,17 @@ function exitDungeon() {
 function enterWilds() {
   if (!wildsScene || !world2 || !me) return;
   swapToWildsMap();
-  // Face away from the return portal (spawn.y - 80, see buildWildsScene)
-  // instead of leaving the stale town-side facing in place — facing=0 is
-  // straight +Y, which is away from the portal at this spawn point. This
-  // used to be faked with a temporary cameraYawOffset instead of touching
-  // the player's actual facing, which looked right for exactly one frame:
-  // any movement/turn input resets cameraYawOffset back to 0 (see update()),
-  // so pressing W immediately whipped the camera 180° back to match the
-  // never-updated real facing. Setting the real facing here means there's
-  // no offset left to unwind, so the first step forward is smooth.
-  me.facing = 0;
+  // Face toward the actual Wilds (facing=Math.PI is -Y), not just away
+  // from the return portal. Spawn sits at y=8800 in a 10000-tall map —
+  // only 1200 units from the southern edge — while everything worth
+  // seeing (WILDS_NPCS, the giant tree, the ritual circle) clusters
+  // around y≈5000, thousands of units north. facing=0 (+Y) faced the
+  // player at that nearby empty edge instead of the Wilds itself; the
+  // return portal (spawn.y - 80, see buildWildsScene) is only 80 units
+  // away either way, trivial next to that, so it's not worth orienting
+  // around. This also replaces a temporary cameraYawOffset hack that only
+  // faked the initial view for one frame — see git history for that fix.
+  me.facing = Math.PI;
   me.room = 'wilds';
   me.x = world2.spawn.x;
   me.y = world2.spawn.y;
