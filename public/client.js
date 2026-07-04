@@ -6128,16 +6128,17 @@ function buildBuildingMesh(b, w) {
 }
 
 // A real doorway at an interior wall gap: wooden jamb posts + a header beam
-// framing the opening, plus a door panel hinged at the doorStart edge and
-// left ajar into the room (with a handle), so it reads as an actual door
-// rather than an empty gap. Exit detection stays purely positional (see
-// updateIndoor) — this mesh is cosmetic only.
-//
-// Swing angle is deliberately modest (a crack, not a wide-open panel) —
-// it used to be 0.9 rad (~52°), which swings a door this wide roughly
-// 130 units into the room, clean across most small interiors. A door
-// left barely ajar also reads as more unsettling than one standing wide
-// open, which fits the game's spookier theme better anyway.
+// framing the opening, an EXIT sign above it, and a single door panel sized
+// to the full gap and sitting flush in the wall plane — closed, not hinged
+// ajar. The door used to swing open into the room (first at 0.9 rad, then
+// 0.35 after an earlier fix), which always looked at least a little wrong
+// no matter the angle since it's purely cosmetic geometry, not a real
+// hinge simulation. A flush closed door reads correctly at any angle and
+// fits an actual "press F to open/exit" interaction (see the exitDoor
+// kiosk pushed in getInteriorScene, and tryInteract()/updateInteractHint())
+// — collision at this gap now blocks the player like a real closed door;
+// only interacting actually crosses it. Also fits the spooky theme better:
+// a shut door you have to choose to open beats one already hanging ajar.
 function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
   const g = new THREE.Group();
   const t = (world.wallThickness || 12) * INDOOR_SCALE;
@@ -6150,18 +6151,15 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
   const ironMat = new THREE.MeshLambertMaterial({ color: 0x1c1c1c });
 
   const axisIsX = side === 'north' || side === 'south';
-  let wallCoord, openAngle;
-  if (side === 'north') { wallCoord = 0; openAngle = -0.35; }
-  else if (side === 'south') { wallCoord = roomD; openAngle = 0.35; }
-  else if (side === 'west') { wallCoord = 0; openAngle = 0.35; }
-  else { wallCoord = roomW; openAngle = -0.35; }
+  const wallCoord = side === 'north' ? 0 : side === 'south' ? roomD : side === 'west' ? 0 : roomW;
+  const doorMid = (doorStart + doorEnd) / 2;
 
   const header = new THREE.Mesh(
     axisIsX ? new THREE.BoxGeometry(dw + jambW * 2, 10, jambD) : new THREE.BoxGeometry(jambD, 10, dw + jambW * 2),
     frameMat
   );
-  if (axisIsX) header.position.set((doorStart + doorEnd) / 2, doorH + 5, wallCoord);
-  else header.position.set(wallCoord, doorH + 5, (doorStart + doorEnd) / 2);
+  if (axisIsX) header.position.set(doorMid, doorH + 5, wallCoord);
+  else header.position.set(wallCoord, doorH + 5, doorMid);
   g.add(header);
 
   for (const pos of [doorStart, doorEnd]) {
@@ -6174,44 +6172,47 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
     g.add(jamb);
   }
 
-  const panelW = dw - 12, panelT = 4;
+  // EXIT sign centered above the header, facing into the room.
+  const sign = makeSignSprite('EXIT');
+  if (axisIsX) sign.position.set(doorMid, doorH + 26, wallCoord);
+  else sign.position.set(wallCoord, doorH + 26, doorMid);
+  g.add(sign);
+
+  // Single flush panel filling the whole gap — no hinge, no swing.
+  const panelT = 4;
   const panel = new THREE.Mesh(
-    axisIsX ? new THREE.BoxGeometry(panelW, doorH - 8, panelT) : new THREE.BoxGeometry(panelT, doorH - 8, panelW),
+    axisIsX ? new THREE.BoxGeometry(dw - 4, doorH - 8, panelT) : new THREE.BoxGeometry(panelT, doorH - 8, dw - 4),
     doorMat
   );
-  panel.position.set(axisIsX ? panelW / 2 : 0, doorH / 2, axisIsX ? 0 : panelW / 2);
+  if (axisIsX) panel.position.set(doorMid, doorH / 2, wallCoord);
+  else panel.position.set(wallCoord, doorH / 2, doorMid);
+  g.add(panel);
+
   const handle = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), handleMat);
   handle.position.set(
-    axisIsX ? panelW - 8 : panelT / 2 + 2.5,
+    axisIsX ? dw / 2 - 10 : panelT / 2 + 2.5,
     0,
-    axisIsX ? panelT / 2 + 2.5 : panelW - 8
+    axisIsX ? panelT / 2 + 2.5 : dw / 2 - 10
   );
   panel.add(handle);
 
-  // A couple of aged iron straps across the panel, top and bottom — reads
-  // as old ironwork rather than a plain hinge pin.
+  // A couple of aged iron straps across the panel — reads as old ironwork.
   for (const hy of [doorH * 0.28, -doorH * 0.28]) {
     const strap = new THREE.Mesh(
-      axisIsX ? new THREE.BoxGeometry(14, 4, panelT + 1.5) : new THREE.BoxGeometry(panelT + 1.5, 4, 14),
+      axisIsX ? new THREE.BoxGeometry(dw - 16, 4, panelT + 1.5) : new THREE.BoxGeometry(panelT + 1.5, 4, dw - 16),
       ironMat
     );
-    strap.position.set(axisIsX ? 7 : 0, hy, axisIsX ? 0 : 7);
+    strap.position.set(0, hy, 0);
     panel.add(strap);
   }
 
-  const hinge = new THREE.Group();
-  hinge.add(panel);
-  hinge.rotation.y = openAngle;
-  hinge.position.set(axisIsX ? doorStart : wallCoord, 0, axisIsX ? wallCoord : doorStart);
-  g.add(hinge);
-
-  // A faint sickly glow bleeding through the gap left by the ajar door —
-  // just enough to suggest something's lit beyond it, not a real light source.
-  const glow = new THREE.PointLight(0x3a5a3a, 0.5, 70);
+  // A faint sickly glow right at the door — just enough to suggest
+  // something's lit beyond it, not a real light source.
+  const glow = new THREE.PointLight(0x3a5a3a, 0.4, 60);
   glow.position.set(
-    axisIsX ? (doorStart + doorEnd) / 2 : wallCoord,
+    axisIsX ? doorMid : wallCoord,
     doorH * 0.4,
-    axisIsX ? wallCoord : (doorStart + doorEnd) / 2
+    axisIsX ? wallCoord : doorMid
   );
   g.add(glow);
 
@@ -6384,6 +6385,24 @@ function getInteriorScene(buildingId) {
   }
   const theme = INTERIOR_THEMES[buildingId] || INTERIOR_THEMES.cafe;
 
+  // The door is now closed/flush rather than standing ajar (see
+  // buildInteriorDoorway), so the gap buildWallsForOne leaves for it needs
+  // a real collider too, or players would just walk straight through a
+  // door that visually looks shut. isDoorCollider marks it so the wall
+  // mesh loop below skips drawing a plain box on top of the nicer door
+  // mesh — actually crossing it only happens via the exitDoor kiosk
+  // pushed below (F key), same pattern as every other portal/NPC in the
+  // game; collidesIndoor() doesn't care that it's tagged, so ordinary
+  // movement is blocked here exactly like a real closed door.
+  const wt = world.wallThickness;
+  const localDoorStart = doorStart / INDOOR_SCALE, localDoorEnd = doorEnd / INDOOR_SCALE;
+  let doorCollider;
+  if (side === 'east') doorCollider = { x: localW - wt, y: localDoorStart, w: wt, h: localDoorEnd - localDoorStart, isDoorCollider: true };
+  else if (side === 'west') doorCollider = { x: 0, y: localDoorStart, w: wt, h: localDoorEnd - localDoorStart, isDoorCollider: true };
+  else if (side === 'north') doorCollider = { x: localDoorStart, y: 0, w: localDoorEnd - localDoorStart, h: wt, isDoorCollider: true };
+  else doorCollider = { x: localDoorStart, y: localH - wt, w: localDoorEnd - localDoorStart, h: wt, isDoorCollider: true }; // south
+  wallsLocal.push(doorCollider);
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1c1410);
   scene.fog = new THREE.Fog(0x1c1410, 380, 900);
@@ -6410,10 +6429,12 @@ function getInteriorScene(buildingId) {
   floor.position.set(roomW / 2, 0, roomD / 2);
   scene.add(floor);
 
-  // walls, scaled from the same local wall rects used for collision
+  // walls, scaled from the same local wall rects used for collision — skip
+  // the door's own collider here, it's rendered as an actual door instead
+  // (buildInteriorDoorway below), not a plain box.
   const wallMat = new THREE.MeshLambertMaterial({ color: theme.wall });
   for (const r of wallsLocal) {
-    if (r.w <= 0 || r.h <= 0) continue;
+    if (r.w <= 0 || r.h <= 0 || r.isDoorCollider) continue;
     const geo = new THREE.BoxGeometry(r.w * INDOOR_SCALE, INDOOR_WALL_HEIGHT, r.h * INDOOR_SCALE);
     const mesh = new THREE.Mesh(geo, wallMat);
     mesh.position.set((r.x + r.w / 2) * INDOOR_SCALE, INDOOR_WALL_HEIGHT / 2, (r.y + r.h / 2) * INDOOR_SCALE);
@@ -6432,14 +6453,25 @@ function getInteriorScene(buildingId) {
   scene.add(buildTorch(30, 30));
   scene.add(buildTorch(roomW - 30, roomD - 30));
 
-  // a real doorway at the gap — wooden frame around the opening plus a door
-  // panel hinged open against the inside wall, so it reads as an actual door
-  // you're walking past rather than an empty gap with a floating label.
+  // a real doorway at the gap — wooden frame around the opening, an EXIT
+  // sign, and a single closed panel flush with the wall (see
+  // buildInteriorDoorway) instead of an empty gap or a swung-open panel.
   scene.add(buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme));
 
   const seats = [];
   const kiosks = [];
   buildFurniture(scene, theme.furniture, roomW, roomD, seats, kiosks);
+  // The door itself is an interact point too — same proximity+F pattern as
+  // every portal/NPC in the game (see findNearestKiosk/tryInteract), rather
+  // than the old purely-positional "walk into the gap" exit.
+  const doorWallCoord = side === 'north' ? 0 : side === 'south' ? roomD : side === 'west' ? 0 : roomW;
+  const doorMidScaled = (doorStart + doorEnd) / 2;
+  kiosks.push({
+    x: (side === 'north' || side === 'south') ? doorMidScaled : doorWallCoord,
+    z: (side === 'north' || side === 'south') ? doorWallCoord : doorMidScaled,
+    exitDoor: true,
+    radius: 90
+  });
 
   const record = { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal, localW, localH, seats, kiosks };
   interiorScenes[buildingId] = record;
@@ -9360,6 +9392,11 @@ function tryInteract() {
     return;
   }
   const kiosk = findNearestKiosk();
+  if (kiosk && kiosk.exitDoor) {
+    const b = world.buildings.find(bb => bb.id === indoorBuildingId);
+    if (b) exitBuilding(b);
+    return;
+  }
   if (kiosk && kiosk.game) { openArcadeGame(kiosk.game); return; }
   if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
   if (kiosk && kiosk.npc === 'auctioneer') { openAuctionModal(); return; }
@@ -9413,6 +9450,11 @@ function updateInteractHint() {
     return;
   }
   const kiosk = findNearestKiosk();
+  if (kiosk && kiosk.exitDoor) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} pass through the door`;
+    return;
+  }
   if (kiosk && kiosk.game) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} play ` + (kiosk.game === 'snake' ? 'Snake' : 'Breakout');
@@ -9684,34 +9726,17 @@ function updateOutdoor(stepX, stepY) {
 function updateIndoor(stepX, stepY) {
   const b = world.buildings.find(bb => bb.id === indoorBuildingId);
   const interior = currentInterior;
-  const side = getDoorSide(b);
 
   let localX = me.x - b.x, localY = me.y - b.y;
   const nx = localX + stepX, ny = localY + stepY;
 
+  // The door gap now has a real collider (isDoorCollider, see
+  // getInteriorScene) just like any other wall — collidesIndoor blocks it
+  // the same way. Leaving is only ever triggered by the exitDoor kiosk (F
+  // key, see tryInteract()), not by walking into this position at all
+  // anymore — a door that looks closed should actually behave closed.
   if (!collidesIndoor(nx, localY, interior.wallsLocal)) localX = nx;
   if (!collidesIndoor(localX, ny, interior.wallsLocal)) localY = ny;
-
-  // Walking through the door gap (whichever wall it's on, local space) exits
-  // the building. Uses the interior's own local bounds (which may be larger
-  // than the building's literal outdoor footprint, see
-  // INTERIOR_SIZE_OVERRIDES), not b.w/b.h directly.
-  const localDoorStart = interior.doorStart / INDOOR_SCALE;
-  const localDoorEnd = interior.doorEnd / INDOOR_SCALE;
-  let exiting;
-  if (side === 'east') {
-    exiting = localX > interior.localW - PLAYER_R * 0.4 && localY > localDoorStart && localY < localDoorEnd;
-  } else if (side === 'west') {
-    exiting = localX < PLAYER_R * 0.4 && localY > localDoorStart && localY < localDoorEnd;
-  } else if (side === 'north') {
-    exiting = localY < PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd;
-  } else {
-    exiting = localY > interior.localH - PLAYER_R * 0.4 && localX > localDoorStart && localX < localDoorEnd;
-  }
-  if (exiting) {
-    exitBuilding(b);
-    return;
-  }
 
   localX = Math.max(PLAYER_R, Math.min(interior.localW - PLAYER_R, localX));
   localY = Math.max(PLAYER_R, Math.min(interior.localH - PLAYER_R, localY));
