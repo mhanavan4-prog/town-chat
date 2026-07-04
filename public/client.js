@@ -2294,6 +2294,23 @@ function closeNpcHintModal() {
 const npcHintCloseBtn = document.getElementById('npcHintCloseBtn');
 if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal);
 
+// Full-size image viewer (Auction House selfie thumbnails) — click anywhere
+// to close. window.open(dataURL) used to show a blank tab since modern
+// browsers block/mishandle navigating a new window straight to a data:
+// URL; this just shows it in-page instead.
+function openImageLightbox(src) {
+  const img = document.getElementById('imageLightboxImg');
+  if (img) img.src = src;
+  const modal = document.getElementById('imageLightbox');
+  if (modal) modal.classList.remove('hidden');
+}
+function closeImageLightbox() {
+  const modal = document.getElementById('imageLightbox');
+  if (modal) modal.classList.add('hidden');
+}
+const imageLightbox = document.getElementById('imageLightbox');
+if (imageLightbox) imageLightbox.addEventListener('click', closeImageLightbox);
+
 // Blood Pact modal — Lexton Greyfur's deal
 let bloodPactOpen = false;
 function openBloodPactModal() {
@@ -8640,7 +8657,7 @@ function renderAuctionModal() {
       thumb.className = 'auctionSelfieThumb';
       thumb.src = l.image;
       thumb.title = 'Click to view full size';
-      thumb.addEventListener('click', () => window.open(l.image, '_blank'));
+      thumb.addEventListener('click', () => openImageLightbox(l.image));
       row.appendChild(thumb);
       const itemLine = document.createElement('div');
       itemLine.className = 'auctionItemLine';
@@ -9805,6 +9822,11 @@ function updateInteractHint() {
 
 window.addEventListener('keydown', (e) => {
   if (typing) return;
+  const _lightbox = document.getElementById('imageLightbox');
+  if (_lightbox && !_lightbox.classList.contains('hidden')) {
+    if (e.key === 'Escape' && !e.repeat) closeImageLightbox();
+    return;
+  }
   if (passModalOpen) {
     if (e.key === 'Escape' && !e.repeat) closePassModal();
     return;

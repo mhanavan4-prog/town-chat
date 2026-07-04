@@ -1207,6 +1207,13 @@
 
 <!-- Generic building-interior NPC hint dialogue — reused across every
      building's non-shop, non-quest-giving NPC (see npc_hint_talk). -->
+<!-- Full-size selfie viewer for the Auction House — window.open(dataURL)
+     used to show a blank tab (modern browsers block/mishandle navigating a
+     new window straight to a data: URL), so this shows it in-page instead. -->
+<div id="imageLightbox" class="overlay hidden" style="cursor:zoom-out;">
+  <img id="imageLightboxImg" style="max-width:90vw; max-height:88vh; border-radius:10px; box-shadow:0 8px 40px rgba(0,0,0,0.7);">
+</div>
+
 <div id="npcHintModal" class="overlay hidden">
   <div class="card" id="npcHintCard">
     <div class="title" style="font-size:18px;" id="npcHintName">NPC Name</div>
