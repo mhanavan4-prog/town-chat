@@ -6850,8 +6850,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
-    scene.add(makeBookshelf(20, cz - 40, Math.PI / 2));
-    scene.add(makeBookshelf(20, cz + 10, Math.PI / 2));
+    // The library's door is on the west wall (x=0 side), and its gap spans
+    // roughly z=144..324 (centered on the room) — the two bookshelves that
+    // used to sit at x=20 (right against that same wall) had z positions of
+    // 194 and 244, both inside that range, so they sat almost exactly in
+    // the entrance path. Removed rather than just moved; the two on the
+    // east wall (away from the door) are enough for the room.
     scene.add(makeBookshelf(roomW - 20, cz - 40, -Math.PI / 2));
     scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
     scene.add(makeTable(cx, cz - 10));
@@ -9626,6 +9630,32 @@ function enterBuilding(roomId) {
   // behind the character.
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
+  // me.x/me.y (outdoor coords) are still wherever the player was standing
+  // when they walked into the building's footprint — right at the door
+  // gap, since indoor/outdoor share the same coordinate space that's
+  // exactly on top of the door's own collider now that the door is a real
+  // closed wall segment (see getInteriorScene's isDoorCollider) instead of
+  // an open gap. Starting *inside* a solid rect isn't something
+  // collidesIndoor's "block this movement" check ever resolves — it only
+  // stops you from moving further into one, so spawning already inside it
+  // left every door in town stuck-on-entry. Nudge to a safe spot just past
+  // the threshold instead, same idea as the outward nudge exitBuilding()
+  // already does when leaving.
+  const b = world.buildings.find(bb => bb.id === roomId);
+  if (b) {
+    const side = getDoorSide(b);
+    const wt = world.wallThickness;
+    const localDoorStart = interior.doorStart / INDOOR_SCALE, localDoorEnd = interior.doorEnd / INDOOR_SCALE;
+    const doorMidLocal = (localDoorStart + localDoorEnd) / 2;
+    const clearance = wt + PLAYER_R * 2;
+    let localX, localY;
+    if (side === 'east') { localX = interior.localW - clearance; localY = doorMidLocal; }
+    else if (side === 'west') { localX = clearance; localY = doorMidLocal; }
+    else if (side === 'north') { localX = doorMidLocal; localY = clearance; }
+    else { localX = doorMidLocal; localY = interior.localH - clearance; }
+    me.x = b.x + localX;
+    me.y = b.y + localY;
+  }
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
   if (roomId === FREE_BUILDING_ID) startMusic(); else stopMusic();
