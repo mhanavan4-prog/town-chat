@@ -2284,6 +2284,22 @@ const NPC_SHOPS = {
   npc_bartender: { name: 'Barkeep Joss', items: [
     { id: 'healing_potion', price: 12 }, { id: 'berries', price: 5 },
     { id: 'regen_root', price: 18 }, { id: 'cleansing_clover', price: 15 }
+  ]},
+  npc_scholar: { name: 'Scholar Elior', items: [
+    { id: 'spirit_veil', price: 35 }, { id: 'spirit_robe', price: 40 },
+    { id: 'travelers_hood', price: 25 }, { id: 'travelers_vest', price: 30 }
+  ]},
+  npc_apothecary: { name: 'Apothecary Vex', items: [
+    { id: 'healing_potion', price: 14 }, { id: 'magic_scroll', price: 22 },
+    { id: 'regen_root', price: 18 }, { id: 'berries', price: 5 }
+  ]},
+  npc_tailor: { name: 'Tailor Ines', items: [
+    { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
+    { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 }
+  ]},
+  npc_armorer: { name: 'Armorer Beck', items: [
+    { id: 'steel_shield', price: 45 }, { id: 'knights_helm', price: 40 },
+    { id: 'leather_boots', price: 20 }, { id: 'order_signet', price: 40 }
   ]}
 };
 
@@ -2293,7 +2309,12 @@ const NPC_SHOPS = {
 // getQuestHint() for how the actual hint text is derived from the quest's
 // own type/target rather than being hand-authored per quest.
 const NPC_HINT_GIVERS = {
-  npc_patron: { name: 'Old Mabel' }
+  npc_patron: { name: 'Old Mabel' },
+  npc_apprentice: { name: 'Apprentice Wren' },
+  npc_tinkerer: { name: 'Tinkerer Oswin' },
+  npc_noble: { name: 'Lady Corwin' },
+  npc_knight: { name: 'Sir Dorran' },
+  npc_guard: { name: 'Guard Petra' }
 };
 
 // Generic, type-driven hint text — works for any quest without needing a

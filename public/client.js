@@ -6384,6 +6384,45 @@ function makeNpcNameSprite(name, title) {
   return sprite;
 }
 
+// A framed canvas-texture picture for interior walls — same technique as
+// the Witch's Cave's tarot cards (canvas gradient + border + a painted
+// symbol/title), generalized with a color/text config so every building
+// can hang a few without hand-rolling canvas art per theme. bg1/bg2 are
+// the background gradient, border/accent are the frame + text colors.
+function makeWallPainting(opts) {
+  const { symbol, title, subtitle, bg1, bg2, border, accent, w = 60, h = 84 } = opts;
+  const cw = 64, ch = 90;
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, ch);
+  grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
+  ctx.strokeStyle = border; ctx.lineWidth = 2.5;
+  ctx.strokeRect(3, 3, cw - 6, ch - 6);
+  ctx.strokeStyle = accent; ctx.lineWidth = 1;
+  ctx.strokeRect(7, 7, cw - 14, ch - 14);
+  for (const [ox, oy] of [[10, 10], [cw - 10, 10], [10, ch - 10], [cw - 10, ch - 10]]) {
+    ctx.fillStyle = border; ctx.beginPath(); ctx.arc(ox, oy, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.textAlign = 'center';
+  ctx.font = '26px serif';
+  ctx.fillStyle = accent;
+  ctx.fillText(symbol, cw / 2, ch * 0.5);
+  if (title) {
+    ctx.font = 'bold 7px sans-serif';
+    ctx.fillStyle = border;
+    ctx.fillText(title, cw / 2, ch * 0.73);
+  }
+  if (subtitle) {
+    ctx.font = 'italic 5.5px serif';
+    ctx.fillStyle = accent;
+    ctx.fillText(subtitle, cw / 2, ch * 0.85);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0x000000, emissiveIntensity: 0.3 });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+}
+
 // ---------------------------------------------------------------------------
 // Building interiors — medieval decor, built lazily the first time anyone
 // local walks into a given building. Local coordinate space is the
@@ -6870,6 +6909,23 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeWindowGlow(6, 80, roomD * 0.18, Math.PI / 2));
     scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.85, -Math.PI / 2));
 
+    // Framed paintings on the (otherwise bare) south wall, facing north
+    // into the room.
+    const tavernPaintings = [
+      { symbol: '🍺', title: 'THE OLD ALE', subtitle: 'est. long ago' },
+      { symbol: '🐗', title: "HUNTER'S PRIZE", subtitle: 'the one that didn\'t get away' },
+      { symbol: '⚔️', title: 'CROSSED BLADES', subtitle: 'house colors' }
+    ];
+    [roomW * 0.28, roomW * 0.5, roomW * 0.72].forEach((x, i) => {
+      const p = makeWallPainting({
+        ...tavernPaintings[i],
+        bg1: '#2a1a0c', bg2: '#3c2410', border: '#a86a2a', accent: '#e0b060'
+      });
+      p.position.set(x, 90, roomD - 4);
+      p.rotation.y = Math.PI;
+      scene.add(p);
+    });
+
     // The Town Pass statue — a free-standing corner near the entrance,
     // clear of the dining grid, the bar, and the doorway swing.
     if (kiosksOut) {
@@ -6917,6 +6973,38 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
     scene.add(makeTable(cx, cz - 10));
     scene.add(makeBanner(cx, 90, 8, 0, 0x6f8fae));
+
+    // Framed paintings on the south wall (bare — the door's on the west
+    // wall, the bookshelves are on the east), facing north into the room.
+    [
+      { symbol: '📖', title: 'OPEN VOLUME', subtitle: 'author unknown', x: roomW * 0.3 },
+      { symbol: '🗺️', title: 'OLD CHARTS', subtitle: 'the known lands', x: roomW * 0.7 }
+    ].forEach(({ symbol, title, subtitle, x }) => {
+      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#1c2438', bg2: '#2a3550', border: '#5a7ba0', accent: '#b9c6ff' });
+      p.position.set(x, 90, roomD - 4);
+      p.rotation.y = Math.PI;
+      scene.add(p);
+    });
+
+    if (kiosksOut) {
+      const scholar = createHumanoid(2).group;
+      scholar.position.set(150, 0, 60);
+      scholar.rotation.y = Math.atan2(cx - 150, cz - 60);
+      scene.add(scholar);
+      const scholarLabel = makeNpcNameSprite('Scholar Elior', 'Keeper of Robes');
+      scholarLabel.position.set(150, 90, 60);
+      scene.add(scholarLabel);
+      kiosksOut.push({ x: 150, z: 60, npc: 'npc', npcId: 'npc_scholar', npcName: 'Scholar Elior' });
+
+      const apprentice = createHumanoid(4).group;
+      apprentice.position.set(320, 0, 60);
+      apprentice.rotation.y = Math.atan2(cx - 320, cz - 60);
+      scene.add(apprentice);
+      const apprenticeLabel = makeNpcNameSprite('Apprentice Wren', 'Buried in Books');
+      apprenticeLabel.position.set(320, 90, 60);
+      scene.add(apprenticeLabel);
+      kiosksOut.push({ x: 320, z: 60, npc: 'hint', npcId: 'npc_apprentice', npcName: 'Apprentice Wren' });
+    }
   } else if (type === 'alchemist') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x4a3a6b));
     scene.add(makeCauldron(cx, cz + 30));
@@ -6941,6 +7029,34 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       sign2.position.set(cab2X, 92, cabZ);
       scene.add(sign2);
       kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
+
+      // Framed paintings on the north wall, clear of the cauldron/cabinets.
+      [
+        { symbol: '⚗️', title: 'DISTILLATION', subtitle: 'plate IV' },
+        { symbol: '💀', title: 'MEMENTO MORI', subtitle: 'a caution' }
+      ].forEach(({ symbol, title, subtitle }, i) => {
+        const p = makeWallPainting({ symbol, title, subtitle, bg1: '#241a38', bg2: '#332050', border: '#6a4a9a', accent: '#c8a0e8' });
+        p.position.set(roomW * (i === 0 ? 0.3 : 0.7), 90, 4);
+        scene.add(p);
+      });
+
+      const alchemist = createHumanoid(0).group;
+      alchemist.position.set(150, 0, roomD - 90);
+      alchemist.rotation.y = Math.atan2(cx - 150, cz - (roomD - 90));
+      scene.add(alchemist);
+      const alchemistLabel = makeNpcNameSprite('Apothecary Vex', 'Brews & Tonics');
+      alchemistLabel.position.set(150, 90, roomD - 90);
+      scene.add(alchemistLabel);
+      kiosksOut.push({ x: 150, z: roomD - 90, npc: 'npc', npcId: 'npc_apothecary', npcName: 'Apothecary Vex' });
+
+      const tinkerer = createHumanoid(4).group;
+      tinkerer.position.set(roomW - 150, 0, roomD - 90);
+      tinkerer.rotation.y = Math.atan2(cx - (roomW - 150), cz - (roomD - 90));
+      scene.add(tinkerer);
+      const tinkererLabel = makeNpcNameSprite('Tinkerer Oswin', 'Fiddles With Everything');
+      tinkererLabel.position.set(roomW - 150, 90, roomD - 90);
+      scene.add(tinkererLabel);
+      kiosksOut.push({ x: roomW - 150, z: roomD - 90, npc: 'hint', npcId: 'npc_tinkerer', npcName: 'Tinkerer Oswin' });
     }
   } else if (type === 'parlor') {
     // Two-story Rooftop Lounge: ground floor on the west side, a staircase,
@@ -6975,6 +7091,37 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     for (const x of terraceXs) {
       addElevatedTable(scene, x, roomD * 0.5, LOUNGE_PLATFORM_HEIGHT);
     }
+
+    // Framed paintings on the ground floor's south wall, facing north.
+    [
+      { symbol: '🎭', title: 'MASQUE', subtitle: 'a memory of dancing' },
+      { symbol: '🍷', title: 'STILL LIFE', subtitle: 'wine and candlelight' }
+    ].forEach(({ symbol, title, subtitle }, i) => {
+      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a1420', bg2: '#3c1c2c', border: '#9a5a6f', accent: '#ffc9d2' });
+      p.position.set(stairStart * (i === 0 ? 0.25 : 0.6), 90, roomD - 4);
+      p.rotation.y = Math.PI;
+      scene.add(p);
+    });
+
+    if (kiosksOut) {
+      const tailor = createHumanoid(2).group;
+      tailor.position.set(80, 0, roomD * 0.25);
+      tailor.rotation.y = Math.atan2(groundCx - 80, roomD * 0.42 - roomD * 0.25);
+      scene.add(tailor);
+      const tailorLabel = makeNpcNameSprite('Tailor Ines', 'Fine Wearables');
+      tailorLabel.position.set(80, 90, roomD * 0.25);
+      scene.add(tailorLabel);
+      kiosksOut.push({ x: 80, z: roomD * 0.25, npc: 'npc', npcId: 'npc_tailor', npcName: 'Tailor Ines' });
+
+      const noble = createHumanoid(3).group;
+      noble.position.set(stairStart - 60, 0, roomD * 0.25);
+      noble.rotation.y = Math.atan2(groundCx - (stairStart - 60), roomD * 0.42 - roomD * 0.25);
+      scene.add(noble);
+      const nobleLabel = makeNpcNameSprite('Lady Corwin', 'Loves to Gossip');
+      nobleLabel.position.set(stairStart - 60, 90, roomD * 0.25);
+      scene.add(nobleLabel);
+      kiosksOut.push({ x: stairStart - 60, z: roomD * 0.25, npc: 'hint', npcId: 'npc_noble', npcName: 'Lady Corwin' });
+    }
   } else if (type === 'greathall') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x6a6a3a));
     scene.add(makeThrone(cx, 30, 0));
@@ -6983,6 +7130,37 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBench(cx + 26, cz + 30, 0));
     scene.add(makeBanner(20, 95, 6, 0, 0x8a9a5b));
     scene.add(makeBanner(roomW - 20, 95, 6, 0, 0x8a9a5b));
+
+    // Framed paintings on the west/east walls, clear of the throne/table.
+    [
+      { symbol: '🛡️', title: 'THE OLD GUARD', subtitle: 'first banner', x: 4, rotY: Math.PI / 2 },
+      { symbol: '👑', title: "THE HALL'S LINE", subtitle: 'crowned in turn', x: roomW - 4, rotY: -Math.PI / 2 }
+    ].forEach(({ symbol, title, subtitle, x, rotY }) => {
+      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a2a14', bg2: '#3a3a1e', border: '#8a9a5b', accent: '#d7e6a0' });
+      p.position.set(x, 90, cz);
+      p.rotation.y = rotY;
+      scene.add(p);
+    });
+
+    if (kiosksOut) {
+      const armorer = createHumanoid(1).group;
+      armorer.position.set(150, 0, roomD * 0.4);
+      armorer.rotation.y = Math.atan2(cx - 150, cz - roomD * 0.4);
+      scene.add(armorer);
+      const armorerLabel = makeNpcNameSprite('Armorer Beck', 'Steel & Shields');
+      armorerLabel.position.set(150, 90, roomD * 0.4);
+      scene.add(armorerLabel);
+      kiosksOut.push({ x: 150, z: roomD * 0.4, npc: 'npc', npcId: 'npc_armorer', npcName: 'Armorer Beck' });
+
+      const knight = createHumanoid(3).group;
+      knight.position.set(roomW - 150, 0, roomD * 0.4);
+      knight.rotation.y = Math.atan2(cx - (roomW - 150), cz - roomD * 0.4);
+      scene.add(knight);
+      const knightLabel = makeNpcNameSprite('Sir Dorran', 'Hall Guard');
+      knightLabel.position.set(roomW - 150, 90, roomD * 0.4);
+      scene.add(knightLabel);
+      kiosksOut.push({ x: roomW - 150, z: roomD * 0.4, npc: 'hint', npcId: 'npc_knight', npcName: 'Sir Dorran' });
+    }
   } else { // bank — door is north, so "deeper into the room" means higher z
     scene.add(makeRug(cx, roomD * 0.38, roomW * 0.32, roomD * 0.5, 0x7a1f1f));
     scene.add(makeBanner(30, 100, 6, 0, 0xd4af37));
@@ -7077,6 +7255,29 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       auctioneerSign.position.set(auctioneerX, 92, npcZ);
       scene.add(auctioneerSign);
       kiosksOut.push({ id: 'bank_auctioneer', x: auctioneerX, z: kioskZ, npc: 'auctioneer' });
+
+      // Framed paintings on the east wall, between the entrance and the
+      // service counters.
+      [
+        { symbol: '💰', title: 'THE FIRST DEPOSIT', subtitle: 'founding ledger' },
+        { symbol: '🔑', title: 'THE VAULT KEY', subtitle: 'never duplicated' }
+      ].forEach(({ symbol, title, subtitle }, i) => {
+        const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a2418', bg2: '#3a3220', border: '#d4af37', accent: '#e8d9a0' });
+        p.position.set(roomW - 4, 90, roomD * (i === 0 ? 0.32 : 0.46));
+        p.rotation.y = -Math.PI / 2;
+        scene.add(p);
+      });
+
+      // The bank's "shop" is already the teller/auctioneer above — this one
+      // just gives quest hints, same as every other building's hint-NPC.
+      const guard = createHumanoid(1).group;
+      guard.position.set(150, 0, 150);
+      guard.rotation.y = Math.atan2(cx - 150, roomD * 0.38 - 150);
+      scene.add(guard);
+      const guardLabel = makeNpcNameSprite('Guard Petra', 'Keeps Watch');
+      guardLabel.position.set(150, 90, 150);
+      scene.add(guardLabel);
+      kiosksOut.push({ x: 150, z: 150, npc: 'hint', npcId: 'npc_guard', npcName: 'Guard Petra' });
     }
   }
 }
