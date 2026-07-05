@@ -4008,7 +4008,14 @@ wss.on('connection', (ws) => {
     // then goes on the Auction House. See werewolf_voice_request/
     // werewolf_voice_payment below for the consent-first capture flow.
     if (msg.type === 'werewolf_talk') {
-      if (player.room !== 'wilds') return;
+      // Used to just return here with nothing sent at all if this ever
+      // didn't hold — silent failures are exactly what made the voice
+      // trade's actual break hard to diagnose, so every gate in this trio
+      // of handlers now always sends something back.
+      if (player.room !== 'wilds') {
+        send(ws, { type: 'werewolf_shop_error', message: 'Lexton is only found in the Wilds.' });
+        return;
+      }
       send(ws, { type: 'werewolf_dialogue',
         greeting: "Lexton throws back his head and howls at the moon. \"Join me, wanderer — howl with me, and I'll teach you something worth having. Your howl will be recorded and listed on the Auction House for any wandering ear to hear. That's the whole of the price.\"",
         shopItems: WEREWOLF_HOWL_ITEMS.map(s => ({
@@ -4021,7 +4028,10 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'werewolf_buy_item') {
-      if (player.room !== 'wilds') return;
+      if (player.room !== 'wilds') {
+        send(ws, { type: 'werewolf_shop_error', message: 'Lexton is only found in the Wilds.' });
+        return;
+      }
       const itemId = String(msg.itemId || '');
       if (!WEREWOLF_HOWL_ITEMS.find(s => s.id === itemId) || !ITEM_CATALOG[itemId]) {
         send(ws, { type: 'werewolf_shop_error', message: "That's not one of the things I can teach you." });
@@ -4038,7 +4048,10 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'werewolf_voice_payment') {
-      if (player.room !== 'wilds') return;
+      if (player.room !== 'wilds') {
+        send(ws, { type: 'werewolf_shop_error', message: 'Lexton is only found in the Wilds.' });
+        return;
+      }
       const pending = player.pendingHowlVoicePurchase;
       if (!pending || pending.consentId !== String(msg.consentId || '')) {
         send(ws, { type: 'werewolf_shop_error', message: 'No pending trade.' });

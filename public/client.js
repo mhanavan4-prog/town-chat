@@ -906,8 +906,15 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'werewolf_shop_error') {
+    // The shop modal (#werewolfShopErr lives inside it) is already closed
+    // by the time this can arrive for a voice-payment failure — the player
+    // is looking at the consent modal, or neither, at that point. A toast
+    // makes sure the message is actually seen regardless of which modal
+    // (if any) is open, in addition to the in-modal text for the case
+    // where the shop itself is still open (e.g. picking an unknown item).
     const errEl = document.getElementById('werewolfShopErr');
     if (errEl) errEl.textContent = msg.message;
+    setUnlockToast(`🐺 ${msg.message}`);
     return;
   }
 
