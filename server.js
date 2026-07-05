@@ -1453,18 +1453,20 @@ function sanitizeImage(raw) {
   return raw;
 }
 
-// A few seconds of compressed audio (webm/opus or mp4/aac) comfortably fits
-// well under this — same rejection-only role as sanitizeImage above.
-const MAX_AUDIO_DATA_URL_LENGTH = 800000;
+// A few seconds of compressed audio comfortably fits well under this —
+// bumped up from an earlier, tighter cap since some browsers' default
+// MediaRecorder bitrate ran larger than assumed and got rejected here.
+const MAX_AUDIO_DATA_URL_LENGTH = 3000000;
 function sanitizeAudio(raw) {
   if (typeof raw !== 'string') return null;
   if (raw.length > MAX_AUDIO_DATA_URL_LENGTH) return null;
-  // MediaRecorder.mimeType typically comes back with codec params attached
-  // (e.g. "audio/webm;codecs=opus") even when a bare type was requested at
-  // construction, so the data: URL carries that extra ";codecs=..." segment
-  // before ";base64," — allow any number of such parameters here rather
-  // than requiring an exact match, or every real recording gets rejected.
-  if (!/^data:audio\/[a-z0-9.+-]+(;[a-z0-9=._-]+)*;base64,/i.test(raw)) return null;
+  // MediaRecorder.mimeType's exact format (codec params, quoting, spacing
+  // around ";") varies more across browsers than a strict pattern can
+  // reliably match — an earlier stricter regex here rejected real
+  // recordings more than once. This just checks it's actually an audio
+  // data: URL with base64 content, nothing more specific than that.
+  if (!/^data:audio\//i.test(raw)) return null;
+  if (!/;base64,/i.test(raw)) return null;
   return raw;
 }
 
