@@ -1628,6 +1628,13 @@ function renderHardDriveUnlocked() {
       img.src = note.image;
       div.appendChild(img);
     }
+    if (note.audio) {
+      const player = document.createElement('audio');
+      player.controls = true;
+      player.src = note.audio;
+      player.style.cssText = 'width:100%; height:32px; margin-top:6px;';
+      div.appendChild(player);
+    }
     const retrieveBtn = document.createElement('button');
     retrieveBtn.className = 'noteReadBtn';
     retrieveBtn.textContent = '📤 Move back to Inbox';
@@ -1673,6 +1680,13 @@ function renderInventory() {
         img.className = 'noteImage';
         img.src = note.image;
         div.appendChild(img);
+      }
+      if (note.audio) {
+        const player = document.createElement('audio');
+        player.controls = true;
+        player.src = note.audio;
+        player.style.cssText = 'width:100%; height:32px; margin-top:6px;';
+        div.appendChild(player);
       }
       // Always shown, even without a Hard Drive on hand — clicking it
       // without one just surfaces the server's "you need a Hard Drive"

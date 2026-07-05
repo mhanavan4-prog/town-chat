@@ -1276,6 +1276,7 @@ function publicListing(l) {
   return {
     id: l.id, sellerName: l.sellerName, itemId: l.itemId || null, qty: l.qty || null,
     isSelfie: !!l.isSelfie, image: l.isSelfie ? l.image : null,
+    isVoice: !!l.isVoice, audio: l.isVoice ? l.audio : null,
     startingBid: l.startingBid, buyoutPrice: l.buyoutPrice || null,
     currentBid: l.currentBid, currentBidderName: l.currentBidderName || null,
     expiresAt: l.expiresAt
@@ -1336,6 +1337,44 @@ function resolveListing(listing) {
       const note = {
         id: makeId(), fromId: listing.sellerId || '', fromName: `📸 ${listing.sellerName}'s Auction Selfie`,
         text: `You won ${listing.sellerName}'s auctioned selfie for ${listing.currentBid} gold!`, image: listing.image
+      };
+      if (winner) {
+        winner.inbox.push(note);
+        send(winner.ws, { type: 'note_received', note });
+      }
+    }
+    saveListings();
+    return;
+  }
+
+  if (listing.isVoice) {
+    // Same shape as the isSelfie branch above — the recording isn't a
+    // bank-held item, it only exists as the listing's audio, so there's
+    // nothing to return on a no-bid expiry. This branch was missing
+    // entirely until now: without it, a resolved voice listing fell
+    // through to the generic item logic below, which calls
+    // addItemToAccount(winnerAccount, listing.itemId, listing.qty) — both
+    // undefined for a voice listing, so nothing was ever delivered.
+    if (listing.currentBidderKey) {
+      if (listing.sellerKey) {
+        const sellerAccount = ensureBankAccount(listing.sellerKey);
+        sellerAccount.balance += listing.currentBid;
+        saveBankAccounts();
+        pushBankStateIfOnline(listing.sellerKey);
+      } else {
+        const seller = players.get(listing.sellerId);
+        if (seller) {
+          send(seller.ws, {
+            type: 'auction_payout',
+            message: `🎤 Your howl recording sold to ${listing.currentBidderName} for ${listing.currentBid} gold! (Guest sales aren't banked — log in to an account to keep earnings.)`
+          });
+        }
+      }
+      pushBankStateIfOnline(listing.currentBidderKey);
+      const winner = findConnectionByAccountKey(listing.currentBidderKey);
+      const note = {
+        id: makeId(), fromId: listing.sellerId || '', fromName: `📜 Blood Oath, witnessed by ${listing.sellerName}`,
+        text: `You won this howl recording for ${listing.currentBid} gold!`, audio: listing.audio
       };
       if (winner) {
         winner.inbox.push(note);
