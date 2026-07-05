@@ -1953,6 +1953,10 @@ function renderNpcShop(msg) {
     row.querySelector('button').addEventListener('click', () => {
       ws.send(JSON.stringify({ type: 'npc_buy_item', npcId: currentShopNpcId, itemId: item.id }));
     });
+    // Same shared tooltip used for inventory/equip slots elsewhere — looks
+    // up stats/description from the client's own ITEM_CATALOG by id.
+    row.addEventListener('mouseenter', (e) => showItemTooltip(e, item.id));
+    row.addEventListener('mouseleave', hideTooltip);
     container.appendChild(row);
   }
   document.getElementById('npcShopErr').textContent = '';
