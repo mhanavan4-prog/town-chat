@@ -6077,17 +6077,79 @@ function makeRectWindow(mat, wide, tall, x, y, z, onEastWest) {
   return win;
 }
 
+// White-based so it multiplies cleanly with a MeshLambertMaterial's own
+// tint color (b.color) — same trick the interior floor texture uses with
+// floorTint. Horizontal plank seams plus scattered grain streaks.
+function makeWoodSidingTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, 128, 128);
+  cx.strokeStyle = 'rgba(0,0,0,0.32)';
+  cx.lineWidth = 2;
+  const plankH = 16;
+  for (let y = plankH; y < 128; y += plankH) {
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(128, y); cx.stroke();
+  }
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)';
+    cx.fillRect(x, y, 1, 3 + Math.random() * 5);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Same white-based multiply trick as the siding texture above — rows of
+// overlapping shingle arcs, offset every other row.
+function makeShingleTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, 128, 128);
+  const rowH = 14, tileW = 20;
+  let row = 0;
+  for (let y = 0; y < 128; y += rowH, row++) {
+    const offset = (row % 2) * (tileW / 2);
+    cx.strokeStyle = 'rgba(0,0,0,0.3)';
+    cx.lineWidth = 1.5;
+    for (let x = -tileW + offset; x < 128; x += tileW) {
+      cx.beginPath();
+      cx.moveTo(x, y + rowH);
+      cx.lineTo(x + tileW / 2, y + 2);
+      cx.lineTo(x + tileW, y + rowH);
+      cx.stroke();
+    }
+    cx.strokeStyle = 'rgba(0,0,0,0.2)';
+    cx.beginPath(); cx.moveTo(0, y + rowH); cx.lineTo(128, y + rowH); cx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 function buildBuildingMesh(b, w) {
   const group = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: b.color });
   // The Rooftop Lounge gets a taller exterior shell to read as two stories,
   // matching its two-story interior (see buildLoungeStructure()/getFloorHeight()).
   const wallH = b.id === 'lounge' ? WALL_HEIGHT * 1.8 : WALL_HEIGHT;
   const wallRects = buildWallsForOne(b, w);
+  // One siding texture per building, cloned per wall segment so each gets
+  // its own repeat tuned to its own size — same pattern buildPathSegment()
+  // uses for road tiles. White-based texture multiplies with b.color, so
+  // every building keeps its own tint instead of one shared flat material.
+  const sidingBase = makeWoodSidingTexture();
   for (const r of wallRects) {
     if (r.w <= 0 || r.h <= 0) continue;
+    const tex = sidingBase.clone();
+    tex.needsUpdate = true;
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(Math.max(1, r.w / 40), Math.max(1, wallH / 40));
     const geo = new THREE.BoxGeometry(r.w, wallH, r.h);
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, color: b.color }));
     mesh.position.set(r.x + r.w / 2, wallH / 2, r.y + r.h / 2);
     group.add(mesh);
   }
@@ -6121,16 +6183,29 @@ function buildBuildingMesh(b, w) {
     if (side2 !== 'east') group.add(makeRectWindow(upperWinMat, 26, 22, b.x + b.w + 0.6, upperWinY, b.y + b.h / 2, true));
   }
 
-  // hip/pyramid roof — a 4-sided cone rotated 45° so its flat faces line up
-  // with the building's walls, then scaled non-uniformly to match the
+  // hip/pyramid roof — a 4-sided cone whose flat faces need to line up with
+  // the building's walls, then get scaled non-uniformly to match the
   // rectangular footprint (with a little overhang past the eaves).
+  //
+  // The 45° alignment rotation used to live on the MESH (roof.rotation.y),
+  // applied *after* the non-uniform scale in Three.js's fixed scale→
+  // rotate→translate transform order. Scaling a shape unevenly and then
+  // rotating it distorts it — the roof only came out aligned for a
+  // perfectly square building (b.w === b.h), which none of these are, so
+  // every roof sat skewed relative to its own walls. Baking the rotation
+  // into the geometry itself instead means the non-uniform scale (applied
+  // via mesh.scale, still local-space) now runs on already-diagonal
+  // vertices, landing on an actual axis-aligned rectangle every time.
   const overhang = 14, roofHeight = 58;
   const apothem = Math.cos(Math.PI / 4);
+  const roofGeo = new THREE.ConeGeometry(1, roofHeight, 4);
+  roofGeo.rotateY(Math.PI / 4);
+  const roofTex = makeShingleTexture();
+  roofTex.repeat.set(Math.max(1, b.w / 60), Math.max(1, b.h / 60));
   const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(1, roofHeight, 4),
-    new THREE.MeshLambertMaterial({ color: 0x7a3c2c })
+    roofGeo,
+    new THREE.MeshLambertMaterial({ map: roofTex, color: 0x7a3c2c })
   );
-  roof.rotation.y = Math.PI / 4;
   roof.scale.set((b.w / 2 + overhang) / apothem, 1, (b.h / 2 + overhang) / apothem);
   roof.position.set(b.x + b.w / 2, wallH + roofHeight / 2, b.y + b.h / 2);
   group.add(roof);
@@ -7215,21 +7290,101 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBanner(30, 100, 6, 0, 0xd4af37));
     scene.add(makeBanner(roomW - 30, 100, 6, 0, 0xd4af37));
 
-    // Vault door, purely decorative, mounted flat on the back wall.
+    // The vault door used to just sit flush and closed on the back wall —
+    // now it's swung open on a hinge at its left edge, revealing a
+    // recessed treasure chamber behind it. The chamber itself sits just in
+    // front of the room's actual back wall (not cut through it — this
+    // interior is a flat solid slab like every other room's walls), so the
+    // "depth" is an illusion of darker recessed panels rather than a real
+    // hole, same trick as everything else stylized in this scene.
+    const vaultHingeX = cx - 70;
+    const vaultHinge = new THREE.Group();
+    vaultHinge.position.set(vaultHingeX, 0, roomD - 10);
+    vaultHinge.rotation.y = -1.1;
     const vault = new THREE.Mesh(
       new THREE.CylinderGeometry(70, 70, 8, 24),
       new THREE.MeshLambertMaterial({ color: 0x6b6b6b })
     );
     vault.rotation.x = Math.PI / 2;
-    vault.position.set(cx, 95, roomD - 10);
-    scene.add(vault);
+    vault.position.set(70, 95, 0);
+    vaultHinge.add(vault);
     const vaultHub = new THREE.Mesh(
       new THREE.CylinderGeometry(16, 16, 12, 12),
       new THREE.MeshLambertMaterial({ color: 0xd4af37 })
     );
     vaultHub.rotation.x = Math.PI / 2;
-    vaultHub.position.set(cx, 95, roomD - 6);
-    scene.add(vaultHub);
+    vaultHub.position.set(70, 95, 4);
+    vaultHinge.add(vaultHub);
+    scene.add(vaultHinge);
+
+    // Recessed treasure chamber — dark panels framing the opening, filled
+    // with coin piles, gold bars, gems, and a couple of chests, lit by a
+    // warm glow so it actually reads as "full of treasure" rather than
+    // just a dark box.
+    const chamberMat = new THREE.MeshLambertMaterial({ color: 0x241f16 });
+    const chamberW = 150, chamberH = 130, chamberD = 55;
+    const chamberBack = new THREE.Mesh(new THREE.BoxGeometry(chamberW, chamberH, 8), chamberMat);
+    chamberBack.position.set(cx, chamberH / 2 + 10, roomD - chamberD - 4);
+    scene.add(chamberBack);
+    const chamberSideL = new THREE.Mesh(new THREE.BoxGeometry(8, chamberH, chamberD), chamberMat);
+    chamberSideL.position.set(cx - chamberW / 2, chamberH / 2 + 10, roomD - chamberD / 2 - 8);
+    scene.add(chamberSideL);
+    const chamberSideR = new THREE.Mesh(new THREE.BoxGeometry(8, chamberH, chamberD), chamberMat);
+    chamberSideR.position.set(cx + chamberW / 2, chamberH / 2 + 10, roomD - chamberD / 2 - 8);
+    scene.add(chamberSideR);
+    const chamberTop = new THREE.Mesh(new THREE.BoxGeometry(chamberW, 8, chamberD), chamberMat);
+    chamberTop.position.set(cx, chamberH + 10, roomD - chamberD / 2 - 8);
+    scene.add(chamberTop);
+
+    const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x4a3a10, emissiveIntensity: 0.4 });
+    // Coin piles: a few short wide cylinders stacked slightly askew
+    for (const [px, pz] of [[cx - 45, roomD - 20], [cx - 10, roomD - 15], [cx + 35, roomD - 22]]) {
+      for (let i = 0; i < 3; i++) {
+        const r = 20 - i * 3;
+        const coin = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 4, 14), goldMat);
+        coin.position.set(px + (Math.random() - 0.5) * 4, 10 + i * 5, pz + (Math.random() - 0.5) * 4);
+        coin.rotation.z = (Math.random() - 0.5) * 0.12;
+        scene.add(coin);
+      }
+    }
+    // Gold bars
+    for (const [px, pz, rotY] of [[cx + 15, roomD - 35, 0.3], [cx - 25, roomD - 40, -0.4]]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(20, 9, 11), goldMat);
+      bar.position.set(px, 15, pz);
+      bar.rotation.y = rotY;
+      scene.add(bar);
+    }
+    // Loose gems — small colored octahedrons scattered among the coins
+    const gemColors = [0xff3355, 0x33ccff, 0x66ff66, 0xcc66ff];
+    for (let i = 0; i < 8; i++) {
+      const gem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(4 + Math.random() * 2),
+        new THREE.MeshLambertMaterial({ color: gemColors[i % gemColors.length], emissive: gemColors[i % gemColors.length], emissiveIntensity: 0.35 })
+      );
+      gem.position.set(cx + (Math.random() - 0.5) * 110, 8 + Math.random() * 20, roomD - 15 - Math.random() * 30);
+      scene.add(gem);
+    }
+    // Two open treasure chests flanking the coin piles
+    for (const [px, rotY] of [[cx - 60, 0.3], [cx + 60, -0.3]]) {
+      const chest = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(28, 16, 20), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+      body.position.y = 8;
+      chest.add(body);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(28, 10, 20), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+      lid.position.set(0, 18, -8);
+      lid.rotation.x = -1.1; // propped open
+      chest.add(lid);
+      const spill = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 3, 12), goldMat);
+      spill.position.y = 17;
+      chest.add(spill);
+      chest.position.set(px, 0, roomD - 30);
+      chest.rotation.y = rotY;
+      scene.add(chest);
+    }
+    // Warm glow from within the vault
+    const vaultGlow = new THREE.PointLight(0xffcc66, 1.3, 220);
+    vaultGlow.position.set(cx, 60, roomD - 30);
+    scene.add(vaultGlow);
 
     // Three service stations side by side, set well back from the door so
     // there's open floor to walk in on: a teller counter, an auctioneer's
