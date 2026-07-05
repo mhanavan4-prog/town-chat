@@ -7300,7 +7300,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     const vaultHingeX = cx - 70;
     const vaultHinge = new THREE.Group();
     vaultHinge.position.set(vaultHingeX, 0, roomD - 10);
-    vaultHinge.rotation.y = -1.1;
+    // Positive, not negative: this swings the door out toward -Z (into the
+    // room, where the player actually is) instead of +Z, which sends it
+    // behind the room's own solid back wall — completely hidden from
+    // inside, which is exactly why it looked like nothing happened.
+    vaultHinge.rotation.y = 1.1;
     const vault = new THREE.Mesh(
       new THREE.CylinderGeometry(70, 70, 8, 24),
       new THREE.MeshLambertMaterial({ color: 0x6b6b6b })
