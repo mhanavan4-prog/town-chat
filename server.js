@@ -1632,6 +1632,76 @@ function isNightNow() {
   return (Date.now() % CYCLE_MS) >= DAY_MS;
 }
 
+// ---------------------------------------------------------------------------
+// Nightly torch-lighting ritual — 4 torches around the town square's spawn
+// hub (1600, 1100), each with an assigned NPC who walks in from their
+// daytime spot and lights it. Deliberately stateless: like isNightNow()
+// above, ritual progress is computed purely from Date.now() % CYCLE_MS
+// rather than tracked as mutable "ritual started at X" state, so every
+// client (including one that joins mid-ritual) computes the exact same
+// walk position/lit state independently, no dedicated sync message needed
+// beyond the regular wildlife_state broadcast.
+// ---------------------------------------------------------------------------
+const TOWN_TORCHES = [
+  { id: 'torch_n', x: 1600, y: 880 },
+  { id: 'torch_e', x: 1820, y: 1100 },
+  { id: 'torch_s', x: 1600, y: 1320 },
+  { id: 'torch_w', x: 1380, y: 1100 }
+];
+const TORCH_NPCS = [
+  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, homeX: 1600, homeY: 700,  torchIdx: 0 },
+  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, homeX: 2020, homeY: 1100, torchIdx: 1 },
+  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, homeX: 1600, homeY: 1500, torchIdx: 2 },
+  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, homeX: 1180, homeY: 1100, torchIdx: 3 }
+];
+const NIGHT_RITUAL_WALK_MS = 6000; // how long the walk-to-torch takes once night falls
+const TORCH_HEAL_RADIUS = 180;
+
+// null during the day; 0..1 during night (0 = dusk, just started walking;
+// 1 = torches lit, ritual complete for the rest of the night).
+function getTorchRitualProgress() {
+  const t = Date.now() % CYCLE_MS;
+  if (t < DAY_MS) return null;
+  return Math.min(1, (t - DAY_MS) / NIGHT_RITUAL_WALK_MS);
+}
+
+function torchNpcPublicState() {
+  const progress = getTorchRitualProgress();
+  return TORCH_NPCS.map(n => {
+    const torch = TOWN_TORCHES[n.torchIdx];
+    let x = n.homeX, y = n.homeY, facing = 0;
+    if (progress !== null) {
+      x = n.homeX + (torch.x - n.homeX) * progress;
+      y = n.homeY + (torch.y - n.homeY) * progress;
+      facing = Math.atan2(torch.x - n.homeX, torch.y - n.homeY);
+    }
+    return { id: n.id, charId: n.charId, name: n.name, x, y, facing, working: progress !== null && progress >= 1 };
+  });
+}
+
+function townTorchPublicState() {
+  const lit = getTorchRitualProgress() >= 1;
+  return TOWN_TORCHES.map(t => ({ id: t.id, x: t.x, y: t.y, lit }));
+}
+
+// Heals to full once per night, the moment a player is standing near any
+// lit torch when the ritual completes (or whenever they later wander into
+// range, for the rest of that night) — flag resets at dawn so it can fire
+// again the following night rather than only ever once per player.
+function tickTorchHealing() {
+  const lit = getTorchRitualProgress() >= 1;
+  for (const player of players.values()) {
+    if (!lit) { player.torchHealedThisNight = false; continue; }
+    if (player.torchHealedThisNight || player.isDead || player.room !== 'outside') continue;
+    const near = TOWN_TORCHES.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
+    if (near) {
+      player.health = 100;
+      player.torchHealedThisNight = true;
+      send(player.ws, { type: 'torch_healed', message: '🔥 The torchlight washes over you, and your wounds heal completely.' });
+    }
+  }
+}
+
 // Tree-trunk colliders, positions copied from client.js's NATURE_DECOR
 // (tree entries only — shrubs/rocks/flowers have no collision there
 // either). Only used for wildlife steering here; trees themselves are
@@ -2223,6 +2293,7 @@ setInterval(() => {
   tickVillageNpcs(dt);
   tickDungeon(dt);
   tickPlayerRegen(now, dt);
+  tickTorchHealing();
   if (players.size === 0) return;
   broadcastAll({
     type: 'wildlife_state',
@@ -2233,7 +2304,9 @@ setInterval(() => {
     mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead })),
     decor: decorPublicState(),
     dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead })),
-    villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working }))
+    villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
+    torchNpcs: torchNpcPublicState(),
+    torches: townTorchPublicState()
   });
 }, 150);
 

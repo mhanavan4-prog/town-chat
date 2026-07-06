@@ -467,6 +467,14 @@ function onWsMessage(ev) {
     if (msg.decor) applyDecorState(msg.decor);
     if (msg.dungeonMobs) applyDungeonMobState(msg.dungeonMobs);
     if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
+    if (msg.torchNpcs) applyTownTorchNpcState(msg.torchNpcs);
+    if (msg.torches) applyTownTorchState(msg.torches);
+    return;
+  }
+
+  if (msg.type === 'torch_healed') {
+    updateHealthHud();
+    setUnlockToast(msg.message);
     return;
   }
 
@@ -3506,6 +3514,16 @@ function initScene(w) {
 
   buildTownNPCs(scene, w);
 
+  // The nightly torch ritual's 4 torches — positions mirrored from
+  // server.js's TOWN_TORCHES so the ids line up with the wildlife_state
+  // broadcast (see applyTownTorchState). Start unlit; the ritual lights
+  // them once night falls.
+  for (const t of TOWN_TORCHES) {
+    const torch = buildTownRitualTorch(t.x, t.y);
+    scene.add(torch.group);
+    townTorchVisuals[t.id] = torch;
+  }
+
   outdoorScene = scene;
   outdoorCamera = camera;
   mode = 'outdoor';
@@ -3654,6 +3672,16 @@ const TOWN_NPCS = [
   { id: 'npc_finn', name: 'Herbalist Finn', charId: 0, x: 1850, y:  950 },
   { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1350, y: 1250 },
   { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 1850, y: 1250 }
+];
+
+// Positions mirrored from server.js's TOWN_TORCHES — must match exactly so
+// the wildlife_state broadcast's torch ids line up with these instances
+// (see applyTownTorchState).
+const TOWN_TORCHES = [
+  { id: 'torch_n', x: 1600, y: 880 },
+  { id: 'torch_e', x: 1820, y: 1100 },
+  { id: 'torch_s', x: 1600, y: 1320 },
+  { id: 'torch_w', x: 1380, y: 1100 }
 ];
 
 function buildTownNPCs(scene) {
@@ -5693,6 +5721,88 @@ function updateVillageNpcVisuals(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Nightly torch-lighting ritual — same server-authoritative-position/
+// client-interpolates-and-animates pattern as the Wilds' village NPCs
+// above, just targeting the town's own outdoorScene instead. Torch
+// lit/unlit state and each Torchkeeper's walk position both come from the
+// same wildlife_state broadcast (see torchNpcs/torches, server.js).
+// ---------------------------------------------------------------------------
+let townTorchNpcVisuals = {};
+const townTorchVisuals = {}; // id -> { flame, light } — populated in initScene()
+
+function getOrCreateTownTorchNpcVisual(id, charId) {
+  if (!townTorchNpcVisuals[id]) {
+    const built = createHumanoid(charId);
+    built.group.visible = false;
+    if (outdoorScene) outdoorScene.add(built.group);
+    townTorchNpcVisuals[id] = {
+      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      working: false, walkPhase: 0, initialized: false
+    };
+  }
+  return townTorchNpcVisuals[id];
+}
+
+function applyTownTorchNpcState(npcs) {
+  if (!outdoorScene) return;
+  for (const n of npcs) {
+    const v = getOrCreateTownTorchNpcVisual(n.id, n.charId);
+    v.targetX = n.x; v.targetY = n.y; v.targetFacing = n.facing; v.working = n.working;
+    if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
+  }
+}
+
+function updateTownTorchNpcVisuals(dt) {
+  if (!outdoorScene) return;
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in townTorchNpcVisuals) {
+    const v = townTorchNpcVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    v.group.position.set(v.x, 0, v.y);
+    v.group.rotation.y = v.facing;
+
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
+    v.walkPhase += dt * (moving ? 5.5 : v.working ? 3 : 0);
+
+    if (moving) {
+      const swing = Math.sin(v.walkPhase) * 0.45;
+      v.armL.rotation.x = swing;
+      v.armR.rotation.x = -swing;
+      v.legL.rotation.x = -swing * 0.65;
+      v.legR.rotation.x = swing * 0.65;
+      v.group.position.y = Math.abs(Math.sin(v.walkPhase)) * 2;
+    } else if (v.working) {
+      // Slow reach-and-tend motion once they've arrived at their torch.
+      const tend = Math.abs(Math.sin(v.walkPhase)) * 0.5;
+      v.armL.rotation.x = -tend;
+      v.armR.rotation.x = -tend * 0.7;
+      v.legL.rotation.x = 0;
+      v.legR.rotation.x = 0;
+      v.group.position.y = 0;
+    } else {
+      v.armL.rotation.x *= 0.85;
+      v.armR.rotation.x *= 0.85;
+      v.legL.rotation.x *= 0.85;
+      v.legR.rotation.x *= 0.85;
+      v.group.position.y = 0;
+    }
+    v.group.visible = true;
+  }
+}
+
+function applyTownTorchState(torches) {
+  for (const t of torches) {
+    const v = townTorchVisuals[t.id];
+    if (!v) continue;
+    v.flame.visible = t.lit;
+    v.light.intensity = t.lit ? 1.3 : 0;
+  }
+}
+
 function makeDungeonMob(mobType) {
   const visual = DUNGEON_MOB_VISUALS[mobType] || { color: 0x2a1a33, eyeColor: 0xff2222, scale: 1.0 };
   const g = makeMob();
@@ -6855,6 +6965,36 @@ function buildTorch(x, z) {
   flame.position.set(x, 68, z);
   g.add(flame);
   return g;
+}
+
+// A torch that starts unlit (no flame, no light) and gets toggled lit by
+// the nightly ritual (see applyTownTorchState) — unlike buildTorch() above,
+// which is always-lit decor with no on/off state.
+function buildTownRitualTorch(x, z) {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(3, 4, 60, 6),
+    new THREE.MeshLambertMaterial({ color: 0x4a3320 })
+  );
+  pole.position.set(x, 30, z);
+  g.add(pole);
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(9, 6, 10, 8),
+    new THREE.MeshLambertMaterial({ color: 0x2a2a2a })
+  );
+  bowl.position.set(x, 62, z);
+  g.add(bowl);
+  const flame = new THREE.Mesh(
+    new THREE.ConeGeometry(7, 18, 8),
+    new THREE.MeshBasicMaterial({ color: 0xff9d3c })
+  );
+  flame.position.set(x, 74, z);
+  flame.visible = false;
+  g.add(flame);
+  const light = new THREE.PointLight(0xff9d3c, 0, 260);
+  light.position.set(x, 74, z);
+  g.add(light);
+  return { group: g, flame, light };
 }
 
 function makeTable(x, z, rotY) {
@@ -10526,6 +10666,7 @@ function update(dt) {
   updateAnimal2Visuals(dt);
   updateMob2Visuals(dt);
   updateVillageNpcVisuals(dt);
+  updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
   updatePortals(dt);
 
