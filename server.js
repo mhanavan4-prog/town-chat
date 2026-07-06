@@ -431,7 +431,7 @@ function decorPublicState() {
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault'].forEach(r => ROOM_IDS.add(r));
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
@@ -2380,6 +2380,13 @@ function getQuestHint(quest, progress) {
 const WITCH_CAVE_ENTRANCE = { x: 2000, y: 2000 };
 const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
 
+// Bank Vault — a small sub-room reached from inside the Bank's own
+// interior (not from the town/wilds directly), same idea as the Witch's
+// Cave but nested one level deeper. No distance gate on entry since it's
+// triggered by an interior kiosk (F key) rather than a zone check.
+const VAULT_WORLD_DIMS = { width: 300, height: 300 };
+const VAULT_SPAWN = { x: 150, y: 60 };
+
 const WITCH_SHOP_TIERS = [
   // tier 0: lvl 1-5
   [
@@ -2658,6 +2665,7 @@ wss.on('connection', (ws) => {
       // the town's bounds, which are large enough to never matter indoors.
       const bounds = msg.room === 'wilds' ? WORLD2
         : msg.room === 'witch_cave' ? { width: 800, height: 700 }
+        : msg.room === 'bank_vault' ? VAULT_WORLD_DIMS
         : (typeof msg.room === 'string' && msg.room.startsWith('dungeon_') ? { width: DUNGEON_SIZE, height: DUNGEON_SIZE } : WORLD);
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
@@ -3847,6 +3855,31 @@ wss.on('connection', (ws) => {
       player.witchCaveReturnX = null;
       player.witchCaveReturnY = null;
       send(ws, { type: 'witch_cave_exited', x: retX, y: retY });
+      return;
+    }
+
+    if (msg.type === 'enter_vault') {
+      if (player.room !== 'bank' || player.isDead) return;
+      player.vaultReturnX = player.x;
+      player.vaultReturnY = player.y;
+      player.room = 'bank_vault';
+      player.x = VAULT_SPAWN.x;
+      player.y = VAULT_SPAWN.y;
+      send(ws, { type: 'vault_entered', spawn: VAULT_SPAWN });
+      return;
+    }
+
+    if (msg.type === 'exit_vault') {
+      if (player.room !== 'bank_vault') return;
+      const b = WORLD.buildings.find(bb => bb.id === 'bank');
+      const retX = player.vaultReturnX || (b ? b.x + b.w / 2 : player.x);
+      const retY = player.vaultReturnY || (b ? b.y + b.h / 2 : player.y);
+      player.room = 'bank';
+      player.x = retX;
+      player.y = retY;
+      player.vaultReturnX = null;
+      player.vaultReturnY = null;
+      send(ws, { type: 'vault_exited', x: retX, y: retY });
       return;
     }
 

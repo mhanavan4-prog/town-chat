@@ -867,6 +867,26 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'vault_entered') {
+    if (me) { me.room = 'bank_vault'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToVaultMap();
+    setUnlockToast('💰 You step into the vault...');
+    return;
+  }
+
+  if (msg.type === 'vault_exited') {
+    if (me) { me.room = 'bank'; me.x = msg.x; me.y = msg.y; }
+    // Unlike leaving the cave (back out to the open Wilds), this returns
+    // to a building interior — needs the full indoor context restored
+    // (mode/indoorBuildingId/currentInterior), not just a scene swap.
+    mode = 'indoor';
+    indoorBuildingId = 'bank';
+    const bankInterior = getInteriorScene('bank');
+    setActiveContext(bankInterior.scene, bankInterior.camera, bankInterior);
+    setUnlockToast('You step out of the vault.');
+    return;
+  }
+
   if (msg.type === 'witch_dialogue') {
     openWitchModal(msg);
     return;
@@ -3396,7 +3416,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -3407,6 +3427,7 @@ function contextMatches(room) {
   if (activeScene === dungeonScene) return me && room === me.room;
   if (activeScene === wildsScene) return room === 'wilds';
   if (activeScene === caveScene) return room === 'witch_cave';
+  if (activeScene === vaultScene) return room === 'bank_vault';
   return room === 'outside';
 }
 
@@ -3492,6 +3513,7 @@ function initScene(w) {
   if (world2) buildWildsScene(world2);
   buildDungeonScene();
   try { buildCaveScene(); } catch(e) { console.error('buildCaveScene failed:', e); }
+  try { buildVaultScene(); } catch(e) { console.error('buildVaultScene failed:', e); }
 }
 
 // ---------------------------------------------------------------------------
@@ -3766,6 +3788,19 @@ const CAVE_KIOSKS = [
 
 const WITCH_CAVE_ENTRANCE_X = 2000;
 const WITCH_CAVE_ENTRANCE_Z = 2000;
+
+// ---------------------------------------------------------------------------
+// Bank Vault scene — a small sub-room reached from inside the Bank's own
+// interior (not from the town/wilds directly), same architecture as the
+// Witch's Cave above (own scene/camera, own small world bounds, own
+// kiosk list, mode stays 'outdoor' the whole time it's active so none of
+// the "am I inside a building" logic elsewhere mistakes it for one).
+// ---------------------------------------------------------------------------
+let vaultScene, vaultCamera;
+const VAULT_WORLD = { width: 300, height: 300, buildings: [], spawn: { x: 150, y: 60 } };
+const VAULT_KIOSKS = [
+  { x: 150, z: 40, portal: 'vault_exit' }
+];
 
 function buildCaveScene() {
   const scene = new THREE.Scene();
@@ -4406,6 +4441,140 @@ function enterWitchCave() {
 
 function exitWitchCave() {
   ws.send(JSON.stringify({ type: 'exit_witch_cave' }));
+}
+
+// A small room behind the Bank's vault door — piles of coins, gold bars,
+// loose gems and open chests, same props/materials as the peek visible
+// through the open door in the Bank's main room (see buildFurniture's
+// bank branch), just more of it since this is the actual destination now
+// rather than a glimpse.
+function buildVaultScene() {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1408);
+  scene.fog = new THREE.Fog(0x1a1408, 250, 700);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
+  vaultScene = scene;
+  vaultCamera = camera;
+
+  const roomW = VAULT_WORLD.width, roomD = VAULT_WORLD.height, wallH = 150;
+  scene.add(new THREE.AmbientLight(0xffd9a0, 0.55));
+
+  const stoneTex = makeStoneTexture();
+  stoneTex.repeat.set(roomW / 60, roomD / 60);
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(roomW, roomD),
+    new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xc9a86a })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(roomW / 2, 0, roomD / 2);
+  scene.add(floor);
+
+  const wallMat = new THREE.MeshLambertMaterial({ color: 0x3a3226 });
+  const wallDefs = [
+    [roomW, wallH, 8, roomW / 2, wallH / 2, 0],           // back (far from entrance)
+    [8, wallH, roomD, 0, wallH / 2, roomD / 2],            // left
+    [8, wallH, roomD, roomW, wallH / 2, roomD / 2],        // right
+    [roomW, wallH, 8, roomW / 2, wallH / 2, roomD]         // near (entrance side)
+  ];
+  for (const [w, h, d, x, y, z] of wallDefs) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+    wall.position.set(x, y, z);
+    scene.add(wall);
+  }
+
+  // EXIT sign and a faint glow near the entrance, matching the interior
+  // door pattern used elsewhere (see buildInteriorDoorway).
+  const exitSign = makeSignSprite('EXIT');
+  exitSign.position.set(roomW / 2, wallH * 0.6, roomD - 6);
+  scene.add(exitSign);
+
+  const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x4a3a10, emissiveIntensity: 0.45 });
+  // Several coin piles scattered across the room
+  const pileSpots = [
+    [roomW * 0.3, roomD * 0.35], [roomW * 0.7, roomD * 0.3], [roomW * 0.5, roomD * 0.55],
+    [roomW * 0.22, roomD * 0.65], [roomW * 0.78, roomD * 0.6]
+  ];
+  for (const [px, pz] of pileSpots) {
+    for (let i = 0; i < 4; i++) {
+      const r = 24 - i * 4;
+      const coin = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 5, 16), goldMat);
+      coin.position.set(px + (Math.random() - 0.5) * 6, 12 + i * 6, pz + (Math.random() - 0.5) * 6);
+      coin.rotation.z = (Math.random() - 0.5) * 0.15;
+      scene.add(coin);
+    }
+  }
+  // Gold bars stacked near the back wall
+  for (let i = 0; i < 6; i++) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(22, 10, 12), goldMat);
+    bar.position.set(roomW * 0.5 + (i % 3 - 1) * 26, 10 + Math.floor(i / 3) * 11, roomD * 0.15);
+    scene.add(bar);
+  }
+  // Loose gems scattered among the piles
+  const gemColors = [0xff3355, 0x33ccff, 0x66ff66, 0xcc66ff, 0xffaa33];
+  for (let i = 0; i < 14; i++) {
+    const color = gemColors[i % gemColors.length];
+    const gem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(5 + Math.random() * 3),
+      new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.35 })
+    );
+    gem.position.set(roomW * 0.1 + Math.random() * roomW * 0.8, 6 + Math.random() * 25, roomD * 0.15 + Math.random() * roomD * 0.6);
+    scene.add(gem);
+  }
+  // A few open treasure chests along the side walls
+  for (const [px, pz, rotY] of [[24, roomD * 0.3, Math.PI / 2], [roomW - 24, roomD * 0.3, -Math.PI / 2], [24, roomD * 0.7, Math.PI / 2]]) {
+    const chest = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(28, 16, 20), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+    body.position.y = 8;
+    chest.add(body);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(28, 10, 20), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+    lid.position.set(0, 18, -8);
+    lid.rotation.x = -1.1;
+    chest.add(lid);
+    const spill = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 3, 12), goldMat);
+    spill.position.y = 17;
+    chest.add(spill);
+    chest.position.set(px, 0, pz);
+    chest.rotation.y = rotY;
+    scene.add(chest);
+  }
+
+  // Warm glowing lights spread through the room so the treasure actually
+  // shimmers instead of sitting in flat shadow.
+  for (const [lx, lz] of [[roomW * 0.3, roomD * 0.35], [roomW * 0.7, roomD * 0.35], [roomW * 0.5, roomD * 0.6]]) {
+    const glow = new THREE.PointLight(0xffcc66, 1.1, 180);
+    glow.position.set(lx, 60, lz);
+    scene.add(glow);
+  }
+}
+
+function swapToVaultMap() {
+  if (!vaultScene || activeScene === vaultScene) return;
+  world = VAULT_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(vaultScene, vaultCamera, null);
+}
+
+function enterVault() {
+  if (!me || me.isDead) return;
+  // Treated the same as the Witch's Cave for state-tracking purposes even
+  // though it's reached from inside a building: mode stays 'outdoor' (not
+  // 'indoor') so none of the building-interior-specific logic elsewhere
+  // (collision walls, currentInterior-based kiosk lookup, etc.) mistakes
+  // this small standalone room for the Bank's own interior.
+  mode = 'outdoor';
+  indoorBuildingId = null;
+  swapToVaultMap();
+  me.room = 'bank_vault';
+  me.x = VAULT_WORLD.spawn.x;
+  me.y = VAULT_WORLD.spawn.y;
+  ws.send(JSON.stringify({ type: 'enter_vault' }));
+  setUnlockToast('💰 You step into the vault...');
+}
+
+function exitVault() {
+  ws.send(JSON.stringify({ type: 'exit_vault' }));
 }
 
 function buildWildsScene(w2) {
@@ -7390,6 +7559,17 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     vaultGlow.position.set(cx, 60, roomD - 30);
     scene.add(vaultGlow);
 
+    // The treasure chamber above is just a recessed alcove (a peek from
+    // outside) — this kiosk is what actually lets the player walk into a
+    // full separate vault room (see enterVault()/buildVaultScene()). Sits
+    // well clear of the back wall's collision (which the player can't get
+    // right up against anyway) rather than right at the door itself, and
+    // uses a generous radius, so reachability doesn't depend on getting
+    // the exact wall-collision math pixel-perfect.
+    if (kiosksOut) {
+      kiosksOut.push({ x: cx, z: roomD - 60, portal: 'vault_enter', radius: 120 });
+    }
+
     // Three service stations side by side, set well back from the door so
     // there's open floor to walk in on: a teller counter, an auctioneer's
     // podium, and a wire clerk's desk for sending gold to other players.
@@ -8348,7 +8528,7 @@ function updateCamera(dt) {
   const rp = getRenderPos(me);
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
-  const cam = (mode === 'outdoor' && activeScene !== caveScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
+  const cam = (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
   // Indoors, rooms are small enough that a fixed pull-back distance can put
@@ -8451,6 +8631,7 @@ function findNearestKiosk() {
   // failed to build (buildCaveScene threw before assigning caveScene) so
   // activeScene !== caveScene, but me.room is already 'witch_cave'.
   if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
+  if (me.room === 'bank_vault') return nearestKioskIn(VAULT_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
@@ -9876,6 +10057,8 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
   if (kiosk && kiosk.portal === 'cave_enter') { enterWitchCave(); return; }
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
+  if (kiosk && kiosk.portal === 'vault_enter') { enterVault(); return; }
+  if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
@@ -9969,6 +10152,16 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'cave_exit') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} leave the cave`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'vault_enter') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} enter the vault`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'vault_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} leave the vault`;
     return;
   }
   if (kiosk && kiosk.witch === 'hazel') {
@@ -10200,14 +10393,17 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || me.room === 'witch_cave') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
-    const boundsW = (world === CAVE_WORLD || me.room === 'witch_cave') ? CAVE_WORLD.width : world.width;
-    const boundsH = (world === CAVE_WORLD || me.room === 'witch_cave') ? CAVE_WORLD.height : world.height;
+    const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
+    const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
-    if (world === CAVE_WORLD || me.room === 'witch_cave') { me.room = 'witch_cave'; }
+    if (inCave) { me.room = 'witch_cave'; }
+    else if (inVault) { me.room = 'bank_vault'; }
     else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
     return;
