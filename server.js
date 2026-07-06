@@ -1634,20 +1634,23 @@ function isNightNow() {
 
 // ---------------------------------------------------------------------------
 // Nightly torch-lighting ritual — 4 torches around the town square's spawn
-// hub (1600, 1100), each with an assigned NPC. By day they wander the open
-// square; the moment night falls, all four walk in from wherever they
-// currently are and light their torch together, then stay there till dawn.
+// hub (1600, 1100), each with an assigned NPC who lives at the Temple (a
+// standalone shrine near the tree line at the back/south of town — see
+// buildTownTemple() in client.js). Every morning they walk back to the
+// temple and stay there; the moment night falls, all four walk out from the
+// temple to their torch and light it together, then stay there till dawn.
 //
 // This has to be real per-NPC tick state (x/y/facing/working mutated every
 // interval, like the Wilds' village NPCs below) rather than a pure
-// Date.now()-derived formula: since their daytime position is now random
-// (wandering), "walk to the torch" has to interpolate from wherever THAT
-// NPC actually was the moment dusk hit, not a fixed home point. duskX/duskY
-// + ritualStartAt are captured once, right on the day->night edge (the
-// same instant for all four, since isNightNow() is one shared boolean), so
-// using elapsed-time/duration (not distance/speed) for progress still
-// guarantees every torch lights at exactly the same moment regardless of
-// how far each individual NPC had to walk.
+// Date.now()-derived formula: "walk to the torch"/"walk to the temple" both
+// have to interpolate from wherever that NPC actually was the moment the
+// edge hit, not a fixed point — duskX/duskY+ritualStartAt (night edge) and
+// dawnX/dawnY+templeWalkStartAt (day edge) are each captured once, right on
+// their respective transition (the same instant for all four, since
+// isNightNow() is one shared boolean), so using elapsed-time/duration (not
+// distance/speed) for progress still guarantees every torch lights — and
+// every NPC arrives home — at exactly the same moment regardless of how far
+// any individual NPC had to walk.
 // ---------------------------------------------------------------------------
 const TOWN_TORCHES = [
   { id: 'torch_n', x: 1600, y: 880 },
@@ -1655,32 +1658,53 @@ const TOWN_TORCHES = [
   { id: 'torch_s', x: 1600, y: 1320 },
   { id: 'torch_w', x: 1380, y: 1100 }
 ];
-const TORCH_NPCS = [
-  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, x: 1600, y: 700,  facing: 0, working: false },
-  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, x: 2020, y: 1100, facing: 0, working: false },
-  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, x: 1600, y: 1500, facing: 0, working: false },
-  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, x: 1180, y: 1100, facing: 0, working: false }
+// Gathering point just in front of the Temple's steps (see buildTownTemple(1060, 1900)
+// in client.js — the temple structure sits just south of this point, facing north).
+const TOWN_TEMPLE = { x: 1060, y: 1740 };
+// Where each NPC stands in the little group out front, relative to TOWN_TEMPLE —
+// keeps them spread out instead of stacking on the exact same point.
+const TEMPLE_STAND_OFFSETS = [
+  { dx: -48, dy: 10 },
+  { dx: -16, dy: -10 },
+  { dx: 16, dy: -10 },
+  { dx: 48, dy: 10 }
 ];
+const TORCH_NPCS = [
+  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, facing: 0, working: false },
+  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, facing: 0, working: false },
+  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, facing: 0, working: false },
+  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, facing: 0, working: false }
+];
+// Seed everyone standing at the temple already, so the steady-state (server
+// freshly started, mid-day) looks right without waiting for a fake "walk in".
+TORCH_NPCS.forEach((n, i) => {
+  n.x = TOWN_TEMPLE.x + TEMPLE_STAND_OFFSETS[i].dx;
+  n.y = TOWN_TEMPLE.y + TEMPLE_STAND_OFFSETS[i].dy;
+  n.dawnX = n.x; n.dawnY = n.y; n.templeWalkStartAt = -Infinity; // -Infinity => progress clamps to 1 (already arrived)
+});
 let torchNpcsWasNight = false;
 const NIGHT_RITUAL_WALK_MS = 6000; // how long the walk-to-torch takes once night falls
+const MORNING_TEMPLE_WALK_MS = 6000; // how long the walk-to-temple takes once day breaks
 const TORCH_HEAL_RADIUS = 180;
 const TORCH_STAND_BACK = 45; // how far short of the torch's own coordinate an NPC stops
-// Bounding box for daytime wandering — clear of every building's footprint,
-// roughly the open plaza around the spawn hub (1600, 1100).
-const TORCH_WANDER_BOUNDS = { xMin: 1000, xMax: 2200, yMin: 500, yMax: 1700 };
-const TORCH_WANDER_SPEED = 45; // units/sec, a slow unhurried wander
 
 function tickTorchNpcs(dt) {
   const night = isNightNow();
   const justTurnedNight = night && !torchNpcsWasNight;
+  const justTurnedDay = !night && torchNpcsWasNight;
   torchNpcsWasNight = night;
   const now = Date.now();
 
-  for (const n of TORCH_NPCS) {
+  TORCH_NPCS.forEach((n, i) => {
     if (justTurnedNight) {
       n.duskX = n.x;
       n.duskY = n.y;
       n.ritualStartAt = now;
+    }
+    if (justTurnedDay) {
+      n.dawnX = n.x;
+      n.dawnY = n.y;
+      n.templeWalkStartAt = now;
     }
 
     if (night) {
@@ -1695,19 +1719,16 @@ function tickTorchNpcs(dt) {
       n.facing = Math.atan2(dx, dy); // always faces toward the torch itself
       n.working = progress >= 1;
     } else {
+      const off = TEMPLE_STAND_OFFSETS[i];
+      const targetX = TOWN_TEMPLE.x + off.dx, targetY = TOWN_TEMPLE.y + off.dy;
+      const dx = targetX - n.dawnX, dy = targetY - n.dawnY;
+      const progress = Math.min(1, (now - n.templeWalkStartAt) / MORNING_TEMPLE_WALK_MS);
+      n.x = n.dawnX + (targetX - n.dawnX) * progress;
+      n.y = n.dawnY + (targetY - n.dawnY) * progress;
+      if (progress < 1) n.facing = Math.atan2(dx, dy); // face the temple while walking; hold last facing once home
       n.working = false;
-      if (n.wanderTargetX === undefined || Math.hypot(n.wanderTargetX - n.x, n.wanderTargetY - n.y) < 15) {
-        n.wanderTargetX = TORCH_WANDER_BOUNDS.xMin + Math.random() * (TORCH_WANDER_BOUNDS.xMax - TORCH_WANDER_BOUNDS.xMin);
-        n.wanderTargetY = TORCH_WANDER_BOUNDS.yMin + Math.random() * (TORCH_WANDER_BOUNDS.yMax - TORCH_WANDER_BOUNDS.yMin);
-      }
-      const dx = n.wanderTargetX - n.x, dy = n.wanderTargetY - n.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const step = Math.min(d, TORCH_WANDER_SPEED * dt);
-      n.x += (dx / d) * step;
-      n.y += (dy / d) * step;
-      n.facing = Math.atan2(dx, dy);
     }
-  }
+  });
 }
 
 function torchNpcPublicState() {

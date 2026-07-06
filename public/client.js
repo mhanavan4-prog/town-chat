@@ -3524,6 +3524,14 @@ function initScene(w) {
     townTorchVisuals[t.id] = torch;
   }
 
+  // The Torchkeepers' temple — a landmark near the back tree line, not part
+  // of w.buildings (no interior/door), so its solid footprint is added to
+  // `walls` by hand here, same as addNatureDecor() does for tree colliders.
+  const templeCx = 1060, templeCz = 1900, templeW = 360, templeD = 260;
+  scene.add(buildTownTemple(templeCx, templeCz));
+  walls.push({ x: templeCx - templeW / 2, y: templeCz - templeD / 2, w: templeW, h: templeD });
+  scene.add(buildPathSegment(templeCx, templeCz - templeD / 2 - 30, w.spawn.x, w.spawn.y, 40, dirtTex, hubRadius));
+
   outdoorScene = scene;
   outdoorCamera = camera;
   mode = 'outdoor';
@@ -7002,6 +7010,67 @@ function buildTownRitualTorch(x, z) {
   light.position.set(x, 74, z);
   g.add(light);
   return { group: g, flame, light };
+}
+
+// The Torchkeepers' home shrine — a small peripteral (column-ringed) temple
+// near the tree line at the back of town. Purely a landmark/gathering spot,
+// not an enterable building: no interior, no door, no room id — see
+// server.js's TOWN_TEMPLE (the gathering point just north/in-front of this
+// structure the 4 NPCs walk to each morning). Reuses the same proven
+// hip-roof trick as buildBuildingMesh (ConeGeometry(1,h,4).rotateY(PI/4),
+// scaled non-uniformly) rather than hand-deriving a triangular gable, since
+// that scale->rotate order bug already bit this project once this session.
+function buildTownTemple(cx, cz) {
+  const g = new THREE.Group();
+  const platformW = 360, platformD = 260, platformH = 16;
+  const stoneTex = makeStoneTexture();
+  stoneTex.repeat.set(platformW / 50, platformD / 50);
+
+  const platform = new THREE.Mesh(
+    new THREE.BoxGeometry(platformW, platformH, platformD),
+    new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xcfc9ba })
+  );
+  platform.position.set(cx, platformH / 2, cz);
+  g.add(platform);
+
+  const columnH = 90;
+  const columnMat = new THREE.MeshLambertMaterial({ color: 0xdcd6c6 });
+  const columnGeo = new THREE.CylinderGeometry(10, 12, columnH, 8);
+  const marginX = 40, marginZ = 30;
+  const colXs = [cx - platformW / 2 + marginX, cx, cx + platformW / 2 - marginX];
+  const colZs = [cz - platformD / 2 + marginZ, cz + platformD / 2 - marginZ];
+  for (const cx2 of colXs) {
+    for (const cz2 of colZs) {
+      const col = new THREE.Mesh(columnGeo, columnMat);
+      col.position.set(cx2, platformH + columnH / 2, cz2);
+      g.add(col);
+    }
+  }
+
+  const architrave = new THREE.Mesh(
+    new THREE.BoxGeometry(platformW, 14, platformD),
+    new THREE.MeshLambertMaterial({ color: 0xb5ae9a })
+  );
+  architrave.position.set(cx, platformH + columnH + 7, cz);
+  g.add(architrave);
+
+  const overhang = 16, roofHeight = 70;
+  const apothem = Math.cos(Math.PI / 4);
+  const roofGeo = new THREE.ConeGeometry(1, roofHeight, 4);
+  roofGeo.rotateY(Math.PI / 4);
+  const roof = new THREE.Mesh(
+    roofGeo,
+    new THREE.MeshLambertMaterial({ color: 0xb08d3f })
+  );
+  roof.scale.set((platformW / 2 + overhang) / apothem, 1, (platformD / 2 + overhang) / apothem);
+  roof.position.set(cx, platformH + columnH + 14 + roofHeight / 2, cz);
+  g.add(roof);
+
+  const sign = makeSignSprite('⛩️ Temple of the Flame');
+  sign.position.set(cx, platformH + columnH + 14 + roofHeight + 30, cz);
+  g.add(sign);
+
+  return g;
 }
 
 function makeTable(x, z, rotY) {
