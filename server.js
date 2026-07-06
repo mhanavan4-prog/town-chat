@@ -1634,13 +1634,20 @@ function isNightNow() {
 
 // ---------------------------------------------------------------------------
 // Nightly torch-lighting ritual — 4 torches around the town square's spawn
-// hub (1600, 1100), each with an assigned NPC who walks in from their
-// daytime spot and lights it. Deliberately stateless: like isNightNow()
-// above, ritual progress is computed purely from Date.now() % CYCLE_MS
-// rather than tracked as mutable "ritual started at X" state, so every
-// client (including one that joins mid-ritual) computes the exact same
-// walk position/lit state independently, no dedicated sync message needed
-// beyond the regular wildlife_state broadcast.
+// hub (1600, 1100), each with an assigned NPC. By day they wander the open
+// square; the moment night falls, all four walk in from wherever they
+// currently are and light their torch together, then stay there till dawn.
+//
+// This has to be real per-NPC tick state (x/y/facing/working mutated every
+// interval, like the Wilds' village NPCs below) rather than a pure
+// Date.now()-derived formula: since their daytime position is now random
+// (wandering), "walk to the torch" has to interpolate from wherever THAT
+// NPC actually was the moment dusk hit, not a fixed home point. duskX/duskY
+// + ritualStartAt are captured once, right on the day->night edge (the
+// same instant for all four, since isNightNow() is one shared boolean), so
+// using elapsed-time/duration (not distance/speed) for progress still
+// guarantees every torch lights at exactly the same moment regardless of
+// how far each individual NPC had to walk.
 // ---------------------------------------------------------------------------
 const TOWN_TORCHES = [
   { id: 'torch_n', x: 1600, y: 880 },
@@ -1649,61 +1656,84 @@ const TOWN_TORCHES = [
   { id: 'torch_w', x: 1380, y: 1100 }
 ];
 const TORCH_NPCS = [
-  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, homeX: 1600, homeY: 700,  torchIdx: 0 },
-  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, homeX: 2020, homeY: 1100, torchIdx: 1 },
-  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, homeX: 1600, homeY: 1500, torchIdx: 2 },
-  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, homeX: 1180, homeY: 1100, torchIdx: 3 }
+  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, x: 1600, y: 700,  facing: 0, working: false },
+  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, x: 2020, y: 1100, facing: 0, working: false },
+  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, x: 1600, y: 1500, facing: 0, working: false },
+  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, x: 1180, y: 1100, facing: 0, working: false }
 ];
+let torchNpcsWasNight = false;
 const NIGHT_RITUAL_WALK_MS = 6000; // how long the walk-to-torch takes once night falls
 const TORCH_HEAL_RADIUS = 180;
+const TORCH_STAND_BACK = 45; // how far short of the torch's own coordinate an NPC stops
+// Bounding box for daytime wandering — clear of every building's footprint,
+// roughly the open plaza around the spawn hub (1600, 1100).
+const TORCH_WANDER_BOUNDS = { xMin: 1000, xMax: 2200, yMin: 500, yMax: 1700 };
+const TORCH_WANDER_SPEED = 45; // units/sec, a slow unhurried wander
 
-// null during the day; 0..1 during night (0 = dusk, just started walking;
-// 1 = torches lit, ritual complete for the rest of the night).
-function getTorchRitualProgress() {
-  const t = Date.now() % CYCLE_MS;
-  if (t < DAY_MS) return null;
-  return Math.min(1, (t - DAY_MS) / NIGHT_RITUAL_WALK_MS);
+function tickTorchNpcs(dt) {
+  const night = isNightNow();
+  const justTurnedNight = night && !torchNpcsWasNight;
+  torchNpcsWasNight = night;
+  const now = Date.now();
+
+  for (const n of TORCH_NPCS) {
+    if (justTurnedNight) {
+      n.duskX = n.x;
+      n.duskY = n.y;
+      n.ritualStartAt = now;
+    }
+
+    if (night) {
+      const torch = TOWN_TORCHES[n.torchIdx];
+      const dx = torch.x - n.duskX, dy = torch.y - n.duskY;
+      const dist = Math.hypot(dx, dy) || 1;
+      const standX = torch.x - (dx / dist) * TORCH_STAND_BACK;
+      const standY = torch.y - (dy / dist) * TORCH_STAND_BACK;
+      const progress = Math.min(1, (now - n.ritualStartAt) / NIGHT_RITUAL_WALK_MS);
+      n.x = n.duskX + (standX - n.duskX) * progress;
+      n.y = n.duskY + (standY - n.duskY) * progress;
+      n.facing = Math.atan2(dx, dy); // always faces toward the torch itself
+      n.working = progress >= 1;
+    } else {
+      n.working = false;
+      if (n.wanderTargetX === undefined || Math.hypot(n.wanderTargetX - n.x, n.wanderTargetY - n.y) < 15) {
+        n.wanderTargetX = TORCH_WANDER_BOUNDS.xMin + Math.random() * (TORCH_WANDER_BOUNDS.xMax - TORCH_WANDER_BOUNDS.xMin);
+        n.wanderTargetY = TORCH_WANDER_BOUNDS.yMin + Math.random() * (TORCH_WANDER_BOUNDS.yMax - TORCH_WANDER_BOUNDS.yMin);
+      }
+      const dx = n.wanderTargetX - n.x, dy = n.wanderTargetY - n.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const step = Math.min(d, TORCH_WANDER_SPEED * dt);
+      n.x += (dx / d) * step;
+      n.y += (dy / d) * step;
+      n.facing = Math.atan2(dx, dy);
+    }
+  }
 }
 
 function torchNpcPublicState() {
-  const progress = getTorchRitualProgress();
-  return TORCH_NPCS.map(n => {
-    const torch = TOWN_TORCHES[n.torchIdx];
-    const dx = torch.x - n.homeX, dy = torch.y - n.homeY;
-    const dist = Math.hypot(dx, dy) || 1;
-    // Stand this far short of the torch's own coordinate rather than
-    // walking to the exact same point the torch mesh is drawn at — using
-    // the torch's own position as the walk target put the NPC's model
-    // exactly where the flame is, which rendered as the flame sitting on
-    // their head instead of a separate torch beside them.
-    const standBack = 26;
-    const standX = torch.x - (dx / dist) * standBack;
-    const standY = torch.y - (dy / dist) * standBack;
-    let x = n.homeX, y = n.homeY, facing = 0;
-    if (progress !== null) {
-      x = n.homeX + (standX - n.homeX) * progress;
-      y = n.homeY + (standY - n.homeY) * progress;
-      facing = Math.atan2(dx, dy); // always faces toward the torch itself
-    }
-    return { id: n.id, charId: n.charId, name: n.name, x, y, facing, working: progress !== null && progress >= 1 };
-  });
+  return TORCH_NPCS.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working }));
 }
 
 function townTorchPublicState() {
-  const lit = getTorchRitualProgress() >= 1;
-  return TOWN_TORCHES.map(t => ({ id: t.id, x: t.x, y: t.y, lit }));
+  return TOWN_TORCHES.map((t, idx) => {
+    const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
+    return { id: t.id, x: t.x, y: t.y, lit: !!(npc && npc.working) };
+  });
 }
 
 // Heals to full once per night, the moment a player is standing near any
-// lit torch when the ritual completes (or whenever they later wander into
-// range, for the rest of that night) — flag resets at dawn so it can fire
-// again the following night rather than only ever once per player.
+// lit torch (or whenever they later wander into range, for the rest of
+// that night) — flag resets at dawn so it can fire again the next night
+// rather than only ever once per player.
 function tickTorchHealing() {
-  const lit = getTorchRitualProgress() >= 1;
+  const litTorches = TOWN_TORCHES.filter((t, idx) => {
+    const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
+    return npc && npc.working;
+  });
   for (const player of players.values()) {
-    if (!lit) { player.torchHealedThisNight = false; continue; }
+    if (litTorches.length === 0) { player.torchHealedThisNight = false; continue; }
     if (player.torchHealedThisNight || player.isDead || player.room !== 'outside') continue;
-    const near = TOWN_TORCHES.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
+    const near = litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
     if (near) {
       player.health = 100;
       player.torchHealedThisNight = true;
@@ -2303,6 +2333,7 @@ setInterval(() => {
   tickVillageNpcs(dt);
   tickDungeon(dt);
   tickPlayerRegen(now, dt);
+  tickTorchNpcs(dt);
   tickTorchHealing();
   if (players.size === 0) return;
   broadcastAll({
