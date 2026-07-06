@@ -1669,11 +1669,21 @@ function torchNpcPublicState() {
   const progress = getTorchRitualProgress();
   return TORCH_NPCS.map(n => {
     const torch = TOWN_TORCHES[n.torchIdx];
+    const dx = torch.x - n.homeX, dy = torch.y - n.homeY;
+    const dist = Math.hypot(dx, dy) || 1;
+    // Stand this far short of the torch's own coordinate rather than
+    // walking to the exact same point the torch mesh is drawn at — using
+    // the torch's own position as the walk target put the NPC's model
+    // exactly where the flame is, which rendered as the flame sitting on
+    // their head instead of a separate torch beside them.
+    const standBack = 26;
+    const standX = torch.x - (dx / dist) * standBack;
+    const standY = torch.y - (dy / dist) * standBack;
     let x = n.homeX, y = n.homeY, facing = 0;
     if (progress !== null) {
-      x = n.homeX + (torch.x - n.homeX) * progress;
-      y = n.homeY + (torch.y - n.homeY) * progress;
-      facing = Math.atan2(torch.x - n.homeX, torch.y - n.homeY);
+      x = n.homeX + (standX - n.homeX) * progress;
+      y = n.homeY + (standY - n.homeY) * progress;
+      facing = Math.atan2(dx, dy); // always faces toward the torch itself
     }
     return { id: n.id, charId: n.charId, name: n.name, x, y, facing, working: progress !== null && progress >= 1 };
   });

@@ -5731,10 +5731,17 @@ function updateVillageNpcVisuals(dt) {
 let townTorchNpcVisuals = {};
 const townTorchVisuals = {}; // id -> { flame, light } — populated in initScene()
 
-function getOrCreateTownTorchNpcVisual(id, charId) {
+function getOrCreateTownTorchNpcVisual(id, charId, name) {
   if (!townTorchNpcVisuals[id]) {
     const built = createHumanoid(charId);
     built.group.visible = false;
+    // Local (0, 90, 0) — rotating the group around Y (facing) never moves
+    // a point that sits exactly on the Y axis, so this stays put above
+    // their head and doesn't swing around as they turn, without needing
+    // to be repositioned every frame like a scene-level label would.
+    const label = makeNpcNameSprite(name, 'Keeper of the Flame');
+    label.position.set(0, 90, 0);
+    built.group.add(label);
     if (outdoorScene) outdoorScene.add(built.group);
     townTorchNpcVisuals[id] = {
       group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
@@ -5748,7 +5755,7 @@ function getOrCreateTownTorchNpcVisual(id, charId) {
 function applyTownTorchNpcState(npcs) {
   if (!outdoorScene) return;
   for (const n of npcs) {
-    const v = getOrCreateTownTorchNpcVisual(n.id, n.charId);
+    const v = getOrCreateTownTorchNpcVisual(n.id, n.charId, n.name);
     v.targetX = n.x; v.targetY = n.y; v.targetFacing = n.facing; v.working = n.working;
     if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
   }
