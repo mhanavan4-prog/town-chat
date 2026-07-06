@@ -7473,7 +7473,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // room, where the player actually is) instead of +Z, which sends it
     // behind the room's own solid back wall — completely hidden from
     // inside, which is exactly why it looked like nothing happened.
-    vaultHinge.rotation.y = 1.1;
+    //
+    // Angle: 1.1 rad swung a 70-unit-radius disc so far that its center
+    // landed at z=1007.6 in this room — *behind* the treasure chamber's
+    // own back panel (z~1021), meaning the door flew straight past its
+    // own alcove and out into the open room, fully detached from its
+    // frame. That's what read as "backwards"/wrong. 0.45 rad keeps it
+    // near its frame (lands around z=1039.6, well inside the chamber's
+    // depth) while still clearly standing ajar.
+    vaultHinge.rotation.y = 0.45;
     const vault = new THREE.Mesh(
       new THREE.CylinderGeometry(70, 70, 8, 24),
       new THREE.MeshLambertMaterial({ color: 0x6b6b6b })
@@ -7567,7 +7575,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // uses a generous radius, so reachability doesn't depend on getting
     // the exact wall-collision math pixel-perfect.
     if (kiosksOut) {
-      kiosksOut.push({ x: cx, z: roomD - 60, portal: 'vault_enter', radius: 120 });
+      // roomD - 60 (used previously) sat at almost the exact same depth as
+      // the chamber's own back panel (z~1021 vs the panel's z~1021) —
+      // right at the recessed alcove, not clearly in the open room, and
+      // close enough to the back wall's own collision that reachability
+      // wasn't obvious. roomD*0.75 sits well clear of both the wall/
+      // chamber and the service counters (stationZ = roomD*0.58) —
+      // unambiguously open floor, no wall-collision math to get right.
+      kiosksOut.push({ x: cx, z: roomD * 0.75, portal: 'vault_enter', radius: 140 });
     }
 
     // Three service stations side by side, set well back from the door so
