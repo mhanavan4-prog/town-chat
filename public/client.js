@@ -878,9 +878,13 @@ function onWsMessage(ev) {
     if (me) { me.room = 'bank'; me.x = msg.x; me.y = msg.y; }
     // Unlike leaving the cave (back out to the open Wilds), this returns
     // to a building interior — needs the full indoor context restored
-    // (mode/indoorBuildingId/currentInterior), not just a scene swap.
+    // (mode/indoorBuildingId/currentInterior/world), not just a scene
+    // swap. world was still VAULT_WORLD (buildings: []) from swapToVaultMap
+    // — updateIndoor() looks up world.buildings.find(id === indoorBuildingId)
+    // to get the bank's b.x/b.y, which crashed on undefined without this.
     mode = 'indoor';
     indoorBuildingId = 'bank';
+    world = TOWN_WORLD;
     const bankInterior = getInteriorScene('bank');
     setActiveContext(bankInterior.scene, bankInterior.camera, bankInterior);
     setUnlockToast('You step out of the vault.');
