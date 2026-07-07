@@ -1704,31 +1704,30 @@ const TOWN_TORCHES = [
   { id: 'torch_s', x: 1600, y: 1320 },
   { id: 'torch_w', x: 1380, y: 1100 }
 ];
-// Gathering point just in front of the Temple's steps (see buildTownTemple(1060, 1900)
-// in client.js — the temple structure sits just south of this point, facing north).
-const TOWN_TEMPLE = { x: 1060, y: 1740 };
 // The altar itself, at the temple structure's own center — where the Ember
-// Wastes portal hovers once it's open (see templePortalOpen(), enter_ember_wastes).
+// Wastes portal hovers once it's open (see templePortalOpen(), enter_ember_wastes),
+// and also where the Torchkeepers gather by day now (see TEMPLE_STAND_OFFSETS).
 const TEMPLE_ALTAR = { x: 1060, y: 1900 };
-// Where each NPC stands in the little group out front, relative to TOWN_TEMPLE —
-// keeps them spread out instead of stacking on the exact same point.
+// Where each NPC kneels by day, relative to TEMPLE_ALTAR — a small diamond
+// ring around the altar (radius ~65, clear of its 64-unit-wide footprint
+// and well inside the platform's edges) rather than stacking on one point.
 const TEMPLE_STAND_OFFSETS = [
-  { dx: -48, dy: 10 },
-  { dx: -16, dy: -10 },
-  { dx: 16, dy: -10 },
-  { dx: 48, dy: 10 }
+  { dx: 0, dy: -65 },
+  { dx: 65, dy: 0 },
+  { dx: 0, dy: 65 },
+  { dx: -65, dy: 0 }
 ];
 const TORCH_NPCS = [
-  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, facing: 0, working: false },
-  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, facing: 0, working: false },
-  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, facing: 0, working: false },
-  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, facing: 0, working: false }
+  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, facing: 0, working: false, praying: false },
+  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, facing: 0, working: false, praying: false },
+  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, facing: 0, working: false, praying: false },
+  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, facing: 0, working: false, praying: false }
 ];
-// Seed everyone standing at the temple already, so the steady-state (server
+// Seed everyone kneeling at the altar already, so the steady-state (server
 // freshly started, mid-day) looks right without waiting for a fake "walk in".
 TORCH_NPCS.forEach((n, i) => {
-  n.x = TOWN_TEMPLE.x + TEMPLE_STAND_OFFSETS[i].dx;
-  n.y = TOWN_TEMPLE.y + TEMPLE_STAND_OFFSETS[i].dy;
+  n.x = TEMPLE_ALTAR.x + TEMPLE_STAND_OFFSETS[i].dx;
+  n.y = TEMPLE_ALTAR.y + TEMPLE_STAND_OFFSETS[i].dy;
   n.dawnX = n.x; n.dawnY = n.y; n.templeWalkStartAt = -Infinity; // -Infinity => progress clamps to 1 (already arrived)
 });
 let torchNpcsWasNight = false;
@@ -1777,28 +1776,29 @@ function tickTorchNpcs(dt) {
         n.facing = Math.atan2(WORLD.spawn.x - n.x, WORLD.spawn.y - n.y);
       }
       n.working = progress >= 1;
+      n.praying = false;
     } else {
       const off = TEMPLE_STAND_OFFSETS[i];
-      const targetX = TOWN_TEMPLE.x + off.dx, targetY = TOWN_TEMPLE.y + off.dy;
+      const targetX = TEMPLE_ALTAR.x + off.dx, targetY = TEMPLE_ALTAR.y + off.dy;
       const dx = targetX - n.dawnX, dy = targetY - n.dawnY;
       const progress = Math.min(1, (now - n.templeWalkStartAt) / MORNING_TEMPLE_WALK_MS);
       n.x = n.dawnX + (targetX - n.dawnX) * progress;
       n.y = n.dawnY + (targetY - n.dawnY) * progress;
       if (progress < 1) {
-        n.facing = Math.atan2(dx, dy); // face the temple while walking in
+        n.facing = Math.atan2(dx, dy); // face the altar while walking in
       } else {
-        // Standing at the temple: turn to face out toward the town square,
-        // not deeper into the temple, so a player walking up sees their
-        // faces instead of their backs.
-        n.facing = Math.atan2(WORLD.spawn.x - n.x, WORLD.spawn.y - n.y);
+        // Kneeling at the altar: face inward toward it, not out toward the
+        // town square — they're praying together, not standing watch.
+        n.facing = Math.atan2(TEMPLE_ALTAR.x - n.x, TEMPLE_ALTAR.y - n.y);
       }
       n.working = false;
+      n.praying = progress >= 1;
     }
   });
 }
 
 function torchNpcPublicState() {
-  return TORCH_NPCS.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working }));
+  return TORCH_NPCS.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working, praying: !!n.praying }));
 }
 
 function townTorchPublicState() {

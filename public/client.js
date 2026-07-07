@@ -6169,7 +6169,7 @@ function getOrCreateTownTorchNpcVisual(id, charId, name) {
     townTorchNpcVisuals[id] = {
       group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
       x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
-      working: false, walkPhase: 0, initialized: false
+      working: false, praying: false, walkPhase: 0, initialized: false
     };
   }
   return townTorchNpcVisuals[id];
@@ -6180,6 +6180,7 @@ function applyTownTorchNpcState(npcs) {
   for (const n of npcs) {
     const v = getOrCreateTownTorchNpcVisual(n.id, n.charId, n.name);
     v.targetX = n.x; v.targetY = n.y; v.targetFacing = n.facing; v.working = n.working;
+    v.praying = !!n.praying;
     if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
   }
 }
@@ -6192,19 +6193,25 @@ function updateTownTorchNpcVisuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    v.group.position.set(v.x, 0, v.y);
     v.group.rotation.y = v.facing;
 
-    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
-    v.walkPhase += dt * (moving ? 5.5 : v.working ? 3 : 0);
+    // Kneeling by day happens up on the Temple's raised platform now — same
+    // ramped height a player standing there gets (see getFloorHeight);
+    // everywhere else (out at the torches, walking between the two) is
+    // ground level, same as before.
+    const baseY = getFloorHeight('outside', v.x, v.y);
 
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
+    v.walkPhase += dt * (moving ? 5.5 : (v.working || v.praying) ? 3 : 0);
+
+    let poseY = 0;
     if (moving) {
       const swing = Math.sin(v.walkPhase) * 0.45;
       v.armL.rotation.x = swing;
       v.armR.rotation.x = -swing;
       v.legL.rotation.x = -swing * 0.65;
       v.legR.rotation.x = swing * 0.65;
-      v.group.position.y = Math.abs(Math.sin(v.walkPhase)) * 2;
+      poseY = Math.abs(Math.sin(v.walkPhase)) * 2;
     } else if (v.working) {
       // Slow reach-and-tend motion once they've arrived at their torch.
       const tend = Math.abs(Math.sin(v.walkPhase)) * 0.5;
@@ -6212,14 +6219,25 @@ function updateTownTorchNpcVisuals(dt) {
       v.armR.rotation.x = -tend * 0.7;
       v.legL.rotation.x = 0;
       v.legR.rotation.x = 0;
-      v.group.position.y = 0;
+    } else if (v.praying) {
+      // Kneeling at the altar by day — legs bent under, arms raised in a
+      // slow chant-like sway, sunk down slightly to read as kneeling
+      // rather than standing (still well clear of the ground below the
+      // platform — see baseY above).
+      const sway = Math.sin(v.walkPhase * 0.6) * 0.18;
+      v.armL.rotation.x = -1.9 + sway;
+      v.armR.rotation.x = -1.9 - sway;
+      v.legL.rotation.x = -1.3;
+      v.legR.rotation.x = -1.3;
+      poseY = -9 + Math.sin(v.walkPhase * 0.6) * 1.2;
     } else {
       v.armL.rotation.x *= 0.85;
       v.armR.rotation.x *= 0.85;
       v.legL.rotation.x *= 0.85;
       v.legR.rotation.x *= 0.85;
-      v.group.position.y = 0;
     }
+
+    v.group.position.set(v.x, baseY + poseY, v.y);
     v.group.visible = true;
   }
 }
