@@ -6007,7 +6007,7 @@ function updateDungeonMobVisuals(dt) {
 // rather than maintaining any separate position state of its own.
 // ---------------------------------------------------------------------------
 let lootIconVisuals = {}; // key -> sprite
-const LOOT_ICON_HEIGHT = 46; // floats roughly chest-height above where the body fell
+const LOOT_ICON_HEIGHT = 12; // sits low, just clear of the ground plane, reading as a dropped bag rather than a floating icon
 
 function makeLootIconSprite() {
   const c = document.createElement('canvas');
