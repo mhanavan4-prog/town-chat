@@ -7085,8 +7085,11 @@ function buildBuildingMesh(b, w) {
   // a visible door slab filling the gap in whichever wall faces the door —
   // locked buildings get a barred reddish door; the free building and
   // unlocked ones get a normal wooden door (kept in sync via
-  // refreshBuildingLockVisuals()).
-  const t = w.wallThickness, doorH = 72;
+  // refreshBuildingLockVisuals()). Full wall height (not a fixed 72, which
+  // left a gap above the door you could see clean through into the
+  // building) so the door slab actually covers the whole door-shaped hole
+  // in the wall, floor to eaves.
+  const t = w.wallThickness, doorH = wallH;
   const locked = isVisuallyLocked(b);
   const side = getDoorSide(b);
   const doorMat = new THREE.MeshLambertMaterial({ color: locked ? 0x5a1f1f : 0x3c2616 });
@@ -7165,7 +7168,10 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
   const g = new THREE.Group();
   const t = (world.wallThickness || 12) * INDOOR_SCALE;
   const dw = doorEnd - doorStart;
-  const doorH = INDOOR_WALL_HEIGHT * 0.74;
+  // Jambs+panel reach almost to the ceiling now (was 0.74x the wall height,
+  // leaving a gap above the door you could see clean through) — the header
+  // bar below fills in the last few units up to INDOOR_WALL_HEIGHT exactly.
+  const doorH = INDOOR_WALL_HEIGHT - 10;
   const jambW = 8, jambD = t * 1.3;
   const frameMat = new THREE.MeshLambertMaterial({ color: 0x160d08 });
   const doorMat = new THREE.MeshLambertMaterial({ color: theme.doorColor || 0x2a1a10 });
@@ -7194,10 +7200,14 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
     g.add(jamb);
   }
 
-  // EXIT sign centered above the header, facing into the room.
+  // EXIT sign centered above the header, facing into the room — a fixed
+  // height just under the ceiling rather than doorH-relative, since doorH
+  // now reaches almost all the way up itself (doorH + 26 would poke the
+  // sign above the ceiling).
   const sign = makeSignSprite('EXIT');
-  if (axisIsX) sign.position.set(doorMid, doorH + 26, wallCoord);
-  else sign.position.set(wallCoord, doorH + 26, doorMid);
+  const signY = INDOOR_WALL_HEIGHT - 12;
+  if (axisIsX) sign.position.set(doorMid, signY, wallCoord);
+  else sign.position.set(wallCoord, signY, doorMid);
   g.add(sign);
 
   // Single flush panel filling the whole gap — no hinge, no swing.
