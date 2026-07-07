@@ -295,7 +295,7 @@ const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',          icon: '🔭', kind: 'building', effect: 'spyglass', durationMs: 60000,
     description: "Peer into a building of your choice from anywhere — opens a live window into that room's chat for 60 seconds. Everyone in that room is told the moment you cast it." },
   sleight_of_hand:    { name: 'Sleight of Hand',    icon: '🤏', kind: 'targeted', effect: 'pickpocket', stealChance: 0.35,
-    description: "Peek into a target's pockets and try to lift an item — about a 1-in-3 chance of actually taking something. They'll always know it happened." },
+    description: "Peek into a target's pockets and try to lift an item. They won't know if you're successful — only a failed attempt gives you away. Starts at a 35% success chance and grows the more you practice, up to 94% at max skill." },
   echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
     description: "A canyon echo scrambles everyone nearby's words in chat." },
   deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'status', statusType: 'meditate', durationMs: 60000,
@@ -473,8 +473,9 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'torch_healed') {
-    if (me && typeof msg.health === 'number') me.health = msg.health;
-    updateHealthHud();
+    // Fires once when healing *starts* — health itself now climbs gradually
+    // over the next few seconds via the regular 'state' broadcast (see
+    // tickTorchHealing in server.js), not an instant jump carried in this message.
     setUnlockToast(msg.message);
     return;
   }
@@ -559,6 +560,11 @@ function onWsMessage(ev) {
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
+    setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'pickpocket_level_up') {
     setUnlockToast(msg.message);
     return;
   }

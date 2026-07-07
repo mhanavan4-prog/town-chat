@@ -973,15 +973,20 @@ const XP_THRESHOLDS = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 6000,
 const MAX_LEVEL = XP_THRESHOLDS.length - 1;
 
 function getProgress(player) {
+  let prog;
   if (player.accountKey) {
     if (!playerProgress[player.accountKey]) {
-      playerProgress[player.accountKey] = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {} };
+      playerProgress[player.accountKey] = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {}, pickpocketSuccesses: 0 };
       saveProgress();
     }
-    return playerProgress[player.accountKey];
+    prog = playerProgress[player.accountKey];
+  } else {
+    if (!player.guestProgress) player.guestProgress = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {}, pickpocketSuccesses: 0 };
+    prog = player.guestProgress;
   }
-  if (!player.guestProgress) player.guestProgress = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {} };
-  return player.guestProgress;
+  // Backfills accounts saved before Sleight of Hand's skill-progress system existed.
+  if (prog.pickpocketSuccesses === undefined) prog.pickpocketSuccesses = 0;
+  return prog;
 }
 
 // Award XP to a player, leveling up as many times as thresholds are crossed,
@@ -1759,14 +1764,17 @@ function townTorchPublicState() {
   });
 }
 
-// Heals to full the moment a player *arrives* in range of any lit torch —
-// edge-triggered off player.nearLitTorch (was near last tick? no -> yes)
-// rather than a once-per-night flag, so going off to the Wilds, getting
-// hurt, and walking back into the torchlight heals you again immediately
-// instead of only working the first time you ever stood there that night.
-// Standing still in the light doesn't re-trigger every tick since "near"
-// stays true the whole time you're there — only leaving and re-entering does.
-function tickTorchHealing() {
+// A hurt player standing near any lit torch mends gradually rather than
+// snapping to full — TORCH_HEAL_RATE_PER_SEC HP per second, so a full
+// 0->100 heal takes a few seconds of actually standing in the light, not
+// an instant fix. The one-time "warmth begins to mend you" toast is still
+// edge-triggered off player.nearLitTorch (was near last tick? no -> yes),
+// so going off to the Wilds, getting hurt, and walking back in announces
+// itself again instead of only ever once; leaving mid-heal (any room
+// change away from 'outside', or just walking out of range) stops the
+// regen immediately since "near" is recomputed fresh every tick.
+const TORCH_HEAL_RATE_PER_SEC = 25; // 0 -> 100 in ~4s of standing in the light
+function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
     const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
     return npc && npc.working;
@@ -1774,12 +1782,11 @@ function tickTorchHealing() {
   for (const player of players.values()) {
     if (player.isDead || player.room !== 'outside') { player.nearLitTorch = false; continue; }
     const near = litTorches.length > 0 && litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
-    if (near && !player.nearLitTorch && player.health < 100) {
-      player.health = 100;
-      // Include the new health directly rather than relying solely on the
-      // next periodic 'state' broadcast to carry it — the client applies
-      // this immediately so the HUD updates in lockstep with the toast.
-      send(player.ws, { type: 'torch_healed', health: player.health, message: '🔥 The torchlight washes over you, and your wounds heal completely.' });
+    if (near && player.health < 100) {
+      if (!player.nearLitTorch) {
+        send(player.ws, { type: 'torch_healed', message: "🔥 The torchlight's warmth begins to mend your wounds..." });
+      }
+      player.health = Math.min(100, player.health + TORCH_HEAL_RATE_PER_SEC * dt);
     }
     player.nearLitTorch = near;
   }
@@ -2377,7 +2384,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickPlayerRegen(now, dt);
   tickTorchNpcs(dt);
-  tickTorchHealing();
+  tickTorchHealing(dt);
   if (players.size === 0) return;
   broadcastAll({
     type: 'wildlife_state',
@@ -2702,10 +2709,11 @@ const WEREWOLF_ATTACK_CATALOG = {
 // spyglass_notice the moment it's cast, naming the caster (see cast_attack
 // below and roomChatLogs for the rolling per-room buffer it reads from).
 // effect 'pickpocket' (Sleight of Hand) is the other one: kind 'targeted' —
-// peeks at the target's carried inventory (not equipped gear) and rolls
-// stealChance to lift one item from it. Also not covert: the target always
-// gets an attack_hit naming the caster, whether or not the steal actually
-// landed, the same as every other targeted attack.
+// peeks at the target's carried inventory (not equipped gear) and rolls a
+// steal chance (see PICKPOCKET_* below) to lift one item from it. Unlike
+// Spy Glass, this one IS covert on success: the target only ever finds out
+// when the attempt *fails* (see the pickpocket branch in cast_attack) — a
+// clean steal is silent on their end, they just notice the item's gone later.
 const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
@@ -2728,6 +2736,28 @@ const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG
 
 const ATTACK_COOLDOWN_MS = 8000;
 const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
+
+// ---------------------------------------------------------------------------
+// Sleight of Hand skill progress — only successful steals count, tracked as
+// a running total (playerProgress[accountKey].pickpocketSuccesses, same
+// persistence as XP/level above) rather than its own separate level counter,
+// so the level itself is always just derived from that total and never gets
+// out of sync with it. Every PICKPOCKET_SUCCESSES_PER_LEVEL successful
+// steals raises the skill a level, up to PICKPOCKET_MAX_LEVEL; success
+// chance scales linearly from the catalog's base stealChance (level 1) up
+// to PICKPOCKET_MAX_CHANCE (94%) at max level.
+// ---------------------------------------------------------------------------
+const PICKPOCKET_SUCCESSES_PER_LEVEL = 5;
+const PICKPOCKET_MAX_LEVEL = 10;
+const PICKPOCKET_MAX_CHANCE = 0.94;
+
+function pickpocketLevelForSuccesses(successes) {
+  return Math.min(PICKPOCKET_MAX_LEVEL, 1 + Math.floor(successes / PICKPOCKET_SUCCESSES_PER_LEVEL));
+}
+function pickpocketChanceForLevel(level, baseChance) {
+  const t = (level - 1) / (PICKPOCKET_MAX_LEVEL - 1);
+  return baseChance + (PICKPOCKET_MAX_CHANCE - baseChance) * t;
+}
 
 // Rolling chat history per room, used only by Spy Glass's spyglass effect
 // to seed the window with whatever was already said before the cast — chat
@@ -3676,8 +3706,12 @@ wss.on('connection', (ws) => {
           itemId: s.itemId, qty: s.qty, name: ITEM_CATALOG[s.itemId].name, icon: ITEM_CATALOG[s.itemId].icon
         }));
 
+        const prog = getProgress(player);
+        const skillLevel = pickpocketLevelForSuccesses(prog.pickpocketSuccesses);
+        const chance = pickpocketChanceForLevel(skillLevel, attack.stealChance);
+
         let stolen = null;
-        if (peekedSlots.length > 0 && Math.random() < attack.stealChance) {
+        if (peekedSlots.length > 0 && Math.random() < chance) {
           const pick = peekedSlots[Math.floor(Math.random() * peekedSlots.length)];
           const callerInv = getInventory(player);
           if (addItemToAccount(callerInv, pick.itemId, 1)) {
@@ -3686,6 +3720,20 @@ wss.on('connection', (ws) => {
             if (player.accountKey) saveInventories();
             if (t.accountKey) saveInventories();
             send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+
+            // Skill progress — only a completed steal counts, not just a
+            // winning roll (e.g. a full inventory still blocks addItemToAccount
+            // above, and that shouldn't reward practice you didn't actually get).
+            prog.pickpocketSuccesses++;
+            const newLevel = pickpocketLevelForSuccesses(prog.pickpocketSuccesses);
+            if (newLevel > skillLevel) {
+              const newChance = Math.round(pickpocketChanceForLevel(newLevel, attack.stealChance) * 100);
+              send(ws, {
+                type: 'pickpocket_level_up', level: newLevel, chance: newChance,
+                message: `🤏 Sleight of Hand improved to level ${newLevel}! Success chance is now ${newChance}%.`
+              });
+            }
+            if (player.accountKey) saveProgress();
           }
         }
 
