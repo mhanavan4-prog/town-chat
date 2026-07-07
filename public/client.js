@@ -2776,13 +2776,19 @@ window.addEventListener('mouseleave', () => { dragging = false; });
 // Hover-only nameplates — with several players/NPCs standing close together
 // the always-on labels got overwhelming, so both the DOM player tags (see
 // syncLabels()) and the 3D NPC name sprites (see makeNpcNameSprite()) only
-// show up while the mouse sits within NAME_HOVER_RADIUS px of their on-
-// screen position. Skipped on touch devices — there's no hover there, and
-// hiding every name with no way to ever reveal one would be worse than the
-// clutter this is fixing.
+// show up while the mouse is over the character, not just always-on.
+// Skipped on touch devices — there's no hover there, and hiding every name
+// with no way to ever reveal one would be worse than the clutter this is
+// fixing.
+//
+// The label itself floats above a character's head, but "hover over the
+// character" should mean the whole body, not a tiny dot up there — so the
+// hit zone is a tall rectangle anchored at the label's screen position and
+// extending mostly downward (toward where the body actually renders) with
+// a little headroom above, rather than a small circle centered on the label.
 // ---------------------------------------------------------------------------
 const NAME_HOVER_ENABLED = !isTouchDevice();
-const NAME_HOVER_RADIUS = 44;
+const NAME_HOVER_ZONE = { halfWidth: 40, above: 20, below: 170 };
 const HOVER_NAME_SPRITES = []; // every sprite made by makeNpcNameSprite()
 const _hoverTmpVec3 = new THREE.Vector3();
 let hoverMouseX = -9999, hoverMouseY = -9999, hoverMouseActive = false;
@@ -2795,7 +2801,9 @@ if (NAME_HOVER_ENABLED) {
 function isScreenPosHovered(screenX, screenY) {
   if (!NAME_HOVER_ENABLED) return true;
   if (!hoverMouseActive || anyOverlayOpen()) return false;
-  return Math.hypot(screenX - hoverMouseX, screenY - hoverMouseY) < NAME_HOVER_RADIUS;
+  return Math.abs(hoverMouseX - screenX) < NAME_HOVER_ZONE.halfWidth
+    && hoverMouseY > screenY - NAME_HOVER_ZONE.above
+    && hoverMouseY < screenY + NAME_HOVER_ZONE.below;
 }
 // Walks all the way up to the THREE.Scene an object currently lives in, so
 // a name sprite belonging to a scene that isn't being rendered right now
