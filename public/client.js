@@ -2750,6 +2750,50 @@ window.addEventListener('mouseup', (e) => {
 window.addEventListener('mouseleave', () => { dragging = false; });
 
 // ---------------------------------------------------------------------------
+// Hover-only nameplates — with several players/NPCs standing close together
+// the always-on labels got overwhelming, so both the DOM player tags (see
+// syncLabels()) and the 3D NPC name sprites (see makeNpcNameSprite()) only
+// show up while the mouse sits within NAME_HOVER_RADIUS px of their on-
+// screen position. Skipped on touch devices — there's no hover there, and
+// hiding every name with no way to ever reveal one would be worse than the
+// clutter this is fixing.
+// ---------------------------------------------------------------------------
+const NAME_HOVER_ENABLED = !isTouchDevice();
+const NAME_HOVER_RADIUS = 44;
+const HOVER_NAME_SPRITES = []; // every sprite made by makeNpcNameSprite()
+const _hoverTmpVec3 = new THREE.Vector3();
+let hoverMouseX = -9999, hoverMouseY = -9999, hoverMouseActive = false;
+if (NAME_HOVER_ENABLED) {
+  window.addEventListener('mousemove', (e) => {
+    hoverMouseX = e.clientX; hoverMouseY = e.clientY; hoverMouseActive = true;
+  });
+  window.addEventListener('mouseleave', () => { hoverMouseActive = false; });
+}
+function isScreenPosHovered(screenX, screenY) {
+  if (!NAME_HOVER_ENABLED) return true;
+  if (!hoverMouseActive || anyOverlayOpen()) return false;
+  return Math.hypot(screenX - hoverMouseX, screenY - hoverMouseY) < NAME_HOVER_RADIUS;
+}
+// Walks all the way up to the THREE.Scene an object currently lives in, so
+// a name sprite belonging to a scene that isn't being rendered right now
+// (e.g. an indoor NPC while you're out in town) never gets screen-projected
+// through the wrong camera and shown by coincidence.
+function getRootScene(obj) {
+  let o = obj;
+  while (o.parent) o = o.parent;
+  return o;
+}
+function updateNameLabelHover() {
+  for (const sprite of HOVER_NAME_SPRITES) {
+    if (!sprite.parent || !activeScene || getRootScene(sprite) !== activeScene) { sprite.visible = false; continue; }
+    if (!NAME_HOVER_ENABLED) { sprite.visible = true; continue; }
+    sprite.getWorldPosition(_hoverTmpVec3);
+    const screen = worldToScreen(_hoverTmpVec3.x, _hoverTmpVec3.y, _hoverTmpVec3.z);
+    sprite.visible = screen.visible && isScreenPosHovered(screen.x, screen.y);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Attack/harvest targeting — raycasts the mouse (or a tap) against whatever
 // is actually rendered in the active scene right now (other players,
 // wildlife, mobs, harvestable nature decor) and either fires a basic Strike
@@ -6804,6 +6848,8 @@ function makeNpcNameSprite(name, title) {
   const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(hasTtl ? 158 : 102, hasTtl ? 35 : 23, 1);
+  sprite.visible = false; // hover-only — see updateNameLabelHover()
+  HOVER_NAME_SPRITES.push(sprite);
   return sprite;
 }
 
@@ -8749,7 +8795,7 @@ function syncLabels() {
     const rp = getRenderPos(p);
     const floorYOffset = getFloorHeight(p.room, rp.x);
     const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
-    if (!headScreen.visible) {
+    if (!headScreen.visible || !isScreenPosHovered(headScreen.x, headScreen.y)) {
       v.nameEl.style.display = 'none';
       continue;
     }
@@ -10783,6 +10829,7 @@ function render() {
   if (!me || !world || !renderer || !activeScene || !activeCamera) return;
   renderer.render(activeScene, activeCamera);
   syncLabels();
+  updateNameLabelHover();
 }
 
 function loop(now) {
