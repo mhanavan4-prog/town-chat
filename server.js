@@ -1759,27 +1759,29 @@ function townTorchPublicState() {
   });
 }
 
-// Heals to full once per night, the moment a player is standing near any
-// lit torch (or whenever they later wander into range, for the rest of
-// that night) — flag resets at dawn so it can fire again the next night
-// rather than only ever once per player.
+// Heals to full the moment a player *arrives* in range of any lit torch —
+// edge-triggered off player.nearLitTorch (was near last tick? no -> yes)
+// rather than a once-per-night flag, so going off to the Wilds, getting
+// hurt, and walking back into the torchlight heals you again immediately
+// instead of only working the first time you ever stood there that night.
+// Standing still in the light doesn't re-trigger every tick since "near"
+// stays true the whole time you're there — only leaving and re-entering does.
 function tickTorchHealing() {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
     const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
     return npc && npc.working;
   });
   for (const player of players.values()) {
-    if (litTorches.length === 0) { player.torchHealedThisNight = false; continue; }
-    if (player.torchHealedThisNight || player.isDead || player.room !== 'outside') continue;
-    const near = litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
-    if (near) {
+    if (player.isDead || player.room !== 'outside') { player.nearLitTorch = false; continue; }
+    const near = litTorches.length > 0 && litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
+    if (near && !player.nearLitTorch && player.health < 100) {
       player.health = 100;
-      player.torchHealedThisNight = true;
       // Include the new health directly rather than relying solely on the
       // next periodic 'state' broadcast to carry it — the client applies
       // this immediately so the HUD updates in lockstep with the toast.
       send(player.ws, { type: 'torch_healed', health: player.health, message: '🔥 The torchlight washes over you, and your wounds heal completely.' });
     }
+    player.nearLitTorch = near;
   }
 }
 
