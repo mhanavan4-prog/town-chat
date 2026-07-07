@@ -2080,9 +2080,9 @@ function tickWilds(dt) {
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
-          send(nearestP.ws, { type: 'you_died', byName: preset.name });
+          send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
         } else {
-          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
+          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
         }
       }
     } else {
@@ -2328,9 +2328,9 @@ function tickDungeon(dt) {
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
-          send(nearestP.ws, { type: 'you_died', byName: preset.name });
+          send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
         } else {
-          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg });
+          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
         }
       }
     } else {

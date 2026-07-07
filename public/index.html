@@ -706,6 +706,16 @@
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-12px); }
   }
+  /* Flashes briefly whenever the player takes damage — see flashDamage()
+     in client.js, called from the 'struck'/'you_died' handlers — so a hit
+     that lands off-screen or from something the player didn't see coming
+     still registers visually, not just as a chat toast. */
+  #damageFlash {
+    position:fixed; inset:0; z-index:14; pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(200,20,20,0) 35%, rgba(190,10,10,0.55) 100%);
+    opacity:0; transition:opacity 0.15s ease-out;
+  }
+  #damageFlash.show { opacity:1; }
 </style>
 </head>
 <body>
@@ -713,6 +723,8 @@
 <canvas id="game"></canvas>
 
 <div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;">⚡ Connection lost — reconnecting…</div>
+
+<div id="damageFlash"></div>
 
 <div id="ghostOverlay" class="hidden" style="position:fixed;inset:0;z-index:15;pointer-events:none;background:rgba(40,60,120,0.18);backdrop-filter:blur(1px);">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;">

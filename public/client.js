@@ -564,11 +564,15 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'struck') {
+    flashDamage();
+    triggerMobAttackAnim(msg.mobId);
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     return;
   }
 
   if (msg.type === 'you_died') {
+    flashDamage();
+    triggerMobAttackAnim(msg.mobId);
     if (me) { me.isDead = true; me.health = 0; }
     updateHealthHud();
     const v = visuals[myId];
@@ -1847,6 +1851,19 @@ function strikeNearestEnemy() {
   } else {
     setUnlockToast('No enemies nearby to strike.');
   }
+}
+
+// Brief full-screen red flash whenever the player takes damage (see the
+// 'struck'/'you_died' handlers) — a toast alone is easy to miss if a hit
+// lands while looking elsewhere, so this makes it register at a glance
+// regardless of where on screen the attacker actually is.
+let _damageFlashTimeout = null;
+function flashDamage() {
+  const el = document.getElementById('damageFlash');
+  if (!el) return;
+  el.classList.add('show');
+  clearTimeout(_damageFlashTimeout);
+  _damageFlashTimeout = setTimeout(() => el.classList.remove('show'), 120);
 }
 
 function updateHealthHud() {
@@ -5668,6 +5685,26 @@ function makeMob2(mobType) {
 let mobVisuals2 = {};
 let villageNpcVisuals = {};
 
+// Mobs (Wilds mobs2 + dungeon mobs) have no limbs to swing like the player
+// rig does, so "attacking" is shown as a whole-body lunge toward whatever
+// they just hit, plus a forward pitch (like a snapping bite), then a spring
+// back — triggered from the 'struck'/'you_died' handlers via mobId, which
+// the server now includes alongside those messages.
+const MOB_ATTACK_ANIM_MS = 380;
+const MOB_ATTACK_LUNGE_DIST = 16;
+function triggerMobAttackAnim(mobId) {
+  if (!mobId) return;
+  const v = mobVisuals2[mobId] || dungeonMobVisuals[mobId];
+  if (v) v.attackAnimStartAt = performance.now();
+}
+// 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
+function mobAttackLungeAmount(v) {
+  if (v.attackAnimStartAt == null) return 0;
+  const t = (performance.now() - v.attackAnimStartAt) / MOB_ATTACK_ANIM_MS;
+  if (t >= 1) { v.attackAnimStartAt = null; return 0; }
+  return Math.sin(Math.min(1, t) * Math.PI);
+}
+
 function addMobs2(scene) {
   for (const id in mobVisuals2) scene.remove(mobVisuals2[id].mesh);
   mobVisuals2 = {};
@@ -5680,7 +5717,7 @@ function getOrCreateMob2Visual(id, mobType) {
     mesh.visible = false;
     mesh.userData = { kind: 'mob2', targetId: id };
     wildsScene.add(mesh);
-    v = mobVisuals2[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
+    v = mobVisuals2[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null };
   }
   return v;
 }
@@ -5705,8 +5742,11 @@ function updateMob2Visuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    v.mesh.position.set(v.x, 0, v.y);
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
+    v.mesh.rotation.x = -0.5 * lungeFactor;
     v.mesh.visible = lastWildlifeIsNight && !v.dead;
   }
 }
@@ -5884,7 +5924,7 @@ function getOrCreateDungeonMobVisual(id, mobType) {
     mesh.userData = { kind: 'dungeon', targetId: id };
     mesh.traverse(c => { if (c !== mesh) c.userData = mesh.userData; });
     if (dungeonScene) dungeonScene.add(mesh);
-    v = dungeonMobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
+    v = dungeonMobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null };
   }
   return v;
 }
@@ -5911,8 +5951,11 @@ function updateDungeonMobVisuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    v.mesh.position.set(v.x, 0, v.y);
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
+    v.mesh.rotation.x = -0.5 * lungeFactor;
     const shouldShow = inDungeon && !v.dead && me && v.room === me.room;
     v.mesh.visible = shouldShow;
   }
