@@ -995,6 +995,16 @@ function onWsMessage(ev) {
     return;
   }
 
+  // Ember Wastes mob-vs-mob skirmish — no player was hit, so nothing else
+  // would trigger the attacker's lunge animation. Broadcast to everyone
+  // (same as wildlife_state) rather than scoped to the room, harmless
+  // since triggerMobAttackAnim() is just a no-op lookup miss for anyone
+  // who hasn't seen this particular mob yet.
+  if (msg.type === 'ember_mob_attacked') {
+    triggerMobAttackAnim(msg.mobId);
+    return;
+  }
+
   if (msg.type === 'witch_craft_result') {
     const errEl = document.getElementById('witchCraftErr');
     if (errEl) errEl.textContent = '';
@@ -4857,17 +4867,31 @@ function applyEmberMobState(list) {
 // applied to a limb instead of a whole-body lunge+pitch — that reads fine
 // on the blob-monster rig but would look like a face-plant on a humanoid)
 // and a much smaller forward step than the blob mobs get, for the same reason.
+//
+// Unlike every other humanoid in this game (players, village NPCs,
+// Torchkeepers), ember mob TYPES move at wildly different speeds
+// (24-85, vs. a player's constant 230) — a fixed walkPhase rate looked
+// like the legs were pumping independently of how fast the body was
+// actually covering ground ("robotic" foot-sliding, worst on the slow
+// Cinder Brute). Deriving the rate from how far this mob's own rendered
+// position actually moved this frame, using the same rad-per-unit ratio
+// the player's fixed 9/230 already implies, scales the cadence to match
+// whatever it's really doing (wandering slowly or sprinting at a rival).
+const MOB_WALK_RADIANS_PER_UNIT = 9 / 230;
+
 function updateEmberMobVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in emberMobVisuals) {
     const v = emberMobVisuals[id];
+    const prevX = v.x, prevY = v.y;
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
 
+    const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
     const atk = mobAttackLungeAmount(v);
-    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
-    if (atk === 0) v.walkPhase += dt * (moving ? 5.5 : 0);
+    const moving = actualSpeed > 4;
+    if (atk === 0) v.walkPhase += dt * actualSpeed * MOB_WALK_RADIANS_PER_UNIT;
 
     let bobY = 0;
     if (atk > 0) {

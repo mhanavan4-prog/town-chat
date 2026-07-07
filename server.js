@@ -2661,6 +2661,18 @@ function nearestEmberPlayer(x, y) {
   return { player: best, dist: bestDist };
 }
 
+// Mob-vs-mob skirmishes — ambient background conflict for players to
+// notice and watch, lower priority than actually aggroing a player (a
+// nearby player always takes over immediately, see the rivalId reset
+// below). Rolled on a timer while a mob has no player threat and no
+// ongoing rival; once picked, the fight plays out with the exact same
+// chase/strike math as a player encounter, just retargeted at another mob
+// — real damage, real death/respawn, and since the loser still drops its
+// normal loot table, it's finders-keepers for whoever loots the corpse
+// (see the loot_corpse handler's lootKillerId check — null means anyone).
+const SKIRMISH_RANGE = 220;
+const SKIRMISH_CHANCE = 0.3; // rolled roughly every 4-8s per idle mob
+
 function tickEmberWastes(dt) {
   const now = Date.now();
   const margin = 60;
@@ -2671,6 +2683,7 @@ function tickEmberWastes(dt) {
         m.health = EMBER_MOB_TYPES[m.mobType].maxHealth;
         m.x = m.spawnX; m.y = m.spawnY;
         m.pendingLoot = null; m.lootKillerId = null;
+        m.rivalId = null;
       }
       continue;
     }
@@ -2678,6 +2691,7 @@ function tickEmberWastes(dt) {
     const { player: nearestP, dist } = nearestEmberPlayer(m.x, m.y);
     let vx = 0, vy = 0;
     if (nearestP && dist < preset.aggroRadius) {
+      m.rivalId = null; // a real player threat always wins out over a squabble
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
@@ -2695,15 +2709,56 @@ function tickEmberWastes(dt) {
         }
       }
     } else {
-      m.wanderTimer -= dt;
-      if (m.wanderTimer <= 0) {
-        m.wanderTimer = 1.5 + Math.random() * 2.5;
-        m.paused = Math.random() < 0.3;
-        m.wanderAngle = Math.random() * Math.PI * 2;
+      let rival = m.rivalId ? emberMobs.find(o => o.id === m.rivalId && !o.dead) : null;
+      if (!rival) {
+        m.rivalId = null;
+        if (!m.skirmishCheckAt || now >= m.skirmishCheckAt) {
+          m.skirmishCheckAt = now + 4000 + Math.random() * 4000;
+          if (Math.random() < SKIRMISH_CHANCE) {
+            const candidates = emberMobs.filter(o => o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < SKIRMISH_RANGE);
+            if (candidates.length) {
+              rival = candidates[Math.floor(Math.random() * candidates.length)];
+              m.rivalId = rival.id;
+            }
+          }
+        }
       }
-      if (!m.paused) {
-        vx = Math.sin(m.wanderAngle) * (preset.speed * 0.4);
-        vy = Math.cos(m.wanderAngle) * (preset.speed * 0.4);
+      if (rival) {
+        const rdist = Math.hypot(rival.x - m.x, rival.y - m.y);
+        if (rdist > SKIRMISH_RANGE * 1.5) {
+          m.rivalId = null; // strayed too far apart — call it off
+        } else {
+          const dx = rival.x - m.x, dy = rival.y - m.y;
+          const inv = rdist > 0.01 ? 1 / rdist : 0;
+          vx = dx * inv * preset.speed;
+          vy = dy * inv * preset.speed;
+          if (rdist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+            m.lastHitAt = now;
+            const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+            rival.health = Math.max(0, rival.health - dmg);
+            broadcastAll({ type: 'ember_mob_attacked', mobId: m.id }); // no player was hit, so nothing else would trigger the attack animation
+            if (rival.health <= 0) {
+              rival.dead = true;
+              rival.respawnAt = now + EMBER_MOB_RESPAWN_MS;
+              const rivalPreset = EMBER_MOB_TYPES[rival.mobType];
+              rival.pendingLoot = rollPendingLoot(rivalPreset.lootTable);
+              rival.lootKillerId = null; // no player earned this — free for whoever loots it first
+              m.rivalId = null;
+            }
+          }
+        }
+      }
+      if (!rival) {
+        m.wanderTimer -= dt;
+        if (m.wanderTimer <= 0) {
+          m.wanderTimer = 1.5 + Math.random() * 2.5;
+          m.paused = Math.random() < 0.3;
+          m.wanderAngle = Math.random() * Math.PI * 2;
+        }
+        if (!m.paused) {
+          vx = Math.sin(m.wanderAngle) * (preset.speed * 0.4);
+          vy = Math.cos(m.wanderAngle) * (preset.speed * 0.4);
+        }
       }
     }
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
@@ -3781,7 +3836,10 @@ wss.on('connection', (ws) => {
         }
       }
       if (!t) { send(ws, { type: 'loot_error', message: 'Nothing there to loot.' }); return; }
-      if (!t.pendingLoot || !t.pendingLoot.length || t.lootKillerId !== player.id) {
+      // lootKillerId === null means nobody in particular earned this one
+      // (e.g. a mob killed by another mob in a skirmish, not a player) —
+      // finders keepers. If it's set, only that specific player can claim it.
+      if (!t.pendingLoot || !t.pendingLoot.length || (t.lootKillerId !== null && t.lootKillerId !== player.id)) {
         send(ws, { type: 'loot_error', message: 'There’s nothing here for you to loot.' });
         return;
       }
