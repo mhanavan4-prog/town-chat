@@ -2929,7 +2929,7 @@ function getRaycastCandidates() {
   } else if (activeScene === emberScene) {
     for (const id in emberMobVisuals) {
       const v = emberMobVisuals[id];
-      if (v.mesh.visible) list.push(v.mesh);
+      if (v.group.visible) list.push(v.group);
     }
   }
   // Loot icons live in whichever scene their corpse belongs to (see
@@ -4800,35 +4800,37 @@ const EMBER_WORLD = { width: 4000, height: 4000, buildings: [], spawn: { x: 2000
 let EMBER_STATIC_KIOSKS = []; // the fixed exit portal, built once
 let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
 
+// Humanoid, not the blob-monster rig every other mob type uses — each gets
+// its own custom preset (see createHumanoid's presetOverride) rather than
+// one of the 5 playable looks, so they read as hostile at a glance instead
+// of looking like another player. Glowing eye colors match the flavor each
+// type already had (fire/ember, bone/death, molten-brute).
 const EMBER_MOB_VISUALS = {
-  ash_wraith:   { color: 0xff5522, eyeColor: 0xffcc66, scale: 0.85 },
-  bonecaller:   { color: 0xd8d0b8, eyeColor: 0x66ffaa, scale: 1.0 },
-  cinder_brute: { color: 0x8a1a00, eyeColor: 0xffaa00, scale: 1.4 }
+  ash_wraith:   { name: 'Ash Wraith',   scale: 0.95, preset: { skin: 0xb85a30, hair: 0x3a1810, hairStyle: 'mohawk', eye: 0xffcc66, shirt: 0x5a2015, pants: 0x2a1a15 } },
+  bonecaller:   { name: 'Bonecaller',   scale: 1.0,  preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
+  cinder_brute: { name: 'Cinder Brute', scale: 1.25, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } }
 };
-
-function makeEmberMob(mobType) {
-  const visual = EMBER_MOB_VISUALS[mobType] || EMBER_MOB_VISUALS.ash_wraith;
-  const g = makeMob();
-  g.traverse(child => {
-    if (!child.isMesh) return;
-    const isEye = child.geometry.type === 'SphereGeometry' && child.geometry.parameters.radius < 2;
-    child.material = child.material.clone();
-    child.material.color.set(isEye ? visual.eyeColor : visual.color);
-  });
-  g.scale.setScalar(visual.scale);
-  return g;
-}
 
 let emberMobVisuals = {};
 
 function getOrCreateEmberMobVisual(id, mobType) {
   let v = emberMobVisuals[id];
   if (!v) {
-    const mesh = makeEmberMob(mobType);
-    mesh.visible = false;
-    mesh.userData = { kind: 'ember_mob', targetId: id };
-    if (emberScene) emberScene.add(mesh);
-    v = emberMobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null };
+    const visual = EMBER_MOB_VISUALS[mobType] || EMBER_MOB_VISUALS.ash_wraith;
+    const built = createHumanoid(0, visual.preset);
+    built.group.scale.setScalar(visual.scale);
+    built.group.visible = false;
+    built.group.userData = { kind: 'ember_mob', targetId: id };
+    built.group.add(makeHealthBarSprite(78));
+    const label = makeNpcNameSprite(visual.name);
+    label.position.set(0, 96, 0);
+    built.group.add(label);
+    if (emberScene) emberScene.add(built.group);
+    v = emberMobVisuals[id] = {
+      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null, walkPhase: Math.random() * 10
+    };
   }
   return v;
 }
@@ -4842,7 +4844,7 @@ function applyEmberMobState(list) {
     v.hasLoot = !!m.hasLoot;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
-      const hpBar = v.mesh.getObjectByName('healthBar');
+      const hpBar = v.group.getObjectByName('healthBar');
       if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
     }
     if (!m.dead) aliveKiosks.push({ x: m.x, z: m.y, npc: 'ember_mob', targetId: m.id });
@@ -4850,6 +4852,11 @@ function applyEmberMobState(list) {
   EMBER_KIOSKS = EMBER_STATIC_KIOSKS.concat(aliveKiosks);
 }
 
+// Same walk-cycle pattern as the Wilds' village NPCs, plus an arm-swing
+// "punch" (reusing mobAttackLungeAmount's existing 0->1->0 timing, just
+// applied to a limb instead of a whole-body lunge+pitch — that reads fine
+// on the blob-monster rig but would look like a face-plant on a humanoid)
+// and a much smaller forward step than the blob mobs get, for the same reason.
 function updateEmberMobVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in emberMobVisuals) {
@@ -4857,12 +4864,34 @@ function updateEmberMobVisuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    const lungeFactor = mobAttackLungeAmount(v);
-    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
-    v.mesh.rotation.y = v.facing;
-    v.mesh.rotation.x = -0.5 * lungeFactor;
-    v.mesh.visible = !v.dead;
+
+    const atk = mobAttackLungeAmount(v);
+    const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
+    if (atk === 0) v.walkPhase += dt * (moving ? 5.5 : 0);
+
+    let bobY = 0;
+    if (atk > 0) {
+      v.armR.rotation.x = -atk * 0.9;
+      v.armL.rotation.x = -atk * 0.2;
+      v.legL.rotation.x = 0; v.legR.rotation.x = 0;
+    } else if (moving) {
+      const swing = Math.sin(v.walkPhase) * 0.45;
+      v.armL.rotation.x = swing;
+      v.armR.rotation.x = -swing;
+      v.legL.rotation.x = -swing * 0.65;
+      v.legR.rotation.x = swing * 0.65;
+      bobY = Math.abs(Math.sin(v.walkPhase)) * 2;
+    } else {
+      v.armL.rotation.x *= 0.85;
+      v.armR.rotation.x *= 0.85;
+      v.legL.rotation.x *= 0.85;
+      v.legR.rotation.x *= 0.85;
+    }
+
+    const lungeDist = atk * (MOB_ATTACK_LUNGE_DIST * 0.5);
+    v.group.position.set(v.x + Math.sin(v.facing) * lungeDist, bobY, v.y + Math.cos(v.facing) * lungeDist);
+    v.group.rotation.y = v.facing;
+    v.group.visible = !v.dead;
   }
 }
 
@@ -4917,7 +4946,7 @@ function buildEmberScene() {
   EMBER_STATIC_KIOSKS = [{ x: exitX, z: exitY, portal: 'ember_exit' }];
   EMBER_KIOSKS = EMBER_STATIC_KIOSKS.slice();
 
-  for (const id in emberMobVisuals) scene.remove(emberMobVisuals[id].mesh);
+  for (const id in emberMobVisuals) scene.remove(emberMobVisuals[id].group);
   emberMobVisuals = {};
 }
 
@@ -5835,12 +5864,13 @@ function flashCreatureHit(kind, targetId) {
   else if (kind === 'animal2') v = animalVisuals2[targetId];
   else if (kind === 'dungeon') v = dungeonMobVisuals[targetId];
   else if (kind === 'ember_mob') v = emberMobVisuals[targetId];
-  if (!v || !v.mesh) return;
-  v.mesh.traverse(child => {
+  const root = v && (v.mesh || v.group); // ember mobs are humanoid (group), everything else is a bare mesh
+  if (!root) return;
+  root.traverse(child => {
     if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0xff2200);
   });
   setTimeout(() => {
-    v.mesh.traverse(child => {
+    root.traverse(child => {
       if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0x000000);
     });
   }, 180);
@@ -7223,10 +7253,22 @@ function refreshBuildingLockVisuals() {
 }
 
 function makeSignSprite(text) {
+  const font = 'bold 30px sans-serif';
+  // The canvas used to be a fixed 256px wide regardless of text length, so
+  // anything longer than a short label (e.g. "⛩️ Temple of the Flame",
+  // "🕯️ Witch's Cave — Press F to enter") got clipped at the edge instead
+  // of shrinking or wrapping. Measure first and widen the canvas to fit.
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  measureCtx.font = font;
+  const textWidth = measureCtx.measureText(text).width;
+  const paddingX = 24;
+  const width = Math.max(256, Math.ceil(textWidth) + paddingX * 2);
+  const height = 64;
+
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 64;
+  c.width = width; c.height = height;
   const cx = c.getContext('2d');
-  cx.font = 'bold 30px sans-serif';
+  cx.font = font;
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
   cx.fillStyle = 'rgba(10,16,12,0.55)';
   cx.fillRect(0, 0, c.width, c.height);
@@ -7235,7 +7277,11 @@ function makeSignSprite(text) {
   const tex = new THREE.CanvasTexture(c);
   const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(110, 28, 1);
+  // Same world-units-per-canvas-pixel ratio the old fixed 256x64 -> 110x28
+  // used, so every existing short sign renders at exactly the size it
+  // always has — only text long enough to need a wider canvas gets wider.
+  const scale = 110 / 256;
+  sprite.scale.set(width * scale, height * scale, 1);
   return sprite;
 }
 
@@ -8717,8 +8763,12 @@ function addHair(group, headY, headR, style, color) {
   }
 }
 
-function createHumanoid(charId) {
-  const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
+// presetOverride lets a caller supply a full custom {skin,hair,hairStyle,
+// eye,shirt,pants} object instead of looking one up by charId — used for
+// the Ember Wastes' hostile mobs, which need their own menacing color
+// schemes rather than looking like one of the 5 playable characters.
+function createHumanoid(charId, presetOverride) {
+  const preset = presetOverride || CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const group = new THREE.Group();
 
   const skinMat  = () => new THREE.MeshLambertMaterial({ color: preset.skin });
