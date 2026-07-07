@@ -473,6 +473,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'torch_healed') {
+    if (me && typeof msg.health === 'number') me.health = msg.health;
     updateHealthHud();
     setUnlockToast(msg.message);
     return;

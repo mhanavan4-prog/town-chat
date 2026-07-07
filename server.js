@@ -1720,7 +1720,13 @@ function tickTorchNpcs(dt) {
       const progress = Math.min(1, (now - n.ritualStartAt) / NIGHT_RITUAL_WALK_MS);
       n.x = n.duskX + (standX - n.duskX) * progress;
       n.y = n.duskY + (standY - n.duskY) * progress;
-      n.facing = Math.atan2(dx, dy); // always faces toward the torch itself
+      if (progress < 1) {
+        n.facing = Math.atan2(dx, dy); // face the torch while walking in
+      } else {
+        // Standing at the torch, lighting it: face the town's center
+        // (where players actually are), not the torch pole itself.
+        n.facing = Math.atan2(WORLD.spawn.x - n.x, WORLD.spawn.y - n.y);
+      }
       n.working = progress >= 1;
     } else {
       const off = TEMPLE_STAND_OFFSETS[i];
@@ -1769,7 +1775,10 @@ function tickTorchHealing() {
     if (near) {
       player.health = 100;
       player.torchHealedThisNight = true;
-      send(player.ws, { type: 'torch_healed', message: '🔥 The torchlight washes over you, and your wounds heal completely.' });
+      // Include the new health directly rather than relying solely on the
+      // next periodic 'state' broadcast to carry it — the client applies
+      // this immediately so the HUD updates in lockstep with the toast.
+      send(player.ws, { type: 'torch_healed', health: player.health, message: '🔥 The torchlight washes over you, and your wounds heal completely.' });
     }
   }
 }
