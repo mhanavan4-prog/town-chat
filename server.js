@@ -1685,7 +1685,11 @@ TORCH_NPCS.forEach((n, i) => {
 let torchNpcsWasNight = false;
 const NIGHT_RITUAL_WALK_MS = 6000; // how long the walk-to-torch takes once night falls
 const MORNING_TEMPLE_WALK_MS = 6000; // how long the walk-to-temple takes once day breaks
-const TORCH_HEAL_RADIUS = 180;
+// Must be >= the ritual torch's PointLight `distance` (260, see
+// buildTownRitualTorch in client.js) — it was 180 before, so a player
+// standing well inside the torch's visible glow (180-260 units out) looked
+// "lit up" but was outside the heal check and never got healed.
+const TORCH_HEAL_RADIUS = 260;
 const TORCH_STAND_BACK = 45; // how far short of the torch's own coordinate an NPC stops
 
 function tickTorchNpcs(dt) {
@@ -1725,7 +1729,14 @@ function tickTorchNpcs(dt) {
       const progress = Math.min(1, (now - n.templeWalkStartAt) / MORNING_TEMPLE_WALK_MS);
       n.x = n.dawnX + (targetX - n.dawnX) * progress;
       n.y = n.dawnY + (targetY - n.dawnY) * progress;
-      if (progress < 1) n.facing = Math.atan2(dx, dy); // face the temple while walking; hold last facing once home
+      if (progress < 1) {
+        n.facing = Math.atan2(dx, dy); // face the temple while walking in
+      } else {
+        // Standing at the temple: turn to face out toward the town square,
+        // not deeper into the temple, so a player walking up sees their
+        // faces instead of their backs.
+        n.facing = Math.atan2(WORLD.spawn.x - n.x, WORLD.spawn.y - n.y);
+      }
       n.working = false;
     }
   });
