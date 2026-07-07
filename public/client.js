@@ -361,7 +361,7 @@ function onWsMessage(ev) {
       // where a connection was — every (re)connect lands fresh at the town
       // spawn — so if we were indoors, or out in the Wilds, force the
       // client's view back to outdoor/town to match.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -471,6 +471,8 @@ function onWsMessage(ev) {
     if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
     if (msg.torchNpcs) applyTownTorchNpcState(msg.torchNpcs);
     if (msg.torches) applyTownTorchState(msg.torches);
+    applyTemplePortalState(!!msg.templePortalOpen);
+    if (msg.emberMobs) applyEmberMobState(msg.emberMobs);
     return;
   }
 
@@ -912,6 +914,24 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'ember_wastes_entered') {
+    if (me) { me.room = 'ember_wastes'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToEmberMap();
+    return;
+  }
+
+  if (msg.type === 'ember_wastes_exited') {
+    if (me) { me.room = 'outside'; me.x = msg.x; me.y = msg.y; }
+    swapToTownMap();
+    setUnlockToast('You step back through the portal into town.');
+    return;
+  }
+
+  if (msg.type === 'ember_wastes_error') {
+    setUnlockToast(msg.message);
+    return;
+  }
+
   if (msg.type === 'witch_dialogue') {
     openWitchModal(msg);
     return;
@@ -1253,6 +1273,7 @@ function roomAt(x, y) {
 function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
   if (roomId === 'wilds') return '🌲 The Wilds';
+  if (roomId === 'ember_wastes') return '🔥 The Ember Wastes';
   if (roomId === 'dungeon_t1') return '⚔️ Dungeon — Tier 1 (Lv 1–5)';
   if (roomId === 'dungeon_t2') return '⚔️ Dungeon — Tier 2 (Lv 6–10)';
   if (roomId === 'dungeon_t3') return '⚔️ Dungeon — Tier 3 (Lv 11–15)';
@@ -2905,6 +2926,11 @@ function getRaycastCandidates() {
       const v = dungeonMobVisuals[id];
       if (v.mesh.visible) list.push(v.mesh);
     }
+  } else if (activeScene === emberScene) {
+    for (const id in emberMobVisuals) {
+      const v = emberMobVisuals[id];
+      if (v.mesh.visible) list.push(v.mesh);
+    }
   }
   // Loot icons live in whichever scene their corpse belongs to (see
   // updateLootIcons()) — a flat scan works here since each sprite's own
@@ -2975,7 +3001,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'dungeon']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'dungeon', 'ember_mob']);
 
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
@@ -3388,7 +3414,7 @@ function maybeUpdateRoomUI(room) {
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   // The Wilds is open-world like the town square, not a private room — no chat panel there either.
-  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room.startsWith('dungeon_'));
+  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room === 'ember_wastes' || room.startsWith('dungeon_'));
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
   document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
   if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
@@ -3522,7 +3548,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -3534,6 +3560,7 @@ function contextMatches(room) {
   if (activeScene === wildsScene) return room === 'wilds';
   if (activeScene === caveScene) return room === 'witch_cave';
   if (activeScene === vaultScene) return room === 'bank_vault';
+  if (activeScene === emberScene) return room === 'ember_wastes';
   return room === 'outside';
 }
 
@@ -3619,12 +3646,22 @@ function initScene(w) {
   }
 
   // The Torchkeepers' temple — a landmark near the back tree line, not part
-  // of w.buildings (no interior/door), so its solid footprint is added to
-  // `walls` by hand here, same as addNatureDecor() does for tree colliders.
+  // of w.buildings (no interior/door). Now that it's an open platform (no
+  // columns/roof to bump into), only the central altar itself blocks
+  // movement — the rest of the platform is walkable, same as
+  // addNatureDecor() adding tree colliders by hand.
   const templeCx = 1060, templeCz = 1900, templeW = 360, templeD = 260;
   scene.add(buildTownTemple(templeCx, templeCz));
-  walls.push({ x: templeCx - templeW / 2, y: templeCz - templeD / 2, w: templeW, h: templeD });
+  const altarW = 64, altarD = 64;
+  walls.push({ x: templeCx - altarW / 2, y: templeCz - altarD / 2, w: altarW, h: altarD });
   scene.add(buildPathSegment(templeCx, templeCz - templeD / 2 - 30, w.spawn.x, w.spawn.y, 40, dirtTex, hubRadius));
+
+  // Ember Wastes portal — hovers over the altar, only visible/enterable
+  // once all 4 torches are lit (see applyTemplePortalState, driven by
+  // server.js's templePortalOpen in the wildlife_state broadcast).
+  emberPortalVisual = buildEmberPortal(templeCx, templeCz);
+  scene.add(emberPortalVisual.group);
+  EMBER_PORTAL_KIOSK.x = templeCx; EMBER_PORTAL_KIOSK.z = templeCz;
 
   outdoorScene = scene;
   outdoorCamera = camera;
@@ -3638,6 +3675,7 @@ function initScene(w) {
   buildDungeonScene();
   try { buildCaveScene(); } catch(e) { console.error('buildCaveScene failed:', e); }
   try { buildVaultScene(); } catch(e) { console.error('buildVaultScene failed:', e); }
+  try { buildEmberScene(); } catch(e) { console.error('buildEmberScene failed:', e); }
 }
 
 // ---------------------------------------------------------------------------
@@ -3761,6 +3799,53 @@ function buildPortalMesh(x, y) {
 
 function updatePortals(dt) {
   for (const disc of portalDiscs) disc.rotation.z += dt * 1.2;
+}
+
+// ---------------------------------------------------------------------------
+// Ember Wastes portal — hovers over the Temple's altar, only visible/usable
+// once all 4 torches are lit (see applyTemplePortalState(), driven by
+// server.js's templePortalOpen field). Same spinning-ring/disc/glow shape as
+// buildPortalMesh() but red-tinted and starts hidden, plus positioned well
+// above ground to clear the altar it hovers over.
+// ---------------------------------------------------------------------------
+let emberPortalVisual = null; // { group, disc, glow } — built once in initScene()
+let templePortalOpen = false;
+const EMBER_PORTAL_KIOSK = { x: 0, z: 0, portal: 'ember_enter' }; // x/z filled in once the temple's built
+
+function buildEmberPortal(cx, cz) {
+  const g = new THREE.Group();
+  const hoverY = 100; // clears the altar top (~58) with room to read as "floating above it"
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(38, 7, 12, 28),
+    new THREE.MeshLambertMaterial({ color: 0x7a1010 })
+  );
+  ring.position.y = hoverY;
+  g.add(ring);
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(34, 28),
+    new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+  );
+  disc.position.y = hoverY;
+  g.add(disc);
+  const glow = new THREE.PointLight(0xff2200, 2.2, 220);
+  glow.position.y = hoverY;
+  g.add(glow);
+  g.position.set(cx, 0, cz);
+  g.visible = false;
+  portalDiscs.push(disc); // reuses the shared spin animation in updatePortals()
+  return { group: g, disc, glow };
+}
+
+// Called from the wildlife_state handler whenever templePortalOpen flips —
+// toggles the portal's visibility and adds/removes its kiosk from
+// OUTDOOR_KIOSKS so "Press F" only ever shows while the portal actually exists.
+function applyTemplePortalState(open) {
+  if (open === templePortalOpen) return;
+  templePortalOpen = open;
+  if (emberPortalVisual) emberPortalVisual.group.visible = open;
+  const idx = OUTDOOR_KIOSKS.indexOf(EMBER_PORTAL_KIOSK);
+  if (open && idx === -1) OUTDOOR_KIOSKS.push(EMBER_PORTAL_KIOSK);
+  else if (!open && idx !== -1) OUTDOOR_KIOSKS.splice(idx, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -4681,6 +4766,166 @@ function buildVaultScene() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The Ember Wastes — a Wilds-styled PvP/hostile-mob map reached through the
+// red portal over the Temple's altar once all 4 torches are lit (see
+// applyTemplePortalState()). Same "outdoor sub-room" pattern as the Vault:
+// mode stays 'outdoor' the whole time it's active. EMBER_KIOSKS is rebuilt
+// fresh every wildlife_state tick from whichever ember mobs are currently
+// alive (see applyEmberMobState) rather than built once like every other
+// kiosk list — unlike everything else with a kiosk, these targets move.
+// ---------------------------------------------------------------------------
+let emberScene, emberCamera;
+const EMBER_WORLD = { width: 4000, height: 4000, buildings: [], spawn: { x: 2000, y: 3650 } };
+let EMBER_STATIC_KIOSKS = []; // the fixed exit portal, built once
+let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
+
+const EMBER_MOB_VISUALS = {
+  ash_wraith:   { color: 0xff5522, eyeColor: 0xffcc66, scale: 0.85 },
+  bonecaller:   { color: 0xd8d0b8, eyeColor: 0x66ffaa, scale: 1.0 },
+  cinder_brute: { color: 0x8a1a00, eyeColor: 0xffaa00, scale: 1.4 }
+};
+
+function makeEmberMob(mobType) {
+  const visual = EMBER_MOB_VISUALS[mobType] || EMBER_MOB_VISUALS.ash_wraith;
+  const g = makeMob();
+  g.traverse(child => {
+    if (!child.isMesh) return;
+    const isEye = child.geometry.type === 'SphereGeometry' && child.geometry.parameters.radius < 2;
+    child.material = child.material.clone();
+    child.material.color.set(isEye ? visual.eyeColor : visual.color);
+  });
+  g.scale.setScalar(visual.scale);
+  return g;
+}
+
+let emberMobVisuals = {};
+
+function getOrCreateEmberMobVisual(id, mobType) {
+  let v = emberMobVisuals[id];
+  if (!v) {
+    const mesh = makeEmberMob(mobType);
+    mesh.visible = false;
+    mesh.userData = { kind: 'ember_mob', targetId: id };
+    if (emberScene) emberScene.add(mesh);
+    v = emberMobVisuals[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null };
+  }
+  return v;
+}
+
+function applyEmberMobState(list) {
+  if (!emberScene) return;
+  const aliveKiosks = [];
+  for (const m of list) {
+    const v = getOrCreateEmberMobVisual(m.id, m.mobType);
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.hasLoot = !!m.hasLoot;
+    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+    if (m.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+    }
+    if (!m.dead) aliveKiosks.push({ x: m.x, z: m.y, npc: 'ember_mob', targetId: m.id });
+  }
+  EMBER_KIOSKS = EMBER_STATIC_KIOSKS.concat(aliveKiosks);
+}
+
+function updateEmberMobVisuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in emberMobVisuals) {
+    const v = emberMobVisuals[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
+    v.mesh.rotation.y = v.facing;
+    v.mesh.rotation.x = -0.5 * lungeFactor;
+    v.mesh.visible = !v.dead;
+  }
+}
+
+function buildEmberScene() {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2a0f0a);
+  scene.fog = new THREE.Fog(0x2a0f0a, 500, 2200);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
+  // Assign early so swapToEmberMap works even if geometry building throws below.
+  emberScene = scene;
+  emberCamera = camera;
+
+  scene.add(new THREE.AmbientLight(0xff7755, 0.6));
+  const emberSun = new THREE.DirectionalLight(0xff9966, 0.65);
+  emberSun.position.set(300, 600, 200);
+  scene.add(emberSun);
+
+  const groundTex = makeGrassTexture();
+  const groundSpan = Math.max(EMBER_WORLD.width, EMBER_WORLD.height) + 200;
+  groundTex.repeat.set(groundSpan / 140, groundSpan / 140);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(EMBER_WORLD.width + 200, EMBER_WORLD.height + 200),
+    new THREE.MeshLambertMaterial({ map: groundTex, color: 0xb87860 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(EMBER_WORLD.width / 2, 0, EMBER_WORLD.height / 2);
+  scene.add(ground);
+
+  // Scattered scorched-looking rocks/trees for atmosphere — purely cosmetic
+  // (no harvesting, no collision), just breaking up the open field so it
+  // reads as a wilder, wilds-like place rather than an empty box.
+  const decorSpots = [
+    [400, 400], [3600, 400], [400, 3600], [3600, 3600],
+    [2000, 250], [2000, 3200], [250, 2000], [3750, 2000],
+    [1200, 1000], [2800, 1000], [1200, 2800], [2800, 2800],
+    [1500, 1900], [2500, 1900]
+  ];
+  decorSpots.forEach(([x, y], i) => {
+    const group = (i % 2 === 0) ? makeRock(x, y, 1.1 + Math.random() * 0.5) : makeTree(x, y, 2.2 + Math.random() * 0.8);
+    group.traverse(c => {
+      if (c.isMesh && c.material && c.material.color) {
+        c.material = c.material.clone();
+        c.material.color.offsetHSL(0, 0, -0.08);
+      }
+    });
+    scene.add(group);
+  });
+
+  // Return portal near spawn
+  const exitX = EMBER_WORLD.spawn.x, exitY = EMBER_WORLD.spawn.y - 120;
+  scene.add(buildPortalMesh(exitX, exitY));
+  EMBER_STATIC_KIOSKS = [{ x: exitX, z: exitY, portal: 'ember_exit' }];
+  EMBER_KIOSKS = EMBER_STATIC_KIOSKS.slice();
+
+  for (const id in emberMobVisuals) scene.remove(emberMobVisuals[id].mesh);
+  emberMobVisuals = {};
+}
+
+function swapToEmberMap() {
+  if (!emberScene || activeScene === emberScene) return;
+  world = EMBER_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(emberScene, emberCamera, null);
+}
+
+function enterEmberWastes() {
+  if (!me || me.isDead) return;
+  mode = 'outdoor';
+  indoorBuildingId = null;
+  swapToEmberMap();
+  me.room = 'ember_wastes';
+  me.x = EMBER_WORLD.spawn.x;
+  me.y = EMBER_WORLD.spawn.y;
+  ws.send(JSON.stringify({ type: 'enter_ember_wastes' }));
+  setUnlockToast('🔥 You step through the portal into the Ember Wastes...');
+}
+
+function exitEmberWastes() {
+  ws.send(JSON.stringify({ type: 'exit_ember_wastes' }));
+}
+
 function swapToVaultMap() {
   if (!vaultScene || activeScene === vaultScene) return;
   world = VAULT_WORLD;
@@ -5569,6 +5814,7 @@ function flashCreatureHit(kind, targetId) {
   else if (kind === 'animal')  v = animalVisuals[targetId];
   else if (kind === 'animal2') v = animalVisuals2[targetId];
   else if (kind === 'dungeon') v = dungeonMobVisuals[targetId];
+  else if (kind === 'ember_mob') v = emberMobVisuals[targetId];
   if (!v || !v.mesh) return;
   v.mesh.traverse(child => {
     if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0xff2200);
@@ -5727,7 +5973,7 @@ const MOB_ATTACK_ANIM_MS = 380;
 const MOB_ATTACK_LUNGE_DIST = 16;
 function triggerMobAttackAnim(mobId) {
   if (!mobId) return;
-  const v = mobVisuals2[mobId] || dungeonMobVisuals[mobId];
+  const v = mobVisuals2[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
   if (v) v.attackAnimStartAt = performance.now();
 }
 // 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
@@ -6062,6 +6308,12 @@ function updateLootIcons() {
     const key = 'dungeon:' + id;
     const v = dungeonMobVisuals[id];
     if (v.hasLoot && dungeonScene && me && v.room === me.room) showLootIcon(key, dungeonScene, v.x, LOOT_ICON_HEIGHT, v.y, 'dungeon', id);
+    else hideLootIcon(key);
+  }
+  for (const id in emberMobVisuals) {
+    const key = 'ember_mob:' + id;
+    const v = emberMobVisuals[id];
+    if (v.hasLoot && emberScene) showLootIcon(key, emberScene, v.x, LOOT_ICON_HEIGHT, v.y, 'ember_mob', id);
     else hideLootIcon(key);
   }
   for (const id in players) {
@@ -7218,14 +7470,14 @@ function buildTownRitualTorch(x, z) {
   return { group: g, flame, light };
 }
 
-// The Torchkeepers' home shrine — a small peripteral (column-ringed) temple
-// near the tree line at the back of town. Purely a landmark/gathering spot,
-// not an enterable building: no interior, no door, no room id — see
-// server.js's TOWN_TEMPLE (the gathering point just north/in-front of this
-// structure the 4 NPCs walk to each morning). Reuses the same proven
-// hip-roof trick as buildBuildingMesh (ConeGeometry(1,h,4).rotateY(PI/4),
-// scaled non-uniformly) rather than hand-deriving a triangular gable, since
-// that scale->rotate order bug already bit this project once this session.
+// The Torchkeepers' home shrine — a small open-air ritual platform near the
+// tree line at the back of town. Purely a landmark/gathering spot, not an
+// enterable building: no interior, no door, no room id — see server.js's
+// TOWN_TEMPLE (the gathering point just north/in-front of this structure
+// the 4 NPCs walk to each morning). No roof or columns anymore — just the
+// flat stone platform and a central altar, kept open so the nightly portal
+// (see buildEmberPortal(), positioned above the altar in initScene) reads
+// clearly against the sky instead of being boxed in.
 function buildTownTemple(cx, cz) {
   const g = new THREE.Group();
   const platformW = 360, platformD = 260, platformH = 16;
@@ -7239,41 +7491,22 @@ function buildTownTemple(cx, cz) {
   platform.position.set(cx, platformH / 2, cz);
   g.add(platform);
 
-  const columnH = 90;
-  const columnMat = new THREE.MeshLambertMaterial({ color: 0xdcd6c6 });
-  const columnGeo = new THREE.CylinderGeometry(10, 12, columnH, 8);
-  const marginX = 40, marginZ = 30;
-  const colXs = [cx - platformW / 2 + marginX, cx, cx + platformW / 2 - marginX];
-  const colZs = [cz - platformD / 2 + marginZ, cz + platformD / 2 - marginZ];
-  for (const cx2 of colXs) {
-    for (const cz2 of colZs) {
-      const col = new THREE.Mesh(columnGeo, columnMat);
-      col.position.set(cx2, platformH + columnH / 2, cz2);
-      g.add(col);
-    }
-  }
-
-  const architrave = new THREE.Mesh(
-    new THREE.BoxGeometry(platformW, 14, platformD),
-    new THREE.MeshLambertMaterial({ color: 0xb5ae9a })
-  );
-  architrave.position.set(cx, platformH + columnH + 7, cz);
-  g.add(architrave);
-
-  const overhang = 16, roofHeight = 70;
-  const apothem = Math.cos(Math.PI / 4);
-  const roofGeo = new THREE.ConeGeometry(1, roofHeight, 4);
-  roofGeo.rotateY(Math.PI / 4);
-  const roof = new THREE.Mesh(
-    roofGeo,
-    new THREE.MeshLambertMaterial({ color: 0xb08d3f })
-  );
-  roof.scale.set((platformW / 2 + overhang) / apothem, 1, (platformD / 2 + overhang) / apothem);
-  roof.position.set(cx, platformH + columnH + 14 + roofHeight / 2, cz);
-  g.add(roof);
+  // Altar — a two-tier stone pedestal at the platform's center, doubling as
+  // the anchor point the portal hovers over once the torches are lit.
+  const altarMat = new THREE.MeshLambertMaterial({ color: 0xb5ae9a });
+  const altarBase = new THREE.Mesh(new THREE.BoxGeometry(64, 30, 64), altarMat);
+  altarBase.position.set(cx, platformH + 15, cz);
+  g.add(altarBase);
+  const altarTop = new THREE.Mesh(new THREE.BoxGeometry(40, 12, 40), altarMat);
+  altarTop.position.set(cx, platformH + 36, cz);
+  g.add(altarTop);
+  // A faint permanent ember glow on the altar top hints at what happens here at night.
+  const emberGlow = new THREE.PointLight(0xff5522, 0.4, 90);
+  emberGlow.position.set(cx, platformH + 46, cz);
+  g.add(emberGlow);
 
   const sign = makeSignSprite('⛩️ Temple of the Flame');
-  sign.position.set(cx, platformH + columnH + 14 + roofHeight + 30, cz);
+  sign.position.set(cx, platformH + 90, cz);
   g.add(sign);
 
   return g;
@@ -9073,6 +9306,7 @@ function findNearestKiosk() {
   // activeScene !== caveScene, but me.room is already 'witch_cave'.
   if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   if (me.room === 'bank_vault') return nearestKioskIn(VAULT_KIOSKS, me.x, me.y);
+  if (me.room === 'ember_wastes') return nearestKioskIn(EMBER_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
@@ -10500,6 +10734,9 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
   if (kiosk && kiosk.portal === 'vault_enter') { enterVault(); return; }
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
+  if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
+  if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
+  if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
@@ -10603,6 +10840,21 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'vault_exit') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} leave the vault`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'ember_enter') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} step into the Ember Wastes`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'ember_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} step back through the portal`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'ember_mob') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} pick its pocket`;
     return;
   }
   if (kiosk && kiosk.witch === 'hazel') {
@@ -10834,17 +11086,19 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
-    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : world.width;
-    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : world.height;
+    const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
     if (inCave) { me.room = 'witch_cave'; }
     else if (inVault) { me.room = 'bank_vault'; }
+    else if (inEmber) { me.room = 'ember_wastes'; }
     else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
     return;
@@ -10950,6 +11204,7 @@ function update(dt) {
   updateVillageNpcVisuals(dt);
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
+  updateEmberMobVisuals(dt);
   updatePortals(dt);
 
   if (mode === 'outdoor') {

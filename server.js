@@ -431,7 +431,7 @@ function decorPublicState() {
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes'].forEach(r => ROOM_IDS.add(r));
 
 const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#63e6be'];
 
@@ -1707,6 +1707,9 @@ const TOWN_TORCHES = [
 // Gathering point just in front of the Temple's steps (see buildTownTemple(1060, 1900)
 // in client.js — the temple structure sits just south of this point, facing north).
 const TOWN_TEMPLE = { x: 1060, y: 1740 };
+// The altar itself, at the temple structure's own center — where the Ember
+// Wastes portal hovers once it's open (see templePortalOpen(), enter_ember_wastes).
+const TEMPLE_ALTAR = { x: 1060, y: 1900 };
 // Where each NPC stands in the little group out front, relative to TOWN_TEMPLE —
 // keeps them spread out instead of stacking on the exact same point.
 const TEMPLE_STAND_OFFSETS = [
@@ -2429,6 +2432,7 @@ setInterval(() => {
   tickPlayerRegen(now, dt);
   tickTorchNpcs(dt);
   tickTorchHealing(dt);
+  tickEmberWastes(dt);
   if (players.size === 0) return;
   broadcastAll({
     type: 'wildlife_state',
@@ -2441,7 +2445,9 @@ setInterval(() => {
     dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
-    torches: townTorchPublicState()
+    torches: townTorchPublicState(),
+    templePortalOpen: templePortalOpen(),
+    emberMobs: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) }))
   });
 }, 150);
 
@@ -2594,6 +2600,129 @@ const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
 // triggered by an interior kiosk (F key) rather than a zone check.
 const VAULT_WORLD_DIMS = { width: 300, height: 300 };
 const VAULT_SPAWN = { x: 150, y: 60 };
+
+// ---------------------------------------------------------------------------
+// The Ember Wastes — a Wilds-styled PvP/hostile-NPC map, reached only
+// through the red portal that appears over the Temple's altar once all 4
+// Torchkeepers have lit their torches for the night (see templePortalOpen()
+// below, computed off the same TORCH_NPCS.working flags townTorchPublicState
+// already uses). Same "outdoor sub-room" pattern as the Witch's Cave/Vault:
+// its own bounded map, entered/exited via a handshake rather than the
+// free-roam Wilds portal, since entry has to be gated on the portal
+// actually being open right now. Every ember mob is always hostile (no
+// day/night gating needed inside — the whole zone is only ever reachable
+// at night to begin with) and can both be fought (Strike, same lootable-
+// corpse flow as any other mob) and pickpocketed while still alive
+// (steal_from_mob, a flat chance independent of the Wanderer's Sleight of
+// Hand skill level — this is a map mechanic open to every character, not a
+// class spell).
+// ---------------------------------------------------------------------------
+const EMBER_WORLD_DIMS = { width: 4000, height: 4000 };
+const EMBER_SPAWN = { x: 2000, y: 3650 };
+
+const EMBER_MOB_TYPES = {
+  ash_wraith:   { name: 'Ash Wraith',   color: 0xff5522, scale: 0.85, maxHealth: 60,  speed: 85, aggroRadius: 260, strikeRange: 50, dmgMin: 10, dmgMax: 16, hitCooldownMs: 1300, xp: 20,
+    lootTable: [ { itemId: 'shadow_essence', qty: 1, chance: 0.35 }, { gold: true, min: 6, max: 16, chance: 0.6 } ],
+    stealChance: 0.4, stealTable: [ 'fur_scrap', 'bone_shard' ] },
+  bonecaller:   { name: 'Bonecaller',   color: 0xd8d0b8, scale: 1.0,  maxHealth: 85,  speed: 55, aggroRadius: 230, strikeRange: 55, dmgMin: 13, dmgMax: 19, hitCooldownMs: 1600, xp: 26,
+    lootTable: [ { itemId: 'bone_shard', qty: 2, chance: 0.5 }, { gold: true, min: 8, max: 20, chance: 0.6 }, { itemId: 'dread_helm', qty: 1, chance: 0.03 } ],
+    stealChance: 0.35, stealTable: [ 'bone_shard', 'leather_hide' ] },
+  cinder_brute: { name: 'Cinder Brute', color: 0x8a1a00, scale: 1.4,  maxHealth: 140, speed: 24, aggroRadius: 190, strikeRange: 65, dmgMin: 20, dmgMax: 30, hitCooldownMs: 2400, xp: 34,
+    lootTable: [ { itemId: 'iron_ore', qty: 1, chance: 0.4 }, { gold: true, min: 14, max: 32, chance: 0.65 }, { itemId: 'cursed_blade', qty: 1, chance: 0.04 } ],
+    stealChance: 0.3, stealTable: [ 'iron_ore', 'animal_pelt' ] }
+};
+const EMBER_SCALE = EMBER_WORLD_DIMS.width / 1000;
+const EMBER_MOB_SPAWNS = [
+  { x: 220, y: 220, type: 'ash_wraith' },   { x: 780, y: 220, type: 'ash_wraith' },
+  { x: 220, y: 780, type: 'ash_wraith' },   { x: 780, y: 780, type: 'ash_wraith' },
+  { x: 500, y: 150, type: 'bonecaller' },   { x: 150, y: 500, type: 'bonecaller' },
+  { x: 850, y: 500, type: 'bonecaller' },   { x: 500, y: 850, type: 'bonecaller' },
+  { x: 350, y: 500, type: 'cinder_brute' }, { x: 650, y: 500, type: 'cinder_brute' },
+  { x: 500, y: 350, type: 'cinder_brute' }, { x: 500, y: 650, type: 'cinder_brute' }
+].map(p => ({ x: p.x * EMBER_SCALE, y: p.y * EMBER_SCALE, type: p.type }));
+const EMBER_MOB_RESPAWN_MS = 90 * 1000;
+const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
+  id: 'ember_' + i,
+  mobType: p.type,
+  spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+  facing: Math.random() * Math.PI * 2,
+  wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
+  health: EMBER_MOB_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
+  lastHitAt: 0, lastStolenAt: 0
+}));
+
+function nearestEmberPlayer(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const p of players.values()) {
+    if (p.room !== 'ember_wastes' || p.isDead) continue;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return { player: best, dist: bestDist };
+}
+
+function tickEmberWastes(dt) {
+  const now = Date.now();
+  const margin = 60;
+  for (const m of emberMobs) {
+    if (m.dead) {
+      if (now >= m.respawnAt) {
+        m.dead = false;
+        m.health = EMBER_MOB_TYPES[m.mobType].maxHealth;
+        m.x = m.spawnX; m.y = m.spawnY;
+        m.pendingLoot = null; m.lootKillerId = null;
+      }
+      continue;
+    }
+    const preset = EMBER_MOB_TYPES[m.mobType];
+    const { player: nearestP, dist } = nearestEmberPlayer(m.x, m.y);
+    let vx = 0, vy = 0;
+    if (nearestP && dist < preset.aggroRadius) {
+      const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+      if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+        m.lastHitAt = now;
+        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        nearestP.health = Math.max(0, nearestP.health - dmg);
+        if (nearestP.health <= 0) {
+          nearestP.health = 0;
+          nearestP.isDead = true;
+          send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
+        } else {
+          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
+        }
+      }
+    } else {
+      m.wanderTimer -= dt;
+      if (m.wanderTimer <= 0) {
+        m.wanderTimer = 1.5 + Math.random() * 2.5;
+        m.paused = Math.random() < 0.3;
+        m.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!m.paused) {
+        vx = Math.sin(m.wanderAngle) * (preset.speed * 0.4);
+        vy = Math.cos(m.wanderAngle) * (preset.speed * 0.4);
+      }
+    }
+    const nx = m.x + vx * dt, ny = m.y + vy * dt;
+    if (vx !== 0 && nx > margin && nx < EMBER_WORLD_DIMS.width - margin) m.x = nx;
+    if (vy !== 0 && ny > margin && ny < EMBER_WORLD_DIMS.height - margin) m.y = ny;
+    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+  }
+}
+
+// True the instant all 4 torches are lit — the same condition
+// townTorchPublicState() already reports per-torch, just collapsed to one
+// shared boolean for the portal (and gating enter_ember_wastes server-side,
+// not just hiding the visual client-side).
+function templePortalOpen() {
+  return TOWN_TORCHES.every((t, idx) => {
+    const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
+    return npc && npc.working;
+  });
+}
 
 const WITCH_SHOP_TIERS = [
   // tier 0: lvl 1-5
@@ -2897,6 +3026,7 @@ wss.on('connection', (ws) => {
       const bounds = msg.room === 'wilds' ? WORLD2
         : msg.room === 'witch_cave' ? { width: 800, height: 700 }
         : msg.room === 'bank_vault' ? VAULT_WORLD_DIMS
+        : msg.room === 'ember_wastes' ? EMBER_WORLD_DIMS
         : (typeof msg.room === 'string' && msg.room.startsWith('dungeon_') ? { width: DUNGEON_SIZE, height: DUNGEON_SIZE } : WORLD);
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
@@ -3578,7 +3708,8 @@ wss.on('connection', (ws) => {
         animal: { list: animals, room: 'outside', respawnMs: ANIMAL_RESPAWN_MS },
         mob: { list: mobs, room: 'outside', respawnMs: MOB_RESPAWN_MS },
         animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
-        mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS }
+        mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS },
+        ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS }
       };
       const poolInfo = POOLS[targetType];
       if (!poolInfo || player.room !== poolInfo.room) return;
@@ -3603,6 +3734,14 @@ wss.on('connection', (ws) => {
           t.lootKillerId = t.pendingLoot.length ? player.id : null;
           const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
           send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!${lootHint}` });
+        } else if (targetType === 'ember_mob') {
+          const preset = EMBER_MOB_TYPES[t.mobType];
+          grantXP(player, preset.xp);
+          advanceQuestProgress(player, 'kill_mob', null);
+          t.pendingLoot = rollPendingLoot(preset.lootTable);
+          t.lootKillerId = t.pendingLoot.length ? player.id : null;
+          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootHint}` });
         } else {
           send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!` });
         }
@@ -3625,7 +3764,7 @@ wss.on('connection', (ws) => {
       // handler above — distance alone isn't enough, since e.g. dungeon
       // tiers and building interiors can share overlapping coordinate
       // ranges despite being different rooms entirely.
-      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds' };
+      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', ember_mob: 'ember_wastes' };
       let t = null;
       if (targetType === 'player') {
         t = players.get(targetId) || null;
@@ -3637,7 +3776,7 @@ wss.on('connection', (ws) => {
         if (t && t.room !== player.room) t = null;
       } else if (LOOT_ROOMS[targetType]) {
         if (player.room === LOOT_ROOMS[targetType]) {
-          const pool = { mob: mobs, mob2: mobs2 }[targetType];
+          const pool = { mob: mobs, mob2: mobs2, ember_mob: emberMobs }[targetType];
           t = pool.find(x => x.id === targetId) || null;
         }
       }
@@ -3657,6 +3796,43 @@ wss.on('connection', (ws) => {
       t.lootKillerId = null;
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       if (earned.length) send(ws, { type: 'loot_drop', items: earned });
+      return;
+    }
+
+    // Pickpocketing a *live* Ember Wastes mob — press F while nearby, same
+    // "carried items only" flavor as Sleight of Hand but a flat chance
+    // available to every character, not gated behind the Wanderer's spell
+    // or its skill level (this is a map mechanic, not a class ability).
+    // Unlike a corpse, this can be attempted repeatedly (own cooldown) as
+    // long as the mob is still alive — it doesn't kill or even interrupt it.
+    const STEAL_RANGE = 90, STEAL_COOLDOWN_MS = 2500;
+    if (msg.type === 'steal_from_mob') {
+      if (player.room !== 'ember_wastes' || player.isDead) return;
+      const targetId = String(msg.targetId || '');
+      const t = emberMobs.find(m => m.id === targetId);
+      if (!t || t.dead) { send(ws, { type: 'attack_error', message: 'Nothing there to steal from.' }); return; }
+      if (Math.hypot(t.x - player.x, t.y - player.y) > STEAL_RANGE) {
+        send(ws, { type: 'attack_error', message: 'Get closer to try that.' });
+        return;
+      }
+      const nowSteal = Date.now();
+      if (t.lastStolenAt && nowSteal - t.lastStolenAt < STEAL_COOLDOWN_MS) return;
+      t.lastStolenAt = nowSteal;
+      const preset = EMBER_MOB_TYPES[t.mobType];
+      if (Math.random() < preset.stealChance) {
+        const itemId = preset.stealTable[Math.floor(Math.random() * preset.stealTable.length)];
+        const inv = getInventory(player);
+        if (addItemToAccount(inv, itemId, 1)) {
+          if (player.accountKey) saveInventories();
+          const meta = ITEM_CATALOG[itemId];
+          send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+          send(ws, { type: 'attack_result', message: `🤏 Lifted ${meta.icon} ${meta.name} off ${preset.name} without it noticing.` });
+        } else {
+          send(ws, { type: 'attack_result', message: `🤏 You could've had something off ${preset.name}, but your pack is full.` });
+        }
+      } else {
+        send(ws, { type: 'attack_result', message: `🤏 ${preset.name} shrugged you off — no luck this time.` });
+      }
       return;
     }
 
@@ -4193,6 +4369,40 @@ wss.on('connection', (ws) => {
       player.vaultReturnX = null;
       player.vaultReturnY = null;
       send(ws, { type: 'vault_exited', x: retX, y: retY });
+      return;
+    }
+
+    if (msg.type === 'enter_ember_wastes') {
+      if (player.room !== 'outside' || player.isDead) return;
+      // Re-checked here, not just hidden client-side — the portal being
+      // visible/the kiosk existing is a client-side courtesy, this is the
+      // actual gate. Someone whose client is stale (or who's poking the
+      // socket directly) can't walk in during the day.
+      if (!templePortalOpen()) {
+        send(ws, { type: 'ember_wastes_error', message: 'The portal is dark — it only opens once all four torches are lit.' });
+        return;
+      }
+      const dist = Math.hypot(player.x - TEMPLE_ALTAR.x, player.y - TEMPLE_ALTAR.y);
+      if (dist > 100) return;
+      player.emberReturnX = player.x;
+      player.emberReturnY = player.y;
+      player.room = 'ember_wastes';
+      player.x = EMBER_SPAWN.x;
+      player.y = EMBER_SPAWN.y;
+      send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN });
+      return;
+    }
+
+    if (msg.type === 'exit_ember_wastes') {
+      if (player.room !== 'ember_wastes') return;
+      const retX = player.emberReturnX || TEMPLE_ALTAR.x;
+      const retY = player.emberReturnY || TEMPLE_ALTAR.y + 80;
+      player.room = 'outside';
+      player.x = retX;
+      player.y = retY;
+      player.emberReturnX = null;
+      player.emberReturnY = null;
+      send(ws, { type: 'ember_wastes_exited', x: retX, y: retY });
       return;
     }
 
