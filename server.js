@@ -2431,6 +2431,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickPlayerRegen(now, dt);
   tickTorchNpcs(dt);
+  updateTemplePortalState();
   tickTorchHealing(dt);
   tickEmberWastes(dt);
   if (players.size === 0) return;
@@ -2768,15 +2769,22 @@ function tickEmberWastes(dt) {
   }
 }
 
-// True the instant all 4 torches are lit — the same condition
-// townTorchPublicState() already reports per-torch, just collapsed to one
-// shared boolean for the portal (and gating enter_ember_wastes server-side,
-// not just hiding the visual client-side).
+// A "sticky" state, not a pure function of the current instant — it opens
+// the moment all 4 torches are lit (same condition townTorchPublicState()
+// already reports per-torch, collapsed to one shared boolean), but during
+// the dawn walk back to the altar working/praying are BOTH false for
+// everyone (the walk takes MORNING_TEMPLE_WALK_MS to complete), so a pure
+// "are all torches lit right now" check would slam it shut the instant
+// night ends — before they've even started walking home. Instead it just
+// holds its previous value through that whole transition, closing only
+// once every Torchkeeper has actually arrived and is praying.
+let templePortalIsOpen = false;
+function updateTemplePortalState() {
+  if (TORCH_NPCS.every(n => n.working)) templePortalIsOpen = true;
+  else if (TORCH_NPCS.every(n => n.praying)) templePortalIsOpen = false;
+}
 function templePortalOpen() {
-  return TOWN_TORCHES.every((t, idx) => {
-    const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
-    return npc && npc.working;
-  });
+  return templePortalIsOpen;
 }
 
 const WITCH_SHOP_TIERS = [
