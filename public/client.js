@@ -3524,7 +3524,25 @@ const LOUNGE_STAIR_START_FRAC = 0.45;
 const LOUNGE_STAIR_END_FRAC = 0.62;
 const LOUNGE_PLATFORM_HEIGHT = 76;
 
-function getFloorHeight(roomId, rx) {
+// The Temple's altar platform — a raised dais out in the open town square
+// (room 'outside'), not tied to any building interior. Unlike the Lounge's
+// stairs (a ramp along one axis), this is a rectangular footprint, so it
+// needs both x and z; the height still ramps smoothly over the outer edge
+// (TEMPLE_RAMP units) rather than snapping instantly, same "no real
+// verticality, just a rendered Y function of position" approach. Shared
+// with initScene()'s temple placement/collision so the numbers can't drift.
+const TEMPLE_PLATFORM_X = 1060, TEMPLE_PLATFORM_Z = 1900;
+const TEMPLE_PLATFORM_W = 360, TEMPLE_PLATFORM_D = 260, TEMPLE_PLATFORM_HEIGHT = 16;
+const TEMPLE_RAMP = 24;
+
+function getFloorHeight(roomId, rx, rz) {
+  if (roomId === 'outside') {
+    const halfW = TEMPLE_PLATFORM_W / 2, halfD = TEMPLE_PLATFORM_D / 2;
+    const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
+    if (dx > halfW || dz > halfD) return 0;
+    const depth = Math.min(halfW - dx, halfD - dz);
+    return Math.min(TEMPLE_PLATFORM_HEIGHT, TEMPLE_PLATFORM_HEIGHT * (depth / TEMPLE_RAMP));
+  }
   if (roomId !== 'lounge') return 0;
   const interior = interiorScenes.lounge;
   if (!interior) return 0;
@@ -3647,10 +3665,12 @@ function initScene(w) {
 
   // The Torchkeepers' temple — a landmark near the back tree line, not part
   // of w.buildings (no interior/door). Now that it's an open platform (no
-  // columns/roof to bump into), only the central altar itself blocks
-  // movement — the rest of the platform is walkable, same as
-  // addNatureDecor() adding tree colliders by hand.
-  const templeCx = 1060, templeCz = 1900, templeW = 360, templeD = 260;
+  // roof to bump into), only the central altar itself blocks movement —
+  // the rest of the platform is walkable (see getFloorHeight() for the
+  // matching rendered-height ramp), same as addNatureDecor() adding tree
+  // colliders by hand. Position/size shared with getFloorHeight() via the
+  // TEMPLE_PLATFORM_* constants so the two can't drift apart.
+  const templeCx = TEMPLE_PLATFORM_X, templeCz = TEMPLE_PLATFORM_Z, templeW = TEMPLE_PLATFORM_W, templeD = TEMPLE_PLATFORM_D;
   scene.add(buildTownTemple(templeCx, templeCz));
   const altarW = 64, altarD = 64;
   walls.push({ x: templeCx - altarW / 2, y: templeCz - altarD / 2, w: altarW, h: altarD });
@@ -6803,6 +6823,32 @@ function makeStoneTexture() {
   return tex;
 }
 
+// Same block-and-mortar pattern as makeStoneTexture(), just with a light
+// base fill instead of dark gray — bakes its own colors in rather than
+// being a white-multiply texture, so a plain mesh.color tint alone can't
+// turn the gray version white; this is the actual light-stone variant.
+function makeWhiteStoneTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#ece7d8';
+  cx.fillRect(0, 0, 128, 128);
+  cx.strokeStyle = 'rgba(170,162,140,0.45)';
+  cx.lineWidth = 2;
+  for (let i = 0; i < 6; i++) {
+    const y = i * 22 + (i % 2 ? 6 : 0);
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(128, y); cx.stroke();
+  }
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.4)' : 'rgba(190,182,160,0.35)';
+    cx.fillRect(x, y, 1 + Math.random() * 3, 1 + Math.random() * 3);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 function buildPathSegment(x1, y1, x2, y2, width, sharedTex, hubRadius) {
   const dx = x2 - x1, dz = y2 - y1;
   const fullLen = Math.hypot(dx, dz);
@@ -7474,39 +7520,65 @@ function buildTownRitualTorch(x, z) {
 // tree line at the back of town. Purely a landmark/gathering spot, not an
 // enterable building: no interior, no door, no room id — see server.js's
 // TOWN_TEMPLE (the gathering point just north/in-front of this structure
-// the 4 NPCs walk to each morning). No roof or columns anymore — just the
-// flat stone platform and a central altar, kept open so the nightly portal
-// (see buildEmberPortal(), positioned above the altar in initScene) reads
-// clearly against the sky instead of being boxed in.
+// the 4 NPCs walk to each morning). No roof anymore — just the flat white
+// stone platform, a corner pillar at each edge, and a central altar, kept
+// open so the nightly portal (see buildEmberPortal(), positioned above the
+// altar in initScene) reads clearly against the sky instead of being boxed
+// in. Pillars are purely decorative (no collision) — only the altar itself
+// blocks movement (see the walls.push in initScene), so the rest of the
+// platform is walkable; getFloorHeight() raises a standing player's
+// rendered Y to match platformH so they read as standing on top of it
+// instead of clipping through.
 function buildTownTemple(cx, cz) {
   const g = new THREE.Group();
   const platformW = 360, platformD = 260, platformH = 16;
-  const stoneTex = makeStoneTexture();
-  stoneTex.repeat.set(platformW / 50, platformD / 50);
+  const whiteStoneTex = makeWhiteStoneTexture();
+  whiteStoneTex.repeat.set(platformW / 50, platformD / 50);
 
   const platform = new THREE.Mesh(
     new THREE.BoxGeometry(platformW, platformH, platformD),
-    new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xcfc9ba })
+    new THREE.MeshLambertMaterial({ map: whiteStoneTex, color: 0xffffff })
   );
   platform.position.set(cx, platformH / 2, cz);
   g.add(platform);
 
+  // Corner pillars — short, purely decorative, framing the platform now
+  // that there's no roof for them to hold up. A simple capital cap on each
+  // gives them a finished, "ruins" look rather than plain cylinders.
+  const pillarH = 84;
+  const pillarMat = new THREE.MeshLambertMaterial({ color: 0xf5f2e6 });
+  const pillarGeo = new THREE.CylinderGeometry(11, 13, pillarH, 8);
+  const capGeo = new THREE.CylinderGeometry(16, 12, 9, 8);
+  const marginX = 34, marginZ = 28;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const px = cx + sx * (platformW / 2 - marginX);
+      const pz = cz + sz * (platformD / 2 - marginZ);
+      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(px, platformH + pillarH / 2, pz);
+      g.add(pillar);
+      const cap = new THREE.Mesh(capGeo, pillarMat);
+      cap.position.set(px, platformH + pillarH + 4.5, pz);
+      g.add(cap);
+    }
+  }
+
   // Altar — a two-tier stone pedestal at the platform's center, doubling as
   // the anchor point the portal hovers over once the torches are lit.
-  const altarMat = new THREE.MeshLambertMaterial({ color: 0xb5ae9a });
+  const altarMat = new THREE.MeshLambertMaterial({ color: 0xefeade });
   const altarBase = new THREE.Mesh(new THREE.BoxGeometry(64, 30, 64), altarMat);
   altarBase.position.set(cx, platformH + 15, cz);
   g.add(altarBase);
   const altarTop = new THREE.Mesh(new THREE.BoxGeometry(40, 12, 40), altarMat);
   altarTop.position.set(cx, platformH + 36, cz);
   g.add(altarTop);
-  // A faint permanent ember glow on the altar top hints at what happens here at night.
+  // A faint permanent ember glow on the altar top hints at what happens at night.
   const emberGlow = new THREE.PointLight(0xff5522, 0.4, 90);
   emberGlow.position.set(cx, platformH + 46, cz);
   g.add(emberGlow);
 
   const sign = makeSignSprite('⛩️ Temple of the Flame');
-  sign.position.set(cx, platformH + 90, cz);
+  sign.position.set(cx, platformH + pillarH + 40, cz);
   g.add(sign);
 
   return g;
@@ -9135,7 +9207,7 @@ function syncVisuals(dt) {
       const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
       const featherMult = (id === myId && me.activeStatus && me.activeStatus.type === 'feather') ? 2.4 : 1;
       const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
-      const floorYOffset = getFloorHeight(p.room, rp.x);
+      const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
       // Deep Meditation: sits at ground level, then rises into a hover over
       // the first couple seconds and gently bobs there for the rest of the
       // duration — x/z still track the player's real position every frame,
@@ -9185,7 +9257,7 @@ function syncLabels() {
       continue;
     }
     const rp = getRenderPos(p);
-    const floorYOffset = getFloorHeight(p.room, rp.x);
+    const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
     const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
     if (!headScreen.visible || !isScreenPosHovered(headScreen.x, headScreen.y)) {
       v.nameEl.style.display = 'none';
@@ -9232,7 +9304,7 @@ function updateCamera(dt) {
   const horizBack = back * Math.cos(pitch);
   const verticalRise = -Math.sin(pitch) * back;
 
-  const floorYOffset = getFloorHeight(me.room, rp.x);
+  const floorYOffset = getFloorHeight(me.room, rp.x, rp.z);
   const targetX = rp.x + dirX * horizBack;
   const targetZ = rp.z + dirZ * horizBack;
   const targetY = groundY + cam.height + floorYOffset + verticalRise;
