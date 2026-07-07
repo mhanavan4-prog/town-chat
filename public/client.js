@@ -7516,6 +7516,181 @@ function buildTownRitualTorch(x, z) {
   return { group: g, flame, light };
 }
 
+// A bronze medallion etched with a circle + five-pointed star — solid
+// background (unlike the floor sigil below), since this is a physical
+// object resting on the altar, not a marking carved into existing stone.
+function makePentacleTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+  grad.addColorStop(0, '#7a6238');
+  grad.addColorStop(1, '#3a2c18');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+
+  const cxp = 128, cyp = 128, r = 104;
+  ctx.strokeStyle = '#241a10';
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(cxp, cyp, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cxp, cyp, r - 16, 0, Math.PI * 2); ctx.stroke();
+
+  const points = [];
+  for (let i = 0; i < 5; i++) {
+    const angle = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+    points.push([cxp + Math.cos(angle) * (r - 16), cyp + Math.sin(angle) * (r - 16)]);
+  }
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#18110a';
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i <= 5; i++) ctx.lineTo(points[(i * 2) % 5][0], points[(i * 2) % 5][1]);
+  ctx.closePath();
+  ctx.stroke();
+
+  return new THREE.CanvasTexture(c);
+}
+
+// A ring of carved sigils meant to read as etched into the platform's own
+// stone — fully transparent background (only the lines have any alpha) so
+// the white stone texture underneath shows through everywhere else,
+// instead of looking like a separate decal sitting on top of the floor.
+function makeSigilFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 300; c.height = 300;
+  const ctx = c.getContext('2d');
+  const cxp = 150, cyp = 150;
+
+  ctx.strokeStyle = 'rgba(70,60,48,0.55)';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(cxp, cyp, 128, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cxp, cyp, 100, 0, Math.PI * 2); ctx.stroke();
+
+  // Two overlapping triangles (a hexagram) for the classic "ritual circle" look.
+  function triangle(rot) {
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const angle = rot + i * (Math.PI * 2 / 3);
+      const x = cxp + Math.cos(angle) * 92, y = cyp + Math.sin(angle) * 92;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.stroke();
+  }
+  ctx.lineWidth = 2.5;
+  triangle(-Math.PI / 2);
+  triangle(Math.PI / 2);
+
+  // Small rune ticks spaced around the outer ring.
+  for (let i = 0; i < 10; i++) {
+    const angle = i * (Math.PI * 2 / 10);
+    const x1 = cxp + Math.cos(angle) * 132, y1 = cyp + Math.sin(angle) * 132;
+    const x2 = cxp + Math.cos(angle) * 146, y2 = cyp + Math.sin(angle) * 146;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  return new THREE.CanvasTexture(c);
+}
+
+function makeAltarSkull(x, y, z) {
+  const g = new THREE.Group();
+  const boneMat = new THREE.MeshLambertMaterial({ color: 0xe4dcc4 });
+  const cranium = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 8), boneMat);
+  cranium.scale.set(1, 0.9, 1.05);
+  g.add(cranium);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(5.5, 2.5, 4), boneMat);
+  jaw.position.set(0, -4, 1);
+  g.add(jaw);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0a0605 });
+  for (const side of [-1, 1]) {
+    const socket = new THREE.Mesh(new THREE.SphereGeometry(1.3, 6, 6), eyeMat);
+    socket.position.set(side * 2, 0.5, 4.2);
+    g.add(socket);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+
+function makeAltarCandle(x, y, z) {
+  const g = new THREE.Group();
+  const wax = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.2, 2.5, 12, 10),
+    new THREE.MeshLambertMaterial({ color: 0xf0e6c8 })
+  );
+  wax.position.y = 6;
+  g.add(wax);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(1.6, 4, 8), new THREE.MeshBasicMaterial({ color: 0xffaa44 }));
+  flame.position.y = 14;
+  g.add(flame);
+  const flicker = new THREE.PointLight(0xffaa44, 0.5, 50);
+  flicker.position.y = 14;
+  g.add(flicker);
+  g.position.set(x, y, z);
+  return g;
+}
+
+function makeAltarDagger(x, y, z, rotY) {
+  const g = new THREE.Group();
+  const blade = new THREE.Mesh(
+    new THREE.BoxGeometry(2.2, 0.6, 16),
+    new THREE.MeshLambertMaterial({ color: 0xc7ccd4 })
+  );
+  blade.position.z = -6;
+  g.add(blade);
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.3, 1.3, 7, 8),
+    new THREE.MeshLambertMaterial({ color: 0x3a2418 })
+  );
+  handle.rotation.x = Math.PI / 2;
+  handle.position.z = 5.5;
+  g.add(handle);
+  const pommel = new THREE.Mesh(new THREE.SphereGeometry(1.6, 8, 8), new THREE.MeshLambertMaterial({ color: 0x7a6238 }));
+  pommel.position.z = 9.5;
+  g.add(pommel);
+  g.rotation.y = rotY || 0;
+  g.position.set(x, y, z);
+  return g;
+}
+
+function makeIncenseBowl(x, y, z) {
+  const g = new THREE.Group();
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(4.5, 3, 3, 12),
+    new THREE.MeshLambertMaterial({ color: 0x4a3626 })
+  );
+  bowl.position.y = 1.5;
+  g.add(bowl);
+  const ashMat = new THREE.MeshLambertMaterial({ color: 0x2a2420 });
+  const ash = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 0.6, 12), ashMat);
+  ash.position.y = 3;
+  g.add(ash);
+  // A thin rising wisp of smoke — a few small, slightly offset, tapering
+  // translucent spheres rather than an actual particle system, since it
+  // never needs to look like more than a lazy curl at this scale.
+  const smokeMat = new THREE.MeshBasicMaterial({ color: 0xcfd0d2, transparent: true, opacity: 0.35 });
+  const smokeOffsets = [[0, 6, 0, 1.1], [0.8, 10, 0.4, 1.4], [0.2, 14, -0.6, 1.7], [-0.6, 18, 0.3, 2.0]];
+  for (const [sx, sy, sz, sr] of smokeOffsets) {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(sr, 6, 6), smokeMat);
+    puff.position.set(sx, sy, sz);
+    g.add(puff);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+
+function makePentacleMedallion(x, y, z) {
+  const tex = makePentacleTexture();
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(15, 24),
+    new THREE.MeshLambertMaterial({ map: tex })
+  );
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.set(x, y, z);
+  return disc;
+}
+
 // The Torchkeepers' home shrine — a small open-air ritual platform near the
 // tree line at the back of town. Purely a landmark/gathering spot, not an
 // enterable building: no interior, no door, no room id — see server.js's
@@ -7541,6 +7716,18 @@ function buildTownTemple(cx, cz) {
   );
   platform.position.set(cx, platformH / 2, cz);
   g.add(platform);
+
+  // Ritual sigils carved into the platform floor, ringing the altar — a
+  // flat transparent-background decal laid just above the stone surface so
+  // it reads as etched into it rather than pasted on top. Drawn before the
+  // altar/pillars so it never overdraws anything sitting on top of it.
+  const sigilPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshBasicMaterial({ map: makeSigilFloorTexture(), transparent: true })
+  );
+  sigilPlane.rotation.x = -Math.PI / 2;
+  sigilPlane.position.set(cx, platformH + 0.3, cz);
+  g.add(sigilPlane);
 
   // Corner pillars — short, purely decorative, framing the platform now
   // that there's no roof for them to hold up. A simple capital cap on each
@@ -7576,6 +7763,16 @@ function buildTownTemple(cx, cz) {
   const emberGlow = new THREE.PointLight(0xff5522, 0.4, 90);
   emberGlow.position.set(cx, platformH + 46, cz);
   g.add(emberGlow);
+
+  // Altar trinkets — the top surface sits at platformH + 42 (altarTop's
+  // center 36 + half its 12 height). Pentacle medallion dead center, the
+  // rest spread across the four corners of the 40x40 top with margin to spare.
+  const topY = platformH + 42;
+  g.add(makePentacleMedallion(cx, topY + 0.2, cz));
+  g.add(makeIncenseBowl(cx - 12, topY, cz - 12));
+  g.add(makeAltarSkull(cx + 12, topY + 5, cz - 12));
+  g.add(makeAltarCandle(cx - 12, topY, cz + 12));
+  g.add(makeAltarDagger(cx + 12, topY + 0.6, cz + 12, 0.6));
 
   const sign = makeSignSprite('⛩️ Temple of the Flame');
   sign.position.set(cx, platformH + pillarH + 40, cz);
