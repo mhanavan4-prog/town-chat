@@ -722,22 +722,40 @@ function dungeonLootTable(xp) {
   return LOOT_TABLES.dungeon_t4;
 }
 
-// Rolls loot drops, adds items to inventory and gold to bank, returns label strings.
-function rollLoot(table, player) {
-  const inv = getInventory(player);
-  const earned = [];
+// Rolls loot drops without granting them to anyone yet — the result sits on
+// the defeated mob/animal as pendingLoot until a player actually clicks the
+// loot icon on its body (see the loot_corpse handler), rather than being
+// auto-granted to whoever landed the killing blow the instant it died.
+function rollPendingLoot(table) {
+  const pending = [];
   for (const drop of table) {
     if (Math.random() > drop.chance) continue;
     if (drop.gold) {
       const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+      pending.push({ kind: 'gold', amount });
+    } else {
+      pending.push({ kind: 'item', itemId: drop.itemId, qty: drop.qty || 1 });
+    }
+  }
+  return pending;
+}
+
+// Actually hands over a previously-rolled pending loot list to whoever just
+// looted the body — mirrors what the old rollLoot used to do immediately,
+// just deferred to loot time. Returns label strings for the result toast.
+function grantLoot(pending, player) {
+  const inv = getInventory(player);
+  const earned = [];
+  for (const drop of pending) {
+    if (drop.kind === 'gold') {
       if (player.accountKey) {
         const acct = ensureBankAccount(player.accountKey);
-        acct.balance += amount;
+        acct.balance += drop.amount;
         saveBankAccounts();
       }
-      earned.push(`🪙 ${amount}g`);
-    } else {
-      if (addItemToAccount(inv, drop.itemId, drop.qty || 1)) {
+      earned.push(`🪙 ${drop.amount}g`);
+    } else if (drop.kind === 'item') {
+      if (addItemToAccount(inv, drop.itemId, drop.qty)) {
         if (player.accountKey) saveInventories();
         const meta = ITEM_CATALOG[drop.itemId];
         earned.push(`${meta?.icon || '?'} ${meta?.name || drop.itemId}`);
@@ -950,6 +968,24 @@ function persistHardDrive(player) {
 function ownsHardDriveItem(player) {
   const inv = getInventory(player);
   return inv.slots.some(s => s && s.itemId === 'hard_drive');
+}
+
+// PvP death loot — takes one whole random carried (not equipped) item stack
+// from the defeated player, same "carried items only, locked Hard Drive is
+// untouchable" scope Sleight of Hand's peek already uses. Returns
+// { itemId, qty } for whatever was taken, or null if they had nothing
+// takeable carried at all.
+function stealRandomCarriedItem(victim) {
+  const inv = getInventory(victim);
+  const hdLocked = !!getHardDrive(victim).passwordHash;
+  const candidates = inv.slots
+    .map((s, idx) => s ? { idx, itemId: s.itemId, qty: s.qty } : null)
+    .filter(s => s && !(hdLocked && s.itemId === 'hard_drive'));
+  if (!candidates.length) return null;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  removeItemFromAccount(inv, pick.itemId, pick.qty);
+  if (victim.accountKey) saveInventories();
+  return { itemId: pick.itemId, qty: pick.qty };
 }
 
 // ---------------------------------------------------------------------------
@@ -1595,7 +1631,12 @@ function publicPlayer(p) {
     equippedRing:   p.equippedRing   || null,
     activeStatus: status, health: p.health,
     level: p.level || 1, skillPoints: p.skillPoints || 0,
-    isDead: !!p.isDead
+    isDead: !!p.isDead,
+    // Corpse loot — deathX/Y/Room are only meaningful while hasLoot is true;
+    // they mark the fixed spot the body fell, independent of wherever the
+    // ghost wanders off to afterward (see the 'strike' PvP branch above).
+    hasLoot: !!(p.pendingLoot && p.pendingLoot.length),
+    deathX: p.deathX, deathY: p.deathY, deathRoom: p.deathRoom
   };
 }
 
@@ -1903,6 +1944,7 @@ function tickRespawns(now) {
     if (m.dead && now >= m.respawnAt) {
       m.dead = false; m.health = MOB_MAX_HEALTH;
       m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
+      m.pendingLoot = null; m.lootKillerId = null;
     }
   }
 }
@@ -2033,6 +2075,7 @@ function tickRespawns2(now) {
     if (m.dead && now >= m.respawnAt) {
       m.dead = false; m.health = MOB2_TYPES[m.mobType].maxHealth;
       m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
+      m.pendingLoot = null; m.lootKillerId = null;
     }
   }
 }
@@ -2319,6 +2362,7 @@ function tickDungeon(dt) {
         m.dead = false;
         m.health = DUNGEON_MOB_TYPES[m.mobType].maxHealth;
         m.x = m.spawnX; m.y = m.spawnY;
+        m.pendingLoot = null; m.lootKillerId = null;
       }
       continue;
     }
@@ -2390,11 +2434,11 @@ setInterval(() => {
     type: 'wildlife_state',
     isNight: isNightNow(),
     animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
-    mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead })),
+    mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
-    mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead })),
+    mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     decor: decorPublicState(),
-    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead })),
+    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
     torches: townTorchPublicState()
@@ -3488,8 +3532,19 @@ wss.on('connection', (ws) => {
         if (t.health <= 0) {
           t.health = 0;
           t.isDead = true;
+          // PvP loot: one random carried (not equipped) item stack changes
+          // hands, the same "self-directed carried items only" scope Sleight
+          // of Hand already uses — real stakes, but never touches equipped
+          // gear or the Hard Drive vault. The body stays put at the death
+          // spot (deathX/Y/Room) for the killer to claim even after the
+          // victim respawns and wanders off as a ghost.
+          const stolen = stealRandomCarriedItem(t);
+          t.pendingLoot = stolen ? [{ kind: 'item', itemId: stolen.itemId, qty: stolen.qty }] : null;
+          t.lootKillerId = stolen ? player.id : null;
+          t.deathX = t.x; t.deathY = t.y; t.deathRoom = t.room;
           send(t.ws, { type: 'you_died', byName: player.name });
-          send(ws, { type: 'attack_result', message: `⚔️ You defeated ${t.name}!` });
+          const lootHint = stolen ? '  Loot is on the body — go claim it!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ You defeated ${t.name}!${lootHint}` });
         } else {
           send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
         }
@@ -3508,10 +3563,10 @@ wss.on('connection', (ws) => {
           t.respawnAt = now + DUNGEON_RESPAWN_MS;
           grantXP(player, preset.xp);
           advanceQuestProgress(player, 'kill_mob', null);
-          const loot = rollLoot(dungeonLootTable(preset.xp), player);
-          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootStr}` });
-          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
+          t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
+          t.lootKillerId = t.pendingLoot.length ? player.id : null;
+          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootHint}` });
         } else {
           send(ws, { type: 'attack_result', message: `⚔️ Hit ${preset.name} for ${dmg}!` });
         }
@@ -3539,21 +3594,69 @@ wss.on('connection', (ws) => {
           grantXP(player, 15);
           advanceQuestProgress(player, 'kill_mob', null);
           const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
-          const loot = rollLoot(lootTable, player);
-          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)${lootStr}` });
-          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
+          t.pendingLoot = rollPendingLoot(lootTable);
+          t.lootKillerId = t.pendingLoot.length ? player.id : null;
+          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)${lootHint}` });
         } else if (targetType === 'mob') {
-          const loot = rollLoot(LOOT_TABLES.town_mob, player);
-          const lootStr = loot.length ? `  Loot: ${loot.join(', ')}` : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!${lootStr}` });
-          if (loot.length) send(ws, { type: 'loot_drop', items: loot });
+          t.pendingLoot = rollPendingLoot(LOOT_TABLES.town_mob);
+          t.lootKillerId = t.pendingLoot.length ? player.id : null;
+          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!${lootHint}` });
         } else {
           send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!` });
         }
       } else {
         send(ws, { type: 'attack_result', message: `⚔️ Hit for ${dmg}!` });
       }
+      return;
+    }
+
+    // Clicking the loot icon on a defeated mob/animal/player's body — only
+    // the player who landed the killing blow can claim it (lootKillerId),
+    // same fairness rule as any other kill reward; everyone else just sees
+    // the icon exists. Loot itself was already rolled at the moment of
+    // death (see the 'strike' handler above) — this just hands it over.
+    if (msg.type === 'loot_corpse') {
+      const LOOT_RANGE = 90;
+      const targetType = String(msg.targetType || '');
+      const targetId = String(msg.targetId || '');
+      // Same room-gating each targetType already uses in the 'strike'
+      // handler above — distance alone isn't enough, since e.g. dungeon
+      // tiers and building interiors can share overlapping coordinate
+      // ranges despite being different rooms entirely.
+      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds' };
+      let t = null;
+      if (targetType === 'player') {
+        t = players.get(targetId) || null;
+        // deathRoom, not the victim's current room — their ghost may have
+        // wandered off elsewhere since dying, but the body/loot stays put.
+        if (t && t.deathRoom !== player.room) t = null;
+      } else if (targetType === 'dungeon') {
+        t = dungeonMobs.find(m => m.id === targetId) || null;
+        if (t && t.room !== player.room) t = null;
+      } else if (LOOT_ROOMS[targetType]) {
+        if (player.room === LOOT_ROOMS[targetType]) {
+          const pool = { mob: mobs, mob2: mobs2 }[targetType];
+          t = pool.find(x => x.id === targetId) || null;
+        }
+      }
+      if (!t) { send(ws, { type: 'loot_error', message: 'Nothing there to loot.' }); return; }
+      if (!t.pendingLoot || !t.pendingLoot.length || t.lootKillerId !== player.id) {
+        send(ws, { type: 'loot_error', message: 'There’s nothing here for you to loot.' });
+        return;
+      }
+      const tx = targetType === 'player' ? t.deathX : t.x;
+      const ty = targetType === 'player' ? t.deathY : t.y;
+      if (Math.hypot(tx - player.x, ty - player.y) > LOOT_RANGE) {
+        send(ws, { type: 'loot_error', message: 'Get closer to loot that.' });
+        return;
+      }
+      const earned = grantLoot(t.pendingLoot, player);
+      t.pendingLoot = null;
+      t.lootKillerId = null;
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      if (earned.length) send(ws, { type: 'loot_drop', items: earned });
       return;
     }
 
@@ -3931,6 +4034,11 @@ wss.on('connection', (ws) => {
       if (!player.isDead) return;
       player.isDead = false;
       player.health = 100;
+      // The loot window on this corpse closes the moment the body gets back
+      // up, whether or not the killer ever claimed it — matches how a
+      // creature's corpse loot resets on respawn too.
+      player.pendingLoot = null;
+      player.lootKillerId = null;
       if (player.room && player.room.startsWith('dungeon_')) {
         const returnRoom = player.dungeonReturnRoom || 'outside';
         const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;

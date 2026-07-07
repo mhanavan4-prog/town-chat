@@ -451,6 +451,8 @@ function onWsMessage(ev) {
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
         existing.isDead = !!p.isDead;
+        existing.hasLoot = !!p.hasLoot;
+        existing.deathX = p.deathX; existing.deathY = p.deathY; existing.deathRoom = p.deathRoom;
       } else {
         addPlayer(p);
       }
@@ -963,8 +965,13 @@ function onWsMessage(ev) {
 
   if (msg.type === 'loot_drop') {
     if (msg.items && msg.items.length) {
-      setUnlockToast('💀 Loot: ' + msg.items.join('  '));
+      setUnlockToast('💰 Looted: ' + msg.items.join('  '));
     }
+    return;
+  }
+
+  if (msg.type === 'loot_error') {
+    setUnlockToast(msg.message);
     return;
   }
 
@@ -999,6 +1006,7 @@ function addPlayer(p) {
     health: typeof p.health === 'number' ? p.health : 100,
     level: p.level || 1, skillPoints: p.skillPoints || 0, xp: p.xp || 0,
     isDead: p.isDead || false,
+    hasLoot: !!p.hasLoot, deathX: p.deathX, deathY: p.deathY, deathRoom: p.deathRoom,
     facing: Math.PI, walkPhase: Math.random() * 10
   };
   ensurePlayerVisual(players[p.id]);
@@ -2898,6 +2906,14 @@ function getRaycastCandidates() {
       if (v.mesh.visible) list.push(v.mesh);
     }
   }
+  // Loot icons live in whichever scene their corpse belongs to (see
+  // updateLootIcons()) — a flat scan works here since each sprite's own
+  // .visible/.parent already narrow it down to "currently showing in the
+  // scene we're about to raycast against".
+  for (const key in lootIconVisuals) {
+    const sprite = lootIconVisuals[key];
+    if (sprite.visible && sprite.parent === activeScene) list.push(sprite);
+  }
   return list;
 }
 
@@ -2969,7 +2985,7 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
   if (hit && ATTACKABLE_KINDS.has(hit.kind)) canvas.style.cursor = SWORD_CURSOR;
-  else if (hit && hit.kind === 'decor') canvas.style.cursor = 'pointer';
+  else if (hit && (hit.kind === 'decor' || hit.kind === 'loot')) canvas.style.cursor = 'pointer';
   else canvas.style.cursor = 'default';
 });
 
@@ -3027,6 +3043,8 @@ function handleCanvasClick(clientX, clientY) {
     triggerAttackAnim();
   } else if (hit.kind === 'decor') {
     ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
+  } else if (hit.kind === 'loot') {
+    ws.send(JSON.stringify({ type: 'loot_corpse', targetType: hit.lootType, targetId: hit.targetId }));
   }
 }
 
@@ -5610,6 +5628,7 @@ function applyMobState(list) {
   for (const m of list) {
     const v = getOrCreateMobVisual(m.id);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.hasLoot = !!m.hasLoot;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -5741,6 +5760,7 @@ function applyMob2State(list) {
   for (const m of list) {
     const v = getOrCreateMob2Visual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.hasLoot = !!m.hasLoot;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -5948,6 +5968,7 @@ function applyDungeonMobState(list) {
   for (const m of list) {
     const v = getOrCreateDungeonMobVisual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.hasLoot = !!m.hasLoot;
     v.room = m.room;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
@@ -5972,6 +5993,87 @@ function updateDungeonMobVisuals(dt) {
     v.mesh.rotation.x = -0.5 * lungeFactor;
     const shouldShow = inDungeon && !v.dead && me && v.room === me.room;
     v.mesh.visible = shouldShow;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Loot icons — a clickable floating icon over any defeated mob/animal/player
+// that still has unclaimed loot (see hasLoot in wildlife_state/state,
+// server.js's pendingLoot). Clicking one sends loot_corpse; only the killer
+// can actually claim it (enforced server-side, see loot_error), everyone
+// else just sees the icon exists. Reuses whatever position each entity's own
+// visual already tracks (v.x/v.y for mobs; a fixed death-spot snapshot for
+// players, since their ghost otherwise wanders off — see deathX/Y/Room)
+// rather than maintaining any separate position state of its own.
+// ---------------------------------------------------------------------------
+let lootIconVisuals = {}; // key -> sprite
+const LOOT_ICON_HEIGHT = 46; // floats roughly chest-height above where the body fell
+
+function makeLootIconSprite() {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const cx = c.getContext('2d');
+  cx.font = '44px serif';
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText('💰', 32, 36);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(28, 28, 1);
+  sprite.visible = false;
+  return sprite;
+}
+
+function getOrCreateLootIcon(key) {
+  if (!lootIconVisuals[key]) lootIconVisuals[key] = makeLootIconSprite();
+  return lootIconVisuals[key];
+}
+
+function showLootIcon(key, scene, x, y, z, lootType, targetId) {
+  const sprite = getOrCreateLootIcon(key);
+  sprite.userData = { kind: 'loot', lootType, targetId };
+  if (sprite.parent !== scene) {
+    if (sprite.parent) sprite.parent.remove(sprite);
+    scene.add(sprite);
+  }
+  sprite.position.set(x, y, z);
+  sprite.visible = true;
+}
+
+function hideLootIcon(key) {
+  const sprite = lootIconVisuals[key];
+  if (sprite) sprite.visible = false;
+}
+
+function updateLootIcons() {
+  for (const id in mobVisuals) {
+    const key = 'mob:' + id;
+    const v = mobVisuals[id];
+    if (v.hasLoot && outdoorScene) showLootIcon(key, outdoorScene, v.x, LOOT_ICON_HEIGHT, v.y, 'mob', id);
+    else hideLootIcon(key);
+  }
+  for (const id in mobVisuals2) {
+    const key = 'mob2:' + id;
+    const v = mobVisuals2[id];
+    if (v.hasLoot && wildsScene) showLootIcon(key, wildsScene, v.x, LOOT_ICON_HEIGHT, v.y, 'mob2', id);
+    else hideLootIcon(key);
+  }
+  for (const id in dungeonMobVisuals) {
+    const key = 'dungeon:' + id;
+    const v = dungeonMobVisuals[id];
+    if (v.hasLoot && dungeonScene && me && v.room === me.room) showLootIcon(key, dungeonScene, v.x, LOOT_ICON_HEIGHT, v.y, 'dungeon', id);
+    else hideLootIcon(key);
+  }
+  for (const id in players) {
+    const key = 'player:' + id;
+    if (id === myId) { hideLootIcon(key); continue; }
+    const p = players[id];
+    if (p.hasLoot && activeScene && contextMatches(p.deathRoom)) {
+      const rp = getRenderPos({ x: p.deathX, y: p.deathY, room: p.deathRoom });
+      showLootIcon(key, activeScene, rp.x, LOOT_ICON_HEIGHT, rp.z, 'player', id);
+    } else {
+      hideLootIcon(key);
+    }
   }
 }
 
@@ -10887,6 +10989,7 @@ function render() {
   renderer.render(activeScene, activeCamera);
   syncLabels();
   updateNameLabelHover();
+  updateLootIcons();
 }
 
 function loop(now) {
