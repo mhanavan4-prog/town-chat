@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+accounts.json
+bankAccounts.json
+listings.json
+inventories.json
+hardDrives.json
+playerProgress.json
+.env

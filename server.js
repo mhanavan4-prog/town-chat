@@ -1002,6 +1002,102 @@ function stealRandomCarriedItem(victim) {
   return { itemId: pick.itemId, qty: pick.qty };
 }
 
+// Shared damage application — the universal melee Strike and Fireball (the
+// one damage-dealing spell) both hit the exact same set of targets (players,
+// dungeon mobs, or the outside/wilds/ember_wastes animal+mob pools) and need
+// identical death/respawn/loot/XP handling, so it lives here once instead of
+// twice. Callers differ only in their damage roll and whether they gate on
+// range (Strike does; Fireball, being a ranged spell like every other spell,
+// passes no maxRange). Returns { ok: false } for a missing/dead/out-of-room/
+// out-of-range target, otherwise { ok: true, dead, name?, xp?, lootHint? } —
+// callers build their own message text from that (Strike says "Killed"/"Hit",
+// Fireball says "incinerates"/"hits", etc).
+function applyDamage(player, targetType, targetId, dmg, maxRange) {
+  const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
+
+  if (targetType === 'player') {
+    const t = players.get(targetId);
+    if (!t || t.id === player.id || t.room !== player.room || t.isDead || outOfRange(t)) return { ok: false };
+    t.health = Math.max(0, t.health - dmg);
+    if (t.health <= 0) {
+      t.health = 0;
+      t.isDead = true;
+      // PvP loot: one random carried (not equipped) item stack changes
+      // hands, the same "self-directed carried items only" scope Sleight
+      // of Hand already uses — real stakes, but never touches equipped
+      // gear or the Hard Drive vault. The body stays put at the death
+      // spot (deathX/Y/Room) for the killer to claim even after the
+      // victim respawns and wanders off as a ghost.
+      const stolen = stealRandomCarriedItem(t);
+      t.pendingLoot = stolen ? [{ kind: 'item', itemId: stolen.itemId, qty: stolen.qty }] : null;
+      t.lootKillerId = stolen ? player.id : null;
+      t.deathX = t.x; t.deathY = t.y; t.deathRoom = t.room;
+      send(t.ws, { type: 'you_died', byName: player.name });
+      return { ok: true, dead: true, name: t.name, lootHint: stolen ? '  Loot is on the body — go claim it!' : '' };
+    }
+    send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
+    return { ok: true, dead: false, name: t.name };
+  }
+
+  if (targetType === 'dungeon') {
+    const t = dungeonMobs.find(m => m.id === targetId);
+    if (!t || t.dead || t.room !== player.room || outOfRange(t)) return { ok: false };
+    t.health = Math.max(0, t.health - dmg);
+    const preset = DUNGEON_MOB_TYPES[t.mobType];
+    if (t.health <= 0) {
+      t.dead = true;
+      t.respawnAt = Date.now() + DUNGEON_RESPAWN_MS;
+      grantXP(player, preset.xp);
+      advanceQuestProgress(player, 'kill_mob', null);
+      t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    return { ok: true, dead: false, name: preset.name };
+  }
+
+  // Each pool only exists in (and is only reachable from) its own map.
+  const POOLS = {
+    animal: { list: animals, room: 'outside', respawnMs: ANIMAL_RESPAWN_MS },
+    mob: { list: mobs, room: 'outside', respawnMs: MOB_RESPAWN_MS },
+    animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
+    mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS },
+    ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS }
+  };
+  const poolInfo = POOLS[targetType];
+  if (!poolInfo || player.room !== poolInfo.room) return { ok: false };
+  const t = poolInfo.list.find(x => x.id === targetId);
+  if (!t || t.dead || outOfRange(t)) return { ok: false };
+  t.health = Math.max(0, t.health - dmg);
+  if (t.health <= 0) {
+    t.dead = true;
+    t.respawnAt = Date.now() + poolInfo.respawnMs;
+    if (targetType === 'mob2') {
+      grantXP(player, 15);
+      advanceQuestProgress(player, 'kill_mob', null);
+      const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
+      t.pendingLoot = rollPendingLoot(lootTable);
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, xp: 15, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    if (targetType === 'mob') {
+      t.pendingLoot = rollPendingLoot(LOOT_TABLES.town_mob);
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    if (targetType === 'ember_mob') {
+      const preset = EMBER_MOB_TYPES[t.mobType];
+      grantXP(player, preset.xp);
+      advanceQuestProgress(player, 'kill_mob', null);
+      t.pendingLoot = rollPendingLoot(preset.lootTable);
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    return { ok: true, dead: true };
+  }
+  return { ok: true, dead: false };
+}
+
 // ---------------------------------------------------------------------------
 // XP / leveling / skill-point system
 // Persisted per account key the same way inventories/bank accounts are;
@@ -2509,9 +2605,12 @@ const SPELL_CATALOG = {
     name: 'Stumble Hex', icon: '🦶', kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 20000,
     description: "Hexes the target's feet — halves their walking speed."
   },
-  featherfall: {
-    name: 'Featherfall Curse', icon: '🪶', kind: 'targeted', effect: 'status', statusType: 'feather', durationMs: 20000,
-    description: 'Fills the target with helium dread — they bounce absurdly high when they jump.'
+  // The one Witch spell that actually drains health, unlike every other
+  // entry here (see the 'damage' branch in cast_spell below) — a ranged
+  // counterpart to the universal melee Strike, same death/loot/respawn flow.
+  fireball: {
+    name: 'Fireball', icon: '🔥', kind: 'targeted', effect: 'damage', dmgMin: 18, dmgMax: 30,
+    description: 'Hurls a roaring ball of witchfire at the target for real damage.'
   },
   shrinking_curse: {
     name: 'Shrinking Curse', icon: '🔻', kind: 'targeted', effect: 'status', statusType: 'shrink', durationMs: 20000,
@@ -3658,8 +3757,15 @@ wss.on('connection', (ws) => {
         return;
       }
 
+      // Fireball (the one 'damage' spell) can hit animals/mobs too, same
+      // targets as the universal Strike — every other targeted spell stays
+      // player-only, so this only resolves a player here when the cast
+      // isn't a damage spell aimed at a non-player targetType; the damage
+      // branch below resolves mob targets itself via applyDamage().
+      const targetType = msg.targetType && msg.targetType !== 'player' ? String(msg.targetType) : 'player';
+      const targetsMob = spell.effect === 'damage' && targetType !== 'player';
       let target = null;
-      if (spell.kind === 'targeted') {
+      if (spell.kind === 'targeted' && !targetsMob) {
         target = players.get(String(msg.targetId || ''));
         if (!target || target.id === player.id) {
           send(ws, { type: 'spell_error', message: 'Pick a target first.' });
@@ -3693,6 +3799,28 @@ wss.on('connection', (ws) => {
         pendingSpellConsents.set(requestId, { casterId: player.id, casterName: player.name, targetId: target.id, expiresAt: now + 30000 });
         send(target.ws, { type: 'spell_consent_request', requestId, casterName: player.name, spellName: spell.name });
         send(ws, { type: 'spell_result', spellId, message: `${spell.icon} Waiting to see if ${target.name} allows it…` });
+        return;
+      }
+
+      if (spell.effect === 'damage') {
+        const targetId = targetsMob ? String(msg.targetId || '') : target.id;
+        const dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
+        const result = applyDamage(player, targetType, targetId, dmg);
+        if (!result.ok) {
+          send(ws, { type: 'spell_error', message: 'Pick a target first.' });
+          return;
+        }
+        // Broadcast first so the room sees the fireball actually travel and
+        // land before the caster's toast / target's damage message arrive.
+        broadcastRoom(player.room, { type: 'spell_fx', spellId, casterId: player.id, targetId, targetType });
+        const label = result.name ? ` ${result.name}` : '';
+        if (result.dead) {
+          const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
+          const defeatedHint = targetType === 'player' ? ' You defeated them!' : '';
+          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} incinerates${label} for ${dmg}!${xpHint}${defeatedHint}${result.lootHint || ''}` });
+        } else {
+          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} hits${label} for ${dmg}!` });
+        }
         return;
       }
       return;
@@ -3761,101 +3889,20 @@ wss.on('connection', (ws) => {
       const targetId = String(msg.targetId || '');
       const dmg = STRIKE_MIN_DMG + Math.floor(Math.random() * (STRIKE_MAX_DMG - STRIKE_MIN_DMG + 1));
 
-      if (targetType === 'player') {
-        const t = players.get(targetId);
-        if (!t || t.id === player.id || t.room !== player.room || t.isDead) return;
-        if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
-        player.lastStrikeAt = now;
-        t.health = Math.max(0, t.health - dmg);
-        if (t.health <= 0) {
-          t.health = 0;
-          t.isDead = true;
-          // PvP loot: one random carried (not equipped) item stack changes
-          // hands, the same "self-directed carried items only" scope Sleight
-          // of Hand already uses — real stakes, but never touches equipped
-          // gear or the Hard Drive vault. The body stays put at the death
-          // spot (deathX/Y/Room) for the killer to claim even after the
-          // victim respawns and wanders off as a ghost.
-          const stolen = stealRandomCarriedItem(t);
-          t.pendingLoot = stolen ? [{ kind: 'item', itemId: stolen.itemId, qty: stolen.qty }] : null;
-          t.lootKillerId = stolen ? player.id : null;
-          t.deathX = t.x; t.deathY = t.y; t.deathRoom = t.room;
-          send(t.ws, { type: 'you_died', byName: player.name });
-          const lootHint = stolen ? '  Loot is on the body — go claim it!' : '';
-          send(ws, { type: 'attack_result', message: `⚔️ You defeated ${t.name}!${lootHint}` });
-        } else {
-          send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
-        }
-        return;
-      }
-
-      if (targetType === 'dungeon') {
-        const t = dungeonMobs.find(m => m.id === targetId);
-        if (!t || t.dead || t.room !== player.room) return;
-        if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
-        player.lastStrikeAt = now;
-        t.health = Math.max(0, t.health - dmg);
-        const preset = DUNGEON_MOB_TYPES[t.mobType];
-        if (t.health <= 0) {
-          t.dead = true;
-          t.respawnAt = now + DUNGEON_RESPAWN_MS;
-          grantXP(player, preset.xp);
-          advanceQuestProgress(player, 'kill_mob', null);
-          t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
-          t.lootKillerId = t.pendingLoot.length ? player.id : null;
-          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootHint}` });
-        } else {
-          send(ws, { type: 'attack_result', message: `⚔️ Hit ${preset.name} for ${dmg}!` });
-        }
-        return;
-      }
-
-      // Each pool only exists in (and is only reachable from) its own map.
-      const POOLS = {
-        animal: { list: animals, room: 'outside', respawnMs: ANIMAL_RESPAWN_MS },
-        mob: { list: mobs, room: 'outside', respawnMs: MOB_RESPAWN_MS },
-        animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
-        mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS },
-        ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS }
-      };
-      const poolInfo = POOLS[targetType];
-      if (!poolInfo || player.room !== poolInfo.room) return;
-      const t = poolInfo.list.find(x => x.id === targetId);
-      if (!t || t.dead) return;
-      if (Math.hypot(t.x - player.x, t.y - player.y) > STRIKE_RANGE) return;
+      const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
+      if (!result.ok) return;
       player.lastStrikeAt = now;
-      t.health = Math.max(0, t.health - dmg);
-      if (t.health <= 0) {
-        t.dead = true;
-        t.respawnAt = now + poolInfo.respawnMs;
-        if (targetType === 'mob2') {
-          grantXP(player, 15);
-          advanceQuestProgress(player, 'kill_mob', null);
-          const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
-          t.pendingLoot = rollPendingLoot(lootTable);
-          t.lootKillerId = t.pendingLoot.length ? player.id : null;
-          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}! (+15 XP)${lootHint}` });
-        } else if (targetType === 'mob') {
-          t.pendingLoot = rollPendingLoot(LOOT_TABLES.town_mob);
-          t.lootKillerId = t.pendingLoot.length ? player.id : null;
-          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!${lootHint}` });
-        } else if (targetType === 'ember_mob') {
-          const preset = EMBER_MOB_TYPES[t.mobType];
-          grantXP(player, preset.xp);
-          advanceQuestProgress(player, 'kill_mob', null);
-          t.pendingLoot = rollPendingLoot(preset.lootTable);
-          t.lootKillerId = t.pendingLoot.length ? player.id : null;
-          const lootHint = t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '';
-          send(ws, { type: 'attack_result', message: `⚔️ Killed ${preset.name} for ${dmg}! (+${preset.xp} XP)${lootHint}` });
-        } else {
-          send(ws, { type: 'attack_result', message: `⚔️ Killed for ${dmg}!` });
-        }
-      } else {
-        send(ws, { type: 'attack_result', message: `⚔️ Hit for ${dmg}!` });
+
+      if (targetType === 'player') {
+        // Non-lethal PvP hits are silent on the striker's end (the target
+        // gets the 'struck' message above) — only a kill gets a toast here.
+        if (result.dead) send(ws, { type: 'attack_result', message: `⚔️ You defeated ${result.name}!${result.lootHint || ''}` });
+        return;
       }
+      const label = result.name ? ` ${result.name}` : '';
+      const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
+      const verb = result.dead ? 'Killed' : 'Hit';
+      send(ws, { type: 'attack_result', message: `⚔️ ${verb}${label} for ${dmg}!${xpHint}${result.lootHint || ''}` });
       return;
     }
 

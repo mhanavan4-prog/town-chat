@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "town-chat",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3000,
+      "cwd": "/Users/michaelhanavan/Library/Application Support/Claude/local-agent-mode-sessions/a6e0f359-a7d8-4f8d-be1d-da9b3c8df97e/343a1908-c257-4ea5-9ea5-fa608dacdb66/local_aac64db8-0e50-437c-b016-d3ff13d5af5e/outputs/town-chat"
+    }
+  ]
+}

@@ -232,8 +232,8 @@ const SPELL_CATALOG = {
     description: 'Curses the target to croak mid-sentence in chat for a while.' },
   stumble_hex:     { name: 'Stumble Hex',        icon: '🦶', kind: 'targeted', effect: 'status',
     description: "Hexes the target's feet — halves their walking speed." },
-  featherfall:     { name: 'Featherfall Curse',  icon: '🪶', kind: 'targeted', effect: 'status',
-    description: 'Fills the target with helium dread — they bounce absurdly high when they jump.' },
+  fireball:        { name: 'Fireball',           icon: '🔥', kind: 'targeted', effect: 'damage',
+    description: 'Hurls a roaring ball of witchfire at the target for real damage.' },
   shrinking_curse: { name: 'Shrinking Curse',    icon: '🔻', kind: 'targeted', effect: 'status',
     description: 'Shrinks the target down to half size.' },
   giants_folly:    { name: "Giant's Folly",      icon: '🔺', kind: 'targeted', effect: 'status',
@@ -690,6 +690,11 @@ function onWsMessage(ev) {
     if (spellbookOpen) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
+    return;
+  }
+
+  if (msg.type === 'spell_fx') {
+    if (msg.spellId === 'fireball') spawnFireballFx(msg.casterId, msg.targetId, msg.targetType);
     return;
   }
 
@@ -3002,20 +3007,22 @@ const SWORD_CURSOR = buildEmojiCursor('⚔️');
 // ---------------------------------------------------------------------------
 // Armed targeting — picking a targeted attack/spell from the Attacks panel
 // or Spellbook closes that panel and "arms" it instead of showing the old
-// target dropdown; the next valid click/tap on another player in the world
-// fires it at them, the same gesture as the universal Strike below. Escape
-// (see the keydown chain) or clicking something that isn't a player cancels
-// it. Only ever targets players — animals/mobs/decor aren't valid targets
-// for curse-attacks/spells, so a click on one of those while armed is just
-// ignored rather than falling through to a Strike/harvest.
+// target dropdown; the next valid click/tap fires it at whatever's under
+// the cursor, the same gesture as the universal Strike below. Escape (see
+// the keydown chain) or clicking something invalid cancels it. Most
+// curse-attacks/spells only ever target players; Fireball (the one
+// damage-dealing spell) can also hit animals/mobs, same targets as Strike —
+// see canTargetMobs below, driven off the same 'damage' effect flag the
+// server checks.
 // ---------------------------------------------------------------------------
-let armedTarget = null; // { msgType, idField, attackId, name } or null
+let armedTarget = null; // { msgType, idField, attackId, name, canTargetMobs, cursor } or null
 
-function armTargeting(msgType, idField, attackId, name) {
-  armedTarget = { msgType, idField, attackId, name };
+function armTargeting(msgType, idField, attackId, name, canTargetMobs, cursor) {
+  armedTarget = { msgType, idField, attackId, name, canTargetMobs: !!canTargetMobs, cursor: cursor || SWORD_CURSOR };
   const banner = document.getElementById('targetingBanner');
   if (banner) {
-    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click a player to target (Esc to cancel)`;
+    const what = canTargetMobs ? 'a player or creature' : 'a player';
+    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click ${what} to target (Esc to cancel)`;
     banner.classList.remove('hidden');
   }
 }
@@ -3028,11 +3035,15 @@ function cancelTargeting() {
 
 const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'dungeon', 'ember_mob']);
 
+function isValidArmedTarget(hit) {
+  return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
+}
+
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
   const hit = raycastHitAt(e.clientX, e.clientY);
   if (armedTarget) {
-    canvas.style.cursor = (hit && hit.kind === 'player') ? SWORD_CURSOR : 'default';
+    canvas.style.cursor = isValidArmedTarget(hit) ? armedTarget.cursor : 'default';
     return;
   }
   if (hit && ATTACKABLE_KINDS.has(hit.kind)) canvas.style.cursor = SWORD_CURSOR;
@@ -3049,6 +3060,116 @@ function triggerAttackAnim() {
   else if (weapon === 'spell_tome' || weapon === 'shadow_staff' || weapon === 'magic_scroll') type = 'cast';
   v.attackAnimStartAt = performance.now();
   v.attackAnimType = type;
+}
+
+// ---------------------------------------------------------------------------
+// Fireball VFX — a lobbed glowing orb (matching the Ember Wastes portal/
+// torch look: simple emissive spheres + a colored PointLight, no particle
+// system, same low-poly style as the rest of this game) that flies caster
+// to target on every 'spell_fx' broadcast, then bursts into a brief flash
+// on arrival. Purely cosmetic — the server has already applied the damage
+// by the time this plays; every client in the room (caster, target, and
+// bystanders alike) gets the same broadcast, so everyone sees it land.
+// ---------------------------------------------------------------------------
+const FIREBALL_FLIGHT_MS = 450;
+const FIREBALL_IMPACT_MS = 350;
+const FIREBALL_ARC_HEIGHT = 40;
+let activeFireballs = [];
+
+function sceneForRoom(room) {
+  if (room === 'outside') return outdoorScene || null;
+  if (room === 'wilds') return wildsScene || null;
+  if (room === 'witch_cave') return caveScene || null;
+  if (room === 'bank_vault') return vaultScene || null;
+  if (room === 'ember_wastes') return emberScene || null;
+  if (typeof room === 'string' && room.startsWith('dungeon_')) return dungeonScene || null;
+  if (!world || !world.buildings.find(b => b.id === room)) return null;
+  const rec = getInteriorScene(room);
+  return rec ? rec.scene : null;
+}
+
+// Mob/animal targets aren't in `players` — their visuals objects (built as
+// each pool syncs in) already track render-space x/y directly (see e.g.
+// updateDungeonMobVisuals: `v.mesh.position.set(v.x, 0, v.y)`), so no
+// getRenderPos() conversion is needed for these, unlike a player target.
+function mobRenderPos(targetType, targetId) {
+  const visualsMap = {
+    animal: animalVisuals, mob: mobVisuals,
+    animal2: animalVisuals2, mob2: mobVisuals2,
+    dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals
+  }[targetType];
+  const v = visualsMap && visualsMap[targetId];
+  return v ? { x: v.x, z: v.y } : null;
+}
+
+function spawnFireballFx(casterId, targetId, targetType) {
+  const caster = players[casterId];
+  if (!caster) return;
+  const scene = sceneForRoom(caster.room);
+  if (!scene) return;
+  const from = getRenderPos(caster);
+  let to;
+  if (!targetType || targetType === 'player') {
+    const target = players[targetId];
+    if (!target) return;
+    to = getRenderPos(target);
+  } else {
+    to = mobRenderPos(targetType, targetId);
+    if (!to) return;
+  }
+
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(9, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffdd66 })
+  );
+  g.add(core);
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(15, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.55 })
+  );
+  g.add(glow);
+  const light = new THREE.PointLight(0xff6a00, 2.4, 260);
+  g.add(light);
+  g.position.set(from.x, CHAR.shoulderY, from.z);
+  scene.add(g);
+
+  activeFireballs.push({
+    group: g, core, glow, light, scene,
+    fromX: from.x, fromZ: from.z, toX: to.x, toZ: to.z,
+    startAt: performance.now(), phase: 'flight'
+  });
+}
+
+function updateFireballs() {
+  if (!activeFireballs.length) return;
+  const now = performance.now();
+  for (let i = activeFireballs.length - 1; i >= 0; i--) {
+    const fb = activeFireballs[i];
+    if (fb.phase === 'flight') {
+      const t = Math.min(1, (now - fb.startAt) / FIREBALL_FLIGHT_MS);
+      fb.group.position.x = fb.fromX + (fb.toX - fb.fromX) * t;
+      fb.group.position.z = fb.fromZ + (fb.toZ - fb.fromZ) * t;
+      fb.group.position.y = CHAR.shoulderY + Math.sin(Math.PI * t) * FIREBALL_ARC_HEIGHT;
+      fb.group.rotation.y += 0.3;
+      fb.core.scale.setScalar(1 + Math.sin(now * 0.02) * 0.08);
+      if (t >= 1) {
+        fb.phase = 'impact';
+        fb.impactStartAt = now;
+        fb.core.visible = false;
+      }
+    } else {
+      const t = (now - fb.impactStartAt) / FIREBALL_IMPACT_MS;
+      if (t >= 1) {
+        fb.scene.remove(fb.group);
+        activeFireballs.splice(i, 1);
+        continue;
+      }
+      fb.glow.scale.setScalar(1 + t * 3.2);
+      fb.glow.material.opacity = 0.55 * (1 - t);
+      fb.light.intensity = 2.4 * (1 - t);
+    }
+  }
 }
 
 let playerContextMenuId = null;
@@ -3076,8 +3197,11 @@ function handleCanvasClick(clientX, clientY) {
   if (playerContextMenuId !== null) { hidePlayerContextMenu(); return; }
   const hit = raycastHitAt(clientX, clientY);
   if (armedTarget) {
-    if (hit && hit.kind === 'player') {
-      ws.send(JSON.stringify({ type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId }));
+    if (isValidArmedTarget(hit)) {
+      const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId };
+      if (hit.kind !== 'player') payload.targetType = hit.kind;
+      ws.send(JSON.stringify(payload));
+      triggerAttackAnim();
       cancelTargeting();
     }
     return;
@@ -10228,7 +10352,8 @@ function selectSpell(id) {
   document.getElementById('spellbookErr').textContent = '';
   if (spell.kind === 'targeted') {
     closeSpellbook();
-    armTargeting('cast_spell', 'spellId', id, spell.name);
+    const isDamage = spell.effect === 'damage';
+    armTargeting('cast_spell', 'spellId', id, spell.name, isDamage, isDamage ? buildEmojiCursor(spell.icon) : SWORD_CURSOR);
     return;
   }
   document.getElementById('spellTargetPanel').classList.remove('hidden');
@@ -10363,6 +10488,32 @@ function nearestOtherPlayer() {
   return best;
 }
 
+// Same "player or creature" reach as click-targeting for damage spells (see
+// isValidArmedTarget) — the hotbar's auto-target needs the same widened
+// search Fireball gets when you click, or pressing its key would silently
+// find nothing whenever no other player happens to be nearby. Every other
+// targeted spell/attack still calls nearestOtherPlayer() above unchanged.
+function nearestAttackable() {
+  const nearestPlayer = nearestOtherPlayer();
+  let best = nearestPlayer ? { id: nearestPlayer.id, targetType: 'player' } : null;
+  let bestDist = nearestPlayer ? Math.hypot(nearestPlayer.x - me.x, nearestPlayer.y - me.y) : Infinity;
+
+  const mobPools = me.room === 'outside' ? [['animal', animalVisuals], ['mob', mobVisuals]]
+    : me.room === 'wilds' ? [['animal2', animalVisuals2], ['mob2', mobVisuals2]]
+    : me.room === 'ember_wastes' ? [['ember_mob', emberMobVisuals]]
+    : (typeof me.room === 'string' && me.room.startsWith('dungeon_')) ? [['dungeon', dungeonMobVisuals]]
+    : [];
+  for (const [targetType, visuals] of mobPools) {
+    for (const id in visuals) {
+      const v = visuals[id];
+      if (v.dead || (targetType === 'dungeon' && v.room !== me.room)) continue;
+      const d = Math.hypot(v.x - me.x, v.y - me.y);
+      if (d < bestDist) { bestDist = d; best = { id, targetType }; }
+    }
+  }
+  return best;
+}
+
 function nearestBuilding() {
   if (!me || !world) return null;
   let best = null, bestDist = Infinity;
@@ -10381,15 +10532,23 @@ function castFromHotbar(id) {
   cancelTargeting(); // a hotbar press means "do this nearest-target cast now", not "wait for my next click"
   const payload = { type: myActionMsgType, [myActionIdField]: id };
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    const target = nearestOtherPlayer();
-    if (!target) { setUnlockToast('No one else is here to target.'); return; }
-    payload.targetId = target.id;
+    if (atk.effect === 'damage') {
+      const target = nearestAttackable();
+      if (!target) { setUnlockToast('No one else is here to target.'); return; }
+      payload.targetId = target.id;
+      if (target.targetType !== 'player') payload.targetType = target.targetType;
+    } else {
+      const target = nearestOtherPlayer();
+      if (!target) { setUnlockToast('No one else is here to target.'); return; }
+      payload.targetId = target.id;
+    }
   } else if (atk.kind === 'building') {
     const building = nearestBuilding();
     if (!building) { setUnlockToast('No building nearby.'); return; }
     payload.buildingId = building.id;
   }
   ws.send(JSON.stringify(payload));
+  triggerAttackAnim();
 }
 
 // ---------------------------------------------------------------------------
@@ -11612,6 +11771,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateStatusVisuals(dt);
+  updateFireballs();
   updateWerewolfNpc(dt);
   updateCamera(dt);
   updateInteractHint();

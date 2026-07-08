@@ -231,7 +231,6 @@ whatever they had:
 
 - 🐸 **Toad's Tongue** — the target starts croaking mid-sentence in chat.
 - 🦶 **Stumble Hex** — halves the target's walking speed.
-- 🪶 **Featherfall Curse** — the target bounces absurdly high off a jump.
 - 🔻 **Shrinking Curse** / 🔺 **Giant's Folly** — shrinks or grows the target.
 - 🎃 **Pumpkin Head** — swaps the target's head for a jack-o'-lantern.
 - 🦇 **Bat Swarm** — circles the target with bats.
@@ -247,6 +246,15 @@ Tongue Hex) rewrite the message text once, at the moment it's sent — a
 message already sent stays however it was cursed even after the curse
 itself wears off, rather than every line in the chat log un-cursing itself
 retroactively the instant the timer runs out.
+
+🔥 **Fireball** is the one spell that isn't a curse at all — it's the
+Witch's only damage-dealing spell, a ranged counterpart to the universal
+melee Strike. Picking it arms a fire-cursor targeting mode (Esc to cancel)
+that, unlike every other spell, accepts animals and mobs as well as
+players — same targets Strike can hit. Cast it and a glowing fireball
+actually flies from the Witch to the target (visible to everyone in the
+room, not just the two of you) and bursts on impact for real damage, same
+death/respawn/loot/XP flow as getting struck down in melee.
 
 🔮 **Glimpse the Future** doesn't curse anyone — every player's position is
 already visible to everyone via the normal player-list sync, so this just
