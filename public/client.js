@@ -573,6 +573,11 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'hard_drive_awarded') {
+    setUnlockToast(msg.message);
+    return;
+  }
+
   if (msg.type === 'struck') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
@@ -758,6 +763,16 @@ function onWsMessage(ev) {
   if (msg.type === 'note_received') {
     inbox.push({ ...msg.note, read: false });
     setUnlockToast(`📜 New note from ${msg.note.fromName}`);
+    renderInventory();
+    return;
+  }
+
+  if (msg.type === 'inbox_state') {
+    // Sent once right after 'init' — restores notes an account holder had
+    // sitting in their inbox from a previous session. Already-seen, so
+    // marked read (no "NEW" badge just for reconnecting).
+    inbox.length = 0;
+    for (const n of (msg.notes || [])) inbox.push({ ...n, read: true });
     renderInventory();
     return;
   }
@@ -11333,6 +11348,8 @@ window.addEventListener('keydown', (e) => {
   if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
   if (inventoryOpen && e.key === 'Escape' && !e.repeat) { toggleInventory(); return; }
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
+  // I = open/close inventory, same toggle the HUD button already calls
+  if ((e.key === 'i' || e.key === 'I') && !e.repeat) { toggleInventory(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
   if (myActionCatalog && !e.repeat) {

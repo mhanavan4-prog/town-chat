@@ -949,6 +949,20 @@ function saveHardDrives() {
 const hardDrives = loadHardDrives(); // usernameLower -> { passwordSalt, passwordHash, notes: [] }
 const HARDDRIVE_NOTE_CAPACITY = 24;
 
+// A logged-in player's regular inbox (not the Hard Drive vault above) now
+// persists the same way — usernameLower -> [{id, fromId, fromName, text,
+// image?, audio?}], loaded once at boot and saved after every mutation.
+// Guests still get a plain in-memory array that dies with the connection,
+// same as their inventory/vault.
+const INBOX_FILE = path.join(__dirname, 'inboxes.json');
+function loadInboxes() {
+  try { return JSON.parse(fs.readFileSync(INBOX_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveInboxes() {
+  fs.writeFileSync(INBOX_FILE, JSON.stringify(inboxes, null, 2));
+}
+const inboxes = loadInboxes();
+
 function getHardDrive(player) {
   if (player.accountKey) {
     if (!hardDrives[player.accountKey]) {
@@ -1034,6 +1048,7 @@ function grantXP(player, amount) {
     amount *= 2;
   }
   const prog = getProgress(player);
+  const wasLevelOne = prog.level === 1; // level only ever increases, so this alone means "never leveled up before"
   prog.xp += amount;
   let leveled = false;
   while (prog.level < MAX_LEVEL && prog.xp >= XP_THRESHOLDS[prog.level]) {
@@ -1046,6 +1061,18 @@ function grantXP(player, amount) {
       skillPoints: prog.skillPoints,
       message: `⬆️ Level up! You are now Level ${prog.level}. Skill points: ${prog.skillPoints}.`
     });
+  }
+  // First-ever level-up also awards a Hard Drive — a one-time bonus (never
+  // granted again, even if a big XP dump jumps several levels at once
+  // here), so every player has a guaranteed path to the note-vault
+  // feature instead of relying purely on finding or buying one.
+  if (wasLevelOne && leveled) {
+    const inv = getInventory(player);
+    if (addItemToAccount(inv, 'hard_drive', 1)) {
+      if (player.accountKey) saveInventories();
+      send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(player.ws, { type: 'hard_drive_awarded', message: '💽 First level up! A Hard Drive materializes in your pack — check your inventory.' });
+    }
   }
   if (player.accountKey && (leveled || amount >= 5)) saveProgress();
   send(player.ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: amount });
@@ -1381,6 +1408,7 @@ function resolveListing(listing) {
       };
       if (winner) {
         winner.inbox.push(note);
+        if (winner.accountKey) saveInboxes();
         send(winner.ws, { type: 'note_received', note });
       }
     }
@@ -1419,6 +1447,7 @@ function resolveListing(listing) {
       };
       if (winner) {
         winner.inbox.push(note);
+        if (winner.accountKey) saveInboxes();
         send(winner.ws, { type: 'note_received', note });
       }
     }
@@ -3055,7 +3084,13 @@ wss.on('connection', (ws) => {
         x: WORLD.spawn.x,
         y: WORLD.spawn.y,
         room: 'outside',
-        inbox: [], // undestroyed notes currently held, mirrors the client's inbox array — for Rapid Swipe to steal from
+        // Undestroyed notes currently held, mirrors the client's inbox array
+        // — for Rapid Swipe to steal from. For a logged-in account this is
+        // the SAME array reference as inboxes[accountKey] (created if this
+        // is their first connect), so every push/splice below already
+        // mutates the persisted store directly; saveInboxes() just flushes
+        // it to disk. Guests get a fresh array that's gone on disconnect.
+        inbox: accountKey ? (inboxes[accountKey] || (inboxes[accountKey] = [])) : [],
         health: 100, // 0-100, shown as the heart HUD's percentage
         xp: 0, level: 1, skillPoints: 0, // overwritten by syncProgressToPlayer() below
         activeQuest: null // { questId, progress } or null
@@ -3075,6 +3110,9 @@ wss.on('connection', (ws) => {
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer)
       });
+      // Restore whatever notes were already sitting in their inbox from a
+      // prior session (account holders only — guests start empty above).
+      send(ws, { type: 'inbox_state', notes: player.inbox });
       broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
       return;
     }
@@ -3113,14 +3151,16 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'send_note') {
-      // Private, point-to-point note — not durably stored (no DB, nothing
-      // survives a restart), but kept in target.inbox in memory for as long
-      // as it's undestroyed so Rapid Swipe has something to actually steal.
-      // Delivered only if the recipient is currently connected; not queued
-      // for later (no accounts means no durable identity to deliver to once
-      // they leave). image is optional — only the Open 3rd Eye spell result
-      // currently uses it (see spell_photo below), the normal "write a note"
-      // UI is text-only.
+      // Private, point-to-point note — kept in target.inbox in memory for
+      // as long as it's undestroyed so Rapid Swipe has something to
+      // actually steal. For a logged-in recipient it's also persisted to
+      // inboxes.json (see saveInboxes() below) so it survives a
+      // disconnect/reconnect; a guest recipient's copy still dies with the
+      // connection like the rest of their guest data. Delivered only if the
+      // recipient is currently connected; not queued for later (a guest has
+      // no durable identity to deliver to once they leave). image is
+      // optional — only the Open 3rd Eye spell result currently uses it
+      // (see spell_photo below), the normal "write a note" UI is text-only.
       const toId = String(msg.to || '');
       const text = sanitizeText(msg.text);
       const image = sanitizeImage(msg.image);
@@ -3132,6 +3172,7 @@ wss.on('connection', (ws) => {
       const noteId = makeId();
       const note = { id: noteId, fromId: player.id, fromName: player.name, text, image };
       target.inbox.push(note);
+      if (target.accountKey) saveInboxes();
       send(target.ws, { type: 'note_received', note });
       send(ws, { type: 'note_sent', toName: target.name });
       return;
@@ -3145,6 +3186,7 @@ wss.on('connection', (ws) => {
       const noteId = String(msg.id || '');
       const idx = player.inbox.findIndex(n => n.id === noteId);
       if (idx !== -1) player.inbox.splice(idx, 1);
+      if (player.accountKey) saveInboxes();
       const fromId = String(msg.fromId || '');
       const sender = players.get(fromId);
       if (sender) send(sender.ws, { type: 'note_destroyed', byName: player.name });
@@ -3402,6 +3444,7 @@ wss.on('connection', (ws) => {
       const [note] = player.inbox.splice(idx, 1);
       hd.notes.push(note);
       persistHardDrive(player);
+      if (player.accountKey) saveInboxes();
       send(ws, { type: 'note_stolen', id: note.id }); // reuses the client's "remove from local inbox" handler
       send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
       return;
@@ -3424,6 +3467,7 @@ wss.on('connection', (ws) => {
       const [note] = hd.notes.splice(idx, 1);
       player.inbox.push(note);
       persistHardDrive(player);
+      if (player.accountKey) saveInboxes();
       send(ws, { type: 'note_received', note });
       send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
       return;
@@ -3693,6 +3737,7 @@ wss.on('connection', (ws) => {
         text: 'A vision arrives, captured the moment the eye opened…', image
       };
       caster.inbox.push(visionNote);
+      if (caster.accountKey) saveInboxes();
       send(caster.ws, { type: 'note_received', note: visionNote });
       return;
     }
@@ -4112,6 +4157,7 @@ wss.on('connection', (ws) => {
           return;
         }
         const stolen = t.inbox.shift();
+        if (t.accountKey) saveInboxes();
         send(t.ws, { type: 'note_stolen', id: stolen.id });
         send(t.ws, {
           type: 'attack_hit', attackName: attack.name, casterName: player.name,
@@ -4119,6 +4165,7 @@ wss.on('connection', (ws) => {
         });
         const deliveredNote = { id: makeId(), fromId: stolen.fromId, fromName: stolen.fromName, text: stolen.text, image: stolen.image };
         player.inbox.push(deliveredNote);
+        if (player.accountKey) saveInboxes();
         send(ws, { type: 'note_received', note: deliveredNote });
         send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — swiped a note from ${t.name}.` });
         return;
