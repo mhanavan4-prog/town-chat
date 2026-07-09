@@ -12262,14 +12262,18 @@ function openPassModal() {
   if (status) {
     status.textContent = hasTownPass()
       ? `🎟️ Your pass is ACTIVE — ${passTimeLeftLabel()} remaining.`
-      : (paymentsEnabled ? '' : 'Pass sales aren’t set up on this server yet.');
+      : (paymentsEnabled ? '' : 'Pass sales aren’t set up on this server yet. (Server operator: set STRIPE_SECRET_KEY in the host’s environment — a local .env never deploys. See README.)');
   }
   const buyBtn = document.getElementById('roomPassBuyBtn');
   if (buyBtn) {
     buyBtn.disabled = hasTownPass() || !paymentsEnabled;
+    // The label must tell the truth about WHY it's inert — a disabled
+    // button that still says "Buy" reads as a broken button.
     buyBtn.textContent = hasTownPass()
       ? '✓ Pass active'
-      : `Buy Town Pass — ${passPriceLabel()} / ${townPassHours}h`;
+      : (paymentsEnabled
+          ? `Buy Town Pass — ${passPriceLabel()} / ${townPassHours}h`
+          : '🚫 Passes not on sale here');
   }
   modal.classList.remove('hidden');
   passModalOpen = true;

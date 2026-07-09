@@ -717,6 +717,13 @@ This is wired to **real Stripe Checkout**, not a placeholder:
    ```
    On Render (or Railway/Fly.io), add `STRIPE_SECRET_KEY` under that
    service's **Environment** settings instead of a local `.env` file.
+
+   > ⚠️ **The #1 gotcha:** a `.env` file only works on the machine it sits
+   > on — it's gitignored and **never deploys with a push**. If passes work
+   > on your own computer but the hosted game's statue shows a dimmed
+   > "🚫 Passes not on sale here" button, the host is missing
+   > `STRIPE_SECRET_KEY` in its Environment settings. Add it there and
+   > redeploy/restart the service.
 4. If `STRIPE_SECRET_KEY` is left unset, the two ticketed buildings simply
    stay locked (the game says pass sales aren't set up) — the rest of the
    town works exactly as before.

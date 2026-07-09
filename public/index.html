@@ -46,6 +46,14 @@
     margin-top:4px; transition:transform .12s ease;
   }
   .btn:hover { transform:translateY(-1px); }
+  /* Disabled buttons must LOOK disabled — an unstyled :disabled button is
+     visually identical to a live one, and taps on it fire no events at
+     all, which reads as "the game is broken" (see the Town Pass statue on
+     a server with payments off). */
+  .btn:disabled, .btn[disabled] {
+    opacity:0.45; filter:saturate(0.35); cursor:not-allowed;
+  }
+  .btn:disabled:hover, .btn[disabled]:hover { transform:none; }
   .err { color:#ff9b9b; font-size:12.5px; margin-top:8px; min-height:14px; }
 
   #joinModeTabs { display:flex; gap:8px; margin-bottom:14px; }
