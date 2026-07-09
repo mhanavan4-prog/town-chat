@@ -8,8 +8,9 @@ Walk back out through the door and you're back in the open-air town square.
 
 - Move: W/S walk forward/backward in the direction you're facing, A/D (or
   left/right arrows) turn in place, Q/E strafe left/right, Space to jump —
-  desktop. On-screen joystick on mobile/touch. F interacts (sit, Town Pass
-  kiosk) while indoors.
+  desktop. F interacts (sit, portals, NPCs, the Town Pass kiosk). On
+  phones/tablets the whole control scheme is different and built for
+  thumbs — see **Mobile: rebuilt for thumbs** below.
 - Click and drag anywhere on the game view to look around, left/right and
   up/down — this only orbits the camera around your character, it doesn't
   change which way you're walking. The instant you move or turn, the
@@ -485,6 +486,70 @@ unmasked player is a cartoon of their avatar, not a photo of them.
 Broadcasting a voice clip is always the owner's own trigger pull. Media
 lives in the same vault as your notes (`hardDrives.json` for accounts,
 in-memory for guests) with the same password protection if you set one.
+
+## Mobile: rebuilt for thumbs
+
+The touch layout was rebuilt from scratch around the two-thumb grip every
+modern mobile game uses (movement under one thumb, camera and actions
+under the other), fixing a pile of real problems: the old fixed joystick
+sat at the bottom-RIGHT exactly where the ability bar and the door/portal
+banner also rendered (buttons were literally underneath the movement
+ring), the top of the screen stacked five different menus, and every
+name banner in sight rendered permanently.
+
+- **Floating joystick, left half.** Touch anywhere in the lower-left and
+  the stick appears under your thumb; lift and it ghosts back to a resting
+  hint. Movement is **camera-relative** now (point the stick where you
+  want to go; your character turns and runs that way, camera easing in
+  behind) instead of the old tank controls.
+- **Camera on the right thumb.** Drag anywhere else on the screen to orbit
+  and pitch the camera — touch never had drag-to-look before, at all.
+- **Action wheel, bottom-right.** A big ⚔️ attack-nearest button in the
+  corner, 🦘 jump and 😀 emotes along the bottom, your class's first three
+  abilities arced up the side (with their cooldown sweeps), ✨/📖 opening
+  the full kit, and 📢 appearing only when a voice-clip countermeasure is
+  actually possible. The 12-slot keyboard hotbar is desktop-only now.
+- **The door/portal button can't be buried anymore.** "Tap to enter …" is
+  a large glowing pill pinned ABOVE the action wheel, clear of everything,
+  and pulses so it's never missed.
+- **One ☰ menu instead of five.** The top bar is just a compact vitals
+  pill (❤️ health · level · ☀️/🌕) and a menu button; Inventory, Journal,
+  abilities, Hard Drive, Town Pass, snapshots, music and Leave-building
+  live in a bottom sheet with big touch rows. Chat becomes a 💬 toggle
+  (with an unread badge) that slides up as a bottom sheet, indoors where
+  chat exists.
+- **Name banners behave.** Your own is hidden; others' appear only within
+  conversational range (fading with distance), when someone speaks (6s),
+  or when you tap a player — and NPC signs show only when you're near
+  enough for them to matter. Tap-to-reveal honors disguises, naturally.
+- Safe-area insets (notches), ≥50px touch targets throughout, and
+  `prefers-reduced-motion` is respected by every effect below.
+
+## Game feel & social play
+
+The juice pass (tuned with a phone in hand, but live on desktop too):
+
+- **Floating damage numbers** over every landed hit in the room — white
+  for hits, gold for kills, red for damage you take (server-broadcast
+  `hit_fx`, so bystanders see your fights land too).
+- **Screen shake + haptics**, small and proportional: a brief shake with
+  a tenth-of-a-degree of rotation when you're struck, a tick of vibration
+  on hits, kills, and level-ups (phones only, and never when the OS asks
+  for reduced motion).
+- **🔥 Hunt streaks** — chain creature kills within 8 seconds and a
+  growing streak counter appears; ×5 and ×10 pay bonus XP and ×10 rings
+  the town bell. Every hostile pool counts (town, Wilds, dungeons, the
+  Wastes); PvP deliberately doesn't.
+- **😀 Emote wheel** — eight quick emotes (👋 😂 ❤️ 😮 😢 😡 👍 💃) on the
+  action wheel (mobile) or the T key (desktop), floating above your head
+  for everyone in the room. Works OUTDOORS, where chat doesn't exist —
+  which is exactly where you pass people.
+
+Headless UI testing: `test/mobile-shots.cjs` boots the real client with
+`test/three-stub.js` standing in for three.js (Playwright route
+interception) and screenshots the phone layouts; the `?testdrive=1` query
+param exposes a tiny harness-only hook for teleporting around. Neither
+affects normal play.
 
 ## Run it locally
 

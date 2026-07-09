@@ -255,6 +255,53 @@ setTimeout(() => {
     dj.emit('message', JSON.stringify({ type: 'respawn' }));
     check('the mask slips on respawn', djP.disguise === null);
 
+    // ─── Emotes, hunt streaks, hit_fx (the mobile/fun batch) ────────────
+    const { s: waver, p: waverP } = join('Waver', 0);
+    const { s: watcher, p: watcherP } = join('Watcher', 1);
+    waverP.room = 'outside'; watcherP.room = 'outside';
+    waver.emit('message', JSON.stringify({ type: 'emote', emote: '👋' }));
+    const seenEmote = watcher.lastOfType('emote_fx');
+    check('an emote broadcasts to the room', seenEmote && seenEmote.emote === '👋' && seenEmote.id === waverP.id);
+    waver.emit('message', JSON.stringify({ type: 'emote', emote: '<script>' }));
+    check('only catalog emotes are accepted', watcher.allOfType('emote_fx').length === 1);
+    waver.emit('message', JSON.stringify({ type: 'emote', emote: '💃' }));
+    check('emotes are rate-limited', watcher.allOfType('emote_fx').length === 1);
+    fakeNow += 1500;
+    waver.emit('message', JSON.stringify({ type: 'emote', emote: '💃' }));
+    check('the emote limiter recovers after its window', watcher.allOfType('emote_fx').length === 2);
+
+    // Streaks: chained kills within the window build the counter; a gap
+    // resets it. Kills go through the real applyDamage path.
+    const { s: chainer, p: chainerP } = join('Chainer', 3);
+    chainerP.room = 'outside';
+    const killMob = (i) => {
+      const m = hooks.mobs[i % hooks.mobs.length];
+      m.dead = false; m.health = 1;
+      chainerP.x = m.x; chainerP.y = m.y;
+      return hooks.applyDamage(chainerP, 'mob', m.id, 10, 100);
+    };
+    killMob(3); fakeNow += 2000;
+    killMob(4); fakeNow += 2000;
+    killMob(5);
+    let streakMsg = chainer.lastOfType('streak');
+    check('chained kills build a hunt streak', streakMsg && streakMsg.count === 3);
+    fakeNow += 2000; killMob(6); fakeNow += 2000; killMob(7);
+    streakMsg = chainer.lastOfType('streak');
+    check('the fifth chained kill pays a streak bonus', streakMsg && streakMsg.count === 5 && streakMsg.bonus === 10);
+    fakeNow += hooks.STREAK_WINDOW_MS + 3000;
+    killMob(8);
+    check('a gap past the window resets the streak (no ×2 message)',
+      chainer.lastOfType('streak').count === 5);
+    fakeNow += 2000; killMob(9);
+    check('the next chained kill starts again at ×2', chainer.lastOfType('streak').count === 2);
+
+    // hit_fx: everyone in the room sees the number, dead flag and caster id.
+    const fx = watcher.allOfType('hit_fx');
+    check('hits broadcast hit_fx to the room', fx.length > 0);
+    const lastFx = fx[fx.length - 1];
+    check('hit_fx carries target, damage, death and caster',
+      lastFx.targetType === 'mob' && lastFx.dmg === 10 && lastFx.dead === true && lastFx.casterId === chainerP.id);
+
     // ─── Pacing: the campaign cannot be beaten in under ~2 hours ────────
     // Structural facts first:
     const gates = hooks.CHAPTER_LEVEL_GATES;

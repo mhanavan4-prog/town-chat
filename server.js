@@ -1098,6 +1098,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     dmg = absorbIncomingDamage(t, dmg);
     noteAttacked(t);
     t.health = Math.max(0, t.health - dmg);
+    broadcastHitFx(player.room, 'player', t.id, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
       t.health = 0;
       t.isDead = true;
@@ -1123,10 +1124,12 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     if (!t || t.dead || t.room !== player.room || outOfRange(t)) return { ok: false };
     t.health = Math.max(0, t.health - dmg);
     const preset = DUNGEON_MOB_TYPES[t.mobType];
+    broadcastHitFx(player.room, 'dungeon', targetId, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
       t.dead = true;
       t.respawnAt = Date.now() + DUNGEON_RESPAWN_MS;
       grantXP(player, preset.xp);
+      registerHuntKill(player);
       advanceQuestProgress(player, 'kill_mob', null);
       storyEvent(player, 'kill_mob', { pool: 'dungeon', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
@@ -1149,9 +1152,11 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const t = poolInfo.list.find(x => x.id === targetId);
   if (!t || t.dead || outOfRange(t)) return { ok: false };
   t.health = Math.max(0, t.health - dmg);
+  broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
   if (t.health <= 0) {
     t.dead = true;
     t.respawnAt = Date.now() + poolInfo.respawnMs;
+    if (targetType === 'mob' || targetType === 'mob2' || targetType === 'ember_mob') registerHuntKill(player);
     if (targetType === 'mob2') {
       grantXP(player, 15);
       advanceQuestProgress(player, 'kill_mob', null);
@@ -2707,6 +2712,45 @@ const mobs = MOB_SPAWNS.map((p, i) => ({
   scaredUntil: 0 // a played voice clip routs them briefly — see cm_voice
 }));
 
+// ── Hunt streaks ────────────────────────────────────────────────────────────
+// Chained creature kills (≤8s apart) build a streak: a 🔥 counter with a
+// little XP kiss at 5 and 10, and a town-wide shout at 10. Variable reward
+// on top of steady hunting — the classic combo-counter loop: each kill
+// buys 8 more seconds, so the streak itself becomes the thing you're
+// protecting. Applies to every hostile pool (town, wilds, dungeon, ember);
+// PvP deliberately excluded so nobody farms their friends for the counter.
+const EMOTE_SET = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
+const STREAK_WINDOW_MS = 8000;
+function registerHuntKill(player) {
+  const now = Date.now();
+  player.huntStreak = (player.lastHuntKillAt && now - player.lastHuntKillAt <= STREAK_WINDOW_MS)
+    ? (player.huntStreak || 1) + 1 : 1;
+  player.lastHuntKillAt = now;
+  if (player.huntStreak >= 2) {
+    let bonus = 0;
+    if (player.huntStreak === 5) bonus = 10;
+    if (player.huntStreak === 10) bonus = 25;
+    if (bonus) grantXP(player, bonus);
+    send(player.ws, {
+      type: 'streak',
+      count: player.huntStreak,
+      windowMs: STREAK_WINDOW_MS,
+      bonus,
+      message: bonus ? `🔥 Hunt streak ×${player.huntStreak} — +${bonus} bonus XP!` : `🔥 Hunt streak ×${player.huntStreak}`
+    });
+    if (player.huntStreak === 10) {
+      broadcastAll({ type: 'announce', message: `🔥 ${player.name} is on a ×10 hunt streak!` });
+    }
+  }
+}
+
+// Room-wide hit feedback — every landed blow (dealt by a player, or taken
+// by one) is announced to the room so clients can draw floating damage
+// numbers over the target. Pure presentation data; no game state rides it.
+function broadcastHitFx(room, targetType, targetId, dmg, dead, casterId) {
+  broadcastRoom(room, { type: 'hit_fx', targetType, targetId, dmg, dead: !!dead, casterId: casterId || null });
+}
+
 // A struck player is fair game for countermeasures for this long — the
 // "I'm being attacked" window cm_voice validates against.
 const ATTACKED_RECENT_MS = 6000;
@@ -4166,6 +4210,20 @@ wss.on('connection', (ws) => {
         player.room = msg.room;
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
       }
+      return;
+    }
+
+    if (msg.type === 'emote') {
+      // Quick emotes — the cheapest social loop there is. Fixed set (no
+      // free-text riding an emoji channel), light rate limit, and unlike
+      // chat they work OUTDOORS too: a wave across the town square is
+      // exactly the moment emotes exist for.
+      const emote = String(msg.emote || '');
+      if (!EMOTE_SET.includes(emote)) return;
+      const now = Date.now();
+      if (player.lastEmoteAt && now - player.lastEmoteAt < 1200) return;
+      player.lastEmoteAt = now;
+      broadcastRoom(player.room, { type: 'emote_fx', id: player.id, emote });
       return;
     }
 
@@ -6253,7 +6311,9 @@ global.__testHooks = {
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
   XP_THRESHOLDS, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
-  QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS
+  QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
+  // Social + juice
+  EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill
 };
 
 server.listen(PORT, () => {

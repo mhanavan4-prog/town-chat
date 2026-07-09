@@ -493,7 +493,10 @@ function onWsMessage(ev) {
         myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
       }
       buildHotbar();
-      if (isTouchDevice()) document.getElementById('joystick').classList.add('show');
+      if (isTouchDevice()) {
+        document.getElementById('joystick').classList.add('show');
+        initMobileHud(); // joystick rest spot, action wheel, top bar, menu sheet
+      }
       refreshUnlockUI();
       resize();
       last = performance.now();
@@ -739,6 +742,15 @@ function onWsMessage(ev) {
     triggerMobAttackAnim(msg.mobId);
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     noteUnderAttack(); // arms the countermeasure prompt (V — play a clip)
+    // Feel the hit: red number on yourself, a small shake, a short buzz.
+    if (me && visuals[myId] && visuals[myId].inScene) {
+      const rp = getRenderPos(me);
+      const s = worldToScreen(rp.x, groundY + CHAR.headY + getFloorHeight(me.room, rp.x, rp.z), rp.z);
+      if (s.visible) spawnDmgNum(s.x, s.y, msg.damage, 'selfHit');
+    }
+    shakeScreen('S');
+    haptic(40);
+    refreshMobileHud();
     return;
   }
 
@@ -794,6 +806,31 @@ function onWsMessage(ev) {
     cmSelfies = msg.selfies || [];
     if (cmSelectedClipId && !cmClips.some(c => c.id === cmSelectedClipId)) cmSelectedClipId = null;
     if (typeof renderDriveMediaQuickState === 'function') renderDriveMediaQuickState(msg.disguise);
+    return;
+  }
+
+  if (msg.type === 'hit_fx') {
+    // Floating damage numbers for every landed blow in the room. My own
+    // incoming PvP hits are skipped here — the 'struck' handler draws
+    // those (red, with the shake), and mob hits only arrive that way.
+    if (!(msg.targetType === 'player' && msg.targetId === myId)) {
+      const s = screenPosForTarget(msg.targetType, msg.targetId);
+      if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
+    }
+    if (msg.dead && msg.casterId === myId) {
+      shakeScreen('S');
+      haptic([12, 25, 20]);
+    }
+    return;
+  }
+
+  if (msg.type === 'streak') {
+    showStreak(msg.count, msg.message, msg.bonus);
+    return;
+  }
+
+  if (msg.type === 'emote_fx') {
+    spawnEmoteFloat(msg.id, msg.emote);
     return;
   }
 
@@ -998,6 +1035,14 @@ function onWsMessage(ev) {
     if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
     messagesByRoom[m.room].push(m);
     if (m.room === currentRoom) renderChatLog();
+    // Mobile: a talker's nameplate surfaces for a few seconds (names are
+    // otherwise distance-gated there), and the 💬 badge counts what you
+    // haven't seen while the chat sheet is closed.
+    if (m.id && players[m.id]) players[m.id].lastChatAt = Date.now();
+    if (MOBILE_UI && m.room === currentRoom && !mobileChatOpen && m.id !== myId) {
+      chatUnreadCount++;
+      refreshMobileHud();
+    }
     return;
   }
 
@@ -3662,34 +3707,109 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'e' || e.key === 'E') keys.strafeLeft = false;
 });
 
+// ── Mobile mode ─────────────────────────────────────────────────────────────
+// One switch, decided once at boot. Everything mobile hangs off the
+// body.touchMode class (CSS) and this flag (behavior).
+const MOBILE_UI = isTouchDevice();
+if (MOBILE_UI) document.body.classList.add('touchMode');
+
+// ── Movement: floating joystick (mobile) ───────────────────────────────────
+// The old joystick was a fixed ring at the bottom-RIGHT — exactly where the
+// ability bar and the door/portal button also lived, which is how taps
+// kept landing on the wrong thing. Now the whole lower-left of the screen
+// is the movement zone: touch anywhere there and the stick base appears
+// under your thumb (the "floating joystick" every modern mobile title
+// uses); lift and it ghosts back to a resting hint. The right side of the
+// screen belongs to camera drags and the action wheel.
 const joystickEl = document.getElementById('joystick');
 const stickEl = document.getElementById('stick');
 let joyVec = { x: 0, y: 0 };
-let joyActive = false, joyOrigin = { x: 0, y: 0 };
+let joyActive = false, joyOrigin = { x: 0, y: 0 }, joyTouchId = null;
 
-joystickEl.addEventListener('touchstart', (e) => {
-  joyActive = true;
-  const rect = joystickEl.getBoundingClientRect();
-  joyOrigin = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
-  e.preventDefault();
-}, { passive:false });
-joystickEl.addEventListener('touchmove', (e) => {
-  if (!joyActive) return;
-  const t = e.touches[0];
-  let dx = t.clientX - joyOrigin.x, dy = t.clientY - joyOrigin.y;
-  const max = 40;
-  const dist = Math.min(max, Math.hypot(dx, dy));
-  const ang = Math.atan2(dy, dx);
-  dx = Math.cos(ang) * dist; dy = Math.sin(ang) * dist;
-  stickEl.style.left = (32 + dx) + 'px';
-  stickEl.style.top = (32 + dy) + 'px';
-  joyVec = { x: dx / max, y: dy / max };
-  e.preventDefault();
-}, { passive:false });
-joystickEl.addEventListener('touchend', () => {
-  joyActive = false; joyVec = { x: 0, y: 0 };
-  stickEl.style.left = '32px'; stickEl.style.top = '32px';
-});
+const JOY_BASE = MOBILE_UI ? 128 : 110;   // ring diameter (px)
+const JOY_KNOB = MOBILE_UI ? 56 : 46;
+const JOY_MAX = MOBILE_UI ? 48 : 40;      // knob travel radius
+
+function placeJoystick(cx, cy) {
+  joystickEl.style.left = (cx - JOY_BASE / 2) + 'px';
+  joystickEl.style.top = (cy - JOY_BASE / 2) + 'px';
+}
+function centerStick() {
+  stickEl.style.left = ((JOY_BASE - JOY_KNOB) / 2) + 'px';
+  stickEl.style.top = ((JOY_BASE - JOY_KNOB) / 2) + 'px';
+}
+function joyRestingSpot() {
+  return { x: Math.min(window.innerWidth * 0.22, 130), y: window.innerHeight - Math.max(120, window.innerHeight * 0.18) };
+}
+function restJoystick() {
+  const r = joyRestingSpot();
+  placeJoystick(r.x, r.y);
+  centerStick();
+  joystickEl.classList.add('resting');
+}
+
+const joyZone = document.getElementById('joyZone');
+if (joyZone && MOBILE_UI) {
+  joyZone.addEventListener('touchstart', (e) => {
+    if (joyTouchId !== null) return;
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
+    joyActive = true;
+    joyOrigin = { x: t.clientX, y: t.clientY };
+    placeJoystick(t.clientX, t.clientY);
+    centerStick();
+    joystickEl.classList.remove('resting');
+    e.preventDefault();
+  }, { passive: false });
+  joyZone.addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== joyTouchId) continue;
+      let dx = t.clientX - joyOrigin.x, dy = t.clientY - joyOrigin.y;
+      const dist = Math.min(JOY_MAX, Math.hypot(dx, dy));
+      const ang = Math.atan2(dy, dx);
+      dx = Math.cos(ang) * dist; dy = Math.sin(ang) * dist;
+      stickEl.style.left = ((JOY_BASE - JOY_KNOB) / 2 + dx) + 'px';
+      stickEl.style.top = ((JOY_BASE - JOY_KNOB) / 2 + dy) + 'px';
+      joyVec = { x: dx / JOY_MAX, y: dy / JOY_MAX };
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const joyEnd = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== joyTouchId) continue;
+      joyTouchId = null;
+      joyActive = false; joyVec = { x: 0, y: 0 };
+      restJoystick();
+    }
+  };
+  joyZone.addEventListener('touchend', joyEnd);
+  joyZone.addEventListener('touchcancel', joyEnd);
+} else {
+  // Desktop with a touchscreen laptop etc. — the legacy fixed ring still
+  // works if it's ever shown: touch it directly.
+  joystickEl.addEventListener('touchstart', (e) => {
+    joyActive = true;
+    const rect = joystickEl.getBoundingClientRect();
+    joyOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    e.preventDefault();
+  }, { passive: false });
+  joystickEl.addEventListener('touchmove', (e) => {
+    if (!joyActive) return;
+    const t = e.touches[0];
+    let dx = t.clientX - joyOrigin.x, dy = t.clientY - joyOrigin.y;
+    const dist = Math.min(JOY_MAX, Math.hypot(dx, dy));
+    const ang = Math.atan2(dy, dx);
+    dx = Math.cos(ang) * dist; dy = Math.sin(ang) * dist;
+    stickEl.style.left = (32 + dx) + 'px';
+    stickEl.style.top = (32 + dy) + 'px';
+    joyVec = { x: dx / JOY_MAX, y: dy / JOY_MAX };
+    e.preventDefault();
+  }, { passive: false });
+  joystickEl.addEventListener('touchend', () => {
+    joyActive = false; joyVec = { x: 0, y: 0 };
+    stickEl.style.left = '32px'; stickEl.style.top = '32px';
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Mouse-drag camera orbit — click and drag on the game canvas to look
@@ -3780,7 +3900,21 @@ function getRootScene(obj) {
 function updateNameLabelHover() {
   for (const sprite of HOVER_NAME_SPRITES) {
     if (!sprite.parent || !activeScene || getRootScene(sprite) !== activeScene) { sprite.visible = false; continue; }
-    if (!NAME_HOVER_ENABLED) { sprite.visible = true; continue; }
+    if (!NAME_HOVER_ENABLED) {
+      // Mobile: NPC name signs used to be always-on (no hover on touch),
+      // stacking a wall of banners over every busy area. Show them like
+      // shop signs instead: only once you're close enough that they're
+      // the thing you're walking toward.
+      if (me) {
+        sprite.getWorldPosition(_hoverTmpVec3);
+        const rp = getRenderPos(me);
+        const d = Math.hypot(_hoverTmpVec3.x - rp.x, _hoverTmpVec3.z - rp.z);
+        sprite.visible = d <= 190;
+      } else {
+        sprite.visible = false;
+      }
+      continue;
+    }
     sprite.getWorldPosition(_hoverTmpVec3);
     const screen = worldToScreen(_hoverTmpVec3.x, _hoverTmpVec3.y, _hoverTmpVec3.z);
     sprite.visible = screen.visible && isScreenPosHovered(screen.x, screen.y);
@@ -4207,8 +4341,12 @@ function showPlayerContextMenu(targetId, x, y) {
   playerContextMenuId = targetId;
   const menu = document.getElementById('playerContextMenu');
   const p = players[targetId];
+  // Tapping someone is also how you ASK for their name on mobile (names
+  // are distance-gated there) — surface it for a few seconds. The shown
+  // name honors disguises, of course; that's the whole game of them.
+  if (p) p.tapNameUntil = Date.now() + 4500;
   if (menu) {
-    document.getElementById('playerContextName').textContent = p ? p.name : 'Player';
+    document.getElementById('playerContextName').textContent = p ? (p.disguiseName || p.name) : 'Player';
     // Position so it doesn't clip off screen
     menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
@@ -4275,23 +4413,334 @@ function handleCanvasClick(clientX, clientY) {
   }
 }
 
-// Touch has no hover/drag-to-look distinction set up yet (see the joystick
-// for movement instead), so a tap just needs its own small drag-threshold
-// check the same way the mouse path does above.
-let touchTapStartX = 0, touchTapStartY = 0, touchTapMoved = 0;
+// Touch look-and-tap: any finger on the canvas (the joystick zone sits
+// above the canvas on the left, so it never gets here) drags the camera
+// exactly like the mouse path above — and a finger that barely moved is a
+// tap, which targets/strikes/harvests just like a click. This is the
+// second half of the two-thumb layout: left thumb walks, right thumb
+// looks and acts.
+const touchLooks = new Map(); // touch identifier -> {startX, startY, lastX, lastY, moved}
 canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length !== 1) return;
-  touchTapStartX = e.touches[0].clientX;
-  touchTapStartY = e.touches[0].clientY;
-  touchTapMoved = 0;
+  for (const t of e.changedTouches) {
+    touchLooks.set(t.identifier, { startX: t.clientX, startY: t.clientY, lastX: t.clientX, lastY: t.clientY, moved: 0 });
+  }
 }, { passive: true });
 canvas.addEventListener('touchmove', (e) => {
-  if (e.touches.length !== 1) return;
-  touchTapMoved += Math.abs(e.touches[0].clientX - touchTapStartX) + Math.abs(e.touches[0].clientY - touchTapStartY);
+  for (const t of e.changedTouches) {
+    const tl = touchLooks.get(t.identifier);
+    if (!tl) continue;
+    const dx = t.clientX - tl.lastX, dy = t.clientY - tl.lastY;
+    tl.moved += Math.abs(dx) + Math.abs(dy);
+    tl.lastX = t.clientX; tl.lastY = t.clientY;
+    if (MOBILE_UI && tl.moved >= CLICK_DRAG_THRESHOLD) {
+      // Same feel as the mouse orbit: yaw follows horizontal drag, pitch
+      // vertical, pitch clamped; releasing movement snaps yaw back the
+      // moment you walk (handled in the update loop, same as desktop).
+      cameraYawOffset -= dx * 0.0062;
+      cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset - dy * 0.0048));
+    }
+  }
 }, { passive: true });
-canvas.addEventListener('touchend', (e) => {
-  if (touchTapMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(touchTapStartX, touchTapStartY);
-}, { passive: true });
+const touchLookEnd = (e) => {
+  for (const t of e.changedTouches) {
+    const tl = touchLooks.get(t.identifier);
+    touchLooks.delete(t.identifier);
+    if (tl && tl.moved < CLICK_DRAG_THRESHOLD) handleCanvasClick(tl.startX, tl.startY);
+  }
+};
+canvas.addEventListener('touchend', touchLookEnd, { passive: true });
+canvas.addEventListener('touchcancel', (e) => { for (const t of e.changedTouches) touchLooks.delete(t.identifier); }, { passive: true });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mobile HUD — the action wheel, the ☰ menu sheet, the compact vitals pill,
+// the 💬 chat sheet toggle, and the shared juice systems (damage numbers,
+// screen shake, haptics, emotes, streaks) that make the game feel alive on
+// every platform but were tuned with a phone in hand.
+// ═══════════════════════════════════════════════════════════════════════════
+let mobileHudInited = false;
+let mobileChatOpen = false;
+let chatUnreadCount = 0;
+
+function initMobileHud() {
+  if (mobileHudInited || !MOBILE_UI) return;
+  mobileHudInited = true;
+  restJoystick();
+  document.getElementById('actionCluster').classList.remove('hidden');
+  document.getElementById('mobileTopBar').classList.remove('hidden');
+  const cp = document.getElementById('chatPanel');
+  if (cp) cp.classList.add('mobileClosed'); // chat starts as a 💬 toggle
+  buildEmoteWheel();
+  buildMobileQuickSlots();
+  refreshMobileHud();
+  setInterval(refreshMobileHud, 700);
+}
+
+// Everything periodic and cheap in one place: vitals text, contextual
+// buttons, menu-sheet metadata. Values are only written when they change,
+// so this never causes layout churn.
+const _mv = {}; // last-written values
+function setTextIfChanged(id, text) {
+  if (_mv[id] === text) return;
+  _mv[id] = text;
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function refreshMobileHud() {
+  if (!MOBILE_UI || !me) return;
+  setTextIfChanged('mvHeart', `❤️${Math.round(me.health ?? 100)}`);
+  setTextIfChanged('mvLevel', `Lv ${me.level || 1}`);
+  const night = document.getElementById('dayNightTag');
+  setTextIfChanged('mvClock', night && night.classList.contains('nightTag') ? '🌕' : '☀️');
+  // 📢 shows only once there's actually a clip to fire; pulses while the
+  // countermeasure window is open.
+  const cmBtn = document.getElementById('btnCm');
+  if (cmBtn) {
+    cmBtn.classList.toggle('hidden', !(cmHasDrive && cmClips.length));
+    cmBtn.classList.toggle('armed', Date.now() - lastAttackedClientAt < 6000);
+  }
+  // 💬 exists only where chat exists (indoors), with the unread badge.
+  const chatBtn = document.getElementById('chatToggleBtn');
+  const cp = document.getElementById('chatPanel');
+  if (chatBtn && cp) {
+    chatBtn.classList.toggle('hidden', cp.classList.contains('hidden'));
+    const badge = document.getElementById('chatUnread');
+    if (badge) {
+      badge.classList.toggle('hidden', chatUnreadCount === 0);
+      badge.textContent = String(Math.min(99, chatUnreadCount));
+    }
+  }
+  // Menu-sheet metadata + contextual rows
+  setTextIfChanged('menuPeople', `${Object.keys(players).length} in town`);
+  const dn = document.getElementById('dayNightTag');
+  setTextIfChanged('menuDayNight', dn ? dn.textContent : '☀️ Day');
+  setTextIfChanged('menuPassState', hasTownPass() ? `🎟️ Pass: ${passTimeLeftLabel()} left` : (paymentsEnabled ? `🎟️ Pass: ${passPriceLabel()}/day` : ''));
+  const leaveRow = document.getElementById('menuLeave');
+  if (leaveRow) leaveRow.classList.toggle('hidden', mode !== 'indoor');
+  const kitRow = document.getElementById('menuKit');
+  if (kitRow && me) kitRow.textContent = me.charId === 0 ? '📖 Spellbook' : '⚔️ Attacks';
+}
+
+function toggleMobileChat(open) {
+  const cp = document.getElementById('chatPanel');
+  if (!cp) return;
+  mobileChatOpen = open === undefined ? !mobileChatOpen : open;
+  cp.classList.toggle('mobileClosed', !mobileChatOpen);
+  if (mobileChatOpen) { chatUnreadCount = 0; refreshMobileHud(); }
+}
+
+// ── Action wheel wiring ──
+(function wireActionCluster() {
+  const on = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
+  };
+  on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
+  on('btnJump', tryJump);
+  on('btnEmote', () => toggleEmoteWheel());
+  on('btnCm', fireVoiceCountermeasure);
+  on('btnKit', () => {
+    if (me && me.charId === 0) { if (!spellbookOpen) openSpellbook(); }
+    else if (myAttackCatalog) { if (!attackPanelOpen) openAttackPanel(); }
+  });
+  on('chatToggleBtn', () => toggleMobileChat());
+  on('menuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
+  on('menuCloseBtn', () => document.getElementById('menuSheet').classList.add('hidden'));
+  const sheet = document.getElementById('menuSheet');
+  if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.classList.add('hidden'); });
+  const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); fn(); };
+  on('menuInventory', closeSheetAnd(() => { if (!inventoryOpen) toggleInventory(); }));
+  on('menuJournal', closeSheetAnd(() => { if (!journalOpen) openJournal(); }));
+  on('menuKit', closeSheetAnd(() => {
+    if (me && me.charId === 0) { if (!spellbookOpen) openSpellbook(); }
+    else if (myAttackCatalog && !attackPanelOpen) openAttackPanel();
+  }));
+  on('menuDrive', closeSheetAnd(() => {
+    if (!inventoryOpen) toggleInventory();
+    showInvTab('invHardDriveView');
+  }));
+  on('menuPass', closeSheetAnd(openPassModal));
+  on('menuSnap', closeSheetAnd(snapNearestPlayer));
+  on('menuMusic', () => { const b = document.getElementById('muteBtn'); if (b) b.click(); });
+  on('menuLeave', closeSheetAnd(() => { const b = document.getElementById('leaveBtn'); if (b) b.click(); }));
+})();
+
+// ── Quick ability slots (first three of this class's kit) ──
+// The full 12-slot keyboard hotbar is a desktop thing; on a phone the kit
+// lives in the Attacks/Spellbook panel, with the three openers a thumb-tap
+// away. Cooldowns reuse the same sweep the desktop hotbar draws.
+function buildMobileQuickSlots() {
+  if (!MOBILE_UI) return;
+  // The kit opener is useful for every class (Spellbook for the Witch,
+  // Attacks for everyone else) — show it as soon as the HUD exists.
+  const kitBtn = document.getElementById('btnKit');
+  if (kitBtn && me) {
+    kitBtn.classList.remove('hidden');
+    kitBtn.style.display = 'flex';
+    kitBtn.textContent = me.charId === 0 ? '📖' : '✨';
+    if (me.charId === 0 || myAttackCatalog) kitBtn.style.opacity = '1';
+  }
+  if (!myActionCatalog) return;
+  const ids = Object.keys(myActionCatalog).slice(0, 3);
+  ['qs1', 'qs2', 'qs3'].forEach((qid, i) => {
+    const btn = document.getElementById(qid);
+    if (!btn) return;
+    const abilityId = ids[i];
+    if (!abilityId) { btn.classList.add('hidden'); btn.style.display = 'none'; return; }
+    const ab = myActionCatalog[abilityId];
+    btn.innerHTML = '';
+    btn.appendChild(document.createTextNode(ab.icon || '✨'));
+    const cd = document.createElement('div');
+    cd.className = 'hotbarCooldown';
+    cd.style.borderRadius = '50%';
+    const cdText = document.createElement('div');
+    cdText.className = 'hotbarCooldownText acCdText';
+    btn.appendChild(cd);
+    btn.appendChild(cdText);
+    btn.classList.remove('hidden');
+    btn.style.display = 'flex';
+    btn.title = ab.name || abilityId;
+    btn.onclick = (e) => { e.preventDefault(); castFromHotbar(abilityId); };
+    // Register into the shared cooldown ticker alongside desktop slots.
+    hotbarSlotEls.push({ id: abilityId, slot: btn, cooldown: cd, cooldownText: cdText });
+  });
+}
+
+// ── Emote wheel ─────────────────────────────────────────────────────────────
+// Eight emotes in a ring (mobile: around the 😀 button; desktop: center
+// screen on T). The cheapest social mechanic there is — and unlike chat it
+// works outdoors, which is exactly where you pass people.
+const EMOTES = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
+let emoteWheelOpen = false;
+let emoteWheelTimer = null;
+
+function buildEmoteWheel() {
+  const wheel = document.getElementById('emoteWheel');
+  if (!wheel || wheel.childElementCount) return;
+  const R = 88, cx = 115, cy = 115;
+  EMOTES.forEach((em, i) => {
+    const ang = (i / EMOTES.length) * Math.PI * 2 - Math.PI / 2;
+    const b = document.createElement('button');
+    b.className = 'emoteBtn';
+    b.textContent = em;
+    b.style.left = (cx + Math.cos(ang) * R - 26) + 'px';
+    b.style.top = (cy + Math.sin(ang) * R - 26) + 'px';
+    b.style.animationDelay = (i * 0.02) + 's';
+    b.addEventListener('click', (e) => {
+      e.preventDefault();
+      ws.send(JSON.stringify({ type: 'emote', emote: em }));
+      toggleEmoteWheel(false);
+    });
+    wheel.appendChild(b);
+  });
+}
+
+function toggleEmoteWheel(open) {
+  const wheel = document.getElementById('emoteWheel');
+  if (!wheel) return;
+  buildEmoteWheel();
+  emoteWheelOpen = open === undefined ? !emoteWheelOpen : open;
+  wheel.classList.toggle('hidden', !emoteWheelOpen);
+  const cluster = document.getElementById('actionCluster');
+  if (cluster) cluster.classList.toggle('wheelOpen', emoteWheelOpen);
+  clearTimeout(emoteWheelTimer);
+  if (emoteWheelOpen) emoteWheelTimer = setTimeout(() => toggleEmoteWheel(false), 4000);
+}
+
+// Emote floats — the emoji bounces above the sender's head for a couple of
+// seconds, tracked to their moving position each frame.
+const activeEmoteFloats = [];
+function spawnEmoteFloat(playerId, emote) {
+  const layer = document.getElementById('fxLayer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'emoteFloat';
+  el.textContent = emote;
+  layer.appendChild(el);
+  activeEmoteFloats.push({ el, playerId, until: performance.now() + 2350 });
+}
+function updateEmoteFloats() {
+  const now = performance.now();
+  for (let i = activeEmoteFloats.length - 1; i >= 0; i--) {
+    const f = activeEmoteFloats[i];
+    const p = players[f.playerId];
+    if (now > f.until || !p || !visuals[f.playerId] || !visuals[f.playerId].inScene) {
+      f.el.remove();
+      activeEmoteFloats.splice(i, 1);
+      continue;
+    }
+    const rp = getRenderPos(p);
+    const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
+    const s = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset + 16, rp.z);
+    if (!s.visible) { f.el.style.opacity = '0'; continue; }
+    f.el.style.left = s.x + 'px';
+    f.el.style.top = s.y + 'px';
+  }
+}
+
+// ── Damage numbers ──────────────────────────────────────────────────────────
+// Every landed hit in the room draws its number over the target: white for
+// hits, gold for kills, red for damage YOU take. Fire-and-forget DOM nodes
+// riding a CSS animation; no per-frame tracking needed at 0.85s lifetime.
+function spawnDmgNum(screenX, screenY, dmg, kind) {
+  const layer = document.getElementById('fxLayer');
+  if (!layer || !Number.isFinite(screenX)) return;
+  const el = document.createElement('div');
+  el.className = 'dmgNum' + (kind ? ' ' + kind : '');
+  el.textContent = kind === 'selfHit' ? `-${dmg}` : String(dmg);
+  // A little scatter so rapid hits don't stack into one unreadable blob.
+  el.style.left = (screenX + (Math.random() * 30 - 15)) + 'px';
+  el.style.top = (screenY + (Math.random() * 12 - 6)) + 'px';
+  layer.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+  setTimeout(() => el.remove(), 1200); // belt and braces if the animation never fires
+}
+function screenPosForTarget(targetType, targetId) {
+  if (targetType === 'player') {
+    const p = players[targetId];
+    if (!p || !visuals[targetId] || !visuals[targetId].inScene) return null;
+    const rp = getRenderPos(p);
+    const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
+    return worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
+  }
+  const mp = mobRenderPos(targetType, targetId);
+  if (!mp) return null;
+  return worldToScreen(mp.x, groundY + 30, mp.z);
+}
+
+// ── Screen shake + haptics ──────────────────────────────────────────────────
+// Small and rotationless-adjacent (tenths of a degree) so it reads as
+// impact, not malfunction; the CSS honors prefers-reduced-motion.
+function shakeScreen(size) {
+  const cls = size === 'M' ? 'shakeM' : 'shakeS';
+  canvas.classList.remove('shakeS', 'shakeM');
+  void canvas.offsetWidth; // restart the animation
+  canvas.classList.add(cls);
+}
+function haptic(pattern) {
+  if (MOBILE_UI && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate(pattern); } catch (e) {}
+  }
+}
+
+// ── Hunt streak display ─────────────────────────────────────────────────────
+let streakHideTimer = null;
+function showStreak(count, message, bonus) {
+  const tag = document.getElementById('streakTag');
+  if (tag) {
+    tag.textContent = `🔥 ×${count}`;
+    tag.style.fontSize = Math.min(34, 18 + count * 1.5) + 'px';
+    tag.classList.remove('show'); void tag.offsetWidth;
+    tag.classList.add('show');
+    clearTimeout(streakHideTimer);
+    streakHideTimer = setTimeout(() => tag.classList.remove('show'), 8000);
+  }
+  if (bonus) {
+    setUnlockToast(message);
+    appendSystemChatLine(message);
+  }
+  if (count === 10) showChapterCeremony('🔥 ×10 STREAK', 'The night itself is impressed.');
+  haptic(count >= 5 ? [15, 30, 25] : 15);
+}
 
 // ---------------------------------------------------------------------------
 // Chat UI — chat only exists once you're inside a building; the open world
@@ -10769,6 +11218,7 @@ function worldToScreen(x, y, z) {
 }
 
 function syncLabels() {
+  const now = Date.now();
   for (const id in players) {
     const p = players[id];
     const v = visuals[id];
@@ -10776,6 +11226,24 @@ function syncLabels() {
     if (!v.inScene) {
       v.nameEl.style.display = 'none';
       continue;
+    }
+    // Mobile: names used to be permanently on for everyone in sight —
+    // with a few players around, the screen was mostly name banners.
+    // Now a name shows only when it's information you'd actually want:
+    // someone close to you (fading out with distance), someone who just
+    // spoke, or someone you tapped. Desktop keeps its hover behavior.
+    let mobileOpacity = 1;
+    if (MOBILE_UI) {
+      // Your own banner is pure clutter on a phone — you know who you are.
+      if (id === myId) { v.nameEl.style.display = 'none'; continue; }
+      const dist = (p.room === (me && me.room)) ? Math.hypot(p.x - me.x, p.y - me.y) : Infinity;
+      const spoke = p.lastChatAt && now - p.lastChatAt < 6000;
+      const tapped = p.tapNameUntil && p.tapNameUntil > now;
+      if (!spoke && !tapped && dist > 150) {
+        v.nameEl.style.display = 'none';
+        continue;
+      }
+      mobileOpacity = (spoke || tapped || dist <= 105) ? 1 : Math.max(0.15, 1 - (dist - 105) / 45);
     }
     const rp = getRenderPos(p);
     const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
@@ -10785,6 +11253,7 @@ function syncLabels() {
       continue;
     }
     v.nameEl.style.display = 'block';
+    v.nameEl.style.opacity = MOBILE_UI ? String(mobileOpacity) : '';
     v.nameEl.style.left = headScreen.x + 'px';
     v.nameEl.style.top = (headScreen.y - 14) + 'px';
   }
@@ -11563,7 +12032,15 @@ function buildHotbar() {
   if (!bar) return;
   bar.innerHTML = '';
   hotbarSlotEls = [];
-  bar.classList.toggle('mobile', isTouchDevice());
+  // Mobile gets the action wheel's three quick slots instead of a 12-slot
+  // keyboard bar — the old 2×6 mobile grid is what sat on top of the
+  // joystick and the door button. CSS also hides #hotbar under touchMode;
+  // this early-out keeps the slot elements from even existing there.
+  if (MOBILE_UI) {
+    bar.classList.add('hidden');
+    buildMobileQuickSlots();
+    return;
+  }
   if (!myActionCatalog) { bar.classList.add('hidden'); return; }
   const ids = Object.keys(myActionCatalog);
   ids.forEach((id, idx) => {
@@ -12658,9 +13135,11 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (journalOpen) closeJournal(); else openJournal(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
-  // V = voice countermeasure (play a saved clip to evade), P = snapshot
+  // V = voice countermeasure (play a saved clip to evade), P = snapshot,
+  // T = emote wheel
   if ((e.key === 'v' || e.key === 'V') && !e.repeat) { fireVoiceCountermeasure(); return; }
   if ((e.key === 'p' || e.key === 'P') && !e.repeat) { snapNearestPlayer(); return; }
+  if ((e.key === 't' || e.key === 'T') && !e.repeat) { toggleEmoteWheel(); return; }
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
     if (slot !== -1) {
@@ -12856,8 +13335,33 @@ function update(dt) {
     if (keys.strafeRight) strafeInput += 1;
     if (keys.strafeLeft) strafeInput -= 1;
     if (joyVec.x || joyVec.y) {
-      moveInput += -joyVec.y; // push stick up = walk forward
-      turnInput -= joyVec.x;  // push stick right = turn right (was inverted)
+      if (MOBILE_UI) {
+        // Camera-relative movement — the modern-mobile standard: the stick
+        // points where you want to GO on screen, and the character turns
+        // to run that way, with the camera easing in behind. (The old
+        // mapping was tank controls: Y walked, X spun in place — precise
+        // on a keyboard, mud on a thumb.)
+        const mag = Math.min(1, Math.hypot(joyVec.x, joyVec.y));
+        if (mag > 0.14) {
+          const stickAngle = Math.atan2(joyVec.x, -joyVec.y); // 0 = screen-up
+          const desired = me.facing + cameraYawOffset + stickAngle;
+          let diff = desired - me.facing;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          const maxTurn = 9 * dt; // rad/s — quick but not teleport-spin
+          me.facing += Math.abs(diff) <= maxTurn ? diff : Math.sign(diff) * maxTurn;
+          // The camera swings back behind the runner over ~1/3 second
+          // instead of the desktop's instant snap — instant snaps feel
+          // violent when the thumb is also what's steering.
+          cameraYawOffset *= Math.exp(-dt * 6);
+          // Ease off the throttle while still turning hard so the model
+          // doesn't moonwalk sideways through a 180.
+          moveInput += mag * Math.max(0.25, Math.cos(Math.min(Math.abs(diff), Math.PI / 2)));
+        }
+      } else {
+        moveInput += -joyVec.y; // push stick up = walk forward
+        turnInput -= joyVec.x;  // push stick right = turn right (was inverted)
+      }
     }
   }
   moveInput = Math.max(-1, Math.min(1, moveInput));
@@ -12868,7 +13372,9 @@ function update(dt) {
   // camera orbit back to normal (directly behind the character) — otherwise
   // "forward" on screen and "forward" for the character can point two
   // different ways, which is exactly the confusing case being avoided here.
-  if (moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) cameraYawOffset = 0;
+  // Mobile joystick movement is exempt: it folds the offset in smoothly
+  // (see above) rather than snapping.
+  if ((moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) && !(MOBILE_UI && joyActive)) cameraYawOffset = 0;
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
@@ -12930,6 +13436,7 @@ function update(dt) {
   updateWerewolfNpc(dt);
   updateVoiceRings(dt);
   updateEvasionVisual();
+  updateEmoteFloats();
   updateCamera(dt);
   updateInteractHint();
 
@@ -12958,6 +13465,25 @@ function loop(now) {
   update(dt);
   render();
   requestAnimationFrame(loop);
+}
+
+// Test seam — exists only when the page is loaded with ?testdrive=1 (the
+// headless UI harness in test/mobile-shots.cjs uses it to teleport around
+// and read HUD state). The whole client is an IIFE, so without this there
+// is deliberately no scriptable surface at all; with it, still nothing a
+// player couldn't already do by walking.
+if (location.search.includes('testdrive=1')) {
+  window.__testDrive = {
+    teleport(x, y) { if (me) { me.x = x; me.y = y; } },
+    kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
+    world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
+    me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId } : null; },
+    hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
+    simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
+    spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
+    emoteFloat(em) { if (me) spawnEmoteFloat(myId, em); },
+    refreshHud() { refreshMobileHud(); }
+  };
 }
 
 })();

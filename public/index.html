@@ -536,6 +536,211 @@
   .journalWhere { color:#9fd3e8; font-size:12px; margin-top:4px; }
   .journalGateHint { color:#c9b28a; font-size:12px; margin-top:8px; font-style:italic; }
 
+  /* ═══════════════════════ MOBILE UI (body.touchMode) ═══════════════════════
+     Layout contract:
+       left 45% of screen  → #joyZone: floating joystick spawns under the thumb
+       bottom-right corner → #actionCluster: strike (large) + arc of quick acts
+       above the cluster   → #interactHint: the door/portal/NPC button
+       top                 → one vitals pill (left) + 💬 + ☰ (right)
+     Everything is ≥52px touch targets, inside safe-area insets, and nothing
+     overlaps anything else at ≥320px width in either orientation. */
+
+  #joyZone, #actionCluster, #mobileTopBar, #menuSheet, #emoteWheel { display:none; }
+  /* The fx layer (damage numbers, emote floats) serves EVERY platform —
+     desktop combat gets the same numbers the phone does. */
+  #fxLayer { display:block; position:fixed; inset:0; z-index:24; pointer-events:none; overflow:hidden; }
+
+  body.touchMode #joyZone {
+    display:block; position:fixed; z-index:5;
+    left:0; bottom:0; width:45vw; height:60vh;
+    touch-action:none; -webkit-tap-highlight-color:transparent;
+  }
+  body.touchMode #joystick {
+    right:auto; bottom:auto; left:0; top:0; /* JS positions it per-touch */
+    width:128px; height:128px; margin:0;
+    background:rgba(255,255,255,0.07); border:1.5px solid rgba(255,255,255,0.22);
+    pointer-events:none; /* the zone handles touches; the ring is display only */
+    transition:opacity .18s ease;
+  }
+  body.touchMode #joystick.resting { opacity:0.35; }
+  body.touchMode #stick { width:56px; height:56px; top:36px; left:36px; background:rgba(255,255,255,0.45); }
+
+  #fxLayer { position:fixed; inset:0; z-index:24; pointer-events:none; overflow:hidden; }
+  .dmgNum {
+    position:absolute; transform:translate(-50%,-50%);
+    font-weight:900; font-size:20px; color:#fff;
+    text-shadow:0 2px 6px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.9);
+    pointer-events:none; will-change:transform,opacity;
+    animation:dmgRise 0.85s ease-out forwards;
+  }
+  .dmgNum.kill { color:#ffd24a; font-size:26px; }
+  .dmgNum.selfHit { color:#ff5a4a; font-size:24px; }
+  @keyframes dmgRise {
+    0% { opacity:0; transform:translate(-50%,-50%) scale(0.6); }
+    12% { opacity:1; transform:translate(-50%,-70%) scale(1.15); }
+    100% { opacity:0; transform:translate(-50%,-190%) scale(0.95); }
+  }
+  .emoteFloat {
+    position:absolute; transform:translate(-50%,-100%);
+    font-size:34px; pointer-events:none; will-change:transform,opacity;
+    animation:emotePop 2.4s ease-out forwards;
+    text-shadow:0 2px 8px rgba(0,0,0,0.6);
+  }
+  @keyframes emotePop {
+    0% { opacity:0; transform:translate(-50%,-90%) scale(0.4); }
+    10% { opacity:1; transform:translate(-50%,-115%) scale(1.25); }
+    22% { transform:translate(-50%,-110%) scale(1); }
+    80% { opacity:1; }
+    100% { opacity:0; transform:translate(-50%,-150%) scale(0.9); }
+  }
+
+  /* Screen shake — three sizes, tiny rotation so it reads as force, not a
+     rendering glitch. Guarded by prefers-reduced-motion below. */
+  @keyframes shakeS { 0%,100%{transform:none} 25%{transform:translate(2px,-2px) rotate(0.15deg)} 50%{transform:translate(-2px,1px) rotate(-0.15deg)} 75%{transform:translate(1px,2px)} }
+  @keyframes shakeM { 0%,100%{transform:none} 20%{transform:translate(5px,-4px) rotate(0.3deg)} 45%{transform:translate(-5px,3px) rotate(-0.3deg)} 70%{transform:translate(3px,4px) rotate(0.2deg)} }
+  canvas.shakeS { animation:shakeS 0.22s linear; }
+  canvas.shakeM { animation:shakeM 0.3s linear; }
+  @media (prefers-reduced-motion: reduce) {
+    canvas.shakeS, canvas.shakeM { animation:none; }
+    .dmgNum { animation-duration:0.5s; }
+  }
+
+  body.touchMode #actionCluster { display:block; position:fixed; z-index:8; right:max(14px, env(safe-area-inset-right)); bottom:max(16px, env(safe-area-inset-bottom)); width:196px; height:196px; pointer-events:none; }
+  body.touchMode #actionCluster.hidden { display:none; }
+  .acBtn {
+    position:absolute; pointer-events:auto;
+    width:56px; height:56px; border-radius:50%;
+    background:rgba(20,14,10,0.72); border:1.5px solid rgba(230,190,120,0.5);
+    color:#ffe9c2; font-size:24px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+    box-shadow:0 3px 12px rgba(0,0,0,0.45);
+  }
+  .acBtn:active { background:rgba(60,40,20,0.9); transform:scale(0.94); }
+  /* Wheel geometry: ⚔️ is the hub in the corner; jump/emote sweep left
+     along the bottom, the three ability quick-slots arc up the right edge
+     with the kit-opener at the top of the arc. 📢 pops in mid-wheel only
+     while a countermeasure is possible. */
+  #btnStrike { width:78px; height:78px; font-size:34px; right:8px; bottom:8px; border-color:rgba(210,110,30,0.7); }
+  #btnJump   { right:100px; bottom:12px; }
+  #btnEmote  { right:170px; bottom:10px; width:52px; height:52px; font-size:22px; }
+  #btnCm     { right:106px; bottom:78px; border-color:rgba(120,200,255,0.7); }
+  #btnCm.armed { animation:cmPulse 0.9s ease-in-out infinite alternate; }
+  .acQuick   { width:50px; height:50px; font-size:21px; }
+  #qs1 { right:14px; bottom:100px; }
+  #qs2 { right:50px;  bottom:152px; display:none; } /* unhidden as the kit fills in */
+  #qs3 { right:108px; bottom:180px; display:none; }
+  #btnKit { right:172px; bottom:130px; border-color:rgba(155,95,192,0.6); }
+  .acBtn.onCd { opacity:0.45; }
+  .acBtn .acCdText { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:#fff; text-shadow:0 1px 3px #000; }
+
+  body.touchMode #mobileTopBar {
+    display:flex; position:fixed; z-index:9;
+    top:max(8px, env(safe-area-inset-top)); left:max(10px, env(safe-area-inset-left)); right:max(10px, env(safe-area-inset-right));
+    justify-content:space-between; align-items:center; gap:8px; pointer-events:none;
+  }
+  #mobileVitals {
+    pointer-events:auto; display:flex; gap:10px; align-items:center;
+    background:rgba(10,16,12,0.68); border:1px solid rgba(160,220,160,0.25);
+    color:#eafff0; font-size:13px; font-weight:700; padding:8px 14px; border-radius:18px;
+    backdrop-filter:blur(4px);
+  }
+  #mvHeart { color:#ff8a7a; }
+  #mvLevel { color:#ffe9a8; }
+  #menuBtn, #chatToggleBtn {
+    pointer-events:auto; width:46px; height:46px; border-radius:50%;
+    background:rgba(20,14,10,0.75); border:1.5px solid rgba(230,190,120,0.5);
+    color:#ffe9c2; font-size:20px; position:relative;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #chatToggleBtn.hidden { display:none !important; }
+  #chatUnread {
+    position:absolute; top:-4px; right:-4px; min-width:18px; height:18px;
+    background:#d04a3a; color:#fff; font-size:11px; font-weight:800;
+    border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px;
+  }
+  #chatUnread.hidden { display:none; }
+
+  body.touchMode #menuSheet {
+    display:flex; position:fixed; inset:0; z-index:60;
+    background:rgba(5,8,6,0.72); backdrop-filter:blur(3px);
+    align-items:flex-end; justify-content:center;
+  }
+  body.touchMode #menuSheet.hidden { display:none; }
+  #menuSheetCard {
+    width:100%; max-width:480px; background:linear-gradient(180deg, rgba(30,22,14,0.98), rgba(18,13,8,0.99));
+    border:1px solid rgba(230,190,120,0.4); border-bottom:none;
+    border-radius:22px 22px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  #menuSheetTitle { color:#ffe9c2; font-weight:800; font-size:16px; text-align:center; margin-bottom:12px; }
+  #menuGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .menuRow {
+    background:rgba(255,255,255,0.06); border:1px solid rgba(230,190,120,0.3);
+    color:#ffe9c2; font-size:15px; font-weight:700; padding:15px 12px; border-radius:12px;
+    text-align:left; -webkit-tap-highlight-color:transparent;
+  }
+  .menuRow:active { background:rgba(255,255,255,0.14); }
+  .menuRow.hidden { display:none; }
+  #menuMeta { color:#9a8a6a; font-size:12px; text-align:center; margin-top:12px; }
+  #menuCloseBtn {
+    width:100%; margin-top:12px; padding:13px; border-radius:12px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2);
+    color:#cfd8c8; font-size:14px; font-weight:700;
+  }
+
+  body.touchMode #emoteWheel {
+    display:block; position:fixed; z-index:58;
+    right:70px; bottom:150px; width:230px; height:230px; pointer-events:none;
+  }
+  /* While the wheel is open the action buttons under it step back — one
+     thing at a time under the thumb. */
+  #actionCluster.wheelOpen .acBtn { opacity:0.12; pointer-events:none; }
+  #actionCluster.wheelOpen #btnEmote { opacity:1; pointer-events:auto; }
+  body.touchMode #emoteWheel.hidden { display:none; }
+  /* Desktop emote wheel (T key) floats center-bottom instead */
+  body:not(.touchMode) #emoteWheel { display:block; position:fixed; z-index:58; left:50%; bottom:170px; transform:translateX(-50%); width:230px; height:230px; pointer-events:none; }
+  body:not(.touchMode) #emoteWheel.hidden { display:none !important; }
+  .emoteBtn {
+    position:absolute; pointer-events:auto; width:52px; height:52px; border-radius:50%;
+    background:rgba(20,14,10,0.85); border:1.5px solid rgba(230,190,120,0.5);
+    font-size:24px; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+    animation:emoteBtnIn 0.18s ease-out backwards;
+  }
+  .emoteBtn:active { transform:scale(1.15); background:rgba(60,40,20,0.95); }
+  @keyframes emoteBtnIn { from { opacity:0; transform:scale(0.3); } to { opacity:1; transform:scale(1); } }
+
+  /* Streak counter — grows with the number */
+  #streakTag {
+    position:fixed; top:118px; right:14px; z-index:9;
+    color:#ffb347; font-weight:900; font-size:20px;
+    text-shadow:0 2px 8px rgba(0,0,0,0.85), 0 0 14px rgba(255,120,30,0.5);
+    pointer-events:none; display:none;
+  }
+  #streakTag.show { display:block; animation:streakPop 0.35s ease-out; }
+  @keyframes streakPop { 0% { transform:scale(0.5); } 60% { transform:scale(1.25); } 100% { transform:scale(1); } }
+
+  /* ── Mobile declutter: hide desktop chrome, relocate prompts ── */
+  body.touchMode #hud, body.touchMode #leftHudButtons, body.touchMode #hotbar,
+  body.touchMode #unlockBar, body.touchMode #leaveBtn, body.touchMode #healthHud,
+  body.touchMode #cmPrompt { display:none !important; }
+  body.touchMode #interactHint {
+    left:auto; right:max(14px, env(safe-area-inset-right)); bottom:236px; transform:none;
+    animation:cmPulse 1.2s ease-in-out infinite alternate; border-radius:18px;
+  }
+  body.touchMode #interactHint span { font-size:16px; font-weight:800; padding:16px 22px; display:inline-block; max-width:62vw; }
+  body.touchMode #questTracker, body.touchMode #storyTracker { transform:scale(0.86); transform-origin:top right; }
+  body.touchMode #unlockToast { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
+  body.touchMode #announceBanner { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
+  /* Chat as a bottom sheet, toggled by 💬 */
+  body.touchMode #chatPanel {
+    left:0; right:0; top:auto; bottom:0; width:100%; max-width:100%;
+    max-height:58vh; border-radius:18px 18px 0 0; z-index:55;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  }
+  body.touchMode #chatPanel.mobileClosed { display:none !important; }
+  body.touchMode #chatPanel.arcadeMode { width:100%; max-width:100%; }
+
   /* ── Hard Drive media shelves ── */
   .hdMediaHead { font-weight:700; color:#ffe9c2; margin:12px 0 6px; }
   .hdMediaRow { display:flex; flex-wrap:wrap; gap:10px; }
@@ -995,6 +1200,52 @@
   <div id="ceremonyTitle"></div>
   <div id="ceremonySub"></div>
 </div>
+
+<!-- ── Mobile UI (visible only under body.touchMode) ─────────────────────
+     Thumb-zone architecture: LEFT half = floating movement joystick (the
+     base appears wherever your thumb lands), RIGHT corner = action wheel
+     (strike biggest, quick actions arced around it), TOP = one compact
+     vitals pill + one ☰ menu. Everything else lives in the menu sheet. -->
+<div id="joyZone"></div>
+<div id="fxLayer"></div>
+
+<div id="actionCluster" class="hidden">
+  <button id="btnStrike" class="acBtn acPrimary" title="Attack nearest">⚔️</button>
+  <button id="btnJump" class="acBtn" title="Jump">🦘</button>
+  <button id="btnEmote" class="acBtn" title="Emotes">😀</button>
+  <button id="btnCm" class="acBtn hidden" title="Play voice clip (evade)">📢</button>
+  <button id="qs1" class="acBtn acQuick hidden"></button>
+  <button id="qs2" class="acBtn acQuick hidden"></button>
+  <button id="qs3" class="acBtn acQuick hidden"></button>
+  <button id="btnKit" class="acBtn acQuick hidden" title="All abilities">📖</button>
+</div>
+
+<div id="mobileTopBar" class="hidden">
+  <div id="mobileVitals"><span id="mvHeart">❤️100</span><span id="mvLevel">Lv 1</span><span id="mvClock">☀️</span></div>
+  <button id="chatToggleBtn" class="hidden">💬<span id="chatUnread" class="hidden">0</span></button>
+  <button id="menuBtn">☰</button>
+</div>
+
+<div id="menuSheet" class="hidden">
+  <div id="menuSheetCard">
+    <div id="menuSheetTitle">Town Chat</div>
+    <div id="menuGrid">
+      <button class="menuRow" id="menuInventory">🎒 Inventory</button>
+      <button class="menuRow" id="menuJournal">📜 Journal</button>
+      <button class="menuRow" id="menuKit">⚔️ Abilities</button>
+      <button class="menuRow" id="menuDrive">💾 Hard Drive</button>
+      <button class="menuRow" id="menuPass">🎟️ Town Pass</button>
+      <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
+      <button class="menuRow" id="menuMusic">🔈 Music</button>
+      <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
+    </div>
+    <div id="menuMeta"><span id="menuPeople">1 in town</span> · <span id="menuDayNight">☀️ Day</span> · <span id="menuPassState"></span></div>
+    <button id="menuCloseBtn">✕ Close</button>
+  </div>
+</div>
+
+<div id="emoteWheel" class="hidden"></div>
+<div id="streakTag"></div>
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
