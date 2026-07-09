@@ -25,9 +25,18 @@ Walk back out through the door and you're back in the open-air town square.
   choice is remembered in that browser for next time, but it's just a
   cosmetic, per-session pick — not tied to your account/login the way your
   name and color are.
-- 🧙 One of those 5 — the **Witch** (witch hat, green robe) — also gets a
-  Spellbook of 12 starting spells, castable on yourself or another player
-  in town. See **The Witch's Spellbook** below.
+- 🧙 Every one of the 5 characters is a real **class** now, each with its
+  own 12+ ability battle kit — attacks, defenses, healing, and
+  intelligence-gathering: the **Witch** (📖 Spellbook, 12 spells), the
+  **Werewolf** (🐺 Wolf Attacks), the **Mystic** (🕯️ Mystic Rites), the
+  **Knight** (⚔️ Knightly Arts), and the **Wanderer** (🥾 Wanderer
+  Skills). See **The Witch's Spellbook** and **The Other Four Classes**
+  below.
+- 📜 Every class also has its own six-chapter spooky **story campaign** —
+  a Journal button (or the J key) tracks your chapters, objectives, and
+  rewards, ending in a class-themed relic — plus a town full of side
+  quests: every shopkeeper and building local has work for you now. See
+  **Story campaigns & the Journal** below.
 - 📷 Pictures in chat: the camera-icon button next to the chat box lets you
   attach an image (resized/compressed in your browser before sending) to a
   message. Relayed by the server exactly like a text message, scoped to
@@ -221,45 +230,71 @@ slot 0) and you get a 📖 **Spellbook** button next to 🎒 Inventory, with 12
 starting spells. Other characters never see this button at all — casting is
 validated server-side too, so it's not just a hidden client button standing
 between anyone and a spell. Open the book, click a spell to see what it
-does, pick a target if it needs one, and Cast. There's an 8-second cooldown
-between casts of anything.
+does, pick a target if it needs one, and Cast. Each spell has its own
+independent 8-second cooldown — casting Fireball doesn't stop you from
+also casting Toad's Tongue a second later — shown as a sweeping wedge
+right over that spell's own hotbar icon.
 
-Most spells are a timed curse/blessing stamped onto a player (yourself for
-**Raven's Cloak**, someone else for the rest) — only one can be active on a
-given player at a time, so casting a new one on someone simply replaces
-whatever they had:
+The book is a proper battle kit now — combat, defense, healing, and
+intelligence gathering, all of it witchy to the bone. Statuses still follow
+the one-at-a-time rule: only one curse/blessing can ride a given player, so
+a new one simply replaces whatever was there.
+
+**Combat:**
+
+- 🔥 **Fireball** — the classic. A glowing ball of witchfire actually flies
+  from the Witch to the target (everyone in the room sees it) and bursts on
+  impact for real damage — players, animals, and mobs alike, same
+  death/respawn/loot/XP flow as melee Strike.
+- 🥀 **Withering Hex** — rots a player's vitality, draining 3 health per
+  second for ten seconds. It can carry them to death's door (1 HP) but
+  never through it — only a real blow can finish what the withering
+  starts. The target is told, plainly, that they're under attack.
+- 🩸 **Leech Hex** — phantom fangs drain 12–20 health from the target (players
+  and mobs alike) and a crimson orb of stolen life flies back into the
+  Witch, healing her for everything it took. Combat and healing in one bite.
+- 👹 **Monstrous Form** — swell into a hulking horror for 15 seconds: your
+  Strikes and damage spells hit half again as hard while it lasts.
+
+**Defense:**
+
+- 🎃 **Gourd Ward** — hollow your skull into a grinning ward-gourd; while it
+  lasts, ALL damage against you — mob or player — is halved.
+- 🪽 **Raven's Cloak** — dissolve into black feathers and move at twice your
+  pace for 12 seconds. The Witch's escape (or pursuit) tool.
+
+**Healing:**
+
+- 🦴 **Bone-Knit Blessing** — the old words knit your wounds closed, healing
+  steadily over twelve seconds (the same regeneration the Regen Root potion
+  grants).
+
+**Intelligence gathering:**
+
+- 🔮 **Scrying Orb** — peer at one chosen soul: their whereabouts, their
+  wounds, their level, and whatever curse currently rides them, plus a
+  brief glowing highlight on their name tag.
+- 🦇 **Nightwing Augury** — loose your bats across the whole realm; they
+  return whispering every player's location and health in one report, and
+  circle you visibly while the augury lasts.
+
+Both intel spells only gather what every client is already sent by the
+normal player-list sync (position, health, level, active status are all in
+the public snapshot) — they reveal nothing that wasn't already shared, just
+read it out in one legible witchy report.
+
+**Curses & tricks** (the classics that remain):
 
 - 🐸 **Toad's Tongue** — the target starts croaking mid-sentence in chat.
-- 🦶 **Stumble Hex** — halves the target's walking speed.
-- 🔻 **Shrinking Curse** / 🔺 **Giant's Folly** — shrinks or grows the target.
-- 🎃 **Pumpkin Head** — swaps the target's head for a jack-o'-lantern.
-- 🦇 **Bat Swarm** — circles the target with bats.
-- 🌈 **Color Curse** — cycles the target's shirt through every color.
-- 🗣️ **Silver Tongue Hex** — tangles the target's chat into nonsense.
-- 🪽 **Raven's Cloak** — wraps the *caster* in dark feathers (self-cast,
-  no target needed).
+- 🦶 **Stumble Hex** — the ground-sigil trap: click a spot and a witchy
+  pentacle glows there for 25 seconds; anyone who steps inside is hexed
+  with halved walking speed. No target needed — lay it and walk away.
 
-Movement/jump effects are self-enforced on the affected player's own
+Movement/speed effects are self-enforced on the affected player's own
 client, same trust model as the rest of this game's movement (there's no
-anti-cheat here, full stop). Chat-mangling spells (Toad's Tongue, Silver
-Tongue Hex) rewrite the message text once, at the moment it's sent — a
-message already sent stays however it was cursed even after the curse
-itself wears off, rather than every line in the chat log un-cursing itself
-retroactively the instant the timer runs out.
-
-🔥 **Fireball** is the one spell that isn't a curse at all — it's the
-Witch's only damage-dealing spell, a ranged counterpart to the universal
-melee Strike. Picking it arms a fire-cursor targeting mode (Esc to cancel)
-that, unlike every other spell, accepts animals and mobs as well as
-players — same targets Strike can hit. Cast it and a glowing fireball
-actually flies from the Witch to the target (visible to everyone in the
-room, not just the two of you) and bursts on impact for real damage, same
-death/respawn/loot/XP flow as getting struck down in melee.
-
-🔮 **Glimpse the Future** doesn't curse anyone — every player's position is
-already visible to everyone via the normal player-list sync, so this just
-puts a brief glowing highlight on the target's name tag for the caster, for
-10 seconds. No new data is revealed that wasn't already shared.
+anti-cheat here, full stop). Toad's Tongue rewrites the message text once,
+at the moment it's sent — a message already sent stays cursed even after
+the curse itself wears off.
 
 👁️ **Open 3rd Eye** is the one spell that works differently on purpose. The
 obvious version of "peer through someone's eyes" is a covert camera
@@ -281,6 +316,88 @@ camera; the caster just sees a "spell fizzled" message either way. Same
 payoff for the Witch, but the target is always the one deciding, in that
 specific moment, whether their own camera turns on.
 
+## The Other Four Classes
+
+The Witch's Spellbook set the pattern; now every character has its own full
+kit. Each non-Witch class gets an **Attacks** panel button (and the same
+1–= hotbar with per-ability 8-second cooldowns), validated server-side by
+`charId` exactly like the Witch's spells — a Mystic can't cast Knightly
+Arts by poking the socket, and vice versa. Every kit covers the same four
+jobs, in its own voice:
+
+- **Real damage.** Each class has at least one ranged damage ability that
+  hits players, animals, and mobs — same death/respawn/loot/XP funnel as
+  melee Strike and Fireball, each with its own tinted projectile:
+  🦷 **Savage Bite** (Werewolf), 👻 **Spirit Lash** + 💜 **Soul Siphon**
+  (Mystic — Soul Siphon drains the target and heals the caster, like the
+  Witch's Leech Hex), ⚔️ **Smite** (Knight — the hardest single hit in the
+  game), 🔪 **Knife Throw** (Wanderer).
+- **A ward.** Every class can halve ALL incoming damage for 30 seconds:
+  Iron Pelt, Ethereal Veil, Oath of Iron, Packmule's Guard. The Mystic and
+  Knight can also ward **another player** (Spirit Ward, Guardian's
+  Pledge). Wards render as a faint glowing dome — the Witch's Gourd Ward
+  pumpkin-head is the same effect in witchier packaging.
+- **Healing.** Every class self-heals (Moonlit Mending, Séance of Mending,
+  Field Dressing, Trail Remedy — the same regen the Bone-Knit Blessing
+  grants), and the Mystic and Knight can heal **other players** directly
+  (Mending Spirits, Lay on Hands — instant, 22–40 health).
+- **Intelligence gathering.** Single-target reveals (Whispered Secret,
+  Sentinel's Watch, Compass Trick, Scrying Orb) and whole-realm sweeps
+  (Spirit Walk, Herald's Muster, Nightwing Augury) that read out every
+  player's whereabouts and wounds — all data the public player-list sync
+  already shares, gathered into one report. The Werewolf's Scent Trail and
+  Wanderer's Spy Glass keep their special consent/announcement rules
+  (see their descriptions in-game).
+
+Plus each class's own tricks carried over: the Werewolf's note-stealing
+Rapid Swipe and AoE howls, the Wanderer's pickpocketing and Spy Glass, the
+Mystic's Banshee Wail, the Knight's Shield Bash stagger and Banner of
+Dread. Werewolf and Wanderer kits grew to 15 abilities — the hotbar shows
+the first 12, the Attacks panel lists everything.
+
+## Story campaigns & the Journal
+
+Every class has a six-chapter story campaign, told through in-world
+letters and set in the same Thornreach lore as the Wilds factions — the
+Hollow, the shattered Fifth Severance, and Witch Hazel keeping her
+five-century watch under the Wilds:
+
+- 🖐️ **Witch — The Fifth Hand.** The Old Circle had five ritualists. Four
+  graves are accounted for.
+- 🌕 **Werewolf — The First Bite.** Every curse has a first link in its
+  chain. Yours is still alive.
+- 🕯️ **Mystic — Voices Beneath the Floorboards.** The town's dead have
+  started leaving reviews. One of the voices isn't dead.
+- ⚔️ **Knight — The Hollow Oath.** Your order swore an oath five centuries
+  ago. They lied about what it was.
+- 🛣️ **Wanderer — The Road That Isn't on the Map.** Every map of
+  Thornreach has the same smudge. It moves.
+
+How it plays:
+
+- 📜 **Journal** (button or J key) shows your storyline, the current
+  chapter's letter, its objective, and rewards. Chapters are begun
+  explicitly from the Journal; a small story tracker (under the quest
+  tracker) follows your progress once one is live.
+- Objectives use the world you already play in: talk to a named NPC, gather
+  in the Wilds, set foot somewhere ominous, drill your class abilities,
+  cut down the Hollow's creatures, brew at Hazel's cauldron. Story
+  progress runs **in parallel** with your active side quest — the same
+  kill can tick both.
+- Chapters pay XP and gold, and every finale grants a class relic
+  (Shadow Staff, Alpha Fang, Shadow Cloak, Dread Helm, Soul Treads).
+- Progress persists per account **per class** (`playerProgress.json`) —
+  playing the Knight campaign doesn't touch your Witch campaign. Guests
+  get the usual guest deal: progress lasts until they disconnect.
+
+**Side quests, wave two:** beyond the four town quest-givers and the two
+Wilds factions, every building NPC now has one repeatable quest of their
+own — Barkeep Joss, Scholar Elior, Apothecary Vex, Tailor Ines, Armorer
+Beck, Old Mabel, Apprentice Wren, Tinkerer Oswin, Lady Corwin, Sir Dorran,
+and Guard Petra (the hint NPCs got a "💬 Ask for a Quest" button in their
+dialogue). Same rules as before: one active side quest at a time, 24h
+cooldown per quest after completion.
+
 ## Run it locally
 
 Requires [Node.js](https://nodejs.org) 18+.
@@ -293,6 +410,12 @@ npm start
 ```
 
 Then open **http://localhost:3000**.
+
+Run the tests with `npm test` — they drive the real server's connection
+handler with mock sockets (join/chat/collision, passcode, every class's
+ability kit, and a full six-chapter campaign end-to-end). There's also an
+optional headless-browser smoke test (`node test/smoke.browser.mjs`) that
+needs Playwright installed.
 
 - The passcode and Stripe payments below are both configured the same way:
   copy `.env.example` to `.env` and fill in whichever lines you need. Leave

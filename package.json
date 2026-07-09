@@ -5,7 +5,8 @@
   "description": "Walk-around multiplayer town where each building is its own chatroom.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=18"

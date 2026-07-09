@@ -30,7 +30,10 @@ require('../server.js');
 
 setTimeout(() => {
   const wss = global.__wssInstances[0];
-  const connHandler = wss._handlers.connection;
+  // The server registers a real ws.WebSocketServer (an EventEmitter), so the
+  // connection handler is read back through the emitter API; the _handlers
+  // form is kept for compatibility with a mocked ws module, if one is used.
+  const connHandler = (wss._handlers && wss._handlers.connection) || wss.listeners('connection')[0];
   check('server registered a connection handler', typeof connHandler === 'function');
 
   // --- Alice joins ---

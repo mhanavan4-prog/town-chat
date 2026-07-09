@@ -576,6 +576,44 @@
     max-height:300px; overflow-y:auto; margin:14px 0;
     text-align:left; display:flex; flex-direction:column; gap:6px;
   }
+  /* Journal — the per-character story campaign panel */
+  #journalModal { width:340px; }
+  .journalHeader { margin-bottom:8px; }
+  .journalStoryTitle { font-weight:800; font-size:15px; color:#ffe9c2; }
+  .journalTagline { font-size:11.5px; color:#c9b28a; font-style:italic; margin-top:2px; }
+  .journalChapterNo { font-size:11px; color:#9a8663; margin-top:4px; letter-spacing:1px; text-transform:uppercase; }
+  .journalLetter {
+    background:rgba(240,222,180,0.07); border:1px solid rgba(230,190,120,0.25);
+    border-left:3px solid rgba(230,190,120,0.5);
+    border-radius:8px; padding:10px 12px; margin:8px 0;
+    font-size:12px; color:#e8d9b8; line-height:1.55; font-style:italic;
+  }
+  .journalObjective {
+    background:rgba(0,0,0,0.25); border:1px solid rgba(120,220,140,0.25); border-radius:8px;
+    padding:9px 10px; margin:8px 0; font-size:12px; color:#cfe9cf;
+  }
+  .journalObjective .journalObjLabel { font-weight:700; color:#9ee37d; }
+  .journalBarWrap { height:5px; background:rgba(255,255,255,0.12); border-radius:3px; margin:6px 0 3px; }
+  .journalBarFill { height:5px; border-radius:3px; background:#9ee37d; width:0%; transition:width 0.4s; }
+  .journalRewards { font-size:11.5px; color:#ffd43b; margin:6px 0; }
+  .journalDone { text-align:center; font-size:13px; color:#ffe9c2; padding:14px 6px; line-height:1.6; }
+  #journalBeginBtn { width:100%; }
+  .journalSideQuest { border-top:1px solid rgba(230,190,120,0.15); margin-top:10px; padding-top:8px; font-size:12px; color:#cfe9cf; }
+  .journalSideQuest .jsqTitle { font-size:11px; color:#9a8663; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+
+  /* Story tracker — sits under the quest tracker on the right */
+  #storyTracker {
+    position:fixed; right:16px; top:210px; z-index:6;
+    background:rgba(24,18,10,0.82); border:1px solid rgba(230,190,120,0.28);
+    border-radius:10px; padding:10px 12px; min-width:200px; max-width:240px;
+    color:#e8d9b8; font-size:12px; pointer-events:auto;
+  }
+  #storyTracker.hidden { display:none !important; }
+  #storyTrackerName { font-weight:700; font-size:12.5px; margin-bottom:6px; color:#ffd43b; }
+  #storyTrackerBar { height:5px; background:rgba(255,255,255,0.12); border-radius:3px; margin-bottom:4px; }
+  #storyTrackerFill { height:5px; border-radius:3px; background:#ffd43b; width:0%; transition:width 0.4s; }
+  #storyTrackerCount { color:#c9b28a; font-size:11px; }
+
   .spellRow {
     background:rgba(0,0,0,0.25); border:1px solid rgba(155,95,192,0.3); border-radius:8px;
     padding:9px 10px; cursor:pointer;
@@ -691,6 +729,26 @@
     position:absolute; bottom:2px; right:3px; font-size:9px;
     color:#cfd8c8; opacity:0.8; line-height:1;
   }
+  /* Cooldown sweep — a conic-gradient wedge that shrinks clockwise from a
+     full 360deg cover down to 0 as --cd (fraction remaining, 1 -> 0) counts
+     down; see startActionCooldown()/updateHotbarCooldown() in client.js.
+     Sits over the ability's own icon rather than a separate global bar, so
+     each hotbar slot shows the shared cooldown right on the key you'd press. */
+  .hotbarCooldown {
+    --cd: 0;
+    position:absolute; inset:0; border-radius:7px;
+    background: conic-gradient(rgba(8,8,10,0.78) calc(var(--cd) * 360deg), transparent 0);
+    pointer-events:none; display:none;
+  }
+  .hotbarSlot.onCooldown .hotbarCooldown { display:block; }
+  .hotbarSlot.onCooldown .hotbarIcon { opacity:0.35; }
+  .hotbarCooldownText {
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    font-size:15px; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9);
+    pointer-events:none;
+  }
+  .hotbarSlot.onCooldown .hotbarCooldownText { display:flex; }
+  #hotbar.mobile .hotbarCooldownText { font-size:19px; }
   /* Mobile: no keyboard, so lay the 12 abilities out as 2 rows of 6 large
      touch targets instead of 1 cramped row of 12 — accuracy matters more
      than density when you're tapping with a fingertip, not a mouse. */
@@ -1033,6 +1091,17 @@
   <div class="err" id="spellbookErr"></div>
 </div>
 
+<!-- Journal — every character's story campaign (📜 button). A floatPanel
+     like the Spellbook/Attacks panels; content rendered by renderJournal()
+     in client.js from the server's story_state payload. -->
+<div id="journalModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span id="journalTitle">📜 Journal</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="journalContent"></div>
+  <button class="btn" id="journalCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
 <div id="spellConsentModal" class="overlay hidden">
   <div class="card" id="spellConsentCard">
     <div id="spellConsentEye">👁️</div>
@@ -1104,6 +1173,7 @@
   <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
   <button id="spellbookBtn" class="hidden">📖 Spellbook</button>
   <button id="attackBtn" class="hidden">⚔️ Attacks</button>
+  <button id="journalBtn" class="hidden">📜 Journal</button>
 </div>
 <div id="inventoryPanel" class="hidden">
   <div id="invTabs">
@@ -1230,6 +1300,7 @@
   <div class="card" id="npcHintCard">
     <div class="title" style="font-size:18px;" id="npcHintName">NPC Name</div>
     <div style="margin:12px 0 14px; line-height:1.55; color:#cfe9cf; font-size:13px;" id="npcHintText"></div>
+    <button class="btn" id="npcHintQuestBtn">💬 Ask for a Quest</button>
     <button class="btn" id="npcHintCloseBtn">Close</button>
   </div>
 </div>
@@ -1292,6 +1363,13 @@
   <div id="questTrackerBar"><div id="questTrackerFill"></div></div>
   <div id="questTrackerCount"></div>
   <button id="questCancelBtn" title="Abandon quest">✕</button>
+</div>
+
+<!-- Story tracker — persistent overlay for the active story chapter -->
+<div id="storyTracker" class="hidden">
+  <div id="storyTrackerName"></div>
+  <div id="storyTrackerBar"><div id="storyTrackerFill"></div></div>
+  <div id="storyTrackerCount"></div>
 </div>
 
 <!-- XP/level strip — sits in the bottom HUD area -->

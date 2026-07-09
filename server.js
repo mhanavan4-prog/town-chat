@@ -230,6 +230,11 @@ const server = http.createServer(app);
 // server memory — the client already resizes/compresses images well under
 // this before sending, this is just the backstop.
 const wss = new WebSocketServer({ server, maxPayload: 2 * 1024 * 1024 });
+// Test hook — the harness in test/ drives the real connection handler with
+// mock sockets through this global. Harmless at runtime (one extra global
+// holding a reference the module already holds).
+global.__wssInstances = global.__wssInstances || [];
+global.__wssInstances.push(wss);
 
 // ---------------------------------------------------------------------------
 // World definition — single source of truth, sent to every client on join.
@@ -1002,6 +1007,29 @@ function stealRandomCarriedItem(victim) {
   return { itemId: pick.itemId, qty: pick.qty };
 }
 
+// True while `p` (a player) currently has the given status type on them and
+// it hasn't expired — the server-side twin of what publicPlayer() already
+// does when deciding whether to include activeStatus in a snapshot. Combat
+// modifiers below use this so a long-expired buff can never keep paying out.
+function hasStatus(p, type) {
+  return !!(p.activeStatus && p.activeStatus.type === type && p.activeStatus.expiresAt > Date.now());
+}
+
+// Incoming-damage gate for players — the Witch's Gourd Ward (and anything
+// else that grants the 'pumpkin' status) halves any damage its bearer takes,
+// from mobs and other players alike. Every code path that hurts a player
+// (mob strikes in each map's tick, plus applyDamage below) funnels through
+// here so the ward can't be bypassed by one forgotten call site.
+function absorbIncomingDamage(target, dmg) {
+  // 'ward' is the class-neutral twin of 'pumpkin': identical halving, no
+  // jack-o'-lantern head — used by the non-Witch classes' defensive
+  // abilities (Iron Pelt, Ethereal Veil, Oath of Iron, Packmule's Guard)
+  // so their wards read as their own class fantasy instead of borrowed
+  // witchcraft. Client renders it as a faint glowing dome.
+  if (hasStatus(target, 'pumpkin') || hasStatus(target, 'ward')) return Math.max(1, Math.round(dmg * 0.5));
+  return dmg;
+}
+
 // Shared damage application — the universal melee Strike and Fireball (the
 // one damage-dealing spell) both hit the exact same set of targets (players,
 // dungeon mobs, or the outside/wilds/ember_wastes animal+mob pools) and need
@@ -1009,15 +1037,23 @@ function stealRandomCarriedItem(victim) {
 // twice. Callers differ only in their damage roll and whether they gate on
 // range (Strike does; Fireball, being a ranged spell like every other spell,
 // passes no maxRange). Returns { ok: false } for a missing/dead/out-of-room/
-// out-of-range target, otherwise { ok: true, dead, name?, xp?, lootHint? } —
-// callers build their own message text from that (Strike says "Killed"/"Hit",
-// Fireball says "incinerates"/"hits", etc).
+// out-of-range target, otherwise { ok: true, dead, name?, xp?, lootHint?,
+// dmg } — dmg is the FINAL amount after buffs/wards, so caller messages
+// never lie about the number that actually landed. Callers build their own
+// message text from that (Strike says "Killed"/"Hit", Fireball says
+// "incinerates"/"hits", etc).
 function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
+
+  // Monstrous Form (or any other source of the 'giant' status — the
+  // Werewolf's Blood Frenzy and Wanderer's Campfire Tale share it) makes
+  // the attacker hit half again as hard for its duration.
+  if (hasStatus(player, 'giant')) dmg = Math.round(dmg * 1.5);
 
   if (targetType === 'player') {
     const t = players.get(targetId);
     if (!t || t.id === player.id || t.room !== player.room || t.isDead || outOfRange(t)) return { ok: false };
+    dmg = absorbIncomingDamage(t, dmg);
     t.health = Math.max(0, t.health - dmg);
     if (t.health <= 0) {
       t.health = 0;
@@ -1033,10 +1069,10 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       t.lootKillerId = stolen ? player.id : null;
       t.deathX = t.x; t.deathY = t.y; t.deathRoom = t.room;
       send(t.ws, { type: 'you_died', byName: player.name });
-      return { ok: true, dead: true, name: t.name, lootHint: stolen ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, name: t.name, lootHint: stolen ? '  Loot is on the body — go claim it!' : '' };
     }
     send(t.ws, { type: 'struck', byName: player.name, damage: dmg });
-    return { ok: true, dead: false, name: t.name };
+    return { ok: true, dead: false, dmg, name: t.name };
   }
 
   if (targetType === 'dungeon') {
@@ -1049,11 +1085,12 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       t.respawnAt = Date.now() + DUNGEON_RESPAWN_MS;
       grantXP(player, preset.xp);
       advanceQuestProgress(player, 'kill_mob', null);
+      storyEvent(player, 'kill_mob', { pool: 'dungeon', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
-    return { ok: true, dead: false, name: preset.name };
+    return { ok: true, dead: false, dmg, name: preset.name };
   }
 
   // Each pool only exists in (and is only reachable from) its own map.
@@ -1075,27 +1112,34 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     if (targetType === 'mob2') {
       grantXP(player, 15);
       advanceQuestProgress(player, 'kill_mob', null);
+      storyEvent(player, 'kill_mob', { pool: 'mob2', mobType: t.mobType });
       const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
       t.pendingLoot = rollPendingLoot(lootTable);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, xp: 15, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, xp: 15, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
     if (targetType === 'mob') {
+      // Town night-mobs grant no XP/loot-table rewards (kept as pure
+      // atmosphere), but they DO count for kill-the-Hollow's-creatures
+      // story chapters — the campaign shouldn't force everyone into the
+      // Wilds when the same horrors stalk the town square at night.
+      storyEvent(player, 'kill_mob', { pool: 'mob', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(LOOT_TABLES.town_mob);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
     if (targetType === 'ember_mob') {
       const preset = EMBER_MOB_TYPES[t.mobType];
       grantXP(player, preset.xp);
       advanceQuestProgress(player, 'kill_mob', null);
+      storyEvent(player, 'kill_mob', { pool: 'ember_mob', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(preset.lootTable);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
-    return { ok: true, dead: true };
+    return { ok: true, dead: true, dmg };
   }
-  return { ok: true, dead: false };
+  return { ok: true, dead: false, dmg };
 }
 
 // ---------------------------------------------------------------------------
@@ -1273,6 +1317,88 @@ const QUEST_CATALOG = {
     type: 'kill_mob', target: 12, xpReward: 200, goldReward: 250,
     itemRewards: [{ itemId: 'stone_block', qty: 3 }, { itemId: 'iron_ingot', qty: 2 }, { itemId: 'enchanted_fur', qty: 1 }],
     description: 'My scouts tracked a corrupted convergence node east of the camp. Twelve of them must be destroyed before they coalesce into something none of us can stop. This is our moment — do not waste it.'
+  },
+
+  // ── Town side quests, wave two — every shopkeeper and hint-giver in the
+  // buildings now has one repeatable job of their own (same 24h cooldown,
+  // same one-active-quest rule). The hint NPCs keep their hint role for
+  // npc_hint_talk; quest_talk just finds these first via QUEST_BY_NPC. ────
+  barkeeps_cellar: {
+    npcId: 'npc_bartender', npcName: 'Barkeep Joss',
+    name: 'Something in the Cellar',
+    type: 'kill_mob', target: 3, xpReward: 50, goldReward: 25,
+    itemRewards: [{ itemId: 'berries', qty: 3 }],
+    description: 'Every night something scratches under the cellar door — and every morning a barrel\'s gone sour. Whatever the Hollow\'s sending out after dark, thin it out for me. Three of them, and drinks are on the house. Well. Berries are.'
+  },
+  scholars_lotus: {
+    npcId: 'npc_scholar', npcName: 'Scholar Elior',
+    name: 'Lotus for the Archive',
+    type: 'harvest_specific', targetItemId: 'meditation_lotus', target: 2, xpReward: 70, goldReward: 40,
+    itemRewards: [{ itemId: 'magic_scroll', qty: 1 }],
+    description: 'The old registers must be read in perfect stillness of mind — the dead resent a distracted reader. Two Meditation Lotus blooms from the Wilds, and I can finish transcribing the pages that whisper back.'
+  },
+  apothecary_toadstools: {
+    npcId: 'npc_apothecary', npcName: 'Apothecary Vex',
+    name: 'Toadstools for the Till',
+    type: 'harvest_specific', targetItemId: 'toadstool', target: 3, xpReward: 70, goldReward: 40,
+    itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: 'Don\'t ask what the toadstools are for. Fine — it\'s a tincture for nightmares. HALF the town has the same nightmare lately, about a door underground, and my shelves are bare. Three toadstools from the Wilds, quick as you can.'
+  },
+  tailors_feathers: {
+    npcId: 'npc_tailor', npcName: 'Tailor Ines',
+    name: 'Feathers for a Funeral Coat',
+    type: 'harvest_specific', targetItemId: 'ravens_feather_plant', target: 2, xpReward: 70, goldReward: 40,
+    itemRewards: [{ itemId: 'silver_ring', qty: 1 }],
+    description: 'A commission came in last night: a mourning coat, raven-feather trim, to be left — I\'m quoting the letter — "at the cave mouth where the rabbits won\'t graze." Paid in advance. In very old coins. Two Raven\'s Feathers from the Wilds and we never speak of this again.'
+  },
+  armorers_temper: {
+    npcId: 'npc_armorer', npcName: 'Armorer Beck',
+    name: 'Test the Temper',
+    type: 'kill_mob', target: 6, xpReward: 110, goldReward: 60,
+    itemRewards: [{ itemId: 'iron_ore', qty: 2 }],
+    description: 'I\'ve been folding a new batch of steel with iron that came out of the Wilds, and I need to know if it holds against what LIVES out there before I sell a single blade of it. Six of the dark things, put down. Bring me back the dents.'
+  },
+  mabels_posies: {
+    npcId: 'npc_patron', npcName: 'Old Mabel',
+    name: "Mabel's Posies",
+    type: 'harvest_plant', target: 4, xpReward: 55, goldReward: 30,
+    itemRewards: [{ itemId: 'berries', qty: 2 }],
+    description: 'Sixty years I\'ve put fresh flowers on the windowsill and the tavern\'s never once had a haunting INSIDE. That\'s not luck, dear, that\'s protocol. My knees won\'t do the Wilds anymore — four green things, any kind the ground will give you.'
+  },
+  wrens_errand: {
+    npcId: 'npc_apprentice', npcName: 'Apprentice Wren',
+    name: "Wren's Errand",
+    type: 'harvest_specific', targetItemId: 'swift_root', target: 2, xpReward: 65, goldReward: 35,
+    itemRewards: [{ itemId: 'magic_scroll', qty: 1 }],
+    description: 'Master says I\'m not allowed in the Wilds after what happened to the LAST apprentice — no, I don\'t know what happened, that\'s the problem, nobody finishes the sentence. Anyway: two Swift Roots for the workshop? I\'ll owe you a scroll and my entire life.'
+  },
+  oswins_springs: {
+    npcId: 'npc_tinkerer', npcName: 'Tinkerer Oswin',
+    name: 'Springs and Sinews',
+    type: 'kill_mob', target: 4, xpReward: 85, goldReward: 45,
+    itemRewards: [{ itemId: 'iron_ingot', qty: 1 }],
+    description: 'I\'m building a bell that rings when the Hollow\'s creatures come within a mile. Prototype needs calibrating against the real thing, and the real thing keeps EATING my test rigs. Four of them destroyed near town and my readings will finally settle.'
+  },
+  corwins_corsage: {
+    npcId: 'npc_noble', npcName: 'Lady Corwin',
+    name: 'A Corsage for the Séance',
+    type: 'harvest_specific', targetItemId: 'rainbow_petal', target: 2, xpReward: 75, goldReward: 50,
+    itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }],
+    description: 'I am hosting a séance on Thursday — everyone who matters will be there, and half of everyone who mattered. The dead have STANDARDS, darling. Two Rainbow Petals from the Wilds for the table arrangement, and do try not to bleed on them.'
+  },
+  dorrans_patrol: {
+    npcId: 'npc_knight', npcName: 'Sir Dorran',
+    name: 'The Old Patrol',
+    type: 'kill_mob', target: 8, xpReward: 130, goldReward: 80,
+    itemRewards: [{ itemId: 'steel_shield', qty: 1 }],
+    description: 'Five hundred years ago the garrison walked a patrol route every night — town gate, tree line, back. Nobody\'s walked it since before my grandfather. I\'m too old and it shows. Walk the old route after dark and put down eight of whatever\'s moved into it.'
+  },
+  petras_watch: {
+    npcId: 'npc_guard', npcName: 'Guard Petra',
+    name: 'Night Watch Relief',
+    type: 'kill_mob', target: 5, xpReward: 95, goldReward: 55,
+    itemRewards: [{ itemId: 'healing_potion', qty: 1 }, { itemId: 'leather_hide', qty: 1 }],
+    description: 'Between us: there are two of us on the night roster, and one of us is a rooster. The things that come out after dark are getting bolder — five fewer of them tonight and maybe I sleep a full shift for once. You didn\'t hear the part about sleeping.'
   }
 };
 // Reverse-lookup: npcId → questId
@@ -1340,6 +1466,304 @@ function advanceQuestProgress(player, eventType, itemId) {
       target: quest.target
     });
   }
+}
+
+// ── Story campaigns — one spooky quest-chain per character class ─────────────
+// Each of the 5 characters has their own 6-chapter storyline set in the same
+// Thornreach lore as the faction quests above (the Hollow, the shattered
+// Fifth Severance, Witch Hazel beneath the Wilds). Unlike side quests these
+// are: (a) class-gated — you only ever see the storyline for the charId you
+// joined as; (b) sequential — chapters unlock strictly in order; (c) run in
+// PARALLEL with the single active side quest (player.activeQuest), tracked
+// separately, so taking Ranger Mara's cull never pauses your campaign.
+//
+// Progress is persisted per account in playerProgress[key].story, keyed by
+// charId — the character look is a per-session pick, so an account that
+// plays Witch on Monday and Knight on Tuesday keeps two independent
+// campaign positions. Guests get the same shape on their ephemeral
+// guestProgress, consistent with every other guest system here.
+//
+// Chapter objective types (each has a matching storyEvent() call at the
+// action's real handler — see objectiveMatches below):
+//   kill_mob                          — any hostile kill that grants quest credit
+//   harvest_plant / harvest_specific  — Wilds gathering (itemId for specific)
+//   talk_npc  (npcId)                 — interact with a named NPC (quest/shop/hint givers)
+//   visit_room (room)                 — set foot in a specific room/zone
+//   cast_ability                      — use your class's spells/attacks N times
+//   craft_potion                      — brew anything at Witch Hazel's cauldron
+// ─────────────────────────────────────────────────────────────────────────────
+const STORYLINES = {
+  0: {
+    title: 'The Fifth Hand', icon: '🖐️',
+    tagline: 'The Old Circle had five ritualists. Four graves are accounted for.',
+    chapters: [
+      { id: 'w1', title: 'The Summons', objective: { type: 'talk_npc', npcId: 'npc_lyra', target: 1, label: 'Speak with Scholar Lyra in the town square' },
+        intro: 'A letter is nailed to your door with a rusted athame. The wax seal shows five hands in a ring — one of them scratched out. "You feel it too, don\'t you? The pull under your ribs when the moon is thin. Ask the scholar what the Circle buried. Ask her what they COULDN\'T." It is signed only: H.',
+        outro: 'Lyra goes pale when she sees the seal. "Five ritualists performed the Severance. Four graves in the yard. The fifth… there IS no fifth grave. Hazel never died. She\'s still down there, under the Wilds, holding the seal shut with her own two hands. And if she\'s writing letters — she\'s getting tired."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'w2', title: 'Reagents for the Rite', objective: { type: 'harvest_plant', target: 5, label: 'Gather 5 plants from the Wilds' },
+        intro: 'A second letter, this one smelling of loam and candle smoke: "The seal drinks green things. Living essence, freely gathered. Bring what grows wild — the Hollow has already begun to sour the far groves, so take what you can while it still remembers the sun."',
+        outro: 'As you pull the last root free, every bird in the Wilds goes silent at once. Something under the soil noticed the harvest. Something is counting along with you.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'w3', title: 'The Keeper Below', objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: "Find Witch Hazel's cave beneath the Wilds" },
+        intro: '"Come down and meet me, heir. Bring the green things. The entrance is where the rabbits refuse to graze — they\'ve always known better than people." You realize you have never once seen a rabbit near the cave mouth in the north-west of the Wilds.',
+        outro: 'Hazel looks a hundred years old and nineteen at once. "Five hundred years I\'ve held this door shut," she says, not turning around. "The other four got graves and statues. I got homework. You\'re the first one the letters reached — the Hollow ate the rest."',
+        xpReward: 60, goldReward: 30 },
+      { id: 'w4', title: 'Practice the Craft', objective: { type: 'cast_ability', target: 8, label: 'Cast 8 spells from your Spellbook' },
+        intro: '"Your book is a battle kit, not a party trick. The Hollow\'s servants don\'t flinch at croaking curses — but fire, leeching, wards, the withering? Those it remembers. Those it FEARS. Practice, heir. Practice until your cooldowns sweat."',
+        outro: 'The twelfth… the eighth casting leaves scorch marks in the shape of a hand on the ground. Five fingers. Hazel\'s voice in your head, amused: "It\'s starting to recognize you. Good. Let it be afraid."',
+        xpReward: 80, goldReward: 40 },
+      { id: 'w5', title: "Thin the Hollow's Reach", objective: { type: 'kill_mob', target: 8, label: 'Destroy 8 of the Hollow\'s creatures' },
+        intro: '"Every creature it corrupts is a finger it pushes through the crack in the seal. Cut them off. Eight will make it pull the hand back — for a while. The Wilds after dark, the town outskirts at night, the Wastes if you\'re brave. Go be a horror story the Hollow tells its children."',
+        outro: 'The eighth one doesn\'t dissolve like the others. It looks at you — with recognition — and says, in a voice like wet paper: "The fifth hand waves goodbye." Then it\'s gone. Hazel doesn\'t laugh when you tell her.',
+        xpReward: 100, goldReward: 60 },
+      { id: 'w6', title: 'Brew the Severing Draught', objective: { type: 'craft_potion', target: 1, label: "Brew any potion at Hazel's cauldron" },
+        intro: '"The seal doesn\'t need a hero, heir. It needs a WITCH — one who can stand at my cauldron and make the old recipes listen. Brew. Anything. The point isn\'t the potion; the point is that the cauldron accepts your hands as Circle hands. Then I can finally, FINALLY rest one of mine."',
+        outro: 'The cauldron goes still as glass when you finish, and for one heartbeat you see six hands reflected in it — yours, Hazel\'s four… and one more, pressed against the other side of the surface, patient. Hazel exhales for what sounds like the first time in centuries. "Welcome to the Circle, Fifth Hand. The staff is yours. The watch is ours."',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_staff', qty: 1 }] }
+    ]
+  },
+  1: {
+    title: 'The First Bite', icon: '🌕',
+    tagline: 'Every curse has a first link in its chain. Yours is still alive.',
+    chapters: [
+      { id: 'b1', title: 'Scent of the Past', objective: { type: 'talk_npc', npcId: 'npc_dex', target: 1, label: 'Speak with Hunter Dex in the town square' },
+        intro: 'On the night of the full moon you dream of teeth that are not yours — older, yellower, remembering. You wake with dirt under your claws and one word scratched into your door from the OUTSIDE: "ASK THE HUNTER."',
+        outro: 'Dex doesn\'t reach for his knife, which surprises you. "Been waiting for one of you to ask," he says. "Every wolf in this valley bites back to one first bite — the Old Wolf, cursed the night the Severance shattered. Wolfsbane remembers that night. Go pick some. It\'ll show you."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'b2', title: 'Silver the Blood', objective: { type: 'harvest_specific', itemId: 'wolfsbane_bloom', target: 3, label: 'Gather 3 Wolfsbane Blooms in the Wilds' },
+        intro: 'Wolfsbane grows where the curse walked. Three blooms, picked with your own cursed hands — Dex says they\'ll pull toward the place your bloodline started, like compass needles that smell blood.',
+        outro: 'The third bloom wilts the moment you pick it, all three stems bending in the same direction: north-west, toward the cave under the Wilds where the rabbits never graze. Your teeth ache. That\'s where the First Bite happened.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'b3', title: 'The Moon Remembers', objective: { type: 'kill_mob', target: 6, label: 'Put down 6 of the Hollow\'s night creatures' },
+        intro: '"The Hollow\'s creatures carry a splinter of the same corruption that made the Old Wolf," Dex tells you. "Kill six. Not for the town — for the scent. You\'ll smell what your curse smelled the night it was born. Then you\'ll understand what you\'re walking into."',
+        outro: 'He was right. Under the sixth one\'s rot you catch it: moonlight, wet fur, and terror — the exact smell of your own nightmares. The curse in your blood howls in recognition. It wants to go home.',
+        xpReward: 80, goldReward: 40 },
+      { id: 'b4', title: 'Howl at the Hollow', objective: { type: 'cast_ability', target: 8, label: 'Use 8 of your wolf attacks' },
+        intro: 'The curse gets louder the closer you get to its source — so make it USEFUL. Howl, bite, dash, frenzy: eight times, until the wolf and you stop arguing about who\'s driving. A divided wolf dies at the Hollow\'s door. A whole one knocks.',
+        outro: 'On the eighth, something in your chest clicks into place like a joint setting. The wolf isn\'t riding you anymore. You\'re not riding it. There\'s just one animal now, and it is very, very calm.',
+        xpReward: 100, goldReward: 50 },
+      { id: 'b5', title: 'Den of the First', objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: 'Enter the cave beneath the Wilds' },
+        intro: 'The wolfsbane pointed here. The witch who lives in the cave now — Hazel — was THERE the night the Severance shattered and the Old Wolf was made. She owes your bloodline an explanation. Walk into the den where your curse was born and get it.',
+        outro: 'Hazel doesn\'t flinch at your shape. "I wondered which generation would finally track it back," she says. "The Old Wolf was our watchdog — the Circle\'s. The ritual broke him before it broke us. Everything he bit carried the break forward. You want it to end? It ends the way it started: blood, moonlight, and something stronger than the curse choosing to stop."',
+        xpReward: 100, goldReward: 60 },
+      { id: 'b6', title: 'Break the Chain', objective: { type: 'kill_mob', target: 10, label: 'Destroy 10 corrupted creatures as the whole wolf' },
+        intro: '"The curse thins every time the Hollow does," Hazel says. "Ten more. Not as a victim of the bite — as the first wolf in five hundred years who OWNS it. Break enough links and the chain forgets the shape of your family entirely."',
+        outro: 'The tenth falls, and for a moment the moon looks… ordinary. Just a rock in the sky. The hunger is still there — it\'s yours now, not the Old Wolf\'s — and hanging from the last creature\'s throat, impossibly clean, is a fang you recognize from your dreams. It stopped choosing violence long ago. Now it chooses you.',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'alpha_fang', qty: 1 }] }
+    ]
+  },
+  2: {
+    title: 'Voices Beneath the Floorboards', icon: '🕯️',
+    tagline: "The town's dead have started leaving reviews.",
+    chapters: [
+      { id: 'm1', title: 'The Whisperer', objective: { type: 'talk_npc', npcId: 'npc_scholar', target: 1, label: 'Speak with Scholar Elior in the Library' },
+        intro: 'You hear them at the edges of sleep: the town\'s dead, murmuring under the floorboards like a dinner party in another room. Last night, for the first time, one of them said your NAME — and the rest went quiet, listening. The library keeps the town\'s death registers. Start there.',
+        outro: 'Elior slides a ledger across without being asked. "Every medium who\'s lived here ends up at this desk eventually," he says. "The registers list forty-one graves in the old yard. The whispers you\'re hearing? I\'ve counted the distinct voices. There are forty-TWO."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'm2', title: 'Grave Goods', objective: { type: 'harvest_plant', target: 6, label: 'Gather 6 offerings from the Wilds' },
+        intro: 'The dead don\'t talk for free — the old rites paid them in living green things laid on the threshold. Six offerings from the Wilds. The forty-second voice is the one refusing to give a name, and politeness, Elior insists, is the only lockpick that works on the dead.',
+        outro: 'You lay the sixth stem down and the whispers change tone — warmer, closer, like the other room\'s door has been opened a crack. Forty-one voices say thank you. One says: "She\'s listening. Careful."',
+        xpReward: 60, goldReward: 30 },
+      { id: 'm3', title: 'Where the Dead Drink', objective: { type: 'visit_room', room: 'cafe', target: 1, label: 'Visit the Cafe after the whispers lead you there' },
+        intro: 'Follow the voices. They pool where the living gather and the boards are oldest — the tavern. The dead of this town, it turns out, never really left the bar. The forty-second voice goes there to LISTEN, the others say. To remember being warm.',
+        outro: 'In the tavern the whispers are almost deafening — laughter, arguments, a toast repeated for two hundred years. And under it all, one voice not celebrating. Just watching. It was never buried in the yard, the others whisper. She went into the ground under the WILDS, holding something shut.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'm4', title: 'Open the Channel', objective: { type: 'cast_ability', target: 8, label: 'Channel 8 of your mystic rites' },
+        intro: 'To speak with the forty-second voice directly you\'ll need a wider channel than sleep\'s edge. Practice the rites — lash, siphon, veil, séance — eight workings, until the boundary knows your signature and stops checking your credentials at the door.',
+        outro: 'On the eighth rite the veil doesn\'t part — it BOWS. The forty-second voice comes through clear at last, tired and amused: "Finally, a medium with manners. My name is Hazel. I\'m not dead, dear. But I\'ve been holding a door shut for five hundred years, and I need hands on the OTHER side of the floorboards."',
+        xpReward: 80, goldReward: 40 },
+      { id: 'm5', title: 'Quiet the Restless', objective: { type: 'kill_mob', target: 8, label: 'Put 8 corrupted creatures to rest' },
+        intro: '"The things stalking the dark aren\'t alive," Hazel\'s voice explains. "They\'re stolen echoes — the Hollow wears the dead like costumes. Every one you cut down is a voice freed to come sit under the floorboards with the others, where it\'s warm. Eight, medium. Consider it hospice work."',
+        outro: 'Each one you fell adds a new voice to the murmur under the boards — confused at first, then grateful, then GOSSIPING. The dead of Thornreach are delighted with you. The Hollow, noticeably, is not.',
+        xpReward: 100, goldReward: 60 },
+      { id: 'm6', title: 'The Last Séance', objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: "Hold the séance in Hazel's cave itself" },
+        intro: '"Come down in person," Hazel says. "Five hundred years of messages passed through walls — I want ONE conversation face to face. Bring the voices with you; they\'ve earned seats. We\'re going to show the Hollow what a town full of dead friends looks like when it stands up."',
+        outro: 'The séance in the cave is the loudest silence you\'ve ever heard: forty-two voices and one witch, all facing the sealed door in the dark, together. The Hollow scratches once — and stops. "It counts too," Hazel grins, handing you a cloak that moves like breath. "And it just realized it\'s outnumbered."',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_cloak', qty: 1 }] }
+    ]
+  },
+  3: {
+    title: 'The Hollow Oath', icon: '⚔️',
+    tagline: 'Your order swore an oath five centuries ago. They lied about what it was.',
+    chapters: [
+      { id: 'k1', title: 'Orders from No One', objective: { type: 'talk_npc', npcId: 'npc_knight', target: 1, label: 'Speak with Sir Dorran' },
+        intro: 'Sealed orders arrive stamped with your order\'s crest — but the parchment is five hundred years old and the officer who signed them died before your grandparents were born. "Report to the town hall garrison. The Watch resumes. The Oath was never released." Sir Dorran is the last knight of the old garrison still standing. He\'ll know if this is a prank. His face when you show him will tell you it isn\'t.',
+        outro: 'Dorran reads the orders twice, then sits down like his legs were kicked out. "The Oath," he says quietly. "Officially, our order was founded to guard the roads. That\'s the lie. We were founded to guard a DOOR. Under the Wilds. And if the Watch is being recalled after five hundred years, son — something on the other side of it has started knocking."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'k2', title: 'Proof of Steel', objective: { type: 'kill_mob', target: 6, label: 'Slay 6 of the creatures the Oath was sworn against' },
+        intro: '"Before I tell you the rest, prove the recall picked the right knight," Dorran says. "The things in the dark — the Wilds after sundown, the town edge at night — those are what leaks through when the door under the Wilds breathes. Six of them. Come back with the smell of the enemy on your blade."',
+        outro: 'You return and Dorran inspects your blade without a word, nodding at the black residue only a knight of the Watch would recognize. "Hollow-rot. Same as the chronicles describe. Five hundred years and it still dies the same way. Good. Now — the archive. There\'s a page the order hid even from itself."',
+        xpReward: 80, goldReward: 40 },
+      { id: 'k3', title: 'The Archive Lies', objective: { type: 'visit_room', room: 'library', target: 1, label: 'Search the Library for the hidden page' },
+        intro: 'The order\'s official chronicle sits in the town library — polished, heroic, and false. Dorran says the true account is bound INTO the book: a confession page, hidden under the endpaper by the last honest quartermaster. Find it. Read what your order actually swore.',
+        outro: 'The page is exactly where he said. The confession is short: "We did not defeat the Hollow. We could not. We sealed it with the witches\' ritual and swore the Watch until the seal fails. We told the town we won. Forgive us. It was easier for them to sleep." Beneath, a single line in fresher ink: "It is failing. — H."',
+        xpReward: 60, goldReward: 30 },
+      { id: 'k4', title: 'Drills at Dusk', objective: { type: 'cast_ability', target: 8, label: 'Drill 8 of your knightly arts' },
+        intro: '"An oath is muscle memory," Dorran says, tossing you your kit. "Smite, bash, ward, mend — eight drills before the light dies. The old Watch trained until the movements happened without them. On the night the door opens, you will not have time to think. So we make thinking unnecessary."',
+        outro: 'By the eighth drill Dorran has stopped correcting you and started just watching, arms folded, looking five hundred years tired and one evening proud. "The Watch would have taken you," he says. That, you understand, is the highest compliment he owns.',
+        xpReward: 100, goldReward: 50 },
+      { id: 'k5', title: 'The Vault Ledger', objective: { type: 'visit_room', room: 'bank', target: 1, label: "Check the order's old deposit at the Bank" },
+        intro: 'The confession page mentions a deposit: the order\'s founders left something in the town bank\'s deepest ledger, "for the knight who resumes the Watch." Five centuries of compound dust. Go to the Bank and ask what box the Oath keeps.',
+        outro: 'The ledger entry is real: one item, deposited five hundred years ago, releasable only to "a knight under Oath, when the Watch resumes." Inside: not a weapon. A map — the door under the Wilds, the cave that leads to it, and a woman\'s name you now keep finding everywhere. HAZEL. In the margin: "She holds it alone. Shame us all."',
+        xpReward: 100, goldReward: 60 },
+      { id: 'k6', title: 'Purge the Breach', objective: { type: 'kill_mob', target: 12, label: 'Hold the line — destroy 12 Hollow creatures' },
+        intro: 'The seal is weakening and the leaks are worsening — but a Watch of ONE, standing where it\'s thinnest, can push the tide back while the witch works. Twelve of the Hollow\'s creatures. Not for glory, not for the chronicle. Because five hundred years ago your order made a promise and told no one. Tonight, someone keeps it honestly.',
+        outro: 'The twelfth falls as dawn comes up. Down in the cave, you\'re told, the pressure on the seal eased for the first time in a generation — Hazel felt the line HOLD. Dorran meets you at the town gate with the order\'s ancient helm in both hands. "The chronicle gets a true page tonight," he says. "The Watch stands. Wear it, Oathkeeper."',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'dread_helm', qty: 1 }] }
+    ]
+  },
+  4: {
+    title: "The Road That Isn't on the Map", icon: '🛣️',
+    tagline: 'Every map of Thornreach has the same smudge. It moves.',
+    chapters: [
+      { id: 'v1', title: 'The Unmarked Milestone', objective: { type: 'talk_npc', npcId: 'npc_patron', target: 1, label: 'Ask Old Mabel at the Cafe about the smudge' },
+        intro: 'You\'ve walked more roads than anyone in this town, and you know the deep truth of maps: they lie by omission. Every chart of Thornreach ever inked has a smudge in the same place — and last night, from the lounge rooftop, you saw lantern-light moving along the smudge. Old Mabel at the tavern has drunk with every traveler for sixty years. Ask her.',
+        outro: 'Mabel doesn\'t laugh. She puts down her cup, which is worse. "The Gray Road," she says. "Every wanderer asks eventually — the ones the road wants. It only shows itself to feet that never learned to stay put. My husband saw it. Walked it. Came back with silver hair and a smile I never got an explanation for. Pack food, dear."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'v2', title: 'Provisions for a Long Walk', objective: { type: 'harvest_plant', target: 5, label: 'Gather 5 wild provisions for the Road' },
+        intro: '"Rule one of the Gray Road," Mabel says, counting on her fingers: "you pay the toll in things that GREW. Coin means nothing to it — coins have never been alive. Five green things from the Wilds, picked by your own walking hands. The Road can taste the difference between bought and gathered."',
+        outro: 'Five provisions in your pack, and your feet already feel it — a faint pull at the heels, west-north-west, like the world tilting one degree in a direction that isn\'t on any compass rose. The Road knows you\'re coming. It\'s had your reservation for years.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'v3', title: 'Follow It Into the Trees', objective: { type: 'visit_room', room: 'wilds', target: 1, label: 'Follow the pull into the Wilds' },
+        intro: 'The pull leads through the portal into the Wilds. Walk it the wanderer\'s way: no destination, loose knees, eyes soft. The Gray Road doesn\'t appear to people who are LOOKING for it. It appears to people who are simply walking, the way it\'s been collecting them for five hundred years.',
+        outro: 'And there it is, in the corner of your eye where it lives: a gray ribbon of path between the trees that isn\'t there when you stare. It runs from the town you left… to the cave in the north-west, the one under which — every dead map agrees — there is nothing at all. The smudge, you realize, was never bad ink. It was a door someone kept erasing.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'v4', title: 'Tricks of the Road', objective: { type: 'cast_ability', target: 8, label: 'Use 8 of your wanderer skills' },
+        intro: 'The Gray Road tests its walkers — old travelers\' stories agree on that much. Spyglass, sleight, wanderlust, the nightwatch cloak: eight workings of your trade, until your kit sits on you like weather. The Road accepts professionals. Tourists it returns, gently, to wherever they started, minus their sense of direction.',
+        outro: 'Somewhere around the eighth trick you notice the Road has stopped flickering at the edge of your vision and started simply BEING there, patient as a dog that\'s decided you\'re its person. You\'re not following it anymore. You\'re walking together.',
+        xpReward: 80, goldReward: 40 },
+      { id: 'v5', title: 'What Walks It at Night', objective: { type: 'kill_mob', target: 8, label: 'Clear 8 of the things squatting on the Road' },
+        intro: 'The Gray Road has a squatter problem: the Hollow\'s creatures cluster on it after dark, drawn to the old power in its stones. That\'s why it hides. Clear eight of them off its length — the Wilds at night, the town edge, wherever the dark things gather — and the Road will owe you, and the Road famously always, ALWAYS pays its debts.',
+        outro: 'Eight down. The Road brightens visibly with each one, like a window being wiped. As the last creature dissolves, the gray ribbon does something no map could survive: it turns, politely, and points — straight at the cave mouth. An invitation. The final one.',
+        xpReward: 100, goldReward: 60 },
+      { id: 'v6', title: "The Road's End", objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: 'Walk the Gray Road to its end — the cave' },
+        intro: 'Every road ends at a door. The Gray Road was built — you understand now — as the Circle\'s escape route, the path their fifth ritualist walked DOWN five hundred years ago and never walked back up. It stays hidden because she asked it to. Walk it to the end. Meet the woman the maps kept erasing.',
+        outro: 'Hazel is waiting at the bottom like she heard your boots a mile off. "The Road only brings me two kinds of visitor," she says. "Trouble, and couriers. You\'ve got courier feet." She presses something onto your boots — treads that shimmer like the Road itself. "It chose you as its keeper. Walk it often; roads die of loneliness. And wanderer — the smudge stays between us."',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'soul_treads', qty: 1 }] }
+    ]
+  }
+};
+
+// Ensure prog.story exists (backfills accounts saved before the campaign
+// system existed, same pattern as the pickpocketSuccesses backfill).
+function getStoryState(player) {
+  const prog = getProgress(player);
+  if (!prog.story) prog.story = {};
+  if (!prog.story[player.charId]) prog.story[player.charId] = { chapter: 0, progress: 0, active: false };
+  return prog.story[player.charId];
+}
+
+// Everything the Journal needs to render this player's campaign, in one
+// payload — sent on join, on request, and after every begin/complete.
+function storyStatePayload(player) {
+  const line = STORYLINES[player.charId];
+  if (!line) return { type: 'story_state', storyline: null };
+  const st = getStoryState(player);
+  const done = st.chapter >= line.chapters.length;
+  const chapter = done ? null : line.chapters[st.chapter];
+  return {
+    type: 'story_state',
+    storyline: {
+      charId: player.charId,
+      title: line.title, icon: line.icon, tagline: line.tagline,
+      totalChapters: line.chapters.length,
+      chapterIndex: st.chapter,
+      complete: done,
+      active: st.active,
+      progress: st.progress,
+      chapter: chapter ? {
+        id: chapter.id, title: chapter.title, intro: chapter.intro,
+        objectiveLabel: chapter.objective.label, target: chapter.objective.target,
+        xpReward: chapter.xpReward, goldReward: chapter.goldReward,
+        itemRewards: (chapter.itemRewards || []).map(r => ({
+          itemId: r.itemId, qty: r.qty || 1,
+          name: ITEM_CATALOG[r.itemId] ? ITEM_CATALOG[r.itemId].name : r.itemId,
+          icon: ITEM_CATALOG[r.itemId] ? ITEM_CATALOG[r.itemId].icon : '❔'
+        }))
+      } : null
+    }
+  };
+}
+
+function objectiveMatches(obj, eventType, detail) {
+  if (obj.type === 'kill_mob') return eventType === 'kill_mob';
+  if (obj.type === 'harvest_plant') return eventType === 'harvest_plant';
+  if (obj.type === 'harvest_specific') return eventType === 'harvest_plant' && detail.itemId === obj.itemId;
+  if (obj.type === 'talk_npc') return eventType === 'talk_npc' && detail.npcId === obj.npcId;
+  if (obj.type === 'visit_room') return eventType === 'visit_room' && detail.room === obj.room;
+  if (obj.type === 'cast_ability') return eventType === 'cast_ability';
+  if (obj.type === 'craft_potion') return eventType === 'craft_potion';
+  return false;
+}
+
+// The campaign's advanceQuestProgress — called from the same real action
+// sites side quests hook (kills, harvests) plus the campaign-only ones
+// (talks, room visits, ability casts, crafting). Deliberately separate
+// from player.activeQuest so a side quest and a chapter can both tick off
+// the same kill.
+function storyEvent(player, eventType, detail = {}) {
+  const line = STORYLINES[player.charId];
+  if (!line) return;
+  const st = getStoryState(player);
+  if (!st.active || st.chapter >= line.chapters.length) return;
+  const chapter = line.chapters[st.chapter];
+  if (!objectiveMatches(chapter.objective, eventType, detail)) return;
+
+  st.progress++;
+  if (st.progress < chapter.objective.target) {
+    if (player.accountKey) saveProgress();
+    send(player.ws, {
+      type: 'story_update',
+      chapterTitle: chapter.title,
+      objectiveLabel: chapter.objective.label,
+      progress: st.progress,
+      target: chapter.objective.target
+    });
+    return;
+  }
+
+  // Chapter complete — grant rewards (same flow as quest completion above),
+  // advance to the next chapter (left inactive so the player reads the
+  // outro and begins it from the Journal when ready).
+  st.chapter++;
+  st.progress = 0;
+  st.active = false;
+  grantXP(player, chapter.xpReward);
+  if (chapter.goldReward && player.accountKey) {
+    const acct = ensureBankAccount(player.accountKey);
+    acct.balance += chapter.goldReward;
+    saveBankAccounts();
+  }
+  const inv = getInventory(player);
+  const itemsGranted = [];
+  if (chapter.itemRewards) {
+    for (const r of chapter.itemRewards) {
+      if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
+        const meta = ITEM_CATALOG[r.itemId];
+        itemsGranted.push(`${meta ? meta.icon : '?'} ${meta ? meta.name : r.itemId}`);
+        send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      }
+    }
+    if (player.accountKey) saveInventories();
+  }
+  if (player.accountKey) saveProgress();
+
+  const storyDone = st.chapter >= line.chapters.length;
+  const rewardParts = [`+${chapter.xpReward} XP`];
+  if (chapter.goldReward) rewardParts.push(`+${chapter.goldReward}🪙${player.accountKey ? '' : ' (lost — guests have no bank)'}`);
+  if (itemsGranted.length) rewardParts.push(itemsGranted.join(', '));
+  send(player.ws, {
+    type: 'story_chapter_complete',
+    chapterTitle: chapter.title,
+    outro: chapter.outro,
+    rewards: rewardParts.join(' · '),
+    storyComplete: storyDone,
+    message: storyDone
+      ? `📖 "${chapter.title}" complete — ${rewardParts.join(' · ')} · ${line.icon} THE STORY IS COMPLETE.`
+      : `📖 Chapter complete: "${chapter.title}" — ${rewardParts.join(' · ')}. A new chapter awaits in your Journal.`
+  });
+  send(player.ws, storyStatePayload(player));
 }
 
 // Returns null if access is granted, or an error message string if not —
@@ -2255,7 +2679,7 @@ function tickWilds(dt) {
       vy = dy * inv * preset.speed;
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
@@ -2504,7 +2928,7 @@ function tickDungeon(dt) {
       vy = dy * inv * preset.speed;
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
@@ -2533,14 +2957,22 @@ function tickDungeon(dt) {
   }
 }
 
-// The one status effect that isn't purely client-cosmetic — Regen Root
-// actually heals over time, so unlike every other status it needs the
-// server to do something with it each tick rather than just track expiry.
+// The two status effects that aren't purely client-cosmetic — 'regen'
+// (Regen Root potions, the Witch's Bone-Knit Blessing) heals over time,
+// and 'wither' (the Witch's Withering Hex) drains over time — so unlike
+// every other status the server has to act on them each tick rather than
+// just track expiry. Wither floors at 1 HP on purpose: a hex can carry a
+// soul to death's door but never through it, which keeps every actual
+// death (and its loot/respawn flow) inside applyDamage.
 const REGEN_HP_PER_SEC = 2.5;
-function tickPlayerRegen(now, dt) {
+const WITHER_HP_PER_SEC = 3;
+function tickPlayerStatusHealth(now, dt) {
   for (const p of players.values()) {
-    if (p.activeStatus && p.activeStatus.type === 'regen' && p.activeStatus.expiresAt > now) {
+    if (!p.activeStatus || p.activeStatus.expiresAt <= now) continue;
+    if (p.activeStatus.type === 'regen') {
       p.health = Math.min(100, p.health + REGEN_HP_PER_SEC * dt);
+    } else if (p.activeStatus.type === 'wither' && !p.isDead) {
+      p.health = Math.max(1, p.health - WITHER_HP_PER_SEC * dt);
     }
   }
 }
@@ -2554,15 +2986,17 @@ setInterval(() => {
   tickWilds(dt);
   tickVillageNpcs(dt);
   tickDungeon(dt);
-  tickPlayerRegen(now, dt);
+  tickPlayerStatusHealth(now, dt);
   tickTorchNpcs(dt);
   updateTemplePortalState();
   tickTorchHealing(dt);
   tickEmberWastes(dt);
+  tickGroundTraps(now);
   if (players.size === 0) return;
   broadcastAll({
     type: 'wildlife_state',
     isNight: isNightNow(),
+    groundTraps: groundTrapsPublicState(),
     animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
@@ -2576,6 +3010,32 @@ setInterval(() => {
     emberMobs: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) }))
   });
 }, 150);
+
+// ---------------------------------------------------------------------------
+// Ground-placed spell traps — currently just Stumble Hex's sigil (see the
+// 'ground' branch in cast_spell below). Each entry is self-contained (no
+// SPELL_CATALOG lookup needed here), so this can tick regardless of where
+// in the file it sits relative to the catalog. A trap re-applies its status
+// to anyone standing inside it on every tick — stepping out lets whatever
+// duration they were last given start counting down normally, the same as
+// getting hexed directly.
+// ---------------------------------------------------------------------------
+const groundTraps = [];
+function tickGroundTraps(now) {
+  for (let i = groundTraps.length - 1; i >= 0; i--) {
+    if (groundTraps[i].expiresAt <= now) groundTraps.splice(i, 1);
+  }
+  for (const trap of groundTraps) {
+    for (const p of players.values()) {
+      if (p.room !== trap.room || p.isDead) continue;
+      if (Math.hypot(p.x - trap.x, p.y - trap.y) > trap.radius) continue;
+      p.activeStatus = { type: trap.statusType, expiresAt: now + trap.statusDurationMs };
+    }
+  }
+}
+function groundTrapsPublicState() {
+  return groundTraps.map(t => ({ id: t.id, spellId: t.spellId, room: t.room, x: t.x, y: t.y, radius: t.radius, expiresAt: t.expiresAt }));
+}
 
 // ---------------------------------------------------------------------------
 // Spells — a Witch-only (charId 0) feature, cast from the client's
@@ -2601,9 +3061,15 @@ const SPELL_CATALOG = {
     name: "Toad's Tongue", icon: '🐸', kind: 'targeted', effect: 'status', statusType: 'toad', durationMs: 45000,
     description: 'Curses the target to croak mid-sentence in chat for a while.'
   },
+  // The one 'ground' spell — instead of picking a player, the caster picks
+  // a spot on the ground (see the 'ground' branch in cast_spell below) and
+  // a sigil is drawn there for trapLifetimeMs. Any player who wanders within
+  // trapRadius of it while it's still active gets durationMs of the status,
+  // same as if they'd been hexed directly — see tickGroundTraps().
   stumble_hex: {
-    name: 'Stumble Hex', icon: '🦶', kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 20000,
-    description: "Hexes the target's feet — halves their walking speed."
+    name: 'Stumble Hex', icon: '🦶', kind: 'ground', effect: 'trap', statusType: 'stumble', durationMs: 20000,
+    trapRadius: 130, trapLifetimeMs: 25000,
+    description: 'Draws a witchy sigil on the ground — anyone who steps into it gets hexed with halved walking speed.'
   },
   // The one Witch spell that actually drains health, unlike every other
   // entry here (see the 'damage' branch in cast_spell below) — a ranged
@@ -2612,37 +3078,55 @@ const SPELL_CATALOG = {
     name: 'Fireball', icon: '🔥', kind: 'targeted', effect: 'damage', dmgMin: 18, dmgMax: 30,
     description: 'Hurls a roaring ball of witchfire at the target for real damage.'
   },
-  shrinking_curse: {
-    name: 'Shrinking Curse', icon: '🔻', kind: 'targeted', effect: 'status', statusType: 'shrink', durationMs: 20000,
-    description: 'Shrinks the target down to half size.'
+  // ---- Combat ----
+  // A damage-over-time curse (see tickPlayerStatusHealth) — 3 HP/s for its
+  // duration, but it floors at 1 HP: a hex can carry a soul to death's door,
+  // never through it. Only a real blow (Strike/Fireball/Leech) can finish
+  // what the withering starts, so the kill/loot flow stays with applyDamage.
+  withering_hex: {
+    name: 'Withering Hex', icon: '🥀', kind: 'targeted', effect: 'status', statusType: 'wither', durationMs: 10000,
+    description: "Rots the target's vitality — their life withers away for ten dreadful seconds. It cannot kill, only carry them to the brink."
   },
-  giants_folly: {
-    name: "Giant's Folly", icon: '🔺', kind: 'targeted', effect: 'status', statusType: 'giant', durationMs: 20000,
-    description: 'Swells the target up to twice their size.'
+  // Combat-heal hybrid: the same applyDamage path as Fireball (players AND
+  // mobs), but whatever it drains flows back into the caster's own health.
+  leech_hex: {
+    name: 'Leech Hex', icon: '🩸', kind: 'targeted', effect: 'leech', dmgMin: 12, dmgMax: 20,
+    description: 'Sinks phantom fangs into the target — the life it drains seeps back into your own veins.'
   },
-  pumpkin_head: {
-    name: 'Pumpkin Head', icon: '🎃', kind: 'targeted', effect: 'status', statusType: 'pumpkin', durationMs: 30000,
-    description: "Replaces the target's head with a jack-o'-lantern."
+  // Self combat buff: reuses the 'giant' status the client already renders
+  // (doubled size), and applyDamage boosts any attacker with 'giant' by 50%.
+  monstrous_form: {
+    name: 'Monstrous Form', icon: '👹', kind: 'self', effect: 'status', statusType: 'giant', durationMs: 15000,
+    description: 'Swell into a hulking horror — while transformed, your strikes and spells hit half again as hard.'
   },
-  bat_swarm: {
-    name: 'Bat Swarm', icon: '🦇', kind: 'targeted', effect: 'status', statusType: 'bats', durationMs: 15000,
-    description: 'Summons a circling swarm of bats around the target.'
+  // ---- Defense ----
+  // Self ward: 'pumpkin' status bearers take half damage from every source
+  // (see absorbIncomingDamage — mob strikes and PvP alike).
+  gourd_ward: {
+    name: 'Gourd Ward', icon: '🎃', kind: 'self', effect: 'status', statusType: 'pumpkin', durationMs: 20000,
+    description: 'Hollow out your skull into a sacred ward-gourd — while it grins, all harm against you is halved.'
   },
-  color_curse: {
-    name: 'Color Curse', icon: '🌈', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
-    description: "Curses the target's clothes to cycle through every color."
-  },
-  silver_tongue: {
-    name: 'Silver Tongue Hex', icon: '🗣️', kind: 'targeted', effect: 'status', statusType: 'gibberish', durationMs: 30000,
-    description: "Tangles the target's words into nonsense in chat for a while."
-  },
+  // Escape/repositioning tool: the dark-feather visual plus doubled speed
+  // (client movement honors 'ravencloak' the same way it does 'speedboost').
   ravens_cloak: {
-    name: "Raven's Cloak", icon: '🪽', kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000,
-    description: 'Wraps the caster in a swirl of dark feathers.'
+    name: "Raven's Cloak", icon: '🪽', kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 12000,
+    description: 'Dissolve into a flurry of black feathers — your steps quicken to twice their pace, to flee or to chase.'
   },
-  glimpse_future: {
-    name: 'Glimpse the Future', icon: '🔮', kind: 'targeted', effect: 'reveal',
-    description: "Reveals a target's current location to the caster."
+  // ---- Healing ----
+  // Self regen: same 'regen' status the healing potions grant, ticked
+  // server-side in tickPlayerStatusHealth (~2.5 HP/s).
+  bone_knit: {
+    name: 'Bone-Knit Blessing', icon: '🦴', kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000,
+    description: 'Whisper the old words over your own bones — wounds slowly knit themselves closed for twelve seconds.'
+  },
+  // ---- Intelligence gathering ----
+  scrying_orb: {
+    name: 'Scrying Orb', icon: '🔮', kind: 'targeted', effect: 'reveal',
+    description: 'Peer into the orb at a chosen soul — learn where they are, how wounded, how seasoned, and what curse rides them.'
+  },
+  nightwing_augury: {
+    name: 'Nightwing Augury', icon: '🦇', kind: 'self', effect: 'intel_sweep', durationMs: 15000,
+    description: 'Loose your bats across the whole realm — they return whispering every soul’s whereabouts and wounds.'
   }
 };
 const SPELL_COOLDOWN_MS = 8000;
@@ -2827,7 +3311,7 @@ function tickEmberWastes(dt) {
       vy = dy * inv * preset.speed;
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
@@ -3008,6 +3492,18 @@ function describeRoom(roomId) {
   return b ? b.name : roomId;
 }
 
+// Same per-room world dimensions the 'move' handler clamps player position
+// against — shared here so ground-targeted spells (see the 'ground' branch
+// in cast_spell) can clamp a sigil's placement the same way.
+function roomBounds(room) {
+  if (room === 'wilds') return WORLD2;
+  if (room === 'witch_cave') return { width: 800, height: 700 };
+  if (room === 'bank_vault') return VAULT_WORLD_DIMS;
+  if (room === 'ember_wastes') return EMBER_WORLD_DIMS;
+  if (typeof room === 'string' && room.startsWith('dungeon_')) return { width: DUNGEON_SIZE, height: DUNGEON_SIZE };
+  return WORLD;
+}
+
 // requestId -> { casterId, casterName, targetId, expiresAt }. Entries are
 // removed as soon as they're resolved (deny, photo, or success); the sweep
 // below only exists to clean up ones the target never responded to at all.
@@ -3044,6 +3540,15 @@ setInterval(() => {
 // toast and notes for the data-reveal effects.
 // ---------------------------------------------------------------------------
 const WEREWOLF_ATTACK_CATALOG = {
+  // Savage Bite is the Werewolf's real damage attack — ranged like Fireball
+  // is for the Witch (applyDamage with no maxRange), hits players AND mobs.
+  // First in the catalog so it lands on hotbar key 1.
+  savage_bite:      { name: 'Savage Bite',       kind: 'targeted', effect: 'damage', dmgMin: 16, dmgMax: 26 },
+  // Iron Pelt/Moonlit Mending complete the kit: a ward (the class-neutral
+  // 'ward' status — same halving as Gourd Ward's pumpkin, wolfier look)
+  // and a self-heal (same 'regen' the Bone-Knit Blessing uses).
+  iron_pelt:        { name: 'Iron Pelt',         kind: 'self', effect: 'status', statusType: 'ward',  durationMs: 30000 },
+  moonlit_mending:  { name: 'Moonlit Mending',   kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
   rapid_swipe:      { name: 'Rapid Swipe',       kind: 'targeted', effect: 'note_steal' },
   lunar_howl:       { name: 'Lunar Howl',       kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
   terrifying_roar:  { name: 'Terrifying Roar',  kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
@@ -3079,6 +3584,12 @@ const WEREWOLF_ATTACK_CATALOG = {
 // when the attempt *fails* (see the pickpocket branch in cast_attack) — a
 // clean steal is silent on their end, they just notice the item's gone later.
 const WANDERER_ATTACK_CATALOG = {
+  // Knife Throw/Trail Remedy/Packmule's Guard complete the Wanderer's kit
+  // the same way Savage Bite & co. complete the Werewolf's above: a real
+  // damage attack (players and mobs), a self-heal, and a ward.
+  knife_throw:        { name: 'Knife Throw',         kind: 'targeted', effect: 'damage', dmgMin: 14, dmgMax: 24 },
+  trail_remedy:       { name: 'Trail Remedy',        kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
+  packmule_guard:     { name: "Packmule's Guard",    kind: 'self', effect: 'status', statusType: 'ward',  durationMs: 30000 },
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
   echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
@@ -3093,10 +3604,57 @@ const WANDERER_ATTACK_CATALOG = {
   compass_trick:      { name: 'Compass Trick',       kind: 'targeted', effect: 'reveal' }
 };
 
+// charId 2 — Mystic. A spirit-medium's full battle kit: damage (Spirit
+// Lash), a leech (Soul Siphon, mirrors the Witch's Leech Hex), wards for
+// self AND allies, healing for self AND allies (Mending Spirits is the
+// one targeted instant heal in the game alongside the Knight's Lay on
+// Hands), and the intel pair (Whispered Secret single-target reveal +
+// Spirit Walk full-realm sweep, same already-public-data model as the
+// Witch's Scrying Orb / Nightwing Augury).
+const MYSTIC_ATTACK_CATALOG = {
+  spirit_lash:       { name: 'Spirit Lash',        kind: 'targeted', effect: 'damage', dmgMin: 16, dmgMax: 28 },
+  soul_siphon:       { name: 'Soul Siphon',        kind: 'targeted', effect: 'leech',  dmgMin: 10, dmgMax: 18 },
+  banshee_wail:      { name: 'Banshee Wail',       kind: 'aoe', effect: 'status', statusType: 'shrink', durationMs: 20000 },
+  ethereal_veil:     { name: 'Ethereal Veil',      kind: 'self', effect: 'status', statusType: 'ward',  durationMs: 30000 },
+  spirit_ward:       { name: 'Spirit Ward',        kind: 'targeted', effect: 'status', statusType: 'ward', durationMs: 30000 },
+  ghost_step:        { name: 'Ghost Step',         kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
+  seance_of_mending: { name: 'Séance of Mending',  kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
+  mending_spirits:   { name: 'Mending Spirits',    kind: 'targeted', effect: 'heal', healMin: 22, healMax: 38 },
+  whispered_secret:  { name: 'Whispered Secret',   kind: 'targeted', effect: 'reveal' },
+  spirit_walk:       { name: 'Spirit Walk',        kind: 'self', effect: 'intel_sweep', statusType: 'bats', durationMs: 15000 },
+  haunting:          { name: 'Haunting',           kind: 'targeted', effect: 'status', statusType: 'bats', durationMs: 15000 },
+  graveyard_chill:   { name: 'Graveyard Chill',    kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 25000 }
+};
+
+// charId 3 — Knight. The oathbound order's kit: the hardest-hitting single
+// damage attack in the game (Smite), crowd control (Shield Bash stagger,
+// Banner of Dread AoE), wards for self and allies, self-regen plus the
+// targeted Lay on Hands heal, and knightly reconnaissance (Sentinel's
+// Watch reveal + Herald's Muster realm-wide muster report).
+const KNIGHT_ATTACK_CATALOG = {
+  smite:             { name: 'Smite',              kind: 'targeted', effect: 'damage', dmgMin: 18, dmgMax: 30 },
+  shield_bash:       { name: 'Shield Bash',        kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 20000 },
+  rallying_wrath:    { name: 'Rallying Wrath',     kind: 'self', effect: 'status', statusType: 'giant', durationMs: 15000 },
+  oath_of_iron:      { name: 'Oath of Iron',       kind: 'self', effect: 'status', statusType: 'ward',  durationMs: 30000 },
+  guardians_pledge:  { name: "Guardian's Pledge",  kind: 'targeted', effect: 'status', statusType: 'ward', durationMs: 30000 },
+  field_dressing:    { name: 'Field Dressing',     kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
+  lay_on_hands:      { name: 'Lay on Hands',       kind: 'targeted', effect: 'heal', healMin: 25, healMax: 40 },
+  sentinels_watch:   { name: "Sentinel's Watch",   kind: 'targeted', effect: 'reveal' },
+  heralds_muster:    { name: "Herald's Muster",    kind: 'self', effect: 'intel_sweep', statusType: 'wolfmark', durationMs: 10000 },
+  challenge:         { name: 'Challenge',          kind: 'targeted', effect: 'status', statusType: 'wolfmark', durationMs: 30000 },
+  steadfast_march:   { name: 'Steadfast March',    kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
+  banner_of_dread:   { name: 'Banner of Dread',    kind: 'aoe', effect: 'status', statusType: 'stumble', durationMs: 15000 }
+};
+
 // charId -> attack catalog. cast_attack below looks itself up here instead
-// of hardcoding a single charId, so adding a third attack-using character
-// later is just one more entry.
-const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG };
+// of hardcoding a single charId — every non-Witch class now has a full kit
+// (the Witch's equivalent is SPELL_CATALOG via cast_spell above).
+const ATTACK_CATALOGS = {
+  1: WEREWOLF_ATTACK_CATALOG,
+  2: MYSTIC_ATTACK_CATALOG,
+  3: KNIGHT_ATTACK_CATALOG,
+  4: WANDERER_ATTACK_CATALOG
+};
 
 const ATTACK_COOLDOWN_MS = 8000;
 const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
@@ -3212,6 +3770,9 @@ wss.on('connection', (ws) => {
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
+      // Campaign position for this class — sent up-front so the Journal
+      // renders instantly instead of round-tripping on first open.
+      send(ws, storyStatePayload(player));
       broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
       return;
     }
@@ -3220,20 +3781,17 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'move') {
       const x = Number(msg.x), y = Number(msg.y);
-      // 'wilds' is its own 1000x1000 space; every other room (the open
-      // town map and every building interior alike) stays clamped against
-      // the town's bounds, which are large enough to never matter indoors.
-      const bounds = msg.room === 'wilds' ? WORLD2
-        : msg.room === 'witch_cave' ? { width: 800, height: 700 }
-        : msg.room === 'bank_vault' ? VAULT_WORLD_DIMS
-        : msg.room === 'ember_wastes' ? EMBER_WORLD_DIMS
-        : (typeof msg.room === 'string' && msg.room.startsWith('dungeon_') ? { width: DUNGEON_SIZE, height: DUNGEON_SIZE } : WORLD);
+      const bounds = roomBounds(msg.room);
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
         player.y = Math.max(0, Math.min(bounds.height, y));
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
+        // Setting foot somewhere new advances any visit-this-place story
+        // chapter — fired only on an actual change, not every move tick.
+        const changedRoom = player.room !== msg.room;
         player.room = msg.room;
+        if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
       }
       return;
     }
@@ -3659,6 +4217,9 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'quest_talk') {
       const npcId = String(msg.npcId || '');
+      // Any conversation with a named NPC counts for talk-to-them story
+      // chapters, whether or not they have side-quest work to offer.
+      storyEvent(player, 'talk_npc', { npcId });
       const questId = QUEST_BY_NPC[npcId];
       if (!questId) {
         // Not a quest-giver at all (e.g. a shop/hint NPC) — used to just
@@ -3705,6 +4266,7 @@ wss.on('connection', (ws) => {
       const npcId = String(msg.npcId || '');
       const giver = NPC_HINT_GIVERS[npcId];
       if (!giver) return;
+      storyEvent(player, 'talk_npc', { npcId });
       const aq = player.activeQuest;
       let message;
       if (!aq) {
@@ -3740,6 +4302,35 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // ── Story campaign handlers — see STORYLINES/storyEvent above ─────────
+    if (msg.type === 'story_state') {
+      send(ws, storyStatePayload(player));
+      return;
+    }
+
+    if (msg.type === 'story_begin') {
+      const line = STORYLINES[player.charId];
+      if (!line) return;
+      const st = getStoryState(player);
+      if (st.active || st.chapter >= line.chapters.length) {
+        send(ws, storyStatePayload(player));
+        return;
+      }
+      st.active = true;
+      st.progress = 0;
+      if (player.accountKey) saveProgress();
+      const chapter = line.chapters[st.chapter];
+      send(ws, {
+        type: 'story_chapter_started',
+        chapterTitle: chapter.title,
+        objectiveLabel: chapter.objective.label,
+        target: chapter.objective.target,
+        message: `📖 Chapter ${st.chapter + 1}: "${chapter.title}" — ${chapter.objective.label}`
+      });
+      send(ws, storyStatePayload(player));
+      return;
+    }
+
     if (msg.type === 'cast_spell') {
       if (player.charId !== 0) {
         send(ws, { type: 'spell_error', message: 'Only the Witch can cast spells.' });
@@ -3752,18 +4343,24 @@ wss.on('connection', (ws) => {
         return;
       }
       const now = Date.now();
-      if (player.lastSpellCastAt && now - player.lastSpellCastAt < SPELL_COOLDOWN_MS) {
+      // Each spell has its own independent cooldown (a map keyed by spellId)
+      // rather than one shared timer across all 12 — casting Fireball no
+      // longer blocks Toad's Tongue, etc.
+      if (!player.spellCooldowns) player.spellCooldowns = {};
+      const lastCastOfThis = player.spellCooldowns[spellId];
+      if (lastCastOfThis && now - lastCastOfThis < SPELL_COOLDOWN_MS) {
         send(ws, { type: 'spell_error', message: 'Your magic needs to recharge a moment.' });
         return;
       }
 
-      // Fireball (the one 'damage' spell) can hit animals/mobs too, same
-      // targets as the universal Strike — every other targeted spell stays
-      // player-only, so this only resolves a player here when the cast
-      // isn't a damage spell aimed at a non-player targetType; the damage
-      // branch below resolves mob targets itself via applyDamage().
+      // Fireball and Leech Hex (the damage-dealing spells) can hit
+      // animals/mobs too, same targets as the universal Strike — every
+      // other targeted spell stays player-only, so this only resolves a
+      // player here when the cast isn't a damage/leech spell aimed at a
+      // non-player targetType; the damage branch below resolves mob targets
+      // itself via applyDamage().
       const targetType = msg.targetType && msg.targetType !== 'player' ? String(msg.targetType) : 'player';
-      const targetsMob = spell.effect === 'damage' && targetType !== 'player';
+      const targetsMob = (spell.effect === 'damage' || spell.effect === 'leech') && targetType !== 'player';
       let target = null;
       if (spell.kind === 'targeted' && !targetsMob) {
         target = players.get(String(msg.targetId || ''));
@@ -3773,11 +4370,20 @@ wss.on('connection', (ws) => {
         }
       }
 
-      player.lastSpellCastAt = now;
+      player.spellCooldowns[spellId] = now;
+
+      // Every class ability cast advances a cast-your-craft story chapter.
+      storyEvent(player, 'cast_ability', { abilityId: spellId });
 
       if (spell.effect === 'status') {
         const recipient = spell.kind === 'self' ? player : target;
         recipient.activeStatus = { type: spell.statusType, expiresAt: now + spell.durationMs };
+        // The Withering Hex actually hurts (see tickPlayerStatusHealth) —
+        // unlike the prank curses, its target deserves an explicit "you are
+        // being attacked" notification, same as any combat hit.
+        if (spell.statusType === 'wither' && recipient !== player) {
+          send(recipient.ws, { type: 'attack_hit', casterName: player.name, attackName: spell.name, detail: 'Your life drains away — the hex must run its course.', effect: 'status' });
+        }
         send(ws, {
           type: 'spell_result', spellId,
           message: `${spell.icon} ${spell.name} cast${spell.kind === 'targeted' ? ' on ' + target.name : ''}.`
@@ -3785,10 +4391,17 @@ wss.on('connection', (ws) => {
         return;
       }
 
+      // Scrying Orb — the single-target intel spell. Room, wounds, level,
+      // and any curse riding them: all of it is already in the public
+      // player snapshot every client receives (see publicPlayer), so this
+      // reveals nothing new — it just reads the crystal out loud.
       if (spell.effect === 'reveal') {
+        const wounds = target.isDead ? '💀 a ghost' : `❤️${Math.round(target.health)}%`;
+        const affliction = target.activeStatus && target.activeStatus.expiresAt > now
+          ? `afflicted by ${target.activeStatus.type}` : 'unafflicted';
         send(ws, {
           type: 'spell_result', spellId,
-          message: `${spell.icon} ${target.name} is in ${describeRoom(target.room)}.`,
+          message: `${spell.icon} The orb clears: ${target.name} — ${describeRoom(target.room)} — ${wounds} — level ${target.level || 1} — ${affliction}.`,
           revealTargetId: target.id
         });
         return;
@@ -3802,7 +4415,24 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (spell.effect === 'damage') {
+      if (spell.effect === 'trap') {
+        const bounds = roomBounds(player.room);
+        const x = Number(msg.x), y = Number(msg.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          send(ws, { type: 'spell_error', message: 'Pick a spot on the ground first.' });
+          return;
+        }
+        groundTraps.push({
+          id: makeId(), spellId, casterId: player.id, room: player.room,
+          x: Math.max(0, Math.min(bounds.width, x)), y: Math.max(0, Math.min(bounds.height, y)),
+          radius: spell.trapRadius, statusType: spell.statusType, statusDurationMs: spell.durationMs,
+          expiresAt: now + spell.trapLifetimeMs
+        });
+        send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} sigil drawn on the ground.` });
+        return;
+      }
+
+      if (spell.effect === 'damage' || spell.effect === 'leech') {
         const targetId = targetsMob ? String(msg.targetId || '') : target.id;
         const dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
         const result = applyDamage(player, targetType, targetId, dmg);
@@ -3810,17 +4440,46 @@ wss.on('connection', (ws) => {
           send(ws, { type: 'spell_error', message: 'Pick a target first.' });
           return;
         }
-        // Broadcast first so the room sees the fireball actually travel and
-        // land before the caster's toast / target's damage message arrive.
+        // Broadcast first so the room sees the projectile actually travel
+        // and land before the caster's toast / target's damage message
+        // arrive. Leech Hex reuses the fireball flight fx with the direction
+        // reversed on the client (life flowing back INTO the caster).
         broadcastRoom(player.room, { type: 'spell_fx', spellId, casterId: player.id, targetId, targetType });
         const label = result.name ? ` ${result.name}` : '';
+        // Leech Hex is the combat-heal hybrid: whatever it drained from the
+        // target closes the caster's own wounds.
+        let healedHint = '';
+        if (spell.effect === 'leech' && !player.isDead) {
+          const before = player.health;
+          player.health = Math.min(100, player.health + result.dmg);
+          const healed = Math.round(player.health - before);
+          healedHint = healed > 0 ? `  🖤 ${healed} health drained back to you.` : '';
+        }
+        const verb = spell.effect === 'leech' ? (result.dead ? 'drains the last life from' : 'drains') : (result.dead ? 'incinerates' : 'hits');
         if (result.dead) {
           const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
           const defeatedHint = targetType === 'player' ? ' You defeated them!' : '';
-          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} incinerates${label} for ${dmg}!${xpHint}${defeatedHint}${result.lootHint || ''}` });
+          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} ${verb}${label} for ${result.dmg}!${xpHint}${defeatedHint}${result.lootHint || ''}${healedHint}` });
         } else {
-          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} hits${label} for ${dmg}!` });
+          send(ws, { type: 'spell_result', spellId, message: `${spell.icon} ${spell.name} ${verb}${label} for ${result.dmg}!${healedHint}` });
         }
+        return;
+      }
+
+      // Nightwing Augury — the intel sweep. The bats report every other
+      // player in the whole realm: name, where they are, and how wounded.
+      // Positions/health are already broadcast to every client continuously
+      // (see the periodic 'state' snapshot), so like Glimpse the Future
+      // before it this reveals nothing that wasn't already shared — it just
+      // gathers it into one legible witchy report. The caster also wears
+      // the bat swarm for a while, so the room can SEE the augury happen.
+      if (spell.effect === 'intel_sweep') {
+        player.activeStatus = { type: 'bats', expiresAt: now + spell.durationMs };
+        const others = Array.from(players.values()).filter(p => p.id !== player.id);
+        const report = others.length
+          ? others.map(p => `${p.name} — ${describeRoom(p.room)} — ${p.isDead ? '💀 a ghost' : '❤️' + Math.round(p.health) + '%'}`).join('  ·  ')
+          : 'an empty night — no other souls abroad';
+        send(ws, { type: 'spell_result', spellId, message: `${spell.icon} The swarm returns whispering: ${report}` });
         return;
       }
       return;
@@ -3902,7 +4561,7 @@ wss.on('connection', (ws) => {
       const label = result.name ? ` ${result.name}` : '';
       const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
       const verb = result.dead ? 'Killed' : 'Hit';
-      send(ws, { type: 'attack_result', message: `⚔️ ${verb}${label} for ${dmg}!${xpHint}${result.lootHint || ''}` });
+      send(ws, { type: 'attack_result', message: `⚔️ ${verb}${label} for ${result.dmg}!${xpHint}${result.lootHint || ''}` });
       return;
     }
 
@@ -4025,6 +4684,7 @@ wss.on('connection', (ws) => {
       if (found.room === 'wilds') {
         grantXP(player, 5);
         advanceQuestProgress(player, 'harvest_plant', itemId);
+        storyEvent(player, 'harvest_plant', { itemId });
       }
       return;
     }
@@ -4066,11 +4726,21 @@ wss.on('connection', (ws) => {
         return;
       }
       const now = Date.now();
-      if (player.lastAttackCastAt && now - player.lastAttackCastAt < ATTACK_COOLDOWN_MS) {
+      // Independent per-attack cooldown, same reasoning as spellCooldowns above.
+      if (!player.attackCooldowns) player.attackCooldowns = {};
+      const lastCastOfThis = player.attackCooldowns[attackId];
+      if (lastCastOfThis && now - lastCastOfThis < ATTACK_COOLDOWN_MS) {
         send(ws, { type: 'attack_error', message: 'Still recovering — wait a moment.' });
         return;
       }
-      player.lastAttackCastAt = now;
+      player.attackCooldowns[attackId] = now;
+
+      // Damage/leech attacks can hit animals/mobs too, exactly like the
+      // Witch's Fireball/Leech Hex (see cast_spell's targetsMob above) —
+      // the damage branch below resolves mob targets itself through
+      // applyDamage(), so only player targets are gathered here.
+      const atkTargetType = msg.targetType && msg.targetType !== 'player' ? String(msg.targetType) : 'player';
+      const atkTargetsMob = (attack.effect === 'damage' || attack.effect === 'leech') && atkTargetType !== 'player';
 
       // Resolve the set of players this attack affects.
       let targets = [];
@@ -4083,13 +4753,85 @@ wss.on('connection', (ws) => {
       } else if (attack.kind === 'building') {
         // Resolved directly from msg.buildingId in the 'spyglass' effect
         // below — not a player target, so nothing to gather here.
-      } else {
+      } else if (!atkTargetsMob) {
         const t = players.get(String(msg.targetId || ''));
         if (!t || t.id === player.id) {
           send(ws, { type: 'attack_error', message: 'Pick a target first.' });
           return;
         }
         targets = [t];
+      }
+
+      // Every class ability cast (spell or attack) advances a
+      // cast-your-craft story chapter — see storyEvent/cast_spell.
+      storyEvent(player, 'cast_ability', { abilityId: attackId });
+
+      // Damage / leech — the non-Witch classes' real attacks (Savage Bite,
+      // Knife Throw, Spirit Lash, Soul Siphon, Smite). Same applyDamage
+      // funnel, death/loot/XP flow, and room-wide projectile broadcast as
+      // Fireball; leech heals the caster for what it drained, like Leech Hex.
+      if (attack.effect === 'damage' || attack.effect === 'leech') {
+        const targetId = atkTargetsMob ? String(msg.targetId || '') : targets[0].id;
+        const dmg = attack.dmgMin + Math.floor(Math.random() * (attack.dmgMax - attack.dmgMin + 1));
+        const result = applyDamage(player, atkTargetType, targetId, dmg);
+        if (!result.ok) {
+          send(ws, { type: 'attack_error', message: 'Pick a target first.' });
+          return;
+        }
+        broadcastRoom(player.room, { type: 'attack_fx', attackId, casterId: player.id, targetId, targetType: atkTargetType });
+        let healedHint = '';
+        if (attack.effect === 'leech' && !player.isDead) {
+          const before = player.health;
+          player.health = Math.min(100, player.health + result.dmg);
+          const healed = Math.round(player.health - before);
+          healedHint = healed > 0 ? `  💜 ${healed} health drawn back to you.` : '';
+        }
+        const label = result.name ? ` ${result.name}` : '';
+        const verb = attack.effect === 'leech' ? (result.dead ? 'drains the last life from' : 'drains') : (result.dead ? 'fells' : 'hits');
+        if (result.dead) {
+          const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
+          const defeatedHint = atkTargetType === 'player' ? ' You defeated them!' : '';
+          send(ws, { type: 'attack_result', message: `⚔️ ${attack.name} ${verb}${label} for ${result.dmg}!${xpHint}${defeatedHint}${result.lootHint || ''}${healedHint}` });
+        } else {
+          send(ws, { type: 'attack_result', message: `⚔️ ${attack.name} ${verb}${label} for ${result.dmg}!${healedHint}` });
+        }
+        return;
+      }
+
+      // Heal — Lay on Hands / Mending Spirits: the game's two targeted
+      // instant heals. Works on yourself via the Attacks panel too if the
+      // client ever sends kind 'self' with this effect.
+      if (attack.effect === 'heal') {
+        const t = attack.kind === 'self' ? player : targets[0];
+        if (t.isDead) {
+          send(ws, { type: 'attack_error', message: 'Too late for healing — they need to respawn.' });
+          return;
+        }
+        const amt = attack.healMin + Math.floor(Math.random() * (attack.healMax - attack.healMin + 1));
+        const before = t.health;
+        t.health = Math.min(100, t.health + amt);
+        const healed = Math.round(t.health - before);
+        if (t.id !== player.id) {
+          send(t.ws, { type: 'attack_result', message: `💚 ${player.name}'s ${attack.name} restores ${healed} health to you.` });
+          send(ws, { type: 'attack_result', message: `💚 ${attack.name} — restored ${healed} health to ${t.name}.` });
+        } else {
+          send(ws, { type: 'attack_result', message: `💚 ${attack.name} — restored ${healed} health.` });
+        }
+        return;
+      }
+
+      // Intel sweep — Spirit Walk / Herald's Muster: the class twin of the
+      // Witch's Nightwing Augury. Reports every player's whereabouts and
+      // wounds — all data already in the continuous public snapshot — and
+      // marks the caster with a visible status so the room sees it happen.
+      if (attack.effect === 'intel_sweep') {
+        if (attack.statusType) player.activeStatus = { type: attack.statusType, expiresAt: now + (attack.durationMs || 10000) };
+        const others = Array.from(players.values()).filter(p => p.id !== player.id);
+        const report = others.length
+          ? others.map(p => `${p.name} — ${describeRoom(p.room)} — ${p.isDead ? '💀 a ghost' : '❤️' + Math.round(p.health) + '%'}`).join('  ·  ')
+          : 'an empty realm — no other souls abroad';
+        send(ws, { type: 'attack_result', message: `📜 ${attack.name}: ${report}` });
+        return;
       }
 
       if (attack.effect === 'status') {
@@ -4396,6 +5138,9 @@ wss.on('connection', (ws) => {
       const npcId = String(msg.npcId || '');
       const shop = NPC_SHOPS[npcId];
       if (!shop) return;
+      // Browsing a shopkeeper is talking to them, as far as the story cares
+      // — Scholar Elior (the Mystic's chapter-1 contact) is a shop NPC.
+      storyEvent(player, 'talk_npc', { npcId });
       send(ws, { type: 'npc_shop_state', npcId, npcName: shop.name, items: shop.items.map(s => ({
         id: s.id, price: s.price,
         name: ITEM_CATALOG[s.id]?.name || s.id,
@@ -4491,6 +5236,10 @@ wss.on('connection', (ws) => {
       player.x = WITCH_CAVE_SPAWN.x;
       player.y = WITCH_CAVE_SPAWN.y;
       send(ws, { type: 'witch_cave_entered', spawn: WITCH_CAVE_SPAWN });
+      // The cave is a story destination for several campaigns — this
+      // handler sets player.room directly (not via 'move'), so it needs
+      // its own visit hook.
+      storyEvent(player, 'visit_room', { room: 'witch_cave' });
       return;
     }
 
@@ -4515,6 +5264,7 @@ wss.on('connection', (ws) => {
       player.x = VAULT_SPAWN.x;
       player.y = VAULT_SPAWN.y;
       send(ws, { type: 'vault_entered', spawn: VAULT_SPAWN });
+      storyEvent(player, 'visit_room', { room: 'bank_vault' });
       return;
     }
 
@@ -4550,6 +5300,7 @@ wss.on('connection', (ws) => {
       player.x = EMBER_SPAWN.x;
       player.y = EMBER_SPAWN.y;
       send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN });
+      storyEvent(player, 'visit_room', { room: 'ember_wastes' });
       return;
     }
 
@@ -4593,11 +5344,14 @@ wss.on('connection', (ws) => {
         resultName: resultItem?.name || recipe.result,
         message: `🧪 Hazel brews your herbs into ${resultItem?.name || recipe.result}!`
       });
+      // Brewing at Hazel's cauldron is the Witch campaign's finale objective.
+      storyEvent(player, 'craft_potion', { recipeId });
       return;
     }
 
     if (msg.type === 'witch_talk') {
       if (player.room !== 'witch_cave') return;
+      storyEvent(player, 'talk_npc', { npcId: 'witch_hazel' });
       const prog = getProgress(player);
       const tier = witchShopTierForLevel(prog.level);
       const tierItems = WITCH_SHOP_TIERS[tier];
@@ -4734,6 +5488,7 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'werewolf_shop_error', message: 'Lexton is only found in the Wilds.' });
         return;
       }
+      storyEvent(player, 'talk_npc', { npcId: 'npc_lexton' });
       send(ws, { type: 'werewolf_dialogue',
         greeting: "Lexton throws back his head and howls at the moon. \"Join me, wanderer — howl with me, and I'll teach you something worth having. Your howl will be recorded and listed on the Auction House for any wandering ear to hear. That's the whole of the price.\"",
         shopItems: WEREWOLF_HOWL_ITEMS.map(s => ({
@@ -4828,6 +5583,14 @@ setInterval(() => {
   const snapshot = { type: 'state', players: Array.from(players.values()).map(publicPlayer) };
   broadcastAll(snapshot);
 }, 70);
+
+// Test hooks — lets the mock-socket harness in test/ drive internal event
+// plumbing (e.g. simulate the kill that a real mob death would produce)
+// without standing up real wildlife/AI. Not used by any runtime code path.
+global.__testHooks = {
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory,
+  STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS
+};
 
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);

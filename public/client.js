@@ -230,26 +230,26 @@ const SPELL_CATALOG = {
     description: "Asks to peer through a target's own eyes — with their permission — and sends what it sees back to you as a note." },
   toads_tongue:    { name: "Toad's Tongue",      icon: '🐸', kind: 'targeted', effect: 'status',
     description: 'Curses the target to croak mid-sentence in chat for a while.' },
-  stumble_hex:     { name: 'Stumble Hex',        icon: '🦶', kind: 'targeted', effect: 'status',
-    description: "Hexes the target's feet — halves their walking speed." },
+  stumble_hex:     { name: 'Stumble Hex',        icon: '🦶', kind: 'ground', effect: 'trap',
+    description: 'Draws a witchy sigil on the ground — anyone who steps into it gets hexed with halved walking speed.' },
   fireball:        { name: 'Fireball',           icon: '🔥', kind: 'targeted', effect: 'damage',
     description: 'Hurls a roaring ball of witchfire at the target for real damage.' },
-  shrinking_curse: { name: 'Shrinking Curse',    icon: '🔻', kind: 'targeted', effect: 'status',
-    description: 'Shrinks the target down to half size.' },
-  giants_folly:    { name: "Giant's Folly",      icon: '🔺', kind: 'targeted', effect: 'status',
-    description: 'Swells the target up to twice their size.' },
-  pumpkin_head:    { name: 'Pumpkin Head',       icon: '🎃', kind: 'targeted', effect: 'status',
-    description: "Replaces the target's head with a jack-o'-lantern." },
-  bat_swarm:       { name: 'Bat Swarm',          icon: '🦇', kind: 'targeted', effect: 'status',
-    description: 'Summons a circling swarm of bats around the target.' },
-  color_curse:     { name: 'Color Curse',        icon: '🌈', kind: 'targeted', effect: 'status',
-    description: "Curses the target's clothes to cycle through every color." },
-  silver_tongue:   { name: 'Silver Tongue Hex',  icon: '🗣️', kind: 'targeted', effect: 'status',
-    description: "Tangles the target's words into nonsense in chat for a while." },
+  withering_hex:   { name: 'Withering Hex',      icon: '🥀', kind: 'targeted', effect: 'status',
+    description: "Rots the target's vitality — their life withers away for ten dreadful seconds. It cannot kill, only carry them to the brink." },
+  leech_hex:       { name: 'Leech Hex',          icon: '🩸', kind: 'targeted', effect: 'leech',
+    description: 'Sinks phantom fangs into the target — the life it drains seeps back into your own veins.' },
+  monstrous_form:  { name: 'Monstrous Form',     icon: '👹', kind: 'self', effect: 'status',
+    description: 'Swell into a hulking horror — while transformed, your strikes and spells hit half again as hard.' },
+  gourd_ward:      { name: 'Gourd Ward',         icon: '🎃', kind: 'self', effect: 'status',
+    description: 'Hollow out your skull into a sacred ward-gourd — while it grins, all harm against you is halved.' },
   ravens_cloak:    { name: "Raven's Cloak",      icon: '🪽', kind: 'self', effect: 'status',
-    description: 'Wraps the caster in a swirl of dark feathers.' },
-  glimpse_future:  { name: 'Glimpse the Future', icon: '🔮', kind: 'targeted', effect: 'reveal',
-    description: "Reveals a target's current location to the caster." }
+    description: 'Dissolve into a flurry of black feathers — your steps quicken to twice their pace, to flee or to chase.' },
+  bone_knit:       { name: 'Bone-Knit Blessing', icon: '🦴', kind: 'self', effect: 'status',
+    description: 'Whisper the old words over your own bones — wounds slowly knit themselves closed for twelve seconds.' },
+  scrying_orb:     { name: 'Scrying Orb',        icon: '🔮', kind: 'targeted', effect: 'reveal',
+    description: 'Peer into the orb at a chosen soul — learn where they are, how wounded, how seasoned, and what curse rides them.' },
+  nightwing_augury:{ name: 'Nightwing Augury',   icon: '🦇', kind: 'self', effect: 'intel_sweep',
+    description: 'Loose your bats across the whole realm — they return whispering every soul’s whereabouts and wounds.' }
 };
 
 // Must stay in sync with WEREWOLF_ATTACK_CATALOG in server.js.
@@ -258,6 +258,12 @@ const SPELL_CATALOG = {
 //       'targeted' = single target picker required
 // effect: 'note_steal' = Rapid Swipe's unique note theft
 const WEREWOLF_ATTACK_CATALOG = {
+  savage_bite:      { name: 'Savage Bite',       icon: '🦷', kind: 'targeted', effect: 'damage',
+    description: 'Sink your fangs in for real damage — players, animals, and mobs alike, same death/respawn/loot flow as a melee Strike.' },
+  iron_pelt:        { name: 'Iron Pelt',         icon: '🛡️', kind: 'self', effect: 'status',
+    description: 'Your fur bristles into iron — while it holds, ALL damage against you is halved.' },
+  moonlit_mending:  { name: 'Moonlit Mending',   icon: '🌙', kind: 'self', effect: 'status',
+    description: 'Moonlight seeps into your wounds — they slowly knit closed for twelve seconds.' },
   rapid_swipe:      { name: 'Rapid Swipe',       icon: '🐾', kind: 'targeted', effect: 'note_steal',
     description: "Lifts one undestroyed note straight out of the target's inbox before they can burn it — or comes up empty if they have none." },
   lunar_howl:       { name: 'Lunar Howl',       icon: '🌕', kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000,
@@ -292,6 +298,12 @@ const WEREWOLF_ATTACK_CATALOG = {
 // it's cast (spyglass_notice), the same way every other attack notifies
 // whoever it affects — see openSpyGlassPanel/spyglass_* handlers below.
 const WANDERER_ATTACK_CATALOG = {
+  knife_throw:        { name: 'Knife Throw',        icon: '🔪', kind: 'targeted', effect: 'damage',
+    description: 'A travel-worn blade thrown hard and true — real damage to players, animals, and mobs alike.' },
+  trail_remedy:       { name: 'Trail Remedy',       icon: '🍵', kind: 'self', effect: 'status',
+    description: 'An old road-tonic from the bottom of your pack — wounds slowly mend for twelve seconds.' },
+  packmule_guard:     { name: "Packmule's Guard",   icon: '🛡️', kind: 'self', effect: 'status',
+    description: 'Brace behind your pack like a seasoned road-fighter — while it holds, ALL damage against you is halved.' },
   spy_glass:          { name: 'Spy Glass',          icon: '🔭', kind: 'building', effect: 'spyglass', durationMs: 60000,
     description: "Peer into a building of your choice from anywhere — opens a live window into that room's chat for 60 seconds. Everyone in that room is told the moment you cast it." },
   sleight_of_hand:    { name: 'Sleight of Hand',    icon: '🤏', kind: 'targeted', effect: 'pickpocket', stealChance: 0.35,
@@ -318,10 +330,77 @@ const WANDERER_ATTACK_CATALOG = {
     description: "Bends the target's compass needle back toward you, revealing where they are." }
 };
 
+// Must stay in sync with MYSTIC_ATTACK_CATALOG in server.js. charId 2 —
+// the spirit-medium's kit: damage + leech, wards for self and allies, a
+// self-regen and the game's targeted instant heal, plus the intel pair
+// (single-soul reveal + realm-wide spirit walk).
+const MYSTIC_ATTACK_CATALOG = {
+  spirit_lash:       { name: 'Spirit Lash',        icon: '👻', kind: 'targeted', effect: 'damage',
+    description: 'A whipcrack of furious spirits — real damage to players, animals, and mobs alike.' },
+  soul_siphon:       { name: 'Soul Siphon',        icon: '💜', kind: 'targeted', effect: 'leech',
+    description: 'Draw the living warmth out of the target — everything it drains flows back into your own veins.' },
+  banshee_wail:      { name: 'Banshee Wail',       icon: '😱', kind: 'aoe', effect: 'status',
+    description: 'A grave-cold shriek — everyone in range shrinks in terror to half their size.' },
+  ethereal_veil:     { name: 'Ethereal Veil',      icon: '🌫️', kind: 'self', effect: 'status',
+    description: 'Slip halfway behind the veil — while you shimmer, ALL damage against you is halved.' },
+  spirit_ward:       { name: 'Spirit Ward',        icon: '🕯️', kind: 'targeted', effect: 'status',
+    description: 'Set a protective spirit on another player — ALL damage against them is halved while it watches.' },
+  ghost_step:        { name: 'Ghost Step',         icon: '👣', kind: 'self', effect: 'status',
+    description: 'Walk the way the dead do — twice your pace, for slipping away or closing in.' },
+  seance_of_mending: { name: 'Séance of Mending',  icon: '🕊️', kind: 'self', effect: 'status',
+    description: 'Kindly spirits fuss over your wounds — they slowly knit closed for twelve seconds.' },
+  mending_spirits:   { name: 'Mending Spirits',    icon: '💚', kind: 'targeted', effect: 'heal',
+    description: 'Send your gentlest spirits to another player — they restore a solid chunk of health on the spot.' },
+  whispered_secret:  { name: 'Whispered Secret',   icon: '🤫', kind: 'targeted', effect: 'reveal',
+    description: 'The dead gossip terribly. Learn where a chosen soul is, how wounded, how seasoned, and what curse rides them.' },
+  spirit_walk:       { name: 'Spirit Walk',        icon: '🌀', kind: 'self', effect: 'intel_sweep',
+    description: 'Step out of your body and sweep the whole realm — return knowing every soul\'s whereabouts and wounds.' },
+  haunting:          { name: 'Haunting',           icon: '🦇', kind: 'targeted', effect: 'status',
+    description: 'Send restless spirits to circle the target like a personal storm cloud.' },
+  graveyard_chill:   { name: 'Graveyard Chill',    icon: '🥶', kind: 'targeted', effect: 'status',
+    description: 'The cold of the old yard seeps into the target\'s bones, halving their walking speed.' }
+};
+
+// Must stay in sync with KNIGHT_ATTACK_CATALOG in server.js. charId 3 —
+// the oathbound order's kit: the hardest single hit in the game, crowd
+// control, wards for self and allies, self-regen plus Lay on Hands, and
+// knightly reconnaissance.
+const KNIGHT_ATTACK_CATALOG = {
+  smite:             { name: 'Smite',              icon: '⚔️', kind: 'targeted', effect: 'damage',
+    description: 'Bring the order\'s judgment down in one blow — the hardest-hitting single attack any class owns.' },
+  shield_bash:       { name: 'Shield Bash',        icon: '🛡️', kind: 'targeted', effect: 'status',
+    description: 'Stagger the target with your shield — their walking speed is halved while their ears ring.' },
+  rallying_wrath:    { name: 'Rallying Wrath',     icon: '🔥', kind: 'self', effect: 'status',
+    description: 'Swell with righteous fury — while it burns, your strikes and attacks hit half again as hard.' },
+  oath_of_iron:      { name: 'Oath of Iron',       icon: '⚙️', kind: 'self', effect: 'status',
+    description: 'Recite the old vow — while it holds, ALL damage against you is halved.' },
+  guardians_pledge:  { name: "Guardian's Pledge",  icon: '🤝', kind: 'targeted', effect: 'status',
+    description: 'Swear your shield to another player — ALL damage against them is halved while your pledge stands.' },
+  field_dressing:    { name: 'Field Dressing',     icon: '🩹', kind: 'self', effect: 'status',
+    description: 'Bind your own wounds the way the garrison taught — they slowly close for twelve seconds.' },
+  lay_on_hands:      { name: 'Lay on Hands',       icon: '💚', kind: 'targeted', effect: 'heal',
+    description: 'The order\'s oldest mercy — restore a solid chunk of another player\'s health on the spot.' },
+  sentinels_watch:   { name: "Sentinel's Watch",   icon: '🗼', kind: 'targeted', effect: 'reveal',
+    description: 'A sentinel misses nothing. Learn where a chosen player is, how wounded, how seasoned, and what afflicts them.' },
+  heralds_muster:    { name: "Herald's Muster",    icon: '📯', kind: 'self', effect: 'intel_sweep',
+    description: 'Sound the muster and take the roll — one report naming every player\'s whereabouts and wounds.' },
+  challenge:         { name: 'Challenge',          icon: '🔶', kind: 'targeted', effect: 'status',
+    description: 'Brand the target with a glowing mark of challenge for all to see.' },
+  steadfast_march:   { name: 'Steadfast March',    icon: '🥾', kind: 'self', effect: 'status',
+    description: 'Fall into the old march cadence — twice your pace for a short burst.' },
+  banner_of_dread:   { name: 'Banner of Dread',    icon: '🚩', kind: 'aoe', effect: 'status',
+    description: 'Plant a banner so grim that everyone in range falters, their walking speed halved.' }
+};
+
 // charId -> attack catalog the player can use. Drives both which characters
-// get the Attacks button at all and which catalog the panel renders from —
-// adding a third attack-using character later is just one more entry here.
-const ATTACK_CATALOGS = { 1: WEREWOLF_ATTACK_CATALOG, 4: WANDERER_ATTACK_CATALOG };
+// get the Attacks button at all and which catalog the panel renders from.
+// Every non-Witch class has a full kit now (the Witch's is SPELL_CATALOG).
+const ATTACK_CATALOGS = {
+  1: WEREWOLF_ATTACK_CATALOG,
+  2: MYSTIC_ATTACK_CATALOG,
+  3: KNIGHT_ATTACK_CATALOG,
+  4: WANDERER_ATTACK_CATALOG
+};
 
 function setupWs() {
   ws = new WebSocket(proto + '://' + location.host);
@@ -376,6 +455,8 @@ function onWsMessage(ev) {
       updateHealthHud();
       updateXPDisplay();
       document.getElementById('inventoryBtn').classList.remove('hidden');
+      // Every character has a story campaign — the Journal is for everyone.
+      document.getElementById('journalBtn').classList.remove('hidden');
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
       // Any character with an entry in ATTACK_CATALOGS gets the Attacks button.
@@ -473,6 +554,7 @@ function onWsMessage(ev) {
     if (msg.torches) applyTownTorchState(msg.torches);
     applyTemplePortalState(!!msg.templePortalOpen);
     if (msg.emberMobs) applyEmberMobState(msg.emberMobs);
+    if (msg.groundTraps) applyGroundTrapsState(msg.groundTraps);
     return;
   }
 
@@ -547,6 +629,37 @@ function onWsMessage(ev) {
   if (msg.type === 'quest_cancelled') {
     clearQuestTracker();
     return;
+  }
+
+  // ── Story campaign messages — see the Journal section below ─────────────
+  if (msg.type === 'story_state') {
+    storyState = msg.storyline;
+    updateStoryTracker();
+    if (journalOpen) renderJournal();
+    return;
+  }
+
+  if (msg.type === 'story_chapter_started') {
+    storyLastOutro = null; // reading on — the previous chapter's ending leaves the desk
+    setUnlockToast(msg.message);
+    return; // the refreshed story_state arrives right behind this
+  }
+
+  if (msg.type === 'story_update') {
+    if (storyState) storyState.progress = msg.progress;
+    updateStoryTracker();
+    if (journalOpen) renderJournal();
+    setUnlockToast(`📖 ${msg.chapterTitle} — ${msg.progress}/${msg.target}`);
+    return;
+  }
+
+  if (msg.type === 'story_chapter_complete') {
+    storyLastOutro = { title: msg.chapterTitle, outro: msg.outro, rewards: msg.rewards, storyComplete: msg.storyComplete };
+    setUnlockToast(msg.message);
+    // Refresh inventory so chapter item rewards appear immediately, same
+    // as quest_complete above.
+    ws.send(JSON.stringify({ type: 'inventory_open' }));
+    return; // refreshed story_state follows
   }
 
   if (msg.type === 'wolf_pact_result') {
@@ -695,6 +808,25 @@ function onWsMessage(ev) {
 
   if (msg.type === 'spell_fx') {
     if (msg.spellId === 'fireball') spawnFireballFx(msg.casterId, msg.targetId, msg.targetType);
+    // Leech Hex: same flight fx reversed — a crimson orb of stolen life
+    // flying from the victim back into the Witch.
+    else if (msg.spellId === 'leech_hex') spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, { reverse: true, coreColor: 0xff8899, glowColor: 0xcc0033, lightColor: 0xff2244 });
+    return;
+  }
+
+  // Class attack projectiles — same broadcast/flight FX as spell_fx above,
+  // tinted per attack so each class's damage reads as its own thing:
+  // Savage Bite amber, Knife Throw steel, Spirit Lash ghost-green, Soul
+  // Siphon reversed violet (life flowing back into the Mystic), Smite gold.
+  if (msg.type === 'attack_fx') {
+    const ATTACK_FX_STYLES = {
+      savage_bite: { coreColor: 0xffcc88, glowColor: 0xcc6600, lightColor: 0xff9933 },
+      knife_throw: { coreColor: 0xdde4ee, glowColor: 0x8899bb, lightColor: 0xaabbdd },
+      spirit_lash: { coreColor: 0xbbffdd, glowColor: 0x33aa77, lightColor: 0x55ddaa },
+      soul_siphon: { reverse: true, coreColor: 0xddaaff, glowColor: 0x7733cc, lightColor: 0xaa66ff },
+      smite:       { coreColor: 0xfff2aa, glowColor: 0xcc9900, lightColor: 0xffdd44 }
+    };
+    spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, ATTACK_FX_STYLES[msg.attackId] || {});
     return;
   }
 
@@ -1887,6 +2019,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('questTracker'), document.getElementById('questTracker'));
   makeDraggable(document.getElementById('attackModal'),    document.querySelector('#attackModal .floatPanelHandle'));
   makeDraggable(document.getElementById('spellbookModal'), document.querySelector('#spellbookModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('journalModal'),   document.querySelector('#journalModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -1996,6 +2129,142 @@ const questCancelBtn = document.getElementById('questCancelBtn');
 if (questCancelBtn) questCancelBtn.addEventListener('click', () => {
   ws.send(JSON.stringify({ type: 'quest_cancel' }));
 });
+
+// ---------------------------------------------------------------------------
+// Journal (📜) — the per-character story campaign. Every class has its own
+// 6-chapter storyline (see STORYLINES in server.js); the server owns all
+// progress and sends story_state snapshots — this panel just renders the
+// latest one and offers a single "Begin Chapter" action. The storyTracker
+// overlay mirrors the active chapter's objective the same way questTracker
+// mirrors the active side quest.
+// ---------------------------------------------------------------------------
+let storyState = null;     // latest story_state.storyline payload (or null)
+let storyLastOutro = null; // { title, outro, rewards, storyComplete } — shown until the next chapter begins
+let journalOpen = false;
+
+function openJournal() {
+  const modal = document.getElementById('journalModal');
+  if (!modal) return;
+  renderJournal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 370, 112);
+  journalOpen = true;
+  // Ask for a fresh snapshot too, in case this client missed one.
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'story_state' }));
+}
+
+function closeJournal() {
+  const modal = document.getElementById('journalModal');
+  if (modal) modal.classList.add('hidden');
+  journalOpen = false;
+}
+
+const journalBtn = document.getElementById('journalBtn');
+if (journalBtn) journalBtn.addEventListener('click', () => { if (journalOpen) closeJournal(); else openJournal(); });
+const journalCloseBtn = document.getElementById('journalCloseBtn');
+if (journalCloseBtn) journalCloseBtn.addEventListener('click', closeJournal);
+
+function journalDiv(className, text) {
+  const el = document.createElement('div');
+  el.className = className;
+  if (text != null) el.textContent = text;
+  return el;
+}
+
+function renderJournal() {
+  const c = document.getElementById('journalContent');
+  if (!c) return;
+  c.innerHTML = '';
+  const s = storyState;
+  if (!s) {
+    c.appendChild(journalDiv('journalDone', 'The pages are blank… no story has found you yet.'));
+    return;
+  }
+
+  const titleEl = document.getElementById('journalTitle');
+  if (titleEl) titleEl.textContent = `${s.icon} ${s.title}`;
+
+  const header = journalDiv('journalHeader');
+  header.appendChild(journalDiv('journalStoryTitle', `${s.icon} ${s.title}`));
+  header.appendChild(journalDiv('journalTagline', s.tagline));
+  header.appendChild(journalDiv('journalChapterNo',
+    s.complete ? `All ${s.totalChapters} chapters complete` : `Chapter ${s.chapterIndex + 1} of ${s.totalChapters}`));
+  c.appendChild(header);
+
+  // The just-finished chapter's ending, kept on the desk until the next
+  // chapter is begun.
+  if (storyLastOutro) {
+    const outroBox = journalDiv('journalLetter');
+    outroBox.appendChild(journalDiv('journalObjLabel', `✅ ${storyLastOutro.title}`));
+    outroBox.appendChild(journalDiv('', storyLastOutro.outro));
+    if (storyLastOutro.rewards) outroBox.appendChild(journalDiv('journalRewards', storyLastOutro.rewards));
+    c.appendChild(outroBox);
+  }
+
+  if (s.complete) {
+    c.appendChild(journalDiv('journalDone',
+      `${s.icon} Your story is written, and Thornreach will tell it for a long time. (Side quests and the rest of the town are still out there.)`));
+  } else if (s.chapter) {
+    const ch = s.chapter;
+    c.appendChild(journalDiv('journalStoryTitle', `${ch.title}`));
+    c.appendChild(journalDiv('journalLetter', ch.intro));
+
+    const obj = journalDiv('journalObjective');
+    obj.appendChild(journalDiv('journalObjLabel', `🎯 ${ch.objectiveLabel}`));
+    if (s.active) {
+      const barWrap = journalDiv('journalBarWrap');
+      const fill = journalDiv('journalBarFill');
+      fill.style.width = Math.min(100, Math.round(100 * s.progress / Math.max(1, ch.target))) + '%';
+      barWrap.appendChild(fill);
+      obj.appendChild(barWrap);
+      obj.appendChild(journalDiv('', `${s.progress} / ${ch.target}`));
+    }
+    c.appendChild(obj);
+
+    const rewardBits = [`+${ch.xpReward} XP`];
+    if (ch.goldReward) rewardBits.push(`+${ch.goldReward}🪙`);
+    for (const r of ch.itemRewards || []) rewardBits.push(`${r.icon} ${r.name}${r.qty > 1 ? ' ×' + r.qty : ''}`);
+    c.appendChild(journalDiv('journalRewards', `Reward: ${rewardBits.join(' · ')}`));
+
+    if (!s.active) {
+      const begin = document.createElement('button');
+      begin.className = 'btn';
+      begin.id = 'journalBeginBtn';
+      begin.textContent = `📖 Begin Chapter ${s.chapterIndex + 1}`;
+      begin.addEventListener('click', () => {
+        storyLastOutro = null;
+        ws.send(JSON.stringify({ type: 'story_begin' }));
+      });
+      c.appendChild(begin);
+    }
+  }
+
+  // Active side quest, mirrored from the quest tracker so the Journal is
+  // the one place to check everything you're on.
+  const sq = journalDiv('journalSideQuest');
+  sq.appendChild(journalDiv('jsqTitle', 'Side quest'));
+  const qt = document.getElementById('questTracker');
+  if (qt && !qt.classList.contains('hidden')) {
+    sq.appendChild(journalDiv('', `${document.getElementById('questTrackerName').textContent} — ${document.getElementById('questTrackerCount').textContent}`));
+  } else {
+    sq.appendChild(journalDiv('', 'None — the town\'s NPCs always have work for you.'));
+  }
+  c.appendChild(sq);
+}
+
+// The small always-on overlay for the active chapter (right side, under the
+// quest tracker) — same pattern as updateQuestTracker/clearQuestTracker.
+function updateStoryTracker() {
+  const el = document.getElementById('storyTracker');
+  if (!el) return;
+  const s = storyState;
+  if (!s || s.complete || !s.active || !s.chapter) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  document.getElementById('storyTrackerName').textContent = `${s.icon} ${s.chapter.title}`;
+  const pct = Math.min(100, Math.round(100 * s.progress / Math.max(1, s.chapter.target)));
+  document.getElementById('storyTrackerFill').style.width = pct + '%';
+  document.getElementById('storyTrackerCount').textContent = `${s.chapter.objectiveLabel} — ${s.progress} / ${s.chapter.target}`;
+}
 
 // ---------------------------------------------------------------------------
 // Ghost helpers
@@ -2421,7 +2690,11 @@ function openNpcHintTalk(npcId) {
   ws.send(JSON.stringify({ type: 'npc_hint_talk', npcId }));
 }
 
+let currentHintNpcId = null, currentHintNpcName = null;
+
 function showNpcHintDialogue(msg) {
+  currentHintNpcId = msg.npcId || null;
+  currentHintNpcName = msg.npcName || null;
   document.getElementById('npcHintName').textContent = `💬 ${msg.npcName}`;
   document.getElementById('npcHintText').textContent = msg.message || '';
   document.getElementById('npcHintModal').classList.remove('hidden');
@@ -2433,6 +2706,19 @@ function closeNpcHintModal() {
 
 const npcHintCloseBtn = document.getElementById('npcHintCloseBtn');
 if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal);
+
+// The building locals aren't just hint machines anymore — every one of them
+// has a side quest of their own now (see QUEST_CATALOG wave two in
+// server.js), reachable through the same Ask-for-a-Quest flow the shop
+// NPCs already had.
+const npcHintQuestBtn = document.getElementById('npcHintQuestBtn');
+if (npcHintQuestBtn) npcHintQuestBtn.addEventListener('click', () => {
+  if (currentHintNpcId) {
+    const npcId = currentHintNpcId, npcName = currentHintNpcName || currentHintNpcId;
+    closeNpcHintModal();
+    openQuestDialogue(npcId, npcName);
+  }
+});
 
 // Full-size image viewer (Auction House selfie thumbnails) — click anywhere
 // to close. window.open(dataURL) used to show a blank tab since modern
@@ -2809,9 +3095,17 @@ let cameraPitchOffset = 0; // radians; +ve = looking up, -ve = looking down
 const CAMERA_PITCH_LIMIT = 1.2; // ~69°, short of straight up/down to avoid a degenerate orbit
 let dragging = false, lastDragX = 0, lastDragY = 0, dragMoved = 0;
 const CLICK_DRAG_THRESHOLD = 6; // total px moved below which a mousedown+up counts as a click, not a look-drag
+// Only a mousedown that actually started on the canvas counts as a
+// potential click — without this, a stray window-level mouseup (releasing
+// a click on a HUD button, or a synthetic event) would also raycast into
+// the 3D world and, for ground-targeted spells like Stumble Hex, place a
+// sigil whereever that ray happened to hit — a UI button click has no
+// on-canvas mousedown behind it, so it must never reach handleCanvasClick.
+let clickOriginatedOnCanvas = false;
 
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
+  clickOriginatedOnCanvas = true;
   lastDragX = e.clientX;
   lastDragY = e.clientY;
   dragMoved = 0;
@@ -2827,7 +3121,8 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', (e) => {
   dragging = false;
-  if (dragMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(e.clientX, e.clientY);
+  if (clickOriginatedOnCanvas && dragMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(e.clientX, e.clientY);
+  clickOriginatedOnCanvas = false;
 });
 window.addEventListener('mouseleave', () => { dragging = false; });
 
@@ -3015,14 +3310,14 @@ const SWORD_CURSOR = buildEmojiCursor('⚔️');
 // see canTargetMobs below, driven off the same 'damage' effect flag the
 // server checks.
 // ---------------------------------------------------------------------------
-let armedTarget = null; // { msgType, idField, attackId, name, canTargetMobs, cursor } or null
+let armedTarget = null; // { msgType, idField, attackId, name, canTargetMobs, groundTargeting, cursor } or null
 
-function armTargeting(msgType, idField, attackId, name, canTargetMobs, cursor) {
-  armedTarget = { msgType, idField, attackId, name, canTargetMobs: !!canTargetMobs, cursor: cursor || SWORD_CURSOR };
+function armTargeting(msgType, idField, attackId, name, canTargetMobs, cursor, groundTargeting) {
+  armedTarget = { msgType, idField, attackId, name, canTargetMobs: !!canTargetMobs, groundTargeting: !!groundTargeting, cursor: cursor || SWORD_CURSOR };
   const banner = document.getElementById('targetingBanner');
   if (banner) {
-    const what = canTargetMobs ? 'a player or creature' : 'a player';
-    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click ${what} to target (Esc to cancel)`;
+    const what = groundTargeting ? 'the ground to place it' : canTargetMobs ? 'a player or creature' : 'a player';
+    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click ${what} (Esc to cancel)`;
     banner.classList.remove('hidden');
   }
 }
@@ -3039,8 +3334,37 @@ function isValidArmedTarget(hit) {
   return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
 }
 
+// Ground-targeted spells (currently just Stumble Hex) resolve against the
+// flat y=0 ground plane instead of an entity hit — a plain ray/plane
+// intersection works the same in every scene (outdoor, wilds, indoors,
+// dungeon) without needing each scene's actual ground mesh.
+const GROUND_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _groundHitVec = new THREE.Vector3();
+function raycastGroundAt(clientX, clientY) {
+  if (!activeCamera) return null;
+  ndcFromClient(clientX, clientY);
+  raycaster.setFromCamera(pointerNDC, activeCamera);
+  return raycaster.ray.intersectPlane(GROUND_PLANE, _groundHitVec) ? { x: _groundHitVec.x, z: _groundHitVec.z } : null;
+}
+
+// Inverse of getRenderPos() — scene-space {x,z} back to world-space {x,y}
+// for whatever room the player is currently in, so a ground click can be
+// sent to the server in the same coordinate space player.x/y already use.
+function sceneToWorldPos(room, sceneX, sceneZ) {
+  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || !world) {
+    return { x: sceneX, y: sceneZ };
+  }
+  const b = world.buildings.find(bb => bb.id === room);
+  if (!b) return { x: sceneX, y: sceneZ };
+  return { x: sceneX / INDOOR_SCALE + b.x, y: sceneZ / INDOOR_SCALE + b.y };
+}
+
 window.addEventListener('mousemove', (e) => {
   if (!gameStarted || anyOverlayOpen()) { canvas.style.cursor = 'default'; return; }
+  if (armedTarget && armedTarget.groundTargeting) {
+    canvas.style.cursor = raycastGroundAt(e.clientX, e.clientY) ? armedTarget.cursor : 'default';
+    return;
+  }
   const hit = raycastHitAt(e.clientX, e.clientY);
   if (armedTarget) {
     canvas.style.cursor = isValidArmedTarget(hit) ? armedTarget.cursor : 'default';
@@ -3102,12 +3426,16 @@ function mobRenderPos(targetType, targetId) {
   return v ? { x: v.x, z: v.y } : null;
 }
 
-function spawnFireballFx(casterId, targetId, targetType) {
+// opts: { reverse, coreColor, glowColor, lightColor } — Leech Hex reuses
+// this with reverse:true (the orb flies target -> caster, stolen life
+// returning home) and crimson colors instead of fire orange.
+function spawnFireballFx(casterId, targetId, targetType, opts) {
+  opts = opts || {};
   const caster = players[casterId];
   if (!caster) return;
   const scene = sceneForRoom(caster.room);
   if (!scene) return;
-  const from = getRenderPos(caster);
+  let from = getRenderPos(caster);
   let to;
   if (!targetType || targetType === 'player') {
     const target = players[targetId];
@@ -3117,19 +3445,20 @@ function spawnFireballFx(casterId, targetId, targetType) {
     to = mobRenderPos(targetType, targetId);
     if (!to) return;
   }
+  if (opts.reverse) { const tmp = from; from = to; to = tmp; }
 
   const g = new THREE.Group();
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(9, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffdd66 })
+    new THREE.MeshBasicMaterial({ color: opts.coreColor || 0xffdd66 })
   );
   g.add(core);
   const glow = new THREE.Mesh(
     new THREE.SphereGeometry(15, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.55 })
+    new THREE.MeshBasicMaterial({ color: opts.glowColor || 0xff5500, transparent: true, opacity: 0.55 })
   );
   g.add(glow);
-  const light = new THREE.PointLight(0xff6a00, 2.4, 260);
+  const light = new THREE.PointLight(opts.lightColor || 0xff6a00, 2.4, 260);
   g.add(light);
   g.position.set(from.x, CHAR.shoulderY, from.z);
   scene.add(g);
@@ -3172,6 +3501,98 @@ function updateFireballs() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Stumble Hex sigils — ground decals synced from the periodic 'wildlife_state'
+// broadcast's groundTraps list (server.js's groundTrapsPublicState()), the
+// same reconcile-by-id pattern as ember mobs/village NPCs: build a visual
+// the first time an id appears, drop it once the id stops being sent (the
+// server already removes expired traps before that list goes out, so no
+// separate "expired" message is needed). A canvas-drawn rune circle keeps
+// the same low-poly, no-external-assets look as every other ground/portal
+// decal in this game (see buildEmberPortal) rather than loading a texture.
+// ---------------------------------------------------------------------------
+let groundTrapVisuals = {}; // trapId -> { group, glow, radius }
+
+function buildStumbleSigilTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const cx = c.getContext('2d');
+  const mid = 128;
+  cx.strokeStyle = 'rgba(178,90,255,0.95)';
+  cx.lineWidth = 6;
+  cx.beginPath(); cx.arc(mid, mid, 118, 0, Math.PI * 2); cx.stroke();
+  cx.lineWidth = 3;
+  cx.beginPath(); cx.arc(mid, mid, 96, 0, Math.PI * 2); cx.stroke();
+  // Five-pointed star, the classic "hex circle" centerpiece.
+  cx.beginPath();
+  for (let i = 0; i <= 5; i++) {
+    const ang = -Math.PI / 2 + i * (Math.PI * 4 / 5);
+    const px = mid + Math.cos(ang) * 100, py = mid + Math.sin(ang) * 100;
+    if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+  }
+  cx.stroke();
+  // Runic ticks ringing the outer edge.
+  cx.lineWidth = 4;
+  for (let i = 0; i < 10; i++) {
+    const ang = i * (Math.PI * 2 / 10);
+    cx.beginPath();
+    cx.moveTo(mid + Math.cos(ang) * 106, mid + Math.sin(ang) * 106);
+    cx.lineTo(mid + Math.cos(ang) * 124, mid + Math.sin(ang) * 124);
+    cx.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+const STUMBLE_SIGIL_TEXTURE = buildStumbleSigilTexture();
+
+function buildStumbleSigil(radius) {
+  const g = new THREE.Group();
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 40),
+    new THREE.MeshBasicMaterial({ map: STUMBLE_SIGIL_TEXTURE, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide })
+  );
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = 1.5;
+  g.add(disc);
+  const glow = new THREE.PointLight(0xaa55ff, 1.0, radius * 3);
+  glow.position.y = 24;
+  g.add(glow);
+  g.userData = { disc, glow, pulsePhase: Math.random() * Math.PI * 2 };
+  return g;
+}
+
+function applyGroundTrapsState(list) {
+  const seenIds = new Set();
+  for (const t of list) {
+    seenIds.add(t.id);
+    if (groundTrapVisuals[t.id]) continue;
+    const scene = sceneForRoom(t.room);
+    if (!scene) continue;
+    const b = world && world.buildings.find(bb => bb.id === t.room);
+    const scale = b ? INDOOR_SCALE : 1;
+    const rp = getRenderPos({ room: t.room, x: t.x, y: t.y });
+    const group = buildStumbleSigil(t.radius * scale);
+    group.position.set(rp.x, 0, rp.z);
+    scene.add(group);
+    groundTrapVisuals[t.id] = group;
+  }
+  for (const id in groundTrapVisuals) {
+    if (seenIds.has(id)) continue;
+    const group = groundTrapVisuals[id];
+    if (group.parent) group.parent.remove(group);
+    delete groundTrapVisuals[id];
+  }
+}
+
+function updateGroundTrapVisuals() {
+  const now = performance.now();
+  for (const id in groundTrapVisuals) {
+    const v = groundTrapVisuals[id].userData;
+    const pulse = 0.8 + Math.sin(now * 0.003 + v.pulsePhase) * 0.2;
+    v.disc.material.opacity = 0.9 * pulse;
+    v.glow.intensity = 1.0 * pulse;
+  }
+}
+
 let playerContextMenuId = null;
 function showPlayerContextMenu(targetId, x, y) {
   playerContextMenuId = targetId;
@@ -3195,13 +3616,35 @@ function handleCanvasClick(clientX, clientY) {
   if (!gameStarted || !me || anyOverlayOpen()) return;
   // Dismiss any open context menu first
   if (playerContextMenuId !== null) { hidePlayerContextMenu(); return; }
+  if (armedTarget && armedTarget.groundTargeting) {
+    const ground = raycastGroundAt(clientX, clientY);
+    if (!ground) return;
+    if (actionOnCooldown(armedTarget.attackId)) {
+      setUnlockToast('Your magic needs to recharge a moment.');
+      cancelTargeting();
+      return;
+    }
+    const worldPos = sceneToWorldPos(me.room, ground.x, ground.z);
+    const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, x: worldPos.x, y: worldPos.y };
+    ws.send(JSON.stringify(payload));
+    triggerAttackAnim();
+    startActionCooldown(armedTarget.attackId);
+    cancelTargeting();
+    return;
+  }
   const hit = raycastHitAt(clientX, clientY);
   if (armedTarget) {
     if (isValidArmedTarget(hit)) {
+      if (actionOnCooldown(armedTarget.attackId)) {
+        setUnlockToast(armedTarget.msgType === 'cast_spell' ? 'Your magic needs to recharge a moment.' : 'Still recovering — wait a moment.');
+        cancelTargeting();
+        return;
+      }
       const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId };
       if (hit.kind !== 'player') payload.targetType = hit.kind;
       ws.send(JSON.stringify(payload));
       triggerAttackAnim();
+      startActionCooldown(armedTarget.attackId);
       cancelTargeting();
     }
     return;
@@ -3322,10 +3765,12 @@ if (chatImageFile) {
 }
 if (chatImageRemoveBtn) chatImageRemoveBtn.addEventListener('click', clearPendingImage);
 
-// Toad's Tongue / Silver Tongue Hex are baked into the outgoing text right
-// here at send time, rather than mangled for display later — that way a
-// message already sent stays however it was cursed, even after the curse
-// itself expires. Nothing in chat history silently "un-curses" itself.
+// Chat-mangling statuses (Toad's Tongue's 'toad', and the 'gibberish' the
+// Werewolf's Terrifying Roar / Wanderer's Echo Canyon inflict) are baked
+// into the outgoing text right here at send time, rather than mangled for
+// display later — that way a message already sent stays however it was
+// cursed, even after the curse itself expires. Nothing in chat history
+// silently "un-curses" itself.
 function mangleToad(text) {
   const words = text.split(' ');
   const out = [];
@@ -9379,6 +9824,7 @@ function clearStatusVisual(v) {
   if (v.cloakMesh)     { v.group.remove(v.cloakMesh);     v.cloakMesh     = null; }
   if (v.wolfMarkMesh)  { v.group.remove(v.wolfMarkMesh);  v.wolfMarkMesh  = null; }
   if (v.wolfPactMesh)  { v.group.remove(v.wolfPactMesh);  v.wolfPactMesh  = null; }
+  if (v.wardMesh)      { v.group.remove(v.wardMesh);      v.wardMesh      = null; }
   if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
   v.statusType = null;
 }
@@ -9416,6 +9862,17 @@ function applyStatusVisual(id, status) {
     // sit-then-rise it is. The cross-legged pose and the rising Y offset
     // are both driven from there, every player who can see this player.
     v.meditateStartedAt = performance.now();
+  } else if (newType === 'ward') {
+    // The class-neutral defensive ward (Iron Pelt / Ethereal Veil / Oath
+    // of Iron / Packmule's Guard / Spirit Ward / Guardian's Pledge) — a
+    // faint translucent dome, same halved-damage effect as the Witch's
+    // pumpkin without the jack-o'-lantern head. Pulses in updateStatusVisuals.
+    v.wardMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(CHAR.headY * 0.95, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.18, depthWrite: false })
+    );
+    v.wardMesh.position.y = CHAR.headY * 0.55;
+    v.group.add(v.wardMesh);
   }
   // 'colorcycle'/'speedboost'/'wolfpact' animate every frame in updateStatusVisuals.
   // 'toad'/'gibberish'/'stumble'/'feather'/'speedboost' have no 3D mesh.
@@ -9438,6 +9895,9 @@ function updateStatusVisuals(dt) {
       v.wolfMarkMesh.rotation.y += dt * 1.6;
     } else if (v.statusType === 'wolfpact' && v.wolfPactMesh) {
       v.wolfPactMesh.rotation.y += dt * 2.0;
+    } else if (v.statusType === 'ward' && v.wardMesh) {
+      v.wardMesh.material.opacity = 0.14 + Math.sin(now * 0.004) * 0.06;
+      v.wardMesh.rotation.y += dt * 0.6;
     }
   }
 }
@@ -10352,8 +10812,13 @@ function selectSpell(id) {
   document.getElementById('spellbookErr').textContent = '';
   if (spell.kind === 'targeted') {
     closeSpellbook();
-    const isDamage = spell.effect === 'damage';
+    const isDamage = spell.effect === 'damage' || spell.effect === 'leech';
     armTargeting('cast_spell', 'spellId', id, spell.name, isDamage, isDamage ? buildEmojiCursor(spell.icon) : SWORD_CURSOR);
+    return;
+  }
+  if (spell.kind === 'ground') {
+    closeSpellbook();
+    armTargeting('cast_spell', 'spellId', id, spell.name, false, buildEmojiCursor(spell.icon), true);
     return;
   }
   document.getElementById('spellTargetPanel').classList.remove('hidden');
@@ -10362,8 +10827,10 @@ function selectSpell(id) {
 const spellCastBtn = document.getElementById('spellCastBtn');
 if (spellCastBtn) spellCastBtn.addEventListener('click', () => {
   if (!selectedSpellId) return;
+  if (actionOnCooldown(selectedSpellId)) { document.getElementById('spellbookErr').textContent = 'Your magic needs to recharge a moment.'; return; }
   document.getElementById('spellbookErr').textContent = '';
   ws.send(JSON.stringify({ type: 'cast_spell', spellId: selectedSpellId }));
+  startActionCooldown(selectedSpellId);
 });
 
 // A brief highlight on the target's existing name tag — Glimpse the
@@ -10449,10 +10916,17 @@ let myActionIdField = null;
 const HOTBAR_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
 const HOTBAR_KEY_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
 
+// Each ability has its own independent cooldown (player.spellCooldowns/
+// attackCooldowns server-side are keyed by spellId/attackId, not a single
+// shared timestamp), so every hotbar slot tracks and renders its own
+// countdown — casting Fireball only sweeps slot 4, not the other 11.
+let hotbarSlotEls = []; // [{ id, slot, cooldown, cooldownText }, ...], rebuilt in buildHotbar()
+
 function buildHotbar() {
   const bar = document.getElementById('hotbar');
   if (!bar) return;
   bar.innerHTML = '';
+  hotbarSlotEls = [];
   bar.classList.toggle('mobile', isTouchDevice());
   if (!myActionCatalog) { bar.classList.add('hidden'); return; }
   const ids = Object.keys(myActionCatalog);
@@ -10467,14 +10941,48 @@ function buildHotbar() {
     const key = document.createElement('span');
     key.className = 'hotbarKey';
     key.textContent = HOTBAR_KEY_LABELS[idx];
+    const cooldown = document.createElement('span');
+    cooldown.className = 'hotbarCooldown';
+    const cooldownText = document.createElement('span');
+    cooldownText.className = 'hotbarCooldownText';
     slot.appendChild(icon);
+    slot.appendChild(cooldown);
+    slot.appendChild(cooldownText);
     slot.appendChild(key);
     slot.addEventListener('mouseenter', (e) => showActionTooltip(e, atk));
     slot.addEventListener('mouseleave', hideTooltip);
     slot.addEventListener('click', () => castFromHotbar(id));
     bar.appendChild(slot);
+    hotbarSlotEls.push({ id, slot, cooldown, cooldownText });
   });
   bar.classList.remove('hidden');
+}
+
+// Cooldown timing — started optimistically the instant a cast_spell/
+// cast_attack message is actually sent (see castFromHotbar, the armed-
+// target click branch in handleCanvasClick, and the Spellbook/Attacks
+// modal Cast buttons), matching the exact instant the server starts its own
+// SPELL_COOLDOWN_MS/ATTACK_COOLDOWN_MS window for that specific ability id.
+// Both are 8000ms today; ACTION_COOLDOWN_MS mirrors whichever one applies
+// to this player's single class (a player only ever has one action catalog).
+const ACTION_COOLDOWN_MS = 8000;
+const actionCooldownEndAt = {}; // abilityId -> performance.now()-based end time
+
+function startActionCooldown(id) { actionCooldownEndAt[id] = performance.now() + ACTION_COOLDOWN_MS; }
+function actionOnCooldown(id) { return performance.now() < (actionCooldownEndAt[id] || 0); }
+
+function updateHotbarCooldown() {
+  if (!hotbarSlotEls.length) return;
+  const now = performance.now();
+  for (const { id, slot, cooldown, cooldownText } of hotbarSlotEls) {
+    const remaining = (actionCooldownEndAt[id] || 0) - now;
+    const active = remaining > 0;
+    slot.classList.toggle('onCooldown', active);
+    if (active) {
+      cooldown.style.setProperty('--cd', (remaining / ACTION_COOLDOWN_MS).toFixed(3));
+      cooldownText.textContent = Math.ceil(remaining / 1000);
+    }
+  }
 }
 
 function nearestOtherPlayer() {
@@ -10529,10 +11037,14 @@ function castFromHotbar(id) {
   if (!myActionCatalog || !myActionMsgType) return;
   const atk = myActionCatalog[id];
   if (!atk) return;
+  if (actionOnCooldown(id)) {
+    setUnlockToast(myActionMsgType === 'cast_spell' ? 'Your magic needs to recharge a moment.' : 'Still recovering — wait a moment.');
+    return;
+  }
   cancelTargeting(); // a hotbar press means "do this nearest-target cast now", not "wait for my next click"
   const payload = { type: myActionMsgType, [myActionIdField]: id };
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    if (atk.effect === 'damage') {
+    if (atk.effect === 'damage' || atk.effect === 'leech') {
       const target = nearestAttackable();
       if (!target) { setUnlockToast('No one else is here to target.'); return; }
       payload.targetId = target.id;
@@ -10546,9 +11058,16 @@ function castFromHotbar(id) {
     const building = nearestBuilding();
     if (!building) { setUnlockToast('No building nearby.'); return; }
     payload.buildingId = building.id;
+  } else if (atk.kind === 'ground') {
+    // No cursor position to aim with from a keypress, so a hotbar press
+    // just drops the sigil at the Witch's own feet — click-to-place (see
+    // handleCanvasClick) is still there for actually aiming it somewhere.
+    payload.x = me.x;
+    payload.y = me.y;
   }
   ws.send(JSON.stringify(payload));
   triggerAttackAnim();
+  startActionCooldown(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -10561,7 +11080,7 @@ let myAttackCatalog = null;
 let attackPanelOpen = false;
 let selectedAttackId = null;
 
-const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 4: '🥾 Wanderer Skills' };
+const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills' };
 
 function openAttackPanel() {
   cancelTargeting();
@@ -10622,7 +11141,10 @@ function selectAttack(id) {
   document.getElementById('attackErr').textContent = '';
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
     closeAttackPanel();
-    armTargeting('cast_attack', 'attackId', id, atk.name);
+    // Damage/leech attacks reach animals and mobs too, exactly like the
+    // Witch's Fireball/Leech Hex (see selectSpell above).
+    const isDamage = atk.effect === 'damage' || atk.effect === 'leech';
+    armTargeting('cast_attack', 'attackId', id, atk.name, isDamage, isDamage ? buildEmojiCursor(atk.icon) : SWORD_CURSOR);
     return;
   }
   const select = document.getElementById('attackTargetSelect');
@@ -10656,6 +11178,7 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
   if (!selectedAttackId || !myAttackCatalog) return;
   const atk = myAttackCatalog[selectedAttackId];
   const err = document.getElementById('attackErr');
+  if (actionOnCooldown(selectedAttackId)) { err.textContent = 'Still recovering — wait a moment.'; return; }
   const payload = { type: 'cast_attack', attackId: selectedAttackId };
   if (atk.kind === 'building') {
     const buildingId = document.getElementById('attackTargetSelect').value;
@@ -10664,6 +11187,7 @@ if (attackCastBtn) attackCastBtn.addEventListener('click', () => {
   }
   err.textContent = '';
   ws.send(JSON.stringify(payload));
+  startActionCooldown(selectedAttackId);
   closeAttackPanel();
 });
 
@@ -11474,6 +11998,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
     return;
   }
+  if (journalOpen && e.key === 'Escape' && !e.repeat) {
+    closeJournal();
+    return;
+  }
   if (bloodPactOpen) {
     if (e.key === 'Escape' && !e.repeat) closeBloodPactModal();
     return;
@@ -11509,6 +12037,8 @@ window.addEventListener('keydown', (e) => {
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
   // I = open/close inventory, same toggle the HUD button already calls
   if ((e.key === 'i' || e.key === 'I') && !e.repeat) { toggleInventory(); return; }
+  // J = open/close the story Journal, same toggle as its HUD button
+  if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (journalOpen) closeJournal(); else openJournal(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
   if (myActionCatalog && !e.repeat) {
@@ -11731,6 +12261,9 @@ function update(dt) {
   if (me.activeStatus && me.activeStatus.type === 'stumble') speed *= 0.5;
   if (me.activeStatus && me.activeStatus.type === 'speedboost') speed *= 2;
   if (me.activeStatus && me.activeStatus.type === 'wolfpact') speed *= 2;
+  // Raven's Cloak is the Witch's escape tool — the dark-feather visual plus
+  // the same doubled pace speedboost/wolfpact already grant.
+  if (me.activeStatus && me.activeStatus.type === 'ravencloak') speed *= 2;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
 
@@ -11772,6 +12305,8 @@ function update(dt) {
   syncVisuals(dt);
   updateStatusVisuals(dt);
   updateFireballs();
+  updateGroundTrapVisuals();
+  updateHotbarCooldown();
   updateWerewolfNpc(dt);
   updateCamera(dt);
   updateInteractHint();

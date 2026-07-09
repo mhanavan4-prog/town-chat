@@ -16,7 +16,8 @@ function check(name, cond){ if(cond){pass++;console.log('PASS -',name);} else {f
 require('../server.js');
 
 setTimeout(() => {
-  const connHandler = global.__wssInstances[0]._handlers.connection;
+  const wss = global.__wssInstances[0];
+  const connHandler = (wss._handlers && wss._handlers.connection) || wss.listeners('connection')[0];
 
   const intruder = makeMockSocket();
   connHandler(intruder);
