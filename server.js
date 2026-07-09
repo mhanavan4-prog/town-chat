@@ -331,7 +331,116 @@ WORLD.natureDecor = [
   { id: 'decor_30', type: 'rock',   x: 1600, y: 1700, scale: 1.0 },  { id: 'decor_31', type: 'rock',   x: 1050, y: 650,  scale: 0.85 },
   { id: 'decor_32', type: 'flower', x: 950,  y: 1200, scale: 1.0 },  { id: 'decor_33', type: 'flower', x: 1700, y: 750,  scale: 1.0 },
   { id: 'decor_34', type: 'flower', x: 2450, y: 1300, scale: 1.0 },  { id: 'decor_35', type: 'flower', x: 1300, y: 900,  scale: 0.9 },
-  { id: 'decor_36', type: 'flower', x: 2000, y: 1500, scale: 1.0 },  { id: 'decor_37', type: 'flower', x: 600,  y: 1400, scale: 0.95 }
+  { id: 'decor_36', type: 'flower', x: 2000, y: 1500, scale: 1.0 },  { id: 'decor_37', type: 'flower', x: 600,  y: 1400, scale: 0.95 },
+  // —— Scenery expansion (decor_38+): the town square used to feel like an
+  // empty field between buildings. Lampposts line every lane (lit at night
+  // by the client, same clock as the moon), a well + market stalls + benches
+  // dress the plaza ring, a fenced flower garden and hay/crate/barrel work
+  // clusters fill the meadows, and more trees/shrubs/rocks/flowers thicken
+  // the edges and corners. Every placement machine-validated clear of
+  // buildings, walking lanes, doors, the spawn plaza, torches, portals, the
+  // temple platform, NPCs, and mob/animal spawns — see test/gen-scenery.cjs
+  // (the generator+validator that emitted this list; rerun it after ANY
+  // town-layout change). New non-nature types (bench/lamppost/well/stall/…)
+  // are pure scenery: not in HARVEST_TYPES, so they refuse harvesting, and
+  // older clients that don't know a type simply skip it.
+{ id: 'decor_38', type: 'lamppost', x: 1021, y: 739 },
+  { id: 'decor_39', type: 'lamppost', x: 1315, y: 861 },
+  { id: 'decor_40', type: 'lamppost', x: 2132, y: 710 },
+  { id: 'decor_41', type: 'lamppost', x: 1856, y: 848 },
+  { id: 'decor_42', type: 'lamppost', x: 985, y: 1524 },
+  { id: 'decor_43', type: 'lamppost', x: 1238, y: 1286 },
+  { id: 'decor_44', type: 'lamppost', x: 2094, y: 1522 },
+  { id: 'decor_45', type: 'lamppost', x: 1900, y: 1288 },
+  { id: 'decor_46', type: 'lamppost', x: 1566, y: 554 },
+  { id: 'decor_47', type: 'lamppost', x: 1634, y: 960 },
+  { id: 'decor_48', type: 'lamppost', x: 1566, y: 1597 },
+  { id: 'decor_49', type: 'lamppost', x: 1634, y: 1256 },
+  { id: 'decor_50', type: 'lamppost', x: 1356, y: 1442 },
+  { id: 'decor_51', type: 'well', x: 1502, y: 928 },
+  { id: 'decor_52', type: 'stall', x: 1745, y: 850, rot: 1.5708, variant: 0 },
+  { id: 'decor_53', type: 'stall', x: 1745, y: 1350, rot: 1.5708, variant: 1 },
+  { id: 'decor_54', type: 'bench', x: 1470, y: 872, rot: 0.6 },
+  { id: 'decor_55', type: 'bench', x: 1500, y: 1345, rot: -0.6 },
+  { id: 'decor_56', type: 'bench', x: 1900, y: 1105, rot: 1.571 },
+  { id: 'decor_57', type: 'noticeboard', x: 1544, y: 505, rot: 0 },
+  { id: 'decor_58', type: 'bench', x: 1652, y: 560, rot: 0 },
+  { id: 'decor_59', type: 'tree', x: 365, y: 914, scale: 2.6 },
+  { id: 'decor_60', type: 'tree', x: 568, y: 1074, scale: 3 },
+  { id: 'decor_61', type: 'tree', x: 424, y: 1353, scale: 2.8 },
+  { id: 'decor_62', type: 'tree', x: 796, y: 1369, scale: 2.5 },
+  { id: 'decor_63', type: 'stump', x: 656, y: 903 },
+  { id: 'decor_64', type: 'stump', x: 888, y: 1335 },
+  { id: 'decor_65', type: 'log', x: 700, y: 1310, rot: 0.5 },
+  { id: 'decor_66', type: 'shrub', x: 304, y: 1020, scale: 1 },
+  { id: 'decor_67', type: 'shrub', x: 736, y: 995, scale: 1 },
+  { id: 'decor_68', type: 'shrub', x: 913, y: 1237, scale: 1 },
+  { id: 'decor_69', type: 'rock', x: 855, y: 875, scale: 0.9 },
+  { id: 'decor_70', type: 'flower', x: 531, y: 1213, scale: 1 },
+  { id: 'decor_71', type: 'flower', x: 981, y: 927, scale: 1 },
+  { id: 'decor_72', type: 'haybale', x: 620, y: 1265, rot: 0 },
+  { id: 'decor_73', type: 'haybale', x: 630, y: 1330, rot: 0.9 },
+  { id: 'decor_74', type: 'fence', x: 705, y: 1120, rot: 0 },
+  { id: 'decor_75', type: 'fence', x: 775, y: 1120, rot: 0 },
+  { id: 'decor_76', type: 'fence', x: 705, y: 1220, rot: 0 },
+  { id: 'decor_77', type: 'fence', x: 775, y: 1220, rot: 0 },
+  { id: 'decor_78', type: 'fence', x: 675, y: 1150, rot: 1.571 },
+  { id: 'decor_79', type: 'fence', x: 675, y: 1190, rot: 1.571 },
+  { id: 'decor_80', type: 'fence', x: 805, y: 1150, rot: 1.571 },
+  { id: 'decor_81', type: 'fence', x: 805, y: 1190, rot: 1.571 },
+  { id: 'decor_82', type: 'flower', x: 720, y: 1170, scale: 1.1 },
+  { id: 'decor_83', type: 'flower', x: 762, y: 1170, scale: 1.1 },
+  { id: 'decor_84', type: 'tree', x: 2280, y: 872, scale: 2.7 },
+  { id: 'decor_85', type: 'tree', x: 2640, y: 942, scale: 3 },
+  { id: 'decor_86', type: 'tree', x: 2879, y: 1239, scale: 2.6 },
+  { id: 'decor_87', type: 'tree', x: 2438, y: 1411, scale: 2.4 },
+  { id: 'decor_88', type: 'shrub', x: 2192, y: 991, scale: 1 },
+  { id: 'decor_89', type: 'shrub', x: 2746, y: 1050, scale: 1 },
+  { id: 'decor_90', type: 'shrub', x: 2550, y: 1186, scale: 1 },
+  { id: 'decor_91', type: 'rock', x: 2340, y: 1180, scale: 0.9 },
+  { id: 'decor_92', type: 'rock', x: 2940, y: 1000, scale: 1.1 },
+  { id: 'decor_93', type: 'flower', x: 2234, y: 1318, scale: 1 },
+  { id: 'decor_94', type: 'flower', x: 2830, y: 871, scale: 1 },
+  { id: 'decor_95', type: 'crate', x: 2150, y: 1275, rot: 0 },
+  { id: 'decor_96', type: 'crate', x: 2178, y: 1300, rot: 0.5 },
+  { id: 'decor_97', type: 'barrel', x: 2205, y: 1270 },
+  { id: 'decor_98', type: 'tree', x: 966, y: 229, scale: 2.5 },
+  { id: 'decor_99', type: 'tree', x: 1181, y: 294, scale: 2.3 },
+  { id: 'decor_100', type: 'shrub', x: 1080, y: 175, scale: 1 },
+  { id: 'decor_101', type: 'tree', x: 1997, y: 244, scale: 2.4 },
+  { id: 'decor_102', type: 'tree', x: 2202, y: 282, scale: 2.6 },
+  { id: 'decor_103', type: 'shrub', x: 2105, y: 180, scale: 0.9 },
+  { id: 'decor_104', type: 'flower', x: 930, y: 330, scale: 0.9 },
+  { id: 'decor_105', type: 'flower', x: 2280, y: 200, scale: 0.9 },
+  { id: 'decor_106', type: 'tree', x: 798, y: 1951, scale: 2.6 },
+  { id: 'decor_107', type: 'tree', x: 822, y: 2104, scale: 2.4 },
+  { id: 'decor_108', type: 'shrub', x: 745, y: 1840, scale: 1 },
+  { id: 'decor_109', type: 'haybale', x: 1275, y: 2105, rot: 0.4 },
+  { id: 'decor_110', type: 'tree', x: 1984, y: 1921, scale: 2.7 },
+  { id: 'decor_111', type: 'tree', x: 2240, y: 2008, scale: 2.4 },
+  { id: 'decor_112', type: 'crate', x: 2090, y: 1935, rot: 0.3 },
+  { id: 'decor_113', type: 'crate', x: 2118, y: 1962, rot: 1.3 },
+  { id: 'decor_114', type: 'barrel', x: 2060, y: 1975 },
+  { id: 'decor_115', type: 'shrub', x: 1900, y: 2080, scale: 1 },
+  { id: 'decor_116', type: 'flower', x: 2250, y: 1880, scale: 1 },
+  { id: 'decor_117', type: 'tree', x: 210, y: 200, scale: 2.8 },
+  { id: 'decor_118', type: 'tree', x: 420, y: 145, scale: 2.5 },
+  { id: 'decor_119', type: 'rock', x: 330, y: 300, scale: 1.1 },
+  { id: 'decor_120', type: 'tree', x: 2870, y: 175, scale: 2.7 },
+  { id: 'decor_121', type: 'tree', x: 3010, y: 300, scale: 2.4 },
+  { id: 'decor_122', type: 'shrub', x: 2930, y: 240, scale: 1 },
+  { id: 'decor_123', type: 'tree', x: 240, y: 1965, scale: 2.7 },
+  { id: 'decor_124', type: 'tree', x: 420, y: 2080, scale: 2.5 },
+  { id: 'decor_125', type: 'log', x: 330, y: 1900, rot: 2.2 },
+  { id: 'decor_126', type: 'tree', x: 2900, y: 1960, scale: 2.8 },
+  { id: 'decor_127', type: 'tree', x: 3060, y: 2075, scale: 2.5 },
+  { id: 'decor_128', type: 'rock', x: 2985, y: 1900, scale: 1 },
+  { id: 'decor_129', type: 'barrel', x: 830, y: 420 },
+  { id: 'decor_130', type: 'crate', x: 858, y: 445, rot: 0.4 },
+  { id: 'decor_131', type: 'barrel', x: 2300, y: 660 },
+  { id: 'decor_132', type: 'haybale', x: 760, y: 1470, rot: 1.2 },
+  { id: 'decor_133', type: 'crate', x: 2305, y: 1500, rot: 0.2 },
+  { id: 'decor_134', type: 'bench', x: 1652, y: 1560, rot: 0 }
 ];
 // ---------------------------------------------------------------------------
 // The Wilds — a second, smaller (1000x1000) outdoor map reached through a
@@ -450,7 +559,19 @@ const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
 for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
 const HARVEST_RANGE = 70;
-const decorHarvestedAt = {}; // id -> timestamp of last harvest, absent/expired = available
+// Regrowth is PER PLAYER now. It used to be one global timer per plant —
+// with the 24-hour regrow, the first player of the evening stripped the
+// Wilds bare for everyone else (a second Werewolf literally could not
+// gather wolfsbane that night). Each identity now sees its own regrowth:
+// accounts keyed durably, guests by their connection (their whole
+// identity already resets on disconnect anyway).
+const decorHarvestedAt = {}; // playerKey -> { decorId -> timestamp }
+function harvestKeyFor(player) { return player.accountKey || ('guest_' + player.id); }
+function playerHarvests(player) {
+  const k = harvestKeyFor(player);
+  if (!decorHarvestedAt[k]) decorHarvestedAt[k] = {};
+  return decorHarvestedAt[k];
+}
 
 // Finds a decor entry by id across both maps and reports which room it
 // belongs to, so the harvest handler can confirm the player is actually
@@ -464,11 +585,12 @@ function findDecorById(id) {
   return null;
 }
 
-function decorPublicState() {
+function decorPublicState(player) {
   const now = Date.now();
+  const mine = player ? playerHarvests(player) : {};
   return [...WORLD.natureDecor, ...WORLD2.natureDecor]
     .filter(d => HARVEST_TYPES.has(d.type))
-    .map(d => ({ id: d.id, available: !decorHarvestedAt[d.id] || now - decorHarvestedAt[d.id] >= HARVEST_COOLDOWN_MS }));
+    .map(d => ({ id: d.id, available: !mine[d.id] || now - mine[d.id] >= HARVEST_COOLDOWN_MS }));
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
@@ -2622,7 +2744,43 @@ const TREE_COLLIDERS = [
   { x: 3065, y: 935, r: 8 }, { x: 3135, y: 1175, r: 7 }, { x: 3080, y: 1360, r: 8 },
   { x: 935, y: 2135, r: 8 }, { x: 1200, y: 2160, r: 8 }, { x: 2000, y: 2145, r: 8 }, { x: 2265, y: 2120, r: 7 },
   { x: 1975, y: 80, r: 7 },  { x: 2160, y: 105, r: 8 },
-  { x: 105, y: 335, r: 8 },  { x: 3105, y: 335, r: 8 }
+  { x: 105, y: 335, r: 8 },  { x: 3105, y: 335, r: 8 },
+  // Scenery-expansion additions — new trees plus the chunky props (well,
+  // stalls, hay bales, logs) rabbits shouldn't ghost through. Generated by
+  // test/gen-scenery.cjs alongside the natureDecor entries above.
+{ x: 1502, y: 928, r: 24 },
+  { x: 1745, y: 850, r: 40 },
+  { x: 1745, y: 1350, r: 40 },
+  { x: 365, y: 914, r: 8 },
+  { x: 568, y: 1074, r: 9 },
+  { x: 424, y: 1353, r: 8 },
+  { x: 796, y: 1369, r: 8 },
+  { x: 700, y: 1310, r: 16 },
+  { x: 620, y: 1265, r: 16 },
+  { x: 630, y: 1330, r: 16 },
+  { x: 2280, y: 872, r: 8 },
+  { x: 2640, y: 942, r: 9 },
+  { x: 2879, y: 1239, r: 8 },
+  { x: 2438, y: 1411, r: 7 },
+  { x: 966, y: 229, r: 8 },
+  { x: 1181, y: 294, r: 7 },
+  { x: 1997, y: 244, r: 7 },
+  { x: 2202, y: 282, r: 8 },
+  { x: 798, y: 1951, r: 8 },
+  { x: 822, y: 2104, r: 7 },
+  { x: 1275, y: 2105, r: 16 },
+  { x: 1984, y: 1921, r: 8 },
+  { x: 2240, y: 2008, r: 7 },
+  { x: 210, y: 200, r: 8 },
+  { x: 420, y: 145, r: 8 },
+  { x: 2870, y: 175, r: 8 },
+  { x: 3010, y: 300, r: 7 },
+  { x: 240, y: 1965, r: 8 },
+  { x: 420, y: 2080, r: 8 },
+  { x: 330, y: 1900, r: 16 },
+  { x: 2900, y: 1960, r: 8 },
+  { x: 3060, y: 2075, r: 8 },
+  { x: 760, y: 1470, r: 16 }
 ];
 
 // Unlike client.js's old per-client version, this blocks the *entire*
@@ -3350,7 +3508,7 @@ setInterval(() => {
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
     mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    decor: decorPublicState(),
+    // decor is per-player now — sent individually on join and after each harvest
     dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
@@ -4166,6 +4324,8 @@ wss.on('connection', (ws) => {
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
+      // Your own view of what's grown back (regrowth is per player).
+      send(ws, { type: 'decor_state', decor: decorPublicState(player) });
       // Catch the newcomer up on any masks currently being worn — the 70ms
       // state stream only carries names, the images travel once, here.
       for (const p of players.values()) {
@@ -4998,6 +5158,24 @@ wss.on('connection', (ws) => {
       st.active = true;
       st.progress = 0;
       if (player.accountKey) saveProgress();
+      // "Set foot in X" must count feet that are ALREADY in X — without
+      // this, beginning a visit-chapter while standing in the target room
+      // (e.g. the Wanderer finishing ch2 in the Wilds, then beginning
+      // "Follow It Into the Trees" right there) waits for a room CHANGE
+      // that never has a reason to happen. Classic invisible soft-lock.
+      if (chapter.objective.type === 'visit_room' && player.room === chapter.objective.room) {
+        send(ws, {
+          type: 'story_chapter_started',
+          chapterTitle: chapter.title,
+          objectiveLabel: chapter.objective.label,
+          where: objectiveWhere(chapter.objective),
+          target: chapter.objective.target,
+          message: `📖 Chapter ${st.chapter + 1}: "${chapter.title}" — you're already standing where the story points.`
+        });
+        storyEvent(player, 'visit_room', { room: player.room });
+        send(ws, storyStatePayload(player));
+        return;
+      }
       send(ws, {
         type: 'story_chapter_started',
         chapterTitle: chapter.title,
@@ -5348,7 +5526,8 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'harvest_error', message: 'Get closer to harvest that.' });
         return;
       }
-      const lastAt = decorHarvestedAt[decorId];
+      const myHarvests = playerHarvests(player);
+      const lastAt = myHarvests[decorId];
       if (lastAt && Date.now() - lastAt < HARVEST_COOLDOWN_MS) {
         send(ws, { type: 'harvest_error', message: 'Already harvested — it needs time to grow back.' });
         return;
@@ -5360,10 +5539,11 @@ wss.on('connection', (ws) => {
         return;
       }
       if (player.accountKey) saveInventories();
-      decorHarvestedAt[decorId] = Date.now();
+      myHarvests[decorId] = Date.now();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}.` });
-      broadcastAll({ type: 'decor_state', decor: decorPublicState() });
+      // Regrowth is per player, so only THIS client's plants change looks.
+      send(ws, { type: 'decor_state', decor: decorPublicState(player) });
       // XP for Wilds plants only (not town trees/shrubs/flowers)
       if (found.room === 'wilds') {
         grantXP(player, 5);

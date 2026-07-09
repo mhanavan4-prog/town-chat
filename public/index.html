@@ -218,6 +218,11 @@
     flex-shrink:0; width:40px; border-radius:20px; border:1px solid rgba(217,138,79,0.35);
     background:rgba(0,0,0,0.35); color:#ffd9a0; font-size:16px; cursor:pointer;
   }
+  #chatSendBtn {
+    flex-shrink:0; width:44px; border-radius:20px; border:none; cursor:pointer;
+    background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#08130a;
+    font-size:15px; font-weight:700; -webkit-tap-highlight-color:transparent;
+  }
   #chatImagePreview {
     display:none; align-items:center; gap:8px; margin-bottom:8px;
     background:rgba(0,0,0,0.3); border-radius:8px; padding:6px 8px;
@@ -259,8 +264,11 @@
   #ttDesc { font-size:11px; color:#9080a8; margin-top:6px; font-style:italic; line-height:1.45; }
 
   #targetingBanner {
+    /* pointer-events stays ON: tapping/clicking the banner cancels the
+       armed spell — on a phone it's the only way out of targeting mode. */
     position:fixed; left:50%; top:74px; z-index:7;
-    transform:translateX(-50%); pointer-events:none;
+    transform:translateX(-50%); cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
   }
   #targetingBanner.hidden { display:none !important; }
   #targetingBanner span {
@@ -268,6 +276,7 @@
     color:#ffd8d8; font-size:13px; font-weight:700; padding:9px 18px;
     border-radius:18px; backdrop-filter:blur(4px); display:inline-block;
   }
+  body.touchMode #targetingBanner span { padding:13px 20px; font-size:13.5px; }
 
   /* Quest dialogue card */
   #questDialogueCard { width:min(340px, 90vw); }
@@ -733,13 +742,78 @@
   body.touchMode #unlockToast { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
   body.touchMode #announceBanner { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
   /* Chat as a bottom sheet, toggled by 💬 */
+  /* ── Mobile chat, rebuilt as text-message notifications ──────────────────
+     Phones don't get the scrolling chat log at all anymore: incoming
+     messages surface as iMessage-style banners under the top vitals pill
+     (see #chatNotifStack below) and quietly fade away on their own. The
+     💬 button now opens just this slim COMPOSE bar — input row (plus the
+     Arcade's Text tab when you're in there), no log, no header. */
   body.touchMode #chatPanel {
     left:0; right:0; top:auto; bottom:0; width:100%; max-width:100%;
-    max-height:58vh; border-radius:18px 18px 0 0; z-index:55;
+    max-height:none; border-radius:18px 18px 0 0; z-index:55;
+    padding-top:12px;
     padding-bottom:calc(12px + env(safe-area-inset-bottom));
   }
   body.touchMode #chatPanel.mobileClosed { display:none !important; }
   body.touchMode #chatPanel.arcadeMode { width:100%; max-width:100%; }
+  body.touchMode #chatHeader { display:none; }
+  body.touchMode #chatLog { display:none; }
+  body.touchMode #chatSendBtn { width:52px; padding:12px 0; }
+
+  /* The banners themselves. pointer-events only on the cards (an image
+     banner is tappable → lightbox); the empty stack never eats a touch. */
+  #chatNotifStack {
+    position:fixed; z-index:9; pointer-events:none;
+    top:calc(max(8px, env(safe-area-inset-top)) + 46px);
+    left:max(10px, env(safe-area-inset-left));
+    right:max(10px, env(safe-area-inset-right));
+    display:none; flex-direction:column; gap:6px;
+    transition:transform .25s ease;
+  }
+  body.touchMode #chatNotifStack { display:flex; }
+  body.toastVisible #chatNotifStack { transform:translateY(48px); } /* duck under an active toast */
+  .chatNotif {
+    pointer-events:auto;
+    display:flex; gap:9px; align-items:flex-start;
+    background:linear-gradient(160deg, rgba(24,30,40,0.9), rgba(12,16,24,0.92));
+    border:1px solid rgba(160,200,255,0.22);
+    border-radius:14px; padding:8px 12px;
+    max-width:min(360px, 92vw);
+    box-shadow:0 4px 18px rgba(0,0,0,0.45);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    animation:chatNotifIn .28s ease;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+  .chatNotif.fading { opacity:0; transform:translateY(-8px); }
+  .chatNotif.system { border-color:rgba(230,190,120,0.3); background:linear-gradient(160deg, rgba(36,28,16,0.9), rgba(20,14,8,0.92)); }
+  .chatNotif.party { border-color:rgba(140,220,150,0.3); }
+  .chatNotif .cnBody { flex:1; min-width:0; }
+  .chatNotif .cnName { font-weight:700; font-size:12px; margin-bottom:1px; }
+  .chatNotif .cnText { color:#e8eef8; font-size:13.5px; line-height:1.35; overflow-wrap:break-word; }
+  .chatNotif img { width:46px; height:46px; object-fit:cover; border-radius:9px; flex:0 0 auto; }
+  @keyframes chatNotifIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .chatNotif { animation:none; }
+    .chatNotif.fading { transform:none; }
+    #chatNotifStack { transition:none; }
+  }
+
+  /* ── Overhead speech bubbles (desktop) — what the chat log can't give
+     you: WHO in the room just said it, right over their head. ── */
+  .chatBubbleTag {
+    position:absolute; pointer-events:none; transform:translate(-50%,-100%);
+    z-index:7; max-width:230px; text-align:center;
+    background:rgba(244,236,220,0.96); color:#241a10;
+    font-size:12.5px; line-height:1.3; font-weight:600;
+    padding:6px 10px; border-radius:12px;
+    box-shadow:0 3px 12px rgba(0,0,0,0.4);
+    overflow-wrap:break-word;
+  }
+  .chatBubbleTag::after {
+    content:''; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
+    border-left:6px solid transparent; border-right:6px solid transparent;
+    border-top:7px solid rgba(244,236,220,0.96);
+  }
 
   /* ── Controls guide + loadout editor ── */
   #controlsCard, #loadoutCard { max-height:86vh; overflow-y:auto; text-align:left; }
@@ -883,6 +957,13 @@
     background:rgba(0,0,0,0.25); color:#cfe9cf; font-size:12px; font-weight:700; cursor:pointer;
   }
   #invTabs button.active { background:linear-gradient(90deg,#ffd27a,#ff9d5c); color:#2a1605; }
+  /* The ✕ is the only way to close this panel on phones (no Esc key, and
+     the ☰ menu row only opens it) — keep it a real, thumb-sized target. */
+  #invTabs #invCloseBtn {
+    flex:0 0 auto; min-width:38px; font-size:14px; color:#ffb9a0;
+    border-color:rgba(255,150,120,0.4); background:rgba(60,20,10,0.35);
+  }
+  body.touchMode #invTabs #invCloseBtn { min-width:46px; padding:10px 8px; }
   #equipSlotsRow { display:flex; gap:10px; margin-bottom:12px; }
   .equipSlotWrap { flex:1; text-align:center; }
   .equipSlotWrap .itemSlot { width:100%; font-size:26px; margin-bottom:4px; }
@@ -1235,6 +1316,7 @@
      vitals pill + one ☰ menu. Everything else lives in the menu sheet. -->
 <div id="joyZone"></div>
 <div id="fxLayer"></div>
+<div id="chatNotifStack"></div>
 
 <div id="actionCluster" class="hidden">
   <button id="btnStrike" class="acBtn acPrimary" title="Attack nearest">⚔️</button>
@@ -1347,6 +1429,7 @@
       <button id="chatImageBtn" title="Send a picture">📷</button>
       <input id="chatImageFile" type="file" accept="image/*" class="hidden">
       <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
+      <button id="chatSendBtn" title="Send" aria-label="Send message">➤</button>
     </div>
   </div>
   <div id="textView" class="hidden">
@@ -1398,9 +1481,9 @@
 <div id="arcadeModal" class="overlay hidden">
   <div class="card" id="arcadeCard">
     <div class="title" id="arcadeTitle" style="font-size:20px;">🐍 Snake</div>
-    <canvas id="arcadeCanvas" width="320" height="320"></canvas>
-    <div class="subtitle">Arrow keys to play. Space to retry after game over. Esc to close.</div>
-    <button class="btn" id="arcadeCloseBtn">Close (Esc)</button>
+    <canvas id="arcadeCanvas" width="320" height="320" style="max-width:100%; touch-action:none; border-radius:8px;"></canvas>
+    <div class="subtitle" id="arcadeHelp">Arrow keys to play. Space to retry after game over. Esc to close.</div>
+    <button class="btn" id="arcadeCloseBtn">Close</button>
   </div>
 </div>
 
@@ -1613,6 +1696,7 @@
     <button id="invTabNotes">✉️ Notes</button>
     <button id="invTabHardDrive">💽 Hard Drive</button>
     <button id="invTabSettings">⚙️ Settings</button>
+    <button id="invCloseBtn" title="Close inventory" aria-label="Close inventory">✕</button>
   </div>
 
   <div id="invItemsView">

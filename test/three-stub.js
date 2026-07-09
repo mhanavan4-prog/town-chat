@@ -27,7 +27,11 @@
   class Color {
     constructor(c) { this.value = c; }
     set(c) { this.value = c; return this; }
+    setHex(h) { this.value = h; return this; }
+    getHex() { return typeof this.value === 'number' ? this.value : 0; }
     setHSL() { return this; }
+    setRGB() { return this; }
+    offsetHSL() { return this; }
     lerp() { return this; }
     copy() { return this; }
     clone() { return new Color(this.value); }

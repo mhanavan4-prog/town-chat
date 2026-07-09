@@ -6,5 +6,6 @@ listings.json
 inventories.json
 hardDrives.json
 playerProgress.json
+townPasses.json
 .env
 _to_delete/

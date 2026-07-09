@@ -18,7 +18,10 @@ Walk back out through the door and you're back in the open-air town square.
   up-and-down stays put) so "forward on screen" and "forward for the
   character" can't end up pointing two different ways.
 - Chat only exists **inside buildings** — the open world has no chat at all.
-- Speech bubbles pop up over a player's head when they send a message.
+- Speech bubbles pop up over a player's head when they send a message
+  (desktop). On phones there's no chat log at all anymore — messages arrive
+  as text-message-style banners at the top of the screen that fade away on
+  their own; see **Mobile: rebuilt for thumbs** below.
 - 🧑 Characters have actual faces now (eyes, brows, a mouth) and one of 5
   distinct looks — different skin tone, hair color **and** hair shape
   (short/ponytail/long/buzzed/mohawk), shirt, and pants per preset, not
@@ -42,8 +45,18 @@ Walk back out through the door and you're back in the open-air town square.
   attach an image (resized/compressed in your browser before sending) to a
   message. Relayed by the server exactly like a text message, scoped to
   whichever room you're in.
-- A large open town square (3200x2200) with grass, dirt paths, scattered
-  trees/shrubs, rock clusters, and flower patches around the edges.
+- A large open town square (3200x2200) that actually looks lived-in now:
+  grass, dirt paths, and a full scenery pass — 🏮 lampposts lining every
+  lane (they come on with the dark, warm against the cool moonlight), a
+  stone well, two striped market stalls and benches around the plaza, a
+  fenced flower garden, hay bales, crates and barrels snugged against
+  building walls, stumps and fallen logs in the meadows, and a much
+  thicker spread of trees/shrubs/rocks/flowers through the midfield,
+  edges, and corners (the new trees/shrubs/flowers are harvestable like
+  the originals). Every placement is machine-validated to stay clear of
+  walking lanes, doors, the spawn plaza, torches, portals, NPCs, and
+  mob/animal spawns — `test/gen-scenery.cjs` is the generator+validator
+  that emitted the list; rerun it after any town-layout change.
 - 🐇 A handful of rabbits wander the grass and gently bound away if you get
   close, settling back into wandering/grazing once you back off. Their
   flee/wander behavior is simulated server-side and broadcast to everyone,
@@ -86,9 +99,14 @@ Walk back out through the door and you're back in the open-air town square.
   character's height rises and falls to match as you cross the staircase.
 - 🎮 The Arcade has two actual playable cabinets — 🐍 Snake and 🧱 Breakout.
   Walk up to one and press F to play (arrow keys to control, Space to retry
-  after a game over, Esc to step away). Each is a small self-contained
-  client-side mini-game — no server involvement, no shared/competitive
-  state, just something to do while you're in there chatting.
+  after a game over, Esc to step away). Fully playable by touch too: swipe
+  across the board to steer the snake (chained swipes work without lifting
+  your thumb), slide your thumb to put the Breakout paddle right under it,
+  and tap the board to retry after a game over. (Snake also refuses 180°
+  reversals now on every input — running back through your own neck was an
+  instant unfair death.) Each is a small self-contained client-side
+  mini-game — no server involvement, no shared/competitive state, just
+  something to do while you're in there chatting.
 - 📱 The Arcade's chat panel is also 3x the normal size and has a second
   **Text** tab next to Chat — log in with your own Twilio account once and
   send a real SMS to a real phone number from there (see **Texting
@@ -515,9 +533,23 @@ name banner in sight rendered permanently.
 - **One ☰ menu instead of five.** The top bar is just a compact vitals
   pill (❤️ health · level · ☀️/🌕) and a menu button; Inventory, Journal,
   abilities, Hard Drive, Town Pass, snapshots, music and Leave-building
-  live in a bottom sheet with big touch rows. Chat becomes a 💬 toggle
-  (with an unread badge) that slides up as a bottom sheet, indoors where
-  chat exists.
+  live in a bottom sheet with big touch rows.
+- **Chat is text-message banners now, not a log.** Phones don't get the
+  scrolling chat panel at all: each message in your room pops in under
+  the top bar like an incoming text (sender name in their color, photo
+  thumbnails tappable to zoom) and quietly fades out after ~9 seconds —
+  at most four ride the stack, so the screen stays tidy on its own.
+  Story/quest system lines that would only have landed in the log get a
+  banner too (never duplicating a toast that just said the same thing).
+  The 💬 button (indoors, where chat exists) opens a slim compose bar —
+  input, 📷 attach, and a ➤ send button — that rides above the software
+  keyboard; there's no unread badge anymore because there's nothing to
+  catch up on. In the Arcade the compose bar still carries the Chat|Text
+  tabs, so Twilio texting works from a phone unchanged.
+- **Panels all close by thumb.** The inventory has a real ✕ now (it was
+  literally unclosable on a phone before), and an armed targeted spell
+  can be canceled by tapping its 🎯 banner — the copy tells you so,
+  instead of telling you to press an Esc key you don't have.
 - **Name banners behave.** Your own is hidden; others' appear only within
   conversational range (fading with distance), when someone speaks (6s),
   or when you tap a player — and NPC signs show only when you're near
@@ -549,7 +581,34 @@ Headless UI testing: `test/mobile-shots.cjs` boots the real client with
 `test/three-stub.js` standing in for three.js (Playwright route
 interception) and screenshots the phone layouts; the `?testdrive=1` query
 param exposes a tiny harness-only hook for teleporting around. Neither
-affects normal play.
+affects normal play. The QA sweep grew with the mobile work:
+
+- `test/qa-deep-mobile.cjs` — a full scripted evening on a phone (join,
+  camera-relative movement, every door incl. locked ones, chat banners +
+  compose, night combat vs hunting mobs, the Wilds round-trip with a
+  harvest and item use, spellbook + touch targeting, emotes, bank-as-guest,
+  campaign start, PvP death → respawn, scenery/lamppost checks, and an
+  orientation flip). Wants the night server: `node test/night-server.cjs`
+  boots the real server with the shared clock shifted to just-after-dusk
+  and prints the offset the harness reads automatically.
+- `test/qa-pass-flow.cjs` — the whole Town Pass loop against
+  `test/stripe-mock-server.cjs` (a real server boot with a mocked `stripe`
+  module where every checkout instantly pays): buy → redirect → verify →
+  receipt → both ticketed doors open → cabinets playable by touch
+  (pixel-verified paddle) → Text tab reachable → replay-proofing.
+- `test/qa-account-bank.cjs` — registers an account through the join
+  screen UI, opens the teller and auctioneer, and checks the economy
+  modals actually fit a 390px phone.
+- `test/gen-scenery.cjs` — the town-scenery generator/validator (see the
+  town-square bullet up top).
+
+One playtest discovery worth knowing as the designer: the four ritual
+torches around the spawn hub heal 25 HP/s within their light at night —
+which out-heals strike damage entirely. That makes the lit plaza a
+genuine night sanctuary (mobs and PvP both can't finish anyone standing
+in the glow). It reads as intentional — the town bell of "safety in the
+torchlight" — so it was left exactly as is; just know the hub is a
+no-kill zone after dark while the torches burn.
 
 ## Run it locally
 
@@ -767,11 +826,17 @@ silently clamped, since it only knows about the single outdoor `[0,width] x
 outdoor footprint as its local coordinate space, just rendered at a larger
 visual scale. No server-side changes were needed to support it.
 
-**A known limitation of this delivery:** the live Stripe checkout/redirect
-flow can't be end-to-end tested in the sandbox this was built in (no
-outbound access to Stripe's API), so please test the full pay → redirect →
-unlock loop yourself with a Stripe test key and test card before relying on
-it, and let me know if anything doesn't unlock correctly.
+**Two known limitations of this delivery:** (1) the live Stripe
+checkout/redirect flow can't be end-to-end tested in the sandbox this was
+built in (no outbound access to Stripe's API) — the complete loop IS
+exercised against a mocked Stripe (`node test/stripe-mock-server.cjs` +
+`node test/qa-pass-flow.cjs`, all green), so the game-side wiring is
+verified; still, run one real test-mode purchase (sk_test key + card
+4242 4242 4242 4242) before going live. (2) three.js loads from the cdnjs
+CDN, and the local fallback `public/three.min.js` that index.html would
+reach for if the CDN is unreachable is NOT bundled — if you want the game
+to survive a CDN outage, download three.js r128's `build/three.min.js`
+once and drop it into `public/`.
 
 Want changes — different buildings, bigger map, persistent chat history,
 login accounts, a different price or free building? Just ask and I can

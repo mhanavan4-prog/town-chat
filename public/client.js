@@ -10,6 +10,12 @@ function resize(){
     activeCamera.aspect = W / H;
     activeCamera.updateProjectionMatrix();
   }
+  // Rotating a phone moves "the lower-left corner" — the resting joystick
+  // hint is anchored to it, so re-anchor (unless a thumb is mid-drag,
+  // where moving the ring under the finger would be worse).
+  if (typeof MOBILE_UI !== 'undefined' && MOBILE_UI && typeof joyActive !== 'undefined' && !joyActive && typeof restJoystick === 'function') {
+    restJoystick();
+  }
 }
 window.addEventListener('resize', resize);
 
@@ -1037,13 +1043,14 @@ function onWsMessage(ev) {
     if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
     messagesByRoom[m.room].push(m);
     if (m.room === currentRoom) renderChatLog();
-    // Mobile: a talker's nameplate surfaces for a few seconds (names are
-    // otherwise distance-gated there), and the 💬 badge counts what you
-    // haven't seen while the chat sheet is closed.
+    // A talker's nameplate surfaces for a few seconds (names are
+    // otherwise distance-gated on mobile), and their words ride along:
+    // an overhead speech bubble on desktop, a text-message-style banner
+    // at the top of the screen on phones (there is no chat log there).
     if (m.id && players[m.id]) players[m.id].lastChatAt = Date.now();
-    if (MOBILE_UI && m.room === currentRoom && !mobileChatOpen && m.id !== myId) {
-      chatUnreadCount++;
-      refreshMobileHud();
+    if (m.room === currentRoom) {
+      if (!MOBILE_UI) setOverheadBubble(m.id, m.text, !!m.image);
+      else spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image, self: m.id === myId });
     }
     return;
   }
@@ -1767,6 +1774,14 @@ function toggleInventory() {
   }
 }
 if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
+// ✕ in the tab row — on phones this is the ONLY way to close the panel
+// (no Esc key, and the ☰ menu row deliberately only opens it), so it's a
+// dedicated button rather than a re-tap of a toggle.
+const invCloseBtn = document.getElementById('invCloseBtn');
+if (invCloseBtn) invCloseBtn.addEventListener('click', (e) => {
+  e.stopPropagation(); // the tab row doubles as the drag handle — a close tap must never start a drag
+  if (inventoryOpen) toggleInventory();
+});
 
 const invTabItemsBtn = document.getElementById('invTabItems');
 const invTabNotesBtn = document.getElementById('invTabNotes');
@@ -2856,13 +2871,17 @@ const _partyChatInput = document.getElementById('partyChatInput');
 const _partyChatSend = document.getElementById('partyChatSend');
 
 function appendPartyChatLine(fromName, text) {
-  if (!_partyChatLog) return;
-  const line = document.createElement('div');
-  line.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(100,160,255,0.08);font-size:11px;';
-  const isMe = fromName === (me ? me.name : '');
-  line.innerHTML = `<span style="color:${isMe ? '#88ccff' : '#ccaaff'};font-weight:700;">${fromName}:</span> <span style="color:#ddeeff;">${text}</span>`;
-  _partyChatLog.appendChild(line);
-  _partyChatLog.scrollTop = _partyChatLog.scrollHeight;
+  if (_partyChatLog) {
+    const line = document.createElement('div');
+    line.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(100,160,255,0.08);font-size:11px;';
+    const isMe = fromName === (me ? me.name : '');
+    line.innerHTML = `<span style="color:${isMe ? '#88ccff' : '#ccaaff'};font-weight:700;">${fromName}:</span> <span style="color:#ddeeff;">${text}</span>`;
+    _partyChatLog.appendChild(line);
+    _partyChatLog.scrollTop = _partyChatLog.scrollHeight;
+  }
+  if (MOBILE_UI && fromName !== (me ? me.name : '')) {
+    spawnChatNotif({ name: '🛡️ ' + fromName, color: '#a8d8ff', text, kind: 'party' });
+  }
 }
 
 function sendPartyChatMsg() {
@@ -3338,14 +3357,23 @@ function refreshPassHud() {
 setInterval(refreshPassHud, 30000);
 
 let toastTimer = null;
+let lastToastText = '', lastToastAt = 0; // shared with systemChatNotif's de-dupe
 function setUnlockToast(text) {
   const wrap = document.getElementById('unlockToast');
   const span = document.getElementById('unlockToastText');
   if (!wrap || !span) return;
   span.textContent = text;
   wrap.classList.remove('hidden');
+  // The mobile message banners duck out of the toast's lane while it's up
+  // (body.toastVisible → #chatNotifStack shifts down), and remember what
+  // the toast said so systemChatNotif() doesn't repeat it as a banner.
+  lastToastText = text; lastToastAt = Date.now();
+  document.body.classList.add('toastVisible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => wrap.classList.add('hidden'), 3200);
+  toastTimer = setTimeout(() => {
+    wrap.classList.add('hidden');
+    document.body.classList.remove('toastVisible');
+  }, 3200);
 }
 
 let lastLockMsgAt = 0;
@@ -3430,6 +3458,7 @@ function appendSystemChatLine(text) {
   if (!messagesByRoom[currentRoom]) messagesByRoom[currentRoom] = [];
   messagesByRoom[currentRoom].push({ system: true, text, ts: Date.now() });
   if (typeof renderChatLog === 'function') renderChatLog();
+  systemChatNotif(text); // phones have no log — banner it (unless a toast just said it)
 }
 
 let announceTimer = null;
@@ -4077,10 +4106,22 @@ function armTargeting(msgType, idField, attackId, name, canTargetMobs, cursor, g
   const banner = document.getElementById('targetingBanner');
   if (banner) {
     const what = groundTargeting ? 'the ground to place it' : canTargetMobs ? 'a player or creature' : 'a player';
-    document.getElementById('targetingBannerText').textContent = `🎯 ${name} — click ${what} (Esc to cancel)`;
+    // Phones have no Esc key and no pointer cursor — the banner itself is
+    // the cancel button there (wired below), and the copy says so.
+    document.getElementById('targetingBannerText').textContent = MOBILE_UI
+      ? `🎯 ${name} — tap ${what} · ✕ tap here to cancel`
+      : `🎯 ${name} — click ${what} (Esc to cancel)`;
     banner.classList.remove('hidden');
   }
 }
+// Tapping/clicking the banner always disarms — the only cancel a phone
+// has, and a handy big target on desktop too.
+(function wireTargetingBannerCancel() {
+  const banner = document.getElementById('targetingBanner');
+  if (!banner) return;
+  banner.addEventListener('click', cancelTargeting);
+  banner.addEventListener('touchstart', (e) => { e.preventDefault(); cancelTargeting(); }, { passive: false });
+})();
 
 function cancelTargeting() {
   armedTarget = null;
@@ -4441,6 +4482,7 @@ canvas.addEventListener('touchstart', (e) => {
   for (const t of e.changedTouches) {
     touchLooks.set(t.identifier, { startX: t.clientX, startY: t.clientY, lastX: t.clientX, lastY: t.clientY, moved: 0 });
   }
+  camGlide.velYaw = 0; camGlide.velPitch = 0; // finger down = direct control again
 }, { passive: true });
 canvas.addEventListener('touchmove', (e) => {
   for (const t of e.changedTouches) {
@@ -4450,11 +4492,14 @@ canvas.addEventListener('touchmove', (e) => {
     tl.moved += Math.abs(dx) + Math.abs(dy);
     tl.lastX = t.clientX; tl.lastY = t.clientY;
     if (MOBILE_UI && tl.moved >= CLICK_DRAG_THRESHOLD) {
-      // Same feel as the mouse orbit: yaw follows horizontal drag, pitch
-      // vertical, pitch clamped; releasing movement snaps yaw back the
-      // moment you walk (handled in the update loop, same as desktop).
-      cameraYawOffset -= dx * 0.0062;
-      cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset - dy * 0.0048));
+      // Faster than the first pass (+~50%) but fed through a short
+      // smoothing buffer (see updateCameraGlide) so speed reads as
+      // gliding, not twitching — plus flick inertia on release below.
+      camGlide.pendingYaw += -dx * TOUCH_CAM_SENS_YAW;
+      camGlide.pendingPitch += -dy * TOUCH_CAM_SENS_PITCH;
+      const nowT = performance.now();
+      camGlide.samples.push({ t: nowT, yaw: -dx * TOUCH_CAM_SENS_YAW, pitch: -dy * TOUCH_CAM_SENS_PITCH });
+      while (camGlide.samples.length && nowT - camGlide.samples[0].t > 90) camGlide.samples.shift();
     }
   }
 }, { passive: true });
@@ -4462,11 +4507,60 @@ const touchLookEnd = (e) => {
   for (const t of e.changedTouches) {
     const tl = touchLooks.get(t.identifier);
     touchLooks.delete(t.identifier);
-    if (tl && tl.moved < CLICK_DRAG_THRESHOLD) handleCanvasClick(tl.startX, tl.startY);
+    if (tl && tl.moved < CLICK_DRAG_THRESHOLD) {
+      handleCanvasClick(tl.startX, tl.startY);
+    } else if (tl && MOBILE_UI && camGlide.samples.length) {
+      // Flick: whatever angular speed the thumb had over its last ~90ms
+      // carries on and coasts to a stop (see updateCameraGlide). This is
+      // the piece that makes fast look-arounds feel like a glide instead
+      // of a hard stop at the edge of every swipe.
+      const nowT = performance.now();
+      const span = Math.max(30, nowT - camGlide.samples[0].t);
+      let sy = 0, sp = 0;
+      for (const s of camGlide.samples) { sy += s.yaw; sp += s.pitch; }
+      camGlide.velYaw = clampAbs(sy / (span / 1000), TOUCH_CAM_MAX_FLICK);
+      camGlide.velPitch = clampAbs(sp / (span / 1000), TOUCH_CAM_MAX_FLICK * 0.5);
+      camGlide.samples.length = 0;
+    }
   }
 };
 canvas.addEventListener('touchend', touchLookEnd, { passive: true });
 canvas.addEventListener('touchcancel', (e) => { for (const t of e.changedTouches) touchLooks.delete(t.identifier); }, { passive: true });
+
+// ── Touch camera feel ───────────────────────────────────────────────────────
+// Three pieces tuned together: sensitivity (how far a drag turns you),
+// a ~50ms smoothing buffer (thumb jitter never reaches the camera), and
+// flick inertia (a released swipe coasts to a stop). Desktop mouse input
+// bypasses all of this and keeps its 1:1 feel.
+const TOUCH_CAM_SENS_YAW = 0.0095;   // was 0.0062 — "+50% speed"
+const TOUCH_CAM_SENS_PITCH = 0.0072; // was 0.0048
+const TOUCH_CAM_SMOOTH_RATE = 18;    // 1/s — buffer drains in ~60ms
+const TOUCH_CAM_GLIDE_DECAY = 5;     // 1/s — a flick coasts ~0.4s
+const TOUCH_CAM_MAX_FLICK = 3.6;     // rad/s cap so a wild swipe can't spin the room
+const camGlide = { pendingYaw: 0, pendingPitch: 0, velYaw: 0, velPitch: 0, samples: [] };
+function clampAbs(v, cap) { return Math.max(-cap, Math.min(cap, v)); }
+
+function updateCameraGlide(dt) {
+  if (!MOBILE_UI) return;
+  // Drain the smoothing buffer…
+  const k = 1 - Math.exp(-dt * TOUCH_CAM_SMOOTH_RATE);
+  const stepYaw = camGlide.pendingYaw * k;
+  const stepPitch = camGlide.pendingPitch * k;
+  camGlide.pendingYaw -= stepYaw;
+  camGlide.pendingPitch -= stepPitch;
+  // …plus whatever inertia is still coasting. Inertia dies faster while
+  // the joystick is held so a flick can re-aim a run without the view
+  // slithering forever.
+  const decay = Math.exp(-dt * (joyActive ? TOUCH_CAM_GLIDE_DECAY * 1.8 : TOUCH_CAM_GLIDE_DECAY));
+  camGlide.velYaw *= decay;
+  camGlide.velPitch *= decay;
+  if (Math.abs(camGlide.velYaw) < 0.02) camGlide.velYaw = 0;
+  if (Math.abs(camGlide.velPitch) < 0.02) camGlide.velPitch = 0;
+  const dYaw = stepYaw + camGlide.velYaw * dt;
+  const dPitch = stepPitch + camGlide.velPitch * dt;
+  if (dYaw) cameraYawOffset += dYaw;
+  if (dPitch) cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset + dPitch));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Mobile HUD — the action wheel, the ☰ menu sheet, the compact vitals pill,
@@ -4515,16 +4609,15 @@ function refreshMobileHud() {
     cmBtn.classList.toggle('hidden', !(cmHasDrive && cmClips.length));
     cmBtn.classList.toggle('armed', Date.now() - lastAttackedClientAt < 6000);
   }
-  // 💬 exists only where chat exists (indoors), with the unread badge.
+  // 💬 exists only where chat exists (indoors). No unread badge anymore —
+  // messages present themselves as banners, so there's nothing to "catch
+  // up on"; the button is purely "compose".
   const chatBtn = document.getElementById('chatToggleBtn');
   const cp = document.getElementById('chatPanel');
   if (chatBtn && cp) {
     chatBtn.classList.toggle('hidden', cp.classList.contains('hidden'));
     const badge = document.getElementById('chatUnread');
-    if (badge) {
-      badge.classList.toggle('hidden', chatUnreadCount === 0);
-      badge.textContent = String(Math.min(99, chatUnreadCount));
-    }
+    if (badge) badge.classList.add('hidden');
   }
   // Menu-sheet metadata + contextual rows
   setTextIfChanged('menuPeople', `${Object.keys(players).length} in town`);
@@ -4542,7 +4635,95 @@ function toggleMobileChat(open) {
   if (!cp) return;
   mobileChatOpen = open === undefined ? !mobileChatOpen : open;
   cp.classList.toggle('mobileClosed', !mobileChatOpen);
-  if (mobileChatOpen) { chatUnreadCount = 0; refreshMobileHud(); }
+  if (mobileChatOpen) {
+    chatUnreadCount = 0;
+    refreshMobileHud();
+    // The 💬 button means "I want to say something" now — the panel is
+    // just a compose bar (messages arrive as banners), so go straight to
+    // the keyboard.
+    const inp = document.getElementById('chatInput');
+    if (inp) setTimeout(() => inp.focus(), 60);
+  }
+}
+
+// ── Incoming-message banners (the mobile chat display) ─────────────────────
+// Phones have no chat log: each message in your room pops in under the top
+// bar like a text-message notification, lives ~9 s, then fades out on its
+// own so the screen stays tidy. At most 4 ride the stack; older ones are
+// pushed out early. Tapping a picture banner opens the full image.
+const CHAT_NOTIF_LIFE_MS = 9000;
+const CHAT_NOTIF_MAX = 4;
+function spawnChatNotif(n) {
+  const stack = document.getElementById('chatNotifStack');
+  if (!stack) return;
+  const el = document.createElement('div');
+  el.className = 'chatNotif' + (n.kind ? ' ' + n.kind : '');
+  const body = document.createElement('div');
+  body.className = 'cnBody';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'cnName';
+  nameEl.style.color = n.color || '#ffe9c2';
+  nameEl.textContent = n.self ? 'You' : (n.name || '');
+  const textEl = document.createElement('div');
+  textEl.className = 'cnText';
+  textEl.textContent = n.text || (n.image ? '📷 sent a picture' : '');
+  if (nameEl.textContent) body.appendChild(nameEl);
+  body.appendChild(textEl);
+  el.appendChild(body);
+  if (n.image) {
+    const img = document.createElement('img');
+    img.src = n.image;
+    img.alt = 'shared picture';
+    el.addEventListener('click', () => openImageLightbox(n.image));
+    el.appendChild(img);
+  }
+  stack.appendChild(el);
+  while (stack.children.length > CHAT_NOTIF_MAX) stack.firstChild.remove();
+  const fade = () => { el.classList.add('fading'); setTimeout(() => el.remove(), 750); };
+  setTimeout(fade, CHAT_NOTIF_LIFE_MS);
+}
+
+// System/story beats used to rely on the chat log as their paper trail —
+// with no log on phones, any line that didn't already just toast the same
+// words gets a banner instead, so a missed toast still isn't lost info.
+function systemChatNotif(text) {
+  if (!MOBILE_UI) return;
+  if (text === lastToastText && Date.now() - lastToastAt < 3000) return; // the toast already said it
+  spawnChatNotif({ name: '', text, kind: 'system' });
+}
+
+// ── Overhead speech bubbles (desktop) ───────────────────────────────────────
+// The README always promised these; the mobile rebuild's banners now cover
+// phones, and this covers desktop: whoever spoke gets their words in a
+// little parchment bubble over their head for ~6s, fading at the end.
+// Rendered/positioned by syncLabels() right alongside the name tags.
+function setOverheadBubble(playerId, text, hasImage) {
+  const p = players[playerId];
+  if (!p) return;
+  let t = (text || '').trim();
+  if (hasImage) t = t ? t + ' 📷' : '📷 (sent a picture)';
+  if (!t) return;
+  if (t.length > 90) t = t.slice(0, 87) + '…';
+  p.bubbleText = t;
+  p.bubbleUntil = Date.now() + 6500;
+}
+function updateBubbleTag(p, v, headScreen, now) {
+  const active = p.bubbleText && p.bubbleUntil > now && headScreen.visible;
+  if (!active) {
+    if (v.bubbleEl) v.bubbleEl.style.display = 'none';
+    return;
+  }
+  if (!v.bubbleEl) {
+    v.bubbleEl = document.createElement('div');
+    v.bubbleEl.className = 'chatBubbleTag';
+    document.body.appendChild(v.bubbleEl);
+  }
+  if (v.bubbleEl.textContent !== p.bubbleText) v.bubbleEl.textContent = p.bubbleText;
+  v.bubbleEl.style.display = 'block';
+  v.bubbleEl.style.left = headScreen.x + 'px';
+  v.bubbleEl.style.top = (headScreen.y - 40) + 'px';
+  const msLeft = p.bubbleUntil - now;
+  v.bubbleEl.style.opacity = msLeft < 600 ? String(Math.max(0, msLeft / 600)) : '1';
 }
 
 // ── Action wheel wiring ──
@@ -4904,6 +5085,27 @@ chatInput.addEventListener('keydown', (e) => {
     chatInput.blur();
   }
 });
+// ➤ Send — the tap path phones need (no reliable Enter key on a software
+// keyboard) and a nicety on desktop. Same guard as the Enter path.
+const chatSendBtn = document.getElementById('chatSendBtn');
+if (chatSendBtn) chatSendBtn.addEventListener('click', () => {
+  if (currentRoom === 'outside') { chatInput.value = ''; return; }
+  sendChatMessage();
+  if (MOBILE_UI) chatInput.focus(); // keep the keyboard up for a follow-up
+});
+// Keep the compose bar above a software keyboard: visualViewport tracks
+// the keyboard-shrunk viewport, so translate the bar up by the overlap.
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const fitComposeBar = () => {
+    const cp = document.getElementById('chatPanel');
+    if (!cp || !MOBILE_UI) return;
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    cp.style.transform = overlap > 0 ? `translateY(${-overlap}px)` : '';
+  };
+  vv.addEventListener('resize', fitComposeBar);
+  vv.addEventListener('scroll', fitComposeBar);
+}
 
 // ---------------------------------------------------------------------------
 // Picture sharing — pick an image, shrink it client-side (no point sending a
@@ -7612,6 +7814,17 @@ function updateDayNightCycle() {
   moonMesh.material.opacity = moonStrength;
   moonMesh.visible = moonStrength > 0.02;
 
+  // Lane lampposts come on with the dark — a warm counterpoint to the cool
+  // moonlight, riding the same lightAmount curve so they fade in through
+  // dusk instead of snapping. (Cheap: material opacity only, no lights.)
+  if (LAMP_GLOWS.length) {
+    const glow = 1 - lightAmount;
+    for (const l of LAMP_GLOWS) {
+      l.glassMat.opacity = 0.22 + glow * 0.72;
+      l.glowMat.opacity = glow * 0.55;
+    }
+  }
+
   updateDayNightHud(isNight);
 }
 
@@ -8254,6 +8467,252 @@ function makeGrassTexture() {
   return tex;
 }
 
+// ---------------------------------------------------------------------------
+// Town props — the scenery expansion. Same server-driven natureDecor flow as
+// trees/shrubs (server.js decor_38+), just non-harvestable: benches and
+// lampposts along the lanes, a well + market stalls on the plaza ring, a
+// fenced flower garden, hay/crate/barrel work clusters, stumps and fallen
+// logs. Lamppost lanterns are registered in LAMP_GLOWS and brighten with
+// nightfall — see the hook at the end of updateDayNightCycle().
+// ---------------------------------------------------------------------------
+const LAMP_GLOWS = [];
+let _glowTexCache = null;
+function makeGlowTexture() {
+  if (_glowTexCache) return _glowTexCache;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.4, 'rgba(255,220,150,0.5)');
+  grad.addColorStop(1, 'rgba(255,200,120,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  _glowTexCache = new THREE.CanvasTexture(c);
+  return _glowTexCache;
+}
+
+const PROP_WOOD = 0x6b4a2a, PROP_WOOD_DARK = 0x4a3320, PROP_STONE = 0x8a8a92;
+
+function makeBench(d) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: PROP_WOOD });
+  const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 4, 16), wood);
+  seat.position.y = 14; g.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(44, 14, 3), wood);
+  back.position.set(0, 23, -7.5); g.add(back);
+  for (const sx of [-18, 18]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(4, 14, 14), dark);
+    leg.position.set(sx, 7, 0);
+    g.add(leg);
+  }
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeLamppost(d) {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 3.4, 74, 6), new THREE.MeshLambertMaterial({ color: 0x33333b }));
+  pole.position.y = 37; g.add(pole);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(7, 8, 6), new THREE.MeshLambertMaterial({ color: 0x22222a }));
+  cap.position.y = 83; g.add(cap);
+  const glassMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.25 });
+  const glass = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 8), glassMat);
+  glass.position.y = 75; g.add(glass);
+  const glowMat = new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffc372, transparent: true, opacity: 0, depthWrite: false });
+  const glow = new THREE.Sprite(glowMat);
+  glow.scale.set(48, 48, 1);
+  glow.position.y = 75; g.add(glow);
+  LAMP_GLOWS.push({ glassMat, glowMat });
+  g.position.set(d.x, 0, d.y);
+  return g;
+}
+
+function makeWell(d) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(20, 22, 16, 10), new THREE.MeshLambertMaterial({ color: PROP_STONE }));
+  ring.position.y = 8; g.add(ring);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(16, 16, 2, 10), new THREE.MeshLambertMaterial({ color: 0x1c3a4a }));
+  water.position.y = 15; g.add(water);
+  const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
+  for (const sx of [-17, 17]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(3.5, 34, 3.5), dark);
+    post.position.set(sx, 30, 0); g.add(post);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 32, 6), dark);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.y = 42; g.add(bar);
+  const bucket = new THREE.Mesh(new THREE.CylinderGeometry(4, 3.2, 6, 8), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
+  bucket.position.y = 32; g.add(bucket);
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0x7a3f2a });
+  for (const side of [-1, 1]) {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(46, 2.5, 16), roofMat);
+    slab.position.set(0, 50 + 4 * 0, side * 7);
+    slab.rotation.x = side * 0.5;
+    slab.position.y = 50;
+    g.add(slab);
+  }
+  g.position.set(d.x, 0, d.y);
+  return g;
+}
+
+let _stallTexCache = {};
+function makeStallCanopyTexture(variant) {
+  if (_stallTexCache[variant]) return _stallTexCache[variant];
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  const [a, b] = variant === 1 ? ['#3f7a4a', '#efe6cf'] : ['#a33b3b', '#efe6cf'];
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = i % 2 ? a : b;
+    ctx.fillRect(i * 16, 0, 16, 128);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  _stallTexCache[variant] = tex;
+  return tex;
+}
+
+function makeMarketStall(d) {
+  const g = new THREE.Group();
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(64, 22, 40), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
+  counter.position.y = 11; g.add(counter);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(68, 3, 44), new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK }));
+  top.position.y = 23.5; g.add(top);
+  const poleMat = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
+  for (const [px, pz] of [[-32, -22], [32, -22], [-32, 22], [32, 22]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 56, 6), poleMat);
+    pole.position.set(px, 28, pz); g.add(pole);
+  }
+  const canopy = new THREE.Mesh(
+    new THREE.BoxGeometry(76, 2.5, 54),
+    new THREE.MeshLambertMaterial({ map: makeStallCanopyTexture(d.variant || 0) })
+  );
+  canopy.position.y = 58;
+  canopy.rotation.z = 0.08;
+  g.add(canopy);
+  // a little merchandise on the counter
+  const goodsA = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 8), new THREE.MeshLambertMaterial({ color: 0xc9a227 }));
+  goodsA.position.set(-14, 25 + 1.5, 4); g.add(goodsA);
+  const goodsB = new THREE.Mesh(new THREE.SphereGeometry(4.5, 8, 8), new THREE.MeshLambertMaterial({ color: 0xa33b3b }));
+  goodsB.position.set(12, 28, -6); g.add(goodsB);
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeCrate(d) {
+  const g = new THREE.Group();
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(17, 17, 17), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
+  crate.position.y = 8.5;
+  g.add(crate);
+  const band = new THREE.Mesh(new THREE.BoxGeometry(17.6, 3, 17.6), new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK }));
+  band.position.y = 8.5;
+  g.add(band);
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeBarrel(d) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 20, 10), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
+  body.position.y = 10;
+  // slight barrel belly
+  body.scale.set(1.12, 1, 1.12);
+  g.add(body);
+  const hoopMat = new THREE.MeshLambertMaterial({ color: 0x3a3a42 });
+  for (const hy of [4, 16]) {
+    const hoop = new THREE.Mesh(new THREE.CylinderGeometry(9.2, 9.2, 1.4, 10), hoopMat);
+    hoop.position.y = hy;
+    g.add(hoop);
+  }
+  g.position.set(d.x, 0, d.y);
+  return g;
+}
+
+function makeHaybale(d) {
+  const g = new THREE.Group();
+  const bale = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 26, 10), new THREE.MeshLambertMaterial({ color: 0xd8b64e }));
+  bale.rotation.z = Math.PI / 2;
+  bale.position.y = 12;
+  g.add(bale);
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(4, 24.6, 24.6), new THREE.MeshLambertMaterial({ color: 0xb0913a }));
+  strap.position.y = 12;
+  g.add(strap);
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeFenceSeg(d) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: 0x7a5a34 });
+  for (const px of [-26, 26]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(3.5, 18, 3.5), wood);
+    post.position.set(px, 9, 0); g.add(post);
+  }
+  for (const ry of [7, 13]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(56, 2.6, 2), wood);
+    rail.position.y = ry; g.add(rail);
+  }
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeStump(d) {
+  const g = new THREE.Group();
+  const stump = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 10, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
+  stump.position.y = 5; g.add(stump);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(7.6, 7.6, 1, 8), new THREE.MeshLambertMaterial({ color: 0xb08a5a }));
+  top.position.y = 10.2; g.add(top);
+  g.position.set(d.x, 0, d.y);
+  return g;
+}
+
+function makeFallenLog(d) {
+  const g = new THREE.Group();
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 48, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
+  log.rotation.z = Math.PI / 2;
+  log.position.y = 7.5;
+  g.add(log);
+  for (const ex of [-24, 24]) {
+    const end = new THREE.Mesh(new THREE.CylinderGeometry(ex < 0 ? 7 : 8, ex < 0 ? 7 : 8, 1, 8), new THREE.MeshLambertMaterial({ color: 0xb08a5a }));
+    end.rotation.z = Math.PI / 2;
+    end.position.set(ex, 7.5, 0);
+    g.add(end);
+  }
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
+function makeNoticeboard(d) {
+  const g = new THREE.Group();
+  const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
+  for (const px of [-14, 14]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(3.5, 40, 3.5), dark);
+    post.position.set(px, 20, 0); g.add(post);
+  }
+  const board = new THREE.Mesh(new THREE.BoxGeometry(36, 24, 3), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
+  board.position.y = 32; g.add(board);
+  // parchment notices
+  const paper = new THREE.MeshLambertMaterial({ color: 0xefe6cf });
+  for (const [nx, ny, w, h] of [[-8, 34, 10, 12], [6, 31, 12, 10]]) {
+    const note = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.6), paper);
+    note.position.set(nx, ny, 1.9);
+    note.rotation.z = nx < 0 ? 0.06 : -0.05;
+    g.add(note);
+  }
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(42, 3, 6), dark);
+  cap.position.y = 46; g.add(cap);
+  g.position.set(d.x, 0, d.y);
+  g.rotation.y = d.rot || 0;
+  return g;
+}
+
 function makeTree(x, z, scale) {
   const g = new THREE.Group();
   const s = scale || 1;
@@ -8475,6 +8934,23 @@ function applyDecorState(list) {
 
 // `pool` lets this build into either decorVisuals (town) or decorVisuals2
 // (Wilds) without one call wiping the other's entries out.
+// Prop builders + their player-collision footprints. rot-aware where the
+// prop is meaningfully oblong AND only ever placed axis-aligned (fences);
+// diagonal-rotated props get a square that covers their core.
+const PROP_BUILDERS = {
+  bench: { make: makeBench, collide: () => ({ w: 40, h: 40 }) },
+  lamppost: { make: makeLamppost, collide: () => ({ w: 9, h: 9 }) },
+  well: { make: makeWell, collide: () => ({ w: 46, h: 46 }) },
+  stall: { make: makeMarketStall, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 52, h: 76 } : { w: 76, h: 52 }) },
+  crate: { make: makeCrate, collide: () => ({ w: 19, h: 19 }) },
+  barrel: { make: makeBarrel, collide: () => ({ w: 19, h: 19 }) },
+  haybale: { make: makeHaybale, collide: () => ({ w: 28, h: 28 }) },
+  fence: { make: makeFenceSeg, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 7, h: 58 } : { w: 58, h: 7 }) },
+  stump: { make: makeStump, collide: () => ({ w: 17, h: 17 }) },
+  log: { make: makeFallenLog, collide: () => ({ w: 34, h: 34 }) },
+  noticeboard: { make: makeNoticeboard, collide: () => ({ w: 34, h: 12 }) }
+};
+
 function addNatureDecor(scene, w, pool) {
   for (const d of (w.natureDecor || [])) {
     let group;
@@ -8488,6 +8964,11 @@ function addNatureDecor(scene, w, pool) {
       group = makeRock(d.x, d.y, d.scale);
     } else if (d.type === 'flower') {
       group = makeFlowerPatch(d.x, d.y, d.scale);
+    } else if (PROP_BUILDERS[d.type]) {
+      const spec = PROP_BUILDERS[d.type];
+      group = spec.make(d);
+      const c = spec.collide(d);
+      if (c) walls.push({ x: d.x - c.w / 2, y: d.y - c.h / 2, w: c.w, h: c.h });
     } else if (PLANT_VISUALS[d.type]) {
       group = makePlant(d.type, d.x, d.y);
     } else {
@@ -11185,6 +11666,7 @@ function destroyPlayerVisual(id) {
   if (v.inScene && v.parentScene) v.parentScene.remove(v.group);
   if (v.ghostInScene && v.ghostParentScene) v.ghostParentScene.remove(v.ghostGroup);
   v.nameEl.remove();
+  if (v.bubbleEl) v.bubbleEl.remove();
   delete visuals[id];
 }
 
@@ -11371,6 +11853,7 @@ function syncLabels() {
     if (!v) continue;
     if (!v.inScene) {
       v.nameEl.style.display = 'none';
+      if (v.bubbleEl) v.bubbleEl.style.display = 'none';
       continue;
     }
     // Mobile: names used to be permanently on for everyone in sight —
@@ -11394,6 +11877,9 @@ function syncLabels() {
     const rp = getRenderPos(p);
     const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
     const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
+    // Speech bubbles ride the same anchor but ignore the hover gate — the
+    // whole point is seeing who spoke WITHOUT mousing over them.
+    if (!MOBILE_UI) updateBubbleTag(p, v, headScreen, now);
     if (!headScreen.visible || !isScreenPosHovered(headScreen.x, headScreen.y)) {
       v.nameEl.style.display = 'none';
       continue;
@@ -12983,6 +13469,14 @@ function openArcadeGame(type) {
   arcadeModalOpen = true;
   resetArcadeGame(type);
   document.getElementById('arcadeTitle').textContent = type === 'snake' ? '🐍 Snake' : '🧱 Breakout';
+  // Each platform gets instructions for controls it actually has.
+  const help = document.getElementById('arcadeHelp');
+  if (help) {
+    help.textContent = MOBILE_UI
+      ? (type === 'snake' ? 'Swipe on the board to steer. Tap to retry after game over.'
+                          : 'Slide your thumb to move the paddle. Tap to retry after game over.')
+      : 'Arrow keys to play. Space to retry after game over. Esc to close.';
+  }
   document.getElementById('arcadeModal').classList.remove('hidden');
   arcadeCtx = document.getElementById('arcadeCanvas').getContext('2d');
   arcadeLast = performance.now();
@@ -13003,10 +13497,13 @@ window.addEventListener('keydown', (e) => {
   if (!arcadeModalOpen) return;
   if (e.key === 'Escape' && !e.repeat) { closeArcadeGame(); return; }
   if (arcadeGameType === 'snake') {
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') snakeState.nextDir = { x: 0, y: -1 };
-    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') snakeState.nextDir = { x: 0, y: 1 };
-    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') snakeState.nextDir = { x: -1, y: 0 };
-    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') snakeState.nextDir = { x: 1, y: 0 };
+    // Refuse 180° reversals — running back through your own neck was an
+    // instant unfair death (the touch path guards this too).
+    const aim = (d) => { if (!(d.x === -snakeState.dir.x && d.y === -snakeState.dir.y)) snakeState.nextDir = d; };
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') aim({ x: 0, y: -1 });
+    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') aim({ x: 0, y: 1 });
+    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') aim({ x: -1, y: 0 });
+    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') aim({ x: 1, y: 0 });
     else if (snakeState.gameOver && (e.key === ' ' || e.key === 'Enter')) resetArcadeGame('snake');
   } else if (arcadeGameType === 'breakout') {
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') breakoutState.leftHeld = true;
@@ -13020,6 +13517,65 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') breakoutState.leftHeld = false;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') breakoutState.rightHeld = false;
 });
+
+// ── Cabinet touch controls ──────────────────────────────────────────────────
+// A pass-holding phone player used to stare at "Arrow keys to play": the
+// cabinets were keyboard-only. Touch now drives both — Snake steers by
+// swiping across the board (each ~24px of travel re-aims, so you can snake
+// around without ever lifting your thumb), Breakout puts the paddle under
+// your thumb directly, and after a game over a tap is the new Space.
+(function wireArcadeTouch() {
+  const cv = document.getElementById('arcadeCanvas');
+  if (!cv) return;
+  let touchId = null, startX = 0, startY = 0, swiped = false;
+  const boardX = (clientX) => {
+    const r = cv.getBoundingClientRect();
+    return (clientX - r.left) * (320 / r.width); // CSS px → board coords
+  };
+  cv.addEventListener('touchstart', (e) => {
+    if (!arcadeModalOpen || touchId !== null) return;
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    startX = t.clientX; startY = t.clientY; swiped = false;
+    if (arcadeGameType === 'breakout' && breakoutState && !breakoutState.gameOver && !breakoutState.won) {
+      breakoutState.paddleX = Math.max(0, Math.min(320 - breakoutState.paddleW, boardX(t.clientX) - breakoutState.paddleW / 2));
+    }
+    e.preventDefault();
+  }, { passive: false });
+  cv.addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== touchId) continue;
+      if (arcadeGameType === 'breakout' && breakoutState && !breakoutState.gameOver && !breakoutState.won) {
+        breakoutState.paddleX = Math.max(0, Math.min(320 - breakoutState.paddleW, boardX(t.clientX) - breakoutState.paddleW / 2));
+        swiped = true;
+      } else if (arcadeGameType === 'snake' && snakeState && !snakeState.gameOver) {
+        const dx = t.clientX - startX, dy = t.clientY - startY;
+        if (Math.hypot(dx, dy) >= 24) {
+          // Dominant axis wins; refuse 180° reversals same as the key path
+          // (the snake can't run back through its own neck).
+          const d = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+          if (!(d.x === -snakeState.dir.x && d.y === -snakeState.dir.y)) snakeState.nextDir = d;
+          startX = t.clientX; startY = t.clientY; // chain swipes without lifting
+          swiped = true;
+        }
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const end = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== touchId) continue;
+      touchId = null;
+      // A tap (no real movement) retries a finished game — the touch Space.
+      if (!swiped && Math.hypot(t.clientX - startX, t.clientY - startY) < 12) {
+        if (arcadeGameType === 'snake' && snakeState && snakeState.gameOver) resetArcadeGame('snake');
+        else if (arcadeGameType === 'breakout' && breakoutState && (breakoutState.gameOver || breakoutState.won)) resetArcadeGame('breakout');
+      }
+    }
+  };
+  cv.addEventListener('touchend', end);
+  cv.addEventListener('touchcancel', end);
+})();
 
 function sitDown(seat) {
   const b = world.buildings.find(bb => bb.id === indoorBuildingId);
@@ -13630,6 +14186,7 @@ function update(dt) {
   updateVoiceRings(dt);
   updateEvasionVisual();
   updateEmoteFloats();
+  updateCameraGlide(dt);
   updateCamera(dt);
   updateInteractHint();
 
@@ -13675,7 +14232,35 @@ if (location.search.includes('testdrive=1')) {
     simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
     spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
     emoteFloat(em) { if (me) spawnEmoteFloat(myId, em); },
-    refreshHud() { refreshMobileHud(); }
+    refreshHud() { refreshMobileHud(); },
+    // ── additions for the deeper QA sweep (still nothing a player can't
+    //    already do by walking/tapping — these just skip the raycasts the
+    //    headless renderer stub can't perform) ──
+    send(payload) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+    state() {
+      return me ? {
+        x: me.x, y: me.y, room: me.room, charId: me.charId,
+        health: me.health, level: me.level, isDead: !!me.isDead,
+        status: me.activeStatus ? me.activeStatus.type : null,
+        facing: me.facing, players: Object.keys(players).length
+      } : null;
+    },
+    mobs() { return Object.entries(mobVisuals).map(([id, m]) => ({ id, x: m.x, y: m.y, dead: !!m.dead })); },
+    animals() { return Object.entries(animalVisuals).map(([id, a]) => ({ id, x: a.x, y: a.y, dead: !!a.dead })); },
+    interact() { tryInteract(); },
+    face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },
+    interiorKiosks() {
+      if (!currentInterior || !me) return [];
+      return currentInterior.kiosks.map(k => ({ ...k, world: sceneToWorldPos(me.room, k.x, k.z) }));
+    },
+    isNight() { return getDayNightState().isNight; },
+    armed() { return armedTarget ? armedTarget.name : null; },
+    players() { return Object.entries(players).map(([id, p]) => ({ id, name: p.name, x: p.x, y: p.y, room: p.room, isMe: id === myId })); },
+    sceneCounts() {
+      const count = (s) => { let n = 0; if (s) s.traverse(() => n++); return n; };
+      return { town: count(outdoorScene), wilds: count(wildsScene) };
+    },
+    lampGlow() { return { count: LAMP_GLOWS.length, opacity: LAMP_GLOWS.length ? LAMP_GLOWS[0].glowMat.opacity : 0 }; }
   };
 }
 
