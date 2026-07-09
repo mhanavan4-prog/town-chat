@@ -427,6 +427,21 @@ function onWsMessage(ev) {
     myId = msg.id;
     world = msg.world;
     TOWN_WORLD = world;
+    // Town Pass truth from the server — which rooms are locked, what a
+    // pass costs, and whether THIS connection holds one right now.
+    if (msg.townPass) {
+      lockedRooms = new Set(msg.townPass.lockedRooms || []);
+      townPassPriceCents = msg.townPass.priceCents || townPassPriceCents;
+      townPassHours = msg.townPass.hours || townPassHours;
+      paymentsEnabled = !!msg.townPass.paymentsEnabled;
+      if (msg.townPass.passUntil > Date.now()) {
+        passUntil = msg.townPass.passUntil;
+        localStorage.setItem('tc_pass_until', String(passUntil));
+      }
+      refreshUnlockUI();
+      refreshPassHud();
+      if (typeof refreshBuildingLockVisuals === 'function') refreshBuildingLockVisuals();
+    }
     world2 = msg.world2 || world2;
     walls = buildWalls(world);
     // Clear all existing remote-player meshes before rebuilding the list,
@@ -457,6 +472,11 @@ function onWsMessage(ev) {
       document.getElementById('inventoryBtn').classList.remove('hidden');
       // Every character has a story campaign — the Journal is for everyone.
       document.getElementById('journalBtn').classList.remove('hidden');
+      // 💾 Drive button (selfies/clips/notes vault) — for everyone too;
+      // the panel itself explains the 💽 item requirement if you lack it.
+      const driveBtn = document.getElementById('driveBtn');
+      if (driveBtn) driveBtn.classList.remove('hidden');
+      requestCmState(); // load the countermeasure quick-list
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
       // Any character with an entry in ATTACK_CATALOGS gets the Attacks button.
@@ -534,6 +554,13 @@ function onWsMessage(ev) {
         existing.isDead = !!p.isDead;
         existing.hasLoot = !!p.hasLoot;
         existing.deathX = p.deathX; existing.deathY = p.deathY; existing.deathRoom = p.deathRoom;
+        // Disguise identity rides the state stream by name; the mask image
+        // arrives separately via 'disguise_state' and is cached. A name
+        // change here without a cached image still swaps the nameplate.
+        if ((p.disguiseName || null) !== (existing.disguiseName || null)) {
+          existing.disguiseName = p.disguiseName || null;
+          refreshDisguiseVisual(p.id);
+        }
       } else {
         addPlayer(p);
       }
@@ -603,8 +630,9 @@ function onWsMessage(ev) {
 
   if (msg.type === 'quest_started') {
     closeQuestDialogue();
-    setUnlockToast(`📜 Quest started: "${msg.questName}" — ${msg.description}`);
-    updateQuestTracker(msg.questId, msg.questName, 0, msg.target);
+    setUnlockToast(msg.message || `📜 Quest started: "${msg.questName}" — ${msg.description}`);
+    appendSystemChatLine(msg.message || `📜 Quest started: "${msg.questName}"`);
+    updateQuestTracker(msg.questId, msg.questName, 0, msg.target, msg.where);
     return;
   }
 
@@ -614,13 +642,17 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'quest_update') {
-    updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target);
+    updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
+    // Side-quest ticks used to be silent — a progress beat you can feel
+    // (and a louder one when you're one away) keeps the loop warm.
+    if (msg.message) setUnlockToast(msg.message);
     return;
   }
 
   if (msg.type === 'quest_complete') {
     clearQuestTracker();
     setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
     // Refresh inventory so newly granted items appear immediately
     ws.send(JSON.stringify({ type: 'inventory_open' }));
     return;
@@ -642,6 +674,7 @@ function onWsMessage(ev) {
   if (msg.type === 'story_chapter_started') {
     storyLastOutro = null; // reading on — the previous chapter's ending leaves the desk
     setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
     return; // the refreshed story_state arrives right behind this
   }
 
@@ -649,13 +682,19 @@ function onWsMessage(ev) {
     if (storyState) storyState.progress = msg.progress;
     updateStoryTracker();
     if (journalOpen) renderJournal();
-    setUnlockToast(`📖 ${msg.chapterTitle} — ${msg.progress}/${msg.target}`);
+    setUnlockToast(msg.message || `📖 ${msg.chapterTitle} — ${msg.progress}/${msg.target}`);
     return;
   }
 
   if (msg.type === 'story_chapter_complete') {
     storyLastOutro = { title: msg.chapterTitle, outro: msg.outro, rewards: msg.rewards, storyComplete: msg.storyComplete };
     setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    // The ceremony beat — bigger for the finale.
+    showChapterCeremony(
+      msg.storyComplete ? '🏆 STORY COMPLETE' : `📖 Chapter ${msg.chapterIndex || ''} complete`,
+      msg.storyComplete ? `"${msg.chapterTitle}" — the relic is yours.` : `"${msg.chapterTitle}" · ${msg.rewards || ''}`
+    );
     // Refresh inventory so chapter item rewards appear immediately, same
     // as quest_complete above.
     ws.send(JSON.stringify({ type: 'inventory_open' }));
@@ -678,6 +717,10 @@ function onWsMessage(ev) {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
     setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    // Leveling matters more now (chapters gate on it) — give it a beat.
+    showChapterCeremony(`⬆️ Level ${msg.level}`, 'The Hollow takes note of you.');
+    if (journalOpen) renderJournal();
     return;
   }
 
@@ -695,6 +738,67 @@ function onWsMessage(ev) {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
+    noteUnderAttack(); // arms the countermeasure prompt (V — play a clip)
+    return;
+  }
+
+  if (msg.type === 'room_locked') {
+    // The server bounced our door prediction — hard truth from the gate.
+    paymentsEnabled = !!msg.paymentsEnabled;
+    if (me && lockedRooms.has(me.room)) { me.room = 'outside'; }
+    showLockMessage(msg.room);
+    refreshUnlockUI();
+    return;
+  }
+
+  if (msg.type === 'pass_state') {
+    // A pass arrived (bought on another device, or a receipt the server
+    // just finished re-verifying with Stripe).
+    if (msg.passUntil > Date.now()) {
+      passUntil = msg.passUntil;
+      localStorage.setItem('tc_pass_until', String(passUntil));
+      setUnlockToast(`🎟️ Town Pass active — 🛋️ Lounge + 🎮 Arcade open for ${passTimeLeftLabel()}!`);
+      refreshUnlockUI();
+      refreshPassHud();
+      refreshBuildingLockVisuals();
+    }
+    return;
+  }
+
+  if (msg.type === 'announce') {
+    // Town-wide news (campaign finales, etc.) — banner + a system chat line.
+    showAnnounceBanner(msg.message);
+    appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'trophy_bonus' || msg.type === 'cm_result') {
+    setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'cm_error' || msg.type === 'story_error') {
+    setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'voice_cm') {
+    playVoiceCountermeasure(msg);
+    return;
+  }
+
+  if (msg.type === 'cm_state') {
+    cmHasDrive = !!msg.hasDrive;
+    cmClips = msg.clips || [];
+    cmSelfies = msg.selfies || [];
+    if (cmSelectedClipId && !cmClips.some(c => c.id === cmSelectedClipId)) cmSelectedClipId = null;
+    if (typeof renderDriveMediaQuickState === 'function') renderDriveMediaQuickState(msg.disguise);
+    return;
+  }
+
+  if (msg.type === 'disguise_state') {
+    applyDisguiseState(msg.id, msg.name, msg.image);
     return;
   }
 
@@ -937,7 +1041,11 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'harddrive_state') {
-    lastHardDriveState = { hasPassword: msg.hasPassword, notes: msg.notes, capacity: msg.capacity };
+    lastHardDriveState = {
+      hasPassword: msg.hasPassword, notes: msg.notes, capacity: msg.capacity,
+      selfies: msg.selfies || [], clips: msg.clips || [],
+      selfieCapacity: msg.selfieCapacity || 8, clipCapacity: msg.clipCapacity || 6
+    };
     document.getElementById('hdErr').textContent = '';
     document.getElementById('hdLocked').classList.add('hidden');
     document.getElementById('hdUnlocked').classList.remove('hidden');
@@ -945,6 +1053,7 @@ function onWsMessage(ev) {
     document.getElementById('hdCurrentPasswordInput').value = '';
     document.getElementById('hdNewPasswordInput').value = '';
     renderHardDriveUnlocked();
+    requestCmState(); // media changed → refresh the V-key quick list too
     return;
   }
 
@@ -1366,6 +1475,9 @@ function attemptJoin() {
   ensureAudio(); // the click is a user gesture — set up Web Audio here so it's unblocked later
   const payload = { type: 'join', name, password: passInput.value, charId: selectedCharId };
   if (joinMode === 'account' && savedAccount) payload.accountToken = savedAccount.token;
+  // Present the Town Pass receipt (a Stripe Checkout session id) so the
+  // server can restore a guest's pass — even across a server restart.
+  if (passSessionReceipt()) payload.passSession = passSessionReceipt();
   lastJoinPayload = payload;
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
@@ -1445,45 +1557,49 @@ function roomLabel(roomId) {
 }
 
 // ---------------------------------------------------------------------------
-// Premium gating — one building is free, the rest need a verified Stripe
-// payment. Gating is enforced client-side only (no accounts/database in
-// this project), persisted in localStorage once a payment is verified.
+// The Town Pass — two buildings (the Rooftop Lounge and the Arcade) are
+// locked; one $0.99 Stripe Checkout purchase opens BOTH for 24 hours. The
+// server is the real gate now (a move into a locked room bounces with
+// 'room_locked' no matter what this client claims) — everything here is
+// prediction and presentation. The browser keeps two things: the Stripe
+// Checkout session id (the receipt it presents when joining) and the
+// expiry the server reported, purely so the UI can count down.
 // ---------------------------------------------------------------------------
-const FREE_BUILDING_ID = 'hall';
-// Paywalls are off for now — every building is free to enter. The checks
-// below are left in place (rather than deleted) so a future change can
-// re-enable them without re-plumbing this logic.
-const PAYWALLS_ENABLED = false;
-let unlocked = localStorage.getItem('tc_unlocked') === '1';
+const PAYWALLS_ENABLED = true;
 let paymentsEnabled = false;
-let premiumPriceCents = 300;
-let roomPassPriceCents = 100;
-let roomPassHours = 4;
+let townPassPriceCents = 99;
+let townPassHours = 24;
+let lockedRooms = new Set(['lounge', 'arcade']); // refreshed from init/config
+let passUntil = parseInt(localStorage.getItem('tc_pass_until') || '0', 10) || 0;
 
-// Single-room, time-limited passes (bought from the statue in the free
-// building) — separate from the all-access Town Pass above. Stored as an
-// expiry timestamp per room, same client-side-only trust model.
-function roomPassKey(roomId) { return 'tc_room_pass_' + roomId + '_expiry'; }
-function hasRoomPass(roomId) {
-  const exp = parseInt(localStorage.getItem(roomPassKey(roomId)) || '0', 10);
-  return Number.isFinite(exp) && Date.now() < exp;
+function passSessionReceipt() { return localStorage.getItem('tc_pass_session') || ''; }
+function hasTownPass() { return passUntil > Date.now(); }
+function storePassReceipt(sessionId, expiresAt) {
+  if (sessionId) localStorage.setItem('tc_pass_session', sessionId);
+  if (expiresAt) {
+    passUntil = expiresAt;
+    localStorage.setItem('tc_pass_until', String(expiresAt));
+  }
 }
-function grantRoomPass(roomId, hours) {
-  localStorage.setItem(roomPassKey(roomId), String(Date.now() + hours * 60 * 60 * 1000));
+function passTimeLeftLabel() {
+  const ms = passUntil - Date.now();
+  if (ms <= 0) return '';
+  const h = Math.floor(ms / 3600000), m = Math.round((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+function passPriceLabel() { return `$${(townPassPriceCents / 100).toFixed(2)}`; }
 
 function isLockedRoom(roomId) {
   if (!PAYWALLS_ENABLED) return false;
-  if (roomId === 'outside' || roomId === FREE_BUILDING_ID || unlocked) return false;
-  return !hasRoomPass(roomId);
+  if (!lockedRooms.has(roomId)) return false;
+  return !hasTownPass();
 }
 
 // Whether a building's outdoor signage/door should render in its "locked"
 // look — same rule as isLockedRoom but as a per-building helper since
 // buildings (not rooms) are what get rendered outdoors.
 function isVisuallyLocked(b) {
-  if (!PAYWALLS_ENABLED) return false;
-  return b.id !== FREE_BUILDING_ID && !unlocked && !hasRoomPass(b.id);
+  return isLockedRoom(b.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -1627,6 +1743,15 @@ if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
 if (invTabHardDriveBtn) invTabHardDriveBtn.addEventListener('click', () => showInvTab('invHardDriveView'));
 if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
+
+// 💾 Drive — a first-class HUD shortcut straight to the Hard Drive tab
+// (selfies, voice clips, note vault). Same panel the Inventory button
+// reaches; this just opens it on the right tab in one click.
+const driveBtn = document.getElementById('driveBtn');
+if (driveBtn) driveBtn.addEventListener('click', () => {
+  if (!inventoryOpen) toggleInventory();
+  showInvTab('invHardDriveView');
+});
 
 const useDungeonTokenBtn = document.getElementById('useDungeonTokenBtn');
 if (useDungeonTokenBtn) {
@@ -1847,6 +1972,7 @@ function renderHardDriveUnlocked() {
   const cap = document.getElementById('hdCapacityRow');
   cap.textContent = `${lastHardDriveState.notes.length} / ${lastHardDriveState.capacity} notes stored` +
     (lastHardDriveState.hasPassword ? ' — 🔒 password-protected' : ' — no password set');
+  renderHardDriveMedia();
   const list = document.getElementById('hdNotesList');
   const empty = document.getElementById('hdEmpty');
   list.innerHTML = '';
@@ -1894,6 +2020,175 @@ function renderHardDriveUnlocked() {
   }
 }
 
+// ── Hard Drive media: 📸 selfies & 🎙️ voice clips ──────────────────────────
+// The drive's newest shelves. Selfies come from your own camera (you click,
+// your browser asks, one frame is taken — the same consent-first pattern
+// as Hazel's shop and the 3rd Eye) or copied off a picture someone sent
+// you. Clips are 3-second mic recordings. Both are the ammunition for the
+// countermeasure mechanics: V plays a clip to slip an attack (everyone
+// nearby HEARS it), and wearing a selfie makes the town see that face.
+let myWornDisguise = null; // { name } while the server says we're masked
+
+function renderDriveMediaQuickState(disguise) {
+  myWornDisguise = disguise || null;
+  // If the drive panel is open, re-render so Wear/Mask-off buttons match.
+  if (lastHardDriveState) renderHardDriveMedia();
+}
+
+function renderHardDriveMedia() {
+  const wrap = document.getElementById('hdMediaWrap');
+  if (!wrap || !lastHardDriveState) return;
+  const st = lastHardDriveState;
+  wrap.innerHTML = '';
+
+  // ── Selfies ──
+  const selfieHead = document.createElement('div');
+  selfieHead.className = 'hdMediaHead';
+  selfieHead.textContent = `📸 Selfies — ${ (st.selfies || []).length } / ${st.selfieCapacity}`;
+  wrap.appendChild(selfieHead);
+
+  const selfieRow = document.createElement('div');
+  selfieRow.className = 'hdMediaRow';
+  for (const s of st.selfies || []) {
+    const cell = document.createElement('div');
+    cell.className = 'hdSelfieCell';
+    const img = document.createElement('img');
+    img.src = s.image;
+    img.title = `A picture of ${s.of}`;
+    cell.appendChild(img);
+    const label = document.createElement('div');
+    label.className = 'hdMediaLabel';
+    label.textContent = s.of;
+    cell.appendChild(label);
+    const wearing = myWornDisguise && myWornDisguise.name === s.of;
+    const wearBtn = document.createElement('button');
+    wearBtn.className = 'noteReadBtn';
+    wearBtn.textContent = wearing ? '🎭 Mask off' : '🎭 Wear as disguise';
+    wearBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'cm_disguise', selfieId: wearing ? null : s.id }));
+      setTimeout(requestCmState, 300);
+    });
+    cell.appendChild(wearBtn);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'noteDestroyBtn';
+    delBtn.textContent = '🗑️';
+    delBtn.title = 'Delete this selfie';
+    delBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'harddrive_delete_media', kind: 'selfie', mediaId: s.id, password: pendingHdPassword }));
+    });
+    cell.appendChild(delBtn);
+    selfieRow.appendChild(cell);
+  }
+  if (!(st.selfies || []).length) {
+    const none = document.createElement('div');
+    none.className = 'hdMediaEmpty';
+    none.textContent = 'No selfies yet — take one, or save a face off a picture someone sends you.';
+    selfieRow.appendChild(none);
+  }
+  wrap.appendChild(selfieRow);
+
+  const takeBtn = document.createElement('button');
+  takeBtn.className = 'btn';
+  takeBtn.textContent = '📸 Take a selfie (your camera, one frame)';
+  takeBtn.addEventListener('click', async () => {
+    takeBtn.disabled = true;
+    takeBtn.textContent = '📸 Say cheese…';
+    try {
+      const image = await captureSelfiePhoto();
+      if (image) ws.send(JSON.stringify({ type: 'harddrive_save_selfie', image, password: pendingHdPassword }));
+      else setUnlockToast('📸 No camera available (or permission denied).');
+    } catch (e) {
+      setUnlockToast('📸 No camera available (or permission denied).');
+    }
+    takeBtn.disabled = false;
+    takeBtn.textContent = '📸 Take a selfie (your camera, one frame)';
+  });
+  wrap.appendChild(takeBtn);
+
+  // ── Voice clips ──
+  const clipHead = document.createElement('div');
+  clipHead.className = 'hdMediaHead';
+  clipHead.textContent = `🎙️ Voice clips — ${ (st.clips || []).length } / ${st.clipCapacity}`;
+  wrap.appendChild(clipHead);
+
+  for (const c of st.clips || []) {
+    const row = document.createElement('div');
+    row.className = 'hdClipRow';
+    const name = document.createElement('span');
+    name.className = 'hdMediaLabel';
+    name.textContent = (cmSelectedClipId === c.id ? '✔ ' : '') + c.label;
+    row.appendChild(name);
+    const useBtn = document.createElement('button');
+    useBtn.className = 'noteReadBtn';
+    useBtn.textContent = cmSelectedClipId === c.id ? '✔ Armed for V' : 'Arm for V';
+    useBtn.title = 'This is the clip the V key plays when you get attacked';
+    useBtn.addEventListener('click', () => { cmSelectedClipId = c.id; renderHardDriveMedia(); });
+    row.appendChild(useBtn);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'noteDestroyBtn';
+    delBtn.textContent = '🗑️';
+    delBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'harddrive_delete_media', kind: 'clip', mediaId: c.id, password: pendingHdPassword }));
+    });
+    row.appendChild(delBtn);
+    wrap.appendChild(row);
+  }
+  if (!(st.clips || []).length) {
+    const none = document.createElement('div');
+    none.className = 'hdMediaEmpty';
+    none.textContent = 'No clips yet — record one. Played mid-fight (V), it startles everything in earshot.';
+    wrap.appendChild(none);
+  }
+
+  const recBtn = document.createElement('button');
+  recBtn.className = 'btn';
+  recBtn.textContent = '🎙️ Record a 3s voice clip';
+  recBtn.addEventListener('click', async () => {
+    const label = (document.getElementById('hdClipLabelInput') || { value: '' }).value.trim() || 'Voice clip';
+    recBtn.disabled = true;
+    recBtn.textContent = '🎙️ Recording… (3s)';
+    try {
+      const audio = await captureHowlClip(3000);
+      if (audio) ws.send(JSON.stringify({ type: 'harddrive_save_clip', audio, label, password: pendingHdPassword }));
+    } catch (e) {
+      setUnlockToast('🎙️ No microphone available (or permission denied).');
+    }
+    recBtn.disabled = false;
+    recBtn.textContent = '🎙️ Record a 3s voice clip';
+  });
+  const labelInput = document.createElement('input');
+  labelInput.id = 'hdClipLabelInput';
+  labelInput.placeholder = 'Clip name (e.g. "BOO!", "my evil laugh")';
+  labelInput.maxLength = 40;
+  labelInput.className = 'hdClipLabelInput';
+  wrap.appendChild(labelInput);
+  wrap.appendChild(recBtn);
+}
+
+// Mini portrait for snapshot photo-cards of an UNMASKED player — drawn
+// from their character preset (skin/hair/shirt colors) since no real
+// photo of anyone exists unless they chose to share one. Cached per charId.
+const _portraitCache = {};
+function drawCharPortrait(charId) {
+  if (_portraitCache[charId]) return _portraitCache[charId];
+  const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#2b2418'; ctx.fillRect(0, 0, 96, 96);           // backdrop
+  ctx.fillStyle = preset.shirt; ctx.fillRect(24, 62, 48, 34);      // shoulders
+  ctx.fillStyle = preset.skin;                                      // head
+  ctx.beginPath(); ctx.arc(48, 40, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = preset.hair;                                      // hair cap
+  ctx.beginPath(); ctx.arc(48, 33, 21, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = preset.eye;                                       // eyes
+  ctx.beginPath(); ctx.arc(41, 42, 2.6, 0, Math.PI * 2); ctx.arc(55, 42, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#6b3a3a'; ctx.lineWidth = 2;                   // mouth
+  ctx.beginPath(); ctx.moveTo(43, 51); ctx.lineTo(53, 51); ctx.stroke();
+  _portraitCache[charId] = c.toDataURL('image/png');
+  return _portraitCache[charId];
+}
+
 function renderInventory() {
   const list = document.getElementById('inboxList');
   const empty = document.getElementById('inventoryEmpty');
@@ -1921,6 +2216,13 @@ function renderInventory() {
         img.className = 'noteImage';
         img.src = note.image;
         div.appendChild(img);
+      } else if (note.isSnap && typeof note.snapCharId === 'number') {
+        // Snapshot of an unmasked player — a drawn portrait card (their
+        // avatar's look), never a real photo nobody shared.
+        const img = document.createElement('img');
+        img.className = 'noteImage snapPortrait';
+        img.src = drawCharPortrait(note.snapCharId);
+        div.appendChild(img);
       }
       if (note.audio) {
         const player = document.createElement('audio');
@@ -1938,6 +2240,19 @@ function renderInventory() {
       storeBtn.textContent = '💽 Store on Hard Drive';
       storeBtn.addEventListener('click', () => storeNoteOnHardDrive(note.id));
       div.appendChild(storeBtn);
+      if (note.image) {
+        // A picture someone sent you can become a disguise — COPY its
+        // face to the drive's selfie shelf (the note itself stays put).
+        const faceBtn = document.createElement('button');
+        faceBtn.className = 'noteReadBtn';
+        faceBtn.textContent = '📸 Save face to Drive';
+        faceBtn.title = 'Copies this picture to your Hard Drive selfies — wear it as a disguise from there';
+        faceBtn.addEventListener('click', () => {
+          ws.send(JSON.stringify({ type: 'harddrive_save_selfie_from_note', noteId: note.id, password: pendingHdPassword }));
+          setUnlockToast('📸 Saved to your Hard Drive selfies (if the drive allows it).');
+        });
+        div.appendChild(faceBtn);
+      }
       const destroyBtn = document.createElement('button');
       destroyBtn.className = 'noteDestroyBtn';
       destroyBtn.textContent = '🔥 Destroy this note';
@@ -2107,7 +2422,7 @@ function updateXPDisplay() {
 // ---------------------------------------------------------------------------
 let activeQuestId = null, activeQuestTarget = 0;
 
-function updateQuestTracker(questId, questName, progress, target) {
+function updateQuestTracker(questId, questName, progress, target, where) {
   activeQuestId = questId;
   activeQuestTarget = target;
   const el = document.getElementById('questTracker');
@@ -2115,8 +2430,15 @@ function updateQuestTracker(questId, questName, progress, target) {
   el.classList.remove('hidden');
   document.getElementById('questTrackerName').textContent = questName;
   const pct = Math.min(100, Math.round(100 * progress / Math.max(1, target)));
-  document.getElementById('questTrackerFill').style.width = pct + '%';
+  const fill = document.getElementById('questTrackerFill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('nearlyDone', pct >= 75);
   document.getElementById('questTrackerCount').textContent = `${progress} / ${target}`;
+  const whereEl = document.getElementById('questTrackerWhere');
+  if (whereEl) {
+    whereEl.textContent = where ? `🧭 ${where}` : '';
+    whereEl.style.display = where ? 'block' : 'none';
+  }
 }
 
 function clearQuestTracker() {
@@ -2191,6 +2513,21 @@ function renderJournal() {
     s.complete ? `All ${s.totalChapters} chapters complete` : `Chapter ${s.chapterIndex + 1} of ${s.totalChapters}`));
   c.appendChild(header);
 
+  // The whole road, drawn: every chapter as a milestone — done ✓, current
+  // ➤, or ahead (with its level gate). Seeing the full arc with your pin
+  // on it is what makes the remaining distance feel walkable.
+  if (Array.isArray(s.arc) && s.arc.length) {
+    const arcBox = journalDiv('journalArc');
+    s.arc.forEach((a, i) => {
+      const row = journalDiv('journalArcRow ' + a.state);
+      const mark = a.state === 'done' ? '✓' : (a.state === 'current' ? '➤' : '·');
+      const gate = a.state === 'ahead' && a.requiresLevel > 1 ? `  (Lv ${a.requiresLevel})` : '';
+      row.textContent = `${mark} ${i + 1}. ${a.title}${gate}`;
+      arcBox.appendChild(row);
+    });
+    c.appendChild(arcBox);
+  }
+
   // The just-finished chapter's ending, kept on the desk until the next
   // chapter is begun.
   if (storyLastOutro) {
@@ -2211,6 +2548,7 @@ function renderJournal() {
 
     const obj = journalDiv('journalObjective');
     obj.appendChild(journalDiv('journalObjLabel', `🎯 ${ch.objectiveLabel}`));
+    if (ch.where) obj.appendChild(journalDiv('journalWhere', `🧭 ${ch.where}`));
     if (s.active) {
       const barWrap = journalDiv('journalBarWrap');
       const fill = journalDiv('journalBarFill');
@@ -2230,12 +2568,24 @@ function renderJournal() {
       const begin = document.createElement('button');
       begin.className = 'btn';
       begin.id = 'journalBeginBtn';
-      begin.textContent = `📖 Begin Chapter ${s.chapterIndex + 1}`;
-      begin.addEventListener('click', () => {
-        storyLastOutro = null;
-        ws.send(JSON.stringify({ type: 'story_begin' }));
-      });
+      if (ch.levelOk === false) {
+        // Gated — say exactly what opens it and where you stand, so the
+        // locked button reads as a goal, not a wall.
+        begin.disabled = true;
+        begin.textContent = `🔒 Opens at Level ${ch.requiresLevel} — you're Level ${ch.playerLevel}`;
+        begin.title = 'Side quests, night hunts, harvests and dungeons all pay XP.';
+      } else {
+        begin.textContent = `📖 Begin Chapter ${s.chapterIndex + 1}`;
+        begin.addEventListener('click', () => {
+          storyLastOutro = null;
+          ws.send(JSON.stringify({ type: 'story_begin' }));
+        });
+      }
       c.appendChild(begin);
+      if (ch.levelOk === false) {
+        c.appendChild(journalDiv('journalGateHint',
+          '💡 Fastest XP: side quests from any shopkeeper, night hunts outside, and the dungeons below the temple.'));
+      }
     }
   }
 
@@ -2262,8 +2612,16 @@ function updateStoryTracker() {
   el.classList.remove('hidden');
   document.getElementById('storyTrackerName').textContent = `${s.icon} ${s.chapter.title}`;
   const pct = Math.min(100, Math.round(100 * s.progress / Math.max(1, s.chapter.target)));
-  document.getElementById('storyTrackerFill').style.width = pct + '%';
+  const fill = document.getElementById('storyTrackerFill');
+  fill.style.width = pct + '%';
+  // Goal-gradient glow: the bar visibly heats up near the finish line.
+  fill.classList.toggle('nearlyDone', pct >= 75);
   document.getElementById('storyTrackerCount').textContent = `${s.chapter.objectiveLabel} — ${s.progress} / ${s.chapter.target}`;
+  const whereEl = document.getElementById('storyTrackerWhere');
+  if (whereEl) {
+    whereEl.textContent = s.chapter.where ? `🧭 ${s.chapter.where}` : '';
+    whereEl.style.display = s.chapter.where ? 'block' : 'none';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2324,15 +2682,21 @@ function renderNpcShop(msg) {
   currentShopNpcName = msg.npcName;
   document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
   const bal = lastBankState ? lastBankState.balance : '?';
-  document.getElementById('npcShopBalance').textContent = `Balance: ${bal} 🪙`;
+  const balEl = document.getElementById('npcShopBalance');
+  // The keeper's greeting — if you're masked, they greet the FACE, and if
+  // that face is one of their regulars, the discount comes with it.
+  balEl.textContent = (msg.greeting ? `“${msg.greeting}”  ·  ` : '') + `Balance: ${bal} 🪙`;
   const container = document.getElementById('npcShopItems');
   container.innerHTML = '';
   for (const item of msg.items) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
+    const priceHtml = item.basePrice && item.basePrice !== item.price
+      ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} 🪙</span>`
+      : `<span style="color:#ffd700;font-weight:700;">${item.price} 🪙</span>`;
     row.innerHTML = `<span style="font-size:20px;">${item.icon}</span>
       <span style="flex:1;color:#eafff0;">${item.name}</span>
-      <span style="color:#ffd700;font-weight:700;">${item.price} 🪙</span>
+      ${priceHtml}
       <button data-item="${item.id}" style="padding:5px 14px;background:#3366aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
     row.querySelector('button').addEventListener('click', () => {
       ws.send(JSON.stringify({ type: 'npc_buy_item', npcId: currentShopNpcId, itemId: item.id }));
@@ -2905,10 +3269,26 @@ function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 function refreshUnlockUI() {
   const bar = document.getElementById('unlockBar');
   if (!bar) return;
-  if (!PAYWALLS_ENABLED || unlocked || !paymentsEnabled) { bar.classList.add('hidden'); return; }
+  if (!PAYWALLS_ENABLED || !paymentsEnabled || hasTownPass()) { bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
-  document.getElementById('unlockPrice').textContent = formatPrice(premiumPriceCents);
+  const priceEl = document.getElementById('unlockPrice');
+  if (priceEl) priceEl.textContent = formatPrice(townPassPriceCents);
 }
+
+// Small persistent HUD line while a pass is live — seeing the clock run
+// is both honest (you know exactly what you bought) and a quiet nudge
+// to make the most of it.
+function refreshPassHud() {
+  const tag = document.getElementById('passTag');
+  if (!tag) return;
+  if (hasTownPass()) {
+    tag.textContent = `🎟️ Town Pass — ${passTimeLeftLabel()} left`;
+    tag.classList.remove('hidden');
+  } else {
+    tag.classList.add('hidden');
+  }
+}
+setInterval(refreshPassHud, 30000);
 
 let toastTimer = null;
 function setUnlockToast(text) {
@@ -2922,86 +3302,315 @@ function setUnlockToast(text) {
 }
 
 let lastLockMsgAt = 0;
-function showLockMessage() {
+function showLockMessage(roomId) {
   const now = Date.now();
   if (now - lastLockMsgAt < 2500) return;
   lastLockMsgAt = now;
-  setUnlockToast('🔒 Locked — buy the Town Pass to enter this building.');
+  const label = roomId ? roomLabel(roomId) : 'this building';
+  setUnlockToast(paymentsEnabled
+    ? `🔒 ${label} needs a 🎟️ Town Pass — ${passPriceLabel()} for ${townPassHours}h. Visit the 🗿 statue in the Cafe or the button up top.`
+    : `🔒 ${label} is closed — Town Pass sales aren't set up on this server.`);
 }
 
 fetch('/api/config')
   .then(r => r.json())
   .then(cfg => {
     paymentsEnabled = !!cfg.paymentsEnabled;
-    premiumPriceCents = cfg.premiumPriceCents || premiumPriceCents;
-    roomPassPriceCents = cfg.roomPassPriceCents || roomPassPriceCents;
-    roomPassHours = cfg.roomPassHours || roomPassHours;
+    townPassPriceCents = cfg.townPassPriceCents || townPassPriceCents;
+    townPassHours = cfg.townPassHours || townPassHours;
+    if (Array.isArray(cfg.lockedRooms)) lockedRooms = new Set(cfg.lockedRooms);
     refreshUnlockUI();
   })
   .catch(() => {});
 
+function startPassCheckout(btn) {
+  const restore = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  fetch('/api/checkout', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setUnlockToast('⚠️ ' + (data.error || 'Could not start checkout.'));
+        if (btn) { btn.disabled = false; btn.textContent = restore; }
+      }
+    })
+    .catch(() => {
+      setUnlockToast('⚠️ Could not reach the server.');
+      if (btn) { btn.disabled = false; btn.textContent = restore; }
+    });
+}
+
 const unlockBtn = document.getElementById('unlockBtn');
 if (unlockBtn) {
-  unlockBtn.addEventListener('click', () => {
-    unlockBtn.disabled = true;
-    unlockBtn.textContent = 'Redirecting…';
-    fetch('/api/checkout', { method: 'POST' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          setUnlockToast('⚠️ ' + (data.error || 'Could not start checkout.'));
-          unlockBtn.disabled = false;
-          unlockBtn.innerHTML = '🔓 Unlock all — <span id="unlockPrice">' + formatPrice(premiumPriceCents) + '</span>';
-        }
-      })
-      .catch(() => {
-        setUnlockToast('⚠️ Could not reach the server.');
-        unlockBtn.disabled = false;
-        unlockBtn.innerHTML = '🔓 Unlock all — <span id="unlockPrice">' + formatPrice(premiumPriceCents) + '</span>';
-      });
-  });
+  unlockBtn.addEventListener('click', () => startPassCheckout(unlockBtn));
 }
 
 (function checkReturnFromCheckout() {
   const params = new URLSearchParams(location.search);
-  const sessionId = params.get('unlock_session');
-  const roomPassSessionId = params.get('room_pass_session');
-  const passRoom = params.get('pass_room');
-
-  if (sessionId) {
-    history.replaceState(null, '', location.pathname);
-    fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId))
-      .then(r => r.json())
-      .then(data => {
-        if (data.unlocked) {
-          unlocked = true;
-          localStorage.setItem('tc_unlocked', '1');
-          setUnlockToast('✅ Payment verified — every building is unlocked!');
-          refreshUnlockUI();
-          refreshBuildingLockVisuals();
-        } else {
-          setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
-        }
-      })
-      .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
-  } else if (roomPassSessionId && passRoom) {
-    history.replaceState(null, '', location.pathname);
-    fetch('/api/verify-session?session_id=' + encodeURIComponent(roomPassSessionId))
-      .then(r => r.json())
-      .then(data => {
-        if (data.unlocked) {
-          grantRoomPass(passRoom, roomPassHours);
-          setUnlockToast(`✅ Arcade Pass active — ${roomPassHours}h of access unlocked!`);
-          refreshBuildingLockVisuals();
-        } else {
-          setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
-        }
-      })
-      .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
-  }
+  // Legacy param names still land in the same place — one pass product now.
+  const sessionId = params.get('pass_session') || params.get('unlock_session') || params.get('room_pass_session');
+  if (!sessionId) return;
+  history.replaceState(null, '', location.pathname);
+  let acctToken = '';
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
+  fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId)
+        + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : ''))
+    .then(r => r.json())
+    .then(data => {
+      if (data.unlocked) {
+        storePassReceipt(sessionId, data.expiresAt || (Date.now() + townPassHours * 3600 * 1000));
+        setUnlockToast(`✅ Town Pass active — 🛋️ Lounge + 🎮 Arcade open for ${passTimeLeftLabel()}!`);
+        refreshUnlockUI();
+        refreshPassHud();
+        refreshBuildingLockVisuals();
+      } else {
+        setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
+      }
+    })
+    .catch(() => setUnlockToast('⚠️ Could not verify payment.'));
 })();
+
+// ---------------------------------------------------------------------------
+// System chat lines + town-wide announcements. Toasts vanish in 3 seconds;
+// these give story/quest/combat beats a persistent, scrollable history in
+// the chat log (missed a toast? it's in the log), and campaign finales get
+// a whole-town banner moment.
+// ---------------------------------------------------------------------------
+function appendSystemChatLine(text) {
+  if (!currentRoom) return;
+  if (!messagesByRoom[currentRoom]) messagesByRoom[currentRoom] = [];
+  messagesByRoom[currentRoom].push({ system: true, text, ts: Date.now() });
+  if (typeof renderChatLog === 'function') renderChatLog();
+}
+
+let announceTimer = null;
+function showAnnounceBanner(text) {
+  const el = document.getElementById('announceBanner');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove('hidden');
+  el.classList.remove('announceIn'); void el.offsetWidth; // restart the animation
+  el.classList.add('announceIn');
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => el.classList.add('hidden'), 6000);
+}
+
+// A short center-screen ceremony for chapter completions — the peak-end
+// beat. Pure presentation: shows, breathes, fades.
+let ceremonyTimer = null;
+function showChapterCeremony(title, subtitle) {
+  const el = document.getElementById('ceremonyOverlay');
+  if (!el) return;
+  document.getElementById('ceremonyTitle').textContent = title;
+  document.getElementById('ceremonySub').textContent = subtitle || '';
+  el.classList.remove('hidden');
+  el.classList.remove('ceremonyIn'); void el.offsetWidth;
+  el.classList.add('ceremonyIn');
+  clearTimeout(ceremonyTimer);
+  ceremonyTimer = setTimeout(() => el.classList.add('hidden'), 3400);
+}
+
+// ---------------------------------------------------------------------------
+// Countermeasures (client side) — the Hard Drive's selfies & voice clips
+// as combat tools. The server owns all the rules (cm_voice / cm_disguise /
+// snap_player handlers); this is capture, presentation, and two hotkeys:
+//   V — play your selected voice clip to evade whatever's on you
+//   P — snap a photo of the nearest player (what you get is what you SEE)
+// ---------------------------------------------------------------------------
+let cmClips = [];            // [{id,label}] — light list from cm_state
+let cmSelfies = [];          // [{id,of}]
+let cmSelectedClipId = null;
+let cmHasDrive = false;
+let lastAttackedClientAt = 0;
+let myEvasionUntil = 0;
+let cmPromptTimer = null;
+
+function requestCmState() {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'cm_state' }));
+}
+
+function noteUnderAttack() {
+  lastAttackedClientAt = Date.now();
+  const prompt = document.getElementById('cmPrompt');
+  if (!prompt) return;
+  if (!cmHasDrive || !cmClips.length) return; // nothing to offer yet
+  const clip = cmClips.find(c => c.id === cmSelectedClipId) || cmClips[0];
+  document.getElementById('cmPromptText').textContent = `V — play "${clip.label}" to slip away`;
+  prompt.classList.remove('hidden');
+  clearTimeout(cmPromptTimer);
+  cmPromptTimer = setTimeout(() => prompt.classList.add('hidden'), 6000);
+}
+
+function fireVoiceCountermeasure() {
+  if (!me || me.isDead) return;
+  if (!cmClips.length) {
+    if (cmHasDrive) setUnlockToast('💽 No voice clips on your drive — record one in the Hard Drive panel.');
+    return;
+  }
+  const clip = cmClips.find(c => c.id === cmSelectedClipId) || cmClips[0];
+  ws.send(JSON.stringify({ type: 'cm_voice', clipId: clip.id }));
+  const prompt = document.getElementById('cmPrompt');
+  if (prompt) prompt.classList.add('hidden');
+}
+
+function snapNearestPlayer() {
+  if (!me || me.isDead) return;
+  let best = null, bestDist = Infinity;
+  for (const id in players) {
+    if (id === myId) continue;
+    const p = players[id];
+    if (p.room !== me.room || p.isDead) continue;
+    const d = Math.hypot(p.x - me.x, p.y - me.y);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  if (!best || bestDist > 140) {
+    setUnlockToast('📷 No one close enough for a snapshot.');
+    return;
+  }
+  ws.send(JSON.stringify({ type: 'snap_player', targetId: best.id }));
+  setUnlockToast(`📷 *click* — ${best.disguiseName || best.name}`);
+}
+
+// Expanding sound-rings in the world where a clip went off, so the noise
+// has a visible source even for players who miss the audio.
+const activeVoiceRings = [];
+function spawnVoiceRings(room, x, y) {
+  const scene = sceneForRoom(room);
+  if (!scene || !window.THREE) return;
+  const pos = getRenderPos({ x, y, room });
+  for (let i = 0; i < 3; i++) {
+    const geo = new THREE.RingGeometry(6, 8, 40);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, 3 + i * 1.5, pos.z);
+    scene.add(ring);
+    activeVoiceRings.push({ ring, scene, born: performance.now(), delay: i * 260 });
+  }
+}
+function updateVoiceRings() {
+  const now = performance.now();
+  for (let i = activeVoiceRings.length - 1; i >= 0; i--) {
+    const r = activeVoiceRings[i];
+    const age = now - r.born - r.delay;
+    if (age < 0) continue;
+    const t = age / 1400;
+    if (t >= 1) {
+      r.scene.remove(r.ring);
+      r.ring.geometry.dispose(); r.ring.material.dispose();
+      activeVoiceRings.splice(i, 1);
+      continue;
+    }
+    const s = 1 + t * 9;
+    r.ring.scale.set(s, s, 1);
+    r.ring.material.opacity = 0.85 * (1 - t);
+  }
+}
+
+let cmAudioEl = null;
+function playVoiceCountermeasure(msg) {
+  // Hear it (one clip at a time — a new one replaces a still-playing one),
+  // see it, and read it — whoever is nearby gets all three.
+  try {
+    if (cmAudioEl) { cmAudioEl.pause(); }
+    cmAudioEl = new Audio(msg.audio);
+    cmAudioEl.volume = 0.9;
+    cmAudioEl.play().catch(() => {});
+  } catch (e) {}
+  // Proximity delivery means this only ever arrives for my own room.
+  spawnVoiceRings(me ? me.room : 'outside', msg.x, msg.y);
+  if (msg.playerId === myId) {
+    myEvasionUntil = Date.now() + (msg.evadeMs || 4000);
+  } else {
+    setUnlockToast(`📢 ${msg.from}'s voice echoes: "${msg.label}"`);
+  }
+  appendSystemChatLine(`📢 ${msg.from} played "${msg.label}" — the night scattered.`);
+}
+
+// Ghosty shimmer on your own body while the evasion window is live, so
+// "I'm untouchable right now" is legible without reading a timer.
+function updateEvasionVisual() {
+  const v = visuals[myId];
+  if (!v || !v.group) return;
+  const evading = myEvasionUntil > Date.now();
+  v.group.traverse(o => {
+    if (o.isMesh && o.material && o.material.transparent !== undefined) {
+      if (evading) {
+        if (o.userData._preEvadeOpacity === undefined) {
+          o.userData._preEvadeOpacity = o.material.opacity;
+          o.userData._preEvadeTransparent = o.material.transparent;
+          o.material.transparent = true;
+        }
+        o.material.opacity = 0.35 + 0.25 * Math.sin(performance.now() / 90);
+      } else if (o.userData._preEvadeOpacity !== undefined) {
+        o.material.opacity = o.userData._preEvadeOpacity;
+        o.material.transparent = o.userData._preEvadeTransparent;
+        delete o.userData._preEvadeOpacity;
+        delete o.userData._preEvadeTransparent;
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Disguises (client side) — someone wearing a selfie renders with that
+// picture as a paper-mask over their face, and their nameplate shows the
+// borrowed name. The heavy image arrives once via 'disguise_state' and is
+// cached here; the 70ms state stream only carries disguiseName.
+// ---------------------------------------------------------------------------
+const disguiseImages = {}; // playerId -> data URL (null/absent = unmasked)
+
+function applyDisguiseState(id, name, image) {
+  if (image) disguiseImages[id] = image; else delete disguiseImages[id];
+  const p = players[id];
+  if (p) p.disguiseName = name || null;
+  if (id === myId) requestCmState(); // keep the drive panel's "wearing" state fresh
+  refreshDisguiseVisual(id);
+}
+
+function refreshDisguiseVisual(id) {
+  const v = visuals[id];
+  if (!v || !v.group) return;
+  const p = players[id];
+  const image = disguiseImages[id];
+  // Nameplate: borrowed name while masked (with a tiny 🎭 tell in the
+  // tooltip position — the NAME is the deception, the tag stays subtle).
+  if (v.nameEl && p) v.nameEl.textContent = p.disguiseName ? p.disguiseName : p.name;
+  // Mask mesh
+  if (v.maskMesh) {
+    v.group.remove(v.maskMesh);
+    if (v.maskMesh.material.map) v.maskMesh.material.map.dispose();
+    v.maskMesh.geometry.dispose(); v.maskMesh.material.dispose();
+    v.maskMesh = null;
+  }
+  if (!image || !p || !p.disguiseName) return;
+  const img = new Image();
+  img.onload = () => {
+    if (!visuals[id] || disguiseImages[id] !== image) return; // stale by the time it loaded
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    // Circular crop with a paper-white rim — reads as a held-up photo, so
+    // it's charming rather than uncanny, and clearly a MASK up close.
+    ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2); ctx.clip();
+    const scale = Math.max(size / img.width, size / img.height);
+    ctx.drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
+    ctx.lineWidth = 7; ctx.strokeStyle = '#f4ead8';
+    ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2); ctx.stroke();
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+    const r = CHAR.headR * 1.35;
+    const mask = new THREE.Mesh(new THREE.CircleGeometry(r, 32), mat);
+    mask.position.set(0, CHAR.headY, CHAR.headR * 0.98);
+    const vNow = visuals[id];
+    vNow.maskMesh = mask;
+    vNow.group.add(mask);
+  };
+  img.src = image;
+}
 
 // ---------------------------------------------------------------------------
 // Input — keyboard + touch joystick (unchanged)
@@ -3814,6 +4423,14 @@ function renderChatLog() {
   chatLog.innerHTML = '';
   for (const m of msgs.slice(-40)) {
     const div = document.createElement('div');
+    if (m.system) {
+      // Story/quest/combat beats — persistent history for what the toasts
+      // only flashed. Styled as parchment lines, no author.
+      div.className = 'chatLine systemLine';
+      div.textContent = m.text;
+      chatLog.appendChild(div);
+      continue;
+    }
     div.className = 'chatLine';
     const b = document.createElement('b');
     b.style.color = m.color;
@@ -7724,14 +8341,19 @@ function buildBuildingMesh(b, w) {
   sign.position.set(b.x + b.w / 2, wallH + roofHeight + 22, b.y + b.h / 2);
   group.add(sign);
 
-  // a second sign disclosing free-vs-premium status
-  const tag = locked
-    ? makeSignSprite('🔒 Premium — Unlock to enter')
-    : makeSignSprite('✓ Free to enter');
-  tag.position.set(b.x + b.w / 2, wallH + roofHeight - 4, b.y + b.h / 2);
-  group.add(tag);
+  // a second sign disclosing free-vs-pass status. Both variants are built
+  // up front and toggled by refreshBuildingLockVisuals(), so buying a
+  // Town Pass mid-session flips every sign live — no rebuild needed.
+  const lockedTag = makeSignSprite('🔒 Town Pass building');
+  const freeTag = makeSignSprite('✓ Free to enter');
+  for (const tag of [lockedTag, freeTag]) {
+    tag.position.set(b.x + b.w / 2, wallH + roofHeight - 4, b.y + b.h / 2);
+    group.add(tag);
+  }
+  lockedTag.visible = locked;
+  freeTag.visible = !locked;
 
-  lockVisuals[b.id] = { door, lockSign: tag };
+  lockVisuals[b.id] = { door, lockSign: lockedTag, freeSign: freeTag, isPassBuilding: lockedRooms.has(b.id) };
 
   return group;
 }
@@ -7884,7 +8506,8 @@ function refreshBuildingLockVisuals() {
     if (!lv) continue;
     const locked = isVisuallyLocked(b);
     lv.door.material.color.set(locked ? 0x5a1f1f : 0x3c2616);
-    lv.lockSign.visible = true; // sign texture already reflects current text at build time
+    lv.lockSign.visible = locked;
+    if (lv.freeSign) lv.freeSign.visible = !locked;
   }
 }
 
@@ -10288,12 +10911,25 @@ let passModalOpen = false;
 function openPassModal() {
   const modal = document.getElementById('passModal');
   if (!modal) return;
-  document.getElementById('roomPassPrice').textContent = formatPrice(roomPassPriceCents);
-  document.getElementById('roomPassHours').textContent = String(roomPassHours);
+  const priceEl = document.getElementById('roomPassPrice');
+  if (priceEl) priceEl.textContent = passPriceLabel();
+  const hoursEl = document.getElementById('roomPassHours');
+  if (hoursEl) hoursEl.textContent = String(townPassHours);
   const err = document.getElementById('passModalErr');
   if (err) err.textContent = '';
+  const status = document.getElementById('passModalStatus');
+  if (status) {
+    status.textContent = hasTownPass()
+      ? `🎟️ Your pass is ACTIVE — ${passTimeLeftLabel()} remaining.`
+      : (paymentsEnabled ? '' : 'Pass sales aren’t set up on this server yet.');
+  }
   const buyBtn = document.getElementById('roomPassBuyBtn');
-  if (buyBtn) { buyBtn.disabled = false; buyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`; }
+  if (buyBtn) {
+    buyBtn.disabled = hasTownPass() || !paymentsEnabled;
+    buyBtn.textContent = hasTownPass()
+      ? '✓ Pass active'
+      : `Buy Town Pass — ${passPriceLabel()} / ${townPassHours}h`;
+  }
   modal.classList.remove('hidden');
   passModalOpen = true;
 }
@@ -11532,28 +12168,9 @@ if (roomPassBuyBtn) {
       if (err) err.textContent = 'Payments are not set up on this server yet.';
       return;
     }
-    roomPassBuyBtn.disabled = true;
-    roomPassBuyBtn.textContent = 'Redirecting…';
-    fetch('/api/checkout-room', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ room: 'arcade' })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          if (err) err.textContent = data.error || 'Could not start checkout.';
-          roomPassBuyBtn.disabled = false;
-          roomPassBuyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`;
-        }
-      })
-      .catch(() => {
-        if (err) err.textContent = 'Could not reach the server.';
-        roomPassBuyBtn.disabled = false;
-        roomPassBuyBtn.textContent = `Buy Arcade Pass — ${formatPrice(roomPassPriceCents)}`;
-      });
+    // One product now — the Town Pass ($0.99 / 24h, Lounge + Arcade) —
+    // through the same /api/checkout the HUD button uses.
+    startPassCheckout(roomPassBuyBtn);
   });
 }
 
@@ -12041,6 +12658,9 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (journalOpen) closeJournal(); else openJournal(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
+  // V = voice countermeasure (play a saved clip to evade), P = snapshot
+  if ((e.key === 'v' || e.key === 'V') && !e.repeat) { fireVoiceCountermeasure(); return; }
+  if ((e.key === 'p' || e.key === 'P') && !e.repeat) { snapNearestPlayer(); return; }
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
     if (slot !== -1) {
@@ -12098,7 +12718,7 @@ function enterBuilding(roomId) {
   }
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
-  if (roomId === FREE_BUILDING_ID) startMusic(); else stopMusic();
+  if (roomId === 'cafe') startMusic(); else stopMusic(); // the tavern loop belongs to the tavern
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.classList.remove('hidden');
 }
@@ -12308,6 +12928,8 @@ function update(dt) {
   updateGroundTrapVisuals();
   updateHotbarCooldown();
   updateWerewolfNpc(dt);
+  updateVoiceRings(dt);
+  updateEvasionVisual();
   updateCamera(dt);
   updateInteractHint();
 

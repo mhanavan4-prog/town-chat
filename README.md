@@ -58,20 +58,26 @@ Walk back out through the door and you're back in the open-air town square.
   connected client lands on the same phase just by agreeing what time it
   is, with no network traffic and no state that resets if the server
   restarts.
-- 👹 Hostile-looking mobs spawn outside (not inside) the buildings once
-  night falls and wander the area obliviously until dawn, when they
-  disappear again. They do **not** flee from you (unlike the rabbits) and
-  do **not** attack — that's deliberately not built yet, this is just the
-  atmosphere/foundation for it. Like the rabbits, server-simulated and
-  synced so everyone sees the same mobs in the same places.
+- 👹 Hostile mobs spawn outside (not inside) the buildings once night
+  falls — and they **hunt you now**. Wander too close after dark and one
+  will lock on, chase you down, and land real hits (gentler than the
+  Wilds' horrors — the town square is the beginner hunting ground; you
+  can always duck indoors, mobs never follow inside). They pay real XP
+  and loot when killed, count for side quests, and the **first town-mob
+  kill each night pays a +25 XP "Night's First Trophy" bonus** — showing
+  up when the moon does is always worth something. Like the rabbits,
+  server-simulated and synced so everyone sees the same mobs in the same
+  places. See **Countermeasures** below for the two ways to slip a fight
+  you're losing.
 - 6 buildings, each with its own medieval interior theme: ☕ The Cafe
   (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
   🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,
   the building straight ahead when you spawn), 🏦 The Bank (see **In-game
-  economy** below). All six are free to *enter* for now — the Stripe
-  paywall code is still in place but disabled (see **Premium buildings &
-  Stripe payments** below) so it can be turned back on later without
-  rebuilding it.
+  economy** below). Four are free; the **Lounge and the Arcade are
+  ticketed** — a 🎟️ **Town Pass** ($0.99 for 24 hours, one purchase opens
+  both, real Stripe Checkout) gets you in. Chat, quests, the campaign,
+  and the whole economy never sit behind the pass — only the two leisure
+  venues do. See **The Town Pass (Stripe payments)** below.
 - 🛋️ The Rooftop Lounge is two stories, inside and out: a ground-floor
   parlor (5 tables — a cozy fireside table plus 4 more in a dining grid)
   with a staircase up to an open-air terrace overlooking it, with 3 more
@@ -104,6 +110,11 @@ Walk back out through the door and you're back in the open-air town square.
     which deletes it from their inbox and tells the sender it's gone. So a
     note can only ever be read by the one person it was sent to, but
     they're the one who decides when it actually disappears, not a timer.
+- 💾 **Hard Drive media & countermeasures** — save selfies and 3-second
+  voice clips on your Hard Drive, then USE them: play a clip mid-fight (V)
+  to evade — everyone nearby literally hears it — or wear a saved selfie
+  as a disguise and pass as that person to players and shopkeepers alike.
+  Take someone's picture with P. See **Countermeasures** below.
 - Optional shared passcode to keep the town private to your friends.
 - Optional accounts — see **Accounts & logging in as the same user** below.
   Everything else is still in-memory and accounts are opt-in: join as a
@@ -390,6 +401,30 @@ How it plays:
   playing the Knight campaign doesn't touch your Witch campaign. Guests
   get the usual guest deal: progress lasts until they disconnect.
 
+**Pacing — a campaign is a journey now, not a sprint.** Each chapter has a
+minimum level before its "Begin Chapter" button unlocks — 1, 2, 3, 4, 6,
+and 8 across the six chapters — enforced server-side and shown right on the
+button ("Opens at Level 8 — you're Level 5"). Reaching the Level-8 finale
+means roughly **two-plus hours of actual play** even for someone rushing:
+campaign chapters and all 18 side quests together don't pay enough XP to
+get there, so the road between chapters runs through night hunts, dungeons,
+and harvests by design. The gates are levels, never timers — you're always
+one more hunt away, never told to go wait. The design leans on a few
+well-worn psychology levers, on purpose: the Journal draws the whole
+six-chapter arc with your position pinned on it (a visibly shrinking
+distance — the goal-gradient effect), progress bars glow as they pass 75%
+and progress toasts switch to "ONE more to go!" near the finish, every
+chapter completion names your NEXT goal at the moment of triumph (an open
+loop, per Zeigarnik — a gate reads as a target, not a wall), campaign
+finales ring a town-wide announcement bell (public recognition, and free
+advertising that the campaigns exist), the nightly first-kill trophy gives
+every session a fresh-start hook, and chapter completions and level-ups
+get a short center-screen ceremony (the peak-end rule: end beats loud).
+Story and quest beats also write themselves into the chat log as system
+lines now, so a missed toast is never lost information — and every
+objective carries a 🧭 **where** hint (in the tracker, the Journal, and
+the toast) so "what do I do next" always has a concrete answer.
+
 **Side quests, wave two:** beyond the four town quest-givers and the two
 Wilds factions, every building NPC now has one repeatable quest of their
 own — Barkeep Joss, Scholar Elior, Apothecary Vex, Tailor Ines, Armorer
@@ -397,6 +432,59 @@ Beck, Old Mabel, Apprentice Wren, Tinkerer Oswin, Lady Corwin, Sir Dorran,
 and Guard Petra (the hint NPCs got a "💬 Ask for a Quest" button in their
 dialogue). Same rules as before: one active side quest at a time, 24h
 cooldown per quest after completion.
+
+## Countermeasures: the Hard Drive's selfies & voice clips
+
+The 💽 Hard Drive (awarded at your first level-up) isn't just a note vault
+anymore — it has two media shelves, and both are **combat tools**. Open it
+from the 💾 **Drive** button (or Inventory → Hard Drive tab):
+
+- 📸 **Selfies** (up to 8). Two ways to get one: take one with your own
+  camera (you click the button, your browser asks permission, one frame is
+  captured — same consent-first pattern as Hazel's shop and the 3rd Eye),
+  or press **"📸 Save face to Drive"** on any picture note someone sent
+  you — a shared photo, a 3rd-Eye vision, a snapshot. Each selfie is
+  tagged with whose face it shows.
+- 🎙️ **Voice clips** (up to 6, ~3 seconds each). Record with your own mic,
+  name them ("BOO!", "my evil laugh"), and pick one to **arm for the V
+  key**.
+
+What they do:
+
+- 📢 **Voice-clip evasion (V).** Only works while something is actually
+  attacking you (a hit in the last ~6 seconds). Fire it and your clip
+  **actually plays out loud to every player in earshot** — proximity, not
+  room-wide, with visible sound-rings at your position — while you slip
+  attacks for ~4 seconds: mobs lose your scent entirely and everything in
+  earshot is routed (they scatter like rabbits for ~8s), and PvP swings
+  whiff with a message telling your attacker exactly what happened ("…
+  their echo still hangs in the air!"). 45-second cooldown, and you need
+  the 💽 item on you. A genuine escape button, not an immortality toggle.
+- 🎭 **Selfie disguise.** Wear any saved selfie as a mask and you *are*
+  that person to the town: your face renders as that photo (a circular
+  paper-mask look — charming, and clearly a mask up close), your nameplate
+  shows their name, **📷 snapshots of you capture them instead of you**,
+  and gear-selling NPCs greet the face they see — including honoring that
+  person's **regulars discount** (15% off at any shopkeeper whose side
+  quest they've completed; finish a quest yourself and you're a regular
+  there too, no mask needed). Guests and made-up faces earn nothing — a
+  discount needs a durable identity behind the face. Your mask slips when
+  you die, and NPCs address you normally again once it's off.
+- 📷 **Snapshots (P).** Point your camera at the nearest player (within
+  hugging distance) and press P — a photo card of *what they look like*
+  lands in your notes: their disguise if masked, or a drawn portrait of
+  their avatar if not (never a real photo nobody shared). The subject
+  always hears the shutter click — paranoia is half the fun, and it means
+  masks actually get tested. 15-second cooldown per photographer.
+
+Privacy, spelled out: nothing here ever captures anyone's camera or mic
+but your own, always behind an explicit button press plus the browser's
+own permission prompt. Other people's faces only enter your drive through
+pictures they deliberately sent into the game, and a snapshot of an
+unmasked player is a cartoon of their avatar, not a photo of them.
+Broadcasting a voice clip is always the owner's own trigger pull. Media
+lives in the same vault as your notes (`hardDrives.json` for accounts,
+in-memory for guests) with the same password protection if you set one.
 
 ## Run it locally
 
@@ -439,12 +527,24 @@ $env:TOWN_PASSWORD="mypassword"; npm start
 
 Leave it unset and anyone with the link can join without a passcode.
 
-## Premium buildings & Stripe payments
+## The Town Pass (Stripe payments)
 
-The Cafe is free for everyone. The other four buildings are locked — walking
-into their doorway just bounces you back outside — until that browser has a
-verified "Town Pass" payment. This is wired up to **real Stripe Checkout**,
-not a placeholder:
+Four buildings are free for everyone, always: the Cafe, the Library, Town
+Hall, and the Bank — everything a player *needs* (chat, quests, story
+chapters, the whole economy) lives in free territory. The two leisure
+venues — the 🛋️ **Rooftop Lounge** and the 🎮 **Arcade** — are ticketed:
+their doors bounce you back outside until you hold a 🎟️ **Town Pass**.
+
+One pass, **$0.99, opens BOTH buildings for 24 hours** (price and duration
+configurable — `TOWN_PASS_PRICE_CENTS` / `TOWN_PASS_HOURS` in `.env`). Buy
+it from the HUD bar, from a locked door's prompt, or in-world at the 🗿
+Town Pass statue inside the Cafe (walk up, press F). What the pass gates is
+deliberately *bonus* content — the Arcade's cabinets and Text tab, the
+Lounge's rooftop — plus exactly three optional NPCs (Lady Corwin, Apprentice
+Wren, Tinkerer Oswin) whose side quests are extra, never required. No story
+campaign ever needs a pass.
+
+This is wired to **real Stripe Checkout**, not a placeholder:
 
 1. Create a free account at [stripe.com](https://stripe.com).
 2. In the Stripe Dashboard, go to **Developers → API keys** and copy your
@@ -463,23 +563,36 @@ not a placeholder:
    ```
    On Render (or Railway/Fly.io), add `STRIPE_SECRET_KEY` under that
    service's **Environment** settings instead of a local `.env` file.
-4. (Optional) `PREMIUM_PRICE_CENTS` sets the price in cents — defaults to
-   `300` ($3.00). Example: `PREMIUM_PRICE_CENTS=500` for $5.00.
-5. If `STRIPE_SECRET_KEY` is left unset, the "Unlock all" button on the HUD
-   simply stays hidden — the rest of the town still works fine with only
-   the Cafe enterable.
-6. When you're ready for real money, repeat step 2 with your **Live mode**
-   secret key (`sk_live_...`) instead of the test one. Test thoroughly with
-   a test key first — Stripe's test and live modes are completely separate,
-   so nothing you do in test mode risks a real charge.
+4. If `STRIPE_SECRET_KEY` is left unset, the two ticketed buildings simply
+   stay locked (the game says pass sales aren't set up) — the rest of the
+   town works exactly as before.
+5. When you're ready for real money, repeat step 2 with your **Live mode**
+   secret key (`sk_live_...`). Test thoroughly with a test key first —
+   Stripe's test and live modes are completely separate, so nothing you do
+   in test mode risks a real charge.
 
-The unlock check happens server-side (`/api/checkout` creates a real Stripe
-Checkout Session; `/api/verify-session` confirms the payment actually went
-through before unlocking), so it can't be spoofed by editing the page. The
-*result* of that check — "this browser has paid" — is then remembered only
-in `localStorage`, consistent with this project's no-database design: it's
-per-browser, not a real login, so paying on one device/browser won't carry
-over to another.
+How enforcement and persistence actually work now:
+
+- **The server is the gate.** `/api/checkout` creates a real Stripe
+  Checkout Session; `/api/verify-session` confirms with Stripe that the
+  session was paid before granting anything; and the `move` handler
+  refuses to let a passless connection set foot in a locked room — a
+  crafted client can't walk through a locked door, because the check isn't
+  in the client anymore.
+- **Replay-proof.** A Checkout session grants exactly one 24-hour window,
+  computed from the payment time. Refreshing the success page or
+  re-presenting an old receipt never stacks extra hours.
+- **Guests:** your browser keeps the Checkout session id in `localStorage`
+  as a receipt and presents it when you join. Even if the server restarted
+  and forgot everything, it re-verifies that id against Stripe itself —
+  Stripe is the durable record, so a guest's day pass survives server
+  restarts without this project needing a database.
+- **Logged-in accounts:** the pass also attaches to your account
+  (`townPasses.json`, same persistence model and ephemeral-filesystem
+  caveat as every other JSON store here), so it follows you across
+  browsers and devices for its 24 hours.
+- Buildings you're already inside never eject you when a pass expires —
+  expiry is checked at the door, not mid-conversation.
 
 ## Texting (Twilio)
 

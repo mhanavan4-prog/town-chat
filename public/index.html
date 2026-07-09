@@ -453,7 +453,7 @@
     position:fixed; top:64px; left:16px; z-index:6;
     display:flex; gap:8px; pointer-events:none;
   }
-  #inventoryBtn, #spellbookBtn, #attackBtn {
+  #inventoryBtn, #spellbookBtn, #attackBtn, #journalBtn, #driveBtn {
     pointer-events:auto;
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
     color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
@@ -461,7 +461,97 @@
   }
   #spellbookBtn { border-color:rgba(155,95,192,0.5); }
   #attackBtn { border-color:rgba(210,110,30,0.6); }
-  #inventoryBtn.hidden, #spellbookBtn.hidden, #attackBtn.hidden { display:none !important; }
+  #journalBtn { border-color:rgba(196,80,60,0.6); }
+  #driveBtn { border-color:rgba(90,170,200,0.55); }
+  #inventoryBtn.hidden, #spellbookBtn.hidden, #attackBtn.hidden, #journalBtn.hidden, #driveBtn.hidden { display:none !important; }
+
+  /* ── Town Pass HUD tag ── */
+  #passTag {
+    background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.5);
+    color:#ffe9c2; font-size:12px; font-weight:700; padding:6px 12px;
+    border-radius:14px; backdrop-filter:blur(4px);
+  }
+  #passTag.hidden { display:none !important; }
+
+  /* ── Town-wide announcement banner ── */
+  #announceBanner {
+    position:fixed; top:110px; left:50%; transform:translateX(-50%);
+    z-index:40; max-width:min(680px, 92vw); text-align:center;
+    background:linear-gradient(180deg, rgba(60,40,10,0.95), rgba(35,22,6,0.95));
+    border:1px solid rgba(255,210,110,0.65); border-radius:12px;
+    color:#ffe9b0; font-weight:700; font-size:15px; padding:12px 22px;
+    box-shadow:0 6px 30px rgba(0,0,0,0.5);
+  }
+  #announceBanner.hidden { display:none !important; }
+  @keyframes announcePop { 0% { transform:translateX(-50%) scale(0.85); opacity:0; } 60% { transform:translateX(-50%) scale(1.04); opacity:1; } 100% { transform:translateX(-50%) scale(1); } }
+  #announceBanner.announceIn { animation:announcePop 0.45s ease-out; }
+
+  /* ── Countermeasure prompt (V) ── */
+  #cmPrompt {
+    position:fixed; bottom:150px; left:50%; transform:translateX(-50%);
+    z-index:30; background:rgba(10,20,35,0.92);
+    border:1px solid rgba(120,200,255,0.7); border-radius:12px;
+    color:#bfe6ff; font-weight:700; font-size:14px; padding:10px 18px;
+    animation:cmPulse 0.9s ease-in-out infinite alternate;
+  }
+  #cmPrompt.hidden { display:none !important; }
+  @keyframes cmPulse { from { box-shadow:0 0 4px rgba(120,200,255,0.25); } to { box-shadow:0 0 18px rgba(120,200,255,0.6); } }
+
+  /* ── Chapter ceremony overlay ── */
+  #ceremonyOverlay {
+    position:fixed; inset:0; z-index:45; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0.25), transparent 70%);
+  }
+  #ceremonyOverlay.hidden { display:none !important; }
+  #ceremonyTitle {
+    font-size:44px; font-weight:900; color:#ffe9b0; letter-spacing:2px;
+    text-shadow:0 0 24px rgba(255,200,90,0.7), 0 3px 6px rgba(0,0,0,0.8);
+  }
+  #ceremonySub {
+    margin-top:10px; font-size:16px; color:#e8d8b8;
+    text-shadow:0 2px 4px rgba(0,0,0,0.8);
+  }
+  @keyframes ceremonyPop { 0% { transform:scale(0.7); opacity:0; } 55% { transform:scale(1.06); opacity:1; } 100% { transform:scale(1); opacity:1; } }
+  #ceremonyOverlay.ceremonyIn #ceremonyTitle, #ceremonyOverlay.ceremonyIn #ceremonySub { animation:ceremonyPop 0.6s ease-out; }
+
+  /* ── System lines in chat ── */
+  .chatLine.systemLine {
+    color:#d8c9a0; font-style:italic; font-size:12px;
+    border-left:2px solid rgba(230,190,120,0.4); padding-left:8px; margin:3px 0;
+  }
+
+  /* ── Tracker "where" hints + goal-gradient glow ── */
+  .trackerWhere { color:#9fd3e8; font-size:11px; margin-top:3px; }
+  #storyTrackerFill.nearlyDone, #questTrackerFill.nearlyDone {
+    box-shadow:0 0 10px rgba(255,215,120,0.9);
+    filter:brightness(1.3);
+  }
+
+  /* ── Journal arc map + gates ── */
+  .journalArc { margin:10px 0; padding:8px 12px; background:rgba(0,0,0,0.18); border-radius:8px; }
+  .journalArcRow { font-size:12.5px; padding:2px 0; color:#8a7a5f; }
+  .journalArcRow.done { color:#7ddc8f; }
+  .journalArcRow.current { color:#ffe9b0; font-weight:700; }
+  .journalWhere { color:#9fd3e8; font-size:12px; margin-top:4px; }
+  .journalGateHint { color:#c9b28a; font-size:12px; margin-top:8px; font-style:italic; }
+
+  /* ── Hard Drive media shelves ── */
+  .hdMediaHead { font-weight:700; color:#ffe9c2; margin:12px 0 6px; }
+  .hdMediaRow { display:flex; flex-wrap:wrap; gap:10px; }
+  .hdSelfieCell {
+    width:104px; display:flex; flex-direction:column; gap:4px;
+    background:rgba(255,255,255,0.05); border-radius:8px; padding:6px;
+  }
+  .hdSelfieCell img { width:92px; height:92px; object-fit:cover; border-radius:50%; border:3px solid #f4ead8; }
+  .hdMediaLabel { font-size:11.5px; color:#eafff0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hdClipRow { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); border-radius:8px; padding:6px 10px; margin:4px 0; }
+  .hdClipRow .hdMediaLabel { flex:1; }
+  .hdMediaEmpty { color:#9a8a6a; font-size:12px; font-style:italic; padding:4px 0; }
+  .hdClipLabelInput {
+    width:100%; margin-top:8px; padding:8px 10px; border-radius:8px;
+    border:1px solid rgba(230,190,120,0.35); background:rgba(0,0,0,0.3); color:#ffe9c2;
+  }
 
   #attackCard { width:min(440px, 92vw); max-height:88vh; overflow-y:auto; }
   #attackList {
@@ -889,15 +979,22 @@
     <span><span id="peopleCount">1</span> in town</span>
     <button id="muteBtn" title="Mute music">🔈</button>
   </div>
+  <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
 </div>
 
 <div id="unlockBar" class="hidden">
   <div id="unlockInner">
-    🔒 Premium buildings need a Town Pass
-    <button id="unlockBtn">🔓 Unlock all — <span id="unlockPrice">$3.00</span></button>
+    🔒 The 🛋️ Lounge &amp; 🎮 Arcade take a Town Pass
+    <button id="unlockBtn">🎟️ Day pass — <span id="unlockPrice">$0.99</span></button>
   </div>
 </div>
 <div id="unlockToast" class="hidden"><span id="unlockToastText"></span></div>
+<div id="announceBanner" class="hidden"></div>
+<div id="cmPrompt" class="hidden"><span id="cmPromptText"></span></div>
+<div id="ceremonyOverlay" class="hidden">
+  <div id="ceremonyTitle"></div>
+  <div id="ceremonySub"></div>
+</div>
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
@@ -957,10 +1054,11 @@
     <div class="title" style="font-size:22px;">🗿 Town Pass Statue</div>
     <div class="subtitle">A weathered stone statue, etched with a ledger of town privileges.</div>
     <div class="passInfo">
-      <div class="passTitle">🎮 Arcade Pass — <span id="roomPassPrice">$1.00</span></div>
-      <div class="passDetail">Grants entry to the Arcade for <span id="roomPassHours">4</span> hours.</div>
+      <div class="passTitle">🎟️ Town Pass — <span id="roomPassPrice">$0.99</span></div>
+      <div class="passDetail">Opens BOTH ticketed buildings — the 🛋️ Rooftop Lounge and the 🎮 Arcade — for <span id="roomPassHours">24</span> hours. Real payment via Stripe Checkout; the pass starts the moment payment clears.</div>
+      <div class="passDetail" id="passModalStatus"></div>
     </div>
-    <button class="btn" id="roomPassBuyBtn">Buy Arcade Pass</button>
+    <button class="btn" id="roomPassBuyBtn">Buy Town Pass</button>
     <button class="btn" id="passModalCloseBtn">Maybe later</button>
     <div class="err" id="passModalErr"></div>
   </div>
@@ -1174,6 +1272,7 @@
   <button id="spellbookBtn" class="hidden">📖 Spellbook</button>
   <button id="attackBtn" class="hidden">⚔️ Attacks</button>
   <button id="journalBtn" class="hidden">📜 Journal</button>
+  <button id="driveBtn" class="hidden" title="Selfies, voice clips, and your note vault">💾 Drive</button>
 </div>
 <div id="inventoryPanel" class="hidden">
   <div id="invTabs">
@@ -1247,6 +1346,8 @@
     </div>
     <div id="hdUnlocked" class="hidden">
       <div id="hdCapacityRow" class="passInfo"></div>
+      <div id="hdMediaWrap"></div>
+      <h3 style="margin-top:14px;">🗒️ Stored notes</h3>
       <div id="hdNotesList"></div>
       <div id="hdEmpty" class="hidden"><div class="emptyNote">No notes stored.</div></div>
       <h3 style="margin-top:14px;">🔑 Password</h3>
@@ -1362,6 +1463,7 @@
   <div id="questTrackerName"></div>
   <div id="questTrackerBar"><div id="questTrackerFill"></div></div>
   <div id="questTrackerCount"></div>
+  <div id="questTrackerWhere" class="trackerWhere"></div>
   <button id="questCancelBtn" title="Abandon quest">✕</button>
 </div>
 
@@ -1370,6 +1472,7 @@
   <div id="storyTrackerName"></div>
   <div id="storyTrackerBar"><div id="storyTrackerFill"></div></div>
   <div id="storyTrackerCount"></div>
+  <div id="storyTrackerWhere" class="trackerWhere"></div>
 </div>
 
 <!-- XP/level strip — sits in the bottom HUD area -->
@@ -1450,6 +1553,12 @@ window.onerror = function(msg, src, line, col, err) {
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  // CDN fallback: if cdnjs is unreachable (offline LAN party, blocked
+  // network), load a local copy instead. Drop three.min.js (r128) into
+  // public/ to make the game fully self-hosted.
+  if (typeof THREE === 'undefined') document.write('<script src="three.min.js"><\/script>');
+</script>
 <script src="face-api.min.js"></script>
 <script src="client.js"></script>
 </body>

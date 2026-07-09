@@ -23,18 +23,62 @@ const PORT = process.env.PORT || 3000;
 // Leave unset for no password (anyone with the link can join).
 const TOWN_PASSWORD = process.env.TOWN_PASSWORD || '';
 
-// Optional real-money paywall for the premium buildings. Leave
-// STRIPE_SECRET_KEY unset on a host and the "Unlock" button simply stays
-// hidden on the client — everything else still works with only the free
-// building enterable.
+// Optional real-money paywall — the Town Pass. Two of the six buildings
+// (the Rooftop Lounge and the Arcade — the leisure venues; the Cafe,
+// Library, Town Hall and Bank stay free so chat, quests and the economy
+// are never paywalled) are locked up, and one Stripe Checkout purchase
+// unlocks BOTH for TOWN_PASS_HOURS (default 24h — a day pass). Leave
+// STRIPE_SECRET_KEY unset on a host and the locked buildings simply
+// stay locked with a "passes aren't on sale right now" message; nothing
+// else changes.
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-const PREMIUM_PRICE_CENTS = parseInt(process.env.PREMIUM_PRICE_CENTS, 10) || 300;
-// A cheaper, single-room, time-limited pass — bought from the statue inside
-// the free building. Defaults to $1.00 for 4 hours of Arcade access.
-const ROOM_PASS_PRICE_CENTS = parseInt(process.env.ROOM_PASS_PRICE_CENTS, 10) || 100;
-const ROOM_PASS_HOURS = parseFloat(process.env.ROOM_PASS_HOURS) || 4;
-const ROOM_PASS_ROOMS = { arcade: { label: 'Arcade', name: 'Town Chat — Arcade Pass' } };
+const TOWN_PASS_PRICE_CENTS = parseInt(process.env.TOWN_PASS_PRICE_CENTS, 10) || 99;
+const TOWN_PASS_HOURS = parseFloat(process.env.TOWN_PASS_HOURS) || 24;
+// The rooms the pass unlocks. Everything not listed here is free.
+const LOCKED_ROOMS = new Set(['lounge', 'arcade']);
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
+
+// Who currently holds a pass. Two layers, mirroring how identity works
+// everywhere else in this game:
+//  - townPasses.json: accountKey -> expiresAt. A logged-in buyer's pass
+//    follows their account across browsers/devices, persisted like
+//    inventories.json (same ephemeral-filesystem caveat, see README).
+//  - passSessions: stripeSessionId -> expiresAt, in-memory. The buyer's
+//    browser keeps the Checkout session id in localStorage as its receipt
+//    and presents it when joining; if the server restarted and forgot it,
+//    the join handler re-verifies the id against Stripe itself — so even
+//    guests' passes survive a server restart without a database, because
+//    Stripe is the durable record of what was paid and when.
+const TOWN_PASS_FILE = path.join(__dirname, 'townPasses.json');
+function loadTownPasses() {
+  try { return JSON.parse(fs.readFileSync(TOWN_PASS_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveTownPasses() {
+  fs.writeFileSync(TOWN_PASS_FILE, JSON.stringify(townPasses, null, 2));
+}
+const townPasses = loadTownPasses(); // accountKey -> expiresAt (ms)
+const passSessions = new Map();      // stripe checkout session id -> expiresAt (ms)
+
+function hasTownPass(player) {
+  const now = Date.now();
+  if (player.passUntil && player.passUntil > now) return true;
+  if (player.accountKey && townPasses[player.accountKey] > now) {
+    player.passUntil = townPasses[player.accountKey];
+    return true;
+  }
+  return false;
+}
+
+// One Checkout session grants exactly one 24h window, no matter how many
+// times the success URL gets replayed — the expiry is computed once from
+// the session's payment time and cached, so refreshing the return page
+// (or re-presenting an old receipt) can never stack extra hours.
+function grantForSession(sessionId, paidAtMs) {
+  if (!passSessions.has(sessionId)) {
+    passSessions.set(sessionId, paidAtMs + TOWN_PASS_HOURS * 3600 * 1000);
+  }
+  return passSessions.get(sessionId);
+}
 
 const app = express();
 // Trust exactly one hop of reverse proxy (Render/Railway/Heroku/Fly all sit
@@ -49,9 +93,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/config', (req, res) => {
   res.json({
     paymentsEnabled: !!stripeClient,
-    premiumPriceCents: PREMIUM_PRICE_CENTS,
-    roomPassPriceCents: ROOM_PASS_PRICE_CENTS,
-    roomPassHours: ROOM_PASS_HOURS
+    townPassPriceCents: TOWN_PASS_PRICE_CENTS,
+    townPassHours: TOWN_PASS_HOURS,
+    lockedRooms: [...LOCKED_ROOMS]
   });
 });
 
@@ -154,24 +198,25 @@ app.post('/api/send-sms', (req, res) => {
 });
 
 app.post('/api/checkout', async (req, res) => {
-  if (!stripeClient) return res.status(503).json({ error: 'Payments are not set up on this server yet.' });
+  if (!stripeClient) return res.status(503).json({ error: 'Passes aren’t on sale right now — the innkeeper hasn’t opened the ledger. (Server has no STRIPE_SECRET_KEY.)' });
   try {
     const origin = `${req.protocol}://${req.get('host')}`;
+    const hoursLabel = TOWN_PASS_HOURS === 24 ? 'a full day' : `${TOWN_PASS_HOURS} hours`;
     const session = await stripeClient.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: 'usd',
-          unit_amount: PREMIUM_PRICE_CENTS,
+          unit_amount: TOWN_PASS_PRICE_CENTS,
           product_data: {
-            name: 'Town Chat — All-Access Pass',
-            description: 'Unlocks every premium building in town for this browser.'
+            name: 'Town Chat — Town Pass',
+            description: `Unlocks the Rooftop Lounge and the Arcade for ${hoursLabel}.`
           }
         },
         quantity: 1
       }],
-      success_url: `${origin}/?unlock_session={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/?pass_session={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/`
     });
     res.json({ url: session.url });
@@ -181,44 +226,35 @@ app.post('/api/checkout', async (req, res) => {
   }
 });
 
-app.post('/api/checkout-room', async (req, res) => {
-  if (!stripeClient) return res.status(503).json({ error: 'Payments are not set up on this server yet.' });
-  const room = String(req.body.room || '');
-  const roomInfo = ROOM_PASS_ROOMS[room];
-  if (!roomInfo) return res.status(400).json({ error: 'Unknown room pass.' });
-  try {
-    const origin = `${req.protocol}://${req.get('host')}`;
-    const session = await stripeClient.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          unit_amount: ROOM_PASS_PRICE_CENTS,
-          product_data: {
-            name: roomInfo.name,
-            description: `${ROOM_PASS_HOURS}-hour access to the ${roomInfo.label}.`
-          }
-        },
-        quantity: 1
-      }],
-      success_url: `${origin}/?room_pass_session={CHECKOUT_SESSION_ID}&pass_room=${room}`,
-      cancel_url: `${origin}/`
-    });
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error('Stripe room-pass checkout error:', err.message);
-    res.status(500).json({ error: 'Could not start checkout.' });
-  }
-});
-
+// Confirms a Checkout session actually got paid, then grants the pass. The
+// check happens against Stripe itself (server-side), so it can't be spoofed
+// by editing the page; what the browser keeps is just the session id as a
+// receipt to present on future joins. If the buyer is logged in, the pass
+// also attaches to their account so it follows them to other devices.
 app.get('/api/verify-session', async (req, res) => {
   if (!stripeClient) return res.status(503).json({ unlocked: false, error: 'Payments are not set up on this server yet.' });
   const sessionId = req.query.session_id;
   if (!sessionId) return res.status(400).json({ unlocked: false, error: 'Missing session_id.' });
   try {
     const session = await stripeClient.checkout.sessions.retrieve(String(sessionId));
-    res.json({ unlocked: session.payment_status === 'paid' });
+    if (session.payment_status !== 'paid') return res.json({ unlocked: false });
+    // session.created is seconds; the pass clock starts at payment, not at
+    // whenever the buyer got around to bouncing back to the game.
+    const expiresAt = grantForSession(String(sessionId), (session.created || Math.floor(Date.now() / 1000)) * 1000);
+    const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
+    if (accountKey && (townPasses[accountKey] || 0) < expiresAt) {
+      townPasses[accountKey] = expiresAt;
+      saveTownPasses();
+    }
+    // A player already in the town gets their live connection stamped too,
+    // so the pass works the moment they walk back from checkout.
+    for (const p of players.values()) {
+      if ((accountKey && p.accountKey === accountKey)) {
+        p.passUntil = Math.max(p.passUntil || 0, expiresAt);
+        send(p.ws, { type: 'pass_state', passUntil: p.passUntil });
+      }
+    }
+    res.json({ unlocked: true, expiresAt });
   } catch (err) {
     console.error('Stripe verify error:', err.message);
     res.status(500).json({ unlocked: false, error: 'Could not verify payment.' });
@@ -1053,7 +1089,14 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   if (targetType === 'player') {
     const t = players.get(targetId);
     if (!t || t.id === player.id || t.room !== player.room || t.isDead || outOfRange(t)) return { ok: false };
+    // A voice countermeasure (see cm_voice) makes the target untouchable
+    // for a few seconds — the blow just misses, and the attacker is told
+    // exactly why so the mechanic teaches itself.
+    if (isEvading(t)) {
+      return { ok: false, evaded: true, name: t.name };
+    }
     dmg = absorbIncomingDamage(t, dmg);
+    noteAttacked(t);
     t.health = Math.max(0, t.health - dmg);
     if (t.health <= 0) {
       t.health = 0;
@@ -1119,14 +1162,24 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       return { ok: true, dead: true, dmg, xp: 15, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
     if (targetType === 'mob') {
-      // Town night-mobs grant no XP/loot-table rewards (kept as pure
-      // atmosphere), but they DO count for kill-the-Hollow's-creatures
-      // story chapters — the campaign shouldn't force everyone into the
-      // Wilds when the same horrors stalk the town square at night.
+      // Town night-mobs used to be pure atmosphere; now that they hunt
+      // players back, killing one is real work and pays real XP (less
+      // than a Wilds horror — the square is the beginner hunting ground).
+      // First kill of each night pays a bonus on top: a small "show up
+      // when the moon does" ritual that gives every night a fresh-start
+      // hook and makes the nightly spawn feel like an event, not scenery.
+      grantXP(player, TOWN_MOB_XP);
+      advanceQuestProgress(player, 'kill_mob', null);
       storyEvent(player, 'kill_mob', { pool: 'mob', mobType: t.mobType });
+      const nightIdx = Math.floor(Date.now() / CYCLE_MS);
+      if (player.trophyNight !== nightIdx) {
+        player.trophyNight = nightIdx;
+        grantXP(player, 25);
+        send(player.ws, { type: 'trophy_bonus', message: '🌙 Night’s First Trophy — bonus +25 XP for the first hunt of the night!' });
+      }
       t.pendingLoot = rollPendingLoot(LOOT_TABLES.town_mob);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, dmg, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      return { ok: true, dead: true, dmg, xp: TOWN_MOB_XP, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
     if (targetType === 'ember_mob') {
       const preset = EMBER_MOB_TYPES[t.mobType];
@@ -1422,6 +1475,11 @@ function advanceQuestProgress(player, eventType, itemId) {
     grantXP(player, quest.xpReward);
     const prog = getProgress(player);
     prog.questCooldowns[aq.questId] = Date.now();
+    // A permanent "has ever finished this" record, on top of the rolling
+    // cooldown — this is what makes you a REGULAR at that NPC's shop
+    // (see shopDiscountFor), and what a good disguise can borrow.
+    if (!prog.questsDone) prog.questsDone = {};
+    prog.questsDone[aq.questId] = true;
     if (player.accountKey) saveProgress();
 
     // Gold reward → bank balance
@@ -1458,14 +1516,46 @@ function advanceQuestProgress(player, eventType, itemId) {
       message: `✅ "${quest.name}" complete — ${rewardParts.join(' · ')}`
     });
   } else {
+    const remaining = quest.target - aq.progress;
     send(player.ws, {
       type: 'quest_update',
       questId: aq.questId,
       questName: quest.name,
       progress: aq.progress,
-      target: quest.target
+      target: quest.target,
+      where: objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId }),
+      nearlyThere: remaining === 1,
+      message: remaining === 1
+        ? `🗒️ ${quest.name} — ONE more to go!`
+        : `🗒️ ${quest.name} — ${aq.progress}/${quest.target}`
     });
   }
+}
+
+// Regulars discount — finish a shopkeeper's own side quest once, ever, and
+// they knock 15% off for you from then on. Two ways to qualify at the till:
+// be that person, or convincingly LOOK like that person (cm_disguise) — a
+// mask of the tavern's favorite customer gets the tavern's favorite prices.
+// Identity lookup for a disguise goes through the accounts store by the
+// displayed name, since account display names ARE usernames; a mask of a
+// guest (or a made-up face) earns nothing, because there's no durable
+// identity behind it to have ever earned anything.
+const SHOP_REGULARS_DISCOUNT = 0.15;
+function shopDiscountFor(player, npcId) {
+  const questId = QUEST_BY_NPC[npcId];
+  if (!questId) return 0;
+  const own = getProgress(player);
+  if (own.questsDone && own.questsDone[questId]) return SHOP_REGULARS_DISCOUNT;
+  if (player.disguise) {
+    const identityKey = String(player.disguise.name || '').toLowerCase();
+    const identityProg = accounts[identityKey] ? playerProgress[identityKey] : null;
+    if (identityProg && identityProg.questsDone && identityProg.questsDone[questId]) return SHOP_REGULARS_DISCOUNT;
+  }
+  return 0;
+}
+function discountedPrice(price, discount) {
+  if (!discount) return price;
+  return Math.max(1, Math.round(price * (1 - discount)));
 }
 
 // ── Story campaigns — one spooky quest-chain per character class ─────────────
@@ -1645,6 +1735,67 @@ const STORYLINES = {
   }
 };
 
+// ── Chapter level gates — the campaign's pacing spine ────────────────────────
+// Each chapter demands a minimum level before "Begin Chapter" unlocks:
+//   ch1 ch2 ch3 ch4 ch5 ch6
+//    1   2   3   4   6   8
+// Why gates at all: a campaign that can be sprinted start-to-finish in 25
+// minutes evaporates as an experience. The gates make the town's OTHER
+// systems — side quests, night hunts, harvesting, dungeons — the road
+// between chapters instead of detours nobody takes: reaching Level 8
+// (3000 XP) means roughly two-plus hours of actual play for the finale.
+// The design leans on a few well-worn psychological levers, deliberately:
+//  - Goal gradient: the Journal shows the whole 6-chapter arc with your
+//    position in it, so there's always a visibly-shrinking distance left.
+//  - Zeigarnik (open loops): a gated next chapter is an unfinished thing;
+//    the HUD tracker + "unlocks at Level N" line keeps the loop open with
+//    a concrete next step instead of a vague wall.
+//  - Competence, not time-walls: gates are LEVELS, never timers — the
+//    player is always one more hunt/quest away, never told to go wait.
+const CHAPTER_LEVEL_GATES = [1, 2, 3, 4, 6, 8];
+for (const line of Object.values(STORYLINES)) {
+  line.chapters.forEach((ch, i) => {
+    if (ch.requiresLevel === undefined) ch.requiresLevel = CHAPTER_LEVEL_GATES[i] || 1;
+  });
+}
+
+// Where-to-go hints, derived from the objective. The #1 complaint with the
+// old system was a prose label with no directions — every story_update and
+// Journal render now carries a concrete "where" line.
+const NPC_WHEREABOUTS = {
+  npc_lyra: 'town square — she wanders near the fountain',
+  npc_dex: 'town square — look for the hunter pacing the paths',
+  npc_mara: 'town square, by her stall',
+  npc_finn: 'town square, by his stall',
+  npc_scholar: '📚 the Library, behind the counter',
+  npc_bartender: '☕ the Cafe, behind the bar',
+  npc_apothecary: '☕ the Cafe — corner table with the vials',
+  npc_tailor: '🏛️ Town Hall, by the banners',
+  npc_armorer: '🏛️ Town Hall, at the armor rack',
+  npc_patron: '☕ the Cafe — Old Mabel at her usual table',
+  npc_apprentice: '🎮 the Arcade (Town Pass building)',
+  npc_tinkerer: '🎮 the Arcade (Town Pass building)',
+  npc_noble: '🛋️ the Rooftop Lounge (Town Pass building)',
+  npc_knight: '🏛️ Town Hall — Sir Dorran on guard duty',
+  npc_guard: '🏦 the Bank, by the door'
+};
+function objectiveWhere(obj) {
+  if (obj.where) return obj.where;
+  switch (obj.type) {
+    case 'talk_npc': return NPC_WHEREABOUTS[obj.npcId] || 'ask around town';
+    case 'harvest_plant': return 'the Wilds — pick the glowing plants (portal at the north edge of town)';
+    case 'harvest_specific': return 'the Wilds — hunt for the right plant among the glowing ones';
+    case 'visit_room':
+      if (obj.room === 'witch_cave') return 'north-west Wilds — the cave mouth where no rabbits graze';
+      if (obj.room === 'wilds') return 'through the Wilds portal at the north edge of town';
+      { const b = WORLD.buildings.find(x => x.id === obj.room); return b ? `${b.name}, in town` : obj.room; }
+    case 'cast_ability': return 'anywhere — open your kit (hotbar keys 1–9) and let fly';
+    case 'kill_mob': return 'wait for 🌕 night — creatures rise at the town edges, in the Wilds, and below';
+    case 'craft_potion': return "Hazel's cauldron, inside her cave (north-west Wilds)";
+    default: return '';
+  }
+}
+
 // Ensure prog.story exists (backfills accounts saved before the campaign
 // system existed, same pattern as the pickpocketSuccesses backfill).
 function getStoryState(player) {
@@ -1662,6 +1813,7 @@ function storyStatePayload(player) {
   const st = getStoryState(player);
   const done = st.chapter >= line.chapters.length;
   const chapter = done ? null : line.chapters[st.chapter];
+  const level = getProgress(player).level || 1;
   return {
     type: 'story_state',
     storyline: {
@@ -1672,9 +1824,20 @@ function storyStatePayload(player) {
       complete: done,
       active: st.active,
       progress: st.progress,
+      // The whole arc, titles + gates only — lets the Journal draw the full
+      // 6-chapter map with your position on it (a visible road shrinks;
+      // an invisible one just feels endless).
+      arc: line.chapters.map((c, i) => ({
+        title: c.title, requiresLevel: c.requiresLevel,
+        state: i < st.chapter ? 'done' : (i === st.chapter ? 'current' : 'ahead')
+      })),
       chapter: chapter ? {
         id: chapter.id, title: chapter.title, intro: chapter.intro,
         objectiveLabel: chapter.objective.label, target: chapter.objective.target,
+        where: objectiveWhere(chapter.objective),
+        requiresLevel: chapter.requiresLevel,
+        levelOk: level >= chapter.requiresLevel,
+        playerLevel: level,
         xpReward: chapter.xpReward, goldReward: chapter.goldReward,
         itemRewards: (chapter.itemRewards || []).map(r => ({
           itemId: r.itemId, qty: r.qty || 1,
@@ -1713,12 +1876,21 @@ function storyEvent(player, eventType, detail = {}) {
   st.progress++;
   if (st.progress < chapter.objective.target) {
     if (player.accountKey) saveProgress();
+    const remaining = chapter.objective.target - st.progress;
     send(player.ws, {
       type: 'story_update',
       chapterTitle: chapter.title,
       objectiveLabel: chapter.objective.label,
+      where: objectiveWhere(chapter.objective),
       progress: st.progress,
-      target: chapter.objective.target
+      target: chapter.objective.target,
+      // Goal-gradient flourish: the last step before completion gets its
+      // own louder phrasing — near-finished goals pull hardest, so say
+      // it out loud when the player is one action away.
+      nearlyThere: remaining === 1,
+      message: remaining === 1
+        ? `📖 ${chapter.title} — ONE more to go!`
+        : `📖 ${chapter.title} — ${st.progress}/${chapter.objective.target}`
     });
     return;
   }
@@ -1753,16 +1925,39 @@ function storyEvent(player, eventType, detail = {}) {
   const rewardParts = [`+${chapter.xpReward} XP`];
   if (chapter.goldReward) rewardParts.push(`+${chapter.goldReward}🪙${player.accountKey ? '' : ' (lost — guests have no bank)'}`);
   if (itemsGranted.length) rewardParts.push(itemsGranted.join(', '));
+  // What's next, spelled out — if the following chapter is level-gated
+  // above the player, say so HERE, at the moment of triumph, so the gate
+  // reads as "here's your next goal" rather than a surprise wall later.
+  const nextCh = storyDone ? null : line.chapters[st.chapter];
+  const level = getProgress(player).level || 1;
+  let nextHint = '';
+  if (nextCh) {
+    nextHint = level >= nextCh.requiresLevel
+      ? ` Next: "${nextCh.title}" — begin it from your Journal (J).`
+      : ` Next: "${nextCh.title}" unlocks at Level ${nextCh.requiresLevel} (you're ${level}) — side quests and night hunts are the fastest XP.`;
+  }
   send(player.ws, {
     type: 'story_chapter_complete',
     chapterTitle: chapter.title,
     outro: chapter.outro,
     rewards: rewardParts.join(' · '),
     storyComplete: storyDone,
+    chapterIndex: st.chapter,
+    totalChapters: line.chapters.length,
+    nextRequiresLevel: nextCh ? nextCh.requiresLevel : null,
     message: storyDone
       ? `📖 "${chapter.title}" complete — ${rewardParts.join(' · ')} · ${line.icon} THE STORY IS COMPLETE.`
-      : `📖 Chapter complete: "${chapter.title}" — ${rewardParts.join(' · ')}. A new chapter awaits in your Journal.`
+      : `📖 Chapter ${st.chapter}/${line.chapters.length} complete: "${chapter.title}" — ${rewardParts.join(' · ')}.${nextHint}`
   });
+  // Finishing a whole campaign is town news — everyone hears the bell.
+  // (Public recognition is half the reward; it also quietly advertises
+  // that the campaigns exist to players who haven't started theirs.)
+  if (storyDone) {
+    broadcastAll({
+      type: 'announce',
+      message: `${line.icon} ${player.name} has completed "${line.title}" and claimed its relic!`
+    });
+  }
   send(player.ws, storyStatePayload(player));
 }
 
@@ -1778,7 +1973,29 @@ function checkHardDrivePassword(hd, suppliedPassword) {
 }
 
 function hardDriveStatePayload(hd) {
-  return { hasPassword: !!hd.passwordHash, notes: hd.notes, capacity: HARDDRIVE_NOTE_CAPACITY };
+  return {
+    hasPassword: !!hd.passwordHash,
+    notes: hd.notes,
+    capacity: HARDDRIVE_NOTE_CAPACITY,
+    selfies: hd.selfies || [],
+    clips: hd.clips || [],
+    selfieCapacity: HARDDRIVE_SELFIE_CAPACITY,
+    clipCapacity: HARDDRIVE_CLIP_CAPACITY
+  };
+}
+
+// Media on the Hard Drive — selfies and voice clips, the raw material for
+// the countermeasure mechanics (cm_voice / cm_disguise below). Selfies are
+// self-captured (the same consent-first camera flow Hazel's shop uses) or
+// copied off an image note someone chose to send you; clips are your own
+// mic recordings. Media rides the same vault object as notes and persists
+// the same way (hardDrives.json for accounts, in-memory for guests).
+const HARDDRIVE_SELFIE_CAPACITY = 8;
+const HARDDRIVE_CLIP_CAPACITY = 6;
+function driveMedia(hd) {
+  if (!hd.selfies) hd.selfies = [];
+  if (!hd.clips) hd.clips = [];
+  return hd;
 }
 
 // Keeps the connection's broadcastable equip state (read by publicPlayer())
@@ -2181,6 +2398,11 @@ function publicPlayer(p) {
     activeStatus: status, health: p.health,
     level: p.level || 1, skillPoints: p.skillPoints || 0,
     isDead: !!p.isDead,
+    // Disguise identity (see cm_disguise): only the NAME rides the 70ms
+    // state broadcast — the mask image itself is heavy (a data URL) and
+    // is delivered exactly once per change via 'disguise_state', which
+    // clients cache by player id.
+    disguiseName: p.disguise ? p.disguise.name : null,
     // Corpse loot — deathX/Y/Room are only meaningful while hasLoot is true;
     // they mark the fixed spot the body fell, independent of wherever the
     // ghost wanders off to afterward (see the 'strike' PvP branch above).
@@ -2454,6 +2676,22 @@ const MOB_R = 10;
 const MOB_MAX_HEALTH = 50;
 const MOB_RESPAWN_MS = 120 * 1000;
 
+// Town night-mobs fight back now (this was the long-promised other shoe —
+// they spawned as pure atmosphere for a while). Deliberately gentler than
+// the Wilds' four horrors, since the town square is the beginner zone:
+// smaller aggro bubble, slower chase, lighter hits. A player at full
+// health survives ~13 unanswered hits — plenty of time to fight, run
+// indoors (mobs never follow inside), or fire a countermeasure.
+const TOWN_MOB_COMBAT = {
+  aggroRadius: 150,
+  strikeRange: 34,
+  chaseSpeed: 62,
+  dmgMin: 4,
+  dmgMax: 9,
+  hitCooldownMs: 1500
+};
+const TOWN_MOB_XP = 10; // they also pay XP now that they can kill you
+
 const mobs = MOB_SPAWNS.map((p, i) => ({
   id: 'mob_' + i,
   spawnX: p.x, spawnY: p.y,
@@ -2464,8 +2702,30 @@ const mobs = MOB_SPAWNS.map((p, i) => ({
   paused: false,
   health: MOB_MAX_HEALTH,
   dead: false,
-  respawnAt: 0
+  respawnAt: 0,
+  lastHitAt: 0,
+  scaredUntil: 0 // a played voice clip routs them briefly — see cm_voice
 }));
+
+// A struck player is fair game for countermeasures for this long — the
+// "I'm being attacked" window cm_voice validates against.
+const ATTACKED_RECENT_MS = 6000;
+// Playing a clip buys ~4s where nothing can hit you or track you, routs
+// every mob in earshot for ~8s, and then can't be used again for 45s —
+// a genuine escape button, not an immortality toggle.
+const VOICE_CM_EVADE_MS = 4000;
+const VOICE_CM_SCARE_MS = 8000;
+const VOICE_CM_COOLDOWN_MS = 45000;
+const VOICE_CM_RADIUS = 320;
+// Snapshots: close-range, per-photographer cooldown.
+const SNAP_RANGE = 140;
+const SNAP_COOLDOWN_MS = 15000;
+function isEvading(p) {
+  return p.evasionUntil && p.evasionUntil > Date.now();
+}
+function noteAttacked(p) {
+  p.lastAttackedAt = Date.now();
+}
 
 // Animals only react to (and mobs are only ever relevant to) players who
 // are currently outdoors — someone inside a building shouldn't make a
@@ -2536,18 +2796,50 @@ function tickWildlife(dt) {
   }
 
   if (!isNightNow()) return;
+  const now = Date.now();
   for (const m of mobs) {
     if (m.dead) continue;
-    m.wanderTimer -= dt;
-    if (m.wanderTimer <= 0) {
-      m.wanderTimer = 1.5 + Math.random() * 2.5;
-      m.paused = Math.random() < 0.3;
-      m.wanderAngle = Math.random() * Math.PI * 2;
-    }
+    const C = TOWN_MOB_COMBAT;
+    const { player: nearestP, dist } = nearestOutdoorPlayer(m.x, m.y);
     let vx = 0, vy = 0;
-    if (!m.paused) {
-      vx = Math.sin(m.wanderAngle) * MOB_WANDER_SPEED;
-      vy = Math.cos(m.wanderAngle) * MOB_WANDER_SPEED;
+    if (m.scaredUntil > now && nearestP) {
+      // Routed by a voice countermeasure — run from the noise like the
+      // rabbits run from footsteps, then settle back into the usual prowl.
+      const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * C.chaseSpeed;
+      vy = dy * inv * C.chaseSpeed;
+    } else if (nearestP && dist < C.aggroRadius && !isEvading(nearestP)) {
+      // Aggro: chase, and swing when close enough. An evading player has
+      // slipped out of their senses entirely (see cm_voice).
+      const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * C.chaseSpeed;
+      vy = dy * inv * C.chaseSpeed;
+      if (dist < C.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= C.hitCooldownMs)) {
+        m.lastHitAt = now;
+        const dmg = absorbIncomingDamage(nearestP, C.dmgMin + Math.floor(Math.random() * (C.dmgMax - C.dmgMin + 1)));
+        nearestP.health = Math.max(0, nearestP.health - dmg);
+        noteAttacked(nearestP);
+        if (nearestP.health <= 0) {
+          nearestP.health = 0;
+          nearestP.isDead = true;
+          send(nearestP.ws, { type: 'you_died', byName: 'a Hollow creature', mobId: m.id });
+        } else {
+          send(nearestP.ws, { type: 'struck', byName: 'a Hollow creature', damage: dmg, mobId: m.id });
+        }
+      }
+    } else {
+      m.wanderTimer -= dt;
+      if (m.wanderTimer <= 0) {
+        m.wanderTimer = 1.5 + Math.random() * 2.5;
+        m.paused = Math.random() < 0.3;
+        m.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!m.paused) {
+        vx = Math.sin(m.wanderAngle) * MOB_WANDER_SPEED;
+        vy = Math.cos(m.wanderAngle) * MOB_WANDER_SPEED;
+      }
     }
     const margin = 60;
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
@@ -2672,7 +2964,13 @@ function tickWilds(dt) {
     const preset = MOB2_TYPES[m.mobType];
     const { player: nearestP, dist } = nearestWildsPlayer(m.x, m.y);
     let vx = 0, vy = 0;
-    if (nearestP && dist < preset.aggroRadius) {
+    if (m.scaredUntil > now && nearestP) {
+      // Routed by a voice countermeasure — see cm_voice.
+      const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
@@ -2681,6 +2979,7 @@ function tickWilds(dt) {
         m.lastHitAt = now;
         const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
+        noteAttacked(nearestP);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
@@ -2921,7 +3220,12 @@ function tickDungeon(dt) {
     const preset = DUNGEON_MOB_TYPES[m.mobType];
     const { player: nearestP, dist } = nearestDungeonPlayer(m.room, m.x, m.y);
     let vx = 0, vy = 0;
-    if (nearestP && dist < preset.aggroRadius) {
+    if (m.scaredUntil > now && nearestP) {
+      const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
@@ -2930,6 +3234,7 @@ function tickDungeon(dt) {
         m.lastHitAt = now;
         const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
+        noteAttacked(nearestP);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
@@ -3303,7 +3608,12 @@ function tickEmberWastes(dt) {
     const preset = EMBER_MOB_TYPES[m.mobType];
     const { player: nearestP, dist } = nearestEmberPlayer(m.x, m.y);
     let vx = 0, vy = 0;
-    if (nearestP && dist < preset.aggroRadius) {
+    if (m.scaredUntil > now && nearestP) {
+      const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.speed;
+      vy = dy * inv * preset.speed;
+    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
       m.rivalId = null; // a real player threat always wins out over a squabble
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
@@ -3313,6 +3623,7 @@ function tickEmberWastes(dt) {
         m.lastHitAt = now;
         const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
         nearestP.health = Math.max(0, nearestP.health - dmg);
+        noteAttacked(nearestP);
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
@@ -3750,10 +4061,44 @@ wss.on('connection', (ws) => {
         inbox: accountKey ? (inboxes[accountKey] || (inboxes[accountKey] = [])) : [],
         health: 100, // 0-100, shown as the heart HUD's percentage
         xp: 0, level: 1, skillPoints: 0, // overwritten by syncProgressToPlayer() below
-        activeQuest: null // { questId, progress } or null
+        activeQuest: null, // { questId, progress } or null
+        // Town Pass state, resolved below (account store, then the browser's
+        // Checkout-session receipt). 0 = no pass.
+        passUntil: 0,
+        // Countermeasures (see cm_voice / cm_disguise handlers): when the
+        // last blow landed on this player, until when they're slipping
+        // attacks, when they last played a clip, and their current mask.
+        lastAttackedAt: 0,
+        evasionUntil: 0,
+        lastVoiceCmAt: 0,
+        disguise: null // { name, image } or null
       };
       players.set(id, player);
       syncProgressToPlayer(player);
+      // Account-held pass, if any (bought while logged in on any device).
+      if (accountKey && (townPasses[accountKey] || 0) > Date.now()) {
+        player.passUntil = townPasses[accountKey];
+      }
+      // Guest receipt: the browser presents the Stripe Checkout session id
+      // it kept in localStorage. Known ids grant instantly; an id this
+      // server has never seen (restart, other instance) is re-verified
+      // against Stripe in the background and granted via pass_state.
+      if (!player.passUntil && typeof msg.passSession === 'string' && msg.passSession) {
+        const cached = passSessions.get(msg.passSession);
+        if (cached && cached > Date.now()) {
+          player.passUntil = cached;
+        } else if (!cached && stripeClient) {
+          const claimedId = msg.passSession;
+          stripeClient.checkout.sessions.retrieve(claimedId).then(session => {
+            if (session.payment_status !== 'paid') return;
+            const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000);
+            if (expiresAt > Date.now() && players.get(id) === player) {
+              player.passUntil = expiresAt;
+              send(player.ws, { type: 'pass_state', passUntil: expiresAt });
+            }
+          }).catch(() => {}); // a bogus/foreign id just stays passless
+        }
+      }
       // Loads (or creates) their inventory immediately rather than lazily
       // on first panel-open, so a returning account holder's equipped gear
       // shows up on their model from the moment they spawn, not after they
@@ -3765,11 +4110,25 @@ wss.on('connection', (ws) => {
         id,
         world: WORLD,
         world2: WORLD2,
-        players: Array.from(players.values()).map(publicPlayer)
+        players: Array.from(players.values()).map(publicPlayer),
+        townPass: {
+          lockedRooms: [...LOCKED_ROOMS],
+          passUntil: player.passUntil || 0,
+          priceCents: TOWN_PASS_PRICE_CENTS,
+          hours: TOWN_PASS_HOURS,
+          paymentsEnabled: !!stripeClient
+        }
       });
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
+      // Catch the newcomer up on any masks currently being worn — the 70ms
+      // state stream only carries names, the images travel once, here.
+      for (const p of players.values()) {
+        if (p !== player && p.disguise) {
+          send(ws, { type: 'disguise_state', id: p.id, name: p.disguise.name, image: p.disguise.image });
+        }
+      }
       // Campaign position for this class — sent up-front so the Journal
       // renders instantly instead of round-tripping on first open.
       send(ws, storyStatePayload(player));
@@ -3787,6 +4146,20 @@ wss.on('connection', (ws) => {
         player.y = Math.max(0, Math.min(bounds.height, y));
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
+        // The Town Pass gate, enforced here and not just in the client's
+        // own door prediction — a crafted move message can't walk through
+        // a locked door. Same pattern as the Ember Wastes gate: the client
+        // check is a courtesy, this is the actual lock.
+        if (LOCKED_ROOMS.has(msg.room) && player.room !== msg.room && !hasTownPass(player)) {
+          send(ws, {
+            type: 'room_locked',
+            room: msg.room,
+            priceCents: TOWN_PASS_PRICE_CENTS,
+            hours: TOWN_PASS_HOURS,
+            paymentsEnabled: !!stripeClient
+          });
+          return;
+        }
         // Setting foot somewhere new advances any visit-this-place story
         // chapter — fired only on an actual change, not every move tick.
         const changedRoom = player.room !== msg.room;
@@ -4152,6 +4525,240 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // ── Hard Drive media: selfies & voice clips ─────────────────────────
+    // Same access pattern as the note handlers above: you need the 💽 item,
+    // and a password-locked drive demands its password for every mutation.
+
+    if (msg.type === 'harddrive_save_selfie') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store selfies.' });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      if (hd.selfies.length >= HARDDRIVE_SELFIE_CAPACITY) {
+        send(ws, { type: 'harddrive_error', message: `Your drive already holds ${HARDDRIVE_SELFIE_CAPACITY} selfies — delete one first.` });
+        return;
+      }
+      const image = sanitizeImage(msg.image);
+      if (!image) { send(ws, { type: 'harddrive_error', message: 'That image didn’t come through — try capturing it again.' }); return; }
+      // A selfie you capture yourself is a selfie of YOU — the drive tags
+      // it that way and cm_disguise trusts the tag, so wearing your own
+      // face as a mask is possible but pointless, exactly as it should be.
+      hd.selfies.push({ id: makeId(), image, of: player.name, savedAt: Date.now() });
+      persistHardDrive(player);
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_save_selfie_from_note') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store selfies.' });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      if (hd.selfies.length >= HARDDRIVE_SELFIE_CAPACITY) {
+        send(ws, { type: 'harddrive_error', message: `Your drive already holds ${HARDDRIVE_SELFIE_CAPACITY} selfies — delete one first.` });
+        return;
+      }
+      const note = player.inbox.find(n => n.id === String(msg.noteId || ''));
+      if (!note || !note.image) {
+        send(ws, { type: 'harddrive_error', message: 'That note has no picture on it.' });
+        return;
+      }
+      // The picture stays on the note too — this copies, it doesn't move.
+      // Face tag: a snapshot card is a picture of its subject; anything
+      // else (a 3rd-Eye vision, a photo someone attached) is treated as a
+      // picture of whoever it came from / shows — the snapOf field when
+      // present, else the sender.
+      const of = note.snapOf || note.fromName || 'a stranger';
+      hd.selfies.push({ id: makeId(), image: note.image, of, savedAt: Date.now() });
+      persistHardDrive(player);
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_save_clip') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store voice clips.' });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      if (hd.clips.length >= HARDDRIVE_CLIP_CAPACITY) {
+        send(ws, { type: 'harddrive_error', message: `Your drive already holds ${HARDDRIVE_CLIP_CAPACITY} voice clips — delete one first.` });
+        return;
+      }
+      const audio = sanitizeAudio(msg.audio);
+      if (!audio) { send(ws, { type: 'harddrive_error', message: 'That recording didn’t come through — try again.' }); return; }
+      const label = sanitizeText(String(msg.label || '')).slice(0, 40) || 'Voice clip';
+      hd.clips.push({ id: makeId(), audio, label, savedAt: Date.now() });
+      persistHardDrive(player);
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    if (msg.type === 'harddrive_delete_media') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to manage it.' });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const err = checkHardDrivePassword(hd, msg.password);
+      if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      const list = msg.kind === 'clip' ? hd.clips : hd.selfies;
+      const idx = list.findIndex(m => m.id === String(msg.mediaId || ''));
+      if (idx === -1) { send(ws, { type: 'harddrive_error', message: 'That’s not on your drive.' }); return; }
+      const [removed] = list.splice(idx, 1);
+      // Taking off a mask you just deleted.
+      if (msg.kind !== 'clip' && player.disguise && player.disguise.image === removed.image) {
+        player.disguise = null;
+        broadcastAll({ type: 'disguise_state', id: player.id, name: null, image: null });
+      }
+      persistHardDrive(player);
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      return;
+    }
+
+    // ── Countermeasures ─────────────────────────────────────────────────
+    // The payoff for keeping media on your drive. cm_state is the light
+    // list the combat quick-bar renders (ids and labels only — the heavy
+    // data URLs stay server-side until something is actually used).
+
+    if (msg.type === 'cm_state') {
+      const hd = driveMedia(getHardDrive(player));
+      send(ws, {
+        type: 'cm_state',
+        hasDrive: ownsHardDriveItem(player),
+        clips: hd.clips.map(c => ({ id: c.id, label: c.label })),
+        selfies: hd.selfies.map(s => ({ id: s.id, of: s.of })),
+        disguise: player.disguise ? { name: player.disguise.name } : null,
+        voiceCooldownMsLeft: Math.max(0, VOICE_CM_COOLDOWN_MS - (Date.now() - (player.lastVoiceCmAt || 0)))
+      });
+      return;
+    }
+
+    if (msg.type === 'cm_voice') {
+      if (player.isDead) return;
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'cm_error', message: 'You need your 💽 Hard Drive on you to play a clip.' });
+        return;
+      }
+      const now = Date.now();
+      if (now - (player.lastAttackedAt || 0) > ATTACKED_RECENT_MS) {
+        send(ws, { type: 'cm_error', message: 'Nothing is attacking you right now — a clip would just be noise.' });
+        return;
+      }
+      if (now - (player.lastVoiceCmAt || 0) < VOICE_CM_COOLDOWN_MS) {
+        const left = Math.ceil((VOICE_CM_COOLDOWN_MS - (now - player.lastVoiceCmAt)) / 1000);
+        send(ws, { type: 'cm_error', message: `Your drive is still rewinding — ${left}s before another clip.` });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const clip = hd.clips.find(c => c.id === String(msg.clipId || '')) || hd.clips[0];
+      if (!clip) {
+        send(ws, { type: 'cm_error', message: 'No voice clips on your drive — record one from the 💽 Hard Drive panel.' });
+        return;
+      }
+      player.lastVoiceCmAt = now;
+      player.evasionUntil = now + VOICE_CM_EVADE_MS;
+      // Every mob sharing the player's map inside the blast radius is
+      // routed — they scatter exactly like the rabbits do from footsteps.
+      const scareUntil = now + VOICE_CM_SCARE_MS;
+      const inBlast = (m) => Math.hypot(m.x - player.x, m.y - player.y) <= VOICE_CM_RADIUS;
+      if (player.room === 'outside') for (const m of mobs) { if (!m.dead && inBlast(m)) m.scaredUntil = scareUntil; }
+      if (player.room === 'wilds') for (const m of mobs2) { if (!m.dead && inBlast(m)) m.scaredUntil = scareUntil; }
+      if (player.room.startsWith('dungeon_')) for (const m of dungeonMobs) { if (!m.dead && m.room === player.room && inBlast(m)) m.scaredUntil = scareUntil; }
+      if (player.room === 'ember_wastes') for (const m of emberMobs) { if (!m.dead && inBlast(m)) m.scaredUntil = scareUntil; }
+      // The whole point: everyone nearby actually HEARS it. Proximity, not
+      // room-wide — a clip fired at the town gates shouldn't play at the
+      // fountain. The player's own client is included (they hear their own
+      // echo and get the visual).
+      const payload = JSON.stringify({
+        type: 'voice_cm',
+        from: player.name,
+        playerId: player.id,
+        x: player.x, y: player.y,
+        audio: clip.audio,
+        label: clip.label,
+        evadeMs: VOICE_CM_EVADE_MS
+      });
+      for (const p of players.values()) {
+        if (p.room === player.room && Math.hypot(p.x - player.x, p.y - player.y) <= VOICE_CM_RADIUS && p.ws.readyState === p.ws.OPEN) {
+          p.ws.send(payload);
+        }
+      }
+      send(ws, { type: 'cm_result', message: `📢 "${clip.label}" rings out — you slip through the chaos! (${Math.round(VOICE_CM_EVADE_MS / 1000)}s)` });
+      return;
+    }
+
+    if (msg.type === 'cm_disguise') {
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'cm_error', message: 'You need your 💽 Hard Drive on you to wear a disguise.' });
+        return;
+      }
+      const selfieId = msg.selfieId ? String(msg.selfieId) : null;
+      if (!selfieId) {
+        player.disguise = null;
+        broadcastAll({ type: 'disguise_state', id: player.id, name: null, image: null });
+        send(ws, { type: 'cm_result', message: '🎭 Mask off. You’re yourself again.' });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const s = hd.selfies.find(x => x.id === selfieId);
+      if (!s) { send(ws, { type: 'cm_error', message: 'That selfie isn’t on your drive.' }); return; }
+      player.disguise = { name: s.of, image: s.image };
+      // One heavy broadcast per change; the 70ms state stream only ever
+      // carries disguiseName (see publicPlayer).
+      broadcastAll({ type: 'disguise_state', id: player.id, name: s.of, image: s.image });
+      send(ws, { type: 'cm_result', message: `🎭 You hold the picture of ${s.of} up as a mask. To wandering eyes — and shopkeepers — you're them now.` });
+      return;
+    }
+
+    // 📷 Snapshot — point your chat-camera at a nearby player and take an
+    // in-world picture. What lands in YOUR inbox is a photo card of what
+    // they LOOK like — which, if they're masked, is the disguise, not the
+    // player under it. That's the whole game of it.
+    if (msg.type === 'snap_player') {
+      const now = Date.now();
+      if (now - (player.lastSnapAt || 0) < SNAP_COOLDOWN_MS) {
+        send(ws, { type: 'cm_error', message: 'Your camera is still winding the film.' });
+        return;
+      }
+      const t = players.get(String(msg.targetId || ''));
+      if (!t || t.id === player.id || t.room !== player.room || t.isDead) {
+        send(ws, { type: 'cm_error', message: 'No one there to photograph.' });
+        return;
+      }
+      if (Math.hypot(t.x - player.x, t.y - player.y) > SNAP_RANGE) {
+        send(ws, { type: 'cm_error', message: 'Too far away for a clear shot — get closer.' });
+        return;
+      }
+      player.lastSnapAt = now;
+      const shownName = t.disguise ? t.disguise.name : t.name;
+      const note = {
+        id: makeId(),
+        fromId: t.id,
+        fromName: '📷 Snapshot',
+        snapOf: shownName,
+        isSnap: true,
+        text: `A snapshot of ${shownName}, taken in ${describeRoom(player.room)}.`,
+        image: t.disguise ? t.disguise.image : null,
+        snapCharId: t.charId
+      };
+      player.inbox.push(note);
+      if (player.accountKey) saveInboxes();
+      send(ws, { type: 'note_received', note });
+      // The subject hears the shutter click — paranoia is half the fun,
+      // and it means wearing a mask actually gets tested by other players.
+      send(t.ws, { type: 'cm_result', message: `📷 ${player.name} just took your picture!` });
+      return;
+    }
+
     if (msg.type === 'bank_deposit' || msg.type === 'bank_withdraw') {
       if (!player.accountKey) {
         send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account to use the bank.' });
@@ -4291,8 +4898,10 @@ wss.on('connection', (ws) => {
       if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) return;
       player.activeQuest = { questId, progress: 0 };
       const quest = QUEST_CATALOG[questId];
+      const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId });
       send(ws, { type: 'quest_started', questId, questName: quest.name,
-        target: quest.target, description: quest.description });
+        target: quest.target, description: quest.description, where,
+        message: `🗒️ Quest accepted: "${quest.name}" — ${where}` });
       return;
     }
 
@@ -4316,16 +4925,28 @@ wss.on('connection', (ws) => {
         send(ws, storyStatePayload(player));
         return;
       }
+      const chapter = line.chapters[st.chapter];
+      // The pacing gate, enforced where it counts (the Journal's Begin
+      // button greys itself out too, but that's courtesy, not the lock).
+      const level = getProgress(player).level || 1;
+      if (level < chapter.requiresLevel) {
+        send(ws, {
+          type: 'story_error',
+          message: `🔒 "${chapter.title}" opens at Level ${chapter.requiresLevel} — you're Level ${level}. The Hollow tests the ready: side quests, night hunts, and harvests all pay XP.`
+        });
+        send(ws, storyStatePayload(player));
+        return;
+      }
       st.active = true;
       st.progress = 0;
       if (player.accountKey) saveProgress();
-      const chapter = line.chapters[st.chapter];
       send(ws, {
         type: 'story_chapter_started',
         chapterTitle: chapter.title,
         objectiveLabel: chapter.objective.label,
+        where: objectiveWhere(chapter.objective),
         target: chapter.objective.target,
-        message: `📖 Chapter ${st.chapter + 1}: "${chapter.title}" — ${chapter.objective.label}`
+        message: `📖 Chapter ${st.chapter + 1}: "${chapter.title}" — ${chapter.objective.label} (${objectiveWhere(chapter.objective)})`
       });
       send(ws, storyStatePayload(player));
       return;
@@ -4437,7 +5058,9 @@ wss.on('connection', (ws) => {
         const dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
         const result = applyDamage(player, targetType, targetId, dmg);
         if (!result.ok) {
-          send(ws, { type: 'spell_error', message: 'Pick a target first.' });
+          send(ws, { type: 'spell_error', message: result.evaded
+            ? `💨 ${result.name} slips the spell — their echo still hangs in the air!`
+            : 'Pick a target first.' });
           return;
         }
         // Broadcast first so the room sees the projectile actually travel
@@ -4549,7 +5172,10 @@ wss.on('connection', (ws) => {
       const dmg = STRIKE_MIN_DMG + Math.floor(Math.random() * (STRIKE_MAX_DMG - STRIKE_MIN_DMG + 1));
 
       const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
-      if (!result.ok) return;
+      if (!result.ok) {
+        if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
+        return;
+      }
       player.lastStrikeAt = now;
 
       if (targetType === 'player') {
@@ -4775,7 +5401,9 @@ wss.on('connection', (ws) => {
         const dmg = attack.dmgMin + Math.floor(Math.random() * (attack.dmgMax - attack.dmgMin + 1));
         const result = applyDamage(player, atkTargetType, targetId, dmg);
         if (!result.ok) {
-          send(ws, { type: 'attack_error', message: 'Pick a target first.' });
+          send(ws, { type: 'attack_error', message: result.evaded
+            ? `💨 ${result.name} slips the blow — their echo still hangs in the air!`
+            : 'Pick a target first.' });
           return;
         }
         broadcastRoom(player.room, { type: 'attack_fx', attackId, casterId: player.id, targetId, targetType: atkTargetType });
@@ -5117,6 +5745,13 @@ wss.on('connection', (ws) => {
       // creature's corpse loot resets on respawn too.
       player.pendingLoot = null;
       player.lootKillerId = null;
+      // Your mask slips when you get back up — a death always outs a
+      // disguise (and quietly guarantees no one is stuck as someone else
+      // after a rough night).
+      if (player.disguise) {
+        player.disguise = null;
+        broadcastAll({ type: 'disguise_state', id: player.id, name: null, image: null });
+      }
       if (player.room && player.room.startsWith('dungeon_')) {
         const returnRoom = player.dungeonReturnRoom || 'outside';
         const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
@@ -5141,11 +5776,26 @@ wss.on('connection', (ws) => {
       // Browsing a shopkeeper is talking to them, as far as the story cares
       // — Scholar Elior (the Mystic's chapter-1 contact) is a shop NPC.
       storyEvent(player, 'talk_npc', { npcId });
-      send(ws, { type: 'npc_shop_state', npcId, npcName: shop.name, items: shop.items.map(s => ({
-        id: s.id, price: s.price,
+      // Shopkeepers greet whoever they SEE. A mask (cm_disguise) means
+      // they see the person on the picture — including that person's
+      // regulars discount, if they've earned one by finishing this
+      // shopkeeper's quest. Faces are how the town knows people.
+      const seenAs = player.disguise ? player.disguise.name : player.name;
+      const discount = shopDiscountFor(player, npcId);
+      const priced = shop.items.map(s => ({
+        id: s.id,
+        price: discountedPrice(s.price, discount),
+        basePrice: s.price,
         name: ITEM_CATALOG[s.id]?.name || s.id,
         icon: ITEM_CATALOG[s.id]?.icon || '?'
-      })) });
+      }));
+      send(ws, {
+        type: 'npc_shop_state', npcId, npcName: shop.name, items: priced,
+        greeting: discount
+          ? `Ah, ${seenAs}! Always a pleasure — your usual rate, of course. (−${Math.round(discount * 100)}% for regulars)`
+          : `Welcome, ${seenAs}. Have a look around.`,
+        discountPct: discount ? Math.round(discount * 100) : 0
+      });
       return;
     }
 
@@ -5157,18 +5807,21 @@ wss.on('connection', (ws) => {
       if (!shop) return;
       const shopItem = shop.items.find(s => s.id === itemId);
       if (!shopItem) { send(ws, { type: 'shop_error', message: "That item isn't sold here." }); return; }
+      // Same discount logic the shop window showed — the till agrees with
+      // the shelf tag, disguised or not.
+      const price = discountedPrice(shopItem.price, shopDiscountFor(player, npcId));
       const account = ensureBankAccount(player.accountKey);
-      if (account.balance < shopItem.price) {
-        send(ws, { type: 'shop_error', message: `Need ${shopItem.price} gold, you have ${account.balance}.` });
+      if (account.balance < price) {
+        send(ws, { type: 'shop_error', message: `Need ${price} gold, you have ${account.balance}.` });
         return;
       }
       const inv = getInventory(player);
       if (!addItemToAccount(inv, itemId, 1)) { send(ws, { type: 'shop_error', message: 'Inventory full.' }); return; }
-      account.balance -= shopItem.price;
+      account.balance -= price;
       saveBankAccounts();
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'shop_bought', itemId, itemName: ITEM_CATALOG[itemId]?.name, price: shopItem.price });
+      send(ws, { type: 'shop_bought', itemId, itemName: ITEM_CATALOG[itemId]?.name, price });
       return;
     }
 
@@ -5589,13 +6242,24 @@ setInterval(() => {
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
-  STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS
+  STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
+  // Town Pass internals (tests grant passes directly — no Stripe in CI)
+  townPasses, passSessions, hasTownPass, grantForSession,
+  LOCKED_ROOMS, TOWN_PASS_PRICE_CENTS, TOWN_PASS_HOURS,
+  // Mob combat + countermeasures
+  mobs, mobs2, tickWildlife, TOWN_MOB_COMBAT, TOWN_MOB_XP,
+  applyDamage, isEvading, getHardDrive, driveMedia,
+  VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
+  ATTACKED_RECENT_MS, SNAP_RANGE,
+  // Pacing / progression
+  XP_THRESHOLDS, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
+  QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS
 };
 
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
   if (TOWN_PASSWORD) console.log('Passcode protection: ON');
   console.log(stripeClient
-    ? `Stripe payments: ON (All-Access $${(PREMIUM_PRICE_CENTS / 100).toFixed(2)}, Arcade Pass $${(ROOM_PASS_PRICE_CENTS / 100).toFixed(2)}/${ROOM_PASS_HOURS}h)`
-    : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable)');
+    ? `Stripe payments: ON (Town Pass $${(TOWN_PASS_PRICE_CENTS / 100).toFixed(2)} / ${TOWN_PASS_HOURS}h — unlocks: ${[...LOCKED_ROOMS].join(', ')})`
+    : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable — locked buildings stay locked)');
 });

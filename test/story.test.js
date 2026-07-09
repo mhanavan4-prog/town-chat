@@ -77,9 +77,25 @@ setTimeout(() => {
   st = knight.lastOfType('story_state');
   check('journal advances to chapter 2, inactive until begun', st.storyline.chapterIndex === 1 && st.storyline.active === false);
 
+  // --- Level gates: chapter 2 requires Level 2 — an under-leveled Begin
+  // must bounce with a story_error and leave the chapter inactive.
+  knight.emit('message', JSON.stringify({ type: 'story_begin' }));
+  check('under-leveled story_begin is rejected with story_error', !!knight.lastOfType('story_error'));
+  check('rejected begin leaves the chapter inactive', knight.lastOfType('story_state').storyline.active === false);
+  check('story_state exposes the gate to the Journal',
+    knight.lastOfType('story_state').storyline.chapter.requiresLevel === 2 &&
+    knight.lastOfType('story_state').storyline.chapter.levelOk === false);
+
+  // Level the knight the honest way (XP), then chapters open. Gates are
+  // [1,2,3,4,6,8] — pushing straight to Level 8 covers the whole run so
+  // the rest of this test can keep exercising objectives, not grinding.
+  hooks.grantXP(player, hooks.XP_THRESHOLDS[7]); // cumulative XP for L8
+  check('XP grant levels the player to 8+', hooks.getProgress(player).level >= 8);
+
   // Chapter 2: kill 6 (kills simulated through the same storyEvent the real
   // mob-death path in applyDamage calls).
   knight.emit('message', JSON.stringify({ type: 'story_begin' }));
+  check('story_begin passes once the gate is met', knight.lastOfType('story_state').storyline.active === true);
   for (let i = 0; i < 6; i++) hooks.storyEvent(player, 'kill_mob', { pool: 'mob', mobType: 'night_howler' });
   check('kill chapter sends progress updates along the way', knight.allOfType('story_update').length >= 5);
   complete = knight.lastOfType('story_chapter_complete');
