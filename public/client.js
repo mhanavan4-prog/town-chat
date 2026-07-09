@@ -13336,24 +13336,37 @@ function update(dt) {
     if (keys.strafeLeft) strafeInput -= 1;
     if (joyVec.x || joyVec.y) {
       if (MOBILE_UI) {
-        // Camera-relative movement — the modern-mobile standard: the stick
-        // points where you want to GO on screen, and the character turns
-        // to run that way, with the camera easing in behind. (The old
-        // mapping was tank controls: Y walked, X spun in place — precise
-        // on a keyboard, mud on a thumb.)
+        // Camera-relative movement — the stick points where you want to
+        // GO on screen and the character turns to run that way. The
+        // subtlety: the VIEW must hold still while you steer. If the
+        // camera chases in behind the runner every frame, "right"
+        // continuously re-aims and a held stick spins you in circles
+        // (v1 of this did exactly that, and read as hyperspeed turning).
+        // Rule: the screen-up world yaw (facing + cameraYawOffset) is the
+        // reference; facing turns toward reference + stickAngle, and the
+        // offset is rewritten each frame so the reference — the view —
+        // stays exactly where it was. Held right = one clean 90° turn,
+        // then a straight run watched from the side. Running forward
+        // naturally converges the offset to 0 (camera behind). A camera
+        // drag with the other thumb shifts the reference, re-aiming the
+        // run mid-stride — two-thumb steering, exactly as it should be.
         const mag = Math.min(1, Math.hypot(joyVec.x, joyVec.y));
         if (mag > 0.14) {
-          const stickAngle = Math.atan2(joyVec.x, -joyVec.y); // 0 = screen-up
-          const desired = me.facing + cameraYawOffset + stickAngle;
+          // Sign note: in this engine "turn right on screen" = facing
+          // DECREASES (see the desktop mapping below: turnInput -=
+          // joyVec.x). The stick angle follows the same handedness —
+          // without the negated x, left and right swap.
+          const stickAngle = Math.atan2(-joyVec.x, -joyVec.y); // 0 = screen-up
+          const viewYaw = me.facing + cameraYawOffset;
+          const desired = viewYaw + stickAngle;
           let diff = desired - me.facing;
           while (diff > Math.PI) diff -= Math.PI * 2;
           while (diff < -Math.PI) diff += Math.PI * 2;
-          const maxTurn = 9 * dt; // rad/s — quick but not teleport-spin
+          // ~260°/s: a 180 takes ~0.7s — brisk but visible. (First pass
+          // was 9 rad/s, which read as teleport-spinning.)
+          const maxTurn = 4.5 * dt;
           me.facing += Math.abs(diff) <= maxTurn ? diff : Math.sign(diff) * maxTurn;
-          // The camera swings back behind the runner over ~1/3 second
-          // instead of the desktop's instant snap — instant snaps feel
-          // violent when the thumb is also what's steering.
-          cameraYawOffset *= Math.exp(-dt * 6);
+          cameraYawOffset = viewYaw - me.facing; // the view holds still while steering
           // Ease off the throttle while still turning hard so the model
           // doesn't moonwalk sideways through a 180.
           moveInput += mag * Math.max(0.25, Math.cos(Math.min(Math.abs(diff), Math.PI / 2)));
