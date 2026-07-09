@@ -197,6 +197,24 @@ app.post('/api/send-sms', (req, res) => {
   apiReq.end();
 });
 
+// ── Seamless checkout return ────────────────────────────────────────────────
+// Stripe Checkout is a full-page redirect, and a guest's whole identity
+// (XP, inventory, quest progress, position) lives on the WebSocket that
+// dies the moment the page navigates away. So: right before redirecting,
+// the client asks for a one-time resume token ('checkout_departure' in the
+// message handler) and the server stashes a snapshot of the player; when
+// the browser bounces back (paid OR canceled — see cancel_url below), it
+// auto-joins with the token and the new connection is rebuilt as that
+// exact player in that exact spot. Tokens are random, single-use, expire
+// in 15 minutes, and only restore for the same account (or guest-ness)
+// they were issued to.
+const resumeStashes = new Map(); // token → { stash, expiresAt }
+const RESUME_TTL_MS = 15 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, e] of resumeStashes) if (e.expiresAt < now) resumeStashes.delete(t);
+}, 60 * 1000);
+
 app.post('/api/checkout', async (req, res) => {
   if (!stripeClient) return res.status(503).json({ error: 'Passes aren’t on sale right now — the innkeeper hasn’t opened the ledger. (Server has no STRIPE_SECRET_KEY.)' });
   try {
@@ -217,7 +235,9 @@ app.post('/api/checkout', async (req, res) => {
         quantity: 1
       }],
       success_url: `${origin}/?pass_session={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/`
+      // Flagged so the client knows this load is a bounce-back from an
+      // abandoned checkout and can auto-resume the stashed session too.
+      cancel_url: `${origin}/?pass_cancel=1`
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -540,11 +560,13 @@ function makeWildsScatter(seed, gridSize, count) {
   return out;
 }
 
-// 5 of each of the 16 plants (80 total) and 24 friendly animals — mob
+// 9 of each plant type — the 10000x10000 Wilds read as an empty field at
+// 5 per type, and harvesting is the map's core interaction loop. Mob
 // count is intentionally left at the original 8 (2 of each of the 4
-// dangerous types), see MOB2_SPAWNS below.
-const PLANTS_PER_TYPE = 5;
-const PLANT_POSITIONS = makeWildsScatter(0x9a17, 14, PLANT_KEYS.length * PLANTS_PER_TYPE);
+// dangerous types), see MOB2_SPAWNS below — danger stays scarce, forage
+// doesn't.
+const PLANTS_PER_TYPE = 9;
+const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, PLANT_KEYS.length * PLANTS_PER_TYPE);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   const out = [];
   for (let n = 0; n < PLANTS_PER_TYPE; n++) {
@@ -2716,19 +2738,67 @@ function townTorchPublicState() {
 // change away from 'outside', or just walking out of range) stops the
 // regen immediately since "near" is recomputed fresh every tick.
 const TORCH_HEAL_RATE_PER_SEC = 25; // 0 -> 100 in ~4s of standing in the light
+// Wilds campfires — always-lit rest stops spaced along the routes between
+// the landmarks (spawn road, the village↔circle meadow, the camp's edge,
+// the cave approach, the far north). Stand in the warmth and wounds mend;
+// same mechanic as the town's ritual torches, minus the night gating.
+// Positions are mirrored in client.js (WILDS_CAMPFIRES there) for the
+// visuals — keep the two lists identical.
+const WILDS_CAMPFIRES = [
+  { x: 5000, y: 8450 },
+  { x: 3400, y: 4300 },
+  { x: 6300, y: 5300 },
+  { x: 2650, y: 2650 },
+  { x: 5000, y: 1600 }
+];
+const CAMPFIRE_HEAL_RADIUS = 220;
+const CAMPFIRE_HEAL_RATE_PER_SEC = 20;
+
+// Weathered waymarkers — five standing stones scattered along the Wilds
+// routes, each carrying a piece of the Thornreach lore the campaigns are
+// built on. Walk up, press F (or tap the pill), read. Positions mirrored
+// in client.js (WILDS_WAYMARKERS there) for the visuals + interact kiosks.
+const WAYMARKER_LORE = {
+  way_severance: {
+    name: '⛰️ Waymarker — The Fifth Severance',
+    text: 'Five hands raised the seal. Four are buried where their oaths can watch them. The stone does not say what the fifth hand is doing now, and the moss refuses to grow over that part.'
+  },
+  way_hollow: {
+    name: '⛰️ Waymarker — The Hollow',
+    text: 'Beneath every quiet field in Thornreach there is a door, and behind every door the Hollow is patient. When the ground hums on a moonless night, walk faster. It hums because something is listening back.'
+  },
+  way_factions: {
+    name: '⛰️ Waymarker — The Two Watches',
+    text: 'The Unbound circle their fires west of here and say the seal must open so it can be mended true. The Thornwardens sharpen stakes to the east and say a cracked seal still beats none. Both leave offerings at this stone. Neither will say for whom.'
+  },
+  way_hazel: {
+    name: '⛰️ Waymarker — The Keeper Below',
+    text: 'The witch under the rocks has kept her watch five hundred years, and her cauldron has never once gone cold. Bring her herbs and honest words. Leave your camera habits at the mouth of the cave — she asks first, always.'
+  },
+  way_wastes: {
+    name: '⛰️ Waymarker — The Ember Road',
+    text: 'When all four ritual torches burn in the town square, a door of embers opens over the altar. What walks the Wastes beyond it pays well and hits harder. The stone recommends finishing your supper first.'
+  }
+};
+
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
     const npc = TORCH_NPCS.find(n => n.torchIdx === idx);
     return npc && npc.working;
   });
   for (const player of players.values()) {
-    if (player.isDead || player.room !== 'outside') { player.nearLitTorch = false; continue; }
-    const near = litTorches.length > 0 && litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS);
+    if (player.isDead || (player.room !== 'outside' && player.room !== 'wilds')) { player.nearLitTorch = false; continue; }
+    const near = player.room === 'outside'
+      ? litTorches.length > 0 && litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS)
+      : WILDS_CAMPFIRES.some(f => Math.hypot(player.x - f.x, player.y - f.y) < CAMPFIRE_HEAL_RADIUS);
     if (near && player.health < 100) {
       if (!player.nearLitTorch) {
-        send(player.ws, { type: 'torch_healed', message: "🔥 The torchlight's warmth begins to mend your wounds..." });
+        send(player.ws, { type: 'torch_healed', message: player.room === 'wilds'
+          ? "🔥 The campfire's warmth begins to mend your wounds..."
+          : "🔥 The torchlight's warmth begins to mend your wounds..." });
       }
-      player.health = Math.min(100, player.health + TORCH_HEAL_RATE_PER_SEC * dt);
+      const rate = player.room === 'wilds' ? CAMPFIRE_HEAL_RATE_PER_SEC : TORCH_HEAL_RATE_PER_SEC;
+      player.health = Math.min(100, player.health + rate * dt);
     }
     player.nearLitTorch = near;
   }
@@ -3060,7 +3130,7 @@ function tickWildlife(dt) {
 // 'struck'/'defeated' for this means the client doesn't need any new
 // message handling to feel it.
 // ---------------------------------------------------------------------------
-const ANIMALS2_COUNT = 24;
+const ANIMALS2_COUNT = 36; // was 24 — more life underfoot, more to hunt
 const ANIMAL2_SPAWNS = makeWildsScatter(0x5e21, 14, ANIMALS2_COUNT).map(([x, y]) => ({ x, y }));
 const ANIMAL2_MAX_HEALTH = 30;
 const ANIMAL2_RESPAWN_MS = 90 * 1000;
@@ -4220,7 +4290,10 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'join') {
       if (player) return; // already joined
-      if (TOWN_PASSWORD && msg.password !== TOWN_PASSWORD) {
+      // A resume token stands in for the passcode — it could only have been
+      // minted by a session that already passed this check, and an invalid
+      // one fails loudly as resume_expired below (never a silent guest).
+      if (TOWN_PASSWORD && !msg.resumeToken && msg.password !== TOWN_PASSWORD) {
         send(ws, { type: 'join_error', message: 'Wrong passcode.' });
         return;
       }
@@ -4232,15 +4305,32 @@ wss.on('connection', (ws) => {
       // next color in the round-robin.
       const accountKey = msg.accountToken ? sessions.get(String(msg.accountToken)) : null;
       const account = accountKey ? accounts[accountKey] : null;
-      const name = account ? account.username : sanitizeName(msg.name);
-      const color = account ? account.color : COLORS[colorIdx++ % COLORS.length];
+      // Seamless checkout return: a valid resume token means "rebuild me as
+      // the player I was when I left for Stripe." All-or-nothing — a dead
+      // or mismatched token gets a join_error so the client can fall back
+      // to the normal join screen instead of silently becoming a fresh
+      // guest with a lost life.
+      let resume = null;
+      if (typeof msg.resumeToken === 'string' && msg.resumeToken) {
+        const entry = resumeStashes.get(msg.resumeToken);
+        resumeStashes.delete(msg.resumeToken); // single-use, hit or miss
+        if (entry && entry.expiresAt > Date.now() && (entry.stash.accountKey || null) === (accountKey || null)) {
+          resume = entry.stash;
+        } else {
+          send(ws, { type: 'join_error', code: 'resume_expired', message: 'That moment has passed — step back into town!' });
+          return;
+        }
+      }
+      const name = resume ? resume.name : (account ? account.username : sanitizeName(msg.name));
+      const color = resume ? resume.color : (account ? account.color : COLORS[colorIdx++ % COLORS.length]);
       // Character look is a per-session cosmetic choice, not tied to the
       // account itself (unlike name/color above) — just trust whatever
       // valid index the client picked on the join screen, falling back to
       // a random one if it's missing or out of range.
-      const charId = Number.isInteger(msg.charId) && msg.charId >= 0 && msg.charId < CHARACTER_COUNT
-        ? msg.charId
-        : Math.floor(Math.random() * CHARACTER_COUNT);
+      const charId = resume ? resume.charId
+        : Number.isInteger(msg.charId) && msg.charId >= 0 && msg.charId < CHARACTER_COUNT
+          ? msg.charId
+          : Math.floor(Math.random() * CHARACTER_COUNT);
       player = {
         ws, id,
         name,
@@ -4251,19 +4341,19 @@ wss.on('connection', (ws) => {
         // open one (see bank/auction handlers below). Same key accounts
         // are already indexed by, so no separate identity mapping needed.
         accountKey,
-        x: WORLD.spawn.x,
-        y: WORLD.spawn.y,
-        room: 'outside',
+        x: resume ? resume.x : WORLD.spawn.x,
+        y: resume ? resume.y : WORLD.spawn.y,
+        room: resume ? resume.room : 'outside',
         // Undestroyed notes currently held, mirrors the client's inbox array
         // — for Rapid Swipe to steal from. For a logged-in account this is
         // the SAME array reference as inboxes[accountKey] (created if this
         // is their first connect), so every push/splice below already
         // mutates the persisted store directly; saveInboxes() just flushes
         // it to disk. Guests get a fresh array that's gone on disconnect.
-        inbox: accountKey ? (inboxes[accountKey] || (inboxes[accountKey] = [])) : [],
-        health: 100, // 0-100, shown as the heart HUD's percentage
+        inbox: accountKey ? (inboxes[accountKey] || (inboxes[accountKey] = [])) : (resume && resume.guestInbox ? resume.guestInbox : []),
+        health: resume ? resume.health : 100, // 0-100, shown as the heart HUD's percentage
         xp: 0, level: 1, skillPoints: 0, // overwritten by syncProgressToPlayer() below
-        activeQuest: null, // { questId, progress } or null
+        activeQuest: resume ? resume.activeQuest : null, // { questId, progress } or null
         // Town Pass state, resolved below (account store, then the browser's
         // Checkout-session receipt). 0 = no pass.
         passUntil: 0,
@@ -4273,8 +4363,18 @@ wss.on('connection', (ws) => {
         lastAttackedAt: 0,
         evasionUntil: 0,
         lastVoiceCmAt: 0,
-        disguise: null // { name, image } or null
+        disguise: resume ? resume.disguise : null // { name, image } or null
       };
+      // A resumed GUEST gets their in-memory stores handed back whole —
+      // XP/level/quest-cooldowns/campaign (guestProgress), carried items +
+      // equipped gear (guestInventory), and Hard Drive media. Accounts
+      // reload all of that from their persistent stores by accountKey, so
+      // the stash only carries their transient bits (position, quest, mask).
+      if (resume && !accountKey) {
+        if (resume.guestProgress) player.guestProgress = resume.guestProgress;
+        if (resume.guestInventory) player.guestInventory = resume.guestInventory;
+        if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
+      }
       players.set(id, player);
       syncProgressToPlayer(player);
       // Account-held pass, if any (bought while logged in on any device).
@@ -4301,6 +4401,20 @@ wss.on('connection', (ws) => {
           }).catch(() => {}); // a bogus/foreign id just stays passless
         }
       }
+      // Resume: carry the pre-checkout pass across (canceled checkouts keep
+      // whatever pass was already held), then make sure the restored spot
+      // is still legal — a known room, and never inside a ticketed building
+      // without a live pass (e.g. the pass expired mid-checkout).
+      if (resume) {
+        if ((resume.passUntil || 0) > player.passUntil) player.passUntil = resume.passUntil;
+        const knownRoom = (r) => r === 'outside' || r === 'wilds' || r === 'witch_cave'
+          || r === 'bank_vault' || r === 'ember_wastes' || WORLD.buildings.some(b => b.id === r);
+        if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && player.passUntil <= Date.now())) {
+          player.room = 'outside';
+          player.x = WORLD.spawn.x;
+          player.y = WORLD.spawn.y;
+        }
+      }
       // Loads (or creates) their inventory immediately rather than lazily
       // on first panel-open, so a returning account holder's equipped gear
       // shows up on their model from the moment they spawn, not after they
@@ -4310,6 +4424,7 @@ wss.on('connection', (ws) => {
       send(ws, {
         type: 'init',
         id,
+        resumed: !!resume, // client swaps its view to the restored room/spot
         world: WORLD,
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
@@ -4336,6 +4451,19 @@ wss.on('connection', (ws) => {
       // Campaign position for this class — sent up-front so the Journal
       // renders instantly instead of round-tripping on first open.
       send(ws, storyStatePayload(player));
+      // A restored side quest re-renders its tracker silently (a
+      // message-less quest_update never toasts).
+      if (resume && player.activeQuest && QUEST_CATALOG[player.activeQuest.questId]) {
+        const rq = QUEST_CATALOG[player.activeQuest.questId];
+        send(ws, {
+          type: 'quest_update',
+          questId: player.activeQuest.questId,
+          questName: rq.name,
+          progress: player.activeQuest.progress,
+          target: rq.target,
+          where: objectiveWhere({ type: rq.type, targetItemId: rq.targetItemId })
+        });
+      }
       broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
       return;
     }
@@ -5087,6 +5215,15 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // Reading a Wilds waymarker — reuses the hint-dialogue modal shape the
+    // client already renders; the "NPC" is the stone itself.
+    if (msg.type === 'read_waymarker') {
+      const marker = WAYMARKER_LORE[String(msg.markerId || '')];
+      if (!marker) return;
+      send(ws, { type: 'npc_hint_dialogue', npcId: String(msg.markerId), npcName: marker.name, message: marker.text });
+      return;
+    }
+
     if (msg.type === 'npc_hint_talk') {
       const npcId = String(msg.npcId || '');
       const giver = NPC_HINT_GIVERS[npcId];
@@ -5391,6 +5528,62 @@ wss.on('connection', (ws) => {
     // A universal basic melee attack, available to every character
     // regardless of class — separate from the Werewolf/Wanderer's named
     // curse-attacks (cast_attack below) or the Witch's spells, both of
+    // ── Checkout departure/return (see resumeStashes up by /api/checkout) ──
+    if (msg.type === 'checkout_departure') {
+      if (!player) return;
+      const token = crypto.randomBytes(24).toString('hex');
+      resumeStashes.set(token, {
+        expiresAt: Date.now() + RESUME_TTL_MS,
+        stash: {
+          name: player.name, color: player.color, charId: player.charId,
+          accountKey: player.accountKey || null,
+          x: player.x, y: player.y, room: player.room,
+          health: player.health,
+          passUntil: player.passUntil || 0,
+          activeQuest: player.activeQuest ? { ...player.activeQuest } : null,
+          disguise: player.disguise ? { ...player.disguise } : null,
+          // Guests: hold direct references — the player object is about to
+          // be dropped on disconnect, and these keep its life alive.
+          guestProgress: player.accountKey ? null : player.guestProgress || null,
+          guestInventory: player.accountKey ? null : player.guestInventory || null,
+          guestHardDrive: player.accountKey ? null : player.guestHardDrive || null,
+          guestInbox: player.accountKey ? null : player.inbox || null
+        }
+      });
+      send(ws, { type: 'resume_token', token });
+      return;
+    }
+
+    // The live-connection half of pass verification: the browser's
+    // /api/verify-session fetch can resolve AFTER the auto-resumed join
+    // already presented (or missed) the receipt — this closes that race by
+    // letting the client stamp its CURRENT connection once verification
+    // lands. Same Stripe-backed checks as everywhere else; replay-proof
+    // because grantForSession computes one fixed window per session id.
+    if (msg.type === 'claim_pass') {
+      if (!player || typeof msg.sessionId !== 'string' || !msg.sessionId) return;
+      const claimedId = msg.sessionId;
+      const cached = passSessions.get(claimedId);
+      if (cached && cached > Date.now()) {
+        if (cached > (player.passUntil || 0)) {
+          player.passUntil = cached;
+          send(ws, { type: 'pass_state', passUntil: player.passUntil });
+        }
+        return;
+      }
+      if (!stripeClient || cached) return; // expired-known id stays expired
+      const claimer = player;
+      stripeClient.checkout.sessions.retrieve(claimedId).then(session => {
+        if (session.payment_status !== 'paid') return;
+        const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000);
+        if (expiresAt > Date.now() && players.get(claimer.id) === claimer && expiresAt > (claimer.passUntil || 0)) {
+          claimer.passUntil = expiresAt;
+          send(claimer.ws, { type: 'pass_state', passUntil: expiresAt });
+        }
+      }).catch(() => {});
+      return;
+    }
+
     // which are debuffs/utility rather than damage. This is the thing that
     // actually drains the health heart: click any attackable target
     // (player/animal/mob) in range and it lands for a small random amount,

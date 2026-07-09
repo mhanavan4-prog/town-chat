@@ -41,7 +41,7 @@ function makeWildsScatter(seed, gridSize, count) {
   }
   return out;
 }
-const PLANT_POSITIONS = makeWildsScatter(0x9a17, 14, 25 * 5);
+const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, 25 * 9); // mirrors server.js (9 per type on a 16-grid)
 
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
@@ -359,6 +359,39 @@ const PLANT_POSITIONS = makeWildsScatter(0x9a17, 14, 25 * 5);
   await tap('#invCloseBtn');
   await page.waitForTimeout(300);
   check('inventory ✕ closes the panel on mobile', !(await visible('inventoryPanel')));
+
+  // Waymarker lore stones: pill + readable dialogue (no quest button).
+  await td('teleport', 2350, 2350);
+  await page.waitForTimeout(400);
+  const wayHint = await td('hint');
+  check('waymarker offers a read pill', !!wayHint && /waymarker/i.test(wayHint || ''), 'hint=' + wayHint);
+  await td('interact');
+  await page.waitForTimeout(700);
+  const lore = await page.evaluate(() => {
+    const m = document.getElementById('npcHintModal');
+    if (!m || m.classList.contains('hidden')) return null;
+    return {
+      title: document.getElementById('npcHintName').textContent,
+      text: document.getElementById('npcHintText').textContent,
+      questBtnHidden: document.getElementById('npcHintQuestBtn').classList.contains('hidden')
+    };
+  });
+  check('waymarker opens its lore dialogue', !!lore && /Keeper/i.test(lore.title || ''), JSON.stringify(lore));
+  check('lore stones have no quest button', !!lore && lore.questBtnHidden === true);
+  await page.evaluate(() => document.getElementById('npcHintCloseBtn').click());
+  await page.waitForTimeout(300);
+
+  // Campfire healing: stand in the glow, wounds mend (server-side heal).
+  st = await td('state');
+  if (st.health < 100) {
+    await td('teleport', 2650, 2650);
+    const hpBefore = (await td('state')).health;
+    await page.waitForTimeout(3000);
+    const hpAfter = (await td('state')).health;
+    check(`campfire mends wounds (${hpBefore.toFixed(0)} → ${hpAfter.toFixed(0)})`, hpAfter > hpBefore);
+  } else {
+    console.log('  (campfire heal check skipped — entered the wilds at full health)');
+  }
 
   // Return portal back to town.
   await td('teleport', 5000, 8720);

@@ -193,6 +193,146 @@ const check = (desc, cond, detail) => {
     await page.tap('#menuLeave'); await page.waitForTimeout(700);
   }
 
+  // ═══ Seamless checkout return (resume tokens) ═══
+  // The redirect to Stripe kills the page; these scenarios prove the
+  // player comes back as the same character in the same spot — after a
+  // successful payment AND after a canceled one — and that a dead token
+  // falls back to the join screen instead of a silent fresh guest.
+  const mkPhone = async () => {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    await c.route('**/three.min.js*', r => r.fulfill({ path: STUB, contentType: 'application/javascript' }));
+    const p = await c.newPage();
+    p.setDefaultTimeout(9000);
+    p.on('pageerror', e => errors.push('RESUME PAGEERR: ' + e.message.slice(0, 180)));
+    return { c, p };
+  };
+  const joinAs = async (p, name) => {
+    await p.goto('http://localhost:3000/?testdrive=1', { waitUntil: 'networkidle' });
+    await p.evaluate(() => localStorage.setItem('tc_controls_seen', '1'));
+    await p.fill('#nameInput', name);
+    await p.click('#joinBtn');
+    await p.waitForTimeout(1500);
+  };
+  const tdOf = (p) => (fn, ...args) => p.evaluate(([f, a]) => window.__testDrive[f](...a), [fn, args]);
+  const walkInOn = async (p, b, face) => {
+    const t = tdOf(p);
+    await t('face', face);
+    await p.waitForTimeout(120);
+    await p.evaluate(() => new Promise((res) => {
+      const z = document.getElementById('joyZone');
+      const mk = (type, x, y) => new TouchEvent(type, { touches: type === 'touchend' ? [] : [new Touch({ identifier: 7, target: z, clientX: x, clientY: y })], changedTouches: [new Touch({ identifier: 7, target: z, clientX: x, clientY: y })], cancelable: true, bubbles: true });
+      z.dispatchEvent(mk('touchstart', 100, 700));
+      z.dispatchEvent(mk('touchmove', 100, 654));
+      setTimeout(() => { z.dispatchEvent(mk('touchend', 100, 654)); res(); }, 1500);
+    }));
+    await p.waitForTimeout(400);
+  };
+  const buyViaUi = async (p) => {
+    await p.tap('#menuBtn'); await p.waitForTimeout(300);
+    await p.tap('#menuPass'); await p.waitForTimeout(400);
+    await Promise.all([
+      p.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }),
+      p.evaluate(() => document.getElementById('roomPassBuyBtn').click())
+    ]);
+  };
+
+  console.log('\n── Resume A: buy mid-quest from inside the Cafe ──');
+  {
+    const { c, p } = await mkPhone();
+    // Keep the harness seam alive across the redirect: the success URL has
+    // no ?testdrive=1, so append it to whatever /api/checkout returns.
+    await c.route('**/api/checkout', async (route) => {
+      const resp = await route.fetch();
+      const body = await resp.json();
+      if (body.url) body.url += '&testdrive=1';
+      await route.fulfill({ json: body });
+    });
+    const t = tdOf(p);
+    await joinAs(p, 'ResumeRita');
+    // A live side quest, then walk into the cafe.
+    await t('send', { type: 'quest_talk', npcId: 'npc_mara', npcName: 'Ranger Mara' });
+    await p.waitForTimeout(300);
+    await t('send', { type: 'quest_accept', npcId: 'npc_mara' });
+    await p.waitForTimeout(500);
+    const trackerBefore = await p.evaluate(() => { const q = document.getElementById('questTracker'); return q && !q.classList.contains('hidden') ? q.textContent : null; });
+    check('quest accepted before checkout (tracker up)', !!trackerBefore, 'tracker=' + trackerBefore);
+    const cafe = (await p.evaluate(() => window.__testDrive.world().buildings)).find(b => b.id === 'cafe');
+    await t('teleport', cafe.x + cafe.w + 40, cafe.y + cafe.h / 2);
+    await walkInOn(p, cafe, Math.atan2(-1, 0));
+    const before = await t('state');
+    check('inside the cafe before checkout', before.room === 'cafe', 'room=' + before.room);
+
+    await buyViaUi(p);
+    // Auto-resume: the seam comes back once init lands — no join screen.
+    await p.waitForFunction(() => window.__testDrive && !!window.__testDrive.me(), null, { timeout: 12000 }).catch(() => {});
+    const after = await t('state').catch(() => null);
+    check('auto-rejoined without the join screen', !!after, 'no me() after return');
+    if (after) {
+      check('same room after payment (cafe)', after.room === 'cafe', 'room=' + after.room);
+      check('same spot after payment', Math.hypot(after.x - before.x, after.y - before.y) < 4, `moved ${Math.hypot(after.x - before.x, after.y - before.y).toFixed(1)}`);
+      const meName = (await t('players')).find(x => x.isMe)?.name;
+      check('same character name', meName === 'ResumeRita', 'name=' + meName);
+      const trackerAfter = await p.evaluate(() => { const q = document.getElementById('questTracker'); return q && !q.classList.contains('hidden') ? q.textContent : null; });
+      check('quest tracker restored after resume', !!trackerAfter && /Cull|creature/i.test(trackerAfter), 'tracker=' + trackerAfter);
+      // Pass landed on the live connection (join receipt or claim_pass race-closer).
+      let passText = '';
+      for (let i = 0; i < 10; i++) {
+        await p.waitForTimeout(400);
+        passText = await p.evaluate(() => (document.getElementById('menuPassState') || {}).textContent || '');
+        if (/left/.test(passText)) break;
+      }
+      check('pass active on the resumed connection', /left/.test(passText), 'menuPassState=' + passText);
+    }
+    await c.close();
+  }
+
+  console.log('\n── Resume B: canceled checkout still comes home ──');
+  {
+    const { c, p } = await mkPhone();
+    // Simulate the player backing out on Stripe's page: the "checkout"
+    // navigates straight to the cancel URL.
+    await c.route('**/api/checkout', async (route) => {
+      await route.fulfill({ json: { url: 'http://localhost:3000/?pass_cancel=1&testdrive=1' } });
+    });
+    const t = tdOf(p);
+    await joinAs(p, 'CancelCarl');
+    await t('teleport', 2500, 700);
+    await p.waitForTimeout(400);
+    await buyViaUi(p);
+    await p.waitForFunction(() => window.__testDrive && !!window.__testDrive.me(), null, { timeout: 12000 }).catch(() => {});
+    const after = await t('state').catch(() => null);
+    check('canceled checkout auto-rejoins too', !!after);
+    if (after) {
+      check('back outside at the same spot', after.room === 'outside' && Math.hypot(after.x - 2500, after.y - 700) < 4, JSON.stringify({ room: after.room, x: after.x, y: after.y }));
+      const passText = await p.evaluate(() => (document.getElementById('menuPassState') || {}).textContent || '');
+      check('no pass granted on cancel', !/left/.test(passText), 'menuPassState=' + passText);
+      const toast = await p.evaluate(() => (document.getElementById('unlockToastText') || {}).textContent || '');
+      check('cancel toast explains (no charge)', /cancel/i.test(toast), 'toast=' + toast);
+    }
+    await c.close();
+  }
+
+  console.log('\n── Resume C: dead token falls back to the join screen ──');
+  {
+    const { c, p } = await mkPhone();
+    await p.goto('http://localhost:3000/?testdrive=1', { waitUntil: 'networkidle' });
+    await p.evaluate(() => {
+      localStorage.setItem('tc_controls_seen', '1');
+      sessionStorage.setItem('tc_resume', JSON.stringify({ token: 'garbage-token', name: 'GhostGwen', at: Date.now() }));
+    });
+    await p.goto('http://localhost:3000/?pass_cancel=1&testdrive=1', { waitUntil: 'networkidle' });
+    await p.waitForTimeout(1200);
+    const fallback = await p.evaluate(() => {
+      const card = document.querySelector('#joinScreen .card');
+      const err = (document.getElementById('joinErr') || {}).textContent || '';
+      const name = (document.getElementById('nameInput') || {}).value || '';
+      return { cardShown: !!card && card.style.display !== 'none', err, name };
+    });
+    check('dead token shows the join screen again (no silent fresh guest)', fallback.cardShown, JSON.stringify(fallback));
+    check('fallback explains itself and prefills the name', /passed|step back/i.test(fallback.err) && fallback.name === 'GhostGwen', JSON.stringify(fallback));
+    await c.close();
+  }
+
   // ── No-pass door math is already covered by qa-deep-mobile (locked toast) ──
 
   console.log('\n════════ PASS FLOW RESULT ════════');

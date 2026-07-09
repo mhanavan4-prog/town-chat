@@ -253,6 +253,34 @@ running instance. A guest's personal inventory never touches disk at all —
 it lives only on their in-memory connection and is gone the moment they
 disconnect, same as the rest of a guest identity.
 
+## The Wilds, repopulated
+
+The 10000x10000 Wilds got its own density pass — it's a place to travel
+through now, not an empty field with landmarks in it:
+
+- 🌿 **9 of every plant** (225 harvestables, up from 5 each) — forage is
+  the map's core loop, so it's everywhere now, still on the same 24h
+  per-player regrow.
+- 🐇 **36 friendly animals** (up from 24) to hunt, same server-synced
+  behavior. Hostile mob count is deliberately unchanged — danger stays
+  scarce, forage doesn't.
+- 🔥 **Five always-lit campfires** spaced along the natural routes (the
+  spawn road, the village↔circle meadow, the camp's edge, the cave
+  approach, the far north). Stand in the glow and wounds mend at 20 HP/s —
+  the Wilds' answer to the town's ritual-torch sanctuary, and the reason
+  a hunting trip no longer ends with limping home at 12 HP.
+- ⛰️ **Five weathered waymarkers** — standing stones with faintly glowing
+  runes, each carrying a piece of Thornreach lore (the Severance, the
+  Hollow, the two factions, the Keeper, the Ember road). Walk up and the
+  pill reads "read the waymarker"; they double as navigation landmarks.
+- 💀 More atmosphere everywhere: 150 twisted trees (was 90), two more
+  graveyards, two more ruin clusters, and bone piles where the dead
+  congregate.
+- 🕯️ The **Witch's Cave is an actual rock formation** now — a mound of
+  huge mossy boulders shouldering each other around a dark maw with
+  purple candlelight seeping out, gnarled trees leaning over it — visible
+  from a distance instead of a floating box with a sign.
+
 ## The Witch's Spellbook
 
 Pick the **Witch** on the join screen (witch hat, green robe — character
@@ -595,7 +623,9 @@ affects normal play. The QA sweep grew with the mobile work:
   `test/stripe-mock-server.cjs` (a real server boot with a mocked `stripe`
   module where every checkout instantly pays): buy → redirect → verify →
   receipt → both ticketed doors open → cabinets playable by touch
-  (pixel-verified paddle) → Text tab reachable → replay-proofing.
+  (pixel-verified paddle) → Text tab reachable → replay-proofing — plus
+  the three seamless-return scenarios (paid resume from inside the Cafe
+  mid-quest, canceled resume, dead-token fallback to the join screen).
 - `test/qa-account-bank.cjs` — registers an account through the join
   screen UI, opens the teller and auctioneer, and checks the economy
   modals actually fit a 390px phone.
@@ -717,6 +747,17 @@ How enforcement and persistence actually work now:
   browsers and devices for its 24 hours.
 - Buildings you're already inside never eject you when a pass expires —
   expiry is checked at the door, not mid-conversation.
+- **Buying never costs you your session anymore.** Stripe Checkout is a
+  full-page redirect, and a guest's whole life (XP, inventory, quest
+  progress, position) used to die with the page — you came back to the
+  character-select screen as a stranger. Now the client grabs a one-time
+  resume token right before redirecting (the server snapshots your exact
+  player), and when Stripe bounces you back — **paid or canceled** — you're
+  auto-rejoined as the same character in the same spot, mid-quest tracker
+  and all, with the pass already applied. Tokens are random, single-use,
+  15-minute, and bound to the same account/guest identity; a dead token
+  falls back to the join screen with your name prefilled rather than ever
+  silently making you a fresh guest.
 
 ## Texting (Twilio)
 

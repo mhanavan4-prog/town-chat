@@ -469,6 +469,17 @@ function onWsMessage(ev) {
     }
     for (const p of msg.players) addPlayer(p);
     me = players[myId];
+    // Seamless checkout return: the server rebuilt us in the room we left
+    // from — swap the client's view to match (interior scene, wilds map,
+    // etc.) instead of the default town-spawn framing.
+    if (msg.resumed && me && !wasStarted && me.room && me.room !== 'outside') {
+      restoreSceneForRoom(me.room);
+    }
+    if (!wasStarted && pendingReturnToast) {
+      setUnlockToast(pendingReturnToast);
+      pendingReturnToast = '';
+    }
+    if (!wasStarted) claimPassOnConnection(true);
     if (!wasStarted) {
       document.getElementById('joinScreen').classList.add('hidden');
       document.getElementById('hud').classList.remove('hidden');
@@ -519,6 +530,13 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'join_error') {
+    if (msg.code === 'resume_expired') {
+      // The checkout took longer than the resume stash lives (or the
+      // server restarted) — fall back to the normal join screen, name
+      // prefilled, rather than silently becoming a fresh guest.
+      showResumeUi(false);
+      if (resumeFallbackName && !nameInput.value) nameInput.value = resumeFallbackName;
+    }
     showJoinError(msg.message);
     return;
   }
@@ -3125,8 +3143,12 @@ let currentHintNpcId = null, currentHintNpcName = null;
 function showNpcHintDialogue(msg) {
   currentHintNpcId = msg.npcId || null;
   currentHintNpcName = msg.npcName || null;
-  document.getElementById('npcHintName').textContent = `💬 ${msg.npcName}`;
+  const isStone = typeof msg.npcId === 'string' && msg.npcId.startsWith('way_');
+  document.getElementById('npcHintName').textContent = isStone ? msg.npcName : `💬 ${msg.npcName}`;
   document.getElementById('npcHintText').textContent = msg.message || '';
+  // A standing stone has lore, not errands — no quest button on waymarkers.
+  const qBtn = document.getElementById('npcHintQuestBtn');
+  if (qBtn) qBtn.classList.toggle('hidden', isStone);
   document.getElementById('npcHintModal').classList.remove('hidden');
 }
 
@@ -3398,9 +3420,39 @@ fetch('/api/config')
   })
   .catch(() => {});
 
-function startPassCheckout(btn) {
+// Before leaving for Stripe, ask the server to remember this exact moment
+// (position, room, XP, inventory, quest — see server.js resumeStashes).
+// The one-time token rides sessionStorage across the redirect; on return
+// the auto-resume path below rejoins as the same player in the same spot.
+function requestResumeToken(timeoutMs = 900) {
+  return new Promise((resolve) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !gameStarted) return resolve('');
+    let done = false;
+    const onMsg = (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.type === 'resume_token') {
+          done = true;
+          ws.removeEventListener('message', onMsg);
+          resolve(d.token || '');
+        }
+      } catch (e) {}
+    };
+    ws.addEventListener('message', onMsg);
+    ws.send(JSON.stringify({ type: 'checkout_departure' }));
+    setTimeout(() => { if (!done) { ws.removeEventListener('message', onMsg); resolve(''); } }, timeoutMs);
+  });
+}
+
+async function startPassCheckout(btn) {
   const restore = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const token = await requestResumeToken();
+    if (token) {
+      sessionStorage.setItem('tc_resume', JSON.stringify({ token, name: me ? me.name : '', at: Date.now() }));
+    }
+  } catch (e) {} // no token just means the old return-to-join-screen behavior
   fetch('/api/checkout', { method: 'POST' })
     .then(r => r.json())
     .then(data => {
@@ -3422,12 +3474,37 @@ if (unlockBtn) {
   unlockBtn.addEventListener('click', () => startPassCheckout(unlockBtn));
 }
 
+// State shared between the checkout-return check (runs at load, below) and
+// the auto-resume + init paths further down: whether this page load IS a
+// bounce-back from Stripe, a toast to show once the world exists, and a
+// session id to re-claim on the live connection after verification.
+let returnedFromCheckout = false;
+let resumeFallbackName = '';
+let pendingReturnToast = '';
+let pendingPassClaim = '';
+function claimPassOnConnection(force) {
+  // Only send once actually joined (the server drops claims from
+  // pre-join connections); the init handler calls with force=true at the
+  // exact moment the join lands.
+  if (pendingPassClaim && ws && ws.readyState === WebSocket.OPEN && (gameStarted || force)) {
+    ws.send(JSON.stringify({ type: 'claim_pass', sessionId: pendingPassClaim }));
+    pendingPassClaim = '';
+  }
+}
+
 (function checkReturnFromCheckout() {
   const params = new URLSearchParams(location.search);
   // Legacy param names still land in the same place — one pass product now.
   const sessionId = params.get('pass_session') || params.get('unlock_session') || params.get('room_pass_session');
-  if (!sessionId) return;
-  history.replaceState(null, '', location.pathname);
+  const canceled = params.get('pass_cancel') === '1';
+  if (!sessionId && !canceled) return;
+  returnedFromCheckout = true;
+  // Strip the checkout params but keep the harness seam alive if present.
+  history.replaceState(null, '', location.pathname + (params.get('testdrive') === '1' ? '?testdrive=1' : ''));
+  if (canceled) {
+    pendingReturnToast = '↩️ Checkout canceled — no charge. Welcome back.';
+    return;
+  }
   let acctToken = '';
   try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
   fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId)
@@ -3440,6 +3517,10 @@ if (unlockBtn) {
         refreshUnlockUI();
         refreshPassHud();
         refreshBuildingLockVisuals();
+        // Stamp the pass onto the LIVE connection too — the auto-resumed
+        // join may have raced ahead of this verification.
+        pendingPassClaim = sessionId;
+        claimPassOnConnection();
       } else {
         setUnlockToast('⚠️ ' + (data.error || 'Payment was not completed.'));
       }
@@ -5998,14 +6079,33 @@ function makeRuinedWall(x, z) {
   return g;
 }
 
+function makeBonePile(x, z) {
+  const g = new THREE.Group();
+  const boneMat = new THREE.MeshLambertMaterial({ color: 0xd8d2c0 });
+  const oldBoneMat = new THREE.MeshLambertMaterial({ color: 0xb8b09a });
+  for (let i = 0; i < 5; i++) {
+    const bone = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 14 + Math.random() * 10, 5), i % 2 ? boneMat : oldBoneMat);
+    bone.rotation.set(Math.PI / 2 + (Math.random() - 0.5) * 0.5, Math.random() * Math.PI, 0);
+    bone.position.set((Math.random() - 0.5) * 14, 2 + Math.random() * 2, (Math.random() - 0.5) * 14);
+    g.add(bone);
+  }
+  const skullish = new THREE.Mesh(new THREE.SphereGeometry(4.5, 7, 6), boneMat);
+  skullish.position.set(3, 4, -2);
+  g.add(skullish);
+  g.position.set(x, 0, z);
+  return g;
+}
+
 function addSpookyDecor(scene, w2) {
   const rng = (a, b) => a + Math.random() * (b - a);
-  // Spooky trees — thick clusters near the cave and scattered throughout
-  for (let i = 0; i < 90; i++) {
+  // Spooky trees — thick clusters near the cave and scattered throughout.
+  // 150 of them now (was 90): on a 10000x10000 map the old count left
+  // whole horizons bare.
+  for (let i = 0; i < 150; i++) {
     scene.add(makeSpookyTree(rng(300, w2.width - 300), rng(300, w2.height - 300)));
   }
-  // Graveyard clusters
-  for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[5000,8500]]) {
+  // Graveyard clusters (two more than before, filling the SE and far west)
+  for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[5000,8500],[8200,8200],[900,6500]]) {
     for (let i = 0; i < 9; i++) {
       scene.add(makeGravestone(cx + rng(-110, 110), cz + rng(-110, 110)));
     }
@@ -6013,13 +6113,101 @@ function addSpookyDecor(scene, w2) {
     for (let i = 0; i < 5; i++) {
       scene.add(makeSpookyTree(cx + rng(-200, 200), cz + rng(-200, 200)));
     }
+    // …and the remains of whatever visits graveyards at night
+    for (let i = 0; i < 2; i++) {
+      scene.add(makeBonePile(cx + rng(-170, 170), cz + rng(-170, 170)));
+    }
   }
-  // Ruined buildings
-  for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000]]) {
+  // Ruined buildings (two more clusters)
+  for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
     for (let i = 0; i < 4; i++) {
       scene.add(makeRuinedWall(cx + rng(-160, 160), cz + rng(-160, 160)));
     }
+    scene.add(makeBonePile(cx + rng(-120, 120), cz + rng(-120, 120)));
   }
+}
+
+// ── Wilds campfires ─────────────────────────────────────────────────────────
+// Always-lit rest stops (the server heals anyone standing in the glow —
+// see WILDS_CAMPFIRES in server.js; keep these coordinates identical).
+const WILDS_CAMPFIRES = [
+  { x: 5000, y: 8450 },
+  { x: 3400, y: 4300 },
+  { x: 6300, y: 5300 },
+  { x: 2650, y: 2650 },
+  { x: 5000, y: 1600 }
+];
+
+function makeWildsCampfire(x, z) {
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6b6b63 });
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(5 + (i % 2), 0), stoneMat);
+    stone.position.set(Math.cos(a) * 22, 3, Math.sin(a) * 22);
+    stone.rotation.set(i, i * 2, 0);
+    g.add(stone);
+  }
+  const logMat = new THREE.MeshLambertMaterial({ color: 0x4a3320 });
+  for (const rot of [0.4, 1.7, 2.9]) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 30, 6), logMat);
+    log.rotation.z = Math.PI / 2;
+    log.rotation.y = rot;
+    log.position.y = 4;
+    g.add(log);
+  }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(10, 26, 8), new THREE.MeshBasicMaterial({ color: 0xff9d3c }));
+  flame.position.y = 18;
+  g.add(flame);
+  const flameCore = new THREE.Mesh(new THREE.ConeGeometry(5, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
+  flameCore.position.y = 15;
+  g.add(flameCore);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff9d3c, transparent: true, opacity: 0.5, depthWrite: false }));
+  glow.scale.set(90, 90, 1);
+  glow.position.y = 20;
+  g.add(glow);
+  const light = new THREE.PointLight(0xff9d3c, 0.85, 300);
+  light.position.y = 26;
+  g.add(light);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// ── Wilds waymarkers — standing lore stones (read with F / the pill) ───────
+// Positions mirrored from server.js's WAYMARKER_LORE keys.
+const WILDS_WAYMARKERS = [
+  { id: 'way_severance', x: 3800, y: 7300 },
+  { id: 'way_hollow', x: 5900, y: 4300 },
+  { id: 'way_factions', x: 2900, y: 5200 },
+  { id: 'way_hazel', x: 2350, y: 2350 },
+  { id: 'way_wastes', x: 7300, y: 3300 }
+];
+
+function makeWaymarkerStone(x, z) {
+  const g = new THREE.Group();
+  const stone = new THREE.Mesh(
+    new THREE.CylinderGeometry(7, 12, 74, 7),
+    new THREE.MeshLambertMaterial({ color: 0x7a7a85 })
+  );
+  stone.position.y = 37;
+  stone.rotation.z = 0.06;
+  g.add(stone);
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(9, 0), new THREE.MeshLambertMaterial({ color: 0x6b6b78 }));
+  cap.position.y = 76;
+  g.add(cap);
+  // Faintly glowing runes down the face
+  const runeMat = new THREE.MeshBasicMaterial({ color: 0xb37ae0, transparent: true, opacity: 0.85 });
+  for (let i = 0; i < 4; i++) {
+    const rune = new THREE.Mesh(new THREE.BoxGeometry(2.4, 5, 0.8), runeMat);
+    rune.position.set(i % 2 ? 3 : -2, 58 - i * 12, 10.5 - i * 0.8);
+    rune.rotation.z = (i % 2 ? 1 : -1) * 0.3;
+    g.add(rune);
+  }
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(15, 18, 6, 8), new THREE.MeshLambertMaterial({ color: 0x55554e }));
+  base.position.y = 3;
+  g.add(base);
+  g.position.set(x, 0, z);
+  return g;
 }
 
 // ---------------------------------------------------------------------------
@@ -7063,23 +7251,63 @@ function buildWildsScene(w2) {
   scene.add(buildPortalMesh(returnPortalX, returnPortalY));
   WILDS_KIOSKS.push({ x: returnPortalX, z: returnPortalY, portal: 'town' });
 
-  // Witch cave entrance — a dark rocky arch
-  const caveEntranceMat = new THREE.MeshLambertMaterial({ color: 0x1a0f1a });
-  const archBase = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 40), caveEntranceMat);
-  archBase.position.set(WITCH_CAVE_ENTRANCE_X, 40, WITCH_CAVE_ENTRANCE_Z);
-  scene.add(archBase);
-  // Arch opening (dark inset)
-  const opening = new THREE.Mesh(new THREE.BoxGeometry(40, 60, 50), new THREE.MeshLambertMaterial({ color: 0x040106 }));
-  opening.position.set(WITCH_CAVE_ENTRANCE_X, 35, WITCH_CAVE_ENTRANCE_Z);
-  scene.add(opening);
-  // Purple glow from within
-  const caveGlow = new THREE.PointLight(0x8822cc, 0.8, 200);
-  caveGlow.position.set(WITCH_CAVE_ENTRANCE_X, 30, WITCH_CAVE_ENTRANCE_Z - 20);
+  // Witch cave entrance — a proper LARGE rock formation now: a mound of
+  // huge weathered boulders shouldering each other around a dark maw,
+  // mossy caps on top, rubble at the foot — not the old floating box.
+  const CX = WITCH_CAVE_ENTRANCE_X, CZ = WITCH_CAVE_ENTRANCE_Z;
+  const rockMat = new THREE.MeshLambertMaterial({ color: 0x4a4550 });
+  const rockDark = new THREE.MeshLambertMaterial({ color: 0x38343f });
+  const mossMat = new THREE.MeshLambertMaterial({ color: 0x2f4a30 });
+  // [dx, y, dz, radius, material] — one great back boulder, two shoulders,
+  // a capstone bridging the maw, and rubble by the mouth.
+  const CAVE_BOULDERS = [
+    [0, 55, -55, 105, rockMat],     // the mountain of the thing
+    [-105, 42, -10, 70, rockDark],  // west shoulder
+    [102, 40, -14, 66, rockMat],    // east shoulder
+    [-2, 118, -30, 52, rockDark],   // capstone over the maw
+    [-58, 14, 48, 26, rockMat],     // rubble, west of the mouth
+    [60, 12, 50, 22, rockDark],     // rubble, east of the mouth
+    [-150, 10, 45, 16, rockMat],    // outlying stone
+    [148, 9, 40, 14, rockDark]      // outlying stone
+  ];
+  CAVE_BOULDERS.forEach(([dx, y, dz, r, mat], i) => {
+    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
+    b.position.set(CX + dx, y, CZ + dz);
+    b.rotation.set(i * 0.7, i * 1.3, i * 0.5);
+    scene.add(b);
+  });
+  // Moss caps draped on the high stones
+  for (const [dx, y, dz, r] of [[-10, 148, -35, 30], [-95, 95, -20, 22], [95, 88, -25, 20]]) {
+    const moss = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mossMat);
+    moss.scale.y = 0.45;
+    moss.position.set(CX + dx, y, CZ + dz);
+    scene.add(moss);
+  }
+  // The maw — a dark mouth low in the face, purple candlelight inside
+  const maw = new THREE.Mesh(new THREE.CylinderGeometry(34, 40, 62, 10), new THREE.MeshLambertMaterial({ color: 0x040106 }));
+  maw.position.set(CX, 30, CZ + 28);
+  scene.add(maw);
+  const caveGlow = new THREE.PointLight(0x8822cc, 0.9, 260);
+  caveGlow.position.set(CX, 30, CZ + 10);
   scene.add(caveGlow);
+  const mawGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x8822cc, transparent: true, opacity: 0.35, depthWrite: false }));
+  mawGlow.scale.set(80, 80, 1);
+  mawGlow.position.set(CX, 34, CZ + 30);
+  scene.add(mawGlow);
+  // A pair of gnarled trees leaning over the formation
+  scene.add(makeSpookyTree(CX - 175, CZ - 60));
+  scene.add(makeSpookyTree(CX + 180, CZ - 45));
   const caveSign = makeSignSprite('🕯️ Witch\'s Cave — Press F to enter');
-  caveSign.position.set(WITCH_CAVE_ENTRANCE_X, 100, WITCH_CAVE_ENTRANCE_Z);
+  caveSign.position.set(CX, 185, CZ);
   scene.add(caveSign);
-  WILDS_KIOSKS.push({ x: WITCH_CAVE_ENTRANCE_X, z: WITCH_CAVE_ENTRANCE_Z, portal: 'cave_enter' });
+  WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
+
+  // Campfires (server-healing rest stops) + lore waymarkers
+  for (const f of WILDS_CAMPFIRES) scene.add(makeWildsCampfire(f.x, f.y));
+  for (const m of WILDS_WAYMARKERS) {
+    scene.add(makeWaymarkerStone(m.x, m.y));
+    WILDS_KIOSKS.push({ x: m.x, z: m.y, npc: 'waymark', markerId: m.id, radius: 95 });
+  }
 
   wildsScene = scene;
   wildsCamera = camera;
@@ -13640,6 +13868,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { openBloodPactModal(); return; }
+  if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
 
@@ -13778,6 +14007,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'wolf_pact') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Lexton Greyfur`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'waymark') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} read the waymarker`;
     return;
   }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
@@ -14216,6 +14450,68 @@ function loop(now) {
   render();
   requestAnimationFrame(loop);
 }
+
+// ── Seamless return from Stripe Checkout ────────────────────────────────────
+// The redirect to Stripe kills the page (and with it a guest's whole
+// world). startPassCheckout() stashed a one-time resume token in
+// sessionStorage before leaving; if this page load is the bounce-back
+// (returnedFromCheckout, set by checkReturnFromCheckout above), skip the
+// join screen entirely and rejoin with the token — the server rebuilds the
+// same character in the same spot, and init's `resumed` flag swaps the
+// view to match via restoreSceneForRoom().
+
+function showResumeUi(show) {
+  const screen = document.getElementById('joinScreen');
+  if (!screen) return;
+  const card = screen.querySelector('.card');
+  if (card) card.style.display = show ? 'none' : '';
+  let note = document.getElementById('resumeNote');
+  if (!note) {
+    if (!show) return;
+    note = document.createElement('div');
+    note.id = 'resumeNote';
+    note.style.cssText = 'color:#9ee37d;font-size:16px;font-weight:700;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,0.6);';
+    screen.appendChild(note);
+  }
+  note.textContent = '🌀 Rejoining the town…';
+  note.style.display = show ? '' : 'none';
+}
+
+// Point the client's view at whatever room the server restored us into —
+// the visual half of each enter* path, without re-sending moves or toasts.
+function restoreSceneForRoom(room) {
+  if (!me) return;
+  if (world && world.buildings.some(b => b.id === room)) {
+    const keep = { x: me.x, y: me.y };
+    enterBuilding(room);
+    me.x = keep.x; // exact stashed spot, not enterBuilding's door nudge
+    me.y = keep.y;
+    return;
+  }
+  if (room === 'wilds') { swapToWildsMap(); maybeUpdateRoomUI('wilds'); return; }
+  if (room === 'witch_cave') { swapToCaveMap(); maybeUpdateRoomUI(room); return; }
+  if (room === 'bank_vault') { swapToVaultMap(); maybeUpdateRoomUI(room); return; }
+  if (room === 'ember_wastes') { swapToEmberMap(); maybeUpdateRoomUI(room); return; }
+  maybeUpdateRoomUI('outside');
+}
+
+(function maybeAutoResume() {
+  if (!returnedFromCheckout) return; // a normal load gets the normal join screen
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem('tc_resume') || 'null'); } catch (e) {}
+  try { sessionStorage.removeItem('tc_resume'); } catch (e) {} // strictly single-shot
+  if (!saved || !saved.token) return;
+  if (Date.now() - (saved.at || 0) > 14 * 60 * 1000) return; // older than the server stash lives
+  resumeFallbackName = saved.name || '';
+  showResumeUi(true);
+  const payload = { type: 'join', resumeToken: saved.token };
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) payload.accountToken = a.token; } catch (e) {}
+  if (passSessionReceipt()) payload.passSession = passSessionReceipt();
+  lastJoinPayload = payload; // the reconnect path reuses the same payload
+  const sendJoin = () => ws.send(JSON.stringify(payload));
+  if (ws && ws.readyState === WebSocket.OPEN) sendJoin();
+  else ws.addEventListener('open', sendJoin, { once: true });
+})();
 
 // Test seam — exists only when the page is loaded with ?testdrive=1 (the
 // headless UI harness in test/mobile-shots.cjs uses it to teleport around
