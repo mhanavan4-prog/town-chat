@@ -385,7 +385,9 @@
     background:linear-gradient(90deg,#ffd27a,#ff9d5c);
   }
   #unlockToast {
-    position:fixed; top:104px; left:0; right:0; z-index:6;
+    /* Above modal overlays (z-index 20): toasts announce checkout results
+       and pass errors, which must stay readable while a modal is open. */
+    position:fixed; top:104px; left:0; right:0; z-index:50;
     display:flex; justify-content:center; pointer-events:none;
   }
   #unlockToast.hidden { display:none !important; }

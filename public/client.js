@@ -3444,6 +3444,18 @@ function requestResumeToken(timeoutMs = 900) {
   });
 }
 
+// Checkout failures must be VISIBLE where the player is looking. The toast
+// alone isn't enough: with the statue modal open it used to render *behind*
+// the overlay (toast z-index 6 vs overlay 20), so a failing /api/checkout
+// looked like the Buy button silently doing nothing. Write the reason into
+// the modal's own error line too (the server terminal logs the specifics —
+// "Stripe checkout error: …" — e.g. a bad STRIPE_SECRET_KEY or no network).
+function showCheckoutProblem(message) {
+  setUnlockToast('⚠️ ' + message);
+  const err = document.getElementById('passModalErr');
+  if (err && passModalOpen) err.textContent = '⚠️ ' + message;
+}
+
 async function startPassCheckout(btn) {
   const restore = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
@@ -3459,12 +3471,12 @@ async function startPassCheckout(btn) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setUnlockToast('⚠️ ' + (data.error || 'Could not start checkout.'));
+        showCheckoutProblem(data.error || 'Could not start checkout.');
         if (btn) { btn.disabled = false; btn.textContent = restore; }
       }
     })
     .catch(() => {
-      setUnlockToast('⚠️ Could not reach the server.');
+      showCheckoutProblem('Could not reach the server — is it still running?');
       if (btn) { btn.disabled = false; btn.textContent = restore; }
     });
 }
