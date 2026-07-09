@@ -492,7 +492,9 @@ function onWsMessage(ev) {
       } else {
         myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
       }
+      loadLoadout(); // per-class slot order, chosen by the player
       buildHotbar();
+      maybeShowFirstRunControls();
       if (isTouchDevice()) {
         document.getElementById('joystick').classList.add('show');
         initMobileHud(); // joystick rest spot, action wheel, top bar, menu sheet
@@ -3884,6 +3886,10 @@ if (NAME_HOVER_ENABLED) {
 function isScreenPosHovered(screenX, screenY) {
   if (!NAME_HOVER_ENABLED) return true;
   if (!hoverMouseActive || anyOverlayOpen()) return false;
+  // While the camera is being dragged, the cursor isn't "pointing at"
+  // anything — it's steering. Without this, orbiting past an NPC lights
+  // their nameplate up mid-drag, right in the middle of the view.
+  if (dragging && dragMoved >= CLICK_DRAG_THRESHOLD) return false;
   return Math.abs(hoverMouseX - screenX) < NAME_HOVER_ZONE.halfWidth
     && hoverMouseY > screenY - NAME_HOVER_ZONE.above
     && hoverMouseY < screenY + NAME_HOVER_ZONE.below;
@@ -3909,7 +3915,18 @@ function updateNameLabelHover() {
         sprite.getWorldPosition(_hoverTmpVec3);
         const rp = getRenderPos(me);
         const d = Math.hypot(_hoverTmpVec3.x - rp.x, _hoverTmpVec3.z - rp.z);
-        sprite.visible = d <= 190;
+        // Near the camera, a scaled sprite becomes a screen-filling
+        // banner — exactly what happens orbiting the camera past an NPC
+        // at your back. If the camera is basically inside the sign,
+        // hide it; it carries no information at that range anyway.
+        let camTooClose = false;
+        if (activeCamera) {
+          const dx = _hoverTmpVec3.x - activeCamera.position.x;
+          const dy = _hoverTmpVec3.y - activeCamera.position.y;
+          const dz = _hoverTmpVec3.z - activeCamera.position.z;
+          camTooClose = (dx * dx + dy * dy + dz * dz) < 110 * 110;
+        }
+        sprite.visible = d <= 190 && !camTooClose;
       } else {
         sprite.visible = false;
       }
@@ -4580,7 +4597,7 @@ function buildMobileQuickSlots() {
     if (me.charId === 0 || myAttackCatalog) kitBtn.style.opacity = '1';
   }
   if (!myActionCatalog) return;
-  const ids = Object.keys(myActionCatalog).slice(0, 3);
+  const ids = orderedAbilityIds().slice(0, 3);
   ['qs1', 'qs2', 'qs3'].forEach((qid, i) => {
     const btn = document.getElementById(qid);
     if (!btn) return;
@@ -4741,6 +4758,135 @@ function showStreak(count, message, bonus) {
   if (count === 10) showChapterCeremony('🔥 ×10 STREAK', 'The night itself is impressed.');
   haptic(count >= 5 ? [15, 30, 25] : 15);
 }
+
+// ── Loadout editor ──────────────────────────────────────────────────────────
+// Tap a slot, tap an ability: the two swap places. Live-saves on every
+// swap, so the wheel/hotbar underneath is already rearranged by the time
+// the panel closes. Ownership of your controls, two taps at a time.
+let loadoutSelectedSlot = null;
+
+function openLoadoutModal() {
+  if (!myActionCatalog) { setUnlockToast('Join with a class kit first.'); return; }
+  loadoutSelectedSlot = null;
+  renderLoadoutModal();
+  document.getElementById('loadoutModal').classList.remove('hidden');
+}
+function closeLoadoutModal() {
+  document.getElementById('loadoutModal').classList.add('hidden');
+}
+
+function renderLoadoutModal() {
+  const ids = orderedAbilityIds();
+  const slotsEl = document.getElementById('loadoutSlots');
+  const absEl = document.getElementById('loadoutAbilities');
+  if (!slotsEl || !absEl) return;
+  slotsEl.innerHTML = '';
+  absEl.innerHTML = '';
+  const slotCount = Math.min(ids.length, HOTBAR_KEYS.length);
+  for (let i = 0; i < slotCount; i++) {
+    const id = ids[i];
+    const ab = myActionCatalog[id];
+    const cell = document.createElement('div');
+    cell.className = 'loSlot' + (loadoutSelectedSlot === i ? ' selected' : '');
+    cell.textContent = ab ? ab.icon : '·';
+    const key = document.createElement('span');
+    key.className = 'loKey';
+    key.textContent = MOBILE_UI ? String(i + 1) : HOTBAR_KEY_LABELS[i];
+    cell.appendChild(key);
+    if (MOBILE_UI && i < 3) {
+      const wheel = document.createElement('span');
+      wheel.className = 'loWheel';
+      wheel.textContent = '📱';
+      wheel.title = 'On your action wheel';
+      cell.appendChild(wheel);
+    }
+    cell.title = ab ? (ab.name || id) : '';
+    cell.addEventListener('click', () => {
+      loadoutSelectedSlot = loadoutSelectedSlot === i ? null : i;
+      renderLoadoutModal();
+    });
+    slotsEl.appendChild(cell);
+  }
+  const hint = document.getElementById('loadoutHint');
+  if (hint) {
+    hint.textContent = loadoutSelectedSlot === null
+      ? (MOBILE_UI ? 'Tap a slot (📱 = on your wheel), then tap the ability to put there.'
+                   : 'Click a slot (the key it answers to is in the corner), then click an ability.')
+      : `Slot ${loadoutSelectedSlot + 1} selected — now pick the ability for it.`;
+  }
+  for (const id of Object.keys(myActionCatalog)) {
+    const ab = myActionCatalog[id];
+    const idx = ids.indexOf(id);
+    const cell = document.createElement('div');
+    cell.className = 'loAb' + (idx > -1 && idx < 3 && MOBILE_UI ? ' inSlots' : '');
+    cell.textContent = ab.icon;
+    cell.title = ab.name || id;
+    cell.addEventListener('click', () => {
+      if (loadoutSelectedSlot === null) {
+        setUnlockToast(`${ab.icon} ${ab.name || id} — pick a slot first, then tap this.`);
+        return;
+      }
+      const next = ids.slice();
+      const from = next.indexOf(id);
+      const to = loadoutSelectedSlot;
+      if (from === -1 || from === to) { loadoutSelectedSlot = null; renderLoadoutModal(); return; }
+      [next[to], next[from]] = [next[from], next[to]]; // swap — always a clean permutation
+      saveLoadout(next);
+      loadoutSelectedSlot = null;
+      renderLoadoutModal();
+      haptic(12);
+    });
+    absEl.appendChild(cell);
+  }
+}
+
+(function wireLoadoutModal() {
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  on('loadoutCloseBtn', closeLoadoutModal);
+  on('loadoutResetBtn', () => {
+    try { localStorage.removeItem(loadoutStorageKey()); } catch (e) {}
+    myLoadout = null;
+    buildHotbar();
+    loadoutSelectedSlot = null;
+    renderLoadoutModal();
+    setUnlockToast('↩️ Slots back to the default order.');
+  });
+  on('spellLoadoutBtn', openLoadoutModal);
+  on('attackLoadoutBtn', openLoadoutModal);
+  on('controlsLoadoutBtn', () => { closeControlsModal(); openLoadoutModal(); });
+  on('menuLoadout', () => { document.getElementById('menuSheet').classList.add('hidden'); openLoadoutModal(); });
+  const overlay = document.getElementById('loadoutModal');
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeLoadoutModal(); });
+})();
+
+// ── Controls guide ──────────────────────────────────────────────────────────
+// Auto-shows exactly once (per browser) on a player's first-ever join, and
+// is always one tap/keypress away after that (☰ → Controls, or H).
+function openControlsModal() {
+  document.getElementById('controlsMobile').classList.toggle('hidden', !MOBILE_UI);
+  document.getElementById('controlsDesktop').classList.toggle('hidden', MOBILE_UI);
+  document.getElementById('controlsModal').classList.remove('hidden');
+}
+function closeControlsModal() {
+  document.getElementById('controlsModal').classList.add('hidden');
+  try { localStorage.setItem('tc_controls_seen', '1'); } catch (e) {}
+}
+function toggleControlsModal() {
+  const el = document.getElementById('controlsModal');
+  if (el.classList.contains('hidden')) openControlsModal(); else closeControlsModal();
+}
+function maybeShowFirstRunControls() {
+  let seen = null;
+  try { seen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
+  if (!seen) setTimeout(openControlsModal, 900); // let the world land first
+}
+(function wireControlsModal() {
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  on('controlsCloseBtn', closeControlsModal);
+  on('menuControls', () => { document.getElementById('menuSheet').classList.add('hidden'); openControlsModal(); });
+  const overlay = document.getElementById('controlsModal');
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeControlsModal(); });
+})();
 
 // ---------------------------------------------------------------------------
 // Chat UI — chat only exists once you're inside a building; the open world
@@ -12027,6 +12173,39 @@ const HOTBAR_KEY_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'
 // countdown — casting Fireball only sweeps slot 4, not the other 11.
 let hotbarSlotEls = []; // [{ id, slot, cooldown, cooldownText }, ...], rebuilt in buildHotbar()
 
+// ── Personal loadout ────────────────────────────────────────────────────────
+// The ORDER of your abilities is yours to choose: slots 1–12 on the desktop
+// hotbar, and the first three ride the mobile action wheel. Stored per
+// class, per browser (like the character pick) — it's a control preference,
+// not game state; the server validates every cast regardless of order.
+let myLoadout = null; // ordered ability ids for the current class, or null = default
+function loadoutStorageKey() { return 'tc_loadout_' + (me ? me.charId : 'x'); }
+function loadLoadout() {
+  myLoadout = null;
+  if (!me) return;
+  try {
+    const raw = JSON.parse(localStorage.getItem(loadoutStorageKey()) || 'null');
+    if (Array.isArray(raw) && raw.every(x => typeof x === 'string')) myLoadout = raw;
+  } catch (e) {}
+}
+function orderedAbilityIds() {
+  if (!myActionCatalog) return [];
+  const all = Object.keys(myActionCatalog);
+  if (!myLoadout) return all;
+  const seen = new Set();
+  const out = [];
+  for (const id of myLoadout) {
+    if (myActionCatalog[id] && !seen.has(id)) { out.push(id); seen.add(id); }
+  }
+  for (const id of all) if (!seen.has(id)) out.push(id); // newly added abilities land at the end
+  return out;
+}
+function saveLoadout(ids) {
+  myLoadout = ids.slice();
+  try { localStorage.setItem(loadoutStorageKey(), JSON.stringify(myLoadout)); } catch (e) {}
+  buildHotbar(); // rebuilds the desktop bar; on mobile it rebuilds the wheel slots
+}
+
 function buildHotbar() {
   const bar = document.getElementById('hotbar');
   if (!bar) return;
@@ -12042,7 +12221,7 @@ function buildHotbar() {
     return;
   }
   if (!myActionCatalog) { bar.classList.add('hidden'); return; }
-  const ids = Object.keys(myActionCatalog);
+  const ids = orderedAbilityIds();
   ids.forEach((id, idx) => {
     if (idx >= HOTBAR_KEYS.length) return;
     const atk = myActionCatalog[id];
@@ -13143,10 +13322,11 @@ window.addEventListener('keydown', (e) => {
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
     if (slot !== -1) {
-      const id = Object.keys(myActionCatalog)[slot];
+      const id = orderedAbilityIds()[slot]; // keys follow YOUR order (see loadout)
       if (id) { castFromHotbar(id); return; }
     }
   }
+  if ((e.key === 'h' || e.key === 'H') && !e.repeat) { toggleControlsModal(); return; }
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
   }

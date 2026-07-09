@@ -741,6 +741,33 @@
   body.touchMode #chatPanel.mobileClosed { display:none !important; }
   body.touchMode #chatPanel.arcadeMode { width:100%; max-width:100%; }
 
+  /* ── Controls guide + loadout editor ── */
+  #controlsCard, #loadoutCard { max-height:86vh; overflow-y:auto; text-align:left; }
+  .ctlList { display:flex; flex-direction:column; gap:9px; margin:12px 0; }
+  .ctlList.hidden { display:none; }
+  .ctlRow { display:flex; gap:10px; align-items:flex-start; color:#e8dcc0; font-size:13.5px; line-height:1.45; }
+  .ctlRow b { color:#ffe9c2; }
+  .ctlIcon { font-size:20px; flex:0 0 26px; text-align:center; }
+  #loadoutSlots { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .loSlot {
+    position:relative; width:56px; height:56px; border-radius:10px;
+    background:rgba(255,255,255,0.07); border:1.5px solid rgba(230,190,120,0.4);
+    font-size:24px; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent; cursor:pointer;
+  }
+  .loSlot.selected { border-color:#7ddc8f; box-shadow:0 0 10px rgba(125,220,143,0.6); }
+  .loSlot .loKey { position:absolute; bottom:2px; right:4px; font-size:9px; color:#cfd8c8; }
+  .loSlot .loWheel { position:absolute; top:-6px; left:-6px; font-size:12px; }
+  #loadoutAbilities { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .loAb {
+    width:46px; height:46px; border-radius:9px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2);
+    font-size:20px; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent; cursor:pointer;
+  }
+  .loAb.inSlots { border-color:rgba(230,190,120,0.55); }
+  .loAb.selected { border-color:#7ddc8f; box-shadow:0 0 10px rgba(125,220,143,0.6); }
+
   /* ── Hard Drive media shelves ── */
   .hdMediaHead { font-weight:700; color:#ffe9c2; margin:12px 0 6px; }
   .hdMediaRow { display:flex; flex-wrap:wrap; gap:10px; }
@@ -1236,6 +1263,8 @@
       <button class="menuRow" id="menuDrive">💾 Hard Drive</button>
       <button class="menuRow" id="menuPass">🎟️ Town Pass</button>
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
+      <button class="menuRow" id="menuControls">❓ Controls</button>
+      <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
       <button class="menuRow" id="menuMusic">🔈 Music</button>
       <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
     </div>
@@ -1246,6 +1275,57 @@
 
 <div id="emoteWheel" class="hidden"></div>
 <div id="streakTag"></div>
+
+<!-- ── Controls guide ─────────────────────────────────────────────────────
+     Auto-shows once on a player's very first join (per browser), then
+     lives in ☰ menu (mobile) / the H key (desktop). Two content blocks;
+     JS shows the one matching the platform. -->
+<div id="controlsModal" class="overlay hidden">
+  <div class="card" id="controlsCard">
+    <div class="title" style="font-size:20px;">❓ How to play</div>
+    <div id="controlsMobile" class="ctlList hidden">
+      <div class="ctlRow"><span class="ctlIcon">🕹️</span><span><b>Move</b> — touch anywhere on the LEFT half and drag. Your character runs where you point.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">👁️</span><span><b>Look</b> — drag on the right side to swing the camera. Dragging while running re-aims your run.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">👆</span><span><b>Tap</b> a creature to strike it, a plant to harvest, a player to see who they are.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">⚔️</span><span><b>Big button</b> — attack the nearest enemy.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">🦘</span><span><b>Jump</b>, purely for style.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">✨</span><span><b>Ability slots</b> — your three chosen abilities, cooldowns and all. The ✨/📖 button opens the full kit.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">🎛️</span><span><b>Make it yours</b> — swap which abilities sit on the wheel (button below).</span></div>
+      <div class="ctlRow"><span class="ctlIcon">😀</span><span><b>Emotes</b> — a ring of quick reactions everyone nearby sees.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">📢</span><span><b>Voice clip</b> — appears while something is attacking you; play a saved clip to slip away (everyone in earshot hears it!).</span></div>
+      <div class="ctlRow"><span class="ctlIcon">🚪</span><span><b>Glowing pill</b> — enter buildings, portals, seats, and conversations. It appears when something is close enough.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">☰</span><span><b>Menu</b> — inventory, journal, Hard Drive, Town Pass, snapshots, and the rest.</span></div>
+      <div class="ctlRow"><span class="ctlIcon">💬</span><span><b>Chat</b> — indoors only; the bubble shows what you missed.</span></div>
+    </div>
+    <div id="controlsDesktop" class="ctlList hidden">
+      <div class="ctlRow"><span class="ctlIcon">⌨️</span><span><b>W/S</b> walk · <b>A/D</b> turn · <b>Q/E</b> strafe · <b>Space</b> jump</span></div>
+      <div class="ctlRow"><span class="ctlIcon">🖱️</span><span><b>Drag</b> to look around · <b>click</b> a creature to strike, a plant to harvest, a player for options</span></div>
+      <div class="ctlRow"><span class="ctlIcon">⚔️</span><span><b>R</b> — attack the nearest enemy</span></div>
+      <div class="ctlRow"><span class="ctlIcon">✋</span><span><b>F</b> — interact: sit, portals, NPCs, kiosks</span></div>
+      <div class="ctlRow"><span class="ctlIcon">✨</span><span><b>1–9, 0, -, =</b> — your ability hotbar, in the order YOU choose (customize below)</span></div>
+      <div class="ctlRow"><span class="ctlIcon">📜</span><span><b>J</b> — journal & campaign · <b>T</b> — emote wheel · <b>P</b> — snapshot a player</span></div>
+      <div class="ctlRow"><span class="ctlIcon">📢</span><span><b>V</b> — play your armed voice clip to evade while under attack</span></div>
+      <div class="ctlRow"><span class="ctlIcon">❓</span><span><b>H</b> — this screen</span></div>
+    </div>
+    <button class="btn" id="controlsLoadoutBtn">🎛️ Customize your ability slots</button>
+    <button class="btn" id="controlsCloseBtn">Got it</button>
+  </div>
+</div>
+
+<!-- ── Loadout editor ─────────────────────────────────────────────────────
+     Tap a slot, then tap the ability that should live there (the two swap
+     places). Saved per class, per browser — control is personal. -->
+<div id="loadoutModal" class="overlay hidden">
+  <div class="card" id="loadoutCard">
+    <div class="title" style="font-size:20px;">🎛️ Your loadout</div>
+    <div class="subtitle" id="loadoutHint">Tap a slot, then tap the ability to put there. The two swap.</div>
+    <div id="loadoutSlots"></div>
+    <div class="subtitle" style="margin-top:10px;">All abilities</div>
+    <div id="loadoutAbilities"></div>
+    <button class="btn" id="loadoutResetBtn">↩️ Reset to default order</button>
+    <button class="btn" id="loadoutCloseBtn">Done</button>
+  </div>
+</div>
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
@@ -1436,6 +1516,7 @@
     <button class="btn" id="spellCastBtn">Cast</button>
     <div id="spellCooldownNote"></div>
   </div>
+  <button class="btn" id="spellLoadoutBtn" style="margin-top:8px;">🎛️ Customize slots</button>
   <button class="btn" id="spellbookCloseBtn" style="margin-top:8px;">Close (Esc)</button>
   <div class="err" id="spellbookErr"></div>
 </div>
@@ -1489,6 +1570,7 @@
     <select id="attackTargetSelect"></select>
     <button class="btn" id="attackCastBtn">⚔️ Strike</button>
   </div>
+  <button class="btn" id="attackLoadoutBtn" style="margin-top:8px;">🎛️ Customize slots</button>
   <button class="btn" id="attackCloseBtn" style="margin-top:8px;">Close (Esc)</button>
   <div class="err" id="attackErr"></div>
 </div>
