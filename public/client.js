@@ -849,7 +849,7 @@ function onWsMessage(ev) {
     if (msg.passUntil > Date.now()) {
       passUntil = msg.passUntil;
       localStorage.setItem('tc_pass_until', String(passUntil));
-      setUnlockToast(`🎟️ Town Pass active — 🛋️ Lounge + 🎮 Arcade open for ${passTimeLeftLabel()}!`);
+      setUnlockToast(`🎟️ Town Pass active — 👻 Phantom Parlor + 🎮 Starlight Arcade open for ${passTimeLeftLabel()}!`);
       refreshUnlockUI();
       refreshPassHud();
       refreshBuildingLockVisuals();
@@ -1683,7 +1683,7 @@ function roomLabel(roomId) {
 }
 
 // ---------------------------------------------------------------------------
-// The Town Pass — two buildings (the Rooftop Lounge and the Arcade) are
+// The Town Pass — two buildings (the Phantom Parlor and the Starlight Arcade) are
 // locked; one $0.99 Stripe Checkout purchase opens BOTH for 24 hours. The
 // server is the real gate now (a move into a locked room bounces with
 // 'room_locked' no matter what this client claims) — everything here is
@@ -3553,7 +3553,7 @@ function claimPassOnConnection(force) {
     .then(data => {
       if (data.unlocked) {
         storePassReceipt(sessionId, data.expiresAt || (Date.now() + townPassHours * 3600 * 1000));
-        setUnlockToast(`✅ Town Pass active — 🛋️ Lounge + 🎮 Arcade open for ${passTimeLeftLabel()}!`);
+        setUnlockToast(`✅ Town Pass active — 👻 Phantom Parlor + 🎮 Starlight Arcade open for ${passTimeLeftLabel()}!`);
         refreshUnlockUI();
         refreshPassHud();
         refreshBuildingLockVisuals();
@@ -5611,10 +5611,15 @@ const INTERIOR_THEMES = {
   // symbol set instead of tarot & runes. The extra fields are atmosphere
   // overrides only the arcade sets; every other room keeps the warm tavern
   // defaults (see getInteriorScene()).
-  arcade:  { label: 'Starlit Arcade',  wall: 0x22335e, banner: 0x4fa8ff, furniture: 'alchemist',  floorTint: 0x9db8f0,
+  arcade:  { label: 'Starlight Arcade', wall: 0x22335e, banner: 0x4fa8ff, furniture: 'alchemist',  floorTint: 0x9db8f0,
              bg: 0x070f22, ambient: 0x4d6fd8, ambientIntensity: 1.7, fill: 0x8fb8ff,
              lightsStyle: 'crystal', beamColor: 0x16223f },
-  lounge:  { label: 'Noble Parlor & Terrace', wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor', floorTint: 0xffc9d2 },
+  // The Phantom Parlor — third of the witchy trilogy (cave purple, arcade
+  // blue, parlor ghost-green): séance-parlor haunt lit by drifting spirit
+  // wisps instead of crystals or fire.
+  lounge:  { label: "Phantom Parlor & Widow's Watch", wall: 0x1f3a2e, banner: 0x54e8a8, furniture: 'parlor', floorTint: 0x9fd8b8,
+             bg: 0x061410, ambient: 0x3fa87a, ambientIntensity: 1.55, fill: 0x9fffd0,
+             lightsStyle: 'wisp', wispColor: 0x8fffbe, lightColor: 0x3fd98a, beamColor: 0x122921 },
   hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 },
   bank:    { label: 'Grand Bank Hall', wall: 0x4a4538, banner: 0xd4af37, furniture: 'bank',       floorTint: 0xe8d9a0 }
 };
@@ -10091,13 +10096,17 @@ function getInteriorScene(buildingId) {
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0x8fb8ff, 0.8);
     fill.position.set(roomW * 0.6, 260, roomD * 0.7);
     scene.add(fill);
-    const crystalMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 });
+    const crystalMat = new THREE.MeshLambertMaterial({
+      color: theme.crystalColor != null ? theme.crystalColor : 0x9fd4ff,
+      emissive: theme.crystalEmissive != null ? theme.crystalEmissive : 0x1d5ecc,
+      emissiveIntensity: 0.9
+    });
     const spots = [
       [34, 34], [roomW - 34, 34], [34, roomD - 34], [roomW - 34, roomD - 34],
       [roomW / 2, 40]
     ];
     for (const [sx, sz] of spots) {
-      const light = new THREE.PointLight(0x3d8bff, 1.5, 380);
+      const light = new THREE.PointLight(theme.lightColor != null ? theme.lightColor : 0x3d8bff, 1.5, 380);
       light.position.set(sx, 85, sz);
       scene.add(light);
       const cluster = new THREE.Group();
@@ -10110,6 +10119,31 @@ function getInteriorScene(buildingId) {
       cluster.position.set(sx, 0, sz);
       scene.add(cluster);
     }
+  } else if (theme.lightsStyle === 'wisp') {
+    // Spirit-wisp lighting (the Phantom Parlor): no fixtures at all — just
+    // hovering glow-orbs with a soft halo, each carrying its own cold
+    // light. Heights vary so they read as drifting, not mounted.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0x9fffd0, 0.7);
+    fill.position.set(roomW * 0.5, 260, roomD * 0.7);
+    scene.add(fill);
+    const wCol = theme.wispColor != null ? theme.wispColor : 0x8fffbe;
+    const lCol = theme.lightColor != null ? theme.lightColor : 0x3fd98a;
+    const spots = [
+      [roomW * 0.12, roomD * 0.2], [roomW * 0.3, roomD * 0.78], [roomW * 0.52, roomD * 0.25],
+      [roomW * 0.7, roomD * 0.7], [roomW * 0.88, roomD * 0.3]
+    ];
+    spots.forEach(([sx, sz], i) => {
+      const light = new THREE.PointLight(lCol, 1.4, 400);
+      light.position.set(sx, 96, sz);
+      scene.add(light);
+      const wispY = 92 + (i % 3) * 9;
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(5 + (i % 3), 10, 10), new THREE.MeshBasicMaterial({ color: wCol, transparent: true, opacity: 0.85 }));
+      orb.position.set(sx, wispY, sz);
+      scene.add(orb);
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(9 + (i % 3) * 1.5, 10, 10), new THREE.MeshBasicMaterial({ color: wCol, transparent: true, opacity: 0.16 }));
+      halo.position.set(sx, wispY, sz);
+      scene.add(halo);
+    });
   } else {
     const torch1 = new THREE.PointLight(0xffa85c, 1.2, 340);
     torch1.position.set(30, 70, 30);
@@ -10152,9 +10186,9 @@ function getInteriorScene(buildingId) {
     scene.add(beam);
   }
 
-  // torches near the point lights (crystal-lit rooms already got glowing
-  // clusters at every light spot instead — fire would clash)
-  if (theme.lightsStyle !== 'crystal') {
+  // torches near the point lights (crystal- and wisp-lit rooms already got
+  // their own glowing fixtures at every light spot — fire would clash)
+  if (!theme.lightsStyle) {
     scene.add(buildTorch(30, 30));
     scene.add(buildTorch(roomW - 30, roomD - 30));
   }
@@ -10760,10 +10794,10 @@ function makeArcadeCabinet(x, z, rotY, screenColor) {
   return g;
 }
 
-function makeWindowGlow(x, y, z, rotY) {
+function makeWindowGlow(x, y, z, rotY, color) {
   const glow = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 30),
-    new THREE.MeshBasicMaterial({ color: 0xffd98a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+    new THREE.MeshBasicMaterial({ color: color != null ? color : 0xffd98a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
   );
   glow.position.set(x, y, z);
   glow.rotation.y = rotY || 0;
@@ -10797,7 +10831,8 @@ function buildLoungeStructure(scene, roomW, roomD) {
 
   const stepCount = 6;
   const stepWidth = (stairEnd - stairStart) / stepCount;
-  const stepMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2e });
+  // Mossy stone for the Phantom Parlor (was warm wood in Lounge days)
+  const stepMat = new THREE.MeshLambertMaterial({ color: 0x25443a });
   for (let i = 0; i < stepCount; i++) {
     const stepH = platformH * (i + 1) / stepCount;
     const stepX = stairStart + stepWidth * (i + 0.5);
@@ -10808,14 +10843,15 @@ function buildLoungeStructure(scene, roomW, roomD) {
 
   const platform = new THREE.Mesh(
     new THREE.BoxGeometry(roomW - stairEnd, 8, roomD),
-    new THREE.MeshLambertMaterial({ color: 0x8a6b46 })
+    new THREE.MeshLambertMaterial({ color: 0x2e5346 })
   );
   platform.position.set((stairEnd + roomW) / 2, platformH - 4, roomD / 2);
   scene.add(platform);
 
-  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.25, -Math.PI / 2));
-  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.75, -Math.PI / 2));
-  const lookoutSign = makeSignSprite('🌄 Lookout Terrace');
+  // Ghostlight seeps in through the watch windows
+  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.25, -Math.PI / 2, 0xa8ffd0));
+  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.75, -Math.PI / 2, 0xa8ffd0));
+  const lookoutSign = makeSignSprite("🌙 Widow's Watch");
   lookoutSign.position.set((stairEnd + roomW) / 2, platformH + 60, roomD * 0.5);
   scene.add(lookoutSign);
 }
@@ -10835,6 +10871,41 @@ function addDiningSet(scene, seatsOut, tx, tz) {
   for (const s of seatOffsets) {
     seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
   }
+}
+
+// A free-floating glowing glyph — always-bright (Basic material), soft halo
+// painted right into the canvas. Halo/ink tint per room: the Starlight
+// Arcade hangs blue ones, the Phantom Parlor ghost-green.
+function makeGlowGlyphMesh(glyph, size, halo, ink) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = halo || '#66baff'; ctx.shadowBlur = 14;
+  ctx.fillStyle = ink || '#cfe8ff'; ctx.font = '38px serif';
+  ctx.fillText(glyph, 32, 34);
+  ctx.fillText(glyph, 32, 34); // twice = brighter core inside the halo
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  return new THREE.Mesh(new THREE.PlaneGeometry(size || 26, size || 26), mat);
+}
+
+// A relic on display: stone pedestal, glass dome, its own cold light.
+// Items get added into the returned group at y≈34..46. opts tints the
+// stone/dome/light per room; opts.baseY lifts the whole pedestal (the
+// Parlor's terrace pedestal sits on the raised platform).
+function makeDisplayPedestal(scene, x, z, opts) {
+  const o = opts || {};
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 26, 10), new THREE.MeshLambertMaterial({ color: o.stone != null ? o.stone : 0x243761 }));
+  base.position.y = 13; g.add(base);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 2.5, 10), new THREE.MeshLambertMaterial({ color: o.cap != null ? o.cap : 0x2f4a7f }));
+  cap.position.y = 27; g.add(cap);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(13, 12, 10), new THREE.MeshLambertMaterial({ color: o.dome != null ? o.dome : 0xbfe2ff, transparent: true, opacity: 0.22 }));
+  dome.position.y = 40; g.add(dome);
+  const light = new THREE.PointLight(o.light != null ? o.light : 0x66aaff, 0.5, 90);
+  light.position.set(0, 46, 0); g.add(light);
+  g.position.set(x, o.baseY || 0, z);
+  scene.add(g);
+  return g;
 }
 
 function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
@@ -11036,36 +11107,6 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       return new THREE.Mesh(new THREE.PlaneGeometry(26, 26), mat);
     };
 
-    // A free-floating glowing glyph — always-bright (Basic material), soft
-    // halo painted right into the canvas.
-    const makeGlowGlyph = (glyph, size) => {
-      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-      const ctx = c.getContext('2d');
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#66baff'; ctx.shadowBlur = 14;
-      ctx.fillStyle = '#cfe8ff'; ctx.font = '38px serif';
-      ctx.fillText(glyph, 32, 34);
-      ctx.fillText(glyph, 32, 34); // twice = brighter core inside the halo
-      const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, side: THREE.DoubleSide });
-      return new THREE.Mesh(new THREE.PlaneGeometry(size || 26, size || 26), mat);
-    };
-
-    // A relic on display: stone pedestal, glass dome, its own cold light.
-    const makePedestal = (x, z) => {
-      const g = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 26, 10), new THREE.MeshLambertMaterial({ color: 0x243761 }));
-      base.position.y = 13; g.add(base);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 2.5, 10), new THREE.MeshLambertMaterial({ color: 0x2f4a7f }));
-      cap.position.y = 27; g.add(cap);
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(13, 12, 10), new THREE.MeshLambertMaterial({ color: 0xbfe2ff, transparent: true, opacity: 0.22 }));
-      dome.position.y = 40; g.add(dome);
-      const light = new THREE.PointLight(0x66aaff, 0.5, 90);
-      light.position.set(0, 46, 0); g.add(light);
-      g.position.set(x, 0, z);
-      scene.add(g);
-      return g; // items get added into this group at y≈34..46
-    };
-
     const shardMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 });
     const makeShardCluster = (x, z) => {
       const g = new THREE.Group();
@@ -11212,7 +11253,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         ['☿', 6, 60, 150, Math.PI / 2], ['✦', 6, 130, 243, Math.PI / 2], ['♄', 6, 60, 340, Math.PI / 2],
         ['☽', roomW - 6, 125, 90, -Math.PI / 2], ['✶', roomW - 6, 125, 400, -Math.PI / 2]
       ].forEach(([glyph, x, y, z, rotY]) => {
-        const gl = makeGlowGlyph(glyph, 24);
+        const gl = makeGlowGlyphMesh(glyph, 24);
         gl.position.set(x, y, z);
         gl.rotation.y = rotY;
         scene.add(gl);
@@ -11221,7 +11262,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // ── Magical items on display, under glass ─────────────────────────
       // Scrying orb
       (function() {
-        const p = makePedestal(90, 120);
+        const p = makeDisplayPedestal(scene, 90, 120);
         const orb = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 12), new THREE.MeshLambertMaterial({ color: 0x66ccff, emissive: 0x2f7fff, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 }));
         orb.position.y = 38; p.add(orb);
         const core = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0xd8f2ff }));
@@ -11231,7 +11272,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       })();
       // Star grimoire — open book hovering above the pedestal
       (function() {
-        const p = makePedestal(roomW - 90, 120);
+        const p = makeDisplayPedestal(scene, roomW - 90, 120);
         const coverMat = new THREE.MeshLambertMaterial({ color: 0x1a2f5e, emissive: 0x0a1830, emissiveIntensity: 0.5 });
         const pageMat = new THREE.MeshLambertMaterial({ color: 0xe8f0ff, emissive: 0x3355aa, emissiveIntensity: 0.25 });
         for (const s of [-1, 1]) {
@@ -11249,7 +11290,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       })();
       // Starforged blade — upright, point down
       (function() {
-        const p = makePedestal(90, 356);
+        const p = makeDisplayPedestal(scene, 90, 356);
         const blade = new THREE.Mesh(new THREE.BoxGeometry(2.2, 24, 5), new THREE.MeshLambertMaterial({ color: 0xdfeaff, emissive: 0x6f9fe8, emissiveIntensity: 0.5 }));
         blade.position.y = 44; blade.rotation.z = 0.12; p.add(blade);
         const guard = new THREE.Mesh(new THREE.BoxGeometry(9, 2, 3), new THREE.MeshLambertMaterial({ color: 0x2f4a7f }));
@@ -11261,7 +11302,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       })();
       // Moon relic — a silver crescent with two trailing motes
       (function() {
-        const p = makePedestal(roomW - 90, 356);
+        const p = makeDisplayPedestal(scene, roomW - 90, 356);
         const moonMat = new THREE.MeshLambertMaterial({ color: 0xe4e9ff, emissive: 0x6a74c8, emissiveIntensity: 0.55 });
         const body = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), moonMat);
         body.position.y = 40; p.add(body);
@@ -11294,18 +11335,140 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: roomW - 150, z: roomD - 90, npc: 'hint', npcId: 'npc_tinkerer', npcName: 'Tinkerer Oswin' });
     }
   } else if (type === 'parlor') {
-    // Two-story Rooftop Lounge: ground floor on the west side, a staircase,
-    // and an upstairs terrace overlooking it on the east side.
+    // ── The Phantom Parlor (ex-Rooftop Lounge) ──────────────────────────
+    // Third room of the witchy trilogy — the cave is purple, the Starlight
+    // Arcade blue, and this séance parlor ghost-green. Same decorating
+    // playbook (painted canvas cards, a glyph ring on the floor, glowing
+    // occult clutter, relics under glass), haunted-house symbol set: a
+    // portrait gallery of the departed, drifting spirit wisps (see the
+    // 'wisp' lightsStyle in getInteriorScene), witchfire in the hearth.
+    // The two-story STRUCTURE is untouched: ground floor west, staircase,
+    // terrace east — every dining seat and both NPCs keep their exact
+    // positions and kiosk ids.
     const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
     const groundCx = stairStart / 2;
 
-    scene.add(makeRug(groundCx, roomD * 0.42, stairStart * 0.5, roomD * 0.4, 0x8a5a64));
-    scene.add(makeFireplace(groundCx, 14, Math.PI));
+    // A haunted portrait — the tarot-card technique grown up: ornate
+    // silver-green frame, a pale hooded spirit painted inside, a memorial
+    // plaque line. Each sitter gets their own hunch via the seed.
+    const makeHauntedPortrait = (name, epitaph, seed) => {
+      const cw = 96, ch = 128;
+      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 0, ch);
+      grad.addColorStop(0, '#04120c'); grad.addColorStop(1, '#0a241a');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
+      ctx.strokeStyle = '#7fc9a0'; ctx.lineWidth = 3;
+      ctx.strokeRect(4, 4, cw - 8, ch - 8);
+      ctx.strokeStyle = '#2e5a44'; ctx.lineWidth = 1;
+      ctx.strokeRect(10, 10, cw - 20, ch - 20);
+      for (const [ox, oy] of [[14, 14], [cw - 14, 14], [14, ch - 14], [cw - 14, ch - 14]]) {
+        ctx.fillStyle = '#7fc9a0'; ctx.beginPath();
+        ctx.arc(ox, oy, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      // The sitter: a translucent hooded figure, softly glowing, slightly
+      // off-center and tilted per portrait so the gallery feels peopled.
+      const px = cw / 2 + Math.sin(seed * 7.3) * 6;
+      const tilt = Math.sin(seed * 3.1) * 0.18;
+      ctx.save();
+      ctx.translate(px, 62); ctx.rotate(tilt);
+      ctx.shadowColor = '#8fffbe'; ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(190,255,220,0.5)';
+      ctx.beginPath(); // hood + shoulders
+      ctx.arc(0, -14, 13, Math.PI, 0);
+      ctx.quadraticCurveTo(17, 8, 13, 26);
+      // trailing wisp hem
+      ctx.quadraticCurveTo(8, 20, 4, 28);
+      ctx.quadraticCurveTo(0, 20, -4, 28);
+      ctx.quadraticCurveTo(-8, 20, -13, 26);
+      ctx.quadraticCurveTo(-17, 8, -13, -14);
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(6,20,14,0.9)'; // the dark under the hood
+      ctx.beginPath(); ctx.arc(0, -12, 8.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b8ffd8'; // two faint eyes
+      ctx.beginPath(); ctx.arc(-3, -13, 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3, -13, 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 8px sans-serif'; ctx.fillStyle = '#7fc9a0';
+      ctx.fillText(name, cw / 2, ch - 24);
+      ctx.font = 'italic 6.5px serif'; ctx.fillStyle = '#5a9a78';
+      ctx.fillText(epitaph, cw / 2, ch - 14);
+      const mat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), emissive: 0x0c2418, emissiveIntensity: 0.55 });
+      return new THREE.Mesh(new THREE.PlaneGeometry(62, 84), mat);
+    };
+
+    // Ghost-green display pedestal shorthand
+    const PARLOR_PED = { stone: 0x24463a, cap: 0x2e5a48, dome: 0xbfffe0, light: 0x5fe8a0 };
+
+    // Séance rug + circle where the old parlor rug lay
+    scene.add(makeRug(groundCx, roomD * 0.42, stairStart * 0.5, roomD * 0.4, 0x14332a));
+    (function() {
+      const rc = document.createElement('canvas'); rc.width = 256; rc.height = 256;
+      const rx = rc.getContext('2d');
+      rx.strokeStyle = 'rgba(120,255,180,0.6)'; rx.lineWidth = 3;
+      rx.beginPath(); rx.arc(128, 128, 110, 0, Math.PI * 2); rx.stroke();
+      rx.lineWidth = 2;
+      rx.beginPath(); rx.arc(128, 128, 84, 0, Math.PI * 2); rx.stroke();
+      // Candle marks around the outer ring — every other one "lit"
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+        rx.fillStyle = i % 2 ? 'rgba(150,255,200,0.85)' : 'rgba(90,160,125,0.5)';
+        rx.beginPath();
+        rx.arc(128 + Math.cos(a) * 97, 128 + Math.sin(a) * 97, i % 2 ? 3.4 : 2.2, 0, Math.PI * 2);
+        rx.fill();
+      }
+      // Spirit-board furniture: YES / NO across the middle ring, a moon and
+      // sun mark, and a planchette outline resting dead center.
+      rx.fillStyle = 'rgba(190,255,220,0.8)'; rx.textAlign = 'center';
+      rx.font = 'bold 15px serif';
+      rx.fillText('YES', 66, 134);
+      rx.fillText('NO', 190, 134);
+      rx.font = '16px serif';
+      rx.fillText('☾', 128, 70);
+      rx.fillText('✶', 128, 200);
+      rx.strokeStyle = 'rgba(170,255,210,0.75)'; rx.lineWidth = 2;
+      rx.beginPath(); // teardrop planchette
+      rx.moveTo(128, 104);
+      rx.quadraticCurveTo(152, 122, 128, 152);
+      rx.quadraticCurveTo(104, 122, 128, 104);
+      rx.closePath(); rx.stroke();
+      rx.beginPath(); rx.arc(128, 126, 7, 0, Math.PI * 2); rx.stroke();
+      const tex = new THREE.CanvasTexture(rc);
+      const ring = new THREE.Mesh(
+        new THREE.PlaneGeometry(230, 230),
+        new THREE.MeshLambertMaterial({ map: tex, transparent: true, opacity: 0.9 })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(groundCx, 1.2, roomD * 0.42);
+      scene.add(ring);
+    })();
+
+    // The hearth, now burning witchfire — same footprint as the old
+    // fireplace, green flame, cold green light, embers drifting up.
+    (function() {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(50, 60, 18), new THREE.MeshLambertMaterial({ color: 0x2e4438 }));
+      body.position.y = 30; g.add(body);
+      const hole = new THREE.Mesh(new THREE.BoxGeometry(30, 34, 10), new THREE.MeshBasicMaterial({ color: 0x49ff9e }));
+      hole.position.set(0, 20, 2); g.add(hole);
+      const emberMat = new THREE.MeshBasicMaterial({ color: 0xb8ffd8 });
+      for (const [ex, ey, ez, er] of [[-8, 66, 6, 1.8], [5, 74, 4, 1.3], [0, 82, 6, 0.9]]) {
+        const ember = new THREE.Mesh(new THREE.SphereGeometry(er, 6, 6), emberMat);
+        ember.position.set(ex, ey, ez); g.add(ember);
+      }
+      const glow = new THREE.PointLight(0x3fe88a, 1.2, 260);
+      glow.position.set(0, 24, 12); g.add(glow);
+      g.position.set(groundCx, 0, 14); g.rotation.y = Math.PI;
+      scene.add(g);
+    })();
+
     scene.add(makeBench(groundCx - 40, roomD * 0.7, Math.PI / 2));
     scene.add(makeBench(groundCx + 40, roomD * 0.7, -Math.PI / 2));
     scene.add(makeTable(groundCx, roomD * 0.7));
-    scene.add(makeBanner(30, 90, 8, 0, 0xc0596f));
-    scene.add(makeBanner(stairStart - 30, 90, 8, 0, 0xc0596f));
+    scene.add(makeBanner(30, 90, 8, 0, 0x54e8a8));
+    scene.add(makeBanner(stairStart - 30, 90, 8, 0, 0x54e8a8));
 
     // 4 more dining tables downstairs, arranged in a neat 2x2 grid in the
     // rest of the ground floor.
@@ -11327,16 +11490,104 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       addElevatedTable(scene, x, roomD * 0.5, LOUNGE_PLATFORM_HEIGHT);
     }
 
-    // Framed paintings on the ground floor's south wall, facing north.
-    [
-      { symbol: '🎭', title: 'MASQUE', subtitle: 'a memory of dancing' },
-      { symbol: '🍷', title: 'STILL LIFE', subtitle: 'wine and candlelight' }
-    ].forEach(({ symbol, title, subtitle }, i) => {
-      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a1420', bg2: '#3c1c2c', border: '#9a5a6f', accent: '#ffc9d2' });
-      p.position.set(stairStart * (i === 0 ? 0.25 : 0.6), 90, roomD - 4);
-      p.rotation.y = Math.PI;
+    // ── The portrait gallery of the departed, all over the walls ────────
+    const PORTRAITS = [
+      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: 120, z: 4, rotY: 0 },
+      { name: 'THE GREY EARL', epitaph: 'never left', x: 300, z: 4, rotY: 0 },
+      { name: 'SISTER OPALINE', epitaph: 'still humming', x: 480, z: 4, rotY: 0 },
+      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: 120, z: roomD - 4, rotY: Math.PI },
+      { name: 'THE TWINS', epitaph: 'they watch the stairs', x: 300, z: roomD - 4, rotY: Math.PI },
+      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: 480, z: roomD - 4, rotY: Math.PI }
+    ];
+    PORTRAITS.forEach(({ name, epitaph, x, z, rotY }, i) => {
+      const p = makeHauntedPortrait(name, epitaph, i + 1);
+      p.position.set(x, 92, z);
+      p.rotation.y = rotY;
       scene.add(p);
     });
+    // Two more watch over the terrace from the east wall
+    [
+      { name: 'THE WIDOW', epitaph: 'she keeps the watch', z: 200 },
+      { name: 'CAPTAIN VANE', epitaph: 'lost at moonrise', z: 300 }
+    ].forEach(({ name, epitaph, z }, i) => {
+      const p = makeHauntedPortrait(name, epitaph, i + 7);
+      p.position.set(roomW - 4, LOUNGE_PLATFORM_HEIGHT + 70, z);
+      p.rotation.y = -Math.PI / 2;
+      scene.add(p);
+    });
+
+    // Free-floating glyphs between the portraits, ghost-green
+    [
+      ['☾', 210, 125, 6, 0], ['🕯️', 390, 60, 6, 0],
+      ['✧', 210, 128, roomD - 6, Math.PI], ['👻', 390, 128, roomD - 6, Math.PI],
+      ['✦', 6, 120, 120, Math.PI / 2], ['☽', 6, 120, 366, Math.PI / 2],
+      ['✶', 730, 125, roomD - 6, Math.PI], ['🕯️', roomW - 6, LOUNGE_PLATFORM_HEIGHT + 74, 245, -Math.PI / 2]
+    ].forEach(([glyph, x, y, z, rotY]) => {
+      const gl = makeGlowGlyphMesh(glyph, 24, '#5fffae', '#d8ffe8');
+      gl.position.set(x, y, z);
+      gl.rotation.y = rotY;
+      scene.add(gl);
+    });
+
+    // ── Haunted relics on display, under glass ──────────────────────────
+    // Phantom lantern — an iron cage holding a flame that never was
+    (function() {
+      const p = makeDisplayPedestal(scene, 150, 250, PARLOR_PED);
+      const iron = new THREE.MeshLambertMaterial({ color: 0x1a2420 });
+      const bot = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 1.6, 8), iron);
+      bot.position.y = 33; p.add(bot);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 6, 1.6, 8), iron);
+      top.position.y = 48; p.add(top);
+      for (let i = 0; i < 4; i++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 5), iron);
+        post.position.set(Math.cos(i * Math.PI / 2) * 5.2, 40.5, Math.sin(i * Math.PI / 2) * 5.2);
+        p.add(post);
+      }
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(3.4, 8, 8), new THREE.MeshBasicMaterial({ color: 0x6fffb0 }));
+      flame.scale.y = 1.5; flame.position.y = 40.5; p.add(flame);
+      const sign = makeSignSprite('🕯️ Phantom Lantern');
+      sign.position.set(150, 74, 250); scene.add(sign);
+    })();
+    // Spirit bell — rings by itself, allegedly
+    (function() {
+      const p = makeDisplayPedestal(scene, groundCx, 95, PARLOR_PED);
+      const bellMat = new THREE.MeshLambertMaterial({ color: 0xcfe8dc, emissive: 0x2e5a48, emissiveIntensity: 0.35 });
+      const bell = new THREE.Mesh(new THREE.ConeGeometry(6.5, 11, 10), bellMat);
+      bell.position.y = 41; p.add(bell);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6), bellMat);
+      knob.position.y = 47.5; p.add(knob);
+      const clapper = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+      clapper.position.set(1.2, 35, 0); p.add(clapper);
+      const sign = makeSignSprite('🔔 Spirit Bell');
+      sign.position.set(groundCx, 74, 95); scene.add(sign);
+    })();
+    // Bound spirit — a jar nobody should open
+    (function() {
+      const p = makeDisplayPedestal(scene, 520, 250, PARLOR_PED);
+      const jar = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 13, 9), new THREE.MeshLambertMaterial({ color: 0x9fd8c0, transparent: true, opacity: 0.35 }));
+      jar.position.y = 40; p.add(jar);
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 2, 9), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+      lid.position.y = 47.5; p.add(lid);
+      const wisp = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
+      wisp.position.set(-1, 39, 0.5); p.add(wisp);
+      const mote = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xd8ffe8 }));
+      mote.position.set(2, 43, -1); p.add(mote);
+      const sign = makeSignSprite('🫙 Bound Spirit');
+      sign.position.set(520, 74, 250); scene.add(sign);
+    })();
+    // Séance planchette — up on the Widow's Watch
+    (function() {
+      const px = stairEnd + platformWidth * 0.5, pz = roomD * 0.22;
+      const p = makeDisplayPedestal(scene, px, pz, { ...PARLOR_PED, baseY: LOUNGE_PLATFORM_HEIGHT });
+      const board = new THREE.Mesh(new THREE.BoxGeometry(13, 1.8, 17), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
+      board.position.y = 36; board.rotation.y = 0.5; p.add(board);
+      const window_ = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 2.2, 10), new THREE.MeshLambertMaterial({ color: 0xbfffe0, transparent: true, opacity: 0.6 }));
+      window_.position.set(0, 36.6, 2); window_.rotation.y = 0.5; p.add(window_);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.5, 6), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
+      tip.position.set(-2.6, 36.6, -7.2); tip.rotation.z = Math.PI / 2; tip.rotation.y = 0.5; p.add(tip);
+      const sign = makeSignSprite('🔮 Séance Planchette');
+      sign.position.set(px, LOUNGE_PLATFORM_HEIGHT + 74, pz); scene.add(sign);
+    })();
 
     if (kiosksOut) {
       const tailor = createHumanoid(2).group;
