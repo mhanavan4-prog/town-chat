@@ -207,9 +207,10 @@ setTimeout(() => {
     // PvP swings miss an evading player, with a telling message.
     nearP.lastStrikeAt = 0;
     nearP.x = djP.x + 40; nearP.y = djP.y; // inside STRIKE_RANGE (70)
+    const djHpBeforeStrike = djP.health; // (starter gear can raise this above 100 now)
     near.emit('message', JSON.stringify({ type: 'strike', targetType: 'player', targetId: djP.id }));
     check('PvP strikes miss during evasion (with the echo message)',
-      djP.health === 100 && !!near.lastOfType('attack_result') &&
+      djP.health === djHpBeforeStrike && !!near.lastOfType('attack_result') &&
       /slips your strike/.test(near.lastOfType('attack_result').message));
 
     // ─── Disguise + snapshot + regulars discount ────────────────────────
@@ -299,8 +300,11 @@ setTimeout(() => {
     const fx = watcher.allOfType('hit_fx');
     check('hits broadcast hit_fx to the room', fx.length > 0);
     const lastFx = fx[fx.length - 1];
+    // dmg is now the FINAL amount after the attacker's power skills/gear scale
+    // the base roll, so it's >= the 10 passed in (the chainer's starter gear
+    // adds a little); the target/dead/caster fields are still exact.
     check('hit_fx carries target, damage, death and caster',
-      lastFx.targetType === 'mob' && lastFx.dmg === 10 && lastFx.dead === true && lastFx.casterId === chainerP.id);
+      lastFx.targetType === 'mob' && lastFx.dmg >= 10 && lastFx.dead === true && lastFx.casterId === chainerP.id);
 
     // ─── Pacing: the campaign cannot be beaten in under ~2 hours ────────
     // Structural facts first:

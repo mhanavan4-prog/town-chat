@@ -456,7 +456,15 @@ function maybeReconnectNow() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeReconnectNow(); });
 window.addEventListener('online', maybeReconnectNow);
-window.addEventListener('pageshow', maybeReconnectNow);
+window.addEventListener('pageshow', (e) => {
+  // A bfcache-revived page is a time traveler: its in-memory resume token
+  // is stale, and a newer session for this character may exist (e.g. the
+  // post-checkout page, if the player swipes Back afterward). Reload —
+  // the fresh boot resumes cleanly from sessionStorage's latest token
+  // instead of rejoining as a second copy of the character.
+  if (e.persisted) { location.reload(); return; }
+  maybeReconnectNow();
+});
 function onWsError() { setStatus(false); }
 function onWsMessage(ev) {
   let msg;
@@ -467,6 +475,14 @@ function onWsMessage(ev) {
     myId = msg.id;
     world = msg.world;
     TOWN_WORLD = world;
+    // Equipment stat catalog — used to preview how a gear swap changes stats.
+    if (msg.equipStats) equipStatsCatalog = msg.equipStats;
+    // 😴 Rested XP window (bonus XP for the first minutes of a session).
+    restedUntil = msg.restedUntil || 0;
+    if (restedUntil > Date.now() && !restedToastShown) {
+      restedToastShown = true;
+      setUnlockToast('😴 Rested! +50% XP for the next few minutes — welcome back.');
+    }
     // Town Pass truth from the server — which rooms are locked, what a
     // pass costs, and whether THIS connection holds one right now.
     if (msg.townPass) {
@@ -544,6 +560,9 @@ function onWsMessage(ev) {
       // the panel itself explains the 💽 item requirement if you lack it.
       const driveBtn = document.getElementById('driveBtn');
       if (driveBtn) driveBtn.classList.remove('hidden');
+      // 🌟 Skills button (class skill tree) — every class has one.
+      const skillsBtn = document.getElementById('skillsBtn');
+      if (skillsBtn) skillsBtn.classList.remove('hidden');
       requestCmState(); // load the countermeasure quick-list
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
@@ -622,6 +641,7 @@ function onWsMessage(ev) {
         if (me) {
           me.activeStatus = p.activeStatus || null;
           applyStatusVisual(myId, me.activeStatus);
+          if (typeof p.maxHealth === 'number') me.maxHealth = p.maxHealth;
           if (typeof p.health === 'number' && p.health !== me.health) {
             me.health = p.health;
             updateHealthHud();
@@ -793,17 +813,47 @@ function onWsMessage(ev) {
   if (msg.type === 'xp_gain') {
     if (me) { me.xp = msg.xp; me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
+    updateSkillsBadge();
+    if (skillsOpen) renderSkills();
     return;
   }
 
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
+    updateSkillsBadge();
+    if (skillsOpen) renderSkills();
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
     // Leveling matters more now (chapters gate on it) — give it a beat.
-    showChapterCeremony(`⬆️ Level ${msg.level}`, 'The Hollow takes note of you.');
+    showChapterCeremony(`⬆️ Level ${msg.level}`, 'A skill point earned — spend it in 🌟 Skills.');
     if (journalOpen) renderJournal();
+    return;
+  }
+
+  // ── Class skill trees ──
+  if (msg.type === 'skill_state') {
+    mySkillState = msg;
+    mySkillSpeedMult = msg.speedMult || 1;
+    if (msg.statBlock) myStatBlock = msg.statBlock;
+    if (me) { me.skillPoints = msg.skillPoints; me.maxHealth = msg.maxHealth || me.maxHealth || 100; }
+    updateXPDisplay();
+    updateSkillsBadge();
+    updateHealthHud();
+    if (skillsOpen) renderSkills();
+    if (inventoryOpen) { renderStats(); refreshEquipPreview(); }
+    return;
+  }
+  if (msg.type === 'skill_result') {
+    if (mySkillState) { /* fresh skill_state follows with authoritative ranks */ }
+    setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    return;
+  }
+  if (msg.type === 'skill_error') {
+    const errEl = document.getElementById('skillsErr');
+    if (errEl && skillsOpen) { errEl.textContent = msg.message; setTimeout(() => { if (errEl.textContent === msg.message) errEl.textContent = ''; }, 3200); }
+    else setUnlockToast(msg.message);
     return;
   }
 
@@ -1421,6 +1471,7 @@ function addPlayer(p) {
     equippedRing:   p.equippedRing   || null,
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
+    maxHealth: typeof p.maxHealth === 'number' ? p.maxHealth : 100,
     level: p.level || 1, skillPoints: p.skillPoints || 0, xp: p.xp || 0,
     isDead: p.isDead || false,
     hasLoot: !!p.hasLoot, deathX: p.deathX, deathY: p.deathY, deathRoom: p.deathRoom,
@@ -1710,7 +1761,10 @@ function storePassReceipt(sessionId, expiresAt) {
 function passTimeLeftLabel() {
   const ms = passUntil - Date.now();
   if (ms <= 0) return '';
-  const h = Math.floor(ms / 3600000), m = Math.round((ms % 3600000) / 60000);
+  // Floor the minutes (not round) so this never reads "23h 60m" — rounding the
+  // remainder up could hit 60 and print an impossible minute count.
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function passPriceLabel() { return `$${(townPassPriceCents / 100).toFixed(2)}`; }
@@ -1856,11 +1910,12 @@ if (invCloseBtn) invCloseBtn.addEventListener('click', (e) => {
 });
 
 const invTabItemsBtn = document.getElementById('invTabItems');
+const invTabStatsBtn = document.getElementById('invTabStats');
 const invTabNotesBtn = document.getElementById('invTabNotes');
 const invTabHardDriveBtn = document.getElementById('invTabHardDrive');
 const invTabSettingsBtn = document.getElementById('invTabSettings');
-const INV_VIEW_IDS = ['invItemsView', 'invNotesView', 'invHardDriveView', 'invSettingsView'];
-const INV_TAB_BTNS = { invItemsView: invTabItemsBtn, invNotesView: invTabNotesBtn, invHardDriveView: invTabHardDriveBtn, invSettingsView: invTabSettingsBtn };
+const INV_VIEW_IDS = ['invItemsView', 'invStatsView', 'invNotesView', 'invHardDriveView', 'invSettingsView'];
+const INV_TAB_BTNS = { invItemsView: invTabItemsBtn, invStatsView: invTabStatsBtn, invNotesView: invTabNotesBtn, invHardDriveView: invTabHardDriveBtn, invSettingsView: invTabSettingsBtn };
 function showInvTab(viewId) {
   invItemsTabActive = viewId === 'invItemsView';
   for (const id of INV_VIEW_IDS) {
@@ -1869,14 +1924,111 @@ function showInvTab(viewId) {
     if (btn) btn.classList.toggle('active', id === viewId);
   }
   if (viewId === 'invHardDriveView') refreshHardDriveTab();
+  if (viewId === 'invStatsView') { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'skill_state' })); renderStats(); }
 }
 function showInvItemsTab() { showInvTab('invItemsView'); }
+function showInvStatsTab() { showInvTab('invStatsView'); }
 function showInvNotesTab() { showInvTab('invNotesView'); }
 function showInvSettingsTab() { showInvTab('invSettingsView'); }
 if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
+if (invTabStatsBtn) invTabStatsBtn.addEventListener('click', showInvStatsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
 if (invTabHardDriveBtn) invTabHardDriveBtn.addEventListener('click', () => showInvTab('invHardDriveView'));
 if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
+
+// ── Character stats panel (📊 Stats tab) ──
+// The 8 derived stats, how each is displayed, and which items feed them.
+const STAT_DISPLAY = [
+  { key: 'power',    icon: '⚔️', name: 'Attack',        fmt: (b) => '+' + Math.round(b.stats.power.total * 100) + '%',    hint: 'more damage from strikes & abilities' },
+  { key: 'guard',    icon: '🛡️', name: 'Defense',       fmt: (b) => Math.round(Math.min(0.75, b.stats.guard.total) * 100) + '% less dmg', hint: 'incoming damage reduced' },
+  { key: 'vitality', icon: '❤️', name: 'Max Health',    fmt: (b) => String(Math.round(b.maxHealth)),                      hint: 'total health pool' },
+  { key: 'swift',    icon: '💨', name: 'Move Speed',    fmt: (b) => '+' + Math.round(b.stats.swift.total * 100) + '%',    hint: 'walk/run speed' },
+  { key: 'haste',    icon: '⏱️', name: 'Ability Haste', fmt: (b) => '-' + Math.round(Math.min(0.7, b.stats.haste.total) * 100) + '% cd', hint: 'shorter ability cooldowns' },
+  { key: 'leech',    icon: '🩸', name: 'Lifesteal',     fmt: (b) => Math.round(b.stats.leech.total * 100) + '%',          hint: 'heal a share of damage dealt' },
+  { key: 'xp',       icon: '✨', name: 'XP Bonus',       fmt: (b) => '+' + Math.round(b.stats.xp.total * 100) + '%',       hint: 'faster leveling' },
+  { key: 'forage',   icon: '🌿', name: 'Harvest Luck',  fmt: (b) => '+' + Math.round(b.stats.forage.total * 100) + '%',   hint: 'chance of an extra harvest' }
+];
+function renderStats() {
+  const list = document.getElementById('invStatsList');
+  if (!list) return;
+  const b = myStatBlock;
+  if (!b) { list.textContent = 'Loading your stats…'; return; }
+  list.innerHTML = '';
+  for (const d of STAT_DISPLAY) {
+    const st = b.stats[d.key] || { skill: 0, gear: 0, total: 0 };
+    const row = document.createElement('div');
+    row.className = 'statRow';
+    const ic = document.createElement('div'); ic.className = 'statRowIcon'; ic.textContent = d.icon;
+    const main = document.createElement('div'); main.className = 'statRowMain';
+    const nm = document.createElement('div'); nm.className = 'statRowName'; nm.textContent = d.name;
+    const sp = document.createElement('div'); sp.className = 'statRowSplit';
+    // vitality is flat points; the rest are percentages
+    const asPct = d.key !== 'vitality';
+    const skillTxt = d.key === 'vitality' ? `+${Math.round(st.skill)}` : `+${Math.round(st.skill * 100)}%`;
+    const gearTxt  = d.key === 'vitality' ? `+${Math.round(st.gear)}`  : `+${Math.round(st.gear * 100)}%`;
+    sp.textContent = `${d.hint} · skills ${skillTxt} · gear ${gearTxt}`;
+    main.appendChild(nm); main.appendChild(sp);
+    const val = document.createElement('div');
+    val.className = 'statRowVal' + ((st.total > 0 || (d.key === 'vitality' && b.maxHealth > 100)) ? ' buffed' : '');
+    val.textContent = d.fmt(b);
+    row.appendChild(ic); row.appendChild(main); row.appendChild(val);
+    list.appendChild(row);
+  }
+}
+
+// Which equipped item currently sits in a slot (from the inventory payload).
+function equippedItemInSlot(slotKind) {
+  const s = lastInventoryState || {};
+  return ({ weapon: s.equippedWeapon, head: s.equippedHead, chest: s.equippedChest, feet: s.equippedFeet, ring: s.equippedRing })[slotKind] || null;
+}
+// Show, in the item action panel, how equipping `itemId` into `slotKind` would
+// change each stat versus whatever's equipped there now — computed locally from
+// the equip-stats catalog, no server round-trip.
+const PREVIEW_STAT_META = {
+  power:  { icon: '⚔️', name: 'Attack',  pct: true },
+  guard:  { icon: '🛡️', name: 'Defense', pct: true },
+  vitality:{ icon: '❤️', name: 'Health', pct: false },
+  haste:  { icon: '⏱️', name: 'Haste',   pct: true },
+  swift:  { icon: '💨', name: 'Speed',   pct: true },
+  leech:  { icon: '🩸', name: 'Lifesteal', pct: true },
+  xp:     { icon: '✨', name: 'XP',      pct: true },
+  forage: { icon: '🌿', name: 'Harvest', pct: true }
+};
+function renderEquipPreview(itemId, slotKind) {
+  const preview = document.getElementById('invEquipPreview');
+  if (!preview) return;
+  const incoming = equipStatsCatalog[itemId] || {};
+  const current = equippedItemInSlot(slotKind);
+  const outgoing = (current && equipStatsCatalog[current]) || {};
+  const alreadyOn = current === itemId;
+  const parts = [];
+  for (const key of Object.keys(PREVIEW_STAT_META)) {
+    const delta = (incoming[key] || 0) - (outgoing[key] || 0);
+    if (Math.abs(delta) < 1e-9) continue;
+    const m = PREVIEW_STAT_META[key];
+    const val = m.pct ? Math.round(Math.abs(delta) * 100) + '%' : String(Math.round(Math.abs(delta)));
+    const cls = delta > 0 ? 'up' : 'down';
+    const arrow = delta > 0 ? '▲' : '▼';
+    parts.push(`<span class="previewDelta">${m.icon} ${m.name} <span class="${cls}">${arrow}${val}</span></span>`);
+  }
+  const title = alreadyOn ? '✓ Currently equipped'
+    : (current ? `Replaces ${(ITEM_CATALOG[current] || {}).icon || ''} ${(ITEM_CATALOG[current] || {}).name || current}` : 'Equipping this:');
+  if (!parts.length) {
+    preview.innerHTML = `<div class="previewTitle">${title}</div><span class="previewDelta same">No stat change.</span>`;
+  } else {
+    preview.innerHTML = `<div class="previewTitle">${title}</div>${parts.join('')}`;
+  }
+  preview.classList.remove('hidden');
+}
+// Re-run the preview for whatever slot is currently selected (after stats
+// refresh, e.g. right after an equip changes the baseline).
+function refreshEquipPreview() {
+  if (selectedInvSlotIdx == null || !lastInventoryState || !lastInventoryState.slots) return;
+  const slot = lastInventoryState.slots[selectedInvSlotIdx];
+  if (!slot) return;
+  const meta = ITEM_CATALOG[slot.itemId];
+  if (meta && meta.slot) renderEquipPreview(slot.itemId, meta.slot);
+}
 
 // 💾 Drive — a first-class HUD shortcut straight to the Hard Drive tab
 // (selfies, voice clips, note vault). Same panel the Inventory button
@@ -1956,6 +2108,8 @@ function selectInvSlot(idx) {
   renderInventoryItemsPanel();
   const slot = lastInventoryState.slots[idx];
   const panel = document.getElementById('invActionPanel');
+  const preview = document.getElementById('invEquipPreview');
+  if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
   if (!slot) { panel.classList.add('hidden'); return; }
   const item = ITEM_CATALOG[slot.itemId];
   document.getElementById('invActionItemLabel').textContent =
@@ -1964,6 +2118,8 @@ function selectInvSlot(idx) {
   buttons.innerHTML = '';
   const meta = item;
   if (meta && meta.slot) {
+    // Live stat preview: how does equipping this compare to what's in the slot?
+    renderEquipPreview(slot.itemId, meta.slot);
     const SLOT_LABELS = { weapon:'⚔️ Equip Weapon', head:'🎩 Equip Head', chest:'🛡️ Equip Chest', feet:'👢 Equip Feet', ring:'💍 Equip Ring' };
     const btn = document.createElement('button');
     btn.className = 'btn';
@@ -2517,8 +2673,12 @@ function updateHealthHud() {
   const path = document.getElementById('healthHeartPath');
   const text = document.getElementById('healthPercentText');
   if (!path || !text) return;
-  const pct = me ? Math.max(0, Math.min(100, Math.round(me.health))) : 100;
-  text.textContent = pct + '%';
+  const maxHp = me ? (me.maxHealth || 100) : 100;
+  const hp = me ? Math.max(0, Math.round(me.health)) : 100;
+  const pct = Math.max(0, Math.min(100, Math.round(100 * hp / maxHp)));
+  // Vitality skill raises max HP above 100 — show the actual pool (e.g.
+  // "124/136") so the bonus is visible; a base-100 player keeps the tidy "%".
+  text.textContent = maxHp > 100 ? `${hp}/${Math.round(maxHp)}` : pct + '%';
   path.style.fill = pct > 60 ? '#e0455a' : pct > 30 ? '#e0a93f' : '#8a2030';
 }
 
@@ -2540,6 +2700,15 @@ function updateXPDisplay() {
   const sp = me ? (me.skillPoints || 0) : 0;
   document.getElementById('xpStripLevel').textContent = `Lv ${level}`;
   document.getElementById('xpStripSP').textContent = `${sp} SP`;
+  // 😴 Rested countdown — fades out when the window closes.
+  const restedEl = document.getElementById('xpStripRested');
+  if (restedEl) {
+    const remain = restedUntil - Date.now();
+    if (remain > 0) {
+      restedEl.classList.remove('hidden');
+      document.getElementById('xpStripRestedTime').textContent = Math.ceil(remain / 60000) + 'm';
+    } else restedEl.classList.add('hidden');
+  }
   let pct = 0;
   if (level < CLIENT_MAX_LEVEL) {
     const lo = CLIENT_XP_THRESHOLDS[level - 1] || 0;
@@ -2619,6 +2788,99 @@ const journalBtn = document.getElementById('journalBtn');
 if (journalBtn) journalBtn.addEventListener('click', () => { if (journalOpen) closeJournal(); else openJournal(); });
 const journalCloseBtn = document.getElementById('journalCloseBtn');
 if (journalCloseBtn) journalCloseBtn.addEventListener('click', closeJournal);
+
+// ---------------------------------------------------------------------------
+// Class skill tree (🌟 Skills / K key) — spend the skill points earned at
+// every level-up on 6 class-themed bonus skills. The server owns the truth
+// (validation, effects, persistence); this panel just renders skill_state and
+// sends skill_allocate / skill_respec. mySkillSpeedMult is the one effect
+// applied client-side (movement), consistent with the game's speed-status model.
+// ---------------------------------------------------------------------------
+let mySkillState = null;      // latest skill_state payload
+let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
+let skillsOpen = false;
+let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
+let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
+let restedUntil = 0;          // 😴 rested-XP window end (epoch ms), 0 = none
+let restedToastShown = false;
+
+function updateSkillsBadge() {
+  const badge = document.getElementById('skillsBadge');
+  if (!badge) return;
+  const sp = me ? (me.skillPoints || 0) : 0;
+  badge.textContent = sp > 0 ? String(sp) : '';
+}
+
+function openSkills() {
+  const modal = document.getElementById('skillsModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 370, 150);
+  skillsOpen = true;
+  renderSkills();
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'skill_state' }));
+}
+function closeSkills() {
+  const modal = document.getElementById('skillsModal');
+  if (modal) modal.classList.add('hidden');
+  skillsOpen = false;
+}
+
+function renderSkills() {
+  const list = document.getElementById('skillsList');
+  const pts = document.getElementById('skillsPointsLabel');
+  const titleEl = document.getElementById('skillsTitle');
+  if (!list) return;
+  const st = mySkillState;
+  const CLASS_TREE_NAME = ['📖 Coven Secrets', '🐺 Feral Instincts', '🕯️ Spirit Communion', '⚔️ Martial Discipline', '🥾 Road Wisdom'];
+  if (titleEl && st) titleEl.textContent = '🌟 ' + (CLASS_TREE_NAME[st.charId] || 'Skills');
+  // me.skillPoints is the live count (kept fresh by xp_gain/level_up); the
+  // skill_state snapshot can lag a level-up that didn't re-send it.
+  const sp = me ? (me.skillPoints || 0) : (st ? st.skillPoints : 0);
+  if (pts) pts.textContent = sp === 1 ? '1 skill point to spend' : `${sp} skill points to spend`;
+  list.innerHTML = '';
+  if (!st || !st.skills) { list.textContent = 'Loading your skills…'; return; }
+  for (const sk of st.skills) {
+    const row = document.createElement('div');
+    row.className = 'skillRow' + (sk.rank >= sk.maxRank ? ' maxed' : '');
+    const icon = document.createElement('div');
+    icon.className = 'skillIcon'; icon.textContent = sk.icon;
+    const main = document.createElement('div');
+    main.className = 'skillMain';
+    const nm = document.createElement('div');
+    nm.className = 'skillName'; nm.textContent = `${sk.name} — rank ${sk.rank}/${sk.maxRank}`;
+    const ds = document.createElement('div');
+    ds.className = 'skillDesc'; ds.textContent = sk.desc;
+    const pips = document.createElement('div');
+    pips.className = 'skillPips';
+    for (let i = 0; i < sk.maxRank; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'skillPip' + (i < sk.rank ? ' filled' : '');
+      pips.appendChild(pip);
+    }
+    main.appendChild(nm); main.appendChild(ds); main.appendChild(pips);
+    const buy = document.createElement('button');
+    buy.className = 'skillBuy';
+    buy.textContent = '+';
+    const canBuy = sk.rank < sk.maxRank && sp > 0;
+    buy.disabled = !canBuy;
+    buy.title = sk.rank >= sk.maxRank ? 'Maxed out' : (sp > 0 ? `Spend 1 point on ${sk.name}` : 'No skill points — level up to earn more');
+    buy.addEventListener('click', () => {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'skill_allocate', skillId: sk.id }));
+    });
+    row.appendChild(icon); row.appendChild(main); row.appendChild(buy);
+    list.appendChild(row);
+  }
+}
+
+const skillsBtn = document.getElementById('skillsBtn');
+if (skillsBtn) skillsBtn.addEventListener('click', () => { if (skillsOpen) closeSkills(); else openSkills(); });
+const skillsCloseBtn = document.getElementById('skillsCloseBtn');
+if (skillsCloseBtn) skillsCloseBtn.addEventListener('click', closeSkills);
+const skillsRespecBtn = document.getElementById('skillsRespecBtn');
+if (skillsRespecBtn) skillsRespecBtn.addEventListener('click', () => {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'skill_respec' }));
+});
 
 function journalDiv(className, text) {
   const el = document.createElement('div');
@@ -2947,7 +3209,16 @@ function appendPartyChatLine(fromName, text) {
     const line = document.createElement('div');
     line.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(100,160,255,0.08);font-size:11px;';
     const isMe = fromName === (me ? me.name : '');
-    line.innerHTML = `<span style="color:${isMe ? '#88ccff' : '#ccaaff'};font-weight:700;">${fromName}:</span> <span style="color:#ddeeff;">${text}</span>`;
+    // textContent, never innerHTML — party message text comes from another
+    // player and must not be parsed as markup (stored-XSS otherwise).
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = `color:${isMe ? '#88ccff' : '#ccaaff'};font-weight:700;`;
+    nameSpan.textContent = fromName + ':';
+    const textSpan = document.createElement('span');
+    textSpan.style.color = '#ddeeff';
+    textSpan.textContent = ' ' + text;
+    line.appendChild(nameSpan);
+    line.appendChild(textSpan);
     _partyChatLog.appendChild(line);
     _partyChatLog.scrollTop = _partyChatLog.scrollHeight;
   }
@@ -3405,6 +3676,9 @@ function refreshPassHud() {
   }
 }
 setInterval(refreshPassHud, 30000);
+// Keep the 😴 rested countdown ticking (and let it vanish when it lapses)
+// even during a stretch with no XP events.
+setInterval(() => { if (gameStarted && restedUntil) updateXPDisplay(); }, 15000);
 
 let toastTimer = null;
 let lastToastText = '', lastToastAt = 0; // shared with systemChatNotif's de-dupe
@@ -4869,6 +5143,7 @@ function updateBubbleTag(p, v, headScreen, now) {
   const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); fn(); };
   on('menuInventory', closeSheetAnd(() => { if (!inventoryOpen) toggleInventory(); }));
   on('menuJournal', closeSheetAnd(() => { if (!journalOpen) openJournal(); }));
+  on('menuSkills', closeSheetAnd(() => { if (!skillsOpen) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!spellbookOpen) openSpellbook(); }
     else if (myAttackCatalog && !attackPanelOpen) openAttackPanel();
@@ -5178,16 +5453,39 @@ function toggleControlsModal() {
   if (el.classList.contains('hidden')) openControlsModal(); else closeControlsModal();
 }
 function maybeShowFirstRunControls() {
-  let seen = null;
-  try { seen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
-  if (!seen) setTimeout(openControlsModal, 900); // let the world land first
+  // First-ever visit: lead with the Welcome guide (the "what do I do" throughline),
+  // which then hands off to the controls reference. Returning players (who've
+  // seen the welcome) just get nothing — controls stay one keypress away (H).
+  let welcomeSeen = null, controlsSeen = null;
+  try { welcomeSeen = localStorage.getItem('tc_welcome_seen'); controlsSeen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
+  if (!welcomeSeen) { setTimeout(openWelcomeModal, 900); return; }
+  if (!controlsSeen) setTimeout(openControlsModal, 900); // let the world land first
+}
+function openWelcomeModal() {
+  const el = document.getElementById('welcomeModal');
+  if (el) el.classList.remove('hidden');
+}
+function closeWelcomeModal(thenControls) {
+  const el = document.getElementById('welcomeModal');
+  if (el) el.classList.add('hidden');
+  try { localStorage.setItem('tc_welcome_seen', '1'); } catch (e) {}
+  // Offer the full controls once, right after, so new players get both the
+  // "why" (welcome) and the "how" (controls) on their first run.
+  if (thenControls) {
+    let controlsSeen = null;
+    try { controlsSeen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
+    if (!controlsSeen) setTimeout(openControlsModal, 250);
+  }
 }
 (function wireControlsModal() {
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
   on('controlsCloseBtn', closeControlsModal);
   on('menuControls', () => { document.getElementById('menuSheet').classList.add('hidden'); openControlsModal(); });
+  on('welcomeStartBtn', () => closeWelcomeModal(true));
   const overlay = document.getElementById('controlsModal');
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeControlsModal(); });
+  const welcome = document.getElementById('welcomeModal');
+  if (welcome) welcome.addEventListener('click', (e) => { if (e.target === welcome) closeWelcomeModal(true); });
 })();
 
 // ---------------------------------------------------------------------------
@@ -8794,7 +9092,12 @@ function makeGlowTexture() {
 
 const PROP_WOOD = 0x6b4a2a, PROP_WOOD_DARK = 0x4a3320, PROP_STONE = 0x8a8a92;
 
-function makeBench(d) {
+// NOTE: named makeBenchProp (not makeBench) — a second `function makeBench(x, z, rotY)`
+// exists below for interiors, and duplicate function declarations in the same scope
+// silently shadow each other (the later one wins), which used to leave every outdoor
+// bench rendered at NaN coordinates: invisible, but still colliding. Same story for
+// makeBarrelProp below.
+function makeBenchProp(d) {
   const g = new THREE.Group();
   const wood = new THREE.MeshLambertMaterial({ color: PROP_WOOD });
   const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
@@ -8915,7 +9218,7 @@ function makeCrate(d) {
   return g;
 }
 
-function makeBarrel(d) {
+function makeBarrelProp(d) { // see makeBenchProp note — renamed to dodge the interior makeBarrel(x, z)
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 20, 10), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   body.position.y = 10;
@@ -9238,12 +9541,12 @@ function applyDecorState(list) {
 // prop is meaningfully oblong AND only ever placed axis-aligned (fences);
 // diagonal-rotated props get a square that covers their core.
 const PROP_BUILDERS = {
-  bench: { make: makeBench, collide: () => ({ w: 40, h: 40 }) },
+  bench: { make: makeBenchProp, collide: () => ({ w: 40, h: 40 }) },
   lamppost: { make: makeLamppost, collide: () => ({ w: 9, h: 9 }) },
   well: { make: makeWell, collide: () => ({ w: 46, h: 46 }) },
   stall: { make: makeMarketStall, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 52, h: 76 } : { w: 76, h: 52 }) },
   crate: { make: makeCrate, collide: () => ({ w: 19, h: 19 }) },
-  barrel: { make: makeBarrel, collide: () => ({ w: 19, h: 19 }) },
+  barrel: { make: makeBarrelProp, collide: () => ({ w: 19, h: 19 }) },
   haybale: { make: makeHaybale, collide: () => ({ w: 28, h: 28 }) },
   fence: { make: makeFenceSeg, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 7, h: 58 } : { w: 58, h: 7 }) },
   stump: { make: makeStump, collide: () => ({ w: 17, h: 17 }) },
@@ -14732,6 +15035,10 @@ window.addEventListener('keydown', (e) => {
     closeJournal();
     return;
   }
+  if (skillsOpen && e.key === 'Escape' && !e.repeat) {
+    closeSkills();
+    return;
+  }
   if (npcShopOpen) {
     if (e.key === 'Escape' && !e.repeat) closeNpcShopModal();
     return;
@@ -14765,6 +15072,7 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'i' || e.key === 'I') && !e.repeat) { toggleInventory(); return; }
   // J = open/close the story Journal, same toggle as its HUD button
   if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (journalOpen) closeJournal(); else openJournal(); return; }
+  if ((e.key === 'k' || e.key === 'K') && !e.repeat) { if (skillsOpen) closeSkills(); else openSkills(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
   // V = voice countermeasure (play a saved clip to evade), P = snapshot,
@@ -15036,6 +15344,9 @@ function update(dt) {
   // Raven's Cloak is the Witch's escape tool — the dark-feather visual plus
   // the same doubled pace speedboost/wolfpact already grant.
   if (me.activeStatus && me.activeStatus.type === 'ravencloak') speed *= 2;
+  // Predator's Pace / Trailblazer (the 'swift' skill) — a permanent, stacking
+  // walk-speed bonus, self-enforced client-side exactly like the statuses above.
+  if (mySkillSpeedMult && mySkillSpeedMult !== 1) speed *= mySkillSpeedMult;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
 

@@ -12,6 +12,23 @@ require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+
+// Atomic JSON write: serialize to a temp file, then rename over the target.
+// rename(2) is atomic on POSIX, so a crash mid-write can never leave a
+// half-written (corrupt) store — the file is either the old contents or the
+// new, never a truncated splice. Every save*() below routes through this.
+function atomicWriteJson(file, obj) {
+  const tmp = file + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    // Never let a disk hiccup take down the game loop — log and move on; the
+    // in-memory state is still authoritative until the next successful save.
+    console.error('atomicWriteJson failed for ' + file + ':', e.message);
+    try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch (_) {}
+  }
+}
 const https = require('https');
 const express = require('express');
 const { WebSocketServer } = require('ws');
@@ -54,7 +71,7 @@ function loadTownPasses() {
   try { return JSON.parse(fs.readFileSync(TOWN_PASS_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveTownPasses() {
-  fs.writeFileSync(TOWN_PASS_FILE, JSON.stringify(townPasses, null, 2));
+  atomicWriteJson(TOWN_PASS_FILE, townPasses);
 }
 const townPasses = loadTownPasses(); // accountKey -> expiresAt (ms)
 const passSessions = new Map();      // stripe checkout session id -> expiresAt (ms)
@@ -131,6 +148,27 @@ function smsRateLimited(ip) {
   smsRateLog.set(ip, hits);
   return false;
 }
+
+// Login/registration throttle — counts recent FAILED auth attempts per IP so
+// nobody can brute-force a password (or hammer registration) at machine speed.
+// A success clears the counter for that IP. In-memory only, resets on restart;
+// this is a friends-game guardrail, not enterprise auth (see README).
+const LOGIN_FAIL_LIMIT = 8;                 // failures allowed per window…
+const LOGIN_FAIL_WINDOW_MS = 5 * 60 * 1000; // …before a cool-off
+const loginFailLog = new Map();             // ip -> [failure timestamps]
+function loginThrottled(ip) {
+  const now = Date.now();
+  const fails = (loginFailLog.get(ip) || []).filter(t => now - t < LOGIN_FAIL_WINDOW_MS);
+  loginFailLog.set(ip, fails);
+  return fails.length >= LOGIN_FAIL_LIMIT;
+}
+function noteLoginFailure(ip) {
+  const now = Date.now();
+  const fails = (loginFailLog.get(ip) || []).filter(t => now - t < LOGIN_FAIL_WINDOW_MS);
+  fails.push(now);
+  loginFailLog.set(ip, fails);
+}
+function clearLoginFailures(ip) { loginFailLog.delete(ip); }
 
 app.post('/api/send-sms', (req, res) => {
   const accountSid = String(req.body.accountSid || '').trim();
@@ -229,6 +267,7 @@ function buildResumeStash(player) {
     accountKey: player.accountKey || null,
     x: player.x, y: player.y, room: player.room,
     health: player.health,
+    restedUntil: player.restedUntil || 0,
     passUntil: player.passUntil || 0,
     activeQuest: player.activeQuest ? { ...player.activeQuest } : null,
     disguise: player.disguise ? { ...player.disguise } : null,
@@ -668,7 +707,7 @@ function loadAccounts() {
   }
 }
 function saveAccounts() {
-  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
+  atomicWriteJson(ACCOUNTS_FILE, accounts);
 }
 
 const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
@@ -695,9 +734,13 @@ function colorForUsername(usernameLower) {
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,18}$/;
 
 app.post('/api/register', (req, res) => {
+  if (loginThrottled(req.ip)) {
+    return res.status(429).json({ error: 'Too many attempts. Wait a few minutes and try again.' });
+  }
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
   if (!USERNAME_RE.test(username)) {
+    noteLoginFailure(req.ip);
     return res.status(400).json({ error: 'Username must be 3-18 letters, numbers, or underscores.' });
   }
   if (password.length < 4) {
@@ -716,19 +759,25 @@ app.post('/api/register', (req, res) => {
     createdAt: Date.now()
   };
   saveAccounts();
+  clearLoginFailures(req.ip);
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, key);
   res.json({ token, username, color: accounts[key].color });
 });
 
 app.post('/api/login', (req, res) => {
+  if (loginThrottled(req.ip)) {
+    return res.status(429).json({ error: 'Too many attempts. Wait a few minutes and try again.' });
+  }
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
   const key = username.toLowerCase();
   const account = accounts[key];
   if (!account || !verifyPassword(password, account.salt, account.hash)) {
+    noteLoginFailure(req.ip);
     return res.status(401).json({ error: 'Wrong username or password.' });
   }
+  clearLoginFailures(req.ip);
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, key);
   res.json({ token, username: account.username, color: account.color });
@@ -829,6 +878,70 @@ const ITEM_IDS = Object.keys(ITEM_CATALOG);
 for (const key in PLANT_CATALOG) {
   ITEM_CATALOG[key] = { name: PLANT_CATALOG[key].name, icon: PLANT_CATALOG[key].icon, slot: null };
 }
+
+// ---------------------------------------------------------------------------
+// Equipment stats — until now equipped gear was purely cosmetic (it renders
+// on your character model but did nothing). Each equippable item now carries
+// real stat contributions that feed the SAME derived stats the skill trees
+// do, so a weapon's damage and armor's toughness stack with your skills.
+// Contributions are additive fractions (power/guard/haste/swift/leech/xp/forage)
+// or flat max-health (vitality), read back in the stat getters below. Campaign
+// relics (Shadow Staff, Alpha Fang, Dread Helm, Shadow Cloak, Soul Treads) are
+// deliberately the strongest in each slot — a finale reward that finally bites.
+// ---------------------------------------------------------------------------
+const EQUIP_STATS = {
+  // ── basic shop gear (weak, early) ──
+  iron_sword:    { power: 0.10 },
+  spell_tome:    { power: 0.08, haste: 0.05 },
+  steel_shield:  { guard: 0.10, vitality: 10 },
+  wizard_hat:    { haste: 0.06, xp: 0.05 },
+  leather_boots: { swift: 0.06 },
+  silver_ring:   { xp: 0.05, leech: 0.03 },
+  // ── Witch starter set ──
+  witch_robe:  { guard: 0.06, vitality: 8 },
+  hexed_boots: { swift: 0.05, haste: 0.03 },
+  hex_amulet:  { power: 0.06, leech: 0.04 },
+  // ── Werewolf starter set ──
+  beast_crown: { power: 0.06, vitality: 8 },
+  beast_hide:  { guard: 0.08, vitality: 12 },
+  paw_boots:   { swift: 0.08 },
+  // ── Mystic starter set ──
+  spirit_veil: { haste: 0.06, xp: 0.05 },
+  spirit_robe: { guard: 0.06, vitality: 10 },
+  spirit_ring: { power: 0.05, leech: 0.05 },
+  // ── Knight starter set ──
+  knights_helm: { guard: 0.06, vitality: 10 },
+  order_signet: { guard: 0.05, xp: 0.05 },
+  // ── Wanderer starter set ──
+  travelers_hood: { swift: 0.05, forage: 0.10 },
+  travelers_vest: { guard: 0.06, vitality: 8 },
+  trail_ring:     { forage: 0.15, xp: 0.05 },
+  // ── Witch cave / relic exclusives (strong) ──
+  cursed_blade: { power: 0.18, leech: 0.05 },
+  shadow_staff: { power: 0.16, haste: 0.10 },              // Witch relic
+  bone_armor:   { guard: 0.12, vitality: 20 },
+  shadow_cloak: { guard: 0.10, swift: 0.08, vitality: 15 }, // Mystic relic
+  witches_boon: { power: 0.08, leech: 0.06, haste: 0.05 },
+  dread_helm:   { power: 0.08, guard: 0.08, vitality: 15 }, // Knight relic
+  soul_treads:  { swift: 0.12, haste: 0.06 },               // Wanderer relic
+  void_staff:   { power: 0.20, haste: 0.08 },
+  shadow_crown: { power: 0.10, xp: 0.10, vitality: 12 },
+  abyssal_armor:{ guard: 0.14, vitality: 25 },
+  death_ring:   { power: 0.10, leech: 0.08 },
+  wraith_treads:{ swift: 0.14, haste: 0.06 },
+  // ── Werewolf howl-trade exclusives ──
+  moonhowl_pelt:   { guard: 0.10, vitality: 18 },
+  alpha_fang:      { power: 0.18, leech: 0.06 },  // Werewolf relic
+  packbound_ring:  { leech: 0.06, xp: 0.08 },
+  nightfang_boots: { swift: 0.12, power: 0.05 }
+};
+// The eight derived stats every character has, and where each pulls from.
+// Skills contribute this-much-per-rank; gear contributes its EQUIP_STATS value.
+const STAT_KEYS = ['power', 'guard', 'vitality', 'haste', 'swift', 'leech', 'xp', 'forage'];
+const SKILL_STAT_PER_RANK = { power: 0.08, guard: 0.06, vitality: 12, haste: 0.10, swift: 0.06, leech: 0.06, xp: 0.10, forage: 0.15 };
+// The skill tree uses effect id 'sage' for the XP stat; every other stat's
+// skill-effect id matches the stat key directly.
+const STAT_SKILL_EFFECT = { power: 'power', guard: 'guard', vitality: 'vitality', haste: 'haste', swift: 'swift', leech: 'leech', xp: 'sage', forage: 'forage' };
 // ---------------------------------------------------------------------------
 // Potion crafting recipes (witch cave)
 // ---------------------------------------------------------------------------
@@ -981,7 +1094,7 @@ function loadBankAccounts() {
   try { return JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveBankAccounts() {
-  fs.writeFileSync(BANK_FILE, JSON.stringify(bankAccounts, null, 2));
+  atomicWriteJson(BANK_FILE, bankAccounts);
 }
 const bankAccounts = loadBankAccounts(); // usernameLower -> { balance, slots: [ {itemId,qty}|null x24 ] }
 
@@ -1053,7 +1166,7 @@ function loadInventories() {
   try { return JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveInventories() {
-  fs.writeFileSync(INVENTORY_FILE, JSON.stringify(inventories, null, 2));
+  atomicWriteJson(INVENTORY_FILE, inventories);
 }
 const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
 const INVENTORY_STARTER_ITEM_COUNT = 2;
@@ -1151,7 +1264,7 @@ function loadHardDrives() {
   try { return JSON.parse(fs.readFileSync(HARDDRIVE_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveHardDrives() {
-  fs.writeFileSync(HARDDRIVE_FILE, JSON.stringify(hardDrives, null, 2));
+  atomicWriteJson(HARDDRIVE_FILE, hardDrives);
 }
 const hardDrives = loadHardDrives(); // usernameLower -> { passwordSalt, passwordHash, notes: [] }
 const HARDDRIVE_NOTE_CAPACITY = 24;
@@ -1166,7 +1279,7 @@ function loadInboxes() {
   try { return JSON.parse(fs.readFileSync(INBOX_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveInboxes() {
-  fs.writeFileSync(INBOX_FILE, JSON.stringify(inboxes, null, 2));
+  atomicWriteJson(INBOX_FILE, inboxes);
 }
 const inboxes = loadInboxes();
 
@@ -1228,7 +1341,12 @@ function absorbIncomingDamage(target, dmg) {
   // abilities (Iron Pelt, Ethereal Veil, Oath of Iron, Packmule's Guard)
   // so their wards read as their own class fantasy instead of borrowed
   // witchcraft. Client renders it as a faint glowing dome.
-  if (hasStatus(target, 'pumpkin') || hasStatus(target, 'ward')) return Math.max(1, Math.round(dmg * 0.5));
+  if (hasStatus(target, 'pumpkin') || hasStatus(target, 'ward')) dmg = Math.max(1, Math.round(dmg * 0.5));
+  // Skill-tree defense (Gourdskin Ward / Thick Hide / Bulwark / … — the
+  // 'guard' skill) stacks on top of any active ward, reducing every hit
+  // this player takes from both PvP and hunting mobs.
+  const gm = incomingDamageMult(target);
+  if (gm !== 1) dmg = Math.max(1, Math.round(dmg * gm));
   return dmg;
 }
 
@@ -1244,6 +1362,12 @@ function absorbIncomingDamage(target, dmg) {
 // never lie about the number that actually landed. Callers build their own
 // message text from that (Strike says "Killed"/"Hit", Fireball says
 // "incinerates"/"hits", etc).
+// Ranged abilities (Fireball, Savage Bite, Smite, Knife Throw, …) reach much
+// farther than a melee swing, but not across the whole map — this caps them so
+// a crafted client can't snipe a target on the far side of the Wilds. Generous
+// enough that every legitimate in-view cast lands; the client only ever targets
+// the nearest attackable, well inside this.
+const ABILITY_MAX_RANGE = 900;
 function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
 
@@ -1251,6 +1375,11 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   // Werewolf's Blood Frenzy and Wanderer's Campfire Tale share it) makes
   // the attacker hit half again as hard for its duration.
   if (hasStatus(player, 'giant')) dmg = Math.round(dmg * 1.5);
+  // Skill-tree offense (Witchfire Mastery / Rending Fangs / … — the 'power'
+  // skill each class carries) scales ALL of this player's damage, since both
+  // Strike and every ranged ability funnel through here.
+  const _skillPower = outgoingDamageMult(player);
+  if (_skillPower !== 1) dmg = Math.max(1, Math.round(dmg * _skillPower));
 
   if (targetType === 'player') {
     const t = players.get(targetId);
@@ -1264,6 +1393,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     dmg = absorbIncomingDamage(t, dmg);
     noteAttacked(t);
     t.health = Math.max(0, t.health - dmg);
+    applySkillLifesteal(player, dmg); // Blood Pact / Bloodlust / Soul Harvest
     broadcastHitFx(player.room, 'player', t.id, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
       t.health = 0;
@@ -1289,6 +1419,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     const t = dungeonMobs.find(m => m.id === targetId);
     if (!t || t.dead || t.room !== player.room || outOfRange(t)) return { ok: false };
     t.health = Math.max(0, t.health - dmg);
+    applySkillLifesteal(player, dmg);
     const preset = DUNGEON_MOB_TYPES[t.mobType];
     broadcastHitFx(player.room, 'dungeon', targetId, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
@@ -1318,6 +1449,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const t = poolInfo.list.find(x => x.id === targetId);
   if (!t || t.dead || outOfRange(t)) return { ok: false };
   t.health = Math.max(0, t.health - dmg);
+  applySkillLifesteal(player, dmg);
   broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
   if (t.health <= 0) {
     t.dead = true;
@@ -1377,7 +1509,7 @@ function loadProgress() {
   try { return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) { return {}; }
 }
 function saveProgress() {
-  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(playerProgress, null, 2));
+  atomicWriteJson(PROGRESS_FILE, playerProgress);
 }
 const playerProgress = loadProgress(); // accountKey -> { xp, level, skillPoints, questCooldowns: {} }
 
@@ -1385,6 +1517,11 @@ const playerProgress = loadProgress(); // accountKey -> { xp, level, skillPoints
 const XP_THRESHOLDS = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 6000,
                         8200, 11000, 14500, 19000, 25000, 32500, 42000, 54000, 69000, 87000];
 const MAX_LEVEL = XP_THRESHOLDS.length - 1;
+// 😴 Rested XP: the first REST_MS of a session pays REST_XP_MULT, granted at
+// most once per REST_COOLDOWN_MS per account so relogging can't farm it.
+const REST_MS = 10 * 60 * 1000;         // 10 minutes of boosted XP per session
+const REST_XP_MULT = 1.5;               // +50%
+const REST_COOLDOWN_MS = 2 * 60 * 60 * 1000; // one rested window per 2 hours
 
 function getProgress(player) {
   let prog;
@@ -1400,6 +1537,8 @@ function getProgress(player) {
   }
   // Backfills accounts saved before Sleight of Hand's skill-progress system existed.
   if (prog.pickpocketSuccesses === undefined) prog.pickpocketSuccesses = 0;
+  // Backfill for accounts saved before the class skill trees existed.
+  if (prog.skills === undefined) prog.skills = {};
   return prog;
 }
 
@@ -1410,6 +1549,19 @@ function grantXP(player, amount) {
   const now = Date.now();
   if (player.activeStatus && player.activeStatus.type === 'wolfpact' && player.activeStatus.expiresAt > now) {
     amount *= 2;
+  }
+  // Skill-tree progression (Keen Senses / Veteran's Valor / Worldly Wisdom —
+  // the 'sage' skill) sweetens every XP award.
+  const _xpMult = skillXpMult(player);
+  if (_xpMult !== 1) amount = Math.max(1, Math.round(amount * _xpMult));
+  // 😴 Rested bonus: the first few minutes of a session pay +50% XP. This
+  // softens the campaign's on-ramp for players who drop in for short bursts
+  // (the finale is a deliberate multi-hour climb — see the pacing tests — so
+  // this eases the *feel* of it without changing the campaign/quest math the
+  // gate is built on). Bounded to REST_MS per session and gated per account so
+  // it can't be relog-farmed.
+  if (player.restedUntil && now < player.restedUntil) {
+    amount = Math.round(amount * REST_XP_MULT);
   }
   const prog = getProgress(player);
   const wasLevelOne = prog.level === 1; // level only ever increases, so this alone means "never leveled up before"
@@ -1449,6 +1601,186 @@ function syncProgressToPlayer(player) {
   player.xp = prog.xp;
   player.level = prog.level;
   player.skillPoints = prog.skillPoints;
+  player.maxHealth = playerMaxHealth(player);
+}
+
+// ---------------------------------------------------------------------------
+// Class skill trees — the sink for the skill points earned at every level-up.
+// Each of the 5 classes has its own 6-skill tree; each skill takes up to 3
+// ranks, and a rank costs 1 point from the account-wide pool (prog.skillPoints,
+// same pool that xp/level already share). Allocations are stored PER CLASS
+// (prog.skills[charId]) since each class has a different tree — playing the
+// Witch never spends the Knight's ranks.
+//
+// Every skill maps to exactly ONE server-authoritative effect (below), so
+// nothing here is a cosmetic number: damage, wards, max health, cooldowns,
+// lifesteal, harvest yield, and XP all read these ranks back. Movement speed
+// is the one client-applied effect, self-enforced exactly like the game's
+// existing speed statuses (ravencloak/speedboost) — consistent with the
+// stated no-anti-cheat movement model.
+// ---------------------------------------------------------------------------
+const SKILL_MAX_RANK = 3;
+// effect key -> value contributed per rank
+const SKILL_FX = {
+  power:    (r) => 1 + 0.08 * r, // outgoing damage multiplier   (applyDamage)
+  guard:    (r) => 1 - 0.06 * r, // incoming damage multiplier   (absorbIncomingDamage)
+  vitality: (r) => 12 * r,       // + maximum health             (playerMaxHealth)
+  haste:    (r) => 1 - 0.10 * r, // ability cooldown multiplier  (cast handlers)
+  swift:    (r) => 1 + 0.06 * r, // movement speed multiplier    (client)
+  leech:    (r) => 0.06 * r,     // heal this fraction of damage dealt (applyDamage)
+  mending:  (r) => 0.6 * r,      // passive out-of-combat regen HP/s   (tick)
+  forage:   (r) => 0.15 * r,     // chance of +1 harvest yield         (harvest)
+  sage:     (r) => 0.10 * r      // + fraction of XP earned            (grantXP)
+};
+const SKILL_CATALOG = {
+  0: [ // Witch — Coven Secrets
+    { id: 'witch_power',    name: 'Witchfire Mastery', icon: '🔥',  effect: 'power',    desc: 'Spells and strikes scorch harder — +8% damage per rank.' },
+    { id: 'witch_leech',    name: 'Blood Pact',        icon: '🩸',  effect: 'leech',    desc: 'Every blow drains life back into you — heal 6% of damage dealt per rank.' },
+    { id: 'witch_guard',    name: 'Gourdskin Ward',    icon: '🎃',  effect: 'guard',    desc: 'Hollowed bones turn blows aside — take 6% less damage per rank.' },
+    { id: 'witch_haste',    name: 'Quickened Casting', icon: '🕯️', effect: 'haste',    desc: 'The old words come faster — abilities recharge 10% quicker per rank.' },
+    { id: 'witch_vitality', name: 'Moonwell Vitality', icon: '🌙',  effect: 'vitality', desc: 'Draw on the moonwell — +12 maximum health per rank.' },
+    { id: 'witch_forage',   name: 'Hedgecraft',        icon: '🌿',  effect: 'forage',   desc: 'You know which stems give twice — +15% chance to harvest an extra herb per rank.' }
+  ],
+  1: [ // Werewolf — Feral Instincts
+    { id: 'wolf_power',    name: 'Rending Fangs',    icon: '🦷', effect: 'power',    desc: 'Teeth meant for bone — +8% damage per rank.' },
+    { id: 'wolf_leech',    name: 'Bloodlust',        icon: '🩸', effect: 'leech',    desc: 'The kill mends the hunter — heal 6% of damage dealt per rank.' },
+    { id: 'wolf_guard',    name: 'Thick Hide',       icon: '🐾', effect: 'guard',    desc: 'Matted fur turns the claw — take 6% less damage per rank.' },
+    { id: 'wolf_swift',    name: "Predator's Pace",  icon: '💨', effect: 'swift',    desc: 'Run anything down — +6% movement speed per rank.' },
+    { id: 'wolf_vitality', name: 'Lunar Endurance',  icon: '🌕', effect: 'vitality', desc: 'The moon lends its stamina — +12 maximum health per rank.' },
+    { id: 'wolf_sage',     name: 'Keen Senses',      icon: '👁️', effect: 'sage',     desc: 'You read the whole hunt — +10% XP per rank.' }
+  ],
+  2: [ // Mystic — Spirit Communion
+    { id: 'mystic_power',    name: 'Spectral Force',     icon: '👻',  effect: 'power',    desc: 'The dead strike alongside you — +8% damage per rank.' },
+    { id: 'mystic_leech',    name: 'Soul Harvest',       icon: '💜',  effect: 'leech',    desc: 'Reap the spirit you spill — heal 6% of damage dealt per rank.' },
+    { id: 'mystic_guard',    name: 'Ethereal Veil',      icon: '🌫️', effect: 'guard',    desc: 'Half a step out of the world — take 6% less damage per rank.' },
+    { id: 'mystic_haste',    name: 'Attuned Channeling', icon: '🔮',  effect: 'haste',    desc: 'The veil answers faster — abilities recharge 10% quicker per rank.' },
+    { id: 'mystic_vitality', name: 'Ancestral Vigor',    icon: '✨',  effect: 'vitality', desc: 'Generations stand behind you — +12 maximum health per rank.' },
+    { id: 'mystic_mending',  name: 'Spirit Mending',     icon: '🕊️', effect: 'mending',  desc: 'The spirits close your wounds — regenerate out of combat, faster per rank.' }
+  ],
+  3: [ // Knight — Martial Discipline
+    { id: 'knight_power',    name: 'Honed Edge',      icon: '⚔️',  effect: 'power',    desc: 'A blade kept sharp — +8% damage per rank.' },
+    { id: 'knight_guard',    name: 'Bulwark',         icon: '🛡️', effect: 'guard',    desc: 'Trained to eat the blow — take 6% less damage per rank.' },
+    { id: 'knight_vitality', name: 'Ironclad',        icon: '🏰',  effect: 'vitality', desc: 'Built to outlast the siege — +12 maximum health per rank.' },
+    { id: 'knight_haste',    name: 'Battle Tempo',    icon: '⚡',  effect: 'haste',    desc: 'Drilled until it is reflex — abilities recharge 10% quicker per rank.' },
+    { id: 'knight_mending',  name: 'Field Medicine',  icon: '❤️‍🩹', effect: 'mending', desc: 'A soldier who knows the kit — regenerate out of combat, faster per rank.' },
+    { id: 'knight_sage',     name: "Veteran's Valor", icon: '🎖️', effect: 'sage',     desc: 'Every battle teaches — +10% XP per rank.' }
+  ],
+  4: [ // Wanderer — Road Wisdom
+    { id: 'wanderer_power',    name: 'Deadly Aim',        icon: '🔪', effect: 'power',    desc: 'A thrown knife that means it — +8% damage per rank.' },
+    { id: 'wanderer_swift',    name: 'Trailblazer',       icon: '🥾', effect: 'swift',    desc: 'Nobody covers ground like you — +6% movement speed per rank.' },
+    { id: 'wanderer_vitality', name: 'Seasoned Traveler', icon: '🎒', effect: 'vitality', desc: 'Hardened by every mile — +12 maximum health per rank.' },
+    { id: 'wanderer_haste',    name: 'Efficient Rest',    icon: '🧭', effect: 'haste',    desc: 'You waste no motion — abilities recharge 10% quicker per rank.' },
+    { id: 'wanderer_forage',   name: "Forager's Lore",    icon: '🌿', effect: 'forage',   desc: 'The road feeds those who read it — +15% chance to harvest an extra plant per rank.' },
+    { id: 'wanderer_sage',     name: 'Worldly Wisdom',    icon: '📜', effect: 'sage',     desc: 'Every road is a lesson — +10% XP per rank.' }
+  ]
+};
+
+function skillTreeFor(charId) { return SKILL_CATALOG[charId] || []; }
+function getSkillAlloc(player) {
+  const prog = getProgress(player);
+  if (!prog.skills) prog.skills = {};
+  const key = String(player.charId);
+  if (!prog.skills[key]) prog.skills[key] = {};
+  return prog.skills[key];
+}
+// Rank invested in whichever skill in this class's tree carries `effect`
+// (each tree has at most one skill per effect).
+function skillEffectRank(player, effect) {
+  const alloc = getSkillAlloc(player);
+  let rank = 0;
+  for (const s of skillTreeFor(player.charId)) if (s.effect === effect) rank += (alloc[s.id] || 0);
+  return Math.min(SKILL_MAX_RANK, rank);
+}
+// Skill-only contribution to a derived stat (per-rank magnitude × ranks).
+function skillStatContrib(player, statKey) {
+  const eff = STAT_SKILL_EFFECT[statKey];
+  if (!eff) return 0;
+  return (SKILL_STAT_PER_RANK[statKey] || 0) * skillEffectRank(player, eff);
+}
+// Gear-only contribution: sum every equipped item's EQUIP_STATS[statKey].
+function gearStatContrib(player, statKey) {
+  let sum = 0;
+  for (const slot of EQUIP_SLOTS) {
+    const itemId = player[invEquipField(slot)];
+    const st = itemId && EQUIP_STATS[itemId];
+    if (st && st[statKey]) sum += st[statKey];
+  }
+  return sum;
+}
+// Combined skill + gear contribution — the single source of truth every
+// derived stat (and the client stats panel) reads from.
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey); }
+
+function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
+function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')); } // floor: 75% max reduction
+function playerMaxHealth(player)    { return (player && player.charId != null) ? Math.round(100 + statContrib(player, 'vitality')) : 100; }
+function abilityCooldownFor(player, base) { return Math.round(base * (1 - Math.min(0.7, statContrib(player, 'haste')))); } // cap: 70% faster
+function skillLifestealFrac(player) { return statContrib(player, 'leech'); }
+function skillMendingRate(player)   { return SKILL_FX.mending(skillEffectRank(player, 'mending')); } // mending is skill-only (no gear stat)
+function skillHarvestExtraChance(player) { return statContrib(player, 'forage'); }
+function skillXpMult(player)        { return 1 + statContrib(player, 'xp'); }
+function skillSpeedMult(player)     { return 1 + statContrib(player, 'swift'); }
+
+// Full derived-stat readout for the client stats panel: base values, the
+// split of skill vs gear contribution, and the final numbers. `equipOverride`
+// (slot->itemId, or null to clear) lets the client preview a hypothetical
+// swap by asking the server to recompute as if that slot held that item.
+function computeStatBlock(player, equipOverride) {
+  // Shallow proxy so gearStatContrib sees the hypothetical loadout without
+  // mutating the real player.
+  const view = player;
+  const savedField = {}, hasOverride = equipOverride && equipOverride.slot;
+  if (hasOverride) {
+    const f = invEquipField(equipOverride.slot);
+    savedField.f = f; savedField.v = player[f];
+    player[f] = equipOverride.itemId || null;
+  }
+  const out = { power: {}, guard: {}, vitality: {}, haste: {}, swift: {}, leech: {}, xp: {}, forage: {} };
+  for (const k of STAT_KEYS) {
+    out[k] = { skill: skillStatContrib(view, k), gear: gearStatContrib(view, k), total: statContrib(view, k) };
+  }
+  const block = {
+    stats: out,
+    maxHealth: playerMaxHealth(view),
+    // convenience finals the panel prints directly
+    finals: {
+      attackMult: outgoingDamageMult(view),
+      damageReduction: 1 - incomingDamageMult(view),
+      maxHealth: playerMaxHealth(view),
+      speedMult: skillSpeedMult(view),
+      cooldownReduction: Math.min(0.7, statContrib(view, 'haste')),
+      lifesteal: skillLifestealFrac(view),
+      xpBonus: statContrib(view, 'xp'),
+      harvestLuck: skillHarvestExtraChance(view),
+      mendingRate: skillMendingRate(view)
+    }
+  };
+  if (hasOverride) player[savedField.f] = savedField.v;
+  return block;
+}
+// Heal the attacker for their lifesteal share of damage just dealt.
+function applySkillLifesteal(player, dmgDealt) {
+  const f = skillLifestealFrac(player);
+  if (f <= 0 || player.isDead || player.health <= 0) return;
+  player.health = Math.min(playerMaxHealth(player), player.health + Math.max(1, Math.round(dmgDealt * f)));
+}
+function skillStatePayload(player) {
+  const prog = getProgress(player);
+  const alloc = getSkillAlloc(player);
+  return {
+    charId: player.charId,
+    skillPoints: prog.skillPoints,
+    maxHealth: playerMaxHealth(player),
+    speedMult: skillSpeedMult(player),
+    // Full derived-stat readout (skill vs gear split + finals) for the
+    // character stats panel — recomputed here so it's always current with
+    // both the skill allocation AND whatever's equipped.
+    statBlock: computeStatBlock(player),
+    skills: skillTreeFor(player.charId).map(s => ({
+      id: s.id, name: s.name, icon: s.icon, desc: s.desc, effect: s.effect,
+      rank: alloc[s.id] || 0, maxRank: SKILL_MAX_RANK
+    }))
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2238,7 +2570,7 @@ function loadListings() {
   try { return JSON.parse(fs.readFileSync(LISTINGS_FILE, 'utf8')); } catch (e) { return []; }
 }
 function saveListings() {
-  fs.writeFileSync(LISTINGS_FILE, JSON.stringify(listings, null, 2));
+  atomicWriteJson(LISTINGS_FILE, listings);
 }
 let listings = loadListings();
 
@@ -2566,7 +2898,7 @@ function publicPlayer(p) {
     equippedChest:  p.equippedChest  || null,
     equippedFeet:   p.equippedFeet   || null,
     equippedRing:   p.equippedRing   || null,
-    activeStatus: status, health: p.health,
+    activeStatus: status, health: p.health, maxHealth: playerMaxHealth(p),
     level: p.level || 1, skillPoints: p.skillPoints || 0,
     isDead: !!p.isDead,
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
@@ -2820,7 +3152,7 @@ function tickTorchHealing(dt) {
           : "🔥 The torchlight's warmth begins to mend your wounds..." });
       }
       const rate = player.room === 'wilds' ? CAMPFIRE_HEAL_RATE_PER_SEC : TORCH_HEAL_RATE_PER_SEC;
-      player.health = Math.min(100, player.health + rate * dt);
+      player.health = Math.min(playerMaxHealth(player), player.health + rate * dt);
     }
     player.nearLitTorch = near;
   }
@@ -3567,9 +3899,19 @@ const REGEN_HP_PER_SEC = 2.5;
 const WITHER_HP_PER_SEC = 3;
 function tickPlayerStatusHealth(now, dt) {
   for (const p of players.values()) {
+    // Spirit Mending / Field Medicine (the 'mending' skill): a slow passive
+    // regeneration that only ticks OUT of combat (nothing has hit you for a
+    // few seconds) — rewards disengaging, never turns a live fight
+    // un-loseable. Works in any room, unlike the torch/campfire sanctuaries.
+    if (!p.isDead) {
+      const mend = skillMendingRate(p);
+      if (mend > 0 && p.health < playerMaxHealth(p) && now - (p.lastAttackedAt || 0) > ATTACKED_RECENT_MS) {
+        p.health = Math.min(playerMaxHealth(p), p.health + mend * dt);
+      }
+    }
     if (!p.activeStatus || p.activeStatus.expiresAt <= now) continue;
     if (p.activeStatus.type === 'regen') {
-      p.health = Math.min(100, p.health + REGEN_HP_PER_SEC * dt);
+      p.health = Math.min(playerMaxHealth(p), p.health + REGEN_HP_PER_SEC * dt);
     } else if (p.activeStatus.type === 'wither' && !p.isDead) {
       p.health = Math.max(1, p.health - WITHER_HP_PER_SEC * dt);
     }
@@ -4304,6 +4646,12 @@ function recordRoomChat(room, name, color, text, image) {
 wss.on('connection', (ws) => {
   let player = null;
 
+  // Liveness bookkeeping for the reaper below — browsers answer protocol
+  // pings automatically, so a socket that misses a round is a half-open
+  // corpse (phone radio died mid-air, network path gone), not a player.
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
@@ -4340,6 +4688,35 @@ wss.on('connection', (ws) => {
         } else {
           send(ws, { type: 'join_error', code: 'resume_expired', message: 'That moment has passed — step back into town!' });
           return;
+        }
+      }
+      // A resume means "I am the continuation of that player" — so if an
+      // older connection for the same identity is still hanging around,
+      // kick it before rebuilding. Otherwise the town gains a frozen
+      // duplicate of the same character. This happens for real: the
+      // checkout departure stashes the player while they're STILL
+      // connected, and the old socket's close can lag behind the Stripe
+      // redirect (proxies, phones) — a fast checkout return then joins
+      // while the pre-checkout self is still standing there. Identity =
+      // same account, or (for guests) the very same restored store
+      // references handed back by the stash.
+      if (resume) {
+        for (const [oid, op] of players) {
+          const sameAccount = accountKey && op.accountKey === accountKey;
+          const sameGuest = !accountKey && (
+            (resume.guestInventory && op.guestInventory === resume.guestInventory) ||
+            (resume.guestProgress && op.guestProgress === resume.guestProgress)
+          );
+          if (sameAccount || sameGuest) {
+            leaveParty(op);
+            // Remove it ourselves rather than waiting on its close event —
+            // a lagging/half-open socket's close is exactly what we can't
+            // rely on here. The close handler is a no-op once the map
+            // entry is gone (it checks players.get(id) === player).
+            players.delete(oid);
+            broadcastAll({ type: 'player_left', id: oid });
+            try { op.ws.close(); } catch (e) {}
+          }
         }
       }
       const name = resume ? resume.name : (account ? account.username : sanitizeName(msg.name));
@@ -4397,7 +4774,10 @@ wss.on('connection', (ws) => {
         if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
       }
       players.set(id, player);
-      syncProgressToPlayer(player);
+      syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
+      // A fresh (non-resumed) join starts at full health — which, for an
+      // account that already invested vitality, is above 100.
+      if (!resume) player.health = player.maxHealth;
       // Account-held pass, if any (bought while logged in on any device).
       if (accountKey && (townPasses[accountKey] || 0) > Date.now()) {
         player.passUntil = townPasses[accountKey];
@@ -4441,6 +4821,24 @@ wss.on('connection', (ws) => {
       // shows up on their model from the moment they spawn, not after they
       // happen to open the inventory panel once.
       syncEquipToPlayer(player);
+      // Now that equipped gear is loaded, recompute max health so vitality
+      // GEAR counts too (the earlier pass only saw vitality skills), and top
+      // a fresh join off to full.
+      player.maxHealth = playerMaxHealth(player);
+      if (!resume) player.health = player.maxHealth;
+      // 😴 Rested XP window — a "welcome back" boost, at most once per 2h per
+      // account. A live resume (mid-session reconnect) carries its remaining
+      // window rather than re-granting.
+      if (resume && resume.restedUntil) {
+        player.restedUntil = resume.restedUntil;
+      } else {
+        const rprog = getProgress(player);
+        if (!rprog.lastRestedAt || Date.now() - rprog.lastRestedAt >= REST_COOLDOWN_MS) {
+          player.restedUntil = Date.now() + REST_MS;
+          rprog.lastRestedAt = Date.now();
+          if (player.accountKey) saveProgress();
+        }
+      }
 
       // Live resume token — minted for every join and sent in init. If this
       // socket later dies without warning (phone screen off, network blip),
@@ -4458,6 +4856,11 @@ wss.on('connection', (ws) => {
         world: WORLD,
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
+        // Equipment stat catalog — the client uses this to preview how a swap
+        // would change your stats before you commit, with no server round-trip.
+        equipStats: EQUIP_STATS,
+        // 😴 Rested XP window (epoch ms, 0 = none) — the client counts it down.
+        restedUntil: player.restedUntil || 0,
         townPass: {
           lockedRooms: [...LOCKED_ROOMS],
           passUntil: player.passUntil || 0,
@@ -4481,6 +4884,9 @@ wss.on('connection', (ws) => {
       // Campaign position for this class — sent up-front so the Journal
       // renders instantly instead of round-tripping on first open.
       send(ws, storyStatePayload(player));
+      // Class skill tree + current allocations, so the Skills panel and the
+      // client-side speed/max-health effects are live from the first frame.
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       // A restored side quest re-renders its tracker silently (a
       // message-less quest_update never toasts).
       if (resume && player.activeQuest && QUEST_CATALOG[player.activeQuest.questId]) {
@@ -4626,6 +5032,14 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'bank_open') {
+      // Server-side proximity: the teller lives in the Bank, so opening an
+      // account requires actually being in the Bank — a crafted client can't
+      // bank from the far side of town. (Buildings you're already inside are
+      // the server's proximity truth; movement itself stays client-trusted.)
+      if (player.room !== 'bank') {
+        send(ws, { type: 'bank_error', message: 'Step up to the teller inside the Bank to open your account.' });
+        return;
+      }
       if (!player.accountKey) {
         send(ws, { type: 'bank_error', message: 'Log in to a Town Chat account (Account tab on the join screen) to open a bank account — guests are a fresh identity every visit, so there’d be nothing to attach a balance to.' });
         return;
@@ -4790,6 +5204,12 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'bank_error', message: err });
       } else {
         syncEquipToPlayer(player);
+        // Gear now changes real stats — refresh max health (and clamp current
+        // HP if a vitality piece came off) and push a fresh stat block so the
+        // stats panel updates the instant gear changes.
+        player.maxHealth = playerMaxHealth(player);
+        if (player.health > player.maxHealth) player.health = player.maxHealth;
+        send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       }
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       return;
@@ -5372,7 +5792,8 @@ wss.on('connection', (ws) => {
       // longer blocks Toad's Tongue, etc.
       if (!player.spellCooldowns) player.spellCooldowns = {};
       const lastCastOfThis = player.spellCooldowns[spellId];
-      if (lastCastOfThis && now - lastCastOfThis < SPELL_COOLDOWN_MS) {
+      // Quickened Casting (the 'haste' skill) shortens the per-spell cooldown.
+      if (lastCastOfThis && now - lastCastOfThis < abilityCooldownFor(player, SPELL_COOLDOWN_MS)) {
         send(ws, { type: 'spell_error', message: 'Your magic needs to recharge a moment.' });
         return;
       }
@@ -5459,7 +5880,7 @@ wss.on('connection', (ws) => {
       if (spell.effect === 'damage' || spell.effect === 'leech') {
         const targetId = targetsMob ? String(msg.targetId || '') : target.id;
         const dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
-        const result = applyDamage(player, targetType, targetId, dmg);
+        const result = applyDamage(player, targetType, targetId, dmg, ABILITY_MAX_RANGE);
         if (!result.ok) {
           send(ws, { type: 'spell_error', message: result.evaded
             ? `💨 ${result.name} slips the spell — their echo still hangs in the air!`
@@ -5477,7 +5898,7 @@ wss.on('connection', (ws) => {
         let healedHint = '';
         if (spell.effect === 'leech' && !player.isDead) {
           const before = player.health;
-          player.health = Math.min(100, player.health + result.dmg);
+          player.health = Math.min(playerMaxHealth(player), player.health + result.dmg);
           const healed = Math.round(player.health - before);
           healedHint = healed > 0 ? `  🖤 ${healed} health drained back to you.` : '';
         }
@@ -5747,10 +6168,17 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'harvest_error', message: 'Your inventory is full.' });
         return;
       }
+      // Hedgecraft / Forager's Lore (the 'forage' skill) — a chance the patch
+      // gives up a second one. Rolled once; the bonus is best-effort (skipped
+      // silently if the pack is now full).
+      let bonusYield = 0;
+      if (Math.random() < skillHarvestExtraChance(player)) {
+        if (addItemToAccount(inv, itemId, 1)) bonusYield = 1;
+      }
       if (player.accountKey) saveInventories();
       myHarvests[decorId] = Date.now();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}.` });
+      send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}${bonusYield ? ` ×${1 + bonusYield} — a fine haul!` : '.'}` });
       // Regrowth is per player, so only THIS client's plants change looks.
       send(ws, { type: 'decor_state', decor: decorPublicState(player) });
       // XP for Wilds plants only (not town trees/shrubs/flowers)
@@ -5777,7 +6205,7 @@ wss.on('connection', (ws) => {
       if (plant.effect === 'status') {
         player.activeStatus = { type: plant.statusType, expiresAt: now + plant.durationMs };
       } else if (plant.effect === 'heal') {
-        player.health = Math.min(100, player.health + plant.amount);
+        player.health = Math.min(playerMaxHealth(player), player.health + plant.amount);
       } else if (plant.effect === 'cleanse') {
         player.activeStatus = null;
       }
@@ -5802,7 +6230,8 @@ wss.on('connection', (ws) => {
       // Independent per-attack cooldown, same reasoning as spellCooldowns above.
       if (!player.attackCooldowns) player.attackCooldowns = {};
       const lastCastOfThis = player.attackCooldowns[attackId];
-      if (lastCastOfThis && now - lastCastOfThis < ATTACK_COOLDOWN_MS) {
+      // Battle Tempo / Attuned Channeling / Efficient Rest (the 'haste' skill).
+      if (lastCastOfThis && now - lastCastOfThis < abilityCooldownFor(player, ATTACK_COOLDOWN_MS)) {
         send(ws, { type: 'attack_error', message: 'Still recovering — wait a moment.' });
         return;
       }
@@ -5846,7 +6275,7 @@ wss.on('connection', (ws) => {
       if (attack.effect === 'damage' || attack.effect === 'leech') {
         const targetId = atkTargetsMob ? String(msg.targetId || '') : targets[0].id;
         const dmg = attack.dmgMin + Math.floor(Math.random() * (attack.dmgMax - attack.dmgMin + 1));
-        const result = applyDamage(player, atkTargetType, targetId, dmg);
+        const result = applyDamage(player, atkTargetType, targetId, dmg, ABILITY_MAX_RANGE);
         if (!result.ok) {
           send(ws, { type: 'attack_error', message: result.evaded
             ? `💨 ${result.name} slips the blow — their echo still hangs in the air!`
@@ -5857,7 +6286,7 @@ wss.on('connection', (ws) => {
         let healedHint = '';
         if (attack.effect === 'leech' && !player.isDead) {
           const before = player.health;
-          player.health = Math.min(100, player.health + result.dmg);
+          player.health = Math.min(playerMaxHealth(player), player.health + result.dmg);
           const healed = Math.round(player.health - before);
           healedHint = healed > 0 ? `  💜 ${healed} health drawn back to you.` : '';
         }
@@ -5884,7 +6313,7 @@ wss.on('connection', (ws) => {
         }
         const amt = attack.healMin + Math.floor(Math.random() * (attack.healMax - attack.healMin + 1));
         const before = t.health;
-        t.health = Math.min(100, t.health + amt);
+        t.health = Math.min(playerMaxHealth(t), t.health + amt);
         const healed = Math.round(t.health - before);
         if (t.id !== player.id) {
           send(t.ws, { type: 'attack_result', message: `💚 ${player.name}'s ${attack.name} restores ${healed} health to you.` });
@@ -6186,7 +6615,7 @@ wss.on('connection', (ws) => {
     if (msg.type === 'respawn') {
       if (!player.isDead) return;
       player.isDead = false;
-      player.health = 100;
+      player.health = playerMaxHealth(player);
       // The loot window on this corpse closes the moment the body gets back
       // up, whether or not the killer ever claimed it — matches how a
       // creature's corpse loot resets on respawn too.
@@ -6213,6 +6642,49 @@ wss.on('connection', (ws) => {
         player.x = WORLD.spawn.x; player.y = WORLD.spawn.y;
         send(ws, { type: 'you_respawned', room: 'outside', x: player.x, y: player.y });
       }
+      return;
+    }
+
+    // ── Class skill trees ──────────────────────────────────────────────────
+    if (msg.type === 'skill_state') {
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      return;
+    }
+    if (msg.type === 'skill_allocate') {
+      const skillId = String(msg.skillId || '');
+      const skill = skillTreeFor(player.charId).find(s => s.id === skillId);
+      // charId-gated exactly like the ability catalogs: you can only ever
+      // spend into YOUR class's tree, validated here, not in the client.
+      if (!skill) { send(ws, { type: 'skill_error', message: 'That skill belongs to another class.' }); return; }
+      const prog = getProgress(player);
+      const alloc = getSkillAlloc(player);
+      const cur = alloc[skillId] || 0;
+      if (cur >= SKILL_MAX_RANK) { send(ws, { type: 'skill_error', message: `${skill.name} is already at maximum rank.` }); return; }
+      if ((prog.skillPoints || 0) < 1) { send(ws, { type: 'skill_error', message: 'No skill points to spend — level up to earn more.' }); return; }
+      prog.skillPoints -= 1;
+      alloc[skillId] = cur + 1;
+      syncProgressToPlayer(player); // refreshes player.maxHealth
+      if (player.accountKey) saveProgress();
+      send(ws, { type: 'skill_result', message: `${skill.icon} ${skill.name} is now rank ${alloc[skillId]}/${SKILL_MAX_RANK}.` });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: 0 });
+      return;
+    }
+    if (msg.type === 'skill_respec') {
+      const prog = getProgress(player);
+      const alloc = getSkillAlloc(player);
+      const refunded = Object.values(alloc).reduce((a, r) => a + (r || 0), 0);
+      if (refunded === 0) { send(ws, { type: 'skill_error', message: 'You have not spent any points in this class yet.' }); return; }
+      prog.skillPoints = (prog.skillPoints || 0) + refunded;
+      prog.skills[String(player.charId)] = {};
+      // Reunspent max-health could leave current health above the new (lower)
+      // cap — clamp it so nobody keeps overhealed HP after refunding vitality.
+      syncProgressToPlayer(player);
+      if (player.health > player.maxHealth) player.health = player.maxHealth;
+      if (player.accountKey) saveProgress();
+      send(ws, { type: 'skill_result', message: `↩️ Refunded ${refunded} skill point${refunded === 1 ? '' : 's'} — respend them however you like.` });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: 0 });
       return;
     }
 
@@ -6313,7 +6785,9 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'party_chat') {
-      const text = String(msg.text || '').trim().slice(0, 200);
+      // sanitizeText strips < > (same as room chat) — the client renders party
+      // messages, so an unsanitized payload here is a stored-XSS vector.
+      const text = sanitizeText(msg.text).slice(0, 200);
       if (!text) return;
       const partyId = playerParty.get(player.id);
       if (!partyId) return;
@@ -6644,12 +7118,16 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (player) {
+    // If a resume join already kicked this player out of the map (see the
+    // duplicate-prevention pass in the join handler), everything below
+    // already happened — including the successor taking over — so this
+    // close is just the old socket finally noticing.
+    if (player && players.get(player.id) === player) {
       // Stash the player for a seamless reconnect — a phone whose screen
       // turned off (or any dropped connection) can rejoin with the token
       // it got in init and carry on as the same character in the same
       // spot. Uses the same single-use restore path as checkout returns.
-      if (player.liveResumeToken && players.get(player.id) === player) {
+      if (player.liveResumeToken) {
         resumeStashes.set(player.liveResumeToken, {
           expiresAt: Date.now() + DISCONNECT_RESUME_TTL_MS,
           stash: buildResumeStash(player)
@@ -6673,6 +7151,23 @@ setInterval(() => {
   broadcastAll(snapshot);
 }, 70);
 
+// Reap half-open connections. A phone that loses signal (or a tab the OS
+// froze) never sends a close frame — without this, its player stands
+// frozen in town until TCP gives up, which can be minutes, and can even
+// end up standing next to their own resumed self. terminate() fires the
+// normal 'close' handler, so a reaped player still gets stashed and can
+// seamlessly resume when their connection comes back.
+setInterval(() => {
+  for (const client of wss.clients) {
+    if (client.isAlive === false) {
+      try { client.terminate(); } catch (e) {}
+      continue;
+    }
+    client.isAlive = false;
+    try { client.ping(); } catch (e) {}
+  }
+}, 30 * 1000);
+
 // Test hooks — lets the mock-socket harness in test/ drive internal event
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
@@ -6691,7 +7186,12 @@ global.__testHooks = {
   XP_THRESHOLDS, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
-  EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill
+  EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
+  // Class skill trees + equipment stats
+  SKILL_CATALOG, SKILL_MAX_RANK, skillStatePayload, getSkillAlloc,
+  playerMaxHealth, outgoingDamageMult, incomingDamageMult, abilityCooldownFor,
+  skillLifestealFrac, skillHarvestExtraChance, skillXpMult, skillSpeedMult, skillMendingRate,
+  EQUIP_STATS, computeStatBlock, statContrib, gearStatContrib, invEquipField, ITEM_CATALOG
 };
 
 server.listen(PORT, () => {
