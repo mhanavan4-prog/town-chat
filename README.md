@@ -84,20 +84,23 @@ Walk back out through the door and you're back in the open-air town square.
   places. See **Countermeasures** below for the two ways to slip a fight
   you're losing.
 - 6 buildings, each with its own medieval interior theme: ☕ The Cafe
-  (tavern), 📚 The Library (scriptorium), 🎮 The Arcade (alchemist's den),
-  🛋️ Rooftop Lounge (noble's parlor — see below), 🏛️ Town Hall (great hall,
+  (tavern), 📚 The Library (scriptorium), 🎮 Starlight Arcade (a starlit
+  arcane hall), 👻 The Phantom Parlor (a ghost-green séance parlor — see
+  below), 🏛️ Town Hall (great hall,
   the building straight ahead when you spawn), 🏦 The Bank (see **In-game
-  economy** below). Four are free; the **Lounge and the Arcade are
+  economy** below). Four are free; the **Parlor and the Arcade are
   ticketed** — a 🎟️ **Town Pass** ($0.99 for 24 hours, one purchase opens
   both, real Stripe Checkout) gets you in. Chat, quests, the campaign,
   and the whole economy never sit behind the pass — only the two leisure
   venues do. See **The Town Pass (Stripe payments)** below.
-- 🛋️ The Rooftop Lounge is two stories, inside and out: a ground-floor
-  parlor (5 tables — a cozy fireside table plus 4 more in a dining grid)
-  with a staircase up to an open-air terrace overlooking it, with 3 more
-  tables. Walking up/down the stairs is just walking normally — your
+- 👻 The Phantom Parlor is two stories, inside and out: a ground-floor
+  séance parlor (5 tables — a cozy witchfire-side table plus 4 more in a
+  dining grid, watched over by a haunted portrait gallery) with a
+  staircase up to the open-air Widow's Watch terrace overlooking it, with
+  3 more tables. Walking up/down the stairs is just walking normally — your
   character's height rises and falls to match as you cross the staircase.
-- 🎮 The Arcade has two actual playable cabinets — 🐍 Snake and 🧱 Breakout.
+- 🎮 The Starlight Arcade has two actual playable cabinets — rune-etched
+  arcane machines running 🐍 Snake and 🧱 Breakout.
   Walk up to one and press F to play (arrow keys to control, Space to retry
   after a game over, Esc to step away). Fully playable by touch too: swipe
   across the board to steer the snake (chained swipes work without lifting
@@ -686,7 +689,7 @@ Leave it unset and anyone with the link can join without a passcode.
 Four buildings are free for everyone, always: the Cafe, the Library, Town
 Hall, and the Bank — everything a player *needs* (chat, quests, story
 chapters, the whole economy) lives in free territory. The two leisure
-venues — the 🛋️ **Rooftop Lounge** and the 🎮 **Arcade** — are ticketed:
+venues — the 👻 **Phantom Parlor** and the 🎮 **Starlight Arcade** — are ticketed:
 their doors bounce you back outside until you hold a 🎟️ **Town Pass**.
 
 One pass, **$0.99, opens BOTH buildings for 24 hours** (price and duration
@@ -694,7 +697,7 @@ configurable — `TOWN_PASS_PRICE_CENTS` / `TOWN_PASS_HOURS` in `.env`). Buy
 it from the HUD bar, from a locked door's prompt, or in-world at the 🗿
 Town Pass statue inside the Cafe (walk up, press F). What the pass gates is
 deliberately *bonus* content — the Arcade's cabinets and Text tab, the
-Lounge's rooftop — plus exactly three optional NPCs (Lady Corwin, Apprentice
+Parlor's Widow's Watch terrace — plus exactly three optional NPCs (Lady Corwin, Apprentice
 Wren, Tinkerer Oswin) whose side quests are extra, never required. No story
 campaign ever needs a pass.
 
