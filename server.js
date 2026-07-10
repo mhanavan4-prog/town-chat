@@ -210,10 +210,36 @@ app.post('/api/send-sms', (req, res) => {
 // they were issued to.
 const resumeStashes = new Map(); // token → { stash, expiresAt }
 const RESUME_TTL_MS = 15 * 60 * 1000;
+// Disconnect stashes live longer than checkout ones — a phone whose screen
+// went dark can take a while to come back, and holding a guest's arrays in
+// memory for half an hour costs nothing at this scale.
+const DISCONNECT_RESUME_TTL_MS = 30 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
   for (const [t, e] of resumeStashes) if (e.expiresAt < now) resumeStashes.delete(t);
 }, 60 * 1000);
+
+// Snapshot everything needed to rebuild a player on a later join-with-token.
+// Shared by the checkout departure (explicit, client-requested before the
+// Stripe redirect) and the socket close handler (implicit, so a dropped
+// phone connection can seamlessly resume — see 'ws.on close' below).
+function buildResumeStash(player) {
+  return {
+    name: player.name, color: player.color, charId: player.charId,
+    accountKey: player.accountKey || null,
+    x: player.x, y: player.y, room: player.room,
+    health: player.health,
+    passUntil: player.passUntil || 0,
+    activeQuest: player.activeQuest ? { ...player.activeQuest } : null,
+    disguise: player.disguise ? { ...player.disguise } : null,
+    // Guests: hold direct references — the player object is about to be
+    // dropped on disconnect, and these keep its life alive.
+    guestProgress: player.accountKey ? null : player.guestProgress || null,
+    guestInventory: player.accountKey ? null : player.guestInventory || null,
+    guestHardDrive: player.accountKey ? null : player.guestHardDrive || null,
+    guestInbox: player.accountKey ? null : player.inbox || null
+  };
+}
 
 app.post('/api/checkout', async (req, res) => {
   if (!stripeClient) return res.status(503).json({ error: 'Passes aren’t on sale right now — the innkeeper hasn’t opened the ledger. (Server has no STRIPE_SECRET_KEY.)' });
@@ -346,9 +372,10 @@ WORLD.natureDecor = [
   { id: 'decor_20', type: 'tree',   x: 2160, y: 105,  scale: 3.0 },  { id: 'decor_21', type: 'shrub',  x: 2065, y: 55,   scale: 0.9 },
   { id: 'decor_22', type: 'tree',   x: 105,  y: 335,  scale: 2.85 }, { id: 'decor_23', type: 'tree',   x: 3105, y: 335,  scale: 2.85 },
   { id: 'decor_24', type: 'shrub',  x: 80,   y: 1865, scale: 1.0 },  { id: 'decor_25', type: 'shrub',  x: 3120, y: 1865, scale: 1.0 },
-  { id: 'decor_26', type: 'rock',   x: 500,  y: 1100, scale: 1.0 },  { id: 'decor_27', type: 'rock',   x: 1100, y: 1700, scale: 0.9 },
+  // (decor_27/30/31 removed — they sat in the temple, bank, and cafe
+  // walking lanes; the meadow rocks well off the paths remain.)
+  { id: 'decor_26', type: 'rock',   x: 500,  y: 1100, scale: 1.0 },
   { id: 'decor_28', type: 'rock',   x: 2100, y: 1700, scale: 1.1 },  { id: 'decor_29', type: 'rock',   x: 2700, y: 1100, scale: 0.9 },
-  { id: 'decor_30', type: 'rock',   x: 1600, y: 1700, scale: 1.0 },  { id: 'decor_31', type: 'rock',   x: 1050, y: 650,  scale: 0.85 },
   { id: 'decor_32', type: 'flower', x: 950,  y: 1200, scale: 1.0 },  { id: 'decor_33', type: 'flower', x: 1700, y: 750,  scale: 1.0 },
   { id: 'decor_34', type: 'flower', x: 2450, y: 1300, scale: 1.0 },  { id: 'decor_35', type: 'flower', x: 1300, y: 900,  scale: 0.9 },
   { id: 'decor_36', type: 'flower', x: 2000, y: 1500, scale: 1.0 },  { id: 'decor_37', type: 'flower', x: 600,  y: 1400, scale: 0.95 },
@@ -364,19 +391,14 @@ WORLD.natureDecor = [
   // town-layout change). New non-nature types (bench/lamppost/well/stall/…)
   // are pure scenery: not in HARVEST_TYPES, so they refuse harvesting, and
   // older clients that don't know a type simply skip it.
-{ id: 'decor_38', type: 'lamppost', x: 1021, y: 739 },
-  { id: 'decor_39', type: 'lamppost', x: 1315, y: 861 },
+// (7 lampposts removed from the spawn plaza ring — the 4 ritual torches
+  // light it; only the far lane posts below remain.)
+  { id: 'decor_38', type: 'lamppost', x: 1021, y: 739 },
   { id: 'decor_40', type: 'lamppost', x: 2132, y: 710 },
-  { id: 'decor_41', type: 'lamppost', x: 1856, y: 848 },
   { id: 'decor_42', type: 'lamppost', x: 985, y: 1524 },
-  { id: 'decor_43', type: 'lamppost', x: 1238, y: 1286 },
   { id: 'decor_44', type: 'lamppost', x: 2094, y: 1522 },
-  { id: 'decor_45', type: 'lamppost', x: 1900, y: 1288 },
   { id: 'decor_46', type: 'lamppost', x: 1566, y: 554 },
-  { id: 'decor_47', type: 'lamppost', x: 1634, y: 960 },
   { id: 'decor_48', type: 'lamppost', x: 1566, y: 1597 },
-  { id: 'decor_49', type: 'lamppost', x: 1634, y: 1256 },
-  { id: 'decor_50', type: 'lamppost', x: 1356, y: 1442 },
   { id: 'decor_51', type: 'well', x: 1502, y: 928 },
   { id: 'decor_52', type: 'stall', x: 1745, y: 850, rot: 1.5708, variant: 0 },
   { id: 'decor_53', type: 'stall', x: 1745, y: 1350, rot: 1.5708, variant: 1 },
@@ -4012,12 +4034,11 @@ function witchShopTierForLevel(level) {
   return 0;
 }
 
-// Lexton Greyfur's "Join the Howl" trade — separate from his free daily
-// Blood Pact (wolf_pact, no real data). This one is real: the player's own
-// microphone, only after an explicit per-purchase consent prompt (see
-// werewolf_voice_request below), a few seconds long, capturing the howl
-// itself rather than anything spoken. Not level-gated, unlike the Witch's
-// tiers — small, flat pool.
+// Lexton Greyfur's "Join the Howl" trade — his only offer. It uses the
+// player's own microphone, only after an explicit per-purchase consent
+// prompt (see werewolf_voice_request below), a few seconds long, capturing
+// the howl itself rather than anything spoken. Not level-gated, unlike the
+// Witch's tiers — small, flat pool.
 const WEREWOLF_HOWL_ITEMS = [
   { id: 'moonhowl_pelt' }, { id: 'alpha_fang' },
   { id: 'packbound_ring' }, { id: 'nightfang_boots' }
@@ -4421,10 +4442,19 @@ wss.on('connection', (ws) => {
       // happen to open the inventory panel once.
       syncEquipToPlayer(player);
 
+      // Live resume token — minted for every join and sent in init. If this
+      // socket later dies without warning (phone screen off, network blip),
+      // the close handler stashes the player under this token, and the
+      // client's auto-reconnect presents it to be rebuilt mid-session as the
+      // exact same character in the exact same spot. Single-use, same
+      // account-guarded restore path as the checkout flow.
+      player.liveResumeToken = crypto.randomBytes(24).toString('hex');
+
       send(ws, {
         type: 'init',
         id,
         resumed: !!resume, // client swaps its view to the restored room/spot
+        resumeToken: player.liveResumeToken,
         world: WORLD,
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
@@ -5534,21 +5564,7 @@ wss.on('connection', (ws) => {
       const token = crypto.randomBytes(24).toString('hex');
       resumeStashes.set(token, {
         expiresAt: Date.now() + RESUME_TTL_MS,
-        stash: {
-          name: player.name, color: player.color, charId: player.charId,
-          accountKey: player.accountKey || null,
-          x: player.x, y: player.y, room: player.room,
-          health: player.health,
-          passUntil: player.passUntil || 0,
-          activeQuest: player.activeQuest ? { ...player.activeQuest } : null,
-          disguise: player.disguise ? { ...player.disguise } : null,
-          // Guests: hold direct references — the player object is about to
-          // be dropped on disconnect, and these keep its life alive.
-          guestProgress: player.accountKey ? null : player.guestProgress || null,
-          guestInventory: player.accountKey ? null : player.guestInventory || null,
-          guestHardDrive: player.accountKey ? null : player.guestHardDrive || null,
-          guestInbox: player.accountKey ? null : player.inbox || null
-        }
+        stash: buildResumeStash(player)
       });
       send(ws, { type: 'resume_token', token });
       return;
@@ -6536,33 +6552,12 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (msg.type === 'wolf_pact') {
-      const now = Date.now();
-      const PACT_COOLDOWN = 24 * 60 * 60 * 1000;
-      if (player.wolfPactLastAt && now - player.wolfPactLastAt < PACT_COOLDOWN) {
-        const hoursLeft = Math.ceil((player.wolfPactLastAt + PACT_COOLDOWN - now) / 3600000);
-        send(ws, { type: 'wolf_pact_result', ok: false,
-          message: `Lexton's amber eyes glow. "The pact must rest, wanderer. Return in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}."` });
-        return;
-      }
-      const inv = getInventory(player);
-      if (!addItemToAccount(inv, 'wolf_pact_brew', 1)) {
-        send(ws, { type: 'wolf_pact_result', ok: false, message: 'Your inventory is full — make room first.' });
-        return;
-      }
-      player.wolfPactLastAt = now;
-      if (player.accountKey) saveInventories();
-      send(ws, { type: 'wolf_pact_result', ok: true,
-        message: '🐺 Lexton presses the vial into your hand. "The pact is sealed. Use it when the moon is right — your power doubles for an hour."' });
-      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      return;
-    }
-
-    // Lexton's second offer — distinct from wolf_pact above. That one is a
-    // free daily ritual that explicitly touches no real data; this one is
-    // real: it trades an item for the player's own recorded howl, which
-    // then goes on the Auction House. See werewolf_voice_request/
-    // werewolf_voice_payment below for the consent-first capture flow.
+    // Lexton Greyfur's Howl Trade — his one and only offer (the old Blood
+    // Pact ritual handler is gone): trade an item for the player's own
+    // recorded howl, which then goes on the Auction House. See
+    // werewolf_voice_request/werewolf_voice_payment below for the
+    // consent-first capture flow. (Wolf's Pact Brews already in player
+    // inventories keep working — only the way to get new ones is retired.)
     if (msg.type === 'werewolf_talk') {
       // Used to just return here with nothing sent at all if this ever
       // didn't hold — silent failures are exactly what made the voice
@@ -6650,6 +6645,16 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (player) {
+      // Stash the player for a seamless reconnect — a phone whose screen
+      // turned off (or any dropped connection) can rejoin with the token
+      // it got in init and carry on as the same character in the same
+      // spot. Uses the same single-use restore path as checkout returns.
+      if (player.liveResumeToken && players.get(player.id) === player) {
+        resumeStashes.set(player.liveResumeToken, {
+          expiresAt: Date.now() + DISCONNECT_RESUME_TTL_MS,
+          stash: buildResumeStash(player)
+        });
+      }
       leaveParty(player);
       if (player.room !== 'outside') {
         broadcastAll({ type: 'clear_user_messages', room: player.room, id: player.id });

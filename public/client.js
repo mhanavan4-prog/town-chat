@@ -31,6 +31,11 @@ let ws;
 let lastJoinPayload = null;
 let gameStarted = false;
 let reconnectTimer = null;
+// Live resume token — arrives in every init. If the socket dies (phone
+// screen off, network blip), the reconnect presents it and the server
+// rebuilds this exact character in place. Mirrored to sessionStorage so
+// even a killed-and-restored tab can resume (see maybeAutoResume()).
+let liveResumeToken = null;
 
 let myId = null;
 let world = null;       // whichever outdoor map is currently active (town's world, or world2) — see enterWilds()/exitWilds()
@@ -415,7 +420,23 @@ function setupWs() {
   ws.addEventListener('error', onWsError);
   ws.addEventListener('message', onWsMessage);
 }
-function onWsOpen() { setStatus(true); }
+function onWsOpen() {
+  setStatus(true);
+  // Mid-session socket open = a reconnect (first joins are sent by the join
+  // screen / auto-resume, before gameStarted is ever true). Rejoin
+  // immediately: with a live resume token the server rebuilds the exact
+  // character in place — spot, XP, inventory, pass — and a resume miss
+  // falls back to a plain rejoin in the join_error handler.
+  if (gameStarted && lastJoinPayload) {
+    ws.send(JSON.stringify(liveResumeToken ? buildLiveResumePayload() : lastJoinPayload));
+  }
+}
+function buildLiveResumePayload() {
+  const p = { type: 'join', resumeToken: liveResumeToken };
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) p.accountToken = a.token; } catch (e) {}
+  if (passSessionReceipt()) p.passSession = passSessionReceipt();
+  return p;
+}
 function onWsClose() {
   setStatus(false);
   if (gameStarted && lastJoinPayload && !reconnectTimer) {
@@ -423,6 +444,19 @@ function onWsClose() {
     reconnectTimer = setTimeout(() => { reconnectTimer = null; setupWs(); }, 2000);
   }
 }
+// Phones drop the socket when the screen sleeps or the app is backgrounded,
+// then sit out the retry timer after waking. Reconnect the instant the tab
+// is visible/online again instead.
+function maybeReconnectNow() {
+  if (!gameStarted || !lastJoinPayload) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  showReconnectBanner(true);
+  setupWs();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeReconnectNow(); });
+window.addEventListener('online', maybeReconnectNow);
+window.addEventListener('pageshow', maybeReconnectNow);
 function onWsError() { setStatus(false); }
 function onWsMessage(ev) {
   let msg;
@@ -457,11 +491,10 @@ function onWsMessage(ev) {
     if (!wasStarted) {
       initScene(world);
     } else {
-      // Reconnect: scene is already built. The server never remembers
-      // where a connection was — every (re)connect lands fresh at the town
-      // spawn — so if we were indoors, or out in the Wilds, force the
-      // client's view back to outdoor/town to match.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene) {
+      // Reconnect: scene is already built. Reset the view to the town map
+      // first — a resumed player gets swapped back into their restored
+      // room just below, and a plain rejoin really is back at the spawn.
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === caveScene || activeScene === vaultScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -469,10 +502,28 @@ function onWsMessage(ev) {
     }
     for (const p of msg.players) addPlayer(p);
     me = players[myId];
-    // Seamless checkout return: the server rebuilt us in the room we left
-    // from — swap the client's view to match (interior scene, wilds map,
-    // etc.) instead of the default town-spawn framing.
-    if (msg.resumed && me && !wasStarted && me.room && me.room !== 'outside') {
+    // Live resume token for THIS connection — kept in memory for the
+    // instant-reconnect path and mirrored to sessionStorage so a tab the
+    // phone killed outright can still resume on its next load.
+    if (msg.resumeToken) {
+      liveResumeToken = msg.resumeToken;
+      try {
+        sessionStorage.setItem('tc_live_resume', JSON.stringify({ token: msg.resumeToken, name: me ? me.name : '', at: Date.now() }));
+      } catch (e) {}
+    }
+    // Normalize the rejoin fallback to a plain join under our server-given
+    // name — never a stale resume payload (those tokens are single-use).
+    if (me) {
+      const plain = { type: 'join', name: me.name, charId: me.charId };
+      if (lastJoinPayload && lastJoinPayload.password) plain.password = lastJoinPayload.password;
+      try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) plain.accountToken = a.token; } catch (e) {}
+      if (passSessionReceipt()) plain.passSession = passSessionReceipt();
+      lastJoinPayload = plain;
+    }
+    // Resumed join (checkout return or live reconnect): the server rebuilt
+    // us in the room we left from — swap the client's view to match
+    // (interior scene, wilds map, etc.) instead of the town-spawn framing.
+    if (msg.resumed && me && me.room && me.room !== 'outside') {
       restoreSceneForRoom(me.room);
     }
     if (!wasStarted && pendingReturnToast) {
@@ -530,6 +581,15 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'join_error') {
+    if (msg.code === 'resume_expired' && gameStarted && lastJoinPayload && ws && ws.readyState === WebSocket.OPEN) {
+      // Mid-session resume miss (stash expired or the server restarted):
+      // fall back to a plain rejoin under the same name instead of dumping
+      // an in-game player onto the join screen.
+      liveResumeToken = null;
+      try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
+      ws.send(JSON.stringify(lastJoinPayload));
+      return;
+    }
     if (msg.code === 'resume_expired') {
       // The checkout took longer than the resume stash lives (or the
       // server restarted) — fall back to the normal join screen, name
@@ -728,12 +788,6 @@ function onWsMessage(ev) {
     // as quest_complete above.
     ws.send(JSON.stringify({ type: 'inventory_open' }));
     return; // refreshed story_state follows
-  }
-
-  if (msg.type === 'wolf_pact_result') {
-    closeBloodPactModal();
-    setUnlockToast(msg.message);
-    return;
   }
 
   if (msg.type === 'xp_gain') {
@@ -3189,35 +3243,9 @@ function closeImageLightbox() {
 const imageLightbox = document.getElementById('imageLightbox');
 if (imageLightbox) imageLightbox.addEventListener('click', closeImageLightbox);
 
-// Blood Pact modal — Lexton Greyfur's deal
-let bloodPactOpen = false;
-function openBloodPactModal() {
-  bloodPactOpen = true;
-  document.getElementById('bloodPactModal').classList.remove('hidden');
-}
-function closeBloodPactModal() {
-  bloodPactOpen = false;
-  document.getElementById('bloodPactModal').classList.add('hidden');
-}
-const bpAcceptBtn = document.getElementById('bpAcceptBtn');
-if (bpAcceptBtn) bpAcceptBtn.addEventListener('click', () => {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: 'wolf_pact' }));
-  closeBloodPactModal();
-});
-const bpDeclineBtn = document.getElementById('bpDeclineBtn');
-if (bpDeclineBtn) bpDeclineBtn.addEventListener('click', closeBloodPactModal);
-
-const bpHowlBtn = document.getElementById('bpHowlBtn');
-if (bpHowlBtn) bpHowlBtn.addEventListener('click', () => {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: 'werewolf_talk' }));
-  closeBloodPactModal();
-});
-
-// Lexton's second offer — same shape as the Witch's shop modal (item list
-// with Buy buttons), opened via the "Join the Howl" button in his Blood
-// Pact modal above.
+// Lexton Greyfur's Howl Trade — his one and only offer now (the old Blood
+// Pact ritual is gone). Same shape as the Witch's shop modal (item list
+// with Buy buttons), opened directly by talking to him in the Wilds.
 let werewolfShopOpen = false;
 let werewolfShopItems = [];
 
@@ -3807,13 +3835,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen) return;
+  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -4166,7 +4194,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen;
+    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -5541,7 +5569,11 @@ const CHAR = {
   get headY() { return this.shoulderY + this.headR + 2; }
 };
 const WALL_HEIGHT = 110;
-const OUTDOOR_CAM = { back: 165, height: 125, lookUp: 50 };
+// Outdoor follow camera — pulled back ~10% (was back:165 height:125) so
+// more of the town/wilds is on screen at once. Indoor cams stay as-is:
+// their rooms are small, and the cave's walls were tuned to the old
+// distances (see updateCamera()'s clip notes).
+const OUTDOOR_CAM = { back: 182, height: 138, lookUp: 50 };
 const INDOOR_CAM  = { back: 92,  height: 78,  lookUp: 42 };
 const INDOOR_SEATED_CAM = { back: 55, height: 60, lookUp: 28 };
 const INDOOR_SCALE = 1.8;
@@ -5573,7 +5605,15 @@ const lockVisuals = {};        // buildingId -> { door, lockSign }
 const INTERIOR_THEMES = {
   cafe:    { label: 'Tavern',          wall: 0x8a6a4a, banner: 0xd98a4f, furniture: 'tavern',    floorTint: 0xffffff },
   library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library',   floorTint: 0xb9c6ff },
-  arcade:  { label: "Alchemist's Den", wall: 0x55506a, banner: 0x9b5fc0, furniture: 'alchemist',  floorTint: 0xd9b8ff },
+  // The Arcade is the one interior styled like Witch Hazel's lair — same
+  // tricks (glowing crystals for light, painted canvas cards on the walls,
+  // a glyph ring on the floor), but cold starlight blue with a celestial
+  // symbol set instead of tarot & runes. The extra fields are atmosphere
+  // overrides only the arcade sets; every other room keeps the warm tavern
+  // defaults (see getInteriorScene()).
+  arcade:  { label: 'Starlit Arcade',  wall: 0x22335e, banner: 0x4fa8ff, furniture: 'alchemist',  floorTint: 0x9db8f0,
+             bg: 0x070f22, ambient: 0x4d6fd8, ambientIntensity: 1.7, fill: 0x8fb8ff,
+             lightsStyle: 'crystal', beamColor: 0x16223f },
   lounge:  { label: 'Noble Parlor & Terrace', wall: 0x7a4a52, banner: 0xc0596f, furniture: 'parlor', floorTint: 0xffc9d2 },
   hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 },
   bank:    { label: 'Grand Bank Hall', wall: 0x4a4538, banner: 0xd4af37, furniture: 'bank',       floorTint: 0xe8d9a0 }
@@ -5854,6 +5894,13 @@ function exitDungeon() {
   ws.send(JSON.stringify({ type: 'dungeon_exit' }));
 }
 
+// Just-traversed grace: for a moment after stepping through either portal,
+// portal kiosks neither trigger nor show their interact button. On phones
+// the button appears exactly where a thumb is about to drag the camera, so
+// without this a fresh arrival often tapped themselves straight back.
+let portalCooldownUntil = 0;
+const PORTAL_COOLDOWN_MS = 2500;
+
 function enterWilds() {
   if (!wildsScene || !world2 || !me) return;
   swapToWildsMap();
@@ -5862,15 +5909,16 @@ function enterWilds() {
   // only 1200 units from the southern edge — while everything worth
   // seeing (WILDS_NPCS, the giant tree, the ritual circle) clusters
   // around y≈5000, thousands of units north. facing=0 (+Y) faced the
-  // player at that nearby empty edge instead of the Wilds itself; the
-  // return portal (spawn.y - 80, see buildWildsScene) is only 80 units
-  // away either way, trivial next to that, so it's not worth orienting
-  // around. This also replaces a temporary cameraYawOffset hack that only
-  // faked the initial view for one frame — see git history for that fix.
+  // player at that nearby empty edge instead of the Wilds itself. The
+  // return portal sits off to the east (see buildWildsScene), out of both
+  // the initial view and the walking line north. This also replaces a
+  // temporary cameraYawOffset hack that only faked the initial view for
+  // one frame — see git history for that fix.
   me.facing = Math.PI;
   me.room = 'wilds';
   me.x = world2.spawn.x;
   me.y = world2.spawn.y;
+  portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
   ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
   setUnlockToast('🌀 You step through the portal into the Wilds.');
 }
@@ -5879,11 +5927,12 @@ function exitWilds() {
   if (!outdoorScene || !TOWN_WORLD || !me || !world2) return;
   swapToTownMap();
   me.room = 'outside';
-  // Nudge clear of the town-side portal kiosk so stepping back through
-  // doesn't immediately re-trigger it (same idea as the Wilds-side return
-  // portal's own offset in buildWildsScene()).
+  // Land clear of the town-side portal kiosk — outside its 80-unit
+  // interact radius (the old +70 nudge left the tap button already on
+  // screen the moment you arrived), plus the traversal grace below.
   me.x = world2.portalInTown.x;
-  me.y = world2.portalInTown.y + 70;
+  me.y = world2.portalInTown.y + 115;
+  portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
   ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
   setUnlockToast('🌀 You step back through the portal into town.');
 }
@@ -7258,8 +7307,14 @@ function buildWildsScene(w2) {
   addGiantWerewolfTree(scene);
   buildWildsNPCs(scene);
 
-  // The return portal back to town
-  const returnPortalX = w2.spawn.x, returnPortalY = w2.spawn.y - 80;
+  // The return portal back to town — parked EAST of the arrival spot, not
+  // north of it. It used to sit at spawn.y - 80, squarely in the walking
+  // line toward everything worth seeing (all the content is north), so
+  // players strolled straight into its interact radius and the mobile tap
+  // button popped up right under the thumb that was about to turn the
+  // camera — instant accidental bounce back to town. Off to the side, you
+  // only reach it on purpose.
+  const returnPortalX = w2.spawn.x + 170, returnPortalY = w2.spawn.y + 20;
   scene.add(buildPortalMesh(returnPortalX, returnPortalY));
   WILDS_KIOSKS.push({ x: returnPortalX, z: returnPortalY, portal: 'town' });
 
@@ -7887,7 +7942,7 @@ function addGiantWerewolfTree(scene) {
   lextonMesh.rotation.y = Math.PI; // faces south (toward approaching players)
   scene.add(lextonMesh);
 
-  const lextonLabel = makeNpcNameSprite('Lexton Greyfur', 'Keeper of the Blood Pact');
+  const lextonLabel = makeNpcNameSprite('Lexton Greyfur', 'Voice of the Howl');
   lextonLabel.position.set(TX, PLATFORM_Y + PLANK_H + 95, TZ - 40);
   scene.add(lextonLabel);
 
@@ -10016,18 +10071,53 @@ function getInteriorScene(buildingId) {
   wallsLocal.push(doorCollider);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1c1410);
-  scene.fog = new THREE.Fog(0x1c1410, 380, 900);
+  // Background/fog and lighting are theme-overridable so one room can go
+  // full Witch-Hazel (the Arcade's cold starlight) while every other
+  // interior keeps the warm torchlit defaults.
+  const bgCol = theme.bg != null ? theme.bg : 0x1c1410;
+  scene.background = new THREE.Color(bgCol);
+  scene.fog = new THREE.Fog(bgCol, 380, 900);
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 3000);
 
-  scene.add(new THREE.AmbientLight(0xffd9a0, 0.5));
-  const torch1 = new THREE.PointLight(0xffa85c, 1.2, 340);
-  torch1.position.set(30, 70, 30);
-  scene.add(torch1);
-  const torch2 = new THREE.PointLight(0xffa85c, 1.2, 340);
-  torch2.position.set(roomW - 30, 70, roomD - 30);
-  scene.add(torch2);
+  scene.add(new THREE.AmbientLight(
+    theme.ambient != null ? theme.ambient : 0xffd9a0,
+    theme.ambientIntensity != null ? theme.ambientIntensity : 0.5
+  ));
+  if (theme.lightsStyle === 'crystal') {
+    // The Witch's Cave trick: cold point lights rising from emissive
+    // crystal clusters instead of fire, plus a soft directional fill so
+    // players don't read as silhouettes against the dark stone.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0x8fb8ff, 0.8);
+    fill.position.set(roomW * 0.6, 260, roomD * 0.7);
+    scene.add(fill);
+    const crystalMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 });
+    const spots = [
+      [34, 34], [roomW - 34, 34], [34, roomD - 34], [roomW - 34, roomD - 34],
+      [roomW / 2, 40]
+    ];
+    for (const [sx, sz] of spots) {
+      const light = new THREE.PointLight(0x3d8bff, 1.5, 380);
+      light.position.set(sx, 85, sz);
+      scene.add(light);
+      const cluster = new THREE.Group();
+      for (const [ox, oz, r, h] of [[0, 0, 7, 16], [9, 4, 4.5, 9], [-7, 6, 3.5, 7]]) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), crystalMat);
+        shard.scale.y = h / (r * 2);
+        shard.position.set(ox, h, oz);
+        cluster.add(shard);
+      }
+      cluster.position.set(sx, 0, sz);
+      scene.add(cluster);
+    }
+  } else {
+    const torch1 = new THREE.PointLight(0xffa85c, 1.2, 340);
+    torch1.position.set(30, 70, 30);
+    scene.add(torch1);
+    const torch2 = new THREE.PointLight(0xffa85c, 1.2, 340);
+    torch2.position.set(roomW - 30, 70, roomD - 30);
+    scene.add(torch2);
+  }
 
   // stone floor, tinted per theme so each building's interior reads as its
   // own space rather than the same room repainted
@@ -10053,17 +10143,21 @@ function getInteriorScene(buildingId) {
     scene.add(mesh);
   }
 
-  // exposed wood ceiling beams
-  const beamMat = new THREE.MeshLambertMaterial({ color: 0x3c2a1a });
+  // exposed ceiling beams — dark wood by default, cold blue stone when the
+  // theme overrides it (the arcade)
+  const beamMat = new THREE.MeshLambertMaterial({ color: theme.beamColor != null ? theme.beamColor : 0x3c2a1a });
   for (let i = 1; i <= 3; i++) {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(roomW - 10, 8, 10), beamMat);
     beam.position.set(roomW / 2, INDOOR_WALL_HEIGHT - 12, (roomD / 4) * i);
     scene.add(beam);
   }
 
-  // torches near the point lights
-  scene.add(buildTorch(30, 30));
-  scene.add(buildTorch(roomW - 30, roomD - 30));
+  // torches near the point lights (crystal-lit rooms already got glowing
+  // clusters at every light spot instead — fire would clash)
+  if (theme.lightsStyle !== 'crystal') {
+    scene.add(buildTorch(30, 30));
+    scene.add(buildTorch(roomW - 30, roomD - 30));
+  }
 
   // a real doorway at the gap — wooden frame around the opening, an EXIT
   // sign, and a single closed panel flush with the wall (see
@@ -10621,10 +10715,13 @@ function makeStatue(x, z) {
 // the 'alchemist' branch of buildFurniture()) is what actually opens the
 // mini-game; this is just the standing geometry.
 function makeArcadeCabinet(x, z, rotY, screenColor) {
+  // Enchanted arcane machine — rune-etched night-blue body, crystal crown
+  // where the wooden marquee used to be. Same footprint, same screen, same
+  // kiosk interaction; only the dressing changed with the room.
   const g = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(30, 64, 26),
-    new THREE.MeshLambertMaterial({ color: 0x3a2a4a })
+    new THREE.MeshLambertMaterial({ color: 0x141f3d, emissive: 0x060d1f, emissiveIntensity: 0.6 })
   );
   body.position.y = 32;
   g.add(body);
@@ -10634,12 +10731,27 @@ function makeArcadeCabinet(x, z, rotY, screenColor) {
   );
   screen.position.set(0, 44, 13.1);
   g.add(screen);
+  // Glowing rune etchings down the front panel, below the screen
+  const runeMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x2a6fe0, emissiveIntensity: 0.8 });
+  for (let i = 0; i < 4; i++) {
+    const etch = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.4, 0.8), runeMat);
+    etch.position.set(-9 + i * 6, 24 - (i % 2) * 6, 13.2);
+    g.add(etch);
+  }
+  // Crystal trim crown + a shard at each top corner
   const trim = new THREE.Mesh(
     new THREE.BoxGeometry(32, 5, 28),
-    new THREE.MeshLambertMaterial({ color: 0xffd27a })
+    new THREE.MeshLambertMaterial({ color: 0xbfe2ff, emissive: 0x2f6fd0, emissiveIntensity: 0.55, transparent: true, opacity: 0.9 })
   );
   trim.position.y = 64;
   g.add(trim);
+  const shardMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 });
+  for (const sx of [-13, 13]) {
+    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(4, 0), shardMat);
+    shard.scale.y = 1.8;
+    shard.position.set(sx, 70, 0);
+    g.add(shard);
+  }
   const glow = new THREE.PointLight(screenColor, 0.6, 60);
   glow.position.set(0, 44, 16);
   g.add(glow);
@@ -10848,11 +10960,195 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: 320, z: 60, npc: 'hint', npcId: 'npc_apprentice', npcName: 'Apprentice Wren' });
     }
   } else if (type === 'alchemist') {
-    scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x4a3a6b));
-    scene.add(makeCauldron(cx, cz + 30));
-    scene.add(makeBarrel(24, 24));
-    scene.add(makeBarrel(roomW - 24, 24));
-    scene.add(makeBanner(cx, 90, 8, 0, 0x9b5fc0));
+    // ── The Starlit Arcade ──────────────────────────────────────────────
+    // Witch Hazel's lair's decorating playbook (painted canvas cards on
+    // every wall, a glyph ring on the floor, glowing crystals, occult
+    // clutter) shifted to cold blue and a celestial symbol set:
+    // constellation charts, moon phases, zodiac glyphs, and enchanted
+    // relics under glass. The playable cabinets and both NPCs keep their
+    // exact positions and kiosk ids — only the dressing changed.
+
+    // A star chart in a silver frame — same canvas technique as the cave's
+    // tarot cards: painted background, double border, then a scattering of
+    // stars with a constellation line traced through them. Deterministic
+    // per-name so charts differ from each other but never between visits.
+    const makeStarChart = (glyph, name, seed) => {
+      const cw = 96, ch = 128;
+      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 0, ch);
+      grad.addColorStop(0, '#050b1e'); grad.addColorStop(1, '#0b1836');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
+      ctx.strokeStyle = '#8fb0d8'; ctx.lineWidth = 3;
+      ctx.strokeRect(4, 4, cw - 8, ch - 8);
+      ctx.strokeStyle = '#3a5a8a'; ctx.lineWidth = 1;
+      ctx.strokeRect(10, 10, cw - 20, ch - 20);
+      for (const [ox, oy] of [[14, 14], [cw - 14, 14], [14, ch - 14], [cw - 14, ch - 14]]) {
+        ctx.fillStyle = '#8fb0d8'; ctx.beginPath();
+        ctx.arc(ox, oy, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      // Scattered stars + constellation line through the first few
+      const pts = [];
+      for (let i = 0; i < 14; i++) {
+        const px = 20 + (Math.sin(seed * 13.7 + i * 7.3) * 0.5 + 0.5) * (cw - 40);
+        const py = 30 + (Math.sin(seed * 5.1 + i * 11.9) * 0.5 + 0.5) * (ch - 70);
+        pts.push([px, py]);
+        const r = 0.8 + (Math.sin(seed + i * 3.3) * 0.5 + 0.5) * 1.6;
+        ctx.fillStyle = `rgba(205,230,255,${0.55 + (i % 3) * 0.15})`;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(140,200,255,0.8)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      pts.slice(0, 6).forEach(([px, py], i) => i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py));
+      ctx.stroke();
+      // Brighten the constellation's own stars
+      for (const [px, py] of pts.slice(0, 6)) {
+        ctx.fillStyle = '#e8f4ff';
+        ctx.beginPath(); ctx.arc(px, py, 2.1, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.textAlign = 'center';
+      ctx.font = '20px serif'; ctx.fillStyle = '#bfe0ff';
+      ctx.fillText(glyph, cw / 2, 28);
+      ctx.font = 'bold 8px sans-serif'; ctx.fillStyle = '#8fb0d8';
+      ctx.fillText(name, cw / 2, ch - 16);
+      const mat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), emissive: 0x0d1f4a, emissiveIntensity: 0.55 });
+      return new THREE.Mesh(new THREE.PlaneGeometry(62, 84), mat);
+    };
+
+    // A moon-phase plaque — silver disc, phase-shadowed, thin ring frame.
+    const makeMoonPhase = (phase) => {
+      const c = document.createElement('canvas'); c.width = 48; c.height = 48;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0b1836'; ctx.fillRect(0, 0, 48, 48);
+      ctx.strokeStyle = '#6f92c8'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(24, 24, 21, 0, Math.PI * 2); ctx.stroke();
+      if (phase > 0) {
+        ctx.fillStyle = '#d8e8ff';
+        ctx.beginPath(); ctx.arc(24, 24, 17, 0, Math.PI * 2); ctx.fill();
+        if (phase < 4) {
+          // Shadow disc slides off to the left as the moon waxes
+          ctx.fillStyle = '#0b1836';
+          const dx = [-8, -14, -22, -30][phase - 1];
+          ctx.beginPath(); ctx.arc(24 + dx, 24, 18, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      const mat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), emissive: 0x0a1a33, emissiveIntensity: 0.6 });
+      return new THREE.Mesh(new THREE.PlaneGeometry(26, 26), mat);
+    };
+
+    // A free-floating glowing glyph — always-bright (Basic material), soft
+    // halo painted right into the canvas.
+    const makeGlowGlyph = (glyph, size) => {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#66baff'; ctx.shadowBlur = 14;
+      ctx.fillStyle = '#cfe8ff'; ctx.font = '38px serif';
+      ctx.fillText(glyph, 32, 34);
+      ctx.fillText(glyph, 32, 34); // twice = brighter core inside the halo
+      const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      return new THREE.Mesh(new THREE.PlaneGeometry(size || 26, size || 26), mat);
+    };
+
+    // A relic on display: stone pedestal, glass dome, its own cold light.
+    const makePedestal = (x, z) => {
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 26, 10), new THREE.MeshLambertMaterial({ color: 0x243761 }));
+      base.position.y = 13; g.add(base);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 2.5, 10), new THREE.MeshLambertMaterial({ color: 0x2f4a7f }));
+      cap.position.y = 27; g.add(cap);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(13, 12, 10), new THREE.MeshLambertMaterial({ color: 0xbfe2ff, transparent: true, opacity: 0.22 }));
+      dome.position.y = 40; g.add(dome);
+      const light = new THREE.PointLight(0x66aaff, 0.5, 90);
+      light.position.set(0, 46, 0); g.add(light);
+      g.position.set(x, 0, z);
+      scene.add(g);
+      return g; // items get added into this group at y≈34..46
+    };
+
+    const shardMat = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 });
+    const makeShardCluster = (x, z) => {
+      const g = new THREE.Group();
+      for (const [ox, oz, r, h] of [[0, 0, 8, 18], [10, 5, 5, 10], [-8, 7, 4, 8], [4, -8, 3, 6]]) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), shardMat);
+        shard.scale.y = h / (r * 2);
+        shard.position.set(ox, h, oz);
+        g.add(shard);
+      }
+      g.position.set(x, 0, z);
+      scene.add(g);
+    };
+
+    scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x16244a));
+
+    // Zodiac ring painted on the floor around the cauldron — the cave's
+    // rune circle, celestial edition.
+    (function() {
+      const rc = document.createElement('canvas'); rc.width = 256; rc.height = 256;
+      const rx = rc.getContext('2d');
+      rx.strokeStyle = 'rgba(110,180,255,0.65)'; rx.lineWidth = 3;
+      rx.beginPath(); rx.arc(128, 128, 110, 0, Math.PI * 2); rx.stroke();
+      rx.lineWidth = 2;
+      rx.beginPath(); rx.arc(128, 128, 86, 0, Math.PI * 2); rx.stroke();
+      // Eight-pointed star inside the inner ring
+      rx.strokeStyle = 'rgba(140,200,255,0.5)'; rx.lineWidth = 1.5;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+        const a2 = ((i + 3) / 8) * Math.PI * 2 - Math.PI / 2;
+        rx.beginPath();
+        rx.moveTo(128 + Math.cos(a) * 86, 128 + Math.sin(a) * 86);
+        rx.lineTo(128 + Math.cos(a2) * 86, 128 + Math.sin(a2) * 86);
+        rx.stroke();
+      }
+      // Zodiac glyphs around the ring
+      rx.fillStyle = 'rgba(190,225,255,0.85)'; rx.font = '17px serif'; rx.textAlign = 'center';
+      const zodiac = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+      zodiac.forEach((zg, i) => {
+        const a = (i / zodiac.length) * Math.PI * 2 - Math.PI / 2;
+        rx.fillText(zg, 128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98 + 6);
+      });
+      // Dusting of tiny stars inside the circle
+      for (let i = 0; i < 40; i++) {
+        const a = Math.sin(i * 12.9) * Math.PI * 2, rr = (Math.sin(i * 7.7) * 0.5 + 0.5) * 78;
+        rx.fillStyle = `rgba(190,225,255,${0.25 + (i % 4) * 0.12})`;
+        rx.beginPath();
+        rx.arc(128 + Math.cos(a) * rr, 128 + Math.sin(a) * rr, 0.8 + (i % 3) * 0.5, 0, Math.PI * 2);
+        rx.fill();
+      }
+      const ringTex = new THREE.CanvasTexture(rc);
+      const ring = new THREE.Mesh(
+        new THREE.PlaneGeometry(250, 250),
+        new THREE.MeshLambertMaterial({ map: ringTex, transparent: true, opacity: 0.9 })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(cx, 1, cz + 30);
+      scene.add(ring);
+    })();
+
+    // The alchemist's old cauldron, now brewing liquid night — cyan glow,
+    // cold light, a few sparks hanging over the brew.
+    (function() {
+      const g = new THREE.Group();
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(13, 9, 16, 10), new THREE.MeshLambertMaterial({ color: 0x1c1c28 }));
+      pot.position.y = 10; g.add(pot);
+      const brew = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 2, 10), new THREE.MeshBasicMaterial({ color: 0x4fd8ff }));
+      brew.position.y = 18; g.add(brew);
+      const sparkMat = new THREE.MeshBasicMaterial({ color: 0xbfe9ff });
+      for (const [sx, sy, sz] of [[-6, 30, 4], [7, 38, -3], [-2, 46, -6]]) {
+        const spark = new THREE.Mesh(new THREE.OctahedronGeometry(1.7, 0), sparkMat);
+        spark.position.set(sx, sy, sz); g.add(spark);
+      }
+      const light = new THREE.PointLight(0x3fbfff, 1.3, 170);
+      light.position.set(0, 30, 0); g.add(light);
+      g.position.set(cx, 0, cz + 30);
+      scene.add(g);
+    })();
+
+    scene.add(makeBanner(cx, 90, 8, 0, 0x4fa8ff));
+    scene.add(makeBanner(roomW - 8, 95, 120, Math.PI / 2, 0x4fa8ff));
+    scene.add(makeBanner(roomW - 8, 95, 366, Math.PI / 2, 0x4fa8ff));
+    makeShardCluster(26, cz);
+    makeShardCluster(roomW - 26, 420);
 
     // Two playable arcade cabinets where the old table used to be — F to
     // play, opening the matching mini-game (see openArcadeGame()).
@@ -10860,27 +11156,124 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const cabZ = cz - 15;
       const cab1X = cx - roomW * 0.2, cab2X = cx + roomW * 0.2;
 
-      scene.add(makeArcadeCabinet(cab1X, cabZ, 0, 0x4cff7a));
+      scene.add(makeArcadeCabinet(cab1X, cabZ, 0, 0x35ffd0));
       const sign1 = makeSignSprite('🐍 Snake');
       sign1.position.set(cab1X, 92, cabZ);
       scene.add(sign1);
       kiosksOut.push({ id: 'arcade_game_snake', x: cab1X, z: cabZ, game: 'snake' });
 
-      scene.add(makeArcadeCabinet(cab2X, cabZ, 0, 0xff7a4c));
+      scene.add(makeArcadeCabinet(cab2X, cabZ, 0, 0x4f9dff));
       const sign2 = makeSignSprite('🧱 Breakout');
       sign2.position.set(cab2X, 92, cabZ);
       scene.add(sign2);
       kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
 
-      // Framed paintings on the north wall, clear of the cauldron/cabinets.
+      // ── Symbols and decorations all over the walls ────────────────────
+      // North wall: four constellation charts flanking the banner
       [
-        { symbol: '⚗️', title: 'DISTILLATION', subtitle: 'plate IV' },
-        { symbol: '💀', title: 'MEMENTO MORI', subtitle: 'a caution' }
-      ].forEach(({ symbol, title, subtitle }, i) => {
-        const p = makeWallPainting({ symbol, title, subtitle, bg1: '#241a38', bg2: '#332050', border: '#6a4a9a', accent: '#c8a0e8' });
-        p.position.set(roomW * (i === 0 ? 0.3 : 0.7), 90, 4);
-        scene.add(p);
+        { glyph: '♈', name: 'THE RAM',      x: 90 },
+        { glyph: '♏', name: 'THE SCORPION', x: 250 },
+        { glyph: '♐', name: 'THE ARCHER',   x: 470 },
+        { glyph: '♓', name: 'THE FISHES',   x: 630 }
+      ].forEach(({ glyph, name, x }, i) => {
+        const chart = makeStarChart(glyph, name, i + 1);
+        chart.position.set(x, 92, 4);
+        scene.add(chart);
       });
+      // South wall: three more, facing back into the room
+      [
+        { glyph: '♌', name: 'THE LION',         x: 140 },
+        { glyph: '♒', name: 'THE WATER-BEARER', x: 360 },
+        { glyph: '♊', name: 'THE TWINS',        x: 580 }
+      ].forEach(({ glyph, name, x }, i) => {
+        const chart = makeStarChart(glyph, name, i + 5);
+        chart.position.set(x, 92, roomD - 4);
+        chart.rotation.y = Math.PI;
+        scene.add(chart);
+      });
+      // East wall: one each side of the door
+      [{ glyph: '♑', name: 'THE SEA-GOAT', z: 110 }, { glyph: '♋', name: 'THE CRAB', z: 376 }].forEach(({ glyph, name, z }, i) => {
+        const chart = makeStarChart(glyph, name, i + 8);
+        chart.position.set(roomW - 4, 92, z);
+        chart.rotation.y = -Math.PI / 2;
+        scene.add(chart);
+      });
+      // West wall: the moon's whole cycle, new to full
+      [0, 1, 2, 3, 4].forEach((phase, i) => {
+        const moon = makeMoonPhase(phase);
+        moon.position.set(4, 100, 100 + i * 72);
+        moon.rotation.y = Math.PI / 2;
+        scene.add(moon);
+      });
+      // Free-floating glyphs scattered between everything
+      [
+        ['✶', 170, 122, 6, 0], ['☾', 410, 60, 6, 0], ['☄', 550, 122, 6, 0],
+        ['⚝', 250, 125, roomD - 6, Math.PI], ['✷', 470, 125, roomD - 6, Math.PI],
+        ['☿', 6, 60, 150, Math.PI / 2], ['✦', 6, 130, 243, Math.PI / 2], ['♄', 6, 60, 340, Math.PI / 2],
+        ['☽', roomW - 6, 125, 90, -Math.PI / 2], ['✶', roomW - 6, 125, 400, -Math.PI / 2]
+      ].forEach(([glyph, x, y, z, rotY]) => {
+        const gl = makeGlowGlyph(glyph, 24);
+        gl.position.set(x, y, z);
+        gl.rotation.y = rotY;
+        scene.add(gl);
+      });
+
+      // ── Magical items on display, under glass ─────────────────────────
+      // Scrying orb
+      (function() {
+        const p = makePedestal(90, 120);
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 12), new THREE.MeshLambertMaterial({ color: 0x66ccff, emissive: 0x2f7fff, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 }));
+        orb.position.y = 38; p.add(orb);
+        const core = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0xd8f2ff }));
+        core.position.y = 38; p.add(core);
+        const sign = makeSignSprite('🔮 Scrying Orb');
+        sign.position.set(90, 74, 120); scene.add(sign);
+      })();
+      // Star grimoire — open book hovering above the pedestal
+      (function() {
+        const p = makePedestal(roomW - 90, 120);
+        const coverMat = new THREE.MeshLambertMaterial({ color: 0x1a2f5e, emissive: 0x0a1830, emissiveIntensity: 0.5 });
+        const pageMat = new THREE.MeshLambertMaterial({ color: 0xe8f0ff, emissive: 0x3355aa, emissiveIntensity: 0.25 });
+        for (const s of [-1, 1]) {
+          const cover = new THREE.Mesh(new THREE.BoxGeometry(9, 1.4, 12), coverMat);
+          cover.position.set(s * 4.4, 37, 0);
+          cover.rotation.z = -s * 0.28;
+          p.add(cover);
+          const page = new THREE.Mesh(new THREE.BoxGeometry(8, 1.2, 10.5), pageMat);
+          page.position.set(s * 4.1, 37.9, 0);
+          page.rotation.z = -s * 0.28;
+          p.add(page);
+        }
+        const sign = makeSignSprite('📖 Star Grimoire');
+        sign.position.set(roomW - 90, 74, 120); scene.add(sign);
+      })();
+      // Starforged blade — upright, point down
+      (function() {
+        const p = makePedestal(90, 356);
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(2.2, 24, 5), new THREE.MeshLambertMaterial({ color: 0xdfeaff, emissive: 0x6f9fe8, emissiveIntensity: 0.5 }));
+        blade.position.y = 44; blade.rotation.z = 0.12; p.add(blade);
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(9, 2, 3), new THREE.MeshLambertMaterial({ color: 0x2f4a7f }));
+        guard.position.set(-0.7, 53.5, 0); guard.rotation.z = 0.12; p.add(guard);
+        const pommel = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 }));
+        pommel.position.set(-1.4, 58.5, 0); p.add(pommel);
+        const sign = makeSignSprite('🗡️ Starforged Blade');
+        sign.position.set(90, 78, 356); scene.add(sign);
+      })();
+      // Moon relic — a silver crescent with two trailing motes
+      (function() {
+        const p = makePedestal(roomW - 90, 356);
+        const moonMat = new THREE.MeshLambertMaterial({ color: 0xe4e9ff, emissive: 0x6a74c8, emissiveIntensity: 0.55 });
+        const body = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), moonMat);
+        body.position.y = 40; p.add(body);
+        const bite = new THREE.Mesh(new THREE.SphereGeometry(4.6, 10, 10), new THREE.MeshLambertMaterial({ color: 0x070f22 }));
+        bite.position.set(2.8, 41.5, 2.2); p.add(bite);
+        const m1 = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), moonMat);
+        m1.position.set(-7, 46, 0); p.add(m1);
+        const m2 = new THREE.Mesh(new THREE.SphereGeometry(0.9, 6, 6), moonMat);
+        m2.position.set(-4, 50, 2); p.add(m2);
+        const sign = makeSignSprite('🌙 Moon Relic');
+        sign.position.set(roomW - 90, 78, 356); scene.add(sign);
+      })();
 
       const alchemist = createHumanoid(0).group;
       alchemist.position.set(150, 0, roomD - 90);
@@ -13869,6 +14262,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'teller') { openBankModal(); return; }
   if (kiosk && kiosk.npc === 'auctioneer') { openAuctionModal(); return; }
   if (kiosk && kiosk.npc === 'courier') { openSendMoneyModal(); return; }
+  if (kiosk && (kiosk.portal === 'wilds' || kiosk.portal === 'town') && Date.now() < portalCooldownUntil) return; // just arrived — no instant bounce-back
   if (kiosk && kiosk.portal === 'wilds') { enterWilds(); return; }
   if (kiosk && kiosk.portal === 'town') { exitWilds(); return; }
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
@@ -13883,7 +14277,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
-  if (kiosk && kiosk.npc === 'wolf_pact') { openBloodPactModal(); return; }
+  if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
 }
@@ -13899,7 +14293,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || bloodPactOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -13948,6 +14342,12 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'courier') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} send money to another player`;
+    return;
+  }
+  if (kiosk && (kiosk.portal === 'wilds' || kiosk.portal === 'town') && Date.now() < portalCooldownUntil) {
+    // Traversal grace — keep the tap button off the screen entirely so a
+    // thumb aiming for the camera can't re-fire the portal.
+    hint.classList.add('hidden');
     return;
   }
   if (kiosk && kiosk.portal === 'wilds') {
@@ -14022,7 +14422,7 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'wolf_pact') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Lexton Greyfur`;
+    document.getElementById('interactHintText').textContent = `${interactVerb()} howl with Lexton Greyfur`;
     return;
   }
   if (kiosk && kiosk.npc === 'waymark') {
@@ -14079,10 +14479,6 @@ window.addEventListener('keydown', (e) => {
   }
   if (journalOpen && e.key === 'Escape' && !e.repeat) {
     closeJournal();
-    return;
-  }
-  if (bloodPactOpen) {
-    if (e.key === 'Escape' && !e.repeat) closeBloodPactModal();
     return;
   }
   if (npcShopOpen) {
@@ -14512,12 +14908,28 @@ function restoreSceneForRoom(room) {
 }
 
 (function maybeAutoResume() {
-  if (!returnedFromCheckout) return; // a normal load gets the normal join screen
+  // Two flavors of "pick up where I left off", in priority order:
+  //  1. Checkout return (tc_resume) — minted right before the Stripe
+  //     redirect, 15-minute server stash.
+  //  2. Live session (tc_live_resume) — minted at every join; the server
+  //     stashes the player when the socket dies, 30-minute stash. Covers a
+  //     phone reopening a killed tab and accidental refreshes: the page
+  //     loads, finds the recent token, and quietly resumes the same
+  //     character. (Want a genuinely fresh start? A new tab has no token —
+  //     sessionStorage is per-tab.)
   let saved = null;
-  try { saved = JSON.parse(sessionStorage.getItem('tc_resume') || 'null'); } catch (e) {}
+  let windowMs = 14 * 60 * 1000; // just under the server's checkout stash TTL
+  if (returnedFromCheckout) {
+    try { saved = JSON.parse(sessionStorage.getItem('tc_resume') || 'null'); } catch (e) {}
+  }
+  if (!saved || !saved.token) {
+    try { saved = JSON.parse(sessionStorage.getItem('tc_live_resume') || 'null'); } catch (e) {}
+    windowMs = 28 * 60 * 1000; // just under the server's disconnect stash TTL
+  }
   try { sessionStorage.removeItem('tc_resume'); } catch (e) {} // strictly single-shot
+  try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
   if (!saved || !saved.token) return;
-  if (Date.now() - (saved.at || 0) > 14 * 60 * 1000) return; // older than the server stash lives
+  if (Date.now() - (saved.at || 0) > windowMs) return; // older than the server stash lives
   resumeFallbackName = saved.name || '';
   showResumeUi(true);
   const payload = { type: 'join', resumeToken: saved.token };
