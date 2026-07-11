@@ -436,7 +436,9 @@
   }
 
   #interactHint {
-    position:fixed; left:50%; bottom:96px; z-index:6;
+    /* bottom:132px clears the XP/level strip (bottom:90px + ~30px tall) —
+       at 96px the two stacked on the same spot and the strip drew on top. */
+    position:fixed; left:50%; bottom:132px; z-index:6;
     transform:translateX(-50%);
     pointer-events:auto; cursor:pointer;
   }
@@ -660,11 +662,14 @@
   }
   #auctionEmptyMsg { color:#9bc49a; font-size:12.5px; padding:10px 0; }
 
+  /* The old row of individual chips is retired on every platform — desktop
+     now uses the same ☰ menu as mobile (see #pcMenuBtn below). The buttons
+     stay in the DOM (badges/reveal logic still write to them) but never show. */
   #leftHudButtons {
     position:fixed; top:64px; left:16px; z-index:6;
-    display:flex; gap:8px; pointer-events:none;
+    display:none; gap:8px; pointer-events:none;
   }
-  #inventoryBtn, #spellbookBtn, #attackBtn, #journalBtn, #driveBtn {
+  #inventoryBtn, #spellbookBtn, #attackBtn, #journalBtn, #skillsBtn, #driveBtn {
     pointer-events:auto;
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
     color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
@@ -673,8 +678,26 @@
   #spellbookBtn { border-color:rgba(155,95,192,0.5); }
   #attackBtn { border-color:rgba(210,110,30,0.6); }
   #journalBtn { border-color:rgba(196,80,60,0.6); }
+  #skillsBtn { border-color:rgba(255,212,59,0.55); }
   #driveBtn { border-color:rgba(90,170,200,0.55); }
-  #inventoryBtn.hidden, #spellbookBtn.hidden, #attackBtn.hidden, #journalBtn.hidden, #driveBtn.hidden { display:none !important; }
+  #inventoryBtn.hidden, #spellbookBtn.hidden, #attackBtn.hidden, #journalBtn.hidden, #skillsBtn.hidden, #driveBtn.hidden { display:none !important; }
+
+  /* ── Desktop ☰ menu button — one chip where the six used to be ── */
+  #pcMenuBtn {
+    position:fixed; top:64px; left:16px; z-index:6;
+    background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.4);
+    color:#ffe9c2; font-size:13px; font-weight:700; padding:9px 16px;
+    border-radius:18px; backdrop-filter:blur(4px); cursor:pointer;
+  }
+  #pcMenuBtn:hover { background:rgba(40,24,16,0.85); }
+  #pcMenuBtn.hidden { display:none !important; }
+  body.touchMode #pcMenuBtn { display:none !important; }
+  #pcMenuBadge {
+    display:none; margin-left:6px; min-width:17px; padding:1px 5px;
+    background:#ffd43b; color:#221a06; font-size:11px; font-weight:800;
+    border-radius:9px; text-align:center;
+  }
+  #pcMenuBadge.show { display:inline-block; }
 
   /* ── Town Pass HUD tag ── */
   #passTag {
@@ -756,7 +779,17 @@
      Everything is ≥52px touch targets, inside safe-area insets, and nothing
      overlaps anything else at ≥320px width in either orientation. */
 
-  #joyZone, #actionCluster, #mobileTopBar, #menuSheet, #emoteWheel { display:none; }
+  #joyZone, #actionCluster, #mobileTopBar, #emoteWheel { display:none; }
+
+  /* The ☰ menu sheet is shared by both platforms now: a centered card on
+     desktop, the classic slide-up bottom sheet on touch (see the touchMode
+     overrides further down). */
+  #menuSheet {
+    display:flex; position:fixed; inset:0; z-index:60;
+    background:rgba(5,8,6,0.72); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center;
+  }
+  #menuSheet.hidden { display:none !important; }
   /* The fx layer (damage numbers, emote floats) serves EVERY platform —
      desktop combat gets the same numbers the phone does. */
   #fxLayer { display:block; position:fixed; inset:0; z-index:24; pointer-events:none; overflow:hidden; }
@@ -880,8 +913,12 @@
   body.touchMode #menuSheet.hidden { display:none; }
   #menuSheetCard {
     width:100%; max-width:480px; background:linear-gradient(180deg, rgba(30,22,14,0.98), rgba(18,13,8,0.99));
-    border:1px solid rgba(230,190,120,0.4); border-bottom:none;
-    border-radius:22px 22px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    border:1px solid rgba(230,190,120,0.4);
+    border-radius:22px; padding:16px;
+  }
+  body.touchMode #menuSheetCard {
+    border-bottom:none; border-radius:22px 22px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   }
   #menuSheetTitle { color:#ffe9c2; font-weight:800; font-size:16px; text-align:center; margin-bottom:12px; }
   #menuGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -890,14 +927,22 @@
     color:#ffe9c2; font-size:15px; font-weight:700; padding:15px 12px; border-radius:12px;
     text-align:left; -webkit-tap-highlight-color:transparent;
   }
+  .menuRow:hover { background:rgba(255,255,255,0.12); cursor:pointer; }
   .menuRow:active { background:rgba(255,255,255,0.14); }
   .menuRow.hidden { display:none; }
+  #menuSkillsBadge {
+    display:none; float:right; min-width:17px; padding:1px 5px;
+    background:#ffd43b; color:#221a06; font-size:11px; font-weight:800;
+    border-radius:9px; text-align:center;
+  }
+  #menuSkillsBadge.show { display:inline-block; }
   #menuMeta { color:#9a8a6a; font-size:12px; text-align:center; margin-top:12px; }
   #menuCloseBtn {
     width:100%; margin-top:12px; padding:13px; border-radius:12px;
     background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2);
-    color:#cfd8c8; font-size:14px; font-weight:700;
+    color:#cfd8c8; font-size:14px; font-weight:700; cursor:pointer;
   }
+  #menuCloseBtn:hover { background:rgba(255,255,255,0.14); }
 
   body.touchMode #emoteWheel {
     display:block; position:fixed; z-index:58;
@@ -1604,7 +1649,7 @@
     <div id="menuGrid">
       <button class="menuRow" id="menuInventory">🎒 Inventory</button>
       <button class="menuRow" id="menuJournal">📜 Journal</button>
-      <button class="menuRow" id="menuSkills">🌟 Skills</button>
+      <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
       <button class="menuRow" id="menuKit">⚔️ Abilities</button>
       <button class="menuRow" id="menuDrive">💾 Hard Drive</button>
       <button class="menuRow" id="menuPass">🎟️ Town Pass</button>
@@ -1980,6 +2025,7 @@
 
 <button id="leaveBtn" class="hidden">🚪 Leave (Esc)</button>
 
+<button id="pcMenuBtn" class="hidden" title="Everything in one place — inventory, journal, skills, and more">☰ Menu<span id="pcMenuBadge"></span></button>
 <div id="leftHudButtons">
   <button id="inventoryBtn" class="hidden">🎒 Inventory <span id="inventoryBadge"></span></button>
   <button id="spellbookBtn" class="hidden">📖 Spellbook</button>

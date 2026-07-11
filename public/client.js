@@ -563,6 +563,9 @@ function onWsMessage(ev) {
       // 🌟 Skills button (class skill tree) — every class has one.
       const skillsBtn = document.getElementById('skillsBtn');
       if (skillsBtn) skillsBtn.classList.remove('hidden');
+      // ☰ Menu — desktop's single HUD chip (CSS hides it in touchMode).
+      const pcMenuBtn = document.getElementById('pcMenuBtn');
+      if (pcMenuBtn) pcMenuBtn.classList.remove('hidden');
       requestCmState(); // load the countermeasure quick-list
       // Only the Witch (charId 0) gets a Spellbook — see SPELL_CATALOG.
       if (me && me.charId === 0) document.getElementById('spellbookBtn').classList.remove('hidden');
@@ -2949,10 +2952,17 @@ let restedUntil = 0;          // 😴 rested-XP window end (epoch ms), 0 = none
 let restedToastShown = false;
 
 function updateSkillsBadge() {
-  const badge = document.getElementById('skillsBadge');
-  if (!badge) return;
   const sp = me ? (me.skillPoints || 0) : 0;
-  badge.textContent = sp > 0 ? String(sp) : '';
+  const badge = document.getElementById('skillsBadge');
+  if (badge) badge.textContent = sp > 0 ? String(sp) : '';
+  // Mirror the unspent-point count onto the ☰ chip (desktop) and the
+  // menu sheet's Skills row (both platforms) so it's visible from anywhere.
+  for (const id of ['pcMenuBadge', 'menuSkillsBadge']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = sp > 0 ? String(sp) : '';
+    el.classList.toggle('show', sp > 0);
+  }
 }
 
 function openSkills() {
@@ -5281,6 +5291,8 @@ function updateBubbleTag(p, v, headScreen, now) {
   });
   on('chatToggleBtn', () => toggleMobileChat());
   on('menuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
+  // Desktop's ☰ chip opens the very same sheet — one menu for both platforms.
+  on('pcMenuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
   on('menuCloseBtn', () => document.getElementById('menuSheet').classList.add('hidden'));
   const sheet = document.getElementById('menuSheet');
   if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.classList.add('hidden'); });
@@ -15147,6 +15159,13 @@ window.addEventListener('keydown', (e) => {
   const _lightbox = document.getElementById('imageLightbox');
   if (_lightbox && !_lightbox.classList.contains('hidden')) {
     if (e.key === 'Escape' && !e.repeat) closeImageLightbox();
+    return;
+  }
+  // ☰ menu sheet claims Escape next — without this, Esc while the menu is
+  // open would fall through to "leave building" on desktop.
+  const _menuSheet = document.getElementById('menuSheet');
+  if (_menuSheet && !_menuSheet.classList.contains('hidden')) {
+    if (e.key === 'Escape' && !e.repeat) _menuSheet.classList.add('hidden');
     return;
   }
   if (passModalOpen) {

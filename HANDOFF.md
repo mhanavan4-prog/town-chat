@@ -321,6 +321,33 @@ first), so the only server deltas are the two features below.
 - Sandbox gotcha for future sessions: `pkill -f "DATA_DIR=..."` never matches (env vars aren't in the
   cmdline) — kill test servers with `pkill -f "node server.js"`.
 
+### Session D, final round — HUD: hint un-buried + desktop ☰ menu
+
+`public/index.html` + `public/client.js` only (server untouched; mobile `www/` copies drift further).
+
+- **"Press F" hint vs level bar (user-reported):** `#interactHint` sat at `bottom:96px`, `#xpStrip` at
+  `bottom:90px` — same center column, same z-index, strip drew on top. Hint moved to `bottom:132px`
+  (clears the ~30px strip; `cmPrompt` at 150px is z-30 and urgent, so its rare overlap wins by
+  design). touchMode hint position (236px right-side) unaffected. Verified by bounding boxes at
+  Ranger Mara's kiosk: hint 627–668, strip 684–710.
+- **Desktop ☰ menu (user request — "like the phone version"):** the six left-HUD chips
+  (Inventory/Spellbook/Attacks/Journal/Skills/Drive) are retired on ALL platforms (`#leftHudButtons`
+  display:none; buttons stay in the DOM — reveal/badge logic still writes to them). New `#pcMenuBtn`
+  ("☰ Menu", chip-styled, top:64 left:16, hidden in touchMode) opens the SAME `#menuSheet` as mobile.
+  Sheet CSS is now shared: centered card on desktop, classic bottom sheet in touchMode
+  (`body.touchMode #menuSheetCard` override); added `:hover` states for mouse. Esc closes the sheet
+  (new first-priority branch in the global keydown modal chain — otherwise Esc would "leave
+  building" through the open menu). Keyboard shortcuts (I/J/K/H/P…) unchanged.
+- **Skills theme bug (user-reported):** `#skillsBtn` was never in the chip style selector group
+  (Session B oversight) — added, with a gold border tint, though the chips are now hidden anyway.
+- **Skill-point badge:** `updateSkillsBadge()` now mirrors the unspent count onto `#pcMenuBadge`
+  (on the ☰ chip) and `#menuSkillsBadge` (on the sheet's 🌟 Skills row, both platforms).
+- Verified: Playwright 19/19 (chip row gone, sheet opens/centers, menu→Skills/Inventory work, Esc
+  closes sheet, hint/strip boxes disjoint, mobile sheet + ☰ unchanged and bottom-anchored, no JS
+  errors both platforms) + `npm test` 7/7.
+- Harness note: old QA scripts that clicked `#skillsBtn`/`#inventoryBtn` directly will need to go
+  through the ☰ menu (`#pcMenuBtn` → `#menuSkills` etc.) or call the open functions.
+
 ---
 
 *Last updated at the end of Session D. If you add to the project, append a short dated note here so the
