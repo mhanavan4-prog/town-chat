@@ -440,8 +440,21 @@ re-delivered `thornreach-desktop.zip` (launcher star fix baked in).
    plain `Date.now() % CYCLE_MS` (40-min cycle), so `addInitScript` shifting `Date.now` forces the
    phase for screenshots.
 
+6. **Item audit (all 83 items)** — every ITEM_CATALOG + PLANT_CATALOG entry checked for unique
+   icon / witchy description / theme fit (deliverable: `item-audit.md` in the chat). Fixed: 11 icon
+   collisions (24 items) → all 83 icons unique (map in the report; both server & client catalogs
+   changed in sync — a scripted checker verified ids/names/icons match and desc coverage is 100%);
+   18 missing descs added; ~30 bland descs rewritten witchy; **bug: the five Wildlands quest-reward
+   items (lumber_bundle/stone_block/iron_ingot/druid_stone/hollow_shard) existed only server-side —
+   the client couldn't render them; now added client-side.** NO names/ids/stats/effects changed
+   (quest text references names). Reported-not-changed misfits for Michael to decide: Hard Drive 💽
+   (feature-wide rename candidate: "Whisper Box"), Wizard Hat (→ Crooked Hat?), the generic starter
+   six, chalice/helm icon compromises, and a caution that some new icons are recent Unicode
+   (🫙🩻🪢🦬🌠🥷) — verify on older phones.
+
 Open next: Michael's Render URL for the desktop app; mobile www re-sync; the git push of Sessions
-D+E (one batch: `git add server.js public/index.html public/client.js HANDOFF.md`).
+D+E (one batch: `git add server.js public/index.html public/client.js HANDOFF.md`); his verdict on
+the item-name misfits above.
 
 ---
 

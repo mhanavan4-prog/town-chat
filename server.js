@@ -690,9 +690,9 @@ const PLANT_CATALOG = {
   swift_brew:             { name: 'Swift Brew',             icon: '💨',  effect: 'status', statusType: 'speedboost', durationMs: 45000 },
   shadow_draught:         { name: 'Shadow Draught',         icon: '🌘',  effect: 'status', statusType: 'ravencloak', durationMs: 60000 },
   giants_elixir:          { name: "Giant's Elixir",         icon: '🍄‍🟫', effect: 'status', statusType: 'giant',      durationMs: 45000 },
-  bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🦇',  effect: 'status', statusType: 'bats',       durationMs: 45000 },
+  bat_swarm_potion:       { name: 'Bat Swarm Potion',       icon: '🫙',  effect: 'status', statusType: 'bats',       durationMs: 45000 },
   clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  effect: 'cleanse' },
-  chaos_brew:             { name: 'Chaos Brew',             icon: '🌈',  effect: 'status', statusType: 'colorcycle', durationMs: 60000 },
+  chaos_brew:             { name: 'Chaos Brew',             icon: '🌪️',  effect: 'status', statusType: 'colorcycle', durationMs: 60000 },
   wolf_pact_brew:         { name: "Wolf's Pact Brew",       icon: '🐺',  effect: 'status', statusType: 'wolfpact',   durationMs: 3600000 },
 };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
@@ -972,36 +972,36 @@ const ITEM_CATALOG = {
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
   // ---- Witch starter set ----
-  witch_robe:     { name: "Witch's Robe",   icon: '🌑', slot: 'chest' },
-  hexed_boots:    { name: 'Hexed Boots',    icon: '🌙', slot: 'feet'  },
+  witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
+  hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
   hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring'  },
   // ---- Werewolf starter set ----
   beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head'  },
-  beast_hide:     { name: 'Beast Hide',     icon: '🐺', slot: 'chest' },
+  beast_hide:     { name: 'Beast Hide',     icon: '🦬', slot: 'chest' },
   paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet'  },
   // ---- Mystic starter set ----
-  spirit_veil:    { name: 'Spirit Veil',    icon: '✨', slot: 'head'  },
+  spirit_veil:    { name: 'Spirit Veil',    icon: '🌠', slot: 'head'  },
   spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest' },
   spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring'  },
   // ---- Knight starter set ----
   knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head' },
   order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring'  },
   // ---- Wanderer starter set ----
-  travelers_hood: { name: "Traveler's Hood",icon: '🧢', slot: 'head'  },
+  travelers_hood: { name: "Traveler's Hood",icon: '🥷', slot: 'head'  },
   travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
   trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
   // ---- Witch cave exclusive (selfie-gated) ----
   cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️',  slot: 'weapon' },
   shadow_staff:   { name: 'Shadow Staff',   icon: '🪄',  slot: 'weapon' },
-  bone_armor:     { name: 'Bone Armor',     icon: '🦴',  slot: 'chest'  },
+  bone_armor:     { name: 'Bone Armor',     icon: '🩻',  slot: 'chest'  },
   shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑',  slot: 'chest'  },
-  witches_boon:   { name: "Witch's Boon",   icon: '🔮',  slot: 'ring'   },
+  witches_boon:   { name: "Witch's Boon",   icon: '🧿',  slot: 'ring'   },
   dread_helm:     { name: 'Dread Helm',     icon: '💀',  slot: 'head'   },
   soul_treads:    { name: 'Soul Treads',    icon: '👁️',  slot: 'feet'   },
   void_staff:     { name: 'Void Staff',     icon: '☄️',  slot: 'weapon' },
   shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
   abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
-  death_ring:     { name: 'Death Ring',     icon: '💍',  slot: 'ring'   },
+  death_ring:     { name: 'Death Ring',     icon: '🖤',  slot: 'ring'   },
   wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   },
   // ---- Loot materials (mob drops) ----
   fur_scrap:      { name: 'Fur Scrap',       icon: '🧶', slot: null },
@@ -1012,16 +1012,16 @@ const ITEM_CATALOG = {
   enchanted_fur:  { name: 'Enchanted Fur',   icon: '🌟', slot: null },
   shadow_essence: { name: 'Shadow Essence',  icon: '🫥', slot: null },
   // ---- Wildlands quest rewards ----
-  lumber_bundle:  { name: 'Lumber Bundle',   icon: '🪵', slot: null },
+  lumber_bundle:  { name: 'Lumber Bundle',   icon: '🪚', slot: null },
   stone_block:    { name: 'Stone Block',     icon: '🪨', slot: null },
   iron_ingot:     { name: 'Iron Ingot',      icon: '⚙️', slot: null },
-  druid_stone:    { name: 'Druid Stone',     icon: '🔮', slot: null },
+  druid_stone:    { name: 'Druid Stone',     icon: '🗿', slot: null },
   hollow_shard:   { name: 'Hollow Shard',    icon: '💠', slot: null },
   // ---- Lexton's Howl Trade exclusive (voice-gated, see werewolf_buy_item) ----
   moonhowl_pelt:    { name: 'Moonhowl Pelt',    icon: '🌕', slot: 'chest'  },
   alpha_fang:       { name: 'Alpha Fang',       icon: '🦷', slot: 'weapon' },
-  packbound_ring:   { name: 'Packbound Ring',   icon: '🐾', slot: 'ring'   },
-  nightfang_boots:  { name: 'Nightfang Boots',  icon: '🐺', slot: 'feet'   },
+  packbound_ring:   { name: 'Packbound Ring',   icon: '🪢', slot: 'ring'   },
+  nightfang_boots:  { name: 'Nightfang Boots',  icon: '🥾', slot: 'feet'   },
 };
 const ITEM_IDS = Object.keys(ITEM_CATALOG);
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
