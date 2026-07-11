@@ -602,5 +602,101 @@ plaza/temple/portal) found and fixed, all client-only:
 
 ---
 
-*Last updated Saturday, July 11, 2026, morning — end of Session F (the full tier-3 upgrade). If you
-add to the project, append a short dated note here so the next session inherits it.*
+## Session G (2026-07-11, afternoon) — stair feel, crackling, Holly Wand, and 3 UI bug fixes
+
+`public/client.js` + `server.js` changed. `index.html` untouched. All user-reported in one sitting:
+
+### 1. Stairs finally feel right (user: "still very clunky")
+Root causes found by raycasting height grids at every door (new `__testDrive.groundGrid`):
+- kkAutoAlign's step-centering pass gated on a ROTATION-phase score measured while the model was
+  still centered/recessed → read ~0 → centering silently skipped → tavern/arcade stoops sat ~50u
+  off their doors, and the ramp zone lifted players onto AIR at the actual door line.
+- kkMeasureStairs stopped at the first flat sample → the bank church's DETACHED porch (26u slab
+  ~30u out, flat gap behind it) was never measured — players clipped straight through it.
+- The zone applied the RAW step-function profile with a hard lateral cutoff, and player Y +
+  camera lookAt snapped to it instantly per frame.
+
+Fixes (all in client.js): per-rotation flush-to-wall before scoring + fresh post-flush centering
+score (two passes); full-depth profile scan; monotone envelope (never sink into a step, porch
+plateaus bridge to the wall); run-out extended so slope ≤ ~0.34 measured PAST the plateau;
+connectivity-based lateral band width (detached side pillars can't inflate it) + smoothstep side
+fades scaled by sill height; and a per-entity critically-damped floor-height chase (`v.floorYS`,
+13/s, snaps on room change/teleport) used by body, ghost, labels, emotes, and the camera lookAt.
+Town torch NPCs got the same chase (`v.baseYS`). Measured on live walks: max slope in/out ≈
+0.25–0.33 (was: 18u pops over 2–3 frames), zero still-standing Y jumps.
+Zones now: cafe sill 18/ramp 54 · arcade sill 33 (that model's real raised terrace)/102 · bank
+26 plateau→78. Library/lounge/hall doors are genuinely flush — no zones, correct.
+
+### 2. Graphics "crackling / seeing through things" (user report)
+Two real causes, both fixed:
+- **Shadow shimmer:** the player-following shadow box slid continuously → every shadow edge
+  re-rasterized on a new texel grid each frame. beforeRender now TEXEL-SNAPS the anchor in the
+  light's own plane (standard stabilization; verified: identical world-space quanta on 2u moves).
+- **Camera inside geometry:** outdoors the chase camera freely entered building shells (backface
+  culling = see-through walls popping) and tree canopies. Now: per-building blocker boxes
+  (collision footprint × model height, `KK_CAM_BLOCKERS`) clip the camera's pull-back along the
+  behind-the-player line — target AND eased position (hard clamp, so teleports can't glide it
+  through walls; verified camera never inside any box across a 24-spot sweep) — while trees/tall
+  dressing (`userData.camFade`, set in makeTree/kkPlace) GHOST to ~25% opacity when they stand
+  between camera and player (clone-on-fade materials — KayKit shares materials across instances;
+  restore guards against the harvested-look swap). NOTE: addNatureDecor used to OVERWRITE
+  group.userData on harvestables — now merges (that wipe was untagging every tree).
+- Also shipped: the `?gfx=low|medium|high|auto` URL override the Session F notes claimed existed
+  but didn't — GFX reads it now (localStorage still wins otherwise).
+
+### 3. Holly Wood → Holly Wand (user feature)
+- Server: `wood` renamed **Holly Wood** (id unchanged — inventories/quests intact). Tree harvests
+  toast progress: "(2/5) — collect 3 more and you can build a wand." / "(5) — enough to build a
+  🎇 Holly Wand!". New `craft_wand` handler: 5 Holly Wood → `holly_wand` (weapon slot, EQUIP_STATS
+  power 0.07/haste 0.04, icon 🎇 — uniqueness re-verified across both catalogs; excluded from the
+  random-starter pool). Wood refunded if the pack can't fit the wand.
+- Client: catalog entries + "🎇 Build Holly Wand (5 Holly Wood)" button on the Holly Wood action
+  panel (disabled with an x/5 note until 5); `craft_result`/`craft_error` handlers; bespoke wand
+  weapon mesh (crooked holly stick, mint band, lit tip + additive tip sprite); equipping adds a
+  soft additive body AURA (any player, any room) and at NIGHT a real PointLight follows the bearer
+  — fixed pool of 3 lights per outdoor scene (`wandLightPools`, constant count = no shader
+  recompiles), assigned to nearest bearers in `updateWandLights()`, intensity 0 by day → ~1.25 at
+  night. Verified end-to-end over the wire: 5 harvests (correct toasts) → craft → equip → aura
+  0.18 day/0.34 night, light 0 day/1.12 night, screenshot clean.
+
+### 4. Three UI bugs
+- **Stuck item frame following clicks (user report):** inventory/bank/hotbar rerenders destroy a
+  hovered cell → its mouseleave never fires → the tooltip stayed visible and rode the cursor
+  forever. showItemTooltip/showActionTooltip now record the owner cell; the global mousemove
+  hides the tooltip the moment the owner is detached or un-hovered. Verified: hover→rerender→move
+  = hidden (was: stuck).
+- **Chat picture → white page (user report, arcade):** room chat + spy-glass images called
+  `window.open(dataURL)` which browsers block into a blank tab. Both now use the existing
+  `openImageLightbox` (same fix the auction thumbs/notes already had). Verified in-page lightbox
+  opens/closes, no window.open.
+- (While there: `#unlockToast`-based toasts confirmed working for the new craft messages.)
+
+### Testing status
+`npm test` 7/7 · `audit-playthrough` clean ("No completability failures") · catalog sync check
+(59 static ids match, icons unique) · live Playwright: stair walks (slopes above), 24-spot camera
+sweep (never inside), tree-fade on/off, shadow-snap quanta, tooltip, lightbox, wand flow, mobile
+390×844 join + ☰ menu smoke — all green, zero page errors in any run.
+
+New `__testDrive` probes (testdrive=1 only): stairZones, floorH, visualY, camPose, camInfo,
+doors, gfxInfo, groundGrid, lastToast, wandVisual, camBlockCheck, fadedCount, fadeListSize,
+camDebug, segT, sunSnap.
+
+### Notes / open threads for next session
+- Sandbox gotchas: SwiftShader ~4fps at high quality means the render-loop dt CLAMPS at 0.05 —
+  eased things (camera, fades) converge in GAME time, so waits in tests must be generous, or use
+  `?gfx=low` (which now actually works). `device_bash` ~ is /root here, not /home/claude.
+- The arcade model really does have a 33u raised terrace with side steps; the front approach
+  glides up over its face. If Michael dislikes that, options: swap the model, or carve a lateral
+  band that channels to the side steps.
+- Standing ON a stoop and facing the wall clamps the camera very close (correct but tight —
+  m floor 0.12). If it bothers anyone, raise the floor to ~0.2.
+- Mobile `www/` re-sync (ios/android) still pending from Sessions D–F; this session widens the
+  drift further (client.js + server.js).
+- Git: Sessions D+E+F may still be unpushed — `git status` first; this session's batch is
+  `git add server.js public/client.js HANDOFF.md`.
+
+---
+
+*Last updated Saturday, July 11, 2026, afternoon — end of Session G (stair feel + crackling +
+Holly Wand + UI fixes). If you add to the project, append a short dated note here so the next
+session inherits it.*

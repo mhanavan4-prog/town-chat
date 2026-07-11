@@ -205,7 +205,8 @@ const ITEM_CATALOG = {
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null, desc: 'Minted for a kingdom the maps gave up on.' },
   golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null, desc: 'Ceremonial. Do NOT drink what appears in it at midnight.' },
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null, desc: 'A box of trapped whispers — holds 24 notes, warded by password.' },
-  wood:           { name: 'Wood',           icon: '🪵', slot: null, desc: 'Thornwood timber. Burns green on the third night.' },
+  wood:           { name: 'Holly Wood',     icon: '🪵', slot: null, desc: 'A heartwood cutting from the town trees. Five bind into a wand — the old way.' },
+  holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon', desc: 'Five holly hearts bound with moonthread. It remembers starlight, and shares it after dark.' },
   berries:        { name: 'Berries',        icon: '🍓', slot: null, desc: 'Picked by moonlight. Probably edible. Probably.' },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null, desc: 'It turns to face you when you look away.' },
   // Character starter sets
@@ -838,6 +839,18 @@ function onWsMessage(ev) {
 
   if (msg.type === 'use_result') {
     setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'craft_result') {
+    setUnlockToast(msg.message);
+    if (inventoryOpen && invItemsTabActive) renderInventory();
+    return;
+  }
+
+  if (msg.type === 'craft_error') {
+    if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
     return;
   }
 
@@ -2404,6 +2417,26 @@ function selectInvSlot(idx) {
       panel.classList.add('hidden');
       showInvTab('invHardDriveView');
     });
+    buttons.appendChild(btn);
+  } else if (slot.itemId === 'wood') {
+    // Holly Wood → Holly Wand crafting (5 pieces; server re-validates)
+    const total = lastInventoryState.slots.reduce((n, s) => n + (s && s.itemId === 'wood' ? s.qty : 0), 0);
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '🎇 Build Holly Wand (5 Holly Wood)';
+    if (total >= 5) {
+      btn.addEventListener('click', () => {
+        document.getElementById('invModalErr').textContent = '';
+        ws.send(JSON.stringify({ type: 'craft_wand' }));
+      });
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+      const note = document.createElement('div');
+      note.id = 'invEquippableNote';
+      note.textContent = `${total}/5 Holly Wood — harvest the town trees for more.`;
+      buttons.appendChild(note);
+    }
     buttons.appendChild(btn);
   } else if (PLANT_EFFECTS.has(slot.itemId)) {
     const btn = document.createElement('button');
@@ -5591,7 +5624,8 @@ function updateEmoteFloats() {
       continue;
     }
     const rp = getRenderPos(p);
-    const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
+    const vv = visuals[f.playerId];
+    const floorYOffset = (vv && vv.floorYS !== undefined && vv.floorRoomS === p.room) ? vv.floorYS : getFloorHeight(p.room, rp.x, rp.z);
     const s = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset + 16, rp.z);
     if (!s.visible) { f.el.style.opacity = '0'; continue; }
     f.el.style.left = s.x + 'px';
@@ -5992,7 +6026,10 @@ function renderChatLog() {
       img.className = 'chatImg';
       img.src = m.image;
       img.title = 'Click to view full size';
-      img.addEventListener('click', () => window.open(m.image, '_blank'));
+      // In-game lightbox — window.open(dataURL) is blocked by modern
+      // browsers and landed on a blank white tab (user-reported in the
+      // arcade, which shares this chat renderer).
+      img.addEventListener('click', () => openImageLightbox(m.image));
       div.appendChild(img);
     }
     chatLog.appendChild(div);
@@ -6333,22 +6370,29 @@ function getFloorHeight(roomId, rx, rz) {
       const depth = Math.min(halfW - dx, halfD - dz);
       return Math.min(TEMPLE_PLATFORM_HEIGHT, TEMPLE_PLATFORM_HEIGHT * (depth / TEMPLE_RAMP));
     }
-    // KayKit building entrance stairs (see kkMeasureStairs)
+    // KayKit building entrance stairs (see kkMeasureStairs). The profile is
+    // already a smooth capped-slope ramp; here it just gets sampled, plus a
+    // smooth lateral fade at the band's edges — the old hard lateral cutoff
+    // teleported anyone crossing the zone's side edge up/down the full
+    // stair height in one frame.
     const rz2 = rz ?? 0;
     for (let i = 0; i < KK_STAIR_ZONES.length; i++) {
       const z = KK_STAIR_ZONES[i];
       const ox = rx - z.cx, oz = rz2 - z.cz;
       const distOut = ox * z.out[0] + oz * z.out[1];        // how far out from the wall
-      if (distOut < 0 || distOut > z.depth) continue;
-      const lateral = Math.abs(ox * z.out[1] + oz * z.out[0]); // sideways offset from door center
-      if (lateral > z.halfWidth) continue;
-      const f = distOut / z.step;
+      if (distOut < -14 || distOut > z.depth) continue;      // small inside overlap keeps the sill up to the threshold
+      const lateral = Math.abs(ox * z.out[1] + oz * z.out[0]); // sideways offset from stoop center
+      const fade = z.fade || 18;
+      if (lateral > z.halfWidth + fade) continue;
+      const f = Math.max(0, distOut) / z.step;
       const i0 = Math.min(z.profile.length - 1, Math.floor(f));
       const i1 = Math.min(z.profile.length - 1, i0 + 1);
-      const h = z.profile[i0] + (z.profile[i1] - z.profile[i0]) * (f - i0);
-      // soften the outer edge so you step onto the ramp, not teleport onto it
-      const edgeFade = Math.min(1, (z.depth - distOut) / 10 + 0.9);
-      return Math.max(0, h * Math.min(1, edgeFade));
+      let h = z.profile[i0] + (z.profile[i1] - z.profile[i0]) * (f - i0);
+      if (lateral > z.halfWidth) {
+        const t = 1 - (lateral - z.halfWidth) / fade;       // 1 → 0 across the fade band
+        h *= t * t * (3 - 2 * t);                            // smoothstep, no crease at the edge
+      }
+      return Math.max(0, h);
     }
     return 0;
   }
@@ -6401,6 +6445,9 @@ function contextMatches(room) {
 const GFX = (() => {
   let pref = 'auto';
   try { pref = localStorage.getItem('tc_gfx') || 'auto'; } catch (e) {}
+  // URL override for QA and stubborn machines: ?gfx=low|medium|high|auto
+  const mGfx = location.search.match(/[?&]gfx=(low|medium|high|auto)\b/);
+  if (mGfx) pref = mGfx[1];
   const st = {
     pref, quality: 'high', composer: null, renderPass: null, bloomPass: null,
     gradePass: null, fxaaPass: null, gammaPass: null, ready: false,
@@ -6663,6 +6710,7 @@ const GFX = (() => {
   }
 
   // reposition the active scene's shadow rig around the player each frame
+  const _snapRight = new THREE.Vector3(), _snapUp = new THREE.Vector3(), _snapDir = new THREE.Vector3();
   function beforeRender() {
     if (!activeScene) return;
     ensureTagged(activeScene);
@@ -6675,6 +6723,23 @@ const GFX = (() => {
       const dir = info.sun.position.clone().sub(info.sun.target.position);
       if (dir.lengthSq() < 1) dir.set(400, 600, 300);
       dir.normalize();
+      // Texel-snap the shadow box. Sliding the ortho frustum continuously
+      // with the player re-rasterizes the shadow map along a NEW texel grid
+      // every frame — every shadow edge in view crawls/sparkles while you
+      // walk (the reported "crackling"). Quantizing the anchor to whole
+      // shadow-map texels in the light's own plane keeps the rasterization
+      // grid fixed between steps, which is the standard stabilization.
+      const sc = info.sun.shadow.camera;
+      const texel = (sc.right - sc.left) / (info.sun.shadow.mapSize.x || 1024);
+      _snapDir.copy(dir);
+      // basis matching lookAt(): zAxis = dir (light → target reversed), up (0,1,0)
+      _snapRight.set(0, 1, 0).cross(_snapDir);
+      if (_snapRight.lengthSq() < 1e-6) _snapRight.set(1, 0, 0); else _snapRight.normalize();
+      _snapUp.copy(_snapDir).cross(_snapRight).normalize();
+      const ar = Math.round(_anchor.dot(_snapRight) / texel) * texel;
+      const au = Math.round(_anchor.dot(_snapUp) / texel) * texel;
+      const ad = _anchor.dot(_snapDir);
+      _anchor.set(0, 0, 0).addScaledVector(_snapRight, ar).addScaledVector(_snapUp, au).addScaledVector(_snapDir, ad);
       info.sun.target.position.copy(_anchor);
       info.sun.position.copy(_anchor).addScaledVector(dir, 1150);
       info.sun.target.updateMatrixWorld();
@@ -9573,8 +9638,12 @@ function updateTownTorchNpcVisuals(dt) {
     // Kneeling by day happens up on the Temple's raised platform now — same
     // ramped height a player standing there gets (see getFloorHeight);
     // everywhere else (out at the torches, walking between the two) is
-    // ground level, same as before.
-    const baseY = getFloorHeight('outside', v.x, v.y);
+    // ground level, same as before. Chased, not snapped, same as players —
+    // their patrol lines can cross building stair ramps.
+    const baseYT = getFloorHeight('outside', v.x, v.y);
+    if (v.baseYS === undefined || Math.abs(baseYT - v.baseYS) > 34) v.baseYS = baseYT;
+    else v.baseYS += (baseYT - v.baseYS) * f;
+    const baseY = v.baseYS;
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
     v.walkPhase += dt * (moving ? 5.5 : (v.working || v.praying) ? 3 : 0);
@@ -10111,6 +10180,7 @@ function makeTree(x, z, scale) {
     g.add(cone);
   }
   g.position.set(x, 0, z);
+  g.userData.camFade = true; // tall enough to swallow the chase camera — see updateCamObstructions
   return g;
 }
 
@@ -10417,7 +10487,12 @@ function addNatureDecor(scene, w, pool) {
     if (HARVESTABLE_DECOR_TYPES.has(d.type)) {
       const originalMaterials = [];
       group.traverse(child => { if (child.isMesh) originalMaterials.push({ mesh: child, material: child.material }); });
-      group.userData = { kind: 'decor', decorId: d.id, decorType: d.type };
+      // merge, don't replace — makeTree marks itself userData.camFade for
+      // the camera-obstruction fader, and a wholesale overwrite here was
+      // silently untagging every tree in town
+      group.userData.kind = 'decor';
+      group.userData.decorId = d.id;
+      group.userData.decorType = d.type;
       const v = pool[d.id] = { group, type: d.type, harvested: false, originalMaterials };
       if (decorAvailability[d.id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
     }
@@ -10727,6 +10802,9 @@ function kkPlace(scene, key, x, y, size, rot, mode) {
   if (!g) return null;
   g.rotation.y = rot || 0;
   g.position.set(x, 0, y);
+  // Tall dressing swallows the chase camera the same way trees do — let it
+  // ghost out when it comes between the camera and the player.
+  if (key === 'prop_deadtree' || key === 'prop_deadtree2' || key === 'gate_arch' || key === 'building_crypt') g.userData.camFade = true;
   scene.add(g);
   return g;
 }
@@ -10813,9 +10891,10 @@ function kkAutoAlign(kkBld, b, w) {
   const MAX_STAIR_H = 40;
 
   function stairMassAt(lateralOffset) {
-    // structure height just outside the wall (3 depths), below stair cap
+    // structure height just outside the wall (4 depths — 44 reaches the
+    // detached porches some models carry, e.g. the gold church), below cap
     let mass = 0;
-    for (const d of [8, 20, 32]) {
+    for (const d of [8, 20, 32, 44]) {
       origin.set(dp.x + out[0] * d + along[0] * lateralOffset, 60, dp.y + out[1] * d + along[1] * lateralOffset);
       ray.set(origin, down);
       const hits = ray.intersectObject(kkBld, true);
@@ -10826,11 +10905,26 @@ function kkAutoAlign(kkBld, b, w) {
     return mass;
   }
 
+  // Flush the model's door face to the footprint's door wall for the
+  // CURRENT rotation — needed both per-rotation (scoring a centered,
+  // recessed model finds nothing outside the wall: that's why the tavern's
+  // stoop never got centered on its door before) and as the final fit.
+  function flushToWall() {
+    const bb = new THREE.Box3().setFromObject(kkBld);
+    const wallPlane = kside === 'south' ? b.y + b.h : kside === 'north' ? b.y : kside === 'east' ? b.x + b.w : b.x;
+    const modelFront = kside === 'south' ? bb.max.z : kside === 'north' ? bb.min.z : kside === 'east' ? bb.max.x : bb.min.x;
+    const delta = (wallPlane + (kside === 'south' || kside === 'east' ? 12 : -12)) - modelFront;
+    kkBld.position.x += out[0] * delta;
+    kkBld.position.z += out[1] * delta;
+    kkBld.updateMatrixWorld(true);
+  }
+
   let bestRot = 0, bestScore = -1;
   for (const extra of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
     kkBld.rotation.y = sideRot + extra;
     kkBld.position.set(cx, 0, cz);
     kkBld.updateMatrixWorld(true);
+    flushToWall(); // score what a player would actually meet outside the wall
     let score = 0;
     for (const lat of [-w.doorWidth, -w.doorWidth / 2, 0, w.doorWidth / 2, w.doorWidth]) score += stairMassAt(lat);
     if (score > bestScore + 0.5) { bestScore = score; bestRot = extra; }
@@ -10857,31 +10951,37 @@ function kkAutoAlign(kkBld, b, w) {
       kkBld.scale.multiplyScalar(shrink);
       kkBld.userData.kkHeight *= shrink;
       kkBld.updateMatrixWorld(true);
-      bb = new THREE.Box3().setFromObject(kkBld);
     }
     // Flush-to-door-wall: door face sits just past the footprint's door
     // wall; the (now small) rear lip tucks behind the building line.
-    const wallPlane = kside === 'south' ? b.y + b.h : kside === 'north' ? b.y : kside === 'east' ? b.x + b.w : b.x;
-    const modelFront = kside === 'south' ? bb.max.z : kside === 'north' ? bb.min.z : kside === 'east' ? bb.max.x : bb.min.x;
-    const delta = (wallPlane + (kside === 'south' || kside === 'east' ? 12 : -12)) - modelFront;
-    kkBld.position.set(cx + out[0] * delta, 0, cz + out[1] * delta);
-    kkBld.updateMatrixWorld(true);
+    flushToWall();
   }
 
-  // center the detected steps on the door gap (skip flush-door models)
-  if (bestScore > 4) {
+  // Center the detected steps on the door gap (skip flush-door models).
+  // The gate score is measured fresh HERE, after the final flush — the old
+  // code gated on the rotation-pass score, which was taken while the model
+  // was still centered/recessed and often read ~0, silently skipping this
+  // pass and leaving stoops ~50 units off the door (the tavern & arcade —
+  // players got ramped into thin air at the actual door line).
+  // Two passes: the first shift can expose more steps to the sampler.
+  for (let pass = 0; pass < 2; pass++) {
+    let postScore = 0;
+    for (const lat of [-w.doorWidth, -w.doorWidth / 2, 0, w.doorWidth / 2, w.doorWidth]) postScore += stairMassAt(lat);
     const span = Math.max(b.w, b.h) * 0.42;
     let num = 0, den = 0;
     for (let lat = -span; lat <= span; lat += 12) {
       const m = stairMassAt(lat);
       num += m * lat; den += m;
     }
+    if (postScore <= 4 && den <= 0) break;
     if (den > 0) {
       const centroid = num / den;
+      if (Math.abs(centroid) < 2) break; // already centered
       const shift = Math.max(-span * 0.7, Math.min(span * 0.7, -centroid));
-      kkBld.position.set(cx + along[0] * shift, 0, cz + along[1] * shift);
+      kkBld.position.x += along[0] * shift;
+      kkBld.position.z += along[1] * shift;
       kkBld.updateMatrixWorld(true);
-    }
+    } else break;
   }
 }
 
@@ -10889,33 +10989,106 @@ function kkMeasureStairs(kkBld, b, w) {
   const side = getDoorSide(b);
   const dp = getDoorWorldPos(b);
   const out = side === 'south' ? [0, 1] : side === 'north' ? [0, -1] : side === 'east' ? [1, 0] : [-1, 0];
+  const along = [out[1], out[0]];
   kkBld.updateMatrixWorld(true);
   const ray = new THREE.Raycaster();
   const down = new THREE.Vector3(0, -1, 0);
   const origin = new THREE.Vector3();
-  const STEP = 6, MAX_DEPTH = 96, MAX_STAIR_H = 40;
-  const profile = [];
-  let depth = 0;
-  for (let d = 0; d <= MAX_DEPTH; d += STEP) {
-    let h = 0;
-    for (const lat of [-0.5, 0, 0.5]) {
-      const lx = out[1] * lat * w.doorWidth, lz = out[0] * lat * w.doorWidth;
-      origin.set(dp.x + out[0] * d + lx, 60, dp.y + out[1] * d + lz);
-      ray.set(origin, down);
-      const hits = ray.intersectObject(kkBld, true);
-      for (const hit of hits) {
-        if (hit.point.y <= MAX_STAIR_H) { h = Math.max(h, hit.point.y); break; }
-      }
-    }
-    profile.push(h);
-    if (h < 1.5 && d > 0) { depth = d; break; }
-    depth = d;
+  const STEP = 6, MAX_DEPTH = 120, MAX_STAIR_H = 40, PRESENT = 1.5;
+
+  function heightAt(d, lat) {
+    origin.set(dp.x + out[0] * d + along[0] * lat, 60, dp.y + out[1] * d + along[1] * lat);
+    ray.set(origin, down);
+    const hits = ray.intersectObject(kkBld, true);
+    for (const hit of hits) { if (hit.point.y <= MAX_STAIR_H) return hit.point.y; }
+    return 0;
   }
-  // nothing measurable sticking out — no zone needed
-  if (profile.length < 2 || Math.max.apply(null, profile) < 2) return;
+
+  // 1) Raw profile: widest/highest structure at each outward depth, sampled
+  //    across the whole door corridor. The scan runs the FULL depth — the
+  //    old version stopped at the first flat sample, which is exactly how
+  //    the bank church's detached porch (a 26-unit slab ~30 units out, with
+  //    flat ground between it and the wall) went unmeasured and walk-through.
+  const lats = [-1, -0.66, -0.33, 0, 0.33, 0.66, 1].map(f => f * w.doorWidth);
+  const raw = [];
+  let lastSolid = -1;
+  let latNum = 0, latDen = 0;
+  for (let d = 0, i = 0; d <= MAX_DEPTH; d += STEP, i++) {
+    let h = 0;
+    for (const lat of lats) {
+      const hh = heightAt(d, lat);
+      h = Math.max(h, hh);
+      if (hh >= PRESENT) { latNum += lat; latDen++; }
+    }
+    raw.push(h);
+    if (h >= PRESENT) lastSolid = i;
+  }
+  if (lastSolid < 0 || Math.max.apply(null, raw) < 2) return; // flush door — no zone needed
+  const solidDepth = Math.min(MAX_DEPTH, (lastSolid + 1) * STEP);
+
+  // Where the stoop actually sits laterally (≈0 once kkAutoAlign has
+  // centered it; kept as a safety net so the ramp always hugs the geometry
+  // rather than lifting players on air beside it).
+  const latCenter = latDen > 0 ? Math.max(-w.doorWidth, Math.min(w.doorWidth, latNum / latDen)) : 0;
+
+  // 2) Lateral reach of the stoop — flood outward from its center and stop
+  //    at the first gap, so a CONNECTED stoop sets the band width while
+  //    detached side dressing (the bank's flanking pillars) can't inflate
+  //    it and leave players ramped up on thin air beside the real steps.
+  const latStep = Math.max(6, w.doorWidth * 0.15);
+  let reach = 0;
+  for (const sign of [1, -1]) {
+    for (let lat = latStep; lat <= w.doorWidth * 1.5; lat += latStep) {
+      let solid = false;
+      for (let d = 0; d <= solidDepth && !solid; d += STEP) {
+        if (heightAt(d, latCenter + sign * lat) >= PRESENT) solid = true;
+      }
+      if (!solid) break;
+      reach = Math.max(reach, lat);
+    }
+  }
+  const stoopHalf = Math.max(w.doorWidth * 0.4, reach + 10);
+
+  // 3) Walkable profile: monotone envelope of the geometry (never sink INTO
+  //    a step; plateaus like porches survive), then a run-out long enough
+  //    that the climb is a stroll, not a pop — slope capped ~1:3. The raw
+  //    step-function this used to ship as is what read as "clunky": your Y
+  //    snapped up half a body height across a couple of frames at the door.
+  const mono = raw.slice(0, lastSolid + 2 <= raw.length ? lastSolid + 2 : raw.length);
+  for (let i = mono.length - 2; i >= 0; i--) mono[i] = Math.max(mono[i], mono[i + 1]);
+  const sill = mono[0];
+  const MAX_SLOPE = 0.34;
+  // The descent starts where the envelope leaves its door-level plateau
+  // (porches hold the sill height for a stretch — the bank's holds ~36u),
+  // so the gentle-slope budget is measured from THERE, not from the wall.
+  let plateauEnd = 0;
+  while (plateauEnd + 1 < mono.length && mono[plateauEnd + 1] > sill - 2) plateauEnd++;
+  const rampLen = Math.min(168, Math.max(solidDepth, plateauEnd * STEP + Math.ceil((sill / MAX_SLOPE) / STEP) * STEP));
+  const n = Math.floor(rampLen / STEP) + 1;
+  const plateauD = plateauEnd * STEP;
+  const profile = [];
+  for (let i = 0; i < n; i++) {
+    const d = i * STEP;
+    const geom = i < mono.length ? mono[i] : 0;
+    const ramp = d <= plateauD ? sill : sill * Math.max(0, 1 - (d - plateauD) / Math.max(STEP, rampLen - plateauD));
+    profile.push(Math.max(geom, ramp));
+  }
+  profile[n - 1] = 0;
+  // two gentle smoothing passes round the knees; the door end stays pinned
+  // at the sill so there's no dip right where you cross the threshold
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 1; i < n - 1; i++) {
+      profile[i] = Math.max((i < mono.length ? mono[i] : 0), profile[i - 1] * 0.25 + profile[i] * 0.5 + profile[i + 1] * 0.25);
+    }
+    profile[0] = sill;
+  }
+
   KK_STAIR_ZONES.push({
-    side, cx: dp.x, cz: dp.y, out, step: STEP, depth,
-    halfWidth: w.doorWidth * 0.85 + 6, profile
+    side, cx: dp.x + along[0] * latCenter, cz: dp.y + along[1] * latCenter, out, step: STEP,
+    depth: rampLen, halfWidth: stoopHalf,
+    // taller stoops fade out over a wider side band, so crossing the band's
+    // edge stays a glide at any height (the Y-chase smooths the remainder)
+    fade: Math.max(16, sill * 0.9), profile
   });
 }
 
@@ -10941,6 +11114,10 @@ function buildBuildingMesh(b, w) {
     kkBld.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(kkBld);
     KK_BLD_BOXES[b.id] = bb;
+    // camera blocker: the COLLISION footprint (player can never be inside
+    // it, unlike the model box whose stoop/bulge the player can stand in)
+    // up to just under the model's roofline
+    KK_CAM_BLOCKERS.push({ minX: b.x, minZ: b.y, maxX: b.x + b.w, maxZ: b.y + b.h, maxY: Math.max(60, bb.max.y * 0.96) });
   }
   // One siding texture per building, cloned per wall segment so each gets
   // its own repeat tuned to its own size — same pattern buildPathSegment()
@@ -13932,7 +14109,36 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
 // equip slots and items otherwise differing just by name/icon, a per-item
 // 3D model isn't worth the cost here; what matters for gameplay/visual
 // feedback is just "this player has a weapon/armor equipped or doesn't."
-function makeEquippedWeaponMesh() {
+function makeEquippedWeaponMesh(itemId) {
+  // The Holly Wand gets its own look — a crooked holly stick with a lit
+  // tip. The tip sprite + the per-player point light (see wand light pool)
+  // are what make it "glow and light the way at night".
+  if (itemId === 'holly_wand') {
+    const g = new THREE.Group();
+    const barkMat = new THREE.MeshLambertMaterial({ color: 0x3a2417 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 9, 6), barkMat);
+    shaft.position.y = -4.5;
+    g.add(shaft);
+    const crook = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 6, 6), barkMat);
+    crook.position.set(0.9, -11.2, 0);
+    crook.rotation.z = 0.3;
+    g.add(crook);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 1, 6), new THREE.MeshLambertMaterial({ color: 0x9ee37d }));
+    band.position.y = -8.4;
+    g.add(band);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfff3c9 }));
+    tip.position.set(1.6, -14.2, 0);
+    g.add(tip);
+    const tipGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: 0xffe9b0, transparent: true, opacity: 0.55,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    tipGlow.scale.set(11, 11, 1);
+    tipGlow.position.copy(tip.position);
+    g.add(tipGlow);
+    g.userData.wandTipGlow = tipGlow.material;
+    return g;
+  }
   const g = new THREE.Group();
   const metalMat = new THREE.MeshLambertMaterial({ color: 0xcfd6dd });
   const hiltMat = new THREE.MeshLambertMaterial({ color: 0x4a3320 });
@@ -14059,7 +14265,7 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
 // swapping pieces updates the mesh appearance instead of reusing the old one.
 const EQUIP_ATTACH = {
   weapon: (v, itemId) => _reattachMesh(v, 'weaponMesh', 'armR',
-    () => makeEquippedWeaponMesh(),
+    id => makeEquippedWeaponMesh(id),
     itemId,
     m => m.position.set(0, -CHAR.armLen + 1, 1.2)),
   chest: (v, itemId) => { if (v.kk) return; _reattachMesh(v, 'chestMesh', 'group',
@@ -14098,6 +14304,23 @@ function applyEquipVisual(id, equipped) {
   EQUIP_ATTACH.head  (v, equipped.equippedHead   || null);
   EQUIP_ATTACH.feet  (v, equipped.equippedFeet   || null);
   EQUIP_ATTACH.ring  (v, equipped.equippedRing   || null);
+  // Holly Wand bearers glow — a soft additive body aura (any player, any
+  // scene), plus a real night light from the shared pool (updateWandLights).
+  const hasWand = (equipped.equippedWeapon === 'holly_wand');
+  if (hasWand && !v.wandAura) {
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: 0xffeec2, transparent: true, opacity: 0.2,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    aura.scale.set(46, 52, 1);
+    aura.position.y = 20;
+    v.group.add(aura);
+    v.wandAura = aura;
+  } else if (!hasWand && v.wandAura) {
+    v.group.remove(v.wandAura);
+    v.wandAura = null;
+  }
+  v.hasWand = hasWand;
 }
 
 // inventory_state only ever describes the local player — routes it into
@@ -14381,10 +14604,19 @@ function lerpAngle(a, b, t) {
 }
 
 function syncVisuals(dt) {
+  // Holly Wand ambience, shared by every bearer this frame
+  const _dn = getDayNightState();
+  const wandNight = 1 - _dn.lightAmount;
+  const wandPulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.0024);
   for (const id in players) {
     const p = players[id];
     const v = visuals[id];
     if (!v) continue;
+
+    if (v.wandAura) v.wandAura.material.opacity = 0.15 + wandNight * 0.3 + wandPulse * 0.07;
+    if (v.weaponMesh && v.weaponMesh.userData.wandTipGlow) {
+      v.weaponMesh.userData.wandTipGlow.opacity = 0.38 + wandNight * 0.42 + wandPulse * 0.12;
+    }
 
     const moveDx = p.x - p.renderPrevX, moveDy = p.y - p.renderPrevY;
     const moveDist = Math.hypot(moveDx, moveDy);
@@ -14513,7 +14745,15 @@ function syncVisuals(dt) {
       const seatedYOffset = (id === myId && seatedAt) ? -8 : 0;
       const featherMult = (id === myId && me.activeStatus && me.activeStatus.type === 'feather') ? 2.4 : 1;
       const jumpYOffset = (id === myId && jumpActive) ? Math.sin(Math.PI * jumpT / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
-      const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
+      // Floor height rides a short critically-damped chase instead of
+      // snapping — stray profile knees, ramp edges and zone boundaries all
+      // land as a glide, not a pop. Room changes and teleports snap (you
+      // should not visibly "rise" out of a door you just stepped through).
+      const floorYTarget = getFloorHeight(p.room, rp.x, rp.z);
+      if (v.floorYS === undefined || v.floorRoomS !== p.room || Math.abs(floorYTarget - v.floorYS) > 34) v.floorYS = floorYTarget;
+      else v.floorYS += (floorYTarget - v.floorYS) * (1 - Math.exp(-dt * 13));
+      v.floorRoomS = p.room;
+      const floorYOffset = v.floorYS;
       // Deep Meditation: sits at ground level, then rises into a hover over
       // the first couple seconds and gently bobs there for the rest of the
       // duration — x/z still track the player's real position every frame,
@@ -14583,7 +14823,7 @@ function syncLabels() {
       mobileOpacity = (spoke || tapped || dist <= 105) ? 1 : Math.max(0.15, 1 - (dist - 105) / 45);
     }
     const rp = getRenderPos(p);
-    const floorYOffset = getFloorHeight(p.room, rp.x, rp.z);
+    const floorYOffset = (v.floorYS !== undefined && v.floorRoomS === p.room) ? v.floorYS : getFloorHeight(p.room, rp.x, rp.z);
     const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
     // Speech bubbles ride the same anchor but ignore the hover gate — the
     // whole point is seeing who spoke WITHOUT mousing over them.
@@ -14596,6 +14836,166 @@ function syncLabels() {
     v.nameEl.style.opacity = MOBILE_UI ? String(mobileOpacity) : '';
     v.nameEl.style.left = headScreen.x + 'px';
     v.nameEl.style.top = (headScreen.y - 14) + 'px';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Camera obstruction handling (Session G) — two outdoor problems, two fixes:
+//  1. BUILDINGS: the chase camera regularly swung inside the KayKit shells
+//     when you walked past one — with backface culling that shows the town
+//     *through* the building, popping in and out frame to frame (the
+//     reported "seeing through them / crackling"). The camera now clips its
+//     pull-back against every building's blocker box — the same "shrink
+//     along the behind-the-player line" rule the indoor camera uses.
+//  2. TREES & TALL DRESSING: pulling the camera in for every canopy would
+//     make it lurch constantly in wooded lanes; instead, anything tagged
+//     userData.camFade ghosts to ~25% opacity while it stands between the
+//     camera and the player, and fades back the moment it doesn't.
+// ---------------------------------------------------------------------------
+const KK_CAM_BLOCKERS = []; // {minX,minZ,maxX,maxZ,maxY} per placed building (collision footprint × model height)
+const camFadeState = new Map();      // fade root group → { amount }
+const camFadeLists = new WeakMap();  // scene → cached mesh list
+const camFadeWanted = new Set();
+const _camRay = new THREE.Raycaster();
+const _camRayO = new THREE.Vector3();
+const _camRayD = new THREE.Vector3();
+
+function camFadeablesFor(scene) {
+  let list = camFadeLists.get(scene);
+  if (!list) {
+    list = [];
+    scene.traverse(o => {
+      if (o.userData && o.userData.camFade) {
+        o.traverse(m => { if (m.isMesh) { m.userData.camFadeRoot = o; list.push(m); } });
+      }
+    });
+    camFadeLists.set(scene, list);
+  }
+  return list;
+}
+
+// Entry parameter t∈[0,1] of the segment (ax,ay,az)→(bx,by,bz) into the box,
+// or 1 if it never enters. Player collision keeps the anchor out of these
+// footprints, so t is a clean "how far back the camera may sit" fraction.
+function segBlockerT(ax, ay, az, bx, by, bz, k) {
+  let t0 = 0, t1 = 1;
+  const p = [ax, ay, az], q = [bx, by, bz];
+  const mins = [k.minX, -20, k.minZ], maxs = [k.maxX, k.maxY, k.maxZ];
+  for (let a = 0; a < 3; a++) {
+    const d = q[a] - p[a];
+    if (Math.abs(d) < 1e-6) { if (p[a] < mins[a] || p[a] > maxs[a]) return 1; continue; }
+    let ta = (mins[a] - p[a]) / d, tb = (maxs[a] - p[a]) / d;
+    if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    if (t0 > t1) return 1;
+  }
+  return t0 > 0.001 ? t0 : 1; // t0≈0 means the anchor itself grazes the box — don't clamp to nothing
+}
+
+function setRootFade(root, amount) {
+  root.traverse(m => {
+    if (!m.isMesh) return;
+    if (amount <= 0.001) {
+      // restore only if nothing else (e.g. the harvested-tree look) swapped
+      // the material while we were fading
+      if (m.userData.cfOrig && m.material === m.userData.cfMat) m.material = m.userData.cfOrig;
+      m.userData.cfOrig = null;
+      m.userData.cfMat = null;
+      return;
+    }
+    if (!m.userData.cfOrig || (m.material !== m.userData.cfMat && m.material !== m.userData.cfOrig)) {
+      // Clone-on-(re)fade: KayKit instances share materials, so editing them
+      // in place would ghost every copy in town at once. Re-cache if some
+      // other system swapped the material since we last looked.
+      m.userData.cfOrig = m.material;
+      const mk = (mat) => { const c = mat.clone(); c.transparent = true; c.depthWrite = false; return c; };
+      m.userData.cfMat = Array.isArray(m.material) ? m.material.map(mk) : mk(m.material);
+    }
+    const apply = (fm, om) => { fm.opacity = (om.transparent ? om.opacity : 1) * (1 - amount * 0.75); };
+    if (Array.isArray(m.userData.cfMat)) m.userData.cfMat.forEach((fm, i) => apply(fm, m.userData.cfOrig[i]));
+    else apply(m.userData.cfMat, m.userData.cfOrig);
+    m.material = m.userData.cfMat;
+  });
+}
+
+function updateCamObstructions(dt, ax, ay, az) {
+  const fadeScene = (activeScene === outdoorScene || activeScene === wildsScene) ? activeScene : null;
+  camFadeWanted.clear();
+  if (fadeScene && activeCamera) {
+    const meshes = camFadeablesFor(fadeScene);
+    if (meshes.length) {
+      _camRayD.set(activeCamera.position.x - ax, activeCamera.position.y - ay, activeCamera.position.z - az);
+      const len = _camRayD.length();
+      if (len > 24) {
+        _camRayD.multiplyScalar(1 / len);
+        _camRayO.set(ax, ay, az);
+        _camRay.set(_camRayO, _camRayD);
+        _camRay.near = 0;
+        _camRay.far = len - 6;
+        const hits = _camRay.intersectObjects(meshes, false);
+        for (const h of hits) {
+          const r = h.object.userData.camFadeRoot;
+          if (r) camFadeWanted.add(r);
+        }
+      }
+    }
+  }
+  for (const root of camFadeWanted) if (!camFadeState.has(root)) camFadeState.set(root, { amount: 0 });
+  camFadeState.forEach((s, root) => {
+    const target = camFadeWanted.has(root) ? 1 : 0;
+    s.amount += (target - s.amount) * Math.min(1, dt * 7);
+    if (target === 0 && s.amount < 0.04) { setRootFade(root, 0); camFadeState.delete(root); return; }
+    setRootFade(root, s.amount);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Holly Wand night lights — a small FIXED pool of point lights per outdoor
+// scene (fixed so the shader never recompiles as wands come and go),
+// assigned each frame to the nearest wand bearers. This is the "provides
+// them light at night time" half of the wand; the glow half is the aura +
+// tip sprite in applyEquipVisual/syncVisuals.
+// ---------------------------------------------------------------------------
+const WAND_LIGHTS_PER_SCENE = 3;
+const wandLightPools = new Map(); // scene → PointLight[]
+function wandPoolFor(scene) {
+  let pool = wandLightPools.get(scene);
+  if (!pool) {
+    pool = [];
+    for (let i = 0; i < WAND_LIGHTS_PER_SCENE; i++) {
+      const L = new THREE.PointLight(0xffe2a8, 0, 300, 2);
+      L.position.set(0, -9999, 0);
+      scene.add(L);
+      pool.push(L);
+    }
+    wandLightPools.set(scene, pool);
+  }
+  return pool;
+}
+function updateWandLights() {
+  const scene = (activeScene === outdoorScene || activeScene === wildsScene) ? activeScene : null;
+  wandLightPools.forEach((pool, s) => { if (s !== scene) pool.forEach(L => { L.intensity = 0; }); });
+  if (!scene) return;
+  const roomForScene = scene === outdoorScene ? 'outside' : 'wilds';
+  const night = 1 - getDayNightState().lightAmount;
+  const bearers = [];
+  for (const id in players) {
+    const p = players[id];
+    if (p.room !== roomForScene || p.equippedWeapon !== 'holly_wand') continue;
+    const v = visuals[id];
+    if (!v || !v.inScene) continue;
+    const rp = getRenderPos(p);
+    const d2 = me ? (rp.x - me.x) * (rp.x - me.x) + (rp.z - me.y) * (rp.z - me.y) : 0;
+    bearers.push({ rp, d2, v });
+  }
+  bearers.sort((a, b) => a.d2 - b.d2);
+  const pool = wandPoolFor(scene);
+  for (let i = 0; i < pool.length; i++) {
+    const L = pool[i], b = bearers[i];
+    if (!b || night <= 0.03) { L.intensity += (0 - L.intensity) * 0.2; continue; }
+    L.position.set(b.rp.x, groundY + 34 + (b.v.floorYS || 0), b.rp.z);
+    L.intensity += (night * 1.25 - L.intensity) * 0.25;
   }
 }
 
@@ -14634,17 +15034,59 @@ function updateCamera(dt) {
   const horizBack = back * Math.cos(pitch);
   const verticalRise = -Math.sin(pitch) * back;
 
-  const floorYOffset = getFloorHeight(me.room, rp.x, rp.z);
-  const targetX = rp.x + dirX * horizBack;
-  const targetZ = rp.z + dirZ * horizBack;
-  const targetY = groundY + cam.height + floorYOffset + verticalRise;
+  // Use the SMOOTHED floor height the body is actually drawn at (see
+  // syncVisuals) — lookAt() is applied instantly, so feeding it the raw
+  // stair profile made the whole view pitch-bump on every profile knee
+  // while climbing. The camera now glides exactly with the character.
+  const vMe = visuals[myId];
+  const floorYOffset = (vMe && vMe.floorYS !== undefined && vMe.floorRoomS === me.room) ? vMe.floorYS : getFloorHeight(me.room, rp.x, rp.z);
+  let targetX = rp.x + dirX * horizBack;
+  let targetZ = rp.z + dirZ * horizBack;
+  let targetY = groundY + cam.height + floorYOffset + verticalRise;
+
+  // Outdoors, never let the camera sink inside a building shell — clip the
+  // player→camera segment against each building's blocker box and slide the
+  // camera up the same line, exactly like the indoor wall rule above.
+  const anchorY = groundY + floorYOffset + 42;
+  if (activeScene === outdoorScene && KK_CAM_BLOCKERS.length) {
+    let m = 1;
+    for (let i = 0; i < KK_CAM_BLOCKERS.length; i++) {
+      m = Math.min(m, segBlockerT(rp.x, anchorY, rp.z, targetX, targetY, targetZ, KK_CAM_BLOCKERS[i]));
+    }
+    if (m < 1) {
+      m = Math.max(0.16, m - 0.05);
+      targetX = rp.x + (targetX - rp.x) * m;
+      targetY = anchorY + (targetY - anchorY) * m;
+      targetZ = rp.z + (targetZ - rp.z) * m;
+    }
+  }
 
   const ease = 1 - Math.exp(-dt * 6);
   activeCamera.position.x += (targetX - activeCamera.position.x) * ease;
   activeCamera.position.y += (targetY - activeCamera.position.y) * ease;
   activeCamera.position.z += (targetZ - activeCamera.position.z) * ease;
 
+  // Hard guarantee: the EASED position must also be outside every building —
+  // a big teleport (door exit, portal) can leave the previous camera position
+  // deep inside a shell, and the ease would otherwise glide it through the
+  // walls for a few visible frames.
+  if (activeScene === outdoorScene && KK_CAM_BLOCKERS.length) {
+    let mNow = 1;
+    for (let i = 0; i < KK_CAM_BLOCKERS.length; i++) {
+      mNow = Math.min(mNow, segBlockerT(rp.x, anchorY, rp.z, activeCamera.position.x, activeCamera.position.y, activeCamera.position.z, KK_CAM_BLOCKERS[i]));
+    }
+    if (mNow < 1) {
+      mNow = Math.max(0.12, mNow - 0.05);
+      activeCamera.position.x = rp.x + (activeCamera.position.x - rp.x) * mNow;
+      activeCamera.position.y = anchorY + (activeCamera.position.y - anchorY) * mNow;
+      activeCamera.position.z = rp.z + (activeCamera.position.z - rp.z) * mNow;
+    }
+  }
+
   activeCamera.lookAt(rp.x, groundY + cam.lookUp + floorYOffset, rp.z);
+
+  // Ghost out trees/props standing between the camera and the character.
+  updateCamObstructions(dt, rp.x, anchorY, rp.z);
 }
 
 // ---------------------------------------------------------------------------
@@ -15326,10 +15768,20 @@ function _positionTooltip(e) {
   _tt.style.top  = y + 'px';
 }
 
+// The tooltip's "owner" — the hovered cell that opened it. Inventory/bank/
+// hotbar rerenders replace cells wholesale (innerHTML = ''), so a hovered
+// cell can vanish without ever firing mouseleave; the orphaned tooltip then
+// stayed visible forever, riding the cursor to wherever you clicked next
+// (user-reported). The mousemove repositioner below now checks the owner is
+// still attached and still hovered, and hides the tooltip the moment it
+// isn't.
+let _ttOwner = null;
+
 function showItemTooltip(e, itemId) {
   if (!_tt) return;
   const item = ITEM_CATALOG[itemId];
   if (!item) return;
+  _ttOwner = (e && e.currentTarget) || null;
   _ttName.textContent  = item.icon + '  ' + item.name;
   _ttSlot.textContent  = item.slot ? (SLOT_LABELS[item.slot] || item.slot) : 'Item';
   const lines = [];
@@ -15345,6 +15797,7 @@ function showItemTooltip(e, itemId) {
 
 function showActionTooltip(e, action) {
   if (!_tt || !action) return;
+  _ttOwner = (e && e.currentTarget) || null;
   _ttName.textContent  = action.icon + '  ' + action.name;
   _ttSlot.textContent  = KIND_LABELS[action.kind] || (action.kind || '');
   _ttStats.innerHTML   = '';
@@ -15354,10 +15807,14 @@ function showActionTooltip(e, action) {
   _positionTooltip(e);
 }
 
-function hideTooltip() { if (_tt) _tt.classList.add('hidden'); }
+function hideTooltip() { _ttOwner = null; if (_tt) _tt.classList.add('hidden'); }
 
 document.addEventListener('mousemove', (e) => {
-  if (_tt && !_tt.classList.contains('hidden')) _positionTooltip(e);
+  if (!_tt || _tt.classList.contains('hidden')) return;
+  // Owner gone (rerender/modal close) or cursor no longer over it → the
+  // mouseleave that would normally hide us can never fire. Hide now.
+  if (!_ttOwner || !_ttOwner.isConnected || !_ttOwner.matches(':hover')) { hideTooltip(); return; }
+  _positionTooltip(e);
 });
 
 let myActionMsgType = null;
@@ -15748,7 +16205,7 @@ function appendSpyGlassLine(name, color, text, image) {
     img.className = 'chatImg';
     img.src = image;
     img.title = 'Click to view full size';
-    img.addEventListener('click', () => window.open(image, '_blank'));
+    img.addEventListener('click', () => openImageLightbox(image)); // same white-tab fix as room chat
     div.appendChild(img);
   }
   logEl.appendChild(div);
@@ -16923,6 +17380,7 @@ function update(dt) {
   updateVoiceRings(dt);
   updateEvasionVisual();
   updateEmoteFloats();
+  updateWandLights();
   updateCameraGlide(dt);
   updateCamera(dt);
   updateInteractHint();
@@ -17082,7 +17540,71 @@ if (location.search.includes('testdrive=1')) {
       const count = (s) => { let n = 0; if (s) s.traverse(() => n++); return n; };
       return { town: count(outdoorScene), wilds: count(wildsScene) };
     },
-    lampGlow() { return { count: LAMP_GLOWS.length, opacity: LAMP_GLOWS.length ? LAMP_GLOWS[0].glowMat.opacity : 0 }; }
+    lampGlow() { return { count: LAMP_GLOWS.length, opacity: LAMP_GLOWS.length ? LAMP_GLOWS[0].glowMat.opacity : 0 }; },
+    // ── stair/graphics QA (Session G) — read-only probes ──
+    stairZones() { return KK_STAIR_ZONES.map(z => ({ side: z.side, cx: z.cx, cz: z.cz, out: z.out, step: z.step, depth: z.depth, halfWidth: z.halfWidth, profile: z.profile.slice() })); },
+    floorH(x, z) { return getFloorHeight('outside', x, z); },
+    visualY() { const v = visuals[myId]; return v ? v.group.position.y : null; },
+    camPose() { return activeCamera ? { y: activeCamera.position.y, qx: activeCamera.quaternion.x, qw: activeCamera.quaternion.w } : null; },
+    doors() { return world ? world.buildings.map(b => ({ id: b.id, side: getDoorSide(b), door: getDoorWorldPos(b) })) : []; },
+    camInfo() { return activeCamera ? { near: activeCamera.near, far: activeCamera.far, fov: activeCamera.fov } : null; },
+    lastToast() { const el = document.getElementById('unlockToast'); return el && !el.classList.contains('hidden') ? el.textContent : null; },
+    wandVisual() {
+      const v = visuals[myId];
+      if (!v) return null;
+      const pool = wandLightPools.get(activeScene);
+      return {
+        weaponItem: v.weaponMeshItemId || null,
+        aura: !!v.wandAura, auraOpacity: v.wandAura ? v.wandAura.material.opacity : 0,
+        tipGlow: !!(v.weaponMesh && v.weaponMesh.userData.wandTipGlow),
+        lightIntensities: pool ? pool.map(L => Math.round(L.intensity * 100) / 100) : []
+      };
+    },
+    camBlockCheck() {
+      // is the camera inside any building blocker box right now?
+      const c = activeCamera.position;
+      for (const k of KK_CAM_BLOCKERS) {
+        if (c.x > k.minX && c.x < k.maxX && c.z > k.minZ && c.z < k.maxZ && c.y < k.maxY) return true;
+      }
+      return false;
+    },
+    fadedCount() { let n = 0; camFadeState.forEach(s => { if (s.amount > 0.3) n++; }); return n; },
+    fadeListSize() { return activeScene ? camFadeablesFor(activeScene).length : -1; },
+    camDebug() {
+      const rp = getRenderPos(me);
+      return { cam: { x: activeCamera.position.x, y: activeCamera.position.y, z: activeCamera.position.z },
+        anchor: { x: rp.x, z: rp.z }, blockers: KK_CAM_BLOCKERS.length,
+        gfx: GFX.st.quality };
+    },
+    segT(ax, ay, az, bx, by, bz) { return KK_CAM_BLOCKERS.map(k => Math.round(segBlockerT(ax, ay, az, bx, by, bz, k) * 1000) / 1000); },
+    sunSnap() { const i = GFX.st.scenes.get(activeScene); return i && i.sun ? { tx: i.sun.target.position.x, tz: i.sun.target.position.z } : null; },
+    gfxInfo() {
+      const r = renderer;
+      return { quality: GFX.qualityLevel ? GFX.qualityLevel() : 'n/a', shadows: r ? r.shadowMap.enabled : false, logDepth: r ? !!r.capabilities.logarithmicDepthBuffer : false };
+    },
+    // Raycast a height grid against the static outdoor scene — the honest
+    // answer to "what's the geometry outside this door", no zone bookkeeping.
+    groundGrid(x0, z0, x1, z1, step) {
+      const ray = new THREE.Raycaster();
+      const down = new THREE.Vector3(0, -1, 0);
+      const o = new THREE.Vector3();
+      const meshes = [];
+      outdoorScene.traverse(obj => { if (obj.isMesh) meshes.push(obj); });
+      const rows = [];
+      for (let z = z0; z <= z1; z += step) {
+        const row = [];
+        for (let x = x0; x <= x1; x += step) {
+          o.set(x, 55, z);
+          ray.set(o, down);
+          const hits = ray.intersectObjects(meshes, false);
+          let h = 0;
+          for (const hit of hits) { if (hit.point.y <= 45) { h = hit.point.y; break; } }
+          row.push(Math.round(h * 10) / 10);
+        }
+        rows.push(row);
+      }
+      return rows;
+    }
   };
 }
 

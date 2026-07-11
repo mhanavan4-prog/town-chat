@@ -761,6 +761,7 @@ WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
 
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
 for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
 const HARVEST_RANGE = 70;
@@ -972,9 +973,12 @@ const ITEM_CATALOG = {
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
   golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
-  wood:           { name: 'Wood',           icon: '🪵', slot: null },
+  wood:           { name: 'Holly Wood',     icon: '🪵', slot: null },
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
+  // Built (not found): 5 Holly Wood at the craft_wand handler. Equipping it
+  // makes the bearer glow and light their way at night (client visual).
+  holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon' },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
@@ -1027,7 +1031,9 @@ const ITEM_CATALOG = {
   packbound_ring:   { name: 'Packbound Ring',   icon: '🪢', slot: 'ring'   },
   nightfang_boots:  { name: 'Nightfang Boots',  icon: '🥾', slot: 'feet'   },
 };
-const ITEM_IDS = Object.keys(ITEM_CATALOG);
+// holly_wand is excluded from the random-starter pool — it's the Holly Wood
+// crafting reward (5 tree harvests), never random loot.
+const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
 // Flower, they're deliberately excluded from the random-starter-item pool,
 // since the whole point is going out to the Wilds to harvest them.
@@ -1048,6 +1054,7 @@ for (const key in PLANT_CATALOG) {
 const EQUIP_STATS = {
   // ── basic shop gear (weak, early) ──
   iron_sword:    { power: 0.10 },
+  holly_wand:    { power: 0.07, haste: 0.04 },  // crafted from 5 Holly Wood; its real prize is the light it casts
   spell_tome:    { power: 0.08, haste: 0.05 },
   steel_shield:  { guard: 0.10, vitality: 10 },
   wizard_hat:    { haste: 0.06, xp: 0.05 },
@@ -6360,7 +6367,16 @@ wss.on('connection', (ws) => {
       if (player.accountKey) saveInventories();
       myHarvests[decorId] = Date.now();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'harvest_result', message: `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}${bonusYield ? ` ×${1 + bonusYield} — a fine haul!` : '.'}` });
+      // Holly Wood (tree harvests) tracks progress toward the Holly Wand —
+      // 5 build one at the craft_wand handler below.
+      let message = `Harvested ${ITEM_CATALOG[itemId].icon} ${ITEM_CATALOG[itemId].name}${bonusYield ? ` ×${1 + bonusYield} — a fine haul!` : '.'}`;
+      if (itemId === 'wood') {
+        const total = countItemQty(inv, 'wood');
+        message = total >= WAND_WOOD_COST
+          ? `Harvested 🪵 Holly Wood${bonusYield ? ' ×2' : ''} (${total}) — enough to build a 🎇 Holly Wand! Open your pack.`
+          : `Harvested 🪵 Holly Wood${bonusYield ? ' ×2' : ''} (${total}/${WAND_WOOD_COST}) — collect ${WAND_WOOD_COST - total} more and you can build a wand.`;
+      }
+      send(ws, { type: 'harvest_result', message });
       // Regrowth is per player, so only THIS client's plants change looks.
       send(ws, { type: 'decor_state', decor: decorPublicState(player) });
       // XP for Wilds plants only (not town trees/shrubs/flowers)
@@ -6369,6 +6385,27 @@ wss.on('connection', (ws) => {
         advanceQuestProgress(player, 'harvest_plant', itemId);
         storyEvent(player, 'harvest_plant', { itemId });
       }
+      return;
+    }
+
+    if (msg.type === 'craft_wand') {
+      // 5 Holly Wood → 1 Holly Wand. Validated here regardless of what the
+      // client shows; the wood is only consumed if the wand actually fits.
+      const inv = getInventory(player);
+      const total = countItemQty(inv, 'wood');
+      if (total < WAND_WOOD_COST) {
+        send(ws, { type: 'craft_error', message: `You need ${WAND_WOOD_COST} 🪵 Holly Wood to bind a wand — you have ${total}.` });
+        return;
+      }
+      removeItemFromAccount(inv, 'wood', WAND_WOOD_COST);
+      if (!addItemToAccount(inv, 'holly_wand', 1)) {
+        addItemToAccount(inv, 'wood', WAND_WOOD_COST); // full pack — put the wood back
+        send(ws, { type: 'craft_error', message: 'Your pack is full — make room for the wand first.' });
+        return;
+      }
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'craft_result', message: '🎇 You bind five holly hearts into a wand. Equip it — it glows, and it will light your way at night.' });
       return;
     }
 
