@@ -553,6 +553,27 @@ cafe interior, two players mutually visible with walk anims, mobile 390×844 tou
   runs (pass a longer tool timeout); `~` in the shell is /root while file tools write /home/claude
   (symlinked now); SwiftShader makes joins take 30-60s each.
 
+### Session F, later — stair fix + self-aligning buildings + bank rebuild (user-reported)
+
+Michael hit two things on the live build: players clipped through the KayKit buildings' entrance
+stairs, and the bank (blacksmith model) "looks like an anvil, not a door". Fixes, all client-only:
+
+- **Stair ramps:** `kkMeasureStairs()` raycasts each placed building model at build time and records
+  the real stair height profile outside the door; the `outside` branch of `getFloorHeight()` now
+  walks players AND NPCs up that profile (same mechanism as the Temple ramp). No colliders changed.
+- **Self-aligning models (`kkAutoAlign`)**: the models' baked door faces vary per model (tavern's
+  door faces +X natively, etc.). Instead of hand-tuned per-model rotations, each building now tries
+  all four rotations at build time, raycasts for stoop/step mass at the game's door gap, keeps the
+  best rotation, then slides the model along the wall so the detected steps center on the doorway.
+  Verified: all six doors sit dead-center on their paths.
+- **Bank model swap:** blacksmith → **gold church** (`building_church_yellow`) — big centered arched
+  door + steps, reads "institution". The blacksmith files were dropped from `public/kk/bld/`
+  (`git rm` any previously-committed `building_blacksmith_*` if git flags them); `building_church_yellow.*`
+  added. If Michael ever prefers a commerce look, `building_market_yellow` (open stall front) was
+  tested and works — one manifest line.
+- Door-flanking pumpkins moved outward (off the stairs, beside them).
+- Re-verified: `npm test` 7/7 · all six door approaches + bank walk-in · zero page errors.
+
 ---
 
 *Last updated Saturday, July 11, 2026, morning — end of Session F (the full tier-3 upgrade). If you

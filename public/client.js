@@ -108,7 +108,7 @@ const KK = (() => {
     bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
     bld_lounge:  'kk/bld/building_tower_A_green.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
-    bld_bank:    'kk/bld/building_blacksmith_yellow.gltf',
+    bld_bank:    'kk/bld/building_church_yellow.gltf',
     prop_bench:    'kk/props/bench_decorated.gltf',
     prop_lamppost: 'kk/props/post_lantern.gltf',
     prop_well:     'kk/bld/building_well_blue.gltf',
@@ -6329,9 +6329,28 @@ function getFloorHeight(roomId, rx, rz) {
   if (roomId === 'outside') {
     const halfW = TEMPLE_PLATFORM_W / 2, halfD = TEMPLE_PLATFORM_D / 2;
     const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
-    if (dx > halfW || dz > halfD) return 0;
-    const depth = Math.min(halfW - dx, halfD - dz);
-    return Math.min(TEMPLE_PLATFORM_HEIGHT, TEMPLE_PLATFORM_HEIGHT * (depth / TEMPLE_RAMP));
+    if (dx <= halfW && dz <= halfD) {
+      const depth = Math.min(halfW - dx, halfD - dz);
+      return Math.min(TEMPLE_PLATFORM_HEIGHT, TEMPLE_PLATFORM_HEIGHT * (depth / TEMPLE_RAMP));
+    }
+    // KayKit building entrance stairs (see kkMeasureStairs)
+    const rz2 = rz ?? 0;
+    for (let i = 0; i < KK_STAIR_ZONES.length; i++) {
+      const z = KK_STAIR_ZONES[i];
+      const ox = rx - z.cx, oz = rz2 - z.cz;
+      const distOut = ox * z.out[0] + oz * z.out[1];        // how far out from the wall
+      if (distOut < 0 || distOut > z.depth) continue;
+      const lateral = Math.abs(ox * z.out[1] + oz * z.out[0]); // sideways offset from door center
+      if (lateral > z.halfWidth) continue;
+      const f = distOut / z.step;
+      const i0 = Math.min(z.profile.length - 1, Math.floor(f));
+      const i1 = Math.min(z.profile.length - 1, i0 + 1);
+      const h = z.profile[i0] + (z.profile[i1] - z.profile[i0]) * (f - i0);
+      // soften the outer edge so you step onto the ramp, not teleport onto it
+      const edgeFade = Math.min(1, (z.depth - distOut) / 10 + 0.9);
+      return Math.max(0, h * Math.min(1, edgeFade));
+    }
+    return 0;
   }
   if (roomId !== 'lounge') return 0;
   const interior = interiorScenes.lounge;
@@ -10656,8 +10675,9 @@ function kkTownDressing(scene, w) {
   for (const b of w.buildings) {
     const side = getDoorSide(b);
     const dp = getDoorWorldPos(b);
+    const pw = (w.doorWidth || 64) * 0.85 + 22;
     const out = side === 'south' ? [0, 18] : side === 'north' ? [0, -18] : side === 'east' ? [18, 0] : [-18, 0];
-    const perp = side === 'south' || side === 'north' ? [34, 0] : [0, 34];
+    const perp = side === 'south' || side === 'north' ? [pw, 0] : [0, pw];
     kkPlace(scene, 'prop_pumpkin', dp.x + out[0] + perp[0], dp.y + out[1] + perp[1], 12, Math.PI * 0.15);
     kkPlace(scene, 'prop_pumpkin2', dp.x + out[0] - perp[0], dp.y + out[1] - perp[1], 10, -Math.PI * 0.2);
   }
@@ -10705,6 +10725,110 @@ function kkWildsDressing(scene, w) {
   kkPlace(scene, 'prop_grave_a', W2 * 0.51, H2 * 0.465, 28, -0.3);
 }
 
+// KayKit building models bring their own entrance stairs, which protrude
+// past the collision footprint. Each build measures the real stair profile
+// with downward raycasts and registers a door-approach "ramp zone"; the
+// outside branch of getFloorHeight() walks players (and NPCs) up it — the
+// same trick the Temple platform ramp already uses — so nobody clips
+// through the steps.
+const KK_STAIR_ZONES = [];
+// Self-aligning building placement: these models bake their entrance
+// (door + stoop/steps) into one face, and which face varies per model. At
+// build time we try all four rotations, raycast for low structure (steps)
+// just outside the wall at the game's door gap, keep the rotation with the
+// most of it, then slide the model along the wall so the detected steps
+// center on the door gap. Models with flush doors (no steps) tie at ~0 and
+// keep the default facing.
+function kkAutoAlign(kkBld, b, w) {
+  const kside = getDoorSide(b);
+  const dp = getDoorWorldPos(b);
+  const out = kside === 'south' ? [0, 1] : kside === 'north' ? [0, -1] : kside === 'east' ? [1, 0] : [-1, 0];
+  const along = [out[1], out[0]];
+  const sideRot = kside === 'south' ? 0 : kside === 'north' ? Math.PI : kside === 'east' ? Math.PI / 2 : -Math.PI / 2;
+  const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
+  const ray = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+  const origin = new THREE.Vector3();
+  const MAX_STAIR_H = 40;
+
+  function stairMassAt(lateralOffset) {
+    // structure height just outside the wall (3 depths), below stair cap
+    let mass = 0;
+    for (const d of [8, 20, 32]) {
+      origin.set(dp.x + out[0] * d + along[0] * lateralOffset, 60, dp.y + out[1] * d + along[1] * lateralOffset);
+      ray.set(origin, down);
+      const hits = ray.intersectObject(kkBld, true);
+      for (const hit of hits) {
+        if (hit.point.y <= MAX_STAIR_H) { mass += hit.point.y; break; }
+      }
+    }
+    return mass;
+  }
+
+  let bestRot = 0, bestScore = -1;
+  for (const extra of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    kkBld.rotation.y = sideRot + extra;
+    kkBld.position.set(cx, 0, cz);
+    kkBld.updateMatrixWorld(true);
+    let score = 0;
+    for (const lat of [-w.doorWidth, -w.doorWidth / 2, 0, w.doorWidth / 2, w.doorWidth]) score += stairMassAt(lat);
+    if (score > bestScore + 0.5) { bestScore = score; bestRot = extra; }
+  }
+  kkBld.rotation.y = sideRot + bestRot;
+  kkBld.position.set(cx, 0, cz);
+  kkBld.updateMatrixWorld(true);
+
+  // center the detected steps on the door gap (skip flush-door models)
+  if (bestScore > 4) {
+    const span = Math.max(b.w, b.h) * 0.42;
+    let num = 0, den = 0;
+    for (let lat = -span; lat <= span; lat += 12) {
+      const m = stairMassAt(lat);
+      num += m * lat; den += m;
+    }
+    if (den > 0) {
+      const centroid = num / den;
+      const shift = Math.max(-span * 0.7, Math.min(span * 0.7, -centroid));
+      kkBld.position.set(cx + along[0] * shift, 0, cz + along[1] * shift);
+      kkBld.updateMatrixWorld(true);
+    }
+  }
+}
+
+function kkMeasureStairs(kkBld, b, w) {
+  const side = getDoorSide(b);
+  const dp = getDoorWorldPos(b);
+  const out = side === 'south' ? [0, 1] : side === 'north' ? [0, -1] : side === 'east' ? [1, 0] : [-1, 0];
+  kkBld.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+  const origin = new THREE.Vector3();
+  const STEP = 6, MAX_DEPTH = 96, MAX_STAIR_H = 40;
+  const profile = [];
+  let depth = 0;
+  for (let d = 0; d <= MAX_DEPTH; d += STEP) {
+    let h = 0;
+    for (const lat of [-0.5, 0, 0.5]) {
+      const lx = out[1] * lat * w.doorWidth, lz = out[0] * lat * w.doorWidth;
+      origin.set(dp.x + out[0] * d + lx, 60, dp.y + out[1] * d + lz);
+      ray.set(origin, down);
+      const hits = ray.intersectObject(kkBld, true);
+      for (const hit of hits) {
+        if (hit.point.y <= MAX_STAIR_H) { h = Math.max(h, hit.point.y); break; }
+      }
+    }
+    profile.push(h);
+    if (h < 1.5 && d > 0) { depth = d; break; }
+    depth = d;
+  }
+  // nothing measurable sticking out — no zone needed
+  if (profile.length < 2 || Math.max.apply(null, profile) < 2) return;
+  KK_STAIR_ZONES.push({
+    side, cx: dp.x, cz: dp.y, out, step: STEP, depth,
+    halfWidth: w.doorWidth * 0.85 + 6, profile
+  });
+}
+
 function buildBuildingMesh(b, w) {
   const group = new THREE.Group();
   // The Rooftop Lounge gets a taller exterior shell to read as two stories,
@@ -10716,10 +10840,9 @@ function buildBuildingMesh(b, w) {
   const kkBld = KK.staticInstance('bld_' + b.id, Math.max(b.w, b.h) * 1.12, 'fit');
   const useKK = !!kkBld;
   if (useKK) {
-    const kside = getDoorSide(b);
-    kkBld.rotation.y = kside === 'south' ? 0 : kside === 'north' ? Math.PI : kside === 'east' ? Math.PI / 2 : -Math.PI / 2;
-    kkBld.position.set(b.x + b.w / 2, 0, b.y + b.h / 2);
+    kkAutoAlign(kkBld, b, w);
     group.add(kkBld);
+    kkMeasureStairs(kkBld, b, w);
   }
   // One siding texture per building, cloned per wall segment so each gets
   // its own repeat tuned to its own size — same pattern buildPathSegment()
