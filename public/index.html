@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Town Chat</title>
+<title>Thornreach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body {
@@ -86,6 +89,153 @@
   .charOption .charHair { width:24px; height:8px; border-radius:8px 8px 0 0; display:block; }
   .charOption .charHead { width:24px; height:20px; border-radius:50%; display:block; }
   .charOption .charBody { width:28px; height:14px; border-radius:4px; display:block; margin-top:2px; }
+
+  /* ── Join screen: the witchy Thornreach front door ──────────────────────
+     Every rule here is scoped to #joinScreen so the shared .overlay/.card/
+     .btn/.title styles used by in-game modals stay exactly as they were. */
+  #joinScreen {
+    background:
+      radial-gradient(900px 480px at 76% 10%, rgba(146,109,222,0.16), transparent 55%),
+      radial-gradient(700px 420px at 10% 92%, rgba(94,231,192,0.06), transparent 60%),
+      linear-gradient(180deg, #130c22 0%, #0b0716 55%, #060410 100%);
+    backdrop-filter:none;
+    overflow:hidden;
+  }
+  #jsNight { position:absolute; inset:0; pointer-events:none; }
+  #jsNight .jsStars {
+    position:absolute; top:0; left:0; width:2px; height:2px; border-radius:50%;
+    background:transparent; opacity:0.9; animation:jsTwinkle 4.5s ease-in-out infinite;
+    box-shadow:
+      6vw 12vh 0 #efeaff, 14vw 28vh 0 #cfd6ff, 22vw 7vh 0 #efeaff, 31vw 19vh 0 #b8c4ff,
+      38vw 4vh 0 #efeaff, 47vw 15vh 0 #d9d2ff, 55vw 9vh 0 #efeaff, 63vw 24vh 0 #cfd6ff,
+      71vw 6vh 0 #efeaff, 79vw 30vh 0 #d9d2ff, 87vw 14vh 0 #efeaff, 94vw 22vh 0 #b8c4ff,
+      10vw 44vh 0 #cfd6ff, 27vw 38vh 0 #efeaff, 44vw 33vh 0 #b8c4ff, 60vw 41vh 0 #efeaff,
+      76vw 45vh 0 #cfd6ff, 91vw 38vh 0 #efeaff, 5vw 62vh 0 #d9d2ff, 18vw 55vh 0 #efeaff,
+      35vw 58vh 0 #cfd6ff, 68vw 57vh 0 #efeaff, 84vw 60vh 0 #d9d2ff, 50vw 50vh 0 #b8c4ff;
+  }
+  #jsNight .jsStars.dim {
+    width:1px; height:1px; opacity:0.5; animation-duration:6.5s; animation-delay:1.6s;
+    box-shadow:
+      9vw 8vh 0 #9aa4d6, 17vw 21vh 0 #9aa4d6, 25vw 13vh 0 #8f86b8, 34vw 27vh 0 #9aa4d6,
+      42vw 10vh 0 #8f86b8, 52vw 22vh 0 #9aa4d6, 61vw 16vh 0 #8f86b8, 69vw 12vh 0 #9aa4d6,
+      78vw 25vh 0 #8f86b8, 86vw 8vh 0 #9aa4d6, 93vw 17vh 0 #8f86b8, 13vw 36vh 0 #9aa4d6,
+      30vw 48vh 0 #8f86b8, 48vw 42vh 0 #9aa4d6, 66vw 47vh 0 #8f86b8, 82vw 52vh 0 #9aa4d6;
+  }
+  @keyframes jsTwinkle { 0%,100% { opacity:0.85; } 50% { opacity:0.35; } }
+  #jsNight .jsMoon {
+    position:absolute; top:9vh; right:11vw; width:88px; height:88px; border-radius:50%;
+    background:radial-gradient(circle at 38% 35%, #fdf6e3, #e9ddc2 62%, #cbbfa4);
+    box-shadow:0 0 34px rgba(253,246,227,0.5), 0 0 110px rgba(253,246,227,0.22);
+  }
+  #jsNight .jsMoon::after {
+    content:''; position:absolute; top:-8%; left:-14%; width:86%; height:86%;
+    border-radius:50%; background:#100a1e;
+  }
+  #jsNight .jsFog {
+    position:absolute; width:64vw; height:26vh; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(154,120,220,0.11), transparent 72%);
+    filter:blur(26px); animation:jsDrift 30s ease-in-out infinite alternate;
+  }
+  #jsNight .jsFog.f1 { bottom:4vh; left:-12vw; }
+  #jsNight .jsFog.f2 { bottom:16vh; right:-16vw; animation-duration:40s; animation-delay:-9s;
+    background:radial-gradient(closest-side, rgba(94,231,192,0.07), transparent 72%); }
+  #jsNight .jsFog.f3 { bottom:-6vh; left:24vw; animation-duration:50s; animation-delay:-22s; }
+  @keyframes jsDrift { from { transform:translateX(-5%); } to { transform:translateX(7%); } }
+  #jsNight .jsEmber {
+    position:absolute; bottom:-3vh; width:5px; height:5px; border-radius:50%;
+    background:#7ef0c3; box-shadow:0 0 8px 2px rgba(126,240,195,0.55);
+    opacity:0; animation:jsRise 18s linear infinite;
+  }
+  #jsNight .jsEmber.e2 { left:18vw; width:4px; height:4px; animation-duration:23s; animation-delay:-6s;
+    background:#ffce8a; box-shadow:0 0 8px 2px rgba(255,206,138,0.5); }
+  #jsNight .jsEmber.e3 { left:34vw; animation-duration:16s; animation-delay:-11s; }
+  #jsNight .jsEmber.e4 { left:58vw; width:4px; height:4px; animation-duration:26s; animation-delay:-2s;
+    background:#c9a7ff; box-shadow:0 0 8px 2px rgba(201,167,255,0.55); }
+  #jsNight .jsEmber.e5 { left:76vw; animation-duration:20s; animation-delay:-14s;
+    background:#ffce8a; box-shadow:0 0 8px 2px rgba(255,206,138,0.5); }
+  #jsNight .jsEmber.e6 { left:90vw; width:4px; height:4px; animation-duration:24s; animation-delay:-8s; }
+  #jsNight .jsEmber.e1 { left:8vw; }
+  @keyframes jsRise {
+    0% { transform:translateY(0); opacity:0; }
+    8% { opacity:0.9; }
+    85% { opacity:0.5; }
+    100% { transform:translateY(-108vh); opacity:0; }
+  }
+  #jsNight .jsTrees { position:absolute; bottom:0; left:0; width:100%; height:17vh; display:block; }
+
+  #joinScreen .card {
+    position:relative; z-index:2;
+    width:min(430px, 92vw);
+    padding:28px 28px 24px;
+    background:linear-gradient(168deg, rgba(26,17,42,0.96), rgba(11,7,20,0.985));
+    border:1px solid rgba(185,138,255,0.28);
+    border-radius:18px;
+    box-shadow:0 0 70px rgba(140,90,255,0.16), 0 24px 60px rgba(0,0,0,0.6), inset 0 0 60px rgba(8,4,18,0.55);
+  }
+  #joinScreen .card::before {
+    content:''; position:absolute; inset:7px; border:1px solid rgba(185,138,255,0.12);
+    border-radius:12px; pointer-events:none;
+  }
+  #joinScreen .jsSigil {
+    width:56px; height:56px; margin:0 auto 10px; display:block;
+    filter:drop-shadow(0 0 12px rgba(158,120,255,0.5));
+    animation:jsBreath 5.5s ease-in-out infinite;
+  }
+  @keyframes jsBreath { 0%,100% { transform:scale(1); } 50% { transform:scale(1.045); } }
+  #joinScreen .title {
+    font-family:'Cinzel Decorative', 'Cinzel', Georgia, 'Times New Roman', serif;
+    font-size:29px; letter-spacing:5px; font-weight:900; margin-bottom:8px;
+    background:linear-gradient(90deg, #c9a7ff 0%, #8de8c8 55%, #e8d9a8 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 26px rgba(160,120,255,0.28);
+  }
+  #joinScreen .subtitle { color:#a99bc4; font-family:Georgia, serif; font-style:italic; }
+  #joinScreen #charSelectLabel {
+    color:#b9a8cf; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase;
+    text-align:center; margin-bottom:9px;
+  }
+  #joinScreen .charOption {
+    background:rgba(10,6,20,0.55); border:1.5px solid rgba(185,138,255,0.18);
+    border-radius:12px; padding:9px 2px 6px;
+    transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #joinScreen .charOption:hover { transform:translateY(-2px); border-color:rgba(185,138,255,0.45); }
+  #joinScreen .charOption.selected {
+    border-color:#b98aff; background:rgba(140,90,255,0.13);
+    box-shadow:0 0 16px rgba(160,110,255,0.35), inset 0 0 12px rgba(160,110,255,0.12);
+  }
+  #joinScreen .charName {
+    font-size:9px; letter-spacing:0.6px; color:#8d80a8; text-transform:uppercase; margin-top:3px;
+  }
+  #joinScreen .charOption.selected .charName { color:#e9ddff; }
+  #joinScreen #joinModeTabs button {
+    background:rgba(8,5,16,0.5); border:1px solid rgba(185,138,255,0.2);
+    color:#b9a8cf; border-radius:9px;
+  }
+  #joinScreen #joinModeTabs button.active {
+    background:linear-gradient(90deg, #a678f0, #5ee7c0); color:#0b0713; border-color:transparent;
+  }
+  #joinScreen input[type=text], #joinScreen input[type=password] {
+    background:rgba(6,3,14,0.6); border:1px solid rgba(185,138,255,0.22);
+    color:#f1e9ff; border-radius:9px;
+  }
+  #joinScreen input[type=text]:focus, #joinScreen input[type=password]:focus {
+    border-color:rgba(185,138,255,0.6); box-shadow:0 0 0 2px rgba(140,90,255,0.14);
+  }
+  #joinScreen input::placeholder { color:#6d6284; }
+  #joinScreen .btn {
+    background:linear-gradient(90deg, #9d6bff, #46e3b0); color:#0b0713;
+    border-radius:11px; letter-spacing:1px;
+    box-shadow:0 4px 18px rgba(120,80,220,0.35);
+  }
+  #joinScreen #accountRegisterBtn { background:linear-gradient(90deg, #8fb7ff, #b98aff); }
+  #joinScreen #accountStatus { color:#a99bc4; }
+  #joinScreen #accountStatus a { color:#c9a7ff; }
+  #joinScreen .passNote { font-size:11.5px; color:#b9a8cf; margin:2px 0 8px; text-align:left; }
+  @media (prefers-reduced-motion: reduce) {
+    #jsNight .jsStars, #jsNight .jsFog, #jsNight .jsEmber, #joinScreen .jsSigil { animation:none; }
+    #jsNight .jsEmber { display:none; }
+  }
 
   #hud {
     position:fixed; top:0; left:0; right:0; z-index:5;
@@ -2002,36 +2152,72 @@
 <div id="joystick"><div id="stick"></div></div>
 
 <div id="joinScreen" class="overlay">
+  <div id="jsNight" aria-hidden="true">
+    <span class="jsStars"></span>
+    <span class="jsStars dim"></span>
+    <div class="jsMoon"></div>
+    <div class="jsFog f1"></div>
+    <div class="jsFog f2"></div>
+    <div class="jsFog f3"></div>
+    <span class="jsEmber e1"></span>
+    <span class="jsEmber e2"></span>
+    <span class="jsEmber e3"></span>
+    <span class="jsEmber e4"></span>
+    <span class="jsEmber e5"></span>
+    <span class="jsEmber e6"></span>
+    <svg class="jsTrees" viewBox="0 0 1200 140" preserveAspectRatio="none">
+      <path d="M0 140 L0 96 L38 96 L64 34 L92 96 L120 96 L146 58 L172 96 L210 96 L238 20 L268 96
+               L300 96 L324 62 L350 96 L392 96 L420 40 L450 96 L478 96 L502 70 L528 96 L568 96
+               L596 28 L626 96 L660 96 L686 56 L712 96 L752 96 L780 44 L810 96 L840 96 L866 66
+               L892 96 L930 96 L958 24 L988 96 L1020 96 L1046 58 L1072 96 L1110 96 L1136 42
+               L1164 96 L1200 96 L1200 140 Z" fill="#07040d"/>
+    </svg>
+  </div>
   <div class="card">
-    <div class="title">TOWN CHAT</div>
-    <div class="subtitle">Wander the town with friends. Walk into a building for a full medieval interior and its private chat.</div>
+    <svg class="jsSigil" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="jsg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#b98aff"/><stop offset="1" stop-color="#7ef0c3"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="url(#jsg)" stroke-width="3"/>
+      <path d="M50 12 L61.3 84.6 L19.4 38.6 L80.6 38.6 L38.7 84.6 Z"
+            fill="none" stroke="url(#jsg)" stroke-width="3" stroke-linejoin="round"/>
+    </svg>
+    <div class="title">THORNREACH</div>
+    <div class="subtitle">Five callings. One crooked little town. The lanterns are lit — come in out of the dark.</div>
 
-    <div id="charSelectLabel">Choose your character</div>
+    <div id="charSelectLabel">Choose your calling</div>
     <div id="charSelectRow">
       <button class="charOption" data-char="0" title="Witch — casts spells from a Spellbook">
         <span class="charHair" style="background:#1a1410"></span>
         <span class="charHead" style="background:#ffd9b3"></span>
         <span class="charBody" style="background:#4caf50"></span>
+        <span class="charName">Witch</span>
       </button>
       <button class="charOption" data-char="1" title="Werewolf — unleashes 12 ferocious attacks">
         <span class="charHair" style="background:#8a3a10"></span>
         <span class="charHead" style="background:#d4713c"></span>
         <span class="charBody" style="background:#c4631a"></span>
+        <span class="charName">Werewolf</span>
       </button>
-      <button class="charOption" data-char="2" title="Mystic">
+      <button class="charOption" data-char="2" title="Mystic — sees what others can't">
         <span class="charHair" style="background:#222222"></span>
         <span class="charHead" style="background:#c98a5b"></span>
         <span class="charBody" style="background:#9b5fc0"></span>
+        <span class="charName">Mystic</span>
       </button>
-      <button class="charOption" data-char="3" title="Knight">
+      <button class="charOption" data-char="3" title="Knight — the town's steel shield">
         <span class="charHair" style="background:#b0b0b0"></span>
         <span class="charHead" style="background:#ffe0c2"></span>
         <span class="charBody" style="background:#6f8fae"></span>
+        <span class="charName">Knight</span>
       </button>
       <button class="charOption" data-char="4" title="Wanderer — unleashes 12 wandering skills">
         <span class="charHair" style="background:#e0e0e0"></span>
         <span class="charHead" style="background:#7a4a2f"></span>
         <span class="charBody" style="background:#c0596f"></span>
+        <span class="charName">Wanderer</span>
       </button>
     </div>
 
@@ -2054,8 +2240,13 @@
       <div id="accountStatus"></div>
     </div>
 
-    <input id="passInput" type="password" placeholder="Passcode (if your town has one)" autocomplete="off">
-    <button class="btn" id="joinBtn">ENTER TOWN</button>
+    <!-- Hidden unless the server is warded with TOWN_PASSWORD: the join is
+         refused with a passcode error, and client.js reveals this row. -->
+    <div id="passRow" class="hidden">
+      <div class="passNote">🔒 This town is warded — speak the passcode.</div>
+      <input id="passInput" type="password" placeholder="Passcode" autocomplete="off">
+    </div>
+    <button class="btn" id="joinBtn">ENTER THE TOWN</button>
     <div class="err" id="joinErr"></div>
   </div>
 </div>

@@ -617,6 +617,16 @@ function onWsMessage(ev) {
       if (resumeFallbackName && !nameInput.value) nameInput.value = resumeFallbackName;
     }
     showJoinError(msg.message);
+    // Warded towns: the passcode field stays hidden until the server
+    // actually refuses a join over TOWN_PASSWORD — open towns never see it.
+    if (/passcode/i.test(msg.message || '')) {
+      const passRow = document.getElementById('passRow');
+      if (passRow && passRow.classList.contains('hidden')) {
+        passRow.classList.remove('hidden');
+        showJoinError('This town is warded — enter its passcode below.');
+      }
+      if (passInput) { passInput.focus(); passInput.select(); }
+    }
     return;
   }
 

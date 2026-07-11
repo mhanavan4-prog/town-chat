@@ -214,5 +214,74 @@ The native `ios/`/`android/` folders are generated on the user's Mac via `npx ca
 
 ---
 
-*Last updated at the end of Session C. If you add to the project, append a short dated note here so the
+## Session D (2026-07-11) — Desktop app (installable Mac/Windows/Linux game)
+
+Built **`town-chat-desktop`** (delivered as a zip; unzip to Desktop alongside `town-chat-ios`/`-android`):
+an **online-only Electron wrapper** — a hardened shell that connects to the deployed shared server, so
+desktop players are in the SAME town as web/mobile. **No game code is bundled**: the window loads the live
+client from the server, so redeploying the server updates every installed desktop player automatically.
+The app only needs rebuilding for shell changes (launcher/icon/window behavior).
+
+- `main.js` — launcher window (has the preload API) + game window (sandboxed, NO preload/Node;
+  `window.open` → system browser; camera/fullscreen/pointerLock permitted for the selfie shop etc.).
+  Auto-connects straight into town when a server address is known (baked `DEFAULT_SERVER_URL` or one the
+  player saved); **Cmd/Ctrl+L** returns to the launcher to change servers. Stripe checkout is untouched —
+  same in-window redirect on the server's own origin as a browser tab.
+- `launcher.html` — one-card launcher (enter/remember the town address), styled to the game palette
+  (forest bg, #9ee37d→#5ee7c0→#7ad9ff gradient), pentacle sigil.
+- `package.json` — electron ^41 + electron-builder ^26 (versions verified current July 2026). Targets:
+  mac dmg **universal** (unsigned, `identity: null`), win **nsis x64**, linux **AppImage x64**.
+  appId `com.thornreach.game` (matches mobile). Icon `build/icon.png` = generated 1024px mint pentacle.
+- `BUILD-DESKTOP.md` — exact Mac commands (`npm install`, `npm run dist:mac|win|linux`), Gatekeeper/
+  SmartScreen notes for unsigned builds, and the proper signing/notarization path for later.
+- **Verified in-sandbox:** launcher renders clean under Playwright (no JS errors, empty-URL guard, IPC
+  wiring via stub). Electron itself can't run here (npm registry blocked) — `npm start` on the Mac is the
+  real first run. Also verified along the way: the client's local `three.min.js` fallback works offline
+  (r128 fetched via git sparse checkout; a copy exists only in the cloud sandbox, NOT added to the repo).
+
+Decisions this session:
+- **Online-only at Michael's request** (mid-session change): a full "Host a local town" mode — bundled
+  `server.js` forked via Electron `utilityProcess` + an env-gated `FREE_TOWN_PASS` flag in server.js
+  (single choke point `hasTownPass()`, plus `lockedRooms: []` in `/api/config` + init) — was built AND
+  smoke-tested (10/10, boot + guest join + unlocked rooms), then **removed**: he doesn't want localhost
+  towns with free passes. **`server.js` on the Mac was NOT modified this session** (the flag existed only
+  in the sandbox copy). If local/LAN hosting is ever wanted again, this design works and npm test stayed
+  7/7 with it.
+- **Server status is unconfirmed:** Michael believes the deployed server is his **Render** site (URL not
+  yet provided; check his browser history for `….onrender.com`). `fly.toml` still has the placeholder app
+  name, so Fly was likely never used. ⚠️ DEPLOY-SERVER.md warns Render's FREE tier cold-starts and loses
+  the flat-JSON saves on redeploy — worth confirming his plan and migrating per DEPLOY-SERVER.md if it's
+  free tier. `DEFAULT_SERVER_URL` in `main.js` is `''` — bake his URL in when known (players can also type
+  it once in the launcher; it's remembered).
+- Housekeeping: `_to_delete/node_modules.tgz` in the town-chat folder is a leftover transfer tarball from
+  this session (device_bash can't delete files) — safe to trash with the rest of `_to_delete/`.
+
+### Session D, later — witchy join-screen redesign + passcode field removal
+
+`public/index.html` + `public/client.js` updated (**web build only** — the mobile apps' `www/` copies
+still carry the OLD join screen; re-sync those two files next time the apps are rebuilt).
+
+- New Thornreach front door: opaque night scene behind the card (`#jsNight`: vw/vh box-shadow
+  starfields, waning-crescent moon, drifting fog blobs, rising embers, pine-silhouette SVG), violet
+  card with pentacle sigil, class names under the five `charOption` talismans, button text
+  "ENTER THE TOWN", `<title>` renamed Town Chat → Thornreach. Title font is *Cinzel Decorative* via a
+  Google Fonts `<link>` with Georgia/serif fallback (the sandbox blocks the font CDN, so sandbox
+  screenshots show the fallback — the live site gets the engraved face).
+- **All element ids kept** (`nameInput`/`joinBtn`/`.charOption[data-char]`/tabs/account fields) — the
+  QA-harness contract is intact, and `showResumeUi` still finds `.card`. New CSS is strictly scoped
+  under `#joinScreen` (plus `#jsNight` + `js*` keyframes), inserted right after the `.charOption`
+  rules; the shared `.overlay/.card/.title/.btn` used by in-game modals are untouched. A
+  `prefers-reduced-motion` block stops the ambience animations.
+- **Passcode field is no longer always-visible** (this was the user request): `#passInput` now sits
+  inside hidden `#passRow`. `client.js`'s `join_error` handler reveals the row when a server refuses
+  with a /passcode/i message (i.e. `TOWN_PASSWORD` towns), swaps in a friendlier "This town is
+  warded…" line, and focuses the input; retry with the right passcode then joins. Open towns never
+  see the field. **Zero server changes.**
+- Verified: Playwright 13/13 (open-town guest join with picked class, class-select toggle, account
+  tab, 390px mobile fit, warded-town reveal → successful passcode join), `npm test` 7/7.
+- To see it live: restart the local server / redeploy (the deployed host serves `public/` as-is).
+
+---
+
+*Last updated at the end of Session D. If you add to the project, append a short dated note here so the
 next session inherits it.*
