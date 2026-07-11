@@ -901,6 +901,40 @@ app.post('/api/login', (req, res) => {
   res.json({ token, username: account.username, color: account.color });
 });
 
+// The character roster behind the join screen's "continue as …" cards: every
+// class this account has played (recorded at join, see the join handler),
+// newest first, with the account's shared level and each class's campaign
+// chapter. A stale token (sessions don't survive a restart) gets a clean 401
+// so the client can fall back to the login form instead of silently guesting.
+app.post('/api/characters', (req, res) => {
+  const token = String(req.body.token || '');
+  const key = token ? sessions.get(token) : null;
+  if (!key || !accounts[key]) {
+    return res.status(401).json({ error: 'Session expired — log in again.' });
+  }
+  const prog = playerProgress[key] || {};
+  const chars = prog.characters || {};
+  const characters = Object.keys(chars)
+    .map((cid) => {
+      const charId = parseInt(cid, 10);
+      const story = (prog.story && prog.story[charId]) || null;
+      return {
+        charId,
+        lastPlayedAt: chars[cid].lastPlayedAt || 0,
+        chapter: story ? story.chapter : 0
+      };
+    })
+    .filter((c) => Number.isInteger(c.charId) && c.charId >= 0 && c.charId < CHARACTER_COUNT)
+    .sort((a, b) => b.lastPlayedAt - a.lastPlayedAt);
+  res.json({
+    username: accounts[key].username,
+    color: accounts[key].color,
+    level: prog.level || 1,
+    lastCharId: Number.isInteger(prog.lastCharId) ? prog.lastCharId : null,
+    characters
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Bank accounts & auction house — the in-game economy. Bank accounts are
 // keyed by the same usernameLower as the login accounts above (see
@@ -3626,10 +3660,23 @@ const MOB2_TYPES = {
 };
 const MOB2_KEYS = Object.keys(MOB2_TYPES);
 const MOB2_SPAWNS = [
+  // The original eight, one pair per type…
   { x: 150, y: 500, type: 'shade_stalker' }, { x: 850, y: 500, type: 'shade_stalker' },
   { x: 500, y: 150, type: 'bog_brute' },     { x: 500, y: 850, type: 'bog_brute' },
   { x: 320, y: 320, type: 'night_howler' },  { x: 680, y: 680, type: 'night_howler' },
-  { x: 680, y: 320, type: 'will_o_wisp' },   { x: 320, y: 680, type: 'will_o_wisp' }
+  { x: 680, y: 320, type: 'will_o_wisp' },   { x: 320, y: 680, type: 'will_o_wisp' },
+  // …plus sixteen more (4 extra per type — 24 total, 3x the old population):
+  // the Wilds read as empty at night with 8 mobs on a 10k×10k map. Laid out
+  // on the same 1000×1000 design grid, spread to the corners and midfield,
+  // all comfortably clear of the portal landing spot at (500, 880).
+  { x: 250, y: 180, type: 'shade_stalker' }, { x: 760, y: 620, type: 'shade_stalker' },
+  { x: 120, y: 760, type: 'shade_stalker' }, { x: 880, y: 240, type: 'shade_stalker' },
+  { x: 180, y: 340, type: 'bog_brute' },     { x: 820, y: 760, type: 'bog_brute' },
+  { x: 340, y: 780, type: 'bog_brute' },     { x: 660, y: 140, type: 'bog_brute' },
+  { x: 480, y: 420, type: 'night_howler' },  { x: 180, y: 120, type: 'night_howler' },
+  { x: 860, y: 880, type: 'night_howler' },  { x: 760, y: 420, type: 'night_howler' },
+  { x: 560, y: 640, type: 'will_o_wisp' },   { x: 140, y: 600, type: 'will_o_wisp' },
+  { x: 880, y: 520, type: 'will_o_wisp' },   { x: 420, y: 240, type: 'will_o_wisp' }
 ].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE, type: p.type }));
 const MOB2_RESPAWN_MS = 120 * 1000;
 const mobs2 = MOB2_SPAWNS.map((p, i) => ({
@@ -4893,6 +4940,19 @@ wss.on('connection', (ws) => {
       }
       players.set(id, player);
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
+      // Character roster — powers the returning-player select screen. Remember
+      // which classes this account has played and which was most recent, so
+      // /api/characters can offer "continue as …" cards on the next visit.
+      if (accountKey) {
+        const rosterProg = getProgress(player);
+        if (!rosterProg.characters) rosterProg.characters = {};
+        if (!rosterProg.characters[player.charId]) {
+          rosterProg.characters[player.charId] = { firstPlayedAt: Date.now() };
+        }
+        rosterProg.characters[player.charId].lastPlayedAt = Date.now();
+        rosterProg.lastCharId = player.charId;
+        saveProgress();
+      }
       // A fresh (non-resumed) join starts at full health — which, for an
       // account that already invested vitality, is above 100.
       if (!resume) player.health = player.maxHealth;

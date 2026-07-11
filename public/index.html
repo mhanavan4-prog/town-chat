@@ -232,6 +232,41 @@
   #joinScreen #accountStatus { color:#a99bc4; }
   #joinScreen #accountStatus a { color:#c9a7ff; }
   #joinScreen .passNote { font-size:11.5px; color:#b9a8cf; margin:2px 0 8px; text-align:left; }
+  #charRoster { margin-top:12px; }
+  #charRosterLabel {
+    color:#b9a8cf; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase;
+    text-align:center; margin-bottom:9px;
+  }
+  .rosterCard {
+    display:flex; align-items:center; gap:12px; width:100%;
+    background:rgba(10,6,20,0.55); border:1.5px solid rgba(185,138,255,0.18);
+    border-radius:12px; padding:10px 12px; margin-bottom:8px; cursor:pointer;
+    color:#e9ddff; text-align:left; font-family:inherit;
+    transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .rosterCard:hover { transform:translateY(-1px); border-color:rgba(185,138,255,0.45); }
+  .rosterCard.selected {
+    border-color:#b98aff; background:rgba(140,90,255,0.13);
+    box-shadow:0 0 14px rgba(160,110,255,0.3);
+  }
+  .rosterAvatar { display:flex; flex-direction:column; align-items:center; flex:0 0 34px; }
+  .rosterAvatar .charHair { width:22px; height:7px; border-radius:7px 7px 0 0; display:block; }
+  .rosterAvatar .charHead { width:22px; height:18px; border-radius:50%; display:block; }
+  .rosterAvatar .charBody { width:26px; height:12px; border-radius:4px; display:block; margin-top:2px; }
+  .rosterInfo { flex:1; min-width:0; }
+  .rosterName { display:block; font-weight:800; font-size:14px; color:#f1e9ff; }
+  .rosterSub { display:block; font-size:11px; color:#a99bc4; margin-top:1px; }
+  .rosterTag {
+    flex:0 0 auto; font-size:9px; letter-spacing:1px; text-transform:uppercase;
+    color:#0b0713; background:linear-gradient(90deg,#9d6bff,#46e3b0);
+    border-radius:99px; padding:3px 8px; font-weight:800;
+  }
+  #newCharBtn {
+    width:100%; padding:10px; font-size:12.5px; font-weight:700; letter-spacing:0.5px;
+    background:rgba(8,5,16,0.5); color:#b9a8cf; border:1px dashed rgba(185,138,255,0.35);
+    border-radius:10px; cursor:pointer; margin-bottom:4px; font-family:inherit;
+  }
+  #newCharBtn:hover { border-color:rgba(185,138,255,0.65); color:#e9ddff; }
   @media (prefers-reduced-motion: reduce) {
     #jsNight .jsStars, #jsNight .jsFog, #jsNight .jsEmber, #joinScreen .jsSigil { animation:none; }
     #jsNight .jsEmber { display:none; }
@@ -2238,6 +2273,13 @@
         <button class="btn" id="accountRegisterBtn">Create Account</button>
       </div>
       <div id="accountStatus"></div>
+      <!-- Returning players: "continue as …" cards, filled by /api/characters
+           (client.js renderCharRoster). Hidden for guests / new accounts. -->
+      <div id="charRoster" class="hidden">
+        <div id="charRosterLabel">Your characters</div>
+        <div id="charRosterList"></div>
+        <button type="button" id="newCharBtn">＋ New character</button>
+      </div>
     </div>
 
     <!-- Hidden unless the server is warded with TOWN_PASSWORD: the join is

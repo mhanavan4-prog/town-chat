@@ -1543,6 +1543,7 @@ function setJoinMode(mode) {
   joinModeAccountBtn.classList.toggle('active', mode === 'account');
   guestFields.classList.toggle('hidden', mode !== 'guest');
   accountFields.classList.toggle('hidden', mode !== 'account');
+  updateCharPickerVisibility();
 }
 joinModeGuestBtn.addEventListener('click', () => setJoinMode('guest'));
 joinModeAccountBtn.addEventListener('click', () => setJoinMode('account'));
@@ -1563,12 +1564,142 @@ function renderLoggedInStatus() {
   logout.textContent = 'log out';
   logout.addEventListener('click', (e) => { e.preventDefault(); logoutAccount(); });
   accountStatusEl.appendChild(logout);
+  updateCharPickerVisibility();
 }
 
 function logoutAccount() {
   savedAccount = null;
   localStorage.removeItem('tc_account');
   setAccountStatus('');
+  rosterData = null;
+  newCharMode = false;
+  renderCharRoster();
+  updateCharPickerVisibility();
+}
+
+// ── Character roster — the returning-player select screen ──────────────────
+// When a saved login exists (or right after logging in), /api/characters
+// returns every class this account has played, newest first. Those become
+// "continue as …" cards; "＋ New character" re-opens the classic class
+// picker. Guests and never-played accounts just see the picker, unchanged.
+const charRosterEl = document.getElementById('charRoster');
+const charRosterListEl = document.getElementById('charRosterList');
+const newCharBtn = document.getElementById('newCharBtn');
+const charSelectLabelEl = document.getElementById('charSelectLabel');
+const charSelectRowEl = document.getElementById('charSelectRow');
+let rosterData = null;   // last /api/characters payload, or null
+let newCharMode = false; // true while picking a class for a new character
+
+function updateCharPickerVisibility() {
+  const hasRoster = joinMode === 'account' && !!savedAccount && !!rosterData
+    && Array.isArray(rosterData.characters) && rosterData.characters.length > 0;
+  const showRoster = hasRoster && !newCharMode;
+  // While logged in, the username/password form gives way to the roster —
+  // the "log out" link in the status line brings it back.
+  const loggedIn = !!savedAccount;
+  if (accountUserInput) accountUserInput.classList.toggle('hidden', loggedIn);
+  if (accountPassInput) accountPassInput.classList.toggle('hidden', loggedIn);
+  const accountBtnRowEl = document.getElementById('accountBtnRow');
+  if (accountBtnRowEl) accountBtnRowEl.classList.toggle('hidden', loggedIn);
+  if (charRosterEl) charRosterEl.classList.toggle('hidden', !hasRoster);
+  if (charRosterListEl) charRosterListEl.classList.toggle('hidden', !showRoster);
+  if (charSelectRowEl) charSelectRowEl.classList.toggle('hidden', showRoster);
+  if (charSelectLabelEl) {
+    charSelectLabelEl.classList.toggle('hidden', showRoster);
+    charSelectLabelEl.textContent = hasRoster && newCharMode
+      ? 'Choose a calling for your new character'
+      : 'Choose your calling';
+  }
+  if (newCharBtn) newCharBtn.textContent = newCharMode ? '← Back to your characters' : '＋ New character';
+}
+
+function charCssColor(n) { return '#' + n.toString(16).padStart(6, '0'); }
+
+function renderCharRoster() {
+  if (!charRosterListEl) return;
+  charRosterListEl.innerHTML = '';
+  if (!rosterData || !Array.isArray(rosterData.characters)) return;
+  for (const c of rosterData.characters) {
+    const preset = CHARACTER_PRESETS[c.charId];
+    if (!preset) continue;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'rosterCard' + (c.charId === selectedCharId ? ' selected' : '');
+    const av = document.createElement('span');
+    av.className = 'rosterAvatar';
+    for (const [cls, color] of [['charHair', preset.hair], ['charHead', preset.skin], ['charBody', preset.shirt]]) {
+      const s = document.createElement('span');
+      s.className = cls;
+      s.style.background = charCssColor(color);
+      av.appendChild(s);
+    }
+    const info = document.createElement('span');
+    info.className = 'rosterInfo';
+    const nm = document.createElement('span');
+    nm.className = 'rosterName';
+    nm.textContent = rosterData.username + ' the ' + preset.name;
+    const sub = document.createElement('span');
+    sub.className = 'rosterSub';
+    sub.textContent = 'Level ' + (rosterData.level || 1) + (c.chapter > 0 ? ' · Chapter ' + c.chapter : '');
+    info.appendChild(nm);
+    info.appendChild(sub);
+    card.appendChild(av);
+    card.appendChild(info);
+    if (c.charId === rosterData.lastCharId) {
+      const tag = document.createElement('span');
+      tag.className = 'rosterTag';
+      tag.textContent = 'Last played';
+      card.appendChild(tag);
+    }
+    card.addEventListener('click', () => {
+      selectedCharId = c.charId;
+      localStorage.setItem('tc_charid', String(selectedCharId));
+      renderCharSelect();
+      renderCharRoster();
+    });
+    charRosterListEl.appendChild(card);
+  }
+}
+
+function fetchCharacterRoster() {
+  if (!savedAccount || !savedAccount.token) return;
+  fetch(apiUrlMaybe('/api/characters'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: savedAccount.token })
+  })
+    .then(r => r.json().then(data => ({ ok: r.ok, status: r.status, data })))
+    .then(({ ok, status, data }) => {
+      if (!ok) {
+        if (status === 401) {
+          // Sessions live in server memory and don't survive a restart —
+          // ask for a fresh login instead of silently joining as a guest.
+          logoutAccount();
+          setAccountStatus('Session expired — log in again to see your characters.', true);
+        }
+        return;
+      }
+      rosterData = data;
+      newCharMode = false;
+      if (Number.isInteger(data.lastCharId) && CHARACTER_PRESETS[data.lastCharId]) {
+        selectedCharId = data.lastCharId;
+        localStorage.setItem('tc_charid', String(selectedCharId));
+        renderCharSelect();
+      }
+      renderCharRoster();
+      updateCharPickerVisibility();
+    })
+    .catch(() => { /* server unreachable — the classic picker still works */ });
+}
+// The web build serves everything same-origin; the mobile builds override
+// fetch targets via apiUrl() in their own copies. Use it when present.
+function apiUrlMaybe(p) { return (typeof apiUrl === 'function') ? apiUrl(p) : p; }
+
+if (newCharBtn) {
+  newCharBtn.addEventListener('click', () => {
+    newCharMode = !newCharMode;
+    updateCharPickerVisibility();
+  });
 }
 
 (function loadSavedAccount() {
@@ -1579,6 +1710,7 @@ function logoutAccount() {
   if (savedAccount && savedAccount.username && savedAccount.token) {
     setJoinMode('account');
     renderLoggedInStatus();
+    fetchCharacterRoster();
   }
 })();
 
@@ -1599,6 +1731,7 @@ function submitAccount(endpoint) {
       localStorage.setItem('tc_account', JSON.stringify(savedAccount));
       accountPassInput.value = '';
       renderLoggedInStatus();
+      fetchCharacterRoster();
     })
     .catch(() => setAccountStatus('Could not reach the server.', true));
 }
@@ -1622,6 +1755,7 @@ document.querySelectorAll('.charOption').forEach((btn) => {
     selectedCharId = parseInt(btn.dataset.char, 10);
     localStorage.setItem('tc_charid', String(selectedCharId));
     renderCharSelect();
+    renderCharRoster(); // keep the roster cards' selected ring in sync
   });
 });
 renderCharSelect();

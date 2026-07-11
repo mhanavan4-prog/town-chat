@@ -288,6 +288,39 @@ still carry the OLD join screen; re-sync those two files next time the apps are 
   `openWelcomeModal()` (client.js). Verified on both viewports.
 - To see it live: restart the local server / redeploy (the deployed host serves `public/` as-is).
 
+### Session D, later still — 3× Wilds mobs + returning-player character select
+
+**`server.js` changed for the first time this session** (plus `public/index.html` + `public/client.js`;
+mobile `www/` copies drift further — re-sync at next app rebuild). The FREE_TOWN_PASS prototype was
+fully reverted from the working copy BEFORE these edits (verified byte-identical to the Mac's server.js
+first), so the only server deltas are the two features below.
+
+- **Wilds density:** `MOB2_SPAWNS` went 8 → 24 points (6 each of shade_stalker / bog_brute /
+  night_howler / will_o_wisp) — the user found the 10k×10k Wilds "sparse at night". New points sit on
+  the same 1000×1000 design grid (scaled by `WILDS_SCALE`), spread to corners/midfield, all clear of
+  the portal landing at (500,880). Verified over the wire: `wildlife_state.mobs2.length === 24`.
+  Note: `wildlife_state` broadcasts every 150ms to everyone, so +16 mobs ≈ +2KB/tick — fine at this
+  scale. Respawn/aggro/loot all reuse the per-mob fields; no other logic touched.
+- **Character roster ("continue as …"):** accounts now remember what they played.
+  - Server: join handler records `prog.characters[charId] = {firstPlayedAt, lastPlayedAt}` +
+    `prog.lastCharId` for account joins (guests untouched). New `POST /api/characters` {token} →
+    {username, color, level, lastCharId, characters:[{charId, lastPlayedAt, chapter}]} sorted
+    newest-first; stale token → 401 (sessions are in-memory and die on restart — the 401 makes the
+    client fall back to the login form instead of silently guesting).
+  - Client: `#charRoster` in the Account tab — witchy "continue as" cards (mini avatar, "Name the
+    Class", shared account Level, per-class campaign Chapter, LAST PLAYED tag), auto-shown when a
+    saved login exists (roster fetch on load / after login+register). Card click selects that class;
+    "＋ New character" flips back to the classic picker (label swaps to "choose a calling for your new
+    character"); logged-in state hides the username/password form (log out brings it back). Guests and
+    characterless accounts see the classic picker unchanged. NOTE: level/XP/skill points are SHARED
+    per account (per-class: campaign + skill allocations) — cards show the shared level by design.
+  - Join payload/protocol unchanged — "continue" is just joining with that charId.
+- Verified: Playwright 14/14 roster flows (fresh visit, register, play, re-login roster, last-played
+  tag, continue-as rejoin, new-character toggle, saved-token auto-roster) + wire mob count 24 +
+  `npm test` 7/7 + `audit-playthrough` completability clean.
+- Sandbox gotcha for future sessions: `pkill -f "DATA_DIR=..."` never matches (env vars aren't in the
+  cmdline) — kill test servers with `pkill -f "node server.js"`.
+
 ---
 
 *Last updated at the end of Session D. If you add to the project, append a short dated note here so the
