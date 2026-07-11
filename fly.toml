@@ -1,0 +1,30 @@
+# Fly.io config for the Thornreach server.
+# Fly is a good fit: it keeps a persistent WebSocket process warm and supports
+# a mounted volume for the flat-JSON stores. Run `fly launch --no-deploy` once
+# to claim an app name, then edit the app name below to match.
+app = "thornreach"               # <-- change to your chosen unique app name
+primary_region = "iad"           # <-- pick a region near your players (fly platform regions)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATA_DIR = "/data"
+  PORT = "3000"
+  # Set the SECRETS (Stripe key, Apple/Google IAP creds) with `fly secrets set`
+  # — never put them here. See BUILD guides.
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false      # keep it warm — multiplayer needs a live socket
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "townchat_data"        # a Fly volume; create with `fly volumes create townchat_data`
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

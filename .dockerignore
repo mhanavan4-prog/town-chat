@@ -1,12 +1,16 @@
-node_modules/
+node_modules
+_to_delete
+.git
 .DS_Store
+*.log
+# never bake real data or secrets into the image
+.env
 accounts.json
 bankAccounts.json
 listings.json
 inventories.json
 hardDrives.json
+inboxes.json
 playerProgress.json
 townPasses.json
-.env
-_to_delete/
 LanternsideBay.rbxlx

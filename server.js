@@ -12,6 +12,12 @@ require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+// Persistent data directory for the flat-JSON stores. Defaults to the app
+// folder (unchanged for local/PC runs). On a host, point this at a mounted
+// volume (e.g. DATA_DIR=/data) so accounts, bank, progress, etc. survive a
+// redeploy — otherwise an ephemeral filesystem loses them. Created if missing.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { require('fs').mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 
 // Atomic JSON write: serialize to a temp file, then rename over the target.
 // rename(2) is atomic on POSIX, so a crash mid-write can never leave a
@@ -66,7 +72,7 @@ const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
 //    the join handler re-verifies the id against Stripe itself — so even
 //    guests' passes survive a server restart without a database, because
 //    Stripe is the durable record of what was paid and when.
-const TOWN_PASS_FILE = path.join(__dirname, 'townPasses.json');
+const TOWN_PASS_FILE = path.join(DATA_DIR, 'townPasses.json');
 function loadTownPasses() {
   try { return JSON.parse(fs.readFileSync(TOWN_PASS_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -105,6 +111,17 @@ const app = express();
 // app" instead of "3 texts per visitor."
 app.set('trust proxy', 1);
 app.use(express.json());
+// CORS for the JSON API only. The mobile apps load from capacitor://localhost /
+// https://localhost and call these endpoints cross-origin, so they need this;
+// the web build is same-origin and unaffected. These endpoints don't use
+// cookies (auth is a token in the request body), so an open origin is safe here.
+app.use('/api', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'content-type');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (req, res) => {
@@ -343,6 +360,107 @@ app.get('/api/verify-session', async (req, res) => {
   } catch (err) {
     console.error('Stripe verify error:', err.message);
     res.status(500).json({ unlocked: false, error: 'Could not verify payment.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// In-app purchases (mobile apps) — the iOS/Android builds can't use Stripe
+// (Apple/Google mandate their own billing for digital goods), so they buy the
+// Town Pass through StoreKit / Play Billing and send the receipt/token here.
+// This validates it directly with Apple/Google and grants the SAME pass the
+// Stripe flow grants — one shared server, three client billing paths, one
+// multiplayer town. Uses only Node built-ins (no extra npm deps).
+//
+// Config (env, all optional — a platform whose secret is unset returns 503):
+//   IAP_PRODUCT_ID              product id for the pass (default town_pass_24h)
+//   APPLE_IAP_SHARED_SECRET     App-Specific Shared Secret (App Store Connect)
+//   APPLE_BUNDLE_ID             your iOS bundle id (receipt is checked against it)
+//   GOOGLE_PLAY_PACKAGE         your Android package name
+//   GOOGLE_SERVICE_ACCOUNT_JSON service-account JSON (inline) with Play Dev API access
+// ---------------------------------------------------------------------------
+const IAP_PRODUCT_ID = process.env.IAP_PRODUCT_ID || 'town_pass_24h';
+function httpsRequest(opts, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(opts, (r) => {
+      let d = ''; r.on('data', (c) => d += c);
+      r.on('end', () => { let json = null; try { json = JSON.parse(d); } catch (e) {} resolve({ status: r.statusCode, json, raw: d }); });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+// Apple: legacy verifyReceipt (simple + reliable). Prod first, retry sandbox
+// on status 21007 so TestFlight/sandbox receipts validate during review.
+async function verifyAppleReceipt(receiptBase64) {
+  if (!process.env.APPLE_IAP_SHARED_SECRET) return { ok: false, code: 503, error: 'apple_iap_not_configured' };
+  if (!receiptBase64) return { ok: false, code: 400, error: 'missing_receipt' };
+  const payload = JSON.stringify({ 'receipt-data': receiptBase64, password: process.env.APPLE_IAP_SHARED_SECRET, 'exclude-old-transactions': true });
+  const hit = (host) => httpsRequest({ host, path: '/verifyReceipt', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } }, payload);
+  let r = await hit('buy.itunes.apple.com');
+  if (r.json && r.json.status === 21007) r = await hit('sandbox.itunes.apple.com');
+  if (!r.json || r.json.status !== 0) return { ok: false, code: 400, error: 'apple_status_' + (r.json && r.json.status) };
+  const bundle = r.json.receipt && r.json.receipt.bundle_id;
+  if (process.env.APPLE_BUNDLE_ID && bundle !== process.env.APPLE_BUNDLE_ID) return { ok: false, code: 400, error: 'bundle_mismatch' };
+  const items = r.json.latest_receipt_info || (r.json.receipt && r.json.receipt.in_app) || [];
+  const match = items.filter((i) => i.product_id === IAP_PRODUCT_ID)
+    .sort((a, b) => Number(b.purchase_date_ms) - Number(a.purchase_date_ms))[0];
+  if (!match) return { ok: false, code: 400, error: 'no_matching_purchase' };
+  return { ok: true, txId: 'apple_' + match.transaction_id, purchaseMs: Number(match.purchase_date_ms) };
+}
+// Google: sign a service-account JWT (RS256, built-in crypto) → access token
+// → Play Developer API purchases.products.get. purchaseState 0 = purchased.
+async function getGoogleAccessToken() {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return null;
+  let sa; try { sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON); } catch (e) { return null; }
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const signingInput = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({
+    iss: sa.client_email, scope: 'https://www.googleapis.com/auth/androidpublisher',
+    aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600
+  });
+  const sig = crypto.sign('RSA-SHA256', Buffer.from(signingInput), sa.private_key).toString('base64url');
+  const form = 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') + '&assertion=' + (signingInput + '.' + sig);
+  const r = await httpsRequest({ host: 'oauth2.googleapis.com', path: '/token', method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'content-length': Buffer.byteLength(form) } }, form);
+  return r.json && r.json.access_token;
+}
+async function verifyGooglePurchase(productId, token, packageName) {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return { ok: false, code: 503, error: 'google_iap_not_configured' };
+  if (!token) return { ok: false, code: 400, error: 'missing_token' };
+  const pkg = packageName || process.env.GOOGLE_PLAY_PACKAGE;
+  if (!pkg) return { ok: false, code: 503, error: 'missing_package' };
+  const access = await getGoogleAccessToken();
+  if (!access) return { ok: false, code: 503, error: 'google_auth_failed' };
+  const path = `/androidpublisher/v3/applications/${encodeURIComponent(pkg)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(token)}`;
+  const r = await httpsRequest({ host: 'androidpublisher.googleapis.com', path, method: 'GET', headers: { authorization: 'Bearer ' + access } });
+  if (!r.json) return { ok: false, code: 400, error: 'google_no_response' };
+  if (r.json.purchaseState !== 0) return { ok: false, code: 400, error: 'not_purchased' };
+  return { ok: true, txId: 'google_' + (r.json.orderId || token), purchaseMs: Number(r.json.purchaseTimeMillis || Date.now()) };
+}
+app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => {
+  const platform = String(req.body.platform || '');
+  const productId = String(req.body.productId || IAP_PRODUCT_ID);
+  try {
+    let v;
+    if (platform === 'ios') v = await verifyAppleReceipt(String(req.body.receipt || ''));
+    else if (platform === 'android') v = await verifyGooglePurchase(productId, String(req.body.purchaseToken || ''), req.body.packageName);
+    else return res.status(400).json({ unlocked: false, error: 'unknown_platform' });
+    if (!v.ok) return res.status(v.code || 400).json({ unlocked: false, error: v.error });
+    // Same replay-proof grant the Stripe flow uses — one transaction id grants
+    // exactly one window, computed from the purchase time.
+    const expiresAt = grantForSession(v.txId, v.purchaseMs || Date.now());
+    const accountKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
+    if (accountKey && (townPasses[accountKey] || 0) < expiresAt) { townPasses[accountKey] = expiresAt; saveTownPasses(); }
+    for (const p of players.values()) {
+      if (accountKey && p.accountKey === accountKey) {
+        p.passUntil = Math.max(p.passUntil || 0, expiresAt);
+        send(p.ws, { type: 'pass_state', passUntil: p.passUntil });
+      }
+    }
+    res.json({ unlocked: true, expiresAt, txId: v.txId });
+  } catch (err) {
+    console.error('IAP verify error:', err.message);
+    res.status(500).json({ unlocked: false, error: 'verify_failed' });
   }
 });
 
@@ -697,7 +815,7 @@ const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#74
 // There's no rate-limiting or email recovery here — this is a lightweight
 // account system for a casual game, not production-grade auth.
 // ---------------------------------------------------------------------------
-const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
+const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 
 function loadAccounts() {
   try {
@@ -1089,7 +1207,7 @@ const BANK_SLOT_COUNT = 24;
 const BANK_STARTING_BALANCE = 100;
 const BANK_STARTER_ITEM_COUNT = 3;
 
-const BANK_FILE = path.join(__dirname, 'bankAccounts.json');
+const BANK_FILE = path.join(DATA_DIR, 'bankAccounts.json');
 function loadBankAccounts() {
   try { return JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -1161,7 +1279,7 @@ function bankStatePayload(key) {
 // a guest identity. Logged-in players get theirs persisted to
 // inventories.json, same model/caveats as bankAccounts.json.
 // ---------------------------------------------------------------------------
-const INVENTORY_FILE = path.join(__dirname, 'inventories.json');
+const INVENTORY_FILE = path.join(DATA_DIR, 'inventories.json');
 function loadInventories() {
   try { return JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -1259,7 +1377,7 @@ function inventoryStatePayload(player) {
 // Sleight of Hand, which only ever read player.inbox / inventory slots and
 // never reach into hardDrives at all.
 // ---------------------------------------------------------------------------
-const HARDDRIVE_FILE = path.join(__dirname, 'hardDrives.json');
+const HARDDRIVE_FILE = path.join(DATA_DIR, 'hardDrives.json');
 function loadHardDrives() {
   try { return JSON.parse(fs.readFileSync(HARDDRIVE_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -1274,7 +1392,7 @@ const HARDDRIVE_NOTE_CAPACITY = 24;
 // image?, audio?}], loaded once at boot and saved after every mutation.
 // Guests still get a plain in-memory array that dies with the connection,
 // same as their inventory/vault.
-const INBOX_FILE = path.join(__dirname, 'inboxes.json');
+const INBOX_FILE = path.join(DATA_DIR, 'inboxes.json');
 function loadInboxes() {
   try { return JSON.parse(fs.readFileSync(INBOX_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -1504,7 +1622,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
 // guests get ephemeral progress that resets on disconnect, consistent with
 // the rest of the guest-identity model.
 // ---------------------------------------------------------------------------
-const PROGRESS_FILE = path.join(__dirname, 'playerProgress.json');
+const PROGRESS_FILE = path.join(DATA_DIR, 'playerProgress.json');
 function loadProgress() {
   try { return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) { return {}; }
 }
@@ -2565,7 +2683,7 @@ function unequipToInventory(inv, equipKind) {
 // listing goes up (returned if it expires with no bids) rather than
 // risking them re-selling or losing track of something mid-auction.
 // ---------------------------------------------------------------------------
-const LISTINGS_FILE = path.join(__dirname, 'listings.json');
+const LISTINGS_FILE = path.join(DATA_DIR, 'listings.json');
 function loadListings() {
   try { return JSON.parse(fs.readFileSync(LISTINGS_FILE, 'utf8')); } catch (e) { return []; }
 }
