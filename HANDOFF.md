@@ -279,6 +279,13 @@ still carry the OLD join screen; re-sync those two files next time the apps are 
   see the field. **Zero server changes.**
 - Verified: Playwright 13/13 (open-town guest join with picked class, class-select toggle, account
   tab, 390px mobile fit, warded-town reveal → successful passcode join), `npm test` 7/7.
+- Also renamed the two remaining player-visible old-name strings in `index.html`: the first-run
+  welcome modal ("Welcome to Lanternside Bay" → "Welcome to Thornreach", subtitle now "edge of the
+  Wilds") and the mobile ☰ menu header ("Town Chat" → "Thornreach"). Verified in a live join.
+- Welcome modal step 2 is now platform-aware (same `MOBILE_UI` pattern as the controls modal):
+  desktop says "press **F** at the townsfolk", touch says "walk up to a townsperson and **tap the
+  glowing prompt that pops up**". Spans `#welcomeQuestDesktop`/`#welcomeQuestMobile` toggled in
+  `openWelcomeModal()` (client.js). Verified on both viewports.
 - To see it live: restart the local server / redeploy (the deployed host serves `public/` as-is).
 
 ---

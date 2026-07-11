@@ -5472,6 +5472,12 @@ function maybeShowFirstRunControls() {
   if (!controlsSeen) setTimeout(openControlsModal, 900); // let the world land first
 }
 function openWelcomeModal() {
+  // Step 2's "talk to townsfolk" instruction, in the platform's own words:
+  // desktop players press F, touch players tap the glowing interact prompt.
+  const qd = document.getElementById('welcomeQuestDesktop');
+  const qm = document.getElementById('welcomeQuestMobile');
+  if (qd) qd.classList.toggle('hidden', MOBILE_UI);
+  if (qm) qm.classList.toggle('hidden', !MOBILE_UI);
   const el = document.getElementById('welcomeModal');
   if (el) el.classList.remove('hidden');
 }
