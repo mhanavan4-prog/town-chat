@@ -10199,78 +10199,140 @@ const PLANT_VISUALS = {
   cleansing_clover:       { shape: 'sprout',   color: 0x6fcf60 }
 };
 
-function makePlantBloom(x, z, color) {
-  const g = new THREE.Group();
-  const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.7, 0.7, 9, 5),
-    new THREE.MeshLambertMaterial({ color: 0x3a7a3f })
-  );
-  stem.position.y = 4.5;
-  g.add(stem);
-  const bloomMat = new THREE.MeshLambertMaterial({ color });
-  for (let i = 0; i < 5; i++) {
-    const petal = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6), bloomMat);
-    const ang = (i / 5) * Math.PI * 2;
-    petal.position.set(Math.cos(ang) * 2, 10, Math.sin(ang) * 2);
-    g.add(petal);
-  }
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(1.6, 6, 6),
-    new THREE.MeshLambertMaterial({ color: 0xffd43b })
-  );
-  center.position.y = 10;
-  g.add(center);
-  g.position.set(x, 0, z);
-  return g;
-}
+// ── Tier-3 plants: chunky, KayKit-flavored rebuilds of all three shapes.
+// Same colors from PLANT_VISUALS, same anchor/scale contract (harvested
+// look clones materials, so plain Lambert/emissive materials only), plus a
+// faint emissive on the magical species so they breathe at night with the
+// bloom pass. Deterministic per-position variation, no Math.random — every
+// client grows the same plant.
+function plantSeed(x, z) { return Math.abs(Math.sin(x * 12.9898 + z * 78.233)) % 1; }
 
-function makePlantMushroom(x, z, capColor) {
+function makePlantBloom(x, z, color, glowy) {
   const g = new THREE.Group();
-  const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.4, 1.8, 7, 6),
-    new THREE.MeshLambertMaterial({ color: 0xe8d8c0 })
-  );
-  stem.position.y = 3.5;
+  const r = plantSeed(x, z);
+  const stemMat = new THREE.MeshLambertMaterial({ color: 0x2f6b3a });
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.5, 10, 6), stemMat);
+  stem.position.y = 5;
+  stem.rotation.z = (r - 0.5) * 0.16;
   g.add(stem);
-  const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(4, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: capColor })
-  );
-  cap.position.y = 7;
-  g.add(cap);
-  for (let i = 0; i < 4; i++) {
-    const spot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 6, 6),
-      new THREE.MeshLambertMaterial({ color: 0xfff6e8 })
-    );
-    const ang = (i / 4) * Math.PI * 2;
-    spot.position.set(Math.cos(ang) * 2.2, 8.2, Math.sin(ang) * 2.2);
-    g.add(spot);
-  }
-  g.position.set(x, 0, z);
-  return g;
-}
-
-function makePlantSprout(x, z, color) {
-  const g = new THREE.Group();
-  const leafMat = new THREE.MeshLambertMaterial({ color });
-  for (let i = 0; i < 4; i++) {
-    const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1, 7, 5), leafMat);
-    const ang = (i / 4) * Math.PI * 2;
-    leaf.position.set(Math.cos(ang) * 1.5, 3.5, Math.sin(ang) * 1.5);
-    leaf.rotation.z = Math.cos(ang) * -0.4;
-    leaf.rotation.x = Math.sin(ang) * 0.4;
+  // paired chunky leaves at the base
+  const leafMat = new THREE.MeshLambertMaterial({ color: 0x3d8a4a });
+  for (const sgn of [-1, 1]) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.4, 7, 6), leafMat);
+    leaf.scale.set(1.25, 0.35, 0.7);
+    leaf.position.set(sgn * 2.6, 1.6, (r - 0.5) * 2);
+    leaf.rotation.z = sgn * 0.35;
     g.add(leaf);
   }
+  // fat petal crown around a glowing heart
+  const bloomMat = new THREE.MeshLambertMaterial({ color });
+  const petals = 6;
+  for (let i = 0; i < petals; i++) {
+    const petal = new THREE.Mesh(new THREE.SphereGeometry(2.6, 7, 6), bloomMat);
+    const ang = (i / petals) * Math.PI * 2 + r;
+    petal.scale.set(1, 0.45, 0.72);
+    petal.position.set(Math.cos(ang) * 3.1, 10.6, Math.sin(ang) * 3.1);
+    petal.rotation.y = -ang;
+    petal.rotation.z = 0.35;
+    g.add(petal);
+  }
+  const heartMat = new THREE.MeshLambertMaterial({ color: glowy ? color : 0xffd43b });
+  if (glowy) { heartMat.emissive = new THREE.Color(color); heartMat.emissiveIntensity = 0.75; }
+  const center = new THREE.Mesh(new THREE.SphereGeometry(2.0, 8, 7), heartMat);
+  center.position.y = 11.2;
+  g.add(center);
+  g.rotation.y = r * Math.PI * 2;
   g.position.set(x, 0, z);
   return g;
 }
 
+function makePlantMushroom(x, z, capColor, glowy) {
+  const g = new THREE.Group();
+  const r = plantSeed(x, z);
+  const stemMat = new THREE.MeshLambertMaterial({ color: 0xf0e4cd });
+  // fat kaykit-ish stem with a skirt ring
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.6, 6.5, 8), stemMat);
+  stem.position.y = 3.2;
+  g.add(stem);
+  const skirt = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.55, 6, 10), stemMat);
+  skirt.rotation.x = Math.PI / 2;
+  skirt.position.y = 4.6;
+  g.add(skirt);
+  // big squashed cap with a chunky underside lip
+  const capMat = new THREE.MeshLambertMaterial({ color: capColor });
+  if (glowy) { capMat.emissive = new THREE.Color(capColor); capMat.emissiveIntensity = 0.4; }
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(4.8, 10, 8), capMat);
+  cap.scale.set(1, 0.68, 1);
+  cap.position.y = 7.4;
+  g.add(cap);
+  const lipMat = new THREE.MeshLambertMaterial({ color: 0xe8dcc4 });
+  const lip = new THREE.Mesh(new THREE.CylinderGeometry(4.3, 4.6, 1.1, 10), lipMat);
+  lip.position.y = 6.1;
+  g.add(lip);
+  // dotted spots, deterministic ring
+  const spotMat = new THREE.MeshLambertMaterial({ color: 0xfff6e8 });
+  for (let i = 0; i < 5; i++) {
+    const ang = (i / 5) * Math.PI * 2 + r * 6;
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(0.62 + (i % 2) * 0.3, 6, 6), spotMat);
+    spot.scale.y = 0.5;
+    spot.position.set(Math.cos(ang) * 2.7, 8.6 + Math.sin(i * 2.1) * 0.5, Math.sin(ang) * 2.7);
+    g.add(spot);
+  }
+  // a tiny sprout buddy leaning on the stem
+  const babyCap = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), capMat);
+  babyCap.scale.set(1, 0.7, 1);
+  babyCap.position.set(3.4, 1.8, (r - 0.5) * 3);
+  g.add(babyCap);
+  const babyStem = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.95, 1.8, 6), stemMat);
+  babyStem.position.set(3.4, 0.9, (r - 0.5) * 3);
+  g.add(babyStem);
+  g.rotation.y = r * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makePlantSprout(x, z, color, glowy) {
+  const g = new THREE.Group();
+  const r = plantSeed(x, z);
+  const leafMat = new THREE.MeshLambertMaterial({ color });
+  if (glowy) { leafMat.emissive = new THREE.Color(color); leafMat.emissiveIntensity = 0.35; }
+  // chunky curled blades — flattened, bent cones ringed around a bud
+  const blades = 5;
+  for (let i = 0; i < blades; i++) {
+    const ang = (i / blades) * Math.PI * 2 + r * 2;
+    const h = 6.5 + ((i + 1) % 3) * 1.8;
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.7, h, 6), leafMat);
+    leaf.scale.z = 0.45;
+    leaf.position.set(Math.cos(ang) * 2.1, h / 2 - 0.4, Math.sin(ang) * 2.1);
+    leaf.rotation.y = -ang + Math.PI / 2;
+    leaf.rotation.x = 0.18;
+    leaf.rotation.z = Math.cos(ang) * -0.5;
+    leaf.rotation.x += Math.sin(ang) * 0.5;
+    g.add(leaf);
+  }
+  const budMat = new THREE.MeshLambertMaterial({ color: 0x2f6b3a });
+  const bud = new THREE.Mesh(new THREE.SphereGeometry(1.6, 8, 6), budMat);
+  bud.scale.y = 0.8;
+  bud.position.y = 1.2;
+  g.add(bud);
+  // little dirt mound so it sits planted, not floating
+  const mound = new THREE.Mesh(new THREE.SphereGeometry(3.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x4a3423 }));
+  mound.scale.set(1.15, 0.28, 1.15);
+  mound.position.y = 0.15;
+  g.add(mound);
+  g.rotation.y = r * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// species with a faint magical glow (breathes with the night bloom pass)
+const PLANT_GLOWY = new Set(['shrinking_violet', 'bats_breath', 'wolfsbane_bloom', 'meditation_lotus', 'rainbow_petal', 'featherleaf']);
 function makePlant(type, x, z) {
   const v = PLANT_VISUALS[type] || PLANT_VISUALS.healing_herb;
-  if (v.shape === 'bloom') return makePlantBloom(x, z, v.color);
-  if (v.shape === 'mushroom') return makePlantMushroom(x, z, v.color);
-  return makePlantSprout(x, z, v.color);
+  const glowy = PLANT_GLOWY.has(type);
+  if (v.shape === 'bloom') return makePlantBloom(x, z, v.color, glowy);
+  if (v.shape === 'mushroom') return makePlantMushroom(x, z, v.color, glowy);
+  return makePlantSprout(x, z, v.color, glowy);
 }
 
 // Positions/types/scales are server-authoritative now (world.natureDecor,
@@ -10684,13 +10746,11 @@ function kkTownDressing(scene, w) {
   // a small fenced graveyard tucked behind the Town Hall
   const hall = w.buildings.find(b => b.id === 'hall');
   if (hall) {
-    const side = getDoorSide(hall);
-    // "behind" = the wall opposite the door
-    const back = side === 'south' ? [hall.x + hall.w / 2, hall.y - 70] :
-                 side === 'north' ? [hall.x + hall.w / 2, hall.y + hall.h + 70] :
-                 side === 'east'  ? [hall.x - 70, hall.y + hall.h / 2] :
-                                    [hall.x + hall.w + 70, hall.y + hall.h / 2];
-    const [gx, gy] = back;
+    // A little churchyard in the wooded pocket beside the Town Hall — the
+    // hall backs onto the map edge, so "behind" would be invisible (and
+    // half off-world). Beside it reads from the plaza approach instead.
+    const gx = Math.min(hall.x + hall.w + 150, (w.width || 3200) - 170);
+    const gy = Math.max(150, hall.y + 60);
     kkPlace(scene, 'prop_crypt', gx, gy - 26, 52, Math.PI);
     kkPlace(scene, 'prop_grave_a', gx - 34, gy + 16, 20, 0.3);
     kkPlace(scene, 'prop_grave_b', gx - 8, gy + 22, 18, -0.15);
@@ -10732,6 +10792,7 @@ function kkWildsDressing(scene, w) {
 // same trick the Temple platform ramp already uses — so nobody clips
 // through the steps.
 const KK_STAIR_ZONES = [];
+const KK_BLD_BOXES = {};   // b.id → world Box3 of the placed model
 // Self-aligning building placement: these models bake their entrance
 // (door + stoop/steps) into one face, and which face varies per model. At
 // build time we try all four rotations, raycast for low structure (steps)
@@ -10777,6 +10838,35 @@ function kkAutoAlign(kkBld, b, w) {
   kkBld.rotation.y = sideRot + bestRot;
   kkBld.position.set(cx, 0, cz);
   kkBld.updateMatrixWorld(true);
+
+  // Fit-to-footprint: with the best rotation known, measure the model's
+  // real extents along the door axis (depth) and across it (width), and
+  // shrink until the depth genuinely fits the collision footprint (small
+  // rear lip allowed) and the width bulge stays modest. The castle was
+  // deeper than the Town Hall's footprint at any centered scale — players
+  // could walk the camera inside its rear towers.
+  {
+    let bb = new THREE.Box3().setFromObject(kkBld);
+    const alongDoor = (kside === 'south' || kside === 'north');
+    const depthExtent = alongDoor ? (bb.max.z - bb.min.z) : (bb.max.x - bb.min.x);
+    const widthExtent = alongDoor ? (bb.max.x - bb.min.x) : (bb.max.z - bb.min.z);
+    const footDepth = alongDoor ? b.h : b.w;
+    const footWidth = alongDoor ? b.w : b.h;
+    const shrink = Math.min(1, (footDepth + 52) / Math.max(1, depthExtent), (footWidth * 1.18) / Math.max(1, widthExtent));
+    if (shrink < 1) {
+      kkBld.scale.multiplyScalar(shrink);
+      kkBld.userData.kkHeight *= shrink;
+      kkBld.updateMatrixWorld(true);
+      bb = new THREE.Box3().setFromObject(kkBld);
+    }
+    // Flush-to-door-wall: door face sits just past the footprint's door
+    // wall; the (now small) rear lip tucks behind the building line.
+    const wallPlane = kside === 'south' ? b.y + b.h : kside === 'north' ? b.y : kside === 'east' ? b.x + b.w : b.x;
+    const modelFront = kside === 'south' ? bb.max.z : kside === 'north' ? bb.min.z : kside === 'east' ? bb.max.x : bb.min.x;
+    const delta = (wallPlane + (kside === 'south' || kside === 'east' ? 12 : -12)) - modelFront;
+    kkBld.position.set(cx + out[0] * delta, 0, cz + out[1] * delta);
+    kkBld.updateMatrixWorld(true);
+  }
 
   // center the detected steps on the door gap (skip flush-door models)
   if (bestScore > 4) {
@@ -10837,12 +10927,20 @@ function buildBuildingMesh(b, w) {
   const wallRects = buildWallsForOne(b, w);
   // Tier-3: a KayKit medieval building stands in for the box shell when its
   // model loaded. Collision stays on the same footprint rects either way.
-  const kkBld = KK.staticInstance('bld_' + b.id, Math.max(b.w, b.h) * 1.12, 'fit');
+  // Geometric-mean fit: pure max-dimension fit made models on elongated
+  // footprints bulge far past their collision rect (you could walk the
+  // camera inside the castle). The mean keeps big footprints imposing
+  // without the walkable-overlap.
+  const kkBld = KK.staticInstance('bld_' + b.id, Math.sqrt(b.w * b.h) * 1.16, 'fit');
   const useKK = !!kkBld;
   if (useKK) {
     kkAutoAlign(kkBld, b, w);
     group.add(kkBld);
     kkMeasureStairs(kkBld, b, w);
+    // remember the placed model's ground box so dressing can stay clear of it
+    kkBld.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(kkBld);
+    KK_BLD_BOXES[b.id] = bb;
   }
   // One siding texture per building, cloned per wall segment so each gets
   // its own repeat tuned to its own size — same pattern buildPathSegment()
@@ -13725,6 +13823,9 @@ function createKayKitHumanoid(charId) {
       o.visible = keep.includes(o.name);
       if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
     }
+    // the Mage's full hat brim fills the whole behind-the-shoulder camera
+    // view — trim it so the witch's body stays visible
+    if (o.name === 'Mage_Hat') { o.scale.multiplyScalar(0.8); o.position.y -= 0.03; }
   });
 
   // animation rig

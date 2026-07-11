@@ -574,6 +574,32 @@ stairs, and the bank (blacksmith model) "looks like an anvil, not a door". Fixes
 - Door-flanking pumpkins moved outward (off the stairs, beside them).
 - Re-verified: `npm test` 7/7 · all six door approaches + bank walk-in · zero page errors.
 
+### Session F, QA playthrough round — glitch hunt + tier-3 plants (user request)
+
+Michael asked for a full playthrough hunting graphics glitches, plus "re-style the plants in the
+tier-3 style". Scripted Playwright tours (day/night/dusk phases, all buildings in+out, Wilds,
+plaza/temple/portal) found and fixed, all client-only:
+
+- **Buildings now depth-fit their footprints** (`kkAutoAlign`): after the stair-detecting rotation
+  pass, each model is measured along the door axis and shrunk until its depth truly fits (+52u rear
+  lip max, width bulge ≤1.18×), then placed **flush to the door wall**. Before this, the castle
+  overhung the portal plaza so far you could walk the camera inside it.
+- **Graveyard relocated** to the wooded pocket EAST of the Town Hall (`hall.x+w+150, hall.y+60`).
+  The hall backs onto the map's north edge, so "behind the hall" was half off-world and invisible.
+- **Witch hat trimmed 0.8×** — the Mage_Hat brim filled the whole behind-the-shoulder camera.
+- **Tier-3 plants** (all 17 PLANT_VISUALS species, town + Wilds): chunky KayKit-flavored rebuilds of
+  all three shapes (fat spotted mushroom + skirt + baby sprout; curled-blade sprouts on a dirt
+  mound; six-petal blooms with leaf pairs), deterministic per-position variation (no Math.random —
+  same plant on every client), faint emissive on the magical species (`PLANT_GLOWY`) so they breathe
+  with the night bloom. Harvested-look contract untouched (Lambert materials only).
+- Verified again after fixes: `npm test` 7/7, zero page errors across every tour, all six door
+  approaches, graveyard/castle/plants screenshots delivered in chat.
+- **Non-bugs worth knowing** (investigated, left alone): mobs can land one last hit as you cross a
+  door threshold (server sees the old outdoor position for a beat — cosmetic); town torch flames
+  follow the SERVER clock, so client-forced-night screenshots show them unlit; the dark red
+  "creatures" by day are giants_cap/toadstool plants; werewolf fur reads near-black at night by
+  design of the night palette.
+
 ---
 
 *Last updated Saturday, July 11, 2026, morning — end of Session F (the full tier-3 upgrade). If you
