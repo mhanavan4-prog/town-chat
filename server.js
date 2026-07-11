@@ -554,7 +554,11 @@ WORLD.natureDecor = [
   { id: 'decor_40', type: 'lamppost', x: 2132, y: 710 },
   { id: 'decor_42', type: 'lamppost', x: 985, y: 1524 },
   { id: 'decor_44', type: 'lamppost', x: 2094, y: 1522 },
-  { id: 'decor_46', type: 'lamppost', x: 1566, y: 554 },
+  // decor_46/57/58 used to sit stacked in one ~110-unit patch right behind
+  // the Wilds portal (1600,700) — spread out: the lamp lights the lane's
+  // east side, the noticeboard stands by Town Hall's door, and the bench
+  // keeps the flower patch at (1700,750) company. All ≥200 from the portal.
+  { id: 'decor_46', type: 'lamppost', x: 1720, y: 540 },
   { id: 'decor_48', type: 'lamppost', x: 1566, y: 1597 },
   { id: 'decor_51', type: 'well', x: 1502, y: 928 },
   { id: 'decor_52', type: 'stall', x: 1745, y: 850, rot: 1.5708, variant: 0 },
@@ -562,8 +566,8 @@ WORLD.natureDecor = [
   { id: 'decor_54', type: 'bench', x: 1470, y: 872, rot: 0.6 },
   { id: 'decor_55', type: 'bench', x: 1500, y: 1345, rot: -0.6 },
   { id: 'decor_56', type: 'bench', x: 1900, y: 1105, rot: 1.571 },
-  { id: 'decor_57', type: 'noticeboard', x: 1544, y: 505, rot: 0 },
-  { id: 'decor_58', type: 'bench', x: 1652, y: 560, rot: 0 },
+  { id: 'decor_57', type: 'noticeboard', x: 1480, y: 430, rot: 0 },
+  { id: 'decor_58', type: 'bench', x: 1795, y: 760, rot: -0.5 },
   { id: 'decor_59', type: 'tree', x: 365, y: 914, scale: 2.6 },
   { id: 'decor_60', type: 'tree', x: 568, y: 1074, scale: 3 },
   { id: 'decor_61', type: 'tree', x: 424, y: 1353, scale: 2.8 },

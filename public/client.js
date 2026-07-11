@@ -5319,6 +5319,38 @@ function updateBubbleTag(p, v, headScreen, now) {
   on('menuSnap', closeSheetAnd(snapNearestPlayer));
   on('menuMusic', () => { const b = document.getElementById('muteBtn'); if (b) b.click(); });
   on('menuLeave', closeSheetAnd(() => { const b = document.getElementById('leaveBtn'); if (b) b.click(); }));
+  // ── Leave the town: back to the start screen ──
+  // Two taps (arm, then confirm within 3s) so a stray tap can't yank someone
+  // out of the world. Clears the live-resume stash first — otherwise the
+  // fresh page would quietly resume straight back into town — then reloads,
+  // which is the one guaranteed-clean way back to the join screen in a
+  // client that was built to join once per page. The account (tc_account,
+  // localStorage) survives, so returning players land on their character
+  // roster, not the login form.
+  let logoutArmedAt = 0;
+  on('menuLogout', () => {
+    const btn = document.getElementById('menuLogout');
+    const now = Date.now();
+    if (now - logoutArmedAt < 3000) {
+      try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
+      try { sessionStorage.removeItem('tc_resume'); } catch (e) {}
+      liveResumeToken = null;
+      try { if (ws) ws.close(); } catch (e) {}
+      location.reload();
+      return;
+    }
+    logoutArmedAt = now;
+    if (btn) {
+      btn.textContent = '⚠️ Tap again to leave';
+      btn.style.color = '#ff9b9b';
+      setTimeout(() => {
+        if (Date.now() - logoutArmedAt >= 2900) {
+          btn.textContent = '🌒 Leave the town';
+          btn.style.color = '';
+        }
+      }, 3000);
+    }
+  });
 })();
 
 // ── Quick ability slots (first three of this class's kit) ──

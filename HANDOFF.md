@@ -452,6 +452,20 @@ re-delivered `thornreach-desktop.zip` (launcher star fix baked in).
    six, chalice/helm icon compromises, and a caution that some new icons are recent Unicode
    (🫙🩻🪢🦬🌠🥷) — verify on older phones.
 
+7. **"Leave the town" (log out to start screen)** — new `#menuLogout` row in the shared ☰ sheet
+   (both platforms). Two-tap confirm (arms for 3s, turns red "⚠️ Tap again to leave"), then clears
+   `tc_live_resume`/`tc_resume` from sessionStorage (else the fresh page would silently resume
+   straight back into town), closes the WS, and `location.reload()`s — the one guaranteed-clean way
+   back to the join screen in a join-once-per-page client. `tc_account` survives, so returning
+   players land on their character roster. Verified 8/8 (arm ≠ leave, leave lands on join screen, no
+   auto-resume, stash cleared).
+8. **Portal-plaza declutter (user report)** — `decor_46` (lamppost), `decor_57` (noticeboard) and
+   `decor_58` (bench) sat stacked in a ~110-unit patch right behind the Wilds portal (1600,700).
+   Spread in `WORLD.natureDecor` (server.js): lamppost → (1720,540), noticeboard → (1480,430) beside
+   Town Hall's door, bench → (1795,760) rot −0.5 by the flower patch. All ≥200 from the portal;
+   spots verified clear of other decor (≥90) by script. NOTE: `test/gen-scenery.cjs` regenerates
+   this array — if it's ever re-run, re-apply these three positions (comment left in the array).
+
 Open next: Michael's Render URL for the desktop app; mobile www re-sync; the git push of Sessions
 D+E (one batch: `git add server.js public/index.html public/client.js HANDOFF.md`); his verdict on
 the item-name misfits above.
