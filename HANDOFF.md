@@ -472,5 +472,88 @@ the item-name misfits above.
 
 ---
 
-*Last updated Saturday, July 11, 2026, ~12:45 AM EDT — end of Session E. If you add to the project,
-append a short dated note here so the next session inherits it.*
+## Session F (2026-07-11, morning) — THE FULL TIER-3 UPGRADE (KayKit assets + lighting overhaul)
+
+The "tier 3" plan from a lost conversation turned out to be: **swap the procedural look for KayKit
+asset packs** (Kay Lousberg, kaylousberg.com — the "cute" style Michael remembered; all CC0) plus a
+full lighting/post-processing overhaul. Michael confirmed the KayKit lineup render before the swap.
+Everything below is CLIENT-ONLY — `server.js` untouched this session.
+
+### What shipped
+1. **KayKit characters replace the procedural humanoids** (players AND town/wilds/interior NPCs):
+   Witch→Mage, Werewolf→Barbarian, Mystic→Rogue_Hooded, Knight→Knight, Wanderer→Rogue
+   (`public/kk/*.glb`, ~3.6MB each, fully rigged). Real skeletal animation via AnimationMixer:
+   Idle / Walking_A / Running_A (speed-scaled), class-flavored attack one-shots mapped from the old
+   `attackAnimType` contract ('slash'/'cast'/'punch' → KayKit clips in `kkAttackClip()`),
+   Sit_Chair_Idle when seated, Sit_Floor_Idle for meditate, Death_A on death. NPC updaters drive
+   Walking/Interact/Sit_Floor_Idle (torchkeepers pray). Static interior NPCs idle-breathe via the
+   central `KK.tick()` (all mixers tick there; player visuals' mixers removed on destroy).
+2. **KayKit buildings replace the six box shells** (`public/kk/bld/`, Medieval Hexagon Pack scaled
+   up ~4x — looks great): cafe→tavern_red, library→church_blue, arcade→home_B_yellow,
+   lounge→tower_A_green, hall→castle_red, bank→blacksmith_yellow. Collision unchanged (same
+   footprint rects); model rotated so its baked door faces `getDoorSide(b)`; the old door SLAB is
+   invisible on KayKit buildings (model has its own) but stays registered in `lockVisuals` so
+   lock-state signs still work. Name/lock signs float above the model height (`userData.kkHeight`).
+3. **KayKit props via PROP_BUILDERS** (same server decor positions & colliders): bench→
+   bench_decorated, lamppost→post_lantern (LAMP_GLOWS contract preserved with two sprites),
+   well→building_well_blue, fence→Halloween fence. Crate/barrel/haybale/stump/log/noticeboard/stall
+   stay procedural.
+4. **Set dressing (client-only, walk-through, fairy-ring precedent)**: jack-o'-lantern pairs at
+   every building door, a fenced graveyard + crypt behind the Town Hall, a candle shrine at the
+   fae-touched fairy ring; Wilds gets a crooked arch gate at the portal approach, 8 scattered dead
+   trees, grave markers near the ritual circle (`kkTownDressing`/`kkWildsDressing`).
+5. **GFX module (lighting/post/quality)** — the `GFX` IIFE near `initScene`:
+   - PCFSoft shadow maps: the shared outdoor sun/moon cast (they migrate town↔wilds; `.target`s +
+     sky group added to the swap lists); the shadow box follows the player (`GFX.beforeRender`);
+     static scenes get a one-time fitted box. Meshes are auto-tagged per scene by an incremental
+     children scan (transparent/additive/Basic materials and flat ground planes don't cast).
+   - Post chain (medium/high): RenderPass → UnrealBloom (strength breathes 0.34→0.76 with night) →
+     grade (saturation 1.07 + vignette) → FXAA. **Color pipeline stays LINEAR + NoToneMapping — the
+     authored palette survives untouched** (ACES/sRGB was tried and washed everything; don't redo it).
+   - Ambience: two twinkling star layers + drifting clouds + moon halo (one sky group riding the
+     camera, migrates with the lights); firefly clusters (fairy rings/portal/plaza + 5 Wilds spots)
+     fade in at night.
+   - **Quality tiers** via ☰ menu row `#menuGraphics` ("✨ Graphics"): Auto(→High desktop / Medium
+     touch) / Low / Medium / High, persisted `tc_gfx`, URL override `?gfx=low|medium|high|auto` for
+     QA. Low = classic pipeline (no shadows/composer). Switching re-configures shadow maps + sweeps
+     `material.needsUpdate`.
+6. **Asset pipeline**: `KK` module (top of client.js) preloads everything from `/kk` at page load;
+   the join button waits for it (max 12s, "Summoning…") then proceeds; **every KayKit piece falls
+   back to the classic procedural builder if its file fails**, so a broken asset can never brick the
+   town. `presetOverride` callers (Ember Wastes humanoid mobs) intentionally keep the classic builder.
+7. **Equipment on KayKit rigs**: weapon/ring/boots parent to skeleton bones (`handslotr/l`,
+   `footl/r`) via scale-compensating wrappers (`_equipParent`); equipping a weapon hides the class's
+   embedded KayKit hand-prop (staff/sword/knife) and restores it on unequip; hats ride the `head`
+   bone; the chest overlay is SKIPPED on KayKit models (looks wrong on chibi bodies — stats
+   unaffected). Embedded prop meshes are curated per class in `KK.KEEP`.
+8. New first-party files (all must be committed): `public/fx.js` (r128 post-processing bundle, MIT),
+   `public/GLTFLoader.js`, `public/SkeletonUtils.js` (r128 examples), `public/three.min.js` (r128 —
+   now self-hosted fallback actually exists in the repo), `public/kk/**` (~19MB, 40 files, CC0 —
+   license headers in the packs; credit Kay Lousberg somewhere visible if you like, not mandatory).
+
+### Verified (all in-sandbox, headless)
+`npm test` 7/7 · `audit-playthrough` clean · zero page errors across: day/night town, night Wilds,
+cafe interior, two players mutually visible with walk anims, mobile 390×844 touch UI (auto-Medium),
+`?gfx=low`. Shadows/stars/fireflies/lamp glows confirmed in screenshots (delivered in chat).
+
+### Known gaps / next session
+- **Mobile `www/` re-sync is now REQUIRED before any app rebuild** — index.html/client.js changed
+  AND the new files (fx.js, loaders, kk/) must be copied into both apps' `www/` (plus the 3 mobile
+  diffs from Session C).
+- Not visually spot-checked (code-only): death anim on a real kill, equip-attach look on live bones,
+  interior kiosk NPC poses in every room. Cosmetic-only risk; check on the live site.
+- Interiors have no shadow-casting light (ambient+points by design) — optional polish: one soft
+  directional per interior.
+- Plaza torch flames follow the SERVER clock, so forced-night client screenshots can show them
+  unlit — not a bug.
+- Headless FPS is SwiftShader (~4fps, meaningless). Real-GPU perf unmeasured; the scene is light,
+  but if a weak laptop stutters, Low tier restores the old pipeline.
+- The old `#skillsBtn` chips etc. remain hidden (Session D); harness `lib.cjs` gained a `gfx` opt.
+- Sandbox gotchas added this session: the Bash tool's default 2-min timeout kills long Playwright
+  runs (pass a longer tool timeout); `~` in the shell is /root while file tools write /home/claude
+  (symlinked now); SwiftShader makes joins take 30-60s each.
+
+---
+
+*Last updated Saturday, July 11, 2026, morning — end of Session F (the full tier-3 upgrade). If you
+add to the project, append a short dated note here so the next session inherits it.*

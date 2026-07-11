@@ -6,6 +6,7 @@ let W = 0, H = 0;
 function resize(){
   W = window.innerWidth; H = window.innerHeight;
   if (renderer) renderer.setSize(W, H);
+  if (window.__gfxResize) window.__gfxResize(W, H); // set once GFX exists (TDZ-safe)
   if (activeCamera) {
     activeCamera.aspect = W / H;
     activeCamera.updateProjectionMatrix();
@@ -87,6 +88,104 @@ const CHARACTER_PRESETS = [
   { name: 'Knight',     skin: 0xffe0c2, hair: 0xb0b0b0, hairStyle: 'buzz',     eye: 0x6f6f6f, shirt: 0x6f8fae, pants: 0x4a4a4a },
   { name: 'Wanderer',   skin: 0x7a4a2f, hair: 0xe0e0e0, hairStyle: 'mohawk',   eye: 0xa57b3c, shirt: 0xc0596f, pants: 0x2f2f2f }
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIER-3 UPGRADE (Session F) — KayKit asset pipeline.
+// Characters: KayKit "Adventurers" (CC0, Kay Lousberg, kaylousberg.com);
+// buildings: KayKit Medieval Hexagon Pack; decor: KayKit Halloween Bits.
+// Assets preload from /kk at page load; join waits briefly for them, and
+// anything that fails to load falls back to the classic procedural builders.
+// ═══════════════════════════════════════════════════════════════════════════
+const KK = (() => {
+  const MANIFEST = {
+    char0: 'kk/Mage.glb',           // Witch
+    char1: 'kk/Barbarian.glb',      // Werewolf
+    char2: 'kk/Rogue_Hooded.glb',   // Mystic
+    char3: 'kk/Knight.glb',         // Knight
+    char4: 'kk/Rogue.glb',          // Wanderer
+    bld_cafe:    'kk/bld/building_tavern_red.gltf',
+    bld_library: 'kk/bld/building_church_blue.gltf',
+    bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
+    bld_lounge:  'kk/bld/building_tower_A_green.gltf',
+    bld_hall:    'kk/bld/building_castle_red.gltf',
+    bld_bank:    'kk/bld/building_blacksmith_yellow.gltf',
+    prop_bench:    'kk/props/bench_decorated.gltf',
+    prop_lamppost: 'kk/props/post_lantern.gltf',
+    prop_well:     'kk/bld/building_well_blue.gltf',
+    prop_fence:    'kk/props/fence.gltf',
+    prop_grave_a:  'kk/props/grave_A.gltf',
+    prop_grave_b:  'kk/props/gravestone.gltf',
+    prop_crypt:    'kk/props/crypt.gltf',
+    prop_pumpkin:  'kk/props/pumpkin_orange_jackolantern.gltf',
+    prop_pumpkin2: 'kk/props/pumpkin_orange.gltf',
+    prop_shrine:   'kk/props/shrine_candles.gltf',
+    prop_deadtree: 'kk/props/tree_dead_large.gltf',
+    prop_deadtree2:'kk/props/tree_dead_medium.gltf',
+    prop_arch:     'kk/props/arch_gate.gltf'
+  };
+  // Embedded hand-prop meshes present in the character GLBs; anything in
+  // this list is hidden unless the class KEEP list names it.
+  const PROP_MESHES = ['Spellbook','Spellbook_open','1H_Wand','2H_Staff','1H_Axe','1H_Axe_Offhand','2H_Axe','Mug',
+    'Barbarian_Round_Shield','Knife','Knife_Offhand','1H_Crossbow','2H_Crossbow','Throwable',
+    '1H_Sword','1H_Sword_Offhand','2H_Sword','Badge_Shield','Round_Shield','Rectangle_Shield','Spike_Shield'];
+  const KEEP = {
+    0: ['Mage_Hat', 'Mage_Cape', '2H_Staff'],
+    1: ['Barbarian_Hat', 'Barbarian_Cape'],
+    2: ['Rogue_Cape'],
+    3: ['Knight_Helmet', 'Knight_Cape', '1H_Sword', 'Badge_Shield'],
+    4: ['Rogue_Cape', 'Knife']
+  };
+  const WEAPONISH = ['2H_Staff', '1H_Sword', 'Badge_Shield', 'Knife'];
+
+  const models = {};   // key → {scene, animations, size:{x,y,z}}
+  const mixers = new Set();
+  let pending = 0, settled = false, resolveReady;
+  const promise = new Promise(res => { resolveReady = res; });
+
+  function load() {
+    if (typeof THREE === 'undefined' || !THREE.GLTFLoader) { settled = true; resolveReady(); return; }
+    const loader = new THREE.GLTFLoader();
+    const keys = Object.keys(MANIFEST);
+    pending = keys.length;
+    for (const key of keys) {
+      loader.load(MANIFEST[key], (gltf) => {
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        models[key] = { scene: gltf.scene, animations: gltf.animations || [],
+          size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
+          minY: box.min.y };
+        if (--pending === 0) { settled = true; resolveReady(); }
+      }, undefined, () => {
+        console.warn('KK asset failed, using fallback:', key);
+        if (--pending === 0) { settled = true; resolveReady(); }
+      });
+    }
+  }
+
+  function has(key) { return !!models[key]; }
+  function charKey(charId) { return 'char' + charId; }
+  function charReady(charId) { return settled && !!models[charKey(charId)]; }
+
+  // Static (non-skinned) instance scaled so its LARGEST footprint side
+  // equals targetSize ('fit') or its height equals targetSize ('height').
+  function staticInstance(key, targetSize, mode) {
+    const t = models[key];
+    if (!t) return null;
+    const inst = t.scene.clone(true);
+    const native = mode === 'height' ? t.size.y : Math.max(t.size.x, t.size.z);
+    const s = targetSize / Math.max(0.001, native);
+    const g = new THREE.Group();
+    inst.scale.setScalar(s);
+    inst.position.y = -t.minY * s;
+    g.add(inst);
+    g.userData.kkHeight = t.size.y * s;
+    return g;
+  }
+
+  return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance,
+    get settled() { return settled; }, promise,
+    tick(dt) { for (const m of mixers) m.update(dt); } };
+})();
+KK.load();
 
 // Must stay in sync with ITEM_CATALOG in server.js — the server is the
 // source of truth for which itemIds are valid and equippable as what,
@@ -1794,6 +1893,20 @@ const thirdEyeOptInCheckboxInGame = document.getElementById('thirdEyeOptInCheckb
 if (thirdEyeOptInCheckboxInGame) thirdEyeOptInCheckboxInGame.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
 
 function attemptJoin() {
+  // Tier-3 assets: hold the join until the preload settles (or 12s cap),
+  // so the town builds with KayKit models instead of racing the loader.
+  if (!KK.settled && !attemptJoin._waited) {
+    attemptJoin._waited = true;
+    const oldLabel = joinBtn.textContent;
+    joinBtn.textContent = 'Summoning…';
+    joinBtn.disabled = true;
+    Promise.race([KK.promise, new Promise(r => setTimeout(r, 12000))]).then(() => {
+      joinBtn.textContent = oldLabel;
+      joinBtn.disabled = false;
+      attemptJoin();
+    });
+    return;
+  }
   let name;
   if (joinMode === 'account') {
     if (!savedAccount) { showJoinError('Log in or create an account first.'); return; }
@@ -5316,6 +5429,26 @@ function updateBubbleTag(p, v, headScreen, now) {
     showInvTab('invHardDriveView');
   }));
   on('menuPass', closeSheetAnd(openPassModal));
+  // ── Graphics quality: Auto → Low → Medium → High (persisted) ──
+  const gfxLabel = () => {
+    const el = document.getElementById('menuGraphicsVal');
+    const G = window.__thornGfx;
+    if (!el || !G) return;
+    const p = G.pref;
+    el.textContent = p === 'auto' ? ('Auto (' + G.quality + ')') : p[0].toUpperCase() + p.slice(1);
+  };
+  on('menuGraphics', () => {
+    const G = window.__thornGfx;
+    if (!G) return;
+    const order = ['auto', 'low', 'medium', 'high'];
+    const next = order[(order.indexOf(G.pref) + 1) % order.length];
+    G.setQuality(next);
+    gfxLabel();
+  });
+  const _menuBtnForGfx = document.getElementById('pcMenuBtn');
+  if (_menuBtnForGfx) _menuBtnForGfx.addEventListener('click', gfxLabel);
+  const _menuBtnForGfx2 = document.getElementById('menuBtn');
+  if (_menuBtnForGfx2) _menuBtnForGfx2.addEventListener('click', gfxLabel);
   on('menuSnap', closeSheetAnd(snapNearestPlayer));
   on('menuMusic', () => { const b = document.getElementById('muteBtn'); if (b) b.click(); });
   on('menuLeave', closeSheetAnd(() => { const b = document.getElementById('leaveBtn'); if (b) b.click(); }));
@@ -6239,6 +6372,331 @@ function contextMatches(room) {
   return room === 'outside';
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIER-3 GRAPHICS (Session F) — lighting, shadows, post-processing, ambience.
+// Quality tiers: low ≈ the classic pipeline, medium/high add PCFSoft shadows,
+// ACES tone mapping, bloom/grade/FXAA and ambient particles. Persisted in
+// localStorage 'tc_gfx' ('auto' resolves by device type).
+// ═══════════════════════════════════════════════════════════════════════════
+const GFX = (() => {
+  let pref = 'auto';
+  try { pref = localStorage.getItem('tc_gfx') || 'auto'; } catch (e) {}
+  const st = {
+    pref, quality: 'high', composer: null, renderPass: null, bloomPass: null,
+    gradePass: null, fxaaPass: null, gammaPass: null, ready: false,
+    scenes: new Map(), skyGroup: null, stars: [], clouds: [], moonGlow: null,
+    fireflies: [], lightAmount: 1, isNight: false
+  };
+
+  function resolveQuality() {
+    if (st.pref === 'auto') return (typeof MOBILE_UI !== 'undefined' && MOBILE_UI) ? 'medium' : 'high';
+    return st.pref;
+  }
+
+  function hasFX() { return typeof THREE.EffectComposer === 'function' && typeof THREE.UnrealBloomPass === 'function'; }
+
+  function initRenderer() {
+    st.quality = resolveQuality();
+    applyRendererQuality();
+    if (hasFX()) buildComposer();
+    st.ready = true;
+  }
+
+  function applyRendererQuality() {
+    const q = st.quality;
+    renderer.shadowMap.enabled = q !== 'low';
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The palette was authored against the classic linear pipeline — keep it.
+    // The tier-3 look comes from shadows, bloom, grade and ambience instead.
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.outputEncoding = THREE.LinearEncoding;
+    renderer.setPixelRatio(Math.min(q === 'low' ? 1 : q === 'medium' ? 1.5 : 2, window.devicePixelRatio || 1));
+  }
+
+  const GradeShader = {
+    uniforms: { tDiffuse: { value: null }, saturation: { value: 1.07 }, vignette: { value: 0.34 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: [
+      'uniform sampler2D tDiffuse; uniform float saturation; uniform float vignette; varying vec2 vUv;',
+      'void main(){',
+      '  vec4 c = texture2D(tDiffuse, vUv);',
+      '  float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));',
+      '  c.rgb = mix(vec3(l), c.rgb, saturation);',
+      '  float d = distance(vUv, vec2(0.5));',
+      '  c.rgb *= 1.0 - vignette * smoothstep(0.42, 0.95, d);',
+      '  gl_FragColor = c;',
+      '}'
+    ].join('\n')
+  };
+
+  function buildComposer() {
+    st.composer = new THREE.EffectComposer(renderer);
+    st.renderPass = new THREE.RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
+    st.composer.addPass(st.renderPass);
+    st.bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(W || 1280, H || 720), 0.42, 0.55, 0.82);
+    st.composer.addPass(st.bloomPass);
+    st.gradePass = new THREE.ShaderPass(GradeShader);
+    st.composer.addPass(st.gradePass);
+    st.fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
+    st.composer.addPass(st.fxaaPass);
+    resize(W || window.innerWidth, H || window.innerHeight);
+  }
+
+  function composerActive() { return st.ready && st.quality !== 'low' && !!st.composer; }
+
+  function resize(w, h) {
+    if (!st.composer) return;
+    const pr = renderer.getPixelRatio();
+    st.composer.setSize(w, h);
+    if (st.fxaaPass) st.fxaaPass.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
+  }
+
+  // ── shadow tagging ────────────────────────────────────────────────────
+  function tagObject(root) {
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const m = o.material;
+      if (!m) return;
+      const glowy = m.transparent === true || (m.blending !== undefined && m.blending !== THREE.NormalBlending) || m.isMeshBasicMaterial;
+      if (glowy) { o.castShadow = false; o.receiveShadow = false; return; }
+      const g = o.geometry;
+      const gt = g && g.type || '';
+      const flat = gt.indexOf('Plane') === 0 || gt.indexOf('Circle') === 0;
+      o.receiveShadow = true;
+      o.castShadow = !flat;
+    });
+  }
+
+  function sceneInfo(scene) {
+    let info = st.scenes.get(scene);
+    if (!info) {
+      info = { lastCount: -1, tagged: new WeakSet(), sun: null, follow: false, sized: false };
+      // outdoor sun/moon migrate between town & wilds; everything else keeps
+      // whatever directional its builder gave it.
+      if (scene === outdoorScene || scene === wildsScene) { info.sun = outdoorSun; info.follow = true; }
+      else {
+        scene.traverse(o => { if (!info.sun && o.isDirectionalLight) info.sun = o; });
+        if (scene === emberScene) info.follow = true;
+      }
+      if (info.sun) configureShadow(info.sun, scene, info);
+      st.scenes.set(scene, info);
+    }
+    return info;
+  }
+
+  function configureShadow(light, scene, info) {
+    const q = st.quality;
+    light.castShadow = q !== 'low';
+    const mapSize = q === 'high' ? 2048 : 1024;
+    light.shadow.mapSize.set(mapSize, mapSize);
+    if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
+    const span = info.follow ? 720 : 620;
+    const c = light.shadow.camera;
+    c.left = -span; c.right = span; c.top = span; c.bottom = -span;
+    c.near = 40; c.far = 3200;
+    light.shadow.bias = -0.00035;
+    light.shadow.normalBias = 3;
+    c.updateProjectionMatrix();
+    if (!light.target.parent && light.parent) light.parent.add(light.target);
+  }
+
+  function ensureTagged(scene) {
+    const info = sceneInfo(scene);
+    const kids = scene.children;
+    if (kids.length === info.lastCount) return;
+    for (let i = 0; i < kids.length; i++) {
+      const k = kids[i];
+      if (info.tagged.has(k)) continue;
+      tagObject(k);
+      info.tagged.add(k);
+    }
+    info.lastCount = kids.length;
+  }
+
+  // ── the ambient sky: stars, clouds, moon halo (rides town↔wilds) ─────
+  function softTex(color, inner) {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const x = c.getContext('2d');
+    const g2 = x.createRadialGradient(64, 64, inner || 4, 64, 64, 62);
+    g2.addColorStop(0, color); g2.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g2; x.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function initSky(scene) {
+    if (st.skyGroup) return;
+    const grp = new THREE.Group();
+    grp.name = 'gfxSky';
+    // two star layers for cheap twinkle
+    for (let layer = 0; layer < 2; layer++) {
+      const n = layer ? 300 : 420;
+      const pos = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const az = Math.random() * Math.PI * 2;
+        const alt = Math.asin(Math.random() * 0.92 + 0.06);
+        const r = 1900;
+        pos[i * 3] = Math.cos(alt) * Math.cos(az) * r;
+        pos[i * 3 + 1] = Math.sin(alt) * r;
+        pos[i * 3 + 2] = Math.cos(alt) * Math.sin(az) * r;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({ color: layer ? 0xcfd8ff : 0xffffff, size: layer ? 1.6 : 2.3,
+        sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false });
+      const pts = new THREE.Points(geo, mat);
+      pts.frustumCulled = false;
+      grp.add(pts);
+      st.stars.push({ mat, phase: layer * 1.7 });
+    }
+    // slow clouds
+    const cloudTex = softTex('rgba(255,255,255,0.85)', 18);
+    for (let i = 0; i < 8; i++) {
+      const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.32, depthWrite: false, fog: false });
+      const sp = new THREE.Sprite(m);
+      const sc = 380 + Math.random() * 420;
+      sp.scale.set(sc * (1.6 + Math.random() * 0.8), sc * 0.5, 1);
+      sp.position.set((Math.random() - 0.5) * 3000, 620 + Math.random() * 260, (Math.random() - 0.5) * 3000);
+      grp.add(sp);
+      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, base: 0.22 + Math.random() * 0.16 });
+    }
+    scene.add(grp);
+    st.skyGroup = grp;
+    // moon halo, parented to the moon so it migrates with it
+    if (moonMesh && !st.moonGlow) {
+      const mg = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex('rgba(220,232,255,0.9)', 8), transparent: true, opacity: 0, depthWrite: false, fog: false }));
+      mg.scale.set(340, 340, 1);
+      moonMesh.add(mg);
+      st.moonGlow = mg;
+    }
+  }
+
+  // ── fireflies: per-scene clusters, alive at night ─────────────────────
+  function addFireflies(scene, anchors, perAnchor) {
+    const n = anchors.length * perAnchor;
+    const pos = new Float32Array(n * 3);
+    const base = new Float32Array(n * 3);
+    const params = new Float32Array(n * 2);
+    let k = 0;
+    for (const a of anchors) {
+      for (let i = 0; i < perAnchor; i++, k++) {
+        const bx = a[0] + (Math.random() - 0.5) * 130;
+        const by = 12 + Math.random() * 30;
+        const bz = a[1] + (Math.random() - 0.5) * 130;
+        base[k * 3] = bx; base[k * 3 + 1] = by; base[k * 3 + 2] = bz;
+        pos[k * 3] = bx; pos[k * 3 + 1] = by; pos[k * 3 + 2] = bz;
+        params[k * 2] = Math.random() * Math.PI * 2;
+        params[k * 2 + 1] = 0.5 + Math.random() * 1.1;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xd8ffa0, size: 5.5, sizeAttenuation: true, transparent: true,
+      opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    scene.add(pts);
+    st.fireflies.push({ scene, pts, mat, base, params, n });
+  }
+
+  // ── per-frame ambience + shadow follow, called from updateDayNightCycle ──
+  const _anchor = new THREE.Vector3();
+  function cycleTick(lightAmount, isNight) {
+    st.lightAmount = lightAmount; st.isNight = isNight;
+    const t = performance.now() / 1000;
+    const night = 1 - lightAmount;
+    const q = st.quality;
+    for (let i = 0; i < st.stars.length; i++) {
+      const s2 = st.stars[i];
+      s2.mat.opacity = night * (0.75 + Math.sin(t * 1.3 + s2.phase) * 0.22);
+    }
+    for (const c of st.clouds) {
+      c.sp.position.x += c.speed * (1 / 60);
+      if (c.sp.position.x > 2200) c.sp.position.x = -2200;
+      c.m.opacity = c.base * (0.35 + lightAmount * 0.65);
+      c.m.color.setHSL(0.7, 0.15, 0.35 + lightAmount * 0.55);
+    }
+    if (st.moonGlow) st.moonGlow.material.opacity = night * 0.5;
+    if (st.bloomPass) st.bloomPass.strength = 0.34 + night * 0.42;
+    // sky rides the camera so the dome never runs out from over the player
+    if (st.skyGroup && activeCamera) {
+      st.skyGroup.position.x = activeCamera.position.x;
+      st.skyGroup.position.z = activeCamera.position.z;
+    }
+    // fireflies: only animate the active scene's cluster, at dusk/night
+    if (q !== 'low' || true) {
+      for (const f of st.fireflies) {
+        if (f.scene !== activeScene) continue;
+        f.mat.opacity = night * 0.85;
+        if (night < 0.04) continue;
+        const posAttr = f.pts.geometry.attributes.position;
+        const step = q === 'high' ? 1 : 2; // halve the wiggle updates on medium/low
+        for (let i = 0; i < f.n; i += step) {
+          const ph = f.params[i * 2], sp2 = f.params[i * 2 + 1];
+          posAttr.array[i * 3] = f.base[i * 3] + Math.sin(t * sp2 + ph) * 16;
+          posAttr.array[i * 3 + 1] = f.base[i * 3 + 1] + Math.sin(t * sp2 * 1.4 + ph * 2.1) * 9;
+          posAttr.array[i * 3 + 2] = f.base[i * 3 + 2] + Math.cos(t * sp2 * 0.8 + ph) * 16;
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
+  }
+
+  // reposition the active scene's shadow rig around the player each frame
+  function beforeRender() {
+    if (!activeScene) return;
+    ensureTagged(activeScene);
+    const info = st.scenes.get(activeScene);
+    if (!info || !info.sun || st.quality === 'low') return;
+    if (info.follow && me) {
+      const rp = getRenderPos(me);
+      _anchor.set(rp.x, 0, rp.z);
+      // keep the light's direction, move its box to the player
+      const dir = info.sun.position.clone().sub(info.sun.target.position);
+      if (dir.lengthSq() < 1) dir.set(400, 600, 300);
+      dir.normalize();
+      info.sun.target.position.copy(_anchor);
+      info.sun.position.copy(_anchor).addScaledVector(dir, 1150);
+      info.sun.target.updateMatrixWorld();
+    } else if (!info.sized) {
+      // static scenes: one-time fit of the shadow box around the scene bounds
+      info.sized = true;
+      const box = new THREE.Box3().setFromObject(activeScene);
+      const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+      const span = Math.min(900, Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.62 + 60);
+      const c = info.sun.shadow.camera;
+      c.left = -span; c.right = span; c.top = span; c.bottom = -span;
+      c.updateProjectionMatrix();
+      info.sun.target.position.set(cx, 0, cz);
+      const dir = info.sun.position.clone().normalize();
+      info.sun.position.set(cx + dir.x * 800, Math.max(500, info.sun.position.y), cz + dir.z * 800);
+      if (!info.sun.target.parent) activeScene.add(info.sun.target);
+      info.sun.target.updateMatrixWorld();
+    }
+  }
+
+  function setQuality(prefIn) {
+    st.pref = prefIn;
+    try { localStorage.setItem('tc_gfx', prefIn); } catch (e) {}
+    st.quality = resolveQuality();
+    if (!renderer) return;
+    applyRendererQuality();
+    for (const [scene, info] of st.scenes) {
+      if (info.sun) configureShadow(info.sun, scene, info);
+      scene.traverse(o => { if (o.isMesh && o.material) o.material.needsUpdate = true; });
+    }
+    resize(W || window.innerWidth, H || window.innerHeight);
+  }
+
+  window.__gfxResize = resize;
+  const api = { st, initRenderer, initSky, addFireflies, cycleTick, beforeRender, composerActive, resize, setQuality,
+    get quality() { return st.quality; }, get pref() { return st.pref; },
+    get composer() { return st.composer; }, get renderPass() { return st.renderPass; } };
+  window.__thornGfx = api;
+  return api;
+})();
+
 function initScene(w) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -6249,6 +6707,7 @@ function initScene(w) {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  GFX.initRenderer();
 
   outdoorAmbient = new THREE.AmbientLight(0xffffff, 0.65);
   scene.add(outdoorAmbient);
@@ -6377,6 +6836,10 @@ function initScene(w) {
   scene.add(emberPortalVisual.group);
   EMBER_PORTAL_KIOSK.x = templeCx; EMBER_PORTAL_KIOSK.z = templeCz;
 
+  kkTownDressing(scene, w);
+  GFX.initSky(scene);
+  // fireflies cluster on the fairy rings, the plaza well and the portal
+  GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1600, 700], [900, 1500], [2200, 1500]], 22);
   outdoorScene = scene;
   outdoorCamera = camera;
   mode = 'outdoor';
@@ -6405,7 +6868,7 @@ function initScene(w) {
 // ---------------------------------------------------------------------------
 function swapToWildsMap() {
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh]) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
     wildsScene.add(light);
   }
@@ -6419,7 +6882,7 @@ function swapToWildsMap() {
 
 function swapToTownMap() {
   if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh]) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     wildsScene.remove(light);
     outdoorScene.add(light);
   }
@@ -7929,6 +8392,8 @@ function buildWildsScene(w2) {
     WILDS_KIOSKS.push({ x: m.x, z: m.y, npc: 'waymark', markerId: m.id, radius: 95 });
   }
 
+  kkWildsDressing(scene, w2);
+  GFX.addFireflies(scene, [[w2.spawn.x, w2.spawn.y - 300], [w2.width * 0.3, w2.height * 0.42], [w2.width * 0.55, w2.height * 0.3], [w2.width * 0.71, w2.height * 0.6], [w2.width * 0.45, w2.height * 0.55]], 26);
   wildsScene = scene;
   wildsCamera = camera;
 }
@@ -8653,13 +9118,18 @@ function updateDayNightCycle() {
   // smoothly rather than popping in at a fixed height.
   const r = dayNightWorldRadius;
   const sunAngle = Math.PI * dayProgress;
-  outdoorSun.position.set(Math.cos(sunAngle) * r, Math.max(40, Math.sin(sunAngle) * r * 0.6), r * 0.4);
+  // Direction rides the same arc as before; position anchors near the player
+  // (see GFX.beforeRender) so the shadow frustum stays tight. Pre-join, the
+  // old absolute arc position still applies.
+  const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
+  outdoorSun.position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
+  if (outdoorSun.target) outdoorSun.target.position.set(0, 0, 0);
   outdoorSun.intensity = lightAmount * 0.9;
 
   const moonAngle = Math.PI * nightProgress;
   const moonY = Math.sin(moonAngle) * r * 0.6; // nightProgress in [0,1] -> angle in [0,π] -> always >= 0, horizon to horizon
   moonMesh.position.set(Math.cos(moonAngle) * -r, Math.max(-80, moonY), -r * 0.4);
-  outdoorMoonLight.position.copy(moonMesh.position);
+  outdoorMoonLight.position.set(Math.cos(moonAngle) * -1150, Math.max(60, moonY / Math.max(1, r) * 1150), -460);
   const moonStrength = 1 - lightAmount;
   outdoorMoonLight.intensity = moonStrength * 0.55;
   moonMesh.material.opacity = moonStrength;
@@ -8676,6 +9146,7 @@ function updateDayNightCycle() {
     }
   }
 
+  GFX.cycleTick(lightAmount, isNight);
   updateDayNightHud(isNight);
 }
 
@@ -9001,6 +9472,7 @@ function updateVillageNpcVisuals(dt) {
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
     v.walkPhase += dt * (moving ? 5.5 : v.working ? 4 : 0);
+    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : (v.working ? 'Interact' : 'Idle'));
 
     if (moving) {
       const swing = Math.sin(v.walkPhase) * 0.45;
@@ -9008,7 +9480,7 @@ function updateVillageNpcVisuals(dt) {
       v.armR.rotation.x = -swing;
       v.legL.rotation.x = -swing * 0.65;
       v.legR.rotation.x = swing * 0.65;
-      v.group.position.y = Math.abs(Math.sin(v.walkPhase)) * 2;
+      v.group.position.y = v.kk ? 0 : Math.abs(Math.sin(v.walkPhase)) * 2;
     } else if (v.working) {
       // Hammering motion — arms pump down, slight body bob
       const hammer = Math.abs(Math.sin(v.walkPhase * 2)) * 0.65;
@@ -9087,6 +9559,7 @@ function updateTownTorchNpcVisuals(dt) {
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
     v.walkPhase += dt * (moving ? 5.5 : (v.working || v.praying) ? 3 : 0);
+    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : v.working ? 'Interact' : v.praying ? 'Sit_Floor_Idle' : 'Idle');
 
     let poseY = 0;
     if (moving) {
@@ -9351,6 +9824,8 @@ const PROP_WOOD = 0x6b4a2a, PROP_WOOD_DARK = 0x4a3320, PROP_STONE = 0x8a8a92;
 // bench rendered at NaN coordinates: invisible, but still colliding. Same story for
 // makeBarrelProp below.
 function makeBenchProp(d) {
+  const kkG = KK.staticInstance('prop_bench', 44, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const wood = new THREE.MeshLambertMaterial({ color: PROP_WOOD });
   const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
@@ -9369,6 +9844,23 @@ function makeBenchProp(d) {
 }
 
 function makeLamppost(d) {
+  const kkG = KK.staticInstance('prop_lamppost', 78, 'height');
+  if (kkG) {
+    const glassMat = new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffd9a0, transparent: true, opacity: 0.25, depthWrite: false });
+    const glass = new THREE.Sprite(glassMat);
+    glass.scale.set(16, 16, 1);
+    glass.position.set(0, 58, 6);
+    kkG.add(glass);
+    const glowMat = new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffc372, transparent: true, opacity: 0, depthWrite: false });
+    const glow = new THREE.Sprite(glowMat);
+    glow.scale.set(48, 48, 1);
+    glow.position.set(0, 58, 6);
+    kkG.add(glow);
+    LAMP_GLOWS.push({ glassMat, glowMat });
+    kkG.rotation.y = d.rot || 0;
+    kkG.position.set(d.x, 0, d.y);
+    return kkG;
+  }
   const g = new THREE.Group();
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 3.4, 74, 6), new THREE.MeshLambertMaterial({ color: 0x33333b }));
   pole.position.y = 37; g.add(pole);
@@ -9387,6 +9879,8 @@ function makeLamppost(d) {
 }
 
 function makeWell(d) {
+  const kkG = KK.staticInstance('prop_well', 48, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(20, 22, 16, 10), new THREE.MeshLambertMaterial({ color: PROP_STONE }));
   ring.position.y = 8; g.add(ring);
@@ -9503,6 +9997,8 @@ function makeHaybale(d) {
 }
 
 function makeFenceSeg(d) {
+  const kkG = KK.staticInstance('prop_fence', 58, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const wood = new THREE.MeshLambertMaterial({ color: 0x7a5a34 });
   for (const px of [-26, 26]) {
@@ -10142,18 +10638,95 @@ function makeShingleTexture() {
   return tex;
 }
 
+
+// ── Tier-3 set dressing: KayKit Halloween Bits around town & the Wilds. ──
+// Client-only visual flavor (no colliders), same precedent as fairy rings.
+function kkPlace(scene, key, x, y, size, rot, mode) {
+  const g = KK.staticInstance(key, size, mode || 'fit');
+  if (!g) return null;
+  g.rotation.y = rot || 0;
+  g.position.set(x, 0, y);
+  scene.add(g);
+  return g;
+}
+
+function kkTownDressing(scene, w) {
+  if (!KK.settled) return;
+  // twin jack-o'-lanterns flanking every door
+  for (const b of w.buildings) {
+    const side = getDoorSide(b);
+    const dp = getDoorWorldPos(b);
+    const out = side === 'south' ? [0, 18] : side === 'north' ? [0, -18] : side === 'east' ? [18, 0] : [-18, 0];
+    const perp = side === 'south' || side === 'north' ? [34, 0] : [0, 34];
+    kkPlace(scene, 'prop_pumpkin', dp.x + out[0] + perp[0], dp.y + out[1] + perp[1], 12, Math.PI * 0.15);
+    kkPlace(scene, 'prop_pumpkin2', dp.x + out[0] - perp[0], dp.y + out[1] - perp[1], 10, -Math.PI * 0.2);
+  }
+  // a small fenced graveyard tucked behind the Town Hall
+  const hall = w.buildings.find(b => b.id === 'hall');
+  if (hall) {
+    const side = getDoorSide(hall);
+    // "behind" = the wall opposite the door
+    const back = side === 'south' ? [hall.x + hall.w / 2, hall.y - 70] :
+                 side === 'north' ? [hall.x + hall.w / 2, hall.y + hall.h + 70] :
+                 side === 'east'  ? [hall.x - 70, hall.y + hall.h / 2] :
+                                    [hall.x + hall.w + 70, hall.y + hall.h / 2];
+    const [gx, gy] = back;
+    kkPlace(scene, 'prop_crypt', gx, gy - 26, 52, Math.PI);
+    kkPlace(scene, 'prop_grave_a', gx - 34, gy + 16, 20, 0.3);
+    kkPlace(scene, 'prop_grave_b', gx - 8, gy + 22, 18, -0.15);
+    kkPlace(scene, 'prop_grave_a', gx + 20, gy + 18, 19, 0.5);
+    kkPlace(scene, 'prop_grave_b', gx + 44, gy + 10, 17, -0.4);
+    kkPlace(scene, 'prop_fence', gx - 52, gy + 34, 52, 0);
+    kkPlace(scene, 'prop_fence', gx + 52, gy + 34, 52, 0);
+    kkPlace(scene, 'prop_deadtree2', gx + 66, gy - 18, 46, 0.7);
+  }
+  // a candle shrine at the fae-touched fairy ring
+  kkPlace(scene, 'prop_shrine', 2450, 890, 24, -0.5);
+}
+
+function kkWildsDressing(scene, w) {
+  if (!KK.settled) return;
+  const W2 = w.width || 10000, H2 = w.height || 10000;
+  // a crooked gate arch greeting arrivals from the portal
+  if (w.spawn) kkPlace(scene, 'prop_arch', w.spawn.x, w.spawn.y - 260, 150, 0);
+  // dead trees scattered through the midfield + near both camps
+  const spots = [
+    [W2 * 0.30, H2 * 0.42, 120, 0.4], [W2 * 0.45, H2 * 0.55, 140, -0.8],
+    [W2 * 0.62, H2 * 0.38, 110, 1.7], [W2 * 0.71, H2 * 0.60, 130, -0.3],
+    [W2 * 0.25, H2 * 0.58, 100, 2.2], [W2 * 0.55, H2 * 0.30, 125, 0.9],
+    [W2 * 0.24, H2 * 0.49, 90, -1.2], [W2 * 0.76, H2 * 0.51, 95, 0.2]
+  ];
+  let i = 0;
+  for (const [x, y, size, rot] of spots) {
+    kkPlace(scene, (i++ % 2) ? 'prop_deadtree' : 'prop_deadtree2', x, y, size, rot);
+  }
+  // grave markers by the ritual circle's approach
+  kkPlace(scene, 'prop_grave_b', W2 * 0.49, H2 * 0.47, 26, 0.4);
+  kkPlace(scene, 'prop_grave_a', W2 * 0.51, H2 * 0.465, 28, -0.3);
+}
+
 function buildBuildingMesh(b, w) {
   const group = new THREE.Group();
   // The Rooftop Lounge gets a taller exterior shell to read as two stories,
   // matching its two-story interior (see buildLoungeStructure()/getFloorHeight()).
   const wallH = b.id === 'lounge' ? WALL_HEIGHT * 1.8 : WALL_HEIGHT;
   const wallRects = buildWallsForOne(b, w);
+  // Tier-3: a KayKit medieval building stands in for the box shell when its
+  // model loaded. Collision stays on the same footprint rects either way.
+  const kkBld = KK.staticInstance('bld_' + b.id, Math.max(b.w, b.h) * 1.12, 'fit');
+  const useKK = !!kkBld;
+  if (useKK) {
+    const kside = getDoorSide(b);
+    kkBld.rotation.y = kside === 'south' ? 0 : kside === 'north' ? Math.PI : kside === 'east' ? Math.PI / 2 : -Math.PI / 2;
+    kkBld.position.set(b.x + b.w / 2, 0, b.y + b.h / 2);
+    group.add(kkBld);
+  }
   // One siding texture per building, cloned per wall segment so each gets
   // its own repeat tuned to its own size — same pattern buildPathSegment()
   // uses for road tiles. White-based texture multiplies with b.color, so
   // every building keeps its own tint instead of one shared flat material.
-  const sidingBase = makeWoodSidingTexture();
-  for (const r of wallRects) {
+  const sidingBase = useKK ? null : makeWoodSidingTexture();
+  for (const r of (useKK ? [] : wallRects)) {
     if (r.w <= 0 || r.h <= 0) continue;
     const tex = sidingBase.clone();
     tex.needsUpdate = true;
@@ -10165,6 +10738,7 @@ function buildBuildingMesh(b, w) {
     group.add(mesh);
   }
 
+  if (!useKK) {
   // foundation plinth — a low, dark base so the building looks grounded
   const foundation = new THREE.Mesh(
     new THREE.BoxGeometry(b.w + 14, 6, b.h + 14),
@@ -10172,11 +10746,12 @@ function buildBuildingMesh(b, w) {
   );
   foundation.position.set(b.x + b.w / 2, 3, b.y + b.h / 2);
   group.add(foundation);
+  }
 
   // A second-story floor band — a darker trim strip wrapping the perimeter
   // partway up — plus an extra row of windows above it, so the Lounge reads
   // as two distinct stories rather than just one tall building.
-  if (b.id === 'lounge') {
+  if (!useKK && b.id === 'lounge') {
     const bandY = wallH * 0.52;
     const band = new THREE.Mesh(
       new THREE.BoxGeometry(b.w + 6, 8, b.h + 6),
@@ -10208,6 +10783,7 @@ function buildBuildingMesh(b, w) {
   // via mesh.scale, still local-space) now runs on already-diagonal
   // vertices, landing on an actual axis-aligned rectangle every time.
   const overhang = 14, roofHeight = 58;
+  if (!useKK) {
   const apothem = Math.cos(Math.PI / 4);
   const roofGeo = new THREE.ConeGeometry(1, roofHeight, 4);
   roofGeo.rotateY(Math.PI / 4);
@@ -10220,6 +10796,7 @@ function buildBuildingMesh(b, w) {
   roof.scale.set((b.w / 2 + overhang) / apothem, 1, (b.h / 2 + overhang) / apothem);
   roof.position.set(b.x + b.w / 2, wallH + roofHeight / 2, b.y + b.h / 2);
   group.add(roof);
+  }
 
   // a visible door slab filling the gap in whichever wall faces the door —
   // locked buildings get a barred reddish door; the free building and
@@ -10249,9 +10826,11 @@ function buildBuildingMesh(b, w) {
   const door = new THREE.Mesh(doorGeo, doorMat);
   door.position.set(doorX, doorH / 2, doorZ);
   group.add(door);
+  if (useKK) door.visible = false; // the model brings its own door; lock state shows via the signs
 
   // glowing windows on the three walls that don't have the door
   const winMat = new THREE.MeshBasicMaterial({ color: 0xfff1b0 });
+  if (!useKK) {
   const winY = wallH * (b.id === 'lounge' ? 0.32 : 0.56);
   if (side !== 'north') {
     const win = new THREE.Mesh(new THREE.BoxGeometry(26, 22, 2), winMat);
@@ -10273,10 +10852,12 @@ function buildBuildingMesh(b, w) {
     win.position.set(b.x + b.w + 0.6, winY, b.y + b.h / 2);
     group.add(win);
   }
+  } // end !useKK windows
 
   // floating sign with the building name, billboarded each frame
+  const signY = useKK ? kkBld.userData.kkHeight + 26 : wallH + roofHeight + 22;
   const sign = makeSignSprite(b.name);
-  sign.position.set(b.x + b.w / 2, wallH + roofHeight + 22, b.y + b.h / 2);
+  sign.position.set(b.x + b.w / 2, signY, b.y + b.h / 2);
   group.add(sign);
 
   // a second sign disclosing free-vs-pass status. Both variants are built
@@ -10285,7 +10866,7 @@ function buildBuildingMesh(b, w) {
   const lockedTag = makeSignSprite('🔒 Town Pass building');
   const freeTag = makeSignSprite('✓ Free to enter');
   for (const tag of [lockedTag, freeTag]) {
-    tag.position.set(b.x + b.w / 2, wallH + roofHeight - 4, b.y + b.h / 2);
+    tag.position.set(b.x + b.w / 2, signY - 26, b.y + b.h / 2);
     group.add(tag);
   }
   lockedTag.visible = locked;
@@ -12845,7 +13426,7 @@ function addHair(group, headY, headR, style, color) {
 // eye,shirt,pants} object instead of looking one up by charId — used for
 // the Ember Wastes' hostile mobs, which need their own menacing color
 // schemes rather than looking like one of the 5 playable characters.
-function createHumanoid(charId, presetOverride) {
+function createHumanoidClassic(charId, presetOverride) {
   const preset = presetOverride || CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const group = new THREE.Group();
 
@@ -12995,6 +13576,133 @@ function createHumanoid(charId, presetOverride) {
   return { group, armL, armR, legL, legR, torso, head, baseShirtColor: preset.shirt };
 }
 
+// Tier-3 dispatcher: KayKit model when loaded, classic build otherwise.
+// presetOverride callers (Ember Wastes mobs with custom palettes) always
+// get the classic builder — their look is bespoke by design.
+function createHumanoid(charId, presetOverride) {
+  if (presetOverride || !KK.charReady(charId)) return createHumanoidClassic(charId, presetOverride);
+  return createKayKitHumanoid(charId);
+}
+
+function createKayKitHumanoid(charId) {
+  const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
+  const t = KK.models[KK.charKey(charId)];
+  const inst = THREE.SkeletonUtils.clone(t.scene);
+  const s = 68 / t.size.y;
+  inst.scale.setScalar(s);
+  const group = new THREE.Group();
+  group.add(inst);
+
+  // curate the embedded hand props for this class
+  const keep = KK.KEEP[charId] || [];
+  const embeddedWeapons = [];
+  inst.traverse(o => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    if (KK.PROP_MESHES.includes(o.name)) {
+      o.visible = keep.includes(o.name);
+      if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
+    }
+  });
+
+  // animation rig
+  const mixer = new THREE.AnimationMixer(inst);
+  KK.mixers.add(mixer);
+  const actions = {};
+  function act(name) {
+    if (actions[name] !== undefined) return actions[name];
+    const clip = t.animations.find(a => a.name === name) || null;
+    actions[name] = clip ? mixer.clipAction(clip) : null;
+    return actions[name];
+  }
+  const kk = {
+    mixer, act, inst, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
+    embeddedWeapons,
+    handR: inst.getObjectByName('handslotr') || null,
+    handL: inst.getObjectByName('handslotl') || null,
+    headBone: inst.getObjectByName('head') || null,
+    footL: inst.getObjectByName('footl') || null,
+    footR: inst.getObjectByName('footr') || null,
+    slots: {},
+    setEmbeddedWeaponsVisible(vis) { for (const m of embeddedWeapons) m.visible = vis; }
+  };
+  kkSetState(kk, 'Idle');
+
+  // Contract dummies: classic animation code (gated off for kk visuals)
+  // and any stray callers still get groups at the classic pivot spots.
+  const armL = new THREE.Group(), armR = new THREE.Group();
+  armL.position.set(-12, CHAR.shoulderY - 1, 0); armR.position.set(12, CHAR.shoulderY - 1, 0);
+  const legL = new THREE.Group(), legR = new THREE.Group();
+  legL.position.set(-5.5, CHAR.hipY, 0); legR.position.set(5.5, CHAR.hipY, 0);
+  const torso = new THREE.Group(); torso.position.set(0, CHAR.hipY + 17, 0);
+  const head = new THREE.Group(); head.position.set(0, CHAR.headY, 0);
+  group.add(armL, armR, legL, legR, torso, head);
+
+  return { group, armL, armR, legL, legR, torso, head, baseShirtColor: preset.shirt, kk };
+}
+
+// crossfade helper — `pose` clips hold their final frame
+function kkSetState(kk, name) {
+  if (kk.cur === name) return;
+  const next = kk.act(name);
+  if (!next) return;
+  const prev = kk.cur ? kk.act(kk.cur) : null;
+  next.reset();
+  if (/Pose$|^Death/.test(name)) { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
+  next.fadeIn(0.16).play();
+  if (prev) prev.fadeOut(0.16);
+  kk.cur = name;
+}
+
+function kkOneShot(kk, name, opts) {
+  const a = kk.act(name);
+  if (!a) return;
+  const cur = kk.cur ? kk.act(kk.cur) : null;
+  a.reset().setLoop(THREE.LoopOnce, 1);
+  a.clampWhenFinished = false;
+  const scale = (opts && opts.timeScale) || 1.4;
+  a.timeScale = scale;
+  a.fadeIn(0.06).play();
+  if (cur) cur.fadeOut(0.08);
+  kk.cur = null; // force the state machine to re-blend after the one-shot
+  kk.busyUntil = performance.now() + (a.getClip().duration / scale) * 1000 * 0.82;
+}
+
+// map the game's attack types onto class-flavored KayKit clips
+function kkAttackClip(type, charId) {
+  if (type === 'cast') return 'Spellcast_Shoot';
+  if (type === 'slash') return charId === 0 ? '2H_Melee_Attack_Slice' : '1H_Melee_Attack_Slice_Diagonal';
+  if (charId === 4) return '1H_Melee_Attack_Stab';        // wanderer's knife jab
+  if (charId === 2) return 'Spellcast_Shoot';             // mystic strikes with magic
+  return 'Unarmed_Melee_Attack_Punch_A';
+}
+
+// per-frame driver for a kk player visual (called from syncVisuals)
+function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
+  const kk = v.kk;
+  const now = performance.now();
+  // attack one-shots ride on the same attackAnimStartAt contract
+  if (v.attackAnimStartAt && kk.lastAttackAt !== v.attackAnimStartAt) {
+    kk.lastAttackAt = v.attackAnimStartAt;
+    kkOneShot(kk, kkAttackClip(v.attackAnimType, p.charId || 0));
+  }
+  if (v.attackAnimStartAt && now - v.attackAnimStartAt > 450) v.attackAnimStartAt = null;
+  if (now < kk.busyUntil) return;
+  let want = 'Idle';
+  const isDead = (id === myId) ? !!(me && me.isDead) : !!p.isDead;
+  if (isDead) want = 'Death_A_Pose';
+  else if (id === myId && seatedAt) want = 'Sit_Chair_Idle';
+  else if (v.statusType === 'meditate') want = 'Sit_Floor_Idle';
+  else if (isMoving) {
+    const spd = moveDist / Math.max(dt, 1e-4);
+    want = spd > 200 ? 'Running_A' : 'Walking_A';
+    const a = kk.act(want);
+    if (a) a.timeScale = Math.max(0.7, Math.min(1.7, spd / 170));
+  }
+  kkSetState(kk, want);
+  // classic walk-bob is baked into the clips; ease any leftover offset out
+  v.group.position.y += (0 - v.group.position.y) * Math.min(1, dt * 8);
+}
+
 // One generic blade for any equipped weapon and one generic chest overlay
 // for any equipped armor — not a unique model per item. With only two
 // equip slots and items otherwise differing just by name/icon, a per-item
@@ -13079,19 +13787,47 @@ function makeEquippedRingMesh(itemId) {
 
 // Reusable helper: remove the old mesh from parent if it changed or was
 // cleared, build a fresh one with the current item's look, add it back.
+function _equipParent(v, parentKey) {
+  // kk visuals: parent equip meshes to skeleton bones (via a scale-
+  // compensating wrapper) so they ride the animations.
+  if (!v.kk) return v[parentKey];
+  const boneFor = { armR: v.kk.handR, armL: v.kk.handL, legL: v.kk.footL, legR: v.kk.footR, group: v.kk.headBone };
+  const bone = boneFor[parentKey];
+  if (!bone) return v[parentKey];
+  const slotKey = 'slot_' + parentKey;
+  if (!v.kk.slots[slotKey]) {
+    const wrap = new THREE.Group();
+    wrap.scale.setScalar(1 / v.kk.baseScale);
+    if (parentKey === 'group') wrap.position.y = 0.1; // hats sit on the crown
+    bone.add(wrap);
+    v.kk.slots[slotKey] = wrap;
+  }
+  return v.kk.slots[slotKey];
+}
+
 function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
   const changed = v[meshKey + 'ItemId'] !== itemId;
+  const parent = _equipParent(v, parentKey);
   if (changed && v[meshKey]) {
-    v[parentKey].remove(v[meshKey]);
+    parent.remove(v[meshKey]);
     v[meshKey] = null;
     v[meshKey + 'ItemId'] = null;
   }
   if (itemId && !v[meshKey]) {
     v[meshKey] = makeFn(itemId);
-    positionFn(v[meshKey]);
-    v[parentKey].add(v[meshKey]);
+    if (v.kk) {
+      // bone-space: rest at the slot origin; classic offsets don't apply
+      if (parentKey === 'armR' || parentKey === 'armL') v[meshKey].position.set(0, 0, 0);
+      else if (parentKey === 'group') v[meshKey].position.set(0, 4, 0);
+      else v[meshKey].position.set(0, -1.5, 1);
+    } else {
+      positionFn(v[meshKey]);
+    }
+    parent.add(v[meshKey]);
     v[meshKey + 'ItemId'] = itemId;
   }
+  // equipping a real weapon hides the class's embedded KayKit prop
+  if (v.kk && meshKey === 'weaponMesh') v.kk.setEmbeddedWeaponsVisible(!itemId);
 }
 
 // Toggle helpers that attach/detach/swap one equip-slot mesh on a given
@@ -13102,10 +13838,10 @@ const EQUIP_ATTACH = {
     () => makeEquippedWeaponMesh(),
     itemId,
     m => m.position.set(0, -CHAR.armLen + 1, 1.2)),
-  chest: (v, itemId) => _reattachMesh(v, 'chestMesh', 'group',
+  chest: (v, itemId) => { if (v.kk) return; _reattachMesh(v, 'chestMesh', 'group',
     id => makeEquippedChestMesh(id),
     itemId,
-    m => { m.position.y = CHAR.hipY + CHAR.torsoH / 2; }),
+    m => { m.position.y = CHAR.hipY + CHAR.torsoH / 2; }); },
   head: (v, itemId) => _reattachMesh(v, 'headMesh', 'group',
     id => makeEquippedHeadMesh(id),
     itemId,
@@ -13406,6 +14142,7 @@ function ensurePlayerVisual(p) {
 function destroyPlayerVisual(id) {
   const v = visuals[id];
   if (!v) return;
+  if (v.kk) KK.mixers.delete(v.kk.mixer);
   if (v.inScene && v.parentScene) v.parentScene.remove(v.group);
   if (v.ghostInScene && v.ghostParentScene) v.ghostParentScene.remove(v.ghostGroup);
   v.nameEl.remove();
@@ -13439,8 +14176,10 @@ function syncVisuals(dt) {
       p.facing = lerpAngle(p.facing, targetFacing, Math.min(1, dt * 10));
     }
 
+    if (v.kk) kkDrivePlayer(v, p, id, dt, isMoving, moveDist);
     // Attack animation — overrides walk/idle arms for ~0.35s
     const ATTACK_DUR = 0.35;
+    if (!v.kk) {
     const attackElapsed = v.attackAnimStartAt ? (performance.now() - v.attackAnimStartAt) / 1000 : null;
     const attackActive = attackElapsed !== null && attackElapsed < ATTACK_DUR;
     if (attackActive) {
@@ -13499,6 +14238,7 @@ function syncVisuals(dt) {
       v.legR.rotation.x += (0 - v.legR.rotation.x) * ease;
       v.group.position.y += (0 - v.group.position.y) * ease;
     }
+    } // end classic (non-kk) animation block
 
     const isDead = !!p.isDead;
     const shouldShow = contextMatches(p.room);
@@ -13521,7 +14261,8 @@ function syncVisuals(dt) {
     if (id === myId && isDead && v.deathAnimStartAt !== null) {
       const elapsed = (performance.now() - v.deathAnimStartAt) / 800;
       const t = Math.min(1, elapsed);
-      v.group.rotation.x = -Math.PI / 2 * t;
+      if (v.kk) { if (t === 0 || v.kk.cur !== 'Death_A') kkSetState(v.kk, 'Death_A'); }
+      else v.group.rotation.x = -Math.PI / 2 * t;
       if (t >= 1) {
         // Body done falling — now hide the body, show ghost
         if (v.inScene && v.parentScene) { v.parentScene.remove(v.group); v.inScene = false; }
@@ -15923,6 +16664,7 @@ function update(dt) {
   // out there to see it change. Wildlife visuals interpolate unconditionally
   // too, same reasoning as remote players just below.
   updateDayNightCycle();
+  KK.tick(dt);
   updateAnimalVisuals(dt);
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);
@@ -15974,7 +16716,14 @@ function update(dt) {
 
 function render() {
   if (!me || !world || !renderer || !activeScene || !activeCamera) return;
-  renderer.render(activeScene, activeCamera);
+  GFX.beforeRender();
+  if (GFX.composerActive()) {
+    GFX.renderPass.scene = activeScene;
+    GFX.renderPass.camera = activeCamera;
+    GFX.composer.render();
+  } else {
+    renderer.render(activeScene, activeCamera);
+  }
   syncLabels();
   updateNameLabelHover();
   updateLootIcons();
