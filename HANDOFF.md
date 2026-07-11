@@ -350,5 +350,100 @@ first), so the only server deltas are the two features below.
 
 ---
 
-*Last updated at the end of Session D. If you add to the project, append a short dated note here so the
-next session inherits it.*
+## ⏱️ SESSION D WRAP-UP — PICK UP HERE
+**Written Friday, July 10, 2026 at 11:37 PM EDT (2026-07-11 03:37 UTC), end of Session D.
+Addendum 11:58 PM EDT — read the ⚠️ below FIRST.**
+
+**⚠️ RESOLVED (Session E, ~12:15 AM):** the revert turned out to hit `public/index.html`,
+`public/client.js`, and `HANDOFF.md` (all back to pre-Session-D bytes) while `server.js` survived —
+consistent with a partial `git restore`/checkout or an editor stale-buffer save; exact cause unknown
+(ask Michael what ran at ~11:56 PM if it happens again). All three were restored from the cloud
+workspace copies and re-committed to the folder. Lesson recorded: `device_list_dir` byte sizes can
+be STALE/wrong on this Mac (iCloud Desktop sync suspected) — always verify by staging content, never
+trust listing sizes alone.
+
+**Everything shipped this session, in order:** (1) `town-chat-desktop` — online-only Electron
+installer project, delivered as a zip in the conversation (NOT in this repo; Michael unzips to
+`~/Desktop/town-chat-desktop`, then `npm install` + `npm run dist:mac|win|linux` per its
+BUILD-DESKTOP.md). (2) Witchy THORNREACH join screen + passcode field hidden unless the town is
+warded. (3) Welcome modal + mobile menu renamed Lanternside Bay/Town Chat → Thornreach; welcome
+step 2 platform-aware (mobile says "tap the glowing prompt"). (4) Wilds night mobs ×3 (8→24).
+(5) Returning-player character select (roster cards via new `POST /api/characters` + `prog.characters`
+/`prog.lastCharId`). (6) "Press F" hint un-buried from the XP strip; PC HUD chips replaced by the
+mobile-style ☰ menu (`#pcMenuBtn` → shared `#menuSheet`); skills-button theme bug fixed. Full
+details in the Session D sections above. All tested: latest `npm test` 7/7, audit-playthrough clean,
+Playwright suites 13/13 + 14/14 + 19/19.
+
+**State of the folder:** `server.js`, `public/index.html`, `public/client.js`, `HANDOFF.md` all
+current on disk with everything above. Git: Michael was given `git add … && git commit && git push`
+commands after each round — **next session, run `git status` first** to see what he actually pushed;
+anything still dirty is safe to commit as one batch. Render auto-deploys from `main` (assumed).
+
+**Open threads, highest value first:**
+1. **Deployed-server URL still unknown.** Michael thinks it's his Render site; never provided the
+   `….onrender.com` URL. When he supplies it: bake it into `town-chat-desktop/main.js` →
+   `DEFAULT_SERVER_URL` (currently `''`, so the launcher asks). Also confirm his Render plan —
+   free tier cold-starts and wipes the flat-JSON saves on redeploy (see DEPLOY-SERVER.md; Fly/Railway
+   configs are ready in this folder if he wants to migrate).
+2. **Desktop app first build** — needs him to unzip + `npm install` + `npm start` on his Mac; icon
+   currently a generated pentacle; offer stands to reuse the exact mobile icon if he connects the
+   `town-chat-ios` folder (`resources/icon-1024.png`).
+3. **Mobile `www/` re-sync** — `town-chat-ios`/`town-chat-android` still carry the pre-Session-D
+   client. At next app rebuild: copy `public/index.html` + `public/client.js` over each `www/`,
+   re-apply the 3 mobile diffs (config.js + mobile-payments.js script tags, local three.min.js,
+   `SERVER_ORIGIN` plumbing — see Session C notes), then `npx cap sync`.
+4. **QA harness scripts** that clicked `#skillsBtn`/`#inventoryBtn` chips must now go through
+   `#pcMenuBtn` → `#menuSkills`/`#menuInventory` (chips are display:none everywhere).
+5. Housekeeping: `_to_delete/` (incl. the node_modules.tgz transfer tarball) is safe to trash.
+
+**Sandbox recipe (worked all session):** npm registry blocked → stage `node_modules` via
+`device_bash` tar into `_to_delete/` + `device_stage_files`; three.min.js r128 via sparse git clone
+(github reachable); Playwright at `/opt/pw-browsers/chromium` with
+`NODE_PATH=/home/claude/.npm-global/lib/node_modules`; kill test servers with
+`pkill -f "node server.js"` (env-var patterns never match); join-screen test hook: `?testdrive=1`.
+
+---
+
+## Session E (2026-07-11, ~12:00–12:45 AM EDT, same conversation) — the witchy round
+
+`public/index.html` + `public/client.js` (server untouched; mobile `www/` drift grows). Also
+re-delivered `thornreach-desktop.zip` (launcher star fix baked in).
+
+1. **Revert recovery** — see the resolved ⚠️ in the wrap-up above.
+2. **Perfect pentagram** (user request): the join-screen/launcher sigil's hand-plotted star path was
+   lopsided (bottom legs pinched). Replaced with exact 72° geometry, tips on the r=44 ring:
+   `M50 6 L75.86 85.6 L8.15 36.4 L91.85 36.4 L24.14 85.6 Z` (order 0→2→4→1→3). Playwright verifies
+   all 5 vertices are within 0.004 of the ring. Desktop `build/icon.png` was already correct
+   (generated with real trig) — only the two inline SVGs were wrong.
+3. **Every interior is now witchy** (user request — "like the two paid buildings and the cave").
+   All via the existing `INTERIOR_THEMES` override machinery + four NEW `lightsStyle`s in
+   `getInteriorScene()`; every kiosk/NPC/seat keeps its exact position & id, dressing only:
+   - **cafe → "The Cauldron Café"** — ember amber; `lantern` style (chained witch-lanterns);
+     bubbling green cauldron by the bar, herb bundles on the beams, pumpkin stack, witchy paintings.
+   - **library → "The Midnight Archive"** — violet/indigo; `candle` style (floating candle
+     clusters); rune ring floor decal, four hovering books, crystal ball on the reading table.
+   - **hall → "The Coven Court"** — crimson/gold; `brazier` style (iron tripod braziers); great
+     pentacle floor inlay under the council table ringed by 13 candles (3 lit, as tradition demands).
+   - **bank → "The Gilded Vault"** — gold/verdigris; `vaultlamp` style (gilded candelabras,
+     pale-green flames); "The Auditor" raven on a marble perch; paintings retitled.
+   Arcade/Parlor/cave untouched. Palette spread: cave purple · arcade starlight · parlor ghost-green
+   · café ember · archive violet · court crimson · vault gold.
+4. **Witchy daylight** (user request): `SKY_DAY` 0x8fd0ef → **0x9b93c9** (mauve), `AMBIENT_DAY` →
+   0xe6dcf5, sun tinted amber (0xffe2b8). Trees darkened bluish-green with every ~5th a plum
+   **thornwood** (deterministic from position — same forest for every client). Shrubs darkened.
+   Six **fairy rings** of red-cap mushrooms added outdoors (client-only, walk-through, no
+   colliders), the one at (2450, 820) fae-touched with a violet glow. Night palette untouched.
+5. Verified: witchy suite 12/12 (pentagram radii, forced-day outdoor render, all four interiors
+   entered + NPC hint proximity, zero JS errors) + `npm test` 7/7.
+   **Testing gotchas learned:** indoor player coords are WORLD-anchored (building corner + local),
+   NOT render-space — use `interiorKiosks()[].world` for teleports; the client day/night clock is
+   plain `Date.now() % CYCLE_MS` (40-min cycle), so `addInitScript` shifting `Date.now` forces the
+   phase for screenshots.
+
+Open next: Michael's Render URL for the desktop app; mobile www re-sync; the git push of Sessions
+D+E (one batch: `git add server.js public/index.html public/client.js HANDOFF.md`).
+
+---
+
+*Last updated Saturday, July 11, 2026, ~12:45 AM EDT — end of Session E. If you add to the project,
+append a short dated note here so the next session inherits it.*

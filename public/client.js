@@ -6063,8 +6063,16 @@ const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
 const INTERIOR_THEMES = {
-  cafe:    { label: 'Tavern',          wall: 0x8a6a4a, banner: 0xd98a4f, furniture: 'tavern',    floorTint: 0xffffff },
-  library: { label: 'Scriptorium',     wall: 0x6f5a44, banner: 0x6f8fae, furniture: 'library',   floorTint: 0xb9c6ff },
+  // Every interior is now part of the witchy set — each room gets its own
+  // color identity and light style, same override machinery the Arcade and
+  // Parlor pioneered (cave purple, arcade starlight blue, parlor ghost
+  // green, café ember amber, archive violet, court crimson, vault gold).
+  cafe:    { label: 'The Cauldron Café', wall: 0x4a2418, banner: 0xff9a3c, furniture: 'tavern',  floorTint: 0xd8a578,
+             bg: 0x160b05, ambient: 0xffa060, ambientIntensity: 1.15, fill: 0xffc890,
+             lightsStyle: 'lantern', lightColor: 0xff9a3c, beamColor: 0x2a1408 },
+  library: { label: 'The Midnight Archive', wall: 0x2c2445, banner: 0x9a7ad9, furniture: 'library', floorTint: 0xa39ad0,
+             bg: 0x0b0818, ambient: 0x9a8ae0, ambientIntensity: 1.45, fill: 0xd0c4ff,
+             lightsStyle: 'candle', lightColor: 0xffd9a0, beamColor: 0x171030 },
   // The Arcade is the one interior styled like Witch Hazel's lair — same
   // tricks (glowing crystals for light, painted canvas cards on the walls,
   // a glyph ring on the floor), but cold starlight blue with a celestial
@@ -6080,8 +6088,12 @@ const INTERIOR_THEMES = {
   lounge:  { label: "Phantom Parlor & Widow's Watch", wall: 0x1f3a2e, banner: 0x54e8a8, furniture: 'parlor', floorTint: 0x9fd8b8,
              bg: 0x061410, ambient: 0x3fa87a, ambientIntensity: 1.55, fill: 0x9fffd0,
              lightsStyle: 'wisp', wispColor: 0x8fffbe, lightColor: 0x3fd98a, beamColor: 0x122921 },
-  hall:    { label: 'Great Hall',      wall: 0x6a6a48, banner: 0x8a9a5b, furniture: 'greathall',  floorTint: 0xd7e6a0 },
-  bank:    { label: 'Grand Bank Hall', wall: 0x4a4538, banner: 0xd4af37, furniture: 'bank',       floorTint: 0xe8d9a0 }
+  hall:    { label: 'The Coven Court', wall: 0x40202a, banner: 0xd84a5a, furniture: 'greathall', floorTint: 0xd0a0a8,
+             bg: 0x140609, ambient: 0xe08070, ambientIntensity: 1.25, fill: 0xffb9a0,
+             lightsStyle: 'brazier', lightColor: 0xff6a3c, beamColor: 0x200a10 },
+  bank:    { label: 'The Gilded Vault', wall: 0x2a3320, banner: 0xd4af37, furniture: 'bank',      floorTint: 0xd0c890,
+             bg: 0x0e1408, ambient: 0xb8c878, ambientIntensity: 1.25, fill: 0xffe9a0,
+             lightsStyle: 'vaultlamp', lightColor: 0xffc84a, beamColor: 0x161c0c }
 };
 
 // A building's visual/walkable interior can be larger than its literal
@@ -6201,7 +6213,7 @@ function initScene(w) {
 
   outdoorAmbient = new THREE.AmbientLight(0xffffff, 0.65);
   scene.add(outdoorAmbient);
-  outdoorSun = new THREE.DirectionalLight(0xfff3d6, 0.9);
+  outdoorSun = new THREE.DirectionalLight(0xffe2b8, 0.9); // low amber sun — perpetual witch-hour light
   outdoorSun.position.set(400, 600, 300);
   scene.add(outdoorSun);
 
@@ -6249,6 +6261,43 @@ function initScene(w) {
   }
 
   addNatureDecor(scene, w, decorVisuals);
+
+  // Fairy rings — circles of red-capped mushrooms in the town's quieter
+  // corners, one of them fae-touched and faintly aglow. Pure walk-through
+  // dressing (no colliders), part of the daytime witchification: they read
+  // in full daylight, not just after dark.
+  const FAIRY_RINGS = [
+    { x: 640, y: 1210, glow: false }, { x: 2450, y: 820, glow: true },
+    { x: 1040, y: 330, glow: false }, { x: 2080, y: 1930, glow: false },
+    { x: 760, y: 1880, glow: false }, { x: 2620, y: 1290, glow: false }
+  ];
+  for (const ring of FAIRY_RINGS) {
+    const g = new THREE.Group();
+    const capMat = new THREE.MeshLambertMaterial(ring.glow
+      ? { color: 0x8a5cf6, emissive: 0x5a2ad0, emissiveIntensity: 0.6 }
+      : { color: 0xc23a2a });
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0xe8dcc8 });
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const a = i * Math.PI * 2 / n + ring.x * 0.01; // per-ring phase so they don't all align
+      const mx = Math.cos(a) * 42, mz = Math.sin(a) * 42;
+      const ms = 0.8 + ((i + Math.round(ring.x)) % 3) * 0.25;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.6 * ms, 2 * ms, 6 * ms, 5), stemMat);
+      stem.position.set(mx, 3 * ms, mz);
+      g.add(stem);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(4.2 * ms, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+      cap.position.set(mx, 6 * ms, mz);
+      g.add(cap);
+    }
+    if (ring.glow) {
+      const fae = new THREE.PointLight(0x8a5cf6, 0.8, 130);
+      fae.position.set(0, 14, 0);
+      g.add(fae);
+    }
+    g.position.set(ring.x, 0, ring.y);
+    scene.add(g);
+  }
+
   addAnimals(scene);
   addMobs(scene);
 
@@ -8508,9 +8557,12 @@ const NIGHT_MS = 20 * 60 * 1000;
 const CYCLE_MS = DAY_MS + NIGHT_MS;
 const DAY_NIGHT_TRANSITION_MS = 90 * 1000; // dawn/dusk blend window, eats into the tail of each phase
 
-const SKY_DAY = new THREE.Color(0x8fd0ef);
+// Witchlight daytime: no more postcard-blue noon. Day is a moody mauve —
+// still clearly daylight (mobs stay asleep, lamps stay off), but the town
+// reads as the kind of place where the Cauldron Café makes sense.
+const SKY_DAY = new THREE.Color(0x9b93c9);
 const SKY_NIGHT = new THREE.Color(0x0a1230);
-const AMBIENT_DAY = new THREE.Color(0xffffff);
+const AMBIENT_DAY = new THREE.Color(0xe6dcf5);
 const AMBIENT_NIGHT = new THREE.Color(0x8fa0ff);
 const _skyColor = new THREE.Color();
 const _ambientColor = new THREE.Color();
@@ -9488,7 +9540,13 @@ function makeTree(x, z, scale) {
   );
   trunk.position.y = trunkH / 2;
   g.add(trunk);
-  const foliageColors = [0x2f6b35, 0x386f3c, 0x356633];
+  // Every fifth-ish tree is a thornwood — plum-dark foliage, the trees the
+  // town is named for. Deterministic from position so every client (and
+  // every visit) grows the same forest.
+  const thornwood = ((Math.abs(Math.round(x * 7)) + Math.abs(Math.round(z * 13))) % 5) === 0;
+  const foliageColors = thornwood
+    ? [0x4a2a5f, 0x543063, 0x3e2452]
+    : [0x27543a, 0x2d5c40, 0x244d35];
   for (let i = 0; i < 3; i++) {
     const r = (24 - i * 5) * s;
     const cone = new THREE.Mesh(
@@ -9505,7 +9563,7 @@ function makeTree(x, z, scale) {
 function makeShrub(x, z, scale) {
   const g = new THREE.Group();
   const s = scale || 1;
-  const colors = [0x3a7a3f, 0x2f6b35, 0x4a8a4f];
+  const colors = [0x2c5a3a, 0x27543a, 0x386947];
   for (let i = 0; i < 3; i++) {
     const r = (9 + Math.random() * 4) * s;
     const bush = new THREE.Mesh(
@@ -10609,6 +10667,130 @@ function getInteriorScene(buildingId) {
       halo.position.set(sx, wispY, sz);
       scene.add(halo);
     });
+  } else if (theme.lightsStyle === 'lantern') {
+    // Hanging witch-lanterns (the Cauldron Café): amber glass orbs in iron
+    // fittings, chained down from the beams, each carrying a warm light.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffc890, 0.65);
+    fill.position.set(roomW * 0.55, 260, roomD * 0.6);
+    scene.add(fill);
+    const ironMat = new THREE.MeshLambertMaterial({ color: 0x1a120a });
+    const spots = [
+      [roomW * 0.2, roomD * 0.28], [roomW * 0.5, roomD * 0.22], [roomW * 0.8, roomD * 0.3],
+      [roomW * 0.32, roomD * 0.72], [roomW * 0.68, roomD * 0.7]
+    ];
+    spots.forEach(([sx, sz], i) => {
+      const light = new THREE.PointLight(theme.lightColor != null ? theme.lightColor : 0xff9a3c, 1.25, 380);
+      light.position.set(sx, 100, sz);
+      scene.add(light);
+      const hangY = 104 + (i % 2) * 6;
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, Math.max(6, INDOOR_WALL_HEIGHT - hangY - 6), 4), ironMat);
+      chain.position.set(sx, (INDOOR_WALL_HEIGHT + hangY) / 2, sz);
+      scene.add(chain);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(6, 7, 3, 6), ironMat);
+      cap.position.set(sx, hangY + 9, sz);
+      scene.add(cap);
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(6, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffb96a, transparent: true, opacity: 0.95 }));
+      orb.position.set(sx, hangY, sz);
+      scene.add(orb);
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(9.5, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.18 }));
+      halo.position.set(sx, hangY, sz);
+      scene.add(halo);
+    });
+  } else if (theme.lightsStyle === 'candle') {
+    // Floating candles (the Midnight Archive): little wax clusters hovering
+    // in mid-air, warm flames against the cool violet room.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xd0c4ff, 0.75);
+    fill.position.set(roomW * 0.5, 260, roomD * 0.65);
+    scene.add(fill);
+    const waxMat = new THREE.MeshLambertMaterial({ color: 0xf0e8d8 });
+    const spots = [
+      [roomW * 0.18, roomD * 0.25], [roomW * 0.5, roomD * 0.18], [roomW * 0.82, roomD * 0.3],
+      [roomW * 0.3, roomD * 0.75], [roomW * 0.72, roomD * 0.72]
+    ];
+    spots.forEach(([sx, sz], i) => {
+      const light = new THREE.PointLight(theme.lightColor != null ? theme.lightColor : 0xffd9a0, 1.15, 360);
+      light.position.set(sx, 108, sz);
+      scene.add(light);
+      const baseY = 96 + (i % 3) * 8;
+      for (const [ox, oz, h] of [[0, 0, 14], [7, 4, 9], [-6, 5, 7]]) {
+        const candle = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.3, h, 6), waxMat);
+        candle.position.set(sx + ox, baseY + h / 2, sz + oz);
+        scene.add(candle);
+        const flame = new THREE.Mesh(new THREE.SphereGeometry(1.7, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xffe9a8 }));
+        flame.scale.y = 1.7;
+        flame.position.set(sx + ox, baseY + h + 2.5, sz + oz);
+        scene.add(flame);
+      }
+    });
+  } else if (theme.lightsStyle === 'brazier') {
+    // Standing ritual braziers (the Coven Court): iron bowls on tripod
+    // legs, burning low and red.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffb9a0, 0.6);
+    fill.position.set(roomW * 0.5, 260, roomD * 0.7);
+    scene.add(fill);
+    const ironMat = new THREE.MeshLambertMaterial({ color: 0x16100c });
+    const spots = [
+      [40, 44], [roomW - 40, 44], [40, roomD - 60], [roomW - 40, roomD - 60], [roomW / 2, roomD * 0.62]
+    ];
+    for (const [sx, sz] of spots) {
+      const light = new THREE.PointLight(theme.lightColor != null ? theme.lightColor : 0xff6a3c, 1.3, 380);
+      light.position.set(sx, 60, sz);
+      scene.add(light);
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(11, 6, 9, 8), ironMat);
+      bowl.position.set(sx, 34, sz);
+      scene.add(bowl);
+      for (let k = 0; k < 3; k++) {
+        const a = k * Math.PI * 2 / 3;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 34, 4), ironMat);
+        leg.position.set(sx + Math.cos(a) * 7, 17, sz + Math.sin(a) * 7);
+        leg.rotation.z = Math.cos(a) * 0.22;
+        leg.rotation.x = -Math.sin(a) * 0.22;
+        scene.add(leg);
+      }
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(7, 16, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff8a4a, transparent: true, opacity: 0.9 }));
+      flame.position.set(sx, 46, sz);
+      scene.add(flame);
+      const flameCore = new THREE.Mesh(new THREE.ConeGeometry(3.5, 9, 6),
+        new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+      flameCore.position.set(sx, 44, sz);
+      scene.add(flameCore);
+    }
+  } else if (theme.lightsStyle === 'vaultlamp') {
+    // Gilded candelabra stands (the Gilded Vault): tall golden poles, three
+    // pale-green flames apiece — counting-house light for cursed coin.
+    const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffe9a0, 0.65);
+    fill.position.set(roomW * 0.5, 260, roomD * 0.55);
+    scene.add(fill);
+    const goldMatL = new THREE.MeshLambertMaterial({ color: 0xb8912a, emissive: 0x3a2c08, emissiveIntensity: 0.35 });
+    const spots = [
+      [44, roomD * 0.14], [roomW - 44, roomD * 0.14], [44, roomD * 0.5], [roomW - 44, roomD * 0.5], [roomW / 2, roomD * 0.32]
+    ];
+    for (const [sx, sz] of spots) {
+      const light = new THREE.PointLight(theme.lightColor != null ? theme.lightColor : 0xffc84a, 1.25, 380);
+      light.position.set(sx, 78, sz);
+      scene.add(light);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.4, 64, 6), goldMatL);
+      pole.position.set(sx, 32, sz);
+      scene.add(pole);
+      const arms = new THREE.Mesh(new THREE.BoxGeometry(26, 2.2, 2.2), goldMatL);
+      arms.position.set(sx, 62, sz);
+      scene.add(arms);
+      for (const [ox, oy] of [[-12, 0], [0, 3], [12, 0]]) {
+        const candle = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 8, 6),
+          new THREE.MeshLambertMaterial({ color: 0xf0e8d8 }));
+        candle.position.set(sx + ox, 66 + oy, sz);
+        scene.add(candle);
+        const flame = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xd8ffa0 }));
+        flame.scale.y = 1.8;
+        flame.position.set(sx + ox, 72 + oy, sz);
+        scene.add(flame);
+      }
+    }
   } else {
     const torch1 = new THREE.PointLight(0xffa85c, 1.2, 340);
     torch1.position.set(30, 70, 30);
@@ -11376,7 +11558,7 @@ function makeDisplayPedestal(scene, x, z, opts) {
 function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
   const cx = roomW / 2, cz = roomD / 2;
   if (type === 'tavern') {
-    scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.55, 0x7a2e2e));
+    scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.55, 0x4a2440));
     scene.add(makeFireplace(cx, 14, Math.PI));
     // bar runs along the west wall, clear of the (east-facing) doorway
     scene.add(makeBarCounter(50, 50, 210));
@@ -11392,8 +11574,61 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     }
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
-    scene.add(makeBanner(28, 100, 8, 0, 0xd98a4f));
-    scene.add(makeBanner(roomW - 28, 100, 8, 0, 0xd98a4f));
+    scene.add(makeBanner(28, 100, 8, 0, 0xff9a3c));
+    scene.add(makeBanner(roomW - 28, 100, 8, 0, 0xff9a3c));
+
+    // ── Witchy dressing: the Cauldron Café earns its name ──
+    // A bubbling cauldron beside the bar (decor only — Joss still runs the shop)
+    const cauldron = new THREE.Group();
+    const potMat = new THREE.MeshLambertMaterial({ color: 0x14100e });
+    const pot = new THREE.Mesh(new THREE.SphereGeometry(16, 12, 10), potMat);
+    pot.scale.y = 0.78; pot.position.y = 15;
+    cauldron.add(pot);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(13.5, 2.2, 8, 16), potMat);
+    rim.rotation.x = Math.PI / 2; rim.position.y = 26;
+    cauldron.add(rim);
+    const brew = new THREE.Mesh(new THREE.CircleGeometry(12.5, 16),
+      new THREE.MeshBasicMaterial({ color: 0x6fe86a }));
+    brew.rotation.x = -Math.PI / 2; brew.position.y = 25;
+    cauldron.add(brew);
+    for (const [bx, bz, br] of [[-4, 3, 2.2], [5, -2, 1.6], [1, 6, 1.3]]) {
+      const bub = new THREE.Mesh(new THREE.SphereGeometry(br, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0xa8ff9a, transparent: true, opacity: 0.85 }));
+      bub.position.set(bx, 27 + br, bz);
+      cauldron.add(bub);
+    }
+    const ladle = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 34, 5),
+      new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
+    ladle.position.set(8, 34, 0); ladle.rotation.z = -0.5;
+    cauldron.add(ladle);
+    const brewGlow = new THREE.PointLight(0x6fe86a, 0.9, 160);
+    brewGlow.position.y = 34;
+    cauldron.add(brewGlow);
+    cauldron.position.set(150, 0, 42);
+    scene.add(cauldron);
+    // Herb bundles drying from the beams
+    const herbMat = new THREE.MeshLambertMaterial({ color: 0x4a6a2a });
+    const twineMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3a });
+    for (const [hx, hz] of [[roomW * 0.35, roomD / 4], [roomW * 0.62, roomD / 4], [roomW * 0.45, roomD / 2], [roomW * 0.7, (roomD / 4) * 3]]) {
+      const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 8, 4), twineMat);
+      tie.position.set(hx, INDOOR_WALL_HEIGHT - 20, hz);
+      scene.add(tie);
+      const bundle = new THREE.Mesh(new THREE.ConeGeometry(5, 14, 6), herbMat);
+      bundle.rotation.x = Math.PI; // hung tip-down
+      bundle.position.set(hx, INDOOR_WALL_HEIGHT - 32, hz);
+      scene.add(bundle);
+    }
+    // Pumpkins stacked in the far corner
+    const pumpMat = new THREE.MeshLambertMaterial({ color: 0xd87a2a });
+    for (const [px, pz, pr] of [[roomW - 30, roomD - 40, 9], [roomW - 46, roomD - 30, 6.5], [roomW - 30, roomD - 58, 5]]) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(pr, 10, 8), pumpMat);
+      p.scale.y = 0.8; p.position.set(px, pr * 0.8, pz);
+      scene.add(p);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 4, 5),
+        new THREE.MeshLambertMaterial({ color: 0x4a6a2a }));
+      stem.position.set(px, pr * 1.6 + 2, pz);
+      scene.add(stem);
+    }
     scene.add(makeShield(60, 82, 6, 0, 0xb0392b));
     scene.add(makeShield(roomW - 90, 82, 6, 0, 0x3b5fb0));
     scene.add(makeWindowGlow(6, 80, roomD * 0.18, Math.PI / 2));
@@ -11402,14 +11637,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // Framed paintings on the (otherwise bare) south wall, facing north
     // into the room.
     const tavernPaintings = [
-      { symbol: '🍺', title: 'THE OLD ALE', subtitle: 'est. long ago' },
-      { symbol: '🐗', title: "HUNTER'S PRIZE", subtitle: 'the one that didn\'t get away' },
-      { symbol: '⚔️', title: 'CROSSED BLADES', subtitle: 'house colors' }
+      { symbol: '🫖', title: 'THE EVENING BREW', subtitle: 'don\'t ask what\'s in it' },
+      { symbol: '🐈‍⬛', title: 'THE HOUSE CAT', subtitle: 'pays her tab in mice' },
+      { symbol: '🍄', title: 'KNOW YOUR CAPS', subtitle: 'the safe ones (mostly)' }
     ];
     [roomW * 0.28, roomW * 0.5, roomW * 0.72].forEach((x, i) => {
       const p = makeWallPainting({
         ...tavernPaintings[i],
-        bg1: '#2a1a0c', bg2: '#3c2410', border: '#a86a2a', accent: '#e0b060'
+        bg1: '#2a140c', bg2: '#3c1e10', border: '#c87a3a', accent: '#ffb060'
       });
       p.position.set(x, 90, roomD - 4);
       p.rotation.y = Math.PI;
@@ -11452,7 +11687,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
     }
   } else if (type === 'library') {
-    scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a4a6b));
+    scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a2a5c));
     // The library's door is on the west wall (x=0 side), and its gap spans
     // roughly z=144..324 (centered on the room) — the two bookshelves that
     // used to sit at x=20 (right against that same wall) had z positions of
@@ -11462,15 +11697,64 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(makeBookshelf(roomW - 20, cz - 40, -Math.PI / 2));
     scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
     scene.add(makeTable(cx, cz - 10));
-    scene.add(makeBanner(cx, 90, 8, 0, 0x6f8fae));
+    scene.add(makeBanner(cx, 90, 8, 0, 0x9a7ad9));
+
+    // ── Witchy dressing: the Midnight Archive ──
+    // Rune ring painted on the floor around the reading table
+    (function () {
+      const rc = document.createElement('canvas'); rc.width = 256; rc.height = 256;
+      const rx = rc.getContext('2d');
+      rx.strokeStyle = 'rgba(190,150,255,0.7)'; rx.lineWidth = 3;
+      rx.beginPath(); rx.arc(128, 128, 108, 0, Math.PI * 2); rx.stroke();
+      rx.beginPath(); rx.arc(128, 128, 86, 0, Math.PI * 2); rx.stroke();
+      rx.fillStyle = 'rgba(210,180,255,0.85)';
+      rx.font = '16px serif'; rx.textAlign = 'center'; rx.textBaseline = 'middle';
+      const runes = ['ᚠ', 'ᛒ', 'ᚱ', 'ᛗ', 'ᚹ', 'ᛉ', 'ᚦ', 'ᛟ', 'ᚨ', 'ᛚ', 'ᛞ', 'ᛝ'];
+      runes.forEach((rn, i) => {
+        const a = i * Math.PI * 2 / runes.length;
+        rx.fillText(rn, 128 + Math.cos(a) * 97, 128 + Math.sin(a) * 97);
+      });
+      const ring = new THREE.Mesh(new THREE.PlaneGeometry(190, 190),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(rc), transparent: true, opacity: 0.9 }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(cx, 1.2, cz - 10);
+      scene.add(ring);
+    })();
+    // Books that never learned to sit still
+    [0x6a3a8a, 0x2a5a7a, 0x8a2a3a, 0x3a6a4a].forEach((col, i) => {
+      const book = new THREE.Group();
+      const cover = new THREE.Mesh(new THREE.BoxGeometry(13, 2.6, 9),
+        new THREE.MeshLambertMaterial({ color: col }));
+      book.add(cover);
+      const pages = new THREE.Mesh(new THREE.BoxGeometry(11.4, 1.6, 7.6),
+        new THREE.MeshLambertMaterial({ color: 0xe8e0c8 }));
+      pages.position.y = 0.4;
+      book.add(pages);
+      book.position.set([cx - 60, cx + 55, cx - 20, cx + 90][i],
+        62 + (i % 3) * 16, [cz - 55, cz - 70, cz + 60, cz + 40][i]);
+      book.rotation.set(0.15 * (i - 1.5), i * 1.3, 0.1 * (i % 2 ? 1 : -1));
+      scene.add(book);
+    });
+    // A crystal ball on the reading table
+    const orbGlass = new THREE.Mesh(new THREE.SphereGeometry(8, 12, 12),
+      new THREE.MeshLambertMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.55, emissive: 0x4a3a8a, emissiveIntensity: 0.5 }));
+    orbGlass.position.set(cx, 40, cz - 10);
+    scene.add(orbGlass);
+    const orbBase = new THREE.Mesh(new THREE.CylinderGeometry(5, 7, 4, 8),
+      new THREE.MeshLambertMaterial({ color: 0x3a2a1a }));
+    orbBase.position.set(cx, 31, cz - 10);
+    scene.add(orbBase);
+    const orbLight = new THREE.PointLight(0xb98aff, 0.8, 140);
+    orbLight.position.set(cx, 46, cz - 10);
+    scene.add(orbLight);
 
     // Framed paintings on the south wall (bare — the door's on the west
     // wall, the bookshelves are on the east), facing north into the room.
     [
-      { symbol: '📖', title: 'OPEN VOLUME', subtitle: 'author unknown', x: roomW * 0.3 },
-      { symbol: '🗺️', title: 'OLD CHARTS', subtitle: 'the known lands', x: roomW * 0.7 }
+      { symbol: '👁️', title: 'THE UNBLINKING', subtitle: 'shelf 13 — do not read aloud', x: roomW * 0.3 },
+      { symbol: '🌙', title: 'PHASES OF HER', subtitle: 'as above, so below', x: roomW * 0.7 }
     ].forEach(({ symbol, title, subtitle, x }) => {
-      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#1c2438', bg2: '#2a3550', border: '#5a7ba0', accent: '#b9c6ff' });
+      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#160f2e', bg2: '#241a42', border: '#8a6ad0', accent: '#d0baff' });
       p.position.set(x, 90, roomD - 4);
       p.rotation.y = Math.PI;
       scene.add(p);
@@ -12074,20 +12358,58 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: stairStart - 60, z: roomD * 0.25, npc: 'hint', npcId: 'npc_noble', npcName: 'Lady Corwin' });
     }
   } else if (type === 'greathall') {
-    scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x6a6a3a));
+    scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x5c1f2a));
     scene.add(makeThrone(cx, 30, 0));
     scene.add(makeTable(cx, cz + 15));
     scene.add(makeBench(cx - 26, cz + 30, 0));
     scene.add(makeBench(cx + 26, cz + 30, 0));
-    scene.add(makeBanner(20, 95, 6, 0, 0x8a9a5b));
-    scene.add(makeBanner(roomW - 20, 95, 6, 0, 0x8a9a5b));
+    scene.add(makeBanner(20, 95, 6, 0, 0xd84a5a));
+    scene.add(makeBanner(roomW - 20, 95, 6, 0, 0xd84a5a));
+
+    // ── Witchy dressing: the Coven Court ──
+    // A great pentacle inlaid in the floor, the council table set upon it
+    (function () {
+      const pc = document.createElement('canvas'); pc.width = 256; pc.height = 256;
+      const px = pc.getContext('2d');
+      px.strokeStyle = 'rgba(255,140,120,0.8)'; px.lineWidth = 4;
+      px.beginPath(); px.arc(128, 128, 112, 0, Math.PI * 2); px.stroke();
+      px.lineWidth = 3;
+      px.beginPath();
+      [0, 2, 4, 1, 3].forEach((k, i) => {
+        const a = -Math.PI / 2 + k * Math.PI * 2 / 5;
+        const sx2 = 128 + Math.cos(a) * 112, sy2 = 128 + Math.sin(a) * 112;
+        i === 0 ? px.moveTo(sx2, sy2) : px.lineTo(sx2, sy2);
+      });
+      px.closePath(); px.stroke();
+      const inlay = new THREE.Mesh(new THREE.PlaneGeometry(230, 230),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(pc), transparent: true, opacity: 0.85 }));
+      inlay.rotation.x = -Math.PI / 2;
+      inlay.position.set(cx, 1.2, cz + 40);
+      scene.add(inlay);
+    })();
+    // Thirteen candles ring the pentacle — three burn, as tradition demands
+    for (let i = 0; i < 13; i++) {
+      const a = i * Math.PI * 2 / 13;
+      const cxp = cx + Math.cos(a) * 128, czp = cz + 40 + Math.sin(a) * 128;
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 10 + (i % 3) * 3, 6),
+        new THREE.MeshLambertMaterial({ color: 0xe8dcc8 }));
+      candle.position.set(cxp, 5 + (i % 3) * 1.5, czp);
+      scene.add(candle);
+      if (i % 4 === 0) {
+        const fl = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+        fl.scale.y = 1.8;
+        fl.position.set(cxp, 12 + (i % 3) * 3, czp);
+        scene.add(fl);
+      }
+    }
 
     // Framed paintings on the west/east walls, clear of the throne/table.
     [
-      { symbol: '🛡️', title: 'THE OLD GUARD', subtitle: 'first banner', x: 4, rotY: Math.PI / 2 },
-      { symbol: '👑', title: "THE HALL'S LINE", subtitle: 'crowned in turn', x: roomW - 4, rotY: -Math.PI / 2 }
+      { symbol: '🌙', title: 'THE FIRST COVEN', subtitle: 'thirteen chairs, one empty', x: 4, rotY: Math.PI / 2 },
+      { symbol: '🕯️', title: 'THE ACCORD', subtitle: 'signed thrice, in wax', x: roomW - 4, rotY: -Math.PI / 2 }
     ].forEach(({ symbol, title, subtitle, x, rotY }) => {
-      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a2a14', bg2: '#3a3a1e', border: '#8a9a5b', accent: '#d7e6a0' });
+      const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a1218', bg2: '#3c1a22', border: '#c8506a', accent: '#ffb9c8' });
       p.position.set(x, 90, cz);
       p.rotation.y = rotY;
       scene.add(p);
@@ -12225,6 +12547,39 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     vaultGlow.position.set(cx, 60, roomD - 30);
     scene.add(vaultGlow);
 
+    // ── Witchy dressing: the Gilded Vault ──
+    // The Auditor — a raven on a marble perch, watching every transaction
+    const perch = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 42, 8),
+      new THREE.MeshLambertMaterial({ color: 0x8a8a92 }));
+    perch.position.set(roomW - 60, 21, roomD * 0.2);
+    scene.add(perch);
+    const raven = new THREE.Group();
+    const ravenMat = new THREE.MeshLambertMaterial({ color: 0x0c0c12 });
+    const rBody = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 8), ravenMat);
+    rBody.scale.set(1, 0.9, 1.4);
+    raven.add(rBody);
+    const rHead = new THREE.Mesh(new THREE.SphereGeometry(4.2, 8, 8), ravenMat);
+    rHead.position.set(0, 6.5, 6);
+    raven.add(rHead);
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5, 5),
+      new THREE.MeshLambertMaterial({ color: 0x3a3a42 }));
+    beak.rotation.x = Math.PI / 2;
+    beak.position.set(0, 6, 11);
+    raven.add(beak);
+    const rTail = new THREE.Mesh(new THREE.BoxGeometry(4, 1.6, 10), ravenMat);
+    rTail.position.set(0, 1, -10);
+    rTail.rotation.x = -0.25;
+    raven.add(rTail);
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.8, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0xffd43b }));
+      eye.position.set(2.2 * s, 7.5, 8.5);
+      raven.add(eye);
+    }
+    raven.position.set(roomW - 60, 46, roomD * 0.2);
+    raven.rotation.y = -Math.PI / 4;
+    scene.add(raven);
+
     // The treasure chamber above is just a recessed alcove (a peek from
     // outside) — this kiosk is what actually lets the player walk into a
     // full separate vault room (see enterVault()/buildVaultScene()). Sits
@@ -12320,8 +12675,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // Framed paintings on the east wall, between the entrance and the
       // service counters.
       [
-        { symbol: '💰', title: 'THE FIRST DEPOSIT', subtitle: 'founding ledger' },
-        { symbol: '🔑', title: 'THE VAULT KEY', subtitle: 'never duplicated' }
+        { symbol: '💰', title: 'THE FIRST DEPOSIT', subtitle: 'do not ask whose' },
+        { symbol: '🐦‍⬛', title: 'THE AUDITOR', subtitle: 'sees every ledger' }
       ].forEach(({ symbol, title, subtitle }, i) => {
         const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a2418', bg2: '#3a3220', border: '#d4af37', accent: '#e8d9a0' });
         p.position.set(roomW - 4, 90, roomD * (i === 0 ? 0.32 : 0.46));
