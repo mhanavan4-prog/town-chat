@@ -949,3 +949,190 @@ their www/ copies are already current on disk. App Store/Play builds need the us
 one-panel-at-a-time HUD, full-screen panels with ‹ Menu/back + bottom Close, hold-to-read
 ability peeks, redesigned touch loadout, 4-track witchy music). If you add to the project,
 append a short dated note here so the next session inherits it.*
+
+## Session K (2026-07-12, afternoon) — Competitive review vs the top 10 mobile dungeon & quest games (NO code changes)
+
+Research-only session; server.js/client.js/index.html/www untouched. Reviewed the July-2026 top 10
+(Genshin, DnF Mobile, HSR, Solo Leveling: Arise, RAID, Archero 2, Summoners War, Diablo Immortal,
+AFK Journey, OSRS) across gameplay depth / monetization / retention / mobile UX and compared vs
+Thornreach. **Deliverables (both in repo root, untracked — move/delete freely):**
+`COMPETITIVE-REVIEW-HANDOFF.md` (summary, scores, playbook, suggested next builds) and
+`thornreach-vs-top10.html` (self-contained interactive dashboard; also persisted in the Cowork
+artifact gallery as "thornreach-vs-top10").
+
+Headlines: Thornreach's moats = chat-first social design (unserved in the West — DnF/OSRS prove
+the lane), the fairness charter (no gacha/energy, capped stats), and instant web join. Gaps =
+content volume, live-ops calendar, retention plumbing (push/streaks/leaderboards/groups), unnamed
+T1–T4 dungeons, JSON-file backend at store scale. Top recommended builds, in order: (1) name the
+four dungeons + signature bosses, (2) "while you were gone" returning-player letter, (3) weekly
+seeded roguelike delve mode on the existing dungeon tiers w/ pick-1-of-3 boons, (4) $4.99/30-day
+Resident Pass product (venues-only scope, alongside the Session-I Moonstone products still pending
+in both store consoles). Full rationale + sources in the two files above.
+
+
+## Session L (2026-07-12, evening) — THE COMPETITIVE-REVIEW BUILD-OUT (every fixable con from thornreach-vs-top10)
+
+The full "fix every con you possibly can" round against the Session K review. `server.js`,
+`public/client.js`, `public/index.html`, `public/sw.js` (new), `Dockerfile`, `DEPLOY-SERVER.md`,
+both app folders' `www/` + store docs all changed. **Tests: `npm test` 12/12 files (incl. new
+`persistence.test.js` 12 checks + `sessionl.test.js` 90 checks) · audit-playthrough 213/213 ·
+live Playwright UI sweep 34/34 · app-shell smoke 9/9 per app · zero page errors anywhere.**
+
+### 🗄️ Durable storage (the "backend durability" con)
+- ALL stores (accounts, bank, inventories, progress, moonstones, passes, listings, hardDrives,
+  inboxes + new ones) now live in ONE SQLite DB — `DATA_DIR/thornreach.db` via Node's built-in
+  `node:sqlite`. Zero new npm deps. Transactional whole-store writes via `persistSave`, per-key
+  fast path `persistSetKey` for chatty stores. First boot AUTO-IMPORTS legacy *.json files
+  (left on disk untouched as a snapshot); `*.json.bak` exports every 15 min + on SIGTERM.
+- Fallbacks: Node without `node:sqlite`, or env `PERSIST_FORCE_JSON=1` → the exact old
+  atomic-JSON behavior. Dockerfile now `FROM node:22-slim`.
+- Per-player harvest regrowth (`decorHarvestedAt`) is persisted now too (store `harvests`).
+
+### 🕳️ Named dungeons + signature bosses (steal #3 + #7)
+- `DUNGEON_LORE` (server, shipped in init): T1 The Rootcellar, T2 The Weeping Crypts, T3 The
+  Howling Forge, T4 The Starless Deep — name + epithet + entrance-plaque lore each. Location
+  pill, entry toast and the dungeon plaque (standing stone by the spawn, press F) all speak it.
+- One signature boss per tier in `dungeonMobs` (`dungboss_t1..4`, `boss: true` presets in
+  DUNGEON_MOB_TYPES): Old Gnawbone / Widow Silk / Cindermaw / The Pale Sovereign. 5-min respawn,
+  name sprite + glow client-side. **Party scaling:** on first engage (or first ranged hit) HP
+  scales +60% per extra living player in the room (`bossEngagedScale`); on kill, every other live
+  player in the room gets 60% of the boss XP + a toast; loot double-rolls the tier's table;
+  town-wide announce; weekly `boss` board bump.
+
+### 🏆 Leaderboards + honors ("give the streaks a board in the town square")
+- `leaderboards` store keyed by week (`w<idx>`, same Monday-00:00-UTC week as the Peddler):
+  boards `hunt` / `boss` / `delve` / `tourney`. Account holders only (guests nudged to log in).
+  `lbBump`/`lbSetMax`/`lbTop`/`lbRankOf`. Closed weeks settle LAZILY (`lbSettleClosedWeeks`,
+  no cron): top-3 per board get 250/125/60 gold + a permanent `honors` entry; idempotent.
+- Client: 🏆 Town Board — physical noticeboard kiosk at (2010,1150) + ☰ row; 4 tabs, medals,
+  your rank, honors shelf, week countdown. WS: `board_state`.
+
+### 🗓️ The calendar (steal #8): tournament + festival + Blood Moon
+- Pure UTC math, no cron (`tourneyWindow`/`festivalWindow`/`bloodMoonWindow`), snapshot in init
+  + `calendar_state` pushes from a 15s transition announcer (announces open/close, settles weeks,
+  fires push).
+- **Weekend Hunt Tournament**: Fri 18:00 UTC → Sun 24:00 UTC; every registerHuntKill in-window
+  also bumps the `tourney` board.
+- **Hearthmoon Festival**: first Saturday monthly, all day: +25% XP (in grantXP, like Rested) and
+  +15% bonus-forage chance.
+- **Blood Moon**: every 13th night of the 40-min cycle (`nightIndex % 13 === 0`). Server: town+
+  wilds mobs hit ×1.25 (`bloodMoonMobDamage` at the two roll sites), kills pay ×1.5 XP, and any
+  night-mob kill can drop 🩸 `bloodmoon_shard` (35%); 5 shards → `craft_circlet` → 🔻 Bloodmoon
+  Circlet (head, power .05/leech .03 — inside relic caps). Client: sky/ambient/moon go RED
+  (mirrored clock math in updateDayNightCycle), event pill says BLOOD MOON.
+- New items live in BOTH catalogs (server + client, icons 🩸/🔻 verified unique).
+
+### 🕳️ THE WEEKLY DELVE (steal #1 + #2 — the review's biggest lever)
+- Seeded weekly roguelike built from existing content. `weeklyDelveMods(now)` picks 2 of 8 twist
+  rules (Swift Shadows, Thick Hides, Sharp Fangs, Bountiful Dark, Glass Souls, The Long Dark,
+  Starving Moon, Lucky Stars) — same mulberry32/epoch determinism as the Peddler.
+- Runs are INSTANCED: room `dungeon_delve_<n>` (starts with `dungeon_` so the client's existing
+  dungeon scene, bounds, chat-hiding and strike targeting all just work). Party members standing
+  with the starter descend together (token pattern). Start tier = highest member level's tier.
+- Loop: clear `killsNeeded` mobs (6 + floor, +2 under Long Dark) → every live member drafts
+  1-of-3 boons (4 under Lucky Stars; 25s timer, undecided take the first) → floor++ (tier climbs
+  every 2 floors, mobs scale +12%/floor; every 3rd floor adds that tier's BOSS, party-scaled) →
+  repeat until death (roguelike: respawn walks you out, depth kept) or exit (portal or ☰).
+  Floor purses pay gold to the bank (guests: gold blows away, the modal says so).
+- **Boons speak the stat vocabulary**: `delveBoonContrib` joins `statContrib`, so power/guard/
+  vitality/haste/swift/leech just work server-side; swift also ships to the client per
+  delve_state (`delveSpeedMult`, applied only in delve rooms). Witch's Broth rides
+  skillMendingRate; Starving Moon zeroes it; Glass Souls multiplies incomingDamageMult.
+- WS: `delve_state` (menu payload out of a run; live payload in one), `delve_start`,
+  `delve_pick_boon`, `delve_exit`. Depth → weekly `delve` board via lbSetMax on every exit path.
+- Client: 🕳️ Delve Stone (split standing stone, breathing glow) at (1600,1420) + ☰ row; lobby
+  modal (mods, your best, top-5, Begin); floor/kills/boons HUD chip; boon-draft card overlay.
+- Mob plumbing: delve mobs ride the existing `dungeonMobs` broadcast (client renders them with
+  zero changes); `findDungeonTarget()` routes strike/loot lookups by room; `tickDelves` mirrors
+  tickDungeon with per-run mods; delve mobs don't respawn (floors are about clearing).
+
+### 🕸️ Covens (steal #5)
+- Persistent store `covens` + covenIndex. ≤8 ACCOUNTS, founding costs 250 bank gold (sink), name
+  sanitized + unique, sigil from a fixed set. Any member invites (online, account-holding,
+  covenless targets; 60s invite TTL); leader kicks; leader leaving passes the torch; last one
+  out inherits the tab (gold → bank, items squeezed into bank slots).
+- Coven chat channel (sanitizeText — party_chat XSS lesson honored), MOTD (leader), 12-slot
+  shared bank tab + gold, **usable only in the bank room** (same rule as bank_open), with a
+  20-entry deed log for honesty. Claimable Cauldron Café table (24h hold, one coven at a time):
+  sigil floats over the table for everyone in the room (`coven_table_state` on café entry).
+- WS: coven_state/create/invite/invite_accept/invite_decline/leave/kick/chat/motd/
+  deposit_gold/withdraw_gold/deposit_item/withdraw_item/claim_table.
+- Client: 🕸️ Coven modal (Members/Chat/Shared-tab tabs, unread badges, invite-nearest button,
+  two-tap leave), invite toast with Join/Decline.
+
+### 📜 Streaks + the while-you-were-gone letter (steal #4) + First Steps (steal #9)
+- `applyLoginStreak`: consecutive days pay 10+5/day gold (cap 60), every 7th +100; tracked in
+  prog (lastLoginDay/loginStreak/bestLoginStreak). Same-day relog never double-pays.
+- `buildWelcomeLetter` (8h+ away): parchment modal counts regrown patches (from the
+  now-persistent harvests), side quests off cooldown, Peddler rotation, streak purse, and
+  what the calendar holds. `prog.lastSeenAt` stamped on join + disconnect.
+- **First Steps**: 3 newcomer goals (talk/harvest/kill — hooked at the top of storyEvent, zero
+  extra call sites), each celebrated, 25 gold on completion; HUD chip until done; level-5+
+  accounts predating it have it quietly retired at join.
+
+### 🎟️ Resident Pass (steal #10)
+- $4.99 / 30 days (`TOWN_PASS30_PRICE_CENTS`/`TOWN_PASS30_HOURS`, product `town_pass_30d`), same
+  two venues — pure better-value shape. Stripe: `/api/checkout {product:'pass30'}` + session
+  `metadata.pass_product` so every re-verification (verify-session, join claims) rebuilds the
+  right window (`passHoursForStripeSession`); IAP: `/api/verify-iap` routes the id. Pass modal
+  sells both passes; startPassCheckout(btn, product) carries the IAP hook for the apps NATIVELY
+  now (window.TOWNCHAT_IAP...buyProduct). ⚠️ Michael: create `town_pass_30d` in BOTH store
+  consoles (BUILD docs updated; alongside the 3 Moonstone products still queued).
+
+### 🔔 Web push (the "phone notification when the moon rises")
+- Real RFC 8291 (aes128gcm) + RFC 8292 (VAPID ES256) Web Push on Node built-ins only. VAPID keys
+  SELF-BOOTSTRAP into the `serverConfig` store — zero setup. `/api/push/subscribe|unsubscribe`
+  (account-bound, ≤5 subs); prefs per sub (moonrise/bloodmoon/peddler/events); pushes go to
+  OFFLINE accounts only; night kinds rate-limited ~1/day/sub; dead endpoints pruned on 404/410.
+  Senders: moonrise watcher + the calendar announcer. `public/sw.js` (new, push-only worker).
+- Client: 🔔 Notifications modal (4 raven toggles + enable/disable per device). Fails soft with
+  an honest message in the Electron shell / Capacitor apps (no push transport there).
+- The sessionl test DECRYPTS a real push end-to-end against a local receiver (and verifies the
+  VAPID JWT signature) — the crypto is proven, not assumed.
+
+### 🎮 Controller support + 🩹 fixes + misc
+- Gamepad API (`pollGamepad` in update()): left stick = the same camera-relative steering as the
+  touch joystick (one steering model everywhere), right stick X orbits the camera, A interact /
+  B close-or-hop / X strike / Y kit / LB-RB-RT quickslots 1-3 / Start ☰ / Back journal.
+  Edge-triggered, deadzone 0.18, connect toast.
+- **Real bug found & fixed (pre-existing, exposed by delve QA): stale-move room flips.** A move
+  packet already in flight when the server teleports you (delve start, dungeon token, portals)
+  still carries the OLD room — it used to yank you straight back out server-side (in a delve:
+  standing in the arena, unable to hit anything, invisible to mobs). Fix: `roomLockUntil`
+  (+1.5s) stamped at every server-initiated room set drops disagreeing moves whole, AND dungeon
+  rooms are fully move-authoritative (their only exits are handlers, so ANY move claiming
+  another room while you're in one is stale by definition).
+- **Pre-existing app bug fixed in the re-sync:** `town-chat-android/www/mobile-payments.js` was
+  still the Session-C single-product version (no Moonstone packs, no buyProduct!). Both apps now
+  ship the canonical Session-I+L version (registers day pass + resident pass + 3 MS packs).
+- Join screen: the fairness pledge line ("No gacha · No energy · Nothing pay-to-win — ever").
+- STORE-LISTING.md rewritten dungeon-led + pledge-led (subtitle "Dungeons with friends. No gacha
+  — ever."), new screenshot shot-list + 15-second "URL to playing" clip storyboard; BUILD docs
+  gained town_pass_30d; DEPLOY-SERVER.md covers sqlite/backups/node22/push.
+- newfeatures.test.js: night-combat block pins itself to a NON-blood-moon night (13th-night maths
+  would legitimately break the old 4–9 damage assertion) + new blood-moon strike/XP assertions;
+  its check() gained an extra param. moonstones/story suites untouched and green.
+
+### Where things stand / Michael's queue
+1. **git push** the town-chat repo (batch below) so Render redeploys — the new client REQUIRES
+   the new server (init contract grew), ship them together:
+   `git add server.js public/client.js public/index.html public/sw.js Dockerfile DEPLOY-SERVER.md HANDOFF.md test/sessionl.test.js test/persistence.test.js test/newfeatures.test.js && git commit -m "Session L: competitive-review build-out" && git push`
+2. Store consoles when convenient: create `town_pass_30d` ($4.99 consumable) in App Store
+   Connect + Play Console (+ the 3 Moonstone products still pending from Session I). Apps need
+   the usual `npx cap sync` + version bump whenever next shipped (www/ folders are current).
+3. Render: confirm a persistent disk is mounted at DATA_DIR (DEPLOY-SERVER.md) — with sqlite the
+   saves are crash-proof, but a disk that vanishes on redeploy still vanishes.
+4. Optional balance levers, all constants: LB_WEEK_PRIZES, tournament window, BLOOD_MOON_EVERY_
+   NIGHTS (13), shard chance (0.35), boss stats, DELVE_MODS/BOONS numbers, COVEN_CREATE_COST,
+   streak gold curve, TOWN_PASS30_PRICE_CENTS.
+5. QA harness lives in the ephemeral cloud `~/harness` (qa-server.cjs side-channel wrapper,
+   qa-sessionl.cjs 34-check UI sweep, qa-appshell.cjs, qa-heroshots.cjs) — rebuildable from the
+   patterns above. Sandbox gotchas this session: chromium moved to
+   `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`; `pkill -f` with the process name in the
+   SAME command string still kills your own shell (Session I lesson re-learned — kill by PID);
+   Playwright's `waitForSelector('#x:not(.hidden)')` false-times-out against this app's overlay
+   CSS — use `waitForFunction` on classList; test players parked at (230,230) still die to night
+   mobs — heal-and-retry loops, not fixed sleeps.
+
+*Last updated Sunday, July 12, 2026, late evening — end of Session L. If you add to the
+project, append a short dated note here so the next session inherits it.*

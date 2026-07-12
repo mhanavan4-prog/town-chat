@@ -10,9 +10,14 @@ This is **not** a serverless app. It needs:
 
 1. **A long-lived process that holds WebSocket connections** — rules out Vercel / Netlify /
    Cloudflare Workers / any "edge function" host.
-2. **A persistent disk** for the flat-JSON stores (accounts, bank, progress, passes). Without one,
-   an ephemeral filesystem wipes all player data on every redeploy. The server reads/writes these
-   under `DATA_DIR` (defaults to the app folder; set it to a mounted volume in production).
+2. **A persistent disk** for the game database. Without one, an ephemeral filesystem wipes all
+   player data on every redeploy. Since Session L the server keeps everything in ONE embedded
+   SQLite file (`DATA_DIR/thornreach.db`, via Node's built-in `node:sqlite` — crash-proof
+   transactional writes, no npm deps). On first boot it auto-imports any legacy `*.json` stores it
+   finds, and it exports plain-text `*.json.bak` backups every 15 minutes and on clean shutdown.
+   Point `DATA_DIR` at a mounted volume in production (defaults to the app folder). On Node < 22.5
+   (or with `PERSIST_FORCE_JSON=1`) it falls back to the original flat-JSON files transparently —
+   but use Node 22+: the Dockerfile now pins `node:22-slim` for exactly this reason.
 3. **Always-on** (no cold-start spin-down) — a multiplayer game feels broken if the first player
    each hour waits 40 seconds for the server to wake.
 
@@ -74,3 +79,15 @@ Your server is now at `https://your-chosen-name.fly.dev`. Put that in each app's
 
 Health check: after deploy, open `https://your-server/api/config` — it should return JSON.
 Then set that origin in each app's `config.js` and rebuild the apps.
+
+## Web push notifications (Session L)
+
+Real Web Push (moonrise / Peddler Monday / tournament / Blood Moon alerts) works out of the box
+for web players over HTTPS — the VAPID keys self-generate on first boot and persist in the
+database; there is nothing to configure. Optional env: `VAPID_CONTACT_EMAIL` (the contact address
+push services see). Pushes only go to accounts that are OFFLINE, and the night alerts are
+rate-limited to roughly one per subscription per day.
+
+Two honest limits: the Electron desktop shell and the Capacitor app builds don't ship a push
+transport (their enable button says so in-game); native FCM/APNs for the store apps would be a
+separate future round.

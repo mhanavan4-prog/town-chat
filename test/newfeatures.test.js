@@ -26,9 +26,9 @@ function makeMockSocket(label) {
 }
 
 let pass = 0, fail = 0;
-function check(name, cond) {
+function check(name, cond, extra) {
   if (cond) { pass++; console.log('PASS -', name); }
-  else { fail++; console.log('FAIL -', name); }
+  else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); }
 }
 
 require('../server.js');
@@ -91,11 +91,17 @@ setTimeout(() => {
 
   // ─── Town mob combat (real tickWildlife, night forced) ────────────────
   const realNow = Date.now;
-  const nightBase = Math.floor(realNow() / hooks.CYCLE_MS) * hooks.CYCLE_MS + hooks.DAY_MS + 60000; // 1min into night
+  // Session L note: every 13th night is a Blood Moon (mobs deliberately hit
+  // ~25% harder), so this base-contract block pins itself to an ORDINARY
+  // night; the Blood Moon's own strike math is asserted right after it.
+  let baseNightIdx = Math.floor(realNow() / hooks.CYCLE_MS);
+  if (baseNightIdx % hooks.BLOOD_MOON_EVERY_NIGHTS === 0) baseNightIdx += 1;
+  const nightBase = baseNightIdx * hooks.CYCLE_MS + hooks.DAY_MS + 60000; // 1min into a normal night
   let fakeNow = nightBase;
   Date.now = () => fakeNow;
   try {
     check('forced clock reads as night', hooks.isNightNow());
+    check('forced night is NOT a blood moon (base contract)', !hooks.bloodMoonActive());
     const { s: prey, p: preyP } = join('Prey', 4);
     const mob = hooks.mobs[0];
     mob.dead = false; mob.health = 50; mob.scaredUntil = 0; mob.lastHitAt = 0;
@@ -155,6 +161,33 @@ setTimeout(() => {
     check('first hunt of the night pays the trophy bonus',
       !!hunter.lastOfType('trophy_bonus') &&
       hooks.getProgress(hunterP).xp >= xpBefore + hooks.TOWN_MOB_XP + 25);
+
+    // ─── Blood Moon strike math (Session L) ─────────────────────────────
+    // Jump the fake clock to the next blood-moon night: strikes multiply
+    // ×1.25 (so up to ~11, past the ordinary 9 cap) and kill XP pays ×1.5.
+    const bloodIdx = (Math.floor(fakeNow / hooks.CYCLE_MS) - (Math.floor(fakeNow / hooks.CYCLE_MS) % hooks.BLOOD_MOON_EVERY_NIGHTS)) + hooks.BLOOD_MOON_EVERY_NIGHTS;
+    fakeNow = bloodIdx * hooks.CYCLE_MS + hooks.DAY_MS + 60000;
+    check('jumped clock reads as a blood moon night', hooks.isNightNow() && hooks.bloodMoonActive());
+    const { s: bloodPrey, p: bloodPreyP } = join('BloodPrey', 3);
+    // Strip any random starter gear — guard stats would absorb the strike
+    // below the raw amplified range this asserts on.
+    for (const f of ['equippedWeapon', 'equippedHead', 'equippedChest', 'equippedFeet', 'equippedRing']) bloodPreyP[f] = null;
+    const bloodMob = hooks.mobs[2];
+    bloodMob.dead = false; bloodMob.health = 50; bloodMob.scaredUntil = 0; bloodMob.lastHitAt = 0;
+    bloodPreyP.x = bloodMob.x; bloodPreyP.y = bloodMob.y; bloodPreyP.room = 'outside';
+    hooks.tickWildlife(0.1);
+    const bloodStruck = bloodPrey.lastOfType('struck');
+    check('blood moon strikes are amplified but bounded (5–12)',
+      !!bloodStruck && bloodStruck.damage >= 5 && bloodStruck.damage <= 12,
+      { struck: bloodStruck, mob: { dead: bloodMob.dead, health: bloodMob.health, lastHitAt: bloodMob.lastHitAt, x: bloodMob.x, y: bloodMob.y }, prey: { x: bloodPreyP.x, y: bloodPreyP.y, room: bloodPreyP.room, dead: bloodPreyP.isDead, hp: bloodPreyP.health }, died: bloodPrey.lastOfType('you_died') });
+    const bmMobKill = hooks.mobs[3];
+    bmMobKill.dead = false; bmMobKill.health = 1;
+    const { s: bmHunter, p: bmHunterP } = join('BloodHunter', 1);
+    bmHunterP.room = 'outside'; bmHunterP.x = bmMobKill.x; bmHunterP.y = bmMobKill.y;
+    const bmXpBefore = hooks.getProgress(bmHunterP).xp;
+    hooks.applyDamage(bmHunterP, 'mob', bmMobKill.id, 10, 100);
+    check('blood moon kills pay half again the XP',
+      hooks.getProgress(bmHunterP).xp >= bmXpBefore + Math.round(hooks.TOWN_MOB_XP * 1.5));
 
     // ─── Hard Drive media + countermeasures ─────────────────────────────
     // The hard drive item is required — grant one the same way level-up does.

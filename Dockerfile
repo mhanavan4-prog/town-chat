@@ -1,7 +1,9 @@
 # Lanternside Bay / Town Chat — server image.
 # Serves the web (Stripe) client AND is the backend all three clients connect
 # to (web + iOS + Android). Small, single-process Node app.
-FROM node:20-slim
+# node 22+ gives us the built-in node:sqlite the durable-storage layer uses.
+# (On older Node the server still runs — it just falls back to JSON files.)
+FROM node:22-slim
 
 WORKDIR /app
 

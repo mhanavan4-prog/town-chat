@@ -35,6 +35,125 @@ function atomicWriteJson(file, obj) {
     try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch (_) {}
   }
 }
+
+// ---------------------------------------------------------------------------
+// Durable storage (Session L) — every game store now lives in ONE embedded
+// SQLite database (DATA_DIR/thornreach.db) via Node's built-in node:sqlite.
+// Writes are transactional (a crash can never half-write a store — the old
+// atomicWriteJson only protected against truncation, not against one of two
+// related stores landing without the other), reads scale past friends-count
+// players, and there's exactly one file to back up.  Zero new npm deps.
+//
+// Compatibility contract:
+//  - First boot with SQLite: any legacy <store>.json files are imported once
+//    (the .json files are left on disk untouched, as a snapshot of that
+//    moment; the DB is authoritative from then on).
+//  - Node without node:sqlite (< 22.5), or PERSIST_FORCE_JSON=1 set in the
+//    environment: everything transparently falls back to the original
+//    atomic-JSON-file behavior. Same API, same files, nothing to migrate.
+//  - While SQLite is active, every store is ALSO exported to <name>.json.bak
+//    every PERSIST_EXPORT_MS (default 15 min) and on clean shutdown — an
+//    always-current plain-text backup you can read or hand-restore from.
+// ---------------------------------------------------------------------------
+let sqliteDb = null;
+if (!process.env.PERSIST_FORCE_JSON) {
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    sqliteDb = new DatabaseSync(path.join(DATA_DIR, 'thornreach.db'));
+    sqliteDb.exec('PRAGMA journal_mode = WAL');
+    sqliteDb.exec('PRAGMA synchronous = NORMAL');
+    sqliteDb.exec('CREATE TABLE IF NOT EXISTS stores (store TEXT NOT NULL, k TEXT NOT NULL, v TEXT NOT NULL, PRIMARY KEY (store, k))');
+  } catch (e) {
+    sqliteDb = null; // no node:sqlite on this Node — JSON files keep working as ever
+  }
+}
+// Arrays (the auction listings) are stored under this single sentinel row
+// instead of exploding into index-keyed rows that would go stale on splice.
+const PERSIST_ARRAY_KEY = '__array__';
+const PERSIST_REGISTRY = new Map(); // store name -> { file, getLive }
+
+function persistLoad(store, file) {
+  const readJsonFile = () => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return null; } };
+  if (!sqliteDb) return readJsonFile() || {};
+  try {
+    const rows = sqliteDb.prepare('SELECT k, v FROM stores WHERE store = ?').all(store);
+    if (rows.length === 1 && rows[0].k === PERSIST_ARRAY_KEY) return JSON.parse(rows[0].v);
+    if (rows.length) {
+      const out = {};
+      for (const r of rows) out[r.k] = JSON.parse(r.v);
+      return out;
+    }
+    // Nothing in the DB yet — one-time import of the legacy JSON file.
+    const legacy = readJsonFile();
+    if (legacy && typeof legacy === 'object') {
+      persistSave(store, file, legacy);
+      const n = Array.isArray(legacy) ? legacy.length : Object.keys(legacy).length;
+      console.log(`storage: imported legacy ${path.basename(file)} into thornreach.db (${n} entries)`);
+      return legacy;
+    }
+  } catch (e) {
+    console.error('persistLoad failed for ' + store + ':', e.message);
+    const fromFile = readJsonFile();
+    if (fromFile) return fromFile;
+  }
+  return {};
+}
+
+function persistSave(store, file, obj) {
+  if (!sqliteDb) { atomicWriteJson(file, obj); return; }
+  try {
+    sqliteDb.exec('BEGIN');
+    try {
+      sqliteDb.prepare('DELETE FROM stores WHERE store = ?').run(store);
+      const ins = sqliteDb.prepare('INSERT INTO stores (store, k, v) VALUES (?, ?, ?)');
+      if (Array.isArray(obj)) {
+        ins.run(store, PERSIST_ARRAY_KEY, JSON.stringify(obj));
+      } else {
+        for (const [k, v] of Object.entries(obj)) {
+          if (v !== undefined) ins.run(store, k, JSON.stringify(v));
+        }
+      }
+      sqliteDb.exec('COMMIT');
+    } catch (e) { try { sqliteDb.exec('ROLLBACK'); } catch (_) {} throw e; }
+  } catch (e) {
+    // Belt and braces: never lose state silently — fall back to the JSON file.
+    console.error('persistSave failed for ' + store + ':', e.message);
+    atomicWriteJson(file, obj);
+  }
+}
+
+// Per-key fast path for chatty stores (harvest ticks, leaderboard bumps):
+// updates one row instead of rewriting the whole store. Without SQLite it
+// falls back to the full atomic JSON write those stores always did.
+function persistSetKey(store, file, obj, key) {
+  if (!sqliteDb) { atomicWriteJson(file, obj); return; }
+  try {
+    const v = obj[key];
+    if (v === undefined) sqliteDb.prepare('DELETE FROM stores WHERE store = ? AND k = ?').run(store, key);
+    else sqliteDb.prepare('INSERT INTO stores (store, k, v) VALUES (?, ?, ?) ON CONFLICT(store, k) DO UPDATE SET v = excluded.v').run(store, key, JSON.stringify(v));
+  } catch (e) {
+    console.error('persistSetKey failed for ' + store + ':', e.message);
+    atomicWriteJson(file, obj);
+  }
+}
+
+function persistRegister(store, file, getLive) { PERSIST_REGISTRY.set(store, { file, getLive }); }
+function persistExportBackups() {
+  if (!sqliteDb) return; // JSON mode: the .json files ARE the store already
+  for (const [, { file, getLive }] of PERSIST_REGISTRY) {
+    try { atomicWriteJson(file + '.bak', getLive()); } catch (e) {}
+  }
+}
+const PERSIST_EXPORT_MS = Math.max(60 * 1000, parseInt(process.env.PERSIST_EXPORT_MS, 10) || 15 * 60 * 1000);
+const _persistExportTimer = setInterval(persistExportBackups, PERSIST_EXPORT_MS);
+if (_persistExportTimer.unref) _persistExportTimer.unref();
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    try { persistExportBackups(); } catch (e) {}
+    process.exit(0);
+  });
+}
+
 const https = require('https');
 const express = require('express');
 const { WebSocketServer } = require('ws');
@@ -57,6 +176,13 @@ const TOWN_PASSWORD = process.env.TOWN_PASSWORD || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const TOWN_PASS_PRICE_CENTS = parseInt(process.env.TOWN_PASS_PRICE_CENTS, 10) || 99;
 const TOWN_PASS_HOURS = parseFloat(process.env.TOWN_PASS_HOURS) || 24;
+// The Resident Pass (Session L) — the same venues-only pass in the genre's
+// best-liked shape (Genshin's Welkin, HSR's Express Pass): 30 days for
+// $4.99. Nothing new is gated — it's purely the better-value way to buy the
+// same two doors. Store product id: town_pass_30d (both consoles).
+const TOWN_PASS30_PRICE_CENTS = parseInt(process.env.TOWN_PASS30_PRICE_CENTS, 10) || 499;
+const TOWN_PASS30_HOURS = parseFloat(process.env.TOWN_PASS30_HOURS) || 24 * 30;
+const IAP_PRODUCT30_ID = process.env.IAP_PRODUCT30_ID || 'town_pass_30d';
 // The rooms the pass unlocks. Everything not listed here is free.
 const LOCKED_ROOMS = new Set(['lounge', 'arcade']);
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
@@ -73,13 +199,10 @@ const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
 //    guests' passes survive a server restart without a database, because
 //    Stripe is the durable record of what was paid and when.
 const TOWN_PASS_FILE = path.join(DATA_DIR, 'townPasses.json');
-function loadTownPasses() {
-  try { return JSON.parse(fs.readFileSync(TOWN_PASS_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveTownPasses() {
-  atomicWriteJson(TOWN_PASS_FILE, townPasses);
-}
+function loadTownPasses() { return persistLoad('townPasses', TOWN_PASS_FILE); }
+function saveTownPasses() { persistSave('townPasses', TOWN_PASS_FILE, townPasses); }
 const townPasses = loadTownPasses(); // accountKey -> expiresAt (ms)
+persistRegister('townPasses', TOWN_PASS_FILE, () => townPasses);
 const passSessions = new Map();      // stripe checkout session id -> expiresAt (ms)
 
 function hasTownPass(player) {
@@ -96,11 +219,16 @@ function hasTownPass(player) {
 // times the success URL gets replayed — the expiry is computed once from
 // the session's payment time and cached, so refreshing the return page
 // (or re-presenting an old receipt) can never stack extra hours.
-function grantForSession(sessionId, paidAtMs) {
+function grantForSession(sessionId, paidAtMs, hours) {
   if (!passSessions.has(sessionId)) {
-    passSessions.set(sessionId, paidAtMs + TOWN_PASS_HOURS * 3600 * 1000);
+    passSessions.set(sessionId, paidAtMs + (hours || TOWN_PASS_HOURS) * 3600 * 1000);
   }
   return passSessions.get(sessionId);
+}
+// A Stripe session's own metadata says which pass it bought — so replays,
+// restarts and re-verifications always rebuild the right-length window.
+function passHoursForStripeSession(session) {
+  return session && session.metadata && session.metadata.pass_product === 'pass30' ? TOWN_PASS30_HOURS : TOWN_PASS_HOURS;
 }
 
 const app = express();
@@ -129,6 +257,8 @@ app.get('/api/config', (req, res) => {
     paymentsEnabled: !!stripeClient,
     townPassPriceCents: TOWN_PASS_PRICE_CENTS,
     townPassHours: TOWN_PASS_HOURS,
+    townPass30PriceCents: TOWN_PASS30_PRICE_CENTS,
+    townPass30Hours: TOWN_PASS30_HOURS,
     lockedRooms: [...LOCKED_ROOMS]
   });
 });
@@ -330,15 +460,22 @@ app.post('/api/checkout', async (req, res) => {
       });
       return res.json({ url: session.url });
     }
+    // Two shapes of the same pass: the day pass (default — the original
+    // behavior) and the 30-day Resident Pass (Session L).
+    const isResident = product === 'pass30';
     const hoursLabel = TOWN_PASS_HOURS === 24 ? 'a full day' : `${TOWN_PASS_HOURS} hours`;
     const session = await stripeClient.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
+      metadata: isResident ? { pass_product: 'pass30' } : {},
       line_items: [{
         price_data: {
           currency: 'usd',
-          unit_amount: TOWN_PASS_PRICE_CENTS,
-          product_data: {
+          unit_amount: isResident ? TOWN_PASS30_PRICE_CENTS : TOWN_PASS_PRICE_CENTS,
+          product_data: isResident ? {
+            name: 'Thornreach — Resident Pass (30 days)',
+            description: 'Unlocks the Phantom Parlor and the Starlight Arcade for 30 days. Same doors, resident-shaped value.'
+          } : {
             name: 'Town Chat — Town Pass',
             description: `Unlocks the Phantom Parlor and the Starlight Arcade for ${hoursLabel}.`
           }
@@ -371,7 +508,7 @@ app.get('/api/verify-session', async (req, res) => {
     if (session.payment_status !== 'paid') return res.json({ unlocked: false });
     // session.created is seconds; the pass clock starts at payment, not at
     // whenever the buyer got around to bouncing back to the game.
-    const expiresAt = grantForSession(String(sessionId), (session.created || Math.floor(Date.now() / 1000)) * 1000);
+    const expiresAt = grantForSession(String(sessionId), (session.created || Math.floor(Date.now() / 1000)) * 1000, passHoursForStripeSession(session));
     const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
     if (accountKey && (townPasses[accountKey] || 0) < expiresAt) {
       townPasses[accountKey] = expiresAt;
@@ -417,13 +554,12 @@ app.get('/api/verify-session', async (req, res) => {
 // ---------------------------------------------------------------------------
 const MS_FILE = path.join(DATA_DIR, 'moonstones.json');
 function loadMoonstones() {
-  try {
-    const d = JSON.parse(fs.readFileSync(MS_FILE, 'utf8'));
-    return { balances: d.balances || {}, grants: d.grants || {} };
-  } catch (e) { return { balances: {}, grants: {} }; }
+  const d = persistLoad('moonstones', MS_FILE);
+  return { balances: d.balances || {}, grants: d.grants || {} };
 }
 const msData = loadMoonstones();
-function saveMoonstones() { atomicWriteJson(MS_FILE, msData); }
+function saveMoonstones() { persistSave('moonstones', MS_FILE, msData); }
+persistRegister('moonstones', MS_FILE, () => msData);
 function msBalance(key) { return msData.balances[key] || 0; }
 function msAdjust(key, delta) {
   msData.balances[key] = Math.max(0, Math.round((msData.balances[key] || 0) + delta));
@@ -553,8 +689,9 @@ app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => 
       return res.json({ unlocked: true, moonstones: g.balance, granted: g.granted, txId: v.txId });
     }
     // Same replay-proof grant the Stripe flow uses — one transaction id grants
-    // exactly one window, computed from the purchase time.
-    const expiresAt = grantForSession(v.txId, v.purchaseMs || Date.now());
+    // exactly one window, computed from the purchase time. The 30-day
+    // Resident Pass rides the same path with a longer window (Session L).
+    const expiresAt = grantForSession(v.txId, v.purchaseMs || Date.now(), productId === IAP_PRODUCT30_ID ? TOWN_PASS30_HOURS : TOWN_PASS_HOURS);
     const accountKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
     if (accountKey && (townPasses[accountKey] || 0) < expiresAt) { townPasses[accountKey] = expiresAt; saveTownPasses(); }
     for (const p of players.values()) {
@@ -877,7 +1014,15 @@ const HARVEST_RANGE = 70;
 // gather wolfsbane that night). Each identity now sees its own regrowth:
 // accounts keyed durably, guests by their connection (their whole
 // identity already resets on disconnect anyway).
-const decorHarvestedAt = {}; // playerKey -> { decorId -> timestamp }
+// Persisted now (Session L) so the "while you were gone" letter can count
+// what regrew across restarts. Guests still live and die in memory only.
+const HARVESTS_FILE = path.join(DATA_DIR, 'harvests.json');
+const decorHarvestedAt = persistLoad('harvests', HARVESTS_FILE); // playerKey -> { decorId -> timestamp }
+persistRegister('harvests', HARVESTS_FILE, () => decorHarvestedAt);
+function saveHarvests(playerKey) {
+  if (!playerKey || playerKey.startsWith('guest_')) return; // guests reset on disconnect anyway
+  persistSetKey('harvests', HARVESTS_FILE, decorHarvestedAt, playerKey);
+}
 function harvestKeyFor(player) { return player.accountKey || ('guest_' + player.id); }
 function playerHarvests(player) {
   const k = harvestKeyFor(player);
@@ -928,18 +1073,11 @@ const COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#74
 // ---------------------------------------------------------------------------
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 
-function loadAccounts() {
-  try {
-    return JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'));
-  } catch (e) {
-    return {};
-  }
-}
-function saveAccounts() {
-  atomicWriteJson(ACCOUNTS_FILE, accounts);
-}
+function loadAccounts() { return persistLoad('accounts', ACCOUNTS_FILE); }
+function saveAccounts() { persistSave('accounts', ACCOUNTS_FILE, accounts); }
 
 const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
+persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 const sessions = new Map();      // token -> usernameLower
 
 function hashPassword(password, saltHex) {
@@ -1085,6 +1223,8 @@ const ITEM_CATALOG = {
   // Built (not found): 5 Holly Wood at the craft_wand handler. Equipping it
   // makes the bearer glow and light their way at night (client visual).
   holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon' },
+  bloodmoon_shard:   { name: 'Bloodmoon Shard',   icon: '🩸', slot: null },
+  bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head' },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
@@ -1161,6 +1301,7 @@ const EQUIP_STATS = {
   // ── basic shop gear (weak, early) ──
   iron_sword:    { power: 0.10 },
   holly_wand:    { power: 0.07, haste: 0.04 },  // crafted from 5 Holly Wood; its real prize is the light it casts
+  bloodmoon_circlet: { power: 0.05, leech: 0.03 }, // 5 Blood Moon shards; an event trophy you wear (within relic caps)
   spell_tome:    { power: 0.08, haste: 0.05 },
   steel_shield:  { guard: 0.10, vitality: 10 },
   wizard_hat:    { haste: 0.06, xp: 0.05 },
@@ -1677,13 +1818,10 @@ const BANK_STARTING_BALANCE = 100;
 const BANK_STARTER_ITEM_COUNT = 3;
 
 const BANK_FILE = path.join(DATA_DIR, 'bankAccounts.json');
-function loadBankAccounts() {
-  try { return JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveBankAccounts() {
-  atomicWriteJson(BANK_FILE, bankAccounts);
-}
+function loadBankAccounts() { return persistLoad('bankAccounts', BANK_FILE); }
+function saveBankAccounts() { persistSave('bankAccounts', BANK_FILE, bankAccounts); }
 const bankAccounts = loadBankAccounts(); // usernameLower -> { balance, slots: [ {itemId,qty}|null x24 ] }
+persistRegister('bankAccounts', BANK_FILE, () => bankAccounts);
 
 function emptySlots() {
   return new Array(BANK_SLOT_COUNT).fill(null);
@@ -1749,13 +1887,10 @@ function bankStatePayload(key) {
 // inventories.json, same model/caveats as bankAccounts.json.
 // ---------------------------------------------------------------------------
 const INVENTORY_FILE = path.join(DATA_DIR, 'inventories.json');
-function loadInventories() {
-  try { return JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveInventories() {
-  atomicWriteJson(INVENTORY_FILE, inventories);
-}
+function loadInventories() { return persistLoad('inventories', INVENTORY_FILE); }
+function saveInventories() { persistSave('inventories', INVENTORY_FILE, inventories); }
 const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
+persistRegister('inventories', INVENTORY_FILE, () => inventories);
 const INVENTORY_STARTER_ITEM_COUNT = 2;
 // All possible equip slot keys — used throughout to avoid scattered literals.
 const EQUIP_SLOTS = ['weapon', 'head', 'chest', 'feet', 'ring'];
@@ -1847,13 +1982,10 @@ function inventoryStatePayload(player) {
 // never reach into hardDrives at all.
 // ---------------------------------------------------------------------------
 const HARDDRIVE_FILE = path.join(DATA_DIR, 'hardDrives.json');
-function loadHardDrives() {
-  try { return JSON.parse(fs.readFileSync(HARDDRIVE_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveHardDrives() {
-  atomicWriteJson(HARDDRIVE_FILE, hardDrives);
-}
+function loadHardDrives() { return persistLoad('hardDrives', HARDDRIVE_FILE); }
+function saveHardDrives() { persistSave('hardDrives', HARDDRIVE_FILE, hardDrives); }
 const hardDrives = loadHardDrives(); // usernameLower -> { passwordSalt, passwordHash, notes: [] }
+persistRegister('hardDrives', HARDDRIVE_FILE, () => hardDrives);
 const HARDDRIVE_NOTE_CAPACITY = 24;
 
 // A logged-in player's regular inbox (not the Hard Drive vault above) now
@@ -1862,13 +1994,10 @@ const HARDDRIVE_NOTE_CAPACITY = 24;
 // Guests still get a plain in-memory array that dies with the connection,
 // same as their inventory/vault.
 const INBOX_FILE = path.join(DATA_DIR, 'inboxes.json');
-function loadInboxes() {
-  try { return JSON.parse(fs.readFileSync(INBOX_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveInboxes() {
-  atomicWriteJson(INBOX_FILE, inboxes);
-}
+function loadInboxes() { return persistLoad('inboxes', INBOX_FILE); }
+function saveInboxes() { persistSave('inboxes', INBOX_FILE, inboxes); }
 const inboxes = loadInboxes();
+persistRegister('inboxes', INBOX_FILE, () => inboxes);
 
 function getHardDrive(player) {
   if (player.accountKey) {
@@ -2003,20 +2132,44 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   }
 
   if (targetType === 'dungeon') {
-    const t = dungeonMobs.find(m => m.id === targetId);
+    const t = findDungeonTarget(targetId, player.room);
     if (!t || t.dead || t.room !== player.room || outOfRange(t)) return { ok: false };
+    const preset = DUNGEON_MOB_TYPES[t.mobType];
+    // A ranged opener counts as engaging — the boss scales before the first
+    // point of damage lands, so kiting from outside aggro can't cheese it
+    // into a solo-sized health pool.
+    if (t.boss && !t.engaged) bossEngagedScale(t, preset);
     t.health = Math.max(0, t.health - dmg);
     applySkillLifesteal(player, dmg);
-    const preset = DUNGEON_MOB_TYPES[t.mobType];
     broadcastHitFx(player.room, 'dungeon', targetId, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
       t.dead = true;
-      t.respawnAt = Date.now() + DUNGEON_RESPAWN_MS;
+      t.respawnAt = Date.now() + (t.boss ? DUNGEON_BOSS_RESPAWN_MS : DUNGEON_RESPAWN_MS);
       grantXP(player, preset.xp);
       registerHuntKill(player);
       advanceQuestProgress(player, 'kill_mob', null);
       storyEvent(player, 'kill_mob', { pool: 'dungeon', mobType: t.mobType });
-      t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
+      if (t.delve) noteDelveKill(player, t);
+      if (t.boss) {
+        // Co-op payout (Session L): everyone alive in the room shares the
+        // triumph — 60% of the boss's XP to each non-killer present, so a
+        // party wipe-run pays the healers and off-tanks too.
+        for (const ally of players.values()) {
+          if (ally.id !== player.id && ally.room === player.room && !ally.isDead) {
+            grantXP(ally, Math.round(preset.xp * 0.6));
+            send(ally.ws, { type: 'trophy_bonus', message: `⚔️ Your party felled ${preset.name}!` });
+          }
+        }
+        // Bosses double-roll their OWN tier's table (the generic path keys
+        // loot by xp, which a boss's outsized xp would mis-tier).
+        const table = LOOT_TABLES['dungeon_t' + t.tier] || dungeonLootTable(preset.xp);
+        t.pendingLoot = [...rollPendingLoot(table), ...rollPendingLoot(table)];
+        const where = t.delve ? 'the Delve' : (DUNGEON_LORE[t.tier] ? DUNGEON_LORE[t.tier].name : 'the dungeon');
+        broadcastAll({ type: 'announce', message: `⚔️ ${player.name} felled ${preset.name} in ${where}!` });
+        noteBossKill(player, t);
+      } else {
+        t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
+      }
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
       return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
@@ -2043,7 +2196,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     t.respawnAt = Date.now() + poolInfo.respawnMs;
     if (targetType === 'mob' || targetType === 'mob2' || targetType === 'ember_mob') registerHuntKill(player);
     if (targetType === 'mob2') {
-      grantXP(player, 15);
+      grantXP(player, bloodMoonKillXp(15));
+      maybeDropBloodShard(player);
       advanceQuestProgress(player, 'kill_mob', null);
       storyEvent(player, 'kill_mob', { pool: 'mob2', mobType: t.mobType });
       const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
@@ -2058,7 +2212,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       // First kill of each night pays a bonus on top: a small "show up
       // when the moon does" ritual that gives every night a fresh-start
       // hook and makes the nightly spawn feel like an event, not scenery.
-      grantXP(player, TOWN_MOB_XP);
+      grantXP(player, bloodMoonKillXp(TOWN_MOB_XP));
+      maybeDropBloodShard(player);
       advanceQuestProgress(player, 'kill_mob', null);
       storyEvent(player, 'kill_mob', { pool: 'mob', mobType: t.mobType });
       const nightIdx = Math.floor(Date.now() / CYCLE_MS);
@@ -2092,13 +2247,10 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
 // the rest of the guest-identity model.
 // ---------------------------------------------------------------------------
 const PROGRESS_FILE = path.join(DATA_DIR, 'playerProgress.json');
-function loadProgress() {
-  try { return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); } catch (e) { return {}; }
-}
-function saveProgress() {
-  atomicWriteJson(PROGRESS_FILE, playerProgress);
-}
+function loadProgress() { return persistLoad('playerProgress', PROGRESS_FILE); }
+function saveProgress() { persistSave('playerProgress', PROGRESS_FILE, playerProgress); }
 const playerProgress = loadProgress(); // accountKey -> { xp, level, skillPoints, questCooldowns: {} }
+persistRegister('playerProgress', PROGRESS_FILE, () => playerProgress);
 
 // XP needed to reach each level (index = level). Level cap at 20.
 const XP_THRESHOLDS = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 6000,
@@ -2149,6 +2301,11 @@ function grantXP(player, amount) {
   // it can't be relog-farmed.
   if (player.restedUntil && now < player.restedUntil) {
     amount = Math.round(amount * REST_XP_MULT);
+  }
+  // 🏮 The Hearthmoon Festival (first Saturday, monthly): +25% XP for
+  // everyone, all day — a calendar beat, same transient spirit as Rested.
+  if (festivalWindow(now).active) {
+    amount = Math.round(amount * FESTIVAL_XP_MULT);
   }
   const prog = getProgress(player);
   const wasLevelOne = prog.level === 1; // level only ever increases, so this alone means "never leveled up before"
@@ -2294,17 +2451,29 @@ function gearStatContrib(player, statKey) {
   }
   return sum;
 }
-// Combined skill + gear contribution — the single source of truth every
-// derived stat (and the client stats panel) reads from.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey); }
+// Combined skill + gear + (during a delve run) boon contribution — the
+// single source of truth every derived stat (and the client stats panel)
+// reads from. Delve boons speak the same stat vocabulary, so a run's drafted
+// power/guard/vitality/haste/swift/leech simply joins the sum for its
+// duration (delveBoonContrib is 0 for anyone not in a run).
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
-function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')); } // floor: 75% max reduction
+function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
 function playerMaxHealth(player)    { return (player && player.charId != null) ? Math.round(100 + statContrib(player, 'vitality')) : 100; }
 function abilityCooldownFor(player, base) { return Math.round(base * (1 - Math.min(0.7, statContrib(player, 'haste')))); } // cap: 70% faster
 function skillLifestealFrac(player) { return statContrib(player, 'leech'); }
-function skillMendingRate(player)   { return SKILL_FX.mending(skillEffectRank(player, 'mending')); } // mending is skill-only (no gear stat)
-function skillHarvestExtraChance(player) { return statContrib(player, 'forage'); }
+function skillMendingRate(player)   {
+  // mending is skill-only (no gear stat) — plus Witch's Broth boons in a
+  // delve, minus everything under a Starving Moon (the -Infinity sentinel).
+  const delve = delveMendingBonus(player);
+  if (delve === -Infinity) return 0;
+  return SKILL_FX.mending(skillEffectRank(player, 'mending')) + delve;
+}
+function skillHarvestExtraChance(player) {
+  // 🏮 Festival day sweetens every forager's odds (Session L).
+  return statContrib(player, 'forage') + (festivalWindow(Date.now()).active ? FESTIVAL_FORAGE_BONUS : 0);
+}
 function skillXpMult(player)        { return 1 + statContrib(player, 'xp'); }
 function skillSpeedMult(player)     { return 1 + statContrib(player, 'swift'); }
 
@@ -2956,6 +3125,11 @@ function objectiveMatches(obj, eventType, detail) {
 // from player.activeQuest so a side quest and a chapter can both tick off
 // the same kill.
 function storyEvent(player, eventType, detail = {}) {
+  // First Steps piggyback (Session L): every talk/harvest/kill already
+  // funnels through here, so the newcomer tracker needs no extra call sites.
+  if (eventType === 'kill_mob') noteFirstStep(player, 'killed');
+  else if (eventType === 'harvest_plant') noteFirstStep(player, 'harvested');
+  else if (eventType === 'talk_npc') noteFirstStep(player, 'talked');
   const line = STORYLINES[player.charId];
   if (!line) return;
   const st = getStoryState(player);
@@ -3154,12 +3328,12 @@ function unequipToInventory(inv, equipKind) {
 // ---------------------------------------------------------------------------
 const LISTINGS_FILE = path.join(DATA_DIR, 'listings.json');
 function loadListings() {
-  try { return JSON.parse(fs.readFileSync(LISTINGS_FILE, 'utf8')); } catch (e) { return []; }
+  const d = persistLoad('listings', LISTINGS_FILE);
+  return Array.isArray(d) ? d : [];
 }
-function saveListings() {
-  atomicWriteJson(LISTINGS_FILE, listings);
-}
+function saveListings() { persistSave('listings', LISTINGS_FILE, listings); }
 let listings = loadListings();
+persistRegister('listings', LISTINGS_FILE, () => listings);
 
 const AUCTION_DURATIONS_MS = { 1: 3600000, 12: 12 * 3600000, 24: 24 * 3600000 };
 // Moonstone-lane house cut, taken from the seller's proceeds at resolution.
@@ -3954,8 +4128,23 @@ const mobs = MOB_SPAWNS.map((p, i) => ({
 // PvP deliberately excluded so nobody farms their friends for the counter.
 const EMOTE_SET = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
 const STREAK_WINDOW_MS = 8000;
+// Blood Moon claws (Session L): outdoor night creatures hit ~25% harder
+// while the red moon is up. Town + Wilds pools only — the underground zones
+// never see the sky.
+function bloodMoonMobDamage(rolled) {
+  return bloodMoonActive() ? Math.round(rolled * BLOOD_MOON_MOB_DMG_MULT) : rolled;
+}
+// Kill XP under the Blood Moon pays half again (outdoor pools, same scope).
+function bloodMoonKillXp(base) {
+  return bloodMoonActive() ? Math.round(base * BLOOD_MOON_XP_MULT) : base;
+}
+
 function registerHuntKill(player) {
   const now = Date.now();
+  // Every creature felled scores the weekly Hunts board — and the Tournament
+  // lane too while the weekend window is open (Session L).
+  lbBump('hunt', player, 1);
+  if (tourneyWindow(now).active) lbBump('tourney', player, 1);
   player.huntStreak = (player.lastHuntKillAt && now - player.lastHuntKillAt <= STREAK_WINDOW_MS)
     ? (player.huntStreak || 1) + 1 : 1;
   player.lastHuntKillAt = now;
@@ -4095,7 +4284,7 @@ function tickWildlife(dt) {
       vy = dy * inv * C.chaseSpeed;
       if (dist < C.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= C.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = absorbIncomingDamage(nearestP, C.dmgMin + Math.floor(Math.random() * (C.dmgMax - C.dmgMin + 1)));
+        const dmg = absorbIncomingDamage(nearestP, bloodMoonMobDamage(C.dmgMin + Math.floor(Math.random() * (C.dmgMax - C.dmgMin + 1))));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         noteAttacked(nearestP);
         if (nearestP.health <= 0) {
@@ -4267,7 +4456,7 @@ function tickWilds(dt) {
       vy = dy * inv * preset.speed;
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+        const dmg = absorbIncomingDamage(nearestP, bloodMoonMobDamage(preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         noteAttacked(nearestP);
         if (nearestP.health <= 0) {
@@ -4401,6 +4590,40 @@ function dungeonTierForLevel(level) {
   return 4;
 }
 
+// ── Named dungeons (Session L) ──────────────────────────────────────────────
+// The four tiers are PLACES now, not numbers — each with a name, a lore
+// plaque at the entrance, and a signature boss holding the deep end of the
+// arena. Names surface everywhere the raw tier used to (entry toast, the
+// location pill, the Journal, the store listings). The catalog ships to the
+// client in init (like legendaryCatalog) — one authoritative copy, no
+// hand-sync.
+const DUNGEON_LORE = {
+  1: {
+    name: 'The Rootcellar', epithet: 'beneath the oldest house in Thornreach',
+    bossKey: 'boss_rat_king',
+    plaque: '“Every town buries something. Thornreach dug a cellar for it. The roots grew down from above and the rats grew up from below, and in the dark where they meet, Old Gnawbone wears a crown of tarnished spoons. Feed him your courage — or your bones.”'
+  },
+  2: {
+    name: 'The Weeping Crypts', epithet: 'where the old covens laid their debts',
+    bossKey: 'boss_crypt_weaver',
+    plaque: '“The stones down here sweat a cold water the gravediggers called crypt-tears. Widow Silk spins beneath the drowned chapel, and her web is strung with wedding rings. Mind the strands. She knows the weight of every visitor by heart.”'
+  },
+  3: {
+    name: 'The Howling Forge', epithet: 'the mountain’s furnace that never went out',
+    bossKey: 'boss_forge_tyrant',
+    plaque: '“Dwarrow-work or giant-work, the masons still argue — the Forge doesn’t care. It breathes through the floor grates and it remembers being a volcano. Cindermaw stokes the heart-coal with a shovel beaten from dead men’s shields. Bring water. Bring friends.”'
+  },
+  4: {
+    name: 'The Starless Deep', epithet: 'the dark below the dark',
+    bossKey: 'boss_pale_sovereign',
+    plaque: '“Lanterns gutter here not from wind but from doubt. This is the sea-floor of the night sky, where fallen constellations settle like silt. The Pale Sovereign holds court over everything the stars forgot — and it is always listening for new names.”'
+  }
+};
+function dungeonNameForRoom(room) {
+  const m = /^dungeon_t([1-4])$/.exec(room || '');
+  return m ? DUNGEON_LORE[Number(m[1])].name : null;
+}
+
 const DUNGEON_MOB_TYPES = {
   // Tier 1 — levels 1-5
   cave_rat:         { name: 'Cave Rat',         tier: 1, xp: 8,  color: 0x6b4c2a, scale: 0.55, maxHealth: 20,  speed: 70,  aggroRadius: 150, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1400 },
@@ -4437,7 +4660,17 @@ const DUNGEON_MOB_TYPES = {
   infernal_brute:   { name: 'Infernal Brute',    tier: 4, xp: 65, color: 0x8a1a00, scale: 1.6,  maxHealth: 360, speed: 20,  aggroRadius: 110, strikeRange: 68, dmgMin: 42, dmgMax: 54, hitCooldownMs: 2800 },
   death_knight:     { name: 'Death Knight',      tier: 4, xp: 65, color: 0x1a1a2a, scale: 1.2,  maxHealth: 320, speed: 55,  aggroRadius: 220, strikeRange: 58, dmgMin: 38, dmgMax: 48, hitCooldownMs: 1800 },
   chaos_dragon:     { name: 'Chaos Dragon',      tier: 4, xp: 65, color: 0x660000, scale: 1.5,  maxHealth: 350, speed: 80,  aggroRadius: 270, strikeRange: 60, dmgMin: 44, dmgMax: 56, hitCooldownMs: 1500 },
-  void_leviathan:   { name: 'Void Leviathan',    tier: 4, xp: 65, color: 0x000022, scale: 2.0,  maxHealth: 450, speed: 10,  aggroRadius: 95,  strikeRange: 80, dmgMin: 50, dmgMax: 65, hitCooldownMs: 3200 }
+  void_leviathan:   { name: 'Void Leviathan',    tier: 4, xp: 65, color: 0x000022, scale: 2.0,  maxHealth: 450, speed: 10,  aggroRadius: 95,  strikeRange: 80, dmgMin: 50, dmgMax: 65, hitCooldownMs: 3200 },
+  // ── Signature bosses (Session L) — one per named dungeon. NOT in
+  // DUNGEON_MOB_KEYS_BY_TIER (the 2-instance spawn loop skips them); they
+  // spawn once each below, respawn slowly, scale with the party in the room
+  // (see bossEngagedScale), double-roll their own tier's loot table, and
+  // share kill XP with everyone present — the party-boss loop the top-10
+  // review said the dungeons were missing.
+  boss_rat_king:       { name: 'Old Gnawbone, the Rat King',   tier: 1, xp: 45,  boss: true, color: 0x8a6a3a, scale: 1.5,  maxHealth: 170,  speed: 62, aggroRadius: 215, strikeRange: 55, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1500 },
+  boss_crypt_weaver:   { name: 'Widow Silk, the Crypt Weaver', tier: 2, xp: 100, boss: true, color: 0x5a2a5a, scale: 1.65, maxHealth: 400,  speed: 72, aggroRadius: 235, strikeRange: 58, dmgMin: 14, dmgMax: 20, hitCooldownMs: 1600 },
+  boss_forge_tyrant:   { name: 'Cindermaw, the Forge-Tyrant',  tier: 3, xp: 200, boss: true, color: 0xb84a10, scale: 1.95, maxHealth: 720,  speed: 46, aggroRadius: 245, strikeRange: 66, dmgMin: 26, dmgMax: 34, hitCooldownMs: 1900 },
+  boss_pale_sovereign: { name: 'The Pale Sovereign',           tier: 4, xp: 400, boss: true, color: 0xd8d8ea, scale: 2.1,  maxHealth: 1350, speed: 66, aggroRadius: 260, strikeRange: 64, dmgMin: 40, dmgMax: 52, hitCooldownMs: 1700 }
 };
 
 const DUNGEON_MOB_KEYS_BY_TIER = {
@@ -4484,6 +4717,58 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
   }
 }
 
+// One signature boss per tier, holding the middle-north of the arena (the
+// exit portal stays reachable along the walls for anyone not looking for a
+// fight). Slower respawn than the rank-and-file so a boss kill stays an
+// event, not a farm.
+const DUNGEON_BOSS_SPAWN = { x: 400, y: 240 };
+const DUNGEON_BOSS_RESPAWN_MS = 5 * 60 * 1000;
+for (const tier of [1, 2, 3, 4]) {
+  const key = DUNGEON_LORE[tier].bossKey;
+  const preset = DUNGEON_MOB_TYPES[key];
+  dungeonMobs.push({
+    id: `dungboss_t${tier}`,
+    mobType: key, tier, room: DUNGEON_ROOMS[tier], boss: true,
+    spawnX: DUNGEON_BOSS_SPAWN.x, spawnY: DUNGEON_BOSS_SPAWN.y,
+    x: DUNGEON_BOSS_SPAWN.x, y: DUNGEON_BOSS_SPAWN.y,
+    facing: Math.PI, wanderTimer: 2, wanderAngle: 0, paused: false,
+    health: preset.maxHealth, scaledMax: preset.maxHealth, engaged: false,
+    dead: false, respawnAt: 0, lastHitAt: 0
+  });
+}
+
+// Party scaling (Session L): the moment a boss first engages, its health
+// pool grows +60% per extra living player in the room — so a full party
+// fights a monument, not a piñata. Computed once per life (at engage), so
+// mid-fight joins/leaves can't yo-yo the bar.
+const PARTY_BOSS_HP_PER_ALLY = 0.6;
+function playersInRoom(room) {
+  let n = 0;
+  for (const p of players.values()) if (p.room === room && !p.isDead) n++;
+  return n;
+}
+function bossEngagedScale(m, preset) {
+  const n = Math.max(1, playersInRoom(m.room));
+  m.engaged = true;
+  m.scaledMax = Math.round(preset.maxHealth * (1 + PARTY_BOSS_HP_PER_ALLY * (n - 1)));
+  m.health = m.scaledMax;
+}
+function dungeonMobMaxHealth(m) {
+  const preset = DUNGEON_MOB_TYPES[m.mobType];
+  return (m.boss && m.scaledMax) ? m.scaledMax : preset.maxHealth;
+}
+
+// Strike-target lookup for everything that lives in the dungeon scene: the
+// shared tier arenas' mobs/bosses, or — inside a delve run — that run's own
+// instanced mobs (see the Weekly Delve below).
+function findDungeonTarget(targetId, room) {
+  if (room && room.startsWith('dungeon_delve_')) {
+    const run = delveRunsByRoom.get(room);
+    return run ? (run.mobs.find(m => m.id === targetId) || null) : null;
+  }
+  return dungeonMobs.find(m => m.id === targetId) || null;
+}
+
 function nearestDungeonPlayer(room, x, y) {
   let best = null, bestDist = Infinity;
   for (const p of players.values()) {
@@ -4502,6 +4787,7 @@ function tickDungeon(dt) {
       if (now >= m.respawnAt) {
         m.dead = false;
         m.health = DUNGEON_MOB_TYPES[m.mobType].maxHealth;
+        if (m.boss) { m.engaged = false; m.scaledMax = DUNGEON_MOB_TYPES[m.mobType].maxHealth; }
         m.x = m.spawnX; m.y = m.spawnY;
         m.pendingLoot = null; m.lootKillerId = null;
       }
@@ -4516,6 +4802,8 @@ function tickDungeon(dt) {
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
     } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
+      // A boss sizes up the whole room the first time it stirs (Session L).
+      if (m.boss && !m.engaged) bossEngagedScale(m, preset);
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
@@ -4591,6 +4879,7 @@ setInterval(() => {
   tickWilds(dt);
   tickVillageNpcs(dt);
   tickDungeon(dt);
+  tickDelves(dt);
   tickPlayerStatusHealth(now, dt);
   tickTorchNpcs(dt);
   updateTemplePortalState();
@@ -4607,7 +4896,7 @@ setInterval(() => {
     animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
     mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     // decor is per-player now — sent individually on join and after each harvest
-    dungeonMobs: dungeonMobs.map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: DUNGEON_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    dungeonMobs: [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
     torches: townTorchPublicState(),
@@ -4777,6 +5066,1049 @@ function legendaryShopPayload(player) {
     }),
     nextRotationAt: LEGENDARY_EPOCH + (legendaryWeekIndex(now) + 1) * LEGENDARY_WEEK_MS,
     balance: player.accountKey ? msBalance(player.accountKey) : 0
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION L — the competitive-review build-out. Everything below this banner
+// (leaderboards, the event calendar, the Weekly Delve, covens, streaks) was
+// added in one round to close the "retention hooks" and "content rotation"
+// gaps the top-10 review found. Shared conventions: weeks are Mondays 00:00
+// UTC (the Peddler's week — one concept of "this week" everywhere), all
+// rotation math is seeded/deterministic (mulberry32, same as the Peddler) so
+// every restart and every client agrees, and all new persistent state rides
+// the Session L storage layer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Leaderboards ─────────────────────────────────────────────────────────────
+// "Give the nightly trophy and hunt streaks a board in the town square." —
+// weekly boards for hunts / bosses / delve depth, plus the weekend
+// tournament's own lane. Account holders only (guests are ephemeral by
+// design — the client nudges them to log in instead). Keyed by week so
+// history is queryable; periods older than ~2 months are pruned at boot.
+const LEADERBOARDS_FILE = path.join(DATA_DIR, 'leaderboards.json');
+const leaderboards = persistLoad('leaderboards', LEADERBOARDS_FILE);
+persistRegister('leaderboards', LEADERBOARDS_FILE, () => leaderboards);
+const LB_BOARDS = ['hunt', 'boss', 'delve', 'tourney'];
+const LB_TOP_N = 20;
+const LB_KEEP_WEEKS = 9;
+
+function weekKey(now) { return 'w' + legendaryWeekIndex(now); }
+// Prune ancient periods (keep a couple months of history + the honors log).
+(() => {
+  const cutoff = legendaryWeekIndex(Date.now()) - LB_KEEP_WEEKS;
+  let pruned = false;
+  for (const k of Object.keys(leaderboards)) {
+    const m = /^w(-?\d+)$/.exec(k);
+    if (m && Number(m[1]) < cutoff) { delete leaderboards[k]; pruned = true; }
+  }
+  if (pruned) persistSave('leaderboards', LEADERBOARDS_FILE, leaderboards);
+})();
+
+function lbPeriod(wk) {
+  if (!leaderboards[wk]) leaderboards[wk] = {};
+  return leaderboards[wk];
+}
+function lbBump(board, player, delta) {
+  if (!player || !player.accountKey || !delta) return;
+  const wk = weekKey(Date.now());
+  const period = lbPeriod(wk);
+  if (!period[board]) period[board] = {};
+  const e = period[board][player.accountKey] || (period[board][player.accountKey] = { name: player.name, value: 0 });
+  e.name = player.name; // keep the display name fresh
+  e.value += delta;
+  persistSetKey('leaderboards', LEADERBOARDS_FILE, leaderboards, wk);
+}
+function lbSetMax(board, player, value) {
+  if (!player || !player.accountKey || !(value > 0)) return;
+  const wk = weekKey(Date.now());
+  const period = lbPeriod(wk);
+  if (!period[board]) period[board] = {};
+  const e = period[board][player.accountKey] || (period[board][player.accountKey] = { name: player.name, value: 0 });
+  e.name = player.name;
+  if (value > e.value) e.value = value;
+  persistSetKey('leaderboards', LEADERBOARDS_FILE, leaderboards, wk);
+}
+function lbTop(board, wk, topN) {
+  const period = leaderboards[wk] || {};
+  const b = period[board] || {};
+  return Object.entries(b)
+    .map(([key, e]) => ({ key, name: e.name, value: e.value }))
+    .sort((a, b2) => b2.value - a.value)
+    .slice(0, topN || LB_TOP_N);
+}
+function lbRankOf(board, wk, accountKey) {
+  if (!accountKey) return null;
+  const period = leaderboards[wk] || {};
+  const b = period[board] || {};
+  if (!b[accountKey]) return null;
+  const better = Object.values(b).filter(e => e.value > b[accountKey].value).length;
+  return { rank: better + 1, value: b[accountKey].value };
+}
+
+// Honors — the permanent trophy shelf. When a week closes, its top three in
+// each board get an entry here (and a gold purse). Settled lazily: the first
+// board interaction after rollover pays out, so no cron is needed and a
+// sleepy Monday-morning server can't miss it.
+const LB_WEEK_PRIZES = [250, 125, 60]; // gold, 1st/2nd/3rd
+function lbSettleClosedWeeks() {
+  const currentIdx = legendaryWeekIndex(Date.now());
+  for (const wk of Object.keys(leaderboards)) {
+    const m = /^w(-?\d+)$/.exec(wk);
+    if (!m || Number(m[1]) >= currentIdx) continue;
+    const period = leaderboards[wk];
+    if (!period || period.settled) continue;
+    period.settled = true;
+    if (!leaderboards.honors) leaderboards.honors = {};
+    for (const board of LB_BOARDS) {
+      lbTop(board, wk, 3).forEach((e, i) => {
+        if (!leaderboards.honors[e.key]) leaderboards.honors[e.key] = [];
+        leaderboards.honors[e.key].push({ week: wk, board, place: i + 1, value: e.value });
+        const purse = LB_WEEK_PRIZES[i] || 0;
+        if (purse && accounts[e.key]) {
+          ensureBankAccount(e.key).balance += purse;
+          const online = findConnectionByAccountKey(e.key);
+          if (online) send(online.ws, { type: 'announce', message: `🏅 Last week's ${boardLabel(board)} board: you placed #${i + 1}! ${purse} gold has been paid to your bank.` });
+        }
+      });
+    }
+    saveBankAccounts();
+    persistSetKey('leaderboards', LEADERBOARDS_FILE, leaderboards, wk);
+    persistSetKey('leaderboards', LEADERBOARDS_FILE, leaderboards, 'honors');
+  }
+}
+function boardLabel(board) {
+  return { hunt: 'Hunts', boss: 'Bosses', delve: 'Delve', tourney: 'Tournament' }[board] || board;
+}
+function noteBossKill(player, mob) {
+  lbBump('boss', player, 1);
+}
+function boardStatePayload(player) {
+  lbSettleClosedWeeks();
+  const now = Date.now();
+  const wk = weekKey(now);
+  const t = tourneyWindow(now);
+  const boards = {};
+  for (const board of LB_BOARDS) {
+    boards[board] = {
+      top: lbTop(board, wk),
+      me: player.accountKey ? lbRankOf(board, wk, player.accountKey) : null
+    };
+  }
+  return {
+    type: 'board_state',
+    week: wk,
+    weekEndsAt: LEGENDARY_EPOCH + (legendaryWeekIndex(now) + 1) * LEGENDARY_WEEK_MS,
+    boards,
+    tourney: { active: t.active, startsAt: t.startsAt, endsAt: t.endsAt },
+    honors: player.accountKey ? ((leaderboards.honors || {})[player.accountKey] || []).slice(-12) : [],
+    isGuest: !player.accountKey
+  };
+}
+
+// ── The event calendar ───────────────────────────────────────────────────────
+// "Three beats is a rhythm": Peddler Monday (existing) + the Weekend Hunt
+// Tournament + the monthly Hearthmoon Festival — plus the Blood Moon, a
+// recurring twisted-rules night. All pure UTC math over Date.now(): no cron,
+// no stored schedule, every restart and every client agrees.
+//
+//  - Tournament: Friday 18:00 UTC → Sunday 24:00 UTC, every week. Hunt kills
+//    made inside the window score the 'tourney' board; top three take gold
+//    and an honors entry when the week settles.
+//  - Hearthmoon Festival: the first Saturday of each month, 00:00–24:00 UTC.
+//    +25% XP and +15% bonus-forage chance for everyone, all day.
+//  - Blood Moon: every 13th night of the 40-minute day/night cycle. The moon
+//    rises red, night creatures hit ~25% harder and give +50% XP, and any
+//    night kill can shake loose a 🩸 Bloodmoon Shard — five craft a circlet.
+function tourneyWindow(now) {
+  const DAY = 24 * 3600 * 1000;
+  const weekStart = LEGENDARY_EPOCH + legendaryWeekIndex(now) * LEGENDARY_WEEK_MS; // Monday 00:00 UTC
+  const startsAt = weekStart + 4 * DAY + 18 * 3600 * 1000; // Friday 18:00 UTC
+  const endsAt = weekStart + 7 * DAY;                      // Sunday 24:00 UTC
+  return { active: now >= startsAt && now < endsAt, startsAt, endsAt };
+}
+function festivalWindow(now) {
+  const d = new Date(now);
+  const firstSaturday = (y, mo) => {
+    const first = Date.UTC(y, mo, 1);
+    const dow = new Date(first).getUTCDay(); // 0 Sun … 6 Sat
+    return first + ((6 - dow + 7) % 7) * 24 * 3600 * 1000;
+  };
+  let start = firstSaturday(d.getUTCFullYear(), d.getUTCMonth());
+  let end = start + 24 * 3600 * 1000;
+  if (now >= end) { // this month's already passed — report next month's
+    const nextMo = d.getUTCMonth() + 1;
+    start = firstSaturday(d.getUTCFullYear() + (nextMo > 11 ? 1 : 0), nextMo % 12);
+    end = start + 24 * 3600 * 1000;
+  }
+  return { active: now >= start && now < end, startsAt: start, endsAt: end, name: 'The Hearthmoon Festival' };
+}
+const FESTIVAL_XP_MULT = 1.25;
+const FESTIVAL_FORAGE_BONUS = 0.15;
+
+const BLOOD_MOON_EVERY_NIGHTS = 13;
+function nightIndex(now) { return Math.floor(now / CYCLE_MS); }
+function bloodMoonWindow(now) {
+  const idx = nightIndex(now);
+  const isBloodNight = (idx % BLOOD_MOON_EVERY_NIGHTS) === 0;
+  const nightStartsAt = idx * CYCLE_MS + DAY_MS;
+  const nightEndsAt = (idx + 1) * CYCLE_MS;
+  const active = isBloodNight && now >= nightStartsAt && now < nightEndsAt;
+  // Next blood-moon night rise, for countdowns.
+  let nextIdx = idx + ((idx % BLOOD_MOON_EVERY_NIGHTS) === 0 && now < nightEndsAt ? 0 : BLOOD_MOON_EVERY_NIGHTS - (idx % BLOOD_MOON_EVERY_NIGHTS || BLOOD_MOON_EVERY_NIGHTS));
+  if ((idx % BLOOD_MOON_EVERY_NIGHTS) === 0 && now >= nightEndsAt) nextIdx = idx + BLOOD_MOON_EVERY_NIGHTS;
+  return { active, nextRiseAt: nextIdx * CYCLE_MS + DAY_MS, endsAt: nightEndsAt };
+}
+function bloodMoonActive() { return bloodMoonWindow(Date.now()).active; }
+const BLOOD_MOON_MOB_DMG_MULT = 1.25;
+const BLOOD_MOON_XP_MULT = 1.5;
+const BLOOD_MOON_SHARD_CHANCE = 0.35;
+const BLOODMOON_CIRCLET_COST = 5; // shards → craft_circlet handler
+
+function calendarPublicState(now) {
+  now = now != null ? now : Date.now();
+  const t = tourneyWindow(now), f = festivalWindow(now), bm = bloodMoonWindow(now);
+  return {
+    now,
+    tourney: t,
+    festival: f,
+    bloodMoon: bm,
+    peddlerNextRotationAt: LEGENDARY_EPOCH + (legendaryWeekIndex(now) + 1) * LEGENDARY_WEEK_MS
+  };
+}
+
+// Blood-moon shard drops ride every night-mob kill (town mobs, wilds mobs,
+// dungeon mobs — anything hostile killed while the red moon is up).
+function maybeDropBloodShard(player) {
+  if (!bloodMoonActive() || Math.random() >= BLOOD_MOON_SHARD_CHANCE) return;
+  const inv = getInventory(player);
+  if (!addItemToAccount(inv, 'bloodmoon_shard', 1)) return;
+  if (player.accountKey) saveInventories();
+  const n = countItemQty(inv, 'bloodmoon_shard');
+  send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+  send(player.ws, {
+    type: 'harvest_result',
+    message: n >= BLOODMOON_CIRCLET_COST
+      ? `🩸 A Bloodmoon Shard! (${n}) — enough to bind a 🔴 Bloodmoon Circlet. Open your pack.`
+      : `🩸 A Bloodmoon Shard falls glittering! (${n}/${BLOODMOON_CIRCLET_COST} for a circlet)`
+  });
+}
+
+// Transition announcer — watches the deterministic windows and announces
+// openings/closings + pokes the calendar state to clients + fires push
+// notifications. 15s cadence: cheap, and transitions land within moments.
+let _calSnapshot = null;
+setInterval(() => {
+  const now = Date.now();
+  const t = tourneyWindow(now), f = festivalWindow(now), bm = bloodMoonWindow(now);
+  const snap = `${t.active}|${f.active}|${bm.active}|${legendaryWeekIndex(now)}`;
+  if (_calSnapshot === null) { _calSnapshot = snap; return; }
+  if (snap === _calSnapshot) return;
+  const [pt, pf, pbm, pwk] = _calSnapshot.split('|');
+  _calSnapshot = snap;
+  if (String(t.active) !== pt) {
+    broadcastAll({ type: 'announce', message: t.active
+      ? '🏹 The Weekend Hunt Tournament has begun! Every creature felled counts — the board in the town square is watching.'
+      : '🏹 The Weekend Hunt Tournament has ended. Honors post when the week turns — check the town board.' });
+    if (t.active) pushBroadcast('events', '🏹 The hunt is on', 'The Weekend Hunt Tournament just began in Thornreach — this weekend’s kills count.');
+  }
+  if (String(f.active) !== pf) {
+    broadcastAll({ type: 'announce', message: f.active
+      ? '🏮 The Hearthmoon Festival fills the town — +25% XP and richer foraging until the moon turns!'
+      : '🏮 The Hearthmoon Festival packs up its lanterns. Until next month!' });
+    if (f.active) pushBroadcast('events', '🏮 Hearthmoon Festival', 'Festival day in Thornreach: +25% XP and richer foraging, today only.');
+  }
+  if (String(bm.active) !== pbm) {
+    broadcastAll({ type: 'announce', message: bm.active
+      ? '🔴 THE BLOOD MOON RISES. The night bites harder, pays half again the XP — and sheds 🩸 shards for the brave.'
+      : '🌙 The Blood Moon wanes. The night keeps its usual teeth.' });
+    if (bm.active) pushBroadcast('bloodmoon', '🔴 The Blood Moon rises', 'Twisted rules in Thornreach right now: harder mobs, +50% XP, and Bloodmoon Shards for the brave.');
+  }
+  if (String(legendaryWeekIndex(now)) !== pwk) {
+    broadcastAll({ type: 'announce', message: '🌒 The Midnight Peddler unveils a fresh set of wonders — a new week begins. Boards reset; last week’s honors are being posted.' });
+    lbSettleClosedWeeks();
+    pushBroadcast('peddler', '🌒 The Peddler has turned his cart', 'Five fresh legendaries are on the Midnight Peddler’s table this week.');
+  }
+  broadcastAll({ type: 'calendar_state', calendar: calendarPublicState(now) });
+}, 15 * 1000);
+
+// ── The Weekly Delve ─────────────────────────────────────────────────────────
+// The review's single biggest lever: a seeded roguelike mode built entirely
+// from content the game already owns. Every Monday the Delve reshuffles —
+// two twist-rules for the week (same mulberry32/epoch determinism as the
+// Peddler) — and a run is: clear a floor of dungeon creatures, draft 1-of-3
+// boons, descend, repeat until you die or leave. Floors escalate through the
+// four named dungeons' bestiaries; every third floor wakes that tier's
+// signature boss. Depth is the score; the town board keeps it for the week.
+// Runs are INSTANCED (room `dungeon_delve_<n>` — the client's existing
+// dungeon scene renders it as-is), so delvers never trample the shared tier
+// arenas or each other. Party members standing with the starter come along,
+// same as the Wildlands Token.
+const DELVE_MODS = {
+  swift_shadows:  { name: 'Swift Shadows',   icon: '💨', desc: 'The dark moves 25% faster.', mobSpd: 1.25 },
+  thick_hides:    { name: 'Thick Hides',     icon: '🛡️', desc: 'Creatures carry 35% more health.', mobHp: 1.35 },
+  sharp_fangs:    { name: 'Sharp Fangs',     icon: '🗡️', desc: 'Creatures bite 25% harder.', mobDmg: 1.25 },
+  bountiful_dark: { name: 'Bountiful Dark',  icon: '💰', desc: 'Floor purses pay half again.', goldMult: 1.5 },
+  glass_souls:    { name: 'Glass Souls',     icon: '🫙', desc: 'You strike +30% — and take +30%.', playerPower: 0.3, playerTakenMult: 1.3 },
+  long_dark:      { name: 'The Long Dark',   icon: '🌌', desc: 'Every floor demands two more kills.', extraKills: 2 },
+  starving_moon:  { name: 'Starving Moon',   icon: '🌘', desc: 'No out-of-combat mending down here.', noMend: true },
+  lucky_stars:    { name: 'Lucky Stars',     icon: '✨', desc: 'Boon drafts offer four choices, not three.', boonChoices: 4 }
+};
+const DELVE_BOONS = {
+  ember_heart:  { name: 'Ember Heart',    icon: '🔥', desc: '+8% damage dealt',                 stats: { power: 0.08 } },
+  bark_skin:    { name: 'Bark Skin',      icon: '🪵', desc: '−6% damage taken',                 stats: { guard: 0.06 } },
+  moon_blood:   { name: 'Moon Blood',     icon: '🌕', desc: '+18 max health (and mends 18 now)', stats: { vitality: 18 }, healNow: 18 },
+  quick_wick:   { name: 'Quick Wick',     icon: '🕯️', desc: 'Abilities recharge 8% faster',     stats: { haste: 0.08 } },
+  cat_step:     { name: 'Cat Step',       icon: '🐈‍⬛', desc: '+6% movement speed',              stats: { swift: 0.06 } },
+  red_thread:   { name: 'Red Thread',     icon: '🧵', desc: 'Heal 3% of damage you deal',       stats: { leech: 0.03 } },
+  witchs_broth: { name: "Witch's Broth",  icon: '🍲', desc: 'Mend +1.2 HP/s out of combat',     mending: 1.2 },
+  wolfs_bargain:{ name: "Wolf's Bargain", icon: '🐺', desc: '+15% damage dealt, +8% taken',     stats: { power: 0.15, guard: -0.08 } },
+  gravedigger:  { name: "Gravedigger's Cut", icon: '⚰️', desc: 'Floor purses pay +50% to you',  goldBonus: 0.5 }
+};
+const DELVE_BOON_IDS = Object.keys(DELVE_BOONS);
+const DELVE_DRAFT_MS = 25 * 1000;
+const DELVE_SPAWN = { x: 400, y: 700 };
+
+function weeklyDelveMods(now) {
+  const rand = mulberry32(((legendaryWeekIndex(now) * 1103515245) ^ 0x2545F491) >>> 0);
+  const ids = Object.keys(DELVE_MODS);
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  return ids.slice(0, 2);
+}
+
+const delveRuns = new Map();        // runId -> run
+const delveRunsByRoom = new Map();  // room  -> run
+let delveRunSeq = 1;
+
+function allDelveMobs() {
+  if (!delveRuns.size) return [];
+  const out = [];
+  for (const run of delveRuns.values()) for (const m of run.mobs) out.push(m);
+  return out;
+}
+function delveRunOf(player) {
+  return player && player.delveRunId ? (delveRuns.get(player.delveRunId) || null) : null;
+}
+function delveMemberOf(player) {
+  const run = delveRunOf(player);
+  return run ? (run.members.get(player.id) || null) : null;
+}
+function delveModActive(run, modId) { return run.mods.includes(modId); }
+function delveModVal(run, field, fallback) {
+  let v = fallback;
+  for (const id of run.mods) {
+    const m = DELVE_MODS[id];
+    if (m && m[field] != null) v = m[field];
+  }
+  return v;
+}
+
+// Boon plumbing — delve boons speak the SAME stat vocabulary as skills and
+// gear, so statContrib() folds them in and every derived effect (damage,
+// guard, max HP, cooldowns, speed, lifesteal) just works for the run.
+function delveBoonContrib(player, statKey) {
+  const member = delveMemberOf(player);
+  if (!member) return 0;
+  let sum = 0;
+  for (const [boonId, stacks] of Object.entries(member.boons)) {
+    const st = DELVE_BOONS[boonId] && DELVE_BOONS[boonId].stats;
+    if (st && st[statKey]) sum += st[statKey] * stacks;
+  }
+  // Glass Souls: the week itself sharpens everyone's knives.
+  const run = delveRunOf(player);
+  if (statKey === 'power' && run) sum += delveModVal(run, 'playerPower', 0);
+  return sum;
+}
+function delveMendingBonus(player) {
+  const member = delveMemberOf(player);
+  if (!member) return 0;
+  const run = delveRunOf(player);
+  if (run && delveModVal(run, 'noMend', false)) return -Infinity; // Starving Moon: no mending at all
+  let sum = 0;
+  for (const [boonId, stacks] of Object.entries(member.boons)) {
+    if (DELVE_BOONS[boonId] && DELVE_BOONS[boonId].mending) sum += DELVE_BOONS[boonId].mending * stacks;
+  }
+  return sum;
+}
+function delveTakenMult(player) {
+  const run = delveRunOf(player);
+  return run ? delveModVal(run, 'playerTakenMult', 1) : 1;
+}
+
+function delveFloorTier(run) {
+  return Math.min(4, run.startTier + Math.floor((run.floor - 1) / 2));
+}
+function delveKillsNeeded(run) {
+  return 6 + Math.min(6, run.floor - 1) + (delveModActive(run, 'long_dark') ? DELVE_MODS.long_dark.extraKills : 0);
+}
+function delveSpawnFloor(run) {
+  const tier = delveFloorTier(run);
+  const floorMult = 1 + 0.12 * (run.floor - 1);
+  const hpMult = floorMult * delveModVal(run, 'mobHp', 1);
+  const dmgMult = floorMult * delveModVal(run, 'mobDmg', 1);
+  const spdMult = delveModVal(run, 'mobSpd', 1);
+  run.mobs = [];
+  const keys = DUNGEON_MOB_KEYS_BY_TIER[tier];
+  const count = delveKillsNeeded(run);
+  for (let i = 0; i < count; i++) {
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    const preset = DUNGEON_MOB_TYPES[key];
+    const sp = DUNGEON_SPAWN_POSITIONS[i % DUNGEON_SPAWN_POSITIONS.length];
+    const jitter = () => (Math.random() - 0.5) * 60;
+    const sx = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.x + jitter()));
+    const sy = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.y + jitter()));
+    run.mobs.push({
+      id: `delve_${run.id}_f${run.floor}_${i}`,
+      mobType: key, tier, room: run.room, delve: run.id,
+      hpMult, dmgMult, spdMult,
+      spawnX: sx, spawnY: sy, x: sx, y: sy,
+      facing: Math.random() * Math.PI * 2,
+      wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
+      health: Math.round(preset.maxHealth * hpMult),
+      scaledMax: Math.round(preset.maxHealth * hpMult),
+      dead: false, respawnAt: 0, lastHitAt: 0
+    });
+  }
+  // Every third floor, the tier's signature boss stalks the arena too —
+  // scaled to the party like its counterpart in the named dungeons.
+  if (run.floor % 3 === 0) {
+    const bossKey = DUNGEON_LORE[tier].bossKey;
+    const preset = DUNGEON_MOB_TYPES[bossKey];
+    const alive = [...run.members.values()].filter(mm => mm.alive).length || 1;
+    const bossHp = Math.round(preset.maxHealth * hpMult * (1 + PARTY_BOSS_HP_PER_ALLY * (alive - 1)));
+    run.mobs.push({
+      id: `delve_${run.id}_f${run.floor}_boss`,
+      mobType: bossKey, tier, room: run.room, delve: run.id, boss: true, engaged: true,
+      hpMult, dmgMult, spdMult,
+      spawnX: DUNGEON_BOSS_SPAWN.x, spawnY: DUNGEON_BOSS_SPAWN.y,
+      x: DUNGEON_BOSS_SPAWN.x, y: DUNGEON_BOSS_SPAWN.y,
+      facing: Math.PI, wanderTimer: 2, wanderAngle: 0, paused: false,
+      health: bossHp, scaledMax: bossHp,
+      dead: false, respawnAt: 0, lastHitAt: 0
+    });
+  }
+  run.kills = 0;
+  run.killsNeeded = count; // the boss is a bonus, not a gate
+  run.state = 'fighting';
+}
+
+function delveStatePayloadFor(run, player) {
+  const member = run.members.get(player.id);
+  return {
+    type: 'delve_state',
+    inRun: true,
+    runId: run.id,
+    room: run.room,
+    floor: run.floor,
+    tier: delveFloorTier(run),
+    kills: run.kills,
+    killsNeeded: run.killsNeeded,
+    state: run.state,
+    draftEndsAt: run.draftEndsAt || 0,
+    mods: run.mods.map(id => ({ id, ...DELVE_MODS[id] })),
+    members: [...run.members.entries()].map(([pid, mm]) => {
+      const p = players.get(pid);
+      return { id: pid, name: p ? p.name : '—', alive: mm.alive, picked: mm.picked !== false };
+    }),
+    myBoons: member ? member.boons : {},
+    myOffer: member && member.offer ? member.offer.map(id => ({ id, ...DELVE_BOONS[id] })) : null,
+    myGold: member ? member.gold : 0,
+    speedMult: 1 + statContrib(player, 'swift') // client applies this while in the delve room
+  };
+}
+function delveBroadcast(run) {
+  for (const pid of run.members.keys()) {
+    const p = players.get(pid);
+    if (p) send(p.ws, delveStatePayloadFor(run, p));
+  }
+}
+
+// The lobby/menu view (not in a run): this week's twists + boards.
+function delveMenuPayload(player) {
+  const now = Date.now();
+  const wk = weekKey(now);
+  return {
+    type: 'delve_state',
+    inRun: false,
+    week: wk,
+    weekEndsAt: LEGENDARY_EPOCH + (legendaryWeekIndex(now) + 1) * LEGENDARY_WEEK_MS,
+    mods: weeklyDelveMods(now).map(id => ({ id, ...DELVE_MODS[id] })),
+    best: player.accountKey ? (lbRankOf('delve', wk, player.accountKey) || { rank: null, value: 0 }) : { rank: null, value: 0 },
+    top: lbTop('delve', wk, 5),
+    isGuest: !player.accountKey
+  };
+}
+
+function delveStart(player) {
+  if (player.isDead) return;
+  if (delveRunOf(player)) return;
+  const room = player.room || 'outside';
+  // No delving out of the underworld's own pockets — come up for air first.
+  if (room.startsWith('dungeon_') || room === 'ember_wastes' || room === 'bank_vault' || room === 'witch_cave') {
+    send(player.ws, { type: 'delve_error', message: 'The Delve opens from the town and the Wilds — come up out of there first.' });
+    return;
+  }
+  const id = delveRunSeq++;
+  const run = {
+    id,
+    room: `dungeon_delve_${id}`,
+    startedAt: Date.now(),
+    week: weekKey(Date.now()),
+    mods: weeklyDelveMods(Date.now()),
+    floor: 1, kills: 0, killsNeeded: 0,
+    mobs: [], state: 'fighting', draftEndsAt: 0,
+    members: new Map(),
+    startTier: 1
+  };
+  // The starter and any party members standing with them descend together.
+  const group = [player];
+  const partyId = playerParty.get(player.id);
+  if (partyId) {
+    const party = parties.get(partyId);
+    if (party) {
+      for (const memberId of party.members) {
+        if (memberId === player.id) continue;
+        const m = players.get(memberId);
+        if (m && m.room === player.room && !m.isDead && !delveRunOf(m)) group.push(m);
+      }
+    }
+  }
+  // The floor matches the strongest delver — brave for the low-levels, honest
+  // for the veterans (no farming tier-1 rats at level 20).
+  run.startTier = dungeonTierForLevel(Math.max(...group.map(p => getProgress(p).level)));
+  for (const p of group) {
+    run.members.set(p.id, {
+      boons: {}, alive: true, picked: true, offer: null, gold: 0,
+      returnRoom: p.room || 'outside'
+    });
+    p.delveRunId = id;
+    const jitter = () => (Math.random() - 0.5) * 60;
+    p.x = DELVE_SPAWN.x + jitter(); p.y = DELVE_SPAWN.y + jitter();
+    p.room = run.room;
+    p.roomLockUntil = Date.now() + 1500; // outlive any in-flight stale moves
+    send(p.ws, { type: 'dungeon_entered', tier: run.startTier, room: run.room, spawn: { x: p.x, y: p.y }, level: getProgress(p).level, delve: true, floor: 1 });
+  }
+  delveRuns.set(id, run);
+  delveRunsByRoom.set(run.room, run);
+  delveSpawnFloor(run);
+  delveBroadcast(run);
+}
+
+function noteDelveKill(player, mob) {
+  const run = delveRuns.get(mob.delve);
+  if (!run || run.state !== 'fighting') return;
+  run.kills++;
+  if (run.kills >= run.killsNeeded) {
+    // Floor cleared — purses, then the boon draft.
+    const goldMult = delveModVal(run, 'goldMult', 1);
+    for (const [pid, mm] of run.members) {
+      if (!mm.alive) continue;
+      const p = players.get(pid);
+      if (!p) continue;
+      let purse = Math.round((12 + 8 * run.floor) * goldMult);
+      const digger = mm.boons.gravedigger || 0;
+      if (digger) purse = Math.round(purse * (1 + DELVE_BOONS.gravedigger.goldBonus * digger));
+      mm.gold += purse;
+      if (p.accountKey) {
+        ensureBankAccount(p.accountKey).balance += purse;
+      }
+      const choices = delveModVal(run, 'boonChoices', 3);
+      const pool = [...DELVE_BOON_IDS];
+      mm.offer = [];
+      for (let i = 0; i < choices && pool.length; i++) {
+        mm.offer.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      }
+      mm.picked = false;
+    }
+    saveBankAccounts();
+    run.state = 'draft';
+    run.draftEndsAt = Date.now() + DELVE_DRAFT_MS;
+    delveBroadcast(run);
+  } else {
+    delveBroadcast(run);
+  }
+}
+
+function delveAdvanceFloor(run) {
+  run.floor++;
+  for (const mm of run.members.values()) { mm.offer = null; mm.picked = true; }
+  delveSpawnFloor(run);
+  for (const pid of run.members.keys()) {
+    const p = players.get(pid);
+    if (p) send(p.ws, { type: 'announce_soft', message: `🕳️ Floor ${run.floor} — ${DUNGEON_LORE[delveFloorTier(run)].name}'s creatures stir…` });
+  }
+  delveBroadcast(run);
+}
+
+function delveDepthOf(run) { return Math.max(0, run.floor - 1); }
+
+function delveLeave(player, reason) {
+  const run = delveRunOf(player);
+  if (!run) return;
+  const member = run.members.get(player.id);
+  const depth = delveDepthOf(run);
+  lbSetMax('delve', player, depth);
+  run.members.delete(player.id);
+  player.delveRunId = null;
+  const returnRoom = (member && member.returnRoom) || 'outside';
+  // A disconnect's position is restored by the resume stash instead.
+  if (reason !== 'disconnect') {
+    const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+    player.x = returnPos.x; player.y = returnPos.y;
+    player.room = returnRoom;
+    player.roomLockUntil = Date.now() + 1500;
+    send(player.ws, {
+      type: 'delve_over',
+      depth,
+      gold: member ? member.gold : 0,
+      reason: reason || 'exit',
+      room: returnRoom, x: player.x, y: player.y,
+      best: player.accountKey ? (lbRankOf('delve', weekKey(Date.now()), player.accountKey) || null) : null
+    });
+  }
+  if (run.members.size === 0) {
+    delveRuns.delete(run.id);
+    delveRunsByRoom.delete(run.room);
+  } else {
+    delveBroadcast(run);
+  }
+}
+
+// Delve mob AI — same brain as tickDungeon, scoped to each run's floor,
+// with the week's stat twists applied. Dead delve mobs stay dead (a floor
+// is about clearing it); wipes end the run for whoever's left dead.
+function tickDelves(dt) {
+  if (!delveRuns.size) return;
+  const now = Date.now();
+  const margin = 40;
+  for (const run of delveRuns.values()) {
+    if (run.state === 'draft') {
+      const everyonePicked = [...run.members.values()].every(mm => !mm.alive || mm.picked);
+      if (everyonePicked || now >= run.draftEndsAt) {
+        // Time's up: the undecided get the first offer (never nothing).
+        for (const mm of run.members.values()) {
+          if (mm.alive && !mm.picked && mm.offer && mm.offer.length) {
+            mm.boons[mm.offer[0]] = (mm.boons[mm.offer[0]] || 0) + 1;
+            mm.picked = true; mm.offer = null;
+          }
+        }
+        delveAdvanceFloor(run);
+      }
+      continue;
+    }
+    for (const m of run.mobs) {
+      if (m.dead) continue;
+      const preset = DUNGEON_MOB_TYPES[m.mobType];
+      const speed = preset.speed * (m.spdMult || 1);
+      const { player: nearestP, dist } = nearestDungeonPlayer(m.room, m.x, m.y);
+      let vx = 0, vy = 0;
+      if (m.scaredUntil > now && nearestP) {
+        const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
+        const inv = dist > 0.01 ? 1 / dist : 0;
+        vx = dx * inv * speed; vy = dy * inv * speed;
+      } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
+        const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+        const inv = dist > 0.01 ? 1 / dist : 0;
+        vx = dx * inv * speed; vy = dy * inv * speed;
+        if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+          m.lastHitAt = now;
+          const rolled = Math.round((preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))) * (m.dmgMult || 1));
+          const dmg = absorbIncomingDamage(nearestP, rolled);
+          nearestP.health = Math.max(0, nearestP.health - dmg);
+          noteAttacked(nearestP);
+          if (nearestP.health <= 0) {
+            nearestP.health = 0;
+            nearestP.isDead = true;
+            send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
+            const mm = run.members.get(nearestP.id);
+            if (mm) mm.alive = false;
+            const anyAlive = [...run.members.values()].some(x => x.alive);
+            if (!anyAlive) {
+              // Full wipe: the run is over; each ghost's respawn (or exit)
+              // walks them out through delveLeave with the depth recorded.
+              for (const pid of run.members.keys()) {
+                const pp = players.get(pid);
+                if (pp) send(pp.ws, { type: 'announce_soft', message: `☠️ The Delve claims the whole party at floor ${run.floor}. Depth ${delveDepthOf(run)} stands.` });
+              }
+            } else {
+              delveBroadcast(run);
+            }
+          } else {
+            send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
+          }
+        }
+      } else {
+        m.wanderTimer -= dt;
+        if (m.wanderTimer <= 0) {
+          m.wanderTimer = 1.5 + Math.random() * 2.5;
+          m.paused = Math.random() < 0.3;
+          m.wanderAngle = Math.random() * Math.PI * 2;
+        }
+        if (!m.paused) {
+          vx = Math.sin(m.wanderAngle) * speed * 0.3;
+          vy = Math.cos(m.wanderAngle) * speed * 0.3;
+        }
+      }
+      const nx = m.x + vx * dt, ny = m.y + vy * dt;
+      if (vx !== 0 && nx > margin && nx < DUNGEON_SIZE - margin) m.x = nx;
+      if (vy !== 0 && ny > margin && ny < DUNGEON_SIZE - margin) m.y = ny;
+      if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+    }
+  }
+}
+
+// ── Covens ───────────────────────────────────────────────────────────────────
+// Small, named, home-based — Diablo's Warbands minus everything else. Up to
+// eight ACCOUNTS (guests are ephemeral by design), a private chat channel, a
+// shared bank tab (usable from the Bank like your own), a claimable table in
+// the Cauldron Café, and a short deed-log so the shared tab stays honest.
+// Any member may invite; only the leader kicks; the last one out inherits
+// whatever's left in the tab.
+const COVENS_FILE = path.join(DATA_DIR, 'covens.json');
+const covens = persistLoad('covens', COVENS_FILE);
+persistRegister('covens', COVENS_FILE, () => covens);
+function saveCoven(covenId) { persistSetKey('covens', COVENS_FILE, covens, covenId); }
+const COVEN_MAX_MEMBERS = 8;
+const COVEN_CREATE_COST = 250;
+const COVEN_BANK_SLOTS = 12;
+const COVEN_SIGILS = ['🕯️', '🌙', '🦇', '🐈‍⬛', '🕸️', '🌿', '⭐', '🔮', '🗝️', '🥀'];
+const COVEN_TABLE_HOLD_MS = 24 * 3600 * 1000;
+const covenIndex = new Map(); // accountKey -> covenId
+for (const [cid, cv] of Object.entries(covens)) {
+  for (const key of cv.members) covenIndex.set(key, cid);
+}
+const covenInvites = new Map(); // inviteId -> { covenId, targetKey, expiresAt }
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, inv] of covenInvites) if (inv.expiresAt <= now) covenInvites.delete(id);
+}, 15000);
+
+function covenOf(accountKey) {
+  const cid = covenIndex.get(accountKey);
+  return cid ? covens[cid] || null : null;
+}
+function covenLog(cv, who, action) {
+  cv.log = cv.log || [];
+  cv.log.push({ at: Date.now(), who, action });
+  if (cv.log.length > 20) cv.log = cv.log.slice(-20);
+}
+function covenDisplayName(key) {
+  return accounts[key] ? accounts[key].username : key;
+}
+function covenStatePayload(cv, viewerKey) {
+  return {
+    coven: {
+      id: cv.id, name: cv.name, sigil: cv.sigil, motd: cv.motd || '',
+      leaderKey: cv.leaderKey,
+      you: viewerKey,
+      members: cv.members.map(k => ({
+        key: k, name: covenDisplayName(k),
+        online: !!findConnectionByAccountKey(k),
+        leader: k === cv.leaderKey
+      })),
+      bank: { gold: cv.bank.gold, slots: cv.bank.slots },
+      log: (cv.log || []).slice(-10),
+      table: cv.table && cv.table.until > Date.now() ? cv.table : null
+    }
+  };
+}
+function covenBroadcast(cv) {
+  for (const key of cv.members) {
+    const p = findConnectionByAccountKey(key);
+    if (p) send(p.ws, { type: 'coven_state', ...covenStatePayload(cv, key) });
+  }
+}
+// The café table view for everyone standing in the room (not just members):
+// which coven holds the table right now, if any.
+function covenTableFor(room) {
+  if (room !== 'cafe') return null;
+  const now = Date.now();
+  for (const cv of Object.values(covens)) {
+    if (cv.table && cv.table.room === 'cafe' && cv.table.until > now) {
+      return { name: cv.name, sigil: cv.sigil, until: cv.table.until };
+    }
+  }
+  return null;
+}
+
+// ── Web push notifications ───────────────────────────────────────────────────
+// "…and a phone notification when the moon rises." Real Web Push (RFC 8291
+// aes128gcm encryption + RFC 8292 VAPID auth) implemented on Node built-ins
+// only — no new npm deps, matching the verify-iap precedent. Works for web
+// + installed-PWA players in real browsers; the Electron desktop shell and
+// the Capacitor apps don't ship push transport, so their subscribe simply
+// fails soft client-side (documented in DEPLOY-SERVER.md).
+//
+// VAPID keys self-bootstrap: generated once on first boot and persisted, so
+// there is NOTHING to configure. Pushes only go to accounts that are
+// OFFLINE (an online player already sees the in-town announcements), and
+// moonrise/blood-moon pushes are rate-limited per subscription (the town's
+// 40-minute cycle has ~36 moonrises a day — nobody wants 36 pings).
+const SERVER_CONFIG_FILE = path.join(DATA_DIR, 'serverConfig.json');
+const serverConfig = persistLoad('serverConfig', SERVER_CONFIG_FILE);
+persistRegister('serverConfig', SERVER_CONFIG_FILE, () => serverConfig);
+const PUSH_SUBS_FILE = path.join(DATA_DIR, 'pushSubs.json');
+const pushSubs = persistLoad('pushSubs', PUSH_SUBS_FILE); // accountKey -> [ { endpoint, p256dh, auth, prefs, addedAt, lastNightPushAt } ]
+persistRegister('pushSubs', PUSH_SUBS_FILE, () => pushSubs);
+function savePushSubs(key) { persistSetKey('pushSubs', PUSH_SUBS_FILE, pushSubs, key); }
+const PUSH_MAX_SUBS_PER_ACCOUNT = 5;
+const PUSH_NIGHT_MIN_GAP_MS = 20 * 3600 * 1000;
+const PUSH_CONTACT = 'mailto:' + (process.env.VAPID_CONTACT_EMAIL || 'mhanavan4@gmail.com');
+
+function b64u(buf) { return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function b64uToBuf(s) { return Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64'); }
+
+let _vapid = null; // { publicKey (b64u, 65-byte point), privateJwk, privateKeyObj }
+function getVapidKeys() {
+  if (_vapid) return _vapid;
+  try {
+    if (!serverConfig.vapid) {
+      const { privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+      const jwk = privateKey.export({ format: 'jwk' });
+      const publicPoint = Buffer.concat([Buffer.from([4]), b64uToBuf(jwk.x), b64uToBuf(jwk.y)]);
+      serverConfig.vapid = { publicKey: b64u(publicPoint), privateJwk: jwk };
+      persistSetKey('serverConfig', SERVER_CONFIG_FILE, serverConfig, 'vapid');
+      console.log('web push: generated + stored a fresh VAPID key pair');
+    }
+    _vapid = {
+      publicKey: serverConfig.vapid.publicKey,
+      privateKeyObj: crypto.createPrivateKey({ key: serverConfig.vapid.privateJwk, format: 'jwk' })
+    };
+    return _vapid;
+  } catch (e) {
+    console.error('web push unavailable:', e.message);
+    return null;
+  }
+}
+
+// HKDF-SHA256 (one expand block — every length here is ≤ 32).
+function pushHkdf(salt, ikm, info, len) {
+  const prk = crypto.createHmac('sha256', salt).update(ikm).digest();
+  return crypto.createHmac('sha256', prk).update(Buffer.concat([info, Buffer.from([1])])).digest().subarray(0, len);
+}
+
+// RFC 8291 encryption: payload -> aes128gcm body for the push service.
+function encryptWebPush(sub, payloadBuf) {
+  const clientPub = b64uToBuf(sub.p256dh);
+  const authSecret = b64uToBuf(sub.auth);
+  const ecdh = crypto.createECDH('prime256v1');
+  ecdh.generateKeys();
+  const serverPub = ecdh.getPublicKey();
+  const shared = ecdh.computeSecret(clientPub);
+  const ikm = pushHkdf(authSecret, shared, Buffer.concat([Buffer.from('WebPush: info\0'), clientPub, serverPub]), 32);
+  const salt = crypto.randomBytes(16);
+  const cek = pushHkdf(salt, ikm, Buffer.from('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = pushHkdf(salt, ikm, Buffer.from('Content-Encoding: nonce\0'), 12);
+  const record = Buffer.concat([payloadBuf, Buffer.from([2])]); // 0x02 marks the final record
+  const cipher = crypto.createCipheriv('aes-128-gcm', cek, nonce);
+  const ct = Buffer.concat([cipher.update(record), cipher.final(), cipher.getAuthTag()]);
+  // aes128gcm header: salt(16) | record size (4, BE — 4096) | keyid len (1) | keyid (the server's public point)
+  const header = Buffer.concat([salt, Buffer.from([0, 0, 16, 0]), Buffer.from([serverPub.length]), serverPub]);
+  return Buffer.concat([header, ct]);
+}
+
+// RFC 8292 VAPID: a short-lived ES256 JWT scoped to the push service origin.
+function vapidAuthHeader(endpoint) {
+  const keys = getVapidKeys();
+  if (!keys) return null;
+  const aud = new URL(endpoint).origin;
+  const header = b64u(Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
+  const claims = b64u(Buffer.from(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: PUSH_CONTACT })));
+  const unsigned = `${header}.${claims}`;
+  const sig = crypto.createSign('SHA256').update(unsigned).sign({ key: keys.privateKeyObj, dsaEncoding: 'ieee-p1363' });
+  return `vapid t=${unsigned}.${b64u(sig)}, k=${keys.publicKey}`;
+}
+
+// Fire one push. Fail-soft everywhere: a dead endpoint (404/410) prunes the
+// subscription; anything else just logs. Never throws into the game loop.
+function sendWebPush(accountKey, sub, payloadObj) {
+  try {
+    const auth = vapidAuthHeader(sub.endpoint);
+    if (!auth) return;
+    const body = encryptWebPush(sub, Buffer.from(JSON.stringify(payloadObj)));
+    const url = new URL(sub.endpoint);
+    const mod = url.protocol === 'http:' ? http : https; // http only ever appears in tests
+    const req = mod.request(url, {
+      method: 'POST',
+      headers: {
+        'TTL': '86400',
+        'Urgency': 'normal',
+        'Content-Encoding': 'aes128gcm',
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': body.length,
+        'Authorization': auth
+      }
+    }, (res) => {
+      res.resume();
+      if (res.statusCode === 404 || res.statusCode === 410) {
+        // The browser dropped this subscription — forget it.
+        if (pushSubs[accountKey]) {
+          pushSubs[accountKey] = pushSubs[accountKey].filter(s => s.endpoint !== sub.endpoint);
+          if (!pushSubs[accountKey].length) delete pushSubs[accountKey];
+          savePushSubs(accountKey);
+        }
+      }
+    });
+    req.on('error', (e) => console.error('web push send failed:', e.message));
+    req.setTimeout(10000, () => req.destroy());
+    req.end(body);
+  } catch (e) {
+    console.error('web push error:', e.message);
+  }
+}
+
+// kind: 'moonrise' | 'bloodmoon' | 'peddler' | 'events'. Offline accounts
+// only; night kinds rate-limited per subscription.
+function pushBroadcast(kind, title, bodyText) {
+  if (!getVapidKeys()) return;
+  const now = Date.now();
+  const nightKind = kind === 'moonrise' || kind === 'bloodmoon';
+  for (const [accountKey, subs] of Object.entries(pushSubs)) {
+    if (findConnectionByAccountKey(accountKey)) continue; // playing right now — they can see the town
+    let touched = false;
+    for (const sub of subs) {
+      if (!sub.prefs || !sub.prefs[kind]) continue;
+      if (nightKind && sub.lastNightPushAt && now - sub.lastNightPushAt < PUSH_NIGHT_MIN_GAP_MS) continue;
+      if (nightKind) { sub.lastNightPushAt = now; touched = true; }
+      sendWebPush(accountKey, sub, { title, body: bodyText, kind, at: now });
+    }
+    if (touched) savePushSubs(accountKey);
+  }
+}
+
+// Moonrise watcher — pings when day turns to night (rate limit above keeps
+// it to at most one per subscription per ~day despite the 40-minute cycle).
+let _wasNight = isNightNow();
+setInterval(() => {
+  const night = isNightNow();
+  if (night && !_wasNight) {
+    pushBroadcast('moonrise', '🌕 The moon rises over Thornreach', 'Night creatures are stirring — the first trophy of the night pays a bonus.');
+  }
+  _wasNight = night;
+}, 15 * 1000);
+
+// The subscribe/unsubscribe doors. Account-bound (the push follows the
+// account, like the pass and the stones).
+app.post('/api/push/subscribe', (req, res) => {
+  const keys = getVapidKeys();
+  if (!keys) return res.status(503).json({ ok: false, error: 'push_unavailable' });
+  const accountKey = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
+  if (!accountKey) return res.status(401).json({ ok: false, error: 'account_required' });
+  const s = req.body.subscription;
+  if (!s || !s.endpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) return res.status(400).json({ ok: false, error: 'bad_subscription' });
+  if (!/^https:\/\//.test(s.endpoint) && !process.env.PUSH_ALLOW_HTTP) return res.status(400).json({ ok: false, error: 'bad_endpoint' });
+  const prefs = {
+    moonrise: !!(req.body.prefs && req.body.prefs.moonrise),
+    bloodmoon: !(req.body.prefs && req.body.prefs.bloodmoon === false),
+    peddler: !(req.body.prefs && req.body.prefs.peddler === false),
+    events: !(req.body.prefs && req.body.prefs.events === false)
+  };
+  const list = pushSubs[accountKey] || (pushSubs[accountKey] = []);
+  const existing = list.find(x => x.endpoint === s.endpoint);
+  if (existing) {
+    existing.p256dh = s.keys.p256dh; existing.auth = s.keys.auth; existing.prefs = prefs;
+  } else {
+    list.push({ endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, prefs, addedAt: Date.now(), lastNightPushAt: 0 });
+    while (list.length > PUSH_MAX_SUBS_PER_ACCOUNT) list.shift();
+  }
+  savePushSubs(accountKey);
+  res.json({ ok: true, prefs });
+});
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const accountKey = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
+  if (!accountKey) return res.status(401).json({ ok: false, error: 'account_required' });
+  const endpoint = String((req.body.subscription && req.body.subscription.endpoint) || req.body.endpoint || '');
+  if (pushSubs[accountKey]) {
+    pushSubs[accountKey] = pushSubs[accountKey].filter(x => x.endpoint !== endpoint);
+    if (!pushSubs[accountKey].length) delete pushSubs[accountKey];
+    savePushSubs(accountKey);
+  }
+  res.json({ ok: true });
+});
+
+// ── First Steps (Session L onboarding) ──────────────────────────────────────
+// A visible win inside the first 20 minutes: three tiny goals every newcomer
+// can hit, each celebrated the moment it lands, with a small purse at the
+// end. Solo Leveling's post-EVOLUTION lesson, Thornreach-sized. Retired
+// forever once done (and never shown to veterans — see the join gate).
+const FIRST_STEPS = [
+  { id: 'talked',    label: 'Speak with a townsperson',       icon: '💬' },
+  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' },
+  { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' }
+];
+const FIRST_STEPS_REWARD_GOLD = 25;
+function firstStepsState(prog) {
+  if (!prog.firstSteps) prog.firstSteps = { talked: false, harvested: false, killed: false, done: false };
+  return prog.firstSteps;
+}
+function firstStepsPayload(player, justCompleted) {
+  const st = firstStepsState(getProgress(player));
+  return {
+    type: 'first_steps',
+    steps: FIRST_STEPS.map(s => ({ ...s, done: !!st[s.id] })),
+    done: !!st.done,
+    justCompleted: justCompleted || null,
+    rewardGold: FIRST_STEPS_REWARD_GOLD
+  };
+}
+function noteFirstStep(player, stepId) {
+  const prog = getProgress(player);
+  if (prog.level >= 5 && !prog.firstSteps) return; // veterans predating the tracker never see it
+  const st = firstStepsState(prog);
+  if (st.done || st[stepId]) return;
+  st[stepId] = true;
+  const allDone = FIRST_STEPS.every(s => st[s.id]);
+  if (allDone) {
+    st.done = true;
+    if (player.accountKey) {
+      ensureBankAccount(player.accountKey).balance += FIRST_STEPS_REWARD_GOLD;
+      saveBankAccounts();
+    }
+  }
+  if (player.accountKey) saveProgress();
+  send(player.ws, firstStepsPayload(player, stepId));
+  if (allDone) {
+    send(player.ws, { type: 'announce_soft', message: `🏮 First Steps complete!${player.accountKey ? ` ${FIRST_STEPS_REWARD_GOLD} gold waits in your bank.` : ' (With an account, rewards like this would follow you.)'} Your Journal (J) always names the next goal.` });
+  }
+}
+
+// ── Login streaks + the "while you were gone" letter (Session L) ─────────────
+// Consecutive-day logins pay a small escalating purse (a full week adds a
+// bonus); coming back after 8h+ away earns a letter that counts what regrew,
+// which side quests cooled down, whether the Peddler rotated, and what the
+// calendar holds — a gift on the doormat, never a guilt trip.
+const LETTER_AWAY_MS = 8 * 3600 * 1000;
+function applyLoginStreak(player, prog, nowMs) {
+  const dayIdx = Math.floor(nowMs / 86400000);
+  if (prog.lastLoginDay === dayIdx) return null;
+  prog.loginStreak = (prog.lastLoginDay === dayIdx - 1) ? (prog.loginStreak || 0) + 1 : 1;
+  prog.lastLoginDay = dayIdx;
+  if ((prog.bestLoginStreak || 0) < prog.loginStreak) prog.bestLoginStreak = prog.loginStreak;
+  const gold = Math.min(60, 10 + 5 * (prog.loginStreak - 1));
+  const weeklyBonus = prog.loginStreak % 7 === 0 ? 100 : 0;
+  ensureBankAccount(player.accountKey).balance += gold + weeklyBonus;
+  saveBankAccounts();
+  return { count: prog.loginStreak, best: prog.bestLoginStreak, gold, weeklyBonus };
+}
+function buildWelcomeLetter(player, prog, streakInfo, nowMs) {
+  const awayMs = prog.lastSeenAt ? nowMs - prog.lastSeenAt : 0;
+  if (awayMs < LETTER_AWAY_MS) return null;
+  const myHarv = decorHarvestedAt[player.accountKey] || {};
+  const regrown = Object.values(myHarv).filter(t => nowMs - t >= HARVEST_COOLDOWN_MS).length;
+  const cds = prog.questCooldowns || {};
+  const questsReady = Object.values(cds).filter(t => nowMs - t >= QUEST_COOLDOWN_MS && t > prog.lastSeenAt - QUEST_COOLDOWN_MS).length;
+  return {
+    type: 'welcome_letter',
+    awayHours: Math.floor(awayMs / 3600000),
+    regrown,
+    questsReady,
+    peddlerRotated: legendaryWeekIndex(prog.lastSeenAt) !== legendaryWeekIndex(nowMs),
+    streak: streakInfo,
+    calendar: calendarPublicState(nowMs)
   };
 }
 
@@ -5515,7 +6847,7 @@ wss.on('connection', (ws) => {
           const claimedId = msg.passSession;
           stripeClient.checkout.sessions.retrieve(claimedId).then(session => {
             if (session.payment_status !== 'paid') return;
-            const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000);
+            const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000, passHoursForStripeSession(session));
             if (expiresAt > Date.now() && players.get(id) === player) {
               player.passUntil = expiresAt;
               send(player.ws, { type: 'pass_state', passUntil: expiresAt });
@@ -5533,6 +6865,7 @@ wss.on('connection', (ws) => {
           || r === 'bank_vault' || r === 'ember_wastes' || WORLD.buildings.some(b => b.id === r);
         if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && player.passUntil <= Date.now())) {
           player.room = 'outside';
+          player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
           player.x = WORLD.spawn.x;
           player.y = WORLD.spawn.y;
         }
@@ -5587,6 +6920,14 @@ wss.on('connection', (ws) => {
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
+        // Session L: the named dungeons' lore, the event calendar, this
+        // week's Delve twists, and whether web push is available here.
+        dungeonLore: DUNGEON_LORE,
+        calendar: calendarPublicState(),
+        delveMods: weeklyDelveMods(Date.now()).map(mid => ({ id: mid, ...DELVE_MODS[mid] })),
+        covenSigils: COVEN_SIGILS,
+        pushAvailable: !!getVapidKeys(),
+        pushPublicKey: getVapidKeys() ? getVapidKeys().publicKey : null,
         // 😴 Rested XP window (epoch ms, 0 = none) — the client counts it down.
         restedUntil: player.restedUntil || 0,
         townPass: {
@@ -5594,6 +6935,9 @@ wss.on('connection', (ws) => {
           passUntil: player.passUntil || 0,
           priceCents: TOWN_PASS_PRICE_CENTS,
           hours: TOWN_PASS_HOURS,
+          price30Cents: TOWN_PASS30_PRICE_CENTS,
+          hours30: TOWN_PASS30_HOURS,
+          product30: IAP_PRODUCT30_ID,
           paymentsEnabled: !!stripeClient
         }
       });
@@ -5615,6 +6959,42 @@ wss.on('connection', (ws) => {
       // Class skill tree + current allocations, so the Skills panel and the
       // client-side speed/max-health effects are live from the first frame.
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      // Event calendar snapshot — tournament/festival/blood-moon windows and
+      // the player's coven, so the HUD and boards render from the first frame.
+      send(ws, { type: 'calendar_state', calendar: calendarPublicState() });
+      if (player.accountKey) {
+        const cv = covenOf(player.accountKey);
+        if (cv) send(ws, { type: 'coven_state', ...covenStatePayload(cv, player.accountKey) });
+      }
+      // First Steps — newcomers get their three-goal tracker; anyone who
+      // predates it at level 5+ has it quietly retired.
+      {
+        const fsProg = getProgress(player);
+        const fsSt = firstStepsState(fsProg);
+        if (!fsSt.done && fsProg.level >= 5) { fsSt.done = true; if (player.accountKey) saveProgress(); }
+        if (!fsSt.done) send(ws, firstStepsPayload(player, null));
+      }
+      // ── Login streaks + the "while you were gone" letter (Session L) ──
+      // A returning account lands on a gift, not a guilt trip: the daily
+      // streak pays a small purse, and being away 8h+ earns a letter that
+      // counts what regrew, what's ready, and what's coming up.
+      if (player.accountKey && !resume) {
+        const prog = getProgress(player);
+        const nowMs = Date.now();
+        const streakInfo = applyLoginStreak(player, prog, nowMs);
+        const letter = buildWelcomeLetter(player, prog, streakInfo, nowMs);
+        if (letter) {
+          send(ws, letter);
+        } else if (streakInfo) {
+          send(ws, {
+            type: 'daily_streak',
+            ...streakInfo,
+            message: `🔥 Day ${streakInfo.count} in a row — ${streakInfo.gold + streakInfo.weeklyBonus} gold paid to your bank${streakInfo.weeklyBonus ? ' (a full week — bonus purse!)' : ''}.`
+          });
+        }
+        prog.lastSeenAt = nowMs;
+        saveProgress();
+      }
       // A restored side quest re-renders its tracker silently (a
       // message-less quest_update never toasts).
       if (resume && player.activeQuest && QUEST_CATALOG[player.activeQuest.questId]) {
@@ -5635,6 +7015,20 @@ wss.on('connection', (ws) => {
     if (!player) return; // ignore everything else until joined
 
     if (msg.type === 'move') {
+      // Room-authority grace (Session L): when the SERVER just teleported
+      // this player (delve start, dungeon token, portal exits…), a stale
+      // move packet that was already in flight still carries the OLD room
+      // and coordinates — applying it would yank the player straight back
+      // out. For a short window after any server-side room set, moves that
+      // disagree about the room are dropped whole. (Found live: a delver's
+      // leftover town move flipped them to 'outside' server-side — standing
+      // in the delve, unable to hit anything, invisible to the mobs.)
+      if (Date.now() < (player.roomLockUntil || 0) && msg.room !== player.room) return;
+      // Dungeon rooms (the four tiers and every delve instance) are only
+      // ever ENTERED and LEFT through their handlers — so while you're in
+      // one, a move claiming any other room can only be a stale packet, no
+      // matter how late it straggles in. Drop it whole.
+      if (player.room && player.room.startsWith('dungeon_') && msg.room !== player.room) return;
       const x = Number(msg.x), y = Number(msg.y);
       const bounds = roomBounds(msg.room);
       if (Number.isFinite(x) && Number.isFinite(y)) {
@@ -5661,6 +7055,11 @@ wss.on('connection', (ws) => {
         const changedRoom = player.room !== msg.room;
         player.room = msg.room;
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
+        // Walking into the café tells you whose sigil hangs over the big
+        // table right now (Session L covens).
+        if (changedRoom && msg.room === 'cafe') {
+          send(ws, { type: 'coven_table_state', table: covenTableFor('cafe') });
+        }
       }
       return;
     }
@@ -5686,6 +7085,7 @@ wss.on('connection', (ws) => {
       const room = String(msg.room || '');
       if (!ROOM_IDS.has(room) || room === 'outside') return;
       player.room = 'outside';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       broadcastAll({ type: 'clear_user_messages', room, id: player.id });
       return;
     }
@@ -6763,7 +8163,7 @@ wss.on('connection', (ws) => {
       const claimer = player;
       stripeClient.checkout.sessions.retrieve(claimedId).then(session => {
         if (session.payment_status !== 'paid') return;
-        const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000);
+        const expiresAt = grantForSession(claimedId, (session.created || Math.floor(Date.now() / 1000)) * 1000, passHoursForStripeSession(session));
         if (expiresAt > Date.now() && players.get(claimer.id) === claimer && expiresAt > (claimer.passUntil || 0)) {
           claimer.passUntil = expiresAt;
           send(claimer.ws, { type: 'pass_state', passUntil: expiresAt });
@@ -6829,7 +8229,7 @@ wss.on('connection', (ws) => {
         // wandered off elsewhere since dying, but the body/loot stays put.
         if (t && t.deathRoom !== player.room) t = null;
       } else if (targetType === 'dungeon') {
-        t = dungeonMobs.find(m => m.id === targetId) || null;
+        t = findDungeonTarget(targetId, player.room);
         if (t && t.room !== player.room) t = null;
       } else if (LOOT_ROOMS[targetType]) {
         if (player.room === LOOT_ROOMS[targetType]) {
@@ -6928,6 +8328,7 @@ wss.on('connection', (ws) => {
       }
       if (player.accountKey) saveInventories();
       myHarvests[decorId] = Date.now();
+      saveHarvests(harvestKeyFor(player));
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       // Holly Wood (tree harvests) tracks progress toward the Holly Wand —
       // 5 build one at the craft_wand handler below.
@@ -6968,6 +8369,27 @@ wss.on('connection', (ws) => {
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'craft_result', message: '🎇 You bind five holly hearts into a wand. Equip it — it glows, and it will light your way at night.' });
+      return;
+    }
+
+    if (msg.type === 'craft_circlet') {
+      // 5 Bloodmoon Shards → the Bloodmoon Circlet: the wearable trophy of
+      // the Blood Moon nights (Session L). Same shape as craft_wand.
+      const inv = getInventory(player);
+      const total = countItemQty(inv, 'bloodmoon_shard');
+      if (total < BLOODMOON_CIRCLET_COST) {
+        send(ws, { type: 'craft_error', message: `You need ${BLOODMOON_CIRCLET_COST} 🩸 Bloodmoon Shards to bind a circlet — you have ${total}. They fall on Blood Moon nights.` });
+        return;
+      }
+      removeItemFromAccount(inv, 'bloodmoon_shard', BLOODMOON_CIRCLET_COST);
+      if (!addItemToAccount(inv, 'bloodmoon_circlet', 1)) {
+        addItemToAccount(inv, 'bloodmoon_shard', BLOODMOON_CIRCLET_COST);
+        send(ws, { type: 'craft_error', message: 'Your pack is full — make room for the circlet first.' });
+        return;
+      }
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'craft_result', message: '🔻 Five shards fuse into a circlet, still warm as a heartbeat. Wear the red night proudly.' });
       return;
     }
 
@@ -7371,11 +8793,13 @@ wss.on('connection', (ws) => {
       player.dungeonReturnRoom = player.room || 'outside';
       const sp = spawnWithJitter();
       player.x = sp.x; player.y = sp.y; player.room = room;
+      player.roomLockUntil = Date.now() + 1500;
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level });
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
         const msp = spawnWithJitter();
         member.x = msp.x; member.y = msp.y; member.room = room;
+        member.roomLockUntil = Date.now() + 1500;
         send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level });
       }
       return;
@@ -7383,18 +8807,65 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
+      // Inside a delve run the exit portal ends the run properly instead
+      // (depth recorded, gold kept, room torn down when the last one leaves).
+      if (delveRunOf(player)) { delveLeave(player, 'exit'); return; }
       const returnRoom = player.dungeonReturnRoom || 'outside';
       const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
       player.x = returnPos.x;
       player.y = returnPos.y;
       player.room = returnRoom;
+      player.roomLockUntil = Date.now() + 1500;
       player.dungeonReturnRoom = null;
       send(ws, { type: 'dungeon_exited', room: returnRoom, x: returnPos.x, y: returnPos.y });
       return;
     }
 
+    // ── Session L: the Weekly Delve ─────────────────────────────────────────
+    if (msg.type === 'delve_state') {
+      const run = delveRunOf(player);
+      send(ws, run ? delveStatePayloadFor(run, player) : delveMenuPayload(player));
+      return;
+    }
+
+    if (msg.type === 'delve_start') {
+      delveStart(player);
+      return;
+    }
+
+    if (msg.type === 'delve_pick_boon') {
+      const run = delveRunOf(player);
+      if (!run || run.state !== 'draft') return;
+      const member = run.members.get(player.id);
+      if (!member || member.picked || !member.offer) return;
+      const boonId = String(msg.boonId || '');
+      if (!member.offer.includes(boonId)) return;
+      member.boons[boonId] = (member.boons[boonId] || 0) + 1;
+      member.picked = true;
+      member.offer = null;
+      const boon = DELVE_BOONS[boonId];
+      if (boon.healNow) player.health = Math.min(playerMaxHealth(player), player.health + boon.healNow);
+      send(ws, { type: 'announce_soft', message: `${boon.icon} ${boon.name} — ${boon.desc}` });
+      delveBroadcast(run);
+      return;
+    }
+
+    if (msg.type === 'delve_exit') {
+      if (delveRunOf(player)) delveLeave(player, 'exit');
+      return;
+    }
+
+    // ── Session L: the town board ───────────────────────────────────────────
+    if (msg.type === 'board_state') {
+      send(ws, boardStatePayload(player));
+      return;
+    }
+
     if (msg.type === 'respawn') {
       if (!player.isDead) return;
+      // Death in the Delve is the roguelike contract: respawning walks you
+      // out of the run (depth recorded) before you get back up.
+      if (delveRunOf(player)) delveLeave(player, 'death');
       player.isDead = false;
       player.health = playerMaxHealth(player);
       // The loot window on this corpse closes the moment the body gets back
@@ -7626,6 +9097,250 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // ── Session L: covens ───────────────────────────────────────────────────
+    if (msg.type === 'coven_state') {
+      if (!player.accountKey) { send(ws, { type: 'coven_error', message: 'Covens are for townsfolk with an account — log in first.' }); return; }
+      const cv = covenOf(player.accountKey);
+      if (cv) send(ws, { type: 'coven_state', ...covenStatePayload(cv, player.accountKey) });
+      else send(ws, { type: 'coven_state', coven: null });
+      return;
+    }
+
+    if (msg.type === 'coven_create') {
+      if (!player.accountKey) { send(ws, { type: 'coven_error', message: 'Covens are for townsfolk with an account — log in first.' }); return; }
+      if (covenOf(player.accountKey)) { send(ws, { type: 'coven_error', message: 'You already belong to a coven.' }); return; }
+      const name = sanitizeText(String(msg.name || '')).trim().slice(0, 24);
+      if (name.length < 3) { send(ws, { type: 'coven_error', message: 'A coven needs a name of at least 3 characters.' }); return; }
+      const nameLower = name.toLowerCase();
+      if (Object.values(covens).some(c => c.nameLower === nameLower)) {
+        send(ws, { type: 'coven_error', message: 'A coven by that name already gathers — choose another.' });
+        return;
+      }
+      const sigil = COVEN_SIGILS.includes(msg.sigil) ? msg.sigil : COVEN_SIGILS[0];
+      const acct = ensureBankAccount(player.accountKey);
+      if (acct.balance < COVEN_CREATE_COST) {
+        send(ws, { type: 'coven_error', message: `Founding a coven costs ${COVEN_CREATE_COST} gold (your bank holds ${acct.balance}).` });
+        return;
+      }
+      acct.balance -= COVEN_CREATE_COST;
+      saveBankAccounts();
+      const id = makeId();
+      covens[id] = {
+        id, name, nameLower, sigil, createdAt: Date.now(),
+        leaderKey: player.accountKey, members: [player.accountKey],
+        motd: '', bank: { gold: 0, slots: new Array(COVEN_BANK_SLOTS).fill(null) },
+        log: [], table: null
+      };
+      covenIndex.set(player.accountKey, id);
+      covenLog(covens[id], player.name, 'founded the coven');
+      saveCoven(id);
+      send(ws, { type: 'coven_state', ...covenStatePayload(covens[id], player.accountKey) });
+      broadcastAll({ type: 'announce', message: `${sigil} A new coven gathers: ${name}!` });
+      return;
+    }
+
+    if (msg.type === 'coven_invite') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'coven_error', message: 'You have no coven to invite them into.' }); return; }
+      if (cv.members.length >= COVEN_MAX_MEMBERS) { send(ws, { type: 'coven_error', message: `A coven holds ${COVEN_MAX_MEMBERS} at most — yours is full.` }); return; }
+      const target = players.get(String(msg.targetId || ''));
+      if (!target || target.id === player.id) { send(ws, { type: 'coven_error', message: 'No such soul in town.' }); return; }
+      if (!target.accountKey) { send(ws, { type: 'coven_error', message: `${target.name} wanders as a guest — they need an account to join a coven.` }); return; }
+      if (covenOf(target.accountKey)) { send(ws, { type: 'coven_error', message: `${target.name} already belongs to a coven.` }); return; }
+      const inviteId = makeId();
+      covenInvites.set(inviteId, { covenId: cv.id, targetKey: target.accountKey, expiresAt: Date.now() + 60000 });
+      send(target.ws, { type: 'coven_invited', inviteId, covenName: cv.name, sigil: cv.sigil, fromName: player.name, members: cv.members.length });
+      send(ws, { type: 'coven_error', message: `Invitation carried to ${target.name}.` });
+      return;
+    }
+
+    if (msg.type === 'coven_invite_accept') {
+      const inv = covenInvites.get(String(msg.inviteId || ''));
+      if (!inv || !player.accountKey || inv.targetKey !== player.accountKey) return;
+      covenInvites.delete(String(msg.inviteId || ''));
+      const cv = covens[inv.covenId];
+      if (!cv) return;
+      if (cv.members.length >= COVEN_MAX_MEMBERS) { send(ws, { type: 'coven_error', message: 'That coven filled its circle before you answered.' }); return; }
+      if (covenOf(player.accountKey)) return;
+      cv.members.push(player.accountKey);
+      covenIndex.set(player.accountKey, cv.id);
+      covenLog(cv, player.name, 'joined the circle');
+      saveCoven(cv.id);
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_invite_decline') {
+      covenInvites.delete(String(msg.inviteId || ''));
+      return;
+    }
+
+    if (msg.type === 'coven_leave') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      cv.members = cv.members.filter(k => k !== player.accountKey);
+      covenIndex.delete(player.accountKey);
+      covenLog(cv, player.name, 'left the circle');
+      if (cv.members.length === 0) {
+        // Last one out inherits the tab — gold to their bank, items squeezed
+        // into their bank slots (anything that can't fit is lost with the
+        // coven, and we say so).
+        const acct = ensureBankAccount(player.accountKey);
+        acct.balance += cv.bank.gold;
+        let lost = 0;
+        for (const s of cv.bank.slots) {
+          if (s && !addItemToAccount(acct, s.itemId, s.qty)) lost++;
+        }
+        saveBankAccounts();
+        delete covens[cv.id];
+        persistSave('covens', COVENS_FILE, covens);
+        send(ws, { type: 'coven_state', coven: null });
+        send(ws, { type: 'announce_soft', message: `🥀 ${cv.name} disbands. Its ${cv.bank.gold} gold passes to you${lost ? ` (${lost} item stack${lost > 1 ? 's' : ''} had nowhere to go)` : ''}.` });
+        return;
+      }
+      if (cv.leaderKey === player.accountKey) {
+        cv.leaderKey = cv.members[0];
+        covenLog(cv, covenDisplayName(cv.leaderKey), 'now leads the coven');
+      }
+      saveCoven(cv.id);
+      send(ws, { type: 'coven_state', coven: null });
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_kick') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv || cv.leaderKey !== player.accountKey) return;
+      const targetKey = String(msg.memberKey || '');
+      if (targetKey === player.accountKey || !cv.members.includes(targetKey)) return;
+      cv.members = cv.members.filter(k => k !== targetKey);
+      covenIndex.delete(targetKey);
+      covenLog(cv, player.name, `turned ${covenDisplayName(targetKey)} out of the circle`);
+      saveCoven(cv.id);
+      const kicked = findConnectionByAccountKey(targetKey);
+      if (kicked) {
+        send(kicked.ws, { type: 'coven_state', coven: null });
+        send(kicked.ws, { type: 'announce_soft', message: `🥀 You have been turned out of ${cv.name}.` });
+      }
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_chat') {
+      // Same sanitize-or-suffer rule as party_chat — coven text renders on
+      // other clients, so it MUST pass through sanitizeText.
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      const text = sanitizeText(msg.text).slice(0, 200);
+      if (!text) return;
+      for (const key of cv.members) {
+        const m = findConnectionByAccountKey(key);
+        if (m) send(m.ws, { type: 'coven_msg', fromName: player.name, fromId: player.id, sigil: cv.sigil, text });
+      }
+      return;
+    }
+
+    if (msg.type === 'coven_motd') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv || cv.leaderKey !== player.accountKey) return;
+      cv.motd = sanitizeText(String(msg.text || '')).slice(0, 120);
+      covenLog(cv, player.name, 'changed the words over the door');
+      saveCoven(cv.id);
+      covenBroadcast(cv);
+      return;
+    }
+
+    // The shared tab is a BANK fixture — the same walk-to-the-vault ritual as
+    // your own account (bank_open's rule), which also keeps every mutation in
+    // one guarded room.
+    if (msg.type === 'coven_deposit_gold' || msg.type === 'coven_withdraw_gold') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      if (player.room !== 'bank') { send(ws, { type: 'coven_error', message: 'The coven tab lives at the Gilded Vault — speak to the teller there.' }); return; }
+      const amount = Math.floor(Number(msg.amount));
+      if (!(amount > 0)) return;
+      const acct = ensureBankAccount(player.accountKey);
+      if (msg.type === 'coven_deposit_gold') {
+        if (acct.balance < amount) { send(ws, { type: 'coven_error', message: 'Your bank holds less than that.' }); return; }
+        acct.balance -= amount;
+        cv.bank.gold += amount;
+        covenLog(cv, player.name, `laid in ${amount} gold`);
+      } else {
+        if (cv.bank.gold < amount) { send(ws, { type: 'coven_error', message: 'The coven tab holds less than that.' }); return; }
+        cv.bank.gold -= amount;
+        acct.balance += amount;
+        covenLog(cv, player.name, `drew out ${amount} gold`);
+      }
+      saveBankAccounts();
+      saveCoven(cv.id);
+      send(ws, { type: 'bank_state', balance: acct.balance, slots: acct.slots });
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_deposit_item') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      if (player.room !== 'bank') { send(ws, { type: 'coven_error', message: 'The coven tab lives at the Gilded Vault — speak to the teller there.' }); return; }
+      const inv = getInventory(player);
+      const slotIdx = Math.floor(Number(msg.slotIdx));
+      const stack = inv.slots[slotIdx];
+      if (!stack) return;
+      const empty = cv.bank.slots.findIndex(s => !s);
+      const existing = cv.bank.slots.find(s => s && s.itemId === stack.itemId);
+      if (existing) existing.qty += stack.qty;
+      else if (empty !== -1) cv.bank.slots[empty] = { itemId: stack.itemId, qty: stack.qty };
+      else { send(ws, { type: 'coven_error', message: 'The coven tab is full.' }); return; }
+      const meta = ITEM_CATALOG[stack.itemId];
+      covenLog(cv, player.name, `laid in ${meta ? meta.icon + ' ' + meta.name : stack.itemId} ×${stack.qty}`);
+      inv.slots[slotIdx] = null;
+      if (player.accountKey) saveInventories();
+      saveCoven(cv.id);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_withdraw_item') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      if (player.room !== 'bank') { send(ws, { type: 'coven_error', message: 'The coven tab lives at the Gilded Vault — speak to the teller there.' }); return; }
+      const slotIdx = Math.floor(Number(msg.covenSlot));
+      const stack = cv.bank.slots[slotIdx];
+      if (!stack) return;
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, stack.itemId, stack.qty)) {
+        send(ws, { type: 'coven_error', message: 'Your pack has no room for that.' });
+        return;
+      }
+      const meta = ITEM_CATALOG[stack.itemId];
+      covenLog(cv, player.name, `drew out ${meta ? meta.icon + ' ' + meta.name : stack.itemId} ×${stack.qty}`);
+      cv.bank.slots[slotIdx] = null;
+      if (player.accountKey) saveInventories();
+      saveCoven(cv.id);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      covenBroadcast(cv);
+      return;
+    }
+
+    if (msg.type === 'coven_claim_table') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) return;
+      if (player.room !== 'cafe') { send(ws, { type: 'coven_error', message: 'The claimable table is in the Cauldron Café.' }); return; }
+      const now = Date.now();
+      const holder = covenTableFor('cafe');
+      if (holder && holder.name !== cv.name) {
+        send(ws, { type: 'coven_error', message: `${holder.sigil} ${holder.name} holds the table until the candles burn down. Try again later.` });
+        return;
+      }
+      cv.table = { room: 'cafe', claimedAt: now, until: now + COVEN_TABLE_HOLD_MS };
+      covenLog(cv, player.name, 'claimed the café table');
+      saveCoven(cv.id);
+      broadcastRoom('cafe', { type: 'coven_table_state', table: covenTableFor('cafe') });
+      covenBroadcast(cv);
+      return;
+    }
+
     if (msg.type === 'enter_witch_cave') {
       if (player.room !== 'wilds' || player.isDead) return;
       const dist = Math.hypot(player.x - WITCH_CAVE_ENTRANCE.x, player.y - WITCH_CAVE_ENTRANCE.y);
@@ -7633,6 +9348,7 @@ wss.on('connection', (ws) => {
       player.witchCaveReturnX = player.x;
       player.witchCaveReturnY = player.y;
       player.room = 'witch_cave';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = WITCH_CAVE_SPAWN.x;
       player.y = WITCH_CAVE_SPAWN.y;
       send(ws, { type: 'witch_cave_entered', spawn: WITCH_CAVE_SPAWN });
@@ -7648,6 +9364,7 @@ wss.on('connection', (ws) => {
       const retX = player.witchCaveReturnX || WITCH_CAVE_ENTRANCE.x;
       const retY = player.witchCaveReturnY || WITCH_CAVE_ENTRANCE.y + 50;
       player.room = 'wilds';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = retX;
       player.y = retY;
       player.witchCaveReturnX = null;
@@ -7661,6 +9378,7 @@ wss.on('connection', (ws) => {
       player.vaultReturnX = player.x;
       player.vaultReturnY = player.y;
       player.room = 'bank_vault';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = VAULT_SPAWN.x;
       player.y = VAULT_SPAWN.y;
       send(ws, { type: 'vault_entered', spawn: VAULT_SPAWN });
@@ -7674,6 +9392,7 @@ wss.on('connection', (ws) => {
       const retX = player.vaultReturnX || (b ? b.x + b.w / 2 : player.x);
       const retY = player.vaultReturnY || (b ? b.y + b.h / 2 : player.y);
       player.room = 'bank';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = retX;
       player.y = retY;
       player.vaultReturnX = null;
@@ -7697,6 +9416,7 @@ wss.on('connection', (ws) => {
       player.emberReturnX = player.x;
       player.emberReturnY = player.y;
       player.room = 'ember_wastes';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = EMBER_SPAWN.x;
       player.y = EMBER_SPAWN.y;
       send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN });
@@ -7709,6 +9429,7 @@ wss.on('connection', (ws) => {
       const retX = player.emberReturnX || TEMPLE_ALTAR.x;
       const retY = player.emberReturnY || TEMPLE_ALTAR.y + 80;
       player.room = 'outside';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = retX;
       player.y = retY;
       player.emberReturnX = null;
@@ -7960,6 +9681,11 @@ wss.on('connection', (ws) => {
         });
       }
       leaveParty(player);
+      delveLeave(player, 'disconnect');
+      // Stamp the away-clock for the "while you were gone" letter.
+      if (player.accountKey) {
+        try { getProgress(player).lastSeenAt = Date.now(); saveProgress(); } catch (e) {}
+      }
       if (player.room !== 'outside') {
         broadcastAll({ type: 'clear_user_messages', room: player.room, id: player.id });
       }
@@ -7998,6 +9724,24 @@ setInterval(() => {
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
+  // Durable storage (Session L)
+  getSqliteDb: () => sqliteDb, persistLoad, persistSave, persistSetKey,
+  DATA_DIR, accounts, saveAccounts, playerProgress, saveProgress,
+  decorHarvestedAt, saveHarvests, persistExportBackups,
+  // Session L systems
+  DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale,
+  PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload,
+  tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, calendarPublicState,
+  BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
+  DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
+  delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
+  covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
+  FIRST_STEPS, noteFirstStep, firstStepsPayload,
+  applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
+  sessions, covenInvites,
+  getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
+  TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)

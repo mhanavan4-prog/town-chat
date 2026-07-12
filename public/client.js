@@ -207,6 +207,8 @@ const ITEM_CATALOG = {
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null, desc: 'A box of trapped whispers — holds 24 notes, warded by password.' },
   wood:           { name: 'Holly Wood',     icon: '🪵', slot: null, desc: 'A heartwood cutting from the town trees. Five bind into a wand — the old way.' },
   holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon', desc: 'Five holly hearts bound with moonthread. It remembers starlight, and shares it after dark.' },
+  bloodmoon_shard:   { name: 'Bloodmoon Shard',   icon: '🩸', slot: null, desc: 'A splinter of red night, still warm. They only fall while the Blood Moon watches — five will bind a circlet.' },
+  bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head', desc: 'Five shards fused on a Blood Moon night. It beats faintly, like a second pulse. Proof you stood outside when the sky went red.' },
   berries:        { name: 'Berries',        icon: '🍓', slot: null, desc: 'Picked by moonlight. Probably edible. Probably.' },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null, desc: 'It turns to face you when you look away.' },
   // Character starter sets
@@ -598,6 +600,17 @@ function onWsMessage(ev) {
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     if (msg.msAuctionFee != null) msAuctionFee = msg.msAuctionFee;
     refreshMsUI();
+    // ── Session L: dungeon lore, the calendar, delve twists, push ──
+    if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
+    if (msg.calendar) applyCalendarState(msg.calendar);
+    if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
+    if (msg.covenSigils) covenSigilsCatalog = msg.covenSigils;
+    pushPublicKey = msg.pushPublicKey || null;
+    pushAvailable = !!msg.pushAvailable;
+    if (msg.townPass) {
+      townPass30Cents = msg.townPass.price30Cents || townPass30Cents;
+      townPass30Product = msg.townPass.product30 || townPass30Product;
+    }
     // 😴 Rested XP window (bonus XP for the first minutes of a session).
     restedUntil = msg.restedUntil || 0;
     if (restedUntil > Date.now() && !restedToastShown) {
@@ -1061,6 +1074,113 @@ function onWsMessage(ev) {
     return;
   }
 
+  // ── Session L messages ─────────────────────────────────────────────────
+  if (msg.type === 'announce_soft') {
+    // Personal event beats (delve floors, first steps) — toast, no banner.
+    setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'calendar_state') {
+    applyCalendarState(msg.calendar);
+    return;
+  }
+
+  if (msg.type === 'welcome_letter') {
+    openLetterModal(msg);
+    return;
+  }
+
+  if (msg.type === 'daily_streak') {
+    setUnlockToast(msg.message);
+    appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'first_steps') {
+    firstStepsState = msg;
+    renderFirstSteps();
+    if (msg.justCompleted) {
+      const step = (msg.steps || []).find(s => s.id === msg.justCompleted);
+      if (step) setUnlockToast(`${step.icon} First Steps: ${step.label} ✓`);
+    }
+    return;
+  }
+
+  if (msg.type === 'board_state') {
+    boardState = msg;
+    if (boardModalOpen) renderBoardModal();
+    return;
+  }
+
+  if (msg.type === 'delve_state') {
+    delveState = msg;
+    delveSpeedMult = msg.inRun ? (msg.speedMult || 1) : 1;
+    renderDelveHud();
+    if (delveModalOpen) renderDelveModal();
+    renderBoonDraft();
+    return;
+  }
+
+  if (msg.type === 'delve_over') {
+    delveState = null;
+    delveSpeedMult = 1;
+    renderDelveHud();
+    document.getElementById('boonDraft').classList.add('hidden');
+    if (me) { me.room = msg.room; me.x = msg.x; me.y = msg.y; }
+    mode = 'outdoor';
+    if (msg.room === 'wilds') swapToWildsMap(); else swapToTownMap();
+    ws.send(JSON.stringify({ type: 'move', x: msg.x, y: msg.y, room: msg.room }));
+    const why = msg.reason === 'death' ? 'The Delve keeps your bones — ' : '';
+    setUnlockToast(`🕳️ ${why}Depth ${msg.depth}${msg.gold ? ` · ${msg.gold} 🪙 banked` : ''}${msg.best && msg.best.rank ? ` · #${msg.best.rank} this week` : ''}`);
+    appendSystemChatLine(`🕳️ Delve over — depth ${msg.depth}.`);
+    return;
+  }
+
+  if (msg.type === 'delve_error') {
+    if (delveModalOpen) document.getElementById('delveErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'coven_state') {
+    covenState = msg.coven || null;
+    refreshCovenMenuRow();
+    if (covenModalOpen) renderCovenModal();
+    return;
+  }
+
+  if (msg.type === 'coven_msg') {
+    covenChatLines.push({ who: msg.fromName, sigil: msg.sigil, text: msg.text });
+    if (covenChatLines.length > 60) covenChatLines = covenChatLines.slice(-60);
+    const chatVisible = covenModalOpen && !document.getElementById('covenChatView').classList.contains('hidden');
+    if (chatVisible) renderCovenChat();
+    else {
+      covenUnread++;
+      refreshCovenMenuRow();
+      if (!covenModalOpen) setUnlockToast(`${msg.sigil} ${msg.fromName}: ${msg.text.slice(0, 60)}`);
+    }
+    return;
+  }
+
+  if (msg.type === 'coven_invited') {
+    openCovenInviteToast(msg);
+    return;
+  }
+
+  if (msg.type === 'coven_error') {
+    if (covenModalOpen) document.getElementById('covenErr').textContent = msg.message;
+    else setUnlockToast(msg.message);
+    return;
+  }
+
+  if (msg.type === 'coven_table_state') {
+    covenTableState = msg.table || null;
+    refreshCovenTableVisual();
+    return;
+  }
+
   if (msg.type === 'trophy_bonus' || msg.type === 'cm_result') {
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
@@ -1149,7 +1269,15 @@ function onWsMessage(ev) {
     mode = 'outdoor';
     swapToDungeonMap();
     ws.send(JSON.stringify({ type: 'move', x: msg.spawn.x, y: msg.spawn.y, room: msg.room }));
-    setUnlockToast(`⚡ Entered dungeon tier ${msg.tier} — Level ${msg.level} Wildlands`);
+    if (msg.delve) {
+      setUnlockToast(`🕳️ The Delve opens — Floor ${msg.floor || 1}. Clear it, draft, descend.`);
+    } else {
+      const lore = dungeonLoreCatalog && dungeonLoreCatalog[msg.tier];
+      setUnlockToast(lore
+        ? `🕳️ ${lore.name} — ${lore.epithet} (Tier ${msg.tier}). Read the plaque by the portal.`
+        : `⚡ Entered dungeon tier ${msg.tier} — Level ${msg.level} Wildlands`);
+    }
+    pokeRoomTag();
     return;
   }
 
@@ -2055,10 +2183,18 @@ function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
   if (roomId === 'wilds') return '🌲 The Wilds';
   if (roomId === 'ember_wastes') return '🔥 The Ember Wastes';
-  if (roomId === 'dungeon_t1') return '⚔️ Dungeon — Tier 1 (Lv 1–5)';
-  if (roomId === 'dungeon_t2') return '⚔️ Dungeon — Tier 2 (Lv 6–10)';
-  if (roomId === 'dungeon_t3') return '⚔️ Dungeon — Tier 3 (Lv 11–15)';
-  if (roomId === 'dungeon_t4') return '⚔️ Dungeon — Tier 4 (Lv 16–20)';
+  // The named dungeons (Session L) — lore ships in init; the tier ranges
+  // stay in the label so the gate is still legible at a glance.
+  const dm = /^dungeon_t([1-4])$/.exec(roomId || '');
+  if (dm) {
+    const tier = Number(dm[1]);
+    const lore = dungeonLoreCatalog && dungeonLoreCatalog[tier];
+    const range = ['1–5', '6–10', '11–15', '16–20'][tier - 1];
+    return lore ? `🕳️ ${lore.name} (Lv ${range})` : `⚔️ Dungeon — Tier ${tier} (Lv ${range})`;
+  }
+  if (typeof roomId === 'string' && roomId.startsWith('dungeon_delve_')) {
+    return delveState && delveState.inRun ? `🕳️ The Delve — Floor ${delveState.floor}` : '🕳️ The Delve';
+  }
   const b = world && world.buildings.find(x => x.id === roomId);
   return b ? b.name : roomId;
 }
@@ -2580,6 +2716,26 @@ function selectInvSlot(idx) {
       panel.classList.add('hidden');
       showInvTab('invHardDriveView');
     });
+    buttons.appendChild(btn);
+  } else if (slot.itemId === 'bloodmoon_shard') {
+    // Bloodmoon Shards → Circlet (5 shards; server re-validates) — Session L
+    const total = lastInventoryState.slots.reduce((n, s) => n + (s && s.itemId === 'bloodmoon_shard' ? s.qty : 0), 0);
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '🔻 Bind the Bloodmoon Circlet (5 shards)';
+    if (total >= 5) {
+      btn.addEventListener('click', () => {
+        document.getElementById('invModalErr').textContent = '';
+        ws.send(JSON.stringify({ type: 'craft_circlet' }));
+      });
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+      const note = document.createElement('div');
+      note.id = 'invEquippableNote';
+      note.textContent = `${total}/5 shards — they fall from night creatures under a Blood Moon.`;
+      buttons.appendChild(note);
+    }
     buttons.appendChild(btn);
   } else if (slot.itemId === 'wood') {
     // Holly Wood → Holly Wand crafting (5 pieces; server re-validates)
@@ -3271,6 +3427,31 @@ let myMoonstones = 0;
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 let msAuctionFee = 0.10;
 let legendaryCatalogClient = {};  // merged into ITEM_CATALOG at init
+
+// ── Session L state ──────────────────────────────────────────────────────────
+let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
+let calendarState = null;           // { tourney, festival, bloodMoon, peddlerNextRotationAt }
+let weeklyDelveModsClient = [];     // [{ id, name, icon, desc }]
+let covenSigilsCatalog = ['🕯️', '🌙', '🦇', '🐈‍⬛', '🕸️', '🌿', '⭐', '🔮', '🗝️', '🥀'];
+let covenState = null;              // server coven_state payload (.coven or null)
+let covenUnread = 0;
+let covenChatLines = [];            // [{ who, sigil, text }] (in-memory, last 60)
+let delveState = null;              // last delve_state payload
+let delveSpeedMult = 1;             // swift boons — applied only inside delve rooms
+let boardState = null;
+let firstStepsState = null;
+let pushPublicKey = null;
+let pushAvailable = false;
+let townPass30Cents = 499;
+let townPass30Product = 'town_pass_30d';
+let boardModalOpen = false, delveModalOpen = false, covenModalOpen = false, notifModalOpen = false;
+// Blood-moon night math mirrored from the server (same pure clock both ends).
+const BLOOD_MOON_EVERY_NIGHTS = 13;
+function bloodMoonActiveClient(now) {
+  now = now == null ? Date.now() : now;
+  const idx = Math.floor(now / CYCLE_MS);
+  return (idx % BLOOD_MOON_EVERY_NIGHTS) === 0 && (now % CYCLE_MS) >= DAY_MS;
+}
 let restedUntil = 0;          // 😴 rested-XP window end (epoch ms), 0 = none
 let restedToastShown = false;
 
@@ -4235,7 +4416,14 @@ function showCheckoutProblem(message) {
   if (err && passModalOpen) err.textContent = '⚠️ ' + message;
 }
 
-async function startPassCheckout(btn) {
+async function startPassCheckout(btn, product) {
+  // In the mobile apps StoreKit / Play Billing handles digital goods (their
+  // rules) — config.js + mobile-payments.js install this hook there. On the
+  // web the hook is simply absent and Stripe Checkout proceeds below.
+  if (window.TOWNCHAT_IAP) {
+    if (product === 'pass30' && window.TOWNCHAT_IAP.buyProduct) return window.TOWNCHAT_IAP.buyProduct(townPass30Product, btn);
+    if (window.TOWNCHAT_IAP.buyPass) return window.TOWNCHAT_IAP.buyPass(btn);
+  }
   const restore = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
   try {
@@ -4244,7 +4432,11 @@ async function startPassCheckout(btn) {
       sessionStorage.setItem('tc_resume', JSON.stringify({ token, name: me ? me.name : '', at: Date.now() }));
     }
   } catch (e) {} // no token just means the old return-to-join-screen behavior
-  fetch('/api/checkout', { method: 'POST' })
+  fetch(apiUrlMaybe('/api/checkout'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ product: product === 'pass30' ? 'pass30' : 'pass' })
+  })
     .then(r => r.json())
     .then(data => {
       if (data.url) {
@@ -6723,6 +6915,10 @@ function maybeUpdateRoomUI(room) {
   const headerText = document.getElementById('chatHeaderText');
   if (headerText) headerText.textContent = '💬 ' + roomLabel(room);
   renderChatLog();
+  // Session L: the coven table sprite lives only in the café, and the event
+  // pill re-evaluates per room (it hides indoors-agnostically otherwise).
+  try { refreshCovenTableVisual(); } catch (e) {}
+  try { renderEventTag(); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -7658,6 +7854,76 @@ function buildTownNPCs(scene) {
     OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'npc', npcId: npc.id, npcName: npc.name });
   }
   buildMidnightPeddler(scene);
+  buildTownBoard(scene);
+  buildDelveStone(scene);
+}
+
+// ── The Town Board (Session L) — the leaderboards' physical home, a big
+// noticeboard on the square. "Give the nightly trophy and hunt streaks a
+// board in the town square." Client dressing + kiosk, data via board_state.
+const BOARD_SPOT = { x: 2010, y: 1150 };
+function buildTownBoard(scene) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: 0x4a3b2c });
+  for (const px of [-30, 30]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3, 58, 6), wood);
+    post.position.set(px, 29, 0);
+    g.add(post);
+  }
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(76, 44, 4), new THREE.MeshLambertMaterial({ color: 0x2c2340 }));
+  panel.position.y = 40;
+  g.add(panel);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(86, 4, 16), wood);
+  roof.position.y = 65;
+  roof.rotation.z = 0.03;
+  g.add(roof);
+  // Pinned "pages" — pale rectangles, one gold like a first-place sheet.
+  const pages = [[-24, 46, 0xd8ccb8], [-2, 42, 0xd8ccb8], [20, 45, 0xffd9a0], [10, 32, 0xcfc3e8], [-16, 31, 0xd8ccb8]];
+  for (const [px, py, c] of pages) {
+    const page = new THREE.Mesh(new THREE.PlaneGeometry(14, 10 + Math.abs(px % 7)), new THREE.MeshBasicMaterial({ color: c }));
+    page.position.set(px, py, 2.4);
+    page.rotation.z = (px % 5) * 0.02;
+    g.add(page);
+  }
+  g.position.set(BOARD_SPOT.x, 0, BOARD_SPOT.y);
+  g.rotation.y = -0.4;
+  scene.add(g);
+  const label = makeNpcNameSprite('🏆 The Town Board');
+  label.position.set(BOARD_SPOT.x, 80, BOARD_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: BOARD_SPOT.x, z: BOARD_SPOT.y, npc: 'board' });
+}
+
+// ── The Delve Stone (Session L) — the two-tap door down. A split standing
+// stone breathing violet light on the square's south edge.
+const DELVE_STONE_SPOT = { x: 1600, y: 1420 };
+let delveStoneGroup = null;
+function buildDelveStone(scene) {
+  const g = new THREE.Group();
+  const rock = new THREE.MeshLambertMaterial({ color: 0x2e283a });
+  const left = new THREE.Mesh(new THREE.CylinderGeometry(10, 14, 64, 5), rock);
+  left.position.set(-11, 32, 0);
+  left.rotation.z = 0.12;
+  g.add(left);
+  const right = new THREE.Mesh(new THREE.CylinderGeometry(9, 13, 56, 5), rock);
+  right.position.set(11, 28, 0);
+  right.rotation.z = -0.14;
+  g.add(right);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0x9a76ff, transparent: true, opacity: 0.55,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(40, 52, 1);
+  glow.position.set(0, 28, 0);
+  g.add(glow);
+  g.userData.tick = (t) => { glow.material.opacity = 0.4 + Math.sin(t * 1.4) * 0.18; };
+  delveStoneGroup = g;
+  g.position.set(DELVE_STONE_SPOT.x, 0, DELVE_STONE_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🕳️ The Delve Stone');
+  label.position.set(DELVE_STONE_SPOT.x, 76, DELVE_STONE_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: DELVE_STONE_SPOT.x, z: DELVE_STONE_SPOT.y, npc: 'delve' });
 }
 
 // ── The Midnight Peddler's stall (Session I) — a cloaked figure under a
@@ -9731,6 +9997,33 @@ function buildDungeonScene() {
   scene.add(buildPortalMesh(400, 50));
   DUNGEON_KIOSKS = [{ x: 400, z: 50, portal: 'dungeon_exit' }];
 
+  // The lore plaque (Session L) — a standing stone by the player spawn.
+  // One mesh serves all four named dungeons AND delve floors; the text it
+  // opens comes from dungeonLoreCatalog keyed by whichever room you're in.
+  const plaque = new THREE.Group();
+  const slab = new THREE.Mesh(
+    new THREE.BoxGeometry(34, 44, 6),
+    new THREE.MeshLambertMaterial({ color: 0x3a3048 })
+  );
+  slab.position.y = 30;
+  plaque.add(slab);
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(42, 10, 12),
+    new THREE.MeshLambertMaterial({ color: 0x2e283a })
+  );
+  base.position.y = 5;
+  plaque.add(base);
+  const rune = new THREE.Mesh(
+    new THREE.PlaneGeometry(24, 30),
+    new THREE.MeshBasicMaterial({ color: 0x8a76c9, transparent: true, opacity: 0.35 })
+  );
+  rune.position.set(0, 30, 3.2);
+  plaque.add(rune);
+  plaque.position.set(466, 0, 700);
+  plaque.rotation.y = -0.5;
+  scene.add(plaque);
+  DUNGEON_KIOSKS.push({ x: 466, z: 700, npc: 'plaque' });
+
   dungeonScene = scene;
   dungeonCamera = camera;
 }
@@ -9781,11 +10074,18 @@ function getDayNightState() {
   return { cyclePos, lightAmount, isNight: cyclePos >= DAY_MS, dayProgress, nightProgress };
 }
 
+const SKY_BLOOD = new THREE.Color(0x2a0812);
+const AMBIENT_BLOOD = new THREE.Color(0xc06a6a);
+const MOON_BLOOD_COLOR = new THREE.Color(0xff5a4a);
+const MOON_PALE_COLOR = new THREE.Color(0xeaf2ff); // the moon's authored face
 function updateDayNightCycle() {
   if (!outdoorScene || !outdoorAmbient || !outdoorSun) return;
   const { lightAmount, isNight, dayProgress, nightProgress } = getDayNightState();
+  // 🔴 Blood Moon nights (Session L): every 13th night the sky goes red —
+  // pure client-side clock math, the same cycle arithmetic the server uses.
+  const bloodMoon = isNight && bloodMoonActiveClient();
 
-  _skyColor.copy(SKY_NIGHT).lerp(SKY_DAY, lightAmount);
+  _skyColor.copy(bloodMoon ? SKY_BLOOD : SKY_NIGHT).lerp(SKY_DAY, lightAmount);
   outdoorScene.background.copy(_skyColor);
   if (outdoorScene.fog) outdoorScene.fog.color.copy(_skyColor);
   // Kept in sync even while inactive — the Wilds shares the same day/night
@@ -9796,7 +10096,7 @@ function updateDayNightCycle() {
     if (wildsScene.fog) wildsScene.fog.color.copy(_skyColor);
   }
 
-  _ambientColor.copy(AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
+  _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   outdoorAmbient.color.copy(_ambientColor);
   outdoorAmbient.intensity = 0.38 + lightAmount * 0.27;
 
@@ -9819,6 +10119,9 @@ function updateDayNightCycle() {
   outdoorMoonLight.position.set(Math.cos(moonAngle) * -1150, Math.max(60, moonY / Math.max(1, r) * 1150), -460);
   const moonStrength = 1 - lightAmount;
   outdoorMoonLight.intensity = moonStrength * 0.55;
+  // The moon itself blushes on blood nights, and its light follows.
+  moonMesh.material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
+  outdoorMoonLight.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
   moonMesh.material.opacity = moonStrength;
   moonMesh.visible = moonStrength > 0.02;
 
@@ -10037,7 +10340,18 @@ const DUNGEON_MOB_VISUALS = {
   infernal_brute:  { color: 0x8a1a00, eyeColor: 0xff4400, scale: 1.6  },
   death_knight:    { color: 0x1a1a2a, eyeColor: 0x4444ff, scale: 1.2  },
   chaos_dragon:    { color: 0x660000, eyeColor: 0xff6600, scale: 1.5  },
-  void_leviathan:  { color: 0x000022, eyeColor: 0x0066ff, scale: 2.0  }
+  void_leviathan:  { color: 0x000022, eyeColor: 0x0066ff, scale: 2.0  },
+  // ── The signature bosses (Session L) — one per named dungeon ──
+  boss_rat_king:       { color: 0x8a6a3a, eyeColor: 0xffcc44, scale: 1.5,  boss: true },
+  boss_crypt_weaver:   { color: 0x5a2a5a, eyeColor: 0xff88ff, scale: 1.65, boss: true },
+  boss_forge_tyrant:   { color: 0xb84a10, eyeColor: 0xffee66, scale: 1.95, boss: true },
+  boss_pale_sovereign: { color: 0xd8d8ea, eyeColor: 0xaaccff, scale: 2.1,  boss: true }
+};
+const DUNGEON_BOSS_NAMES = {
+  boss_rat_king: 'Old Gnawbone, the Rat King',
+  boss_crypt_weaver: 'Widow Silk, the Crypt Weaver',
+  boss_forge_tyrant: 'Cindermaw, the Forge-Tyrant',
+  boss_pale_sovereign: 'The Pale Sovereign'
 };
 
 function makeMob2(mobType) {
@@ -10309,6 +10623,21 @@ function makeDungeonMob(mobType) {
     child.material.color.set(isEye ? visual.eyeColor : visual.color);
   });
   g.scale.setScalar(visual.scale);
+  // Signature bosses (Session L) wear their name and a low ember glow —
+  // unmistakable across the arena.
+  if (visual.boss && DUNGEON_BOSS_NAMES[mobType]) {
+    const label = makeNpcNameSprite('⚔️ ' + DUNGEON_BOSS_NAMES[mobType]);
+    label.position.set(0, 46 / visual.scale, 0);
+    label.scale.multiplyScalar(1.5 / visual.scale);
+    g.add(label);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: LEGEND_FX.glowTexture(), color: visual.eyeColor, transparent: true, opacity: 0.4,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    glow.scale.set(60 / visual.scale, 60 / visual.scale, 1);
+    glow.position.set(0, 10, 0);
+    g.add(glow);
+  }
   return g;
 }
 
@@ -15977,6 +16306,693 @@ function findNearestKiosk() {
   return null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION L UI — the town board, the Weekly Delve, covens, the welcome-back
+// letter, First Steps, the event calendar pill, notifications, dungeon lore.
+// ═══════════════════════════════════════════════════════════════════════════
+// The saved login (localStorage tc_account) — parsed fresh each ask, the way
+// the rest of the client treats it.
+function accountAuth() {
+  try { return JSON.parse(localStorage.getItem('tc_account') || 'null'); } catch (e) { return null; }
+}
+
+// ── Event calendar pill + countdowns ─────────────────────────────────────────
+function applyCalendarState(cal) {
+  calendarState = cal || calendarState;
+  renderEventTag();
+}
+function renderEventTag() {
+  const el = document.getElementById('eventTag');
+  if (!el) return;
+  if (!calendarState || !me) { el.classList.add('hidden'); return; }
+  const now = Date.now();
+  const parts = [];
+  if (calendarState.bloodMoon && bloodMoonActiveClient(now)) parts.push('🔴 BLOOD MOON');
+  if (calendarState.festival && now >= calendarState.festival.startsAt && now < calendarState.festival.endsAt) parts.push('🏮 Hearthmoon Festival — +25% XP');
+  if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');
+  if (!parts.length) { el.classList.add('hidden'); return; }
+  el.textContent = parts.join(' · ');
+  el.classList.remove('hidden');
+}
+setInterval(renderEventTag, 20000);
+
+// ── The while-you-were-gone letter ───────────────────────────────────────────
+function openLetterModal(letter) {
+  const modal = document.getElementById('letterModal');
+  const body = document.getElementById('letterBody');
+  if (!modal || !body) return;
+  const lines = [];
+  const days = Math.floor(letter.awayHours / 24);
+  const awayLabel = days >= 2 ? `${days} days` : `${letter.awayHours} hours`;
+  lines.push(['🌒', `The town kept a candle lit for the ${awayLabel} you were away.`]);
+  if (letter.streak) {
+    lines.push(['🔥', `Day ${letter.streak.count} in a row — <b>${letter.streak.gold + letter.streak.weeklyBonus} gold</b> paid to your bank${letter.streak.weeklyBonus ? ' (a full week!)' : ''}.`]);
+  }
+  if (letter.regrown > 0) lines.push(['🌿', `<b>${letter.regrown}</b> of your foraging patches ${letter.regrown === 1 ? 'has' : 'have'} regrown in the Wilds.`]);
+  if (letter.questsReady > 0) lines.push(['📜', `<b>${letter.questsReady}</b> side ${letter.questsReady === 1 ? 'quest is' : 'quests are'} ready to take again.`]);
+  if (letter.peddlerRotated) lines.push(['🌒', `The Midnight Peddler has turned his cart — <b>five new wonders</b> on the table.`]);
+  const cal = letter.calendar || calendarState;
+  if (cal) {
+    const now = Date.now();
+    if (now >= cal.tourney.startsAt && now < cal.tourney.endsAt) lines.push(['🏹', 'The Weekend Hunt Tournament is ON right now — every kill counts.']);
+    else if (cal.tourney.startsAt > now) lines.push(['🏹', `Next hunt tournament: ${shortWhen(cal.tourney.startsAt)}.`]);
+    if (now >= cal.festival.startsAt && now < cal.festival.endsAt) lines.push(['🏮', 'The Hearthmoon Festival fills the town today — +25% XP!']);
+    if (bloodMoonActiveClient(now)) lines.push(['🔴', 'The BLOOD MOON is up at this very moment. Shards are falling.']);
+  }
+  body.innerHTML = '';
+  for (const [ico, html] of lines) {
+    const row = document.createElement('div');
+    row.className = 'lLine';
+    const i = document.createElement('span'); i.className = 'lIco'; i.textContent = ico;
+    const t = document.createElement('span'); t.innerHTML = html; // authored above — no user text rides this
+    row.appendChild(i); row.appendChild(t);
+    body.appendChild(row);
+  }
+  modal.classList.remove('hidden');
+}
+function shortWhen(ts) {
+  const ms = ts - Date.now();
+  if (ms <= 0) return 'now';
+  const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24;
+  return d > 0 ? `in ${d}d ${h}h` : `in ${h}h ${Math.floor(ms / 60000) % 60}m`;
+}
+(function () {
+  const b = document.getElementById('letterCloseBtn');
+  if (b) b.addEventListener('click', () => document.getElementById('letterModal').classList.add('hidden'));
+})();
+
+// ── First Steps tracker ──────────────────────────────────────────────────────
+function renderFirstSteps() {
+  const chip = document.getElementById('firstStepsChip');
+  if (!chip) return;
+  if (!firstStepsState || firstStepsState.done) { chip.classList.add('hidden'); return; }
+  chip.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'fsTitle';
+  title.textContent = '🏮 First Steps';
+  chip.appendChild(title);
+  for (const s of firstStepsState.steps) {
+    const row = document.createElement('div');
+    if (s.done) row.className = 'fsDone';
+    row.textContent = `${s.icon} ${s.label}`;
+    chip.appendChild(row);
+  }
+  const note = document.createElement('div');
+  note.style.cssText = 'color:#9a8ac0;font-size:11px;margin-top:2px;';
+  note.textContent = `Finish all three: ${firstStepsState.rewardGold} gold`;
+  chip.appendChild(note);
+  chip.classList.remove('hidden');
+}
+
+// ── The Town Board ───────────────────────────────────────────────────────────
+let boardActiveTab = 'hunt';
+function openBoardModal() {
+  boardModalOpen = true;
+  document.getElementById('boardModal').classList.remove('hidden');
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'board_state' }));
+  renderBoardModal();
+}
+function closeBoardModal() {
+  boardModalOpen = false;
+  document.getElementById('boardModal').classList.add('hidden');
+}
+function renderBoardModal() {
+  if (!boardModalOpen) return;
+  const list = document.getElementById('boardList');
+  const weekNote = document.getElementById('boardWeekNote');
+  const meNote = document.getElementById('boardMeNote');
+  const tNote = document.getElementById('boardTourneyNote');
+  if (!list) return;
+  document.querySelectorAll('#boardTabs .slTab').forEach(b =>
+    b.classList.toggle('active', b.dataset.board === boardActiveTab));
+  list.innerHTML = '';
+  if (!boardState) { list.innerHTML = '<div class="slNote">Consulting the board…</div>'; return; }
+  weekNote.textContent = `This week's deeds — new page ${shortWhen(boardState.weekEndsAt)}`;
+  const board = boardState.boards[boardActiveTab];
+  tNote.classList.toggle('hidden', boardActiveTab !== 'tourney');
+  if (boardActiveTab === 'tourney' && boardState.tourney) {
+    tNote.textContent = boardState.tourney.active
+      ? `🏹 LIVE — ends ${shortWhen(boardState.tourney.endsAt)}. Every creature felled counts.`
+      : `Next tournament ${shortWhen(boardState.tourney.startsAt)} (Friday evening → Sunday night).`;
+  }
+  if (!board || !board.top.length) {
+    list.innerHTML = '<div class="slNote">No deeds written on this page yet — be the first.</div>';
+  } else {
+    board.top.forEach((e, i) => {
+      const row = document.createElement('div');
+      row.className = 'slRow' + (board.me && e.value === board.me.value && me && e.name === me.name ? ' slMe' : '');
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const rank = document.createElement('span'); rank.className = 'slRank'; rank.textContent = medal;
+      const name = document.createElement('span'); name.className = 'slName'; name.textContent = e.name;
+      const val = document.createElement('span'); val.className = 'slVal';
+      val.textContent = boardActiveTab === 'delve' ? `depth ${e.value}` : `×${e.value}`;
+      row.appendChild(rank); row.appendChild(name); row.appendChild(val);
+      list.appendChild(row);
+    });
+  }
+  meNote.textContent = boardState.isGuest
+    ? 'Guests pass through unrecorded — log in and the board remembers you.'
+    : (board && board.me ? `You: #${board.me.rank} with ${boardActiveTab === 'delve' ? 'depth ' + board.me.value : '×' + board.me.value}` : 'Nothing beside your name yet this week.');
+  const honorsWrap = document.getElementById('boardHonors');
+  const honorsList = document.getElementById('boardHonorsList');
+  if (boardState.honors && boardState.honors.length) {
+    honorsWrap.classList.remove('hidden');
+    honorsList.innerHTML = '';
+    for (const h of boardState.honors.slice().reverse()) {
+      const row = document.createElement('div');
+      row.className = 'slRow';
+      row.textContent = `${h.place === 1 ? '🥇' : h.place === 2 ? '🥈' : '🥉'} ${h.board} board — ${h.week}`;
+      honorsList.appendChild(row);
+    }
+  } else {
+    honorsWrap.classList.add('hidden');
+  }
+}
+(function () {
+  const tabs = document.getElementById('boardTabs');
+  if (tabs) tabs.addEventListener('click', (e) => {
+    const b = e.target.closest('.slTab');
+    if (!b) return;
+    boardActiveTab = b.dataset.board;
+    renderBoardModal();
+  });
+  const close = document.getElementById('boardCloseBtn');
+  if (close) close.addEventListener('click', closeBoardModal);
+})();
+
+// ── The Weekly Delve UI ──────────────────────────────────────────────────────
+function openDelveModal() {
+  delveModalOpen = true;
+  document.getElementById('delveModal').classList.remove('hidden');
+  document.getElementById('delveErr').textContent = '';
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'delve_state' }));
+  renderDelveModal();
+}
+function closeDelveModal() {
+  delveModalOpen = false;
+  document.getElementById('delveModal').classList.add('hidden');
+}
+function renderDelveModal() {
+  if (!delveModalOpen) return;
+  const mods = document.getElementById('delveMods');
+  const lobby = document.getElementById('delveLobby');
+  const runView = document.getElementById('delveRunView');
+  const modsList = (delveState && delveState.mods) || weeklyDelveModsClient || [];
+  mods.innerHTML = '';
+  for (const m of modsList) {
+    const chip = document.createElement('span');
+    chip.className = 'modChip';
+    chip.textContent = `${m.icon} ${m.name} — ${m.desc}`;
+    mods.appendChild(chip);
+  }
+  const inRun = delveState && delveState.inRun;
+  lobby.classList.toggle('hidden', !!inRun);
+  runView.classList.toggle('hidden', !inRun);
+  if (inRun) {
+    document.getElementById('delveRunNote').textContent =
+      `Floor ${delveState.floor} — ${delveState.kills}/${delveState.killsNeeded} felled · depth so far ${Math.max(0, delveState.floor - 1)}`;
+  } else if (delveState && !delveState.inRun) {
+    const best = delveState.best || { rank: null, value: 0 };
+    document.getElementById('delveBestNote').textContent = delveState.isGuest
+      ? 'Guests may delve, but only named souls are written on the board — log in to be remembered.'
+      : (best.value ? `Your deepest this week: ${best.value}${best.rank ? ` (#${best.rank})` : ''}` : 'You haven\'t delved this week.');
+    const top = document.getElementById('delveTopList');
+    top.innerHTML = '';
+    if (delveState.top && delveState.top.length) {
+      delveState.top.forEach((e, i) => {
+        const row = document.createElement('div');
+        row.className = 'slRow';
+        row.innerHTML = `<span class="slRank">${i === 0 ? '🥇' : i + 1 + '.'}</span>`;
+        const name = document.createElement('span'); name.className = 'slName'; name.textContent = e.name;
+        const val = document.createElement('span'); val.className = 'slVal'; val.textContent = 'depth ' + e.value;
+        row.appendChild(name); row.appendChild(val);
+        top.appendChild(row);
+      });
+    } else {
+      top.innerHTML = '<div class="slNote">Nobody has gone below this week.</div>';
+    }
+  }
+}
+function renderDelveHud() {
+  const hud = document.getElementById('delveHud');
+  if (!hud) return;
+  if (!delveState || !delveState.inRun) { hud.classList.add('hidden'); return; }
+  document.getElementById('delveHudFloor').textContent = `🕳️ Floor ${delveState.floor}`;
+  document.getElementById('delveHudKills').textContent =
+    delveState.state === 'draft' ? '✨ draft' : `${delveState.kills} / ${delveState.killsNeeded}`;
+  const boons = document.getElementById('delveHudBoons');
+  boons.textContent = Object.entries(delveState.myBoons || {})
+    .map(([id, n]) => { const b = delveBoonMeta(id); return b ? b.icon.repeat(Math.min(n, 3)) : ''; }).join('');
+  hud.classList.remove('hidden');
+}
+function delveBoonMeta(id) {
+  if (delveState && delveState.myOffer) {
+    const hit = delveState.myOffer.find(o => o.id === id);
+    if (hit) return hit;
+  }
+  const FALLBACK = { ember_heart: '🔥', bark_skin: '🪵', moon_blood: '🌕', quick_wick: '🕯️', cat_step: '🐈‍⬛', red_thread: '🧵', witchs_broth: '🍲', wolfs_bargain: '🐺', gravedigger: '⚰️' };
+  return FALLBACK[id] ? { icon: FALLBACK[id] } : null;
+}
+let boonDraftTimer = null;
+function renderBoonDraft() {
+  const overlay = document.getElementById('boonDraft');
+  if (!overlay) return;
+  const offer = delveState && delveState.inRun && delveState.state === 'draft' ? delveState.myOffer : null;
+  if (!offer || !offer.length) {
+    overlay.classList.add('hidden');
+    clearInterval(boonDraftTimer);
+    return;
+  }
+  const cards = document.getElementById('boonCards');
+  cards.innerHTML = '';
+  for (const b of offer) {
+    const card = document.createElement('div');
+    card.className = 'boonCard';
+    card.innerHTML = `<div class="bIcon">${b.icon}</div><div class="bName">${b.name}</div>`;
+    const desc = document.createElement('div'); desc.className = 'bDesc'; desc.textContent = b.desc;
+    card.appendChild(desc);
+    card.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'delve_pick_boon', boonId: b.id }));
+      overlay.classList.add('hidden');
+    });
+    cards.appendChild(card);
+  }
+  const timerEl = document.getElementById('boonTimer');
+  clearInterval(boonDraftTimer);
+  const paint = () => {
+    const left = Math.max(0, Math.ceil(((delveState && delveState.draftEndsAt) || 0 - Date.now()) / 1000 - Date.now() / 1000 + ((delveState && delveState.draftEndsAt) || 0) / 1000));
+    const secs = Math.max(0, Math.ceil((((delveState && delveState.draftEndsAt) || 0) - Date.now()) / 1000));
+    timerEl.textContent = secs > 0 ? `The way down opens in ${secs}s — undecided delvers take the first boon.` : '…';
+  };
+  paint();
+  boonDraftTimer = setInterval(paint, 1000);
+  overlay.classList.remove('hidden');
+}
+(function () {
+  const start = document.getElementById('delveStartBtn');
+  if (start) start.addEventListener('click', () => {
+    document.getElementById('delveErr').textContent = '';
+    ws.send(JSON.stringify({ type: 'delve_start' }));
+    closeDelveModal();
+  });
+  const exit = document.getElementById('delveExitBtn');
+  if (exit) exit.addEventListener('click', () => {
+    ws.send(JSON.stringify({ type: 'delve_exit' }));
+    closeDelveModal();
+  });
+  const close = document.getElementById('delveCloseBtn');
+  if (close) close.addEventListener('click', closeDelveModal);
+})();
+
+// ── Covens UI ────────────────────────────────────────────────────────────────
+let covenTableState = null;
+let covenActiveTab = 'members';
+let covenPickedSigil = null;
+function refreshCovenMenuRow() {
+  const row = document.getElementById('menuCoven');
+  const badge = document.getElementById('menuCovenBadge');
+  if (row) {
+    const label = covenState ? `${covenState.sigil} ${covenState.name}` : '🕸️ Coven';
+    row.childNodes[0].nodeValue = label;
+  }
+  if (badge) {
+    badge.textContent = String(covenUnread);
+    badge.classList.toggle('hidden', covenUnread === 0);
+  }
+  const chatBadge = document.getElementById('covenChatBadge');
+  if (chatBadge) {
+    chatBadge.textContent = String(covenUnread);
+    chatBadge.classList.toggle('hidden', covenUnread === 0);
+  }
+}
+function openCovenModal() {
+  covenModalOpen = true;
+  document.getElementById('covenModal').classList.remove('hidden');
+  document.getElementById('covenErr').textContent = '';
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' }));
+  renderCovenModal();
+}
+function closeCovenModal() {
+  covenModalOpen = false;
+  document.getElementById('covenModal').classList.add('hidden');
+}
+function renderCovenModal() {
+  if (!covenModalOpen) return;
+  const none = document.getElementById('covenNone');
+  const main = document.getElementById('covenMain');
+  const title = document.getElementById('covenTitle');
+  const isGuest = !(accountAuth() && accountAuth().token);
+  if (!covenState) {
+    title.textContent = '🕸️ Coven';
+    none.classList.remove('hidden');
+    main.classList.add('hidden');
+    if (isGuest) document.getElementById('covenErr').textContent = 'Covens are for townsfolk with an account — log in first.';
+    // sigil picker
+    const pick = document.getElementById('covenSigilPick');
+    if (pick && !pick.childNodes.length) {
+      for (const s of covenSigilsCatalog) {
+        const b = document.createElement('button');
+        b.textContent = s;
+        b.addEventListener('click', () => {
+          covenPickedSigil = s;
+          pick.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+        });
+        pick.appendChild(b);
+      }
+    }
+    return;
+  }
+  title.textContent = `${covenState.sigil} ${covenState.name}`;
+  none.classList.add('hidden');
+  main.classList.remove('hidden');
+  document.getElementById('covenMotd').textContent = covenState.motd || 'No words over the door yet.';
+  document.querySelectorAll('#covenTabs .slTab').forEach(b =>
+    b.classList.toggle('active', b.dataset.cv === covenActiveTab));
+  document.getElementById('covenMembersView').classList.toggle('hidden', covenActiveTab !== 'members');
+  document.getElementById('covenChatView').classList.toggle('hidden', covenActiveTab !== 'chat');
+  document.getElementById('covenBankView').classList.toggle('hidden', covenActiveTab !== 'bank');
+  const amLeader = covenState.leaderKey === covenState.you;
+  if (covenActiveTab === 'members') {
+    const list = document.getElementById('covenMembers');
+    list.innerHTML = '';
+    for (const m of covenState.members) {
+      const row = document.createElement('div');
+      row.className = 'slRow';
+      const dot = document.createElement('span'); dot.className = 'cvDot' + (m.online ? ' on' : '');
+      const name = document.createElement('span'); name.className = 'slName';
+      name.textContent = `${m.leader ? '👑 ' : ''}${m.name}`;
+      row.appendChild(dot); row.appendChild(name);
+      if (amLeader && !m.leader) {
+        const kick = document.createElement('button');
+        kick.className = 'kickBtn';
+        kick.textContent = 'turn out';
+        kick.addEventListener('click', () => ws.send(JSON.stringify({ type: 'coven_kick', memberKey: m.key })));
+        row.appendChild(kick);
+      }
+      list.appendChild(row);
+    }
+    document.getElementById('covenMotdBtn').style.display = amLeader ? '' : 'none';
+    document.getElementById('covenClaimBtn').style.display = me && me.room === 'cafe' ? '' : 'none';
+  } else if (covenActiveTab === 'chat') {
+    covenUnread = 0;
+    refreshCovenMenuRow();
+    renderCovenChat();
+  } else if (covenActiveTab === 'bank') {
+    document.getElementById('covenGold').textContent = String(covenState.bank.gold);
+    document.getElementById('covenBankNote').textContent = me && me.room === 'bank'
+      ? 'You stand in the Gilded Vault — the tab is open.'
+      : 'The shared tab is used at the 🏦 Gilded Vault, like your own account.';
+    const grid = document.getElementById('covenSlots');
+    grid.innerHTML = '';
+    covenState.bank.slots.forEach((s, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'covenSlot';
+      if (s) {
+        const meta = ITEM_CATALOG[s.itemId];
+        cell.innerHTML = `${meta ? meta.icon : '❔'}<span class="qty">×${s.qty}</span>`;
+        cell.title = meta ? meta.name : s.itemId;
+        cell.addEventListener('click', () => ws.send(JSON.stringify({ type: 'coven_withdraw_item', covenSlot: i })));
+      }
+      grid.appendChild(cell);
+    });
+    const log = document.getElementById('covenLog');
+    log.innerHTML = '';
+    for (const l of (covenState.log || []).slice().reverse()) {
+      const row = document.createElement('div');
+      row.className = 'slRow';
+      row.textContent = `${l.who} ${l.action}`;
+      log.appendChild(row);
+    }
+  }
+}
+function renderCovenChat() {
+  const log = document.getElementById('covenChatLog');
+  if (!log) return;
+  log.innerHTML = '';
+  for (const l of covenChatLines) {
+    const row = document.createElement('div');
+    const who = document.createElement('span'); who.className = 'cvWho'; who.textContent = `${l.sigil} ${l.who}: `;
+    const text = document.createElement('span'); text.textContent = l.text;
+    row.appendChild(who); row.appendChild(text);
+    log.appendChild(row);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+function openCovenInviteToast(msg) {
+  // Reuse the announce banner shape: a click-to-answer toast.
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;top:120px;left:50%;transform:translateX(-50%);z-index:45;background:#241a3b;border:1px solid #5ee7c0;border-radius:14px;padding:12px 16px;color:#e8dcc8;font-size:13.5px;text-align:center;max-width:320px;';
+  const label = document.createElement('div');
+  label.textContent = `${msg.sigil} ${msg.fromName} invites you into ${msg.covenName} (${msg.members}/8)`;
+  wrap.appendChild(label);
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:8px;';
+  const yes = document.createElement('button');
+  yes.className = 'btn'; yes.style.margin = '0'; yes.textContent = 'Join the circle';
+  yes.addEventListener('click', () => { ws.send(JSON.stringify({ type: 'coven_invite_accept', inviteId: msg.inviteId })); wrap.remove(); });
+  const no = document.createElement('button');
+  no.className = 'btn'; no.style.margin = '0'; no.textContent = 'Decline';
+  no.addEventListener('click', () => { ws.send(JSON.stringify({ type: 'coven_invite_decline', inviteId: msg.inviteId })); wrap.remove(); });
+  row.appendChild(yes); row.appendChild(no);
+  wrap.appendChild(row);
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 55000);
+}
+// The claimed café table: a floating sigil over the middle of the room.
+let covenTableSprite = null;
+function refreshCovenTableVisual() {
+  try {
+    if (covenTableSprite && covenTableSprite.parent) covenTableSprite.parent.remove(covenTableSprite);
+    covenTableSprite = null;
+    if (!covenTableState || !me || me.room !== 'cafe' || !currentInterior || !currentInterior.scene) return;
+    covenTableSprite = makeNpcNameSprite(`${covenTableState.sigil} ${covenTableState.name}'s table`);
+    covenTableSprite.position.set(0, 95, -40);
+    currentInterior.scene.add(covenTableSprite);
+  } catch (e) { /* cosmetic only */ }
+}
+(function () {
+  const closeBtn = document.getElementById('covenCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeCovenModal);
+  const tabs = document.getElementById('covenTabs');
+  if (tabs) tabs.addEventListener('click', (e) => {
+    const b = e.target.closest('.slTab');
+    if (!b) return;
+    covenActiveTab = b.dataset.cv;
+    renderCovenModal();
+  });
+  const create = document.getElementById('covenCreateBtn');
+  if (create) create.addEventListener('click', () => {
+    const name = document.getElementById('covenNameInput').value.trim();
+    document.getElementById('covenErr').textContent = '';
+    ws.send(JSON.stringify({ type: 'coven_create', name, sigil: covenPickedSigil || covenSigilsCatalog[0] }));
+  });
+  const invite = document.getElementById('covenInviteBtn');
+  if (invite) invite.addEventListener('click', () => {
+    const target = nearestOtherPlayer();
+    document.getElementById('covenErr').textContent = '';
+    if (!target) { document.getElementById('covenErr').textContent = 'Nobody close enough — walk up to them first.'; return; }
+    ws.send(JSON.stringify({ type: 'coven_invite', targetId: target.id }));
+  });
+  const claim = document.getElementById('covenClaimBtn');
+  if (claim) claim.addEventListener('click', () => ws.send(JSON.stringify({ type: 'coven_claim_table' })));
+  const motd = document.getElementById('covenMotdBtn');
+  if (motd) motd.addEventListener('click', () => {
+    const text = prompt('The words over the door (up to 120 chars):', covenState ? covenState.motd : '');
+    if (text != null) ws.send(JSON.stringify({ type: 'coven_motd', text }));
+  });
+  const leave = document.getElementById('covenLeaveBtn');
+  let leaveArmed = 0;
+  if (leave) leave.addEventListener('click', () => {
+    if (Date.now() - leaveArmed < 3000) {
+      ws.send(JSON.stringify({ type: 'coven_leave' }));
+      leave.textContent = '🥀 Leave the circle';
+      return;
+    }
+    leaveArmed = Date.now();
+    leave.textContent = '⚠️ Tap again to leave the circle';
+    setTimeout(() => { leave.textContent = '🥀 Leave the circle'; }, 3200);
+  });
+  const send2 = document.getElementById('covenChatSend');
+  const input = document.getElementById('covenChatInput');
+  const sendChat = () => {
+    if (!input.value.trim()) return;
+    ws.send(JSON.stringify({ type: 'coven_chat', text: input.value.trim() }));
+    input.value = '';
+  };
+  if (send2) send2.addEventListener('click', sendChat);
+  if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); e.stopPropagation(); });
+  const gold = document.getElementById('covenGoldAmt');
+  if (gold) gold.addEventListener('keydown', (e) => e.stopPropagation());
+  const dep = document.getElementById('covenDepositBtn');
+  if (dep) dep.addEventListener('click', () => {
+    const amt = parseInt(document.getElementById('covenGoldAmt').value, 10);
+    if (amt > 0) ws.send(JSON.stringify({ type: 'coven_deposit_gold', amount: amt }));
+  });
+  const wit = document.getElementById('covenWithdrawBtn');
+  if (wit) wit.addEventListener('click', () => {
+    const amt = parseInt(document.getElementById('covenGoldAmt').value, 10);
+    if (amt > 0) ws.send(JSON.stringify({ type: 'coven_withdraw_gold', amount: amt }));
+  });
+})();
+function nearestOtherPlayer() {
+  if (!me) return null;
+  let best = null, bestD = 160;
+  for (const id in players) {
+    const p = players[id];
+    if (!p || p.id === me.id || p.room !== me.room) continue;
+    const d = Math.hypot(p.x - me.x, p.y - me.y);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+// ── Dungeon lore plaques ─────────────────────────────────────────────────────
+function openPlaqueModal() {
+  const m = /^dungeon_t([1-4])$/.exec(me ? me.room : '');
+  const lore = m && dungeonLoreCatalog && dungeonLoreCatalog[m[1]];
+  if (!lore) return;
+  document.getElementById('plaqueTitle').textContent = `🕳️ ${lore.name}`;
+  document.getElementById('plaqueEpithet').textContent = lore.epithet;
+  document.getElementById('plaqueText').textContent = lore.plaque;
+  const bossName = lore.bossKey && DUNGEON_MOB_VISUALS[lore.bossKey] ? (DUNGEON_BOSS_NAMES[lore.bossKey] || '') : '';
+  document.getElementById('plaqueBoss').textContent = bossName ? `⚔️ Its keeper: ${bossName}` : '';
+  document.getElementById('plaqueModal').classList.remove('hidden');
+}
+(function () {
+  const b = document.getElementById('plaqueCloseBtn');
+  if (b) b.addEventListener('click', () => document.getElementById('plaqueModal').classList.add('hidden'));
+})();
+
+// ── Notifications (Web Push) ─────────────────────────────────────────────────
+const NOTIF_PREFS_KEY = 'tc_notif_prefs';
+function notifPrefs() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_PREFS_KEY)) || { moonrise: false, bloodmoon: true, peddler: true, events: true }; }
+  catch (e) { return { moonrise: false, bloodmoon: true, peddler: true, events: true }; }
+}
+function saveNotifPrefs(p) { try { localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(p)); } catch (e) {} }
+function pushSupportedHere() {
+  return pushAvailable && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function openNotifModal() {
+  notifModalOpen = true;
+  const modal = document.getElementById('notifModal');
+  const err = document.getElementById('notifErr');
+  err.textContent = '';
+  const prefs = notifPrefs();
+  document.querySelectorAll('#notifRows .notifToggle').forEach(t => {
+    const on = !!prefs[t.dataset.pref];
+    t.classList.toggle('on', on);
+    t.textContent = on ? 'ON' : 'OFF';
+  });
+  const sub = document.getElementById('notifSub');
+  if (!pushSupportedHere()) {
+    sub.textContent = window.TOWNCHAT_PLATFORM
+      ? 'The app-store builds will grow native notifications later — for now the ravens fly to browsers.'
+      : 'This browser (or this server) can\'t carry ravens. On the web build over HTTPS, they fly.';
+  } else if (!(accountAuth() && accountAuth().token)) {
+    sub.textContent = 'Ravens follow your ACCOUNT — log in first, then enable them here.';
+  } else {
+    sub.textContent = 'A raven can find you when something stirs — even with the town closed.';
+  }
+  navigator.serviceWorker && navigator.serviceWorker.getRegistration && navigator.serviceWorker.getRegistration().then(reg =>
+    reg && reg.pushManager ? reg.pushManager.getSubscription() : null
+  ).then(s => {
+    document.getElementById('notifEnableBtn').classList.toggle('hidden', !!s);
+    document.getElementById('notifDisableBtn').classList.toggle('hidden', !s);
+  }).catch(() => {});
+  modal.classList.remove('hidden');
+}
+function urlB64ToUint8(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+async function enablePushHere() {
+  const err = document.getElementById('notifErr');
+  err.textContent = '';
+  try {
+    if (!pushSupportedHere()) { err.textContent = 'Push isn\'t available in this build — try the web version in a browser.'; return; }
+    if (!(accountAuth() && accountAuth().token)) { err.textContent = 'Log into an account first — the raven follows your account.'; return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { err.textContent = 'The browser refused notification permission.'; return; }
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(pushPublicKey) });
+    const res = await fetch(apiUrlMaybe('/api/push/subscribe'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ account_token: accountAuth().token, subscription: sub.toJSON(), prefs: notifPrefs() })
+    }).then(r => r.json());
+    if (!res.ok) { err.textContent = 'The server declined the subscription (' + (res.error || '?') + ').'; return; }
+    setUnlockToast('🔔 The raven knows this device now.');
+    openNotifModal();
+  } catch (e) {
+    err.textContent = 'Could not enable here: ' + (e && e.message ? e.message : 'unknown error');
+  }
+}
+async function disablePushHere() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub) {
+      if (accountAuth() && accountAuth().token) {
+        fetch(apiUrlMaybe('/api/push/unsubscribe'), {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ account_token: accountAuth().token, endpoint: sub.endpoint })
+        }).catch(() => {});
+      }
+      await sub.unsubscribe();
+    }
+    setUnlockToast('🔕 The raven forgets this device.');
+    openNotifModal();
+  } catch (e) {}
+}
+(function () {
+  const rows = document.getElementById('notifRows');
+  if (rows) rows.addEventListener('click', async (e) => {
+    const t = e.target.closest('.notifToggle');
+    if (!t) return;
+    const prefs = notifPrefs();
+    prefs[t.dataset.pref] = !prefs[t.dataset.pref];
+    saveNotifPrefs(prefs);
+    t.classList.toggle('on', prefs[t.dataset.pref]);
+    t.textContent = prefs[t.dataset.pref] ? 'ON' : 'OFF';
+    // If already subscribed, sync the new prefs to the server.
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && await reg.pushManager.getSubscription();
+      if (sub && accountAuth() && accountAuth().token) {
+        fetch(apiUrlMaybe('/api/push/subscribe'), {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ account_token: accountAuth().token, subscription: sub.toJSON(), prefs })
+        }).catch(() => {});
+      }
+    } catch (e2) {}
+  });
+  const en = document.getElementById('notifEnableBtn');
+  if (en) en.addEventListener('click', enablePushHere);
+  const dis = document.getElementById('notifDisableBtn');
+  if (dis) dis.addEventListener('click', disablePushHere);
+  const close = document.getElementById('notifCloseBtn');
+  if (close) close.addEventListener('click', () => { notifModalOpen = false; document.getElementById('notifModal').classList.add('hidden'); });
+})();
+
+// ── Session L menu rows ──────────────────────────────────────────────────────
+(function () {
+  const closeSheet = () => document.getElementById('menuSheet').classList.add('hidden');
+  const wire = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => { closeSheet(); fn(); });
+  };
+  wire('menuDelve', openDelveModal);
+  wire('menuBoard', openBoardModal);
+  wire('menuCoven', openCovenModal);
+  wire('menuNotifs', openNotifModal);
+})();
+
 let passModalOpen = false;
 
 function openPassModal() {
@@ -16002,7 +17018,19 @@ function openPassModal() {
     buyBtn.textContent = hasTownPass()
       ? '✓ Pass active'
       : (paymentsEnabled
-          ? `Buy Town Pass — ${passPriceLabel()} / ${townPassHours}h`
+          ? `Buy Day Pass — ${passPriceLabel()} / ${townPassHours}h`
+          : '🚫 Passes not on sale here');
+  }
+  // 🏮 The 30-day Resident Pass (Session L) — same doors, resident value.
+  const price30El = document.getElementById('roomPass30Price');
+  if (price30El) price30El.textContent = '$' + (townPass30Cents / 100).toFixed(2);
+  const buy30 = document.getElementById('roomPass30BuyBtn');
+  if (buy30) {
+    buy30.disabled = hasTownPass() || !paymentsEnabled;
+    buy30.textContent = hasTownPass()
+      ? '✓ Pass active'
+      : (paymentsEnabled
+          ? `Buy Resident Pass — $${(townPass30Cents / 100).toFixed(2)} / 30 days`
           : '🚫 Passes not on sale here');
   }
   modal.classList.remove('hidden');
@@ -17492,9 +18520,21 @@ if (roomPassBuyBtn) {
       if (err) err.textContent = 'Payments are not set up on this server yet.';
       return;
     }
-    // One product now — the Town Pass ($0.99 / 24h, Lounge + Arcade) —
-    // through the same /api/checkout the HUD button uses.
+    // The Day Pass ($0.99 / 24h, Lounge + Arcade) — through the same
+    // /api/checkout the HUD button uses.
     startPassCheckout(roomPassBuyBtn);
+  });
+}
+// 🏮 The Resident Pass — same doors for 30 days (Session L).
+const roomPass30BuyBtn = document.getElementById('roomPass30BuyBtn');
+if (roomPass30BuyBtn) {
+  roomPass30BuyBtn.addEventListener('click', () => {
+    const err = document.getElementById('passModalErr');
+    if (!paymentsEnabled) {
+      if (err) err.textContent = 'Payments are not set up on this server yet.';
+      return;
+    }
+    startPassCheckout(roomPass30BuyBtn, 'pass30');
   });
 }
 
@@ -17821,6 +18861,9 @@ function tryInteract() {
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
+  if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
+  if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
+  if (kiosk && kiosk.npc === 'plaque') { openPlaqueModal(); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -17839,7 +18882,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -17961,6 +19004,21 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} browse the Peddler's wonders`;
     return;
   }
+  if (kiosk && kiosk.npc === 'board') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} read the town board`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'delve') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} touch the Delve Stone`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'plaque') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
   if (kiosk && kiosk.npc === 'quest') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
@@ -18001,6 +19059,32 @@ window.addEventListener('keydown', (e) => {
   const _menuSheet = document.getElementById('menuSheet');
   if (_menuSheet && !_menuSheet.classList.contains('hidden')) {
     if (e.key === 'Escape' && !e.repeat) _menuSheet.classList.add('hidden');
+    return;
+  }
+  if (boardModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeBoardModal();
+    return;
+  }
+  if (delveModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeDelveModal();
+    return;
+  }
+  if (covenModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeCovenModal();
+    return;
+  }
+  if (notifModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) { notifModalOpen = false; document.getElementById('notifModal').classList.add('hidden'); }
+    return;
+  }
+  const _letterM = document.getElementById('letterModal');
+  if (_letterM && !_letterM.classList.contains('hidden')) {
+    if (e.key === 'Escape' && !e.repeat) _letterM.classList.add('hidden');
+    return;
+  }
+  const _plaqueM = document.getElementById('plaqueModal');
+  if (_plaqueM && !_plaqueM.classList.contains('hidden')) {
+    if (e.key === 'Escape' && !e.repeat) _plaqueM.classList.add('hidden');
     return;
   }
   if (legendModalOpen) {
@@ -18271,8 +19355,67 @@ function updateIndoor(stepX, stepY) {
   me.y = b.y + localY;
 }
 
+// ── 🎮 Controller support (Session L) ────────────────────────────────────────
+// Standard-mapping gamepads (Xbox/PS/most others): left stick walks with the
+// same camera-relative steering as the touch joystick, right stick orbits
+// the camera, and the face buttons drive the existing actions — no parallel
+// systems, every button lands on a function the keyboard/touch UI already
+// uses. Table stakes for the desktop build, per the top-10 review.
+const gamepadVec = { x: 0, y: 0 };
+let gamepadButtonsPrev = [];
+let gamepadToastShown = false;
+const GAMEPAD_DEADZONE = 0.18;
+window.addEventListener('gamepadconnected', (e) => {
+  if (!gamepadToastShown) {
+    gamepadToastShown = true;
+    setUnlockToast('🎮 Controller connected — stick walks, Ⓐ interacts, Ⓧ strikes, bumpers cast, ☰ on Start.');
+  }
+});
+function pollGamepad(dt) {
+  gamepadVec.x = 0; gamepadVec.y = 0;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let pad = null;
+  for (const p of pads) { if (p && p.connected) { pad = p; break; } }
+  if (!pad) { gamepadButtonsPrev = []; return; }
+  // Left stick → movement vector (same shape the touch joystick produces).
+  const lx = pad.axes[0] || 0, ly = pad.axes[1] || 0;
+  if (Math.hypot(lx, ly) > GAMEPAD_DEADZONE && !typing && !seatedAt) {
+    gamepadVec.x = lx;
+    gamepadVec.y = ly;
+  }
+  // Right stick X → camera orbit (mouse-drag equivalent; movement folds it
+  // back in through the steering math, so it never fights the character).
+  const rx = pad.axes[2] || 0;
+  if (Math.abs(rx) > GAMEPAD_DEADZONE) cameraYawOffset -= rx * 2.6 * dt;
+  // Buttons, edge-triggered.
+  const pressed = (i) => !!(pad.buttons[i] && pad.buttons[i].pressed);
+  const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
+  const sheet = document.getElementById('menuSheet');
+  const sheetOpen = sheet && !sheet.classList.contains('hidden');
+  const anyModal = boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen;
+  if (justPressed(9)) { // Start → ☰
+    if (sheet) sheet.classList.toggle('hidden');
+  }
+  if (justPressed(1)) { // B → close what's open, else hop
+    if (sheetOpen || anyModal) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    else if (typeof tryJump === 'function') tryJump();
+  }
+  if (!sheetOpen && !anyModal && !typing) {
+    if (justPressed(0)) tryInteract();                                    // A → F
+    if (justPressed(2) && me && !me.isDead) strikeNearestEnemy();         // X → strike
+    if (justPressed(3)) { const b = document.getElementById('btnKit'); if (b) b.click(); } // Y → kit
+    if (justPressed(8)) { if (!journalOpen) openJournal(); }              // Back → journal
+    const qs = ['qs1', 'qs2', 'qs3'];
+    [[4, 0], [5, 1], [7, 2]].forEach(([btn, slot]) => {                   // LB/RB/RT → quickslots
+      if (justPressed(btn)) { const el = document.getElementById(qs[slot]); if (el && !el.classList.contains('hidden')) el.click(); }
+    });
+  }
+  gamepadButtonsPrev = pad.buttons.map(b => !!b.pressed);
+}
+
 function update(dt) {
   if (!me) return;
+  pollGamepad(dt);
 
   // Relative controls: W/up = walk forward in whatever direction you're
   // currently facing, S/down = walk backward, A/D or left/right = turn in
@@ -18287,8 +19430,12 @@ function update(dt) {
     if (keys.right) turnInput -= 1;
     if (keys.strafeRight) strafeInput += 1;
     if (keys.strafeLeft) strafeInput -= 1;
-    if (joyVec.x || joyVec.y) {
-      if (MOBILE_UI) {
+    // 🎮 Controller left stick (Session L) rides the same camera-relative
+    // math as the touch joystick — one steering model everywhere. Touch
+    // input wins if both are somehow live at once.
+    const stickVec = (joyVec.x || joyVec.y) ? joyVec : gamepadVec;
+    if (stickVec.x || stickVec.y) {
+      if (MOBILE_UI || stickVec === gamepadVec) {
         // Camera-relative movement — the stick points where you want to
         // GO on screen and the character turns to run that way. The
         // subtlety: the VIEW must hold still while you steer. If the
@@ -18303,13 +19450,13 @@ function update(dt) {
         // naturally converges the offset to 0 (camera behind). A camera
         // drag with the other thumb shifts the reference, re-aiming the
         // run mid-stride — two-thumb steering, exactly as it should be.
-        const mag = Math.min(1, Math.hypot(joyVec.x, joyVec.y));
+        const mag = Math.min(1, Math.hypot(stickVec.x, stickVec.y));
         if (mag > 0.14) {
           // Sign note: in this engine "turn right on screen" = facing
           // DECREASES (see the desktop mapping below: turnInput -=
           // joyVec.x). The stick angle follows the same handedness —
           // without the negated x, left and right swap.
-          const stickAngle = Math.atan2(-joyVec.x, -joyVec.y); // 0 = screen-up
+          const stickAngle = Math.atan2(-stickVec.x, -stickVec.y); // 0 = screen-up
           const viewYaw = me.facing + cameraYawOffset;
           const desired = viewYaw + stickAngle;
           let diff = desired - me.facing;
@@ -18325,8 +19472,8 @@ function update(dt) {
           moveInput += mag * Math.max(0.25, Math.cos(Math.min(Math.abs(diff), Math.PI / 2)));
         }
       } else {
-        moveInput += -joyVec.y; // push stick up = walk forward
-        turnInput -= joyVec.x;  // push stick right = turn right (was inverted)
+        moveInput += -stickVec.y; // push stick up = walk forward
+        turnInput -= stickVec.x;  // push stick right = turn right (was inverted)
       }
     }
   }
@@ -18340,7 +19487,7 @@ function update(dt) {
   // different ways, which is exactly the confusing case being avoided here.
   // Mobile joystick movement is exempt: it folds the offset in smoothly
   // (see above) rather than snapping.
-  if ((moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) && !(MOBILE_UI && joyActive)) cameraYawOffset = 0;
+  if ((moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) && !(MOBILE_UI && joyActive) && !(gamepadVec.x || gamepadVec.y)) cameraYawOffset = 0;
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
@@ -18359,6 +19506,9 @@ function update(dt) {
   // Predator's Pace / Trailblazer (the 'swift' skill) — a permanent, stacking
   // walk-speed bonus, self-enforced client-side exactly like the statuses above.
   if (mySkillSpeedMult && mySkillSpeedMult !== 1) speed *= mySkillSpeedMult;
+  // Cat Step and its delve kin — swift boons apply only inside the run's
+  // own floors (the multiplier arrives with each delve_state).
+  if (delveSpeedMult !== 1 && me && typeof me.room === 'string' && me.room.startsWith('dungeon_delve_')) speed *= delveSpeedMult;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
 
@@ -18375,6 +19525,7 @@ function update(dt) {
   KK.tick(dt);
   LEGEND_FX.tick(dt);
   if (peddlerStallGroup && peddlerStallGroup.userData.tick) peddlerStallGroup.userData.tick(performance.now() / 1000);
+  if (delveStoneGroup && delveStoneGroup.userData.tick) delveStoneGroup.userData.tick(performance.now() / 1000);
   updateAnimalVisuals(dt);
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);

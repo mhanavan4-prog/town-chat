@@ -1837,6 +1837,10 @@
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
+      <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
+      <button class="menuRow" id="menuBoard">🏆 Town Board</button>
+      <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
+      <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
       <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
       <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
       <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
@@ -1849,6 +1853,16 @@
 
 <div id="emoteWheel" class="hidden"></div>
 <div id="streakTag"></div>
+
+<!-- Session L HUD: active calendar event pill, the newcomer First Steps
+     tracker, and the in-delve floor chip. All small, all self-hiding. -->
+<div id="eventTag" class="hidden"></div>
+<div id="firstStepsChip" class="hidden"></div>
+<div id="delveHud" class="hidden">
+  <div id="delveHudFloor">🕳️ Floor 1</div>
+  <div id="delveHudKills">0 / 6</div>
+  <div id="delveHudBoons"></div>
+</div>
 
 <!-- ── Controls guide ─────────────────────────────────────────────────────
      Auto-shows once on a player's very first join (per browser), then
@@ -1987,13 +2001,285 @@
     <div class="title" style="font-size:22px;">🗿 Town Pass Statue</div>
     <div class="subtitle">A weathered stone statue, etched with a ledger of town privileges.</div>
     <div class="passInfo">
-      <div class="passTitle">🎟️ Town Pass — <span id="roomPassPrice">$0.99</span></div>
-      <div class="passDetail">Opens BOTH ticketed buildings — the 👻 Phantom Parlor and the 🎮 Starlight Arcade — for <span id="roomPassHours">24</span> hours. Real payment via Stripe Checkout; the pass starts the moment payment clears.</div>
+      <div class="passTitle">🎟️ Day Pass — <span id="roomPassPrice">$0.99</span></div>
+      <div class="passDetail">Opens BOTH ticketed buildings — the 👻 Phantom Parlor and the 🎮 Starlight Arcade — for <span id="roomPassHours">24</span> hours. Payment via Stripe Checkout; the pass starts the moment payment clears.</div>
       <div class="passDetail" id="passModalStatus"></div>
     </div>
-    <button class="btn" id="roomPassBuyBtn">Buy Town Pass</button>
+    <button class="btn" id="roomPassBuyBtn">Buy Day Pass</button>
+    <div class="passInfo" id="residentPassInfo">
+      <div class="passTitle">🏮 Resident Pass — <span id="roomPass30Price">$4.99</span> <span class="bestValueTag">BEST VALUE</span></div>
+      <div class="passDetail">The same two doors for <b>30 days</b> — the resident's way in. Nothing extra is gated behind it, ever; it's simply the better-value key.</div>
+    </div>
+    <button class="btn" id="roomPass30BuyBtn">Buy Resident Pass</button>
     <button class="btn" id="passModalCloseBtn">Maybe later</button>
     <div class="err" id="passModalErr"></div>
+  </div>
+</div>
+
+<!-- ═══════════ Session L: boards, delve, covens, letters, lore ═══════════ -->
+<style id="sessionLStyles">
+  /* Menu grew four rows — let the card scroll on short screens. */
+  #menuSheetCard { max-height: 86vh; overflow-y: auto; }
+  .menuMiniBadge {
+    display:inline-block; min-width:18px; margin-left:8px; padding:1px 6px;
+    background:#c0392b; color:#ffe9c2; border-radius:9px; font-size:11px; font-weight:800;
+  }
+  .menuMiniBadge.hidden { display:none; }
+  #fairnessPledge {
+    margin-top:10px; text-align:center; font-size:12.5px; letter-spacing:0.4px;
+    color:#9ee37d; opacity:0.92;
+  }
+  #fairnessPledge em { font-style:normal; color:#5ee7c0; }
+  .bestValueTag {
+    display:inline-block; margin-left:6px; padding:1px 7px; border-radius:8px;
+    background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#1b1430; font-size:10.5px; font-weight:900; vertical-align:2px;
+  }
+  /* HUD pills */
+  #eventTag {
+    position:fixed; top:96px; left:50%; transform:translateX(-50%); z-index:7;
+    background:rgba(26,16,42,0.82); border:1px solid #4a3b6a; color:#ffd9a0;
+    padding:4px 12px; border-radius:14px; font-size:12.5px; pointer-events:none;
+  }
+  #eventTag.hidden { display:none; }
+  #firstStepsChip {
+    position:fixed; left:16px; bottom:150px; z-index:7;
+    background:rgba(20,12,34,0.85); border:1px solid #4a3b6a; border-radius:12px;
+    color:#e8dcc8; padding:8px 12px; font-size:12.5px; line-height:1.75; max-width:230px;
+  }
+  #firstStepsChip .fsTitle { color:#ffe9c2; font-weight:800; margin-bottom:2px; }
+  #firstStepsChip .fsDone { opacity:0.55; text-decoration:line-through; }
+  #firstStepsChip.hidden { display:none; }
+  body.touchMode #firstStepsChip { left:10px; bottom:220px; max-width:190px; font-size:11.5px; }
+  body.panelOpen #firstStepsChip, body.composeOpen #firstStepsChip { display:none; }
+  #delveHud {
+    position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:8;
+    display:flex; gap:12px; align-items:center;
+    background:rgba(16,8,26,0.88); border:1px solid #5a3b7a; border-radius:14px;
+    color:#e8dcc8; padding:6px 14px; font-size:13px;
+  }
+  #delveHud.hidden { display:none; }
+  #delveHudFloor { color:#d9b8ff; font-weight:800; }
+  #delveHudBoons { font-size:14px; letter-spacing:2px; }
+  body.panelOpen #delveHud { display:none; }
+  /* Shared bits for the new modals */
+  .slTabs { display:flex; gap:6px; margin:10px 0 12px; flex-wrap:wrap; justify-content:center; }
+  .slTab {
+    background:#241a3b; color:#cfc3e8; border:1px solid #4a3b6a; border-radius:10px;
+    padding:6px 12px; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  .slTab.active { background:linear-gradient(90deg,#9ee37d22,#5ee7c022); color:#9ee37d; border-color:#5ee7c0; }
+  .slList { max-height:44vh; overflow-y:auto; text-align:left; }
+  .slRow {
+    display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:9px;
+    border:1px solid transparent; font-size:13.5px;
+  }
+  .slRow:nth-child(odd) { background:rgba(255,255,255,0.03); }
+  .slRow .slRank { width:30px; text-align:right; color:#9a8ac0; font-weight:800; }
+  .slRow .slName { flex:1; color:#e8dcc8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .slRow .slVal { color:#ffd9a0; font-weight:800; }
+  .slRow.slMe { border-color:#5ee7c0; background:rgba(94,231,192,0.07); }
+  .slNote { color:#9a8ac0; font-size:12px; margin-top:8px; }
+  .slSection { margin-top:12px; text-align:left; }
+  .slSection h4 { color:#ffe9c2; margin:0 0 6px; font-size:13.5px; }
+  /* Delve boon draft — big tappable cards over everything */
+  #boonDraft { z-index:40; }
+  #boonCards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:14px 0; }
+  .boonCard {
+    width:150px; padding:14px 12px; border-radius:14px; cursor:pointer; text-align:center;
+    background:linear-gradient(180deg,#241a3b,#170f2a); border:1.5px solid #4a3b6a;
+    transition:transform 0.12s, border-color 0.12s;
+  }
+  .boonCard:hover { transform:translateY(-3px); border-color:#5ee7c0; }
+  .boonCard .bIcon { font-size:34px; }
+  .boonCard .bName { color:#ffe9c2; font-weight:800; margin:6px 0 4px; font-size:14px; }
+  .boonCard .bDesc { color:#cfc3e8; font-size:12px; line-height:1.45; }
+  #boonTimer { color:#9a8ac0; font-size:12.5px; }
+  .modChip {
+    display:inline-block; margin:3px 4px; padding:5px 10px; border-radius:10px;
+    background:#2a1030; border:1px solid #6a3b5a; color:#ffb8d0; font-size:12.5px;
+  }
+  /* Coven */
+  #covenChatLog {
+    height:120px; overflow-y:auto; text-align:left; background:rgba(0,0,0,0.25);
+    border:1px solid #3a2b5a; border-radius:10px; padding:8px 10px; font-size:12.5px; margin-top:8px;
+  }
+  #covenChatLog div { margin-bottom:3px; color:#e8dcc8; }
+  #covenChatLog .cvWho { color:#d9b8ff; font-weight:700; }
+  #covenChatRow { display:flex; gap:6px; margin-top:6px; }
+  #covenChatInput {
+    flex:1; background:#170f2a; border:1px solid #4a3b6a; color:#e8dcc8;
+    border-radius:9px; padding:7px 10px; font-size:13px;
+  }
+  .covenSlotGrid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:6px; }
+  .covenSlot {
+    aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:#1d1433; border:1px solid #3a2b5a; border-radius:9px; font-size:17px; cursor:pointer; min-height:44px;
+  }
+  .covenSlot .qty { font-size:10px; color:#9a8ac0; }
+  .sigilPick { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
+  .sigilPick button {
+    font-size:20px; background:#241a3b; border:1px solid #4a3b6a; border-radius:10px;
+    width:42px; height:42px; cursor:pointer;
+  }
+  .sigilPick button.sel { border-color:#5ee7c0; background:#1d3a33; }
+  #covenMembers .slRow .kickBtn {
+    background:none; border:1px solid #6a3b5a; color:#ffb8d0; border-radius:8px;
+    font-size:11px; padding:2px 8px; cursor:pointer;
+  }
+  .cvDot { width:8px; height:8px; border-radius:50%; background:#555; display:inline-block; }
+  .cvDot.on { background:#9ee37d; }
+  /* The while-you-were-gone letter */
+  #letterCard {
+    background:linear-gradient(180deg,#2a2138,#1c142c);
+    border:1px solid #6a5a8a;
+  }
+  #letterBody { text-align:left; color:#e8dcc8; font-size:14px; line-height:1.8; margin:10px 0; }
+  #letterBody .lLine { display:flex; gap:9px; align-items:baseline; }
+  #letterBody .lIco { width:22px; text-align:center; }
+  #letterSign { text-align:right; color:#9a8ac0; font-style:italic; font-size:12.5px; margin-top:8px; }
+  /* Notification toggles */
+  .notifRow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 4px; text-align:left; }
+  .notifRow .nLabel { color:#e8dcc8; font-size:13.5px; }
+  .notifRow .nSub { color:#9a8ac0; font-size:11.5px; }
+  .notifToggle {
+    min-width:52px; padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:800; font-size:12px;
+    background:#241a3b; color:#9a8ac0; border:1px solid #4a3b6a;
+  }
+  .notifToggle.on { background:#1d3a33; color:#9ee37d; border-color:#5ee7c0; }
+  /* Dungeon lore plaque */
+  #plaqueCard { max-width:460px; }
+  #plaqueText { color:#d8ccb8; font-style:italic; font-size:14px; line-height:1.8; text-align:left; margin:10px 0; }
+  #plaqueBoss { color:#ffb8d0; font-size:12.5px; }
+</style>
+
+<div id="boardModal" class="overlay hidden">
+  <div class="card" id="boardCard">
+    <div class="title" style="font-size:20px;">🏆 The Town Board</div>
+    <div class="subtitle" id="boardWeekNote">This week's deeds — resets Monday</div>
+    <div class="slTabs" id="boardTabs">
+      <button class="slTab active" data-board="hunt">🔥 Hunts</button>
+      <button class="slTab" data-board="boss">⚔️ Bosses</button>
+      <button class="slTab" data-board="delve">🕳️ Delve</button>
+      <button class="slTab" data-board="tourney">🏹 Tournament</button>
+    </div>
+    <div id="boardTourneyNote" class="slNote hidden"></div>
+    <div class="slList" id="boardList"></div>
+    <div class="slNote" id="boardMeNote"></div>
+    <div class="slSection hidden" id="boardHonors"><h4>🎖️ Your honors</h4><div id="boardHonorsList"></div></div>
+    <button class="btn" id="boardCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="delveModal" class="overlay hidden">
+  <div class="card" id="delveCard">
+    <div class="title" style="font-size:20px;">🕳️ The Weekly Delve</div>
+    <div class="subtitle">Descend. Draft. Descend deeper. Death keeps the depth.</div>
+    <div id="delveMods"></div>
+    <div id="delveLobby">
+      <div class="slNote" id="delveBestNote"></div>
+      <div class="slSection"><h4>Deepest this week</h4><div class="slList" id="delveTopList" style="max-height:30vh"></div></div>
+      <button class="btn" id="delveStartBtn">⬇ Begin the Delve</button>
+      <div class="slNote">Party members standing with you descend too. A 3–5 minute run — the portal at the top of the arena leaves whenever you like.</div>
+    </div>
+    <div id="delveRunView" class="hidden">
+      <div class="slNote" id="delveRunNote"></div>
+      <button class="btn" id="delveExitBtn">Leave the Delve (keep depth)</button>
+    </div>
+    <button class="btn" id="delveCloseBtn">Close</button>
+    <div class="err" id="delveErr"></div>
+  </div>
+</div>
+
+<div id="boonDraft" class="overlay hidden">
+  <div class="card">
+    <div class="title" style="font-size:19px;">✨ Floor cleared — choose a boon</div>
+    <div id="boonCards"></div>
+    <div id="boonTimer"></div>
+  </div>
+</div>
+
+<div id="covenModal" class="overlay hidden">
+  <div class="card" id="covenCard">
+    <div class="title" style="font-size:20px;" id="covenTitle">🕸️ Coven</div>
+    <div id="covenNone">
+      <div class="subtitle">Eight souls, one circle: your own chat, a shared bank tab at the Gilded Vault, and a claimable table at the Cauldron Café.</div>
+      <input id="covenNameInput" maxlength="24" placeholder="Name your coven (3–24 chars)" style="width:88%; background:#170f2a; border:1px solid #4a3b6a; color:#e8dcc8; border-radius:9px; padding:9px 10px; font-size:14px; margin-top:6px;">
+    <div class="sigilPick" id="covenSigilPick"></div>
+      <button class="btn" id="covenCreateBtn">Found the coven (250 🪙 from your bank)</button>
+      <div class="slNote">Or have a member walk up to you and invite you from their coven panel.</div>
+    </div>
+    <div id="covenMain" class="hidden">
+      <div class="subtitle" id="covenMotd"></div>
+      <div class="slTabs" id="covenTabs">
+        <button class="slTab active" data-cv="members">Members</button>
+        <button class="slTab" data-cv="chat">Chat<span id="covenChatBadge" class="menuMiniBadge hidden"></span></button>
+        <button class="slTab" data-cv="bank">Shared tab</button>
+      </div>
+      <div id="covenMembersView">
+        <div class="slList" id="covenMembers" style="max-height:34vh"></div>
+        <button class="btn" id="covenInviteBtn">✉️ Invite the nearest player</button>
+        <button class="btn" id="covenClaimBtn">🕯️ Claim the café table</button>
+        <button class="btn" id="covenMotdBtn" style="display:none">📜 Set the words over the door</button>
+        <button class="btn" id="covenLeaveBtn">🥀 Leave the circle</button>
+      </div>
+      <div id="covenChatView" class="hidden">
+        <div id="covenChatLog"></div>
+        <div id="covenChatRow">
+          <input id="covenChatInput" maxlength="200" placeholder="Whisper to the circle…">
+          <button class="btn" id="covenChatSend" style="margin:0">Send</button>
+        </div>
+      </div>
+      <div id="covenBankView" class="hidden">
+        <div class="slNote" id="covenBankNote">The shared tab is used at the 🏦 Gilded Vault, like your own account.</div>
+        <div class="subtitle">Tab gold: <span id="covenGold">0</span> 🪙</div>
+        <div style="display:flex; gap:6px; justify-content:center; margin:6px 0;">
+          <input id="covenGoldAmt" type="number" min="1" placeholder="amount" style="width:110px; background:#170f2a; border:1px solid #4a3b6a; color:#e8dcc8; border-radius:9px; padding:7px 10px;">
+          <button class="btn" id="covenDepositBtn" style="margin:0">Deposit</button>
+          <button class="btn" id="covenWithdrawBtn" style="margin:0">Withdraw</button>
+        </div>
+        <div class="covenSlotGrid" id="covenSlots"></div>
+        <div class="slNote">Tap a carried item in your pack to lay it in; tap a tab item to draw it out (at the Vault).</div>
+        <div class="slSection"><h4>Deed log</h4><div class="slList" id="covenLog" style="max-height:16vh; font-size:11.5px;"></div></div>
+      </div>
+    </div>
+    <button class="btn" id="covenCloseBtn">Close</button>
+    <div class="err" id="covenErr"></div>
+  </div>
+</div>
+
+<div id="letterModal" class="overlay hidden">
+  <div class="card" id="letterCard">
+    <div class="title" style="font-size:20px;">📜 While you were gone…</div>
+    <div id="letterBody"></div>
+    <div id="letterSign">— left on your doorstep, sealed in wax</div>
+    <button class="btn" id="letterCloseBtn">Step back into town</button>
+  </div>
+</div>
+
+<div id="notifModal" class="overlay hidden">
+  <div class="card">
+    <div class="title" style="font-size:20px;">🔔 Notifications</div>
+    <div class="subtitle" id="notifSub">A raven can find you when something stirs — even with the town closed.</div>
+    <div id="notifRows">
+      <div class="notifRow"><div><div class="nLabel">🌕 When the moon rises</div><div class="nSub">At most one a day — the first hunt pays a trophy.</div></div><button class="notifToggle" data-pref="moonrise">OFF</button></div>
+      <div class="notifRow"><div><div class="nLabel">🔴 Blood Moons</div><div class="nSub">The twisted nights, when shards fall.</div></div><button class="notifToggle on" data-pref="bloodmoon">ON</button></div>
+      <div class="notifRow"><div><div class="nLabel">🌒 Peddler Monday</div><div class="nSub">When the week's five wonders rotate.</div></div><button class="notifToggle on" data-pref="peddler">ON</button></div>
+      <div class="notifRow"><div><div class="nLabel">🏹 Tournaments & festivals</div><div class="nSub">Weekend hunts and the monthly Hearthmoon.</div></div><button class="notifToggle on" data-pref="events">ON</button></div>
+    </div>
+    <button class="btn" id="notifEnableBtn">Enable on this device</button>
+    <button class="btn hidden" id="notifDisableBtn">Turn off on this device</button>
+    <button class="btn" id="notifCloseBtn">Close</button>
+    <div class="err" id="notifErr"></div>
+  </div>
+</div>
+
+<div id="plaqueModal" class="overlay hidden">
+  <div class="card" id="plaqueCard">
+    <div class="title" style="font-size:20px;" id="plaqueTitle">🕳️ The Rootcellar</div>
+    <div class="subtitle" id="plaqueEpithet"></div>
+    <div id="plaqueText"></div>
+    <div id="plaqueBoss"></div>
+    <button class="btn" id="plaqueCloseBtn">Close</button>
   </div>
 </div>
 
@@ -2564,6 +2850,9 @@
       <input id="passInput" type="password" placeholder="Passcode" autocomplete="off">
     </div>
     <button class="btn" id="joinBtn">ENTER THE TOWN</button>
+    <!-- The fairness charter, said out loud (Session L — the review's advice:
+         put the pledge where every player sees it first). -->
+    <div id="fairnessPledge">No gacha · No energy · Nothing pay-to-win — <em>ever</em></div>
     <div class="err" id="joinErr"></div>
   </div>
 </div>
