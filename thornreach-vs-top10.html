@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thornreach vs. the Top 10 — Mobile Dungeon &amp; Quest Games, July 2026</title>
+<style>
+  :root{
+    --page:#0d0b12;            /* page plane */
+    --surface:#1a1723;         /* chart/card surface */
+    --surface-2:#211d2e;       /* raised surface */
+    --ink:#ffffff;             /* primary ink */
+    --ink-2:#c9c4d6;           /* secondary ink */
+    --ink-3:#8e88a0;           /* muted ink */
+    --hairline:rgba(255,255,255,.10);
+    --grid:#2c2838;
+    --accent:#9085e9;          /* Thornreach violet (validated) */
+    --accent-2:#c98500;        /* amber (validated pair) */
+    --deemph:#55506b;          /* de-emphasis bars (not a series id) */
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+    --ember:#e8a24b;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important} }
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:15px; line-height:1.55;
+    background-image:
+      radial-gradient(1200px 500px at 85% -10%, rgba(144,133,233,.10), transparent 60%),
+      radial-gradient(900px 420px at 5% 8%, rgba(232,162,75,.05), transparent 55%);
+  }
+  a{color:#b3a9f5; text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 22px}
+  header.hero{padding:54px 0 22px}
+  .kicker{color:var(--ember); font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:600}
+  h1{font-size:clamp(26px,4vw,40px); margin:8px 0 6px; line-height:1.12; font-weight:700}
+  h1 .vs{color:var(--accent)}
+  .sub{color:var(--ink-2); max-width:860px; font-size:16px}
+  .meta-chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+  .chip{font-size:12px; color:var(--ink-2); border:1px solid var(--hairline); border-radius:999px; padding:4px 11px; background:rgba(255,255,255,.03)}
+  .chip b{color:var(--ink); font-weight:600}
+  nav.toc{position:sticky; top:0; z-index:50; background:rgba(13,11,18,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--hairline)}
+  nav.toc .wrap{display:flex; gap:4px; overflow-x:auto; padding:0 22px}
+  nav.toc a{color:var(--ink-2); font-size:13px; padding:12px 12px; white-space:nowrap; border-bottom:2px solid transparent}
+  nav.toc a:hover{color:var(--ink); text-decoration:none; border-bottom-color:var(--ink-3)}
+  section{padding:34px 0 10px; scroll-margin-top:52px}
+  h2{font-size:22px; margin:0 0 4px; font-weight:700}
+  h2 .h-ico{margin-right:8px}
+  .h-sub{color:var(--ink-3); font-size:13.5px; margin:0 0 18px; max-width:880px}
+  h3{font-size:16px; margin:22px 0 8px}
+  .card{background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:18px 20px}
+  /* stat tiles */
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:6px 0 8px}
+  .tile{background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px}
+  .tile .lbl{color:var(--ink-3); font-size:12.5px}
+  .tile .val{font-size:30px; font-weight:650; margin:2px 0 3px}
+  .tile .note{color:var(--ink-2); font-size:12.5px}
+  .tile .delta-down{color:var(--serious); font-weight:600}
+  .tile .delta-up{color:var(--good); font-weight:600}
+  /* two-col overview */
+  .cols{display:grid; grid-template-columns:1.15fr .85fr; gap:14px; align-items:start}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} }
+  .thorn-capsule{border-left:3px solid var(--accent)}
+  .thorn-capsule ul{margin:8px 0 0; padding-left:18px; color:var(--ink-2)}
+  .thorn-capsule li{margin:5px 0}
+  .thorn-capsule li b{color:var(--ink); font-weight:600}
+  /* game cards */
+  .game{background:var(--surface); border:1px solid var(--hairline); border-radius:14px; margin:12px 0; overflow:hidden}
+  .game summary{list-style:none; cursor:pointer; padding:15px 18px; display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+  .game summary::-webkit-details-marker{display:none}
+  .game summary:hover{background:var(--surface-2)}
+  .rank{flex:0 0 auto; width:38px; height:38px; border-radius:10px; background:linear-gradient(160deg,#2a2440,#1d1930); border:1px solid var(--hairline); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--ember); font-size:16px}
+  .g-name{font-size:17px; font-weight:650}
+  .g-dev{color:var(--ink-3); font-size:12.5px}
+  .g-one{flex-basis:100%; color:var(--ink-2); font-size:13.5px; margin-top:-4px}
+  .g-chips{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
+  .g-chips .chip{font-size:11px; padding:3px 9px}
+  .chev{color:var(--ink-3); font-size:12px; margin-left:6px; transition:transform .2s}
+  details[open] .chev{transform:rotate(90deg)}
+  .g-body{padding:2px 18px 16px; border-top:1px solid var(--hairline)}
+  .statline{display:flex; flex-wrap:wrap; gap:16px; padding:11px 0; color:var(--ink-2); font-size:13px; border-bottom:1px solid var(--hairline)}
+  .statline b{color:var(--ink); font-weight:600}
+  .angles{display:grid; grid-template-columns:1fr 1fr; gap:4px 26px; margin-top:8px}
+  @media (max-width:820px){ .angles{grid-template-columns:1fr} }
+  .angle h4{margin:10px 0 4px; font-size:13px; color:var(--ember); font-weight:650; letter-spacing:.02em}
+  .angle p{margin:0 0 8px; color:var(--ink-2); font-size:13.5px}
+  .pm{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 2px}
+  .pm .p, .pm .m{font-size:12px; border-radius:999px; padding:3px 10px; border:1px solid}
+  .pm .p{color:#7ed07e; border-color:rgba(12,163,12,.35); background:rgba(12,163,12,.08)}
+  .pm .m{color:#f0a58a; border-color:rgba(236,131,90,.35); background:rgba(236,131,90,.08)}
+  .verdict{margin:12px 0 4px; padding:12px 14px; background:rgba(144,133,233,.08); border:1px solid rgba(144,133,233,.28); border-radius:10px; font-size:13.5px}
+  .verdict b{color:var(--accent)}
+  .src-inline{margin-top:10px; font-size:11.5px; color:var(--ink-3)}
+  .src-inline a{color:var(--ink-3); text-decoration:underline; text-decoration-color:rgba(255,255,255,.2)}
+  .src-inline a:hover{color:var(--ink-2)}
+  /* tables */
+  .tbl-scroll{overflow-x:auto; border:1px solid var(--hairline); border-radius:14px; background:var(--surface)}
+  table{border-collapse:collapse; width:100%; font-size:13px}
+  th,td{padding:9px 11px; text-align:left; border-bottom:1px solid var(--grid); vertical-align:top}
+  thead th{color:var(--ink-3); font-weight:600; font-size:12px; position:sticky; top:0; background:var(--surface); z-index:2}
+  tbody tr:last-child td{border-bottom:none}
+  .t-col{background:rgba(144,133,233,.09)}
+  th.t-col{color:var(--accent)}
+  .yes{color:#7ed07e} .no{color:var(--ink-3)} .part{color:var(--ember)}
+  td.rowhead, .matrix td:first-child{color:var(--ink); font-weight:600; white-space:nowrap}
+  .matrix td{font-size:12.5px; color:var(--ink-2); min-width:108px}
+  .matrix td:first-child{min-width:150px}
+  /* heatmap */
+  .heat td.cell{text-align:center; font-weight:650; font-variant-numeric:tabular-nums; border-bottom:2px solid var(--surface); border-right:2px solid var(--surface); border-radius:4px; cursor:default}
+  .heat td.cell:focus{outline:2px solid var(--ember); outline-offset:-2px}
+  .heat td.gname{white-space:nowrap; font-weight:600}
+  .heat .thorn-row td.gname{color:var(--accent)}
+  .heat thead th{text-align:center}
+  .heat thead th:first-child{text-align:left}
+  .legend{display:flex; align-items:center; gap:10px; margin:10px 2px 0; color:var(--ink-3); font-size:12px; flex-wrap:wrap}
+  .lg-ramp{display:flex; height:10px; border-radius:5px; overflow:hidden}
+  .lg-ramp span{width:22px; height:10px; display:block}
+  .keyrow{display:flex; gap:16px; align-items:center; font-size:12.5px; color:var(--ink-2)}
+  .key{display:inline-flex; align-items:center; gap:6px}
+  .swatch{width:12px; height:12px; border-radius:3px; display:inline-block}
+  /* bars */
+  .barchart{margin:8px 0 2px}
+  .barrow{display:grid; grid-template-columns:170px 1fr 46px; align-items:center; gap:10px; margin:7px 0}
+  .barrow .bl{font-size:13px; color:var(--ink-2); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .barrow.thorn .bl{color:var(--accent); font-weight:650}
+  .track{display:block; height:18px; background:rgba(255,255,255,.05); border-radius:4px; position:relative; overflow:hidden}
+  .fill{display:block; height:18px; border-radius:0 4px 4px 0; background:var(--deemph); position:relative}
+  .barrow.thorn .fill{background:var(--accent)}
+  .barrow .bv{font-size:13px; font-weight:650; font-variant-numeric:tabular-nums}
+  .gbar .barrow{grid-template-columns:118px 1fr 46px; margin:4px 0}
+  .gbar .pair{margin:0 0 14px}
+  .pair-h{font-size:12.5px; color:var(--ink-3); margin:10px 0 5px; font-weight:600}
+  .gbar .fill.f-med{background:var(--accent-2)}
+  .gbar .fill.f-th{background:var(--accent)}
+  /* playbook */
+  .play{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px}
+  .play .card h3{margin:2px 0 8px; font-size:15px}
+  .play ul{margin:0; padding-left:18px; color:var(--ink-2); font-size:13.5px}
+  .play li{margin:7px 0}
+  .play li b{color:var(--ink)}
+  .tag-protect{color:#7ed07e} .tag-fix{color:#f0a58a} .tag-steal{color:var(--ember)}
+  .quote{margin:20px 0 6px; padding:18px 22px; border-left:3px solid var(--ember); background:var(--surface); border-radius:0 14px 14px 0; font-size:17px; color:var(--ink); font-style:italic}
+  .steal-list li{margin:9px 0}
+  /* sources */
+  .srcs{columns:2; column-gap:28px; font-size:12.5px}
+  @media (max-width:820px){ .srcs{columns:1} }
+  .srcs h4{margin:0 0 6px; font-size:13px; color:var(--ink); break-after:avoid}
+  .srcs ul{margin:0 0 16px; padding-left:16px; break-inside:avoid}
+  .srcs li{margin:3px 0; color:var(--ink-3); overflow-wrap:anywhere}
+  footer{padding:26px 0 44px; color:var(--ink-3); font-size:12.5px; border-top:1px solid var(--hairline); margin-top:34px}
+  /* tooltip */
+  #tip{position:fixed; z-index:99; background:#26213a; border:1px solid rgba(255,255,255,.16); color:var(--ink); padding:8px 11px; border-radius:8px; font-size:12.5px; pointer-events:none; opacity:0; max-width:280px; box-shadow:0 6px 22px rgba(0,0,0,.5)}
+  #tip .tv{font-weight:700; font-size:14px}
+  #tip .tl{color:var(--ink-2)}
+  .note-box{font-size:12.5px; color:var(--ink-3); margin-top:12px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Competitive review · researched July 12, 2026</div>
+    <h1>Thornreach <span class="vs">vs.</span> the Top 10 Mobile Dungeon &amp; Quest Games</h1>
+    <p class="sub">Ten market-leading dungeon crawlers and quest RPGs — reviewed on gameplay depth, monetization, retention, and mobile UX with current 2026 data — and an honest read on where your cozy witchy town beats them, where it doesn't, and what's worth stealing.</p>
+    <div class="meta-chips">
+      <span class="chip">Top 10 = <b>commercial scale + quality blend</b></span>
+      <span class="chip">Sources: <b>store listings, Sensor Tower/AppMagic via press, official patch notes</b></span>
+      <span class="chip">Your game: <b>Thornreach (Town Chat)</b> — web · iOS · Android · desktop</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#overview">Overview</a>
+  <a href="#top10">The Top 10, Reviewed</a>
+  <a href="#matrix">Head-to-Head Matrix</a>
+  <a href="#scorecard">Scorecard</a>
+  <a href="#playbook">Playbook for Thornreach</a>
+  <a href="#sources">Sources</a>
+</div></nav>
+<section id="overview">
+  <div class="wrap">
+    <h2><span class="h-ico">🌒</span>Overview &amp; market context</h2>
+    <p class="h-sub">The list blends commercial scale (downloads, revenue, active players) with quality standing (store ratings, critical and community reception). Every game was verified live and updated as of July 2026. Revenue figures are third-party estimates reported in trade press unless store-listed.</p>
+    <div class="tiles">
+      <div class="tile">
+        <div class="lbl">Mobile RPG genre revenue, 2024</div>
+        <div class="val">$16.8B</div>
+        <div class="note"><span class="delta-down">▼ 17.3%</span> vs prior year — the squeeze continued through 2025 (Sensor Tower)</div>
+      </div>
+      <div class="tile">
+        <div class="lbl">OSRS all-time concurrent record, Aug 2025</div>
+        <div class="val">240,851</div>
+        <div class="note"><span class="delta-up">▲ record</span> — the fairness-first subscription MMO is at peak popularity</div>
+      </div>
+      <div class="tile">
+        <div class="lbl">Top-10 games running character/gear gacha</div>
+        <div class="val">8 of 10</div>
+        <div class="note">The two that don't — DnF Mobile (free classes) and OSRS (sub only) — are beloved for it</div>
+      </div>
+      <div class="tile">
+        <div class="lbl">Largest single IAP, top 10 vs Thornreach</div>
+        <div class="val">$99.99 → $9.99</div>
+        <div class="note">$99.99 packs are standard in 8 of 10 (DnF tops out near $90); Thornreach's biggest purchase is a $9.99 Moonstone pack</div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="card">
+        <h3 style="margin-top:2px">The market in three lines</h3>
+        <p style="color:var(--ink-2); font-size:13.5px">The genre is contracting at the middle and thriving at the poles. Mid-tier gacha RPGs are dying — Tarisland (Nov 2025), Dragonheir's US service, and Krafton's Abyss of Dungeons (Jan 2026) all shut down, and Netflix delisted 20+ premium mobile games including Hades. The two poles that grew: <b style="color:var(--ink)">fairness-first community games</b> (OSRS's record year) and <b style="color:var(--ink)">tight hybridcasual dungeon loops</b> (Archero 2 at ~$27M/month, Habby past $2B lifetime).</p>
+        <p style="color:var(--ink-2); font-size:13.5px; margin-bottom:2px">Two more currents worth knowing: every major RPG added a <b style="color:var(--ink)">roguelike dungeon mode</b> in 2024–26 (Simulated Universe, Arcane Labyrinth, Grim Forest, Fractured Plane, DnF's CN roguelike), and Korea's MMO wave went <b style="color:var(--ink)">cross-platform by default</b> (Aion 2, Odin) — the direction Thornreach's one-shared-world design already points.</p>
+      </div>
+      <div class="card thorn-capsule">
+        <h3 style="margin-top:2px">🕯️ Thornreach, on paper</h3>
+        <ul>
+          <li><b>What it is:</b> a cozy witchy 3D multiplayer town where every building is a chatroom — with 5 classes (12–15 abilities each), skill trees, per-class six-chapter campaigns, 18+ side quests, night mobs, the Wilds, Ember Wastes, and 4 level-gated dungeon tiers.</li>
+          <li><b>Model:</b> free everywhere (instant web join); $2.99/24h Town Pass for two leisure venues; Moonstones ($1.99–$9.99) buy weekly-rotating legendaries that are stat-capped at relic parity — prestige, never power. No gacha, no energy, no ads.</li>
+          <li><b>Platforms:</b> one shared world across web, iOS, Android, and desktop.</li>
+          <li><b>Scale:</b> solo-dev, pre-launch on stores, friends-scale backend (in-memory + JSON persistence).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="top10">
+  <div class="wrap">
+    <h2><span class="h-ico">⚔️</span>The Top 10, reviewed</h2>
+    <p class="h-sub">Ranked by the blend of scale and quality. Tap a card for the full review — core loop, monetization, retention machinery, touch UX, reception, and the verdict against Thornreach.</p>
+
+    <details class="game" open>
+      <summary>
+        <span class="rank">1</span>
+        <span><span class="g-name">Genshin Impact</span><br><span class="g-dev">HoYoverse · 2020 · open-world quest ARPG</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 4.1★ · iOS 4.2★</span><span class="chip">$335M mobile 2025</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The king of mobile ARPGs: a 7-nation (plus the Moon, added v6.7) open world where quests, instanced "domain" dungeons, and elemental team combat feed a 0.6%-rate character gacha.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>v6.7 "Luna VIII" (Jul 1, 2026)</b>, Nod-Krai arc</span><span>Revenue: <b>$335M mobile IAP 2025</b> (AppMagic, −28% YoY)</span><span>Content: <b>250–400h story; 600–1,000h+ completionist</b> (est.)</span><span>Install: <b>22–52GB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Real-time 4-character squad-swap combat built on elemental reactions (the Luna era added Lunar reactions, a Moonsign team system, and a level-95/100 cap). Dungeons are short instanced domains (solo or 4-player co-op) plus the Stygian Onslaught boss rush on ~5-week cycles; monthly Spiral Abyss and a roster-wide roguelike (Imaginarium Theater) anchor endgame. New in the Luna era: a permanent explorable Moon region and Miliastra Wonderland, a full player-built-levels UGC platform with multiplayer lobbies. Map expansions land nearly every 6-week patch.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>$0.99–$99.99 crystals, $4.99/30-day Welkin, $9.99/$19.99 battle pass. Character banner: 0.6% base with soft pity ~74, hard 90, and "Capturing Radiance" loss protection (~55% effective featured rate). Resin gates farming but never quests or exploration; the whole campaign is free. Pressure concentrates in limited-banner FOMO and C6 whale chases (thousands of dollars per maxed character, est.).</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>10-minute dailies (4 commissions + resin burn), 2 banner phases and 3–4 events per patch, monthly Abyss/Theater resets, and a permanent 12-week rotating event cycle. Artifact substat RNG is the infinite endgame sink (softened by the new stat-modification system). No guilds — social retention is co-op sessions, teapot visits, and Miliastra lobbies.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Two-thumb virtual controls, no auto-play — a real action game on a phone, at the cost of 22–52GB installs and heavy battery drain ("30% in 30 minutes" is a live review complaint). Controller support on iOS since 2021, Android since 5.5 (clunky). Full cross-save across mobile/PC/PS/Xbox/cloud. Wishes unlock ~30–60 min in; co-op at AR16.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Best-in-class world, art, music</span><span class="p">Story fully F2P-clearable</span><span class="p">True cross-platform ecosystem</span>
+          <span class="m">Artifact RNG burnout</span><span class="m">Storage + battery load</span><span class="m">Missable event items FOMO</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> A different weight class — but its players co-op and <i>leave</i>; there is no town square in Teyvat. Steal the patch-cadence discipline (something new on a predictable clock) and the way short instanced domains make small spaces endlessly repeatable. Thornreach's social fabric is the thing Genshin's billion dollars never bought.</div>
+        <div class="src-inline">Sources: <a href="https://mobilegamer.biz/the-top-grossing-mobile-games-of-2025/">mobilegamer.biz</a> · <a href="https://www.rpgsite.net/news/20728-genshin-impact-version-luna-viii-release-date-new-banner">RPG Site</a> · <a href="https://www.icy-veins.com/gacha/news/everything-new-in-genshin-impact-6-7-from-banners-to-moon-exploration/">Icy Veins</a> · <a href="https://apps.apple.com/us/app/genshin-impact-lunas-chosen/id1517783697">App Store</a> · <a href="https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact">Google Play</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">2</span>
+        <span><span class="g-name">Dungeon &amp; Fighter Mobile</span><br><span class="g-dev">Neople/Nexon + Tencent · 2022 KR / 2024 CN · side-scrolling dungeon crawler</span></span>
+        <span class="g-chips"><span class="chip">F2P + IAP</span><span class="chip">KR GP 4.3★ · CN iOS 3.3★</span><span class="chip">~$2.5B in 7 months</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The literal genre namesake: manual belt-scroll combat, fatigue-gated dungeon runs, and MMO-style town hubs where players actually hang out. CN/KR only — and the biggest mobile dungeon game on Earth.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>KR Season 5, cap 85</b>; CN runs its own cadence</span><span>Revenue: <b>~$2.5B gross CN in first 7 months</b> (Niko Partners); top-3 Tencent earner May 2026</span><span>Story: <b>~30–60h to cap</b>, endgame unbounded</span><span>Install: <b>3.8GB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Faithful 2D arcade action — virtual stick plus 10+ skill buttons, combos, cancels, grabs, and <b>no auto-battle</b>, a deliberate identity stance in the Korean market. All 30+ subclasses are free (no character gacha). Everything is instanced: fatigue-gated farming dungeons, weekly dungeons with up to 25× "Hellfire" drop multipliers, 5 small-squad raid series against Apostle bosses, 100-floor towers, and (CN, June 2026) a new roguelike free-exploration mode. Between runs, players stand around channelized town hubs with visible crowds, chat, and an auction house.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>No character gacha and spec-normalized "fair duel" PvP — but avatar sets with real stat bonuses come from probability boxes (full rare sets run to hundreds of thousands of KRW, community est.), stat titles from 5%-success synthesis, and cash growth catalysts. Season 4 (Aug 2024) triggered a formal player backlash over nerfed free-farming routes; CN players revolted over launch economy tuning. Monthly VIP restores fatigue.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>The hard 100-point daily fatigue cap is the retention engine: it bounds sessions, protects the economy, and pushes alt characters through shared account-wide progression. Weekly raids and towers, roughly annual season resets, anniversary director events, and collabs (Ranma ½) fill the calendar. A 3-month update freeze during the 2025 Neople union strike showed how fragile live-ops momentum is.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Lightweight (3.8GB, runs on a Galaxy S6) and short-burst friendly by design — the 2026 roadmap explicitly targets "meaningful progression in shorter sessions." Cramped skill layouts are the top control complaint. Official gamepad support since launch; KR has a Windows client with full cross-progression. KR/CN only, no English.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Best manual action combat on mobile</span><span class="p">Free classes, fair PvP</span><span class="p">Real town-hub social culture</span>
+          <span class="m">Stat-bearing cosmetics creep</span><span class="m">Fatigue/alt grind pressure</span><span class="m">Operational instability (strike, store disputes)</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> The closest philosophical cousin on this list — proof that "town hub + instanced dungeon runs + chat culture" prints money at civilization scale. Steal the shape of its daily loop (a soft dungeon cap that makes each night's runs precious — your day/night cycle is halfway there) and its alt-friendly account design (your per-class campaigns already rhyme). And note the gap in the map: DnF's formula has <i>never shipped in English</i>. The Western "social dungeon town" lane is empty.</div>
+        <div class="src-inline">Sources: <a href="https://gameworldobserver.com/2025/01/24/dnf-mobile-2-5-billion-revenue-china-niko-partners">Game World Observer</a> · <a href="https://www.invenglobal.com/articles/20267/dungeon-fighter-mobile-to-unveil-2026-update-plans-at-4th-anniversary-dm-event">Inven Global</a> · <a href="https://play.google.com/store/apps/details?id=com.nexon.mdnf">Google Play KR</a> · <a href="https://www.scmp.com/tech/big-tech/article/3267277/tencent-pulls-hit-game-dnf-mobile-app-stores-huawei-oppo-and-vivo-sign-dispute">SCMP</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">3</span>
+        <span><span class="g-name">Honkai: Star Rail</span><br><span class="g-dev">HoYoverse · 2023 · turn-based quest RPG + roguelike dungeons</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 3.9★ · iOS 4.6★</span><span class="chip">$423M mobile 2025</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The highest-grossing globally available quest RPG on phones in 2025 — cinematic turn-based storytelling with the genre's best roguelike dungeon mode, and zero multiplayer of any kind.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>v4.3 live; v4.4 lands Jul 15, 2026</b> (Planarcadia arc, Fate/stay night collab return)</span><span>Revenue: <b>$423M mobile 2025; ~$1.76B lifetime</b> (AppMagic est.)</span><span>Content: <b>~120–150h main story</b>, 300h+ with endgame (est.)</span><span>Install: <b>~31GB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Turn-based 4-unit combat with a shared skill-point economy, Weakness Break, and 9 Paths (classes) — kit depth stacks base kit, 6 Eidolons, Light Cones, Traces, and relic substat RNG. All dungeons are instanced and strictly single-player: stamina dungeons for materials, plus the standout Simulated/Divergent Universe roguelikes with seasonal content. Four rotating endgame modes on ~6-week resets, extended in 4.3 by an optional third-team "Starward" hard layer.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>Standard HoYo: $0.99–$99.99 shards, $4.99/30-day pass, $9.99 BP per patch. 0.6% base 5★ rate, soft pity ~74/hard 90, 50/50 with carryover — the industry's most transparent pity math. Nothing is hard-paywalled; F2P earns ~60–80 pulls per patch (est.), and the 3rd anniversary handed out a free limited 5★ selector. Sentiment: very F2P-playable, with powercreep monetizing the meta chase.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>5–10 minute dailies, weekly roguelike/boss runs, and a full event slate each 6-week patch. Relic farming is the infinite sink. There are no guilds, no co-op, no chat — retention is single-player habit plus a huge parasocial community on HoYoLAB/Discord. Dev-acknowledged churn from the 3.x story bloat led to skip/summary tools and the leaner 4.x arc.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Turn-based combat is a natural touch fit, with full auto-battle and 2× speed from the start — dailies are genuinely one-handed-ish. Landscape only. Controller support on mobile, plus PC/PS5 with full cross-save. The cost: ~31GB on device (the #1 store complaint) and rising Android performance grumbles since 4.0.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Narrative + production values</span><span class="p">Transparent pity, F2P-generous</span><span class="p">Best roguelike dungeon mode in class</span>
+          <span class="m">31GB storage bloat</span><span class="m">Powercreep invalidating old units</span><span class="m">Zero social features</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> HSR proves clarity builds trust — players tolerate a 0.6% rate because the math is honest. Thornreach's version of that honesty is better: <i>there are no odds at all</i> — say so, loudly, in the store listing. And its Simulated Universe shows how a roguelike ruleset turns finite dungeon assets into seasons of replayable content — the cheapest depth Thornreach's four dungeon tiers could buy.</div>
+        <div class="src-inline">Sources: <a href="https://mobilegamer.biz/the-top-grossing-mobile-games-of-2025/">mobilegamer.biz</a> · <a href="https://rpgamer.com/2026/07/honkai-star-rail-4-4-update-set-for-july-15/">RPGamer</a> · <a href="https://thephrasemaker.com/2026/06/09/honkai-star-rail-new-starward-mode-in-endgame-explained/">The Phrasemaker</a> · <a href="https://apps.apple.com/us/app/honkai-star-rail/id1599719154">App Store</a> · <a href="https://play.google.com/store/apps/details?id=com.HoYoverse.hkrpgoversea">Google Play</a></div>
+      </div>
+    </details>
+    <details class="game">
+      <summary>
+        <span class="rank">4</span>
+        <span><span class="g-name">Solo Leveling: Arise</span><br><span class="g-dev">Netmarble · 2024 · dungeon-gate action ARPG</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 3.9★ · iOS 4.7★</span><span class="chip">50M players / $139M in 6mo</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The definitive "clear the dungeon gate" anime ARPG — flashy real-time combat and monthly banner hunters, two years into live service with a 2026 esports push and a console spin-off.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>post-"EVOLUTION" 2nd-anniversary (May 2026)</b>; Championship 2026 running</span><span>Scale: <b>$100M in 3 months, 50M players in 6</b> (Sensor Tower/PG.biz)</span><span>Story: <b>~35–50h main</b>, hundreds endgame (est.)</span><span>Install: <b>~20–40GB full</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Real-time two-thumb action: perfect-dodge slow-mo, QTE tag chains, break gauges, and a dual structure — play Jinwoo solo with shadow-soldier summons, or a 3-hunter tag team. 25+ story chapters across Normal/Hard/Expert plus Reverse and Hidden chapters. Everything is instanced and single-player (guild "raids" are async score attacks): daily key-gated Gates, boss ladders, restricted-formation Battlefields, and the Workshop roguelike-ish weekly raid. June 2026 added a "7-Star Hunter" tier above SSR; new classes (Burster) keep resetting the meta.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>SSR base 1.2% with characters and weapons sharing one pool (diluting targets), soft pity 64, hard 80 — and the rate-up guarantee doesn't carry between banners. The store is a dense wall of bundles: daily-value packs (~$7–9), event packs to ~$75, and a multi-tier Hunter Pass. Generosity comes in bursts (the 2nd anniversary paid ~500 free draws), but dupe-driven power (A0→A5) plus the new 7-star tier read as escalating spend pressure; "P2W for rankings" has stuck since launch.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>Dailies, gate keys, weekly Workshop tickets, monthly banners, ranked seasons — with a notable 2026 twist: Netmarble publicly acknowledged daily-chore burnout and compressed the grind (entry currencies removed, modes rotated seasonally, catch-up track to level 150 with 15 free SSRs). Guilds exist as check-in scoreboards; there is no real chat and no synchronous play.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Excellent action feel with full auto mode, sweeps for farmed content, and controller support on mobile and PC (cross-save via Netmarble account). Onboarding is the iconic Double Dungeon prologue, and the post-anniversary guided track hands new players visible power fast. Cost: a 20–40GB full install and historic mid-device lag (improved).</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Best-in-class action combat + boss fights</span><span class="p">IP power fantasy done right</span><span class="p">Aggressive QoL catch-up for new players</span>
+          <span class="m">CP walls + dupe powercreep (7-star tier)</span><span class="m">Bundle-wall spend pressure</span><span class="m">No real multiplayer despite team fantasy</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> A game entirely about hunters teaming up against dungeon gates — in which you can never actually play beside another person. Thornreach delivers the thing SLA only depicts. Steal two moves: onboarding compression (hand the player a visible win in the first 20 minutes) and dungeon identity — SLA's gates are named, ranked, feared. Thornreach's T1–T4 dungeons deserve names, signature bosses, and a place on the store screenshots.</div>
+        <div class="src-inline">Sources: <a href="https://sensortower.com/blog/solo-leveling-arise-revenue-surpasses-usd100-million-in-3-months">Sensor Tower</a> · <a href="https://www.pocketgamer.biz/solo-leveling-arise-hits-50m-players-and-139m-revenue-in-first-six-months/">PocketGamer.biz</a> · <a href="https://www.invenglobal.com/articles/21303/2nd-anniversary-update-preview-streamlined-growth-content-compression-and-500-free-draws">Inven Global</a> · <a href="https://progameguides.com/solo-leveling-arise/solo-leveling-arise-banner-and-pity-guide/">Pro Game Guides</a> · <a href="https://apps.apple.com/us/app/solo-leveling-arise/id1662742277">App Store</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">5</span>
+        <span><span class="g-name">RAID: Shadow Legends</span><br><span class="g-dev">Plarium · 2019 · dungeon-farming squad RPG</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 4.6★ · Metacritic user 2.3</span><span class="chip">$1B+ lifetime; record 2025</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The West's biggest dungeon-farming RPG, at record revenue seven years in — 1,024 champions, a relentless event calendar, and the genre's most notorious monetization.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>Argonites faction + Assassin's Creed crossovers (2026)</b>; Siege rework Jun 2026</span><span>Business: <b>~70% of Plarium; drove MTG's record Q4 2025</b> ($477M/yr UA spend)</span><span>Time to late-game: <b>8–18 months F2P</b> (est.)</span><span>Install: <b>~2–4GB full</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Turn-based squad combat (speed/turn-meter, affinity triangle, buff/debuff kits) across a huge mode surface: four gear dungeons, Doom Tower's 120 monthly-rotating floors, the Cursed City, the new Grim Forest exploration mode, faction crypts, clan bosses, Hydra, Chimera, clan-vs-clan Siege, and a real-time pick/ban Live Arena. Roster: 1,024 champions across 16+ factions. Nothing is synchronous co-op — every clan activity is asynchronous contribution.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>The cautionary benchmark: 0.5% legendary shard rates (mercy pity only after 200 pulls), four subscription tiers to $49.99/month, a Champion Pass that literally sells champions, and offer popups on nearly every login — the top store complaint. Store ratings stay 4.6★ while Metacritic's user score sits at 2.3/10; both are real. PvE is F2P-viable; competitive Siege/Live Arena implies four-figure spend (community consensus).</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>The genre's most complete FOMO machine: dailies/weeklies/monthlies, a 30-day login champion, near-continuous tournaments, and ~monthly fusion events that demand multi-week energy commitment. 2026 added softeners (fusion-token exchange for missed champions, a returning-player program). The treadmill's true endgame is gear substat RNG — also its top burnout complaint.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Menu-hub UI with best-in-class farming automation: 30 free Multi-Battles a day, background 2×-speed farming while you play other modes, auto-climb for towers. Onboarding is an "overwhelming menu cascade" (reviewers' words). PC via Plarium Play and Steam with cross-save. Sessions are designed to run long in the background.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Production values + champion design</span><span class="p">Deep buildcraft, huge mode surface</span><span class="p">Best farming QoL automation</span>
+          <span class="m">Relentless offer popups</span><span class="m">P2W + powercreep resentment</span><span class="m">Gear-RNG fatigue</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> Everything RAID is resented for, Thornreach's charter forbids — and RAID's revenue rides a $477M/year ad machine you shouldn't envy. What's worth taking is the calendar: RAID never lets a week pass without a visible reason to log in. Your Midnight Peddler's Monday rotation is the seed of that; grow it into a small, honest event cadence (town festivals, hunt tournaments) without the spend pressure.</div>
+        <div class="src-inline">Sources: <a href="https://mobilegamer.biz/raid-shadow-legends-fires-mtg-to-record-revenue-and-profits/">mobilegamer.biz</a> · <a href="https://sensortower.com/blog/raid-shadow-legends-crosses-one-billion-revenue">Sensor Tower</a> · <a href="https://ayumilove.net/raid-shadow-legends-mercy-system-explained/">AyumiLove</a> · <a href="https://www.metacritic.com/game/raid-shadow-legends/user-reviews/">Metacritic</a> · <a href="https://play.google.com/store/apps/details?id=com.plarium.raidlegends">Google Play</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">6</span>
+        <span><span class="g-name">Archero 2</span><br><span class="g-dev">Habby · 2025 · roguelite dungeon-crawler shooter</span></span>
+        <span class="g-chips"><span class="chip">Hybrid IAP + ads</span><span class="chip">GP 4.6★ · iOS 4.6★</span><span class="chip">~$27M/month</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The breakout roguelite dungeon crawler of 2025–26: 2–6 minute one-thumb runs, a seasonal class system, and monetization efficiency (~$11 per download) that embarrassed the gacha mid-tier.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>"Umbral Tempest" season framework</b>; ~170 campaign chapters (v1.1.7, Jun 2026)</span><span>Scale: <b>$32.8M first 30 days; &gt;$11 revenue/download</b> (AppMagic/DoF)</span><span>Sessions: <b>3–10 min bursts</b>, energy-capped</span><span>Install: <b>~950MB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>The one-thumb formula perfected: drag to move, stand still to auto-fire, dodge everything. Each 2–6 minute procedural run offers a roguelite draft of skills; between runs a thick meta layer of gear fusion, heroes, runes, artifacts, talent cards, and pet Mystlings absorbs currency. The seasonal "Umbral Tempest" framework adds four classes with talent trees — your class choice locks for the whole 28-day season. Guilds anchor the multiplayer layer (daily boss, raids, damage races); nothing is synchronous.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>Hybrid but IAP-heavy: packs at every price point to $99.99, escalating chapter-clear offers, ~$20/day rotating promos, a two-tier 28-day battle pass (~$9.99/$29.99), and permanent ad-free/supply cards (~$40). Gear gacha runs 1.46% S-tier with no published hard pity. Rewarded ads are genuinely optional and deliberately low-value. Spend pressure is high — "almost every screen promotes some kind of option to spend money" is a representative review.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>Energy (5 per run, cap 30) turns sessions into appointments; daily attempt caps across Gold Cave/Sky Tower/Arena/guild boss create a checklist; 28-day seasons, banner heroes, and expiring packs do the FOMO work. Parallel currencies mean something is always claimable. Difficulty walls tuned to sell packs are the top churn complaint.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Best touch controls in this entire list — instant one-thumb runs, portrait orientation, sub-1GB install, first fun inside a minute. iOS Editors' Choice. No controller, no cross-platform, no world: it is a phone game to its bones.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Tight, genuinely fun one-thumb combat</span><span class="p">&lt;1 minute to first fun</span><span class="p">Constant mode/season variety</span>
+          <span class="m">Offers on every screen</span><span class="m">Stat walls tuned against F2P</span><span class="m">Opaque gacha pity</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> Archero 2 is a slot machine with dodging — no world, no chat, no people — yet its session shape is a masterclass. Thornreach's dungeons should offer a "quick delve": a 3–5 minute, one-more-run loop with a mid-run boon draft (pick 1 of 3), playable at a bus stop. That single pattern — cheap to build on your existing dungeon tiers — is the most stealable retention mechanic in the genre.</div>
+        <div class="src-inline">Sources: <a href="https://www.pocketgamer.biz/archero-2-makes-328m-in-first-30-days-from-player-spending/">PocketGamer.biz</a> · <a href="https://www.deconstructoroffun.com/blog/2025/7/31/habbys-hybridcasual-empire-the-template-that-built-a-powerhouse">Deconstructor of Fun</a> · <a href="https://archero-2.game-vault.net/wiki/Pull_Rates">Archero 2 wiki</a> · <a href="https://play.google.com/store/apps/details?id=com.xq.archeroii">Google Play</a> · <a href="https://apps.apple.com/us/app/archero-2/id6502820653">App Store</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">7</span>
+        <span><span class="g-name">Summoners War: Sky Arena</span><br><span class="g-dev">Com2uS · 2014 · monster-collection dungeon farmer</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 4.0★ · iOS 4.2★</span><span class="chip">$3B+ lifetime</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">Twelve years and $3B+ built almost entirely on rune-dungeon grinding — now celebrating its 12th anniversary with its first-ever gacha pity and a Frieren collab.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>12th anniversary (Apr–Jun 2026)</b>; Frieren collab to Sep 1; SWC2026 esports, 10th edition</span><span>Scale: <b>$3B+ lifetime, 300M+ accounts</b> (Com2uS)</span><span>Endgame: <b>~3–6 months to core dungeon caps</b>; years to rune ceiling (est.)</span><span>Install: <b>~2.2GB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>The archetype: turn-based ATB combat, 1,000+ monsters, and the Cairos rune dungeons (Giant's, Dragon's, Necropolis and friends) farmed for 23 rune sets whose substats decide everything. Endgame spans a 100-floor monthly tower, rift bosses, true 3-player co-op rift raids, guild sieges, and a real-time World Arena that sustains a legitimate decade-old esport (SWC2026 finals in Seoul). The Frieren collab hands every player a fully built 6★ Himmel.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>Brutal base odds — 0.5% nat-5, 0.35% on light/dark — but moderate pressure by genre standards: packs cluster at $29.99/$99.99 and cadence is event-tied rather than popup-driven. The 12th anniversary finally added "Summon Mileage" pity and selective-summon tasks after twelve years without either. PvE is fully F2P-achievable; top-100 RTA implies heavy spend.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>Rune RNG is the endless treadmill, now layered with artifacts (2020) and Relics (Apr 2026) — the third gear system is the community's current fatigue flashpoint. Guild wars, twice-weekly sieges, monthly tower resets, RTA seasons, and never-rerun collab exclusives keep the calendar full. The mentor/apprentice system and channel-based world chat give it real social glue that most gacha peers lack.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Functional but dated: a Sky Island hub of tap-into-building menus that new players find wiki-dependent. Auto-battle everywhere plus repeat-battle chains, but farming requires the screen on — no background farming. Steam client since 2024 with full cross-progression. Runs well on old hardware.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">12 years of live service + real esport</span><span class="p">Deep, skill-expressive buildcraft</span><span class="p">Strong guild/mentor community</span>
+          <span class="m">Three stacked gear systems</span><span class="m">0.35–0.5% rates, late pity</span><span class="m">Dated UI, rough onboarding</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> The lesson is longevity mechanics: one deep buildcraft system (runes) carried twelve years — Thornreach's equipment stats and legendary catalog could grow substat depth gradually instead of adding parallel systems (SW's triple-stack is its biggest complaint). And its 3-player rift raids map naturally onto Thornreach parties: co-op boss hunts are the shortest path to making your dungeons social.</div>
+        <div class="src-inline">Sources: <a href="https://www.pocketgamer.biz/summoners-war-celebrates-10th-anniversary-with-3-billion-in-lifetime-revenue/">PocketGamer.biz</a> · <a href="https://www.pocketgamer.com/summoners-war/12th-anniversary-events/">Pocket Gamer</a> · <a href="https://www.invenglobal.com/articles/22998/com2us-announces-summoners-war-x-frieren-beyond-journeys-end-collaboration">Inven Global</a> · <a href="https://play.google.com/store/apps/details?id=com.com2us.smon.normal.freefull.google.kr.android.common">Google Play</a> · <a href="https://store.steampowered.com/app/2426960/Summoners_War/">Steam</a></div>
+      </div>
+    </details>
+    <details class="game">
+      <summary>
+        <span class="rank">8</span>
+        <span><span class="g-name">Diablo Immortal</span><br><span class="g-dev">Blizzard + NetEase · 2022 · ARPG / MMO-lite dungeon crawler</span></span>
+        <span class="g-chips"><span class="chip">F2P + crest gacha</span><span class="chip">GP 4.7★ · iOS 4.7★</span><span class="chip">~$404M lifetime (mobile est.)</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">Still the flagship Western dungeon-crawling ARPG on phones — 10 classes, 8-player raids, a real hub city — carrying the industry's most infamous monetization four years in.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>Warlock class (patch 5.0, Jun 17, 2026)</b>; "Andariel Rises" 2026 roadmap</span><span>Scale: <b>~1.8M MAU; $58M 2025 mobile</b> (Udonis est., down from launch peak)</span><span>Campaign: <b>~8–12h</b>, endgame unbounded, no energy caps</span><span>Install: <b>~3.6GB iOS</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Best-in-class ARPG feel on a phone: twin-stick horde combat across open zones, instanced dungeons, procedurally-modified Elder Rifts, weekly Challenge Rifts (200 tiers), and 8-player Helliquary raids — plus the Shadows-vs-Immortals faction war and Warbands (8-player mini-guilds with a shared stash and castle). Ten classes as of June 2026's Warlock, with free weekly class changes. Westmarch, the persistent hub city, gives it real MMO texture.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>The ethics floor of the genre: power flows through Legendary Gems pulled via paid crests in Elder Rifts (5★ gem at 4.5%, top quality ~1% of those, no hard pity), compounding into Resonance — maxing a character was famously estimated near $500K. Whale-vs-F2P PvP imbalance defined its 2022 launch (Blizzard's lowest-ever Metacritic user score) and still defines it; day-to-day play, though, is free, uncapped, and generous at low levels — which is why store ratings sit at 4.7★.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>Content every ~2 weeks (stated cadence), monthly battle-pass seasons, weekly raid/rift lockouts and crest caps engineered so neither whales nor F2P ever finish. Population has slid to ~1M MAU with recycled-events, bot-spam, and matchmaking complaints — a warning about what happens after trust breaks: the tech stays excellent, the crowd leaves anyway.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Polished twin-stick touch controls, full controller support, true PC cross-play/cross-save from day one, and good mid-phone scaling from a 3.6GB install. Fast time-to-fun (killing hordes in minutes), systems drip-fed across the campaign. Sessions average ~53 minutes — it rewards long sittings. World chat is notoriously RMT-spammy.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Best ARPG combat feel on mobile</span><span class="p">Huge free content: 10 classes, raids, factions</span><span class="p">Westmarch hub + warband social shapes</span>
+          <span class="m">Crest/Resonance whale economy</span><span class="m">Population decline + bot spam</span><span class="m">Trust never recovered from launch</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> Two lessons, one warning. Westmarch proves ARPG players want a town to stand around in — Thornreach IS that town, with better chat. Warbands (8 players, shared stash, a home base) are the best social container design in the genre — a natural blueprint for Thornreach "covens." The warning: DI's tech excellence couldn't outrun its monetization reputation. Thornreach's capped-stats charter is worth more than any feature.</div>
+        <div class="src-inline">Sources: <a href="https://news.blizzard.com/en-us/article/24277443/introducing-diablo-immortals-newest-class-warlock">Blizzard</a> · <a href="https://www.rpgsite.net/news/19596-diablo-immortal-2026-roadmap-warlock-andariel-collaboration-event">RPG Site</a> · <a href="https://www.blog.udonis.co/mobile-marketing/mobile-games/diablo-immortal-player-count">Udonis</a> · <a href="https://www.tweaktown.com/news/86654/diablo-immortal-demands-500-000-to-fully-upgrade-character/index.html">TweakTown</a> · <a href="https://apps.apple.com/us/app/diablo-immortal/id1492005122">App Store</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">9</span>
+        <span><span class="g-name">AFK Journey</span><br><span class="g-dev">Lilith / Farlight · 2024 · quest-driven idle squad RPG</span></span>
+        <span class="g-chips"><span class="chip">F2P + gacha</span><span class="chip">GP 4.6★ · iOS 4.6★</span><span class="chip">$185M+; dual GOTY 2024</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The best-reviewed of the new-generation squad RPGs — Google Play AND App Store Game of the Year 2024 — pairing storybook polish with the genre's favorite roguelike dungeon, on a "respect your time" pitch.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>Season 7 "Crown of Ashes" (May 29, 2026)</b>; 117 heroes, Fairy Tail crossover</span><span>Scale: <b>$185M+ / 18M+ downloads</b> (MAF est., higher by mid-2026)</span><span>Active play: <b>15–30 min/day</b>; seasons reset ~every 4 months</span><span>Install: <b>~6–10GB</b></span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>Formation auto-battler where strategy lives in drafting, hex-grid positioning, and faction synergy — reviewers call fights "puzzles." The dungeon core is Arcane Labyrinth, a roguelike floor-climb refreshing four times weekly, plus daily Dream Realm boss rushes with server rankings. A hand-painted open map invites one-and-done exploration; Homestead (2025) added housing/farming with co-op defense. Signature QoL: level five heroes and the whole roster syncs.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>Kinder-than-average gacha (base ~2% effective S-rate, pity 60/40, ~$5 monthly card as best value) with a sharp edge: rotating 2-hour FOMO packs, dupe-driven ascension, unfarmable crossover units, and PvP that reviewers flag as pay-to-win — one outlet calls the offer cadence "insanely predatory" even while rating the PvE fair. Spending cliff hits after 2–3 months.</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>The AFK hook: rewards accrue offline, so returning always feels like winning — guilt-free by design. Dailies, attempt-scarce boss modes, 42-day guild expedition cycles, and ~4-month seasons that re-flatten part of progression (simultaneously its cleverest retention tool and its loudest churn complaint). Guilds are 30-member with co-op raids and battle drills.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>Portrait, one-handed, auto-pathing, auto-resolve — sessions are minutes by design, with best-in-class art polish (dual platform GOTY 2024). PC/Steam client with full cross-save. Friction: multi-GB storage bloat and mid-2026 crash complaints; menu sprawl as systems accrete.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">Art + polish (dual GOTY 2024)</span><span class="p">Roster-wide QoL, F2P-viable PvE</span><span class="p">Guilt-free return design</span>
+          <span class="m">2-hour FOMO packs / PvP P2W</span><span class="m">Season resets alienate F2P</span><span class="m">"AFK" branding vs real chore load</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> Steal the guilt-free return: when a player opens Thornreach after a week away, the town should have kept living — harvests banked, quest cooldowns cleared, a "while you were gone" letter in the Journal. That one pattern is why AFK Journey's lapsed players come back. Its Arcane Labyrinth is also the third proof on this list that a roguelike dungeon mode is the genre's best repeatable content. But its world is a painting you tap through; yours is inhabited.</div>
+        <div class="src-inline">Sources: <a href="https://maf.ad/en/blog/afk-journey-analysis/">MAF</a> · <a href="https://www.prydwen.gg/afk-journey/guides/banners-and-rates">Prydwen</a> · <a href="https://www.mmorpg.com/reviews/afk-journey-review-heroes-guilds-and-gacha-should-you-invest-your-time-2000131159">MMORPG.com</a> · <a href="https://www.globenewswire.com/news-release/2024/12/13/2997081/0/en/AFK-Journey-Nominated-Mobile-Game-of-the-Year-by-The-Game-Awards-and-Named-Best-Game-of-2024-by-Google-Play-and-the-Apple-App-Store.html">GlobeNewswire</a> · <a href="https://play.google.com/store/apps/details?id=com.farlightgames.igame.gp">Google Play</a></div>
+      </div>
+    </details>
+
+    <details class="game">
+      <summary>
+        <span class="rank">10</span>
+        <span><span class="g-name">Old School RuneScape</span><br><span class="g-dev">Jagex · 2013 (mobile 2018) · quest sandbox MMORPG</span></span>
+        <span class="g-chips"><span class="chip">Subscription, no MTX</span><span class="chip">GP 4.1★ · iOS 4.8★</span><span class="chip">240,851 record concurrents</span></span>
+        <span class="chev">▶</span>
+        <span class="g-one">The most literally "quest" game on mobile — 180 handcrafted quests, 24 skills, no gacha whatsoever — at all-time record popularity in 2025–26 on a $14.99/month subscription.</span>
+      </summary>
+      <div class="g-body">
+        <div class="statline"><span>Era: <b>Sailing skill live (Nov 2025)</b>; Leagues VI ran Apr–Jun 2026; 4th raid due late 2026</span><span>Scale: <b>240,851 record concurrents (Aug 2025)</b>; ~150–190K daily players (est.)</span><span>Content: <b>quest cape 150–300h; maxing 1,700h+ efficient</b> (est.)</span><span>Install: <b>37.7MB initial</b> (streamed)</span></div>
+        <div class="angles">
+          <div class="angle"><h4>🎮 Gameplay &amp; content</h4><p>No classes, no mandated path: 24 skills (Sailing, the first new skill in OSRS history, shipped Nov 2025 after a community vote), tick-based combat with real skill expression, and the genre's gold-standard quests — 180 bespoke scripted adventures with puzzles and humor, zero kill-x filler, gating major unlocks. Endgame spans raids (2–8 player, a fourth arriving late 2026), inferno-tier challenges, and a collection log that outlasts 10,000 hours. One seamless persistent world shared with PC.</p></div>
+          <div class="angle"><h4>💰 Monetization</h4><p>One subscription ($14.99/month after the March 2026 increase; ~$11/month annual), tradeable Bonds that let rich players play free with in-game gold, a permanent free tier — and nothing else. No gacha, no lootboxes, no pay-for-power, ever. The model is the genre's fairness benchmark; the trust wobble is pricing itself (two hikes in two years, plus the Jan 2025 survey floating $33 tiers and ads that triggered mass cancellations and a CEO apology).</p></div>
+          <div class="angle"><h4>🔁 Retention</h4><p>Horizontal and self-directed: skill grinds, achievement diaries, combat achievements, pets, the quest cape — no energy systems, no daily chores, burnout the only gate. Leagues (temporary region-locked rulesets with wild relic powers) reliably resurrect lapsed players every year without adding permanent content; Group Ironman gives friend-groups a shared fresh-start economy; 500-member clans and the Grand Exchange plaza carry a 20-year chat culture.</p></div>
+          <div class="angle"><h4>📱 Mobile UX</h4><p>The whole uncompromised MMO in a 38MB download with true PC cross-play — and the list's weakest touch experience: long-press context menus, misclicks, typing-heavy chat, and a Tutorial-Island-then-figure-it-out onboarding that quietly assumes the wiki. Jagex's 2026 summit prioritized mobile stability/performance work.</p></div>
+        </div>
+        <div class="pm">
+          <span class="p">No-MTX fairness, bond economy</span><span class="p">Unmatched handcrafted quest depth</span><span class="p">Record 2025–26 popularity + Leagues</span>
+          <span class="m">Two price hikes in two years</span><span class="m">Mobile client neglect/misclicks</span><span class="m">Brutal new-player onboarding</span>
+        </div>
+        <div class="verdict"><b>vs Thornreach:</b> The spiritual role model — living proof that chat-first worlds, handcrafted quests, and fairness compound for twenty years. Steal three things: quest design doctrine (bespoke, witty, no filler — your campaign letters already lean this way), Leagues (a temporary ruleset event is retention without new content — imagine a month-long "Blood Moon" town), and the Bond pattern (your Moonstone auction lane already lets rich players fund poor ones — lean in). Where you beat it today: touch UX and a $0 front door.</div>
+        <div class="src-inline">Sources: <a href="https://www.gamesradar.com/games/mmo/with-a-new-record-240-000-players-online-old-school-runescape-is-roughly-8x-bigger-than-its-sister-mmo-and-would-be-the-fourth-biggest-game-on-all-of-steam-if-not-for-a-technicality/">GamesRadar</a> · <a href="https://oldschool.runescape.wiki/w/Update:Membership_%26_Bonds_Price_Change">OSRS Wiki</a> · <a href="https://www.pcgamesn.com/old-school-runescape/membership-price-increase-march-2026">PCGamesN</a> · <a href="https://massivelyop.com/2025/01/17/runescape-fans-riot-over-jagex-survey-on-33-subs-in-game-ads-and-account-restrictions/">MassivelyOP</a> · <a href="https://apps.apple.com/us/app/old-school-runescape/id1269648762">App Store</a></div>
+      </div>
+    </details>
+
+    <p class="note-box">Just missed the ten: <b style="color:var(--ink-2)">Torchlight: Infinite</b> (best true PoE-like on phones; XD bought the whole Torchlight IP Dec 2025), <b style="color:var(--ink-2)">Wuthering Waves</b> (Genshin occupies the slot), <b style="color:var(--ink-2)">Soul Knight Prequel</b> (50M+ installs, tiny revenue), <b style="color:var(--ink-2)">Shattered Pixel Dungeon</b> (4.9★ roguelike darling), and <b style="color:var(--ink-2)">Capybara Go!</b> ($100M+ in 4 months, only dungeon-adjacent).</p>
+  </div>
+</section>
+<section id="matrix">
+  <div class="wrap">
+    <h2><span class="h-ico">🧭</span>Head-to-head matrix</h2>
+    <p class="h-sub">Thornreach's column is highlighted. Scroll sideways for all ten. "P2W pressure" reflects community sentiment and review evidence, not store ratings.</p>
+    <div class="tbl-scroll">
+      <table class="matrix">
+        <thead><tr>
+          <th>Feature</th><th class="t-col">🕯️ Thornreach</th><th>Genshin</th><th>DnF Mobile</th><th>Star Rail</th><th>Solo Leveling</th><th>RAID</th><th>Archero 2</th><th>Summoners War</th><th>Diablo Immortal</th><th>AFK Journey</th><th>OSRS</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Business model</td><td class="t-col">Free + small IAP</td><td>F2P + gacha</td><td>F2P + IAP</td><td>F2P + gacha</td><td>F2P + gacha</td><td>F2P + gacha</td><td>Hybrid IAP + ads</td><td>F2P + gacha</td><td>F2P + crest gacha</td><td>F2P + gacha</td><td>Sub + free tier</td></tr>
+          <tr><td>Biggest single purchase</td><td class="t-col"><span class="yes">$9.99</span></td><td>$99.99</td><td>~$90 (CN top-up)</td><td>$99.99</td><td>~$75+ packs</td><td>$99.99</td><td>$99.99</td><td>$99.99</td><td>$99.99</td><td>$99.99</td><td><span class="yes">$14.99/mo sub</span></td></tr>
+          <tr><td>Character/gear gacha</td><td class="t-col"><span class="yes">None</span></td><td>0.6% base</td><td><span class="part">Cosmetic boxes (stat-bearing)</span></td><td>0.6% base</td><td>1.2% shared pool</td><td>0.5% shards</td><td>1.46% gear</td><td>0.5% / 0.35%</td><td>4.5% 5★ gems</td><td>~2% effective</td><td><span class="yes">None</span></td></tr>
+          <tr><td>Energy / time gate</td><td class="t-col"><span class="yes">None</span></td><td><span class="part">Resin (farm only)</span></td><td>Fatigue 100/day</td><td>Trailblaze Power</td><td>Gate keys</td><td>Energy</td><td>Energy (5/run)</td><td>Energy + wings</td><td><span class="yes">None</span></td><td>Attempt caps</td><td><span class="yes">None</span></td></tr>
+          <tr><td>P2W pressure (sentiment)</td><td class="t-col"><span class="yes">None — stats capped</span></td><td>Moderate</td><td>Rising</td><td>Moderate</td><td>High (rankings)</td><td><span class="part">Severe</span></td><td>High</td><td>Moderate-high</td><td><span class="part">Severe (PvP)</span></td><td>High (PvP)</td><td><span class="yes">None</span></td></tr>
+          <tr><td>Live shared world</td><td class="t-col"><span class="yes">Yes — one town, all platforms</span></td><td><span class="part">Co-op sessions</span></td><td><span class="yes">Town channels</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">Async</span></td><td><span class="yes">Shared zones</span></td><td><span class="part">Visible players</span></td><td><span class="yes">Yes — seamless</span></td></tr>
+          <tr><td>Social hangout + chat culture</td><td class="t-col"><span class="yes">Core design — rooms are chatrooms</span></td><td><span class="part">Teapot, UGC lobbies</span></td><td><span class="yes">Town hubs, world chat</span></td><td><span class="no">None</span></td><td><span class="no">None</span></td><td><span class="part">Global chat</span></td><td><span class="no">Guild only</span></td><td><span class="yes">Channel chat culture</span></td><td><span class="yes">Westmarch + clans</span></td><td><span class="part">Guild + city crowds</span></td><td><span class="yes">GE plaza, clans</span></td></tr>
+          <tr><td>Co-op dungeon/boss runs</td><td class="t-col"><span class="part">Open shared hunts, parties</span></td><td><span class="yes">4p domains</span></td><td><span class="yes">4p + raids</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">Async guild</span></td><td><span class="yes">3p rift raids</span></td><td><span class="yes">4p dungeons, 8p raids</span></td><td><span class="no">Async</span></td><td><span class="yes">2–8p raids</span></td></tr>
+          <tr><td>Roguelike dungeon mode</td><td class="t-col"><span class="no">Not yet — top opportunity</span></td><td><span class="yes">Imaginarium</span></td><td><span class="yes">CN mode (2026)</span></td><td><span class="yes">Simulated Universe</span></td><td><span class="part">Workshop raid</span></td><td><span class="part">Grim Forest</span></td><td><span class="yes">Core loop</span></td><td><span class="no">No</span></td><td><span class="part">Fractured Plane event</span></td><td><span class="yes">Arcane Labyrinth</span></td><td><span class="part">Leagues (seasonal)</span></td></tr>
+          <tr><td>Events / seasons cadence</td><td class="t-col"><span class="part">Weekly shop rotation only</span></td><td>6-week patches</td><td>Annual seasons + monthly</td><td>6-week patches</td><td>Monthly + seasons</td><td>Continuous + fusions</td><td>28-day seasons</td><td>Constant + esports</td><td>Biweekly + monthly BP</td><td>~4-month seasons</td><td>Weekly + Leagues</td></tr>
+          <tr><td>Cross-platform</td><td class="t-col"><span class="yes">Web + iOS + Android + desktop</span></td><td><span class="yes">Mobile/PC/PS/Xbox</span></td><td><span class="part">PC (KR)</span></td><td><span class="yes">Mobile/PC/PS5</span></td><td><span class="yes">Mobile/PC</span></td><td><span class="yes">Mobile/PC/Steam</span></td><td><span class="no">Mobile only</span></td><td><span class="yes">Mobile/Steam</span></td><td><span class="yes">Mobile/PC</span></td><td><span class="yes">Mobile/PC/Steam</span></td><td><span class="yes">Mobile/PC</span></td></tr>
+          <tr><td>Install size</td><td class="t-col"><span class="yes">Instant web — no install</span></td><td>22–52GB</td><td><span class="yes">3.8GB</span></td><td>~31GB</td><td>20–40GB</td><td>2–4GB</td><td><span class="yes">~1GB</span></td><td>2.2GB</td><td>3.6GB</td><td>6–10GB</td><td><span class="yes">38MB initial</span></td></tr>
+          <tr><td>Store ratings (GP / iOS)</td><td class="t-col">Pre-launch</td><td>4.1 / 4.2</td><td>4.3 KR / 3.3 CN</td><td>3.9 / 4.6</td><td>3.9 / 4.7</td><td>4.6 / 4.7</td><td>4.6 / 4.6</td><td>4.0 / 4.2</td><td>4.7 / 4.7</td><td>4.6 / 4.6</td><td>4.1 / 4.8</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="scorecard">
+  <div class="wrap">
+    <h2><span class="h-ico">🔮</span>Scorecard</h2>
+    <p class="h-sub">Editorial scores (1–10) assigned from the researched evidence above — one consistent rubric across all eleven games. "Fairness" scores player-friendliness of monetization, so a high score means kind, not lucrative. Hover or focus any cell for detail; every value is printed, so nothing hides in color alone.</p>
+
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-top:0">Four-angle heatmap <span style="color:var(--ink-3); font-weight:400; font-size:12.5px">— sorted by overall</span></h3>
+      <div class="tbl-scroll" style="border:none; border-radius:0; background:transparent">
+      <table class="heat">
+        <thead><tr><th>Game</th><th>Depth &amp; content</th><th>Monetization fairness</th><th>Retention hooks</th><th>Mobile UX</th><th>Overall</th></tr></thead>
+        <tbody>
+          <tr><td class="gname">Old School RuneScape</td>
+            <td class="cell" tabindex="0" data-tip="OSRS — Depth &amp; content: 10/10. 180 handcrafted quests, 24 skills, raids, 20 years of world." style="background:#cbbdff;color:#1b1430">10</td>
+            <td class="cell" tabindex="0" data-tip="OSRS — Fairness: 9/10. No MTX at all; sub + bonds. Docked for two price hikes in two years." style="background:#b09df3;color:#1b1430">9</td>
+            <td class="cell" tabindex="0" data-tip="OSRS — Hooks: 9.5/10. Horizontal goals, Leagues, clans — retention without dark patterns." style="background:#cbbdff;color:#1b1430">9.5</td>
+            <td class="cell" tabindex="0" data-tip="OSRS — Mobile UX: 6/10. The whole MMO in 38MB with cross-save, but misclicks and brutal onboarding." style="background:#8472c9;color:#1b1430">6</td>
+            <td class="cell" tabindex="0" data-tip="OSRS — Overall 8.6: the fairness-first benchmark at record popularity." style="background:#b09df3;color:#1b1430"><b>8.6</b></td></tr>
+          <tr><td class="gname">Genshin Impact</td>
+            <td class="cell" tabindex="0" data-tip="Genshin — Depth: 10/10. Seven nations plus the Moon; 600–1,000h of world." style="background:#cbbdff;color:#1b1430">10</td>
+            <td class="cell" tabindex="0" data-tip="Genshin — Fairness: 6/10. Transparent pity, free campaign; FOMO and whale constellations." style="background:#8472c9;color:#1b1430">6</td>
+            <td class="cell" tabindex="0" data-tip="Genshin — Hooks: 9/10. 6-week patch machine, dailies, monthly endgame resets." style="background:#b09df3;color:#1b1430">9</td>
+            <td class="cell" tabindex="0" data-tip="Genshin — Mobile UX: 7/10. Real action controls, but 22–52GB and heavy battery." style="background:#8472c9;color:#1b1430">7</td>
+            <td class="cell" tabindex="0" data-tip="Genshin — Overall 8.0." style="background:#9987e2;color:#1b1430"><b>8.0</b></td></tr>
+          <tr><td class="gname">Honkai: Star Rail</td>
+            <td class="cell" tabindex="0" data-tip="HSR — Depth: 8.5/10. 120–150h story, best-in-class roguelike endgame; no co-op." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="HSR — Fairness: 6.5/10. Most transparent gacha math; generous anniversaries; powercreep pressure." style="background:#8472c9;color:#1b1430">6.5</td>
+            <td class="cell" tabindex="0" data-tip="HSR — Hooks: 8.5/10. 10-minute dailies + rotating endgame; single-player only." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="HSR — Mobile UX: 8/10. Turn-based touch fit, auto + skip; ~31GB install." style="background:#9987e2;color:#1b1430">8</td>
+            <td class="cell" tabindex="0" data-tip="HSR — Overall 7.9." style="background:#9987e2;color:#1b1430"><b>7.9</b></td></tr>
+          <tr><td class="gname">AFK Journey</td>
+            <td class="cell" tabindex="0" data-tip="AFK Journey — Depth: 7.5/10. Draft-puzzle battles + Arcane Labyrinth; shallow-session by design." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="AFK Journey — Fairness: 5/10. Kind PvE gacha; 2-hour FOMO packs and P2W PvP." style="background:#7060ae;color:#f2eeff">5</td>
+            <td class="cell" tabindex="0" data-tip="AFK Journey — Hooks: 8.5/10. The guilt-free AFK return hook + 4-month seasons." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="AFK Journey — Mobile UX: 9/10. Portrait one-hand, dual GOTY polish; storage bloat." style="background:#b09df3;color:#1b1430">9</td>
+            <td class="cell" tabindex="0" data-tip="AFK Journey — Overall 7.5." style="background:#9987e2;color:#1b1430"><b>7.5</b></td></tr>
+          <tr><td class="gname">DnF Mobile</td>
+            <td class="cell" tabindex="0" data-tip="DnF Mobile — Depth: 9/10. Manual combat mastery, 30+ free subclasses, raids, towers." style="background:#b09df3;color:#1b1430">9</td>
+            <td class="cell" tabindex="0" data-tip="DnF Mobile — Fairness: 5/10. No character gacha, fair PvP — eroded by stat cosmetics + catalysts." style="background:#7060ae;color:#f2eeff">5</td>
+            <td class="cell" tabindex="0" data-tip="DnF Mobile — Hooks: 8/10. Fatigue rhythm + alts + seasons; dinged by operational freezes." style="background:#9987e2;color:#1b1430">8</td>
+            <td class="cell" tabindex="0" data-tip="DnF Mobile — Mobile UX: 7.5/10. Light install, short bursts; cramped 10-button layout, KR/CN only." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="DnF Mobile — Overall 7.4." style="background:#9987e2;color:#1b1430"><b>7.4</b></td></tr>
+          <tr><td class="gname">Archero 2</td>
+            <td class="cell" tabindex="0" data-tip="Archero 2 — Depth: 7/10. Tight roguelite loop + big meta; stat-gated more than skill-gated." style="background:#8472c9;color:#1b1430">7</td>
+            <td class="cell" tabindex="0" data-tip="Archero 2 — Fairness: 3.5/10. Offers on every screen, opaque pity; ads at least optional." style="background:#4b3f76;color:#f2eeff">3.5</td>
+            <td class="cell" tabindex="0" data-tip="Archero 2 — Hooks: 8.5/10. Energy appointments, 28-day seasons, parallel currencies." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="Archero 2 — Mobile UX: 9.5/10. The best one-thumb controls in the genre; fun in under a minute." style="background:#cbbdff;color:#1b1430">9.5</td>
+            <td class="cell" tabindex="0" data-tip="Archero 2 — Overall 7.1." style="background:#8472c9;color:#1b1430"><b>7.1</b></td></tr>
+          <tr><td class="gname">Summoners War</td>
+            <td class="cell" tabindex="0" data-tip="Summoners War — Depth: 8/10. 12 years of systems, co-op rift raids, a real esport." style="background:#9987e2;color:#1b1430">8</td>
+            <td class="cell" tabindex="0" data-tip="Summoners War — Fairness: 5/10. Moderate pressure, first-ever pity in 2026 — but 0.35–0.5% rates." style="background:#7060ae;color:#f2eeff">5</td>
+            <td class="cell" tabindex="0" data-tip="Summoners War — Hooks: 8.5/10. Rune treadmill + guilds + RTA seasons, 12 years proven." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="Summoners War — Mobile UX: 6.5/10. Dated hub UI, wiki-dependent onboarding; Steam crossplay." style="background:#8472c9;color:#1b1430">6.5</td>
+            <td class="cell" tabindex="0" data-tip="Summoners War — Overall 7.0." style="background:#8472c9;color:#1b1430"><b>7.0</b></td></tr>
+          <tr><td class="gname">Solo Leveling: Arise</td>
+            <td class="cell" tabindex="0" data-tip="Solo Leveling — Depth: 8/10. Great action + boss ladders; everything instanced and solo." style="background:#9987e2;color:#1b1430">8</td>
+            <td class="cell" tabindex="0" data-tip="Solo Leveling — Fairness: 4/10. Shared char/weapon pool, dupe power, 7-star escalation." style="background:#5d4f92;color:#f2eeff">4</td>
+            <td class="cell" tabindex="0" data-tip="Solo Leveling — Hooks: 7.5/10. Improved post-EVOLUTION; powercreep churn remains." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="Solo Leveling — Mobile UX: 8/10. Polished action UX, sweeps, controller; 20–40GB." style="background:#9987e2;color:#1b1430">8</td>
+            <td class="cell" tabindex="0" data-tip="Solo Leveling — Overall 6.9." style="background:#8472c9;color:#1b1430"><b>6.9</b></td></tr>
+          <tr><td class="gname">Diablo Immortal</td>
+            <td class="cell" tabindex="0" data-tip="Diablo Immortal — Depth: 8.5/10. 10 classes, raids, factions, MMO zones — huge free content." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="Diablo Immortal — Fairness: 3/10. The crest/Resonance whale economy; trust never recovered." style="background:#4b3f76;color:#f2eeff">3</td>
+            <td class="cell" tabindex="0" data-tip="Diablo Immortal — Hooks: 7.5/10. Biweekly content + weekly caps; population sliding anyway." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="Diablo Immortal — Mobile UX: 8.5/10. Polished twin-stick, controller, PC cross-save, 3.6GB." style="background:#b09df3;color:#1b1430">8.5</td>
+            <td class="cell" tabindex="0" data-tip="Diablo Immortal — Overall 6.9." style="background:#8472c9;color:#1b1430"><b>6.9</b></td></tr>
+          <tr class="thorn-row"><td class="gname">🕯️ Thornreach</td>
+            <td class="cell" tabindex="0" data-tip="Thornreach — Depth: 5/10. Real breadth for a solo dev (5 class kits, campaigns, 4 dungeon tiers, economy) — but total hours are a fraction of the giants'." style="background:#7060ae;color:#f2eeff">5</td>
+            <td class="cell" tabindex="0" data-tip="Thornreach — Fairness: 9.5/10. No gacha, no energy, stat-capped premium items, $9.99 max purchase. The kindest model on this board next to OSRS." style="background:#cbbdff;color:#1b1430">9.5</td>
+            <td class="cell" tabindex="0" data-tip="Thornreach — Hooks: 5.5/10. Clever psychology (nightly trophy, streaks, goal-gradient journal) but no events, seasons, push, or guilds yet." style="background:#7060ae;color:#f2eeff">5.5</td>
+            <td class="cell" tabindex="0" data-tip="Thornreach — Mobile UX: 7/10. Thoughtful two-thumb rebuild, instant web join, tiny footprint — unproven at scale, no controller." style="background:#8472c9;color:#1b1430">7</td>
+            <td class="cell" tabindex="0" data-tip="Thornreach — Overall 6.8: already above RAID on player value; the work is depth and hooks, not ethics." style="background:#8472c9;color:#1b1430"><b>6.8</b></td></tr>
+          <tr><td class="gname">RAID: Shadow Legends</td>
+            <td class="cell" tabindex="0" data-tip="RAID — Depth: 7.5/10. Enormous mode surface and 1,024 champions; all-auto, all-menu." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="RAID — Fairness: 2.5/10. 0.5% rates, $49.99/mo tiers, buyable champions, popup pressure — Metacritic user 2.3." style="background:#3a3059;color:#f2eeff">2.5</td>
+            <td class="cell" tabindex="0" data-tip="RAID — Hooks: 9/10. The most complete FOMO calendar in the genre. Effective, if punishing." style="background:#b09df3;color:#1b1430">9</td>
+            <td class="cell" tabindex="0" data-tip="RAID — Mobile UX: 7.5/10. Best farming automation; overwhelming menu-cascade onboarding." style="background:#9987e2;color:#1b1430">7.5</td>
+            <td class="cell" tabindex="0" data-tip="RAID — Overall 6.6." style="background:#8472c9;color:#1b1430"><b>6.6</b></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="legend"><span>Low</span><span class="lg-ramp"><span style="background:#3a3059"></span><span style="background:#4b3f76"></span><span style="background:#5d4f92"></span><span style="background:#7060ae"></span><span style="background:#8472c9"></span><span style="background:#9987e2"></span><span style="background:#b09df3"></span><span style="background:#cbbdff"></span></span><span>High</span><span style="margin-left:14px">Every cell prints its value — color is reinforcement, not the only channel.</span></div>
+    </div>
+
+    <div class="cols">
+      <div class="card gbar">
+        <h3 style="margin-top:0">Thornreach vs. the top-10 median, by angle</h3>
+        <div class="keyrow" style="margin-bottom:12px"><span class="key"><span class="swatch" style="background:var(--accent)"></span>Thornreach</span><span class="key"><span class="swatch" style="background:var(--accent-2)"></span>Top-10 median</span></div>
+        <div class="pair">
+          <div class="pair-h">Depth &amp; content</div>
+          <div class="barrow thorn"><span class="bl">Thornreach</span><span class="track"><span class="fill f-th" style="width:50%" data-tip="Thornreach — Depth 5/10 vs top-10 median 8.3"></span></span><span class="bv">5</span></div>
+          <div class="barrow"><span class="bl" style="color:var(--ink-3)">Top-10 median</span><span class="track"><span class="fill f-med" style="width:82.5%" data-tip="Top-10 median — Depth 8.3/10"></span></span><span class="bv">8.3</span></div>
+        </div>
+        <div class="pair">
+          <div class="pair-h">Monetization fairness</div>
+          <div class="barrow thorn"><span class="bl">Thornreach</span><span class="track"><span class="fill f-th" style="width:95%" data-tip="Thornreach — Fairness 9.5/10 vs top-10 median 5.0"></span></span><span class="bv">9.5</span></div>
+          <div class="barrow"><span class="bl" style="color:var(--ink-3)">Top-10 median</span><span class="track"><span class="fill f-med" style="width:50%" data-tip="Top-10 median — Fairness 5.0/10"></span></span><span class="bv">5.0</span></div>
+        </div>
+        <div class="pair">
+          <div class="pair-h">Retention hooks</div>
+          <div class="barrow thorn"><span class="bl">Thornreach</span><span class="track"><span class="fill f-th" style="width:55%" data-tip="Thornreach — Hooks 5.5/10 vs top-10 median 8.5"></span></span><span class="bv">5.5</span></div>
+          <div class="barrow"><span class="bl" style="color:var(--ink-3)">Top-10 median</span><span class="track"><span class="fill f-med" style="width:85%" data-tip="Top-10 median — Hooks 8.5/10"></span></span><span class="bv">8.5</span></div>
+        </div>
+        <div class="pair" style="margin-bottom:2px">
+          <div class="pair-h">Mobile UX</div>
+          <div class="barrow thorn"><span class="bl">Thornreach</span><span class="track"><span class="fill f-th" style="width:70%" data-tip="Thornreach — Mobile UX 7/10 vs top-10 median 7.8"></span></span><span class="bv">7</span></div>
+          <div class="barrow"><span class="bl" style="color:var(--ink-3)">Top-10 median</span><span class="track"><span class="fill f-med" style="width:77.5%" data-tip="Top-10 median — Mobile UX 7.8/10"></span></span><span class="bv">7.8</span></div>
+        </div>
+        <p class="note-box" style="margin-top:10px">The shape of the story: Thornreach already <b style="color:var(--ink-2)">wins fairness outright</b> and is within reach on touch UX. The two gaps — depth and hooks — are exactly the ones the Playbook below is about.</p>
+      </div>
+      <div class="card barchart">
+        <h3 style="margin-top:0">Overall (average of the four angles)</h3>
+        <div class="barrow"><span class="bl">Old School RuneScape</span><span class="track"><span class="fill" style="width:86%" data-tip="OSRS overall 8.6/10"></span></span><span class="bv">8.6</span></div>
+        <div class="barrow"><span class="bl">Genshin Impact</span><span class="track"><span class="fill" style="width:80%" data-tip="Genshin overall 8.0/10"></span></span><span class="bv">8.0</span></div>
+        <div class="barrow"><span class="bl">Honkai: Star Rail</span><span class="track"><span class="fill" style="width:79%" data-tip="Star Rail overall 7.9/10"></span></span><span class="bv">7.9</span></div>
+        <div class="barrow"><span class="bl">AFK Journey</span><span class="track"><span class="fill" style="width:75%" data-tip="AFK Journey overall 7.5/10"></span></span><span class="bv">7.5</span></div>
+        <div class="barrow"><span class="bl">DnF Mobile</span><span class="track"><span class="fill" style="width:74%" data-tip="DnF Mobile overall 7.4/10"></span></span><span class="bv">7.4</span></div>
+        <div class="barrow"><span class="bl">Archero 2</span><span class="track"><span class="fill" style="width:71%" data-tip="Archero 2 overall 7.1/10"></span></span><span class="bv">7.1</span></div>
+        <div class="barrow"><span class="bl">Summoners War</span><span class="track"><span class="fill" style="width:70%" data-tip="Summoners War overall 7.0/10"></span></span><span class="bv">7.0</span></div>
+        <div class="barrow"><span class="bl">Solo Leveling: Arise</span><span class="track"><span class="fill" style="width:69%" data-tip="Solo Leveling overall 6.9/10"></span></span><span class="bv">6.9</span></div>
+        <div class="barrow"><span class="bl">Diablo Immortal</span><span class="track"><span class="fill" style="width:69%" data-tip="Diablo Immortal overall 6.9/10"></span></span><span class="bv">6.9</span></div>
+        <div class="barrow thorn"><span class="bl">🕯️ Thornreach</span><span class="track"><span class="fill" style="width:68%" data-tip="Thornreach overall 6.8/10 — pre-launch, solo dev, and already ahead of RAID on player value"></span></span><span class="bv">6.8</span></div>
+        <div class="barrow"><span class="bl">RAID: Shadow Legends</span><span class="track"><span class="fill" style="width:66%" data-tip="RAID overall 6.6/10 — record revenue, lowest player-value score"></span></span><span class="bv">6.6</span></div>
+        <p class="note-box" style="margin-top:10px">A pre-launch solo project scoring within a point of billion-dollar franchises is the fairness dividend — and a reminder that the missing point is content and calendar, both buildable.</p>
+      </div>
+    </div>
+    <p class="note-box">Method: scores are editorial judgments made by Claude from the evidence gathered in this report (store data, patch notes, revenue estimates, review sentiment as of July 12, 2026) — they are a structured opinion for planning, not an industry metric.</p>
+  </div>
+</section>
+<section id="playbook">
+  <div class="wrap">
+    <h2><span class="h-ico">📜</span>Playbook for Thornreach</h2>
+    <p class="h-sub">What the ten reviews add up to — organized as what to protect, what to steal, and what to fix.</p>
+    <div class="play">
+      <div class="card">
+        <h3><span class="tag-protect">🛡️ Protect</span> — the moats</h3>
+        <ul>
+          <li><b>The social fabric.</b> Chat-first design exists nowhere in the top 10; only DnF's town channels and OSRS's Grand Exchange come close — and both games are enormous partly <i>because</i> of it. Everyone else outsources community to Discord. Keep the town the point.</li>
+          <li><b>The fairness charter.</b> No gacha, no energy, stat-capped legendaries, $9.99 ceiling. RAID's 2.3/10 Metacritic and Diablo Immortal's unhealed launch wound show the resentment is real and permanent; OSRS's record year shows fairness compounds. Put "no gacha, no odds, nothing pay-to-win — ever" in the store description.</li>
+          <li><b>The zero-friction front door.</b> A URL that drops you into the shared world beats 3.6–52GB installs. None of the ten can do it. Every screenshot, ad, or tweet can end in "play in 10 seconds."</li>
+          <li><b>One world, every platform.</b> Web + phone + desktop in the same town is where the industry is heading (Korea's cross-platform wave, Steam clients everywhere). You're already there.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="tag-steal">🗝️ Steal</span> — proven patterns, your tone</h3>
+        <ul>
+          <li><b>A roguelike delve mode</b> (HSR's Simulated Universe, AFK's Arcane Labyrinth, Archero 2's whole loop, DnF's new CN mode — four independent proofs). Weekly-seeded modifier runs on your existing four dungeon tiers, with a pick-1-of-3 boon draft: the cheapest infinite content in the genre.</li>
+          <li><b>Quick-delve session shape</b> (Archero 2): a 3–5 minute dungeon run that starts in two taps. Your night cycle is the mood; this is the bus-stop version.</li>
+          <li><b>Named dungeons</b> (Solo Leveling's gates): give T1–T4 names, signature bosses, and lore plaques. Dungeons sell the genre — put them on the store screenshots.</li>
+          <li><b>Guilt-free returns</b> (AFK Journey): bank offline harvest regrowth and cooled-down quests into a "while you were gone" letter. Lapsed players should land on a gift, not a guilt trip.</li>
+          <li><b>Covens</b> (Diablo's Warbands): 8-player persistent groups with a shared bank tab and a claimable table in a tavern. Small, named, home-based — not anonymous 500-member clans.</li>
+          <li><b>A Leagues-style event</b> (OSRS): a month-long "Blood Moon" town with a twisted ruleset and cosmetic trophies. Retention without permanent content.</li>
+          <li><b>Co-op boss hunts</b> (Summoners War's 3-player rifts, Genshin's 4-player domains): party-scaled dungeon bosses make your parties matter.</li>
+          <li><b>A calendar players can feel</b> (RAID, minus the menace): Peddler Monday is one beat; add a weekend hunt tournament and a monthly festival. Three beats is a rhythm.</li>
+          <li><b>Onboarding compression</b> (Solo Leveling post-EVOLUTION): a visible win — first ability, first kill, first gold — inside the first 20 minutes, with the Journal naming the next goal.</li>
+          <li><b>A 30-day resident pass</b> (Genshin's Welkin, HSR's Express Pass — the single best-liked IAP shape in mobile): a $4.99/30-day Town Pass alongside the $2.99 day pass. Same venues-only scope, subscription-shaped value.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="tag-fix">🔧 Fix</span> — the honest gaps</h3>
+        <ul>
+          <li><b>Content volume.</b> ~2 hours × 5 campaigns vs 30–1,000 hours. Don't out-author the giants — out-rotate them with the systems above (delves, events, seasons of modifiers).</li>
+          <li><b>Retention plumbing.</b> No push notifications, login streaks, leaderboards, or social groups yet. The nightly first-kill trophy and hunt streaks are good instincts — give them a board in the town square and a phone notification when the moon rises.</li>
+          <li><b>Backend durability.</b> JSON files on an ephemeral host is friends-scale; a store launch needs a real database, or the first viral night erases a town. (The auction sweep and account system deserve to survive a redeploy.)</li>
+          <li><b>Discoverability.</b> "Cozy witchy MMO-lite" keywords are good; dungeon-named screenshots, a 15-second "URL to playing" clip, and the fairness pledge are the store-page story the top 10 can't tell.</li>
+          <li><b>Prove the touch UX at scale.</b> The rebuilt thumb layout and one-panel rule are genuinely competitive; controller support (standard in DI/Genshin/SLA) is the next expectation for the desktop build.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="quote">"The cozy witchy town where the dungeon crawl is something you do <b>with</b> people — not instead of them." — the one sentence none of the top ten can say.</div>
+    <p class="note-box">Market context for courage: the mobile RPG middle is collapsing (Tarisland, Dragonheir, Abyss of Dungeons all shut down in the last year), while the two poles — fairness-first community games and tight dungeon-run loops — both grew. Thornreach's lane sits between those poles and is currently unoccupied in the West.</p>
+  </div>
+</section>
+
+<section id="sources">
+  <div class="wrap">
+    <h2><span class="h-ico">🔗</span>Sources &amp; method</h2>
+    <p class="h-sub">Researched July 12, 2026 by parallel research agents; every game verified live via at least two sources. Revenue/download figures are third-party estimates (Sensor Tower, AppMagic, Niko Partners) as reported in trade press unless store-listed. Thornreach details from its own README, HANDOFF, and store-listing docs.</p>
+    <div class="card srcs">
+      <h4>Rankings &amp; market</h4>
+      <ul>
+        <li><a href="https://mobilegamer.biz/the-top-grossing-mobile-games-of-2025/">mobilegamer.biz — Top-grossing mobile games of 2025 (AppMagic)</a></li>
+        <li><a href="https://www.pocketgamer.biz/the-top-grossing-mobile-games-of-2025/">PocketGamer.biz — 2025 grossing roundup</a></li>
+        <li><a href="https://gamedevreports.substack.com/p/sensor-tower-mobile-market-in-2025">Sensor Tower — Mobile Market 2025 report (RPG −17.3%)</a></li>
+        <li><a href="https://sensortower.com/blog/top-10-worldwide-mobile-games-by-revenue-and-downloads-in-december-2025">Sensor Tower — Dec 2025 worldwide charts</a></li>
+        <li><a href="https://www.pockettactics.com/arpgs">Pocket Tactics — Best mobile ARPGs (Apr 2026)</a></li>
+        <li><a href="https://ixbt.games/en/news/2025/11/28/krafton-zakroet-abyss-of-dungeons-mobilnuiu-versiiu-dark-and-darker.html">Abyss of Dungeons shutdown</a> · <a href="https://www.mmorpg.com/news/tencent-shuts-down-tarisland-tonight-2000136502">Tarisland shutdown</a> · <a href="https://gameinformer.com/2025/06/25/netflix-is-delisting-over-20-games-from-its-mobile-library-next-month-including-hades">Netflix delistings</a></li>
+        <li><a href="https://www.gamigion.com/habby-hits-2b-in-user-spending-and-350m-downloads/">Habby $2B lifetime</a> · <a href="https://maxroll.gg/poe/news/path-of-exile-mobile-exilecon-news">PoE Mobile status</a></li>
+      </ul>
+      <h4>Genshin Impact</h4>
+      <ul>
+        <li><a href="https://www.rpgsite.net/news/20728-genshin-impact-version-luna-viii-release-date-new-banner">RPG Site — Luna VIII</a> · <a href="https://www.icy-veins.com/gacha/news/everything-new-in-genshin-impact-6-7-from-banners-to-moon-exploration/">Icy Veins — 6.7 Moon region</a></li>
+        <li><a href="https://keqingmains.com/misc/nod-krai-guide/">KQM — Nod-Krai systems</a> · <a href="https://game8.co/games/Genshin-Impact/archives/543588">Game8 — Miliastra Wonderland</a></li>
+        <li><a href="https://apps.apple.com/us/app/genshin-impact-lunas-chosen/id1517783697">App Store</a> · <a href="https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact">Google Play</a></li>
+      </ul>
+      <h4>Dungeon &amp; Fighter Mobile</h4>
+      <ul>
+        <li><a href="https://gameworldobserver.com/2025/01/24/dnf-mobile-2-5-billion-revenue-china-niko-partners">GWO — $2.5B (Niko Partners)</a> · <a href="https://www.pocketgamer.biz/dungeon-and-fighter-mobile-surpasses-1-3bn-in-first-year-on-chinese-app-store/">PG.biz — $1.3B year one</a></li>
+        <li><a href="https://www.invenglobal.com/articles/20267/dungeon-fighter-mobile-to-unveil-2026-update-plans-at-4th-anniversary-dm-event">Inven Global — 2026 roadmap</a> · <a href="https://www.scmp.com/tech/big-tech/article/3267277/tencent-pulls-hit-game-dnf-mobile-app-stores-huawei-oppo-and-vivo-sign-dispute">SCMP — store dispute</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.nexon.mdnf">Google Play (KR)</a></li>
+      </ul>
+      <h4>Honkai: Star Rail</h4>
+      <ul>
+        <li><a href="https://rpgamer.com/2026/07/honkai-star-rail-4-4-update-set-for-july-15/">RPGamer — v4.4</a> · <a href="https://thephrasemaker.com/2026/06/09/honkai-star-rail-new-starward-mode-in-endgame-explained/">Starward mode</a> · <a href="https://game8.co/articles/latest/honkai-star-rail-addresses-fan-feedback-on-amphoreus">Game8 — pacing feedback</a></li>
+        <li><a href="https://www.blog.udonis.co/mobile-marketing/mobile-games/honkai-star-rail-player-count">Udonis — revenue/MAU estimates</a> · <a href="https://apps.apple.com/us/app/honkai-star-rail/id1599719154">App Store</a> · <a href="https://play.google.com/store/apps/details?id=com.HoYoverse.hkrpgoversea">Google Play</a></li>
+      </ul>
+      <h4>Solo Leveling: Arise</h4>
+      <ul>
+        <li><a href="https://sensortower.com/blog/solo-leveling-arise-revenue-surpasses-usd100-million-in-3-months">Sensor Tower — $100M/3mo</a> · <a href="https://www.pocketgamer.biz/solo-leveling-arise-hits-50m-players-and-139m-revenue-in-first-six-months/">PG.biz — 50M players</a></li>
+        <li><a href="https://www.invenglobal.com/articles/21303/2nd-anniversary-update-preview-streamlined-growth-content-compression-and-500-free-draws">Inven Global — EVOLUTION update</a> · <a href="https://progameguides.com/solo-leveling-arise/solo-leveling-arise-banner-and-pity-guide/">Pity guide</a> · <a href="https://apps.apple.com/us/app/solo-leveling-arise/id1662742277">App Store</a></li>
+      </ul>
+      <h4>RAID: Shadow Legends</h4>
+      <ul>
+        <li><a href="https://mobilegamer.biz/raid-shadow-legends-fires-mtg-to-record-revenue-and-profits/">mobilegamer.biz — record 2025</a> · <a href="https://sensortower.com/blog/raid-shadow-legends-crosses-one-billion-revenue">Sensor Tower — $1B</a></li>
+        <li><a href="https://ayumilove.net/raid-shadow-legends-mercy-system-explained/">AyumiLove — rates/mercy</a> · <a href="https://www.metacritic.com/game/raid-shadow-legends/user-reviews/">Metacritic user reviews</a> · <a href="https://play.google.com/store/apps/details?id=com.plarium.raidlegends">Google Play</a></li>
+      </ul>
+      <h4>Archero 2</h4>
+      <ul>
+        <li><a href="https://www.pocketgamer.biz/archero-2-makes-328m-in-first-30-days-from-player-spending/">PG.biz — $32.8M/30 days</a> · <a href="https://www.deconstructoroffun.com/blog/2025/7/31/habbys-hybridcasual-empire-the-template-that-built-a-powerhouse">Deconstructor of Fun — Habby teardown</a></li>
+        <li><a href="https://archero-2.game-vault.net/wiki/Pull_Rates">Pull rates wiki</a> · <a href="https://play.google.com/store/apps/details?id=com.xq.archeroii">Google Play</a> · <a href="https://apps.apple.com/us/app/archero-2/id6502820653">App Store</a></li>
+      </ul>
+      <h4>Summoners War</h4>
+      <ul>
+        <li><a href="https://www.pocketgamer.biz/summoners-war-celebrates-10th-anniversary-with-3-billion-in-lifetime-revenue/">PG.biz — $3B lifetime</a> · <a href="https://www.pocketgamer.com/summoners-war/12th-anniversary-events/">12th anniversary (first pity)</a></li>
+        <li><a href="https://www.invenglobal.com/articles/22998/com2us-announces-summoners-war-x-frieren-beyond-journeys-end-collaboration">Frieren collab</a> · <a href="https://store.steampowered.com/app/2426960/Summoners_War/">Steam</a> · <a href="https://play.google.com/store/apps/details?id=com.com2us.smon.normal.freefull.google.kr.android.common">Google Play</a></li>
+      </ul>
+      <h4>Diablo Immortal</h4>
+      <ul>
+        <li><a href="https://news.blizzard.com/en-us/article/24277443/introducing-diablo-immortals-newest-class-warlock">Blizzard — Warlock (Jun 17, 2026)</a> · <a href="https://www.rpgsite.net/news/19596-diablo-immortal-2026-roadmap-warlock-andariel-collaboration-event">RPG Site — 2026 roadmap</a></li>
+        <li><a href="https://www.blog.udonis.co/mobile-marketing/mobile-games/diablo-immortal-player-count">Udonis — MAU/revenue est.</a> · <a href="https://www.tweaktown.com/news/86654/diablo-immortal-demands-500-000-to-fully-upgrade-character/index.html">TweakTown — $500K estimate</a> · <a href="https://apps.apple.com/us/app/diablo-immortal/id1492005122">App Store</a></li>
+      </ul>
+      <h4>AFK Journey</h4>
+      <ul>
+        <li><a href="https://maf.ad/en/blog/afk-journey-analysis/">MAF — revenue analysis</a> · <a href="https://www.globenewswire.com/news-release/2024/12/13/2997081/0/en/AFK-Journey-Nominated-Mobile-Game-of-the-Year-by-The-Game-Awards-and-Named-Best-Game-of-2024-by-Google-Play-and-the-Apple-App-Store.html">Dual GOTY 2024</a></li>
+        <li><a href="https://www.prydwen.gg/afk-journey/guides/banners-and-rates">Prydwen — rates</a> · <a href="https://www.mmorpg.com/reviews/afk-journey-review-heroes-guilds-and-gacha-should-you-invest-your-time-2000131159">MMORPG.com review</a> · <a href="https://play.google.com/store/apps/details?id=com.farlightgames.igame.gp">Google Play</a></li>
+      </ul>
+      <h4>Old School RuneScape</h4>
+      <ul>
+        <li><a href="https://www.gamesradar.com/games/mmo/with-a-new-record-240-000-players-online-old-school-runescape-is-roughly-8x-bigger-than-its-sister-mmo-and-would-be-the-fourth-biggest-game-on-all-of-steam-if-not-for-a-technicality/">GamesRadar — record concurrents</a> · <a href="https://oldschool.runescape.wiki/w/Update:Membership_%26_Bonds_Price_Change">OSRS Wiki — 2026 price change</a></li>
+        <li><a href="https://www.pcgamesn.com/old-school-runescape/membership-price-increase-march-2026">PCGamesN — pricing</a> · <a href="https://massivelyop.com/2025/01/17/runescape-fans-riot-over-jagex-survey-on-33-subs-in-game-ads-and-account-restrictions/">MassivelyOP — survey fallout</a> · <a href="https://apps.apple.com/us/app/old-school-runescape/id1269648762">App Store</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Prepared for Michael · Thornreach (Town Chat) competitive review · researched &amp; written July 12, 2026.<br>
+    Figures marked as estimates come from third-party trackers and community documentation; store ratings read from live listings on the research date. Editorial scores are a structured opinion for planning, not an industry metric. DnF Mobile figures are CN/KR-market only.
+  </div>
+</footer>
+
+<div id="tip" role="status" aria-hidden="true"></div>
+<script>
+(function(){
+  var tip = document.getElementById('tip');
+  function show(el, x, y){
+    var t = el.getAttribute('data-tip'); if(!t) return;
+    tip.textContent = '';
+    var parts = t.split(' — ');
+    if(parts.length > 1){
+      var v = document.createElement('div'); v.className='tv'; v.textContent = parts.slice(1).join(' — ');
+      var l = document.createElement('div'); l.className='tl'; l.textContent = parts[0];
+      tip.appendChild(v); tip.appendChild(l);
+    } else { tip.textContent = t; }
+    tip.style.opacity = '1'; tip.setAttribute('aria-hidden','false');
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    var nx = Math.min(Math.max(x + pad, 8), window.innerWidth - w - 8);
+    var ny = y - h - pad; if(ny < 8) ny = y + pad;
+    tip.style.left = nx + 'px'; tip.style.top = ny + 'px';
+  }
+  function hide(){ tip.style.opacity='0'; tip.setAttribute('aria-hidden','true'); }
+  document.querySelectorAll('[data-tip]').forEach(function(el){
+    el.addEventListener('pointermove', function(e){ show(el, e.clientX, e.clientY); });
+    el.addEventListener('pointerleave', hide);
+    el.addEventListener('focus', function(){ var r = el.getBoundingClientRect(); show(el, r.left + r.width/2, r.top); });
+    el.addEventListener('blur', hide);
+  });
+})();
+</script>
+</body>
+</html>
