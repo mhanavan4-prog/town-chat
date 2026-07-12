@@ -4,7 +4,7 @@
 Source: `thornreach-vs-top10.html` (Session K). Scope confirmed with Michael: all core fixes
 **plus** all four extras (SQLite layer, Resident Pass, web push, Blood Moon).
 
-**Verification: `npm test` 12/12 suites (102 new server checks) · audit-playthrough 213/213 ·
+**Verification: `npm test` 10/10 suites (102 new server checks) · audit-playthrough 213/213 ·
 34/34 live browser UI sweep · 9/9 app-shell smoke per app · zero page errors anywhere.**
 
 ---

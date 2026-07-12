@@ -974,7 +974,7 @@ in both store consoles). Full rationale + sources in the two files above.
 
 The full "fix every con you possibly can" round against the Session K review. `server.js`,
 `public/client.js`, `public/index.html`, `public/sw.js` (new), `Dockerfile`, `DEPLOY-SERVER.md`,
-both app folders' `www/` + store docs all changed. **Tests: `npm test` 12/12 files (incl. new
+both app folders' `www/` + store docs all changed. **Tests: `npm test` 10/10 files (incl. new
 `persistence.test.js` 12 checks + `sessionl.test.js` 90 checks) · audit-playthrough 213/213 ·
 live Playwright UI sweep 34/34 · app-shell smoke 9/9 per app · zero page errors anywhere.**
 

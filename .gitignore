@@ -10,3 +10,18 @@ townPasses.json
 .env
 _to_delete/
 LanternsideBay.rbxlx
+
+# Session L stores — the SQLite DB (all player data), the self-generated
+# VAPID push keys, the remaining per-feature JSON stores, and the plaintext
+# backups. NEVER commit these.
+thornreach.db
+thornreach.db-shm
+thornreach.db-wal
+serverConfig.json
+moonstones.json
+inboxes.json
+pushSubs.json
+harvests.json
+leaderboards.json
+covens.json
+*.json.bak
