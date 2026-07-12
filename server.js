@@ -301,6 +301,35 @@ app.post('/api/checkout', async (req, res) => {
   if (!stripeClient) return res.status(503).json({ error: 'Passes aren’t on sale right now — the innkeeper hasn’t opened the ledger. (Server has no STRIPE_SECRET_KEY.)' });
   try {
     const origin = `${req.protocol}://${req.get('host')}`;
+    // One checkout door, two products: the Town Pass (default, the original
+    // behavior) or a Moonstone pack. Packs are account-bound, so the client
+    // sends its account token and we sanity-check it up front — the binding
+    // grant happens at verify time against the session's own metadata.
+    const product = String((req.body && req.body.product) || 'pass');
+    if (MS_PACKS[product]) {
+      const accountKey = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
+      if (!accountKey) return res.status(400).json({ error: 'Log into an account first — Moonstones follow your account.' });
+      const pack = MS_PACKS[product];
+      const session = await stripeClient.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        metadata: { ms_pack: product },
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            unit_amount: pack.cents,
+            product_data: {
+              name: `Thornreach — ${pack.name}`,
+              description: `${pack.ms} Moonstones, delivered to your account the moment you return to town.`
+            }
+          },
+          quantity: 1
+        }],
+        success_url: `${origin}/?ms_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/?pass_cancel=1`
+      });
+      return res.json({ url: session.url });
+    }
     const hoursLabel = TOWN_PASS_HOURS === 24 ? 'a full day' : `${TOWN_PASS_HOURS} hours`;
     const session = await stripeClient.checkout.sessions.create({
       mode: 'payment',
@@ -378,6 +407,50 @@ app.get('/api/verify-session', async (req, res) => {
 //   GOOGLE_PLAY_PACKAGE         your Android package name
 //   GOOGLE_SERVICE_ACCOUNT_JSON service-account JSON (inline) with Play Dev API access
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Moonstones — the premium currency (Session I). Account-bound (guests can
+// neither buy nor hold them; the client mirrors that rule in its UI), spent
+// at the Midnight Peddler and in the auction house's Moonstone lane. Sold
+// for real money in three pack sizes: Stripe on web/desktop, StoreKit /
+// Play Billing in the apps (same /api/verify-iap flow as the pass). Every
+// grant is replay-proof by a grant id (Stripe session id / store tx id).
+// ---------------------------------------------------------------------------
+const MS_FILE = path.join(DATA_DIR, 'moonstones.json');
+function loadMoonstones() {
+  try {
+    const d = JSON.parse(fs.readFileSync(MS_FILE, 'utf8'));
+    return { balances: d.balances || {}, grants: d.grants || {} };
+  } catch (e) { return { balances: {}, grants: {} }; }
+}
+const msData = loadMoonstones();
+function saveMoonstones() { atomicWriteJson(MS_FILE, msData); }
+function msBalance(key) { return msData.balances[key] || 0; }
+function msAdjust(key, delta) {
+  msData.balances[key] = Math.max(0, Math.round((msData.balances[key] || 0) + delta));
+  saveMoonstones();
+  return msData.balances[key];
+}
+function pushMsStateIfOnline(key) {
+  const p = findConnectionByAccountKey(key);
+  if (p) send(p.ws, { type: 'ms_state', balance: msBalance(key) });
+}
+const MS_PACKS = {
+  ms_pack_small:  { ms: 200,  cents: 199, name: 'Pouch of Moonstones' },
+  ms_pack_medium: { ms: 550,  cents: 499, name: 'Casket of Moonstones' },
+  ms_pack_large:  { ms: 1200, cents: 999, name: 'Reliquary of Moonstones' }
+};
+// One grant id credits exactly once, ever — retries and replays are no-ops
+// that still report the current balance (so a flaky return page is safe).
+function grantMoonstones(grantId, accountKey, packId) {
+  const pack = MS_PACKS[packId];
+  if (!pack || !accountKey) return { granted: 0, balance: msBalance(accountKey) };
+  if (msData.grants[grantId]) return { granted: 0, balance: msBalance(accountKey) };
+  msData.grants[grantId] = { key: accountKey, packId, at: Date.now() };
+  const balance = msAdjust(accountKey, pack.ms);
+  console.log(`💎 ${accountKey} +${pack.ms} moonstones (${packId} via ${grantId.slice(0, 24)}…) → ${balance}`);
+  return { granted: pack.ms, balance };
+}
+
 const IAP_PRODUCT_ID = process.env.IAP_PRODUCT_ID || 'town_pass_24h';
 function httpsRequest(opts, body) {
   return new Promise((resolve, reject) => {
@@ -392,7 +465,8 @@ function httpsRequest(opts, body) {
 }
 // Apple: legacy verifyReceipt (simple + reliable). Prod first, retry sandbox
 // on status 21007 so TestFlight/sandbox receipts validate during review.
-async function verifyAppleReceipt(receiptBase64) {
+async function verifyAppleReceipt(receiptBase64, wantedProductId) {
+  const productId = wantedProductId || IAP_PRODUCT_ID;
   if (!process.env.APPLE_IAP_SHARED_SECRET) return { ok: false, code: 503, error: 'apple_iap_not_configured' };
   if (!receiptBase64) return { ok: false, code: 400, error: 'missing_receipt' };
   const payload = JSON.stringify({ 'receipt-data': receiptBase64, password: process.env.APPLE_IAP_SHARED_SECRET, 'exclude-old-transactions': true });
@@ -403,7 +477,7 @@ async function verifyAppleReceipt(receiptBase64) {
   const bundle = r.json.receipt && r.json.receipt.bundle_id;
   if (process.env.APPLE_BUNDLE_ID && bundle !== process.env.APPLE_BUNDLE_ID) return { ok: false, code: 400, error: 'bundle_mismatch' };
   const items = r.json.latest_receipt_info || (r.json.receipt && r.json.receipt.in_app) || [];
-  const match = items.filter((i) => i.product_id === IAP_PRODUCT_ID)
+  const match = items.filter((i) => i.product_id === productId)
     .sort((a, b) => Number(b.purchase_date_ms) - Number(a.purchase_date_ms))[0];
   if (!match) return { ok: false, code: 400, error: 'no_matching_purchase' };
   return { ok: true, txId: 'apple_' + match.transaction_id, purchaseMs: Number(match.purchase_date_ms) };
@@ -437,15 +511,47 @@ async function verifyGooglePurchase(productId, token, packageName) {
   if (r.json.purchaseState !== 0) return { ok: false, code: 400, error: 'not_purchased' };
   return { ok: true, txId: 'google_' + (r.json.orderId || token), purchaseMs: Number(r.json.purchaseTimeMillis || Date.now()) };
 }
+// Confirms a Moonstone-pack Checkout session got paid, then credits the
+// pack to the buyer's account — replay-proof (grantMoonstones), and the
+// pack identity comes from the session's own metadata, not the query.
+app.get('/api/verify-ms-session', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ granted: 0, error: 'Payments are not set up on this server yet.' });
+  const sessionId = req.query.session_id;
+  const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
+  if (!sessionId) return res.status(400).json({ granted: 0, error: 'Missing session_id.' });
+  if (!accountKey) return res.status(401).json({ granted: 0, error: 'Log into your account to claim the Moonstones from this purchase.' });
+  try {
+    const session = await stripeClient.checkout.sessions.retrieve(String(sessionId));
+    if (session.payment_status !== 'paid') return res.json({ granted: 0 });
+    const packId = session.metadata && session.metadata.ms_pack;
+    if (!MS_PACKS[packId]) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Moonstone pack.' });
+    const g = grantMoonstones('stripe_' + String(sessionId), accountKey, packId);
+    pushMsStateIfOnline(accountKey);
+    res.json({ granted: g.granted, balance: g.balance });
+  } catch (err) {
+    console.error('MS verify error:', err.message);
+    res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
+  }
+});
+
 app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => {
   const platform = String(req.body.platform || '');
   const productId = String(req.body.productId || IAP_PRODUCT_ID);
   try {
     let v;
-    if (platform === 'ios') v = await verifyAppleReceipt(String(req.body.receipt || ''));
+    if (platform === 'ios') v = await verifyAppleReceipt(String(req.body.receipt || ''), productId);
     else if (platform === 'android') v = await verifyGooglePurchase(productId, String(req.body.purchaseToken || ''), req.body.packageName);
     else return res.status(400).json({ unlocked: false, error: 'unknown_platform' });
     if (!v.ok) return res.status(v.code || 400).json({ unlocked: false, error: v.error });
+    // Moonstone packs bought in-app land here too — same receipt validation,
+    // different grant. Account required: the stones live on the account.
+    if (MS_PACKS[productId]) {
+      const msKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
+      if (!msKey) return res.status(400).json({ unlocked: false, error: 'account_required' });
+      const g = grantMoonstones(v.txId, msKey, productId);
+      pushMsStateIfOnline(msKey);
+      return res.json({ unlocked: true, moonstones: g.balance, granted: g.granted, txId: v.txId });
+    }
     // Same replay-proof grant the Stripe flow uses — one transaction id grants
     // exactly one window, computed from the purchase time.
     const expiresAt = grantForSession(v.txId, v.purchaseMs || Date.now());
@@ -1098,6 +1204,324 @@ const EQUIP_STATS = {
   packbound_ring:  { leech: 0.06, xp: 0.08 },
   nightfang_boots: { swift: 0.12, power: 0.05 }
 };
+// ---------------------------------------------------------------------------
+// Legendary catalog — the Midnight Peddler's stock (Session I). ~100 items,
+// Moonstone-only, five on sale per week (see legendaryWeeklySet below). Each
+// carries an fx spec the client renders as a visible-to-everyone effect.
+// Stats are RELIC-PARITY AT MOST by design (prestige, not pay-to-win) — the
+// generator that authored this block enforces the ceilings; keep it that way.
+// Server-authoritative: the client receives this whole catalog in `init`
+// (never hand-copy it into client.js — that's how drift happens).
+// ---------------------------------------------------------------------------
+const LEGENDARY_CATALOG = {
+  lg_thornreach_fang: { name: "Fang of Thornreach", icon: "🗡", slot: "weapon", tier: 1, ms: 150,
+    desc: "A thorn the town wall grew the night of the Severance. It never quite stopped growing.",
+    stats: { power: 0.11 }, fx: { c1: "#9ee37d", c2: "#3c7a4f", prims: ["aura"] } },
+  lg_lantern_saber: { name: "Lanternlight Saber", icon: "🏮", slot: "weapon", tier: 1, ms: 150,
+    desc: "Forged around a wick that refuses to gutter. Cuts brightest at bad news.",
+    stats: { power: 0.1, haste: 0.04 }, fx: { c1: "#ffd27a", c2: "#b06a2c", prims: ["embers"] } },
+  lg_bogiron_cleaver: { name: "Bog-Iron Cleaver", icon: "🪓", slot: "weapon", tier: 1, ms: 150,
+    desc: "Pulled whole from the marsh. The bog files no complaint, but it watches.",
+    stats: { power: 0.12 }, fx: { c1: "#7a8f6a", c2: "#3a4a33", prims: ["bubbles"] } },
+  lg_vesper_rod: { name: "Vesper Rod", icon: "🌆", slot: "weapon", tier: 1, ms: 150,
+    desc: "Tuned to the exact minute of dusk. Hums early when something is coming.",
+    stats: { power: 0.09, haste: 0.05 }, fx: { c1: "#c98ae0", c2: "#4a2d6b", prims: ["aura", "wisps"] } },
+  lg_pallbearer_maul: { name: "Pallbearer's Maul", icon: "⚰️", slot: "weapon", tier: 1, ms: 150,
+    desc: "Carried at nine funerals. Swung at only one — that story costs a drink.",
+    stats: { power: 0.13 }, fx: { c1: "#a9b2c3", c2: "#3b3f4a", prims: ["sigil"] } },
+  lg_hedgewitch_switch: { name: "Hedgewitch's Switch", icon: "🫒", slot: "weapon", tier: 1, ms: 150,
+    desc: "A willow switch that stings pride as readily as flesh. Grandmothers approve.",
+    stats: { power: 0.08, forage: 0.1 }, fx: { c1: "#8fd97a", c2: "#2f6b3a", prims: ["runes"] } },
+  lg_ratcatcher_pike: { name: "Ratcatcher's Pike", icon: "🐀", slot: "weapon", tier: 1, ms: 150,
+    desc: "The town paid by the tail. The pike learned enthusiasm.",
+    stats: { power: 0.11, swift: 0.04 }, fx: { c1: "#b9a08a", c2: "#5a4a3a", prims: ["trail"] } },
+  lg_candlewax_kris: { name: "Candlewax Kris", icon: "🕯", slot: "weapon", tier: 1, ms: 150,
+    desc: "Wax over cold iron. It remembers every vigil it was melted for.",
+    stats: { power: 0.1, leech: 0.03 }, fx: { c1: "#ffe2b8", c2: "#8a5a2c", prims: ["embers", "aura"] } },
+  lg_gravewind_scythe: { name: "Gravewind Scythe", icon: "🪮", slot: "weapon", tier: 2, ms: 300,
+    desc: "Harvests nothing that grows in soil. The churchyard grass bows anyway.",
+    stats: { power: 0.14, leech: 0.04 }, fx: { c1: "#9adbc8", c2: "#2f5a4f", prims: ["wisps", "sigil"] } },
+  lg_stormcall_wand: { name: "Stormcall Wand", icon: "🌩", slot: "weapon", tier: 2, ms: 300,
+    desc: "Bottled thunder in thornwood. The sky answers on the second knock.",
+    stats: { power: 0.13, haste: 0.07 }, fx: { c1: "#7ad9ff", c2: "#2c4a8a", prims: ["orbit", "aura"] } },
+  lg_moonlit_rapier: { name: "Moonlit Rapier", icon: "🤺", slot: "weapon", tier: 2, ms: 300,
+    desc: "Forged only on waning nights. Slips between moments the way light slips between clouds.",
+    stats: { power: 0.14, swift: 0.06 }, fx: { c1: "#cfe6ff", c2: "#5a6b9e", prims: ["trail", "aura"] } },
+  lg_covenfire_staff: { name: "Covenfire Staff", icon: "🎏", slot: "weapon", tier: 2, ms: 300,
+    desc: "Thirteen candles gave their flames. Three are still owed. It keeps the ledger.",
+    stats: { power: 0.15, haste: 0.05 }, fx: { c1: "#ff9e5e", c2: "#8a2c2c", prims: ["embers", "runes"] } },
+  lg_briarheart_bow: { name: "Briarheart Bow", icon: "🏹", slot: "weapon", tier: 2, ms: 300,
+    desc: "Strung with vine that once held the orchard gate shut. It pulls back harder than you do.",
+    stats: { power: 0.14, forage: 0.08 }, fx: { c1: "#a8d97a", c2: "#5a4a2c", prims: ["runes", "trail"] } },
+  lg_howlback_axe: { name: "Howlback Axe", icon: "🛠", slot: "weapon", tier: 2, ms: 300,
+    desc: "Rings like a wolf answering when it lands. The Wilds answer back — politely, so far.",
+    stats: { power: 0.15, leech: 0.05 }, fx: { c1: "#c3b9d9", c2: "#4a3b6b", prims: ["aura", "embers"] } },
+  lg_riddlebone_cane: { name: "Riddlebone Cane", icon: "🦯", slot: "weapon", tier: 3, ms: 600,
+    desc: "Carved from something that asked three riddles and lost. Taps out the fourth on cobblestones.",
+    stats: { power: 0.16, xp: 0.05 }, fx: { c1: "#e8e3d3", c2: "#6b5a4a", prims: ["runes", "orbit"] } },
+  lg_eclipse_blade: { name: "Eclipse Blade", icon: "🌓", slot: "weapon", tier: 3, ms: 600,
+    desc: "Quenched mid-eclipse. Carries a sliver of the dark that fits exactly nowhere.",
+    stats: { power: 0.17, leech: 0.05 }, fx: { c1: "#8a7ad9", c2: "#1a1430", prims: ["aura", "sigil"] } },
+  lg_wispfire_scepter: { name: "Wispfire Scepter", icon: "💫", slot: "weapon", tier: 3, ms: 600,
+    desc: "The marsh-lights follow it home. They think it's their mother.",
+    stats: { power: 0.16, haste: 0.08 }, fx: { c1: "#b8ffe3", c2: "#2c8a6b", prims: ["wisps", "orbit"] } },
+  lg_thornqueen_glaive: { name: "Thorn Queen's Glaive", icon: "🌹", slot: "weapon", tier: 3, ms: 600,
+    desc: "Her guard carried twelve. Eleven hang in the Coven Court. You know the story of this one.",
+    stats: { power: 0.17, guard: 0.05 }, fx: { c1: "#ff7a9e", c2: "#6b1a2c", prims: ["runes", "aura", "sigil"] } },
+  lg_severance_shard: { name: "Shard of the Severance", icon: "🗲", slot: "weapon", tier: 4, ms: 1200,
+    desc: "An edge broken off the night the Wilds tore loose. Both sides claim it. It declines.",
+    stats: { power: 0.18, haste: 0.08 }, fx: { c1: "#e0d0ff", c2: "#5e2c8a", prims: ["orbit", "sigil", "wisps"] } },
+  lg_first_lantern: { name: "The First Lantern", icon: "🪩", slot: "weapon", tier: 4, ms: 1200,
+    desc: "Lanternside Bay was named for it. What it once kept at bay has not forgotten.",
+    stats: { power: 0.16, haste: 0.06, xp: 0.06 }, fx: { c1: "#fff3c4", c2: "#c9862c", prims: ["embers", "crown", "aura"] } },
+  lg_owlfeather_hood: { name: "Owlfeather Hood", icon: "🦚", slot: "head", tier: 1, ms: 150,
+    desc: "Stitched under a hunting moon. You hear the small sounds now. All of them.",
+    stats: { haste: 0.05, xp: 0.04 }, fx: { c1: "#c9b18a", c2: "#5a4a33", prims: ["aura"] } },
+  lg_stargazer_circlet: { name: "Stargazer's Circlet", icon: "🔯", slot: "head", tier: 1, ms: 150,
+    desc: "Copper bent to the shape of a constellation the astronomer swears exists.",
+    stats: { haste: 0.06, xp: 0.03 }, fx: { c1: "#9ecfff", c2: "#2c4a6b", prims: ["orbit"] } },
+  lg_mourning_veil: { name: "Mourning Veil", icon: "🕸", slot: "head", tier: 1, ms: 150,
+    desc: "Woven for a funeral the deceased attended. Nobody mentions it. The veil does.",
+    stats: { guard: 0.05, leech: 0.03 }, fx: { c1: "#b9b2c9", c2: "#3b3346", prims: ["wisps"] } },
+  lg_hearthkeeper_bonnet: { name: "Hearthkeeper's Bonnet", icon: "🧢", slot: "head", tier: 1, ms: 150,
+    desc: "Warm as a kept promise. The café's first cook never took it off indoors.",
+    stats: { vitality: 10 }, fx: { c1: "#ffb98a", c2: "#8a4a2c", prims: ["embers"] } },
+  lg_toadstool_cap: { name: "Toadstool Cap", icon: "🍥", slot: "head", tier: 1, ms: 150,
+    desc: "Grown, not sewn. The fairy rings consider you an honorary member now.",
+    stats: { forage: 0.12, vitality: 6 }, fx: { c1: "#ff8a8a", c2: "#6b2c2c", prims: ["bubbles"] } },
+  lg_ferryman_tricorn: { name: "Ferryman's Tricorn", icon: "⛵", slot: "head", tier: 1, ms: 150,
+    desc: "Salt-stiff and sure of the way. Tips itself to people who aren't there.",
+    stats: { swift: 0.05, guard: 0.04 }, fx: { c1: "#8ab9c9", c2: "#2c4a5a", prims: ["aura"] } },
+  lg_candlecrown: { name: "Candlecrown", icon: "👨‍🦲", slot: "head", tier: 1, ms: 150,
+    desc: "Nine wicks, self-lighting for the sufficiently sincere. Wax never touches your brow.",
+    stats: { haste: 0.05, vitality: 6 }, fx: { c1: "#ffe9a8", c2: "#a86b2c", prims: ["embers", "aura"] } },
+  lg_briar_diadem: { name: "Briar Diadem", icon: "🏵", slot: "head", tier: 1, ms: 150,
+    desc: "Thorns turned inward, they said, builds character. It built something.",
+    stats: { power: 0.05, guard: 0.04 }, fx: { c1: "#d97a9e", c2: "#4a2c3b", prims: ["runes"] } },
+  lg_frostwarden_helm: { name: "Frostwarden Helm", icon: "🧊", slot: "head", tier: 2, ms: 300,
+    desc: "Cooled in the well the winter it never thawed. Keeps a temper like deep water.",
+    stats: { guard: 0.08, vitality: 10 }, fx: { c1: "#c4ecff", c2: "#3b6b8a", prims: ["frost"] } },
+  lg_augur_blindfold: { name: "Augur's Blindfold", icon: "🙈", slot: "head", tier: 2, ms: 300,
+    desc: "Sees nothing. Misses less. The bank's raven refuses to make eye contact with it.",
+    stats: { xp: 0.07, haste: 0.05 }, fx: { c1: "#d9c3b9", c2: "#5a3b33", prims: ["runes", "wisps"] } },
+  lg_swarm_keeper_net: { name: "Swarmkeeper's Veilnet", icon: "🐝", slot: "head", tier: 2, ms: 300,
+    desc: "The bees voted. It was unanimous, minus one abstention who tells everyone.",
+    stats: { forage: 0.12, haste: 0.04 }, fx: { c1: "#ffd97a", c2: "#6b5a2c", prims: ["orbit", "bubbles"] } },
+  lg_wolfmoon_casque: { name: "Wolfmoon Casque", icon: "🎑", slot: "head", tier: 2, ms: 300,
+    desc: "Beaten from shield-brass under a full wolfmoon. Howls arrive muffled, and slightly apologetic.",
+    stats: { guard: 0.09, vitality: 8 }, fx: { c1: "#c3cfe6", c2: "#4a5a7a", prims: ["aura", "sigil"] } },
+  lg_pumpkin_regalia: { name: "Pumpkin Regalia", icon: "🫑", slot: "head", tier: 2, ms: 300,
+    desc: "The prize gourd of a harvest nobody left early. Grins wider after dark.",
+    stats: { vitality: 14, forage: 0.06 }, fx: { c1: "#ffab5e", c2: "#8a3b1a", prims: ["embers", "bubbles"] } },
+  lg_silence_cowl: { name: "Cowl of Polite Silence", icon: "😶‍🌫️", slot: "head", tier: 2, ms: 300,
+    desc: "Absorbs the question you were about to be asked. The archive lends it out. Quietly.",
+    stats: { guard: 0.07, xp: 0.05 }, fx: { c1: "#a8b9d9", c2: "#33405a", prims: ["wisps", "runes"] } },
+  lg_comet_chaplet: { name: "Comet Chaplet", icon: "☄", slot: "head", tier: 3, ms: 600,
+    desc: "Cut from a stone that fell with intent. Still cooling. Still aimed.",
+    stats: { haste: 0.09, power: 0.06 }, fx: { c1: "#ffcf9e", c2: "#8a5e2c", prims: ["trail", "orbit"] } },
+  lg_deepwood_antlers: { name: "Deepwood Antlers", icon: "🦌", slot: "head", tier: 3, ms: 600,
+    desc: "Shed by something the rangers describe only in past tense. Regrows a tine each solstice.",
+    stats: { vitality: 16, forage: 0.1 }, fx: { c1: "#b9d98a", c2: "#3b5a2c", prims: ["runes", "sigil"] } },
+  lg_midnight_mitre: { name: "Midnight Mitre", icon: "🌃", slot: "head", tier: 3, ms: 600,
+    desc: "Worn by the archive's last night-abbot. The stars filed past his window in order.",
+    stats: { xp: 0.08, haste: 0.07 }, fx: { c1: "#8a9eff", c2: "#1a2046", prims: ["orbit", "wisps"] } },
+  lg_banshee_garland: { name: "Banshee's Garland", icon: "🪻", slot: "head", tier: 3, ms: 600,
+    desc: "Flowers that bloomed on a grave with no name. They hum the name anyway.",
+    stats: { leech: 0.06, power: 0.07 }, fx: { c1: "#d9a8ff", c2: "#4a2c6b", prims: ["wisps", "aura", "runes"] } },
+  lg_crown_of_hollows: { name: "Crown of Hollows", icon: "🕳", slot: "head", tier: 4, ms: 1200,
+    desc: "Five empty settings. Whatever the stones were, the crown is prouder without them.",
+    stats: { guard: 0.1, vitality: 18, xp: 0.05 }, fx: { c1: "#c9c3e6", c2: "#2c2440", prims: ["sigil", "crown", "wisps"] } },
+  lg_auditor_plume: { name: "The Auditor's Plume", icon: "🖊", slot: "head", tier: 4, ms: 1200,
+    desc: "A tail-feather from the vault's raven, surrendered — not taken. Every debt in the room goes quiet.",
+    stats: { xp: 0.08, haste: 0.08, guard: 0.05 }, fx: { c1: "#9ee3c4", c2: "#c9a82c", prims: ["crown", "runes", "orbit"] } },
+  lg_thornwood_brigandine: { name: "Thornwood Brigandine", icon: "🪾", slot: "chest", tier: 1, ms: 150,
+    desc: "Plates of plum-dark heartwood. Splinters hold grudges on your behalf.",
+    stats: { guard: 0.07, vitality: 8 }, fx: { c1: "#b98ad9", c2: "#3b2c4a", prims: ["aura"] } },
+  lg_festival_doublet: { name: "Festival Doublet", icon: "🎪", slot: "chest", tier: 1, ms: 150,
+    desc: "Sewn for the last Lanternside fair. The confetti in the seams never runs out.",
+    stats: { vitality: 10, swift: 0.03 }, fx: { c1: "#ff9ecf", c2: "#6b2c5a", prims: ["bubbles"] } },
+  lg_bogshroud: { name: "Bogshroud", icon: "🥬", slot: "chest", tier: 1, ms: 150,
+    desc: "Marsh-linen that beads off curses like rain. Smells faintly of patient water.",
+    stats: { guard: 0.08 }, fx: { c1: "#8fb98a", c2: "#33463b", prims: ["bubbles", "wisps"] } },
+  lg_beekeeper_habit: { name: "Beekeeper's Habit", icon: "🍯", slot: "chest", tier: 1, ms: 150,
+    desc: "Sweetness soaked past the wax into the weave. Stings simply lose interest.",
+    stats: { guard: 0.06, forage: 0.1 }, fx: { c1: "#ffd08a", c2: "#7a5a1a", prims: ["orbit"] } },
+  lg_gravedigger_coat: { name: "Gravedigger's Greatcoat", icon: "🧤", slot: "chest", tier: 1, ms: 150,
+    desc: "Deep pockets. Deeper discretion. The third button is older than the coat.",
+    stats: { vitality: 12, guard: 0.04 }, fx: { c1: "#8a8f9e", c2: "#33363f", prims: ["sigil"] } },
+  lg_stormcloak: { name: "Stormcloak of the Bay", icon: "🌊", slot: "chest", tier: 1, ms: 150,
+    desc: "Cut from a sail that outran the weather that was owed. Crackles before rain.",
+    stats: { swift: 0.06, guard: 0.05 }, fx: { c1: "#7ac4ff", c2: "#1a3b5a", prims: ["aura", "trail"] } },
+  lg_patchwork_wards: { name: "Patchwork of Wards", icon: "🪡", slot: "chest", tier: 1, ms: 150,
+    desc: "Every patch a different grandmother's protective stitch. They argue. It works.",
+    stats: { guard: 0.08, vitality: 6 }, fx: { c1: "#e6c3a8", c2: "#6b4a33", prims: ["runes"] } },
+  lg_ashen_apron: { name: "Ashen Apron", icon: "🍞", slot: "chest", tier: 1, ms: 150,
+    desc: "The tavern's first baker never lost a loaf or a fight. The flour was never just flour.",
+    stats: { vitality: 12, power: 0.03 }, fx: { c1: "#e8ddc9", c2: "#8a6b4a", prims: ["embers"] } },
+  lg_moonsilk_mantle: { name: "Moonsilk Mantle", icon: "🌛", slot: "chest", tier: 2, ms: 300,
+    desc: "Spun on the one night the spiders work in silver. Weighs exactly nothing at midnight.",
+    stats: { guard: 0.08, haste: 0.05 }, fx: { c1: "#e0e6ff", c2: "#5a5a8a", prims: ["aura", "wisps"] } },
+  lg_ironbark_cuirass: { name: "Ironbark Cuirass", icon: "🌳", slot: "chest", tier: 2, ms: 300,
+    desc: "The oldest tree in the Wilds donates a plate a decade. This one is plate forty.",
+    stats: { guard: 0.1, vitality: 10 }, fx: { c1: "#a89e7a", c2: "#3b3323", prims: ["sigil", "runes"] } },
+  lg_wisplight_robe: { name: "Wisplight Robe", icon: "🧚", slot: "chest", tier: 2, ms: 300,
+    desc: "Hemmed with bottled marsh-light. Glows brighter around lies, which is awkward at parties.",
+    stats: { haste: 0.07, xp: 0.05 }, fx: { c1: "#b8ffe9", c2: "#2c6b5a", prims: ["wisps", "bubbles"] } },
+  lg_howlhide_mantle: { name: "Howlhide Mantle", icon: "🐕‍🦺", slot: "chest", tier: 2, ms: 300,
+    desc: "Shed, not taken — the pack insists on the distinction. Warm on the coldest watch.",
+    stats: { vitality: 16, guard: 0.05 }, fx: { c1: "#d9cfc3", c2: "#5a4a3b", prims: ["aura", "embers"] } },
+  lg_vaultkeeper_vest: { name: "Vaultkeeper's Vest", icon: "🔐", slot: "chest", tier: 2, ms: 300,
+    desc: "Lined with retired lockplates. The Gilded Vault stands behind its stitching. Literally, once.",
+    stats: { guard: 0.1, xp: 0.04 }, fx: { c1: "#e6d08a", c2: "#6b5a1a", prims: ["sigil", "orbit"] } },
+  lg_corvid_feathercoat: { name: "Corvid Feathercoat", icon: "🐦‍⬛", slot: "chest", tier: 2, ms: 300,
+    desc: "A thousand donated feathers, one per favor owed. The ravens keep receipts.",
+    stats: { swift: 0.08, haste: 0.05 }, fx: { c1: "#9e8ac9", c2: "#23203b", prims: ["trail", "wisps"] } },
+  lg_emberforged_plate: { name: "Emberforged Plate", icon: "🌋", slot: "chest", tier: 3, ms: 600,
+    desc: "Cooled in the Wastes and never quite finished cooling. Snow refuses to land on it.",
+    stats: { guard: 0.11, vitality: 14, power: 0.04 }, fx: { c1: "#ff9e7a", c2: "#6b2416", prims: ["embers", "aura", "sigil"] } },
+  lg_tidebound_scale: { name: "Tidebound Scalemail", icon: "🐟", slot: "chest", tier: 3, ms: 600,
+    desc: "Scales from the bay's oldest silence. Moves like water deciding to forgive.",
+    stats: { guard: 0.1, swift: 0.07 }, fx: { c1: "#8ae0d9", c2: "#1a4a5a", prims: ["bubbles", "trail"] } },
+  lg_starfall_chasuble: { name: "Starfall Chasuble", icon: "🎐", slot: "chest", tier: 3, ms: 600,
+    desc: "Cloth caught mid-fall between two constellations. Still hasn't landed.",
+    stats: { haste: 0.08, xp: 0.07 }, fx: { c1: "#fff0b8", c2: "#8a7a2c", prims: ["orbit", "aura", "wisps"] } },
+  lg_shroud_of_names: { name: "Shroud of Kept Names", icon: "📿", slot: "chest", tier: 3, ms: 600,
+    desc: "Every name spoken kindly at the crypt is a thread here. It fits everyone who deserves it.",
+    stats: { vitality: 20, leech: 0.04 }, fx: { c1: "#c3b9e6", c2: "#3b3355", prims: ["runes", "wisps"] } },
+  lg_severance_raiment: { name: "Raiment of the Severance", icon: "🌫", slot: "chest", tier: 4, ms: 1200,
+    desc: "Woven from the seam where town and Wilds tore apart. Both halves still tugging.",
+    stats: { guard: 0.12, vitality: 16, haste: 0.05 }, fx: { c1: "#b09eff", c2: "#16102c", prims: ["sigil", "wisps", "orbit"] } },
+  lg_dawnkeeper_aegis: { name: "Dawnkeeper's Aegis", icon: "🌅", slot: "chest", tier: 4, ms: 1200,
+    desc: "The torchkeepers' founding vestment. Night ends a little early wherever it stands.",
+    stats: { guard: 0.12, vitality: 18, power: 0.04 }, fx: { c1: "#ffd9a8", c2: "#a84a2c", prims: ["crown", "embers", "aura"] } },
+  lg_cobblestep_boots: { name: "Cobblestep Boots", icon: "🧱", slot: "feet", tier: 1, ms: 150,
+    desc: "Soled with plaza stone. The town square considers you furniture — in the fond way.",
+    stats: { swift: 0.06 }, fx: { c1: "#c9a88a", c2: "#5a4433", prims: ["trail"] } },
+  lg_mudlark_waders: { name: "Mudlark Waders", icon: "🦩", slot: "feet", tier: 1, ms: 150,
+    desc: "The bog returns what it likes about you. It liked these enough to let go.",
+    stats: { swift: 0.05, forage: 0.08 }, fx: { c1: "#8f9e7a", c2: "#3b4633", prims: ["bubbles"] } },
+  lg_dancing_slippers: { name: "Unquiet Slippers", icon: "🩰", slot: "feet", tier: 1, ms: 150,
+    desc: "Made for a ball that never officially happened. They remember the steps anyway.",
+    stats: { swift: 0.07, haste: 0.03 }, fx: { c1: "#ffb9d9", c2: "#6b2c4a", prims: ["aura"] } },
+  lg_lamplighter_treads: { name: "Lamplighter's Treads", icon: "🪜", slot: "feet", tier: 1, ms: 150,
+    desc: "Climbed every post in town twice a day for thirty years. They know shortcuts light takes.",
+    stats: { swift: 0.06, haste: 0.04 }, fx: { c1: "#ffd97a", c2: "#7a5a2c", prims: ["embers"] } },
+  lg_thistledown_socks: { name: "Thistledown Sabatons", icon: "🌵", slot: "feet", tier: 1, ms: 150,
+    desc: "Armored like a knight, soft as a rumor. The thistles negotiated hard for both.",
+    stats: { guard: 0.06, swift: 0.04 }, fx: { c1: "#b9d9a8", c2: "#4a5a3b", prims: ["runes"] } },
+  lg_gravel_ghost_shoes: { name: "Gravel Ghost Shoes", icon: "👟", slot: "feet", tier: 1, ms: 150,
+    desc: "Crunch on the way in, silent on the way out. The gravel plays favorites.",
+    stats: { swift: 0.08 }, fx: { c1: "#c3c3c3", c2: "#4a4a4a", prims: ["wisps"] } },
+  lg_ratline_climbers: { name: "Ratline Climbers", icon: "⛓", slot: "feet", tier: 1, ms: 150,
+    desc: "Rigging-rope soles from the bay's fastest ship. Dry land feels flattered.",
+    stats: { swift: 0.07, guard: 0.03 }, fx: { c1: "#c9b98a", c2: "#5a4a2c", prims: ["trail", "aura"] } },
+  lg_fernwalkers: { name: "Fernwalkers", icon: "🌱", slot: "feet", tier: 1, ms: 150,
+    desc: "The forest floor closes politely behind each step. Deer find you unremarkable — high praise.",
+    stats: { forage: 0.12, swift: 0.04 }, fx: { c1: "#9ed97a", c2: "#2c4a23", prims: ["bubbles", "runes"] } },
+  lg_frostgait_boots: { name: "Frostgait Boots", icon: "❄", slot: "feet", tier: 2, ms: 300,
+    desc: "Leave one frozen footprint per step, which melts when you stop being followed.",
+    stats: { swift: 0.09, guard: 0.04 }, fx: { c1: "#d0f0ff", c2: "#3b6b8a", prims: ["frost", "trail"] } },
+  lg_wakewalkers: { name: "Wakewalkers", icon: "🚣", slot: "feet", tier: 2, ms: 300,
+    desc: "The ferryman's spares. Puddles hold your weight for exactly one apologetic second.",
+    stats: { swift: 0.09, haste: 0.04 }, fx: { c1: "#8ac4e6", c2: "#2c4a5a", prims: ["bubbles", "trail"] } },
+  lg_howlrunner_paws: { name: "Howlrunner Paws", icon: "🦮", slot: "feet", tier: 2, ms: 300,
+    desc: "Won from the pack's fastest at a race the town still argues about. Fair and square. Mostly square.",
+    stats: { swift: 0.1 }, fx: { c1: "#d9c3a8", c2: "#5a3b23", prims: ["aura", "trail"] } },
+  lg_vesper_stalkers: { name: "Vesper Stalkers", icon: "🕶", slot: "feet", tier: 2, ms: 300,
+    desc: "Dusk-leather, bat-stitched. Each step lands in the quietest part of the moment.",
+    stats: { swift: 0.08, leech: 0.04 }, fx: { c1: "#a88ad9", c2: "#2c2340", prims: ["wisps", "sigil"] } },
+  lg_emberstride_greaves: { name: "Emberstride Greaves", icon: "🧯", slot: "feet", tier: 2, ms: 300,
+    desc: "Walk far enough and the trail behind you glows faintly — the Wastes' idea of a signature.",
+    stats: { swift: 0.08, power: 0.04 }, fx: { c1: "#ff9e5e", c2: "#6b2c16", prims: ["embers", "trail"] } },
+  lg_gallows_hoppers: { name: "Gallows Hoppers", icon: "🦗", slot: "feet", tier: 2, ms: 300,
+    desc: "Named for the jump, not the place. That's the official story and they're sticking to it.",
+    stats: { swift: 0.09, vitality: 6 }, fx: { c1: "#a8d98a", c2: "#3b5a2c", prims: ["runes", "bubbles"] } },
+  lg_starstride_sandals: { name: "Starstride Sandals", icon: "👡", slot: "feet", tier: 3, ms: 600,
+    desc: "Cobbled from meteor-iron shavings. The night sky counts your steps as falling stars.",
+    stats: { swift: 0.11, haste: 0.05 }, fx: { c1: "#fff0c4", c2: "#8a6b2c", prims: ["orbit", "trail"] } },
+  lg_shadowmoss_treads: { name: "Shadowmoss Treads", icon: "🧦", slot: "feet", tier: 3, ms: 600,
+    desc: "Moss that grows only where no one looked. Your footsteps are a rumor at best.",
+    stats: { swift: 0.1, guard: 0.05 }, fx: { c1: "#7a8f8a", c2: "#1a2323", prims: ["wisps", "sigil"] } },
+  lg_briarleap_boots: { name: "Briarleap Boots", icon: "🐇", slot: "feet", tier: 3, ms: 600,
+    desc: "The hedge-rabbits' patron gift. Thorns lean out of your way and pretend they always meant to.",
+    stats: { swift: 0.11, forage: 0.1 }, fx: { c1: "#c4e67a", c2: "#4a5a1a", prims: ["runes", "trail", "bubbles"] } },
+  lg_moonshod_greaves: { name: "Moonshod Greaves", icon: "🌗", slot: "feet", tier: 3, ms: 600,
+    desc: "Shod like a horse of the old processions, in crescent silver. Tides adjust for you slightly.",
+    stats: { swift: 0.1, vitality: 10 }, fx: { c1: "#e0e0ff", c2: "#4a4a7a", prims: ["aura", "frost"] } },
+  lg_severance_striders: { name: "Severance Striders", icon: "💥", slot: "feet", tier: 4, ms: 1200,
+    desc: "Each stride lands in two places until you decide which. The Wilds call it cheating. Enviously.",
+    stats: { swift: 0.12, haste: 0.07 }, fx: { c1: "#d9b8ff", c2: "#3b1a5a", prims: ["sigil", "trail", "wisps"] } },
+  lg_dawnchaser_boots: { name: "Dawnchaser Boots", icon: "🌄", slot: "feet", tier: 4, ms: 1200,
+    desc: "Made for the runner who carries the last ember to the first torch. Dawn has never once beaten them.",
+    stats: { swift: 0.12, power: 0.05, vitality: 8 }, fx: { c1: "#ffc98a", c2: "#8a3b1a", prims: ["embers", "crown", "trail"] } },
+  lg_moonstone_signet: { name: "Moonstone Signet", icon: "🌜", slot: "ring", tier: 1, ms: 150,
+    desc: "The peddler's own mark. Wearing it makes their prices no better. It's the thought.",
+    stats: { xp: 0.05 }, fx: { c1: "#d0d0ff", c2: "#5a5a8a", prims: ["aura"] } },
+  lg_toll_ring: { name: "Ferryman's Toll Ring", icon: "🎫", slot: "ring", tier: 1, ms: 150,
+    desc: "A coin bent into a band. The debt it settled has stopped writing letters.",
+    stats: { guard: 0.05, xp: 0.03 }, fx: { c1: "#e6c98a", c2: "#6b4a1a", prims: ["orbit"] } },
+  lg_thornprick_band: { name: "Thornprick Band", icon: "📍", slot: "ring", tier: 1, ms: 150,
+    desc: "Bites you once when danger's near. It genuinely believes this is kindness.",
+    stats: { power: 0.05, haste: 0.03 }, fx: { c1: "#ff8a9e", c2: "#5a1a2c", prims: ["runes"] } },
+  lg_hearthstone_loop: { name: "Hearthstone Loop", icon: "🏠", slot: "ring", tier: 1, ms: 150,
+    desc: "A pebble from under the café's first hearth. Home follows you around like a warm rumor.",
+    stats: { vitality: 8 }, fx: { c1: "#ff9e6b", c2: "#7a3b23", prims: ["embers", "aura"] } },
+  lg_bogpearl_ring: { name: "Bogpearl Ring", icon: "🦪", slot: "ring", tier: 1, ms: 150,
+    desc: "The marsh makes pearls of what it keeps. This one it gave back, which worries scholars.",
+    stats: { leech: 0.04, guard: 0.03 }, fx: { c1: "#c4e6d9", c2: "#3b5a55", prims: ["bubbles"] } },
+  lg_whisperknot_band: { name: "Whisperknot Band", icon: "🎗", slot: "ring", tier: 1, ms: 150,
+    desc: "A ribbon-knot dipped in silver. Holds one secret at a time; feeds on being almost told.",
+    stats: { xp: 0.05, haste: 0.03 }, fx: { c1: "#d9a8c9", c2: "#5a2c4a", prims: ["wisps"] } },
+  lg_acorn_promise: { name: "Acorn Promise", icon: "🌰", slot: "ring", tier: 1, ms: 150,
+    desc: "An acorn set in copper. Plant it, the fae say, and see. Nobody has dared. It's flattered.",
+    stats: { forage: 0.12 }, fx: { c1: "#c9a87a", c2: "#4a3316", prims: ["runes", "bubbles"] } },
+  lg_candlekeeper_band: { name: "Candlekeeper's Band", icon: "🪔", slot: "ring", tier: 1, ms: 150,
+    desc: "Warm on the hand that last did a kindness. The torchkeepers check theirs constantly.",
+    stats: { vitality: 6, guard: 0.04 }, fx: { c1: "#ffe9b8", c2: "#8a6b2c", prims: ["embers", "aura"] } },
+  lg_stormglass_ring: { name: "Stormglass Ring", icon: "🌡", slot: "ring", tier: 2, ms: 300,
+    desc: "Weather sealed in glass. Clouds inside it arrive a day before the real ones.",
+    stats: { haste: 0.06, swift: 0.04 }, fx: { c1: "#8ad9ff", c2: "#1a3b6b", prims: ["orbit", "frost"] } },
+  lg_gravekeeper_seal: { name: "Gravekeeper's Seal", icon: "🗝", slot: "ring", tier: 2, ms: 300,
+    desc: "Opens nothing. Closes things. The distinction matters more than you'd hope.",
+    stats: { guard: 0.08, leech: 0.03 }, fx: { c1: "#a8a8b9", c2: "#2c2c3b", prims: ["sigil", "runes"] } },
+  lg_foxfire_loop: { name: "Foxfire Loop", icon: "🦊", slot: "ring", tier: 2, ms: 300,
+    desc: "Cold flame in a copper setting. Sly light — it dims when watched directly.",
+    stats: { haste: 0.06, forage: 0.08 }, fx: { c1: "#ffab7a", c2: "#6b2c16", prims: ["wisps", "embers"] } },
+  lg_midnight_meridian: { name: "Midnight Meridian", icon: "🕛", slot: "ring", tier: 2, ms: 300,
+    desc: "Points to wherever midnight currently is. Surprisingly useful. Occasionally ominous.",
+    stats: { xp: 0.06, haste: 0.05 }, fx: { c1: "#9e9eff", c2: "#20204a", prims: ["orbit", "wisps"] } },
+  lg_wolfpact_band: { name: "Wolfpact Band", icon: "🐩", slot: "ring", tier: 2, ms: 300,
+    desc: "Iron and hair braided under a new moon. The pack honors it. The moon abstains.",
+    stats: { power: 0.07, leech: 0.04 }, fx: { c1: "#c3b9a8", c2: "#3b3323", prims: ["aura", "sigil"] } },
+  lg_beetlewing_ring: { name: "Beetlewing Ring", icon: "🪲", slot: "ring", tier: 2, ms: 300,
+    desc: "Iridescent chitin, freely shed. Turns exactly one bad omen a day into a good one.",
+    stats: { guard: 0.07, forage: 0.06 }, fx: { c1: "#8ae08a", c2: "#1a4a2c", prims: ["bubbles", "orbit"] } },
+  lg_sirens_knuckle: { name: "Siren's Knuckle", icon: "🐚", slot: "ring", tier: 3, ms: 600,
+    desc: "A shell ring that hums the bay's oldest lullaby. Sailors nap mid-argument.",
+    stats: { leech: 0.06, haste: 0.06 }, fx: { c1: "#a8e0e6", c2: "#2c5a6b", prims: ["bubbles", "wisps", "aura"] } },
+  lg_leyline_coil: { name: "Leyline Coil", icon: "🧵", slot: "ring", tier: 3, ms: 600,
+    desc: "Silver wound along the town's buried current. Your spells arrive slightly before you finish them.",
+    stats: { haste: 0.09, power: 0.05 }, fx: { c1: "#c4b8ff", c2: "#3b2c6b", prims: ["runes", "orbit"] } },
+  lg_reliquary_ring: { name: "Reliquary Ring", icon: "⚱", slot: "ring", tier: 3, ms: 600,
+    desc: "Holds a relic too small to name. The vault priced it, wept, and doubled the figure.",
+    stats: { xp: 0.08, vitality: 10 }, fx: { c1: "#e6d9a8", c2: "#6b5a2c", prims: ["sigil", "aura"] } },
+  lg_thirteenth_candle: { name: "The Thirteenth Candle", icon: "🏺", slot: "ring", tier: 3, ms: 600,
+    desc: "The Coven Court keeps three lit and ten dark. This is one of the dark ones. It's not out.",
+    stats: { power: 0.08, leech: 0.05, haste: 0.04 }, fx: { c1: "#d9b8e6", c2: "#40164a", prims: ["embers", "wisps", "sigil"] } },
+  lg_auditor_ledgerband: { name: "The Auditor's Ledgerband", icon: "🖋", slot: "ring", tier: 4, ms: 1200,
+    desc: "Inscribed with the vault-raven's full accounting of you. The balance is, remarkably, in your favor.",
+    stats: { xp: 0.08, guard: 0.08, haste: 0.05 }, fx: { c1: "#c9e6a8", c2: "#8a7a2c", prims: ["runes", "crown", "orbit"] } },
+  lg_severance_orbit: { name: "Ring of the Severed Sky", icon: "🪐", slot: "ring", tier: 4, ms: 1200,
+    desc: "A band of the sky that came loose that night, still circling what it lost. It fits. That means something.",
+    stats: { power: 0.08, haste: 0.08, vitality: 12 }, fx: { c1: "#b8cfff", c2: "#2c1a5a", prims: ["orbit", "sigil", "crown"] } },
+};
+// Legendaries are real items everywhere else in the game — bankable,
+// auctionable, equippable — so they join the two existing catalogs here.
+for (const [lgId, lg] of Object.entries(LEGENDARY_CATALOG)) {
+  ITEM_CATALOG[lgId] = { name: lg.name, icon: lg.icon, slot: lg.slot };
+  EQUIP_STATS[lgId] = lg.stats;
+}
+
 // The eight derived stats every character has, and where each pulls from.
 // Skills contribute this-much-per-rank; gear contributes its EQUIP_STATS value.
 const STAT_KEYS = ['power', 'guard', 'vitality', 'haste', 'swift', 'leech', 'xp', 'forage'];
@@ -2738,6 +3162,8 @@ function saveListings() {
 let listings = loadListings();
 
 const AUCTION_DURATIONS_MS = { 1: 3600000, 12: 12 * 3600000, 24: 24 * 3600000 };
+// Moonstone-lane house cut, taken from the seller's proceeds at resolution.
+const AUCTION_MS_FEE = 0.10;
 // Selfie listings run much shorter than item listings — minutes, not hours
 // — since guests (who can list selfies but have no bank account to escrow
 // gold for a long-running auction) are expected to be the main sellers.
@@ -2746,6 +3172,7 @@ const SELFIE_AUCTION_DURATIONS_MS = { 5: 5 * 60000, 10: 10 * 60000, 20: 20 * 600
 function publicListing(l) {
   return {
     id: l.id, sellerName: l.sellerName, itemId: l.itemId || null, qty: l.qty || null,
+    currency: l.currency || 'gold',
     isSelfie: !!l.isSelfie, image: l.isSelfie ? l.image : null,
     isVoice: !!l.isVoice, audio: l.isVoice ? l.audio : null,
     startingBid: l.startingBid, buyoutPrice: l.buyoutPrice || null,
@@ -2859,18 +3286,33 @@ function resolveListing(listing) {
   }
 
   if (listing.currentBidderKey) {
+    const isMs = (listing.currency || 'gold') === 'ms';
     const winnerAccount = ensureBankAccount(listing.currentBidderKey);
     const added = addItemToAccount(winnerAccount, listing.itemId, listing.qty);
     if (added) {
-      const sellerAccount = ensureBankAccount(listing.sellerKey);
-      sellerAccount.balance += listing.currentBid;
-      saveBankAccounts();
+      if (isMs) {
+        // Moonstone lane: the house keeps AUCTION_MS_FEE of the hammer
+        // price (a deliberate sink — Moonstones must leave circulation
+        // somewhere, or nobody ever needs to buy a fresh pack). The seller
+        // sees the fee up front when listing.
+        const net = Math.floor(listing.currentBid * (1 - AUCTION_MS_FEE));
+        msAdjust(listing.sellerKey, net);
+        const seller = findConnectionByAccountKey(listing.sellerKey);
+        if (seller) send(seller.ws, { type: 'auction_payout', message: `💎 Your ${ITEM_CATALOG[listing.itemId] ? ITEM_CATALOG[listing.itemId].name : 'item'} sold for ${listing.currentBid} Moonstones — ${net} after the house's cut.` });
+        pushMsStateIfOnline(listing.sellerKey);
+        saveBankAccounts();
+      } else {
+        const sellerAccount = ensureBankAccount(listing.sellerKey);
+        sellerAccount.balance += listing.currentBid;
+        saveBankAccounts();
+      }
       pushBankStateIfOnline(listing.sellerKey);
       pushBankStateIfOnline(listing.currentBidderKey);
     } else {
       // Winner's bank is full — refund their escrowed bid and hand the
       // item back to the seller instead of losing it.
-      winnerAccount.balance += listing.currentBid;
+      if (isMs) { msAdjust(listing.currentBidderKey, listing.currentBid); pushMsStateIfOnline(listing.currentBidderKey); }
+      else winnerAccount.balance += listing.currentBid;
       const sellerAccount = ensureBankAccount(listing.sellerKey);
       addItemToAccount(sellerAccount, listing.itemId, listing.qty); // if seller is also full, the item is lost — rare double-edge-case, acceptable for this scope
       saveBankAccounts();
@@ -3145,6 +3587,48 @@ const TOWN_TORCHES = [
 // Wastes portal hovers once it's open (see templePortalOpen(), enter_ember_wastes),
 // and also where the Torchkeepers gather by day now (see TEMPLE_STAND_OFFSETS).
 const TEMPLE_ALTAR = { x: 1060, y: 1900 };
+// The temple platform's footprint (mirrors client TEMPLE_PLATFORM_*) plus a
+// walk-in point at its north (townward) edge. Torchkeeper walks that would
+// cross the platform get routed through this gate instead of clipping
+// through the corner pillars (user-reported, Session I).
+const TEMPLE_RECT = { x: 1060 - 180, y: 1900 - 130, w: 360, h: 260 };
+const TEMPLE_GATE = { x: 1060, y: 1900 - 130 - 26 };
+function segCrossesTempleRect(x1, y1, x2, y2) {
+  // Conservative segment-vs-AABB (slab) test, rect inflated a pillar's width.
+  const pad = 16;
+  const minX = TEMPLE_RECT.x - pad, maxX = TEMPLE_RECT.x + TEMPLE_RECT.w + pad;
+  const minY = TEMPLE_RECT.y - pad, maxY = TEMPLE_RECT.y + TEMPLE_RECT.h + pad;
+  const dx = x2 - x1, dy = y2 - y1;
+  let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, x1 - minX], [dx, maxX - x1], [-dy, y1 - minY], [dy, maxY - y1]]) {
+    if (p === 0) { if (q < 0) return false; continue; }
+    const r = q / p;
+    if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+    else { if (r < t0) return false; if (r < t1) t1 = r; }
+  }
+  return true;
+}
+// Point (and walk direction) along from→to at `progress`, detouring through
+// TEMPLE_GATE when the direct line would cross the platform. Constant speed
+// across the whole (possibly two-leg) path, so the existing fixed-duration
+// lerp architecture is preserved exactly.
+function torchWalkPoint(fromX, fromY, toX, toY, progress) {
+  const legs = segCrossesTempleRect(fromX, fromY, toX, toY)
+    ? [[fromX, fromY, TEMPLE_GATE.x, TEMPLE_GATE.y], [TEMPLE_GATE.x, TEMPLE_GATE.y, toX, toY]]
+    : [[fromX, fromY, toX, toY]];
+  const lens = legs.map(([ax, ay, bx, by]) => Math.hypot(bx - ax, by - ay));
+  const total = lens.reduce((a, b) => a + b, 0) || 1;
+  let d = Math.max(0, Math.min(1, progress)) * total;
+  for (let i = 0; i < legs.length; i++) {
+    if (d <= lens[i] || i === legs.length - 1) {
+      const [ax, ay, bx, by] = legs[i];
+      const t = lens[i] ? Math.min(1, d / lens[i]) : 1;
+      return { x: ax + (bx - ax) * t, y: ay + (by - ay) * t, dirX: bx - ax, dirY: by - ay };
+    }
+    d -= lens[i];
+  }
+  return { x: toX, y: toY, dirX: toX - fromX, dirY: toY - fromY };
+}
 // Where each NPC kneels by day, relative to TEMPLE_ALTAR — a small diamond
 // ring around the altar (radius ~65, clear of its 64-unit-wide footprint
 // and well inside the platform's edges) rather than stacking on one point.
@@ -3203,10 +3687,11 @@ function tickTorchNpcs(dt) {
       const standX = torch.x - (dx / dist) * TORCH_STAND_BACK;
       const standY = torch.y - (dy / dist) * TORCH_STAND_BACK;
       const progress = Math.min(1, (now - n.ritualStartAt) / NIGHT_RITUAL_WALK_MS);
-      n.x = n.duskX + (standX - n.duskX) * progress;
-      n.y = n.duskY + (standY - n.duskY) * progress;
+      const pt = torchWalkPoint(n.duskX, n.duskY, standX, standY, progress);
+      n.x = pt.x;
+      n.y = pt.y;
       if (progress < 1) {
-        n.facing = Math.atan2(dx, dy); // face the torch while walking in
+        n.facing = Math.atan2(pt.dirX, pt.dirY); // face along the walked leg
       } else {
         // Standing at the torch, lighting it: face the town's center
         // (where players actually are), not the torch pole itself.
@@ -3217,12 +3702,12 @@ function tickTorchNpcs(dt) {
     } else {
       const off = TEMPLE_STAND_OFFSETS[i];
       const targetX = TEMPLE_ALTAR.x + off.dx, targetY = TEMPLE_ALTAR.y + off.dy;
-      const dx = targetX - n.dawnX, dy = targetY - n.dawnY;
       const progress = Math.min(1, (now - n.templeWalkStartAt) / MORNING_TEMPLE_WALK_MS);
-      n.x = n.dawnX + (targetX - n.dawnX) * progress;
-      n.y = n.dawnY + (targetY - n.dawnY) * progress;
+      const pt = torchWalkPoint(n.dawnX, n.dawnY, targetX, targetY, progress);
+      n.x = pt.x;
+      n.y = pt.y;
       if (progress < 1) {
-        n.facing = Math.atan2(dx, dy); // face the altar while walking in
+        n.facing = Math.atan2(pt.dirX, pt.dirY); // face along the walked leg
       } else {
         // Kneeling at the altar: face inward toward it, not out toward the
         // town square — they're praying together, not standing watch.
@@ -3308,7 +3793,10 @@ function tickTorchHealing(dt) {
     const near = player.room === 'outside'
       ? litTorches.length > 0 && litTorches.some(t => Math.hypot(player.x - t.x, player.y - t.y) < TORCH_HEAL_RADIUS)
       : WILDS_CAMPFIRES.some(f => Math.hypot(player.x - f.x, player.y - f.y) < CAMPFIRE_HEAL_RADIUS);
-    if (near && player.health < 100) {
+    // (Session I fix: this gate said `< 100` — a leftover from before max HP
+    // could exceed 100 — so torch/campfire healing stranded high-vitality
+    // players a few HP short of full, e.g. 103/108.)
+    if (near && player.health < playerMaxHealth(player)) {
       if (!player.nearLitTorch) {
         send(player.ws, { type: 'torch_healed', message: player.room === 'wilds'
           ? "🔥 The campfire's warmth begins to mend your wounds..."
@@ -4248,6 +4736,50 @@ const SPELL_CATALOG = {
 };
 const SPELL_COOLDOWN_MS = 8000;
 
+// ---------------------------------------------------------------------------
+// The Midnight Peddler — weekly legendary shop (Session I). Five of the ~100
+// legendaries are on sale at a time; the set flips every week, deterministic
+// from the wall clock (seeded shuffle), so every player and every restart
+// agrees with no cron and no stored state. Moonstones only.
+// ---------------------------------------------------------------------------
+const LEGENDARY_SET_SIZE = 5;
+const LEGENDARY_WEEK_MS = 7 * 24 * 3600 * 1000;
+// A Monday 00:00 UTC — rotation day. Changing this constant reshuffles
+// every past and future week, so don't.
+const LEGENDARY_EPOCH = Date.UTC(2026, 0, 5);
+function legendaryWeekIndex(now) {
+  return Math.floor(((now != null ? now : Date.now()) - LEGENDARY_EPOCH) / LEGENDARY_WEEK_MS);
+}
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function legendaryWeeklySet(now) {
+  const rand = mulberry32(((legendaryWeekIndex(now) * 2654435761) ^ 0x517cc1b7) >>> 0);
+  const ids = Object.keys(LEGENDARY_CATALOG);
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  return ids.slice(0, LEGENDARY_SET_SIZE);
+}
+function legendaryShopPayload(player) {
+  const now = Date.now();
+  return {
+    items: legendaryWeeklySet(now).map((id) => {
+      const lg = LEGENDARY_CATALOG[id];
+      return { id, name: lg.name, icon: lg.icon, slot: lg.slot, tier: lg.tier, ms: lg.ms, desc: lg.desc, stats: lg.stats, fx: lg.fx };
+    }),
+    nextRotationAt: LEGENDARY_EPOCH + (legendaryWeekIndex(now) + 1) * LEGENDARY_WEEK_MS,
+    balance: player.accountKey ? msBalance(player.accountKey) : 0
+  };
+}
+
 const NPC_SHOPS = {
   npc_mara: { name: 'Ranger Mara', items: [
     { id: 'iron_sword', price: 50 }, { id: 'leather_boots', price: 30 },
@@ -5048,6 +5580,13 @@ wss.on('connection', (ws) => {
         // Equipment stat catalog — the client uses this to preview how a swap
         // would change your stats before you commit, with no server round-trip.
         equipStats: EQUIP_STATS,
+        // Premium currency + the Peddler's catalog (Session I). The client
+        // merges legendaryCatalog into its own ITEM_CATALOG at init — one
+        // authoritative copy, no hand-sync.
+        moonstones: player.accountKey ? msBalance(player.accountKey) : 0,
+        msPacks: MS_PACKS,
+        msAuctionFee: AUCTION_MS_FEE,
+        legendaryCatalog: LEGENDARY_CATALOG,
         // 😴 Rested XP window (epoch ms, 0 = none) — the client counts it down.
         restedUntil: player.restedUntil || 0,
         townPass: {
@@ -5248,6 +5787,9 @@ wss.on('connection', (ws) => {
         return;
       }
       const itemId = String(msg.itemId || '');
+      // The Moonstone lane (Session I): listings are denominated in either
+      // gold (bank balance, the original) or Moonstones. Same escrow shape.
+      const currency = msg.currency === 'ms' ? 'ms' : 'gold';
       const qty = Math.floor(Number(msg.qty));
       const startingBid = Math.floor(Number(msg.startingBid));
       const buyoutPrice = msg.buyoutPrice != null && msg.buyoutPrice !== '' ? Math.floor(Number(msg.buyoutPrice)) : null;
@@ -5269,6 +5811,7 @@ wss.on('connection', (ws) => {
         id: makeId(),
         sellerKey: player.accountKey,
         sellerName: player.name,
+        currency,
         itemId, qty, startingBid, buyoutPrice,
         currentBid: null,
         currentBidderKey: null,
@@ -5339,6 +5882,24 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'bank_error', message: `Bid must be at least ${minBid}.` });
         return;
       }
+      const isMs = (listing.currency || 'gold') === 'ms';
+      if (isMs) {
+        // Moonstone lane — escrow against the account's Moonstone balance,
+        // exactly the same shape as gold (deduct now, refund the outbid).
+        if (msBalance(player.accountKey) < amount) {
+          send(ws, { type: 'bank_error', message: `You don’t have enough Moonstones for that bid (you carry ${msBalance(player.accountKey)} 💎).` });
+          return;
+        }
+        msAdjust(player.accountKey, -amount);
+        if (listing.currentBidderKey) {
+          msAdjust(listing.currentBidderKey, listing.currentBid);
+          pushMsStateIfOnline(listing.currentBidderKey);
+        }
+        listing.currentBid = amount;
+        listing.currentBidderKey = player.accountKey;
+        listing.currentBidderName = player.name;
+        send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      } else {
       const bidderAccount = ensureBankAccount(player.accountKey);
       if (bidderAccount.balance < amount) {
         send(ws, { type: 'bank_error', message: 'You don’t have enough gold for that bid.' });
@@ -5355,6 +5916,7 @@ wss.on('connection', (ws) => {
       listing.currentBidderName = player.name;
       saveBankAccounts();
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      }
 
       if (listing.buyoutPrice && amount >= listing.buyoutPrice) {
         resolveListing(listing);
@@ -6907,6 +7469,51 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'ms_balance') {
+      send(ws, { type: 'ms_state', balance: player.accountKey ? msBalance(player.accountKey) : 0 });
+      return;
+    }
+
+    if (msg.type === 'legend_shop_open') {
+      // Browsing costs nothing and works for guests — buying doesn't.
+      send(ws, {
+        type: 'legend_shop_state',
+        greeting: player.accountKey
+          ? `Ah… ${player.disguise ? player.disguise.name : player.name}. The stars said you'd come. Five wonders this week — no gold, only Moonstones.`
+          : 'Browse, wanderer. But the wonders bind themselves to NAMES — log into an account before you reach for your purse.',
+        ...legendaryShopPayload(player)
+      });
+      return;
+    }
+
+    if (msg.type === 'legend_shop_buy') {
+      if (!player.accountKey) {
+        send(ws, { type: 'ms_error', message: 'Log into an account first — legendaries bind to your name.' });
+        return;
+      }
+      const itemId = String(msg.itemId || '');
+      const lg = LEGENDARY_CATALOG[itemId];
+      if (!lg || !legendaryWeeklySet().includes(itemId)) {
+        send(ws, { type: 'ms_error', message: 'The Peddler isn’t offering that this week.' });
+        return;
+      }
+      if (msBalance(player.accountKey) < lg.ms) {
+        send(ws, { type: 'ms_error', message: `That's ${lg.ms} 💎 — you carry ${msBalance(player.accountKey)}.` });
+        return;
+      }
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, itemId, 1)) {
+        send(ws, { type: 'ms_error', message: 'No room in your pack — make space first.' });
+        return;
+      }
+      msAdjust(player.accountKey, -lg.ms);
+      saveInventories();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'legend_bought', itemId, name: lg.name, icon: lg.icon, ms: lg.ms });
+      return;
+    }
+
     if (msg.type === 'npc_shop_open') {
       const npcId = String(msg.npcId || '');
       const shop = NPC_SHOPS[npcId];
@@ -7395,6 +8002,10 @@ global.__testHooks = {
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, grantForSession,
+  // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
+  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS,
+  LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
+  ensureBankAccount, addItemToAccount, listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
   LOCKED_ROOMS, TOWN_PASS_PRICE_CENTS, TOWN_PASS_HOURS,
   // Mob combat + countermeasures
   mobs, mobs2, tickWildlife, TOWN_MOB_COMBAT, TOWN_MOB_XP,

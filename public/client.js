@@ -43,7 +43,7 @@ let world = null;       // whichever outdoor map is currently active (town's wor
 let TOWN_WORLD = null;  // stable reference to the town's world object, since `world` gets reassigned on map-switch
 let world2 = null;      // The Wilds — see buildWildsScene()/enterWilds()
 let TOWN_WALLS = [];    // snapshot of `walls` once initScene() finishes building the town (incl. tree colliders)
-const WILDS_WALLS = []; // the Wilds has no collidable decor, so this just stays empty
+const WILDS_WALLS = []; // populated by buildWildsScene's addNatureDecor call (trees + chunky props)
 let OUTDOOR_KIOSKS = []; // interact points in the town's outdoor scene — currently just the portal
 let WILDS_KIOSKS = [];   // interact points in the Wilds scene
 
@@ -584,6 +584,20 @@ function onWsMessage(ev) {
     TOWN_WORLD = world;
     // Equipment stat catalog — used to preview how a gear swap changes stats.
     if (msg.equipStats) equipStatsCatalog = msg.equipStats;
+    // The Peddler's legendary catalog rides in on init (server-authoritative
+    // — never hand-copied here). Merged into ITEM_CATALOG so bank/inventory/
+    // auction UIs treat legendaries like any other item.
+    if (msg.legendaryCatalog) {
+      legendaryCatalogClient = msg.legendaryCatalog;
+      for (const lgId in msg.legendaryCatalog) {
+        const lg = msg.legendaryCatalog[lgId];
+        ITEM_CATALOG[lgId] = { name: lg.name, icon: lg.icon, slot: lg.slot, desc: lg.desc, legendary: true, tier: lg.tier, fx: lg.fx };
+      }
+    }
+    myMoonstones = msg.moonstones || 0;
+    if (msg.msPacks) msPacksCatalog = msg.msPacks;
+    if (msg.msAuctionFee != null) msAuctionFee = msg.msAuctionFee;
+    refreshMsUI();
     // 😴 Rested XP window (bonus XP for the first minutes of a session).
     restedUntil = msg.restedUntil || 0;
     if (restedUntil > Date.now() && !restedToastShown) {
@@ -649,6 +663,7 @@ function onWsMessage(ev) {
     if (msg.resumed && me && me.room && me.room !== 'outside') {
       restoreSceneForRoom(me.room);
     }
+    if (!wasStarted) pokeRoomTag(); // start the location banner's fade clock on first join
     if (!wasStarted && pendingReturnToast) {
       setUnlockToast(pendingReturnToast);
       pendingReturnToast = '';
@@ -1394,6 +1409,29 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'ms_state') {
+    myMoonstones = msg.balance || 0;
+    refreshMsUI();
+    return;
+  }
+  if (msg.type === 'ms_error') {
+    const legendErr = document.getElementById('legendErr');
+    const msErr = document.getElementById('msModalErr');
+    if (legendModalOpen && legendErr) legendErr.textContent = '⚠️ ' + msg.message;
+    else if (msModalOpen && msErr) msErr.textContent = '⚠️ ' + msg.message;
+    else setUnlockToast('⚠️ ' + msg.message);
+    return;
+  }
+  if (msg.type === 'legend_shop_state') {
+    renderLegendShop(msg);
+    return;
+  }
+  if (msg.type === 'legend_bought') {
+    setUnlockToast(`✨ ${msg.icon} ${msg.name} is yours — it's in your pack.`);
+    // refresh the open shop so the balance line updates
+    if (legendModalOpen && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'legend_shop_open' }));
+    return;
+  }
   if (msg.type === 'npc_shop_state') {
     renderNpcShop(msg);
     return;
@@ -1999,6 +2037,18 @@ function roomAt(x, y) {
     if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.id;
   }
   return 'outside';
+}
+
+// The location pill ("Town Square" etc.) used to sit on screen forever —
+// now it shows for a few seconds after every room change, then fades
+// (user request, Session I). Any poke brings it back.
+let roomTagFadeTimer = null;
+function pokeRoomTag() {
+  const tag = document.getElementById('roomTag');
+  if (!tag) return;
+  tag.classList.remove('tagFaded');
+  clearTimeout(roomTagFadeTimer);
+  roomTagFadeTimer = setTimeout(() => tag.classList.add('tagFaded'), 5000);
 }
 
 function roomLabel(roomId) {
@@ -3101,6 +3151,12 @@ let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let skillsOpen = false;
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
+// 💎 Moonstones (Session I) — premium currency. Balance is server truth,
+// mirrored here for display; ms_state pushes keep it fresh.
+let myMoonstones = 0;
+let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
+let msAuctionFee = 0.10;
+let legendaryCatalogClient = {};  // merged into ITEM_CATALOG at init
 let restedUntil = 0;          // 😴 rested-XP window end (epoch ms), 0 = none
 let restedToastShown = false;
 
@@ -4117,7 +4173,35 @@ function claimPassOnConnection(force) {
   const params = new URLSearchParams(location.search);
   // Legacy param names still land in the same place — one pass product now.
   const sessionId = params.get('pass_session') || params.get('unlock_session') || params.get('room_pass_session');
+  const msSessionId = params.get('ms_session');
   const canceled = params.get('pass_cancel') === '1';
+  if (msSessionId) {
+    // Bounce-back from a Moonstone-pack checkout — verify with the server
+    // (replay-proof there), toast the result once the world exists, and
+    // resume the stashed session exactly like the pass flow below.
+    returnedFromCheckout = true;
+    history.replaceState(null, '', location.pathname + (params.get('testdrive') === '1' ? '?testdrive=1' : ''));
+    let acctToken = '';
+    try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
+    fetch(apiUrlMaybe('/api/verify-ms-session?session_id=' + encodeURIComponent(msSessionId)
+          + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : '')))
+      .then(r => r.json())
+      .then(data => {
+        if (data.granted) setUnlockToast('💎 +' + data.granted + ' Moonstones! You now carry ' + data.balance + '.');
+        else if (data.balance != null) setUnlockToast('💎 That purchase was already credited — you carry ' + data.balance + '.');
+        else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the Moonstone purchase.'));
+        myMoonstones = data.balance != null ? data.balance : myMoonstones;
+        refreshMsUI();
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify the Moonstone purchase — it will retry next visit.'));
+    // The verify fetch, the auto-resume join's init snapshot, and the
+    // server's ms_state push can interleave in any order — re-ask after the
+    // dust settles so the balance shown is always the server's last word.
+    const askMsBalance = () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ms_balance' })); };
+    setTimeout(askMsBalance, 2500);
+    setTimeout(askMsBalance, 6000);
+    return;
+  }
   if (!sessionId && !canceled) return;
   returnedFromCheckout = true;
   // Strip the checkout params but keep the harness seam alive if present.
@@ -4416,13 +4500,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || seatedAt) return;
+  if (jumpActive || typing || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) return;
+  if (typing || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -5462,6 +5546,7 @@ function updateBubbleTag(p, v, headScreen, now) {
     showInvTab('invHardDriveView');
   }));
   on('menuPass', closeSheetAnd(openPassModal));
+  on('menuMoonstones', closeSheetAnd(openMsModal));
   // ── Graphics quality: Auto → Low → Medium → High (persisted) ──
   const gfxLabel = () => {
     const el = document.getElementById('menuGraphicsVal');
@@ -6211,6 +6296,7 @@ function maybeUpdateRoomUI(room) {
   lastRoom = room;
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
+  pokeRoomTag();
   // The Wilds is open-world like the town square, not a private room — no chat panel there either.
   document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room === 'ember_wastes' || room.startsWith('dungeon_'));
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
@@ -7153,7 +7239,74 @@ function buildTownNPCs(scene) {
     scene.add(label);
     OUTDOOR_KIOSKS.push({ x: npc.x, z: npc.y, npc: 'npc', npcId: npc.id, npcName: npc.name });
   }
+  buildMidnightPeddler(scene);
 }
+
+// ── The Midnight Peddler's stall (Session I) — a cloaked figure under a
+// violet canopy, hung with a lantern; the town-side door to the weekly
+// legendary shop. Client-only dressing (fairy-ring precedent: no collider);
+// the kiosk entry is what makes it interactive.
+const PEDDLER_SPOT = { x: 1350, y: 1180 };
+function buildMidnightPeddler(scene) {
+  const g = new THREE.Group();
+  const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
+  const cloth = new THREE.MeshLambertMaterial({ color: 0x241a3b });
+  // canopy on four posts
+  for (const [px, pz] of [[-26, -18], [26, -18], [-26, 18], [26, 18]]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 46, 6), post);
+    p.position.set(px, 23, pz);
+    g.add(p);
+  }
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 3, 46), cloth);
+  roof.position.y = 47;
+  roof.rotation.z = 0.05;
+  g.add(roof);
+  // table
+  const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
+  table.position.set(0, 16, 8);
+  g.add(table);
+  // the peddler — hooded robe, faceless dark under the hood
+  const robe = new THREE.Mesh(new THREE.ConeGeometry(9, 30, 8), new THREE.MeshLambertMaterial({ color: 0x2c2340 }));
+  robe.position.set(0, 15, -8);
+  g.add(robe);
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(5.5, 8, 8), new THREE.MeshLambertMaterial({ color: 0x241c36 }));
+  hood.position.set(0, 33, -8);
+  g.add(hood);
+  // hanging lantern + glow
+  const lantern = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd9b8ff }));
+  lantern.position.set(20, 40, 0);
+  g.add(lantern);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0xc9a8ff, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(34, 34, 1);
+  glow.position.set(20, 40, 0);
+  g.add(glow);
+  // two slow moonstone motes drifting over the table
+  const motes = [];
+  for (let i = 0; i < 2; i++) {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: LEGEND_FX.glowTexture(), color: 0xd0d0ff, transparent: true, opacity: 0.8,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    m.scale.set(7, 7, 1);
+    g.add(m);
+    motes.push(m);
+  }
+  g.userData.tick = (t) => motes.forEach((m, i) => {
+    const a = t * 0.8 + i * Math.PI;
+    m.position.set(Math.cos(a) * 14, 26 + Math.sin(t * 1.3 + i) * 4, 8 + Math.sin(a) * 6);
+  });
+  peddlerStallGroup = g;
+  g.position.set(PEDDLER_SPOT.x, 0, PEDDLER_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🌒 The Midnight Peddler');
+  label.position.set(PEDDLER_SPOT.x, 62, PEDDLER_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: PEDDLER_SPOT.x, z: PEDDLER_SPOT.y, npc: 'legend', npcName: 'The Midnight Peddler' });
+}
+let peddlerStallGroup = null;
 
 // ---------------------------------------------------------------------------
 // The Wilds — built once at startup right alongside the town (see the
@@ -7257,22 +7410,48 @@ function makeBonePile(x, z) {
   return g;
 }
 
+// Session I: the Wilds forest is now DETERMINISTIC (seeded PRNG, mulberry32
+// — the same approach the tier-3 plants use) so every client grows the SAME
+// forest, and the chunky pieces finally collide (user report: "no collision
+// in the Wilds"). Trees/gravestones/ruins register into WILDS_WALLS; bone
+// piles stay walk-through (ankle-height).
+function wildsCollide(x, z, r) {
+  WILDS_WALLS.push({ x: x - r, y: z - r, w: r * 2, h: r * 2 });
+}
 function addSpookyDecor(scene, w2) {
-  const rng = (a, b) => a + Math.random() * (b - a);
+  let seed = 0x517cc1b7 >>> 0;
+  const rand = () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rng = (a, b) => a + rand() * (b - a);
+  const keepClear = [ // spawn + portal approach + campfires stay walkable
+    { x: w2.spawn.x, y: w2.spawn.y, r: 320 },
+    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 }))
+  ];
+  const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Spooky trees — thick clusters near the cave and scattered throughout.
-  // 150 of them now (was 90): on a 10000x10000 map the old count left
-  // whole horizons bare.
   for (let i = 0; i < 150; i++) {
-    scene.add(makeSpookyTree(rng(300, w2.width - 300), rng(300, w2.height - 300)));
+    const x = rng(300, w2.width - 300), z = rng(300, w2.height - 300);
+    if (!clearOf(x, z)) continue;
+    scene.add(makeSpookyTree(x, z));
+    wildsCollide(x, z, 9);
   }
   // Graveyard clusters (two more than before, filling the SE and far west)
   for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[5000,8500],[8200,8200],[900,6500]]) {
     for (let i = 0; i < 9; i++) {
-      scene.add(makeGravestone(cx + rng(-110, 110), cz + rng(-110, 110)));
+      const x = cx + rng(-110, 110), z = cz + rng(-110, 110);
+      scene.add(makeGravestone(x, z));
+      wildsCollide(x, z, 6);
     }
     // Spooky trees around graveyard
     for (let i = 0; i < 5; i++) {
-      scene.add(makeSpookyTree(cx + rng(-200, 200), cz + rng(-200, 200)));
+      const x = cx + rng(-200, 200), z = cz + rng(-200, 200);
+      if (!clearOf(x, z)) continue;
+      scene.add(makeSpookyTree(x, z));
+      wildsCollide(x, z, 9);
     }
     // …and the remains of whatever visits graveyards at night
     for (let i = 0; i < 2; i++) {
@@ -7282,10 +7461,16 @@ function addSpookyDecor(scene, w2) {
   // Ruined buildings (two more clusters)
   for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
     for (let i = 0; i < 4; i++) {
-      scene.add(makeRuinedWall(cx + rng(-160, 160), cz + rng(-160, 160)));
+      const x = cx + rng(-160, 160), z = cz + rng(-160, 160);
+      scene.add(makeRuinedWall(x, z));
+      wildsCollide(x, z, 16);
     }
     scene.add(makeBonePile(cx + rng(-120, 120), cz + rng(-120, 120)));
   }
+  // fixed structures that were always ghost-walkable:
+  for (const f of WILDS_CAMPFIRES) wildsCollide(f.x, f.y, 14);         // fire pit itself (heal radius is much larger)
+  for (const m of WILDS_WAYMARKERS) wildsCollide(m.x, m.y, 9);          // standing lore stones
+  wildsCollide(6500, 6200, 34);                                          // the giant werewolf tree's trunk
 }
 
 // ── Wilds campfires ─────────────────────────────────────────────────────────
@@ -8397,7 +8582,7 @@ function buildWildsScene(w2) {
   ground.position.set(w2.width / 2, 0, w2.height / 2);
   scene.add(ground);
 
-  addNatureDecor(scene, w2, decorVisuals2);
+  addNatureDecor(scene, w2, decorVisuals2, WILDS_WALLS);
   addAnimals2(scene);
   addMobs2(scene);
   addSpookyDecor(scene, w2);
@@ -10460,13 +10645,19 @@ const PROP_BUILDERS = {
   noticeboard: { make: makeNoticeboard, collide: () => ({ w: 34, h: 12 }) }
 };
 
-function addNatureDecor(scene, w, pool) {
+function addNatureDecor(scene, w, pool, wallsOut) {
+  // Which collision set the decor registers into. The Wilds scene is built
+  // while `walls` still points at the TOWN array, so before Session I its
+  // trees never collided in the Wilds AND left invisible colliders in town
+  // wherever coordinates overlapped (user-reported as "no collision in the
+  // Wilds"). Explicit is better than ambient.
+  const wallsTarget = wallsOut || walls;
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
       group = makeTree(d.x, d.y, d.scale);
       const r = 8 * (d.scale || 1);
-      walls.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
+      wallsTarget.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
     } else if (d.type === 'shrub') {
       group = makeShrub(d.x, d.y, d.scale);
     } else if (d.type === 'rock') {
@@ -10477,7 +10668,7 @@ function addNatureDecor(scene, w, pool) {
       const spec = PROP_BUILDERS[d.type];
       group = spec.make(d);
       const c = spec.collide(d);
-      if (c) walls.push({ x: d.x - c.w / 2, y: d.y - c.h / 2, w: c.w, h: c.h });
+      if (c) wallsTarget.push({ x: d.x - c.w / 2, y: d.y - c.h / 2, w: c.w, h: c.h });
     } else if (PLANT_VISUALS[d.type]) {
       group = makePlant(d.type, d.x, d.y);
     } else {
@@ -10857,6 +11048,8 @@ function kkWildsDressing(scene, w) {
   let i = 0;
   for (const [x, y, size, rot] of spots) {
     kkPlace(scene, (i++ % 2) ? 'prop_deadtree' : 'prop_deadtree2', x, y, size, rot);
+    // trunks block movement now (Session I) — canopy stays overhead
+    if (typeof wildsCollide === 'function') wildsCollide(x, y, 11);
   }
   // grave markers by the ritual circle's approach
   kkPlace(scene, 'prop_grave_b', W2 * 0.49, H2 * 0.47, 26, 0.4);
@@ -14263,6 +14456,194 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
 // Toggle helpers that attach/detach/swap one equip-slot mesh on a given
 // visual. Now keyed by itemId (or null) instead of a plain boolean so that
 // swapping pieces updates the mesh appearance instead of reusing the old one.
+// ---------------------------------------------------------------------------
+// LEGEND_FX — the legendaries' visible-to-everyone equipment effects
+// (Session I). Every legendary item carries an fx spec { c1, c2, prims[] }
+// (see server LEGENDARY_CATALOG); this module renders those specs as cheap
+// additive sprites attached to any player visual wearing the item — same
+// broadcast path as equipment itself, so every player in the room sees it.
+// Budgets: ≤16 sprites per player, shared textures, zero per-frame allocs.
+// On GFX 'low' the effect collapses to a single aura sprite.
+// ---------------------------------------------------------------------------
+const LEGEND_FX = (function () {
+  let runeTexes = null;
+  function glowTexture() { return makeGlowTexture(); }
+  function runeTextures() {
+    if (!runeTexes) {
+      const RUNES = ['ᚠ', 'ᚨ', 'ᛉ', 'ᛟ', 'ᛞ', 'ᛗ'];
+      runeTexes = RUNES.map((r) => {
+        const c = document.createElement('canvas'); c.width = c.height = 64;
+        const ctx = c.getContext('2d');
+        ctx.font = 'bold 44px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,255,255,0.9)'; ctx.shadowBlur = 12;
+        ctx.fillStyle = '#fff'; ctx.fillText(r, 32, 34);
+        return new THREE.CanvasTexture(c);
+      });
+    }
+    return runeTexes;
+  }
+  function sprite(tex, colorHex, scale, opacity) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, color: new THREE.Color(colorHex), transparent: true,
+      opacity: opacity, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    s.scale.set(scale, scale, 1);
+    return s;
+  }
+  // Each primitive builds its sprites into `group` and returns an update
+  // closure called every tick with (t seconds, moved distance this frame).
+  const PRIMS = {
+    aura(group, fx) {
+      const s = sprite(glowTexture(), fx.c1, 44, 0.34);
+      s.position.y = CHAR.hipY + CHAR.torsoH / 2;
+      group.add(s);
+      return (t) => { const b = 1 + Math.sin(t * 1.7) * 0.10; s.scale.set(44 * b, 50 * b, 1); };
+    },
+    orbit(group, fx) {
+      const gems = [];
+      for (let i = 0; i < 4; i++) { const s = sprite(glowTexture(), i % 2 ? fx.c2 : fx.c1, 9, 0.85); group.add(s); gems.push(s); }
+      return (t) => gems.forEach((s, i) => {
+        const a = t * 1.4 + i * Math.PI / 2;
+        s.position.set(Math.cos(a) * 17, CHAR.hipY + 12 + Math.sin(t * 2 + i) * 5, Math.sin(a) * 17);
+      });
+    },
+    runes(group, fx) {
+      const texes = runeTextures(), rs = [];
+      for (let i = 0; i < 5; i++) { const s = sprite(texes[i % texes.length], fx.c1, 8, 0); group.add(s); rs.push(s); }
+      return (t) => rs.forEach((s, i) => {
+        const ph = ((t * 0.35 + i / 5) % 1);              // 0→1 rise cycle
+        const a = i * 2.4 + t * 0.4;
+        s.position.set(Math.cos(a) * 11, 6 + ph * (CHAR.headY + 10), Math.sin(a) * 11);
+        s.material.opacity = ph < 0.15 ? ph / 0.15 * 0.9 : (1 - ph) * 0.9;   // bubble up, fade out
+      });
+    },
+    bubbles(group, fx) {
+      const bs = [];
+      for (let i = 0; i < 6; i++) { const s = sprite(glowTexture(), fx.c2, 5, 0.6); group.add(s); bs.push(s); }
+      return (t) => bs.forEach((s, i) => {
+        const ph = ((t * 0.25 + i / 6) % 1);
+        const a = i * 1.9;
+        s.position.set(Math.cos(a) * (9 + ph * 6), 4 + ph * (CHAR.headY + 6), Math.sin(a) * (9 + ph * 6));
+        s.material.opacity = (1 - ph) * 0.55;
+      });
+    },
+    wisps(group, fx) {
+      const ws2 = [];
+      for (let i = 0; i < 3; i++) { const s = sprite(glowTexture(), i ? fx.c2 : fx.c1, 12, 0.7); group.add(s); ws2.push(s); }
+      return (t) => ws2.forEach((s, i) => {
+        const a = t * (0.7 + i * 0.13) + i * 2.1;
+        s.position.set(Math.sin(a) * 19, CHAR.hipY + 10 + Math.sin(a * 1.6 + i) * 14, Math.cos(a * 0.8) * 19);
+      });
+    },
+    embers(group, fx) {
+      const es = [];
+      for (let i = 0; i < 8; i++) { const s = sprite(glowTexture(), i % 3 ? fx.c1 : fx.c2, 3.5, 0.8); group.add(s); es.push(s); }
+      return (t) => es.forEach((s, i) => {
+        const ph = ((t * 0.55 + i / 8) % 1);
+        const a = i * 0.83 + t * 0.2;
+        s.position.set(Math.cos(a) * (7 + ph * 9), 2 + ph * (CHAR.headY + 14), Math.sin(a) * (7 + ph * 9));
+        s.material.opacity = (1 - ph) * (0.55 + Math.sin(t * 13 + i * 5) * 0.25);
+      });
+    },
+    sigil(group, fx) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(13, 17, 28),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(fx.c1), transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.6;
+      group.add(ring);
+      return (t) => { ring.rotation.z = t * 0.7; ring.material.opacity = 0.3 + Math.sin(t * 2.2) * 0.12; };
+    },
+    crown(group, fx) {
+      const cs = [];
+      for (let i = 0; i < 5; i++) { const s = sprite(glowTexture(), fx.c1, 6, 0.9); group.add(s); cs.push(s); }
+      return (t) => cs.forEach((s, i) => {
+        const a = t * 1.1 + i * (Math.PI * 2 / 5);
+        s.position.set(Math.cos(a) * 9, CHAR.headY + 12 + Math.sin(t * 2.5 + i) * 1.5, Math.sin(a) * 9);
+      });
+    },
+    trail(group, fx, v) {
+      const ts = [];
+      for (let i = 0; i < 8; i++) { const s = sprite(glowTexture(), fx.c2, 10, 0); group.add(s); ts.push({ s, born: -1 }); }
+      let nextDrop = 0;
+      return (t, moved) => {
+        if (moved > 0.5 && t > nextDrop) {
+          nextDrop = t + 0.12;
+          const slot = ts.reduce((a, b) => (a.born < b.born ? a : b));
+          // drop at the visual's current WORLD spot, but sprites live in the
+          // player-local group — record the offset and walk it backward.
+          slot.born = t; slot.wx = v.group.position.x; slot.wz = v.group.position.z;
+        }
+        for (const o of ts) {
+          if (o.born < 0) { o.s.material.opacity = 0; continue; }
+          const age = t - o.born;
+          if (age > 0.9) { o.s.material.opacity = 0; o.born = -1; continue; }
+          o.s.position.set(o.wx - v.group.position.x, 4, o.wz - v.group.position.z);
+          o.s.material.opacity = (1 - age / 0.9) * 0.5;
+        }
+      };
+    },
+    frost(group, fx) {
+      const fs = [];
+      for (let i = 0; i < 6; i++) { const s = sprite(glowTexture(), fx.c1, 4, 0.7); group.add(s); fs.push(s); }
+      return (t) => fs.forEach((s, i) => {
+        const ph = ((t * 0.18 + i / 6) % 1);
+        const a = i * 1.3 + t * 0.35;
+        s.position.set(Math.cos(a) * 14, (CHAR.headY + 8) * (1 - ph), Math.sin(a) * 14);
+        s.material.opacity = Math.sin(ph * Math.PI) * 0.7;
+      });
+    }
+  };
+  function specsFor(equipped) {
+    const out = [];
+    for (const k of ['equippedWeapon', 'equippedHead', 'equippedChest', 'equippedFeet', 'equippedRing']) {
+      const id = equipped[k];
+      const it = id && ITEM_CATALOG[id];
+      if (it && it.legendary && it.fx) out.push({ id, fx: it.fx });
+    }
+    return out;
+  }
+  function sync(v, equipped) {
+    const specs = specsFor(equipped);
+    const key = specs.map((s) => s.id).join('|');
+    if (v.legendFxKey === key) return;
+    if (v.legendFx) { v.group.remove(v.legendFx.group); v.legendFx = null; }
+    v.legendFxKey = key;
+    if (!specs.length) return;
+    const group = new THREE.Group();
+    const updaters = [];
+    const lowTier = (typeof GFX !== 'undefined' && GFX.st && GFX.st.quality === 'low');
+    for (const spec of specs) {
+      const prims = lowTier ? spec.fx.prims.slice(0, 1) : spec.fx.prims;
+      for (const p of prims) {
+        if (PRIMS[p]) updaters.push(PRIMS[p](group, spec.fx, v));
+      }
+    }
+    v.group.add(group);
+    v.legendFx = { group, updaters, t: Math.random() * 10, lastX: v.group.position.x, lastZ: v.group.position.z };
+  }
+  function tick(dt) {
+    for (const id in visuals) {
+      const v = visuals[id];
+      if (!v || !v.legendFx) continue;
+      const fx2 = v.legendFx;
+      fx2.t += dt;
+      const moved = Math.hypot(v.group.position.x - fx2.lastX, v.group.position.z - fx2.lastZ);
+      fx2.lastX = v.group.position.x; fx2.lastZ = v.group.position.z;
+      for (const u of fx2.updaters) u(fx2.t, moved);
+    }
+  }
+  // Human-readable line for the shop ("what will everyone see?").
+  const PRIM_WORDS = {
+    aura: 'a breathing aura', orbit: 'orbiting motes', runes: 'runes bubbling upward',
+    bubbles: 'rising spectral bubbles', wisps: 'circling wisp-lights', embers: 'drifting embers',
+    sigil: 'a turning ground-sigil', crown: 'a crown of lights', trail: 'a fading light-trail', frost: 'falling frost-motes'
+  };
+  function describe(fx) { return fx.prims.map((p) => PRIM_WORDS[p] || p).join(' · '); }
+  return { sync, tick, glowTexture, describe };
+})();
+
 const EQUIP_ATTACH = {
   weapon: (v, itemId) => _reattachMesh(v, 'weaponMesh', 'armR',
     id => makeEquippedWeaponMesh(id),
@@ -14304,6 +14685,8 @@ function applyEquipVisual(id, equipped) {
   EQUIP_ATTACH.head  (v, equipped.equippedHead   || null);
   EQUIP_ATTACH.feet  (v, equipped.equippedFeet   || null);
   EQUIP_ATTACH.ring  (v, equipped.equippedRing   || null);
+  // Legendary equipment effects — visible to everyone in the room.
+  LEGEND_FX.sync(v, equipped);
   // Holly Wand bearers glow — a soft additive body aura (any player, any
   // scene), plus a real night light from the shared pool (updateWandLights).
   const hasWand = (equipped.equippedWeapon === 'holly_wand');
@@ -14450,7 +14833,12 @@ function clearStatusVisual(v) {
   if (v.wolfMarkMesh)  { v.group.remove(v.wolfMarkMesh);  v.wolfMarkMesh  = null; }
   if (v.wolfPactMesh)  { v.group.remove(v.wolfPactMesh);  v.wolfPactMesh  = null; }
   if (v.wardMesh)      { v.group.remove(v.wardMesh);      v.wardMesh      = null; }
-  if (v.torso && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
+  // KayKit rigs expose `torso` as a positioning Group (no material) — the
+  // shirt tint only exists on classic procedural humanoids. Guarding here
+  // fixes the TypeError every status apply/clear threw on KayKit visuals
+  // (user-reported via Raven's Cloak, Session I).
+  if (v.torso && v.torso.material && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
+  if (v.colorcycleSprite) { v.group.remove(v.colorcycleSprite); v.colorcycleSprite = null; }
   v.statusType = null;
 }
 
@@ -14461,6 +14849,16 @@ function applyStatusVisual(id, status) {
   if (v.statusType === newType) return;
   clearStatusVisual(v);
   v.statusType = newType;
+  if (newType === 'colorcycle' && !(v.torso && v.torso.material)) {
+    // Classic rigs tint the shirt; KayKit rigs get a hue-cycling glow.
+    v.colorcycleSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: LEGEND_FX.glowTexture(), color: 0xffffff, transparent: true,
+      opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    v.colorcycleSprite.scale.setScalar(46);
+    v.colorcycleSprite.position.y = CHAR.hipY + CHAR.torsoH / 2;
+    v.group.add(v.colorcycleSprite);
+  }
   if (newType === 'shrink') {
     v.group.scale.setScalar(0.5);
   } else if (newType === 'giant') {
@@ -14512,8 +14910,12 @@ function updateStatusVisuals(dt) {
       for (const bat of v.batsGroup.children) {
         bat.position.y = CHAR.headY + 8 + Math.sin(now * 0.004 + bat.userData.offset) * 4;
       }
-    } else if (v.statusType === 'colorcycle' && v.torso) {
+    } else if (v.statusType === 'colorcycle' && v.torso && v.torso.material) {
       v.torso.material.color.setHSL((now * 0.0006) % 1, 0.7, 0.55);
+    } else if (v.statusType === 'colorcycle' && v.colorcycleSprite) {
+      // KayKit rigs can't tint the shared shirt material — hue-cycle the
+      // aura sprite added in applyStatusVisual instead.
+      v.colorcycleSprite.material.color.setHSL((now * 0.0006) % 1, 0.8, 0.6);
     } else if (v.statusType === 'ravencloak' && v.cloakMesh) {
       v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
     } else if (v.statusType === 'wolfmark' && v.wolfMarkMesh) {
@@ -15189,6 +15591,186 @@ function openPassModal() {
   passModalOpen = true;
 }
 
+// ── 🌒 The Midnight Peddler's shop (Session I) ──────────────────────────
+let legendModalOpen = false;
+let legendCountdownTimer = null;
+const LEGEND_TIER_NAMES = { 1: 'CURIO', 2: 'RELIC', 3: 'ARCANUM', 4: 'SEVERANCE-CLASS' };
+const LEGEND_STAT_LABELS = { power: 'Power', guard: 'Guard', vitality: 'Max HP', haste: 'Haste', swift: 'Speed', leech: 'Lifesteal', xp: 'XP', forage: 'Forage' };
+function legendStatLine(stats) {
+  return Object.entries(stats).map(([k, val]) =>
+    '+' + (k === 'vitality' ? val : Math.round(val * 100) + '%') + ' ' + (LEGEND_STAT_LABELS[k] || k)
+  ).join(' · ');
+}
+function openLegendShop() {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'legend_shop_open' }));
+}
+function closeLegendShop() {
+  const modal = document.getElementById('legendModal');
+  if (modal) modal.classList.add('hidden');
+  legendModalOpen = false;
+  clearInterval(legendCountdownTimer);
+}
+function renderLegendShop(msg) {
+  const modal = document.getElementById('legendModal');
+  if (!modal) return;
+  myMoonstones = msg.balance != null ? msg.balance : myMoonstones;
+  document.getElementById('legendGreeting').textContent = msg.greeting || '';
+  document.getElementById('legendErr').textContent = '';
+  refreshMsUI();
+  const cd = document.getElementById('legendCountdown');
+  const paintCountdown = () => {
+    const ms = (msg.nextRotationAt || 0) - Date.now();
+    if (ms <= 0) { cd.textContent = '🌒 The stock is turning over — reopen the stall.'; return; }
+    const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60;
+    cd.textContent = '🌒 New wonders in ' + (d > 0 ? d + 'd ' + h + 'h' : h + 'h ' + m + 'm') + ' — five of a hundred, never the same five.';
+  };
+  paintCountdown();
+  clearInterval(legendCountdownTimer);
+  legendCountdownTimer = setInterval(paintCountdown, 30000);
+  const list = document.getElementById('legendItems');
+  list.innerHTML = '';
+  for (const it of msg.items || []) {
+    const row = document.createElement('div');
+    row.className = 'legendRow tier' + it.tier;
+    const nameLine = document.createElement('div');
+    nameLine.className = 'legendName';
+    nameLine.textContent = it.icon + ' ' + it.name;
+    const tier = document.createElement('span');
+    tier.className = 'legendTier';
+    tier.textContent = LEGEND_TIER_NAMES[it.tier] || '';
+    nameLine.appendChild(tier);
+    row.appendChild(nameLine);
+    const desc = document.createElement('div');
+    desc.className = 'legendDesc';
+    desc.textContent = it.desc;
+    row.appendChild(desc);
+    const fxLine = document.createElement('div');
+    fxLine.className = 'legendFxLine';
+    fxLine.style.color = it.fx && it.fx.c1 ? it.fx.c1 : '';
+    fxLine.textContent = '✦ Everyone sees: ' + (it.fx ? LEGEND_FX.describe(it.fx) : '—');
+    row.appendChild(fxLine);
+    const stats = document.createElement('div');
+    stats.className = 'legendStats';
+    stats.textContent = '⚔ ' + legendStatLine(it.stats) + '  (' + (ITEM_CATALOG[it.id] ? (it.slot || 'trinket') : it.slot) + ')';
+    row.appendChild(stats);
+    const buyRow = document.createElement('div');
+    buyRow.className = 'legendBuyRow';
+    const price = document.createElement('span');
+    price.className = 'legendPrice';
+    price.textContent = it.ms + ' 💎';
+    buyRow.appendChild(price);
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'btn legendBuyBtn';
+    const canAfford = myMoonstones >= it.ms;
+    buyBtn.textContent = canAfford ? 'Buy' : 'Need ' + (it.ms - myMoonstones) + ' more 💎';
+    buyBtn.disabled = !canAfford;
+    buyBtn.addEventListener('click', () => {
+      document.getElementById('legendErr').textContent = '';
+      ws.send(JSON.stringify({ type: 'legend_shop_buy', itemId: it.id }));
+    });
+    buyRow.appendChild(buyBtn);
+    row.appendChild(buyRow);
+    list.appendChild(row);
+  }
+  modal.classList.remove('hidden');
+  legendModalOpen = true;
+}
+const legendCloseBtn = document.getElementById('legendCloseBtn');
+if (legendCloseBtn) legendCloseBtn.addEventListener('click', closeLegendShop);
+const legendGetMsBtn = document.getElementById('legendGetMsBtn');
+if (legendGetMsBtn) legendGetMsBtn.addEventListener('click', () => { closeLegendShop(); openMsModal(); });
+
+// ── 💎 Moonstones UI (Session I) ────────────────────────────────────────
+let msModalOpen = false;
+function refreshMsUI() {
+  const menuVal = document.getElementById('menuMsVal');
+  if (menuVal) menuVal.textContent = String(myMoonstones);
+  const bal = document.getElementById('msModalBalance');
+  if (bal) bal.innerHTML = 'You carry <b>' + myMoonstones + '</b> 💎';
+  const lbal = document.getElementById('legendBalance');
+  if (lbal) lbal.textContent = 'You carry ' + myMoonstones + ' 💎';
+}
+function msPriceLabel(cents) { return '$' + (cents / 100).toFixed(2); }
+function openMsModal() {
+  const modal = document.getElementById('msModal');
+  if (!modal) return;
+  const err = document.getElementById('msModalErr');
+  if (err) err.textContent = '';
+  const list = document.getElementById('msPackList');
+  if (list) {
+    list.innerHTML = '';
+    const packs = msPacksCatalog || {};
+    for (const packId in packs) {
+      const p = packs[packId];
+      const btn = document.createElement('button');
+      btn.className = 'msPackBtn';
+      const label = document.createElement('span');
+      label.textContent = '💎 ' + p.ms + ' — ' + p.name;
+      const price = document.createElement('span');
+      price.className = 'msPackPrice';
+      price.textContent = msPriceLabel(p.cents);
+      btn.appendChild(label);
+      btn.appendChild(price);
+      btn.addEventListener('click', () => buyMoonstonePack(packId, btn));
+      list.appendChild(btn);
+    }
+    if (!Object.keys(packs).length) {
+      list.textContent = 'The Moonstone ledger hasn\u2019t opened yet — join the town first.';
+    }
+  }
+  refreshMsUI();
+  modal.classList.remove('hidden');
+  msModalOpen = true;
+}
+function closeMsModal() {
+  const modal = document.getElementById('msModal');
+  if (modal) modal.classList.add('hidden');
+  msModalOpen = false;
+}
+const msModalCloseBtn = document.getElementById('msModalCloseBtn');
+if (msModalCloseBtn) msModalCloseBtn.addEventListener('click', closeMsModal);
+
+async function buyMoonstonePack(packId, btn) {
+  const err = document.getElementById('msModalErr');
+  if (!savedAccount || !savedAccount.token) {
+    if (err) err.textContent = '⚠️ Moonstones bind to an account — log in (or register) first, then come back.';
+    return;
+  }
+  // Packaged mobile apps buy through the store (StoreKit / Play Billing) —
+  // mobile-payments.js installs TOWNCHAT_IAP with a generic buyProduct.
+  if (window.TOWNCHAT_IAP && typeof window.TOWNCHAT_IAP.buyProduct === 'function') {
+    window.TOWNCHAT_IAP.buyProduct(packId, btn);
+    return;
+  }
+  if (!paymentsEnabled) {
+    if (err) err.textContent = '⚠️ Purchases aren\u2019t set up on this server yet.';
+    return;
+  }
+  const restore = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout…'; }
+  try {
+    const token = await requestResumeToken();
+    if (token) sessionStorage.setItem('tc_resume', JSON.stringify({ token, name: me ? me.name : '', at: Date.now() }));
+  } catch (e) {}
+  fetch(apiUrlMaybe('/api/checkout'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product: packId, account_token: savedAccount.token })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.url) { window.location.href = data.url; }
+      else {
+        if (err) err.textContent = '⚠️ ' + (data.error || 'Could not start checkout.');
+        if (btn) { btn.disabled = false; btn.textContent = restore; }
+      }
+    })
+    .catch(() => {
+      if (err) err.textContent = '⚠️ Could not reach the server.';
+      if (btn) { btn.disabled = false; btn.textContent = restore; }
+    });
+}
+
 function closePassModal() {
   const modal = document.getElementById('passModal');
   if (modal) modal.classList.add('hidden');
@@ -15520,8 +16102,14 @@ if (auctionCreateSubmitBtn) auctionCreateSubmitBtn.addEventListener('click', () 
     return;
   }
   err.textContent = '';
-  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours }));
+  const currency = (document.getElementById('auctionCurrency') || {}).value === 'ms' ? 'ms' : 'gold';
+  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours, currency }));
   document.getElementById('auctionCreateForm').classList.add('hidden');
+});
+const auctionCurrencySel = document.getElementById('auctionCurrency');
+if (auctionCurrencySel) auctionCurrencySel.addEventListener('change', () => {
+  const note = document.getElementById('auctionMsFeeNote');
+  if (note) note.classList.toggle('hidden', auctionCurrencySel.value !== 'ms');
 });
 
 function formatTimeRemaining(expiresAt) {
@@ -15585,10 +16173,11 @@ function renderAuctionModal() {
       row.appendChild(itemLine);
     }
 
+    const sym = (l.currency === 'ms') ? ' 💎' : ' 🪙';
     const bidLine = l.currentBid != null
-      ? ('Current bid: ' + l.currentBid + ' 🪙 by ' + l.currentBidderName)
-      : ('Starting bid: ' + l.startingBid + ' 🪙');
-    const buyoutLine = l.buyoutPrice ? (' · Buyout: ' + l.buyoutPrice + ' 🪙') : '';
+      ? ('Current bid: ' + l.currentBid + sym + ' by ' + l.currentBidderName)
+      : ('Starting bid: ' + l.startingBid + sym);
+    const buyoutLine = l.buyoutPrice ? (' · Buyout: ' + l.buyoutPrice + sym) : '';
     const metaLine = document.createElement('div');
     metaLine.className = 'auctionMeta';
     metaLine.textContent = 'Seller: ' + l.sellerName + ' · ' + bidLine + buyoutLine + ' · ' + formatTimeRemaining(l.expiresAt);
@@ -16807,6 +17396,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
+  if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -16825,7 +17415,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -16942,6 +17532,11 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} browse the shop`;
     return;
   }
+  if (kiosk && kiosk.npc === 'legend') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} browse the Peddler's wonders`;
+    return;
+  }
   if (kiosk && kiosk.npc === 'quest') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} talk to ${kiosk.npcName}`;
@@ -16982,6 +17577,14 @@ window.addEventListener('keydown', (e) => {
   const _menuSheet = document.getElementById('menuSheet');
   if (_menuSheet && !_menuSheet.classList.contains('hidden')) {
     if (e.key === 'Escape' && !e.repeat) _menuSheet.classList.add('hidden');
+    return;
+  }
+  if (legendModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeLegendShop();
+    return;
+  }
+  if (msModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeMsModal();
     return;
   }
   if (passModalOpen) {
@@ -17346,6 +17949,8 @@ function update(dt) {
   // too, same reasoning as remote players just below.
   updateDayNightCycle();
   KK.tick(dt);
+  LEGEND_FX.tick(dt);
+  if (peddlerStallGroup && peddlerStallGroup.userData.tick) peddlerStallGroup.userData.tick(performance.now() / 1000);
   updateAnimalVisuals(dt);
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);
@@ -17534,6 +18139,17 @@ if (location.search.includes('testdrive=1')) {
       return currentInterior.kiosks.map(k => ({ ...k, world: sceneToWorldPos(me.room, k.x, k.z) }));
     },
     isNight() { return getDayNightState().isNight; },
+    // Session I QA probes: collision registries + direct status-visual pokes
+    wallsCount() { return { active: walls.length, town: TOWN_WALLS ? TOWN_WALLS.length : -1, wilds: WILDS_WALLS.length }; },
+    applyStatus(type) { applyStatusVisual(myId, type ? { type, expiresAt: Date.now() + 10000 } : null); },
+    fxInfo() {
+      const out = [];
+      for (const id in visuals) {
+        const v = visuals[id];
+        if (v.legendFx) out.push({ id, key: v.legendFxKey, updaters: v.legendFx.updaters.length, sprites: v.legendFx.group.children.length });
+      }
+      return out;
+    },
     armed() { return armedTarget ? armedTarget.name : null; },
     players() { return Object.entries(players).map(([id, p]) => ({ id, name: p.name, x: p.x, y: p.y, room: p.room, isMe: id === myId })); },
     sceneCounts() {

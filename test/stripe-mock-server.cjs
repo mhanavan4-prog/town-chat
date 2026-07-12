@@ -17,7 +17,10 @@ const mockStripe = () => ({
         paidSessions.set(id, {
           id,
           payment_status: 'paid',
-          created: Math.floor(Date.now() / 1000)
+          created: Math.floor(Date.now() / 1000),
+          // Moonstone packs ride their pack id in metadata (Session I) —
+          // the real Stripe echoes it back on retrieve, so the mock must too.
+          metadata: opts.metadata || {}
         });
         return { id, url: opts.success_url.replace('{CHECKOUT_SESSION_ID}', id) };
       },

@@ -697,6 +697,179 @@ camDebug, segT, sunSnap.
 
 ---
 
-*Last updated Saturday, July 11, 2026, afternoon — end of Session G (stair feel + crackling +
-Holly Wand + UI fixes). If you add to the project, append a short dated note here so the next
-session inherits it.*
+## Session H (2026-07-12, late night) — mobile apps REBUILT from scratch (Sessions C→G re-sync)
+
+**Discovery:** `~/Desktop/town-chat-ios` and `-android` were EMPTY — Michael connected freshly
+created folders; the Session C projects were never on disk (or were lost). So instead of the
+planned www re-sync, both apps were rebuilt from scratch as complete **Capacitor 8** projects
+(needs Node 22+, Xcode 26+ / Android Studio Otter 2025.2.1+; `cordova-plugin-purchase` ^13.15.4
+— versions verified current July 2026). Extracted onto the Mac from tarballs via
+`_to_delete/town-chat-{ios,android}.tgz` (safe to trash); 68 files each, md5-verified.
+
+- **`www/` = `public/` current through Session G + the 3 mobile diffs, re-applied fresh:**
+  1. `client.js` — `SERVER_ORIGIN`/`apiUrl()`/`wsUrl()` inserted INSIDE the IIFE right after
+     `const proto = …` (~line 30; client.js is `(function(){"use strict";…})()` — the plumbing is
+     scoped, NOT on window; `apiUrlMaybe` finds it via scope). Rewired: `setupWs` WebSocket,
+     login/register, `/api/config`, `/api/checkout`, `/api/verify-session`, `/api/send-sms`
+     (the Session D roster fetch already used `apiUrlMaybe`). IAP hook at top of
+     `startPassCheckout()` → `window.TOWNCHAT_IAP.buyPass` when present.
+  2. `index.html` — CDN three.js + fallback block replaced with plain local
+     `<script src="three.min.js">`; `config.js` + `mobile-payments.js` tags added right before
+     `client.js`.
+  3. `config.js` per platform — **`TOWNCHAT_SERVER` is now BAKED IN = `https://town-chat.onrender.com`
+     (Michael confirmed this session — the long-unknown Render URL!)**, `TOWNCHAT_PLATFORM`,
+     `TOWNCHAT_IAP_PRODUCT` `town_pass_24h`; android adds `TOWNCHAT_ANDROID_PKG`
+     `com.thornreach.game`. Plus `mobile-payments.js` (new implementation): CdvPurchase v13
+     `store.validator` → `POST /api/verify-iap` `{platform, productId, receipt |
+     purchaseToken+packageName, accountToken}` → approved→verify()→verified→finish(); requires a
+     logged-in account (pass follows the account); cancel-quiet, replay-proof server-side.
+- **Project scaffolding rebuilt:** `capacitor.config.json` (appId `com.thornreach.game`, appName
+  Thornreach), per-platform `package.json`, `assets/` in the **@capacitor/assets layout**
+  (icon-only/-foreground/-background 1024 + splash/splash-dark 2732 — pentacle regenerated with
+  the Session E exact 72° geometry, mint→teal→ice on violet night), and rewritten docs:
+  `BUILD-IOS.md`/`BUILD-ANDROID.md` (full path incl. store product setup + the Render env vars
+  `APPLE_IAP_SHARED_SECRET`/`APPLE_BUNDLE_ID`/`GOOGLE_SERVICE_ACCOUNT_JSON`/`GOOGLE_PLAY_PACKAGE`),
+  `STORE-LISTING.md`, `PRIVACY-POLICY.md` (needs a public URL before store submission), `README.md`.
+- **Verified in-sandbox 12/12** (Playwright, mobile viewport, www served from :8080 vs game server
+  on :3000 — the app's exact cross-origin shape, config.js route-intercepted to localhost): join
+  screen renders; guest join over the CROSS-ORIGIN WebSocket; every client `/api` call hits the
+  game origin, zero leak to the app origin; CORS; `/api/verify-iap` answers the contract
+  (503 apple_iap_not_configured on junk receipt = wired, unconfigured); clicking the real
+  `#unlockBtn` delegates to the IAP hook (no Stripe redirect); touchMode UI; 62 KayKit asset
+  responses from the app bundle; zero page errors; in-town screenshot shows the full tier-3 look
+  incl. platform-aware welcome copy ("tap the glowing prompt").
+- **NOT verifiable in-sandbox (same as Session C):** native compile/signing, real StoreKit/Play
+  purchases — the receipt-field extraction inside `store.validator` is the one off-device unknown
+  (written defensively: android falls back to parsing `tx.receipt` JSON for the token).
+- **Michael's remaining path (per BUILD docs):** `npm install` → `npx cap add ios|android` →
+  `npx capacitor-assets generate` → `npx cap sync` → camera permission (Info.plist string /
+  AndroidManifest `CAMERA`) → store products `town_pass_24h` + Render env vars → TestFlight /
+  internal testing. Warn him about Render free-tier cold starts + save wipes before real launch.
+- Server.js and web `public/` untouched. Git was clean & fully pushed through Session G at
+  session start. Sandbox notes: `pkill -f "node server.js"` KILLS YOUR OWN SHELL (the pattern
+  matches the command itself) — use `pkill -f "server[.]js"`; QA recipe = intercept `config.js`
+  in Playwright to point `TOWNCHAT_SERVER` at localhost.
+
+---
+
+## Session I (2026-07-12, small hours, same conversation as H) — 💎 MOONSTONES, THE MIDNIGHT PEDDLER, and five fixes
+
+The big monetization round: a premium currency + 100 legendary items + a weekly rotating shop +
+a Moonstone auction lane, plus five user-reported fixes shipped along the way. `server.js`,
+`public/client.js`, `public/index.html` all changed; mobile apps re-synced (both Desktop folders
+current). **`npm test` 8/8 (new moonstones.test.js: 42 checks) · audit-playthrough clean ·
+Playwright e2e 20/20 · zero page errors.** Michael must `git add server.js public/client.js
+public/index.html test/moonstones.test.js test/stripe-mock-server.cjs HANDOFF.md && git commit &&
+git push` so Render deploys — the new client REQUIRES the new server (init contract).
+
+### 💎 Moonstones (premium currency)
+- **Server:** `moonstones.json` in DATA_DIR `{balances:{accountKey:n}, grants:{grantId:…}}` via
+  atomicWriteJson. Account-bound — guests can neither buy nor hold. `msBalance/msAdjust/
+  grantMoonstones` (replay-proof: one grantId = one credit, retries echo balance). Packs:
+  `MS_PACKS` ms_pack_small 200/$1.99 · medium 550/$4.99 · large 1200/$9.99.
+- **Web purchases:** `/api/checkout` now takes `{product, account_token}` (default 'pass' —
+  original flow untouched); MS sessions carry `metadata.ms_pack` and land on
+  `/?ms_session={ID}` → **`/api/verify-ms-session`** (grant by the session's OWN metadata,
+  requires account_token → 401 otherwise). Client stashes tc_resume exactly like the pass flow.
+- **Mobile purchases:** `/api/verify-iap` now routes by productId — pass → pass grant; MS pack →
+  `grantMoonstones(txId,…)` (accountToken REQUIRED → 400 account_required).
+  `verifyAppleReceipt(receipt, productId)` filters by the requested product now.
+  mobile-payments.js registers all 4 consumables and exposes **`buyProduct(productId, btn)`**
+  (buyPass delegates). ⚠️ Michael must create the 3 new products in BOTH store consoles —
+  BUILD-IOS/ANDROID.md updated with exact ids/names/prices.
+- **WS:** init carries `moonstones`, `msPacks`, `msAuctionFee`, `legendaryCatalog`; pushes:
+  `ms_state{balance}`; request: `ms_balance`; errors: `ms_error{message}`. After a checkout
+  return the client re-asks `ms_balance` at 2.5s/6s — init snapshot vs verify grant vs push can
+  interleave any way; the re-ask makes server truth final (race found in QA, fixed).
+- **Client UI:** ☰ menu row "💎 Moonstones: N" → `#msModal` (3 pack cards; web→Stripe redirect,
+  app→TOWNCHAT_IAP.buyProduct; login nudge otherwise). `refreshMsUI()` paints menu/modal/shop.
+
+### 🌒 The Midnight Peddler (weekly legendary shop)
+- **`LEGENDARY_CATALOG`** (server.js, ~line 1105): **100 hand-authored items** (20/slot ×
+  weapon/head/chest/feet/ring; tiers 8/6/4/2 per slot priced 150/300/600/1200 💎 = CURIO/RELIC/
+  ARCANUM/SEVERANCE-CLASS). Every item: witchy lore desc, unique emoji icon (validated against
+  ALL existing icons), **stats capped at relic parity** (power≤.18 guard≤.12 vit≤20 haste≤.10
+  swift≤.12 leech≤.06 xp≤.08 forage≤.15 — prestige, NOT pay-to-win; moonstones.test.js enforces
+  the ceilings) and an **fx spec** `{c1,c2,prims[]}`. Generator + validators archived at
+  `/root/gen_legendaries.py` in the Session I sandbox (not in repo; the literal in server.js is
+  the source of truth now). Items merge into ITEM_CATALOG + EQUIP_STATS at boot; client receives
+  the catalog IN INIT and merges (never hand-copy to client.js).
+- **Rotation:** `legendaryWeeklySet(now)` — mulberry32 seeded by week index from
+  `LEGENDARY_EPOCH` (Mon 2026-01-05 UTC; don't change it — reshuffles history), deterministic
+  across restarts/clients, flips Mondays 00:00 UTC. 5 at a time; ~year covers >60 distinct.
+- **Shop:** WS `legend_shop_open` → `legend_shop_state{items, nextRotationAt, balance,
+  greeting}`; `legend_shop_buy{itemId}` validates weekly-set membership + balance + pack room
+  (item → CARRIED inventory; stones burn). Client `#legendModal`: tier-colored rows, lore, "✦
+  Everyone sees: …" fx line, stat line, countdown, ＋Get Moonstones. **The stall:** client-only
+  dressing at `PEDDLER_SPOT (1350,1180)` (clear ground, verified) — violet canopy, cloaked
+  figure, lantern glow, drifting motes; OUTDOOR_KIOSKS entry `npc:'legend'` → interact hint
+  "browse the Peddler's wonders" (built in buildTownNPCs → buildMidnightPeddler).
+- **Auction 💎 lane:** listings carry `currency:'gold'|'ms'` (old listings default gold).
+  MS escrow/refunds hit moonstone balances (bank untouched); resolution pays seller
+  `floor(bid*0.9)` — **AUCTION_MS_FEE 0.10 house cut** (deliberate sink), winner gets the item
+  in bank slots as ever. Selfie/voice listings stay gold-only. Client: "Sell for" select +
+  fee note; rows show 💎/🪙 by listing.
+
+### ✨ LEGEND_FX (visible-to-everyone equipment effects)
+- client.js module before EQUIP_ATTACH. 10 primitives: aura/orbit/runes/bubbles/wisps/embers/
+  sigil/crown/trail/frost — additive sprites (shared canvas textures, ≤16/player, no per-frame
+  allocs; sigil is a rotating ring mesh; runes are ᚠᚨᛉᛟᛞᛗ glyph sprites that "bubble off").
+  Hooks: `LEGEND_FX.sync(v, equipped)` at the end of applyEquipVisual (keyed rebuild on equip
+  change); `LEGEND_FX.tick(dt)` beside KK.tick in the render loop. GFX 'low' → first prim only.
+  Verified live on TWO clients (fxInfo probe: `lg_banshee_garland` → 3 updaters, 9 sprites on
+  the witness's view of the wearer). On real GPUs the bloom pass makes these pop far more than
+  SwiftShader screenshots suggest.
+
+### The five user-reported fixes (all verified in the 20/20 e2e)
+1. **Torch/campfire healing stuck at 103/108** — `tickTorchHealing` gated on `health < 100`
+   (pre-Session-B cap) while clamping to playerMaxHealth. Gate now uses playerMaxHealth. (Only
+   stale 100-gate in the codebase — swept.)
+2. **Raven's Cloak TypeError (v.torso.material)** — KayKit rigs expose `torso` as a positioning
+   Group (no material), so EVERY status apply/clear crashed on KK visuals. Guarded both sites;
+   colorcycle got a KK-safe hue-cycling aura sprite (classic rigs still tint the shirt).
+3. **No collision in the Wilds** — TWO bugs: `addNatureDecor` pushed colliders into whatever
+   `walls` pointed at (the TOWN array during wilds build — Wilds got nothing AND town got
+   invisible colliders at overlapping coords); and the Wilds "forest" (addSpookyDecor) was
+   `Math.random()` per client — every player saw a DIFFERENT forest, so it could never collide.
+   Now: addNatureDecor takes an explicit wallsOut (wilds → WILDS_WALLS); addSpookyDecor is
+   seeded-deterministic (same forest for everyone, spawn/campfire clearance zones) and
+   registers ~293 colliders (trees r9, gravestones r6, ruins r16, campfire pits r14,
+   waymarkers r9, werewolf tree r34, KK dead trees r11). Bone piles stay walk-through.
+4. **Torchkeepers clipping temple pillars** — their dusk/dawn walks were straight-line lerps.
+   `torchWalkPoint()` routes any platform-crossing walk through `TEMPLE_GATE` (north edge),
+   constant speed, same fixed durations; segment-vs-AABB test leaves non-crossing walks direct.
+   Unit-verified: closest pillar approach ≥36u from all sampled starts.
+5. **"Town chat banner" never leaving (desktop report)** — `#roomTag` (the location pill) now
+   fades (CSS .tagFaded) 5s after first join and after every room change; any change re-shows
+   it. Plus the ask that came with it: ☰ menu already had 🎟️ Town Pass; added the 💎 row so
+   both purchases work from anywhere (no walking back to town).
+
+### QA seams added (testdrive=1 only)
+`wallsCount()` (active/town/wilds collider counts), `applyStatus(type)` (direct status-visual
+poke), `fxInfo()` (per-visual legendary fx: key/updaters/sprites). stripe-mock-server.cjs now
+carries `metadata` through create/retrieve (needed by ms_pack sessions). QA scripts (sandbox,
+not repo): qa_moonstones.cjs (20 checks), fx_showcase.cjs. Gotchas re-learned: `pkill -f` with
+the plain process name in the SAME command string kills your own shell (use `[x]` brackets and
+separate calls); on the device VM tar can't overwrite (no unlink) — extract to a scratch dir
+under `_to_delete/` and `cp -Rf` over.
+
+### State / next session
+- **Mac is current:** town-chat (server.js, client.js, index.html, 2 test files, HANDOFF) +
+  BOTH app folders (www re-synced via the fixed build script — it now preserves config.js +
+  mobile-payments.js; BUILD/STORE docs list all 4 IAP products). `_to_delete/` gained the
+  transfer tarballs + ios-x/android-x scratch dirs — all safe to trash.
+- **Michael's queue:** (1) git push (Render deploy — REQUIRED before web players return);
+  (2) create the 3 Moonstone products in App Store Connect + Play Console (BUILD docs);
+  (3) `npx cap sync` + version bump + re-archive both apps whenever he next ships them;
+  (4) his verdict on Peddler stall placement (1350,1180 — easy to move) and MS pricing
+  (constants in one place: MS_PACKS + tier prices in the catalog).
+- **Balance levers** if playtesting demands: MS_PACKS, tier prices, AUCTION_MS_FEE, stat
+  ceilings (regenerate catalog if changing), LEGENDARY_SET_SIZE / week length.
+- Weekly-set determinism means the shop can be previewed for ANY date:
+  `legendaryWeeklySet(Date.parse('2026-08-01'))` in a node REPL with the exports.
+
+---
+
+*Last updated Sunday, July 12, 2026, ~4:30 AM EDT — end of Session I (Moonstones + Midnight
+Peddler + legendary catalog + five fixes). If you add to the project, append a short dated note
+here so the next session inherits it.*
