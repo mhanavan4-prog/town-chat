@@ -876,6 +876,76 @@ under `_to_delete/` and `cp -Rf` over.
 
 ---
 
-*Last updated Sunday, July 12, 2026, ~4:30 AM EDT — end of Session I (Moonstones + Midnight
-Peddler + legendary catalog + five fixes). If you add to the project, append a short dated note
-here so the next session inherits it.*
+## Session J (2026-07-12, morning) — THE MOBILE UX OVERHAUL (clutter, panels, hotkeys, music)
+
+`public/index.html` + `public/client.js` only (server.js untouched; `npm test` 8/8). Both app
+folders' `www/` re-synced the same session (patch-based: diffed pristine public vs www to
+recover the 3 mobile diffs, applied them onto the new files — `node --check` + a cross-origin
+app-shell smoke 8/8 confirmed both diff sets landed). Verified: mobile e2e suite **69/69**,
+desktop regression 13/13, zero page errors anywhere. All touch-scoped via `body.touchMode` —
+desktop behavior is pixel-identical except where noted.
+
+1. **One-thing-on-screen rule (the big clutter fix).** `watchOpenPanels()` (client.js, above
+   buildMobileQuickSlots) observes the class attribute of every `.overlay`, the four
+   floatPanels, `#inventoryPanel`, `#menuSheet`, `#chatPanel` → keeps `body.panelOpen` /
+   `body.composeOpen` truthful no matter who opens/closes what. CSS under touchMode hides
+   joystick/joyZone, actionCluster, xpStrip, interactHint, mobileTopBar, trackers, streakTag,
+   partyHud while ANY panel is open (composeOpen keeps the top bar — 💬 is how chat closes;
+   chat banners stay visible). The emote wheel now also sets `body.emoteWheelOpen` → hint/
+   strip/joystick step back (cluster dim was already there). New modals inherit all of this
+   free if they use class="overlay".
+2. **Full-screen panel takeover (user request).** On touch, Inventory / Journal / Skills /
+   Attacks / Spellbook / Loadout fill the screen (no floating mini-windows): sticky header
+   with **‹ Menu** top-LEFT (returns to the ☰ sheet — injected by `mobileFullscreenPanels()`),
+   sticky **Close at the BOTTOM** (Michael explicitly wants Close at the bottom, NOT top-right).
+   Inventory got a new injected header + bottom Close (`#invMobHead`/`#invMobCloseBtn`; the old
+   ✕ tab button is hidden on touch, still wired). `initDraggables()` skips touch entirely.
+   Journal's duplicate inner story title is hidden on touch.
+3. **z-order fix that matters everywhere:** `.floatPanel`/`#inventoryPanel` z 10/6 → **19** —
+   action buttons (z 8/9) can never draw over an open panel, while overlay modals (z 20 —
+   NOTE: `.overlay` is 20, only #menuSheet/#imageLightbox are 60) still paint above panels
+   (loadout-over-attacks etc.). Don't raise panels ≥20.
+4. **XP strip** no longer threads through the action wheel: on touch it docks top-left under
+   the vitals pill (Lv label dropped — the pill already says it), bar 72px. unlockToast/
+   announceBanner/chatNotifStack shift down ~32px to clear its lane.
+5. **Hold-to-read ability peeks (user request).** `attachAbilityPeek(el, getInfo)` — press-and-
+   hold ≥475ms (`ABILITY_PEEK_MS`) shows `#abilityPeek` (name / kind line / description /
+   ready-or-recharging) until release; the release is SWALLOWED (touchend preventDefault + a
+   one-shot 300ms capture-phase click guard) so a peek never casts; quick taps cast exactly as
+   before. Wired: qs1-3 (re-tagged via `_peekAbilityId` on every rebuild), btnStrike, btnKit,
+   btnCm, and every loadout slot/ability row. Works with mouse-hold on desktop too.
+6. **Loadout editor redesigned on touch (user request — "confusing").** Three big labeled
+   **WHEEL 1/2/3** cards (icon + ability NAME) up top, "Rest of your kit" as small numbered
+   tiles, "All abilities" as icon+name ROWS with WHEEL badges; state-aware hint copy; the
+   swap-place flow unchanged (`loadoutPlaceAbility`). Desktop keeps the classic 12-slot grid.
+7. **Witchy music (user request — Music row did nothing).** The row used to proxy the cafe-only
+   muteBtn. Now: `MUSIC_TRACKS` — four generative WebAudio recipes (🌙 Moonrise, 🔮 The Coven's
+   Waltz, 🌲 Wilds at Dusk, 🎻 Ember Jig = the old tavern tune, quickened), all code, no audio
+   files. ☰ row cycles Off → each track → Off (sheet stays open to listen; toast announces),
+   persisted `tc_music`, first-gesture unlock for saved picks. The cafe's auto-tune still plays
+   for players with no pick (`startMusic('ember_jig',{roomTune:true})` / `stopMusic({roomTune:
+   true})` — a player-chosen track outranks the room and survives entering/leaving buildings).
+   muteBtn still mutes. Desktop gets the tracks too.
+8. **Mobile copy pass:** every "Close (Esc)" button says "Close" on touch; the Attacks how-to
+   says "tap who to hit" (`#attackHowTo`, set in openAttackPanel).
+
+**New testdrive probe:** `music()` → {choice, playing, trackId, roomTune, ctx}.
+**Harness notes for next session:** offsetParent is ALWAYS null on position:fixed elements —
+never use it for visibility checks (bit us twice; use computedStyle + rect). Building doors are
+entered POSITIONALLY (roomAt() in the move loop) — teleport just inside the footprint + a tiny
+joystick wiggle; the "pass through the door" hint is not a button that enters. Combat toasts
+near spawn can be "hits for N!"/"fells for N!" from real night mobs — park test bots at
+(220,220) for quiet. Scripts live in the ephemeral cloud `~/harness` (audit/verify/desktop-
+smoke/app-smoke) — verify.cjs is the keeper: 69 assertions over every state above.
+
+**Git queue for Michael:** `git add public/index.html public/client.js HANDOFF.md && git commit
+&& git push` in town-chat (Render redeploys the web build); the app folders aren't a git repo —
+their www/ copies are already current on disk. App Store/Play builds need the usual
+`npx cap sync` + version bump when he next ships (BUILD docs unchanged).
+
+---
+
+*Last updated Sunday, July 12, 2026, ~11:15 AM EDT — end of Session J (mobile UX overhaul:
+one-panel-at-a-time HUD, full-screen panels with ‹ Menu/back + bottom Close, hold-to-read
+ability peeks, redesigned touch loadout, 4-track witchy music). If you add to the project,
+append a short dated note here so the next session inherits it.*

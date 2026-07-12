@@ -2123,6 +2123,10 @@ let musicMuted = false;
 let musicPlaying = false;
 let musicTimer = null;
 let musicStep = 0;
+let musicTrackId = null;   // what's actually sounding right now
+let musicChoice = 'off';   // the player's saved pick: 'off' | a track id
+let musicIsRoomTune = false; // true when the cafe started it, not the player
+try { musicChoice = localStorage.getItem('tc_music') || 'off'; } catch (e) {}
 
 const TAVERN_SCALE = [196.00, 220.00, 246.94, 293.66, 329.63, 392.00]; // G3 pentatonic-ish run
 const TAVERN_MELODY = [0, 2, 4, 2, 1, 3, 5, 3, 0, 4, 2, 0, 1, 3, 2, 0];
@@ -2137,11 +2141,11 @@ function ensureAudio() {
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
 }
 
-function playNote(freq, time, dur, vol) {
+function playNote(freq, time, dur, vol, type) {
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'triangle';
+  osc.type = type || 'triangle';
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(0, time);
   gain.gain.linearRampToValueAtTime(vol, time + 0.03);
@@ -2151,37 +2155,146 @@ function playNote(freq, time, dur, vol) {
   osc.start(time);
   osc.stop(time + dur + 0.05);
 }
+// A struck-bell voice: fundamental + a quiet octave partial, long-ish fade.
+function playBell(freq, time, dur, vol) {
+  playNote(freq, time, dur, vol, 'sine');
+  playNote(freq * 2, time, dur * 0.6, vol * 0.3, 'sine');
+}
+// A plucked string with a fading echo — the harp of the kit.
+function playPluck(freq, time, vol) {
+  playNote(freq, time, 0.5, vol, 'triangle');
+  playNote(freq, time + 0.34, 0.44, vol * 0.38, 'triangle');
+}
+
+// ── The witchy songbook — generative tracks the player cycles through ──────
+// Each track is a tiny recipe: a step interval and a function that schedules
+// the next beat's notes. All code, no audio files — the same client that
+// draws the town also hums its tunes.
+const MUSIC_TRACKS = [
+  {
+    id: 'moonrise', name: 'Moonrise', icon: '🌙', stepMs: 620,
+    // Slow pentatonic-minor plucks over a breathing low drone — the town at
+    // night, nothing hurried.
+    scale: [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25],
+    melody: [0, 4, 2, -1, 5, 3, 6, -1, 1, 4, -1, 2, 6, 3, 2, -1],
+    step(now, i) {
+      const n = this.melody[i % this.melody.length];
+      if (n >= 0) playPluck(this.scale[n], now, 0.13);
+      if (i % 8 === 0) playNote(110.00, now, 3.6, 0.07, 'sine');            // A2 breath
+      if (i % 8 === 4) playNote(164.81, now, 3.2, 0.055, 'sine');           // E3 answer
+    },
+  },
+  {
+    id: 'covens_waltz', name: "The Coven's Waltz", icon: '🔮', stepMs: 400,
+    // A slow 3/4 turn through A harmonic minor — the G# is the witchcraft.
+    scale: [220.00, 246.94, 261.63, 293.66, 329.63, 349.23, 415.30, 440.00],
+    melody: [0, 2, 4, 7, 6, 4, 2, 4, 0, 3, 5, 3, 6, 4, 2, 0, 1, 2, 3, 4, 6, 7, 6, 4],
+    step(now, i) {
+      if (i % 3 === 0) playNote(i % 6 === 0 ? 110.00 : 82.41, now, 1.0, 0.11, 'sine'); // bass sway
+      else playPluck(this.scale[this.melody[i % this.melody.length]], now, 0.12);
+    },
+  },
+  {
+    id: 'wilds_dusk', name: 'Wilds at Dusk', icon: '🌲', stepMs: 880,
+    // Sparse bells over a deep drone; every seventh bar leans on the
+    // tritone so the forest never feels quite safe.
+    bells: [329.63, 392.00, 415.30, 311.13, 493.88, 392.00, 261.63],
+    step(now, i) {
+      if (i % 4 === 0) { playNote(55.00, now, 4.4, 0.06, 'triangle'); playNote(110.00, now, 4.4, 0.035, 'sine'); }
+      if (i % 3 === 1) playBell(this.bells[(i * 5) % this.bells.length], now, 2.2, 0.09);
+      if (i % 7 === 3) playBell(311.13, now, 2.6, 0.055); // D#4 — the unease
+    },
+  },
+  {
+    id: 'ember_jig', name: 'Ember Jig', icon: '🎻', stepMs: 300,
+    // The Cauldron Café's own tune, quickened — dotted steps, warm bass.
+    step(now, i) {
+      const note = TAVERN_MELODY[i % TAVERN_MELODY.length];
+      playNote(TAVERN_SCALE[note], now, i % 2 ? 0.28 : 0.5, 0.16);
+      if (i % 4 === 0) playNote(TAVERN_SCALE[0] / 2, now, 0.9, 0.1);
+      if (i % 8 === 6) playNote(TAVERN_SCALE[note] * 2, now, 0.22, 0.06);   // sparkle
+    },
+  },
+];
+function musicTrackById(id) { return MUSIC_TRACKS.find(t => t.id === id) || null; }
 
 function scheduleMusicStep() {
   if (!musicPlaying || !audioCtx) return;
-  const now = audioCtx.currentTime;
-  const note = TAVERN_MELODY[musicStep % TAVERN_MELODY.length];
-  playNote(TAVERN_SCALE[note], now, 0.5, 0.18);
-  if (musicStep % 4 === 0) playNote(TAVERN_SCALE[0] / 2, now, 0.9, 0.1); // soft bass drone
+  const track = musicTrackById(musicTrackId);
+  if (!track) return;
+  track.step(audioCtx.currentTime, musicStep);
   musicStep++;
-  musicTimer = setTimeout(scheduleMusicStep, 330);
+  musicTimer = setTimeout(scheduleMusicStep, track.stepMs);
 }
 
-function startMusic() {
+// startMusic(trackId?, {roomTune}) — the cafe calls it as a room tune (only
+// honored when the player hasn't picked their own track); the ☰ Music row
+// calls it with an explicit pick.
+function startMusic(trackId, opts) {
+  const roomTune = !!(opts && opts.roomTune);
+  if (roomTune && musicChoice !== 'off') return; // their playlist outranks the room's
   ensureAudio();
-  if (!audioCtx || musicPlaying) return;
+  if (!audioCtx) return;
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  const id = trackId || 'ember_jig';
+  if (musicPlaying && musicTrackId === id) return;
+  clearTimeout(musicTimer);
   musicPlaying = true;
+  musicIsRoomTune = roomTune;
+  musicTrackId = id;
   musicStep = 0;
   musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
   musicGain.gain.linearRampToValueAtTime(musicMuted ? 0 : 0.5, audioCtx.currentTime + 1.2);
   scheduleMusicStep();
 }
 
-function stopMusic() {
+// stopMusic({roomTune}) — a room-tune stop (leaving the cafe) never silences
+// a track the player chose themselves.
+function stopMusic(opts) {
   if (!musicPlaying) return;
+  if (opts && opts.roomTune && !musicIsRoomTune) return;
   musicPlaying = false;
+  musicIsRoomTune = false;
+  musicTrackId = null;
   clearTimeout(musicTimer);
   if (audioCtx && musicGain) {
     musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
     musicGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
   }
 }
+
+// ── The ☰ Music row: tap to cycle Off → 🌙 → 🔮 → 🌲 → 🎻 → Off ──
+function musicMenuLabel() {
+  if (musicChoice === 'off') {
+    return musicPlaying && musicIsRoomTune ? '🎶 Music: room tune (tap to pick)' : '🎶 Music: Off';
+  }
+  const t = musicTrackById(musicChoice);
+  return t ? `🎶 Music: ${t.icon} ${t.name}` : '🎶 Music: Off';
+}
+function cycleMusic() {
+  const order = ['off', ...MUSIC_TRACKS.map(t => t.id)];
+  musicChoice = order[(order.indexOf(musicChoice) + 1) % order.length];
+  try { localStorage.setItem('tc_music', musicChoice); } catch (e) {}
+  if (musicChoice === 'off') {
+    stopMusic();
+    // If they're standing in the cafe, the house tune takes back over.
+    if (me && me.room === 'cafe') startMusic('ember_jig', { roomTune: true });
+    setUnlockToast('🔇 Music off');
+  } else {
+    musicIsRoomTune = false;
+    startMusic(musicChoice);
+    const t = musicTrackById(musicChoice);
+    setUnlockToast(`${t.icon} Now playing: ${t.name}`);
+  }
+  const row = document.getElementById('menuMusic');
+  if (row) row.textContent = musicMenuLabel();
+}
+// A saved track can't sound until the browser gets a gesture — the very
+// first tap/click (usually the join button) unlocks it.
+document.addEventListener('pointerdown', function musicUnlock() {
+  document.removeEventListener('pointerdown', musicUnlock);
+  if (musicChoice !== 'off') startMusic(musicChoice);
+}, { once: true });
 
 function setMusicMuted(muted) {
   musicMuted = muted;
@@ -2970,6 +3083,7 @@ function makeDraggable(panel, handle) {
 // the floating attack/spellbook panels use their own floatPanelHandle.
 // questTracker uses itself as its own handle.
 (function initDraggables() {
+  if (isTouchDevice()) return; // phones: panels are full-screen — nothing to drag
   makeDraggable(document.getElementById('inventoryPanel'), document.getElementById('invTabs'));
   makeDraggable(document.getElementById('questTracker'), document.getElementById('questTracker'));
   makeDraggable(document.getElementById('attackModal'),    document.querySelector('#attackModal .floatPanelHandle'));
@@ -5568,7 +5682,14 @@ function updateBubbleTag(p, v, headScreen, now) {
   const _menuBtnForGfx2 = document.getElementById('menuBtn');
   if (_menuBtnForGfx2) _menuBtnForGfx2.addEventListener('click', gfxLabel);
   on('menuSnap', closeSheetAnd(snapNearestPlayer));
-  on('menuMusic', () => { const b = document.getElementById('muteBtn'); if (b) b.click(); });
+  // 🎶 Music cycles through the witchy songbook; the sheet stays open so
+  // you can flip tracks and listen. (The cafe's 🔈 mute button still works.)
+  on('menuMusic', cycleMusic);
+  const musicLabel = () => { const r = document.getElementById('menuMusic'); if (r) r.textContent = musicMenuLabel(); };
+  const _menuBtnForMusic = document.getElementById('pcMenuBtn');
+  if (_menuBtnForMusic) _menuBtnForMusic.addEventListener('click', musicLabel);
+  const _menuBtnForMusic2 = document.getElementById('menuBtn');
+  if (_menuBtnForMusic2) _menuBtnForMusic2.addEventListener('click', musicLabel);
   on('menuLeave', closeSheetAnd(() => { const b = document.getElementById('leaveBtn'); if (b) b.click(); }));
   // ── Leave the town: back to the start screen ──
   // Two taps (arm, then confirm within 3s) so a stray tap can't yank someone
@@ -5602,6 +5723,225 @@ function updateBubbleTag(p, v, headScreen, now) {
       }, 3000);
     }
   });
+})();
+
+// ── One thing on screen at a time ───────────────────────────────────────────
+// The phone HUD (joystick, action wheel, XP strip, prompts, top bar) hides
+// itself whenever any panel/menu/modal is open — see the panelOpen CSS in
+// index.html. This watcher is the single source of truth: it observes the
+// class attribute of every overlay and panel, so ANY open/close path —
+// button, server push, Esc, backdrop tap — keeps body.panelOpen honest.
+// New modals get this behavior for free as long as they use .overlay.
+(function watchOpenPanels() {
+  const isOpen = (el) => !!el && !el.classList.contains('hidden');
+  const PANEL_IDS = ['menuSheet', 'inventoryPanel', 'spellbookModal', 'journalModal', 'skillsModal', 'attackModal'];
+  const sync = () => {
+    let open = PANEL_IDS.some((id) => isOpen(document.getElementById(id)));
+    if (!open) {
+      for (const el of document.querySelectorAll('.overlay')) {
+        if (el.id === 'joinScreen') continue; // pre-join screen, HUD not up yet
+        if (isOpen(el)) { open = true; break; }
+      }
+    }
+    document.body.classList.toggle('panelOpen', open);
+    // Chat compose is its own state: the top bar stays (💬 is how it closes).
+    const cp = document.getElementById('chatPanel');
+    document.body.classList.toggle('composeOpen',
+      !!(MOBILE_UI && cp && !cp.classList.contains('hidden') && !cp.classList.contains('mobileClosed')));
+  };
+  const obs = new MutationObserver(sync);
+  const seen = new Set();
+  const watchEl = (el) => {
+    if (!el || seen.has(el)) return;
+    seen.add(el);
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+  };
+  PANEL_IDS.forEach((id) => watchEl(document.getElementById(id)));
+  document.querySelectorAll('.overlay').forEach(watchEl);
+  watchEl(document.getElementById('chatPanel'));
+  sync();
+})();
+
+// ── Small-screen wording: no keyboard, no "Esc", no "click" ──
+(function mobileCopyPass() {
+  if (!MOBILE_UI) return;
+  for (const b of document.querySelectorAll('button')) {
+    if (b.textContent.trim() === 'Close (Esc)') b.textContent = 'Close';
+  }
+})();
+
+// ── Full-screen panel chrome (touch) ────────────────────────────────────────
+// On phones the core panels take over the whole screen (CSS does the
+// geometry); this injects the navigation: ‹ Menu top-left goes BACK to the
+// ☰ sheet, and Close stays at the bottom, sticky. One mental model:
+// game → ☰ menu → panel, and ‹ Menu walks you back the way you came.
+(function mobileFullscreenPanels() {
+  if (!MOBILE_UI) return;
+  const openMenuSheet = () => document.getElementById('menuSheet').classList.remove('hidden');
+  const makeBack = (label, onTap) => {
+    const b = document.createElement('button');
+    b.className = 'mobPanelBack';
+    b.textContent = label;
+    b.addEventListener('click', (e) => { e.preventDefault(); onTap(); });
+    return b;
+  };
+  // The four float panels: back button rides the existing handle.
+  const FLOATS = [
+    ['spellbookModal', 'spellbookCloseBtn'],
+    ['journalModal', 'journalCloseBtn'],
+    ['skillsModal', 'skillsCloseBtn'],
+    ['attackModal', 'attackCloseBtn'],
+  ];
+  for (const [panelId, closeId] of FLOATS) {
+    const panel = document.getElementById(panelId);
+    const handle = panel && panel.querySelector('.floatPanelHandle');
+    const closeBtn = document.getElementById(closeId);
+    if (!handle || !closeBtn) continue;
+    handle.insertBefore(makeBack('‹ Menu', () => { closeBtn.click(); openMenuSheet(); }), handle.firstChild);
+    // Keep error lines visible ABOVE the sticky Close, not lost beneath it.
+    const err = panel.querySelector('.err');
+    if (err && closeBtn.compareDocumentPosition(err) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      closeBtn.parentNode.insertBefore(err, closeBtn);
+    }
+  }
+  // Inventory: gets the same header (it only had the ✕ in its tab row) +
+  // a bottom Close like everything else.
+  const inv = document.getElementById('inventoryPanel');
+  const invClose = document.getElementById('invCloseBtn');
+  if (inv && invClose) {
+    const head = document.createElement('div');
+    head.id = 'invMobHead';
+    head.appendChild(makeBack('‹ Menu', () => { invClose.click(); openMenuSheet(); }));
+    const ttl = document.createElement('span');
+    ttl.textContent = '🎒 Inventory';
+    head.appendChild(ttl);
+    inv.insertBefore(head, inv.firstChild);
+    const bottomClose = document.createElement('button');
+    bottomClose.id = 'invMobCloseBtn';
+    bottomClose.className = 'btn';
+    bottomClose.textContent = 'Close';
+    bottomClose.addEventListener('click', (e) => { e.preventDefault(); invClose.click(); });
+    inv.appendChild(bottomClose);
+  }
+  // Loadout editor: ‹ Back returns to wherever you opened it from (the
+  // Attacks/Spellbook panel stays open underneath, or the ☰ menu's world).
+  const lc = document.getElementById('loadoutCard');
+  if (lc) {
+    const row = document.createElement('div');
+    row.className = 'mobPanelHeadRow';
+    row.appendChild(makeBack('‹ Back', () => closeLoadoutModal()));
+    lc.insertBefore(row, lc.firstChild);
+  }
+})();
+
+// ── Hold-to-read: press-and-hold an ability button to see what it does ─────
+// The card follows the finger's hold and vanishes on release — and a hold
+// NEVER casts (the release that ends a peek is swallowed). The threshold
+// sits well above a combat tap (~80–250ms), so spamming abilities in a
+// fight can't trip it.
+const ABILITY_PEEK_MS = 475;
+let abilityPeekTimer = null;
+let abilityPeekShown = false;
+let abilityPeekSwallowUntil = 0;
+
+function showAbilityPeek(info, anchorEl) {
+  const card = document.getElementById('abilityPeek');
+  if (!card || !info) return;
+  card.querySelector('.apName').textContent = `${info.icon || '✨'} ${info.name || ''}`;
+  const KIND_LABELS = {
+    targeted: '🎯 strikes the nearest enemy', aoe: '💥 hits everyone nearby',
+    self: '🫧 affects you', ground: '🌀 placed at your feet',
+    building: '🏠 works on the building you face', reveal: '👁 targets the nearest player',
+    melee: '⚔️ basic attack — always ready', opener: '📖 opens a panel',
+  };
+  card.querySelector('.apKind').textContent = KIND_LABELS[info.kind] || '';
+  card.querySelector('.apDesc').textContent = info.description || '';
+  const cdEl = card.querySelector('.apCd');
+  if (info.noCd) cdEl.textContent = '';
+  else if (info.id && actionOnCooldown(info.id)) {
+    cdEl.textContent = `⏳ recharging — ${Math.ceil(((actionCooldownEndAt[info.id] || 0) - performance.now()) / 1000)}s`;
+  } else cdEl.textContent = info.id ? '✅ ready' : '';
+  card.classList.remove('hidden');
+  // Above the anchor, clamped on-screen (the anchor is under a thumb).
+  const r = anchorEl.getBoundingClientRect();
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  let x = Math.min(Math.max(8, r.x + r.width / 2 - cw / 2), innerWidth - cw - 8);
+  let y = r.y - ch - 14;
+  if (y < 8) y = Math.min(innerHeight - ch - 8, r.bottom + 14);
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
+}
+function hideAbilityPeek() {
+  const card = document.getElementById('abilityPeek');
+  if (card) card.classList.add('hidden');
+}
+// getInfo is lazy so the card always reflects the CURRENT slot assignment.
+function attachAbilityPeek(el, getInfo) {
+  if (!el || el._peekWired) return;
+  el._peekWired = true;
+  let startX = 0, startY = 0;
+  const begin = (x, y) => {
+    startX = x; startY = y;
+    clearTimeout(abilityPeekTimer);
+    abilityPeekTimer = setTimeout(() => {
+      const info = getInfo();
+      if (!info) return;
+      abilityPeekShown = true;
+      showAbilityPeek(info, el);
+      haptic(8);
+    }, ABILITY_PEEK_MS);
+  };
+  const finish = (e) => {
+    clearTimeout(abilityPeekTimer);
+    if (abilityPeekShown) {
+      abilityPeekShown = false;
+      hideAbilityPeek();
+      abilityPeekSwallowUntil = Date.now() + 300; // the release must not cast…
+      if (e && e.cancelable) e.preventDefault();  // …and no synthetic click either
+    }
+  };
+  const cancel = () => { clearTimeout(abilityPeekTimer); if (abilityPeekShown) { abilityPeekShown = false; hideAbilityPeek(); abilityPeekSwallowUntil = Date.now() + 300; } };
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; begin(t.clientX, t.clientY); }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (t && Math.hypot(t.clientX - startX, t.clientY - startY) > 14) cancel(); // finger slid — not a hold
+  }, { passive: true });
+  el.addEventListener('touchend', finish);
+  el.addEventListener('touchcancel', cancel);
+  el.addEventListener('mousedown', (e) => begin(e.clientX, e.clientY)); // desktop parity: hold works there too
+  el.addEventListener('mouseup', finish);
+  el.addEventListener('mouseleave', cancel);
+  // Capture-phase guard: after a peek, the click that follows the release
+  // is dead on arrival — existing handlers never see it. One-shot + short
+  // window, so the player's genuine NEXT tap is never eaten.
+  el.addEventListener('click', (e) => {
+    if (Date.now() < abilityPeekSwallowUntil) {
+      abilityPeekSwallowUntil = 0;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+}
+
+// Static wheel buttons get their peeks once, here (the quick slots get
+// theirs in buildMobileQuickSlots, where their abilities are assigned).
+(function wireClusterPeeks() {
+  attachAbilityPeek(document.getElementById('btnStrike'), () => ({
+    icon: '⚔️', name: 'Strike', kind: 'melee', noCd: true,
+    description: "Swing at whoever's closest — your basic hit. Free, fast, always there.",
+  }));
+  attachAbilityPeek(document.getElementById('btnKit'), () => ({
+    icon: me && me.charId === 0 ? '📖' : '✨',
+    name: me && me.charId === 0 ? 'Spellbook' : 'Attacks',
+    kind: 'opener', noCd: true,
+    description: me && me.charId === 0
+      ? 'Your full grimoire — every spell with what it does, plus slot customizing.'
+      : 'Your full kit — every attack with what it does, plus slot customizing.',
+  }));
+  attachAbilityPeek(document.getElementById('btnCm'), () => ({
+    icon: '📢', name: 'Countermeasure', kind: 'self', noCd: true,
+    description: 'Blast your saved voice clip back at an attacker. It appears once a clip lives on your Drive, and pulses when an attack can be answered.',
+  }));
 })();
 
 // ── Quick ability slots (first three of this class's kit) ──
@@ -5640,6 +5980,14 @@ function buildMobileQuickSlots() {
     btn.style.display = 'flex';
     btn.title = ab.name || abilityId;
     btn.onclick = (e) => { e.preventDefault(); castFromHotbar(abilityId); };
+    // Hold-to-read: the peek always reflects the CURRENT assignment (the
+    // element is re-tagged on every rebuild; the wiring itself is once).
+    btn._peekAbilityId = abilityId;
+    attachAbilityPeek(btn, () => {
+      const cur = btn._peekAbilityId;
+      const a = myActionCatalog && myActionCatalog[cur];
+      return a ? { id: cur, icon: a.icon, name: a.name, kind: a.kind, description: a.description } : null;
+    });
     // Register into the shared cooldown ticker alongside desktop slots.
     hotbarSlotEls.push({ id: abilityId, slot: btn, cooldown: cd, cooldownText: cdText });
   });
@@ -5682,6 +6030,9 @@ function toggleEmoteWheel(open) {
   wheel.classList.toggle('hidden', !emoteWheelOpen);
   const cluster = document.getElementById('actionCluster');
   if (cluster) cluster.classList.toggle('wheelOpen', emoteWheelOpen);
+  // While the wheel is up, the hint/XP strip/joystick ring step back too —
+  // same "one thing under the thumb" rule the cluster buttons follow.
+  document.body.classList.toggle('emoteWheelOpen', emoteWheelOpen);
   clearTimeout(emoteWheelTimer);
   if (emoteWheelOpen) emoteWheelTimer = setTimeout(() => toggleEmoteWheel(false), 4000);
 }
@@ -5799,15 +6150,72 @@ function closeLoadoutModal() {
   document.getElementById('loadoutModal').classList.add('hidden');
 }
 
+function loadoutPeekInfo(id) {
+  const a = myActionCatalog && myActionCatalog[id];
+  return a ? { id, icon: a.icon, name: a.name, kind: a.kind, description: a.description } : null;
+}
+// Shared place-an-ability step: tap a slot, then tap the ability (they swap).
+function loadoutPlaceAbility(id, ids) {
+  const ab = myActionCatalog[id];
+  if (loadoutSelectedSlot === null) {
+    setUnlockToast(MOBILE_UI
+      ? `${ab.icon} ${ab.name || id} — first tap the wheel slot you want it in.`
+      : `${ab.icon} ${ab.name || id} — pick a slot first, then click this.`);
+    return;
+  }
+  const next = ids.slice();
+  const from = next.indexOf(id);
+  const to = loadoutSelectedSlot;
+  if (from === -1 || from === to) { loadoutSelectedSlot = null; renderLoadoutModal(); return; }
+  [next[to], next[from]] = [next[from], next[to]]; // swap — always a clean permutation
+  saveLoadout(next);
+  loadoutSelectedSlot = null;
+  renderLoadoutModal();
+  haptic(12);
+}
 function renderLoadoutModal() {
   const ids = orderedAbilityIds();
   const slotsEl = document.getElementById('loadoutSlots');
   const absEl = document.getElementById('loadoutAbilities');
+  const wheelEl = document.getElementById('loadoutWheelRow');
+  const restLabel = document.getElementById('loadoutRestLabel');
   if (!slotsEl || !absEl) return;
   slotsEl.innerHTML = '';
   absEl.innerHTML = '';
+  if (wheelEl) wheelEl.innerHTML = '';
   const slotCount = Math.min(ids.length, HOTBAR_KEYS.length);
-  for (let i = 0; i < slotCount; i++) {
+
+  // ── Phones: the three WHEEL slots are the headline — big, labeled, named.
+  if (MOBILE_UI && wheelEl) {
+    for (let i = 0; i < Math.min(3, slotCount); i++) {
+      const id = ids[i];
+      const ab = myActionCatalog[id];
+      const cell = document.createElement('div');
+      cell.className = 'loBig' + (loadoutSelectedSlot === i ? ' selected' : '');
+      const tag = document.createElement('div');
+      tag.className = 'loBigTag';
+      tag.textContent = `Wheel ${i + 1}`;
+      const icon = document.createElement('div');
+      icon.className = 'loBigIcon';
+      icon.textContent = ab ? ab.icon : '·';
+      const nm = document.createElement('div');
+      nm.className = 'loBigName';
+      nm.textContent = ab ? (ab.name || id) : '—';
+      cell.appendChild(tag); cell.appendChild(icon); cell.appendChild(nm);
+      cell.addEventListener('click', () => {
+        loadoutSelectedSlot = loadoutSelectedSlot === i ? null : i;
+        renderLoadoutModal();
+      });
+      attachAbilityPeek(cell, () => loadoutPeekInfo(ids[i]));
+      wheelEl.appendChild(cell);
+    }
+  }
+
+  // Remaining slots: desktop draws all 12 keyed tiles; phones draw 4+ as a
+  // small "panel order" row under its own label.
+  const firstTile = MOBILE_UI ? 3 : 0;
+  if (restLabel) restLabel.classList.toggle('hidden', !MOBILE_UI || slotCount <= 3);
+  for (let i = firstTile; i < slotCount; i++) {
     const id = ids[i];
     const ab = myActionCatalog[id];
     const cell = document.createElement('div');
@@ -5817,49 +6225,59 @@ function renderLoadoutModal() {
     key.className = 'loKey';
     key.textContent = MOBILE_UI ? String(i + 1) : HOTBAR_KEY_LABELS[i];
     cell.appendChild(key);
-    if (MOBILE_UI && i < 3) {
-      const wheel = document.createElement('span');
-      wheel.className = 'loWheel';
-      wheel.textContent = '📱';
-      wheel.title = 'On your action wheel';
-      cell.appendChild(wheel);
-    }
     cell.title = ab ? (ab.name || id) : '';
     cell.addEventListener('click', () => {
       loadoutSelectedSlot = loadoutSelectedSlot === i ? null : i;
       renderLoadoutModal();
     });
+    attachAbilityPeek(cell, () => loadoutPeekInfo(ids[i]));
     slotsEl.appendChild(cell);
   }
+
   const hint = document.getElementById('loadoutHint');
   if (hint) {
-    hint.textContent = loadoutSelectedSlot === null
-      ? (MOBILE_UI ? 'Tap a slot (📱 = on your wheel), then tap the ability to put there.'
-                   : 'Click a slot (the key it answers to is in the corner), then click an ability.')
-      : `Slot ${loadoutSelectedSlot + 1} selected — now pick the ability for it.`;
+    if (loadoutSelectedSlot === null) {
+      hint.textContent = MOBILE_UI
+        ? 'The wheel slots are your in-game buttons. Tap one, then tap the ability you want on it. Hold anything to read what it does.'
+        : 'Click a slot (the key it answers to is in the corner), then click an ability.';
+    } else if (MOBILE_UI && loadoutSelectedSlot < 3) {
+      hint.textContent = `Wheel slot ${loadoutSelectedSlot + 1} — now tap the ability to put there.`;
+    } else {
+      hint.textContent = `Slot ${loadoutSelectedSlot + 1} selected — now pick the ability for it.`;
+    }
   }
+
+  // ── The kit itself. Phones get rows with names (a grid of bare emoji is
+  // a guessing game); desktop keeps its compact icon grid with hover titles.
   for (const id of Object.keys(myActionCatalog)) {
     const ab = myActionCatalog[id];
     const idx = ids.indexOf(id);
-    const cell = document.createElement('div');
-    cell.className = 'loAb' + (idx > -1 && idx < 3 && MOBILE_UI ? ' inSlots' : '');
-    cell.textContent = ab.icon;
-    cell.title = ab.name || id;
-    cell.addEventListener('click', () => {
-      if (loadoutSelectedSlot === null) {
-        setUnlockToast(`${ab.icon} ${ab.name || id} — pick a slot first, then tap this.`);
-        return;
+    const onWheel = idx > -1 && idx < 3;
+    let cell;
+    if (MOBILE_UI) {
+      cell = document.createElement('div');
+      cell.className = 'loAbRow' + (onWheel ? ' inSlots' : '');
+      const icon = document.createElement('span');
+      icon.className = 'loAbIcon';
+      icon.textContent = ab.icon;
+      const nm = document.createElement('span');
+      nm.className = 'loAbName';
+      nm.textContent = ab.name || id;
+      cell.appendChild(icon); cell.appendChild(nm);
+      if (onWheel) {
+        const where = document.createElement('span');
+        where.className = 'loAbWhere';
+        where.textContent = `Wheel ${idx + 1}`;
+        cell.appendChild(where);
       }
-      const next = ids.slice();
-      const from = next.indexOf(id);
-      const to = loadoutSelectedSlot;
-      if (from === -1 || from === to) { loadoutSelectedSlot = null; renderLoadoutModal(); return; }
-      [next[to], next[from]] = [next[from], next[to]]; // swap — always a clean permutation
-      saveLoadout(next);
-      loadoutSelectedSlot = null;
-      renderLoadoutModal();
-      haptic(12);
-    });
+    } else {
+      cell = document.createElement('div');
+      cell.className = 'loAb' + (onWheel && MOBILE_UI ? ' inSlots' : '');
+      cell.textContent = ab.icon;
+      cell.title = ab.name || id;
+    }
+    cell.addEventListener('click', () => loadoutPlaceAbility(id, ids));
+    attachAbilityPeek(cell, () => loadoutPeekInfo(id));
     absEl.appendChild(cell);
   }
 }
@@ -16627,6 +17045,12 @@ function openAttackPanel() {
   document.getElementById('attackTargetPanel').classList.add('hidden');
   const title = document.getElementById('attackModalTitle');
   if (title) title.textContent = (me && ATTACK_PANEL_TITLES[me.charId]) || '⚔️ Attacks';
+  const howTo = document.getElementById('attackHowTo');
+  if (howTo) {
+    howTo.textContent = MOBILE_UI
+      ? 'Targeted ones close this — then tap who to hit. AoE hits everyone nearby.'
+      : 'Targeted ones close this — then click who to hit. AoE hits everyone nearby.';
+  }
   renderAttackList();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 370, 112);
@@ -17726,7 +18150,7 @@ function enterBuilding(roomId) {
   }
   setActiveContext(interior.scene, interior.camera, interior);
   maybeUpdateRoomUI(roomId);
-  if (roomId === 'cafe') startMusic(); else stopMusic(); // the tavern loop belongs to the tavern
+  if (roomId === 'cafe') startMusic('ember_jig', { roomTune: true }); else stopMusic({ roomTune: true }); // the tavern tune belongs to the tavern — unless the player picked their own
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.classList.remove('hidden');
 }
@@ -17746,7 +18170,7 @@ function exitBuilding(b) {
   else if (side === 'north') { me.x = b.x + b.w / 2; me.y = b.y - 26; }
   else { me.x = b.x + b.w / 2; me.y = b.y + b.h + 26; }
   me.room = 'outside';
-  stopMusic();
+  stopMusic({ roomTune: true }); // a player-picked track keeps playing outdoors
   clearPendingImage();
   closeArcadeGame();
   // tell the server so it can wipe our messages from this room's chat for
@@ -18139,6 +18563,7 @@ if (location.search.includes('testdrive=1')) {
       return currentInterior.kiosks.map(k => ({ ...k, world: sceneToWorldPos(me.room, k.x, k.z) }));
     },
     isNight() { return getDayNightState().isNight; },
+    music() { return { choice: musicChoice, playing: musicPlaying, trackId: musicTrackId, roomTune: musicIsRoomTune, ctx: audioCtx ? audioCtx.state : null }; },
     // Session I QA probes: collision registries + direct status-visual pokes
     wallsCount() { return { active: walls.length, town: TOWN_WALLS ? TOWN_WALLS.length : -1, wilds: WILDS_WALLS.length }; },
     applyStatus(type) { applyStatusVisual(myId, type ? { type, expiresAt: Date.now() + 10000 } : null); },

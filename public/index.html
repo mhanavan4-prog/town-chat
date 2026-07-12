@@ -485,7 +485,10 @@
 
   /* Floating panels — attack, spellbook, and inventory all share this base */
   .floatPanel {
-    position:fixed; z-index:10; width:300px; max-width:90vw;
+    /* z 19: above ALL HUD chrome (action buttons are 8/9 — a panel must
+       never have buttons drawn over it) but below overlay modals (20),
+       so e.g. the loadout editor still paints above the Attacks panel. */
+    position:fixed; z-index:19; width:300px; max-width:90vw;
     background:linear-gradient(160deg, rgba(28,20,14,0.97), rgba(16,12,8,0.98));
     border:2px solid rgba(230,190,120,0.35); border-radius:12px;
     padding:0 14px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.55);
@@ -1019,8 +1022,11 @@
   }
   body.touchMode #interactHint span { font-size:16px; font-weight:800; padding:16px 22px; display:inline-block; max-width:62vw; }
   body.touchMode #questTracker, body.touchMode #storyTracker { transform:scale(0.86); transform-origin:top right; }
-  body.touchMode #unlockToast { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
-  body.touchMode #announceBanner { top:max(64px, calc(env(safe-area-inset-top) + 56px)); }
+  /* The panel handle already says the story title — don't say it twice on a small screen */
+  body.touchMode #journalModal .journalStoryTitle { display:none; }
+  /* Toasts/banners drop below the top-left XP strip's lane (safe+54..80) */
+  body.touchMode #unlockToast { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
+  body.touchMode #announceBanner { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
   /* Chat as a bottom sheet, toggled by 💬 */
   /* ── Mobile chat, rebuilt as text-message notifications ──────────────────
      Phones don't get the scrolling chat log at all anymore: incoming
@@ -1044,7 +1050,7 @@
      banner is tappable → lightbox); the empty stack never eats a touch. */
   #chatNotifStack {
     position:fixed; z-index:9; pointer-events:none;
-    top:calc(max(8px, env(safe-area-inset-top)) + 46px);
+    top:calc(max(8px, env(safe-area-inset-top)) + 86px); /* below the XP strip's lane */
     left:max(10px, env(safe-area-inset-left));
     right:max(10px, env(safe-area-inset-right));
     display:none; flex-direction:column; gap:6px;
@@ -1077,6 +1083,53 @@
     .chatNotif.fading { transform:none; }
     #chatNotifStack { transition:none; }
   }
+
+  /* ── One thing on screen at a time (touch) ──────────────────────────────
+     While ANY panel / menu / modal is open, the whole game HUD steps out of
+     the way — joystick, action wheel, XP strip, prompts, trackers, top bar —
+     so nothing stacks under the open panel and no stray button can eat a
+     tap meant for it. body.panelOpen is kept current by watchOpenPanels()
+     (client.js), which observes every overlay/panel's class attribute.
+     Chat compose (composeOpen) keeps the top bar — 💬 is how it closes.
+     The emote wheel already dims the action buttons under it (wheelOpen);
+     emoteWheelOpen extends that to the hint/strip/joystick ring. */
+  body.touchMode.panelOpen #joyZone, body.touchMode.panelOpen #joystick,
+  body.touchMode.panelOpen #actionCluster, body.touchMode.panelOpen #xpStrip,
+  body.touchMode.panelOpen #interactHint, body.touchMode.panelOpen #mobileTopBar,
+  body.touchMode.panelOpen #questTracker, body.touchMode.panelOpen #storyTracker,
+  body.touchMode.panelOpen #streakTag, body.touchMode.panelOpen #partyHud,
+  body.touchMode.panelOpen #emoteWheel { display:none !important; }
+  body.touchMode.composeOpen #joyZone, body.touchMode.composeOpen #joystick,
+  body.touchMode.composeOpen #actionCluster, body.touchMode.composeOpen #xpStrip,
+  body.touchMode.composeOpen #interactHint { display:none !important; }
+  body.touchMode.emoteWheelOpen #interactHint, body.touchMode.emoteWheelOpen #xpStrip,
+  body.touchMode.emoteWheelOpen #joystick { display:none !important; }
+
+  /* ── Touch XP strip: docked top-left under the vitals pill, out of the
+     action wheel's lane (it used to cut right through the buttons). The
+     pill already says the level, so the strip drops its Lv label and
+     keeps bar + SP + rested timer. Banners/toasts shift down below it. ── */
+  body.touchMode #xpStrip {
+    left:max(10px, env(safe-area-inset-left)); right:auto; bottom:auto;
+    top:calc(max(8px, env(safe-area-inset-top)) + 54px);
+    transform:none; padding:4px 10px; gap:6px;
+  }
+  body.touchMode #xpStripLevel { display:none; }
+  body.touchMode #xpBarWrap { width:72px; }
+
+  /* ── Hold-to-read ability card (long-press a wheel/loadout button) ── */
+  #abilityPeek {
+    position:fixed; z-index:70; pointer-events:none;
+    max-width:min(330px, 88vw);
+    background:linear-gradient(160deg, rgba(32,23,14,0.97), rgba(16,12,8,0.98));
+    border:1.5px solid rgba(230,190,120,0.55); border-radius:14px;
+    padding:12px 15px; box-shadow:0 8px 30px rgba(0,0,0,0.65);
+  }
+  #abilityPeek.hidden { display:none !important; }
+  #abilityPeek .apName { color:#ffe9c2; font-weight:800; font-size:15.5px; }
+  #abilityPeek .apKind { color:#9ee37d; font-size:10.5px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; margin-top:3px; }
+  #abilityPeek .apDesc { color:#dcd1b6; font-size:12.5px; line-height:1.5; margin-top:7px; }
+  #abilityPeek .apCd { color:#8fd6ff; font-size:11px; font-weight:700; margin-top:7px; }
 
   /* ── Overhead speech bubbles (desktop) — what the chat log can't give
      you: WHO in the room just said it, right over their head. ── */
@@ -1130,6 +1183,100 @@
   }
   .loAb.inSlots { border-color:rgba(230,190,120,0.55); }
   .loAb.selected { border-color:#7ddc8f; box-shadow:0 0 10px rgba(125,220,143,0.6); }
+
+  /* ── Loadout, phone layout: the three WHEEL slots are the whole point on
+     touch, so they're big, labeled, and named; the rest of the kit picks
+     its Attacks-panel order in a small row below. Abilities are full rows
+     (icon + name) instead of anonymous emoji tiles — and any of it can be
+     long-pressed to read what it does. ── */
+  #loadoutWheelRow { display:none; }
+  body.touchMode #loadoutWheelRow { display:flex; gap:10px; margin:12px 0 2px; }
+  .loBig {
+    flex:1; position:relative; text-align:center; border-radius:14px;
+    padding:11px 6px 9px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    background:rgba(0,0,0,0.3); border:1.5px solid rgba(230,190,120,0.38);
+  }
+  .loBig .loBigTag { font-size:9.5px; color:#b8a276; letter-spacing:1.4px; text-transform:uppercase; font-weight:800; }
+  .loBig .loBigIcon { font-size:30px; line-height:1.25; margin-top:3px; }
+  .loBig .loBigName { font-size:11px; color:#cfe9cf; font-weight:600; margin-top:3px; min-height:27px; line-height:1.25; }
+  .loBig.selected { border-color:#7ddc8f; box-shadow:0 0 12px rgba(125,220,143,0.55); background:rgba(40,70,45,0.35); }
+  body.touchMode #loadoutSlots { margin-top:8px; }
+  body.touchMode #loadoutSlots .loSlot { width:44px; height:44px; font-size:19px; }
+  #loadoutRestLabel { display:none; }
+  body.touchMode #loadoutRestLabel { display:block; margin-top:12px; }
+  body.touchMode #loadoutAbilities { display:flex; flex-direction:column; gap:6px; max-height:32vh; overflow-y:auto; flex-wrap:nowrap; }
+  .loAbRow {
+    display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2);
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .loAbRow .loAbIcon { font-size:20px; flex:0 0 26px; text-align:center; }
+  .loAbRow .loAbName { font-size:13px; color:#eafff0; font-weight:600; }
+  .loAbRow .loAbWhere { margin-left:auto; font-size:10px; color:#b8a276; letter-spacing:0.8px; text-transform:uppercase; font-weight:800; white-space:nowrap; }
+  .loAbRow.inSlots { border-color:rgba(230,190,120,0.55); }
+
+  /* ── Phones: panels take the WHOLE screen ────────────────────────────────
+     No more little floating windows to wrangle on a phone: Inventory,
+     Journal, Skills, Attacks, Spellbook and the Loadout editor are
+     full-screen takeovers. A sticky header carries ‹ Menu (back to the ☰
+     sheet) top-LEFT; the Close button stays where it's always been — at
+     the BOTTOM — but sticky, so it's in reach without scrolling. */
+  body.touchMode .floatPanel {
+    left:0 !important; top:0 !important; right:0 !important; bottom:0 !important;
+    width:100% !important; max-width:none; height:100%; max-height:none;
+    border-radius:0; border:none;
+    padding:0 14px calc(12px + env(safe-area-inset-bottom));
+  }
+  body.touchMode .floatPanelHandle {
+    position:sticky; top:0; z-index:4; margin:0 -14px 10px;
+    padding:calc(max(10px, env(safe-area-inset-top)) + 2px) 14px 10px;
+    background:linear-gradient(180deg, rgba(28,20,14,1), rgba(24,17,12,0.99));
+    border-bottom:1px solid rgba(230,190,120,0.25);
+    justify-content:flex-start; gap:12px;
+  }
+  body.touchMode .floatPanelDrag { display:none; }
+  .mobPanelBack { display:none; }
+  body.touchMode .mobPanelBack {
+    display:inline-flex; align-items:center; flex:0 0 auto;
+    background:rgba(255,255,255,0.07); border:1px solid rgba(230,190,120,0.4);
+    color:#ffe9c2; font-size:13px; font-weight:800; padding:8px 14px 8px 10px;
+    border-radius:16px; -webkit-tap-highlight-color:transparent; cursor:pointer;
+  }
+  body.touchMode .mobPanelBack:active { background:rgba(255,255,255,0.14); }
+  body.touchMode #spellbookCloseBtn, body.touchMode #journalCloseBtn,
+  body.touchMode #skillsCloseBtn, body.touchMode #attackCloseBtn,
+  body.touchMode #invMobCloseBtn {
+    position:sticky; bottom:0; z-index:4;
+    box-shadow:0 -10px 24px rgba(10,7,4,0.9);
+  }
+  /* Inventory joins the same pattern (it was its own little window too) */
+  body.touchMode #inventoryPanel {
+    left:0 !important; top:0 !important; right:0 !important; bottom:0 !important;
+    width:100% !important; max-width:none; height:100%; max-height:none;
+    border-radius:0; border:none;
+    padding:0 14px calc(12px + env(safe-area-inset-bottom));
+  }
+  #invMobHead { display:none; }
+  body.touchMode #invMobHead {
+    display:flex; align-items:center; gap:12px;
+    position:sticky; top:0; z-index:4; margin:0 -14px 10px;
+    padding:calc(max(10px, env(safe-area-inset-top)) + 2px) 14px 10px;
+    background:linear-gradient(180deg, rgba(28,20,14,1), rgba(24,17,12,0.99));
+    border-bottom:1px solid rgba(230,190,120,0.25);
+    color:#ffe9c2; font-weight:800; font-size:15px;
+  }
+  body.touchMode #invTabs #invCloseBtn { display:none; } /* replaced by header back + bottom Close */
+  #invMobCloseBtn { display:none; }
+  body.touchMode #invMobCloseBtn { display:block; width:100%; margin-top:12px; }
+  /* The loadout editor goes full-screen on touch as well */
+  body.touchMode #loadoutModal { align-items:stretch; justify-content:stretch; padding:0; }
+  body.touchMode #loadoutCard {
+    width:100% !important; max-width:none !important; height:100%; max-height:none !important;
+    border-radius:0; margin:0;
+    padding:calc(max(10px, env(safe-area-inset-top)) + 4px) 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .mobPanelHeadRow { display:none; }
+  body.touchMode .mobPanelHeadRow { display:flex; margin-bottom:8px; }
 
   /* ── Hard Drive media shelves ── */
   .hdMediaHead { font-weight:700; color:#ffe9c2; margin:12px 0 6px; }
@@ -1221,7 +1368,7 @@
   }
 
   #inventoryPanel {
-    position:fixed; top:112px; left:16px; z-index:6;
+    position:fixed; top:112px; left:16px; z-index:19; /* above HUD chrome, below overlays — like .floatPanel */
     width:340px; max-width:84vw; max-height:78vh; overflow-y:auto;
     background:linear-gradient(160deg, rgba(28,20,14,0.95), rgba(16,12,8,0.97));
     border:2px solid rgba(230,190,120,0.4);
@@ -1690,7 +1837,7 @@
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
-      <button class="menuRow" id="menuMusic">🔈 Music</button>
+      <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
       <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
       <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
       <button class="menuRow" id="menuLogout" title="Disconnect and go back to the start screen">🌒 Leave the town</button>
@@ -1761,8 +1908,10 @@
   <div class="card" id="loadoutCard">
     <div class="title" style="font-size:20px;">🎛️ Your loadout</div>
     <div class="subtitle" id="loadoutHint">Tap a slot, then tap the ability to put there. The two swap.</div>
+    <div id="loadoutWheelRow"></div>
+    <div class="subtitle hidden" id="loadoutRestLabel">Rest of your kit — the order they appear in your panel</div>
     <div id="loadoutSlots"></div>
-    <div class="subtitle" style="margin-top:10px;">All abilities</div>
+    <div class="subtitle" style="margin-top:10px;" id="loadoutAllLabel">All abilities</div>
     <div id="loadoutAbilities"></div>
     <button class="btn" id="loadoutResetBtn">↩️ Reset to default order</button>
     <button class="btn" id="loadoutCloseBtn">Done</button>
@@ -1816,6 +1965,15 @@
 </div>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
+
+<!-- Hold-to-read card: long-press an ability button (wheel or loadout) and
+     this shows what it does until the finger lifts. Never eats a tap. -->
+<div id="abilityPeek" class="hidden">
+  <div class="apName"></div>
+  <div class="apKind"></div>
+  <div class="apDesc"></div>
+  <div class="apCd"></div>
+</div>
 
 <div id="itemTooltip" class="hidden">
   <div id="ttName"></div>
@@ -2057,7 +2215,7 @@
   <div class="floatPanelHandle">
     <span id="attackModalTitle">⚔️ Attacks</span><span class="floatPanelDrag">⠿</span>
   </div>
-  <div class="subtitle" style="margin:6px 0 8px; font-size:12px;">Targeted ones close this — then click who to hit. AoE hits everyone nearby.</div>
+  <div class="subtitle" style="margin:6px 0 8px; font-size:12px;" id="attackHowTo">Targeted ones close this — then click who to hit. AoE hits everyone nearby.</div>
   <div id="attackList"></div>
   <div id="attackTargetPanel" class="passInfo hidden">
     <label id="attackTargetLabel">Target</label>
