@@ -858,11 +858,17 @@ under `_to_delete/` and `cp -Rf` over.
   BOTH app folders (www re-synced via the fixed build script — it now preserves config.js +
   mobile-payments.js; BUILD/STORE docs list all 4 IAP products). `_to_delete/` gained the
   transfer tarballs + ios-x/android-x scratch dirs — all safe to trash.
-- **Michael's queue:** (1) git push (Render deploy — REQUIRED before web players return);
+- **Michael's queue:** (1) ~~git push~~ **DONE end of session** (after clearing a stale
+  `.git/index.lock` — see gotcha below) — Render should be serving Session I;
   (2) create the 3 Moonstone products in App Store Connect + Play Console (BUILD docs);
   (3) `npx cap sync` + version bump + re-archive both apps whenever he next ships them;
   (4) his verdict on Peddler stall placement (1350,1180 — easy to move) and MS pricing
   (constants in one place: MS_PACKS + tier prices in the catalog).
+- **Git-lock gotcha (bit us in G and I):** ANY git command run through device_bash leaves a
+  stale `.git/index.lock` behind — the VM can refresh the index but can't unlink the lock, so
+  Michael's next commit fails with "index.lock: File exists". Either avoid device_bash git
+  entirely, or immediately `mv .git/index.lock _to_delete/git-index-lock-<session>` after
+  (rename is allowed, delete isn't). Three such tombstones sit in `_to_delete/` already.
 - **Balance levers** if playtesting demands: MS_PACKS, tier prices, AUCTION_MS_FEE, stat
   ceilings (regenerate catalog if changing), LEGENDARY_SET_SIZE / week length.
 - Weekly-set determinism means the shop can be previewed for ANY date:
