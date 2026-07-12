@@ -2037,10 +2037,16 @@
   /* HUD pills */
   #eventTag {
     position:fixed; top:96px; left:50%; transform:translateX(-50%); z-index:7;
-    background:rgba(26,16,42,0.82); border:1px solid #4a3b6a; color:#ffd9a0;
-    padding:4px 12px; border-radius:14px; font-size:12.5px; pointer-events:none;
+    background:rgba(26,16,42,0.88); border:1px solid #4a3b6a; color:#ffd9a0;
+    padding:5px 14px; border-radius:14px; font-size:12.5px;
+    cursor:pointer; pointer-events:auto; transition:opacity 0.45s;
   }
   #eventTag.hidden { display:none; }
+  /* Same manners as the location pill (Session I lesson): announce, then get
+     out of the way. Fades a few seconds after any change; tap opens the board. */
+  #eventTag.tagFaded { opacity:0; pointer-events:none; }
+  body.touchMode #eventTag { top:60px; font-size:11.5px; max-width:86vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body.panelOpen #eventTag, body.composeOpen #eventTag, body.emoteWheelOpen #eventTag { display:none; }
   #firstStepsChip {
     position:fixed; left:16px; bottom:150px; z-index:7;
     background:rgba(20,12,34,0.85); border:1px solid #4a3b6a; border-radius:12px;

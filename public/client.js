@@ -16321,20 +16321,42 @@ function applyCalendarState(cal) {
   calendarState = cal || calendarState;
   renderEventTag();
 }
+// The event pill announces, then gets out of the way (the Session I location-
+// pill lesson, re-learned live on Michael's phone): it shows for a few seconds
+// whenever the ACTIVE EVENT SET changes (an event starting or ending), then
+// fades. Tapping it while visible opens the Town Board.
+let _eventTagSig = null;
+let _eventTagFadeTimer = null;
 function renderEventTag() {
   const el = document.getElementById('eventTag');
   if (!el) return;
-  if (!calendarState || !me) { el.classList.add('hidden'); return; }
+  if (!calendarState || !me) { el.classList.add('hidden'); _eventTagSig = null; return; }
   const now = Date.now();
   const parts = [];
   if (calendarState.bloodMoon && bloodMoonActiveClient(now)) parts.push('🔴 BLOOD MOON');
   if (calendarState.festival && now >= calendarState.festival.startsAt && now < calendarState.festival.endsAt) parts.push('🏮 Hearthmoon Festival — +25% XP');
   if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');
-  if (!parts.length) { el.classList.add('hidden'); return; }
+  const sig = parts.join('|');
+  if (!parts.length) { el.classList.add('hidden'); _eventTagSig = sig; return; }
   el.textContent = parts.join(' · ');
   el.classList.remove('hidden');
+  if (sig !== _eventTagSig) {
+    // The set changed — surface it fresh, then fade back out of the way.
+    _eventTagSig = sig;
+    el.classList.remove('tagFaded');
+    clearTimeout(_eventTagFadeTimer);
+    _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
+  }
 }
 setInterval(renderEventTag, 20000);
+(function () {
+  const el = document.getElementById('eventTag');
+  if (!el) return;
+  el.addEventListener('click', () => {
+    el.classList.add('tagFaded');
+    openBoardModal(); // the board is where the tournament lives
+  });
+})();
 
 // ── The while-you-were-gone letter ───────────────────────────────────────────
 function openLetterModal(letter) {

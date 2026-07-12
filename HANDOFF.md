@@ -1136,3 +1136,25 @@ live Playwright UI sweep 34/34 · app-shell smoke 9/9 per app · zero page error
 
 *Last updated Sunday, July 12, 2026, late evening — end of Session L. If you add to the
 project, append a short dated note here so the next session inherits it.*
+
+## Session L addendum (2026-07-12, late evening) — the RE-REVIEW
+
+Re-ran the Session K competitive review against the post-Session-L game (same top 10, same
+rubric; competitor data from the same-day morning research, deliberately not re-gathered).
+Thornreach re-scored: Depth 5→6.5 · Fairness 9.5 (unchanged) · Hooks 5.5→7.5 · Mobile UX 7→7.5 ·
+**Overall 6.8→7.8, rank #10→#4 of 11** (between Star Rail and AFK Journey). Scores measure
+design-completeness from shipped+tested code; the report is explicit that live retention proof
+is the remaining asterisk. Deliverable: `thornreach-vs-top10-v2.html` (repo root, untracked —
+move/delete freely; also in the Cowork artifact gallery as "thornreach-vs-top10-v2"). Next
+playbook per the report: soft-launch live-proof, authored-content cadence, store-launch
+checklist (products/disk/privacy URL/screenshots), native push + a 100-player load test.
+
+## Session L addendum 2 (2026-07-12, night) — event-pill manners fix (live user report)
+
+Michael, playing the deployed build on his phone, hit the new #eventTag banner ("Hunt
+Tournament") stuck on screen, untappable. Fixed with the Session I location-pill pattern:
+the pill now shows for ~6.5s when the ACTIVE EVENT SET changes (an event starting/ending),
+then fades; TAPPING it opens the Town Board; on touch it sits just under the top bar
+(top:60px, ellipsized); hidden entirely while any panel / compose / emote wheel is open.
+public/client.js + public/index.html + both app folders www re-synced. Verified headless:
+shows, fades at ~7s, tap opens the board, display:none under panelOpen; zero page errors.
