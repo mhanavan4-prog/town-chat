@@ -1315,6 +1315,7 @@ function onWsMessage(ev) {
   if (msg.type === 'bank_state') {
     lastBankState = { balance: msg.balance, slots: msg.slots };
     renderBankModal();
+    updateGoldReadouts();
     if (auctionModalOpen) populateAuctionItemSelect();
     if (sendMoneyModalOpen) {
       const bal = document.getElementById('sendMoneyBalance');
@@ -1360,6 +1361,7 @@ function onWsMessage(ev) {
     };
     renderInventoryItemsPanel();
     if (bankModalOpen) populateBankDepositSelect();
+    if (auctionModalOpen) populateAuctionItemSelect();
     applyMyEquipVisual(msg);
     return;
   }
@@ -2655,6 +2657,7 @@ if (useDungeonTokenBtn) {
 // ---------------------------------------------------------------------------
 function renderInventoryItemsPanel() {
   if (!lastInventoryState) return;
+  updateGoldReadouts(); // pack header purse strip stays current
   renderEquipSlot('equipWeaponSlot', lastInventoryState.equippedWeapon, 'weapon');
   renderEquipSlot('equipHeadSlot',   lastInventoryState.equippedHead,   'head');
   renderEquipSlot('equipChestSlot',  lastInventoryState.equippedChest,  'chest');
@@ -17238,6 +17241,36 @@ function refreshMsUI() {
   if (bal) bal.innerHTML = 'You carry <b>' + myMoonstones + '</b> 💎';
   const lbal = document.getElementById('legendBalance');
   if (lbal) lbal.textContent = 'You carry ' + myMoonstones + ' 💎';
+  updateGoldReadouts();
+}
+
+// ── Gold readouts (live report: "I can't see how much gold I have") ──────
+// Gold lives in the bank vault, but the NUMBER should only ever be one
+// glance away: a 🪙 badge on the menu's Inventory row, a purse strip at
+// the top of the pack, and a balance line inside the Auction House. All
+// three are fed from lastBankState (the server now pushes bank_state at
+// every logged-in join, so they're live from the first frame — no more
+// "Balance: ?" until you'd visited the teller) and myMoonstones via
+// refreshMsUI. Guests have no vault, so their readouts stay hidden and
+// the auction strip nudges them toward opening an account instead.
+// Numbers only ever come from server payloads, so innerHTML here is safe.
+function updateGoldReadouts() {
+  const gold = lastBankState ? lastBankState.balance : null;
+  const menuGold = document.getElementById('menuGoldVal');
+  if (menuGold) {
+    menuGold.classList.toggle('hidden', gold == null);
+    if (gold != null) menuGold.textContent = '🪙 ' + gold;
+  }
+  const invLine = document.getElementById('invGoldLine');
+  if (invLine) {
+    invLine.classList.toggle('hidden', gold == null);
+    if (gold != null) invLine.innerHTML = '🪙 <b>' + gold + '</b> gold banked · 💎 <b>' + myMoonstones + '</b> carried';
+  }
+  const aucLine = document.getElementById('auctionBalanceLine');
+  if (aucLine) {
+    if (gold == null) aucLine.textContent = 'Gold is held at the 🏦 bank — log in to a Town Chat account to earn and spend it.';
+    else aucLine.innerHTML = 'You have 🪙 <b>' + gold + '</b> (bank) · 💎 <b>' + myMoonstones + '</b>';
+  }
 }
 function msPriceLabel(cents) { return '$' + (cents / 100).toFixed(2); }
 function openMsModal() {
@@ -17544,7 +17577,9 @@ function openAuctionModal() {
   document.getElementById('auctionSelfieForm').classList.add('hidden');
   modal.classList.remove('hidden');
   auctionModalOpen = true;
+  updateGoldReadouts();
   ws.send(JSON.stringify({ type: 'bank_open' }));
+  ws.send(JSON.stringify({ type: 'inventory_open' })); // the sell picker lists pack items too
   ws.send(JSON.stringify({ type: 'auction_browse' }));
 }
 
@@ -17619,26 +17654,51 @@ if (auctionSelfieSubmitBtn) auctionSelfieSubmitBtn.addEventListener('click', () 
   document.getElementById('auctionSelfieForm').classList.add('hidden');
 });
 
+// The sell picker offers BOTH pools: what you're carrying and what's in
+// your vault (live report: you shouldn't have to deposit an item at the
+// bank just to auction it). Option values are "inv:3" / "bank:7" so the
+// submit handler knows which slots array — and which server-side source —
+// the pick refers to. The pack group comes first: listing carried loot is
+// the common case now.
 function populateAuctionItemSelect() {
   const select = document.getElementById('auctionItemSelect');
-  if (!select || !lastBankState) return;
+  if (!select) return;
   select.innerHTML = '';
-  lastBankState.slots.forEach((slot, idx) => {
-    if (!slot) return;
-    const item = ITEM_CATALOG[slot.itemId];
+  const addGroup = (label, state, prefix) => {
+    if (!state) return 0;
+    let added = 0;
+    const group = document.createElement('optgroup');
+    group.label = label;
+    state.slots.forEach((slot, idx) => {
+      if (!slot) return;
+      const item = ITEM_CATALOG[slot.itemId];
+      const opt = document.createElement('option');
+      opt.value = prefix + ':' + idx;
+      opt.textContent = (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+      group.appendChild(opt);
+      added++;
+    });
+    if (added) select.appendChild(group);
+    return added;
+  };
+  const n = addGroup('🎒 Your pack', lastInventoryState, 'inv')
+          + addGroup('🏦 Bank vault', lastBankState, 'bank');
+  if (!n) {
     const opt = document.createElement('option');
-    opt.value = String(idx);
-    opt.textContent = (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+    opt.value = '';
+    opt.textContent = 'Nothing to list yet — go find some loot!';
     select.appendChild(opt);
-  });
+  }
 }
 
 const auctionCreateSubmitBtn = document.getElementById('auctionCreateSubmitBtn');
 if (auctionCreateSubmitBtn) auctionCreateSubmitBtn.addEventListener('click', () => {
   const err = document.getElementById('auctionModalErr');
-  const idx = parseInt(document.getElementById('auctionItemSelect').value, 10);
-  if (!lastBankState || !Number.isInteger(idx) || !lastBankState.slots[idx]) { err.textContent = 'Pick an item first.'; return; }
-  const slot = lastBankState.slots[idx];
+  const raw = String(document.getElementById('auctionItemSelect').value || '');
+  const m = raw.match(/^(inv|bank):(\d+)$/);
+  const state = m ? (m[1] === 'inv' ? lastInventoryState : lastBankState) : null;
+  const slot = state ? state.slots[parseInt(m[2], 10)] : null;
+  if (!slot) { err.textContent = 'Pick an item first.'; return; }
   const qty = parseInt(document.getElementById('auctionQty').value, 10);
   const startingBid = parseInt(document.getElementById('auctionStartBid').value, 10);
   const buyoutRaw = document.getElementById('auctionBuyout').value;
@@ -17652,7 +17712,8 @@ if (auctionCreateSubmitBtn) auctionCreateSubmitBtn.addEventListener('click', () 
   }
   err.textContent = '';
   const currency = (document.getElementById('auctionCurrency') || {}).value === 'ms' ? 'ms' : 'gold';
-  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours, currency }));
+  const source = m[1] === 'inv' ? 'inventory' : 'bank';
+  ws.send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours, currency, source }));
   document.getElementById('auctionCreateForm').classList.add('hidden');
 });
 const auctionCurrencySel = document.getElementById('auctionCurrency');

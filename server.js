@@ -3374,6 +3374,32 @@ function pushBankStateIfOnline(key) {
   const p = findConnectionByAccountKey(key);
   if (p) send(p.ws, { type: 'bank_state', ...bankStatePayload(key) });
 }
+function pushInventoryStateIfOnline(key) {
+  const p = findConnectionByAccountKey(key);
+  if (p) send(p.ws, { type: 'inventory_state', ...inventoryStatePayload(p) });
+}
+
+// Hands an unsold (or undeliverable) item listing back to its seller.
+// Inventory-sourced listings (players can now list straight from their
+// pack, no bank deposit round-trip) go back into the pack they came from,
+// falling back to the bank vault if the pack is full in the meantime.
+// Bank-sourced listings return to the vault as they always have. Works
+// for offline sellers too: a logged-in seller's pack lives in
+// inventories.json keyed by the same account key as their vault, so both
+// destinations are reachable whether or not they're connected. (Item
+// listings always have a sellerKey — guests can't create them.)
+function returnListingItemToSeller(listing) {
+  if (listing.source === 'inventory' && inventories[listing.sellerKey] &&
+      addItemToAccount(inventories[listing.sellerKey], listing.itemId, listing.qty)) {
+    saveInventories();
+    pushInventoryStateIfOnline(listing.sellerKey);
+    return;
+  }
+  const sellerAccount = ensureBankAccount(listing.sellerKey);
+  addItemToAccount(sellerAccount, listing.itemId, listing.qty);
+  saveBankAccounts();
+  pushBankStateIfOnline(listing.sellerKey);
+}
 
 function resolveListing(listing) {
   listings = listings.filter(l => l.id !== listing.id);
@@ -3484,21 +3510,20 @@ function resolveListing(listing) {
       pushBankStateIfOnline(listing.currentBidderKey);
     } else {
       // Winner's bank is full — refund their escrowed bid and hand the
-      // item back to the seller instead of losing it.
+      // item back to the seller instead of losing it. (If the seller's
+      // destination is also full it falls back vault-ward inside the
+      // helper; a double-full loss remains the rare acceptable edge.)
       if (isMs) { msAdjust(listing.currentBidderKey, listing.currentBid); pushMsStateIfOnline(listing.currentBidderKey); }
       else winnerAccount.balance += listing.currentBid;
-      const sellerAccount = ensureBankAccount(listing.sellerKey);
-      addItemToAccount(sellerAccount, listing.itemId, listing.qty); // if seller is also full, the item is lost — rare double-edge-case, acceptable for this scope
       saveBankAccounts();
-      pushBankStateIfOnline(listing.sellerKey);
+      returnListingItemToSeller(listing);
       pushBankStateIfOnline(listing.currentBidderKey);
     }
   } else {
-    // No bids — item just goes back to the seller.
-    const sellerAccount = ensureBankAccount(listing.sellerKey);
-    addItemToAccount(sellerAccount, listing.itemId, listing.qty);
-    saveBankAccounts();
-    pushBankStateIfOnline(listing.sellerKey);
+    // No bids — the item goes back to wherever the seller listed it from
+    // (their pack for an inventory-sourced listing, their bank vault
+    // otherwise).
+    returnListingItemToSeller(listing);
   }
   saveListings();
 }
@@ -6992,6 +7017,17 @@ wss.on('connection', (ws) => {
         const cv = covenOf(player.accountKey);
         if (cv) send(ws, { type: 'coven_state', ...covenStatePayload(cv, player.accountKey) });
       }
+      // Gold you can actually SEE (live report): the balance used to be
+      // visible only inside the bank teller window — NPC shops showed
+      // "Balance: ?" until you'd opened the bank once this session, and
+      // the pack showed no gold at all. Every logged-in join now gets its
+      // bank state (and carried inventory) pushed up front, so the pack
+      // header, shop greeting lines, and the Auction House balance strip
+      // all have a live number from the first frame.
+      if (player.accountKey) {
+        send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      }
       // First Steps — newcomers get their three-goal tracker; anyone who
       // predates it at level 5+ has it quietly retired.
       {
@@ -7216,6 +7252,13 @@ wss.on('connection', (ws) => {
       // The Moonstone lane (Session I): listings are denominated in either
       // gold (bank balance, the original) or Moonstones. Same escrow shape.
       const currency = msg.currency === 'ms' ? 'ms' : 'gold';
+      // Where the item comes out of: 'inventory' lists straight from the
+      // pack the player is carrying (no bank-deposit round-trip), 'bank'
+      // is the original vault-sourced flow and stays the default so older
+      // clients keep working unchanged. Either way the item is escrowed
+      // out the moment the listing goes up, and returnListingItemToSeller
+      // sends it back to the same place if the auction ends unsold.
+      const source = msg.source === 'inventory' ? 'inventory' : 'bank';
       const qty = Math.floor(Number(msg.qty));
       const startingBid = Math.floor(Number(msg.startingBid));
       const buyoutPrice = msg.buyoutPrice != null && msg.buyoutPrice !== '' ? Math.floor(Number(msg.buyoutPrice)) : null;
@@ -7227,17 +7270,27 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'bank_error', message: 'That listing isn’t valid — check the item, quantity, starting bid, and duration.' });
         return;
       }
-      const account = ensureBankAccount(player.accountKey);
-      if (!removeItemFromAccount(account, itemId, qty)) {
-        send(ws, { type: 'bank_error', message: 'You don’t have that many of that item to list.' });
-        return;
+      if (source === 'inventory') {
+        const inv = getInventory(player);
+        if (!removeItemFromAccount(inv, itemId, qty)) {
+          send(ws, { type: 'bank_error', message: 'You aren’t carrying that many of that item to list.' });
+          return;
+        }
+        saveInventories();
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      } else {
+        const account = ensureBankAccount(player.accountKey);
+        if (!removeItemFromAccount(account, itemId, qty)) {
+          send(ws, { type: 'bank_error', message: 'You don’t have that many of that item to list.' });
+          return;
+        }
+        saveBankAccounts();
       }
-      saveBankAccounts();
       const listing = {
         id: makeId(),
         sellerKey: player.accountKey,
         sellerName: player.name,
-        currency,
+        currency, source,
         itemId, qty, startingBid, buyoutPrice,
         currentBid: null,
         currentBidderKey: null,
@@ -9775,7 +9828,14 @@ global.__testHooks = {
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS,
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
-  ensureBankAccount, addItemToAccount, listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
+  ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
+  listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
+  // Auction-from-inventory (Session M): pack-sourced listings + returns.
+  // `listings` above is the boot-time array reference and goes stale the
+  // first time resolveListing reassigns the module variable — tests that
+  // create-then-resolve should read listingsLive instead.
+  inventories, saveInventories, returnListingItemToSeller,
+  get listingsLive() { return listings; },
   LOCKED_ROOMS, TOWN_PASS_PRICE_CENTS, TOWN_PASS_HOURS,
   // Mob combat + countermeasures
   mobs, mobs2, tickWildlife, TOWN_MOB_COMBAT, TOWN_MOB_XP,

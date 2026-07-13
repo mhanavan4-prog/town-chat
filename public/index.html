@@ -1836,7 +1836,7 @@
   <div id="menuSheetCard">
     <div id="menuSheetTitle">Thornreach</div>
     <div id="menuGrid">
-      <button class="menuRow" id="menuInventory">🎒 Inventory</button>
+      <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;">🪙 0</span></button>
       <button class="menuRow" id="menuJournal">📜 Journal</button>
       <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
       <button class="menuRow" id="menuKit">⚔️ Abilities</button>
@@ -2369,12 +2369,13 @@
 <div id="auctionModal" class="overlay hidden">
   <div class="card" id="auctionCard">
     <div class="title" style="font-size:20px;">🔨 Auction House</div>
-    <div class="subtitle">Browse active listings, or list one of your own bank items.</div>
+    <div class="subtitle">Browse active listings, or list an item straight from your pack or bank vault.</div>
+    <div id="auctionBalanceLine" style="margin:2px 0 8px; padding:6px 10px; background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.35); border-radius:6px; color:#ffd700; font-size:12.5px;"></div>
     <button class="btn" id="auctionCreateToggleBtn">+ List an item</button>
     <button class="btn" id="auctionSelfieToggleBtn">📸 List a selfie</button>
     <div id="auctionCreateForm" class="hidden">
       <div class="passInfo">
-        <label>Item (from your bank account)</label>
+        <label>Item (from your 🎒 pack or 🏦 bank vault)</label>
         <select id="auctionItemSelect"></select>
         <label>Quantity</label>
         <input type="number" id="auctionQty" min="1" value="1">
@@ -2579,6 +2580,7 @@
   </div>
 
   <div id="invItemsView">
+    <div id="invGoldLine" class="hidden" style="margin-bottom:8px; padding:7px 10px; background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.35); border-radius:6px; color:#ffd700; font-size:13px;">🪙 0</div>
     <div id="dungeonTokenSection" style="margin-bottom:8px; padding:8px; background:#120a22; border:1px solid #5a2a8a; border-radius:6px;">
       <div style="font-weight:bold; color:#cc88ff; margin-bottom:4px;">⚡ Wildlands Token</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">Personal level-matched dungeon — Permanent · Cannot be traded or stolen</div>

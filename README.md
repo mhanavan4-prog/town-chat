@@ -196,8 +196,9 @@ press F:
   **Deposit from Inventory** box moves things the other way.
 - **🔨 Auctioneer** — opens the Auction House: every active listing from
   every player, with a bid box (and a Buyout button, if the seller set a
-  buyout price) on each one, plus a **+ List an item** button to put up
-  something from your own bank slots.
+  buyout price) on each one, plus a **+ List an item** button whose picker
+  offers both pools — 🎒 what you're carrying and 🏦 what's in your bank
+  slots — so selling loot you just found needs no deposit round-trip.
 
 ### Bank slots vs. your personal inventory
 
@@ -207,9 +208,12 @@ the economy feature (account-gated, what auctions draw from), while your
 inventory is what you actually carry and can equip from, available to
 guests too. The Bank modal is the only place that moves items between
 them — **Withdraw to Inventory** (bank → carried) and **Deposit from
-Inventory** (carried → bank). Auctions only ever list from bank slots, so
-something you want to sell needs to be deposited first if you withdrew or
-equipped it.
+Inventory** (carried → bank). Auctions can list from either pool: the
+Auction House picker groups your 🎒 pack and 🏦 vault separately, escrows
+the item out of whichever one you picked, and returns it to that same
+pool if nobody bids (falling back to the vault if your pack has filled
+up in the meantime). One caveat: an *equipped* item is in neither pool —
+unequip it to your pack first and it shows up in the picker.
 
 Equipping works the same regardless of account vs. guest: click an eligible
 item in your **Items** tab to equip it as a weapon or armor (whatever was
@@ -226,11 +230,11 @@ mid-session doesn't retroactively grant one either — log in on the join
 screen, then join.
 
 How listings work:
-- Pick an item + quantity from your bank slots, set a starting bid, an
-  optional buyout price, and a duration of **1 hour, 12 hours, or 24
-  hours**. The item leaves your slots the moment the listing goes up (so
-  you can't also use or re-list it mid-auction) and either returns to you
-  if nobody bids, or converts to gold once it sells.
+- Pick an item + quantity from your pack or your bank slots, set a
+  starting bid, an optional buyout price, and a duration of **1 hour, 12
+  hours, or 24 hours**. The item leaves that pool the moment the listing
+  goes up (so you can't also use or re-list it mid-auction) and either
+  returns to it if nobody bids, or converts to gold once it sells.
 - Bidding is escrowed: placing a bid deducts that amount from your balance
   immediately, so you can never bid more than you actually have. Getting
   outbid refunds you automatically. Hitting (or exceeding) the buyout price

@@ -1200,3 +1200,58 @@ nearestOtherPlayer() (duplicate top-level declarations shadow silently — the i
 uncapped for a while; now nearestCovenInvitee, 160u), and added permanent __testDrive probes
 castHotbar/cooldowns/actionCatalog. sessionl.test.js grew the takeover checks (96 total).
 public/ + both apps' www re-synced. npm test 10/10 · audit 213/213 · zero page errors.
+
+## Session M (2026-07-13) — Auction-from-inventory + gold you can actually see
+
+Two live reports from Michael, both fixed + verified end-to-end.
+
+1. **"List an item currently in my inventory instead of the bank."** `auction_create` now takes
+   `source: 'inventory' | 'bank'` (defaults to `'bank'`, so old clients/the bank-modal form are
+   unchanged). Inventory-sourced listings escrow the item out of the carried pack (`getInventory`
+   + `removeItemFromAccount`, `saveInventories`) instead of the vault. New helper
+   `returnListingItemToSeller(listing)` sends an unsold/undeliverable item back to WHERE it was
+   listed from — the pack for an inventory listing (falling back to the bank vault if the pack
+   filled up meanwhile), the vault otherwise — and is used at all three resolveListing return
+   sites (no-bid expiry, winner-bank-full refund, and the generic path). Client: the "+ List an
+   item" picker now shows two optgroups, **🎒 Your pack** (first — the common case) and **🏦 Bank
+   vault**, with option values `inv:<idx>` / `bank:<idx>`; `openAuctionModal` also sends
+   `inventory_open` so the pack list is populated. Equipped gear is in neither pool — unequip to
+   the pack first (documented in README).
+
+2. **"I can't see how much gold I have."** Gold lived only inside the bank teller window; NPC
+   shops showed "Balance: ?" until you'd opened the bank once, and the pack showed nothing. Every
+   logged-in join now pushes `bank_state` + `inventory_state` up front, and a new
+   `updateGoldReadouts()` feeds three always-visible spots: a 🪙 badge on the menu's Inventory
+   row (`#menuGoldVal`), a purse strip atop the pack (`#invGoldLine`), and a balance line in the
+   Auction House (`#auctionBalanceLine`). Guests (no vault) keep these hidden; the auction line
+   nudges them to make an account. Fed from `lastBankState` + `myMoonstones`, refreshed on
+   bank_state/inventory_state/refreshMsUI.
+
+Server exports grew: `removeItemFromAccount, countItemQty, inventories, saveInventories,
+returnListingItemToSeller`, and a `get listingsLive()` accessor (the boot-time `listings` ref
+goes stale once resolveListing reassigns the module array — tests must read `listingsLive`).
+
+**Tests / verification.** New `test/auction-inventory.test.js` (25 checks: list-from-pack, escrow,
+no-bid return-to-pack, pack-full→vault fallback, buyout delivery, bank-source regression, gold
+push on join) — runs under `npm test`. Full suite **11/11** (was 10; verified flake-free across
+15 runs — the new test had leaned on random bank starter items, now clears pools to a known
+state). Audit **213/213**. New Playwright harness `test/qa-auction-inventory.cjs` drives the real
+client: registers an account, reads the pack gold strip + menu badge, unequips into the pack,
+walks into the bank, opens the Auction House, and lists the pack item end-to-end — **15/15, zero
+page errors**.
+
+**QA harness repair (test/three-stub.js).** The headless three.js stub was missing the loader
+chain (`Loader/FileLoader/LoadingManager/DefaultLoadingManager/LoaderUtils`), so the REAL
+GLTFLoader.js threw at `KK.load()` and aborted ALL of client.js at eval — no join handlers, no
+`__testDrive`. It also let the proxy fake `THREE.EffectComposer` as a function (so GFX tried to
+build the real bloom pipeline and died on `renderer.getSize`), lacked `Points`/`Line` geometry
+(fireflies null-deref'd every frame, killing the RAF loop before movement), and had a thin
+`Vector3`. All fixed: post-processing names are pinned off so `hasFX()` stays false, Points/Line
+capture geometry, Vector3 got the full method set, Raycaster got `set`. This unbroke the whole
+Playwright suite — `qa-account-bank.cjs` runs clean again too (11/11; also relaxed its stale
+"exactly 100 gold" assertion to ≥100, since the Session L day-1 streak now pays on first join).
+
+App `www/` for BOTH apps re-synced from public/ via wwwbuild/make_www.py (all rewire anchors
+matched). Web git batch below; apps still need the usual `npx cap sync` + resubmit when next shipped.
+
+`git add server.js public/client.js public/index.html README.md test/auction-inventory.test.js test/three-stub.js test/qa-auction-inventory.cjs test/qa-account-bank.cjs HANDOFF.md && git commit -m "Auction from inventory + always-visible gold readouts; repair headless three.js QA stub" && git push`
