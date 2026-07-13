@@ -1265,6 +1265,7 @@ const ITEM_CATALOG = {
   iron_ore:       { name: 'Iron Ore',        icon: '⛏️', slot: null },
   enchanted_fur:  { name: 'Enchanted Fur',   icon: '🌟', slot: null },
   shadow_essence: { name: 'Shadow Essence',  icon: '🫥', slot: null },
+  glimmerdust:    { name: 'Glimmerdust',     icon: '✨', slot: null }, // Embermoth scale-dust (Session M critters)
   // ---- Wildlands quest rewards ----
   lumber_bundle:  { name: 'Lumber Bundle',   icon: '🪚', slot: null },
   stone_block:    { name: 'Stone Block',     icon: '🪨', slot: null },
@@ -1731,6 +1732,77 @@ const LOOT_TABLES = {
     { gold: true, min: 2, max: 6,  chance: 0.50 },
     { itemId: 'silver_ring',    qty: 1, chance: 0.06 },
   ],
+  // ── Session M creatures ────────────────────────────────────────────────
+  // Peaceful critters (animals2 pool) — light material drops, they're prey.
+  embermoth: [
+    { itemId: 'glimmerdust', qty: 1, chance: 0.55 },
+    { itemId: 'fur_scrap',   qty: 1, chance: 0.20 },
+    { gold: true, min: 1, max: 4, chance: 0.30 },
+  ],
+  thistlehog: [
+    { itemId: 'fur_scrap',   qty: 1, chance: 0.55 },
+    { itemId: 'bone_shard',  qty: 1, chance: 0.25 },
+    { gold: true, min: 1, max: 4, chance: 0.35 },
+  ],
+  duskfawn: [
+    { itemId: 'animal_pelt', qty: 1, chance: 0.55 },
+    { itemId: 'fur_scrap',   qty: 1, chance: 0.35 },
+    { gold: true, min: 2, max: 6, chance: 0.40 },
+  ],
+  mirefowl: [
+    { itemId: 'leather_hide', qty: 1, chance: 0.45 },
+    { itemId: 'fur_scrap',    qty: 1, chance: 0.30 },
+    { gold: true, min: 1, max: 5, chance: 0.35 },
+  ],
+  // Neutral creatures (mobs3 pool) — sturdier, better mats since you had to
+  // pick a fight to get them.
+  bramble_boar: [
+    { itemId: 'animal_pelt',  qty: 1, chance: 0.60 },
+    { itemId: 'leather_hide', qty: 1, chance: 0.35 },
+    { itemId: 'iron_ore',     qty: 1, chance: 0.15 },
+    { gold: true, min: 4, max: 12, chance: 0.55 },
+  ],
+  mossback_tortoise: [
+    { itemId: 'stone_block', qty: 1, chance: 0.55 },
+    { itemId: 'druid_stone', qty: 1, chance: 0.14 },
+    { gold: true, min: 3, max: 10, chance: 0.45 },
+  ],
+  gravewing_crow: [
+    { itemId: 'bone_shard',     qty: 1, chance: 0.55 },
+    { itemId: 'shadow_essence', qty: 1, chance: 0.22 },
+    { gold: true, min: 2, max: 8, chance: 0.45 },
+  ],
+  // Hostile night-mobs (mobs2 pool) — filling the archetype gaps.
+  fen_hexer: [
+    { itemId: 'shadow_essence', qty: 1, chance: 0.60 },
+    { itemId: 'hollow_shard',   qty: 1, chance: 0.14 },
+    { gold: true, min: 3, max: 11, chance: 0.55 },
+    { itemId: 'shadow_staff',   qty: 1, chance: 0.04 },
+  ],
+  rot_swarm: [
+    { itemId: 'bone_shard', qty: 1, chance: 0.45 },
+    { itemId: 'fur_scrap',  qty: 1, chance: 0.35 },
+    { gold: true, min: 1, max: 5, chance: 0.40 },
+  ],
+  barrow_maw: [
+    { itemId: 'bone_shard',   qty: 1, chance: 0.55 },
+    { itemId: 'iron_ore',     qty: 1, chance: 0.30 },
+    { itemId: 'hollow_shard', qty: 1, chance: 0.12 },
+    { gold: true, min: 4, max: 14, chance: 0.55 },
+  ],
+  gloom_bat: [
+    { itemId: 'fur_scrap',      qty: 1, chance: 0.55 },
+    { itemId: 'shadow_essence', qty: 1, chance: 0.25 },
+    { gold: true, min: 2, max: 8, chance: 0.50 },
+  ],
+  old_marrowe: [ // rare Blood Moon elite — the marquee drop table
+    { itemId: 'enchanted_fur',  qty: 1, chance: 0.70 },
+    { itemId: 'hollow_shard',   qty: 2, chance: 0.55 },
+    { itemId: 'bloodmoon_shard', qty: 1, chance: 0.60 },
+    { gold: true, min: 20, max: 55, chance: 0.85 },
+    { itemId: 'dread_helm',     qty: 1, chance: 0.10 },
+    { itemId: 'cursed_blade',   qty: 1, chance: 0.08 },
+  ],
   // Dungeon keyed by xp tier
   dungeon_t1: [ // xp=8
     { itemId: 'bone_shard',  qty: 1, chance: 0.55 },
@@ -2182,28 +2254,65 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     mob: { list: mobs, room: 'outside', respawnMs: MOB_RESPAWN_MS },
     animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
     mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS },
+    mob3: { list: mobs3, room: 'wilds', respawnMs: MOB3_RESPAWN_MS },
     ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS }
   };
   const poolInfo = POOLS[targetType];
   if (!poolInfo || player.room !== poolInfo.room) return { ok: false };
   const t = poolInfo.list.find(x => x.id === targetId);
   if (!t || t.dead || outOfRange(t)) return { ok: false };
+  // A Mossback Tortoise's shell soaks most of a blow (its `armor` is the
+  // fraction of damage that gets through). Applied before anything reads dmg
+  // so lifesteal, hit numbers and the health hit all use the real figure.
+  if (targetType === 'mob3') {
+    const np = MOB3_TYPES[t.mobType];
+    if (np && np.armor) dmg = Math.max(1, Math.round(dmg * np.armor));
+    // Any hit provokes a neutral creature into fighting back.
+    provokeNeutral(t, player.id);
+  }
   t.health = Math.max(0, t.health - dmg);
   applySkillLifesteal(player, dmg);
   broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
   if (t.health <= 0) {
     t.dead = true;
     t.respawnAt = Date.now() + poolInfo.respawnMs;
-    if (targetType === 'mob' || targetType === 'mob2' || targetType === 'ember_mob') registerHuntKill(player);
+    if (targetType === 'mob' || targetType === 'mob2' || targetType === 'mob3' || targetType === 'ember_mob') registerHuntKill(player);
     if (targetType === 'mob2') {
-      grantXP(player, bloodMoonKillXp(15));
+      const preset = MOB2_TYPES[t.mobType];
+      const xp = preset.xp || 15;
+      grantXP(player, bloodMoonKillXp(xp));
       maybeDropBloodShard(player);
       advanceQuestProgress(player, 'kill_mob', null);
+      advanceQuestProgress(player, 'kill_creature', t.mobType);
       storyEvent(player, 'kill_mob', { pool: 'mob2', mobType: t.mobType });
       const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
       t.pendingLoot = rollPendingLoot(lootTable);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
-      return { ok: true, dead: true, dmg, xp: 15, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+      if (preset.elite) broadcastAll({ type: 'announce', message: `🌒 ${player.name} felled ${preset.name} beneath the Blood Moon!` });
+      return { ok: true, dead: true, dmg, name: preset.name, xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    if (targetType === 'mob3') {
+      const preset = MOB3_TYPES[t.mobType];
+      grantXP(player, bloodMoonKillXp(preset.xp));
+      advanceQuestProgress(player, 'kill_creature', t.mobType);
+      storyEvent(player, 'kill_mob', { pool: 'mob3', mobType: t.mobType });
+      t.pendingLoot = rollPendingLoot(LOOT_TABLES[t.mobType] || LOOT_TABLES.bramble_boar);
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    if (targetType === 'animal2') {
+      // Peaceful critters (Session M): prey, so real XP + materials on the
+      // kill (rabbits stay ambient — they carry no loot table). Not a "hunt"
+      // for streak/leaderboard purposes; they can still anchor a gather quest.
+      const preset = CRITTER2_TYPES[t.critterType] || CRITTER2_TYPES.rabbit;
+      grantXP(player, preset.xp);
+      advanceQuestProgress(player, 'kill_creature', t.critterType);
+      storyEvent(player, 'hunt_critter', { pool: 'animal2', critterType: t.critterType });
+      if (preset.loot && LOOT_TABLES[preset.loot]) {
+        t.pendingLoot = rollPendingLoot(LOOT_TABLES[preset.loot]);
+        t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      }
+      return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: (t.pendingLoot && t.pendingLoot.length) ? '  Something dropped — go claim it!' : '' };
     }
     if (targetType === 'mob') {
       // Town night-mobs used to be pure atmosphere; now that they hunt
@@ -2711,11 +2820,133 @@ const QUEST_CATALOG = {
     type: 'kill_mob', target: 5, xpReward: 95, goldReward: 55,
     itemRewards: [{ itemId: 'healing_potion', qty: 1 }, { itemId: 'leather_hide', qty: 1 }],
     description: 'Between us: there are two of us on the night roster, and one of us is a rooster. The things that come out after dark are getting bolder — five fewer of them tonight and maybe I sleep a full shift for once. You didn\'t hear the part about sleeping.'
+  },
+
+  // ── Session M — creature hunts. Each of the twelve new Wilds creatures
+  // anchors one quest, spread across the existing quest-givers (each now
+  // carries a second job via QUEST_BY_NPC rotation). kill_creature counts
+  // only kills of the named quarry (its type is passed as the event itemId).
+  // ── Peaceful prey (gather materials) ──
+  emberwing_dust: {
+    npcId: 'npc_lyra', npcName: 'Scholar Lyra',
+    name: 'Dust of the Emberwings',
+    type: 'kill_creature', targetCreature: 'embermoth', target: 4, xpReward: 75, goldReward: 45,
+    itemRewards: [{ itemId: 'magic_scroll', qty: 1 }],
+    description: 'The Embermoths carry a glimmerdust on their wings that still holds a little of the old light — the kind my inks have lacked for a decade. Four of them drift the Wilds at dusk. Bring me what the wings give up, and I\'ll finally set down what the dark keeps trying to erase.'
+  },
+  thistle_forage: {
+    npcId: 'npc_mara', npcName: 'Ranger Mara',
+    name: 'The Root-Snufflers',
+    type: 'kill_creature', targetCreature: 'thistlehog', target: 4, xpReward: 70, goldReward: 40,
+    itemRewards: [{ itemId: 'healing_potion', qty: 1 }],
+    description: 'Thistlehogs have been rooting up the warding-herbs faster than they regrow — spiny little things, they curl up and trundle off the moment they see you. Thin four of them from the Wilds so the herbs get a season to breathe. Watch the quills.'
+  },
+  duskfawn_hunt: {
+    npcId: 'npc_dex', npcName: 'Hunter Dex',
+    name: 'A Fawn for the Larder',
+    type: 'kill_creature', targetCreature: 'duskfawn', target: 3, xpReward: 80, goldReward: 55,
+    itemRewards: [{ itemId: 'animal_pelt', qty: 2 }],
+    description: 'The Duskfawn are the only honest meat left in the Thornreach — everything else out there I wouldn\'t feed a dog. They bound the second they spot you, so you\'ll earn it. Three from the Wilds, and the pelts are yours on top of the pay.'
+  },
+  mirefowl_pluck: {
+    npcId: 'npc_apothecary', npcName: 'Apothecary Vex',
+    name: 'Marsh-Down for the Poultice',
+    type: 'kill_creature', targetCreature: 'mirefowl', target: 4, xpReward: 72, goldReward: 42,
+    itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: 'Mirefowl down draws fever heat out of a wound better than anything on my shelf — don\'t ask how I know. They flush out of the marsh shallows in a panic of wings if you get close. Four of them from the Wilds and I\'ll not have to answer awkward questions at the next inquest.'
+  },
+  // ── Neutral (pick a fight, take the trophy) ──
+  boar_cull: {
+    npcId: 'npc_knight', npcName: 'Sir Dorran',
+    name: 'The Tusked Menace',
+    type: 'kill_creature', targetCreature: 'bramble_boar', target: 4, xpReward: 110, goldReward: 65,
+    itemRewards: [{ itemId: 'leather_hide', qty: 2 }],
+    description: 'A Bramble Boar will let you walk right past it — and gore you through the spine if you so much as brush its bristles. Four have staked the old patrol route and I\'ll not send a green recruit against them. Provoke them if you must, but put them down. Bring the hides.'
+  },
+  mossback_shells: {
+    npcId: 'npc_armorer', npcName: 'Armorer Beck',
+    name: 'A Shell Worth Forging',
+    type: 'kill_creature', targetCreature: 'mossback_tortoise', target: 3, xpReward: 120, goldReward: 70,
+    itemRewards: [{ itemId: 'iron_ingot', qty: 2 }],
+    description: 'A Mossback\'s shell is the toughest natural plate in the Thornreach — I want to laminate a shield with it. Trouble is, the beast barely notices a sword; you have to REALLY commit before it deigns to fight back. Three shells off their backs. Mind it doesn\'t sit on you.'
+  },
+  crow_feathers: {
+    npcId: 'npc_tailor', npcName: 'Tailor Ines',
+    name: 'Feathers Fit for Mourning',
+    type: 'kill_creature', targetCreature: 'gravewing_crow', target: 5, xpReward: 100, goldReward: 60,
+    itemRewards: [{ itemId: 'silver_ring', qty: 1 }],
+    description: 'The Gravewing Crows keep the graveyard and resent anyone who lingers — disturb their patch and the whole flock comes down beak-first. Their feathers, though: black with a violet sheen no dye can match. Five birds\' worth for a very particular commission. I\'ll ask no questions if you don\'t.'
+  },
+  // ── Hostile (the Hollow's new nightstalkers) ──
+  circle_hexers: {
+    npcId: 'npc_morvaine', npcName: 'Elder Morvaine',
+    name: 'Silence the Fen Hexers',
+    type: 'kill_creature', targetCreature: 'fen_hexer', target: 5, xpReward: 150, goldReward: 90,
+    itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'hollow_shard', qty: 1 }],
+    description: 'The Fen Hexers are no dumb beast — they were coven once, before the Hollow hollowed them. Now they hang back in the dark and throw their hexes from range. Five must be silenced before their casting weakens the seal further. Close the distance fast; they are frail once you reach them.'
+  },
+  thorn_swarm: {
+    npcId: 'npc_rhedyn', npcName: 'Captain Rhedyn',
+    name: 'Clear the Grave-Mites',
+    type: 'kill_creature', targetCreature: 'rot_swarm', target: 8, xpReward: 130, goldReward: 75,
+    itemRewards: [{ itemId: 'leather_hide', qty: 2 }, { itemId: 'healing_potion', qty: 1 }],
+    description: 'Grave-Mites boil up out of the rot in knots — one\'s nothing, but they come at you eight-strong and a recruit panics. Cull eight of the little horrors before they nest near the perimeter. Keep moving and don\'t let them surround you.'
+  },
+  barrow_dig: {
+    npcId: 'npc_caelum', npcName: 'Brother Caelum',
+    name: 'What Waits in the Barrows',
+    type: 'kill_creature', targetCreature: 'barrow_maw', target: 4, xpReward: 160, goldReward: 100,
+    itemRewards: [{ itemId: 'hollow_shard', qty: 2 }, { itemId: 'iron_ore', qty: 2 }],
+    description: 'The Barrow Maws lie buried by the old graves and erupt claws-first when the unwary pass. Four have taken root in the Wilds. Walk their ground, let them come — then send them back into it for good. The Circle needs the shards they carry.'
+  },
+  gloom_wings: {
+    npcId: 'npc_elara', npcName: 'Scout Elara',
+    name: 'The Things That Swoop',
+    type: 'kill_creature', targetCreature: 'gloom_bat', target: 6, xpReward: 145, goldReward: 85,
+    itemRewards: [{ itemId: 'enchanted_fur', qty: 1 }, { itemId: 'iron_ingot', qty: 1 }],
+    description: 'My scouts keep coming back a pint low and can\'t say why — it\'s the Gloom Bats, wheeling in out of the dark and siphoning life with every pass. Fast, and they never hold still. Down six of them over the Wilds after nightfall and my patrols might stop fainting on watch.'
+  },
+  gallows_warden: {
+    npcId: 'npc_talwyn', npcName: 'Sister Talwyn',
+    name: 'The Gallows Warden Rises',
+    type: 'kill_creature', targetCreature: 'old_marrowe', target: 1, xpReward: 350, goldReward: 300,
+    itemRewards: [{ itemId: 'spirit_ring', qty: 1 }, { itemId: 'hollow_shard', qty: 3 }, { itemId: 'bloodmoon_shard', qty: 1 }],
+    description: 'On the Blood Moon — and only then — a thing wearing the shape of a scarecrow rises in the Wilds graveyard: Old Marrowe, the Gallows Warden, the Hollow\'s own steward. It is more than any single blade should face. Gather your strength, wait for the red moon, and end it. Do this and the Circle will name you kin.'
   }
 };
 // Reverse-lookup: npcId → questId
+// npcId → [questId, …] (an NPC can carry more than one job now — the Session M
+// creature hunts share the existing quest-givers rather than needing a wave of
+// new NPCs). questForNpc() picks which one to surface for a given player.
 const QUEST_BY_NPC = {};
-for (const [id, q] of Object.entries(QUEST_CATALOG)) QUEST_BY_NPC[q.npcId] = id;
+for (const [id, q] of Object.entries(QUEST_CATALOG)) {
+  (QUEST_BY_NPC[q.npcId] = QUEST_BY_NPC[q.npcId] || []).push(id);
+}
+// Which of an NPC's quests applies to THIS player right now: the one they're
+// already on with this NPC, else the first not on cooldown, else the first
+// (so the caller can still show a coherent "come back later").
+function questForNpc(player, npcId) {
+  const list = QUEST_BY_NPC[npcId];
+  if (!list || !list.length) return null;
+  if (player.activeQuest) {
+    const aq = QUEST_CATALOG[player.activeQuest.questId];
+    if (aq && aq.npcId === npcId) return player.activeQuest.questId;
+  }
+  const prog = getProgress(player);
+  for (const qid of list) {
+    const last = prog.questCooldowns && prog.questCooldowns[qid];
+    if (!last || Date.now() - last >= QUEST_COOLDOWN_MS) return qid;
+  }
+  return list[0];
+}
+
+// Creature quarry → display label + where-to-find, for quest text/hints.
+const CREATURE_LABEL = {
+  embermoth: 'Embermoths', thistlehog: 'Thistlehogs', duskfawn: 'Duskfawn', mirefowl: 'Mirefowl',
+  bramble_boar: 'Bramble Boars', mossback_tortoise: 'Mossback Tortoises', gravewing_crow: 'Gravewing Crows',
+  fen_hexer: 'Fen Hexers', rot_swarm: 'Grave-Mites', barrow_maw: 'Barrow Maws', gloom_bat: 'Gloom Bats',
+  old_marrowe: 'Old Marrowe, the Gallows Warden',
+};
 
 function advanceQuestProgress(player, eventType, itemId) {
   const aq = player.activeQuest;
@@ -2726,6 +2957,9 @@ function advanceQuestProgress(player, eventType, itemId) {
   if (quest.type === 'kill_mob' && eventType === 'kill_mob') matches = true;
   if (quest.type === 'harvest_plant' && eventType === 'harvest_plant') matches = true;
   if (quest.type === 'harvest_specific' && eventType === 'harvest_plant' && itemId === quest.targetItemId) matches = true;
+  // Creature-specific hunts (Session M): the killed creature's type is passed
+  // as the itemId arg, so only the right quarry counts.
+  if (quest.type === 'kill_creature' && eventType === 'kill_creature' && itemId === quest.targetCreature) matches = true;
   if (!matches) return;
 
   aq.progress++;
@@ -2782,7 +3016,7 @@ function advanceQuestProgress(player, eventType, itemId) {
       questName: quest.name,
       progress: aq.progress,
       target: quest.target,
-      where: objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId }),
+      where: objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId, targetCreature: quest.targetCreature }),
       nearlyThere: remaining === 1,
       message: remaining === 1
         ? `🗒️ ${quest.name} — ONE more to go!`
@@ -2801,14 +3035,15 @@ function advanceQuestProgress(player, eventType, itemId) {
 // identity behind it to have ever earned anything.
 const SHOP_REGULARS_DISCOUNT = 0.15;
 function shopDiscountFor(player, npcId) {
-  const questId = QUEST_BY_NPC[npcId];
-  if (!questId) return 0;
-  const own = getProgress(player);
-  if (own.questsDone && own.questsDone[questId]) return SHOP_REGULARS_DISCOUNT;
+  const list = QUEST_BY_NPC[npcId];
+  if (!list || !list.length) return 0;
+  // A "regular" is anyone who's ever finished ANY of this NPC's jobs.
+  const doneAny = (prog) => !!(prog && prog.questsDone && list.some(qid => prog.questsDone[qid]));
+  if (doneAny(getProgress(player))) return SHOP_REGULARS_DISCOUNT;
   if (player.disguise) {
     const identityKey = String(player.disguise.name || '').toLowerCase();
     const identityProg = accounts[identityKey] ? playerProgress[identityKey] : null;
-    if (identityProg && identityProg.questsDone && identityProg.questsDone[questId]) return SHOP_REGULARS_DISCOUNT;
+    if (doneAny(identityProg)) return SHOP_REGULARS_DISCOUNT;
   }
   return 0;
 }
@@ -3050,6 +3285,12 @@ function objectiveWhere(obj) {
       { const b = WORLD.buildings.find(x => x.id === obj.room); return b ? `${b.name}, in town` : obj.room; }
     case 'cast_ability': return 'anywhere — open your kit (hotbar keys 1–9) and let fly';
     case 'kill_mob': return 'wait for 🌕 night — creatures rise at the town edges, in the Wilds, and below';
+    case 'kill_creature': {
+      const label = CREATURE_LABEL[obj.targetCreature] || 'the quarry';
+      if (obj.targetCreature === 'old_marrowe') return 'the Wilds — only on a 🌒 Blood Moon night does the Gallows Warden rise';
+      const nightHunt = ['fen_hexer', 'rot_swarm', 'barrow_maw', 'gloom_bat'].includes(obj.targetCreature);
+      return nightHunt ? `the Wilds after 🌕 nightfall — hunt the ${label}` : `the Wilds — track down the ${label} (portal at the north edge of town)`;
+    }
     case 'craft_potion': return "Hazel's cauldron, inside her cave (north-west Wilds)";
     default: return '';
   }
@@ -4349,17 +4590,37 @@ function tickWildlife(dt) {
 // 'struck'/'defeated' for this means the client doesn't need any new
 // message handling to feel it.
 // ---------------------------------------------------------------------------
-const ANIMALS2_COUNT = 36; // was 24 — more life underfoot, more to hunt
+const ANIMALS2_COUNT = 40; // was 36 — the Wilds now has a real ecosystem of prey
 const ANIMAL2_SPAWNS = makeWildsScatter(0x5e21, 14, ANIMALS2_COUNT).map(([x, y]) => ({ x, y }));
 const ANIMAL2_MAX_HEALTH = 30;
 const ANIMAL2_RESPAWN_MS = 90 * 1000;
-const animals2 = ANIMAL2_SPAWNS.map((p, i) => ({
-  id: 'animal2_' + i,
-  spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
-  facing: Math.random() * Math.PI * 2,
-  fleeing: false, wanderTimer: Math.random() * 2, wanderAngle: 0, grazing: false,
-  health: ANIMAL2_MAX_HEALTH, dead: false, respawnAt: 0
-}));
+
+// Peaceful critters (Session M) — the Wilds used to hold only rabbits for
+// daytime life. Each critter type flees like a rabbit but reads distinct and
+// drops its own materials, so hunting them is worth doing and each can anchor
+// a quest. `hp`/`xp`/`loot` are per type; `fly` is a client visual hint (the
+// Embermoth drifts rather than hops). All are always present (not night-gated)
+// exactly like the rabbits they join.
+const CRITTER2_TYPES = {
+  rabbit:    { name: 'Wild Rabbit', hp: 30, xp: 6,  loot: null },
+  embermoth: { name: 'Embermoth',   hp: 22, xp: 8,  loot: 'embermoth',  fly: true },
+  thistlehog:{ name: 'Thistlehog',  hp: 34, xp: 8,  loot: 'thistlehog' },
+  duskfawn:  { name: 'Duskfawn',    hp: 40, xp: 12, loot: 'duskfawn' },
+  mirefowl:  { name: 'Mirefowl',    hp: 26, xp: 9,  loot: 'mirefowl' },
+};
+// Round-robin the four new critters through the population, seeding a handful
+// of the original rabbits too so the classic prey never fully disappears.
+const CRITTER2_ORDER = ['embermoth', 'thistlehog', 'duskfawn', 'mirefowl', 'rabbit', 'duskfawn', 'thistlehog', 'mirefowl', 'embermoth', 'rabbit'];
+const animals2 = ANIMAL2_SPAWNS.map((p, i) => {
+  const critterType = CRITTER2_ORDER[i % CRITTER2_ORDER.length];
+  return {
+    id: 'animal2_' + i, critterType,
+    spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+    facing: Math.random() * Math.PI * 2,
+    fleeing: false, wanderTimer: Math.random() * 2, wanderAngle: 0, grazing: false,
+    health: CRITTER2_TYPES[critterType].hp, dead: false, respawnAt: 0
+  };
+});
 
 // 4 distinct designs — color/size for now-quick visual variety client-side,
 // plus genuinely different combat stats so they read as different threats
@@ -4369,7 +4630,15 @@ const MOB2_TYPES = {
   shade_stalker: { name: 'Shade Stalker', color: 0x3a1a4a, scale: 0.85, maxHealth: 35, speed: 70, aggroRadius: 160, strikeRange: 50, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1400 },
   bog_brute:     { name: 'Bog Brute',     color: 0x3a4a26, scale: 1.35, maxHealth: 90, speed: 16, aggroRadius: 120, strikeRange: 60, dmgMin: 12, dmgMax: 18, hitCooldownMs: 2200 },
   night_howler:  { name: 'Night Howler',  color: 0x1a1a22, scale: 1.0,  maxHealth: 55, speed: 36, aggroRadius: 200, strikeRange: 50, dmgMin: 8,  dmgMax: 13, hitCooldownMs: 1800 },
-  will_o_wisp:   { name: "Will-o'-Wisp",  color: 0x6fd8ff, scale: 0.6,  maxHealth: 18, speed: 50, aggroRadius: 140, strikeRange: 45, dmgMin: 4,  dmgMax: 7,  hitCooldownMs: 1200 }
+  will_o_wisp:   { name: "Will-o'-Wisp",  color: 0x6fd8ff, scale: 0.6,  maxHealth: 18, speed: 50, aggroRadius: 140, strikeRange: 45, dmgMin: 4,  dmgMax: 7,  hitCooldownMs: 1200 },
+  // ── Session M horrors — the four archetypes the original quartet lacked ──
+  // ranged | swarm | burrower/ambush | flyer/leech | rare Blood Moon elite.
+  // xp overrides the default 15 for a mob2 kill (see applyDamage mob2 branch).
+  fen_hexer:   { name: 'Fen Hexer',   color: 0x3a1a4a, scale: 0.9, maxHealth: 30, speed: 40, aggroRadius: 260, strikeRange: 210, dmgMin: 7, dmgMax: 12, hitCooldownMs: 1800, xp: 20, ranged: true, kiteRange: 150 },
+  rot_swarm:   { name: 'Grave-Mite',  color: 0x3a4a26, scale: 0.42, maxHealth: 12, speed: 62, aggroRadius: 150, strikeRange: 34, dmgMin: 2, dmgMax: 5, hitCooldownMs: 1000, xp: 5, swarm: true },
+  barrow_maw:  { name: 'Barrow Maw',  color: 0x6a5038, scale: 1.05, maxHealth: 75, speed: 30, aggroRadius: 150, strikeRange: 52, dmgMin: 11, dmgMax: 17, hitCooldownMs: 1900, xp: 24, buried: true, ambushRange: 150 },
+  gloom_bat:   { name: 'Gloom Bat',   color: 0x1c1c26, scale: 0.7, maxHealth: 26, speed: 78, aggroRadius: 200, strikeRange: 44, dmgMin: 5, dmgMax: 9, hitCooldownMs: 1300, xp: 12, flyer: true, lifesteal: 0.5 },
+  old_marrowe: { name: 'Old Marrowe, the Gallows Warden', color: 0x8a3a2a, scale: 1.7, maxHealth: 340, speed: 34, aggroRadius: 240, strikeRange: 62, dmgMin: 18, dmgMax: 28, hitCooldownMs: 2000, xp: 220, elite: true, bloodMoonOnly: true }
 };
 const MOB2_KEYS = Object.keys(MOB2_TYPES);
 const MOB2_SPAWNS = [
@@ -4389,7 +4658,16 @@ const MOB2_SPAWNS = [
   { x: 480, y: 420, type: 'night_howler' },  { x: 180, y: 120, type: 'night_howler' },
   { x: 860, y: 880, type: 'night_howler' },  { x: 760, y: 420, type: 'night_howler' },
   { x: 560, y: 640, type: 'will_o_wisp' },   { x: 140, y: 600, type: 'will_o_wisp' },
-  { x: 880, y: 520, type: 'will_o_wisp' },   { x: 420, y: 240, type: 'will_o_wisp' }
+  { x: 880, y: 520, type: 'will_o_wisp' },   { x: 420, y: 240, type: 'will_o_wisp' },
+  // ── Session M horrors ──
+  { x: 300, y: 500, type: 'fen_hexer' }, { x: 700, y: 300, type: 'fen_hexer' }, { x: 620, y: 780, type: 'fen_hexer' },
+  { x: 220, y: 660, type: 'gloom_bat' }, { x: 780, y: 560, type: 'gloom_bat' }, { x: 440, y: 160, type: 'gloom_bat' }, { x: 540, y: 900, type: 'gloom_bat' },
+  { x: 400, y: 560, type: 'barrow_maw' }, { x: 640, y: 460, type: 'barrow_maw' }, { x: 240, y: 260, type: 'barrow_maw' },
+  // Rot Swarm — two knots of grave-mites, four to a cluster so they mob you.
+  { x: 500, y: 480, type: 'rot_swarm' }, { x: 516, y: 490, type: 'rot_swarm' }, { x: 490, y: 500, type: 'rot_swarm' }, { x: 508, y: 508, type: 'rot_swarm' },
+  { x: 820, y: 680, type: 'rot_swarm' }, { x: 836, y: 690, type: 'rot_swarm' }, { x: 810, y: 700, type: 'rot_swarm' }, { x: 828, y: 708, type: 'rot_swarm' },
+  // Old Marrowe — a single rare elite that only rises on Blood Moon nights.
+  { x: 500, y: 320, type: 'old_marrowe' }
 ].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE, type: p.type }));
 const MOB2_RESPAWN_MS = 120 * 1000;
 const mobs2 = MOB2_SPAWNS.map((p, i) => ({
@@ -4399,7 +4677,39 @@ const mobs2 = MOB2_SPAWNS.map((p, i) => ({
   facing: Math.random() * Math.PI * 2,
   wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
   health: MOB2_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
-  lastHitAt: 0
+  lastHitAt: 0,
+  // A Barrow Maw lurks buried until a player strays into ambush range; every
+  // other type is simply "emerged" from the start (the flag is inert for them).
+  emerged: !MOB2_TYPES[p.type].buried
+}));
+
+// ── Neutral creatures (Session M) — the "leave them be, or else" middle
+// ground the Wilds never had. They wander and graze and IGNORE players until
+// one strikes them (or, for the crow, disturbs its patch); being hit provokes
+// them for a window during which they chase and fight back like a mob, then
+// they calm down. Not night-gated — they're out day and night. The Mossback
+// carries `armor` (a flat incoming-damage multiplier) so it shrugs off blows.
+const MOB3_TYPES = {
+  bramble_boar:      { name: 'Bramble Boar',      color: 0x494a2c, scale: 1.2,  maxHealth: 70,  wanderSpeed: 20, chaseSpeed: 92, strikeRange: 55, dmgMin: 10, dmgMax: 16, hitCooldownMs: 1800, xp: 16, provokeMs: 12000 },
+  mossback_tortoise: { name: 'Mossback Tortoise', color: 0x46583a, scale: 1.3,  maxHealth: 170, wanderSpeed: 8,  chaseSpeed: 24, strikeRange: 46, dmgMin: 8,  dmgMax: 14, hitCooldownMs: 2400, xp: 22, provokeMs: 10000, armor: 0.45 },
+  gravewing_crow:    { name: 'Gravewing Crow',    color: 0x1a1a24, scale: 0.8,  maxHealth: 30,  wanderSpeed: 30, chaseSpeed: 72, strikeRange: 40, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1500, xp: 12, provokeMs: 9000, flyer: true },
+};
+const MOB3_KEYS = Object.keys(MOB3_TYPES);
+const MOB3_SPAWNS = [
+  { x: 360, y: 720, type: 'bramble_boar' }, { x: 740, y: 220, type: 'bramble_boar' }, { x: 560, y: 540, type: 'bramble_boar' },
+  { x: 180, y: 460, type: 'mossback_tortoise' }, { x: 820, y: 400, type: 'mossback_tortoise' },
+  { x: 300, y: 300, type: 'gravewing_crow' }, { x: 680, y: 700, type: 'gravewing_crow' }, { x: 460, y: 840, type: 'gravewing_crow' },
+].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE, type: p.type }));
+const MOB3_RESPAWN_MS = 110 * 1000;
+const mobs3 = MOB3_SPAWNS.map((p, i) => ({
+  id: 'mob3_' + i,
+  mobType: p.type,
+  spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+  facing: Math.random() * Math.PI * 2,
+  wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
+  health: MOB3_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
+  lastHitAt: 0,
+  provoked: false, provokedUntil: 0, provokerId: null
 }));
 
 function nearestWildsPlayer(x, y) {
@@ -4412,10 +4722,88 @@ function nearestWildsPlayer(x, y) {
   return { player: best, dist: bestDist };
 }
 
+// A neutral creature just took a hit — wake it up and point it at whoever
+// struck it (falling back to nearest if the provoker has wandered off).
+function provokeNeutral(m, playerId) {
+  const preset = MOB3_TYPES[m.mobType];
+  if (!preset) return;
+  m.provoked = true;
+  m.provokedUntil = Date.now() + preset.provokeMs;
+  m.provokerId = playerId;
+}
+
+// One creature landing a blow on a player — shared by the night-mob (mobs2)
+// and neutral (mobs3) pools so the strike/kill/lifesteal shape lives in one
+// place. `dmgRaw` is the pre-mitigation roll; absorbIncomingDamage applies the
+// player's own defenses. Returns the damage actually dealt.
+function creatureStrike(m, preset, target, now, dmgRaw) {
+  m.lastHitAt = now;
+  const dmg = absorbIncomingDamage(target, dmgRaw);
+  target.health = Math.max(0, target.health - dmg);
+  noteAttacked(target);
+  if (target.health <= 0) {
+    target.health = 0; target.isDead = true;
+    send(target.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
+  } else {
+    send(target.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
+  }
+  // The Gloom Bat siphons a share of what it deals back into its own health.
+  if (preset.lifesteal && m.health != null && preset.maxHealth) {
+    m.health = Math.min(preset.maxHealth, m.health + Math.round(dmg * preset.lifesteal));
+  }
+  return dmg;
+}
+
+// Neutral pool tick — creatures wander and graze, ignoring players entirely
+// until provoked (a hit, via provokeNeutral). While provoked they chase and
+// strike whoever woke them; when the window lapses they calm and wander again.
+function tickWildsNeutral(dt, now, margin) {
+  for (const m of mobs3) {
+    if (m.dead) continue;
+    const preset = MOB3_TYPES[m.mobType];
+    if (m.provoked && now >= m.provokedUntil) { m.provoked = false; m.provokerId = null; }
+    let target = null, dist = Infinity;
+    if (m.provoked) {
+      const provoker = m.provokerId ? players.get(m.provokerId) : null;
+      if (provoker && provoker.room === 'wilds' && !provoker.isDead) {
+        target = provoker; dist = Math.hypot(provoker.x - m.x, provoker.y - m.y);
+      } else {
+        const np = nearestWildsPlayer(m.x, m.y); target = np.player; dist = np.dist;
+      }
+    }
+    let vx = 0, vy = 0;
+    if (m.provoked && target && !isEvading(target)) {
+      const dx = target.x - m.x, dy = target.y - m.y;
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      vx = dx * inv * preset.chaseSpeed;
+      vy = dy * inv * preset.chaseSpeed;
+      if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+        const dmgRaw = bloodMoonMobDamage(preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+        creatureStrike(m, preset, target, now, dmgRaw);
+      }
+    } else {
+      m.wanderTimer -= dt;
+      if (m.wanderTimer <= 0) {
+        m.wanderTimer = 2 + Math.random() * 3;
+        m.paused = Math.random() < 0.4;
+        m.wanderAngle = Math.random() * Math.PI * 2;
+      }
+      if (!m.paused) {
+        vx = Math.sin(m.wanderAngle) * preset.wanderSpeed;
+        vy = Math.cos(m.wanderAngle) * preset.wanderSpeed;
+      }
+    }
+    const nx = m.x + vx * dt, ny = m.y + vy * dt;
+    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
+    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
+    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+  }
+}
+
 function tickRespawns2(now) {
   for (const a of animals2) {
     if (a.dead && now >= a.respawnAt) {
-      a.dead = false; a.health = ANIMAL2_MAX_HEALTH;
+      a.dead = false; a.health = CRITTER2_TYPES[a.critterType].hp;
       a.x = a.spawnX; a.y = a.spawnY; a.fleeing = false;
     }
   }
@@ -4424,6 +4812,15 @@ function tickRespawns2(now) {
       m.dead = false; m.health = MOB2_TYPES[m.mobType].maxHealth;
       m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
       m.pendingLoot = null; m.lootKillerId = null;
+      m.emerged = !MOB2_TYPES[m.mobType].buried; // a respawned Barrow Maw re-buries
+    }
+  }
+  for (const m of mobs3) {
+    if (m.dead && now >= m.respawnAt) {
+      m.dead = false; m.health = MOB3_TYPES[m.mobType].maxHealth;
+      m.x = m.spawnX; m.y = m.spawnY; m.paused = false;
+      m.pendingLoot = null; m.lootKillerId = null;
+      m.provoked = false; m.provokedUntil = 0; m.provokerId = null;
     }
   }
 }
@@ -4461,12 +4858,24 @@ function tickWilds(dt) {
     if (vx !== 0 || vy !== 0) a.facing = Math.atan2(vx, vy);
   }
 
-  if (!isNightNow()) return;
   const now = Date.now();
+  // Neutral creatures are out day AND night (they only fight when provoked).
+  tickWildsNeutral(dt, now, margin);
+
+  if (!isNightNow()) return;
   for (const m of mobs2) {
     if (m.dead) continue;
     const preset = MOB2_TYPES[m.mobType];
+    // Old Marrowe only rises under the Blood Moon — dormant otherwise (and the
+    // client is told to hide it, so it never appears on an ordinary night).
+    if (preset.bloodMoonOnly && !bloodMoonActive()) continue;
     const { player: nearestP, dist } = nearestWildsPlayer(m.x, m.y);
+    // Barrow Maw lurks buried until a player strays into ambush range; while
+    // buried it doesn't move, strike, or turn.
+    if (preset.buried && !m.emerged) {
+      if (nearestP && dist < preset.ambushRange && !isEvading(nearestP)) m.emerged = true;
+      else continue;
+    }
     let vx = 0, vy = 0;
     if (m.scaredUntil > now && nearestP) {
       // Routed by a voice countermeasure — see cm_voice.
@@ -4475,22 +4884,23 @@ function tickWilds(dt) {
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
     } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
-      const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
-      const inv = dist > 0.01 ? 1 / dist : 0;
-      vx = dx * inv * preset.speed;
-      vy = dy * inv * preset.speed;
+      // Ranged casters (Fen Hexer) kite: back off if the player closes inside
+      // kiteRange, hold position in the mid-band, and strike from anywhere
+      // within their long strikeRange. Everyone else just charges in.
+      let approach = 1; // +1 toward, -1 away, 0 hold ground
+      if (preset.ranged) {
+        if (dist < preset.kiteRange) approach = -1;
+        else if (dist < preset.strikeRange) approach = 0;
+      }
+      if (approach !== 0) {
+        const dx = (nearestP.x - m.x) * approach, dy = (nearestP.y - m.y) * approach;
+        const inv = dist > 0.01 ? 1 / dist : 0;
+        vx = dx * inv * preset.speed;
+        vy = dy * inv * preset.speed;
+      }
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
-        m.lastHitAt = now;
-        const dmg = absorbIncomingDamage(nearestP, bloodMoonMobDamage(preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))));
-        nearestP.health = Math.max(0, nearestP.health - dmg);
-        noteAttacked(nearestP);
-        if (nearestP.health <= 0) {
-          nearestP.health = 0;
-          nearestP.isDead = true;
-          send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
-        } else {
-          send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
-        }
+        const dmgRaw = bloodMoonMobDamage(preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+        creatureStrike(m, preset, nearestP, now, dmgRaw);
       }
     } else {
       m.wanderTimer -= dt;
@@ -4508,6 +4918,8 @@ function tickWilds(dt) {
     if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
     if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
     if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+    // A caster keeps facing its quarry even while backpedalling.
+    if (preset.ranged && nearestP && dist < preset.aggroRadius) m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
   }
 }
 
@@ -4918,8 +5330,15 @@ setInterval(() => {
     groundTraps: groundTrapsPublicState(),
     animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    animals2: animals2.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL2_MAX_HEALTH, dead: a.dead })),
-    mobs2: mobs2.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    animals2: animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead })),
+    mobs2: mobs2.map(m => {
+      const p = MOB2_TYPES[m.mobType];
+      // Hide a Barrow Maw while it's still buried, and Old Marrowe on any
+      // ordinary (non-Blood-Moon) night — the client draws neither until they're real.
+      const hidden = (p.buried && !m.emerged) || (p.bloodMoonOnly && !bloodMoonActive());
+      return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
+    }),
+    mobs3: mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     // decor is per-player now — sent individually on join and after each harvest
     dungeonMobs: [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
@@ -7067,7 +7486,7 @@ wss.on('connection', (ws) => {
           questName: rq.name,
           progress: player.activeQuest.progress,
           target: rq.target,
-          where: objectiveWhere({ type: rq.type, targetItemId: rq.targetItemId })
+          where: objectiveWhere({ type: rq.type, targetItemId: rq.targetItemId, targetCreature: rq.targetCreature })
         });
       }
       broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
@@ -7853,7 +8272,7 @@ wss.on('connection', (ws) => {
       // Any conversation with a named NPC counts for talk-to-them story
       // chapters, whether or not they have side-quest work to offer.
       storyEvent(player, 'talk_npc', { npcId });
-      const questId = QUEST_BY_NPC[npcId];
+      const questId = questForNpc(player, npcId);
       if (!questId) {
         // Not a quest-giver at all (e.g. a shop/hint NPC) — used to just
         // return here with no response, so clicking "Ask for a Quest"
@@ -7925,7 +8344,7 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'quest_accept') {
       const npcId = String(msg.npcId || '');
-      const questId = QUEST_BY_NPC[npcId];
+      const questId = questForNpc(player, npcId);
       if (!questId || !QUEST_CATALOG[questId]) return;
       if (player.activeQuest) return; // already on a quest
       const prog = getProgress(player);
@@ -7933,7 +8352,7 @@ wss.on('connection', (ws) => {
       if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) return;
       player.activeQuest = { questId, progress: 0 };
       const quest = QUEST_CATALOG[questId];
-      const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId });
+      const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId, targetCreature: quest.targetCreature });
       send(ws, { type: 'quest_started', questId, questName: quest.name,
         target: quest.target, description: quest.description, where,
         message: `🗒️ Quest accepted: "${quest.name}" — ${where}` });
@@ -9839,6 +10258,9 @@ global.__testHooks = {
   LOCKED_ROOMS, TOWN_PASS_PRICE_CENTS, TOWN_PASS_HOURS,
   // Mob combat + countermeasures
   mobs, mobs2, tickWildlife, TOWN_MOB_COMBAT, TOWN_MOB_XP,
+  // Session M creatures — peaceful critters, neutral pool, new hostiles, quests
+  animals2, mobs3, MOB2_TYPES, MOB3_TYPES, CRITTER2_TYPES, LOOT_TABLES,
+  provokeNeutral, creatureStrike, tickWilds, questForNpc, CREATURE_LABEL, rollPendingLoot,
   applyDamage, isEvading, getHardDrive, driveMedia,
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,

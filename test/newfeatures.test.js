@@ -273,7 +273,7 @@ setTimeout(() => {
     // Regulars discount: an account that finished a shopkeeper's quest gets
     // 15% off — and so does anyone wearing their face.
     const npcId = 'npc_armorer';
-    const questId = hooks.QUEST_BY_NPC[npcId];
+    const questId = hooks.QUEST_BY_NPC[npcId][0]; // an NPC carries a LIST of jobs now (Session M) — any one earns regular status
     // Fake an account identity 'nearby' having done the quest.
     const acctSetup = require('../server.js'); // already loaded — no-op
     check('armorer has a side quest to be a regular of', !!questId);
@@ -349,13 +349,20 @@ setTimeout(() => {
     const xpForL8 = hooks.XP_THRESHOLDS[7];
     check('level 8 needs 3000 cumulative XP', xpForL8 === 3000);
 
-    // XP a player can bank WITHOUT open-world play: full campaign chapters
-    // 1-5 + every side quest in the catalog, once each. If that alone could
-    // reach the finale gate, the gate wouldn't pace anything.
+    // The campaign chapters alone must come nowhere near the finale gate — the
+    // story can't hand you the ending; you clear the gate through open-world
+    // play. And every side quest is EARNED through that play (a kill or a
+    // harvest), never just handed over, so the ~2h time-floor below is the real
+    // guarantee regardless of how big the quest catalog grows. (Session M added
+    // 12 creature-hunt quests; the old "all quests once < gate" proxy no longer
+    // holds and shouldn't — doing 30+ hunts/harvests IS the required playtime.)
     const knightChXp = hooks.STORYLINES[3].chapters.slice(0, 5).reduce((a, c) => a + c.xpReward, 0);
     const allQuestXp = Object.values(hooks.QUEST_CATALOG).reduce((a, q) => a + q.xpReward, 0);
-    check('campaign + all 18 side quests alone cannot reach the finale gate',
-      knightChXp + allQuestXp < xpForL8);
+    check('campaign chapters alone come nowhere near the finale gate (≤ a third of it)',
+      knightChXp * 3 < xpForL8, { knightChXp, xpForL8 });
+    check('every side quest is earned through open-world play, never just handed over',
+      Object.values(hooks.QUEST_CATALOG).every(q => ['kill_mob', 'kill_creature', 'harvest_plant', 'harvest_specific'].includes(q.type)),
+      Object.values(hooks.QUEST_CATALOG).filter(q => !['kill_mob', 'kill_creature', 'harvest_plant', 'harvest_specific'].includes(q.type)).map(q => q.type));
 
     // Time-floor model, deliberately generous to the player (documented so
     // the numbers can be argued with):

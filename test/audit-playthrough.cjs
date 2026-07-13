@@ -78,6 +78,28 @@ setTimeout(() => {
     const r = H.applyDamage(p, 'mob', m.id, 10, 100);
     return r.ok && r.dead;
   };
+  // Session M creature hunts — drive a kill_creature objective by finding a
+  // creature of the target type across the Wilds pools and felling it (reviving
+  // one if the population is exhausted, since we only care about completability).
+  const CRIT_POOL = {
+    embermoth: 'animal2', thistlehog: 'animal2', duskfawn: 'animal2', mirefowl: 'animal2', rabbit: 'animal2',
+    bramble_boar: 'mob3', mossback_tortoise: 'mob3', gravewing_crow: 'mob3',
+    fen_hexer: 'mob2', rot_swarm: 'mob2', barrow_maw: 'mob2', gloom_bat: 'mob2', old_marrowe: 'mob2',
+  };
+  const POOL_LIST = () => ({ animal2: H.animals2, mob2: H.mobs2, mob3: H.mobs3 });
+  const POOL_FIELD = { animal2: 'critterType', mob2: 'mobType', mob3: 'mobType' };
+  const killWildsCreature = (p, type) => {
+    const targetType = CRIT_POOL[type];
+    if (!targetType) return false;
+    const list = POOL_LIST()[targetType];
+    const field = POOL_FIELD[targetType];
+    const c = list.find(x => x[field] === type && !x.dead) || list.find(x => x[field] === type);
+    if (!c) return false;
+    c.dead = false; c.health = 1; c.emerged = true; c.scaredUntil = 0;
+    p.room = 'wilds'; p.x = c.x; p.y = c.y;
+    const r = H.applyDamage(p, targetType, c.id, 10, 100);
+    return r.ok && r.dead;
+  };
   let plantCursor = 0;
   const harvestWildsPlant = (sock, p, world2, specificType) => {
     const all = (world2.natureDecor || []).filter(d => !['tree', 'shrub', 'flower', 'rock'].includes(d.type));
@@ -116,6 +138,12 @@ setTimeout(() => {
   // ── 2. All 18 side quests ────────────────────────────────────────────────
   for (const [qid, q] of Object.entries(H.QUEST_CATALOG)) {
     const { s, p, world2 } = join('SQ_' + qid.slice(0, 10), 4);
+    // An NPC can carry several jobs now (Session M rotation) and surfaces one
+    // at a time. Cool down this NPC's EARLIER quests so the one under test is
+    // the one offered — every quest stays reachable, just not simultaneously.
+    const prog = H.getProgress(p);
+    prog.questCooldowns = prog.questCooldowns || {};
+    for (const other of (H.QUEST_BY_NPC[q.npcId] || [])) { if (other === qid) break; prog.questCooldowns[other] = fakeNow; }
     s.emit('message', JSON.stringify({ type: 'quest_talk', npcId: q.npcId, npcName: q.npcName }));
     const offer = s.lastOfType('quest_offer');
     expect(`"${q.name}" (${q.npcId}) is offered on talk`, offer && offer.questId === qid, JSON.stringify(offer));
@@ -125,6 +153,7 @@ setTimeout(() => {
     let ok = true;
     for (let i = 0; i < q.target && ok; i++) {
       if (q.type === 'kill_mob') ok = killTownMob(p);
+      else if (q.type === 'kill_creature') ok = killWildsCreature(p, q.targetCreature);
       else if (q.type === 'harvest_plant') ok = harvestWildsPlant(s, p, world2);
       else if (q.type === 'harvest_specific') ok = harvestWildsPlant(s, p, world2, q.targetItemId);
       else { ok = false; findings.push(`? "${q.name}" has unhandled type ${q.type}`); }
@@ -196,8 +225,10 @@ setTimeout(() => {
   // ── 4. Probes ────────────────────────────────────────────────────────────
   // Pass-locked NPCs: their quests exist behind the Town Pass by design.
   for (const npcId of ['npc_apprentice', 'npc_tinkerer', 'npc_noble']) {
-    const qid = H.QUEST_BY_NPC[npcId];
-    if (qid) notes.push(`ℹ️ "${H.QUEST_CATALOG[qid].name}" (${npcId}) lives in a Town Pass building — bonus content behind the paywall (by design; campaign never requires it).`);
+    // QUEST_BY_NPC maps to a LIST of quests per NPC now (Session M rotation).
+    for (const qid of (H.QUEST_BY_NPC[npcId] || [])) {
+      notes.push(`ℹ️ "${H.QUEST_CATALOG[qid].name}" (${npcId}) lives in a Town Pass building — bonus content behind the paywall (by design; campaign never requires it).`);
+    }
   }
   // quest_talk has no server-side range check (client gates by proximity)
   notes.push('ℹ️ quest_talk/story talk objectives have no server-side range check — consistent with the game\'s existing trust model (client enforces proximity).');

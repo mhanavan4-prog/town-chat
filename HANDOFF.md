@@ -1304,3 +1304,53 @@ STRIPE_SECRET_KEY flips paymentsEnabled true so the bar renders; desktop viewpor
 verifies pointer-events flip). npm test 11/11 · zero page errors · public/ + both apps' www re-synced.
 
 `git add public/client.js public/index.html test/qa-unlockbar-fade.cjs HANDOFF.md && git commit -m "Fade the Parlor/Arcade upsell bar 6.5s after it appears" && git push`
+
+## Session M addendum 3 (2026-07-13) — TWELVE new Wilds creatures + a quest each
+
+Michael: "implement all of them [the bestiary] and make sure they all have involvement in
+quests." Done — the 12 creatures from the Thornreach Bestiary concept are live across three
+dispositions, each anchoring a side quest.
+
+**Peaceful prey (animals2 pool, now TYPED).** `CRITTER2_TYPES` {embermoth, thistlehog, duskfawn,
+mirefowl, rabbit}; each animals2 entry carries `.critterType` (round-robin via CRITTER2_ORDER,
+40 total). They flee like rabbits; killing one grants typed XP + a loot roll (new item
+`glimmerdust` ✨ off the Embermoth) and advances a `kill_creature` quest — but NOT hunt streaks
+(they're prey). New animal2 kill branch in applyDamage. Client: makeEmbermoth/Thistlehog/Duskfawn/
+Mirefowl + makeCritter2 dispatch; the moth drifts (hover bob) instead of hopping; animalVisuals2
+keyed by type.
+
+**Neutral (NEW mobs3 pool).** `MOB3_TYPES` {bramble_boar, mossback_tortoise, gravewing_crow} —
+wander/graze and IGNORE players until hit (`provokeNeutral` sets provoked+provoker+window in
+applyDamage), then chase/strike via `tickWildsNeutral`, then calm. Not night-gated. Mossback has
+`armor: 0.45` (soaks 55% of every blow, applied before the health hit). New pool wired through
+POOLS/respawn/wildlife_state/kill handling. Client: makeBrambleBoar/Mossback/Gravecrow, full
+mobVisuals3 pool (getOrCreate/apply/update, always rendered), targeting + loot + hit-fx + camera-
+fade + scene-clear all extended for 'mob3'.
+
+**Hostile (mobs2 pool, +5 archetypes).** fen_hexer (RANGED — long strikeRange 210 + kites back
+inside kiteRange, faces you while backpedalling), rot_swarm (SWARM — Grave-Mites spawned in
+4-clusters), barrow_maw (BURROWER — starts `emerged:false`, stays hidden until a player enters
+ambushRange, then erupts), gloom_bat (FLYER + `lifesteal:0.5`, hovers via client `fly` height),
+old_marrowe (rare ELITE, `bloodMoonOnly` — dormant+hidden except on a Blood Moon, xp 220, marquee
+loot, town-wide announce on kill). Shared `creatureStrike` helper (mob2+mob3). mob2 xp now honors
+`preset.xp` (was hardcoded 15). wildlife_state mobs2 carry a `hidden` flag (buried/dormant → client
+hides + un-targets). Client: custom rigs makeGloomBat/FenHexer/BarrowMaw/OldMarrowe (dispatch in
+makeMob2), MOB2_VISUALS +5 with fly/elite; rot_swarm is a recolored mini-blob.
+
+**Quests (12, one per creature).** New quest type `kill_creature` (targetCreature; counts only the
+right quarry, passed as the advanceQuestProgress itemId). Hostiles advance BOTH the generic
+kill_mob culls AND their specific hunt. QUEST_BY_NPC is now npcId→[questIds] and `questForNpc(player,
+npcId)` rotates (the one you're on, else first-not-on-cooldown) so existing quest-givers carry a
+second job — no new NPCs. shopDiscountFor updated for the list shape. None gated behind a Town Pass
+NPC (Mossback moved off Tinkerer → Armorer Beck). objectiveWhere + CREATURE_LABEL added.
+
+**Tests.** New `test/creatures.test.js` (40 checks — catalogs, spawns, kill→xp/loot/quest for all
+three pools, provoke+armor, ranged/buried/flyer/elite flags, rotation, per-creature tracking,
+wildlife_state shape) — in npm test (now **12/12**, stable ×3). Audit rewired for rotation +
+kill_creature driving → **273/273**, all 33 quests completable. New `test/qa-creatures.cjs` Playwright
+harness walks into the Wilds and confirms every new mesh builds + renders — **7/7, zero page errors**
+(census: peaceful 40, neutrals 8, new hostiles 19). Pacing invariant in newfeatures.test.js updated
+(the old "all quests < finale gate" proxy retired — 12 more hunts legitimately grew the catalog; the
+time-floor checks, the real guarantee, are untouched). public/ + both apps' www re-synced.
+
+`git add server.js public/client.js README.md test/creatures.test.js test/qa-creatures.cjs test/newfeatures.test.js test/audit-playthrough.cjs HANDOFF.md && git commit -m "Twelve new Wilds creatures (peaceful/neutral/hostile) + a quest for each" && git push`

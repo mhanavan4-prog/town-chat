@@ -288,6 +288,40 @@ through now, not an empty field with landmarks in it:
   purple candlelight seeping out, gnarled trees leaning over it — visible
   from a distance instead of a floating box with a sign.
 
+## A Wilds bestiary — twelve creatures
+
+The Wilds used to hold only skittish rabbits and four night-horrors. It's a
+real ecosystem now, across three dispositions — and **every creature anchors
+a side quest** (a hunt or a gather), spread across the town and faction
+quest-givers (an NPC can carry more than one job now and offers them in turn).
+
+- 🕊️ **Peaceful (prey).** Four new critters share the rabbits' flee-and-graze
+  behavior but read distinct and drop their own materials when hunted: the
+  **Embermoth** (drifts and glows; drops ✨ Glimmerdust), the spiny
+  **Thistlehog**, the timid **Duskfawn**, and the marsh-flushing **Mirefowl**.
+  They're out day and night, and they still bolt the moment you close in.
+- ⚠️ **Skittish / neutral.** A new middle ground: creatures that ignore you
+  until provoked, then fight back for a while before calming down. The
+  **Bramble Boar** grazes until you strike it, then charges tusks-first; the
+  **Mossback Tortoise** is a placid tank whose shell soaks most of a blow
+  (real damage resistance) and only shell-slams after repeated hits; the
+  **Gravewing Crow** guards the graves and dive-pecks anyone who lingers.
+- 💀 **Hostile (night).** Five new night-mobs filling the archetypes the
+  original four lacked: the **Fen Hexer** (a ranged caster that kites back and
+  throws hexes from distance), the **Rot Swarm** of Grave-Mites (weak alone,
+  they boil up four-strong), the **Barrow Maw** (lurks buried until you stray
+  into ambush range, then erupts), the **Gloom Bat** (a fast flyer that
+  siphons a little health each pass), and — only on a 🌒 Blood Moon night —
+  the rare elite **Old Marrowe, the Gallows Warden**, a marquee threat with a
+  marquee drop table. All are night-gated like the original horrors.
+
+Everything hooks the existing systems: creatures use the same blob/critter rig,
+drop from the established material vocabulary, pay Hunt-streak/leaderboard
+credit (except the peaceful prey), and their quests slot into the same
+one-active-quest / 24h-cooldown flow. In-fiction it's all **the Hollow** — its
+corruption "twisted the creatures of the Thornreach," which is exactly what the
+Unbound Circle and the Thornwarden Scouts keep sending you out to cull.
+
 ## The Witch's Spellbook
 
 Pick the **Witch** on the join screen (witch hat, green robe — character

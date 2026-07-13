@@ -835,6 +835,7 @@ function onWsMessage(ev) {
     applyMobState(msg.mobs);
     if (msg.animals2) applyAnimal2State(msg.animals2);
     if (msg.mobs2) applyMob2State(msg.mobs2);
+    if (msg.mobs3) applyMob3State(msg.mobs3);
     if (msg.decor) applyDecorState(msg.decor);
     if (msg.dungeonMobs) applyDungeonMobState(msg.dungeonMobs);
     if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
@@ -5214,6 +5215,10 @@ function getRaycastCandidates() {
       const v = mobVisuals2[id];
       if (v.mesh.visible) list.push(v.mesh);
     }
+    for (const id in mobVisuals3) {
+      const v = mobVisuals3[id];
+      if (v.mesh.visible) list.push(v.mesh);
+    }
     for (const id in decorVisuals2) {
       const v = decorVisuals2[id];
       if (!v.harvested) list.push(v.group);
@@ -5312,7 +5317,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'dungeon', 'ember_mob']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob']);
 
 function isValidArmedTarget(hit) {
   return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
@@ -5403,7 +5408,7 @@ function sceneForRoom(room) {
 function mobRenderPos(targetType, targetId) {
   const visualsMap = {
     animal: animalVisuals, mob: mobVisuals,
-    animal2: animalVisuals2, mob2: mobVisuals2,
+    animal2: animalVisuals2, mob2: mobVisuals2, mob3: mobVisuals3,
     dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals
   }[targetType];
   const v = visualsMap && visualsMap[targetId];
@@ -9360,6 +9365,7 @@ function buildWildsScene(w2) {
   addNatureDecor(scene, w2, decorVisuals2, WILDS_WALLS);
   addAnimals2(scene);
   addMobs2(scene);
+  addMobs3(scene);
   addSpookyDecor(scene, w2);
   addVillageBuildings(scene);
   addUnboundCircleSet(scene);
@@ -10296,6 +10302,7 @@ function flashCreatureHit(kind, targetId) {
   let v;
   if (kind === 'mob')     v = mobVisuals[targetId];
   else if (kind === 'mob2')    v = mobVisuals2[targetId];
+  else if (kind === 'mob3')    v = mobVisuals3[targetId];
   else if (kind === 'animal')  v = animalVisuals[targetId];
   else if (kind === 'animal2') v = animalVisuals2[targetId];
   else if (kind === 'dungeon') v = dungeonMobVisuals[targetId];
@@ -10391,7 +10398,13 @@ const MOB2_VISUALS = {
   shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85 },
   bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35 },
   night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0 },
-  will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 }
+  will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 },
+  // ── Session M horrors (custom rigs where the blob won't do) ──
+  fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12 },
+  rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42 }, // recolored mini-blob
+  barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05 },
+  gloom_bat:   { color: 0x1c1c26, eyeColor: 0xff2a2a, scale: 0.7,  fly: 26 },
+  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true }
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
@@ -10446,6 +10459,12 @@ const DUNGEON_BOSS_NAMES = {
 };
 
 function makeMob2(mobType) {
+  // The distinctive Session M horrors get purpose-built rigs; everything else
+  // (the original four + the Grave-Mite) is a recolored/rescaled base blob.
+  if (mobType === 'gloom_bat')   return withHealthBar(makeGloomBat(), 24);
+  if (mobType === 'fen_hexer')   return withHealthBar(makeFenHexer(), 28);
+  if (mobType === 'barrow_maw')  return withHealthBar(makeBarrowMaw(), 34);
+  if (mobType === 'old_marrowe') return withHealthBar(makeOldMarrowe(), 64);
   const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
   const g = makeMob();
   g.traverse(child => {
@@ -10458,7 +10477,184 @@ function makeMob2(mobType) {
   return g;
 }
 
+// Attaches the standard floating health bar to a hand-built creature group and
+// returns it (the base makeMob() adds its own; the custom rigs use this).
+function withHealthBar(g, y) { g.add(makeHealthBarSprite(y)); return g; }
+
+function makeGloomBat() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1c1c26 });
+  const wingMat = new THREE.MeshLambertMaterial({ color: 0x2c2233 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  body.scale.set(1, 1.2, 1); body.position.y = 14; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(4.4, 8, 8), bodyMat);
+  head.position.set(0, 22, 2); g.add(head);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 5), bodyMat);
+    ear.position.set(side * 2.6, 27, 1); ear.rotation.z = side * 0.3; g.add(ear);
+    // membranous wing — a flattened, swept sphere
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(11, 8, 6), wingMat);
+    wing.scale.set(1.2, 0.7, 0.12); wing.position.set(side * 12, 15, -1); wing.rotation.z = side * 0.35; g.add(wing);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2a2a }));
+    eye.position.set(side * 1.8, 23, 5.5); g.add(eye);
+    const fang = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2.2, 4), new THREE.MeshLambertMaterial({ color: 0xefe8d2 }));
+    fang.position.set(side * 1.2, 19, 5); fang.rotation.x = Math.PI; g.add(fang);
+  }
+  return g;
+}
+
+function makeFenHexer() {
+  const g = new THREE.Group();
+  const robeMat = new THREE.MeshLambertMaterial({ color: 0x3a1a4a, emissive: 0x1a0a24 });
+  // hooded robe: a broad cone tapering to a wisp
+  const robe = new THREE.Mesh(new THREE.ConeGeometry(9, 26, 8), robeMat);
+  robe.position.y = 16; g.add(robe);
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), robeMat);
+  hood.position.set(0, 28, 1.5); g.add(hood);
+  // dark hood opening
+  const face = new THREE.Mesh(new THREE.SphereGeometry(3.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x140820 }));
+  face.position.set(0, 27, 5); g.add(face);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xd8b0ff }));
+    eye.position.set(side * 1.5, 28, 7.5); g.add(eye);
+  }
+  // a hex-orb it holds ready
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xb98aff }));
+  orb.position.set(6, 16, 8); g.add(orb);
+  g.userData.hexOrb = orb;
+  return g;
+}
+
+function makeBarrowMaw() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6a5038 });
+  const clawMat = new THREE.MeshLambertMaterial({ color: 0xd8d0b8 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), bodyMat);
+  body.scale.set(1, 0.9, 1); body.position.y = 11; g.add(body);
+  // gaping maw (dark) + teeth ring
+  const maw = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x160b06 }));
+  maw.scale.set(1, 0.7, 0.6); maw.position.set(0, 10, 9); g.add(maw);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.9, 3, 4), clawMat);
+    tooth.position.set(Math.cos(a) * 4.5, 10 + Math.sin(a) * 3, 11.5);
+    tooth.rotation.z = a - Math.PI / 2; g.add(tooth);
+  }
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff7a2a }));
+    eye.position.set(side * 4, 18, 6); g.add(eye);
+    // erupting claws either side
+    const claw = new THREE.Mesh(new THREE.ConeGeometry(1.6, 9, 5), clawMat);
+    claw.position.set(side * 11, 12, 2); claw.rotation.z = side * -0.5; g.add(claw);
+  }
+  return g;
+}
+
+function makeOldMarrowe() {
+  const g = new THREE.Group();
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
+  const cloakMat = new THREE.MeshLambertMaterial({ color: 0x241826 });
+  const headMat = new THREE.MeshLambertMaterial({ color: 0x9a6a34, emissive: 0x3a1a08 });
+  // cross-frame
+  const post = new THREE.Mesh(new THREE.BoxGeometry(2.6, 44, 2.6), frameMat);
+  post.position.y = 22; g.add(post);
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(28, 2.6, 2.6), frameMat);
+  beam.position.y = 30; g.add(beam);
+  // ragged cloak (broad cone)
+  const cloak = new THREE.Mesh(new THREE.ConeGeometry(13, 34, 8, 1, true), cloakMat);
+  cloak.position.y = 20; g.add(cloak);
+  // burlap head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(7, 8, 8), headMat);
+  head.scale.set(1, 1.15, 1); head.position.y = 42; g.add(head);
+  // glowing eyes + stitched grin
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3, 4), new THREE.MeshBasicMaterial({ color: 0xff5a4a }));
+    eye.position.set(side * 2.6, 43, 6); eye.rotation.x = Math.PI / 2; g.add(eye);
+  }
+  const grin = new THREE.Mesh(new THREE.BoxGeometry(7, 0.9, 0.9), new THREE.MeshBasicMaterial({ color: 0x160b06 }));
+  grin.position.set(0, 39, 6.5); g.add(grin);
+  // straw at the arm ends
+  for (const side of [-1, 1]) {
+    const straw = new THREE.Mesh(new THREE.ConeGeometry(2.2, 6, 5), new THREE.MeshLambertMaterial({ color: 0xcaa552 }));
+    straw.position.set(side * 13, 30, 0); straw.rotation.z = side * Math.PI / 2; g.add(straw);
+  }
+  return g;
+}
+
+// ── Session M neutral creatures (mobs3 pool) — custom rigs, always rendered
+// (they're out day and night). A red glint in the eye when provoked is a nice
+// tell, but the base build is calm-coloured. ──
+const MOB3_VISUALS = {
+  bramble_boar:      { scale: 1.2 },
+  mossback_tortoise: { scale: 1.3 },
+  gravewing_crow:    { scale: 0.8 },
+};
+function makeBrambleBoar() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x494a2c });
+  const bristleMat = new THREE.MeshLambertMaterial({ color: 0x2f3018 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), bodyMat);
+  body.scale.set(1.5, 0.95, 1.1); body.position.y = 9; g.add(body);
+  for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(new THREE.ConeGeometry(0.9, 4, 4), bristleMat); const t = (i / 8 - 0.5); b.position.set(t * 16, 15, -1); b.rotation.z = t * 0.5; g.add(b); }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  head.position.set(-13, 8, 0); g.add(head);
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(2.6, 6, 6), bristleMat); snout.position.set(-19, 7, 0); g.add(snout);
+  for (const side of [-1, 1]) {
+    const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4.5, 4), new THREE.MeshLambertMaterial({ color: 0xe8e2cf }));
+    tusk.position.set(-18, 9, side * 2); tusk.rotation.x = side * 0.4; tusk.rotation.z = 0.6; g.add(tusk);
+  }
+  for (const [sx, sz] of [[-9, 4], [5, 4], [-9, -4], [5, -4]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.2, 8, 5), bristleMat); leg.position.set(sx, 4, sz); g.add(leg); }
+  g.add(makeEyePair(-15, 10, 4, 0xff9a4a, 0.9));
+  g.add(makeHealthBarSprite(22));
+  return g;
+}
+function makeMossback() {
+  const g = new THREE.Group();
+  const shellMat = new THREE.MeshLambertMaterial({ color: 0x46583a });
+  const mossMat = new THREE.MeshLambertMaterial({ color: 0x7fae54 });
+  const skinMat = new THREE.MeshLambertMaterial({ color: 0x6a604a });
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(11, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
+  shell.scale.set(1.15, 1, 1.15); shell.position.y = 7; g.add(shell);
+  for (const [dx, dz] of [[-5, -3], [4, -5], [0, 4], [6, 2], [-4, 5]]) { const moss = new THREE.Mesh(new THREE.SphereGeometry(2.2, 6, 6), mossMat); moss.position.set(dx, 12, dz); moss.scale.y = 0.5; g.add(moss); }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.6, 8, 8), skinMat); head.position.set(-11, 6, 0); g.add(head);
+  for (const [sx, sz] of [[-9, 7], [7, 7], [-9, -7], [7, -7]]) { const leg = new THREE.Mesh(new THREE.SphereGeometry(2.6, 6, 6), skinMat); leg.position.set(sx, 3, sz); g.add(leg); }
+  g.add(makeEyePair(-13, 7, 2.5, 0xc6ec95, 0.7));
+  g.add(makeHealthBarSprite(24));
+  return g;
+}
+function makeGravecrow() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1a1a24 });
+  const sheenMat = new THREE.MeshLambertMaterial({ color: 0x2a1a44, emissive: 0x160a26 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  body.scale.set(0.9, 1.3, 1); body.position.y = 10; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.6, 8, 8), bodyMat); head.position.set(0, 18, 3); g.add(head);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4.5, 4), new THREE.MeshLambertMaterial({ color: 0x6a6a52 })); beak.position.set(0, 18, 7); beak.rotation.x = Math.PI / 2; g.add(beak);
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 6), sheenMat); wing.scale.set(0.25, 1.2, 0.8); wing.position.set(side * 5, 10, -1); wing.rotation.z = side * 0.3; g.add(wing);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.9, 6, 6), new THREE.MeshBasicMaterial({ color: 0xb98aff })); eye.position.set(side * 1.5, 19, 5.5); g.add(eye);
+  }
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(2.5, 8, 4), sheenMat); tail.position.set(0, 8, -7); tail.rotation.x = -1.3; g.add(tail);
+  g.add(makeHealthBarSprite(22));
+  return g;
+}
+function makeEyePair(x, y, z, color, r) {
+  const grp = new THREE.Group();
+  for (const side of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color })); e.position.set(x, y, z + side * 1.6); grp.add(e); }
+  return grp;
+}
+function makeMob3(mobType) {
+  const g = mobType === 'bramble_boar' ? makeBrambleBoar()
+    : mobType === 'mossback_tortoise' ? makeMossback()
+    : mobType === 'gravewing_crow' ? makeGravecrow()
+    : makeBrambleBoar();
+  const vis = MOB3_VISUALS[mobType];
+  if (vis && vis.scale) g.scale.setScalar(vis.scale);
+  return g;
+}
+
 let mobVisuals2 = {};
+let mobVisuals3 = {};
 let villageNpcVisuals = {};
 
 // Mobs (Wilds mobs2 + dungeon mobs) have no limbs to swing like the player
@@ -10470,7 +10666,7 @@ const MOB_ATTACK_ANIM_MS = 380;
 const MOB_ATTACK_LUNGE_DIST = 16;
 function triggerMobAttackAnim(mobId) {
   if (!mobId) return;
-  const v = mobVisuals2[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
+  const v = mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
   if (v) v.attackAnimStartAt = performance.now();
 }
 // 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
@@ -10493,7 +10689,8 @@ function getOrCreateMob2Visual(id, mobType) {
     mesh.visible = false;
     mesh.userData = { kind: 'mob2', targetId: id };
     wildsScene.add(mesh);
-    v = mobVisuals2[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null };
+    const vis = MOB2_VISUALS[mobType] || {};
+    v = mobVisuals2[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null };
   }
   return v;
 }
@@ -10504,6 +10701,7 @@ function applyMob2State(list) {
     const v = getOrCreateMob2Visual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
+    v.hidden = !!m.hidden; // buried Barrow Maw / dormant Old Marrowe
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -10521,10 +10719,56 @@ function updateMob2Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
+    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob.
+    let hover = 0;
+    if (v.fly) { v.wingPhase += dt * 6; hover = v.fly + Math.sin(v.wingPhase) * 3; }
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
-    v.mesh.visible = lastWildlifeIsNight && !v.dead;
+    v.mesh.visible = lastWildlifeIsNight && !v.dead && !v.hidden;
+  }
+}
+
+// ── Neutral pool (mobs3) visuals — same shape as mobs2 but ALWAYS rendered
+// (out day and night; only aggressive when provoked). ──
+function addMobs3(scene) { for (const id in mobVisuals3) scene.remove(mobVisuals3[id].mesh); mobVisuals3 = {}; }
+function getOrCreateMob3Visual(id, mobType) {
+  let v = mobVisuals3[id];
+  if (!v) {
+    const mesh = makeMob3(mobType);
+    mesh.visible = false;
+    mesh.userData = { kind: 'mob3', targetId: id };
+    wildsScene.add(mesh);
+    v = mobVisuals3[id] = { mesh, mobType, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, provoked: false, attackAnimStartAt: null };
+  }
+  return v;
+}
+function applyMob3State(list) {
+  if (!wildsScene) return;
+  for (const m of list) {
+    const v = getOrCreateMob3Visual(m.id, m.mobType);
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead; v.provoked = !!m.provoked; v.hasLoot = !!m.hasLoot;
+    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
+    if (m.health !== undefined) {
+      const hpBar = v.mesh.getObjectByName('healthBar');
+      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+    }
+  }
+}
+function updateMob3Visuals(dt) {
+  const f = 1 - Math.exp(-dt * 8);
+  for (const id in mobVisuals3) {
+    const v = mobVisuals3[id];
+    v.x += (v.targetX - v.x) * f;
+    v.y += (v.targetY - v.y) * f;
+    v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
+    const hover = v.mobType === 'gravewing_crow' ? 4 : 0;
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
+    v.mesh.rotation.y = v.facing;
+    v.mesh.rotation.x = -0.5 * lungeFactor;
+    v.mesh.visible = !v.dead;
   }
 }
 
@@ -10838,6 +11082,12 @@ function updateLootIcons() {
     const key = 'mob2:' + id;
     const v = mobVisuals2[id];
     if (v.hasLoot && wildsScene) showLootIcon(key, wildsScene, v.x, LOOT_ICON_HEIGHT, v.y, 'mob2', id);
+    else hideLootIcon(key);
+  }
+  for (const id in mobVisuals3) {
+    const key = 'mob3:' + id;
+    const v = mobVisuals3[id];
+    if (v.hasLoot && wildsScene) showLootIcon(key, wildsScene, v.x, LOOT_ICON_HEIGHT, v.y, 'mob3', id);
     else hideLootIcon(key);
   }
   for (const id in dungeonMobVisuals) {
@@ -11564,6 +11814,118 @@ function makeRabbit() {
   return g;
 }
 
+// ── Session M peaceful critters (Wilds animals2 pool) ────────────────────
+// Same low-poly chibi language as the rabbit — Lambert bodies, a couple of
+// distinguishing shapes, and a small unlit "glow" accent — so the four read
+// as distinct prey at a glance. A glowing eye/spot uses MeshBasicMaterial
+// (unlit) exactly like the mobs' eyes.
+function critterGlow(color, r) {
+  return new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color }));
+}
+function makeEmbermoth() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x5a3a24 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(3.2, 8, 8), bodyMat);
+  body.scale.set(1, 1, 2.1); body.position.y = 9; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), bodyMat);
+  head.position.set(0, 9, 5.5); g.add(head);
+  const wingMat = new THREE.MeshLambertMaterial({ color: 0xd8722a, emissive: 0x5a2a08 });
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(6.5, 8, 8), wingMat);
+    wing.scale.set(0.15, 1.05, 1.25);
+    wing.position.set(side * 6.5, 9, 1); wing.rotation.z = side * 0.25;
+    g.add(wing);
+    g.add(Object.assign(critterGlow(0xffe0a0, 1.1), { position: new THREE.Vector3(side * 8, 9, -1) }));
+  }
+  for (const side of [-1, 1]) {
+    const eye = critterGlow(0xffd27a, 0.7); eye.position.set(side * 0.9, 9.6, 7); g.add(eye);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.4, 4), bodyMat);
+    ant.position.set(side * 1.2, 11.4, 6.4); ant.rotation.z = side * 0.5; g.add(ant);
+  }
+  g.add(makeHealthBarSprite(16));
+  return g;
+}
+function makeThistlehog() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
+  const spineMat = new THREE.MeshLambertMaterial({ color: 0x43301c });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  body.scale.set(1.35, 0.9, 1.1); body.position.y = 6; g.add(body);
+  // spines fanned across the back
+  for (let i = 0; i < 8; i++) {
+    const s = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4.5, 5), spineMat);
+    const ang = (i / 7 - 0.5);
+    s.position.set(ang * 8, 10.5, -1 + Math.cos(ang * 2) * 2);
+    s.rotation.z = ang * 0.6; s.rotation.x = -0.2; g.add(s);
+  }
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8), bodyMat);
+  snout.scale.set(1, 0.8, 1.1); snout.position.set(0, 5, 7.5); g.add(snout);
+  const nose = critterGlow(0x2a1c10, 0.9); nose.position.set(0, 5, 10); g.add(nose);
+  for (const side of [-1, 1]) { const e = critterGlow(0xffcaa0, 0.5); e.position.set(side * 1.6, 6.5, 8.5); g.add(e); }
+  g.add(makeHealthBarSprite(18));
+  return g;
+}
+function makeDuskfawn() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x9a7346 });
+  const paleMat = new THREE.MeshLambertMaterial({ color: 0xcbb089 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  body.scale.set(1, 0.95, 1.5); body.position.y = 12; g.add(body);
+  // slender legs
+  for (const [sx, sz] of [[-3, 5], [3, 5], [-3, -5], [3, -5]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.7, 12, 5), bodyMat);
+    leg.position.set(sx, 6, sz); g.add(leg);
+  }
+  // neck + head
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2, 8, 6), bodyMat);
+  neck.position.set(0, 17, 7); neck.rotation.x = 0.7; g.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8), bodyMat);
+  head.position.set(0, 21, 10); g.add(head);
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(1.7, 6, 6), paleMat);
+  muzzle.position.set(0, 20, 12.5); g.add(muzzle);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(1.3, 4, 5), bodyMat);
+    ear.position.set(side * 2, 24, 8.5); ear.rotation.z = side * 0.5; g.add(ear);
+    const eye = critterGlow(0xffe8c0, 0.7); eye.position.set(side * 1.7, 21.5, 12); g.add(eye);
+  }
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6), paleMat);
+  tail.position.set(0, 12, -9); g.add(tail);
+  g.add(makeHealthBarSprite(28));
+  return g;
+}
+function makeMirefowl() {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x64788a });
+  const wingMat = new THREE.MeshLambertMaterial({ color: 0x3f4f5e });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), bodyMat);
+  body.scale.set(1, 1.1, 1.2); body.position.y = 8; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.2, 8, 8), bodyMat);
+  head.position.set(0, 14, 4); g.add(head);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4, 5), new THREE.MeshLambertMaterial({ color: 0xe6b84a }));
+  beak.position.set(0, 14, 8); beak.rotation.x = Math.PI / 2; g.add(beak);
+  // one raised wing, as if flushing
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(5, 8, 8), wingMat);
+    wing.scale.set(0.2, 1, 1.1); wing.position.set(side * 5.5, 10, 0); wing.rotation.z = side * -0.6; g.add(wing);
+  }
+  for (const [sx, sz] of [[-1.6, 0], [1.6, 0]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 6, 5), new THREE.MeshLambertMaterial({ color: 0xcaa64a }));
+    leg.position.set(sx, 2.5, sz); g.add(leg);
+  }
+  const eye = critterGlow(0xffd166, 0.6); eye.position.set(0.9, 15, 6.5); g.add(eye);
+  g.add(makeHealthBarSprite(20));
+  return g;
+}
+function makeCritter2(type) {
+  switch (type) {
+    case 'embermoth':  return makeEmbermoth();
+    case 'thistlehog': return makeThistlehog();
+    case 'duskfawn':   return makeDuskfawn();
+    case 'mirefowl':   return makeMirefowl();
+    default:           return makeRabbit();
+  }
+}
+
 let animalVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, fleeing, hopPhase, initialized }
 
 function addAnimals(scene) {
@@ -11626,16 +11988,23 @@ function addAnimals2(scene) {
   animalVisuals2 = {};
 }
 
-function getOrCreateAnimal2Visual(id) {
+function getOrCreateAnimal2Visual(id, type) {
   let v = animalVisuals2[id];
   if (!v) {
-    const mesh = makeRabbit();
+    const mesh = makeCritter2(type);
     mesh.userData = { kind: 'animal2', targetId: id };
     wildsScene.add(mesh);
     v = animalVisuals2[id] = {
-      mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+      mesh, critterType: type || 'rabbit', fly: type === 'embermoth',
+      x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
       fleeing: false, hopPhase: Math.random() * Math.PI * 2, initialized: false, dead: false
     };
+  } else if (type && v.critterType !== type) {
+    // A recycled id changed species (rare — respawn reshuffles) — rebuild it.
+    wildsScene.remove(v.mesh);
+    v.mesh = makeCritter2(type); v.mesh.userData = { kind: 'animal2', targetId: id };
+    v.critterType = type; v.fly = type === 'embermoth';
+    wildsScene.add(v.mesh);
   }
   return v;
 }
@@ -11643,7 +12012,7 @@ function getOrCreateAnimal2Visual(id) {
 function applyAnimal2State(list) {
   if (!wildsScene) return;
   for (const a of list) {
-    const v = getOrCreateAnimal2Visual(a.id);
+    const v = getOrCreateAnimal2Visual(a.id, a.type);
     v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
     if (a.health !== undefined) {
@@ -11663,9 +12032,12 @@ function updateAnimal2Visuals(dt) {
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 1;
     v.hopPhase += dt * (v.fleeing ? 14 : 5);
-    const hop = moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0;
+    // The Embermoth drifts (a low hover bob) instead of hopping.
+    const bob = v.fly
+      ? 10 + Math.sin(v.hopPhase * 0.6) * 3
+      : (moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0);
 
-    v.mesh.position.set(v.x, hop, v.y);
+    v.mesh.position.set(v.x, bob, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = !v.dead;
   }
@@ -18239,14 +18611,15 @@ function nearestAttackable() {
   else bestDist = Math.min(bestDist, AUTO_TARGET_RANGE);
 
   const mobPools = me.room === 'outside' ? [['animal', animalVisuals], ['mob', mobVisuals]]
-    : me.room === 'wilds' ? [['animal2', animalVisuals2], ['mob2', mobVisuals2]]
+    : me.room === 'wilds' ? [['animal2', animalVisuals2], ['mob2', mobVisuals2], ['mob3', mobVisuals3]]
     : me.room === 'ember_wastes' ? [['ember_mob', emberMobVisuals]]
     : (typeof me.room === 'string' && me.room.startsWith('dungeon_')) ? [['dungeon', dungeonMobVisuals]]
     : [];
   for (const [targetType, visuals] of mobPools) {
     for (const id in visuals) {
       const v = visuals[id];
-      if (v.dead || (targetType === 'dungeon' && v.room !== me.room)) continue;
+      // v.hidden — a buried Barrow Maw / dormant Old Marrowe can't be targeted.
+      if (v.dead || v.hidden || (targetType === 'dungeon' && v.room !== me.room)) continue;
       const d = Math.hypot(v.x - me.x, v.y - me.y);
       if (d < bestDist) { bestDist = d; best = { id, targetType }; }
     }
@@ -19780,6 +20153,7 @@ function update(dt) {
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);
   updateMob2Visuals(dt);
+  updateMob3Visuals(dt);
   updateVillageNpcVisuals(dt);
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
@@ -19985,6 +20359,18 @@ if (location.search.includes('testdrive=1')) {
         .filter(s => s.parent && activeScene && getRootScene(s) === activeScene)
         .map(s => { s.getWorldPosition(_hoverTmpVec3); return { x: _hoverTmpVec3.x, z: _hoverTmpVec3.z, visible: !!s.visible, op: s.material ? Math.round((s.material.opacity == null ? 1 : s.material.opacity) * 100) / 100 : 1 }; });
     },
+    // Session M creatures QA: counts of the Wilds visual pools by type, so a
+    // headless run can confirm every new critter/mob mesh built without error.
+    wilds() {
+      const byType = (pool, field) => { const o = {}; for (const id in pool) { const t = pool[id][field] || '?'; o[t] = (o[t] || 0) + 1; } return o; };
+      return {
+        room: me ? me.room : null,
+        critters: byType(animalVisuals2, 'critterType'),
+        hostiles: byType(mobVisuals2, 'mobType'),
+        neutrals: byType(mobVisuals3, 'mobType'),
+      };
+    },
+    nearestTarget() { const t = nearestAttackable(); return t ? { id: t.id, targetType: t.targetType } : null; },
     // Session L addendum QA probes: drive the hotbar cast path directly and
     // read the client-side cooldown ledger (found while chasing a live
     // mobile fireball report).
