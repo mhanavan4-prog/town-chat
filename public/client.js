@@ -7801,7 +7801,7 @@ function swapToDungeonMap() {
   rebuildDungeonForTier(activeDungeonTier, activeDungeonIsDelve);
   if (!dungeonScene) return;
   world = DUNGEON_WORLD;
-  walls = (builtDungeonTier >= 1) ? ROOTCELLAR_WALLS.slice() : [];
+  walls = (builtDungeonTier >= 1 && DUNGEON_LAYOUTS[builtDungeonTier]) ? DUNGEON_LAYOUTS[builtDungeonTier].walls.slice() : [];
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   if (activeScene !== dungeonScene) setActiveContext(dungeonScene, dungeonCamera, null);
@@ -10132,17 +10132,35 @@ function buildWildsNPCs(scene) {
 // and the stone GLOWS with red sigils (emissive map, following the rock's own
 // curvature). Walls block only the PLAYER; mobs sit server-side in the wide
 // lanes between the ridges, leashed.
-const ROOTCELLAR_WALLS = [
-  { x: 0,   y: 972, w: 780, h: 28 },   // ridge A — gap east (x > 780)
-  { x: 420, y: 792, w: 780, h: 28 },   // ridge B — gap west (x < 420)
-  { x: 0,   y: 612, w: 780, h: 28 },   // ridge C — gap east (x > 780)
-  { x: 420, y: 432, w: 780, h: 28 }    // ridge D — gap west (x < 420)
-];
+const DUNGEON_LAYOUTS = {
+  // 1: Rootcellar (horizontal serpentine)
+  1: { walls: [ { x:0, y:972, w:780, h:28 }, { x:420, y:792, w:780, h:28 }, { x:0, y:612, w:780, h:28 }, { x:420, y:432, w:780, h:28 } ],
+     entry: { x: 600, y: 1080 }, boss: { x: 600, y: 225 }, portal: { x: 300, y: 1120 }, plaque: { x: 840, y: 1080 },
+     lanterns: [ [600,1080], [600,225], [70,1130], [1130,1130], [70,510], [1130,510], [590,850], [170,70], [1030,70], [770,550], [410,550], [930,850] ] },
+  // 2: Weeping Crypts (vertical serpentine)
+  2: { walls: [ { x:990, y:0, w:28, h:800 }, { x:720, y:400, w:28, h:800 }, { x:470, y:0, w:28, h:800 } ],
+     entry: { x: 1080, y: 600 }, boss: { x: 235, y: 600 }, portal: { x: 1090, y: 880 }, plaque: { x: 1080, y: 320 },
+     lanterns: [ [1080,600], [235,600], [1130,70], [1130,1130], [530,70], [530,1130], [830,590], [70,150], [70,1050], [1130,770], [830,950], [530,770] ] },
+  // 3: Howling Forge (central arena)
+  3: { walls: [ { x:300, y:300, w:600, h:28 }, { x:872, y:300, w:28, h:330 }, { x:300, y:872, w:600, h:28 }, { x:300, y:570, w:28, h:330 }, { x:300, y:300, w:28, h:180 }, { x:872, y:720, w:28, h:180 } ],
+     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 600 }, portal: { x: 300, y: 1120 }, plaque: { x: 880, y: 1090 },
+     lanterns: [ [600,1090], [600,600], [70,70], [1130,70], [70,1130], [1130,1130], [590,70], [70,590], [1130,590], [490,1030], [830,930], [330,270] ] },
+  // 4: Starless Deep (concentric rings)
+  4: { walls: [ { x:190, y:190, w:600, h:28 }, { x:190, y:190, w:28, h:600 }, { x:982, y:410, w:28, h:600 }, { x:410, y:982, w:600, h:28 }, { x:360, y:360, w:360, h:28 }, { x:360, y:360, w:28, h:360 }, { x:812, y:600, w:28, h:240 }, { x:600, y:812, w:240, h:28 } ],
+     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 600 }, portal: { x: 320, y: 1110 }, plaque: { x: 880, y: 1090 },
+     lanterns: [ [600,1090], [600,600], [70,70], [1130,70], [70,1130], [1130,1130], [590,70], [70,590], [1130,590], [490,1050], [830,890], [330,330] ] },
+  // 5: The Delve (pillar field)
+  5: { walls: [ { x:250, y:850, w:180, h:28 }, { x:770, y:850, w:180, h:28 }, { x:500, y:700, w:200, h:28 }, { x:250, y:560, w:180, h:28 }, { x:770, y:560, w:180, h:28 }, { x:430, y:400, w:28, h:180 }, { x:742, y:400, w:28, h:180 } ],
+     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 235 }, portal: { x: 320, y: 1120 }, plaque: { x: 880, y: 1090 },
+     lanterns: [ [600,1090], [600,235], [70,1130], [1130,1130], [70,530], [1130,530], [590,830], [150,70], [1050,70], [770,1130], [930,810], [410,1130] ] },
+};
 const DUNGEON_CAVE_THEMES = {
   1: { bg: 0x160709, amb: 0x6a3226, hemiTop: 0x8a3a26, hemiBot: 0x1e0c0e, floor: 0x281618, rock: 0x2a181b, glow: 0xff3018, accent: 0xff5a3a, lantern: 0xff8a4a, lanternLight: 0xff6030, hook: 0x140709 },
   2: { bg: 0x08150c, amb: 0x2c5238, hemiTop: 0x306040, hemiBot: 0x0a1c12, floor: 0x142418, rock: 0x172c1d, glow: 0x22b84e, accent: 0x46e07a, lantern: 0x8affa0, lanternLight: 0x2fc858, hook: 0x081a0e },
   3: { bg: 0x160a04, amb: 0x6e3c18, hemiTop: 0x8c4a18, hemiBot: 0x1e0e06, floor: 0x281808, rock: 0x2c1b0e, glow: 0xff6410, accent: 0xff8a24, lantern: 0xffc25a, lanternLight: 0xff7420, hook: 0x140a04 },
-  4: { bg: 0x0a0818, amb: 0x3c3468, hemiTop: 0x4e3e88, hemiBot: 0x0c0a1e, floor: 0x161428, rock: 0x1b1732, glow: 0x7a4aff, accent: 0xa688ff, lantern: 0xc4b6ff, lanternLight: 0x8a5aff, hook: 0x0a081a }
+  4: { bg: 0x0a0818, amb: 0x3c3468, hemiTop: 0x4e3e88, hemiBot: 0x0c0a1e, floor: 0x161428, rock: 0x1b1732, glow: 0x7a4aff, accent: 0xa688ff, lantern: 0xc4b6ff, lanternLight: 0x8a5aff, hook: 0x0a081a },
+  // 5 = The Delve — its own spectral-blue cave, so the endless descent reads as its own cursed place, not a recoloured tier.
+  5: { bg: 0x04101a, amb: 0x1c4a5a, hemiTop: 0x2a6478, hemiBot: 0x06161e, floor: 0x0e2028, rock: 0x122630, glow: 0x18c4e0, accent: 0x5ad8ff, lantern: 0x9ef0ff, lanternLight: 0x3ac8ee, hook: 0x06141c }
 };
 // A glowing red arcane sigil drawn to a canvas — used as an EMISSIVE MAP on
 // the rock so the mark reads as the stone itself glowing, not a decal.
@@ -10176,7 +10194,7 @@ function makeCaveSigilTexture(variant) {
   return tex;
 }
 let rootcellarSigilTextures = null;
-function buildCaveScene(theme) {
+function buildDungeonCaveScene(theme, layout) {
   const scene = new THREE.Scene();
   const BG = theme.bg;
   scene.background = new THREE.Color(BG);
@@ -10196,13 +10214,17 @@ function buildCaveScene(theme) {
   const plainRock = new THREE.MeshLambertMaterial({ color: theme.rock });
   let sigilTexN = 0;
   const WALL_H = 150;
-  for (const w of ROOTCELLAR_WALLS) {
-    const cz = w.y + w.h / 2;
-    // one row of spaced boulders — spacing >= diameter so they read as a
-    // rocky ridge, not an overlapping pile.
-    const nChunks = Math.max(6, Math.round(w.w / 104));
+  // Boulder ridges follow each wall rect along its LONG axis, so horizontal
+  // serpentines, vertical corridors and ring walls all read as real rock.
+  for (const w of layout.walls) {
+    const horiz = w.w >= w.h;
+    const longLen = horiz ? w.w : w.h;
+    const nChunks = Math.max(3, Math.round(longLen / 104));
+    const cxShort = w.x + w.w / 2, czShort = w.y + w.h / 2;
     for (let i = 0; i < nChunks; i++) {
-      const rx = w.x + (i + 0.5) * (w.w / nChunks);
+      const t = (i + 0.5) / nChunks;
+      const rx = horiz ? (w.x + t * w.w) : cxShort;
+      const rz = horiz ? czShort : (w.y + t * w.h);
       const r = 42 + (i % 3) * 4;
       let mat;
       if (i % 2 === 0) {
@@ -10212,22 +10234,15 @@ function buildCaveScene(theme) {
         mat = plainRock;
       }
       const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-      chunk.position.set(rx, WALL_H * 0.42, cz);
+      chunk.position.set(rx, WALL_H * 0.42, rz);
       chunk.rotation.set(i * 0.6, i * 1.1, i * 0.4);
-      chunk.scale.set(1.05, WALL_H / (r * 1.6), 0.62);
+      chunk.scale.set(horiz ? 1.05 : 0.62, WALL_H / (r * 1.6), horiz ? 0.62 : 1.05);
       scene.add(chunk);
     }
   }
 
-  // Glowing lanterns strung through every lane + entry and boss chamber.
-  const lanternSpots = [
-    [300, 1080], [840, 1080],
-    [180, 900], [600, 880], [1020, 900],
-    [180, 700], [600, 720], [1020, 700],
-    [180, 540], [600, 540], [1020, 540],
-    [300, 300], [600, 200], [900, 300]
-  ];
-  for (const [lx, lz] of lanternSpots) {
+  // Glowing lanterns strung along this layout's lanes + entry + boss chamber.
+  for (const [lx, lz] of layout.lanterns) {
     const orb = new THREE.Mesh(new THREE.SphereGeometry(8, 10, 10),
       new THREE.MeshBasicMaterial({ color: theme.lantern }));
     orb.position.set(lx, 175, lz);
@@ -10244,11 +10259,12 @@ function buildCaveScene(theme) {
     scene.add(glow);
   }
 
+  const bx = layout.boss.x, bz = layout.boss.y;
   const spikeMat = new THREE.MeshLambertMaterial({ color: theme.rock });
   for (let i = 0; i < 30; i++) {
     const gx = 80 + (i * 197) % 1040, gz = 80 + (i * 311) % 1040;
     const up = i % 2 === 0;
-    if (up && gz < 470) continue;
+    if (Math.hypot(gx - bx, gz - bz) < 250) continue; // keep boss chamber floor clear
     const h = 46 + (i % 4) * 26;
     const sp = new THREE.Mesh(new THREE.ConeGeometry(10, h, 6), spikeMat);
     sp.position.set(gx, up ? h / 2 : 230 - h / 2, gz);
@@ -10256,39 +10272,39 @@ function buildCaveScene(theme) {
     scene.add(sp);
   }
 
-  // Boss chamber (deep north): glowing red summoning circle, crimson light,
-  // crown of red crystals — the ritual terminus.
+  // Boss chamber: glowing summoning circle, coloured light, crown of crystals.
   const circle = new THREE.Mesh(new THREE.RingGeometry(100, 230, 48),
     new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(1), color: theme.accent, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   circle.rotation.x = -Math.PI / 2;
-  circle.position.set(600, 2, 220);
+  circle.position.set(bx, 2, bz);
   scene.add(circle);
   const innerCircle = new THREE.Mesh(new THREE.CircleGeometry(96, 48),
     new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(2), color: theme.accent, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
   innerCircle.rotation.x = -Math.PI / 2;
-  innerCircle.position.set(600, 2, 220);
+  innerCircle.position.set(bx, 2, bz);
   scene.add(innerCircle);
   const bossLight = new THREE.PointLight(theme.glow, 2.2, 1000);
-  bossLight.position.set(600, 190, 220);
+  bossLight.position.set(bx, 190, bz);
   scene.add(bossLight);
   const bossGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: LEGEND_FX.glowTexture(), color: theme.accent, transparent: true, opacity: 0.5,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
   bossGlow.scale.set(480, 480, 1);
-  bossGlow.position.set(600, 150, 220);
+  bossGlow.position.set(bx, 150, bz);
   scene.add(bossGlow);
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2;
     const cry = new THREE.Mesh(new THREE.ConeGeometry(8, 40, 5),
       new THREE.MeshBasicMaterial({ color: theme.accent }));
-    cry.position.set(600 + Math.cos(a) * 235, 25, 220 + Math.sin(a) * 235);
+    cry.position.set(bx + Math.cos(a) * 235, 25, bz + Math.sin(a) * 235);
     scene.add(cry);
   }
 
-  // Exit portal in the entry chamber (south, by spawn).
-  DUNGEON_KIOSKS = [{ x: 300, z: 1120, portal: 'dungeon_exit' }];
-  const _dngPortal = buildPortalMesh(300, 1120); _dngPortal.rotation.y = Math.PI / 2; scene.add(_dngPortal);
+  // Exit portal in the entry chamber (by spawn).
+  const px = layout.portal.x, pz = layout.portal.y;
+  DUNGEON_KIOSKS = [{ x: px, z: pz, portal: 'dungeon_exit' }];
+  const _dngPortal = buildPortalMesh(px, pz); _dngPortal.rotation.y = Math.PI / 2; scene.add(_dngPortal);
 
   const plaque = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: theme.rock }));
@@ -10297,9 +10313,9 @@ function buildCaveScene(theme) {
   pbase.position.y = 5; plaque.add(pbase);
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(0), color: theme.accent, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.position.set(0, 30, 3.4); plaque.add(rune);
-  plaque.position.set(840, 0, 1080); plaque.rotation.y = 0.4;
+  plaque.position.set(layout.plaque.x, 0, layout.plaque.y); plaque.rotation.y = 0.4;
   scene.add(plaque);
-  DUNGEON_KIOSKS.push({ x: 840, z: 1080, npc: 'plaque' });
+  DUNGEON_KIOSKS.push({ x: layout.plaque.x, z: layout.plaque.y, npc: 'plaque' });
 
   dungeonScene = scene;
   dungeonCamera = camera;
@@ -10309,10 +10325,10 @@ function buildCaveScene(theme) {
 // dungeon scene at a time). Clearing the mob-visual cache lets those meshes
 // re-add themselves to the fresh scene on the next state broadcast.
 function rebuildDungeonForTier(tier, isDelve) {
-  const want = (!isDelve && tier >= 1 && tier <= 4) ? tier : 0;
+  const want = isDelve ? 5 : ((tier >= 1 && tier <= 4) ? tier : 0);
   if (builtDungeonTier === want && dungeonScene) return;
   dungeonMobVisuals = {};
-  if (want === 0) buildDungeonScene(); else buildCaveScene(DUNGEON_CAVE_THEMES[want]);
+  if (want === 0) buildDungeonScene(); else buildDungeonCaveScene(DUNGEON_CAVE_THEMES[want], DUNGEON_LAYOUTS[want]);
   builtDungeonTier = want;
 }
 

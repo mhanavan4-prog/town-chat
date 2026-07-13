@@ -5139,13 +5139,12 @@ const DUNGEON_LABYRINTH_POSITIONS = [
   { x: 240, y: 540 }, { x: 620, y: 550 }, { x: 960, y: 520 },
   { x: 360, y: 280 }, { x: 840, y: 280 }, { x: 600, y: 160 }
 ];
-// Every tier now shares the labyrinth (client buildCaveScene, per-tier colour).
-const DUNGEON_SPAWN_POSITIONS_BY_TIER = {
-  1: DUNGEON_LABYRINTH_POSITIONS,
-  2: DUNGEON_LABYRINTH_POSITIONS,
-  3: DUNGEON_LABYRINTH_POSITIONS,
-  4: DUNGEON_LABYRINTH_POSITIONS
-};
+const DUNGEON_LANES_T1 = [ { x:70, y:1130 }, { x:1130, y:1130 }, { x:70, y:510 }, { x:1130, y:510 }, { x:590, y:850 }, { x:170, y:70 }, { x:1030, y:70 }, { x:770, y:550 }, { x:410, y:550 }, { x:930, y:850 }, { x:230, y:830 }, { x:410, y:1130 }, { x:750, y:1130 }, { x:330, y:290 }, { x:870, y:290 }, { x:410, y:70 } ];
+const DUNGEON_LANES_T2 = [ { x:1130, y:70 }, { x:1130, y:1130 }, { x:530, y:70 }, { x:530, y:1130 }, { x:830, y:590 }, { x:70, y:150 }, { x:70, y:1050 }, { x:1130, y:770 }, { x:830, y:950 }, { x:530, y:770 }, { x:830, y:230 }, { x:530, y:410 }, { x:1130, y:410 }, { x:270, y:330 }, { x:270, y:870 }, { x:290, y:70 } ];
+const DUNGEON_LANES_T3 = [ { x:70, y:70 }, { x:1130, y:70 }, { x:70, y:1130 }, { x:1130, y:1130 }, { x:590, y:70 }, { x:70, y:590 }, { x:1130, y:590 }, { x:490, y:1030 }, { x:830, y:930 }, { x:330, y:270 }, { x:850, y:270 }, { x:230, y:850 }, { x:870, y:670 }, { x:1090, y:850 }, { x:1110, y:330 }, { x:70, y:330 } ];
+const DUNGEON_LANES_T4 = [ { x:70, y:70 }, { x:1130, y:70 }, { x:70, y:1130 }, { x:1130, y:1130 }, { x:590, y:70 }, { x:70, y:590 }, { x:1130, y:590 }, { x:490, y:1050 }, { x:830, y:890 }, { x:330, y:330 }, { x:850, y:330 }, { x:330, y:770 }, { x:870, y:630 }, { x:1090, y:850 }, { x:330, y:70 }, { x:850, y:70 } ];
+// Each tier is now its own labyrinth (client DUNGEON_LAYOUTS, per-tier shape+colour).
+const DUNGEON_SPAWN_POSITIONS_BY_TIER = { 1: DUNGEON_LANES_T1, 2: DUNGEON_LANES_T2, 3: DUNGEON_LANES_T3, 4: DUNGEON_LANES_T4 };
 
 // Build dungeonMobs: 8 types × 4 tiers × 2 instances = 64 total
 const dungeonMobs = [];
@@ -5182,7 +5181,8 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
 const DUNGEON_BOSS_SPAWN = { x: 600, y: 360 };
 // Per-tier boss position. Tier 1's boss (Old Gnawbone) holds the deep north
 // chamber of the Rootcellar labyrinth; other tiers keep the old arena spot.
-const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 600, y: 220 }, 2: { x: 600, y: 220 }, 3: { x: 600, y: 220 }, 4: { x: 600, y: 220 } };
+const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 600, y: 225 }, 2: { x: 235, y: 600 }, 3: { x: 600, y: 600 }, 4: { x: 600, y: 600 } };
+const DUNGEON_ENTRY_BY_TIER = { 1: { x: 600, y: 1080 }, 2: { x: 1080, y: 600 }, 3: { x: 600, y: 1090 }, 4: { x: 600, y: 1090 } };
 const DUNGEON_BOSS_RESPAWN_MS = 5 * 60 * 1000;
 for (const tier of [1, 2, 3, 4]) {
   const key = DUNGEON_LORE[tier].bossKey;
@@ -5848,7 +5848,9 @@ const DELVE_BOONS = {
 };
 const DELVE_BOON_IDS = Object.keys(DELVE_BOONS);
 const DELVE_DRAFT_MS = 25 * 1000;
-const DELVE_SPAWN = { x: 400, y: 700 };
+const DELVE_SPAWN = { x: 600, y: 1090 }; // The Delve = layout 5 (pillar field), entry chamber (south)
+const DELVE_BOSS_SPAWN = { x: 600, y: 235 };
+const DELVE_LANES = [ { x:70, y:1130 }, { x:1130, y:1130 }, { x:70, y:530 }, { x:1130, y:530 }, { x:590, y:830 }, { x:150, y:70 }, { x:1050, y:70 }, { x:770, y:1130 }, { x:930, y:810 }, { x:410, y:1130 }, { x:250, y:810 }, { x:390, y:490 }, { x:810, y:490 }, { x:410, y:70 }, { x:790, y:70 }, { x:210, y:310 } ];
 
 function weeklyDelveMods(now) {
   const rand = mulberry32(((legendaryWeekIndex(now) * 1103515245) ^ 0x2545F491) >>> 0);
@@ -5937,7 +5939,7 @@ function delveSpawnFloor(run) {
   for (let i = 0; i < count; i++) {
     const key = keys[Math.floor(Math.random() * keys.length)];
     const preset = DUNGEON_MOB_TYPES[key];
-    const sp = DUNGEON_SPAWN_POSITIONS[i % DUNGEON_SPAWN_POSITIONS.length];
+    const sp = DELVE_LANES[i % DELVE_LANES.length];
     const jitter = () => (Math.random() - 0.5) * 60;
     const sx = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.x + jitter()));
     const sy = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.y + jitter()));
@@ -5964,8 +5966,8 @@ function delveSpawnFloor(run) {
       id: `delve_${run.id}_f${run.floor}_boss`,
       mobType: bossKey, tier, room: run.room, delve: run.id, boss: true, engaged: true,
       hpMult, dmgMult, spdMult,
-      spawnX: DUNGEON_BOSS_SPAWN.x, spawnY: DUNGEON_BOSS_SPAWN.y,
-      x: DUNGEON_BOSS_SPAWN.x, y: DUNGEON_BOSS_SPAWN.y,
+      spawnX: DELVE_BOSS_SPAWN.x, spawnY: DELVE_BOSS_SPAWN.y,
+      x: DELVE_BOSS_SPAWN.x, y: DELVE_BOSS_SPAWN.y,
       facing: Math.PI, wanderTimer: 2, wanderAngle: 0, paused: false,
       health: bossHp, scaledMax: bossHp,
       dead: false, respawnAt: 0, lastHitAt: 0
@@ -9344,9 +9346,10 @@ wss.on('connection', (ws) => {
       const prog = getProgress(player);
       const tier = dungeonTierForLevel(prog.level);
       const room = DUNGEON_ROOMS[tier];
+      const _tierEntry = DUNGEON_ENTRY_BY_TIER[tier] || DUNGEON_SPAWN;
       const spawnWithJitter = () => ({
-        x: DUNGEON_SPAWN.x + (Math.random() - 0.5) * 60,
-        y: DUNGEON_SPAWN.y + (Math.random() - 0.5) * 60
+        x: _tierEntry.x + (Math.random() - 0.5) * 60,
+        y: _tierEntry.y + (Math.random() - 0.5) * 60
       });
       const partyId = playerParty.get(player.id);
       const partyMembers = [];
