@@ -6740,24 +6740,50 @@ wss.on('connection', (ws) => {
       // while the pre-checkout self is still standing there. Identity =
       // same account, or (for guests) the very same restored store
       // references handed back by the stash.
-      if (resume) {
-        for (const [oid, op] of players) {
+      //
+      // Session L addendum — ONE ACCOUNT, ONE BODY, always. The same sweep
+      // now also runs for PLAIN account logins (found live: logging in from
+      // a second device put two bodies of one account in the town — two
+      // writers on one inventory/bank/progress record is item-duping bait).
+      // A fresh login is a TAKEOVER: the older connection is told why it's
+      // closing, and every resume path back in for it is burned so the
+      // losing device can't wander a duplicate back into the map.
+      const evictDuplicateBodies = (takeover) => {
+        for (const [oid, op] of [...players]) {
           const sameAccount = accountKey && op.accountKey === accountKey;
-          const sameGuest = !accountKey && (
+          const sameGuest = !accountKey && resume && (
             (resume.guestInventory && op.guestInventory === resume.guestInventory) ||
             (resume.guestProgress && op.guestProgress === resume.guestProgress)
           );
-          if (sameAccount || sameGuest) {
-            leaveParty(op);
-            // Remove it ourselves rather than waiting on its close event —
-            // a lagging/half-open socket's close is exactly what we can't
-            // rely on here. The close handler is a no-op once the map
-            // entry is gone (it checks players.get(id) === player).
-            players.delete(oid);
-            broadcastAll({ type: 'player_left', id: oid });
-            try { op.ws.close(); } catch (e) {}
+          if (!sameAccount && !sameGuest) continue;
+          delveLeave(op, 'disconnect'); // depth recorded; run torn down if last
+          leaveParty(op);
+          if (takeover) {
+            op.liveResumeToken = null; // its next disconnect stashes nothing
+            send(op.ws, { type: 'session_takeover', message: '🌒 Your account just stepped into the town from another device — this visit closes so there is only ever one of you.' });
+          }
+          if (op.room !== 'outside') {
+            broadcastAll({ type: 'clear_user_messages', room: op.room, id: op.id });
+          }
+          // Remove it ourselves rather than waiting on its close event —
+          // a lagging/half-open socket's close is exactly what we can't
+          // rely on here. The close handler is a no-op once the map
+          // entry is gone (it checks players.get(id) === player).
+          players.delete(oid);
+          broadcastAll({ type: 'player_left', id: oid });
+          try { op.ws.close(); } catch (e) {}
+        }
+        if (takeover && accountKey) {
+          // Burn any parked resume stashes for this account too — an older
+          // device returning with a stashed token must not resurrect a dupe.
+          for (const [tok, entry] of resumeStashes) {
+            if ((entry.stash.accountKey || null) === accountKey) resumeStashes.delete(tok);
           }
         }
+      };
+      if (!resume && accountKey) evictDuplicateBodies(true);
+      if (resume) {
+        evictDuplicateBodies(false);
       }
       const name = resume ? resume.name : (account ? account.username : sanitizeName(msg.name));
       const color = resume ? resume.color : (account ? account.color : COLORS[colorIdx++ % COLORS.length]);
@@ -9739,7 +9765,7 @@ global.__testHooks = {
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
-  sessions, covenInvites,
+  sessions, covenInvites, resumeStashes,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,

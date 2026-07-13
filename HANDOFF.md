@@ -1170,3 +1170,33 @@ to a tiny "🏮 n/3" pill; hidden while any panel/compose/emote-wheel is open. D
 keeps the permanent bottom-left card exactly as before. public/ + both apps' www
 re-synced. Verified headless 9/9 across both viewports (incl. joystick-zone clearance
 geometry + desktop-position regression); zero page errors.
+
+## Session L addendum 4 (2026-07-13) — three more live reports, three fixes
+
+Michael kept playing the deployed build; every report below reproduced headless and shipped:
+
+1. **Fireball "shoots clear across the map" (mobile).** Root cause: the hotbar/quickslot
+   auto-target (nearestAttackable) had NO range cap — it picked the nearest creature anywhere
+   in the room and the server obliged up to ABILITY_MAX_RANGE 900 (≈3 phone screens).
+   Client fix: AUTO_TARGET_RANGE 420 caps the auto-pick to what's plausibly on screen;
+   deliberately tapping a visible target keeps the full 900 reach. (Server range/cooldowns
+   were verified intact.)
+2. **"Cooldown timer never goes past one" (mobile).** The quickslots are .acBtn, not
+   .hotbarSlot — the countdown text had no .onCooldown scoping, so it was ALWAYS visible and
+   only repainted while cooling: the final "1" sat on screen forever, and the sweep ring never
+   showed at all. CSS now scopes .acBtn.onCooldown (ring + text), and updateHotbarCooldown
+   clears the stale digit when a cooldown ends. Verified with a real tap: counts 8→1, ring
+   sweeps, fully clears.
+3. **Same account on two devices = two bodies in the map.** The resume path always deduped;
+   plain second-device logins never did — two live writers on one inventory/bank/progress
+   record (duping bait). Now: ONE ACCOUNT, ONE BODY — a fresh account login evicts the older
+   connection via the shared sweep (delveLeave + party cleanup + map removal), tells it why
+   (session_takeover → client shows a "someone walked in as you" card and DISABLES
+   auto-reconnect, killing the two-device eviction ping-pong), and burns the account's parked
+   resume stashes. Guests are untouched (name collisions never evict).
+
+Also: renamed the Session L coven helper that collided with the game's own
+nearestOtherPlayer() (duplicate top-level declarations shadow silently — the invite range was
+uncapped for a while; now nearestCovenInvitee, 160u), and added permanent __testDrive probes
+castHotbar/cooldowns/actionCatalog. sessionl.test.js grew the takeover checks (96 total).
+public/ + both apps' www re-synced. npm test 10/10 · audit 213/213 · zero page errors.

@@ -548,6 +548,9 @@ function buildLiveResumePayload() {
 }
 function onWsClose() {
   setStatus(false);
+  // Evicted by our own account joining elsewhere: never auto-reconnect —
+  // the two devices would ping-pong evicting each other forever.
+  if (sessionTakenOver) return;
   if (gameStarted && lastJoinPayload && !reconnectTimer) {
     showReconnectBanner(true);
     reconnectTimer = setTimeout(() => { reconnectTimer = null; setupWs(); }, 2000);
@@ -557,6 +560,7 @@ function onWsClose() {
 // then sit out the retry timer after waking. Reconnect the instant the tab
 // is visible/online again instead.
 function maybeReconnectNow() {
+  if (sessionTakenOver) return;
   if (!gameStarted || !lastJoinPayload) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -1079,6 +1083,19 @@ function onWsMessage(ev) {
     // Personal event beats (delve floors, first steps) — toast, no banner.
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'session_takeover') {
+    // The same account just joined from another device — the server closed
+    // THIS copy (one account, one body). Stop the auto-reconnect (it would
+    // ping-pong the two devices evicting each other forever), burn the
+    // local resume stashes, and say plainly what happened.
+    sessionTakenOver = true;
+    liveResumeToken = null;
+    try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
+    try { sessionStorage.removeItem('tc_resume'); } catch (e) {}
+    showSessionTakeover(msg.message);
     return;
   }
 
@@ -16318,6 +16335,34 @@ function accountAuth() {
   try { return JSON.parse(localStorage.getItem('tc_account') || 'null'); } catch (e) { return null; }
 }
 
+// ── One account, one body ────────────────────────────────────────────────────
+// Set when the server evicts this connection because the same account logged
+// in elsewhere; onWsClose checks it so this tab never auto-reconnects into a
+// tug-of-war with the other device.
+let sessionTakenOver = false;
+function showSessionTakeover(message) {
+  const wrap = document.createElement('div');
+  wrap.id = 'takeoverOverlay';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(8,5,14,0.92);display:flex;align-items:center;justify-content:center;padding:22px;';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:linear-gradient(180deg,#241a3b,#170f2a);border:1px solid #5ee7c0;border-radius:16px;max-width:380px;padding:24px 22px;text-align:center;color:#e8dcc8;font-size:14.5px;line-height:1.65;';
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:19px;font-weight:800;color:#ffe9c2;margin-bottom:8px;';
+  title.textContent = '🌒 Someone walked in as you';
+  const body = document.createElement('div');
+  body.textContent = message || 'Your account entered the town from another device, so this visit has been closed — there is only ever one of you in Thornreach.';
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.style.marginTop = '16px';
+  btn.textContent = 'Back to the join screen';
+  btn.addEventListener('click', () => location.reload());
+  card.appendChild(title);
+  card.appendChild(body);
+  card.appendChild(btn);
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+}
+
 // ── Event calendar pill + countdowns ─────────────────────────────────────────
 function applyCalendarState(cal) {
   calendarState = cal || calendarState;
@@ -16842,7 +16887,7 @@ function refreshCovenTableVisual() {
   });
   const invite = document.getElementById('covenInviteBtn');
   if (invite) invite.addEventListener('click', () => {
-    const target = nearestOtherPlayer();
+    const target = nearestCovenInvitee();
     document.getElementById('covenErr').textContent = '';
     if (!target) { document.getElementById('covenErr').textContent = 'Nobody close enough — walk up to them first.'; return; }
     ws.send(JSON.stringify({ type: 'coven_invite', targetId: target.id }));
@@ -16888,7 +16933,11 @@ function refreshCovenTableVisual() {
     if (amt > 0) ws.send(JSON.stringify({ type: 'coven_withdraw_gold', amount: amt }));
   });
 })();
-function nearestOtherPlayer() {
+function nearestCovenInvitee() {
+  // NOTE: deliberately NOT named nearestOtherPlayer — the combat helper of
+  // that name exists further down, and duplicate top-level declarations
+  // silently shadow each other (the collision uncapped this invite range
+  // for a while). 160 units ≈ "standing with you at the table."
   if (!me) return null;
   let best = null, bestD = 160;
   for (const id in players) {
@@ -18017,6 +18066,11 @@ function updateHotbarCooldown() {
     if (active) {
       cooldown.style.setProperty('--cd', (remaining / ACTION_COOLDOWN_MS).toFixed(3));
       cooldownText.textContent = Math.ceil(remaining / 1000);
+    } else if (cooldownText.textContent !== '') {
+      // Clear the last painted number — on styles where the text isn't
+      // hard-hidden off-cooldown, a stale "1" used to linger forever.
+      cooldownText.textContent = '';
+      cooldown.style.setProperty('--cd', '0');
     }
   }
 }
@@ -18037,10 +18091,20 @@ function nearestOtherPlayer() {
 // search Fireball gets when you click, or pressing its key would silently
 // find nothing whenever no other player happens to be nearby. Every other
 // targeted spell/attack still calls nearestOtherPlayer() above unchanged.
+//
+// Range cap (live mobile report): with no cap, a quickslot press would pick
+// the nearest creature ANYWHERE in the room — on a phone that meant
+// fireballing things three screens away that the player never saw. The
+// auto-pick now only considers what's plausibly on screen; deliberately
+// TAPPING a visible target (the armed-target flow) still gets the server's
+// full ABILITY_MAX_RANGE reach.
+const AUTO_TARGET_RANGE = 420;
 function nearestAttackable() {
   const nearestPlayer = nearestOtherPlayer();
   let best = nearestPlayer ? { id: nearestPlayer.id, targetType: 'player' } : null;
   let bestDist = nearestPlayer ? Math.hypot(nearestPlayer.x - me.x, nearestPlayer.y - me.y) : Infinity;
+  if (bestDist > AUTO_TARGET_RANGE) { best = null; bestDist = AUTO_TARGET_RANGE; }
+  else bestDist = Math.min(bestDist, AUTO_TARGET_RANGE);
 
   const mobPools = me.room === 'outside' ? [['animal', animalVisuals], ['mob', mobVisuals]]
     : me.room === 'wilds' ? [['animal2', animalVisuals2], ['mob2', mobVisuals2]]
@@ -19781,6 +19845,12 @@ if (location.search.includes('testdrive=1')) {
       return out;
     },
     armed() { return armedTarget ? armedTarget.name : null; },
+    // Session L addendum QA probes: drive the hotbar cast path directly and
+    // read the client-side cooldown ledger (found while chasing a live
+    // mobile fireball report).
+    castHotbar(id) { castFromHotbar(id); },
+    cooldowns() { const out = {}; for (const k in actionCooldownEndAt) out[k] = Math.round(actionCooldownEndAt[k] - performance.now()); return out; },
+    actionCatalog() { return myActionCatalog ? Object.keys(myActionCatalog) : null; },
     players() { return Object.entries(players).map(([id, p]) => ({ id, name: p.name, x: p.x, y: p.y, room: p.room, isMe: id === myId })); },
     sceneCounts() {
       const count = (s) => { let n = 0; if (s) s.traverse(() => n++); return n; };

@@ -284,6 +284,30 @@ setTimeout(async () => {
   hooks.noteFirstStep(vet.player, 'killed');
   check('veterans predating the tracker never see it', vet.sock.allOfType('first_steps').length <= 1);
 
+  // ── One account, one body (second-device takeover) ────────────────────
+  hooks.accounts.dupe1 = { username: 'Dupe', salt: 's', hash: 'h', color: '#fff', createdAt: 1 };
+  hooks.sessions.set('tok_dupe_1', 'dupe1');
+  const devA = makeMockSocket('DeviceA');
+  connHandler(devA);
+  devA.emit('message', JSON.stringify({ type: 'join', name: 'Dupe', charId: 0, accountToken: 'tok_dupe_1' }));
+  const devAInit = devA.lastOfType('init');
+  check('device A joined on the account', !!devAInit);
+  // Park a fake resume stash for the account — takeover must burn it.
+  hooks.resumeStashes.set('stash_dupe', { expiresAt: Date.now() + 60000, stash: { accountKey: 'dupe1', name: 'Dupe', room: 'outside', x: 1, y: 1 } });
+  const devB = makeMockSocket('DeviceB');
+  connHandler(devB);
+  devB.emit('message', JSON.stringify({ type: 'join', name: 'Dupe', charId: 0, accountToken: 'tok_dupe_1' }));
+  const devBInit = devB.lastOfType('init');
+  check('device B joined and took over', !!devBInit);
+  check('device A was told (session_takeover)', !!devA.lastOfType('session_takeover'));
+  const bodies = [...hooks.players.values()].filter(p => p.accountKey === 'dupe1');
+  check('exactly ONE body wears the account', bodies.length === 1 && hooks.players.get(devBInit.id) === bodies[0], bodies.length);
+  check('parked resume stash was burned', !hooks.resumeStashes.has('stash_dupe'));
+  // Guests are untouched by account dedupe: two guests may share a name.
+  const g1 = joinAs('SameName', null);
+  const g2 = joinAs('SameName', null);
+  check('two guests with one name coexist (no false eviction)', hooks.players.has(g1.player.id) && hooks.players.has(g2.player.id));
+
   // ── Resident Pass ─────────────────────────────────────────────────────
   check('pass30 stripe metadata maps to 720h', hooks.passHoursForStripeSession({ metadata: { pass_product: 'pass30' } }) === 720);
   check('day pass metadata maps to 24h', hooks.passHoursForStripeSession({ metadata: {} }) === hooks.TOWN_PASS_HOURS);
