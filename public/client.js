@@ -1286,6 +1286,8 @@ function onWsMessage(ev) {
 
   if (msg.type === 'dungeon_entered') {
     if (me) { me.x = msg.spawn.x; me.y = msg.spawn.y; me.room = msg.room; }
+    activeDungeonTier = msg.tier || 1;
+    activeDungeonIsDelve = !!msg.delve;
     mode = 'outdoor';
     swapToDungeonMap();
     ws.send(JSON.stringify({ type: 'move', x: msg.spawn.x, y: msg.spawn.y, room: msg.room }));
@@ -1694,6 +1696,16 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'locksmith_error') {
+    if (locksmithModalOpen) document.getElementById('locksmithErr').textContent = msg.message || 'Locksmith error.';
+    else setUnlockToast('\ud83d\udd11 ' + (msg.message || 'Locksmith error.'));
+    return;
+  }
+  if (msg.type === 'locksmith_done') {
+    setUnlockToast('\ud83d\udd11 ' + (msg.message || 'Lock reset.'));
+    closeLocksmithModal();
+    return;
+  }
   if (msg.type === 'witch_selfie_request') {
     openWitchSelfieConsent(msg.consentId, msg.itemName, msg.itemIcon);
     return;
@@ -2494,6 +2506,12 @@ function toggleInventory() {
   inventoryPanel.classList.toggle('hidden', !inventoryOpen);
   if (inventoryOpen) {
     cancelTargeting();
+    // Always open on the Items tab. Deep-links (the 💾 Drive button, the
+    // "Open Hard Drive" item action) call showInvTab() AFTER this, so they
+    // still land on their tab — but the plain Inventory button/I key never
+    // reopens stuck on a sub-view (e.g. the Hard Drive selfie screen a
+    // player couldn't back out of before).
+    showInvTab('invItemsView');
     refreshNoteRecipients();
     ws.send(JSON.stringify({ type: 'inventory_open' }));
     const levelSpan = document.getElementById('dungeonTokenLevel');
@@ -3467,7 +3485,7 @@ let pushPublicKey = null;
 let pushAvailable = false;
 let townPass30Cents = 499;
 let townPass30Product = 'town_pass_30d';
-let boardModalOpen = false, delveModalOpen = false, covenModalOpen = false, notifModalOpen = false;
+let boardModalOpen = false, delveModalOpen = false, covenModalOpen = false, notifModalOpen = false, locksmithModalOpen = false;
 // Blood-moon night math mirrored from the server (same pure clock both ends).
 const BLOOD_MOON_EVERY_NIGHTS = 13;
 function bloodMoonActiveClient(now) {
@@ -5261,7 +5279,7 @@ function raycastHitAt(clientX, clientY) {
 // it on the canvas.
 function anyOverlayOpen() {
   return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen;
+    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || locksmithModalOpen;
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -7049,6 +7067,8 @@ let outdoorScene, outdoorCamera;
 let wildsScene, wildsCamera; // The Wilds — a second outdoor map reached via the portal, see buildWildsScene()/enterWilds()
 let lextonNpc = null; // { armL, armR, head } refs for night howling animation
 let dungeonScene = null, dungeonCamera = null; // Personal Dungeon — see buildDungeonScene()/swapToDungeonMap()
+let builtDungeonTier = 0; // which geometry the (rebuilt) dungeonScene holds — 1 = Rootcellar labyrinth, 0 = flat arena
+let activeDungeonTier = 1, activeDungeonIsDelve = false; // set from dungeon_entered before swapToDungeonMap()
 let activeScene, activeCamera;
 let mode = 'outdoor';          // 'outdoor' | 'indoor'
 let indoorBuildingId = null;
@@ -7778,12 +7798,13 @@ function swapToTownMap() {
 }
 
 function swapToDungeonMap() {
-  if (!dungeonScene || activeScene === dungeonScene) return;
+  rebuildDungeonForTier(activeDungeonTier, activeDungeonIsDelve);
+  if (!dungeonScene) return;
   world = DUNGEON_WORLD;
-  walls = [];
+  walls = (builtDungeonTier === 1) ? ROOTCELLAR_WALLS.slice() : [];
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
-  setActiveContext(dungeonScene, dungeonCamera, null);
+  if (activeScene !== dungeonScene) setActiveContext(dungeonScene, dungeonCamera, null);
 }
 
 function exitDungeon() {
@@ -7952,6 +7973,7 @@ function buildTownNPCs(scene) {
   buildMidnightPeddler(scene);
   buildTownBoard(scene);
   buildDelveStone(scene);
+  buildLocksmith(scene);
 }
 
 // ── The Town Board (Session L) — the leaderboards' physical home, a big
@@ -7992,7 +8014,7 @@ function buildTownBoard(scene) {
 
 // ── The Delve Stone (Session L) — the two-tap door down. A split standing
 // stone breathing violet light on the square's south edge.
-const DELVE_STONE_SPOT = { x: 1600, y: 1420 };
+const DELVE_STONE_SPOT = { x: 2050, y: 870 };
 let delveStoneGroup = null;
 function buildDelveStone(scene) {
   const g = new THREE.Group();
@@ -8087,6 +8109,54 @@ function buildMidnightPeddler(scene) {
   OUTDOOR_KIOSKS.push({ x: PEDDLER_SPOT.x, z: PEDDLER_SPOT.y, npc: 'legend', npcName: 'The Midnight Peddler' });
 }
 let peddlerStallGroup = null;
+
+// ── The Locksmith (by the Bank) — resets the password on a LOCKED Hard Drive
+// for 10 gold, so a forgotten password (or a looted locked drive) is never a
+// permanent lockout. See tryInteract 'locksmith' + server 'harddrive_reset_lock'.
+const LOCKSMITH_SPOT = { x: 1730, y: 1760 };
+let locksmithGroup = null;
+function buildLocksmith(scene) {
+  const g = new THREE.Group();
+  const apron = new THREE.MeshLambertMaterial({ color: 0x5a4632 });
+  const skin  = new THREE.MeshLambertMaterial({ color: 0xd8a878 });
+  const wood  = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
+  const dark  = new THREE.MeshLambertMaterial({ color: 0x3a2818 });
+  // workbench
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(40, 6, 22), wood);
+  bench.position.set(0, 18, 10); g.add(bench);
+  for (const [lx, lz] of [[-16, 2], [16, 2], [-16, 18], [16, 18]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(3, 18, 3), dark);
+    leg.position.set(lx, 9, lz); g.add(leg);
+  }
+  // the locksmith, standing behind the bench
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 26, 8), apron);
+  body.position.set(0, 20, -8); g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(5.2, 10, 10), skin);
+  head.position.set(0, 37, -8); g.add(head);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 3, 10), new THREE.MeshLambertMaterial({ color: 0x2c2c34 }));
+  cap.position.set(0, 41, -8); g.add(cap);
+  // a big brass key turning over the bench — the sign of the trade
+  const keyMat = new THREE.MeshBasicMaterial({ color: 0xffd27a });
+  const keyGrp = new THREE.Group();
+  const bow = new THREE.Mesh(new THREE.TorusGeometry(4, 1.4, 8, 14), keyMat); bow.position.y = 6;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 12, 6), keyMat); shaft.position.y = -2;
+  const tooth = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1.5), keyMat); tooth.position.set(2, -7, 0);
+  keyGrp.add(bow); keyGrp.add(shaft); keyGrp.add(tooth);
+  keyGrp.position.set(0, 52, 6); g.add(keyGrp);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0xffd27a, transparent: true, opacity: 0.45,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(30, 30, 1); glow.position.set(0, 52, 6); g.add(glow);
+  g.userData.tick = (t) => { keyGrp.rotation.y = t * 1.2; keyGrp.position.y = 52 + Math.sin(t * 1.6) * 2; };
+  locksmithGroup = g;
+  g.position.set(LOCKSMITH_SPOT.x, 0, LOCKSMITH_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('\ud83d\udd11 Tumbler, the Locksmith');
+  label.position.set(LOCKSMITH_SPOT.x, 60, LOCKSMITH_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: LOCKSMITH_SPOT.x, z: LOCKSMITH_SPOT.y, npc: 'locksmith', npcName: 'Tumbler the Locksmith' });
+}
 
 // ---------------------------------------------------------------------------
 // The Wilds — built once at startup right alongside the town (see the
@@ -9409,6 +9479,15 @@ function buildWildsScene(w2) {
     b.rotation.set(i * 0.7, i * 1.3, i * 0.5);
     scene.add(b);
   });
+  // Collision for the formation's ground boulders — the visuals alone let
+  // players walk straight through the whole cave (reported). Square colliders
+  // on the back mountain + two shoulders seal the mass; the maw side (toward
+  // the approach) stays open so you can still walk up and press F. Server
+  // entry allows anywhere within 140 of the centre (see enter_witch_cave), so
+  // this never blocks entry.
+  wildsCollide(CX + 0,   CZ - 55, 75); // back mountain
+  wildsCollide(CX - 105, CZ - 10, 58); // west shoulder
+  wildsCollide(CX + 102, CZ - 14, 55); // east shoulder
   // Moss caps draped on the high stones
   for (const [dx, y, dz, r] of [[-10, 148, -35, 30], [-95, 95, -20, 22], [95, 88, -25, 20]]) {
     const moss = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mossMat);
@@ -10049,6 +10128,129 @@ function buildWildsNPCs(scene) {
 // objects never need to be re-parented here. 800×800 dark stone arena with
 // torch-style point lights and stone pillars.
 // ---------------------------------------------------------------------------
+// ── The Rootcellar (Tier 1) — labyrinth revamp prototype ────────────────────
+// A serpentine of rock-and-root baffles in warm amber glow, replacing the old
+// flat arena. The three baffle walls block only the PLAYER (collision below);
+// mobs are placed server-side in the lanes and leashed to them. Old Gnawbone
+// holds the deep north chamber. This is the template the other three tiers
+// will follow (each its own signature colour, same glow language).
+const ROOTCELLAR_WALLS = [
+  { x: 0,   y: 580, w: 540, h: 24 },   // baffle A — gap east (x > 540)
+  { x: 260, y: 440, w: 540, h: 24 },   // baffle B — gap west (x < 260)
+  { x: 0,   y: 300, w: 540, h: 24 }    // baffle C — gap east (x > 540)
+];
+function buildRootcellarScene() {
+  const scene = new THREE.Scene();
+  const BG = 0x140a06;
+  scene.background = new THREE.Color(BG);
+  scene.fog = new THREE.Fog(BG, 220, 900);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
+
+  scene.add(new THREE.AmbientLight(0x4a2a12, 0.55)); // warm, low — the glow does the work
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800),
+    new THREE.MeshLambertMaterial({ color: 0x241811 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(400, 0, 400);
+  scene.add(floor);
+
+  const rockMat  = new THREE.MeshLambertMaterial({ color: 0x2e1e12 });
+  const rootMat  = new THREE.MeshLambertMaterial({ color: 0x3a2616 });
+  const emberMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
+  const WALL_H = 120;
+  for (const w of ROOTCELLAR_WALLS) {
+    const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, WALL_H, w.h + 8), rockMat);
+    wall.position.set(cx, WALL_H / 2, cz);
+    scene.add(wall);
+    const nRoots = Math.max(3, Math.round(w.w / 120));
+    for (let i = 0; i < nRoots; i++) {
+      const rx = w.x + (i + 0.5) * (w.w / nRoots);
+      const root = new THREE.Mesh(new THREE.CylinderGeometry(3, 5, WALL_H + 30, 5), rootMat);
+      root.position.set(rx, (WALL_H + 30) / 2, cz);
+      root.rotation.z = (i % 2 ? 1 : -1) * 0.15;
+      scene.add(root);
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), emberMat);
+      ember.position.set(rx, WALL_H + 6, cz);
+      scene.add(ember);
+      if (i % 2 === 0) {
+        const gl = new THREE.PointLight(0xffa030, 0.8, 260);
+        gl.position.set(rx, WALL_H + 20, cz);
+        scene.add(gl);
+      }
+    }
+  }
+
+  for (const [lx, lz, col] of [[400, 690, 0xff8c1a], [400, 520, 0xffa030], [400, 380, 0xffb347], [400, 160, 0xff5a2a]]) {
+    const l = new THREE.PointLight(col, 1.0, 440);
+    l.position.set(lx, 90, lz);
+    scene.add(l);
+  }
+
+  // Boss chamber (deep north): raised dais, big dramatic ember light and a
+  // crown of glowing crystals so Old Gnawbone reads as the epic terminus.
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(150, 165, 14, 24),
+    new THREE.MeshLambertMaterial({ color: 0x321f10 }));
+  dais.position.set(400, 7, 150);
+  scene.add(dais);
+  const bossLight = new THREE.PointLight(0xff6a20, 1.7, 660);
+  bossLight.position.set(400, 150, 150);
+  scene.add(bossLight);
+  const bossGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0xff7a2a, transparent: true, opacity: 0.4,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  bossGlow.scale.set(320, 320, 1);
+  bossGlow.position.set(400, 120, 150);
+  scene.add(bossGlow);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const cry = new THREE.Mesh(new THREE.ConeGeometry(6, 26, 5),
+      new THREE.MeshBasicMaterial({ color: 0xffcf6a }));
+    cry.position.set(400 + Math.cos(a) * 150, 20, 150 + Math.sin(a) * 150);
+    cry.rotation.x = Math.PI;
+    scene.add(cry);
+  }
+
+  const pillarMat = new THREE.MeshLambertMaterial({ color: 0x2a1c10 });
+  for (const [px, pz] of [[60, 60], [740, 60], [60, 740], [740, 740]]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(16, 22, 200, 7), pillarMat);
+    p.position.set(px, 100, pz);
+    scene.add(p);
+  }
+
+  // Exit portal in the entry chamber (south, by spawn) so players can always
+  // bail without fighting to the boss.
+  DUNGEON_KIOSKS = [{ x: 210, z: 730, portal: 'dungeon_exit' }];
+  scene.add(buildPortalMesh(210, 730));
+
+  const plaque = new THREE.Group();
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x3a2616 }));
+  slab.position.y = 30; plaque.add(slab);
+  const pbase = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: 0x2a1c10 }));
+  pbase.position.y = 5; plaque.add(pbase);
+  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.4 }));
+  rune.position.set(0, 30, 3.2); plaque.add(rune);
+  plaque.position.set(560, 0, 700); plaque.rotation.y = 0.5;
+  scene.add(plaque);
+  DUNGEON_KIOSKS.push({ x: 560, z: 700, npc: 'plaque' });
+
+  dungeonScene = scene;
+  dungeonCamera = camera;
+}
+
+// Rebuild the single dungeonScene for the tier being entered, so all the
+// existing `activeScene === dungeonScene` checks keep working (one current
+// dungeon scene at a time). Clearing the mob-visual cache lets those meshes
+// re-add themselves to the fresh scene on the next state broadcast.
+function rebuildDungeonForTier(tier, isDelve) {
+  const want = (tier === 1 && !isDelve) ? 1 : 0;
+  if (builtDungeonTier === want && dungeonScene) return;
+  dungeonMobVisuals = {};
+  if (want === 1) buildRootcellarScene(); else buildDungeonScene();
+  builtDungeonTier = want;
+}
+
 function buildDungeonScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x080410);
@@ -17037,6 +17239,24 @@ function closeDelveModal() {
   delveModalOpen = false;
   document.getElementById('delveModal').classList.add('hidden');
 }
+function openLocksmithModal() {
+  locksmithModalOpen = true;
+  document.getElementById('locksmithModal').classList.remove('hidden');
+  document.getElementById('locksmithErr').textContent = '';
+}
+function closeLocksmithModal() {
+  locksmithModalOpen = false;
+  document.getElementById('locksmithModal').classList.add('hidden');
+}
+(function wireLocksmith() {
+  const reset = document.getElementById('locksmithResetBtn');
+  if (reset) reset.addEventListener('click', () => {
+    document.getElementById('locksmithErr').textContent = '';
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'harddrive_reset_lock' }));
+  });
+  const close = document.getElementById('locksmithCloseBtn');
+  if (close) close.addEventListener('click', closeLocksmithModal);
+})();
 function renderDelveModal() {
   if (!delveModalOpen) return;
   const mods = document.getElementById('delveMods');
@@ -19486,6 +19706,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
+  if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
   if (kiosk && kiosk.npc === 'plaque') { openPlaqueModal(); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
@@ -19505,7 +19726,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen) { hint.classList.add('hidden'); return; }
+  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen || locksmithModalOpen) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -19690,6 +19911,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (delveModalOpen) {
     if (e.key === 'Escape' && !e.repeat) closeDelveModal();
+    return;
+  }
+  if (locksmithModalOpen) {
+    if (e.key === 'Escape' && !e.repeat) closeLocksmithModal();
     return;
   }
   if (covenModalOpen) {
@@ -20149,6 +20374,7 @@ function update(dt) {
   LEGEND_FX.tick(dt);
   if (peddlerStallGroup && peddlerStallGroup.userData.tick) peddlerStallGroup.userData.tick(performance.now() / 1000);
   if (delveStoneGroup && delveStoneGroup.userData.tick) delveStoneGroup.userData.tick(performance.now() / 1000);
+  if (locksmithGroup && locksmithGroup.userData.tick) locksmithGroup.userData.tick(performance.now() / 1000);
   updateAnimalVisuals(dt);
   updateMobVisuals(dt);
   updateAnimal2Visuals(dt);

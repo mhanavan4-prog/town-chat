@@ -5127,17 +5127,35 @@ const DUNGEON_SPAWN_POSITIONS = [
   { x: 200, y: 400 }, { x: 600, y: 400 }
 ];
 
+// Per-tier spawn layouts. Tier 1 (The Rootcellar) is a serpentine labyrinth
+// now (client ROOTCELLAR_WALLS) — its mobs sit in the lanes between the wall
+// baffles, clear of the walls, boss in the deep north chamber. Tiers 2-4 keep
+// the old open-arena grid until they're revamped too. Delve floors keep using
+// DUNGEON_SPAWN_POSITIONS directly.
+const DUNGEON_SPAWN_POSITIONS_BY_TIER = {
+  1: [
+    { x: 250, y: 660 }, { x: 560, y: 660 },
+    { x: 140, y: 540 }, { x: 360, y: 525 }, { x: 670, y: 505 }, { x: 300, y: 500 }, { x: 560, y: 540 },
+    { x: 130, y: 395 }, { x: 400, y: 360 }, { x: 660, y: 390 }, { x: 260, y: 375 }, { x: 540, y: 400 },
+    { x: 250, y: 185 }, { x: 560, y: 185 }, { x: 160, y: 240 }, { x: 640, y: 235 }
+  ],
+  2: DUNGEON_SPAWN_POSITIONS,
+  3: DUNGEON_SPAWN_POSITIONS,
+  4: DUNGEON_SPAWN_POSITIONS
+};
+
 // Build dungeonMobs: 8 types × 4 tiers × 2 instances = 64 total
 const dungeonMobs = [];
-let _dmIdx = 0;
 for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
   const tier = Number(tierStr);
   const room = DUNGEON_ROOMS[tier];
+  const _positions = DUNGEON_SPAWN_POSITIONS_BY_TIER[tier] || DUNGEON_SPAWN_POSITIONS;
+  let _ti = 0;
   for (const key of keys) {
     const preset = DUNGEON_MOB_TYPES[key];
     for (let inst = 0; inst < 2; inst++) {
-      const sp = DUNGEON_SPAWN_POSITIONS[_dmIdx % DUNGEON_SPAWN_POSITIONS.length];
-      _dmIdx++;
+      const sp = _positions[_ti % _positions.length];
+      _ti++;
       const jitter = () => (Math.random() - 0.5) * 60;
       const sx = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.x + jitter()));
       const sy = Math.max(50, Math.min(DUNGEON_SIZE - 50, sp.y + jitter()));
@@ -5159,15 +5177,19 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
 // fight). Slower respawn than the rank-and-file so a boss kill stays an
 // event, not a farm.
 const DUNGEON_BOSS_SPAWN = { x: 400, y: 240 };
+// Per-tier boss position. Tier 1's boss (Old Gnawbone) holds the deep north
+// chamber of the Rootcellar labyrinth; other tiers keep the old arena spot.
+const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 400, y: 150 }, 2: DUNGEON_BOSS_SPAWN, 3: DUNGEON_BOSS_SPAWN, 4: DUNGEON_BOSS_SPAWN };
 const DUNGEON_BOSS_RESPAWN_MS = 5 * 60 * 1000;
 for (const tier of [1, 2, 3, 4]) {
   const key = DUNGEON_LORE[tier].bossKey;
   const preset = DUNGEON_MOB_TYPES[key];
+  const _bsp = DUNGEON_BOSS_SPAWN_BY_TIER[tier] || DUNGEON_BOSS_SPAWN;
   dungeonMobs.push({
     id: `dungboss_t${tier}`,
     mobType: key, tier, room: DUNGEON_ROOMS[tier], boss: true,
-    spawnX: DUNGEON_BOSS_SPAWN.x, spawnY: DUNGEON_BOSS_SPAWN.y,
-    x: DUNGEON_BOSS_SPAWN.x, y: DUNGEON_BOSS_SPAWN.y,
+    spawnX: _bsp.x, spawnY: _bsp.y,
+    x: _bsp.x, y: _bsp.y,
     facing: Math.PI, wanderTimer: 2, wanderAngle: 0, paused: false,
     health: preset.maxHealth, scaledMax: preset.maxHealth, engaged: false,
     dead: false, respawnAt: 0, lastHitAt: 0
@@ -5233,12 +5255,19 @@ function tickDungeon(dt) {
     const preset = DUNGEON_MOB_TYPES[m.mobType];
     const { player: nearestP, dist } = nearestDungeonPlayer(m.room, m.x, m.y);
     let vx = 0, vy = 0;
+    // Leashing (labyrinth revamp): dungeon mobs hold their chamber. They chase
+    // only while within chaseLeash of their spawn, and walk home if they drift
+    // past their leash — so the client-side walls that block the PLAYER never
+    // strand a mob far from where it belongs.
+    const spawnDist = Math.hypot(m.x - m.spawnX, m.y - m.spawnY);
+    const leash = m.boss ? 300 : 150;
+    const chaseLeash = leash + 130;
     if (m.scaredUntil > now && nearestP) {
       const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
-    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
+    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP) && spawnDist < chaseLeash) {
       // A boss sizes up the whole room the first time it stirs (Session L).
       if (m.boss && !m.engaged) bossEngagedScale(m, preset);
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
@@ -5258,6 +5287,11 @@ function tickDungeon(dt) {
           send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
         }
       }
+    } else if (spawnDist > leash * 0.9) {
+      // Drifted too far from home — walk back toward spawn.
+      const dx = m.spawnX - m.x, dy = m.spawnY - m.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > 8) { vx = dx / d * preset.speed * 0.5; vy = dy / d * preset.speed * 0.5; }
     } else {
       m.wanderTimer -= dt;
       if (m.wanderTimer <= 0) {
@@ -7898,6 +7932,41 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // The Bank's Locksmith — resets the password on a LOCKED Hard Drive for a
+    // flat fee, so a player who forgot their own password (or looted a locked
+    // drive) isn't permanently shut out. Charged against the Bank balance,
+    // same deduct-then-save pattern as send-money / auction bids.
+    if (msg.type === 'harddrive_reset_lock') {
+      const LOCKSMITH_FEE = 10;
+      if (!ownsHardDriveItem(player)) {
+        send(ws, { type: 'locksmith_error', message: 'You need a Hard Drive in your pack for me to work on.' });
+        return;
+      }
+      const hd = getHardDrive(player);
+      if (!hd.passwordHash) {
+        send(ws, { type: 'locksmith_error', message: 'That drive isn\u2019t even locked \u2014 nothing for me to spring.' });
+        return;
+      }
+      if (!player.accountKey) {
+        send(ws, { type: 'locksmith_error', message: 'Only account players keep gold at the Bank \u2014 no gold on hand, no service.' });
+        return;
+      }
+      const acct = ensureBankAccount(player.accountKey);
+      if (acct.balance < LOCKSMITH_FEE) {
+        send(ws, { type: 'locksmith_error', message: `I charge ${LOCKSMITH_FEE} gold, and your Bank balance won\u2019t cover it.` });
+        return;
+      }
+      acct.balance -= LOCKSMITH_FEE;
+      hd.passwordSalt = null;
+      hd.passwordHash = null;
+      persistHardDrive(player);
+      saveBankAccounts();
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
+      send(ws, { type: 'locksmith_done', message: `\ud83d\udd13 Lock sprung and the password wiped. That\u2019ll be ${LOCKSMITH_FEE} gold \u2014 set a new one whenever you like.` });
+      return;
+    }
+
     if (msg.type === 'harddrive_store') {
       if (!ownsHardDriveItem(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store notes.' });
@@ -8719,7 +8788,7 @@ wss.on('connection', (ws) => {
       // handler above — distance alone isn't enough, since e.g. dungeon
       // tiers and building interiors can share overlapping coordinate
       // ranges despite being different rooms entirely.
-      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', ember_mob: 'ember_wastes' };
+      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', mob3: 'wilds', ember_mob: 'ember_wastes' };
       let t = null;
       if (targetType === 'player') {
         t = players.get(targetId) || null;
@@ -8731,7 +8800,7 @@ wss.on('connection', (ws) => {
         if (t && t.room !== player.room) t = null;
       } else if (LOOT_ROOMS[targetType]) {
         if (player.room === LOOT_ROOMS[targetType]) {
-          const pool = { mob: mobs, mob2: mobs2, ember_mob: emberMobs }[targetType];
+          const pool = { mob: mobs, mob2: mobs2, mob3: mobs3, ember_mob: emberMobs }[targetType];
           t = pool.find(x => x.id === targetId) || null;
         }
       }
