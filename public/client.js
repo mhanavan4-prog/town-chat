@@ -877,7 +877,17 @@ function onWsMessage(ev) {
 
   if (msg.type === 'craft_result') {
     setUnlockToast(msg.message);
-    if (inventoryOpen && invItemsTabActive) renderInventory();
+    // A craft (Holly Wand / Bloodmoon Circlet) just changed our item counts.
+    // The grid already refreshed via the inventory_state sent right before
+    // this, but the open item-detail panel — the "(have N)" label, the
+    // "X/5" build note, and the Build button's enabled state — is only
+    // rebuilt by selectInvSlot. Re-run it for the current selection so the
+    // count updates instantly instead of staying stale until you click away
+    // and back.
+    if (inventoryOpen && invItemsTabActive && selectedInvSlotIdx != null
+        && lastInventoryState && lastInventoryState.slots) {
+      selectInvSlot(selectedInvSlotIdx);
+    }
     return;
   }
 
