@@ -11835,7 +11835,7 @@ function makeEmbermoth() {
     wing.scale.set(0.15, 1.05, 1.25);
     wing.position.set(side * 6.5, 9, 1); wing.rotation.z = side * 0.25;
     g.add(wing);
-    g.add(Object.assign(critterGlow(0xffe0a0, 1.1), { position: new THREE.Vector3(side * 8, 9, -1) }));
+    const glow = critterGlow(0xffe0a0, 1.1); glow.position.set(side * 8, 9, -1); g.add(glow);
   }
   for (const side of [-1, 1]) {
     const eye = critterGlow(0xffd27a, 0.7); eye.position.set(side * 0.9, 9.6, 7); g.add(eye);
