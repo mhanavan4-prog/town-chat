@@ -10128,117 +10128,168 @@ function buildWildsNPCs(scene) {
 // objects never need to be re-parented here. 800×800 dark stone arena with
 // torch-style point lights and stone pillars.
 // ---------------------------------------------------------------------------
-// ── The Rootcellar (Tier 1) — labyrinth revamp prototype ────────────────────
-// A serpentine of rock-and-root baffles in warm amber glow, replacing the old
-// flat arena. The three baffle walls block only the PLAYER (collision below);
-// mobs are placed server-side in the lanes and leashed to them. Old Gnawbone
-// holds the deep north chamber. This is the template the other three tiers
-// will follow (each its own signature colour, same glow language).
+// ── The Rootcellar (Tier 1) — spooky red sigil-cave labyrinth ──────────────
+// A winding cave of dark rock in blood-red glow: four staggered rock baffles
+// weave a serpentine from the south entry up to a summoning-circle boss
+// chamber, their faces branded with glowing red sigils. Walls block only the
+// PLAYER (collision below); mobs sit server-side in the lanes between them,
+// leashed. Template for the other three tiers (own colour, same glow language).
 const ROOTCELLAR_WALLS = [
-  { x: 0,   y: 580, w: 540, h: 24 },   // baffle A — gap east (x > 540)
-  { x: 260, y: 440, w: 540, h: 24 },   // baffle B — gap west (x < 260)
-  { x: 0,   y: 300, w: 540, h: 24 }    // baffle C — gap east (x > 540)
+  { x: 0,   y: 648, w: 520, h: 24 },   // baffle A — gap east (x > 520)
+  { x: 280, y: 528, w: 520, h: 24 },   // baffle B — gap west (x < 280)
+  { x: 0,   y: 408, w: 520, h: 24 },   // baffle C — gap east (x > 520)
+  { x: 280, y: 288, w: 520, h: 24 }    // baffle D — gap west (x < 280)
 ];
+// A glowing red arcane sigil drawn to a canvas — summoning rings, a star, and
+// runic ticks. Variant tweaks the star so they don't all match.
+function makeCaveSigilTexture(variant) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  g.translate(64, 64);
+  g.strokeStyle = '#ff2a24'; g.lineWidth = 3;
+  g.shadowColor = '#ff0000'; g.shadowBlur = 14;
+  g.beginPath(); g.arc(0, 0, 46, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(0, 0, 38, 0, Math.PI * 2); g.stroke();
+  const points = 5 + (variant % 3) * 2;
+  const skip = Math.floor(points / 2);
+  g.beginPath();
+  for (let i = 0; i <= points; i++) {
+    const a = -Math.PI / 2 + (i * skip) * (Math.PI * 2) / points;
+    const x = Math.cos(a) * 34, y = Math.sin(a) * 34;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(Math.cos(a) * 48, Math.sin(a) * 48);
+    g.lineTo(Math.cos(a) * 56, Math.sin(a) * 56);
+    g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.needsUpdate = true;
+  return tex;
+}
+let rootcellarSigilTextures = null;
 function buildRootcellarScene() {
   const scene = new THREE.Scene();
-  const BG = 0x140a06;
+  const BG = 0x0a0305;
   scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.Fog(BG, 220, 900);
+  scene.fog = new THREE.Fog(BG, 150, 720); // tight, murky — you never see the whole maze
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
 
-  scene.add(new THREE.AmbientLight(0x4a2a12, 0.55)); // warm, low — the glow does the work
+  scene.add(new THREE.AmbientLight(0x2a0810, 0.4)); // very low, dark red
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800),
-    new THREE.MeshLambertMaterial({ color: 0x241811 }));
+    new THREE.MeshLambertMaterial({ color: 0x160a0c }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(400, 0, 400);
   scene.add(floor);
 
-  const rockMat  = new THREE.MeshLambertMaterial({ color: 0x2e1e12 });
-  const rootMat  = new THREE.MeshLambertMaterial({ color: 0x3a2616 });
-  const emberMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
-  const WALL_H = 120;
+  if (!rootcellarSigilTextures) rootcellarSigilTextures = [0, 1, 2, 3].map(v => makeCaveSigilTexture(v));
+  const rockMat  = new THREE.MeshLambertMaterial({ color: 0x1a1013 });
+  const rockMat2 = new THREE.MeshLambertMaterial({ color: 0x211015 });
+  const WALL_H = 130;
+  let sigilN = 0;
+  function addSigil(x, y, z, faceSign) {
+    const tex = rootcellarSigilTextures[sigilN++ % rootcellarSigilTextures.length];
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(58, 58),
+      new THREE.MeshBasicMaterial({ map: tex, color: 0xff3a2a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    s.position.set(x, y, z);
+    if (faceSign < 0) s.rotation.y = Math.PI;
+    scene.add(s);
+    const gl = new THREE.PointLight(0xff1a10, 0.6, 200);
+    gl.position.set(x, y, z + faceSign * 10);
+    scene.add(gl);
+  }
   for (const w of ROOTCELLAR_WALLS) {
     const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, WALL_H, w.h + 8), rockMat);
-    wall.position.set(cx, WALL_H / 2, cz);
-    scene.add(wall);
-    const nRoots = Math.max(3, Math.round(w.w / 120));
-    for (let i = 0; i < nRoots; i++) {
-      const rx = w.x + (i + 0.5) * (w.w / nRoots);
-      const root = new THREE.Mesh(new THREE.CylinderGeometry(3, 5, WALL_H + 30, 5), rootMat);
-      root.position.set(rx, (WALL_H + 30) / 2, cz);
-      root.rotation.z = (i % 2 ? 1 : -1) * 0.15;
-      scene.add(root);
-      const ember = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), emberMat);
-      ember.position.set(rx, WALL_H + 6, cz);
-      scene.add(ember);
-      if (i % 2 === 0) {
-        const gl = new THREE.PointLight(0xffa030, 0.8, 260);
-        gl.position.set(rx, WALL_H + 20, cz);
-        scene.add(gl);
-      }
+    const nChunks = Math.max(4, Math.round(w.w / 90));
+    for (let i = 0; i < nChunks; i++) {
+      const rx = w.x + (i + 0.5) * (w.w / nChunks);
+      const r = 46 + (i % 3) * 10;
+      const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), i % 2 ? rockMat : rockMat2);
+      chunk.position.set(rx, WALL_H * 0.45, cz);
+      chunk.rotation.set(i * 0.6, i * 1.1, i * 0.4);
+      chunk.scale.set(1.1, WALL_H / (r * 1.6), 0.6);
+      scene.add(chunk);
+    }
+    const nSig = Math.max(2, Math.round(w.w / 200));
+    for (let i = 0; i < nSig; i++) {
+      const sx = w.x + (i + 0.7) * (w.w / (nSig + 0.4));
+      addSigil(sx, WALL_H * 0.5, cz + w.h / 2 + 3, 1);
+      addSigil(sx + 40, WALL_H * 0.5, cz - w.h / 2 - 3, -1);
     }
   }
 
-  for (const [lx, lz, col] of [[400, 690, 0xff8c1a], [400, 520, 0xffa030], [400, 380, 0xffb347], [400, 160, 0xff5a2a]]) {
-    const l = new THREE.PointLight(col, 1.0, 440);
-    l.position.set(lx, 90, lz);
+  for (const [lx, lz] of [[400, 700], [400, 590], [400, 470], [400, 350], [400, 160]]) {
+    const l = new THREE.PointLight(0x8a1410, 0.85, 420);
+    l.position.set(lx, 95, lz);
     scene.add(l);
   }
 
-  // Boss chamber (deep north): raised dais, big dramatic ember light and a
-  // crown of glowing crystals so Old Gnawbone reads as the epic terminus.
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(150, 165, 14, 24),
-    new THREE.MeshLambertMaterial({ color: 0x321f10 }));
-  dais.position.set(400, 7, 150);
-  scene.add(dais);
-  const bossLight = new THREE.PointLight(0xff6a20, 1.7, 660);
-  bossLight.position.set(400, 150, 150);
+  // stalactites (ceiling) + stalagmites (floor) for cave feel
+  const spikeMat = new THREE.MeshLambertMaterial({ color: 0x1a1013 });
+  for (let i = 0; i < 22; i++) {
+    const gx = 60 + (i * 137) % 680, gz = 60 + (i * 211) % 680;
+    const up = i % 2 === 0;
+    if (up && gz < 320) continue; // keep the boss chamber floor clear
+    const h = 40 + (i % 4) * 22;
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(9, h, 6), spikeMat);
+    sp.position.set(gx, up ? h / 2 : 190 - h / 2, gz);
+    if (!up) sp.rotation.x = Math.PI;
+    scene.add(sp);
+  }
+
+  // Boss chamber (deep north): a glowing red summoning circle on the floor,
+  // crimson light and a crown of red crystals so the boss reads as the epic,
+  // ritual terminus of the cave.
+  const circle = new THREE.Mesh(new THREE.RingGeometry(70, 150, 40),
+    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(1), color: 0xff2a1a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  circle.rotation.x = -Math.PI / 2;
+  circle.position.set(400, 2, 150);
+  scene.add(circle);
+  const innerCircle = new THREE.Mesh(new THREE.CircleGeometry(66, 40),
+    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(2), color: 0xff2a1a, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+  innerCircle.rotation.x = -Math.PI / 2;
+  innerCircle.position.set(400, 2, 150);
+  scene.add(innerCircle);
+  const bossLight = new THREE.PointLight(0xff2010, 1.8, 720);
+  bossLight.position.set(400, 160, 150);
   scene.add(bossLight);
   const bossGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: LEGEND_FX.glowTexture(), color: 0xff7a2a, transparent: true, opacity: 0.4,
+    map: LEGEND_FX.glowTexture(), color: 0xff2a1a, transparent: true, opacity: 0.45,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  bossGlow.scale.set(320, 320, 1);
+  bossGlow.scale.set(340, 340, 1);
   bossGlow.position.set(400, 120, 150);
   scene.add(bossGlow);
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
-    const cry = new THREE.Mesh(new THREE.ConeGeometry(6, 26, 5),
-      new THREE.MeshBasicMaterial({ color: 0xffcf6a }));
-    cry.position.set(400 + Math.cos(a) * 150, 20, 150 + Math.sin(a) * 150);
-    cry.rotation.x = Math.PI;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const cry = new THREE.Mesh(new THREE.ConeGeometry(7, 34, 5),
+      new THREE.MeshBasicMaterial({ color: 0xff3020 }));
+    cry.position.set(400 + Math.cos(a) * 155, 22, 150 + Math.sin(a) * 155);
     scene.add(cry);
   }
 
-  const pillarMat = new THREE.MeshLambertMaterial({ color: 0x2a1c10 });
-  for (const [px, pz] of [[60, 60], [740, 60], [60, 740], [740, 740]]) {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(16, 22, 200, 7), pillarMat);
-    p.position.set(px, 100, pz);
-    scene.add(p);
-  }
-
-  // Exit portal in the entry chamber (south, by spawn) so players can always
-  // bail without fighting to the boss.
-  DUNGEON_KIOSKS = [{ x: 210, z: 730, portal: 'dungeon_exit' }];
-  scene.add(buildPortalMesh(210, 730));
+  // Exit portal in the entry chamber (south, by spawn).
+  DUNGEON_KIOSKS = [{ x: 210, z: 735, portal: 'dungeon_exit' }];
+  scene.add(buildPortalMesh(210, 735));
 
   const plaque = new THREE.Group();
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x3a2616 }));
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x24141a }));
   slab.position.y = 30; plaque.add(slab);
-  const pbase = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: 0x2a1c10 }));
+  const pbase = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: 0x180e12 }));
   pbase.position.y = 5; plaque.add(pbase);
-  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.4 }));
-  rune.position.set(0, 30, 3.2); plaque.add(rune);
-  plaque.position.set(560, 0, 700); plaque.rotation.y = 0.5;
+  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(0), color: 0xff3a2a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+  rune.position.set(0, 30, 3.4); plaque.add(rune);
+  plaque.position.set(560, 0, 720); plaque.rotation.y = 0.4;
   scene.add(plaque);
-  DUNGEON_KIOSKS.push({ x: 560, z: 700, npc: 'plaque' });
+  DUNGEON_KIOSKS.push({ x: 560, z: 720, npc: 'plaque' });
 
   dungeonScene = scene;
   dungeonCamera = camera;
 }
-
 // Rebuild the single dungeonScene for the tier being entered, so all the
 // existing `activeScene === dungeonScene` checks keep working (one current
 // dungeon scene at a time). Clearing the mob-visual cache lets those meshes

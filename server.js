@@ -5134,10 +5134,11 @@ const DUNGEON_SPAWN_POSITIONS = [
 // DUNGEON_SPAWN_POSITIONS directly.
 const DUNGEON_SPAWN_POSITIONS_BY_TIER = {
   1: [
-    { x: 250, y: 660 }, { x: 560, y: 660 },
-    { x: 140, y: 540 }, { x: 360, y: 525 }, { x: 670, y: 505 }, { x: 300, y: 500 }, { x: 560, y: 540 },
-    { x: 130, y: 395 }, { x: 400, y: 360 }, { x: 660, y: 390 }, { x: 260, y: 375 }, { x: 540, y: 400 },
-    { x: 250, y: 185 }, { x: 560, y: 185 }, { x: 160, y: 240 }, { x: 640, y: 235 }
+    { x: 250, y: 720 }, { x: 560, y: 720 },
+    { x: 140, y: 600 }, { x: 360, y: 595 }, { x: 600, y: 600 }, { x: 470, y: 610 },
+    { x: 150, y: 478 }, { x: 380, y: 485 }, { x: 640, y: 472 }, { x: 280, y: 490 },
+    { x: 160, y: 360 }, { x: 420, y: 368 }, { x: 640, y: 352 },
+    { x: 250, y: 180 }, { x: 560, y: 180 }, { x: 400, y: 100 }
   ],
   2: DUNGEON_SPAWN_POSITIONS,
   3: DUNGEON_SPAWN_POSITIONS,
