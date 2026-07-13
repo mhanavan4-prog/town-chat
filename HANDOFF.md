@@ -1255,3 +1255,35 @@ App `www/` for BOTH apps re-synced from public/ via wwwbuild/make_www.py (all re
 matched). Web git batch below; apps still need the usual `npx cap sync` + resubmit when next shipped.
 
 `git add server.js public/client.js public/index.html README.md test/auction-inventory.test.js test/three-stub.js test/qa-auction-inventory.cjs test/qa-account-bank.cjs HANDOFF.md && git commit -m "Auction from inventory + always-visible gold readouts; repair headless three.js QA stub" && git push`
+
+## Session M addendum (2026-07-13) — two more "announce, then get out of the way" banner fades
+
+Michael flagged two more always-on banners after the event pill; both now use the same
+6.5s announce-then-fade manners.
+
+1. **Town Pass HUD tag (`#passTag`).** Was a persistent "🎟️ Town Pass — Xh left" line. Now
+   `refreshPassHud()` announces it when the pass turns on (or is extended) and fades it out
+   6.5s later; the fade is keyed on `passUntil`, NOT the ticking text, so the per-minute clock
+   update doesn't keep re-surfacing it. Tap the tag to peek the current time left (re-shows,
+   fades again). CSS: `#passTag { transition:opacity .45s }` + `#passTag.tagFaded { opacity:0;
+   pointer-events:none }`. Test: `test/qa-passtag-fade.cjs` (7/7 — seeds a live pass into
+   localStorage tc_pass_until, joins, watches it show→fade→peek→fade).
+
+2. **Mobile NPC/landmark name labels (the "Torchkeeper Ada has a persistent banner" report).**
+   On touch, `makeNpcNameSprite` labels are shown by proximity (`updateNameLabelHover`, the
+   `!NAME_HOVER_ENABLED` branch) and used to stay lit the entire time you stood within 190u.
+   Now they hold for `NAME_SHOW_MS` (6500) then fade over `NAME_FADE_MS` (500) via
+   `sprite.material.opacity`; leaving the 190u range resets `sprite.userData._nameSeenAt` so
+   re-approaching re-announces. `makeNpcNameSprite`'s SpriteMaterial gained `transparent:true`
+   so the opacity fade actually blends. Desktop hover path is untouched (it never sets opacity).
+   Applies to every proximity label (shops, board, delve stone, peddler, NPCs) for consistent
+   manners. New `__testDrive.nameLabels()` probe (active-scene sprites → x/z/visible/opacity).
+   Test: `test/qa-namelabel-fade.cjs` (6/6 — approach→full opacity, wait 6.5s→faded, step away
+   and back→re-announces).
+
+npm test 11/11 · both new Playwright harnesses green · zero page errors. public/ + both apps'
+www re-synced (make_www anchors matched). NOT yet committed on Michael's Mac when this was
+written — the Town Pass fade from earlier never landed (bridge dropped), so this batch carries
+both fades together.
+
+`git add public/client.js public/index.html test/qa-passtag-fade.cjs test/qa-namelabel-fade.cjs HANDOFF.md && git commit -m "Fade the Town Pass banner + mobile NPC name labels 6.5s after they appear (tap/re-approach to peek)" && git push`

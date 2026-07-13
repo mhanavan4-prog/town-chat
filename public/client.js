@@ -4342,20 +4342,50 @@ function refreshUnlockUI() {
   if (priceEl) priceEl.textContent = formatPrice(townPassPriceCents);
 }
 
-// Small persistent HUD line while a pass is live — seeing the clock run
-// is both honest (you know exactly what you bought) and a quiet nudge
-// to make the most of it.
+// Small HUD line while a pass is live. It announces when the pass turns on
+// (or gets extended), then fades out of the way after 6.5s — the same
+// "announce, then get out of the way" manners as the event pill and the
+// location tag (a live report: the always-on banner got tiring to look at).
+// The fade is keyed on passUntil, NOT the ticking text, so the per-minute
+// clock update doesn't keep re-surfacing it; the text still updates silently
+// underneath so a tap-to-peek always shows the real time left.
+let _passHudSig = null;
+let _passHudFadeTimer = null;
 function refreshPassHud() {
   const tag = document.getElementById('passTag');
   if (!tag) return;
   if (hasTownPass()) {
     tag.textContent = `🎟️ Town Pass — ${passTimeLeftLabel()} left`;
     tag.classList.remove('hidden');
+    const sig = String(passUntil); // one announce per pass, not per minute tick
+    if (sig !== _passHudSig) {
+      _passHudSig = sig;
+      tag.classList.remove('tagFaded');
+      clearTimeout(_passHudFadeTimer);
+      _passHudFadeTimer = setTimeout(() => tag.classList.add('tagFaded'), 6500);
+    }
   } else {
     tag.classList.add('hidden');
+    tag.classList.remove('tagFaded');
+    _passHudSig = null;
+    clearTimeout(_passHudFadeTimer);
   }
 }
 setInterval(refreshPassHud, 30000);
+// Tap the pass tag to peek at the time remaining — it re-shows the current
+// count, then fades back out after another 6.5s.
+(function () {
+  const tag = document.getElementById('passTag');
+  if (!tag) return;
+  tag.style.cursor = 'pointer';
+  tag.addEventListener('click', () => {
+    if (!hasTownPass()) return;
+    tag.textContent = `🎟️ Town Pass — ${passTimeLeftLabel()} left`;
+    tag.classList.remove('tagFaded');
+    clearTimeout(_passHudFadeTimer);
+    _passHudFadeTimer = setTimeout(() => tag.classList.add('tagFaded'), 6500);
+  });
+})();
 // Keep the 😴 rested countdown ticking (and let it vanish when it lapses)
 // even during a stretch with no XP events.
 setInterval(() => { if (gameStarted && restedUntil) updateXPDisplay(); }, 15000);
@@ -5017,6 +5047,11 @@ window.addEventListener('mouseleave', () => { dragging = false; });
 // ---------------------------------------------------------------------------
 const NAME_HOVER_ENABLED = !isTouchDevice();
 const NAME_HOVER_ZONE = { halfWidth: 40, above: 20, below: 170 };
+// Mobile name labels announce on approach, then fade out of the way after a
+// few seconds (live report: "Torchkeeper Ada has a persistent banner") — walk
+// away and back to see one again. Same "announce, then get out of the way"
+// manners as the event pill and the Town Pass tag.
+const NAME_SHOW_MS = 6500, NAME_FADE_MS = 500;
 const HOVER_NAME_SPRITES = []; // every sprite made by makeNpcNameSprite()
 const _hoverTmpVec3 = new THREE.Vector3();
 let hoverMouseX = -9999, hoverMouseY = -9999, hoverMouseActive = false;
@@ -5069,7 +5104,19 @@ function updateNameLabelHover() {
           const dz = _hoverTmpVec3.z - activeCamera.position.z;
           camTooClose = (dx * dx + dy * dy + dz * dz) < 110 * 110;
         }
-        sprite.visible = d <= 190 && !camTooClose;
+        const inRange = d <= 190 && !camTooClose;
+        if (!inRange) {
+          sprite.visible = false;
+          sprite.userData._nameSeenAt = 0; // out of range → re-approaching re-announces
+        } else {
+          // In range: hold the label for NAME_SHOW_MS, then fade it out so it
+          // stops sitting on screen the whole time you're near the character.
+          if (!sprite.userData._nameSeenAt) sprite.userData._nameSeenAt = performance.now();
+          const elapsed = performance.now() - sprite.userData._nameSeenAt;
+          const op = elapsed <= NAME_SHOW_MS ? 1 : Math.max(0, 1 - (elapsed - NAME_SHOW_MS) / NAME_FADE_MS);
+          if (sprite.material) sprite.material.opacity = op;
+          sprite.visible = op > 0.02;
+        }
       } else {
         sprite.visible = false;
       }
@@ -12486,7 +12533,9 @@ function makeNpcNameSprite(name, title) {
   ctx.shadowBlur = 0;
 
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  // transparent so material.opacity can fade the whole label out — the mobile
+  // "announce, then get out of the way" behavior in updateNameLabelHover().
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(hasTtl ? 158 : 102, hasTtl ? 35 : 23, 1);
   sprite.visible = false; // hover-only — see updateNameLabelHover()
@@ -19906,6 +19955,14 @@ if (location.search.includes('testdrive=1')) {
       return out;
     },
     armed() { return armedTarget ? armedTarget.name : null; },
+    // Name-label fade QA (mobile "announce then fade" — the Torchkeeper Ada
+    // report). Returns the active-scene name sprites with world x/z, whether
+    // they're currently shown, and their material opacity.
+    nameLabels() {
+      return HOVER_NAME_SPRITES
+        .filter(s => s.parent && activeScene && getRootScene(s) === activeScene)
+        .map(s => { s.getWorldPosition(_hoverTmpVec3); return { x: _hoverTmpVec3.x, z: _hoverTmpVec3.z, visible: !!s.visible, op: s.material ? Math.round((s.material.opacity == null ? 1 : s.material.opacity) * 100) / 100 : 1 }; });
+    },
     // Session L addendum QA probes: drive the hotbar cast path directly and
     // read the client-side cooldown ledger (found while chasing a live
     // mobile fireball report).

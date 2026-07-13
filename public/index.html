@@ -709,8 +709,12 @@
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.5);
     color:#ffe9c2; font-size:12px; font-weight:700; padding:6px 12px;
     border-radius:14px; backdrop-filter:blur(4px);
+    transition:opacity 0.45s;
   }
   #passTag.hidden { display:none !important; }
+  /* Announce, then get out of the way — fades 6.5s after the pass turns on;
+     tap to peek at the time left (see refreshPassHud). */
+  #passTag.tagFaded { opacity:0; pointer-events:none; }
 
   /* ── Moonstones & the Midnight Peddler (Session I) ── */
   #msPackList { display:flex; flex-direction:column; gap:8px; margin:10px 0; }
