@@ -5132,17 +5132,19 @@ const DUNGEON_SPAWN_POSITIONS = [
 // baffles, clear of the walls, boss in the deep north chamber. Tiers 2-4 keep
 // the old open-arena grid until they're revamped too. Delve floors keep using
 // DUNGEON_SPAWN_POSITIONS directly.
+const DUNGEON_LABYRINTH_POSITIONS = [
+  { x: 360, y: 1080 }, { x: 840, y: 1080 },
+  { x: 200, y: 900 }, { x: 520, y: 890 }, { x: 900, y: 890 }, { x: 680, y: 920 },
+  { x: 220, y: 720 }, { x: 560, y: 730 }, { x: 960, y: 700 }, { x: 400, y: 745 },
+  { x: 240, y: 540 }, { x: 620, y: 550 }, { x: 960, y: 520 },
+  { x: 360, y: 280 }, { x: 840, y: 280 }, { x: 600, y: 160 }
+];
+// Every tier now shares the labyrinth (client buildCaveScene, per-tier colour).
 const DUNGEON_SPAWN_POSITIONS_BY_TIER = {
-  1: [
-    { x: 360, y: 1080 }, { x: 840, y: 1080 },
-    { x: 200, y: 900 }, { x: 520, y: 890 }, { x: 900, y: 890 }, { x: 680, y: 920 },
-    { x: 220, y: 720 }, { x: 560, y: 730 }, { x: 960, y: 700 }, { x: 400, y: 745 },
-    { x: 240, y: 540 }, { x: 620, y: 550 }, { x: 960, y: 520 },
-    { x: 360, y: 280 }, { x: 840, y: 280 }, { x: 600, y: 160 }
-  ],
-  2: DUNGEON_SPAWN_POSITIONS,
-  3: DUNGEON_SPAWN_POSITIONS,
-  4: DUNGEON_SPAWN_POSITIONS
+  1: DUNGEON_LABYRINTH_POSITIONS,
+  2: DUNGEON_LABYRINTH_POSITIONS,
+  3: DUNGEON_LABYRINTH_POSITIONS,
+  4: DUNGEON_LABYRINTH_POSITIONS
 };
 
 // Build dungeonMobs: 8 types × 4 tiers × 2 instances = 64 total
@@ -5180,7 +5182,7 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
 const DUNGEON_BOSS_SPAWN = { x: 600, y: 360 };
 // Per-tier boss position. Tier 1's boss (Old Gnawbone) holds the deep north
 // chamber of the Rootcellar labyrinth; other tiers keep the old arena spot.
-const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 600, y: 220 }, 2: DUNGEON_BOSS_SPAWN, 3: DUNGEON_BOSS_SPAWN, 4: DUNGEON_BOSS_SPAWN };
+const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 600, y: 220 }, 2: { x: 600, y: 220 }, 3: { x: 600, y: 220 }, 4: { x: 600, y: 220 } };
 const DUNGEON_BOSS_RESPAWN_MS = 5 * 60 * 1000;
 for (const tier of [1, 2, 3, 4]) {
   const key = DUNGEON_LORE[tier].bossKey;

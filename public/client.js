@@ -7801,7 +7801,7 @@ function swapToDungeonMap() {
   rebuildDungeonForTier(activeDungeonTier, activeDungeonIsDelve);
   if (!dungeonScene) return;
   world = DUNGEON_WORLD;
-  walls = (builtDungeonTier === 1) ? ROOTCELLAR_WALLS.slice() : [];
+  walls = (builtDungeonTier >= 1) ? ROOTCELLAR_WALLS.slice() : [];
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   if (activeScene !== dungeonScene) setActiveContext(dungeonScene, dungeonCamera, null);
@@ -10138,6 +10138,12 @@ const ROOTCELLAR_WALLS = [
   { x: 0,   y: 612, w: 780, h: 28 },   // ridge C — gap east (x > 780)
   { x: 420, y: 432, w: 780, h: 28 }    // ridge D — gap west (x < 420)
 ];
+const DUNGEON_CAVE_THEMES = {
+  1: { bg: theme.bg, amb: theme.amb, hemiTop: theme.hemiTop, hemiBot: theme.hemiBot, floor: theme.floor, rock: theme.rock, glow: theme.glow, accent: theme.accent, lantern: theme.lantern, lanternLight: theme.lanternLight, hook: theme.hook },
+  2: { bg: 0x08150c, amb: 0x2c5238, hemiTop: 0x306040, hemiBot: 0x0a1c12, floor: 0x142418, rock: 0x172c1d, glow: 0x22b84e, accent: 0x46e07a, lantern: 0x8affa0, lanternLight: 0x2fc858, hook: 0x081a0e },
+  3: { bg: 0x160a04, amb: 0x6e3c18, hemiTop: 0x8c4a18, hemiBot: 0x1e0e06, floor: 0x281808, rock: 0x2c1b0e, glow: 0xff6410, accent: 0xff8a24, lantern: 0xffc25a, lanternLight: 0xff7420, hook: 0x140a04 },
+  4: { bg: 0x0a0818, amb: 0x3c3468, hemiTop: 0x4e3e88, hemiBot: 0x0c0a1e, floor: 0x161428, rock: 0x1b1732, glow: 0x7a4aff, accent: 0xa688ff, lantern: 0xc4b6ff, lanternLight: 0x8a5aff, hook: 0x0a081a }
+};
 // A glowing red arcane sigil drawn to a canvas — used as an EMISSIVE MAP on
 // the rock so the mark reads as the stone itself glowing, not a decal.
 function makeCaveSigilTexture(variant) {
@@ -10145,8 +10151,8 @@ function makeCaveSigilTexture(variant) {
   const g = cv.getContext('2d');
   g.fillStyle = '#000000'; g.fillRect(0, 0, 128, 128);
   g.translate(64, 64);
-  g.strokeStyle = '#ff3a20'; g.lineWidth = 4;
-  g.shadowColor = '#ff2000'; g.shadowBlur = 10;
+  g.strokeStyle = '#ffffff'; g.lineWidth = 4;
+  g.shadowColor = '#ffffff'; g.shadowBlur = 10;
   g.beginPath(); g.arc(0, 0, 46, 0, Math.PI * 2); g.stroke();
   g.beginPath(); g.arc(0, 0, 37, 0, Math.PI * 2); g.stroke();
   const points = 5 + (variant % 3) * 2;
@@ -10170,24 +10176,24 @@ function makeCaveSigilTexture(variant) {
   return tex;
 }
 let rootcellarSigilTextures = null;
-function buildRootcellarScene() {
+function buildCaveScene(theme) {
   const scene = new THREE.Scene();
-  const BG = 0x160709;
+  const BG = theme.bg;
   scene.background = new THREE.Color(BG);
   scene.fog = new THREE.Fog(BG, 950, 2200);
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2600);
 
-  scene.add(new THREE.AmbientLight(0x6a3226, 1.0));
-  scene.add(new THREE.HemisphereLight(0x8a3a26, 0x1e0c0e, 0.7));
+  scene.add(new THREE.AmbientLight(theme.amb, 1.0));
+  scene.add(new THREE.HemisphereLight(theme.hemiTop, theme.hemiBot, 0.7));
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200),
-    new THREE.MeshLambertMaterial({ color: 0x281618 }));
+    new THREE.MeshLambertMaterial({ color: theme.floor }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(600, 0, 600);
   scene.add(floor);
 
   if (!rootcellarSigilTextures) rootcellarSigilTextures = [0, 1, 2, 3].map(v => makeCaveSigilTexture(v));
-  const plainRock = new THREE.MeshLambertMaterial({ color: 0x2a181b });
+  const plainRock = new THREE.MeshLambertMaterial({ color: theme.rock });
   let sigilTexN = 0;
   const WALL_H = 150;
   for (const w of ROOTCELLAR_WALLS) {
@@ -10201,7 +10207,7 @@ function buildRootcellarScene() {
       let mat;
       if (i % 2 === 0) {
         const tex = rootcellarSigilTextures[sigilTexN++ % rootcellarSigilTextures.length];
-        mat = new THREE.MeshLambertMaterial({ color: 0x2a181b, emissive: 0xff3018, emissiveMap: tex, emissiveIntensity: 1.25 });
+        mat = new THREE.MeshLambertMaterial({ color: theme.rock, emissive: theme.glow, emissiveMap: tex, emissiveIntensity: 1.25 });
       } else {
         mat = plainRock;
       }
@@ -10223,22 +10229,22 @@ function buildRootcellarScene() {
   ];
   for (const [lx, lz] of lanternSpots) {
     const orb = new THREE.Mesh(new THREE.SphereGeometry(8, 10, 10),
-      new THREE.MeshBasicMaterial({ color: 0xff8a4a }));
+      new THREE.MeshBasicMaterial({ color: theme.lantern }));
     orb.position.set(lx, 175, lz);
     scene.add(orb);
     const hook = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 40, 4),
-      new THREE.MeshLambertMaterial({ color: 0x140709 }));
+      new THREE.MeshLambertMaterial({ color: theme.hook }));
     hook.position.set(lx, 198, lz);
     scene.add(hook);
-    const light = new THREE.PointLight(0xff6030, 1.5, 640);
+    const light = new THREE.PointLight(theme.lanternLight, 1.5, 640);
     light.position.set(lx, 175, lz);
     scene.add(light);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: 0xff8a4a, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: theme.lantern, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.scale.set(64, 64, 1); glow.position.set(lx, 175, lz);
     scene.add(glow);
   }
 
-  const spikeMat = new THREE.MeshLambertMaterial({ color: 0x2a181b });
+  const spikeMat = new THREE.MeshLambertMaterial({ color: theme.rock });
   for (let i = 0; i < 30; i++) {
     const gx = 80 + (i * 197) % 1040, gz = 80 + (i * 311) % 1040;
     const up = i % 2 === 0;
@@ -10253,20 +10259,20 @@ function buildRootcellarScene() {
   // Boss chamber (deep north): glowing red summoning circle, crimson light,
   // crown of red crystals — the ritual terminus.
   const circle = new THREE.Mesh(new THREE.RingGeometry(100, 230, 48),
-    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(1), color: 0xff3a24, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(1), color: theme.accent, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   circle.rotation.x = -Math.PI / 2;
   circle.position.set(600, 2, 220);
   scene.add(circle);
   const innerCircle = new THREE.Mesh(new THREE.CircleGeometry(96, 48),
-    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(2), color: 0xff3a24, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(2), color: theme.accent, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
   innerCircle.rotation.x = -Math.PI / 2;
   innerCircle.position.set(600, 2, 220);
   scene.add(innerCircle);
-  const bossLight = new THREE.PointLight(0xff3018, 2.2, 1000);
+  const bossLight = new THREE.PointLight(theme.glow, 2.2, 1000);
   bossLight.position.set(600, 190, 220);
   scene.add(bossLight);
   const bossGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: LEGEND_FX.glowTexture(), color: 0xff3a24, transparent: true, opacity: 0.5,
+    map: LEGEND_FX.glowTexture(), color: theme.accent, transparent: true, opacity: 0.5,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
   bossGlow.scale.set(480, 480, 1);
@@ -10275,7 +10281,7 @@ function buildRootcellarScene() {
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2;
     const cry = new THREE.Mesh(new THREE.ConeGeometry(8, 40, 5),
-      new THREE.MeshBasicMaterial({ color: 0xff4028 }));
+      new THREE.MeshBasicMaterial({ color: theme.accent }));
     cry.position.set(600 + Math.cos(a) * 235, 25, 220 + Math.sin(a) * 235);
     scene.add(cry);
   }
@@ -10285,11 +10291,11 @@ function buildRootcellarScene() {
   scene.add(buildPortalMesh(300, 1120));
 
   const plaque = new THREE.Group();
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x2a181b }));
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: theme.rock }));
   slab.position.y = 30; plaque.add(slab);
-  const pbase = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: 0x1a0d10 }));
+  const pbase = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: theme.bg }));
   pbase.position.y = 5; plaque.add(pbase);
-  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(0), color: 0xff3a24, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(0), color: theme.accent, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.position.set(0, 30, 3.4); plaque.add(rune);
   plaque.position.set(840, 0, 1080); plaque.rotation.y = 0.4;
   scene.add(plaque);
@@ -10303,10 +10309,10 @@ function buildRootcellarScene() {
 // dungeon scene at a time). Clearing the mob-visual cache lets those meshes
 // re-add themselves to the fresh scene on the next state broadcast.
 function rebuildDungeonForTier(tier, isDelve) {
-  const want = (tier === 1 && !isDelve) ? 1 : 0;
+  const want = (!isDelve && tier >= 1 && tier <= 4) ? tier : 0;
   if (builtDungeonTier === want && dungeonScene) return;
   dungeonMobVisuals = {};
-  if (want === 1) buildRootcellarScene(); else buildDungeonScene();
+  if (want === 0) buildDungeonScene(); else buildCaveScene(DUNGEON_CAVE_THEMES[want]);
   builtDungeonTier = want;
 }
 
@@ -11189,15 +11195,98 @@ function applyTownTorchState(torches) {
   }
 }
 
+// ── Dungeon enemy archetypes ────────────────────────────────────────────────
+// Distinct body silhouettes so enemies read as different creatures (not just
+// recoloured clones). Each takes (color, eyeColor) and returns a Group; the
+// per-type colour/scale still come from DUNGEON_MOB_VISUALS via makeDungeonMob.
+function _dmMat(c) { return new THREE.MeshLambertMaterial({ color: c }); }
+function _dmEye(c) { return new THREE.MeshBasicMaterial({ color: c }); }
+function _dmEyes(g, ec, y, z, sep, r) {
+  for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), _dmEye(ec)); e.position.set(s * sep, y, z); g.add(e); }
+}
+function archRodent(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), m); body.scale.set(1, 0.7, 1.5); body.position.y = 9; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); head.position.set(0, 11, 12); g.add(head);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(2.6, 7, 6), m); snout.rotation.x = Math.PI / 2; snout.position.set(0, 10, 18); g.add(snout);
+  for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(2.6, 6, 5), m); ear.position.set(s * 3.2, 16, 10); g.add(ear); }
+  for (const [sx, sz] of [[-5, 4], [5, 4], [-5, -6], [5, -6]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.2, 8, 5), m); leg.position.set(sx, 4, sz); g.add(leg); }
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.8, 16, 5), m); tail.rotation.x = -0.9; tail.position.set(0, 9, -12); g.add(tail);
+  _dmEyes(g, ec, 12, 16.5, 2.4, 1.1); return g;
+}
+function archFlyer(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); body.position.y = 16; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(4.5, 8, 8), m); head.position.set(0, 21, 3); g.add(head);
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(9, 6, 6), m); wing.scale.set(1.5, 0.14, 1.0); wing.position.set(s * 12, 17, -1); wing.rotation.z = s * 0.3; g.add(wing);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5, 5), m); ear.position.set(s * 2, 26, 3); g.add(ear);
+  }
+  _dmEyes(g, ec, 22, 6.5, 1.8, 1.0); return g;
+}
+function archCrawler(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), m); body.scale.set(1.2, 0.55, 1.2); body.position.y = 7; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(4.5, 8, 8), m); head.position.set(0, 7, 10); g.add(head);
+  for (let i = 0; i < 3; i++) for (const s of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.6, 16, 4), m); leg.position.set(s * 9, 6, (i - 1) * 7); leg.rotation.z = s * 1.1; g.add(leg);
+  }
+  for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 6), _dmEye(ec)); e.position.set(s * 1.8, 9, 13); g.add(e); }
+  return g;
+}
+function archCanine(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), m); body.scale.set(1, 0.8, 1.7); body.position.y = 14; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); head.position.set(0, 19, 16); g.add(head);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(2.6, 8, 6), m); snout.rotation.x = Math.PI / 2; snout.position.set(0, 17, 23); g.add(snout);
+  for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(2, 5, 5), m); ear.position.set(s * 3, 25, 15); g.add(ear); }
+  for (const [sx, sz] of [[-5, 8], [5, 8], [-5, -8], [5, -8]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.4, 14, 5), m); leg.position.set(sx, 7, sz); g.add(leg); }
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.2, 14, 5), m); tail.rotation.x = 0.7; tail.position.set(0, 18, -12); g.add(tail);
+  _dmEyes(g, ec, 20, 20, 2.4, 1.1); return g;
+}
+function archSerpent(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  for (let i = 0; i < 5; i++) { const seg = new THREE.Mesh(new THREE.SphereGeometry(7 - i * 0.6, 8, 8), m); seg.position.set(Math.sin(i * 1.1) * 4, 4 + i * 5, Math.cos(i * 1.1) * 3 - 3); g.add(seg); }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); head.scale.set(1.2, 0.8, 1.3); head.position.set(0, 30, 4); g.add(head);
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), m); hood.scale.set(1.4, 0.9, 0.4); hood.position.set(0, 29, -1); g.add(hood);
+  _dmEyes(g, ec, 31, 9, 2.2, 1.1); return g;
+}
+function archBrute(color, ec) {
+  const g = new THREE.Group(); const m = _dmMat(color);
+  for (const s of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3, 14, 6), m); leg.position.set(s * 5, 7, 0); g.add(leg); }
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 13), m); torso.position.y = 24; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); head.position.set(0, 38, 2); g.add(head);
+  for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CylinderGeometry(3, 2.4, 18, 6), m); arm.position.set(s * 13, 24, 0); arm.rotation.z = s * 0.25; g.add(arm); }
+  for (const s of [-1, 1]) { const sh = new THREE.Mesh(new THREE.ConeGeometry(3, 7, 5), m); sh.position.set(s * 9, 36, 0); g.add(sh); }
+  _dmEyes(g, ec, 39, 6, 2.2, 1.2); return g;
+}
+function archWraith(color, ec) {
+  const g = new THREE.Group(); const m = new THREE.MeshLambertMaterial({ color: color, transparent: true, opacity: 0.9 });
+  const robe = new THREE.Mesh(new THREE.ConeGeometry(9, 30, 8), m); robe.position.y = 15; g.add(robe);
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), m); hood.position.set(0, 30, 0); g.add(hood);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), _dmMat(0x050205)); face.position.set(0, 29, 3.5); g.add(face);
+  for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.ConeGeometry(2.4, 14, 6), m); arm.position.set(s * 8, 18, 2); arm.rotation.z = s * 0.5; g.add(arm); }
+  _dmEyes(g, ec, 30, 6, 1.8, 1.2); return g;
+}
+const MOB_ARCH_BUILDERS = { rodent: archRodent, flyer: archFlyer, crawler: archCrawler, canine: archCanine, serpent: archSerpent, brute: archBrute, wraith: archWraith };
+function mobArchetype(t) {
+  if (/rat_king/.test(t)) return 'rodent';
+  if (/weaver/.test(t)) return 'crawler';
+  if (/forge_tyrant/.test(t)) return 'brute';
+  if (/sovereign/.test(t)) return 'wraith';
+  if (/bat/.test(t)) return 'flyer';
+  if (/spider|beetle|crawler/.test(t)) return 'crawler';
+  if (/wolf|hound|warden|beast/.test(t)) return 'canine';
+  if (/adder|serpent|dragon/.test(t)) return 'serpent';
+  if (/golem|giant|troll|titan|brute|leviathan|lurker/.test(t)) return 'brute';
+  if (/rat/.test(t)) return 'rodent';
+  return 'wraith';
+}
 function makeDungeonMob(mobType) {
   const visual = DUNGEON_MOB_VISUALS[mobType] || { color: 0x2a1a33, eyeColor: 0xff2222, scale: 1.0 };
-  const g = makeMob();
-  g.traverse(child => {
-    if (!child.isMesh) return;
-    const isEye = child.geometry.type === 'SphereGeometry' && child.geometry.parameters.radius < 2;
-    child.material = child.material.clone();
-    child.material.color.set(isEye ? visual.eyeColor : visual.color);
-  });
+  const builder = MOB_ARCH_BUILDERS[mobArchetype(mobType)] || MOB_ARCH_BUILDERS.wraith;
+  const g = builder(visual.color, visual.eyeColor);
+  g.add(makeHealthBarSprite(38));
   g.scale.setScalar(visual.scale);
   // Signature bosses (Session L) wear their name and a low ember glow —
   // unmistakable across the arena.
