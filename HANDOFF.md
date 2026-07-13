@@ -1287,3 +1287,20 @@ written — the Town Pass fade from earlier never landed (bridge dropped), so th
 both fades together.
 
 `git add public/client.js public/index.html test/qa-passtag-fade.cjs test/qa-namelabel-fade.cjs HANDOFF.md && git commit -m "Fade the Town Pass banner + mobile NPC name labels 6.5s after they appear (tap/re-approach to peek)" && git push`
+
+## Session M addendum 2 (2026-07-13) — Parlor/Arcade upsell bar also fades
+
+Third banner in the "announce, then get out of the way" set. The `#unlockBar`
+("🔒 The 👻 Parlor & 🎮 Arcade take a Town Pass" + day-pass button) is a DESKTOP-only
+pill (it's `display:none` in touchMode) that used to sit up the whole time you lacked a
+pass. `refreshUnlockUI()` now announces it once on the shown-edge, then fades it after
+6.5s; the fade is gated on `_unlockBarShown` so the many refreshUnlockUI callers
+(price/config updates) don't re-fire it, and it re-announces if the bar is hidden (pass
+bought) then needs to return (pass lapses). CSS: `#unlockBar { transition:opacity .45s }`,
+`#unlockBar.tagFaded { opacity:0 }`, and `#unlockBar.tagFaded #unlockInner { pointer-events:none }`
+so the faded (invisible) buy button can't catch a phantom tap — the day pass stays reachable
+from the ☰ menu and the Cafe statue. Test: `test/qa-unlockbar-fade.cjs` (7/7 — dummy
+STRIPE_SECRET_KEY flips paymentsEnabled true so the bar renders; desktop viewport; show→fade,
+verifies pointer-events flip). npm test 11/11 · zero page errors · public/ + both apps' www re-synced.
+
+`git add public/client.js public/index.html test/qa-unlockbar-fade.cjs HANDOFF.md && git commit -m "Fade the Parlor/Arcade upsell bar 6.5s after it appears" && git push`

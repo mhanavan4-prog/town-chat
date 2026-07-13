@@ -4333,13 +4333,35 @@ function captureHowlClip(durationMs = 3000) {
 
 function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
 
+// The Parlor/Arcade upsell bar. It announces once when it first appears, then
+// fades out of the way after 6.5s (live report: it was tiring seeing it up the
+// whole time) — the same manners as the event pill and the Town Pass tag. The
+// day pass stays one tap away in the ☰ menu and at the Cafe statue, so once it
+// has said its piece it can leave. It re-announces if it's hidden (pass bought)
+// and later needs to come back (pass lapses). refreshUnlockUI is called from
+// many spots (price/config updates), so the fade is gated on the shown-edge,
+// not re-fired on every refresh.
+let _unlockBarFadeTimer = null;
+let _unlockBarShown = false;
 function refreshUnlockUI() {
   const bar = document.getElementById('unlockBar');
   if (!bar) return;
-  if (!PAYWALLS_ENABLED || !paymentsEnabled || hasTownPass()) { bar.classList.add('hidden'); return; }
+  if (!PAYWALLS_ENABLED || !paymentsEnabled || hasTownPass()) {
+    bar.classList.add('hidden');
+    bar.classList.remove('tagFaded');
+    _unlockBarShown = false;
+    clearTimeout(_unlockBarFadeTimer);
+    return;
+  }
   bar.classList.remove('hidden');
   const priceEl = document.getElementById('unlockPrice');
   if (priceEl) priceEl.textContent = formatPrice(townPassPriceCents);
+  if (!_unlockBarShown) {
+    _unlockBarShown = true;
+    bar.classList.remove('tagFaded');
+    clearTimeout(_unlockBarFadeTimer);
+    _unlockBarFadeTimer = setTimeout(() => bar.classList.add('tagFaded'), 6500);
+  }
 }
 
 // Small HUD line while a pass is live. It announces when the pass turns on

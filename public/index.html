@@ -577,8 +577,14 @@
   #unlockBar {
     position:fixed; top:64px; left:0; right:0; z-index:6;
     display:flex; justify-content:center; pointer-events:none;
+    transition:opacity 0.45s;
   }
   #unlockBar.hidden { display:none !important; }
+  /* Announce, then get out of the way — fades 6.5s after it appears (see
+     refreshUnlockUI). The day pass stays reachable from the ☰ menu and the
+     Cafe statue, so the faded pill also drops pointer events. */
+  #unlockBar.tagFaded { opacity:0; }
+  #unlockBar.tagFaded #unlockInner { pointer-events:none; }
   #unlockInner {
     pointer-events:auto;
     display:flex; align-items:center; gap:10px;
