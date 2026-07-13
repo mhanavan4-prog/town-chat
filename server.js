@@ -5015,8 +5015,8 @@ function tickVillageNpcs(dt) {
 // 32 mob types (8 per tier × 2 instances each = 64 dungeon mob objects).
 // Always active — no day/night gate. Each room is 800×800.
 // ---------------------------------------------------------------------------
-const DUNGEON_SIZE = 800;
-const DUNGEON_SPAWN = { x: 400, y: 700 };
+const DUNGEON_SIZE = 1200;
+const DUNGEON_SPAWN = { x: 600, y: 1080 };
 const DUNGEON_RESPAWN_MS = 60 * 1000;
 const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' };
 
@@ -5118,13 +5118,13 @@ const DUNGEON_MOB_KEYS_BY_TIER = {
 };
 
 const DUNGEON_SPAWN_POSITIONS = [
-  { x: 150, y: 150 }, { x: 400, y: 120 }, { x: 650, y: 150 },
-  { x: 120, y: 350 }, { x: 680, y: 350 },
-  { x: 120, y: 450 }, { x: 680, y: 450 },
-  { x: 150, y: 600 }, { x: 400, y: 580 }, { x: 650, y: 600 },
-  { x: 250, y: 250 }, { x: 550, y: 250 },
-  { x: 250, y: 500 }, { x: 550, y: 500 },
-  { x: 200, y: 400 }, { x: 600, y: 400 }
+  { x: 225, y: 225 }, { x: 600, y: 180 }, { x: 975, y: 225 },
+  { x: 180, y: 525 }, { x: 1020, y: 525 },
+  { x: 180, y: 675 }, { x: 1020, y: 675 },
+  { x: 225, y: 900 }, { x: 600, y: 870 }, { x: 975, y: 900 },
+  { x: 375, y: 375 }, { x: 825, y: 375 },
+  { x: 375, y: 750 }, { x: 825, y: 750 },
+  { x: 300, y: 600 }, { x: 900, y: 600 }
 ];
 
 // Per-tier spawn layouts. Tier 1 (The Rootcellar) is a serpentine labyrinth
@@ -5134,11 +5134,11 @@ const DUNGEON_SPAWN_POSITIONS = [
 // DUNGEON_SPAWN_POSITIONS directly.
 const DUNGEON_SPAWN_POSITIONS_BY_TIER = {
   1: [
-    { x: 250, y: 720 }, { x: 560, y: 720 },
-    { x: 140, y: 600 }, { x: 360, y: 595 }, { x: 600, y: 600 }, { x: 470, y: 610 },
-    { x: 150, y: 478 }, { x: 380, y: 485 }, { x: 640, y: 472 }, { x: 280, y: 490 },
-    { x: 160, y: 360 }, { x: 420, y: 368 }, { x: 640, y: 352 },
-    { x: 250, y: 180 }, { x: 560, y: 180 }, { x: 400, y: 100 }
+    { x: 360, y: 1080 }, { x: 840, y: 1080 },
+    { x: 200, y: 900 }, { x: 520, y: 890 }, { x: 900, y: 890 }, { x: 680, y: 920 },
+    { x: 220, y: 720 }, { x: 560, y: 730 }, { x: 960, y: 700 }, { x: 400, y: 745 },
+    { x: 240, y: 540 }, { x: 620, y: 550 }, { x: 960, y: 520 },
+    { x: 360, y: 280 }, { x: 840, y: 280 }, { x: 600, y: 160 }
   ],
   2: DUNGEON_SPAWN_POSITIONS,
   3: DUNGEON_SPAWN_POSITIONS,
@@ -5177,10 +5177,10 @@ for (const [tierStr, keys] of Object.entries(DUNGEON_MOB_KEYS_BY_TIER)) {
 // exit portal stays reachable along the walls for anyone not looking for a
 // fight). Slower respawn than the rank-and-file so a boss kill stays an
 // event, not a farm.
-const DUNGEON_BOSS_SPAWN = { x: 400, y: 240 };
+const DUNGEON_BOSS_SPAWN = { x: 600, y: 360 };
 // Per-tier boss position. Tier 1's boss (Old Gnawbone) holds the deep north
 // chamber of the Rootcellar labyrinth; other tiers keep the old arena spot.
-const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 400, y: 150 }, 2: DUNGEON_BOSS_SPAWN, 3: DUNGEON_BOSS_SPAWN, 4: DUNGEON_BOSS_SPAWN };
+const DUNGEON_BOSS_SPAWN_BY_TIER = { 1: { x: 600, y: 220 }, 2: DUNGEON_BOSS_SPAWN, 3: DUNGEON_BOSS_SPAWN, 4: DUNGEON_BOSS_SPAWN };
 const DUNGEON_BOSS_RESPAWN_MS = 5 * 60 * 1000;
 for (const tier of [1, 2, 3, 4]) {
   const key = DUNGEON_LORE[tier].bossKey;

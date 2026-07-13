@@ -60,7 +60,7 @@ const WILDS_NPCS = [
   { id: 'npc_elara',    name: 'Scout Elara',           charId: 4, x: 7800, y: 5110 },
 ];
 let DUNGEON_KIOSKS = []; // interact points in the dungeon — the exit portal, rebuilt per-entry
-const DUNGEON_WORLD = { width: 800, height: 800, buildings: [], spawn: { x: 400, y: 700 } };
+const DUNGEON_WORLD = { width: 1200, height: 1200, buildings: [], spawn: { x: 600, y: 1080 } };
 let dungeonMobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, dead, initialized }
 let walls = [];           // generated collision rects, derived from world.buildings
 let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
@@ -10125,24 +10125,25 @@ function buildWildsNPCs(scene) {
 // objects never need to be re-parented here. 800×800 dark stone arena with
 // torch-style point lights and stone pillars.
 // ---------------------------------------------------------------------------
-// ── The Rootcellar (Tier 1) — spooky red sigil-cave labyrinth ──────────────
-// A winding cave of dark rock lit by glowing lanterns: four staggered rock
-// baffles weave a serpentine from the south entry up to a summoning-circle
-// boss chamber. The stone itself GLOWS with red sigils (emissive map on the
-// rock, so the marks follow its curvature). Walls block only the PLAYER
-// (collision below); mobs sit server-side in the lanes between them, leashed.
+// ── The Rootcellar (Tier 1) — spooky red sigil-cave labyrinth (1200×1200) ──
+// A big winding cave of dark rock lit by glowing lanterns: four staggered rock
+// ridges weave a serpentine from the south entry up to a summoning-circle boss
+// chamber. Each ridge is a single row of spaced boulders (no overlapping pile),
+// and the stone GLOWS with red sigils (emissive map, following the rock's own
+// curvature). Walls block only the PLAYER; mobs sit server-side in the wide
+// lanes between the ridges, leashed.
 const ROOTCELLAR_WALLS = [
-  { x: 0,   y: 648, w: 520, h: 24 },   // baffle A — gap east (x > 520)
-  { x: 280, y: 528, w: 520, h: 24 },   // baffle B — gap west (x < 280)
-  { x: 0,   y: 408, w: 520, h: 24 },   // baffle C — gap east (x > 520)
-  { x: 280, y: 288, w: 520, h: 24 }    // baffle D — gap west (x < 280)
+  { x: 0,   y: 972, w: 780, h: 28 },   // ridge A — gap east (x > 780)
+  { x: 420, y: 792, w: 780, h: 28 },   // ridge B — gap west (x < 420)
+  { x: 0,   y: 612, w: 780, h: 28 },   // ridge C — gap east (x > 780)
+  { x: 420, y: 432, w: 780, h: 28 }    // ridge D — gap west (x < 420)
 ];
 // A glowing red arcane sigil drawn to a canvas — used as an EMISSIVE MAP on
 // the rock so the mark reads as the stone itself glowing, not a decal.
 function makeCaveSigilTexture(variant) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
   const g = cv.getContext('2d');
-  g.fillStyle = '#000000'; g.fillRect(0, 0, 128, 128); // black = no glow
+  g.fillStyle = '#000000'; g.fillRect(0, 0, 128, 128);
   g.translate(64, 64);
   g.strokeStyle = '#ff3a20'; g.lineWidth = 4;
   g.shadowColor = '#ff2000'; g.shadowBlur = 10;
@@ -10173,32 +10174,30 @@ function buildRootcellarScene() {
   const scene = new THREE.Scene();
   const BG = 0x160709;
   scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.Fog(BG, 640, 1600); // faint — the whole cave stays visible
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
+  scene.fog = new THREE.Fog(BG, 950, 2200);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2600);
 
-  // Bright enough to navigate, still warm/red. Ambient + hemisphere fill so
-  // there are no black corners, then lanterns add the pooled glow on top.
   scene.add(new THREE.AmbientLight(0x6a3226, 1.0));
   scene.add(new THREE.HemisphereLight(0x8a3a26, 0x1e0c0e, 0.7));
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800),
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200),
     new THREE.MeshLambertMaterial({ color: 0x281618 }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(400, 0, 400);
+  floor.position.set(600, 0, 600);
   scene.add(floor);
 
   if (!rootcellarSigilTextures) rootcellarSigilTextures = [0, 1, 2, 3].map(v => makeCaveSigilTexture(v));
   const plainRock = new THREE.MeshLambertMaterial({ color: 0x2a181b });
   let sigilTexN = 0;
-  const WALL_H = 130;
+  const WALL_H = 150;
   for (const w of ROOTCELLAR_WALLS) {
     const cz = w.y + w.h / 2;
-    const nChunks = Math.max(5, Math.round(w.w / 78));
+    // one row of spaced boulders — spacing >= diameter so they read as a
+    // rocky ridge, not an overlapping pile.
+    const nChunks = Math.max(6, Math.round(w.w / 104));
     for (let i = 0; i < nChunks; i++) {
       const rx = w.x + (i + 0.5) * (w.w / nChunks);
-      const r = 44 + (i % 3) * 10;
-      // Every other chunk is "branded" — the stone glows red with a sigil via
-      // an emissive map, so the mark wraps the rock's own curved surface.
+      const r = 42 + (i % 3) * 4;
       let mat;
       if (i % 2 === 0) {
         const tex = rootcellarSigilTextures[sigilTexN++ % rootcellarSigilTextures.length];
@@ -10207,85 +10206,83 @@ function buildRootcellarScene() {
         mat = plainRock;
       }
       const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-      chunk.position.set(rx, WALL_H * 0.45, cz);
+      chunk.position.set(rx, WALL_H * 0.42, cz);
       chunk.rotation.set(i * 0.6, i * 1.1, i * 0.4);
-      chunk.scale.set(1.15, WALL_H / (r * 1.6), 0.62);
+      chunk.scale.set(1.05, WALL_H / (r * 1.6), 0.62);
       scene.add(chunk);
     }
   }
 
-  // Glowing lanterns strung through every lane + the entry and boss chamber so
-  // the whole cave is clearly lit. Each is a warm ember orb with its own light.
+  // Glowing lanterns strung through every lane + entry and boss chamber.
   const lanternSpots = [
-    [200, 720], [600, 720],
-    [120, 600], [400, 600], [680, 600],
-    [120, 470], [400, 470], [680, 470],
-    [120, 350], [400, 350], [680, 350],
-    [200, 205], [400, 120], [600, 205]
+    [300, 1080], [840, 1080],
+    [180, 900], [600, 880], [1020, 900],
+    [180, 700], [600, 720], [1020, 700],
+    [180, 540], [600, 540], [1020, 540],
+    [300, 300], [600, 200], [900, 300]
   ];
   for (const [lx, lz] of lanternSpots) {
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 10),
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(8, 10, 10),
       new THREE.MeshBasicMaterial({ color: 0xff8a4a }));
-    orb.position.set(lx, 150, lz);
+    orb.position.set(lx, 175, lz);
     scene.add(orb);
-    const hook = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 34, 4),
+    const hook = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 40, 4),
       new THREE.MeshLambertMaterial({ color: 0x140709 }));
-    hook.position.set(lx, 170, lz);
+    hook.position.set(lx, 198, lz);
     scene.add(hook);
-    const light = new THREE.PointLight(0xff6030, 1.4, 500);
-    light.position.set(lx, 150, lz);
+    const light = new THREE.PointLight(0xff6030, 1.5, 640);
+    light.position.set(lx, 175, lz);
     scene.add(light);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: 0xff8a4a, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
-    glow.scale.set(56, 56, 1); glow.position.set(lx, 150, lz);
+    glow.scale.set(64, 64, 1); glow.position.set(lx, 175, lz);
     scene.add(glow);
   }
 
-  // stalactites (ceiling) + stalagmites (floor) for cave feel
   const spikeMat = new THREE.MeshLambertMaterial({ color: 0x2a181b });
-  for (let i = 0; i < 22; i++) {
-    const gx = 60 + (i * 137) % 680, gz = 60 + (i * 211) % 680;
+  for (let i = 0; i < 30; i++) {
+    const gx = 80 + (i * 197) % 1040, gz = 80 + (i * 311) % 1040;
     const up = i % 2 === 0;
-    if (up && gz < 320) continue;
-    const h = 40 + (i % 4) * 22;
-    const sp = new THREE.Mesh(new THREE.ConeGeometry(9, h, 6), spikeMat);
-    sp.position.set(gx, up ? h / 2 : 200 - h / 2, gz);
+    if (up && gz < 470) continue;
+    const h = 46 + (i % 4) * 26;
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(10, h, 6), spikeMat);
+    sp.position.set(gx, up ? h / 2 : 230 - h / 2, gz);
     if (!up) sp.rotation.x = Math.PI;
     scene.add(sp);
   }
 
-  // Boss chamber (deep north): a glowing red summoning circle on the floor,
-  // crimson light and a crown of red crystals — the ritual terminus.
-  const circle = new THREE.Mesh(new THREE.RingGeometry(70, 150, 40),
+  // Boss chamber (deep north): glowing red summoning circle, crimson light,
+  // crown of red crystals — the ritual terminus.
+  const circle = new THREE.Mesh(new THREE.RingGeometry(100, 230, 48),
     new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(1), color: 0xff3a24, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   circle.rotation.x = -Math.PI / 2;
-  circle.position.set(400, 2, 150);
+  circle.position.set(600, 2, 220);
   scene.add(circle);
-  const innerCircle = new THREE.Mesh(new THREE.CircleGeometry(66, 40),
+  const innerCircle = new THREE.Mesh(new THREE.CircleGeometry(96, 48),
     new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(2), color: 0xff3a24, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
   innerCircle.rotation.x = -Math.PI / 2;
-  innerCircle.position.set(400, 2, 150);
+  innerCircle.position.set(600, 2, 220);
   scene.add(innerCircle);
-  const bossLight = new THREE.PointLight(0xff3018, 2.0, 760);
-  bossLight.position.set(400, 165, 150);
+  const bossLight = new THREE.PointLight(0xff3018, 2.2, 1000);
+  bossLight.position.set(600, 190, 220);
   scene.add(bossLight);
   const bossGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: LEGEND_FX.glowTexture(), color: 0xff3a24, transparent: true, opacity: 0.5,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  bossGlow.scale.set(360, 360, 1);
-  bossGlow.position.set(400, 120, 150);
+  bossGlow.scale.set(480, 480, 1);
+  bossGlow.position.set(600, 150, 220);
   scene.add(bossGlow);
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    const cry = new THREE.Mesh(new THREE.ConeGeometry(7, 34, 5),
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const cry = new THREE.Mesh(new THREE.ConeGeometry(8, 40, 5),
       new THREE.MeshBasicMaterial({ color: 0xff4028 }));
-    cry.position.set(400 + Math.cos(a) * 155, 22, 150 + Math.sin(a) * 155);
+    cry.position.set(600 + Math.cos(a) * 235, 25, 220 + Math.sin(a) * 235);
     scene.add(cry);
   }
 
   // Exit portal in the entry chamber (south, by spawn).
-  DUNGEON_KIOSKS = [{ x: 210, z: 735, portal: 'dungeon_exit' }];
-  scene.add(buildPortalMesh(210, 735));
+  DUNGEON_KIOSKS = [{ x: 300, z: 1120, portal: 'dungeon_exit' }];
+  scene.add(buildPortalMesh(300, 1120));
 
   const plaque = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x2a181b }));
@@ -10294,9 +10291,9 @@ function buildRootcellarScene() {
   pbase.position.y = 5; plaque.add(pbase);
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ map: makeCaveSigilTexture(0), color: 0xff3a24, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.position.set(0, 30, 3.4); plaque.add(rune);
-  plaque.position.set(560, 0, 720); plaque.rotation.y = 0.4;
+  plaque.position.set(840, 0, 1080); plaque.rotation.y = 0.4;
   scene.add(plaque);
-  DUNGEON_KIOSKS.push({ x: 560, z: 720, npc: 'plaque' });
+  DUNGEON_KIOSKS.push({ x: 840, z: 1080, npc: 'plaque' });
 
   dungeonScene = scene;
   dungeonCamera = camera;
@@ -10316,25 +10313,22 @@ function rebuildDungeonForTier(tier, isDelve) {
 function buildDungeonScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x080410);
-  scene.fog = new THREE.Fog(0x080410, 300, 950);
+  scene.fog = new THREE.Fog(0x080410, 450, 1500);
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
 
-  // Dark stone floor
-  const floorGeo = new THREE.PlaneGeometry(800, 800);
+  const floorGeo = new THREE.PlaneGeometry(1200, 1200);
   const floorMat = new THREE.MeshLambertMaterial({ color: 0x201828 });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(400, 0, 400);
+  floor.position.set(600, 0, 600);
   scene.add(floor);
 
-  // Dim red ambient
   scene.add(new THREE.AmbientLight(0x3a1020, 0.5));
 
-  // Torch point lights with small torch posts
-  const torchSpots = [[150, 150], [650, 150], [150, 650], [650, 650], [400, 380]];
+  const torchSpots = [[225, 225], [975, 225], [225, 975], [975, 975], [600, 570]];
   for (const [tx, tz] of torchSpots) {
-    const tLight = new THREE.PointLight(0xff6600, 1.0, 320);
+    const tLight = new THREE.PointLight(0xff6600, 1.0, 460);
     tLight.position.set(tx, 80, tz);
     scene.add(tLight);
     const post = new THREE.Mesh(
@@ -10345,45 +10339,28 @@ function buildDungeonScene() {
     scene.add(post);
   }
 
-  // Stone pillars around the arena
   const pillarGeo = new THREE.CylinderGeometry(18, 22, 160, 8);
   const pillarMat = new THREE.MeshLambertMaterial({ color: 0x2e283a });
-  for (const [px, pz] of [[80,80],[720,80],[80,720],[720,720],[80,400],[720,400],[400,80],[400,720]]) {
+  for (const [px, pz] of [[120,120],[1080,120],[120,1080],[1080,1080],[120,600],[1080,600],[600,120],[600,1080]]) {
     const pillar = new THREE.Mesh(pillarGeo, pillarMat);
     pillar.position.set(px, 80, pz);
     scene.add(pillar);
   }
 
-  // Exit portal at the north end (top of the 800×800 space)
-  scene.add(buildPortalMesh(400, 50));
-  DUNGEON_KIOSKS = [{ x: 400, z: 50, portal: 'dungeon_exit' }];
+  scene.add(buildPortalMesh(600, 75));
+  DUNGEON_KIOSKS = [{ x: 600, z: 75, portal: 'dungeon_exit' }];
 
-  // The lore plaque (Session L) — a standing stone by the player spawn.
-  // One mesh serves all four named dungeons AND delve floors; the text it
-  // opens comes from dungeonLoreCatalog keyed by whichever room you're in.
   const plaque = new THREE.Group();
-  const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(34, 44, 6),
-    new THREE.MeshLambertMaterial({ color: 0x3a3048 })
-  );
-  slab.position.y = 30;
-  plaque.add(slab);
-  const base = new THREE.Mesh(
-    new THREE.BoxGeometry(42, 10, 12),
-    new THREE.MeshLambertMaterial({ color: 0x2e283a })
-  );
-  base.position.y = 5;
-  plaque.add(base);
-  const rune = new THREE.Mesh(
-    new THREE.PlaneGeometry(24, 30),
-    new THREE.MeshBasicMaterial({ color: 0x8a76c9, transparent: true, opacity: 0.35 })
-  );
-  rune.position.set(0, 30, 3.2);
-  plaque.add(rune);
-  plaque.position.set(466, 0, 700);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: 0x3a3048 }));
+  slab.position.y = 30; plaque.add(slab);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(42, 10, 12), new THREE.MeshLambertMaterial({ color: 0x2e283a }));
+  base.position.y = 5; plaque.add(base);
+  const rune = new THREE.Mesh(new THREE.PlaneGeometry(24, 30), new THREE.MeshBasicMaterial({ color: 0x8a76c9, transparent: true, opacity: 0.35 }));
+  rune.position.set(0, 30, 3.2); plaque.add(rune);
+  plaque.position.set(700, 0, 1050);
   plaque.rotation.y = -0.5;
   scene.add(plaque);
-  DUNGEON_KIOSKS.push({ x: 466, z: 700, npc: 'plaque' });
+  DUNGEON_KIOSKS.push({ x: 700, z: 1050, npc: 'plaque' });
 
   dungeonScene = scene;
   dungeonCamera = camera;
