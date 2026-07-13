@@ -8117,44 +8117,41 @@ const LOCKSMITH_SPOT = { x: 1730, y: 1760 };
 let locksmithGroup = null;
 function buildLocksmith(scene) {
   const g = new THREE.Group();
-  const apron = new THREE.MeshLambertMaterial({ color: 0x5a4632 });
-  const skin  = new THREE.MeshLambertMaterial({ color: 0xd8a878 });
-  const wood  = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
-  const dark  = new THREE.MeshLambertMaterial({ color: 0x3a2818 });
-  // workbench
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(40, 6, 22), wood);
-  bench.position.set(0, 18, 10); g.add(bench);
-  for (const [lx, lz] of [[-16, 2], [16, 2], [-16, 18], [16, 18]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(3, 18, 3), dark);
-    leg.position.set(lx, 9, lz); g.add(leg);
-  }
-  // the locksmith, standing behind the bench
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 26, 8), apron);
-  body.position.set(0, 20, -8); g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(5.2, 10, 10), skin);
-  head.position.set(0, 37, -8); g.add(head);
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 3, 10), new THREE.MeshLambertMaterial({ color: 0x2c2c34 }));
-  cap.position.set(0, 41, -8); g.add(cap);
-  // a big brass key turning over the bench — the sign of the trade
+  // Tumbler is a proper humanoid now — the same createHumanoid build the town's
+  // other NPCs and players use (charId 4, the Rogue, suits a lock-man). A
+  // rotating brass key floats over him as the sign of his trade.
+  const figure = createHumanoid(4).group;
+  figure.rotation.y = Math.atan2(1600 - LOCKSMITH_SPOT.x, 1100 - LOCKSMITH_SPOT.y);
+  g.add(figure);
   const keyMat = new THREE.MeshBasicMaterial({ color: 0xffd27a });
   const keyGrp = new THREE.Group();
   const bow = new THREE.Mesh(new THREE.TorusGeometry(4, 1.4, 8, 14), keyMat); bow.position.y = 6;
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 12, 6), keyMat); shaft.position.y = -2;
   const tooth = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1.5), keyMat); tooth.position.set(2, -7, 0);
   keyGrp.add(bow); keyGrp.add(shaft); keyGrp.add(tooth);
-  keyGrp.position.set(0, 52, 6); g.add(keyGrp);
+  keyGrp.position.set(0, 64, 10); g.add(keyGrp);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: LEGEND_FX.glowTexture(), color: 0xffd27a, transparent: true, opacity: 0.45,
+    map: LEGEND_FX.glowTexture(), color: 0xffd27a, transparent: true, opacity: 0.5,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  glow.scale.set(30, 30, 1); glow.position.set(0, 52, 6); g.add(glow);
-  g.userData.tick = (t) => { keyGrp.rotation.y = t * 1.2; keyGrp.position.y = 52 + Math.sin(t * 1.6) * 2; };
+  glow.scale.set(30, 30, 1); glow.position.set(0, 64, 10); g.add(glow);
   locksmithGroup = g;
   g.position.set(LOCKSMITH_SPOT.x, 0, LOCKSMITH_SPOT.y);
   scene.add(g);
-  const label = makeNpcNameSprite('\ud83d\udd11 Tumbler, the Locksmith');
-  label.position.set(LOCKSMITH_SPOT.x, 60, LOCKSMITH_SPOT.y);
+  const label = makeNpcNameSprite('Tumbler', 'the Locksmith');
+  label.position.set(LOCKSMITH_SPOT.x, 82, LOCKSMITH_SPOT.y);
+  label.material.transparent = true;
+  label.material.opacity = 0;
   scene.add(label);
+  g.userData.tick = (t) => {
+    keyGrp.rotation.y = t * 1.2;
+    keyGrp.position.y = 64 + Math.sin(t * 1.6) * 2;
+    if (me) {
+      const d = Math.hypot(me.x - LOCKSMITH_SPOT.x, me.y - LOCKSMITH_SPOT.y);
+      const target = d < 150 ? 1 : d > 340 ? 0 : (340 - d) / 190;
+      label.material.opacity += (target - label.material.opacity) * 0.15;
+    }
+  };
   OUTDOOR_KIOSKS.push({ x: LOCKSMITH_SPOT.x, z: LOCKSMITH_SPOT.y, npc: 'locksmith', npcName: 'Tumbler the Locksmith' });
 }
 
