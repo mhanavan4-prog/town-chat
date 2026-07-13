@@ -10139,7 +10139,7 @@ const ROOTCELLAR_WALLS = [
   { x: 420, y: 432, w: 780, h: 28 }    // ridge D — gap west (x < 420)
 ];
 const DUNGEON_CAVE_THEMES = {
-  1: { bg: theme.bg, amb: theme.amb, hemiTop: theme.hemiTop, hemiBot: theme.hemiBot, floor: theme.floor, rock: theme.rock, glow: theme.glow, accent: theme.accent, lantern: theme.lantern, lanternLight: theme.lanternLight, hook: theme.hook },
+  1: { bg: 0x160709, amb: 0x6a3226, hemiTop: 0x8a3a26, hemiBot: 0x1e0c0e, floor: 0x281618, rock: 0x2a181b, glow: 0xff3018, accent: 0xff5a3a, lantern: 0xff8a4a, lanternLight: 0xff6030, hook: 0x140709 },
   2: { bg: 0x08150c, amb: 0x2c5238, hemiTop: 0x306040, hemiBot: 0x0a1c12, floor: 0x142418, rock: 0x172c1d, glow: 0x22b84e, accent: 0x46e07a, lantern: 0x8affa0, lanternLight: 0x2fc858, hook: 0x081a0e },
   3: { bg: 0x160a04, amb: 0x6e3c18, hemiTop: 0x8c4a18, hemiBot: 0x1e0e06, floor: 0x281808, rock: 0x2c1b0e, glow: 0xff6410, accent: 0xff8a24, lantern: 0xffc25a, lanternLight: 0xff7420, hook: 0x140a04 },
   4: { bg: 0x0a0818, amb: 0x3c3468, hemiTop: 0x4e3e88, hemiBot: 0x0c0a1e, floor: 0x161428, rock: 0x1b1732, glow: 0x7a4aff, accent: 0xa688ff, lantern: 0xc4b6ff, lanternLight: 0x8a5aff, hook: 0x0a081a }
