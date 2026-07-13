@@ -1100,7 +1100,9 @@ function onWsMessage(ev) {
 
   if (msg.type === 'first_steps') {
     firstStepsState = msg;
-    renderFirstSteps();
+    // Show the full card briefly (join snapshot or a step landing), then
+    // collapse back to the tiny pill so it never crowds a new thumb.
+    fsSetExpanded(true, 8000);
     if (msg.justCompleted) {
       const step = (msg.steps || []).find(s => s.id === msg.justCompleted);
       if (step) setUnlockToast(`${step.icon} First Steps: ${step.label} ✓`);
@@ -16404,16 +16406,42 @@ function shortWhen(ts) {
 })();
 
 // ── First Steps tracker ──────────────────────────────────────────────────────
+// Announce-then-yield (live phone report: the always-on card sat in the
+// joystick lane and could block a brand-new player's thumb). The full card
+// shows for a few seconds at join, whenever a step completes, or on tap —
+// otherwise it collapses to a tiny 🏮 n/3 pill docked out of every input zone.
+let _fsExpanded = false;
+let _fsCollapseTimer = null;
+function fsSetExpanded(on, autoCollapseMs) {
+  _fsExpanded = on;
+  clearTimeout(_fsCollapseTimer);
+  if (on && autoCollapseMs) {
+    _fsCollapseTimer = setTimeout(() => { _fsExpanded = false; renderFirstSteps(); }, autoCollapseMs);
+  }
+  renderFirstSteps();
+}
 function renderFirstSteps() {
   const chip = document.getElementById('firstStepsChip');
   if (!chip) return;
   if (!firstStepsState || firstStepsState.done) { chip.classList.add('hidden'); return; }
   chip.innerHTML = '';
+  const steps = firstStepsState.steps || [];
+  const doneCount = steps.filter(s => s.done).length;
+  // Desktop keeps the always-on full card at bottom-left (Michael: "the
+  // placement on my laptop is perfect") — only touch collapses to the pill.
+  if (MOBILE_UI && !_fsExpanded) {
+    chip.classList.add('fsMini');
+    chip.textContent = `🏮 ${doneCount}/${steps.length}`;
+    chip.title = 'First Steps — tap to see';
+    chip.classList.remove('hidden');
+    return;
+  }
+  chip.classList.remove('fsMini');
   const title = document.createElement('div');
   title.className = 'fsTitle';
   title.textContent = '🏮 First Steps';
   chip.appendChild(title);
-  for (const s of firstStepsState.steps) {
+  for (const s of steps) {
     const row = document.createElement('div');
     if (s.done) row.className = 'fsDone';
     row.textContent = `${s.icon} ${s.label}`;
@@ -16425,6 +16453,10 @@ function renderFirstSteps() {
   chip.appendChild(note);
   chip.classList.remove('hidden');
 }
+(function () {
+  const chip = document.getElementById('firstStepsChip');
+  if (chip) chip.addEventListener('click', () => { if (MOBILE_UI) fsSetExpanded(!_fsExpanded, 8000); });
+})();
 
 // ── The Town Board ───────────────────────────────────────────────────────────
 let boardActiveTab = 'hunt';

@@ -1158,3 +1158,15 @@ then fades; TAPPING it opens the Town Board; on touch it sits just under the top
 (top:60px, ellipsized); hidden entirely while any panel / compose / emote wheel is open.
 public/client.js + public/index.html + both app folders www re-synced. Verified headless:
 shows, fades at ~7s, tap opens the board, display:none under panelOpen; zero page errors.
+
+## Session L addendum 3 (2026-07-13, small hours) — First Steps chip mobile manners (live user report)
+
+Second live phone report: the always-on First Steps card sat in the touch joystick's
+bottom-left lane — it could literally block a brand-new player's movement thumb. Fix,
+TOUCH ONLY (Michael: "the placement on my laptop is perfect" — desktop unchanged):
+on touch the chip docks in the top-left lane (top:104px, clear of every input zone),
+shows the full card for ~8s at join / when a step completes / on tap, then collapses
+to a tiny "🏮 n/3" pill; hidden while any panel/compose/emote-wheel is open. Desktop
+keeps the permanent bottom-left card exactly as before. public/ + both apps' www
+re-synced. Verified headless 9/9 across both viewports (incl. joystick-zone clearance
+geometry + desktop-position regression); zero page errors.
