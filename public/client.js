@@ -10288,7 +10288,7 @@ function buildCaveScene(theme) {
 
   // Exit portal in the entry chamber (south, by spawn).
   DUNGEON_KIOSKS = [{ x: 300, z: 1120, portal: 'dungeon_exit' }];
-  scene.add(buildPortalMesh(300, 1120));
+  const _dngPortal = buildPortalMesh(300, 1120); _dngPortal.rotation.y = Math.PI / 2; scene.add(_dngPortal);
 
   const plaque = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 44, 6), new THREE.MeshLambertMaterial({ color: theme.rock }));
