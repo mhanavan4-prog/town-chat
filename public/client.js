@@ -608,7 +608,6 @@ function onWsMessage(ev) {
     // — never hand-copied here). Merged into ITEM_CATALOG so bank/inventory/
     // auction UIs treat legendaries like any other item.
     if (msg.legendaryCatalog) {
-      legendaryCatalogClient = msg.legendaryCatalog;
       for (const lgId in msg.legendaryCatalog) {
         const lg = msg.legendaryCatalog[lgId];
         ITEM_CATALOG[lgId] = { name: lg.name, icon: lg.icon, slot: lg.slot, desc: lg.desc, legendary: true, tier: lg.tier, fx: lg.fx };
@@ -629,7 +628,6 @@ function onWsMessage(ev) {
     }
     myMoonstones = msg.moonstones || 0;
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
-    if (msg.msAuctionFee != null) msAuctionFee = msg.msAuctionFee;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
@@ -1257,7 +1255,6 @@ function onWsMessage(ev) {
   if (msg.type === 'cm_state') {
     cmHasDrive = !!msg.hasDrive;
     cmClips = msg.clips || [];
-    cmSelfies = msg.selfies || [];
     if (cmSelectedClipId && !cmClips.some(c => c.id === cmSelectedClipId)) cmSelectedClipId = null;
     if (typeof renderDriveMediaQuickState === 'function') renderDriveMediaQuickState(msg.disguise);
     return;
@@ -1664,7 +1661,6 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'party_invite_received') {
-    pendingPartyInvite = { fromId: msg.fromId, fromName: msg.fromName };
     const notif = document.getElementById('partyInviteNotif');
     const text = document.getElementById('partyInviteText');
     if (notif && text) {
@@ -3429,11 +3425,8 @@ function updateXPDisplay() {
 // ---------------------------------------------------------------------------
 // Quest tracker (persistent progress panel)
 // ---------------------------------------------------------------------------
-let activeQuestId = null, activeQuestTarget = 0;
 
 function updateQuestTracker(questId, questName, progress, target, where) {
-  activeQuestId = questId;
-  activeQuestTarget = target;
   const el = document.getElementById('questTracker');
   if (!el) return;
   el.classList.remove('hidden');
@@ -3451,7 +3444,6 @@ function updateQuestTracker(questId, questName, progress, target, where) {
 }
 
 function clearQuestTracker() {
-  activeQuestId = null;
   const el = document.getElementById('questTracker');
   if (el) el.classList.add('hidden');
 }
@@ -3511,8 +3503,6 @@ let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
-let msAuctionFee = 0.10;
-let legendaryCatalogClient = {};  // merged into ITEM_CATALOG at init
 
 // ── Session L state ──────────────────────────────────────────────────────────
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
@@ -3945,7 +3935,6 @@ if (npcShopQuestBtn) npcShopQuestBtn.addEventListener('click', () => {
 // Party system
 // ---------------------------------------------------------------------------
 let myParty = null;
-let pendingPartyInvite = null;
 
 function renderPartyHud() {
   const hud = document.getElementById('partyHud');
@@ -4804,7 +4793,6 @@ function showChapterCeremony(title, subtitle) {
 //   P — snap a photo of the nearest player (what you get is what you SEE)
 // ---------------------------------------------------------------------------
 let cmClips = [];            // [{id,label}] — light list from cm_state
-let cmSelfies = [];          // [{id,of}]
 let cmSelectedClipId = null;
 let cmHasDrive = false;
 let lastAttackedClientAt = 0;
@@ -5899,7 +5887,6 @@ function updateCameraGlide(dt) {
 // ═══════════════════════════════════════════════════════════════════════════
 let mobileHudInited = false;
 let mobileChatOpen = false;
-let chatUnreadCount = 0;
 
 function initMobileHud() {
   if (mobileHudInited || !MOBILE_UI) return;
@@ -5965,7 +5952,6 @@ function toggleMobileChat(open) {
   mobileChatOpen = open === undefined ? !mobileChatOpen : open;
   cp.classList.toggle('mobileClosed', !mobileChatOpen);
   if (mobileChatOpen) {
-    chatUnreadCount = 0;
     refreshMobileHud();
     // The 💬 button means "I want to say something" now — the panel is
     // just a compose bar (messages arrive as banners), so go straight to
