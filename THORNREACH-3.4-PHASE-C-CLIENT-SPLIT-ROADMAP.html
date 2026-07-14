@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thornreach — Tier 3.4 Phase C Roadmap</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1d232b; --ink:#e6e9ee; --dim:#9aa4b2;
+    --line:#2a323c; --accent:#7cc6ff; --accent2:#9b8cff; --good:#63d68a; --warn:#ffcf6b; --code:#0b0e12;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#0d1014,#0f1216 240px);color:var(--ink);
+    font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:0 0 96px}
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+  header{padding:56px 0 26px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .kick{color:var(--accent2);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12.5px}
+  h1{font-size:33px;line-height:1.15;margin:12px 0 10px;letter-spacing:-.01em}
+  .lede{color:var(--dim);font-size:15px;max-width:72ch}
+  h2{font-size:22px;margin:40px 0 12px;padding-top:14px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:26px 0 8px;color:#f2f5f9}
+  p{margin:12px 0}
+  a{color:var(--accent);text-decoration:none}
+  strong{color:#fff}
+  ul,ol{margin:12px 0;padding-left:22px}
+  li{margin:7px 0}
+  blockquote{margin:16px 0;padding:12px 18px;background:var(--panel);border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;color:#dbe4ef}
+  code{background:var(--code);color:#cfe6ff;padding:2px 6px;border-radius:5px;font-size:13.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:15px 17px;overflow:auto;margin:14px 0}
+  pre code{background:none;padding:0;color:#d6e2f0;font-size:13px;line-height:1.6}
+  .callout{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px 20px;margin:18px 0}
+  .warn{border-left:3px solid var(--warn)}
+  .good{border-left:3px solid var(--good)}
+  .rec{border-left:3px solid var(--accent2)}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#eaf0f7;font-weight:650}
+  td code{font-size:12.5px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:2px 11px;font-size:12px;color:var(--dim);margin:2px 4px 2px 0}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;vertical-align:middle}
+  .tag.done{background:rgba(99,214,138,.14);color:var(--good);border:1px solid rgba(99,214,138,.35)}
+  .tag.next{background:rgba(155,140,255,.15);color:var(--accent2);border:1px solid rgba(155,140,255,.4)}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+  .n{color:var(--good);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kick">Thornreach · Tier 3.4 · Phase C</div>
+  <h1>Splitting the last monolith: <code>client.js</code> → a <code>client/</code> module tree</h1>
+  <p class="lede">Planning doc, no code changes. The <strong>server split is done</strong> — Phase A pulled pure data into 11 <code>data/</code> modules, Phase B pulled nine logic subsystems into <code>lib/</code>, and <code>server.js</code> is now a thin <span class="n">~7,770</span>-line entrypoint. One monolith remains: <code>public/client.js</code> at <span class="n">~21,000</span> lines. This is the hard one, and it needs a real decision before any code moves. Line numbers are approximate (14 Jul 2026) and will drift — read them as “find the block named X.”</p>
+</header>
+
+<h2>State of play</h2>
+<table>
+  <tr><th>Frontier</th><th>Status</th><th>Result</th></tr>
+  <tr><td>Phase A — data → <code>data/</code></td><td><span class="tag done">DONE</span></td><td>11 modules; <code>server.js</code> <span class="n">10,476 → 9,018</span></td></tr>
+  <tr><td>Phase B — logic → <code>lib/</code></td><td><span class="tag done">DONE</span></td><td>9 modules (persistence, webpush, moonstones, calendar, leaderboards, auctions, covens, dungeons, delve); <span class="n">→ ~7,770</span></td></tr>
+  <tr><td>Phase C — <code>client.js</code> → <code>client/</code></td><td><span class="tag next">NEXT</span></td><td>this document</td></tr>
+</table>
+<p>The server is now a set of injected modules wired together in one entrypoint. The client is still <strong>one file, one closure, 21k lines</strong>. Everything the earlier Monolith Split roadmap said about the client being the “Hard” half is true — and the reason is a single structural fact.</p>
+
+<h2>The one fact that changes everything: <code>client.js</code> is a single IIFE</h2>
+<p>The whole file is wrapped in one immediately-invoked function:</p>
+<pre><code>(function () {
+  "use strict";
+  const canvas = document.getElementById('game');
+  let W = 0, H = 0;
+  // … ~40 top-level state bindings: ws, world, players, me, walls,
+  //    currentRoom, world2, DUNGEON_WORLD, messagesByRoom, … …
+  // … 612 top-level function declarations …
+  requestAnimationFrame(loop);   // ← the single boot call, at the very end
+})();</code></pre>
+<p>Unlike <code>server.js</code> (CommonJS, real <code>require</code>/<code>module.exports</code> seams), <code>client.js</code> deliberately exposes <strong>nothing</strong> to global scope — it only touches the DOM and the one <code>THREE</code> global from the CDN. That is good hygiene, and it is <em>exactly</em> what makes the split hard:</p>
+<blockquote><strong>Everything lives in one shared closure.</strong> All <span class="n">612</span> functions and ~40 state variables (<code>players</code>, <code>world</code>, <code>me</code>, <code>walls</code>, <code>ws</code>…) see each other for free today. Split the file into naive ordered <code>&lt;script&gt;</code> tags and each file becomes its <em>own</em> scope — the cross-references silently break.</blockquote>
+<div class="callout warn">
+  <h3 style="margin-top:14px">⚠ Amendment to the earlier roadmap</h3>
+  <p>The Monolith Split doc floated “Option A — ordered <code>&lt;script&gt;</code> split, sharing the same global scope, exactly like the vendored libs.” That works for <code>three.min.js</code> because it <em>assigns to <code>window</code></em> (<code>THREE</code>). <code>client.js</code> does the opposite — nothing is global. So an ordered-script split is <strong>not</strong> free: you would first have to route every cross-file symbol through an explicit shared namespace. Given the IIFE, a bundler is now the cleaner fit (below).</p>
+</div>
+
+<h2>The strategy decision <span style="font-size:14px;color:var(--dim)">(make this once, up front)</span></h2>
+<table>
+  <tr><th>Approach</th><th>How state is shared</th><th>Verdict</th></tr>
+  <tr>
+    <td><strong>A · Namespace-object ordered scripts</strong></td>
+    <td>First file establishes <code>const TR = (window.__TR ||= {})</code>; every fragment is its own IIFE reading/writing <code>TR.*</code>. No build step.</td>
+    <td>Works, but you hand-convert ~40 state bindings + hundreds of cross-calls to <code>TR.</code>, and manage N-script load order in <code>index.html</code>. Lots of mechanical churn, easy to miss a reference.</td>
+  </tr>
+  <tr>
+    <td><strong>B · esbuild bundle of real ES modules</strong> <span class="pill">recommended</span></td>
+    <td>Author <code>import</code>/<code>export</code> modules under <code>client/</code>; <code>esbuild</code> bundles them back into one IIFE-wrapped <code>public/client.js</code>.</td>
+    <td><strong>Best fit.</strong> The code is <em>already</em> one closure, so a bundle reproduces identical runtime semantics. <code>index.html</code> still loads one <code>&lt;script&gt;</code>. Type-checking and a missing-import become hard errors instead of silent breaks.</td>
+  </tr>
+  <tr>
+    <td><strong>C · Drop the IIFE → true globals</strong></td>
+    <td>Delete the wrapper; everything becomes a real global.</td>
+    <td><span style="color:var(--warn)">Not recommended.</span> Pollutes <code>window</code>, risks collisions (the file has ~40 short names like <code>W</code>, <code>me</code>, <code>world</code>), and changes strict-mode behavior. Mechanically simple, semantically dangerous.</td>
+  </tr>
+</table>
+<div class="callout rec">
+  <p style="font-weight:700;margin:12px 0 6px">Recommendation — go with B (esbuild).</p>
+  <p style="margin:0 0 12px">The IIFE that makes an ordered-script split painful is what makes a bundler <em>natural</em>: bundling ES modules produces the same single-closure output the browser already runs, so the runtime contract doesn’t change. You get navigable source, per-module <code>// @ts-check</code>, and the compiler catches every cross-module reference you move. Start with a bundler; you never need to graduate away from it.</p>
+</div>
+
+<h2>Prerequisite — the client’s seatbelt <span style="font-size:14px;color:var(--dim)">(before any slice moves)</span></h2>
+<p>Phase A/B were safe because the <code>__testHooks</code> surface let the unit suite validate every extraction. <strong>The client has no such harness</strong> — its only coverage is the browser smoke test (join → per-class UIs, 37 checks) plus <code>check:parity</code>. So the client split leans on a different seatbelt, and it must be confirmed green <em>first</em>:</p>
+<ul>
+  <li><strong>Browser smoke test</strong> (<code>test/smoke.browser.mjs</code>) — the load-crash canary. It boots the real client headless; a broken bundle fails the join. This is the primary net.</li>
+  <li><strong>Client error telemetry</strong> (Tier 3.1: <code>window.onerror</code>/<code>onunhandledrejection</code> → <code>/client-error</code>) — so a runtime break in a moved module surfaces instead of running silently.</li>
+  <li><strong>Typecheck</strong> (<code>tsc --noEmit</code>) — add <code>client/</code> to <code>tsconfig.json</code> <code>include</code> and grow <code>// @ts-check</code> per module; a missed import is then a compile error.</li>
+  <li><strong>Parity</strong> (<code>check:parity</code>) — still guards the two mobile <code>www/client.js</code> copies, now against the <em>built</em> bundle.</li>
+</ul>
+<p><strong>Prove the pipeline before the payload:</strong> stand up <code>esbuild</code> + a <code>build:client</code> script and move <em>one trivial leaf</em> end-to-end (see Milestone 1) before touching real subsystems. Wire the build/parity/sync changes once, on throwaway-small code.</p>
+
+<h2>The module tree <span style="font-size:14px;color:var(--dim)">(seams already exist)</span></h2>
+<p><code>client.js</code> is already carved by <code>// ---</code> banner comments into ~50 cohesive blocks — those are your module boundaries. A candidate <code>client/</code> tree, mirroring the real sections:</p>
+<table>
+  <tr><th>Module</th><th>What it holds (≈ lines)</th><th>Coupling</th></tr>
+  <tr><td><code>client/core.js</code></td><td>canvas + <code>resize</code>, the ~40 shared-state bindings (<code>ws</code>, <code>world</code>, <code>players</code>, <code>me</code>, <code>walls</code>, <code>currentRoom</code>…), Capacitor plumbing (<code>SERVER_ORIGIN</code>/<code>apiUrl</code>/<code>wsUrl</code>), <code>KK</code> loader, <code>ITEM_CATALOG</code> + catalog merge (~4–660)</td><td><strong>everything imports from here</strong></td></tr>
+  <tr><td><code>client/net.js</code></td><td><code>setupWs</code>/<code>onWsOpen</code>/<code>onWsClose</code>/<code>onWsMessage</code> + protocol dispatch (~24–1878)</td><td>core</td></tr>
+  <tr><td><code>client/account.js</code></td><td>join flow, character roster/select, account submit, Town Pass (~1925–2370)</td><td>core, net</td></tr>
+  <tr><td><code>client/world-collision.js</code></td><td>collision math, rooms, doors (~2236–2370)</td><td>core</td></tr>
+  <tr><td><code>client/audio.js</code></td><td>procedural tavern music + bell voice (~2372–2570)</td><td>core <span class="pill">leaf</span></td></tr>
+  <tr><td><code>client/inventory.js</code></td><td>inventory panel, items/equip grid, Hard Drive vault + selfies/voice (~2572–3300)</td><td>core, net</td></tr>
+  <tr><td><code>client/hud.js</code></td><td>health HUD, XP strip, quest tracker, moonstones, panel dragging (~3306–3600)</td><td>core</td></tr>
+  <tr><td><code>client/shop.js</code></td><td>NPC shop Buy/Sell tabs (~3800–3970)</td><td>core, net <span class="pill">leaf</span></td></tr>
+  <tr><td><code>client/party.js</code></td><td>party system + party chat (~3977–4340)</td><td>core, net</td></tr>
+  <tr><td><code>client/dialogue.js</code></td><td>building-local quest dialogue (~4340–4790)</td><td>core, net</td></tr>
+  <tr><td><code>client/notify.js</code></td><td>system chat/toasts, chapter ceremony (~4790–4830)</td><td>core <span class="pill">leaf</span></td></tr>
+  <tr><td><code>client/countermeasures.js</code></td><td>countermeasures + disguises (~4831–5030)</td><td>core, net</td></tr>
+  <tr><td><code>client/input.js</code></td><td>keyboard/mouse/touch, camera orbit, mobile controls (~5035–5900)</td><td>core, scene</td></tr>
+  <tr><td><code>client/combat-fx.js</code></td><td>attack/harvest targeting, fireball/spell VFX, hex sigils (~5326–5665)</td><td>core, scene</td></tr>
+  <tr><td><code>client/chat.js</code></td><td>chat UI, picture sharing, arcade text mode (~6820–7190)</td><td>core, net</td></tr>
+  <tr><td><code>client/scene.js</code></td><td>Three.js scene, cameras, day/night, portals (~7190–8090, 10541)</td><td>core</td></tr>
+  <tr><td><code>client/world-*.js</code></td><td>the big scene builders — <code>town</code>, <code>wilds</code>, <code>cave</code>, <code>bank</code>, <code>ember</code>, <code>dungeon</code> (~8090–10540)</td><td>core, scene</td></tr>
+  <tr><td><code>client/creatures.js</code></td><td>mob visuals, health bars, archetypes, loot icons (~10670–11700)</td><td>core, scene</td></tr>
+  <tr><td><code>client/props.js</code></td><td>benches, plants, interiors, torches (~11700–13850)</td><td>core, scene</td></tr>
+  <tr><td><code>client/player-visuals.js</code></td><td>player rigs, faces, <code>LEGEND_FX</code>, equip overlays, spell-status visuals (~15650–16660)</td><td>core, scene</td></tr>
+  <tr><td><code>client/interiors-ui.js</code></td><td>indoor kiosks, bank/auction UI, spellbook, hotbar, attacks UI (~17276–19700)</td><td>core, net, scene</td></tr>
+  <tr><td><code>client/arcade.js</code></td><td>playable cabinets + touch controls (~19706–20360)</td><td>core <span class="pill">leaf</span></td></tr>
+  <tr><td><code>client/loop.js</code></td><td>enter/leave building, the main loop, controller support, <strong>the boot call</strong> (~20365–20770)</td><td>imports everything; runs last</td></tr>
+</table>
+<p style="color:var(--dim);font-size:14px">Candidate seams, not gospel — the rule is <strong>one slice per PR, leafiest first</strong>. <code>audio</code>, <code>shop</code>, <code>arcade</code>, <code>notify</code> are the safest openers; <code>core</code>/<code>net</code>/<code>loop</code> come last, once everything already imports from a stable core.</p>
+
+<h2>The recipe <span style="font-size:14px;color:var(--dim)">(every client slice — same spirit as A/B)</span></h2>
+<pre><code>1. Pick a leaf block (few things call into it): audio, shop, arcade…
+2. Move it verbatim into client/&lt;name&gt;.js.
+     - `import { players, world, send, … } from './core.js'`  (what it READS)
+     - `export function renderNpcShop(){…}`                    (what others CALL)
+3. In the remaining client, import those functions where they were used.
+4. npm run build:client       # esbuild → single public/client.js
+5. npm run sync:mobile        # copy the BUILT bundle to the two www/ copies
+6. npm run test:ci            # build → lint → typecheck → parity → unit → smoke
+       green → PR + merge.  red → revert, diagnose.
+7. One slice per PR. Move first, refactor later.</code></pre>
+
+<h2>What has to change in tooling <span style="font-size:14px;color:var(--dim)">(the client’s <code>__testHooks</code> analog)</span></h2>
+<ul>
+  <li><strong>New: <code>build:client</code></strong> — <code>esbuild client/loop.js --bundle --format=iife --outfile=public/client.js</code> (+ a sourcemap). This becomes the first step of <code>test:ci</code>, before parity/smoke, so a broken build fails CI loudly.</li>
+  <li><strong><code>sync:mobile</code> + <code>check:parity</code> now operate on the <em>built</em> bundle</strong>, not source. They’re already hardcoded to <code>public/client.js</code> — which is now the build output — so they keep working <em>if</em> the build runs first. Order matters: build → sync → parity.</li>
+  <li><strong><code>index.html</code> is unchanged</strong> — still one <code>&lt;script src="client.js"&gt;</code> after the vendored libs. This is the whole payoff of the bundler path: no N-script load-order juggling, no route-stub gymnastics.</li>
+  <li><strong>Smoke test</strong> serves <code>client.js</code> — point it at the built bundle, or add a <code>pretest</code> build step so the file always exists before the browser boots.</li>
+  <li><strong><code>tsconfig.json</code></strong> — add <code>client/**</code> to <code>include</code>; add <code>// @ts-check</code> per module as you go. Client type coverage grows one slice at a time, the same way the server modules did.</li>
+</ul>
+
+<h2>Milestones <span style="font-size:14px;color:var(--dim)">(stop-anywhere)</span></h2>
+<p>
+<span class="pill">1 · Tooling proof — esbuild + build:client, move ONE leaf (audio.js), full gate green</span>
+<span class="pill">2 · Leaf UIs — shop, arcade, notify, countermeasures</span>
+<span class="pill">3 · Systems — inventory, hud, chat, input, combat-fx</span>
+<span class="pill">4 · The bulk — scene + world-* builders, creatures, props, player-visuals</span>
+<span class="pill">5 · core + net + loop last — the shared-state spine and the boot call</span>
+</p>
+<p>Each milestone leaves the game fully working and green. Milestone 1 is the real gate: it proves the <em>pipeline</em> on throwaway-small code, so every slice after it is routine. After Phase C, <code>public/client.js</code> is a <strong>build artifact</strong>, the source is a navigable <code>client/</code> tree, and the monolith era is over.</p>
+
+<h2>Risks / gotchas</h2>
+<ul>
+  <li><strong>IIFE → module scope (the big one)</strong> — every cross-file symbol must become an explicit <code>import</code>/<code>export</code>. Good news: with the bundler + typecheck, a missed reference is a hard error at build time, not a silent runtime break.</li>
+  <li><strong>Hoisting no longer saves you</strong> — today’s 612 functions are hoisted in one scope, so call-order never mattered. Across modules it does: the first few slices will surface <em>more</em> cross-references than you’d guess. That’s the coupling becoming visible — let it.</li>
+  <li><strong>The build is now load-bearing</strong> — a broken <code>build:client</code> means no client at all. Keep it as the <em>first</em> step of <code>test:ci</code> so CI catches it before anything else runs.</li>
+  <li><strong>Keep shared state in <code>core</code>; never import back from features</strong> — <code>core</code> exports state/helpers; feature modules import from <code>core</code>. If two features reference each other, route through <code>core</code> or pass a callback — don’t create a cycle.</li>
+  <li><strong>Mobile</strong> — the two <code>www/client.js</code> are the built bundle; never hand-edit; <code>sync:mobile</code> after every build, then <code>npx cap sync</code> + rebuild.</li>
+  <li><strong>Never split + refactor in one step</strong> — move verbatim with imports wired, get green, improve separately. Same rule that kept Phase A/B clean.</li>
+</ul>
+
+<div class="foot">Thornreach monolith split · Tier 3.4 Phase C · planning doc · 2026-07-14 · pairs with the green gate (lint + typecheck + 14 unit files + browser smoke + parity) and follows Phase A (data) and Phase B (lib) — both merged.</div>
+</div>
+</body>
+</html>
