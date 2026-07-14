@@ -45,9 +45,12 @@ countermeasures) and hit a wall that reshapes the plan:
 **So the UI-panel slices are gated on a small enabling refactor**, not more
 moves. That's the natural next step:
 
-### Recommended next step — a modal-state registry (a refactor, its own PR)
+### DONE — the modal-state registry (`client/modals.js`)
 
-Replace the ~15 scattered `xModalOpen` booleans with one small module:
+**Landed this session.** Replaced **26** scattered overlay booleans
+(`npcShopOpen`, `bankModalOpen`, `arcadeModalOpen`, inventory/journal/skills/
+spellbook/attacks panels, the four consent dialogs, board/delve/coven/notif/
+locksmith, …) with one `Set`-based registry keyed by the old flag name:
 
 ```
 // client/modals.js
@@ -59,35 +62,48 @@ export const Modals = {
 };
 ```
 
-Then each modal does `Modals.set('npcShop', true/false)` instead of
-`npcShopOpen = …`, and every guard becomes `… || Modals.any()` (or
-`Modals.isOpen('npcShop')` where a specific check is needed). Pure refactor,
-no behavior change, fully gated. **Once it lands, shop / arcade / bank / auction
-/ witch-shop / werewolf-shop / notifications all become clean leaf extractions**
-— which is the bulk of the remaining client UI.
+Sets became `Modals.set('npcShopOpen', true/false)`; reads became
+`Modals.isOpen('npcShopOpen')`. Guards kept their exact subsets (e.g.
+`anyOverlayOpen()` still ORs its specific list, now via `isOpen`) — behaviour is
+identical, this was purely a **storage swap**. `templePortalOpen` was left as-is
+(it's world state from the server, not a UI overlay).
+
+Done via a content-asserted, sentinel-isolated transform (50 sets + 183 reads).
+The safety net was decisive: removing every flag declaration means any missed
+reference is a **lint `no-undef` error**, and lint came back **0/0** — proof the
+conversion was complete. Full gate green (build → node --check → lint →
+typecheck → unit 14/14 → parity); smoke on your Mac as usual.
+
+**This unblocks the bulk of the remaining client UI:** shop, arcade, bank,
+auction, witch-shop, werewolf-shop, notifications, spellbook, attacks, inventory,
+journal, skills — each can now extract into its own module and just call
+`Modals.set('itsFlag', …)` internally, with **zero guard-rewiring** at
+extraction time (the guards already reference the registry).
 
 ## Sequence from here
 
-1. `modals.js` registry refactor (unblocks all modal UIs) — **do this next**.
-2. Then the UI leaves as clean moves: `shop`, `arcade`, `bank`, `auction`, …
-3. Computational leaves in parallel anytime: finish `collision` (pull in the
-   wall-geometry once interiors are also modularized), `day/night`'s
-   `getDayNightState`, etc.
+1. ~~`modals.js` registry refactor~~ — **DONE this session.**
+2. **Next:** the UI leaves as clean moves now that flags are centralized —
+   `shop` (smallest), then `arcade`, `bank`, `auction`, the consent dialogs, etc.
+   Each: move the render/handlers into `client/<name>.js`, call
+   `Modals.set('itsFlag', …)` internally, inject `send`/state it reads.
+3. Computational leaves in parallel anytime: `day/night`'s `getDayNightState`,
+   finishing `collision` (pull in the wall-geometry once interiors modularize).
 
-## Commit note (working tree currently holds M1 + this slice)
+## Commit note (modals registry — this session's uncommitted change)
 
-Because the sandbox can't commit (`.git/index.lock`, no network), M1 (audio +
-pipeline) and this collision slice are **stacked uncommitted** in the working
-tree. On your Mac, run the gate then commit — either as one Phase C batch:
+M1 (audio + pipeline) and collision are already merged to `main` (PR #24). The
+**modals registry** is the new uncommitted change. On your Mac:
 
 ```
-npm run build:client && npm run sync:mobile && npm run test:ci   # all green incl. smoke
-git checkout -b tier34-client-phase-c
-git add client/ tools/bundle-client.mjs public/client.js package.json eslint.config.js \
-        ../town-chat-android/www/client.js ../town-chat-ios/www/client.js
-git commit -m "Tier 3.4 Phase C: client bundle pipeline; extract audio + collision"
+rm -f .git/index.lock                                      # if the lock is stuck
+npm run build:client && npm run sync:mobile && npm run test:ci   # green incl. smoke
+
+git checkout -b tier34-client-modals
+git add client/modals.js client/main.js public/client.js THORNREACH-3.4-PHASE-C-M2-PROGRESS.md
+git commit -m "Tier 3.4 Phase C: centralize 26 modal/overlay flags into client/modals.js"
+git push -u origin tier34-client-modals
 ```
 
-…or as two commits if you want the history split (stage `client/audio.js` +
-pipeline files first, then `client/collision.js`). Future slices can be
-one-PR-each once you're driving the gate on your machine between them.
+Then open the PR. (`public/client.js` is the rebuilt bundle; the mobile `www/`
+copies aren't git-tracked, so they're not in the add list.)
