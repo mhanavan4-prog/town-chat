@@ -6,7 +6,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "lint": "eslint .",
+    "test:smoke": "node test/smoke.browser.mjs",
+    "test:ci": "npm run lint && npm test && npm run test:smoke"
   },
   "engines": {
     "node": ">=18"
@@ -16,5 +19,10 @@
     "express": "^4.19.2",
     "stripe": "^16.0.0",
     "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0",
+    "globals": "^15.9.0",
+    "playwright": "^1.47.0"
   }
 }

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm install
+      - name: Syntax check
+        run: |
+          node --check server.js
+          node --check public/client.js
+      - name: Lint (catches redeclare/dup/unreachable + undefined vars)
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Install Chromium for smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke test (boots client.js, catches load crashes)
+        run: npm run test:smoke
