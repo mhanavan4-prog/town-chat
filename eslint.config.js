@@ -52,6 +52,13 @@ module.exports = [
     languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node, ...globals.browser, ws: 'readonly', me: 'readonly' } },
     rules: { ...bugRules, 'no-undef': 'error' },
   },
+  // Extracted data modules (Tier 3.4 Phase A) - pure CommonJS data; the bug
+  // rules here catch e.g. a duplicate item id (no-dupe-keys).
+  {
+    files: ['data/**/*.js'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } },
+    rules: { ...bugRules, 'no-undef': 'error' },
+  },
   // Browser client — one big global <script>; leans on bundled-script globals
   // (THREE, fx.js -> FX/LEGEND_FX, face-api -> faceapi). Whitelist is complete
   // (0 no-undef warnings), so no-undef is now 'error' — an undefined global here
