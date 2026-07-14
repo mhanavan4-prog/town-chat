@@ -707,6 +707,35 @@ app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => 
   }
 });
 
+// == Client error telemetry (Tier 3.1) ========================================
+// Receives uncaught client-side errors (window.onerror / unhandledrejection) so
+// silent browser crashes surface in the logs instead of vanishing. Per-IP
+// throttle + field truncation keep it from being a log-flood vector. (The
+// global express.json above already parses the body; payloads are tiny.)
+const CLIENT_ERR_LIMIT = 20;                  // reports per IP...
+const CLIENT_ERR_WINDOW_MS = 60 * 1000;       // ...per minute
+const clientErrLog = new Map();               // ip -> [timestamps]
+function clientErrThrottled(ip) {
+  const now = Date.now();
+  const hits = (clientErrLog.get(ip) || []).filter(t => now - t < CLIENT_ERR_WINDOW_MS);
+  if (hits.length >= CLIENT_ERR_LIMIT) { clientErrLog.set(ip, hits); return true; }
+  hits.push(now);
+  clientErrLog.set(ip, hits);
+  return false;
+}
+app.post('/api/client-error', (req, res) => {
+  if (clientErrThrottled(req.ip)) return res.status(429).end();
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
+  const kind = String(b.kind || 'error').slice(0, 32);
+  const message = String(b.message || '').slice(0, 500);
+  const source = String(b.source || '').slice(0, 300);
+  const line = Number(b.line) || 0;
+  const stack = String(b.stack || '').slice(0, 2000).replace(/\n/g, ' | ');
+  const ua = String(b.ua || '').slice(0, 200);
+  console.error('[client-error] ' + kind + ': ' + message + ' @ ' + source + ':' + line + ' ua="' + ua + '"' + (stack ? ' :: ' + stack : ''));
+  res.status(204).end();
+});
+
 const server = http.createServer(app);
 // maxPayload guards against an oversized image (or anything else) blowing up
 // server memory — the client already resizes/compresses images well under
@@ -10364,6 +10393,7 @@ setInterval(() => {
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
+  server, // test-only: live http.Server so route tests can read the bound port
   // Durable storage (Session L)
   getSqliteDb: () => sqliteDb, persistLoad, persistSave, persistSetKey,
   DATA_DIR, accounts, saveAccounts, playerProgress, saveProgress,

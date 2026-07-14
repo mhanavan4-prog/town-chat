@@ -41,6 +41,48 @@ function wsUrl() {
   return SERVER_ORIGIN.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 }
 
+// == Client error telemetry (Tier 3.1) =======================================
+// Uncaught client crashes used to be invisible: a broken build could ship and
+// only show up as "the game won't load," with zero signal server-side. These
+// handlers forward the technical shape of a crash to /api/client-error so it
+// lands in the logs. Deliberately NO player data - no names, chat, positions,
+// or media; message/stack/source only.
+(function installErrorTelemetry() {
+  let sent = 0;
+  const MAX_PER_LOAD = 8;          // never flood the server from a single tab
+  const seen = new Set();          // collapse identical repeats within a load
+  function report(kind, message, source, line, col, stack) {
+    try {
+      if (sent >= MAX_PER_LOAD) return;
+      const key = kind + '|' + (message || '') + '|' + (line || '');
+      if (seen.has(key)) return;
+      seen.add(key); sent++;
+      const body = JSON.stringify({
+        kind: String(kind || 'error').slice(0, 32),
+        message: String(message || '').slice(0, 500),
+        source: String(source || (location && location.pathname) || '').slice(0, 300),
+        line: line || 0, col: col || 0,
+        stack: String(stack || '').slice(0, 2000),
+        ua: ((navigator && navigator.userAgent) || '').slice(0, 200),
+        at: Date.now()
+      });
+      // keepalive lets the report flush even as the page tears down after the
+      // crash; .catch swallows failures so telemetry can never itself throw.
+      fetch(apiUrl('/api/client-error'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: body, keepalive: true
+      }).catch(function () {});
+    } catch (_e) { /* telemetry must never break the app */ }
+  }
+  window.addEventListener('error', function (e) {
+    report('error', e && e.message, e && e.filename, e && e.lineno, e && e.colno, e && e.error && e.error.stack);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    const r = e && e.reason;
+    report('unhandledrejection', (r && r.message) || String(r), '', 0, 0, r && r.stack);
+  });
+})();
+
 let ws;
 let lastJoinPayload = null;
 let gameStarted = false;
