@@ -2,6 +2,8 @@
 // every character class has a working ability kit: damage, leech, heal,
 // ward, and intel abilities, each validated server-side per charId.
 process.env.PORT = '0';
+process.env.DATA_DIR = require('os').tmpdir() + '/tc-classkits-test-' + process.pid;
+require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
 
 function makeMockSocket(label) {
   return {

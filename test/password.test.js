@@ -1,4 +1,6 @@
 process.env.PORT = '0';
+process.env.DATA_DIR = require('os').tmpdir() + '/tc-password-test-' + process.pid;
+require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
 process.env.TOWN_PASSWORD = 'secret123';
 
 function makeMockSocket() {
