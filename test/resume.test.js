@@ -12,6 +12,8 @@
 //  3. The old socket's late close after being kicked must be a no-op (no
 //     second player_left, no stash resurrecting the kicked entry).
 process.env.PORT = '0';
+process.env.DATA_DIR = require('os').tmpdir() + '/tc-resume-test-' + process.pid;
+require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
 
 function makeMockSocket(label) {
   return {

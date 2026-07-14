@@ -2,6 +2,8 @@
 // server.js handlers (mock sockets), plus spot-checks every other class's
 // storyline shape and the new wave of side quests.
 process.env.PORT = '0';
+process.env.DATA_DIR = require('os').tmpdir() + '/tc-story-test-' + process.pid;
+require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
 
 function makeMockSocket(label) {
   return {
