@@ -4,8 +4,7 @@
 // coerced rather than crashing the route, and the per-IP throttle returns 429
 // under a flood.
 process.env.PORT = '0';
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-clienterror-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-clienterror-test-');
 const http = require('http');
 
 let pass = 0, fail = 0;

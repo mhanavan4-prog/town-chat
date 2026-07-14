@@ -3,8 +3,7 @@
 // icons, tier pricing), replay-proof grants, the legend_shop_buy flow, and
 // the auction house's Moonstone lane with its 10% house cut.
 process.env.PORT = '0';
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-ms-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-ms-test-');
 
 function makeMockSocket(label) {
   return {

@@ -6,8 +6,7 @@
 //  - Hard Drive media + countermeasures: voice-clip evasion with proximity
 //    broadcast, selfie disguises, snapshots, and the regulars discount.
 process.env.PORT = '0';
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-newfeatures-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-newfeatures-test-');
 
 function makeMockSocket(label) {
   return {

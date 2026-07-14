@@ -1,7 +1,7 @@
 // Deploy health check (Tier 3.2) - /healthz is what Render pings to gate each
 // deploy. Verifies it returns 200 with a healthy body.
 process.env.PORT = '0';
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-healthz-' + process.pid;
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-healthz-');
 const http = require('http');
 
 let pass = 0, fail = 0;

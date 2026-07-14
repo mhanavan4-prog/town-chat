@@ -4,8 +4,7 @@
 // Pass, and real Web Push (encrypted end-to-end against a local receiver).
 process.env.PORT = '0';
 process.env.PUSH_ALLOW_HTTP = '1'; // the push test runs a local plain-http receiver
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-sessionl-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-sessionl-test-');
 
 const crypto = require('crypto');
 const http = require('http');

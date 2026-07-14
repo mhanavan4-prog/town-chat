@@ -10,8 +10,7 @@
 //      client's gold readouts (menu badge / pack strip / auction strip)
 //      are live from the first frame.
 process.env.PORT = '0';
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-auctinv-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-auctinv-test-');
 
 function makeMockSocket(label) {
   return {

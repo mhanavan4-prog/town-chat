@@ -8,9 +8,8 @@ process.env.PORT = '0';
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const DATA_DIR = path.join(os.tmpdir(), 'tc-persist-test-' + process.pid);
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-persist-test-'));
 process.env.DATA_DIR = DATA_DIR;
-fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // Seed a LEGACY store before the server ever boots — this is the "old save
 // on disk from a pre-SQLite deploy" scenario the import path must cover.
@@ -85,8 +84,7 @@ setTimeout(() => {
   // 8. PERSIST_FORCE_JSON=1 fallback — a child server must behave exactly like
   //    the pre-SQLite build: no DB file, saves land in the .json files.
   const { execFileSync } = require('child_process');
-  const childDir = path.join(os.tmpdir(), 'tc-persist-json-' + process.pid);
-  fs.mkdirSync(childDir, { recursive: true });
+  const childDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-persist-json-'));
   const childScript = `
     process.env.PORT = '0';
     process.env.DATA_DIR = ${JSON.stringify(childDir)};
