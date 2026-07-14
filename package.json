@@ -9,9 +9,10 @@
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "test:smoke": "node test/smoke.browser.mjs",
-    "test:ci": "npm run lint && npm run check:parity && npm test && npm run test:smoke",
+    "test:ci": "npm run lint && npm run typecheck && npm run check:parity && npm test && npm run test:smoke",
     "sync:mobile": "cp public/client.js ../town-chat-android/www/client.js && cp public/client.js ../town-chat-ios/www/client.js",
-    "check:parity": "node test/check-client-parity.cjs"
+    "check:parity": "node test/check-client-parity.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=18"
@@ -23,8 +24,10 @@
     "ws": "^8.17.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "eslint": "^9.9.0",
     "globals": "^15.9.0",
-    "playwright": "^1.47.0"
+    "playwright": "^1.47.0",
+    "typescript": "^5.6.0"
   }
 }

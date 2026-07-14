@@ -20,6 +20,8 @@ jobs:
           node --check public/client.js
       - name: Lint (catches redeclare/dup/unreachable + undefined vars)
         run: npm run lint
+      - name: Type-check (tsc on the @ts-check files)
+        run: npm run typecheck
       - name: Unit tests
         run: npm test
       - name: Install Chromium for smoke test

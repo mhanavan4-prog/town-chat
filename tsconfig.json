@@ -1,0 +1,20 @@
+{
+  // Incremental JS type-checking (Tier 3.3). Only files listed in "include"
+  // that carry a top-of-file `// @ts-check` are actually checked. To harden a
+  // new file: add `// @ts-check` at its top AND add its path to "include".
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true
+  },
+  "include": [
+    "test/check-client-parity.cjs"
+  ]
+}

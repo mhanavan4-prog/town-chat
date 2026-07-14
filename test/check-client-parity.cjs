@@ -1,3 +1,4 @@
+// @ts-check
 // Verifies the three client.js copies are byte-identical. The two MOBILE copies
 // (town-chat-android/www, town-chat-ios/www) are GENERATED from public/client.js
 // by `npm run sync:mobile` — never hand-edit them. Skips gracefully when the
