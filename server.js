@@ -7486,6 +7486,7 @@ wss.on('connection', (ws) => {
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
+        itemCatalog: ITEM_CATALOG,
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
@@ -10438,7 +10439,7 @@ global.__testHooks = {
   SKILL_CATALOG, SKILL_MAX_RANK, skillStatePayload, getSkillAlloc,
   playerMaxHealth, outgoingDamageMult, incomingDamageMult, abilityCooldownFor,
   skillLifestealFrac, skillHarvestExtraChance, skillXpMult, skillSpeedMult, skillMendingRate,
-  EQUIP_STATS, computeStatBlock, statContrib, gearStatContrib, invEquipField, ITEM_CATALOG
+  computeStatBlock, statContrib, gearStatContrib, invEquipField
 };
 
 server.listen(PORT, () => {

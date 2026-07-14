@@ -9,7 +9,9 @@
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "test:smoke": "node test/smoke.browser.mjs",
-    "test:ci": "npm run lint && npm test && npm run test:smoke"
+    "test:ci": "npm run lint && npm run check:parity && npm test && npm run test:smoke",
+    "sync:mobile": "cp public/client.js ../town-chat-android/www/client.js && cp public/client.js ../town-chat-ios/www/client.js",
+    "check:parity": "node test/check-client-parity.cjs"
   },
   "engines": {
     "node": ">=18"

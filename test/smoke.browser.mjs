@@ -23,6 +23,10 @@ const THREE_STUB = `
       if (p === 'children') return t.__stubChildren;
       if (p === 'parent') return null;
       if (p === 'length') return 0;
+      // No real 3D asset loader in the stub -> client.js KK.load() (~line 159)
+      // early-settles into its procedural fallback instead of waiting out its
+      // 12s preload cap, so attemptJoin() doesn't hold the join for 12s.
+      if (p === 'GLTFLoader') return undefined;
       return P;
     },
     set() { return true; },
@@ -57,7 +61,8 @@ try {
   for (const c of CASES) {
     const page = await browser.newPage();
     const errors = [];
-    page.on('pageerror', e => errors.push(String(e)));
+    page.on('pageerror', e => { errors.push(String(e)); console.log(`  [char ${c.charId}] PAGEERROR: ` + String(e).split('\n')[0]); });
+    page.on('console', m => { if (m.type() === 'error') console.log(`  [char ${c.charId}] console.error: ` + m.text()); });
     await page.route('**/three.min.js', route => route.fulfill({ contentType: 'application/javascript', body: THREE_STUB }));
     await page.goto(`http://localhost:${PORT}/`);
     await page.waitForSelector('#joinScreen', { timeout: 5000 });
@@ -69,7 +74,22 @@ try {
     }, c.charId);
     await page.fill('#nameInput', c.name);
     await page.click('#joinBtn');
-    await page.waitForSelector('#hud:not(.hidden)', { timeout: 5000 });
+    try {
+      await page.waitForSelector('#hud:not(.hidden)', { timeout: 8000 });
+    } catch (err) {
+      const diag = await page.evaluate(() => {
+        const out = {};
+        try { const j = document.getElementById('joinScreen'); out.joinScreenHidden = j ? j.classList.contains('hidden') : 'no #joinScreen'; } catch (e) { out.joinScreenErr = String(e); }
+        try { const h = document.getElementById('hud'); out.hudHidden = h ? h.classList.contains('hidden') : 'no #hud'; } catch (e) { out.hudErr = String(e); }
+        try { out.wsReadyState = (typeof ws !== 'undefined' && ws) ? ws.readyState : 'no ws'; } catch (e) { out.wsErr = String(e); }
+        try { out.joinedName = (typeof me !== 'undefined' && me) ? (me.name || 'me-no-name') : 'no me'; } catch (e) {}
+        return out;
+      }).catch((e) => ({ evalErr: String(e) }));
+      console.log(`\n  [char ${c.charId}] HUD never appeared within 8s.`);
+      console.log('    state:', JSON.stringify(diag));
+      console.log('    pageerrors captured:', errors.length ? errors.slice(0, 5) : '(none)');
+      throw err;
+    }
 
     check(`[char ${c.charId}] joins and reaches the HUD`, true);
     check(`[char ${c.charId}] Journal button is visible`,

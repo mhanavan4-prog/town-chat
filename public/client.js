@@ -28,6 +28,19 @@ window.addEventListener('resize', resize);
 // no server-side changes were needed for movement.)
 // ---------------------------------------------------------------------------
 const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+// --- Mobile (Capacitor) server plumbing --------------------------------------
+// The packaged apps load this file from capacitor://localhost, so the game
+// server is a REMOTE origin. config.js (loaded just before this file) sets
+// window.TOWNCHAT_SERVER to the deployed server; when it's empty/undefined
+// (the plain web build) everything falls back to same-origin, unchanged.
+const SERVER_ORIGIN = (typeof window !== 'undefined' && window.TOWNCHAT_SERVER)
+  ? String(window.TOWNCHAT_SERVER).replace(/\/+$/, '') : '';
+function apiUrl(path) { return SERVER_ORIGIN ? SERVER_ORIGIN + path : path; }
+function wsUrl() {
+  if (!SERVER_ORIGIN) return proto + '://' + location.host;
+  return SERVER_ORIGIN.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+}
+
 let ws;
 let lastJoinPayload = null;
 let gameStarted = false;
@@ -524,7 +537,7 @@ const ATTACK_CATALOGS = {
 };
 
 function setupWs() {
-  ws = new WebSocket(proto + '://' + location.host);
+  ws = new WebSocket(wsUrl());
   ws.addEventListener('open', onWsOpen);
   ws.addEventListener('close', onWsClose);
   ws.addEventListener('error', onWsError);
@@ -599,6 +612,19 @@ function onWsMessage(ev) {
       for (const lgId in msg.legendaryCatalog) {
         const lg = msg.legendaryCatalog[lgId];
         ITEM_CATALOG[lgId] = { name: lg.name, icon: lg.icon, slot: lg.slot, desc: lg.desc, legendary: true, tier: lg.tier, fx: lg.fx };
+      }
+    }
+    // Base item catalog also rides in on init (server-authoritative for item
+    // EXISTENCE) — this closes the render-gap class where a server-only item
+    // (e.g. a fresh creature drop) had no client entry to draw. Additive: only
+    // fills items the client lacks, so existing rich entries (stats/descriptions
+    // authored here) are preserved untouched.
+    if (msg.itemCatalog) {
+      for (const _iid in msg.itemCatalog) {
+        if (!ITEM_CATALOG[_iid]) {
+          const _it = msg.itemCatalog[_iid];
+          ITEM_CATALOG[_iid] = { name: _it.name, icon: _it.icon, slot: _it.slot, desc: _it.desc || '' };
+        }
       }
     }
     myMoonstones = msg.moonstones || 0;
@@ -2063,7 +2089,7 @@ function submitAccount(endpoint) {
   const password = accountPassInput.value;
   if (!username || !password) { setAccountStatus('Enter a username and password.', true); return; }
   setAccountStatus(endpoint === 'register' ? 'Creating account…' : 'Logging in…');
-  fetch('/api/' + endpoint, {
+  fetch(apiUrl('/api/' + endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -4562,7 +4588,7 @@ function showLockMessage(roomId) {
     : `🔒 ${label} is closed — Town Pass sales aren't set up on this server.`);
 }
 
-fetch('/api/config')
+fetch(apiUrl('/api/config'))
   .then(r => r.json())
   .then(cfg => {
     paymentsEnabled = !!cfg.paymentsEnabled;
@@ -4711,8 +4737,8 @@ function claimPassOnConnection(force) {
   }
   let acctToken = '';
   try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
-  fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId)
-        + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : ''))
+  fetch(apiUrl('/api/verify-session?session_id=' + encodeURIComponent(sessionId)
+        + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : '')))
     .then(r => r.json())
     .then(data => {
       if (data.unlocked) {
@@ -7059,7 +7085,7 @@ function sendText() {
   if (!to || !body) { setTextStatus('Enter a phone number and a message.', true); return; }
   setTextStatus('Sending…');
   textSendBtn.disabled = true;
-  fetch('/api/send-sms', {
+  fetch(apiUrl('/api/send-sms'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
