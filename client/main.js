@@ -1,5 +1,6 @@
 import createAudio from './audio.js';
 import createCollision from './collision.js';
+import { Modals } from './modals.js';
 
 
 const canvas = document.getElementById('game');
@@ -842,13 +843,13 @@ function onWsMessage(ev) {
 
   if (msg.type === 'player_joined') {
     addPlayer(msg.player);
-    if (inventoryOpen) refreshNoteRecipients();
+    if (Modals.isOpen('inventoryOpen')) refreshNoteRecipients();
     return;
   }
 
   if (msg.type === 'player_left') {
     removePlayer(msg.id);
-    if (inventoryOpen) refreshNoteRecipients();
+    if (Modals.isOpen('inventoryOpen')) refreshNoteRecipients();
     return;
   }
 
@@ -952,7 +953,7 @@ function onWsMessage(ev) {
     // rebuilt by selectInvSlot. Re-run it for the current selection so the
     // count updates instantly instead of staying stale until you click away
     // and back.
-    if (inventoryOpen && invItemsTabActive && selectedInvSlotIdx != null
+    if (Modals.isOpen('inventoryOpen') && invItemsTabActive && selectedInvSlotIdx != null
         && lastInventoryState && lastInventoryState.slots) {
       selectInvSlot(selectedInvSlotIdx);
     }
@@ -960,13 +961,13 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'craft_error') {
-    if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
+    if (Modals.isOpen('inventoryOpen') && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
 
   if (msg.type === 'use_error') {
-    if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
+    if (Modals.isOpen('inventoryOpen') && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -1019,7 +1020,7 @@ function onWsMessage(ev) {
   if (msg.type === 'story_state') {
     storyState = msg.storyline;
     updateStoryTracker();
-    if (journalOpen) renderJournal();
+    if (Modals.isOpen('journalOpen')) renderJournal();
     return;
   }
 
@@ -1033,7 +1034,7 @@ function onWsMessage(ev) {
   if (msg.type === 'story_update') {
     if (storyState) storyState.progress = msg.progress;
     updateStoryTracker();
-    if (journalOpen) renderJournal();
+    if (Modals.isOpen('journalOpen')) renderJournal();
     setUnlockToast(msg.message || `📖 ${msg.chapterTitle} — ${msg.progress}/${msg.target}`);
     return;
   }
@@ -1057,7 +1058,7 @@ function onWsMessage(ev) {
     if (me) { me.xp = msg.xp; me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
     updateSkillsBadge();
-    if (skillsOpen) renderSkills();
+    if (Modals.isOpen('skillsOpen')) renderSkills();
     return;
   }
 
@@ -1065,12 +1066,12 @@ function onWsMessage(ev) {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
     updateXPDisplay();
     updateSkillsBadge();
-    if (skillsOpen) renderSkills();
+    if (Modals.isOpen('skillsOpen')) renderSkills();
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
     // Leveling matters more now (chapters gate on it) — give it a beat.
     showChapterCeremony(`⬆️ Level ${msg.level}`, 'A skill point earned — spend it in 🌟 Skills.');
-    if (journalOpen) renderJournal();
+    if (Modals.isOpen('journalOpen')) renderJournal();
     return;
   }
 
@@ -1083,8 +1084,8 @@ function onWsMessage(ev) {
     updateXPDisplay();
     updateSkillsBadge();
     updateHealthHud();
-    if (skillsOpen) renderSkills();
-    if (inventoryOpen) { renderStats(); refreshEquipPreview(); }
+    if (Modals.isOpen('skillsOpen')) renderSkills();
+    if (Modals.isOpen('inventoryOpen')) { renderStats(); refreshEquipPreview(); }
     return;
   }
   if (msg.type === 'skill_result') {
@@ -1095,7 +1096,7 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'skill_error') {
     const errEl = document.getElementById('skillsErr');
-    if (errEl && skillsOpen) { errEl.textContent = msg.message; setTimeout(() => { if (errEl.textContent === msg.message) errEl.textContent = ''; }, 3200); }
+    if (errEl && Modals.isOpen('skillsOpen')) { errEl.textContent = msg.message; setTimeout(() => { if (errEl.textContent === msg.message) errEl.textContent = ''; }, 3200); }
     else setUnlockToast(msg.message);
     return;
   }
@@ -1208,7 +1209,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'board_state') {
     boardState = msg;
-    if (boardModalOpen) renderBoardModal();
+    if (Modals.isOpen('boardModalOpen')) renderBoardModal();
     return;
   }
 
@@ -1216,7 +1217,7 @@ function onWsMessage(ev) {
     delveState = msg;
     delveSpeedMult = msg.inRun ? (msg.speedMult || 1) : 1;
     renderDelveHud();
-    if (delveModalOpen) renderDelveModal();
+    if (Modals.isOpen('delveModalOpen')) renderDelveModal();
     renderBoonDraft();
     return;
   }
@@ -1237,7 +1238,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'delve_error') {
-    if (delveModalOpen) document.getElementById('delveErr').textContent = msg.message;
+    if (Modals.isOpen('delveModalOpen')) document.getElementById('delveErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -1245,19 +1246,19 @@ function onWsMessage(ev) {
   if (msg.type === 'coven_state') {
     covenState = msg.coven || null;
     refreshCovenMenuRow();
-    if (covenModalOpen) renderCovenModal();
+    if (Modals.isOpen('covenModalOpen')) renderCovenModal();
     return;
   }
 
   if (msg.type === 'coven_msg') {
     covenChatLines.push({ who: msg.fromName, sigil: msg.sigil, text: msg.text });
     if (covenChatLines.length > 60) covenChatLines = covenChatLines.slice(-60);
-    const chatVisible = covenModalOpen && !document.getElementById('covenChatView').classList.contains('hidden');
+    const chatVisible = Modals.isOpen('covenModalOpen') && !document.getElementById('covenChatView').classList.contains('hidden');
     if (chatVisible) renderCovenChat();
     else {
       covenUnread++;
       refreshCovenMenuRow();
-      if (!covenModalOpen) setUnlockToast(`${msg.sigil} ${msg.fromName}: ${msg.text.slice(0, 60)}`);
+      if (!Modals.isOpen('covenModalOpen')) setUnlockToast(`${msg.sigil} ${msg.fromName}: ${msg.text.slice(0, 60)}`);
     }
     return;
   }
@@ -1268,7 +1269,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'coven_error') {
-    if (covenModalOpen) document.getElementById('covenErr').textContent = msg.message;
+    if (Modals.isOpen('covenModalOpen')) document.getElementById('covenErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -1396,8 +1397,8 @@ function onWsMessage(ev) {
     lastBankState = { balance: msg.balance, slots: msg.slots };
     renderBankModal();
     updateGoldReadouts();
-    if (auctionModalOpen) populateAuctionItemSelect();
-    if (sendMoneyModalOpen) {
+    if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
+    if (Modals.isOpen('sendMoneyModalOpen')) {
       const bal = document.getElementById('sendMoneyBalance');
       if (bal) bal.textContent = String(msg.balance);
     }
@@ -1405,16 +1406,16 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'bank_error') {
-    if (bankModalOpen) document.getElementById('bankModalErr').textContent = msg.message;
-    else if (auctionModalOpen) document.getElementById('auctionModalErr').textContent = msg.message;
-    else if (sendMoneyModalOpen) document.getElementById('sendMoneyErr').textContent = msg.message;
-    else if (inventoryOpen && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
+    if (Modals.isOpen('bankModalOpen')) document.getElementById('bankModalErr').textContent = msg.message;
+    else if (Modals.isOpen('auctionModalOpen')) document.getElementById('auctionModalErr').textContent = msg.message;
+    else if (Modals.isOpen('sendMoneyModalOpen')) document.getElementById('sendMoneyErr').textContent = msg.message;
+    else if (Modals.isOpen('inventoryOpen') && invItemsTabActive) document.getElementById('invModalErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
 
   if (msg.type === 'money_sent') {
-    if (sendMoneyModalOpen) document.getElementById('sendMoneyErr').textContent = '';
+    if (Modals.isOpen('sendMoneyModalOpen')) document.getElementById('sendMoneyErr').textContent = '';
     setUnlockToast(`💸 Sent ${msg.amount} gold to ${msg.toName}`);
     return;
   }
@@ -1440,14 +1441,14 @@ function onWsMessage(ev) {
       equippedRing:   msg.equippedRing   || null
     };
     renderInventoryItemsPanel();
-    if (bankModalOpen) populateBankDepositSelect();
-    if (auctionModalOpen) populateAuctionItemSelect();
+    if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
+    if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
     applyMyEquipVisual(msg);
     return;
   }
 
   if (msg.type === 'spell_result') {
-    if (spellbookOpen) document.getElementById('spellbookErr').textContent = '';
+    if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
     return;
@@ -1478,7 +1479,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_error') {
-    if (spellbookOpen) document.getElementById('spellbookErr').textContent = msg.message;
+    if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -1498,7 +1499,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
-    if (attackPanelOpen) document.getElementById('attackErr').textContent = '';
+    if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
     if (msg.itemsSeen) openPickpocketPanel(msg.pickpocketTargetName, msg.itemsSeen, msg.stolenItemId);
@@ -1506,7 +1507,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_error') {
-    if (attackPanelOpen) document.getElementById('attackErr').textContent = msg.message;
+    if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
   }
@@ -1646,8 +1647,8 @@ function onWsMessage(ev) {
   if (msg.type === 'ms_error') {
     const legendErr = document.getElementById('legendErr');
     const msErr = document.getElementById('msModalErr');
-    if (legendModalOpen && legendErr) legendErr.textContent = '⚠️ ' + msg.message;
-    else if (msModalOpen && msErr) msErr.textContent = '⚠️ ' + msg.message;
+    if (Modals.isOpen('legendModalOpen') && legendErr) legendErr.textContent = '⚠️ ' + msg.message;
+    else if (Modals.isOpen('msModalOpen') && msErr) msErr.textContent = '⚠️ ' + msg.message;
     else setUnlockToast('⚠️ ' + msg.message);
     return;
   }
@@ -1658,7 +1659,7 @@ function onWsMessage(ev) {
   if (msg.type === 'legend_bought') {
     setUnlockToast(`✨ ${msg.icon} ${msg.name} is yours — it's in your pack.`);
     // refresh the open shop so the balance line updates
-    if (legendModalOpen && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'legend_shop_open' }));
+    if (Modals.isOpen('legendModalOpen') && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'legend_shop_open' }));
     return;
   }
   if (msg.type === 'npc_shop_state') {
@@ -1681,7 +1682,7 @@ function onWsMessage(ev) {
   if (msg.type === 'shop_sold') {
     setUnlockToast(`💰 Sold ${msg.itemName}${msg.qty > 1 ? ' ×' + msg.qty : ''} for ${msg.gold} gold!`);
     if (lastBankState) lastBankState.balance = msg.balance;
-    if (npcShopOpen) {
+    if (Modals.isOpen('npcShopOpen')) {
       const balEl = document.getElementById('npcShopBalance');
       if (balEl) balEl.textContent = `Balance: ${msg.balance} 🪙`;
       if (shopTab === 'sell') renderShopTab(); // reflect the now-smaller stack
@@ -1784,7 +1785,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'locksmith_error') {
-    if (locksmithModalOpen) document.getElementById('locksmithErr').textContent = msg.message || 'Locksmith error.';
+    if (Modals.isOpen('locksmithModalOpen')) document.getElementById('locksmithErr').textContent = msg.message || 'Locksmith error.';
     else setUnlockToast('\ud83d\udd11 ' + (msg.message || 'Locksmith error.'));
     return;
   }
@@ -2342,13 +2343,12 @@ const inbox = []; // { id, fromId, fromName, text, read }
 
 const inventoryBtn = document.getElementById('inventoryBtn');
 const inventoryPanel = document.getElementById('inventoryPanel');
-let inventoryOpen = false;
 let invItemsTabActive = true;
 
 function toggleInventory() {
-  inventoryOpen = !inventoryOpen;
-  inventoryPanel.classList.toggle('hidden', !inventoryOpen);
-  if (inventoryOpen) {
+  Modals.set('inventoryOpen', !Modals.isOpen('inventoryOpen'));
+  inventoryPanel.classList.toggle('hidden', !Modals.isOpen('inventoryOpen'));
+  if (Modals.isOpen('inventoryOpen')) {
     cancelTargeting();
     // Always open on the Items tab. Deep-links (the 💾 Drive button, the
     // "Open Hard Drive" item action) call showInvTab() AFTER this, so they
@@ -2369,7 +2369,7 @@ if (inventoryBtn) inventoryBtn.addEventListener('click', toggleInventory);
 const invCloseBtn = document.getElementById('invCloseBtn');
 if (invCloseBtn) invCloseBtn.addEventListener('click', (e) => {
   e.stopPropagation(); // the tab row doubles as the drag handle — a close tap must never start a drag
-  if (inventoryOpen) toggleInventory();
+  if (Modals.isOpen('inventoryOpen')) toggleInventory();
 });
 
 const invTabItemsBtn = document.getElementById('invTabItems');
@@ -2497,7 +2497,7 @@ function refreshEquipPreview() {
 // reaches; this just opens it on the right tab in one click.
 const driveBtn = document.getElementById('driveBtn');
 if (driveBtn) driveBtn.addEventListener('click', () => {
-  if (!inventoryOpen) toggleInventory();
+  if (!Modals.isOpen('inventoryOpen')) toggleInventory();
   showInvTab('invHardDriveView');
 });
 
@@ -3263,7 +3263,6 @@ if (questCancelBtn) questCancelBtn.addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 let storyState = null;     // latest story_state.storyline payload (or null)
 let storyLastOutro = null; // { title, outro, rewards, storyComplete } — shown until the next chapter begins
-let journalOpen = false;
 
 function openJournal() {
   const modal = document.getElementById('journalModal');
@@ -3271,7 +3270,7 @@ function openJournal() {
   renderJournal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 370, 112);
-  journalOpen = true;
+  Modals.set('journalOpen', true);
   // Ask for a fresh snapshot too, in case this client missed one.
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'story_state' }));
 }
@@ -3279,11 +3278,11 @@ function openJournal() {
 function closeJournal() {
   const modal = document.getElementById('journalModal');
   if (modal) modal.classList.add('hidden');
-  journalOpen = false;
+  Modals.set('journalOpen', false);
 }
 
 const journalBtn = document.getElementById('journalBtn');
-if (journalBtn) journalBtn.addEventListener('click', () => { if (journalOpen) closeJournal(); else openJournal(); });
+if (journalBtn) journalBtn.addEventListener('click', () => { if (Modals.isOpen('journalOpen')) closeJournal(); else openJournal(); });
 const journalCloseBtn = document.getElementById('journalCloseBtn');
 if (journalCloseBtn) journalCloseBtn.addEventListener('click', closeJournal);
 
@@ -3296,7 +3295,6 @@ if (journalCloseBtn) journalCloseBtn.addEventListener('click', closeJournal);
 // ---------------------------------------------------------------------------
 let mySkillState = null;      // latest skill_state payload
 let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
-let skillsOpen = false;
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
@@ -3320,7 +3318,6 @@ let pushPublicKey = null;
 let pushAvailable = false;
 let townPass30Cents = 499;
 let townPass30Product = 'town_pass_30d';
-let boardModalOpen = false, delveModalOpen = false, covenModalOpen = false, notifModalOpen = false, locksmithModalOpen = false;
 // Blood-moon night math mirrored from the server (same pure clock both ends).
 const BLOOD_MOON_EVERY_NIGHTS = 13;
 function bloodMoonActiveClient(now) {
@@ -3350,14 +3347,14 @@ function openSkills() {
   if (!modal) return;
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 370, 150);
-  skillsOpen = true;
+  Modals.set('skillsOpen', true);
   renderSkills();
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'skill_state' }));
 }
 function closeSkills() {
   const modal = document.getElementById('skillsModal');
   if (modal) modal.classList.add('hidden');
-  skillsOpen = false;
+  Modals.set('skillsOpen', false);
 }
 
 function renderSkills() {
@@ -3408,7 +3405,7 @@ function renderSkills() {
 }
 
 const skillsBtn = document.getElementById('skillsBtn');
-if (skillsBtn) skillsBtn.addEventListener('click', () => { if (skillsOpen) closeSkills(); else openSkills(); });
+if (skillsBtn) skillsBtn.addEventListener('click', () => { if (Modals.isOpen('skillsOpen')) closeSkills(); else openSkills(); });
 const skillsCloseBtn = document.getElementById('skillsCloseBtn');
 if (skillsCloseBtn) skillsCloseBtn.addEventListener('click', closeSkills);
 const skillsRespecBtn = document.getElementById('skillsRespecBtn');
@@ -3589,7 +3586,6 @@ if (respawnBtn) respawnBtn.addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 // NPC Shop
 // ---------------------------------------------------------------------------
-let npcShopOpen = false;
 let currentShopNpcId = null;
 let currentShopNpcName = null;
 
@@ -3599,7 +3595,7 @@ function openNpcShopModal(npcId) {
 }
 
 function closeNpcShopModal() {
-  npcShopOpen = false;
+  Modals.set('npcShopOpen', false);
   currentShopNpcId = null;
   currentShopNpcName = null;
   const el = document.getElementById('npcShopModal');
@@ -3611,7 +3607,7 @@ let shopSellValues = {};
 let shopTab = 'buy';
 
 function renderNpcShop(msg) {
-  npcShopOpen = true;
+  Modals.set('npcShopOpen', true);
   currentShopNpcId = msg.npcId;
   currentShopNpcName = msg.npcName;
   shopBuyItems = msg.items || [];
@@ -3859,7 +3855,6 @@ if (_partyChatSend) _partyChatSend.addEventListener('click', sendPartyChatMsg);
 // ---------------------------------------------------------------------------
 // Witch dialogue / shop modal
 // ---------------------------------------------------------------------------
-let witchShopOpen = false;
 let witchShopItems = [];
 
 const POTION_RECIPES_CLIENT = [
@@ -3876,7 +3871,7 @@ const POTION_RECIPES_CLIENT = [
 let _witchActiveTab = 'shop';
 
 function openWitchModal(msg) {
-  witchShopOpen = true;
+  Modals.set('witchShopOpen', true);
   witchShopItems = msg.shopItems || [];
   const modal = document.getElementById('witchModal');
   if (!modal) return;
@@ -3955,7 +3950,7 @@ function witchSwitchTab(tab) {
 window.witchSwitchTab = witchSwitchTab;
 
 function closeWitchModal() {
-  witchShopOpen = false;
+  Modals.set('witchShopOpen', false);
   const modal = document.getElementById('witchModal');
   if (modal) modal.classList.add('hidden');
 }
@@ -3966,12 +3961,11 @@ if (witchModalCloseBtn) witchModalCloseBtn.addEventListener('click', closeWitchM
 // ---------------------------------------------------------------------------
 // Witch selfie consent — MUST be explicit, per memory constraint
 // ---------------------------------------------------------------------------
-let witchConsentOpen = false;
 let activeWitchConsentId = null;
 
 function openWitchSelfieConsent(consentId, itemName, itemIcon) {
   activeWitchConsentId = consentId;
-  witchConsentOpen = true;
+  Modals.set('witchConsentOpen', true);
   closeWitchModal();
   const modal = document.getElementById('witchConsentModal');
   if (!modal) return;
@@ -3984,7 +3978,7 @@ function openWitchSelfieConsent(consentId, itemName, itemIcon) {
 }
 
 function closeWitchSelfieConsent() {
-  witchConsentOpen = false;
+  Modals.set('witchConsentOpen', false);
   activeWitchConsentId = null;
   const modal = document.getElementById('witchConsentModal');
   if (modal) modal.classList.add('hidden');
@@ -4128,11 +4122,10 @@ if (imageLightbox) imageLightbox.addEventListener('click', closeImageLightbox);
 // Lexton Greyfur's Howl Trade — his one and only offer now (the old Blood
 // Pact ritual is gone). Same shape as the Witch's shop modal (item list
 // with Buy buttons), opened directly by talking to him in the Wilds.
-let werewolfShopOpen = false;
 let werewolfShopItems = [];
 
 function openWerewolfModal(msg) {
-  werewolfShopOpen = true;
+  Modals.set('werewolfShopOpen', true);
   werewolfShopItems = msg.shopItems || [];
   const modal = document.getElementById('werewolfModal');
   if (!modal) return;
@@ -4157,7 +4150,7 @@ function openWerewolfModal(msg) {
 }
 
 function closeWerewolfModal() {
-  werewolfShopOpen = false;
+  Modals.set('werewolfShopOpen', false);
   const modal = document.getElementById('werewolfModal');
   if (modal) modal.classList.add('hidden');
 }
@@ -4168,12 +4161,11 @@ if (werewolfModalClose) werewolfModalClose.addEventListener('click', closeWerewo
 // Voice consent modal — same requirement as the Witch's selfie consent:
 // mechanical disclosure (mic, recording, public Auction House listing) has
 // to stay explicit no matter how it's themed.
-let werewolfConsentOpen = false;
 let activeWerewolfConsentId = null;
 
 function openWerewolfVoiceConsent(consentId, itemName, itemIcon) {
   activeWerewolfConsentId = consentId;
-  werewolfConsentOpen = true;
+  Modals.set('werewolfConsentOpen', true);
   closeWerewolfModal();
   const modal = document.getElementById('werewolfConsentModal');
   if (!modal) return;
@@ -4186,7 +4178,7 @@ function openWerewolfVoiceConsent(consentId, itemName, itemIcon) {
 }
 
 function closeWerewolfVoiceConsent() {
-  werewolfConsentOpen = false;
+  Modals.set('werewolfConsentOpen', false);
   activeWerewolfConsentId = null;
   const modal = document.getElementById('werewolfConsentModal');
   if (modal) modal.classList.add('hidden');
@@ -4418,7 +4410,7 @@ function requestResumeToken(timeoutMs = 900) {
 function showCheckoutProblem(message) {
   setUnlockToast('⚠️ ' + message);
   const err = document.getElementById('passModalErr');
-  if (err && passModalOpen) err.textContent = '⚠️ ' + message;
+  if (err && Modals.isOpen('passModalOpen')) err.textContent = '⚠️ ' + message;
 }
 
 async function startPassCheckout(btn, product) {
@@ -4810,13 +4802,13 @@ const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
 
 function tryJump() {
-  if (jumpActive || typing || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || seatedAt) return;
+  if (jumpActive || typing || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || seatedAt) return;
   jumpActive = true;
   jumpT = 0;
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen) return;
+  if (typing || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen')) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -5189,8 +5181,8 @@ function raycastHitAt(clientX, clientY) {
 // lands on, say, the inventory panel doesn't also strike whatever's behind
 // it on the canvas.
 function anyOverlayOpen() {
-  return typing || passModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen ||
-    sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || inventoryOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || locksmithModalOpen;
+  return typing || Modals.isOpen('passModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') ||
+    Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('inventoryOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('locksmithModalOpen');
 }
 
 function buildEmojiCursor(emoji, size) {
@@ -5686,7 +5678,6 @@ function updateCameraGlide(dt) {
 // every platform but were tuned with a phone in hand.
 // ═══════════════════════════════════════════════════════════════════════════
 let mobileHudInited = false;
-let mobileChatOpen = false;
 
 function initMobileHud() {
   if (mobileHudInited || !MOBILE_UI) return;
@@ -5749,9 +5740,9 @@ function refreshMobileHud() {
 function toggleMobileChat(open) {
   const cp = document.getElementById('chatPanel');
   if (!cp) return;
-  mobileChatOpen = open === undefined ? !mobileChatOpen : open;
-  cp.classList.toggle('mobileClosed', !mobileChatOpen);
-  if (mobileChatOpen) {
+  Modals.set('mobileChatOpen', open === undefined ? !Modals.isOpen('mobileChatOpen') : open);
+  cp.classList.toggle('mobileClosed', !Modals.isOpen('mobileChatOpen'));
+  if (Modals.isOpen('mobileChatOpen')) {
     refreshMobileHud();
     // The 💬 button means "I want to say something" now — the panel is
     // just a compose bar (messages arrive as banners), so go straight to
@@ -5852,8 +5843,8 @@ function updateBubbleTag(p, v, headScreen, now) {
   on('btnEmote', () => toggleEmoteWheel());
   on('btnCm', fireVoiceCountermeasure);
   on('btnKit', () => {
-    if (me && me.charId === 0) { if (!spellbookOpen) openSpellbook(); }
-    else if (myAttackCatalog) { if (!attackPanelOpen) openAttackPanel(); }
+    if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
+    else if (myAttackCatalog) { if (!Modals.isOpen('attackPanelOpen')) openAttackPanel(); }
   });
   on('chatToggleBtn', () => toggleMobileChat());
   on('menuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
@@ -5863,15 +5854,15 @@ function updateBubbleTag(p, v, headScreen, now) {
   const sheet = document.getElementById('menuSheet');
   if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.classList.add('hidden'); });
   const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); fn(); };
-  on('menuInventory', closeSheetAnd(() => { if (!inventoryOpen) toggleInventory(); }));
-  on('menuJournal', closeSheetAnd(() => { if (!journalOpen) openJournal(); }));
-  on('menuSkills', closeSheetAnd(() => { if (!skillsOpen) openSkills(); }));
+  on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
+  on('menuJournal', closeSheetAnd(() => { if (!Modals.isOpen('journalOpen')) openJournal(); }));
+  on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
-    if (me && me.charId === 0) { if (!spellbookOpen) openSpellbook(); }
-    else if (myAttackCatalog && !attackPanelOpen) openAttackPanel();
+    if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
+    else if (myAttackCatalog && !Modals.isOpen('attackPanelOpen')) openAttackPanel();
   }));
   on('menuDrive', closeSheetAnd(() => {
-    if (!inventoryOpen) toggleInventory();
+    if (!Modals.isOpen('inventoryOpen')) toggleInventory();
     showInvTab('invHardDriveView');
   }));
   on('menuPass', closeSheetAnd(openPassModal));
@@ -6213,7 +6204,6 @@ function buildMobileQuickSlots() {
 // screen on T). The cheapest social mechanic there is — and unlike chat it
 // works outdoors, which is exactly where you pass people.
 const EMOTES = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
-let emoteWheelOpen = false;
 let emoteWheelTimer = null;
 
 function buildEmoteWheel() {
@@ -6241,15 +6231,15 @@ function toggleEmoteWheel(open) {
   const wheel = document.getElementById('emoteWheel');
   if (!wheel) return;
   buildEmoteWheel();
-  emoteWheelOpen = open === undefined ? !emoteWheelOpen : open;
-  wheel.classList.toggle('hidden', !emoteWheelOpen);
+  Modals.set('emoteWheelOpen', open === undefined ? !Modals.isOpen('emoteWheelOpen') : open);
+  wheel.classList.toggle('hidden', !Modals.isOpen('emoteWheelOpen'));
   const cluster = document.getElementById('actionCluster');
-  if (cluster) cluster.classList.toggle('wheelOpen', emoteWheelOpen);
+  if (cluster) cluster.classList.toggle('wheelOpen', Modals.isOpen('emoteWheelOpen'));
   // While the wheel is up, the hint/XP strip/joystick ring step back too —
   // same "one thing under the thumb" rule the cluster buttons follow.
-  document.body.classList.toggle('emoteWheelOpen', emoteWheelOpen);
+  document.body.classList.toggle('emoteWheelOpen', Modals.isOpen('emoteWheelOpen'));
   clearTimeout(emoteWheelTimer);
-  if (emoteWheelOpen) emoteWheelTimer = setTimeout(() => toggleEmoteWheel(false), 4000);
+  if (Modals.isOpen('emoteWheelOpen')) emoteWheelTimer = setTimeout(() => toggleEmoteWheel(false), 4000);
 }
 
 // Emote floats — the emoji bounces above the sender's head for a couple of
@@ -17235,17 +17225,17 @@ function renderFirstSteps() {
 // ── The Town Board ───────────────────────────────────────────────────────────
 let boardActiveTab = 'hunt';
 function openBoardModal() {
-  boardModalOpen = true;
+  Modals.set('boardModalOpen', true);
   document.getElementById('boardModal').classList.remove('hidden');
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'board_state' }));
   renderBoardModal();
 }
 function closeBoardModal() {
-  boardModalOpen = false;
+  Modals.set('boardModalOpen', false);
   document.getElementById('boardModal').classList.add('hidden');
 }
 function renderBoardModal() {
-  if (!boardModalOpen) return;
+  if (!Modals.isOpen('boardModalOpen')) return;
   const list = document.getElementById('boardList');
   const weekNote = document.getElementById('boardWeekNote');
   const meNote = document.getElementById('boardMeNote');
@@ -17310,23 +17300,23 @@ function renderBoardModal() {
 
 // ── The Weekly Delve UI ──────────────────────────────────────────────────────
 function openDelveModal() {
-  delveModalOpen = true;
+  Modals.set('delveModalOpen', true);
   document.getElementById('delveModal').classList.remove('hidden');
   document.getElementById('delveErr').textContent = '';
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'delve_state' }));
   renderDelveModal();
 }
 function closeDelveModal() {
-  delveModalOpen = false;
+  Modals.set('delveModalOpen', false);
   document.getElementById('delveModal').classList.add('hidden');
 }
 function openLocksmithModal() {
-  locksmithModalOpen = true;
+  Modals.set('locksmithModalOpen', true);
   document.getElementById('locksmithModal').classList.remove('hidden');
   document.getElementById('locksmithErr').textContent = '';
 }
 function closeLocksmithModal() {
-  locksmithModalOpen = false;
+  Modals.set('locksmithModalOpen', false);
   document.getElementById('locksmithModal').classList.add('hidden');
 }
 (function wireLocksmith() {
@@ -17339,7 +17329,7 @@ function closeLocksmithModal() {
   if (close) close.addEventListener('click', closeLocksmithModal);
 })();
 function renderDelveModal() {
-  if (!delveModalOpen) return;
+  if (!Modals.isOpen('delveModalOpen')) return;
   const mods = document.getElementById('delveMods');
   const lobby = document.getElementById('delveLobby');
   const runView = document.getElementById('delveRunView');
@@ -17471,18 +17461,18 @@ function refreshCovenMenuRow() {
   }
 }
 function openCovenModal() {
-  covenModalOpen = true;
+  Modals.set('covenModalOpen', true);
   document.getElementById('covenModal').classList.remove('hidden');
   document.getElementById('covenErr').textContent = '';
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' }));
   renderCovenModal();
 }
 function closeCovenModal() {
-  covenModalOpen = false;
+  Modals.set('covenModalOpen', false);
   document.getElementById('covenModal').classList.add('hidden');
 }
 function renderCovenModal() {
-  if (!covenModalOpen) return;
+  if (!Modals.isOpen('covenModalOpen')) return;
   const none = document.getElementById('covenNone');
   const main = document.getElementById('covenMain');
   const title = document.getElementById('covenTitle');
@@ -17723,7 +17713,7 @@ function pushSupportedHere() {
   return pushAvailable && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 function openNotifModal() {
-  notifModalOpen = true;
+  Modals.set('notifModalOpen', true);
   const modal = document.getElementById('notifModal');
   const err = document.getElementById('notifErr');
   err.textContent = '';
@@ -17826,7 +17816,7 @@ async function disablePushHere() {
   const dis = document.getElementById('notifDisableBtn');
   if (dis) dis.addEventListener('click', disablePushHere);
   const close = document.getElementById('notifCloseBtn');
-  if (close) close.addEventListener('click', () => { notifModalOpen = false; document.getElementById('notifModal').classList.add('hidden'); });
+  if (close) close.addEventListener('click', () => { Modals.set('notifModalOpen', false); document.getElementById('notifModal').classList.add('hidden'); });
 })();
 
 // ── Session L menu rows ──────────────────────────────────────────────────────
@@ -17842,7 +17832,6 @@ async function disablePushHere() {
   wire('menuNotifs', openNotifModal);
 })();
 
-let passModalOpen = false;
 
 function openPassModal() {
   const modal = document.getElementById('passModal');
@@ -17883,11 +17872,10 @@ function openPassModal() {
           : '🚫 Passes not on sale here');
   }
   modal.classList.remove('hidden');
-  passModalOpen = true;
+  Modals.set('passModalOpen', true);
 }
 
 // ── 🌒 The Midnight Peddler's shop (Session I) ──────────────────────────
-let legendModalOpen = false;
 let legendCountdownTimer = null;
 const LEGEND_TIER_NAMES = { 1: 'CURIO', 2: 'RELIC', 3: 'ARCANUM', 4: 'SEVERANCE-CLASS' };
 const LEGEND_STAT_LABELS = { power: 'Power', guard: 'Guard', vitality: 'Max HP', haste: 'Haste', swift: 'Speed', leech: 'Lifesteal', xp: 'XP', forage: 'Forage' };
@@ -17902,7 +17890,7 @@ function openLegendShop() {
 function closeLegendShop() {
   const modal = document.getElementById('legendModal');
   if (modal) modal.classList.add('hidden');
-  legendModalOpen = false;
+  Modals.set('legendModalOpen', false);
   clearInterval(legendCountdownTimer);
 }
 function renderLegendShop(msg) {
@@ -17968,7 +17956,7 @@ function renderLegendShop(msg) {
     list.appendChild(row);
   }
   modal.classList.remove('hidden');
-  legendModalOpen = true;
+  Modals.set('legendModalOpen', true);
 }
 const legendCloseBtn = document.getElementById('legendCloseBtn');
 if (legendCloseBtn) legendCloseBtn.addEventListener('click', closeLegendShop);
@@ -17976,7 +17964,6 @@ const legendGetMsBtn = document.getElementById('legendGetMsBtn');
 if (legendGetMsBtn) legendGetMsBtn.addEventListener('click', () => { closeLegendShop(); openMsModal(); });
 
 // ── 💎 Moonstones UI (Session I) ────────────────────────────────────────
-let msModalOpen = false;
 function refreshMsUI() {
   const menuVal = document.getElementById('menuMsVal');
   if (menuVal) menuVal.textContent = String(myMoonstones);
@@ -18045,12 +18032,12 @@ function openMsModal() {
   }
   refreshMsUI();
   modal.classList.remove('hidden');
-  msModalOpen = true;
+  Modals.set('msModalOpen', true);
 }
 function closeMsModal() {
   const modal = document.getElementById('msModal');
   if (modal) modal.classList.add('hidden');
-  msModalOpen = false;
+  Modals.set('msModalOpen', false);
 }
 const msModalCloseBtn = document.getElementById('msModalCloseBtn');
 if (msModalCloseBtn) msModalCloseBtn.addEventListener('click', closeMsModal);
@@ -18099,7 +18086,7 @@ async function buyMoonstonePack(packId, btn) {
 function closePassModal() {
   const modal = document.getElementById('passModal');
   if (modal) modal.classList.add('hidden');
-  passModalOpen = false;
+  Modals.set('passModalOpen', false);
 }
 
 const passModalCloseBtn = document.getElementById('passModalCloseBtn');
@@ -18111,9 +18098,6 @@ if (passModalCloseBtn) passModalCloseBtn.addEventListener('click', closePassModa
 // and fire off requests/actions, the same trust split as the rest of this
 // client (server decides, client displays + asks).
 // ---------------------------------------------------------------------------
-let bankModalOpen = false;
-let auctionModalOpen = false;
-let sendMoneyModalOpen = false;
 let lastBankState = null; // { balance, slots }
 let lastInventoryState = null; // { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
 let selectedInvSlotIdx = null;
@@ -18122,15 +18106,15 @@ let selectedBankSlotIdx = null;
 
 function openBankModal() {
   cancelTargeting();
-  if (auctionModalOpen) closeAuctionModal();
-  if (sendMoneyModalOpen) closeSendMoneyModal();
+  if (Modals.isOpen('auctionModalOpen')) closeAuctionModal();
+  if (Modals.isOpen('sendMoneyModalOpen')) closeSendMoneyModal();
   const modal = document.getElementById('bankModal');
   if (!modal) return;
   document.getElementById('bankModalErr').textContent = '';
   document.getElementById('bankListForm').classList.add('hidden');
   selectedBankSlotIdx = null;
   modal.classList.remove('hidden');
-  bankModalOpen = true;
+  Modals.set('bankModalOpen', true);
   ws.send(JSON.stringify({ type: 'bank_open' }));
   ws.send(JSON.stringify({ type: 'inventory_open' })); // populates the "Deposit from Inventory" dropdown
 }
@@ -18138,7 +18122,7 @@ function openBankModal() {
 function closeBankModal() {
   const modal = document.getElementById('bankModal');
   if (modal) modal.classList.add('hidden');
-  bankModalOpen = false;
+  Modals.set('bankModalOpen', false);
 }
 
 const bankModalCloseBtn = document.getElementById('bankModalCloseBtn');
@@ -18153,22 +18137,22 @@ if (bankModalCloseBtn) bankModalCloseBtn.addEventListener('click', closeBankModa
 // ---------------------------------------------------------------------------
 function openSendMoneyModal() {
   cancelTargeting();
-  if (bankModalOpen) closeBankModal();
-  if (auctionModalOpen) closeAuctionModal();
+  if (Modals.isOpen('bankModalOpen')) closeBankModal();
+  if (Modals.isOpen('auctionModalOpen')) closeAuctionModal();
   const modal = document.getElementById('sendMoneyModal');
   if (!modal) return;
   document.getElementById('sendMoneyErr').textContent = '';
   document.getElementById('sendMoneyAmount').value = '';
   refreshSendMoneyRecipients();
   modal.classList.remove('hidden');
-  sendMoneyModalOpen = true;
+  Modals.set('sendMoneyModalOpen', true);
   ws.send(JSON.stringify({ type: 'bank_open' })); // populates the balance readout
 }
 
 function closeSendMoneyModal() {
   const modal = document.getElementById('sendMoneyModal');
   if (modal) modal.classList.add('hidden');
-  sendMoneyModalOpen = false;
+  Modals.set('sendMoneyModalOpen', false);
 }
 
 const sendMoneyModalCloseBtn = document.getElementById('sendMoneyModalCloseBtn');
@@ -18310,15 +18294,15 @@ if (bankDepositSubmitBtn) bankDepositSubmitBtn.addEventListener('click', () => {
 
 function openAuctionModal() {
   cancelTargeting();
-  if (bankModalOpen) closeBankModal();
-  if (sendMoneyModalOpen) closeSendMoneyModal();
+  if (Modals.isOpen('bankModalOpen')) closeBankModal();
+  if (Modals.isOpen('sendMoneyModalOpen')) closeSendMoneyModal();
   const modal = document.getElementById('auctionModal');
   if (!modal) return;
   document.getElementById('auctionModalErr').textContent = '';
   document.getElementById('auctionCreateForm').classList.add('hidden');
   document.getElementById('auctionSelfieForm').classList.add('hidden');
   modal.classList.remove('hidden');
-  auctionModalOpen = true;
+  Modals.set('auctionModalOpen', true);
   updateGoldReadouts();
   ws.send(JSON.stringify({ type: 'bank_open' }));
   ws.send(JSON.stringify({ type: 'inventory_open' })); // the sell picker lists pack items too
@@ -18328,7 +18312,7 @@ function openAuctionModal() {
 function closeAuctionModal() {
   const modal = document.getElementById('auctionModal');
   if (modal) modal.classList.add('hidden');
-  auctionModalOpen = false;
+  Modals.set('auctionModalOpen', false);
 }
 
 const auctionModalCloseBtn = document.getElementById('auctionModalCloseBtn');
@@ -18575,7 +18559,7 @@ function renderAuctionModal() {
 // minute so it doesn't go stale while the modal sits open without a bid
 // changing anything (which would otherwise be the only thing triggering
 // a re-render via auction_state).
-setInterval(() => { if (auctionModalOpen) renderAuctionModal(); }, 60000);
+setInterval(() => { if (Modals.isOpen('auctionModalOpen')) renderAuctionModal(); }, 60000);
 
 // ---------------------------------------------------------------------------
 // Spellbook UI — Witch-only (spellbookBtn is only ever unhidden for charId
@@ -18585,7 +18569,6 @@ setInterval(() => { if (auctionModalOpen) renderAuctionModal(); }, 60000);
 // to the server, which owns all real validation/cooldown/effects; this is
 // just the menu and the request.
 // ---------------------------------------------------------------------------
-let spellbookOpen = false;
 let selectedSpellId = null;
 
 function openSpellbook() {
@@ -18598,17 +18581,17 @@ function openSpellbook() {
   renderSpellList();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 370, 112);
-  spellbookOpen = true;
+  Modals.set('spellbookOpen', true);
 }
 
 function closeSpellbook() {
   const modal = document.getElementById('spellbookModal');
   if (modal) modal.classList.add('hidden');
-  spellbookOpen = false;
+  Modals.set('spellbookOpen', false);
 }
 
 const spellbookBtn = document.getElementById('spellbookBtn');
-if (spellbookBtn) spellbookBtn.addEventListener('click', () => { if (spellbookOpen) closeSpellbook(); else openSpellbook(); });
+if (spellbookBtn) spellbookBtn.addEventListener('click', () => { if (Modals.isOpen('spellbookOpen')) closeSpellbook(); else openSpellbook(); });
 const spellbookCloseBtn = document.getElementById('spellbookCloseBtn');
 if (spellbookCloseBtn) spellbookCloseBtn.addEventListener('click', closeSpellbook);
 
@@ -18981,7 +18964,6 @@ function castFromHotbar(id) {
 // for those. Targeted attacks show a dropdown.
 // ---------------------------------------------------------------------------
 let myAttackCatalog = null;
-let attackPanelOpen = false;
 let selectedAttackId = null;
 
 const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills' };
@@ -19004,17 +18986,17 @@ function openAttackPanel() {
   renderAttackList();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 370, 112);
-  attackPanelOpen = true;
+  Modals.set('attackPanelOpen', true);
 }
 
 function closeAttackPanel() {
   const modal = document.getElementById('attackModal');
   if (modal) modal.classList.add('hidden');
-  attackPanelOpen = false;
+  Modals.set('attackPanelOpen', false);
 }
 
 const attackBtn = document.getElementById('attackBtn');
-if (attackBtn) attackBtn.addEventListener('click', () => { if (attackPanelOpen) closeAttackPanel(); else openAttackPanel(); });
+if (attackBtn) attackBtn.addEventListener('click', () => { if (Modals.isOpen('attackPanelOpen')) closeAttackPanel(); else openAttackPanel(); });
 const attackCloseBtn = document.getElementById('attackCloseBtn');
 if (attackCloseBtn) attackCloseBtn.addEventListener('click', closeAttackPanel);
 
@@ -19245,12 +19227,11 @@ async function autoGrantSpellConsent(requestId, casterName) {
   );
 }
 
-let spellConsentOpen = false;
 let activeSpellConsent = null; // { requestId }
 
 function openSpellConsentPrompt(requestId, casterName, spellName) {
   activeSpellConsent = { requestId };
-  spellConsentOpen = true;
+  Modals.set('spellConsentOpen', true);
   // Themed framing, but the mechanical disclosure stays explicit and
   // unambiguous on purpose — camera, one photo, sent to a named person —
   // since that clarity is the entire reason this prompt exists.
@@ -19264,7 +19245,7 @@ function openSpellConsentPrompt(requestId, casterName, spellName) {
 
 function closeSpellConsentPrompt() {
   document.getElementById('spellConsentModal').classList.add('hidden');
-  spellConsentOpen = false;
+  Modals.set('spellConsentOpen', false);
   activeSpellConsent = null;
 }
 
@@ -19315,12 +19296,11 @@ function getRoughLocation() {
   });
 }
 
-let howlConsentOpen = false;
 let activeHowlConsent = null; // { consentId }
 
 function openHowlConsentPrompt(consentId, casterName) {
   activeHowlConsent = { consentId };
-  howlConsentOpen = true;
+  Modals.set('howlConsentOpen', true);
   document.getElementById('howlConsentText').textContent =
     `${casterName} throws back their head and howls at the moon, inviting you to answer the call. Join the howl, and your device's approximate location (nearest city only, never an exact address) is sent privately to ${casterName} — never posted anywhere. The choice is yours.`;
   document.getElementById('howlConsentStatus').textContent = '';
@@ -19331,7 +19311,7 @@ function openHowlConsentPrompt(consentId, casterName) {
 
 function closeHowlConsentPrompt() {
   document.getElementById('howlConsentModal').classList.add('hidden');
-  howlConsentOpen = false;
+  Modals.set('howlConsentOpen', false);
   activeHowlConsent = null;
 }
 
@@ -19467,7 +19447,6 @@ if (roomPass30BuyBtn) {
 // 320x320 2D canvas while the modal is open; movement/keys are fully gated
 // off elsewhere (arcadeModalOpen) so this can freely use the arrow keys.
 // ---------------------------------------------------------------------------
-let arcadeModalOpen = false;
 let arcadeGameType = null; // 'snake' | 'breakout'
 let arcadeRAF = null;
 let arcadeCtx = null;
@@ -19600,7 +19579,7 @@ function resetArcadeGame(type) {
 }
 
 function arcadeLoop(now) {
-  if (!arcadeModalOpen) return;
+  if (!Modals.isOpen('arcadeModalOpen')) return;
   const dt = Math.min(0.05, (now - arcadeLast) / 1000);
   arcadeLast = now;
   if (arcadeGameType === 'snake') { updateSnake(dt); renderSnake(arcadeCtx); }
@@ -19610,7 +19589,7 @@ function arcadeLoop(now) {
 
 function openArcadeGame(type) {
   arcadeGameType = type;
-  arcadeModalOpen = true;
+  Modals.set('arcadeModalOpen', true);
   resetArcadeGame(type);
   document.getElementById('arcadeTitle').textContent = type === 'snake' ? '🐍 Snake' : '🧱 Breakout';
   // Each platform gets instructions for controls it actually has.
@@ -19628,8 +19607,8 @@ function openArcadeGame(type) {
 }
 
 function closeArcadeGame() {
-  if (!arcadeModalOpen) return;
-  arcadeModalOpen = false;
+  if (!Modals.isOpen('arcadeModalOpen')) return;
+  Modals.set('arcadeModalOpen', false);
   if (arcadeRAF) cancelAnimationFrame(arcadeRAF);
   document.getElementById('arcadeModal').classList.add('hidden');
 }
@@ -19638,7 +19617,7 @@ const arcadeCloseBtn = document.getElementById('arcadeCloseBtn');
 if (arcadeCloseBtn) arcadeCloseBtn.addEventListener('click', closeArcadeGame);
 
 window.addEventListener('keydown', (e) => {
-  if (!arcadeModalOpen) return;
+  if (!Modals.isOpen('arcadeModalOpen')) return;
   if (e.key === 'Escape' && !e.repeat) { closeArcadeGame(); return; }
   if (arcadeGameType === 'snake') {
     // Refuse 180° reversals — running back through your own neck was an
@@ -19657,7 +19636,7 @@ window.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 window.addEventListener('keyup', (e) => {
-  if (!arcadeModalOpen || arcadeGameType !== 'breakout' || !breakoutState) return;
+  if (!Modals.isOpen('arcadeModalOpen') || arcadeGameType !== 'breakout' || !breakoutState) return;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') breakoutState.leftHeld = false;
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') breakoutState.rightHeld = false;
 });
@@ -19677,7 +19656,7 @@ window.addEventListener('keyup', (e) => {
     return (clientX - r.left) * (320 / r.width); // CSS px → board coords
   };
   cv.addEventListener('touchstart', (e) => {
-    if (!arcadeModalOpen || touchId !== null) return;
+    if (!Modals.isOpen('arcadeModalOpen') || touchId !== null) return;
     const t = e.changedTouches[0];
     touchId = t.identifier;
     startX = t.clientX; startY = t.clientY; swiped = false;
@@ -19805,7 +19784,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen || sendMoneyModalOpen || spellConsentOpen || howlConsentOpen || npcShopOpen || witchShopOpen || witchConsentOpen || werewolfShopOpen || werewolfConsentOpen || boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen || locksmithModalOpen) { hint.classList.add('hidden'); return; }
+  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -19984,24 +19963,24 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) _menuSheet.classList.add('hidden');
     return;
   }
-  if (boardModalOpen) {
+  if (Modals.isOpen('boardModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeBoardModal();
     return;
   }
-  if (delveModalOpen) {
+  if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeDelveModal();
     return;
   }
-  if (locksmithModalOpen) {
+  if (Modals.isOpen('locksmithModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeLocksmithModal();
     return;
   }
-  if (covenModalOpen) {
+  if (Modals.isOpen('covenModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeCovenModal();
     return;
   }
-  if (notifModalOpen) {
-    if (e.key === 'Escape' && !e.repeat) { notifModalOpen = false; document.getElementById('notifModal').classList.add('hidden'); }
+  if (Modals.isOpen('notifModalOpen')) {
+    if (e.key === 'Escape' && !e.repeat) { Modals.set('notifModalOpen', false); document.getElementById('notifModal').classList.add('hidden'); }
     return;
   }
   const _letterM = document.getElementById('letterModal');
@@ -20014,88 +19993,88 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) _plaqueM.classList.add('hidden');
     return;
   }
-  if (legendModalOpen) {
+  if (Modals.isOpen('legendModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeLegendShop();
     return;
   }
-  if (msModalOpen) {
+  if (Modals.isOpen('msModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeMsModal();
     return;
   }
-  if (passModalOpen) {
+  if (Modals.isOpen('passModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closePassModal();
     return;
   }
-  if (bankModalOpen) {
+  if (Modals.isOpen('bankModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeBankModal();
     return;
   }
-  if (auctionModalOpen) {
+  if (Modals.isOpen('auctionModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeAuctionModal();
     return;
   }
-  if (sendMoneyModalOpen) {
+  if (Modals.isOpen('sendMoneyModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeSendMoneyModal();
     return;
   }
-  if (spellbookOpen) {
+  if (Modals.isOpen('spellbookOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeSpellbook();
     return;
   }
-  if (spellConsentOpen) {
+  if (Modals.isOpen('spellConsentOpen')) {
     if (e.key === 'Escape' && !e.repeat) denySpellConsent();
     return;
   }
-  if (howlConsentOpen) {
+  if (Modals.isOpen('howlConsentOpen')) {
     if (e.key === 'Escape' && !e.repeat) denyHowlConsent();
     return;
   }
-  if (attackPanelOpen) {
+  if (Modals.isOpen('attackPanelOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
     return;
   }
-  if (journalOpen && e.key === 'Escape' && !e.repeat) {
+  if (Modals.isOpen('journalOpen') && e.key === 'Escape' && !e.repeat) {
     closeJournal();
     return;
   }
-  if (skillsOpen && e.key === 'Escape' && !e.repeat) {
+  if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
     closeSkills();
     return;
   }
-  if (npcShopOpen) {
+  if (Modals.isOpen('npcShopOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeNpcShopModal();
     return;
   }
-  if (witchConsentOpen) {
+  if (Modals.isOpen('witchConsentOpen')) {
     if (e.key === 'Escape' && !e.repeat) {
       ws.send(JSON.stringify({ type: 'witch_selfie_payment', consentId: activeWitchConsentId, image: null }));
       closeWitchSelfieConsent();
     }
     return;
   }
-  if (witchShopOpen) {
+  if (Modals.isOpen('witchShopOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeWitchModal();
     return;
   }
-  if (werewolfConsentOpen) {
+  if (Modals.isOpen('werewolfConsentOpen')) {
     if (e.key === 'Escape' && !e.repeat) {
       ws.send(JSON.stringify({ type: 'werewolf_voice_payment', consentId: activeWerewolfConsentId, audio: null }));
       closeWerewolfVoiceConsent();
     }
     return;
   }
-  if (werewolfShopOpen) {
+  if (Modals.isOpen('werewolfShopOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeWerewolfModal();
     return;
   }
-  if (arcadeModalOpen) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
-  if (inventoryOpen && e.key === 'Escape' && !e.repeat) { toggleInventory(); return; }
+  if (Modals.isOpen('arcadeModalOpen')) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
+  if (Modals.isOpen('inventoryOpen') && e.key === 'Escape' && !e.repeat) { toggleInventory(); return; }
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
   // I = open/close inventory, same toggle the HUD button already calls
   if ((e.key === 'i' || e.key === 'I') && !e.repeat) { toggleInventory(); return; }
   // J = open/close the story Journal, same toggle as its HUD button
-  if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (journalOpen) closeJournal(); else openJournal(); return; }
-  if ((e.key === 'k' || e.key === 'K') && !e.repeat) { if (skillsOpen) closeSkills(); else openSkills(); return; }
+  if ((e.key === 'j' || e.key === 'J') && !e.repeat) { if (Modals.isOpen('journalOpen')) closeJournal(); else openJournal(); return; }
+  if ((e.key === 'k' || e.key === 'K') && !e.repeat) { if (Modals.isOpen('skillsOpen')) closeSkills(); else openSkills(); return; }
   // R = quick-strike nearest enemy
   if ((e.key === 'r' || e.key === 'R') && !e.repeat && !armedTarget) { strikeNearestEnemy(); return; }
   // V = voice countermeasure (play a saved clip to evade), P = snapshot,
@@ -20319,7 +20298,7 @@ function pollGamepad(dt) {
   const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
   const sheet = document.getElementById('menuSheet');
   const sheetOpen = sheet && !sheet.classList.contains('hidden');
-  const anyModal = boardModalOpen || delveModalOpen || covenModalOpen || notifModalOpen || passModalOpen || msModalOpen || legendModalOpen || arcadeModalOpen || bankModalOpen || auctionModalOpen;
+  const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
   if (justPressed(9)) { // Start → ☰
     if (sheet) sheet.classList.toggle('hidden');
   }
@@ -20331,7 +20310,7 @@ function pollGamepad(dt) {
     if (justPressed(0)) tryInteract();                                    // A → F
     if (justPressed(2) && me && !me.isDead) strikeNearestEnemy();         // X → strike
     if (justPressed(3)) { const b = document.getElementById('btnKit'); if (b) b.click(); } // Y → kit
-    if (justPressed(8)) { if (!journalOpen) openJournal(); }              // Back → journal
+    if (justPressed(8)) { if (!Modals.isOpen('journalOpen')) openJournal(); }              // Back → journal
     const qs = ['qs1', 'qs2', 'qs3'];
     [[4, 0], [5, 1], [7, 2]].forEach(([btn, slot]) => {                   // LB/RB/RT → quickslots
       if (justPressed(btn)) { const el = document.getElementById(qs[slot]); if (el && !el.classList.contains('hidden')) el.click(); }
@@ -20350,7 +20329,7 @@ function update(dt) {
   // map axes — "forward" always means "the way the character is currently
   // pointed." Identical indoors and out.
   let moveInput = 0, turnInput = 0, strafeInput = 0;
-  if (!typing && !seatedAt && !passModalOpen && !arcadeModalOpen && !bankModalOpen && !auctionModalOpen && !sendMoneyModalOpen && !spellConsentOpen) {
+  if (!typing && !seatedAt && !Modals.isOpen('passModalOpen') && !Modals.isOpen('arcadeModalOpen') && !Modals.isOpen('bankModalOpen') && !Modals.isOpen('auctionModalOpen') && !Modals.isOpen('sendMoneyModalOpen') && !Modals.isOpen('spellConsentOpen')) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
     if (keys.left) turnInput += 1;
