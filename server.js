@@ -736,6 +736,25 @@ app.post('/api/client-error', (req, res) => {
   res.status(204).end();
 });
 
+// == Deploy health check (Tier 3.2) ==========================================
+// Render pings this on every deploy and holds traffic on the OLD build until
+// the new one passes - so a build that boots but can't reach its data never
+// reaches players. 2xx = healthy to Render; we return 200 only if the process
+// is up AND the SQLite store answers a trivial query.
+app.get('/healthz', (req, res) => {
+  try {
+    if (sqliteDb) sqliteDb.prepare('SELECT 1').get();
+    res.status(200).json({
+      ok: true,
+      store: sqliteDb ? 'sqlite' : 'json',
+      players: players.size,
+      uptime: Math.round(process.uptime()),
+    });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'store_unreachable' });
+  }
+});
+
 const server = http.createServer(app);
 // maxPayload guards against an oversized image (or anything else) blowing up
 // server memory — the client already resizes/compresses images well under
