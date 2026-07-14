@@ -182,7 +182,7 @@ setTimeout(() => {
       { struck: bloodStruck, mob: { dead: bloodMob.dead, health: bloodMob.health, lastHitAt: bloodMob.lastHitAt, x: bloodMob.x, y: bloodMob.y }, prey: { x: bloodPreyP.x, y: bloodPreyP.y, room: bloodPreyP.room, dead: bloodPreyP.isDead, hp: bloodPreyP.health }, died: bloodPrey.lastOfType('you_died') });
     const bmMobKill = hooks.mobs[3];
     bmMobKill.dead = false; bmMobKill.health = 1;
-    const { s: bmHunter, p: bmHunterP } = join('BloodHunter', 1);
+    const { s: _bmHunter, p: bmHunterP } = join('BloodHunter', 1);
     bmHunterP.room = 'outside'; bmHunterP.x = bmMobKill.x; bmHunterP.y = bmMobKill.y;
     const bmXpBefore = hooks.getProgress(bmHunterP).xp;
     hooks.applyDamage(bmHunterP, 'mob', bmMobKill.id, 10, 100);
@@ -275,7 +275,7 @@ setTimeout(() => {
     const npcId = 'npc_armorer';
     const questId = hooks.QUEST_BY_NPC[npcId][0]; // an NPC carries a LIST of jobs now (Session M) — any one earns regular status
     // Fake an account identity 'nearby' having done the quest.
-    const acctSetup = require('../server.js'); // already loaded — no-op
+    const _acctSetup = require('../server.js'); // already loaded — no-op
     check('armorer has a side quest to be a regular of', !!questId);
     const ownProg = hooks.getProgress(nearP);
     ownProg.questsDone = { [questId]: true };
@@ -357,7 +357,7 @@ setTimeout(() => {
     // 12 creature-hunt quests; the old "all quests once < gate" proxy no longer
     // holds and shouldn't — doing 30+ hunts/harvests IS the required playtime.)
     const knightChXp = hooks.STORYLINES[3].chapters.slice(0, 5).reduce((a, c) => a + c.xpReward, 0);
-    const allQuestXp = Object.values(hooks.QUEST_CATALOG).reduce((a, q) => a + q.xpReward, 0);
+    const _allQuestXp = Object.values(hooks.QUEST_CATALOG).reduce((a, q) => a + q.xpReward, 0);
     check('campaign chapters alone come nowhere near the finale gate (≤ a third of it)',
       knightChXp * 3 < xpForL8, { knightChXp, xpForL8 });
     check('every side quest is earned through open-world play, never just handed over',

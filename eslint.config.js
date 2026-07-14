@@ -43,15 +43,19 @@ module.exports = [
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node, ...globals.browser } },
     rules: { ...bugRules, 'no-undef': 'error' },
   },
-  // ESM smoke/harness scripts — same browser-via-Playwright situation.
+  // ESM smoke/harness scripts — same browser-via-Playwright situation. `ws` and
+  // `me` are app globals defined by client.js in the page context; the smoke
+  // test reads them inside page.evaluate() diagnostics (guarded by typeof), so
+  // declare them here rather than let no-undef flag legitimate page globals.
   {
     files: ['test/**/*.mjs'],
-    languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node, ...globals.browser } },
+    languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node, ...globals.browser, ws: 'readonly', me: 'readonly' } },
     rules: { ...bugRules, 'no-undef': 'error' },
   },
   // Browser client — one big global <script>; leans on bundled-script globals
-  // (THREE, fx.js -> FX/LEGEND_FX, face-api -> faceapi). no-undef stays 'warn'
-  // (whitelist then flip to 'error'); the load-crash class is caught by the smoke test.
+  // (THREE, fx.js -> FX/LEGEND_FX, face-api -> faceapi). Whitelist is complete
+  // (0 no-undef warnings), so no-undef is now 'error' — an undefined global here
+  // is a real load-crash bug, and the smoke test backs it up at runtime.
   {
     files: ['public/client.js'],
     languageOptions: {
@@ -59,6 +63,6 @@ module.exports = [
       sourceType: 'script',
       globals: { ...globals.browser, THREE: 'readonly', faceapi: 'readonly', FX: 'readonly', LEGEND_FX: 'readonly' },
     },
-    rules: { ...bugRules, 'no-undef': 'warn' },
+    rules: { ...bugRules, 'no-undef': 'error' },
   },
 ];

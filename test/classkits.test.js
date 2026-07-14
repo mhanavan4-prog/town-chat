@@ -77,7 +77,7 @@ setTimeout(() => {
 
   const wolfPlayer = hooks.players.get(wolfId);
   wolfPlayer.health = 40;
-  const wolfHpBeforeLeech = wolfPlayer.health;
+  const _wolfHpBeforeLeech = wolfPlayer.health;
   mystic.emit('message', JSON.stringify({ type: 'cast_attack', attackId: 'soul_siphon', targetId: knightId }));
   check('Mystic Soul Siphon lands', /Soul Siphon/.test((mystic.lastOfType('attack_result') || {}).message || ''));
   check('Soul Siphon heals the caster back', hooks.players.get(mysticId).health > 50 - 28);
@@ -140,7 +140,7 @@ setTimeout(() => {
   // --- Every catalog entry is well-formed (server side) ---
   let malformed = 0;
   for (const cid of [1, 2, 3, 4]) {
-    for (const [id, atk] of Object.entries(hooks.ATTACK_CATALOGS[cid])) {
+    for (const [_id, atk] of Object.entries(hooks.ATTACK_CATALOGS[cid])) {
       if (!atk.name || !atk.kind || !atk.effect) malformed++;
       if (atk.effect === 'damage' || atk.effect === 'leech') {
         if (!(atk.dmgMin > 0 && atk.dmgMax >= atk.dmgMin)) malformed++;

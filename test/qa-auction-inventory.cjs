@@ -139,7 +139,7 @@ const check = (desc, cond, detail) => {
     check('a pack item is selectable (value starts inv:)', !!packOpt, packOpt && packOpt.t);
 
     console.log('── List the pack item end-to-end ──');
-    const listingsBefore = (await td('send', { type: 'auction_browse' }), await page.evaluate(() => {
+    const _listingsBefore = (await td('send', { type: 'auction_browse' }), await page.evaluate(() => {
       const l = document.getElementById('auctionListings');
       return l ? l.children.length : -1;
     }));

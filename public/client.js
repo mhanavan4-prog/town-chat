@@ -2630,7 +2630,6 @@ function renderStats() {
     const nm = document.createElement('div'); nm.className = 'statRowName'; nm.textContent = d.name;
     const sp = document.createElement('div'); sp.className = 'statRowSplit';
     // vitality is flat points; the rest are percentages
-    const asPct = d.key !== 'vitality';
     const skillTxt = d.key === 'vitality' ? `+${Math.round(st.skill)}` : `+${Math.round(st.skill * 100)}%`;
     const gearTxt  = d.key === 'vitality' ? `+${Math.round(st.gear)}`  : `+${Math.round(st.gear * 100)}%`;
     sp.textContent = `${d.hint} · skills ${skillTxt} · gear ${gearTxt}`;
@@ -2738,7 +2737,6 @@ function renderInventoryItemsPanel() {
     const cell = document.createElement('div');
     cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedInvSlotIdx === idx ? ' selected' : '');
     if (slot) {
-      const item = ITEM_CATALOG[slot.itemId];
       const icon = buildItemIconEl(slot.itemId);
       const qty = document.createElement('span');
       qty.className = 'slotQty';
@@ -2929,7 +2927,6 @@ function destroyNote(noteId) {
 // peek/steal entirely (see server.js cast_attack pickpocket branch).
 // ---------------------------------------------------------------------------
 let lastHardDriveState = null; // { hasPassword, notes, capacity } once unlocked/known
-let hdUnlockAttempted = false;
 
 function ownsHardDrive() {
   return !!(lastInventoryState && lastInventoryState.slots.some(s => s && s.itemId === 'hard_drive'));
@@ -7633,7 +7630,7 @@ const GFX = (() => {
       st.skyGroup.position.z = activeCamera.position.z;
     }
     // fireflies: only animate the active scene's cluster, at dusk/night
-    if (q !== 'low' || true) {
+    if (q !== 'low') {
       for (const f of st.fireflies) {
         if (f.scene !== activeScene) continue;
         f.mat.opacity = night * 0.85;
@@ -7849,7 +7846,7 @@ function initScene(w) {
   // matching rendered-height ramp), same as addNatureDecor() adding tree
   // colliders by hand. Position/size shared with getFloorHeight() via the
   // TEMPLE_PLATFORM_* constants so the two can't drift apart.
-  const templeCx = TEMPLE_PLATFORM_X, templeCz = TEMPLE_PLATFORM_Z, templeW = TEMPLE_PLATFORM_W, templeD = TEMPLE_PLATFORM_D;
+  const templeCx = TEMPLE_PLATFORM_X, templeCz = TEMPLE_PLATFORM_Z, templeD = TEMPLE_PLATFORM_D;
   scene.add(buildTownTemple(templeCx, templeCz));
   const altarW = 64, altarD = 64;
   walls.push({ x: templeCx - altarW / 2, y: templeCz - altarD / 2, w: altarW, h: altarD });
@@ -9888,7 +9885,6 @@ function addThornwardenCamp(scene) {
   const postMat   = new THREE.MeshLambertMaterial({ color: 0x2a1a08 });
   const tentMat   = new THREE.MeshLambertMaterial({ color: 0x7a5a28 });
   const tentDkMat = new THREE.MeshLambertMaterial({ color: 0x5a3e18 });
-  const stoneMat  = new THREE.MeshLambertMaterial({ color: 0x4a4a44 });
   const metalMat  = new THREE.MeshLambertMaterial({ color: 0x6a6a74 });
   const fireMat   = new THREE.MeshLambertMaterial({ color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 1 });
 
@@ -9976,7 +9972,6 @@ function addThornwardenCamp(scene) {
   }
 
   // Central bonfire
-  const fireRing = [0x888,0.85,0.5];
   const fireBase = new THREE.Mesh(new THREE.CylinderGeometry(24, 28, 8, 10),
     new THREE.MeshLambertMaterial({ color: 0x555544 }));
   fireBase.position.set(CX, 4, CZ + 55);
@@ -10036,7 +10031,7 @@ function addThornwardenCamp(scene) {
 // ---------------------------------------------------------------------------
 function addGiantWerewolfTree(scene) {
   const TX = 6500, TZ = 6200;
-  const TRUNK_H = 400, TRUNK_TOP_Y = TRUNK_H / 2; // top face of trunk geometry
+  const TRUNK_H = 400;
   const PLATFORM_Y = 180; // treehouse floor height
 
   const darkBark  = new THREE.MeshLambertMaterial({ color: 0x2d1a0a });
@@ -11351,7 +11346,6 @@ function _dmEyes(g, ec, y, z, sep, r) {
 // scale come from DUNGEON_MOB_VISUALS via makeDungeonMob (unchanged).
 function scShade(h,f){ let r=Math.min(255,(h>>16&255)*f|0), g=Math.min(255,(h>>8&255)*f|0), b=Math.min(255,(h&255)*f|0); return (r<<16)|(g<<8)|b; }
 function scMat(h){ return new THREE.MeshStandardMaterial({ color:h, roughness:0.82, metalness:0.04, flatShading:true }); }
-function scMetalMat(h){ return new THREE.MeshStandardMaterial({ color:h, roughness:0.45, metalness:0.55, flatShading:true }); }
 function scGlowMat(h){ return new THREE.MeshStandardMaterial({ color:h, emissive:h, emissiveIntensity:1.1, roughness:0.4, flatShading:true }); }
 const SC_BONE=0xe9e0c8;
 function scEyes(g,ec,y,z,sep,r){ for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(r,8,8),scGlowMat(ec)); e.position.set(s*sep,y,z); g.add(e);} }
@@ -14198,16 +14192,6 @@ function makeThrone(x, z, rotY) {
   const armL = new THREE.Mesh(armGeo, armMat); armL.position.set(-15, 32, 0); g.add(armL);
   const armR = new THREE.Mesh(armGeo, armMat); armR.position.set(15, 32, 0); g.add(armR);
   g.position.set(x, 0, z); g.rotation.y = rotY || 0;
-  return g;
-}
-
-function makeCauldron(x, z) {
-  const g = new THREE.Group();
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(13, 9, 16, 10), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
-  pot.position.y = 10; g.add(pot);
-  const brew = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 2, 10), new THREE.MeshBasicMaterial({ color: 0x6dff7a }));
-  brew.position.y = 18; g.add(brew);
-  g.position.set(x, 0, z);
   return g;
 }
 
@@ -17656,7 +17640,6 @@ function renderBoonDraft() {
   const timerEl = document.getElementById('boonTimer');
   clearInterval(boonDraftTimer);
   const paint = () => {
-    const left = Math.max(0, Math.ceil(((delveState && delveState.draftEndsAt) || 0 - Date.now()) / 1000 - Date.now() / 1000 + ((delveState && delveState.draftEndsAt) || 0) / 1000));
     const secs = Math.max(0, Math.ceil((((delveState && delveState.draftEndsAt) || 0) - Date.now()) / 1000));
     timerEl.textContent = secs > 0 ? `The way down opens in ${secs}s — undecided delvers take the first boon.` : '…';
   };
@@ -18448,7 +18431,6 @@ function renderBankModal() {
     const cell = document.createElement('div');
     cell.className = 'itemSlot' + (slot ? '' : ' empty') + (selectedBankSlotIdx === idx ? ' selected' : '');
     if (slot) {
-      const item = ITEM_CATALOG[slot.itemId];
       const icon = buildItemIconEl(slot.itemId);
       const qty = document.createElement('span');
       qty.className = 'slotQty';

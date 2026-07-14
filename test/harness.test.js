@@ -52,7 +52,7 @@ setTimeout(() => {
   const bobInit = bob.lastOfType('init');
   check('bob sees alice in init snapshot', bobInit && bobInit.players.some(p => p.name === 'Alice'));
   check('alice notified of bob joining', !!alice.lastOfType('player_joined'));
-  const bobId = bobInit.id;
+  const _bobId = bobInit.id;
 
   // --- Both move into the cafe room ---
   const world = aliceInit.world;

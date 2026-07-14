@@ -2000,7 +2000,6 @@ function loadInventories() { return persistLoad('inventories', INVENTORY_FILE); 
 function saveInventories() { persistSave('inventories', INVENTORY_FILE, inventories); }
 const inventories = loadInventories(); // usernameLower -> { slots, equippedWeapon, equippedHead, equippedChest, equippedFeet, equippedRing }
 persistRegister('inventories', INVENTORY_FILE, () => inventories);
-const INVENTORY_STARTER_ITEM_COUNT = 2;
 // All possible equip slot keys — used throughout to avoid scattered literals.
 const EQUIP_SLOTS = ['weapon', 'head', 'chest', 'feet', 'ring'];
 
@@ -2027,14 +2026,6 @@ function starterInventory(charId) {
     equippedFeet:   gear.feet   || null,
     equippedRing:   gear.ring   || null
   };
-}
-
-function freshInventory() {
-  const slots = emptySlots();
-  for (let i = 0; i < INVENTORY_STARTER_ITEM_COUNT; i++) {
-    slots[i] = { itemId: ITEM_IDS[Math.floor(Math.random() * ITEM_IDS.length)], qty: 1 };
-  }
-  return { slots, equippedWeapon: null, equippedHead: null, equippedChest: null, equippedFeet: null, equippedRing: null };
 }
 
 // The live inventory object for this connection — loaded/created in
@@ -4629,7 +4620,6 @@ function tickWildlife(dt) {
 // ---------------------------------------------------------------------------
 const ANIMALS2_COUNT = 40; // was 36 — the Wilds now has a real ecosystem of prey
 const ANIMAL2_SPAWNS = makeWildsScatter(0x5e21, 14, ANIMALS2_COUNT).map(([x, y]) => ({ x, y }));
-const ANIMAL2_MAX_HEALTH = 30;
 const ANIMAL2_RESPAWN_MS = 90 * 1000;
 
 // Peaceful critters (Session M) — the Wilds used to hold only rabbits for
@@ -4677,7 +4667,6 @@ const MOB2_TYPES = {
   gloom_bat:   { name: 'Gloom Bat',   color: 0x1c1c26, scale: 0.7, maxHealth: 26, speed: 78, aggroRadius: 200, strikeRange: 44, dmgMin: 5, dmgMax: 9, hitCooldownMs: 1300, xp: 12, flyer: true, lifesteal: 0.5 },
   old_marrowe: { name: 'Old Marrowe, the Gallows Warden', color: 0x8a3a2a, scale: 1.7, maxHealth: 340, speed: 34, aggroRadius: 240, strikeRange: 62, dmgMin: 18, dmgMax: 28, hitCooldownMs: 2000, xp: 220, elite: true, bloodMoonOnly: true }
 };
-const MOB2_KEYS = Object.keys(MOB2_TYPES);
 const MOB2_SPAWNS = [
   // The original eight, one pair per type…
   { x: 150, y: 500, type: 'shade_stalker' }, { x: 850, y: 500, type: 'shade_stalker' },
@@ -4731,7 +4720,6 @@ const MOB3_TYPES = {
   mossback_tortoise: { name: 'Mossback Tortoise', color: 0x46583a, scale: 1.3,  maxHealth: 170, wanderSpeed: 8,  chaseSpeed: 24, strikeRange: 46, dmgMin: 8,  dmgMax: 14, hitCooldownMs: 2400, xp: 22, provokeMs: 10000, armor: 0.45 },
   gravewing_crow:    { name: 'Gravewing Crow',    color: 0x1a1a24, scale: 0.8,  maxHealth: 30,  wanderSpeed: 30, chaseSpeed: 72, strikeRange: 40, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1500, xp: 12, provokeMs: 9000, flyer: true },
 };
-const MOB3_KEYS = Object.keys(MOB3_TYPES);
 const MOB3_SPAWNS = [
   { x: 360, y: 720, type: 'bramble_boar' }, { x: 740, y: 220, type: 'bramble_boar' }, { x: 560, y: 540, type: 'bramble_boar' },
   { x: 180, y: 460, type: 'mossback_tortoise' }, { x: 820, y: 400, type: 'mossback_tortoise' },
@@ -5093,11 +5081,6 @@ const DUNGEON_LORE = {
     plaque: '“Lanterns gutter here not from wind but from doubt. This is the sea-floor of the night sky, where fallen constellations settle like silt. The Pale Sovereign holds court over everything the stars forgot — and it is always listening for new names.”'
   }
 };
-function dungeonNameForRoom(room) {
-  const m = /^dungeon_t([1-4])$/.exec(room || '');
-  return m ? DUNGEON_LORE[Number(m[1])].name : null;
-}
-
 const DUNGEON_MOB_TYPES = {
   // Tier 1 — levels 1-5
   cave_rat:         { name: 'Cave Rat',         tier: 1, xp: 8,  color: 0x6b4c2a, scale: 0.55, maxHealth: 20,  speed: 70,  aggroRadius: 150, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1400 },
@@ -5169,13 +5152,6 @@ const DUNGEON_SPAWN_POSITIONS = [
 // baffles, clear of the walls, boss in the deep north chamber. Tiers 2-4 keep
 // the old open-arena grid until they're revamped too. Delve floors keep using
 // DUNGEON_SPAWN_POSITIONS directly.
-const DUNGEON_LABYRINTH_POSITIONS = [
-  { x: 360, y: 1080 }, { x: 840, y: 1080 },
-  { x: 200, y: 900 }, { x: 520, y: 890 }, { x: 900, y: 890 }, { x: 680, y: 920 },
-  { x: 220, y: 720 }, { x: 560, y: 730 }, { x: 960, y: 700 }, { x: 400, y: 745 },
-  { x: 240, y: 540 }, { x: 620, y: 550 }, { x: 960, y: 520 },
-  { x: 360, y: 280 }, { x: 840, y: 280 }, { x: 600, y: 160 }
-];
 const DUNGEON_LANES_T1 = [ { x:70, y:1130 }, { x:1130, y:1130 }, { x:70, y:510 }, { x:1130, y:510 }, { x:590, y:850 }, { x:170, y:70 }, { x:1030, y:70 }, { x:770, y:550 }, { x:410, y:550 }, { x:930, y:850 }, { x:230, y:830 }, { x:410, y:1130 }, { x:750, y:1130 }, { x:330, y:290 }, { x:870, y:290 }, { x:410, y:70 } ];
 const DUNGEON_LANES_T2 = [ { x:1130, y:70 }, { x:1130, y:1130 }, { x:530, y:70 }, { x:530, y:1130 }, { x:830, y:590 }, { x:70, y:150 }, { x:70, y:1050 }, { x:1130, y:770 }, { x:830, y:950 }, { x:530, y:770 }, { x:830, y:230 }, { x:530, y:410 }, { x:1130, y:410 }, { x:270, y:330 }, { x:270, y:870 }, { x:290, y:70 } ];
 const DUNGEON_LANES_T3 = [ { x:70, y:70 }, { x:1130, y:70 }, { x:70, y:1130 }, { x:1130, y:1130 }, { x:590, y:70 }, { x:70, y:590 }, { x:1130, y:590 }, { x:490, y:1030 }, { x:830, y:930 }, { x:330, y:270 }, { x:850, y:270 }, { x:230, y:850 }, { x:870, y:670 }, { x:1090, y:850 }, { x:1110, y:330 }, { x:70, y:330 } ];

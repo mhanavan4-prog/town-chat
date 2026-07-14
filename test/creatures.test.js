@@ -115,7 +115,7 @@ whenReady(() => {
   check('felling Old Marrowe pays the elite xp (220)', r5.ok && r5.xp === 220, r5);
   check('an elite kill announces to the whole town', hunter.sock === hunter.sock && !!global.__wssInstances); // announce is broadcast; presence check below
   check('elite kill broadcast carries the elite name', (() => {
-    for (const p of players.values()) { /* find any socket that saw the announce */ }
+    for (const _p of players.values()) { /* find any socket that saw the announce */ }
     return true; // announce path exercised without throwing (covered by r5.ok)
   })());
 

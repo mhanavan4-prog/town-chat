@@ -55,7 +55,7 @@ const check = (desc, cond, detail) => {
 
   // Fresh load presenting the stored receipt (also proves the receipt path).
   await join('PassBuyer');
-  const passState = await page.evaluate(() => document.getElementById('menuPassState') ? document.getElementById('menuPassState').textContent : '');
+  const _passState = await page.evaluate(() => document.getElementById('menuPassState') ? document.getElementById('menuPassState').textContent : '');
   await page.tap('#menuBtn'); await page.waitForTimeout(300);
   const passText = await page.evaluate(() => (document.getElementById('menuPassState') || {}).textContent || '');
   check('menu shows an active pass with time left', /left/.test(passText), 'menuPassState=' + passText);

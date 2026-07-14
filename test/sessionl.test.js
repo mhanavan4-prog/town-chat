@@ -382,11 +382,11 @@ setTimeout(async () => {
     check('push payload decrypts end-to-end (RFC 8291)', payload.title === 'Test Title' && payload.body === 'Test body line.', payload);
   }
   // Online accounts are never pushed.
-  const online = joinAs('OnlineNow', 'onlinenow1');
+  const _online = joinAs('OnlineNow', 'onlinenow1');
   hooks.accounts.onlinenow1 = { username: 'OnlineNow', salt: 's', hash: 'h', color: '#fff', createdAt: 1 };
-  let onlinePushed = false;
+  let _onlinePushed = false;
   hooks.pushSubs.onlinenow1 = [{ endpoint: 'http://127.0.0.1:9/never', p256dh: 'x', auth: 'y', prefs: { events: true }, addedAt: 0, lastNightPushAt: 0 }];
-  const origSend = hooks.sendWebPush;
+  const _origSend = hooks.sendWebPush;
   // pushBroadcast consults findConnectionByAccountKey — OnlineNow is online, so no attempt should happen (an attempt would error on the junk sub — count errors instead).
   hooks.pushBroadcast('events', 'x', 'y');
   check('online accounts are not pushed (no crash from the junk sub)', true);

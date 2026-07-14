@@ -56,10 +56,10 @@ setTimeout(() => {
   notes.push(`Wilds plant instances: ${plantCounts.map(([t, n]) => `${t}:${n}`).join(', ')}`);
 
   const demands = []; // [{source, itemId, qty}]
-  for (const [qid, q] of Object.entries(H.QUEST_CATALOG)) {
+  for (const [_qid, q] of Object.entries(H.QUEST_CATALOG)) {
     if (q.type === 'harvest_specific') demands.push({ source: `side quest "${q.name}"`, itemId: q.targetItemId, qty: q.target });
   }
-  for (const [cid, line] of Object.entries(H.STORYLINES)) {
+  for (const [_cid, line] of Object.entries(H.STORYLINES)) {
     for (const ch of line.chapters) {
       if (ch.objective.type === 'harvest_specific') demands.push({ source: `${line.title} — "${ch.title}"`, itemId: ch.objective.itemId, qty: ch.objective.target });
     }

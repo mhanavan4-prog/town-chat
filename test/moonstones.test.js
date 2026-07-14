@@ -36,7 +36,7 @@ setTimeout(() => {
   const hooks = global.__testHooks;
   const {
     msBalance, msAdjust, grantMoonstones, MS_PACKS,
-    LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE
+    LEGENDARY_CATALOG, legendaryWeeklySet, AUCTION_MS_FEE
   } = hooks;
 
   // ── catalog invariants ────────────────────────────────────────────────
@@ -60,7 +60,7 @@ setTimeout(() => {
   check('every legendary is equippable', slotOk);
 
   // merged into the live catalogs
-  const sample = ids[0];
+  const _sample = ids[0];
   check('legendaries merged into ITEM_CATALOG (via NPC_SHOPS reachable catalog)', !!hooks.NPC_SHOPS && true);
   // icons unique across the ENTIRE item catalog (legendaries + originals)
   // — read the icons straight from the served init contract instead:

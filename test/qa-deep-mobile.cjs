@@ -77,7 +77,7 @@ const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, 25 * 9); // mirrors server.
     const cs = getComputedStyle(el);
     return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden';
   }, id);
-  const tapTouch = async (x, y) => { await page.touchscreen.tap(x, y); };
+  const _tapTouch = async (x, y) => { await page.touchscreen.tap(x, y); };
   const joySwipe = async (dx, dy, holdMs) => {
     await page.evaluate(([dx, dy, holdMs]) => new Promise((res) => {
       const z = document.getElementById('joyZone');
