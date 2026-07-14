@@ -27,6 +27,9 @@ module.exports = [
       'public/three.min.js', 'public/face-api.min.js',
       'public/GLTFLoader.js', 'public/SkeletonUtils.js', 'public/fx.js',
       'test/three-stub.js',
+      // public/client.js is now a BUILD ARTIFACT (esbuild bundles client/*.js
+      // into it). Lint the source under client/, never the generated bundle.
+      'public/client.js',
     ],
   },
   // Server — pure Node. A browser global here WOULD be a real bug, so node-only.
@@ -59,15 +62,17 @@ module.exports = [
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: { ...bugRules, 'no-undef': 'error' },
   },
-  // Browser client — one big global <script>; leans on bundled-script globals
-  // (THREE, fx.js -> FX/LEGEND_FX, face-api -> faceapi). Whitelist is complete
-  // (0 no-undef warnings), so no-undef is now 'error' — an undefined global here
-  // is a real load-crash bug, and the smoke test backs it up at runtime.
+  // Browser client source (Tier 3.4 Phase C) — ES modules under client/, bundled
+  // by esbuild into public/client.js. Still leans on vendored-script globals
+  // (THREE, fx.js -> FX/LEGEND_FX, face-api -> faceapi) that index.html loads
+  // before the bundle. Whitelist is complete, so no-undef stays 'error' — an
+  // undefined global here is a real load-crash bug, and the smoke test backs it
+  // up at runtime.
   {
-    files: ['public/client.js'],
+    files: ['client/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023,
-      sourceType: 'script',
+      sourceType: 'module',
       globals: { ...globals.browser, THREE: 'readonly', faceapi: 'readonly', FX: 'readonly', LEGEND_FX: 'readonly' },
     },
     rules: { ...bugRules, 'no-undef': 'error' },
