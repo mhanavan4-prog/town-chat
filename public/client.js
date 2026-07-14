@@ -281,6 +281,7 @@ const ITEM_CATALOG = {
   iron_ore:       { name: 'Iron Ore',       icon: '⛏️', slot: null, desc: 'Cold iron from the vein — the fae keep their distance.' },
   enchanted_fur:  { name: 'Enchanted Fur',  icon: '🌟', slot: null, desc: 'Glows faintly. Purrs if you fold it wrong.' },
   shadow_essence: { name: 'Shadow Essence', icon: '🫥', slot: null, desc: 'Distilled dark. Keep the stopper IN.' },
+  glimmerdust:    { name: 'Glimmerdust',    icon: '✨', slot: null, desc: 'Scale-dust shed by embermoths; it keeps a faint light for hours after it falls.' },
   // --- Wildlands quest rewards (were server-only before — the client
   //     couldn't render them at all if a player earned one) ---
   lumber_bundle:  { name: 'Lumber Bundle',  icon: '🪚', slot: null, desc: 'Thornwood planks, cut and cursed against rot.' },
@@ -1608,6 +1609,17 @@ function onWsMessage(ev) {
   if (msg.type === 'shop_bought') {
     setUnlockToast(`🛒 Bought ${msg.itemName} for ${msg.price} gold!`);
     // Refresh balance display next time shop is opened
+    return;
+  }
+
+  if (msg.type === 'shop_sold') {
+    setUnlockToast(`💰 Sold ${msg.itemName}${msg.qty > 1 ? ' ×' + msg.qty : ''} for ${msg.gold} gold!`);
+    if (lastBankState) lastBankState.balance = msg.balance;
+    if (npcShopOpen) {
+      const balEl = document.getElementById('npcShopBalance');
+      if (balEl) balEl.textContent = `Balance: ${msg.balance} 🪙`;
+      if (shopTab === 'sell') renderShopTab(); // reflect the now-smaller stack
+    }
     return;
   }
 
@@ -3781,19 +3793,64 @@ function closeNpcShopModal() {
   if (el) el.classList.add('hidden');
 }
 
+let shopBuyItems = [];
+let shopSellValues = {};
+let shopTab = 'buy';
+
 function renderNpcShop(msg) {
   npcShopOpen = true;
   currentShopNpcId = msg.npcId;
   currentShopNpcName = msg.npcName;
+  shopBuyItems = msg.items || [];
+  if (msg.sellValues) shopSellValues = msg.sellValues;
   document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
   const bal = lastBankState ? lastBankState.balance : '?';
   const balEl = document.getElementById('npcShopBalance');
-  // The keeper's greeting — if you're masked, they greet the FACE, and if
-  // that face is one of their regulars, the discount comes with it.
   balEl.textContent = (msg.greeting ? `“${msg.greeting}”  ·  ` : '') + `Balance: ${bal} 🪙`;
+  ensureShopTabs();
+  renderShopTab();
+  document.getElementById('npcShopErr').textContent = '';
+  document.getElementById('npcShopModal').classList.remove('hidden');
+}
+
+// Buy/Sell tab bar — built once and inserted above the item list, so no
+// index.html change is needed. Buy shows the keeper's wares; Sell shows the
+// player's own sellable stacks (from lastInventoryState) priced by
+// shopSellValues, which the server ships in npc_shop_state.
+function ensureShopTabs() {
+  if (document.getElementById('npcShopTabs')) return;
+  const items = document.getElementById('npcShopItems');
+  if (!items || !items.parentNode) return;
+  const bar = document.createElement('div');
+  bar.id = 'npcShopTabs';
+  bar.style.cssText = 'display:flex;gap:8px;margin:4px 0 2px;';
+  for (const t of [['buy', '🛒 Buy'], ['sell', '💰 Sell']]) {
+    const b = document.createElement('button');
+    b.dataset.tab = t[0];
+    b.textContent = t[1];
+    b.style.cssText = 'flex:1;padding:7px 0;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;';
+    b.addEventListener('click', () => { shopTab = t[0]; renderShopTab(); });
+    bar.appendChild(b);
+  }
+  items.parentNode.insertBefore(bar, items);
+}
+
+function renderShopTab() {
+  const bar = document.getElementById('npcShopTabs');
+  if (bar) for (const b of bar.children) {
+    const active = b.dataset.tab === shopTab;
+    b.style.background = active ? '#3366aa' : 'rgba(255,255,255,0.08)';
+    b.style.color = active ? '#fff' : '#9fb0c0';
+  }
   const container = document.getElementById('npcShopItems');
+  if (!container) return;
   container.innerHTML = '';
-  for (const item of msg.items) {
+  if (shopTab === 'sell') renderShopSellList(container);
+  else renderShopBuyList(container);
+}
+
+function renderShopBuyList(container) {
+  for (const item of shopBuyItems) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     const priceHtml = item.basePrice && item.basePrice !== item.price
@@ -3806,14 +3863,47 @@ function renderNpcShop(msg) {
     row.querySelector('button').addEventListener('click', () => {
       ws.send(JSON.stringify({ type: 'npc_buy_item', npcId: currentShopNpcId, itemId: item.id }));
     });
-    // Same shared tooltip used for inventory/equip slots elsewhere — looks
-    // up stats/description from the client's own ITEM_CATALOG by id.
     row.addEventListener('mouseenter', (e) => showItemTooltip(e, item.id));
     row.addEventListener('mouseleave', hideTooltip);
     container.appendChild(row);
   }
-  document.getElementById('npcShopErr').textContent = '';
-  document.getElementById('npcShopModal').classList.remove('hidden');
+}
+
+function renderShopSellList(container) {
+  const slots = (lastInventoryState && lastInventoryState.slots) || [];
+  const totals = {};
+  for (const sl of slots) {
+    if (!sl || !sl.itemId) continue;
+    if (!(shopSellValues[sl.itemId] > 0)) continue; // only what the shop will buy
+    totals[sl.itemId] = (totals[sl.itemId] || 0) + sl.qty;
+  }
+  const ids = Object.keys(totals);
+  if (!ids.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:18px 10px;color:#9fb0c0;text-align:center;font-size:13px;';
+    empty.textContent = 'Nothing here they’ll buy — sellable materials and gear show up as you gather them.';
+    container.appendChild(empty);
+    return;
+  }
+  for (const itemId of ids) {
+    const meta = ITEM_CATALOG[itemId] || { name: itemId, icon: '❔' };
+    const unit = shopSellValues[itemId];
+    const qty = totals[itemId];
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
+    row.innerHTML = `<span style="font-size:20px;">${meta.icon}</span>
+      <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span></span>
+      <span style="color:#ffd700;font-weight:700;">${unit} 🪙<span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
+      <button data-q="1" style="padding:5px 10px;background:#2f7a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Sell 1</button>
+      <button data-q="all" style="padding:5px 10px;background:rgba(47,122,79,0.55);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">All (${qty})</button>`;
+    row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      const sellQty = b.dataset.q === 'all' ? qty : 1;
+      ws.send(JSON.stringify({ type: 'npc_sell_item', npcId: currentShopNpcId, itemId, qty: sellQty }));
+    }));
+    row.addEventListener('mouseenter', (e) => showItemTooltip(e, itemId));
+    row.addEventListener('mouseleave', hideTooltip);
+    container.appendChild(row);
+  }
 }
 
 const npcShopCloseBtn = document.getElementById('npcShopCloseBtn');
@@ -13255,10 +13345,21 @@ function makeSignSprite(text) {
 // title — optional smaller italic line below a thin rule
 function makeNpcNameSprite(name, title) {
   const hasTtl = !!title;
-  const W = hasTtl ? 360 : 240, H = hasTtl ? 80 : 52;
+  const H = hasTtl ? 80 : 52;
   const c = document.createElement('canvas');
-  c.width = W; c.height = H;
   const ctx = c.getContext('2d');
+  // Canvas width: two-line NPC plates keep their fixed 360; single-line plates
+  // (including the signature boss banners, e.g. "Old Gnawbone, the Rat King")
+  // measure the text and grow the canvas to fit long names instead of clipping
+  // them at a fixed 240px. Short single-line names still resolve to 240.
+  let W;
+  if (hasTtl) {
+    W = 360;
+  } else {
+    ctx.font = 'bold 22px Georgia, "Times New Roman", serif';
+    W = Math.max(240, Math.ceil(ctx.measureText(name).width) + 48);
+  }
+  c.width = W; c.height = H;
 
   ctx.fillStyle = 'rgba(8, 4, 18, 0.80)';
   ctx.fillRect(0, 0, W, H);
@@ -13317,7 +13418,7 @@ function makeNpcNameSprite(name, title) {
   // "announce, then get out of the way" behavior in updateNameLabelHover().
   const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(hasTtl ? 158 : 102, hasTtl ? 35 : 23, 1);
+  sprite.scale.set(hasTtl ? 158 : 102 * (W / 240), hasTtl ? 35 : 23, 1);
   sprite.visible = false; // hover-only — see updateNameLabelHover()
   HOVER_NAME_SPRITES.push(sprite);
   return sprite;

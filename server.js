@@ -1281,6 +1281,43 @@ const ITEM_CATALOG = {
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
+
+// ── Selling to shopkeepers (Session M) ──────────────────────────────────────
+// Gold used to have only faucets (loot + quests) and almost no way to turn a
+// full inventory of materials back into coin. These per-item sell values are
+// deliberately LOW and tiered by rarity — selling clears clutter and rewards
+// hunting, it is NOT meant to mint gold (crafting is the real gold SINK). Every
+// value here sits well under the same item's NPC BUY price, so there is no
+// buy-low/sell-high loop. Items not listed fall through sellValueFor():
+// equipment is valued from its own stats (~40-50% of its combat worth); any
+// other non-equippable id is unsellable (0) — e.g. the Hard Drive, which holds
+// the player's own notes, and Moonstone-bought legendaries (not in ITEM_CATALOG).
+const SELL_VALUES = {
+  fur_scrap: 2, bone_shard: 2, berries: 2, flower_bloom: 3,
+  animal_pelt: 6, leather_hide: 7, iron_ore: 8, shadow_essence: 9,
+  glimmerdust: 7, stone_block: 6, lumber_bundle: 6, wood: 3,
+  enchanted_fur: 16, iron_ingot: 18, magic_scroll: 15, enchanted_gem: 22,
+  dragon_scale: 28, druid_stone: 24, hollow_shard: 26, bloodmoon_shard: 20,
+  ancient_coin: 45, golden_chalice: 75,
+  healing_potion: 5, healing_herb: 6, regen_root: 6, cleansing_clover: 5,
+  swift_root: 5, featherleaf: 4, giants_cap: 6, shrinking_violet: 4,
+  pumpkin_blossom: 4, bats_breath: 5, rainbow_petal: 5, ravens_feather_plant: 6,
+  stumbleweed: 3, gibberish_root: 4, toadstool: 4, wolfsbane_bloom: 6,
+  meditation_lotus: 7, health_potion_ii: 12, regen_brew: 9, swift_brew: 9,
+  shadow_draught: 11, giants_elixir: 11, bat_swarm_potion: 10, clarity_draught: 10,
+  chaos_brew: 12, wolf_pact_brew: 20
+};
+function sellValueFor(itemId) {
+  if (SELL_VALUES[itemId] != null) return SELL_VALUES[itemId];
+  const meta = ITEM_CATALOG[itemId];
+  if (!meta) return 0; // legendaries / unknown ids are not gold-sellable
+  if (meta.slot) return Math.max(5, Math.round(2 * (meta.atk || 0) + 2 * (meta.def || 0) + (meta.spd || 0)));
+  return 0; // non-equippable with no listed value (e.g. hard_drive) — unsellable
+}
+// One authoritative price map shipped to the client's Sell tab so it can price
+// the player's stacks without re-implementing the rule (only sellable items).
+const SELL_VALUE_MAP = {};
+for (const _sid of Object.keys(ITEM_CATALOG)) { const _sv = sellValueFor(_sid); if (_sv > 0) SELL_VALUE_MAP[_sid] = _sv; }
 // Plants are added *after* ITEM_IDS is captured — unlike Wood/Berries/
 // Flower, they're deliberately excluded from the random-starter-item pool,
 // since the whole point is going out to the Wilds to harvest them.
@@ -5239,6 +5276,26 @@ function nearestDungeonPlayer(room, x, y) {
     if (d < bestDist) { bestDist = d; best = p; }
   }
   return { player: best, dist: bestDist };
+}
+
+// Fresh-run repopulate (Session M): each dungeon tier is ONE shared,
+// persistent room, so walking back into a tier you just cleared finds it
+// still on the 60s / 5-min respawn timers rather than freshly stocked. When a
+// dungeon room has no players in it, the next entry is a brand-new run, so
+// snap every one of that tier's mobs (and its boss) back to full at their
+// spawn points. Mirrors the revive branch in tickDungeon exactly. Gated by
+// the caller on the room being empty so it can never revive mobs out from
+// under someone already fighting the shared instance.
+function resetDungeonRoom(room) {
+  for (const m of dungeonMobs) {
+    if (m.room !== room) continue;
+    m.dead = false;
+    m.respawnAt = 0;
+    m.health = DUNGEON_MOB_TYPES[m.mobType].maxHealth;
+    m.x = m.spawnX; m.y = m.spawnY;
+    m.pendingLoot = null; m.lootKillerId = null;
+    if (m.boss) { m.engaged = false; m.scaledMax = DUNGEON_MOB_TYPES[m.mobType].maxHealth; }
+  }
 }
 
 function tickDungeon(dt) {
@@ -9346,6 +9403,13 @@ wss.on('connection', (ws) => {
       const prog = getProgress(player);
       const tier = dungeonTierForLevel(prog.level);
       const room = DUNGEON_ROOMS[tier];
+      // Fresh solo/party run: if this tier's shared room is currently empty,
+      // repopulate it so re-entering a dungeon you just cleared starts a real
+      // fight instead of a graveyard on respawn timers (see resetDungeonRoom).
+      // The entering player is still in their OLD room at this point, so
+      // playersInRoom() counts only OTHERS already inside — this fires only
+      // when nobody else is there, never yanking mobs back mid-fight.
+      if (playersInRoom(room) === 0) resetDungeonRoom(room);
       const _tierEntry = DUNGEON_ENTRY_BY_TIER[tier] || DUNGEON_SPAWN;
       const spawnWithJitter = () => ({
         x: _tierEntry.x + (Math.random() - 0.5) * 60,
@@ -9580,6 +9644,7 @@ wss.on('connection', (ws) => {
       }));
       send(ws, {
         type: 'npc_shop_state', npcId, npcName: shop.name, items: priced,
+        sellValues: SELL_VALUE_MAP,
         greeting: discount
           ? `Ah, ${seenAs}! Always a pleasure — your usual rate, of course. (−${Math.round(discount * 100)}% for regulars)`
           : `Welcome, ${seenAs}. Have a look around.`,
@@ -9611,6 +9676,31 @@ wss.on('connection', (ws) => {
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'shop_bought', itemId, itemName: ITEM_CATALOG[itemId]?.name, price });
+      return;
+    }
+
+    if (msg.type === 'npc_sell_item') {
+      if (!player.accountKey) { send(ws, { type: 'shop_error', message: 'Log in to sell items.' }); return; }
+      const npcId = String(msg.npcId || '');
+      if (!NPC_SHOPS[npcId]) return; // must actually be at a shopkeeper
+      const itemId = String(msg.itemId || '');
+      const meta = ITEM_CATALOG[itemId];
+      const unit = sellValueFor(itemId);
+      if (!meta || unit <= 0) { send(ws, { type: 'shop_error', message: "The shopkeeper won't buy that." }); return; }
+      const inv = getInventory(player);
+      const have = countItemQty(inv, itemId);
+      if (have <= 0) { send(ws, { type: 'shop_error', message: "You don't have that." }); return; }
+      // Clamp to what they actually hold — so a "sell all" (qty = stack size) is
+      // safe and there's no way to over-sell into negative gold/inventory.
+      const qty = Math.max(1, Math.min(have, Math.floor(Number(msg.qty) || 1)));
+      if (!removeItemFromAccount(inv, itemId, qty)) { send(ws, { type: 'shop_error', message: "You don't have that many." }); return; }
+      const gold = unit * qty;
+      const account = ensureBankAccount(player.accountKey);
+      account.balance += gold;
+      saveBankAccounts();
+      saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'shop_sold', itemId, itemName: meta.name, qty, gold, balance: account.balance });
       return;
     }
 
