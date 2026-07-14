@@ -1,8 +1,7 @@
 // Drives the real server.js connection handler with mock sockets so we can
 // verify join/move/room-detection/chat-scoping logic without real networking.
 process.env.PORT = '0'; // avoid clashing with anything; real http.listen still binds locally
-process.env.DATA_DIR = require('os').tmpdir() + '/tc-harness-test-' + process.pid;
-require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-harness-test-');
 
 function makeMockSocket(label) {
   return {
