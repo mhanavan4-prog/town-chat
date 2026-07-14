@@ -2830,22 +2830,16 @@ function isNightNow() {
 // every NPC arrives home — at exactly the same moment regardless of how far
 // any individual NPC had to walk.
 // ---------------------------------------------------------------------------
-const TOWN_TORCHES = [
-  { id: 'torch_n', x: 1600, y: 880 },
-  { id: 'torch_e', x: 1820, y: 1100 },
-  { id: 'torch_s', x: 1600, y: 1320 },
-  { id: 'torch_w', x: 1380, y: 1100 }
-];
+const { TOWN_TORCHES } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 // The altar itself, at the temple structure's own center — where the Ember
 // Wastes portal hovers once it's open (see templePortalOpen(), enter_ember_wastes),
 // and also where the Torchkeepers gather by day now (see TEMPLE_STAND_OFFSETS).
-const TEMPLE_ALTAR = { x: 1060, y: 1900 };
+const { TEMPLE_ALTAR } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 // The temple platform's footprint (mirrors client TEMPLE_PLATFORM_*) plus a
 // walk-in point at its north (townward) edge. Torchkeeper walks that would
 // cross the platform get routed through this gate instead of clipping
 // through the corner pillars (user-reported, Session I).
-const TEMPLE_RECT = { x: 1060 - 180, y: 1900 - 130, w: 360, h: 260 };
-const TEMPLE_GATE = { x: 1060, y: 1900 - 130 - 26 };
+const { TEMPLE_RECT, TEMPLE_GATE } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 function segCrossesTempleRect(x1, y1, x2, y2) {
   // Conservative segment-vs-AABB (slab) test, rect inflated a pillar's width.
   const pad = 16;
@@ -2885,18 +2879,7 @@ function torchWalkPoint(fromX, fromY, toX, toY, progress) {
 // Where each NPC kneels by day, relative to TEMPLE_ALTAR — a small diamond
 // ring around the altar (radius ~65, clear of its 64-unit-wide footprint
 // and well inside the platform's edges) rather than stacking on one point.
-const TEMPLE_STAND_OFFSETS = [
-  { dx: 0, dy: -65 },
-  { dx: 65, dy: 0 },
-  { dx: 0, dy: 65 },
-  { dx: -65, dy: 0 }
-];
-const TORCH_NPCS = [
-  { id: 'tnpc_0', name: 'Torchkeeper Ada',  charId: 2, torchIdx: 0, facing: 0, working: false, praying: false },
-  { id: 'tnpc_1', name: 'Torchkeeper Bram', charId: 1, torchIdx: 1, facing: 0, working: false, praying: false },
-  { id: 'tnpc_2', name: 'Torchkeeper Cora', charId: 0, torchIdx: 2, facing: 0, working: false, praying: false },
-  { id: 'tnpc_3', name: 'Torchkeeper Dill', charId: 4, torchIdx: 3, facing: 0, working: false, praying: false }
-];
+const { TEMPLE_STAND_OFFSETS, TORCH_NPCS } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 // Seed everyone kneeling at the altar already, so the steady-state (server
 // freshly started, mid-day) looks right without waiting for a fake "walk in".
 TORCH_NPCS.forEach((n, i) => {
@@ -2999,13 +2982,7 @@ const TORCH_HEAL_RATE_PER_SEC = 25; // 0 -> 100 in ~4s of standing in the light
 // same mechanic as the town's ritual torches, minus the night gating.
 // Positions are mirrored in client.js (WILDS_CAMPFIRES there) for the
 // visuals — keep the two lists identical.
-const WILDS_CAMPFIRES = [
-  { x: 5000, y: 8450 },
-  { x: 3400, y: 4300 },
-  { x: 6300, y: 5300 },
-  { x: 2650, y: 2650 },
-  { x: 5000, y: 1600 }
-];
+const { WILDS_CAMPFIRES } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 const CAMPFIRE_HEAL_RADIUS = 220;
 const CAMPFIRE_HEAL_RATE_PER_SEC = 20;
 
@@ -3013,28 +2990,7 @@ const CAMPFIRE_HEAL_RATE_PER_SEC = 20;
 // routes, each carrying a piece of the Thornreach lore the campaigns are
 // built on. Walk up, press F (or tap the pill), read. Positions mirrored
 // in client.js (WILDS_WAYMARKERS there) for the visuals + interact kiosks.
-const WAYMARKER_LORE = {
-  way_severance: {
-    name: '⛰️ Waymarker — The Fifth Severance',
-    text: 'Five hands raised the seal. Four are buried where their oaths can watch them. The stone does not say what the fifth hand is doing now, and the moss refuses to grow over that part.'
-  },
-  way_hollow: {
-    name: '⛰️ Waymarker — The Hollow',
-    text: 'Beneath every quiet field in Thornreach there is a door, and behind every door the Hollow is patient. When the ground hums on a moonless night, walk faster. It hums because something is listening back.'
-  },
-  way_factions: {
-    name: '⛰️ Waymarker — The Two Watches',
-    text: 'The Unbound circle their fires west of here and say the seal must open so it can be mended true. The Thornwardens sharpen stakes to the east and say a cracked seal still beats none. Both leave offerings at this stone. Neither will say for whom.'
-  },
-  way_hazel: {
-    name: '⛰️ Waymarker — The Keeper Below',
-    text: 'The witch under the rocks has kept her watch five hundred years, and her cauldron has never once gone cold. Bring her herbs and honest words. Leave your camera habits at the mouth of the cave — she asks first, always.'
-  },
-  way_wastes: {
-    name: '⛰️ Waymarker — The Ember Road',
-    text: 'When all four ritual torches burn in the town square, a door of embers opens over the altar. What walks the Wastes beyond it pays well and hits harder. The stone recommends finishing your supper first.'
-  }
-};
+const { WAYMARKER_LORE } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -3066,50 +3022,7 @@ function tickTorchHealing(dt) {
 // (tree entries only — shrubs/rocks/flowers have no collision there
 // either). Only used for wildlife steering here; trees themselves are
 // purely a client-side visual, never sent to clients from this list.
-const TREE_COLLIDERS = [
-  { x: 80, y: 935, r: 9 },   { x: 145, y: 1175, r: 7 }, { x: 65, y: 1360, r: 8 },
-  { x: 935, y: 80, r: 8 },   { x: 1160, y: 55, r: 7 },
-  { x: 3065, y: 935, r: 8 }, { x: 3135, y: 1175, r: 7 }, { x: 3080, y: 1360, r: 8 },
-  { x: 935, y: 2135, r: 8 }, { x: 1200, y: 2160, r: 8 }, { x: 2000, y: 2145, r: 8 }, { x: 2265, y: 2120, r: 7 },
-  { x: 1975, y: 80, r: 7 },  { x: 2160, y: 105, r: 8 },
-  { x: 105, y: 335, r: 8 },  { x: 3105, y: 335, r: 8 },
-  // Scenery-expansion additions — new trees plus the chunky props (well,
-  // stalls, hay bales, logs) rabbits shouldn't ghost through. Generated by
-  // test/gen-scenery.cjs alongside the natureDecor entries above.
-{ x: 1502, y: 928, r: 24 },
-  { x: 1745, y: 850, r: 40 },
-  { x: 1745, y: 1350, r: 40 },
-  { x: 365, y: 914, r: 8 },
-  { x: 568, y: 1074, r: 9 },
-  { x: 424, y: 1353, r: 8 },
-  { x: 796, y: 1369, r: 8 },
-  { x: 700, y: 1310, r: 16 },
-  { x: 620, y: 1265, r: 16 },
-  { x: 630, y: 1330, r: 16 },
-  { x: 2280, y: 872, r: 8 },
-  { x: 2640, y: 942, r: 9 },
-  { x: 2879, y: 1239, r: 8 },
-  { x: 2438, y: 1411, r: 7 },
-  { x: 966, y: 229, r: 8 },
-  { x: 1181, y: 294, r: 7 },
-  { x: 1997, y: 244, r: 7 },
-  { x: 2202, y: 282, r: 8 },
-  { x: 798, y: 1951, r: 8 },
-  { x: 822, y: 2104, r: 7 },
-  { x: 1275, y: 2105, r: 16 },
-  { x: 1984, y: 1921, r: 8 },
-  { x: 2240, y: 2008, r: 7 },
-  { x: 210, y: 200, r: 8 },
-  { x: 420, y: 145, r: 8 },
-  { x: 2870, y: 175, r: 8 },
-  { x: 3010, y: 300, r: 7 },
-  { x: 240, y: 1965, r: 8 },
-  { x: 420, y: 2080, r: 8 },
-  { x: 330, y: 1900, r: 16 },
-  { x: 2900, y: 1960, r: 8 },
-  { x: 3060, y: 2075, r: 8 },
-  { x: 760, y: 1470, r: 16 }
-];
+const { TREE_COLLIDERS } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
 
 // Unlike client.js's old per-client version, this blocks the *entire*
 // building footprint (not just outside the door gap) — wildlife was never
