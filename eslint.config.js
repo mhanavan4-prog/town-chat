@@ -55,7 +55,7 @@ module.exports = [
   // Extracted data modules (Tier 3.4 Phase A) - pure CommonJS data; the bug
   // rules here catch e.g. a duplicate item id (no-dupe-keys).
   {
-    files: ['data/**/*.js'],
+    files: ['data/**/*.js', 'lib/**/*.js'],
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: { ...bugRules, 'no-undef': 'error' },
   },
