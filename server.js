@@ -1251,81 +1251,7 @@ app.post('/api/characters', (req, res) => {
 // for things that are only ever carried/banked/traded (potions, materials,
 // curios) — both inventory_equip and the client's slot-action UI key off
 // this to decide what a given item can actually do.
-const ITEM_CATALOG = {
-  iron_sword:     { name: 'Iron Sword',     icon: '⚔️', slot: 'weapon' },
-  spell_tome:     { name: 'Spell Tome',     icon: '📕', slot: 'weapon' },
-  steel_shield:   { name: 'Steel Shield',   icon: '🛡️', slot: 'chest' },
-  wizard_hat:     { name: 'Wizard Hat',     icon: '🎩', slot: 'head'  },
-  leather_boots:  { name: 'Leather Boots',  icon: '👢', slot: 'feet'  },
-  silver_ring:    { name: 'Silver Ring',    icon: '💍', slot: 'ring'  },
-  healing_potion: { name: 'Healing Potion', icon: '🧪', slot: null },
-  magic_scroll:   { name: 'Magic Scroll',   icon: '📜', slot: null },
-  dragon_scale:   { name: 'Dragon Scale',   icon: '🐉', slot: null },
-  enchanted_gem:  { name: 'Enchanted Gem',  icon: '💎', slot: null },
-  ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
-  golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
-  hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
-  wood:           { name: 'Holly Wood',     icon: '🪵', slot: null },
-  berries:        { name: 'Berries',        icon: '🍓', slot: null },
-  flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },
-  // Built (not found): 5 Holly Wood at the craft_wand handler. Equipping it
-  // makes the bearer glow and light their way at night (client visual).
-  holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon' },
-  bloodmoon_shard:   { name: 'Bloodmoon Shard',   icon: '🩸', slot: null },
-  bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head' },
-  // ---- Witch starter set ----
-  witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
-  hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
-  hex_amulet:     { name: 'Hex Amulet',     icon: '🔮', slot: 'ring'  },
-  // ---- Werewolf starter set ----
-  beast_crown:    { name: 'Beast Crown',    icon: '👑', slot: 'head'  },
-  beast_hide:     { name: 'Beast Hide',     icon: '🦬', slot: 'chest' },
-  paw_boots:      { name: 'Paw Boots',      icon: '🐾', slot: 'feet'  },
-  // ---- Mystic starter set ----
-  spirit_veil:    { name: 'Spirit Veil',    icon: '🌠', slot: 'head'  },
-  spirit_robe:    { name: 'Spirit Robe',    icon: '🌌', slot: 'chest' },
-  spirit_ring:    { name: 'Spirit Ring',    icon: '💜', slot: 'ring'  },
-  // ---- Knight starter set ----
-  knights_helm:   { name: "Knight's Helm",  icon: '⛑️', slot: 'head' },
-  order_signet:   { name: "Order's Signet", icon: '🔰', slot: 'ring'  },
-  // ---- Wanderer starter set ----
-  travelers_hood: { name: "Traveler's Hood",icon: '🥷', slot: 'head'  },
-  travelers_vest: { name: "Traveler's Vest",icon: '🧥', slot: 'chest' },
-  trail_ring:     { name: 'Trail Ring',     icon: '🪬', slot: 'ring'  },
-  // ---- Witch cave exclusive (selfie-gated) ----
-  cursed_blade:   { name: 'Cursed Blade',   icon: '🗡️',  slot: 'weapon' },
-  shadow_staff:   { name: 'Shadow Staff',   icon: '🪄',  slot: 'weapon' },
-  bone_armor:     { name: 'Bone Armor',     icon: '🩻',  slot: 'chest'  },
-  shadow_cloak:   { name: 'Shadow Cloak',   icon: '🌑',  slot: 'chest'  },
-  witches_boon:   { name: "Witch's Boon",   icon: '🧿',  slot: 'ring'   },
-  dread_helm:     { name: 'Dread Helm',     icon: '💀',  slot: 'head'   },
-  soul_treads:    { name: 'Soul Treads',    icon: '👁️',  slot: 'feet'   },
-  void_staff:     { name: 'Void Staff',     icon: '☄️',  slot: 'weapon' },
-  shadow_crown:   { name: 'Shadow Crown',   icon: '🌙',  slot: 'head'   },
-  abyssal_armor:  { name: 'Abyssal Armor',  icon: '⚫',  slot: 'chest'  },
-  death_ring:     { name: 'Death Ring',     icon: '🖤',  slot: 'ring'   },
-  wraith_treads:  { name: 'Wraith Treads',  icon: '🌫️',  slot: 'feet'   },
-  // ---- Loot materials (mob drops) ----
-  fur_scrap:      { name: 'Fur Scrap',       icon: '🧶', slot: null },
-  animal_pelt:    { name: 'Animal Pelt',     icon: '🐻', slot: null },
-  bone_shard:     { name: 'Bone Shard',      icon: '🦴', slot: null },
-  leather_hide:   { name: 'Leather Hide',    icon: '🟤', slot: null },
-  iron_ore:       { name: 'Iron Ore',        icon: '⛏️', slot: null },
-  enchanted_fur:  { name: 'Enchanted Fur',   icon: '🌟', slot: null },
-  shadow_essence: { name: 'Shadow Essence',  icon: '🫥', slot: null },
-  glimmerdust:    { name: 'Glimmerdust',     icon: '✨', slot: null }, // Embermoth scale-dust (Session M critters)
-  // ---- Wildlands quest rewards ----
-  lumber_bundle:  { name: 'Lumber Bundle',   icon: '🪚', slot: null },
-  stone_block:    { name: 'Stone Block',     icon: '🪨', slot: null },
-  iron_ingot:     { name: 'Iron Ingot',      icon: '⚙️', slot: null },
-  druid_stone:    { name: 'Druid Stone',     icon: '🗿', slot: null },
-  hollow_shard:   { name: 'Hollow Shard',    icon: '💠', slot: null },
-  // ---- Lexton's Howl Trade exclusive (voice-gated, see werewolf_buy_item) ----
-  moonhowl_pelt:    { name: 'Moonhowl Pelt',    icon: '🌕', slot: 'chest'  },
-  alpha_fang:       { name: 'Alpha Fang',       icon: '🦷', slot: 'weapon' },
-  packbound_ring:   { name: 'Packbound Ring',   icon: '🪢', slot: 'ring'   },
-  nightfang_boots:  { name: 'Nightfang Boots',  icon: '🥾', slot: 'feet'   },
-};
+const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -1340,21 +1266,7 @@ const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
 // equipment is valued from its own stats (~40-50% of its combat worth); any
 // other non-equippable id is unsellable (0) — e.g. the Hard Drive, which holds
 // the player's own notes, and Moonstone-bought legendaries (not in ITEM_CATALOG).
-const SELL_VALUES = {
-  fur_scrap: 2, bone_shard: 2, berries: 2, flower_bloom: 3,
-  animal_pelt: 6, leather_hide: 7, iron_ore: 8, shadow_essence: 9,
-  glimmerdust: 7, stone_block: 6, lumber_bundle: 6, wood: 3,
-  enchanted_fur: 16, iron_ingot: 18, magic_scroll: 15, enchanted_gem: 22,
-  dragon_scale: 28, druid_stone: 24, hollow_shard: 26, bloodmoon_shard: 20,
-  ancient_coin: 45, golden_chalice: 75,
-  healing_potion: 5, healing_herb: 6, regen_root: 6, cleansing_clover: 5,
-  swift_root: 5, featherleaf: 4, giants_cap: 6, shrinking_violet: 4,
-  pumpkin_blossom: 4, bats_breath: 5, rainbow_petal: 5, ravens_feather_plant: 6,
-  stumbleweed: 3, gibberish_root: 4, toadstool: 4, wolfsbane_bloom: 6,
-  meditation_lotus: 7, health_potion_ii: 12, regen_brew: 9, swift_brew: 9,
-  shadow_draught: 11, giants_elixir: 11, bat_swarm_potion: 10, clarity_draught: 10,
-  chaos_brew: 12, wolf_pact_brew: 20
-};
+const SELL_VALUES = require('./data/sellValues'); // Tier 3.4 Phase A: extracted to data/
 function sellValueFor(itemId) {
   if (SELL_VALUES[itemId] != null) return SELL_VALUES[itemId];
   const meta = ITEM_CATALOG[itemId];
@@ -1383,54 +1295,7 @@ for (const key in PLANT_CATALOG) {
 // relics (Shadow Staff, Alpha Fang, Dread Helm, Shadow Cloak, Soul Treads) are
 // deliberately the strongest in each slot — a finale reward that finally bites.
 // ---------------------------------------------------------------------------
-const EQUIP_STATS = {
-  // ── basic shop gear (weak, early) ──
-  iron_sword:    { power: 0.10 },
-  holly_wand:    { power: 0.07, haste: 0.04 },  // crafted from 5 Holly Wood; its real prize is the light it casts
-  bloodmoon_circlet: { power: 0.05, leech: 0.03 }, // 5 Blood Moon shards; an event trophy you wear (within relic caps)
-  spell_tome:    { power: 0.08, haste: 0.05 },
-  steel_shield:  { guard: 0.10, vitality: 10 },
-  wizard_hat:    { haste: 0.06, xp: 0.05 },
-  leather_boots: { swift: 0.06 },
-  silver_ring:   { xp: 0.05, leech: 0.03 },
-  // ── Witch starter set ──
-  witch_robe:  { guard: 0.06, vitality: 8 },
-  hexed_boots: { swift: 0.05, haste: 0.03 },
-  hex_amulet:  { power: 0.06, leech: 0.04 },
-  // ── Werewolf starter set ──
-  beast_crown: { power: 0.06, vitality: 8 },
-  beast_hide:  { guard: 0.08, vitality: 12 },
-  paw_boots:   { swift: 0.08 },
-  // ── Mystic starter set ──
-  spirit_veil: { haste: 0.06, xp: 0.05 },
-  spirit_robe: { guard: 0.06, vitality: 10 },
-  spirit_ring: { power: 0.05, leech: 0.05 },
-  // ── Knight starter set ──
-  knights_helm: { guard: 0.06, vitality: 10 },
-  order_signet: { guard: 0.05, xp: 0.05 },
-  // ── Wanderer starter set ──
-  travelers_hood: { swift: 0.05, forage: 0.10 },
-  travelers_vest: { guard: 0.06, vitality: 8 },
-  trail_ring:     { forage: 0.15, xp: 0.05 },
-  // ── Witch cave / relic exclusives (strong) ──
-  cursed_blade: { power: 0.18, leech: 0.05 },
-  shadow_staff: { power: 0.16, haste: 0.10 },              // Witch relic
-  bone_armor:   { guard: 0.12, vitality: 20 },
-  shadow_cloak: { guard: 0.10, swift: 0.08, vitality: 15 }, // Mystic relic
-  witches_boon: { power: 0.08, leech: 0.06, haste: 0.05 },
-  dread_helm:   { power: 0.08, guard: 0.08, vitality: 15 }, // Knight relic
-  soul_treads:  { swift: 0.12, haste: 0.06 },               // Wanderer relic
-  void_staff:   { power: 0.20, haste: 0.08 },
-  shadow_crown: { power: 0.10, xp: 0.10, vitality: 12 },
-  abyssal_armor:{ guard: 0.14, vitality: 25 },
-  death_ring:   { power: 0.10, leech: 0.08 },
-  wraith_treads:{ swift: 0.14, haste: 0.06 },
-  // ── Werewolf howl-trade exclusives ──
-  moonhowl_pelt:   { guard: 0.10, vitality: 18 },
-  alpha_fang:      { power: 0.18, leech: 0.06 },  // Werewolf relic
-  packbound_ring:  { leech: 0.06, xp: 0.08 },
-  nightfang_boots: { swift: 0.12, power: 0.05 }
-};
+const EQUIP_STATS = require('./data/equipStats'); // Tier 3.4 Phase A: extracted to data/
 // ---------------------------------------------------------------------------
 // Legendary catalog — the Midnight Peddler's stock (Session I). ~100 items,
 // Moonstone-only, five on sale per week (see legendaryWeeklySet below). Each
