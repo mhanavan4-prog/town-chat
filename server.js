@@ -430,36 +430,14 @@ app.get('/api/verify-session', async (req, res) => {
 // Play Billing in the apps (same /api/verify-iap flow as the pass). Every
 // grant is replay-proof by a grant id (Stripe session id / store tx id).
 // ---------------------------------------------------------------------------
-const MS_FILE = path.join(DATA_DIR, 'moonstones.json');
-function loadMoonstones() {
-  const d = persistLoad('moonstones', MS_FILE);
-  return { balances: d.balances || {}, grants: d.grants || {} };
-}
-const msData = loadMoonstones();
-function saveMoonstones() { persistSave('moonstones', MS_FILE, msData); }
-persistRegister('moonstones', MS_FILE, () => msData);
-function msBalance(key) { return msData.balances[key] || 0; }
-function msAdjust(key, delta) {
-  msData.balances[key] = Math.max(0, Math.round((msData.balances[key] || 0) + delta));
-  saveMoonstones();
-  return msData.balances[key];
-}
+// Moonstone currency (Session I) — extracted to lib/moonstones.js (Tier 3.4 Phase B).
+const moonstones = require('./lib/moonstones')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+const { msData, msBalance, msAdjust, grantMoonstones } = moonstones;
 function pushMsStateIfOnline(key) {
   const p = findConnectionByAccountKey(key);
   if (p) send(p.ws, { type: 'ms_state', balance: msBalance(key) });
 }
 const { MS_PACKS } = require('./data/gameConstants'); // Tier 3.4 Phase A: extracted to data/
-// One grant id credits exactly once, ever — retries and replays are no-ops
-// that still report the current balance (so a flaky return page is safe).
-function grantMoonstones(grantId, accountKey, packId) {
-  const pack = MS_PACKS[packId];
-  if (!pack || !accountKey) return { granted: 0, balance: msBalance(accountKey) };
-  if (msData.grants[grantId]) return { granted: 0, balance: msBalance(accountKey) };
-  msData.grants[grantId] = { key: accountKey, packId, at: Date.now() };
-  const balance = msAdjust(accountKey, pack.ms);
-  console.log(`💎 ${accountKey} +${pack.ms} moonstones (${packId} via ${grantId.slice(0, 24)}…) → ${balance}`);
-  return { granted: pack.ms, balance };
-}
 
 const IAP_PRODUCT_ID = process.env.IAP_PRODUCT_ID || 'town_pass_24h';
 function httpsRequest(opts, body) {
