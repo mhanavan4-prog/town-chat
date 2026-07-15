@@ -5746,7 +5746,7 @@ function updateBubbleTag(p, v, headScreen, now) {
     showInvTab('invHardDriveView');
   }));
   on('menuPass', closeSheetAnd(openPassModal));
-  on('menuMoonstones', closeSheetAnd(openMsModal));
+  on('menuMoonstones', closeSheetAnd(() => openMsModal()));
   // ── Graphics quality: Auto → Low → Medium → High (persisted) ──
   const gfxLabel = () => {
     const el = document.getElementById('menuGraphicsVal');
