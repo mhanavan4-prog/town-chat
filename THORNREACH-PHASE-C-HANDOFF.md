@@ -1,52 +1,63 @@
 # Thornreach — Tier 3.4 Phase C Handoff (client monolith split)
 
-_Updated 14 Jul 2026. Paste into a new session and say "continue from the Phase C
-handoff." Everything below is committed on `main` unless noted._
+_Updated 14 Jul 2026 (late). Paste into a new session and say "continue from the
+Phase C handoff." Everything below is committed on `main` unless noted (the Ember
+slice, §1, may still be in review)._
 
 ---
 
 ## 0. TL;DR — how to resume
 
-We're incrementally splitting the 21k-line `public/client.js` monolith into
+We're incrementally splitting the ~21k-line `public/client.js` monolith into
 `client/*.js` ES modules. `public/client.js` is now a **build artifact**.
 
 **The loop for every slice:**
-1. Pick a self-contained block (a UI panel or subsystem).
+1. Pick a self-contained block (a UI panel, a subsystem, or a scene builder).
 2. Move it verbatim into `client/<name>.js` as a **dependency-injection factory**
    (`export default function createX(deps){ …; return {api}; }`).
-3. Inject what it reads (getters for reassigned state, functions by reference);
-   `import { Modals }` for open/close; keep the same names at call sites so main
-   needs no rewiring.
-4. `npm run build:client && npm run sync:mobile && npm run test:ci` → all green.
-5. One module per PR. Branch `tier34-client-<name>`, commit, push, merge, pull.
+3. Inject what it reads: getters for reassigned/late state, functions/consts by
+   reference, and **setters (or get+set) for shared state it writes**;
+   `import { Modals }` for open/close on a modal UI.
+4. **Wire main:** construct where the block was; destructure the API to the same
+   const names the call sites use → no call-site rewiring.
+5. `npm run build:client && npm run sync:mobile && npm run test:ci` → all green;
+   one module per PR.
 
-**The gate is the seatbelt** — `test:ci` runs build → lint → typecheck → unit →
-browser smoke → parity. Lint's `no-undef: error` on `client/` is the key net:
-because a moved symbol's declaration is gone from main, any missed reference is a
-loud compile error, not a silent bug.
+**The gate is the seatbelt** — `test:ci` = build → **boot-check** → lint →
+typecheck → parity → unit → browser smoke. Three nets carry the load:
+- **lint `no-undef: error`** on `client/` — a missed shared var/dep is a loud
+  compile error (this caught `builtDungeonTier`).
+- **`test:boot`** (`test/eval-boot.mjs`) — runs the bundle's eval-time code in a
+  Node `vm` with stubbed browser globals; catches **boot-time TDZ crashes**
+  without Chromium (the class that bit moonstones — see §5).
+- **function-set diff vs the merged monolith** — must show only the new
+  `+createX`, proving nothing was lost or duplicated.
 
 ---
 
-## 1. State of play
+## 1. State of play — 18 modules, `main.js` 21,000 → 18,633
 
-| Frontier | Status | Result |
+| Phase | Status |
+|---|---|
+| A — data → `data/` (11), B — logic → `lib/` (9) | **DONE** |
+| C — `client.js` → `client/` | **IN PROGRESS** |
+
+**Client modules** (infra + UI panels + scene builders):
+
+| Module | Lines | Kind |
 |---|---|---|
-| Phase A — data → `data/` | **DONE** | 11 modules |
-| Phase B — logic → `lib/` | **DONE** | 9 modules (persistence, webpush, moonstones, calendar, leaderboards, auctions, covens, dungeons, delve) |
-| Phase C — `client.js` → `client/` | **IN PROGRESS** | see below |
+| `modals.js` | 18 | infra — modal/overlay open-state registry (§4) |
+| `collision.js` | 70 | subsystem — collision/room predicates |
+| `board.js` / `delve.js` / `coven.js` | 85 / 151 / 255 | Session-L UI (board, weekly delve+locksmith, covens) |
+| `shop.js` / `spellbook.js` / `attacks.js` | 154 / 100 / 130 | UI panels (NPC shop, witch spells, attacks) |
+| `notif.js` / `consent.js` | 126 / 129 | UI (push settings, camera/mic consent) |
+| `legend.js` / `moonstones.js` | 97 / 129 | premium/economy UI (peddler shop, moonstones+gold) |
+| `audio.js` | 216 | subsystem — procedural music (Milestone 1) |
+| `vault-scene.js` / `cave-scene.js` | 109 / 628 | **3D scene builders** (Bank Vault, Witch Cave) |
+| `dungeon-scene.js` / `ember-scene.js` | 236 / 63 | **3D scene builders** (Personal Dungeon, Ember Wastes) |
 
-**Client modules extracted so far** (`main.js`: 21,000 → 20,525 lines):
-
-| Module | Lines | What it is |
-|---|---|---|
-| `client/audio.js` | 216 | procedural music/Web-Audio (Milestone 1 — proved the pipeline) |
-| `client/collision.js` | 70 | collision & room predicates (injected getters for world/walls/lore/delve) |
-| `client/modals.js` | 18 | **the modal/overlay open-state registry** (see §4) |
-| `client/shop.js` | 154 | NPC shop UI (first clean UI-panel extraction) |
-| `client/spellbook.js` | 100 | Witch spellbook UI |
-
-Merged PRs: #24 (pipeline + audio + collision), #25 (modals), #26 (shop),
-#27 (spellbook).
+Plus infra files: `tools/bundle-client.mjs` (bundler), `test/eval-boot.mjs`
+(boot-check). Merged through PR #40; Ember is PR #41 (in review).
 
 ---
 
@@ -54,150 +65,145 @@ Merged PRs: #24 (pipeline + audio + collision), #25 (modals), #26 (shop),
 
 `public/client.js` is **generated** by `tools/bundle-client.mjs` — a
 **zero-dependency** Node bundler that concatenates the `client/` ES-module graph
-into one IIFE. It's correct here because every module was carved from one
-original closure, so top-level names are already unique; the bundler just strips
-`import`/`export` syntax and emits modules dependency-first.
+into one IIFE (strips import/export, emits modules dependency-first). Chosen over
+esbuild because the sandbox can't install esbuild (no network) and the Mac's npm
+gates install-scripts — a native binary was awkward in both places.
 
-**Why not esbuild:** the sandbox can't install it (no network) and your Mac's npm
-gates package install-scripts — a native binary was awkward in both places. The
-zero-dep bundler needs no install, no native binary, is deterministic across
-machines, and is plenty (the whole client ships as one closure anyway; no
-tree-shaking needed). `build:client` is the only swap-point if you ever want
-esbuild's minification/sourcemaps later.
+**Scripts** (`package.json`): `build:client`, `test:boot`, `test:smoke`,
+`sync:mobile` (copy bundle to the two mobile `www/`), `check:parity` (3 copies
+byte-identical; auto-skips in CI), `test:ci` (whole gate, build first).
 
-**Scripts** (`package.json`):
-- `build:client` = `node tools/bundle-client.mjs` (client/ → public/client.js)
-- `sync:mobile` = copy the built bundle to the two `www/client.js` mobile copies
-- `test:ci` = `build:client` **first**, then lint → typecheck → check:parity →
-  unit → test:smoke
-- `check:parity` = the 3 client.js copies are byte-identical (skips in CI where
-  the mobile repos aren't checked out)
-
-**ESLint** (`eslint.config.js`): `public/client.js` is **ignored** (it's the
-bundle); `client/**/*.js` is linted as ES modules with `no-undef: error` and the
-vendored-global whitelist (`THREE`, `FX`, `LEGEND_FX`, `faceapi`).
+**ESLint**: `public/client.js` ignored (generated); `client/**/*.js` linted as ES
+modules with `no-undef: error` and the vendored-global whitelist (`THREE`, `FX`,
+`LEGEND_FX`, `faceapi`).
 
 ---
 
-## 3. The extraction recipe (repeatable)
+## 3. Two extraction patterns
 
-Each slice is done as a **content-asserted Python transform** (see the scratch
-scripts used per slice) so it can never silently mangle the 20k-line file:
+**(a) UI panels & subsystems** — inject `send`/`ws`, state getters, helper
+functions, `Modals`. Keep shared state's declaration in `main.js`; inject a
+getter (and a **setter** if the module writes it — e.g. coven's `setCovenUnread`,
+moonstones' get/set on `myMoonstones`).
 
-1. **Scope it:** find the block's exact boundaries; list every symbol it *reads*
-   from outside (→ injected deps) and every symbol *outside* that reads its
-   internals (→ must export, or expose an accessor).
-2. **Move verbatim** into `client/<name>.js` inside a `createX(deps)` factory.
-   The only edits to the moved body are swapping each external read for its
-   injected form (e.g. `ws.send(` → `send(`, `world` → `getWorld()`).
-3. **Inject:** reassigned/late state via getters (`getWorld: () => world`);
-   plain functions/consts by reference; `import { Modals }` for open/close.
-4. **Wire main:** construct where the block was, destructure the API to the
-   **same const names** the call sites already use → no call-site rewiring
-   (except genuinely shared internals, which get a small accessor — e.g. shop's
-   `refreshShopSellTab`).
-5. **Verify:** `node --check` (syntax) + lint (`no-undef` catches misses) +
-   typecheck + unit + parity + a **function-set diff vs the merged monolith**
-   (must show only the `+createX` factory, proving nothing was lost/duplicated).
+**(b) 3D scene builders** (the current frontier) — the shape that's working:
+- **THREE/FX/LEGEND_FX are globals**, so they're never injected. This is what
+  keeps scene-builder dep lists small.
+- Inject only the **prop-helpers** the builder calls (`makeStoneTexture`,
+  `makeGrassTexture`, `makeTree`, `buildPortalMesh`, …) and any world-constant
+  (`VAULT_WORLD`, `DUNGEON_LAYOUTS`).
+- The built **scene/camera and kiosk/mob lists are shared state** (read by the
+  active-scene checks and render loop), so they stay in `main.js` and the builder
+  writes them back through injected **setters** (`setVaultScene`), plus a getter
+  where it also reads them (dungeon's `getDungeonScene`, ember's
+  `getEmberMobVisuals`).
+- **Decoration helpers nested inside a builder move with it for free** — that's
+  why 628-line `cave-scene.js` needed only 6 external deps (its 13
+  `makePotion/makeSkull/…` are nested in `addCaveWallShelves`).
+- Scene builders are called at **runtime** (from the `init` WS handler /
+  `initScene`), so their `const` handles are safe from the boot-TDZ trap.
+
+Each slice remains a **content-asserted Python transform** so it can't silently
+mangle the 18k-line file.
 
 ---
 
 ## 4. The modal registry (`client/modals.js`)
 
-The single most important enabler for UI extraction. ~26 scattered overlay
-booleans (`npcShopOpen`, `bankModalOpen`, `arcadeModalOpen`, the panels, the
-consent dialogs, …) were replaced with one `Set` keyed by the old flag name:
-
-```
-Modals.set('npcShopOpen', true|false)   // was:  npcShopOpen = true|false
-Modals.isOpen('npcShopOpen')            // was:  npcShopOpen
-Modals.any()                            // handy for future guard simplification
-```
-
-Guards (`anyOverlayOpen()` and ~4 inline ones) kept their exact subsets, now via
-`isOpen` — behaviour identical, pure storage swap. **Payoff:** a modal UI's flag
-no longer leaks as a free variable, so each panel extracts with **zero
-guard-rewiring** — it just calls `Modals.set('itsFlag', …)` internally.
-(`templePortalOpen` was deliberately left out — it's server-driven world state,
-not a UI overlay.)
+~26 scattered overlay booleans became one `Set` keyed by the old flag name:
+`Modals.set('npcShopOpen', …)` / `Modals.isOpen('npcShopOpen')` / `Modals.any()`.
+Behaviour identical; payoff is each modal UI extracts with **zero guard-rewiring**.
+(`templePortalOpen` stays out — world state, not a UI overlay.)
 
 ---
 
-## 5. Key findings & gotchas
+## 5. Key gotchas (learned the hard way)
 
-- **`client.js` is one IIFE**, not global scope. That's why a bundler (single
-  closure output) fits and a naive ordered-`<script>` split does not.
-- **The bank/auction/inventory cluster is coupled via shared state.** The Bank &
-  Auction section *declares* `lastInventoryState` (17 external refs),
-  `selectedInvSlotIdx` (6), `lastBankState` (5) — app-wide state the inventory
-  UI also uses. Extract these three panels **together, after** lifting that
-  shared state into a `client/core.js`. Don't try them as isolated slices.
-- **The build is load-bearing** — `build:client` is the *first* step of
-  `test:ci` so a broken bundle fails CI loudly.
-- **Determinism:** the bundler is pure string concatenation, so a rebuild on any
-  machine is byte-identical. Still run `build:client` → `sync:mobile` together
-  after every client edit so `check:parity` stays green.
-- **`.git/index.lock`** recurs in this setup — `rm -f .git/index.lock` before any
-  git op if it's stuck.
-- **Mobile `www/client.js` copies are NOT git-tracked** (the mobile folders
-  aren't repos), so they're never in the `git add` list; they matter only for a
-  Capacitor build.
+- **⚠ Eval-time TDZ.** A moved function goes from *hoisted* (callable anywhere) to
+  a `const` at its construction line. Anything that runs **during initial
+  evaluation** and references it *before* that line throws
+  `Cannot access 'X' before initialization` at boot. This bit `openMsModal` via
+  the `wireActionCluster` IIFE (~line 5716). **Fix:** defer the reference —
+  `closeSheetAnd(() => openMsModal())`. `test:boot` now catches this class. The
+  same wiring block still has `closeSheetAnd(openPassModal)` — lazy-wrap it when
+  town-pass is extracted.
+- **Construction ordering:** if module B injects functions from module A, A must
+  be constructed **before** B (moonstones before legend).
+- **Shared state declared inside a section:** keep the declaration in `main.js`,
+  inject a getter/setter — don't move it (`myAttackCatalog`, `covenTableState`,
+  `builtDungeonTier`, `lastInventoryState`).
+- **Watch for reads, not just writes:** dungeon's `dungeonScene` was written
+  *and* read (`if (… && dungeonScene)`) — needed a getter too. The leftover-check
+  and lint net catch these.
+- `.git/index.lock` recurs — `rm -f .git/index.lock` before git ops. Mobile
+  `www/` copies aren't git-tracked, never in `git add`.
 
 ---
 
-## 6. What's next (prioritized backlog)
+## 6. Backlog / layout for the future
 
-**Clean UI-panel leaves** (same shape as shop/spellbook — each its own PR):
-- `attacks` — Werewolf/Wanderer analog of spellbook; same targeting/cooldown
-  deps (`armTargeting`, `actionOnCooldown`, `startActionCooldown`,
-  `buildEmojiCursor`, `cancelTargeting`, `SWORD_CURSOR`). Likely the next-cleanest.
-- `journal`, `skills` — panel UIs.
-- consent dialogs (`witchConsent`, `werewolfConsent`, `spellConsent`,
-  `howlConsent`) and the `witchShop`/`werewolfShop` panels.
-- `board`, `delve`, `coven`, `notif`, `locksmith` (the multi-declared cluster),
-  `ms` (moonstones), `legend`, `pass`, `emoteWheel`, `mobileChat`, `arcade`.
+**The 3D bulk (the remaining mass, ~13k of 18.6k lines) — roughly easy→hard:**
+1. **`client/props.js` — the shared mesh/texture-maker library.** DO THIS BEFORE
+   THE WILDS. Extract the shared `make*` helpers (`makeTree`, `makeRock`,
+   `makeGrassTexture`, `makeGlowTexture`, `makeSignSprite`, `makeNpcNameSprite`,
+   `makeHealthBarSprite`, `buildPortalMesh`, `createHumanoid`, …) into one module
+   that scene builders **import** from instead of injecting 10-16 helpers each.
+   This is the leverage point that makes every remaining scene clean.
+2. **The Wilds** (`buildWildsScene` + `addVillageBuildings`/`addUnboundCircleSet`/
+   `addThornwardenCamp`/`addGiantWerewolfTree`/`buildWildsNPCs`, ~750 contiguous
+   lines) — an orchestrator that calls ~16 helpers, several scattered/nested.
+   Tractable once `props.js` exists.
+3. **Creatures** (mob visuals, health bars, archetypes) and **player-visuals**
+   (rigs, faces, `LEGEND_FX`, equip overlays, spell-status visuals) — the last big
+   render chunks. `createHumanoid`/`makeHealthBarSprite`/`makeNpcNameSprite` belong
+   here or in `props.js`.
+4. **Ember mob functions** (`getOrCreateEmberMobVisual`/`applyEmberMobState`/
+   `updateEmberMobVisuals`) — pair with creatures.
 
-**The `core` state-lift** (bigger, unlocks the most): move the shared client
-state — `lastInventoryState`, `lastBankState`, `selectedInvSlotIdx`,
-`lastAuctionListings`, `me`, `players`, `world`/`walls`, `visuals`, catalogs — into
-`client/core.js` that the feature modules import from. **This is the prerequisite
-for the bank/auction/inventory cluster** and eventually lets `main.js` become a
-thin wiring entrypoint.
+**Remaining UI panels (scattered/tangled — lower priority):**
+- **bank / auction / inventory cluster** — share `lastInventoryState`/
+  `selectedInvSlotIdx`; extract together (biggest UI tangle).
+- **journal / skills** — interleaved with the ~24-var shared-state island (~3300).
+- **town-pass** — logic spread across 5+ locations (helpers ~2300, buy handlers
+  ~18261); needs the line-5748 lazy-wrap.
 
-**Later (the bulk of the 20k lines):** the scene builders (town/wilds/cave/bank/
-ember/dungeon), `creatures`, `props`, `player-visuals`, then `net`/`loop`/`core`
-last.
+**End state:** after the 3D bulk, `main.js` is a thin wiring entrypoint that
+constructs the modules and holds the shared state + WS/loop plumbing.
 
 ---
 
 ## 7. Key code locations
 
-- **Bundler:** `tools/bundle-client.mjs`. **Registry:** `client/modals.js`.
-- **main.js imports** (top of file): `createAudio`, `createCollision`, `Modals`,
-  `createShop`, `createSpellbook` — add each new `create*` here.
-- **Construction sites** live where each block used to be (search
-  `const _shop = createShop(` etc.).
-- **Shared state still in main** (inject, don't move yet): `me`, `players`,
-  `world`, `walls`, `ws`, `lastInventoryState`, `lastBankState`,
-  `selectedInvSlotIdx`, `visuals`, `ITEM_CATALOG`, `SPELL_CATALOG`.
-- **Planning docs:** `THORNREACH-3.4-PHASE-C-CLIENT-SPLIT-ROADMAP.html` (the
-  overall plan), `THORNREACH-3.4-PHASE-C-M2-PROGRESS.md` (M2 + registry notes).
+- **Bundler** `tools/bundle-client.mjs` · **Boot-check** `test/eval-boot.mjs` ·
+  **Registry** `client/modals.js`.
+- **main.js imports** (top): one `import createX from './x.js'` per module — add
+  each new one here. **Constructions** live where each block was (search
+  `const _vault = createVaultScene(`).
+- **Shared state still in main** (inject, don't move): `me`, `players`, `world`,
+  `walls`, `ws`, `visuals`, the `*Scene`/`*Camera`/`*MobVisuals`/`*KIOSKS` sets,
+  `lastInventoryState`, `lastBankState`, `myMoonstones`, the catalogs.
+- **Menu wiring IIFE** `wireActionCluster` (~line 5716, eval-time) — lazy-wrap any
+  `closeSheetAnd(openXModal)` whose target has become a const.
+- **Prop-helper defs** are scattered through the render section (~7000–16000) —
+  the raw material for `props.js`.
+- **Planning docs**: `THORNREACH-3.4-PHASE-C-CLIENT-SPLIT-ROADMAP.html`,
+  `THORNREACH-3.4-PHASE-C-M2-PROGRESS.md`.
 
 ---
 
 ## 8. Commit / sync flow
 
 ```
-# after a slice is green locally:
+# after a slice is green locally (test:ci incl. boot-check):
 rm -f .git/index.lock
 git checkout -b tier34-client-<name>
 git add client/<name>.js client/main.js public/client.js
 git commit -m "Tier 3.4 Phase C: extract <name> to client/<name>.js"
 git push -u origin tier34-client-<name>
-# merge on GitHub, then sync local:
+# merge on GitHub (CI green), then sync local:
 git checkout main && git pull origin main
 git branch -D tier34-client-<name> && git fetch --prune
 ```
 
 Deploy is automatic on merge to `main` (web). One server backs web + iOS +
-Android. Mobile ships via `sync:mobile` → `npx cap sync` → rebuild.
+Android; mobile ships via `sync:mobile` → `npx cap sync` → rebuild.
