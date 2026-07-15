@@ -44,6 +44,7 @@ import createMobileHud from './mobile-hud.js';
 import createOverheadBubbles from './overhead-bubbles.js';
 import createBuildingMesh from './building-mesh.js';
 import createTownTorchNpcs from './town-torch-npcs.js';
+import createDayNight from './day-night.js';
 import createMoonstones from './moonstones.js';
 
 
@@ -6830,105 +6831,18 @@ const _ambientColor = new THREE.Color();
 // DAY_NIGHT_TRANSITION_MS of nighttime (i.e. dawn, right before it wraps
 // back to a fresh day) — plus the raw cycle position, used to arc the sun
 // and moon across the sky.
-function getDayNightState() {
-  const cyclePos = Date.now() % CYCLE_MS;
-  let lightAmount;
-  if (cyclePos < DAY_MS - DAY_NIGHT_TRANSITION_MS) {
-    lightAmount = 1;
-  } else if (cyclePos < DAY_MS) {
-    lightAmount = 1 - (cyclePos - (DAY_MS - DAY_NIGHT_TRANSITION_MS)) / DAY_NIGHT_TRANSITION_MS;
-  } else if (cyclePos < CYCLE_MS - DAY_NIGHT_TRANSITION_MS) {
-    lightAmount = 0;
-  } else {
-    lightAmount = (cyclePos - (CYCLE_MS - DAY_NIGHT_TRANSITION_MS)) / DAY_NIGHT_TRANSITION_MS;
-  }
-  const dayProgress = Math.min(1, cyclePos / DAY_MS);
-  const nightProgress = cyclePos > DAY_MS ? (cyclePos - DAY_MS) / NIGHT_MS : 0;
-  return { cyclePos, lightAmount, isNight: cyclePos >= DAY_MS, dayProgress, nightProgress };
-}
-
-const SKY_BLOOD = new THREE.Color(0x2a0812);
-const AMBIENT_BLOOD = new THREE.Color(0xc06a6a);
-const MOON_BLOOD_COLOR = new THREE.Color(0xff5a4a);
-const MOON_PALE_COLOR = new THREE.Color(0xeaf2ff); // the moon's authored face
-function updateDayNightCycle() {
-  if (!outdoorScene || !outdoorAmbient || !outdoorSun) return;
-  const { lightAmount, isNight, dayProgress, nightProgress } = getDayNightState();
-  // 🔴 Blood Moon nights (Session L): every 13th night the sky goes red —
-  // pure client-side clock math, the same cycle arithmetic the server uses.
-  const bloodMoon = isNight && bloodMoonActiveClient();
-
-  _skyColor.copy(bloodMoon ? SKY_BLOOD : SKY_NIGHT).lerp(SKY_DAY, lightAmount);
-  outdoorScene.background.copy(_skyColor);
-  if (outdoorScene.fog) outdoorScene.fog.color.copy(_skyColor);
-  // Kept in sync even while inactive — the Wilds shares the same day/night
-  // clock, so its sky shouldn't be stuck wherever it was at startup the
-  // first time a player actually steps through the portal.
-  if (wildsScene) {
-    wildsScene.background.copy(_skyColor);
-    if (wildsScene.fog) wildsScene.fog.color.copy(_skyColor);
-  }
-
-  _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
-  outdoorAmbient.color.copy(_ambientColor);
-  outdoorAmbient.intensity = 0.38 + lightAmount * 0.27;
-
-  // Sun arcs from one horizon to the other across the day; moon mirrors it
-  // across the night. Using sin() for height means both rise and set
-  // smoothly rather than popping in at a fixed height.
-  const r = dayNightWorldRadius;
-  const sunAngle = Math.PI * dayProgress;
-  // Direction rides the same arc as before; position anchors near the player
-  // (see GFX.beforeRender) so the shadow frustum stays tight. Pre-join, the
-  // old absolute arc position still applies.
-  const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
-  outdoorSun.position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
-  if (outdoorSun.target) outdoorSun.target.position.set(0, 0, 0);
-  outdoorSun.intensity = lightAmount * 0.9;
-
-  const moonAngle = Math.PI * nightProgress;
-  const moonY = Math.sin(moonAngle) * r * 0.6; // nightProgress in [0,1] -> angle in [0,π] -> always >= 0, horizon to horizon
-  moonMesh.position.set(Math.cos(moonAngle) * -r, Math.max(-80, moonY), -r * 0.4);
-  outdoorMoonLight.position.set(Math.cos(moonAngle) * -1150, Math.max(60, moonY / Math.max(1, r) * 1150), -460);
-  const moonStrength = 1 - lightAmount;
-  outdoorMoonLight.intensity = moonStrength * 0.55;
-  // The moon itself blushes on blood nights, and its light follows.
-  moonMesh.material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
-  outdoorMoonLight.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
-  moonMesh.material.opacity = moonStrength;
-  moonMesh.visible = moonStrength > 0.02;
-
-  // Lane lampposts come on with the dark — a warm counterpoint to the cool
-  // moonlight, riding the same lightAmount curve so they fade in through
-  // dusk instead of snapping. (Cheap: material opacity only, no lights.)
-  if (LAMP_GLOWS.length) {
-    const glow = 1 - lightAmount;
-    for (const l of LAMP_GLOWS) {
-      l.glassMat.opacity = 0.22 + glow * 0.72;
-      l.glowMat.opacity = glow * 0.55;
-    }
-  }
-
-  GFX.cycleTick(lightAmount, isNight);
-  updateDayNightHud(isNight);
-}
-
-// Whether mobs should currently be visible — set from the server's
-// authoritative 'wildlife_state' broadcast (see ws message handler near
-// the top of this file), not derived locally, so mob visibility agrees
-// with the server's simulation even if a client's clock drifts slightly
-// from the lighting-only getDayNightState() above.
+// ── Day/night cycle ─ extracted to client/day-night.js (Phase C). Timing/color
+// consts + GFX by ref, lamp glows + scene-lighting objects via getters. ──
+// Night flag lives here (net handler writes it; mob modules read it via getters).
 let lastWildlifeIsNight = false;
-
-let lastDayNightHudState = null;
-function updateDayNightHud(isNight) {
-  if (isNight === lastDayNightHudState) return;
-  lastDayNightHudState = isNight;
-  const tag = document.getElementById('dayNightTag');
-  if (!tag) return;
-  tag.textContent = isNight ? '🌕 Night' : '☀️ Day';
-  tag.classList.toggle('nightTag', isNight);
-}
+const { getDayNightState, updateDayNightCycle } = createDayNight({
+  DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT,
+  _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
+  getLampGlows: () => LAMP_GLOWS,
+  getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
+  getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
+  getDayNightWorldRadius: () => dayNightWorldRadius, getWildsScene: () => wildsScene,
+});
 
 // ---------------------------------------------------------------------------
 // Night-only hostile mobs — ambient, wandering presence outside the
