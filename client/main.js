@@ -23,6 +23,7 @@ import createWildsScene from './wilds-scene.js';
 import createTownScene from './town-scene.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
+import createMobsWilds from './mobs-wilds.js';
 import createMoonstones from './moonstones.js';
 
 
@@ -8288,11 +8289,12 @@ function exitVault() {
 const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
-  addMobs2, addMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
+  addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeGrassTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
+  getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
   setWildsScene: (s) => { wildsScene = s; },
   setWildsCamera: (c) => { wildsCamera = c; },
   setLextonNpc: (n) => { lextonNpc = n; },
@@ -8629,100 +8631,18 @@ function mobAttackLungeAmount(v) {
   return Math.sin(Math.min(1, t) * Math.PI);
 }
 
-function addMobs2(scene) {
-  for (const id in mobVisuals2) scene.remove(mobVisuals2[id].mesh);
-  mobVisuals2 = {};
-}
-
-function getOrCreateMob2Visual(id, mobType) {
-  let v = mobVisuals2[id];
-  if (!v) {
-    const mesh = makeMob2(mobType);
-    mesh.visible = false;
-    mesh.userData = { kind: 'mob2', targetId: id };
-    wildsScene.add(mesh);
-    const vis = MOB2_VISUALS[mobType] || {};
-    v = mobVisuals2[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null };
-  }
-  return v;
-}
-
-function applyMob2State(list) {
-  if (!wildsScene) return;
-  for (const m of list) {
-    const v = getOrCreateMob2Visual(m.id, m.mobType);
-    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
-    v.hasLoot = !!m.hasLoot;
-    v.hidden = !!m.hidden; // buried Barrow Maw / dormant Old Marrowe
-    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
-    if (m.health !== undefined) {
-      const hpBar = v.mesh.getObjectByName('healthBar');
-      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
-    }
-  }
-}
-
-function updateMob2Visuals(dt) {
-  const f = 1 - Math.exp(-dt * 8);
-  for (const id in mobVisuals2) {
-    const v = mobVisuals2[id];
-    v.x += (v.targetX - v.x) * f;
-    v.y += (v.targetY - v.y) * f;
-    v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    const lungeFactor = mobAttackLungeAmount(v);
-    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob.
-    let hover = 0;
-    if (v.fly) { v.wingPhase += dt * 6; hover = v.fly + Math.sin(v.wingPhase) * 3; }
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
-    v.mesh.rotation.y = v.facing;
-    v.mesh.rotation.x = -0.5 * lungeFactor;
-    v.mesh.visible = lastWildlifeIsNight && !v.dead && !v.hidden;
-  }
-}
-
-// ── Neutral pool (mobs3) visuals — same shape as mobs2 but ALWAYS rendered
-// (out day and night; only aggressive when provoked). ──
-function addMobs3(scene) { for (const id in mobVisuals3) scene.remove(mobVisuals3[id].mesh); mobVisuals3 = {}; }
-function getOrCreateMob3Visual(id, mobType) {
-  let v = mobVisuals3[id];
-  if (!v) {
-    const mesh = makeMob3(mobType);
-    mesh.visible = false;
-    mesh.userData = { kind: 'mob3', targetId: id };
-    wildsScene.add(mesh);
-    v = mobVisuals3[id] = { mesh, mobType, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, provoked: false, attackAnimStartAt: null };
-  }
-  return v;
-}
-function applyMob3State(list) {
-  if (!wildsScene) return;
-  for (const m of list) {
-    const v = getOrCreateMob3Visual(m.id, m.mobType);
-    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead; v.provoked = !!m.provoked; v.hasLoot = !!m.hasLoot;
-    if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
-    if (m.health !== undefined) {
-      const hpBar = v.mesh.getObjectByName('healthBar');
-      if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
-    }
-  }
-}
-function updateMob3Visuals(dt) {
-  const f = 1 - Math.exp(-dt * 8);
-  for (const id in mobVisuals3) {
-    const v = mobVisuals3[id];
-    v.x += (v.targetX - v.x) * f;
-    v.y += (v.targetY - v.y) * f;
-    v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    const lungeFactor = mobAttackLungeAmount(v);
-    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    const hover = v.mobType === 'gravewing_crow' ? 4 : 0;
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
-    v.mesh.rotation.y = v.facing;
-    v.mesh.rotation.x = -0.5 * lungeFactor;
-    v.mesh.visible = !v.dead;
-  }
-}
+// ── Wilds mobs (pool mgmt) ─ extracted to client/mobs-wilds.js (Phase C).
+// mobVisuals2/mobVisuals3 stay in main (targeting/mob-pools/debug read them) —
+// injected via get/set; Wilds scene + night flag via getters; makeMob2/makeMob3
+// meshes + MOB2_VISUALS + attack-lunge helper injected. ──
+const {
+  addMobs2, addMobs3, applyMob2State, applyMob3State, updateMob2Visuals, updateMob3Visuals,
+} = createMobsWilds({
+  MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar,
+  getWildsScene: () => wildsScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
+  getMobVisuals2: () => mobVisuals2, setMobVisuals2: (v) => { mobVisuals2 = v; },
+  getMobVisuals3: () => mobVisuals3, setMobVisuals3: (v) => { mobVisuals3 = v; },
+});
 
 function getOrCreateVillageNpcVisual(id, charId) {
   if (!villageNpcVisuals[id]) {
