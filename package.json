@@ -9,8 +9,9 @@
     "build:client": "node tools/bundle-client.mjs",
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
+    "test:boot": "node test/eval-boot.mjs",
     "test:smoke": "node test/smoke.browser.mjs",
-    "test:ci": "npm run build:client && npm run lint && npm run typecheck && npm run check:parity && npm test && npm run test:smoke",
+    "test:ci": "npm run build:client && npm run test:boot && npm run lint && npm run typecheck && npm run check:parity && npm test && npm run test:smoke",
     "sync:mobile": "cp public/client.js ../town-chat-android/www/client.js && cp public/client.js ../town-chat-ios/www/client.js",
     "check:parity": "node test/check-client-parity.cjs",
     "typecheck": "tsc --noEmit"
