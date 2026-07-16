@@ -6070,9 +6070,13 @@ function initScene(w) {
 
   if (world2) buildWildsScene(world2);
   buildDungeonScene();
-  try { buildCaveScene(); } catch(e) { console.error('buildCaveScene failed:', e); }
-  try { buildVaultScene(); } catch(e) { console.error('buildVaultScene failed:', e); }
-  try { buildEmberScene(); } catch(e) { console.error('buildEmberScene failed:', e); }
+  // Cave / Vault / Ember are built LAZILY on first entry (see swapToCaveMap /
+  // swapToVaultMap / swapToEmberMap) rather than all up front here — this trims
+  // boot-time geometry + GPU/memory for the common sessions that never visit
+  // them (a big win on lower-end phones). They're self-contained destination
+  // scenes reached only through those swap fns, and every reference to their
+  // scene vars already tolerates a null (a boot build could always throw), so
+  // "null until first entry" is a safe, already-handled normal case.
 }
 
 // ---------------------------------------------------------------------------
@@ -6581,6 +6585,7 @@ const { buildCaveScene } = createCaveScene({
 });
 
 function swapToCaveMap() {
+  if (!caveScene) { try { buildCaveScene(); } catch (e) { console.error('buildCaveScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!caveScene || activeScene === caveScene) return;
   world = CAVE_WORLD;
   walls = [];
@@ -6672,6 +6677,7 @@ const { buildEmberScene } = createEmberScene({
 });
 
 function swapToEmberMap() {
+  if (!emberScene) { try { buildEmberScene(); } catch (e) { console.error('buildEmberScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!emberScene || activeScene === emberScene) return;
   world = EMBER_WORLD;
   walls = [];
@@ -6697,6 +6703,7 @@ function exitEmberWastes() {
 }
 
 function swapToVaultMap() {
+  if (!vaultScene) { try { buildVaultScene(); } catch (e) { console.error('buildVaultScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!vaultScene || activeScene === vaultScene) return;
   world = VAULT_WORLD;
   walls = [];
