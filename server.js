@@ -1815,6 +1815,7 @@ const CREATURE_LABEL = {
   embermoth: 'Embermoths', thistlehog: 'Thistlehogs', duskfawn: 'Duskfawn', mirefowl: 'Mirefowl',
   bramble_boar: 'Bramble Boars', mossback_tortoise: 'Mossback Tortoises', gravewing_crow: 'Gravewing Crows',
   fen_hexer: 'Fen Hexers', rot_swarm: 'Grave-Mites', barrow_maw: 'Barrow Maws', gloom_bat: 'Gloom Bats',
+  barrow_wight: 'Barrow Wights',
   old_marrowe: 'Old Marrowe, the Gallows Warden',
 };
 
@@ -3096,6 +3097,7 @@ const MOB2_SPAWNS = [
   { x: 880, y: 520, type: 'will_o_wisp' },   { x: 420, y: 240, type: 'will_o_wisp' },
   // ── Session M horrors ──
   { x: 300, y: 500, type: 'fen_hexer' }, { x: 700, y: 300, type: 'fen_hexer' }, { x: 620, y: 780, type: 'fen_hexer' },
+  { x: 400, y: 300, type: 'barrow_wight' }, { x: 640, y: 560, type: 'barrow_wight' }, { x: 220, y: 660, type: 'barrow_wight' },
   { x: 220, y: 660, type: 'gloom_bat' }, { x: 780, y: 560, type: 'gloom_bat' }, { x: 440, y: 160, type: 'gloom_bat' }, { x: 540, y: 900, type: 'gloom_bat' },
   { x: 400, y: 560, type: 'barrow_maw' }, { x: 640, y: 460, type: 'barrow_maw' }, { x: 240, y: 260, type: 'barrow_maw' },
   // Rot Swarm — two knots of grave-mites, four to a cluster so they mob you.

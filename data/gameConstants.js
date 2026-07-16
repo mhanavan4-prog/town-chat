@@ -59,6 +59,11 @@ const LOOT_TABLES = {
     { itemId: 'enchanted_fur', qty: 1, chance: 0.12 },
     { gold: true, min: 3, max: 10, chance: 0.55 },
   ],
+  barrow_wight: [
+    { itemId: 'shadow_essence', qty: 1, chance: 0.55 },
+    { gold: true, min: 5, max: 16, chance: 0.60 },
+    { itemId: 'enchanted_gem',  qty: 1, chance: 0.05 }, // rare grave-treasure
+  ],
   will_o_wisp: [
     { itemId: 'shadow_essence', qty: 1, chance: 0.70 },
     { gold: true, min: 2, max: 6,  chance: 0.50 },

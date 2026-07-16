@@ -34,6 +34,15 @@ const QUEST_CATALOG = {
     itemRewards: [{ itemId: 'animal_pelt', qty: 2 }, { itemId: 'enchanted_gem', qty: 1 }],
     description: 'Something’s been stirring the graves after dark — the dead don’t rest while the night things prowl this churchyard. Cull four of the creatures and I’ll rest easier keeping watch here.'
   },
+  // Creature-specific hunt for the new Barrow Wights (anchors them like every
+  // other creature; surfaces via Hunter Dex's quest rotation).
+  wight_hunt: {
+    npcId: 'npc_dex', npcName: 'Hunter Dex',
+    name: 'Lay the Wights to Rest',
+    type: 'kill_creature', targetCreature: 'barrow_wight', target: 4, xpReward: 110, goldReward: 65,
+    itemRewards: [{ itemId: 'animal_pelt', qty: 2 }],
+    description: 'The barrows are giving up their dead — grey wights prowling the Wilds after dark. Put four of them back in the ground.'
+  },
   scholars_find: {
     npcId: 'npc_lyra', npcName: 'Scholar Lyra',
     name: 'Find Healing Herbs',
