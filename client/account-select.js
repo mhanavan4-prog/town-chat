@@ -156,7 +156,13 @@ if (newCharBtn) {
   });
 }
 
-(function loadSavedAccount() {
+// NOT run during construction — main.js calls this AFTER destructuring the
+// factory's return. Running it here would fire the injected setJoinMode →
+// main's `updateCharPickerVisibility` const while that const is still being
+// assigned (`const {…} = createAccountSelect(…)`), throwing a TDZ
+// ReferenceError that aborts the entire client boot whenever a saved account
+// exists. Deferring the call keeps startup crash-free.
+function loadSavedAccount() {
   try {
     const raw = localStorage.getItem('tc_account');
     if (raw) setSavedAccount(JSON.parse(raw));
@@ -166,7 +172,7 @@ if (newCharBtn) {
     renderLoggedInStatus();
     fetchCharacterRoster();
   }
-})();
+}
 
 function submitAccount(endpoint) {
   const username = accountUserInput.value.trim();
@@ -274,5 +280,5 @@ function attemptJoin() {
   }
 }
 
-  return { updateCharPickerVisibility, apiUrlMaybe, attemptJoin };
+  return { updateCharPickerVisibility, apiUrlMaybe, attemptJoin, loadSavedAccount };
 }
