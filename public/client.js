@@ -4659,15 +4659,15 @@ function buildMidnightPeddler(scene) {
     pants: 0x1c1630       // near-black legs
   });
   const pg = peddler.group;
-  pg.scale.setScalar(0.9);        // sit comfortably under the canopy
-  pg.position.set(0, 0, -9);      // stand behind the table
+  pg.scale.setScalar(0.85);       // sit comfortably under the canopy
+  pg.position.set(0, 0, -14);     // well behind the (deep) table so he never clips it
   pg.rotation.y = Math.PI;        // face the customer side; flip if reversed in playtest
   const hy = peddler.head.position.y;
   const hr = (peddler.head.geometry.parameters && peddler.head.geometry.parameters.radius) || 8;
   const cloakMat = new THREE.MeshLambertMaterial({ color: 0x241a3b });
   const hoodMat = new THREE.MeshLambertMaterial({ color: 0x2c2340 });
   // shoulder cape draping over the shoulders
-  const cape = new THREE.Mesh(new THREE.ConeGeometry(14, 20, 8), cloakMat);
+  const cape = new THREE.Mesh(new THREE.ConeGeometry(9, 20, 8), cloakMat);
   cape.position.set(0, hy - 22, -0.5);
   pg.add(cape);
   // hood dome over the crown — the face stays open at the front
