@@ -18472,6 +18472,7 @@ const MOB2_VISUALS = {
   rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42 }, // recolored mini-blob
   barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05 },
   gloom_bat:   { color: 0x1c1c26, eyeColor: 0xff2a2a, scale: 0.7,  fly: 26 },
+  barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1 }, // recolored base blob — pale corpse, cold blue glow
   old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true }
 };
 
