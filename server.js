@@ -3452,7 +3452,7 @@ const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'd
 
 // Dungeon engine (Session L) — extracted to lib/dungeons.js (Tier 3.4 Phase B).
 const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE });
-const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY } = dungeonsMod;
+const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, bossEnrageMult, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY } = dungeonsMod;
 
 // ── Named dungeons (Session L) ──────────────────────────────────────────────
 // The four tiers are PLACES now, not numbers — each with a name, a lore
@@ -7768,7 +7768,7 @@ global.__testHooks = {
   DATA_DIR, accounts, saveAccounts, playerProgress, saveProgress,
   decorHarvestedAt, saveHarvests, persistExportBackups,
   // Session L systems
-  DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale,
+  DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
   leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,

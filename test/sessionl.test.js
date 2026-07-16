@@ -75,6 +75,12 @@ setTimeout(async () => {
   const expectScaled = Math.round(DUNGEON_MOB_TYPES.boss_rat_king.maxHealth * (1 + hooks.PARTY_BOSS_HP_PER_ALLY));
   check('boss health scales +60% for a second player in the room', boss.scaledMax === expectScaled, { got: boss.scaledMax, want: expectScaled });
 
+  // Boss enrage: below half its (party-scaled) health, the boss hits harder.
+  const _bp = DUNGEON_MOB_TYPES[boss.mobType];
+  check('a boss enrages below half health (hits harder)', hooks.bossEnrageMult({ boss: true, health: Math.floor(boss.scaledMax * 0.4), scaledMax: boss.scaledMax }, _bp) > 1);
+  check('a boss above half health is not enraged', hooks.bossEnrageMult({ boss: true, health: boss.scaledMax, scaledMax: boss.scaledMax }, _bp) === 1);
+  check('rank-and-file mobs never enrage', hooks.bossEnrageMult({ boss: false, health: 1, scaledMax: 100 }, _bp) === 1);
+
   // Kill the boss: killer gets xp, ally gets a 60% share + a party toast,
   // the loot double-rolls, the board notes it, the town hears about it.
   const xpBefore1 = hooks.getProgress(b1.player).xp;
