@@ -23,7 +23,7 @@ const SABBATS = [
     month: 2, day: 1,
     blurb: "The first green stirs beneath the snow. Sacred to Brigid of healing, poetry and the forge — a season of quickening, purification and the returning hearth-light.",
     blessing: "🌱 Imbolc stirs beneath Thornreach's frost — Brigid's first green breaks the snow, and healing quickens in the cold.",
-    effects: { forageBonus: 0.10, regenBonus: true }
+    effects: { forageBonus: 0.10, regenBonus: 0.8 }
   },
   {
     key: 'ostara', name: 'Ostara', epithet: 'the Balance of Spring', glyph: '🥚',
@@ -72,7 +72,7 @@ const SABBATS = [
     month: 12, day: 21,
     blurb: "The sun dies and is reborn. The longest night holds, then yields to the returning light — a season of hearth, hope, protection and rest.",
     blessing: "❄️ Yule falls on Thornreach — the longest night holds, but the light is already turning back. Gather by the hearth.",
-    effects: { xpMult: 1.10, restBonus: true }
+    effects: { xpMult: 1.10, restBonus: 0.8 }
   }
 ];
 
