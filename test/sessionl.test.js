@@ -143,6 +143,8 @@ setTimeout(async () => {
   check('Litha carries an XP blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).effects.xpMult === 1.15);
   check('Mabon carries a foraging blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 9, 1)).effects.forageBonus === 0.15);
   check('Mabon carries a loot blessing (the second harvest)', hooks.seasonWindow(Date.UTC(2026, 9, 1)).effects.lootBonus === 0.20);
+  check('Imbolc carries a healing blessing (Brigid mends all)', hooks.seasonWindow(Date.UTC(2026, 1, 10)).effects.regenBonus > 0);
+  check('Yule carries a hearth-rest blessing', hooks.seasonWindow(Date.UTC(2027, 0, 10)).effects.restBonus > 0);
   const maxXpMult = Math.max(...require('../data/seasons').SABBATS.map(s => (s.effects && s.effects.xpMult) || 1));
   check('season xp blessings stay modest (≤1.15, keeps pacing tests level-based)', maxXpMult <= 1.15);
 

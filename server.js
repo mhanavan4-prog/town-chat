@@ -1663,7 +1663,13 @@ function skillMendingRate(player)   {
   // delve, minus everything under a Starving Moon (the -Infinity sentinel).
   const delve = delveMendingBonus(player);
   if (delve === -Infinity) return 0;
-  return SKILL_FX.mending(skillEffectRank(player, 'mending')) + delve;
+  // 🎡 Imbolc's healing (Brigid) and Yule's hearth mend everyone a little out of
+  // combat — a flat HP/s all season, even for players with no mending skill.
+  // Added AFTER the Starving-Moon sentinel so that delve curse still wins, and
+  // the tick only ever heals out of combat, so it can't turn a live fight.
+  const _s = seasonWindow(Date.now());
+  const seasonMend = (_s && _s.effects && (_s.effects.regenBonus || _s.effects.restBonus)) || 0;
+  return SKILL_FX.mending(skillEffectRank(player, 'mending')) + delve + seasonMend;
 }
 function skillHarvestExtraChance(player) {
   // 🏮 Festival day sweetens every forager's odds (Session L); 🎡 and the
