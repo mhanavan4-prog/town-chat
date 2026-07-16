@@ -25,6 +25,15 @@ const QUEST_CATALOG = {
     itemRewards: [{ itemId: 'animal_pelt', qty: 2 }],
     description: 'The Wilds are crawling with foul things at night. Hunt five of them and I\'ll make it worth your while.'
   },
+  // Hunter Dex's second job (surfaces via QUEST_BY_NPC rotation once the first
+  // is on cooldown). Ties into his new post keeping watch at the graveyard.
+  hunters_vigil: {
+    npcId: 'npc_dex', npcName: 'Hunter Dex',
+    name: 'The Graveyard Vigil',
+    type: 'kill_mob', target: 4, xpReward: 130, goldReward: 70,
+    itemRewards: [{ itemId: 'animal_pelt', qty: 2 }, { itemId: 'enchanted_gem', qty: 1 }],
+    description: 'Something’s been stirring the graves after dark — the dead don’t rest while the night things prowl this churchyard. Cull four of the creatures and I’ll rest easier keeping watch here.'
+  },
   scholars_find: {
     npcId: 'npc_lyra', npcName: 'Scholar Lyra',
     name: 'Find Healing Herbs',
