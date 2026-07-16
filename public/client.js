@@ -7576,6 +7576,26 @@ function destroyPlayerVisual(id) {
   delete visuals[id];
 }
 
+// KayKit recovery: the ~18MB of character models load asynchronously, so a
+// player drawn before they finish gets the classic fallback rig (built once —
+// ensurePlayerVisual short-circuits after). The moment KK settles, rebuild
+// anyone still on the fallback so every character upgrades to the KayKit model
+// instead of being stuck on the old rig until a page reload.
+if (KK && KK.promise && typeof KK.promise.then === 'function') {
+  KK.promise.then(() => {
+    const players = getPlayers() || {};
+    const meP = getMe();
+    for (const id of Object.keys(visuals)) {
+      const v = visuals[id];
+      if (!v || v.kk) continue; // already a KayKit model — leave it
+      const p = players[id] || (meP && meP.id === id ? meP : null);
+      if (!p) continue;
+      destroyPlayerVisual(id);
+      ensurePlayerVisual(p);
+    }
+  });
+}
+
 function syncVisuals(dt) {
   // Holly Wand ambience, shared by every bearer this frame
   const _dn = getDayNightState();
@@ -17828,7 +17848,7 @@ function applyTemplePortalState(open) {
 const TOWN_NPCS = [
   { id: 'npc_mara', name: 'Ranger Mara',    charId: 3, x: 1350, y:  950 },
   { id: 'npc_finn', name: 'Herbalist Finn', charId: 0, x: 1850, y:  950 },
-  { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1990, y:  235 }, // moved to stand watch by the graveyard (beside Town Hall)
+  { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1950, y:  340 }, // by the graveyard's south approach, clear of the wooded pocket's trees
   { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 1850, y: 1250 }
 ];
 
