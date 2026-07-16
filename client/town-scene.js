@@ -115,42 +115,14 @@ function buildMidnightPeddler(scene) {
   const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
   table.position.set(0, 16, 8);
   g.add(table);
-  // the peddler — a proper hooded humanoid, built on the SAME rig every other
-  // character uses (createHumanoid) instead of the old cone+sphere blob, so he
-  // reads as a person in the game's style. A bespoke dark-violet cloak preset
-  // (like the Ember mobs' custom palettes) keeps him distinct + mysterious, and
-  // a low-poly hood (dome + peak + shoulder cape) is layered on top.
-  const peddler = createHumanoid(0, {
-    skin: 0xb9a9d6,       // pale, shadowed face under the hood
-    hair: 0x1a1430, hairStyle: 'bald', // hood covers the head
-    eye: 0xd6dcff,        // faint moonstone glow for eyes
-    shirt: 0x2a2144,      // deep-violet cloak (torso + arms)
-    pants: 0x1c1630       // near-black legs
-  });
-  const pg = peddler.group;
-  pg.scale.setScalar(0.85);       // sit comfortably under the canopy
-  pg.position.set(0, 0, -14);     // well behind the (deep) table so he never clips it
-  pg.rotation.y = Math.PI;        // face the customer side; flip if reversed in playtest
-  const hy = peddler.head.position.y;
-  const hr = (peddler.head.geometry.parameters && peddler.head.geometry.parameters.radius) || 8;
-  const cloakMat = new THREE.MeshLambertMaterial({ color: 0x241a3b });
-  const hoodMat = new THREE.MeshLambertMaterial({ color: 0x2c2340 });
-  // shoulder cape draping over the shoulders
-  const cape = new THREE.Mesh(new THREE.ConeGeometry(9, 20, 8), cloakMat);
-  cape.position.set(0, hy - 22, -0.5);
-  pg.add(cape);
-  // hood dome over the crown — the face stays open at the front
-  const hoodDome = new THREE.Mesh(
-    new THREE.SphereGeometry(hr * 1.5, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
-    hoodMat
-  );
-  hoodDome.position.set(0, hy + hr * 0.15, -hr * 0.15);
-  pg.add(hoodDome);
-  // pointed hood peak, tilted back
-  const peak = new THREE.Mesh(new THREE.ConeGeometry(hr * 1.15, hr * 2, 8), hoodMat);
-  peak.position.set(0, hy + hr * 0.3, -hr * 0.7);
-  peak.rotation.x = -0.4;
-  pg.add(peak);
+  // the peddler — a KayKit character, built exactly like the town NPCs above
+  // (createHumanoid(charId).group, no preset) so he uses the loaded KayKit model
+  // and matches everyone else instead of the old cone+sphere blob. The Witch
+  // model (charId 0) reads as a purple-robed, pointed-hat, mysterious figure
+  // that suits the Midnight Peddler; change the charId for a different look.
+  const pg = createHumanoid(0).group;
+  pg.position.set(0, 0, -12);     // stand behind the table
+  pg.rotation.y = Math.PI;        // face the customer side (flip to 0 if reversed)
   g.add(pg);
   // hanging lantern + glow
   const lantern = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd9b8ff }));
