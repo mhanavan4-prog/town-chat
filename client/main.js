@@ -6774,7 +6774,7 @@ const { buildWildsScene } = createWildsScene({
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeGrassTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
