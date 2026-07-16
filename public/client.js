@@ -17479,15 +17479,16 @@ function initScene(w) {
   refreshBuildingLockVisuals();
   TOWN_WALLS = walls; // snapshot now that tree colliders from addNatureDecor are in place
 
-  if (world2) buildWildsScene(world2);
   buildDungeonScene();
-  // Cave / Vault / Ember are built LAZILY on first entry (see swapToCaveMap /
-  // swapToVaultMap / swapToEmberMap) rather than all up front here — this trims
-  // boot-time geometry + GPU/memory for the common sessions that never visit
-  // them (a big win on lower-end phones). They're self-contained destination
-  // scenes reached only through those swap fns, and every reference to their
-  // scene vars already tolerates a null (a boot build could always throw), so
-  // "null until first entry" is a safe, already-handled normal case.
+  // Wilds / Cave / Vault / Ember are built LAZILY on first entry (see
+  // swapToWildsMap / swapToCaveMap / swapToVaultMap / swapToEmberMap) rather
+  // than all up front here — this trims boot-time geometry + GPU/memory for the
+  // common sessions that never visit them (a big win on lower-end phones). Each
+  // is reached only through its swap fn, and every reference to their scene vars
+  // already tolerates a null: day-night guards `if (getWildsScene())`, the
+  // swapToTownMap light-return guards `if (wildsScene)`, loot-icon adds guard
+  // `&& <scene>`, the sceneCounts probe guards `if (s)`, and a boot build could
+  // always throw — so "null until first entry" is a safe, already-handled case.
 }
 
 // ---------------------------------------------------------------------------
@@ -17502,6 +17503,7 @@ function initScene(w) {
 // toast on top of the defeat one.
 // ---------------------------------------------------------------------------
 function swapToWildsMap() {
+  if (!wildsScene && world2) { try { buildWildsScene(world2); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
   for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
@@ -17518,7 +17520,7 @@ function swapToWildsMap() {
 function swapToTownMap() {
   if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
   for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
-    wildsScene.remove(light);
+    if (wildsScene) wildsScene.remove(light); // wilds may be unbuilt (lazy) if never visited — nothing to remove
     outdoorScene.add(light);
   }
   world = TOWN_WORLD;
@@ -17554,8 +17556,10 @@ let portalCooldownUntil = 0;
 const PORTAL_COOLDOWN_MS = 2500;
 
 function enterWilds() {
-  if (!wildsScene || !world2 || !me) return;
-  swapToWildsMap();
+  if (!world2 || !me) return;
+  swapToWildsMap(); // builds the Wilds on first entry (lazy)
+  if (activeScene !== wildsScene) return; // build failed / not ready — don't half-enter
+
   // Face toward the actual Wilds (facing=Math.PI is -Y), not just away
   // from the return portal. Spawn sits at y=8800 in a 10000-tall map —
   // only 1200 units from the southern edge — while everything worth
