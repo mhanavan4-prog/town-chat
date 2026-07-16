@@ -129,6 +129,18 @@ setTimeout(async () => {
   check('blood moon is quiet the night after', hooks.bloodMoonWindow(bloodNightAt + CYCLE).active === false);
   check('blood moon nextRiseAt is honest', hooks.bloodMoonWindow(bloodNightAt + CYCLE).nextRiseAt === (bloodIdx + hooks.BLOOD_MOON_EVERY_NIGHTS) * CYCLE + DAY);
 
+  // ── Wheel of the Year (seasons) — each sabbat is live across its window ──
+  check('Samhain is live in mid-November', hooks.seasonWindow(Date.UTC(2026, 10, 15)).key === 'samhain');
+  check('Yule wraps across the New Year', hooks.seasonWindow(Date.UTC(2027, 0, 10)).key === 'yule');
+  check('Imbolc opens in early February', hooks.seasonWindow(Date.UTC(2026, 1, 10)).key === 'imbolc');
+  check('Ostara holds at the spring equinox', hooks.seasonWindow(Date.UTC(2026, 3, 15)).key === 'ostara');
+  check('Beltane holds in May', hooks.seasonWindow(Date.UTC(2026, 4, 15)).key === 'beltane');
+  check('Litha holds at midsummer', hooks.seasonWindow(Date.UTC(2026, 6, 15)).key === 'litha');
+  check('Lughnasadh holds in early August', hooks.seasonWindow(Date.UTC(2026, 7, 5)).key === 'lughnasadh');
+  check('Mabon holds in early October', hooks.seasonWindow(Date.UTC(2026, 9, 1)).key === 'mabon');
+  check('season windows are contiguous (endsAt = next sabbat start)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).endsAt === Date.UTC(2026, 7, 1));
+  check('the calendar payload carries the live season', hooks.calendarPublicState(Date.UTC(2026, 9, 1)).season.key === 'mabon');
+
   // Circlet crafting (5 shards → wearable trophy)
   const crafter = joinAs('Crafter', 'crafter1');
   const cInv = hooks.getInventory(crafter.player);
