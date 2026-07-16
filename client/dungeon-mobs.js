@@ -134,6 +134,7 @@ function makeDungeonMob(mobType) {
     }));
     glow.scale.set(60 / visual.scale, 60 / visual.scale, 1);
     glow.position.set(0, 10, 0);
+    glow.name = 'bossGlow'; // recolored red + enlarged when the boss enrages (below half HP)
     g.add(glow);
   }
   return g;
@@ -163,6 +164,20 @@ function applyDungeonMobState(list) {
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
       if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
+      // 🩸 Boss enrage tell: below half health (matches the server's enrage
+      // threshold) the boss's glow flares red and larger, so the harder-hitting
+      // phase reads at a glance.
+      const vis = DUNGEON_MOB_VISUALS[m.mobType];
+      if (vis && vis.boss) {
+        const glow = v.mesh.getObjectByName('bossGlow');
+        if (glow) {
+          const enraged = m.maxHealth && m.health <= m.maxHealth * 0.5;
+          glow.material.color.setHex(enraged ? 0xff2a2a : vis.eyeColor);
+          glow.material.opacity = enraged ? 0.75 : 0.4;
+          const s = (enraged ? 88 : 60) / (vis.scale || 1);
+          glow.scale.set(s, s, 1);
+        }
+      }
     }
   }
 }
