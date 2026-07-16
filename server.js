@@ -1977,7 +1977,7 @@ for (const line of Object.values(STORYLINES)) {
 // Journal render now carries a concrete "where" line.
 const NPC_WHEREABOUTS = {
   npc_lyra: 'town square — she wanders near the fountain',
-  npc_dex: 'town square — look for the hunter pacing the paths',
+  npc_dex: 'by the graveyard, east of the Town Hall — the hunter keeps watch there',
   npc_mara: 'town square, by her stall',
   npc_finn: 'town square, by his stall',
   npc_scholar: '📚 the Library, behind the counter',
