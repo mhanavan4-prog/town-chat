@@ -6006,7 +6006,13 @@ wss.on('connection', (ws) => {
 
       if (spell.effect === 'damage' || spell.effect === 'leech') {
         const targetId = targetsMob ? String(msg.targetId || '') : target.id;
-        const dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
+        let dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
+        // 🎡 Beltane — Bel's bright fire makes the Witch's Fireball (the only
+        // 'damage' spell; leech hexes stay untouched) burn harder all season.
+        const _fireSeason = seasonWindow(now);
+        if (spell.effect === 'damage' && _fireSeason && _fireSeason.effects && _fireSeason.effects.fireBonus) {
+          dmg = Math.round(dmg * (1 + _fireSeason.effects.fireBonus));
+        }
         const result = applyDamage(player, targetType, targetId, dmg, ABILITY_MAX_RANGE);
         if (!result.ok) {
           send(ws, { type: 'spell_error', message: result.evaded

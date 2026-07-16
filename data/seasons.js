@@ -37,7 +37,7 @@ const SABBATS = [
     month: 5, day: 1,
     blurb: "Bel's fires blaze and life runs at full flood. Fertility, passion and the leap over the flame into summer — one of the two nights the veil also thins.",
     blessing: "🔥 Beltane blazes over Thornreach — Bel's bright fire leaps, and every living thing burns brighter. Summer is coming in.",
-    effects: { xpMult: 1.10, fireBonus: true }
+    effects: { xpMult: 1.10, fireBonus: 0.30 }
   },
   {
     key: 'litha', name: 'Litha', epithet: 'the Sun at its Height', glyph: '☀️',
