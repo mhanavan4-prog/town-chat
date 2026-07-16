@@ -7,7 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getDayNightWorldRadius, getWildsScene }) {
+export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -54,21 +54,37 @@ function updateDayNightCycle() {
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
   // smoothly rather than popping in at a fixed height.
-  const r = getDayNightWorldRadius();
   const sunAngle = Math.PI * dayProgress;
-  // Direction rides the same arc as before; position anchors near the player
-  // (see GFX.beforeRender) so the shadow frustum stays tight. Pre-join, the
-  // old absolute arc position still applies.
+  // The directional light's arc; its position anchors near the player each
+  // frame (see GFX.beforeRender) so the shadow frustum stays tight.
   const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
   getOutdoorSun().position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
   if (getOutdoorSun().target) getOutdoorSun().target.position.set(0, 0, 0);
   getOutdoorSun().intensity = lightAmount * 0.9;
 
   const moonAngle = Math.PI * nightProgress;
-  const moonY = Math.sin(moonAngle) * r * 0.6; // nightProgress in [0,1] -> angle in [0,π] -> always >= 0, horizon to horizon
-  getMoonMesh().position.set(Math.cos(moonAngle) * -r, Math.max(-80, moonY), -r * 0.4);
-  getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, moonY / Math.max(1, r) * 1150), -460);
   const moonStrength = 1 - lightAmount;
+
+  // Visible sun & moon DISCS. Anchored to the camera's sky-dome (like the
+  // stars) so they always ride overhead wherever the player walks, at a fixed
+  // fog-safe distance — the discs use fog:false, but keeping them well inside
+  // the far plane also stops them clipping. skyAlt() lifts them from the
+  // horizon at rise/set up to high in the sky at their peak.
+  const anchor = getSkyAnchor && getSkyAnchor();
+  const ax = anchor ? anchor.x : 0, az = anchor ? anchor.z : 0;
+  const SKY_DIST = 1500;
+  const skyAlt = (a) => (0.24 + Math.max(0, Math.sin(a)) * 0.92) * SKY_DIST;
+
+  const sunMesh = getSunMesh && getSunMesh();
+  if (sunMesh) {
+    sunMesh.position.set(ax + Math.cos(sunAngle) * SKY_DIST, skyAlt(sunAngle), az - 0.34 * SKY_DIST);
+    sunMesh.material.opacity = lightAmount;
+    sunMesh.visible = lightAmount > 0.02;
+    if (sunMesh.userData.glow) sunMesh.userData.glow.material.opacity = lightAmount * 0.7;
+  }
+
+  getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
+  getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
   getOutdoorMoonLight().intensity = moonStrength * 0.55;
   // The moon itself blushes on blood nights, and its light follows.
   getMoonMesh().material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
