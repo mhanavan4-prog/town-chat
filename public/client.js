@@ -15843,6 +15843,7 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
     const order = ['auto', 'low', 'medium', 'high'];
     const next = order[(order.indexOf(G.pref) + 1) % order.length];
     G.setQuality(next);
+    applyDrawDistanceTier(G.quality); // re-tier outdoor draw distance for the new quality
     gfxLabel();
   });
   const _menuBtnForGfx = document.getElementById('pcMenuBtn');
@@ -17328,6 +17329,31 @@ const GFX = (() => {
   return api;
 })();
 
+// ── Mobile draw-distance tiering ───────────────────────────────────────────
+// On the 'low' quality tier ONLY (a tier the player opts into for performance),
+// pull the outdoor fog + camera far planes in so a busy night town renders less
+// distant geometry. 'medium' (the mobile default) and 'high' (desktop) keep
+// their authored distances untouched, so no default experience changes. The
+// authored far values are captured once (WeakMap) so switching quality back
+// restores them exactly. Applied to the two big outdoor maps (town + wilds);
+// the small indoor/destination scenes aren't worth tiering. Numbers are
+// deliberately gentle — tune against real devices.
+const DRAW_TIER = { low: { fog: 0.78, cam: 0.75 } };
+const _authoredFar = new WeakMap();
+function _tierFar(target, isCamera, mul) {
+  if (!target || typeof target.far !== 'number') return;
+  if (!_authoredFar.has(target)) _authoredFar.set(target, target.far);
+  target.far = _authoredFar.get(target) * mul;
+  if (isCamera && target.updateProjectionMatrix) target.updateProjectionMatrix();
+}
+function applyDrawDistanceTier(q) {
+  const t = DRAW_TIER[q] || { fog: 1, cam: 1 };
+  _tierFar(outdoorScene && outdoorScene.fog, false, t.fog);
+  _tierFar(outdoorCamera, true, t.cam);
+  _tierFar(wildsScene && wildsScene.fog, false, t.fog);
+  _tierFar(wildsCamera, true, t.cam);
+}
+
 function initScene(w) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -17473,6 +17499,7 @@ function initScene(w) {
   GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1600, 700], [900, 1500], [2200, 1500]], 22);
   outdoorScene = scene;
   outdoorCamera = camera;
+  applyDrawDistanceTier(GFX.quality); // pull in fog/far if the player is on 'low'
   mode = 'outdoor';
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
@@ -17503,7 +17530,7 @@ function initScene(w) {
 // toast on top of the defeat one.
 // ---------------------------------------------------------------------------
 function swapToWildsMap() {
-  if (!wildsScene && world2) { try { buildWildsScene(world2); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
+  if (!wildsScene && world2) { try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
   for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
