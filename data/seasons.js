@@ -58,7 +58,7 @@ const SABBATS = [
     month: 9, day: 21,
     blurb: "Day and night balance again as the second harvest is gathered. A season of gratitude and plenty — and of releasing what will not survive the coming dark.",
     blessing: "🍂 Mabon settles over Thornreach — the second harvest is gathered and the year turns inward. Take stock, and be grateful.",
-    effects: { forageBonus: 0.15, lootBonus: true }
+    effects: { forageBonus: 0.15, lootBonus: 0.20 }
   },
   {
     key: 'samhain', name: 'Samhain', epithet: "the Witches' New Year", glyph: '🕯️',
