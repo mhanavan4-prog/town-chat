@@ -5732,9 +5732,18 @@ const GFX = (() => {
     if (st.skyGroup) return;
     const grp = new THREE.Group();
     grp.name = 'gfxSky';
-    // two star layers for cheap twinkle
-    for (let layer = 0; layer < 2; layer++) {
-      const n = layer ? 300 : 420;
+    // Several independent star layers, each twinkling on its own phase AND
+    // speed (see cycleTick) so the night sky scintillates — different stars
+    // bright at different moments — instead of the whole field pulsing in
+    // unison. Varied size/colour gives a natural mix of bright & faint stars.
+    const STAR_LAYERS = [
+      { n: 300, size: 2.7, color: 0xffffff, speed: 1.1, phase: 0.0 },
+      { n: 260, size: 2.1, color: 0xeaf0ff, speed: 1.7, phase: 1.3 },
+      { n: 230, size: 1.6, color: 0xcfd8ff, speed: 2.4, phase: 2.6 },
+      { n: 190, size: 1.3, color: 0xfff0d8, speed: 3.1, phase: 3.9 },
+    ];
+    for (const L of STAR_LAYERS) {
+      const n = L.n;
       const pos = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
         const az = Math.random() * Math.PI * 2;
@@ -5746,12 +5755,12 @@ const GFX = (() => {
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const mat = new THREE.PointsMaterial({ color: layer ? 0xcfd8ff : 0xffffff, size: layer ? 1.6 : 2.3,
+      const mat = new THREE.PointsMaterial({ color: L.color, size: L.size,
         sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false });
       const pts = new THREE.Points(geo, mat);
       pts.frustumCulled = false;
       grp.add(pts);
-      st.stars.push({ mat, phase: layer * 1.7 });
+      st.stars.push({ mat, phase: L.phase, speed: L.speed });
     }
     // slow clouds
     const cloudTex = softTex('rgba(255,255,255,0.85)', 18);
@@ -5812,7 +5821,8 @@ const GFX = (() => {
     const q = st.quality;
     for (let i = 0; i < st.stars.length; i++) {
       const s2 = st.stars[i];
-      s2.mat.opacity = night * (0.75 + Math.sin(t * 1.3 + s2.phase) * 0.22);
+      // stronger swing + per-layer speed → a lively, start-screen-style twinkle
+      s2.mat.opacity = night * Math.max(0, 0.6 + Math.sin(t * (s2.speed || 1.3) + s2.phase) * 0.4);
     }
     for (const c of st.clouds) {
       c.sp.position.x += c.speed * (1 / 60);
