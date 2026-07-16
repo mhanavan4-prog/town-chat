@@ -6,8 +6,17 @@
 // particular the TDZ class ("Cannot access 'X' before initialization") that
 // appears when an extracted module's export (now a `const`, no longer a hoisted
 // function) is referenced during initial evaluation, before its construction
-// line. The Playwright smoke test also catches these, but this runs in ~50ms
+// line. The Playwright smoke test also catches these, but this runs in ~100ms
 // with no Chromium, so it fails fast in the sandbox and early in CI.
+//
+// It evaluates the bundle under TWO localStorage scenarios, because whole init
+// paths only run for one of them:
+//   • guest            — no saved account (localStorage empty)
+//   • returning player — a saved `tc_account` present, which triggers the
+//                        account-restore path (setJoinMode, roster fetch, …).
+// The returning-player path once TDZ-crashed the entire boot (createAccountSelect
+// calling back into main's not-yet-assigned `updateCharPickerVisibility` const),
+// and the old single (guest-only) check sailed right past it. Both now run.
 //
 // How it stays low-maintenance: the sandbox proxy answers `has()` true for every
 // name, so an unstubbed browser API resolves to a harmless self-returning stub
@@ -44,54 +53,71 @@ const S = (() => {
 
 const noop = () => {};
 const timer = () => 0;
-const stub = {
-  document: S,
-  navigator: { userAgent: 'node', serviceWorker: S, geolocation: S, maxTouchPoints: 0, mediaDevices: S, language: 'en' },
-  location: { protocol: 'http:', search: '', hash: '', pathname: '/', hostname: 'localhost', host: 'localhost', href: 'http://localhost/', origin: 'http://localhost', replace: noop, reload: noop, assign: noop },
-  history: { replaceState: noop, pushState: noop, back: noop },
-  localStorage: { getItem: () => null, setItem: noop, removeItem: noop, clear: noop },
-  sessionStorage: { getItem: () => null, setItem: noop, removeItem: noop, clear: noop },
-  performance: { now: () => 0 },
-  setTimeout: timer, clearTimeout: noop, setInterval: timer, clearInterval: noop,
-  requestAnimationFrame: timer, cancelAnimationFrame: noop, queueMicrotask: noop,
-  WebSocket: Object.assign(function () { return S; }, { OPEN: 1, CONNECTING: 0, CLOSING: 2, CLOSED: 3 }),
-  fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({}), text: () => Promise.resolve('') }),
-  AudioContext: function () { return S; },
-  webkitAudioContext: function () { return S; },
-  Notification: Object.assign(function () {}, { requestPermission: () => Promise.resolve('denied'), permission: 'default' }),
-  THREE: S, faceapi: S, FX: S, LEGEND_FX: S,
-  atob: (s) => Buffer.from(String(s), 'base64').toString('binary'),
-  btoa: (s) => Buffer.from(String(s), 'binary').toString('base64'),
-  alert: noop, prompt: () => null, confirm: () => false,
-  getComputedStyle: () => S,
-  matchMedia: () => ({ matches: false, addEventListener: noop, addListener: noop, removeListener: noop }),
-  addEventListener: noop, removeEventListener: noop, scrollTo: noop,
-  screen: { width: 1024, height: 768 },
-  innerWidth: 1024, innerHeight: 768, devicePixelRatio: 1,
-};
-// Pass real JS builtins through (referenced by name-string to keep lint happy).
-for (const k of ['console', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Symbol', 'Math', 'JSON',
-  'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'Proxy', 'Reflect', 'Function',
-  'Error', 'TypeError', 'RangeError', 'SyntaxError', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
-  'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'Uint8Array', 'Int8Array',
-  'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'ArrayBuffer',
-  'DataView', 'BigInt', 'structuredClone', 'URL', 'URLSearchParams', 'TextEncoder', 'TextDecoder',
-  'Intl', 'WebAssembly', 'Blob', 'FileReader']) {
-  if (k in globalThis) stub[k] = globalThis[k];
-}
-stub.window = stub; stub.self = stub; stub.globalThis = stub; stub.top = stub; stub.parent = stub;
 
-const sandbox = new Proxy(stub, {
-  has() { return true; },                        // every name is "in scope" -> unstubbed globals don't throw
-  get(t, p) { return p in t ? t[p] : S; },       // known -> real; unknown browser API -> harmless stub
-  set(t, p, v) { t[p] = v; return true; },
-});
+// Build a fresh sandbox for each scenario (fresh context => no state leaks
+// between runs). `ls` is the localStorage stub the scenario wants to exercise.
+function makeSandbox(ls) {
+  const stub = {
+    document: S,
+    navigator: { userAgent: 'node', serviceWorker: S, geolocation: S, maxTouchPoints: 0, mediaDevices: S, language: 'en' },
+    location: { protocol: 'http:', search: '', hash: '', pathname: '/', hostname: 'localhost', host: 'localhost', href: 'http://localhost/', origin: 'http://localhost', replace: noop, reload: noop, assign: noop },
+    history: { replaceState: noop, pushState: noop, back: noop },
+    localStorage: ls,
+    sessionStorage: { getItem: () => null, setItem: noop, removeItem: noop, clear: noop },
+    performance: { now: () => 0 },
+    setTimeout: timer, clearTimeout: noop, setInterval: timer, clearInterval: noop,
+    requestAnimationFrame: timer, cancelAnimationFrame: noop, queueMicrotask: noop,
+    WebSocket: Object.assign(function () { return S; }, { OPEN: 1, CONNECTING: 0, CLOSING: 2, CLOSED: 3 }),
+    fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({}), text: () => Promise.resolve('') }),
+    AudioContext: function () { return S; },
+    webkitAudioContext: function () { return S; },
+    Notification: Object.assign(function () {}, { requestPermission: () => Promise.resolve('denied'), permission: 'default' }),
+    THREE: S, faceapi: S, FX: S, LEGEND_FX: S,
+    atob: (s) => Buffer.from(String(s), 'base64').toString('binary'),
+    btoa: (s) => Buffer.from(String(s), 'binary').toString('base64'),
+    alert: noop, prompt: () => null, confirm: () => false,
+    getComputedStyle: () => S,
+    matchMedia: () => ({ matches: false, addEventListener: noop, addListener: noop, removeListener: noop }),
+    addEventListener: noop, removeEventListener: noop, scrollTo: noop,
+    screen: { width: 1024, height: 768 },
+    innerWidth: 1024, innerHeight: 768, devicePixelRatio: 1,
+  };
+  // Pass real JS builtins through (referenced by name-string to keep lint happy).
+  for (const k of ['console', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Symbol', 'Math', 'JSON',
+    'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'Proxy', 'Reflect', 'Function',
+    'Error', 'TypeError', 'RangeError', 'SyntaxError', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
+    'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'Uint8Array', 'Int8Array',
+    'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'ArrayBuffer',
+    'DataView', 'BigInt', 'structuredClone', 'URL', 'URLSearchParams', 'TextEncoder', 'TextDecoder',
+    'Intl', 'WebAssembly', 'Blob', 'FileReader']) {
+    if (k in globalThis) stub[k] = globalThis[k];
+  }
+  stub.window = stub; stub.self = stub; stub.globalThis = stub; stub.top = stub; stub.parent = stub;
 
-try {
-  vm.runInContext(code, vm.createContext(sandbox), { filename: 'client.js', timeout: 15000 });
-  console.log('boot-check OK — bundle evaluated (top-level + all IIFEs) with no boot crash');
-} catch (e) {
-  console.error('boot-check FAILED:', (e && e.name) || 'Error', '-', String((e && e.message) || '').split('\n')[0]);
-  console.error('  (a "Cannot access X before initialization" here is a TDZ: an eval-time reference to a module export before its construction line)');
-  process.exit(1);
+  return new Proxy(stub, {
+    has() { return true; },                        // every name is "in scope" -> unstubbed globals don't throw
+    get(t, p) { return p in t ? t[p] : S; },       // known -> real; unknown browser API -> harmless stub
+    set(t, p, v) { t[p] = v; return true; },
+  });
 }
+
+const SAVED_ACCOUNT = JSON.stringify({ username: 'bootcheck', token: 'bootcheck_token', color: '#4dabf7' });
+const scenarios = [
+  { name: 'guest (no saved account)', ls: { getItem: () => null, setItem: noop, removeItem: noop, clear: noop } },
+  { name: 'returning player (saved account)', ls: { getItem: (k) => (k === 'tc_account' ? SAVED_ACCOUNT : null), setItem: noop, removeItem: noop, clear: noop } },
+];
+
+let failed = false;
+for (const sc of scenarios) {
+  try {
+    vm.runInContext(code, vm.createContext(makeSandbox(sc.ls)), { filename: 'client.js', timeout: 15000 });
+    console.log(`boot-check OK — ${sc.name}`);
+  } catch (e) {
+    failed = true;
+    console.error(`boot-check FAILED — ${sc.name}:`, (e && e.name) || 'Error', '-', String((e && e.message) || '').split('\n')[0]);
+    console.error('  (a "Cannot access X before initialization" here is a TDZ: an eval-time reference to a module export before its construction line)');
+  }
+}
+
+if (failed) process.exit(1);
+console.log('boot-check OK — bundle evaluated (top-level + all IIFEs) with no boot crash');

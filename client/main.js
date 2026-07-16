@@ -2016,7 +2016,7 @@ function setAccountStatus(text, isError) {
 // the account module flips it via the injected setter.
 let thirdEyeOptIn = localStorage.getItem('tc_thirdeye_optin') === '1';
 const {
-  updateCharPickerVisibility, apiUrlMaybe, attemptJoin,
+  updateCharPickerVisibility, apiUrlMaybe, attemptJoin, loadSavedAccount,
 } = createAccountSelect({
   CHARACTER_PRESETS, KK, accountLoginBtn, accountPassInput, accountRegisterBtn, accountStatusEl, accountUserInput,
   apiUrl, joinBtn, nameInput, passInput, passSessionReceipt, setAccountStatus, setJoinMode, showJoinError,
@@ -2029,6 +2029,11 @@ const {
 joinBtn.addEventListener('click', attemptJoin);
 nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptJoin(); });
 passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptJoin(); });
+// Restore a saved account now that the factory's bindings are assigned. This
+// MUST run after the destructure above, not inside createAccountSelect() — see
+// the note in account-select.js (it reaches back into main's just-declared
+// consts, which would TDZ and abort boot if run during construction).
+loadSavedAccount();
 
 // ---------------------------------------------------------------------------
 // World / collision — identical math to the 2D version. "y" here is treated

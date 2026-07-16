@@ -9801,7 +9801,13 @@ if (newCharBtn) {
   });
 }
 
-(function loadSavedAccount() {
+// NOT run during construction — main.js calls this AFTER destructuring the
+// factory's return. Running it here would fire the injected setJoinMode →
+// main's `updateCharPickerVisibility` const while that const is still being
+// assigned (`const {…} = createAccountSelect(…)`), throwing a TDZ
+// ReferenceError that aborts the entire client boot whenever a saved account
+// exists. Deferring the call keeps startup crash-free.
+function loadSavedAccount() {
   try {
     const raw = localStorage.getItem('tc_account');
     if (raw) setSavedAccount(JSON.parse(raw));
@@ -9811,7 +9817,7 @@ if (newCharBtn) {
     renderLoggedInStatus();
     fetchCharacterRoster();
   }
-})();
+}
 
 function submitAccount(endpoint) {
   const username = accountUserInput.value.trim();
@@ -9919,7 +9925,7 @@ function attemptJoin() {
   }
 }
 
-  return { updateCharPickerVisibility, apiUrlMaybe, attemptJoin };
+  return { updateCharPickerVisibility, apiUrlMaybe, attemptJoin, loadSavedAccount };
 }
 
 // ===== client/hud.js =====
@@ -13581,7 +13587,7 @@ function setAccountStatus(text, isError) {
 // the account module flips it via the injected setter.
 let thirdEyeOptIn = localStorage.getItem('tc_thirdeye_optin') === '1';
 const {
-  updateCharPickerVisibility, apiUrlMaybe, attemptJoin,
+  updateCharPickerVisibility, apiUrlMaybe, attemptJoin, loadSavedAccount,
 } = createAccountSelect({
   CHARACTER_PRESETS, KK, accountLoginBtn, accountPassInput, accountRegisterBtn, accountStatusEl, accountUserInput,
   apiUrl, joinBtn, nameInput, passInput, passSessionReceipt, setAccountStatus, setJoinMode, showJoinError,
@@ -13594,6 +13600,11 @@ const {
 joinBtn.addEventListener('click', attemptJoin);
 nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptJoin(); });
 passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptJoin(); });
+// Restore a saved account now that the factory's bindings are assigned. This
+// MUST run after the destructure above, not inside createAccountSelect() — see
+// the note in account-select.js (it reaches back into main's just-declared
+// consts, which would TDZ and abort boot if run during construction).
+loadSavedAccount();
 
 // ---------------------------------------------------------------------------
 // World / collision — identical math to the 2D version. "y" here is treated
