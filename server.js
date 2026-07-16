@@ -1406,8 +1406,16 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
   if (t.health <= 0) {
     t.dead = true;
-    t.respawnAt = Date.now() + poolInfo.respawnMs;
-    if (targetType === 'mob' || targetType === 'mob2' || targetType === 'mob3' || targetType === 'ember_mob') registerHuntKill(player);
+    // 🎡 Samhain — the veil thins and the slain rise again faster (veilThin is a
+    // respawn-time multiplier < 1). Only the hostile pools quicken; peaceful
+    // critters keep their cadence. MAX concurrent count is unchanged (fixed
+    // spawn points), so this is just a shorter refill — no extra load. Dormant
+    // (mul 1) every other season.
+    const _veilHostile = (targetType === 'mob' || targetType === 'mob2' || targetType === 'mob3' || targetType === 'ember_mob');
+    const _veil = seasonWindow(Date.now());
+    const _veilMul = (_veilHostile && _veil && _veil.effects && _veil.effects.veilThin) || 1;
+    t.respawnAt = Date.now() + Math.round(poolInfo.respawnMs * _veilMul);
+    if (_veilHostile) registerHuntKill(player);
     if (targetType === 'mob2') {
       const preset = MOB2_TYPES[t.mobType];
       const xp = preset.xp || 15;
