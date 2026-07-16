@@ -987,9 +987,15 @@ function dungeonLootTable(xp) {
 // loot icon on its body (see the loot_corpse handler), rather than being
 // auto-granted to whoever landed the killing blow the instant it died.
 function rollPendingLoot(table) {
+  // 🎡 Mabon — the second harvest lifts every drop's odds all season long
+  // (lootBonus in data/seasons.js). Only Mabon carries it, so lootMul is 1 the
+  // rest of the year and every loot path (incl. the boss "double roll") is
+  // unchanged outside that window.
+  const _s = seasonWindow(Date.now());
+  const lootMul = 1 + ((_s && _s.effects && _s.effects.lootBonus) || 0);
   const pending = [];
   for (const drop of table) {
-    if (Math.random() > drop.chance) continue;
+    if (Math.random() > Math.min(1, drop.chance * lootMul)) continue;
     if (drop.gold) {
       const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
       pending.push({ kind: 'gold', amount });
