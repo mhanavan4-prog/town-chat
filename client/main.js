@@ -6299,7 +6299,7 @@ function applyTemplePortalState(open) {
 const TOWN_NPCS = [
   { id: 'npc_mara', name: 'Ranger Mara',    charId: 3, x: 1350, y:  950 },
   { id: 'npc_finn', name: 'Herbalist Finn', charId: 0, x: 1850, y:  950 },
-  { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1350, y: 1250 },
+  { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1990, y:  235 }, // moved to stand watch by the graveyard (beside Town Hall)
   { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 1850, y: 1250 }
 ];
 
