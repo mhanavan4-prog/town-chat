@@ -3718,8 +3718,9 @@ function boardStatePayload(player) {
 }
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
-const calendar = require('./lib/calendar')({ CYCLE_MS, DAY_MS, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, legendaryWeekIndex });
-const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
+const { SABBATS } = require('./data/seasons');
+const calendar = require('./lib/calendar')({ CYCLE_MS, DAY_MS, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, legendaryWeekIndex, SABBATS });
+const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
 const FESTIVAL_XP_MULT = 1.25;
 const FESTIVAL_FORAGE_BONUS = 0.15;
 
@@ -7715,7 +7716,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
   leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload,
-  tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, calendarPublicState,
+  tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,

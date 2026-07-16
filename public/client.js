@@ -13924,7 +13924,7 @@ let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 
 // ── Session L state ──────────────────────────────────────────────────────────
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
-let calendarState = null;           // { tourney, festival, bloodMoon, peddlerNextRotationAt }
+let calendarState = null;           // { tourney, festival, bloodMoon, season, peddlerNextRotationAt }
 let weeklyDelveModsClient = [];     // [{ id, name, icon, desc }]
 let covenSigilsCatalog = ['🕯️', '🌙', '🦇', '🐈‍⬛', '🕸️', '🌿', '⭐', '🔮', '🗝️', '🥀'];
 let covenState = null;              // server coven_state payload (.coven or null)
@@ -19936,6 +19936,7 @@ function renderEventTag() {
   if (!calendarState || !me) { el.classList.add('hidden'); _eventTagSig = null; return; }
   const now = Date.now();
   const parts = [];
+  if (calendarState.season) parts.push(calendarState.season.glyph + ' ' + calendarState.season.name); // the current sabbat — always present, an ambient seasonal banner
   if (calendarState.bloodMoon && bloodMoonActiveClient(now)) parts.push('🔴 BLOOD MOON');
   if (calendarState.festival && now >= calendarState.festival.startsAt && now < calendarState.festival.endsAt) parts.push('🏮 Hearthmoon Festival — +25% XP');
   if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');
@@ -19979,6 +19980,7 @@ function openLetterModal(letter) {
   const cal = letter.calendar || calendarState;
   if (cal) {
     const now = Date.now();
+    if (cal.season) lines.push([cal.season.glyph, cal.season.blessing.slice(cal.season.glyph.length).trim()]);
     if (now >= cal.tourney.startsAt && now < cal.tourney.endsAt) lines.push(['🏹', 'The Weekend Hunt Tournament is ON right now — every kill counts.']);
     else if (cal.tourney.startsAt > now) lines.push(['🏹', `Next hunt tournament: ${shortWhen(cal.tourney.startsAt)}.`]);
     if (now >= cal.festival.startsAt && now < cal.festival.endsAt) lines.push(['🏮', 'The Hearthmoon Festival fills the town today — +25% XP!']);
