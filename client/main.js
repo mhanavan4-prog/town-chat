@@ -5404,7 +5404,7 @@ let outdoorAmbient = null;
 let outdoorSun = null;
 let outdoorMoonLight = null;
 let moonMesh = null;
-let dayNightWorldRadius = 1500; // how far out the sun/moon arc and ground span — set from world size
+let sunMesh = null;
 const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
@@ -5968,12 +5968,28 @@ function initScene(w) {
   scene.add(outdoorMoonLight);
 
   moonMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(50, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0 })
+    new THREE.SphereGeometry(130, 24, 24),
+    // fog:false so the fog wall (opaque by ~2200u) can't wash the moon out —
+    // the old 50u moon sat past it in the map corner and was never seen.
+    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0, fog: false })
   );
   scene.add(moonMesh);
 
-  dayNightWorldRadius = Math.max(w.width, w.height) * 0.9;
+  // A visible daytime sun to match the moon: a warm glowing disc with an
+  // additive corona. updateDayNightCycle() arcs it across the sky (anchored to
+  // the camera's sky-dome) and fades it with the daylight.
+  sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(150, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0, fog: false })
+  );
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture(), color: 0xffd982, transparent: true, opacity: 0,
+    depthWrite: false, fog: false, blending: THREE.AdditiveBlending
+  }));
+  sunGlow.scale.set(820, 820, 1);
+  sunMesh.add(sunGlow);
+  sunMesh.userData.glow = sunGlow;
+  scene.add(sunMesh);
 
   const grassTex = makeMoorTexture(); // spooky Withered Moor ground (town only; the Wilds keeps grass)
   const groundSpan = Math.max(w.width, w.height) + 600;
@@ -6123,7 +6139,7 @@ function initScene(w) {
 // coordinate system: the Wilds is its own free-roam map, not a room.
 // swapToWildsMap()/swapToTownMap() do only the scene/lighting/bounds half
 // (re-parenting the shared sun/moon/ambient lights into whichever scene is
-// now active, swapping world/walls/dayNightWorldRadius to match) so the
+// now active, swapping world/walls to match) so the
 // 'defeated' handler can reuse just that half without also re-sending a
 // redundant move or popping a second "you stepped through the portal"
 // toast on top of the defeat one.
@@ -6131,13 +6147,12 @@ function initScene(w) {
 function swapToWildsMap() {
   if (!wildsScene && world2) { try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
     wildsScene.add(light);
   }
   world = world2;
   walls = WILDS_WALLS;
-  dayNightWorldRadius = Math.max(world2.width, world2.height) * 0.9;
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(wildsScene, wildsCamera, null);
@@ -6145,13 +6160,12 @@ function swapToWildsMap() {
 
 function swapToTownMap() {
   if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     if (wildsScene) wildsScene.remove(light); // wilds may be unbuilt (lazy) if never visited — nothing to remove
     outdoorScene.add(light);
   }
   world = TOWN_WORLD;
   walls = TOWN_WALLS;
-  dayNightWorldRadius = Math.max(TOWN_WORLD.width, TOWN_WORLD.height) * 0.9;
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(outdoorScene, outdoorCamera, null);
@@ -6890,7 +6904,8 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   getLampGlows: () => LAMP_GLOWS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
-  getDayNightWorldRadius: () => dayNightWorldRadius, getWildsScene: () => wildsScene,
+  getWildsScene: () => wildsScene,
+  getSunMesh: () => sunMesh, getSkyAnchor: () => activeCamera ? activeCamera.position : null,
 });
 
 // ---------------------------------------------------------------------------

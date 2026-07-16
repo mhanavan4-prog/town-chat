@@ -11108,7 +11108,7 @@ function applyTownTorchState(torches) {
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getDayNightWorldRadius, getWildsScene }) {
+function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -11155,21 +11155,37 @@ function updateDayNightCycle() {
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
   // smoothly rather than popping in at a fixed height.
-  const r = getDayNightWorldRadius();
   const sunAngle = Math.PI * dayProgress;
-  // Direction rides the same arc as before; position anchors near the player
-  // (see GFX.beforeRender) so the shadow frustum stays tight. Pre-join, the
-  // old absolute arc position still applies.
+  // The directional light's arc; its position anchors near the player each
+  // frame (see GFX.beforeRender) so the shadow frustum stays tight.
   const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
   getOutdoorSun().position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
   if (getOutdoorSun().target) getOutdoorSun().target.position.set(0, 0, 0);
   getOutdoorSun().intensity = lightAmount * 0.9;
 
   const moonAngle = Math.PI * nightProgress;
-  const moonY = Math.sin(moonAngle) * r * 0.6; // nightProgress in [0,1] -> angle in [0,π] -> always >= 0, horizon to horizon
-  getMoonMesh().position.set(Math.cos(moonAngle) * -r, Math.max(-80, moonY), -r * 0.4);
-  getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, moonY / Math.max(1, r) * 1150), -460);
   const moonStrength = 1 - lightAmount;
+
+  // Visible sun & moon DISCS. Anchored to the camera's sky-dome (like the
+  // stars) so they always ride overhead wherever the player walks, at a fixed
+  // fog-safe distance — the discs use fog:false, but keeping them well inside
+  // the far plane also stops them clipping. skyAlt() lifts them from the
+  // horizon at rise/set up to high in the sky at their peak.
+  const anchor = getSkyAnchor && getSkyAnchor();
+  const ax = anchor ? anchor.x : 0, az = anchor ? anchor.z : 0;
+  const SKY_DIST = 1500;
+  const skyAlt = (a) => (0.24 + Math.max(0, Math.sin(a)) * 0.92) * SKY_DIST;
+
+  const sunMesh = getSunMesh && getSunMesh();
+  if (sunMesh) {
+    sunMesh.position.set(ax + Math.cos(sunAngle) * SKY_DIST, skyAlt(sunAngle), az - 0.34 * SKY_DIST);
+    sunMesh.material.opacity = lightAmount;
+    sunMesh.visible = lightAmount > 0.02;
+    if (sunMesh.userData.glow) sunMesh.userData.glow.material.opacity = lightAmount * 0.7;
+  }
+
+  getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
+  getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
   getOutdoorMoonLight().intensity = moonStrength * 0.55;
   // The moon itself blushes on blood nights, and its light follows.
   getMoonMesh().material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
@@ -16953,7 +16969,7 @@ let outdoorAmbient = null;
 let outdoorSun = null;
 let outdoorMoonLight = null;
 let moonMesh = null;
-let dayNightWorldRadius = 1500; // how far out the sun/moon arc and ground span — set from world size
+let sunMesh = null;
 const interiorScenes = {};     // buildingId -> interior record
 const lockVisuals = {};        // buildingId -> { door, lockSign }
 
@@ -17517,12 +17533,28 @@ function initScene(w) {
   scene.add(outdoorMoonLight);
 
   moonMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(50, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0 })
+    new THREE.SphereGeometry(130, 24, 24),
+    // fog:false so the fog wall (opaque by ~2200u) can't wash the moon out —
+    // the old 50u moon sat past it in the map corner and was never seen.
+    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0, fog: false })
   );
   scene.add(moonMesh);
 
-  dayNightWorldRadius = Math.max(w.width, w.height) * 0.9;
+  // A visible daytime sun to match the moon: a warm glowing disc with an
+  // additive corona. updateDayNightCycle() arcs it across the sky (anchored to
+  // the camera's sky-dome) and fades it with the daylight.
+  sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(150, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0, fog: false })
+  );
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture(), color: 0xffd982, transparent: true, opacity: 0,
+    depthWrite: false, fog: false, blending: THREE.AdditiveBlending
+  }));
+  sunGlow.scale.set(820, 820, 1);
+  sunMesh.add(sunGlow);
+  sunMesh.userData.glow = sunGlow;
+  scene.add(sunMesh);
 
   const grassTex = makeMoorTexture(); // spooky Withered Moor ground (town only; the Wilds keeps grass)
   const groundSpan = Math.max(w.width, w.height) + 600;
@@ -17672,7 +17704,7 @@ function initScene(w) {
 // coordinate system: the Wilds is its own free-roam map, not a room.
 // swapToWildsMap()/swapToTownMap() do only the scene/lighting/bounds half
 // (re-parenting the shared sun/moon/ambient lights into whichever scene is
-// now active, swapping world/walls/dayNightWorldRadius to match) so the
+// now active, swapping world/walls to match) so the
 // 'defeated' handler can reuse just that half without also re-sending a
 // redundant move or popping a second "you stepped through the portal"
 // toast on top of the defeat one.
@@ -17680,13 +17712,12 @@ function initScene(w) {
 function swapToWildsMap() {
   if (!wildsScene && world2) { try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
     wildsScene.add(light);
   }
   world = world2;
   walls = WILDS_WALLS;
-  dayNightWorldRadius = Math.max(world2.width, world2.height) * 0.9;
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(wildsScene, wildsCamera, null);
@@ -17694,13 +17725,12 @@ function swapToWildsMap() {
 
 function swapToTownMap() {
   if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     if (wildsScene) wildsScene.remove(light); // wilds may be unbuilt (lazy) if never visited — nothing to remove
     outdoorScene.add(light);
   }
   world = TOWN_WORLD;
   walls = TOWN_WALLS;
-  dayNightWorldRadius = Math.max(TOWN_WORLD.width, TOWN_WORLD.height) * 0.9;
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(outdoorScene, outdoorCamera, null);
@@ -18439,7 +18469,8 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   getLampGlows: () => LAMP_GLOWS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
-  getDayNightWorldRadius: () => dayNightWorldRadius, getWildsScene: () => wildsScene,
+  getWildsScene: () => wildsScene,
+  getSunMesh: () => sunMesh, getSkyAnchor: () => activeCamera ? activeCamera.position : null,
 });
 
 // ---------------------------------------------------------------------------
