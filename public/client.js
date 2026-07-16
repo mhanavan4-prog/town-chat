@@ -17550,7 +17550,14 @@ function initScene(w) {
   for (const b of w.buildings) {
     scene.add(buildBuildingMesh(b, w));
     const doorPos = getDoorWorldPos(b);
-    scene.add(buildPathSegment(doorPos.x, doorPos.y, w.spawn.x, w.spawn.y, 46, dirtTex, hubRadius));
+    // The Arcade path and the Temple path leave the square only ~18° apart, so
+    // their planks overlapped and z-fought near the hub (the crossing glitch).
+    // Aim the Arcade path at a hub point nudged ~46u off-centre so it pivots
+    // around its own door and fans out clear of the Temple path. Cosmetic —
+    // path planks carry no collider, and the door end stays anchored.
+    const hubX = b.id === 'arcade' ? w.spawn.x - 24 : w.spawn.x;
+    const hubY = b.id === 'arcade' ? w.spawn.y - 39 : w.spawn.y;
+    scene.add(buildPathSegment(doorPos.x, doorPos.y, hubX, hubY, 46, dirtTex, hubRadius));
   }
 
   addNatureDecor(scene, w, decorVisuals);
