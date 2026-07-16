@@ -71,6 +71,11 @@ setTimeout(() => {
   check('target is told they were struck', !!knight.lastOfType('struck'));
   check('room sees an attack_fx projectile broadcast', !!witch.lastOfType('attack_fx'));
 
+  // --- Combo: control sets up the burst (vulnerableMult) ---
+  check('a control debuff makes the target vulnerable (>1x)', hooks.vulnerableMult({ activeStatus: { type: 'wither', expiresAt: Date.now() + 9999 } }) > 1);
+  check('a self-buff is not a vulnerability (giant stays 1x)', hooks.vulnerableMult({ activeStatus: { type: 'giant', expiresAt: Date.now() + 9999 } }) === 1);
+  check('no status / expired status is not vulnerable', hooks.vulnerableMult({}) === 1 && hooks.vulnerableMult({ activeStatus: { type: 'wither', expiresAt: Date.now() - 1 } }) === 1);
+
   const mysticPlayer = hooks.players.get(mysticId);
   mysticPlayer.health = 50; // wound the mystic so the leech has room to heal
   wolf.emit('message', JSON.stringify({ type: 'cast_attack', attackId: 'savage_bite', targetId: mysticId }));
