@@ -3177,6 +3177,91 @@ function makeDirtTexture() {
   return tex;
 }
 
+// Withered Moor — the town's spooky ground: cold dead moss, bare rotted-earth
+// patches and half-dead straw instead of bright grass. Same procedural approach
+// as makeGrassTexture, witch-hour palette. (The Wilds keeps makeGrassTexture.)
+function makeMoorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#2c3a2f';
+  cx.fillRect(0, 0, 256, 256);
+  // bare, rotted-earth patches
+  for (let i = 0; i < 26; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const r = 12 + Math.random() * 34;
+    cx.fillStyle = 'rgba(28,34,26,0.5)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // mottled cold moss underneath
+  for (let i = 0; i < 140; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const r = 10 + Math.random() * 26;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(59,77,60,0.22)' : 'rgba(22,32,24,0.3)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // wispy, half-dead grass blades
+  for (let i = 0; i < 1200; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    const len = 3 + Math.random() * 6;
+    const ang = Math.random() * Math.PI * 2;
+    const shade = 55 + Math.random() * 45;
+    cx.strokeStyle = `rgba(${shade - 18}, ${shade + 12}, ${shade - 22}, 0.5)`;
+    cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); cx.stroke();
+  }
+  // withered straw flecks
+  for (let i = 0; i < 150; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    cx.fillStyle = 'rgba(107,98,68,0.3)';
+    cx.fillRect(x, y, 2, 4);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Cracked Flagstone — the town's eerie paths + plaza: weathered slate flagstones
+// with dark mortar cracks and moss creeping in, replacing the tan dirt.
+function makeFlagstoneTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#191b1f'; // dark mortar shows through the cracks
+  cx.fillRect(0, 0, 256, 256);
+  const cols = 5, rows = 5, cw = 256 / cols, ch = 256 / rows, inset = 4;
+  const fills = ['#464a54', '#5a5e69', '#2f323a', '#4c505b'];
+  for (let ry = 0; ry < rows; ry++) {
+    for (let cxi = 0; cxi < cols; cxi++) {
+      const j = () => (Math.random() - 0.5) * 8;
+      const x0 = cxi * cw, y0 = ry * ch;
+      cx.fillStyle = fills[(Math.random() * fills.length) | 0];
+      cx.beginPath();
+      cx.moveTo(x0 + inset + j(), y0 + inset + j());
+      cx.lineTo(x0 + cw - inset + j(), y0 + inset + j());
+      cx.lineTo(x0 + cw - inset + j(), y0 + ch - inset + j());
+      cx.lineTo(x0 + inset + j(), y0 + ch - inset + j());
+      cx.closePath(); cx.fill();
+    }
+  }
+  // moss creeping into the cracks
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    cx.fillStyle = 'rgba(63,90,58,0.4)';
+    cx.beginPath(); cx.arc(x, y, 2 + Math.random() * 5, 0, Math.PI * 2); cx.fill();
+  }
+  // fine grain + hairline flecks on the stone
+  for (let i = 0; i < 500; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(20,22,26,0.35)' : 'rgba(120,124,134,0.22)';
+    cx.fillRect(x, y, 1, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 function makeStoneTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
@@ -17404,7 +17489,7 @@ function initScene(w) {
 
   dayNightWorldRadius = Math.max(w.width, w.height) * 0.9;
 
-  const grassTex = makeGrassTexture();
+  const grassTex = makeMoorTexture(); // spooky Withered Moor ground (town only; the Wilds keeps grass)
   const groundSpan = Math.max(w.width, w.height) + 600;
   grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
   const groundGeo = new THREE.PlaneGeometry(w.width + 600, w.height + 600);
@@ -17414,7 +17499,7 @@ function initScene(w) {
   ground.position.set(w.width / 2, 0, w.height / 2);
   scene.add(ground);
 
-  const dirtTex = makeDirtTexture();
+  const dirtTex = makeFlagstoneTexture(); // eerie Cracked Flagstone paths + plaza
 
   // Town-square hub: a circular dirt clearing at the spawn point that every
   // building's path connects back to.

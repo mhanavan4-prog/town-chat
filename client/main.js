@@ -16,7 +16,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeDirtTexture, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeFlagstoneTexture, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -5975,7 +5975,7 @@ function initScene(w) {
 
   dayNightWorldRadius = Math.max(w.width, w.height) * 0.9;
 
-  const grassTex = makeGrassTexture();
+  const grassTex = makeMoorTexture(); // spooky Withered Moor ground (town only; the Wilds keeps grass)
   const groundSpan = Math.max(w.width, w.height) + 600;
   grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
   const groundGeo = new THREE.PlaneGeometry(w.width + 600, w.height + 600);
@@ -5985,7 +5985,7 @@ function initScene(w) {
   ground.position.set(w.width / 2, 0, w.height / 2);
   scene.add(ground);
 
-  const dirtTex = makeDirtTexture();
+  const dirtTex = makeFlagstoneTexture(); // eerie Cracked Flagstone paths + plaza
 
   // Town-square hub: a circular dirt clearing at the spawn point that every
   // building's path connects back to.
