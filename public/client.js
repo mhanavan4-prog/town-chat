@@ -19936,7 +19936,13 @@ function renderEventTag() {
   if (!calendarState || !me) { el.classList.add('hidden'); _eventTagSig = null; return; }
   const now = Date.now();
   const parts = [];
-  if (calendarState.season) parts.push(calendarState.season.glyph + ' ' + calendarState.season.name); // the current sabbat — always present, an ambient seasonal banner
+  if (calendarState.season) { // the current sabbat — always present, an ambient seasonal banner with its live blessing
+    const se = calendarState.season.effects || {};
+    let tag = calendarState.season.glyph + ' ' + calendarState.season.name;
+    if (se.xpMult) tag += ' — +' + Math.round((se.xpMult - 1) * 100) + '% XP';
+    else if (se.forageBonus) tag += ' — +' + Math.round(se.forageBonus * 100) + '% foraging';
+    parts.push(tag);
+  }
   if (calendarState.bloodMoon && bloodMoonActiveClient(now)) parts.push('🔴 BLOOD MOON');
   if (calendarState.festival && now >= calendarState.festival.startsAt && now < calendarState.festival.endsAt) parts.push('🏮 Hearthmoon Festival — +25% XP');
   if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');

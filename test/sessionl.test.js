@@ -140,6 +140,10 @@ setTimeout(async () => {
   check('Mabon holds in early October', hooks.seasonWindow(Date.UTC(2026, 9, 1)).key === 'mabon');
   check('season windows are contiguous (endsAt = next sabbat start)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).endsAt === Date.UTC(2026, 7, 1));
   check('the calendar payload carries the live season', hooks.calendarPublicState(Date.UTC(2026, 9, 1)).season.key === 'mabon');
+  check('Litha carries an XP blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).effects.xpMult === 1.15);
+  check('Mabon carries a foraging blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 9, 1)).effects.forageBonus === 0.15);
+  const maxXpMult = Math.max(...require('../data/seasons').SABBATS.map(s => (s.effects && s.effects.xpMult) || 1));
+  check('season xp blessings stay modest (≤1.15, keeps pacing tests level-based)', maxXpMult <= 1.15);
 
   // Circlet crafting (5 shards → wearable trophy)
   const crafter = joinAs('Crafter', 'crafter1');
