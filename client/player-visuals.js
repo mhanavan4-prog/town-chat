@@ -107,6 +107,26 @@ function destroyPlayerVisual(id) {
   delete visuals[id];
 }
 
+// KayKit recovery: the ~18MB of character models load asynchronously, so a
+// player drawn before they finish gets the classic fallback rig (built once —
+// ensurePlayerVisual short-circuits after). The moment KK settles, rebuild
+// anyone still on the fallback so every character upgrades to the KayKit model
+// instead of being stuck on the old rig until a page reload.
+if (KK && KK.promise && typeof KK.promise.then === 'function') {
+  KK.promise.then(() => {
+    const players = getPlayers() || {};
+    const meP = getMe();
+    for (const id of Object.keys(visuals)) {
+      const v = visuals[id];
+      if (!v || v.kk) continue; // already a KayKit model — leave it
+      const p = players[id] || (meP && meP.id === id ? meP : null);
+      if (!p) continue;
+      destroyPlayerVisual(id);
+      ensurePlayerVisual(p);
+    }
+  });
+}
+
 function syncVisuals(dt) {
   // Holly Wand ambience, shared by every bearer this frame
   const _dn = getDayNightState();
