@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeGrassTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -17,7 +17,7 @@ function buildWildsScene(w2) {
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
 
-  const grassTex = makeGrassTexture();
+  const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
   const groundSpan = Math.max(w2.width, w2.height) + 200;
   grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
   const ground = new THREE.Mesh(
