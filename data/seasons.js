@@ -65,7 +65,7 @@ const SABBATS = [
     month: 10, day: 31,
     blurb: "The final harvest, and the turning of the year. The veil between the living and the dead thins to nothing — a season to honor the ancestors, practice divination, and beware what crosses over.",
     blessing: "🕯️ Samhain has come to Thornreach — the veil thins, and the dead walk closer to the torchlight. Honor them, and guard your lantern.",
-    effects: { xpMult: 1.15, veilThin: true }
+    effects: { xpMult: 1.15, veilThin: 0.6 }
   },
   {
     key: 'yule', name: 'Yule', epithet: 'the Longest Night', glyph: '❄️',
