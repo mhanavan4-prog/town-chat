@@ -1540,6 +1540,15 @@ function grantXP(player, amount) {
   if (festivalWindow(now).active) {
     amount = Math.round(amount * FESTIVAL_XP_MULT);
   }
+  // 🎡 The Wheel of the Year — the live sabbat's blessing. Modest and always-on
+  // (≤1.15), applied exactly like the festival above. Note the kill *response*
+  // reports the creature's BASE xp (see the mob-death handlers); only the
+  // player's accumulated total is multiplied here, so the level-based pacing
+  // tests (which assert levels, not exact totals) stay green in every season.
+  const _season = seasonWindow(now);
+  if (_season && _season.effects && _season.effects.xpMult) {
+    amount = Math.round(amount * _season.effects.xpMult);
+  }
   const prog = getProgress(player);
   const wasLevelOne = prog.level === 1; // level only ever increases, so this alone means "never leveled up before"
   prog.xp += amount;
@@ -1651,8 +1660,14 @@ function skillMendingRate(player)   {
   return SKILL_FX.mending(skillEffectRank(player, 'mending')) + delve;
 }
 function skillHarvestExtraChance(player) {
-  // 🏮 Festival day sweetens every forager's odds (Session L).
-  return statContrib(player, 'forage') + (festivalWindow(Date.now()).active ? FESTIVAL_FORAGE_BONUS : 0);
+  // 🏮 Festival day sweetens every forager's odds (Session L); 🎡 and the
+  // harvest/fertility sabbats (Ostara, Mabon, Imbolc, Lughnasadh) do the same
+  // all season long — added on top like the festival bonus, so nothing that
+  // asserts the raw forage stat contribution is affected.
+  const now = Date.now();
+  const season = seasonWindow(now);
+  const seasonForage = (season && season.effects && season.effects.forageBonus) || 0;
+  return statContrib(player, 'forage') + (festivalWindow(now).active ? FESTIVAL_FORAGE_BONUS : 0) + seasonForage;
 }
 function skillXpMult(player)        { return 1 + statContrib(player, 'xp'); }
 function skillSpeedMult(player)     { return 1 + statContrib(player, 'swift'); }
