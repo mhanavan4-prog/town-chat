@@ -307,6 +307,22 @@
     background:none; border:none; color:#cfe9cf; font-size:14px;
     cursor:pointer; line-height:1; padding:0;
   }
+  #moonstoneTag {
+    pointer-events:auto; align-self:flex-start;
+    background:rgba(14,10,26,0.72); border:1px solid rgba(170,140,245,0.5);
+    color:#e6ddff; font-size:12.5px; font-weight:700; padding:8px 14px;
+    border-radius:20px; backdrop-filter:blur(4px); cursor:pointer;
+  }
+  #moonstoneTag.hidden { display:none !important; }
+  #moonstoneTag #moonstoneTagVal { color:#fff; }
+  .msBalanceChip {
+    display:inline-flex; align-items:center; gap:10px;
+    background:rgba(120,90,200,0.18); border:1px solid rgba(165,130,240,0.5);
+    border-radius:12px; padding:8px 15px;
+  }
+  .msBalanceChip .msDia { font-size:22px; }
+  .msBalanceChip .msNum { font-size:26px; font-weight:800; color:#fff; line-height:1; }
+  .msBalanceChip .msLbl { font-size:13px; font-weight:600; color:#cdd2ff; }
 
   #healthHud {
     pointer-events:none; align-self:flex-start;
@@ -1799,6 +1815,7 @@
     <span><span id="peopleCount">1</span> in town</span>
     <button id="muteBtn" title="Mute music">🔈</button>
   </div>
+  <div id="moonstoneTag" class="hidden" title="Your Moonstones — tap to get more">💎 <span id="moonstoneTagVal">0</span></div>
   <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
 </div>
 

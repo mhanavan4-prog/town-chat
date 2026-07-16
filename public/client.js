@@ -11338,12 +11338,26 @@ function applyStatusVisual(id, status) {
 
 function createMoonstones({ getMyMoonstones, getBankState, getMsPacksCatalog, getMe, getSavedAccount, getPaymentsEnabled, requestResumeToken, apiUrlMaybe }) {
 function refreshMsUI() {
+  const n = getMyMoonstones();
   const menuVal = document.getElementById('menuMsVal');
-  if (menuVal) menuVal.textContent = String(getMyMoonstones());
+  if (menuVal) menuVal.textContent = String(n);
+  // A prominent, high-contrast balance chip (was tiny low-contrast text). n is a
+  // number from the server, so this innerHTML is safe.
+  const chip = '<span class="msBalanceChip"><span class="msDia">💎</span>'
+    + '<span class="msNum">' + n + '</span><span class="msLbl">Moonstones</span></span>';
   const bal = document.getElementById('msModalBalance');
-  if (bal) bal.innerHTML = 'You carry <b>' + getMyMoonstones() + '</b> 💎';
+  if (bal) bal.innerHTML = chip;
   const lbal = document.getElementById('legendBalance');
-  if (lbal) lbal.textContent = 'You carry ' + getMyMoonstones() + ' 💎';
+  if (lbal) lbal.innerHTML = chip;
+  // Persistent HUD chip so the balance is always one glance away. Moonstones
+  // bind to an account, so it's shown only for logged-in players (guests hide).
+  const msTag = document.getElementById('moonstoneTag');
+  if (msTag) {
+    const acct = getSavedAccount && getSavedAccount();
+    msTag.classList.toggle('hidden', !(acct && acct.token));
+    const v = document.getElementById('moonstoneTagVal');
+    if (v) v.textContent = String(n);
+  }
   updateGoldReadouts();
 }
 
@@ -11414,6 +11428,8 @@ function closeMsModal() {
 }
 const msModalCloseBtn = document.getElementById('msModalCloseBtn');
 if (msModalCloseBtn) msModalCloseBtn.addEventListener('click', closeMsModal);
+const msHudTag = document.getElementById('moonstoneTag');
+if (msHudTag) msHudTag.addEventListener('click', openMsModal);
 
 async function buyMoonstonePack(packId, btn) {
   const err = document.getElementById('msModalErr');
