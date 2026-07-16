@@ -1249,6 +1249,18 @@ function hasStatus(p, type) {
   return !!(p.activeStatus && p.activeStatus.type === type && p.activeStatus.expiresAt > Date.now());
 }
 
+// ── Combo: control sets up the burst. A target reeling under a debilitating
+// debuff — a hex, a stumble, a shrink, a toad, a fit of gibberish — takes
+// amplified damage, so landing a control ability and following up hits harder
+// than mashing one attack. Works on players AND mobs (both carry activeStatus)
+// and across a party (one player debuffs, another detonates). Tune from playtest.
+const VULNERABLE_STATUSES = new Set(['wither', 'stumble', 'shrink', 'toad', 'gibberish']);
+const VULNERABLE_DMG_MULT = 1.3;
+function vulnerableMult(t) {
+  return (t && t.activeStatus && t.activeStatus.expiresAt > Date.now()
+    && VULNERABLE_STATUSES.has(t.activeStatus.type)) ? VULNERABLE_DMG_MULT : 1;
+}
+
 // Incoming-damage gate for players — the Witch's Gourd Ward (and anything
 // else that grants the 'pumpkin' status) halves any damage its bearer takes,
 // from mobs and other players alike. Every code path that hurts a player
@@ -1309,6 +1321,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     if (isEvading(t)) {
       return { ok: false, evaded: true, name: t.name };
     }
+    if (vulnerableMult(t) !== 1) dmg = Math.round(dmg * vulnerableMult(t)); // combo: debuffed targets take amplified damage
     dmg = absorbIncomingDamage(t, dmg);
     noteAttacked(t);
     t.health = Math.max(0, t.health - dmg);
@@ -1401,6 +1414,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     // Any hit provokes a neutral creature into fighting back.
     provokeNeutral(t, player.id);
   }
+  if (vulnerableMult(t) !== 1) dmg = Math.max(1, Math.round(dmg * vulnerableMult(t))); // combo: debuffed mobs take amplified damage
   t.health = Math.max(0, t.health - dmg);
   applySkillLifesteal(player, dmg);
   broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
@@ -7788,7 +7802,7 @@ global.__testHooks = {
   // Session M creatures — peaceful critters, neutral pool, new hostiles, quests
   animals2, mobs3, MOB2_TYPES, MOB3_TYPES, CRITTER2_TYPES, LOOT_TABLES,
   provokeNeutral, creatureStrike, tickWilds, questForNpc, CREATURE_LABEL, rollPendingLoot,
-  applyDamage, isEvading, getHardDrive, driveMedia,
+  applyDamage, isEvading, vulnerableMult, getHardDrive, driveMedia,
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
