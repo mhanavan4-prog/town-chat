@@ -58,6 +58,14 @@ function kkAutoAlign(kkBld, b, w) {
     for (const lat of [-w.doorWidth, -w.doorWidth / 2, 0, w.doorWidth / 2, w.doorWidth]) score += stairMassAt(lat);
     if (score > bestScore + 0.5) { bestScore = score; bestRot = extra; }
   }
+  // building_home_B_yellow (the Arcade) has its steps on the model's local +Z
+  // face; the stair-mass search above can latch onto a side wall and leave the
+  // doorway ~90° off the path (players got walked into a blank wall instead of
+  // the stairs). Force its front (+Z) to the door wall. Verified from the GLB
+  // geometry: the base slab protrudes on +Z while the other faces sit flush.
+  // rotation.y=θ sends local +Z → world (sinθ,cosθ); we want that to equal the
+  // door's outward normal `out`, so θ = atan2(out[0], out[1]).
+  if (b.id === 'arcade') bestRot = Math.atan2(out[0], out[1]) - sideRot;
   kkBld.rotation.y = sideRot + bestRot;
   kkBld.position.set(cx, 0, cz);
   kkBld.updateMatrixWorld(true);
