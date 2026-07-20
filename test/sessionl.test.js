@@ -184,6 +184,7 @@ setTimeout(async () => {
   check('delve room is instanced under the dungeon prefix', run.room.startsWith('dungeon_delve_'));
   check('both members were teleported in', d1.player.room === run.room && d2.player.room === run.room);
   check('floor 1 spawned its kill quota', run.mobs.length >= run.killsNeeded && run.killsNeeded >= 6);
+  const floor1Kills = run.killsNeeded; // capture: the floor-2 check must be relative so an active delve mod (e.g. long_dark, +kills) doesn't break it
   check('delve mobs are reachable strike targets', hooks.findDungeonTarget(run.mobs[0].id, run.room) === run.mobs[0]);
 
   // Clear floor 1 by striking every mob dead (positions snapped to target).
@@ -209,7 +210,7 @@ setTimeout(async () => {
   d2.sock.emit('message', JSON.stringify({ type: 'delve_pick_boon', boonId: d2.sock.lastOfType('delve_state').myOffer[0].id }));
   hooks.tickDelves(0.1);
   check('all-picked advances to floor 2', run.floor === 2 && run.state === 'fighting', { floor: run.floor, state: run.state });
-  check('floor 2 demands one more kill', run.killsNeeded === 7, run.killsNeeded);
+  check('floor 2 demands one more kill', run.killsNeeded === floor1Kills + 1, run.killsNeeded);
   check('members earned a floor purse in the bank', hooks.ensureBankAccount('delver1').balance > 0);
 
   // Exit: depth recorded on the weekly board, teleport home.
