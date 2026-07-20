@@ -64,10 +64,11 @@ function kkAutoAlign(kkBld, b, w) {
   // the stairs). Force its front (+Z) to the door wall. Verified from the GLB
   // geometry: the base slab protrudes on +Z while the other faces sit flush.
   // rotation.y=θ sends local +Z → world (sinθ,cosθ); we want that to equal the
-  // door's outward normal `out`, so θ = atan2(out[0], out[1]). Playtesting at
-  // the building showed the authored model still sat a quarter-turn off, so add
-  // a further 90° clockwise (−π/2) to land the steps squarely on the path.
-  if (b.id === 'arcade') bestRot = Math.atan2(out[0], out[1]) - sideRot - Math.PI / 2;
+  // door's outward normal `out`, so θ = atan2(out[0], out[1]) — this points the
+  // model's steps straight out the door toward the plaza. (Playtested at the
+  // building: an earlier −π/2 tweak over-turned it; a quarter-turn back to the
+  // left lands it right, i.e. no extra offset.)
+  if (b.id === 'arcade') bestRot = Math.atan2(out[0], out[1]) - sideRot;
   kkBld.rotation.y = sideRot + bestRot;
   kkBld.position.set(cx, 0, cz);
   kkBld.updateMatrixWorld(true);
