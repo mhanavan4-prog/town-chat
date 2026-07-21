@@ -13368,7 +13368,10 @@ function onWsMessage(ev) {
       equippedHead:   msg.equippedHead   || null,
       equippedChest:  msg.equippedChest  || null,
       equippedFeet:   msg.equippedFeet   || null,
-      equippedRing:   msg.equippedRing   || null
+      equippedRing:   msg.equippedRing   || null,
+      // Access flag for the 💽 tab — must be carried through or the tab reads
+      // "you don't have one" once the bound drive's item has dissolved.
+      hardDriveOwned: !!msg.hardDriveOwned
     };
     renderInventoryItemsPanel();
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
