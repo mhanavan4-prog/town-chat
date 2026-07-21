@@ -1191,7 +1191,11 @@ function inventoryStatePayload(player) {
     equippedHead:   inv.equippedHead   || null,
     equippedChest:  inv.equippedChest  || null,
     equippedFeet:   inv.equippedFeet   || null,
-    equippedRing:   inv.equippedRing   || null
+    equippedRing:   inv.equippedRing   || null,
+    // Whether the 💽 Hard Drive tab is usable — true once bound to the account
+    // (item consumed) or while the un-opened item is still carried. Lets the
+    // client keep the tab live after the item dissolves.
+    hardDriveOwned: hasHardDriveAccess(player)
   };
 }
 
@@ -1246,6 +1250,29 @@ function persistHardDrive(player) {
 function ownsHardDriveItem(player) {
   const inv = getInventory(player);
   return inv.slots.some(s => s && s.itemId === 'hard_drive');
+}
+
+// Access to the note-vault. The physical Hard Drive item is only the initial
+// key: the first time a player opens it we "bind" the drive to their account
+// (hd.opened = true) and consume the item so it stops eating an inventory
+// slot — from then on the 💽 tab is always theirs, no item required. So access
+// = "already bound" OR "still holding the un-opened item".
+function hasHardDriveAccess(player) {
+  return !!getHardDrive(player).opened || ownsHardDriveItem(player);
+}
+
+// Called on the first successful open: bind the drive to the account and
+// dissolve the physical item so it no longer occupies a pack slot. Idempotent
+// (only fires while the item is still present). Pushes a fresh inventory_state
+// so the client frees the slot immediately.
+function bindHardDriveToAccount(player, ws) {
+  const hd = getHardDrive(player);
+  if (!ownsHardDriveItem(player)) { hd.opened = true; return; }
+  const inv = getInventory(player);
+  removeItemFromAccount(inv, 'hard_drive', 1);
+  hd.opened = true;
+  if (player.accountKey) { saveInventories(); saveHardDrives(); }
+  send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
 }
 
 // PvP death loot — takes one whole random carried (not equipped) item stack
@@ -1626,7 +1653,7 @@ function grantXP(player, amount) {
     if (addItemToAccount(inv, 'hard_drive', 1)) {
       if (player.accountKey) saveInventories();
       send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(player.ws, { type: 'hard_drive_awarded', message: '💽 First level up! A Hard Drive materializes in your pack — check your inventory.' });
+      send(player.ws, { type: 'hard_drive_awarded', message: '💽 First level up! A Hard Drive materializes in your pack — open it once to bind it to your account (it becomes the 💽 tab and frees the slot).' });
     }
   }
   if (player.accountKey && (leveled || amount >= 5)) saveProgress();
@@ -4874,6 +4901,11 @@ wss.on('connection', (ws) => {
         // Equipment stat catalog — the client uses this to preview how a swap
         // would change your stats before you commit, with no server round-trip.
         equipStats: EQUIP_STATS,
+        // Authoritative list of usable (consumable) item ids — every PLANT_CATALOG
+        // entry resolves an effect in the use_item handler. The client merges this
+        // into its PLANT_EFFECTS set so any consumable shows a Use button with no
+        // hand-sync (this is what kept the flora brews from being "un-equippable").
+        usableItems: Object.keys(PLANT_CATALOG),
         // Premium currency + the Peddler's catalog (Session I). The client
         // merges legendaryCatalog into its own ITEM_CATALOG at init — one
         // authoritative copy, no hand-sync.
@@ -5357,19 +5389,22 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_open') {
-      if (!ownsHardDriveItem(player)) {
-        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to open it.' });
+      if (!hasHardDriveAccess(player)) {
+        send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive to open it — one materializes on your first level-up.' });
         return;
       }
       const hd = getHardDrive(player);
       const err = checkHardDrivePassword(hd, msg.password);
       if (err) { send(ws, { type: 'harddrive_error', message: err }); return; }
+      // First successful open binds the drive to the account and dissolves the
+      // physical item (frees the pack slot); the 💽 tab lives on regardless.
+      bindHardDriveToAccount(player, ws);
       send(ws, { type: 'harddrive_state', ...hardDriveStatePayload(hd) });
       return;
     }
 
     if (msg.type === 'harddrive_set_password') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to lock it.' });
         return;
       }
@@ -5396,7 +5431,7 @@ wss.on('connection', (ws) => {
     // same deduct-then-save pattern as send-money / auction bids.
     if (msg.type === 'harddrive_reset_lock') {
       const LOCKSMITH_FEE = 10;
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'locksmith_error', message: 'You need a Hard Drive in your pack for me to work on.' });
         return;
       }
@@ -5426,7 +5461,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_store') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store notes.' });
         return;
       }
@@ -5453,7 +5488,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_retrieve') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to retrieve notes.' });
         return;
       }
@@ -5476,7 +5511,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_destroy') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to manage it.' });
         return;
       }
@@ -5502,7 +5537,7 @@ wss.on('connection', (ws) => {
     // and a password-locked drive demands its password for every mutation.
 
     if (msg.type === 'harddrive_save_selfie') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store selfies.' });
         return;
       }
@@ -5525,7 +5560,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_save_selfie_from_note') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store selfies.' });
         return;
       }
@@ -5554,7 +5589,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_save_clip') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to store voice clips.' });
         return;
       }
@@ -5575,7 +5610,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'harddrive_delete_media') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'harddrive_error', message: 'You need a Hard Drive in your inventory to manage it.' });
         return;
       }
@@ -5605,7 +5640,7 @@ wss.on('connection', (ws) => {
       const hd = driveMedia(getHardDrive(player));
       send(ws, {
         type: 'cm_state',
-        hasDrive: ownsHardDriveItem(player),
+        hasDrive: hasHardDriveAccess(player),
         clips: hd.clips.map(c => ({ id: c.id, label: c.label })),
         selfies: hd.selfies.map(s => ({ id: s.id, of: s.of })),
         disguise: player.disguise ? { name: player.disguise.name } : null,
@@ -5616,7 +5651,7 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'cm_voice') {
       if (player.isDead) return;
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'cm_error', message: 'You need your 💽 Hard Drive on you to play a clip.' });
         return;
       }
@@ -5669,7 +5704,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'cm_disguise') {
-      if (!ownsHardDriveItem(player)) {
+      if (!hasHardDriveAccess(player)) {
         send(ws, { type: 'cm_error', message: 'You need your 💽 Hard Drive on you to wear a disguise.' });
         return;
       }

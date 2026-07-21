@@ -96,7 +96,7 @@ function buildDelveStone(scene) {
 // violet canopy, hung with a lantern; the town-side door to the weekly
 // legendary shop. Client-only dressing (fairy-ring precedent: no collider);
 // the kiosk entry is what makes it interactive.
-const PEDDLER_SPOT = { x: 1350, y: 1180 };
+const PEDDLER_SPOT = { x: 630, y: 1320 }; // the wooded clearing east of the Starlight Arcade, between the trees
 function buildMidnightPeddler(scene) {
   const g = new THREE.Group();
   const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });

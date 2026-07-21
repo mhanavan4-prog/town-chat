@@ -4980,7 +4980,7 @@ function buildDelveStone(scene) {
 // violet canopy, hung with a lantern; the town-side door to the weekly
 // legendary shop. Client-only dressing (fairy-ring precedent: no collider);
 // the kiosk entry is what makes it interactive.
-const PEDDLER_SPOT = { x: 1350, y: 1180 };
+const PEDDLER_SPOT = { x: 630, y: 1320 }; // the wooded clearing east of the Starlight Arcade, between the trees
 function buildMidnightPeddler(scene) {
   const g = new THREE.Group();
   const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
@@ -7241,7 +7241,11 @@ function destroyNote(noteId) {
 // ---------------------------------------------------------------------------
 
 function ownsHardDrive() {
-  return !!(getLastInventoryState() && getLastInventoryState().slots.some(s => s && s.itemId === 'hard_drive'));
+  const st = getLastInventoryState();
+  // Bound-to-account (item dissolved) OR still carrying the un-opened item.
+  // hardDriveOwned is the server's authoritative access flag; the slot check
+  // is a fallback for the brief moment before the first inventory_state.
+  return !!(st && (st.hardDriveOwned || st.slots.some(s => s && s.itemId === 'hard_drive')));
 }
 
 function storeNoteOnHardDrive(noteId) {
@@ -12272,7 +12276,14 @@ const PLANT_EFFECTS = new Set([
   'health_potion_ii', 'regen_brew', 'swift_brew', 'shadow_draught',
   'giants_elixir', 'bat_swarm_potion', 'clarity_draught', 'chaos_brew',
   'wolf_pact_brew',
+  // Wilds flora brews (barkbind/capwood/nightsight/fernstep/bramble/witchwood)
+  'barkbind_salve', 'capwood_elixir', 'nightsight_draught', 'fernstep_philtre',
+  'bramble_poultice', 'witchwood_balm',
 ]);
+// This set is the client's copy of "which items show a Use button." It's
+// seeded above for offline/pre-init safety, but the server also ships the
+// authoritative list (Object.keys(PLANT_CATALOG)) in the init payload and we
+// merge it below — so any new consumable is usable with no hand-sync/drift.
 
 // A small hand-drawn flower (5 petals + center, on a short stem/leaf) used
 // in place of the 🌸 emoji wherever a Flower item's icon is rendered as a
@@ -12564,6 +12575,9 @@ function onWsMessage(ev) {
     TOWN_WORLD = world;
     // Equipment stat catalog — used to preview how a gear swap changes stats.
     if (msg.equipStats) equipStatsCatalog = msg.equipStats;
+    // Merge the server's authoritative usable-item list so every consumable
+    // (incl. any newly added brew) shows a Use button — no client hand-sync.
+    if (Array.isArray(msg.usableItems)) for (const id of msg.usableItems) PLANT_EFFECTS.add(id);
     // The Peddler's legendary catalog rides in on init (server-authoritative
     // — never hand-copied here). Merged into ITEM_CATALOG so bank/inventory/
     // auction UIs treat legendaries like any other item.
