@@ -8819,9 +8819,26 @@ const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, 
 
 // ── Dungeon lore plaques ─────────────────────────────────────────────────────
 function openPlaqueModal() {
+  // The Weekly Delve is an instanced room (dungeon_delve_<n>) with no fixed
+  // lore or boss — its plaque records this week's modifiers instead, so the
+  // tiered-dungeon lore path below (dungeon_t1..4) would silently do nothing.
+  if (me && /^dungeon_delve_/.test(me.room || '')) {
+    const mods = weeklyDelveModsClient || [];
+    document.getElementById('plaqueTitle').textContent = '🕳️ The Weekly Delve';
+    document.getElementById('plaqueEpithet').textContent = 'Its rules are rewritten with every new moon';
+    const txt = document.getElementById('plaqueText');
+    txt.style.whiteSpace = 'pre-line';
+    txt.textContent = mods.length
+      ? "This week the dark bends to:\n\n" + mods.map(md => `${md.icon} ${md.name} — ${md.desc}`).join('\n')
+      : 'No curse binds the dark this week — a clean descent.';
+    document.getElementById('plaqueBoss').textContent = '';
+    document.getElementById('plaqueModal').classList.remove('hidden');
+    return;
+  }
   const m = /^dungeon_t([1-4])$/.exec(me ? me.room : '');
   const lore = m && dungeonLoreCatalog && dungeonLoreCatalog[m[1]];
   if (!lore) return;
+  document.getElementById('plaqueText').style.whiteSpace = '';
   document.getElementById('plaqueTitle').textContent = `🕳️ ${lore.name}`;
   document.getElementById('plaqueEpithet').textContent = lore.epithet;
   document.getElementById('plaqueText').textContent = lore.plaque;

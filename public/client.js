@@ -11583,7 +11583,7 @@ function applyMyEquipVisual(msg) {
 // stands in for it; the KayKit rig's head is a single skinned mesh that can't
 // be hidden, so the pumpkin has to be big enough to swallow it whole. ~1.8x
 // the head radius does that on both rigs — bump this if a head still peeks out.
-const PUMPKIN_HEAD_SCALE = 1.8;
+const PUMPKIN_HEAD_SCALE = 2.0;
 function makePumpkinHeadMesh() {
   const g = new THREE.Group();
   const R = CHAR.headR * PUMPKIN_HEAD_SCALE;
@@ -11726,7 +11726,7 @@ function applyStatusVisual(id, status) {
     v.pumpkinMesh = makePumpkinHeadMesh();
     // CHAR.headY is where head-gear caps sit (the crown); drop the pumpkin's
     // center below that so the enlarged sphere wraps the whole head, not perches.
-    v.pumpkinMesh.position.y = CHAR.headY - CHAR.headR * 0.5;
+    v.pumpkinMesh.position.y = CHAR.headY - CHAR.headR * 0.7;
     v.group.add(v.pumpkinMesh);
   } else if (newType === 'bats') {
     v.batsGroup = makeBatSwarm();
@@ -20683,9 +20683,26 @@ const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, 
 
 // ── Dungeon lore plaques ─────────────────────────────────────────────────────
 function openPlaqueModal() {
+  // The Weekly Delve is an instanced room (dungeon_delve_<n>) with no fixed
+  // lore or boss — its plaque records this week's modifiers instead, so the
+  // tiered-dungeon lore path below (dungeon_t1..4) would silently do nothing.
+  if (me && /^dungeon_delve_/.test(me.room || '')) {
+    const mods = weeklyDelveModsClient || [];
+    document.getElementById('plaqueTitle').textContent = '🕳️ The Weekly Delve';
+    document.getElementById('plaqueEpithet').textContent = 'Its rules are rewritten with every new moon';
+    const txt = document.getElementById('plaqueText');
+    txt.style.whiteSpace = 'pre-line';
+    txt.textContent = mods.length
+      ? "This week the dark bends to:\n\n" + mods.map(md => `${md.icon} ${md.name} — ${md.desc}`).join('\n')
+      : 'No curse binds the dark this week — a clean descent.';
+    document.getElementById('plaqueBoss').textContent = '';
+    document.getElementById('plaqueModal').classList.remove('hidden');
+    return;
+  }
   const m = /^dungeon_t([1-4])$/.exec(me ? me.room : '');
   const lore = m && dungeonLoreCatalog && dungeonLoreCatalog[m[1]];
   if (!lore) return;
+  document.getElementById('plaqueText').style.whiteSpace = '';
   document.getElementById('plaqueTitle').textContent = `🕳️ ${lore.name}`;
   document.getElementById('plaqueEpithet').textContent = lore.epithet;
   document.getElementById('plaqueText').textContent = lore.plaque;
