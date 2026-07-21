@@ -74,7 +74,11 @@ function destroyNote(noteId) {
 // ---------------------------------------------------------------------------
 
 function ownsHardDrive() {
-  return !!(getLastInventoryState() && getLastInventoryState().slots.some(s => s && s.itemId === 'hard_drive'));
+  const st = getLastInventoryState();
+  // Bound-to-account (item dissolved) OR still carrying the un-opened item.
+  // hardDriveOwned is the server's authoritative access flag; the slot check
+  // is a fallback for the brief moment before the first inventory_state.
+  return !!(st && (st.hardDriveOwned || st.slots.some(s => s && s.itemId === 'hard_drive')));
 }
 
 function storeNoteOnHardDrive(noteId) {
