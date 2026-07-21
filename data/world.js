@@ -208,6 +208,13 @@ const PLANT_CATALOG = {
   clarity_draught:        { name: 'Clarity Draught',        icon: '✨',  effect: 'cleanse' },
   chaos_brew:             { name: 'Chaos Brew',             icon: '🌪️',  effect: 'status', statusType: 'colorcycle', durationMs: 60000 },
   wolf_pact_brew:         { name: "Wolf's Pact Brew",       icon: '🐺',  effect: 'status', statusType: 'wolfpact',   durationMs: 3600000 },
+  // --- Wilds-flora brews (crafted at Witch Hazel's cauldron; reuse existing effects) ---
+  barkbind_salve:         { name: 'Barkbind Salve',         icon: '🩹',  effect: 'status', statusType: 'regen',      durationMs: 45000 },
+  capwood_elixir:         { name: 'Capwood Elixir',         icon: '🍄‍🟫', effect: 'status', statusType: 'giant',      durationMs: 45000 },
+  nightsight_draught:     { name: 'Nightsight Draught',     icon: '🌘',  effect: 'status', statusType: 'ravencloak', durationMs: 60000 },
+  fernstep_philtre:       { name: 'Fernstep Philtre',       icon: '🌀',  effect: 'status', statusType: 'speedboost', durationMs: 45000 },
+  bramble_poultice:       { name: 'Bramble Poultice',       icon: '💚',  effect: 'heal',   amount: 50 },
+  witchwood_balm:         { name: 'Witchwood Balm',         icon: '✨',  effect: 'cleanse' },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

@@ -34,6 +34,25 @@ const POTION_RECIPES = [
   { id: 'chaos_brew', result: 'chaos_brew',
     ingredients: [{ id: 'rainbow_petal', qty: 1 }, { id: 'pumpkin_blossom', qty: 1 }, { id: 'toadstool', qty: 1 }],
     desc: 'Rainbow Petal + Pumpkin Blossom + Toadstool → Chaos Brew (wild colour effects 60s)' },
+  // --- Wilds-flora crafts: brewed from the new trees' & bushes' harvest materials ---
+  { id: 'barkbind_salve', result: 'barkbind_salve',
+    ingredients: [{ id: 'birch_bark', qty: 2 }, { id: 'pine_pitch', qty: 1 }],
+    desc: '2× Birch Bark + Pine Pitch → Barkbind Salve (regenerates HP over 45s)' },
+  { id: 'capwood_elixir', result: 'capwood_elixir',
+    ingredients: [{ id: 'toadcap', qty: 2 }, { id: 'ring_cap', qty: 1 }],
+    desc: '2× Toadcap + Ring Cap → Capwood Elixir (giant form 45s)' },
+  { id: 'nightsight_draught', result: 'nightsight_draught',
+    ingredients: [{ id: 'nightberry', qty: 2 }, { id: 'willow_frond', qty: 1 }],
+    desc: '2× Nightberry + Willow Frond → Nightsight Draught (raven cloak 60s)' },
+  { id: 'fernstep_philtre', result: 'fernstep_philtre',
+    ingredients: [{ id: 'fern_frond', qty: 2 }, { id: 'blackthorn', qty: 1 }],
+    desc: '2× Fern Frond + Blackthorn → Fernstep Philtre (swiftness 45s)' },
+  { id: 'bramble_poultice', result: 'bramble_poultice',
+    ingredients: [{ id: 'bramble_vine', qty: 2 }, { id: 'hex_acorn', qty: 1 }],
+    desc: '2× Bramble Vine + Hex Acorn → Bramble Poultice (heals 50 HP)' },
+  { id: 'witchwood_balm', result: 'witchwood_balm',
+    ingredients: [{ id: 'witchwood', qty: 2 }, { id: 'hex_acorn', qty: 1 }],
+    desc: '2× Witchwood + Hex Acorn → Witchwood Balm (cleanses all effects)' },
 ];
 
 const LOOT_TABLES = {

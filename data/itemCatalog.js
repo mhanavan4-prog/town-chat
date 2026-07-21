@@ -74,4 +74,16 @@ module.exports = {
   alpha_fang:       { name: 'Alpha Fang',       icon: '🦷', slot: 'weapon' },
   packbound_ring:   { name: 'Packbound Ring',   icon: '🪢', slot: 'ring'   },
   nightfang_boots:  { name: 'Nightfang Boots',  icon: '🥾', slot: 'feet'   },
+  // ---- Wilds flora — tree & bush harvest materials ----
+  pine_pitch:    { name: 'Pine Pitch',   icon: '🌲',   slot: null },
+  witchwood:     { name: 'Witchwood',    icon: '🪵',   slot: null },
+  willow_frond:  { name: 'Willow Frond', icon: '🍃',   slot: null },
+  toadcap:       { name: 'Toadcap',      icon: '🍄‍🟫', slot: null },
+  hex_acorn:     { name: 'Hex Acorn',    icon: '🌰',   slot: null },
+  birch_bark:    { name: 'Birch Bark',   icon: '📜',   slot: null },
+  bramble_vine:  { name: 'Bramble Vine', icon: '🌿',   slot: null },
+  nightberry:    { name: 'Nightberry',   icon: '🫐',   slot: null },
+  blackthorn:    { name: 'Blackthorn',   icon: '🥀',   slot: null },
+  fern_frond:    { name: 'Fern Frond',   icon: '🌱',   slot: null },
+  ring_cap:      { name: 'Ring Cap',     icon: '🍄',   slot: null },
 };

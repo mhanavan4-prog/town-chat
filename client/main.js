@@ -15,7 +15,7 @@ import createCaveScene from './cave-scene.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
-import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS } from './props-nature.js';
+import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeFlagstoneTexture, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -392,6 +392,25 @@ const ITEM_CATALOG = {
   iron_ingot:     { name: 'Iron Ingot',     icon: '⚙️', slot: null, desc: 'Smelted thrice — the third time for the superstition.' },
   druid_stone:    { name: 'Druid Stone',    icon: '🗿', slot: null, desc: 'A standing stone in miniature. It remembers rituals.' },
   hollow_shard:   { name: 'Hollow Shard',   icon: '💠', slot: null, desc: 'A splinter of the door under the Wilds. It weighs wrong.' },
+  // --- Wilds flora — harvest materials (the new trees & bushes) ---
+  pine_pitch:    { name: 'Pine Pitch',   icon: '🌲',   slot: null, desc: 'Sticky watchpine sap. Binds a wound — or a hex.' },
+  witchwood:     { name: 'Witchwood',    icon: '🪵',   slot: null, desc: 'A deadwood limb, grey and patient. It listens.' },
+  willow_frond:  { name: 'Willow Frond', icon: '🍃',   slot: null, desc: 'A weeping-willow tress, cut at dusk.' },
+  toadcap:       { name: 'Toadcap',      icon: '🍄‍🟫', slot: null, desc: "A slab of giant toadstool. Don't lick it." },
+  hex_acorn:     { name: 'Hex Acorn',    icon: '🌰',   slot: null, desc: 'A hexoak acorn — plant it and regret it.' },
+  birch_bark:    { name: 'Birch Bark',   icon: '📜',   slot: null, desc: 'Pale bark that peels like old letters.' },
+  bramble_vine:  { name: 'Bramble Vine', icon: '🌿',   slot: null, desc: 'Green and grabby. Wear gloves.' },
+  nightberry:    { name: 'Nightberry',   icon: '🫐',   slot: null, desc: 'Glows faintly violet. Tastes of midnight.' },
+  blackthorn:    { name: 'Blackthorn',   icon: '🥀',   slot: null, desc: 'A cruel little thorn. Draws blood, keeps secrets.' },
+  fern_frond:    { name: 'Fern Frond',   icon: '🌱',   slot: null, desc: 'Feathery fenfern, still damp from the bog.' },
+  ring_cap:      { name: 'Ring Cap',     icon: '🍄',   slot: null, desc: 'Plucked from a fairy ring — bad luck to eat, good luck to brew.' },
+  // --- Wilds-flora brews (crafted at Witch Hazel's cauldron) ---
+  barkbind_salve:     { name: 'Barkbind Salve',     icon: '🩹',  slot: null, desc: 'Knits your wounds like bark over 45s.' },
+  capwood_elixir:     { name: 'Capwood Elixir',     icon: '🍄‍🟫', slot: null, desc: 'Swell to giant size for 45s.' },
+  nightsight_draught: { name: 'Nightsight Draught', icon: '🌘',  slot: null, desc: 'A raven cloak — the dark parts for you (60s).' },
+  fernstep_philtre:   { name: 'Fernstep Philtre',   icon: '🌀',  slot: null, desc: "The road can't hold you (swift, 45s)." },
+  bramble_poultice:   { name: 'Bramble Poultice',   icon: '💚',  slot: null, desc: 'Restores 50 HP.' },
+  witchwood_balm:     { name: 'Witchwood Balm',     icon: '✨',  slot: null, desc: 'Cleanses every curse and charm.' },
 };
 
 const PLANT_EFFECTS = new Set([
@@ -2700,6 +2719,13 @@ const POTION_RECIPES_CLIENT = [
   { id: 'bat_swarm_potion', icon: '🦇',  name: 'Bat Swarm Potion',       desc: "2× Bat's Breath",            ingredients: [{ id: 'bats_breath', qty: 2 }] },
   { id: 'clarity_draught',  icon: '✨',  name: 'Clarity Draught',        desc: 'Lotus + Cleansing Clover',    ingredients: [{ id: 'meditation_lotus', qty: 1 }, { id: 'cleansing_clover', qty: 1 }] },
   { id: 'chaos_brew',       icon: '🌈',  name: 'Chaos Brew',             desc: 'Rainbow + Pumpkin + Toadstool',ingredients: [{ id: 'rainbow_petal', qty: 1 }, { id: 'pumpkin_blossom', qty: 1 }, { id: 'toadstool', qty: 1 }] },
+  // --- Wilds-flora crafts (from the new trees' & bushes' materials) ---
+  { id: 'barkbind_salve',     icon: '🩹',  name: 'Barkbind Salve',     desc: 'Birch Bark + Pine Pitch',     ingredients: [{ id: 'birch_bark', qty: 2 }, { id: 'pine_pitch', qty: 1 }] },
+  { id: 'capwood_elixir',     icon: '🍄‍🟫', name: 'Capwood Elixir',     desc: 'Toadcap + Ring Cap',          ingredients: [{ id: 'toadcap', qty: 2 }, { id: 'ring_cap', qty: 1 }] },
+  { id: 'nightsight_draught', icon: '🌘',  name: 'Nightsight Draught', desc: 'Nightberry + Willow Frond',   ingredients: [{ id: 'nightberry', qty: 2 }, { id: 'willow_frond', qty: 1 }] },
+  { id: 'fernstep_philtre',   icon: '🌀',  name: 'Fernstep Philtre',   desc: 'Fern Frond + Blackthorn',     ingredients: [{ id: 'fern_frond', qty: 2 }, { id: 'blackthorn', qty: 1 }] },
+  { id: 'bramble_poultice',   icon: '💚',  name: 'Bramble Poultice',   desc: 'Bramble Vine + Hex Acorn',    ingredients: [{ id: 'bramble_vine', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
+  { id: 'witchwood_balm',     icon: '✨',  name: 'Witchwood Balm',     desc: 'Witchwood + Hex Acorn',       ingredients: [{ id: 'witchwood', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
 ];
 
 let _witchActiveTab = 'shop';
@@ -7254,7 +7280,8 @@ function makePlant(type, x, z) {
 // you can't walk through them; shrubs, rocks, flower patches, and the
 // Wilds' 16 plants are purely decorative ground cover (walk-through).
 // tree/shrub/flower/(any plant key) are harvestable; rocks are scenery.
-const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower', ...Object.keys(PLANT_VISUALS)]);
+const WILDS_FLORA_TYPES_CLIENT = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring'];
+const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower', ...Object.keys(PLANT_VISUALS), ...WILDS_FLORA_TYPES_CLIENT]);
 let decorVisuals = {};  // town (world.natureDecor) decorId -> { group, type, harvested, originalMaterials }
 let decorVisuals2 = {}; // Wilds (world2.natureDecor), same shape, separate pool/scene
 let decorAvailability = {}; // decorId -> bool, from server's wildlife_state/decor_state — shared, ids are globally unique
@@ -7299,7 +7326,19 @@ const PROP_BUILDERS = {
   fence: { make: makeFenceSeg, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 7, h: 58 } : { w: 58, h: 7 }) },
   stump: { make: makeStump, collide: () => ({ w: 17, h: 17 }) },
   log: { make: makeFallenLog, collide: () => ({ w: 34, h: 34 }) },
-  noticeboard: { make: makeNoticeboard, collide: () => ({ w: 34, h: 12 }) }
+  noticeboard: { make: makeNoticeboard, collide: () => ({ w: 34, h: 12 }) },
+  // ── Wilds flora — trees block movement (small collider), bushes walk-through ──
+  watchpine:       { make: (d) => makeWatchpine(d.x, d.y, d.scale),      collide: () => ({ w: 16, h: 16 }) },
+  deadwood:        { make: (d) => makeDeadwood(d.x, d.y, d.scale),       collide: () => ({ w: 15, h: 15 }) },
+  mourning_willow: { make: (d) => makeMourningWillow(d.x, d.y, d.scale), collide: () => ({ w: 18, h: 18 }) },
+  capwood:         { make: (d) => makeCapwood(d.x, d.y, d.scale),        collide: () => ({ w: 22, h: 22 }) },
+  hexoak:          { make: (d) => makeHexoak(d.x, d.y, d.scale),         collide: () => ({ w: 20, h: 20 }) },
+  palebirch:       { make: (d) => makePalebirch(d.x, d.y, d.scale),      collide: () => ({ w: 18, h: 18 }) },
+  bramblebush:     { make: (d) => makeBramblebush(d.x, d.y, d.scale),    collide: () => null },
+  nightberry:      { make: (d) => makeNightberry(d.x, d.y, d.scale),     collide: () => null },
+  thornsnarl:      { make: (d) => makeThornsnarl(d.x, d.y, d.scale),     collide: () => null },
+  fenfern:         { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null },
+  toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null }
 };
 
 function addNatureDecor(scene, w, pool, wallsOut) {
