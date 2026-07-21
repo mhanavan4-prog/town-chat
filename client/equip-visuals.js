@@ -58,29 +58,36 @@ function applyMyEquipVisual(msg) {
 // on a given player at a time, matching the server's single activeStatus
 // slot.
 // ---------------------------------------------------------------------------
+// PUMPKIN_HEAD_SCALE sizes the jack-o'-lantern to ENCASE the whole head. The
+// classic rig hides its head sphere (v.head.visible=false) and the pumpkin
+// stands in for it; the KayKit rig's head is a single skinned mesh that can't
+// be hidden, so the pumpkin has to be big enough to swallow it whole. ~1.8x
+// the head radius does that on both rigs — bump this if a head still peeks out.
+const PUMPKIN_HEAD_SCALE = 1.8;
 function makePumpkinHeadMesh() {
   const g = new THREE.Group();
+  const R = CHAR.headR * PUMPKIN_HEAD_SCALE;
   const pumpkin = new THREE.Mesh(
-    new THREE.SphereGeometry(CHAR.headR * 1.15, 12, 10),
+    new THREE.SphereGeometry(R, 16, 12),
     new THREE.MeshLambertMaterial({ color: 0xe87b1e })
   );
-  pumpkin.scale.set(1, 0.85, 1);
+  pumpkin.scale.set(1, 0.85, 1); // a touch squashed — pumpkins are wider than tall
   g.add(pumpkin);
   const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.4, 1.8, 4, 6),
+    new THREE.CylinderGeometry(R * 0.14, R * 0.2, R * 0.5, 6),
     new THREE.MeshLambertMaterial({ color: 0x4a7a2e })
   );
-  stem.position.y = CHAR.headR * 0.9;
+  stem.position.y = R * 0.72;
   g.add(stem);
   const faceMat = new THREE.MeshBasicMaterial({ color: 0x2a1505 });
   for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.2, 4), faceMat);
+    const eye = new THREE.Mesh(new THREE.ConeGeometry(R * 0.2, R * 0.28, 4), faceMat);
     eye.rotation.x = Math.PI;
-    eye.position.set(side * CHAR.headR * 0.38, CHAR.headR * 0.12, CHAR.headR * 0.95);
+    eye.position.set(side * R * 0.38, R * 0.12, R * 0.82);
     g.add(eye);
   }
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(CHAR.headR * 0.7, CHAR.headR * 0.18, 1.5), faceMat);
-  mouth.position.set(0, -CHAR.headR * 0.35, CHAR.headR * 0.95);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(R * 0.7, R * 0.18, 2), faceMat);
+  mouth.position.set(0, -R * 0.35, R * 0.82);
   g.add(mouth);
   return g;
 }
@@ -197,7 +204,9 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'pumpkin') {
     if (v.head) v.head.visible = false;
     v.pumpkinMesh = makePumpkinHeadMesh();
-    v.pumpkinMesh.position.y = CHAR.headY;
+    // CHAR.headY is where head-gear caps sit (the crown); drop the pumpkin's
+    // center below that so the enlarged sphere wraps the whole head, not perches.
+    v.pumpkinMesh.position.y = CHAR.headY - CHAR.headR * 0.5;
     v.group.add(v.pumpkinMesh);
   } else if (newType === 'bats') {
     v.batsGroup = makeBatSwarm();
