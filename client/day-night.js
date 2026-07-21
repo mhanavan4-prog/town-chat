@@ -88,6 +88,7 @@ function updateDayNightCycle() {
   getOutdoorMoonLight().intensity = moonStrength * 0.55;
   // The moon itself blushes on blood nights, and its light follows.
   getMoonMesh().material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
+  getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : 1); // a big red harvest moon on Blood Moon nights
   getOutdoorMoonLight().color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
   getMoonMesh().material.opacity = moonStrength;
   getMoonMesh().visible = moonStrength > 0.02;

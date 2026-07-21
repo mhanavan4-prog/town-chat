@@ -11474,6 +11474,7 @@ function updateDayNightCycle() {
   getOutdoorMoonLight().intensity = moonStrength * 0.55;
   // The moon itself blushes on blood nights, and its light follows.
   getMoonMesh().material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
+  getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : 1); // a big red harvest moon on Blood Moon nights
   getOutdoorMoonLight().color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
   getMoonMesh().material.opacity = moonStrength;
   getMoonMesh().visible = moonStrength > 0.02;
@@ -17662,7 +17663,20 @@ const GFX = (() => {
       mg.scale.set(340, 340, 1);
       moonMesh.add(mg);
       st.moonGlow = mg;
+      // Dark wisps that drift across the moon's face and dim it — "clouds
+      // crossing the moon." Parented to the moon so they follow it; depthTest
+      // off so they always draw over its face.
+      st.moonClouds = [];
+      const mcTex = softTex('rgba(255,255,255,0.8)', 24);
+      for (let i = 0; i < 2; i++) {
+        const m = new THREE.SpriteMaterial({ map: mcTex, color: 0x242236, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false });
+        const sp = new THREE.Sprite(m); sp.scale.set(300, 120, 1);
+        sp.position.set(-320 + i * 480, 15 - i * 30, 0);
+        moonMesh.add(sp);
+        st.moonClouds.push({ sp, m, speed: 30 + i * 14 });
+      }
     }
+    st.shootTex = softTex('rgba(210,230,255,0.95)', 3); // shooting-star streak
   }
 
   // ── fireflies: per-scene clusters, alive at night ─────────────────────
@@ -17711,7 +17725,34 @@ const GFX = (() => {
       c.m.opacity = c.base * (0.35 + lightAmount * 0.65);
       c.m.color.setHSL(0.7, 0.15, 0.35 + lightAmount * 0.55);
     }
-    if (st.moonGlow) st.moonGlow.material.opacity = night * 0.5;
+    // moon clouds drift across the face; dim the halo when one covers it
+    let _moonCover = 0;
+    if (st.moonClouds) {
+      for (const mc of st.moonClouds) {
+        mc.sp.position.x += mc.speed * (1 / 60);
+        if (mc.sp.position.x > 340) mc.sp.position.x = -340;
+        mc.m.opacity = night * 0.72;
+        _moonCover = Math.max(_moonCover, Math.max(0, 1 - Math.abs(mc.sp.position.x) / 170));
+      }
+    }
+    if (st.moonGlow) st.moonGlow.material.opacity = night * 0.5 * (1 - 0.55 * _moonCover);
+    // ✦ shooting stars — occasional streaks across the deep night sky
+    if (!st.shooters) st.shooters = [];
+    if (night > 0.5 && st.skyGroup && st.shootTex && st.shooters.length < 2 && Math.random() < 0.006) {
+      const dir = Math.random() < 0.5 ? 1 : -1, ang = Math.PI * (0.14 + Math.random() * 0.2);
+      const m = new THREE.SpriteMaterial({ map: st.shootTex, color: 0xe6f0ff, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+      m.rotation = -ang * dir;
+      const sp = new THREE.Sprite(m); sp.scale.set(230, 7, 1);
+      sp.position.set((Math.random() - 0.5) * 2400, 760 + Math.random() * 640, -600 - Math.random() * 700);
+      sp.userData = { vx: Math.cos(ang) * dir * 48, vy: -Math.sin(ang) * 48, life: 1 };
+      st.skyGroup.add(sp); st.shooters.push(sp);
+    }
+    for (let i = st.shooters.length - 1; i >= 0; i--) {
+      const sp = st.shooters[i], u = sp.userData;
+      sp.position.x += u.vx; sp.position.y += u.vy; u.life -= 0.022;
+      sp.material.opacity = Math.max(0, Math.sin(Math.max(0, u.life) * Math.PI)) * night;
+      if (u.life <= 0) { st.skyGroup.remove(sp); st.shooters.splice(i, 1); }
+    }
     if (st.bloomPass) st.bloomPass.strength = 0.34 + night * 0.42;
     // sky rides the camera so the dome never runs out from over the player
     if (st.skyGroup && activeCamera) {
