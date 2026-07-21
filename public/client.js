@@ -3445,6 +3445,61 @@ function makeFlagstoneTexture() {
   return tex;
 }
 
+// ── Hexstone Road — cracked flagstones with a rotating set of glowing witch-
+// sigils in the moss. Used for the Wilds' paths (see wilds-scene). 12 distinct
+// marks; each texture bakes a random rotated mix so no stretch of road repeats.
+// Designed in THORNREACH-HEXSTONE-SIGILS.html.
+function _hexSigils() {
+  const poly = (c, pts, close) => { c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); if (close) c.closePath(); c.stroke(); };
+  const circ = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.stroke(); };
+  const dot = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fillStyle = c.strokeStyle; c.fill(); };
+  return [
+    (c, R) => { circ(c, 0, 0, R); const p = []; for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 4 * Math.PI / 5; p.push([Math.cos(a) * R, Math.sin(a) * R]); } poly(c, p, true); }, // pentacle — tips touch the circle
+    (c, R) => { const r = R * 0.4, o = R * 0.52; circ(c, 0, 0, r); c.beginPath(); c.arc(-o, 0, r, Math.PI * 0.4, Math.PI * 1.6); c.stroke(); c.beginPath(); c.arc(o, 0, r, -Math.PI * 0.6, Math.PI * 0.6); c.stroke(); }, // triple moon
+    (c, R) => { c.beginPath(); c.moveTo(-R, 0); c.quadraticCurveTo(0, -R * 0.7, R, 0); c.quadraticCurveTo(0, R * 0.7, -R, 0); c.stroke(); circ(c, 0, 0, R * 0.3); dot(c, 0, 0, R * 0.12); }, // watching eye
+    (c, R) => { circ(c, 0, 0, R); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; poly(c, [[0, 0], [Math.cos(a) * R, Math.sin(a) * R]]); } }, // hag's wheel
+    (c, R) => { [0, Math.PI].forEach(o => { const p = []; for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + o + i * 2 * Math.PI / 3; p.push([Math.cos(a) * R, Math.sin(a) * R]); } poly(c, p, true); }); }, // sealing star
+    (c, R) => { c.beginPath(); c.arc(0, -R * 0.4, R * 0.45, 0.5, Math.PI - 0.5, true); c.stroke(); poly(c, [[0, -R * 0.7], [0, R]]); poly(c, [[-R * 0.35, R * 0.4], [R * 0.35, R * 0.4]]); }, // moon-staff
+    (c, R) => { for (let k = 0; k < 3; k++) { c.save(); c.rotate(k * 2 * Math.PI / 3); c.beginPath(); for (let t = 0; t < 1; t += 0.1) { const a = t * 3.4, rr = t * R, x = Math.cos(a) * rr, y = Math.sin(a) * rr; t ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); c.restore(); } }, // triskele
+    (c, R) => { poly(c, [[-R, 0], [0, -R], [R, 0], [0, R]], true); c.save(); c.rotate(Math.PI / 4); poly(c, [[-R * 0.7, 0], [0, -R * 0.7], [R * 0.7, 0], [0, R * 0.7]], true); c.restore(); circ(c, 0, 0, R * 0.2); }, // ward-knot
+    (c, R) => { c.beginPath(); c.moveTo(-R, R * 0.5); c.bezierCurveTo(-R * 0.4, -R, R * 0.4, R, R, -R * 0.5); c.stroke(); dot(c, R, -R * 0.5, R * 0.14); }, // serpent
+    (c, R) => { poly(c, [[0, -R], [R * 0.87, R * 0.5], [-R * 0.87, R * 0.5]], true); poly(c, [[-R * 0.6, -R * 0.05], [R * 0.6, -R * 0.05]]); dot(c, 0, R * 0.12, R * 0.1); }, // ashen glyph
+    (c, R) => { const pts = []; for (let i = 0; i <= 7; i++) { const a = -Math.PI / 2 + i * 3 * 2 * Math.PI / 7; pts.push([Math.cos(a) * R, Math.sin(a) * R]); } poly(c, pts, false); }, // heptagram
+    (c, R) => { circ(c, 0, 0, R); poly(c, [[-R, 0], [R, 0]]); poly(c, [[0, -R], [0, R]]); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => dot(c, q[0] * R * 0.5, q[1] * R * 0.5, R * 0.1)); }, // crossed circle
+  ];
+}
+function makeHexstoneTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#141018'; cx.fillRect(0, 0, 512, 512); // dark mossy grout
+  const cols = 6, rows = 6, cw = 512 / cols, ch = 512 / rows, inset = 7;
+  const fills = ['#464250', '#3c3846', '#524d5c', '#413d4a'];
+  for (let ry = 0; ry < rows; ry++) for (let ci = 0; ci < cols; ci++) {
+    const j = () => (Math.random() - 0.5) * 14, x0 = ci * cw, y0 = ry * ch;
+    cx.fillStyle = fills[(Math.random() * fills.length) | 0];
+    cx.beginPath();
+    cx.moveTo(x0 + inset + j(), y0 + inset + j()); cx.lineTo(x0 + cw - inset + j(), y0 + inset + j());
+    cx.lineTo(x0 + cw - inset + j(), y0 + ch - inset + j()); cx.lineTo(x0 + inset + j(), y0 + ch - inset + j());
+    cx.closePath(); cx.fill();
+  }
+  for (let i = 0; i < 70; i++) { const x = Math.random() * 512, y = Math.random() * 512; cx.fillStyle = 'rgba(55,99,63,0.4)'; cx.beginPath(); cx.arc(x, y, 2 + Math.random() * 7, 0, Math.PI * 2); cx.fill(); }
+  for (let i = 0; i < 900; i++) { const x = Math.random() * 512, y = Math.random() * 512; cx.fillStyle = Math.random() < 0.5 ? 'rgba(18,16,24,0.4)' : 'rgba(110,104,124,0.2)'; cx.fillRect(x, y, 1, 1); }
+  const sig = _hexSigils(), n = 8 + (Math.random() * 4 | 0);
+  for (let i = 0; i < n; i++) {
+    const x = 60 + Math.random() * 392, y = 60 + Math.random() * 392, R = 22 + Math.random() * 22, rot = Math.random() * Math.PI * 2;
+    const col = Math.random() < 0.14 ? '#c69bff' : (Math.random() < 0.14 ? '#9be7ff' : '#7dffb0'); // mostly green, rare teal/violet
+    cx.save(); cx.translate(x, y); cx.rotate(rot);
+    cx.strokeStyle = col; cx.lineWidth = Math.max(1.6, R * 0.09); cx.lineJoin = 'round'; cx.lineCap = 'round';
+    cx.shadowColor = col; cx.shadowBlur = R * 0.8;
+    sig[(Math.random() * sig.length) | 0](cx, R);
+    cx.restore();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 function makeStoneTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
@@ -4083,7 +4138,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeHexstoneTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -4104,6 +4159,28 @@ function buildWildsScene(w2) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(w2.width / 2, 0, w2.height / 2);
   scene.add(ground);
+
+  // ── Hexstone Roads — glowing witch-sigil paths linking the landmarks. Flat,
+  // walk-on planks (no colliders); a faint self-glow (emissiveMap) + green
+  // sigils read at night. Each plank bakes its own random rotated sigil mix, so
+  // no stretch repeats (sigil set: THORNREACH-HEXSTONE-SIGILS.html). Routed as a
+  // north-south spine from the portal to the village, with branches out to the
+  // giant tree, both faction camps, and the Witch's Cave. ──
+  function hexPath(x1, z1, x2, z2, width) {
+    const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+    const tex = makeHexstoneTexture();
+    tex.repeat.set(Math.max(1, width / 150), Math.max(1, len / 150));
+    const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.4 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, len), mat);
+    mesh.rotation.y = Math.atan2(dx, dz);
+    mesh.position.set((x1 + x2) / 2, 0.35, (z1 + z2) / 2);
+    scene.add(mesh);
+  }
+  hexPath(w2.spawn.x, w2.spawn.y, 5000, 3000, 220); // spine: portal landing → village crossroads
+  hexPath(5000, 6200, 6500, 6200, 170);             // → the Giant Werewolf Tree
+  hexPath(5000, 5000, 2360, 5000, 170);             // → the coven camp (Morvaine & co.)
+  hexPath(5000, 5000, 7800, 5000, 170);             // → the watch camp (Rhedyn & co.)
+  hexPath(5000, 3000, 2000, 2120, 170);             // → the Witch's Cave
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
   getAddAnimals2()(scene);
@@ -18604,7 +18681,7 @@ const { buildWildsScene } = createWildsScene({
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeMoorTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeHexstoneTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
