@@ -146,13 +146,15 @@ setTimeout(async () => {
   check('Mabon holds in early October', hooks.seasonWindow(Date.UTC(2026, 9, 1)).key === 'mabon');
   check('season windows are contiguous (endsAt = next sabbat start)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).endsAt === Date.UTC(2026, 7, 1));
   check('the calendar payload carries the live season', hooks.calendarPublicState(Date.UTC(2026, 9, 1)).season.key === 'mabon');
-  check('Litha carries an XP blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 6, 15)).effects.xpMult === 1.15);
-  check('Mabon carries a foraging blessing (+15%)', hooks.seasonWindow(Date.UTC(2026, 9, 1)).effects.forageBonus === 0.15);
-  check('Mabon carries a loot blessing (the second harvest)', hooks.seasonWindow(Date.UTC(2026, 9, 1)).effects.lootBonus === 0.20);
-  check('Imbolc carries a healing blessing (Brigid mends all)', hooks.seasonWindow(Date.UTC(2026, 1, 10)).effects.regenBonus > 0);
-  check('Yule carries a hearth-rest blessing', hooks.seasonWindow(Date.UTC(2027, 0, 10)).effects.restBonus > 0);
-  check("Beltane carries a fire blessing (Bel's bright fire)", hooks.seasonWindow(Date.UTC(2026, 4, 15)).effects.fireBonus === 0.30);
-  check('Samhain carries a veil blessing (the slain rise faster)', hooks.seasonWindow(Date.UTC(2026, 10, 15)).effects.veilThin === 0.6);
+  // Effects fire only on the sabbat's ACTUAL date now (not the whole window).
+  check('Litha carries an XP blessing (+15%) on the solstice', hooks.seasonWindow(Date.UTC(2026, 5, 21)).effects.xpMult === 1.15);
+  check('Mabon carries a foraging blessing (+15%) on the day', hooks.seasonWindow(Date.UTC(2026, 8, 21)).effects.forageBonus === 0.15);
+  check('Mabon carries a loot blessing (the second harvest) on the day', hooks.seasonWindow(Date.UTC(2026, 8, 21)).effects.lootBonus === 0.20);
+  check('Imbolc carries a healing blessing (Brigid mends all) on the day', hooks.seasonWindow(Date.UTC(2026, 1, 1)).effects.regenBonus > 0);
+  check('Yule carries a hearth-rest blessing on the day', hooks.seasonWindow(Date.UTC(2026, 11, 21)).effects.restBonus > 0);
+  check("Beltane carries a fire blessing (Bel's bright fire) on the day", hooks.seasonWindow(Date.UTC(2026, 4, 1)).effects.fireBonus === 0.30);
+  check('Samhain carries a veil blessing (the slain rise faster) on the day', hooks.seasonWindow(Date.UTC(2026, 9, 31)).effects.veilThin === 0.6);
+  check('off the sabbat day the season shows but its effects are neutral', (() => { const w = hooks.seasonWindow(Date.UTC(2026, 6, 15)); return w.key === 'litha' && !w.isSabbatDay && Object.keys(w.effects).length === 0; })());
   const maxXpMult = Math.max(...require('../data/seasons').SABBATS.map(s => (s.effects && s.effects.xpMult) || 1));
   check('season xp blessings stay modest (≤1.15, keeps pacing tests level-based)', maxXpMult <= 1.15);
 
