@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeHexstoneTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -27,6 +27,28 @@ function buildWildsScene(w2) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(w2.width / 2, 0, w2.height / 2);
   scene.add(ground);
+
+  // ── Hexstone Roads — glowing witch-sigil paths linking the landmarks. Flat,
+  // walk-on planks (no colliders); a faint self-glow (emissiveMap) + green
+  // sigils read at night. Each plank bakes its own random rotated sigil mix, so
+  // no stretch repeats (sigil set: THORNREACH-HEXSTONE-SIGILS.html). Routed as a
+  // north-south spine from the portal to the village, with branches out to the
+  // giant tree, both faction camps, and the Witch's Cave. ──
+  function hexPath(x1, z1, x2, z2, width) {
+    const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+    const tex = makeHexstoneTexture();
+    tex.repeat.set(Math.max(1, width / 150), Math.max(1, len / 150));
+    const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.4 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, len), mat);
+    mesh.rotation.y = Math.atan2(dx, dz);
+    mesh.position.set((x1 + x2) / 2, 0.35, (z1 + z2) / 2);
+    scene.add(mesh);
+  }
+  hexPath(w2.spawn.x, w2.spawn.y, 5000, 3000, 220); // spine: portal landing → village crossroads
+  hexPath(5000, 6200, 6500, 6200, 170);             // → the Giant Werewolf Tree
+  hexPath(5000, 5000, 2360, 5000, 170);             // → the coven camp (Morvaine & co.)
+  hexPath(5000, 5000, 7800, 5000, 170);             // → the watch camp (Rhedyn & co.)
+  hexPath(5000, 3000, 2000, 2120, 170);             // → the Witch's Cave
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
   getAddAnimals2()(scene);
