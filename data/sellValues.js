@@ -12,5 +12,9 @@ module.exports = {
   stumbleweed: 3, gibberish_root: 4, toadstool: 4, wolfsbane_bloom: 6,
   meditation_lotus: 7, health_potion_ii: 12, regen_brew: 9, swift_brew: 9,
   shadow_draught: 11, giants_elixir: 11, bat_swarm_potion: 10, clarity_draught: 10,
-  chaos_brew: 12, wolf_pact_brew: 20
+  chaos_brew: 12, wolf_pact_brew: 20,
+  // Wilds flora — harvest materials + cauldron brews
+  pine_pitch: 4, witchwood: 5, willow_frond: 4, toadcap: 6, hex_acorn: 5, birch_bark: 4,
+  bramble_vine: 3, nightberry: 6, blackthorn: 4, fern_frond: 3, ring_cap: 5,
+  barkbind_salve: 9, capwood_elixir: 11, nightsight_draught: 11, fernstep_philtre: 9, bramble_poultice: 10, witchwood_balm: 10
 };

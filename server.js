@@ -692,7 +692,12 @@ function makeWildsScatter(seed, gridSize, count) {
 // doesn't.
 const PLANTS_PER_TYPE = 9;
 const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, PLANT_KEYS.length * PLANTS_PER_TYPE);
+// Only the raw foraged plants scatter in the Wilds — brewed potions live in
+// PLANT_CATALOG for their use-effects but shouldn't grow wild. Skipping them
+// here (rather than filtering PLANT_KEYS) keeps every wdecor_<i>_<n> id stable.
+const BREW_RESULT_KEYS = new Set(require('./data/gameConstants').POTION_RECIPES.map(r => r.result));
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
+  if (BREW_RESULT_KEYS.has(type)) return [];
   const out = [];
   for (let n = 0; n < PLANTS_PER_TYPE; n++) {
     const [x, y] = PLANT_POSITIONS[i * PLANTS_PER_TYPE + n];
@@ -701,11 +706,31 @@ WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   return out;
 });
 
-const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS]);
+// ── Populate the Wilds with trees & bushes so it reads as thick wilderness,
+// not an empty field of plants. Own scatter seed/grid so the plant ids above
+// stay stable; each species harvests its own witchy material (WILDS_FLORA
+// gallery: THORNREACH-WILDS-FLORA.html). ──
+const WILDS_FLORA_TYPES = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring'];
+const WILDS_FLORA_COUNTS = { watchpine: 16, deadwood: 14, mourning_willow: 12, capwood: 12, hexoak: 14, palebirch: 14, bramblebush: 22, nightberry: 18, thornsnarl: 18, fenfern: 22, toadring: 16 };
+const WILDS_FLORA_HARVEST = { watchpine: 'pine_pitch', deadwood: 'witchwood', mourning_willow: 'willow_frond', capwood: 'toadcap', hexoak: 'hex_acorn', palebirch: 'birch_bark', bramblebush: 'bramble_vine', nightberry: 'nightberry', thornsnarl: 'blackthorn', fenfern: 'fern_frond', toadring: 'ring_cap' };
+const WILDS_FLORA_TOTAL = WILDS_FLORA_TYPES.reduce((a, t) => a + WILDS_FLORA_COUNTS[t], 0);
+const WILDS_FLORA_POSITIONS = makeWildsScatter(0x5eed, 22, WILDS_FLORA_TOTAL);
+{
+  let fi = 0;
+  for (const type of WILDS_FLORA_TYPES) {
+    for (let k = 0; k < WILDS_FLORA_COUNTS[type]; k++) {
+      const [fx, fy] = WILDS_FLORA_POSITIONS[fi++];
+      WORLD2.natureDecor.push({ id: `wflora_${type}_${k}`, type, x: fx, y: fy, scale: 1 });
+    }
+  }
+}
+
+const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS, ...WILDS_FLORA_TYPES]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
 for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
+Object.assign(HARVEST_ITEM_BY_TYPE, WILDS_FLORA_HARVEST); // trees & bushes -> their harvest materials
 const HARVEST_RANGE = 70;
 // Regrowth is PER PLAYER now. It used to be one global timer per plant —
 // with the 24-hour regrow, the first player of the evening stripped the
