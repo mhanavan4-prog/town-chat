@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeHexstoneTexture, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -34,21 +34,20 @@ function buildWildsScene(w2) {
   // no stretch repeats (sigil set: THORNREACH-HEXSTONE-SIGILS.html). Routed as a
   // north-south spine from the portal to the village, with branches out to the
   // giant tree, both faction camps, and the Witch's Cave. ──
-  function hexPlank(x1, z1, x2, z2, width) {
-    const dx = x2 - x1, dz = z2 - z1, seg = Math.hypot(dx, dz) || 1;
-    const ext = width * 0.35, len = seg + ext * 2; // overlap the next plank so bends have no gap
-    const tex = makeHexstoneTexture();
-    tex.repeat.set(Math.max(1, width / 150), Math.max(1, len / 150));
-    const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.4 });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 0.4, len), mat); // low & flat — no clipping
-    mesh.rotation.y = Math.atan2(dx, dz);
-    mesh.position.set((x1 + x2) / 2, 0.18, (z1 + z2) / 2);
-    scene.add(mesh);
-  }
-  // Draw each meandering route the server sends (world2.paths) as a run of planks.
-  for (const path of (w2.paths || [])) {
-    const p = path.pts;
-    for (let i = 0; i < p.length - 1; i++) hexPlank(p[i][0], p[i][1], p[i + 1][0], p[i + 1][1], path.width);
+  // ── Scattered witch-glyphs — glowing sigils burned into the Wilds ground all
+  // over (no formal paths). Flat decals, unlit + additive so they glow green in
+  // the dark; a fixed seed so every player sees the same marks. ──
+  const sigilTex = makeSigilTextures();
+  const glyphCols = [0x7dffb0, 0x7dffb0, 0x7dffb0, 0x9be7ff, 0xc69bff]; // mostly green, some teal/violet
+  let gseed = 0x51611 >>> 0; const grand = () => { gseed = (gseed * 1664525 + 1013904223) >>> 0; return gseed / 4294967296; };
+  for (let i = 0; i < 220; i++) {
+    const gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
+    const size = 55 + grand() * 120;
+    const mat = new THREE.MeshBasicMaterial({ map: sigilTex[(grand() * sigilTex.length) | 0], transparent: true, color: glyphCols[(grand() * glyphCols.length) | 0], blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 + grand() * 0.4 });
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+    decal.rotation.set(-Math.PI / 2, 0, grand() * Math.PI * 2);
+    decal.position.set(gx, 0.5, gz);
+    scene.add(decal);
   }
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
@@ -272,13 +271,6 @@ function addVillageBuildings(scene) {
   box(92, 5, 8, woodMat, VX - 38, 72, VZ - 160);
   box(8, 5, 88, woodMat, VX - 80, 72, VZ - 120);
   box(8, 5, 88, woodMat, VX + 5, 72, VZ - 120);
-
-  // ── Dirt path from spawn toward village (just a flattened discolored strip)
-  const pathMat = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(55, 4200), pathMat);
-  path.rotation.x = -Math.PI / 2;
-  path.position.set(VX, 0.5, (VZ + 8800) / 2); // midpoint between village and spawn
-  scene.add(path);
 
   // ── Village entrance sign (south approach)
   const entranceSign = makeSignSprite('🏘️ Wildlands Village');

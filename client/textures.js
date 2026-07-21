@@ -220,6 +220,21 @@ export function makeHexstoneTexture() {
   return tex;
 }
 
+// The 12 witch-sigils as individual transparent decals, drawn WHITE so the
+// scatter can tint each one (see wilds-scene: glyphs strewn across the ground,
+// unlit + additive so they glow green in the dark).
+export function makeSigilTextures() {
+  return _hexSigils().map((fn) => {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+    const cx = c.getContext('2d');
+    cx.translate(64, 64);
+    cx.strokeStyle = '#ffffff'; cx.lineWidth = 4.5; cx.lineJoin = 'round'; cx.lineCap = 'round';
+    cx.shadowColor = '#ffffff'; cx.shadowBlur = 9;
+    fn(cx, 42);
+    return new THREE.CanvasTexture(c);
+  });
+}
+
 export function makeStoneTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
