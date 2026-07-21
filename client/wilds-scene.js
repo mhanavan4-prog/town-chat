@@ -34,21 +34,22 @@ function buildWildsScene(w2) {
   // no stretch repeats (sigil set: THORNREACH-HEXSTONE-SIGILS.html). Routed as a
   // north-south spine from the portal to the village, with branches out to the
   // giant tree, both faction camps, and the Witch's Cave. ──
-  function hexPath(x1, z1, x2, z2, width) {
-    const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+  function hexPlank(x1, z1, x2, z2, width) {
+    const dx = x2 - x1, dz = z2 - z1, seg = Math.hypot(dx, dz) || 1;
+    const ext = width * 0.35, len = seg + ext * 2; // overlap the next plank so bends have no gap
     const tex = makeHexstoneTexture();
     tex.repeat.set(Math.max(1, width / 150), Math.max(1, len / 150));
     const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.4 });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, len), mat);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 0.4, len), mat); // low & flat — no clipping
     mesh.rotation.y = Math.atan2(dx, dz);
-    mesh.position.set((x1 + x2) / 2, 0.35, (z1 + z2) / 2);
+    mesh.position.set((x1 + x2) / 2, 0.18, (z1 + z2) / 2);
     scene.add(mesh);
   }
-  hexPath(w2.spawn.x, w2.spawn.y, 5000, 3000, 220); // spine: portal landing → village crossroads
-  hexPath(5000, 6200, 6500, 6200, 170);             // → the Giant Werewolf Tree
-  hexPath(5000, 5000, 2360, 5000, 170);             // → the coven camp (Morvaine & co.)
-  hexPath(5000, 5000, 7800, 5000, 170);             // → the watch camp (Rhedyn & co.)
-  hexPath(5000, 3000, 2000, 2120, 170);             // → the Witch's Cave
+  // Draw each meandering route the server sends (world2.paths) as a run of planks.
+  for (const path of (w2.paths || [])) {
+    const p = path.pts;
+    for (let i = 0; i < p.length - 1; i++) hexPlank(p[i][0], p[i][1], p[i + 1][0], p[i + 1][1], path.width);
+  }
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
   getAddAnimals2()(scene);

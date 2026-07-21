@@ -706,6 +706,46 @@ WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   return out;
 });
 
+// ── Meandering "coven roads" — the Hexstone paths WANDER between the landmarks
+// rather than running straight, as if trodden into being over years. Computed
+// once (seeded, stable across restarts) and sent to the client (world2: WORLD2)
+// so both sides agree: the client draws them; the flora scatter below keeps
+// trees & bushes off them so the roads stay walkable (no collision glitches). ──
+function meanderPath(x1, y1, x2, y2, segs, amp, seed) {
+  const rr = seededRandom(seed);
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len, py = dx / len; // unit perpendicular
+  const pts = [[x1, y1]];
+  for (let i = 1; i < segs; i++) {
+    const t = i / segs;
+    const off = Math.sin(t * Math.PI) * amp * (rr() - 0.5) * 2; // taper the wander to 0 at both ends
+    pts.push([x1 + dx * t + px * off, y1 + dy * t + py * off]);
+  }
+  pts.push([x2, y2]);
+  return pts;
+}
+const _HX = WORLD2.spawn.x, _HY = WORLD2.spawn.y; // portal-landing trailhead (5000, 8800)
+const WILDS_PATHS = [
+  { width: 180, pts: meanderPath(_HX, _HY, 6500, 6250, 7, 700, 0x2b21) },  // → the Giant Werewolf Tree
+  { width: 175, pts: meanderPath(_HX, _HY, 2360, 5000, 9, 850, 0x3c32) },  // → the coven camp (Morvaine & co.)
+  { width: 175, pts: meanderPath(_HX, _HY, 7800, 5000, 9, 850, 0x4d43) },  // → the watch camp (Rhedyn & co.)
+  { width: 175, pts: meanderPath(_HX, _HY, 2000, 2120, 11, 950, 0x5e54) }, // → the Witch's Cave
+];
+WORLD2.paths = WILDS_PATHS;
+function distToPaths(x, y) {
+  let best = Infinity;
+  for (const path of WILDS_PATHS) {
+    const p = path.pts;
+    for (let i = 0; i < p.length - 1; i++) {
+      const ax = p[i][0], ay = p[i][1], vx = p[i + 1][0] - ax, vy = p[i + 1][1] - ay, L2 = vx * vx + vy * vy || 1;
+      let t = ((x - ax) * vx + (y - ay) * vy) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(x - (ax + vx * t), y - (ay + vy * t)) - path.width / 2;
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
 // ── Populate the Wilds with trees & bushes so it reads as thick wilderness,
 // not an empty field of plants. Own scatter seed/grid so the plant ids above
 // stay stable; each species harvests its own witchy material (WILDS_FLORA
@@ -720,6 +760,7 @@ const WILDS_FLORA_POSITIONS = makeWildsScatter(0x5eed, 22, WILDS_FLORA_TOTAL);
   for (const type of WILDS_FLORA_TYPES) {
     for (let k = 0; k < WILDS_FLORA_COUNTS[type]; k++) {
       const [fx, fy] = WILDS_FLORA_POSITIONS[fi++];
+      if (distToPaths(fx, fy) < 30) continue; // keep trees & bushes clear of the roads
       WORLD2.natureDecor.push({ id: `wflora_${type}_${k}`, type, x: fx, y: fy, scale: 1 });
     }
   }
