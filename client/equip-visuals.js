@@ -63,7 +63,7 @@ function applyMyEquipVisual(msg) {
 // stands in for it; the KayKit rig's head is a single skinned mesh that can't
 // be hidden, so the pumpkin has to be big enough to swallow it whole. ~1.8x
 // the head radius does that on both rigs — bump this if a head still peeks out.
-const PUMPKIN_HEAD_SCALE = 1.8;
+const PUMPKIN_HEAD_SCALE = 2.0;
 function makePumpkinHeadMesh() {
   const g = new THREE.Group();
   const R = CHAR.headR * PUMPKIN_HEAD_SCALE;
@@ -206,7 +206,7 @@ function applyStatusVisual(id, status) {
     v.pumpkinMesh = makePumpkinHeadMesh();
     // CHAR.headY is where head-gear caps sit (the crown); drop the pumpkin's
     // center below that so the enlarged sphere wraps the whole head, not perches.
-    v.pumpkinMesh.position.y = CHAR.headY - CHAR.headR * 0.5;
+    v.pumpkinMesh.position.y = CHAR.headY - CHAR.headR * 0.7;
     v.group.add(v.pumpkinMesh);
   } else if (newType === 'bats') {
     v.batsGroup = makeBatSwarm();
