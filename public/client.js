@@ -12064,6 +12064,12 @@ const CHARACTER_PRESETS = [
 // anything that fails to load falls back to the classic procedural builders.
 // ═══════════════════════════════════════════════════════════════════════════
 const KK = (() => {
+  // Heavy 3D assets (the ~19MB of KayKit models) can load from a CDN / Render
+  // Static Site instead of the game's web service, to keep first-load egress
+  // off the paid instance. window.THORNREACH_ASSET_BASE (set in index.html) is
+  // that origin; empty = same-origin, so this is a no-op until it's configured.
+  const ASSET_BASE = ((typeof window !== 'undefined' && window.THORNREACH_ASSET_BASE) || '').replace(/\/+$/, '');
+  const assetUrl = (p) => ASSET_BASE ? ASSET_BASE + '/' + p : p;
   const MANIFEST = {
     char0: 'kk/Mage.glb',           // Witch
     char1: 'kk/Barbarian.glb',      // Werewolf
@@ -12115,7 +12121,7 @@ const KK = (() => {
     const keys = Object.keys(MANIFEST);
     pending = keys.length;
     for (const key of keys) {
-      loader.load(MANIFEST[key], (gltf) => {
+      loader.load(assetUrl(MANIFEST[key]), (gltf) => {
         const box = new THREE.Box3().setFromObject(gltf.scene);
         models[key] = { scene: gltf.scene, animations: gltf.animations || [],
           size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },

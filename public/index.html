@@ -2939,6 +2939,14 @@ window.onerror = function(msg, src, line, col, err) {
 <script src="SkeletonUtils.js"></script>
 <script>
 </script>
+<script>
+  // CDN offload: point this at a Render Static Site / CDN that serves the
+  // /public assets — above all the ~19MB of /kk models — to keep first-load
+  // bandwidth off the game's web service. Empty = same-origin (default, no
+  // change). Example once the static host is live:
+  //   window.THORNREACH_ASSET_BASE = 'https://thornreach-assets.onrender.com';
+  window.THORNREACH_ASSET_BASE = '';
+</script>
 <script src="face-api.min.js"></script>
 <script src="client.js"></script>
 </body>

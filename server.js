@@ -128,7 +128,20 @@ app.use('/api', (req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    // Content-stable assets (models, textures, fonts, audio) — cache hard for a
+    // year so repeat visitors and any CDN in front never re-pull the ~19MB of
+    // /kk models. Their filenames don't change, so 'immutable' is safe.
+    if (/\.(glb|gltf|bin|png|jpe?g|webp|gif|svg|woff2?|ttf|mp3|ogg|wav)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else if (/\.(js|css|html)$/i.test(filePath)) {
+      // Code changes every deploy: cache but force revalidation, so updates
+      // land immediately while unchanged files come back as a cheap 304.
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 app.get('/api/config', (req, res) => {
   res.json({
