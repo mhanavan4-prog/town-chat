@@ -612,7 +612,22 @@ const server = http.createServer(app);
 // maxPayload guards against an oversized image (or anything else) blowing up
 // server memory — the client already resizes/compresses images well under
 // this before sending, this is just the backstop.
-const wss = new WebSocketServer({ server, maxPayload: 2 * 1024 * 1024 });
+const wss = new WebSocketServer({
+  server,
+  maxPayload: 2 * 1024 * 1024,
+  // permessage-deflate: JSON game traffic compresses ~75-85%, the single
+  // biggest bandwidth lever. Tuned to stay cheap: only compress messages
+  // over ~1KB (the state snapshot + wildlife_state — tiny control/fx
+  // messages skip it), and NO context takeover so per-connection memory
+  // stays bounded under lots of concurrent players.
+  perMessageDeflate: {
+    threshold: 1024,
+    serverNoContextTakeover: true,
+    clientNoContextTakeover: true,
+    concurrencyLimit: 10,
+    zlibDeflateOptions: { level: 6, memLevel: 8 }
+  }
+});
 // Test hook — the harness in test/ drives the real connection handler with
 // mock sockets through this global. Harmless at runtime (one extra global
 // holding a reference the module already holds).
@@ -3585,10 +3600,15 @@ setInterval(() => {
   tickEmberWastes(dt);
   tickGroundTraps(now);
   if (players.size === 0) return;
-  broadcastAll({
-    type: 'wildlife_state',
-    isNight: isNightNow(),
-    groundTraps: groundTrapsPublicState(),
+  // ROOM-SCOPED wildlife: build each mob pool once, then hand every player
+  // only the pools that live in THEIR room. Out-of-area pools go out as the
+  // same empty array (the client applies them harmlessly), so a town player
+  // no longer pays for the Wilds', every dungeon's and the Ember Wastes' mobs
+  // 6-7 times a second. One stringify per distinct occupied room, cached.
+  const isNight = isNightNow();
+  const traps = groundTrapsPublicState();
+  const portalOpen = templePortalOpen();
+  const P = {
     animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
     mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
     animals2: animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead })),
@@ -3600,14 +3620,32 @@ setInterval(() => {
       return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
     }),
     mobs3: mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    // decor is per-player now — sent individually on join and after each harvest
-    dungeonMobs: [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    villageNpcs: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
+    dungeon: [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    village: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
     torches: townTorchPublicState(),
-    templePortalOpen: templePortalOpen(),
-    emberMobs: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) }))
-  });
+    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) }))
+  };
+  const EMPTY = [];
+  const wildlifeFor = (room) => {
+    const o = {
+      type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
+      animals: EMPTY, mobs: EMPTY, animals2: EMPTY, mobs2: EMPTY, mobs3: EMPTY,
+      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY
+    };
+    if (room === 'outside') { o.animals = P.animals; o.mobs = P.mobs; o.villageNpcs = P.village; o.torchNpcs = P.torchNpcs; o.torches = P.torches; }
+    else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; }
+    else if (room && room.startsWith('dungeon_')) { o.dungeonMobs = P.dungeon.filter(m => m.room === room); }
+    else if (room === 'ember_wastes') { o.emberMobs = P.ember; }
+    return o;
+  };
+  const cache = new Map();
+  for (const p of players.values()) {
+    if (p.ws.readyState !== p.ws.OPEN) continue;
+    let msg = cache.get(p.room);
+    if (msg === undefined) { msg = JSON.stringify(wildlifeFor(p.room)); cache.set(p.room, msg); }
+    p.ws.send(msg);
+  }
 }, 150);
 
 // ---------------------------------------------------------------------------
@@ -7795,13 +7833,36 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Periodic full-state tick so everyone's position stays in sync even if a
-// 'move' packet is dropped. Small player counts, so a full snapshot is fine.
+// Periodic position sync so everyone stays smooth even if a 'move' packet is
+// dropped. ROOM-SCOPED: each player only receives the players in their own
+// room, so the old O(N^2) global firehose becomes O(sum of room^2) — players
+// spread across town / the Wilds / dungeons / interiors, so this is a large
+// cut once more than a handful are online. A low-rate GLOBAL snapshot (below)
+// still tells every client who exists and which room they're in, so counts,
+// recipient lists and cross-room tracking stay correct. Both use the same
+// 'state' message; the client's handler only adds/updates (removal is
+// 'player_left'), so no client change is needed.
 setInterval(() => {
   if (players.size === 0) return;
-  const snapshot = { type: 'state', players: Array.from(players.values()).map(publicPlayer) };
-  broadcastAll(snapshot);
+  const byRoom = new Map();
+  for (const p of players.values()) {
+    let arr = byRoom.get(p.room); if (!arr) byRoom.set(p.room, arr = []);
+    arr.push(p);
+  }
+  for (const arr of byRoom.values()) {
+    const snap = JSON.stringify({ type: 'state', players: arr.map(publicPlayer) });
+    for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
+  }
 }, 70);
+
+// Low-rate GLOBAL reconciliation: every client learns the full roster (who's
+// online + which room they're in) for the population count, note/auction
+// recipient lists and cross-room presence. Positions come from the room
+// stream above, so 1.6s is plenty here.
+setInterval(() => {
+  if (players.size === 0) return;
+  broadcastAll({ type: 'state', players: Array.from(players.values()).map(publicPlayer) });
+}, 1600);
 
 // Reap half-open connections. A phone that loses signal (or a tab the OS
 // froze) never sends a close frame — without this, its player stands
