@@ -135,9 +135,15 @@ app.use(express.static(path.join(__dirname, 'public'), {
     // /kk models. Their filenames don't change, so 'immutable' is safe.
     if (/\.(glb|gltf|bin|png|jpe?g|webp|gif|svg|woff2?|ttf|mp3|ogg|wav)$/i.test(filePath)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else if (/\/(three\.min|face-api\.min|GLTFLoader|SkeletonUtils)\.js$/i.test(filePath)) {
+      // Pinned third-party libraries (~1.4MB). Unlike our own code they don't
+      // change between deploys, so let the CDN/browser hold them for 30 days
+      // instead of revalidating every load. If you ever upgrade one, change its
+      // filename (or bump this) so caches pick the new version up.
+      res.setHeader('Cache-Control', 'public, max-age=2592000');
     } else if (/\.(js|css|html)$/i.test(filePath)) {
-      // Code changes every deploy: cache but force revalidation, so updates
-      // land immediately while unchanged files come back as a cheap 304.
+      // Our own code changes every deploy: cache but force revalidation, so
+      // updates land immediately while unchanged files come back as a cheap 304.
       res.setHeader('Cache-Control', 'no-cache');
     }
   }
