@@ -5,6 +5,11 @@
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
+// A (pass-through) fetch handler lets the page count as controlled by a service
+// worker, which some browsers require before offering "Install app". We don't
+// cache the game — it manages its own assets and the CDN serves static files.
+self.addEventListener('fetch', () => {});
+
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) {}
