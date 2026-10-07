@@ -12842,6 +12842,12 @@ const ATTACK_CATALOGS = {
   4: WANDERER_ATTACK_CATALOG
 };
 
+// Set when the server evicts this connection because the same account logged
+// in elsewhere; onWsClose/maybeReconnectNow check it so this tab never auto-
+// reconnects into a tug-of-war. Declared here (above setupWs, which opens the
+// socket at load) so an immediate close — e.g. an expired session after a
+// server restart — can read it without hitting a temporal-dead-zone error.
+let sessionTakenOver = false;
 function setupWs() {
   ws = new WebSocket(wsUrl());
   ws.addEventListener('open', onWsOpen);
@@ -20945,10 +20951,8 @@ function accountAuth() {
 }
 
 // ── One account, one body ────────────────────────────────────────────────────
-// Set when the server evicts this connection because the same account logged
-// in elsewhere; onWsClose checks it so this tab never auto-reconnects into a
-// tug-of-war with the other device.
-let sessionTakenOver = false;
+// sessionTakenOver is declared up by setupWs() (it's read by onWsClose, which
+// can fire during early load); the takeover UI lives here.
 function showSessionTakeover(message) {
   const wrap = document.createElement('div');
   wrap.id = 'takeoverOverlay';
