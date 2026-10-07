@@ -18,29 +18,79 @@ const http = require('http');
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 try { require('fs').mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 
+// Security audit log + moderation (Session M). A durable, structured record of
+// security-relevant events, a rolling buffer behind the /admin dashboard, and
+// optional webhook alerts. ADMIN_KEY gates the console; ALERT_WEBHOOK_URL
+// (a Discord or Slack incoming webhook) receives high-severity alerts.
+// Created before persistence so a storage failure can raise an audit alert.
+const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
 // Durable storage (Session L) — extracted to lib/persistence.js (Tier 3.4 Phase B).
-const persistence = require('./lib/persistence')({ dataDir: DATA_DIR });
+// onError surfaces any save/load failure as an audit alert — a silent save
+// failure would lose player data, so we never want it to pass unnoticed.
+const persistence = require('./lib/persistence')({
+  dataDir: DATA_DIR,
+  onError: ({ op, store, message }) => {
+    // Rate-limit per store so a sustained disk problem doesn't flood the webhook:
+    // the first hit in each 5-minute window pages, the rest are logged quietly.
+    const first = audit.hit('persist', store || op, 5 * 60 * 1000) === 1;
+    audit.log({ level: first ? 'alert' : 'warn', type: 'persistence_error', detail: { op, store, message } });
+  }
+});
 const { persistLoad, persistSave, persistSetKey, persistRegister, persistExportBackups, getSqliteDb } = persistence;
 
 const PERSIST_EXPORT_MS = Math.max(60 * 1000, parseInt(process.env.PERSIST_EXPORT_MS, 10) || 15 * 60 * 1000);
 const _persistExportTimer = setInterval(persistExportBackups, PERSIST_EXPORT_MS);
 if (_persistExportTimer.unref) _persistExportTimer.unref();
-// Security audit log + moderation (Session M). A durable, structured record of
-// security-relevant events, a rolling buffer behind the /admin dashboard, and
-// optional webhook alerts. ADMIN_KEY gates the console; ALERT_WEBHOOK_URL
-// (a Discord or Slack incoming webhook) receives high-severity alerts.
-const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
-const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
 // Image evidence store (Session M): fingerprints + preserves every posted image.
 const evidence = require('./lib/evidence')({ dataDir: DATA_DIR, audit });
 
-for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => {
-    try { persistExportBackups(); } catch (e) {}
-    try { audit.close(); } catch (e) {}
-    process.exit(0);
-  });
+// Clean shutdown + last-resort crash logging. server_stop distinguishes a clean
+// stop (deploy restart, SIGTERM) from a crash; the two process-level handlers
+// make sure an otherwise-silent fatal error lands in the security log.
+let _shuttingDown = false;
+function gracefulExit(signal) {
+  if (_shuttingDown) return; _shuttingDown = true;
+  try { audit.log({ level: 'info', type: 'server_stop', detail: { signal } }); } catch (e) {}
+  try { persistExportBackups(); } catch (e) {}
+  try { audit.close(); } catch (e) {}
+  process.exit(0);
 }
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => gracefulExit(sig));
+process.on('uncaughtException', (err) => {
+  try { audit.log({ level: 'alert', type: 'unhandled_exception',
+    detail: { message: (err && err.message) || String(err), stack: ((err && err.stack) || '').split('\n').slice(0, 4).join(' | ') } }); } catch (e) {}
+  console.error('uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  try { audit.log({ level: 'alert', type: 'promise_rejection',
+    detail: { message: (reason && reason.message) || String(reason) } }); } catch (e) {}
+  console.error('unhandledRejection:', reason);
+});
+
+// Disk watch — on a small VPS the evidence store + SQLite DB only grow; warn
+// before the volume fills and writes begin failing. Pages once an hour at most.
+function checkDiskSpace() {
+  try {
+    require('fs').statfs(DATA_DIR, (err, st) => {
+      if (err || !st) return;
+      const freeBytes = st.bavail * st.bsize;
+      const totalBytes = st.blocks * st.bsize;
+      const pctFree = totalBytes ? (freeBytes / totalBytes) * 100 : 100;
+      if (freeBytes < 500 * 1024 * 1024 || pctFree < 8) {
+        const first = audit.hit('disk', 'low', 60 * 60 * 1000) === 1;
+        audit.log({ level: first ? 'alert' : 'warn', type: 'disk_low',
+          detail: { freeMB: Math.round(freeBytes / 1048576), pctFree: Math.round(pctFree) } });
+      }
+    });
+  } catch (e) {}
+}
+const _diskTimer = setInterval(checkDiskSpace, 30 * 60 * 1000);
+if (_diskTimer.unref) _diskTimer.unref();
+const _diskEarly = setTimeout(checkDiskSpace, 10 * 1000); // one check shortly after boot
+if (_diskEarly.unref) _diskEarly.unref();
 
 const https = require('https');
 const express = require('express');
@@ -126,6 +176,45 @@ const app = express();
 // SMS rate limit below would silently become "3 texts total for the whole
 // app" instead of "3 texts per visitor."
 app.set('trust proxy', 1);
+
+// Stripe webhook (optional) — the async source of truth for the money events
+// the client-redirect verify flow never sees: refunds, disputes/chargebacks,
+// and failed payments. Inert unless STRIPE_WEBHOOK_SECRET is set (create a
+// webhook in the Stripe dashboard pointing at /api/stripe-webhook and paste its
+// signing secret). Mounted here, BEFORE express.json(), because signature
+// verification needs the raw request body.
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!stripeClient || !STRIPE_WEBHOOK_SECRET) return res.status(503).end();
+  let event;
+  try {
+    event = stripeClient.webhooks.constructEvent(req.body, req.get('stripe-signature'), STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    // A bad signature means someone is POSTing forged events at the endpoint.
+    audit.log({ level: 'alert', type: 'webhook_bad_signature', ip: audit.clientIp(req), detail: { message: err.message } });
+    return res.status(400).send('bad signature');
+  }
+  const obj = (event.data && event.data.object) || {};
+  const base = { event: event.type, id: obj.id || null,
+    amountCents: obj.amount || obj.amount_refunded || obj.amount_captured || 0, currency: obj.currency || 'usd' };
+  switch (event.type) {
+    case 'charge.refunded':
+      audit.log({ level: 'warn', type: 'refund', detail: base }); break;
+    case 'charge.dispute.created':
+      audit.log({ level: 'alert', type: 'chargeback', detail: Object.assign({ reason: obj.reason }, base) }); break;
+    case 'charge.dispute.closed':
+      audit.log({ level: 'warn', type: 'dispute_closed', detail: Object.assign({ status: obj.status }, base) }); break;
+    case 'payment_intent.payment_failed':
+      audit.log({ level: 'warn', type: 'payment_failed',
+        detail: Object.assign({ reason: obj.last_payment_error && obj.last_payment_error.message }, base) }); break;
+    case 'checkout.session.completed':
+      audit.log({ level: 'info', type: 'checkout_completed', detail: base }); break;
+    default:
+      audit.log({ level: 'info', type: 'webhook_received', detail: { event: event.type } });
+  }
+  res.json({ received: true });
+});
+
 app.use(express.json());
 // CORS for the JSON API only. The mobile apps load from capacitor://localhost /
 // https://localhost and call these endpoints cross-origin, so they need this;
@@ -365,6 +454,8 @@ app.post('/api/checkout', async (req, res) => {
         success_url: `${origin}/?ms_session={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/?pass_cancel=1`
       });
+      audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
+        detail: { product, kind: 'moonstones', amountCents: pack.cents } });
       return res.json({ url: session.url });
     }
     // Two shapes of the same pass: the day pass (default — the original
@@ -394,8 +485,13 @@ app.post('/api/checkout', async (req, res) => {
       // abandoned checkout and can auto-resume the stashed session too.
       cancel_url: `${origin}/?pass_cancel=1`
     });
+    audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req),
+      detail: { product: isResident ? 'pass30' : 'pass', kind: 'town_pass',
+        amountCents: isResident ? TOWN_PASS30_PRICE_CENTS : TOWN_PASS_PRICE_CENTS } });
     res.json({ url: session.url });
   } catch (err) {
+    audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req),
+      detail: { at: 'checkout', message: err.message } });
     console.error('Stripe checkout error:', err.message);
     res.status(500).json({ error: 'Could not start checkout.' });
   }
@@ -415,8 +511,12 @@ app.get('/api/verify-session', async (req, res) => {
     if (session.payment_status !== 'paid') return res.json({ unlocked: false });
     // session.created is seconds; the pass clock starts at payment, not at
     // whenever the buyer got around to bouncing back to the game.
+    const alreadyGranted = passSessions.has(String(sessionId)); // reload/replay vs first grant
     const expiresAt = grantForSession(String(sessionId), (session.created || Math.floor(Date.now() / 1000)) * 1000, passHoursForStripeSession(session));
     const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
+    audit.log({ level: 'info', type: alreadyGranted ? 'pass_replay' : 'pass_granted',
+      ip: audit.clientIp(req), account: accountKey,
+      detail: { product: passHoursForStripeSession(session) >= TOWN_PASS30_HOURS ? 'pass30' : 'pass', expiresAt } });
     if (accountKey && (townPasses[accountKey] || 0) < expiresAt) {
       townPasses[accountKey] = expiresAt;
       saveTownPasses();
@@ -431,6 +531,8 @@ app.get('/api/verify-session', async (req, res) => {
     }
     res.json({ unlocked: true, expiresAt });
   } catch (err) {
+    audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req),
+      detail: { at: 'verify-session', message: err.message } });
     console.error('Stripe verify error:', err.message);
     res.status(500).json({ unlocked: false, error: 'Could not verify payment.' });
   }
@@ -460,7 +562,12 @@ app.get('/api/verify-session', async (req, res) => {
 // grant is replay-proof by a grant id (Stripe session id / store tx id).
 // ---------------------------------------------------------------------------
 // Moonstone currency (Session I) — extracted to lib/moonstones.js (Tier 3.4 Phase B).
-const moonstones = require('./lib/moonstones')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+const moonstones = require('./lib/moonstones')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister,
+  onAnomaly: ({ key, delta, ceiling, balance }) => {
+    audit.log({ level: 'alert', type: 'economy_anomaly', account: key || null,
+      detail: { currency: 'moonstones', delta, ceiling, balance } });
+  }
+});
 const { msData, msBalance, msAdjust, grantMoonstones } = moonstones;
 function pushMsStateIfOnline(key) {
   const p = findConnectionByAccountKey(key);
@@ -544,8 +651,12 @@ app.get('/api/verify-ms-session', async (req, res) => {
     if (!MS_PACKS[packId]) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Moonstone pack.' });
     const g = grantMoonstones('stripe_' + String(sessionId), accountKey, packId);
     pushMsStateIfOnline(accountKey);
+    audit.log({ level: 'info', type: g.granted > 0 ? 'ms_pack_granted' : 'ms_pack_replay',
+      ip: audit.clientIp(req), account: accountKey, detail: { pack: packId, granted: g.granted, balance: g.balance } });
     res.json({ granted: g.granted, balance: g.balance });
   } catch (err) {
+    audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req),
+      detail: { at: 'verify-ms-session', message: err.message } });
     console.error('MS verify error:', err.message);
     res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
   }
@@ -987,6 +1098,16 @@ app.post('/api/login', (req, res) => {
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, key);
+  // New-location signal: a login from an IP this account has never used before
+  // (we keep a small rolling set). Benign most of the time — useful on takeover.
+  try {
+    const seen = Array.isArray(account.knownIps) ? account.knownIps : [];
+    if (ip && ip !== 'unknown' && !seen.includes(ip)) {
+      if (seen.length) audit.log({ level: 'info', type: 'login_new_ip', ip, account: key, detail: { knownCount: seen.length } });
+      account.knownIps = [ip, ...seen].slice(0, 5);
+      saveAccounts();
+    }
+  } catch (e) {}
   audit.log({ level: 'info', type: 'login_ok', ip, account: key, name: account.username });
   res.json({ token, username: account.username, color: account.color });
 });
@@ -1000,6 +1121,13 @@ app.post('/api/characters', (req, res) => {
   const token = String(req.body.token || '');
   const key = token ? sessions.get(token) : null;
   if (!key || !accounts[key]) {
+    // A single expiry is normal (sessions don't survive a restart) — stay quiet.
+    // Only flag an IP that hammers invalid tokens, which smells like tampering.
+    if (token) {
+      const ip = audit.clientIp(req);
+      const n = audit.hit(ip, 'token_invalid', 10 * 60 * 1000);
+      if (n >= 4) audit.log({ level: 'warn', type: 'token_invalid', ip, detail: { count: n, at: 'characters' } });
+    }
     return res.status(401).json({ error: 'Session expired — log in again.' });
   }
   const prog = playerProgress[key] || {};
@@ -1483,7 +1611,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
 
   if (targetType === 'player') {
     const t = players.get(targetId);
-    if (!t || t.id === player.id || t.room !== player.room || t.isDead || outOfRange(t)) return { ok: false };
+    if (!t || t.id === player.id || t.room !== player.room || t.isDead) return { ok: false };
+    if (outOfRange(t)) return { ok: false, range: true }; // reach-hack signal (see strike handler)
     // A voice countermeasure (see cm_voice) makes the target untouchable
     // for a few seconds — the blow just misses, and the attacker is told
     // exactly why so the mechanic teaches itself.
@@ -1518,7 +1647,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
 
   if (targetType === 'dungeon') {
     const t = findDungeonTarget(targetId, player.room);
-    if (!t || t.dead || t.room !== player.room || outOfRange(t)) return { ok: false };
+    if (!t || t.dead || t.room !== player.room) return { ok: false };
+    if (outOfRange(t)) return { ok: false, range: true };
     const preset = DUNGEON_MOB_TYPES[t.mobType];
     // A ranged opener counts as engaging — the boss scales before the first
     // point of damage lands, so kiting from outside aggro can't cheese it
@@ -1573,7 +1703,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const poolInfo = POOLS[targetType];
   if (!poolInfo || player.room !== poolInfo.room) return { ok: false };
   const t = poolInfo.list.find(x => x.id === targetId);
-  if (!t || t.dead || outOfRange(t)) return { ok: false };
+  if (!t || t.dead) return { ok: false };
+  if (outOfRange(t)) return { ok: false, range: true };
   // A Mossback Tortoise's shell soaks most of a blow (its `armor` is the
   // fraction of damage that gets through). Applied before anything reads dmg
   // so lifesteal, hit numbers and the health hit all use the real figure.
@@ -2529,8 +2660,33 @@ function sanitizeImage(raw) {
 function captureImage(raw, surface, player, ws, context) {
   if (!player || !player.accountKey) return null; // age gate: account-holders only
   const img = sanitizeImage(raw);
-  if (!img) return null;
+  if (!img) {
+    // A non-empty payload that fails sanitize (oversize or wrong type) from a
+    // real session points at a malformed or crafted client — note it, rate-limited.
+    if (typeof raw === 'string' && raw.length) {
+      const n = audit.hit((ws && ws._ip) || player.id, 'img_reject', 5 * 60 * 1000);
+      if (n <= 3) audit.log({ level: 'warn', type: 'image_rejected', ip: ws && ws._ip,
+        account: player.accountKey, name: player.name,
+        detail: { surface, reason: raw.length > MAX_IMAGE_DATA_URL_LENGTH ? 'oversize' : 'bad_format', bytes: raw.length } });
+    }
+    return null;
+  }
   try { evidence.record({ dataUrl: img, surface, account: player.accountKey, ip: ws && ws._ip, ua: ws && ws._ua, context: context || {} }); } catch (e) {}
+  // Safety signal: the FIRST image from a freshly-created account. A new account
+  // posting a picture within minutes is a known grooming/abuse pattern and
+  // deserves a human glance — recorded once per account.
+  try {
+    const acct = accounts[player.accountKey];
+    if (acct && !acct.firstImageAt) {
+      acct.firstImageAt = Date.now();
+      saveAccounts();
+      const ageMs = Date.now() - (acct.createdAt || 0);
+      if (acct.createdAt && ageMs < 30 * 60 * 1000) {
+        audit.log({ level: 'warn', type: 'first_image_new_account', ip: ws && ws._ip,
+          account: player.accountKey, name: player.name, detail: { surface, accountAgeMin: Math.round(ageMs / 60000) } });
+      }
+    }
+  } catch (e) {}
   return img;
 }
 
@@ -2689,6 +2845,22 @@ function publicPlayer(p) {
 // can carry image data; for a guest recipient we substitute an image-stripped
 // copy. Non-image traffic (the 120ms state stream, fx, etc.) takes the fast path.
 const IMAGE_MSG_TYPES = new Set(['chat', 'note_received', 'disguise_state', 'spyglass_chat', 'auction_state']);
+// Inherently high-rate inbound message types — exempt from the bot-cadence
+// detector so ordinary movement/cursor streams never read as automation.
+const RATE_EXEMPT_TYPES = new Set(['move', 'cursor', 'pos', 'look', 'face', 'ping', 'pong', 'heartbeat', 'typing']);
+
+// Links in chat or notes — a scam/phishing vector worth a trail. Matches
+// http(s)://, www., and bareword domains on common TLDs. Logged (rate-limited)
+// as a signal, never blocked here.
+const URL_RE = /(?:https?:\/\/|www\.)[^\s]+|\b[a-z0-9-]+\.(?:com|net|org|io|gg|xyz|link|ru|tk|ml|info|biz|co|me|app|dev|site|online|store|click)\b[^\s]*/i;
+function flagLinkIfAny(text, surface, player, ws) {
+  if (!text) return;
+  const m = URL_RE.exec(text);
+  if (!m) return;
+  const n = audit.hit(player.accountKey || ws._ip || player.id, 'link', 60 * 1000);
+  if (n <= 3) audit.log({ level: 'info', type: 'link_in_message', ip: ws._ip,
+    account: player.accountKey || null, name: player.name, detail: { surface, match: String(m[0]).slice(0, 120) } });
+}
 function stripImagesForGuest(data) {
   const d = Object.assign({}, data);
   if ('image' in d) d.image = null;
@@ -4833,7 +5005,10 @@ wss.on('connection', (ws, req) => {
   ws._isGuest = true; // until a join resolves a real account (gates images)
   // IP-level ban: refuse the socket outright.
   if (bans.isBanned(null, ws._ip)) {
+    const n = audit.hit(ws._ip, 'blocked_conn', 10 * 60 * 1000);
     audit.log({ level: 'warn', type: 'blocked_conn', ip: ws._ip, detail: { reason: 'ip_ban' } });
+    // Sustained retries from a banned network are active evasion, not a stray hit.
+    if (n === 5) audit.log({ level: 'alert', type: 'ban_evasion', ip: ws._ip, detail: { retries: n, window: '10m', via: 'banned_ip_retry' } });
     try { ws.close(4003, 'blocked'); } catch (e) {}
     return;
   }
@@ -4852,6 +5027,23 @@ wss.on('connection', (ws, req) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
     if (!msg || typeof msg.type !== 'string') return;
+
+    // Bot / macro signal: one costly action blasted at an inhuman rate from a
+    // single connection. Logged once when it crosses the line (=== threshold),
+    // not on every packet after; chatty movement-class types are exempt.
+    if (!RATE_EXEMPT_TYPES.has(msg.type)) {
+      const _actN = audit.hit(ws._ip || (player && player.id) || 'anon', 'act:' + msg.type, 5000);
+      if (_actN === 60) audit.log({ level: 'warn', type: 'rapid_identical_action', ip: ws._ip,
+        account: (player && player.accountKey) || null, name: player && player.name, detail: { action: msg.type, in5s: _actN } });
+    }
+    // Prereq violation: a Hard Drive operation from someone who doesn't hold the
+    // item. A courtesy client hides these controls, so repeated attempts smell
+    // like a crafted/stale client. The per-op handler still sends its own error.
+    if (player && msg.type.startsWith('harddrive') && !hasHardDriveAccess(player)) {
+      const _pN = audit.hit(ws._ip || player.id, 'hd_prereq', 5 * 60 * 1000);
+      if (_pN === 3) audit.log({ level: 'warn', type: 'prereq_violation', ip: ws._ip,
+        account: player.accountKey || null, name: player.name, detail: { need: 'hard_drive', action: msg.type } });
+    }
 
     if (msg.type === 'join') {
       if (player) return; // already joined
@@ -4872,6 +5064,11 @@ wss.on('connection', (ws, req) => {
       // Account-level ban (Session M): refuse even with a valid session token.
       if (accountKey && bans.isBanned(accountKey, ws._ip)) {
         audit.log({ level: 'warn', type: 'join_blocked_banned', ip: ws._ip, account: accountKey });
+        // A banned ACCOUNT arriving on a NOT-banned IP means they've moved to a
+        // fresh network to get back in — a clear evasion signal, not just a block.
+        if (!bans.isBanned(null, ws._ip)) {
+          audit.log({ level: 'alert', type: 'ban_evasion', ip: ws._ip, account: accountKey, detail: { via: 'banned_account_clean_ip' } });
+        }
         send(ws, { type: 'join_error', message: 'This account has been blocked.' });
         return;
       }
@@ -4950,6 +5147,16 @@ wss.on('connection', (ws, req) => {
       }
       const name = resume ? resume.name : (account ? account.username : sanitizeName(msg.name));
       const color = resume ? resume.color : (account ? account.color : COLORS[colorIdx++ % COLORS.length]);
+      // Impersonation signal: a guest (no account) joining under the name of a
+      // registered account. Guests can't claim an account's identity, but they
+      // can chat under its name — worth a flag so you can spot social-engineering.
+      if (!accountKey && !resume) {
+        const nameKey = String(name || '').toLowerCase();
+        if (nameKey && accounts[nameKey]) {
+          audit.log({ level: 'warn', type: 'impersonation', ip: ws._ip, name,
+            detail: { guestName: name, matchesAccount: nameKey } });
+        }
+      }
       // Character look is a per-session cosmetic choice, not tied to the
       // account itself (unlike name/color above) — just trust whatever
       // valid index the client picked on the join screen, falling back to
@@ -5237,9 +5444,24 @@ wss.on('connection', (ws, req) => {
       if (player.room && player.room.startsWith('dungeon_') && msg.room !== player.room) return;
       const x = Number(msg.x), y = Number(msg.y);
       const bounds = roomBounds(msg.room);
+      const _prevX = player.x, _prevY = player.y, _prevMoveAt = player._lastMoveAt || 0;
       if (Number.isFinite(x) && Number.isFinite(y)) {
         player.x = Math.max(0, Math.min(bounds.width, x));
         player.y = Math.max(0, Math.min(bounds.height, y));
+        // Teleport / speed-hack signal: an extreme same-room jump between two
+        // back-to-back move packets. Gated on repetition so a lag catch-up or a
+        // one-off straggler never trips it — only sustained teleporting alerts.
+        const _now = Date.now();
+        if (msg.room === player.room && _prevMoveAt && _now - _prevMoveAt < 1500) {
+          const diag = Math.hypot(bounds.width, bounds.height) || 1;
+          const jump = Math.hypot(player.x - _prevX, player.y - _prevY);
+          if (jump > 0.9 * diag) {
+            const n = audit.hit(ws._ip || player.id, 'move_jump', 30 * 1000);
+            if (n >= 5) audit.log({ level: 'warn', type: 'movement_anomaly', ip: ws._ip,
+              account: player.accountKey || null, name: player.name, detail: { dist: Math.round(jump), room: player.room, in30s: n } });
+          }
+        }
+        player._lastMoveAt = _now;
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
         // The Town Pass gate, enforced here and not just in the client's
@@ -5325,6 +5547,11 @@ wss.on('connection', (ws, req) => {
       if (target.accountKey) saveInboxes();
       send(target.ws, { type: 'note_received', note });
       send(ws, { type: 'note_sent', toName: target.name });
+      flagLinkIfAny(text, 'note', player, ws);
+      // Note-flood: many private notes fired off fast (mass-DM spam / scams).
+      const nf = audit.hit(player.accountKey || ws._ip || player.id, 'note', 60 * 1000);
+      if (nf === 16) audit.log({ level: 'warn', type: 'note_flood', ip: ws._ip,
+        account: player.accountKey || null, name: player.name, detail: { in60s: nf } });
       return;
     }
 
@@ -5368,6 +5595,7 @@ wss.on('connection', (ws, req) => {
           ts: Date.now()
         }
       };
+      flagLinkIfAny(text, 'chat', player, ws);
       recordRoomChat(player.room, player.name, player.color, text, image);
       broadcastRoom(player.room, chatMsg);
       for (const watcher of players.values()) {
@@ -5960,6 +6188,9 @@ wss.on('connection', (ws, req) => {
         return;
       }
       player.lastSnapAt = now;
+      // Consent trail: who photographed whom, and whom they appeared to be.
+      audit.log({ level: 'info', type: 'snapshot_taken', ip: ws._ip, account: player.accountKey || null, name: player.name,
+        detail: { targetName: t.name, targetAccount: t.accountKey || null, shownAs: (t.disguise ? t.disguise.name : t.name), room: player.room } });
       const shownName = t.disguise ? t.disguise.name : t.name;
       const note = {
         id: makeId(),
@@ -6471,6 +6702,13 @@ wss.on('connection', (ws, req) => {
       const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
       if (!result.ok) {
         if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
+        else if (result.range) {
+          // Striking a target beyond melee reach. A courtesy client never sends
+          // this; sustained hits from one source are a reach/teleport hack.
+          const n = audit.hit(ws._ip || player.id, 'oor_strike', 60 * 1000);
+          if (n >= 6) audit.log({ level: 'warn', type: 'action_out_of_range', ip: ws._ip,
+            account: player.accountKey || null, name: player.name, detail: { targetType, in60s: n } });
+        }
         return;
       }
       player.lastStrikeAt = now;
@@ -7838,6 +8076,8 @@ wss.on('connection', (ws, req) => {
       const { itemId } = pending;
       // Async: verify the selfie contains a real human face before completing the sale.
       detectHumanFace(image).then(isHuman => {
+        audit.log({ level: 'info', type: 'face_check_result', ip: ws._ip, account: player.accountKey || null,
+          name: player.name, detail: { surface: 'witch_shop', result: isHuman ? 'pass' : 'fail' } });
         if (!isHuman) {
           const denial = WITCH_DENIAL_LINES[Math.floor(Math.random() * WITCH_DENIAL_LINES.length)];
           send(ws, { type: 'witch_dialogue', greeting: denial, shopItems: [] });
@@ -7864,6 +8104,10 @@ wss.on('connection', (ws, req) => {
         });
       }).catch(() => {
         // API failure — fail open so a network blip doesn't block every purchase.
+        audit.log({ level: 'warn', type: 'face_check_result', ip: ws._ip, account: player.accountKey || null,
+          name: player.name, detail: { surface: 'witch_shop', result: 'error_failopen' } });
+        audit.hit('anthropic', 'api_error', 60 * 60 * 1000) === 1 && audit.log({ level: 'warn',
+          type: 'anthropic_api_error', detail: { at: 'face_check' } });
         const inv = getInventory(player);
         if (!addItemToAccount(inv, itemId, 1)) {
           send(ws, { type: 'witch_shop_error', message: 'Inventory full.' }); return;
@@ -8150,7 +8394,16 @@ server.listen(PORT, () => {
   console.log(ADMIN_KEY
     ? 'Security console: ON  (/admin — needs ADMIN_KEY)' + (process.env.ALERT_WEBHOOK_URL ? ' · alerts: ON' : ' · alerts: OFF (set ALERT_WEBHOOK_URL)')
     : 'Security console: OFF (set ADMIN_KEY to enable /admin)');
-  audit.log({ level: 'info', type: 'server_start', detail: { port: PORT } });
+  // Config fingerprint at boot — a price/flag change between restarts shows up
+  // as a diff in the log without needing a separate runtime "config changed" path.
+  audit.log({ level: 'info', type: 'server_start', detail: {
+    port: PORT,
+    passPriceCents: TOWN_PASS_PRICE_CENTS, passHours: TOWN_PASS_HOURS,
+    pass30PriceCents: TOWN_PASS30_PRICE_CENTS, pass30Hours: TOWN_PASS30_HOURS,
+    payments: !!stripeClient, webhook: !!STRIPE_WEBHOOK_SECRET,
+    alerts: !!process.env.ALERT_WEBHOOK_URL, adminConsole: !!ADMIN_KEY,
+    faceCheck: !!process.env.ANTHROPIC_API_KEY, passcode: !!TOWN_PASSWORD
+  } });
   console.log(stripeClient
     ? `Stripe payments: ON (Town Pass $${(TOWN_PASS_PRICE_CENTS / 100).toFixed(2)} / ${TOWN_PASS_HOURS}h — unlocks: ${[...LOCKED_ROOMS].join(', ')})`
     : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable — locked buildings stay locked)');
