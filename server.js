@@ -25,9 +25,17 @@ const { persistLoad, persistSave, persistSetKey, persistRegister, persistExportB
 const PERSIST_EXPORT_MS = Math.max(60 * 1000, parseInt(process.env.PERSIST_EXPORT_MS, 10) || 15 * 60 * 1000);
 const _persistExportTimer = setInterval(persistExportBackups, PERSIST_EXPORT_MS);
 if (_persistExportTimer.unref) _persistExportTimer.unref();
+// Security audit log + moderation (Session M). A durable, structured record of
+// security-relevant events, a rolling buffer behind the /admin dashboard, and
+// optional webhook alerts. ADMIN_KEY gates the console; ALERT_WEBHOOK_URL
+// (a Discord or Slack incoming webhook) receives high-severity alerts.
+const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {
     try { persistExportBackups(); } catch (e) {}
+    try { audit.close(); } catch (e) {}
     process.exit(0);
   });
 }
@@ -838,6 +846,53 @@ const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, col
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 const sessions = new Map();      // token -> usernameLower
 
+// ── Moderation store (Session M) ────────────────────────────────────────────
+// Durable bans/mutes keyed by account or IP. A "ban" blocks login, register,
+// join and the socket itself; a "mute" only silences chat. Persisted like every
+// other store; enforced at the auth, connect, join and chat chokepoints below.
+const BANS_FILE = path.join(DATA_DIR, 'bans.json');
+const banStore = persistLoad('bans', BANS_FILE) || {};
+if (!banStore.account) banStore.account = {};
+if (!banStore.ip) banStore.ip = {};
+persistRegister('bans', BANS_FILE, () => banStore);
+const bans = {
+  entry(target, value) {
+    const e = banStore[target] && banStore[target][value];
+    if (!e) return null;
+    if (e.until && e.until < Date.now()) { delete banStore[target][value]; return null; }
+    return e;
+  },
+  isBanned(account, ip) {
+    const a = account ? bans.entry('account', String(account).toLowerCase()) : null;
+    if (a && a.kind === 'ban') return { target: 'account', value: String(account).toLowerCase(), reason: a.reason };
+    const i = ip ? bans.entry('ip', String(ip).toLowerCase()) : null;
+    if (i && i.kind === 'ban') return { target: 'ip', value: String(ip).toLowerCase(), reason: i.reason };
+    return null;
+  },
+  isMuted(account, ip) {
+    const a = account ? bans.entry('account', String(account).toLowerCase()) : null;
+    const i = ip ? bans.entry('ip', String(ip).toLowerCase()) : null;
+    return !!(a || i); // any active ban/mute silences chat
+  },
+  apply(target, value, { kind = 'ban', reason = '', by = 'admin', hours = 0 } = {}) {
+    banStore[target][value] = { kind, reason, by, at: Date.now(), until: hours > 0 ? Date.now() + hours * 3600000 : 0 };
+    persistSave('bans', BANS_FILE, banStore);
+  },
+  lift(target, value) { if (banStore[target]) { delete banStore[target][value]; persistSave('bans', BANS_FILE, banStore); } },
+  list() {
+    const out = [];
+    for (const target of ['account', 'ip']) for (const value of Object.keys(banStore[target])) {
+      const e = bans.entry(target, value);
+      if (e) out.push({ target, value, kind: e.kind, reason: e.reason, until: e.until, at: e.at });
+    }
+    return out;
+  }
+};
+require('./lib/admin')(app, {
+  audit, getAdminKey: () => ADMIN_KEY, bans,
+  onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room }))
+});
+
 function hashPassword(password, saltHex) {
   return crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), 64).toString('hex');
 }
@@ -859,13 +914,16 @@ function colorForUsername(usernameLower) {
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,18}$/;
 
 app.post('/api/register', (req, res) => {
-  if (loginThrottled(req.ip)) {
+  const ip = audit.clientIp(req);
+  if (bans.isBanned(null, ip)) return res.status(403).json({ error: 'Access from your network has been blocked.' });
+  if (loginThrottled(ip)) {
+    audit.log({ level: 'alert', type: 'register_throttled', ip });
     return res.status(429).json({ error: 'Too many attempts. Wait a few minutes and try again.' });
   }
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
   if (!USERNAME_RE.test(username)) {
-    noteLoginFailure(req.ip);
+    noteLoginFailure(ip);
     return res.status(400).json({ error: 'Username must be 3-18 letters, numbers, or underscores.' });
   }
   if (password.length < 4) {
@@ -884,27 +942,39 @@ app.post('/api/register', (req, res) => {
     createdAt: Date.now()
   };
   saveAccounts();
-  clearLoginFailures(req.ip);
+  clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, key);
+  // Audit the new account; flag a burst of signups from one IP (bot wave).
+  const burst = audit.hit(ip, 'account_create', 24 * 3600 * 1000);
+  audit.log({ level: burst > 5 ? 'alert' : 'info', type: burst > 5 ? 'account_create_burst' : 'account_create',
+    ip, account: key, name: username, detail: burst > 5 ? { fromThisIp24h: burst } : {} });
   res.json({ token, username, color: accounts[key].color });
 });
 
 app.post('/api/login', (req, res) => {
-  if (loginThrottled(req.ip)) {
+  const ip = audit.clientIp(req);
+  const username = String(req.body.username || '').trim();
+  const key = username.toLowerCase();
+  if (bans.isBanned(key, ip)) {
+    audit.log({ level: 'warn', type: 'login_blocked_banned', ip, account: key });
+    return res.status(403).json({ error: 'This account or network has been blocked.' });
+  }
+  if (loginThrottled(ip)) {
+    audit.log({ level: 'alert', type: 'login_throttled', ip, account: key, detail: { note: 'possible brute-force' } });
     return res.status(429).json({ error: 'Too many attempts. Wait a few minutes and try again.' });
   }
-  const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
-  const key = username.toLowerCase();
   const account = accounts[key];
   if (!account || !verifyPassword(password, account.salt, account.hash)) {
-    noteLoginFailure(req.ip);
+    noteLoginFailure(ip);
+    audit.log({ level: 'warn', type: 'login_fail', ip, account: key, detail: { reason: account ? 'bad_password' : 'no_such_user' } });
     return res.status(401).json({ error: 'Wrong username or password.' });
   }
-  clearLoginFailures(req.ip);
+  clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, key);
+  audit.log({ level: 'info', type: 'login_ok', ip, account: key, name: account.username });
   res.json({ token, username: account.username, color: account.color });
 });
 
@@ -4702,8 +4772,19 @@ function recordRoomChat(room, name, color, text, image) {
   roomChatLogs.set(room, log);
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   let player = null;
+  ws._ip = audit.clientIp(req);
+  // IP-level ban: refuse the socket outright.
+  if (bans.isBanned(null, ws._ip)) {
+    audit.log({ level: 'warn', type: 'blocked_conn', ip: ws._ip, detail: { reason: 'ip_ban' } });
+    try { ws.close(4003, 'blocked'); } catch (e) {}
+    return;
+  }
+  // Connection-flood detector (per IP).
+  if (audit.hit(ws._ip, 'ws_connect', 60 * 1000) > 25) {
+    audit.log({ level: 'alert', type: 'connection_flood', ip: ws._ip });
+  }
 
   // Liveness bookkeeping for the reaper below — browsers answer protocol
   // pings automatically, so a socket that misses a round is a half-open
@@ -4732,6 +4813,12 @@ wss.on('connection', (ws) => {
       // fall back to the old behavior: whatever name they typed, with the
       // next color in the round-robin.
       const accountKey = msg.accountToken ? sessions.get(String(msg.accountToken)) : null;
+      // Account-level ban (Session M): refuse even with a valid session token.
+      if (accountKey && bans.isBanned(accountKey, ws._ip)) {
+        audit.log({ level: 'warn', type: 'join_blocked_banned', ip: ws._ip, account: accountKey });
+        send(ws, { type: 'join_error', message: 'This account has been blocked.' });
+        return;
+      }
       const account = accountKey ? accounts[accountKey] : null;
       // Seamless checkout return: a valid resume token means "rebuild me as
       // the player I was when I left for Stripe." All-or-nothing — a dead
@@ -5103,6 +5190,10 @@ wss.on('connection', (ws) => {
         // a locked door. Same pattern as the Ember Wastes gate: the client
         // check is a courtesy, this is the actual lock.
         if (LOCKED_ROOMS.has(msg.room) && player.room !== msg.room && !hasTownPass(player)) {
+          // Repeatedly hammering a locked door is a crafted-client signal.
+          if (audit.hit(ws._ip || player.id, 'locked_probe', 60 * 1000) > 12) {
+            audit.log({ level: 'alert', type: 'locked_room_probe', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { room: msg.room } });
+          }
           send(ws, {
             type: 'room_locked',
             room: msg.room,
@@ -5199,6 +5290,15 @@ wss.on('connection', (ws) => {
       const text = sanitizeText(msg.text);
       const image = sanitizeImage(msg.image);
       if (!text && !image) return;
+      // Moderation: a muted account/IP is silently dropped.
+      if (bans.isMuted(player.accountKey || null, ws._ip)) return;
+      // Chat-flood guard: soft limit logs once, hard limit drops + alerts.
+      const cf = audit.hit(player.accountKey || ws._ip || player.id, 'chat', 10 * 1000);
+      if (cf > 20) {
+        audit.log({ level: 'alert', type: 'chat_flood', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { in10s: cf } });
+        return;
+      }
+      if (cf === 13) audit.log({ level: 'warn', type: 'chat_fast', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { in10s: cf } });
       const chatMsg = {
         type: 'chat',
         message: {
@@ -7990,6 +8090,10 @@ global.__testHooks = {
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
   if (TOWN_PASSWORD) console.log('Passcode protection: ON');
+  console.log(ADMIN_KEY
+    ? 'Security console: ON  (/admin — needs ADMIN_KEY)' + (process.env.ALERT_WEBHOOK_URL ? ' · alerts: ON' : ' · alerts: OFF (set ALERT_WEBHOOK_URL)')
+    : 'Security console: OFF (set ADMIN_KEY to enable /admin)');
+  audit.log({ level: 'info', type: 'server_start', detail: { port: PORT } });
   console.log(stripeClient
     ? `Stripe payments: ON (Town Pass $${(TOWN_PASS_PRICE_CENTS / 100).toFixed(2)} / ${TOWN_PASS_HOURS}h — unlocks: ${[...LOCKED_ROOMS].join(', ')})`
     : 'Stripe payments: OFF (set STRIPE_SECRET_KEY to enable — locked buildings stay locked)');
