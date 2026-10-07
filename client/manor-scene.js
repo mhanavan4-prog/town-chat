@@ -51,7 +51,7 @@ function buildManorScene() {
   }
   try {
     const rugTex = makeSigilFloorTexture();
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(150, 48), new THREE.MeshBasicMaterial({ map: rugTex, transparent: true, opacity: 0.92 }));
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(300, 48), new THREE.MeshBasicMaterial({ map: rugTex, transparent: true, opacity: 0.92 }));
     rug.rotation.x = -Math.PI / 2;
     rug.position.set(W / 2, 1, D / 2);
     scene.add(rug);
@@ -104,16 +104,16 @@ function buildManorScene() {
 
   // ── Central great table + two thrones ──
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x2a1d12 });
-  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(180, 14, 70), woodMat);
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(300, 16, 110), woodMat);
   tableTop.position.set(W / 2, 46, D / 2);
   scene.add(tableTop);
-  for (const [ox, oz] of [[-80, -28], [80, -28], [-80, 28], [80, 28]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(12, 46, 12), woodMat);
+  for (const [ox, oz] of [[-135, -46], [135, -46], [-135, 46], [135, 46]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(14, 46, 14), woodMat);
     leg.position.set(W / 2 + ox, 23, D / 2 + oz);
     scene.add(leg);
   }
   const clothMat = new THREE.MeshLambertMaterial({ color: 0x5a2a6e });
-  for (const oz of [-70, 70]) {
+  for (const oz of [-95, 95]) {
     const throne = new THREE.Group();
     const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 10, 40), woodMat); seat.position.y = 42; throne.add(seat);
     const back = new THREE.Mesh(new THREE.BoxGeometry(44, 70, 10), woodMat); back.position.set(0, 78, oz < 0 ? -15 : 15); throne.add(back);
@@ -121,8 +121,8 @@ function buildManorScene() {
     throne.position.set(W / 2, 0, D / 2 + oz);
     scene.add(throne);
   }
-  // Candelabra on the table.
-  for (const ox of [-55, 0, 55]) addCandle(scene, W / 2 + ox, 53, D / 2, 1.0);
+  // Candelabra down the longer table.
+  for (const ox of [-110, -55, 0, 55, 110]) addCandle(scene, W / 2 + ox, 55, D / 2, 1.0);
 
   // ── Chandelier overhead (purely decorative; the point-light above does the lighting) ──
   const chand = new THREE.Group();

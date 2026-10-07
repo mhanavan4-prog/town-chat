@@ -2375,7 +2375,7 @@ function buildManorScene() {
   }
   try {
     const rugTex = makeSigilFloorTexture();
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(150, 48), new THREE.MeshBasicMaterial({ map: rugTex, transparent: true, opacity: 0.92 }));
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(300, 48), new THREE.MeshBasicMaterial({ map: rugTex, transparent: true, opacity: 0.92 }));
     rug.rotation.x = -Math.PI / 2;
     rug.position.set(W / 2, 1, D / 2);
     scene.add(rug);
@@ -2428,16 +2428,16 @@ function buildManorScene() {
 
   // ── Central great table + two thrones ──
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x2a1d12 });
-  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(180, 14, 70), woodMat);
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(300, 16, 110), woodMat);
   tableTop.position.set(W / 2, 46, D / 2);
   scene.add(tableTop);
-  for (const [ox, oz] of [[-80, -28], [80, -28], [-80, 28], [80, 28]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(12, 46, 12), woodMat);
+  for (const [ox, oz] of [[-135, -46], [135, -46], [-135, 46], [135, 46]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(14, 46, 14), woodMat);
     leg.position.set(W / 2 + ox, 23, D / 2 + oz);
     scene.add(leg);
   }
   const clothMat = new THREE.MeshLambertMaterial({ color: 0x5a2a6e });
-  for (const oz of [-70, 70]) {
+  for (const oz of [-95, 95]) {
     const throne = new THREE.Group();
     const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 10, 40), woodMat); seat.position.y = 42; throne.add(seat);
     const back = new THREE.Mesh(new THREE.BoxGeometry(44, 70, 10), woodMat); back.position.set(0, 78, oz < 0 ? -15 : 15); throne.add(back);
@@ -2445,8 +2445,8 @@ function buildManorScene() {
     throne.position.set(W / 2, 0, D / 2 + oz);
     scene.add(throne);
   }
-  // Candelabra on the table.
-  for (const ox of [-55, 0, 55]) addCandle(scene, W / 2 + ox, 53, D / 2, 1.0);
+  // Candelabra down the longer table.
+  for (const ox of [-110, -55, 0, 55, 110]) addCandle(scene, W / 2 + ox, 55, D / 2, 1.0);
 
   // ── Chandelier overhead (purely decorative; the point-light above does the lighting) ──
   const chand = new THREE.Group();
@@ -18962,17 +18962,19 @@ const { buildVaultScene } = createVaultScene({
 // ---------------------------------------------------------------------------
 let manorScene, manorCamera;
 let manorEmbers = null;                                   // { points, vel, W, D, WALL_H } — ticked in the render loop
-const MANOR_WORLD = { width: 560, height: 560, buildings: [], spawn: { x: 280, y: 500 } };
+const MANOR_WORLD = { width: 1120, height: 1120, buildings: [], spawn: { x: 560, y: 1040 } };
 // slot -> { x, y, rot }. 4 along the north wall, 2 each on the east/west walls.
+// Beds hug the walls (fixed ~86u offset) and spread along the now-doubled hall,
+// so the big central floor stays open to move around in.
 const MANOR_BED_SPOTS = [
-  { x: 95,  y: 86,  rot: 0 },               // 0  N
-  { x: 225, y: 86,  rot: 0 },               // 1  N
-  { x: 335, y: 86,  rot: 0 },               // 2  N
-  { x: 465, y: 86,  rot: 0 },               // 3  N
-  { x: 474, y: 205, rot: -Math.PI / 2 },    // 4  E
-  { x: 474, y: 335, rot: -Math.PI / 2 },    // 5  E
-  { x: 86,  y: 205, rot: Math.PI / 2 },     // 6  W
-  { x: 86,  y: 335, rot: Math.PI / 2 },     // 7  W
+  { x: 190, y: 86,  rot: 0 },               // 0  N
+  { x: 435, y: 86,  rot: 0 },               // 1  N
+  { x: 685, y: 86,  rot: 0 },               // 2  N
+  { x: 930, y: 86,  rot: 0 },               // 3  N
+  { x: 1034, y: 400, rot: -Math.PI / 2 },   // 4  E
+  { x: 1034, y: 720, rot: -Math.PI / 2 },   // 5  E
+  { x: 86,   y: 400, rot: Math.PI / 2 },    // 6  W
+  { x: 86,   y: 720, rot: Math.PI / 2 },    // 7  W
 ];
 // Exit sits at the south door; one claim kiosk per bed (manorBed = slot).
 const MANOR_KIOSKS = [
