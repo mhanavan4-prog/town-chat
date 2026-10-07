@@ -22,6 +22,7 @@ function buildTownNPCs(scene) {
   buildMidnightPeddler(scene);
   buildTownBoard(scene);
   buildDelveStone(scene);
+  buildMootStone(scene);
   buildLocksmith(scene);
 }
 
@@ -90,6 +91,40 @@ function buildDelveStone(scene) {
   label.position.set(DELVE_STONE_SPOT.x, 76, DELVE_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: DELVE_STONE_SPOT.x, z: DELVE_STONE_SPOT.y, npc: 'delve' });
+}
+
+// ── The Moot Stone (Session N) — the coven's doorway to their own private copy
+// of the town. A ring of three standing stones around a green hearth-glow, on
+// the square's west edge, mirroring the Delve Stone opposite. If you belong to
+// a coven, touching it slips you into a world only your coven can reach;
+// touching it again walks you back out to the public town.
+const MOOT_STONE_SPOT = { x: 1150, y: 870 };
+function buildMootStone(scene) {
+  const g = new THREE.Group();
+  const rock = new THREE.MeshLambertMaterial({ color: 0x2b3330 });
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(7, 11, 58 + (i % 2) * 8, 5), rock);
+    s.position.set(Math.cos(a) * 26, 29, Math.sin(a) * 26);
+    s.rotation.z = (i % 2 ? 0.1 : -0.1);
+    g.add(s);
+  }
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(30, 32, 6, 20), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
+  dais.position.y = 3;
+  g.add(dais);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0x7be3a3, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(46, 44, 1);
+  glow.position.set(0, 24, 0);
+  g.add(glow);
+  g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🌑 The Moot Stone');
+  label.position.set(MOOT_STONE_SPOT.x, 80, MOOT_STONE_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
 }
 
 // ── The Midnight Peddler's stall (Session I) — a cloaked figure under a

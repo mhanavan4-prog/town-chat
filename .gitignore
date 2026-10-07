@@ -25,3 +25,10 @@ harvests.json
 leaderboards.json
 covens.json
 *.json.bak
+
+# Ops secrets + local backup artifacts (never commit)
+.backup.env
+*.tar.gz.gpg
+# Runtime data dirs if DATA_DIR resolves into the repo (defense in depth)
+security/
+evidence/
