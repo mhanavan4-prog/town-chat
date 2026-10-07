@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thornreach — offline</title>
+<meta name="theme-color" content="#140f2b">
+<style>
+  :root{
+    --bg1:#201a3c; --bg2:#0d0a1c; --ink:#ece7f7; --muted:#a79cc4; --faint:#6f66a0;
+    --g1:#b096fc; --g2:#63dee6; --g3:#86efac;
+  }
+  *{margin:0; box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Segoe UI', system-ui, sans-serif; color:var(--ink);
+    background:radial-gradient(130% 120% at 50% 32%, var(--bg1), var(--bg2));
+    min-height:100%; display:flex; align-items:center; justify-content:center;
+    padding:max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+    text-align:center; -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .stars{position:fixed; inset:0; pointer-events:none; opacity:.5}
+  .wrap{position:relative; max-width:30rem; display:flex; flex-direction:column;
+        align-items:center; gap:20px}
+  .mark{width:128px; height:128px; filter:drop-shadow(0 0 24px rgba(130,220,200,.45));
+        animation:breathe 5s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.82; transform:scale(1)} 50%{opacity:1; transform:scale(1.045)}}
+  h1{font-family:'Cinzel Decorative','Cormorant Garamond', Georgia, serif;
+     font-weight:700; font-size:clamp(28px, 8vw, 40px); letter-spacing:.06em}
+  .lead{color:var(--muted); font-size:17px; line-height:1.55; font-style:italic; max-width:24rem}
+  button{margin-top:6px; border:0; cursor:pointer;
+    font:600 16px/1 'Segoe UI', system-ui, sans-serif; color:#15102a;
+    padding:14px 32px; border-radius:999px;
+    background:linear-gradient(90deg, var(--g1), var(--g2), var(--g3));
+    box-shadow:0 10px 32px -12px rgba(120,220,210,.55)}
+  button:active{transform:translateY(1px)}
+  .fine{color:var(--faint); font-size:13px; margin-top:2px}
+  @media (prefers-reduced-motion:reduce){.mark{animation:none}}
+</style>
+</head>
+<body>
+  <canvas class="stars" id="stars"></canvas>
+  <div class="wrap">
+    <img class="mark" src="/icon-192.png" alt="Thornreach">
+    <h1>Thornreach</h1>
+    <p class="lead">You've wandered past the edge of the signal. The town is just over the horizon — find your way back to the light and step in again.</p>
+    <button onclick="location.reload()">Reconnect</button>
+    <p class="fine">You're offline. Thornreach is a living town, and it needs a connection to come alive.</p>
+  </div>
+  <script>
+    // Come back automatically the moment the connection returns.
+    addEventListener('online', function(){ location.reload(); });
+    // A faint drift of stars, in-world.
+    try {
+      var c = document.getElementById('stars'), x = c.getContext('2d'), s = [];
+      function size(){ c.width = innerWidth; c.height = innerHeight; }
+      size(); addEventListener('resize', size);
+      for (var i=0;i<60;i++) s.push({x:Math.random(),y:Math.random(),r:Math.random()*1.4+0.3,t:Math.random()*6});
+      (function draw(now){
+        x.clearRect(0,0,c.width,c.height);
+        for (var i=0;i<s.length;i++){ var p=s[i];
+          var a=0.35+0.45*Math.sin((now/1000)+p.t);
+          x.globalAlpha=Math.max(0,a); x.fillStyle='#cfe8ff';
+          x.beginPath(); x.arc(p.x*c.width,p.y*c.height,p.r,0,7); x.fill();
+        }
+        requestAnimationFrame(draw);
+      })(0);
+    } catch(e){}
+  </script>
+</body>
+</html>
