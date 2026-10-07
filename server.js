@@ -31,6 +31,8 @@ if (_persistExportTimer.unref) _persistExportTimer.unref();
 // (a Discord or Slack incoming webhook) receives high-severity alerts.
 const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
+// Image evidence store (Session M): fingerprints + preserves every posted image.
+const evidence = require('./lib/evidence')({ dataDir: DATA_DIR, audit });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {
@@ -889,8 +891,12 @@ const bans = {
   }
 };
 require('./lib/admin')(app, {
-  audit, getAdminKey: () => ADMIN_KEY, bans,
-  onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room }))
+  audit, getAdminKey: () => ADMIN_KEY, bans, evidence,
+  onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
+  accountInfo: (key) => {
+    const a = accounts[String(key || '').toLowerCase()];
+    return a ? { username: a.username, createdAt: a.createdAt, over18: !!a.over18, over18At: a.over18At || null, over18Ip: a.over18Ip || null } : null;
+  }
 });
 
 function hashPassword(password, saltHex) {
@@ -929,6 +935,10 @@ app.post('/api/register', (req, res) => {
   if (password.length < 4) {
     return res.status(400).json({ error: 'Password must be at least 4 characters.' });
   }
+  // Age self-attestation (Session M): must confirm 18+ to create an account.
+  if (req.body.over18 !== true) {
+    return res.status(400).json({ error: 'You must confirm you are 18 or older to create an account.' });
+  }
   const key = username.toLowerCase();
   if (accounts[key]) {
     return res.status(409).json({ error: 'That username is already taken.' });
@@ -939,7 +949,10 @@ app.post('/api/register', (req, res) => {
     salt,
     hash: hashPassword(password, salt),
     color: colorForUsername(key),
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    over18: true,
+    over18At: Date.now(),
+    over18Ip: ip
   };
   saveAccounts();
   clearLoginFailures(ip);
@@ -2508,6 +2521,19 @@ function sanitizeImage(raw) {
   return raw;
 }
 
+// Image gate + evidence capture (Session M). The ONLY path by which a
+// user-supplied image enters the game. Guests (no account) cannot post images
+// at all; a valid image from an account-holder is fingerprinted, preserved to
+// the quarantine store, and logged as metadata before it's allowed through.
+// Returns the sanitized image or null — every caller already handles a null image.
+function captureImage(raw, surface, player, ws, context) {
+  if (!player || !player.accountKey) return null; // age gate: account-holders only
+  const img = sanitizeImage(raw);
+  if (!img) return null;
+  try { evidence.record({ dataUrl: img, surface, account: player.accountKey, ip: ws && ws._ip, ua: ws && ws._ua, context: context || {} }); } catch (e) {}
+  return img;
+}
+
 // A few seconds of compressed audio comfortably fits well under this —
 // bumped up from an earlier, tighter cap since some browsers' default
 // MediaRecorder bitrate ran larger than assumed and got rejected here.
@@ -2659,11 +2685,32 @@ function publicPlayer(p) {
   };
 }
 
+// Guests never SEND or RECEIVE images (Session M age gate). These message types
+// can carry image data; for a guest recipient we substitute an image-stripped
+// copy. Non-image traffic (the 120ms state stream, fx, etc.) takes the fast path.
+const IMAGE_MSG_TYPES = new Set(['chat', 'note_received', 'disguise_state', 'spyglass_chat', 'auction_state']);
+function stripImagesForGuest(data) {
+  const d = Object.assign({}, data);
+  if ('image' in d) d.image = null;
+  if (d.message && typeof d.message === 'object') d.message = Object.assign({}, d.message, { image: null });
+  if (d.note && typeof d.note === 'object') d.note = Object.assign({}, d.note, { image: null });
+  if (Array.isArray(d.listings)) d.listings = d.listings.map((l) => (l && l.image ? Object.assign({}, l, { image: null }) : l));
+  return d;
+}
 function send(ws, data) {
-  if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
+  if (ws.readyState !== ws.OPEN) return;
+  if (ws._isGuest && data && IMAGE_MSG_TYPES.has(data.type)) data = stripImagesForGuest(data);
+  ws.send(JSON.stringify(data));
 }
 
 function broadcastAll(data, exceptWs) {
+  if (data && IMAGE_MSG_TYPES.has(data.type)) {
+    const full = JSON.stringify(data), lite = JSON.stringify(stripImagesForGuest(data));
+    for (const p of players.values()) {
+      if (p.ws !== exceptWs && p.ws.readyState === p.ws.OPEN) p.ws.send(p.ws._isGuest ? lite : full);
+    }
+    return;
+  }
   const msg = JSON.stringify(data);
   for (const p of players.values()) {
     if (p.ws !== exceptWs && p.ws.readyState === p.ws.OPEN) p.ws.send(msg);
@@ -2671,6 +2718,13 @@ function broadcastAll(data, exceptWs) {
 }
 
 function broadcastRoom(room, data) {
+  if (data && IMAGE_MSG_TYPES.has(data.type)) {
+    const full = JSON.stringify(data), lite = JSON.stringify(stripImagesForGuest(data));
+    for (const p of players.values()) {
+      if (p.room === room && p.ws.readyState === p.ws.OPEN) p.ws.send(p.ws._isGuest ? lite : full);
+    }
+    return;
+  }
   const msg = JSON.stringify(data);
   for (const p of players.values()) {
     if (p.room === room && p.ws.readyState === p.ws.OPEN) p.ws.send(msg);
@@ -4775,6 +4829,8 @@ function recordRoomChat(room, name, color, text, image) {
 wss.on('connection', (ws, req) => {
   let player = null;
   ws._ip = audit.clientIp(req);
+  ws._ua = (req && req.headers && req.headers['user-agent']) ? String(req.headers['user-agent']).slice(0, 300) : null;
+  ws._isGuest = true; // until a join resolves a real account (gates images)
   // IP-level ban: refuse the socket outright.
   if (bans.isBanned(null, ws._ip)) {
     audit.log({ level: 'warn', type: 'blocked_conn', ip: ws._ip, detail: { reason: 'ip_ban' } });
@@ -4819,6 +4875,7 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'join_error', message: 'This account has been blocked.' });
         return;
       }
+      ws._isGuest = !accountKey; // gates image send/receive (Session M)
       const account = accountKey ? accounts[accountKey] : null;
       // Seamless checkout return: a valid resume token means "rebuild me as
       // the player I was when I left for Stripe." All-or-nothing — a dead
@@ -5256,7 +5313,7 @@ wss.on('connection', (ws, req) => {
       // (see spell_photo below), the normal "write a note" UI is text-only.
       const toId = String(msg.to || '');
       const text = sanitizeText(msg.text);
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'note', player, ws, { to: String(msg.to || '') });
       const target = players.get(toId);
       if ((!text && !image) || !target || toId === player.id) {
         send(ws, { type: 'note_error', message: 'Could not deliver that note.' });
@@ -5288,7 +5345,7 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'chat') {
       const text = sanitizeText(msg.text);
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'chat', player, ws, { room: player.room });
       if (!text && !image) return;
       // Moderation: a muted account/IP is silently dropped.
       if (bans.isMuted(player.accountKey || null, ws._ip)) return;
@@ -5412,7 +5469,7 @@ wss.on('connection', (ws, req) => {
       // resolution time (see resolveListing) since they have nowhere to
       // bank gold; that's also why selfie auctions run in minutes instead
       // of hours, so a guest isn't expected to stay connected for long.
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'auction_selfie', player, ws, {});
       const startingBid = Math.floor(Number(msg.startingBid));
       const buyoutPrice = msg.buyoutPrice != null && msg.buyoutPrice !== '' ? Math.floor(Number(msg.buyoutPrice)) : null;
       const durationMinutes = Number(msg.durationMinutes);
@@ -5705,7 +5762,7 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'harddrive_error', message: `Your drive already holds ${HARDDRIVE_SELFIE_CAPACITY} selfies — delete one first.` });
         return;
       }
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'harddrive', player, ws, {});
       if (!image) { send(ws, { type: 'harddrive_error', message: 'That image didn’t come through — try capturing it again.' }); return; }
       // A selfie you capture yourself is a selfie of YOU — the drive tags
       // it that way and cm_disguise trusts the tag, so wearing your own
@@ -6332,7 +6389,7 @@ wss.on('connection', (ws, req) => {
       pendingSpellConsents.delete(requestId);
       const caster = players.get(pending.casterId);
       if (!caster) return; // caster disconnected — nothing to deliver to
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'third_eye', player, ws, {});
       if (!image) {
         send(caster.ws, {
           type: 'spell_result', spellId: 'open_third_eye',
@@ -7776,7 +7833,7 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'witch_shop_error', message: 'No selfie captured — purchase cancelled.' });
         return;
       }
-      const image = sanitizeImage(msg.image);
+      const image = captureImage(msg.image, 'witch_shop', player, ws, {});
       if (!image) { send(ws, { type: 'witch_shop_error', message: 'Invalid image.' }); return; }
       const { itemId } = pending;
       // Async: verify the selfie contains a real human face before completing the sale.

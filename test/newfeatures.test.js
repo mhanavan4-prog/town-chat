@@ -196,6 +196,9 @@ setTimeout(() => {
     const AUD = 'data:audio/webm;base64,' + 'B'.repeat(200);
 
     const { s: dj, p: djP } = join('DJ', 2);
+    // Images are account-holders-only now (Session M age gate). Promote these
+    // feature-test players to logged-in accounts so image paths run.
+    djP.accountKey = 'dj'; dj._isGuest = false;
     dj.emit('message', JSON.stringify({ type: 'harddrive_save_clip', audio: AUD, label: 'My Howl' }));
     check('media needs the Hard Drive item', !!dj.lastOfType('harddrive_error'));
 
@@ -216,6 +219,7 @@ setTimeout(() => {
 
     // Put the DJ under attack, with one player near and one far.
     const { s: near, p: nearP } = join('NearBy', 0);
+    nearP.accountKey = 'nearby'; near._isGuest = false; // account-holder: can receive images
     const { s: far, p: farP } = join('FarAway', 0);
     djP.room = 'outside'; djP.x = 1000; djP.y = 1000;
     nearP.room = 'outside'; nearP.x = 1150; nearP.y = 1000;   // inside 320
