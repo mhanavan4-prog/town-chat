@@ -5338,159 +5338,6 @@ function renderChatLog() {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-// ---------------------------------------------------------------------------
-// Arcade-only: the (3x larger) chat panel can switch into a "send a text"
-// mode. Unlike chat, this leaves the game entirely — each player logs in
-// with their OWN Twilio account (not a shared one this game's operator
-// pays for) and the server just relays one send request through to Twilio
-// using those credentials. See server.js for what's validated/rate-limited
-// there. The credentials themselves live only in this browser's
-// localStorage — this client never sends them anywhere but to this game's
-// own server, and the server never writes them to disk or keeps them
-// beyond the single request that uses them.
-// ---------------------------------------------------------------------------
-const chatTabChatBtn = document.getElementById('chatTabChat');
-const chatTabTextBtn = document.getElementById('chatTabText');
-const chatLogView = document.getElementById('chatLogView');
-const textView = document.getElementById('textView');
-const twilioLoginFields = document.getElementById('twilioLoginFields');
-const twilioAccountSidInput = document.getElementById('twilioAccountSid');
-const twilioApiKeySidInput = document.getElementById('twilioApiKeySid');
-const twilioSecretInput = document.getElementById('twilioSecret');
-const twilioFromNumberInput = document.getElementById('twilioFromNumber');
-const twilioSaveBtn = document.getElementById('twilioSaveBtn');
-const twilioLoggedInRow = document.getElementById('twilioLoggedInRow');
-const twilioLoggedInText = document.getElementById('twilioLoggedInText');
-const twilioLogoutLink = document.getElementById('twilioLogoutLink');
-const textSendFields = document.getElementById('textSendFields');
-const textPhoneInput = document.getElementById('textPhoneInput');
-const textBodyInput = document.getElementById('textBodyInput');
-const textSendBtn = document.getElementById('textSendBtn');
-const textStatusEl = document.getElementById('textStatus');
-
-function setTextStatus(text, isError) {
-  if (!textStatusEl) return;
-  textStatusEl.textContent = text;
-  textStatusEl.classList.toggle('err', !!isError);
-}
-
-let twilioCreds = null; // { accountSid, apiKeySid, secret, fromNumber }
-(function loadTwilioCreds() {
-  try {
-    const raw = localStorage.getItem('tc_twilio');
-    if (raw) twilioCreds = JSON.parse(raw);
-  } catch (e) { twilioCreds = null; }
-})();
-
-function renderTwilioLoginState() {
-  const loggedIn = !!(twilioCreds && twilioCreds.accountSid);
-  twilioLoginFields.classList.toggle('hidden', loggedIn);
-  twilioLoggedInRow.classList.toggle('hidden', !loggedIn);
-  textSendFields.classList.toggle('hidden', !loggedIn);
-  if (loggedIn) {
-    const sid = twilioCreds.accountSid;
-    twilioLoggedInText.textContent = `Twilio: ${sid.slice(0, 6)}…${sid.slice(-4)} / ${twilioCreds.fromNumber}`;
-  }
-}
-renderTwilioLoginState();
-
-function saveTwilioCreds(creds) {
-  twilioCreds = creds;
-  localStorage.setItem('tc_twilio', JSON.stringify(creds));
-  renderTwilioLoginState();
-}
-
-function logoutTwilio() {
-  twilioCreds = null;
-  localStorage.removeItem('tc_twilio');
-  renderTwilioLoginState();
-  setTextStatus('Logged out of Twilio.');
-}
-
-function saveTwilioLogin() {
-  const accountSid = twilioAccountSidInput.value.trim();
-  const apiKeySid = twilioApiKeySidInput.value.trim();
-  const secret = twilioSecretInput.value.trim();
-  const fromNumber = twilioFromNumberInput.value.trim();
-  if (!/^AC[a-zA-Z0-9]{32}$/.test(accountSid)) {
-    setTextStatus('Account SID looks wrong — it should start with "AC" (34 characters total).', true);
-    return;
-  }
-  if (apiKeySid && !/^SK[a-zA-Z0-9]{32}$/.test(apiKeySid)) {
-    setTextStatus('API Key SID looks wrong — it should start with "SK" (34 characters total).', true);
-    return;
-  }
-  if (!secret) { setTextStatus('Enter your Auth Token or API Key Secret.', true); return; }
-  if (!/^\+[1-9]\d{6,14}$/.test(fromNumber)) {
-    setTextStatus('Your Twilio number should look like +15551234567.', true);
-    return;
-  }
-  saveTwilioCreds({ accountSid, apiKeySid, secret, fromNumber });
-  twilioSecretInput.value = ''; // don't leave the secret sitting in the field after it's saved
-  setTextStatus('Twilio account saved in this browser.');
-}
-
-function showChatTab() {
-  chatLogView.classList.remove('hidden');
-  textView.classList.add('hidden');
-  if (chatTabChatBtn) chatTabChatBtn.classList.add('active');
-  if (chatTabTextBtn) chatTabTextBtn.classList.remove('active');
-}
-
-function showTextTab() {
-  chatLogView.classList.add('hidden');
-  textView.classList.remove('hidden');
-  if (chatTabChatBtn) chatTabChatBtn.classList.remove('active');
-  if (chatTabTextBtn) chatTabTextBtn.classList.add('active');
-}
-
-function sendText() {
-  if (!twilioCreds) { setTextStatus('Log in with your Twilio account first.', true); return; }
-  const to = textPhoneInput.value.trim();
-  const body = textBodyInput.value.trim();
-  if (!to || !body) { setTextStatus('Enter a phone number and a message.', true); return; }
-  setTextStatus('Sending…');
-  textSendBtn.disabled = true;
-  fetch(apiUrl('/api/send-sms'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      accountSid: twilioCreds.accountSid,
-      apiKeySid: twilioCreds.apiKeySid || '',
-      secret: twilioCreds.secret,
-      from: twilioCreds.fromNumber,
-      to, body
-    })
-  })
-    .then(r => r.json().then(data => ({ ok: r.ok, data })))
-    .then(({ ok, data }) => {
-      textSendBtn.disabled = false;
-      if (!ok) { setTextStatus(data.error || 'Could not send that text.', true); return; }
-      setTextStatus('Sent!');
-      textBodyInput.value = '';
-    })
-    .catch(() => {
-      textSendBtn.disabled = false;
-      setTextStatus('Could not reach the server.', true);
-    });
-}
-
-if (chatTabChatBtn) chatTabChatBtn.addEventListener('click', showChatTab);
-if (chatTabTextBtn) chatTabTextBtn.addEventListener('click', showTextTab);
-if (twilioSaveBtn) twilioSaveBtn.addEventListener('click', saveTwilioLogin);
-if (twilioLogoutLink) twilioLogoutLink.addEventListener('click', (e) => { e.preventDefault(); logoutTwilio(); });
-if (textSendBtn) textSendBtn.addEventListener('click', sendText);
-for (const el of [twilioAccountSidInput, twilioApiKeySidInput, twilioSecretInput, twilioFromNumberInput, textPhoneInput, textBodyInput]) {
-  if (!el) continue;
-  el.addEventListener('focus', () => { typing = true; });
-  el.addEventListener('blur', () => { typing = false; });
-}
-if (textBodyInput) {
-  textBodyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') textBodyInput.blur();
-  });
-}
-
 // Minimize collapses the panel down to just its header bar, so the room
 // behind it (especially the Arcade's 3x-size panel) isn't blocked while
 // walking around. Sticky across room changes until toggled back.
@@ -5516,8 +5363,6 @@ function maybeUpdateRoomUI(room) {
   // The Wilds is open-world like the town square, not a private room — no chat panel there either.
   document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room === 'ember_wastes' || room.startsWith('dungeon_'));
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
-  document.getElementById('chatTabs').classList.toggle('hidden', room !== 'arcade');
-  if (room !== 'arcade') showChatTab(); // leaving the Arcade always lands back on plain chat
   const headerText = document.getElementById('chatHeaderText');
   if (headerText) headerText.textContent = '💬 ' + roomLabel(room);
   renderChatLog();
@@ -9119,6 +8964,7 @@ const _coven = createCoven({
   getCovenChatLines: () => covenChatLines, getCovenSigilsCatalog: () => covenSigilsCatalog,
   getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
   getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout,
+  getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
 });
 const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual } = _coven;
 
