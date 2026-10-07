@@ -248,6 +248,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// Password-reset landing page — the email link points at /reset?token=… , served
+// by the standalone public/reset.html (no token ever appears in a server log).
+app.get('/reset', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset.html')));
+
 app.get('/api/config', (req, res) => {
   res.json({
     paymentsEnabled: !!stripeClient,
@@ -959,6 +963,46 @@ const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, col
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 const sessions = new Map();      // token -> usernameLower
 
+// ── Password reset + email (Session N) ──────────────────────────────────────
+// Email-based reset. Tokens are stored HASHED (so a DB/backup leak can't be
+// used to seize accounts), single-use, and expire in an hour. Mail goes out via
+// Resend (lib/mailer); with no RESEND_API_KEY set the feature stays dark —
+// request-reset still returns ok, it just sends nothing.
+const mailer = require('./lib/mailer')({ apiKey: process.env.RESEND_API_KEY || '', from: process.env.MAIL_FROM || '', audit });
+const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://thornreach.com').replace(/\/+$/, '');
+const RESET_TTL_MS = 60 * 60 * 1000;
+const RESETS_FILE = path.join(DATA_DIR, 'passwordResets.json');
+const passwordResets = persistLoad('passwordResets', RESETS_FILE) || {}; // sha256(token) -> { key, expiresAt }
+persistRegister('passwordResets', RESETS_FILE, () => passwordResets);
+function savePasswordResets() { persistSave('passwordResets', RESETS_FILE, passwordResets); }
+function sha256hex(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
+function pruneResets() {
+  const now = Date.now();
+  let changed = false;
+  for (const [h, r] of Object.entries(passwordResets)) {
+    if (!r || !r.expiresAt || r.expiresAt < now) { delete passwordResets[h]; changed = true; }
+  }
+  if (changed) savePasswordResets();
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function normalizeEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  return EMAIL_RE.test(e) && e.length <= 254 ? e : null;
+}
+function findAccountKeyByEmail(email) {
+  const e = normalizeEmail(email);
+  if (!e) return null;
+  for (const [key, a] of Object.entries(accounts)) {
+    if (a && a.email && String(a.email).toLowerCase() === e) return key;
+  }
+  return null;
+}
+// Drop every live session token for an account (used after a password reset,
+// so a stolen session can't outlive the reset that was meant to lock it out).
+function invalidateSessionsFor(key) {
+  for (const [tok, k] of sessions) if (k === key) sessions.delete(tok);
+}
+
 // ── Moderation store (Session M) ────────────────────────────────────────────
 // Durable bans/mutes keyed by account or IP. A "ban" blocks login, register,
 // join and the socket itself; a "mute" only silences chat. Persisted like every
@@ -1054,6 +1098,9 @@ app.post('/api/register', (req, res) => {
   if (accounts[key]) {
     return res.status(409).json({ error: 'That username is already taken.' });
   }
+  // Optional email (Session N) — used only for password recovery. Stored only
+  // when it's a valid address; a junk value is simply ignored, not rejected.
+  const email = normalizeEmail(req.body.email);
   const salt = crypto.randomBytes(16).toString('hex');
   accounts[key] = {
     username,
@@ -1063,7 +1110,9 @@ app.post('/api/register', (req, res) => {
     createdAt: Date.now(),
     over18: true,
     over18At: Date.now(),
-    over18Ip: ip
+    over18Ip: ip,
+    email: email || null,
+    emailAt: email ? Date.now() : null
   };
   saveAccounts();
   clearLoginFailures(ip);
@@ -1110,6 +1159,94 @@ app.post('/api/login', (req, res) => {
   } catch (e) {}
   audit.log({ level: 'info', type: 'login_ok', ip, account: key, name: account.username });
   res.json({ token, username: account.username, color: account.color });
+});
+
+// ── Password reset endpoints (Session N) ────────────────────────────────────
+function resetEmailHtml(username, link) {
+  return `<!doctype html><html><body style="margin:0;background:#0c0a1c;font:15px/1.6 -apple-system,Segoe UI,system-ui,sans-serif;color:#ece7f7">
+  <div style="max-width:520px;margin:0 auto;padding:32px 22px">
+    <div style="font:700 22px Georgia,serif;letter-spacing:.04em;color:#b096fc;margin-bottom:4px">🌒 Thornreach</div>
+    <div style="background:#1b1436;border:1px solid #2c2350;border-radius:14px;padding:24px">
+      <p style="margin:0 0 14px">A password reset was requested for your account <strong>${esc(username)}</strong>.</p>
+      <p style="margin:0 0 20px">Tap below to set a new password. This link expires in <strong>1 hour</strong> and works once.</p>
+      <p style="margin:0 0 20px"><a href="${esc(link)}" style="display:inline-block;background:linear-gradient(90deg,#b096fc,#63dee6,#86efac);color:#15102a;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:9px">Reset my password</a></p>
+      <p style="margin:0;color:#9c93c2;font-size:12.5px">If the button doesn't work, paste this into your browser:<br><span style="word-break:break-all">${esc(link)}</span></p>
+    </div>
+    <p style="color:#9c93c2;font-size:12.5px;margin-top:16px">If you didn't request this, you can ignore this email — nothing has changed.</p>
+  </div></body></html>`;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// Step 1: ask for a reset link. ALWAYS returns ok so the response can't be used
+// to probe which usernames/emails exist. A mail only actually goes out when we
+// match an account that has an email on file (and mail is configured).
+app.post('/api/request-reset', (req, res) => {
+  const ip = audit.clientIp(req);
+  const n = audit.hit(ip, 'reset_req', 15 * 60 * 1000);
+  if (n > 5) { audit.log({ level: 'warn', type: 'reset_req_throttled', ip }); return res.json({ ok: true }); }
+  pruneResets();
+  const input = String(req.body.usernameOrEmail || req.body.username || '').trim();
+  let key = null;
+  if (input) {
+    const asKey = input.toLowerCase();
+    key = accounts[asKey] ? asKey : findAccountKeyByEmail(input);
+  }
+  if (key && accounts[key] && accounts[key].email) {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    passwordResets[sha256hex(rawToken)] = { key, expiresAt: Date.now() + RESET_TTL_MS, createdAt: Date.now(), ip };
+    savePasswordResets();
+    const link = `${PUBLIC_URL}/reset?token=${rawToken}`;
+    const uname = accounts[key].username;
+    audit.log({ level: 'info', type: 'password_reset_requested', ip, account: key });
+    mailer.send({
+      to: accounts[key].email,
+      subject: '🌒 Reset your Thornreach password',
+      text: `A password reset was requested for your Thornreach account "${uname}".\n\nSet a new password (link expires in 1 hour, works once):\n${link}\n\nIf this wasn't you, ignore this email — nothing has changed.`,
+      html: resetEmailHtml(uname, link),
+    }).catch(() => {});
+  } else if (input) {
+    audit.log({ level: 'info', type: 'password_reset_noop', ip, detail: { reason: key ? 'no_email_on_file' : 'no_match' } });
+  }
+  res.json({ ok: true });
+});
+
+// Step 2: redeem the token and set a new password. Single-use; expired/unknown
+// tokens are rejected. A successful reset burns every live session for safety.
+app.post('/api/reset-password', (req, res) => {
+  const ip = audit.clientIp(req);
+  const token = String(req.body.token || '');
+  const newPassword = String(req.body.newPassword || req.body.password || '');
+  const rec = token ? passwordResets[sha256hex(token)] : null;
+  if (!rec || !rec.expiresAt || rec.expiresAt < Date.now() || !accounts[rec.key]) {
+    audit.log({ level: 'warn', type: 'password_reset_invalid', ip });
+    return res.status(400).json({ error: 'This reset link is invalid or has expired — request a new one.' });
+  }
+  if (newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+  const key = rec.key;
+  const salt = crypto.randomBytes(16).toString('hex');
+  accounts[key].salt = salt;
+  accounts[key].hash = hashPassword(newPassword, salt);
+  saveAccounts();
+  delete passwordResets[sha256hex(token)];
+  savePasswordResets();
+  invalidateSessionsFor(key);
+  audit.log({ level: 'warn', type: 'password_reset_done', ip, account: key });
+  res.json({ ok: true });
+});
+
+// Add or change the email on your own account (needs a live session token).
+app.post('/api/set-email', (req, res) => {
+  const ip = audit.clientIp(req);
+  const token = String(req.body.token || '');
+  const key = token ? sessions.get(token) : null;
+  if (!key || !accounts[key]) return res.status(401).json({ error: 'Log in again to update your email.' });
+  const email = normalizeEmail(req.body.email);
+  if (req.body.email && !email) return res.status(400).json({ error: 'That doesn’t look like a valid email address.' });
+  accounts[key].email = email || null;
+  accounts[key].emailAt = email ? Date.now() : null;
+  saveAccounts();
+  audit.log({ level: 'info', type: 'email_set', ip, account: key, detail: { set: !!email } });
+  res.json({ ok: true, email: email || null });
 });
 
 // The character roster behind the join screen's "continue as …" cards: every
@@ -2889,17 +3026,32 @@ function broadcastAll(data, exceptWs) {
   }
 }
 
-function broadcastRoom(room, data) {
+// A player's "instance" (Session N — the Moot Stone): null/'' is the public
+// world; 'coven_<id>' is a coven's private copy. Room scoping now also matches
+// instance, so a private copy is invisible to the public world and vice versa.
+function sameInstance(p, instance) { return (p.instance || '') === (instance || ''); }
+
+function broadcastRoom(room, data, instance) {
   if (data && IMAGE_MSG_TYPES.has(data.type)) {
     const full = JSON.stringify(data), lite = JSON.stringify(stripImagesForGuest(data));
     for (const p of players.values()) {
-      if (p.room === room && p.ws.readyState === p.ws.OPEN) p.ws.send(p.ws._isGuest ? lite : full);
+      if (p.room === room && sameInstance(p, instance) && p.ws.readyState === p.ws.OPEN) p.ws.send(p.ws._isGuest ? lite : full);
     }
     return;
   }
   const msg = JSON.stringify(data);
   for (const p of players.values()) {
-    if (p.room === room && p.ws.readyState === p.ws.OPEN) p.ws.send(msg);
+    if (p.room === room && sameInstance(p, instance) && p.ws.readyState === p.ws.OPEN) p.ws.send(msg);
+  }
+}
+
+// Presence/announcements scoped to one instance (its members only). Used so a
+// player stepping through the Moot Stone appears to LEAVE the public world and
+// JOIN their coven's copy — join/leave and clear-message events stay in-instance.
+function broadcastInstance(instance, data, exceptWs) {
+  const msg = JSON.stringify(data);
+  for (const p of players.values()) {
+    if (sameInstance(p, instance) && p.ws !== exceptWs && p.ws.readyState === p.ws.OPEN) p.ws.send(msg);
   }
 }
 
@@ -5123,14 +5275,14 @@ wss.on('connection', (ws, req) => {
             send(op.ws, { type: 'session_takeover', message: '🌒 Your account just stepped into the town from another device — this visit closes so there is only ever one of you.' });
           }
           if (op.room !== 'outside') {
-            broadcastAll({ type: 'clear_user_messages', room: op.room, id: op.id });
+            broadcastInstance(op.instance, { type: 'clear_user_messages', room: op.room, id: op.id });
           }
           // Remove it ourselves rather than waiting on its close event —
           // a lagging/half-open socket's close is exactly what we can't
           // rely on here. The close handler is a no-op once the map
           // entry is gone (it checks players.get(id) === player).
           players.delete(oid);
-          broadcastAll({ type: 'player_left', id: oid });
+          broadcastInstance(op.instance, { type: 'player_left', id: oid });
           try { op.ws.close(); } catch (e) {}
         }
         if (takeover && accountKey) {
@@ -5178,6 +5330,10 @@ wss.on('connection', (ws, req) => {
         x: resume ? resume.x : WORLD.spawn.x,
         y: resume ? resume.y : WORLD.spawn.y,
         room: resume ? resume.room : 'outside',
+        // The Moot Stone (Session N): null = public world. A resume always
+        // returns you to the public world — a private coven copy is ephemeral
+        // and may be gone, so reconnecting never strands you inside a dead one.
+        instance: null,
         // Undestroyed notes currently held, mirrors the client's inbox array
         // — for Rapid Swipe to steal from. For a logged-in account this is
         // the SAME array reference as inboxes[accountKey] (created if this
@@ -5421,7 +5577,7 @@ wss.on('connection', (ws, req) => {
           where: objectiveWhere({ type: rq.type, targetItemId: rq.targetItemId, targetCreature: rq.targetCreature })
         });
       }
-      broadcastAll({ type: 'player_joined', player: publicPlayer(player) }, ws);
+      broadcastInstance(player.instance, { type: 'player_joined', player: publicPlayer(player) }, ws);
       return;
     }
 
@@ -5506,7 +5662,7 @@ wss.on('connection', (ws, req) => {
       const now = Date.now();
       if (player.lastEmoteAt && now - player.lastEmoteAt < 1200) return;
       player.lastEmoteAt = now;
-      broadcastRoom(player.room, { type: 'emote_fx', id: player.id, emote });
+      broadcastRoom(player.room, { type: 'emote_fx', id: player.id, emote }, player.instance);
       return;
     }
 
@@ -5518,7 +5674,7 @@ wss.on('connection', (ws, req) => {
       if (!ROOM_IDS.has(room) || room === 'outside') return;
       player.room = 'outside';
       player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
-      broadcastAll({ type: 'clear_user_messages', room, id: player.id });
+      broadcastInstance(player.instance, { type: 'clear_user_messages', room, id: player.id });
       return;
     }
 
@@ -5597,7 +5753,7 @@ wss.on('connection', (ws, req) => {
       };
       flagLinkIfAny(text, 'chat', player, ws);
       recordRoomChat(player.room, player.name, player.color, text, image);
-      broadcastRoom(player.room, chatMsg);
+      broadcastRoom(player.room, chatMsg, player.instance);
       for (const watcher of players.values()) {
         if (watcher.spyGlass && watcher.spyGlass.room === player.room && watcher.spyGlass.expiresAt > Date.now()) {
           send(watcher.ws, { type: 'spyglass_chat', name: player.name, color: player.color, text, image });
@@ -6553,7 +6709,7 @@ wss.on('connection', (ws, req) => {
         // and land before the caster's toast / target's damage message
         // arrive. Leech Hex reuses the fireball flight fx with the direction
         // reversed on the client (life flowing back INTO the caster).
-        broadcastRoom(player.room, { type: 'spell_fx', spellId, casterId: player.id, targetId, targetType });
+        broadcastRoom(player.room, { type: 'spell_fx', spellId, casterId: player.id, targetId, targetType }, player.instance);
         const label = result.name ? ` ${result.name}` : '';
         // Leech Hex is the combat-heal hybrid: whatever it drained from the
         // target closes the caster's own wounds.
@@ -7003,7 +7159,7 @@ wss.on('connection', (ws, req) => {
             : 'Pick a target first.' });
           return;
         }
-        broadcastRoom(player.room, { type: 'attack_fx', attackId, casterId: player.id, targetId, targetType: atkTargetType });
+        broadcastRoom(player.room, { type: 'attack_fx', attackId, casterId: player.id, targetId, targetType: atkTargetType }, player.instance);
         let healedHint = '';
         if (attack.effect === 'leech' && !player.isDead) {
           const before = player.health;
@@ -7378,6 +7534,36 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'delve_exit') {
       if (delveRunOf(player)) delveLeave(player, 'exit');
+      return;
+    }
+
+    // ── The Moot Stone (Session N) ──────────────────────────────────────────
+    // Toggle between the public world and this player's coven's private copy of
+    // it. The private copy is ephemeral and shares the same world geometry — all
+    // that changes is which players you can see (isolation is enforced by the
+    // instance-scoped firehose/roster/broadcasts above). Must be a coven member,
+    // standing at the stone in the town square. The client gates fine proximity
+    // through the kiosk (same trust model as the Delve Stone); the server checks
+    // the essentials and refuses to yank you out of a delve.
+    if (msg.type === 'moot_teleport') {
+      if (!player) return;
+      if (player.room !== 'outside' || (player.roomLockUntil && Date.now() < player.roomLockUntil)) {
+        send(ws, { type: 'moot_error', message: 'The Moot Stone only answers in the town square.' });
+        return;
+      }
+      if (delveRunOf(player)) { send(ws, { type: 'moot_error', message: 'Not while you’re delving.' }); return; }
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'moot_error', message: 'The stone is cold to your touch — you belong to no coven.' }); return; }
+      const leaving = player.instance;                        // current channel
+      const target = player.instance ? null : ('coven_' + cv.id); // toggle public <-> private
+      broadcastInstance(leaving, { type: 'player_left', id: player.id }, ws);  // vanish from the world you're leaving
+      player.instance = target;
+      broadcastInstance(target, { type: 'player_joined', player: publicPlayer(player) }, ws); // appear in the one you're entering
+      const roster = [];
+      for (const p of players.values()) if (sameInstance(p, target)) roster.push(publicPlayer(p));
+      send(ws, { type: target ? 'moot_entered' : 'moot_exited', covenName: cv.name, covenSigil: cv.sigil, roster });
+      audit.log({ level: 'info', type: target ? 'moot_enter' : 'moot_exit',
+        ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id } });
       return;
     }
 
@@ -8245,10 +8431,10 @@ wss.on('connection', (ws, req) => {
         try { getProgress(player).lastSeenAt = Date.now(); saveProgress(); } catch (e) {}
       }
       if (player.room !== 'outside') {
-        broadcastAll({ type: 'clear_user_messages', room: player.room, id: player.id });
+        broadcastInstance(player.instance, { type: 'clear_user_messages', room: player.room, id: player.id });
       }
       players.delete(player.id);
-      broadcastAll({ type: 'player_left', id: player.id });
+      broadcastInstance(player.instance, { type: 'player_left', id: player.id });
     }
   });
 });
@@ -8275,7 +8461,7 @@ wss.on('connection', (ws, req) => {
 // moment it mattered. The client interpolates remote players toward their
 // target (client/main.js ~10573), so the eased 70ms -> 120ms cadence stays
 // visually smooth. Measured effect in a busy 20-room: ~75% less egress.
-const _roomMemberSig = new Map(); // room -> last tick's sorted member-id string
+const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-id string
 setInterval(() => {
   if (players.size === 0) { _roomMemberSig.clear(); return; }
   const byRoom = new Map();
@@ -8285,31 +8471,44 @@ setInterval(() => {
     p._pubCache = pub;
     p._pubChanged = (sig !== p._lastPubSig);
     p._lastPubSig = sig;
-    let arr = byRoom.get(p.room); if (!arr) byRoom.set(p.room, arr = []);
+    // Group by room AND instance, so a coven's private copy of a room is its
+    // own firehose — public players and private players never see each other.
+    const chan = p.room + '\u0000' + (p.instance || '');
+    let arr = byRoom.get(chan); if (!arr) byRoom.set(chan, arr = []);
     arr.push(p);
   }
-  const seenRooms = new Set();
-  for (const [room, arr] of byRoom) {
-    seenRooms.add(room);
+  const seenChans = new Set();
+  for (const [chan, arr] of byRoom) {
+    seenChans.add(chan);
     const memberSig = arr.map(p => p.id).sort().join(',');
-    const membershipChanged = _roomMemberSig.get(room) !== memberSig;
-    _roomMemberSig.set(room, memberSig);
+    const membershipChanged = _roomMemberSig.get(chan) !== memberSig;
+    _roomMemberSig.set(chan, memberSig);
     const toSend = membershipChanged ? arr : arr.filter(p => p._pubChanged);
     if (toSend.length === 0) continue;
     const snap = JSON.stringify({ type: 'state', players: toSend.map(p => p._pubCache) });
     for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
   }
-  // Drop bookkeeping for rooms that emptied this tick.
-  for (const room of _roomMemberSig.keys()) if (!seenRooms.has(room)) _roomMemberSig.delete(room);
+  // Drop bookkeeping for channels that emptied this tick.
+  for (const chan of _roomMemberSig.keys()) if (!seenChans.has(chan)) _roomMemberSig.delete(chan);
 }, 120);
 
-// Low-rate GLOBAL reconciliation: every client learns the full roster (who's
-// online + which room they're in) for the population count, note/auction
-// recipient lists and cross-room presence. Positions come from the room
+// Low-rate reconciliation: every client learns the full roster of ITS OWN
+// instance (who's online + which room they're in) for counts, recipient lists
+// and cross-room presence. Scoped per instance so a coven's private copy never
+// leaks into the public roster, or vice versa. Positions come from the room
 // stream above, so 1.6s is plenty here.
 setInterval(() => {
   if (players.size === 0) return;
-  broadcastAll({ type: 'state', players: Array.from(players.values()).map(publicPlayer) });
+  const byInst = new Map();
+  for (const p of players.values()) {
+    const k = p.instance || '';
+    let arr = byInst.get(k); if (!arr) byInst.set(k, arr = []);
+    arr.push(p);
+  }
+  for (const [, arr] of byInst) {
+    const snap = JSON.stringify({ type: 'state', players: arr.map(publicPlayer) });
+    for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
+  }
 }, 1600);
 
 // Reap half-open connections. A phone that loses signal (or a tab the OS
@@ -8349,7 +8548,7 @@ global.__testHooks = {
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
-  sessions, covenInvites, resumeStashes,
+  sessions, covenInvites, resumeStashes, passwordResets,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
@@ -8402,7 +8601,8 @@ server.listen(PORT, () => {
     pass30PriceCents: TOWN_PASS30_PRICE_CENTS, pass30Hours: TOWN_PASS30_HOURS,
     payments: !!stripeClient, webhook: !!STRIPE_WEBHOOK_SECRET,
     alerts: !!process.env.ALERT_WEBHOOK_URL, adminConsole: !!ADMIN_KEY,
-    faceCheck: !!process.env.ANTHROPIC_API_KEY, passcode: !!TOWN_PASSWORD
+    faceCheck: !!process.env.ANTHROPIC_API_KEY, passcode: !!TOWN_PASSWORD,
+    mail: mailer.enabled
   } });
   console.log(stripeClient
     ? `Stripe payments: ON (Town Pass $${(TOWN_PASS_PRICE_CENTS / 100).toFixed(2)} / ${TOWN_PASS_HOURS}h — unlocks: ${[...LOCKED_ROOMS].join(', ')})`

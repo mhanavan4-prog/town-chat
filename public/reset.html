@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset password — Thornreach</title>
+<style>
+  :root{--bg:#0c0a1c;--panel:#1b1436;--line:#2c2350;--ink:#ece7f7;--muted:#9c93c2;--teal:#63dee6;--mint:#86efac;--alert:#f0736f}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(130% 120% at 50% 0%,#201a3c,#0c0a1c);color:var(--ink);
+    font:15px/1.6 "Segoe UI",system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:16px}
+  .card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px 24px}
+  h1{font-family:"Cinzel Decorative",Georgia,serif;font-size:24px;letter-spacing:.04em;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:14px 0 6px}
+  input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0f0b22;color:var(--ink);font-size:16px}
+  button{width:100%;margin-top:20px;cursor:pointer;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;
+    color:#15102a;background:linear-gradient(90deg,#b096fc,#63dee6,#86efac)}
+  button:disabled{opacity:.6;cursor:default}
+  .msg{margin-top:16px;font-size:13.5px;min-height:18px}
+  .msg.err{color:var(--alert)}
+  .msg.ok{color:var(--mint)}
+  a{color:var(--teal)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🌒 Thornreach</h1>
+    <p class="sub">Choose a new password for your account.</p>
+    <div id="form">
+      <label for="pw">New password</label>
+      <input id="pw" type="password" autocomplete="new-password" placeholder="At least 4 characters">
+      <label for="pw2">Confirm new password</label>
+      <input id="pw2" type="password" autocomplete="new-password" placeholder="Type it again">
+      <button id="go">Reset password</button>
+    </div>
+    <div id="msg" class="msg"></div>
+  </div>
+<script>
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var form = document.getElementById('form');
+  var msg = document.getElementById('msg');
+  function show(text, cls){ msg.textContent = text; msg.className = 'msg ' + (cls || ''); }
+  if (!token) { form.style.display = 'none'; show('This link is missing its reset token. Request a new reset email from the game.', 'err'); }
+
+  document.getElementById('go').addEventListener('click', function(){
+    var pw = document.getElementById('pw').value;
+    var pw2 = document.getElementById('pw2').value;
+    if (pw.length < 4) { show('Password must be at least 4 characters.', 'err'); return; }
+    if (pw !== pw2) { show('Those two passwords don’t match.', 'err'); return; }
+    var btn = document.getElementById('go'); btn.disabled = true; show('Resetting…');
+    fetch('/api/reset-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, newPassword: pw })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(res){
+        if (!res.ok) { btn.disabled = false; show(res.d.error || 'Something went wrong.', 'err'); return; }
+        form.style.display = 'none';
+        show('✓ Your password has been reset. You can close this page and log in to Thornreach with your new password.', 'ok');
+      })
+      .catch(function(){ btn.disabled = false; show('Could not reach the server. Try again in a moment.', 'err'); });
+  });
+</script>
+</body>
+</html>

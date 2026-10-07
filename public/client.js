@@ -4906,6 +4906,7 @@ function buildTownNPCs(scene) {
   buildMidnightPeddler(scene);
   buildTownBoard(scene);
   buildDelveStone(scene);
+  buildMootStone(scene);
   buildLocksmith(scene);
 }
 
@@ -4974,6 +4975,40 @@ function buildDelveStone(scene) {
   label.position.set(DELVE_STONE_SPOT.x, 76, DELVE_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: DELVE_STONE_SPOT.x, z: DELVE_STONE_SPOT.y, npc: 'delve' });
+}
+
+// ── The Moot Stone (Session N) — the coven's doorway to their own private copy
+// of the town. A ring of three standing stones around a green hearth-glow, on
+// the square's west edge, mirroring the Delve Stone opposite. If you belong to
+// a coven, touching it slips you into a world only your coven can reach;
+// touching it again walks you back out to the public town.
+const MOOT_STONE_SPOT = { x: 1150, y: 870 };
+function buildMootStone(scene) {
+  const g = new THREE.Group();
+  const rock = new THREE.MeshLambertMaterial({ color: 0x2b3330 });
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(7, 11, 58 + (i % 2) * 8, 5), rock);
+    s.position.set(Math.cos(a) * 26, 29, Math.sin(a) * 26);
+    s.rotation.z = (i % 2 ? 0.1 : -0.1);
+    g.add(s);
+  }
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(30, 32, 6, 20), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
+  dais.position.y = 3;
+  g.add(dais);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0x7be3a3, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(46, 44, 1);
+  glow.position.set(0, 24, 0);
+  g.add(glow);
+  g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🌑 The Moot Stone');
+  label.position.set(MOOT_STONE_SPOT.x, 80, MOOT_STONE_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
 }
 
 // ── The Midnight Peddler's stall (Session I) — a cloaked figure under a
@@ -10103,11 +10138,14 @@ function submitAccount(endpoint) {
     setAccountStatus('You must confirm you are 18 or older to create an account.', true);
     return;
   }
+  // Optional email (register only) — used only for password recovery.
+  const emailEl = document.getElementById('accountEmailInput');
+  const email = emailEl ? emailEl.value.trim() : '';
   setAccountStatus(endpoint === 'register' ? 'Creating account…' : 'Logging in…');
   fetch(apiUrl('/api/' + endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, over18 })
+    body: JSON.stringify({ username, password, over18, email })
   })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
@@ -10123,6 +10161,25 @@ function submitAccount(endpoint) {
 accountLoginBtn.addEventListener('click', () => submitAccount('login'));
 accountRegisterBtn.addEventListener('click', () => submitAccount('register'));
 accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('login'); });
+
+// "Forgot password?" — ask for a username or email and request a reset link.
+// The server always answers the same way (no account enumeration), so the
+// confirmation we show is deliberately generic.
+const forgotPwLink = document.getElementById('forgotPwLink');
+if (forgotPwLink) forgotPwLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  const who = (accountUserInput.value.trim()) ||
+    (window.prompt('Enter your username or the email on your account:') || '').trim();
+  if (!who) return;
+  setAccountStatus('Sending a reset link…');
+  fetch(apiUrl('/api/request-reset'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usernameOrEmail: who })
+  })
+    .then(() => setAccountStatus('If an account with an email on file matches that, a reset link is on its way. Check your inbox.'))
+    .catch(() => setAccountStatus('Could not reach the server.', true));
+});
 
 // Character picker — remembered per-browser like the other join-screen
 // preferences, but re-pickable any time before hitting Enter Town.
@@ -12041,6 +12098,7 @@ let walls = [];           // generated collision rects, derived from world.build
 let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
 let me = null;            // convenience pointer to players[myId]
 let currentRoom = 'outside';
+let mootInstanceActive = false; // Session N: true while inside your coven's private copy (the Moot Stone)
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
 
 // Picked once on the join screen (and remembered in localStorage), sent to
@@ -12678,6 +12736,9 @@ function onWsMessage(ev) {
     }
     for (const p of msg.players) addPlayer(p);
     me = players[myId];
+    // A fresh connection always lands in the public world (the server resets
+    // instance on resume), so clear any stale Moot state from a prior session.
+    mootInstanceActive = false; setMootBanner(null);
     // Live resume token for THIS connection — kept in memory for the
     // instant-reconnect path and mirrored to sessionStorage so a tab the
     // phone killed outright can still resume on its next load.
@@ -13331,6 +13392,25 @@ function onWsMessage(ev) {
         : `⚡ Entered dungeon tier ${msg.tier} — Level ${msg.level} Wildlands`);
     }
     pokeRoomTag();
+    return;
+  }
+
+  // The Moot Stone (Session N): the world geometry is unchanged, so there's no
+  // scene swap — we just swap WHICH players are visible. Forget everyone from the
+  // world we left, then populate from the fresh roster for the world we entered.
+  if (msg.type === 'moot_entered' || msg.type === 'moot_exited') {
+    mootInstanceActive = (msg.type === 'moot_entered');
+    for (const id of Object.keys(players)) { if (id !== myId) removePlayer(id); }
+    if (Array.isArray(msg.roster)) for (const p of msg.roster) { if (p.id !== myId) addPlayer(p); }
+    setMootBanner(mootInstanceActive ? msg : null);
+    setUnlockToast(mootInstanceActive
+      ? `🌑 You slip through the Moot Stone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private moot — only your coven can reach you here.`
+      : '🌒 You step back through the Moot Stone into the public town.');
+    pokeRoomTag();
+    return;
+  }
+  if (msg.type === 'moot_error') {
+    setUnlockToast(msg.message || 'The Moot Stone does not answer.');
     return;
   }
 
@@ -15104,6 +15184,24 @@ function setUnlockToast(text) {
     wrap.classList.add('hidden');
     document.body.classList.remove('toastVisible');
   }, 3200);
+}
+
+// Persistent banner shown while inside a coven's private Moot instance (Session
+// N). Created lazily so no HTML change is needed; pass null to hide it.
+function setMootBanner(msg) {
+  let el = document.getElementById('mootBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mootBanner';
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:60;' +
+      'background:linear-gradient(90deg,#17342c,#143028);border:1px solid #2f6b52;color:#bff0d2;' +
+      'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';
+    document.body.appendChild(el);
+  }
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = `🌑 Coven Moot — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
+  el.style.display = 'block';
 }
 
 let lastLockMsgAt = 0;
@@ -21751,6 +21849,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
+  if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
   if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
   if (kiosk && kiosk.npc === 'plaque') { openPlaqueModal(); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
@@ -21901,6 +22000,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'delve') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} touch the Delve Stone`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'moot') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Moot Stone`;
     return;
   }
   if (kiosk && kiosk.npc === 'plaque') {

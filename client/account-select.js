@@ -186,11 +186,14 @@ function submitAccount(endpoint) {
     setAccountStatus('You must confirm you are 18 or older to create an account.', true);
     return;
   }
+  // Optional email (register only) — used only for password recovery.
+  const emailEl = document.getElementById('accountEmailInput');
+  const email = emailEl ? emailEl.value.trim() : '';
   setAccountStatus(endpoint === 'register' ? 'Creating account…' : 'Logging in…');
   fetch(apiUrl('/api/' + endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, over18 })
+    body: JSON.stringify({ username, password, over18, email })
   })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
@@ -206,6 +209,25 @@ function submitAccount(endpoint) {
 accountLoginBtn.addEventListener('click', () => submitAccount('login'));
 accountRegisterBtn.addEventListener('click', () => submitAccount('register'));
 accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('login'); });
+
+// "Forgot password?" — ask for a username or email and request a reset link.
+// The server always answers the same way (no account enumeration), so the
+// confirmation we show is deliberately generic.
+const forgotPwLink = document.getElementById('forgotPwLink');
+if (forgotPwLink) forgotPwLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  const who = (accountUserInput.value.trim()) ||
+    (window.prompt('Enter your username or the email on your account:') || '').trim();
+  if (!who) return;
+  setAccountStatus('Sending a reset link…');
+  fetch(apiUrl('/api/request-reset'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usernameOrEmail: who })
+  })
+    .then(() => setAccountStatus('If an account with an email on file matches that, a reset link is on its way. Check your inbox.'))
+    .catch(() => setAccountStatus('Could not reach the server.', true));
+});
 
 // Character picker — remembered per-browser like the other join-screen
 // preferences, but re-pickable any time before hitting Enter Town.
