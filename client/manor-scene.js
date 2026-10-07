@@ -21,7 +21,9 @@ function buildManorScene() {
   setManorScene(scene);
   setManorCamera(camera);
 
-  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 320;
+  // WALL_H is kept near 3× the 68u player height — grand but not cavernous, so
+  // nobody feels dwarfed looking up (an earlier 320 made the player tiny).
+  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 200;
 
   // ── Light: a dim violet wash + warm points so candles read, never flat ──
   scene.add(new THREE.HemisphereLight(0x3a2d66, 0x0a0714, 0.9));
@@ -135,7 +137,7 @@ function buildManorScene() {
   scene.add(chand);
 
   // ── Wall sconces (emissive only — the two warm point-lights carry the room) ──
-  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 170, sz, 0.9);
+  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 128, sz, 0.9);
 
   // ── Eight four-poster bed-chambers at the spots main defines ──
   const bedCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
