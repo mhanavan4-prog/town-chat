@@ -943,7 +943,7 @@ function renderBoonDraft() {
 // setCovenUnread handles the read-badge reset.
 // ---------------------------------------------------------------------------
 
-function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth }) {
+function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout }) {
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
 function refreshCovenMenuRow() {
@@ -997,6 +997,26 @@ function renderCovenModal() {
         });
         pick.appendChild(b);
       }
+    }
+    // Founding a coven needs a one-time Coven Charter (Session N). Label the
+    // button for what the next click will do: found (charter in hand) or buy.
+    // Restore the name/sigil the player typed before being sent to Stripe to buy
+    // their Charter, so a round-trip through checkout doesn't lose their work.
+    try {
+      const pend = JSON.parse(localStorage.getItem('tc_pending_coven') || 'null');
+      if (pend && pend.name) {
+        const nameEl = document.getElementById('covenNameInput');
+        if (nameEl && !nameEl.value) nameEl.value = pend.name;
+        if (pend.sigil) covenPickedSigil = pend.sigil;
+        localStorage.removeItem('tc_pending_coven');
+      }
+    } catch (e) {}
+    const info = (typeof getCovenCharterInfo === 'function' && getCovenCharterInfo()) || { charters: 0, charterPriceCents: 999, paymentsEnabled: false };
+    const createBtn = document.getElementById('covenCreateBtn');
+    if (createBtn) {
+      if ((info.charters || 0) >= 1) createBtn.textContent = '🌙 Found the coven (Charter ready)';
+      else if (info.paymentsEnabled) createBtn.textContent = `Found a coven — $${((info.charterPriceCents || 999) / 100).toFixed(2)} one-time`;
+      else createBtn.textContent = 'Found the coven';
     }
     return;
   }
@@ -1120,8 +1140,18 @@ function refreshCovenTableVisual() {
   });
   const create = document.getElementById('covenCreateBtn');
   if (create) create.addEventListener('click', () => {
-    const name = document.getElementById('covenNameInput').value.trim();
     document.getElementById('covenErr').textContent = '';
+    const info = (typeof getCovenCharterInfo === 'function' && getCovenCharterInfo()) || { charters: 0, paymentsEnabled: false };
+    // No Charter yet → send them to buy one (unless payments are off, in which
+    // case let the server respond with its own guidance).
+    if ((info.charters || 0) < 1 && info.paymentsEnabled && typeof startCharterCheckout === 'function') {
+      const name = document.getElementById('covenNameInput').value.trim();
+      if (name.length < 3) { document.getElementById('covenErr').textContent = 'Name your coven first (3–24 characters), then buy its Charter.'; return; }
+      try { localStorage.setItem('tc_pending_coven', JSON.stringify({ name, sigil: covenPickedSigil || getCovenSigilsCatalog()[0] })); } catch (e) {}
+      startCharterCheckout(create);
+      return;
+    }
+    const name = document.getElementById('covenNameInput').value.trim();
     getWs().send(JSON.stringify({ type: 'coven_create', name, sigil: covenPickedSigil || getCovenSigilsCatalog()[0] }));
   });
   const invite = document.getElementById('covenInviteBtn');
@@ -13259,6 +13289,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'coven_state') {
     covenState = msg.coven || null;
+    if (msg.charters != null) covenCharterInfo = { charters: msg.charters || 0, charterPriceCents: msg.charterPriceCents || 999, paymentsEnabled: !!msg.paymentsEnabled };
     refreshCovenMenuRow();
     if (Modals.isOpen('covenModalOpen')) renderCovenModal();
     return;
@@ -13283,6 +13314,12 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'coven_error') {
+    if (msg.needCharter) {
+      // Sync the charter state from the server so the create button relabels to
+      // "Found a coven — $X" and the next click starts checkout.
+      covenCharterInfo = { charters: 0, charterPriceCents: msg.priceCents || covenCharterInfo.charterPriceCents, paymentsEnabled: !!msg.paymentsEnabled };
+      if (Modals.isOpen('covenModalOpen')) renderCovenModal();
+    }
     if (Modals.isOpen('covenModalOpen')) document.getElementById('covenErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
@@ -14512,6 +14549,7 @@ let calendarState = null;           // { tourney, festival, bloodMoon, season, p
 let weeklyDelveModsClient = [];     // [{ id, name, icon, desc }]
 let covenSigilsCatalog = ['🕯️', '🌙', '🦇', '🐈‍⬛', '🕸️', '🌿', '⭐', '🔮', '🗝️', '🥀'];
 let covenState = null;              // server coven_state payload (.coven or null)
+let covenCharterInfo = { charters: 0, charterPriceCents: 999, paymentsEnabled: false }; // Session N: founding entitlement
 let covenUnread = 0;
 let covenChatLines = [];            // [{ who, sigil, text }] (in-memory, last 60)
 let delveState = null;              // last delve_state payload
@@ -15303,6 +15341,31 @@ if (unlockBtn) {
   unlockBtn.addEventListener('click', () => startPassCheckout(unlockBtn));
 }
 
+// Session N: buy a one-time Coven Charter, then bounce through Stripe. On return,
+// checkReturnFromCheckout() verifies it and the Coven menu shows it's ready.
+async function startCharterCheckout(btn) {
+  let token = '';
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) token = a.token; } catch (e) {}
+  if (!token) { setUnlockToast('Log into an account first — a Coven Charter follows your account.'); return; }
+  const restore = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const rt = await requestResumeToken();
+    if (rt) sessionStorage.setItem('tc_resume', JSON.stringify({ token: rt, name: me ? me.name : '', at: Date.now() }));
+  } catch (e) {}
+  fetch(apiUrlMaybe('/api/checkout'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ product: 'coven_charter', account_token: token })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.url) window.location.href = data.url;
+      else { showCheckoutProblem(data.error || 'Could not start checkout.'); if (btn) { btn.disabled = false; btn.textContent = restore; } }
+    })
+    .catch(() => { showCheckoutProblem('Could not reach the server — is it still running?'); if (btn) { btn.disabled = false; btn.textContent = restore; } });
+}
+
 // State shared between the checkout-return check (runs at load, below) and
 // the auto-resume + init paths further down: whether this page load IS a
 // bounce-back from Stripe, a toast to show once the world exists, and a
@@ -15352,6 +15415,27 @@ function claimPassOnConnection(force) {
     const askMsBalance = () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ms_balance' })); };
     setTimeout(askMsBalance, 2500);
     setTimeout(askMsBalance, 6000);
+    return;
+  }
+  const charterSessionId = params.get('charter_session');
+  if (charterSessionId) {
+    // Bounce-back from a Coven Charter checkout — verify (replay-proof server
+    // side), toast the result, and re-ask coven_state so the modal shows the
+    // charter is ready to spend on founding a coven.
+    returnedFromCheckout = true;
+    history.replaceState(null, '', location.pathname + (params.get('testdrive') === '1' ? '?testdrive=1' : ''));
+    let acctToken = '';
+    try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
+    fetch(apiUrlMaybe('/api/verify-charter?session_id=' + encodeURIComponent(charterSessionId)
+          + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : '')))
+      .then(r => r.json())
+      .then(data => {
+        if (data.granted) setUnlockToast('🌙 Coven Charter ready — open the Coven menu to found your coven!');
+        else if (data.charters != null) setUnlockToast('🌙 That charter was already credited — you hold ' + data.charters + '. Open the Coven menu to found your coven.');
+        else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the Coven Charter.'));
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify the Coven Charter — it will retry next visit.'));
+    setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' })); }, 2500);
     return;
   }
   if (!sessionId && !canceled) return;
@@ -20790,6 +20874,7 @@ const _coven = createCoven({
   getCovenUnread: () => covenUnread, setCovenUnread: (v) => { covenUnread = v; },
   getCovenChatLines: () => covenChatLines, getCovenSigilsCatalog: () => covenSigilsCatalog,
   getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
+  getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout,
 });
 const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual } = _coven;
 

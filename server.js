@@ -121,6 +121,10 @@ const TOWN_PASS_HOURS = parseFloat(process.env.TOWN_PASS_HOURS) || 24;
 const TOWN_PASS30_PRICE_CENTS = parseInt(process.env.TOWN_PASS30_PRICE_CENTS, 10) || 499;
 const TOWN_PASS30_HOURS = parseFloat(process.env.TOWN_PASS30_HOURS) || 24 * 30;
 const IAP_PRODUCT30_ID = process.env.IAP_PRODUCT30_ID || 'town_pass_30d';
+// The Coven Charter (Session N) — a one-time real-money purchase that lets an
+// account FOUND a coven (and thus its private Moot-Stone world). Joining a coven
+// by invite stays free, so one buyer can bring up to 8 people in. Default $9.99.
+const COVEN_CHARTER_PRICE_CENTS = parseInt(process.env.COVEN_CHARTER_PRICE_CENTS, 10) || 999;
 // The rooms the pass unlocks. Everything not listed here is free.
 const LOCKED_ROOMS = new Set(['lounge', 'arcade']);
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
@@ -259,6 +263,7 @@ app.get('/api/config', (req, res) => {
     townPassHours: TOWN_PASS_HOURS,
     townPass30PriceCents: TOWN_PASS30_PRICE_CENTS,
     townPass30Hours: TOWN_PASS30_HOURS,
+    covenCharterPriceCents: COVEN_CHARTER_PRICE_CENTS,
     lockedRooms: [...LOCKED_ROOMS]
   });
 });
@@ -462,6 +467,31 @@ app.post('/api/checkout', async (req, res) => {
         detail: { product, kind: 'moonstones', amountCents: pack.cents } });
       return res.json({ url: session.url });
     }
+    if (product === 'coven_charter') {
+      const accountKey = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
+      if (!accountKey) return res.status(400).json({ error: 'Log into an account first — a Coven Charter follows your account.' });
+      const session = await stripeClient.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        metadata: { coven_charter: '1' },
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            unit_amount: COVEN_CHARTER_PRICE_CENTS,
+            product_data: {
+              name: 'Thornreach — Coven Charter',
+              description: 'Found your own coven and its private Moot-Stone world. Invite up to 8 — only the founder pays.'
+            }
+          },
+          quantity: 1
+        }],
+        success_url: `${origin}/?charter_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/?pass_cancel=1`
+      });
+      audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
+        detail: { product: 'coven_charter', kind: 'coven_charter', amountCents: COVEN_CHARTER_PRICE_CENTS } });
+      return res.json({ url: session.url });
+    }
     // Two shapes of the same pass: the day pass (default — the original
     // behavior) and the 30-day Resident Pass (Session L).
     const isResident = product === 'pass30';
@@ -662,6 +692,29 @@ app.get('/api/verify-ms-session', async (req, res) => {
     audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req),
       detail: { at: 'verify-ms-session', message: err.message } });
     console.error('MS verify error:', err.message);
+    res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
+  }
+});
+
+// Confirms a Coven Charter Checkout session got paid, then credits one charter
+// to the buyer's account — replay-proof by the Stripe session id.
+app.get('/api/verify-charter', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ granted: 0, error: 'Payments are not set up on this server yet.' });
+  const sessionId = req.query.session_id;
+  const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
+  if (!sessionId) return res.status(400).json({ granted: 0, error: 'Missing session_id.' });
+  if (!accountKey) return res.status(401).json({ granted: 0, error: 'Log into your account to claim this Coven Charter.' });
+  try {
+    const session = await stripeClient.checkout.sessions.retrieve(String(sessionId));
+    if (session.payment_status !== 'paid') return res.json({ granted: 0 });
+    if (!(session.metadata && session.metadata.coven_charter)) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Coven Charter.' });
+    const g = grantCharter('charter_' + String(sessionId), accountKey);
+    audit.log({ level: 'info', type: g.granted > 0 ? 'charter_purchased' : 'charter_replay',
+      ip: audit.clientIp(req), account: accountKey, detail: { charters: g.balance } });
+    res.json({ granted: g.granted, charters: g.balance });
+  } catch (err) {
+    audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req), detail: { at: 'verify-charter', message: err.message } });
+    console.error('Charter verify error:', err.message);
     res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
   }
 });
@@ -962,6 +1015,32 @@ function saveAccounts() { persistSave('accounts', ACCOUNTS_FILE, accounts); }
 const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 const sessions = new Map();      // token -> usernameLower
+
+// ── Coven Charters (Session N) ──────────────────────────────────────────────
+// A one-time real-money entitlement to FOUND a coven. `grants` dedupes by Stripe
+// session id (replays/restarts never double-credit); `balance` is how many
+// unused charters an account holds. Founding a coven consumes one.
+const CHARTERS_FILE = path.join(DATA_DIR, 'covenCharters.json');
+const covenCharters = persistLoad('covenCharters', CHARTERS_FILE) || {};
+if (!covenCharters.grants) covenCharters.grants = {};
+if (!covenCharters.balance) covenCharters.balance = {};
+persistRegister('covenCharters', CHARTERS_FILE, () => covenCharters);
+function saveCharters() { persistSave('covenCharters', CHARTERS_FILE, covenCharters); }
+function charterBalance(key) { return covenCharters.balance[key] || 0; }
+function grantCharter(grantId, accountKey) {
+  if (!accountKey) return { granted: 0, balance: 0 };
+  if (covenCharters.grants[grantId]) return { granted: 0, balance: charterBalance(accountKey) }; // replay
+  covenCharters.grants[grantId] = { key: accountKey, at: Date.now() };
+  covenCharters.balance[accountKey] = charterBalance(accountKey) + 1;
+  saveCharters();
+  return { granted: 1, balance: covenCharters.balance[accountKey] };
+}
+function consumeCharter(accountKey) {
+  if (charterBalance(accountKey) < 1) return false;
+  covenCharters.balance[accountKey] -= 1;
+  saveCharters();
+  return true;
+}
 
 // ── Password reset + email (Session N) ──────────────────────────────────────
 // Email-based reset. Tokens are stored HASHED (so a DB/backup leak can't be
@@ -7839,8 +7918,11 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'coven_state') {
       if (!player.accountKey) { send(ws, { type: 'coven_error', message: 'Covens are for townsfolk with an account — log in first.' }); return; }
       const cv = covenOf(player.accountKey);
-      if (cv) send(ws, { type: 'coven_state', ...covenStatePayload(cv, player.accountKey) });
-      else send(ws, { type: 'coven_state', coven: null });
+      // charters/charterPriceCents let the "found a coven" UI know whether this
+      // account already holds a Charter or needs to buy one first.
+      const charterInfo = { charters: charterBalance(player.accountKey), charterPriceCents: COVEN_CHARTER_PRICE_CENTS, paymentsEnabled: !!stripeClient };
+      if (cv) send(ws, { type: 'coven_state', ...covenStatePayload(cv, player.accountKey), ...charterInfo });
+      else send(ws, { type: 'coven_state', coven: null, ...charterInfo });
       return;
     }
 
@@ -7855,23 +7937,27 @@ wss.on('connection', (ws, req) => {
         return;
       }
       const sigil = COVEN_SIGILS.includes(msg.sigil) ? msg.sigil : COVEN_SIGILS[0];
-      const acct = ensureBankAccount(player.accountKey);
-      if (acct.balance < COVEN_CREATE_COST) {
-        send(ws, { type: 'coven_error', message: `Founding a coven costs ${COVEN_CREATE_COST} gold (your bank holds ${acct.balance}).` });
+      // Founding a coven requires a one-time Coven Charter (real money, Session N) —
+      // it's how a private Moot-Stone world is "bought". Joining by invite stays
+      // free, so one founder brings up to 8 people into the world they paid for.
+      if (charterBalance(player.accountKey) < 1) {
+        send(ws, { type: 'coven_error', needCharter: true,
+          priceCents: COVEN_CHARTER_PRICE_CENTS, paymentsEnabled: !!stripeClient,
+          message: 'Founding a coven needs a Coven Charter — it opens your own private world for you and up to 8 friends.' });
         return;
       }
-      acct.balance -= COVEN_CREATE_COST;
-      saveBankAccounts();
+      consumeCharter(player.accountKey);
       const id = makeId();
       covens[id] = {
         id, name, nameLower, sigil, createdAt: Date.now(),
         leaderKey: player.accountKey, members: [player.accountKey],
         motd: '', bank: { gold: 0, slots: new Array(COVEN_BANK_SLOTS).fill(null) },
-        log: [], table: null
+        log: [], table: null, chartered: true, charteredAt: Date.now()
       };
       covenIndex.set(player.accountKey, id);
       covenLog(covens[id], player.name, 'founded the coven');
       saveCoven(id);
+      audit.log({ level: 'info', type: 'coven_founded', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: id, name } });
       send(ws, { type: 'coven_state', ...covenStatePayload(covens[id], player.accountKey) });
       broadcastAll({ type: 'announce', message: `${sigil} A new coven gathers: ${name}!` });
       return;
@@ -8546,6 +8632,7 @@ global.__testHooks = {
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
+  covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets,
