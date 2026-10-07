@@ -4675,6 +4675,15 @@ function manorStateBody(cv, viewerKey) {
   }
   return { bedrooms, yours, count: MANOR_BEDROOMS };
 }
+// A claimed bed doubles as personal storage. The chest is keyed to the member's
+// account (not the bed slot) and persisted on the coven, so it follows them if
+// they switch beds and is never exposed to whoever takes their old room.
+const MANOR_STORAGE_SLOTS = 12;
+function manorChest(cv, key) {
+  if (!cv.manorStorage) cv.manorStorage = {};
+  if (!Array.isArray(cv.manorStorage[key])) cv.manorStorage[key] = new Array(MANOR_STORAGE_SLOTS).fill(null);
+  return cv.manorStorage[key];
+}
 
 // Bank Vault — a small sub-room reached from inside the Bank's own
 // interior (not from the town/wilds directly), same idea as the Witch's
@@ -8207,6 +8216,55 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── Bedroom storage (a claimed bed doubles as a personal chest) ──────────
+    // The chest is keyed to the ACCOUNT, not the slot, and reached by pressing F
+    // on your own bed — so switching beds (or someone else taking your old one)
+    // can never expose your items. You must own a bedroom in this manor to use it.
+    if (msg.type === 'manor_storage_open' || msg.type === 'manor_storage_deposit' || msg.type === 'manor_storage_withdraw') {
+      if (player.room !== 'manor') return;
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'manor_error', message: 'You belong to no coven.' }); return; }
+      const slot = Number(msg.slot);
+      // The player must own the bed they're acting on.
+      if (!cv.manorBedrooms || cv.manorBedrooms[slot] !== player.accountKey) {
+        send(ws, { type: 'manor_error', message: 'That chest isn’t yours — claim your own chamber first.' });
+        return;
+      }
+      const chest = manorChest(cv, player.accountKey);
+
+      if (msg.type === 'manor_storage_deposit') {
+        const inv = getInventory(player);
+        const invIdx = Math.floor(Number(msg.invIdx));
+        const stack = inv.slots[invIdx];
+        if (!stack) return;
+        const existing = chest.find(s => s && s.itemId === stack.itemId);
+        const empty = chest.findIndex(s => !s);
+        if (existing) existing.qty += stack.qty;
+        else if (empty !== -1) chest[empty] = { itemId: stack.itemId, qty: stack.qty };
+        else { send(ws, { type: 'manor_error', message: 'Your chamber chest is full.' }); return; }
+        inv.slots[invIdx] = null;
+        if (player.accountKey) saveInventories();
+        saveCoven(cv.id);
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      } else if (msg.type === 'manor_storage_withdraw') {
+        const chestIdx = Math.floor(Number(msg.chestIdx));
+        const stack = chest[chestIdx];
+        if (!stack) return;
+        const inv = getInventory(player);
+        if (!addItemToAccount(inv, stack.itemId, stack.qty)) {
+          send(ws, { type: 'manor_error', message: 'Your pack has no room for that.' });
+          return;
+        }
+        chest[chestIdx] = null;
+        if (player.accountKey) saveInventories();
+        saveCoven(cv.id);
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      }
+
+      send(ws, { type: 'manor_storage_state', slot, slots: chest.map(s => s ? { itemId: s.itemId, qty: s.qty } : null) });
+      return;
+    }
+
     if (msg.type === 'enter_vault') {
       if (player.room !== 'bank' || player.isDead) return;
       player.vaultReturnX = player.x;
@@ -8643,7 +8701,7 @@ global.__testHooks = {
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
-  MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody,
+  MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets,

@@ -104,27 +104,8 @@ function buildManorScene() {
   banner.position.set(W / 2, WALL_H * 0.6, 8);
   scene.add(banner);
 
-  // ── Central great table + two thrones ──
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x2a1d12 });
-  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(300, 16, 110), woodMat);
-  tableTop.position.set(W / 2, 46, D / 2);
-  scene.add(tableTop);
-  for (const [ox, oz] of [[-135, -46], [135, -46], [-135, 46], [135, 46]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(14, 46, 14), woodMat);
-    leg.position.set(W / 2 + ox, 23, D / 2 + oz);
-    scene.add(leg);
-  }
-  const clothMat = new THREE.MeshLambertMaterial({ color: 0x5a2a6e });
-  for (const oz of [-95, 95]) {
-    const throne = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 10, 40), woodMat); seat.position.y = 42; throne.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(44, 70, 10), woodMat); back.position.set(0, 78, oz < 0 ? -15 : 15); throne.add(back);
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(38, 6, 34), clothMat); cushion.position.y = 49; throne.add(cushion);
-    throne.position.set(W / 2, 0, D / 2 + oz);
-    scene.add(throne);
-  }
-  // Candelabra down the longer table.
-  for (const ox of [-110, -55, 0, 55, 110]) addCandle(scene, W / 2 + ox, 55, D / 2, 1.0);
+  // (The central great table + thrones were removed — they ate too much of the
+  // floor. The hall's centre is left open; the sigil rug is the centrepiece.)
 
   // ── Chandelier overhead (purely decorative; the point-light above does the lighting) ──
   const chand = new THREE.Group();
