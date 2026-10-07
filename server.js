@@ -4660,8 +4660,8 @@ const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
 // else so only your coven is ever inside. Each coven member can claim one of the
 // 8 bedrooms as their own — persisted on the coven record.
 const MANOR_WILDS_SPOT = { x: 3000, y: 3000 };   // where the manor stands in the wilds
-const MANOR_INTERIOR = { width: 560, height: 560 };
-const MANOR_SPAWN = { x: 280, y: 500 };          // just inside the south door
+const MANOR_INTERIOR = { width: 1120, height: 1120 }; // roomy hall — 4× the original floor so 8 members aren't cramped
+const MANOR_SPAWN = { x: 560, y: 1040 };          // just inside the south door
 const MANOR_BEDROOMS = 8;
 // The bedroom ownership map for a coven's manor, resolved to display names.
 function manorStateBody(cv, viewerKey) {

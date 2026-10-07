@@ -6780,17 +6780,19 @@ const { buildVaultScene } = createVaultScene({
 // ---------------------------------------------------------------------------
 let manorScene, manorCamera;
 let manorEmbers = null;                                   // { points, vel, W, D, WALL_H } — ticked in the render loop
-const MANOR_WORLD = { width: 560, height: 560, buildings: [], spawn: { x: 280, y: 500 } };
+const MANOR_WORLD = { width: 1120, height: 1120, buildings: [], spawn: { x: 560, y: 1040 } };
 // slot -> { x, y, rot }. 4 along the north wall, 2 each on the east/west walls.
+// Beds hug the walls (fixed ~86u offset) and spread along the now-doubled hall,
+// so the big central floor stays open to move around in.
 const MANOR_BED_SPOTS = [
-  { x: 95,  y: 86,  rot: 0 },               // 0  N
-  { x: 225, y: 86,  rot: 0 },               // 1  N
-  { x: 335, y: 86,  rot: 0 },               // 2  N
-  { x: 465, y: 86,  rot: 0 },               // 3  N
-  { x: 474, y: 205, rot: -Math.PI / 2 },    // 4  E
-  { x: 474, y: 335, rot: -Math.PI / 2 },    // 5  E
-  { x: 86,  y: 205, rot: Math.PI / 2 },     // 6  W
-  { x: 86,  y: 335, rot: Math.PI / 2 },     // 7  W
+  { x: 190, y: 86,  rot: 0 },               // 0  N
+  { x: 435, y: 86,  rot: 0 },               // 1  N
+  { x: 685, y: 86,  rot: 0 },               // 2  N
+  { x: 930, y: 86,  rot: 0 },               // 3  N
+  { x: 1034, y: 400, rot: -Math.PI / 2 },   // 4  E
+  { x: 1034, y: 720, rot: -Math.PI / 2 },   // 5  E
+  { x: 86,   y: 400, rot: Math.PI / 2 },    // 6  W
+  { x: 86,   y: 720, rot: Math.PI / 2 },    // 7  W
 ];
 // Exit sits at the south door; one claim kiosk per bed (manorBed = slot).
 const MANOR_KIOSKS = [
