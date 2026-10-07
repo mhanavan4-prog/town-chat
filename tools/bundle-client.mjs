@@ -24,6 +24,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
+import crypto from 'node:crypto';
 
 const ROOT = path.resolve(url.fileURLToPath(import.meta.url), '..', '..');
 const ENTRY = path.join(ROOT, 'client', 'main.js');
@@ -73,4 +74,24 @@ function process(file) {
 process(ENTRY);
 const bundle = '(() => {\n"use strict";\n' + chunks.join('\n') + '\n})();\n';
 fs.writeFileSync(OUT, bundle);
-console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines)`);
+
+// Cache-busting: stamp index.html's <script src="client.js"> with a short hash
+// of the bundle's contents. A changed bundle gets a new URL (client.js?v=HASH),
+// which is a guaranteed cache miss at every layer — the browser AND any CDN in
+// front (Cloudflare caches .js by extension and can serve a stale copy for a
+// long time otherwise, stranding players on an old build after a deploy). The
+// server serves client.js?v=… as plain client.js (express.static ignores the
+// query), and index.html itself is sent no-cache so it's always fresh enough to
+// carry the new hash. index.html is committed alongside client.js, so the two
+// can never drift.
+const HASH = crypto.createHash('sha256').update(bundle).digest('hex').slice(0, 10);
+const INDEX = path.join(ROOT, 'public', 'index.html');
+let html = fs.readFileSync(INDEX, 'utf8');
+const before = html;
+html = html.replace(/(<script\s+src=")client\.js(?:\?v=[0-9a-f]+)?(")/i, `$1client.js?v=${HASH}$2`);
+if (html === before && /client\.js/.test(before)) {
+  throw new Error('bundle-client: could not find the <script src="client.js"> tag to version in public/index.html');
+}
+if (html !== before) fs.writeFileSync(INDEX, html);
+
+console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines) · stamped index.html client.js?v=${HASH}`);
