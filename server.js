@@ -147,7 +147,22 @@ const townPasses = loadTownPasses(); // accountKey -> expiresAt (ms)
 persistRegister('townPasses', TOWN_PASS_FILE, () => townPasses);
 const passSessions = new Map();      // stripe checkout session id -> expiresAt (ms)
 
+// Admin / developer accounts. Set ADMIN_ACCOUNTS on the server to a comma-
+// separated list of account names (case-insensitive), e.g.
+//   ADMIN_ACCOUNTS=michael,tester
+// Any logged-in player on that list is treated as an admin: every locked
+// building opens for them and founding a coven needs no paid Charter, so the
+// whole world (Town Pass rooms, the Moot Stone, the Manor) can be walked
+// through for testing. Guests are never admins — it keys off the account.
+const ADMIN_ACCOUNTS = new Set(
+  (process.env.ADMIN_ACCOUNTS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+);
+function isAdmin(player) {
+  return !!(player && player.accountKey && ADMIN_ACCOUNTS.has(player.accountKey));
+}
+
 function hasTownPass(player) {
+  if (isAdmin(player)) return true; // admins walk through every locked door
   const now = Date.now();
   if (player.passUntil && player.passUntil > now) return true;
   if (player.accountKey && townPasses[player.accountKey] > now) {
@@ -5518,7 +5533,7 @@ wss.on('connection', (ws, req) => {
         if ((resume.passUntil || 0) > player.passUntil) player.passUntil = resume.passUntil;
         const knownRoom = (r) => r === 'outside' || r === 'wilds' || r === 'witch_cave'
           || r === 'bank_vault' || r === 'ember_wastes' || WORLD.buildings.some(b => b.id === r);
-        if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && player.passUntil <= Date.now())) {
+        if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !hasTownPass(player))) {
           player.room = 'outside';
           player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
           player.x = WORLD.spawn.x;
@@ -5599,9 +5614,15 @@ wss.on('connection', (ws, req) => {
           price30Cents: TOWN_PASS30_PRICE_CENTS,
           hours30: TOWN_PASS30_HOURS,
           product30: IAP_PRODUCT30_ID,
-          paymentsEnabled: !!stripeClient
+          paymentsEnabled: !!stripeClient,
+          isAdmin: isAdmin(player) // dev/admin account — client opens every locked door too
         }
       });
+      // Accountability: note when an admin/dev account comes online with its
+      // elevated access (all locked doors open, free coven founding).
+      if (isAdmin(player)) {
+        audit.log({ level: 'warn', type: 'admin_session', ip: ws._ip, account: player.accountKey, name: player.name });
+      }
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
@@ -7964,13 +7985,18 @@ wss.on('connection', (ws, req) => {
       // Founding a coven requires a one-time Coven Charter (real money, Session N) —
       // it's how a private Moot-Stone world is "bought". Joining by invite stays
       // free, so one founder brings up to 8 people into the world they paid for.
-      if (charterBalance(player.accountKey) < 1) {
+      if (charterBalance(player.accountKey) < 1 && !isAdmin(player)) {
         send(ws, { type: 'coven_error', needCharter: true,
           priceCents: COVEN_CHARTER_PRICE_CENTS, paymentsEnabled: !!stripeClient,
           message: 'Founding a coven needs a Coven Charter — it opens your own private world for you and up to 8 friends.' });
         return;
       }
-      consumeCharter(player.accountKey);
+      // Admins found for free (no Charter consumed) so coven/Moot/Manor content is testable.
+      if (isAdmin(player)) {
+        audit.log({ level: 'info', type: 'admin_coven_free', ip: ws._ip, account: player.accountKey, name: player.name, detail: { name } });
+      } else {
+        consumeCharter(player.accountKey);
+      }
       const id = makeId();
       covens[id] = {
         id, name, nameLower, sigil, createdAt: Date.now(),
@@ -8724,7 +8750,7 @@ global.__testHooks = {
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
-  townPasses, passSessions, hasTownPass, grantForSession,
+  townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS,
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
@@ -8763,6 +8789,9 @@ server.listen(PORT, () => {
   console.log(ADMIN_KEY
     ? 'Security console: ON  (/admin — needs ADMIN_KEY)' + (process.env.ALERT_WEBHOOK_URL ? ' · alerts: ON' : ' · alerts: OFF (set ALERT_WEBHOOK_URL)')
     : 'Security console: OFF (set ADMIN_KEY to enable /admin)');
+  console.log(ADMIN_ACCOUNTS.size
+    ? `Admin accounts: ON (${[...ADMIN_ACCOUNTS].join(', ')} — all doors open, free coven founding)`
+    : 'Admin accounts: OFF (set ADMIN_ACCOUNTS=name1,name2 to grant testing access)');
   // Config fingerprint at boot — a price/flag change between restarts shows up
   // as a diff in the log without needing a separate runtime "config changed" path.
   audit.log({ level: 'info', type: 'server_start', detail: {

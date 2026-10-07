@@ -12950,10 +12950,12 @@ function onWsMessage(ev) {
       townPassPriceCents = msg.townPass.priceCents || townPassPriceCents;
       townPassHours = msg.townPass.hours || townPassHours;
       paymentsEnabled = !!msg.townPass.paymentsEnabled;
+      amAdmin = !!msg.townPass.isAdmin; // dev account — every locked door opens
       if (msg.townPass.passUntil > Date.now()) {
         passUntil = msg.townPass.passUntil;
         localStorage.setItem('tc_pass_until', String(passUntil));
       }
+      if (amAdmin) setUnlockToast('🔑 Admin access — every door is open for testing.');
       refreshUnlockUI();
       refreshPassHud();
       if (typeof refreshBuildingLockVisuals === 'function') refreshBuildingLockVisuals();
@@ -14351,7 +14353,8 @@ let lockedRooms = new Set(['lounge', 'arcade']); // refreshed from init/config
 let passUntil = parseInt(localStorage.getItem('tc_pass_until') || '0', 10) || 0;
 
 function passSessionReceipt() { return localStorage.getItem('tc_pass_session') || ''; }
-function hasTownPass() { return passUntil > Date.now(); }
+let amAdmin = false; // set from the init payload for dev/admin accounts
+function hasTownPass() { return amAdmin || passUntil > Date.now(); }
 function storePassReceipt(sessionId, expiresAt) {
   if (sessionId) localStorage.setItem('tc_pass_session', sessionId);
   if (expiresAt) {
