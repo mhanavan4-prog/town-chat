@@ -178,11 +178,19 @@ function submitAccount(endpoint) {
   const username = accountUserInput.value.trim();
   const password = accountPassInput.value;
   if (!username || !password) { setAccountStatus('Enter a username and password.', true); return; }
+  // Age gate: creating an account requires confirming 18+. Login doesn't
+  // re-ask (the attestation is already on file from registration).
+  const over18El = document.getElementById('accountOver18');
+  const over18 = !!(over18El && over18El.checked);
+  if (endpoint === 'register' && !over18) {
+    setAccountStatus('You must confirm you are 18 or older to create an account.', true);
+    return;
+  }
   setAccountStatus(endpoint === 'register' ? 'Creating account…' : 'Logging in…');
   fetch(apiUrl('/api/' + endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, password, over18 })
   })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
