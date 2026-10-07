@@ -987,7 +987,7 @@ function decorPublicState(player) {
 }
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'manor'].forEach(r => ROOM_IDS.add(r));
 
 const { COLORS } = require('./data/gameConstants'); // Tier 3.4 Phase A: extracted to data/
 
@@ -4736,6 +4736,29 @@ function getQuestHint(quest, progress) {
 const WITCH_CAVE_ENTRANCE = { x: 2000, y: 2000 };
 const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
 
+// ── The Coven Manor (Session N) ─────────────────────────────────────────────
+// An 8-bedroom mansion that stands in the Wilds of a COVEN'S PRIVATE WORLD (only
+// reachable while inside your coven's Moot-Stone instance). Entered from a spot
+// in the wilds; the interior is its own room, instance-scoped like everything
+// else so only your coven is ever inside. Each coven member can claim one of the
+// 8 bedrooms as their own — persisted on the coven record.
+const MANOR_WILDS_SPOT = { x: 3000, y: 3000 };   // where the manor stands in the wilds
+const MANOR_INTERIOR = { width: 560, height: 560 };
+const MANOR_SPAWN = { x: 280, y: 500 };          // just inside the south door
+const MANOR_BEDROOMS = 8;
+// The bedroom ownership map for a coven's manor, resolved to display names.
+function manorStateBody(cv, viewerKey) {
+  const rooms = (cv && cv.manorBedrooms) || {};
+  const bedrooms = {};
+  let yours = null;
+  for (let i = 0; i < MANOR_BEDROOMS; i++) {
+    const key = rooms[i] || null;
+    bedrooms[i] = key ? { key, name: (accounts[key] && accounts[key].username) || key } : null;
+    if (key && key === viewerKey) yours = i;
+  }
+  return { bedrooms, yours, count: MANOR_BEDROOMS };
+}
+
 // Bank Vault — a small sub-room reached from inside the Bank's own
 // interior (not from the town/wilds directly), same idea as the Witch's
 // Cave but nested one level deeper. No distance gate on entry since it's
@@ -5030,6 +5053,7 @@ function describeRoom(roomId) {
 function roomBounds(room) {
   if (room === 'wilds') return WORLD2;
   if (room === 'witch_cave') return { width: 800, height: 700 };
+  if (room === 'manor') return MANOR_INTERIOR;
   if (room === 'bank_vault') return VAULT_WORLD_DIMS;
   if (room === 'ember_wastes') return EMBER_WORLD_DIMS;
   if (typeof room === 'string' && room.startsWith('dungeon_')) return { width: DUNGEON_SIZE, height: DUNGEON_SIZE };
@@ -8197,6 +8221,64 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── The Coven Manor (Session N) ─────────────────────────────────────────
+    if (msg.type === 'enter_manor') {
+      if (player.room !== 'wilds' || player.isDead) return;
+      // Only reachable inside your OWN coven's private world.
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv || player.instance !== 'coven_' + cv.id) {
+        send(ws, { type: 'manor_error', message: 'The Manor stands only in your coven’s own world — step through the Moot Stone first.' });
+        return;
+      }
+      if (Math.hypot(player.x - MANOR_WILDS_SPOT.x, player.y - MANOR_WILDS_SPOT.y) > 200) return;
+      player.manorReturnX = player.x; player.manorReturnY = player.y;
+      player.room = 'manor';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = MANOR_SPAWN.x; player.y = MANOR_SPAWN.y;
+      send(ws, { type: 'manor_entered', spawn: MANOR_SPAWN, covenName: cv.name, ...manorStateBody(cv, player.accountKey) });
+      audit.log({ level: 'info', type: 'manor_enter', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id } });
+      return;
+    }
+
+    if (msg.type === 'exit_manor') {
+      if (player.room !== 'manor') return;
+      const rx = player.manorReturnX || MANOR_WILDS_SPOT.x;
+      const ry = player.manorReturnY || (MANOR_WILDS_SPOT.y + 80);
+      player.room = 'wilds';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = rx; player.y = ry;
+      player.manorReturnX = null; player.manorReturnY = null;
+      send(ws, { type: 'manor_exited', x: rx, y: ry });
+      return;
+    }
+
+    if (msg.type === 'manor_claim_bedroom') {
+      if (player.room !== 'manor') return;
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'manor_error', message: 'You belong to no coven.' }); return; }
+      const slot = Number(msg.slot);
+      if (!Number.isInteger(slot) || slot < 0 || slot >= MANOR_BEDROOMS) return;
+      if (!cv.manorBedrooms) cv.manorBedrooms = {};
+      const occupant = cv.manorBedrooms[slot];
+      if (occupant && occupant !== player.accountKey) {
+        send(ws, { type: 'manor_error', message: 'That room is already claimed — pick an empty door.' });
+        return;
+      }
+      // One bedroom per member: release any room they already held, then take this one.
+      for (const s of Object.keys(cv.manorBedrooms)) if (cv.manorBedrooms[s] === player.accountKey) delete cv.manorBedrooms[s];
+      cv.manorBedrooms[slot] = player.accountKey;
+      saveCoven(cv.id);
+      covenLog(cv, player.name, 'took a bedroom in the Manor');
+      // Push the new ownership map to everyone currently in THIS coven's manor.
+      for (const p of players.values()) {
+        if (p.room === 'manor' && p.accountKey) {
+          const pcv = covenOf(p.accountKey);
+          if (pcv && pcv.id === cv.id) send(p.ws, { type: 'manor_state', ...manorStateBody(cv, p.accountKey) });
+        }
+      }
+      return;
+    }
+
     if (msg.type === 'enter_vault') {
       if (player.room !== 'bank' || player.isDead) return;
       player.vaultReturnX = player.x;
@@ -8633,6 +8715,7 @@ global.__testHooks = {
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
+  MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets,
