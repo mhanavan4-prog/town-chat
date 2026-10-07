@@ -240,11 +240,14 @@ setTimeout(async () => {
   hooks.accounts.matriarch1 = { username: 'Matriarch', salt: 's', hash: 'h', color: '#fff', createdAt: 1 };
   hooks.accounts.fledgling1 = { username: 'Fledgling', salt: 's', hash: 'h', color: '#fff', createdAt: 1 };
   hooks.ensureBankAccount('matriarch1').balance = 500;
+  // Session N: founding a coven now consumes a one-time Coven Charter (real-money
+  // entitlement) instead of gold. Grant one so this coven can be founded.
+  hooks.grantCharter('sl_charter_grant', 'matriarch1');
   c1.sock.emit('message', JSON.stringify({ type: 'coven_create', name: 'The <script>Thorn</script> Circle', sigil: '🕸️' }));
   const cState = c1.sock.lastOfType('coven_state');
   check('coven created', cState && cState.coven && cState.coven.members.length === 1);
   check('coven name is sanitized (no angle brackets)', cState.coven.name.indexOf('<') === -1, cState.coven.name);
-  check('founding cost left the bank', hooks.ensureBankAccount('matriarch1').balance === 250);
+  check('founding consumed the Coven Charter', hooks.charterBalance('matriarch1') === 0);
   c1.sock.emit('message', JSON.stringify({ type: 'coven_invite', targetId: c2.player.id }));
   const covInvite = c2.sock.lastOfType('coven_invited');
   check('invite reached the fledgling', !!covInvite);
@@ -260,7 +263,9 @@ setTimeout(async () => {
   check('tab refuses deposits outside the bank', (c1.sock.lastOfType('coven_error') || {}).message.includes('Vault'));
   c1.player.room = 'bank';
   c1.sock.emit('message', JSON.stringify({ type: 'coven_deposit_gold', amount: 100 }));
-  check('deposit lands in the tab at the bank', cv.bank.gold === 100 && hooks.ensureBankAccount('matriarch1').balance === 150);
+  // Founding no longer costs gold (it's a Charter now), so the bank starts at
+  // 500 and only the 100 deposit leaves it → 400.
+  check('deposit lands in the tab at the bank', cv.bank.gold === 100 && hooks.ensureBankAccount('matriarch1').balance === 400);
   c2.player.room = 'bank';
   c2.sock.emit('message', JSON.stringify({ type: 'coven_withdraw_gold', amount: 40 }));
   check('any member can draw from the tab', cv.bank.gold === 60 && hooks.ensureBankAccount('fledgling1').balance >= 40);
