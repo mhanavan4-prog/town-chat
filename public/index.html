@@ -45,7 +45,7 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
   .subtitle { color:#9bc49a; font-size:12.5px; margin-bottom:20px; line-height:1.5; }
-  input[type=text], input[type=password], input[type=number], select {
+  input[type=text], input[type=password], input[type=email], input[type=number], select {
     width:100%; padding:11px 14px; margin-bottom:12px; font-size:14px;
     border-radius:8px; border:1px solid rgba(160,220,160,0.25);
     background:rgba(0,0,0,0.25); color:#eafff0; outline:none;
@@ -224,11 +224,11 @@
   #joinScreen #joinModeTabs button.active {
     background:linear-gradient(90deg, #a678f0, #5ee7c0); color:#0b0713; border-color:transparent;
   }
-  #joinScreen input[type=text], #joinScreen input[type=password] {
+  #joinScreen input[type=text], #joinScreen input[type=password], #joinScreen input[type=email] {
     background:rgba(6,3,14,0.6); border:1px solid rgba(185,138,255,0.22);
     color:#f1e9ff; border-radius:9px;
   }
-  #joinScreen input[type=text]:focus, #joinScreen input[type=password]:focus {
+  #joinScreen input[type=text]:focus, #joinScreen input[type=password]:focus, #joinScreen input[type=email]:focus {
     border-color:rgba(185,138,255,0.6); box-shadow:0 0 0 2px rgba(140,90,255,0.14);
   }
   #joinScreen input::placeholder { color:#6d6284; }
@@ -360,22 +360,12 @@
     box-shadow:0 0 40px rgba(0,0,0,0.4), 0 8px 30px rgba(0,0,0,0.5);
     transition:width .2s ease;
   }
-  /* The Arcade's chat panel is 3x the normal size and can switch into a
-     send-a-text mode — see #chatTabs/#textView below. */
+  /* The Arcade's chat panel is 3x the normal size. */
   #chatPanel.arcadeMode { width:1080px; max-width:92vw; }
   /* Minimized: only the header bar (with its restore button) stays visible,
      so the room behind the panel is unobstructed. */
   #chatPanel.minimized { max-height:none; overflow:visible; }
-  #chatPanel.minimized #chatTabs,
-  #chatPanel.minimized #chatLogView,
-  #chatPanel.minimized #textView { display:none !important; }
-  #chatTabs { pointer-events:auto; display:flex; gap:6px; margin-bottom:8px; }
-  #chatTabs.hidden { display:none !important; }
-  #chatTabs button {
-    flex:1; padding:7px; border-radius:8px; border:1px solid rgba(217,138,79,0.3);
-    background:rgba(0,0,0,0.25); color:#cfe9cf; font-size:12px; font-weight:700; cursor:pointer;
-  }
-  #chatTabs button.active { background:linear-gradient(90deg,#ffd27a,#ff9d5c); color:#2a1605; }
+  #chatPanel.minimized #chatLogView { display:none !important; }
   #chatHeader {
     pointer-events:none;
     display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -396,36 +386,6 @@
     display:flex; flex-direction:column; gap:5px;
   }
   #chatPanel.arcadeMode #chatLog { max-height:780px; min-height:270px; }
-  #textView { display:flex; flex-direction:column; gap:10px; }
-  #twilioLoginFields, #textSendFields { display:flex; flex-direction:column; gap:10px; }
-  #twilioLoginNote { color:#9bc49a; font-size:11px; line-height:1.4; }
-  #twilioTrustNote {
-    color:#e6c98a; font-size:11px; line-height:1.5; background:rgba(230,190,120,0.08);
-    border:1px solid rgba(230,190,120,0.28); border-radius:8px; padding:8px 10px;
-  }
-  #twilioTrustNote a { color:#8fd6ff; }
-  #textPhoneInput, #textBodyInput,
-  #twilioAccountSid, #twilioApiKeySid, #twilioSecret, #twilioFromNumber {
-    pointer-events:auto;
-    padding:10px 12px; border-radius:8px; border:1px solid rgba(217,138,79,0.35);
-    background:rgba(0,0,0,0.35); color:#eafff0; font-size:13px; outline:none;
-    font-family:inherit; resize:vertical;
-  }
-  #textPhoneInput::placeholder, #textBodyInput::placeholder,
-  #twilioAccountSid::placeholder, #twilioApiKeySid::placeholder,
-  #twilioSecret::placeholder, #twilioFromNumber::placeholder { color:#8a7560; }
-  #twilioLoggedInRow {
-    pointer-events:auto;
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-    color:#cfe9cf; font-size:12px;
-  }
-  #twilioLoggedInRow a { color:#7ad9ff; cursor:pointer; }
-  /* Sizing/color comes from the shared .btn class (see top of file); these
-     panels just need to re-enable clicks since #chatPanel blocks them by
-     default. */
-  #textSendBtn, #twilioSaveBtn { pointer-events:auto; }
-  #textStatus { color:#9bc49a; font-size:11.5px; line-height:1.4; min-height:14px; }
-  #textStatus.err { color:#ff9b9b; }
   .chatLine {
     background:rgba(0,0,0,0.28); border-radius:8px; padding:7px 11px;
     font-size:13px; color:#eafff0; line-height:1.35; backdrop-filter:blur(3px);
@@ -1982,10 +1942,6 @@
     <span id="chatHeaderText">💬 Town Square</span>
     <button id="chatMinimizeBtn" title="Minimize">–</button>
   </div>
-  <div id="chatTabs" class="hidden">
-    <button id="chatTabChat" class="active">💬 Chat</button>
-    <button id="chatTabText">📱 Text</button>
-  </div>
   <div id="chatLogView">
     <div id="chatLog"></div>
     <div id="chatImagePreview">
@@ -1999,27 +1955,6 @@
       <input id="chatInput" type="text" placeholder="Say something… (Enter to send)" maxlength="240">
       <button id="chatSendBtn" title="Send" aria-label="Send message">➤</button>
     </div>
-  </div>
-  <div id="textView" class="hidden">
-    <div id="twilioLoginFields">
-      <div id="twilioLoginNote">Log in with your own Twilio account to text from here. Your credentials are saved only in this browser.</div>
-      <div id="twilioTrustNote">🔒 <b>Heads up:</b> each Send passes your credentials through <i>this game's server</i> (which relays the one message to Twilio and discards them — they're never written to disk). The server's operator could in principle see them in transit, so use a scoped <b>API Key</b> below rather than your main Auth Token — an API Key can be revoked anytime without resetting your whole account. <a href="https://www.twilio.com/docs/iam/api-keys" target="_blank" rel="noopener">Create one →</a></div>
-      <input id="twilioAccountSid" type="text" placeholder="Account SID (starts with AC)" autocomplete="off">
-      <input id="twilioApiKeySid" type="text" placeholder="API Key SID (recommended, starts with SK)" autocomplete="off">
-      <input id="twilioSecret" type="password" placeholder="API Key Secret (or Auth Token)" autocomplete="off">
-      <input id="twilioFromNumber" type="text" placeholder="Your Twilio number, e.g. +15551234567" autocomplete="off">
-      <button class="btn" id="twilioSaveBtn">Save Twilio Login</button>
-    </div>
-    <div id="twilioLoggedInRow" class="hidden">
-      <span id="twilioLoggedInText"></span>
-      <a href="#" id="twilioLogoutLink">log out</a>
-    </div>
-    <div id="textSendFields" class="hidden">
-      <input id="textPhoneInput" type="tel" placeholder="Phone number, e.g. +15551234567" autocomplete="off">
-      <textarea id="textBodyInput" rows="4" maxlength="300" placeholder="Your message…"></textarea>
-      <button class="btn" id="textSendBtn">Send Text</button>
-    </div>
-    <div id="textStatus"></div>
   </div>
 </div>
 
@@ -2908,7 +2843,7 @@
         <button class="btn" id="accountLoginBtn">Log In</button>
         <button class="btn" id="accountRegisterBtn">Create Account</button>
       </div>
-      <div style="text-align:right;margin-top:6px"><a href="#" id="forgotPwLink" style="font-size:11.5px;color:#7ad9ff;text-decoration:none">Forgot password?</a></div>
+      <div id="forgotPwRow" style="text-align:right;margin-top:6px"><a href="#" id="forgotPwLink" style="font-size:11.5px;color:#7ad9ff;text-decoration:none">Forgot password?</a></div>
       <div id="accountStatus"></div>
       <!-- Returning players: "continue as …" cards, filled by /api/characters
            (client.js renderCharRoster). Hidden for guests / new accounts. -->

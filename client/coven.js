@@ -6,7 +6,8 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout }) {
+export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, getIsAdmin }) {
+  const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
 function refreshCovenMenuRow() {
@@ -77,7 +78,8 @@ function renderCovenModal() {
     const info = (typeof getCovenCharterInfo === 'function' && getCovenCharterInfo()) || { charters: 0, charterPriceCents: 999, paymentsEnabled: false };
     const createBtn = document.getElementById('covenCreateBtn');
     if (createBtn) {
-      if ((info.charters || 0) >= 1) createBtn.textContent = '🌙 Found the coven (Charter ready)';
+      if (isAdmin()) createBtn.textContent = '🔑 Found the coven (admin — free)';
+      else if ((info.charters || 0) >= 1) createBtn.textContent = '🌙 Found the coven (Charter ready)';
       else if (info.paymentsEnabled) createBtn.textContent = `Found a coven — $${((info.charterPriceCents || 999) / 100).toFixed(2)} one-time`;
       else createBtn.textContent = 'Found the coven';
     }
@@ -206,8 +208,9 @@ function refreshCovenTableVisual() {
     document.getElementById('covenErr').textContent = '';
     const info = (typeof getCovenCharterInfo === 'function' && getCovenCharterInfo()) || { charters: 0, paymentsEnabled: false };
     // No Charter yet → send them to buy one (unless payments are off, in which
-    // case let the server respond with its own guidance).
-    if ((info.charters || 0) < 1 && info.paymentsEnabled && typeof startCharterCheckout === 'function') {
+    // case let the server respond with its own guidance). Admins skip the
+    // purchase entirely — the server founds their coven for free.
+    if (!isAdmin() && (info.charters || 0) < 1 && info.paymentsEnabled && typeof startCharterCheckout === 'function') {
       const name = document.getElementById('covenNameInput').value.trim();
       if (name.length < 3) { document.getElementById('covenErr').textContent = 'Name your coven first (3–24 characters), then buy its Charter.'; return; }
       try { localStorage.setItem('tc_pending_coven', JSON.stringify({ name, sigil: covenPickedSigil || getCovenSigilsCatalog()[0] })); } catch (e) {}

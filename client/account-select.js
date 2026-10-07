@@ -55,6 +55,15 @@ function updateCharPickerVisibility() {
   if (accountPassInput) accountPassInput.classList.toggle('hidden', loggedIn);
   const accountBtnRowEl = document.getElementById('accountBtnRow');
   if (accountBtnRowEl) accountBtnRowEl.classList.toggle('hidden', loggedIn);
+  // Registration-only fields — only shown while creating/logging into an account,
+  // never once you're signed in (otherwise the email box + 18+ gate just clutter
+  // the character picker, see screenshot).
+  const emailEl = document.getElementById('accountEmailInput');
+  if (emailEl) emailEl.classList.toggle('hidden', loggedIn);
+  const ageGateEl = document.getElementById('accountAgeGate');
+  if (ageGateEl) ageGateEl.classList.toggle('hidden', loggedIn);
+  const forgotPwRowEl = document.getElementById('forgotPwRow');
+  if (forgotPwRowEl) forgotPwRowEl.classList.toggle('hidden', loggedIn);
   if (charRosterEl) charRosterEl.classList.toggle('hidden', !hasRoster);
   if (charRosterListEl) charRosterListEl.classList.toggle('hidden', !showRoster);
   if (charSelectRowEl) charSelectRowEl.classList.toggle('hidden', showRoster);

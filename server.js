@@ -283,39 +283,6 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Texting from the Arcade — each player brings their own Twilio account
-// (Account SID + Auth Token/API Key, and a Twilio number they own), entered
-// once in the Text tab and kept in that browser's localStorage. This server
-// never sees those credentials except as part of relaying one send request
-// to Twilio and is not in the business of storing them anywhere — there's
-// no per-player Twilio config here at all, unlike accounts.json for game
-// logins. That also means each player pays for and is responsible for
-// their own texts, not the server operator.
-//
-// Still worth a strict format check and a per-IP rate limit, though: this
-// endpoint is a generic credential-driven relay to Twilio, and without
-// limits it could be used to mass-test/abuse stolen Twilio credentials
-// while hiding the true caller's IP from Twilio (it would only ever see
-// this server's IP). None of this is bot-proof; don't expose this publicly
-// unless you trust whoever can reach it.
-const SMS_MAX_BODY_LEN = 300;
-const SMS_RATE_LIMIT = 3;
-const SMS_RATE_WINDOW_MS = 10 * 60 * 1000;
-const smsRateLog = new Map(); // ip -> [timestamps]
-const E164_RE = /^\+[1-9]\d{6,14}$/;
-const ACCOUNT_SID_RE = /^AC[a-zA-Z0-9]{32}$/;
-const API_KEY_SID_RE = /^SK[a-zA-Z0-9]{32}$/;
-
-function smsRateLimited(ip) {
-  const now = Date.now();
-  const hits = (smsRateLog.get(ip) || []).filter(t => now - t < SMS_RATE_WINDOW_MS);
-  if (hits.length >= SMS_RATE_LIMIT) { smsRateLog.set(ip, hits); return true; }
-  hits.push(now);
-  smsRateLog.set(ip, hits);
-  return false;
-}
-
 // Login/registration throttle — counts recent FAILED auth attempts per IP so
 // nobody can brute-force a password (or hammer registration) at machine speed.
 // A success clears the counter for that IP. In-memory only, resets on restart;
@@ -336,71 +303,6 @@ function noteLoginFailure(ip) {
   loginFailLog.set(ip, fails);
 }
 function clearLoginFailures(ip) { loginFailLog.delete(ip); }
-
-app.post('/api/send-sms', (req, res) => {
-  const accountSid = String(req.body.accountSid || '').trim();
-  const apiKeySid = String(req.body.apiKeySid || '').trim();
-  const secret = String(req.body.secret || '').trim();
-  const from = String(req.body.from || '').trim();
-  const to = String(req.body.to || '').trim();
-  const body = String(req.body.body || '').trim();
-
-  if (!ACCOUNT_SID_RE.test(accountSid)) {
-    return res.status(400).json({ error: 'Your Twilio Account SID looks wrong — it should start with "AC" (34 characters).' });
-  }
-  if (apiKeySid && !API_KEY_SID_RE.test(apiKeySid)) {
-    return res.status(400).json({ error: 'Your Twilio API Key SID looks wrong — it should start with "SK" (34 characters).' });
-  }
-  if (!secret || secret.length < 8) {
-    return res.status(400).json({ error: 'Enter your Twilio Auth Token or API Key Secret.' });
-  }
-  if (!E164_RE.test(from)) {
-    return res.status(400).json({ error: 'Your Twilio number should be in international format, e.g. +15551234567.' });
-  }
-  if (!E164_RE.test(to)) {
-    return res.status(400).json({ error: 'Enter a phone number in international format, e.g. +15551234567.' });
-  }
-  if (!body) return res.status(400).json({ error: 'Message is empty.' });
-  if (body.length > SMS_MAX_BODY_LEN) {
-    return res.status(400).json({ error: `Message is too long (max ${SMS_MAX_BODY_LEN} characters).` });
-  }
-  if (smsRateLimited(req.ip)) {
-    return res.status(429).json({ error: 'Too many texts sent recently — try again later.' });
-  }
-
-  // Basic Auth username is the API Key SID when the player supplied one
-  // (recommended — independently revocable), otherwise the Account SID
-  // paired with the main Auth Token. The URL always wants the real
-  // Account SID either way.
-  const authUser = apiKeySid || accountSid;
-  const payload = new URLSearchParams({ To: to, From: from, Body: body }).toString();
-  const auth = Buffer.from(`${authUser}:${secret}`).toString('base64');
-  const apiReq = https.request({
-    hostname: 'api.twilio.com',
-    path: `/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(payload)
-    }
-  }, (twilioRes) => {
-    let raw = '';
-    twilioRes.on('data', (chunk) => { raw += chunk; });
-    twilioRes.on('end', () => {
-      if (twilioRes.statusCode >= 200 && twilioRes.statusCode < 300) {
-        res.json({ ok: true });
-      } else {
-        let message = 'Twilio rejected the message.';
-        try { message = JSON.parse(raw).message || message; } catch (e) {}
-        res.status(502).json({ error: message });
-      }
-    });
-  });
-  apiReq.on('error', () => res.status(502).json({ error: 'Could not reach Twilio.' }));
-  apiReq.write(payload);
-  apiReq.end();
-});
 
 // ── Seamless checkout return ────────────────────────────────────────────────
 // Stripe Checkout is a full-page redirect, and a guest's whole identity

@@ -152,19 +152,6 @@ const check = (desc, cond, detail) => {
       await page.evaluate(() => { const b = document.getElementById('arcadeCloseBtn'); if (b) b.click(); });
       await page.waitForTimeout(300);
     }
-    // Text tab: in the arcade the chat compose bar gains the 📱 Text tab.
-    await page.tap('#chatToggleBtn').catch(() => {});
-    await page.waitForTimeout(400);
-    const tabsShown = await page.evaluate(() => { const t = document.getElementById('chatTabs'); return t && !t.classList.contains('hidden'); });
-    check('Arcade compose bar shows the Chat|Text tabs', tabsShown);
-    if (tabsShown) {
-      await page.tap('#chatTabText').catch(() => {});
-      await page.waitForTimeout(300);
-      const twilioForm = await page.evaluate(() => { const f = document.getElementById('twilioLoginFields'); if (!f) return false; const r = f.getBoundingClientRect(); return r.height > 0 && r.bottom <= window.innerHeight + 2; });
-      check('Text tab shows the Twilio login form, on-screen', twilioForm === true, 'form=' + twilioForm);
-      await page.tap('#chatTabChat').catch(() => {});
-    }
-    await page.tap('#chatToggleBtn').catch(() => {});
     // leave via menu
     await page.tap('#menuBtn'); await page.waitForTimeout(250);
     await page.tap('#menuLeave'); await page.waitForTimeout(800);
