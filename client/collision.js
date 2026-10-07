@@ -50,6 +50,7 @@ function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
   if (roomId === 'wilds') return '🌲 The Wilds';
   if (roomId === 'ember_wastes') return '🔥 The Ember Wastes';
+  if (roomId === 'manor') return '🏚️ The Coven Manor';
   // The named dungeons (Session L) — lore ships in init; the tier ranges
   // stay in the label so the gate is still legible at a glance.
   const dm = /^dungeon_t([1-4])$/.exec(roomId || '');

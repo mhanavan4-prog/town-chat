@@ -12,6 +12,7 @@ import createLegendShop from './legend.js';
 import createConsent from './consent.js';
 import createVaultScene from './vault-scene.js';
 import createCaveScene from './cave-scene.js';
+import createManorScene from './manor-scene.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -799,7 +800,7 @@ function onWsMessage(ev) {
       // Reconnect: scene is already built. Reset the view to the town map
       // first — a resumed player gets swapped back into their restored
       // room just below, and a plain rejoin really is back at the spawn.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === caveScene || activeScene === vaultScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -1480,6 +1481,7 @@ function onWsMessage(ev) {
     mootInstanceActive = (msg.type === 'moot_entered');
     for (const id of Object.keys(players)) { if (id !== myId) removePlayer(id); }
     if (Array.isArray(msg.roster)) for (const p of msg.roster) { if (p.id !== myId) addPlayer(p); }
+    applyManorInstanceState(mootInstanceActive); // the Manor exists only in a coven's private Wilds
     setMootBanner(mootInstanceActive ? msg : null);
     setUnlockToast(mootInstanceActive
       ? `🌑 You slip through the Moot Stone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private moot — only your coven can reach you here.`
@@ -1848,6 +1850,29 @@ function onWsMessage(ev) {
     if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
     swapToWildsMap();
     setUnlockToast('You leave the Witch\'s cave.');
+    return;
+  }
+
+  // ── The Coven Manor (Session N) ──────────────────────────────────────────
+  if (msg.type === 'manor_entered') {
+    if (me) { me.room = 'manor'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToManorMap();
+    applyManorState(msg);
+    setUnlockToast(`🏚️ You step into ${msg.covenName ? msg.covenName + '’s' : 'the coven’s'} Manor — claim a chamber with F.`);
+    return;
+  }
+  if (msg.type === 'manor_exited') {
+    if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
+    swapToWildsMap();
+    setUnlockToast('You step back out into the Wilds.');
+    return;
+  }
+  if (msg.type === 'manor_state') {
+    applyManorState(msg);
+    return;
+  }
+  if (msg.type === 'manor_error') {
+    setUnlockToast(msg.message || 'The Manor door will not open.');
     return;
   }
 
@@ -4234,7 +4259,7 @@ function raycastGroundAt(clientX, clientY) {
 // for whatever room the player is currently in, so a ground click can be
 // sent to the server in the same coordinate space player.x/y already use.
 function sceneToWorldPos(room, sceneX, sceneZ) {
-  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || !world) {
+  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'manor' || !world) {
     return { x: sceneX, y: sceneZ };
   }
   const b = world.buildings.find(bb => bb.id === room);
@@ -4286,6 +4311,7 @@ function sceneForRoom(room) {
   if (room === 'outside') return outdoorScene || null;
   if (room === 'wilds') return wildsScene || null;
   if (room === 'witch_cave') return caveScene || null;
+  if (room === 'manor') return manorScene || null;
   if (room === 'bank_vault') return vaultScene || null;
   if (room === 'ember_wastes') return emberScene || null;
   if (typeof room === 'string' && room.startsWith('dungeon_')) return dungeonScene || null;
@@ -5701,7 +5727,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'manor' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -5712,6 +5738,7 @@ function contextMatches(room) {
   if (activeScene === dungeonScene) return me && room === me.room;
   if (activeScene === wildsScene) return room === 'wilds';
   if (activeScene === caveScene) return room === 'witch_cave';
+  if (activeScene === manorScene) return room === 'manor';
   if (activeScene === vaultScene) return room === 'bank_vault';
   if (activeScene === emberScene) return room === 'ember_wastes';
   return room === 'outside';
@@ -6350,6 +6377,8 @@ function swapToWildsMap() {
   walls = WILDS_WALLS;
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
+  ensureManorExterior();                      // lazily add the Manor to the wilds scene
+  applyManorInstanceState(mootInstanceActive); // ...but only show it inside your coven's world
   setActiveContext(wildsScene, wildsCamera, null);
 }
 
@@ -6460,6 +6489,19 @@ function buildPortalMesh(x, y) {
 
 function updatePortals(dt) {
   for (const disc of portalDiscs) disc.rotation.z += dt * 1.2;
+}
+
+// Drift the Manor's embers upward, wrapping back to the floor — only while the
+// Manor is the active scene, so it costs nothing anywhere else.
+function updateManorEmbers(dt) {
+  if (!manorEmbers || activeScene !== manorScene) return;
+  const pos = manorEmbers.points.geometry.attributes.position;
+  const a = pos.array, vel = manorEmbers.vel, H = manorEmbers.WALL_H;
+  for (let i = 0; i < vel.length; i++) {
+    a[i * 3 + 1] += vel[i] * dt;
+    if (a[i * 3 + 1] > H) { a[i * 3 + 1] = 2; a[i * 3] = Math.random() * manorEmbers.W; a[i * 3 + 2] = Math.random() * manorEmbers.D; }
+  }
+  pos.needsUpdate = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -6871,6 +6913,163 @@ const { buildVaultScene } = createVaultScene({
   setVaultScene: (s) => { vaultScene = s; },
   setVaultCamera: (c) => { vaultCamera = c; },
 });
+
+// ---------------------------------------------------------------------------
+// The Coven Manor — an 8-bedroom hall in a coven's PRIVATE world (reached from
+// the Wilds once you've stepped through the Moot Stone). Same "indoor sub-room"
+// architecture as the Vault: its own scene/camera/bounds, mode stays 'outdoor'
+// the whole time so none of the building-interior logic mistakes it for a town
+// building. Entry is server-gated to your own coven instance; bedrooms are
+// claimed per member (manor_claim_bedroom) and shown as doorplates over each
+// bed. MANOR_WORLD + the authoritative MANOR_BED_SPOTS layout live here so the
+// rendered beds and the claim kiosks can never drift apart.
+// ---------------------------------------------------------------------------
+let manorScene, manorCamera;
+let manorEmbers = null;                                   // { points, vel, W, D, WALL_H } — ticked in the render loop
+const MANOR_WORLD = { width: 560, height: 560, buildings: [], spawn: { x: 280, y: 500 } };
+// slot -> { x, y, rot }. 4 along the north wall, 2 each on the east/west walls.
+const MANOR_BED_SPOTS = [
+  { x: 95,  y: 86,  rot: 0 },               // 0  N
+  { x: 225, y: 86,  rot: 0 },               // 1  N
+  { x: 335, y: 86,  rot: 0 },               // 2  N
+  { x: 465, y: 86,  rot: 0 },               // 3  N
+  { x: 474, y: 205, rot: -Math.PI / 2 },    // 4  E
+  { x: 474, y: 335, rot: -Math.PI / 2 },    // 5  E
+  { x: 86,  y: 205, rot: Math.PI / 2 },     // 6  W
+  { x: 86,  y: 335, rot: Math.PI / 2 },     // 7  W
+];
+// Exit sits at the south door; one claim kiosk per bed (manorBed = slot).
+const MANOR_KIOSKS = [
+  { x: MANOR_WORLD.width / 2, z: MANOR_WORLD.height - 24, portal: 'manor_exit' },
+  ...MANOR_BED_SPOTS.map((s, i) => ({ x: s.x, z: s.y, manorBed: i })),
+];
+let manorBedState = {};        // slot -> { key, name } | null, from the server
+let manorYours = null;         // which slot is mine (null = none)
+const manorBedplates = [];     // slot -> THREE.Sprite (doorplate), rebuilt on state change
+
+const { buildManorScene } = createManorScene({
+  makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
+  setManorScene: (s) => { manorScene = s; },
+  setManorCamera: (c) => { manorCamera = c; },
+  setManorEmbers: (e) => { manorEmbers = e; },
+});
+
+function swapToManorMap() {
+  if (!manorScene) { try { buildManorScene(); } catch (e) { console.error('buildManorScene failed:', e); } } // lazy: built on first entry
+  if (!manorScene || activeScene === manorScene) return;
+  world = MANOR_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(manorScene, manorCamera, null);
+}
+
+function enterManor() {
+  if (!me || me.isDead) return;
+  // Client-side courtesy gate (the server is authoritative): only from your
+  // coven's private Wilds. If it refuses, a manor_error toast explains why.
+  ws.send(JSON.stringify({ type: 'enter_manor' }));
+}
+
+function exitManor() {
+  ws.send(JSON.stringify({ type: 'exit_manor' }));
+}
+
+// Rebuild the floating doorplate over every bed from the latest ownership map.
+// A claimed room shows its owner's name; an empty one invites a claim.
+function refreshManorBedplates() {
+  if (!manorScene) return;
+  for (const s of manorBedplates) { if (s) { manorScene.remove(s); if (s.material) { if (s.material.map) s.material.map.dispose(); s.material.dispose(); } } }
+  manorBedplates.length = 0;
+  for (let i = 0; i < MANOR_BED_SPOTS.length; i++) {
+    const spot = MANOR_BED_SPOTS[i];
+    const occ = manorBedState[i];
+    const label = occ ? `🕯️ ${occ.name}` : (manorYours === null ? 'Empty — Press F to claim' : 'Empty');
+    const sprite = makeSignSprite(label);
+    sprite.position.set(spot.x, 128, spot.y);
+    manorScene.add(sprite);
+    manorBedplates[i] = sprite;
+  }
+}
+
+function applyManorState(msg) {
+  if (msg.bedrooms) manorBedState = msg.bedrooms;
+  if ('yours' in msg) manorYours = msg.yours;
+  refreshManorBedplates();
+}
+
+// ── The Manor's EXTERIOR, standing in the Wilds ──────────────────────────────
+// The Wilds geometry is shared between the public world and every coven's
+// private copy (the Moot Stone swaps rosters, not scenes), so the Manor must
+// only be visible/enterable while you're inside your OWN coven instance. Same
+// pattern as the Ember portal: one group added to the wilds scene (hidden by
+// default) plus a kiosk added to / removed from WILDS_KIOSKS, toggled by
+// applyManorInstanceState() off mootInstanceActive. Must match server.js's
+// MANOR_WILDS_SPOT exactly, since that's where enter_manor's distance gate is.
+const MANOR_WILDS_SPOT = { x: 3000, y: 3000 };
+const MANOR_ENTER_KIOSK = { x: MANOR_WILDS_SPOT.x, z: MANOR_WILDS_SPOT.y, portal: 'manor_enter', radius: 150 };
+let manorExteriorGroup = null;
+
+function buildManorExterior() {
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x241d3a });
+  const trimMat = new THREE.MeshLambertMaterial({ color: 0x17112a });
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0x120c22 });
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf87 });
+  // Main hall — a broad two-storey block.
+  const BODY_W = 360, BODY_H = 220, BODY_D = 260;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(BODY_W, BODY_H, BODY_D), stoneMat);
+  body.position.y = BODY_H / 2; g.add(body);
+  // Gabled roof (a flattened pyramid) + ridge.
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(BODY_W * 0.62, 120, 4), roofMat);
+  roof.rotation.y = Math.PI / 4; roof.position.y = BODY_H + 56; g.add(roof);
+  // Two spire towers flanking the facade.
+  for (const sx of [-BODY_W / 2 - 10, BODY_W / 2 + 10]) {
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(34, 38, BODY_H + 70, 10), trimMat);
+    tower.position.set(sx, (BODY_H + 70) / 2, BODY_D / 2 - 30); g.add(tower);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(42, 74, 10), roofMat);
+    cap.position.set(sx, BODY_H + 70 + 37, BODY_D / 2 - 30); g.add(cap);
+  }
+  // Tall double door on the south face (facing the approach / spawn side).
+  const door = new THREE.Mesh(new THREE.BoxGeometry(70, 120, 10), new THREE.MeshLambertMaterial({ color: 0x3a2416 }));
+  door.position.set(0, 60, BODY_D / 2 + 2); g.add(door);
+  const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(74, 16), glowMat);
+  doorGlow.position.set(0, 128, BODY_D / 2 + 3); g.add(doorGlow);
+  // Glowing windows down both storeys of the facade.
+  for (const wy of [70, 150]) for (const wx of [-120, -60, 60, 120]) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(28, 40), glowMat);
+    win.position.set(wx, wy, BODY_D / 2 + 1.5); g.add(win);
+  }
+  // A warm glow from the doorway so the manor reads even at wilds night.
+  const lamp = new THREE.PointLight(0xffb060, 1.4, 600, 1.6);
+  lamp.position.set(0, 150, BODY_D / 2 + 40); g.add(lamp);
+  // A hint sign floating over the door.
+  const sign = makeSignSprite('🏚️ The Coven Manor — Press F');
+  sign.position.set(0, BODY_H + 150, BODY_D / 2 + 10); g.add(sign);
+  g.position.set(MANOR_WILDS_SPOT.x, 0, MANOR_WILDS_SPOT.y);
+  g.visible = false;
+  return g;
+}
+
+// Build the exterior into the wilds scene once (lazy — the wilds itself is
+// lazy), and give it a collider so players can't walk through the walls.
+function ensureManorExterior() {
+  if (manorExteriorGroup || !wildsScene) return;
+  try {
+    manorExteriorGroup = buildManorExterior();
+    wildsScene.add(manorExteriorGroup);
+    // Body footprint collider (slightly inset from the door so entry is clear).
+    WILDS_WALLS.push({ x: MANOR_WILDS_SPOT.x - 180, y: MANOR_WILDS_SPOT.y - 130, w: 360, h: 230 });
+  } catch (e) { console.error('buildManorExterior failed:', e); }
+}
+
+// Show/hide the Manor (and its entrance kiosk) with the coven instance.
+function applyManorInstanceState(active) {
+  if (manorExteriorGroup) manorExteriorGroup.visible = !!active;
+  const idx = WILDS_KIOSKS.indexOf(MANOR_ENTER_KIOSK);
+  if (active && idx === -1) WILDS_KIOSKS.push(MANOR_ENTER_KIOSK);
+  else if (!active && idx !== -1) WILDS_KIOSKS.splice(idx, 1);
+}
 
 // ---------------------------------------------------------------------------
 // The Ember Wastes — a Wilds-styled PvP/hostile-mob map reached through the
@@ -8551,7 +8750,7 @@ function updateCamera(dt) {
   const rp = getRenderPos(me);
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
-  const cam = (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
+  const cam = (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
   // Indoors, rooms are small enough that a fixed pull-back distance can put
@@ -8698,6 +8897,7 @@ function findNearestKiosk() {
   if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   if (me.room === 'bank_vault') return nearestKioskIn(VAULT_KIOSKS, me.x, me.y);
   if (me.room === 'ember_wastes') return nearestKioskIn(EMBER_KIOSKS, me.x, me.y);
+  if (me.room === 'manor') return nearestKioskIn(MANOR_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
@@ -9965,6 +10165,9 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
   if (kiosk && kiosk.portal === 'cave_enter') { enterWitchCave(); return; }
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
+  if (kiosk && kiosk.portal === 'manor_enter') { enterManor(); return; }
+  if (kiosk && kiosk.portal === 'manor_exit') { exitManor(); return; }
+  if (kiosk && Number.isInteger(kiosk.manorBed)) { ws.send(JSON.stringify({ type: 'manor_claim_bedroom', slot: kiosk.manorBed })); return; }
   if (kiosk && kiosk.portal === 'vault_enter') { enterVault(); return; }
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
@@ -10076,6 +10279,26 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'cave_exit') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} leave the cave`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'manor_enter') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} enter the Coven Manor`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'manor_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} leave the Manor`;
+    return;
+  }
+  if (kiosk && Number.isInteger(kiosk.manorBed)) {
+    const occ = manorBedState[kiosk.manorBed];
+    const mine = manorYours === kiosk.manorBed;
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent =
+      mine ? 'This chamber is yours'
+      : occ ? `${occ.name}'s chamber`
+      : `${interactVerb()} claim this chamber`;
     return;
   }
   if (kiosk && kiosk.portal === 'vault_enter') {
@@ -10422,19 +10645,21 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === MANOR_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'manor') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
-    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : world.width;
-    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : world.height;
+    const inManor = world === MANOR_WORLD || me.room === 'manor';
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inManor ? MANOR_WORLD.width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inManor ? MANOR_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
     if (inCave) { me.room = 'witch_cave'; }
     else if (inVault) { me.room = 'bank_vault'; }
     else if (inEmber) { me.room = 'ember_wastes'; }
+    else if (inManor) { me.room = 'manor'; }
     else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
     return;
@@ -10660,6 +10885,7 @@ function update(dt) {
   updateDungeonMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updatePortals(dt);
+  updateManorEmbers(dt);
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
