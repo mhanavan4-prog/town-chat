@@ -324,6 +324,17 @@
   }
   #moonstoneTag.hidden { display:none !important; }
   #moonstoneTag #moonstoneTagVal { color:#fff; }
+  /* Admin-only coordinate readout — tucked under the top-right HUD row so you
+     can read off x/y (and the ground height) to report floating decor. */
+  #coordBar {
+    position:fixed; top:58px; right:18px; z-index:6; pointer-events:none;
+    background:rgba(14,10,26,0.78); border:1px solid rgba(170,140,245,0.5);
+    color:#e6ddff; border-radius:12px; padding:7px 11px; backdrop-filter:blur(4px);
+    font:600 12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre;
+    text-align:right; box-shadow:0 4px 14px rgba(0,0,0,0.3);
+  }
+  #coordBar.hidden { display:none !important; }
+  #coordBar .cbK { color:#a98fe0; }
   .msBalanceChip {
     display:inline-flex; align-items:center; gap:10px;
     background:rgba(120,90,200,0.18); border:1px solid rgba(165,130,240,0.5);
@@ -1788,6 +1799,8 @@
   <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
 </div>
 
+<div id="coordBar" class="hidden"></div>
+
 <div id="unlockBar" class="hidden">
   <div id="unlockInner">
     🔒 The 👻 Parlor &amp; 🎮 Arcade take a Town Pass
@@ -2912,6 +2925,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=b80bf9e001"></script>
+<script src="client.js?v=031fdfd3b8"></script>
 </body>
 </html>

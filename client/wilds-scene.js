@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -20,12 +20,21 @@ function buildWildsScene(w2) {
   const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
   const groundSpan = Math.max(w2.width, w2.height) + 200;
   grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(w2.width + 200, w2.height + 200),
-    new THREE.MeshLambertMaterial({ map: grassTex })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(w2.width / 2, 0, w2.height / 2);
+  // Rolling terrain: a segmented plane displaced by the shared wilds heightfield
+  // (flat under the developed zones; see wildsHeightAt in main.js). The geometry
+  // is pre-rotated so each vertex's local x/z already read as world x/z once the
+  // mesh is centred, which is what we sample.
+  const cx0 = w2.width / 2, cz0 = w2.height / 2;
+  const groundGeo = new THREE.PlaneGeometry(w2.width + 200, w2.height + 200, 160, 160);
+  groundGeo.rotateX(-Math.PI / 2);
+  if (typeof wildsHeightAt === 'function') {
+    const gp = groundGeo.attributes.position;
+    for (let i = 0; i < gp.count; i++) gp.setY(i, wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i)));
+    gp.needsUpdate = true;
+    groundGeo.computeVertexNormals();
+  }
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex }));
+  ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
   // ── Hexstone Roads — glowing witch-sigil paths linking the landmarks. Flat,
@@ -46,7 +55,7 @@ function buildWildsScene(w2) {
     const mat = new THREE.MeshBasicMaterial({ map: sigilTex[(grand() * sigilTex.length) | 0], transparent: true, color: glyphCols[(grand() * glyphCols.length) | 0], blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 + grand() * 0.4 });
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
     decal.rotation.set(-Math.PI / 2, 0, grand() * Math.PI * 2);
-    decal.position.set(gx, 0.5, gz);
+    decal.position.set(gx, (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0) + 0.5, gz);
     scene.add(decal);
   }
 
