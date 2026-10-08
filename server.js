@@ -8212,8 +8212,14 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'exit_manor') {
       if (player.room !== 'manor') return;
-      const rx = player.manorReturnX || MANOR_WILDS_SPOT.x;
-      const ry = player.manorReturnY || (MANOR_WILDS_SPOT.y + 80);
+      // Always step out to a fixed spot well SOUTH of the door, clear of the
+      // building's footprint collider (which reaches to MANOR_WILDS_SPOT.y+100)
+      // and its +130 south wall. Returning to the raw entry spot put players
+      // right against the wall, so the third-person camera clipped through it
+      // and the manor looked hollow. A couple hundred units out, you exit
+      // facing the facade with the camera in open wilds behind you.
+      const rx = MANOR_WILDS_SPOT.x;
+      const ry = MANOR_WILDS_SPOT.y + 230;
       player.room = 'wilds';
       player.roomLockUntil = Date.now() + 1500;
       player.x = rx; player.y = ry;

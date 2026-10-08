@@ -6,7 +6,11 @@
 // injected via get/set; the Wilds scene + day/night flag are reassigned lets,
 // injected as getters.
 // ---------------------------------------------------------------------------
-export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3 }) {
+export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
+// Ground height under a wilds mob so it rides the rolling terrain instead of a
+// flat y=0 plane (without this, hovering mobs sink beneath raised ground and
+// walkers float over valleys). v.x is world-x, v.y is world-z.
+function groundUnder(x, z) { const fn = getWildsHeightAt && getWildsHeightAt(); return (typeof fn === 'function') ? fn(x, z) : 0; }
 function addMobs2(scene) {
   for (const id in getMobVisuals2()) scene.remove(getMobVisuals2()[id].mesh);
   setMobVisuals2({});
@@ -49,9 +53,10 @@ function updateMob2Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob.
-    let hover = 0;
-    if (v.fly) { v.wingPhase += dt * 6; hover = v.fly + Math.sin(v.wingPhase) * 3; }
+    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob;
+    // walkers sit on it. Either way, start from the terrain height here.
+    let hover = groundUnder(v.x, v.y);
+    if (v.fly) { v.wingPhase += dt * 6; hover += v.fly + Math.sin(v.wingPhase) * 3; }
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
@@ -94,7 +99,7 @@ function updateMob3Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    const hover = v.mobType === 'gravewing_crow' ? 4 : 0;
+    const hover = groundUnder(v.x, v.y) + (v.mobType === 'gravewing_crow' ? 4 : 0);
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
