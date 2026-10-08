@@ -5233,7 +5233,7 @@ function buildMootStone(scene) {
   g.add(glow);
   g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
   scene.add(g);
-  const label = makeNpcNameSprite('🌑 The Moot Stone');
+  const label = makeNpcNameSprite('🌑 The Hagstone');
   label.position.set(MOOT_STONE_SPOT.x, 80, MOOT_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
@@ -11699,7 +11699,7 @@ function applyTownTorchState(torches) {
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
+function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -11721,27 +11721,49 @@ const SKY_BLOOD = new THREE.Color(0x2a0812);
 const AMBIENT_BLOOD = new THREE.Color(0xc06a6a);
 const MOON_BLOOD_COLOR = new THREE.Color(0xff5a4a);
 const MOON_PALE_COLOR = new THREE.Color(0xeaf2ff); // the moon's authored face
+// 🌑 Hagstone world (the coven's private instance): a perpetual violet night,
+// held apart from the public world's clock so stepping through the Hagstone
+// unmistakably reads as "somewhere else". Overrides sky/ambient/moon below.
+const SKY_HAG = new THREE.Color(0x160f33);
+const AMBIENT_HAG = new THREE.Color(0x5a49a0);
+const MOON_HAG_COLOR = new THREE.Color(0xc9bcff);
 function updateDayNightCycle() {
   if (!getOutdoorScene() || !getOutdoorAmbient() || !getOutdoorSun()) return;
   const { lightAmount, isNight, dayProgress, nightProgress } = getDayNightState();
   // 🔴 Blood Moon nights (Session L): every 13th night the sky goes red —
   // pure client-side clock math, the same cycle arithmetic the server uses.
   const bloodMoon = isNight && bloodMoonActiveClient();
+  const hagstone = !!(hagstoneActiveClient && hagstoneActiveClient());
+  // In the Hagstone world the lamps are lit and the sky reads as night no
+  // matter the public clock, so the night-driven visuals ride these instead.
+  const effLight = hagstone ? 0 : lightAmount;
+  const effNight = hagstone || isNight;
 
-  _skyColor.copy(bloodMoon ? SKY_BLOOD : SKY_NIGHT).lerp(SKY_DAY, lightAmount);
+  if (hagstone) _skyColor.copy(SKY_HAG);
+  else _skyColor.copy(bloodMoon ? SKY_BLOOD : SKY_NIGHT).lerp(SKY_DAY, lightAmount);
   getOutdoorScene().background.copy(_skyColor);
-  if (getOutdoorScene().fog) getOutdoorScene().fog.color.copy(_skyColor);
+  if (getOutdoorScene().fog) {
+    getOutdoorScene().fog.color.copy(_skyColor);
+    // Pull the fog in close in the Hagstone world for a hushed, enclosed feel.
+    getOutdoorScene().fog.near = hagstone ? 350 : 700;
+    getOutdoorScene().fog.far  = hagstone ? 1700 : 2200;
+  }
   // Kept in sync even while inactive — the Wilds shares the same day/night
   // clock, so its sky shouldn't be stuck wherever it was at startup the
   // first time a player actually steps through the portal.
   if (getWildsScene()) {
     getWildsScene().background.copy(_skyColor);
-    if (getWildsScene().fog) getWildsScene().fog.color.copy(_skyColor);
+    if (getWildsScene().fog) {
+      getWildsScene().fog.color.copy(_skyColor);
+      getWildsScene().fog.near = hagstone ? 350 : 700;
+      getWildsScene().fog.far  = hagstone ? 1700 : 2200;
+    }
   }
 
-  _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
+  if (hagstone) _ambientColor.copy(AMBIENT_HAG);
+  else _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   getOutdoorAmbient().color.copy(_ambientColor);
-  getOutdoorAmbient().intensity = 0.38 + lightAmount * 0.27;
+  getOutdoorAmbient().intensity = hagstone ? 0.52 : (0.38 + lightAmount * 0.27);
 
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
@@ -11752,10 +11774,10 @@ function updateDayNightCycle() {
   const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
   getOutdoorSun().position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
   if (getOutdoorSun().target) getOutdoorSun().target.position.set(0, 0, 0);
-  getOutdoorSun().intensity = lightAmount * 0.9;
+  getOutdoorSun().intensity = effLight * 0.9; // sun goes dark in the Hagstone world
 
   const moonAngle = Math.PI * nightProgress;
-  const moonStrength = 1 - lightAmount;
+  const moonStrength = 1 - effLight;          // full moon in the Hagstone world
 
   // Visible sun & moon DISCS. Anchored to the camera's sky-dome (like the
   // stars) so they always ride overhead wherever the player walks, at a fixed
@@ -11770,18 +11792,19 @@ function updateDayNightCycle() {
   const sunMesh = getSunMesh && getSunMesh();
   if (sunMesh) {
     sunMesh.position.set(ax + Math.cos(sunAngle) * SKY_DIST, skyAlt(sunAngle), az - 0.34 * SKY_DIST);
-    sunMesh.material.opacity = lightAmount;
-    sunMesh.visible = lightAmount > 0.02;
-    if (sunMesh.userData.glow) sunMesh.userData.glow.material.opacity = lightAmount * 0.7;
+    sunMesh.material.opacity = effLight;
+    sunMesh.visible = effLight > 0.02;
+    if (sunMesh.userData.glow) sunMesh.userData.glow.material.opacity = effLight * 0.7;
   }
 
   getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
   getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
   getOutdoorMoonLight().intensity = moonStrength * 0.55;
-  // The moon itself blushes on blood nights, and its light follows.
-  getMoonMesh().material.color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
-  getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : 1); // a big red harvest moon on Blood Moon nights
-  getOutdoorMoonLight().color.copy(bloodMoon ? MOON_BLOOD_COLOR : MOON_PALE_COLOR);
+  // The moon blushes red on blood nights, glows violet in the Hagstone world.
+  const moonColor = bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_PALE_COLOR;
+  getMoonMesh().material.color.copy(moonColor);
+  getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : hagstone ? 1.4 : 1); // bigger, closer moon in the Hagstone world
+  getOutdoorMoonLight().color.copy(moonColor);
   getMoonMesh().material.opacity = moonStrength;
   getMoonMesh().visible = moonStrength > 0.02;
 
@@ -11789,14 +11812,14 @@ function updateDayNightCycle() {
   // moonlight, riding the same lightAmount curve so they fade in through
   // dusk instead of snapping. (Cheap: material opacity only, no lights.)
   if (getLampGlows().length) {
-    const glow = 1 - lightAmount;
+    const glow = 1 - effLight;
     for (const l of getLampGlows()) {
       l.glassMat.opacity = 0.22 + glow * 0.72;
       l.glowMat.opacity = glow * 0.55;
     }
   }
 
-  GFX.cycleTick(lightAmount, isNight);
+  GFX.cycleTick(effLight, effNight); // stars + night visuals show in the Hagstone world too
   updateDayNightHud(isNight);
 }
 
@@ -13657,13 +13680,13 @@ function onWsMessage(ev) {
     applyManorInstanceState(mootInstanceActive); // the Manor exists only in a coven's private Wilds
     setMootBanner(mootInstanceActive ? msg : null);
     setUnlockToast(mootInstanceActive
-      ? `🌑 You slip through the Moot Stone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private moot — only your coven can reach you here.`
-      : '🌒 You step back through the Moot Stone into the public town.');
+      ? `🌑 You slip through the Hagstone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private world — only your coven can reach you here.`
+      : '🌒 You step back through the Hagstone into the public town.');
     pokeRoomTag();
     return;
   }
   if (msg.type === 'moot_error') {
-    setUnlockToast(msg.message || 'The Moot Stone does not answer.');
+    setUnlockToast(msg.message || 'The Hagstone does not answer.');
     return;
   }
 
@@ -15485,7 +15508,7 @@ function setMootBanner(msg) {
     document.body.appendChild(el);
   }
   if (!msg) { el.style.display = 'none'; return; }
-  el.textContent = `🌑 Coven Moot — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
+  el.textContent = `🌑 Hagstone — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
   el.style.display = 'block';
 }
 
@@ -19375,6 +19398,7 @@ let lastWildlifeIsNight = false;
 const { getDayNightState, updateDayNightCycle } = createDayNight({
   DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT,
   _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
+  hagstoneActiveClient: () => mootInstanceActive, // 🌑 re-grade to violet night inside a coven's private world
   getLampGlows: () => LAMP_GLOWS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
@@ -22452,7 +22476,7 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'moot') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Moot Stone`;
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
     return;
   }
   if (kiosk && kiosk.npc === 'plaque') {

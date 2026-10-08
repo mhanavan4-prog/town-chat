@@ -121,7 +121,7 @@ function buildMootStone(scene) {
   g.add(glow);
   g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
   scene.add(g);
-  const label = makeNpcNameSprite('🌑 The Moot Stone');
+  const label = makeNpcNameSprite('🌑 The Hagstone');
   label.position.set(MOOT_STONE_SPOT.x, 80, MOOT_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
