@@ -699,6 +699,10 @@
   #pcMenuBtn:hover { background:rgba(40,24,16,0.85); }
   #pcMenuBtn.hidden { display:none !important; }
   body.touchMode #pcMenuBtn { display:none !important; }
+  /* Hidden for now to de-clutter the top-left — the menu opens with Escape
+     instead. The element stays in the DOM so Escape can click it (and refresh
+     its graphics/music labels). Delete this rule to bring the pill back. */
+  #pcMenuBtn { display:none !important; }
   #pcMenuBadge {
     display:none; margin-left:6px; min-width:17px; padding:1px 5px;
     background:#ffd43b; color:#221a06; font-size:11px; font-weight:800;
@@ -1862,6 +1866,7 @@
       <button class="menuRow" id="menuMoonstones">💎 Moonstones: <span id="menuMsVal">0</span></button>
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>
+      <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
@@ -2933,6 +2938,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=0a7bc2827f"></script>
+<script src="client.js?v=3188e4cee8"></script>
 </body>
 </html>

@@ -17582,6 +17582,24 @@ function closeWelcomeModal(thenControls) {
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
   on('controlsCloseBtn', closeControlsModal);
   on('menuControls', () => { document.getElementById('menuSheet').classList.add('hidden'); openControlsModal(); });
+  // ⛶ Fullscreen — toggle the browser Fullscreen API for a clutter-free view
+  // (hides tabs/toolbar/dock). The menu click is the user gesture the API
+  // requires, so closing the sheet first is fine. The label tracks state.
+  const fsLabel = () => { const r = document.getElementById('menuFullscreen'); if (r) r.textContent = document.fullscreenElement ? '⛶ Exit fullscreen' : '⛶ Fullscreen'; };
+  function toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        const el = document.documentElement;
+        (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
+      } else {
+        (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
+      }
+    } catch (e) { /* fullscreen can be blocked by the browser; ignore */ }
+  }
+  on('menuFullscreen', () => { document.getElementById('menuSheet').classList.add('hidden'); toggleFullscreen(); });
+  document.addEventListener('fullscreenchange', fsLabel);
+  document.addEventListener('webkitfullscreenchange', fsLabel);
+  fsLabel();
   on('welcomeStartBtn', () => closeWelcomeModal(true));
   const overlay = document.getElementById('controlsModal');
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeControlsModal(); });
@@ -22978,7 +22996,14 @@ window.addEventListener('keydown', (e) => {
     tryInteract();
   }
   if (e.key === 'Escape' && !e.repeat) {
-    leaveCurrentBuilding();
+    // Escape with nothing else open pops the ☰ menu (the open-menu branch up
+    // top closes it, so Escape toggles). Driving it through the hidden
+    // pcMenuBtn means its graphics/music labels refresh on open, same as a
+    // click would. Leaving a building now lives on the Leave button and the
+    // menu's "🚪 Leave building" row rather than on Escape.
+    const pm = document.getElementById('pcMenuBtn');
+    if (pm) pm.click();
+    else document.getElementById('menuSheet').classList.remove('hidden');
   }
 });
 
