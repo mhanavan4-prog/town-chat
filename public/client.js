@@ -17575,7 +17575,15 @@ const WALL_HEIGHT = 110;
 // their rooms are small, and the cave's walls were tuned to the old
 // distances (see updateCamera()'s clip notes).
 const OUTDOOR_CAM = { back: 182, height: 138, lookUp: 50 };
-const INDOOR_CAM  = { back: 92,  height: 78,  lookUp: 42 };
+// Interior view: raised and angled DOWN into the room (a "dollhouse" framing)
+// rather than the old low, near-level peer that made rooms feel cramped and
+// left you looking up at furniture. height stays safely under the 150 ceiling
+// of the shortest interiors (town buildings, the Vault) with headroom for
+// pitch; the wall-clip shrink in updateCamera() keeps it off the walls.
+const INDOOR_CAM  = { back: 100, height: 100, lookUp: 30 };
+// The Coven Manor is a big hall with a taller (200) ceiling, so it gets its own
+// higher, further-back framing to take in the open floor.
+const MANOR_CAM   = { back: 150, height: 150, lookUp: 40 };
 const INDOOR_SEATED_CAM = { back: 55, height: 60, lookUp: 28 };
 const INDOOR_SCALE = 1.8;
 const INDOOR_WALL_HEIGHT = 150;
@@ -20822,7 +20830,9 @@ function updateCamera(dt) {
   const rp = getRenderPos(me);
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
-  const cam = (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
+  const cam = (activeScene === manorScene && !seatedAt) ? MANOR_CAM
+            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM
+            : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
   // Indoors, rooms are small enough that a fixed pull-back distance can put
@@ -20833,12 +20843,24 @@ function updateCamera(dt) {
   // the camera always stays directly behind the player, just closer when a
   // wall is near. This guarantees you can always see your own character.
   let back = cam.back;
-  if (mode === 'indoor' && currentInterior) {
+  // Keep the camera inside whatever bounded room we're in by shrinking the
+  // pull-back distance along the behind-the-player line (never past a wall),
+  // rather than clamping x/z independently (which can shove it onto the
+  // character). Town interiors carry their size on currentInterior; the
+  // sub-room scenes (Manor/Cave/Vault) keep mode='outdoor' with no
+  // currentInterior, so until now they got NO clip protection and the camera
+  // sailed through their walls — resolve their bounds from the scene instead.
+  let roomW = 0, roomD = 0;
+  if (mode === 'indoor' && currentInterior) { roomW = currentInterior.roomW; roomD = currentInterior.roomD; }
+  else if (activeScene === manorScene) { roomW = MANOR_WORLD.width; roomD = MANOR_WORLD.height; }
+  else if (activeScene === caveScene)  { roomW = CAVE_WORLD.width;  roomD = CAVE_WORLD.height; }
+  else if (activeScene === vaultScene) { roomW = VAULT_WORLD.width; roomD = VAULT_WORLD.height; }
+  if (roomW) {
     const margin = 16;
-    const maxX = dirX > 0.001 ? (currentInterior.roomW - margin - rp.x) / dirX
+    const maxX = dirX > 0.001 ? (roomW - margin - rp.x) / dirX
                : dirX < -0.001 ? (margin - rp.x) / dirX
                : Infinity;
-    const maxZ = dirZ > 0.001 ? (currentInterior.roomD - margin - rp.z) / dirZ
+    const maxZ = dirZ > 0.001 ? (roomD - margin - rp.z) / dirZ
                : dirZ < -0.001 ? (margin - rp.z) / dirZ
                : Infinity;
     back = Math.max(24, Math.min(back, maxX, maxZ));
