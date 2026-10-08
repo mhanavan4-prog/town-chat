@@ -124,6 +124,37 @@ function buildWildsScene(w2) {
     scene.add(glow);
   }
 
+  // ── Spirit-wisps — small will-o'-the-wisp motes that drift and bob slowly
+  // over the moor, mostly sickly green with a few violet (the Hagstone's
+  // otherworld bleeding through). Each rides the heightfield under it and
+  // wanders a slow lissajous path on its own clock, so the field shimmers
+  // with faint wandering lights at night rather than sitting dead still.
+  // Additive, depthWrite off, unlit — they glow in the dark and fade by day
+  // along with everything else the night grading dims. ──
+  const wispTex = makeGlowTexture();
+  const wispCols = [0x8dffbe, 0x8dffbe, 0x8dffbe, 0xbfa0ff]; // mostly green, some violet
+  for (let i = 0; i < 46; i++) {
+    const wx = 300 + grand() * (w2.width - 600), wz = 300 + grand() * (w2.height - 600);
+    const gh = sampleH(wx, wz);
+    const mat = new THREE.SpriteMaterial({ map: wispTex, color: wispCols[(grand() * wispCols.length) | 0], transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
+    const wisp = new THREE.Sprite(mat);
+    const sc = 7 + grand() * 10;
+    wisp.scale.set(sc, sc, 1);
+    // wander: independent radii/speeds/phases on x, z and the vertical bob
+    const rx = 40 + grand() * 90, rz = 40 + grand() * 90, hoverBase = 28 + grand() * 90, bob = 10 + grand() * 22;
+    const sx = 0.00012 + grand() * 0.0003, sz = 0.00012 + grand() * 0.0003, sy = 0.0004 + grand() * 0.0008;
+    const px = grand() * Math.PI * 2, pz = grand() * Math.PI * 2, py = grand() * Math.PI * 2;
+    const baseOp = 0.4 + grand() * 0.35, opAmp = 0.18 + grand() * 0.14, sop = 0.0009 + grand() * 0.0016;
+    wisp.position.set(wx, gh + hoverBase, wz);
+    wisp.onBeforeRender = () => {
+      const t = performance.now();
+      const nx = wx + Math.sin(t * sx + px) * rx, nz = wz + Math.cos(t * sz + pz) * rz;
+      wisp.position.set(nx, sampleH(nx, nz) + hoverBase + Math.sin(t * sy + py) * bob, nz);
+      mat.opacity = Math.max(0, baseOp + opAmp * Math.sin(t * sop + px));
+    };
+    scene.add(wisp);
+  }
+
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
   getAddAnimals2()(scene);
   getAddMobs2()(scene);
