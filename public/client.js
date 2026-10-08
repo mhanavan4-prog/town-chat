@@ -4493,27 +4493,66 @@ function buildWildsScene(w2) {
   const sigilTex = makeGroundSigilTextures(); // [{ scorch, glow }, …]
   const glyphCols = [0x7dffb0, 0x7dffb0, 0x7dffb0, 0x9be7ff, 0xc69bff]; // mostly green, some teal/violet
   let gseed = 0x51611 >>> 0; const grand = () => { gseed = (gseed * 1664525 + 1013904223) >>> 0; return gseed / 4294967296; };
+
+  // A glyph is no longer a single flat quad — on rolling terrain a flat plane
+  // set to the ground height at its CENTRE gets swallowed by any rise across
+  // its footprint (reported: half the pentacle vanishing into a hill). So
+  // each decal is a subdivided grid draped over the heightfield: every vertex
+  // rides wildsHeightAt(worldX, worldZ) + a small lift, so the mark hugs the
+  // hills and conforms to slopes instead of cutting a flat slice through them.
+  // (We sample more densely than the terrain mesh's own segments, so the decal
+  // can only ride on or just above the surface, never below it.) The mesh sits
+  // at (gx, 0, gz); a vertex's local (x,z) carries the glyph's random spin, and
+  // its y is the absolute terrain height there plus `lift`.
+  const sampleH = (typeof wildsHeightAt === 'function') ? wildsHeightAt : () => 0;
+  const SEG = 12;
+  function conformingDecal(gx, gz, size, rot, lift) {
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const n = SEG + 1, pos = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2);
+    for (let j = 0; j < n; j++) {
+      for (let k = 0; k < n; k++) {
+        const u = k / SEG, v = j / SEG;
+        const px = (u - 0.5) * size, pz = (v - 0.5) * size; // centred local plane
+        const rx = px * cos - pz * sin, rz = px * sin + pz * cos; // apply glyph spin
+        const idx = j * n + k;
+        pos[idx * 3] = rx;
+        pos[idx * 3 + 1] = sampleH(gx + rx, gz + rz) + lift;
+        pos[idx * 3 + 2] = rz;
+        uv[idx * 2] = u; uv[idx * 2 + 1] = v;
+      }
+    }
+    const index = [];
+    for (let j = 0; j < SEG; j++) {
+      for (let k = 0; k < SEG; k++) {
+        const a = j * n + k, b = a + 1, c = a + n, d = c + 1;
+        index.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(index);
+    return geo;
+  }
+
   for (let i = 0; i < 220; i++) {
     const gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     const size = 55 + grand() * 120;
     const rot = grand() * Math.PI * 2;
-    const h = (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0);
     const pick = sigilTex[(grand() * sigilTex.length) | 0];
     const col = glyphCols[(grand() * glyphCols.length) | 0];
 
     // scorch stain — sits lowest, a touch wider than the glyph, darkens ground
     const scorchMat = new THREE.MeshBasicMaterial({ map: pick.scorch, transparent: true, depthWrite: false, opacity: 0.82 + grand() * 0.14 });
-    const scorch = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.3, size * 1.3), scorchMat);
-    scorch.rotation.set(-Math.PI / 2, 0, rot);
-    scorch.position.set(gx, h + 0.35, gz);
+    const scorch = new THREE.Mesh(conformingDecal(gx, gz, size * 1.3, rot, 0.6), scorchMat);
+    scorch.position.set(gx, 0, gz);
     scorch.renderOrder = 1;
     scene.add(scorch);
 
     // molten glow — additive, tinted, breathing on its own clock
     const glowMat = new THREE.MeshBasicMaterial({ map: pick.glow, transparent: true, color: col, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.7 });
-    const glow = new THREE.Mesh(new THREE.PlaneGeometry(size, size), glowMat);
-    glow.rotation.set(-Math.PI / 2, 0, rot);
-    glow.position.set(gx, h + 0.65, gz);
+    const glow = new THREE.Mesh(conformingDecal(gx, gz, size, rot, 1.0), glowMat);
+    glow.position.set(gx, 0, gz);
     glow.renderOrder = 2;
     const phase = grand() * Math.PI * 2;           // where in the breath it starts
     const speed = 0.0009 + grand() * 0.0013;        // rad/ms — each glyph drifts
