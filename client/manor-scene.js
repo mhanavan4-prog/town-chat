@@ -21,7 +21,9 @@ function buildManorScene() {
   setManorScene(scene);
   setManorCamera(camera);
 
-  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 320;
+  // WALL_H is kept near 3× the 68u player height — grand but not cavernous, so
+  // nobody feels dwarfed looking up (an earlier 320 made the player tiny).
+  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 200;
 
   // ── Light: a dim violet wash + warm points so candles read, never flat ──
   scene.add(new THREE.HemisphereLight(0x3a2d66, 0x0a0714, 0.9));
@@ -102,27 +104,8 @@ function buildManorScene() {
   banner.position.set(W / 2, WALL_H * 0.6, 8);
   scene.add(banner);
 
-  // ── Central great table + two thrones ──
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x2a1d12 });
-  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(300, 16, 110), woodMat);
-  tableTop.position.set(W / 2, 46, D / 2);
-  scene.add(tableTop);
-  for (const [ox, oz] of [[-135, -46], [135, -46], [-135, 46], [135, 46]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(14, 46, 14), woodMat);
-    leg.position.set(W / 2 + ox, 23, D / 2 + oz);
-    scene.add(leg);
-  }
-  const clothMat = new THREE.MeshLambertMaterial({ color: 0x5a2a6e });
-  for (const oz of [-95, 95]) {
-    const throne = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 10, 40), woodMat); seat.position.y = 42; throne.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(44, 70, 10), woodMat); back.position.set(0, 78, oz < 0 ? -15 : 15); throne.add(back);
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(38, 6, 34), clothMat); cushion.position.y = 49; throne.add(cushion);
-    throne.position.set(W / 2, 0, D / 2 + oz);
-    scene.add(throne);
-  }
-  // Candelabra down the longer table.
-  for (const ox of [-110, -55, 0, 55, 110]) addCandle(scene, W / 2 + ox, 55, D / 2, 1.0);
+  // (The central great table + thrones were removed — they ate too much of the
+  // floor. The hall's centre is left open; the sigil rug is the centrepiece.)
 
   // ── Chandelier overhead (purely decorative; the point-light above does the lighting) ──
   const chand = new THREE.Group();
@@ -135,7 +118,7 @@ function buildManorScene() {
   scene.add(chand);
 
   // ── Wall sconces (emissive only — the two warm point-lights carry the room) ──
-  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 170, sz, 0.9);
+  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 128, sz, 0.9);
 
   // ── Eight four-poster bed-chambers at the spots main defines ──
   const bedCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];

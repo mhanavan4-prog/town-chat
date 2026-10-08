@@ -2345,7 +2345,9 @@ function buildManorScene() {
   setManorScene(scene);
   setManorCamera(camera);
 
-  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 320;
+  // WALL_H is kept near 3× the 68u player height — grand but not cavernous, so
+  // nobody feels dwarfed looking up (an earlier 320 made the player tiny).
+  const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 200;
 
   // ── Light: a dim violet wash + warm points so candles read, never flat ──
   scene.add(new THREE.HemisphereLight(0x3a2d66, 0x0a0714, 0.9));
@@ -2426,27 +2428,8 @@ function buildManorScene() {
   banner.position.set(W / 2, WALL_H * 0.6, 8);
   scene.add(banner);
 
-  // ── Central great table + two thrones ──
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x2a1d12 });
-  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(300, 16, 110), woodMat);
-  tableTop.position.set(W / 2, 46, D / 2);
-  scene.add(tableTop);
-  for (const [ox, oz] of [[-135, -46], [135, -46], [-135, 46], [135, 46]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(14, 46, 14), woodMat);
-    leg.position.set(W / 2 + ox, 23, D / 2 + oz);
-    scene.add(leg);
-  }
-  const clothMat = new THREE.MeshLambertMaterial({ color: 0x5a2a6e });
-  for (const oz of [-95, 95]) {
-    const throne = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(44, 10, 40), woodMat); seat.position.y = 42; throne.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(44, 70, 10), woodMat); back.position.set(0, 78, oz < 0 ? -15 : 15); throne.add(back);
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(38, 6, 34), clothMat); cushion.position.y = 49; throne.add(cushion);
-    throne.position.set(W / 2, 0, D / 2 + oz);
-    scene.add(throne);
-  }
-  // Candelabra down the longer table.
-  for (const ox of [-110, -55, 0, 55, 110]) addCandle(scene, W / 2 + ox, 55, D / 2, 1.0);
+  // (The central great table + thrones were removed — they ate too much of the
+  // floor. The hall's centre is left open; the sigil rug is the centrepiece.)
 
   // ── Chandelier overhead (purely decorative; the point-light above does the lighting) ──
   const chand = new THREE.Group();
@@ -2459,7 +2442,7 @@ function buildManorScene() {
   scene.add(chand);
 
   // ── Wall sconces (emissive only — the two warm point-lights carry the room) ──
-  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 170, sz, 0.9);
+  for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 128, sz, 0.9);
 
   // ── Eight four-poster bed-chambers at the spots main defines ──
   const bedCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
@@ -13749,6 +13732,7 @@ function onWsMessage(ev) {
     renderInventoryItemsPanel();
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
     if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the pack grid in sync
     applyMyEquipVisual(msg);
     return;
   }
@@ -14053,12 +14037,18 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'manor_exited') {
     if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
+    if (Modals.isOpen('bedChestModalOpen')) closeManorChest();
     swapToWildsMap();
     setUnlockToast('You step back out into the Wilds.');
     return;
   }
   if (msg.type === 'manor_state') {
     applyManorState(msg);
+    return;
+  }
+  if (msg.type === 'manor_storage_state') {
+    manorChestSlots = Array.isArray(msg.slots) ? msg.slots : [];
+    renderManorChest();
     return;
   }
   if (msg.type === 'manor_error') {
@@ -17585,7 +17575,15 @@ const WALL_HEIGHT = 110;
 // their rooms are small, and the cave's walls were tuned to the old
 // distances (see updateCamera()'s clip notes).
 const OUTDOOR_CAM = { back: 182, height: 138, lookUp: 50 };
-const INDOOR_CAM  = { back: 92,  height: 78,  lookUp: 42 };
+// Interior view: raised and angled DOWN into the room (a "dollhouse" framing)
+// rather than the old low, near-level peer that made rooms feel cramped and
+// left you looking up at furniture. height stays safely under the 150 ceiling
+// of the shortest interiors (town buildings, the Vault) with headroom for
+// pitch; the wall-clip shrink in updateCamera() keeps it off the walls.
+const INDOOR_CAM  = { back: 100, height: 100, lookUp: 30 };
+// The Coven Manor is a big hall with a taller (200) ceiling, so it gets its own
+// higher, further-back framing to take in the open floor.
+const MANOR_CAM   = { back: 150, height: 150, lookUp: 40 };
 const INDOOR_SEATED_CAM = { back: 55, height: 60, lookUp: 28 };
 const INDOOR_SCALE = 1.8;
 const INDOOR_WALL_HEIGHT = 150;
@@ -19035,6 +19033,50 @@ function applyManorState(msg) {
   if ('yours' in msg) manorYours = msg.yours;
   refreshManorBedplates();
 }
+
+// ── Bedroom chest (a claimed bed doubles as personal storage) ────────────────
+let manorChestSlot = null;   // which bed's chest is open (null = closed)
+let manorChestSlots = [];    // [{itemId,qty}|null] from the server
+function openManorChest(slot) {
+  manorChestSlot = slot;
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'manor_storage_open', slot }));
+  const modal = document.getElementById('bedChestModal');
+  if (modal) modal.classList.remove('hidden');
+  Modals.set('bedChestModalOpen', true);
+}
+function closeManorChest() {
+  manorChestSlot = null;
+  const modal = document.getElementById('bedChestModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('bedChestModalOpen', false);
+}
+function renderManorChest() {
+  const chestGrid = document.getElementById('bedChestSlots');
+  const packGrid = document.getElementById('bedChestInv');
+  if (!chestGrid || !packGrid) return;
+  const cell = (meta, onClick) => {
+    const c = document.createElement('div');
+    c.className = 'covenSlot' + (meta ? '' : ' empty');
+    if (meta) {
+      const m = ITEM_CATALOG[meta.itemId];
+      c.innerHTML = `${m ? m.icon : '❔'}<span class="qty">×${meta.qty}</span>`;
+      c.title = m ? m.name : meta.itemId;
+      c.addEventListener('click', onClick);
+    }
+    return c;
+  };
+  chestGrid.innerHTML = '';
+  manorChestSlots.forEach((s, i) => chestGrid.appendChild(cell(s, () => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'manor_storage_withdraw', slot: manorChestSlot, chestIdx: i }));
+  })));
+  packGrid.innerHTML = '';
+  const invSlots = (lastInventoryState && lastInventoryState.slots) || [];
+  invSlots.forEach((s, i) => packGrid.appendChild(cell(s, () => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'manor_storage_deposit', slot: manorChestSlot, invIdx: i }));
+  })));
+}
+const bedChestCloseBtn = document.getElementById('bedChestCloseBtn');
+if (bedChestCloseBtn) bedChestCloseBtn.addEventListener('click', closeManorChest);
 
 // ── The Manor's EXTERIOR, standing in the Wilds ──────────────────────────────
 // The Wilds geometry is shared between the public world and every coven's
@@ -20788,7 +20830,9 @@ function updateCamera(dt) {
   const rp = getRenderPos(me);
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
-  const cam = (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
+  const cam = (activeScene === manorScene && !seatedAt) ? MANOR_CAM
+            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM
+            : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
   // Indoors, rooms are small enough that a fixed pull-back distance can put
@@ -20799,12 +20843,24 @@ function updateCamera(dt) {
   // the camera always stays directly behind the player, just closer when a
   // wall is near. This guarantees you can always see your own character.
   let back = cam.back;
-  if (mode === 'indoor' && currentInterior) {
+  // Keep the camera inside whatever bounded room we're in by shrinking the
+  // pull-back distance along the behind-the-player line (never past a wall),
+  // rather than clamping x/z independently (which can shove it onto the
+  // character). Town interiors carry their size on currentInterior; the
+  // sub-room scenes (Manor/Cave/Vault) keep mode='outdoor' with no
+  // currentInterior, so until now they got NO clip protection and the camera
+  // sailed through their walls — resolve their bounds from the scene instead.
+  let roomW = 0, roomD = 0;
+  if (mode === 'indoor' && currentInterior) { roomW = currentInterior.roomW; roomD = currentInterior.roomD; }
+  else if (activeScene === manorScene) { roomW = MANOR_WORLD.width; roomD = MANOR_WORLD.height; }
+  else if (activeScene === caveScene)  { roomW = CAVE_WORLD.width;  roomD = CAVE_WORLD.height; }
+  else if (activeScene === vaultScene) { roomW = VAULT_WORLD.width; roomD = VAULT_WORLD.height; }
+  if (roomW) {
     const margin = 16;
-    const maxX = dirX > 0.001 ? (currentInterior.roomW - margin - rp.x) / dirX
+    const maxX = dirX > 0.001 ? (roomW - margin - rp.x) / dirX
                : dirX < -0.001 ? (margin - rp.x) / dirX
                : Infinity;
-    const maxZ = dirZ > 0.001 ? (currentInterior.roomD - margin - rp.z) / dirZ
+    const maxZ = dirZ > 0.001 ? (roomD - margin - rp.z) / dirZ
                : dirZ < -0.001 ? (margin - rp.z) / dirZ
                : Infinity;
     back = Math.max(24, Math.min(back, maxX, maxZ));
@@ -22204,7 +22260,13 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
   if (kiosk && kiosk.portal === 'manor_enter') { enterManor(); return; }
   if (kiosk && kiosk.portal === 'manor_exit') { exitManor(); return; }
-  if (kiosk && Number.isInteger(kiosk.manorBed)) { ws.send(JSON.stringify({ type: 'manor_claim_bedroom', slot: kiosk.manorBed })); return; }
+  if (kiosk && Number.isInteger(kiosk.manorBed)) {
+    const slot = kiosk.manorBed;
+    if (manorYours === slot) openManorChest(slot);                                  // your bed → open its chest
+    else if (!manorBedState[slot]) ws.send(JSON.stringify({ type: 'manor_claim_bedroom', slot })); // empty → claim it
+    else setUnlockToast(`${manorBedState[slot].name}'s chamber — claim an empty one.`);
+    return;
+  }
   if (kiosk && kiosk.portal === 'vault_enter') { enterVault(); return; }
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
@@ -22236,7 +22298,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -22333,7 +22395,7 @@ function updateInteractHint() {
     const mine = manorYours === kiosk.manorBed;
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent =
-      mine ? 'This chamber is yours'
+      mine ? `${interactVerb()} open your chest`
       : occ ? `${occ.name}'s chamber`
       : `${interactVerb()} claim this chamber`;
     return;
@@ -22454,6 +22516,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('covenModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeCovenModal();
+    return;
+  }
+  if (Modals.isOpen('bedChestModalOpen')) {
+    if (e.key === 'Escape' && !e.repeat) closeManorChest();
     return;
   }
   if (Modals.isOpen('notifModalOpen')) {
@@ -22777,7 +22843,7 @@ function pollGamepad(dt) {
   const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
   const sheet = document.getElementById('menuSheet');
   const sheetOpen = sheet && !sheet.classList.contains('hidden');
-  const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
+  const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
   if (justPressed(9)) { // Start → ☰
     if (sheet) sheet.classList.toggle('hidden');
   }
