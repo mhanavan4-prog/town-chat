@@ -235,6 +235,68 @@ export function makeSigilTextures() {
   });
 }
 
+// The "truly spooky" ground glyphs. Each sigil is baked as a PAIR of 256²
+// textures so the scatter can stack two planes and sell the illusion that the
+// mark is carved/burned into the earth, not a neon decal floating on clean
+// grass:
+//   • scorch — a dark, irregular char-stain with the glyph bitten into it as a
+//     near-black recessed groove. Drawn with NORMAL blending (unlit), so it
+//     darkens the real ground under the mark and reads as scorched dead earth
+//     in daylight AND at night. This is the physical-presence cue.
+//   • glow  — the rune itself in three stacked strokes: a wide low-alpha halo,
+//     a brighter body, and a thin white-hot core. Drawn WHITE so the scatter
+//     keeps tinting each one (green/teal/violet) via material.color under
+//     ADDITIVE blending. The hot centerline inside a soft bloom reads as
+//     molten witchfire sitting in the groove rather than flat paint.
+// Returns [{ scorch, glow }, …], one per glyph in _hexSigils().
+export function makeGroundSigilTextures() {
+  const S = 256, mid = S / 2, R = 86;
+  return _hexSigils().map((fn) => {
+    // ── scorch layer ──────────────────────────────────────────────────────
+    const sc = document.createElement('canvas'); sc.width = S; sc.height = S;
+    const s = sc.getContext('2d');
+    // soft burnt halo of dead ground around the mark
+    const halo = s.createRadialGradient(mid, mid, R * 0.25, mid, mid, R * 1.4);
+    halo.addColorStop(0, 'rgba(9,6,5,0.6)');
+    halo.addColorStop(0.55, 'rgba(11,7,6,0.34)');
+    halo.addColorStop(1, 'rgba(11,7,6,0)');
+    s.fillStyle = halo; s.fillRect(0, 0, S, S);
+    // irregular charring flecks so the stain isn't a clean disc
+    for (let i = 0; i < 46; i++) {
+      const a = Math.random() * Math.PI * 2, rr = Math.random() * R * 1.25;
+      const x = mid + Math.cos(a) * rr, y = mid + Math.sin(a) * rr;
+      s.fillStyle = Math.random() < 0.6 ? 'rgba(6,4,3,0.4)' : 'rgba(26,18,14,0.3)';
+      s.beginPath(); s.arc(x, y, 1 + Math.random() * 5, 0, Math.PI * 2); s.fill();
+    }
+    // the glyph bitten into the earth — a dark recessed groove with a faint
+    // sun-baked ash rim just outside it for edge definition
+    s.save(); s.translate(mid, mid);
+    s.lineJoin = 'round'; s.lineCap = 'round';
+    s.strokeStyle = 'rgba(40,28,22,0.45)'; s.lineWidth = R * 0.2; fn(s, R); // ash rim
+    s.strokeStyle = 'rgba(0,0,0,0.9)';     s.lineWidth = R * 0.12; fn(s, R); // groove
+    s.restore();
+    const scorch = new THREE.CanvasTexture(sc);
+
+    // ── glow layer ────────────────────────────────────────────────────────
+    const gc = document.createElement('canvas'); gc.width = S; gc.height = S;
+    const g = gc.getContext('2d');
+    g.translate(mid, mid);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    // outer bloom
+    g.shadowColor = '#ffffff'; g.shadowBlur = 30;
+    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = R * 0.22; fn(g, R);
+    // body
+    g.shadowBlur = 15;
+    g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = R * 0.1; fn(g, R);
+    // white-hot molten core
+    g.shadowBlur = 6;
+    g.strokeStyle = 'rgba(255,255,255,1)'; g.lineWidth = R * 0.045; fn(g, R);
+    const glow = new THREE.CanvasTexture(gc);
+
+    return { scorch, glow };
+  });
+}
+
 export function makeStoneTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
