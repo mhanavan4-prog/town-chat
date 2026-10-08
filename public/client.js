@@ -5385,87 +5385,81 @@ function buildMootStone(scene) {
   // your coven's private world. So it's one weathered monolith with a worn eye
   // and the violet otherworld shimmering in the gap, not a ring of menhirs.
   const g = new THREE.Group();
-  const rock = new THREE.MeshLambertMaterial({ color: 0x2b3330 });
-  const rockDark = new THREE.MeshLambertMaterial({ color: 0x20262a });
+  const rock = new THREE.MeshLambertMaterial({ color: 0x2b3330, emissive: 0x241a33, emissiveIntensity: 0.35 });
+  const rockDark = new THREE.MeshLambertMaterial({ color: 0x20262a, emissive: 0x1b1328, emissiveIntensity: 0.3 });
   const moss = new THREE.MeshLambertMaterial({ color: 0x2f4a30 });
+  const glowTex = LEGEND_FX.glowTexture();
 
-  // Rough base the monolith rises from — a couple of lumpy boulders so the
-  // stone reads as rooted in the earth, not balanced on a point.
-  const root = new THREE.Mesh(new THREE.DodecahedronGeometry(26, 0), rockDark);
-  root.position.set(0, 16, 0); root.rotation.set(0.3, 0.6, 0.2); root.scale.set(1, 0.7, 1);
-  g.add(root);
-  const root2 = new THREE.Mesh(new THREE.DodecahedronGeometry(16, 0), rock);
-  root2.position.set(16, 10, 8); root2.rotation.set(0.5, 1.1, 0.3);
-  g.add(root2);
-
-  // The holed stone itself — a thick, faceted ring standing upright. Low
-  // segment counts make it read as hewn rock rather than a clean torus. The
-  // ring stands in the XY plane, so the hole looks out along Z; the whole
-  // group is yawed below to face the stone's eye toward the approaching path.
-  const HOLE_R = 27, TUBE_R = 11, RING_Y = 66;
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(HOLE_R, TUBE_R, 6, 11), rock);
-  ring.position.set(0, RING_Y, 0);
-  ring.scale.set(1.06, 1.12, 1); // slightly taller-than-wide, hand-worn
-  g.add(ring);
-  // A few boulder lumps fused onto the ring break the donut silhouette.
-  const lump = (r, ang, s, mat) => {
+  const lump = (r, x, y, z, mat) => {
     const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-    b.position.set(Math.cos(ang) * (HOLE_R + 2), RING_Y + Math.sin(ang) * (HOLE_R + 2), 0);
-    b.rotation.set(ang, ang * 1.3, ang * 0.7);
-    g.add(b);
-    return b;
+    b.position.set(x, y, z); b.rotation.set(x * 0.3, y * 0.2, z * 0.4);
+    g.add(b); return b;
   };
-  lump(13, -Math.PI / 2, 1, rock);          // heavy brow over the eye
-  lump(10, Math.PI * 0.18, 1, rockDark);    // east cheek
-  lump(9, Math.PI * 0.82, 1, rockDark);     // west cheek
-  const mossCap = lump(8, -Math.PI / 2 + 0.4, 1, moss); // mossy weathering on the brow
-  mossCap.scale.set(1.2, 0.6, 1.1);
+
+  // The stone itself — an irregular upright boulder with a hole bored clean
+  // through it, extruded as a solid slab (not a thin ring, which read as two
+  // prongs edge-on). Stands in the XY plane, thickness along Z, so from the
+  // front and back you look through the eye and from the sides it's a hewn
+  // wall of rock. A mossy cap and rough lumps weather the faces.
+  const shape = new THREE.Shape();
+  const out = [[-32, 2], [-42, 30], [-47, 62], [-41, 95], [-25, 118], [2, 130], [29, 120], [45, 96], [49, 63], [43, 31], [31, 5], [2, -5]];
+  shape.moveTo(out[0][0], out[0][1]);
+  for (let i = 1; i < out.length; i++) shape.lineTo(out[i][0], out[i][1]);
+  shape.closePath();
+  const hole = new THREE.Path(); hole.absarc(3, 76, 24, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+  const slabGeo = new THREE.ExtrudeGeometry(shape, { depth: 30, bevelEnabled: true, bevelThickness: 6, bevelSize: 5, bevelSegments: 2, steps: 1 });
+  slabGeo.translate(0, 0, -15); // centre the thickness on z=0
+  g.add(new THREE.Mesh(slabGeo, rock));
+  lump(12, -34, 44, 12, rockDark);
+  lump(10, 36, 92, -11, rockDark);
+  lump(9, 40, 40, 13, rock);
+  const cap = lump(13, 2, 128, 0, moss); cap.scale.set(1.5, 0.6, 1.3); // mossy crown
+
+  // Base boulders so it roots into the earth rather than balancing on a point.
+  const r1 = lump(30, 0, 14, 0, rockDark); r1.scale.set(1.4, 0.6, 1.2);
+  lump(18, 24, 10, 8, rock);
+  lump(14, -26, 9, -6, rock);
 
   // The dais it stands on.
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(30, 34, 6, 22), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
-  dais.position.y = 3;
-  g.add(dais);
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(42, 46, 7, 24), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
+  dais.position.y = 3.5; g.add(dais);
 
-  // The otherworld seen through the eye — a disc of violet light filling the
-  // hole, with a greener core, both additive and facing out the same way as
-  // the hole. It breathes and the two layers drift against each other so the
-  // gap looks like a living threshold, not a painted plate.
-  const portalViolet = new THREE.Mesh(
-    new THREE.CircleGeometry(HOLE_R - 2, 28),
-    new THREE.MeshBasicMaterial({ map: LEGEND_FX.glowTexture(), color: 0x7d4bff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending })
-  );
-  portalViolet.position.set(0, RING_Y, 0.5);
-  g.add(portalViolet);
-  const portalGreen = new THREE.Mesh(
-    new THREE.CircleGeometry(HOLE_R - 8, 24),
-    new THREE.MeshBasicMaterial({ map: LEGEND_FX.glowTexture(), color: 0x7be3a3, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })
-  );
-  portalGreen.position.set(0, RING_Y, 1.2);
-  g.add(portalGreen);
-  portalViolet.onBeforeRender = () => {
+  // The eye — the otherworld seen through the hole. A camera-facing glow so
+  // the threshold shimmers from EVERY angle (the old flat discs vanished when
+  // you circled off-axis): a violet halo and a green core breathing against
+  // each other, with a faint flat disc in the bore for depth head-on.
+  const eyeV = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x7d4bff, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending }));
+  eyeV.scale.set(58, 58, 1); eyeV.position.set(3, 76, 0); g.add(eyeV);
+  const eyeG = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x7be3a3, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+  eyeG.scale.set(34, 34, 1); eyeG.position.set(3, 76, 0.5); g.add(eyeG);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(22, 28),
+    new THREE.MeshBasicMaterial({ map: glowTex, color: 0x6a3cff, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  disc.position.set(3, 76, 0); g.add(disc);
+  eyeV.onBeforeRender = () => {
     const t = performance.now();
-    portalViolet.material.opacity = 0.5 + 0.18 * Math.sin(t * 0.0011);
-    portalViolet.rotation.z = t * 0.00018;
-    portalGreen.material.opacity = 0.38 + 0.16 * Math.sin(t * 0.0017 + 1.7);
-    portalGreen.rotation.z = -t * 0.00026;
+    eyeV.material.opacity = 0.6 + 0.2 * Math.sin(t * 0.0011);
+    eyeG.material.opacity = 0.5 + 0.22 * Math.sin(t * 0.0017 + 1.7);
+    disc.material.opacity = 0.38 + 0.14 * Math.sin(t * 0.0013 + 0.6);
+    disc.rotation.z = t * 0.0002;
   };
 
   // A low pool of green glow at the foot, the stone's own light bleeding out.
   const footGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: LEGEND_FX.glowTexture(), color: 0x6ad39a, transparent: true, opacity: 0.4,
+    map: glowTex, color: 0x6ad39a, transparent: true, opacity: 0.4,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  footGlow.scale.set(64, 30, 1);
+  footGlow.scale.set(90, 34, 1);
   footGlow.position.set(0, 10, 0);
   g.add(footGlow);
 
   // Face the eye toward the spawn hub (1600,1100) so you meet its gaze on the
-  // way in and the shimmer is visible from the path.
+  // way in; the camera-facing eye keeps the shimmer visible from any side.
   g.rotation.y = Math.atan2(1600 - MOOT_STONE_SPOT.x, 1100 - MOOT_STONE_SPOT.y);
   g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
   scene.add(g);
   const label = makeNpcNameSprite('🌑 The Hagstone');
-  label.position.set(MOOT_STONE_SPOT.x, 112, MOOT_STONE_SPOT.y);
+  label.position.set(MOOT_STONE_SPOT.x, 152, MOOT_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
 }
