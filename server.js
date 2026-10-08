@@ -397,7 +397,7 @@ app.post('/api/checkout', async (req, res) => {
             unit_amount: COVEN_CHARTER_PRICE_CENTS,
             product_data: {
               name: 'Thornreach — Coven Charter',
-              description: 'Found your own coven and its private Moot-Stone world. Invite up to 8 — only the founder pays.'
+              description: 'Found your own coven and its private Hagstone world. Invite up to 8 — only the founder pays.'
             }
           },
           quantity: 1
@@ -7583,7 +7583,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'moot_teleport') {
       if (!player) return;
       if (player.room !== 'outside' || (player.roomLockUntil && Date.now() < player.roomLockUntil)) {
-        send(ws, { type: 'moot_error', message: 'The Moot Stone only answers in the town square.' });
+        send(ws, { type: 'moot_error', message: 'The Hagstone only answers in the town square.' });
         return;
       }
       if (delveRunOf(player)) { send(ws, { type: 'moot_error', message: 'Not while you’re delving.' }); return; }
@@ -8164,7 +8164,7 @@ wss.on('connection', (ws, req) => {
       // Only reachable inside your OWN coven's private world.
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv || player.instance !== 'coven_' + cv.id) {
-        send(ws, { type: 'manor_error', message: 'The Manor stands only in your coven’s own world — step through the Moot Stone first.' });
+        send(ws, { type: 'manor_error', message: 'The Manor stands only in your coven’s own world — step through the Hagstone first.' });
         return;
       }
       if (Math.hypot(player.x - MANOR_WILDS_SPOT.x, player.y - MANOR_WILDS_SPOT.y) > 200) return;

@@ -1492,13 +1492,13 @@ function onWsMessage(ev) {
     applyManorInstanceState(mootInstanceActive); // the Manor exists only in a coven's private Wilds
     setMootBanner(mootInstanceActive ? msg : null);
     setUnlockToast(mootInstanceActive
-      ? `🌑 You slip through the Moot Stone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private moot — only your coven can reach you here.`
-      : '🌒 You step back through the Moot Stone into the public town.');
+      ? `🌑 You slip through the Hagstone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private world — only your coven can reach you here.`
+      : '🌒 You step back through the Hagstone into the public town.');
     pokeRoomTag();
     return;
   }
   if (msg.type === 'moot_error') {
-    setUnlockToast(msg.message || 'The Moot Stone does not answer.');
+    setUnlockToast(msg.message || 'The Hagstone does not answer.');
     return;
   }
 
@@ -3320,7 +3320,7 @@ function setMootBanner(msg) {
     document.body.appendChild(el);
   }
   if (!msg) { el.style.display = 'none'; return; }
-  el.textContent = `🌑 Coven Moot — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
+  el.textContent = `🌑 Hagstone — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
   el.style.display = 'block';
 }
 
@@ -7210,6 +7210,7 @@ let lastWildlifeIsNight = false;
 const { getDayNightState, updateDayNightCycle } = createDayNight({
   DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT,
   _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
+  hagstoneActiveClient: () => mootInstanceActive, // 🌑 re-grade to violet night inside a coven's private world
   getLampGlows: () => LAMP_GLOWS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
@@ -10287,7 +10288,7 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'moot') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Moot Stone`;
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
     return;
   }
   if (kiosk && kiosk.npc === 'plaque') {
