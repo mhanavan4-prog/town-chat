@@ -11,8 +11,37 @@
 // main (not invented here) so the claim kiosks and the rendered beds can never
 // drift apart. Returns buildManorScene.
 // ---------------------------------------------------------------------------
+import { buildDecoration, ALTAR_SLOT_POS } from './altar-decor.js';
+
 export default function createManorScene({ makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, setManorScene, setManorCamera, setManorEmbers }) {
+// slot -> the empty THREE.Group on that altar's top surface that holds its
+// owner's decorations; repopulated at runtime by setAltarDecor as altar state
+// arrives from the server. Rebuilt whenever the manor scene is (re)built.
+const ALTAR_TOP_Y = 58;
+const altarDecorGroups = [];
+// Replace an altar's decorations with the owner's arrangement (an array of up
+// to 6 decoration ids, null = empty slot). Safe to call before the scene is
+// built (it just no-ops until the group exists).
+function setAltarDecor(slot, arrangement) {
+  const dg = altarDecorGroups[slot];
+  if (!dg) return;
+  for (let i = dg.children.length - 1; i >= 0; i--) {
+    const c = dg.children[i]; dg.remove(c);
+    c.traverse && c.traverse((o) => { if (o.geometry) o.geometry.dispose && o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose && o.material.map.dispose(); o.material.dispose && o.material.dispose(); } });
+  }
+  const arr = Array.isArray(arrangement) ? arrangement : [];
+  for (let i = 0; i < ALTAR_SLOT_POS.length; i++) {
+    const id = arr[i];
+    if (!id) continue;
+    const d = buildDecoration(id);
+    if (!d) continue;
+    d.scale.setScalar(0.8);
+    d.position.set(ALTAR_SLOT_POS[i].x, ALTAR_TOP_Y, ALTAR_SLOT_POS[i].z);
+    dg.add(d);
+  }
+}
 function buildManorScene() {
+  altarDecorGroups.length = 0;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0c0a1c);
   scene.fog = new THREE.FogExp2(0x0c0a1c, 0.0016);
@@ -120,9 +149,11 @@ function buildManorScene() {
   // ── Wall sconces (emissive only — the two warm point-lights carry the room) ──
   for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 128, sz, 0.9);
 
-  // ── Eight four-poster bed-chambers at the spots main defines ──
-  const bedCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
-  MANOR_BED_SPOTS.forEach((spot, i) => scene.add(buildBed(spot, bedCloths[i % bedCloths.length])));
+  // ── Eight witch-altars at the spots main defines (these replaced the old
+  // four-poster beds; each is a coven member's personal altar + storage chest,
+  // and displays the decorations its owner arranges). ──
+  const altarCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
+  MANOR_BED_SPOTS.forEach((spot, i) => scene.add(buildAltar(spot, altarCloths[i % altarCloths.length], i)));
 
   // ── Door marker so the way out is obvious ──
   const sign = makeSignSprite('🚪 Leave the Manor — Press F');
@@ -157,36 +188,50 @@ function buildManorScene() {
     return g;
   }
 
-  function buildBed(spot, cloth) {
+  // A witch-altar: a waist-high stone altar with a coven-cloth runner, a faint
+  // glowing pentacle carved into the front face, and two short candelabra posts
+  // (a nod to the old four-poster's corners). Its top carries an empty decor
+  // group (altarDecorGroups[slot]) that setAltarDecor fills with the owner's
+  // chosen adornments. Matches the signed-off altar preview.
+  function buildAltar(spot, cloth, slot) {
     const g = new THREE.Group();
-    const frameMat = new THREE.MeshLambertMaterial({ color: 0x1e140c });
-    const mattMat = new THREE.MeshLambertMaterial({ color: 0x2a2436 });
-    const clothMat2 = new THREE.MeshLambertMaterial({ color: cloth });
-    const BW = 74, BL = 108, POST = 92;   // bed is laid out head-to-north (−z) in local space
-    // frame + mattress + blanket + pillow
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(BW, 16, BL), frameMat); frame.position.y = 16; g.add(frame);
-    const matt = new THREE.Mesh(new THREE.BoxGeometry(BW - 10, 12, BL - 10), mattMat); matt.position.y = 28; g.add(matt);
-    const blanket = new THREE.Mesh(new THREE.BoxGeometry(BW - 8, 8, BL * 0.6), clothMat2); blanket.position.set(0, 33, BL * 0.16); g.add(blanket);
-    const pillow = new THREE.Mesh(new THREE.BoxGeometry(BW - 22, 10, 22), new THREE.MeshLambertMaterial({ color: 0xd8d0e4 })); pillow.position.set(0, 34, -BL * 0.32); g.add(pillow);
-    const headboard = new THREE.Mesh(new THREE.BoxGeometry(BW, 54, 8), frameMat); headboard.position.set(0, 40, -BL / 2); g.add(headboard);
-    // four posts + canopy + drapes
-    for (const px of [-BW / 2 + 6, BW / 2 - 6]) for (const pz of [-BL / 2 + 6, BL / 2 - 6]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, POST, 8), frameMat); post.position.set(px, POST / 2, pz); g.add(post);
-    }
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(BW + 6, 8, BL + 6), clothMat2); canopy.position.y = POST; g.add(canopy);
-    for (const px of [-BW / 2, BW / 2]) {
-      const drape = new THREE.Mesh(new THREE.PlaneGeometry(BL, POST * 0.7), new THREE.MeshLambertMaterial({ color: cloth, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
-      drape.rotation.y = Math.PI / 2; drape.position.set(px, POST * 0.62, 0); g.add(drape);
-    }
-    // nightstand + candle beside the bed
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(22, 26, 22), frameMat); stand.position.set(BW / 2 + 20, 13, -BL / 4); g.add(stand);
-    addCandle(g, BW / 2 + 20, 26, -BL / 4, 0.8);
+    const stone = new THREE.MeshLambertMaterial({ color: 0x3a3340 });
+    const stoneDark = new THREE.MeshLambertMaterial({ color: 0x282230 });
+    const iron = new THREE.MeshLambertMaterial({ color: 0x1b1720 });
+    const clothMat = new THREE.MeshLambertMaterial({ color: cloth });
+    const W = 80, L = 120;
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(W - 10, 48, L - 10), stoneDark); plinth.position.y = 24; g.add(plinth);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(W + 6, 10, L + 6), stone); base.position.y = 5; g.add(base);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W, 10, L), stone); top.position.y = 53; g.add(top);
+    const runner = new THREE.Mesh(new THREE.BoxGeometry(W * 0.5, 2, L + 8), clothMat); runner.position.y = 58.3; g.add(runner);
+    // carved pentacle glowing faintly in the stone front (south face, +z local)
+    const sig = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlow(), color: 0x8e6bff, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sig.scale.set(34, 34, 1); sig.position.set(0, 30, L / 2 + 2); g.add(sig);
+    sig.onBeforeRender = () => { sig.material.opacity = 0.26 + Math.sin(performance.now() * 0.0018 + slot) * 0.14; };
+    // short back candelabra posts + candles (the altar's own light)
+    [[-W / 2 + 8, -L / 2 + 8], [W / 2 - 8, -L / 2 + 8]].forEach((p) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 70, 8), iron); post.position.set(p[0], 35, p[1]); g.add(post);
+      addCandle(g, p[0], 70, p[1], 1.1);
+    });
+    // the decor group that holds the owner's adornments, filled by setAltarDecor
+    const decorGroup = new THREE.Group();
+    g.add(decorGroup);
+    altarDecorGroups[slot] = decorGroup;
 
     g.position.set(spot.x, 0, spot.y);
     g.rotation.y = spot.rot || 0;
     return g;
   }
+
+  // A soft radial glow texture for the altar's carved sigil (local helper so
+  // this module needs no extra injection).
+  function makeGlow() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d'); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  }
 }
 
-  return { buildManorScene };
+  return { buildManorScene, setAltarDecor };
 }

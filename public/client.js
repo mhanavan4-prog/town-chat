@@ -2321,6 +2321,205 @@ function addCaveWallShelves(scene) {
   return { buildCaveScene };
 }
 
+// ===== client/altar-decor.js =====
+// ---------------------------------------------------------------------------
+// Coven-altar decorations (Session N+). The witch-altars that replaced the
+// Manor beds display a handful of adornments the owning player arranges; this
+// module is the single source of truth for the decoration CATALOG (shared by
+// the adorn UI in main.js) and the 3D BUILDERS (used by manor-scene.js). The
+// server keeps its own small copy of the ids/costs — keep the two in sync.
+//
+// THREE is a global (same as the other client modules). Each builder returns a
+// THREE.Group whose base sits at y=0; animated pieces drive themselves through
+// onBeforeRender so no render-loop wiring is needed. Geometry here is the same
+// that was signed off in the altar preview, lightly sized to sit six-to-an-
+// altar without clipping.
+// ---------------------------------------------------------------------------
+
+// Catalog metadata. `free:true` = always placeable; otherwise `ms` is the
+// one-time Moonstone unlock cost (then placeable forever on any altar you own).
+const ALTAR_DECOS = [
+  { id: 'candles',  name: 'Candle trio',     emoji: '🕯️', free: true },
+  { id: 'pentacle', name: 'Pentacle plaque', emoji: '⛤',  free: true },
+  { id: 'incense',  name: 'Incense censer',  emoji: '🌫️', free: true },
+  { id: 'chalice',  name: 'Chalice',         emoji: '🍷', free: true },
+  { id: 'bell',     name: 'Hand bell',       emoji: '🔔', free: true },
+  { id: 'runes',    name: 'Rune stones',     emoji: '🪨', free: true },
+  { id: 'mirror',   name: 'Scrying mirror',  emoji: '🪞', ms: 40 },
+  { id: 'cauldron', name: 'Cauldron bowl',   emoji: '🧪', ms: 50 },
+  { id: 'skull',    name: 'Skull',           emoji: '💀', ms: 30 },
+  { id: 'crystals', name: 'Crystal cluster', emoji: '🔮', ms: 60 },
+  { id: 'grimoire', name: 'Grimoire',        emoji: '📖', ms: 50 },
+  { id: 'raven',    name: 'Raven familiar',  emoji: '🐦', ms: 45 },
+];
+const ALTAR_DECO_IDS = ALTAR_DECOS.map((d) => d.id);
+
+// Six display positions across the altar top (local x,z; the scene supplies y).
+const ALTAR_SLOT_POS = [
+  { x: -24, z: -24 }, { x: 0, z: -24 }, { x: 24, z: -24 },
+  { x: -24, z: 26 },  { x: 0, z: 26 },  { x: 24, z: 26 },
+];
+const ALTAR_SLOTS = ALTAR_SLOT_POS.length;
+
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+let _GLOW = null;
+const GLOW = () => (_GLOW || (_GLOW = glowTexture()));
+
+function mat(opts) { return new THREE.MeshLambertMaterial(opts); }
+const M = () => ({
+  stoneDark: mat({ color: 0x282230 }),
+  iron: mat({ color: 0x1b1720 }),
+  bronze: mat({ color: 0x8a6a2f, emissive: 0x2a1d08, emissiveIntensity: 0.4 }),
+  wax: mat({ color: 0x1a1622 }),
+  bone: mat({ color: 0xd8d0c0 }),
+  crystal: mat({ color: 0x9b6cff, emissive: 0x3a1d6e, emissiveIntensity: 0.7, transparent: true, opacity: 0.85 }),
+  book: mat({ color: 0x2a1030 }),
+});
+
+function flame(col, s, y) {
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: col, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+  m.scale.set(s, s * 1.4, 1); m.position.y = y;
+  m.onBeforeRender = () => { const t = performance.now(); m.material.opacity = 0.78 + Math.sin(t * 0.02 + y) * 0.16; m.scale.set(s + Math.sin(t * 0.011) * s * 0.12, s * 1.4 + Math.sin(t * 0.013) * s * 0.18, 1); };
+  return m;
+}
+
+// ── builders ────────────────────────────────────────────────────────────────
+const BUILD = {
+  candles() {
+    const g = new THREE.Group(); const m = M();
+    [[-7, 2], [7, -2], [0, 7]].forEach((p, i) => {
+      const s = 0.85 + (i * 0.11);
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(3 * s, 3.6 * s, 20 * s, 10), m.wax); c.position.set(p[0], 10 * s, p[1]); g.add(c);
+      const fl = flame(0xffcf6a, 7.5, 22 * s); fl.position.x = p[0]; fl.position.z = p[1]; g.add(fl);
+    });
+    return g;
+  },
+  pentacle() {
+    const g = new THREE.Group(); const m = M(); const R = 11;
+    const star = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const a1 = -Math.PI / 2 + i * 4 * Math.PI / 5, a2 = -Math.PI / 2 + (i + 1) * 4 * Math.PI / 5;
+      const x1 = Math.cos(a1) * R, y1 = Math.sin(a1) * R, x2 = Math.cos(a2) * R, y2 = Math.sin(a2) * R, len = Math.hypot(x2 - x1, y2 - y1);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 1.4, 1.4), m.bronze);
+      bar.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0); bar.rotation.z = Math.atan2(y2 - y1, x2 - x1); star.add(bar);
+    }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R + 1.5, 1, 8, 28), m.bronze); star.add(ring);
+    star.position.set(0, 17, 0); g.add(star);
+    const easel = new THREE.Mesh(new THREE.BoxGeometry(2, 16, 2), m.iron); easel.position.set(0, 8, 2.4); easel.rotation.x = 0.2; g.add(easel);
+    return g;
+  },
+  incense() {
+    const g = new THREE.Group(); const m = M();
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(7, 5, 5, 12), m.bronze); bowl.position.y = 3; g.add(bowl);
+    const sand = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 1.5, 12), m.stoneDark); sand.position.y = 5.5; g.add(sand);
+    [[-2, 0], [1, 2], [2, -1]].forEach((p) => {
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 16, 4), mat({ color: 0x6a3b2a })); st.position.set(p[0], 13, p[1]); st.rotation.z = (p[0]) * 0.04; g.add(st);
+      const tip = flame(0xff6a3a, 2.6, 21); tip.position.x = p[0]; tip.position.z = p[1]; g.add(tip);
+    });
+    const sm = new THREE.Mesh(new THREE.ConeGeometry(5, 36, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xb9a6d6, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sm.position.y = 34; g.add(sm);
+    sm.onBeforeRender = () => { const t = performance.now(); sm.rotation.y = t * 0.0008; sm.material.opacity = 0.08 + Math.sin(t * 0.004) * 0.05; };
+    return g;
+  },
+  chalice() {
+    const g = new THREE.Group(); const m = M();
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(6, 7, 2, 12), m.bronze), { position: new THREE.Vector3(0, 1, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 10, 8), m.bronze), { position: new THREE.Vector3(0, 7, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 6), m.bronze), { position: new THREE.Vector3(0, 8, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(7, 3.5, 10, 12), m.bronze), { position: new THREE.Vector3(0, 17, 0) }));
+    const wine = new THREE.Mesh(new THREE.CircleGeometry(6, 12), new THREE.MeshBasicMaterial({ color: 0x5a0f22 })); wine.rotation.x = -Math.PI / 2; wine.position.y = 21.5; g.add(wine);
+    return g;
+  },
+  bell() {
+    const g = new THREE.Group(); const m = M();
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(5, 8, 12, 12, 1, true), m.bronze), { position: new THREE.Vector3(0, 12, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m.bronze), { position: new THREE.Vector3(0, 18, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.8, 6, 12), m.bronze), { position: new THREE.Vector3(0, 22, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), m.iron), { position: new THREE.Vector3(0, 7, 0) }));
+    return g;
+  },
+  runes() {
+    const g = new THREE.Group();
+    [[-6, -3, 0], [0, -5, 0.4], [5, 3, -0.3], [-2, 4, 0.6], [7, -2, 0.2]].forEach((p, i) => {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(6, 3.4, 7), mat({ color: [0x6b5d46, 0x5a4e3a, 0x655843][i % 3] })); s.position.set(p[0], 1.7, p[1]); s.rotation.y = p[2]; g.add(s);
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: 0x7be3a3, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending })); gl.scale.set(6, 6, 1); gl.position.set(p[0], 4, p[1]); g.add(gl);
+    });
+    return g;
+  },
+  mirror() {
+    const g = new THREE.Group(); const m = M();
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(13, 2.4, 8, 28), m.bronze); frame.position.y = 20; g.add(frame);
+    const glass = new THREE.MeshPhongMaterial({ color: 0x0a0a12, shininess: 90, specular: 0x8899ff });
+    const gm = new THREE.Mesh(new THREE.CircleGeometry(12.5, 28), glass); gm.position.set(0, 20, 0.3); g.add(gm);
+    const gm2 = new THREE.Mesh(new THREE.CircleGeometry(12.5, 28), glass); gm2.position.set(0, 20, -0.3); gm2.rotation.y = Math.PI; g.add(gm2);
+    const sheen = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: 0x8e7bd0, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); sheen.scale.set(16, 16, 1); sheen.position.set(0, 20, 1); g.add(sheen);
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(3, 10, 3), m.iron), { position: new THREE.Vector3(0, 4, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 3, 12), m.iron), { position: new THREE.Vector3(0, 1.5, 0) }));
+    sheen.onBeforeRender = () => { sheen.material.opacity = 0.28 + Math.sin(performance.now() * 0.003) * 0.14; };
+    return g;
+  },
+  cauldron() {
+    const g = new THREE.Group(); const m = M();
+    const pot = new THREE.Mesh(new THREE.SphereGeometry(10, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.72), m.iron); pot.position.y = 10; pot.scale.y = 0.9; g.add(pot);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(8.4, 1.4, 8, 16), m.iron); rim.position.y = 16.5; rim.rotation.x = Math.PI / 2; g.add(rim);
+    for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 6, 6), m.iron), { position: new THREE.Vector3(Math.cos(a) * 6, 3, Math.sin(a) * 6) })); }
+    const brew = new THREE.Mesh(new THREE.CircleGeometry(8, 16), new THREE.MeshBasicMaterial({ color: 0x6be3a3 })); brew.rotation.x = -Math.PI / 2; brew.position.y = 16.2; g.add(brew);
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: 0x6be3a3, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); gl.scale.set(20, 16, 1); gl.position.y = 20; g.add(gl);
+    gl.onBeforeRender = () => { const t = performance.now(); gl.material.opacity = 0.35 + Math.sin(t * 0.005) * 0.2; gl.position.y = 20 + Math.sin(t * 0.004) * 2; };
+    return g;
+  },
+  skull() {
+    const g = new THREE.Group(); const m = M();
+    const cr = new THREE.Mesh(new THREE.SphereGeometry(8, 12, 10), m.bone); cr.position.y = 10; cr.scale.set(1, 1.05, 1.15); g.add(cr);
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(11, 5, 9), m.bone), { position: new THREE.Vector3(0, 4.5, 1.5) }));
+    [-3.2, 3.2].forEach((x) => g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), m.iron), { position: new THREE.Vector3(x, 11, 6.5) })));
+    return g;
+  },
+  crystals() {
+    const g = new THREE.Group(); const m = M();
+    const base = new THREE.Mesh(new THREE.DodecahedronGeometry(5, 0), m.stoneDark); base.position.y = 3; base.scale.y = 0.5; g.add(base);
+    [[0, 18, 0, 1.2], [-4, 13, 2, 0.8], [4, 12, -2, 0.7], [2, 10, 4, 0.6]].forEach((p) => {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(2.4 * p[3], p[1], 5), m.crystal); c.position.set(p[0], p[1] / 2 + 2, p[2]); c.rotation.set((p[0]) * 0.03, 0, (p[2]) * 0.03); g.add(c);
+    });
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: 0x9b6cff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); gl.scale.set(26, 26, 1); gl.position.y = 14; g.add(gl);
+    gl.onBeforeRender = () => { gl.material.opacity = 0.3 + Math.sin(performance.now() * 0.004) * 0.18; };
+    return g;
+  },
+  grimoire() {
+    const g = new THREE.Group(); const m = M();
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(20, 5, 26), m.book), { position: new THREE.Vector3(0, 4, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(18, 3.4, 24), m.bone), { position: new THREE.Vector3(0, 4, 0) }));
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(4, 5.5, 3), m.bronze), { position: new THREE.Vector3(0, 4, 13) }));
+    const sig = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: 0x7be3a3, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending })); sig.scale.set(14, 14, 1); sig.position.set(0, 7, 0); g.add(sig);
+    sig.onBeforeRender = () => { sig.material.opacity = 0.12 + Math.abs(Math.sin(performance.now() * 0.0015)) * 0.22; };
+    return g;
+  },
+  raven() {
+    const g = new THREE.Group(); const m = M();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(7, 12, 10), m.iron); body.scale.set(1, 1.1, 1.5); body.position.y = 12; g.add(body);
+    g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(4.5, 10, 8), m.iron), { position: new THREE.Vector3(0, 19, 6) }));
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(1.6, 6, 6), mat({ color: 0x2a2420 })); beak.position.set(0, 19, 11); beak.rotation.x = Math.PI / 2; g.add(beak);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(4, 14, 6), m.iron); tail.position.set(0, 11, -9); tail.rotation.x = -Math.PI / 2.1; g.add(tail);
+    [-2, 2].forEach((x) => g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffcf4a })), { position: new THREE.Vector3(x, 20, 9.5) })));
+    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(6, 7, 4, 10), m.stoneDark), { position: new THREE.Vector3(0, 2, 0) }));
+    return g;
+  },
+};
+
+// Build one decoration group by id (null for an unknown id).
+function buildDecoration(id) {
+  const fn = BUILD[id];
+  if (!fn) return null;
+  try { return fn(); } catch (e) { return null; }
+}
+
 // ===== client/manor-scene.js =====
 // ---------------------------------------------------------------------------
 // The Coven Manor interior (Session N). A grand candlelit hall standing in a
@@ -2335,8 +2534,36 @@ function addCaveWallShelves(scene) {
 // main (not invented here) so the claim kiosks and the rendered beds can never
 // drift apart. Returns buildManorScene.
 // ---------------------------------------------------------------------------
+
 function createManorScene({ makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, setManorScene, setManorCamera, setManorEmbers }) {
+// slot -> the empty THREE.Group on that altar's top surface that holds its
+// owner's decorations; repopulated at runtime by setAltarDecor as altar state
+// arrives from the server. Rebuilt whenever the manor scene is (re)built.
+const ALTAR_TOP_Y = 58;
+const altarDecorGroups = [];
+// Replace an altar's decorations with the owner's arrangement (an array of up
+// to 6 decoration ids, null = empty slot). Safe to call before the scene is
+// built (it just no-ops until the group exists).
+function setAltarDecor(slot, arrangement) {
+  const dg = altarDecorGroups[slot];
+  if (!dg) return;
+  for (let i = dg.children.length - 1; i >= 0; i--) {
+    const c = dg.children[i]; dg.remove(c);
+    c.traverse && c.traverse((o) => { if (o.geometry) o.geometry.dispose && o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose && o.material.map.dispose(); o.material.dispose && o.material.dispose(); } });
+  }
+  const arr = Array.isArray(arrangement) ? arrangement : [];
+  for (let i = 0; i < ALTAR_SLOT_POS.length; i++) {
+    const id = arr[i];
+    if (!id) continue;
+    const d = buildDecoration(id);
+    if (!d) continue;
+    d.scale.setScalar(0.8);
+    d.position.set(ALTAR_SLOT_POS[i].x, ALTAR_TOP_Y, ALTAR_SLOT_POS[i].z);
+    dg.add(d);
+  }
+}
 function buildManorScene() {
+  altarDecorGroups.length = 0;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0c0a1c);
   scene.fog = new THREE.FogExp2(0x0c0a1c, 0.0016);
@@ -2444,9 +2671,11 @@ function buildManorScene() {
   // ── Wall sconces (emissive only — the two warm point-lights carry the room) ──
   for (const [sx, sz] of [[W * 0.5, 14], [14, D * 0.32], [14, D * 0.68], [W - 14, D * 0.32], [W - 14, D * 0.68]]) addCandle(scene, sx, 128, sz, 0.9);
 
-  // ── Eight four-poster bed-chambers at the spots main defines ──
-  const bedCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
-  MANOR_BED_SPOTS.forEach((spot, i) => scene.add(buildBed(spot, bedCloths[i % bedCloths.length])));
+  // ── Eight witch-altars at the spots main defines (these replaced the old
+  // four-poster beds; each is a coven member's personal altar + storage chest,
+  // and displays the decorations its owner arranges). ──
+  const altarCloths = [0x7a2550, 0x254b7a, 0x2a6e4a, 0x6e4a2a, 0x4a2a6e, 0x6e2a2a, 0x2a5a6e, 0x5a6e2a];
+  MANOR_BED_SPOTS.forEach((spot, i) => scene.add(buildAltar(spot, altarCloths[i % altarCloths.length], i)));
 
   // ── Door marker so the way out is obvious ──
   const sign = makeSignSprite('🚪 Leave the Manor — Press F');
@@ -2481,38 +2710,52 @@ function buildManorScene() {
     return g;
   }
 
-  function buildBed(spot, cloth) {
+  // A witch-altar: a waist-high stone altar with a coven-cloth runner, a faint
+  // glowing pentacle carved into the front face, and two short candelabra posts
+  // (a nod to the old four-poster's corners). Its top carries an empty decor
+  // group (altarDecorGroups[slot]) that setAltarDecor fills with the owner's
+  // chosen adornments. Matches the signed-off altar preview.
+  function buildAltar(spot, cloth, slot) {
     const g = new THREE.Group();
-    const frameMat = new THREE.MeshLambertMaterial({ color: 0x1e140c });
-    const mattMat = new THREE.MeshLambertMaterial({ color: 0x2a2436 });
-    const clothMat2 = new THREE.MeshLambertMaterial({ color: cloth });
-    const BW = 74, BL = 108, POST = 92;   // bed is laid out head-to-north (−z) in local space
-    // frame + mattress + blanket + pillow
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(BW, 16, BL), frameMat); frame.position.y = 16; g.add(frame);
-    const matt = new THREE.Mesh(new THREE.BoxGeometry(BW - 10, 12, BL - 10), mattMat); matt.position.y = 28; g.add(matt);
-    const blanket = new THREE.Mesh(new THREE.BoxGeometry(BW - 8, 8, BL * 0.6), clothMat2); blanket.position.set(0, 33, BL * 0.16); g.add(blanket);
-    const pillow = new THREE.Mesh(new THREE.BoxGeometry(BW - 22, 10, 22), new THREE.MeshLambertMaterial({ color: 0xd8d0e4 })); pillow.position.set(0, 34, -BL * 0.32); g.add(pillow);
-    const headboard = new THREE.Mesh(new THREE.BoxGeometry(BW, 54, 8), frameMat); headboard.position.set(0, 40, -BL / 2); g.add(headboard);
-    // four posts + canopy + drapes
-    for (const px of [-BW / 2 + 6, BW / 2 - 6]) for (const pz of [-BL / 2 + 6, BL / 2 - 6]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, POST, 8), frameMat); post.position.set(px, POST / 2, pz); g.add(post);
-    }
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(BW + 6, 8, BL + 6), clothMat2); canopy.position.y = POST; g.add(canopy);
-    for (const px of [-BW / 2, BW / 2]) {
-      const drape = new THREE.Mesh(new THREE.PlaneGeometry(BL, POST * 0.7), new THREE.MeshLambertMaterial({ color: cloth, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
-      drape.rotation.y = Math.PI / 2; drape.position.set(px, POST * 0.62, 0); g.add(drape);
-    }
-    // nightstand + candle beside the bed
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(22, 26, 22), frameMat); stand.position.set(BW / 2 + 20, 13, -BL / 4); g.add(stand);
-    addCandle(g, BW / 2 + 20, 26, -BL / 4, 0.8);
+    const stone = new THREE.MeshLambertMaterial({ color: 0x3a3340 });
+    const stoneDark = new THREE.MeshLambertMaterial({ color: 0x282230 });
+    const iron = new THREE.MeshLambertMaterial({ color: 0x1b1720 });
+    const clothMat = new THREE.MeshLambertMaterial({ color: cloth });
+    const W = 80, L = 120;
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(W - 10, 48, L - 10), stoneDark); plinth.position.y = 24; g.add(plinth);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(W + 6, 10, L + 6), stone); base.position.y = 5; g.add(base);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W, 10, L), stone); top.position.y = 53; g.add(top);
+    const runner = new THREE.Mesh(new THREE.BoxGeometry(W * 0.5, 2, L + 8), clothMat); runner.position.y = 58.3; g.add(runner);
+    // carved pentacle glowing faintly in the stone front (south face, +z local)
+    const sig = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlow(), color: 0x8e6bff, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sig.scale.set(34, 34, 1); sig.position.set(0, 30, L / 2 + 2); g.add(sig);
+    sig.onBeforeRender = () => { sig.material.opacity = 0.26 + Math.sin(performance.now() * 0.0018 + slot) * 0.14; };
+    // short back candelabra posts + candles (the altar's own light)
+    [[-W / 2 + 8, -L / 2 + 8], [W / 2 - 8, -L / 2 + 8]].forEach((p) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 70, 8), iron); post.position.set(p[0], 35, p[1]); g.add(post);
+      addCandle(g, p[0], 70, p[1], 1.1);
+    });
+    // the decor group that holds the owner's adornments, filled by setAltarDecor
+    const decorGroup = new THREE.Group();
+    g.add(decorGroup);
+    altarDecorGroups[slot] = decorGroup;
 
     g.position.set(spot.x, 0, spot.y);
     g.rotation.y = spot.rot || 0;
     return g;
   }
+
+  // A soft radial glow texture for the altar's carved sigil (local helper so
+  // this module needs no extra injection).
+  function makeGlow() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d'); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  }
 }
 
-  return { buildManorScene };
+  return { buildManorScene, setAltarDecor };
 }
 
 // ===== client/dungeon-scene.js =====
@@ -14182,6 +14425,7 @@ function onWsMessage(ev) {
   if (msg.type === 'ms_state') {
     myMoonstones = msg.balance || 0;
     refreshMsUI();
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // adorn UI shows balance
     return;
   }
   if (msg.type === 'ms_error') {
@@ -14299,6 +14543,11 @@ function onWsMessage(ev) {
   if (msg.type === 'manor_storage_state') {
     manorChestSlots = Array.isArray(msg.slots) ? msg.slots : [];
     renderManorChest();
+    return;
+  }
+  if (msg.type === 'altar_unlocks') {
+    if (msg.unlocks) manorYourUnlocks = msg.unlocks;
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
   if (msg.type === 'manor_error') {
@@ -19315,8 +19564,10 @@ const MANOR_KIOSKS = [
 let manorBedState = {};        // slot -> { key, name } | null, from the server
 let manorYours = null;         // which slot is mine (null = none)
 const manorBedplates = [];     // slot -> THREE.Sprite (doorplate), rebuilt on state change
+let manorAltars = {};          // slot -> [ALTAR_SLOTS] deco ids|null, every claimed altar
+let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlocked
 
-const { buildManorScene } = createManorScene({
+const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
   setManorCamera: (c) => { manorCamera = c; },
@@ -19364,7 +19615,21 @@ function refreshManorBedplates() {
 function applyManorState(msg) {
   if (msg.bedrooms) manorBedState = msg.bedrooms;
   if ('yours' in msg) manorYours = msg.yours;
+  if (msg.altars) manorAltars = msg.altars;
+  if (msg.yourUnlocks) manorYourUnlocks = msg.yourUnlocks;
+  if (typeof msg.msBalance === 'number') myMoonstones = msg.msBalance; // keep the adorn UI's balance fresh
   refreshManorBedplates();
+  refreshManorAltars();
+  if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the adorn UI live
+}
+
+// Paint every altar's decorations from the latest state. Each claimed bedroom
+// slot gets its owner's arrangement; unclaimed/empty altars render bare.
+function refreshManorAltars() {
+  if (!setAltarDecor) return;
+  for (let i = 0; i < MANOR_BED_SPOTS.length; i++) {
+    setAltarDecor(i, (manorAltars && manorAltars[i]) || []);
+  }
 }
 
 // ── Bedroom chest (a claimed bed doubles as personal storage) ────────────────
@@ -19383,7 +19648,53 @@ function closeManorChest() {
   if (modal) modal.classList.add('hidden');
   Modals.set('bedChestModalOpen', false);
 }
+let altarSelDisplay = 0;   // which of the 6 altar display slots is selected to fill
+function renderAltarAdorn() {
+  const slotRow = document.getElementById('altarSlots');
+  const catalog = document.getElementById('altarCatalog');
+  const msLine = document.getElementById('altarMsLine');
+  if (!slotRow || !catalog) return;
+  const arrangement = (manorAltars && manorChestSlot != null && manorAltars[manorChestSlot]) || [];
+  const decoById = {}; ALTAR_DECOS.forEach((d) => { decoById[d.id] = d; });
+  if (msLine) msLine.textContent = `💎 ${myMoonstones}`;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+
+  // the six display slots — click to select which one the catalog fills
+  slotRow.innerHTML = '';
+  for (let i = 0; i < ALTAR_SLOTS; i++) {
+    const id = arrangement[i] || null;
+    const cell = document.createElement('div');
+    cell.className = 'aslot' + (i === altarSelDisplay ? ' sel' : '') + (id ? ' filled' : '');
+    cell.textContent = id ? (decoById[id] ? decoById[id].emoji : '•') : '·';
+    cell.title = id ? (decoById[id] ? decoById[id].name : id) : 'Empty spot — pick one, then tap a decoration below';
+    cell.addEventListener('click', () => {
+      if (i === altarSelDisplay && id) send({ type: 'manor_altar_place', display: i, decoId: null }); // tap a filled, selected slot to clear it
+      altarSelDisplay = i; renderAltarAdorn();
+    });
+    slotRow.appendChild(cell);
+  }
+
+  // the catalog — free + unlocked place into the selected slot; locked ones
+  // offer a Moonstone unlock first.
+  catalog.innerHTML = '';
+  ALTAR_DECOS.forEach((d) => {
+    const owned = d.free || !!manorYourUnlocks[d.id];
+    const placedHere = arrangement[altarSelDisplay] === d.id;
+    const cell = document.createElement('div');
+    const affordable = owned || myMoonstones >= (d.ms || 0);
+    cell.className = 'adeco' + (owned ? '' : ' locked') + (placedHere ? ' placed' : '') + (!owned && !affordable ? ' unaffordable' : '');
+    cell.innerHTML = `<span>${d.emoji}</span>` + (owned ? '' : `<span class="acost">${d.ms}</span>`);
+    cell.title = owned ? d.name + ' — tap to place in the selected spot' : `${d.name} — unlock for ${d.ms} 💎`;
+    cell.addEventListener('click', () => {
+      if (owned) send({ type: 'manor_altar_place', display: altarSelDisplay, decoId: placedHere ? null : d.id });
+      else if (affordable) send({ type: 'manor_altar_unlock', decoId: d.id });
+    });
+    catalog.appendChild(cell);
+  });
+}
+
 function renderManorChest() {
+  renderAltarAdorn();
   const chestGrid = document.getElementById('bedChestSlots');
   const packGrid = document.getElementById('bedChestInv');
   if (!chestGrid || !packGrid) return;

@@ -18,6 +18,7 @@ import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeFlagstoneTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -1769,6 +1770,7 @@ function onWsMessage(ev) {
   if (msg.type === 'ms_state') {
     myMoonstones = msg.balance || 0;
     refreshMsUI();
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // adorn UI shows balance
     return;
   }
   if (msg.type === 'ms_error') {
@@ -1886,6 +1888,11 @@ function onWsMessage(ev) {
   if (msg.type === 'manor_storage_state') {
     manorChestSlots = Array.isArray(msg.slots) ? msg.slots : [];
     renderManorChest();
+    return;
+  }
+  if (msg.type === 'altar_unlocks') {
+    if (msg.unlocks) manorYourUnlocks = msg.unlocks;
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
   if (msg.type === 'manor_error') {
@@ -6902,8 +6909,10 @@ const MANOR_KIOSKS = [
 let manorBedState = {};        // slot -> { key, name } | null, from the server
 let manorYours = null;         // which slot is mine (null = none)
 const manorBedplates = [];     // slot -> THREE.Sprite (doorplate), rebuilt on state change
+let manorAltars = {};          // slot -> [ALTAR_SLOTS] deco ids|null, every claimed altar
+let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlocked
 
-const { buildManorScene } = createManorScene({
+const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
   setManorCamera: (c) => { manorCamera = c; },
@@ -6951,7 +6960,21 @@ function refreshManorBedplates() {
 function applyManorState(msg) {
   if (msg.bedrooms) manorBedState = msg.bedrooms;
   if ('yours' in msg) manorYours = msg.yours;
+  if (msg.altars) manorAltars = msg.altars;
+  if (msg.yourUnlocks) manorYourUnlocks = msg.yourUnlocks;
+  if (typeof msg.msBalance === 'number') myMoonstones = msg.msBalance; // keep the adorn UI's balance fresh
   refreshManorBedplates();
+  refreshManorAltars();
+  if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the adorn UI live
+}
+
+// Paint every altar's decorations from the latest state. Each claimed bedroom
+// slot gets its owner's arrangement; unclaimed/empty altars render bare.
+function refreshManorAltars() {
+  if (!setAltarDecor) return;
+  for (let i = 0; i < MANOR_BED_SPOTS.length; i++) {
+    setAltarDecor(i, (manorAltars && manorAltars[i]) || []);
+  }
 }
 
 // ── Bedroom chest (a claimed bed doubles as personal storage) ────────────────
@@ -6970,7 +6993,53 @@ function closeManorChest() {
   if (modal) modal.classList.add('hidden');
   Modals.set('bedChestModalOpen', false);
 }
+let altarSelDisplay = 0;   // which of the 6 altar display slots is selected to fill
+function renderAltarAdorn() {
+  const slotRow = document.getElementById('altarSlots');
+  const catalog = document.getElementById('altarCatalog');
+  const msLine = document.getElementById('altarMsLine');
+  if (!slotRow || !catalog) return;
+  const arrangement = (manorAltars && manorChestSlot != null && manorAltars[manorChestSlot]) || [];
+  const decoById = {}; ALTAR_DECOS.forEach((d) => { decoById[d.id] = d; });
+  if (msLine) msLine.textContent = `💎 ${myMoonstones}`;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+
+  // the six display slots — click to select which one the catalog fills
+  slotRow.innerHTML = '';
+  for (let i = 0; i < ALTAR_SLOTS; i++) {
+    const id = arrangement[i] || null;
+    const cell = document.createElement('div');
+    cell.className = 'aslot' + (i === altarSelDisplay ? ' sel' : '') + (id ? ' filled' : '');
+    cell.textContent = id ? (decoById[id] ? decoById[id].emoji : '•') : '·';
+    cell.title = id ? (decoById[id] ? decoById[id].name : id) : 'Empty spot — pick one, then tap a decoration below';
+    cell.addEventListener('click', () => {
+      if (i === altarSelDisplay && id) send({ type: 'manor_altar_place', display: i, decoId: null }); // tap a filled, selected slot to clear it
+      altarSelDisplay = i; renderAltarAdorn();
+    });
+    slotRow.appendChild(cell);
+  }
+
+  // the catalog — free + unlocked place into the selected slot; locked ones
+  // offer a Moonstone unlock first.
+  catalog.innerHTML = '';
+  ALTAR_DECOS.forEach((d) => {
+    const owned = d.free || !!manorYourUnlocks[d.id];
+    const placedHere = arrangement[altarSelDisplay] === d.id;
+    const cell = document.createElement('div');
+    const affordable = owned || myMoonstones >= (d.ms || 0);
+    cell.className = 'adeco' + (owned ? '' : ' locked') + (placedHere ? ' placed' : '') + (!owned && !affordable ? ' unaffordable' : '');
+    cell.innerHTML = `<span>${d.emoji}</span>` + (owned ? '' : `<span class="acost">${d.ms}</span>`);
+    cell.title = owned ? d.name + ' — tap to place in the selected spot' : `${d.name} — unlock for ${d.ms} 💎`;
+    cell.addEventListener('click', () => {
+      if (owned) send({ type: 'manor_altar_place', display: altarSelDisplay, decoId: placedHere ? null : d.id });
+      else if (affordable) send({ type: 'manor_altar_unlock', decoId: d.id });
+    });
+    catalog.appendChild(cell);
+  });
+}
+
 function renderManorChest() {
+  renderAltarAdorn();
   const chestGrid = document.getElementById('bedChestSlots');
   const packGrid = document.getElementById('bedChestInv');
   if (!chestGrid || !packGrid) return;
