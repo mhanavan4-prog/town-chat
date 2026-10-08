@@ -4381,7 +4381,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc }) {
+function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -4395,12 +4395,21 @@ function buildWildsScene(w2) {
   const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
   const groundSpan = Math.max(w2.width, w2.height) + 200;
   grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(w2.width + 200, w2.height + 200),
-    new THREE.MeshLambertMaterial({ map: grassTex })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(w2.width / 2, 0, w2.height / 2);
+  // Rolling terrain: a segmented plane displaced by the shared wilds heightfield
+  // (flat under the developed zones; see wildsHeightAt in main.js). The geometry
+  // is pre-rotated so each vertex's local x/z already read as world x/z once the
+  // mesh is centred, which is what we sample.
+  const cx0 = w2.width / 2, cz0 = w2.height / 2;
+  const groundGeo = new THREE.PlaneGeometry(w2.width + 200, w2.height + 200, 160, 160);
+  groundGeo.rotateX(-Math.PI / 2);
+  if (typeof wildsHeightAt === 'function') {
+    const gp = groundGeo.attributes.position;
+    for (let i = 0; i < gp.count; i++) gp.setY(i, wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i)));
+    gp.needsUpdate = true;
+    groundGeo.computeVertexNormals();
+  }
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex }));
+  ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
   // ── Hexstone Roads — glowing witch-sigil paths linking the landmarks. Flat,
@@ -4421,7 +4430,7 @@ function buildWildsScene(w2) {
     const mat = new THREE.MeshBasicMaterial({ map: sigilTex[(grand() * sigilTex.length) | 0], transparent: true, color: glyphCols[(grand() * glyphCols.length) | 0], blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 + grand() * 0.4 });
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
     decal.rotation.set(-Math.PI / 2, 0, grand() * Math.PI * 2);
-    decal.position.set(gx, 0.5, gz);
+    decal.position.set(gx, (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0) + 0.5, gz);
     scene.add(decal);
   }
 
@@ -12980,6 +12989,8 @@ function onWsMessage(ev) {
         localStorage.setItem('tc_pass_until', String(passUntil));
       }
       if (amAdmin) setUnlockToast('🔑 Admin access — every door is open for testing.');
+      const _cb = document.getElementById('coordBar');
+      if (_cb) _cb.classList.toggle('hidden', !amAdmin); // show the coordinate readout for admins
       refreshUnlockUI();
       refreshPassHud();
       if (typeof refreshBuildingLockVisuals === 'function') refreshBuildingLockVisuals();
@@ -17728,6 +17739,7 @@ const TEMPLE_PLATFORM_W = 360, TEMPLE_PLATFORM_D = 260, TEMPLE_PLATFORM_HEIGHT =
 const TEMPLE_RAMP = 24;
 
 function getFloorHeight(roomId, rx, rz) {
+  if (roomId === 'wilds') return wildsHeightAt(rx, rz || 0);
   if (roomId === 'outside') {
     const halfW = TEMPLE_PLATFORM_W / 2, halfD = TEMPLE_PLATFORM_D / 2;
     const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
@@ -17769,6 +17781,60 @@ function getFloorHeight(roomId, rx, rz) {
   if (rx <= stairStart) return 0;
   if (rx >= stairEnd) return LOUNGE_PLATFORM_HEIGHT;
   return LOUNGE_PLATFORM_HEIGHT * (rx - stairStart) / (stairEnd - stairStart);
+}
+
+// ── Wilds terrain (rolling hills) ────────────────────────────────────────────
+// A deterministic heightfield for the Wilds: gentle rolling hills everywhere,
+// smoothly FLATTENED to level ground under the developed areas (spawn, portal,
+// village, both ritual circles, the Witch's Cave, the Manor spot, the giant
+// tree) and under every campfire/waymarker/NPC, so the hand-placed structures
+// stay grounded while the open moor rolls. getFloorHeight('wilds') rides this,
+// as do the ground mesh + scattered decor (see wilds-scene.js / addNatureDecor /
+// addSpookyDecor). Collision stays 2D — only the vertical look changes.
+const WILDS_AMP = 90; // hill height — gives rolling swells ≈0.8× the 68u player, gentle slopes (low-frequency noise)
+let _wildsFlatZones = null;
+function wildsFlatZones() {
+  if (_wildsFlatZones) return _wildsFlatZones;
+  const sx = world2 ? world2.spawn.x : 5000, sy = world2 ? world2.spawn.y : 8800;
+  _wildsFlatZones = [
+    { x: sx, y: sy, r: 440 },              // arrival spawn
+    { x: sx + 170, y: sy + 20, r: 210 },   // return portal
+    { x: 5000, y: 3000, r: 780 },          // the village
+    { x: 2200, y: 5000, r: 540 },          // western ritual circle (Unbound camp)
+    { x: 7800, y: 5000, r: 540 },          // eastern ritual circle (Thornwarden camp)
+    { x: 2000, y: 2000, r: 470 },          // Witch's Cave mouth
+    { x: 3000, y: 3000, r: 340 },          // the Manor's clearing
+    { x: 6500, y: 6200, r: 330 },          // the giant werewolf tree
+    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 150 })),
+    ...WILDS_WAYMARKERS.map((m) => ({ x: m.x, y: m.y, r: 150 })),
+    ...WILDS_NPCS.map((n) => ({ x: n.x, y: n.y, r: 170 })),
+  ];
+  return _wildsFlatZones;
+}
+function wildsNoise(x, z) {
+  const vn = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const sm = (t) => t * t * (3 - 2 * t);
+  const lattice = (fx, fy) => {
+    const xi = Math.floor(fx), yi = Math.floor(fy), xf = fx - xi, yf = fy - yi;
+    const u = sm(xf), v = sm(yf);
+    const a = vn(xi, yi), b = vn(xi + 1, yi), c = vn(xi, yi + 1), d = vn(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const n = x * 0.00042, m = z * 0.00042;
+  let h = (lattice(n * 3 + 11, m * 3 + 11) - 0.5) * 1.0;
+  h += (lattice(n * 7 + 40, m * 7 + 40) - 0.5) * 0.4;
+  h += (lattice(n * 15, m * 15) - 0.5) * 0.15;
+  return h * WILDS_AMP;
+}
+function wildsHeightAt(x, z) {
+  let flat = 1; // 1 = full hills, 0 = flat
+  const zones = wildsFlatZones();
+  for (let i = 0; i < zones.length; i++) {
+    const c = zones[i];
+    const d = Math.hypot(x - c.x, z - c.y);
+    if (d < c.r) { const t = d / c.r; flat = Math.min(flat, t * t * (3 - 2 * t)); }
+  }
+  return flat <= 0 ? 0 : wildsNoise(x, z) * flat;
 }
 
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
@@ -18760,6 +18826,12 @@ function wildsCollide(x, z, r) {
   WILDS_WALLS.push({ x: x - r, y: z - r, w: r * 2, h: r * 2 });
 }
 function addSpookyDecor(scene, w2) {
+  // Everything added here is organic scatter (spooky trees, gravestones, bone
+  // piles, ruined walls), so lift each piece onto the rolling terrain by
+  // wrapping scene.add — the makers position their group at (x, 0, z), so its
+  // own x/z sample the heightfield.
+  const rawScene = scene;
+  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
   let seed = 0x517cc1b7 >>> 0;
   const rand = () => {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -19302,6 +19374,7 @@ const { buildWildsScene } = createWildsScene({
   setWildsScene: (s) => { wildsScene = s; },
   setWildsCamera: (c) => { wildsCamera = c; },
   setLextonNpc: (n) => { lextonNpc = n; },
+  wildsHeightAt,
 });
 
 // ---------------------------------------------------------------------------
@@ -19805,6 +19878,7 @@ function addNatureDecor(scene, w, pool, wallsOut) {
   // wherever coordinates overlapped (user-reported as "no collision in the
   // Wilds"). Explicit is better than ambient.
   const wallsTarget = wallsOut || walls;
+  const onTerrain = (w === world2); // the Wilds rolls; the town stays flat
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
@@ -19827,6 +19901,7 @@ function addNatureDecor(scene, w, pool, wallsOut) {
     } else {
       continue;
     }
+    if (onTerrain && group) group.position.y += wildsHeightAt(d.x, d.y); // sit on the rolling moor
     scene.add(group);
     if (HARVESTABLE_DECOR_TYPES.has(d.type)) {
       const originalMaterials = [];
@@ -19903,6 +19978,10 @@ function kkPlace(scene, key, x, y, size, rot, mode) {
 
 function kkWildsDressing(scene, w) {
   if (!KK.settled) return;
+  // Wilds-only dressing (dead trees, arch, grave markers) placed in the open
+  // midfield — lift each onto the rolling terrain by wrapping scene.add.
+  const rawScene = scene;
+  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
   const W2 = w.width || 10000, H2 = w.height || 10000;
   // a crooked gate arch greeting arrivals from the portal
   if (w.spawn) kkPlace(scene, 'prop_arch', w.spawn.x, w.spawn.y - 260, 150, 0);
@@ -20951,6 +21030,24 @@ function updateCamera(dt) {
 
   // Ghost out trees/props standing between the camera and the character.
   updateCamObstructions(dt, rp.x, anchorY, rp.z);
+}
+
+// Admin-only coordinate readout (top-right). Shows the room, the player's x/y
+// and the ground height under them — so floating/sunk decor can be reported by
+// exact position. Throttled; a no-op (and hidden) for non-admins.
+let _coordBarLast = 0;
+function updateCoordBar() {
+  if (!amAdmin) return;
+  const el = document.getElementById('coordBar');
+  if (!el || el.classList.contains('hidden') || !me) return;
+  const now = performance.now();
+  if (now - _coordBarLast < 120) return;
+  _coordBarLast = now;
+  const gnd = Math.round(getFloorHeight(me.room, me.x, me.y));
+  const sign = gnd >= 0 ? '+' : '';
+  el.innerHTML = `<span class="cbK">${roomLabel(me.room)}</span>\n`
+    + `x ${Math.round(me.x)}   y ${Math.round(me.y)}\n`
+    + `<span class="cbK">gnd</span> ${sign}${gnd}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -23041,6 +23138,7 @@ function update(dt) {
   updateWandLights();
   updateCameraGlide(dt);
   updateCamera(dt);
+  updateCoordBar();
   updateInteractHint();
 
   moveSendTimer -= dt;
