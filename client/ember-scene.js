@@ -8,7 +8,7 @@ function buildEmberScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a0f0a);
   scene.fog = new THREE.Fog(0x2a0f0a, 500, 2200);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
   // Assign early so swapToEmberMap works even if geometry building throws below.
   setEmberScene(scene);
   setEmberCamera(camera);

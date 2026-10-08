@@ -3363,7 +3363,9 @@ function refreshRitualHud() {
   if (!el) {
     el = document.createElement('div');
     el.id = 'ritualBuff';
-    el.style.cssText = 'position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:59;' +
+    // Top-right, directly above the admin coordinate readout (#coordBar sits
+    // just below at top:104px). Right-aligned so the two line up in a column.
+    el.style.cssText = 'position:fixed;top:58px;right:18px;z-index:59;' +
       'background:linear-gradient(90deg,#2a1a44,#1c1038);border:1px solid #6b4aa0;color:#e7dcff;' +
       'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
       'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';
@@ -6183,7 +6185,11 @@ function initScene(w) {
   scene.background = new THREE.Color(0x8fd0ef);
   scene.fog = new THREE.Fog(0x8fd0ef, 700, 2200);
 
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
+  // near=6 (not 1): the 4000-unit far plane over a near of 1 starved the depth
+  // buffer, so coplanar building faces z-fought and the edges crawled/saw-toothed
+  // as the camera turned. A near of 6 is safe in third-person (the camera never
+  // sits within 6 units of town geometry) and multiplies depth precision ~6×.
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000);
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
