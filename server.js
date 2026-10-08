@@ -4663,17 +4663,50 @@ const MANOR_WILDS_SPOT = { x: 3000, y: 3000 };   // where the manor stands in th
 const MANOR_INTERIOR = { width: 1120, height: 1120 }; // roomy hall — 4× the original floor so 8 members aren't cramped
 const MANOR_SPAWN = { x: 560, y: 1040 };          // just inside the south door
 const MANOR_BEDROOMS = 8;
-// The bedroom ownership map for a coven's manor, resolved to display names.
+
+// ── Altar decorations (the beds became personal witch-altars) ──────────────
+// Each claimed altar displays up to ALTAR_SLOTS adornments the owner arranges.
+// Free pieces are always placeable; the rest are a one-time Moonstone unlock
+// per account, then placeable on any altar that account owns. Keep this catalog
+// in sync with client/altar-decor.js ALTAR_DECOS.
+const ALTAR_SLOTS = 6;
+const ALTAR_DECOS = {
+  candles: { free: true }, pentacle: { free: true }, incense: { free: true },
+  chalice: { free: true }, bell: { free: true }, runes: { free: true },
+  mirror: { ms: 40 }, cauldron: { ms: 50 }, skull: { ms: 30 },
+  crystals: { ms: 60 }, grimoire: { ms: 50 }, raven: { ms: 45 },
+};
+// Per-account unlock set (lives on the account record, so it spans all covens).
+function altarUnlocks(key) { const a = key && accounts[key]; if (!a) return {}; if (!a.altarUnlocks) a.altarUnlocks = {}; return a.altarUnlocks; }
+function decoAllowed(key, id) { const d = ALTAR_DECOS[id]; if (!d) return false; return !!d.free || !!altarUnlocks(key)[id]; }
+// Per-account altar arrangement (an array of ALTAR_SLOTS deco ids | null),
+// persisted on the coven record, same keying as the storage chest.
+function manorAltar(cv, key) {
+  if (!cv.manorAltarsByAccount) cv.manorAltarsByAccount = {};
+  if (!Array.isArray(cv.manorAltarsByAccount[key])) cv.manorAltarsByAccount[key] = new Array(ALTAR_SLOTS).fill(null);
+  return cv.manorAltarsByAccount[key];
+}
+
+// The bedroom ownership map for a coven's manor, resolved to display names, plus
+// every claimed altar's decoration arrangement (so everyone sees them) and the
+// viewer's own unlocks / balance (so the adorn UI knows what they can place).
 function manorStateBody(cv, viewerKey) {
   const rooms = (cv && cv.manorBedrooms) || {};
   const bedrooms = {};
+  const altars = {};
   let yours = null;
   for (let i = 0; i < MANOR_BEDROOMS; i++) {
     const key = rooms[i] || null;
     bedrooms[i] = key ? { key, name: (accounts[key] && accounts[key].username) || key } : null;
+    if (key) altars[i] = manorAltar(cv, key).slice();
     if (key && key === viewerKey) yours = i;
   }
-  return { bedrooms, yours, count: MANOR_BEDROOMS };
+  return {
+    bedrooms, yours, count: MANOR_BEDROOMS, altars,
+    yourUnlocks: viewerKey ? { ...altarUnlocks(viewerKey) } : {},
+    yourAltar: (viewerKey && yours != null) ? manorAltar(cv, viewerKey).slice() : null,
+    msBalance: viewerKey ? msBalance(viewerKey) : 0,
+  };
 }
 // A claimed bed doubles as personal storage. The chest is keyed to the member's
 // account (not the bed slot) and persisted on the coven, so it follows them if
@@ -8262,6 +8295,48 @@ wss.on('connection', (ws, req) => {
       }
 
       send(ws, { type: 'manor_storage_state', slot, slots: chest.map(s => s ? { itemId: s.itemId, qty: s.qty } : null) });
+      return;
+    }
+
+    // ── Altar adornment: unlock a premium decoration with Moonstones ─────────
+    if (msg.type === 'manor_altar_unlock') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Log into an account — altar unlocks follow your account.' }); return; }
+      const id = String(msg.decoId || '');
+      const d = ALTAR_DECOS[id];
+      if (!d || d.free) { send(ws, { type: 'ms_error', message: 'That adornment needs no unlocking.' }); return; }
+      if (altarUnlocks(player.accountKey)[id]) { send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) }); return; } // already owned
+      if (msBalance(player.accountKey) < d.ms) { send(ws, { type: 'ms_error', message: `That's ${d.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+      msAdjust(player.accountKey, -d.ms);
+      altarUnlocks(player.accountKey)[id] = true;
+      saveAccounts();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'altar_unlocks', unlocks: { ...altarUnlocks(player.accountKey) } });
+      return;
+    }
+
+    // ── Altar adornment: place/clear a decoration in one of your altar slots ─
+    if (msg.type === 'manor_altar_place') {
+      if (player.room !== 'manor') return;
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'manor_error', message: 'You belong to no coven.' }); return; }
+      // Must own a bedroom in this manor (same gate as the chest).
+      const ownsBed = cv.manorBedrooms && Object.values(cv.manorBedrooms).includes(player.accountKey);
+      if (!ownsBed) { send(ws, { type: 'manor_error', message: 'Claim your own chamber before adorning an altar.' }); return; }
+      const display = Math.floor(Number(msg.display));
+      if (!(display >= 0 && display < ALTAR_SLOTS)) return;
+      const id = msg.decoId ? String(msg.decoId) : null; // null = clear the slot
+      if (id && !decoAllowed(player.accountKey, id)) { send(ws, { type: 'ms_error', message: 'Unlock that adornment first.' }); return; }
+      const arr = manorAltar(cv, player.accountKey);
+      arr[display] = id;
+      saveCoven(cv.id);
+      // Push the fresh ownership+altar map to everyone in THIS coven's manor so
+      // the altar re-renders for all of them (each gets their own viewer body).
+      for (const p of players.values()) {
+        if (p.room === 'manor' && p.accountKey) {
+          const pcv = covenOf(p.accountKey);
+          if (pcv && pcv.id === cv.id) send(p.ws, { type: 'manor_state', ...manorStateBody(cv, p.accountKey) });
+        }
+      }
       return;
     }
 
