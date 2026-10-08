@@ -2106,7 +2106,7 @@ function gearStatContrib(player, statKey) {
 // reads from. Delve boons speak the same stat vocabulary, so a run's drafted
 // power/guard/vitality/haste/swift/leech simply joins the sum for its
 // duration (delveBoonContrib is 0 for anyone not in a run).
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey); }
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -4687,6 +4687,61 @@ function manorAltar(cv, key) {
   return cv.manorAltarsByAccount[key];
 }
 
+// ── Altar rituals (Session N+) ─────────────────────────────────────────────
+// Performed at your own altar: a rite grants ONE timed blessing at a time (a
+// new rite replaces the old), on a cooldown. Each blessing is a timed additive
+// contribution to a derived stat, so it flows through statContrib and really
+// changes max-HP / resist / XP / speed / haste / harvest. You can also bestow
+// your active blessing on any nearby player — coven or not — out in the world.
+// State lives on the account record (persisted by saveAccounts), keyed the same
+// way as altar unlocks. Keep RITUALS in sync with client/main.js.
+const RITUAL_BUFF_MS = 20 * 60 * 1000;      // a blessing lasts 20 minutes
+const RITUAL_COOLDOWN_MS = 20 * 60 * 1000;  // …and you can perform again every 20
+const BLESS_COOLDOWN_MS = 45 * 1000;        // bestowing on others: brief anti-spam gap
+const BLESS_RANGE = 160;                    // how close the target must be
+const RITUALS = {
+  vigor:     { name: 'Brew of Vigor',         emoji: '🧪', stat: 'vitality', amount: 40,   desc: '+40 max health' },
+  swiftness: { name: 'Blessing of Swiftness', emoji: '🌀', stat: 'swift',    amount: 0.15, desc: '+15% move speed' },
+  ward:      { name: 'Hex Ward',              emoji: '🛡️', stat: 'guard',    amount: 0.15, desc: '+15% damage resist' },
+  fortune:   { name: 'Rite of Fortune',       emoji: '✨', stat: 'xp',       amount: 0.25, desc: '+25% XP gained' },
+  forage:    { name: "Forager's Chant",       emoji: '🌿', stat: 'forage',   amount: 0.25, desc: '+25% harvest luck' },
+  quicken:   { name: 'Quicken',               emoji: '⚡', stat: 'haste',    amount: 0.15, desc: '15% faster cooldowns' },
+};
+// The live blessing on an account, or null if none/expired (cleared lazily).
+function ritualOf(key) {
+  const a = key && accounts[key];
+  if (!a || !a.ritual) return null;
+  if (!a.ritual.until || a.ritual.until <= Date.now()) return null;
+  return a.ritual;
+}
+// A ritual blessing's additive contribution to one derived stat (0 if the
+// account has no live blessing for that stat).
+function ritualBuffContrib(player, statKey) {
+  const r = player && ritualOf(player.accountKey);
+  return (r && r.stat === statKey) ? (r.amount || 0) : 0;
+}
+// Apply a blessing to an account (fresh 20-min duration). Recomputes the live
+// player's max-health if they're online so the HP bar updates at once.
+function grantBlessing(key, ritualId) {
+  const def = RITUALS[ritualId];
+  if (!accounts[key] || !def) return null;
+  const until = Date.now() + RITUAL_BUFF_MS;
+  accounts[key].ritual = { id: ritualId, stat: def.stat, amount: def.amount, until };
+  const p = playerByAccount(key);
+  if (p) p.maxHealth = playerMaxHealth(p);
+  return accounts[key].ritual;
+}
+function ritualStateBody(key) {
+  const r = ritualOf(key);
+  const a = key && accounts[key];
+  return {
+    active: r ? { id: r.id, stat: r.stat, amount: r.amount, until: r.until } : null,
+    cdUntil: (a && a.ritualCdUntil) || 0,
+    now: Date.now(),
+  };
+}
+function playerByAccount(key) { if (!key) return null; for (const p of players.values()) if (p.accountKey === key) return p; return null; }
+
 // The bedroom ownership map for a coven's manor, resolved to display names, plus
 // every claimed altar's decoration arrangement (so everyone sees them) and the
 // viewer's own unlocks / balance (so the adorn UI knows what they can place).
@@ -5585,6 +5640,9 @@ wss.on('connection', (ws, req) => {
       // Class skill tree + current allocations, so the Skills panel and the
       // client-side speed/max-health effects are live from the first frame.
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      // Any live altar blessing (and its cooldown) so the HUD buff pill and the
+      // ritual UI are current from the first frame.
+      if (player.accountKey) send(ws, { type: 'ritual_state', ...ritualStateBody(player.accountKey) });
       // Event calendar snapshot — tournament/festival/blood-moon windows and
       // the player's coven, so the HUD and boards render from the first frame.
       send(ws, { type: 'calendar_state', calendar: calendarPublicState() });
@@ -8343,6 +8401,57 @@ wss.on('connection', (ws, req) => {
           if (pcv && pcv.id === cv.id) send(p.ws, { type: 'manor_state', ...manorStateBody(cv, p.accountKey) });
         }
       }
+      return;
+    }
+
+    // ── Perform a ritual at your own altar: one timed blessing, on cooldown ──
+    if (msg.type === 'altar_ritual_perform') {
+      if (!player.accountKey) { send(ws, { type: 'manor_error', message: 'Log into an account to work the altar.' }); return; }
+      if (player.room !== 'manor') { send(ws, { type: 'manor_error', message: 'Rituals are worked at your altar in the Manor.' }); return; }
+      const cv = covenOf(player.accountKey);
+      const ownsBed = cv && cv.manorBedrooms && Object.values(cv.manorBedrooms).includes(player.accountKey);
+      if (!ownsBed) { send(ws, { type: 'manor_error', message: 'Claim your own chamber before working its altar.' }); return; }
+      const rid = String(msg.ritualId || '');
+      if (!RITUALS[rid]) return;
+      const a = accounts[player.accountKey];
+      const now = Date.now();
+      if (a.ritualCdUntil && a.ritualCdUntil > now) {
+        send(ws, { type: 'manor_error', message: `The altar is still spent — rest ${Math.ceil((a.ritualCdUntil - now) / 60000)} min before the next rite.` });
+        return;
+      }
+      grantBlessing(player.accountKey, rid);
+      a.ritualCdUntil = now + RITUAL_COOLDOWN_MS;
+      saveAccounts();
+      send(ws, { type: 'ritual_state', ...ritualStateBody(player.accountKey) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // refresh HP/speed/stat panel
+      send(ws, { type: 'toast', message: `${RITUALS[rid].emoji} ${RITUALS[rid].name} settles over you — ${RITUALS[rid].desc}.` });
+      return;
+    }
+
+    // ── Bestow your active blessing on a nearby player (any player, coven or
+    // not). Purely positive, so no consent gate; a short cooldown stops spam. ──
+    if (msg.type === 'bless_player') {
+      if (!player.accountKey) { send(ws, { type: 'manor_error', message: 'Log into an account to bless others.' }); return; }
+      const mine = ritualOf(player.accountKey);
+      if (!mine) { send(ws, { type: 'manor_error', message: 'You hold no blessing to give — work a rite at your altar first.' }); return; }
+      const a = accounts[player.accountKey];
+      const now = Date.now();
+      if (a.blessCdUntil && a.blessCdUntil > now) return; // silent anti-spam
+      const target = players.get(String(msg.targetId));
+      if (!target || target.id === player.id || target.isDead) return;
+      if (target.room !== player.room || target.instance !== player.instance) return; // same place only
+      const dist = Math.hypot((target.x || 0) - (player.x || 0), (target.y || 0) - (player.y || 0));
+      if (dist > BLESS_RANGE) { send(ws, { type: 'manor_error', message: 'Step closer to bless them.' }); return; }
+      if (!target.accountKey) { send(ws, { type: 'manor_error', message: 'They have no account to carry a blessing — only signed-in witches can be blessed.' }); return; }
+      grantBlessing(target.accountKey, mine.id);
+      a.blessCdUntil = now + BLESS_COOLDOWN_MS;
+      saveAccounts();
+      // Tell the recipient, refresh their stats, and confirm to the caster.
+      send(target.ws, { type: 'ritual_state', ...ritualStateBody(target.accountKey) });
+      send(target.ws, { type: 'skill_state', ...skillStatePayload(target) });
+      send(target.ws, { type: 'toast', message: `${RITUALS[mine.id].emoji} ${player.name} blesses you with ${RITUALS[mine.id].name} — ${RITUALS[mine.id].desc}.` });
+      send(ws, { type: 'toast', message: `✨ You bless ${target.name} with ${RITUALS[mine.id].name}.` });
+      audit.log({ level: 'info', type: 'bless', account: player.accountKey, name: player.name, detail: { ritual: mine.id, target: target.name } });
       return;
     }
 
