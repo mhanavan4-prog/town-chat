@@ -100,29 +100,93 @@ function buildDelveStone(scene) {
 // touching it again walks you back out to the public town.
 const MOOT_STONE_SPOT = { x: 1150, y: 870 };
 function buildMootStone(scene) {
+  // A hag stone (adder stone, witch stone) is a stone with a hole worn clean
+  // through it — folklore holds that you see the otherworld through the hole,
+  // which is exactly this object's job: you "slip through the Hagstone" into
+  // your coven's private world. So it's one weathered monolith with a worn eye
+  // and the violet otherworld shimmering in the gap, not a ring of menhirs.
   const g = new THREE.Group();
   const rock = new THREE.MeshLambertMaterial({ color: 0x2b3330 });
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2;
-    const s = new THREE.Mesh(new THREE.CylinderGeometry(7, 11, 58 + (i % 2) * 8, 5), rock);
-    s.position.set(Math.cos(a) * 26, 29, Math.sin(a) * 26);
-    s.rotation.z = (i % 2 ? 0.1 : -0.1);
-    g.add(s);
-  }
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(30, 32, 6, 20), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
+  const rockDark = new THREE.MeshLambertMaterial({ color: 0x20262a });
+  const moss = new THREE.MeshLambertMaterial({ color: 0x2f4a30 });
+
+  // Rough base the monolith rises from — a couple of lumpy boulders so the
+  // stone reads as rooted in the earth, not balanced on a point.
+  const root = new THREE.Mesh(new THREE.DodecahedronGeometry(26, 0), rockDark);
+  root.position.set(0, 16, 0); root.rotation.set(0.3, 0.6, 0.2); root.scale.set(1, 0.7, 1);
+  g.add(root);
+  const root2 = new THREE.Mesh(new THREE.DodecahedronGeometry(16, 0), rock);
+  root2.position.set(16, 10, 8); root2.rotation.set(0.5, 1.1, 0.3);
+  g.add(root2);
+
+  // The holed stone itself — a thick, faceted ring standing upright. Low
+  // segment counts make it read as hewn rock rather than a clean torus. The
+  // ring stands in the XY plane, so the hole looks out along Z; the whole
+  // group is yawed below to face the stone's eye toward the approaching path.
+  const HOLE_R = 27, TUBE_R = 11, RING_Y = 66;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(HOLE_R, TUBE_R, 6, 11), rock);
+  ring.position.set(0, RING_Y, 0);
+  ring.scale.set(1.06, 1.12, 1); // slightly taller-than-wide, hand-worn
+  g.add(ring);
+  // A few boulder lumps fused onto the ring break the donut silhouette.
+  const lump = (r, ang, s, mat) => {
+    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
+    b.position.set(Math.cos(ang) * (HOLE_R + 2), RING_Y + Math.sin(ang) * (HOLE_R + 2), 0);
+    b.rotation.set(ang, ang * 1.3, ang * 0.7);
+    g.add(b);
+    return b;
+  };
+  lump(13, -Math.PI / 2, 1, rock);          // heavy brow over the eye
+  lump(10, Math.PI * 0.18, 1, rockDark);    // east cheek
+  lump(9, Math.PI * 0.82, 1, rockDark);     // west cheek
+  const mossCap = lump(8, -Math.PI / 2 + 0.4, 1, moss); // mossy weathering on the brow
+  mossCap.scale.set(1.2, 0.6, 1.1);
+
+  // The dais it stands on.
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(30, 34, 6, 22), new THREE.MeshLambertMaterial({ color: 0x1d2420 }));
   dais.position.y = 3;
   g.add(dais);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: LEGEND_FX.glowTexture(), color: 0x7be3a3, transparent: true, opacity: 0.5,
+
+  // The otherworld seen through the eye — a disc of violet light filling the
+  // hole, with a greener core, both additive and facing out the same way as
+  // the hole. It breathes and the two layers drift against each other so the
+  // gap looks like a living threshold, not a painted plate.
+  const portalViolet = new THREE.Mesh(
+    new THREE.CircleGeometry(HOLE_R - 2, 28),
+    new THREE.MeshBasicMaterial({ map: LEGEND_FX.glowTexture(), color: 0x7d4bff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  portalViolet.position.set(0, RING_Y, 0.5);
+  g.add(portalViolet);
+  const portalGreen = new THREE.Mesh(
+    new THREE.CircleGeometry(HOLE_R - 8, 24),
+    new THREE.MeshBasicMaterial({ map: LEGEND_FX.glowTexture(), color: 0x7be3a3, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  portalGreen.position.set(0, RING_Y, 1.2);
+  g.add(portalGreen);
+  portalViolet.onBeforeRender = () => {
+    const t = performance.now();
+    portalViolet.material.opacity = 0.5 + 0.18 * Math.sin(t * 0.0011);
+    portalViolet.rotation.z = t * 0.00018;
+    portalGreen.material.opacity = 0.38 + 0.16 * Math.sin(t * 0.0017 + 1.7);
+    portalGreen.rotation.z = -t * 0.00026;
+  };
+
+  // A low pool of green glow at the foot, the stone's own light bleeding out.
+  const footGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: 0x6ad39a, transparent: true, opacity: 0.4,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  glow.scale.set(46, 44, 1);
-  glow.position.set(0, 24, 0);
-  g.add(glow);
+  footGlow.scale.set(64, 30, 1);
+  footGlow.position.set(0, 10, 0);
+  g.add(footGlow);
+
+  // Face the eye toward the spawn hub (1600,1100) so you meet its gaze on the
+  // way in and the shimmer is visible from the path.
+  g.rotation.y = Math.atan2(1600 - MOOT_STONE_SPOT.x, 1100 - MOOT_STONE_SPOT.y);
   g.position.set(MOOT_STONE_SPOT.x, 0, MOOT_STONE_SPOT.y);
   scene.add(g);
   const label = makeNpcNameSprite('🌑 The Hagstone');
-  label.position.set(MOOT_STONE_SPOT.x, 80, MOOT_STONE_SPOT.y);
+  label.position.set(MOOT_STONE_SPOT.x, 112, MOOT_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
 }
