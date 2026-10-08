@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -46,17 +46,43 @@ function buildWildsScene(w2) {
   // ── Scattered witch-glyphs — glowing sigils burned into the Wilds ground all
   // over (no formal paths). Flat decals, unlit + additive so they glow green in
   // the dark; a fixed seed so every player sees the same marks. ──
-  const sigilTex = makeSigilTextures();
+  // Each glyph is now TWO stacked planes (see makeGroundSigilTextures): a
+  // dark scorch/char stain burned into the ground, and a molten witchfire
+  // glow riding just above it. The scorch is unlit + normal-blended so the
+  // mark reads as scorched dead earth in daylight and at night alike; the
+  // glow is additive + tinted so it still burns green/teal/violet in the
+  // dark. The glow breathes — but each glyph gets its OWN phase and speed so
+  // the whole map never pulses in unison (it'd look like one switch).
+  const sigilTex = makeGroundSigilTextures(); // [{ scorch, glow }, …]
   const glyphCols = [0x7dffb0, 0x7dffb0, 0x7dffb0, 0x9be7ff, 0xc69bff]; // mostly green, some teal/violet
   let gseed = 0x51611 >>> 0; const grand = () => { gseed = (gseed * 1664525 + 1013904223) >>> 0; return gseed / 4294967296; };
   for (let i = 0; i < 220; i++) {
     const gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     const size = 55 + grand() * 120;
-    const mat = new THREE.MeshBasicMaterial({ map: sigilTex[(grand() * sigilTex.length) | 0], transparent: true, color: glyphCols[(grand() * glyphCols.length) | 0], blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 + grand() * 0.4 });
-    const decal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-    decal.rotation.set(-Math.PI / 2, 0, grand() * Math.PI * 2);
-    decal.position.set(gx, (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0) + 0.5, gz);
-    scene.add(decal);
+    const rot = grand() * Math.PI * 2;
+    const h = (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0);
+    const pick = sigilTex[(grand() * sigilTex.length) | 0];
+    const col = glyphCols[(grand() * glyphCols.length) | 0];
+
+    // scorch stain — sits lowest, a touch wider than the glyph, darkens ground
+    const scorchMat = new THREE.MeshBasicMaterial({ map: pick.scorch, transparent: true, depthWrite: false, opacity: 0.82 + grand() * 0.14 });
+    const scorch = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.3, size * 1.3), scorchMat);
+    scorch.rotation.set(-Math.PI / 2, 0, rot);
+    scorch.position.set(gx, h + 0.35, gz);
+    scorch.renderOrder = 1;
+    scene.add(scorch);
+
+    // molten glow — additive, tinted, breathing on its own clock
+    const glowMat = new THREE.MeshBasicMaterial({ map: pick.glow, transparent: true, color: col, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.7 });
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(size, size), glowMat);
+    glow.rotation.set(-Math.PI / 2, 0, rot);
+    glow.position.set(gx, h + 0.65, gz);
+    glow.renderOrder = 2;
+    const phase = grand() * Math.PI * 2;           // where in the breath it starts
+    const speed = 0.0009 + grand() * 0.0013;        // rad/ms — each glyph drifts
+    const baseOp = 0.5 + grand() * 0.22, amp = 0.2 + grand() * 0.08;
+    glow.onBeforeRender = () => { glowMat.opacity = baseOp + amp * Math.sin(performance.now() * speed + phase); };
+    scene.add(glow);
   }
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);

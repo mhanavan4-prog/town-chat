@@ -3743,6 +3743,68 @@ function makeSigilTextures() {
   });
 }
 
+// The "truly spooky" ground glyphs. Each sigil is baked as a PAIR of 256²
+// textures so the scatter can stack two planes and sell the illusion that the
+// mark is carved/burned into the earth, not a neon decal floating on clean
+// grass:
+//   • scorch — a dark, irregular char-stain with the glyph bitten into it as a
+//     near-black recessed groove. Drawn with NORMAL blending (unlit), so it
+//     darkens the real ground under the mark and reads as scorched dead earth
+//     in daylight AND at night. This is the physical-presence cue.
+//   • glow  — the rune itself in three stacked strokes: a wide low-alpha halo,
+//     a brighter body, and a thin white-hot core. Drawn WHITE so the scatter
+//     keeps tinting each one (green/teal/violet) via material.color under
+//     ADDITIVE blending. The hot centerline inside a soft bloom reads as
+//     molten witchfire sitting in the groove rather than flat paint.
+// Returns [{ scorch, glow }, …], one per glyph in _hexSigils().
+function makeGroundSigilTextures() {
+  const S = 256, mid = S / 2, R = 86;
+  return _hexSigils().map((fn) => {
+    // ── scorch layer ──────────────────────────────────────────────────────
+    const sc = document.createElement('canvas'); sc.width = S; sc.height = S;
+    const s = sc.getContext('2d');
+    // soft burnt halo of dead ground around the mark
+    const halo = s.createRadialGradient(mid, mid, R * 0.25, mid, mid, R * 1.4);
+    halo.addColorStop(0, 'rgba(9,6,5,0.6)');
+    halo.addColorStop(0.55, 'rgba(11,7,6,0.34)');
+    halo.addColorStop(1, 'rgba(11,7,6,0)');
+    s.fillStyle = halo; s.fillRect(0, 0, S, S);
+    // irregular charring flecks so the stain isn't a clean disc
+    for (let i = 0; i < 46; i++) {
+      const a = Math.random() * Math.PI * 2, rr = Math.random() * R * 1.25;
+      const x = mid + Math.cos(a) * rr, y = mid + Math.sin(a) * rr;
+      s.fillStyle = Math.random() < 0.6 ? 'rgba(6,4,3,0.4)' : 'rgba(26,18,14,0.3)';
+      s.beginPath(); s.arc(x, y, 1 + Math.random() * 5, 0, Math.PI * 2); s.fill();
+    }
+    // the glyph bitten into the earth — a dark recessed groove with a faint
+    // sun-baked ash rim just outside it for edge definition
+    s.save(); s.translate(mid, mid);
+    s.lineJoin = 'round'; s.lineCap = 'round';
+    s.strokeStyle = 'rgba(40,28,22,0.45)'; s.lineWidth = R * 0.2; fn(s, R); // ash rim
+    s.strokeStyle = 'rgba(0,0,0,0.9)';     s.lineWidth = R * 0.12; fn(s, R); // groove
+    s.restore();
+    const scorch = new THREE.CanvasTexture(sc);
+
+    // ── glow layer ────────────────────────────────────────────────────────
+    const gc = document.createElement('canvas'); gc.width = S; gc.height = S;
+    const g = gc.getContext('2d');
+    g.translate(mid, mid);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    // outer bloom
+    g.shadowColor = '#ffffff'; g.shadowBlur = 30;
+    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = R * 0.22; fn(g, R);
+    // body
+    g.shadowBlur = 15;
+    g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = R * 0.1; fn(g, R);
+    // white-hot molten core
+    g.shadowBlur = 6;
+    g.strokeStyle = 'rgba(255,255,255,1)'; g.lineWidth = R * 0.045; fn(g, R);
+    const glow = new THREE.CanvasTexture(gc);
+
+    return { scorch, glow };
+  });
+}
+
 function makeStoneTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
@@ -4381,7 +4443,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -4421,17 +4483,43 @@ function buildWildsScene(w2) {
   // ── Scattered witch-glyphs — glowing sigils burned into the Wilds ground all
   // over (no formal paths). Flat decals, unlit + additive so they glow green in
   // the dark; a fixed seed so every player sees the same marks. ──
-  const sigilTex = makeSigilTextures();
+  // Each glyph is now TWO stacked planes (see makeGroundSigilTextures): a
+  // dark scorch/char stain burned into the ground, and a molten witchfire
+  // glow riding just above it. The scorch is unlit + normal-blended so the
+  // mark reads as scorched dead earth in daylight and at night alike; the
+  // glow is additive + tinted so it still burns green/teal/violet in the
+  // dark. The glow breathes — but each glyph gets its OWN phase and speed so
+  // the whole map never pulses in unison (it'd look like one switch).
+  const sigilTex = makeGroundSigilTextures(); // [{ scorch, glow }, …]
   const glyphCols = [0x7dffb0, 0x7dffb0, 0x7dffb0, 0x9be7ff, 0xc69bff]; // mostly green, some teal/violet
   let gseed = 0x51611 >>> 0; const grand = () => { gseed = (gseed * 1664525 + 1013904223) >>> 0; return gseed / 4294967296; };
   for (let i = 0; i < 220; i++) {
     const gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     const size = 55 + grand() * 120;
-    const mat = new THREE.MeshBasicMaterial({ map: sigilTex[(grand() * sigilTex.length) | 0], transparent: true, color: glyphCols[(grand() * glyphCols.length) | 0], blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 + grand() * 0.4 });
-    const decal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-    decal.rotation.set(-Math.PI / 2, 0, grand() * Math.PI * 2);
-    decal.position.set(gx, (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0) + 0.5, gz);
-    scene.add(decal);
+    const rot = grand() * Math.PI * 2;
+    const h = (typeof wildsHeightAt === 'function' ? wildsHeightAt(gx, gz) : 0);
+    const pick = sigilTex[(grand() * sigilTex.length) | 0];
+    const col = glyphCols[(grand() * glyphCols.length) | 0];
+
+    // scorch stain — sits lowest, a touch wider than the glyph, darkens ground
+    const scorchMat = new THREE.MeshBasicMaterial({ map: pick.scorch, transparent: true, depthWrite: false, opacity: 0.82 + grand() * 0.14 });
+    const scorch = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.3, size * 1.3), scorchMat);
+    scorch.rotation.set(-Math.PI / 2, 0, rot);
+    scorch.position.set(gx, h + 0.35, gz);
+    scorch.renderOrder = 1;
+    scene.add(scorch);
+
+    // molten glow — additive, tinted, breathing on its own clock
+    const glowMat = new THREE.MeshBasicMaterial({ map: pick.glow, transparent: true, color: col, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.7 });
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(size, size), glowMat);
+    glow.rotation.set(-Math.PI / 2, 0, rot);
+    glow.position.set(gx, h + 0.65, gz);
+    glow.renderOrder = 2;
+    const phase = grand() * Math.PI * 2;           // where in the breath it starts
+    const speed = 0.0009 + grand() * 0.0013;        // rad/ms — each glyph drifts
+    const baseOp = 0.5 + grand() * 0.22, amp = 0.2 + grand() * 0.08;
+    glow.onBeforeRender = () => { glowMat.opacity = baseOp + amp * Math.sin(performance.now() * speed + phase); };
+    scene.add(glow);
   }
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
@@ -19367,7 +19455,7 @@ const { buildWildsScene } = createWildsScene({
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeMoorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
