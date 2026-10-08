@@ -15,7 +15,7 @@ function buildWildsScene(w2) {
   // close-behind third-person camera can usefully see along the ground.
   scene.fog = new THREE.Fog(0x8fd0ef, 700, 2200);
 
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 4000);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
 
   const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
   const groundSpan = Math.max(w2.width, w2.height) + 200;
