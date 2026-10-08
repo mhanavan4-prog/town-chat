@@ -1895,6 +1895,20 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
+  if (msg.type === 'toast') {
+    if (msg.message) setUnlockToast(msg.message);
+    return;
+  }
+  if (msg.type === 'ritual_state') {
+    // { active: {id,stat,amount,until}|null, cdUntil, now } — rebase the server
+    // clock to local so the countdowns are accurate regardless of clock skew.
+    const skew = Date.now() - (msg.now || Date.now());
+    ritualActive = msg.active ? { ...msg.active, until: msg.active.until + skew } : null;
+    ritualCdUntil = (msg.cdUntil || 0) + skew;
+    refreshRitualHud();
+    if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
+    return;
+  }
   if (msg.type === 'manor_error') {
     setUnlockToast(msg.message || 'The Manor door will not open.');
     return;
@@ -3336,6 +3350,50 @@ function setMootBanner(msg) {
   el.textContent = `🌑 Hagstone — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
   el.style.display = 'block';
 }
+
+// ── Altar-ritual HUD + bestowing ────────────────────────────────────────────
+function ritualDef(id) { return RITUALS.find((r) => r.id === id) || null; }
+function fmtClock(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+
+// A small persistent pill showing the active blessing + its countdown, created
+// lazily (no HTML change). Sits top-centre, below the status pills / coven
+// banner. Hidden when no blessing is live.
+function refreshRitualHud() {
+  let el = document.getElementById('ritualBuff');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ritualBuff';
+    el.style.cssText = 'position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:59;' +
+      'background:linear-gradient(90deg,#2a1a44,#1c1038);border:1px solid #6b4aa0;color:#e7dcff;' +
+      'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';
+    document.body.appendChild(el);
+  }
+  const now = Date.now();
+  if (ritualActive && ritualActive.until > now) {
+    const d = ritualDef(ritualActive.id);
+    el.textContent = `${d ? d.emoji : '✨'} ${d ? d.name : 'Blessing'} · ${fmtClock(ritualActive.until - now)}`;
+    el.style.display = 'block';
+  } else {
+    if (ritualActive) { ritualActive = null; if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); } // just expired
+    el.style.display = 'none';
+  }
+}
+// Bestow your active blessing on the nearest player (any player, coven or not).
+function blessNearest() {
+  if (!me) return;
+  if (!ritualActive || ritualActive.until <= Date.now()) { setUnlockToast('✨ You hold no blessing to give — work a rite at your altar first.'); return; }
+  const target = nearestOtherPlayer();
+  if (!target) { setUnlockToast('No one near enough to bless.'); return; }
+  const d = Math.hypot(target.x - me.x, target.y - me.y);
+  if (d > 160) { setUnlockToast('Step closer to bless them.'); return; }
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'bless_player', targetId: target.id }));
+}
+// Tick the HUD/modal countdowns once a second while anything is counting.
+setInterval(() => {
+  if ((ritualActive && ritualActive.until > Date.now()) || document.getElementById('ritualBuff')) refreshRitualHud();
+  if (Modals.isOpen('bedChestModalOpen') && (ritualActive || ritualCdUntil > Date.now())) renderRituals();
+}, 1000);
 
 let lastLockMsgAt = 0;
 function showLockMessage(roomId) {
@@ -6912,6 +6970,18 @@ const manorBedplates = [];     // slot -> THREE.Sprite (doorplate), rebuilt on s
 let manorAltars = {};          // slot -> [ALTAR_SLOTS] deco ids|null, every claimed altar
 let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlocked
 
+// ── Altar rituals (mirror of server RITUALS; keep in sync) ──────────────────
+const RITUALS = [
+  { id: 'vigor',     name: 'Brew of Vigor',         emoji: '🧪', desc: '+40 max health' },
+  { id: 'swiftness', name: 'Blessing of Swiftness', emoji: '🌀', desc: '+15% move speed' },
+  { id: 'ward',      name: 'Hex Ward',              emoji: '🛡️', desc: '+15% damage resist' },
+  { id: 'fortune',   name: 'Rite of Fortune',       emoji: '✨', desc: '+25% XP gained' },
+  { id: 'forage',    name: "Forager's Chant",       emoji: '🌿', desc: '+25% harvest luck' },
+  { id: 'quicken',   name: 'Quicken',               emoji: '⚡', desc: '15% faster cooldowns' },
+];
+let ritualActive = null;   // { id, stat, amount, until } (local-clock until) or null
+let ritualCdUntil = 0;     // local-clock timestamp the altar is free again
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -7038,8 +7108,33 @@ function renderAltarAdorn() {
   });
 }
 
+function renderRituals() {
+  const wrap = document.getElementById('altarRituals');
+  const status = document.getElementById('altarRitualStatus');
+  if (!wrap) return;
+  const now = Date.now();
+  const onCd = ritualCdUntil > now;
+  if (status) {
+    if (ritualActive && ritualActive.until > now) { const d = ritualDef(ritualActive.id); status.textContent = `${d ? d.emoji : '✨'} ${fmtClock(ritualActive.until - now)} left`; }
+    else if (onCd) status.textContent = `altar spent · ${fmtClock(ritualCdUntil - now)}`;
+    else status.textContent = 'ready';
+  }
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+  wrap.innerHTML = '';
+  RITUALS.forEach((r) => {
+    const isActive = ritualActive && ritualActive.id === r.id && ritualActive.until > now;
+    const row = document.createElement('div');
+    row.className = 'arite' + (isActive ? ' active' : '') + (onCd && !isActive ? ' locked' : '');
+    row.innerHTML = `<span class="aemoji">${r.emoji}</span><span><b>${r.name}</b><br><span class="adesc">${r.desc}</span></span>`;
+    row.title = onCd && !isActive ? 'The altar is still spent — wait for the cooldown.' : `Perform ${r.name}`;
+    row.addEventListener('click', () => { if (!onCd || isActive) send({ type: 'altar_ritual_perform', ritualId: r.id }); });
+    wrap.appendChild(row);
+  });
+}
+
 function renderManorChest() {
   renderAltarAdorn();
+  renderRituals();
   const chestGrid = document.getElementById('bedChestSlots');
   const packGrid = document.getElementById('bedChestInv');
   if (!chestGrid || !packGrid) return;
@@ -10642,6 +10737,7 @@ window.addEventListener('keydown', (e) => {
   // T = emote wheel
   if ((e.key === 'v' || e.key === 'V') && !e.repeat) { fireVoiceCountermeasure(); return; }
   if ((e.key === 'p' || e.key === 'P') && !e.repeat) { snapNearestPlayer(); return; }
+  if ((e.key === 'b' || e.key === 'B') && !e.repeat) { blessNearest(); return; } // bestow your active blessing on the nearest player
   if ((e.key === 't' || e.key === 'T') && !e.repeat) { toggleEmoteWheel(); return; }
   if (myActionCatalog && !e.repeat) {
     const slot = HOTBAR_KEYS.indexOf(e.key);
