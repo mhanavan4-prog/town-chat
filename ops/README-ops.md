@@ -1,12 +1,31 @@
 # Thornreach ops: backups & uptime
 
-Two scripts live here:
+Three scripts live here:
 
+- **`setup-backups.sh`** — one-shot, idempotent installer that does everything
+  below (deps, rclone remote, `.backup.env`, cron, first backup). **Start here.**
 - **`backup.sh`** — nightly encrypted offsite backup to Backblaze B2 (via rclone).
 - **`heartbeat.sh`** — uptime check that pings Healthchecks.io every few minutes.
 
 Both read secrets from **`/opt/town-chat/.backup.env`** (gitignored, `chmod 600`).
 Nothing sensitive lives in the repo.
+
+---
+
+## Quick setup (one script)
+
+Create the Backblaze B2 bucket + app key (§2) and the two Healthchecks checks
+(§3) first — those live in a browser and the script can't make them. Then:
+
+```bash
+sudo bash /opt/town-chat/ops/setup-backups.sh
+```
+
+It prompts for the B2 key, the two ping URLs, and the data dir, generates and
+shows an encryption passphrase to save (or reuses the existing one on a re-run),
+writes `.backup.env`, schedules cron, and runs a first backup. Re-run it any
+time — it's idempotent and safe, including when standing up a replacement VPS.
+The manual steps below (§1–§7) remain as reference and for the restore drill.
 
 ---
 
