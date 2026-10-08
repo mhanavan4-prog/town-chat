@@ -6369,7 +6369,11 @@ function makeMob3(mobType) {
 // injected via get/set; the Wilds scene + day/night flag are reassigned lets,
 // injected as getters.
 // ---------------------------------------------------------------------------
-function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3 }) {
+function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
+// Ground height under a wilds mob so it rides the rolling terrain instead of a
+// flat y=0 plane (without this, hovering mobs sink beneath raised ground and
+// walkers float over valleys). v.x is world-x, v.y is world-z.
+function groundUnder(x, z) { const fn = getWildsHeightAt && getWildsHeightAt(); return (typeof fn === 'function') ? fn(x, z) : 0; }
 function addMobs2(scene) {
   for (const id in getMobVisuals2()) scene.remove(getMobVisuals2()[id].mesh);
   setMobVisuals2({});
@@ -6412,9 +6416,10 @@ function updateMob2Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob.
-    let hover = 0;
-    if (v.fly) { v.wingPhase += dt * 6; hover = v.fly + Math.sin(v.wingPhase) * 3; }
+    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob;
+    // walkers sit on it. Either way, start from the terrain height here.
+    let hover = groundUnder(v.x, v.y);
+    if (v.fly) { v.wingPhase += dt * 6; hover += v.fly + Math.sin(v.wingPhase) * 3; }
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
@@ -6457,7 +6462,7 @@ function updateMob3Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    const hover = v.mobType === 'gravewing_crow' ? 4 : 0;
+    const hover = groundUnder(v.x, v.y) + (v.mobType === 'gravewing_crow' ? 4 : 0);
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
@@ -19736,9 +19741,11 @@ let manorExteriorGroup = null;
 
 function buildManorExterior() {
   const g = new THREE.Group();
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x241d3a });
-  const trimMat = new THREE.MeshLambertMaterial({ color: 0x17112a });
-  const roofMat = new THREE.MeshLambertMaterial({ color: 0x120c22 });
+  // DoubleSide on the shell: if the third-person camera ever grazes a wall the
+  // interior faces still render, so the manor never reads as hollow/see-through.
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x241d3a, side: THREE.DoubleSide });
+  const trimMat = new THREE.MeshLambertMaterial({ color: 0x17112a, side: THREE.DoubleSide });
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0x120c22, side: THREE.DoubleSide });
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf87 });
   // Main hall — a broad two-storey block.
   const BODY_W = 360, BODY_H = 220, BODY_D = 260;
@@ -20183,6 +20190,7 @@ const {
   getWildsScene: () => wildsScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
   getMobVisuals2: () => mobVisuals2, setMobVisuals2: (v) => { mobVisuals2 = v; },
   getMobVisuals3: () => mobVisuals3, setMobVisuals3: (v) => { mobVisuals3 = v; },
+  getWildsHeightAt: () => wildsHeightAt, // ride the rolling terrain, not a flat y=0
 });
 
 // ── Wilds village NPCs ─ extracted to client/village-npcs.js (Phase C). The
