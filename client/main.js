@@ -3315,11 +3315,11 @@ function setMootBanner(msg) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'mootBanner';
-    // Anchored to the BOTTOM-centre, riding just above the XP/level strip
-    // (#xpStrip sits at bottom:90px) rather than the top row — up top it
-    // collided with the day/HP/in-town/gems pills and crowded them. Down here
-    // it groups with the player's own status and leaves the top bar clear.
-    el.style.cssText = 'position:fixed;bottom:124px;left:50%;transform:translateX(-50%);z-index:60;' +
+    // Anchored to the BOTTOM-LEFT corner, out of the way of the centre column
+    // (top pills, the interact hint, the XP strip and the hotbar all live
+    // centre) and the top row. On touch devices the joystick roams the
+    // lower-left, so a body.touchMode rule in index.html relocates it there.
+    el.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:60;' +
       'background:linear-gradient(90deg,#17342c,#143028);border:1px solid #2f6b52;color:#bff0d2;' +
       'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
       'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';

@@ -1125,6 +1125,14 @@
   }
   body.touchMode #xpStripLevel { display:none; }
   body.touchMode #xpBarWrap { width:72px; }
+  /* The Hagstone coven banner sits bottom-left on desktop, but on touch the
+     joystick roams the lower-left and the XP strip takes the top-left, so
+     relocate it to top-centre just under the status pills on phones. */
+  body.touchMode #mootBanner {
+    left:50% !important; right:auto !important; bottom:auto !important;
+    top:calc(max(8px, env(safe-area-inset-top)) + 52px) !important;
+    transform:translateX(-50%) !important;
+  }
 
   /* ── Hold-to-read ability card (long-press a wheel/loadout button) ── */
   #abilityPeek {
@@ -2925,6 +2933,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=a149400100"></script>
+<script src="client.js?v=0a7bc2827f"></script>
 </body>
 </html>
