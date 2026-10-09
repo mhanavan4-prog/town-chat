@@ -285,6 +285,15 @@ function createKayKitHumanoid(charId) {
   const embeddedWeapons = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
+    // SkeletonUtils.clone() shares the source model's MATERIALS across every
+    // instance, so a per-character material tweak (the evasion/ghost/Ghost-Step
+    // opacity shimmer, the damage-flash tint) would leak onto every other
+    // character built from the same KayKit model — e.g. your Wanderer going
+    // translucent also fading the Lumberjack villager. Give each instance its
+    // own material copies (textures stay shared — clone() only forks the props).
+    if (o.material) {
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    }
     if (KK.PROP_MESHES.includes(o.name)) {
       o.visible = keep.includes(o.name);
       if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
