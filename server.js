@@ -903,6 +903,34 @@ function decorPublicState(player) {
     .map(d => ({ id: d.id, available: !mine[d.id] || now - mine[d.id] >= HARVEST_COOLDOWN_MS }));
 }
 
+// Send a player their own regrowth view and stamp when we last did, so the
+// live-regrowth sweep only re-pushes when a node has actually grown back.
+function pushDecorState(player) {
+  if (!player || !player.ws) return;
+  send(player.ws, { type: 'decor_state', decor: decorPublicState(player) });
+  player._decorSyncedAt = Date.now();
+}
+
+// Live regrowth: decor state is pushed on area-enter and after a harvest, so a
+// node whose per-player 24h cooldown lapses WHILE you're standing there would
+// otherwise stay bare until you re-entered the area. This sweep re-pushes only
+// to players who have a node that crossed the regrow line since their last
+// sync — event-driven, never a blind broadcast.
+setInterval(() => {
+  const now = Date.now();
+  for (const player of players.values()) {
+    if (!player.ws || (player.room !== 'outside' && player.room !== 'wilds')) continue;
+    const mine = playerHarvests(player);
+    const synced = player._decorSyncedAt || 0;
+    let regrew = false;
+    for (const id in mine) {
+      const regrowAt = mine[id] + HARVEST_COOLDOWN_MS;
+      if (regrowAt <= now && regrowAt > synced) { regrew = true; break; }
+    }
+    if (regrew) pushDecorState(player);
+  }
+}, 30000);
+
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
 ['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'manor'].forEach(r => ROOM_IDS.add(r));
 
@@ -5753,7 +5781,7 @@ wss.on('connection', (ws, req) => {
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
       // Your own view of what's grown back (regrowth is per player).
-      send(ws, { type: 'decor_state', decor: decorPublicState(player) });
+      pushDecorState(player);
       // Catch the newcomer up on any masks currently being worn — the 70ms
       // state stream only carries names, the images travel once, here.
       for (const p of players.values()) {
@@ -7268,7 +7296,7 @@ wss.on('connection', (ws, req) => {
       }
       send(ws, { type: 'harvest_result', message });
       // Regrowth is per player, so only THIS client's plants change looks.
-      send(ws, { type: 'decor_state', decor: decorPublicState(player) });
+      pushDecorState(player);
       // XP for Wilds plants only (not town trees/shrubs/flowers)
       if (found.room === 'wilds') {
         grantXP(player, 5);
