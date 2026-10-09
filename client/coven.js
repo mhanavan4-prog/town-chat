@@ -220,13 +220,20 @@ function refreshCovenTableVisual() {
     const name = document.getElementById('covenNameInput').value.trim();
     getWs().send(JSON.stringify({ type: 'coven_create', name, sigil: covenPickedSigil || getCovenSigilsCatalog()[0] }));
   });
-  const invite = document.getElementById('covenInviteBtn');
-  if (invite) invite.addEventListener('click', () => {
-    const target = nearestCovenInvitee();
+  // Invite by exact username — unambiguous even in a crowded town (a proximity
+  // "nearest player" invite could target the wrong soul). The server resolves
+  // the name to an online account and sends them the invite toast.
+  const inviteInput = document.getElementById('covenInviteInput');
+  const sendCovenInvite = () => {
+    const username = (inviteInput ? inviteInput.value : '').trim();
     document.getElementById('covenErr').textContent = '';
-    if (!target) { document.getElementById('covenErr').textContent = 'Nobody close enough — walk up to them first.'; return; }
-    getWs().send(JSON.stringify({ type: 'coven_invite', targetId: target.id }));
-  });
+    if (!username) { document.getElementById('covenErr').textContent = 'Type the username of the player to invite.'; if (inviteInput) inviteInput.focus(); return; }
+    getWs().send(JSON.stringify({ type: 'coven_invite', username }));
+    if (inviteInput) inviteInput.value = '';
+  };
+  const invite = document.getElementById('covenInviteBtn');
+  if (invite) invite.addEventListener('click', sendCovenInvite);
+  if (inviteInput) inviteInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendCovenInvite(); } });
   const claim = document.getElementById('covenClaimBtn');
   if (claim) claim.addEventListener('click', () => getWs().send(JSON.stringify({ type: 'coven_claim_table' })));
   const motd = document.getElementById('covenMotdBtn');
@@ -268,21 +275,5 @@ function refreshCovenTableVisual() {
     if (amt > 0) getWs().send(JSON.stringify({ type: 'coven_withdraw_gold', amount: amt }));
   });
 })();
-function nearestCovenInvitee() {
-  // NOTE: deliberately NOT named nearestOtherPlayer — the combat helper of
-  // that name exists further down, and duplicate top-level declarations
-  // silently shadow each other (the collision uncapped this invite range
-  // for a while). 160 units ≈ "standing with you at the table."
-  if (!getMe()) return null;
-  let best = null, bestD = 160;
-  for (const id in getPlayers()) {
-    const p = getPlayers()[id];
-    if (!p || p.id === getMe().id || p.room !== getMe().room) continue;
-    const d = Math.hypot(p.x - getMe().x, p.y - getMe().y);
-    if (d < bestD) { bestD = d; best = p; }
-  }
-  return best;
-}
-
   return { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual };
 }

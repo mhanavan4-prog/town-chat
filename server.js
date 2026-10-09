@@ -8146,7 +8146,17 @@ wss.on('connection', (ws, req) => {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) { send(ws, { type: 'coven_error', message: 'You have no coven to invite them into.' }); return; }
       if (cv.members.length >= COVEN_MAX_MEMBERS) { send(ws, { type: 'coven_error', message: `A coven holds ${COVEN_MAX_MEMBERS} at most — yours is full.` }); return; }
-      const target = players.get(String(msg.targetId || ''));
+      // Invite by exact username (unambiguous in a crowd); targetId kept as a
+      // fallback for any older client. Username resolves to an ONLINE account.
+      const uname = String(msg.username || '').trim().toLowerCase();
+      let target;
+      if (uname) {
+        if (uname === player.accountKey) { send(ws, { type: 'coven_error', message: 'You can’t invite yourself.' }); return; }
+        target = findConnectionByAccountKey(uname);
+        if (!target) { send(ws, { type: 'coven_error', message: `No one online by that name — they must be logged in to get the invite.` }); return; }
+      } else {
+        target = players.get(String(msg.targetId || ''));
+      }
       if (!target || target.id === player.id) { send(ws, { type: 'coven_error', message: 'No such soul in town.' }); return; }
       if (!target.accountKey) { send(ws, { type: 'coven_error', message: `${target.name} wanders as a guest — they need an account to join a coven.` }); return; }
       if (covenOf(target.accountKey)) { send(ws, { type: 'coven_error', message: `${target.name} already belongs to a coven.` }); return; }

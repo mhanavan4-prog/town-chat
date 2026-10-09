@@ -2312,7 +2312,10 @@
       <div id="covenMembersView">
         <div id="covenVoiceBar"></div>
         <div class="slList" id="covenMembers" style="max-height:34vh"></div>
-        <button class="btn" id="covenInviteBtn">✉️ Invite the nearest player</button>
+        <div id="covenInviteRow" style="display:flex;gap:6px;margin-top:6px">
+          <input id="covenInviteInput" type="text" placeholder="Invite by username" maxlength="18" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;padding:9px 10px;border-radius:8px;border:1px solid rgba(160,110,220,0.4);background:#140e22;color:#eafff0;font-size:13px">
+          <button class="btn" id="covenInviteBtn" style="margin:0;flex:0 0 auto">✉️ Invite</button>
+        </div>
         <button class="btn" id="covenClaimBtn">🕯️ Claim the café table</button>
         <button class="btn" id="covenMotdBtn" style="display:none">📜 Set the words over the door</button>
         <button class="btn" id="covenLeaveBtn">🥀 Leave the circle</button>
@@ -2991,6 +2994,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=e065decada"></script>
+<script src="client.js?v=1870deb1e9"></script>
 </body>
 </html>
