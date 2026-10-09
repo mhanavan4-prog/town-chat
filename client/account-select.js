@@ -128,7 +128,7 @@ function renderCharRoster() {
     nm.textContent = rosterData.username + ' the ' + preset.name;
     const sub = document.createElement('span');
     sub.className = 'rosterSub';
-    sub.textContent = 'Level ' + (rosterData.level || 1) + (c.chapter > 0 ? ' · Chapter ' + c.chapter : '');
+    sub.textContent = 'Level ' + (c.level || 1) + (c.chapter > 0 ? ' · Chapter ' + c.chapter : '');
     info.appendChild(nm);
     info.appendChild(sub);
     card.appendChild(av);

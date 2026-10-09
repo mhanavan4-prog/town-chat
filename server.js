@@ -1272,6 +1272,7 @@ app.post('/api/characters', (req, res) => {
     return res.status(401).json({ error: 'Session expired — log in again.' });
   }
   const prog = playerProgress[key] || {};
+  migrateAccountProgress(prog); // defensive: in case this account predates the startup pass
   const chars = prog.characters || {};
   const characters = Object.keys(chars)
     .map((cid) => {
@@ -1279,17 +1280,20 @@ app.post('/api/characters', (req, res) => {
       const story = (prog.story && prog.story[charId]) || null;
       return {
         charId,
+        level: chars[cid].level || 1,           // per-character now
         lastPlayedAt: chars[cid].lastPlayedAt || 0,
         chapter: story ? story.chapter : 0
       };
     })
     .filter((c) => Number.isInteger(c.charId) && c.charId >= 0 && c.charId < CHARACTER_COUNT)
     .sort((a, b) => b.lastPlayedAt - a.lastPlayedAt);
+  const lastCharId = Number.isInteger(prog.lastCharId) ? prog.lastCharId : null;
+  const lastRec = lastCharId != null ? chars[String(lastCharId)] : null;
   res.json({
     username: accounts[key].username,
     color: accounts[key].color,
-    level: prog.level || 1,
-    lastCharId: Number.isInteger(prog.lastCharId) ? prog.lastCharId : null,
+    level: (lastRec && lastRec.level) || 1, // back-compat top-level = last-played char's level
+    lastCharId,
     characters
   });
 });
@@ -1952,7 +1956,18 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
 const PROGRESS_FILE = path.join(DATA_DIR, 'playerProgress.json');
 function loadProgress() { return persistLoad('playerProgress', PROGRESS_FILE); }
 function saveProgress() { persistSave('playerProgress', PROGRESS_FILE, playerProgress); }
-const playerProgress = loadProgress(); // accountKey -> { xp, level, skillPoints, questCooldowns: {} }
+const playerProgress = loadProgress(); // accountKey -> { characters:{charId:{xp,level,skillPoints}}, skills, story, questCooldowns, ... }
+// One-time migration of every stored account from the old account-wide pool to
+// per-character levels. Runs before any connection and before /api/characters
+// (which reads playerProgress directly), so the roster never shows stale data.
+{
+  let migrated = 0;
+  for (const key of Object.keys(playerProgress)) {
+    const a = playerProgress[key];
+    if (a && !a._charLeveled) { try { migrateAccountProgress(a); migrated++; } catch (e) {} }
+  }
+  if (migrated) { try { saveProgress(); } catch (e) {} }
+}
 persistRegister('playerProgress', PROGRESS_FILE, () => playerProgress);
 
 // XP needed to reach each level (index = level). Level cap at 20.
@@ -1964,23 +1979,93 @@ const REST_MS = 10 * 60 * 1000;         // 10 minutes of boosted XP per session
 const REST_XP_MULT = 1.5;               // +50%
 const REST_COOLDOWN_MS = 2 * 60 * 60 * 1000; // one rested window per 2 hours
 
+// ── Per-character progression ───────────────────────────────────────────────
+// xp / level / skillPoints are PER CHARACTER (stored in account.characters[charId]),
+// so each class levels on its own. Everything else on the progress record —
+// skill-tree allocations (account.skills[charId]), story, quest cooldowns,
+// pickpocket stats, firstSteps — stays account-wide. getProgress() returns a
+// thin Proxy over the account record whose xp/level/skillPoints read & write the
+// CURRENT character's sub-record, so every existing call site keeps working.
+const CHAR_PROG_FIELDS = new Set(['xp', 'level', 'skillPoints']);
+
+function ensureCharProg(account, charId) {
+  if (!account.characters) account.characters = {};
+  const cid = String(Number.isInteger(charId) ? charId : 0);
+  let rec = account.characters[cid];
+  if (!rec) rec = account.characters[cid] = {};
+  if (typeof rec.xp !== 'number') rec.xp = 0;
+  if (typeof rec.level !== 'number') rec.level = 1;
+  if (typeof rec.skillPoints !== 'number') rec.skillPoints = 0;
+  return rec;
+}
+
+function charProgView(account, cp) {
+  return new Proxy(account, {
+    get(t, k) { return (typeof k === 'string' && CHAR_PROG_FIELDS.has(k)) ? cp[k] : t[k]; },
+    set(t, k, v) { if (typeof k === 'string' && CHAR_PROG_FIELDS.has(k)) cp[k] = v; else t[k] = v; return true; }
+  });
+}
+
+// One-time fold of a LEGACY account-wide pool (top-level xp/level/skillPoints)
+// into per-character records. The pool transfers to the most-recently-played
+// character; every other existing character resets to a fresh Level 1, and any
+// skill points that were spent on those wiped trees are refunded onto the
+// character that keeps the level (no points are destroyed). Idempotent via the
+// _charLeveled marker.
+function migrateAccountProgress(account) {
+  if (!account || account._charLeveled) return;
+  const hasLegacy = typeof account.level === 'number' || typeof account.xp === 'number' || typeof account.skillPoints === 'number';
+  if (!hasLegacy) { account._charLeveled = true; return; } // brand-new account — nothing to fold
+  if (!account.characters) account.characters = {};
+  const cids = Object.keys(account.characters);
+  let primary = null;
+  if (Number.isInteger(account.lastCharId) && account.characters[String(account.lastCharId)]) {
+    primary = String(account.lastCharId);
+  } else if (cids.length) {
+    primary = cids.slice().sort((a, b) =>
+      (account.characters[b].lastPlayedAt || 0) - (account.characters[a].lastPlayedAt || 0))[0];
+  }
+  const legacyLevel = account.level || 1, legacyXp = account.xp || 0, legacyPoints = account.skillPoints || 0;
+  let refund = 0;
+  if (account.skills) {
+    for (const cid of Object.keys(account.skills)) {
+      if (cid === primary) continue;
+      refund += Object.values(account.skills[cid] || {}).reduce((a, r) => a + (r || 0), 0);
+      account.skills[cid] = {}; // non-primary trees wiped — those characters are fresh now
+    }
+  }
+  for (const cid of cids) {
+    const rec = account.characters[cid];
+    if (cid === primary) { rec.xp = legacyXp; rec.level = legacyLevel; rec.skillPoints = legacyPoints + refund; }
+    else { rec.xp = 0; rec.level = 1; rec.skillPoints = 0; }
+  }
+  if (!cids.length) {
+    const seed = String(Number.isInteger(account.lastCharId) ? account.lastCharId : 0);
+    account.characters[seed] = { xp: legacyXp, level: legacyLevel, skillPoints: legacyPoints + refund, lastPlayedAt: Date.now() };
+  }
+  delete account.xp; delete account.level; delete account.skillPoints;
+  account._charLeveled = true;
+}
+
 function getProgress(player) {
-  let prog;
+  let account;
   if (player.accountKey) {
     if (!playerProgress[player.accountKey]) {
-      playerProgress[player.accountKey] = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {}, pickpocketSuccesses: 0 };
+      playerProgress[player.accountKey] = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true };
       saveProgress();
     }
-    prog = playerProgress[player.accountKey];
+    account = playerProgress[player.accountKey];
   } else {
-    if (!player.guestProgress) player.guestProgress = { xp: 0, level: 1, skillPoints: 0, questCooldowns: {}, pickpocketSuccesses: 0 };
-    prog = player.guestProgress;
+    if (!player.guestProgress) player.guestProgress = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true };
+    account = player.guestProgress;
   }
+  migrateAccountProgress(account);
   // Backfills accounts saved before Sleight of Hand's skill-progress system existed.
-  if (prog.pickpocketSuccesses === undefined) prog.pickpocketSuccesses = 0;
+  if (account.pickpocketSuccesses === undefined) account.pickpocketSuccesses = 0;
   // Backfill for accounts saved before the class skill trees existed.
-  if (prog.skills === undefined) prog.skills = {};
-  return prog;
+  if (account.skills === undefined) account.skills = {};
+  const cp = ensureCharProg(account, player.charId);
+  return charProgView(account, cp);
 }
 
 // Award XP to a player, leveling up as many times as thresholds are crossed,
