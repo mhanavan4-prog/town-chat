@@ -1047,6 +1047,14 @@ require('./lib/admin')(app, {
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
     return a ? { username: a.username, createdAt: a.createdAt, over18: !!a.over18, over18At: a.over18At || null, over18Ip: a.over18Ip || null } : null;
+  },
+  // Unique players the game has ever had = every registered account (accounts
+  // are keyed by username, so one row per player), plus recent-signup counts.
+  accountsSummary: () => {
+    const list = Object.values(accounts);
+    const now = Date.now();
+    const since = (days) => list.filter((a) => a.createdAt && (now - a.createdAt) < days * 86400000).length;
+    return { total: list.length, new24h: since(1), new7d: since(7), new30d: since(30) };
   }
 });
 
