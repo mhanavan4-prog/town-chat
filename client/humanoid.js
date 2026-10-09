@@ -267,8 +267,14 @@ function createHumanoidClassic(charId, presetOverride) {
 // presetOverride callers (Ember Wastes mobs with custom palettes) always
 // get the classic builder — their look is bespoke by design.
 function createHumanoid(charId, presetOverride) {
-  if (presetOverride || !KK.charReady(charId)) return createHumanoidClassic(charId, presetOverride);
-  return createKayKitHumanoid(charId);
+  const built = (presetOverride || !KK.charReady(charId))
+    ? createHumanoidClassic(charId, presetOverride)
+    : createKayKitHumanoid(charId);
+  // Mark the whole figure so the shadow tagger can let characters CAST ground
+  // shadows but not RECEIVE them — self-shadowing on these small models under
+  // the wide follow shadow map produced saw-tooth acne across the body.
+  if (built && built.group) built.group.userData.isHumanoid = true;
+  return built;
 }
 
 function createKayKitHumanoid(charId) {

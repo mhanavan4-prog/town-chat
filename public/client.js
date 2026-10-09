@@ -7140,8 +7140,14 @@ function createHumanoidClassic(charId, presetOverride) {
 // presetOverride callers (Ember Wastes mobs with custom palettes) always
 // get the classic builder — their look is bespoke by design.
 function createHumanoid(charId, presetOverride) {
-  if (presetOverride || !KK.charReady(charId)) return createHumanoidClassic(charId, presetOverride);
-  return createKayKitHumanoid(charId);
+  const built = (presetOverride || !KK.charReady(charId))
+    ? createHumanoidClassic(charId, presetOverride)
+    : createKayKitHumanoid(charId);
+  // Mark the whole figure so the shadow tagger can let characters CAST ground
+  // shadows but not RECEIVE them — self-shadowing on these small models under
+  // the wide follow shadow map produced saw-tooth acne across the body.
+  if (built && built.group) built.group.userData.isHumanoid = true;
+  return built;
 }
 
 function createKayKitHumanoid(charId) {
@@ -16073,9 +16079,10 @@ function refreshRitualHud() {
   if (!el) {
     el = document.createElement('div');
     el.id = 'ritualBuff';
-    // Top-right, directly above the admin coordinate readout (#coordBar sits
-    // just below at top:104px). Right-aligned so the two line up in a column.
-    el.style.cssText = 'position:fixed;top:58px;right:18px;z-index:59;' +
+    // Top-right corner (now free — the health/💎 cluster moved to the top-left).
+    // Sits ABOVE the in-building Leave button (top:64px) and the admin coord
+    // readout (top:104px) instead of overlapping the Leave button as before.
+    el.style.cssText = 'position:fixed;top:14px;right:18px;z-index:59;' +
       'background:linear-gradient(90deg,#2a1a44,#1c1038);border:1px solid #6b4aa0;color:#e7dcff;' +
       'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
       'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';
@@ -18569,7 +18576,12 @@ const GFX = (() => {
       const g = o.geometry;
       const gt = g && g.type || '';
       const flat = gt.indexOf('Plane') === 0 || gt.indexOf('Circle') === 0;
-      o.receiveShadow = true;
+      // Characters cast ground shadows but DON'T receive them: self-shadowing on
+      // the small humanoid models under the wide follow shadow map stair-stepped
+      // into saw-tooth acne across the body. Walk up for the isHumanoid flag.
+      let isChar = false;
+      for (let p = o; p; p = p.parent) { if (p.userData && p.userData.isHumanoid) { isChar = true; break; } }
+      o.receiveShadow = !isChar;
       o.castShadow = !flat;
     });
   }
