@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createCovenVoice({ getWs, getCovenState, setUnlockToast }) {
+export default function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
   const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   const supported = typeof RTCPeerConnection !== 'undefined' &&
     typeof navigator !== 'undefined' &&
@@ -46,6 +46,7 @@ export default function createCovenVoice({ getWs, getCovenState, setUnlockToast 
     localStream.getAudioTracks().forEach(t => { t.enabled = false; });
     active = true;
     send({ type: 'coven_voice_join' });
+    updateMobilePTT();
     render();
   }
 
@@ -58,6 +59,7 @@ export default function createCovenVoice({ getWs, getCovenState, setUnlockToast 
     if (localStream) { try { localStream.getTracks().forEach(t => t.stop()); } catch (e) {} localStream = null; }
     selfId = null;
     roster = [];
+    updateMobilePTT();
     render();
   }
 
@@ -186,9 +188,50 @@ export default function createCovenVoice({ getWs, getCovenState, setUnlockToast 
     if (on === talking) return;
     talking = on;
     localStream.getAudioTracks().forEach(t => { t.enabled = on; });
+    paintMobilePTT();
     render();
   }
   function isActive() { return active; }
+
+  // ── Mobile push-to-talk ───────────────────────────────────────────────────
+  // Phones have no C key, so while in voice we show a hold-to-talk mic button.
+  // Press & hold transmits; release stops. Placed above the ability row, clear
+  // of the move (left) / look (right) touch zones and the bottom-right joystick.
+  let pttBtn = null;
+  function ensurePttBtn() {
+    if (pttBtn) return pttBtn;
+    const b = document.createElement('button');
+    b.id = 'covenVoicePTT';
+    b.textContent = '🎙️';
+    b.style.cssText = 'position:fixed;left:16px;bottom:210px;z-index:40;width:72px;height:72px;' +
+      'border-radius:50%;border:2px solid rgba(150,110,220,0.6);background:rgba(20,12,36,0.78);' +
+      'color:#e7dcff;font-size:30px;display:none;align-items:center;justify-content:center;' +
+      'touch-action:none;-webkit-user-select:none;user-select:none;box-shadow:0 3px 12px rgba(0,0,0,0.45)';
+    const press = (e) => { if (e.cancelable) e.preventDefault(); setTalking(true); };
+    const release = (e) => { if (e && e.cancelable) e.preventDefault(); setTalking(false); };
+    b.addEventListener('touchstart', press, { passive: false });
+    b.addEventListener('touchend', release);
+    b.addEventListener('touchcancel', release);
+    b.addEventListener('mousedown', press);
+    b.addEventListener('mouseup', release);
+    b.addEventListener('mouseleave', release);
+    document.body.appendChild(b);
+    pttBtn = b;
+    return b;
+  }
+  function updateMobilePTT() {
+    const mobile = typeof getMobile === 'function' ? !!getMobile() : false;
+    if (!mobile || !supported) { if (pttBtn) pttBtn.style.display = 'none'; return; }
+    const b = ensurePttBtn();
+    b.style.display = active ? 'flex' : 'none';
+    paintMobilePTT();
+  }
+  function paintMobilePTT() {
+    if (!pttBtn) return;
+    pttBtn.style.borderColor = talking ? '#86efac' : 'rgba(150,110,220,0.6)';
+    pttBtn.style.background = talking ? 'rgba(34,80,46,0.85)' : 'rgba(20,12,36,0.78)';
+    pttBtn.textContent = talking ? '🔴' : '🎙️';
+  }
 
   // ── UI (fills #covenVoiceBar inside the coven modal) ──────────────────────
   function toast(m) { if (typeof setUnlockToast === 'function') setUnlockToast(m); }

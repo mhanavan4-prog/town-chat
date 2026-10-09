@@ -9377,6 +9377,7 @@ const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, 
 
 const _covenVoice = createCovenVoice({
   getWs: () => ws, getCovenState: () => covenState, setUnlockToast,
+  getMobile: () => MOBILE_UI, // phones get a hold-to-talk mic button (no C key)
 });
 
 // ── Dungeon lore plaques ─────────────────────────────────────────────────────

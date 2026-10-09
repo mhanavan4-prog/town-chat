@@ -81,7 +81,10 @@ const BUILD = {
     const g = new THREE.Group(); const m = M(); const R = 11;
     const star = new THREE.Group();
     for (let i = 0; i < 5; i++) {
-      const a1 = -Math.PI / 2 + i * 4 * Math.PI / 5, a2 = -Math.PI / 2 + (i + 1) * 4 * Math.PI / 5;
+      // +π/2 puts the first vertex at the TOP (three.js is Y-up here), so the
+      // star points up — matching the canvas-drawn pentacles elsewhere. (−π/2
+      // put a vertex at the bottom, rendering it inverted/point-down.)
+      const a1 = Math.PI / 2 + i * 4 * Math.PI / 5, a2 = Math.PI / 2 + (i + 1) * 4 * Math.PI / 5;
       const x1 = Math.cos(a1) * R, y1 = Math.sin(a1) * R, x2 = Math.cos(a2) * R, y2 = Math.sin(a2) * R, len = Math.hypot(x2 - x1, y2 - y1);
       const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 1.4, 1.4), m.bronze);
       bar.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0); bar.rotation.z = Math.atan2(y2 - y1, x2 - x1); star.add(bar);
