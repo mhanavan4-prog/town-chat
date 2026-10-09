@@ -252,6 +252,12 @@ function selectInvSlot(idx) {
     buttons.appendChild(note);
   }
   panel.classList.remove('hidden');
+  // The action panel sits below the item grid, so its button can land below the
+  // fold — a hidden "Build Holly Wand" button confused a tester into thinking
+  // crafting was broken. Scroll the whole action panel (button included) into
+  // view the moment an item is selected, so the action is never missed.
+  const bringIntoView = () => { try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { try { panel.scrollIntoView(); } catch (e2) {} } };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(bringIntoView); else bringIntoView();
 }
 
   return { renderStats, refreshEquipPreview, renderInventoryItemsPanel, selectInvSlot };
