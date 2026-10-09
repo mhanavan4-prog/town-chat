@@ -43,6 +43,26 @@ const charSelectLabelEl = document.getElementById('charSelectLabel');
 const charSelectRowEl = document.getElementById('charSelectRow');
 let rosterData = null;   // last /api/characters payload, or null
 let newCharMode = false; // true while picking a class for a new character
+// Account form sub-mode: 'login' shows only username/password; 'register' is
+// the separate "create account" view that adds the email + 18+ gate. New
+// visitors land on 'login'; the switch link flips between the two.
+let acctSubMode = 'login';
+
+// Show only the fields that belong to the current sub-mode (login vs register).
+// Called whenever the account form is visible and NOT signed in.
+function applyAcctSubMode() {
+  const reg = acctSubMode === 'register';
+  const emailEl = document.getElementById('accountEmailInput');
+  if (emailEl) emailEl.classList.toggle('hidden', !reg);
+  const ageGateEl = document.getElementById('accountAgeGate');
+  if (ageGateEl) ageGateEl.classList.toggle('hidden', !reg);
+  if (accountLoginBtn) accountLoginBtn.classList.toggle('hidden', reg);
+  if (accountRegisterBtn) accountRegisterBtn.classList.toggle('hidden', !reg);
+  const forgotPwRowEl = document.getElementById('forgotPwRow');
+  if (forgotPwRowEl) forgotPwRowEl.classList.toggle('hidden', reg); // forgot-pw is a login-only affordance
+  const linkEl = document.getElementById('acctSwitchLink');
+  if (linkEl) linkEl.textContent = reg ? '← Back to log in' : 'Need an account? Create one →';
+}
 
 function updateCharPickerVisibility() {
   const hasRoster = getJoinMode() === 'account' && !!getSavedAccount() && !!rosterData
@@ -55,15 +75,20 @@ function updateCharPickerVisibility() {
   if (accountPassInput) accountPassInput.classList.toggle('hidden', loggedIn);
   const accountBtnRowEl = document.getElementById('accountBtnRow');
   if (accountBtnRowEl) accountBtnRowEl.classList.toggle('hidden', loggedIn);
-  // Registration-only fields — only shown while creating/logging into an account,
-  // never once you're signed in (otherwise the email box + 18+ gate just clutter
-  // the character picker, see screenshot).
-  const emailEl = document.getElementById('accountEmailInput');
-  if (emailEl) emailEl.classList.toggle('hidden', loggedIn);
-  const ageGateEl = document.getElementById('accountAgeGate');
-  if (ageGateEl) ageGateEl.classList.toggle('hidden', loggedIn);
-  const forgotPwRowEl = document.getElementById('forgotPwRow');
-  if (forgotPwRowEl) forgotPwRowEl.classList.toggle('hidden', loggedIn);
+  // Registration-only fields + the login/register split. Once signed in the
+  // roster replaces the whole form, so hide email, the 18+ gate, forgot-pw and
+  // the switch link. Otherwise defer to the sub-mode: 'login' shows only
+  // username/password/Log In; 'register' adds the email box + 18+ confirmation.
+  const switchRowEl = document.getElementById('acctSwitchRow');
+  if (loggedIn) {
+    ['accountEmailInput', 'accountAgeGate', 'forgotPwRow'].forEach((id) => {
+      const el = document.getElementById(id); if (el) el.classList.add('hidden');
+    });
+    if (switchRowEl) switchRowEl.classList.add('hidden');
+  } else {
+    if (switchRowEl) switchRowEl.classList.remove('hidden');
+    applyAcctSubMode();
+  }
   if (charRosterEl) charRosterEl.classList.toggle('hidden', !hasRoster);
   if (charRosterListEl) charRosterListEl.classList.toggle('hidden', !showRoster);
   if (charSelectRowEl) charSelectRowEl.classList.toggle('hidden', showRoster);
@@ -217,7 +242,19 @@ function submitAccount(endpoint) {
 }
 accountLoginBtn.addEventListener('click', () => submitAccount('login'));
 accountRegisterBtn.addEventListener('click', () => submitAccount('register'));
-accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('login'); });
+accountPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount(acctSubMode === 'register' ? 'register' : 'login'); });
+// Flip between the log-in and create-account views (email + 18+ live only on
+// the latter). Clears any stale status and re-shows the right fields.
+const acctSwitchLink = document.getElementById('acctSwitchLink');
+if (acctSwitchLink) acctSwitchLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  acctSubMode = acctSubMode === 'register' ? 'login' : 'register';
+  setAccountStatus('');
+  applyAcctSubMode();
+  if (accountUserInput) accountUserInput.focus();
+});
+const accountEmailEl = document.getElementById('accountEmailInput');
+if (accountEmailEl) accountEmailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('register'); });
 
 // "Forgot password?" — ask for a username or email and request a reset link.
 // The server always answers the same way (no account enumeration), so the
