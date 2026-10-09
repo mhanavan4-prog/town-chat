@@ -16517,14 +16517,16 @@ function refreshDisguiseVisual(id) {
     ctx.lineWidth = 7; ctx.strokeStyle = '#f4ead8';
     ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2); ctx.stroke();
     const tex = new THREE.CanvasTexture(c);
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+    // depthTest off + a high renderOrder so the photo ALWAYS draws over the
+    // character — the head and (taller) hair geometry no longer clip its lower
+    // arc, which is what was cutting the circle off at the bottom.
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
     const r = CHAR.headR * 1.35;
     const mask = new THREE.Mesh(new THREE.CircleGeometry(r, 32), mat);
-    // Held UP and OUT in front of the face, clear of the head sphere. The old
-    // z (0.98·headR) sat the disc behind the head's own front surface, so the
-    // head clipped the middle of the photo; push it forward past the head and
-    // lift it onto the brow so the whole picture reads head-on.
-    mask.position.set(0, CHAR.headY + CHAR.headR * 0.45, CHAR.headR * 1.6);
+    mask.renderOrder = 12;
+    // Float the whole disc just ABOVE the head (bottom edge clears the hairline)
+    // so it reads as a held-up photo over the head and the full circle shows.
+    mask.position.set(0, CHAR.headY + CHAR.headR * 2.5, CHAR.headR * 1.2);
     const vNow = visuals[id];
     vNow.maskMesh = mask;
     vNow.group.add(mask);
