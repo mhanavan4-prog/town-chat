@@ -86,12 +86,18 @@ fs.writeFileSync(OUT, bundle);
 // can never drift.
 const HASH = crypto.createHash('sha256').update(bundle).digest('hex').slice(0, 10);
 const INDEX = path.join(ROOT, 'public', 'index.html');
-let html = fs.readFileSync(INDEX, 'utf8');
-const before = html;
-html = html.replace(/(<script\s+src=")client\.js(?:\?v=[0-9a-f]+)?(")/i, `$1client.js?v=${HASH}$2`);
-if (html === before && /client\.js/.test(before)) {
-  throw new Error('bundle-client: could not find the <script src="client.js"> tag to version in public/index.html');
+const TAG_RE = /(<script\s+src=")client\.js(?:\?v=[0-9a-f]+)?(")/i;
+const html = fs.readFileSync(INDEX, 'utf8');
+// Only a genuinely MISSING tag is an error. An unchanged bundle (same hash,
+// e.g. after an index.html-only edit) re-stamps to the same value and writes
+// nothing — that's a no-op, not a failure, so it must not throw.
+if (!TAG_RE.test(html)) {
+  if (/client\.js/.test(html)) {
+    throw new Error('bundle-client: could not find the <script src="client.js"> tag to version in public/index.html');
+  }
+} else {
+  const updated = html.replace(TAG_RE, `$1client.js?v=${HASH}$2`);
+  if (updated !== html) fs.writeFileSync(INDEX, updated);
 }
-if (html !== before) fs.writeFileSync(INDEX, html);
 
 console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines) · stamped index.html client.js?v=${HASH}`);

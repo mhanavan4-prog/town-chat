@@ -1389,7 +1389,11 @@
   }
 
   #inventoryPanel {
-    position:fixed; top:112px; left:16px; z-index:19; /* above HUD chrome, below overlays — like .floatPanel */
+    /* top:64 (was 112): slid up into the space freed when the top-left Menu
+       pill was removed. With the same max-height this lifts the panel's bottom
+       to ~64px of clearance, so a full inventory no longer runs under the
+       bottom-left Hagstone/coven banner. */
+    position:fixed; top:64px; left:16px; z-index:19; /* above HUD chrome, below overlays — like .floatPanel */
     width:380px; max-width:84vw; max-height:calc(100vh - 128px); overflow-y:auto;
     background:linear-gradient(160deg, rgba(28,20,14,0.95), rgba(16,12,8,0.97));
     border:2px solid rgba(230,190,120,0.4);
