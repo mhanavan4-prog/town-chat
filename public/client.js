@@ -16893,6 +16893,17 @@ window.addEventListener('keyup', (e) => {
 // Dropping the window/tab must not leave the mic stuck open.
 window.addEventListener('blur', () => { if (_covenVoice.isActive()) _covenVoice.setTalking(false); });
 
+// Backtick (`) mirrors Escape — opens/closes the ☰ menu (and closes any open
+// panel) by dispatching a synthetic Escape, reusing all of Escape's handling.
+// Unlike Escape, the browser doesn't reserve it, so it opens the menu even in
+// fullscreen WITHOUT dropping out. Never fires while typing (` is a character).
+window.addEventListener('keydown', (e) => {
+  if ((e.key === '`' || e.code === 'Backquote') && !e.repeat && !typing) {
+    e.preventDefault();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  }
+});
+
 // ── Mobile mode ─────────────────────────────────────────────────────────────
 // One switch, decided once at boot. Everything mobile hangs off the
 // body.touchMode class (CSS) and this flag (behavior).
