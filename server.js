@@ -4835,6 +4835,40 @@ function ritualStateBody(key) {
 }
 function playerByAccount(key) { if (!key) return null; for (const p of players.values()) if (p.accountKey === key) return p; return null; }
 
+// ── Coven voice chat (WebRTC mesh) ──────────────────────────────────────────
+// The server is ONLY a signaling relay + presence tracker — audio never
+// touches it; coven members connect peer-to-peer (see client/coven-voice.js).
+// Who's currently in voice is transient per-connection (player.voiceOn), never
+// persisted. Everything is gated to the player's own coven.
+function covenVoiceRoster(cv) {
+  const roster = [];
+  for (const key of cv.members) {
+    const m = findConnectionByAccountKey(key);
+    if (m && m.voiceOn) roster.push({ id: m.id, name: m.name });
+  }
+  return roster;
+}
+function covenVoiceBroadcastRoster(cv) {
+  const voice = covenVoiceRoster(cv);
+  for (const key of cv.members) {
+    const m = findConnectionByAccountKey(key);
+    if (m) send(m.ws, { type: 'coven_voice_roster', voice });
+  }
+}
+// Drop a player out of voice and tell their coven peers to tear the peer down.
+// Safe to call unconditionally (no-op if they weren't in voice).
+function covenVoiceLeave(player) {
+  if (!player || !player.voiceOn) return;
+  player.voiceOn = false;
+  const cv = player.accountKey && covenOf(player.accountKey);
+  if (!cv) return;
+  for (const key of cv.members) {
+    const m = findConnectionByAccountKey(key);
+    if (m && m.id !== player.id) send(m.ws, { type: 'coven_voice_peer_leave', id: player.id });
+  }
+  covenVoiceBroadcastRoster(cv);
+}
+
 // The bedroom ownership map for a coven's manor, resolved to display names, plus
 // every claimed altar's decoration arrangement (so everyone sees them) and the
 // viewer's own unlocks / balance (so the adorn UI knows what they can place).
@@ -8147,6 +8181,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'coven_leave') {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) return;
+      covenVoiceLeave(player); // drop out of voice first, while still a member, so peers tear down cleanly
       cv.members = cv.members.filter(k => k !== player.accountKey);
       covenIndex.delete(player.accountKey);
       covenLog(cv, player.name, 'left the circle');
@@ -8182,6 +8217,8 @@ wss.on('connection', (ws, req) => {
       if (!cv || cv.leaderKey !== player.accountKey) return;
       const targetKey = String(msg.memberKey || '');
       if (targetKey === player.accountKey || !cv.members.includes(targetKey)) return;
+      const kickedConn = findConnectionByAccountKey(targetKey);
+      if (kickedConn) covenVoiceLeave(kickedConn); // drop from voice while still a member so peers tear down
       cv.members = cv.members.filter(k => k !== targetKey);
       covenIndex.delete(targetKey);
       covenLog(cv, player.name, `turned ${covenDisplayName(targetKey)} out of the circle`);
@@ -8206,6 +8243,41 @@ wss.on('connection', (ws, req) => {
         const m = findConnectionByAccountKey(key);
         if (m) send(m.ws, { type: 'coven_msg', fromName: player.name, fromId: player.id, sigil: cv.sigil, text });
       }
+      return;
+    }
+
+    // ── Coven voice: signaling relay only (audio is peer-to-peer) ──
+    if (msg.type === 'coven_voice_join') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'coven_voice_error', message: 'Join a coven first.' }); return; }
+      player.voiceOn = true;
+      // Tell the joiner who's already talking, and tell each of those peers a
+      // new voice member arrived; both sides use the id-ordering rule in
+      // client/coven-voice.js to decide who sends the WebRTC offer (no glare).
+      const peers = [];
+      for (const key of cv.members) {
+        if (key === player.accountKey) continue;
+        const m = findConnectionByAccountKey(key);
+        if (m && m.voiceOn) {
+          peers.push({ id: m.id, name: m.name });
+          send(m.ws, { type: 'coven_voice_peer_join', id: player.id, name: player.name });
+        }
+      }
+      send(ws, { type: 'coven_voice_joined', selfId: player.id, peers });
+      covenVoiceBroadcastRoster(cv);
+      return;
+    }
+    if (msg.type === 'coven_voice_leave') { covenVoiceLeave(player); return; }
+    if (msg.type === 'coven_voice_signal') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv || !player.voiceOn) return;
+      const target = players.get(String(msg.toId));
+      // Relay ONLY to a voice-on member of the SAME coven.
+      if (!target || !target.voiceOn || !target.accountKey || covenIndex.get(target.accountKey) !== cv.id) return;
+      let ok = true;
+      try { if (JSON.stringify(msg.data || null).length > 20000) ok = false; } catch (e) { ok = false; }
+      if (!ok) return; // oversized / unserializable signaling payload — drop
+      send(target.ws, { type: 'coven_voice_signal', fromId: player.id, data: msg.data });
       return;
     }
 
@@ -8862,6 +8934,7 @@ wss.on('connection', (ws, req) => {
         });
       }
       leaveParty(player);
+      covenVoiceLeave(player);
       delveLeave(player, 'disconnect');
       // Stamp the away-clock for the "while you were gone" letter.
       if (player.accountKey) {

@@ -7,6 +7,7 @@ import createAttacks from './attacks.js';
 import createBoard from './board.js';
 import createDelve from './delve.js';
 import createCoven from './coven.js';
+import createCovenVoice from './coven-voice.js';
 import createNotif from './notif.js';
 import createLegendShop from './legend.js';
 import createConsent from './consent.js';
@@ -1340,11 +1341,15 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type && msg.type.indexOf('coven_voice_') === 0) { _covenVoice.handleMessage(msg); return; }
+
   if (msg.type === 'coven_state') {
     covenState = msg.coven || null;
     if (msg.charters != null) covenCharterInfo = { charters: msg.charters || 0, charterPriceCents: msg.charterPriceCents || 999, paymentsEnabled: !!msg.paymentsEnabled };
     refreshCovenMenuRow();
     if (Modals.isOpen('covenModalOpen')) renderCovenModal();
+    if (!covenState) _covenVoice.stop(); // left/disbanded the coven — drop out of voice
+    _covenVoice.render();
     return;
   }
 
@@ -3920,6 +3925,17 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'q' || e.key === 'Q') keys.strafeRight = false;
   if (e.key === 'e' || e.key === 'E') keys.strafeLeft = false;
 });
+
+// Push-to-talk for coven voice (hold C). Dedicated listeners so it works
+// coven-wide regardless of which screen is up — but never while typing.
+window.addEventListener('keydown', (e) => {
+  if ((e.key === 'c' || e.key === 'C') && !e.repeat && !typing && _covenVoice.isActive()) _covenVoice.setTalking(true);
+});
+window.addEventListener('keyup', (e) => {
+  if ((e.key === 'c' || e.key === 'C') && _covenVoice.isActive()) _covenVoice.setTalking(false);
+});
+// Dropping the window/tab must not leave the mic stuck open.
+window.addEventListener('blur', () => { if (_covenVoice.isActive()) _covenVoice.setTalking(false); });
 
 // ── Mobile mode ─────────────────────────────────────────────────────────────
 // One switch, decided once at boot. Everything mobile hangs off the
@@ -9342,6 +9358,10 @@ const _coven = createCoven({
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
 });
 const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual } = _coven;
+
+const _covenVoice = createCovenVoice({
+  getWs: () => ws, getCovenState: () => covenState, setUnlockToast,
+});
 
 // ── Dungeon lore plaques ─────────────────────────────────────────────────────
 function openPlaqueModal() {
