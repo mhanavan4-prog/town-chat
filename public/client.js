@@ -18880,8 +18880,13 @@ const GFX = (() => {
     const c = light.shadow.camera;
     c.left = -span; c.right = span; c.top = span; c.bottom = -span;
     c.near = 40; c.far = 3200;
-    light.shadow.bias = -0.00035;
-    light.shadow.normalBias = 3;
+    // Bias nudged up to stop surfaces shadow-acne'ing themselves (the "zebra
+    // striping" seen on building doors/walls under the wide follow shadow map).
+    // normalBias especially helps grazing-angle faces like a vertical door.
+    // (If shadows ever visibly detach from their caster — peter-panning — these
+    // are too high; dial back toward -0.00035 / 3.)
+    light.shadow.bias = -0.0006;
+    light.shadow.normalBias = 4;
     c.updateProjectionMatrix();
     if (!light.target.parent && light.parent) light.parent.add(light.target);
   }
