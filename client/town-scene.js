@@ -270,12 +270,16 @@ function buildLocksmith(scene) {
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 12, 6), keyMat); shaft.position.y = -2;
   const tooth = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1.5), keyMat); tooth.position.set(2, -7, 0);
   keyGrp.add(bow); keyGrp.add(shaft); keyGrp.add(tooth);
-  keyGrp.position.set(0, 64, 10); g.add(keyGrp);
+  // Float the key a clear head's-height ABOVE Tumbler (head top ≈ y70) so the
+  // whole key reads, not just the bow poking out of his skull (prior y64 sat
+  // the key AT head level, burying the shaft/tooth behind his head).
+  const KEY_FLOAT_Y = 86;
+  keyGrp.position.set(0, KEY_FLOAT_Y, 10); g.add(keyGrp);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: LEGEND_FX.glowTexture(), color: 0xffd27a, transparent: true, opacity: 0.5,
     depthWrite: false, blending: THREE.AdditiveBlending
   }));
-  glow.scale.set(30, 30, 1); glow.position.set(0, 64, 10); g.add(glow);
+  glow.scale.set(30, 30, 1); glow.position.set(0, KEY_FLOAT_Y, 10); g.add(glow);
   setLocksmithGroup(g);
   g.position.set(LOCKSMITH_SPOT.x, 0, LOCKSMITH_SPOT.y);
   scene.add(g);
@@ -286,7 +290,7 @@ function buildLocksmith(scene) {
   scene.add(label);
   g.userData.tick = (t) => {
     keyGrp.rotation.y = t * 1.2;
-    keyGrp.position.y = 64 + Math.sin(t * 1.6) * 2;
+    keyGrp.position.y = KEY_FLOAT_Y + Math.sin(t * 1.6) * 2;
     if (getMe()) {
       const d = Math.hypot(getMe().x - LOCKSMITH_SPOT.x, getMe().y - LOCKSMITH_SPOT.y);
       const target = d < 150 ? 1 : d > 340 ? 0 : (340 - d) / 190;
