@@ -3856,7 +3856,11 @@ function refreshDisguiseVisual(id) {
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
     const r = CHAR.headR * 1.35;
     const mask = new THREE.Mesh(new THREE.CircleGeometry(r, 32), mat);
-    mask.position.set(0, CHAR.headY, CHAR.headR * 0.98);
+    // Held UP and OUT in front of the face, clear of the head sphere. The old
+    // z (0.98·headR) sat the disc behind the head's own front surface, so the
+    // head clipped the middle of the photo; push it forward past the head and
+    // lift it onto the brow so the whole picture reads head-on.
+    mask.position.set(0, CHAR.headY + CHAR.headR * 0.45, CHAR.headR * 1.6);
     const vNow = visuals[id];
     vNow.maskMesh = mask;
     vNow.group.add(mask);

@@ -283,8 +283,8 @@
 
   #hud {
     position:fixed; top:0; left:0; right:0; z-index:5;
-    display:flex; justify-content:space-between; padding:14px 18px;
-    pointer-events:none;
+    display:flex; justify-content:flex-start; align-items:flex-start; gap:10px;
+    padding:14px 18px; pointer-events:none;
   }
   #roomTag {
     pointer-events:auto;
@@ -306,10 +306,11 @@
   }
   #dayNightTag.nightTag { color:#cfd9ff; border-color:rgba(140,160,220,0.35); }
   #peopleTag {
+    position:fixed; bottom:16px; right:18px; z-index:6;
     pointer-events:auto;
     background:rgba(10,16,12,0.6); border:1px solid rgba(160,220,160,0.2);
     color:#cfe9cf; font-size:12px; padding:8px 14px; border-radius:20px;
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:10px; backdrop-filter:blur(4px);
   }
   #muteBtn {
     pointer-events:auto;
@@ -607,7 +608,7 @@
 
   .passInfo {
     text-align:left; background:rgba(0,0,0,0.25); border-radius:10px;
-    padding:14px; margin-bottom:14px;
+    padding:14px; margin-bottom:14px; color:#cfe9cf;
   }
   .passInfo .passTitle { font-weight:700; color:#ffe9c2; margin-bottom:4px; }
   .passInfo .passDetail { font-size:12px; color:#cfe9cf; }
@@ -712,6 +713,7 @@
 
   /* ── Town Pass HUD tag ── */
   #passTag {
+    margin-left:auto;
     background:rgba(20,10,8,0.78); border:1px solid rgba(230,190,120,0.5);
     color:#ffe9c2; font-size:12px; font-weight:700; padding:6px 12px;
     border-radius:14px; backdrop-filter:blur(4px);
@@ -1028,7 +1030,7 @@
   /* ── Mobile declutter: hide desktop chrome, relocate prompts ── */
   body.touchMode #hud, body.touchMode #leftHudButtons, body.touchMode #hotbar,
   body.touchMode #unlockBar, body.touchMode #leaveBtn, body.touchMode #healthHud,
-  body.touchMode #cmPrompt { display:none !important; }
+  body.touchMode #peopleTag, body.touchMode #cmPrompt { display:none !important; }
   body.touchMode #interactHint {
     left:auto; right:max(14px, env(safe-area-inset-right)); bottom:236px; transform:none;
     animation:cmPulse 1.2s ease-in-out infinite alternate; border-radius:18px;
@@ -1597,16 +1599,21 @@
     border-radius:8px; padding:8px 10px; font-size:12px; color:#eafff0;
   }
   .noteItem .noteFrom { color:#ffd9a0; font-weight:700; margin-bottom:4px; display:block; }
-  .noteItem .noteReadBtn {
-    margin-top:6px; width:100%; padding:7px; font-size:12px; font-weight:700;
+  /* Themed in EVERY context. The selfie cells and voice-clip rows use these
+     same classes but sit OUTSIDE .noteItem — without a base rule they fell
+     back to white browser buttons that clashed with the dark panel. */
+  .noteReadBtn {
+    padding:7px 10px; font-size:12px; font-weight:700;
     border:none; border-radius:8px; cursor:pointer; color:#2a1605;
     background:linear-gradient(90deg,#ffd27a,#ff9d5c);
   }
-  .noteItem .noteDestroyBtn {
-    margin-top:6px; width:100%; padding:7px; font-size:12px; font-weight:700;
+  .noteDestroyBtn {
+    padding:7px 10px; font-size:12px; font-weight:700;
     border:none; border-radius:8px; cursor:pointer; color:#fff0ee;
     background:linear-gradient(90deg,#c0392b,#922b21);
   }
+  /* In the notes list they stack full-width beneath each note. */
+  .noteItem .noteReadBtn, .noteItem .noteDestroyBtn { margin-top:6px; width:100%; }
   .noteItem .noteImage {
     display:block; width:100%; max-height:160px; object-fit:cover;
     border-radius:6px; margin-top:6px;
@@ -1800,19 +1807,22 @@
 
 <div id="hud" class="hidden">
   <div id="roomTag"><span id="statusDot"></span><span id="roomLabel">Town Square</span></div>
-  <div id="dayNightTag">☀️ Day</div>
   <div id="healthHud" class="hidden" title="Health">
     <svg id="healthHeartSvg" viewBox="0 0 32 29" width="36" height="33">
       <path id="healthHeartPath" d="M16 29 C16 29 0 18 0 8.5 C0 3.2 4.2 0 8.7 0 C12 0 14.6 1.9 16 5 C17.4 1.9 20 0 23.3 0 C27.8 0 32 3.2 32 8.5 C32 18 16 29 16 29 Z"/>
     </svg>
     <span id="healthPercentText">100%</span>
   </div>
-  <div id="peopleTag">
-    <span><span id="peopleCount">1</span> in town</span>
-    <button id="muteBtn" title="Mute music">🔈</button>
-  </div>
   <div id="moonstoneTag" class="hidden" title="Your Moonstones — tap to get more">💎 <span id="moonstoneTagVal">0</span></div>
+  <div id="dayNightTag">☀️ Day</div>
   <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
+</div>
+
+<!-- Population + mute: pulled out of the top HUD row and pinned to the bottom,
+     level with the hotbar, so the top-left corner reads as [Town Square] [❤] [💎] [Day]. -->
+<div id="peopleTag">
+  <span><span id="peopleCount">1</span> in town</span>
+  <button id="muteBtn" title="Mute music">🔈</button>
 </div>
 
 <div id="coordBar" class="hidden"></div>
@@ -2975,6 +2985,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=ca6674185f"></script>
+<script src="client.js?v=234a595d83"></script>
 </body>
 </html>
