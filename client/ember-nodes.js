@@ -6,7 +6,7 @@
 // scorched dunes, with a floating label and an interact kiosk; when spent it
 // dims and sinks, re-blooming when the server says it's ready again.
 // ---------------------------------------------------------------------------
-export default function createEmberNodes({ getEmberScene, emberHeightAt, makeNpcNameSprite }) {
+export default function createEmberNodes({ getEmberScene, emberHeightAt }) {
 const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 const NODE_STYLE = {
   emberbloom:  { color: 0xff5a7a, emissive: 0xff1a55, label: '🌺 Emberbloom',  shape: 'bloom' },
@@ -41,10 +41,9 @@ function buildGroup(def) {
       group.add(bloom);
     }
   }
-  const label = makeNpcNameSprite(style.label);
-  label.position.set(0, 52, 0);
-  label.userData.isLabel = true;
-  group.add(label);
+  // No floating label — the glowing cluster + the "gather the vein" interact
+  // hint identify it; a permanent billboard just clutters the view (and blows
+  // up huge when the camera is close).
   group.position.set(def.x, groundY(def.x, def.y), def.y);
   return group;
 }
@@ -90,7 +89,6 @@ function updateNodeVisuals(dt) {
     v.group.position.y = groundY(v.group.position.x, v.group.position.z) - (1 - v.shown) * 22;
     v.group.traverse(o => {
       if (o.isMesh && o.material && 'emissiveIntensity' in o.material) o.material.emissiveIntensity = pulse;
-      if (o.userData && o.userData.isLabel) o.visible = v.ready;
     });
   }
 }
