@@ -9360,17 +9360,17 @@ function renderFirstSteps() {
   chip.classList.remove('fsMini');
   const title = document.createElement('div');
   title.className = 'fsTitle';
-  title.textContent = '🏮 First Steps';
+  title.textContent = `🏮 First Steps · ${doneCount}/${steps.length}`;
   chip.appendChild(title);
   for (const s of steps) {
     const row = document.createElement('div');
     if (s.done) row.className = 'fsDone';
-    row.textContent = `${s.icon} ${s.label}`;
+    row.textContent = `${s.done ? '✓' : s.icon} ${s.label}`;
     chip.appendChild(row);
   }
   const note = document.createElement('div');
   note.style.cssText = 'color:#9a8ac0;font-size:11px;margin-top:2px;';
-  note.textContent = `Finish all three: ${firstStepsState.rewardGold} gold`;
+  note.textContent = `Finish all ${steps.length} for ${firstStepsState.rewardGold} gold`;
   chip.appendChild(note);
   chip.classList.remove('hidden');
 }

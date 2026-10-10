@@ -308,11 +308,12 @@ setTimeout(async () => {
   check('newcomer got the tracker at join', !!newbie.sock.lastOfType('first_steps'));
   hooks.storyEvent(newbie.player, 'talk_npc', { npcId: 'npc_mara' });
   hooks.storyEvent(newbie.player, 'harvest_plant', { itemId: 'berries' });
+  hooks.noteFirstStep(newbie.player, 'ability'); // the fourth deed (first cast)
   const fsBefore = hooks.ensureBankAccount('newbie1').balance;
   hooks.storyEvent(newbie.player, 'kill_mob', { pool: 'mob', mobType: 'x' });
   const fsMsg = newbie.sock.allOfType('first_steps').pop();
-  check('three deeds complete First Steps', fsMsg && fsMsg.done === true, fsMsg);
-  check('completion paid the purse', hooks.ensureBankAccount('newbie1').balance === fsBefore + 25);
+  check('four deeds complete First Steps', fsMsg && fsMsg.done === true, fsMsg);
+  check('completion paid the purse', hooks.ensureBankAccount('newbie1').balance === fsBefore + 50);
   const vet = joinAs('Veteran', 'vet1');
   hooks.getProgress(vet.player).level = 12;
   hooks.noteFirstStep(vet.player, 'killed');

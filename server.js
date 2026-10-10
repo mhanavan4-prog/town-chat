@@ -4701,12 +4701,13 @@ app.post('/api/push/unsubscribe', (req, res) => {
 // forever once done (and never shown to veterans — see the join gate).
 const FIRST_STEPS = [
   { id: 'talked',    label: 'Speak with a townsperson',       icon: '💬' },
-  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' },
-  { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' }
+  { id: 'ability',   label: 'Use a class ability',            icon: '✨' },
+  { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' },
+  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' }
 ];
-const FIRST_STEPS_REWARD_GOLD = 25;
+const FIRST_STEPS_REWARD_GOLD = 50;
 function firstStepsState(prog) {
-  if (!prog.firstSteps) prog.firstSteps = { talked: false, harvested: false, killed: false, done: false };
+  if (!prog.firstSteps) prog.firstSteps = { talked: false, ability: false, harvested: false, killed: false, done: false };
   return prog.firstSteps;
 }
 function firstStepsPayload(player, justCompleted) {
@@ -6987,6 +6988,7 @@ wss.on('connection', (ws, req) => {
       }
 
       player.spellCooldowns[spellId] = now;
+      noteFirstStep(player, 'ability'); // first cast ticks the onboarding step
 
       // Every class ability cast advances a cast-your-craft story chapter.
       storyEvent(player, 'cast_ability', { abilityId: spellId });
@@ -7472,6 +7474,7 @@ wss.on('connection', (ws, req) => {
         return;
       }
       player.attackCooldowns[attackId] = now;
+      noteFirstStep(player, 'ability'); // first class attack ticks the onboarding step
 
       // Damage/leech attacks can hit animals/mobs too, exactly like the
       // Witch's Fireball/Leech Hex (see cast_spell's targetsMob above) —
