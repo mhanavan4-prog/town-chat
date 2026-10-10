@@ -242,7 +242,9 @@ setTimeout(() => {
     check('cm_voice enforces its cooldown', !!dj.lastOfType('cm_error') &&
       /rewinding/.test(dj.lastOfType('cm_error').message));
 
-    // PvP swings miss an evading player, with a telling message.
+    // PvP swings miss an evading player, with a telling message. PvP is now
+    // consent-based outside the Wastes, so put the two in a duel first.
+    hooks.startDuel(nearP, djP);
     nearP.lastStrikeAt = 0;
     nearP.x = djP.x + 40; nearP.y = djP.y; // inside STRIKE_RANGE (70)
     const djHpBeforeStrike = djP.health; // (starter gear can raise this above 100 now)

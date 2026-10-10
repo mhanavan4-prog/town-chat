@@ -1784,6 +1784,46 @@ function absorbIncomingDamage(target, dmg) {
 // enough that every legitimate in-view cast lands; the client only ever targets
 // the nearest attackable, well inside this.
 const ABILITY_MAX_RANGE = 900;
+
+// ── PvP policy + battle invitations (duels) ──────────────────────────────────
+// PvP is open free-for-all ONLY in the Ember Wastes (and even there, never
+// inside the spawn haven). Everywhere else — the Wilds included — it is
+// consensual: both players must accept a battle invitation. Duels are mutual,
+// expire after DUEL_MS, and end on a kill, a room change, or disconnect. This
+// stops low-level players from being ganked or spawn-camped.
+const DUEL_MS = 5 * 60 * 1000;
+const PVP_INVITE_MS = 45 * 1000;
+const pvpInvites = new Map(); // targetId -> { fromId, fromName, expiresAt }
+function playerDuels(p) { return (p.duels || (p.duels = {})); }
+function hasActiveDuel(a, b) {
+  const now = Date.now();
+  return (playerDuels(a)[b.id] || 0) > now && (playerDuels(b)[a.id] || 0) > now;
+}
+function startDuel(a, b) {
+  const until = Date.now() + DUEL_MS;
+  playerDuels(a)[b.id] = until; playerDuels(b)[a.id] = until;
+}
+function endDuelPair(a, b) {
+  if (a && a.duels) delete a.duels[b.id];
+  if (b && b.duels) delete b.duels[a.id];
+}
+function clearDuels(p) {
+  if (!p) return;
+  if (p.duels) { for (const oppId of Object.keys(p.duels)) { const o = players.get(oppId); if (o && o.duels) delete o.duels[p.id]; } p.duels = {}; }
+  pvpInvites.delete(p.id);
+  for (const [tid, inv] of pvpInvites) if (inv.fromId === p.id) pvpInvites.delete(tid);
+}
+function emberSafeZone(p) {
+  return p.room === 'ember_wastes' && Math.hypot(p.x - EMBER_SPAWN.x, p.y - EMBER_SPAWN.y) < EMBER_SAFE_RADIUS;
+}
+function pvpAllowed(attacker, target) {
+  if (attacker.room === 'ember_wastes') {
+    if (emberSafeZone(attacker) || emberSafeZone(target)) return false; // spawn haven — safe for either party
+    return true; // open free-for-all
+  }
+  return hasActiveDuel(attacker, target); // consensual everywhere else (the Wilds, town, …)
+}
+
 function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
 
@@ -1807,6 +1847,9 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     const t = players.get(targetId);
     if (!t || t.id === player.id || t.room !== player.room || t.isDead) return { ok: false };
     if (outOfRange(t)) return { ok: false, range: true }; // reach-hack signal (see strike handler)
+    // PvP policy gate: open in the Wastes (outside the spawn haven), otherwise
+    // only between players who accepted a battle invitation.
+    if (!pvpAllowed(player, t)) return { ok: false, pvpBlocked: true, name: t.name, ember: player.room === 'ember_wastes' };
     // A voice countermeasure (see cm_voice) makes the target untouchable
     // for a few seconds — the blow just misses, and the attacker is told
     // exactly why so the mechanic teaches itself.
@@ -1826,6 +1869,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       t.health = 0;
       t.isDead = true;
       noteDeath(t);
+      endDuelPair(player, t); // a duel is settled by a kill
       // PvP loot: one random carried (not equipped) item stack changes
       // hands, the same "self-directed carried items only" scope Sleight
       // of Hand already uses — real stakes, but never touches equipped
@@ -5165,29 +5209,56 @@ const VAULT_SPAWN = { x: 150, y: 60 };
 // Hand skill level — this is a map mechanic open to every character, not a
 // class spell).
 // ---------------------------------------------------------------------------
-const EMBER_WORLD_DIMS = { width: 4000, height: 4000 };
-const EMBER_SPAWN = { x: 2000, y: 3650 };
+// A full open zone (Session N): twice the Wilds' span (the Wilds is
+// 10000²), an open free-for-all PvP map where every ember creature is
+// hostile and so is every other player. The portal is the only way out —
+// and if it closes (dawn / the torches burn down) while you're inside, you
+// are trapped until it opens again. Spawn sits near the south edge so the
+// vast north is open ground to fight, flee, and hunt across.
+const EMBER_WORLD_DIMS = { width: 20000, height: 20000 };
+const EMBER_SPAWN = { x: 10000, y: 18600 };
+// A no-PvP haven around the arrival portal so newcomers aren't spawn-camped.
+// Outside this ring the whole zone is open free-for-all.
+const EMBER_SAFE_RADIUS = 1800;
 
 const EMBER_MOB_TYPES = {
-  ash_wraith:   { name: 'Ash Wraith',   color: 0xff5522, scale: 0.85, maxHealth: 60,  speed: 85, aggroRadius: 260, strikeRange: 50, dmgMin: 10, dmgMax: 16, hitCooldownMs: 1300, xp: 20,
+  ash_wraith:    { name: 'Ash Wraith',    color: 0xff5522, scale: 0.85, maxHealth: 60,  speed: 85,  aggroRadius: 260, strikeRange: 50,  dmgMin: 10, dmgMax: 16, hitCooldownMs: 1300, xp: 20,
     lootTable: [ { itemId: 'shadow_essence', qty: 1, chance: 0.35 }, { gold: true, min: 6, max: 16, chance: 0.6 } ],
     stealChance: 0.4, stealTable: [ 'fur_scrap', 'bone_shard' ] },
-  bonecaller:   { name: 'Bonecaller',   color: 0xd8d0b8, scale: 1.0,  maxHealth: 85,  speed: 55, aggroRadius: 230, strikeRange: 55, dmgMin: 13, dmgMax: 19, hitCooldownMs: 1600, xp: 26,
+  ashen_stalker: { name: 'Ashen Stalker', color: 0xff7733, scale: 0.9,  maxHealth: 75,  speed: 120, aggroRadius: 320, strikeRange: 52,  dmgMin: 14, dmgMax: 20, hitCooldownMs: 1100, xp: 24,
+    lootTable: [ { itemId: 'shadow_essence', qty: 1, chance: 0.4 }, { itemId: 'glimmerdust', qty: 1, chance: 0.3 }, { gold: true, min: 8, max: 18, chance: 0.6 } ],
+    stealChance: 0.45, stealTable: [ 'fur_scrap', 'glimmerdust' ] },
+  bonecaller:    { name: 'Bonecaller',    color: 0xd8d0b8, scale: 1.0,  maxHealth: 85,  speed: 55,  aggroRadius: 230, strikeRange: 55,  dmgMin: 13, dmgMax: 19, hitCooldownMs: 1600, xp: 26,
     lootTable: [ { itemId: 'bone_shard', qty: 2, chance: 0.5 }, { gold: true, min: 8, max: 20, chance: 0.6 }, { itemId: 'dread_helm', qty: 1, chance: 0.03 } ],
     stealChance: 0.35, stealTable: [ 'bone_shard', 'leather_hide' ] },
-  cinder_brute: { name: 'Cinder Brute', color: 0x8a1a00, scale: 1.4,  maxHealth: 140, speed: 24, aggroRadius: 190, strikeRange: 65, dmgMin: 20, dmgMax: 30, hitCooldownMs: 2400, xp: 34,
+  soot_revenant: { name: 'Soot Revenant', color: 0x6a4a7a, scale: 1.05, maxHealth: 110, speed: 70,  aggroRadius: 300, strikeRange: 60,  dmgMin: 18, dmgMax: 26, hitCooldownMs: 1500, xp: 32,
+    lootTable: [ { itemId: 'shadow_essence', qty: 2, chance: 0.55 }, { itemId: 'dragon_scale', qty: 1, chance: 0.04 }, { gold: true, min: 12, max: 26, chance: 0.6 } ],
+    stealChance: 0.3, stealTable: [ 'bone_shard', 'shadow_essence' ] },
+  cinder_brute:  { name: 'Cinder Brute',  color: 0x8a1a00, scale: 1.4,  maxHealth: 140, speed: 24,  aggroRadius: 190, strikeRange: 65,  dmgMin: 20, dmgMax: 30, hitCooldownMs: 2400, xp: 34,
     lootTable: [ { itemId: 'iron_ore', qty: 1, chance: 0.4 }, { gold: true, min: 14, max: 32, chance: 0.65 }, { itemId: 'cursed_blade', qty: 1, chance: 0.04 } ],
-    stealChance: 0.3, stealTable: [ 'iron_ore', 'animal_pelt' ] }
+    stealChance: 0.3, stealTable: [ 'iron_ore', 'animal_pelt' ] },
+  magma_golem:   { name: 'Magma Golem',   color: 0xb83010, scale: 1.7,  maxHealth: 240, speed: 30,  aggroRadius: 210, strikeRange: 80,  dmgMin: 28, dmgMax: 40, hitCooldownMs: 2600, xp: 48,
+    lootTable: [ { itemId: 'iron_ore', qty: 2, chance: 0.6 }, { itemId: 'enchanted_gem', qty: 1, chance: 0.05 }, { gold: true, min: 24, max: 48, chance: 0.7 } ],
+    stealChance: 0.25, stealTable: [ 'iron_ore', 'stone_block' ] }
 };
-const EMBER_SCALE = EMBER_WORLD_DIMS.width / 1000;
-const EMBER_MOB_SPAWNS = [
-  { x: 220, y: 220, type: 'ash_wraith' },   { x: 780, y: 220, type: 'ash_wraith' },
-  { x: 220, y: 780, type: 'ash_wraith' },   { x: 780, y: 780, type: 'ash_wraith' },
-  { x: 500, y: 150, type: 'bonecaller' },   { x: 150, y: 500, type: 'bonecaller' },
-  { x: 850, y: 500, type: 'bonecaller' },   { x: 500, y: 850, type: 'bonecaller' },
-  { x: 350, y: 500, type: 'cinder_brute' }, { x: 650, y: 500, type: 'cinder_brute' },
-  { x: 500, y: 350, type: 'cinder_brute' }, { x: 500, y: 650, type: 'cinder_brute' }
-].map(p => ({ x: p.x * EMBER_SCALE, y: p.y * EMBER_SCALE, type: p.type }));
+// Spawns are seeded + scattered across the whole zone (minus a safe ring
+// around the arrival portal so you aren't swarmed on entry). Deterministic
+// from a fixed seed so respawn points stay put across restarts.
+const EMBER_SPAWN_COUNTS = { ash_wraith: 10, ashen_stalker: 10, bonecaller: 8, soot_revenant: 8, cinder_brute: 6, magma_golem: 5 };
+const EMBER_MOB_SPAWNS = (() => {
+  const rng = mulberry32(0x5afe10c5);
+  const out = [];
+  const W = EMBER_WORLD_DIMS.width, H = EMBER_WORLD_DIMS.height, margin = 600, safeR = EMBER_SAFE_RADIUS + 300;
+  for (const [type, n] of Object.entries(EMBER_SPAWN_COUNTS)) {
+    for (let i = 0; i < n; i++) {
+      let x, y, tries = 0;
+      do { x = margin + rng() * (W - margin * 2); y = margin + rng() * (H - margin * 2); tries++; }
+      while (Math.hypot(x - EMBER_SPAWN.x, y - EMBER_SPAWN.y) < safeR && tries < 200);
+      out.push({ x, y, type });
+    }
+  }
+  return out;
+})();
 const EMBER_MOB_RESPAWN_MS = 90 * 1000;
 const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
   id: 'ember_' + i,
@@ -7228,7 +7299,11 @@ wss.on('connection', (ws, req) => {
         }
         const result = applyDamage(player, targetType, targetId, dmg, ABILITY_MAX_RANGE);
         if (!result.ok) {
-          send(ws, { type: 'spell_error', message: result.evaded
+          send(ws, { type: 'spell_error', message: result.pvpBlocked
+            ? (result.ember
+                ? `🛡️ ${result.name} is in the spawn haven — no fighting there.`
+                : `🤝 ${result.name} hasn't agreed to fight. Challenge them to a battle first.`)
+            : result.evaded
             ? `💨 ${result.name} slips the spell — their echo still hangs in the air!`
             : 'Pick a target first.' });
           return;
@@ -7386,7 +7461,10 @@ wss.on('connection', (ws, req) => {
 
       const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
       if (!result.ok) {
-        if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
+        if (result.pvpBlocked) send(ws, { type: 'attack_result', message: result.ember
+          ? `🛡️ ${result.name} is in the spawn haven — no fighting there. Draw them out into the Wastes.`
+          : `🤝 ${result.name} hasn't agreed to fight. Click them → Challenge to Battle first.` });
+        else if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
         else if (result.range) {
           // Striking a target beyond melee reach. A courtesy client never sends
           // this; sustained hits from one source are a reach/teleport hack.
@@ -9083,19 +9161,29 @@ wss.on('connection', (ws, req) => {
       if (dist > 100) return;
       player.emberReturnX = player.x;
       player.emberReturnY = player.y;
+      clearDuels(player); // duels don't carry across the portal
       player.room = 'ember_wastes';
       player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = EMBER_SPAWN.x;
       player.y = EMBER_SPAWN.y;
-      send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN });
+      send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN,
+        greeting: '🔥 THE EMBER WASTES — an open battleground. Every creature here is hostile, and so is every other wanderer: this is a free-for-all PvP zone, and anyone may strike you down. The portal behind you is the only way out — and if it goes dark before you return, you are trapped here until it burns again.' });
       storyEvent(player, 'visit_room', { room: 'ember_wastes' });
       return;
     }
 
     if (msg.type === 'exit_ember_wastes') {
       if (player.room !== 'ember_wastes') return;
+      // The portal is the only way out — and only while it's lit. If the
+      // torches have burned down (or dawn has closed it), you're trapped in
+      // the Wastes until it opens again.
+      if (!templePortalOpen()) {
+        send(ws, { type: 'ember_wastes_error', message: '🔥 The portal has gone dark — you are trapped in the Ember Wastes until the torches burn again. Survive until it reopens.' });
+        return;
+      }
       const retX = player.emberReturnX || TEMPLE_ALTAR.x;
       const retY = player.emberReturnY || TEMPLE_ALTAR.y + 80;
+      clearDuels(player);
       player.room = 'outside';
       player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       player.x = retX;
@@ -9103,6 +9191,34 @@ wss.on('connection', (ws, req) => {
       player.emberReturnX = null;
       player.emberReturnY = null;
       send(ws, { type: 'ember_wastes_exited', x: retX, y: retY });
+      return;
+    }
+
+    // ── Battle invitations (consensual PvP outside the Ember Wastes) ─────────
+    if (msg.type === 'pvp_invite') {
+      if (player.isDead) return;
+      const t = players.get(String(msg.targetId || ''));
+      if (!t || t.id === player.id || t.room !== player.room || t.isDead) { send(ws, { type: 'pvp_error', message: 'No one there to challenge.' }); return; }
+      if (player.room === 'ember_wastes') { send(ws, { type: 'pvp_error', message: 'The Ember Wastes are already open PvP — no challenge needed. Just strike.' }); return; }
+      if (hasActiveDuel(player, t)) { send(ws, { type: 'pvp_error', message: `You're already in a battle with ${t.name}.` }); return; }
+      pvpInvites.set(t.id, { fromId: player.id, fromName: player.name, expiresAt: Date.now() + PVP_INVITE_MS });
+      send(t.ws, { type: 'pvp_invited', fromId: player.id, fromName: player.name });
+      send(ws, { type: 'pvp_error', message: `⚔️ Battle challenge sent to ${t.name}.` });
+      return;
+    }
+    if (msg.type === 'pvp_invite_respond') {
+      const inv = pvpInvites.get(player.id);
+      const from = inv ? players.get(inv.fromId) : null;
+      if (!inv || inv.expiresAt < Date.now() || !from || from.room !== player.room || from.isDead || player.isDead) {
+        pvpInvites.delete(player.id);
+        send(ws, { type: 'pvp_error', message: 'That battle challenge is no longer valid.' });
+        return;
+      }
+      pvpInvites.delete(player.id);
+      if (!msg.accept) { send(from.ws, { type: 'pvp_error', message: `${player.name} declined your battle challenge.` }); return; }
+      startDuel(player, from);
+      send(player.ws, { type: 'pvp_duel_started', opponentId: from.id, opponentName: from.name });
+      send(from.ws, { type: 'pvp_duel_started', opponentId: player.id, opponentName: player.name });
       return;
     }
 
@@ -9390,6 +9506,7 @@ wss.on('connection', (ws, req) => {
       leaveParty(player);
       covenVoiceLeave(player);
       delveLeave(player, 'disconnect');
+      clearDuels(player); // drop any live duel / pending challenge
       // Stamp the away-clock for the "while you were gone" letter.
       if (player.accountKey) {
         try { getProgress(player).lastSeenAt = Date.now(); saveProgress(); } catch (e) {}
@@ -9513,6 +9630,9 @@ global.__testHooks = {
   // Session N: achievements / collection log + the Artificer's Workshop
   achievementsMod, checkAchievements, noteDelveDepth, noteBossKill,
   CRAFT_RECIPES, CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPE_BY_ID,
+  // Session N: Ember Wastes zone + PvP policy / duels
+  EMBER_WORLD_DIMS, EMBER_SPAWN, EMBER_SAFE_RADIUS, EMBER_MOB_TYPES, EMBER_MOB_SPAWNS, emberMobs,
+  pvpAllowed, hasActiveDuel, startDuel, emberSafeZone, templePortalOpen,
   // Session N: the World Boss
   worldBossMod, tickWorldBoss, worldBossHit, worldBossPublic, worldBossWindow, nearestWildsPlayer,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,

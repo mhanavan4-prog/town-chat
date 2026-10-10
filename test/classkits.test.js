@@ -49,6 +49,11 @@ setTimeout(() => {
   const [witch, wolf, mystic, knight, wanderer] = sockets;
   const [witchId, wolfId, mysticId, knightId, wandererId] = ids;
 
+  // PvP outside the Ember Wastes is now consent-based, so put every pair in a
+  // mutual duel — these checks exercise the abilities, not the consent gate.
+  const pObjs = ids.map(id => hooks.players.get(id));
+  for (let i = 0; i < pObjs.length; i++) for (let j = i + 1; j < pObjs.length; j++) hooks.startDuel(pObjs[i], pObjs[j]);
+
   check('every class joins with its charId', sockets.every((s, i) => {
     const init = s.lastOfType('init');
     const self = init.players.find(p => p.id === ids[i]);

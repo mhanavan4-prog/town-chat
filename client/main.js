@@ -1411,6 +1411,13 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'pvp_invited') { openBattleInviteToast(msg); return; }
+  if (msg.type === 'pvp_duel_started') {
+    setUnlockToast(`🤺 Battle begun with ${msg.opponentName} — strike to fight!`);
+    return;
+  }
+  if (msg.type === 'pvp_error') { setUnlockToast(msg.message); return; }
+
   if (msg.type === 'coven_invited') {
     openCovenInviteToast(msg);
     return;
@@ -2012,6 +2019,10 @@ function onWsMessage(ev) {
   if (msg.type === 'ember_wastes_entered') {
     if (me) { me.room = 'ember_wastes'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
     swapToEmberMap();
+    if (msg.greeting) {
+      showChapterCeremony('🔥 The Ember Wastes', 'An open PvP battleground — anyone may strike you. The portal is the only way out, and it closes with the torches.');
+      setUnlockToast(msg.greeting);
+    }
     return;
   }
 
@@ -2845,6 +2856,17 @@ if (_playerCtxInviteBtn) _playerCtxInviteBtn.addEventListener('click', () => {
   hidePlayerContextMenu();
   setUnlockToast('Party invite sent!');
 });
+// Challenge to Battle — the consent handshake for PvP outside the Ember Wastes
+// (the Wilds and anywhere else). The server validates and replies on the
+// pvp_error channel (both the "sent" notice and any refusal), so no optimistic
+// message here; the target gets a pvp_invited prompt to accept or decline.
+const _playerCtxChallengeBtn = document.getElementById('playerContextChallenge');
+if (_playerCtxChallengeBtn) _playerCtxChallengeBtn.addEventListener('click', () => {
+  if (!playerContextMenuId) return;
+  const id = playerContextMenuId;
+  hidePlayerContextMenu();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pvp_invite', targetId: id }));
+});
 // Invite to Coven — the pick-them-out-of-a-crowd path alongside the modal's
 // invite-by-username. The server's coven_invite handler takes a targetId as
 // well as a username, validates it (you're in a coven, it isn't full, they
@@ -2862,6 +2884,28 @@ if (_playerCtxCovenBtn) _playerCtxCovenBtn.addEventListener('click', () => {
 document.addEventListener('click', (e) => {
   if (_playerCtxMenu && !_playerCtxMenu.contains(e.target)) hidePlayerContextMenu();
 });
+
+// Incoming battle challenge — a click-to-answer prompt (same shape as the coven
+// invite toast). Accept establishes a mutual duel; decline tells the challenger.
+function openBattleInviteToast(msg) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;top:120px;left:50%;transform:translateX(-50%);z-index:45;background:#2a160b;border:1px solid #ff9a3c;border-radius:14px;padding:12px 16px;color:#ffe1c2;font-size:13.5px;text-align:center;max-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.6);';
+  const label = document.createElement('div');
+  label.textContent = `🤺 ${msg.fromName} challenges you to battle!`;
+  wrap.appendChild(label);
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:8px;';
+  const yes = document.createElement('button');
+  yes.className = 'btn'; yes.style.margin = '0'; yes.textContent = 'Accept';
+  yes.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pvp_invite_respond', accept: true })); wrap.remove(); });
+  const no = document.createElement('button');
+  no.className = 'btn'; no.style.margin = '0'; no.textContent = 'Decline';
+  no.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pvp_invite_respond', accept: false })); wrap.remove(); });
+  row.appendChild(yes); row.appendChild(no);
+  wrap.appendChild(row);
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 44000);
+}
 
 // ---------------------------------------------------------------------------
 // Party chat
@@ -5799,6 +5843,7 @@ const TEMPLE_RAMP = 24;
 
 function getFloorHeight(roomId, rx, rz) {
   if (roomId === 'wilds') return wildsHeightAt(rx, rz || 0);
+  if (roomId === 'ember_wastes') return emberHeightAt(rx, rz || 0);
   if (roomId === 'outside') {
     const halfW = TEMPLE_PLATFORM_W / 2, halfD = TEMPLE_PLATFORM_D / 2;
     const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
@@ -5894,6 +5939,32 @@ function wildsHeightAt(x, z) {
     if (d < c.r) { const t = d / c.r; flat = Math.min(flat, t * t * (3 - 2 * t)); }
   }
   return flat <= 0 ? 0 : wildsNoise(x, z) * flat;
+}
+
+// The Ember Wastes' own rolling heightfield — scorched dunes across the open
+// zone, flattened to level ground in the arrival haven around the portal so
+// spawn/decor there sit flat. Client-only (collision stays 2D); getFloorHeight
+// ('ember_wastes') rides this, as do the ground mesh, scattered decor, and the
+// ember mobs. Amplitude a touch higher than the Wilds' moor for a harsher land.
+const EMBER_AMP = 130;
+function emberHeightAt(x, z) {
+  const vn = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const sm = (t) => t * t * (3 - 2 * t);
+  const lattice = (fx, fy) => {
+    const xi = Math.floor(fx), yi = Math.floor(fy), xf = fx - xi, yf = fy - yi;
+    const u = sm(xf), v = sm(yf);
+    const a = vn(xi, yi), b = vn(xi + 1, yi), c = vn(xi, yi + 1), d = vn(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const n = x * 0.00024, m = z * 0.00024;
+  let h = (lattice(n * 3 + 5, m * 3 + 5) - 0.5) * 1.0;
+  h += (lattice(n * 7 + 22, m * 7 + 22) - 0.5) * 0.45;
+  h += (lattice(n * 16, m * 16) - 0.5) * 0.18;
+  h *= EMBER_AMP;
+  const sx = EMBER_WORLD.spawn.x, sy = EMBER_WORLD.spawn.y, r = 1700; // level arrival haven
+  const d = Math.hypot(x - sx, z - sy);
+  if (d < r) { const t = d / r; h *= t * t * (3 - 2 * t); }
+  return h;
 }
 
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
@@ -7435,7 +7506,7 @@ function applyManorInstanceState(active) {
 // kiosk list — unlike everything else with a kiosk, these targets move.
 // ---------------------------------------------------------------------------
 let emberScene, emberCamera;
-const EMBER_WORLD = { width: 4000, height: 4000, buildings: [], spawn: { x: 2000, y: 3650 } };
+const EMBER_WORLD = { width: 20000, height: 20000, buildings: [], spawn: { x: 10000, y: 18600 } }; // full open zone — twice the Wilds' span (kept in sync with server EMBER_WORLD_DIMS/EMBER_SPAWN)
 let EMBER_STATIC_KIOSKS = []; // the fixed exit portal, built once
 let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
 
@@ -7445,9 +7516,12 @@ let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
 // of looking like another player. Glowing eye colors match the flavor each
 // type already had (fire/ember, bone/death, molten-brute).
 const EMBER_MOB_VISUALS = {
-  ash_wraith:   { name: 'Ash Wraith',   scale: 0.95, preset: { skin: 0xb85a30, hair: 0x3a1810, hairStyle: 'mohawk', eye: 0xffcc66, shirt: 0x5a2015, pants: 0x2a1a15 } },
-  bonecaller:   { name: 'Bonecaller',   scale: 1.0,  preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
-  cinder_brute: { name: 'Cinder Brute', scale: 1.25, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } }
+  ash_wraith:    { name: 'Ash Wraith',    scale: 0.95, preset: { skin: 0xb85a30, hair: 0x3a1810, hairStyle: 'mohawk', eye: 0xffcc66, shirt: 0x5a2015, pants: 0x2a1a15 } },
+  ashen_stalker: { name: 'Ashen Stalker', scale: 1.0,  preset: { skin: 0xd06a28, hair: 0x2a1008, hairStyle: 'mohawk', eye: 0xffdd88, shirt: 0x6a2810, pants: 0x331808 } },
+  bonecaller:    { name: 'Bonecaller',    scale: 1.0,  preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
+  soot_revenant: { name: 'Soot Revenant', scale: 1.1,  preset: { skin: 0x6a4a7a, hair: 0x120a1a, hairStyle: 'long',   eye: 0xcc88ff, shirt: 0x2a1a3a, pants: 0x160e22 } },
+  cinder_brute:  { name: 'Cinder Brute',  scale: 1.25, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } },
+  magma_golem:   { name: 'Magma Golem',   scale: 1.6,  preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } }
 };
 
 let emberMobVisuals = {};
@@ -7463,6 +7537,7 @@ const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
   getEmberMobVisuals: () => emberMobVisuals,
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
   setEmberKiosks: (k) => { EMBER_KIOSKS = k; },
+  emberHeightAt, // ride the scorched dunes, not a flat y=0
 });
 
 // ── The World Boss — the far-north Wilds mega-boss (Session N). One big
@@ -7477,7 +7552,7 @@ const { applyWorldBossState, updateWorldBossVisuals, worldBossVisualPos, worldBo
 // THREE global; prop-helpers + EMBER_WORLD injected; scene/camera/kiosks/mob-
 // visuals written back via get/set. ──
 const { buildEmberScene } = createEmberScene({
-  makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD,
+  makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt,
   setEmberScene: (s) => { emberScene = s; },
   setEmberCamera: (c) => { emberCamera = c; },
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,

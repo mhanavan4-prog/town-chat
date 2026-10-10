@@ -6,7 +6,8 @@
 // injected via get/set; EMBER_MOB_VISUALS + humanoid/sprite helpers by ref;
 // MOB_ATTACK_LUNGE_DIST via getter (declared after this module's ctor point).
 // ---------------------------------------------------------------------------
-export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks }) {
+export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
+const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 function getOrCreateEmberMobVisual(id, mobType) {
   let v = getEmberMobVisuals()[id];
   if (!v) {
@@ -97,7 +98,8 @@ function updateEmberMobVisuals(dt) {
     }
 
     const lungeDist = atk * (getMobAttackLungeDist() * 0.5);
-    v.group.position.set(v.x + Math.sin(v.facing) * lungeDist, bobY, v.y + Math.cos(v.facing) * lungeDist);
+    const px = v.x + Math.sin(v.facing) * lungeDist, pz = v.y + Math.cos(v.facing) * lungeDist;
+    v.group.position.set(px, bobY + groundY(px, pz), pz); // ride the scorched dunes
     v.group.rotation.y = v.facing;
     v.group.visible = !v.dead;
   }
