@@ -15386,16 +15386,22 @@ const _portraitCache = {};
 function drawCharPortrait(charId) {
   if (_portraitCache[charId]) return _portraitCache[charId];
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
+  // Preset colors are stored as NUMBERS (0xRRGGBB). Assigning a number to
+  // ctx.fillStyle is invalid and silently ignored — the canvas keeps the
+  // previous color, so every preset-tinted shape used to draw in the
+  // backdrop brown and vanish (snapshots of unmasked players came out
+  // blank). Convert each to a CSS "#rrggbb" string; leave strings as-is.
+  const css = (v) => (typeof v === 'number') ? '#' + ((v >>> 0) & 0xffffff).toString(16).padStart(6, '0') : v;
   const c = document.createElement('canvas');
   c.width = c.height = 96;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#2b2418'; ctx.fillRect(0, 0, 96, 96);           // backdrop
-  ctx.fillStyle = preset.shirt; ctx.fillRect(24, 62, 48, 34);      // shoulders
-  ctx.fillStyle = preset.skin;                                      // head
+  ctx.fillStyle = css(preset.shirt); ctx.fillRect(24, 62, 48, 34); // shoulders
+  ctx.fillStyle = css(preset.skin);                                 // head
   ctx.beginPath(); ctx.arc(48, 40, 20, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = preset.hair;                                      // hair cap
+  ctx.fillStyle = css(preset.hair);                                 // hair cap
   ctx.beginPath(); ctx.arc(48, 33, 21, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = preset.eye;                                       // eyes
+  ctx.fillStyle = css(preset.eye);                                  // eyes
   ctx.beginPath(); ctx.arc(41, 42, 2.6, 0, Math.PI * 2); ctx.arc(55, 42, 2.6, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#6b3a3a'; ctx.lineWidth = 2;                   // mouth
   ctx.beginPath(); ctx.moveTo(43, 51); ctx.lineTo(53, 51); ctx.stroke();
