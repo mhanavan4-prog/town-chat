@@ -1971,7 +1971,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     const _veilHostile = (targetType === 'mob' || targetType === 'mob2' || targetType === 'mob3' || targetType === 'ember_mob');
     const _veil = seasonWindow(Date.now());
     const _veilMul = (_veilHostile && _veil && _veil.effects && _veil.effects.veilThin) || 1;
-    t.respawnAt = Date.now() + Math.round(poolInfo.respawnMs * _veilMul);
+    const _respawnBase = (targetType === 'ember_mob' && t.boss) ? EMBER_BOSS_RESPAWN_MS : poolInfo.respawnMs;
+    t.respawnAt = Date.now() + Math.round(_respawnBase * _veilMul);
     if (_veilHostile) registerHuntKill(player);
     if (targetType === 'mob2') {
       const preset = MOB2_TYPES[t.mobType];
@@ -2038,6 +2039,12 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       storyEvent(player, 'kill_mob', { pool: 'ember_mob', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(preset.lootTable);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      if (preset.boss) {
+        // The zone warlord is a proper boss kill — crowns the slayer across the
+        // whole town and counts toward the Boss-Breaker ladder.
+        noteBossKill(player, t);
+        broadcastAll({ type: 'announce', message: `🔥 ${player.name} has brought down ${preset.name}, the warlord of the Ember Wastes!` });
+      }
       return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
     return { ok: true, dead: true, dmg };
@@ -4384,7 +4391,8 @@ setInterval(() => {
     village: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
     torches: townTorchPublicState(),
-    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, boss: !!m.boss, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    emberNodes: emberNodeStates(now),
     worldBoss: worldBossPublic() // null unless a world boss is up in the Wilds
   };
   const EMPTY = [];
@@ -4392,12 +4400,12 @@ setInterval(() => {
     const o = {
       type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
       animals: EMPTY, mobs: EMPTY, animals2: EMPTY, mobs2: EMPTY, mobs3: EMPTY,
-      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, worldBoss: null, minions: EMPTY
+      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, emberNodes: EMPTY, worldBoss: null, minions: EMPTY
     };
     if (room === 'outside') { o.animals = P.animals; o.mobs = P.mobs; o.villageNpcs = P.village; o.torchNpcs = P.torchNpcs; o.torches = P.torches; }
     else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; o.worldBoss = P.worldBoss; }
     else if (room && room.startsWith('dungeon_')) { o.dungeonMobs = P.dungeon.filter(m => m.room === room); }
-    else if (room === 'ember_wastes') { o.emberMobs = P.ember; }
+    else if (room === 'ember_wastes') { o.emberMobs = P.ember; o.emberNodes = P.emberNodes; }
     o.minions = minionsInRoom(room); // the Necromancer's undead live in whatever room their summoner is in
     return o;
   };
@@ -5228,6 +5236,27 @@ const EMBER_SPAWN = { x: 10000, y: 18600 };
 // Outside this ring the whole zone is open free-for-all.
 const EMBER_SAFE_RADIUS = 1800;
 
+// Named points of interest. The zone is 20000² — far too big to fill evenly,
+// and a uniform mob scatter just reads as low-density noise everywhere. So the
+// wastes are built as a handful of DANGEROUS PLACES with dead ground between
+// them: each landmark anchors a cluster of spawns + its own resource nodes,
+// gives the horizon a silhouette to walk toward, and announces itself when you
+// draw near. Coordinates line up with the client's boneyard decor clusters.
+// `warlord:true` marks the one that garrisons the zone boss.
+const EMBER_LANDMARKS = [
+  { id: 'charhold',    name: 'Charhold Keep',      x: 5000,  y: 6000,  radius: 1600, warlord: true, nodeType: 'cinder_salt',
+    blurb: 'A collapsed keep of black glass. Something vast still holds its throne of slag.' },
+  { id: 'ossuary',     name: 'The Great Ossuary',  x: 15000, y: 8000,  radius: 1500, nodeType: 'cinder_salt',
+    blurb: 'A field of titan bones half-sunk in ash — the Bonecallers nest among the ribs.' },
+  { id: 'cinder_market', name: 'The Cinder Bazaar', x: 10000, y: 3000, radius: 1400, nodeType: 'emberbloom',
+    blurb: 'The charred skeleton of a market that burned long ago, its stalls still smoldering.' },
+  { id: 'emberfall',   name: 'Emberfall Caldera',  x: 16500, y: 15800, radius: 1500, nodeType: 'emberbloom',
+    blurb: 'A cracked caldera that breathes fire — the ground itself is a hazard here.' },
+];
+function emberLandmarksPublic() {
+  return EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb }));
+}
+
 const EMBER_MOB_TYPES = {
   ash_wraith:    { name: 'Ash Wraith',    color: 0xff5522, scale: 0.85, maxHealth: 60,  speed: 85,  aggroRadius: 260, strikeRange: 50,  dmgMin: 10, dmgMax: 16, hitCooldownMs: 1300, xp: 20,
     lootTable: [ { itemId: 'shadow_essence', qty: 1, chance: 0.35 }, { gold: true, min: 6, max: 16, chance: 0.6 } ],
@@ -5246,27 +5275,52 @@ const EMBER_MOB_TYPES = {
     stealChance: 0.3, stealTable: [ 'iron_ore', 'animal_pelt' ] },
   magma_golem:   { name: 'Magma Golem',   color: 0xb83010, scale: 1.7,  maxHealth: 240, speed: 30,  aggroRadius: 210, strikeRange: 80,  dmgMin: 28, dmgMax: 40, hitCooldownMs: 2600, xp: 48,
     lootTable: [ { itemId: 'iron_ore', qty: 2, chance: 0.6 }, { itemId: 'enchanted_gem', qty: 1, chance: 0.05 }, { gold: true, min: 24, max: 48, chance: 0.7 } ],
-    stealChance: 0.25, stealTable: [ 'iron_ore', 'stone_block' ] }
+    stealChance: 0.25, stealTable: [ 'iron_ore', 'stone_block' ] },
+  // The zone warlord — a single garrison boss at Charhold Keep. A destination,
+  // not an obstacle: a huge shared-looking health pool, long reach, hits hard,
+  // and leashes to its throne (see tickEmberWastes) so it holds its post rather
+  // than wandering off. Its drops are worth the crossing — crafting catalysts
+  // plus the raw wastes materials in bulk, and a shot at a relic-grade helm.
+  ember_warlord: { name: 'Ashlord Cindermaw', color: 0xff3300, scale: 2.4, maxHealth: 2600, speed: 46, aggroRadius: 620, strikeRange: 130, dmgMin: 40, dmgMax: 62, hitCooldownMs: 1700, xp: 420, boss: true,
+    lootTable: [ { itemId: 'cinder_salt', qty: 4, chance: 1.0 }, { itemId: 'emberbloom', qty: 3, chance: 1.0 }, { itemId: 'enchanted_gem', qty: 1, chance: 0.5 }, { itemId: 'dragon_scale', qty: 1, chance: 0.35 }, { itemId: 'dread_helm', qty: 1, chance: 0.12 }, { gold: true, min: 120, max: 240, chance: 1.0 } ],
+    stealChance: 0, stealTable: [] }
 };
-// Spawns are seeded + scattered across the whole zone (minus a safe ring
-// around the arrival portal so you aren't swarmed on entry). Deterministic
-// from a fixed seed so respawn points stay put across restarts.
+// Spawns are seeded deterministically (fixed seed → stable respawn points),
+// but no longer scattered uniformly. ~65% of each type CLUSTERS around the
+// landmarks, so the POIs feel garrisoned and the open ground between them stays
+// genuinely empty-but-dangerous — the crossing IS the content. The rest roam
+// the wastes at large. A safe ring around the arrival portal is always excluded.
 const EMBER_SPAWN_COUNTS = { ash_wraith: 10, ashen_stalker: 10, bonecaller: 8, soot_revenant: 8, cinder_brute: 6, magma_golem: 5 };
 const EMBER_MOB_SPAWNS = (() => {
   const rng = mulberry32(0x5afe10c5);
   const out = [];
   const W = EMBER_WORLD_DIMS.width, H = EMBER_WORLD_DIMS.height, margin = 600, safeR = EMBER_SAFE_RADIUS + 300;
+  const inBounds = (x, y) => x > margin && x < W - margin && y > margin && y < H - margin;
+  const farFromSpawn = (x, y) => Math.hypot(x - EMBER_SPAWN.x, y - EMBER_SPAWN.y) >= safeR;
+  const scatter = (type) => {
+    let x, y, tries = 0;
+    do { x = margin + rng() * (W - margin * 2); y = margin + rng() * (H - margin * 2); tries++; }
+    while (!farFromSpawn(x, y) && tries < 200);
+    out.push({ x, y, type });
+  };
+  const clusterAt = (lm, type) => {
+    let x, y, tries = 0;
+    do {
+      const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * lm.radius;
+      x = lm.x + Math.cos(a) * r; y = lm.y + Math.sin(a) * r; tries++;
+    } while ((!inBounds(x, y) || !farFromSpawn(x, y)) && tries < 200);
+    if (tries >= 200) return scatter(type);
+    out.push({ x, y, type });
+  };
   for (const [type, n] of Object.entries(EMBER_SPAWN_COUNTS)) {
-    for (let i = 0; i < n; i++) {
-      let x, y, tries = 0;
-      do { x = margin + rng() * (W - margin * 2); y = margin + rng() * (H - margin * 2); tries++; }
-      while (Math.hypot(x - EMBER_SPAWN.x, y - EMBER_SPAWN.y) < safeR && tries < 200);
-      out.push({ x, y, type });
-    }
+    const clustered = Math.round(n * 0.65);
+    for (let i = 0; i < clustered; i++) clusterAt(EMBER_LANDMARKS[i % EMBER_LANDMARKS.length], type);
+    for (let i = clustered; i < n; i++) scatter(type);
   }
   return out;
 })();
 const EMBER_MOB_RESPAWN_MS = 90 * 1000;
+const EMBER_BOSS_RESPAWN_MS = 5 * 60 * 1000; // the warlord takes its time rising again
 const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
   id: 'ember_' + i,
   mobType: p.type,
@@ -5276,6 +5330,70 @@ const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
   health: EMBER_MOB_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
   lastHitAt: 0, lastStolenAt: 0
 }));
+// The warlord garrisons its landmark — pushed in as a boss-flagged ember mob so
+// it flows through the same broadcast, combat, loot and respawn plumbing; its
+// post-holding leash behavior lives in tickEmberWastes.
+(() => {
+  const throne = EMBER_LANDMARKS.find(l => l.warlord) || EMBER_LANDMARKS[0];
+  emberMobs.push({
+    id: 'ember_warlord', mobType: 'ember_warlord', boss: true,
+    spawnX: throne.x, spawnY: throne.y, x: throne.x, y: throne.y,
+    facing: Math.random() * Math.PI * 2,
+    wanderTimer: 0, wanderAngle: 0, paused: false,
+    health: EMBER_MOB_TYPES.ember_warlord.maxHealth, dead: false, respawnAt: 0,
+    lastHitAt: 0, lastStolenAt: 0,
+  });
+})();
+
+// ── Harvestable resource nodes ──────────────────────────────────────────────
+// Scattered reasons to actually roam the wastes. Two gatherable materials feed
+// the Artificer's Workshop (see data/craftingTree.js). Unlike the Wilds' per-
+// player 24h flora, these use a CONTESTED shared-respawn model that suits a
+// free-for-all zone: anyone can harvest a ready node, it then goes on a short
+// cooldown for everyone, and the open-PvP rules mean two gatherers at the same
+// vein is a fight waiting to happen. Nodes cluster at landmarks (each POI has a
+// signature material) with a few strays between, so gathering pulls players
+// toward the dangerous places.
+const EMBER_NODE_TYPES = {
+  emberbloom:  { name: 'Emberbloom',       itemId: 'emberbloom', qtyMin: 1, qtyMax: 2, xp: 10, respawnMs: 50 * 1000 },
+  cinder_salt: { name: 'Cinder-Salt Vein', itemId: 'cinder_salt', qtyMin: 1, qtyMax: 3, xp: 8,  respawnMs: 65 * 1000 },
+};
+const EMBER_HARVEST_RANGE = 130;
+const EMBER_NODES = (() => {
+  const rng = mulberry32(0x0defaced);
+  const out = [];
+  const W = EMBER_WORLD_DIMS.width, H = EMBER_WORLD_DIMS.height, margin = 700;
+  const inBounds = (x, y) => x > margin && x < W - margin && y > margin && y < H - margin;
+  let seq = 0;
+  // 5 signature nodes ringing each landmark + a handful of strays.
+  for (const lm of EMBER_LANDMARKS) {
+    const type = lm.nodeType || 'emberbloom';
+    for (let i = 0; i < 5; i++) {
+      let x, y, tries = 0;
+      do {
+        const a = rng() * Math.PI * 2, r = 500 + rng() * (lm.radius - 300);
+        x = lm.x + Math.cos(a) * r; y = lm.y + Math.sin(a) * r; tries++;
+      } while (!inBounds(x, y) && tries < 100);
+      if (inBounds(x, y)) out.push({ id: 'enode_' + (seq++), type, x, y, readyAt: 0 });
+    }
+  }
+  // Strays, alternating type, well clear of the arrival haven.
+  for (let i = 0; i < 8; i++) {
+    const type = i % 2 ? 'cinder_salt' : 'emberbloom';
+    let x, y, tries = 0;
+    do { x = margin + rng() * (W - margin * 2); y = margin + rng() * (H - margin * 2); tries++; }
+    while ((Math.hypot(x - EMBER_SPAWN.x, y - EMBER_SPAWN.y) < EMBER_SAFE_RADIUS + 400) && tries < 100);
+    out.push({ id: 'enode_' + (seq++), type, x, y, readyAt: 0 });
+  }
+  return out;
+})();
+function emberNodesPublic() {
+  // Positions + type are static (sent once on entry); readiness rides the tick.
+  return EMBER_NODES.map(n => ({ id: n.id, type: n.type, x: n.x, y: n.y }));
+}
+function emberNodeStates(now) {
+  return EMBER_NODES.map(n => ({ id: n.id, ready: now >= n.readyAt }));
+}
 
 function nearestEmberPlayer(x, y) {
   let best = null, bestDist = Infinity;
@@ -5316,6 +5434,44 @@ function tickEmberWastes(dt) {
     const preset = EMBER_MOB_TYPES[m.mobType];
     const { player: nearestP, dist } = nearestEmberPlayer(m.x, m.y);
     let vx = 0, vy = 0;
+
+    // The warlord holds its post. It aggros any player who comes within its
+    // (large) reach, but leashes back to its throne the moment it strays too
+    // far — so it guards Charhold Keep rather than wandering off to chase a
+    // runner across the whole zone. No skirmishing, no idle wander.
+    if (m.boss) {
+      const anchorDist = Math.hypot(m.x - m.spawnX, m.y - m.spawnY);
+      const BOSS_LEASH = 2800;
+      const chasing = nearestP && dist < preset.aggroRadius && anchorDist < BOSS_LEASH && !isEvading(nearestP);
+      if (chasing) {
+        const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
+        const inv = dist > 0.01 ? 1 / dist : 0;
+        vx = dx * inv * preset.speed; vy = dy * inv * preset.speed;
+        if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+          m.lastHitAt = now;
+          const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+          nearestP.health = Math.max(0, nearestP.health - dmg);
+          noteAttacked(nearestP);
+          if (nearestP.health <= 0) {
+            nearestP.health = 0; nearestP.isDead = true; noteDeath(nearestP);
+            send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
+          } else {
+            send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
+          }
+        }
+      } else if (anchorDist > 60) {
+        const dx = m.spawnX - m.x, dy = m.spawnY - m.y;
+        const inv = anchorDist > 0.01 ? 1 / anchorDist : 0;
+        vx = dx * inv * preset.speed; vy = dy * inv * preset.speed;
+        if (anchorDist > 300) m.health = Math.min(preset.maxHealth, m.health + preset.maxHealth * dt * 0.15); // regen on the long walk home
+      }
+      const nbx = m.x + vx * dt, nby = m.y + vy * dt;
+      if (vx !== 0 && nbx > margin && nbx < EMBER_WORLD_DIMS.width - margin) m.x = nbx;
+      if (vy !== 0 && nby > margin && nby < EMBER_WORLD_DIMS.height - margin) m.y = nby;
+      if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+      continue;
+    }
+
     if (m.scaredUntil > now && nearestP) {
       const dx = m.x - nearestP.x, dy = m.y - nearestP.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
@@ -9326,6 +9482,7 @@ wss.on('connection', (ws, req) => {
       player.x = EMBER_SPAWN.x;
       player.y = EMBER_SPAWN.y;
       send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN,
+        landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(),
         greeting: '🔥 THE EMBER WASTES — an open battleground. Every creature here is hostile, and so is every other wanderer: this is a free-for-all PvP zone, and anyone may strike you down. The portal behind you is the only way out — and if it goes dark before you return, you are trapped here until it burns again.' });
       storyEvent(player, 'visit_room', { room: 'ember_wastes' });
       return;
@@ -9350,6 +9507,26 @@ wss.on('connection', (ws, req) => {
       player.emberReturnX = null;
       player.emberReturnY = null;
       send(ws, { type: 'ember_wastes_exited', x: retX, y: retY });
+      return;
+    }
+
+    if (msg.type === 'harvest_ember_node') {
+      if (player.room !== 'ember_wastes' || player.isDead) return;
+      const node = EMBER_NODES.find(n => n.id === String(msg.nodeId || ''));
+      if (!node) return;
+      const nowH = Date.now();
+      if (nowH < node.readyAt) { send(ws, { type: 'harvest_result', message: 'That vein is spent — give it time to reform.' }); return; }
+      if (Math.hypot(player.x - node.x, player.y - node.y) > EMBER_HARVEST_RANGE) { send(ws, { type: 'harvest_result', message: 'Move closer to gather it.' }); return; }
+      const def = EMBER_NODE_TYPES[node.type];
+      if (!def) return;
+      const qty = def.qtyMin + Math.floor(Math.random() * (def.qtyMax - def.qtyMin + 1));
+      const inv = getInventory(player);
+      if (!addItemToAccount(inv, def.itemId, qty)) { send(ws, { type: 'harvest_result', message: 'Your pack is full.' }); return; }
+      if (player.accountKey) saveInventories();
+      node.readyAt = nowH + def.respawnMs;
+      grantXP(player, def.xp);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'harvest_result', message: `🔥 Gathered ${qty}× ${def.name}. (+${def.xp} XP)`, nodeId: node.id, readyAt: node.readyAt });
       return;
     }
 
@@ -9792,6 +9969,7 @@ global.__testHooks = {
   CRAFT_RECIPES, CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPE_BY_ID,
   // Session N: Ember Wastes zone + PvP policy / duels
   EMBER_WORLD_DIMS, EMBER_SPAWN, EMBER_SAFE_RADIUS, EMBER_MOB_TYPES, EMBER_MOB_SPAWNS, emberMobs,
+  EMBER_LANDMARKS, EMBER_NODE_TYPES, EMBER_NODES, EMBER_HARVEST_RANGE, emberNodeStates, emberNodesPublic, emberLandmarksPublic, EMBER_BOSS_RESPAWN_MS,
   pvpAllowed, hasActiveDuel, startDuel, emberSafeZone, templePortalOpen,
   // Session N: Necromancer + undead minions
   SUMMON_TYPES, minions, raiseUndead, tickMinions, ownerMinions, clearMinions, minionsInRoom, necroRank, minionCap, summonStats, NECROMANCER_ATTACK_CATALOG,

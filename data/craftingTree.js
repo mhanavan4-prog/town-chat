@@ -16,10 +16,14 @@
 
 // New items the tree introduces (components + the two crafted gear lines).
 const CRAFT_ITEMS = {
+  // ── Raw gathered materials (harvested at Ember Wastes resource nodes) ──
+  emberbloom:  { name: 'Emberbloom',  icon: '🌺', slot: null },
+  cinder_salt: { name: 'Cinder-Salt', icon: '🧂', slot: null },
   // ── Tier 1: refined components (no slot — crafting inputs only) ──
   cured_leather:  { name: 'Cured Leather',  icon: '🟫', slot: null },
   tempered_ingot: { name: 'Tempered Ingot', icon: '🔩', slot: null },
   spirit_thread:  { name: 'Spirit Thread',  icon: '🧵', slot: null },
+  ember_glass:    { name: 'Ember Glass',    icon: '🔶', slot: null },
   // ── Tier 2: the Wayfarer set (mid-tier crafted gear) ──
   forged_cleaver:     { name: 'Forged Cleaver',     icon: '🪓', slot: 'weapon' },
   wayfarer_vestments: { name: 'Wayfarer Vestments', icon: '🧣', slot: 'chest'  },
@@ -58,6 +62,9 @@ const CRAFT_RECIPES = [
   { id: 'spirit_thread', tier: 1, category: 'Components', result: 'spirit_thread',
     ingredients: [{ id: 'shadow_essence', qty: 2 }, { id: 'glimmerdust', qty: 1 }],
     desc: "2× Shadow Essence + Glimmerdust → Spirit Thread" },
+  { id: 'ember_glass', tier: 1, category: 'Components', result: 'ember_glass',
+    ingredients: [{ id: 'emberbloom', qty: 2 }, { id: 'cinder_salt', qty: 2 }],
+    desc: '2× Emberbloom + 2× Cinder-Salt → Ember Glass (an Ember Wastes catalyst)' },
 
   // ── Tier 2 — Forge the Wayfarer set from components ──
   { id: 'forged_cleaver', tier: 2, category: 'Wayfarer Gear', result: 'forged_cleaver',
@@ -78,14 +85,14 @@ const CRAFT_RECIPES = [
 
   // ── Tier 3 — Upgrade Wayfarer gear + a rare catalyst into the Starforged line ──
   { id: 'starforged_blade', tier: 3, category: 'Starforged', result: 'starforged_blade',
-    ingredients: [{ id: 'forged_cleaver', qty: 1 }, { id: 'tempered_ingot', qty: 2 }, { id: 'enchanted_gem', qty: 1 }],
-    desc: 'Forged Cleaver + 2× Tempered Ingot + Enchanted Gem → Starforged Blade' },
+    ingredients: [{ id: 'forged_cleaver', qty: 1 }, { id: 'tempered_ingot', qty: 2 }, { id: 'enchanted_gem', qty: 1 }, { id: 'ember_glass', qty: 1 }],
+    desc: 'Forged Cleaver + 2× Tempered Ingot + Enchanted Gem + Ember Glass → Starforged Blade' },
   { id: 'starforged_aegis', tier: 3, category: 'Starforged', result: 'starforged_aegis',
-    ingredients: [{ id: 'wayfarer_vestments', qty: 1 }, { id: 'spirit_thread', qty: 1 }, { id: 'dragon_scale', qty: 1 }],
-    desc: 'Wayfarer Vestments + Spirit Thread + Dragon Scale → Starforged Aegis' },
+    ingredients: [{ id: 'wayfarer_vestments', qty: 1 }, { id: 'spirit_thread', qty: 1 }, { id: 'dragon_scale', qty: 1 }, { id: 'ember_glass', qty: 1 }],
+    desc: 'Wayfarer Vestments + Spirit Thread + Dragon Scale + Ember Glass → Starforged Aegis' },
   { id: 'starforged_signet', tier: 3, category: 'Starforged', result: 'starforged_signet',
-    ingredients: [{ id: 'warded_band', qty: 1 }, { id: 'spirit_thread', qty: 1 }, { id: 'druid_stone', qty: 1 }],
-    desc: 'Warded Band + Spirit Thread + Druid Stone → Starforged Signet' },
+    ingredients: [{ id: 'warded_band', qty: 1 }, { id: 'spirit_thread', qty: 1 }, { id: 'druid_stone', qty: 1 }, { id: 'ember_glass', qty: 1 }],
+    desc: 'Warded Band + Spirit Thread + Druid Stone + Ember Glass → Starforged Signet' },
 ];
 
 module.exports = { CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPES };

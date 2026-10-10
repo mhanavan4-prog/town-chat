@@ -3,7 +3,7 @@
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
 // injected; scene/camera/kiosk-lists/mob-visuals written back via get/set.
 // ---------------------------------------------------------------------------
-export default function createEmberScene({ makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals }) {
+export default function createEmberScene({ makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 function buildEmberScene() {
   const scene = new THREE.Scene();
@@ -46,9 +46,14 @@ function buildEmberScene() {
   const W = EMBER_WORLD.width, Hh = EMBER_WORLD.height, m = 500;
   const spots = [];
   for (let i = 0; i < 150; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
-  // Three denser boneyard clusters as visual landmarks.
-  for (const [cx, cz] of [[5000, 6000], [15000, 8000], [10000, 3000]]) {
-    for (let i = 0; i < 14; i++) spots.push([cx + (rnd() - 0.5) * 2400, cz + (rnd() - 0.5) * 2400]);
+  // Denser decor clusters at each named landmark, so the POIs read as real
+  // places. Driven by the server's landmark list (falls back to the original
+  // hardcoded boneyards if it hasn't arrived yet).
+  const landmarks = (typeof getEmberLandmarks === 'function' && getEmberLandmarks().length)
+    ? getEmberLandmarks()
+    : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
+  for (const lm of landmarks) {
+    for (let i = 0; i < 20; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   spots.forEach(([x, y], i) => {
     const group = (i % 2 === 0) ? makeRock(x, y, 1.1 + rnd() * 0.9) : makeTree(x, y, 2.2 + rnd() * 1.4);
@@ -61,6 +66,35 @@ function buildEmberScene() {
     });
     scene.add(group);
   });
+
+  // A tall beacon + floating nameplate at each landmark — a silhouette to steer
+  // by across the vast zone, and the name once you draw near. The warlord's
+  // throne gets a taller, redder spire.
+  for (const lm of landmarks) {
+    if (lm.x === undefined) continue;
+    const warlord = !!lm.warlord;
+    const beacon = new THREE.Group();
+    const h = warlord ? 420 : 300;
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(14, 46, h, 6),
+      new THREE.MeshLambertMaterial({ color: warlord ? 0x1a0a08 : 0x1c1410 })
+    );
+    spire.position.y = h / 2;
+    beacon.add(spire);
+    const crown = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(warlord ? 46 : 32, 0),
+      new THREE.MeshLambertMaterial({ color: warlord ? 0xff3300 : 0xff7a33, emissive: warlord ? 0xff2200 : 0xcc4411, emissiveIntensity: 1.0 })
+    );
+    crown.position.y = h + 20;
+    beacon.add(crown);
+    if (lm.name && typeof makeNpcNameSprite === 'function') {
+      const label = makeNpcNameSprite((warlord ? '⚔️ ' : '') + lm.name);
+      label.position.set(0, h + 90, 0);
+      beacon.add(label);
+    }
+    beacon.position.set(lm.x, H(lm.x, lm.y), lm.y);
+    scene.add(beacon);
+  }
 
   // Return portal near spawn (in the flattened arrival haven, so y≈0).
   const exitX = EMBER_WORLD.spawn.x, exitY = EMBER_WORLD.spawn.y - 120;

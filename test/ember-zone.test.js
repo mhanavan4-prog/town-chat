@@ -25,11 +25,37 @@ setTimeout(() => {
 
   // ── Zone is a full, large, populated map ──
   check('the zone is twice the Wilds (20000²)', h.EMBER_WORLD_DIMS.width === 20000 && h.EMBER_WORLD_DIMS.height === 20000);
-  check('there are six ember creature types', Object.keys(h.EMBER_MOB_TYPES).length === 6, Object.keys(h.EMBER_MOB_TYPES));
+  check('there are six wild ember creature types (+ the warlord boss)',
+    Object.keys(h.EMBER_MOB_TYPES).filter(k => !h.EMBER_MOB_TYPES[k].boss).length === 6, Object.keys(h.EMBER_MOB_TYPES));
   check('the zone is well populated (40+ spawns)', h.emberMobs.length >= 40, h.emberMobs.length);
-  check('every spawn is a real type', h.EMBER_MOB_SPAWNS.every(s => h.EMBER_MOB_TYPES[s.type]));
+  check('every scatter spawn is a real non-boss type',
+    h.EMBER_MOB_SPAWNS.every(s => h.EMBER_MOB_TYPES[s.type] && !h.EMBER_MOB_TYPES[s.type].boss));
   check('no creature spawns inside the arrival haven',
     h.EMBER_MOB_SPAWNS.every(s => Math.hypot(s.x - SPAWN.x, s.y - SPAWN.y) >= SAFE), 'a spawn is in the safe ring');
+
+  // ── Named landmarks + clustered spawns ──
+  check('the zone has named landmarks', h.EMBER_LANDMARKS.length >= 3, h.EMBER_LANDMARKS.length);
+  check('exactly one landmark garrisons the warlord', h.EMBER_LANDMARKS.filter(l => l.warlord).length === 1);
+  const throne = h.EMBER_LANDMARKS.find(l => l.warlord);
+  const nearThrone = h.EMBER_MOB_SPAWNS.filter(s => Math.hypot(s.x - throne.x, s.y - throne.y) < throne.radius).length;
+  check('mobs cluster around a landmark (not uniform scatter)', nearThrone >= 3, nearThrone);
+
+  // ── The zone warlord ──
+  const warlord = h.emberMobs.find(m => m.boss);
+  check('a warlord boss garrisons the zone', !!warlord && h.EMBER_MOB_TYPES[warlord.mobType].boss === true);
+  check('the warlord has a boss-sized health pool', warlord && h.EMBER_MOB_TYPES[warlord.mobType].maxHealth >= 1500, warlord && h.EMBER_MOB_TYPES[warlord.mobType].maxHealth);
+  check('the warlord stands at its throne landmark', warlord && Math.hypot(warlord.spawnX - throne.x, warlord.spawnY - throne.y) < 1);
+  check('the warlord respawns slower than common mobs', h.EMBER_BOSS_RESPAWN_MS > 90 * 1000);
+
+  // ── Harvestable resource nodes ──
+  check('the zone seeds resource nodes', h.EMBER_NODES.length >= 10, h.EMBER_NODES.length);
+  check('every node is a real gatherable type', h.EMBER_NODES.every(n => h.EMBER_NODE_TYPES[n.type]));
+  check('no node sits inside the arrival haven',
+    h.EMBER_NODES.every(n => Math.hypot(n.x - SPAWN.x, n.y - SPAWN.y) >= SAFE - 100), 'a node is in the safe ring');
+  { const now = Date.now(); check('nodes report as ready before being harvested', h.emberNodeStates(now).every(s => s.ready)); }
+  check('node materials feed the crafting tree',
+    h.CRAFT_RECIPES.some(r => r.ingredients.some(i => i.id === 'emberbloom')) &&
+    h.CRAFT_RECIPES.some(r => r.ingredients.some(i => i.id === 'cinder_salt')));
 
   // ── PvP policy matrix (pure, on plain player-shaped objects) ──
   const inEmberOpen = (id) => ({ id, room: 'ember_wastes', x: 5000, y: 5000 });   // far from spawn
@@ -93,6 +119,23 @@ setTimeout(() => {
   Y.s.emit('message', JSON.stringify({ type: 'pvp_invite_respond', accept: true }));
   check('accepting starts the duel for both', X.s.lastOfType('pvp_duel_started') && Y.s.lastOfType('pvp_duel_started'));
   check('the duel is now active between them', h.hasActiveDuel(X.p, Y.p) === true);
+
+  // ── Live harvest flow: stand on a ready node in the Wastes and gather it ──
+  const G = join('Gatherer');
+  const node = h.EMBER_NODES[0];
+  G.p.room = 'ember_wastes'; G.p.x = node.x; G.p.y = node.y; G.p.isDead = false;
+  const invBefore = h.countItemQty(h.getInventory(G.p), h.EMBER_NODE_TYPES[node.type].itemId);
+  G.s.emit('message', JSON.stringify({ type: 'harvest_ember_node', nodeId: node.id }));
+  const hr = G.s.lastOfType('harvest_result');
+  check('harvesting a node reports a gather', !!hr && /Gathered/i.test(hr.message), hr);
+  check('the gathered material lands in the pack', h.countItemQty(h.getInventory(G.p), h.EMBER_NODE_TYPES[node.type].itemId) > invBefore);
+  check('the harvested node goes on cooldown', Date.now() < node.readyAt);
+  // Too far away → refused.
+  const node2 = h.EMBER_NODES.find(n => Math.hypot(n.x - node.x, n.y - node.y) > 500) || h.EMBER_NODES[1];
+  G.p.x = node2.x + 5000; G.p.y = node2.y + 5000;
+  const spent0 = h.countItemQty(h.getInventory(G.p), h.EMBER_NODE_TYPES[node2.type].itemId);
+  G.s.emit('message', JSON.stringify({ type: 'harvest_ember_node', nodeId: node2.id }));
+  check('a node out of reach cannot be gathered', h.countItemQty(h.getInventory(G.p), h.EMBER_NODE_TYPES[node2.type].itemId) === spent0);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

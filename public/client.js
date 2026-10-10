@@ -3743,7 +3743,7 @@ function buildDungeonScene() {
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
 // injected; scene/camera/kiosk-lists/mob-visuals written back via get/set.
 // ---------------------------------------------------------------------------
-function createEmberScene({ makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals }) {
+function createEmberScene({ makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 function buildEmberScene() {
   const scene = new THREE.Scene();
@@ -3786,9 +3786,14 @@ function buildEmberScene() {
   const W = EMBER_WORLD.width, Hh = EMBER_WORLD.height, m = 500;
   const spots = [];
   for (let i = 0; i < 150; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
-  // Three denser boneyard clusters as visual landmarks.
-  for (const [cx, cz] of [[5000, 6000], [15000, 8000], [10000, 3000]]) {
-    for (let i = 0; i < 14; i++) spots.push([cx + (rnd() - 0.5) * 2400, cz + (rnd() - 0.5) * 2400]);
+  // Denser decor clusters at each named landmark, so the POIs read as real
+  // places. Driven by the server's landmark list (falls back to the original
+  // hardcoded boneyards if it hasn't arrived yet).
+  const landmarks = (typeof getEmberLandmarks === 'function' && getEmberLandmarks().length)
+    ? getEmberLandmarks()
+    : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
+  for (const lm of landmarks) {
+    for (let i = 0; i < 20; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   spots.forEach(([x, y], i) => {
     const group = (i % 2 === 0) ? makeRock(x, y, 1.1 + rnd() * 0.9) : makeTree(x, y, 2.2 + rnd() * 1.4);
@@ -3801,6 +3806,35 @@ function buildEmberScene() {
     });
     scene.add(group);
   });
+
+  // A tall beacon + floating nameplate at each landmark — a silhouette to steer
+  // by across the vast zone, and the name once you draw near. The warlord's
+  // throne gets a taller, redder spire.
+  for (const lm of landmarks) {
+    if (lm.x === undefined) continue;
+    const warlord = !!lm.warlord;
+    const beacon = new THREE.Group();
+    const h = warlord ? 420 : 300;
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(14, 46, h, 6),
+      new THREE.MeshLambertMaterial({ color: warlord ? 0x1a0a08 : 0x1c1410 })
+    );
+    spire.position.y = h / 2;
+    beacon.add(spire);
+    const crown = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(warlord ? 46 : 32, 0),
+      new THREE.MeshLambertMaterial({ color: warlord ? 0xff3300 : 0xff7a33, emissive: warlord ? 0xff2200 : 0xcc4411, emissiveIntensity: 1.0 })
+    );
+    crown.position.y = h + 20;
+    beacon.add(crown);
+    if (lm.name && typeof makeNpcNameSprite === 'function') {
+      const label = makeNpcNameSprite((warlord ? '⚔️ ' : '') + lm.name);
+      label.position.set(0, h + 90, 0);
+      beacon.add(label);
+    }
+    beacon.position.set(lm.x, H(lm.x, lm.y), lm.y);
+    scene.add(beacon);
+  }
 
   // Return portal near spawn (in the flattened arrival haven, so y≈0).
   const exitX = EMBER_WORLD.spawn.x, exitY = EMBER_WORLD.spawn.y - 120;
@@ -7376,6 +7410,109 @@ function updateEmberMobVisuals(dt) {
 }
 
   return { applyEmberMobState, updateEmberMobVisuals };
+}
+
+// ===== client/ember-nodes.js =====
+// ---------------------------------------------------------------------------
+// Ember Wastes resource nodes (client). Harvestable veins of Emberbloom and
+// Cinder-Salt that feed the Artificer's Workshop. Positions + types arrive once
+// in `ember_wastes_entered`; readiness (ready vs. freshly-harvested) rides the
+// periodic wildlife_state. Each node is a small glowing cluster riding the
+// scorched dunes, with a floating label and an interact kiosk; when spent it
+// dims and sinks, re-blooming when the server says it's ready again.
+// ---------------------------------------------------------------------------
+function createEmberNodes({ getEmberScene, emberHeightAt, makeNpcNameSprite }) {
+const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
+const NODE_STYLE = {
+  emberbloom:  { color: 0xff5a7a, emissive: 0xff1a55, label: '🌺 Emberbloom',  shape: 'bloom' },
+  cinder_salt: { color: 0xffe2a6, emissive: 0xffaa33, label: '🧂 Cinder-Salt', shape: 'crystal' },
+};
+let defs = [];
+let visuals = {}; // id -> { group, ready }
+let kiosks = [];
+
+function buildGroup(def) {
+  const style = NODE_STYLE[def.type] || NODE_STYLE.emberbloom;
+  const group = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: style.color, emissive: style.emissive, emissiveIntensity: 0.9 });
+  if (style.shape === 'crystal') {
+    // A small cluster of amber shards.
+    for (let i = 0; i < 5; i++) {
+      const h = 16 + Math.random() * 20;
+      const shard = new THREE.Mesh(new THREE.ConeGeometry(4 + Math.random() * 3, h, 5), mat);
+      const a = (i / 5) * Math.PI * 2;
+      shard.position.set(Math.cos(a) * 10, h / 2, Math.sin(a) * 10);
+      shard.rotation.z = (Math.random() - 0.5) * 0.5;
+      group.add(shard);
+    }
+  } else {
+    // A low briar with glowing blooms.
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(2, 3, 22, 5), new THREE.MeshLambertMaterial({ color: 0x3a2018 }));
+    stem.position.y = 11; group.add(stem);
+    for (let i = 0; i < 4; i++) {
+      const bloom = new THREE.Mesh(new THREE.IcosahedronGeometry(6 + Math.random() * 3, 0), mat);
+      const a = (i / 4) * Math.PI * 2;
+      bloom.position.set(Math.cos(a) * 9, 18 + Math.random() * 8, Math.sin(a) * 9);
+      group.add(bloom);
+    }
+  }
+  const label = makeNpcNameSprite(style.label);
+  label.position.set(0, 52, 0);
+  label.userData.isLabel = true;
+  group.add(label);
+  group.position.set(def.x, groundY(def.x, def.y), def.y);
+  return group;
+}
+
+function clear() {
+  const scene = getEmberScene();
+  for (const id in visuals) if (scene && visuals[id].group.parent) scene.remove(visuals[id].group);
+  visuals = {}; kiosks = [];
+}
+
+// Replace the node set from an `ember_wastes_entered` payload; returns the
+// interact-kiosk list for the caller to fold into EMBER_KIOSKS.
+function setNodeDefs(list) {
+  clear();
+  defs = list || [];
+  const scene = getEmberScene();
+  for (const def of defs) {
+    const group = buildGroup(def);
+    group.userData.kind = 'ember_node';
+    if (scene) scene.add(group);
+    visuals[def.id] = { group, ready: true, phase: Math.random() * 10 };
+    kiosks.push({ x: def.x, z: def.y, node: 'ember_node', nodeId: def.id, radius: 150 });
+  }
+  return kiosks.slice();
+}
+
+function applyNodeStates(list) {
+  for (const s of (list || [])) {
+    const v = visuals[s.id];
+    if (v) v.ready = !!s.ready;
+  }
+}
+
+function updateNodeVisuals(dt) {
+  for (const id in visuals) {
+    const v = visuals[id];
+    v.phase += dt;
+    // Ready: full, gently pulsing and risen. Spent: dimmed and sunk.
+    const target = v.ready ? 1 : 0;
+    v.shown = v.shown === undefined ? target : v.shown + (target - v.shown) * (1 - Math.exp(-dt * 6));
+    const pulse = v.ready ? 0.85 + Math.sin(v.phase * 2) * 0.15 : 0.1;
+    v.group.scale.setScalar(0.35 + v.shown * 0.65);
+    v.group.position.y = groundY(v.group.position.x, v.group.position.z) - (1 - v.shown) * 22;
+    v.group.traverse(o => {
+      if (o.isMesh && o.material && 'emissiveIntensity' in o.material) o.material.emissiveIntensity = pulse;
+      if (o.userData && o.userData.isLabel) o.visible = v.ready;
+    });
+  }
+}
+
+function destroy() { clear(); defs = []; }
+
+  return { setNodeDefs, applyNodeStates, updateNodeVisuals, getNodeKiosks: () => kiosks.slice(), destroyNodes: destroy };
 }
 
 // ===== client/dungeon-mobs.js =====
@@ -14619,6 +14756,7 @@ function onWsMessage(ev) {
     if (msg.torches) applyTownTorchState(msg.torches);
     applyTemplePortalState(!!msg.templePortalOpen);
     if (msg.emberMobs) applyEmberMobState(msg.emberMobs);
+    if (msg.emberNodes) applyEmberNodeStates(msg.emberNodes);
     applyWorldBossState(msg.worldBoss || null); // far-north Wilds mega-boss (null clears it)
     applyMinionState(msg.minions || []); // the Necromancer's undead in this room
     if (msg.groundTraps) applyGroundTrapsState(msg.groundTraps);
@@ -15618,8 +15756,13 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'ember_wastes_entered') {
+    emberLandmarks = msg.landmarks || [];
+    emberDiscovered = {};
     if (me) { me.room = 'ember_wastes'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
     swapToEmberMap();
+    // Resource veins: build their meshes now the scene exists, and fold their
+    // interact kiosks in (survives every EMBER_KIOSKS rebuild via the setter).
+    emberNodeKiosks = setEmberNodeDefs(msg.nodes || []);
     if (msg.greeting) {
       showChapterCeremony('🔥 The Ember Wastes', 'An open PvP battleground — anyone may strike you. The portal is the only way out, and it closes with the torches.');
       setUnlockToast(msg.greeting);
@@ -21111,6 +21254,12 @@ let emberScene, emberCamera;
 const EMBER_WORLD = { width: 20000, height: 20000, buildings: [], spawn: { x: 10000, y: 18600 } }; // full open zone — twice the Wilds' span (kept in sync with server EMBER_WORLD_DIMS/EMBER_SPAWN)
 let EMBER_STATIC_KIOSKS = []; // the fixed exit portal, built once
 let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
+let emberNodeKiosks = [];     // harvestable resource veins (folded into EMBER_KIOSKS each rebuild)
+let emberLandmarks = [];      // named POIs from ember_wastes_entered
+let emberDiscovered = {};     // landmark id -> true once the player has drawn near this visit
+// Folding node kiosks into whatever the mob/scene code writes back keeps the
+// resource veins interactable even though EMBER_KIOSKS is rebuilt every tick.
+const setEmberKiosksWithNodes = (k) => { EMBER_KIOSKS = emberNodeKiosks.length ? k.concat(emberNodeKiosks) : k; };
 
 // Humanoid, not the blob-monster rig every other mob type uses — each gets
 // its own custom preset (see createHumanoid's presetOverride) rather than
@@ -21123,7 +21272,8 @@ const EMBER_MOB_VISUALS = {
   bonecaller:    { name: 'Bonecaller',    scale: 1.0,  preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
   soot_revenant: { name: 'Soot Revenant', scale: 1.1,  preset: { skin: 0x6a4a7a, hair: 0x120a1a, hairStyle: 'long',   eye: 0xcc88ff, shirt: 0x2a1a3a, pants: 0x160e22 } },
   cinder_brute:  { name: 'Cinder Brute',  scale: 1.25, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } },
-  magma_golem:   { name: 'Magma Golem',   scale: 1.6,  preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } }
+  magma_golem:   { name: 'Magma Golem',   scale: 1.6,  preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } },
+  ember_warlord: { name: 'Ashlord Cindermaw', scale: 2.5, preset: { skin: 0xff3a00, hair: 0x1a0300, hairStyle: 'mohawk', eye: 0xffff66, shirt: 0x7a1000, pants: 0x2a0600 } }
 };
 
 let emberMobVisuals = {};
@@ -21138,9 +21288,32 @@ const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
   getEmberScene: () => emberScene,
   getEmberMobVisuals: () => emberMobVisuals,
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
-  setEmberKiosks: (k) => { EMBER_KIOSKS = k; },
+  setEmberKiosks: setEmberKiosksWithNodes,
   emberHeightAt, // ride the scorched dunes, not a flat y=0
 });
+
+// ── Ember Wastes resource nodes — harvestable Emberbloom / Cinder-Salt veins
+// that feed the Artificer's Workshop. Positions arrive on entry; readiness
+// rides wildlife_state. Their interact kiosks fold into EMBER_KIOSKS. ──
+const { setNodeDefs: setEmberNodeDefs, applyNodeStates: applyEmberNodeStates, updateNodeVisuals: updateEmberNodeVisuals } = createEmberNodes({
+  getEmberScene: () => emberScene,
+  emberHeightAt,
+  makeNpcNameSprite,
+});
+
+// Announce a landmark the first time the player wanders into its reach this
+// visit — gives the vast zone a sense of place and flags the warlord's throne.
+function checkEmberLandmarkDiscovery() {
+  if (!me || !emberLandmarks.length) return;
+  for (const lm of emberLandmarks) {
+    if (emberDiscovered[lm.id]) continue;
+    if (Math.hypot(me.x - lm.x, me.y - lm.y) > lm.radius) continue;
+    emberDiscovered[lm.id] = true;
+    const icon = lm.warlord ? '⚔️' : '📍';
+    if (lm.warlord) showChapterCeremony(`${icon} ${lm.name}`, lm.blurb || 'The warlord of the wastes holds this place.');
+    setUnlockToast(`${icon} ${lm.name} — ${lm.blurb || ''}`);
+  }
+}
 
 // ── The World Boss — the far-north Wilds mega-boss (Session N). One big
 // humanoid with a shared healthbar; state from wildlife_state.worldBoss. ──
@@ -21169,9 +21342,11 @@ const { buildEmberScene } = createEmberScene({
   setEmberCamera: (c) => { emberCamera = c; },
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
   setEmberStaticKiosks: (k) => { EMBER_STATIC_KIOSKS = k; },
-  setEmberKiosks: (k) => { EMBER_KIOSKS = k; },
+  setEmberKiosks: setEmberKiosksWithNodes,
   getEmberMobVisuals: () => emberMobVisuals,
   setEmberMobVisuals: (v) => { emberMobVisuals = v; },
+  getEmberLandmarks: () => emberLandmarks,
+  makeNpcNameSprite,
 });
 
 function swapToEmberMap() {
@@ -24371,6 +24546,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
+  if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
@@ -24522,6 +24698,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'ember_mob') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} pick its pocket`;
+    return;
+  }
+  if (kiosk && kiosk.node === 'ember_node') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} gather the vein`;
     return;
   }
   if (kiosk && kiosk.witch === 'hazel') {
@@ -25095,6 +25276,7 @@ function update(dt) {
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
   updateEmberMobVisuals(dt);
+  if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
   updateWorldBossVisuals(dt);
   updateMinionVisuals(dt);
   updatePortals(dt);
