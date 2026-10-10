@@ -5056,8 +5056,36 @@ function buildWildsScene(w2) {
     return geo;
   }
 
+  // Landmarks players actually stand on. The scattered glyphs used to burn
+  // straight through the arrival clearing, the portals, the ritual altar, the
+  // village and the camps — a sigil cutting across whatever you walked up to.
+  // A glyph that rolls inside one of these rings is pushed radially out to the
+  // ring's edge; every glyph that DIDN'T land on a landmark keeps its exact
+  // spot (the RNG stream is untouched), so this only relocates the offenders.
+  const glyphKeepClear = [
+    { x: w2.spawn.x,            z: w2.spawn.y,            r: 300 }, // arrival clearing
+    { x: w2.spawn.x + 170,      z: w2.spawn.y + 20,       r: 130 }, // return portal
+    { x: WITCH_CAVE_ENTRANCE_X, z: WITCH_CAVE_ENTRANCE_Z, r: 230 }, // Witch's Cave mouth
+    { x: 2200, z: 5000, r: 240 }, // the Unbound Circle ritual altar
+    { x: 5000, z: 3000, r: 340 }, // the village
+    { x: 6500, z: 6200, r: 220 }, // the giant werewolf tree
+    { x: 7800, z: 5000, r: 230 }, // the Thornwarden camp
+  ];
+  const nudgeOffLandmarks = (x, z) => {
+    for (const c of glyphKeepClear) {
+      let dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz);
+      if (d < c.r) {
+        if (d < 1e-3) { dx = 1; dz = 0; d = 1; } // dead-centre: pick any direction
+        const nd = c.r + 40;
+        x = c.x + dx / d * nd;
+        z = c.z + dz / d * nd;
+      }
+    }
+    return [x, z];
+  };
   for (let i = 0; i < 220; i++) {
-    const gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
+    let gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
+    [gx, gz] = nudgeOffLandmarks(gx, gz);
     const size = 55 + grand() * 120;
     const rot = grand() * Math.PI * 2;
     const pick = sigilTex[(grand() * sigilTex.length) | 0];
