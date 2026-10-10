@@ -7,6 +7,7 @@ import createAttacks from './attacks.js';
 import createBoard from './board.js';
 import createAchievements from './achievements.js';
 import createWorkshop from './workshop.js';
+import createWorldBoss from './worldboss.js';
 import createDelve from './delve.js';
 import createCoven from './coven.js';
 import createCovenVoice from './coven-voice.js';
@@ -1018,7 +1019,18 @@ function onWsMessage(ev) {
     if (msg.torches) applyTownTorchState(msg.torches);
     applyTemplePortalState(!!msg.templePortalOpen);
     if (msg.emberMobs) applyEmberMobState(msg.emberMobs);
+    applyWorldBossState(msg.worldBoss || null); // far-north Wilds mega-boss (null clears it)
     if (msg.groundTraps) applyGroundTrapsState(msg.groundTraps);
+    return;
+  }
+
+  if (msg.type === 'world_boss_rose') {
+    showChapterCeremony(`${msg.icon || '💀'} ${msg.name} rises`, 'A world boss holds the Blighted Hollow, far north in the Wilds. Rally and bring it down!');
+    setUnlockToast(`${msg.icon || '💀'} ${msg.name} has risen in the Wilds — rally to the Blighted Hollow!`);
+    return;
+  }
+  if (msg.type === 'world_boss_gone') {
+    if (msg.slain) showChapterCeremony(`${msg.icon || '🏆'} ${msg.name} slain`, `${msg.vanquisher || 'The town'} struck hardest. The spoils are shared among all who fought.`);
     return;
   }
 
@@ -4369,6 +4381,7 @@ function getRaycastCandidates() {
       const v = decorVisuals2[id];
       if (!v.harvested) list.push(v.group);
     }
+    { const g = worldBossGroup(); if (g && g.visible) list.push(g); }
   } else if (activeScene === dungeonScene) {
     for (const id in dungeonMobVisuals) {
       const v = dungeonMobVisuals[id];
@@ -4463,7 +4476,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob', 'world_boss']);
 
 function isValidArmedTarget(hit) {
   return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
@@ -4557,6 +4570,7 @@ function mobRenderPos(targetType, targetId) {
     animal2: animalVisuals2, mob2: mobVisuals2, mob3: mobVisuals3,
     dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals
   }[targetType];
+  if (targetType === 'world_boss') { const p = worldBossVisualPos(); return p ? { x: p.x, z: p.y } : null; }
   const v = visualsMap && visualsMap[targetId];
   return v ? { x: v.x, z: v.y } : null;
 }
@@ -7449,6 +7463,14 @@ const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
   getEmberMobVisuals: () => emberMobVisuals,
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
   setEmberKiosks: (k) => { EMBER_KIOSKS = k; },
+});
+
+// ── The World Boss — the far-north Wilds mega-boss (Session N). One big
+// humanoid with a shared healthbar; state from wildlife_state.worldBoss. ──
+const { applyWorldBossState, updateWorldBossVisuals, worldBossVisualPos, worldBossGroup } = createWorldBoss({
+  createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
+  getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,
+  getWildsScene: () => wildsScene,
 });
 
 // ── Ember Wastes scene — extracted to client/ember-scene.js (Phase C 3D slice).
@@ -11386,6 +11408,7 @@ function update(dt) {
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
   updateEmberMobVisuals(dt);
+  updateWorldBossVisuals(dt);
   updatePortals(dt);
   updateManorEmbers(dt);
 
