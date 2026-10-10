@@ -44,6 +44,13 @@ setTimeout(() => {
   check('the named player receives the invite', !!inv && inv.covenName === 'Nightshade', inv);
   check('username is case-insensitive (typed "Bob", account "bob")', !!inv);
 
+  // ── Invite by targetId (the click-a-player context-menu path) ──
+  const beforeTid = B.s.allOfType('coven_invited').length;
+  A.s.emit('message', JSON.stringify({ type: 'coven_invite', targetId: B.p.id }));
+  const tinv = B.s.lastOfType('coven_invited');
+  check('invite by targetId (click-a-player) reaches that player',
+    B.s.allOfType('coven_invited').length === beforeTid + 1 && !!tinv && tinv.covenName === 'Nightshade', tinv);
+
   // ── Error cases ──
   A.s.emit('message', JSON.stringify({ type: 'coven_invite', username: 'nobody' }));
   check('an offline / unknown name errors instead of inviting the wrong soul',
