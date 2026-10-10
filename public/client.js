@@ -14598,6 +14598,7 @@ function onWsMessage(ev) {
     if (Array.isArray(msg.roster)) for (const p of msg.roster) { if (p.id !== myId) addPlayer(p); }
     applyManorInstanceState(mootInstanceActive); // the Manor exists only in a coven's private Wilds
     setMootBanner(mootInstanceActive ? msg : null);
+    if (mootInstanceActive) openHagstoneWelcome(msg); // one-time "welcome to your private world" card
     setUnlockToast(mootInstanceActive
       ? `🌑 You slip through the Hagstone into ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}'s private world — only your coven can reach you here.`
       : '🌒 You step back through the Hagstone into the public town.');
@@ -16469,6 +16470,39 @@ function setMootBanner(_msg) {
   const el = document.getElementById('mootBanner');
   if (el) el.style.display = 'none';
 }
+// The one-time "Welcome to your private world" card that replaces the pill.
+// Shown the first time a player steps through the Hagstone into a coven
+// instance (localStorage-gated); after that the toast + the violet night
+// carry it, so the screen stays clear.
+function openHagstoneWelcome(msg) {
+  let seen = null;
+  try { seen = localStorage.getItem('tc_hagstone_welcome_seen'); } catch (e) {}
+  if (seen) return;
+  const modal = document.getElementById('hagstoneWelcomeModal');
+  const body = document.getElementById('hagstoneWelcomeBody');
+  if (!modal || !body) return;
+  const who = `${(msg && msg.covenSigil) || ''} ${(msg && msg.covenName) || 'your coven'}`.replace(/\s+/g, ' ').trim();
+  body.innerHTML =
+    `<p style="margin:0 0 11px">You've slipped through the <b>Hagstone</b> into <b>${who}</b>'s own hidden copy of the world — a place held apart from the public town.</p>` +
+    `<ul style="margin:0; padding-left:18px">` +
+    `<li style="margin:6px 0"><b>Only your coven can reach you here.</b> No stranger can wander in.</li>` +
+    `<li style="margin:6px 0">It's <b>always night</b>, lit in violet, on its own quiet clock.</li>` +
+    `<li style="margin:6px 0">Your coven's <b>Manor</b> stands only in this world.</li>` +
+    `<li style="margin:6px 0">Step back through the <b>Hagstone</b> any time to return to the public town.</li>` +
+    `</ul>`;
+  modal.classList.remove('hidden');
+}
+(function wireHagstoneWelcome() {
+  const close = () => {
+    const m = document.getElementById('hagstoneWelcomeModal');
+    if (m) m.classList.add('hidden');
+    try { localStorage.setItem('tc_hagstone_welcome_seen', '1'); } catch (e) {}
+  };
+  const btn = document.getElementById('hagstoneWelcomeCloseBtn');
+  if (btn) btn.addEventListener('click', close);
+  const modal = document.getElementById('hagstoneWelcomeModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+})();
 
 // ── Altar-ritual HUD + bestowing ────────────────────────────────────────────
 function ritualDef(id) { return RITUALS.find((r) => r.id === id) || null; }
