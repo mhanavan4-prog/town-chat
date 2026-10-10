@@ -4701,12 +4701,13 @@ app.post('/api/push/unsubscribe', (req, res) => {
 // forever once done (and never shown to veterans — see the join gate).
 const FIRST_STEPS = [
   { id: 'talked',    label: 'Speak with a townsperson',       icon: '💬' },
-  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' },
-  { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' }
+  { id: 'ability',   label: 'Use a class ability',            icon: '✨' },
+  { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' },
+  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' }
 ];
-const FIRST_STEPS_REWARD_GOLD = 25;
+const FIRST_STEPS_REWARD_GOLD = 50;
 function firstStepsState(prog) {
-  if (!prog.firstSteps) prog.firstSteps = { talked: false, harvested: false, killed: false, done: false };
+  if (!prog.firstSteps) prog.firstSteps = { talked: false, ability: false, harvested: false, killed: false, done: false };
   return prog.firstSteps;
 }
 function firstStepsPayload(player, justCompleted) {
@@ -5901,6 +5902,13 @@ wss.on('connection', (ws, req) => {
         const fsSt = firstStepsState(fsProg);
         if (!fsSt.done && fsProg.level >= 5) { fsSt.done = true; if (player.accountKey) saveProgress(); }
         if (!fsSt.done) send(ws, firstStepsPayload(player, null));
+        // A brand-new arrival (first session, nothing done, not a reconnect)
+        // gets a one-time welcome card orienting them before they wander off.
+        if (!fsSt.done && !fsProg.seenWelcome && !resume) {
+          send(ws, { type: 'welcome_intro', name: player.name });
+          fsProg.seenWelcome = true;
+          if (player.accountKey) saveProgress();
+        }
       }
       // ── Login streaks + the "while you were gone" letter (Session L) ──
       // A returning account lands on a gift, not a guilt trip: the daily
@@ -6987,6 +6995,7 @@ wss.on('connection', (ws, req) => {
       }
 
       player.spellCooldowns[spellId] = now;
+      noteFirstStep(player, 'ability'); // first cast ticks the onboarding step
 
       // Every class ability cast advances a cast-your-craft story chapter.
       storyEvent(player, 'cast_ability', { abilityId: spellId });
@@ -7472,6 +7481,7 @@ wss.on('connection', (ws, req) => {
         return;
       }
       player.attackCooldowns[attackId] = now;
+      noteFirstStep(player, 'ability'); // first class attack ticks the onboarding step
 
       // Damage/leech attacks can hit animals/mobs too, exactly like the
       // Witch's Fireball/Leech Hex (see cast_spell's targetsMob above) —
