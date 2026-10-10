@@ -13708,7 +13708,7 @@ const KK = (() => {
     char2: 'kk/Rogue_Hooded.glb',   // Mystic
     char3: 'kk/Knight.glb',         // Knight
     char4: 'kk/Rogue.glb',          // Wanderer
-    char5: 'kk/Mage.glb',           // Necromancer — the robed caster body, but no witch hat (see props) so it reads as a dark summoner, not a second Witch
+    char5: 'kk/Skeleton_Mage.glb',  // Necromancer — KayKit Skeletons pack (CC0). Ships no animations, so it borrows the Mage's clips at load (shared KayKit rig — see borrowAnims)
     bld_cafe:    'kk/bld/building_tavern_red.gltf',
     bld_library: 'kk/bld/building_church_blue.gltf',
     bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
@@ -13740,7 +13740,7 @@ const KK = (() => {
     2: ['Rogue_Cape'],
     3: ['Knight_Helmet', 'Knight_Cape', '1H_Sword', 'Badge_Shield'],
     4: ['Rogue_Cape', 'Knife'],
-    5: ['Mage_Cape', '2H_Staff'] // Necromancer: cape + staff, NO Mage_Hat — hoodless/hatless dark caster, distinct from the Witch
+    5: [] // Necromancer uses the Skeleton Mage body — its meshes aren't curated props, so nothing to hide
   };
   const WEAPONISH = ['2H_Staff', '1H_Sword', 'Badge_Shield', 'Knife'];
 
@@ -13760,11 +13760,24 @@ const KK = (() => {
         models[key] = { scene: gltf.scene, animations: gltf.animations || [],
           size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
           minY: box.min.y };
-        if (--pending === 0) { settled = true; resolveReady(); }
+        if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); }
       }, undefined, () => {
         console.warn('KK asset failed, using fallback:', key);
-        if (--pending === 0) { settled = true; resolveReady(); }
+        if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); }
       });
+    }
+  }
+
+  // KayKit Skeletons-pack models ship with no animation clips of their own,
+  // but share the universal KayKit rig (identical deform-bone names), so they
+  // adopt the Adventurers Mage's clips — the AnimationMixer binds each track to
+  // the skeleton's bones by name (IK-only tracks simply don't resolve, which is
+  // harmless). Runs once every model has loaded.
+  function borrowAnims() {
+    const donor = models.char0 && models.char0.animations && models.char0.animations.length ? models.char0.animations : null;
+    if (!donor) return;
+    for (const k of Object.keys(models)) {
+      if (models[k].animations && models[k].animations.length === 0) models[k].animations = donor;
     }
   }
 
