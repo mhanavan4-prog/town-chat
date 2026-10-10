@@ -13660,22 +13660,22 @@ const WANDERER_ATTACK_CATALOG = {
     description: "Peek into a target's pockets and try to lift an item. They won't know if you're successful — only a failed attempt gives you away. Starts at a 35% success chance and grows the more you practice, up to 94% at max skill." },
   echo_canyon:        { name: 'Echo Canyon',        icon: '🏞️', kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000,
     description: "A canyon echo scrambles everyone nearby's words in chat." },
-  deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'status', statusType: 'meditate', durationMs: 60000,
-    description: 'Sit and meditate, then rise off the ground for a minute — you can still move freely while floating.' },
-  heavy_pack:         { name: 'Heavy Pack',         icon: '🎒', kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000,
-    description: "Stuffs the target's pack with stones, shrinking them under the weight." },
+  deep_meditation:    { name: 'Deep Meditation',    icon: '🧘', kind: 'self', effect: 'meditate', durationMs: 60000,
+    description: 'Sink into a deep trance — for a full minute NO attack can touch you, PvP or monster. The vow: you cannot strike while you meditate. You can still move and float freely.' },
+  heavy_pack:         { name: 'Heavy Pack',         icon: '🎒', kind: 'targeted', effect: 'damage',
+    description: "Hurl your crushing pack onto the target — real damage, and its weight ROOTS them in place for four seconds. They can't take a step." },
   endless_road:       { name: 'Endless Road',       icon: '🥿', kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000,
     description: "Curses the target's boots — the road stretches on forever, halving their speed." },
-  featherlight_pack:  { name: 'Featherlight Pack',  icon: '🪶', kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000,
-    description: "Lightens the target's pack — they bounce absurdly high when they jump." },
-  shadow_owls:        { name: 'Shadow Owls',        icon: '🦉', kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000,
-    description: 'Summons a circling swarm of night owls around the target.' },
+  featherlight_pack:  { name: 'Featherlight Pack',  icon: '🪶', kind: 'self', effect: 'evade', durationMs: 15000,
+    description: "Shed every ounce of weight and go featherlight for fifteen seconds — attacks slip clean past you and roaming creatures lose your trail entirely, with a burst of speed to vanish." },
+  shadow_owls:        { name: 'Shadow Owls',        icon: '🦉', kind: 'targeted', effect: 'damage',
+    description: 'Loose a swarm of night owls that dive and rend — the hardest-hitting single strike any class owns, players and monsters alike, leaving the swarm circling the wound.' },
   wanderlust:         { name: 'Wanderlust',         icon: '🥾', kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000,
     description: 'A surge of wanderlust quickens your pace for a short burst.' },
   campfire_tale:      { name: 'Campfire Tale',      icon: '🔥', kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000,
     description: 'Tall tales by the campfire make you feel larger than life.' },
-  nightwatch_cloak:   { name: 'Nightwatch Cloak',   icon: '🌌', kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000,
-    description: 'Wraps you in the hush of the night watch.' },
+  nightwatch_cloak:   { name: 'Nightwatch Cloak',   icon: '🌌', kind: 'self', effect: 'cloak', durationMs: 30000,
+    description: 'Melt into the hush of the night watch — for thirty seconds you vanish completely from every other player, moving unseen at twice your pace. You still see yourself.' },
   compass_trick:      { name: 'Compass Trick',      icon: '🧭', kind: 'targeted', effect: 'reveal',
     description: "Bends the target's compass needle back toward you, revealing where they are." }
 };
@@ -14071,6 +14071,7 @@ function onWsMessage(ev) {
         applyEquipVisual(p.id, p);
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
+        existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
         existing.isDead = !!p.isDead;
         existing.hasLoot = !!p.hasLoot;
         existing.deathX = p.deathX; existing.deathY = p.deathY; existing.deathRoom = p.deathRoom;
@@ -21902,6 +21903,18 @@ function syncLabels() {
     const p = players[id];
     const v = visuals[id];
     if (!v) continue;
+    // Nightwatch Cloak — another player is invisible: hide their mesh and
+    // nametag. Only invisibility touches group.visible here, and the flag
+    // lets us restore exactly what we hid without clobbering other logic.
+    if (p.invisible && id !== myId) {
+      if (v.group) { v.group.visible = false; v._invisHidden = true; }
+      v.nameEl.style.display = 'none';
+      if (v.bubbleEl) v.bubbleEl.style.display = 'none';
+      continue;
+    } else if (v._invisHidden) {
+      if (v.group) v.group.visible = true;
+      v._invisHidden = false;
+    }
     if (!v.inScene) {
       v.nameEl.style.display = 'none';
       if (v.bubbleEl) v.bubbleEl.style.display = 'none';
@@ -24325,6 +24338,7 @@ function update(dt) {
   // self-enforced client-side like everything else movement-related in
   // this game — there's no server-side anti-cheat anywhere to back it up.
   let speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
+  if (me.activeStatus && me.activeStatus.type === 'rooted') speed = 0; // Heavy Pack — pinned in place
   if (me.activeStatus && me.activeStatus.type === 'stumble') speed *= 0.5;
   if (me.activeStatus && me.activeStatus.type === 'speedboost') speed *= 2;
   if (me.activeStatus && me.activeStatus.type === 'wolfpact') speed *= 2;
