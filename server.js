@@ -2150,6 +2150,7 @@ function noteDelveDepth(player, depth) {
   if (!player || !(depth > 0)) return;
   try { const dp = getProgress(player); achievementsMod.noteMax(dp, 'delveDeepest', depth); } catch (e) { return; }
   checkAchievements(player);
+  storyEvent(player, 'delve_depth', { depth }); // Episode II ch7 — descend the Delve
 }
 
 // Award XP to a player, leveling up as many times as thresholds are crossed,
@@ -2622,6 +2623,9 @@ function objectiveWhere(obj) {
       return nightHunt ? `the Wilds after 🌕 nightfall — hunt the ${label}` : `the Wilds — track down the ${label} (portal at the north edge of town)`;
     }
     case 'craft_potion': return "Hazel's cauldron, inside her cave (north-west Wilds)";
+    case 'delve_depth': return 'the Weekly Delve — descend through the floors (open the 🕳️ Delve from the menu)';
+    case 'craft_item': return "the Artificer's Workshop — 🔨 Workshop in the menu (gather materials, then forge)";
+    case 'defeat_world_boss': return 'the Blighted Hollow, far north in the Wilds — rally when a World Boss rises';
     default: return '';
   }
 }
@@ -2687,6 +2691,10 @@ function objectiveMatches(obj, eventType, detail) {
   if (obj.type === 'visit_room') return eventType === 'visit_room' && detail.room === obj.room;
   if (obj.type === 'cast_ability') return eventType === 'cast_ability';
   if (obj.type === 'craft_potion') return eventType === 'craft_potion';
+  // ── Episode II objective types (chapters 7–9) ──
+  if (obj.type === 'delve_depth') return eventType === 'delve_depth' && (detail.depth || 0) >= obj.minDepth;
+  if (obj.type === 'craft_item') return eventType === 'craft_item';
+  if (obj.type === 'defeat_world_boss') return eventType === 'defeat_world_boss';
   return false;
 }
 
@@ -4660,7 +4668,7 @@ const worldBossMod = require('./lib/worldboss')({
   nearestWildsPlayer, isEvading, absorbIncomingDamage, noteAttacked,
   ensureBankAccount, saveBankAccounts, findConnectionByAccountKey,
   grantXP, getInventory, addItemToAccount, saveInventories, inventoryStatePayload,
-  ITEM_CATALOG, lbBump, noteBossKill, mulberry32,
+  ITEM_CATALOG, lbBump, noteBossKill, mulberry32, storyEvent,
 });
 const { tickWorldBoss, worldBossHit, worldBossPublic, worldBossRenderPos, worldBossWindow } = worldBossMod;
 
@@ -9153,6 +9161,7 @@ wss.on('connection', (ws, req) => {
       if (player.accountKey) saveInventories();
       { const cp = getProgress(player); cp.itemsCrafted = (cp.itemsCrafted || 0) + 1; } // Artificer ladder
       checkAchievements(player);
+      storyEvent(player, 'craft_item', { recipeId: recipe.id }); // Episode II ch8 — forge at the Workshop
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'workshop_craft_result',
         resultIcon: resultItem?.icon || '🔨',
