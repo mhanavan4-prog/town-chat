@@ -2788,6 +2788,11 @@ function storyEvent(player, eventType, detail = {}) {
   st.chapter++;
   st.progress = 0;
   st.active = false;
+  // The Necromancer's ritual questline is also their power spine: every rite
+  // completed deepens their NECRO RANK, which scales the health/damage of the
+  // undead they raise and (at rank 2 / 4) widens the active cap. Rank mirrors
+  // chapters completed, so it persists with campaign progress.
+  if (player.charId === 5) { try { getProgress(player).necroRank = st.chapter; } catch (e) {} }
   grantXP(player, chapter.xpReward);
   if (chapter.goldReward && player.accountKey) {
     const acct = ensureBankAccount(player.accountKey);
