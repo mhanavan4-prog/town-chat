@@ -332,6 +332,15 @@ function createKayKitHumanoid(charId) {
   };
   kkSetState(kk, 'Idle');
 
+  // The Necromancer (char5) carries the skeleton pack's staff. Its character
+  // GLB has no weapon mesh, so socket the separate Skeleton_Staff model to the
+  // right-hand slot bone — KayKit props are authored at the origin for exactly
+  // this, so an identity attach sits it in the grip and it rides every anim.
+  if (charId === 5 && kk.handR && KK.models.skel_staff) {
+    const staff = THREE.SkeletonUtils.clone(KK.models.skel_staff.scene);
+    kk.handR.add(staff);
+  }
+
   // Contract dummies: classic animation code (gated off for kk visuals)
   // and any stray callers still get groups at the classic pivot spots.
   const armL = new THREE.Group(), armR = new THREE.Group();
@@ -345,5 +354,38 @@ function createKayKitHumanoid(charId) {
   return { group, armL, armR, legL, legR, torso, head, baseShirtColor: preset.shirt, kk };
 }
 
-  return { createHumanoid };
+// Build a KayKit humanoid from a MODEL KEY rather than a charId — used for the
+// Necromancer's summoned undead (the skeleton pack's Minion/Warrior/Rogue).
+// No preset tint, no prop curation (the skeleton meshes aren't curated props);
+// borrowed clips drive it via the shared rig. Returns a dispose() so a
+// despawned minion's mixer leaves KK.mixers (minions spawn and die often).
+function createKayKitByKey(key, heightScale) {
+  const t = KK.models[key];
+  if (!t) return null;
+  const inst = THREE.SkeletonUtils.clone(t.scene);
+  const s = (heightScale || 68) / t.size.y;
+  inst.scale.setScalar(s);
+  inst.traverse(o => {
+    if ((o.isMesh || o.isSkinnedMesh) && o.material) {
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    }
+  });
+  const group = new THREE.Group();
+  group.add(inst);
+  const mixer = new THREE.AnimationMixer(inst);
+  KK.mixers.add(mixer);
+  const actions = {};
+  function act(name) {
+    if (actions[name] !== undefined) return actions[name];
+    const clip = t.animations.find(a => a.name === name) || null;
+    actions[name] = clip ? mixer.clipAction(clip) : null;
+    return actions[name];
+  }
+  const kk = { mixer, act, inst, baseScale: s, cur: null, busyUntil: 0,
+    handR: inst.getObjectByName('handslotr') || null, handL: inst.getObjectByName('handslotl') || null };
+  kkSetState(kk, 'Idle');
+  return { group, kk, dispose() { try { mixer.stopAllAction(); } catch (e) {} KK.mixers.delete(mixer); } };
+}
+
+  return { createHumanoid, createKayKitByKey };
 }
