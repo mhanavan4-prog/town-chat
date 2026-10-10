@@ -13708,6 +13708,7 @@ const KK = (() => {
     char2: 'kk/Rogue_Hooded.glb',   // Mystic
     char3: 'kk/Knight.glb',         // Knight
     char4: 'kk/Rogue.glb',          // Wanderer
+    char5: 'kk/Mage.glb',           // Necromancer — the robed caster body, but no witch hat (see props) so it reads as a dark summoner, not a second Witch
     bld_cafe:    'kk/bld/building_tavern_red.gltf',
     bld_library: 'kk/bld/building_church_blue.gltf',
     bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
@@ -13738,7 +13739,8 @@ const KK = (() => {
     1: ['Barbarian_Hat', 'Barbarian_Cape'],
     2: ['Rogue_Cape'],
     3: ['Knight_Helmet', 'Knight_Cape', '1H_Sword', 'Badge_Shield'],
-    4: ['Rogue_Cape', 'Knife']
+    4: ['Rogue_Cape', 'Knife'],
+    5: ['Mage_Cape', '2H_Staff'] // Necromancer: cape + staff, NO Mage_Hat — hoodless/hatless dark caster, distinct from the Witch
   };
   const WEAPONISH = ['2H_Staff', '1H_Sword', 'Badge_Shield', 'Knife'];
 
@@ -22056,9 +22058,9 @@ function kkOneShot(kk, name, opts) {
 // map the game's attack types onto class-flavored KayKit clips
 function kkAttackClip(type, charId) {
   if (type === 'cast') return 'Spellcast_Shoot';
-  if (type === 'slash') return charId === 0 ? '2H_Melee_Attack_Slice' : '1H_Melee_Attack_Slice_Diagonal';
+  if (type === 'slash') return (charId === 0 || charId === 5) ? '2H_Melee_Attack_Slice' : '1H_Melee_Attack_Slice_Diagonal'; // staff casters swing 2H
   if (charId === 4) return '1H_Melee_Attack_Stab';        // wanderer's knife jab
-  if (charId === 2) return 'Spellcast_Shoot';             // mystic strikes with magic
+  if (charId === 2 || charId === 5) return 'Spellcast_Shoot'; // mystic + necromancer strike with magic
   return 'Unarmed_Melee_Attack_Punch_A';
 }
 
