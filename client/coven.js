@@ -217,7 +217,16 @@ function renderCovenStandings() {
     ends.textContent = ms > 0 ? `This week ends in ${d}d ${h}h — the leader holds the table.` : 'Tallying the final standings…';
   }
   list.innerHTML = '';
-  if (!st.standings.length) { list.innerHTML = '<div class="slNote">No coven has scored yet this week. Be the first.</div>'; return; }
+  if (st.reign) {
+    const r = document.createElement('div');
+    r.className = 'slNote';
+    r.style.cssText = 'border:1px solid rgba(201,133,0,0.4);background:rgba(201,133,0,0.1)';
+    r.innerHTML = `👑 <b>Reigning Champions:</b> ${st.reign.sigil} ${st.reign.name}` +
+      (st.reign.titles > 1 ? ` <span style="opacity:.75">— ${st.reign.titles} titles</span>` : '') +
+      ` <span style="opacity:.6">(last week)</span>`;
+    list.appendChild(r);
+  }
+  if (!st.standings.length) { const e = document.createElement('div'); e.className = 'slNote'; e.textContent = 'No coven has scored yet this week. Be the first.'; list.appendChild(e); return; }
   st.standings.forEach((row, i) => {
     const mine = row.covenId === st.myCovenId;
     const div = document.createElement('div');

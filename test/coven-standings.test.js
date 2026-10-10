@@ -72,6 +72,25 @@ setTimeout(() => {
   check('an unscored coven lists at zero points', hollow && hollow.points === 0, hollow);
   check('zero-point covens sort below scored ones', rows2[rows2.length - 1].name === 'Hollow', rows2.map(r => r.name));
 
+  // ── The weekly crown ceremony ──
+  const curIdx = parseInt(hooks.weekKey(Date.now()).slice(1), 10);
+  const prevWk = 'w' + (curIdx - 1);
+  // Seed last week's board directly: Nightshade (Ada) scored, Moonwell didn't.
+  hooks.leaderboards[prevWk] = { hunt: { ada: { name: 'Ada', value: 20 } } };
+  const bankBefore = hooks.covens['cv_ns'].bank.gold;
+  hooks.covenCrownWeek(prevWk);
+  const ns = hooks.covens['cv_ns'];
+  check('the week’s winner is crowned with a lasting honor', !!ns.honors && ns.honors.some(h => h.week === prevWk), ns.honors);
+  check('the champion purse is paid into the shared tab', ns.bank.gold === bankBefore + hooks.COVEN_CHAMPION_PURSE, ns.bank.gold);
+  check('the reign is recorded on the coven', ns.championReignWeek === prevWk, ns.championReignWeek);
+  check('a town-wide crowning is announced', /claimed the Champions/.test((A.s.lastOfType('announce') || {}).message || ''), A.s.lastOfType('announce'));
+  const honorsAfterFirst = ns.honors.length;
+  hooks.covenCrownWeek(prevWk); // idempotent — settlement must not double-crown
+  check('crowning the same week twice is idempotent', ns.honors.length === honorsAfterFirst, ns.honors.length);
+  const reign = hooks.covenReigningChampion();
+  check('the reigning champion is last week’s winner', !!reign && reign.name === 'Nightshade', reign);
+  check('an unscored week crowns no one', (hooks.covenCrownWeek('w' + (curIdx - 9)), !hooks.covens['cv_ns'].honors.some(h => h.week === 'w' + (curIdx - 9))), null);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 200);
