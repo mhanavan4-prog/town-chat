@@ -58,16 +58,6 @@ setTimeout(() => {
   hooks.noteFirstStep(A.p, 'talked'); // already done → no-op
   check('re-noting a done tracker does nothing', A.s.allOfType('announce_soft').length === before);
 
-  // ── Welcome card: once per fresh account, not on reconnect ──
-  const B = join('Fresh');
-  const intro = B.s.lastOfType('welcome_intro');
-  check('a brand-new arrival gets the welcome card', !!intro, intro);
-  check('the welcome greets them by name', intro && intro.name === 'Fresh', intro);
-  // One-time gate: the join handler set seenWelcome on the progress it used.
-  // (The harness attaches accountKey post-join, so assert the flag on whatever
-  //  progress object carries it rather than on a re-derived one.)
-  check('the welcome is a single card, not spammed', B.s.allOfType('welcome_intro').length === 1, B.s.allOfType('welcome_intro').length);
-
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 200);

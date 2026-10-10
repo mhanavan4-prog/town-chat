@@ -5902,13 +5902,6 @@ wss.on('connection', (ws, req) => {
         const fsSt = firstStepsState(fsProg);
         if (!fsSt.done && fsProg.level >= 5) { fsSt.done = true; if (player.accountKey) saveProgress(); }
         if (!fsSt.done) send(ws, firstStepsPayload(player, null));
-        // A brand-new arrival (first session, nothing done, not a reconnect)
-        // gets a one-time welcome card orienting them before they wander off.
-        if (!fsSt.done && !fsProg.seenWelcome && !resume) {
-          send(ws, { type: 'welcome_intro', name: player.name });
-          fsProg.seenWelcome = true;
-          if (player.accountKey) saveProgress();
-        }
       }
       // ── Login streaks + the "while you were gone" letter (Session L) ──
       // A returning account lands on a gift, not a guilt trip: the daily

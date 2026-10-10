@@ -14381,10 +14381,6 @@ function onWsMessage(ev) {
     return;
   }
 
-  if (msg.type === 'welcome_intro') {
-    openWelcomeModal(msg.name || '');
-    return;
-  }
   if (msg.type === 'first_steps') {
     firstStepsState = msg;
     // Show the full card briefly (join snapshot or a step landing), then
@@ -22416,8 +22412,6 @@ function shortWhen(ts) {
 (function () {
   const b = document.getElementById('letterCloseBtn');
   if (b) b.addEventListener('click', () => document.getElementById('letterModal').classList.add('hidden'));
-  const wb = document.getElementById('welcomeCloseBtn');
-  if (wb) wb.addEventListener('click', () => document.getElementById('welcomeModal').classList.add('hidden'));
 })();
 
 // ── First Steps tracker ──────────────────────────────────────────────────────
@@ -22434,25 +22428,6 @@ function fsSetExpanded(on, autoCollapseMs) {
     _fsCollapseTimer = setTimeout(() => { _fsExpanded = false; renderFirstSteps(); }, autoCollapseMs);
   }
   renderFirstSteps();
-}
-// A brand-new player's one-time welcome — orients them (what this place is,
-// how to move, where the next goal lives) before they wander off. Controls
-// adapt to touch vs desktop. Shown once (server gates with prog.seenWelcome).
-function openWelcomeModal(name) {
-  const modal = document.getElementById('welcomeModal');
-  const body = document.getElementById('welcomeBody');
-  const title = document.getElementById('welcomeTitle');
-  if (!modal || !body) return;
-  if (title) title.textContent = `🌙 Welcome to Thornreach${name ? ', ' + name : ''}`;
-  const move = MOBILE_UI
-    ? 'Use the <b>left stick</b> to move and drag anywhere to look around.'
-    : 'Move with <b>W&nbsp;A&nbsp;S&nbsp;D</b> and look with the mouse.';
-  const journal = MOBILE_UI ? 'Open the <b>🗒️ Journal</b>' : 'Press <b>J</b> for your Journal';
-  body.innerHTML =
-    `<p style="margin:0 0 11px">Every building in this town is a room you can step into — and a chatroom. You've arrived in the <b>town square</b>, where the townsfolk gather.</p>` +
-    `<p style="margin:0 0 11px">${move} ${journal} — it always names your next goal.</p>` +
-    `<p style="margin:0">Your <b>🏮 First Steps</b> are in the corner: say hello to a townsperson, try a class ability, and wander into the Wilds. Finish them for a pouch of gold.</p>`;
-  modal.classList.remove('hidden');
 }
 function renderFirstSteps() {
   const chip = document.getElementById('firstStepsChip');
