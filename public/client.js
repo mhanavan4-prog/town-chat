@@ -14585,6 +14585,13 @@ function onWsMessage(ev) {
         ? `🕳️ ${lore.name} — ${lore.epithet} (Tier ${msg.tier}). Read the plaque by the portal.`
         : `⚡ Entered dungeon tier ${msg.tier} — Level ${msg.level} Wildlands`);
     }
+    // This week's keystone affixes — a short follow-up toast so players know
+    // why the dungeon feels different (and richer) this week. Not for the
+    // Delve, which runs its own modifiers.
+    if (!msg.delve && Array.isArray(msg.affixes) && msg.affixes.length) {
+      const line = msg.affixes.map(a => `${a.icon} ${a.name}`).join('  ·  ');
+      setTimeout(() => setUnlockToast(`🔑 This week's keystones: ${line}. ${msg.affixes.map(a => a.desc).join(' ')}`), 2600);
+    }
     pokeRoomTag();
     return;
   }

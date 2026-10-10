@@ -1870,6 +1870,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
       } else {
         t.pendingLoot = rollPendingLoot(dungeonLootTable(preset.xp));
       }
+      applyDungeonLootAffix(t, preset); // this week's reward affixes (extra loot / gold)
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
       return { ok: true, dead: true, dmg, name: preset.name, xp: preset.xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
     }
@@ -4127,8 +4128,57 @@ const DUNGEON_RESPAWN_MS = 60 * 1000;
 const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' };
 
 // Dungeon engine (Session L) — extracted to lib/dungeons.js (Tier 3.4 Phase B).
-const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE });
+const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE, dungeonAffix });
 const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, bossEnrageMult, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY } = dungeonsMod;
+
+// ── Weekly dungeon affixes / "keystones" (depth lever #1) ────────────────────
+// The four dungeon tiers play differently each week: two affixes are drawn
+// from the pool below, seeded by the legendary week (same Monday clock as the
+// Delve and the legendaries), so everyone sees the same rotation and it flips
+// weekly. Each affix hooks a single clean point — mob damage, attack cadence,
+// gold, or an extra loot roll — so the same rooms stay fresh without new
+// authoring. Shown to players on entry (dungeon_entered.affixes).
+const DUNGEON_AFFIXES = {
+  savage:    { id: 'savage',    name: 'Savage',    icon: '🔥', kind: 'threat', desc: 'Dungeon foes strike 50% harder.',          dmgMul: 1.5 },
+  frenzied:  { id: 'frenzied',  name: 'Frenzied',  icon: '⚡', kind: 'threat', desc: 'Dungeon foes attack nearly twice as fast.', hitCdMul: 0.55 },
+  brutal:    { id: 'brutal',    name: 'Brutal',    icon: '💢', kind: 'threat', desc: 'Dungeon foes hit harder AND faster.',       dmgMul: 1.3, hitCdMul: 0.75 },
+  gilded:    { id: 'gilded',    name: 'Gilded',    icon: '🪙', kind: 'reward', desc: 'Gold hauls from the dungeon are doubled.',  goldMul: 2 },
+  bountiful: { id: 'bountiful', name: 'Bountiful', icon: '💰', kind: 'reward', desc: 'Every kill rolls an extra share of loot.',  lootExtraRolls: 1 },
+};
+function weeklyDungeonAffixes(now) {
+  const idx = legendaryWeekIndex(now != null ? now : Date.now());
+  const rand = mulberry32(((idx * 2246822519) ^ 0x9e3779b9) >>> 0);
+  const pool = Object.keys(DUNGEON_AFFIXES);
+  // Shuffle a copy and take two — a stable weekly pair for everyone.
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return [DUNGEON_AFFIXES[pool[0]], DUNGEON_AFFIXES[pool[1]]];
+}
+// Combined multipliers for the current week — consumed by the dungeon tick and
+// the loot grant. Cheap; recomputed on demand.
+function dungeonAffix() {
+  const m = { dmgMul: 1, hitCdMul: 1, goldMul: 1, lootExtraRolls: 0 };
+  for (const a of weeklyDungeonAffixes(Date.now())) {
+    if (a.dmgMul) m.dmgMul *= a.dmgMul;
+    if (a.hitCdMul) m.hitCdMul *= a.hitCdMul;
+    if (a.goldMul) m.goldMul *= a.goldMul;
+    if (a.lootExtraRolls) m.lootExtraRolls += a.lootExtraRolls;
+  }
+  return m;
+}
+function dungeonAffixPublic() {
+  return weeklyDungeonAffixes(Date.now()).map(a => ({ id: a.id, name: a.name, icon: a.icon, kind: a.kind, desc: a.desc }));
+}
+// Apply the week's reward affixes to a freshly-killed dungeon mob's loot.
+function applyDungeonLootAffix(t, preset) {
+  const af = dungeonAffix();
+  if (af.lootExtraRolls > 0 && t.pendingLoot) {
+    const tbl = LOOT_TABLES['dungeon_t' + t.tier] || dungeonLootTable(preset.xp);
+    for (let i = 0; i < af.lootExtraRolls; i++) t.pendingLoot.push(...rollPendingLoot(tbl));
+  }
+  if (af.goldMul !== 1 && t.pendingLoot) {
+    for (const d of t.pendingLoot) if (d.kind === 'gold') d.amount = Math.max(1, Math.round(d.amount * af.goldMul));
+  }
+}
 
 // ── Named dungeons (Session L) ──────────────────────────────────────────────
 // The four tiers are PLACES now, not numbers — each with a name, a lore
@@ -7991,13 +8041,13 @@ wss.on('connection', (ws, req) => {
       const sp = spawnWithJitter();
       player.x = sp.x; player.y = sp.y; player.room = room;
       player.roomLockUntil = Date.now() + 1500;
-      send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level });
+      send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
         const msp = spawnWithJitter();
         member.x = msp.x; member.y = msp.y; member.room = room;
         member.roomLockUntil = Date.now() + 1500;
-        send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level });
+        send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level, affixes: dungeonAffixPublic() });
       }
       return;
     }
@@ -9335,6 +9385,7 @@ global.__testHooks = {
   decorHarvestedAt, saveHarvests, persistExportBackups,
   // Session L systems
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
+  DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
   leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
