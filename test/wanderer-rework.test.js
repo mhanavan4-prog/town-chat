@@ -37,6 +37,9 @@ setTimeout(() => {
   const T = join('Quarry', 0); // a target to hit
   const A = join('Fang', 1);   // a werewolf attacker
   const now = () => Date.now();
+  // PvP is consent-based outside the Ember Wastes now — duel every pair so
+  // these ability checks hit the mechanics, not the consent gate.
+  for (const [a, b] of [[W, T], [W, A], [T, A]]) hooks.startDuel(a.p, b.p);
 
   // ── Deep Meditation: total immunity + can't attack while it holds ──
   cast(W, 'deep_meditation');
