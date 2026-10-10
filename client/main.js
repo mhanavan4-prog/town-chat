@@ -225,6 +225,13 @@ const KK = (() => {
     char3: 'kk/Knight.glb',         // Knight
     char4: 'kk/Rogue.glb',          // Wanderer
     char5: 'kk/Skeleton_Mage.glb',  // Necromancer — KayKit Skeletons pack (CC0). Ships no animations, so it borrows the Mage's clips at load (shared KayKit rig — see borrowAnims)
+    // The Necromancer's summoned undead + the skeleton staff prop (all CC0,
+    // same pack). The three skeleton bodies borrow clips like char5; the staff
+    // is a static prop socketed into the Necromancer's hand.
+    skel_minion:  'kk/Skeleton_Minion.glb',
+    skel_warrior: 'kk/Skeleton_Warrior.glb',
+    skel_rogue:   'kk/Skeleton_Rogue.glb',
+    skel_staff:   'kk/Skeleton_Staff.glb',
     bld_cafe:    'kk/bld/building_tavern_red.gltf',
     bld_library: 'kk/bld/building_church_blue.gltf',
     bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
@@ -292,8 +299,11 @@ const KK = (() => {
   function borrowAnims() {
     const donor = models.char0 && models.char0.animations && models.char0.animations.length ? models.char0.animations : null;
     if (!donor) return;
+    const skinned = (m) => { let y = false; m.scene.traverse(o => { if (o.isSkinnedMesh) y = true; }); return y; };
     for (const k of Object.keys(models)) {
-      if (models[k].animations && models[k].animations.length === 0) models[k].animations = donor;
+      // Only rigged (skinned) models borrow clips — a static prop like the
+      // staff has no bones and must stay animation-less.
+      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = donor;
     }
   }
 
@@ -5745,7 +5755,7 @@ const CHAR = {
 };
 // ── Humanoid builder constructed here (right after CHAR) so createHumanoid is
 // available to all the scene/mob/NPC constructions below. See client/humanoid.js. ──
-const { createHumanoid } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
+const { createHumanoid, createKayKitByKey } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
 const WALL_HEIGHT = 110;
 // Outdoor follow camera — pulled back ~10% (was back:165 height:125) so
 // more of the town/wilds is on screen at once. Indoor cams stay as-is:
@@ -7596,6 +7606,7 @@ const { applyMinionState, updateMinionVisuals, destroyMinions } = createMinions(
   getActiveScene: () => activeScene,
   getFloorHeight,
   getMe: () => me,
+  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
 });
 
 // ── Ember Wastes scene — extracted to client/ember-scene.js (Phase C 3D slice).
