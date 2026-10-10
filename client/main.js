@@ -7,6 +7,7 @@ import createAttacks from './attacks.js';
 import createBoard from './board.js';
 import createAchievements from './achievements.js';
 import createWorkshop from './workshop.js';
+import createMinions from './minions.js';
 import createWorldBoss from './worldboss.js';
 import createDelve from './delve.js';
 import createCoven from './coven.js';
@@ -196,7 +197,11 @@ const CHARACTER_PRESETS = [
   { name: 'Werewolf',  skin: 0xd4713c, hair: 0x8a3a10, hairStyle: 'wolf',    eye: 0xf5a623, shirt: 0xc4631a, pants: 0x5a2808 },
   { name: 'Mystic',     skin: 0xc98a5b, hair: 0x222222, hairStyle: 'long',     eye: 0x3c7a4f, shirt: 0x9b5fc0, pants: 0x1c1c2e },
   { name: 'Knight',     skin: 0xffe0c2, hair: 0xb0b0b0, hairStyle: 'buzz',     eye: 0x6f6f6f, shirt: 0x6f8fae, pants: 0x4a4a4a },
-  { name: 'Wanderer',   skin: 0x7a4a2f, hair: 0xe0e0e0, hairStyle: 'mohawk',   eye: 0xa57b3c, shirt: 0xc0596f, pants: 0x2f2f2f }
+  { name: 'Wanderer',   skin: 0x7a4a2f, hair: 0xe0e0e0, hairStyle: 'mohawk',   eye: 0xa57b3c, shirt: 0xc0596f, pants: 0x2f2f2f },
+  // charId 5: Necromancer — gaunt, grave-pale, hooded in deathly robes with a
+  // sickly green soul-glow in the eyes. charId 5 uses the Attacks panel
+  // (NECROMANCER_ATTACK_CATALOG) and alone can raise undead.
+  { name: 'Necromancer', skin: 0xcfc8bd, hair: 0x15121c, hairStyle: 'long',    eye: 0x7cff9a, shirt: 0x241b33, pants: 0x14101e }
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -659,6 +664,24 @@ const KNIGHT_ATTACK_CATALOG = {
     description: "Raise a ward over everyone around you — yourself included. While it holds, a Werewolf's Hunter's Read, Rapid Swipe and Scent Trail all fail against those you shelter: the record crumbles, the pockets vanish, the scent won't answer. The counter to the hunt." }
 };
 
+// Must stay in sync with NECROMANCER_ATTACK_CATALOG in server.js. charId 5 —
+// the summoner's kit: three tiers of undead that rise and fight until slain,
+// plus a life-draining strike, a bone ward, and a withering chill.
+const NECROMANCER_ATTACK_CATALOG = {
+  raise_skeleton:   { name: 'Raise Skeleton',    icon: '💀', kind: 'self', effect: 'summon',
+    description: 'Tear a Risen Skeleton up out of the ground. It hunts nearby foes and fights until it is cut down. Its strength grows with your level and your ritual rank.' },
+  raise_boneknight: { name: 'Raise Bone Knight', icon: '🦴', kind: 'self', effect: 'summon',
+    description: 'Raise a Bone Knight — a sturdier, harder-hitting undead. Answers at Level 7.' },
+  raise_wight:      { name: 'Raise Grave Wight', icon: '☠️', kind: 'self', effect: 'summon',
+    description: 'Call up a Grave Wight, the deadliest of your bound dead. Answers at Level 13.' },
+  life_siphon:      { name: 'Life Siphon',       icon: '🩸', kind: 'targeted', effect: 'leech',
+    description: 'Drain a target\'s life across the gap — the stolen vitality closes your own wounds.' },
+  bone_ward:        { name: 'Bone Ward',         icon: '🦴', kind: 'self', effect: 'status',
+    description: 'Lattice your body in bone — all damage against you is halved while it holds.' },
+  grave_chill:      { name: 'Grave Chill',       icon: '🥶', kind: 'targeted', effect: 'status',
+    description: 'Wither a foe with grave-cold — they take amplified damage from every source while it lasts (your undead love this).' },
+};
+
 // charId -> attack catalog the player can use. Drives both which characters
 // get the Attacks button at all and which catalog the panel renders from.
 // Every non-Witch class has a full kit now (the Witch's is SPELL_CATALOG).
@@ -666,7 +689,8 @@ const ATTACK_CATALOGS = {
   1: WEREWOLF_ATTACK_CATALOG,
   2: MYSTIC_ATTACK_CATALOG,
   3: KNIGHT_ATTACK_CATALOG,
-  4: WANDERER_ATTACK_CATALOG
+  4: WANDERER_ATTACK_CATALOG,
+  5: NECROMANCER_ATTACK_CATALOG
 };
 
 // Set when the server evicts this connection because the same account logged
@@ -1020,6 +1044,7 @@ function onWsMessage(ev) {
     applyTemplePortalState(!!msg.templePortalOpen);
     if (msg.emberMobs) applyEmberMobState(msg.emberMobs);
     applyWorldBossState(msg.worldBoss || null); // far-north Wilds mega-boss (null clears it)
+    applyMinionState(msg.minions || []); // the Necromancer's undead in this room
     if (msg.groundTraps) applyGroundTrapsState(msg.groundTraps);
     return;
   }
@@ -5970,6 +5995,7 @@ function emberHeightAt(x, z) {
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
 
 function setActiveContext(sceneObj, cameraObj, interiorRecord) {
+  if (sceneObj !== activeScene && typeof destroyMinions === 'function') destroyMinions(); // undead don't follow across scenes; the next state re-adds any in the new room
   activeScene = sceneObj;
   activeCamera = cameraObj;
   currentInterior = interiorRecord;
@@ -7546,6 +7572,15 @@ const { applyWorldBossState, updateWorldBossVisuals, worldBossVisualPos, worldBo
   createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
   getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,
   getWildsScene: () => wildsScene,
+});
+
+// ── The Necromancer's undead — minions rendered from wildlife_state.minions,
+// rising from the ground and crumbling when slain, in whatever room they're in.
+const { applyMinionState, updateMinionVisuals, destroyMinions } = createMinions({
+  createHumanoid, lerpAngle, makeHealthBarSprite, updateHealthBar,
+  getActiveScene: () => activeScene,
+  getFloorHeight,
+  getMe: () => me,
 });
 
 // ── Ember Wastes scene — extracted to client/ember-scene.js (Phase C 3D slice).
@@ -11484,6 +11519,7 @@ function update(dt) {
   updateDungeonMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updateWorldBossVisuals(dt);
+  updateMinionVisuals(dt);
   updatePortals(dt);
   updateManorEmbers(dt);
 
