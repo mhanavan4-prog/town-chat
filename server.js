@@ -2109,6 +2109,36 @@ function getProgress(player) {
   return charProgView(account, cp);
 }
 
+// Achievements / Collection Log (Session N) — a permanent per-account trophy
+// shelf built only on benign in-game tallies. The module is pure; this is the
+// one engine-side helper: claim any newly-earned trophies, persist, and
+// celebrate (private toast always, town shout for a capstone). Safe to call on
+// every relevant event — it no-ops unless a threshold was just crossed.
+const achievementsMod = require('./lib/achievements');
+function checkAchievements(player) {
+  if (!player || !player.ws) return;
+  let acc;
+  try { acc = getProgress(player); } catch (e) { return; }
+  const earned = achievementsMod.evaluate(acc);
+  if (!earned.length) return;
+  if (player.accountKey) saveProgress();
+  const view = achievementsMod.logView(acc);
+  for (const a of earned) {
+    send(player.ws, { type: 'achievement_unlocked', ach: a, unlocked: view.unlocked, total: view.total,
+      message: `🏆 Achievement unlocked — ${a.icon} ${a.name}: ${a.desc}` });
+  }
+  for (const a of earned) {
+    if (a.broadcast) broadcastAll({ type: 'announce', message: `🏆 ${player.name} earned the ${a.icon} ${a.name} trophy — ${a.desc}` });
+  }
+}
+// The Delver ladder reads a high-water mark rather than a running count, so the
+// Delve engine reports the depth reached on leave and this records the best.
+function noteDelveDepth(player, depth) {
+  if (!player || !(depth > 0)) return;
+  try { const dp = getProgress(player); achievementsMod.noteMax(dp, 'delveDeepest', depth); } catch (e) { return; }
+  checkAchievements(player);
+}
+
 // Award XP to a player, leveling up as many times as thresholds are crossed,
 // and broadcasting the change so their HUD updates immediately.
 function grantXP(player, amount) {
@@ -3534,6 +3564,7 @@ function registerHuntKill(player) {
   // lane too while the weekend window is open (Session L).
   lbBump('hunt', player, 1);
   { const kp = getProgress(player); kp.monstersSlain = (kp.monstersSlain || 0) + 1; } // benign lifetime tally for Hunter's Read
+  checkAchievements(player); // Slayer ladder
   if (tourneyWindow(now).active) lbBump('tourney', player, 1);
   player.huntStreak = (player.lastHuntKillAt && now - player.lastHuntKillAt <= STREAK_WINDOW_MS)
     ? (player.huntStreak || 1) + 1 : 1;
@@ -4492,6 +4523,8 @@ const leaderboardsMod = require('./lib/leaderboards')({ dataDir: DATA_DIR, persi
 const { leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, LB_BOARDS } = leaderboardsMod;
 function noteBossKill(player, mob) {
   lbBump('boss', player, 1);
+  { const bp = getProgress(player); bp.bossKills = (bp.bossKills || 0) + 1; } // lifetime tally for the Boss-Breaker ladder
+  checkAchievements(player);
 }
 function boardStatePayload(player) {
   lbSettleClosedWeeks();
@@ -4600,7 +4633,7 @@ setInterval(() => {
 const parties = new Map();
 const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
-const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib });
+const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth });
 const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTakenMult, delveMendingBonus, delveStart, delveLeave, tickDelves, noteDelveKill, delveMenuPayload, delveRunOf, allDelveMobs, delveSpawnFloor, delveStatePayloadFor, delveBroadcast, DELVE_MODS, DELVE_BOONS } = delveMod;
 
 // ── Covens ───────────────────────────────────────────────────────────────────
@@ -5421,6 +5454,7 @@ function veiled(p) { return !!(p && p.veiledUntil && p.veiledUntil > Date.now())
 function noteDeath(victim) {
   if (!victim) return;
   try { const p = getProgress(victim); p.deaths = (p.deaths || 0) + 1; } catch (e) {}
+  checkAchievements(victim); // Survivor ladder — scars worn as honors
 }
 
 const WEREWOLF_ATTACK_CATALOG = {
@@ -6796,6 +6830,8 @@ wss.on('connection', (ws, req) => {
       }
       player.lastSnapAt = now;
       { const sp = getProgress(t); sp.timesSnapped = (sp.timesSnapped || 0) + 1; } // benign tally for Hunter's Read
+      { const pp = getProgress(player); pp.photosTaken = (pp.photosTaken || 0) + 1; } // Shutterbug ladder (the photographer)
+      checkAchievements(player);
       // Consent trail: who photographed whom, and whom they appeared to be.
       audit.log({ level: 'info', type: 'snapshot_taken', ip: ws._ip, account: player.accountKey || null, name: player.name,
         detail: { targetName: t.name, targetAccount: t.accountKey || null, shownAs: (t.disguise ? t.disguise.name : t.name), room: player.room } });
@@ -7457,6 +7493,8 @@ wss.on('connection', (ws, req) => {
       if (player.accountKey) saveInventories();
       myHarvests[decorId] = Date.now();
       saveHarvests(harvestKeyFor(player));
+      { const hp = getProgress(player); hp.harvests = (hp.harvests || 0) + 1; } // Forager ladder
+      checkAchievements(player);
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       // Holly Wood (tree harvests) tracks progress toward the Holly Wand —
       // 5 build one at the craft_wand handler below.
@@ -7845,6 +7883,7 @@ wss.on('connection', (ws, req) => {
             // winning roll (e.g. a full inventory still blocks addItemToAccount
             // above, and that shouldn't reward practice you didn't actually get).
             prog.pickpocketSuccesses++;
+            checkAchievements(player); // Cutpurse ladder
             const newLevel = pickpocketLevelForSuccesses(prog.pickpocketSuccesses);
             if (newLevel > skillLevel) {
               const newChance = Math.round(pickpocketChanceForLevel(newLevel, attack.stealChance) * 100);
@@ -8135,6 +8174,13 @@ wss.on('connection', (ws, req) => {
     // ── Session L: the town board ───────────────────────────────────────────
     if (msg.type === 'board_state') {
       send(ws, boardStatePayload(player));
+      return;
+    }
+
+    // ── Session N: the collection log (achievements) ─────────────────────────
+    if (msg.type === 'achievements_state') {
+      let acc; try { acc = getProgress(player); } catch (e) { acc = null; }
+      send(ws, { type: 'achievements_state', ...achievementsMod.logView(acc) });
       return;
     }
 
@@ -9392,6 +9438,8 @@ global.__testHooks = {
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
+  // Session N: achievements / collection log
+  achievementsMod, checkAchievements, noteDelveDepth, noteBossKill,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
