@@ -867,7 +867,7 @@ const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
 for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
 Object.assign(HARVEST_ITEM_BY_TYPE, WILDS_FLORA_HARVEST); // trees & bushes -> their harvest materials
-const HARVEST_RANGE = 70;
+const HARVEST_RANGE = 90; // reach for both click- and F-to-harvest (client F reaches ≤80, so a prompt always gathers)
 // Regrowth is PER PLAYER now. It used to be one global timer per plant —
 // with the 24-hour regrow, the first player of the evening stripped the
 // Wilds bare for everyone else (a second Werewolf literally could not
@@ -5358,7 +5358,7 @@ const EMBER_NODE_TYPES = {
   emberbloom:  { name: 'Emberbloom',       itemId: 'emberbloom', qtyMin: 1, qtyMax: 2, xp: 10, respawnMs: 50 * 1000 },
   cinder_salt: { name: 'Cinder-Salt Vein', itemId: 'cinder_salt', qtyMin: 1, qtyMax: 3, xp: 8,  respawnMs: 65 * 1000 },
 };
-const EMBER_HARVEST_RANGE = 130;
+const EMBER_HARVEST_RANGE = 170; // ≥ the client's interact-hint radius (150) so any vein showing "gather" actually gathers
 const EMBER_NODES = (() => {
   const rng = mulberry32(0x0defaced);
   const out = [];

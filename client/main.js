@@ -2077,8 +2077,8 @@ function onWsMessage(ev) {
     // interact kiosks in (survives every EMBER_KIOSKS rebuild via the setter).
     emberNodeKiosks = setEmberNodeDefs(msg.nodes || []);
     if (msg.greeting) {
+      // Center ceremony only — the top toast banner was redundant with this.
       showChapterCeremony('🔥 The Ember Wastes', 'An open PvP battleground — anyone may strike you. The portal is the only way out, and it closes with the torches.');
-      setUnlockToast(msg.greeting);
     }
     return;
   }
@@ -7611,7 +7611,6 @@ const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
 const { setNodeDefs: setEmberNodeDefs, applyNodeStates: applyEmberNodeStates, updateNodeVisuals: updateEmberNodeVisuals } = createEmberNodes({
   getEmberScene: () => emberScene,
   emberHeightAt,
-  makeNpcNameSprite,
 });
 
 // Announce a landmark the first time the player wanders into its reach this
@@ -7623,8 +7622,8 @@ function checkEmberLandmarkDiscovery() {
     if (Math.hypot(me.x - lm.x, me.y - lm.y) > lm.radius) continue;
     emberDiscovered[lm.id] = true;
     const icon = lm.warlord ? '⚔️' : '📍';
-    if (lm.warlord) showChapterCeremony(`${icon} ${lm.name}`, lm.blurb || 'The warlord of the wastes holds this place.');
-    setUnlockToast(`${icon} ${lm.name} — ${lm.blurb || ''}`);
+    // Center popup only — no top banner (matches the entry greeting).
+    showChapterCeremony(`${icon} ${lm.name}`, lm.blurb || (lm.warlord ? 'The warlord of the wastes holds this place.' : ''));
   }
 }
 
@@ -10814,6 +10813,29 @@ if (interactHintEl) {
   interactHintEl.addEventListener('click', tryInteract);
 }
 
+// F-to-harvest for town/Wilds plants — the same key that gathers Ember Wastes
+// veins and works every other kiosk, so "walk up + press F" is the one gather
+// verb everywhere (clicking a plant still works too). Returns the nearest ripe,
+// available harvestable decor's id within reach, or null.
+const HARVEST_F_REACH = 80; // ≤ server HARVEST_RANGE (90), so anything in reach actually gathers
+function nearestHarvestableDecor() {
+  if (!me) return null;
+  let pool = null;
+  if (activeScene === wildsScene || me.room === 'wilds') pool = decorVisuals2;
+  else if (activeScene === outdoorScene || me.room === 'outside') pool = decorVisuals;
+  else return null;
+  let best = null, bestD = HARVEST_F_REACH;
+  for (const id in pool) {
+    const v = pool[id];
+    if (!v || v.harvested || !HARVESTABLE_DECOR_TYPES.has(v.type)) continue;
+    if (decorAvailability[id] === false) continue;
+    const p = v.group.position;
+    const d = Math.hypot(me.x - p.x, me.y - p.z);
+    if (d < bestD) { bestD = d; best = id; }
+  }
+  return best;
+}
+
 function tryInteract() {
   if (!me) return;
   if (seatedAt) { standUp(); return; }
@@ -10872,7 +10894,16 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
-  if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); }
+  if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
+  // Fallback: no kiosk here — try to gather the nearest ripe plant.
+  const decorId = nearestHarvestableDecor();
+  if (decorId) {
+    const nowH = Date.now();
+    if (!(decorId === _lastHarvestId && nowH - _lastHarvestAt < 1500)) {
+      _lastHarvestId = decorId; _lastHarvestAt = nowH;
+      ws.send(JSON.stringify({ type: 'harvest', decorId }));
+    }
+  }
 }
 
 // The hint doubles as a tap target on touch devices — see the
@@ -11076,6 +11107,12 @@ function updateInteractHint() {
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} view Town Pass`;
+    return;
+  }
+  // No kiosk — prompt to harvest if a ripe plant is in reach.
+  if (nearestHarvestableDecor()) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} harvest`;
     return;
   }
   hint.classList.add('hidden');
