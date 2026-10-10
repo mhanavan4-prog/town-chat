@@ -4375,27 +4375,40 @@ setInterval(() => {
   const isNight = isNightNow();
   const traps = groundTrapsPublicState();
   const portalOpen = templePortalOpen();
+  const EMPTY = [];
+  // Occupancy gate: only build the entity pools for room-kinds that actually
+  // have someone in them this tick. At a launch crowd (everyone in town / the
+  // Wilds) this skips rebuilding the Ember Wastes', the dungeons' and the
+  // unused zones' arrays 6-7×/second — the pools are only ever read for an
+  // occupied room anyway (see wildlifeFor), so an unused one stays EMPTY.
+  let hasOutside = false, hasWilds = false, hasEmber = false, hasDungeon = false;
+  for (const p of players.values()) {
+    const r = p.room;
+    if (r === 'outside') hasOutside = true;
+    else if (r === 'wilds') hasWilds = true;
+    else if (r === 'ember_wastes') hasEmber = true;
+    else if (r && r.startsWith('dungeon_')) hasDungeon = true;
+  }
   const P = {
-    animals: animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })),
-    mobs: mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    animals2: animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead })),
-    mobs2: mobs2.map(m => {
+    animals: hasOutside ? animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })) : EMPTY,
+    mobs: hasOutside ? mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    animals2: hasWilds ? animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead })) : EMPTY,
+    mobs2: hasWilds ? mobs2.map(m => {
       const p = MOB2_TYPES[m.mobType];
       // Hide a Barrow Maw while it's still buried, and Old Marrowe on any
       // ordinary (non-Blood-Moon) night — the client draws neither until they're real.
       const hidden = (p.buried && !m.emerged) || (p.bloodMoonOnly && !bloodMoonActive());
       return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
-    }),
-    mobs3: mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    dungeon: [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    village: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
-    torchNpcs: torchNpcPublicState(),
-    torches: townTorchPublicState(),
-    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, boss: !!m.boss, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
-    emberNodes: emberNodeStates(now),
-    worldBoss: worldBossPublic() // null unless a world boss is up in the Wilds
+    }) : EMPTY,
+    mobs3: hasWilds ? mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    dungeon: hasDungeon ? [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    village: hasOutside ? villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })) : EMPTY,
+    torchNpcs: hasOutside ? torchNpcPublicState() : EMPTY,
+    torches: hasOutside ? townTorchPublicState() : EMPTY,
+    ember: hasEmber ? emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, boss: !!m.boss, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    emberNodes: hasEmber ? emberNodeStates(now) : EMPTY,
+    worldBoss: hasWilds ? worldBossPublic() : null // null unless a world boss is up in the Wilds
   };
-  const EMPTY = [];
   const wildlifeFor = (room) => {
     const o = {
       type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
@@ -9880,15 +9893,34 @@ wss.on('connection', (ws, req) => {
 // target (client/main.js ~10573), so the eased 70ms -> 120ms cadence stays
 // visually smooth. Measured effect in a busy 20-room: ~75% less egress.
 const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-id string
-setInterval(() => {
+// The position broadcast is CPU-bound on one core (serialize + a send per
+// player), so two measured levers keep a launch crowd smooth:
+//   1. ONE serialization per player per tick — the fragment string is both the
+//      change signature and the payload piece (snapshots are joined from
+//      fragments, never re-serialized), so a crowded room stops stringifying
+//      each record twice.
+//   2. Crowded channels drop to HALF cadence (~240ms). The client interpolates
+//      remote players, so the lower rate is invisible, but it hands half the
+//      broadcast's tick budget back to the world/wildlife loop — which is what
+//      was actually falling behind under load. A crowded channel sends the FULL
+//      roster on its emit ticks (not a delta) so a skipped tick never swallows
+//      a move. Normal rooms are completely unchanged (full-rate delta stream).
+// (A per-recipient area-of-interest cull was tried and measured WORSE here: it
+//  builds a distinct payload per player, which costs more CPU/GC than the bytes
+//  it saves on one box. Left out on purpose.)
+const CROWD_THRESHOLD = parseInt(process.env.CROWD_THRESHOLD, 10) || 60;
+let _stateTick = 0;
+function broadcastPlayerState() {
   if (players.size === 0) { _roomMemberSig.clear(); return; }
+  _stateTick++;
   const byRoom = new Map();
   for (const p of players.values()) {
     const pub = publicPlayer(p);
-    const sig = JSON.stringify(pub);
+    const frag = JSON.stringify(pub);
     p._pubCache = pub;
-    p._pubChanged = (sig !== p._lastPubSig);
-    p._lastPubSig = sig;
+    p._pubFrag = frag;
+    p._pubChanged = (frag !== p._lastPubSig);
+    p._lastPubSig = frag;
     // Group by room AND instance, so a coven's private copy of a room is its
     // own firehose — public players and private players never see each other.
     const chan = p.room + '\u0000' + (p.instance || '');
@@ -9901,14 +9933,28 @@ setInterval(() => {
     const memberSig = arr.map(p => p.id).sort().join(',');
     const membershipChanged = _roomMemberSig.get(chan) !== memberSig;
     _roomMemberSig.set(chan, memberSig);
+
+    if (arr.length > CROWD_THRESHOLD) {
+      // Crowded: full roster at half cadence. Skip every other tick (but keep
+      // membership bookkeeping current, done above) — on the membership-change
+      // tick, always emit so arrivals/departures still land promptly.
+      if (!membershipChanged && (_stateTick & 1)) continue;
+      const snap = '{"type":"state","players":[' + arr.map(p => p._pubFrag).join(',') + ']}';
+      for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
+      continue;
+    }
+
+    // Normal: full room on a membership change, else only the changed players —
+    // one shared snapshot, assembled from the pre-serialized fragments.
     const toSend = membershipChanged ? arr : arr.filter(p => p._pubChanged);
     if (toSend.length === 0) continue;
-    const snap = JSON.stringify({ type: 'state', players: toSend.map(p => p._pubCache) });
+    const snap = '{"type":"state","players":[' + toSend.map(p => p._pubFrag).join(',') + ']}';
     for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
   }
   // Drop bookkeeping for channels that emptied this tick.
   for (const chan of _roomMemberSig.keys()) if (!seenChans.has(chan)) _roomMemberSig.delete(chan);
-}, 120);
+}
+setInterval(broadcastPlayerState, 120);
 
 // Low-rate reconciliation: every client learns the full roster of ITS OWN
 // instance (who's online + which room they're in) for counts, recipient lists
@@ -9984,6 +10030,7 @@ global.__testHooks = {
   sessions, covenInvites, resumeStashes, passwordResets,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
+  broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)

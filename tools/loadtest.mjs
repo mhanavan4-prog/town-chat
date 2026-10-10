@@ -38,6 +38,12 @@ const ROOM = arg('room', 'outside');
 const PORT = parseInt(arg('port', '4399'), 10);
 const MOVE_HZ = parseInt(arg('movehz', '5'), 10); // moves per bot per second (a real walking player)
 const CHAR_COUNT = 6;
+// Spread the swarm across the real room so area-of-interest behaves as it would
+// live (a corner-packed swarm would all sit inside one view radius and hide the
+// effect). Override with --spread W,H.
+const ROOM_SPREAD = { outside: [3200, 2200], wilds: [10000, 10000], ember_wastes: [20000, 20000] };
+const spreadArg = arg('spread', null);
+const [SPREAD_W, SPREAD_H] = spreadArg ? spreadArg.split(',').map(Number) : (ROOM_SPREAD[ROOM] || [1900, 1900]);
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -67,8 +73,8 @@ class Bot {
   constructor(id) {
     this.id = id;
     this.name = 'bot_' + id + '_' + Math.random().toString(36).slice(2, 6);
-    this.cx = 400 + Math.random() * 1200;
-    this.cy = 400 + Math.random() * 1200;
+    this.cx = Math.random() * SPREAD_W;
+    this.cy = Math.random() * SPREAD_H;
     this.lastFrameAt = 0;
     this.gaps = [];
     this.joined = false;
@@ -100,8 +106,8 @@ class Bot {
   move() {
     if (this.dead || this.ws.readyState !== WebSocket.OPEN) return;
     // Small random walk — well under the teleport-anomaly threshold.
-    this.cx = Math.max(60, Math.min(1900, this.cx + (Math.random() - 0.5) * 70));
-    this.cy = Math.max(60, Math.min(1900, this.cy + (Math.random() - 0.5) * 70));
+    this.cx = Math.max(20, Math.min(SPREAD_W - 20, this.cx + (Math.random() - 0.5) * 70));
+    this.cy = Math.max(20, Math.min(SPREAD_H - 20, this.cy + (Math.random() - 0.5) * 70));
     this.ws.send(JSON.stringify({ type: 'move', x: this.cx, y: this.cy, room: ROOM }));
   }
   close() { try { this.ws.close(); } catch {} }
