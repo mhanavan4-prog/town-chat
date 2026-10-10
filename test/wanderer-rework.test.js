@@ -65,9 +65,12 @@ setTimeout(() => {
   check('attacks slip past a featherlight Wanderer', W.p.health === whp2 && /slips the blow|echo/.test((A.s.lastOfType('attack_error') || {}).message || ''), { hp: W.p.health, err: A.s.lastOfType('attack_error') });
 
   // ── Shadow Owls: real damage + the swarm visual ──
-  T.p.health = 100; T.p.activeStatus = null;
+  // (Base is 22–38, but applyDamage adds the attacker's offense stat on top,
+  // so assert a meaningful drop rather than an exact band. High starting HP
+  // keeps the target alive through both hits for the root check below.)
+  T.p.health = 300; T.p.activeStatus = null;
   cast(W, 'shadow_owls', T.p.id);
-  check('Shadow Owls deal real damage', T.p.health < 100 && T.p.health >= 62, T.p.health);
+  check('Shadow Owls deal real damage', T.p.health < 300 && T.p.health >= 250, T.p.health);
   check('Shadow Owls leave the swarm circling (bats status)', T.p.activeStatus && T.p.activeStatus.type === 'bats', T.p.activeStatus);
 
   // ── Heavy Pack: damage + root ──
