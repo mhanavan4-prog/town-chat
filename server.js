@@ -3173,7 +3173,7 @@ function reverseGeocodeCoarse(lat, lon) {
 // Must match CHARACTER_PRESETS.length in client.js — the server doesn't
 // know or care what the presets actually look like, it just needs to
 // validate the index a client claims and relay it to everyone else.
-const CHARACTER_COUNT = 5;
+const CHARACTER_COUNT = 6;
 
 function publicPlayer(p) {
   // activeStatus is only ever included while still live — expired ones are
@@ -4352,6 +4352,7 @@ setInterval(() => {
   updateTemplePortalState();
   tickTorchHealing(dt);
   tickEmberWastes(dt);
+  tickMinions(dt);
   tickGroundTraps(now);
   if (players.size === 0) return;
   // ROOM-SCOPED wildlife: build each mob pool once, then hand every player
@@ -4386,12 +4387,13 @@ setInterval(() => {
     const o = {
       type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
       animals: EMPTY, mobs: EMPTY, animals2: EMPTY, mobs2: EMPTY, mobs3: EMPTY,
-      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, worldBoss: null
+      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, worldBoss: null, minions: EMPTY
     };
     if (room === 'outside') { o.animals = P.animals; o.mobs = P.mobs; o.villageNpcs = P.village; o.torchNpcs = P.torchNpcs; o.torches = P.torches; }
     else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; o.worldBoss = P.worldBoss; }
     else if (room && room.startsWith('dungeon_')) { o.dungeonMobs = P.dungeon.filter(m => m.room === room); }
     else if (room === 'ember_wastes') { o.emberMobs = P.ember; }
+    o.minions = minionsInRoom(room); // the Necromancer's undead live in whatever room their summoner is in
     return o;
   };
   const cache = new Map();
@@ -5394,6 +5396,129 @@ function tickEmberWastes(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The Necromancer's undead (Session N) — summoned minions that erupt from the
+// ground, hunt nearby hostiles, fight until slain, and crumble. The owner's
+// power drives them: every blow a minion lands is routed through applyDamage
+// with the OWNER as attacker, so kills credit the owner (XP, loot, boards,
+// achievements) and PvP rules (duels / Ember Wastes) apply exactly as if the
+// owner swung — no re-implementation. Mobs the minion is fighting hit back, so
+// a skeleton genuinely dies to a tough foe. Summon strength grows on two axes:
+// the caster's level (base stats) and their NECRO RANK (the ritual questline,
+// PR2 — read here, defaults 0), which multiplies health/damage and raises the
+// active cap.
+const MINION_RISE_MS = 900;        // the claw-out-of-the-ground animation window (no acting yet)
+const MINION_LIFESPAN_MS = 95000;  // a safety cap so an orphaned binding always cleans up
+const MINION_CRUMBLE_MS = 1200;    // how long the collapse animation lingers before removal
+const MINION_SEARCH = 760;         // how far an undead will range to find a foe
+const MINION_LEASH = 520;          // how far it strays from its summoner with no target
+const SUMMON_TYPES = {
+  skeleton:    { name: 'Risen Skeleton', tier: 1, requiresLevel: 1,  baseHp: 70,  dmgMin: 8,  dmgMax: 14, speed: 150, strikeRange: 62, hitCooldownMs: 1400 },
+  bone_knight: { name: 'Bone Knight',    tier: 2, requiresLevel: 7,  baseHp: 140, dmgMin: 14, dmgMax: 22, speed: 130, strikeRange: 70, hitCooldownMs: 1600 },
+  grave_wight: { name: 'Grave Wight',    tier: 3, requiresLevel: 13, baseHp: 220, dmgMin: 22, dmgMax: 34, speed: 120, strikeRange: 76, hitCooldownMs: 1700 },
+};
+function necroRank(player) { try { const v = getProgress(player).necroRank; return typeof v === 'number' && v > 0 ? v : 0; } catch (e) { return 0; } }
+function minionCap(player) { return 2 + (necroRank(player) >= 2 ? 1 : 0) + (necroRank(player) >= 4 ? 1 : 0); } // 2 → up to 4
+function summonStats(type, level, rank) {
+  const s = SUMMON_TYPES[type];
+  const lvlMul = 1 + 0.05 * Math.max(0, level - 1);
+  const rankHp = 1 + 0.12 * rank, rankDmg = 1 + 0.10 * rank;
+  return {
+    maxHealth: Math.round(s.baseHp * lvlMul * rankHp),
+    dmgMin: Math.max(1, Math.round(s.dmgMin * lvlMul * rankDmg)),
+    dmgMax: Math.max(2, Math.round(s.dmgMax * lvlMul * rankDmg)),
+    speed: s.speed, strikeRange: s.strikeRange, hitCooldownMs: s.hitCooldownMs,
+  };
+}
+let _minionSeq = 0;
+const minions = [];
+function ownerMinions(ownerId) { return minions.filter(m => m.ownerId === ownerId && !m.dead); }
+function clearMinions(ownerId) { const now = Date.now(); for (const m of minions) if (m.ownerId === ownerId && !m.dead) { m.dead = true; m.crumbleAt = now + MINION_CRUMBLE_MS; } }
+function raiseUndead(owner, type) {
+  const s = SUMMON_TYPES[type];
+  if (!s) return { ok: false, reason: 'unknown' };
+  const level = (getProgress(owner).level) || 1;
+  if (level < s.requiresLevel) return { ok: false, reason: 'level', requiresLevel: s.requiresLevel };
+  const mine = ownerMinions(owner.id);
+  if (mine.length >= minionCap(owner)) { const oldest = mine.sort((a, b) => a.bornAt - b.bornAt)[0]; if (oldest) { oldest.dead = true; oldest.crumbleAt = Date.now() + MINION_CRUMBLE_MS; } }
+  const st = summonStats(type, level, necroRank(owner));
+  const now = Date.now(), ang = owner.facing || 0;
+  const m = {
+    id: 'minion_' + (++_minionSeq), ownerId: owner.id, ownerName: owner.name, type, room: owner.room,
+    x: owner.x + Math.sin(ang) * 70, y: owner.y + Math.cos(ang) * 70, facing: ang,
+    health: st.maxHealth, maxHealth: st.maxHealth, dmgMin: st.dmgMin, dmgMax: st.dmgMax,
+    speed: st.speed, strikeRange: st.strikeRange, hitCooldownMs: st.hitCooldownMs,
+    bornAt: now, risenAt: now + MINION_RISE_MS, dead: false, crumbleAt: 0, lastHitAt: 0, lastHit: 0,
+  };
+  minions.push(m);
+  return { ok: true, minion: m, name: s.name };
+}
+function minionHostilePools(room) {
+  if (room === 'outside') return [[mobs, 'mob', () => MOB_MAX_HEALTH]];
+  if (room === 'wilds') return [[mobs2, 'mob2', (m) => (MOB2_TYPES[m.mobType] || {}).maxHealth || 60], [mobs3, 'mob3', (m) => (MOB3_TYPES[m.mobType] || {}).maxHealth || 60]];
+  if (room === 'ember_wastes') return [[emberMobs, 'ember_mob', (m) => (EMBER_MOB_TYPES[m.mobType] || {}).maxHealth || 80]];
+  if (room && room.startsWith('dungeon_')) return [[dungeonMobs, 'dungeon', (m) => dungeonMobMaxHealth(m)]];
+  return [];
+}
+function findMinionTarget(m) {
+  let best = null, bestType = null, bestHp = null, bestDist = MINION_SEARCH;
+  for (const [arr, type, hpFn] of minionHostilePools(m.room)) {
+    for (const mob of arr) {
+      if (mob.dead || (mob.room && mob.room !== m.room)) continue;
+      if (mob.emerged === false) continue; // a still-buried ambusher isn't a valid target yet
+      const d = Math.hypot(mob.x - m.x, mob.y - m.y);
+      if (d < bestDist) { bestDist = d; best = mob; bestType = type; bestHp = hpFn(mob); }
+    }
+  }
+  const owner = players.get(m.ownerId);
+  if (owner) for (const p of players.values()) {
+    if (p.id === m.ownerId || p.room !== m.room || p.isDead) continue;
+    if (!pvpAllowed(owner, p)) continue;
+    const d = Math.hypot(p.x - m.x, p.y - m.y);
+    if (d < bestDist) { bestDist = d; best = p; bestType = 'player'; bestHp = null; }
+  }
+  return best ? { target: best, targetType: bestType, maxHp: bestHp } : null;
+}
+function tickMinions(dt) {
+  const now = Date.now();
+  for (let i = minions.length - 1; i >= 0; i--) {
+    const m = minions[i];
+    if (m.dead) { if (now >= m.crumbleAt) minions.splice(i, 1); continue; }
+    const owner = players.get(m.ownerId);
+    if (!owner || owner.isDead || owner.room !== m.room || now - m.bornAt > MINION_LIFESPAN_MS) {
+      m.dead = true; m.crumbleAt = now + MINION_CRUMBLE_MS; continue;
+    }
+    if (now < m.risenAt) continue; // still clawing out of the ground
+    const found = findMinionTarget(m);
+    let vx = 0, vy = 0;
+    if (found) {
+      const t = found.target;
+      const dx = t.x - m.x, dy = t.y - m.y, dist = Math.hypot(dx, dy) || 1;
+      if (dist > m.strikeRange) { vx = dx / dist * m.speed; vy = dy / dist * m.speed; }
+      else if (!m.lastHitAt || now - m.lastHitAt >= m.hitCooldownMs) {
+        m.lastHitAt = now;
+        const dmg = m.dmgMin + Math.floor(Math.random() * (m.dmgMax - m.dmgMin + 1));
+        const res = applyDamage(owner, found.targetType, t.id, dmg, null); // owner swings through the minion
+        m.lastHit = now;
+        if (res && res.ok && found.maxHp && !res.dead) {
+          const recip = Math.max(5, Math.min(35, Math.round(found.maxHp * 0.07)));
+          m.health = Math.max(0, m.health - recip);
+          if (m.health <= 0) { m.dead = true; m.crumbleAt = now + MINION_CRUMBLE_MS; }
+        }
+      }
+    } else {
+      const dx = owner.x - m.x, dy = owner.y - m.y, dist = Math.hypot(dx, dy) || 1;
+      if (dist > MINION_LEASH * 0.4) { vx = dx / dist * m.speed * 0.7; vy = dy / dist * m.speed * 0.7; }
+    }
+    if (vx || vy) { m.x += vx * dt; m.y += vy * dt; m.facing = Math.atan2(vx, vy); }
+  }
+}
+function minionPublic(m) {
+  return { id: m.id, ownerId: m.ownerId, type: m.type, x: Math.round(m.x), y: Math.round(m.y), facing: m.facing,
+    health: m.health, maxHealth: m.maxHealth, dead: m.dead, risenAt: m.risenAt, lastHit: m.lastHit || 0 };
+}
+function minionsInRoom(room) { return minions.filter(m => m.room === room).map(minionPublic); }
+
 // A "sticky" state, not a pure function of the current instant — it opens
 // the moment all 4 torches are lit (same condition townTorchPublicState()
 // already reports per-torch, collapsed to one shared boolean), but during
@@ -5552,7 +5677,7 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 // Class display names (server-side) — the client has the full presets; the
 // server only needs the label, e.g. for the Werewolf's Hunter's Read card.
-const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer'];
+const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer', 'Necromancer'];
 // A Guardian's Veil is up on this player — the Knight's AoE ward that blanks
 // the Werewolf's covert attacks (Hunter's Read / Rapid Swipe / Scent Trail).
 function veiled(p) { return !!(p && p.veiledUntil && p.veiledUntil > Date.now()); }
@@ -5684,11 +5809,25 @@ const KNIGHT_ATTACK_CATALOG = {
 // charId -> attack catalog. cast_attack below looks itself up here instead
 // of hardcoding a single charId — every non-Witch class now has a full kit
 // (the Witch's equivalent is SPELL_CATALOG via cast_spell above).
+// The Necromancer (charId 5) — a summoner whose kit raises increasingly
+// stronger undead that fight for them. The three summon abilities are the
+// core (level-gated tiers); Life Siphon, Bone Ward and Grave Chill round out
+// the handler's own toolkit. Must stay in sync with the client duplicate.
+const NECROMANCER_ATTACK_CATALOG = {
+  raise_skeleton:   { name: 'Raise Skeleton',   kind: 'self', effect: 'summon', summonType: 'skeleton' },
+  raise_boneknight: { name: 'Raise Bone Knight', kind: 'self', effect: 'summon', summonType: 'bone_knight' },
+  raise_wight:      { name: 'Raise Grave Wight', kind: 'self', effect: 'summon', summonType: 'grave_wight' },
+  life_siphon:      { name: 'Life Siphon',      kind: 'targeted', effect: 'leech', dmgMin: 14, dmgMax: 22 },
+  bone_ward:        { name: 'Bone Ward',        kind: 'self', effect: 'status', statusType: 'ward', durationMs: 30000 },
+  grave_chill:      { name: 'Grave Chill',      kind: 'targeted', effect: 'status', statusType: 'wither', durationMs: 18000 },
+};
+
 const ATTACK_CATALOGS = {
   1: WEREWOLF_ATTACK_CATALOG,
   2: MYSTIC_ATTACK_CATALOG,
   3: KNIGHT_ATTACK_CATALOG,
-  4: WANDERER_ATTACK_CATALOG
+  4: WANDERER_ATTACK_CATALOG,
+  5: NECROMANCER_ATTACK_CATALOG
 };
 
 const ATTACK_COOLDOWN_MS = 8000;
@@ -7881,6 +8020,21 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'attack_result', message: `🪶 ${attack.name} — you go featherlight. For ${Math.round(attack.durationMs / 1000)}s blows slip past you and the wild loses your scent.` });
         return;
       }
+      // Raise Skeleton / Bone Knight / Grave Wight (Necromancer) — tear an
+      // undead up out of the ground to fight for you until it's slain. The
+      // stronger tiers are level-gated; your ritual rank empowers all of them.
+      if (attack.effect === 'summon') {
+        const r = raiseUndead(player, attack.summonType);
+        if (!r.ok) {
+          send(ws, { type: 'attack_error', message: r.reason === 'level'
+            ? `You aren't versed enough to raise that yet — it answers at Level ${r.requiresLevel}.`
+            : 'The rite fizzles.' });
+          return;
+        }
+        broadcastRoom(player.room, { type: 'minion_raised', minionId: r.minion.id, x: r.minion.x, y: r.minion.y, summonType: attack.summonType }, player.instance);
+        send(ws, { type: 'attack_result', message: `☠️ ${attack.name} — the earth splits and ${r.name} claws its way up to fight for you.` });
+        return;
+      }
 
       if (attack.effect === 'status') {
         for (const t of targets) {
@@ -9507,6 +9661,7 @@ wss.on('connection', (ws, req) => {
       covenVoiceLeave(player);
       delveLeave(player, 'disconnect');
       clearDuels(player); // drop any live duel / pending challenge
+      clearMinions(player.id); // crumble any raised undead
       // Stamp the away-clock for the "while you were gone" letter.
       if (player.accountKey) {
         try { getProgress(player).lastSeenAt = Date.now(); saveProgress(); } catch (e) {}
@@ -9633,6 +9788,8 @@ global.__testHooks = {
   // Session N: Ember Wastes zone + PvP policy / duels
   EMBER_WORLD_DIMS, EMBER_SPAWN, EMBER_SAFE_RADIUS, EMBER_MOB_TYPES, EMBER_MOB_SPAWNS, emberMobs,
   pvpAllowed, hasActiveDuel, startDuel, emberSafeZone, templePortalOpen,
+  // Session N: Necromancer + undead minions
+  SUMMON_TYPES, minions, raiseUndead, tickMinions, ownerMinions, clearMinions, minionsInRoom, necroRank, minionCap, summonStats, NECROMANCER_ATTACK_CATALOG,
   // Session N: the World Boss
   worldBossMod, tickWorldBoss, worldBossHit, worldBossPublic, worldBossWindow, nearestWildsPlayer,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,

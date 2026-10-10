@@ -52,7 +52,10 @@ setTimeout(() => {
   h.ensureBankAccount('ava').balance = 0;
   h.ensureBankAccount('ben').balance = 0;
 
-  const boss = WB._forceSpawn(0);
+  // Force the CURRENT window's boss (not a fixed index 0): tickWorldBoss reads
+  // the real clock, so using the live window makes the "slain-this-window"
+  // gate below deterministic regardless of where the wall-clock sits in the cycle.
+  const boss = WB._forceSpawn(h.worldBossWindow(Date.now()).index);
   check('a boss can be raised in the Hollow', !!boss && boss.health === boss.maxHealth, boss && boss.typeId);
   check('the public snapshot exposes the live boss', h.worldBossPublic() && h.worldBossPublic().id === 'worldboss');
 
@@ -89,7 +92,7 @@ setTimeout(() => {
     A.s.allOfType('achievement_unlocked').some(m => m.ach && m.ach.id === 'boss_1'));
 
   // ── Slain-this-window gating ──
-  WB.tickWorldBoss(0.1); // still inside window 0, but it was slain → must not respawn
+  WB.tickWorldBoss(0.1); // same (current) window, already slain → must not respawn
   check('a slain boss does not respawn in the same window', WB._getBoss() === null);
 
   console.log(`\n${pass} passed, ${fail} failed`);

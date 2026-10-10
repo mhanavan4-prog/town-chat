@@ -9,7 +9,7 @@ import { Modals } from './modals.js';
 export default function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown }) {
 let selectedAttackId = null;
 
-const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills' };
+const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills', 5: '☠️ Necromancer Rites' };
 
 function openAttackPanel() {
   cancelTargeting();
