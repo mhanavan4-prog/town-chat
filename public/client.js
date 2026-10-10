@@ -868,6 +868,98 @@ function renderAchModal() {
   return { openAchModal, closeAchModal, renderAchModal };
 }
 
+// ===== client/workshop.js =====
+// ---------------------------------------------------------------------------
+// The Artificer's Workshop (Session N) — the client face of the crafting TREE.
+// DI factory, same shape as the Collection Log / Town Board: open-state via the
+// Modals registry, recipe list pushed in `init` (getCraftRecipes), live item
+// counts read from the inventory state. Rows show every ingredient with a
+// have/need tally and only light the Craft button when the whole recipe is
+// satisfied — so the tree reads as a tree (Tier 1 feeds Tier 2 feeds Tier 3).
+// ---------------------------------------------------------------------------
+
+const STAT_LABEL = { power: 'Power', guard: 'Guard', vitality: 'Vitality', haste: 'Haste', swift: 'Swift', leech: 'Leech', xp: 'XP', forage: 'Forage' };
+
+function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats }) {
+function countItem(id) {
+  const st = getInventoryState();
+  const slots = (st && st.slots) || [];
+  let n = 0;
+  for (const s of slots) if (s && s.itemId === id) n += (s.qty || 1);
+  return n;
+}
+function statLine(itemId) {
+  const stats = (getEquipStats() || {})[itemId];
+  if (!stats) return '';
+  return Object.entries(stats).map(([k, v]) => {
+    const label = STAT_LABEL[k] || k;
+    return k === 'vitality' ? `+${v} ${label}` : `+${Math.round(v * 100)}% ${label}`;
+  }).join(' · ');
+}
+function openWorkshopModal() {
+  Modals.set('workshopModalOpen', true);
+  document.getElementById('workshopModal').classList.remove('hidden');
+  document.getElementById('workshopErr').textContent = '';
+  renderWorkshopModal();
+}
+function closeWorkshopModal() {
+  Modals.set('workshopModalOpen', false);
+  document.getElementById('workshopModal').classList.add('hidden');
+}
+function renderWorkshopModal() {
+  if (!Modals.isOpen('workshopModalOpen')) return;
+  const list = document.getElementById('workshopList');
+  if (!list) return;
+  const recipes = getCraftRecipes() || [];
+  const CAT = getItemCatalog() || {};
+  list.innerHTML = '';
+  if (!recipes.length) { list.innerHTML = '<div class="slNote">The workbench is bare — try again in a moment.</div>'; return; }
+  let lastCat = null;
+  for (const r of recipes) {
+    if (r.category !== lastCat) {
+      lastCat = r.category;
+      const head = document.createElement('div');
+      head.className = 'achCat';
+      head.textContent = r.category;
+      list.appendChild(head);
+    }
+    const out = CAT[r.result] || {};
+    let canCraft = true;
+    const chips = r.ingredients.map(ing => {
+      const have = countItem(ing.id);
+      const ok = have >= ing.qty;
+      if (!ok) canCraft = false;
+      const meta = CAT[ing.id] || {};
+      return `<span class="craftChip ${ok ? 'ok' : 'short'}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
+    }).join('');
+    const stats = statLine(r.result);
+
+    const row = document.createElement('div');
+    row.className = 'craftRow' + (canCraft ? ' ready' : '');
+    row.innerHTML =
+      `<div class="craftHead">
+         <span class="craftIcon">${out.icon || '🔨'}</span>
+         <span class="craftName">${out.name || r.result}</span>
+         <button class="craftBtn" ${canCraft ? '' : 'disabled'}>Craft</button>
+       </div>
+       ${stats ? `<div class="craftStats">${stats}</div>` : ''}
+       <div class="craftChips">${chips}</div>`;
+    row.querySelector('.craftBtn').addEventListener('click', () => {
+      if (!canCraft) return;
+      document.getElementById('workshopErr').textContent = '';
+      send({ type: 'workshop_craft', recipeId: r.id });
+    });
+    list.appendChild(row);
+  }
+}
+(function () {
+  const close = document.getElementById('workshopCloseBtn');
+  if (close) close.addEventListener('click', closeWorkshopModal);
+})();
+
+  return { openWorkshopModal, closeWorkshopModal, renderWorkshopModal };
+}
+
 // ===== client/delve.js =====
 // ---------------------------------------------------------------------------
 // The Weekly Delve UI (Tier 3.4 Phase C) — lobby, run view, boon draft + HUD.
@@ -13944,6 +14036,7 @@ function onWsMessage(ev) {
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
     if (msg.calendar) applyCalendarState(msg.calendar);
     if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
+    if (Array.isArray(msg.craftRecipes)) craftRecipesClient = msg.craftRecipes;
     if (msg.covenSigils) covenSigilsCatalog = msg.covenSigils;
     pushPublicKey = msg.pushPublicKey || null;
     pushAvailable = !!msg.pushAvailable;
@@ -14502,6 +14595,17 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'workshop_craft_result') {
+    setUnlockToast(msg.message || `🔨 Crafted ${msg.resultName || ''}`);
+    renderWorkshopModal(); // inventory_state (sent alongside) refreshes counts; redraw the tree
+    return;
+  }
+  if (msg.type === 'workshop_craft_error') {
+    const el = document.getElementById('workshopErr');
+    if (el) el.textContent = msg.message || 'That craft failed.';
+    return;
+  }
+
   if (msg.type === 'delve_state') {
     delveState = msg;
     delveSpeedMult = msg.inRun ? (msg.speedMult || 1) : 1;
@@ -14781,6 +14885,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
     if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the pack grid in sync
+    if (Modals.isOpen('workshopModalOpen')) renderWorkshopModal(); // crafting tree have/need counts
     applyMyEquipVisual(msg);
     return;
   }
@@ -15865,6 +15970,7 @@ let mySkillState = null;      // latest skill_state payload
 let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
+let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
@@ -22652,6 +22758,15 @@ const _ach = createAchievements({
 });
 const { openAchModal, closeAchModal, renderAchModal } = _ach;
 
+const _workshop = createWorkshop({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getCraftRecipes: () => craftRecipesClient,
+  getInventoryState: () => lastInventoryState,
+  getItemCatalog: () => ITEM_CATALOG,
+  getEquipStats: () => equipStatsCatalog,
+});
+const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
+
 // ── The Weekly Delve UI ──────────────────────────────────────────────────────
 const _delve = createDelve({
   getWs: () => ws,
@@ -22732,6 +22847,7 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
+  wire('menuWorkshop', openWorkshopModal);
   wire('menuAchievements', openAchModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);

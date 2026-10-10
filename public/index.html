@@ -1892,6 +1892,7 @@
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
+      <button class="menuRow" id="menuWorkshop">🔨 Workshop</button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
@@ -2146,6 +2147,19 @@
   .achRow.done .achBarFill { background:linear-gradient(90deg,#ffd27a,#c9a24a); }
   .achMeta { font-size:11px; color:#9a8ac0; white-space:nowrap; margin-left:auto; align-self:flex-start; }
   .achRow.done .achMeta { color:#c9a24a; }
+  /* The Artificer's Workshop — crafting tree rows */
+  .craftRow { padding:9px 11px; border-radius:11px; border:1px solid rgba(255,255,255,0.08); margin-bottom:6px; background:rgba(255,255,255,0.03); }
+  .craftRow.ready { border-color:#5ee7c0; background:linear-gradient(90deg,rgba(94,231,192,0.10),rgba(94,231,192,0.02)); }
+  .craftHead { display:flex; align-items:center; gap:10px; }
+  .craftIcon { font-size:22px; width:28px; text-align:center; }
+  .craftName { flex:1; color:#e8dcc8; font-weight:700; font-size:13.5px; min-width:0; }
+  .craftBtn { padding:5px 15px; background:#2b6b57; color:#d6ffe8; border:1px solid #5ee7c0; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700; }
+  .craftBtn[disabled] { background:transparent; color:#6a6482; border-color:#3a3550; cursor:not-allowed; }
+  .craftStats { color:#ffd9a0; font-size:11px; margin:4px 0 2px 38px; }
+  .craftChips { display:flex; flex-wrap:wrap; gap:5px; margin:5px 0 0 38px; }
+  .craftChip { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid transparent; }
+  .craftChip.ok { color:#9ee37d; background:rgba(158,227,125,0.10); border-color:rgba(158,227,125,0.3); }
+  .craftChip.short { color:#d79a9a; background:rgba(215,120,120,0.08); border-color:rgba(215,120,120,0.25); }
   /* Delve boon draft — big tappable cards over everything */
   #boonDraft { z-index:40; }
   #boonCards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:14px 0; }
@@ -2271,6 +2285,16 @@
     <div class="subtitle" id="achSummary">Your trophies — earned for deeds done across Thornreach.</div>
     <div class="slList" id="achList" style="max-height:56vh"></div>
     <button class="btn" id="achCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="workshopModal" class="overlay hidden">
+  <div class="card" id="workshopCard">
+    <div class="title" style="font-size:20px;">🔨 The Artificer's Workshop</div>
+    <div class="subtitle">Refine what you gather, forge it into gear, and temper the best into Starforged relics.</div>
+    <div class="slList" id="workshopList" style="max-height:54vh"></div>
+    <div class="slNote" id="workshopErr" style="color:#ff9a9a"></div>
+    <button class="btn" id="workshopCloseBtn">Close</button>
   </div>
 </div>
 
@@ -3054,6 +3078,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=f94ad71da3"></script>
+<script src="client.js?v=7083a6fb8d"></script>
 </body>
 </html>
