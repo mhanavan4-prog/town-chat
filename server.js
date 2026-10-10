@@ -1744,6 +1744,7 @@ function vulnerableMult(t) {
 // (mob strikes in each map's tick, plus applyDamage below) funnels through
 // here so the ward can't be bypassed by one forgotten call site.
 function absorbIncomingDamage(target, dmg) {
+  if (isImmune(target)) return 0; // Deep Meditation — all damage shrugged off (covers mob paths too)
   // 'ward' is the class-neutral twin of 'pumpkin': identical halving, no
   // jack-o'-lantern head — used by the non-Witch classes' defensive
   // abilities (Iron Pelt, Ethereal Veil, Oath of Iron, Packmule's Guard)
@@ -1798,6 +1799,9 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     // exactly why so the mechanic teaches itself.
     if (isEvading(t)) {
       return { ok: false, evaded: true, name: t.name };
+    }
+    if (isImmune(t)) {
+      return { ok: false, immune: true, name: t.name };
     }
     if (vulnerableMult(t) !== 1) dmg = Math.round(dmg * vulnerableMult(t)); // combo: debuffed targets take amplified damage
     dmg = absorbIncomingDamage(t, dmg);
@@ -3090,6 +3094,8 @@ function publicPlayer(p) {
     activeStatus: status, health: p.health, maxHealth: playerMaxHealth(p),
     level: p.level || 1, skillPoints: p.skillPoints || 0,
     isDead: !!p.isDead,
+    invisible: !!(p.invisibleUntil && p.invisibleUntil > Date.now()), // Nightwatch Cloak — hidden from other clients
+
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
     // state broadcast — the mask image itself is heavy (a data URL) and
     // is delivered exactly once per change via 'disguise_state', which
@@ -3571,6 +3577,12 @@ const SNAP_RANGE = 140;
 const SNAP_COOLDOWN_MS = 15000;
 function isEvading(p) {
   return p.evasionUntil && p.evasionUntil > Date.now();
+}
+// Deep Meditation (Wanderer) grants total damage immunity for its duration —
+// every incoming blow, PvP or mob, is shrugged off. The trade is that a
+// meditating player can't attack (enforced in cast_attack / strike).
+function isImmune(p) {
+  return !!(p && p.invulnUntil && p.invulnUntil > Date.now());
 }
 function noteAttacked(p) {
   p.lastAttackedAt = Date.now();
@@ -5420,14 +5432,14 @@ const WANDERER_ATTACK_CATALOG = {
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
   echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
-  deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'status', statusType: 'meditate', durationMs: 60000 },
-  heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 20000 },
+  deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'meditate', durationMs: 60000 },
+  heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'damage', dmgMin: 12, dmgMax: 20, statusAfter: 'rooted', statusMs: 4000 },
   endless_road:       { name: 'Endless Road',        kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000 },
-  featherlight_pack:  { name: 'Featherlight Pack',   kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000 },
-  shadow_owls:        { name: 'Shadow Owls',         kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
+  featherlight_pack:  { name: 'Featherlight Pack',   kind: 'self', effect: 'evade', durationMs: 15000 },
+  shadow_owls:        { name: 'Shadow Owls',         kind: 'targeted', effect: 'damage', dmgMin: 22, dmgMax: 38, visualStatus: 'bats', visualMs: 6000 },
   wanderlust:         { name: 'Wanderlust',          kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
   campfire_tale:      { name: 'Campfire Tale',       kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000 },
-  nightwatch_cloak:   { name: "Nightwatch Cloak",    kind: 'self', effect: 'status', statusType: 'ravencloak', durationMs: 30000 },
+  nightwatch_cloak:   { name: "Nightwatch Cloak",    kind: 'self', effect: 'cloak', durationMs: 30000 },
   compass_trick:      { name: 'Compass Trick',       kind: 'targeted', effect: 'reveal' }
 };
 
@@ -7240,6 +7252,7 @@ wss.on('connection', (ws, req) => {
     const STRIKE_MIN_DMG = 8, STRIKE_MAX_DMG = 14;
     if (msg.type === 'strike') {
       if (player.isDead) return;
+      if (isImmune(player)) { send(ws, { type: 'attack_error', message: 'You are deep in meditation — you can’t attack until it lifts.' }); return; }
       const now = Date.now();
       if (player.lastStrikeAt && now - player.lastStrikeAt < STRIKE_COOLDOWN_MS) return;
       const targetType = msg.targetType;
@@ -7495,6 +7508,12 @@ wss.on('connection', (ws, req) => {
         return;
       }
       const now = Date.now();
+      // Deep Meditation is a defensive trance — immune, but you can't strike
+      // while it holds (the trade that keeps 60s of immunity fair).
+      if (isImmune(player)) {
+        send(ws, { type: 'attack_error', message: 'You are deep in meditation — you can’t attack until it lifts.' });
+        return;
+      }
       // Independent per-attack cooldown, same reasoning as spellCooldowns above.
       if (!player.attackCooldowns) player.attackCooldowns = {};
       const lastCastOfThis = player.attackCooldowns[attackId];
@@ -7548,10 +7567,19 @@ wss.on('connection', (ws, req) => {
         if (!result.ok) {
           send(ws, { type: 'attack_error', message: result.evaded
             ? `💨 ${result.name} slips the blow — their echo still hangs in the air!`
+            : result.immune
+            ? `🧘 ${result.name} is deep in meditation — your blow glances off, doing nothing.`
             : 'Pick a target first.' });
           return;
         }
         broadcastRoom(player.room, { type: 'attack_fx', attackId, casterId: player.id, targetId, targetType: atkTargetType }, player.instance);
+        // After-effects on a surviving PLAYER target: Heavy Pack roots them in
+        // place (statusAfter 'rooted'); Shadow Owls leave the swarm circling
+        // (visualStatus 'bats'). Cosmetic-or-control status rides on the hit.
+        if (atkTargetType === 'player' && !result.dead && (attack.statusAfter || attack.visualStatus)) {
+          const pt = players.get(targetId);
+          if (pt && !pt.isDead) pt.activeStatus = { type: attack.statusAfter || attack.visualStatus, expiresAt: now + (attack.statusMs || attack.visualMs || 8000) };
+        }
         let healedHint = '';
         if (attack.effect === 'leech' && !player.isDead) {
           const before = player.health;
@@ -7619,6 +7647,33 @@ wss.on('connection', (ws, req) => {
         broadcastRoom(player.room, { type: 'veil_fx', casterId: player.id, radius: AOE_RADIUS, durationMs: attack.durationMs }, player.instance);
         const n = targets.length;
         send(ws, { type: 'attack_result', message: `🛡️ Guardian's Veil settles over the ground — you${n ? ` and ${n} other${n === 1 ? '' : 's'}` : ' alone'} are hidden from the wolves' hunt.` });
+        return;
+      }
+
+      // Deep Meditation (Wanderer) — a 60s trance: total damage immunity
+      // (isImmune) plus the float visual. The no-attack cost is enforced above.
+      if (attack.effect === 'meditate') {
+        player.activeStatus = { type: 'meditate', expiresAt: now + attack.durationMs };
+        player.invulnUntil = now + attack.durationMs;
+        send(ws, { type: 'attack_result', message: `🧘 ${attack.name} — you settle into a deep trance. For ${Math.round(attack.durationMs / 1000)}s no blow can touch you — but you can’t strike while you meditate.` });
+        return;
+      }
+      // Nightwatch Cloak (Wanderer) — melt into the night: invisible to other
+      // players for 30s (publicPlayer carries the flag), keeping the cloak's
+      // speed. You still see yourself.
+      if (attack.effect === 'cloak') {
+        player.activeStatus = { type: 'ravencloak', expiresAt: now + attack.durationMs };
+        player.invisibleUntil = now + attack.durationMs;
+        send(ws, { type: 'attack_result', message: `🌌 ${attack.name} — you melt into the night, unseen for ${Math.round(attack.durationMs / 1000)}s.` });
+        return;
+      }
+      // Featherlight Pack (Wanderer) — shed every ounce of weight: evasion for
+      // 15s (isEvading), so attacks miss outright and roaming mobs lose your
+      // trail, with a burst of speed to slip away.
+      if (attack.effect === 'evade') {
+        player.evasionUntil = now + attack.durationMs;
+        player.activeStatus = { type: 'speedboost', expiresAt: now + attack.durationMs };
+        send(ws, { type: 'attack_result', message: `🪶 ${attack.name} — you go featherlight. For ${Math.round(attack.durationMs / 1000)}s blows slip past you and the wild loses your scent.` });
         return;
       }
 
