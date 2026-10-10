@@ -1797,6 +1797,12 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
   const _skillPower = outgoingDamageMult(player);
   if (_skillPower !== 1) dmg = Math.max(1, Math.round(dmg * _skillPower));
 
+  // The World Boss (Session N) — one shared pool, its own damage ledger and
+  // multi-winner payout; the module owns everything past the hit.
+  if (targetType === 'world_boss') {
+    return worldBossHit(player, dmg);
+  }
+
   if (targetType === 'player') {
     const t = players.get(targetId);
     if (!t || t.id === player.id || t.room !== player.room || t.isDead) return { ok: false };
@@ -4285,6 +4291,7 @@ setInterval(() => {
   lastWildlifeTick = now;
   tickWildlife(dt);
   tickWilds(dt);
+  tickWorldBoss(dt);
   tickVillageNpcs(dt);
   tickDungeon(dt);
   tickDelves(dt);
@@ -4319,17 +4326,18 @@ setInterval(() => {
     village: villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })),
     torchNpcs: torchNpcPublicState(),
     torches: townTorchPublicState(),
-    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) }))
+    ember: emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })),
+    worldBoss: worldBossPublic() // null unless a world boss is up in the Wilds
   };
   const EMPTY = [];
   const wildlifeFor = (room) => {
     const o = {
       type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
       animals: EMPTY, mobs: EMPTY, animals2: EMPTY, mobs2: EMPTY, mobs3: EMPTY,
-      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY
+      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, worldBoss: null
     };
     if (room === 'outside') { o.animals = P.animals; o.mobs = P.mobs; o.villageNpcs = P.village; o.torchNpcs = P.torchNpcs; o.torches = P.torches; }
-    else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; }
+    else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; o.worldBoss = P.worldBoss; }
     else if (room && room.startsWith('dungeon_')) { o.dungeonMobs = P.dungeon.filter(m => m.room === room); }
     else if (room === 'ember_wastes') { o.emberMobs = P.ember; }
     return o;
@@ -4642,6 +4650,19 @@ const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
 const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth });
 const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTakenMult, delveMendingBonus, delveStart, delveLeave, tickDelves, noteDelveKill, delveMenuPayload, delveRunOf, allDelveMobs, delveSpawnFloor, delveStatePayloadFor, delveBroadcast, DELVE_MODS, DELVE_BOONS } = delveMod;
+
+// ── The World Boss (Session N) ────────────────────────────────────────────────
+// A periodic public mega-boss in the far-north Wilds (the Blighted Hollow),
+// with one shared health pool and a multi-winner payout. Schedule is
+// deterministic from the clock; see lib/worldboss.js.
+const worldBossMod = require('./lib/worldboss')({
+  players, send, broadcastAll, broadcastRoom, broadcastHitFx,
+  nearestWildsPlayer, isEvading, absorbIncomingDamage, noteAttacked,
+  ensureBankAccount, saveBankAccounts, findConnectionByAccountKey,
+  grantXP, getInventory, addItemToAccount, saveInventories, inventoryStatePayload,
+  ITEM_CATALOG, lbBump, noteBossKill, mulberry32,
+});
+const { tickWorldBoss, worldBossHit, worldBossPublic, worldBossRenderPos, worldBossWindow } = worldBossMod;
 
 // ── Covens ───────────────────────────────────────────────────────────────────
 // Small, named, home-based — Diablo's Warbands minus everything else. Up to
@@ -9483,6 +9504,8 @@ global.__testHooks = {
   // Session N: achievements / collection log + the Artificer's Workshop
   achievementsMod, checkAchievements, noteDelveDepth, noteBossKill,
   CRAFT_RECIPES, CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPE_BY_ID,
+  // Session N: the World Boss
+  worldBossMod, tickWorldBoss, worldBossHit, worldBossPublic, worldBossWindow, nearestWildsPlayer,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
