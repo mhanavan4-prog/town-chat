@@ -144,8 +144,12 @@ function renderCovenModal() {
     log.innerHTML = '';
     for (const l of (getCovenState().log || []).slice().reverse()) {
       const row = document.createElement('div');
-      row.className = 'slRow';
-      row.textContent = `${l.who} ${l.action}`;
+      row.style.cssText = 'padding:7px 10px;margin:4px 0;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);font-size:12.5px;line-height:1.35;color:#ece3ff';
+      const who = document.createElement('b');
+      who.style.cssText = 'color:#9ee37d;font-weight:650';
+      who.textContent = l.who;
+      row.appendChild(who);
+      row.appendChild(document.createTextNode(' ' + l.action));
       log.appendChild(row);
     }
   }
