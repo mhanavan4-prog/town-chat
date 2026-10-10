@@ -107,7 +107,7 @@ try {
     const journalText = await page.$eval('#journalContent', el => el.textContent);
     check(`[char ${c.charId}] Journal shows "${c.storyTitle}"`, journalText.includes(c.storyTitle));
     check(`[char ${c.charId}] Journal shows Chapter 1 with a Begin button`,
-      journalText.includes('Chapter 1 of 6') && !!(await page.$('#journalBeginBtn')));
+      journalText.includes('Chapter 1 of 9') && !!(await page.$('#journalBeginBtn')));
     await page.evaluate(() => document.getElementById('journalBeginBtn').click());
     await page.waitForSelector('#storyTracker:not(.hidden)', { timeout: 3000 });
     check(`[char ${c.charId}] beginning a chapter shows the story tracker`, true);

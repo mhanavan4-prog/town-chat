@@ -300,7 +300,20 @@ const STORYLINES = {
       { id: 'w6', title: 'Brew the Severing Draught', objective: { type: 'craft_potion', target: 1, label: "Brew any potion at Hazel's cauldron" },
         intro: '"The seal doesn\'t need a hero, heir. It needs a WITCH — one who can stand at my cauldron and make the old recipes listen. Brew. Anything. The point isn\'t the potion; the point is that the cauldron accepts your hands as Circle hands. Then I can finally, FINALLY rest one of mine."',
         outro: 'The cauldron goes still as glass when you finish, and for one heartbeat you see six hands reflected in it — yours, Hazel\'s four… and one more, pressed against the other side of the surface, patient. Hazel exhales for what sounds like the first time in centuries. "Welcome to the Circle, Fifth Hand. The staff is yours. The watch is ours."',
-        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_staff', qty: 1 }] }
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_staff', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'w7', title: 'The Crack Runs Deeper', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'Hazel finds you at the cauldron, ash-gray. "The seal held — but a held seal is a dammed river. The pressure went DOWN, heir. It has carved a throat into the earth beneath the Wilds, and the Circle has no eyes down there. Take the Delve. Go as deep as the dark lets you, and count what is waiting."',
+        outro: 'Floor five, and the walls stop being stone — they are pressed flat with handprints, thousands overlapping, all reaching up. Hazel\'s voice comes faint through the staff: "Those are the ones the Hollow took before the Circle. It is not clawing at the seal anymore. It is building a body."',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'w8', title: 'Wards Worth the Name', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"Croaking curses will not answer what is coming," Hazel says. "The old Circle did not fight the Hollow with spells — they fought it with THINGS. Warded things, forged with intent. Get to the Artificer\'s Workshop and make three. Any three. The making is the ward; the item is just where it settles."',
+        outro: 'Three workings leave your hands humming like struck bells. Hazel inspects them and, for the first time in five hundred years, almost smiles. "Circle work. Real Circle work. You did not inherit the watch, heir. You just earned it."',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'w9', title: "The Hollow's Face", objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'The body the Hollow built is finished. It has climbed into the Blighted Hollow in the far north, wearing a shape stolen from the Circle\'s own dead. "This is the fight the other four never got," Hazel says quietly. "A face to put the fear in. Rally the town, Fifth Hand. You are not holding a door this time — you are answering a knock."',
+        outro: 'It falls, and the handprints in the deep go still at last — not sealed, but satisfied, the way a tide finally turns. Hazel presses a blade into your grip, star-forged in a cauldron that has not cooled in five centuries. "Four of us got graves," she says. "You are going to get a long, loud life. See that you spend it watching."',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
   },
   1: {
@@ -330,7 +343,20 @@ const STORYLINES = {
       { id: 'b6', title: 'Break the Chain', objective: { type: 'kill_mob', target: 10, label: 'Destroy 10 corrupted creatures as the whole wolf' },
         intro: '"The curse thins every time the Hollow does," Hazel says. "Ten more. Not as a victim of the bite — as the first wolf in five hundred years who OWNS it. Break enough links and the chain forgets the shape of your family entirely."',
         outro: 'The tenth falls, and for a moment the moon looks… ordinary. Just a rock in the sky. The hunger is still there — it\'s yours now, not the Old Wolf\'s — and hanging from the last creature\'s throat, impossibly clean, is a fang you recognize from your dreams. It stopped choosing violence long ago. Now it chooses you.',
-        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'alpha_fang', qty: 1 }] }
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'alpha_fang', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'b7', title: 'Something Else Is Hunting', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'You own the curse now — which is exactly why the new scent terrifies you. It is not wolf. Dex meets you at the graveyard, knuckles white. "Whatever it is, it denned DOWN — under the Wilds, in the deep floors. Track it. You are the only nose in this valley that can tell the Hollow\'s stink from an honest kill."',
+        outro: 'Five floors down the scent resolves, and your stomach drops: it smells like the night of the First Bite, but WRONG — the Old Wolf\'s terror with nothing underneath it. "It is not alive," you tell Dex later. "It is a memory of a predator. And it is learning to walk."',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'b8', title: 'Silver and Steel', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"Teeth will not finish a memory," Dex says. "The old hunters forged against the Old Wolf — silvered their gear, warded their blades. There is an Artificer\'s bench in town now. Forge three pieces. A wolf that walks into the Hollow bare is a story that ends badly."',
+        outro: 'The forged gear settles on you like a second hide, and the wolf in your chest — yours, fully yours now — stops pacing. For the first time it is not straining toward the fight. It is waiting for your word.',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'b9', title: "The Hollow's Hound", objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'It has risen — in the Blighted Hollow, far north, a thing shaped like every wolf the Hollow ever corrupted stacked into one. Dex cannot follow where this goes. "This one is yours and the town\'s," he says. "Howl loud enough and they will come running. End the memory. Then maybe the valley forgets how to make monsters."',
+        outro: 'The last echo of the Old Wolf goes down under a dozen hands, yours deepest in its throat, and the moon overhead is just a moon. Hanging from its jaw is a blade forged in starlight and old silver — the hunters\' masterwork, finally claimed by the first wolf ever to go home after.',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
   },
   2: {
@@ -360,7 +386,20 @@ const STORYLINES = {
       { id: 'm6', title: 'The Last Séance', objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: "Hold the séance in Hazel's cave itself" },
         intro: '"Come down in person," Hazel says. "Five hundred years of messages passed through walls — I want ONE conversation face to face. Bring the voices with you; they\'ve earned seats. We\'re going to show the Hollow what a town full of dead friends looks like when it stands up."',
         outro: 'The séance in the cave is the loudest silence you\'ve ever heard: forty-two voices and one witch, all facing the sealed door in the dark, together. The Hollow scratches once — and stops. "It counts too," Hazel grins, handing you a cloak that moves like breath. "And it just realized it\'s outnumbered."',
-        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_cloak', qty: 1 }] }
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'shadow_cloak', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'm7', title: 'The Forty-Second Descends', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'The forty-second voice stops whispering from the floorboards and starts calling from BELOW — deep under the Wilds, in the Delve\'s lower dark. Elior grips your sleeve. "The dead do not go down there. Whatever she is following, she wants you to see it. Descend. Let her lead."',
+        outro: 'Five floors down the whispering becomes a chorus, and you finally understand what the forty-second voice has feared: the Hollow has been collecting the dead it takes, and down here it has enough of them to make something that was never born and cannot die.',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'm8', title: 'A Vessel for the Rite', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"A séance will not bind what is coming — it needs a VESSEL," the forty-second voice says, clearer now. "Something forged, something that will hold. The Artificer keeps a bench in town. Make three things with steady hands. The dead will fill what you forge."',
+        outro: 'The three pieces go cold in your grip the moment they are done — cold the way a held hand goes cold — and forty-one voices sigh in relief. The forty-second just says: "Good. Now I have somewhere to put myself when this is over."',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'm9', title: 'The Unburied Thing', objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'It has climbed into the Blighted Hollow, far to the north — the Hollow\'s harvest of the dead, wearing all forty-one stolen faces at once. "This is the thing I was warning you about since the first whisper," the forty-second voice says. "Gather the living. Put the dead to rest the loud way."',
+        outro: 'It comes apart under the town\'s hands, forty-one faces loosening into quiet at last, and the forty-second voice steps — somehow — into the star-forged blade left behind. "Forty-two graves now," she whispers, content. "Carry me. I have been wanting to see the sky."',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
   },
   3: {
@@ -390,7 +429,20 @@ const STORYLINES = {
       { id: 'k6', title: 'Purge the Breach', objective: { type: 'kill_mob', target: 12, label: 'Hold the line — destroy 12 Hollow creatures' },
         intro: 'The seal is weakening and the leaks are worsening — but a Watch of ONE, standing where it\'s thinnest, can push the tide back while the witch works. Twelve of the Hollow\'s creatures. Not for glory, not for the chronicle. Because five hundred years ago your order made a promise and told no one. Tonight, someone keeps it honestly.',
         outro: 'The twelfth falls as dawn comes up. Down in the cave, you\'re told, the pressure on the seal eased for the first time in a generation — Hazel felt the line HOLD. Dorran meets you at the town gate with the order\'s ancient helm in both hands. "The chronicle gets a true page tonight," he says. "The Watch stands. Wear it, Oathkeeper."',
-        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'dread_helm', qty: 1 }] }
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'dread_helm', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'k7', title: 'The Breach Reopened', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'Sir Dorran meets you at attention, which from him means it is bad. "The breach we purged? It did not close — it SANK. There is a new front, knight, straight down through the Wilds into the Delve. No one holds a line they cannot see. Descend. Find the depth the enemy is massing at."',
+        outro: 'Five floors down you find the muster: the Hollow drilling its own ranks in the dark, column on column, building toward something at the center. "An army needs a general," Dorran says grimly when you report. "Pray we kill it before it finishes making one."',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'k8', title: 'Order-Steel', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"The Oath was never just words — it was EQUIPMENT," Dorran says. "Standard-issue, forged to spec, trusted with your life. There is an Artificer\'s bench in town. Forge three pieces to the old pattern. A knight who holds the line in shop-bought tin dies in shop-bought tin."',
+        outro: 'Three pieces to spec, stamped and true. Dorran inspects each one the way he was taught to, finds nothing to fault, and that silence is the highest praise the Order ever gave. "Now you are kitted for a war," he says. "Good. Because here it comes."',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'k9', title: 'Hold the Hollow', objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'The general is finished, and it has taken the field — the Blighted Hollow, far north, where the Hollow\'s whole army answers to one risen thing. "This is the line, knight," Dorran says. "Not a wall — a FIELD, and every sword in town on it. Rally them. Hold. And when it falls, the Oath finally gets to rest."',
+        outro: 'The line holds. The general falls under a hundred blows — yours land hardest where it counts — and when the dust settles the Oath is, at last, kept. In the churned ground gleams a star-forged blade, Order-pattern, perfect. Dorran salutes you with it before he hands it over. "Orders from no one," he says. "You gave them to yourself. That is what a knight is."',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
   },
   4: {
@@ -420,11 +472,24 @@ const STORYLINES = {
       { id: 'v6', title: "The Road's End", objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: 'Walk the Gray Road to its end — the cave' },
         intro: 'Every road ends at a door. The Gray Road was built — you understand now — as the Circle\'s escape route, the path their fifth ritualist walked DOWN five hundred years ago and never walked back up. It stays hidden because she asked it to. Walk it to the end. Meet the woman the maps kept erasing.',
         outro: 'Hazel is waiting at the bottom like she heard your boots a mile off. "The Road only brings me two kinds of visitor," she says. "Trouble, and couriers. You\'ve got courier feet." She presses something onto your boots — treads that shimmer like the Road itself. "It chose you as its keeper. Walk it often; roads die of loneliness. And wanderer — the smudge stays between us."',
-        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'soul_treads', qty: 1 }] }
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'soul_treads', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'v7', title: 'The Road Goes Down', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'The Gray Road, which you keep now, does something it has never done in five hundred years: it turns downward, pouring itself into the Delve beneath the Wilds. Mabel just nods when you tell her. "Roads only dive when they are running FROM something, dear. Walk it. See what spooked it."',
+        outro: 'Five floors down the Road finally stops, at the lip of a dark it refuses to cross. You understand: the Road has walked everywhere in Thornreach for half a millennium, and this is the one place it has always refused to go. Something down here is building, and even the Road is giving it room.',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'v8', title: 'Road-Iron', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"A keeper walks armed or does not walk long," Mabel says. "Old road-wardens forged their own kit — nothing bought, everything trusted. There is an Artificer\'s bench in town now. Make three. The Road respects a traveler who can mend their own boots AND their own blade."',
+        outro: 'Three pieces, forged by the same hands that keep the Road, and your gear now shimmers faintly gray at the edges — the Road claiming it as its own. You could walk into anywhere in these pieces. Good. You are about to.',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'v9', title: "What the Road Ran From", objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'It has risen where the Road finally pointed — the Blighted Hollow in the far north, the one destination the Gray Road spent five hundred years routing travelers AROUND. "The Road brought everyone else home safe by avoiding this," Hazel says. "You are the keeper who gets to end it. Bring the whole town down the Road behind you."',
+        outro: 'The thing the Road feared falls, and the Gray Road brightens from end to end like a held breath let go. Across the churned Hollow lies a blade forged of starlight and road-iron. Hazel sets it in your hands. "The Road does not hide anymore," she says. "It leads. And it leads where its keeper walks — so walk somewhere worth following."',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
   }
 };
 
-const CHAPTER_LEVEL_GATES = [1, 2, 3, 4, 6, 8];
+const CHAPTER_LEVEL_GATES = [1, 2, 3, 4, 6, 8, 11, 14, 17]; // 1–6 base campaign; 7–9 Episode II (endgame)
 
 module.exports = { QUEST_CATALOG, STORYLINES, CHAPTER_LEVEL_GATES };

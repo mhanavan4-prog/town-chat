@@ -347,10 +347,12 @@ setTimeout(() => {
     // ─── Pacing: the campaign cannot be beaten in under ~2 hours ────────
     // Structural facts first:
     const gates = hooks.CHAPTER_LEVEL_GATES;
-    check('chapter gates are non-decreasing and end at level 8',
-      gates.every((g, i) => i === 0 || g >= gates[i - 1]) && gates[gates.length - 1] === 8);
+    check('chapter gates are non-decreasing; base campaign ends at level 8',
+      gates.every((g, i) => i === 0 || g >= gates[i - 1]) && gates[5] === 8);
+    check('Episode II gates climb into the endgame (ends at level 17)',
+      gates.length >= 9 && gates[8] === 17);
     check('every storyline got the gates applied',
-      Object.values(hooks.STORYLINES).every(l => l.chapters[5].requiresLevel === 8));
+      Object.values(hooks.STORYLINES).every(l => l.chapters[5].requiresLevel === 8 && l.chapters[8].requiresLevel === 17));
     const xpForL8 = hooks.XP_THRESHOLDS[7];
     check('level 8 needs 3000 cumulative XP', xpForL8 === 3000);
 

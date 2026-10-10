@@ -37,7 +37,7 @@ setTimeout(() => {
 
   // --- Storyline data sanity for all 5 classes ---
   check('all 5 classes have a storyline', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c]));
-  check('every storyline has 6 chapters', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c].chapters.length === 6));
+  check('every storyline has 9 chapters (6 base + Episode II)', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c].chapters.length === 9));
   let badChapters = 0;
   for (const line of Object.values(hooks.STORYLINES)) {
     for (const ch of line.chapters) {
@@ -126,16 +126,37 @@ setTimeout(() => {
   complete = knight.lastOfType('story_chapter_complete');
   check('chapter 5 (The Vault Ledger) completes at the Bank', !!complete && complete.chapterTitle === 'The Vault Ledger');
 
-  // Chapter 6: 12 more kills → campaign complete + Dread Helm.
+  // Chapter 6: 12 more kills → base campaign capstone + Dread Helm. With
+  // Episode II the story runs on past here, so ch6 is NO LONGER the finale.
   knight.emit('message', JSON.stringify({ type: 'story_begin' }));
   for (let i = 0; i < 12; i++) hooks.storyEvent(player, 'kill_mob', { pool: 'mob2', mobType: 'shade_stalker' });
   complete = knight.lastOfType('story_chapter_complete');
   check('chapter 6 (Purge the Breach) completes', !!complete && complete.chapterTitle === 'Purge the Breach');
+  check('chapter 6 is NOT the finale anymore (Episode II follows)', complete && complete.storyComplete === false);
+  const inv = hooks.getInventory(player);
+  check('chapter 6 grants the Dread Helm', inv.slots.some(s => s && s.itemId === 'dread_helm'));
+
+  // Episode II (chapters 7–9): the new endgame gates need the levels, so grant them.
+  hooks.getProgress(player).level = 18;
+  // Ch7 — descend the Delve to floor 5.
+  knight.emit('message', JSON.stringify({ type: 'story_begin' }));
+  hooks.storyEvent(player, 'delve_depth', { depth: 5 });
+  check('chapter 7 (The Breach Reopened) completes on a deep Delve',
+    knight.lastOfType('story_chapter_complete').chapterTitle === 'The Breach Reopened');
+  // Ch8 — forge 3 items at the Workshop.
+  knight.emit('message', JSON.stringify({ type: 'story_begin' }));
+  for (let i = 0; i < 3; i++) hooks.storyEvent(player, 'craft_item', { recipeId: 'cured_leather' });
+  check('chapter 8 (Order-Steel) completes after 3 crafts',
+    knight.lastOfType('story_chapter_complete').chapterTitle === 'Order-Steel');
+  // Ch9 — answer the World Boss → campaign complete + Starforged Blade.
+  knight.emit('message', JSON.stringify({ type: 'story_begin' }));
+  hooks.storyEvent(player, 'defeat_world_boss', { typeId: 'hollow_king' });
+  complete = knight.lastOfType('story_chapter_complete');
+  check('chapter 9 (Hold the Hollow) completes', complete && complete.chapterTitle === 'Hold the Hollow');
   check('campaign completion is flagged', complete && complete.storyComplete === true);
   st = knight.lastOfType('story_state');
   check('story_state reports the campaign complete', st.storyline.complete === true);
-  const inv = hooks.getInventory(player);
-  check('finale grants the Dread Helm', inv.slots.some(s => s && s.itemId === 'dread_helm'));
+  check('the Episode II finale grants the Starforged Blade', inv.slots.some(s => s && s.itemId === 'starforged_blade'));
 
   // Progress is per-class: rejoining as a different class starts fresh.
   const witch = makeMockSocket('witch');
