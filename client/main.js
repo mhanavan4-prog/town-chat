@@ -6,6 +6,7 @@ import createSpellbook from './spellbook.js';
 import createAttacks from './attacks.js';
 import createBoard from './board.js';
 import createAchievements from './achievements.js';
+import createWorkshop from './workshop.js';
 import createDelve from './delve.js';
 import createCoven from './coven.js';
 import createCovenVoice from './coven-voice.js';
@@ -773,6 +774,7 @@ function onWsMessage(ev) {
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
     if (msg.calendar) applyCalendarState(msg.calendar);
     if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
+    if (Array.isArray(msg.craftRecipes)) craftRecipesClient = msg.craftRecipes;
     if (msg.covenSigils) covenSigilsCatalog = msg.covenSigils;
     pushPublicKey = msg.pushPublicKey || null;
     pushAvailable = !!msg.pushAvailable;
@@ -1331,6 +1333,17 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'workshop_craft_result') {
+    setUnlockToast(msg.message || `🔨 Crafted ${msg.resultName || ''}`);
+    renderWorkshopModal(); // inventory_state (sent alongside) refreshes counts; redraw the tree
+    return;
+  }
+  if (msg.type === 'workshop_craft_error') {
+    const el = document.getElementById('workshopErr');
+    if (el) el.textContent = msg.message || 'That craft failed.';
+    return;
+  }
+
   if (msg.type === 'delve_state') {
     delveState = msg;
     delveSpeedMult = msg.inRun ? (msg.speedMult || 1) : 1;
@@ -1610,6 +1623,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
     if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the pack grid in sync
+    if (Modals.isOpen('workshopModalOpen')) renderWorkshopModal(); // crafting tree have/need counts
     applyMyEquipVisual(msg);
     return;
   }
@@ -2694,6 +2708,7 @@ let mySkillState = null;      // latest skill_state payload
 let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
+let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
@@ -9481,6 +9496,15 @@ const _ach = createAchievements({
 });
 const { openAchModal, closeAchModal, renderAchModal } = _ach;
 
+const _workshop = createWorkshop({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getCraftRecipes: () => craftRecipesClient,
+  getInventoryState: () => lastInventoryState,
+  getItemCatalog: () => ITEM_CATALOG,
+  getEquipStats: () => equipStatsCatalog,
+});
+const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
+
 // ── The Weekly Delve UI ──────────────────────────────────────────────────────
 const _delve = createDelve({
   getWs: () => ws,
@@ -9561,6 +9585,7 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
+  wire('menuWorkshop', openWorkshopModal);
   wire('menuAchievements', openAchModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);

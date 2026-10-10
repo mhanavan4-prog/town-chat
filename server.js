@@ -1413,6 +1413,13 @@ for (const [lgId, lg] of Object.entries(LEGENDARY_CATALOG)) {
   ITEM_CATALOG[lgId] = { name: lg.name, icon: lg.icon, slot: lg.slot };
   EQUIP_STATS[lgId] = lg.stats;
 }
+// The Artificer's Workshop crafting tree (Session N) — new component + gear
+// items and their stats fold into the same two catalogs, so the client's init
+// copy carries them with no hand-sync, just like the legendaries above.
+const { CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPES } = require('./data/craftingTree');
+for (const [id, def] of Object.entries(CRAFT_ITEMS)) ITEM_CATALOG[id] = def;
+for (const [id, stats] of Object.entries(CRAFT_EQUIP)) EQUIP_STATS[id] = stats;
+const CRAFT_RECIPE_BY_ID = new Map(CRAFT_RECIPES.map(r => [r.id, r]));
 
 const { STAT_KEYS, SKILL_STAT_PER_RANK, STAT_SKILL_EFFECT } = require('./data/skills'); // Tier 3.4 Phase A: extracted to data/
 // ---------------------------------------------------------------------------
@@ -5954,6 +5961,9 @@ wss.on('connection', (ws, req) => {
         msAuctionFee: AUCTION_MS_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
         itemCatalog: ITEM_CATALOG,
+        // The Artificer's Workshop crafting tree (Session N) — authoritative
+        // recipe list so the client renders the tree with no hand-synced copy.
+        craftRecipes: CRAFT_RECIPES,
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
@@ -9099,6 +9109,38 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── Session N: the Artificer's Workshop crafting tree ────────────────────
+    // Craftable from the pack (the gating is the MATERIALS, gathered across the
+    // world) — same consume/produce funnel and full-pack rollback as potions.
+    if (msg.type === 'workshop_craft') {
+      const recipe = CRAFT_RECIPE_BY_ID.get(String(msg.recipeId || ''));
+      if (!recipe) { send(ws, { type: 'workshop_craft_error', message: 'Unknown recipe.' }); return; }
+      const inv = getInventory(player);
+      for (const ing of recipe.ingredients) {
+        if (countItemQty(inv, ing.id) < ing.qty) {
+          const item = ITEM_CATALOG[ing.id];
+          send(ws, { type: 'workshop_craft_error', message: `You need ${ing.qty}× ${item?.name || ing.id}.` });
+          return;
+        }
+      }
+      for (const ing of recipe.ingredients) removeItemFromAccount(inv, ing.id, ing.qty);
+      const resultItem = ITEM_CATALOG[recipe.result];
+      if (!addItemToAccount(inv, recipe.result, 1)) {
+        for (const ing of recipe.ingredients) addItemToAccount(inv, ing.id, ing.qty); // rollback
+        send(ws, { type: 'workshop_craft_error', message: 'Your pack is full — make room first.' }); return;
+      }
+      if (player.accountKey) saveInventories();
+      { const cp = getProgress(player); cp.itemsCrafted = (cp.itemsCrafted || 0) + 1; } // Artificer ladder
+      checkAchievements(player);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'workshop_craft_result',
+        resultIcon: resultItem?.icon || '🔨',
+        resultName: resultItem?.name || recipe.result,
+        message: `🔨 You craft ${resultItem?.icon || ''} ${resultItem?.name || recipe.result}.`
+      });
+      return;
+    }
+
     if (msg.type === 'witch_talk') {
       if (player.room !== 'witch_cave') return;
       storyEvent(player, 'talk_npc', { npcId: 'witch_hazel' });
@@ -9438,8 +9480,9 @@ global.__testHooks = {
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
-  // Session N: achievements / collection log
+  // Session N: achievements / collection log + the Artificer's Workshop
   achievementsMod, checkAchievements, noteDelveDepth, noteBossKill,
+  CRAFT_RECIPES, CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPE_BY_ID,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
