@@ -13635,7 +13635,9 @@ const WEREWOLF_ATTACK_CATALOG = {
   snarl:            { name: 'Snarl',             icon: '😤', kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000,
     description: 'Summons a swarm of shadow-bats to circle the target.' },
   scent_trail:      { name: 'Scent Trail',       icon: '🎯', kind: 'targeted', effect: 'howl_location',
-    description: "Howls at the target, inviting them to howl back. If they join in, their approximate real-world location (never exact) is sent to you privately — entirely their choice, and never posted anywhere." }
+    description: "Howls at the target, inviting them to howl back. If they join in, their approximate real-world location (never exact) is sent to you privately — entirely their choice, and never posted anywhere." },
+  hunters_read:     { name: "Hunter's Read",     icon: '🐺', kind: 'targeted', effect: 'rap_sheet',
+    description: "Swipe a nearby player and tear loose their rap sheet — their kills, deaths and notoriety, how long they've prowled, and a cold read of their class, level, health and gear. All in-world record, nothing real-world. They feel the wolf size them up." }
 };
 
 // Must stay in sync with WANDERER_ATTACK_CATALOG in server.js. charId 4 only.
@@ -14730,6 +14732,7 @@ function onWsMessage(ev) {
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
     if (msg.itemsSeen) openPickpocketPanel(msg.pickpocketTargetName, msg.itemsSeen, msg.stolenItemId);
+    if (msg.rapSheet) openRapSheetPanel(msg.rapSheet);
     return;
   }
 
@@ -23084,6 +23087,45 @@ if (spyGlassCloseBtn) spyGlassCloseBtn.addEventListener('click', closeSpyGlassPa
 // inventory at cast time (reuses the .itemSlot grid styling from the real
 // Inventory panel), with whatever got stolen (if anything) highlighted.
 // ---------------------------------------------------------------------------
+// 🐺 Hunter's Read — the rap-sheet card the Werewolf tears off a target.
+// Pure in-world record (built server-side from benign game state), laid out
+// in the three sections the attack promises.
+function openRapSheetPanel(d) {
+  const modal = document.getElementById('rapSheetModal');
+  const body = document.getElementById('rapSheetBody');
+  const title = document.getElementById('rapSheetTitle');
+  if (!modal || !body) return;
+  if (title) title.textContent = `🐺 ${d.name}'s Rap Sheet`;
+  const vet = [];
+  if (d.ageDays != null) vet.push(d.ageDays <= 0 ? 'arrived today — fresh meat' : `a ${d.ageDays}-day prowler`);
+  else vet.push('a drifter — no account, no past');
+  if (d.streak > 0) vet.push(`🔥 ${d.streak}-day streak${d.bestStreak > d.streak ? ` (best ${d.bestStreak})` : ''}`);
+  if (d.sessionMin != null) vet.push(d.sessionMin < 1 ? 'on the prowl just now' : `on the prowl ${d.sessionMin}m`);
+  const weapon = d.weapon ? `${d.weapon.icon || '🗡️'} ${d.weapon.name}` : 'bare claws';
+  const stat = (label, val) => `<div class="rsRow"><span>${label}</span><b>${val}</b></div>`;
+  const section = (icon, heading, rows) => `<div class="rsSec"><div class="rsHead">${icon} ${heading}</div>${rows}</div>`;
+  body.innerHTML =
+    section('📓', 'The rap sheet',
+      stat('Creatures felled', Number(d.kills).toLocaleString()) +
+      stat('Times they’ve fallen', Number(d.deaths).toLocaleString()) +
+      stat('Pockets picked', Number(d.pickpockets).toLocaleString()) +
+      stat('Times photographed', Number(d.snapped).toLocaleString())) +
+    section('🌙', 'Fresh meat or old wolf', `<div class="rsNote">${vet.join(' &middot; ')}</div>`) +
+    section('🩸', 'Sizing up the kill',
+      stat('Class', `${d.className}${d.masked ? ' <span class="rsTell">🎭 masked</span>' : ''}`) +
+      stat('Level', d.level) +
+      stat('Health', `${d.hpPct}%`) +
+      stat('Armed with', weapon) +
+      stat('Their hoard', d.wealth));
+  modal.classList.remove('hidden');
+}
+(function wireRapSheet() {
+  const close = () => { const m = document.getElementById('rapSheetModal'); if (m) m.classList.add('hidden'); };
+  const btn = document.getElementById('rapSheetCloseBtn');
+  if (btn) btn.addEventListener('click', close);
+  const modal = document.getElementById('rapSheetModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+})();
 function openPickpocketPanel(targetName, itemsSeen, stolenItemId) {
   const panel = document.getElementById('pickpocketPanel');
   if (!panel) return;

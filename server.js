@@ -1808,6 +1808,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange) {
     if (t.health <= 0) {
       t.health = 0;
       t.isDead = true;
+      noteDeath(t);
       // PvP loot: one random carried (not equipped) item stack changes
       // hands, the same "self-directed carried items only" scope Sleight
       // of Hand already uses — real stakes, but never touches equipped
@@ -3525,6 +3526,7 @@ function registerHuntKill(player) {
   // Every creature felled scores the weekly Hunts board — and the Tournament
   // lane too while the weekend window is open (Session L).
   lbBump('hunt', player, 1);
+  { const kp = getProgress(player); kp.monstersSlain = (kp.monstersSlain || 0) + 1; } // benign lifetime tally for Hunter's Read
   if (tourneyWindow(now).active) lbBump('tourney', player, 1);
   player.huntStreak = (player.lastHuntKillAt && now - player.lastHuntKillAt <= STREAK_WINDOW_MS)
     ? (player.huntStreak || 1) + 1 : 1;
@@ -3671,6 +3673,7 @@ function tickWildlife(dt) {
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
+          noteDeath(nearestP);
           send(nearestP.ws, { type: 'you_died', byName: 'a Hollow creature', mobId: m.id });
         } else {
           send(nearestP.ws, { type: 'struck', byName: 'a Hollow creature', damage: dmg, mobId: m.id });
@@ -3833,6 +3836,7 @@ function creatureStrike(m, preset, target, now, dmgRaw) {
   noteAttacked(target);
   if (target.health <= 0) {
     target.health = 0; target.isDead = true;
+    noteDeath(target);
     send(target.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
   } else {
     send(target.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
@@ -5122,6 +5126,7 @@ function tickEmberWastes(dt) {
         if (nearestP.health <= 0) {
           nearestP.health = 0;
           nearestP.isDead = true;
+          noteDeath(nearestP);
           send(nearestP.ws, { type: 'you_died', byName: preset.name, mobId: m.id });
         } else {
           send(nearestP.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
@@ -5343,6 +5348,16 @@ setInterval(() => {
 // a non-blocking attack_hit notification; the caster gets an attack_result
 // toast and notes for the data-reveal effects.
 // ---------------------------------------------------------------------------
+// Class display names (server-side) — the client has the full presets; the
+// server only needs the label, e.g. for the Werewolf's Hunter's Read card.
+const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer'];
+// Benign lifetime death tally for the Hunter's Read rap sheet — about the
+// character's record, never the person. Called from every death site.
+function noteDeath(victim) {
+  if (!victim) return;
+  try { const p = getProgress(victim); p.deaths = (p.deaths || 0) + 1; } catch (e) {}
+}
+
 const WEREWOLF_ATTACK_CATALOG = {
   // Savage Bite is the Werewolf's real damage attack — ranged like Fireball
   // is for the Witch (applyDamage with no maxRange), hits players AND mobs.
@@ -5371,7 +5386,12 @@ const WEREWOLF_ATTACK_CATALOG = {
   // caster before anything is requested, and the result the caster
   // eventually sees is a coarse city-level label, never raw coordinates,
   // sent only to the caster (never posted anywhere public).
-  scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'howl_location' }
+  scent_trail:      { name: 'Scent Trail',       kind: 'targeted', effect: 'howl_location' },
+  // Hunter's Read — swipe a nearby player and tear loose their in-world
+  // record: a benign "rap sheet" built only from game state (kills, deaths,
+  // veterancy, combat read). Never touches the security/audit log or any
+  // real personal data — see the rap_sheet branch in cast_attack.
+  hunters_read:     { name: "Hunter's Read",     kind: 'targeted', effect: 'rap_sheet' }
 };
 
 // charId 4 — Wanderer. effect 'spyglass' is the unique one (Spy Glass):
@@ -5673,6 +5693,7 @@ wss.on('connection', (ws, req) => {
         name,
         color,
         charId,
+        joinedAt: Date.now(), // session start — Hunter's Read reports "online for Xm"
         // Which bank account (if any) this connection is allowed to act
         // as — null for guests, who can look around the Bank but can't
         // open one (see bank/auction handlers below). Same key accounts
@@ -6704,6 +6725,7 @@ wss.on('connection', (ws, req) => {
         return;
       }
       player.lastSnapAt = now;
+      { const sp = getProgress(t); sp.timesSnapped = (sp.timesSnapped || 0) + 1; } // benign tally for Hunter's Read
       // Consent trail: who photographed whom, and whom they appeared to be.
       audit.log({ level: 'info', type: 'snapshot_taken', ip: ws._ip, account: player.accountKey || null, name: player.name,
         detail: { targetName: t.name, targetAccount: t.accountKey || null, shownAs: (t.disguise ? t.disguise.name : t.name), room: player.room } });
@@ -7611,6 +7633,44 @@ wss.on('connection', (ws, req) => {
         pendingHowlConsents.set(consentId, { casterId: player.id, casterName: player.name, targetId: t.id, expiresAt: now + 30000 });
         send(t.ws, { type: 'howl_consent_request', consentId, casterName: player.name });
         send(ws, { type: 'attack_result', message: `🐺 ${attack.name} — you howl at the moon, waiting to see if ${t.name} answers…` });
+        return;
+      }
+
+      // Hunter's Read — a close-range swipe that tears loose the target's
+      // in-world RECORD. Built ONLY from benign game state (kills, deaths,
+      // veterancy, a combat read): never the security/audit log, never an IP,
+      // email, or anything about the real person. Information-only — nothing
+      // is damaged or stolen; the target just feels the wolf size them up.
+      if (attack.effect === 'rap_sheet') {
+        const t = targets[0];
+        if (t.room !== player.room || t.instance !== player.instance || Math.hypot(t.x - player.x, t.y - player.y) > 240) {
+          send(ws, { type: 'attack_error', message: 'Too far — get close enough to swipe.' });
+          return;
+        }
+        const tp = getProgress(t);
+        const shownName = t.disguise ? t.disguise.name : t.name;
+        const acct = t.accountKey ? accounts[t.accountKey] : null;
+        const ageDays = (acct && acct.createdAt) ? Math.max(0, Math.floor((now - acct.createdAt) / 86400000)) : null;
+        const sessionMin = t.joinedAt ? Math.max(0, Math.floor((now - t.joinedAt) / 60000)) : null;
+        const maxHp = playerMaxHealth(t);
+        const hpPct = maxHp ? Math.max(0, Math.round(100 * (t.health || 0) / maxHp)) : 100;
+        const invT = getInventory(t);
+        const weaponId = invT && invT.equippedWeapon;
+        const weapon = (weaponId && ITEM_CATALOG[weaponId]) ? { name: ITEM_CATALOG[weaponId].name, icon: ITEM_CATALOG[weaponId].icon } : null;
+        const bal = t.accountKey ? (ensureBankAccount(t.accountKey).balance || 0) : null;
+        const wealth = bal == null ? 'a drifter — no vault to their name'
+          : bal >= 2000 ? 'a fat hoard' : bal >= 500 ? 'a comfortable vault'
+          : bal >= 100 ? 'a lean purse' : 'near-empty pockets';
+        const rapSheet = {
+          name: shownName, masked: !!t.disguise,
+          kills: tp.monstersSlain || 0, deaths: tp.deaths || 0,
+          pickpockets: tp.pickpocketSuccesses || 0, snapped: tp.timesSnapped || 0,
+          ageDays, streak: tp.loginStreak || 0, bestStreak: tp.bestLoginStreak || 0, sessionMin,
+          className: CLASS_NAMES[t.charId] || 'drifter', level: tp.level || 1, hpPct,
+          weapon, wealth
+        };
+        send(ws, { type: 'attack_result', message: `🐺 You tear the scent off ${shownName} — their whole story, laid bare.`, rapSheet });
+        send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: 'rap_sheet', detail: `${player.name} caught your scent and read your every mark.` });
         return;
       }
 
