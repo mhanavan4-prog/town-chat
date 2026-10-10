@@ -15810,6 +15810,19 @@ if (_playerCtxInviteBtn) _playerCtxInviteBtn.addEventListener('click', () => {
   hidePlayerContextMenu();
   setUnlockToast('Party invite sent!');
 });
+// Invite to Coven — the pick-them-out-of-a-crowd path alongside the modal's
+// invite-by-username. The server's coven_invite handler takes a targetId as
+// well as a username, validates it (you're in a coven, it isn't full, they
+// have an account and no coven of their own), and replies on the coven_error
+// channel for both the confirmation and any refusal — so that one toast is
+// the feedback; no optimistic message here that could contradict it.
+const _playerCtxCovenBtn = document.getElementById('playerContextCoven');
+if (_playerCtxCovenBtn) _playerCtxCovenBtn.addEventListener('click', () => {
+  if (!playerContextMenuId) return;
+  const id = playerContextMenuId;
+  hidePlayerContextMenu();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_invite', targetId: id }));
+});
 // Click anywhere else to dismiss the context menu
 document.addEventListener('click', (e) => {
   if (_playerCtxMenu && !_playerCtxMenu.contains(e.target)) hidePlayerContextMenu();
@@ -17532,6 +17545,10 @@ function showPlayerContextMenu(targetId, x, y) {
   if (p) p.tapNameUntil = Date.now() + 4500;
   if (menu) {
     document.getElementById('playerContextName').textContent = p ? (p.disguiseName || p.name) : 'Player';
+    // Only offer "Invite to Coven" when you actually lead/belong to one —
+    // otherwise the server would just bounce it back as "you have no coven."
+    const covenBtn = document.getElementById('playerContextCoven');
+    if (covenBtn) covenBtn.classList.toggle('hidden', !covenState);
     // Position so it doesn't clip off screen
     menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
