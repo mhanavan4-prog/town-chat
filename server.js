@@ -4421,7 +4421,8 @@ function legendaryShopPayload(player) {
 // design — the client nudges them to log in instead). Keyed by week so
 // history is queryable; periods older than ~2 months are pruned at boot.
 // Leaderboards (Session L) — extracted to lib/leaderboards.js (Tier 3.4 Phase B).
-const leaderboardsMod = require('./lib/leaderboards')({ dataDir: DATA_DIR, persistLoad, persistSave, persistSetKey, persistRegister, legendaryWeekIndex, accounts, ensureBankAccount, saveBankAccounts, findConnectionByAccountKey, send });
+// onWeekSettled crowns the champion coven of each closed week (hoisted below).
+const leaderboardsMod = require('./lib/leaderboards')({ dataDir: DATA_DIR, persistLoad, persistSave, persistSetKey, persistRegister, legendaryWeekIndex, accounts, ensureBankAccount, saveBankAccounts, findConnectionByAccountKey, send, onWeekSettled: (wk) => covenCrownWeek(wk) });
 const { leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, LB_BOARDS } = leaderboardsMod;
 function noteBossKill(player, mob) {
   lbBump('boss', player, 1);
@@ -4580,6 +4581,41 @@ function covenStandings(wk) {
 function covenChampionBody() {
   const leader = covenStandings(weekKey(Date.now()))[0];
   return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points } : null;
+}
+// The weekly crown ceremony. Called once per closed week from the leaderboards'
+// lazy settlement (so no cron): the week's #1 coven is crowned — a lasting
+// honor on the coven, a gold purse into its shared tab, a deed-log line, and a
+// town-wide announcement. Idempotent: a coven is never crowned twice for one
+// week, even if settlement is re-entered.
+const COVEN_CHAMPION_PURSE = 750; // gold paid into the winning coven's shared tab
+function covenCrownWeek(wk) {
+  const leader = covenStandings(wk)[0];
+  if (!leader || leader.points <= 0) return;
+  const cv = covens[leader.covenId];
+  if (!cv) return;
+  cv.honors = cv.honors || [];
+  if (cv.honors.some(h => h.week === wk)) return; // already crowned this week
+  cv.honors.push({ week: wk, points: leader.points, crownedAt: Date.now() });
+  if (cv.honors.length > 52) cv.honors = cv.honors.slice(-52);
+  cv.championReignWeek = wk;
+  if (cv.bank) cv.bank.gold = (cv.bank.gold || 0) + COVEN_CHAMPION_PURSE;
+  covenLog(cv, 'The town', `claimed the Champions’ Table 🏆 (${leader.points} pts)`);
+  saveCoven(cv.id);
+  const titles = cv.honors.length;
+  broadcastAll({ type: 'announce', message: `🏆 The ${cv.sigil} ${cv.name} coven claimed the Champions’ Table with ${leader.points} points!${titles > 1 ? ` (${titles} titles)` : ''} ${COVEN_CHAMPION_PURSE} gold paid to their shared tab.` });
+  covenBroadcast(cv);
+}
+// The reigning champion = whoever won the most recently closed week. Stored on
+// the coven at crown time (championReignWeek), so it survives membership churn.
+function covenReigningChampion() {
+  const prevWk = weekKey(Date.now() - LEGENDARY_WEEK_MS);
+  for (const cid in covens) {
+    const cv = covens[cid];
+    if (cv && cv.championReignWeek === prevWk) {
+      return { name: cv.name, sigil: cv.sigil, week: prevWk, titles: (cv.honors || []).length };
+    }
+  }
+  return null;
 }
 setInterval(() => {
   const now = Date.now();
@@ -8453,6 +8489,7 @@ wss.on('connection', (ws, req) => {
         week: wk,
         standings: rows.slice(0, 25),
         myCovenId,
+        reign: covenReigningChampion(),
         endsAt: LEGENDARY_EPOCH + (legendaryWeekIndex() + 1) * LEGENDARY_WEEK_MS,
       });
       return;
@@ -9149,7 +9186,7 @@ global.__testHooks = {
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
-  covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS,
+  covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
