@@ -3728,8 +3728,14 @@ function makeDeadwood(x, z, scale) {
     b.translateY(len * s * 0.42);
     g.add(b);
   }
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(2.2 * s, 6, 6), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
-  glint.position.set(1.5 * s, trunkH * 0.9, 1.5 * s); g.add(glint);
+  // A spirit-wisp snagged in the branches — and the player's cue that THIS
+  // dead tree is harvestable (vs the scenery spooky trees, which have none).
+  // Bigger and set higher so it reads from a distance; a faint halo widens
+  // the tell without washing out the night.
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(3.4 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
+  glint.position.set(1.5 * s, trunkH * 0.95, 1.5 * s); g.add(glint);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(6.2 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.22 }));
+  halo.position.copy(glint.position); g.add(halo);
   g.position.set(x, 0, z); g.userData.camFade = true; return g;
 }
 
@@ -15414,16 +15420,22 @@ const _portraitCache = {};
 function drawCharPortrait(charId) {
   if (_portraitCache[charId]) return _portraitCache[charId];
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
+  // Preset colors are stored as NUMBERS (0xRRGGBB). Assigning a number to
+  // ctx.fillStyle is invalid and silently ignored — the canvas keeps the
+  // previous color, so every preset-tinted shape used to draw in the
+  // backdrop brown and vanish (snapshots of unmasked players came out
+  // blank). Convert each to a CSS "#rrggbb" string; leave strings as-is.
+  const css = (v) => (typeof v === 'number') ? '#' + ((v >>> 0) & 0xffffff).toString(16).padStart(6, '0') : v;
   const c = document.createElement('canvas');
   c.width = c.height = 96;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#2b2418'; ctx.fillRect(0, 0, 96, 96);           // backdrop
-  ctx.fillStyle = preset.shirt; ctx.fillRect(24, 62, 48, 34);      // shoulders
-  ctx.fillStyle = preset.skin;                                      // head
+  ctx.fillStyle = css(preset.shirt); ctx.fillRect(24, 62, 48, 34); // shoulders
+  ctx.fillStyle = css(preset.skin);                                 // head
   ctx.beginPath(); ctx.arc(48, 40, 20, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = preset.hair;                                      // hair cap
+  ctx.fillStyle = css(preset.hair);                                 // hair cap
   ctx.beginPath(); ctx.arc(48, 33, 21, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = preset.eye;                                       // eyes
+  ctx.fillStyle = css(preset.eye);                                  // eyes
   ctx.beginPath(); ctx.arc(41, 42, 2.6, 0, Math.PI * 2); ctx.arc(55, 42, 2.6, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#6b3a3a'; ctx.lineWidth = 2;                   // mouth
   ctx.beginPath(); ctx.moveTo(43, 51); ctx.lineTo(53, 51); ctx.stroke();
@@ -19813,7 +19825,12 @@ function addSpookyDecor(scene, w2) {
   ];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Spooky trees — thick clusters near the cave and scattered throughout.
-  for (let i = 0; i < 150; i++) {
+  // Trimmed from 150: these are pure scenery (no server decor entry, so they
+  // can't be harvested). We lean on the server's harvestable deadwood flora
+  // for most of the standalone dead trees now, so a dead tree you walk up to
+  // is usually one you can actually chop. Graveyard spooky trees (below) stay
+  // for atmosphere.
+  for (let i = 0; i < 85; i++) {
     const x = rng(300, w2.width - 300), z = rng(300, w2.height - 300);
     if (!clearOf(x, z)) continue;
     scene.add(makeSpookyTree(x, z));
