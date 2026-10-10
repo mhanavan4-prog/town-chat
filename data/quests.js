@@ -487,6 +487,49 @@ const STORYLINES = {
         outro: 'The thing the Road feared falls, and the Gray Road brightens from end to end like a held breath let go. Across the churned Hollow lies a blade forged of starlight and road-iron. Hazel sets it in your hands. "The Road does not hide anymore," she says. "It leads. And it leads where its keeper walks — so walk somewhere worth following."',
         requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
     ]
+  },
+  5: {
+    title: 'The Sixth Rite', icon: '☠️',
+    tagline: 'The Circle sealed the Hollow with five hands. A sixth path was struck from the books: to bind the dead, not bury them.',
+    chapters: [
+      { id: 'nec1', title: 'The Struck Page', objective: { type: 'talk_npc', npcId: 'npc_scholar', target: 1, label: 'Ask Scholar Elior about the page torn from the Circle\'s rites' },
+        intro: 'You dream in the voices of the unburied, and they are not afraid of you — they are WAITING on you. The Library keeps what the Circle wrote, and, more tellingly, the shape of what the Circle tore out. Ask Elior what the fifth-and-a-half rite was.',
+        outro: 'Elior\'s hand shakes as he shows you the ledger: one rite scraped from the vellum so hard it tore. "They called it the Sixth," he whispers. "The others sealed the Hollow shut. This one proposed to COMMAND what came through it. They forbade it and buried the author. You\'re the first to dream it back."',
+        xpReward: 40, goldReward: 20 },
+      { id: 'nec2', title: 'Grave Offerings', objective: { type: 'harvest_plant', target: 6, label: 'Gather 6 living offerings from the Wilds' },
+        intro: 'The dead bargain in living things — the one currency they no longer have. Six green offerings from the Wilds, gathered by a hand they\'ll answer to. Lay them down and the ground will start to listen.',
+        outro: 'You set the last offering down and the soil EXHALES — a cold breath that smells of root and old coin. Somewhere beneath you, something that has been lying still for five hundred years tries, politely, to sit up.',
+        xpReward: 60, goldReward: 30 },
+      { id: 'nec3', title: 'The Seat of the Circle', objective: { type: 'visit_room', room: 'witch_cave', target: 1, label: "Descend to Witch Hazel's cave — the Circle's old seat" },
+        intro: 'The Sixth Rite was written where the Circle worked: the cave beneath the Wilds, where Hazel still holds the seal. She will not like what you are. Go anyway — the author of your rite is buried somewhere down there, and the dead have been keeping his place.',
+        outro: 'Hazel looks at you a long moment. "I wondered if the Sixth would ever walk back in," she says, unsurprised and unhappy. "He was my friend, the one who wrote it. I buried him myself. If you\'re going to raise what he raised, raise it well — a sloppy binding is just a second death with extra steps."',
+        xpReward: 60, goldReward: 30 },
+      { id: 'nec4', title: 'First Bindings', objective: { type: 'cast_ability', target: 8, label: 'Perform 8 rites (raise undead or cast your arts)' },
+        intro: '"The rite isn\'t words, it\'s HABIT," Hazel says. "The dead test a new master the way a dog tests a new owner. Bind, raise, command — eight times, until your will doesn\'t flinch. A necromancer who hesitates gets eaten by his own work."',
+        outro: 'By the eighth rite the cold in your hands has stopped feeling like cold and started feeling like REACH. The dead come up a little faster each time, stand a little straighter. They\'re learning your grip. Your ritual rank deepens — every undead you raise from here rises stronger.',
+        xpReward: 80, goldReward: 40 },
+      { id: 'nec5', title: "Thin the Hollow's Dead", objective: { type: 'kill_mob', target: 8, label: 'Put down 8 of the Hollow\'s corrupted dead' },
+        intro: 'The Hollow raises its OWN dead — shambling, mindless, wasted. "Put eight of them down," Hazel says. "Not to seal anything — to take the raw material back. Every one you fell is one the Hollow can\'t use, and one YOU can, once the binding\'s yours."',
+        outro: 'The eighth falls, and for the first time you feel the Hollow NOTICE the competition — a landlord realizing a squatter has started collecting rent. Good. Let it worry. Your rank deepens again; the dead that answer you now would frighten the ones you started with.',
+        xpReward: 100, goldReward: 60 },
+      { id: 'nec6', title: 'The Binding Draught', objective: { type: 'craft_potion', target: 1, label: "Brew a draught at Hazel's cauldron to seal your command" },
+        intro: '"Command without a seal is a loan the dead call in at the worst moment," Hazel says. "Brew the draught the Sixth died perfecting. Drink it, and your hold stops being a rite you perform and becomes a thing you ARE." She slides you a staff, black as a grave\'s throat. "His. He\'d want it walking again."',
+        outro: 'The draught goes down like swallowed winter, and the voices of the unburied finally go quiet — not gone, but YOURS, waiting on your word. Hazel watches you take up the Sixth\'s staff. "The Circle had five hands to shut the door," she says. "You\'re the sixth — the one who decides what comes through it. Decide well."',
+        xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'void_staff', qty: 1 }] },
+      // ── Episode II: The Hollow Answers (chapters 7–9) ──
+      { id: 'nec7', title: 'Where the Dead Pile Deep', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
+        intro: 'The Hollow, locked out above, has been hoarding its dead BELOW — in the deep floors of the Delve, stacked like cordwood against the day it needs an army. "Go count them," Hazel says grimly. "A necromancer who doesn\'t know the size of the opposing collection is a necromancer about to lose his own."',
+        outro: 'Five floors down you find the hoard, and your professional envy curdles into fear: there are more dead here than the living town has ever numbered. And at the center, something is already stitching them together into one body.',
+        requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
+      { id: 'nec8', title: 'Reliquary Bones', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
+        intro: '"What you raise for this fight needs to HOLD," Hazel says. "The Sixth kept his strongest bindings in forged reliquaries — bone and iron, made to carry a soul without leaking it. Get to the Artificer\'s bench and make three. The dead you raise from reliquary-work don\'t crumble easy."',
+        outro: 'Three reliquaries, forged and cold and humming. The next skeleton you raise comes up gleaming, unhurried, patient as the grave — and does not stop when a lesser binding would have crumbled. Your rank deepens toward its peak.',
+        requiresLevel: 14, xpReward: 320, goldReward: 220, itemRewards: [{ itemId: 'dragon_scale', qty: 1 }, { itemId: 'druid_stone', qty: 1 }] },
+      { id: 'nec9', title: "Command the Hollow's Champion", objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
+        intro: 'The body the Hollow stitched is finished and risen — the Hollow\'s champion, in the Blighted Hollow to the north. "Here is the Sixth Rite\'s whole point," Hazel says quietly. "Not to seal the dead away. To stand over the worst thing the Hollow can raise, and make its death answer to YOU. Rally the town. Put it down. And take what rises from it."',
+        outro: 'The champion falls under the town\'s hands and your bindings both, and in the instant of its death you feel the Sixth Rite complete itself: the Hollow\'s greatest dead, for one cold heartbeat, kneels to you before it scatters. Hazel exhales. "Five sealed the door," she says. "You command the threshold. The watch has a sixth hand at last — see that it stays yours, and not the Hollow\'s."',
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
+    ]
   }
 };
 
