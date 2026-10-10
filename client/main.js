@@ -5,6 +5,7 @@ import createShop from './shop.js';
 import createSpellbook from './spellbook.js';
 import createAttacks from './attacks.js';
 import createBoard from './board.js';
+import createAchievements from './achievements.js';
 import createDelve from './delve.js';
 import createCoven from './coven.js';
 import createCovenVoice from './coven-voice.js';
@@ -1313,6 +1314,20 @@ function onWsMessage(ev) {
   if (msg.type === 'board_state') {
     boardState = msg;
     if (Modals.isOpen('boardModalOpen')) renderBoardModal();
+    return;
+  }
+
+  if (msg.type === 'achievements_state') {
+    achState = msg;
+    if (Modals.isOpen('achModalOpen')) renderAchModal();
+    return;
+  }
+
+  if (msg.type === 'achievement_unlocked') {
+    // A gilded toast; the town shout (for a capstone) arrives separately as an
+    // 'announce'. Refresh the log if it happens to be open.
+    setUnlockToast(msg.message || `🏆 Achievement unlocked — ${msg.ach && msg.ach.name}`);
+    if (Modals.isOpen('achModalOpen') && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'achievements_state' }));
     return;
   }
 
@@ -2696,6 +2711,7 @@ let covenChatLines = [];            // [{ who, sigil, text }] (in-memory, last 6
 let delveState = null;              // last delve_state payload
 let delveSpeedMult = 1;             // swift boons — applied only inside delve rooms
 let boardState = null;
+let achState = null;
 let firstStepsState = null;
 let pushPublicKey = null;
 let pushAvailable = false;
@@ -9459,6 +9475,12 @@ const _board = createBoard({
 });
 const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 
+const _ach = createAchievements({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getAchState: () => achState,
+});
+const { openAchModal, closeAchModal, renderAchModal } = _ach;
+
 // ── The Weekly Delve UI ──────────────────────────────────────────────────────
 const _delve = createDelve({
   getWs: () => ws,
@@ -9539,6 +9561,7 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
+  wire('menuAchievements', openAchModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
 })();

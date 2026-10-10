@@ -1892,6 +1892,7 @@
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
+      <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
       <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
@@ -2126,6 +2127,25 @@
   .slNote { color:#9a8ac0; font-size:12px; margin-top:8px; }
   .slSection { margin-top:12px; text-align:left; }
   .slSection h4 { color:#ffe9c2; margin:0 0 6px; font-size:13.5px; }
+  /* Collection Log — a trophy shelf with progress bars */
+  .achCat { color:#9a8ac0; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; margin:12px 2px 4px; }
+  .achRow {
+    display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:11px;
+    border:1px solid transparent; margin-bottom:5px; background:rgba(255,255,255,0.03);
+  }
+  .achRow.locked { opacity:0.62; }
+  .achRow.done { border-color:#c9a24a; background:linear-gradient(90deg,rgba(201,162,74,0.14),rgba(201,162,74,0.03)); }
+  .achIcon { font-size:22px; width:30px; text-align:center; filter:grayscale(1) opacity(0.75); }
+  .achRow.done .achIcon { filter:none; }
+  .achBody { flex:1; min-width:0; }
+  .achName { color:#e8dcc8; font-weight:700; font-size:13.5px; }
+  .achRow.done .achName { color:#ffe1a0; }
+  .achDesc { color:#9a8ac0; font-size:11.5px; margin-top:1px; }
+  .achBarTrack { height:5px; border-radius:4px; background:rgba(255,255,255,0.08); margin-top:6px; overflow:hidden; }
+  .achBarFill { height:100%; border-radius:4px; background:linear-gradient(90deg,#9ee37d,#5ee7c0); }
+  .achRow.done .achBarFill { background:linear-gradient(90deg,#ffd27a,#c9a24a); }
+  .achMeta { font-size:11px; color:#9a8ac0; white-space:nowrap; margin-left:auto; align-self:flex-start; }
+  .achRow.done .achMeta { color:#c9a24a; }
   /* Delve boon draft — big tappable cards over everything */
   #boonDraft { z-index:40; }
   #boonCards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:14px 0; }
@@ -2242,6 +2262,15 @@
     <div class="slNote" id="boardMeNote"></div>
     <div class="slSection hidden" id="boardHonors"><h4>🎖️ Your honors</h4><div id="boardHonorsList"></div></div>
     <button class="btn" id="boardCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="achModal" class="overlay hidden">
+  <div class="card" id="achCard">
+    <div class="title" style="font-size:20px;">🏅 Collection Log</div>
+    <div class="subtitle" id="achSummary">Your trophies — earned for deeds done across Thornreach.</div>
+    <div class="slList" id="achList" style="max-height:56vh"></div>
+    <button class="btn" id="achCloseBtn">Close</button>
   </div>
 </div>
 
@@ -3025,6 +3054,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=f737981eb7"></script>
+<script src="client.js?v=f94ad71da3"></script>
 </body>
 </html>
