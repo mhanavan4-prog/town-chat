@@ -5351,6 +5351,9 @@ setInterval(() => {
 // Class display names (server-side) — the client has the full presets; the
 // server only needs the label, e.g. for the Werewolf's Hunter's Read card.
 const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer'];
+// A Guardian's Veil is up on this player — the Knight's AoE ward that blanks
+// the Werewolf's covert attacks (Hunter's Read / Rapid Swipe / Scent Trail).
+function veiled(p) { return !!(p && p.veiledUntil && p.veiledUntil > Date.now()); }
 // Benign lifetime death tally for the Hunter's Read rap sheet — about the
 // character's record, never the person. Called from every death site.
 function noteDeath(victim) {
@@ -5467,7 +5470,12 @@ const KNIGHT_ATTACK_CATALOG = {
   heralds_muster:    { name: "Herald's Muster",    kind: 'self', effect: 'intel_sweep', statusType: 'wolfmark', durationMs: 10000 },
   challenge:         { name: 'Challenge',          kind: 'targeted', effect: 'status', statusType: 'wolfmark', durationMs: 30000 },
   steadfast_march:   { name: 'Steadfast March',    kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
-  banner_of_dread:   { name: 'Banner of Dread',    kind: 'aoe', effect: 'status', statusType: 'stumble', durationMs: 15000 }
+  banner_of_dread:   { name: 'Banner of Dread',    kind: 'aoe', effect: 'status', statusType: 'stumble', durationMs: 15000 },
+  // Guardian's Veil — the counter to the Werewolf's covert hunt. An AoE ward
+  // that settles over everyone in range (the Knight included): while it holds,
+  // a wolf's Hunter's Read, Rapid Swipe and Scent Trail all fail against them.
+  // The record crumbles, the pockets can't be found, the scent won't answer.
+  guardians_veil:    { name: "Guardian's Veil",    kind: 'aoe', effect: 'veil', durationMs: 60000 }
 };
 
 // charId -> attack catalog. cast_attack below looks itself up here instead
@@ -7599,6 +7607,21 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
+      // Guardian's Veil — AoE ward that blanks the Werewolf's covert attacks
+      // for everyone it covers. The AoE target set above excludes the caster,
+      // so the Knight is added back in — a guardian shelters under their own veil.
+      if (attack.effect === 'veil') {
+        const until = now + attack.durationMs;
+        for (const t of [player, ...targets]) {
+          t.veiledUntil = until;
+          if (t.id !== player.id) send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: 'veil', detail: `${player.name} raised a Guardian's Veil over you — a wolf's eyes will slide right off.` });
+        }
+        broadcastRoom(player.room, { type: 'veil_fx', casterId: player.id, radius: AOE_RADIUS, durationMs: attack.durationMs }, player.instance);
+        const n = targets.length;
+        send(ws, { type: 'attack_result', message: `🛡️ Guardian's Veil settles over the ground — you${n ? ` and ${n} other${n === 1 ? '' : 's'}` : ' alone'} are hidden from the wolves' hunt.` });
+        return;
+      }
+
       if (attack.effect === 'status') {
         for (const t of targets) {
           t.activeStatus = { type: attack.statusType, expiresAt: now + attack.durationMs };
@@ -7629,6 +7652,11 @@ wss.on('connection', (ws, req) => {
       // or shown to anyone else.
       if (attack.effect === 'howl_location') {
         const t = targets[0];
+        if (veiled(t)) {
+          send(ws, { type: 'attack_result', message: `🛡️ Your howl echoes and dies — a Guardian's Veil has sealed ${t.disguise ? t.disguise.name : t.name}'s scent from the hunt.` });
+          send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: 'veil_held', detail: `${player.name}'s Scent Trail broke against your Guardian's Veil.` });
+          return;
+        }
         const consentId = makeId();
         pendingHowlConsents.set(consentId, { casterId: player.id, casterName: player.name, targetId: t.id, expiresAt: now + 30000 });
         send(t.ws, { type: 'howl_consent_request', consentId, casterName: player.name });
@@ -7643,6 +7671,11 @@ wss.on('connection', (ws, req) => {
       // is damaged or stolen; the target just feels the wolf size them up.
       if (attack.effect === 'rap_sheet') {
         const t = targets[0];
+        if (veiled(t)) {
+          send(ws, { type: 'attack_result', message: `🛡️ You swipe, but the scent scatters — a Guardian's Veil seals ${t.disguise ? t.disguise.name : t.name}. The report crumbles to ash in your claws.` });
+          send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: 'veil_held', detail: `${player.name}'s Hunter's Read broke against your Guardian's Veil.` });
+          return;
+        }
         if (t.room !== player.room || t.instance !== player.instance || Math.hypot(t.x - player.x, t.y - player.y) > 240) {
           send(ws, { type: 'attack_error', message: 'Too far — get close enough to swipe.' });
           return;
@@ -7744,6 +7777,11 @@ wss.on('connection', (ws, req) => {
 
       if (attack.effect === 'note_steal') {
         const t = targets[0];
+        if (veiled(t)) {
+          send(ws, { type: 'attack_result', message: `🛡️ Your claws find nothing — a Guardian's Veil has sealed ${t.disguise ? t.disguise.name : t.name}'s pockets from the hunt.` });
+          send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, effect: 'veil_held', detail: `${player.name}'s Rapid Swipe broke against your Guardian's Veil.` });
+          return;
+        }
         if (t.inbox.length === 0) {
           send(ws, { type: 'attack_result', message: `🐾 ${attack.name} — ${t.name} has no notes to take.` });
           return;

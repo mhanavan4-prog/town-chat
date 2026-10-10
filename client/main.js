@@ -651,7 +651,9 @@ const KNIGHT_ATTACK_CATALOG = {
   steadfast_march:   { name: 'Steadfast March',    icon: '🥾', kind: 'self', effect: 'status',
     description: 'Fall into the old march cadence — twice your pace for a short burst.' },
   banner_of_dread:   { name: 'Banner of Dread',    icon: '🚩', kind: 'aoe', effect: 'status',
-    description: 'Plant a banner so grim that everyone in range falters, their walking speed halved.' }
+    description: 'Plant a banner so grim that everyone in range falters, their walking speed halved.' },
+  guardians_veil:    { name: "Guardian's Veil",    icon: '🛡️', kind: 'aoe', effect: 'veil',
+    description: "Raise a ward over everyone around you — yourself included. While it holds, a Werewolf's Hunter's Read, Rapid Swipe and Scent Trail all fail against those you shelter: the record crumbles, the pockets vanish, the scent won't answer. The counter to the hunt." }
 };
 
 // charId -> attack catalog the player can use. Drives both which characters
@@ -1616,6 +1618,11 @@ function onWsMessage(ev) {
       smite:       { coreColor: 0xfff2aa, glowColor: 0xcc9900, lightColor: 0xffdd44 }
     };
     spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, ATTACK_FX_STYLES[msg.attackId] || {});
+    return;
+  }
+
+  if (msg.type === 'veil_fx') {
+    spawnVeilDome(msg.casterId, msg.radius || 200);
     return;
   }
 
@@ -9999,6 +10006,33 @@ if (spyGlassCloseBtn) spyGlassCloseBtn.addEventListener('click', closeSpyGlassPa
 // inventory at cast time (reuses the .itemSlot grid styling from the real
 // Inventory panel), with whatever got stolen (if anything) highlighted.
 // ---------------------------------------------------------------------------
+// 🛡️ Guardian's Veil — a one-shot golden half-dome blooms over the caster's
+// ground when the Knight raises the ward, then fades. Cosmetic only; the
+// protection itself lives server-side (veiledUntil) and travels with those
+// it covered.
+function spawnVeilDome(casterId, radius) {
+  try {
+    const v = visuals[casterId];
+    const grp = v && v.group;
+    if (!grp || !activeScene || typeof THREE === 'undefined') return;
+    const geo = new THREE.SphereGeometry(radius || 200, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false });
+    const dome = new THREE.Mesh(geo, mat);
+    dome.position.set(grp.position.x, grp.position.y + 2, grp.position.z);
+    activeScene.add(dome);
+    const start = performance.now(), dur = 1800;
+    (function anim() {
+      if (!dome.parent) return;
+      const t = (performance.now() - start) / dur;
+      if (t >= 1) { dome.parent.remove(dome); geo.dispose(); mat.dispose(); return; }
+      const s = 0.25 + 0.75 * Math.min(1, t * 1.4);
+      dome.scale.set(s, s, s);
+      mat.opacity = 0.38 * (1 - t);
+      requestAnimationFrame(anim);
+    })();
+  } catch (e) { /* cosmetic only */ }
+}
+
 // 🐺 Hunter's Read — the rap-sheet card the Werewolf tears off a target.
 // Pure in-world record (built server-side from benign game state), laid out
 // in the three sections the attack promises.
