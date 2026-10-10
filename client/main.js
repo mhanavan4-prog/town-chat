@@ -3372,24 +3372,14 @@ function setUnlockToast(text) {
 
 // Persistent banner shown while inside a coven's private Moot instance (Session
 // N). Created lazily so no HTML change is needed; pass null to hide it.
-function setMootBanner(msg) {
-  let el = document.getElementById('mootBanner');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'mootBanner';
-    // Anchored to the BOTTOM-LEFT corner, out of the way of the centre column
-    // (top pills, the interact hint, the XP strip and the hotbar all live
-    // centre) and the top row. On touch devices the joystick roams the
-    // lower-left, so a body.touchMode rule in index.html relocates it there.
-    el.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:60;' +
-      'background:linear-gradient(90deg,#17342c,#143028);border:1px solid #2f6b52;color:#bff0d2;' +
-      'font:600 12.5px/1 system-ui,-apple-system,sans-serif;padding:7px 14px;border-radius:999px;' +
-      'box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;letter-spacing:.02em';
-    document.body.appendChild(el);
-  }
-  if (!msg) { el.style.display = 'none'; return; }
-  el.textContent = `🌑 Hagstone — ${(msg.covenSigil || '')} ${msg.covenName || 'your coven'}`.replace(/\s+/g, ' ').trim();
-  el.style.display = 'block';
+// The persistent "🌑 Hagstone — <coven>" pill was retired to keep the screen
+// clear (it sat top-centre on phones, right in the view). A one-time welcome
+// card (openHagstoneWelcome) explains the private world on first entry
+// instead, and the perpetual violet night is the ongoing cue. Kept as a
+// hide-only shim so any older element can't linger.
+function setMootBanner(_msg) {
+  const el = document.getElementById('mootBanner');
+  if (el) el.style.display = 'none';
 }
 
 // ── Altar-ritual HUD + bestowing ────────────────────────────────────────────
@@ -4125,8 +4115,14 @@ window.addEventListener('mousemove', (e) => {
   lastDragX = e.clientX;
   lastDragY = e.clientY;
 });
+let lastTouchAt = 0; // set by the canvas touch handlers; guards the ghost mouseup below
 window.addEventListener('mouseup', (e) => {
   dragging = false;
+  // Mobile browsers fire a synthetic mouse event right after a touch tap.
+  // Without this guard one tap runs handleCanvasClick twice (real touchend +
+  // ghost mouseup), double-sending the action — which is why a single harvest
+  // click also popped "already harvested" (the 2nd send hit the cooldown).
+  if (Date.now() - lastTouchAt < 1000) { clickOriginatedOnCanvas = false; return; }
   if (clickOriginatedOnCanvas && dragMoved < CLICK_DRAG_THRESHOLD) handleCanvasClick(e.clientX, e.clientY);
   clickOriginatedOnCanvas = false;
 });
@@ -4545,6 +4541,7 @@ function hidePlayerContextMenu() {
   playerContextMenuId = null;
 }
 
+let _lastHarvestId = null, _lastHarvestAt = 0; // dedupe double-fired harvests (ghost tap)
 function handleCanvasClick(clientX, clientY) {
   if (!gameStarted || !me || anyOverlayOpen()) return;
   // Dismiss any open context menu first
@@ -4593,7 +4590,15 @@ function handleCanvasClick(clientX, clientY) {
     flashCreatureHit(hit.kind, hit.targetId);
     triggerAttackAnim();
   } else if (hit.kind === 'decor') {
-    ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
+    // Swallow a double-fire on one tap: a mobile tap can emit a second click
+    // (the synthetic ghost mouse event) just after the real one, and the
+    // second harvest of the same node pops "Already harvested" right after the
+    // first succeeded. Ignore a repeat of the same decor within a short window.
+    const nowH = Date.now();
+    if (!(hit.decorId === _lastHarvestId && nowH - _lastHarvestAt < 1500)) {
+      _lastHarvestId = hit.decorId; _lastHarvestAt = nowH;
+      ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
+    }
   } else if (hit.kind === 'loot') {
     ws.send(JSON.stringify({ type: 'loot_corpse', targetType: hit.lootType, targetId: hit.targetId }));
   }
@@ -4607,6 +4612,7 @@ function handleCanvasClick(clientX, clientY) {
 // looks and acts.
 const touchLooks = new Map(); // touch identifier -> {startX, startY, lastX, lastY, moved}
 canvas.addEventListener('touchstart', (e) => {
+  lastTouchAt = Date.now(); // mark the tap so the ghost mousedown/up is ignored
   for (const t of e.changedTouches) {
     touchLooks.set(t.identifier, { startX: t.clientX, startY: t.clientY, lastX: t.clientX, lastY: t.clientY, moved: 0 });
   }
@@ -4632,6 +4638,7 @@ canvas.addEventListener('touchmove', (e) => {
   }
 }, { passive: true });
 const touchLookEnd = (e) => {
+  lastTouchAt = Date.now(); // mark the tap so the ghost mouseup is ignored
   for (const t of e.changedTouches) {
     const tl = touchLooks.get(t.identifier);
     touchLooks.delete(t.identifier);
