@@ -4546,6 +4546,41 @@ const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTake
 // Covens (Session I) — extracted to lib/covens.js (Tier 3.4 Phase B).
 const covensMod = require('./lib/covens')({ dataDir: DATA_DIR, persistLoad, persistSetKey, persistRegister, accounts, findConnectionByAccountKey, send });
 const { covens, COVENS_FILE, saveCoven, covenOf, covenLog, covenDisplayName, covenStatePayload, covenBroadcast, covenTableFor, covenIndex, covenInvites, COVEN_MAX_MEMBERS, COVEN_CREATE_COST, COVEN_BANK_SLOTS, COVEN_SIGILS, COVEN_TABLE_HOLD_MS } = covensMod;
+
+// ── Coven standings & the Champions' Table (Session P) ───────────────────────
+// A weekly inter-coven contest built entirely on the per-player leaderboards:
+// a coven's standing is the sum of its CURRENT members' weekly board scores,
+// so "play together, climb together" with no new per-kill bookkeeping. Boss
+// and Delve pulls are weighted up — they're rarer and harder than a hunt kill.
+// The week's leading coven holds the Champions' Table: the banner over the
+// café table and the crown at the top of the board. (Weights are tunable.)
+const COVEN_STANDING_WEIGHTS = { hunt: 1, tourney: 1, boss: 15, delve: 10 };
+function covenStandings(wk) {
+  const period = leaderboards[wk] || {};
+  const rows = [];
+  for (const cid in covens) {
+    const cv = covens[cid];
+    if (!cv || !cv.members || !cv.members.length) continue;
+    const bd = { hunt: 0, boss: 0, tourney: 0, delve: 0 };
+    for (const key of cv.members) {
+      for (const board of ['hunt', 'boss', 'tourney', 'delve']) {
+        const e = period[board] && period[board][key];
+        if (e && e.value) bd[board] += e.value;
+      }
+    }
+    const points = bd.hunt * COVEN_STANDING_WEIGHTS.hunt + bd.tourney * COVEN_STANDING_WEIGHTS.tourney +
+                   bd.boss * COVEN_STANDING_WEIGHTS.boss + bd.delve * COVEN_STANDING_WEIGHTS.delve;
+    rows.push({ covenId: cid, name: cv.name, sigil: cv.sigil, members: cv.members.length, points, breakdown: bd });
+  }
+  rows.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  return rows;
+}
+// The coven currently holding the Champions' Table — the week's #1, if anyone
+// has scored at all. Null before the first point of the week is earned.
+function covenChampionBody() {
+  const leader = covenStandings(weekKey(Date.now()))[0];
+  return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points } : null;
+}
 setInterval(() => {
   const now = Date.now();
   for (const [id, inv] of covenInvites) if (inv.expiresAt <= now) covenInvites.delete(id);
@@ -5934,7 +5969,7 @@ wss.on('connection', (ws, req) => {
         // Walking into the café tells you whose sigil hangs over the big
         // table right now (Session L covens).
         if (changedRoom && msg.room === 'cafe') {
-          send(ws, { type: 'coven_table_state', table: covenTableFor('cafe') });
+          send(ws, { type: 'coven_table_state', table: covenTableFor('cafe'), champions: covenChampionBody() });
         }
       }
       return;
@@ -8409,6 +8444,19 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    if (msg.type === 'coven_standings') {
+      const wk = weekKey(Date.now());
+      const rows = covenStandings(wk);
+      const myCovenId = player.accountKey ? (covenIndex.get(player.accountKey) || null) : null;
+      send(ws, {
+        type: 'coven_standings',
+        week: wk,
+        standings: rows.slice(0, 25),
+        myCovenId,
+        endsAt: LEGENDARY_EPOCH + (legendaryWeekIndex() + 1) * LEGENDARY_WEEK_MS,
+      });
+      return;
+    }
     if (msg.type === 'coven_claim_table') {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) return;
@@ -8422,7 +8470,7 @@ wss.on('connection', (ws, req) => {
       cv.table = { room: 'cafe', claimedAt: now, until: now + COVEN_TABLE_HOLD_MS };
       covenLog(cv, player.name, 'claimed the café table');
       saveCoven(cv.id);
-      broadcastRoom('cafe', { type: 'coven_table_state', table: covenTableFor('cafe') });
+      broadcastRoom('cafe', { type: 'coven_table_state', table: covenTableFor('cafe'), champions: covenChampionBody() });
       covenBroadcast(cv);
       return;
     }
@@ -9101,6 +9149,7 @@ global.__testHooks = {
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
   delveLeave, delveSpawnFloor, tickDelves, noteDelveKill, delveBoonContrib, delveMenuPayload,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
+  covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,

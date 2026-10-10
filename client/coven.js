@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, getIsAdmin }) {
+export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
   const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
@@ -94,6 +94,8 @@ function renderCovenModal() {
   document.getElementById('covenMembersView').classList.toggle('hidden', covenActiveTab !== 'members');
   document.getElementById('covenChatView').classList.toggle('hidden', covenActiveTab !== 'chat');
   document.getElementById('covenBankView').classList.toggle('hidden', covenActiveTab !== 'bank');
+  document.getElementById('covenStandingsView').classList.toggle('hidden', covenActiveTab !== 'standings');
+  if (covenActiveTab === 'standings') renderCovenStandings();
   const amLeader = getCovenState().leaderKey === getCovenState().you;
   if (covenActiveTab === 'members') {
     const list = document.getElementById('covenMembers');
@@ -181,17 +183,56 @@ function openCovenInviteToast(msg) {
   document.body.appendChild(wrap);
   setTimeout(() => wrap.remove(), 55000);
 }
-// The claimed café table: a floating sigil over the middle of the room.
+// The café table: a floating sigil over the middle of the room. The week's
+// leading coven holds the Champions' Table (shown with a 🏆), falling back to
+// whoever casually claimed the seat if no one has scored yet this week.
 let covenTableSprite = null;
 function refreshCovenTableVisual() {
   try {
     if (covenTableSprite && covenTableSprite.parent) covenTableSprite.parent.remove(covenTableSprite);
     covenTableSprite = null;
-    if (!getCovenTableState() || !getMe() || getMe().room !== 'cafe' || !getCurrentInterior() || !getCurrentInterior().scene) return;
-    covenTableSprite = makeNpcNameSprite(`${getCovenTableState().sigil} ${getCovenTableState().name}'s table`);
+    if (!getMe() || getMe().room !== 'cafe' || !getCurrentInterior() || !getCurrentInterior().scene) return;
+    const champ = (typeof getCovenChampions === 'function' && getCovenChampions()) || null;
+    const seat = getCovenTableState();
+    let label = null;
+    if (champ) label = `🏆 ${champ.sigil} ${champ.name} — Champions' Table`;
+    else if (seat) label = `${seat.sigil} ${seat.name}'s table`;
+    if (!label) return;
+    covenTableSprite = makeNpcNameSprite(label);
     covenTableSprite.position.set(0, 95, -40);
     getCurrentInterior().scene.add(covenTableSprite);
   } catch (e) { /* cosmetic only */ }
+}
+// The weekly inter-coven standings board — the Champions' Table race. Fed by
+// the server's coven_standings reply (requested when the tab is opened).
+function renderCovenStandings() {
+  const list = document.getElementById('covenStandingsList');
+  const ends = document.getElementById('covenStandingsEnds');
+  if (!list) return;
+  const st = (typeof getCovenStandings === 'function' && getCovenStandings()) || null;
+  if (!st || !st.standings) { list.innerHTML = '<div class="slNote">Tallying the circles…</div>'; if (ends) ends.textContent = ''; return; }
+  if (ends) {
+    const ms = (st.endsAt || 0) - Date.now();
+    const d = Math.max(0, Math.floor(ms / 86400000)), h = Math.max(0, Math.floor((ms % 86400000) / 3600000));
+    ends.textContent = ms > 0 ? `This week ends in ${d}d ${h}h — the leader holds the table.` : 'Tallying the final standings…';
+  }
+  list.innerHTML = '';
+  if (!st.standings.length) { list.innerHTML = '<div class="slNote">No coven has scored yet this week. Be the first.</div>'; return; }
+  st.standings.forEach((row, i) => {
+    const mine = row.covenId === st.myCovenId;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:3px 0;border-radius:8px;' +
+      (mine ? 'background:rgba(158,227,125,0.12);border:1px solid rgba(94,231,192,0.45);' : 'border:1px solid rgba(255,255,255,0.06);');
+    const name = document.createElement('span');
+    name.style.cssText = 'font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    name.textContent = `${i === 0 ? '🏆' : '#' + (i + 1)}  ${row.sigil} ${row.name}`;
+    const pts = document.createElement('span');
+    pts.style.cssText = 'color:#9ee37d;font-weight:650;white-space:nowrap';
+    pts.textContent = `${Number(row.points).toLocaleString()} pts`;
+    pts.title = `🔥 ${row.breakdown.hunt} · ⚔️ ${row.breakdown.boss} · 🕳️ ${row.breakdown.delve} · 🏹 ${row.breakdown.tourney}`;
+    div.appendChild(name); div.appendChild(pts);
+    list.appendChild(div);
+  });
 }
 (function () {
   const closeBtn = document.getElementById('covenCloseBtn');
@@ -201,6 +242,7 @@ function refreshCovenTableVisual() {
     const b = e.target.closest('.slTab');
     if (!b) return;
     covenActiveTab = b.dataset.cv;
+    if (covenActiveTab === 'standings') getWs().send(JSON.stringify({ type: 'coven_standings' }));
     renderCovenModal();
   });
   const create = document.getElementById('covenCreateBtn');
@@ -275,5 +317,5 @@ function refreshCovenTableVisual() {
     if (amt > 0) getWs().send(JSON.stringify({ type: 'coven_withdraw_gold', amount: amt }));
   });
 })();
-  return { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual };
+  return { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings };
 }

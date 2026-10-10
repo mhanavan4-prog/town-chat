@@ -1385,7 +1385,13 @@ function onWsMessage(ev) {
 
   if (msg.type === 'coven_table_state') {
     covenTableState = msg.table || null;
+    covenChampions = msg.champions || null;
     refreshCovenTableVisual();
+    return;
+  }
+  if (msg.type === 'coven_standings') {
+    covenStandingsState = msg;
+    if (Modals.isOpen('covenModalOpen')) renderCovenStandings();
     return;
   }
 
@@ -9392,6 +9398,8 @@ const { openDelveModal, closeDelveModal, renderDelveModal, renderDelveHud, openL
 
 // ── Covens UI ────────────────────────────────────────────────────────────────
 let covenTableState = null;
+let covenStandingsState = null;     // server coven_standings reply (the weekly board)
+let covenChampions = null;          // current week's leading coven (holds the Champions' Table)
 const _coven = createCoven({
   getWs: () => ws, getMe: () => me, getPlayers: () => players,
   getCovenState: () => covenState, getCovenTableState: () => covenTableState,
@@ -9400,8 +9408,9 @@ const _coven = createCoven({
   getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
   getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
+  getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
 });
-const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual } = _coven;
+const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings } = _coven;
 
 const _covenVoice = createCovenVoice({
   getWs: () => ws, getCovenState: () => covenState, setUnlockToast,
