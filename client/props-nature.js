@@ -132,8 +132,14 @@ export function makeDeadwood(x, z, scale) {
     b.translateY(len * s * 0.42);
     g.add(b);
   }
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(2.2 * s, 6, 6), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
-  glint.position.set(1.5 * s, trunkH * 0.9, 1.5 * s); g.add(glint);
+  // A spirit-wisp snagged in the branches — and the player's cue that THIS
+  // dead tree is harvestable (vs the scenery spooky trees, which have none).
+  // Bigger and set higher so it reads from a distance; a faint halo widens
+  // the tell without washing out the night.
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(3.4 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
+  glint.position.set(1.5 * s, trunkH * 0.95, 1.5 * s); g.add(glint);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(6.2 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.22 }));
+  halo.position.copy(glint.position); g.add(halo);
   g.position.set(x, 0, z); g.userData.camFade = true; return g;
 }
 

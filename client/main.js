@@ -6786,7 +6786,12 @@ function addSpookyDecor(scene, w2) {
   ];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Spooky trees — thick clusters near the cave and scattered throughout.
-  for (let i = 0; i < 150; i++) {
+  // Trimmed from 150: these are pure scenery (no server decor entry, so they
+  // can't be harvested). We lean on the server's harvestable deadwood flora
+  // for most of the standalone dead trees now, so a dead tree you walk up to
+  // is usually one you can actually chop. Graveyard spooky trees (below) stay
+  // for atmosphere.
+  for (let i = 0; i < 85; i++) {
     const x = rng(300, w2.width - 300), z = rng(300, w2.height - 300);
     if (!clearOf(x, z)) continue;
     scene.add(makeSpookyTree(x, z));

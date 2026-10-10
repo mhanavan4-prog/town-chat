@@ -840,7 +840,14 @@ WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
 // stay stable; each species harvests its own witchy material (WILDS_FLORA
 // gallery: THORNREACH-WILDS-FLORA.html). ──
 const WILDS_FLORA_TYPES = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring'];
-const WILDS_FLORA_COUNTS = { watchpine: 16, deadwood: 14, mourning_willow: 12, capwood: 12, hexoak: 14, palebirch: 14, bramblebush: 22, nightberry: 18, thornsnarl: 18, fenfern: 22, toadring: 16 };
+// deadwood is bumped well above its siblings on purpose: the Wilds is thick
+// with bare dead trees, but almost all of those are client-only scenery
+// (makeSpookyTree) that can't be harvested. With only a handful of real
+// harvestable deadwood, players walked up to dead tree after dead tree and
+// nothing happened. More harvestable deadwood (each a convincing dead tree
+// with a tell-tale blue glint) means a dead tree you approach is usually one
+// you can actually chop for witchwood (→ Witchwood Balm).
+const WILDS_FLORA_COUNTS = { watchpine: 16, deadwood: 50, mourning_willow: 12, capwood: 12, hexoak: 14, palebirch: 14, bramblebush: 22, nightberry: 18, thornsnarl: 18, fenfern: 22, toadring: 16 };
 const WILDS_FLORA_HARVEST = { watchpine: 'pine_pitch', deadwood: 'witchwood', mourning_willow: 'willow_frond', capwood: 'toadcap', hexoak: 'hex_acorn', palebirch: 'birch_bark', bramblebush: 'bramble_vine', nightberry: 'nightberry', thornsnarl: 'blackthorn', fenfern: 'fern_frond', toadring: 'ring_cap' };
 const WILDS_FLORA_TOTAL = WILDS_FLORA_TYPES.reduce((a, t) => a + WILDS_FLORA_COUNTS[t], 0);
 const WILDS_FLORA_POSITIONS = makeWildsScatter(0x5eed, 22, WILDS_FLORA_TOTAL);
