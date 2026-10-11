@@ -70,21 +70,23 @@ setTimeout(() => {
   const beforeAlice = alice.sent.length;
   const beforeCarol = carol.sent.length;
 
-  // --- Alice chats — should reach Bob (same room) but NOT Carol (outside) ---
+  // --- Chat is now a UNIFIED WORLD channel: a public player's message reaches
+  //     everyone in the public world, across rooms (bob same-room, carol outside). ---
   alice.emit('message', JSON.stringify({ type: 'chat', text: 'Hi from the cafe!' }));
 
   const bobChats = bob.allOfType('chat');
   check('bob (same room) receives the chat message', bobChats.some(m => m.message.text === 'Hi from the cafe!'));
   const aliceChats = alice.sent.slice(beforeAlice).filter(m => m.type === 'chat');
-  check('alice (sender) also receives her own room-scoped message (echo)', aliceChats.some(m => m.message.text === 'Hi from the cafe!'));
+  check('alice (sender) also receives her own world message (echo)', aliceChats.some(m => m.message.text === 'Hi from the cafe!'));
   const carolChats = carol.sent.slice(beforeCarol).filter(m => m.type === 'chat');
-  check('carol (outside / different room) does NOT receive the cafe message', carolChats.length === 0);
+  check('carol (different room) DOES receive the world message (global)', carolChats.some(m => m.message.text === 'Hi from the cafe!'));
+  check('world messages are tagged scope=world', carolChats.some(m => m.message.scope === 'world'));
 
-  // --- Carol chats outside — alice/bob (in cafe) should not get it ---
+  // --- Carol chats from outside — alice (in the cafe) gets it too, globally ---
   const beforeAlice2 = alice.sent.length;
   carol.emit('message', JSON.stringify({ type: 'chat', text: 'Hello town square' }));
   const aliceChats2 = alice.sent.slice(beforeAlice2).filter(m => m.type === 'chat');
-  check('alice (in cafe) does not receive outside chat', aliceChats2.length === 0);
+  check('alice (in cafe) DOES receive outside world chat (global)', aliceChats2.some(m => m.message.text === 'Hello town square'));
 
   // --- XSS / length sanitization ---
   carol.emit('message', JSON.stringify({ type: 'chat', text: '<script>alert(1)</script>' + 'x'.repeat(500) }));

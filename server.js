@@ -3271,6 +3271,20 @@ function broadcastAll(data, exceptWs) {
   }
 }
 
+// WORLD chat delivery: every player in the PUBLIC world, across all rooms and
+// town layers — but NOT anyone tucked into a private coven moot (their instance
+// is their own channel; public chatter shouldn't reach them there, same as the
+// moot keeps their own talk private).
+function broadcastWorld(data, exceptWs) {
+  const img = data && IMAGE_MSG_TYPES.has(data.type);
+  const full = JSON.stringify(data), lite = img ? JSON.stringify(stripImagesForGuest(data)) : full;
+  for (const p of players.values()) {
+    if (p.ws === exceptWs || p.ws.readyState !== p.ws.OPEN) continue;
+    if (typeof p.instance === 'string' && p.instance.startsWith('coven_')) continue;
+    p.ws.send(img && p.ws._isGuest ? lite : full);
+  }
+}
+
 // A player's "instance" (Session N — the Moot Stone): null/'' is the public
 // world; 'coven_<id>' is a coven's private copy. Room scoping now also matches
 // instance, so a private copy is invisible to the public world and vice versa.
@@ -6051,6 +6065,16 @@ function recordRoomChat(room, name, color, text, image) {
   roomChatLogs.set(room, log);
 }
 
+// Unified WORLD chat (Session N) — a single global channel every public player
+// shares, so the open world reads as one lively place no matter which town
+// layer or zone you're in. A short rolling backlog is replayed to each arrival
+// (text only — guests never receive images) so a newcomer lands into an active
+// conversation instead of silence. Coven moot chat stays private (instance).
+const WORLD_CHAT_LIMIT = 40;
+const worldChatLog = [];
+function recordWorldChat(m) { worldChatLog.push({ id: m.id, name: m.name, color: m.color, text: m.text, ts: m.ts }); if (worldChatLog.length > WORLD_CHAT_LIMIT) worldChatLog.shift(); }
+function worldChatBacklog() { return worldChatLog.slice(-20).map(m => ({ id: m.id, name: m.name, color: m.color, text: m.text, scope: 'world', ts: m.ts })); }
+
 wss.on('connection', (ws, req) => {
   let player = null;
   ws._ip = audit.clientIp(req);
@@ -6383,6 +6407,9 @@ wss.on('connection', (ws, req) => {
         // The Artificer's Workshop crafting tree (Session N) — authoritative
         // recipe list so the client renders the tree with no hand-synced copy.
         craftRecipes: CRAFT_RECIPES,
+        // A short backlog of recent WORLD chat so a newcomer arrives into a
+        // live conversation rather than an empty screen (text only).
+        worldChat: worldChatBacklog(),
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
@@ -6667,7 +6694,17 @@ wss.on('connection', (ws, req) => {
       };
       flagLinkIfAny(text, 'chat', player, ws);
       recordRoomChat(player.room, player.name, player.color, text, image);
-      broadcastRoom(player.room, chatMsg, player.instance);
+      // Coven moots keep a private channel (instance-scoped); everyone else
+      // shares the single global WORLD channel so the town — and every layer of
+      // it — feels like one populated place.
+      const inCoven = typeof player.instance === 'string' && player.instance.startsWith('coven_');
+      chatMsg.message.scope = inCoven ? 'coven' : 'world';
+      if (inCoven) {
+        broadcastInstance(player.instance, chatMsg);
+      } else {
+        recordWorldChat(chatMsg.message);
+        broadcastWorld(chatMsg);
+      }
       for (const watcher of players.values()) {
         if (watcher.spyGlass && watcher.spyGlass.room === player.room && watcher.spyGlass.expiresAt > Date.now()) {
           send(watcher.ws, { type: 'spyglass_chat', name: player.name, color: player.color, text, image });

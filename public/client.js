@@ -13875,6 +13875,11 @@ let me = null;            // convenience pointer to players[myId]
 let currentRoom = 'outside';
 let mootInstanceActive = false; // Session N: true while inside your coven's private copy (the Moot Stone)
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
+const worldFeed = []; // unified global WORLD chat — shown in every room, seeded from init's backlog
+// Completely hide chat (panel + overhead bubbles/banners) for players who don't
+// want it on screen. Persisted per-viewer; a small floating button restores it.
+let chatHidden = false;
+try { chatHidden = localStorage.getItem('tc_chatHidden') === '1'; } catch (e) {}
 
 // Picked once on the join screen (and remembered in localStorage), sent to
 // the server as charId, and echoed back on every player's record so every
@@ -14505,6 +14510,7 @@ function onWsMessage(ev) {
   if (msg.type === 'init') {
     const wasStarted = gameStarted;
     myId = msg.id;
+    if (Array.isArray(msg.worldChat)) { worldFeed.length = 0; for (const m of msg.worldChat) worldFeed.push(m); }
     world = msg.world;
     TOWN_WORLD = world;
     // Equipment stat catalog — used to preview how a gear swap changes stats.
@@ -15513,15 +15519,23 @@ function onWsMessage(ev) {
 
   if (msg.type === 'chat') {
     const m = msg.message;
-    if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
-    messagesByRoom[m.room].push(m);
-    if (m.room === currentRoom) renderChatLog();
-    // A talker's nameplate surfaces for a few seconds (names are
-    // otherwise distance-gated on mobile), and their words ride along:
-    // an overhead speech bubble on desktop, a text-message-style banner
-    // at the top of the screen on phones (there is no chat log there).
+    // World chat (the default global channel) rides the always-visible feed;
+    // coven-private chat stays in its room bucket. Either way the server only
+    // delivered it to someone meant to see it.
+    if (m.scope === 'world' || !m.scope) {
+      worldFeed.push(m); if (worldFeed.length > 120) worldFeed.shift();
+    } else {
+      if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
+      messagesByRoom[m.room].push(m);
+    }
+    renderChatLog();
     if (m.id && players[m.id]) players[m.id].lastChatAt = Date.now();
-    if (m.room === currentRoom) {
+    // An overhead bubble / mobile banner only makes sense for a speaker you can
+    // actually see — someone in your own room (and therefore your own layer).
+    // World chatter from elsewhere just rides the feed. Suppressed entirely when
+    // the viewer has hidden chat.
+    const speakerVisible = m.id && players[m.id] && players[m.id].room === currentRoom;
+    if (!chatHidden && speakerVisible) {
       if (!MOBILE_UI) setOverheadBubble(m.id, m.text, !!m.image);
       else spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image, self: m.id === myId });
     }
@@ -15609,7 +15623,10 @@ function onWsMessage(ev) {
     // log, for everyone, including us.
     const list = messagesByRoom[msg.room];
     if (list) messagesByRoom[msg.room] = list.filter(m => m.id !== msg.id);
-    if (msg.room === currentRoom) renderChatLog();
+    // World chat is global, so purge the leaver/muted speaker from the shared
+    // feed too (not just the room bucket).
+    for (let i = worldFeed.length - 1; i >= 0; i--) if (worldFeed[i].id === msg.id) worldFeed.splice(i, 1);
+    renderChatLog();
     return;
   }
 
@@ -19255,17 +19272,15 @@ chatInput.addEventListener('focus', () => { typing = true; });
 chatInput.addEventListener('blur', () => { typing = false; });
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
-    if (currentRoom === 'outside') { chatInput.value = ''; return; } // defense in depth
     sendChatMessage();
   } else if (e.key === 'Escape') {
     chatInput.blur();
   }
 });
 // ➤ Send — the tap path phones need (no reliable Enter key on a software
-// keyboard) and a nicety on desktop. Same guard as the Enter path.
+// keyboard) and a nicety on desktop.
 const chatSendBtn = document.getElementById('chatSendBtn');
 if (chatSendBtn) chatSendBtn.addEventListener('click', () => {
-  if (currentRoom === 'outside') { chatInput.value = ''; return; }
   sendChatMessage();
   if (MOBILE_UI) chatInput.focus(); // keep the keyboard up for a follow-up
 });
@@ -19392,9 +19407,12 @@ function sendChatMessage() {
 }
 
 function renderChatLog() {
-  const msgs = messagesByRoom[currentRoom] || [];
+  // The feed merges the global WORLD channel with this room's local lines
+  // (system beats + any coven-private chat), newest 40, in time order.
+  const local = messagesByRoom[currentRoom] || [];
+  const msgs = worldFeed.concat(local).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
   chatLog.innerHTML = '';
-  for (const m of msgs.slice(-40)) {
+  for (const m of msgs) {
     const div = document.createElement('div');
     if (m.system) {
       // Story/quest/combat beats — persistent history for what the toasts
@@ -19441,6 +19459,27 @@ function setChatMinimized(min) {
 }
 if (chatMinimizeBtn) chatMinimizeBtn.addEventListener('click', () => setChatMinimized(!chatMinimized));
 
+// Completely hide chat — panel AND overhead bubbles/banners (the receive handler
+// checks `chatHidden` before popping any). A floating 💬 button restores it.
+// The choice is remembered per viewer.
+const chatHideBtn = document.getElementById('chatHideBtn');
+const chatShowBtn = document.getElementById('chatShowBtn');
+// Sync panel + restore-button to the current hidden state. The panel never
+// shows before the game starts (the join screen stays clean), and the floating
+// restore button only appears in-game while hidden.
+function syncChatVisibility() {
+  const panel = document.getElementById('chatPanel');
+  if (panel) panel.classList.toggle('hidden', chatHidden || !gameStarted);
+  if (chatShowBtn) chatShowBtn.classList.toggle('hidden', !(chatHidden && gameStarted));
+}
+function setChatHidden(hidden) {
+  chatHidden = hidden;
+  try { localStorage.setItem('tc_chatHidden', hidden ? '1' : '0'); } catch (e) {}
+  syncChatVisibility();
+}
+if (chatHideBtn) chatHideBtn.addEventListener('click', () => setChatHidden(true));
+if (chatShowBtn) chatShowBtn.addEventListener('click', () => setChatHidden(false));
+
 let lastRoom = 'outside';
 function maybeUpdateRoomUI(room) {
   if (room === lastRoom) return;
@@ -19448,11 +19487,12 @@ function maybeUpdateRoomUI(room) {
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   pokeRoomTag();
-  // The Wilds is open-world like the town square, not a private room — no chat panel there either.
-  document.getElementById('chatPanel').classList.toggle('hidden', room === 'outside' || room === 'wilds' || room === 'ember_wastes' || room.startsWith('dungeon_'));
+  // World chat is global now, so the panel lives in every room (town included)
+  // — unless the viewer has hidden it. It's the one place the whole server talks.
+  syncChatVisibility();
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
   const headerText = document.getElementById('chatHeaderText');
-  if (headerText) headerText.textContent = '💬 ' + roomLabel(room);
+  if (headerText) headerText.textContent = '🌍 World';
   renderChatLog();
   // Session L: the coven table sprite lives only in the café, and the event
   // pill re-evaluates per room (it hides indoors-agnostically otherwise).
