@@ -4,8 +4,10 @@
 //    the installed app with no connection shows "Reconnect" instead of a raw
 //    browser error. We deliberately do NOT cache the game itself — it's a live
 //    multiplayer world and needs the server; the CDN serves static files online.
-const CACHE = 'thornreach-shell-v1';
-const SHELL = ['/offline.html', '/icon-192.png'];
+const CACHE = 'thornreach-shell-v2'; // bumped with the new app icon (v2)
+const SHELL = ['/offline.html', '/icon-192.png?v=2'];
+// Pathnames of the shell assets, for matching fetches regardless of ?v= query.
+const SHELL_PATHS = new Set(['/offline.html', '/icon-192.png']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,9 +31,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   // The offline page's own assets (icon): serve from cache when present.
+  // ignoreSearch so a versioned URL (/icon-192.png?v=2) still hits the cache.
   const path = new URL(req.url).pathname;
-  if (SHELL.includes(path)) {
-    event.respondWith(caches.match(req).then((r) => r || fetch(req)));
+  if (SHELL_PATHS.has(path)) {
+    event.respondWith(caches.match(req, { ignoreSearch: true }).then((r) => r || fetch(req)));
   }
   // Everything else falls through to the normal network.
 });
