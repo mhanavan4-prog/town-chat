@@ -14680,6 +14680,11 @@ function onWsMessage(ev) {
       last = performance.now();
       requestAnimationFrame(loop);
       gameStarted = true;
+      // Now that play has started, reveal world chat (unless the viewer hid it)
+      // and paint the backlog — the room-UI pass can't be relied on for this
+      // when you spawn straight into the town (its no-op-on-same-room guard).
+      syncChatVisibility();
+      renderChatLog();
     } else {
       showReconnectBanner(false);
       setUnlockToast('Reconnected.');
@@ -19480,7 +19485,7 @@ function setChatHidden(hidden) {
 if (chatHideBtn) chatHideBtn.addEventListener('click', () => setChatHidden(true));
 if (chatShowBtn) chatShowBtn.addEventListener('click', () => setChatHidden(false));
 
-let lastRoom = 'outside';
+let lastRoom = null; // null (not 'outside') so the FIRST room-UI pass always runs — otherwise spawning into the town short-circuits it and the chat panel never un-hides there
 function maybeUpdateRoomUI(room) {
   if (room === lastRoom) return;
   lastRoom = room;
