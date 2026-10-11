@@ -427,10 +427,10 @@
     background:rgba(0,0,0,0.35); color:#eafff0; font-size:13.5px; outline:none;
   }
   #chatInput::placeholder { color:#8a7560; }
-  #chatImageBtn {
-    flex-shrink:0; width:40px; border-radius:20px; border:1px solid rgba(217,138,79,0.35);
-    background:rgba(0,0,0,0.35); color:#ffd9a0; font-size:16px; cursor:pointer;
-  }
+  /* Image upload is disabled on the global world chat (moderation): the entry
+     point is hidden, so chat is text-only. Markup kept so the client's image
+     helpers (clearPendingImage, etc.) still resolve their elements. */
+  #chatImageBtn { display:none; }
   #chatSendBtn {
     flex-shrink:0; width:44px; border-radius:20px; border:none; cursor:pointer;
     background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#08130a;
