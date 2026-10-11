@@ -819,6 +819,24 @@
     border-left:2px solid rgba(230,190,120,0.4); padding-left:8px; margin:3px 0;
   }
 
+  /* Player menu (mute / report), opened by clicking a name in chat. */
+  .playerMenu {
+    position:fixed; z-index:10000; min-width:150px;
+    background:#1b1436; border:1px solid #3a2f63; border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:6px; display:flex; flex-direction:column; gap:4px;
+  }
+  .playerMenuHead {
+    color:#ece7f7; font-weight:700; font-size:12.5px; padding:4px 8px 2px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .playerMenuLabel { color:#9c93c2; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; padding:4px 8px 0; }
+  .playerMenu button {
+    text-align:left; background:transparent; color:#eafff0; border:none; border-radius:7px;
+    padding:7px 9px; font-size:13px; cursor:pointer;
+  }
+  .playerMenu button:hover { background:rgba(255,255,255,0.08); }
+  .playerMenu button.playerMenuReport { color:#f0a89f; }
+
   /* ── Tracker "where" hints + goal-gradient glow ── */
   .trackerWhere { color:#9fd3e8; font-size:11px; margin-top:3px; }
   #storyTrackerFill.nearlyDone, #questTrackerFill.nearlyDone {
@@ -3103,6 +3121,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=a80bac9a8e"></script>
+<script src="client.js?v=9e344f84e3"></script>
 </body>
 </html>
