@@ -11820,6 +11820,13 @@ function update(dt) {
   turnInput = Math.max(-1, Math.min(1, turnInput));
   strafeInput = Math.max(-1, Math.min(1, strafeInput));
 
+  // Feral Haze / Haunting — 'reversed' flips every control for a few seconds:
+  // forward↔back, turn left↔right, strafe↔strafe. Self-enforced client-side
+  // like every other movement status here.
+  if (me.activeStatus && me.activeStatus.type === 'reversed') {
+    moveInput = -moveInput; turnInput = -turnInput; strafeInput = -strafeInput;
+  }
+
   // The instant the player actually moves or turns, snap any mouse-drag
   // camera orbit back to normal (directly behind the character) — otherwise
   // "forward" on screen and "forward" for the character can point two
