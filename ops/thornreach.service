@@ -29,9 +29,13 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 WorkingDirectory=/opt/town-chat
-# DATA_DIR defaults to the working dir; PORT must match the Cloudflare origin.
+# The game's data (SQLite DB, backups, evidence) lives in ./data — this MUST be
+# set explicitly, or the server defaults DATA_DIR to the working dir and starts
+# a FRESH, EMPTY database (every account/character "vanishes"). PORT must match
+# the Cloudflare origin.
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=DATA_DIR=/opt/town-chat/data
 # Server secrets (Stripe, admin key, VAPID, …) if you keep them in a KEY=VALUE
 # file. Harmless/ignored if the app loads its own .env; the '-' makes it optional.
 EnvironmentFile=-/opt/town-chat/.env
