@@ -300,28 +300,31 @@ const KK = (() => {
   function borrowAnims() {
     const donor = models.char0 && models.char0.animations && models.char0.animations.length ? models.char0.animations : null;
     if (!donor) return;
-    // The Skeletons pack shares the Adventurers' LIMB bones but NOT their
-    // root/hips rest transforms. The donor clips animate root + hips (position
-    // AND rotation), so bound to a skeleton rig those two tracks tip the whole
-    // body flat and drive it under the floor the instant the clip plays. Strip
-    // just the root/hips tracks for borrowers — every limb/spine/head track
-    // still drives the shared bones, so the body animates upright and in place.
-    // (The Adventurers classes keep the full, unmodified clips — same rig, no
-    // mismatch — so nothing changes for them.)
-    let _borrowed = null;
-    const borrowedClips = () => {
-      if (_borrowed) return _borrowed;
-      _borrowed = donor.map(clip => new THREE.AnimationClip(
-        clip.name, clip.duration,
-        clip.tracks.filter(t => !(t.name.startsWith('root.') || t.name.startsWith('hips.')))
-      ));
-      return _borrowed;
+    // three.js binds each animation track by node name, and when a track targets
+    // a node that ISN'T in the bound hierarchy it silently FALLS BACK to the
+    // mixer's root object. The Adventurers Mage clips animate a full IK control
+    // rig (IK-foot, kneeIK, control-foot-roll, handIK, …) that the Skeletons
+    // pack models don't have — so on a skeleton those ~50 orphan tracks all bind
+    // to the model ROOT and overwrite its position/rotation/SCALE with the Mage's
+    // IK-control values every frame. That's what shrank the Necromancer to a
+    // speck, tipped it over, and sank it under the floor. The playable classes
+    // share the Mage's exact rig (IK bones included), so nothing falls back.
+    // Fix: for each borrower, keep only the tracks whose target node actually
+    // resolves in ITS rig — the shared deform bones (root, hips, spine, chest,
+    // head, all limbs) match, so the body still animates fully and correctly;
+    // only the orphan IK/control tracks (the ones that would hit the root) drop.
+    const resolvesToRealNode = (root, trackName) => {
+      try { const b = THREE.PropertyBinding.create(root, trackName); b.bind(); return !!b.node && b.node !== root; }
+      catch (e) { return false; }
     };
+    const clipsFor = (m) => donor.map(clip => new THREE.AnimationClip(
+      clip.name, clip.duration, clip.tracks.filter(t => resolvesToRealNode(m.scene, t.name))
+    ));
     const skinned = (m) => { let y = false; m.scene.traverse(o => { if (o.isSkinnedMesh) y = true; }); return y; };
     for (const k of Object.keys(models)) {
       // Only rigged (skinned) models borrow clips — a static prop like the
       // staff has no bones and must stay animation-less.
-      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = borrowedClips();
+      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = clipsFor(models[k]);
     }
   }
 
@@ -11877,6 +11880,25 @@ if (location.search.includes('testdrive=1')) {
     stairZones() { return KK_STAIR_ZONES.map(z => ({ side: z.side, cx: z.cx, cz: z.cz, out: z.out, step: z.step, depth: z.depth, halfWidth: z.halfWidth, profile: z.profile.slice() })); },
     floorH(x, z) { return getFloorHeight('outside', x, z); },
     visualY() { const v = visuals[myId]; return v ? v.group.position.y : null; },
+    inspectSelf() {
+      const v = visuals[myId];
+      if (!v) return { noVisual: true };
+      const g = v.group;
+      let meshes = 0, visMeshes = 0, skinned = 0;
+      g.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { meshes++; if (o.visible) visMeshes++; if (o.isSkinnedMesh) skinned++; } });
+      let bbox = null;
+      try { const b = new THREE.Box3().setFromObject(g); if (isFinite(b.min.y)) bbox = { minY: +b.min.y.toFixed(1), maxY: +b.max.y.toFixed(1), h: +(b.max.y - b.min.y).toFixed(1) }; } catch (e) {}
+      return {
+        hasKK: !!v.kk, groupVisible: g.visible, inScene: !!v.inScene, parentIsActive: v.parentScene === activeScene,
+        pos: { x: +g.position.x.toFixed(1), y: +g.position.y.toFixed(1), z: +g.position.z.toFixed(1) },
+        scale: +g.scale.x.toFixed(3), meshes, visMeshes, skinned, bbox,
+        floorY: +getFloorHeight(me ? me.room : 'outside', g.position.x, g.position.z).toFixed(1),
+        charId: me ? me.charId : null,
+        baseScale: v.kk ? +(v.kk.baseScale || 0).toFixed(3) : null,
+        modelSizeY: (me && KK && KK.models && KK.models[KK.charKey(me.charId)]) ? +KK.models[KK.charKey(me.charId)].size.y.toFixed(3) : null,
+        instScaleX: v.kk && v.kk.inst ? +v.kk.inst.scale.x.toFixed(3) : null,
+      };
+    },
     camPose() { return activeCamera ? { y: activeCamera.position.y, qx: activeCamera.quaternion.x, qw: activeCamera.quaternion.w } : null; },
     doors() { return world ? world.buildings.map(b => ({ id: b.id, side: getDoorSide(b), door: getDoorWorldPos(b) })) : []; },
     camInfo() { return activeCamera ? { near: activeCamera.near, far: activeCamera.far, fov: activeCamera.fov } : null; },
