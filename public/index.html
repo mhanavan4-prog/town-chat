@@ -392,6 +392,22 @@
     width:22px; height:22px; border-radius:6px; flex-shrink:0;
   }
   #chatMinimizeBtn:hover { background:rgba(255,255,255,0.18); }
+  #chatHideBtn {
+    pointer-events:auto;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(217,138,79,0.3);
+    color:#ffd9a0; font-size:12px; line-height:1; cursor:pointer;
+    width:22px; height:22px; border-radius:6px; flex-shrink:0; margin-left:4px;
+  }
+  #chatHideBtn:hover { background:rgba(255,80,80,0.28); }
+  /* Floating restore button, shown only while chat is hidden. */
+  #chatShowBtn {
+    position:fixed; left:12px; bottom:12px; z-index:40; pointer-events:auto;
+    width:40px; height:40px; border-radius:50%; cursor:pointer;
+    background:rgba(28,20,16,0.82); border:1px solid rgba(217,138,79,0.45);
+    color:#ffd9a0; font-size:19px; line-height:1;
+    box-shadow:0 2px 10px rgba(0,0,0,0.4);
+  }
+  #chatShowBtn:hover { background:rgba(45,32,24,0.95); }
   #chatLog {
     pointer-events:auto;
     max-height:260px; min-height:90px; overflow-y:auto; margin-bottom:8px;
@@ -1995,8 +2011,9 @@
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
-    <span id="chatHeaderText">💬 Town Square</span>
+    <span id="chatHeaderText">🌍 World</span>
     <button id="chatMinimizeBtn" title="Minimize">–</button>
+    <button id="chatHideBtn" title="Hide chat">✕</button>
   </div>
   <div id="chatLogView">
     <div id="chatLog"></div>
@@ -2013,6 +2030,7 @@
     </div>
   </div>
 </div>
+<button id="chatShowBtn" class="hidden" title="Show chat" aria-label="Show chat">💬</button>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
 
@@ -3085,6 +3103,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=70954491d4"></script>
+<script src="client.js?v=8fc4f85841"></script>
 </body>
 </html>
