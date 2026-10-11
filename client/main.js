@@ -3834,6 +3834,32 @@ async function startCharterCheckout(btn) {
     .catch(() => { showCheckoutProblem('Could not reach the server — is it still running?'); if (btn) { btn.disabled = false; btn.textContent = restore; } });
 }
 
+// Coven monthly upkeep — any member can pay $9.99 to extend the whole coven
+// 30 days. Mirrors the charter checkout; the server resolves which coven from
+// the payer's membership.
+async function startUpkeepCheckout(btn) {
+  let token = '';
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) token = a.token; } catch (e) {}
+  if (!token) { setUnlockToast('Log into an account first — coven upkeep follows your account.'); return; }
+  const restore = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const rt = await requestResumeToken();
+    if (rt) sessionStorage.setItem('tc_resume', JSON.stringify({ token: rt, name: me ? me.name : '', at: Date.now() }));
+  } catch (e) {}
+  fetch(apiUrlMaybe('/api/checkout'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ product: 'coven_upkeep', account_token: token })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.url) window.location.href = data.url;
+      else { showCheckoutProblem(data.error || 'Could not start checkout.'); if (btn) { btn.disabled = false; btn.textContent = restore; } }
+    })
+    .catch(() => { showCheckoutProblem('Could not reach the server — is it still running?'); if (btn) { btn.disabled = false; btn.textContent = restore; } });
+}
+
 // State shared between the checkout-return check (runs at load, below) and
 // the auto-resume + init paths further down: whether this page load IS a
 // bounce-back from Stripe, a toast to show once the world exists, and a
@@ -3903,6 +3929,26 @@ function claimPassOnConnection(force) {
         else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the Coven Charter.'));
       })
       .catch(() => setUnlockToast('⚠️ Could not verify the Coven Charter — it will retry next visit.'));
+    setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' })); }, 2500);
+    return;
+  }
+  const upkeepSessionId = params.get('upkeep_session');
+  if (upkeepSessionId) {
+    // Bounce-back from a Coven Upkeep checkout — verify (replay-proof), toast
+    // the result, and re-ask coven_state so the menu shows the new paid-through.
+    returnedFromCheckout = true;
+    history.replaceState(null, '', location.pathname + (params.get('testdrive') === '1' ? '?testdrive=1' : ''));
+    let acctToken = '';
+    try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
+    fetch(apiUrlMaybe('/api/verify-upkeep?session_id=' + encodeURIComponent(upkeepSessionId)
+          + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : '')))
+      .then(r => r.json())
+      .then(data => {
+        if (data.granted) setUnlockToast('🕯️ Coven upkeep paid — your coven is good for another 30 days!');
+        else if (data.paidThroughAt) setUnlockToast('🕯️ That upkeep was already credited — the coven is paid up.');
+        else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the coven upkeep.'));
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify the coven upkeep — it will retry next visit.'));
     setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' })); }, 2500);
     return;
   }
@@ -9923,7 +9969,7 @@ const _coven = createCoven({
   getCovenUnread: () => covenUnread, setCovenUnread: (v) => { covenUnread = v; },
   getCovenChatLines: () => covenChatLines, getCovenSigilsCatalog: () => covenSigilsCatalog,
   getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
-  getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout,
+  getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout, startUpkeepCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
   getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
 });

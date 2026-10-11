@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
+export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
   const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
@@ -100,6 +100,7 @@ function renderCovenModal() {
   if (covenActiveTab === 'members') {
     const list = document.getElementById('covenMembers');
     list.innerHTML = '';
+    renderCovenUpkeep(list); // upkeep card at the top — every member can see it and pay
     for (const m of getCovenState().members) {
       const row = document.createElement('div');
       row.className = 'slRow';
@@ -153,6 +154,60 @@ function renderCovenModal() {
       log.appendChild(row);
     }
   }
+}
+// The upkeep card — shown to EVERY member in the Members view. Any member can
+// pay the monthly $9.99 to keep the coven open; the state is derived from the
+// server's raw timestamps against the local clock.
+function renderCovenUpkeep(container) {
+  const u = getCovenState() && getCovenState().upkeep;
+  if (!u) return;
+  const now = Date.now();
+  const paid = now < (u.paidThroughAt || 0);
+  const inGrace = !paid && u.graceEndsAt && now < u.graceEndsAt;
+  const graceEligible = !u.graceUsedAt || (now - u.graceUsedAt) > u.resetMs;
+  const price = '$' + (((u.priceCents || 999) / 100).toFixed(2));
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const daysLeft = (ts) => Math.max(0, Math.ceil((ts - now) / 86400000));
+
+  const card = document.createElement('div');
+  card.className = 'covenUpkeep' + (inGrace ? ' grace' : '');
+  const title = document.createElement('div');
+  title.className = 'cuTitle';
+  title.textContent = `🕯️ Upkeep — ${price}/month`;
+  card.appendChild(title);
+
+  const status = document.createElement('div');
+  status.className = 'cuStatus';
+  if (inGrace) {
+    status.textContent = `⚠️ Upkeep lapsed — ${daysLeft(u.graceEndsAt)} day${daysLeft(u.graceEndsAt) === 1 ? '' : 's'} left for any member to pay, or the coven disbands.`;
+  } else if (paid) {
+    status.textContent = `Paid through ${fmtDate(u.paidThroughAt)}.`;
+  } else {
+    status.textContent = 'Upkeep is due.';
+  }
+  card.appendChild(status);
+
+  // If the one yearly grace has been spent, warn that a lapse now is fatal.
+  if (paid && !graceEligible && u.graceUsedAt) {
+    const warn = document.createElement('div');
+    warn.className = 'cuWarn';
+    warn.textContent = `Grace already used this year — if upkeep lapses before ${fmtDate(u.graceUsedAt + u.resetMs)}, the coven disbands immediately.`;
+    card.appendChild(warn);
+  }
+
+  if (u.paymentsEnabled) {
+    const pay = document.createElement('button');
+    pay.className = 'btn cuPay';
+    pay.textContent = `Pay upkeep (${price})`;
+    pay.addEventListener('click', () => { if (typeof startUpkeepCheckout === 'function') startUpkeepCheckout(pay); });
+    card.appendChild(pay);
+  } else {
+    const off = document.createElement('div');
+    off.className = 'cuWarn';
+    off.textContent = 'Payments are not enabled on this server.';
+    card.appendChild(off);
+  }
+  container.appendChild(card);
 }
 function renderCovenChat() {
   const log = document.getElementById('covenChatLog');

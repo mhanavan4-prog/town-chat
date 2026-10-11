@@ -1352,7 +1352,7 @@ function renderBoonDraft() {
 // setCovenUnread handles the read-badge reset.
 // ---------------------------------------------------------------------------
 
-function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
+function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
   const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
@@ -1446,6 +1446,7 @@ function renderCovenModal() {
   if (covenActiveTab === 'members') {
     const list = document.getElementById('covenMembers');
     list.innerHTML = '';
+    renderCovenUpkeep(list); // upkeep card at the top — every member can see it and pay
     for (const m of getCovenState().members) {
       const row = document.createElement('div');
       row.className = 'slRow';
@@ -1499,6 +1500,60 @@ function renderCovenModal() {
       log.appendChild(row);
     }
   }
+}
+// The upkeep card — shown to EVERY member in the Members view. Any member can
+// pay the monthly $9.99 to keep the coven open; the state is derived from the
+// server's raw timestamps against the local clock.
+function renderCovenUpkeep(container) {
+  const u = getCovenState() && getCovenState().upkeep;
+  if (!u) return;
+  const now = Date.now();
+  const paid = now < (u.paidThroughAt || 0);
+  const inGrace = !paid && u.graceEndsAt && now < u.graceEndsAt;
+  const graceEligible = !u.graceUsedAt || (now - u.graceUsedAt) > u.resetMs;
+  const price = '$' + (((u.priceCents || 999) / 100).toFixed(2));
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const daysLeft = (ts) => Math.max(0, Math.ceil((ts - now) / 86400000));
+
+  const card = document.createElement('div');
+  card.className = 'covenUpkeep' + (inGrace ? ' grace' : '');
+  const title = document.createElement('div');
+  title.className = 'cuTitle';
+  title.textContent = `🕯️ Upkeep — ${price}/month`;
+  card.appendChild(title);
+
+  const status = document.createElement('div');
+  status.className = 'cuStatus';
+  if (inGrace) {
+    status.textContent = `⚠️ Upkeep lapsed — ${daysLeft(u.graceEndsAt)} day${daysLeft(u.graceEndsAt) === 1 ? '' : 's'} left for any member to pay, or the coven disbands.`;
+  } else if (paid) {
+    status.textContent = `Paid through ${fmtDate(u.paidThroughAt)}.`;
+  } else {
+    status.textContent = 'Upkeep is due.';
+  }
+  card.appendChild(status);
+
+  // If the one yearly grace has been spent, warn that a lapse now is fatal.
+  if (paid && !graceEligible && u.graceUsedAt) {
+    const warn = document.createElement('div');
+    warn.className = 'cuWarn';
+    warn.textContent = `Grace already used this year — if upkeep lapses before ${fmtDate(u.graceUsedAt + u.resetMs)}, the coven disbands immediately.`;
+    card.appendChild(warn);
+  }
+
+  if (u.paymentsEnabled) {
+    const pay = document.createElement('button');
+    pay.className = 'btn cuPay';
+    pay.textContent = `Pay upkeep (${price})`;
+    pay.addEventListener('click', () => { if (typeof startUpkeepCheckout === 'function') startUpkeepCheckout(pay); });
+    card.appendChild(pay);
+  } else {
+    const off = document.createElement('div');
+    off.className = 'cuWarn';
+    off.textContent = 'Payments are not enabled on this server.';
+    card.appendChild(off);
+  }
+  container.appendChild(card);
 }
 function renderCovenChat() {
   const log = document.getElementById('covenChatLog');
@@ -17533,6 +17588,32 @@ async function startCharterCheckout(btn) {
     .catch(() => { showCheckoutProblem('Could not reach the server — is it still running?'); if (btn) { btn.disabled = false; btn.textContent = restore; } });
 }
 
+// Coven monthly upkeep — any member can pay $9.99 to extend the whole coven
+// 30 days. Mirrors the charter checkout; the server resolves which coven from
+// the payer's membership.
+async function startUpkeepCheckout(btn) {
+  let token = '';
+  try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) token = a.token; } catch (e) {}
+  if (!token) { setUnlockToast('Log into an account first — coven upkeep follows your account.'); return; }
+  const restore = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const rt = await requestResumeToken();
+    if (rt) sessionStorage.setItem('tc_resume', JSON.stringify({ token: rt, name: me ? me.name : '', at: Date.now() }));
+  } catch (e) {}
+  fetch(apiUrlMaybe('/api/checkout'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ product: 'coven_upkeep', account_token: token })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.url) window.location.href = data.url;
+      else { showCheckoutProblem(data.error || 'Could not start checkout.'); if (btn) { btn.disabled = false; btn.textContent = restore; } }
+    })
+    .catch(() => { showCheckoutProblem('Could not reach the server — is it still running?'); if (btn) { btn.disabled = false; btn.textContent = restore; } });
+}
+
 // State shared between the checkout-return check (runs at load, below) and
 // the auto-resume + init paths further down: whether this page load IS a
 // bounce-back from Stripe, a toast to show once the world exists, and a
@@ -17602,6 +17683,26 @@ function claimPassOnConnection(force) {
         else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the Coven Charter.'));
       })
       .catch(() => setUnlockToast('⚠️ Could not verify the Coven Charter — it will retry next visit.'));
+    setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' })); }, 2500);
+    return;
+  }
+  const upkeepSessionId = params.get('upkeep_session');
+  if (upkeepSessionId) {
+    // Bounce-back from a Coven Upkeep checkout — verify (replay-proof), toast
+    // the result, and re-ask coven_state so the menu shows the new paid-through.
+    returnedFromCheckout = true;
+    history.replaceState(null, '', location.pathname + (params.get('testdrive') === '1' ? '?testdrive=1' : ''));
+    let acctToken = '';
+    try { const a = JSON.parse(localStorage.getItem('tc_account') || 'null'); if (a && a.token) acctToken = a.token; } catch (e) {}
+    fetch(apiUrlMaybe('/api/verify-upkeep?session_id=' + encodeURIComponent(upkeepSessionId)
+          + (acctToken ? '&account_token=' + encodeURIComponent(acctToken) : '')))
+      .then(r => r.json())
+      .then(data => {
+        if (data.granted) setUnlockToast('🕯️ Coven upkeep paid — your coven is good for another 30 days!');
+        else if (data.paidThroughAt) setUnlockToast('🕯️ That upkeep was already credited — the coven is paid up.');
+        else setUnlockToast('⚠️ ' + (data.error || 'Could not verify the coven upkeep.'));
+      })
+      .catch(() => setUnlockToast('⚠️ Could not verify the coven upkeep — it will retry next visit.'));
     setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_state' })); }, 2500);
     return;
   }
@@ -23622,7 +23723,7 @@ const _coven = createCoven({
   getCovenUnread: () => covenUnread, setCovenUnread: (v) => { covenUnread = v; },
   getCovenChatLines: () => covenChatLines, getCovenSigilsCatalog: () => covenSigilsCatalog,
   getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
-  getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout,
+  getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout, startUpkeepCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
   getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
 });
