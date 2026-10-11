@@ -35,9 +35,9 @@ Environment=PORT=3000
 # Server secrets (Stripe, admin key, VAPID, …) if you keep them in a KEY=VALUE
 # file. Harmless/ignored if the app loads its own .env; the '-' makes it optional.
 EnvironmentFile=-/opt/town-chat/.env
-# Cap the V8 heap (~1.5 GB) so a leak is recycled before it takes the box down.
-# Lower this if your VPS has less than ~2 GB RAM.
-ExecStart=/usr/bin/node --max-old-space-size=1536 server.js
+# Cap the V8 heap (~1 GB) so a leak is recycled before it takes the box down.
+# Sized for a 2 GB VPS; raise toward ~1536 only on a 3 GB+ box.
+ExecStart=/usr/bin/node --max-old-space-size=1024 server.js
 Restart=always
 RestartSec=2
 # Give the graceful SIGTERM drain (broadcast + backup flush) time before SIGKILL.
