@@ -13989,22 +13989,42 @@ const KK = (() => {
   let pending = 0, settled = false, resolveReady;
   const promise = new Promise(res => { resolveReady = res; });
 
+  // The Necromancer's SUMMONED undead (not any player's body) — needed only when
+  // a Necromancer casts, never at spawn. Kept OFF the critical path so the join
+  // button ("Summoning…") doesn't wait on their download or anim retargeting;
+  // they stream in the background and are ready long before the first summon.
+  const DEFERRED = new Set(['skel_minion', 'skel_warrior', 'skel_rogue']);
+
   function load() {
     if (typeof THREE === 'undefined' || !THREE.GLTFLoader) { settled = true; resolveReady(); return; }
     const loader = new THREE.GLTFLoader();
-    const keys = Object.keys(MANIFEST);
-    pending = keys.length;
-    for (const key of keys) {
-      loader.load(assetUrl(MANIFEST[key]), (gltf) => {
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        models[key] = { scene: gltf.scene, animations: gltf.animations || [],
-          size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
-          minY: box.min.y };
-        if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); }
-      }, undefined, () => {
-        console.warn('KK asset failed, using fallback:', key);
-        if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); }
-      });
+    const store = (key) => (gltf) => {
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      models[key] = { scene: gltf.scene, animations: gltf.animations || [],
+        size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
+        minY: box.min.y };
+    };
+    const allKeys = Object.keys(MANIFEST);
+    const criticalKeys = allKeys.filter((k) => !DEFERRED.has(k));
+    const deferredKeys = allKeys.filter((k) => DEFERRED.has(k));
+    // Critical set: everything the spawn town + any visible player body needs.
+    // The join gate (KK.promise / KK.settled) resolves when THIS set is done.
+    pending = criticalKeys.length;
+    const onCritical = () => { if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); loadDeferred(); } };
+    for (const key of criticalKeys) {
+      loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); onCritical(); },
+        undefined, () => { console.warn('KK asset failed, using fallback:', key); onCritical(); });
+    }
+    if (!criticalKeys.length) { settled = true; resolveReady(); loadDeferred(); }
+
+    function loadDeferred() {
+      if (!deferredKeys.length) return;
+      let dp = deferredKeys.length;
+      const done = () => { if (--dp === 0) borrowAnims(); }; // give the summon models their clips (idempotent for the rest)
+      for (const key of deferredKeys) {
+        loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); done(); },
+          undefined, () => { console.warn('KK deferred asset failed, using fallback:', key); done(); });
+      }
     }
   }
 
@@ -14033,9 +14053,19 @@ const KK = (() => {
       try { const b = THREE.PropertyBinding.create(root, trackName); b.bind(); return !!b.node && b.node !== root; }
       catch (e) { return false; }
     };
-    const clipsFor = (m) => donor.map(clip => new THREE.AnimationClip(
-      clip.name, clip.duration, clip.tracks.filter(t => resolvesToRealNode(m.scene, t.name))
-    ));
+    // The same bone track name recurs across every clip, and within one model it
+    // always resolves the same way — so memoize per model by track name. This
+    // turns ~(clips × tracks) scene-graph bind traversals into ~(unique track
+    // names), a ~20× cut that keeps this off the critical path to spawn. The
+    // cache is per-model (built fresh in clipsFor), so it makes no cross-model
+    // assumption about rigs.
+    const clipsFor = (m) => {
+      const memo = new Map();
+      const keep = (name) => { let r = memo.get(name); if (r === undefined) { r = resolvesToRealNode(m.scene, name); memo.set(name, r); } return r; };
+      return donor.map(clip => new THREE.AnimationClip(
+        clip.name, clip.duration, clip.tracks.filter(t => keep(t.name))
+      ));
+    };
     const skinned = (m) => { let y = false; m.scene.traverse(o => { if (o.isSkinnedMesh) y = true; }); return y; };
     for (const k of Object.keys(models)) {
       // Only rigged (skinned) models borrow clips — a static prop like the
