@@ -177,6 +177,8 @@ function clearStatusVisual(v) {
   // (user-reported via Raven's Cloak, Session I).
   if (v.torso && v.torso.material && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
   if (v.colorcycleSprite) { v.group.remove(v.colorcycleSprite); v.colorcycleSprite = null; }
+  if (v.bloodcurseSprite) { v.group.remove(v.bloodcurseSprite); v.bloodcurseSprite = null; }
+  if (v.reversedSprite)   { v.group.remove(v.reversedSprite);   v.reversedSprite   = null; }
   v.statusType = null;
 }
 
@@ -225,6 +227,24 @@ function applyStatusVisual(id, status) {
     // sit-then-rise it is. The cross-legged pose and the rising Y offset
     // are both driven from there, every player who can see this player.
     v.meditateStartedAt = performance.now();
+  } else if (newType === 'bloodcurse') {
+    // A clinging red haze so the bleed-on-attack curse is visible on the victim.
+    v.bloodcurseSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: LEGEND_FX.glowTexture(), color: 0xd81e3a, transparent: true,
+      opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    v.bloodcurseSprite.scale.setScalar(50);
+    v.bloodcurseSprite.position.y = CHAR.hipY + CHAR.torsoH / 2;
+    v.group.add(v.bloodcurseSprite);
+  } else if (newType === 'reversed') {
+    // A spinning disoriented swirl above the head while controls are flipped.
+    v.reversedSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: LEGEND_FX.glowTexture(), color: 0x9b7bff, transparent: true,
+      opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    v.reversedSprite.scale.setScalar(26);
+    v.reversedSprite.position.y = CHAR.headY + 14;
+    v.group.add(v.reversedSprite);
   } else if (newType === 'ward') {
     // The class-neutral defensive ward (Iron Pelt / Ethereal Veil / Oath
     // of Iron / Packmule's Guard / Spirit Ward / Guardian's Pledge) — a

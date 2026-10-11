@@ -1877,7 +1877,7 @@ function hasStatus(p, type) {
 // amplified damage, so landing a control ability and following up hits harder
 // than mashing one attack. Works on players AND mobs (both carry activeStatus)
 // and across a party (one player debuffs, another detonates). Tune from playtest.
-const VULNERABLE_STATUSES = new Set(['wither', 'stumble', 'shrink', 'toad', 'gibberish']);
+const VULNERABLE_STATUSES = new Set(['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark']);
 const VULNERABLE_DMG_MULT = 1.3;
 function vulnerableMult(t) {
   return (t && t.activeStatus && t.activeStatus.expiresAt > Date.now()
@@ -1963,8 +1963,24 @@ function pvpAllowed(attacker, target) {
   return hasActiveDuel(attacker, target); // consensual everywhere else (the Wilds, town, …)
 }
 
-function applyDamage(player, targetType, targetId, dmg, maxRange) {
+function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
+
+  // Bloodcurse (Bone Crunch / Shadow Claws): a cursed attacker bleeds with
+  // every blow they throw — floored at 1 HP so it can't kill — and that blood
+  // flows to whoever cursed them (true life drain). Skipped for hits channeled
+  // through a minion (opts.viaMinion), so an undead's swings don't bleed its
+  // summoner; this is the price of the CURSED player's own aggression.
+  if ((!opts || !opts.viaMinion) && player.activeStatus && player.activeStatus.type === 'bloodcurse' && player.activeStatus.expiresAt > Date.now()) {
+    const bleed = Math.max(4, Math.round(dmg * 0.5));
+    const before = player.health || 0;
+    player.health = Math.max(1, before - bleed);
+    const lost = Math.round(before - player.health);
+    if (lost > 0) {
+      const curser = players.get(player.activeStatus.casterId);
+      if (curser && !curser.isDead) curser.health = Math.min(playerMaxHealth(curser), (curser.health || 0) + lost);
+    }
+  }
 
   // Monstrous Form (or any other source of the 'giant' status — the
   // Werewolf's Blood Frenzy and Wanderer's Campfire Tale share it) makes
@@ -5922,7 +5938,7 @@ function tickMinions(dt) {
       else if (!m.lastHitAt || now - m.lastHitAt >= m.hitCooldownMs) {
         m.lastHitAt = now;
         const dmg = m.dmgMin + Math.floor(Math.random() * (m.dmgMax - m.dmgMin + 1));
-        const res = applyDamage(owner, found.targetType, t.id, dmg, null); // owner swings through the minion
+        const res = applyDamage(owner, found.targetType, t.id, dmg, null, { viaMinion: true }); // owner swings through the minion (no bloodcurse bleed)
         m.lastHit = now;
         if (res && res.ok && found.maxHp && !res.dead) {
           const recip = Math.max(5, Math.min(35, Math.round(found.maxHp * 0.07)));
@@ -6129,11 +6145,16 @@ const WEREWOLF_ATTACK_CATALOG = {
   alpha_bite:       { name: 'Alpha Bite',        kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 25000 },
   feral_dash:       { name: 'Feral Dash',        kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
   blood_frenzy:     { name: 'Blood Frenzy',      kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000 },
-  bone_crunch:      { name: 'Bone Crunch',       kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000 },
-  shadow_claws:     { name: 'Shadow Claws',      kind: 'targeted', effect: 'status', statusType: 'pumpkin',    durationMs: 30000 },
-  wolf_mark:        { name: 'Wolf Mark',          kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 30000 },
-  feral_haze:       { name: 'Feral Haze',        kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000 },
-  snarl:            { name: 'Snarl',             kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000 },
+  // Bone Crunch & Shadow Claws lay a BLOODCURSE: the victim bleeds with every
+  // blow they throw (floored at 1 HP), and that blood flows back to the wolf.
+  bone_crunch:      { name: 'Bone Crunch',       kind: 'targeted', effect: 'status', statusType: 'bloodcurse', durationMs: 8000 },
+  shadow_claws:     { name: 'Shadow Claws',      kind: 'targeted', effect: 'status', statusType: 'bloodcurse', durationMs: 8000 },
+  // Wolf Mark brands prey — a marked target takes +30% damage (VULNERABLE_STATUSES).
+  wolf_mark:        { name: 'Wolf Mark',          kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 12000 },
+  // Feral Haze disorients — the victim's controls reverse for a few seconds.
+  feral_haze:       { name: 'Feral Haze',        kind: 'targeted', effect: 'status', statusType: 'reversed',   durationMs: 4000 },
+  // Snarl freezes prey in terror — a brief root.
+  snarl:            { name: 'Snarl',             kind: 'targeted', effect: 'status', statusType: 'rooted',     durationMs: 3000 },
   // Unlike the other 'reveal' attacks (e.g. compass_trick below), this one
   // doesn't read anything the server already knows — it asks the target's
   // own device for their real location. See howl_location handling in
@@ -6201,7 +6222,8 @@ const MYSTIC_ATTACK_CATALOG = {
   mending_spirits:   { name: 'Mending Spirits',    kind: 'targeted', effect: 'heal', healMin: 22, healMax: 38 },
   whispered_secret:  { name: 'Whispered Secret',   kind: 'targeted', effect: 'reveal' },
   spirit_walk:       { name: 'Spirit Walk',        kind: 'self', effect: 'intel_sweep', statusType: 'bats', durationMs: 15000 },
-  haunting:          { name: 'Haunting',           kind: 'targeted', effect: 'status', statusType: 'bats', durationMs: 15000 },
+  // Haunting turns the victim around — reversed controls for a few seconds.
+  haunting:          { name: 'Haunting',           kind: 'targeted', effect: 'status', statusType: 'reversed', durationMs: 4000 },
   graveyard_chill:   { name: 'Graveyard Chill',    kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 25000 }
 };
 
@@ -6219,8 +6241,11 @@ const KNIGHT_ATTACK_CATALOG = {
   field_dressing:    { name: 'Field Dressing',     kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
   lay_on_hands:      { name: 'Lay on Hands',       kind: 'targeted', effect: 'heal', healMin: 25, healMax: 40 },
   sentinels_watch:   { name: "Sentinel's Watch",   kind: 'targeted', effect: 'reveal' },
-  heralds_muster:    { name: "Herald's Muster",    kind: 'self', effect: 'intel_sweep', statusType: 'wolfmark', durationMs: 10000 },
-  challenge:         { name: 'Challenge',          kind: 'targeted', effect: 'status', statusType: 'wolfmark', durationMs: 30000 },
+  // Self-marker only (a visible flourish on the caster) — NOT the wolfmark
+  // debuff, so mustering never makes the Knight vulnerable to themselves.
+  heralds_muster:    { name: "Herald's Muster",    kind: 'self', effect: 'intel_sweep', statusType: 'bats', durationMs: 10000 },
+  // Challenge brands a foe — they take +30% damage (VULNERABLE_STATUSES).
+  challenge:         { name: 'Challenge',          kind: 'targeted', effect: 'status', statusType: 'wolfmark', durationMs: 12000 },
   steadfast_march:   { name: 'Steadfast March',    kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
   banner_of_dread:   { name: 'Banner of Dread',    kind: 'aoe', effect: 'status', statusType: 'stumble', durationMs: 15000 },
   // Guardian's Veil — the counter to the Werewolf's covert hunt. An AoE ward
@@ -8533,10 +8558,19 @@ wss.on('connection', (ws, req) => {
       }
 
       if (attack.effect === 'status') {
+        // A clear notice for the debuffs whose effect isn't self-evident.
+        const STATUS_DETAIL = {
+          reversed: 'Your controls are reversed — up is down, left is right!',
+          bloodcurse: 'A bloodcurse grips you — every blow you strike bleeds you, and the blood feeds your attacker.',
+          rooted: 'You are rooted in place — frozen for a moment.',
+          wolfmark: "You're marked — you take extra damage until it fades."
+        };
         for (const t of targets) {
-          t.activeStatus = { type: attack.statusType, expiresAt: now + attack.durationMs };
+          const st = { type: attack.statusType, expiresAt: now + attack.durationMs };
+          if (attack.statusType === 'bloodcurse') st.casterId = player.id; // the life drained flows to the caster
+          t.activeStatus = st;
           if (t.id !== player.id) {
-            send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name });
+            send(t.ws, { type: 'attack_hit', attackName: attack.name, casterName: player.name, detail: STATUS_DETAIL[attack.statusType] });
           }
         }
         const scope = attack.kind === 'aoe'
@@ -10358,7 +10392,7 @@ global.__testHooks = {
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
-  STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
+  STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
