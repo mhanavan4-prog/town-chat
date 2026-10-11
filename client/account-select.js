@@ -319,6 +319,9 @@ const thirdEyeOptInCheckboxInGame = document.getElementById('thirdEyeOptInCheckb
 if (thirdEyeOptInCheckboxInGame) thirdEyeOptInCheckboxInGame.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
 
 function attemptJoin() {
+  // Arm the asset-load pill: from the first join click onward it rides the
+  // cursor until every model has streamed in, then hides itself.
+  try { window.__tcLoadArmed = true; } catch (e) {}
   // Tier-3 assets: hold the join until the preload settles (or 12s cap),
   // so the town builds with KayKit models instead of racing the loader.
   if (!KK.settled && !attemptJoin._waited) {
