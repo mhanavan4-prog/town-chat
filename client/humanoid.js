@@ -291,6 +291,14 @@ function createKayKitHumanoid(charId) {
   const embeddedWeapons = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
+    // The Skeletons-pack bodies (the Necromancer, char5) BORROW the Mage's
+    // clips — their skinned meshes keep a rest-pose bounding sphere that the
+    // borrowed animation drives them outside of, so three.js frustum-culls them
+    // and the whole character vanishes depending on camera angle. The classes
+    // that ship their own clips never hit this. Disable culling on these small
+    // character meshes (a trivial cost) so a borrowed-anim body is never
+    // wrongly culled to invisible.
+    o.frustumCulled = false;
     // SkeletonUtils.clone() shares the source model's MATERIALS across every
     // instance, so a per-character material tweak (the evasion/ghost/Ghost-Step
     // opacity shimmer, the damage-flash tint) would leak onto every other
@@ -366,9 +374,12 @@ function createKayKitByKey(key, heightScale) {
   const s = (heightScale || 68) / t.size.y;
   inst.scale.setScalar(s);
   inst.traverse(o => {
-    if ((o.isMesh || o.isSkinnedMesh) && o.material) {
-      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
-    }
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    // Borrowed clips drive these skeleton minions outside their rest-pose
+    // bounding sphere — disable frustum culling so they don't vanish by angle
+    // (same fix as the Necromancer body above).
+    o.frustumCulled = false;
+    if (o.material) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
   });
   const group = new THREE.Group();
   group.add(inst);
