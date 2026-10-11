@@ -15,9 +15,14 @@
 //   node tools/loadtest.mjs                       # default ramp 50,100,200,300
 //   node tools/loadtest.mjs --steps 100,250,500 --hold 20
 //   node tools/loadtest.mjs --room wilds          # stress a different room
+//   node tools/loadtest.mjs --url ws://1.2.3.4:3000 --steps 100,200,300   # REMOTE
 //
-// Local only by default (spawns its own server on a temp DB) — it never touches
-// production data.
+// Default: spawns its own server on a temp DB (never touches prod). With --url
+// it instead hammers a server already running at that address — run this from a
+// DIFFERENT machine than the server so the bots don't steal the server's CPU,
+// and watch the box's own CPU there (the client-side gap + drops still show
+// when the tick falls behind). Prefer the origin IP over a CDN hostname so you
+// measure the server, not the CDN.
 // ---------------------------------------------------------------------------
 import WebSocket from 'ws';
 import { spawn } from 'node:child_process';
@@ -38,6 +43,13 @@ const ROOM = arg('room', 'outside');
 const PORT = parseInt(arg('port', '4399'), 10);
 const MOVE_HZ = parseInt(arg('movehz', '5'), 10); // moves per bot per second (a real walking player)
 const CHAR_COUNT = 6;
+// Remote mode: --url ws://<vps-ip>:3000 (or wss://thornreach.com) hammers a
+// server that's ALREADY running somewhere else instead of spawning a local one.
+// Server CPU/RSS can't be read from here then — watch it on the box itself
+// (`watch -n1 systemctl status thornreach`); the client-side gap + drops still
+// tell you when the tick is falling behind.
+const URL = arg('url', null);
+const REMOTE = !!URL;
 // Spread the swarm across the real room so area-of-interest behaves as it would
 // live (a corner-packed swarm would all sit inside one view radius and hide the
 // effect). Override with --spread W,H.
@@ -84,7 +96,7 @@ class Bot {
   }
   connect() {
     return new Promise((resolve) => {
-      this.ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+      this.ws = new WebSocket(URL || `ws://127.0.0.1:${PORT}`);
       this.ws.on('open', () => {
         this.joinSentAt = Date.now();
         this.ws.send(JSON.stringify({ type: 'join', name: this.name, charId: this.id % CHAR_COUNT }));
@@ -114,19 +126,24 @@ class Bot {
 }
 
 async function main() {
-  const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'tc-load-'));
-  console.log(`Spawning server on :${PORT} (temp DB ${DATA_DIR})…`);
-  const child = spawn('node', ['server.js'], {
-    cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), DATA_DIR, NODE_ENV: 'production' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  let ready = false;
-  child.stdout.on('data', (d) => { if (/listening/i.test(d.toString())) ready = true; });
-  child.stderr.on('data', (d) => process.stderr.write('[server] ' + d));
-  for (let i = 0; i < 100 && !ready; i++) await sleep(100);
-  if (!ready) { console.error('Server did not start.'); child.kill(); process.exit(1); }
-  await sleep(500);
+  let child = null;
+  if (REMOTE) {
+    console.log(`Remote target: ${URL} (server runs elsewhere — watch its CPU on the box).`);
+  } else {
+    const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'tc-load-'));
+    console.log(`Spawning server on :${PORT} (temp DB ${DATA_DIR})…`);
+    child = spawn('node', ['server.js'], {
+      cwd: ROOT,
+      env: { ...process.env, PORT: String(PORT), DATA_DIR, NODE_ENV: 'production' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let ready = false;
+    child.stdout.on('data', (d) => { if (/listening/i.test(d.toString())) ready = true; });
+    child.stderr.on('data', (d) => process.stderr.write('[server] ' + d));
+    for (let i = 0; i < 100 && !ready; i++) await sleep(100);
+    if (!ready) { console.error('Server did not start.'); child.kill(); process.exit(1); }
+    await sleep(500);
+  }
 
   const bots = [];
   let moveTimer = null;
@@ -154,13 +171,13 @@ async function main() {
     // Let joins settle, then clear per-bot gap buffers so we measure THIS level.
     await sleep(1500);
     for (const b of bots) b.gaps.length = 0;
-    const p0 = readProcStat(child.pid); const t0 = Date.now();
+    const p0 = child ? readProcStat(child.pid) : null; const t0 = Date.now();
 
     await sleep(HOLD_MS);
 
-    const p1 = readProcStat(child.pid); const t1 = Date.now();
-    const cpuPct = (p0 && p1) ? (100 * (p1.ticks - p0.ticks) / CLK) / ((t1 - t0) / 1000) : 0;
-    const rssMb = p1 ? p1.rssMb : 0;
+    const p1 = child ? readProcStat(child.pid) : null; const t1 = Date.now();
+    const cpuPct = (p0 && p1) ? (100 * (p1.ticks - p0.ticks) / CLK) / ((t1 - t0) / 1000) : -1; // -1 = remote, read on the box
+    const rssMb = p1 ? p1.rssMb : -1;
     const allGaps = [];
     for (const b of bots) for (const g of b.gaps) allGaps.push(g);
     allGaps.sort((a, b) => a - b);
@@ -182,8 +199,8 @@ async function main() {
       String(connected).padStart(9),
       String(joined).padStart(6),
       `${row.joinMed}/${row.joinP95}`.padStart(15),
-      String(row.cpuPct).padStart(12),
-      String(row.rssMb).padStart(5),
+      (row.cpuPct < 0 ? '—(on box)' : String(row.cpuPct)).padStart(12),
+      (row.rssMb < 0 ? '—' : String(row.rssMb)).padStart(5),
       `${row.gapMed}/${row.gapP95}/${row.gapMax}`.padStart(19),
       String(dropped).padStart(7),
     ].join('  |  '));
@@ -195,9 +212,12 @@ async function main() {
   const SATURATED = 90;     // one core nearly pegged
   let ceiling = null;
   for (const r of results) {
-    const healthy = r.gapMed <= HEALTHY_GAP && r.cpuPct < SATURATED && r.dropped === 0;
+    // Remote mode has no CPU reading here, so health is gap + drops only.
+    const cpuOk = r.cpuPct < 0 ? true : r.cpuPct < SATURATED;
+    const healthy = r.gapMed <= HEALTHY_GAP && cpuOk && r.dropped === 0;
     if (healthy) ceiling = r.level;
-    console.log(`${String(r.level).padStart(4)} players — ${healthy ? 'OK' : 'STRAINED'} (gap ${r.gapMed}ms, cpu ${r.cpuPct}%, dropped ${r.dropped})`);
+    const cpuStr = r.cpuPct < 0 ? '' : `, cpu ${r.cpuPct}%`;
+    console.log(`${String(r.level).padStart(4)} players — ${healthy ? 'OK' : 'STRAINED'} (gap ${r.gapMed}ms${cpuStr}, dropped ${r.dropped})`);
   }
   console.log(ceiling
     ? `\nComfortable ceiling in "${ROOM}" at this hardware: ~${ceiling} concurrent (last healthy level).`
@@ -206,7 +226,7 @@ async function main() {
   if (moveTimer) clearInterval(moveTimer);
   for (const b of bots) b.close();
   await sleep(300);
-  child.kill('SIGTERM');
+  if (child) child.kill('SIGTERM');
   await sleep(300);
   process.exit(0);
 }
