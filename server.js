@@ -5720,6 +5720,14 @@ function minionHostilePools(room) {
   if (room === 'outside') return [[mobs, 'mob', () => MOB_MAX_HEALTH]];
   if (room === 'wilds') return [[mobs2, 'mob2', (m) => (MOB2_TYPES[m.mobType] || {}).maxHealth || 60], [mobs3, 'mob3', (m) => (MOB3_TYPES[m.mobType] || {}).maxHealth || 60]];
   if (room === 'ember_wastes') return [[emberMobs, 'ember_mob', (m) => (EMBER_MOB_TYPES[m.mobType] || {}).maxHealth || 80]];
+  // A Delve floor uses that run's OWN instanced mobs (run.mobs), not the shared
+  // dungeonMobs arena array — so undead summoned inside a delve must hunt the
+  // run's mobs or they'd find nothing and just idle. targetType stays 'dungeon'
+  // so applyDamage resolves the hit through findDungeonTarget (owner's room).
+  if (room && room.startsWith('dungeon_delve_')) {
+    const run = delveRunsByRoom.get(room);
+    return run ? [[run.mobs, 'dungeon', (m) => dungeonMobMaxHealth(m)]] : [];
+  }
   if (room && room.startsWith('dungeon_')) return [[dungeonMobs, 'dungeon', (m) => dungeonMobMaxHealth(m)]];
   return [];
 }
