@@ -61,6 +61,14 @@ const SKILL_CATALOG = {
     { id: 'wanderer_haste',    name: 'Efficient Rest',    icon: '🧭', effect: 'haste',    desc: 'You waste no motion — abilities recharge 10% quicker per rank.' },
     { id: 'wanderer_forage',   name: "Forager's Lore",    icon: '🌿', effect: 'forage',   desc: 'The road feeds those who read it — +15% chance to harvest an extra plant per rank.' },
     { id: 'wanderer_sage',     name: 'Worldly Wisdom',    icon: '📜', effect: 'sage',     desc: 'Every road is a lesson — +10% XP per rank.' }
+  ],
+  5: [ // Necromancer — Death Rites
+    { id: 'necro_power',    name: 'Grave Might',      icon: '💀', effect: 'power',    desc: 'The dead strike with your hatred — +8% damage per rank.' },
+    { id: 'necro_leech',    name: 'Soul Leech',       icon: '🩸', effect: 'leech',    desc: 'Every wound you open feeds you — heal 6% of damage dealt per rank.' },
+    { id: 'necro_guard',    name: 'Bonewall',         icon: '🦴', effect: 'guard',    desc: 'A lattice of bone turns the blow — take 6% less damage per rank.' },
+    { id: 'necro_haste',    name: 'Hastened Rites',   icon: '☠️', effect: 'haste',    desc: 'The grave answers quicker — abilities recharge 10% faster per rank.' },
+    { id: 'necro_vitality', name: 'Deathless Flesh',  icon: '🖤', effect: 'vitality', desc: 'Half in the next world already — +12 maximum health per rank.' },
+    { id: 'necro_sage',     name: 'Forbidden Lore',   icon: '📜', effect: 'sage',     desc: 'The dead keep their secrets for you — +10% XP per rank.' }
   ]
 };
 
