@@ -1,14 +1,61 @@
-# Thornreach ops: backups & uptime
+# Thornreach ops: staying up, backups & uptime
 
-Three scripts live here:
+What lives here:
 
-- **`setup-backups.sh`** — one-shot, idempotent installer that does everything
-  below (deps, rclone remote, `.backup.env`, cron, first backup). **Start here.**
+- **`thornreach.service`** — the systemd unit that keeps the server running:
+  auto-restart on crash, auto-start on reboot, a heap cap, journald logs. **This
+  is the "stay up" core — install it first (§0).**
+- **`deploy.sh`** — safe one-command deploy (pull → build → graceful restart →
+  health check).
+- **`setup-backups.sh`** — one-shot, idempotent installer for the backup/uptime
+  side (deps, rclone remote, `.backup.env`, cron, first backup).
 - **`backup.sh`** — nightly encrypted offsite backup to Backblaze B2 (via rclone).
 - **`heartbeat.sh`** — uptime check that pings Healthchecks.io every few minutes.
 
-Both read secrets from **`/opt/town-chat/.backup.env`** (gitignored, `chmod 600`).
-Nothing sensitive lives in the repo.
+Backup/heartbeat read secrets from **`/opt/town-chat/.backup.env`** (gitignored,
+`chmod 600`). Nothing sensitive lives in the repo.
+
+---
+
+## 0. Process supervisor + deploys (the "stay up" layer)
+
+Without a supervisor, a crash leaves the game dark until someone notices. The
+systemd unit fixes that: it restarts the process on crash (with backoff), brings
+it back after a reboot, caps the heap so a leak can't OOM the box, and routes all
+output to journald. Install once:
+
+```bash
+sudo cp /opt/town-chat/ops/thornreach.service /etc/systemd/system/thornreach.service
+# Open it and check User/Group/PORT/paths match your box (defaults: root, :3000,
+# /opt/town-chat). Then:
+sudo systemctl daemon-reload
+sudo systemctl enable --now thornreach
+systemctl status thornreach          # expect: active (running)
+```
+
+Day-to-day:
+
+```bash
+# Deploy a new version (pull, rebuild bundle, graceful restart, health-check):
+sudo bash /opt/town-chat/ops/deploy.sh
+
+# Watch live logs / recent crashes:
+journalctl -u thornreach -f
+journalctl -u thornreach -n 80 --no-pager
+
+# Manual control:
+sudo systemctl restart thornreach    # graceful: warns players, flushes, restarts
+sudo systemctl stop thornreach
+```
+
+On `restart`/`stop`, systemd sends SIGTERM; the server broadcasts a "you'll
+reconnect automatically" notice, flushes its `.bak` snapshots, and exits — and
+clients auto-reconnect when the socket drops, so a deploy is a brief blip, not a
+mass disconnect. (Live state is already committed to SQLite on every change, so
+nothing is lost even on a hard crash.)
+
+> Tip: once you have a moment, create a dedicated unprivileged user to own
+> `/opt/town-chat` and set `User=`/`Group=` in the unit to it, instead of root.
 
 ---
 
