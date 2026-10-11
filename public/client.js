@@ -13881,6 +13881,21 @@ const worldFeed = []; // unified global WORLD chat — shown in every room, seed
 let chatHidden = false;
 try { chatHidden = localStorage.getItem('tc_chatHidden') === '1'; } catch (e) {}
 
+// Local mute (Session O): a per-viewer, client-side block list keyed by display
+// name. Muted players' chat lines and overhead bubbles are hidden for THIS
+// viewer only — nothing is sent to the server, so it works with no moderator
+// present. Persisted so it survives reloads.
+const mutedNames = new Set();
+try { const a = JSON.parse(localStorage.getItem('tc_muted') || '[]'); if (Array.isArray(a)) a.forEach(n => mutedNames.add(String(n))); } catch (e) {}
+function isMutedName(name) { return !!name && mutedNames.has(String(name)); }
+function persistMuted() { try { localStorage.setItem('tc_muted', JSON.stringify([...mutedNames])); } catch (e) {} }
+function setMuted(name, muted) {
+  if (!name) return;
+  if (muted) mutedNames.add(String(name)); else mutedNames.delete(String(name));
+  persistMuted();
+  if (typeof renderChatLog === 'function') renderChatLog();
+}
+
 // Picked once on the join screen (and remembered in localStorage), sent to
 // the server as charId, and echoed back on every player's record so every
 // client renders the same look for everyone — see createHumanoid() far
@@ -15540,7 +15555,7 @@ function onWsMessage(ev) {
     // World chatter from elsewhere just rides the feed. Suppressed entirely when
     // the viewer has hidden chat.
     const speakerVisible = m.id && players[m.id] && players[m.id].room === currentRoom;
-    if (!chatHidden && speakerVisible) {
+    if (!chatHidden && speakerVisible && !(m.id !== myId && isMutedName(m.name))) {
       if (!MOBILE_UI) setOverheadBubble(m.id, m.text, !!m.image);
       else spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image, self: m.id === myId });
     }
@@ -19427,10 +19442,19 @@ function renderChatLog() {
       chatLog.appendChild(div);
       continue;
     }
+    // Local mute: hide this viewer's muted names (their own lines always show).
+    if (m.name && m.id !== myId && isMutedName(m.name)) continue;
     div.className = 'chatLine';
     const b = document.createElement('b');
     b.style.color = m.color;
     b.textContent = m.name + ':';
+    // Click another player's name for mute / report. Not on your own lines,
+    // not on system beats (handled above).
+    if (m.id && m.id !== myId) {
+      b.style.cursor = 'pointer';
+      b.title = 'Options for ' + m.name;
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); openPlayerMenu(m, ev); });
+    }
     div.appendChild(b);
     if (m.text) div.appendChild(document.createTextNode(' ' + m.text));
     if (m.image) {
@@ -19447,6 +19471,43 @@ function renderChatLog() {
     chatLog.appendChild(div);
   }
   chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// ── Player menu (Session O): mute / report, opened by clicking a name in chat.
+let playerMenuEl = null;
+function closePlayerMenu() { if (playerMenuEl) { playerMenuEl.remove(); playerMenuEl = null; document.removeEventListener('click', closePlayerMenu, true); } }
+function sendReport(m, reason) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'report', targetId: m.id, targetName: m.name, reason }));
+  appendSystemChatLine('🚩 Reported ' + m.name + ' (' + reason + ').');
+}
+function openPlayerMenu(m, ev) {
+  closePlayerMenu();
+  const menu = document.createElement('div');
+  menu.className = 'playerMenu';
+  const head = document.createElement('div'); head.className = 'playerMenuHead'; head.textContent = m.name;
+  menu.appendChild(head);
+  const muted = isMutedName(m.name);
+  const muteBtn = document.createElement('button');
+  muteBtn.textContent = muted ? '🔊 Unmute' : '🔇 Mute';
+  muteBtn.addEventListener('click', (e) => { e.stopPropagation(); setMuted(m.name, !muted); appendSystemChatLine((muted ? '🔊 Unmuted ' : '🔇 Muted ') + m.name + '.'); closePlayerMenu(); });
+  menu.appendChild(muteBtn);
+  const rlabel = document.createElement('div'); rlabel.className = 'playerMenuLabel'; rlabel.textContent = 'Report for…';
+  menu.appendChild(rlabel);
+  for (const reason of ['Spam', 'Harassment', 'Inappropriate']) {
+    const rb = document.createElement('button');
+    rb.className = 'playerMenuReport'; rb.textContent = '🚩 ' + reason;
+    rb.addEventListener('click', (e) => { e.stopPropagation(); sendReport(m, reason); closePlayerMenu(); });
+    menu.appendChild(rb);
+  }
+  document.body.appendChild(menu);
+  // Position near the click, clamped to the viewport.
+  const r = menu.getBoundingClientRect();
+  const x = Math.min((ev ? ev.clientX : 40), window.innerWidth - r.width - 8);
+  const y = Math.min((ev ? ev.clientY : 40), window.innerHeight - r.height - 8);
+  menu.style.left = Math.max(8, x) + 'px';
+  menu.style.top = Math.max(8, y) + 'px';
+  // Close on any outside click (capture so the next click anywhere dismisses).
+  setTimeout(() => document.addEventListener('click', closePlayerMenu, true), 0);
 }
 
 // Minimize collapses the panel down to just its header bar, so the room

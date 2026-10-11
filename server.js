@@ -24,6 +24,8 @@ try { require('fs').mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 // (a Discord or Slack incoming webhook) receives high-severity alerts.
 // Created before persistence so a storage failure can raise an audit alert.
 const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
+// Content filter (Session O) — targeted slur/hate blocklist for chat + names.
+const wordFilter = require('./data/wordfilter');
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
 // Durable storage (Session L) — extracted to lib/persistence.js (Tier 3.4 Phase B).
@@ -308,6 +310,13 @@ function noteLoginFailure(ip) {
   fails.push(now);
   loginFailLog.set(ip, fails);
 }
+// Hard cap on SUCCESSFUL account creations per IP per rolling window. The
+// failed-auth throttle above never fires on a bot that scripts *valid*
+// registrations, so without this one IP could mint unlimited accounts. Sized
+// generously for shared/NAT networks (a household or classroom making a few
+// accounts is fine); raise REG_CAP_PER_IP if a legit shared IP hits it.
+const REG_CAP_PER_IP = 6;
+const REG_CAP_WINDOW_MS = 24 * 3600 * 1000;
 function clearLoginFailures(ip) { loginFailLog.delete(ip); }
 
 // ── Seamless checkout return ────────────────────────────────────────────────
@@ -1169,6 +1178,15 @@ app.post('/api/register', (req, res) => {
     noteLoginFailure(ip);
     return res.status(400).json({ error: 'Username must be 3-18 letters, numbers, or underscores.' });
   }
+  // Content filter: no slur/hate usernames (they'd be stamped over every chat
+  // line and nameplate). Logged (masked) so a name-filter wave is visible.
+  {
+    const hit = wordFilter.matchBlocked(username);
+    if (hit) {
+      audit.log({ level: 'warn', type: 'name_blocked', ip, detail: { surface: 'register', sample: wordFilter.maskSample(hit) } });
+      return res.status(400).json({ error: 'That username isn’t allowed. Please choose another.' });
+    }
+  }
   if (password.length < 4) {
     return res.status(400).json({ error: 'Password must be at least 4 characters.' });
   }
@@ -1179,6 +1197,16 @@ app.post('/api/register', (req, res) => {
   const key = username.toLowerCase();
   if (accounts[key]) {
     return res.status(409).json({ error: 'That username is already taken.' });
+  }
+  // Hard per-IP creation cap: counts only well-formed, non-duplicate attempts
+  // (i.e. ones that would otherwise create an account), so a bot can't farm
+  // accounts from one address. hit() both records and returns the count.
+  {
+    const made = audit.hit(ip, 'reg_create', REG_CAP_WINDOW_MS);
+    if (made > REG_CAP_PER_IP) {
+      audit.log({ level: 'alert', type: 'register_capped', ip, detail: { inWindow: made, cap: REG_CAP_PER_IP } });
+      return res.status(429).json({ error: 'Too many accounts created from your network today. Please try again later.' });
+    }
   }
   // Optional email (Session N) — used only for password recovery. Stored only
   // when it's a valid address; a junk value is simply ignored, not rejected.
@@ -3052,7 +3080,10 @@ setInterval(() => {
 
 function sanitizeName(raw) {
   const cleaned = String(raw || '').replace(/[<>]/g, '').trim().slice(0, 18);
-  return cleaned || ('Guest' + Math.floor(Math.random() * 9000 + 100));
+  // Content filter: a guest can type any name, so a slur/hate name falls back
+  // to a neutral Guest handle rather than being stamped over the game.
+  if (!cleaned || wordFilter.isBlocked(cleaned)) return 'Guest' + Math.floor(Math.random() * 9000 + 100);
+  return cleaned;
 }
 
 function sanitizeText(raw) {
@@ -6711,6 +6742,27 @@ wss.on('connection', (ws, req) => {
       if (!text && !image) return;
       // Moderation: a muted account/IP is silently dropped.
       if (bans.isMuted(player.accountKey || null, ws._ip)) return;
+      // Which channel does this line belong to?
+      //   • coven moot (instance)  — private invite-only group
+      //   • pass room (lounge/arcade) — paid, room-scoped channel (pass-holders only)
+      //   • else the open global WORLD channel — the FREE chat
+      // The content filter guards only the FREE world channel: that's the shared
+      // space anonymous newcomers land in. Private coven moots and the paid pass
+      // rooms are their own channels that never reach a free player, so they're
+      // left uncensored (per launch policy).
+      const inCoven = typeof player.instance === 'string' && player.instance.startsWith('coven_');
+      const inPassRoom = LOCKED_ROOMS.has(player.room);
+      const isFreeWorld = !inCoven && !inPassRoom;
+      if (isFreeWorld && text) {
+        const hit = wordFilter.matchBlocked(text);
+        if (hit) {
+          const n = audit.hit(player.accountKey || ws._ip || player.id, 'chat_blocked', 10 * 60 * 1000);
+          audit.log({ level: n >= 5 ? 'alert' : 'warn', type: 'chat_blocked_term', ip: ws._ip,
+            account: player.accountKey || null, name: player.name, detail: { sample: wordFilter.maskSample(hit), inWindow: n } });
+          send(ws, { type: 'announce_soft', message: '⚠️ That message wasn’t sent — it tripped the language filter.' });
+          return;
+        }
+      }
       // Chat-flood guard: soft limit logs once, hard limit drops + alerts.
       const cf = audit.hit(player.accountKey || ws._ip || player.id, 'chat', 10 * 1000);
       if (cf > 20) {
@@ -6732,13 +6784,17 @@ wss.on('connection', (ws, req) => {
       };
       flagLinkIfAny(text, 'chat', player, ws);
       recordRoomChat(player.room, player.name, player.color, text, image);
-      // Coven moots keep a private channel (instance-scoped); everyone else
-      // shares the single global WORLD channel so the town — and every layer of
-      // it — feels like one populated place.
-      const inCoven = typeof player.instance === 'string' && player.instance.startsWith('coven_');
-      chatMsg.message.scope = inCoven ? 'coven' : 'world';
+      // Delivery (channels computed above):
+      //   • coven  — instance-scoped, private to the moot;
+      //   • pass   — room-scoped, seen only by those in the same pass room
+      //              (lounge/arcade, all pass-holders); NOT added to the global
+      //              feed, so it doesn't flood — or leak into — free world chat;
+      //   • world  — the global free channel every open-world player shares.
+      chatMsg.message.scope = inCoven ? 'coven' : (inPassRoom ? 'pass' : 'world');
       if (inCoven) {
         broadcastInstance(player.instance, chatMsg);
+      } else if (inPassRoom) {
+        broadcastRoom(player.room, chatMsg, player.instance);
       } else {
         recordWorldChat(chatMsg.message);
         broadcastWorld(chatMsg);
@@ -6748,6 +6804,30 @@ wss.on('connection', (ws, req) => {
           send(watcher.ws, { type: 'spyglass_chat', name: player.name, color: player.color, text, image });
         }
       }
+      return;
+    }
+
+    // Player report (Session O) — a player flags another for a moderator. Files
+    // a durable audit entry (visible in the admin console) with both parties and
+    // the target's current account/IP/room so a mod can act (mute/ban). Purely a
+    // signal: it changes nothing in-game and never tells the target. Rate-limited
+    // so it can't be turned into its own spam/harassment channel.
+    if (msg.type === 'report') {
+      if (!player) return;
+      const n = audit.hit(player.accountKey || ws._ip || player.id, 'report', 60 * 1000);
+      if (n > 6) return; // quietly ignore a flood of reports from one source
+      const target = players.get(String(msg.targetId || ''));
+      const reason = String(msg.reason || '').replace(/[<>]/g, '').slice(0, 60);
+      audit.log({ level: 'warn', type: 'player_report', ip: ws._ip,
+        account: player.accountKey || null, name: player.name,
+        detail: {
+          targetName: target ? target.name : String(msg.targetName || '').slice(0, 24),
+          targetAccount: target ? (target.accountKey || null) : null,
+          targetIp: target ? ((target.ws && target.ws._ip) || null) : null,
+          targetRoom: target ? target.room : null,
+          reason
+        } });
+      send(ws, { type: 'announce_soft', message: '🚩 Thanks — your report has been sent to the moderators.' });
       return;
     }
 
