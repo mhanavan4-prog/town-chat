@@ -972,7 +972,42 @@ function saveAccounts() { persistSave('accounts', ACCOUNTS_FILE, accounts); }
 
 const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
-const sessions = new Map();      // token -> usernameLower
+// Session tokens (token -> usernameLower). PERSISTED, so a server restart no
+// longer silently invalidates every login. Without this, every deploy logged
+// everyone out: their auto-reconnect presented a token the fresh process had
+// never heard of, resolved to no account, and dropped them into a brand-new
+// level-1 guest — while their real character sat safe but unreachable in the
+// DB (the "my level reset after the update" bug). Backed by a persisted store
+// of { token: { k: accountKey, t: createdAt } }; the live Map (token ->
+// accountKey) is rebuilt from it on boot, dropping anything past SESSION_TTL.
+const SESSION_TTL_MS = 60 * 24 * 3600 * 1000; // 60 days
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const sessionStore = persistLoad('sessions', SESSIONS_FILE) || {}; // token -> { k, t }
+persistRegister('sessions', SESSIONS_FILE, () => sessionStore);
+const sessions = new Map();      // token -> usernameLower (rebuilt from sessionStore)
+{
+  const now = Date.now();
+  let pruned = 0;
+  for (const [tok, rec] of Object.entries(sessionStore)) {
+    if (!rec || typeof rec.k !== 'string' || (rec.t && now - rec.t > SESSION_TTL_MS)) { delete sessionStore[tok]; pruned++; continue; }
+    sessions.set(tok, rec.k);
+  }
+  if (pruned) { try { persistSave('sessions', SESSIONS_FILE, sessionStore); } catch (e) {} }
+}
+// Mint/refresh a token: update the live Map AND the persisted store (one-row write).
+function registerSession(token, key) {
+  sessions.set(token, key);
+  sessionStore[token] = { k: key, t: Date.now() };
+  try { persistSetKey('sessions', SESSIONS_FILE, sessionStore, token); } catch (e) {}
+}
+// Revoke a token from both the live Map and the persisted store.
+function dropSession(token) {
+  sessions.delete(token);
+  if (Object.prototype.hasOwnProperty.call(sessionStore, token)) {
+    delete sessionStore[token];
+    try { persistSetKey('sessions', SESSIONS_FILE, sessionStore, token); } catch (e) {}
+  }
+}
 
 // ── Coven Charters (Session N) ──────────────────────────────────────────────
 // A one-time real-money entitlement to FOUND a coven. `grants` dedupes by Stripe
@@ -1037,7 +1072,9 @@ function findAccountKeyByEmail(email) {
 // Drop every live session token for an account (used after a password reset,
 // so a stolen session can't outlive the reset that was meant to lock it out).
 function invalidateSessionsFor(key) {
-  for (const [tok, k] of sessions) if (k === key) sessions.delete(tok);
+  const toDrop = [];
+  for (const [tok, k] of sessions) if (k === key) toDrop.push(tok);
+  toDrop.forEach(dropSession);
 }
 
 // ── Moderation store (Session M) ────────────────────────────────────────────
@@ -1162,7 +1199,7 @@ app.post('/api/register', (req, res) => {
   saveAccounts();
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, key);
+  registerSession(token, key);
   // Audit the new account; flag a burst of signups from one IP (bot wave).
   const burst = audit.hit(ip, 'account_create', 24 * 3600 * 1000);
   audit.log({ level: burst > 5 ? 'alert' : 'info', type: burst > 5 ? 'account_create_burst' : 'account_create',
@@ -1191,7 +1228,7 @@ app.post('/api/login', (req, res) => {
   }
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, key);
+  registerSession(token, key);
   // New-location signal: a login from an IP this account has never used before
   // (we keep a small rolling set). Benign most of the time — useful on takeover.
   try {
@@ -1297,13 +1334,14 @@ app.post('/api/set-email', (req, res) => {
 // The character roster behind the join screen's "continue as …" cards: every
 // class this account has played (recorded at join, see the join handler),
 // newest first, with the account's shared level and each class's campaign
-// chapter. A stale token (sessions don't survive a restart) gets a clean 401
-// so the client can fall back to the login form instead of silently guesting.
+// chapter. A stale or expired token (sessions now persist across restarts, but
+// still expire after SESSION_TTL) gets a clean 401 so the client can fall back
+// to the login form instead of silently guesting.
 app.post('/api/characters', (req, res) => {
   const token = String(req.body.token || '');
   const key = token ? sessions.get(token) : null;
   if (!key || !accounts[key]) {
-    // A single expiry is normal (sessions don't survive a restart) — stay quiet.
+    // A single expiry is normal (a token aged past SESSION_TTL) — stay quiet.
     // Only flag an IP that hammers invalid tokens, which smells like tampering.
     if (token) {
       const ip = audit.clientIp(req);
@@ -6134,9 +6172,9 @@ wss.on('connection', (ws, req) => {
       const id = makeId();
       // Logged-in players always get their account's username + color,
       // regardless of whatever name was typed in the box. Guests (or a
-      // stale/expired token — sessions don't survive a server restart)
-      // fall back to the old behavior: whatever name they typed, with the
-      // next color in the round-robin.
+      // token that has expired past SESSION_TTL — tokens now survive a
+      // restart) fall back to the old behavior: whatever name they typed,
+      // with the next color in the round-robin.
       const accountKey = msg.accountToken ? sessions.get(String(msg.accountToken)) : null;
       // Account-level ban (Session M): refuse even with a valid session token.
       if (accountKey && bans.isBanned(accountKey, ws._ip)) {
