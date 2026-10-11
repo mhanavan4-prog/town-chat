@@ -1,0 +1,54 @@
+# Thornreach game server — systemd unit (the "stay up" supervisor).
+#
+# What it buys you:
+#   • auto-restart on crash (Restart=always) — a 2am fatal error self-heals in
+#     seconds instead of leaving the game dark until you notice;
+#   • auto-start on VPS reboot (WantedBy=multi-user.target);
+#   • a heap cap so a slow memory leak gets the process recycled instead of
+#     OOM-killing the whole box;
+#   • crash logs captured by journald (view: journalctl -u thornreach -f).
+#
+# Install (on the VPS, once):
+#   sudo cp /opt/town-chat/ops/thornreach.service /etc/systemd/system/thornreach.service
+#   # edit User/Group/paths below if yours differ, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now thornreach
+#   systemctl status thornreach        # should show "active (running)"
+#
+# NOTE: adjust User/Group to whoever owns /opt/town-chat (if you currently run
+# as root, set both to root — not ideal, but matches today; a dedicated
+# unprivileged user is better when you have a moment to create one).
+
+[Unit]
+Description=Thornreach game server
+After=network-online.target
+Wants=network-online.target
+# Never stop auto-restarting, even after repeated rapid crashes.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/town-chat
+# DATA_DIR defaults to the working dir; PORT must match the Cloudflare origin.
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Server secrets (Stripe, admin key, VAPID, …) if you keep them in a KEY=VALUE
+# file. Harmless/ignored if the app loads its own .env; the '-' makes it optional.
+EnvironmentFile=-/opt/town-chat/.env
+# Cap the V8 heap (~1.5 GB) so a leak is recycled before it takes the box down.
+# Lower this if your VPS has less than ~2 GB RAM.
+ExecStart=/usr/bin/node --max-old-space-size=1536 server.js
+Restart=always
+RestartSec=2
+# Give the graceful SIGTERM drain (broadcast + backup flush) time before SIGKILL.
+TimeoutStopSec=15
+User=root
+Group=root
+# Light hardening — safe defaults; relax only if something legitimately needs it.
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=thornreach
+
+[Install]
+WantedBy=multi-user.target

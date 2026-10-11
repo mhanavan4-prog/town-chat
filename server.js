@@ -54,9 +54,15 @@ let _shuttingDown = false;
 function gracefulExit(signal) {
   if (_shuttingDown) return; _shuttingDown = true;
   try { audit.log({ level: 'info', type: 'server_stop', detail: { signal } }); } catch (e) {}
+  // Tell everyone still connected this is a planned restart. Their client already
+  // auto-reconnects when the socket closes, so this just turns a silent freeze
+  // into a friendly heads-up (reusing the 'announce' toast — no client change).
+  try { broadcastAll({ type: 'announce', message: '🔧 Thornreach is updating — you’ll reconnect automatically in a few seconds.' }); } catch (e) {}
   try { persistExportBackups(); } catch (e) {}
   try { audit.close(); } catch (e) {}
-  process.exit(0);
+  // Let the notice flush to sockets before exiting. systemd waits TimeoutStopSec
+  // (set to 15s in the unit) before SIGKILL, so this short drain is always safe.
+  setTimeout(() => process.exit(0), 500);
 }
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => gracefulExit(sig));
 process.on('uncaughtException', (err) => {
