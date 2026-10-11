@@ -6292,6 +6292,7 @@ wss.on('connection', (ws, req) => {
         if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
       }
       players.set(id, player);
+      player.instance = desiredInstance(player); // seat them in a town layer up front (null elsewhere)
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
       // Character roster — powers the returning-player select screen. Remember
       // which classes this account has played and which was most recent, so
@@ -9953,8 +9954,54 @@ const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-
 //  it saves on one box. Left out on purpose.)
 const CROWD_THRESHOLD = parseInt(process.env.CROWD_THRESHOLD, 10) || 60;
 let _stateTick = 0;
+// ── Town layering (Session N) ───────────────────────────────────────────────
+// The town square ('outside') is the pinch point — a launch crowd all piles in
+// there, and one room's position firehose grows with the SQUARE of its people.
+// So the town is split into parallel copies ("layers"): each public player in
+// 'outside' is assigned to town_1, town_2, … capped at TOWN_LAYER_CAP, and the
+// instance system (already used for coven moots) keeps each copy its own world —
+// you only see, and sync against, the people in your own layer. World chat is
+// global, so the layers still feel like one town socially. Dungeons/delves are
+// already instanced; the Wilds is huge, so neither needs layering.
+//
+// Assignment is reconciled once per position tick (below), the single place that
+// sees every player every frame — so it catches every way a player can arrive in
+// or leave the town (join, portals, respawn, leaving a coven moot) without
+// hooking each transition. Seated players never get reshuffled: a player already
+// in a town layer keeps it; only players without one (just arrived) get placed.
+const TOWN_LAYER_CAP = parseInt(process.env.TOWN_LAYER_CAP, 10) || 40;
+function isTownLayer(inst) { return typeof inst === 'string' && inst.startsWith('town_'); }
+function isCovenInstance(inst) { return typeof inst === 'string' && inst.startsWith('coven_'); }
+function pickTownLayer() {
+  const counts = new Map();
+  for (const p of players.values()) if (p.room === 'outside' && isTownLayer(p.instance)) counts.set(p.instance, (counts.get(p.instance) || 0) + 1);
+  for (let n = 1; ; n++) { const key = 'town_' + n; if ((counts.get(key) || 0) < TOWN_LAYER_CAP) return key; }
+}
+function desiredInstance(p) {
+  if (isCovenInstance(p.instance)) return p.instance;            // a coven moot owns its own channel
+  if (p.room === 'outside') return isTownLayer(p.instance) ? p.instance : pickTownLayer();
+  return null;                                                   // every other room is the single public world
+}
+function moveToInstance(p, target) {
+  if ((p.instance || '') === (target || '')) return;
+  broadcastInstance(p.instance, { type: 'player_left', id: p.id }, p.ws);   // vanish from the layer being left
+  p.instance = target;
+  broadcastInstance(target, { type: 'player_joined', player: publicPlayer(p) }, p.ws); // appear in the new one
+  const roster = [];
+  for (const q of players.values()) if (q.room === p.room && sameInstance(q, target)) roster.push(publicPlayer(q));
+  send(p.ws, { type: 'state', players: roster });               // the mover sees their new layer at once
+}
+function reconcileTownLayers() {
+  for (const p of players.values()) {
+    if (p.ws.readyState !== p.ws.OPEN) continue;
+    const want = desiredInstance(p);
+    if ((p.instance || '') !== (want || '')) moveToInstance(p, want);
+  }
+}
+
 function broadcastPlayerState() {
   if (players.size === 0) { _roomMemberSig.clear(); return; }
+  reconcileTownLayers(); // keep every player in the right town layer before we broadcast positions
   _stateTick++;
   const byRoom = new Map();
   for (const p of players.values()) {
@@ -10074,6 +10121,7 @@ global.__testHooks = {
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
+  TOWN_LAYER_CAP, pickTownLayer, desiredInstance, reconcileTownLayers, isTownLayer,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
