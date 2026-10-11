@@ -837,6 +837,24 @@
   .playerMenu button:hover { background:rgba(255,255,255,0.08); }
   .playerMenu button.playerMenuReport { color:#f0a89f; }
 
+  /* Loading pill — follows the cursor while assets stream in, fades at 100%. */
+  .loadPill {
+    position:fixed; z-index:10001; pointer-events:none;
+    transform:translate(14px,16px); /* sit just off the cursor tip */
+    display:flex; align-items:center; gap:7px;
+    padding:5px 11px; border-radius:999px;
+    background:rgba(20,14,38,0.86); border:1px solid rgba(158,227,125,0.4);
+    color:#eafff0; font-size:12px; font-weight:600; letter-spacing:.01em;
+    box-shadow:0 4px 14px rgba(0,0,0,0.4); white-space:nowrap;
+    opacity:0; visibility:hidden; transition:opacity .35s ease;
+  }
+  .loadPill.show { opacity:1; visibility:visible; }
+  .loadPill::before {
+    content:""; width:9px; height:9px; border-radius:50%;
+    background:#9ee37d; box-shadow:0 0 7px #9ee37d; animation:loadPillPulse 1s ease-in-out infinite;
+  }
+  @keyframes loadPillPulse { 0%,100%{opacity:.45;} 50%{opacity:1;} }
+
   /* ── Tracker "where" hints + goal-gradient glow ── */
   .trackerWhere { color:#9fd3e8; font-size:11px; margin-top:3px; }
   #storyTrackerFill.nearlyDone, #questTrackerFill.nearlyDone {
@@ -1749,6 +1767,9 @@
 <body>
 
 <canvas id="game"></canvas>
+<!-- Asset-load pill: follows the cursor while the KayKit models stream in, so a
+     new player understands the brief rough-graphics moment. Hides at 100%. -->
+<div id="loadPill" class="loadPill" aria-live="polite"></div>
 
 <div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;">⚡ Connection lost — reconnecting…</div>
 
@@ -3121,6 +3142,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=b386dc9914"></script>
+<script src="client.js?v=d5b295d554"></script>
 </body>
 </html>

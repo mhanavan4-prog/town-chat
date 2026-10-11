@@ -292,6 +292,11 @@ const KK = (() => {
   const mixers = new Set();
   let pending = 0, settled = false, resolveReady;
   const promise = new Promise(res => { resolveReady = res; });
+  // Live load progress across the WHOLE manifest (critical + deferred), for the
+  // on-screen loading pill. loadedCount ticks on every asset settle (hit OR
+  // miss); allDone flips once nothing is left to stream.
+  const totalCount = Object.keys(MANIFEST).length;
+  let loadedCount = 0, allDone = false;
 
   // The Necromancer's SUMMONED undead (not any player's body) — needed only when
   // a Necromancer casts, never at spawn. Kept OFF the critical path so the join
@@ -300,7 +305,7 @@ const KK = (() => {
   const DEFERRED = new Set(['skel_minion', 'skel_warrior', 'skel_rogue']);
 
   function load() {
-    if (typeof THREE === 'undefined' || !THREE.GLTFLoader) { settled = true; resolveReady(); return; }
+    if (typeof THREE === 'undefined' || !THREE.GLTFLoader) { settled = true; allDone = true; resolveReady(); return; }
     const loader = new THREE.GLTFLoader();
     const store = (key) => (gltf) => {
       const box = new THREE.Box3().setFromObject(gltf.scene);
@@ -314,7 +319,7 @@ const KK = (() => {
     // Critical set: everything the spawn town + any visible player body needs.
     // The join gate (KK.promise / KK.settled) resolves when THIS set is done.
     pending = criticalKeys.length;
-    const onCritical = () => { if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); loadDeferred(); } };
+    const onCritical = () => { loadedCount++; if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); loadDeferred(); } };
     for (const key of criticalKeys) {
       loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); onCritical(); },
         undefined, () => { console.warn('KK asset failed, using fallback:', key); onCritical(); });
@@ -322,9 +327,9 @@ const KK = (() => {
     if (!criticalKeys.length) { settled = true; resolveReady(); loadDeferred(); }
 
     function loadDeferred() {
-      if (!deferredKeys.length) return;
+      if (!deferredKeys.length) { allDone = true; return; }
       let dp = deferredKeys.length;
-      const done = () => { if (--dp === 0) borrowAnims(); }; // give the summon models their clips (idempotent for the rest)
+      const done = () => { loadedCount++; if (--dp === 0) { borrowAnims(); allDone = true; } }; // give the summon models their clips (idempotent for the rest)
       for (const key of deferredKeys) {
         loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); done(); },
           undefined, () => { console.warn('KK deferred asset failed, using fallback:', key); done(); });
@@ -400,6 +405,10 @@ const KK = (() => {
 
   return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance,
     get settled() { return settled; }, promise,
+    // Loading-pill progress: fraction 0..1 of the whole manifest, and whether
+    // everything (critical + the streamed-in summon models) is done.
+    get fullyLoaded() { return allDone; },
+    loadFrac() { return totalCount ? loadedCount / totalCount : 1; },
     tick(dt) { for (const m of mixers) m.update(dt); } };
 })();
 KK.load();
@@ -4251,6 +4260,45 @@ window.addEventListener('keydown', (e) => {
 // body.touchMode class (CSS) and this flag (behavior).
 const MOBILE_UI = isTouchDevice();
 if (MOBILE_UI) document.body.classList.add('touchMode');
+
+// ── Asset-load pill ─────────────────────────────────────────────────────────
+// A small pill that rides just off the cursor while the KayKit models stream
+// in, so a new player knows the brief rough-graphics moment is the world still
+// loading — not a glitch. It hides (and stops updating) the instant everything
+// is loaded. On touch devices there's no cursor, so it pins above the hotbar.
+(() => {
+  const pill = document.getElementById('loadPill');
+  if (!pill) return;
+  let mx = window.innerWidth / 2, my = window.innerHeight - 160; // sensible default: above the hotbar
+  let moved = false;
+  if (!MOBILE_UI) {
+    window.addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; moved = true; }, { passive: true });
+  }
+  function frame() {
+    // Show once the player has committed to entering (join armed) or is in-game,
+    // and only while assets are still streaming.
+    const armed = gameStarted || window.__tcLoadArmed;
+    if (armed && !KK.fullyLoaded) {
+      const pct = Math.min(100, Math.round(KK.loadFrac() * 100));
+      pill.textContent = 'Loading world… ' + pct + '%';
+      if (MOBILE_UI) {
+        // No cursor to follow — pin centered, just above the hotbar.
+        pill.style.left = '50%'; pill.style.top = (window.innerHeight - 150) + 'px';
+        pill.style.transform = 'translate(-50%,0)';
+      } else {
+        const x = Math.min(mx, window.innerWidth - 150);
+        const y = Math.min(my, window.innerHeight - 50);
+        pill.style.left = x + 'px'; pill.style.top = y + 'px';
+        pill.style.transform = 'translate(14px,16px)';
+      }
+      pill.classList.add('show');
+    } else {
+      pill.classList.remove('show');
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
 
 // ── Movement: floating joystick (mobile) ───────────────────────────────────
 // The old joystick was a fixed ring at the bottom-RIGHT — exactly where the
