@@ -13996,11 +13996,28 @@ const KK = (() => {
   function borrowAnims() {
     const donor = models.char0 && models.char0.animations && models.char0.animations.length ? models.char0.animations : null;
     if (!donor) return;
+    // The Skeletons pack shares the Adventurers' LIMB bones but NOT their
+    // root/hips rest transforms. The donor clips animate root + hips (position
+    // AND rotation), so bound to a skeleton rig those two tracks tip the whole
+    // body flat and drive it under the floor the instant the clip plays. Strip
+    // just the root/hips tracks for borrowers — every limb/spine/head track
+    // still drives the shared bones, so the body animates upright and in place.
+    // (The Adventurers classes keep the full, unmodified clips — same rig, no
+    // mismatch — so nothing changes for them.)
+    let _borrowed = null;
+    const borrowedClips = () => {
+      if (_borrowed) return _borrowed;
+      _borrowed = donor.map(clip => new THREE.AnimationClip(
+        clip.name, clip.duration,
+        clip.tracks.filter(t => !(t.name.startsWith('root.') || t.name.startsWith('hips.')))
+      ));
+      return _borrowed;
+    };
     const skinned = (m) => { let y = false; m.scene.traverse(o => { if (o.isSkinnedMesh) y = true; }); return y; };
     for (const k of Object.keys(models)) {
       // Only rigged (skinned) models borrow clips — a static prop like the
       // staff has no bones and must stay animation-less.
-      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = donor;
+      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = borrowedClips();
     }
   }
 
