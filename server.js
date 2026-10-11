@@ -133,6 +133,18 @@ const IAP_PRODUCT30_ID = process.env.IAP_PRODUCT30_ID || 'town_pass_30d';
 // account FOUND a coven (and thus its private Moot-Stone world). Joining a coven
 // by invite stays free, so one buyer can bring up to 8 people in. Default $9.99.
 const COVEN_CHARTER_PRICE_CENTS = parseInt(process.env.COVEN_CHARTER_PRICE_CENTS, 10) || 999;
+// Coven monthly UPKEEP (Session O) — covens cost $9.99/month to keep the lights
+// on (server bills). NOT a subscription: any member pays a one-time $9.99 that
+// pushes the coven's paid-through date out another 30 days. Founding (the
+// Charter) buys the first 30 days. When upkeep lapses the coven gets ONE 30-day
+// grace window per rolling year (stays fully usable, any member can pay to save
+// it); paying during grace starts a fresh 30 days with no bonus free days, and
+// a second lapse while that grace is still "spent" disbands the coven — so a
+// coven can't ride the grace period to a free month every cycle.
+const COVEN_UPKEEP_PRICE_CENTS = parseInt(process.env.COVEN_UPKEEP_PRICE_CENTS, 10) || 999;
+const COVEN_UPKEEP_PERIOD_MS = 30 * 24 * 3600 * 1000; // a paid month
+const COVEN_GRACE_MS = 30 * 24 * 3600 * 1000;         // grace window length
+const COVEN_GRACE_RESET_MS = 365 * 24 * 3600 * 1000;  // one grace per rolling year
 // The rooms the pass unlocks. Everything not listed here is free.
 const LOCKED_ROOMS = new Set(['lounge', 'arcade']);
 const stripeClient = STRIPE_SECRET_KEY ? Stripe(STRIPE_SECRET_KEY) : null;
@@ -424,6 +436,33 @@ app.post('/api/checkout', async (req, res) => {
         detail: { product: 'coven_charter', kind: 'coven_charter', amountCents: COVEN_CHARTER_PRICE_CENTS } });
       return res.json({ url: session.url });
     }
+    if (product === 'coven_upkeep') {
+      const accountKey = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
+      if (!accountKey) return res.status(400).json({ error: 'Log into an account first — coven upkeep follows your account.' });
+      const cv = covenOf(accountKey);
+      if (!cv) return res.status(400).json({ error: 'You’re not in a coven — only a member can pay a coven’s upkeep.' });
+      const session = await stripeClient.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        metadata: { coven_upkeep: '1', covenId: cv.id },
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            unit_amount: COVEN_UPKEEP_PRICE_CENTS,
+            product_data: {
+              name: `Thornreach — Coven Upkeep (${cv.name})`,
+              description: 'Keeps your coven open for another 30 days. Any member can pay — it extends the whole coven.'
+            }
+          },
+          quantity: 1
+        }],
+        success_url: `${origin}/?upkeep_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/?pass_cancel=1`
+      });
+      audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
+        detail: { product: 'coven_upkeep', kind: 'coven_upkeep', coven: cv.id, amountCents: COVEN_UPKEEP_PRICE_CENTS } });
+      return res.json({ url: session.url });
+    }
     // Two shapes of the same pass: the day pass (default — the original
     // behavior) and the 30-day Resident Pass (Session L).
     const isResident = product === 'pass30';
@@ -647,6 +686,33 @@ app.get('/api/verify-charter', async (req, res) => {
   } catch (err) {
     audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req), detail: { at: 'verify-charter', message: err.message } });
     console.error('Charter verify error:', err.message);
+    res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
+  }
+});
+
+// Confirms a Coven Upkeep Checkout got paid, then extends the coven's
+// paid-through date by 30 days — replay-proof by the Stripe session id. Any
+// member may pay; the coven is taken from the session metadata.
+app.get('/api/verify-upkeep', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ granted: 0, error: 'Payments are not set up on this server yet.' });
+  const sessionId = req.query.session_id;
+  const accountKey = req.query.account_token ? sessions.get(String(req.query.account_token)) : null;
+  if (!sessionId) return res.status(400).json({ granted: 0, error: 'Missing session_id.' });
+  if (!accountKey) return res.status(401).json({ granted: 0, error: 'Log into your account to confirm the upkeep.' });
+  try {
+    const session = await stripeClient.checkout.sessions.retrieve(String(sessionId));
+    if (session.payment_status !== 'paid') return res.json({ granted: 0 });
+    if (!(session.metadata && session.metadata.coven_upkeep)) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t coven upkeep.' });
+    const cv = covens[session.metadata.covenId];
+    if (!cv) return res.json({ granted: 0, error: 'That coven no longer exists.' });
+    const g = creditCovenUpkeep('upkeep_' + String(sessionId), cv);
+    audit.log({ level: 'info', type: g.granted > 0 ? 'coven_upkeep_paid' : 'coven_upkeep_replay',
+      ip: audit.clientIp(req), account: accountKey, detail: { coven: cv.id, paidThroughAt: g.paidThroughAt } });
+    if (g.granted > 0) covenBroadcast(cv); // everyone in the coven sees the new paid-through date
+    res.json({ granted: g.granted, paidThroughAt: g.paidThroughAt });
+  } catch (err) {
+    audit.log({ level: 'alert', type: 'stripe_api_error', ip: audit.clientIp(req), detail: { at: 'verify-upkeep', message: err.message } });
+    console.error('Upkeep verify error:', err.message);
     res.status(500).json({ granted: 0, error: 'Could not verify the purchase.' });
   }
 });
@@ -1026,6 +1092,7 @@ const CHARTERS_FILE = path.join(DATA_DIR, 'covenCharters.json');
 const covenCharters = persistLoad('covenCharters', CHARTERS_FILE) || {};
 if (!covenCharters.grants) covenCharters.grants = {};
 if (!covenCharters.balance) covenCharters.balance = {};
+if (!covenCharters.upkeep) covenCharters.upkeep = {}; // processed upkeep session ids (replay-proof)
 persistRegister('covenCharters', CHARTERS_FILE, () => covenCharters);
 function saveCharters() { persistSave('covenCharters', CHARTERS_FILE, covenCharters); }
 function charterBalance(key) { return covenCharters.balance[key] || 0; }
@@ -4841,8 +4908,94 @@ const { tickWorldBoss, worldBossHit, worldBossPublic, worldBossRenderPos, worldB
 // Any member may invite; only the leader kicks; the last one out inherits
 // whatever's left in the tab.
 // Covens (Session I) — extracted to lib/covens.js (Tier 3.4 Phase B).
-const covensMod = require('./lib/covens')({ dataDir: DATA_DIR, persistLoad, persistSetKey, persistRegister, accounts, findConnectionByAccountKey, send });
+const covensMod = require('./lib/covens')({ dataDir: DATA_DIR, persistLoad, persistSetKey, persistRegister, accounts, findConnectionByAccountKey, send,
+  upkeepConfig: { priceCents: COVEN_UPKEEP_PRICE_CENTS, periodMs: COVEN_UPKEEP_PERIOD_MS, graceMs: COVEN_GRACE_MS, resetMs: COVEN_GRACE_RESET_MS },
+  paymentsEnabled: () => !!stripeClient });
 const { covens, COVENS_FILE, saveCoven, covenOf, covenLog, covenDisplayName, covenStatePayload, covenBroadcast, covenTableFor, covenIndex, covenInvites, COVEN_MAX_MEMBERS, COVEN_CREATE_COST, COVEN_BANK_SLOTS, COVEN_SIGILS, COVEN_TABLE_HOLD_MS } = covensMod;
+
+// ── Coven monthly upkeep (Session O) ─────────────────────────────────────────
+// Any member pays $9.99 → push the coven's paid-through date out 30 days. During
+// grace, paidThroughAt is in the past, so max(now, past)=now → a fresh 30 days
+// with NO bonus free time. graceUsedAt is deliberately NOT reset by a payment —
+// only the passage of a year makes the coven grace-eligible again.
+function applyCovenUpkeepPayment(cv) {
+  cv.paidThroughAt = Math.max(Date.now(), cv.paidThroughAt || 0) + COVEN_UPKEEP_PERIOD_MS;
+  cv.graceStartedAt = 0; cv.graceEndsAt = 0; // clear any active grace — the bill's paid
+  saveCoven(cv.id);
+}
+// Replay-proof credit keyed by the Stripe session id (like charters).
+function creditCovenUpkeep(grantId, cv) {
+  if (!cv) return { granted: 0, paidThroughAt: 0 };
+  if (covenCharters.upkeep[grantId]) return { granted: 0, paidThroughAt: cv.paidThroughAt || 0 }; // replay
+  covenCharters.upkeep[grantId] = { coven: cv.id, at: Date.now() };
+  saveCharters();
+  applyCovenUpkeepPayment(cv);
+  return { granted: 1, paidThroughAt: cv.paidThroughAt };
+}
+// Forced disband when upkeep lapses past grace (or lapses again while grace is
+// spent). The shared tab's gold + items pass to the leader (the likeliest
+// payer); every member is told and dropped from the index.
+function disbandCovenForced(cv, reason) {
+  const leaderKey = cv.leaderKey || cv.members[0];
+  if (leaderKey) {
+    const acct = ensureBankAccount(leaderKey);
+    acct.balance += (cv.bank && cv.bank.gold) || 0;
+    if (cv.bank && Array.isArray(cv.bank.slots)) for (const s of cv.bank.slots) { if (s) addItemToAccount(acct, s.itemId, s.qty); }
+    saveBankAccounts();
+  }
+  for (const key of cv.members.slice()) {
+    covenIndex.delete(key);
+    const conn = findConnectionByAccountKey(key);
+    if (conn) {
+      send(conn.ws, { type: 'coven_state', coven: null });
+      send(conn.ws, { type: 'announce_soft', message: `🥀 ${cv.name} has disbanded — its monthly upkeep went unpaid.` });
+    }
+  }
+  audit.log({ level: 'info', type: 'coven_disbanded_upkeep', account: leaderKey || null, detail: { coven: cv.id, name: cv.name, reason } });
+  delete covens[cv.id];
+  persistSave('covens', COVENS_FILE, covens);
+}
+// Periodic sweep (coarse — minutes, not the game tick): moves covens
+// active → grace → disband. The authoritative state lives here; the client
+// only renders from the timestamps.
+function tickCovenUpkeep() {
+  const now = Date.now();
+  for (const cid of Object.keys(covens)) {
+    const cv = covens[cid];
+    if (!cv) continue;
+    if (!cv.paidThroughAt) { cv.paidThroughAt = now + COVEN_UPKEEP_PERIOD_MS; saveCoven(cid); continue; } // grandfather existing covens with a month
+    if (now < cv.paidThroughAt) { // paid and current
+      if (cv.graceEndsAt) { cv.graceStartedAt = 0; cv.graceEndsAt = 0; saveCoven(cid); } // clear any stale grace
+      continue;
+    }
+    // Lapsed (now >= paidThroughAt):
+    if (cv.graceEndsAt) {
+      if (now < cv.graceEndsAt) continue; // still inside the grace window — wait for a member to pay
+      disbandCovenForced(cv, 'grace_expired'); // grace ran out unpaid
+      continue;
+    }
+    // Lapsed with no grace window open — grant grace once per rolling year, else disband.
+    const eligible = !cv.graceUsedAt || (now - cv.graceUsedAt) > COVEN_GRACE_RESET_MS;
+    if (eligible) {
+      cv.graceStartedAt = now; cv.graceEndsAt = now + COVEN_GRACE_MS; cv.graceUsedAt = now;
+      covenLog(cv, 'The coven', 'upkeep lapsed — 30-day grace began');
+      saveCoven(cid);
+      for (const key of cv.members) {
+        const conn = findConnectionByAccountKey(key);
+        if (conn) {
+          send(conn.ws, { type: 'coven_state', ...covenStatePayload(cv, key) });
+          send(conn.ws, { type: 'announce_soft', message: `🕯️ ${cv.name}'s upkeep lapsed. Any member has 30 days to pay $${(COVEN_UPKEEP_PRICE_CENTS / 100).toFixed(2)} or the coven disbands.` });
+        }
+      }
+      audit.log({ level: 'info', type: 'coven_grace_started', detail: { coven: cv.id, name: cv.name } });
+    } else {
+      disbandCovenForced(cv, 'no_grace_left'); // already used its grace this year — no free second window
+    }
+  }
+}
+const _covenUpkeepTimer = setInterval(tickCovenUpkeep, 5 * 60 * 1000);
+if (_covenUpkeepTimer.unref) _covenUpkeepTimer.unref();
+setTimeout(tickCovenUpkeep, 8000); // one pass shortly after boot (grandfather + catch anything lapsed while down)
 
 // ── Coven standings & the Champions' Table (Session P) ───────────────────────
 // A weekly inter-coven contest built entirely on the per-player leaderboards:
@@ -9103,7 +9256,9 @@ wss.on('connection', (ws, req) => {
         id, name, nameLower, sigil, createdAt: Date.now(),
         leaderKey: player.accountKey, members: [player.accountKey],
         motd: '', bank: { gold: 0, slots: new Array(COVEN_BANK_SLOTS).fill(null) },
-        log: [], table: null, chartered: true, charteredAt: Date.now()
+        log: [], table: null, chartered: true, charteredAt: Date.now(),
+        // The Charter buys the first 30 days of upkeep; monthly top-ups extend it.
+        paidThroughAt: Date.now() + COVEN_UPKEEP_PERIOD_MS, graceStartedAt: 0, graceEndsAt: 0, graceUsedAt: 0
       };
       covenIndex.set(player.accountKey, id);
       covenLog(covens[id], player.name, 'founded the coven');
@@ -10191,6 +10346,8 @@ global.__testHooks = {
   // Session N: the World Boss
   worldBossMod, tickWorldBoss, worldBossHit, worldBossPublic, worldBossWindow, nearestWildsPlayer,
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
+  tickCovenUpkeep, applyCovenUpkeepPayment, creditCovenUpkeep, disbandCovenForced, saveCoven,
+  COVEN_UPKEEP_PRICE_CENTS, COVEN_UPKEEP_PERIOD_MS, COVEN_GRACE_MS, COVEN_GRACE_RESET_MS,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,

@@ -2295,6 +2295,16 @@
   }
   .cvDot { width:8px; height:8px; border-radius:50%; background:#555; display:inline-block; }
   .cvDot.on { background:#9ee37d; }
+  /* Coven upkeep card (Members view) — visible to every member */
+  .covenUpkeep {
+    margin:0 0 10px; padding:11px 13px; border-radius:11px;
+    background:rgba(94,231,192,0.07); border:1px solid rgba(94,231,192,0.28);
+  }
+  .covenUpkeep.grace { background:rgba(224,180,92,0.1); border-color:rgba(224,180,92,0.5); }
+  .covenUpkeep .cuTitle { font-weight:700; font-size:13.5px; color:#eafff0; }
+  .covenUpkeep .cuStatus { font-size:12.5px; color:#cbbfe6; margin-top:3px; line-height:1.4; }
+  .covenUpkeep .cuWarn { font-size:11.5px; color:#e0b45c; margin-top:5px; line-height:1.4; }
+  .covenUpkeep .cuPay { margin:9px 0 0; width:100%; }
   /* The while-you-were-gone letter */
   #letterCard {
     background:linear-gradient(180deg,#2a2138,#1c142c);
@@ -3142,6 +3152,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=d5b295d554"></script>
+<script src="client.js?v=575d6f5744"></script>
 </body>
 </html>
