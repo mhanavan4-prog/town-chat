@@ -1674,6 +1674,49 @@ app.get('/api/covens', (req, res) => {
 // Live population — connected players right now. Public, tiny, read-only.
 app.get('/api/online', (req, res) => res.json({ online: players.size }));
 
+// Site search — jump to any player or coven by name. Public, read-only.
+// Prefix matches rank above substring matches; a few of each.
+app.get('/api/search', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase().slice(0, 40);
+  if (q.length < 1) return res.json({ players: [], covens: [] });
+  const rank = (hay) => { const i = hay.indexOf(q); return i < 0 ? 999 : (i === 0 ? 0 : 1); };
+  const players = Object.keys(accounts)
+    .filter((k) => k.includes(q))
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+    .slice(0, 8)
+    .map((k) => ({ name: accounts[k].username }));
+  const covenList = Object.values(covens)
+    .filter((cv) => (cv.name || '').toLowerCase().includes(q))
+    .sort((a, b) => rank((a.name || '').toLowerCase()) - rank((b.name || '').toLowerCase()) || a.name.localeCompare(b.name))
+    .slice(0, 6)
+    .map((cv) => ({ id: cv.id, name: cv.name, sigil: cv.sigil, members: (cv.members || []).length }));
+  res.json({ players, covens: covenList });
+});
+
+// Discovery rails for the homepage — the newest covens and the most recently
+// active players. Public, read-only, benign state only.
+app.get('/api/activity', (req, res) => {
+  const newCovens = Object.values(covens)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 6)
+    .map((cv) => ({ id: cv.id, name: cv.name, sigil: cv.sigil, members: (cv.members || []).length, crowns: (cv.honors || []).length }));
+  const activePlayers = [];
+  for (const key of Object.keys(playerProgress)) {
+    if (!accounts[key]) continue;
+    const chars = (playerProgress[key] && playerProgress[key].characters) || {};
+    let best = null;
+    for (const cid of Object.keys(chars)) {
+      const t = chars[cid].lastPlayedAt || 0;
+      if (t && (!best || t > best.t)) best = { t, charId: parseInt(cid, 10), level: chars[cid].level || 1 };
+    }
+    if (best && Number.isInteger(best.charId) && best.charId >= 0 && best.charId < CHARACTER_COUNT) {
+      activePlayers.push({ name: accounts[key].username, charId: best.charId, level: best.level, lastPlayedAt: best.t });
+    }
+  }
+  activePlayers.sort((a, b) => b.lastPlayedAt - a.lastPlayedAt);
+  res.json({ newCovens, activePlayers: activePlayers.slice(0, 8) });
+});
+
 // A public coven page (/c/<id>) — identity, members (each links to their
 // public profile), leader, standing, crowns, motd. Public, read-only.
 app.get('/api/coven', (req, res) => {
