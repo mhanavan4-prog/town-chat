@@ -91,3 +91,34 @@ rate-limited to roughly one per subscription per day.
 Two honest limits: the Electron desktop shell and the Capacitor app builds don't ship a push
 transport (their enable button says so in-game); native FCM/APNs for the store apps would be a
 separate future round.
+
+## Auto-deploy on the VPS (hands-off shipping)
+
+The live Hetzner box can keep itself in sync with `main` so merged PRs go live
+on their own — no manual `git pull` / restart.
+
+It's **pull-based**: the server checks GitHub every couple of minutes and, when
+`main` moves, pulls it. It restarts the `thornreach` service **only when a
+server-side file changed** (`server.js`, `lib/`, `data/`, `package*.json`);
+client-only changes (`public/`, `client/`) are served straight off disk by
+`express.static`, so they land live with **zero player disconnects**. Nothing
+inbound is exposed and no production SSH key ever lives in CI.
+
+One-time install, as root on the server:
+
+```bash
+cd /opt/town-chat
+sudo -u thornreach git pull --ff-only      # get tools/auto-deploy.sh first
+sudo bash tools/install-auto-deploy.sh
+```
+
+Then:
+
+- Watch a run:   `journalctl -u thornreach-deploy.service -f`
+- Deploy log:    `tail -f /var/log/thornreach-deploy.log`
+- Force a run:   `sudo systemctl start thornreach-deploy.service`
+- Timer status:  `systemctl list-timers thornreach-deploy.timer`
+- Remove it:     `sudo systemctl disable --now thornreach-deploy.timer && sudo rm /etc/systemd/system/thornreach-deploy.{service,timer}`
+
+Tunables (set in the install env, e.g. `INTERVAL=1min sudo -E bash tools/install-auto-deploy.sh`):
+`INTERVAL` (default `2min`), `APP_DIR`, `RUN_USER`, `SERVICE`, `BRANCH`.
