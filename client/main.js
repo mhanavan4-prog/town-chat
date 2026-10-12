@@ -2503,10 +2503,19 @@ function passTimeLeftLabel() {
 }
 function passPriceLabel() { return `$${(townPassPriceCents / 100).toFixed(2)}`; }
 
+// A member of a good-standing (paid-upkeep) coven can enter the Phantom Parlor
+// without a personal Town Pass — the Rite's altar is there. Mirrors the server's
+// canEnterPassRoom; derived from the coven_state upkeep timestamps.
+function inGoodStandingCoven() {
+  const u = covenState && covenState.upkeep;
+  return !!(u && u.paidThroughAt && Date.now() < u.paidThroughAt);
+}
 function isLockedRoom(roomId) {
   if (!PAYWALLS_ENABLED) return false;
   if (!lockedRooms.has(roomId)) return false;
-  return !hasTownPass();
+  if (hasTownPass()) return false;
+  if (roomId === 'lounge' && inGoodStandingCoven()) return false; // coven perk
+  return true;
 }
 
 // Whether a building's outdoor signage/door should render in its "locked"

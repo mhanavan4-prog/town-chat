@@ -90,6 +90,12 @@ setTimeout(() => {
     check('the granted title resolves to its catalog name', tp.earned.some(t => t.name === 'Keeper of the Hollow Vigil'));
     check('no active title until one is chosen', tp.active === null, tp.active);
 
+    // ── Parlor access perk: good-standing covens enter the lounge pass-free ──
+    check('good-standing coven member enters the Parlor without a pass', srv.canEnterPassRoom(P('a0'), 'lounge') === true);
+    check('the Arcade stays pass-only even for coven members', srv.canEnterPassRoom(P('a0'), 'arcade') === false);
+    check('a lapsed-upkeep coven member is still barred from the Parlor', srv.canEnterPassRoom(P('b0'), 'lounge') === false);
+    check('a player with no coven is barred from the Parlor', srv.canEnterPassRoom(P('nobody'), 'lounge') === false);
+
     // ── A sabbat with no authored rite → dormant marker ─────────────────────
     const cv2 = mkCoven('offseason', ['c0', 'c1'], Date.now() + 1e9);
     srv.rites.ensureRite(cv2, { key: 'litha', startsAt: Date.now(), endsAt: Date.now() + 1e9 }, 2, Date.now());

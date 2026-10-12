@@ -4973,6 +4973,16 @@ function titlesPayloadFor(accountKey) {
 // not pay-to-win — it's co-op PvE plus a modest seasonal buff).
 function covenGoodStanding(cv) { return !!(cv && cv.paidThroughAt && Date.now() < cv.paidThroughAt); }
 
+// Coven access perk: a member of a good-standing (paid-upkeep) coven may enter
+// the Phantom Parlor without a personal Town Pass — the Rite's séance altar
+// lives there, so a free coven-mate can still keep the vigil. The Arcade stays
+// pass-only. (Admins and pass-holders pass everything via hasTownPass.)
+function canEnterPassRoom(player, room) {
+  if (hasTownPass(player)) return true;
+  if (room === 'lounge' && player && player.accountKey) return covenGoodStanding(covenOf(player.accountKey));
+  return false;
+}
+
 // Rotate a coven onto the live sabbat's Rite when the season turns over, settling
 // any unfinished previous Rite with consolation. Member scale is snapshotted from
 // the roster size at Rite start.
@@ -6745,7 +6755,7 @@ wss.on('connection', (ws, req) => {
         if ((resume.passUntil || 0) > player.passUntil) player.passUntil = resume.passUntil;
         const knownRoom = (r) => r === 'outside' || r === 'wilds' || r === 'witch_cave'
           || r === 'bank_vault' || r === 'ember_wastes' || WORLD.buildings.some(b => b.id === r);
-        if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !hasTownPass(player))) {
+        if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !canEnterPassRoom(player, player.room))) {
           player.room = 'outside';
           player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
           player.x = WORLD.spawn.x;
@@ -6970,7 +6980,7 @@ wss.on('connection', (ws, req) => {
         // own door prediction — a crafted move message can't walk through
         // a locked door. Same pattern as the Ember Wastes gate: the client
         // check is a courtesy, this is the actual lock.
-        if (LOCKED_ROOMS.has(msg.room) && player.room !== msg.room && !hasTownPass(player)) {
+        if (LOCKED_ROOMS.has(msg.room) && player.room !== msg.room && !canEnterPassRoom(player, msg.room)) {
           // Repeatedly hammering a locked door is a crafted-client signal.
           if (audit.hit(ws._ip || player.id, 'locked_probe', 60 * 1000) > 12) {
             audit.log({ level: 'alert', type: 'locked_room_probe', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { room: msg.room } });
@@ -10575,7 +10585,7 @@ global.__testHooks = {
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   tickCovenUpkeep, applyCovenUpkeepPayment, creditCovenUpkeep, disbandCovenForced, saveCoven,
   COVEN_UPKEEP_PRICE_CENTS, COVEN_UPKEEP_PERIOD_MS, COVEN_GRACE_MS, COVEN_GRACE_RESET_MS,
-  rites, ensureCovenRite, riteCredit, covenGoodStanding, tickRites, TITLES, titlesPayloadFor,
+  rites, ensureCovenRite, riteCredit, covenGoodStanding, tickRites, TITLES, titlesPayloadFor, canEnterPassRoom,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
