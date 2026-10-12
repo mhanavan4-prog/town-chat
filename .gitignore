@@ -32,3 +32,6 @@ covens.json
 # Runtime data dirs if DATA_DIR resolves into the repo (defense in depth)
 security/
 evidence/
+
+# rendered OG card cache (regenerated on demand)
+og-cache/

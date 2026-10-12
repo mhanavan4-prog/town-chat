@@ -298,6 +298,11 @@ function sendWithOg(req, res, file, og) {
   res.type('html').send(html.replace('<!--OG-->', tags));
 }
 
+// Rendered per-entity OG cards (name + stats composited onto the base class /
+// sigil card). Guarded: ogRender.available is false if sharp can't load, and
+// every caller falls back to the plain static card below.
+const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
+
 app.get('/', (req, res) => sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }));
 app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
@@ -320,7 +325,12 @@ app.get('/u/:username', (req, res) => {
       if (charId == null) { const first = Object.keys(prog.characters || {})[0]; charId = first != null ? parseInt(first, 10) : null; }
     }
   } catch (e) {}
-  const image = (Number.isInteger(charId) && charId >= 0 && charId < CHARACTER_COUNT) ? `/og/class-${charId}.png` : null;
+  const validChar = Number.isInteger(charId) && charId >= 0 && charId < CHARACTER_COUNT;
+  // Prefer the rendered card (name + stats) when sharp is available; the static
+  // class card is the fallback.
+  const image = validChar
+    ? (ogRender.available && accounts[key] ? `/og/player/${encodeURIComponent(name)}.png` : `/og/class-${charId}.png`)
+    : null;
   sendWithOg(req, res, 'profile.html', {
     title: `${name} — Thornreach`,
     desc: `See ${name}'s character, coven and standing in Thornreach — a crooked little town of witches, werewolves and covens.`,
@@ -333,12 +343,62 @@ app.get('/c/:id', (req, res) => {
   const cv = covens[String(req.params.id || '')];
   const nm = cv ? `${cv.sigil || '🌑'} ${cv.name}` : 'A coven';
   let image = null;
-  if (cv) { const si = COVEN_SIGILS.indexOf(cv.sigil); if (si >= 0) image = `/og/coven-${si}.png`; }
+  if (cv) {
+    const si = COVEN_SIGILS.indexOf(cv.sigil);
+    if (si >= 0) image = ogRender.available ? `/og/coven/${encodeURIComponent(cv.id)}.png` : `/og/coven-${si}.png`;
+  }
   sendWithOg(req, res, 'coven.html', {
     title: `${nm} — Thornreach`,
     desc: cv ? `${cv.name} — a coven of ${(cv.members || []).length} in Thornreach.` : 'A coven in Thornreach.',
     image
   });
+});
+
+// Rendered share-card images. These composite the entity's real name + stats
+// onto the matching base card and cache the result. If sharp is unavailable
+// they redirect to the plain static base card. Public, read-only, benign state.
+app.get('/og/player/:name.png', async (req, res) => {
+  const name = String(req.params.name || '').slice(0, 40);
+  const key = name.toLowerCase();
+  try {
+    const p = assembleProfile(key, false);
+    if (!p) return res.redirect(302, '/og-cover.png');
+    const cur = (p.characters || []).find((c) => c.charId === p.lastCharId) || (p.characters || [])[0] || null;
+    const charId = cur ? cur.charId : p.lastCharId;
+    if (!(Number.isInteger(charId) && charId >= 0 && charId < CHARACTER_COUNT)) return res.redirect(302, '/og-cover.png');
+    const cls = CLASS_NAMES[charId] || 'Drifter';
+    let meta = `Level ${cur ? cur.level : 1} · the ${cls}`;
+    if (p.honors && p.honors.best) meta += `  ·  ★ #${p.honors.best.place} ${p.honors.best.label}`;
+    const variant = `${charId}|${cur ? cur.level : 1}|${p.honors && p.honors.best ? p.honors.best.place + p.honors.best.board : ''}`;
+    const file = ogRender.available ? await ogRender.playerCard(charId, p.username, meta, variant) : null;
+    if (!file) return res.redirect(302, `/og/class-${charId}.png`);
+    res.type('png').set('Cache-Control', 'public, max-age=900').sendFile(file);
+  } catch (e) { res.redirect(302, '/og-cover.png'); }
+});
+
+app.get('/og/coven/:id.png', async (req, res) => {
+  const cv = covens[String(req.params.id || '')];
+  try {
+    if (!cv) return res.redirect(302, '/og-cover.png');
+    const si = COVEN_SIGILS.indexOf(cv.sigil);
+    if (si < 0) return res.redirect(302, '/og-cover.png');
+    const members = (cv.members || []).length;
+    const leader = covenDisplayName(cv.leaderKey || (cv.members || [])[0] || '');
+    let meta = `${members} member${members === 1 ? '' : 's'} · led by ${leader}`;
+    let rank = 0;
+    try {
+      const standings = covenStandings(weekKey(Date.now()));
+      const idx = standings.findIndex((s) => s.covenId === cv.id);
+      if (idx >= 0 && standings[idx].points > 0) rank = idx + 1;
+    } catch (e) {}
+    const crowns = (cv.honors || []).length;
+    if (rank) meta += `  ·  ★ #${rank} this week`;
+    else if (crowns) meta += `  ·  ★ ${crowns} crown${crowns === 1 ? '' : 's'}`;
+    const variant = `${si}|${members}|${leader}|${rank}|${(cv.honors || []).length}`;
+    const file = ogRender.available ? await ogRender.covenCard(si, cv.id, cv.name, meta, variant) : null;
+    if (!file) return res.redirect(302, `/og/coven-${si}.png`);
+    res.type('png').set('Cache-Control', 'public, max-age=900').sendFile(file);
+  } catch (e) { res.redirect(302, '/og-cover.png'); }
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
