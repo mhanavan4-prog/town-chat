@@ -505,7 +505,7 @@ const STORYLINES = {
         outro: 'Hazel looks at you a long moment. "I wondered if the Sixth would ever walk back in," she says, unsurprised and unhappy. "He was my friend, the one who wrote it. I buried him myself. If you\'re going to raise what he raised, raise it well — a sloppy binding is just a second death with extra steps."',
         xpReward: 60, goldReward: 30 },
       { id: 'nec4', title: 'First Bindings', objective: { type: 'cast_ability', target: 8, label: 'Perform 8 rites (raise undead or cast your arts)' },
-        intro: '"The rite isn\'t words, it\'s HABIT," Hazel says. "The dead test a new master the way a dog tests a new owner. Bind, raise, command — eight times, until your will doesn\'t flinch. A necromancer who hesitates gets eaten by his own work."',
+        intro: '"The rite isn\'t words, it\'s HABIT," Hazel says. "The dead test a new master the way a dog tests a new owner. Bind, raise, command — eight times, until your will doesn\'t flinch. A lich who hesitates gets eaten by his own work."',
         outro: 'By the eighth rite the cold in your hands has stopped feeling like cold and started feeling like REACH. The dead come up a little faster each time, stand a little straighter. They\'re learning your grip. Your ritual rank deepens — every undead you raise from here rises stronger.',
         xpReward: 80, goldReward: 40 },
       { id: 'nec5', title: "Thin the Hollow's Dead", objective: { type: 'kill_mob', target: 8, label: 'Put down 8 of the Hollow\'s corrupted dead' },
@@ -518,7 +518,7 @@ const STORYLINES = {
         xpReward: 200, goldReward: 150, itemRewards: [{ itemId: 'void_staff', qty: 1 }] },
       // ── Episode II: The Hollow Answers (chapters 7–9) ──
       { id: 'nec7', title: 'Where the Dead Pile Deep', objective: { type: 'delve_depth', minDepth: 5, target: 1, label: 'Descend to Floor 5 of the Weekly Delve' },
-        intro: 'The Hollow, locked out above, has been hoarding its dead BELOW — in the deep floors of the Delve, stacked like cordwood against the day it needs an army. "Go count them," Hazel says grimly. "A necromancer who doesn\'t know the size of the opposing collection is a necromancer about to lose his own."',
+        intro: 'The Hollow, locked out above, has been hoarding its dead BELOW — in the deep floors of the Delve, stacked like cordwood against the day it needs an army. "Go count them," Hazel says grimly. "A lich who doesn\'t know the size of the opposing collection is a lich about to lose his own."',
         outro: 'Five floors down you find the hoard, and your professional envy curdles into fear: there are more dead here than the living town has ever numbered. And at the center, something is already stitching them together into one body.',
         requiresLevel: 11, xpReward: 240, goldReward: 160, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }, { itemId: 'shadow_essence', qty: 2 }] },
       { id: 'nec8', title: 'Reliquary Bones', objective: { type: 'craft_item', target: 3, label: 'Forge 3 items at the Artificer\'s Workshop' },
