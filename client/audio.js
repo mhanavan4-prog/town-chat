@@ -219,12 +219,27 @@ function cycleMusic() {
   const row = document.getElementById('menuMusic');
   if (row) row.textContent = musicMenuLabel();
 }
-// A saved track can't sound until the browser gets a gesture — the very
-// first tap/click (usually the join button) unlocks it.
-document.addEventListener('pointerdown', function musicUnlock() {
-  document.removeEventListener('pointerdown', musicUnlock);
+// The browser keeps every AudioContext suspended until it sees a real user
+// gesture, and it only honors resume() from inside that gesture's call stack.
+// Sound effects fire from WebSocket messages (a blow lands, a level-up), which
+// are NOT gestures — so unless the context was already unlocked from a tap, it
+// stays suspended and the whole game is silent. The very first tap/click
+// (usually the join button) is our one chance: prime and resume the context
+// right here, ALWAYS — not only when music happens to be on — then start any
+// saved track. Later taps keep nudging it in case the browser re-suspends.
+function unlockAudio() {
+  ensureAudio();
+  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+}
+document.addEventListener('pointerdown', function firstGesture() {
+  document.removeEventListener('pointerdown', firstGesture);
+  unlockAudio();
   if (musicChoice !== 'off') startMusic(musicChoice);
 }, { once: true });
+// Safety net for browsers that re-suspend after focus loss / tab switches.
+document.addEventListener('pointerdown', () => {
+  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+});
 
 function setMusicMuted(muted) {
   musicMuted = muted;
