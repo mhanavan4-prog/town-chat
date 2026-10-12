@@ -114,6 +114,10 @@ try {
     const trackerText = await page.$eval('#storyTrackerCount', el => el.textContent);
     check(`[char ${c.charId}] tracker shows the objective with 0 progress`, / 0 \/ \d+/.test(trackerText));
 
+    // Beginning a chapter now pops its opening story beat as a dialogue box;
+    // dismiss it the way a player would before carrying on.
+    await page.evaluate(() => { const b = document.getElementById('storyBeatBtn'); if (b) b.click(); });
+
     // Attacks panel for the classes that have one — all 12+ abilities listed.
     if (c.attacks) {
       await page.evaluate(() => document.getElementById('attackBtn').click());

@@ -1292,6 +1292,13 @@ function onWsMessage(ev) {
     storyLastOutro = null; // reading on — the previous chapter's ending leaves the desk
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
+    // Surface the chapter's opening narration in the moment, not just in the
+    // Journal — so beginning a chapter reads as a story beat, for every class.
+    if (msg.intro) showStoryBeat({
+      kicker: msg.chapterNumber ? `📖 Chapter ${msg.chapterNumber}` : '📖 Chapter',
+      title: msg.chapterTitle,
+      body: msg.intro
+    });
     return; // the refreshed story_state arrives right behind this
   }
 
@@ -1307,11 +1314,16 @@ function onWsMessage(ev) {
     storyLastOutro = { title: msg.chapterTitle, outro: msg.outro, rewards: msg.rewards, storyComplete: msg.storyComplete };
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
-    // The ceremony beat — bigger for the finale.
-    showChapterCeremony(
-      msg.storyComplete ? '🏆 STORY COMPLETE' : `📖 Chapter ${msg.chapterIndex || ''} complete`,
-      msg.storyComplete ? `"${msg.chapterTitle}" — the relic is yours.` : `"${msg.chapterTitle}" · ${msg.rewards || ''}`
-    );
+    // The closing narration as an in-the-moment dialogue box — the outro prose
+    // that used to live only in the Journal now lands right when you finish the
+    // chapter (e.g. the moment you talk to the NPC), with its rewards.
+    showStoryBeat({
+      kicker: msg.storyComplete ? '🏆 Story Complete' : `📖 Chapter ${msg.chapterIndex || ''} Complete`,
+      title: msg.chapterTitle,
+      body: msg.outro,
+      rewards: msg.rewards,
+      isComplete: msg.storyComplete
+    });
     // Refresh inventory so chapter item rewards appear immediately, same
     // as quest_complete above.
     ws.send(JSON.stringify({ type: 'inventory_open' }));
@@ -4062,6 +4074,31 @@ function showChapterCeremony(title, subtitle) {
   clearTimeout(ceremonyTimer);
   ceremonyTimer = setTimeout(() => el.classList.add('hidden'), 3400);
 }
+
+// The story beat — the in-the-moment dialogue box for a campaign chapter's
+// intro (fired on story_chapter_started) and outro (on story_chapter_complete).
+// The full narrative still lives in the Journal; this is what makes the beat
+// land when you Begin a chapter or finish one at the NPC, instead of silently
+// ticking a toast. One box, reused for every chapter of every class.
+function showStoryBeat({ kicker, title, body, rewards, isComplete }) {
+  const modal = document.getElementById('storyBeatModal');
+  if (!modal) return;
+  modal.classList.toggle('complete', !!isComplete);
+  document.getElementById('storyBeatKicker').textContent = kicker || '📖 Story';
+  document.getElementById('storyBeatTitle').textContent = title || '';
+  document.getElementById('storyBeatBody').textContent = body || '';
+  const rw = document.getElementById('storyBeatRewards');
+  if (rewards) { rw.textContent = '🎁 ' + rewards; rw.classList.remove('hidden'); }
+  else { rw.textContent = ''; rw.classList.add('hidden'); }
+  document.getElementById('storyBeatBtn').textContent = isComplete ? 'Onward' : 'Continue';
+  modal.classList.remove('hidden');
+}
+function closeStoryBeat() {
+  const m = document.getElementById('storyBeatModal');
+  if (m) m.classList.add('hidden');
+}
+const storyBeatBtn = document.getElementById('storyBeatBtn');
+if (storyBeatBtn) storyBeatBtn.addEventListener('click', closeStoryBeat);
 
 // ---------------------------------------------------------------------------
 // Countermeasures (client side) — the Hard Drive's selfies & voice clips
@@ -11503,6 +11540,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('notifModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { Modals.set('notifModalOpen', false); document.getElementById('notifModal').classList.add('hidden'); }
+    return;
+  }
+  const _storyBeat = document.getElementById('storyBeatModal');
+  if (_storyBeat && !_storyBeat.classList.contains('hidden')) {
+    if (e.key === 'Escape' && !e.repeat) _storyBeat.classList.add('hidden');
     return;
   }
   const _letterM = document.getElementById('letterModal');
