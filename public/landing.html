@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thornreach — a crooked little town of witches, werewolves & covens</title>
+<meta name="description" content="Six callings. One crooked little town. A browser MMO with covens, class campaigns, and the Wilds — no gacha, no energy, nothing pay-to-win, ever.">
+<meta property="og:title" content="Thornreach">
+<meta property="og:description" content="Six callings. One crooked little town. The lanterns are lit — come in out of the dark.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#140f2b">
+<link rel="icon" href="/icon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#130c22; --bg1:#0b0716; --bg2:#060410;
+    --ink:#e9ddff; --mut:#a99bc4; --mut2:#8d80a8;
+    --violet:#b98aff; --teal:#7ef0c3; --green:#9ee37d; --gold:#e8d9a8;
+    --card:rgba(16,10,26,0.72); --line:rgba(185,138,255,0.18);
+    --grad:linear-gradient(90deg,#a678f0,#5ee7c0);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; color:var(--ink);
+    font-family:'Segoe UI', system-ui, Arial, sans-serif; line-height:1.55;
+    background:
+      radial-gradient(1100px 620px at 78% -5%, rgba(146,109,222,0.18), transparent 55%),
+      radial-gradient(820px 520px at 6% 12%, rgba(94,231,192,0.07), transparent 60%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
+    background-attachment:fixed;
+  }
+  a{color:inherit; text-decoration:none}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 20px}
+  .serif{font-family:'Cinzel', Georgia, serif}
+  .wordmark{font-family:'Cinzel Decorative','Cinzel',Georgia,serif; letter-spacing:3px; font-weight:900}
+  .grad-text{
+    background:linear-gradient(90deg,#c9a7ff 0%, #8de8c8 55%, #e8d9a8 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .btn{
+    display:inline-block; font-weight:800; letter-spacing:0.4px; cursor:pointer;
+    border:none; border-radius:11px; padding:13px 24px; color:#0b0713;
+    background:var(--grad); box-shadow:0 6px 26px rgba(130,90,230,0.35);
+    transition:transform .14s ease, box-shadow .14s ease;
+  }
+  .btn:hover{transform:translateY(-2px); box-shadow:0 10px 32px rgba(130,90,230,0.5)}
+  .btn.ghost{
+    background:rgba(10,6,20,0.5); color:var(--ink);
+    border:1px solid var(--line); box-shadow:none;
+  }
+  .btn.ghost:hover{border-color:rgba(185,138,255,0.5); box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+
+  /* ── nav ── */
+  header.nav{
+    position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
+    background:linear-gradient(180deg, rgba(11,7,22,0.86), rgba(11,7,22,0.55));
+    border-bottom:1px solid rgba(185,138,255,0.12);
+  }
+  .nav .wrap{display:flex; align-items:center; gap:18px; height:64px}
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .sigil{width:30px; height:30px; flex:0 0 auto}
+  .brand .name{font-size:19px}
+  .nav nav{margin-left:auto; display:flex; align-items:center; gap:26px}
+  .nav nav a.link{color:var(--mut); font-size:14px; letter-spacing:0.3px}
+  .nav nav a.link:hover{color:var(--ink)}
+  .nav .cta{display:flex; align-items:center; gap:10px; margin-left:4px}
+  .nav .btn{padding:9px 18px; border-radius:9px}
+  @media(max-width:720px){ .nav nav a.link{display:none} }
+
+  /* ── hero / banner ── */
+  .hero{position:relative; overflow:hidden; padding:66px 0 40px}
+  .hero .moon{
+    position:absolute; top:40px; right:7%; width:120px; height:120px; border-radius:50%;
+    background:radial-gradient(circle at 62% 42%, #fdf6e3 0 44%, #d9cfa6 58%, transparent 72%);
+    box-shadow:0 0 70px 14px rgba(240,230,190,0.28);
+  }
+  .hero .moon::after{content:""; position:absolute; inset:0; border-radius:50%;
+    box-shadow:inset 26px -8px 0 2px #0f0a1e;}
+  .stars{position:absolute; inset:0; pointer-events:none}
+  .star{position:absolute; width:2px; height:2px; border-radius:50%; background:#fff; opacity:.5}
+  .hero .wrap{position:relative; z-index:2; text-align:center}
+  .kicker{font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--violet); margin-bottom:18px}
+  h1.title{
+    font-family:'Cinzel Decorative','Cinzel',Georgia,serif; font-weight:900;
+    font-size:clamp(40px,8vw,82px); letter-spacing:6px; margin:0 0 14px;
+    text-shadow:0 0 34px rgba(160,120,255,0.3);
+  }
+  .tagline{font-family:Georgia, serif; font-style:italic; color:var(--mut); font-size:clamp(15px,2.3vw,20px); max-width:640px; margin:0 auto 10px}
+  .pillars{color:var(--green); font-size:14px; letter-spacing:0.4px; margin:16px 0 26px; font-weight:600}
+  .pillars b{color:#c6f5b0}
+  .hero-cta{display:flex; gap:14px; justify-content:center; flex-wrap:wrap}
+  .hero-cta .btn{font-size:16px; padding:15px 30px}
+
+  /* character lineup banner */
+  .lineup{margin:44px auto 0; max-width:1000px; display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
+  .lineup a{
+    position:relative; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:rgba(10,6,20,0.5); border:1px solid var(--line); border-radius:14px;
+    padding:10px 4px 8px; transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .lineup a:hover{transform:translateY(-4px); border-color:rgba(185,138,255,0.5); box-shadow:0 10px 26px rgba(120,70,220,0.28)}
+  .lineup img{width:100%; height:92px; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5))}
+  .lineup .cn{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--mut2)}
+  @media(max-width:720px){ .lineup{grid-template-columns:repeat(3,1fr)} .lineup img{height:80px} }
+
+  /* ── sections ── */
+  section{padding:64px 0}
+  .sec-head{text-align:center; margin-bottom:38px}
+  .sec-head .eyebrow{font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--violet); margin-bottom:10px}
+  .sec-head h2{font-family:'Cinzel',Georgia,serif; font-weight:600; font-size:clamp(26px,4vw,38px); margin:0 0 8px; letter-spacing:1px}
+  .sec-head p{color:var(--mut); max-width:600px; margin:0 auto}
+
+  /* classes grid */
+  .classes{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  .cls{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:18px; display:flex; gap:16px; align-items:center;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .cls:hover{transform:translateY(-3px); border-color:rgba(185,138,255,0.4)}
+  .cls img{width:88px; height:104px; object-fit:contain; object-position:center bottom; flex:0 0 auto; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5))}
+  .cls h3{margin:0 0 4px; font-family:'Cinzel',serif; font-size:19px; letter-spacing:0.5px; color:#f1e9ff}
+  .cls p{margin:0; color:var(--mut); font-size:13.5px}
+  @media(max-width:860px){ .classes{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:560px){ .classes{grid-template-columns:1fr} }
+
+  /* features grid */
+  .features{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  .feat{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px}
+  .feat .ic{font-size:26px; margin-bottom:10px; display:block}
+  .feat h3{margin:0 0 6px; font-size:16px; color:#f1e9ff; letter-spacing:0.3px}
+  .feat p{margin:0; color:var(--mut); font-size:13.5px}
+  @media(max-width:860px){ .features{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:560px){ .features{grid-template-columns:1fr} }
+
+  /* account / play band */
+  .band{
+    position:relative; text-align:center; border-radius:22px; padding:52px 24px;
+    border:1px solid rgba(185,138,255,0.22); overflow:hidden;
+    background:
+      radial-gradient(600px 300px at 50% -20%, rgba(146,109,222,0.28), transparent 60%),
+      linear-gradient(160deg, rgba(26,18,40,0.9), rgba(14,10,22,0.9));
+  }
+  .band h2{font-family:'Cinzel',serif; font-weight:600; font-size:clamp(24px,4vw,34px); margin:0 0 10px; letter-spacing:1px}
+  .band p{color:var(--mut); max-width:520px; margin:0 auto 24px}
+  .band .hero-cta{margin-top:4px}
+
+  /* footer */
+  footer{border-top:1px solid rgba(185,138,255,0.12); padding:36px 0; margin-top:40px}
+  footer .wrap{display:flex; align-items:center; gap:16px; flex-wrap:wrap; color:var(--mut2); font-size:13px}
+  footer .brand .name{font-size:16px}
+  footer nav{margin-left:auto; display:flex; gap:20px}
+  footer a:hover{color:var(--ink)}
+  .mark{color:var(--mut2); font-size:12px; margin-top:6px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="jsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b98aff"/><stop offset="1" stop-color="#7ef0c3"/></linearGradient>
+</defs></svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <svg class="sigil" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="url(#jsg)" stroke-width="4"/>
+        <path d="M50 6 L75.86 85.6 L8.15 36.4 L91.85 36.4 L24.14 85.6 Z" fill="none" stroke="url(#jsg)" stroke-width="4" stroke-linejoin="round"/>
+      </svg>
+      <span class="wordmark name grad-text">THORNREACH</span>
+    </a>
+    <nav>
+      <a class="link" href="#classes">Classes</a>
+      <a class="link" href="#features">The world</a>
+      <a class="link" href="#covens">Covens</a>
+      <div class="cta">
+        <a class="btn ghost" href="/play">Log in</a>
+        <a class="btn" href="/play">Play free</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="moon"></div>
+  <div class="stars" id="stars"></div>
+  <div class="wrap">
+    <div class="kicker">A browser MMO · opening Halloween 2026</div>
+    <h1 class="title grad-text">THORNREACH</h1>
+    <p class="tagline">Six callings. One crooked little town. The lanterns are lit — come in out of the dark.</p>
+    <div class="pillars"><b>No gacha</b> · <b>No energy</b> · <b>Nothing pay-to-win</b> — ever</div>
+    <div class="hero-cta">
+      <a class="btn" href="/play">Enter the Town</a>
+      <a class="btn ghost" href="#classes">Meet the callings</a>
+    </div>
+    <div class="lineup">
+      <a href="/play" title="Witch — casts spells from a Spellbook"><img src="charselect/char0.png" alt="Witch"><span class="cn">Witch</span></a>
+      <a href="/play" title="Werewolf — unleashes 12 ferocious attacks"><img src="charselect/char1.png" alt="Werewolf"><span class="cn">Werewolf</span></a>
+      <a href="/play" title="Mystic — sees what others can't"><img src="charselect/char2.png?v=2" alt="Mystic"><span class="cn">Mystic</span></a>
+      <a href="/play" title="Knight — the town's steel shield"><img src="charselect/char3.png" alt="Knight"><span class="cn">Knight</span></a>
+      <a href="/play" title="Wanderer — unleashes 12 wandering skills"><img src="charselect/char4.png?v=2" alt="Wanderer"><span class="cn">Wanderer</span></a>
+      <a href="/play" title="Lich — raises undead to fight for you"><img src="charselect/char5.png" alt="Lich"><span class="cn">Lich</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="classes">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Choose your calling</div>
+      <h2>Six ways to walk the dark</h2>
+      <p>Every calling plays differently and carries its own six-chapter campaign. Pick the one that fits the trouble you want to cause.</p>
+    </div>
+    <div class="classes">
+      <div class="cls"><img src="charselect/char0.png" alt="Witch"><div><h3>The Witch</h3><p>Casts spells from a living Spellbook — hexes, wards, and worse.</p></div></div>
+      <div class="cls"><img src="charselect/char1.png" alt="Werewolf"><div><h3>The Werewolf</h3><p>Twelve ferocious attacks. Howl at the moon and let the beast out.</p></div></div>
+      <div class="cls"><img src="charselect/char2.png?v=2" alt="Mystic"><div><h3>The Mystic</h3><p>Sees what others can't — rites, visions, and the voices under the floor.</p></div></div>
+      <div class="cls"><img src="charselect/char3.png" alt="Knight"><div><h3>The Knight</h3><p>The town's steel shield. Hold the line when the night things come.</p></div></div>
+      <div class="cls"><img src="charselect/char4.png?v=2" alt="Wanderer"><div><h3>The Wanderer</h3><p>Twelve wandering skills and nowhere it won't go. A blade for every road.</p></div></div>
+      <div class="cls"><img src="charselect/char5.png" alt="Lich"><div><h3>The Lich</h3><p>Raises the dead to fight for you. The sixth rite the Circle struck from the books.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">The world</div>
+      <h2>A town with teeth</h2>
+      <p>Thornreach is a persistent little world you share with everyone online — fair, strange, and built to be played for the love of it.</p>
+    </div>
+    <div class="features">
+      <div class="feat"><span class="ic">🕯️</span><h3>Honest by design</h3><p>No gacha, no energy timers, no pay-to-win — ever. Everyone plays the same game.</p></div>
+      <div class="feat" id="covens"><span class="ic">🌑</span><h3>Covens</h3><p>Band together, hold the longest night, run coven Rites, and claim the Manor as your own.</p></div>
+      <div class="feat"><span class="ic">📜</span><h3>Six campaigns</h3><p>Each calling has its own six-chapter story — the whispers, the barrows, the sixth rite.</p></div>
+      <div class="feat"><span class="ic">🌲</span><h3>The Wilds & the Delve</h3><p>Hunt the night creatures, descend the weekly Delve, and rally to fell world bosses.</p></div>
+      <div class="feat"><span class="ic">☸️</span><h3>The Wheel of the Year</h3><p>A new coven Rite turns with every sabbat — Samhain, Yule, and the six that follow.</p></div>
+      <div class="feat"><span class="ic">🌙</span><h3>Play anywhere</h3><p>Runs right in your browser — no download — and follows you across your devices.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="band">
+      <h2 class="grad-text serif">The lanterns are lit</h2>
+      <p>Create a free account to keep your characters, your coven, and your standing — or jump in as a guest and look around.</p>
+      <div class="hero-cta">
+        <a class="btn" href="/play">Create your account</a>
+        <a class="btn ghost" href="/play">Play as guest</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/">
+      <svg class="sigil" width="24" height="24" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="url(#jsg)" stroke-width="5"/>
+        <path d="M50 6 L75.86 85.6 L8.15 36.4 L91.85 36.4 L24.14 85.6 Z" fill="none" stroke="url(#jsg)" stroke-width="5" stroke-linejoin="round"/>
+      </svg>
+      <span class="wordmark name grad-text">THORNREACH</span>
+    </a>
+    <nav>
+      <a href="/play">Play</a>
+      <a href="/play">Log in</a>
+      <a href="#classes">Classes</a>
+      <a href="#features">The world</a>
+    </nav>
+    <div style="flex-basis:100%"></div>
+    <div class="mark">© 2026 Thornreach · a crooked little town · opening Halloween 2026</div>
+  </div>
+</footer>
+
+<script>
+  // scatter a few stars across the hero
+  (function(){
+    var box=document.getElementById('stars'); if(!box) return;
+    var n=46, h=560;
+    for(var i=0;i<n;i++){ var s=document.createElement('span'); s.className='star';
+      s.style.left=(Math.random()*100)+'%'; s.style.top=(Math.random()*h)+'px';
+      s.style.opacity=(0.2+Math.random()*0.6).toFixed(2);
+      var sz=(Math.random()<0.2?2.5:1.5); s.style.width=s.style.height=sz+'px';
+      box.appendChild(s);
+    }
+  })();
+</script>
+</body>
+</html>

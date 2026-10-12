@@ -1,8 +1,8 @@
 {
   "name": "Thornreach",
   "short_name": "Thornreach",
-  "description": "Five callings. One crooked little town. The lanterns are lit \u2014 come in out of the dark.",
-  "start_url": "/",
+  "description": "Six callings. One crooked little town. The lanterns are lit \u2014 come in out of the dark.",
+  "start_url": "/play",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
