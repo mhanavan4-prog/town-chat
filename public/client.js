@@ -24,7 +24,15 @@ let musicIsRoomTune = false; // true when the cafe started it, not the player
 try { musicChoice = localStorage.getItem('tc_music') || 'off'; } catch (e) {}
 // Sound effects: their own bus, default ON (music is the one that defaults off).
 let sfxGain = null, sfxMuted = false, noiseBuffer = null;
-try { sfxMuted = localStorage.getItem('tc_sfx') === '0'; } catch (e) {}
+// The 🔈 button is one global mute for BOTH music and sfx. It has a single
+// source of truth — tc_audio_muted — so the two buses can never drift apart. (An
+// earlier build persisted only the sfx half, which left reloads silent with
+// the button still reading "unmuted"; honoring tc_audio_muted instead, default off,
+// also frees anyone who got stuck that way.)
+let allMuted = false;
+try { allMuted = localStorage.getItem('tc_audio_muted') === '1'; } catch (e) {}
+musicMuted = allMuted;
+sfxMuted = allMuted;
 
 const TAVERN_SCALE = [196.00, 220.00, 246.94, 293.66, 329.63, 392.00]; // G3 pentatonic-ish run
 const TAVERN_MELODY = [0, 2, 4, 2, 1, 3, 5, 3, 0, 4, 2, 0, 1, 3, 2, 0];
@@ -299,18 +307,25 @@ function playSfx(name) {
 }
 function setSfxMuted(muted) {
   sfxMuted = muted;
-  try { localStorage.setItem('tc_sfx', muted ? '0' : '1'); } catch (e) {}
   if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : 0.9, audioCtx.currentTime);
+}
+
+// The one global mute. Persists a single flag (tc_audio_muted) and drives both buses
+// together, so music and sfx stay in lock-step across reloads.
+function setAllMuted(muted) {
+  allMuted = muted;
+  try { localStorage.setItem('tc_audio_muted', muted ? '1' : '0'); } catch (e) {}
+  setMusicMuted(muted);
+  setSfxMuted(muted);
 }
 
 const muteBtn = document.getElementById('muteBtn');
 if (muteBtn) {
-  // One button mutes EVERYTHING (music + sfx), the intuitive global mute.
+  // Reflect the real, persisted state on load so the icon can't lie.
+  muteBtn.textContent = allMuted ? '🔇' : '🔈';
   muteBtn.addEventListener('click', () => {
-    const nowMuted = !musicMuted;
-    setMusicMuted(nowMuted);
-    setSfxMuted(nowMuted);
-    muteBtn.textContent = nowMuted ? '🔇' : '🔈';
+    setAllMuted(!allMuted);
+    muteBtn.textContent = allMuted ? '🔇' : '🔈';
   });
 }
 
