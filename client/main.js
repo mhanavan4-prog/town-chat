@@ -1292,13 +1292,11 @@ function onWsMessage(ev) {
     storyLastOutro = null; // reading on — the previous chapter's ending leaves the desk
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
-    // Surface the chapter's opening narration in the moment, not just in the
-    // Journal — so beginning a chapter reads as a story beat, for every class.
-    if (msg.intro) showStoryBeat({
-      kicker: msg.chapterNumber ? `📖 Chapter ${msg.chapterNumber}` : '📖 Chapter',
-      title: msg.chapterTitle,
-      body: msg.intro
-    });
+    // No intro pop-up on begin: you just read the chapter's opening in the
+    // Journal to click Begin, so a second box would be redundant. The story
+    // beat box is kept for chapter COMPLETE (the outro), where it lands as a
+    // payoff you didn't already have in front of you. (The server still sends
+    // `intro`; it's simply unused here — the Journal remains its home.)
     return; // the refreshed story_state arrives right behind this
   }
 
