@@ -117,10 +117,11 @@ check('Yule rotates onto its own authored rite', cv2.rite && cv2.rite.riteId ===
 check('Yule has three phases', RITES.yule.phases.length === 3);
 check('Yule rite reward resolves its title', R.individualReward(RITES.yule, cv2.rite).title === 'Warden of the Returning Sun');
 
-// A truly unauthored sabbat (Litha has no rite) → dormant marker.
-const lithaSeason = { key: 'litha', startsAt: yuleSeason.endsAt, endsAt: yuleSeason.endsAt + 40 * 24 * HOUR };
-R.ensureRite(cv2, lithaSeason, cv2.members.length, lithaSeason.startsAt + 5);
-check('a sabbat with no authored rite becomes a dormant marker', cv2.rite.none === true, cv2.rite);
+// A season key with no authored rite → dormant marker (all 8 real sabbats now
+// have one, so use a synthetic key to exercise the dormant path).
+const voidSeason = { key: '__none__', startsAt: yuleSeason.endsAt, endsAt: yuleSeason.endsAt + 40 * 24 * HOUR };
+R.ensureRite(cv2, voidSeason, cv2.members.length, voidSeason.startsAt + 5);
+check('a season with no authored rite becomes a dormant marker', cv2.rite.none === true, cv2.rite);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
