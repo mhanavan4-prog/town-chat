@@ -6858,7 +6858,7 @@ function buildDelveStone(scene) {
 // the square's west edge, mirroring the Delve Stone opposite. If you belong to
 // a coven, touching it slips you into a world only your coven can reach;
 // touching it again walks you back out to the public town.
-const MOOT_STONE_SPOT = { x: 1150, y: 870 };
+const MOOT_STONE_SPOT = { x: 1320, y: 1560 }; // the clearing south of the spawn square: open grass north of the Bank (x1160–1600/y1670–1950) and east of the Temple platform (x880–1240), clear of both plus decor_48 lamppost (1566,1597)
 function buildMootStone(scene) {
   // A hag stone (adder stone, witch stone) is a stone with a hole worn clean
   // through it — folklore holds that you see the otherworld through the hole,
