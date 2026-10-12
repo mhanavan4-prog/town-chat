@@ -47,7 +47,7 @@ const RITES = {
     reward: {
       xpBase: 400, xpPerMember: 60,
       goldBase: 250, goldPerMember: 40,
-      title: 'Keeper of the Hollow Vigil'
+      titleId: 'hollow_vigil'
     },
     phases: [
       {
@@ -79,6 +79,53 @@ const RITES = {
         objectives: [
           { key: 'hexers', kind: 'kill_creature', match: 'fen_hexer',
             label: 'Fen Hexers silenced', base: 7, perMember: 5, maxShare: 0.5 }
+        ]
+      }
+    ]
+  },
+
+  // ── Yule — the Longest Night, the sun dying and reborn ─────────────────────
+  yule: {
+    id: 'rite_yule',
+    seasonKey: 'yule',
+    name: 'The Sunreturn Vigil',
+    glyph: '❄️',
+    blurb: "On the longest night the sun gutters low. The coven banks the hearthfire, keeps the watch through the dark, and at the turning drives back the gathered dead so the new sun can climb.",
+    seasonBuff: true,
+    reward: {
+      xpBase: 400, xpPerMember: 60,
+      goldBase: 250, goldPerMember: 40,
+      titleId: 'sunreturn'
+    },
+    phases: [
+      {
+        id: 'hearth', title: 'Bank the Hearthfire', glyph: '🔥',
+        gateHours: 0,
+        blurb: "Lay in warmth against the dark. Gather hearth-herbs, and thin the gloom-bats that smother the last of the light.",
+        minContributors: 2,
+        objectives: [
+          { key: 'herbs', kind: 'harvest_specific', match: 'healing_herb',
+            label: 'Hearth-herbs gathered', base: 6, perMember: 4, maxShare: 0.5 },
+          { key: 'bats', kind: 'kill_creature', match: 'gloom_bat',
+            label: 'Gloom-bats scattered', base: 8, perMember: 6, maxShare: 0.5 }
+        ]
+      },
+      {
+        id: 'longnight', title: 'Hold the Longest Night', glyph: '🕯️',
+        gateHours: GATE_HOURS,
+        blurb: "The night is at its deepest. Each witch keeps a flame at the séance altar in the Phantom Parlor until the dark begins to turn.",
+        candles: true,
+        label: 'Vigil-flames kept at the altar',
+        candleBase: 2, candlePerMember: 0.5
+      },
+      {
+        id: 'sunrise', title: 'Kindle the Returning Sun', glyph: '☀️',
+        gateHours: GATE_HOURS,
+        blurb: "As the light climbs back, the restless dead claw at the dawn. Put the barrow-wights down so the new sun rises clean.",
+        minContributors: 2,
+        objectives: [
+          { key: 'wights', kind: 'kill_creature', match: 'barrow_wight',
+            label: 'Barrow-wights laid to rest', base: 7, perMember: 5, maxShare: 0.5 }
         ]
       }
     ]

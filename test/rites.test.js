@@ -9,8 +9,9 @@ function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', na
 
 const { RITES, RITE_MEMBER_FLOOR, RITE_MEMBER_CAP, RITE_CONSOLATION_FRACTION } = require('../data/rites.js');
 const { SABBATS } = require('../data/seasons.js');
+const { titleName } = require('../data/titles.js');
 const seasonEffects = (k) => { const s = SABBATS.find(x => x.key === k); return s ? s.effects : {}; };
-const R = require('../lib/rites.js')({ RITES, RITE_MEMBER_FLOOR, RITE_MEMBER_CAP, RITE_CONSOLATION_FRACTION, seasonEffects });
+const R = require('../lib/rites.js')({ RITES, RITE_MEMBER_FLOOR, RITE_MEMBER_CAP, RITE_CONSOLATION_FRACTION, seasonEffects, titleName });
 
 const HOUR = 3600 * 1000;
 const T0 = Date.UTC(2026, 9, 31);                 // a Samhain start
@@ -102,11 +103,23 @@ check('non-contributors get nothing (only bankers listed)', exp.consolation.ever
 const expAgain = R.expireIfEnded(data, cv2.rite, SEASON.endsAt + 2);
 check('consolation is idempotent (not paid twice)', expAgain.consolation.length === 0);
 
-// ── Rotation at the sabbat boundary ─────────────────────────────────────────
-const nextSeason = { key: 'yule', startsAt: SEASON.endsAt, endsAt: SEASON.endsAt + 40 * 24 * HOUR };
-const rot = R.ensureRite(cv2, nextSeason, cv2.members.length, SEASON.endsAt + 5);
+// ── Reward title resolves through the injected catalog ──────────────────────
+const rw = R.individualReward(data, cv.rite);
+check('reward carries the title id', rw.titleId === 'hollow_vigil', rw.titleId);
+check('reward resolves the title display name', rw.title === 'Keeper of the Hollow Vigil', rw.title);
+
+// ── Rotation at the sabbat boundary → onto the Yule rite ────────────────────
+const yuleSeason = { key: 'yule', startsAt: SEASON.endsAt, endsAt: SEASON.endsAt + 40 * 24 * HOUR };
+const rot = R.ensureRite(cv2, yuleSeason, cv2.members.length, SEASON.endsAt + 5);
 check('ensureRite rotates when the sabbat turns over', rot.rotated === true);
 check('rotation hands back the previous rite for consolation', rot.prevRite != null);
+check('Yule rotates onto its own authored rite', cv2.rite && cv2.rite.riteId === 'rite_yule' && !cv2.rite.none, cv2.rite && cv2.rite.riteId);
+check('Yule has three phases', RITES.yule.phases.length === 3);
+check('Yule rite reward resolves its title', R.individualReward(RITES.yule, cv2.rite).title === 'Warden of the Returning Sun');
+
+// A truly unauthored sabbat (Litha has no rite) → dormant marker.
+const lithaSeason = { key: 'litha', startsAt: yuleSeason.endsAt, endsAt: yuleSeason.endsAt + 40 * 24 * HOUR };
+R.ensureRite(cv2, lithaSeason, cv2.members.length, lithaSeason.startsAt + 5);
 check('a sabbat with no authored rite becomes a dormant marker', cv2.rite.none === true, cv2.rite);
 
 console.log(`\n${pass} passed, ${fail} failed`);

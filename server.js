@@ -3377,6 +3377,10 @@ function publicPlayer(p) {
     // is delivered exactly once per change via 'disguise_state', which
     // clients cache by player id.
     disguiseName: p.disguise ? p.disguise.name : null,
+    // Active honorific (chosen in the Titles menu) — the ready-to-show display
+    // string (glyph + name) rides the broadcast, so clients needn't ship the
+    // titles catalog just to label a nameplate.
+    activeTitle: (p.activeTitle && TITLES[p.activeTitle]) ? `${TITLES[p.activeTitle].glyph} ${TITLES[p.activeTitle].name}` : null,
     // Corpse loot — deathX/Y/Room are only meaningful while hasLoot is true;
     // they mark the fixed spot the body fell, independent of wherever the
     // ghost wanders off to afterward (see the 'strike' PvP branch above).
@@ -4945,13 +4949,25 @@ const { covens, COVENS_FILE, saveCoven, covenOf, covenLog, covenDisplayName, cov
 // is pure — this glue persists cv.rite, grants the rewards it computes, and
 // gates progress behind active upkeep.
 const RITES_DATA = require('./data/rites');
+const { TITLES, titleName: titleNameOf, titleExists } = require('./data/titles');
 const rites = require('./lib/rites')({
   RITES: RITES_DATA.RITES,
   RITE_MEMBER_FLOOR: RITES_DATA.RITE_MEMBER_FLOOR,
   RITE_MEMBER_CAP: RITES_DATA.RITE_MEMBER_CAP,
   RITE_CONSOLATION_FRACTION: RITES_DATA.RITE_CONSOLATION_FRACTION,
-  seasonEffects: (k) => { const s = SABBATS.find((x) => x.key === k); return s ? s.effects : {}; }
+  seasonEffects: (k) => { const s = SABBATS.find((x) => x.key === k); return s ? s.effects : {}; },
+  titleName: titleNameOf
 });
+
+// Earned/active title payload for a client: resolves ids to the catalog. Unknown
+// ids are dropped so a removed title can't break the UI.
+function titlesPayloadFor(accountKey) {
+  const acc = accountKey && playerProgress[accountKey];
+  const earned = ((acc && acc.riteTitles) || []).filter(titleExists).map((id) => TITLES[id]);
+  let active = (acc && acc.activeTitle) || null;
+  if (active && !titleExists(active)) active = null;
+  return { earned, active };
+}
 
 // A coven may progress a Rite only while its upkeep is current (a paying perk,
 // not pay-to-win — it's co-op PvE plus a modest seasonal buff).
@@ -4996,7 +5012,8 @@ function onRiteComplete(cv, data) {
     if (reward.gold > 0) ensureBankAccount(key).balance += reward.gold;
     const p = findConnectionByAccountKey(key);
     if (p && reward.xp > 0) grantXP(p, reward.xp);
-    grantRiteTitle(key, reward.title);
+    grantRiteTitle(key, reward.titleId);
+    if (p && reward.titleId) send(p.ws, { type: 'titles_state', ...titlesPayloadFor(key) });
   }
   saveBankAccounts(); saveProgress(); saveCoven(cv.id);
   covenLog(cv, 'system', `completed ${data.name}`);
@@ -6674,6 +6691,12 @@ wss.on('connection', (ws, req) => {
       }
       players.set(id, player);
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
+      // Carry the account's chosen honorific onto the live player so it rides the
+      // state broadcast (publicPlayer) and shows on their nameplate.
+      if (player.accountKey && playerProgress[player.accountKey]) {
+        const _at = playerProgress[player.accountKey].activeTitle;
+        player.activeTitle = _at && titleExists(_at) ? _at : null;
+      }
       // Character roster — powers the returning-player select screen. Remember
       // which classes this account has played and which was most recent, so
       // /api/characters can offer "continue as …" cards on the next visit.
@@ -6801,6 +6824,7 @@ wss.on('connection', (ws, req) => {
         pushPublicKey: getVapidKeys() ? getVapidKeys().publicKey : null,
         // 😴 Rested XP window (epoch ms, 0 = none) — the client counts it down.
         restedUntil: player.restedUntil || 0,
+        titles: titlesPayloadFor(player.accountKey),
         townPass: {
           lockedRooms: [...LOCKED_ROOMS],
           passUntil: player.passUntil || 0,
@@ -9701,6 +9725,23 @@ wss.on('connection', (ws, req) => {
       else { broadcastRite(cv); if (res.phaseCompleted) announceRitePhase(cv, data, 'watch'); }
       return;
     }
+    if (msg.type === 'titles_state') {
+      send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+    if (msg.type === 'set_title') {
+      if (!player.accountKey) { send(ws, { type: 'titles_state', ...titlesPayloadFor(null) }); return; }
+      const acc = playerProgress[player.accountKey];
+      const want = msg.title || null; // null/'' clears the active title
+      if (want && !(acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes(want) && titleExists(want))) {
+        send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) }); // reject silently, resync
+        return;
+      }
+      if (acc) { acc.activeTitle = want; saveProgress(); }
+      player.activeTitle = want; // next publicPlayer broadcast carries it to others
+      send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
     if (msg.type === 'coven_claim_table') {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) return;
@@ -10534,7 +10575,7 @@ global.__testHooks = {
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   tickCovenUpkeep, applyCovenUpkeepPayment, creditCovenUpkeep, disbandCovenForced, saveCoven,
   COVEN_UPKEEP_PRICE_CENTS, COVEN_UPKEEP_PERIOD_MS, COVEN_GRACE_MS, COVEN_GRACE_RESET_MS,
-  rites, ensureCovenRite, riteCredit, covenGoodStanding, tickRites,
+  rites, ensureCovenRite, riteCredit, covenGoodStanding, tickRites, TITLES, titlesPayloadFor,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,

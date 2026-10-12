@@ -1006,6 +1006,83 @@ function renderAchModal() {
   return { openAchModal, closeAchModal, renderAchModal };
 }
 
+// ===== client/titles.js =====
+// Titles (Session P) — the honorifics shelf. DI factory, same shape as the
+// Collection Log: open-state via Modals, data pushed by the server's
+// `titles_state` and held in app state (getTitlesState). Players see every
+// title they've earned and may fly one over their head (or none).
+
+function createTitles({ send, getTitlesState }) {
+function openTitlesModal() {
+  Modals.set('titlesModalOpen', true);
+  document.getElementById('titlesModal').classList.remove('hidden');
+  send({ type: 'titles_state' });
+  renderTitlesModal();
+}
+function closeTitlesModal() {
+  Modals.set('titlesModalOpen', false);
+  document.getElementById('titlesModal').classList.add('hidden');
+}
+function renderTitlesModal() {
+  if (!Modals.isOpen('titlesModalOpen')) return;
+  const list = document.getElementById('titlesList');
+  const summary = document.getElementById('titlesSummary');
+  if (!list) return;
+  const st = getTitlesState();
+  const earned = (st && st.earned) || [];
+  const active = (st && st.active) || null;
+  if (summary) summary.textContent = earned.length
+    ? `${earned.length} title${earned.length === 1 ? '' : 's'} earned — fly one over your head.`
+    : 'No titles yet — earn them through coven Rites and deeds across Thornreach.';
+  list.innerHTML = '';
+
+  if (!earned.length) {
+    const empty = document.createElement('div');
+    empty.className = 'slNote';
+    empty.textContent = '🎖️ Your honors will appear here as you earn them.';
+    list.appendChild(empty);
+    return;
+  }
+
+  // A "None" row at the top to clear the active title.
+  const mkRow = (opts) => {
+    const row = document.createElement('div');
+    const on = opts.activeNow;
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;margin:5px 0;border-radius:10px;border:1px solid ' +
+      (on ? 'rgba(94,231,192,0.5);background:rgba(94,231,192,0.09)' : 'rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)');
+    const icon = document.createElement('div');
+    icon.style.cssText = 'font-size:20px;width:26px;text-align:center';
+    icon.textContent = opts.glyph;
+    const body = document.createElement('div');
+    body.style.cssText = 'flex:1;min-width:0';
+    const name = document.createElement('div');
+    name.style.cssText = 'font-weight:650;color:#fff';
+    name.textContent = opts.name;
+    body.appendChild(name);
+    if (opts.desc) { const d = document.createElement('div'); d.style.cssText = 'font-size:12px;opacity:.82;margin-top:2px'; d.textContent = opts.desc; body.appendChild(d); }
+    if (opts.from) { const f = document.createElement('div'); f.style.cssText = 'font-size:11px;opacity:.55;margin-top:2px'; f.textContent = opts.from; body.appendChild(f); }
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.style.cssText = 'margin:0;white-space:nowrap;' + (on ? 'opacity:.6;pointer-events:none' : '');
+    btn.textContent = on ? '✓ Active' : 'Fly it';
+    btn.addEventListener('click', () => send({ type: 'set_title', title: opts.id }));
+    row.appendChild(icon); row.appendChild(body); row.appendChild(btn);
+    return row;
+  };
+
+  list.appendChild(mkRow({ id: '', glyph: '—', name: 'No title', desc: 'Fly nothing over your head.', from: '', activeNow: !active }));
+  for (const t of earned) {
+    list.appendChild(mkRow({ id: t.id, glyph: t.glyph || '🎖️', name: t.name, desc: t.desc, from: t.from, activeNow: active === t.id }));
+  }
+}
+(function () {
+  const close = document.getElementById('titlesCloseBtn');
+  if (close) close.addEventListener('click', closeTitlesModal);
+})();
+
+  return { openTitlesModal, closeTitlesModal, renderTitlesModal };
+}
+
 // ===== client/workshop.js =====
 // ---------------------------------------------------------------------------
 // The Artificer's Workshop (Session N) — the client face of the crafting TREE.
@@ -14894,6 +14971,7 @@ function onWsMessage(ev) {
     }
     // 😴 Rested XP window (bonus XP for the first minutes of a session).
     restedUntil = msg.restedUntil || 0;
+    titlesState = msg.titles || null;
     if (restedUntil > Date.now() && !restedToastShown) {
       restedToastShown = true;
       setUnlockToast('😴 Rested! +50% XP for the next few minutes — welcome back.');
@@ -15112,8 +15190,13 @@ function onWsMessage(ev) {
           existing.disguiseName = p.disguiseName || null;
           refreshDisguiseVisual(p.id);
         }
+        if ((p.activeTitle || null) !== (existing.activeTitle || null)) {
+          existing.activeTitle = p.activeTitle || null;
+          refreshDisguiseVisual(p.id); // the nameplate composes name + title
+        }
       } else {
         addPlayer(p);
+        if (p.activeTitle) { const np = players[p.id]; if (np) { np.activeTitle = p.activeTitle; refreshDisguiseVisual(p.id); } }
       }
     }
     return;
@@ -15454,6 +15537,11 @@ function onWsMessage(ev) {
   if (msg.type === 'achievements_state') {
     achState = msg;
     if (Modals.isOpen('achModalOpen')) renderAchModal();
+    return;
+  }
+  if (msg.type === 'titles_state') {
+    titlesState = { earned: msg.earned || [], active: msg.active || null };
+    if (Modals.isOpen('titlesModalOpen')) renderTitlesModal();
     return;
   }
 
@@ -16899,6 +16987,7 @@ let delveState = null;              // last delve_state payload
 let delveSpeedMult = 1;             // swift boons — applied only inside delve rooms
 let boardState = null;
 let achState = null;
+let titlesState = null;             // server titles_state / init.titles (earned + active)
 let firstStepsState = null;
 let pushPublicKey = null;
 let pushAvailable = false;
@@ -18184,7 +18273,22 @@ function refreshDisguiseVisual(id) {
   const image = disguiseImages[id];
   // Nameplate: borrowed name while masked (with a tiny 🎭 tell in the
   // tooltip position — the NAME is the deception, the tag stays subtle).
-  if (v.nameEl && p) v.nameEl.textContent = p.disguiseName ? p.disguiseName : p.name;
+  if (v.nameEl && p) {
+    const shown = p.disguiseName ? p.disguiseName : p.name;
+    // Fly the chosen title on a small line above the name — but never while
+    // masked (the disguise is the whole point). Built as DOM nodes, not HTML,
+    // so a crafted name/title can't inject markup.
+    const title = (!p.disguiseName && p.activeTitle) ? p.activeTitle : null;
+    v.nameEl.textContent = '';
+    if (title) {
+      const t = document.createElement('span');
+      t.className = 'nameTitle';
+      t.textContent = title;
+      v.nameEl.appendChild(t);
+      v.nameEl.appendChild(document.createElement('br'));
+    }
+    v.nameEl.appendChild(document.createTextNode(shown));
+  }
   // Mask mesh
   if (v.maskMesh) {
     v.group.remove(v.maskMesh);
@@ -23935,6 +24039,11 @@ const _ach = createAchievements({
   getAchState: () => achState,
 });
 const { openAchModal, closeAchModal, renderAchModal } = _ach;
+const _titles = createTitles({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getTitlesState: () => titlesState,
+});
+const { openTitlesModal, closeTitlesModal, renderTitlesModal } = _titles;
 
 const _workshop = createWorkshop({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -24029,6 +24138,7 @@ const { openNotifModal } = _notif;
   wire('menuBoard', openBoardModal);
   wire('menuWorkshop', openWorkshopModal);
   wire('menuAchievements', openAchModal);
+  wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
 })();
