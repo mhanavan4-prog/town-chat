@@ -129,6 +129,7 @@
       <span class="wordmark name grad-text">THORNREACH</span>
     </a>
     <div class="right">
+      <a class="btn ghost sm" href="/leaderboards">Leaderboards</a>
       <a class="btn ghost sm" href="/play">Enter the Town</a>
       <button class="btn ghost sm" id="logoutBtn" style="display:none">Log out</button>
     </div>
@@ -259,10 +260,10 @@
 
   function medal(rank){ return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'•'; }
 
-  function renderProfile(d){
+  function renderProfile(d, pub){
     el('gate').style.display='none';
     el('profile').style.display='block';
-    el('logoutBtn').style.display='inline-block';
+    el('logoutBtn').style.display = pub ? 'none' : 'inline-block';
 
     el('pName').textContent = d.username;
     el('pAvatar').textContent = (d.username||'?').charAt(0).toUpperCase();
@@ -270,8 +271,12 @@
     var nChars = (d.characters||[]).length;
     el('pUline').textContent = nChars+' character'+(nChars===1?'':'s')+(d.coven?(' · '+d.coven.name):'');
 
-    // quick stats
-    var gq=[['Gold', (d.gold||0).toLocaleString()],['Characters', nChars],['Achievements', (d.achievements?d.achievements.unlocked:0)+' / '+(d.achievements?d.achievements.total:0)],['Titles', (d.titles||[]).length]];
+    // quick stats — gold is private (only on your own profile)
+    var gq=[];
+    if(d.gold!==undefined) gq.push(['Gold', (d.gold||0).toLocaleString()]);
+    gq.push(['Characters', nChars]);
+    gq.push(['Achievements', (d.achievements?d.achievements.unlocked:0)+' / '+(d.achievements?d.achievements.total:0)]);
+    gq.push(['Titles', (d.titles||[]).length]);
     el('pQuick').innerHTML = gq.map(function(x){ return '<div class="chip"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>'; }).join('');
 
     // roster
@@ -413,9 +418,29 @@
   }
   window.addEventListener('resize', sizeViewer);
 
+  // ── public profile mode (/u/<name>) ──
+  // The same page serves someone else's read-only grimoire: no login gate, no
+  // logout, no private gold — just their characters, standing and coven.
+  var publicName = null;
+  var m = location.pathname.match(/^\/u\/([^\/?#]+)/);
+  if (m) { try { publicName = decodeURIComponent(m[1]); } catch (e) { publicName = m[1]; } }
+
+  function loadPublicProfile(name){
+    el('gate').style.display='none';
+    fetch('/api/public-profile?username='+encodeURIComponent(name))
+      .then(function(r){ if(!r.ok) throw new Error('nf'); return r.json(); })
+      .then(function(d){ renderProfile(d, true); })
+      .catch(function(){
+        el('profile').style.display='none';
+        el('gate').style.display='block';
+        el('gate').innerHTML='<h1 class="grad-text">Not found</h1><div class="sub">No player named “'+
+          name.replace(/[<>&]/g,'')+'” walks Thornreach.</div><a class="btn" href="/leaderboards" style="width:100%">Back to the leaderboards</a>';
+      });
+  }
+
   // ── boot ──
-  setMode('login');
-  loadProfile();
+  if (publicName){ loadPublicProfile(publicName); }
+  else { setMode('login'); loadProfile(); }
 })();
 </script>
 </body>

@@ -271,6 +271,9 @@ app.use('/api', (req, res, next) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
+app.get('/leaderboards', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leaderboards.html')));
+// Public profile at /u/<name> — served by the same profile page in public mode.
+app.get('/u/:username', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
@@ -1479,16 +1482,17 @@ app.post('/api/characters', (req, res) => {
   });
 });
 
-// The /profile page's data — a durable snapshot of an account assembled from
-// the same persisted state the game uses: the character roster + campaign
-// progress, bank gold, achievement count, earned titles, this week's
-// leaderboard ranks, and the coven. Benign player-facing state only; never the
-// audit/security log. Same token auth as /api/characters.
-app.post('/api/profile', (req, res) => {
-  const token = String(req.body.token || '');
-  const key = token ? sessions.get(token) : null;
-  if (!key || !accounts[key]) return res.status(401).json({ error: 'Session expired — log in again.' });
+// Labels for the four weekly boards, shared by the profile + leaderboard APIs.
+const PROFILE_BOARDS = [['hunt', 'Night Hunt'], ['boss', 'World Bosses'], ['delve', 'The Delve'], ['tourney', 'Tournament']];
+
+// Assemble a durable snapshot of an account from the same persisted state the
+// game uses: the character roster + campaign progress, achievement count,
+// earned titles, this week's leaderboard ranks, and the coven. Benign
+// player-facing state only; never the audit/security log. `includePrivate`
+// adds the bank gold (shown on your own profile, hidden on public ones).
+function assembleProfile(key, includePrivate) {
   const acc = accounts[key];
+  if (!acc) return null;
   const prog = playerProgress[key] || {};
   migrateAccountProgress(prog);
   const chars = prog.characters || {};
@@ -1510,7 +1514,6 @@ app.post('/api/profile', (req, res) => {
   const lastCharId = Number.isInteger(prog.lastCharId) ? prog.lastCharId
     : (characters[0] ? characters[0].charId : 0);
 
-  const bank = ensureBankAccount(key);
   // logView is read-only; evaluate() would MUTATE the account (grant trophies),
   // which a profile read must never do.
   let ach = { unlocked: 0, total: 0 };
@@ -1519,7 +1522,7 @@ app.post('/api/profile', (req, res) => {
     .map((id) => ({ id, name: TITLES[id].name, glyph: TITLES[id].glyph }));
 
   const wk = weekKey(Date.now());
-  const rankings = [['hunt', 'Night Hunt'], ['boss', 'World Bosses'], ['delve', 'The Delve'], ['tourney', 'Tournament']]
+  const rankings = PROFILE_BOARDS
     .map(([id, label]) => { const r = lbRankOf(id, wk, key); return { id, label, rank: r ? r.rank : null, value: r ? r.value : 0 }; });
 
   let coven = null;
@@ -1532,11 +1535,39 @@ app.post('/api/profile', (req, res) => {
     };
   } catch (e) {}
 
-  res.json({
+  const out = {
     username: acc.username, color: acc.color,
-    lastCharId, gold: bank.balance || 0,
-    achievements: ach, titles, characters, rankings, coven
-  });
+    lastCharId, achievements: ach, titles, characters, rankings, coven
+  };
+  if (includePrivate) out.gold = (ensureBankAccount(key).balance || 0);
+  return out;
+}
+
+// Your own profile (/profile page) — token auth, includes private gold.
+app.post('/api/profile', (req, res) => {
+  const token = String(req.body.token || '');
+  const key = token ? sessions.get(token) : null;
+  if (!key || !accounts[key]) return res.status(401).json({ error: 'Session expired — log in again.' });
+  res.json(assembleProfile(key, true));
+});
+
+// A public profile (/u/<name> page) — no auth, no gold. 404 for unknown or
+// guest-only names (guests are never persisted, so they can't have one).
+app.get('/api/public-profile', (req, res) => {
+  const key = String(req.query.username || '').trim().toLowerCase();
+  if (!key || !accounts[key]) return res.status(404).json({ error: 'No such player.' });
+  res.json(assembleProfile(key, false));
+});
+
+// The global leaderboards (/leaderboards page) — this week's top players on
+// each of the four weekly boards. Public, read-only.
+app.get('/api/leaderboards', (req, res) => {
+  const wk = weekKey(Date.now());
+  const boards = PROFILE_BOARDS.map(([id, label]) => ({
+    id, label,
+    top: lbTop(id, wk, 15).map((e, i) => ({ rank: i + 1, name: e.name, value: e.value }))
+  }));
+  res.json({ week: wk, boards });
 });
 
 // ---------------------------------------------------------------------------
