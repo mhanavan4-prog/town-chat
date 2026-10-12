@@ -7984,6 +7984,8 @@ wss.on('connection', (ws, req) => {
         send(ws, {
           type: 'story_chapter_started',
           chapterTitle: chapter.title,
+          chapterNumber: st.chapter + 1,
+          intro: chapter.intro,
           objectiveLabel: chapter.objective.label,
           where: objectiveWhere(chapter.objective),
           target: chapter.objective.target,
@@ -7996,6 +7998,8 @@ wss.on('connection', (ws, req) => {
       send(ws, {
         type: 'story_chapter_started',
         chapterTitle: chapter.title,
+        chapterNumber: st.chapter + 1,
+        intro: chapter.intro,
         objectiveLabel: chapter.objective.label,
         where: objectiveWhere(chapter.objective),
         target: chapter.objective.target,
