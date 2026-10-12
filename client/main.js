@@ -11423,6 +11423,11 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
     return;
   }
+  if (kiosk && kiosk.npc === 'locksmith') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} see Tumbler the Locksmith`;
+    return;
+  }
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
