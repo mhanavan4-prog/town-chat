@@ -568,6 +568,10 @@
   #leaveBtn:hover { background:rgba(40,20,14,0.85); }
   #leaveBtn.hidden { display:none !important; }
 
+  .nameTag .nameTitle {
+    display:inline-block; font-size:10px; font-style:normal; font-weight:650;
+    letter-spacing:0.02em; color:#9ee3c0; opacity:0.95; line-height:1.1;
+  }
   .nameTag {
     position:absolute; pointer-events:none; transform:translate(-50%,-100%);
     color:#edd08a;
@@ -1950,6 +1954,7 @@
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
       <button class="menuRow" id="menuWorkshop">🔨 Workshop</button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
+      <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
       <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
@@ -2353,6 +2358,15 @@
     <div class="subtitle" id="achSummary">Your trophies — earned for deeds done across Thornreach.</div>
     <div class="slList" id="achList" style="max-height:56vh"></div>
     <button class="btn" id="achCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="titlesModal" class="overlay hidden">
+  <div class="card" id="titlesCard">
+    <div class="title" style="font-size:20px;">🎖️ Titles</div>
+    <div class="subtitle" id="titlesSummary">Honorifics you've earned — fly one over your head.</div>
+    <div class="slList" id="titlesList" style="max-height:56vh"></div>
+    <button class="btn" id="titlesCloseBtn">Close</button>
   </div>
 </div>
 
@@ -3156,6 +3170,6 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
-<script src="client.js?v=e8b6b7b077"></script>
+<script src="client.js?v=eea4ef5ee8"></script>
 </body>
 </html>

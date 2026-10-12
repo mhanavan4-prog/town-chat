@@ -6,6 +6,7 @@ import createSpellbook from './spellbook.js';
 import createAttacks from './attacks.js';
 import createBoard from './board.js';
 import createAchievements from './achievements.js';
+import createTitles from './titles.js';
 import createWorkshop from './workshop.js';
 import createMinions from './minions.js';
 import createWorldBoss from './worldboss.js';
@@ -915,6 +916,7 @@ function onWsMessage(ev) {
     }
     // 😴 Rested XP window (bonus XP for the first minutes of a session).
     restedUntil = msg.restedUntil || 0;
+    titlesState = msg.titles || null;
     if (restedUntil > Date.now() && !restedToastShown) {
       restedToastShown = true;
       setUnlockToast('😴 Rested! +50% XP for the next few minutes — welcome back.');
@@ -1133,8 +1135,13 @@ function onWsMessage(ev) {
           existing.disguiseName = p.disguiseName || null;
           refreshDisguiseVisual(p.id);
         }
+        if ((p.activeTitle || null) !== (existing.activeTitle || null)) {
+          existing.activeTitle = p.activeTitle || null;
+          refreshDisguiseVisual(p.id); // the nameplate composes name + title
+        }
       } else {
         addPlayer(p);
+        if (p.activeTitle) { const np = players[p.id]; if (np) { np.activeTitle = p.activeTitle; refreshDisguiseVisual(p.id); } }
       }
     }
     return;
@@ -1475,6 +1482,11 @@ function onWsMessage(ev) {
   if (msg.type === 'achievements_state') {
     achState = msg;
     if (Modals.isOpen('achModalOpen')) renderAchModal();
+    return;
+  }
+  if (msg.type === 'titles_state') {
+    titlesState = { earned: msg.earned || [], active: msg.active || null };
+    if (Modals.isOpen('titlesModalOpen')) renderTitlesModal();
     return;
   }
 
@@ -2920,6 +2932,7 @@ let delveState = null;              // last delve_state payload
 let delveSpeedMult = 1;             // swift boons — applied only inside delve rooms
 let boardState = null;
 let achState = null;
+let titlesState = null;             // server titles_state / init.titles (earned + active)
 let firstStepsState = null;
 let pushPublicKey = null;
 let pushAvailable = false;
@@ -4205,7 +4218,22 @@ function refreshDisguiseVisual(id) {
   const image = disguiseImages[id];
   // Nameplate: borrowed name while masked (with a tiny 🎭 tell in the
   // tooltip position — the NAME is the deception, the tag stays subtle).
-  if (v.nameEl && p) v.nameEl.textContent = p.disguiseName ? p.disguiseName : p.name;
+  if (v.nameEl && p) {
+    const shown = p.disguiseName ? p.disguiseName : p.name;
+    // Fly the chosen title on a small line above the name — but never while
+    // masked (the disguise is the whole point). Built as DOM nodes, not HTML,
+    // so a crafted name/title can't inject markup.
+    const title = (!p.disguiseName && p.activeTitle) ? p.activeTitle : null;
+    v.nameEl.textContent = '';
+    if (title) {
+      const t = document.createElement('span');
+      t.className = 'nameTitle';
+      t.textContent = title;
+      v.nameEl.appendChild(t);
+      v.nameEl.appendChild(document.createElement('br'));
+    }
+    v.nameEl.appendChild(document.createTextNode(shown));
+  }
   // Mask mesh
   if (v.maskMesh) {
     v.group.remove(v.maskMesh);
@@ -9956,6 +9984,11 @@ const _ach = createAchievements({
   getAchState: () => achState,
 });
 const { openAchModal, closeAchModal, renderAchModal } = _ach;
+const _titles = createTitles({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getTitlesState: () => titlesState,
+});
+const { openTitlesModal, closeTitlesModal, renderTitlesModal } = _titles;
 
 const _workshop = createWorkshop({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -10050,6 +10083,7 @@ const { openNotifModal } = _notif;
   wire('menuBoard', openBoardModal);
   wire('menuWorkshop', openWorkshopModal);
   wire('menuAchievements', openAchModal);
+  wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
 })();

@@ -62,6 +62,10 @@ setTimeout(() => {
     const hexObj = data.phases[2].objectives[0], hexT = srv.rites.targetFor(hexObj, 3);
     const reward = srv.rites.individualReward(data, cv.rite);
     const a2BankBefore = srv.ensureBankAccount('a2').balance;
+    // Titles are stored on the account progress record — give two contributors
+    // one before completion so the grant has somewhere to land.
+    srv.getProgress({ accountKey: 'a0', charId: 1 });
+    srv.getProgress({ accountKey: 'a1', charId: 1 });
     srv.riteCredit(P('a0'), 'kill_creature', 'fen_hexer', 9999);
     srv.riteCredit(P('a1'), 'kill_creature', 'fen_hexer', 9999);
     check('the whole Rite completes', cv.rite.completedAt != null);
@@ -80,10 +84,16 @@ setTimeout(() => {
     srv.grantXP(member, 100);
     check('XP lands boosted for a blessed coven member (>100)', srv.getProgress(member).xp - before >= 115, srv.getProgress(member).xp - before);
 
+    // ── Titles: completion granted the honorific; it resolves via the catalog ─
+    const tp = srv.titlesPayloadFor('a0');
+    check('completing the Rite grants the title to a contributor', tp.earned.some(t => t.id === 'hollow_vigil'), tp.earned);
+    check('the granted title resolves to its catalog name', tp.earned.some(t => t.name === 'Keeper of the Hollow Vigil'));
+    check('no active title until one is chosen', tp.active === null, tp.active);
+
     // ── A sabbat with no authored rite → dormant marker ─────────────────────
     const cv2 = mkCoven('offseason', ['c0', 'c1'], Date.now() + 1e9);
-    srv.rites.ensureRite(cv2, { key: 'yule', startsAt: Date.now(), endsAt: Date.now() + 1e9 }, 2, Date.now());
-    check('an unauthored sabbat yields a dormant (none) rite', cv2.rite.none === true);
+    srv.rites.ensureRite(cv2, { key: 'litha', startsAt: Date.now(), endsAt: Date.now() + 1e9 }, 2, Date.now());
+    check('an unauthored sabbat (Litha) yields a dormant (none) rite', cv2.rite.none === true);
   } catch (e) {
     check('test ran without throwing', false, String(e && e.stack || e));
   }
