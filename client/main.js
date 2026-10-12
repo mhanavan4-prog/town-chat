@@ -1587,6 +1587,11 @@ function onWsMessage(ev) {
     if (Modals.isOpen('covenModalOpen')) renderCovenStandings();
     return;
   }
+  if (msg.type === 'rite_state') {
+    covenRiteState = msg.rite || null;
+    if (Modals.isOpen('covenModalOpen')) renderCovenRite();
+    return;
+  }
 
   if (msg.type === 'trophy_bonus' || msg.type === 'cm_result') {
     setUnlockToast(msg.message);
@@ -9973,6 +9978,7 @@ const { openDelveModal, closeDelveModal, renderDelveModal, renderDelveHud, openL
 let covenTableState = null;
 let covenStandingsState = null;     // server coven_standings reply (the weekly board)
 let covenChampions = null;          // current week's leading coven (holds the Champions' Table)
+let covenRiteState = null;          // server rite_state reply (the seasonal coven Rite)
 const _coven = createCoven({
   getWs: () => ws, getMe: () => me, getPlayers: () => players,
   getCovenState: () => covenState, getCovenTableState: () => covenTableState,
@@ -9982,8 +9988,9 @@ const _coven = createCoven({
   getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout, startUpkeepCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
   getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
+  getCovenRite: () => covenRiteState,
 });
-const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings } = _coven;
+const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings, renderCovenRite } = _coven;
 
 const _covenVoice = createCovenVoice({
   getWs: () => ws, getCovenState: () => covenState, setUnlockToast,
@@ -11162,6 +11169,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
+  if (kiosk && kiosk.npc === 'rite_altar') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rite_light_candle' })); return; }
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
@@ -11228,6 +11236,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.exitDoor) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} pass through the door`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'rite_altar') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} light a candle for the Rite`;
     return;
   }
   if (kiosk && kiosk.game) {

@@ -2060,6 +2060,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       grantXP(player, preset.xp);
       registerHuntKill(player);
       advanceQuestProgress(player, 'kill_mob', null);
+      riteCredit(player, 'kill_creature', t.mobType, 1);
       storyEvent(player, 'kill_mob', { pool: 'dungeon', mobType: t.mobType });
       if (t.delve) noteDelveKill(player, t);
       if (t.boss) {
@@ -2136,6 +2137,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       maybeDropBloodShard(player);
       advanceQuestProgress(player, 'kill_mob', null);
       advanceQuestProgress(player, 'kill_creature', t.mobType);
+      riteCredit(player, 'kill_creature', t.mobType, 1);
       storyEvent(player, 'kill_mob', { pool: 'mob2', mobType: t.mobType });
       const lootTable = LOOT_TABLES[t.mobType] || LOOT_TABLES.shade_stalker;
       t.pendingLoot = rollPendingLoot(lootTable);
@@ -2147,6 +2149,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       const preset = MOB3_TYPES[t.mobType];
       grantXP(player, bloodMoonKillXp(preset.xp));
       advanceQuestProgress(player, 'kill_creature', t.mobType);
+      riteCredit(player, 'kill_creature', t.mobType, 1);
       storyEvent(player, 'kill_mob', { pool: 'mob3', mobType: t.mobType });
       t.pendingLoot = rollPendingLoot(LOOT_TABLES[t.mobType] || LOOT_TABLES.bramble_boar);
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
@@ -2159,6 +2162,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       const preset = CRITTER2_TYPES[t.critterType] || CRITTER2_TYPES.rabbit;
       grantXP(player, preset.xp);
       advanceQuestProgress(player, 'kill_creature', t.critterType);
+      riteCredit(player, 'kill_creature', t.critterType, 1);
       storyEvent(player, 'hunt_critter', { pool: 'animal2', critterType: t.critterType });
       if (preset.loot && LOOT_TABLES[preset.loot]) {
         t.pendingLoot = rollPendingLoot(LOOT_TABLES[preset.loot]);
@@ -2390,10 +2394,16 @@ function grantXP(player, amount) {
   // reports the creature's BASE xp (see the mob-death handlers); only the
   // player's accumulated total is multiplied here, so the level-based pacing
   // tests (which assert levels, not exact totals) stay green in every season.
+  // The live sabbat's blessing applies to everyone ON the sabbat day; a coven
+  // that completed this season's Rite earns that same blessing for the WHOLE
+  // season. Take the greater of the two rather than stacking them.
   const _season = seasonWindow(now);
-  if (_season && _season.effects && _season.effects.xpMult) {
-    amount = Math.round(amount * _season.effects.xpMult);
+  let _seasonXpMult = (_season && _season.effects && _season.effects.xpMult) || 1;
+  if (player.accountKey) {
+    const _cvBuff = rites.activeSeasonBuff(covenOf(player.accountKey), now);
+    if (_cvBuff && _cvBuff.xpMult) _seasonXpMult = Math.max(_seasonXpMult, _cvBuff.xpMult);
   }
+  if (_seasonXpMult !== 1) amount = Math.round(amount * _seasonXpMult);
   const prog = getProgress(player);
   const wasLevelOne = prog.level === 1; // level only ever increases, so this alone means "never leveled up before"
   prog.xp += amount;
@@ -4929,6 +4939,112 @@ const covensMod = require('./lib/covens')({ dataDir: DATA_DIR, persistLoad, pers
   paymentsEnabled: () => !!stripeClient });
 const { covens, COVENS_FILE, saveCoven, covenOf, covenLog, covenDisplayName, covenStatePayload, covenBroadcast, covenTableFor, covenIndex, covenInvites, COVEN_MAX_MEMBERS, COVEN_CREATE_COST, COVEN_BANK_SLOTS, COVEN_SIGILS, COVEN_TABLE_HOLD_MS } = covensMod;
 
+// ── Coven Rites (Session P) — the seasonal, coven-only questline ─────────────
+// Content in data/rites.js, lifecycle in lib/rites.js. Only Samhain's "Hollow
+// Vigil" is authored for now; it rotates automatically each sabbat. The engine
+// is pure — this glue persists cv.rite, grants the rewards it computes, and
+// gates progress behind active upkeep.
+const RITES_DATA = require('./data/rites');
+const rites = require('./lib/rites')({
+  RITES: RITES_DATA.RITES,
+  RITE_MEMBER_FLOOR: RITES_DATA.RITE_MEMBER_FLOOR,
+  RITE_MEMBER_CAP: RITES_DATA.RITE_MEMBER_CAP,
+  RITE_CONSOLATION_FRACTION: RITES_DATA.RITE_CONSOLATION_FRACTION,
+  seasonEffects: (k) => { const s = SABBATS.find((x) => x.key === k); return s ? s.effects : {}; }
+});
+
+// A coven may progress a Rite only while its upkeep is current (a paying perk,
+// not pay-to-win — it's co-op PvE plus a modest seasonal buff).
+function covenGoodStanding(cv) { return !!(cv && cv.paidThroughAt && Date.now() < cv.paidThroughAt); }
+
+// Rotate a coven onto the live sabbat's Rite when the season turns over, settling
+// any unfinished previous Rite with consolation. Member scale is snapshotted from
+// the roster size at Rite start.
+function ensureCovenRite(cv) {
+  if (!cv) return null;
+  const season = seasonWindow(Date.now());
+  if (!season) return cv.rite || null;
+  const { rotated, prevRite } = rites.ensureRite(cv, season, cv.members.length, Date.now());
+  if (rotated) {
+    if (prevRite && !prevRite.completedAt) grantRiteConsolation(cv, prevRite);
+    saveCoven(cv.id);
+  }
+  return cv.rite;
+}
+
+// Push the Rite panel state to every online member (upkeep lock reflected).
+function broadcastRite(cv) {
+  const now = Date.now(), standing = covenGoodStanding(cv);
+  for (const key of cv.members) {
+    const p = findConnectionByAccountKey(key);
+    if (p) send(p.ws, { type: 'rite_state', ...rites.riteStatePayload(cv, now, { viewerKey: key, locked: !standing, lockReason: standing ? null : 'upkeep' }) });
+  }
+}
+
+// Gold lands in the member's bank (works offline); XP only for members online
+// at the moment (grantXP needs a live character); the title is recorded on the
+// account for a future honors UI.
+function grantRiteTitle(key, title) {
+  if (!title) return;
+  const acc = playerProgress[key];
+  if (acc) { acc.riteTitles = acc.riteTitles || []; if (!acc.riteTitles.includes(title)) acc.riteTitles.push(title); }
+}
+function onRiteComplete(cv, data) {
+  const rite = cv.rite;
+  const reward = rites.individualReward(data, rite);
+  for (const key of rites.contributorKeys(rite)) {
+    if (reward.gold > 0) ensureBankAccount(key).balance += reward.gold;
+    const p = findConnectionByAccountKey(key);
+    if (p && reward.xp > 0) grantXP(p, reward.xp);
+    grantRiteTitle(key, reward.title);
+  }
+  saveBankAccounts(); saveProgress(); saveCoven(cv.id);
+  covenLog(cv, 'system', `completed ${data.name}`);
+  for (const key of cv.members) {
+    const p = findConnectionByAccountKey(key);
+    if (p) send(p.ws, { type: 'announce_soft', message: `${data.glyph} ${cv.name} completed ${data.name}! Its blessing holds over the coven for the rest of the season, and ${reward.gold} gold is paid to every witch who kept the vigil.` });
+  }
+  broadcastRite(cv);
+}
+function announceRitePhase(cv, data, phaseId) {
+  const ph = (data.phases || []).find((p) => p.id === phaseId);
+  if (!ph) return;
+  for (const key of cv.members) {
+    const p = findConnectionByAccountKey(key);
+    if (p) send(p.ws, { type: 'announce_soft', message: `${ph.glyph || data.glyph} ${cv.name} completes "${ph.title}" — the next step of ${data.name} begins to attune.` });
+  }
+}
+function grantRiteConsolation(cv, prevRite) {
+  const data = rites.riteDataFor(prevRite.seasonKey);
+  if (!data) return;
+  const { consolation } = rites.expireIfEnded(data, prevRite, Date.now());
+  if (!consolation.length) return;
+  for (const c of consolation) {
+    if (c.gold > 0) ensureBankAccount(c.key).balance += c.gold;
+    const p = findConnectionByAccountKey(c.key);
+    if (p && c.xp > 0) grantXP(p, c.xp);
+  }
+  saveBankAccounts();
+}
+
+// Bank a contribution (kills/harvests) from a live player toward their coven's
+// active Rite phase. Silent no-op unless it's credited, then persists + notifies.
+function riteCredit(player, kind, match, amount) {
+  if (!player || !player.accountKey) return;
+  const cv = covenOf(player.accountKey);
+  if (!cv) return;
+  ensureCovenRite(cv);
+  if (!cv.rite || cv.rite.none || !covenGoodStanding(cv)) return;
+  const data = rites.riteDataFor(cv.rite.seasonKey);
+  if (!data) return;
+  const res = rites.contribute(data, cv.rite, player.accountKey, kind, match, amount || 1, Date.now());
+  if (res.credited > 0) {
+    saveCoven(cv.id);
+    if (res.riteCompleted) onRiteComplete(cv, data);
+    else { broadcastRite(cv); if (res.phaseCompleted) announceRitePhase(cv, data, res.phaseId); }
+  }
+}
+
 // ── Coven monthly upkeep (Session O) ─────────────────────────────────────────
 // Any member pays $9.99 → push the coven's paid-through date out 30 days. During
 // grace, paidThroughAt is in the past, so max(now, past)=now → a fresh 30 days
@@ -5010,6 +5126,16 @@ function tickCovenUpkeep() {
   }
 }
 const _covenUpkeepTimer = setInterval(tickCovenUpkeep, 5 * 60 * 1000);
+
+// Sweep every coven onto the live sabbat's Rite (and settle any that lapsed at a
+// season boundary) even when no member is online to trigger it lazily.
+function tickRites() {
+  for (const cid of Object.keys(covens)) {
+    const cv = covens[cid];
+    if (cv) try { ensureCovenRite(cv); } catch (e) { /* never let one coven stall the sweep */ }
+  }
+}
+const _riteTimer = setInterval(tickRites, 5 * 60 * 1000);
 if (_covenUpkeepTimer.unref) _covenUpkeepTimer.unref();
 setTimeout(tickCovenUpkeep, 8000); // one pass shortly after boot (grandfather + catch anything lapsed while down)
 
@@ -8289,6 +8415,7 @@ wss.on('connection', (ws, req) => {
       if (found.room === 'wilds') {
         grantXP(player, 5);
         advanceQuestProgress(player, 'harvest_plant', itemId);
+        riteCredit(player, 'harvest_specific', itemId, 1);
         storyEvent(player, 'harvest_plant', { itemId });
       }
       return;
@@ -9549,6 +9676,31 @@ wss.on('connection', (ws, req) => {
       });
       return;
     }
+    if (msg.type === 'rite_state') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'rite_state', rite: null }); return; }
+      ensureCovenRite(cv);
+      const standing = covenGoodStanding(cv);
+      send(ws, { type: 'rite_state', ...rites.riteStatePayload(cv, Date.now(), { viewerKey: player.accountKey, locked: !standing, lockReason: standing ? null : 'upkeep' }) });
+      return;
+    }
+    if (msg.type === 'rite_light_candle') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'coven_error', message: 'You have no coven whose vigil to keep.' }); return; }
+      if (player.room !== 'lounge') { send(ws, { type: 'coven_error', message: 'The séance altar is in the Phantom Parlor — light your candle there.' }); return; }
+      ensureCovenRite(cv);
+      if (!covenGoodStanding(cv)) { send(ws, { type: 'coven_error', message: "The coven's upkeep has lapsed — the Rite is paused until it's paid." }); return; }
+      const data = cv.rite && !cv.rite.none && rites.riteDataFor(cv.rite.seasonKey);
+      if (!data) { send(ws, { type: 'coven_error', message: 'No Rite is underway this season.' }); return; }
+      const res = rites.lightCandle(data, cv.rite, player.accountKey, Date.now());
+      if (res.already) { send(ws, { type: 'coven_error', message: 'Your candle already burns on the altar.' }); return; }
+      if (!res.lit) { send(ws, { type: 'coven_error', message: res.reason === 'not_now' ? "It is not time to light the watch — the coven's offering comes first." : 'The Rite is not active.' }); return; }
+      saveCoven(cv.id);
+      send(ws, { type: 'announce_soft', message: `🕯️ You light a candle at the séance altar — ${res.count}/${res.target} lit.` });
+      if (res.riteCompleted) onRiteComplete(cv, data);
+      else { broadcastRite(cv); if (res.phaseCompleted) announceRitePhase(cv, data, 'watch'); }
+      return;
+    }
     if (msg.type === 'coven_claim_table') {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) return;
@@ -10382,6 +10534,7 @@ global.__testHooks = {
   covens, covenOf, covenIndex, covenStatePayload, covenTableFor, COVEN_CREATE_COST, COVEN_MAX_MEMBERS,
   tickCovenUpkeep, applyCovenUpkeepPayment, creditCovenUpkeep, disbandCovenForced, saveCoven,
   COVEN_UPKEEP_PRICE_CENTS, COVEN_UPKEEP_PERIOD_MS, COVEN_GRACE_MS, COVEN_GRACE_RESET_MS,
+  rites, ensureCovenRite, riteCredit, covenGoodStanding, tickRites,
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,

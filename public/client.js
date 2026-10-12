@@ -1490,7 +1490,7 @@ function renderBoonDraft() {
 // setCovenUnread handles the read-badge reset.
 // ---------------------------------------------------------------------------
 
-function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions }) {
+function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions, getCovenRite }) {
   const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
@@ -1579,7 +1579,9 @@ function renderCovenModal() {
   document.getElementById('covenChatView').classList.toggle('hidden', covenActiveTab !== 'chat');
   document.getElementById('covenBankView').classList.toggle('hidden', covenActiveTab !== 'bank');
   document.getElementById('covenStandingsView').classList.toggle('hidden', covenActiveTab !== 'standings');
+  document.getElementById('covenRiteView').classList.toggle('hidden', covenActiveTab !== 'rite');
   if (covenActiveTab === 'standings') renderCovenStandings();
+  if (covenActiveTab === 'rite') renderCovenRite();
   const amLeader = getCovenState().leaderKey === getCovenState().you;
   if (covenActiveTab === 'members') {
     const list = document.getElementById('covenMembers');
@@ -1786,6 +1788,110 @@ function renderCovenStandings() {
     list.appendChild(div);
   });
 }
+// The coven Rite panel — the live sabbat's seasonal, coven-only questline. Fed
+// by the server's rite_state reply (requested when the tab opens, pushed on any
+// contribution). Phases run in order; a gated phase shows its attunement
+// countdown; the candle phase is kept at the séance altar in the Phantom Parlor.
+function fmtCountdown(ms) {
+  ms = Math.max(0, ms);
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  if (h >= 24) { const d = Math.floor(h / 24); return `${d}d ${h % 24}h`; }
+  if (h >= 1) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function riteBar(label, cur, target) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin:6px 0';
+  const top = document.createElement('div');
+  top.style.cssText = 'display:flex;justify-content:space-between;font-size:12px;color:#ece3ff;margin-bottom:3px';
+  const l = document.createElement('span'); l.textContent = label;
+  const c = document.createElement('span'); c.style.cssText = 'color:#9ee37d;font-weight:650'; c.textContent = `${cur} / ${target}`;
+  top.appendChild(l); top.appendChild(c);
+  const track = document.createElement('div');
+  track.style.cssText = 'height:8px;border-radius:5px;background:rgba(255,255,255,0.08);overflow:hidden';
+  const fill = document.createElement('div');
+  const pct = Math.min(100, Math.round(100 * cur / Math.max(1, target)));
+  fill.style.cssText = `height:100%;width:${pct}%;border-radius:5px;background:${cur >= target ? '#5ee7c0' : '#8f6fff'};transition:width .3s`;
+  track.appendChild(fill);
+  wrap.appendChild(top); wrap.appendChild(track);
+  return wrap;
+}
+function renderCovenRite() {
+  const body = document.getElementById('covenRiteBody');
+  if (!body) return;
+  body.innerHTML = '';
+  const r = (typeof getCovenRite === 'function' && getCovenRite()) || null;
+  const note = (txt) => { const d = document.createElement('div'); d.className = 'slNote'; d.innerHTML = txt; return d; };
+  if (!r) { body.appendChild(note('The vigil is kept by covens. Join or found one, then return here at the sabbat.')); return; }
+  if (r.none) { body.appendChild(note('🌙 No Rite stirs this season — the next begins at the coming sabbat. Watch the Wheel of the Year.')); return; }
+
+  const head = document.createElement('div');
+  head.className = 'slNote';
+  head.innerHTML = `<div style="font-size:15px;font-weight:700;color:#fff">${r.glyph} ${r.name}</div>` +
+    `<div style="margin-top:4px;opacity:.9">${r.blurb}</div>` +
+    `<div style="margin-top:6px;font-size:12px;opacity:.75">Scaled for a coven of ${r.memberScale}. ` +
+    (r.completed ? '✅ Completed — the blessing holds over the coven this season.'
+      : r.expired ? '🥀 The season turned before the vigil was done.'
+      : `Reward: ${r.reward.gold} gold each${r.reward.title ? ` + the title “${r.reward.title}”` : ''}, and the coven’s seasonal blessing.`) +
+    `</div>`;
+  body.appendChild(head);
+
+  if (r.locked) {
+    body.appendChild(note('⚠️ The Rite is <b>paused</b> — the coven’s upkeep has lapsed. Pay it (Members tab) to keep the vigil.'));
+  }
+  if (r.buffActive && !r.locked) {
+    body.appendChild(note('🌟 The season’s blessing is <b>active</b> for the whole coven.'));
+  }
+
+  (r.phases || []).forEach((ph, i) => {
+    const card = document.createElement('div');
+    const active = ph.active && !r.locked;
+    card.style.cssText = 'padding:10px 12px;margin:8px 0;border-radius:10px;border:1px solid ' +
+      (ph.completed ? 'rgba(94,231,192,0.45);background:rgba(94,231,192,0.08)'
+        : active ? 'rgba(143,111,255,0.5);background:rgba(143,111,255,0.1)'
+        : 'rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)');
+    const title = document.createElement('div');
+    title.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-weight:650;color:#fff';
+    const left = document.createElement('span');
+    left.textContent = `${ph.glyph || '•'} ${i + 1}. ${ph.title}`;
+    const state = document.createElement('span');
+    state.style.cssText = 'font-size:12px;font-weight:600';
+    if (ph.completed) { state.style.color = '#5ee7c0'; state.textContent = '✓ done'; }
+    else if (!ph.unlocked) {
+      state.style.color = '#c9a0ff';
+      const at = ph.unlockAt || r.nextGateAt;
+      state.textContent = at ? `🔒 opens in ${fmtCountdown(at - Date.now())}` : '🔒 locked';
+    } else { state.style.color = '#ffd27a'; state.textContent = '⏳ in progress'; }
+    title.appendChild(left); title.appendChild(state);
+    card.appendChild(title);
+
+    if (ph.unlocked || ph.completed) {
+      const blurb = document.createElement('div');
+      blurb.style.cssText = 'font-size:12px;opacity:.82;margin:5px 0 2px';
+      blurb.textContent = ph.blurb || '';
+      card.appendChild(blurb);
+      if (ph.candle) {
+        card.appendChild(riteBar(ph.candle.label || 'Candles lit', ph.candle.count, ph.candle.target));
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:12px;margin-top:4px;color:' + (ph.candle.youLit ? '#5ee7c0' : '#ece3ff');
+        hint.innerHTML = ph.candle.youLit
+          ? '🕯️ Your candle burns on the altar.'
+          : (active ? '🕯️ Light yours at the <b>séance altar</b> in the Phantom Parlor (stand on the circle, press F / tap).' : '');
+        card.appendChild(hint);
+      } else {
+        for (const o of (ph.objectives || [])) card.appendChild(riteBar(o.label, o.progress, o.target));
+        if (ph.minContributors > 1) {
+          const mc = document.createElement('div');
+          mc.style.cssText = 'font-size:11.5px;opacity:.6;margin-top:3px';
+          mc.textContent = `Needs at least ${ph.minContributors} witches to contribute.`;
+          card.appendChild(mc);
+        }
+      }
+    }
+    body.appendChild(card);
+  });
+}
+
 (function () {
   const closeBtn = document.getElementById('covenCloseBtn');
   if (closeBtn) closeBtn.addEventListener('click', closeCovenModal);
@@ -1795,6 +1901,7 @@ function renderCovenStandings() {
     if (!b) return;
     covenActiveTab = b.dataset.cv;
     if (covenActiveTab === 'standings') getWs().send(JSON.stringify({ type: 'coven_standings' }));
+    if (covenActiveTab === 'rite') getWs().send(JSON.stringify({ type: 'rite_state' }));
     renderCovenModal();
   });
   const create = document.getElementById('covenCreateBtn');
@@ -1869,7 +1976,7 @@ function renderCovenStandings() {
     if (amt > 0) getWs().send(JSON.stringify({ type: 'coven_withdraw_gold', amount: amt }));
   });
 })();
-  return { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings };
+  return { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings, renderCovenRite };
 }
 
 // ===== client/coven-voice.js =====
@@ -11119,6 +11226,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     })();
 
     if (kiosksOut) {
+      // The séance circle is the coven Rite altar — stand on it to light your
+      // candle during the "Light the Watch" phase (handled server-side).
+      kiosksOut.push({ x: hallCx, z: hallCz, npc: 'rite_altar', npcName: 'the séance altar', radius: 120 });
+
       // The two NPCs flank the west doorway (keeping the door gap itself clear).
       const tailorX = roomW * 0.10, tailorZ = roomD * 0.30;
       const tailor = createHumanoid(2).group;
@@ -15453,6 +15564,11 @@ function onWsMessage(ev) {
   if (msg.type === 'coven_standings') {
     covenStandingsState = msg;
     if (Modals.isOpen('covenModalOpen')) renderCovenStandings();
+    return;
+  }
+  if (msg.type === 'rite_state') {
+    covenRiteState = msg.rite || null;
+    if (Modals.isOpen('covenModalOpen')) renderCovenRite();
     return;
   }
 
@@ -23841,6 +23957,7 @@ const { openDelveModal, closeDelveModal, renderDelveModal, renderDelveHud, openL
 let covenTableState = null;
 let covenStandingsState = null;     // server coven_standings reply (the weekly board)
 let covenChampions = null;          // current week's leading coven (holds the Champions' Table)
+let covenRiteState = null;          // server rite_state reply (the seasonal coven Rite)
 const _coven = createCoven({
   getWs: () => ws, getMe: () => me, getPlayers: () => players,
   getCovenState: () => covenState, getCovenTableState: () => covenTableState,
@@ -23850,8 +23967,9 @@ const _coven = createCoven({
   getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout, startUpkeepCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
   getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
+  getCovenRite: () => covenRiteState,
 });
-const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings } = _coven;
+const { refreshCovenMenuRow, openCovenModal, closeCovenModal, renderCovenModal, renderCovenChat, openCovenInviteToast, refreshCovenTableVisual, renderCovenStandings, renderCovenRite } = _coven;
 
 const _covenVoice = createCovenVoice({
   getWs: () => ws, getCovenState: () => covenState, setUnlockToast,
@@ -25030,6 +25148,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
+  if (kiosk && kiosk.npc === 'rite_altar') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rite_light_candle' })); return; }
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
@@ -25096,6 +25215,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.exitDoor) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} pass through the door`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'rite_altar') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} light a candle for the Rite`;
     return;
   }
   if (kiosk && kiosk.game) {
