@@ -84,7 +84,7 @@ WORLD.natureDecor = [
   { id: 'decor_48', type: 'lamppost', x: 1566, y: 1597 },
   { id: 'decor_51', type: 'well', x: 1502, y: 928 },
   { id: 'decor_52', type: 'stall', x: 1745, y: 850, rot: 1.5708, variant: 0 },
-  { id: 'decor_53', type: 'stall', x: 1745, y: 1350, rot: 1.5708, variant: 1 },
+  { id: 'decor_53', type: 'stall', x: 2300, y: 1285, rot: 1.5708, variant: 1 },
   { id: 'decor_54', type: 'bench', x: 1470, y: 872, rot: 0.6 },
   { id: 'decor_55', type: 'bench', x: 1500, y: 1345, rot: -0.6 },
   { id: 'decor_56', type: 'bench', x: 1900, y: 1105, rot: 1.571 },

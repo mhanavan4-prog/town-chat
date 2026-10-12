@@ -21286,7 +21286,7 @@ const TOWN_NPCS = [
   { id: 'npc_mara', name: 'Ranger Mara',    charId: 3, x: 1350, y:  950 },
   { id: 'npc_finn', name: 'Herbalist Finn', charId: 0, x: 1850, y:  950 },
   { id: 'npc_dex',  name: 'Hunter Dex',     charId: 1, x: 1950, y:  340 }, // by the graveyard's south approach, clear of the wooded pocket's trees
-  { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 1850, y: 1250 }
+  { id: 'npc_lyra', name: 'Scholar Lyra',   charId: 2, x: 2230, y: 1180 } // moved to the open east commons to declutter the spawn square
 ];
 
 // Positions mirrored from server.js's TOWN_TORCHES — must match exactly so
