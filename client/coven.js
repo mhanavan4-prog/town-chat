@@ -289,7 +289,7 @@ function renderCovenStandings() {
   if (st.reign) {
     const r = document.createElement('div');
     r.className = 'slNote';
-    r.style.cssText = 'border:1px solid rgba(201,133,0,0.4);background:rgba(201,133,0,0.1)';
+    r.style.cssText = 'border:1px solid rgba(143,111,255,0.45);background:rgba(143,111,255,0.12);color:#cfc3e8';
     r.innerHTML = `👑 <b>Reigning Champions:</b> ${st.reign.sigil} ${st.reign.name}` +
       (st.reign.titles > 1 ? ` <span style="opacity:.75">— ${st.reign.titles} titles</span>` : '') +
       ` <span style="opacity:.6">(last week)</span>`;
@@ -302,7 +302,7 @@ function renderCovenStandings() {
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:3px 0;border-radius:8px;' +
       (mine ? 'background:rgba(158,227,125,0.12);border:1px solid rgba(94,231,192,0.45);' : 'border:1px solid rgba(255,255,255,0.06);');
     const name = document.createElement('span');
-    name.style.cssText = 'font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    name.style.cssText = 'font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8dcc8';
     name.textContent = `${i === 0 ? '🏆' : '#' + (i + 1)}  ${row.sigil} ${row.name}`;
     const pts = document.createElement('span');
     pts.style.cssText = 'color:#9ee37d;font-weight:650;white-space:nowrap';
