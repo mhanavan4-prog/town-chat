@@ -311,6 +311,10 @@ app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
   { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }));
 app.get('/profile', (req, res) => sendWithOg(req, res, 'profile.html',
   { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }));
+app.get('/privacy', (req, res) => sendWithOg(req, res, 'privacy.html',
+  { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }));
+app.get('/terms', (req, res) => sendWithOg(req, res, 'terms.html',
+  { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }));
 
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
