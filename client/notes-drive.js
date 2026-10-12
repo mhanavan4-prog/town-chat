@@ -7,7 +7,7 @@
 // into these); lastInventoryState/myId/players/ws via getters; the armed-clip id
 // (shared with the cursed-media feature) via get/set.
 // ---------------------------------------------------------------------------
-export default function createNotesDrive({ captureHowlClip, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast, getLastInventoryState, getMyId, getPlayers, getWs, getCmSelectedClipId, setCmSelectedClipId, getPendingHdPassword, setPendingHdPassword, getLastHardDriveState }) {
+export default function createNotesDrive({ captureHowlClipCued, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast, getLastInventoryState, getMyId, getPlayers, getWs, getCmSelectedClipId, setCmSelectedClipId, getPendingHdPassword, setPendingHdPassword, getLastHardDriveState }) {
 function refreshNoteRecipients() {
   const select = document.getElementById('noteRecipient');
   if (!select) return;
@@ -267,6 +267,14 @@ function renderHardDriveMedia() {
     useBtn.title = 'This is the clip the V key plays when you get attacked';
     useBtn.addEventListener('click', () => { setCmSelectedClipId(c.id); renderHardDriveMedia(); });
     row.appendChild(useBtn);
+    if (c.audio) {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'noteReadBtn';
+      playBtn.textContent = '▶️';
+      playBtn.title = 'Play this clip';
+      playBtn.addEventListener('click', () => { try { new Audio(c.audio).play(); } catch (e) {} });
+      row.appendChild(playBtn);
+    }
     const delBtn = document.createElement('button');
     delBtn.className = 'noteDestroyBtn';
     delBtn.textContent = '🗑️';
@@ -283,29 +291,88 @@ function renderHardDriveMedia() {
     wrap.appendChild(none);
   }
 
-  const recBtn = document.createElement('button');
-  recBtn.className = 'btn';
-  recBtn.textContent = '🎙️ Record a 3s voice clip';
-  recBtn.addEventListener('click', async () => {
-    const label = (document.getElementById('hdClipLabelInput') || { value: '' }).value.trim() || 'Voice clip';
-    recBtn.disabled = true;
-    recBtn.textContent = '🎙️ Recording… (3s)';
-    try {
-      const audio = await captureHowlClip(3000);
-      if (audio) getWs().send(JSON.stringify({ type: 'harddrive_save_clip', audio, label, password: getPendingHdPassword() }));
-    } catch (e) {
-      setUnlockToast('🎙️ No microphone available (or permission denied).');
-    }
-    recBtn.disabled = false;
-    recBtn.textContent = '🎙️ Record a 3s voice clip';
-  });
   const labelInput = document.createElement('input');
   labelInput.id = 'hdClipLabelInput';
   labelInput.placeholder = 'Clip name (e.g. "BOO!", "my evil laugh")';
   labelInput.maxLength = 40;
   labelInput.className = 'hdClipLabelInput';
   wrap.appendChild(labelInput);
+
+  // ── Recorder with a lead-in countdown + playback-before-save ──────────────
+  // The old recorder started capturing the instant the mic turned on, so the
+  // first word was usually clipped and there was no way to hear the result.
+  // Now: a "Get ready… 3·2·1" lead-in (mic already warm), a red "Speak now!"
+  // window with a live countdown, then the clip plays back and you choose to
+  // keep it or redo it — nothing is saved until you press Save.
+  const status = document.createElement('div');
+  status.className = 'hdRecStatus hidden';
+  const recBtn = document.createElement('button');
+  recBtn.className = 'btn';
+  recBtn.textContent = '🎙️ Record a 3s voice clip';
+  const review = document.createElement('div');
+  review.className = 'hdRecReview hidden';
+  const reviewPlay = document.createElement('button');
+  reviewPlay.className = 'btn hdRecReviewBtn';
+  reviewPlay.textContent = '▶️ Play it back';
+  const reviewSave = document.createElement('button');
+  reviewSave.className = 'btn hdRecReviewBtn hdRecSave';
+  reviewSave.textContent = '💾 Save this clip';
+  const reviewRedo = document.createElement('button');
+  reviewRedo.className = 'btn hdRecReviewBtn';
+  reviewRedo.textContent = '↺ Re-record';
+  review.appendChild(reviewPlay); review.appendChild(reviewSave); review.appendChild(reviewRedo);
+
+  let pendingAudio = null; // the just-recorded dataURL, not yet saved
+
+  function resetRecorder() {
+    pendingAudio = null;
+    review.classList.add('hidden');
+    status.classList.add('hidden');
+    status.className = 'hdRecStatus hidden';
+    recBtn.classList.remove('hidden');
+    recBtn.disabled = false;
+    recBtn.textContent = '🎙️ Record a 3s voice clip';
+  }
+
+  recBtn.addEventListener('click', async () => {
+    recBtn.disabled = true;
+    review.classList.add('hidden');
+    status.classList.remove('hidden');
+    try {
+      const { dataURL } = await captureHowlClipCued({
+        durationMs: 3000, leadInMs: 1800,
+        onPhase: (phase, n) => {
+          if (phase === 'arming') { status.className = 'hdRecStatus'; status.textContent = '🎤 Turning on your mic…'; }
+          else if (phase === 'leadin') { status.className = 'hdRecStatus leadin'; status.textContent = `Get ready… ${n}`; }
+          else if (phase === 'recording') { status.className = 'hdRecStatus recording'; status.textContent = `🔴 Speak now!  ${n}`; }
+          else if (phase === 'processing') { status.className = 'hdRecStatus'; status.textContent = '⏳ Finishing…'; }
+        }
+      });
+      pendingAudio = dataURL;
+      status.className = 'hdRecStatus done';
+      status.textContent = '✓ Got it — give it a listen, then save or redo.';
+      recBtn.classList.add('hidden');
+      review.classList.remove('hidden');
+      try { new Audio(dataURL).play(); } catch (e) {} // auto-play once so they hear it
+    } catch (e) {
+      resetRecorder();
+      setUnlockToast('🎙️ No microphone available (or permission denied).');
+    }
+  });
+
+  reviewPlay.addEventListener('click', () => { if (pendingAudio) { try { new Audio(pendingAudio).play(); } catch (e) {} } });
+  reviewRedo.addEventListener('click', resetRecorder);
+  reviewSave.addEventListener('click', () => {
+    if (!pendingAudio) return;
+    const label = (document.getElementById('hdClipLabelInput') || { value: '' }).value.trim() || 'Voice clip';
+    getWs().send(JSON.stringify({ type: 'harddrive_save_clip', audio: pendingAudio, label, password: getPendingHdPassword() }));
+    // The server pushes a fresh harddrive_state that re-renders this panel.
+    resetRecorder();
+  });
+
   wrap.appendChild(recBtn);
+  wrap.appendChild(status);
+  wrap.appendChild(review);
 }
 
   return { refreshNoteRecipients, openNote, destroyNote, storeNoteOnHardDrive, refreshHardDriveTab, renderHardDriveUnlocked, renderDriveMediaQuickState };

@@ -9323,7 +9323,7 @@ function renderAuctionModal() {
 // into these); lastInventoryState/myId/players/ws via getters; the armed-clip id
 // (shared with the cursed-media feature) via get/set.
 // ---------------------------------------------------------------------------
-function createNotesDrive({ captureHowlClip, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast, getLastInventoryState, getMyId, getPlayers, getWs, getCmSelectedClipId, setCmSelectedClipId, getPendingHdPassword, setPendingHdPassword, getLastHardDriveState }) {
+function createNotesDrive({ captureHowlClipCued, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast, getLastInventoryState, getMyId, getPlayers, getWs, getCmSelectedClipId, setCmSelectedClipId, getPendingHdPassword, setPendingHdPassword, getLastHardDriveState }) {
 function refreshNoteRecipients() {
   const select = document.getElementById('noteRecipient');
   if (!select) return;
@@ -9583,6 +9583,14 @@ function renderHardDriveMedia() {
     useBtn.title = 'This is the clip the V key plays when you get attacked';
     useBtn.addEventListener('click', () => { setCmSelectedClipId(c.id); renderHardDriveMedia(); });
     row.appendChild(useBtn);
+    if (c.audio) {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'noteReadBtn';
+      playBtn.textContent = '▶️';
+      playBtn.title = 'Play this clip';
+      playBtn.addEventListener('click', () => { try { new Audio(c.audio).play(); } catch (e) {} });
+      row.appendChild(playBtn);
+    }
     const delBtn = document.createElement('button');
     delBtn.className = 'noteDestroyBtn';
     delBtn.textContent = '🗑️';
@@ -9599,29 +9607,88 @@ function renderHardDriveMedia() {
     wrap.appendChild(none);
   }
 
-  const recBtn = document.createElement('button');
-  recBtn.className = 'btn';
-  recBtn.textContent = '🎙️ Record a 3s voice clip';
-  recBtn.addEventListener('click', async () => {
-    const label = (document.getElementById('hdClipLabelInput') || { value: '' }).value.trim() || 'Voice clip';
-    recBtn.disabled = true;
-    recBtn.textContent = '🎙️ Recording… (3s)';
-    try {
-      const audio = await captureHowlClip(3000);
-      if (audio) getWs().send(JSON.stringify({ type: 'harddrive_save_clip', audio, label, password: getPendingHdPassword() }));
-    } catch (e) {
-      setUnlockToast('🎙️ No microphone available (or permission denied).');
-    }
-    recBtn.disabled = false;
-    recBtn.textContent = '🎙️ Record a 3s voice clip';
-  });
   const labelInput = document.createElement('input');
   labelInput.id = 'hdClipLabelInput';
   labelInput.placeholder = 'Clip name (e.g. "BOO!", "my evil laugh")';
   labelInput.maxLength = 40;
   labelInput.className = 'hdClipLabelInput';
   wrap.appendChild(labelInput);
+
+  // ── Recorder with a lead-in countdown + playback-before-save ──────────────
+  // The old recorder started capturing the instant the mic turned on, so the
+  // first word was usually clipped and there was no way to hear the result.
+  // Now: a "Get ready… 3·2·1" lead-in (mic already warm), a red "Speak now!"
+  // window with a live countdown, then the clip plays back and you choose to
+  // keep it or redo it — nothing is saved until you press Save.
+  const status = document.createElement('div');
+  status.className = 'hdRecStatus hidden';
+  const recBtn = document.createElement('button');
+  recBtn.className = 'btn';
+  recBtn.textContent = '🎙️ Record a 3s voice clip';
+  const review = document.createElement('div');
+  review.className = 'hdRecReview hidden';
+  const reviewPlay = document.createElement('button');
+  reviewPlay.className = 'btn hdRecReviewBtn';
+  reviewPlay.textContent = '▶️ Play it back';
+  const reviewSave = document.createElement('button');
+  reviewSave.className = 'btn hdRecReviewBtn hdRecSave';
+  reviewSave.textContent = '💾 Save this clip';
+  const reviewRedo = document.createElement('button');
+  reviewRedo.className = 'btn hdRecReviewBtn';
+  reviewRedo.textContent = '↺ Re-record';
+  review.appendChild(reviewPlay); review.appendChild(reviewSave); review.appendChild(reviewRedo);
+
+  let pendingAudio = null; // the just-recorded dataURL, not yet saved
+
+  function resetRecorder() {
+    pendingAudio = null;
+    review.classList.add('hidden');
+    status.classList.add('hidden');
+    status.className = 'hdRecStatus hidden';
+    recBtn.classList.remove('hidden');
+    recBtn.disabled = false;
+    recBtn.textContent = '🎙️ Record a 3s voice clip';
+  }
+
+  recBtn.addEventListener('click', async () => {
+    recBtn.disabled = true;
+    review.classList.add('hidden');
+    status.classList.remove('hidden');
+    try {
+      const { dataURL } = await captureHowlClipCued({
+        durationMs: 3000, leadInMs: 1800,
+        onPhase: (phase, n) => {
+          if (phase === 'arming') { status.className = 'hdRecStatus'; status.textContent = '🎤 Turning on your mic…'; }
+          else if (phase === 'leadin') { status.className = 'hdRecStatus leadin'; status.textContent = `Get ready… ${n}`; }
+          else if (phase === 'recording') { status.className = 'hdRecStatus recording'; status.textContent = `🔴 Speak now!  ${n}`; }
+          else if (phase === 'processing') { status.className = 'hdRecStatus'; status.textContent = '⏳ Finishing…'; }
+        }
+      });
+      pendingAudio = dataURL;
+      status.className = 'hdRecStatus done';
+      status.textContent = '✓ Got it — give it a listen, then save or redo.';
+      recBtn.classList.add('hidden');
+      review.classList.remove('hidden');
+      try { new Audio(dataURL).play(); } catch (e) {} // auto-play once so they hear it
+    } catch (e) {
+      resetRecorder();
+      setUnlockToast('🎙️ No microphone available (or permission denied).');
+    }
+  });
+
+  reviewPlay.addEventListener('click', () => { if (pendingAudio) { try { new Audio(pendingAudio).play(); } catch (e) {} } });
+  reviewRedo.addEventListener('click', resetRecorder);
+  reviewSave.addEventListener('click', () => {
+    if (!pendingAudio) return;
+    const label = (document.getElementById('hdClipLabelInput') || { value: '' }).value.trim() || 'Voice clip';
+    getWs().send(JSON.stringify({ type: 'harddrive_save_clip', audio: pendingAudio, label, password: getPendingHdPassword() }));
+    // The server pushes a fresh harddrive_state that re-renders this panel.
+    resetRecorder();
+  });
+
   wrap.appendChild(recBtn);
+  wrap.appendChild(status);
+  wrap.appendChild(review);
 }
 
   return { refreshNoteRecipients, openNote, destroyNote, storeNoteOnHardDrive, refreshHardDriveTab, renderHardDriveUnlocked, renderDriveMediaQuickState };
@@ -16741,7 +16808,7 @@ let lastHardDriveState = null; // { hasPassword, notes, capacity, selfies, clips
 const {
   refreshNoteRecipients, openNote, destroyNote, storeNoteOnHardDrive, refreshHardDriveTab, renderHardDriveUnlocked, renderDriveMediaQuickState,
 } = createNotesDrive({
-  captureHowlClip, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast,
+  captureHowlClipCued, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast,
   getLastInventoryState: () => lastInventoryState,
   getMyId: () => myId, getPlayers: () => players, getWs: () => ws,
   getCmSelectedClipId: () => cmSelectedClipId, setCmSelectedClipId: (v) => { cmSelectedClipId = v; },
@@ -17654,6 +17721,64 @@ function captureHowlClip(durationMs = 3000) {
         setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
       })
       .catch(reject);
+  });
+}
+
+// Like captureHowlClip, but it opens the mic FIRST, runs a visible lead-in
+// countdown, and reports each phase so the UI can tell the player exactly
+// when to speak — fixing clips that got cut off because recording began the
+// instant the mic turned on, before the player was ready. onPhase(phase, n):
+//   'arming'          — requesting the mic
+//   'leadin',   n     — n = 3,2,1 before recording starts (mic already warm)
+//   'recording',n     — n = seconds left while actually capturing
+//   'processing'      — encoding the clip
+// Resolves { dataURL, mimeType } so the caller can play it back before saving.
+function captureHowlClipCued({ durationMs = 3000, leadInMs = 1800, onPhase = () => {} } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+      reject(new Error('Microphone not available')); return;
+    }
+    try { onPhase('arming'); } catch (e) {}
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const stop = () => stream.getTracks().forEach(t => t.stop());
+      const leadSteps = Math.max(1, Math.round(leadInMs / 600));
+      let n = leadSteps;
+      try { onPhase('leadin', n); } catch (e) {}
+      const leadTimer = setInterval(() => {
+        n--;
+        if (n > 0) { try { onPhase('leadin', n); } catch (e) {} return; }
+        clearInterval(leadTimer);
+        startRecording();
+      }, 600);
+
+      function startRecording() {
+        let mimeType = '';
+        for (const candidate of ['audio/webm', 'audio/mp4', 'audio/ogg']) {
+          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidate)) { mimeType = candidate; break; }
+        }
+        let recorder;
+        try { recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream); }
+        catch (e) { stop(); reject(e); return; }
+        const chunks = [];
+        let tick = null;
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onerror = (e) => { stop(); if (tick) clearInterval(tick); reject(e.error || new Error('Recorder error')); };
+        recorder.onstop = () => {
+          stop(); if (tick) clearInterval(tick);
+          try { onPhase('processing'); } catch (e) {}
+          const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = () => resolve({ dataURL: reader.result, mimeType: blob.type });
+          reader.onerror = () => reject(new Error('Could not encode audio'));
+          reader.readAsDataURL(blob);
+        };
+        recorder.start();
+        let secsLeft = Math.round(durationMs / 1000);
+        try { onPhase('recording', secsLeft); } catch (e) {}
+        tick = setInterval(() => { secsLeft--; if (secsLeft > 0) { try { onPhase('recording', secsLeft); } catch (e) {} } }, 1000);
+        setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
+      }
+    }).catch(reject);
   });
 }
 

@@ -2650,7 +2650,7 @@ let lastHardDriveState = null; // { hasPassword, notes, capacity, selfies, clips
 const {
   refreshNoteRecipients, openNote, destroyNote, storeNoteOnHardDrive, refreshHardDriveTab, renderHardDriveUnlocked, renderDriveMediaQuickState,
 } = createNotesDrive({
-  captureHowlClip, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast,
+  captureHowlClipCued, captureSelfiePhoto, inbox, renderInventory, requestCmState, setUnlockToast,
   getLastInventoryState: () => lastInventoryState,
   getMyId: () => myId, getPlayers: () => players, getWs: () => ws,
   getCmSelectedClipId: () => cmSelectedClipId, setCmSelectedClipId: (v) => { cmSelectedClipId = v; },
@@ -3563,6 +3563,64 @@ function captureHowlClip(durationMs = 3000) {
         setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
       })
       .catch(reject);
+  });
+}
+
+// Like captureHowlClip, but it opens the mic FIRST, runs a visible lead-in
+// countdown, and reports each phase so the UI can tell the player exactly
+// when to speak — fixing clips that got cut off because recording began the
+// instant the mic turned on, before the player was ready. onPhase(phase, n):
+//   'arming'          — requesting the mic
+//   'leadin',   n     — n = 3,2,1 before recording starts (mic already warm)
+//   'recording',n     — n = seconds left while actually capturing
+//   'processing'      — encoding the clip
+// Resolves { dataURL, mimeType } so the caller can play it back before saving.
+function captureHowlClipCued({ durationMs = 3000, leadInMs = 1800, onPhase = () => {} } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+      reject(new Error('Microphone not available')); return;
+    }
+    try { onPhase('arming'); } catch (e) {}
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const stop = () => stream.getTracks().forEach(t => t.stop());
+      const leadSteps = Math.max(1, Math.round(leadInMs / 600));
+      let n = leadSteps;
+      try { onPhase('leadin', n); } catch (e) {}
+      const leadTimer = setInterval(() => {
+        n--;
+        if (n > 0) { try { onPhase('leadin', n); } catch (e) {} return; }
+        clearInterval(leadTimer);
+        startRecording();
+      }, 600);
+
+      function startRecording() {
+        let mimeType = '';
+        for (const candidate of ['audio/webm', 'audio/mp4', 'audio/ogg']) {
+          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidate)) { mimeType = candidate; break; }
+        }
+        let recorder;
+        try { recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream); }
+        catch (e) { stop(); reject(e); return; }
+        const chunks = [];
+        let tick = null;
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onerror = (e) => { stop(); if (tick) clearInterval(tick); reject(e.error || new Error('Recorder error')); };
+        recorder.onstop = () => {
+          stop(); if (tick) clearInterval(tick);
+          try { onPhase('processing'); } catch (e) {}
+          const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = () => resolve({ dataURL: reader.result, mimeType: blob.type });
+          reader.onerror = () => reject(new Error('Could not encode audio'));
+          reader.readAsDataURL(blob);
+        };
+        recorder.start();
+        let secsLeft = Math.round(durationMs / 1000);
+        try { onPhase('recording', secsLeft); } catch (e) {}
+        tick = setInterval(() => { secsLeft--; if (secsLeft > 0) { try { onPhase('recording', secsLeft); } catch (e) {} } }, 1000);
+        setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
+      }
+    }).catch(reject);
   });
 }
 
