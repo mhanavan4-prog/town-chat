@@ -266,7 +266,13 @@ app.use('/api', (req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+// The marketing homepage lives at /, the game at /play (registered before the
+// static middleware so / serves landing.html instead of the game's index.html).
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
+app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
   setHeaders: (res, filePath) => {
     // Content-stable assets (models, textures, fonts, audio) — cache hard for a
     // year so repeat visitors and any CDN in front never re-pull the ~19MB of
@@ -404,8 +410,8 @@ app.post('/api/checkout', async (req, res) => {
           },
           quantity: 1
         }],
-        success_url: `${origin}/?ms_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/?pass_cancel=1`
+        success_url: `${origin}/play?ms_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/play?pass_cancel=1`
       });
       audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
         detail: { product, kind: 'moonstones', amountCents: pack.cents } });
@@ -429,8 +435,8 @@ app.post('/api/checkout', async (req, res) => {
           },
           quantity: 1
         }],
-        success_url: `${origin}/?charter_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/?pass_cancel=1`
+        success_url: `${origin}/play?charter_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/play?pass_cancel=1`
       });
       audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
         detail: { product: 'coven_charter', kind: 'coven_charter', amountCents: COVEN_CHARTER_PRICE_CENTS } });
@@ -456,8 +462,8 @@ app.post('/api/checkout', async (req, res) => {
           },
           quantity: 1
         }],
-        success_url: `${origin}/?upkeep_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/?pass_cancel=1`
+        success_url: `${origin}/play?upkeep_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/play?pass_cancel=1`
       });
       audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req), account: accountKey,
         detail: { product: 'coven_upkeep', kind: 'coven_upkeep', coven: cv.id, amountCents: COVEN_UPKEEP_PRICE_CENTS } });
@@ -485,10 +491,10 @@ app.post('/api/checkout', async (req, res) => {
         },
         quantity: 1
       }],
-      success_url: `${origin}/?pass_session={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/play?pass_session={CHECKOUT_SESSION_ID}`,
       // Flagged so the client knows this load is a bounce-back from an
       // abandoned checkout and can auto-resume the stashed session too.
-      cancel_url: `${origin}/?pass_cancel=1`
+      cancel_url: `${origin}/play?pass_cancel=1`
     });
     audit.log({ level: 'info', type: 'checkout_started', ip: audit.clientIp(req),
       detail: { product: isResident ? 'pass30' : 'pass', kind: 'town_pass',

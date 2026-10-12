@@ -57,6 +57,6 @@ self.addEventListener('notificationclick', (event) => {
     for (const tab of tabs) {
       if ('focus' in tab) return tab.focus();
     }
-    return self.clients.openWindow('/');
+    return self.clients.openWindow('/play');
   }));
 });

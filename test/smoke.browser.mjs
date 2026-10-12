@@ -64,7 +64,7 @@ try {
     page.on('pageerror', e => { errors.push(String(e)); console.log(`  [char ${c.charId}] PAGEERROR: ` + String(e).split('\n')[0]); });
     page.on('console', m => { if (m.type() === 'error') console.log(`  [char ${c.charId}] console.error: ` + m.text()); });
     await page.route('**/three.min.js', route => route.fulfill({ contentType: 'application/javascript', body: THREE_STUB }));
-    await page.goto(`http://localhost:${PORT}/`);
+    await page.goto(`http://localhost:${PORT}/play`);
     await page.waitForSelector('#joinScreen', { timeout: 5000 });
 
     // Pick the character, type a name, join.
