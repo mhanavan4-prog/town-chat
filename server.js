@@ -283,7 +283,7 @@ function ogEsc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, (c) => 
 function sendWithOg(req, res, file, og) {
   const html = readPage(file);
   const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-  const img = `${req.protocol}://${req.get('host')}/og-cover.png`;
+  const img = `${req.protocol}://${req.get('host')}${og.image || '/og-cover.png'}`;
   const tags = [
     `<meta property="og:title" content="${ogEsc(og.title)}">`,
     `<meta property="og:description" content="${ogEsc(og.desc)}">`,
@@ -307,22 +307,37 @@ app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
 app.get('/profile', (req, res) => sendWithOg(req, res, 'profile.html',
   { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }));
 
-// Public profile at /u/<name> — same page in public mode, with the player's OG.
+// Public profile at /u/<name> — same page in public mode, with the player's OG
+// (their class card as the share image).
 app.get('/u/:username', (req, res) => {
   const name = String(req.params.username || '').slice(0, 40);
+  const key = name.toLowerCase();
+  let charId = null;
+  try {
+    const prog = playerProgress[key];
+    if (prog) {
+      charId = Number.isInteger(prog.lastCharId) ? prog.lastCharId : null;
+      if (charId == null) { const first = Object.keys(prog.characters || {})[0]; charId = first != null ? parseInt(first, 10) : null; }
+    }
+  } catch (e) {}
+  const image = (Number.isInteger(charId) && charId >= 0 && charId < CHARACTER_COUNT) ? `/og/class-${charId}.png` : null;
   sendWithOg(req, res, 'profile.html', {
     title: `${name} — Thornreach`,
-    desc: `See ${name}'s character, coven and standing in Thornreach — a crooked little town of witches, werewolves and covens.`
+    desc: `See ${name}'s character, coven and standing in Thornreach — a crooked little town of witches, werewolves and covens.`,
+    image
   });
 });
 
-// Public coven page at /c/<id>.
+// Public coven page at /c/<id> — the coven's sigil card as the share image.
 app.get('/c/:id', (req, res) => {
   const cv = covens[String(req.params.id || '')];
   const nm = cv ? `${cv.sigil || '🌑'} ${cv.name}` : 'A coven';
+  let image = null;
+  if (cv) { const si = COVEN_SIGILS.indexOf(cv.sigil); if (si >= 0) image = `/og/coven-${si}.png`; }
   sendWithOg(req, res, 'coven.html', {
     title: `${nm} — Thornreach`,
-    desc: cv ? `${cv.name} — a coven of ${(cv.members || []).length} in Thornreach.` : 'A coven in Thornreach.'
+    desc: cv ? `${cv.name} — a coven of ${(cv.members || []).length} in Thornreach.` : 'A coven in Thornreach.',
+    image
   });
 });
 
@@ -1642,10 +1657,22 @@ function covenSummary(cv) {
   };
 }
 app.get('/api/covens', (req, res) => {
-  const list = Object.values(covens).map(covenSummary)
-    .sort((a, b) => b.crowns - a.crowns || b.members - a.members || a.name.localeCompare(b.name));
+  // This week's live standings give each coven a current rank + points.
+  const standings = covenStandings(weekKey(Date.now()));
+  const wkRank = {};
+  standings.forEach((row, i) => { wkRank[row.covenId] = { rank: i + 1, points: row.points }; });
+  const list = Object.values(covens).map((cv) => {
+    const s = covenSummary(cv);
+    const w = wkRank[cv.id];
+    s.weeklyPoints = (w && w.points) || 0;
+    s.weeklyRank = (w && w.points > 0) ? w.rank : null; // only ranked once they've scored
+    return s;
+  }).sort((a, b) => b.weeklyPoints - a.weeklyPoints || b.crowns - a.crowns || b.members - a.members || a.name.localeCompare(b.name));
   res.json({ covens: list, count: list.length });
 });
+
+// Live population — connected players right now. Public, tiny, read-only.
+app.get('/api/online', (req, res) => res.json({ online: players.size }));
 
 // A public coven page (/c/<id>) — identity, members (each links to their
 // public profile), leader, standing, crowns, motd. Public, read-only.
@@ -1667,11 +1694,17 @@ app.get('/api/coven', (req, res) => {
       online: !!findConnectionByAccountKey(k)
     };
   });
+  const standings = covenStandings(weekKey(Date.now()));
+  const idx = standings.findIndex((r) => r.covenId === cv.id);
+  const myStanding = idx >= 0 ? standings[idx] : null;
   res.json({
     id: cv.id, name: cv.name, sigil: cv.sigil, motd: cv.motd || '',
     leader: covenDisplayName(cv.leaderKey || (cv.members || [])[0] || ''),
     standing: covenGoodStanding(cv) ? 'In good standing' : 'Lapsed',
     crowns: (cv.honors || []).length,
+    weeklyRank: (myStanding && myStanding.points > 0) ? idx + 1 : null,
+    weeklyPoints: myStanding ? myStanding.points : 0,
+    covenCount: standings.length,
     members
   });
 });

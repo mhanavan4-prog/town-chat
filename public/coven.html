@@ -111,6 +111,7 @@
     document.getElementById('cName').textContent=d.name;
     document.getElementById('cMeta').textContent=d.members.length+' member'+(d.members.length===1?'':'s')+' · led by '+d.leader;
     var badges=[];
+    if(d.weeklyRank) badges.push('<span class="badge gold">🏅 #'+d.weeklyRank+' this week'+(d.covenCount?(' of '+d.covenCount):'')+' · '+Number(d.weeklyPoints||0).toLocaleString()+' pts</span>');
     if(d.crowns) badges.push('<span class="badge gold">👑 '+d.crowns+' crown'+(d.crowns===1?'':'s')+'</span>');
     badges.push('<span class="badge '+(d.standing==='In good standing'?'good':'')+'">'+esc(d.standing)+'</span>');
     document.getElementById('cBadges').innerHTML=badges.join('');

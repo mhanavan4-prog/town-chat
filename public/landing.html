@@ -91,6 +91,10 @@
   .pillars b{color:#c6f5b0}
   .hero-cta{display:flex; gap:14px; justify-content:center; flex-wrap:wrap}
   .hero-cta .btn{font-size:16px; padding:15px 30px}
+  .online{display:inline-flex; align-items:center; gap:8px; margin-top:18px; color:var(--mut); font-size:13.5px; font-weight:600}
+  .online .dot{width:9px; height:9px; border-radius:50%; background:#6fe0a0; box-shadow:0 0 10px rgba(111,224,160,0.8); animation:pulseDot 2s ease-in-out infinite}
+  .online b{color:#cfe9d8}
+  @keyframes pulseDot{0%,100%{opacity:0.5}50%{opacity:1}}
 
   /* character lineup banner */
   .lineup{margin:44px auto 0; max-width:1000px; display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
@@ -193,6 +197,7 @@
       <a class="btn" href="/play">Enter the Town</a>
       <a class="btn ghost" href="#classes">Meet the callings</a>
     </div>
+    <div class="online" id="onlineNow" hidden><span class="dot"></span><span id="onlineText"></span></div>
     <div class="lineup">
       <a href="/play" title="Witch — casts spells from a Spellbook"><img src="charselect/char0.png" alt="Witch"><span class="cn">Witch</span></a>
       <a href="/play" title="Werewolf — unleashes 12 ferocious attacks"><img src="charselect/char1.png" alt="Werewolf"><span class="cn">Werewolf</span></a>
@@ -284,6 +289,15 @@
       var sz=(Math.random()<0.2?2.5:1.5); s.style.width=s.style.height=sz+'px';
       box.appendChild(s);
     }
+  })();
+  // Live population — a quiet sign of life. Hidden if nobody's on (or it fails).
+  (function(){
+    fetch('/api/online').then(function(r){ return r.json(); }).then(function(d){
+      var n = d && d.online || 0; if(!n) return;
+      var el=document.getElementById('onlineNow');
+      document.getElementById('onlineText').innerHTML = '<b>'+n+'</b> '+(n===1?'soul':'souls')+' in town right now';
+      el.hidden=false;
+    }).catch(function(){});
   })();
 </script>
 </body>
