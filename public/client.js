@@ -22,6 +22,9 @@ let musicTrackId = null;   // what's actually sounding right now
 let musicChoice = 'off';   // the player's saved pick: 'off' | a track id
 let musicIsRoomTune = false; // true when the cafe started it, not the player
 try { musicChoice = localStorage.getItem('tc_music') || 'off'; } catch (e) {}
+// Sound effects: their own bus, default ON (music is the one that defaults off).
+let sfxGain = null, sfxMuted = false, noiseBuffer = null;
+try { sfxMuted = localStorage.getItem('tc_sfx') === '0'; } catch (e) {}
 
 const TAVERN_SCALE = [196.00, 220.00, 246.94, 293.66, 329.63, 392.00]; // G3 pentatonic-ish run
 const TAVERN_MELODY = [0, 2, 4, 2, 1, 3, 5, 3, 0, 4, 2, 0, 1, 3, 2, 0];
@@ -33,6 +36,10 @@ function ensureAudio() {
     musicGain = audioCtx.createGain();
     musicGain.gain.value = 0;
     musicGain.connect(audioCtx.destination);
+    // Separate bus for sound effects, so SFX and music mute independently.
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = sfxMuted ? 0 : 0.9;
+    sfxGain.connect(audioCtx.destination);
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
 }
 
@@ -199,16 +206,75 @@ function setMusicMuted(muted) {
   }
 }
 
+// ── Sound effects — short procedural one-shots on the sfx bus ────────────────
+// All synthesized (oscillators + a touch of filtered noise), no audio files,
+// same spirit as the music above. One call per game moment: playSfx('hit'), etc.
+function sfxTone(freq, t, dur, vol, type, freqEnd) {
+  if (!audioCtx || !sfxGain) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(freq, t);
+  if (freqEnd) o.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(sfxGain);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function sfxNoise(t, dur, vol, filterFreq) {
+  if (!audioCtx || !sfxGain) return;
+  if (!noiseBuffer) {
+    noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.4, audioCtx.sampleRate);
+    const d = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const src = audioCtx.createBufferSource(); src.buffer = noiseBuffer;
+  const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filterFreq || 2000;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(sfxGain);
+  src.start(t); src.stop(t + dur + 0.02);
+}
+function playSfx(name) {
+  if (sfxMuted) return;
+  ensureAudio();
+  if (!audioCtx || !sfxGain) return;
+  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+  const t = audioCtx.currentTime;
+  switch (name) {
+    case 'hit':     sfxNoise(t, 0.10, 0.45, 2000); sfxTone(200, t, 0.09, 0.22, 'square', 90); break;   // you land a blow
+    case 'kill':    sfxTone(300, t, 0.30, 0.22, 'sawtooth', 70); sfxNoise(t, 0.26, 0.35, 1300); break;  // enemy felled
+    case 'hurt':    sfxNoise(t, 0.16, 0.38, 850);  sfxTone(130, t, 0.16, 0.26, 'sawtooth', 60); break;  // you take damage
+    case 'death':   sfxTone(220, t, 0.7, 0.25, 'sawtooth', 50); sfxNoise(t, 0.5, 0.3, 700); break;      // you are slain
+    case 'cast':    sfxTone(320, t, 0.22, 0.14, 'triangle', 820); break;                                // ability cast
+    case 'levelup': [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => sfxTone(f, t + i * 0.085, 0.26, 0.18, 'triangle')); break;
+    case 'loot':    sfxTone(880, t, 0.09, 0.16, 'square'); sfxTone(1318.5, t + 0.07, 0.13, 0.15, 'square'); break;
+    case 'harvest': sfxTone(440, t, 0.12, 0.12, 'triangle', 600); sfxNoise(t, 0.09, 0.1, 3200); break;
+    case 'error':   sfxTone(150, t, 0.16, 0.18, 'square', 110); break;
+    default: break;
+  }
+}
+function setSfxMuted(muted) {
+  sfxMuted = muted;
+  try { localStorage.setItem('tc_sfx', muted ? '0' : '1'); } catch (e) {}
+  if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : 0.9, audioCtx.currentTime);
+}
+
 const muteBtn = document.getElementById('muteBtn');
 if (muteBtn) {
+  // One button mutes EVERYTHING (music + sfx), the intuitive global mute.
   muteBtn.addEventListener('click', () => {
-    setMusicMuted(!musicMuted);
-    muteBtn.textContent = musicMuted ? '🔇' : '🔈';
+    const nowMuted = !musicMuted;
+    setMusicMuted(nowMuted);
+    setSfxMuted(nowMuted);
+    muteBtn.textContent = nowMuted ? '🔇' : '🔈';
   });
 }
 
   return {
     ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel,
+    playSfx, setSfxMuted,
     // Snapshot for the __testDrive.music() probe (kept identical to the old
     // inline reads of this module's private state).
     musicState: () => ({
@@ -14959,6 +15025,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'harvest_result') {
+    if (typeof playSfx === 'function') playSfx('harvest');
     setUnlockToast('🌿 ' + msg.message);
     return;
   }
@@ -15093,6 +15160,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    if (typeof playSfx === 'function') playSfx('levelup');
     updateXPDisplay();
     updateSkillsBadge();
     if (Modals.isOpen('skillsOpen')) renderSkills();
@@ -15143,6 +15211,7 @@ function onWsMessage(ev) {
   if (msg.type === 'struck') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
+    if (typeof playSfx === 'function') playSfx('hurt'); // you took a hit
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     noteUnderAttack(); // arms the countermeasure prompt (V — play a clip)
     // Feel the hit: red number on yourself, a small shake, a short buzz.
@@ -15390,9 +15459,9 @@ function onWsMessage(ev) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
       if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
     }
-    if (msg.dead && msg.casterId === myId) {
-      shakeScreen('S');
-      haptic([12, 25, 20]);
+    if (msg.casterId === myId) {
+      if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : 'hit'); // my blow landed
+      if (msg.dead) { shakeScreen('S'); haptic([12, 25, 20]); }
     }
     return;
   }
@@ -15415,6 +15484,7 @@ function onWsMessage(ev) {
   if (msg.type === 'you_died') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
+    if (typeof playSfx === 'function') playSfx('death');
     if (me) { me.isDead = true; me.health = 0; }
     updateHealthHud();
     const v = visuals[myId];
@@ -15559,6 +15629,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_result') {
+    if (typeof playSfx === 'function') playSfx('cast');
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -15615,6 +15686,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
+    if (typeof playSfx === 'function') playSfx('cast');
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -16028,6 +16100,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'loot_drop') {
     if (msg.items && msg.items.length) {
+      if (typeof playSfx === 'function') playSfx('loot');
       setUnlockToast('💰 Looted: ' + msg.items.join('  '));
     }
     return;
@@ -16267,7 +16340,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx } = _audio;
 
 // ---------------------------------------------------------------------------
 // Inventory panel — two tabs. "Items" is the player's real 24-slot carried

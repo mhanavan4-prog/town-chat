@@ -1185,6 +1185,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'harvest_result') {
+    if (typeof playSfx === 'function') playSfx('harvest');
     setUnlockToast('🌿 ' + msg.message);
     return;
   }
@@ -1319,6 +1320,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    if (typeof playSfx === 'function') playSfx('levelup');
     updateXPDisplay();
     updateSkillsBadge();
     if (Modals.isOpen('skillsOpen')) renderSkills();
@@ -1369,6 +1371,7 @@ function onWsMessage(ev) {
   if (msg.type === 'struck') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
+    if (typeof playSfx === 'function') playSfx('hurt'); // you took a hit
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     noteUnderAttack(); // arms the countermeasure prompt (V — play a clip)
     // Feel the hit: red number on yourself, a small shake, a short buzz.
@@ -1616,9 +1619,9 @@ function onWsMessage(ev) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
       if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
     }
-    if (msg.dead && msg.casterId === myId) {
-      shakeScreen('S');
-      haptic([12, 25, 20]);
+    if (msg.casterId === myId) {
+      if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : 'hit'); // my blow landed
+      if (msg.dead) { shakeScreen('S'); haptic([12, 25, 20]); }
     }
     return;
   }
@@ -1641,6 +1644,7 @@ function onWsMessage(ev) {
   if (msg.type === 'you_died') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
+    if (typeof playSfx === 'function') playSfx('death');
     if (me) { me.isDead = true; me.health = 0; }
     updateHealthHud();
     const v = visuals[myId];
@@ -1785,6 +1789,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_result') {
+    if (typeof playSfx === 'function') playSfx('cast');
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -1841,6 +1846,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
+    if (typeof playSfx === 'function') playSfx('cast');
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -2254,6 +2260,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'loot_drop') {
     if (msg.items && msg.items.length) {
+      if (typeof playSfx === 'function') playSfx('loot');
       setUnlockToast('💰 Looted: ' + msg.items.join('  '));
     }
     return;
@@ -2493,7 +2500,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx } = _audio;
 
 // ---------------------------------------------------------------------------
 // Inventory panel — two tabs. "Items" is the player's real 24-slot carried
