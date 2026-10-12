@@ -98,8 +98,8 @@ setTimeout(() => {
 
     // ── A sabbat with no authored rite → dormant marker ─────────────────────
     const cv2 = mkCoven('offseason', ['c0', 'c1'], Date.now() + 1e9);
-    srv.rites.ensureRite(cv2, { key: 'litha', startsAt: Date.now(), endsAt: Date.now() + 1e9 }, 2, Date.now());
-    check('an unauthored sabbat (Litha) yields a dormant (none) rite', cv2.rite.none === true);
+    srv.rites.ensureRite(cv2, { key: '__none__', startsAt: Date.now(), endsAt: Date.now() + 1e9 }, 2, Date.now());
+    check('a season with no authored rite yields a dormant (none) rite', cv2.rite.none === true);
   } catch (e) {
     check('test ran without throwing', false, String(e && e.stack || e));
   }
