@@ -87,13 +87,16 @@
     }
     grid.style.display='grid';
     grid.innerHTML = covs.map(function(c){
-      var crown = c.crowns ? '<div class="crowns"><div class="n">👑 '+c.crowns+'</div><div class="k">crowns</div></div>' : '';
+      var right = c.weeklyRank
+        ? '<div class="crowns"><div class="n" style="color:#e8d9a8">#'+c.weeklyRank+'</div><div class="k">this week</div></div>'
+        : (c.crowns ? '<div class="crowns"><div class="n">👑 '+c.crowns+'</div><div class="k">crowns</div></div>' : '');
       var standing = c.standing==='Lapsed' ? '<span class="lapsed"> · lapsed</span>' : '';
+      var crownNote = (c.weeklyRank && c.crowns) ? ' · 👑 '+c.crowns : '';
       return '<a class="cov" href="/c/'+encodeURIComponent(c.id)+'">'+
         '<div class="sig">'+(c.sigil||'🌑')+'</div>'+
         '<div class="body"><div class="nm">'+esc(c.name)+'</div>'+
-        '<div class="meta">'+c.members+' member'+(c.members===1?'':'s')+' · led by '+esc(c.leader)+standing+'</div></div>'+
-        crown+'</a>';
+        '<div class="meta">'+c.members+' member'+(c.members===1?'':'s')+' · led by '+esc(c.leader)+crownNote+standing+'</div></div>'+
+        right+'</a>';
     }).join('');
   }).catch(function(){ document.getElementById('loading').textContent='Could not load the covens right now.'; });
 })();
