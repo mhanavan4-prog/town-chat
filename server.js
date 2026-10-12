@@ -268,12 +268,63 @@ app.use('/api', (req, res, next) => {
 });
 // The marketing homepage lives at /, the game at /play (registered before the
 // static middleware so / serves landing.html instead of the game's index.html).
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
-app.get('/leaderboards', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leaderboards.html')));
-// Public profile at /u/<name> — served by the same profile page in public mode.
-app.get('/u/:username', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
+
+// Shareable pages get per-entity Open Graph / Twitter tags injected server-side
+// so a pasted link unfurls with the right title (and the shared cover image),
+// without needing a separate rendered card per player/coven. The page's <head>
+// carries an "<!--OG-->" marker we replace; everything else is static.
+const _ogCache = {};
+function readPage(file) {
+  if (!_ogCache[file]) _ogCache[file] = require('fs').readFileSync(path.join(__dirname, 'public', file), 'utf8');
+  return _ogCache[file];
+}
+function ogEsc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
+function sendWithOg(req, res, file, og) {
+  const html = readPage(file);
+  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  const img = `${req.protocol}://${req.get('host')}/og-cover.png`;
+  const tags = [
+    `<meta property="og:title" content="${ogEsc(og.title)}">`,
+    `<meta property="og:description" content="${ogEsc(og.desc)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:url" content="${ogEsc(url)}">`,
+    `<meta property="og:image" content="${ogEsc(img)}">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${ogEsc(og.title)}">`,
+    `<meta name="twitter:description" content="${ogEsc(og.desc)}">`,
+    `<meta name="twitter:image" content="${ogEsc(img)}">`
+  ].join('\n');
+  res.type('html').send(html.replace('<!--OG-->', tags));
+}
+
+app.get('/', (req, res) => sendWithOg(req, res, 'landing.html',
+  { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }));
+app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
+  { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }));
+app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
+  { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }));
+app.get('/profile', (req, res) => sendWithOg(req, res, 'profile.html',
+  { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }));
+
+// Public profile at /u/<name> — same page in public mode, with the player's OG.
+app.get('/u/:username', (req, res) => {
+  const name = String(req.params.username || '').slice(0, 40);
+  sendWithOg(req, res, 'profile.html', {
+    title: `${name} — Thornreach`,
+    desc: `See ${name}'s character, coven and standing in Thornreach — a crooked little town of witches, werewolves and covens.`
+  });
+});
+
+// Public coven page at /c/<id>.
+app.get('/c/:id', (req, res) => {
+  const cv = covens[String(req.params.id || '')];
+  const nm = cv ? `${cv.sigil || '🌑'} ${cv.name}` : 'A coven';
+  sendWithOg(req, res, 'coven.html', {
+    title: `${nm} — Thornreach`,
+    desc: cv ? `${cv.name} — a coven of ${(cv.members || []).length} in Thornreach.` : 'A coven in Thornreach.'
+  });
+});
 
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
@@ -1535,9 +1586,17 @@ function assembleProfile(key, includePrivate) {
     };
   } catch (e) {}
 
+  // All-time honors: past top-3 weekly finishes. Summarize to a count + the
+  // single best finish (lowest place, ties broken by the bigger score).
+  const BOARD_LABEL = { hunt: 'Night Hunt', boss: 'World Bosses', delve: 'The Delve', tourney: 'Tournament' };
+  const hon = (leaderboards.honors && leaderboards.honors[key]) || [];
+  let best = null;
+  for (const h of hon) { if (!best || h.place < best.place || (h.place === best.place && h.value > best.value)) best = h; }
+  const honors = { count: hon.length, best: best ? { place: best.place, board: best.board, label: BOARD_LABEL[best.board] || best.board } : null };
+
   const out = {
     username: acc.username, color: acc.color,
-    lastCharId, achievements: ach, titles, characters, rankings, coven
+    lastCharId, achievements: ach, titles, characters, rankings, coven, honors
   };
   if (includePrivate) out.gold = (ensureBankAccount(key).balance || 0);
   return out;
@@ -1568,6 +1627,53 @@ app.get('/api/leaderboards', (req, res) => {
     top: lbTop(id, wk, 15).map((e, i) => ({ rank: i + 1, name: e.name, value: e.value }))
   }));
   res.json({ week: wk, boards });
+});
+
+// The coven directory (/covens page) — every coven, with its sigil, size,
+// leader, standing and crown count. Public, read-only. Sorted by crowns then
+// size. The small per-member summary is assembled by publicCoven() below.
+function covenSummary(cv) {
+  return {
+    id: cv.id, name: cv.name, sigil: cv.sigil,
+    members: (cv.members || []).length,
+    leader: covenDisplayName(cv.leaderKey || (cv.members || [])[0] || ''),
+    standing: covenGoodStanding(cv) ? 'In good standing' : 'Lapsed',
+    crowns: (cv.honors || []).length
+  };
+}
+app.get('/api/covens', (req, res) => {
+  const list = Object.values(covens).map(covenSummary)
+    .sort((a, b) => b.crowns - a.crowns || b.members - a.members || a.name.localeCompare(b.name));
+  res.json({ covens: list, count: list.length });
+});
+
+// A public coven page (/c/<id>) — identity, members (each links to their
+// public profile), leader, standing, crowns, motd. Public, read-only.
+app.get('/api/coven', (req, res) => {
+  const id = String(req.query.id || '').trim();
+  const cv = covens[id];
+  if (!cv) return res.status(404).json({ error: 'No such coven.' });
+  const members = (cv.members || []).map((k) => {
+    const prog = playerProgress[k] || {};
+    const chars = prog.characters || {};
+    let charId = Number.isInteger(prog.lastCharId) ? prog.lastCharId : null;
+    if (charId == null) { const first = Object.keys(chars)[0]; charId = first != null ? parseInt(first, 10) : 0; }
+    const rec = chars[String(charId)] || null;
+    return {
+      name: covenDisplayName(k),
+      charId: (Number.isInteger(charId) && charId >= 0 && charId < CHARACTER_COUNT) ? charId : 0,
+      level: (rec && rec.level) || 1,
+      leader: k === (cv.leaderKey || (cv.members || [])[0]),
+      online: !!findConnectionByAccountKey(k)
+    };
+  });
+  res.json({
+    id: cv.id, name: cv.name, sigil: cv.sigil, motd: cv.motd || '',
+    leader: covenDisplayName(cv.leaderKey || (cv.members || [])[0] || ''),
+    standing: covenGoodStanding(cv) ? 'In good standing' : 'Lapsed',
+    crowns: (cv.honors || []).length,
+    members
+  });
 });
 
 // ---------------------------------------------------------------------------

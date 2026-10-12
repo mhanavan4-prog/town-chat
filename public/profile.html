@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Your Profile — Thornreach</title>
+<!--OG-->
 <meta name="theme-color" content="#140f2b">
 <link rel="icon" href="/icon-192.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -112,6 +113,9 @@
   .titles{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
   .ttl{background:rgba(140,90,255,0.12);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12.5px;color:#e9ddff}
   .stack{display:flex;flex-direction:column;gap:18px}
+  .phead .sp{margin-left:auto}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);background:rgba(20,13,34,0.96);border:1px solid var(--line);color:var(--ink);padding:11px 20px;border-radius:12px;font-weight:700;font-size:14px;box-shadow:0 10px 36px rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:80}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -130,6 +134,7 @@
     </a>
     <div class="right">
       <a class="btn ghost sm" href="/leaderboards">Leaderboards</a>
+      <a class="btn ghost sm" href="/covens">Covens</a>
       <a class="btn ghost sm" href="/play">Enter the Town</a>
       <button class="btn ghost sm" id="logoutBtn" style="display:none">Log out</button>
     </div>
@@ -162,6 +167,7 @@
         <h1 id="pName">—</h1>
         <div class="uline" id="pUline"></div>
       </div>
+      <div class="sp"><button class="btn ghost sm" id="shareBtn">🔗 Share</button></div>
     </div>
     <div class="pquick" id="pQuick"></div>
 
@@ -194,6 +200,8 @@
     </div>
   </div>
 </main>
+
+<div id="toast" class="toast"></div>
 
 <script src="/three.min.js"></script>
 <script src="/GLTFLoader.js"></script>
@@ -248,6 +256,21 @@
 
   el('logoutBtn').onclick=function(){ clearAccount(); stopViewer(); el('profile').style.display='none'; el('logoutBtn').style.display='none'; el('gate').style.display='block'; };
 
+  // ── share ── copies/shares a link to the PUBLIC profile (/u/<name>), so the
+  // recipient sees the grimoire, never your login.
+  function toast(msg){ var t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('show'); },1800); }
+  function doShare(url, title){
+    if(navigator.share){ navigator.share({title:title,url:url}).catch(function(){}); return; }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(function(){ toast('Link copied!'); }, function(){ window.prompt('Copy this link:', url); }); return; }
+    window.prompt('Copy this link:', url);
+  }
+  el('shareBtn').onclick=function(){
+    var url, name=el('pName').textContent||'A player';
+    if(publicName){ url=location.origin+'/u/'+encodeURIComponent(publicName); }
+    else { var a=getAccount(); url = (a&&a.username) ? (location.origin+'/u/'+encodeURIComponent(a.username)) : location.href; }
+    doShare(url, name+' — Thornreach');
+  };
+
   // ── load + render profile ──
   function loadProfile(){
     var a=getAccount();
@@ -277,6 +300,7 @@
     gq.push(['Characters', nChars]);
     gq.push(['Achievements', (d.achievements?d.achievements.unlocked:0)+' / '+(d.achievements?d.achievements.total:0)]);
     gq.push(['Titles', (d.titles||[]).length]);
+    if(d.honors && d.honors.best){ var hb=d.honors.best; gq.push([hb.label+' · best', medal(hb.place)+' #'+hb.place]); }
     el('pQuick').innerHTML = gq.map(function(x){ return '<div class="chip"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>'; }).join('');
 
     // roster
