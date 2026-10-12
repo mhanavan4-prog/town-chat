@@ -189,6 +189,14 @@ function renderCovenUpkeep(container) {
   }
   card.appendChild(status);
 
+  // Perk reminder: active upkeep lets every member keep the seasonal Rite going
+  // AND walk into the Phantom Parlor (the altar room) without a personal pass.
+  const perk = document.createElement('div');
+  perk.className = 'cuStatus';
+  perk.style.cssText = 'opacity:.72;font-size:11.5px';
+  perk.textContent = '🕯️ While paid: the coven Rite runs, and members enter the Phantom Parlor free.';
+  card.appendChild(perk);
+
   // If the one yearly grace has been spent, warn that a lapse now is fatal.
   if (paid && !graceEligible && u.graceUsedAt) {
     const warn = document.createElement('div');
