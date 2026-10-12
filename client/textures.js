@@ -42,6 +42,35 @@ export function makeGrassTexture() {
   return tex;
 }
 
+// Large-scale ground variation — a single soft, low-frequency blotch map meant
+// to be stretched ONCE across the whole lawn (no tiling). Overlaid on the
+// repeating grass, it breaks up the obvious tile repetition with big patches of
+// tone: sunlit meadows, mossy/shaded hollows, drier earthy ground. Transparent
+// so it reads as a gentle tint, not a second surface. Soft gradients only, so
+// stretching it over thousands of units stays smooth, never pixelated.
+export function makeGroundVariation() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const cx = c.getContext('2d');
+  // A fixed seed so the macro pattern is stable across loads (no reshuffle).
+  let s = 1337;
+  const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const blob = (x, y, r, col) => {
+    const g = cx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)'));
+    cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  };
+  // Darker, mossy/shaded hollows
+  for (let i = 0; i < 16; i++) blob(rnd() * 512, rnd() * 512, 90 + rnd() * 150, 'rgba(26,52,30,0.22)');
+  // Lighter, sunlit meadows
+  for (let i = 0; i < 16; i++) blob(rnd() * 512, rnd() * 512, 90 + rnd() * 150, 'rgba(126,160,96,0.20)');
+  // A few drier, earthy patches for warmth
+  for (let i = 0; i < 8; i++) blob(rnd() * 512, rnd() * 512, 70 + rnd() * 110, 'rgba(120,108,66,0.16)');
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.ClampToEdgeWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
 let _glowTexCache = null;
 export function makeGlowTexture() {
   if (_glowTexCache) return _glowTexCache;

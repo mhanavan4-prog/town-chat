@@ -23,7 +23,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGroundVariation, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -6849,6 +6849,17 @@ function initScene(w) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(w.width / 2, 0, w.height / 2);
   scene.add(ground);
+
+  // Macro tone variation, stretched ONCE over the whole lawn so the repeating
+  // grass tile stops reading as one flat sheet — big soft meadows, mossy
+  // hollows and drier patches. Just above the grass, blended, no depth write.
+  const groundVar = new THREE.Mesh(
+    new THREE.PlaneGeometry(w.width + 600, w.height + 600),
+    new THREE.MeshLambertMaterial({ map: makeGroundVariation(), transparent: true, depthWrite: false })
+  );
+  groundVar.rotation.x = -Math.PI / 2;
+  groundVar.position.set(w.width / 2, 0.08, w.height / 2);
+  scene.add(groundVar);
 
   // Town-square clearing: a soft patch where the grass just shifts tone at the
   // spawn point — no hard stone ring and no radial paths (the old cracked-
