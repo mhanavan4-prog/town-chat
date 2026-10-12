@@ -12147,7 +12147,7 @@ function renderCharRoster() {
     av.className = 'rosterAvatar';
     const avImg = document.createElement('img');
     avImg.className = 'rosterImg';
-    avImg.src = 'charselect/char' + c.charId + '.png';
+    avImg.src = 'charselect/char' + c.charId + '.png?v=2';
     avImg.alt = preset.name;
     avImg.loading = 'lazy';
     avImg.decoding = 'async';
