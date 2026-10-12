@@ -23,7 +23,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeFlagstoneTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -6850,33 +6850,29 @@ function initScene(w) {
   ground.position.set(w.width / 2, 0, w.height / 2);
   scene.add(ground);
 
-  const dirtTex = makeFlagstoneTexture(); // eerie Cracked Flagstone paths + plaza
-
-  // Town-square hub: a circular dirt clearing at the spawn point that every
-  // building's path connects back to.
-  const hubRadius = 130;
-  const hub = new THREE.Mesh(
-    new THREE.CircleGeometry(hubRadius, 28),
-    new THREE.MeshLambertMaterial({ map: dirtTex })
-  );
-  hub.rotation.x = -Math.PI / 2;
-  hub.position.set(w.spawn.x, 0.22, w.spawn.y);
-  scene.add(hub);
+  // Town-square clearing: a soft patch where the grass just shifts tone at the
+  // spawn point — no hard stone ring and no radial paths (the old cracked-
+  // flagstone plaza + walkways were removed for a cleaner, minimal look). A
+  // radial fade keeps the edge soft so it reads as trampled lawn, not a disc.
+  (function () {
+    const cc = document.createElement('canvas'); cc.width = cc.height = 128;
+    const cx = cc.getContext('2d');
+    const grad = cx.createRadialGradient(64, 64, 8, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(122,126,88,0.55)');   // worn, sunlit center
+    grad.addColorStop(0.7, 'rgba(112,118,82,0.32)');
+    grad.addColorStop(1, 'rgba(112,118,82,0)');      // fades into the grass
+    cx.fillStyle = grad; cx.fillRect(0, 0, 128, 128);
+    const clearing = new THREE.Mesh(
+      new THREE.CircleGeometry(200, 44),
+      new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cc), transparent: true, depthWrite: false })
+    );
+    clearing.rotation.x = -Math.PI / 2;
+    clearing.position.set(w.spawn.x, 0.2, w.spawn.y);
+    scene.add(clearing);
+  })();
 
   for (const b of w.buildings) {
     scene.add(buildBuildingMesh(b, w));
-    const doorPos = getDoorWorldPos(b);
-    // The Arcade path used to leave the square nearly parallel to the Temple
-    // path, so their planks overlapped and z-fought inside the spawn circle.
-    // Aim the Arcade path due-west of the hub (−90°, well clear of the Temple
-    // path's −40°) and stop it right at the plaza rim (tiny stopback) so it
-    // fans out to the far side and never enters the circle interior — no path
-    // overlap in the spawn area. Cosmetic; path planks carry no collider.
-    const isArcade = b.id === 'arcade';
-    const hubX = isArcade ? w.spawn.x - 128 : w.spawn.x;
-    const hubY = isArcade ? w.spawn.y : w.spawn.y;
-    const stop = isArcade ? 8 : hubRadius;
-    scene.add(buildPathSegment(doorPos.x, doorPos.y, hubX, hubY, 46, dirtTex, stop));
   }
 
   addNatureDecor(scene, w, decorVisuals);
@@ -6948,7 +6944,6 @@ function initScene(w) {
   scene.add(buildTownTemple(templeCx, templeCz));
   const altarW = 64, altarD = 64;
   walls.push({ x: templeCx - altarW / 2, y: templeCz - altarD / 2, w: altarW, h: altarD });
-  scene.add(buildPathSegment(templeCx, templeCz - templeD / 2 - 30, w.spawn.x, w.spawn.y, 40, dirtTex, hubRadius));
 
   // Ember Wastes portal — hovers over the altar, only visible/enterable
   // once all 4 torches are lit (see applyTemplePortalState, driven by
