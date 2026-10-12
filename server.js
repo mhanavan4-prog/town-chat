@@ -6270,7 +6270,7 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 // Class display names (server-side) — the client has the full presets; the
 // server only needs the label, e.g. for the Werewolf's Hunter's Read card.
-const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer', 'Necromancer'];
+const CLASS_NAMES = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer', 'Lich'];
 // A Guardian's Veil is up on this player — the Knight's AoE ward that blanks
 // the Werewolf's covert attacks (Hunter's Read / Rapid Swipe / Scent Trail).
 function veiled(p) { return !!(p && p.veiledUntil && p.veiledUntil > Date.now()); }

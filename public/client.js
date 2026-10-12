@@ -716,7 +716,7 @@ function showGlimpseBeacon(targetId) {
 function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown }) {
 let selectedAttackId = null;
 
-const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills', 5: '☠️ Necromancer Rites' };
+const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills', 5: '☠️ Lich Rites' };
 
 function openAttackPanel() {
   cancelTargeting();
@@ -14314,7 +14314,7 @@ const CHARACTER_PRESETS = [
   // charId 5: Necromancer — gaunt, grave-pale, hooded in deathly robes with a
   // sickly green soul-glow in the eyes. charId 5 uses the Attacks panel
   // (NECROMANCER_ATTACK_CATALOG) and alone can raise undead.
-  { name: 'Necromancer', skin: 0xcfc8bd, hair: 0x15121c, hairStyle: 'long',    eye: 0x7cff9a, shirt: 0x241b33, pants: 0x14101e }
+  { name: 'Lich', skin: 0xcfc8bd, hair: 0x15121c, hairStyle: 'long',    eye: 0x7cff9a, shirt: 0x241b33, pants: 0x14101e }
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
