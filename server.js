@@ -2806,8 +2806,8 @@ for (const line of Object.values(STORYLINES)) {
 const NPC_WHEREABOUTS = {
   npc_lyra: 'the east commons — she keeps to the open green by the market stall',
   npc_dex: 'by the graveyard, east of the Town Hall — the hunter keeps watch there',
-  npc_mara: 'town square, by her stall',
-  npc_finn: 'town square, by his stall',
+  npc_mara: 'the southwest green — the ranger watches the wood-line there',
+  npc_finn: 'the west-side garden — the herbalist tends his beds by the fence',
   npc_scholar: '📚 the Library, behind the counter',
   npc_bartender: '☕ the Cafe, behind the bar',
   npc_apothecary: '☕ the Cafe — corner table with the vials',
