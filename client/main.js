@@ -649,16 +649,16 @@ const WEREWOLF_ATTACK_CATALOG = {
     description: 'Surges with wolf speed — doubles movement for a short burst.' },
   blood_frenzy:     { name: 'Blood Frenzy',      icon: '🩸', kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000,
     description: 'Swells with feral rage — doubles the Werewolf\'s size.' },
-  bone_crunch:      { name: 'Bone Crunch',       icon: '🦴', kind: 'targeted', effect: 'status', statusType: 'feather',    durationMs: 20000,
-    description: 'Cracks the target\'s joints so they bounce absurdly high when they jump.' },
-  shadow_claws:     { name: 'Shadow Claws',      icon: '🌑', kind: 'targeted', effect: 'status', statusType: 'pumpkin',    durationMs: 30000,
-    description: "Mangles the target's face into a jack-o'-lantern." },
-  wolf_mark:        { name: 'Wolf Mark',          icon: '🔶', kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 30000,
-    description: 'Brands the target with a glowing amber wolf mark floating above their head.' },
-  feral_haze:       { name: 'Feral Haze',        icon: '🔥', kind: 'targeted', effect: 'status', statusType: 'colorcycle', durationMs: 20000,
-    description: "Drenches the target's clothing in shifting feral colors." },
-  snarl:            { name: 'Snarl',             icon: '😤', kind: 'targeted', effect: 'status', statusType: 'bats',       durationMs: 15000,
-    description: 'Summons a swarm of shadow-bats to circle the target.' },
+  bone_crunch:      { name: 'Bone Crunch',       icon: '🦴', kind: 'targeted', effect: 'status', statusType: 'bloodcurse', durationMs: 8000,
+    description: 'Lays a bloodcurse — for 8s every blow the target strikes bleeds them, and that blood flows back to you.' },
+  shadow_claws:     { name: 'Shadow Claws',      icon: '🌑', kind: 'targeted', effect: 'status', statusType: 'bloodcurse', durationMs: 8000,
+    description: 'Rakes a bloodcurse into the target — their own attacks bleed them for 8s, healing you.' },
+  wolf_mark:        { name: 'Wolf Mark',          icon: '🔶', kind: 'targeted', effect: 'status', statusType: 'wolfmark',   durationMs: 12000,
+    description: 'Brands the target as prey — they take +30% damage for 12s.' },
+  feral_haze:       { name: 'Feral Haze',        icon: '🔥', kind: 'targeted', effect: 'status', statusType: 'reversed',   durationMs: 4000,
+    description: "Clouds the target's senses — their controls reverse for 4s." },
+  snarl:            { name: 'Snarl',             icon: '😤', kind: 'targeted', effect: 'status', statusType: 'rooted',     durationMs: 3000,
+    description: 'A bone-chilling snarl roots the target in place for 3s.' },
   scent_trail:      { name: 'Scent Trail',       icon: '🎯', kind: 'targeted', effect: 'howl_location',
     description: "Howls at the target, inviting them to howl back. If they join in, their approximate real-world location (never exact) is sent to you privately — entirely their choice, and never posted anywhere." },
   hunters_read:     { name: "Hunter's Read",     icon: '🐺', kind: 'targeted', effect: 'rap_sheet',
@@ -731,7 +731,7 @@ const MYSTIC_ATTACK_CATALOG = {
   spirit_walk:       { name: 'Spirit Walk',        icon: '🌀', kind: 'self', effect: 'intel_sweep',
     description: 'Step out of your body and sweep the whole realm — return knowing every soul\'s whereabouts and wounds.' },
   haunting:          { name: 'Haunting',           icon: '🦇', kind: 'targeted', effect: 'status',
-    description: 'Send restless spirits to circle the target like a personal storm cloud.' },
+    description: "Restless spirits turn the target around — their controls reverse for 4s." },
   graveyard_chill:   { name: 'Graveyard Chill',    icon: '🥶', kind: 'targeted', effect: 'status',
     description: 'The cold of the old yard seeps into the target\'s bones, halving their walking speed.' }
 };
@@ -760,7 +760,7 @@ const KNIGHT_ATTACK_CATALOG = {
   heralds_muster:    { name: "Herald's Muster",    icon: '📯', kind: 'self', effect: 'intel_sweep',
     description: 'Sound the muster and take the roll — one report naming every player\'s whereabouts and wounds.' },
   challenge:         { name: 'Challenge',          icon: '🔶', kind: 'targeted', effect: 'status',
-    description: 'Brand the target with a glowing mark of challenge for all to see.' },
+    description: 'Call out the target — marked, they take +30% damage for 12s.' },
   steadfast_march:   { name: 'Steadfast March',    icon: '🥾', kind: 'self', effect: 'status',
     description: 'Fall into the old march cadence — twice your pace for a short burst.' },
   banner_of_dread:   { name: 'Banner of Dread',    icon: '🚩', kind: 'aoe', effect: 'status',
@@ -1196,6 +1196,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'use_result') {
+    if (typeof playSfx === 'function') playSfx('drink');
     setUnlockToast(msg.message);
     return;
   }
@@ -1789,7 +1790,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_result') {
-    if (typeof playSfx === 'function') playSfx('cast');
+    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk));
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -1826,6 +1827,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_error') {
+    if (typeof playSfx === 'function') playSfx('error');
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
@@ -1846,7 +1848,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
-    if (typeof playSfx === 'function') playSfx('cast');
+    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk));
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -1856,6 +1858,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_error') {
+    if (typeof playSfx === 'function') playSfx('error');
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = msg.message;
     else setUnlockToast(msg.message);
     return;
@@ -2035,12 +2038,14 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'shop_bought') {
+    if (typeof playSfx === 'function') playSfx('loot');
     setUnlockToast(`🛒 Bought ${msg.itemName} for ${msg.price} gold!`);
     // Refresh balance display next time shop is opened
     return;
   }
 
   if (msg.type === 'shop_sold') {
+    if (typeof playSfx === 'function') playSfx('loot');
     setUnlockToast(`💰 Sold ${msg.itemName}${msg.qty > 1 ? ' ×' + msg.qty : ''} for ${msg.gold} gold!`);
     if (lastBankState) lastBankState.balance = msg.balance;
     if (Modals.isOpen('npcShopOpen')) {
@@ -4930,6 +4935,7 @@ function handleCanvasClick(clientX, clientY) {
       return;
     }
     const worldPos = sceneToWorldPos(me.room, ground.x, ground.z);
+    lastCastAtk = (armedTarget.msgType === 'cast_spell' ? SPELL_CATALOG : myAttackCatalog)[armedTarget.attackId] || null;
     const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, x: worldPos.x, y: worldPos.y };
     ws.send(JSON.stringify(payload));
     triggerAttackAnim();
@@ -4945,6 +4951,7 @@ function handleCanvasClick(clientX, clientY) {
         cancelTargeting();
         return;
       }
+      lastCastAtk = (armedTarget.msgType === 'cast_spell' ? SPELL_CATALOG : myAttackCatalog)[armedTarget.attackId] || null;
       const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId };
       if (hit.kind !== 'player') payload.targetType = hit.kind;
       ws.send(JSON.stringify(payload));
@@ -10425,10 +10432,32 @@ function nearestBuilding() {
   return best;
 }
 
+// Maps an ability to its witchy cast sound by what it actually DOES (effect),
+// so a summon rumbles, a heal shimmers, a hex falls, a ward hums. Damage/leech
+// keep the generic cast whoosh — their impact is voiced separately by hit_fx.
+let lastCastAtk = null;
+function sfxForAbility(atk) {
+  if (!atk) return 'cast';
+  switch (atk.effect) {
+    case 'summon': return 'summon';
+    case 'heal': return 'heal';
+    case 'leech': return 'curse';
+    case 'veil': return 'ward';
+    case 'reveal': case 'intel_sweep': case 'camera': case 'spyglass': return 'reveal';
+    case 'meditate': case 'cloak': case 'evade': return 'ward';
+    case 'trap': return 'curse';
+    case 'status':
+      if (atk.kind === 'self') return atk.statusType === 'regen' ? 'heal' : (atk.statusType === 'giant' ? 'buff' : 'ward');
+      return 'curse';
+    default: return 'cast'; // damage / leech-strike / utility — whoosh, impact via hit_fx
+  }
+}
+
 function castFromHotbar(id) {
   if (!myActionCatalog || !myActionMsgType) return;
   const atk = myActionCatalog[id];
   if (!atk) return;
+  lastCastAtk = atk; // remembered so the result handler voices the right sound
   if (actionOnCooldown(id)) {
     setUnlockToast(myActionMsgType === 'cast_spell' ? 'Your magic needs to recharge a moment.' : 'Still recovering — wait a moment.');
     return;
