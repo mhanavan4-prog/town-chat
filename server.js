@@ -2804,7 +2804,7 @@ for (const line of Object.values(STORYLINES)) {
 // old system was a prose label with no directions — every story_update and
 // Journal render now carries a concrete "where" line.
 const NPC_WHEREABOUTS = {
-  npc_lyra: 'town square — she wanders near the fountain',
+  npc_lyra: 'the east commons — she keeps to the open green by the market stall',
   npc_dex: 'by the graveyard, east of the Town Hall — the hunter keeps watch there',
   npc_mara: 'town square, by her stall',
   npc_finn: 'town square, by his stall',
