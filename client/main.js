@@ -6133,7 +6133,7 @@ const INTERIOR_THEMES = {
 const INTERIOR_SIZE_OVERRIDES = {
   cafe:    { w: 600, h: 340 },  // door axis (h) matches outdoor; wide sprawling tavern hall
   library: { w: 260, h: 260 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
-  lounge:  { w: 760, h: 270 },  // door axis (h) matches outdoor; wide for stairs + terrace
+  lounge:  { w: 860, h: 420 },  // door axis (h) matches outdoor; one big open séance hall
   hall:    { w: 480, h: 500 },  // door axis (w) matches outdoor; deep great hall
   bank:    { w: 440, h: 600 }   // door axis (w) matches outdoor; door's on the near side (north), so deeper h is safe
 };
@@ -6198,14 +6198,10 @@ function getFloorHeight(roomId, rx, rz) {
     }
     return 0;
   }
-  if (roomId !== 'lounge') return 0;
-  const interior = interiorScenes.lounge;
-  if (!interior) return 0;
-  const stairStart = interior.roomW * LOUNGE_STAIR_START_FRAC;
-  const stairEnd = interior.roomW * LOUNGE_STAIR_END_FRAC;
-  if (rx <= stairStart) return 0;
-  if (rx >= stairEnd) return LOUNGE_PLATFORM_HEIGHT;
-  return LOUNGE_PLATFORM_HEIGHT * (rx - stairStart) / (stairEnd - stairStart);
+  // The Phantom Parlor is now a single flat floor (the two-story stairs +
+  // terrace were removed for one bigger open room), so there's no height
+  // function left — every room but the terrain/temple ones is dead level.
+  return 0;
 }
 
 // ── Wilds terrain (rolling hills) ────────────────────────────────────────────

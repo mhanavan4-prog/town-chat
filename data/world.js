@@ -18,7 +18,7 @@ const WORLD = {
     { id: 'cafe',    name: '☕ The Cafe',          x: 300,  y: 375,  w: 500, h: 340, color: '#d98a4f', door: 'east' },
     { id: 'library', name: '📚 The Library',       x: 2330, y: 375,  w: 400, h: 260, color: '#6f8fae', door: 'west' },
     { id: 'arcade',  name: '🎮 Starlight Arcade',  x: 295,  y: 1530, w: 400, h: 270, color: '#9b5fc0', door: 'east' },
-    { id: 'lounge',  name: '👻 The Phantom Parlor', x: 2335, y: 1530, w: 400, h: 270, color: '#5a8a72', door: 'west' },
+    { id: 'lounge',  name: '👻 The Phantom Parlor', x: 2335, y: 1530, w: 400, h: 420, color: '#5a8a72', door: 'west' },
     { id: 'hall',    name: '🏛️ Town Hall',        x: 1360, y: 110,  w: 480, h: 290, color: '#8a9a5b', door: 'south' },
     // South of spawn, centered like Town Hall is to the north — spawn is
     // north of this one, so its door faces north (a code path that exists
