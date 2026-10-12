@@ -270,6 +270,7 @@ app.use('/api', (req, res, next) => {
 // static middleware so / serves landing.html instead of the game's index.html).
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
@@ -1475,6 +1476,66 @@ app.post('/api/characters', (req, res) => {
     level: (lastRec && lastRec.level) || 1, // back-compat top-level = last-played char's level
     lastCharId,
     characters
+  });
+});
+
+// The /profile page's data — a durable snapshot of an account assembled from
+// the same persisted state the game uses: the character roster + campaign
+// progress, bank gold, achievement count, earned titles, this week's
+// leaderboard ranks, and the coven. Benign player-facing state only; never the
+// audit/security log. Same token auth as /api/characters.
+app.post('/api/profile', (req, res) => {
+  const token = String(req.body.token || '');
+  const key = token ? sessions.get(token) : null;
+  if (!key || !accounts[key]) return res.status(401).json({ error: 'Session expired — log in again.' });
+  const acc = accounts[key];
+  const prog = playerProgress[key] || {};
+  migrateAccountProgress(prog);
+  const chars = prog.characters || {};
+  const characters = Object.keys(chars)
+    .map((cid) => {
+      const charId = parseInt(cid, 10);
+      const story = (prog.story && prog.story[charId]) || null;
+      const line = STORYLINES[charId];
+      return {
+        charId, name: CLASS_NAMES[charId] || 'Drifter',
+        level: chars[cid].level || 1,
+        chapter: story ? story.chapter : 0,
+        totalChapters: line ? line.chapters.length : 0,
+        lastPlayedAt: chars[cid].lastPlayedAt || 0
+      };
+    })
+    .filter((c) => Number.isInteger(c.charId) && c.charId >= 0 && c.charId < CHARACTER_COUNT)
+    .sort((a, b) => b.lastPlayedAt - a.lastPlayedAt);
+  const lastCharId = Number.isInteger(prog.lastCharId) ? prog.lastCharId
+    : (characters[0] ? characters[0].charId : 0);
+
+  const bank = ensureBankAccount(key);
+  // logView is read-only; evaluate() would MUTATE the account (grant trophies),
+  // which a profile read must never do.
+  let ach = { unlocked: 0, total: 0 };
+  try { const v = achievementsMod.logView(acc); ach = { unlocked: v.unlocked, total: v.total }; } catch (e) {}
+  const titles = ((acc.riteTitles) || []).filter(titleExists)
+    .map((id) => ({ id, name: TITLES[id].name, glyph: TITLES[id].glyph }));
+
+  const wk = weekKey(Date.now());
+  const rankings = [['hunt', 'Night Hunt'], ['boss', 'World Bosses'], ['delve', 'The Delve'], ['tourney', 'Tournament']]
+    .map(([id, label]) => { const r = lbRankOf(id, wk, key); return { id, label, rank: r ? r.rank : null, value: r ? r.value : 0 }; });
+
+  let coven = null;
+  try {
+    const cv = covenOf(key);
+    if (cv) coven = {
+      name: cv.name, sigil: cv.sigil, members: (cv.members || []).length,
+      role: ((cv.leaderKey || (cv.members || [])[0]) === key) ? 'Leader' : 'Member',
+      standing: covenGoodStanding(cv) ? 'In good standing' : 'Lapsed'
+    };
+  } catch (e) {}
+
+  res.json({
+    username: acc.username, color: acc.color,
+    lastCharId, gold: bank.balance || 0,
+    achievements: ach, titles, characters, rankings, coven
   });
 });
 

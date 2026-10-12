@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Profile — Thornreach</title>
+<meta name="theme-color" content="#140f2b">
+<link rel="icon" href="/icon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#130c22; --bg1:#0b0716; --bg2:#060410;
+    --ink:#e9ddff; --mut:#a99bc4; --mut2:#8d80a8;
+    --violet:#b98aff; --teal:#7ef0c3; --green:#9ee37d; --gold:#e8d9a8;
+    --card:rgba(16,10,26,0.72); --line:rgba(185,138,255,0.18);
+    --grad:linear-gradient(90deg,#a678f0,#5ee7c0);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--ink); font-family:'Segoe UI',system-ui,Arial,sans-serif; line-height:1.55;
+    background:
+      radial-gradient(1100px 620px at 78% -5%, rgba(146,109,222,0.18), transparent 55%),
+      radial-gradient(820px 520px at 6% 12%, rgba(94,231,192,0.07), transparent 60%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
+    background-attachment:fixed; min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 20px}
+  .wordmark{font-family:'Cinzel Decorative','Cinzel',Georgia,serif;letter-spacing:3px;font-weight:900}
+  .serif{font-family:'Cinzel',Georgia,serif}
+  .grad-text{background:linear-gradient(90deg,#c9a7ff 0%,#8de8c8 55%,#e8d9a8 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .btn{display:inline-block;font-weight:800;letter-spacing:.4px;cursor:pointer;border:none;border-radius:10px;padding:11px 20px;color:#0b0713;background:var(--grad);box-shadow:0 6px 22px rgba(130,90,230,0.32);transition:transform .14s ease}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.ghost{background:rgba(10,6,20,0.5);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  .btn.sm{padding:8px 15px;border-radius:9px;font-size:13px}
+
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(11,7,22,0.86),rgba(11,7,22,0.55));border-bottom:1px solid rgba(185,138,255,0.12)}
+  .nav .wrap{display:flex;align-items:center;gap:14px;height:62px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .sigil{width:28px;height:28px}
+  .brand .name{font-size:18px}
+  .nav .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+
+  /* login gate */
+  #gate{max-width:380px;margin:60px auto;padding:30px 26px;border-radius:18px;text-align:center;
+    background:linear-gradient(160deg,rgba(26,18,40,0.92),rgba(14,10,22,0.92));border:1px solid var(--line);box-shadow:0 10px 50px rgba(0,0,0,0.5)}
+  #gate h1{font-family:'Cinzel',serif;font-weight:600;font-size:22px;margin:0 0 4px}
+  #gate .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tabs button{flex:1;padding:9px;border-radius:9px;border:1px solid var(--line);background:rgba(8,5,16,0.5);color:var(--mut);cursor:pointer;font-weight:700}
+  .tabs button.active{background:var(--grad);color:#0b0713;border-color:transparent}
+  #gate input{width:100%;margin-bottom:10px;padding:11px 13px;border-radius:9px;border:1px solid rgba(185,138,255,0.22);background:rgba(6,3,14,0.6);color:var(--ink);font-size:14px}
+  #gate .btn{width:100%;margin-top:6px}
+  #gateErr{color:#ff9a9a;font-size:13px;min-height:18px;margin-top:10px}
+
+  /* profile */
+  #profile{display:none;padding:28px 0 60px}
+  .phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .pav{width:52px;height:52px;border-radius:50%;flex:0 0 auto;border:2px solid var(--line);background:#1a1030;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;font-family:'Cinzel',serif}
+  .phead h1{margin:0;font-family:'Cinzel',serif;font-weight:600;font-size:26px;letter-spacing:0.5px}
+  .phead .uline{color:var(--mut2);font-size:13px}
+  .phead .sp{margin-left:auto;display:flex;gap:10px}
+  .pquick{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;min-width:96px}
+  .chip .k{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut2)}
+  .chip .v{font-size:19px;font-weight:800;color:#f1e9ff}
+
+  .cols{display:grid;grid-template-columns:400px 1fr;gap:18px}
+  @media(max-width:820px){ .cols{grid-template-columns:1fr} }
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .panel h2{font-family:'Cinzel',serif;font-weight:600;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;color:var(--violet);margin:0 0 14px}
+
+  /* 3D viewer */
+  #viewerWrap{position:relative;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 50% 35%,rgba(140,90,255,0.18),rgba(10,6,20,0.6) 70%);aspect-ratio:1/1;margin-bottom:14px}
+  #viewer{width:100%;height:100%;display:block}
+  #viewerFallback{position:absolute;inset:0;display:none;align-items:flex-end;justify-content:center}
+  #viewerFallback img{height:88%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,0.5))}
+  .vcaption{text-align:center}
+  .vcaption .cn{font-family:'Cinzel',serif;font-size:20px;color:#f1e9ff}
+  .vcaption .cl{color:var(--mut);font-size:13px}
+
+  /* roster */
+  .roster{display:flex;flex-direction:column;gap:8px}
+  .rrow{display:flex;align-items:center;gap:12px;background:rgba(10,6,20,0.5);border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer;transition:border-color .14s ease,transform .14s ease}
+  .rrow:hover{border-color:rgba(185,138,255,0.45);transform:translateY(-1px)}
+  .rrow.active{border-color:#b98aff;background:rgba(140,90,255,0.12)}
+  .rrow .rav{width:44px;height:50px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(140,90,255,0.16),transparent 70%);border-radius:9px;overflow:hidden}
+  .rrow .rav img{width:100%;height:48px;object-fit:contain;object-position:center bottom}
+  .rrow .rname{font-weight:800;color:#f1e9ff}
+  .rrow .rsub{font-size:12px;color:var(--mut)}
+  .rrow .rtag{margin-left:auto;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#0b0713;background:var(--grad);padding:3px 8px;border-radius:20px;font-weight:800}
+
+  /* rankings */
+  .rank{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid rgba(185,138,255,0.1)}
+  .rank:last-child{border-bottom:none}
+  .rank .rb{width:30px;text-align:center;font-size:18px}
+  .rank .rl{flex:1}
+  .rank .rl b{display:block;color:#f1e9ff;font-size:14px}
+  .rank .rl span{color:var(--mut2);font-size:11.5px}
+  .rank .rr{font-family:'Cinzel',serif;font-weight:700;font-size:18px}
+  .rank .rr.un{color:var(--mut2);font-size:13px;font-family:inherit;font-weight:600}
+  .rank .rr .hash{color:var(--mut2);font-size:13px}
+
+  /* coven */
+  .coven{display:flex;align-items:center;gap:14px}
+  .coven .csig{width:48px;height:48px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:26px;background:rgba(140,90,255,0.14);border:1px solid var(--line)}
+  .coven .cname{font-family:'Cinzel',serif;font-size:18px;color:#f1e9ff}
+  .coven .cmeta{color:var(--mut);font-size:12.5px}
+  .empty{color:var(--mut2);font-size:13px;font-style:italic}
+  .titles{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .ttl{background:rgba(140,90,255,0.12);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12.5px;color:#e9ddff}
+  .stack{display:flex;flex-direction:column;gap:18px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="jsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b98aff"/><stop offset="1" stop-color="#7ef0c3"/></linearGradient>
+</defs></svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <svg class="sigil" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="url(#jsg)" stroke-width="4"/>
+        <path d="M50 6 L75.86 85.6 L8.15 36.4 L91.85 36.4 L24.14 85.6 Z" fill="none" stroke="url(#jsg)" stroke-width="4" stroke-linejoin="round"/>
+      </svg>
+      <span class="wordmark name grad-text">THORNREACH</span>
+    </a>
+    <div class="right">
+      <a class="btn ghost sm" href="/play">Enter the Town</a>
+      <button class="btn ghost sm" id="logoutBtn" style="display:none">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- login gate -->
+  <div id="gate">
+    <h1 class="grad-text">Your Grimoire</h1>
+    <div class="sub">Log in to see your characters, standing, and coven.</div>
+    <div class="tabs">
+      <button id="tabLogin" class="active">Log in</button>
+      <button id="tabReg">Create account</button>
+    </div>
+    <input id="guser" type="text" placeholder="Username" autocomplete="username" maxlength="24">
+    <input id="gpass" type="password" placeholder="Password" autocomplete="current-password" maxlength="200">
+    <label id="gageRow" style="display:none;align-items:flex-start;gap:8px;text-align:left;font-size:12px;color:var(--mut);margin:2px 0 10px;cursor:pointer">
+      <input id="gage" type="checkbox" style="width:auto;margin:2px 0 0;flex:0 0 auto"> I confirm I am 18 years of age or older.
+    </label>
+    <button class="btn" id="gsubmit">Log in</button>
+    <div id="gateErr"></div>
+  </div>
+
+  <!-- profile -->
+  <div id="profile">
+    <div class="phead">
+      <div class="pav" id="pAvatar">?</div>
+      <div>
+        <h1 id="pName">—</h1>
+        <div class="uline" id="pUline"></div>
+      </div>
+    </div>
+    <div class="pquick" id="pQuick"></div>
+
+    <div class="cols">
+      <div class="panel">
+        <h2>Your Character</h2>
+        <div id="viewerWrap">
+          <canvas id="viewer"></canvas>
+          <div id="viewerFallback"><img id="viewerImg" alt=""></div>
+        </div>
+        <div class="vcaption"><div class="cn" id="vcName">—</div><div class="cl" id="vcLevel"></div></div>
+        <h2 style="margin-top:18px">Your Characters</h2>
+        <div class="roster" id="roster"></div>
+      </div>
+
+      <div class="stack">
+        <div class="panel">
+          <h2>This Week's Rankings</h2>
+          <div id="rankings"></div>
+        </div>
+        <div class="panel">
+          <h2>Coven</h2>
+          <div id="coven"></div>
+        </div>
+        <div class="panel" id="titlesPanel">
+          <h2>Titles</h2>
+          <div id="titles"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/three.min.js"></script>
+<script src="/GLTFLoader.js"></script>
+<script src="/SkeletonUtils.js"></script>
+<script>
+(function(){
+  "use strict";
+  // ── session (shared with the game via localStorage 'tc_account') ──
+  function getAccount(){ try{ return JSON.parse(localStorage.getItem('tc_account')||'null'); }catch(e){ return null; } }
+  function setAccount(a){ try{ localStorage.setItem('tc_account', JSON.stringify(a)); }catch(e){} }
+  function clearAccount(){ try{ localStorage.removeItem('tc_account'); }catch(e){} }
+
+  var CLASS = ['Witch','Werewolf','Mystic','Knight','Wanderer','Lich'];
+  var PORTRAIT = ['char0.png','char1.png','char2.png?v=2','char3.png','char4.png?v=2','char5.png'];
+  var GLB = ['Mage.glb','Barbarian.glb','Rogue_Hooded.glb','Knight.glb','Rogue.glb','Skeleton_Mage.glb'];
+  var KEEP = {0:['Mage_Hat','Mage_Cape','2H_Staff'],1:['Barbarian_Hat','Barbarian_Cape'],2:['Rogue_Cape'],3:['Knight_Helmet','Knight_Cape','1H_Sword','Badge_Shield'],4:['Rogue_Cape','Knife'],5:[]};
+  var PROP=['Spellbook','Spellbook_open','1H_Wand','2H_Staff','1H_Axe','1H_Axe_Offhand','2H_Axe','Mug','Barbarian_Round_Shield','Knife','Knife_Offhand','1H_Crossbow','2H_Crossbow','Throwable','1H_Sword','1H_Sword_Offhand','2H_Sword','Badge_Shield','Round_Shield','Rectangle_Shield','Spike_Shield'];
+
+  var el = function(id){ return document.getElementById(id); };
+
+  // ── login gate ──
+  var mode='login';
+  function setMode(m){ mode=m;
+    el('tabLogin').classList.toggle('active', m==='login');
+    el('tabReg').classList.toggle('active', m==='register');
+    el('gsubmit').textContent = m==='login' ? 'Log in' : 'Create account';
+    el('gpass').setAttribute('autocomplete', m==='login'?'current-password':'new-password');
+    el('gageRow').style.display = m==='register' ? 'flex' : 'none';
+    el('gateErr').textContent='';
+  }
+  el('tabLogin').onclick=function(){ setMode('login'); };
+  el('tabReg').onclick=function(){ setMode('register'); };
+  el('gsubmit').onclick=submitAuth;
+  el('gpass').addEventListener('keydown', function(e){ if(e.key==='Enter') submitAuth(); });
+
+  function submitAuth(){
+    var u=el('guser').value.trim(), p=el('gpass').value;
+    if(!u||!p){ el('gateErr').textContent='Enter a username and password.'; return; }
+    if(mode==='register' && !el('gage').checked){ el('gateErr').textContent='Please confirm you are 18 or older.'; return; }
+    el('gsubmit').disabled=true; el('gateErr').textContent='';
+    var body = mode==='login' ? {username:u,password:p} : {username:u,password:p,over18:true};
+    fetch('/api/'+(mode==='login'?'login':'register'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+      .then(function(res){
+        el('gsubmit').disabled=false;
+        if(!res.ok){ el('gateErr').textContent=res.j.error||'Something went wrong.'; return; }
+        setAccount({token:res.j.token, username:res.j.username, color:res.j.color});
+        loadProfile();
+      })
+      .catch(function(){ el('gsubmit').disabled=false; el('gateErr').textContent='Network error — try again.'; });
+  }
+
+  el('logoutBtn').onclick=function(){ clearAccount(); stopViewer(); el('profile').style.display='none'; el('logoutBtn').style.display='none'; el('gate').style.display='block'; };
+
+  // ── load + render profile ──
+  function loadProfile(){
+    var a=getAccount();
+    if(!a||!a.token){ el('gate').style.display='block'; el('profile').style.display='none'; return; }
+    fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:a.token})})
+      .then(function(r){ if(r.status===401){ clearAccount(); throw new Error('expired'); } return r.json(); })
+      .then(function(d){ renderProfile(d); })
+      .catch(function(){ el('gate').style.display='block'; el('profile').style.display='none'; });
+  }
+
+  function medal(rank){ return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'•'; }
+
+  function renderProfile(d){
+    el('gate').style.display='none';
+    el('profile').style.display='block';
+    el('logoutBtn').style.display='inline-block';
+
+    el('pName').textContent = d.username;
+    el('pAvatar').textContent = (d.username||'?').charAt(0).toUpperCase();
+    if(d.color){ var c = (typeof d.color==='number') ? '#'+d.color.toString(16).padStart(6,'0') : d.color; el('pAvatar').style.borderColor=c; }
+    var nChars = (d.characters||[]).length;
+    el('pUline').textContent = nChars+' character'+(nChars===1?'':'s')+(d.coven?(' · '+d.coven.name):'');
+
+    // quick stats
+    var gq=[['Gold', (d.gold||0).toLocaleString()],['Characters', nChars],['Achievements', (d.achievements?d.achievements.unlocked:0)+' / '+(d.achievements?d.achievements.total:0)],['Titles', (d.titles||[]).length]];
+    el('pQuick').innerHTML = gq.map(function(x){ return '<div class="chip"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>'; }).join('');
+
+    // roster
+    var roster = el('roster'); roster.innerHTML='';
+    var chars = d.characters||[];
+    if(!chars.length){ roster.innerHTML='<div class="empty">No characters yet — enter the town to begin.</div>'; }
+    chars.forEach(function(c){
+      var row=document.createElement('div'); row.className='rrow'; row.dataset.char=c.charId;
+      var chap = c.totalChapters ? ('Ch. '+Math.min(c.chapter,c.totalChapters)+' / '+c.totalChapters) : '';
+      row.innerHTML='<span class="rav"><img src="/charselect/'+PORTRAIT[c.charId]+'" alt=""></span>'+
+        '<span><span class="rname">'+c.name+'</span><br><span class="rsub">Level '+c.level+(chap?(' · '+chap):'')+'</span></span>'+
+        (c.charId===d.lastCharId?'<span class="rtag">Last played</span>':'');
+      row.onclick=function(){ selectChar(c.charId, c.level); };
+      roster.appendChild(row);
+    });
+
+    // rankings
+    el('rankings').innerHTML = (d.rankings||[]).map(function(r){
+      var right = r.rank ? ('<span class="rr">'+medal(r.rank)+' <span class="hash">#</span>'+r.rank+'</span>') : '<span class="rr un">Unranked</span>';
+      return '<div class="rank"><div class="rb">'+boardIcon(r.id)+'</div><div class="rl"><b>'+r.label+'</b><span>'+(r.rank?('score '+r.value.toLocaleString()):'no score this week')+'</span></div>'+right+'</div>';
+    }).join('');
+
+    // coven
+    if(d.coven){
+      el('coven').innerHTML='<div class="coven"><div class="csig">'+(d.coven.sigil||'🌑')+'</div><div><div class="cname">'+d.coven.name+'</div><div class="cmeta">'+d.coven.role+' · '+d.coven.members+' member'+(d.coven.members===1?'':'s')+' · '+d.coven.standing+'</div></div></div>';
+    } else {
+      el('coven').innerHTML='<div class="empty">Not in a coven yet. Find the Hagstone in town to found or join one.</div>';
+    }
+
+    // titles
+    var titles=d.titles||[];
+    el('titlesPanel').style.display = titles.length? 'block':'none';
+    el('titles').innerHTML = '<div class="titles">'+titles.map(function(t){ return '<span class="ttl">'+(t.glyph||'')+' '+t.name+'</span>'; }).join('')+'</div>';
+
+    // 3D viewer — start on last-played character
+    var startId = Number.isInteger(d.lastCharId) ? d.lastCharId : (chars[0]?chars[0].charId:0);
+    var startLevel = (chars.find(function(c){return c.charId===startId;})||{}).level || 1;
+    selectChar(startId, startLevel);
+  }
+
+  function boardIcon(id){ return id==='hunt'?'🌙':id==='boss'?'💀':id==='delve'?'⛏️':id==='tourney'?'⚔️':'•'; }
+
+  // ── live 3D character viewer ──
+  var renderer, scene, camera, curGroup, rafId, mixer, clock;
+  function initViewer(){
+    if(renderer) return true;
+    var canvas=el('viewer');
+    if(typeof THREE==='undefined' || !THREE.WebGLRenderer) return false;
+    try{ renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true,antialias:true}); }catch(e){ return false; }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+    if(THREE.sRGBEncoding!==undefined) renderer.outputEncoding=THREE.sRGBEncoding;
+    scene=new THREE.Scene();
+    camera=new THREE.PerspectiveCamera(32,1,1,4000);
+    scene.add(new THREE.AmbientLight(0xb9b2d6,0.95));
+    var key=new THREE.DirectionalLight(0xffffff,1.05); key.position.set(60,120,90); scene.add(key);
+    var fill=new THREE.DirectionalLight(0x9a7bff,0.5); fill.position.set(-80,40,-40); scene.add(fill);
+    var rim=new THREE.DirectionalLight(0x6fe0c0,0.4); rim.position.set(-20,60,-120); scene.add(rim);
+    clock=new THREE.Clock();
+    return true;
+  }
+  function sizeViewer(){
+    if(!renderer) return;
+    var w=el('viewerWrap').clientWidth, h=el('viewerWrap').clientHeight;
+    if(w&&h){ renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  }
+  function stopViewer(){ if(rafId) cancelAnimationFrame(rafId); rafId=null; }
+
+  var loader = (typeof THREE!=='undefined' && THREE.GLTFLoader) ? new THREE.GLTFLoader() : null;
+  function selectChar(charId, level){
+    // roster highlight + caption
+    Array.prototype.forEach.call(document.querySelectorAll('.rrow'), function(r){ r.classList.toggle('active', +r.dataset.char===charId); });
+    el('vcName').textContent = CLASS[charId]||'Drifter';
+    el('vcLevel').textContent = level?('Level '+level):'';
+    showFallback(charId); // show portrait immediately; 3D replaces it when ready
+
+    if(!initViewer() || !loader){ return; } // no WebGL → keep portrait
+    sizeViewer();
+    loader.load('/kk/'+GLB[charId], function(gltf){
+      buildCharacter(gltf, charId);
+      el('viewerFallback').style.display='none';
+      el('viewer').style.display='block';
+    }, undefined, function(){ /* load failed → keep portrait */ });
+  }
+
+  function showFallback(charId){
+    el('viewer').style.display='none';
+    var fb=el('viewerFallback'); fb.style.display='flex';
+    el('viewerImg').src='/charselect/'+PORTRAIT[charId];
+  }
+
+  function buildCharacter(gltf, charId){
+    if(curGroup){ scene.remove(curGroup); curGroup=null; }
+    if(mixer){ mixer.stopAllAction(); mixer=null; }
+    var box0=new THREE.Box3().setFromObject(gltf.scene); var sizeY=box0.max.y-box0.min.y;
+    var inst=THREE.SkeletonUtils.clone(gltf.scene);
+    inst.scale.setScalar(68/sizeY);
+    var keep=KEEP[charId]||[];
+    inst.traverse(function(o){
+      if(!o.isMesh&&!o.isSkinnedMesh) return;
+      o.frustumCulled=false;
+      if(o.material){ o.material = Array.isArray(o.material)?o.material.map(function(m){return m.clone();}):o.material.clone(); }
+      if(PROP.indexOf(o.name)>=0) o.visible = keep.indexOf(o.name)>=0;
+      if(o.name==='Mage_Hat'){ o.scale.multiplyScalar(0.8); o.position.y-=0.03; }
+    });
+    var group=new THREE.Group(); group.add(inst); scene.add(group); curGroup=group;
+
+    // idle: own clip, or borrow the Mage's filtered clip for the skeleton body
+    var idle=(gltf.animations||[]).find(function(a){return /idle/i.test(a.name);})||(gltf.animations||[])[0];
+    function play(clip){ if(!clip) return; mixer=new THREE.AnimationMixer(inst); mixer.clipAction(clip).play(); }
+    if(idle){ play(idle); }
+    else {
+      loader.load('/kk/Mage.glb', function(donor){
+        var d=(donor.animations||[]).find(function(a){return /idle/i.test(a.name);})||(donor.animations||[])[0];
+        if(d){ var memo={}; var ok=function(n){ if(memo[n]===undefined){ try{var b=THREE.PropertyBinding.create(inst,n);b.bind();memo[n]=!!b.node&&b.node!==inst;}catch(e){memo[n]=false;} } return memo[n]; };
+          play(new THREE.AnimationClip(d.name,d.duration,d.tracks.filter(function(t){return ok(t.name);}))); }
+      });
+    }
+    if(charId===5){ loader.load('/kk/Skeleton_Staff.glb', function(st){ var hand=inst.getObjectByName('handslotr'); if(hand) hand.add(THREE.SkeletonUtils.clone(st.scene)); }); }
+
+    // frame
+    group.updateMatrixWorld(true);
+    var box=new THREE.Box3().setFromObject(group); var c=box.getCenter(new THREE.Vector3()); var h=box.max.y-box.min.y;
+    group.userData.center=c; group.userData.h=h;
+    var dist=h*1.9;
+    camera.position.set(c.x, c.y+h*0.08, c.z+dist);
+    camera.lookAt(c.x, c.y+h*0.02, c.z);
+    group.userData.pivot=c;
+
+    stopViewer(); animate();
+  }
+
+  function animate(){
+    rafId=requestAnimationFrame(animate);
+    if(mixer&&clock) mixer.update(clock.getDelta());
+    if(curGroup){ var c=curGroup.userData.pivot; // spin slowly about the figure's vertical axis
+      curGroup.rotation.y += 0.008;
+    }
+    if(renderer&&scene&&camera) renderer.render(scene,camera);
+  }
+  window.addEventListener('resize', sizeViewer);
+
+  // ── boot ──
+  setMode('login');
+  loadProfile();
+})();
+</script>
+</body>
+</html>
