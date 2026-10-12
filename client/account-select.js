@@ -101,8 +101,6 @@ function updateCharPickerVisibility() {
   if (newCharBtn) newCharBtn.textContent = newCharMode ? '← Back to your characters' : '＋ New character';
 }
 
-function charCssColor(n) { return '#' + n.toString(16).padStart(6, '0'); }
-
 function renderCharRoster() {
   if (!charRosterListEl) return;
   charRosterListEl.innerHTML = '';
@@ -115,12 +113,13 @@ function renderCharRoster() {
     card.className = 'rosterCard' + (c.charId === selectedCharId ? ' selected' : '');
     const av = document.createElement('span');
     av.className = 'rosterAvatar';
-    for (const [cls, color] of [['charHair', preset.hair], ['charHead', preset.skin], ['charBody', preset.shirt]]) {
-      const s = document.createElement('span');
-      s.className = cls;
-      s.style.background = charCssColor(color);
-      av.appendChild(s);
-    }
+    const avImg = document.createElement('img');
+    avImg.className = 'rosterImg';
+    avImg.src = 'charselect/char' + c.charId + '.png';
+    avImg.alt = preset.name;
+    avImg.loading = 'lazy';
+    avImg.decoding = 'async';
+    av.appendChild(avImg);
     const info = document.createElement('span');
     info.className = 'rosterInfo';
     const nm = document.createElement('span');
