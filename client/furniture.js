@@ -1130,6 +1130,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     })();
 
     if (kiosksOut) {
+      // The séance circle is the coven Rite altar — stand on it to light your
+      // candle during the "Light the Watch" phase (handled server-side).
+      kiosksOut.push({ x: hallCx, z: hallCz, npc: 'rite_altar', npcName: 'the séance altar', radius: 120 });
+
       // The two NPCs flank the west doorway (keeping the door gap itself clear).
       const tailorX = roomW * 0.10, tailorZ = roomD * 0.30;
       const tailor = createHumanoid(2).group;
