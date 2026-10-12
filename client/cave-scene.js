@@ -15,6 +15,20 @@ function buildCaveScene() {
   setCaveScene(scene);
   setCaveCamera(camera);
 
+  // Soft radial glow sprite texture — reused for the exit threshold and the
+  // aura around Hazel. Built once per scene.
+  function caveGlow() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.3, 'rgba(255,255,255,0.7)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+  const GLOW = caveGlow();
+
   // Bright purple ambient so stone surfaces are actually visible
   scene.add(new THREE.AmbientLight(0xaa55dd, 2.5));
   // Soft fill from above so the witch/player aren't silhouettes
@@ -56,11 +70,58 @@ function buildCaveScene() {
     scene.add(crystal);
   }
 
-  // Witch NPC (charId 0) sitting at the back
+  // Witch Hazel — Queen of the Fifth Hand. She shares the Witch body, but she
+  // is staged as a power in her own right: larger, robed a deeper grave-violet,
+  // standing in a living summoning circle with wisps orbiting her and a halo of
+  // her own light. (Prototyped headlessly; see the cave preview renders.)
+  const hazelRoot = new THREE.Group();
+  hazelRoot.position.set(400, 0, 160);
+  hazelRoot.rotation.y = Math.PI;
   const witchMesh = createHumanoid(0).group;
-  witchMesh.position.set(400, 0, 160);
-  witchMesh.rotation.y = Math.PI;
-  scene.add(witchMesh);
+  witchMesh.scale.setScalar(1.25); // imposing — taller than any player
+  // Deepen her robes to a darker witch-violet so she doesn't read as just
+  // another player Witch. SkeletonUtils already forked her materials per
+  // instance, so this tints only her.
+  witchMesh.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    mats.forEach((m) => {
+      if (m.color) m.color.lerp(new THREE.Color(0x2a0b47), 0.45);
+      if (m.emissive) { m.emissive = new THREE.Color(0x3a0e66); m.emissiveIntensity = 0.3; }
+    });
+  });
+  hazelRoot.add(witchMesh);
+
+  // ── her aura ──
+  const runeRing = new THREE.Mesh(new THREE.RingGeometry(40, 54, 44),
+    new THREE.MeshBasicMaterial({ color: 0x8f5bff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  runeRing.rotation.x = -Math.PI / 2; runeRing.position.y = 1.5; hazelRoot.add(runeRing);
+  const runeRing2 = new THREE.Mesh(new THREE.RingGeometry(24, 28, 40),
+    new THREE.MeshBasicMaterial({ color: 0x6fe0c0, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  runeRing2.rotation.x = -Math.PI / 2; runeRing2.position.y = 1.6; hazelRoot.add(runeRing2);
+  const auraGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x9a5bff, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending }));
+  auraGlow.scale.set(150, 175, 1); auraGlow.position.set(0, 80, -6); hazelRoot.add(auraGlow);
+  const wisps = [];
+  for (let i = 0; i < 7; i++) {
+    const w = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: i % 2 ? 0x7be3a3 : 0xb98aff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+    w.scale.set(8, 8, 1); w.userData.base = 34 + i * 12; w.userData.ang = (i / 7) * Math.PI * 2; w.userData.r = 44;
+    hazelRoot.add(w); wisps.push(w);
+  }
+  const hazelLight = new THREE.PointLight(0xb98aff, 1.6, 360);
+  hazelLight.position.set(0, 140, 90); hazelRoot.add(hazelLight);
+  // Breathe the circle + orbit the wisps so she feels alive, not a statue.
+  runeRing.onBeforeRender = () => {
+    const t = performance.now();
+    runeRing.rotation.z = t * 0.00018;
+    runeRing2.rotation.z = -t * 0.00026;
+    runeRing.material.opacity = 0.42 + 0.14 * Math.sin(t * 0.0012);
+    auraGlow.material.opacity = 0.26 + 0.1 * Math.sin(t * 0.0016 + 1.1);
+    for (let i = 0; i < wisps.length; i++) {
+      const w = wisps[i]; const a = w.userData.ang + t * 0.0004 * (i % 2 ? 1 : -1);
+      w.position.set(Math.cos(a) * w.userData.r, w.userData.base + 6 * Math.sin(t * 0.002 + i), Math.sin(a) * w.userData.r);
+    }
+  };
+  scene.add(hazelRoot);
 
   // Cauldron
   const cauldron = new THREE.Group();
@@ -290,19 +351,41 @@ function buildCaveScene() {
 
   // Sign above witch
   const witchSign = makeNpcNameSprite('Witch Hazel', 'Queen of the Fifth Hand');
-  witchSign.position.set(400, 118, 140);
+  witchSign.position.set(400, 150, 140);
   scene.add(witchSign);
 
-  // Exit arch near south end of cave
-  const exitMat = new THREE.MeshLambertMaterial({ color: 0x2a104a });
-  const exitArch = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 30), exitMat);
-  exitArch.position.set(400, 40, 650);
+  // Exit — a hewn-stone archway framing a moonlit threshold back to the surface,
+  // in place of the old flat slab. Two rough pillars, a rounded lintel, and an
+  // additive pale-blue veil with a breathing core + a pool of light at the foot.
+  const exitArch = new THREE.Group();
+  exitArch.position.set(400, 0, 650);
+  const exitStone = new THREE.MeshLambertMaterial({ color: 0x2a2238, emissive: 0x140e22, emissiveIntensity: 0.4 });
+  const exitLump = (r, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), exitStone);
+    m.position.set(x, y, z); m.rotation.set(x * 0.3, y * 0.2, z * 0.4);
+    m.scale.set(1.1, 1.0, 1.2); exitArch.add(m); return m;
+  };
+  for (const side of [-1, 1]) for (let i = 0; i < 4; i++) exitLump(16 + (i % 2) * 2.5, side * 46, 14 + i * 26, 0);
+  const lintel = new THREE.Mesh(new THREE.TorusGeometry(46, 15, 8, 16, Math.PI), exitStone);
+  lintel.position.set(0, 110, 0); exitArch.add(lintel);
+  const veil = new THREE.Mesh(new THREE.PlaneGeometry(74, 118),
+    new THREE.MeshBasicMaterial({ map: GLOW, color: 0x9fc4ef, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  veil.position.set(0, 58, 0); exitArch.add(veil);
+  const veilCore = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x9ec0ec, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending }));
+  veilCore.scale.set(50, 72, 1); veilCore.position.set(0, 58, 2); exitArch.add(veilCore);
+  const veilPool = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x7fb0e0, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+  veilPool.scale.set(110, 40, 1); veilPool.position.set(0, 6, 30); exitArch.add(veilPool);
+  veil.onBeforeRender = () => {
+    const t = performance.now();
+    veilCore.material.opacity = 0.24 + 0.1 * Math.sin(t * 0.0014);
+    veil.material.opacity = 0.22 + 0.08 * Math.sin(t * 0.0011 + 0.7);
+  };
   scene.add(exitArch);
-  const exitGlow = new THREE.PointLight(0x4488ff, 1.4, 180);
-  exitGlow.position.set(400, 40, 630);
+  const exitGlow = new THREE.PointLight(0x7fb0ff, 1.2, 220);
+  exitGlow.position.set(400, 55, 620);
   scene.add(exitGlow);
   const exitSign = makeSignSprite('🌫️ Exit Cave — Press F to leave');
-  exitSign.position.set(400, 110, 650);
+  exitSign.position.set(400, 150, 650);
   scene.add(exitSign);
 
 }
