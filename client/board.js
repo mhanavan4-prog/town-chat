@@ -59,10 +59,18 @@ function renderBoardModal() {
   if (getBoardState().honors && getBoardState().honors.length) {
     honorsWrap.classList.remove('hidden');
     honorsList.innerHTML = '';
+    const BOARD_LABEL = { hunt: 'Hunts', boss: 'Bosses', delve: 'Delve', tourney: 'Tournament' };
+    const curWk = parseInt(String(getBoardState().week || '').replace(/^w/, ''), 10);
+    const whenLabel = (wkStr) => {
+      const n = parseInt(String(wkStr || '').replace(/^w/, ''), 10);
+      if (!Number.isFinite(curWk) || !Number.isFinite(n)) return Number.isFinite(n) ? `week ${n}` : wkStr;
+      const d = curWk - n;
+      return d <= 0 ? 'this week' : d === 1 ? 'last week' : `${d} weeks ago`;
+    };
     for (const h of getBoardState().honors.slice().reverse()) {
       const row = document.createElement('div');
       row.className = 'slRow';
-      row.textContent = `${h.place === 1 ? '🥇' : h.place === 2 ? '🥈' : '🥉'} ${h.board} board — ${h.week}`;
+      row.textContent = `${h.place === 1 ? '🥇' : h.place === 2 ? '🥈' : '🥉'} ${BOARD_LABEL[h.board] || h.board} — ${whenLabel(h.week)}`;
       honorsList.appendChild(row);
     }
   } else {

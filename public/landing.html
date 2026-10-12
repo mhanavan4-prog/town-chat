@@ -138,6 +138,20 @@
   @media(max-width:860px){ .features{grid-template-columns:repeat(2,1fr)} }
   @media(max-width:560px){ .features{grid-template-columns:1fr} }
 
+  /* activity rails */
+  .rails{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media(max-width:700px){ .rails{grid-template-columns:1fr} }
+  .rail{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px}
+  .rail h3{margin:0 0 12px; font-family:'Cinzel',serif; font-size:16px; letter-spacing:0.5px; color:#f1e9ff}
+  .railItems{display:flex; flex-direction:column; gap:6px}
+  .railItem{display:flex; align-items:center; gap:11px; padding:8px 10px; border-radius:10px; color:var(--ink); transition:background .14s ease}
+  .railItem:hover{background:rgba(140,90,255,0.12)}
+  .railItem .ic{width:36px; height:36px; flex:0 0 auto; border-radius:9px; display:flex; align-items:flex-end; justify-content:center; background:rgba(140,90,255,0.14); font-size:20px; overflow:hidden}
+  .railItem .ic img{width:100%; height:36px; object-fit:contain; object-position:center bottom}
+  .railItem .nm{font-weight:700; color:#f1e9ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .railItem .sub{color:var(--mut); font-size:12px}
+  .railItem .when{margin-left:auto; flex:0 0 auto; color:var(--mut2); font-size:11.5px}
+
   /* account / play band */
   .band{
     position:relative; text-align:center; border-radius:22px; padding:52px 24px;
@@ -177,6 +191,7 @@
       <a class="link" href="#classes">Classes</a>
       <a class="link" href="/leaderboards">Leaderboards</a>
       <a class="link" href="/covens">Covens</a>
+      <div id="siteSearch"></div>
       <div class="cta">
         <a class="btn ghost" href="/profile">Log in</a>
         <a class="btn" href="/play">Play free</a>
@@ -245,6 +260,19 @@
   </div>
 </section>
 
+<section id="activity" hidden>
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Happening now</div>
+      <h2>The town stirs</h2>
+    </div>
+    <div class="rails">
+      <div class="rail" id="railCovens" hidden><h3>Newest covens</h3><div class="railItems" id="newCovens"></div></div>
+      <div class="rail" id="railPlayers" hidden><h3>Recently active</h3><div class="railItems" id="activePlayers"></div></div>
+    </div>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <div class="band">
@@ -299,6 +327,34 @@
       el.hidden=false;
     }).catch(function(){});
   })();
+
+  // Discovery rails — newest covens + recently active players.
+  (function(){
+    var CLASS=['Witch','Werewolf','Mystic','Knight','Wanderer','Lich'];
+    var PORT=['char0.png','char1.png','char2.png?v=2','char3.png','char4.png?v=2','char5.png'];
+    function esc(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); }
+    function ago(ts){ if(!ts) return ''; var s=(Date.now()-ts)/1000; if(s<90) return 'just now'; var m=s/60; if(m<60) return Math.round(m)+'m ago'; var h=m/60; if(h<24) return Math.round(h)+'h ago'; var d=h/24; return Math.round(d)+'d ago'; }
+    fetch('/api/activity').then(function(r){ return r.json(); }).then(function(d){
+      var any=false;
+      var nc=d.newCovens||[];
+      if(nc.length){ any=true; document.getElementById('railCovens').hidden=false;
+        document.getElementById('newCovens').innerHTML=nc.map(function(c){
+          return '<a class="railItem" href="/c/'+encodeURIComponent(c.id)+'"><span class="ic">'+(c.sigil||'🌑')+'</span>'+
+            '<span><span class="nm">'+esc(c.name)+'</span><br><span class="sub">'+c.members+' member'+(c.members===1?'':'s')+(c.crowns?(' · 👑 '+c.crowns):'')+'</span></span></a>';
+        }).join('');
+      }
+      var ap=d.activePlayers||[];
+      if(ap.length){ any=true; document.getElementById('railPlayers').hidden=false;
+        document.getElementById('activePlayers').innerHTML=ap.map(function(p){
+          return '<a class="railItem" href="/u/'+encodeURIComponent(p.name)+'"><span class="ic"><img src="charselect/'+PORT[p.charId]+'" alt=""></span>'+
+            '<span><span class="nm">'+esc(p.name)+'</span><br><span class="sub">the '+CLASS[p.charId]+' · Lv '+p.level+'</span></span>'+
+            '<span class="when">'+ago(p.lastPlayedAt)+'</span></a>';
+        }).join('');
+      }
+      if(any) document.getElementById('activity').hidden=false;
+    }).catch(function(){});
+  })();
 </script>
+<script src="/site-search.js" defer></script>
 </body>
 </html>
