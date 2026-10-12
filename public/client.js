@@ -10283,52 +10283,9 @@ function makeWindowGlow(x, y, z, rotY, color) {
 // interaction (findNearestSeat()) only ever checks render-space x/z, not
 // height, and isn't worth teaching about a second floor for purely
 // decorative furniture.
-function addElevatedTable(scene, tx, tz, baseY) {
-  const table = makeTable(tx, tz);
-  table.position.y += baseY;
-  scene.add(table);
-  const benchA = makeBench(tx, tz - 18, 0); benchA.position.y += baseY; scene.add(benchA);
-  const benchB = makeBench(tx, tz + 18, 0); benchB.position.y += baseY; scene.add(benchB);
-}
-
-// The Rooftop Lounge's structural staircase + upstairs terrace: a row of
-// rising steps from the ground floor up to a platform at
-// LOUNGE_PLATFORM_HEIGHT, plus a couple of glowing "view" windows along the
-// outer wall up there. No railing mesh — there's no collision physics in
-// this engine, so a solid-looking railing you can walk straight through is
-// worse than no railing at all. getFloorHeight() mirrors this same
-// stairStart/stairEnd math to move the player's render Y.
-function buildLoungeStructure(scene, roomW, roomD) {
-  const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
-  const stairEnd = roomW * LOUNGE_STAIR_END_FRAC;
-  const platformH = LOUNGE_PLATFORM_HEIGHT;
-
-  const stepCount = 6;
-  const stepWidth = (stairEnd - stairStart) / stepCount;
-  // Mossy stone for the Phantom Parlor (was warm wood in Lounge days)
-  const stepMat = new THREE.MeshLambertMaterial({ color: 0x25443a });
-  for (let i = 0; i < stepCount; i++) {
-    const stepH = platformH * (i + 1) / stepCount;
-    const stepX = stairStart + stepWidth * (i + 0.5);
-    const step = new THREE.Mesh(new THREE.BoxGeometry(stepWidth + 0.5, stepH, roomD * 0.86), stepMat);
-    step.position.set(stepX, stepH / 2, roomD / 2);
-    scene.add(step);
-  }
-
-  const platform = new THREE.Mesh(
-    new THREE.BoxGeometry(roomW - stairEnd, 8, roomD),
-    new THREE.MeshLambertMaterial({ color: 0x2e5346 })
-  );
-  platform.position.set((stairEnd + roomW) / 2, platformH - 4, roomD / 2);
-  scene.add(platform);
-
-  // Ghostlight seeps in through the watch windows
-  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.25, -Math.PI / 2, 0xa8ffd0));
-  scene.add(makeWindowGlow(roomW - 6, platformH + 40, roomD * 0.75, -Math.PI / 2, 0xa8ffd0));
-  const lookoutSign = makeSignSprite("🌙 Widow's Watch");
-  lookoutSign.position.set((stairEnd + roomW) / 2, platformH + 60, roomD * 0.5);
-  scene.add(lookoutSign);
-}
+// (The Phantom Parlor's old two-story staircase + Widow's Watch terrace were
+// removed in favor of a single large open floor, so buildLoungeStructure and
+// addElevatedTable are gone with them.)
 
 // A dining set = one table + two benches + four registered seats (render-
 // space coords), used for the sit-down interaction.
@@ -10918,11 +10875,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // occult clutter, relics under glass), haunted-house symbol set: a
     // portrait gallery of the departed, drifting spirit wisps (see the
     // 'wisp' lightsStyle in getInteriorScene), witchfire in the hearth.
-    // The two-story STRUCTURE is untouched: ground floor west, staircase,
-    // terrace east — every dining seat and both NPCs keep their exact
-    // positions and kiosk ids.
-    const stairStart = roomW * LOUNGE_STAIR_START_FRAC;
-    const groundCx = stairStart / 2;
+    // One open séance hall now — the old two-story stairs + Widow's Watch
+    // terrace were removed for a single, larger flat floor (the room footprint
+    // itself was deepened to match). Both NPCs keep their exact kiosk ids.
+    // Anchors for the flat layout below.
+    const hallCx = roomW * 0.5, hallCz = roomD * 0.5;
 
     // A haunted portrait — the tarot-card technique grown up: ornate
     // silver-green frame, a pale hooded spirit painted inside, a memorial
@@ -10978,8 +10935,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // Ghost-green display pedestal shorthand
     const PARLOR_PED = { stone: 0x24463a, cap: 0x2e5a48, dome: 0xbfffe0, light: 0x5fe8a0 };
 
-    // Séance rug + circle where the old parlor rug lay
-    scene.add(makeRug(groundCx, roomD * 0.42, stairStart * 0.5, roomD * 0.4, 0x14332a));
+    // Séance circle: the centerpiece, dead center of the open hall
+    scene.add(makeRug(hallCx, hallCz, roomD * 0.5, roomD * 0.5, 0x14332a));
     (function() {
       const rc = document.createElement('canvas'); rc.width = 256; rc.height = 256;
       const rx = rc.getContext('2d');
@@ -11013,11 +10970,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       rx.beginPath(); rx.arc(128, 126, 7, 0, Math.PI * 2); rx.stroke();
       const tex = new THREE.CanvasTexture(rc);
       const ring = new THREE.Mesh(
-        new THREE.PlaneGeometry(230, 230),
+        new THREE.PlaneGeometry(roomD * 0.5, roomD * 0.5),
         new THREE.MeshLambertMaterial({ map: tex, transparent: true, opacity: 0.9 })
       );
       ring.rotation.x = -Math.PI / 2;
-      ring.position.set(groundCx, 1.2, roomD * 0.42);
+      ring.position.set(hallCx, 1.2, hallCz);
       scene.add(ring);
     })();
 
@@ -11036,44 +10993,37 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       }
       const glow = new THREE.PointLight(0x3fe88a, 1.2, 260);
       glow.position.set(0, 24, 12); g.add(glow);
-      g.position.set(groundCx, 0, 14); g.rotation.y = Math.PI;
+      g.position.set(roomW * 0.5, 0, 14); g.rotation.y = Math.PI;
       scene.add(g);
     })();
 
-    scene.add(makeBench(groundCx - 40, roomD * 0.7, Math.PI / 2));
-    scene.add(makeBench(groundCx + 40, roomD * 0.7, -Math.PI / 2));
-    scene.add(makeTable(groundCx, roomD * 0.7));
     scene.add(makeBanner(30, 90, 8, 0, 0x54e8a8));
-    scene.add(makeBanner(stairStart - 30, 90, 8, 0, 0x54e8a8));
+    scene.add(makeBanner(roomW - 30, 90, 8, 0, 0x54e8a8));
 
-    // 4 more dining tables downstairs, arranged in a neat 2x2 grid in the
-    // rest of the ground floor.
-    const groundColX = [stairStart * 0.28, stairStart * 0.78];
-    const groundRowZ = [roomD * 0.22, roomD * 0.82];
-    for (const z of groundRowZ) {
-      for (const x of groundColX) {
-        addDiningSet(scene, seatsOut, x, z);
-      }
-    }
+    // Dining sets spread around the open floor, kept clear of the séance
+    // circle in the middle and the doorway on the west wall.
+    const diningSpots = [
+      [roomW * 0.14, roomD * 0.20], [roomW * 0.14, roomD * 0.80],
+      [roomW * 0.40, roomD * 0.84], [roomW * 0.60, roomD * 0.84],
+      [roomW * 0.86, roomD * 0.20], [roomW * 0.86, roomD * 0.80],
+      [roomW * 0.40, roomD * 0.16], [roomW * 0.60, roomD * 0.16]
+    ];
+    for (const [x, z] of diningSpots) addDiningSet(scene, seatsOut, x, z);
 
-    buildLoungeStructure(scene, roomW, roomD);
-
-    // 3 tables up on the terrace, evenly spaced, overlooking the railing
-    const stairEnd = roomW * LOUNGE_STAIR_END_FRAC;
-    const platformWidth = roomW - stairEnd;
-    const terraceXs = [stairEnd + platformWidth * 0.22, stairEnd + platformWidth * 0.52, stairEnd + platformWidth * 0.82];
-    for (const x of terraceXs) {
-      addElevatedTable(scene, x, roomD * 0.5, LOUNGE_PLATFORM_HEIGHT);
-    }
+    // The "Widow's Watch" name lives on as a wall sign on the east end,
+    // where the old upstairs terrace used to be.
+    const watchSign = makeSignSprite("🌙 Widow's Watch");
+    watchSign.position.set(roomW - 12, 112, roomD * 0.5);
+    scene.add(watchSign);
 
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
-      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: 120, z: 4, rotY: 0 },
-      { name: 'THE GREY EARL', epitaph: 'never left', x: 300, z: 4, rotY: 0 },
-      { name: 'SISTER OPALINE', epitaph: 'still humming', x: 480, z: 4, rotY: 0 },
-      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: 120, z: roomD - 4, rotY: Math.PI },
-      { name: 'THE TWINS', epitaph: 'they watch the stairs', x: 300, z: roomD - 4, rotY: Math.PI },
-      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: 480, z: roomD - 4, rotY: Math.PI }
+      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: 4, rotY: 0 },
+      { name: 'THE GREY EARL', epitaph: 'never left', x: roomW * 0.5, z: 4, rotY: 0 },
+      { name: 'SISTER OPALINE', epitaph: 'still humming', x: roomW * 0.78, z: 4, rotY: 0 },
+      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: roomW * 0.22, z: roomD - 4, rotY: Math.PI },
+      { name: 'THE TWINS', epitaph: 'they keep the watch', x: roomW * 0.5, z: roomD - 4, rotY: Math.PI },
+      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: roomW * 0.78, z: roomD - 4, rotY: Math.PI }
     ];
     PORTRAITS.forEach(({ name, epitaph, x, z, rotY }, i) => {
       const p = makeHauntedPortrait(name, epitaph, i + 1);
@@ -11081,23 +11031,23 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       p.rotation.y = rotY;
       scene.add(p);
     });
-    // Two more watch over the terrace from the east wall
+    // Two more watch from the east wall
     [
-      { name: 'THE WIDOW', epitaph: 'she keeps the watch', z: 200 },
-      { name: 'CAPTAIN VANE', epitaph: 'lost at moonrise', z: 300 }
+      { name: 'THE WIDOW', epitaph: 'she keeps the watch', z: roomD * 0.34 },
+      { name: 'CAPTAIN VANE', epitaph: 'lost at moonrise', z: roomD * 0.66 }
     ].forEach(({ name, epitaph, z }, i) => {
       const p = makeHauntedPortrait(name, epitaph, i + 7);
-      p.position.set(roomW - 4, LOUNGE_PLATFORM_HEIGHT + 70, z);
+      p.position.set(roomW - 4, 92, z);
       p.rotation.y = -Math.PI / 2;
       scene.add(p);
     });
 
     // Free-floating glyphs between the portraits, ghost-green
     [
-      ['☾', 210, 125, 6, 0], ['🕯️', 390, 60, 6, 0],
-      ['✧', 210, 128, roomD - 6, Math.PI], ['👻', 390, 128, roomD - 6, Math.PI],
-      ['✦', 6, 120, 120, Math.PI / 2], ['☽', 6, 120, 366, Math.PI / 2],
-      ['✶', 730, 125, roomD - 6, Math.PI], ['🕯️', roomW - 6, LOUNGE_PLATFORM_HEIGHT + 74, 245, -Math.PI / 2]
+      ['☾', roomW * 0.36, 125, 6, 0], ['🕯️', roomW * 0.64, 60, 6, 0],
+      ['✧', roomW * 0.36, 128, roomD - 6, Math.PI], ['👻', roomW * 0.64, 128, roomD - 6, Math.PI],
+      ['✦', 6, 120, roomD * 0.3, Math.PI / 2], ['☽', 6, 120, roomD * 0.7, Math.PI / 2],
+      ['✶', roomW - 6, 120, roomD * 0.3, -Math.PI / 2], ['🕯️', roomW - 6, 120, roomD * 0.7, -Math.PI / 2]
     ].forEach(([glyph, x, y, z, rotY]) => {
       const gl = makeGlowGlyphMesh(glyph, 24, '#5fffae', '#d8ffe8');
       gl.position.set(x, y, z);
@@ -11108,7 +11058,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // ── Haunted relics on display, under glass ──────────────────────────
     // Phantom lantern — an iron cage holding a flame that never was
     (function() {
-      const p = makeDisplayPedestal(scene, 150, 250, PARLOR_PED);
+      const lx = roomW * 0.30, lz = roomD * 0.30;
+      const p = makeDisplayPedestal(scene, lx, lz, PARLOR_PED);
       const iron = new THREE.MeshLambertMaterial({ color: 0x1a2420 });
       const bot = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 1.6, 8), iron);
       bot.position.y = 33; p.add(bot);
@@ -11122,11 +11073,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const flame = new THREE.Mesh(new THREE.SphereGeometry(3.4, 8, 8), new THREE.MeshBasicMaterial({ color: 0x6fffb0 }));
       flame.scale.y = 1.5; flame.position.y = 40.5; p.add(flame);
       const sign = makeSignSprite('🕯️ Phantom Lantern');
-      sign.position.set(150, 74, 250); scene.add(sign);
+      sign.position.set(lx, 74, lz); scene.add(sign);
     })();
     // Spirit bell — rings by itself, allegedly
     (function() {
-      const p = makeDisplayPedestal(scene, groundCx, 95, PARLOR_PED);
+      const bx = roomW * 0.30, bz = roomD * 0.70;
+      const p = makeDisplayPedestal(scene, bx, bz, PARLOR_PED);
       const bellMat = new THREE.MeshLambertMaterial({ color: 0xcfe8dc, emissive: 0x2e5a48, emissiveIntensity: 0.35 });
       const bell = new THREE.Mesh(new THREE.ConeGeometry(6.5, 11, 10), bellMat);
       bell.position.y = 41; p.add(bell);
@@ -11135,11 +11087,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const clapper = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
       clapper.position.set(1.2, 35, 0); p.add(clapper);
       const sign = makeSignSprite('🔔 Spirit Bell');
-      sign.position.set(groundCx, 74, 95); scene.add(sign);
+      sign.position.set(bx, 74, bz); scene.add(sign);
     })();
     // Bound spirit — a jar nobody should open
     (function() {
-      const p = makeDisplayPedestal(scene, 520, 250, PARLOR_PED);
+      const jx = roomW * 0.70, jz = roomD * 0.30;
+      const p = makeDisplayPedestal(scene, jx, jz, PARLOR_PED);
       const jar = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 13, 9), new THREE.MeshLambertMaterial({ color: 0x9fd8c0, transparent: true, opacity: 0.35 }));
       jar.position.y = 40; p.add(jar);
       const lid = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 2, 9), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
@@ -11149,12 +11102,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const mote = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xd8ffe8 }));
       mote.position.set(2, 43, -1); p.add(mote);
       const sign = makeSignSprite('🫙 Bound Spirit');
-      sign.position.set(520, 74, 250); scene.add(sign);
+      sign.position.set(jx, 74, jz); scene.add(sign);
     })();
-    // Séance planchette — up on the Widow's Watch
+    // Séance planchette on its own pedestal
     (function() {
-      const px = stairEnd + platformWidth * 0.5, pz = roomD * 0.22;
-      const p = makeDisplayPedestal(scene, px, pz, { ...PARLOR_PED, baseY: LOUNGE_PLATFORM_HEIGHT });
+      const px = roomW * 0.70, pz = roomD * 0.70;
+      const p = makeDisplayPedestal(scene, px, pz, PARLOR_PED);
       const board = new THREE.Mesh(new THREE.BoxGeometry(13, 1.8, 17), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
       board.position.y = 36; board.rotation.y = 0.5; p.add(board);
       const window_ = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 2.2, 10), new THREE.MeshLambertMaterial({ color: 0xbfffe0, transparent: true, opacity: 0.6 }));
@@ -11162,27 +11115,30 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const tip = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.5, 6), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
       tip.position.set(-2.6, 36.6, -7.2); tip.rotation.z = Math.PI / 2; tip.rotation.y = 0.5; p.add(tip);
       const sign = makeSignSprite('🔮 Séance Planchette');
-      sign.position.set(px, LOUNGE_PLATFORM_HEIGHT + 74, pz); scene.add(sign);
+      sign.position.set(px, 74, pz); scene.add(sign);
     })();
 
     if (kiosksOut) {
+      // The two NPCs flank the west doorway (keeping the door gap itself clear).
+      const tailorX = roomW * 0.10, tailorZ = roomD * 0.30;
       const tailor = createHumanoid(2).group;
-      tailor.position.set(80, 0, roomD * 0.25);
-      tailor.rotation.y = Math.atan2(groundCx - 80, roomD * 0.42 - roomD * 0.25);
+      tailor.position.set(tailorX, 0, tailorZ);
+      tailor.rotation.y = Math.atan2(hallCx - tailorX, hallCz - tailorZ);
       scene.add(tailor);
       const tailorLabel = makeNpcNameSprite('Tailor Ines', 'Fine Wearables');
-      tailorLabel.position.set(80, 90, roomD * 0.25);
+      tailorLabel.position.set(tailorX, 90, tailorZ);
       scene.add(tailorLabel);
-      kiosksOut.push({ x: 80, z: roomD * 0.25, npc: 'npc', npcId: 'npc_tailor', npcName: 'Tailor Ines' });
+      kiosksOut.push({ x: tailorX, z: tailorZ, npc: 'npc', npcId: 'npc_tailor', npcName: 'Tailor Ines' });
 
+      const nobleX = roomW * 0.10, nobleZ = roomD * 0.70;
       const noble = createHumanoid(3).group;
-      noble.position.set(stairStart - 60, 0, roomD * 0.25);
-      noble.rotation.y = Math.atan2(groundCx - (stairStart - 60), roomD * 0.42 - roomD * 0.25);
+      noble.position.set(nobleX, 0, nobleZ);
+      noble.rotation.y = Math.atan2(hallCx - nobleX, hallCz - nobleZ);
       scene.add(noble);
       const nobleLabel = makeNpcNameSprite('Lady Corwin', 'Loves to Gossip');
-      nobleLabel.position.set(stairStart - 60, 90, roomD * 0.25);
+      nobleLabel.position.set(nobleX, 90, nobleZ);
       scene.add(nobleLabel);
-      kiosksOut.push({ x: stairStart - 60, z: roomD * 0.25, npc: 'hint', npcId: 'npc_noble', npcName: 'Lady Corwin' });
+      kiosksOut.push({ x: nobleX, z: nobleZ, npc: 'hint', npcId: 'npc_noble', npcName: 'Lady Corwin' });
     }
   } else if (type === 'greathall') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x5c1f2a));
@@ -20045,7 +20001,7 @@ const INTERIOR_THEMES = {
 const INTERIOR_SIZE_OVERRIDES = {
   cafe:    { w: 600, h: 340 },  // door axis (h) matches outdoor; wide sprawling tavern hall
   library: { w: 260, h: 260 },  // door axis (h) matches outdoor; door's on the near side, so narrower w is safe
-  lounge:  { w: 760, h: 270 },  // door axis (h) matches outdoor; wide for stairs + terrace
+  lounge:  { w: 860, h: 420 },  // door axis (h) matches outdoor; one big open séance hall
   hall:    { w: 480, h: 500 },  // door axis (w) matches outdoor; deep great hall
   bank:    { w: 440, h: 600 }   // door axis (w) matches outdoor; door's on the near side (north), so deeper h is safe
 };
@@ -20110,14 +20066,10 @@ function getFloorHeight(roomId, rx, rz) {
     }
     return 0;
   }
-  if (roomId !== 'lounge') return 0;
-  const interior = interiorScenes.lounge;
-  if (!interior) return 0;
-  const stairStart = interior.roomW * LOUNGE_STAIR_START_FRAC;
-  const stairEnd = interior.roomW * LOUNGE_STAIR_END_FRAC;
-  if (rx <= stairStart) return 0;
-  if (rx >= stairEnd) return LOUNGE_PLATFORM_HEIGHT;
-  return LOUNGE_PLATFORM_HEIGHT * (rx - stairStart) / (stairEnd - stairStart);
+  // The Phantom Parlor is now a single flat floor (the two-story stairs +
+  // terrace were removed for one bigger open room), so there's no height
+  // function left — every room but the terrain/temple ones is dead level.
+  return 0;
 }
 
 // ── Wilds terrain (rolling hills) ────────────────────────────────────────────
