@@ -91,14 +91,17 @@
   .optInLabel input { margin-top:2px; flex-shrink:0; cursor:pointer; }
   #invSettingsView .optInRow { margin:0 0 4px; }
   .charOption {
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    flex:1 1 0; min-width:0; box-sizing:border-box;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px;
     background:rgba(0,0,0,0.2); border:2px solid rgba(160,220,160,0.2); border-radius:10px;
-    padding:8px 2px 6px; cursor:pointer;
+    padding:6px 2px 6px; cursor:pointer;
   }
   .charOption.selected { border-color:#9ee37d; background:rgba(158,227,125,0.15); }
-  .charOption .charHair { width:24px; height:8px; border-radius:8px 8px 0 0; display:block; }
-  .charOption .charHead { width:24px; height:20px; border-radius:50%; display:block; }
-  .charOption .charBody { width:28px; height:14px; border-radius:4px; display:block; margin-top:2px; }
+  .charOption .charImg {
+    width:100%; height:66px; object-fit:contain; object-position:center bottom;
+    display:block; pointer-events:none;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,0.45));
+  }
 
   /* ── Join screen: the witchy Thornreach front door ──────────────────────
      Every rule here is scoped to #joinScreen so the shared .overlay/.card/
@@ -215,7 +218,8 @@
     box-shadow:0 0 16px rgba(160,110,255,0.35), inset 0 0 12px rgba(160,110,255,0.12);
   }
   #joinScreen .charName {
-    font-size:9px; letter-spacing:0.6px; color:#8d80a8; text-transform:uppercase; margin-top:3px;
+    font-size:7px; letter-spacing:0.2px; color:#8d80a8; text-transform:uppercase; margin-top:3px;
+    line-height:1.25; width:100%; text-align:center; word-break:break-word;
   }
   #joinScreen .charOption.selected .charName { color:#e9ddff; }
   #joinScreen #joinModeTabs button {
@@ -3052,44 +3056,32 @@
             fill="none" stroke="url(#jsg)" stroke-width="3" stroke-linejoin="round"/>
     </svg>
     <div class="title">THORNREACH</div>
-    <div class="subtitle">Five callings. One crooked little town. The lanterns are lit — come in out of the dark.</div>
+    <div class="subtitle">Six callings. One crooked little town. The lanterns are lit — come in out of the dark.</div>
 
     <div id="charSelectLabel">Choose your calling</div>
     <div id="charSelectRow">
       <button class="charOption" data-char="0" title="Witch — casts spells from a Spellbook">
-        <span class="charHair" style="background:#1a1410"></span>
-        <span class="charHead" style="background:#ffd9b3"></span>
-        <span class="charBody" style="background:#4caf50"></span>
+        <img class="charImg" src="charselect/char0.png" alt="Witch" loading="eager" decoding="async">
         <span class="charName">Witch</span>
       </button>
       <button class="charOption" data-char="1" title="Werewolf — unleashes 12 ferocious attacks">
-        <span class="charHair" style="background:#8a3a10"></span>
-        <span class="charHead" style="background:#d4713c"></span>
-        <span class="charBody" style="background:#c4631a"></span>
+        <img class="charImg" src="charselect/char1.png" alt="Werewolf" loading="eager" decoding="async">
         <span class="charName">Werewolf</span>
       </button>
       <button class="charOption" data-char="2" title="Mystic — sees what others can't">
-        <span class="charHair" style="background:#222222"></span>
-        <span class="charHead" style="background:#c98a5b"></span>
-        <span class="charBody" style="background:#9b5fc0"></span>
+        <img class="charImg" src="charselect/char2.png" alt="Mystic" loading="eager" decoding="async">
         <span class="charName">Mystic</span>
       </button>
       <button class="charOption" data-char="3" title="Knight — the town's steel shield">
-        <span class="charHair" style="background:#b0b0b0"></span>
-        <span class="charHead" style="background:#ffe0c2"></span>
-        <span class="charBody" style="background:#6f8fae"></span>
+        <img class="charImg" src="charselect/char3.png" alt="Knight" loading="eager" decoding="async">
         <span class="charName">Knight</span>
       </button>
       <button class="charOption" data-char="4" title="Wanderer — unleashes 12 wandering skills">
-        <span class="charHair" style="background:#e0e0e0"></span>
-        <span class="charHead" style="background:#7a4a2f"></span>
-        <span class="charBody" style="background:#c0596f"></span>
+        <img class="charImg" src="charselect/char4.png" alt="Wanderer" loading="eager" decoding="async">
         <span class="charName">Wanderer</span>
       </button>
       <button class="charOption" data-char="5" title="Necromancer — raises undead to fight for you">
-        <span class="charHair" style="background:#15121c"></span>
-        <span class="charHead" style="background:#cfc8bd"></span>
-        <span class="charBody" style="background:#241b33"></span>
+        <img class="charImg" src="charselect/char5.png" alt="Necromancer" loading="eager" decoding="async">
         <span class="charName">Necromancer</span>
       </button>
     </div>
