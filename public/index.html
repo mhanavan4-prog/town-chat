@@ -20,6 +20,12 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body {
     width:100%; height:100%; overflow:hidden;
+    /* Hard stop on any sideways scroll/pan. iOS Safari will let you pan to a
+       fixed element that spills past the right edge even when the page itself
+       says overflow:hidden, which is how an over-wide HUD row ends up feeling
+       like "scroll right to reach the top-right items." max-width pins the
+       viewport box so that can't happen. */
+    overflow-x:hidden; max-width:100vw;
     background:#1a2e1f; font-family:'Segoe UI', Arial, sans-serif;
     -webkit-user-select:none; user-select:none;
   }
@@ -1131,6 +1137,25 @@
   }
   #streakTag.show { display:block; animation:streakPop 0.35s ease-out; }
   @keyframes streakPop { 0% { transform:scale(0.5); } 60% { transform:scale(1.25); } 100% { transform:scale(1); } }
+
+  /* ── Narrow-screen safety for the DESKTOP layout ──────────────────────
+     Touch devices get the dedicated mobile UI (below), but a phone that
+     renders the desktop layout — some in-app browsers, "Request Desktop
+     Site", or any context where touch isn't detected — would otherwise get
+     HUD rows built for a wide screen. The centered hotbar in particular runs
+     wider than a phone and spills past both edges, which on iOS makes the
+     whole page pan sideways. Clamp the wide clusters to the viewport so they
+     stay on-screen (the hotbar scrolls internally) instead of pushing the
+     page out from under the top-right controls. */
+  @media (max-width: 760px) {
+    #hotbar {
+      max-width:calc(100vw - 12px);
+      overflow-x:auto; justify-content:flex-start;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    #hotbar::-webkit-scrollbar { display:none; }
+    #hud { flex-wrap:wrap; max-width:100vw; }
+  }
 
   /* ── Mobile declutter: hide desktop chrome, relocate prompts ── */
   body.touchMode #hud, body.touchMode #leftHudButtons, body.touchMode #hotbar,
