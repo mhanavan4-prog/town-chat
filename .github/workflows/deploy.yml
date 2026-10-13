@@ -1,0 +1,49 @@
+name: Deploy to production
+
+# Auto-deploy: every merge/push to main SSHes into the live box and runs the
+# existing ops/deploy.sh (git pull → build → restart → health-check). Can also
+# be run by hand from the Actions tab (workflow_dispatch).
+#
+# One-time setup lives in ops/AUTO-DEPLOY.md. Until the secrets are added the
+# job skips gracefully (green, not red), so merging this never breaks main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys run at once; queue them instead of cancelling, so an
+# in-flight deploy always finishes.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          # Not secret (already in the repo docs); edit here if the box moves.
+          DEPLOY_HOST: 5.161.162.55
+          DEPLOY_USER: root
+        run: |
+          set -euo pipefail
+          if [ -z "${SSH_KEY:-}" ] || [ -z "${KNOWN_HOSTS:-}" ]; then
+            echo "::notice::Auto-deploy not configured yet (DEPLOY_SSH_KEY / DEPLOY_KNOWN_HOSTS missing). See ops/AUTO-DEPLOY.md. Skipping."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          echo "→ deploying to $DEPLOY_USER@$DEPLOY_HOST"
+          # The box's authorized_keys pins this key to a forced command
+          # (ops/deploy.sh), so the command we send here is advisory — the box
+          # runs the deploy regardless. We send it too so it still works if the
+          # forced-command hardening is skipped.
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'bash /opt/town-chat/ops/deploy.sh'
