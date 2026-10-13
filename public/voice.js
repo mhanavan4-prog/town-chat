@@ -20,6 +20,22 @@
   var peers = {};                 // peerId -> { pc, name, audioEl, analyser, speaking }
   var reconnectTimer = null, manualClose = false;
 
+  // iOS Safari won't play audio that wasn't unlocked inside a user gesture, and
+  // a remote voice element is created later (when a track arrives), so it stays
+  // silent — you're heard but hear no one. Unlock a shared AudioContext on the
+  // join tap, and retry any blocked play() on the next gesture.
+  var audioCtx = null, pendingPlays = [];
+  function unlockAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx && !audioCtx) audioCtx = new Ctx();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+      if (audioCtx) { var s = audioCtx.createBufferSource(); s.buffer = audioCtx.createBuffer(1, 1, 22050); s.connect(audioCtx.destination); s.start(0); }
+    } catch (e) {}
+    pendingPlays = pendingPlays.filter(function (el) { if (el.play) el.play().catch(function () {}); return false; });
+  }
+  ['pointerdown', 'touchend', 'keydown'].forEach(function (ev) { window.addEventListener(ev, unlockAudio, { passive: true }); });
+
   // ── UI ──────────────────────────────────────────────────────────────────
   function setStatus(msg, kind) {
     var el = $('vStatus'); if (!el) return;
@@ -88,9 +104,13 @@
   function attachRemote(id, stream) {
     var peer = peers[id]; if (!peer || !stream) return;
     var el = peer.audioEl;
-    if (!el) { el = document.createElement('audio'); el.autoplay = true; el.style.display = 'none'; document.body.appendChild(el); peer.audioEl = el; }
+    if (!el) {
+      el = document.createElement('audio'); el.autoplay = true; el.playsInline = true;
+      try { el.setAttribute('playsinline', ''); } catch (e) {}
+      el.style.display = 'none'; document.body.appendChild(el); peer.audioEl = el;
+    }
     el.srcObject = stream;
-    if (el.play) el.play().catch(function () {});
+    if (el.play) el.play().catch(function () { if (pendingPlays.indexOf(el) < 0) pendingPlays.push(el); });
     setupAnalyser(peer, stream);
   }
   function setupAnalyser(peer, stream) {
@@ -134,6 +154,7 @@
   function joinVoice() {
     if (active || !coven) return;
     if (!supported) { setStatus('Voice chat isn’t supported in this browser.', 'err'); return; }
+    unlockAudio(); // inside the join tap — unlocks iOS audio playback
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
       localStream = stream;
       localStream.getAudioTracks().forEach(function (t) { t.enabled = false; }); // PTT: muted until held

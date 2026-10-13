@@ -2105,11 +2105,30 @@ function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
   }
   function signal(toId, data) { send({ type: 'coven_voice_signal', toId, data }); }
 
+  // iOS Safari won't play audio that wasn't unlocked inside a user gesture, and
+  // a remote voice element is created later (when a peer's track arrives), so it
+  // stays silent — you can be heard but hear no one. Unlock a shared
+  // AudioContext on the join tap, and retry any play() that got blocked on the
+  // next gesture.
+  let audioCtx = null;
+  const pendingPlays = new Set();
+  function unlockAudio() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx && !audioCtx) audioCtx = new Ctx();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      if (audioCtx) { const s = audioCtx.createBufferSource(); s.buffer = audioCtx.createBuffer(1, 1, 22050); s.connect(audioCtx.destination); s.start(0); }
+    } catch (e) {}
+    pendingPlays.forEach((el) => { if (el.play) el.play().then(() => pendingPlays.delete(el)).catch(() => {}); });
+  }
+  if (typeof window !== 'undefined') ['pointerdown', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, unlockAudio, { passive: true }));
+
   // ── Join / leave ──────────────────────────────────────────────────────────
   async function joinVoice() {
     if (active) return;
     if (!supported) { toast('Voice chat isn’t supported in this browser.'); return; }
     if (!getCovenState()) { toast('Join a coven first.'); return; }
+    unlockAudio(); // must run inside the join tap (before the await) to unlock iOS playback
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
@@ -2178,12 +2197,14 @@ function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
     if (!el) {
       el = document.createElement('audio');
       el.autoplay = true;
+      el.playsInline = true;
+      try { el.setAttribute('playsinline', ''); } catch (e) {}
       el.style.display = 'none';
       document.body.appendChild(el);
       peer.audioEl = el;
     }
     el.srcObject = stream;
-    el.play && el.play().catch(() => {});
+    if (el.play) el.play().catch(() => { pendingPlays.add(el); }); // blocked? retry on next gesture
     setupAnalyser(peer, stream);
   }
 
