@@ -5922,7 +5922,7 @@ function noteFirstStep(player, stepId) {
   if (player.accountKey) saveProgress();
   send(player.ws, firstStepsPayload(player, stepId));
   if (allDone) {
-    send(player.ws, { type: 'announce_soft', message: `🏮 First Steps complete!${player.accountKey ? ` ${FIRST_STEPS_REWARD_GOLD} gold waits in your bank.` : ' (With an account, rewards like this would follow you.)'} Your Journal (J) always names the next goal.` });
+    send(player.ws, { type: 'announce_soft', message: `🏮 First Steps complete!${player.accountKey ? ` ${FIRST_STEPS_REWARD_GOLD} gold waits in your bank.` : ' (With an account, rewards like this would follow you.)'} Next: open your Journal (J) to begin your six-chapter campaign — and find the Hagstone in town to found or join a coven.` });
   }
 }
 

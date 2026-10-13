@@ -2218,6 +2218,10 @@
   }
   #firstStepsChip .fsTitle { color:#ffe9c2; font-weight:800; margin-bottom:2px; }
   #firstStepsChip .fsDone { opacity:0.55; text-decoration:line-through; }
+  #firstStepsChip .fsCur { color:#ffe9c2; font-weight:700; }
+  #firstStepsChip .fsNext { margin:3px 0 6px; padding:7px 9px; border-radius:9px; background:linear-gradient(90deg,rgba(158,227,125,0.14),rgba(126,240,195,0.08)); border:1px solid rgba(158,227,125,0.35); }
+  #firstStepsChip .fsNextLabel { display:block; color:#cdf0b4; font-weight:800; font-size:12.5px; }
+  #firstStepsChip .fsNextHint { display:block; color:#d7ccee; font-size:11.5px; line-height:1.4; margin-top:2px; }
   #firstStepsChip.hidden { display:none; }
   /* Collapsed: a tiny count pill — announce, then get out of the way. The
      full card only shows briefly (join / a step completing / a tap). */
@@ -3264,6 +3268,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=2af8659269"></script>
+<script src="client.js?v=b10141a6ea"></script>
 </body>
 </html>
