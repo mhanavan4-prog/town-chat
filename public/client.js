@@ -1361,9 +1361,13 @@ function createWorldBoss({ createHumanoid, lerpAngle, makeHealthBarSprite, makeN
       built.group.userData = { kind: 'world_boss', targetId: boss.id };
       const bar = makeHealthBarSprite(170);
       bar.position.set(0, 150, 0);
+      bar.visible = true; // a raid boss shows its health from the first glance,
+      bar._alwaysVisible = true; // not only after it's been hit (see updateHealthBar)
       built.group.add(bar);
       const label = makeNpcNameSprite(`${boss.icon} ${boss.name}`);
       label.position.set(0, 172, 0);
+      label.visible = true;
+      label.userData._alwaysOn = true; // persistent banner, not hover-only
       built.group.add(label);
       scene.add(built.group);
       wb = {
@@ -5881,7 +5885,9 @@ function makeHealthBarSprite(yOffset) {
 
 function updateHealthBar(sprite, hp, maxHp) {
   const pct = maxHp > 0 ? Math.max(0, hp / maxHp) : 0;
-  sprite.visible = pct < 0.999;
+  // Most creatures hide the bar at full health; raid targets flagged
+  // _alwaysVisible keep it shown so the pool reads from the first glance.
+  sprite.visible = sprite._alwaysVisible || pct < 0.999;
   if (!sprite.visible) return;
   const ctx = sprite._hpCtx;
   ctx.clearRect(0, 0, 64, 8);
@@ -19081,6 +19087,14 @@ function getRootScene(obj) {
 function updateNameLabelHover() {
   for (const sprite of HOVER_NAME_SPRITES) {
     if (!sprite.parent || !activeScene || getRootScene(sprite) !== activeScene) { sprite.visible = false; continue; }
+    // Always-on nameplates (the World Boss banner): a raid target wears its
+    // name the whole fight, not just when the cursor grazes it. Keep it lit
+    // and skip the hover/proximity fade the ordinary NPC signs use.
+    if (sprite.userData && sprite.userData._alwaysOn) {
+      if (sprite.material) sprite.material.opacity = 1;
+      sprite.visible = true;
+      continue;
+    }
     if (!NAME_HOVER_ENABLED) {
       // Mobile: NPC name signs used to be always-on (no hover on touch),
       // stacking a wall of banners over every busy area. Show them like

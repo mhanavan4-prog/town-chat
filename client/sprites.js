@@ -28,7 +28,9 @@ export function makeHealthBarSprite(yOffset) {
 
 export function updateHealthBar(sprite, hp, maxHp) {
   const pct = maxHp > 0 ? Math.max(0, hp / maxHp) : 0;
-  sprite.visible = pct < 0.999;
+  // Most creatures hide the bar at full health; raid targets flagged
+  // _alwaysVisible keep it shown so the pool reads from the first glance.
+  sprite.visible = sprite._alwaysVisible || pct < 0.999;
   if (!sprite.visible) return;
   const ctx = sprite._hpCtx;
   ctx.clearRect(0, 0, 64, 8);
