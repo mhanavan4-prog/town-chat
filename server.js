@@ -5114,6 +5114,20 @@ function tickPlayerStatusHealth(now, dt) {
 // 6–7Hz still reads as smooth. Env-tunable to dial in per box.
 const WILDLIFE_MS = parseInt(process.env.WILDLIFE_MS, 10) || 220;
 const BROADCAST_MS = parseInt(process.env.BROADCAST_MS, 10) || 150;
+// Backpressure guard for the latest-wins firehoses (player-state + wildlife).
+// If a socket's write buffer is already past this, the client is draining
+// slower than we're producing (slow link, overloaded device). Queuing MORE
+// stale positions only grows the server's memory and the client's lag without
+// helping — the next tick's snapshot supersedes this one anyway. So we skip a
+// backed-up socket this tick and let it catch up on a later one. Without this,
+// one slow receiver forces unbounded server-side buffering and spirals the
+// whole event loop (seen in load testing). Control/combat/chat/init go through
+// send()/broadcastRoom(), which always deliver — only the ephemeral streams
+// are droppable. Env-tunable; default 256KB.
+const STREAM_BUFFER_LIMIT = parseInt(process.env.STREAM_BUFFER_LIMIT, 10) || 256 * 1024;
+function canStreamTo(ws) {
+  return ws.readyState === ws.OPEN && (ws.bufferedAmount || 0) < STREAM_BUFFER_LIMIT;
+}
 let lastWildlifeTick = Date.now();
 setInterval(() => {
   const now = Date.now();
@@ -5190,7 +5204,7 @@ setInterval(() => {
   };
   const cache = new Map();
   for (const p of players.values()) {
-    if (p.ws.readyState !== p.ws.OPEN) continue;
+    if (!canStreamTo(p.ws)) continue; // backpressure: skip a backed-up socket
     let msg = cache.get(p.room);
     if (msg === undefined) { msg = JSON.stringify(wildlifeFor(p.room)); cache.set(p.room, msg); }
     p.ws.send(msg);
@@ -11188,7 +11202,7 @@ function broadcastPlayerState() {
       // tick, always emit so arrivals/departures still land promptly.
       if (!membershipChanged && (_stateTick & 1)) continue;
       const snap = '{"type":"state","players":[' + arr.map(p => p._pubFrag).join(',') + ']}';
-      for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
+      for (const p of arr) if (canStreamTo(p.ws)) p.ws.send(snap);
       continue;
     }
 
@@ -11197,7 +11211,7 @@ function broadcastPlayerState() {
     const toSend = membershipChanged ? arr : arr.filter(p => p._pubChanged);
     if (toSend.length === 0) continue;
     const snap = '{"type":"state","players":[' + toSend.map(p => p._pubFrag).join(',') + ']}';
-    for (const p of arr) if (p.ws.readyState === p.ws.OPEN) p.ws.send(snap);
+    for (const p of arr) if (canStreamTo(p.ws)) p.ws.send(snap);
   }
   // Drop bookkeeping for channels that emptied this tick.
   for (const chan of _roomMemberSig.keys()) if (!seenChans.has(chan)) _roomMemberSig.delete(chan);
