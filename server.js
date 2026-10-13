@@ -953,17 +953,16 @@ const server = http.createServer(app);
 // maxPayload guards against an oversized image (or anything else) blowing up
 // server memory — the client already resizes/compresses images well under
 // this before sending, this is just the backstop.
-// permessage-deflate is a CPU↔bandwidth trade. With serverNoContextTakeover
-// it re-compresses EVERY broadcast separately for each recipient — so the
-// ~7Hz state/wildlife firehose to a populated zone is compressed dozens of
-// times per tick on a single thread. Load testing a 2-vCPU box showed that
-// saturating the event loop (a populated Wilds at night timed out even a
-// trivial /healthz for 45s straight). On a small box the single-threaded loop
-// is the ceiling, not Hetzner's bandwidth, so this now DEFAULTS OFF — trade
-// cheap bandwidth for scarce CPU. Set WS_DEFLATE=1 to restore compression
-// (e.g. once AOI culling shrinks the payloads enough that mobile data cost
-// outweighs the CPU — the JSON still compresses ~75-85%).
-const WS_DEFLATE = process.env.WS_DEFLATE === '1';
+// permessage-deflate: the game's JSON compresses ~75–85%, cutting wire volume
+// ~5×. That bandwidth saving matters on BOTH ends — mobile players on metered
+// data, and the fact that a client receiving the broadcast firehose over a
+// single link saturates that link fast if it's uncompressed. Load-test
+// profiling confirmed the box is NOT CPU-bound by this compression (it served
+// 700 players over loopback and 100 on a throttled 1/3-core without breaking a
+// sweat); the real wall was always wire bandwidth to the receiver, so keep
+// compression ON. DEFAULTS ON; set WS_DEFLATE=0 only to isolate CPU vs
+// bandwidth in a controlled test.
+const WS_DEFLATE = process.env.WS_DEFLATE !== '0';
 const wss = new WebSocketServer({
   server,
   maxPayload: 2 * 1024 * 1024,
