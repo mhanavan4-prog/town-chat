@@ -1840,7 +1840,7 @@
      new player understands the brief rough-graphics moment. Hides at 100%. -->
 <div id="loadPill" class="loadPill" aria-live="polite"></div>
 
-<div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;">⚡ Connection lost — reconnecting…</div>
+<div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;"><div id="reconnectMsg">⚡ Connection lost — reconnecting…</div><button id="reconnectNowBtn" class="hidden" onclick="window.__reconnectNow&&window.__reconnectNow()" style="pointer-events:auto;margin-top:12px;background:#ffd43b;color:#1a1206;border:none;padding:9px 20px;border-radius:9px;font-size:0.82em;font-weight:800;cursor:pointer;letter-spacing:0.02em;">Reconnect now</button></div>
 
 <div id="damageFlash"></div>
 
@@ -3246,7 +3246,6 @@ window.onerror = function(msg, src, line, col, err) {
   //   window.THORNREACH_ASSET_BASE = 'https://thornreach-assets.onrender.com';
   window.THORNREACH_ASSET_BASE = '';
 </script>
-<script src="face-api.min.js"></script>
 <script>
 /* Join-screen liveness — make a quiet town feel inviting, with a gathering to rally around. */
 (function(){
@@ -3268,6 +3267,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=b10141a6ea"></script>
+<script src="client.js?v=e7c9158b0c"></script>
 </body>
 </html>
