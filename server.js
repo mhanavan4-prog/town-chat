@@ -713,7 +713,7 @@ const moonstones = require('./lib/moonstones')({ dataDir: DATA_DIR, persistLoad,
       detail: { currency: 'moonstones', delta, ceiling, balance } });
   }
 });
-const { msData, msBalance, msAdjust, grantMoonstones } = moonstones;
+const { msData, msBalance, msAdjust, grantMoonstones, saveMoonstones } = moonstones;
 function pushMsStateIfOnline(key) {
   const p = findConnectionByAccountKey(key);
   if (p) send(p.ws, { type: 'ms_state', balance: msBalance(key) });
@@ -1564,6 +1564,97 @@ app.post('/api/set-email', (req, res) => {
   saveAccounts();
   audit.log({ level: 'info', type: 'email_set', ip, account: key, detail: { set: !!email } });
   res.json({ ok: true, email: email || null });
+});
+
+// Remove an account from its coven without needing a live connection — the
+// offline-safe twin of the coven_leave handler. Called during account
+// deletion. Must run BEFORE the account record is deleted so display names
+// still resolve. Transfers leadership to the next member, or disbands the
+// coven if this was the last one.
+function purgeAccountFromCoven(key) {
+  const cid = covenIndex.get(key);
+  covenIndex.delete(key);
+  if (!cid) return;
+  const cv = covens[cid];
+  if (!cv) return;
+  const conn = findConnectionByAccountKey(key);
+  if (conn) { try { covenVoiceLeave(conn); } catch (e) {} }
+  const leaving = covenDisplayName(key);
+  cv.members = (cv.members || []).filter((k) => k !== key);
+  if (cv.manorBedrooms) { for (const s of Object.keys(cv.manorBedrooms)) if (cv.manorBedrooms[s] === key) delete cv.manorBedrooms[s]; }
+  if (cv.members.length === 0) {
+    delete covens[cid];
+    persistSave('covens', COVENS_FILE, covens);
+    return;
+  }
+  covenLog(cv, leaving, 'left the circle');
+  if (cv.leaderKey === key) {
+    cv.leaderKey = cv.members[0];
+    covenLog(cv, covenDisplayName(cv.leaderKey), 'now leads the coven');
+  }
+  saveCoven(cid);
+  try { covenBroadcast(cv); } catch (e) {}
+}
+
+// Self-serve account deletion. Needs a live session token AND the account
+// password (re-entered), so a stolen token alone can't erase an account. Wipes
+// every store keyed to the account; leaves only the security audit log (kept
+// briefly for abuse protection, then rotated) and payment records held by
+// Stripe. See the Privacy Policy.
+app.post('/api/delete-account', (req, res) => {
+  const ip = audit.clientIp(req);
+  const token = String(req.body.token || '');
+  const key = token ? sessions.get(token) : null;
+  if (!key || !accounts[key]) return res.status(401).json({ error: 'Log in again to delete your account.' });
+  const acc = accounts[key];
+  const password = String(req.body.password || '');
+  if (!acc.salt || !acc.hash || !verifyPassword(password, acc.salt, acc.hash)) {
+    const n = audit.hit(ip, 'delete_bad_pw', 10 * 60 * 1000);
+    if (n >= 3) audit.log({ level: 'warn', type: 'account_delete_bad_password', ip, account: key, detail: { count: n } });
+    return res.status(403).json({ error: 'That password is incorrect.' });
+  }
+  const username = acc.username;
+
+  // Coven first (needs the account record intact for display names).
+  try { purgeAccountFromCoven(key); } catch (e) {}
+  // Cancel any auction listings they're selling.
+  try {
+    let changed = false;
+    for (let i = listings.length - 1; i >= 0; i--) {
+      if (listings[i] && listings[i].sellerKey === key) { listings.splice(i, 1); changed = true; }
+    }
+    if (changed) { saveListings(); broadcastAuctionState(); }
+  } catch (e) {}
+  // Leaderboard entries + honors.
+  try { lbPurgeAccount(key); } catch (e) {}
+  // Every per-account store.
+  try { delete playerProgress[key]; saveProgress(); } catch (e) {}
+  try { delete bankAccounts[key]; saveBankAccounts(); } catch (e) {}
+  try { delete inventories[key]; saveInventories(); } catch (e) {}
+  try { delete hardDrives[key]; saveHardDrives(); } catch (e) {}            // selfies + voice clips
+  try { delete inboxes[key]; saveInboxes(); } catch (e) {}
+  try { if (townPasses[key]) { delete townPasses[key]; saveTownPasses(); } } catch (e) {}
+  try { if (msData.balances && msData.balances[key]) { delete msData.balances[key]; saveMoonstones(); } } catch (e) {}
+  try { if (covenCharters.balance && covenCharters.balance[key]) { delete covenCharters.balance[key]; saveCharters(); } } catch (e) {}
+  try { if (pushSubs[key]) { delete pushSubs[key]; savePushSubs(key); } } catch (e) {}
+  try {
+    let rchanged = false;
+    for (const t of Object.keys(passwordResets)) if (passwordResets[t] && passwordResets[t].key === key) { delete passwordResets[t]; rchanged = true; }
+    if (rchanged) savePasswordResets();
+  } catch (e) {}
+
+  // Burn sessions and disconnect any live connection.
+  invalidateSessionsFor(key);
+  try {
+    const conn = findConnectionByAccountKey(key);
+    if (conn && conn.ws) { try { send(conn.ws, { type: 'account_deleted' }); } catch (e) {} try { conn.ws.close(4004, 'account deleted'); } catch (e) {} }
+  } catch (e) {}
+
+  // Finally the account record itself.
+  delete accounts[key];
+  saveAccounts();
+  audit.log({ level: 'warn', type: 'account_deleted', ip, account: key, name: username });
+  res.json({ ok: true });
 });
 
 // The character roster behind the join screen's "continue as …" cards: every
@@ -5145,7 +5236,7 @@ function legendaryShopPayload(player) {
 // Leaderboards (Session L) — extracted to lib/leaderboards.js (Tier 3.4 Phase B).
 // onWeekSettled crowns the champion coven of each closed week (hoisted below).
 const leaderboardsMod = require('./lib/leaderboards')({ dataDir: DATA_DIR, persistLoad, persistSave, persistSetKey, persistRegister, legendaryWeekIndex, accounts, ensureBankAccount, saveBankAccounts, findConnectionByAccountKey, send, onWeekSettled: (wk) => covenCrownWeek(wk) });
-const { leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, LB_BOARDS } = leaderboardsMod;
+const { leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, lbPurgeAccount, weekKey, LB_BOARDS } = leaderboardsMod;
 function noteBossKill(player, mob) {
   lbBump('boss', player, 1);
   { const bp = getProgress(player); bp.bossKills = (bp.bossKills || 0) + 1; } // lifetime tally for the Boss-Breaker ladder

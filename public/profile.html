@@ -204,6 +204,23 @@
         </div>
       </div>
     </div>
+
+    <div id="dangerZone" style="display:none;margin-top:28px;border:1px solid rgba(255,120,120,0.28);border-radius:14px;padding:18px 20px;background:rgba(60,12,20,0.18)">
+      <h2 style="color:#ff9b9b;margin:0 0 6px;font-family:'Cinzel',serif;font-weight:600;font-size:17px">Delete account</h2>
+      <p style="color:var(--mut);font-size:13.5px;margin:0 0 12px;line-height:1.55">Permanently erase your account and everything tied to it — your characters, gold, inventory, coven membership, rankings, and any selfies or voice clips you recorded. If you lead a coven, it passes to another member, or disbands if you're the only one. This can't be undone.</p>
+      <button class="btn ghost sm" id="delStart" style="border-color:rgba(255,120,120,0.4);color:#ffb3b3">Delete my account…</button>
+      <div id="delForm" style="display:none;margin-top:14px">
+        <label style="display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px">Confirm your password</label>
+        <input id="delPw" type="password" autocomplete="current-password" style="width:100%;max-width:320px;margin-bottom:12px">
+        <label style="display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px">Type <b id="delNameEcho" style="color:#ffb3b3"></b> to confirm</label>
+        <input id="delConfirm" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;max-width:320px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn" id="delGo" style="background:linear-gradient(90deg,#e06464,#b83a3a);box-shadow:none;opacity:.55;cursor:not-allowed" disabled>Permanently delete</button>
+          <button class="btn ghost sm" id="delCancel">Cancel</button>
+        </div>
+        <div id="delErr" style="color:#ff9b9b;font-size:13px;margin-top:10px"></div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -263,6 +280,29 @@
 
   el('logoutBtn').onclick=function(){ clearAccount(); stopViewer(); el('profile').style.display='none'; el('logoutBtn').style.display='none'; el('gate').style.display='block'; };
 
+  // ── Danger zone: self-serve account deletion ──
+  (function(){
+    var start=el('delStart'), form=el('delForm'), pw=el('delPw'), conf=el('delConfirm'), go=el('delGo'), cancel=el('delCancel'), errb=el('delErr');
+    if(!start) return;
+    function enable(on){ go.disabled=!on; go.style.opacity=on?'1':'.55'; go.style.cursor=on?'pointer':'not-allowed'; }
+    function check(){ var a=getAccount(); var want=((a&&a.username)||'').toLowerCase(); enable(!!pw.value && conf.value.trim().toLowerCase()===want && want.length>0); }
+    start.onclick=function(){ var a=getAccount(); el('delNameEcho').textContent=(a&&a.username)||'your username'; form.style.display='block'; start.style.display='none'; pw.focus(); };
+    cancel.onclick=function(){ form.style.display='none'; start.style.display='inline-block'; pw.value=''; conf.value=''; errb.textContent=''; enable(false); };
+    pw.oninput=check; conf.oninput=check;
+    go.onclick=function(){
+      var a=getAccount(); if(!a||!a.token) return;
+      enable(false); errb.textContent=''; go.textContent='Deleting…';
+      fetch('/api/delete-account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:a.token,password:pw.value})})
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; },function(){ return {ok:r.ok,j:{}}; }); })
+        .then(function(x){
+          if(!x.ok){ errb.textContent=(x.j&&x.j.error)||'Could not delete the account. Try again.'; go.textContent='Permanently delete'; check(); return; }
+          clearAccount(); try{ stopViewer(); }catch(e){}
+          document.body.innerHTML='<div style="max-width:520px;margin:120px auto;text-align:center;color:#e9ddff;font-family:Segoe UI,system-ui,Arial,sans-serif;padding:0 20px"><h1 style="font-family:Cinzel,serif;font-weight:600;font-size:26px">Your account has been deleted.</h1><p style="color:#a99bc4;line-height:1.6">The lanterns dim behind you. Everything tied to your account has been erased. Thank you for walking Thornreach.</p><a href="/" style="color:#7ef0c3;text-decoration:none">← Return home</a></div>';
+        })
+        .catch(function(){ errb.textContent='Could not reach the server. Try again.'; go.textContent='Permanently delete'; check(); });
+    };
+  })();
+
   // ── share ── copies/shares a link to the PUBLIC profile (/u/<name>), so the
   // recipient sees the grimoire, never your login.
   function toast(msg){ var t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('show'); },1800); }
@@ -294,6 +334,7 @@
     el('gate').style.display='none';
     el('profile').style.display='block';
     el('logoutBtn').style.display = pub ? 'none' : 'inline-block';
+    el('dangerZone').style.display = pub ? 'none' : 'block';
 
     el('pName').textContent = d.username;
     el('pAvatar').textContent = (d.username||'?').charAt(0).toUpperCase();
