@@ -6700,6 +6700,17 @@ function findMinionTarget(m) {
     const d = Math.hypot(p.x - m.x, p.y - m.y);
     if (d < bestDist) { bestDist = d; best = p; bestType = 'player'; bestHp = null; }
   }
+  // The World Boss is a singleton, not part of any hostile pool, so the undead
+  // never saw it and just milled around it. Treat it as a valid foe in the
+  // Wilds — and give it a strong pull so a summoner's whole retinue piles onto
+  // the raid target instead of wandering off to the nearest rat.
+  if (m.room === 'wilds') {
+    const wb = worldBossPublic();
+    if (wb && wb.health > 0) {
+      const d = Math.hypot(wb.x - m.x, wb.y - m.y);
+      if (d < MINION_SEARCH) { best = wb; bestType = 'world_boss'; bestHp = wb.maxHealth; bestDist = d; }
+    }
+  }
   return best ? { target: best, targetType: bestType, maxHp: bestHp } : null;
 }
 function tickMinions(dt) {

@@ -4785,6 +4785,14 @@ function getRootScene(obj) {
 function updateNameLabelHover() {
   for (const sprite of HOVER_NAME_SPRITES) {
     if (!sprite.parent || !activeScene || getRootScene(sprite) !== activeScene) { sprite.visible = false; continue; }
+    // Always-on nameplates (the World Boss banner): a raid target wears its
+    // name the whole fight, not just when the cursor grazes it. Keep it lit
+    // and skip the hover/proximity fade the ordinary NPC signs use.
+    if (sprite.userData && sprite.userData._alwaysOn) {
+      if (sprite.material) sprite.material.opacity = 1;
+      sprite.visible = true;
+      continue;
+    }
     if (!NAME_HOVER_ENABLED) {
       // Mobile: NPC name signs used to be always-on (no hover on touch),
       // stacking a wall of banners over every busy area. Show them like

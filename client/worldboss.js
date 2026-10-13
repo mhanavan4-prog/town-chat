@@ -34,9 +34,13 @@ export default function createWorldBoss({ createHumanoid, lerpAngle, makeHealthB
       built.group.userData = { kind: 'world_boss', targetId: boss.id };
       const bar = makeHealthBarSprite(170);
       bar.position.set(0, 150, 0);
+      bar.visible = true; // a raid boss shows its health from the first glance,
+      bar._alwaysVisible = true; // not only after it's been hit (see updateHealthBar)
       built.group.add(bar);
       const label = makeNpcNameSprite(`${boss.icon} ${boss.name}`);
       label.position.set(0, 172, 0);
+      label.visible = true;
+      label.userData._alwaysOn = true; // persistent banner, not hover-only
       built.group.add(label);
       scene.add(built.group);
       wb = {
