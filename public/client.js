@@ -24925,20 +24925,21 @@ function showAttackHitNotification(casterName, attackName, detail, effect) {
   if (!el) return;
   document.getElementById('attackHitTitle').textContent = `💥 ${casterName}'s ${attackName} hit you`;
   document.getElementById('attackHitDetail').textContent = detail || '';
-  // Sleight of Hand just needs a quick heads-up, not something the player
-  // has to dismiss themselves — auto-close it fast and hide the button.
+  // The hit already landed — this is a heads-up, not something the player must
+  // acknowledge. Always auto-dismiss and hide the button; a tap on the card
+  // closes it early. Sleight of Hand is even quicker.
   const quick = effect === 'pickpocket';
-  document.getElementById('attackHitDismiss').classList.toggle('hidden', quick);
+  document.getElementById('attackHitDismiss').classList.add('hidden');
   el.classList.add('show');
   clearTimeout(attackHitTimer);
-  attackHitTimer = setTimeout(() => el.classList.remove('show'), quick ? 2000 : 8000);
+  attackHitTimer = setTimeout(() => el.classList.remove('show'), quick ? 2000 : 4000);
 }
 
-const attackHitDismiss = document.getElementById('attackHitDismiss');
-if (attackHitDismiss) attackHitDismiss.addEventListener('click', () => {
+// Tap the card to dismiss it early — no button to hunt for.
+const attackHitNotif = document.getElementById('attackHitNotification');
+if (attackHitNotif) attackHitNotif.addEventListener('click', () => {
   clearTimeout(attackHitTimer);
-  const el = document.getElementById('attackHitNotification');
-  if (el) el.classList.remove('show');
+  attackHitNotif.classList.remove('show');
 });
 
 // ---------------------------------------------------------------------------
