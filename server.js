@@ -6060,6 +6060,33 @@ function playerByAccount(key) { if (!key) return null; for (const p of players.v
 // uniformly — a covenmate in the game and one on the website share one channel.
 const voiceClients = new Map(); // id -> { id, accountKey, name, ws, voiceOn, isVoiceClient }
 
+// WebRTC ICE servers handed to voice clients. STUN alone can't punch through
+// symmetric NATs / some mobile carriers / locked-down wifi, so a TURN relay is
+// the fallback that makes voice connect anywhere. Configure a relay with env:
+//   TURN_URLS=turn:turn.example.com:3478,turns:turn.example.com:5349
+//   TURN_SECRET=<coturn static-auth-secret>   (ephemeral, time-limited creds)
+// or static creds: TURN_USERNAME / TURN_PASSWORD. With nothing set we fall back
+// to STUN-only (today's behavior) — no breakage, just less reliable on hard
+// networks. Credentials are minted per request and short-lived, so a leaked one
+// expires fast; they go out only over the authenticated voice channel.
+const TURN_URLS = (process.env.TURN_URLS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const TURN_SECRET = process.env.TURN_SECRET || '';
+const TURN_TTL = parseInt(process.env.TURN_TTL, 10) || 12 * 3600; // seconds
+const STUN_URL = process.env.STUN_URL || 'stun:stun.l.google.com:19302';
+function buildIceConfig() {
+  const iceServers = [{ urls: STUN_URL }];
+  if (TURN_URLS.length && TURN_SECRET) {
+    // coturn REST scheme: username = "<expiry>:<id>", credential = base64(HMAC-SHA1(secret, username)).
+    const expiry = Math.floor(Date.now() / 1000) + TURN_TTL;
+    const username = expiry + ':thornreach';
+    const credential = crypto.createHmac('sha1', TURN_SECRET).update(username).digest('base64');
+    iceServers.push({ urls: TURN_URLS, username, credential });
+  } else if (TURN_URLS.length && process.env.TURN_USERNAME && process.env.TURN_PASSWORD) {
+    iceServers.push({ urls: TURN_URLS, username: process.env.TURN_USERNAME, credential: process.env.TURN_PASSWORD });
+  }
+  return { iceServers };
+}
+
 // Every live connection for a coven, across both maps (any voice state).
 function covenConnections(cvId) {
   const out = [];
@@ -6089,7 +6116,7 @@ function voiceJoin(part) {
     peers.push({ id: m.id, name: m.name });
     send(m.ws, { type: 'coven_voice_peer_join', id: part.id, name: part.name });
   }
-  send(part.ws, { type: 'coven_voice_joined', selfId: part.id, peers });
+  send(part.ws, { type: 'coven_voice_joined', selfId: part.id, peers, ice: buildIceConfig() });
   covenVoiceBroadcastRoster(cvId);
 }
 
@@ -7071,7 +7098,7 @@ wss.on('connection', (ws, req) => {
       const members = cv.members.map((k) => ({ name: covenDisplayName(k), online: !!findConnectionByAccountKey(k) }));
       send(ws, { type: 'voice_hello_ok', selfId: voiceClient.id,
         coven: { id: cv.id, name: cv.name, sigil: cv.sigil, members },
-        voice: covenVoiceRoster(cv.id) });
+        voice: covenVoiceRoster(cv.id), ice: buildIceConfig() });
       return;
     }
     if (voiceClient) {
@@ -11135,7 +11162,7 @@ global.__testHooks = {
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
-  sessions, covenInvites, resumeStashes, passwordResets, voiceClients,
+  sessions, covenInvites, resumeStashes, passwordResets, voiceClients, buildIceConfig,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,

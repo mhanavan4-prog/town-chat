@@ -76,6 +76,11 @@ Your server is now at `https://your-chosen-name.fly.dev`. Put that in each app's
 | `GOOGLE_PLAY_PACKAGE` | Android: your Play package name. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Android: a service-account JSON (inline) with Play Developer API access. |
 | `ANTHROPIC_API_KEY` | Optional — Witch Hazel's selfie-shop face check (fails open if unset). |
+| `TURN_URLS` | Optional — comma-separated TURN relay URLs for coven voice (e.g. `turn:turn.you.com:3478,turns:turn.you.com:5349`). Unset ⇒ STUN-only. |
+| `TURN_SECRET` | Optional — coturn `static-auth-secret`; the server mints short-lived ephemeral TURN credentials from it. |
+| `TURN_USERNAME` / `TURN_PASSWORD` | Optional — static TURN credentials instead of a secret (if your relay uses fixed creds). |
+| `TURN_TTL` | Optional — lifetime (seconds) of ephemeral TURN credentials (default 43200 = 12h). |
+| `STUN_URL` | Optional — override the default STUN server (`stun:stun.l.google.com:19302`). |
 
 Health check: after deploy, open `https://your-server/api/config` — it should return JSON.
 Then set that origin in each app's `config.js` and rebuild the apps.
@@ -91,6 +96,47 @@ rate-limited to roughly one per subscription per day.
 Two honest limits: the Electron desktop shell and the Capacitor app builds don't ship a push
 transport (their enable button says so in-game); native FCM/APNs for the store apps would be a
 separate future round.
+
+## Coven voice: a TURN relay (recommended)
+
+Coven voice is peer-to-peer (WebRTC); the server only relays the handshake, never audio. Direct
+peer-to-peer works for most players via STUN alone, but **symmetric NATs, some mobile carriers and
+locked-down wifi can't be punched through** — those players connect but hear silence. A **TURN**
+relay is the fallback that makes voice work everywhere. Without one configured, voice stays
+STUN-only (today's behavior) — nothing breaks, it's just less reliable on hard networks.
+
+The server hands clients **short-lived, ephemeral credentials** (coturn's REST scheme) over the
+authenticated voice channel, so a leaked credential expires within `TURN_TTL`. You just provision a
+relay and set the env vars.
+
+**Option A — self-host coturn** (one small box, cheapest at scale):
+
+```bash
+sudo apt install coturn
+# /etc/turnserver.conf:
+#   listening-port=3478
+#   tls-listening-port=5349
+#   fingerprint
+#   use-auth-secret
+#   static-auth-secret=<same value as TURN_SECRET>
+#   realm=turn.yourdomain.com
+#   # a cert for turns: (Let's Encrypt) → cert=/path/fullchain.pem  pkey=/path/privkey.pem
+#   # open UDP/TCP 3478 and 5349, plus the relay port range (default 49152-65535/udp)
+```
+
+Then on the game server:
+
+```
+TURN_URLS=turn:turn.yourdomain.com:3478,turns:turn.yourdomain.com:5349
+TURN_SECRET=<the same static-auth-secret>
+```
+
+**Option B — a hosted TURN provider** (Twilio, Metered, Cloudflare Calls, Xirsys…): set `TURN_URLS`
+plus either `TURN_SECRET` (if they support the shared-secret/REST scheme) or `TURN_USERNAME` /
+`TURN_PASSWORD` for static credentials. Zero servers to run; you pay per GB relayed.
+
+Verify: with the vars set, open the browser console on `/voice`, join voice, and you should see ICE
+candidates of type `relay` appear — that's TURN in use.
 
 ## Auto-deploy on the VPS (hands-off shipping)
 
