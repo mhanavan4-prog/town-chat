@@ -145,7 +145,14 @@ function renderCovenModal() {
     });
     const log = document.getElementById('covenLog');
     log.innerHTML = '';
-    for (const l of (getCovenState().log || []).slice().reverse()) {
+    const logEntries = (getCovenState().log || []).slice().reverse();
+    if (!logEntries.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:9px 10px;opacity:0.6;font-size:12.5px;color:#ece3ff';
+      empty.textContent = 'No deposits or withdrawals yet — the ledger is clean.';
+      log.appendChild(empty);
+    }
+    for (const l of logEntries) {
       const row = document.createElement('div');
       row.style.cssText = 'padding:7px 10px;margin:4px 0;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);font-size:12.5px;line-height:1.35;color:#ece3ff';
       const who = document.createElement('b');
@@ -223,7 +230,15 @@ function renderCovenChat() {
   const log = document.getElementById('covenChatLog');
   if (!log) return;
   log.innerHTML = '';
-  for (const l of getCovenChatLines()) {
+  const lines = getCovenChatLines();
+  if (!lines.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.6;padding:6px 2px;font-size:12.5px';
+    empty.textContent = 'No whispers yet — this circle is private to your coven.';
+    log.appendChild(empty);
+    return;
+  }
+  for (const l of lines) {
     const row = document.createElement('div');
     const who = document.createElement('span'); who.className = 'cvWho'; who.textContent = `${l.sigil} ${l.who}: `;
     const text = document.createElement('span'); text.textContent = l.text;

@@ -144,6 +144,8 @@ let ws;
 let lastJoinPayload = null;
 let gameStarted = false;
 let reconnectTimer = null;
+let reconnectAttempts = 0;
+let bannerGraceTimer = null;
 // Live resume token — arrives in every init. If the socket dies (phone
 // screen off, network blip), the reconnect presents it and the server
 // rebuilds this exact character in place. Mirrored to sessionStorage so
@@ -835,8 +837,18 @@ function onWsClose() {
   // the two devices would ping-pong evicting each other forever.
   if (sessionTakenOver) return;
   if (gameStarted && lastJoinPayload && !reconnectTimer) {
-    showReconnectBanner(true);
-    reconnectTimer = setTimeout(() => { reconnectTimer = null; setupWs(); }, 2000);
+    // Exponential backoff (2s → 3s → 4.5s … capped at 20s). A fixed 2s retry
+    // would have every client hammer the server in lockstep if it restarts on
+    // launch night; backoff spreads the herd out. A short grace delay before
+    // the banner keeps a sub-second blip from flashing an alarm at the player.
+    reconnectAttempts++;
+    const delay = Math.min(2000 * Math.pow(1.5, reconnectAttempts - 1), 20000);
+    if (reconnectAttempts === 1 && !bannerGraceTimer) {
+      bannerGraceTimer = setTimeout(() => { bannerGraceTimer = null; showReconnectBanner(true); }, 1200);
+    } else {
+      showReconnectBanner(true);
+    }
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; setupWs(); }, delay);
   }
 }
 // Phones drop the socket when the screen sleeps or the app is backgrounded,
@@ -846,12 +858,17 @@ function maybeReconnectNow() {
   if (sessionTakenOver) return;
   if (!gameStarted || !lastJoinPayload) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  // A deliberate wake (tab visible, network back, manual tap) wants to try
+  // immediately, so collapse any pending backoff and reset the counter.
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  reconnectAttempts = 0;
   showReconnectBanner(true);
   setupWs();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeReconnectNow(); });
 window.addEventListener('online', maybeReconnectNow);
+// Manual retry from the reconnect banner's "Reconnect now" button.
+window.__reconnectNow = maybeReconnectNow;
 window.addEventListener('pageshow', (e) => {
   // A bfcache-revived page is a time traveler: its in-memory resume token
   // is stale, and a newer session for this character may exist (e.g. the
@@ -1047,6 +1064,8 @@ function onWsMessage(ev) {
       syncChatVisibility();
       renderChatLog();
     } else {
+      reconnectAttempts = 0;
+      if (bannerGraceTimer) { clearTimeout(bannerGraceTimer); bannerGraceTimer = null; }
       showReconnectBanner(false);
       setUnlockToast('Reconnected.');
       updateHealthHud();
@@ -2365,7 +2384,18 @@ function setStatus(ok) {
 
 function showReconnectBanner(show) {
   const el = document.getElementById('reconnectBanner');
-  if (el) el.classList.toggle('hidden', !show);
+  if (!el) return;
+  el.classList.toggle('hidden', !show);
+  if (!show) return;
+  const msg = document.getElementById('reconnectMsg');
+  const btn = document.getElementById('reconnectNowBtn');
+  // After a few failed tries the automatic retry is clearly slow (server down,
+  // bad network) — give the player a button so they're not stuck watching.
+  const stalled = reconnectAttempts >= 3;
+  if (msg) msg.textContent = stalled
+    ? '⚡ Still trying to reconnect…'
+    : '⚡ Connection lost — reconnecting…';
+  if (btn) btn.classList.toggle('hidden', !stalled);
 }
 
 function showJoinError(text) {
@@ -6072,6 +6102,7 @@ function renderChatLog() {
   const local = messagesByRoom[currentRoom] || [];
   const msgs = worldFeed.concat(local).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
   chatLog.innerHTML = '';
+  let shown = 0;
   for (const m of msgs) {
     const div = document.createElement('div');
     if (m.system) {
@@ -6080,6 +6111,7 @@ function renderChatLog() {
       div.className = 'chatLine systemLine';
       div.textContent = m.text;
       chatLog.appendChild(div);
+      shown++;
       continue;
     }
     // Local mute: hide this viewer's muted names (their own lines always show).
@@ -6109,6 +6141,14 @@ function renderChatLog() {
       div.appendChild(img);
     }
     chatLog.appendChild(div);
+    shown++;
+  }
+  if (!shown) {
+    const empty = document.createElement('div');
+    empty.className = 'chatLine systemLine';
+    empty.style.opacity = '0.65';
+    empty.textContent = '🌙 Town is quiet. Say hello — press Enter to start chatting.';
+    chatLog.appendChild(empty);
   }
   chatLog.scrollTop = chatLog.scrollHeight;
 }
@@ -10951,8 +10991,26 @@ const { openSpellConsentPrompt, openHowlConsentPrompt, denySpellConsent, denyHow
 // stays connected to the camera once the snapshot is taken.
 // Loads the tiny face detector model once and caches it.
 let _faceApiReady = false;
+// face-api.js (~650KB) is only needed for selfies / the third-eye spell, not
+// at boot. It used to load render-blocking in index.html, delaying first
+// paint on phones; now it's fetched on demand (and pre-warmed when idle).
+let _faceApiScriptP = null;
+function _loadFaceApiScript() {
+  if (typeof faceapi !== 'undefined') return Promise.resolve(true);
+  if (_faceApiScriptP) return _faceApiScriptP;
+  _faceApiScriptP = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'face-api.min.js';
+    s.async = true;
+    s.onload = () => resolve(typeof faceapi !== 'undefined');
+    s.onerror = () => { _faceApiScriptP = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return _faceApiScriptP;
+}
 async function _ensureFaceApi() {
   if (_faceApiReady) return true;
+  if (!(await _loadFaceApiScript())) return false;
   if (typeof faceapi === 'undefined') return false;
   try {
     await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
@@ -10960,8 +11018,16 @@ async function _ensureFaceApi() {
     return true;
   } catch { return false; }
 }
-// Pre-warm the face detection model in the background so the first purchase is fast.
-_ensureFaceApi();
+// Pre-warm the detector once the browser is idle, so the first selfie/third-eye
+// is instant without holding up the initial load. Skipped on phones: it's
+// 650KB many touch players never use, and the on-demand path covers them when
+// they do reach for the camera.
+(function prewarmFaceApi() {
+  if (MOBILE_UI) return;
+  const go = () => { _ensureFaceApi(); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 8000 });
+  else setTimeout(go, 5000);
+})();
 
 // Returns true if a human face is detected in the data URL.
 // Uses face-api.js tiny face detector (works in all browsers, no API key needed).

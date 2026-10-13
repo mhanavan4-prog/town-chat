@@ -42,6 +42,12 @@ function renderLegendShop(msg) {
   legendCountdownTimer = setInterval(paintCountdown, 30000);
   const list = document.getElementById('legendItems');
   list.innerHTML = '';
+  if (!(msg.items && msg.items.length)) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.7;padding:14px 6px;text-align:center';
+    empty.textContent = '🌒 The stall is restocking — check back in a moment.';
+    list.appendChild(empty);
+  }
   for (const it of msg.items || []) {
     const row = document.createElement('div');
     row.className = 'legendRow tier' + it.tier;
