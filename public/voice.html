@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coven Voice — Thornreach</title>
+<meta name="description" content="Talk to your coven by voice, right from the web.">
+<!--OG-->
+<meta name="theme-color" content="#140f2b">
+<link rel="icon" href="/icon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg0:#130c22;--bg1:#0b0716;--bg2:#060410;--ink:#e9ddff;--mut:#a99bc4;--mut2:#8d80a8;--violet:#b98aff;--teal:#7ef0c3;--green:#9ee37d;--gold:#e8d9a8;--card:rgba(16,10,26,0.72);--line:rgba(185,138,255,0.18);--grad:linear-gradient(90deg,#a678f0,#5ee7c0)}
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);font-family:'Segoe UI',system-ui,Arial,sans-serif;line-height:1.55;min-height:100vh;background:radial-gradient(1100px 620px at 78% -5%,rgba(146,109,222,0.18),transparent 55%),radial-gradient(820px 520px at 6% 12%,rgba(94,231,192,0.07),transparent 60%),linear-gradient(180deg,var(--bg0) 0%,var(--bg1) 45%,var(--bg2) 100%);background-attachment:fixed}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px}
+  .wordmark{font-family:'Cinzel Decorative','Cinzel',Georgia,serif;letter-spacing:3px;font-weight:900}
+  .grad-text{background:linear-gradient(90deg,#c9a7ff 0%,#8de8c8 55%,#e8d9a8 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .btn{display:inline-block;font-weight:800;letter-spacing:.4px;cursor:pointer;border:none;border-radius:10px;padding:10px 18px;color:#0b0713;background:var(--grad);box-shadow:0 6px 22px rgba(130,90,230,0.32);transition:transform .14s ease;font-size:14px}
+  .btn:hover{transform:translateY(-2px)}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .btn.ghost{background:rgba(10,6,20,0.5);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  .btn.leave{background:linear-gradient(90deg,#e06464,#b83a3a);color:#fff}
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(11,7,22,0.86),rgba(11,7,22,0.55));border-bottom:1px solid rgba(185,138,255,0.12)}
+  .nav .wrap{display:flex;align-items:center;gap:14px;height:62px;max-width:720px}
+  .brand{display:flex;align-items:center;gap:10px}.brand .sigil{width:28px;height:28px}.brand .name{font-size:18px}
+  .nav .right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .nav .right a.link{color:var(--mut);font-size:14px}.nav .right a.link:hover{color:var(--ink)}
+  .head{text-align:center;padding:36px 0 6px}
+  .head h1{font-family:'Cinzel Decorative','Cinzel',serif;font-weight:900;font-size:clamp(26px,5vw,40px);letter-spacing:3px;margin:0 0 6px}
+  .head p{color:var(--mut);font-family:Georgia,serif;font-style:italic;margin:0}
+  .gate,.main{margin:26px 0 70px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .gate{text-align:center;color:var(--mut)}
+  .gate .btn{margin-top:14px}
+  .covhead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .covhead .sig{width:60px;height:60px;flex:0 0 auto;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;background:radial-gradient(circle at 50% 38%,rgba(140,90,255,0.22),rgba(10,6,20,0.5) 72%);border:1px solid var(--line)}
+  .covhead h2{font-family:'Cinzel',serif;font-weight:600;font-size:22px;margin:0}
+  .covhead .sub{color:var(--mut2);font-size:12.5px;letter-spacing:.5px}
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 4px}
+  #vPtt{flex:1;min-width:200px;padding:16px;border-radius:14px;border:1px solid rgba(126,240,195,0.4);background:rgba(94,231,192,0.08);color:#cfeede;font-weight:800;font-size:15px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;transition:background .1s ease,border-color .1s ease}
+  #vPtt.talking{background:linear-gradient(90deg,rgba(126,240,195,0.35),rgba(126,240,195,0.2));border-color:var(--teal);color:#eafff6}
+  .vstatus{margin-top:12px;font-size:13px;color:var(--mut2);min-height:18px}
+  .vstatus.ok{color:var(--green)} .vstatus.err{color:#ff9b9b}
+  h3.sec{font-family:'Cinzel',serif;font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--violet);margin:22px 0 10px}
+  .vmem{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid rgba(185,138,255,0.09)}
+  .vmem:last-child{border-bottom:none}
+  .vmem .vdot{width:10px;height:10px;border-radius:50%;background:#44405a;flex:0 0 auto}
+  .vmem.online .vdot{background:#6a86c0}
+  .vmem.invoice .vdot{background:#6fe0a0;box-shadow:0 0 8px rgba(111,224,160,0.6)}
+  .vmem.speaking .vdot{background:#7ef0c3;box-shadow:0 0 12px rgba(126,240,195,0.95);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+  .vmem .vname{flex:1;font-weight:700;color:#f1e9ff;font-size:14px}
+  .vmem .vyou{color:var(--mut2);font-weight:500;font-size:12px}
+  .vmem.speaking .vname{color:var(--teal)}
+  .vmem .vtag{font-size:11.5px;color:var(--mut2);letter-spacing:.5px}
+  .vmem.invoice .vtag,.vmem.speaking .vtag{color:var(--green)}
+  .hint{color:var(--mut2);font-size:12px;margin-top:14px;line-height:1.5}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="jsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b98aff"/><stop offset="1" stop-color="#7ef0c3"/></linearGradient>
+</defs></svg>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="/">
+    <svg class="sigil" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="none" stroke="url(#jsg)" stroke-width="4"/><path d="M50 6 L75.86 85.6 L8.15 36.4 L91.85 36.4 L24.14 85.6 Z" fill="none" stroke="url(#jsg)" stroke-width="4" stroke-linejoin="round"/></svg>
+    <span class="wordmark name grad-text">THORNREACH</span>
+  </a>
+  <div class="right">
+    <a class="link" href="/profile">My profile</a>
+    <a class="btn ghost" href="/play">Enter the Town</a>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="head">
+    <h1 class="grad-text">COVEN VOICE</h1>
+    <p>Gather your circle — talk to your coven without leaving the web.</p>
+  </div>
+
+  <div class="gate card" id="vGate">
+    <div id="vGateMsg">Log in to your account to join your coven's voice.</div>
+    <a class="btn" href="/profile">Log in</a>
+  </div>
+
+  <div class="main hidden" id="vMain">
+    <div class="card">
+      <div class="covhead">
+        <div class="sig" id="vCovenSigil">🌙</div>
+        <div>
+          <h2 id="vCovenName">—</h2>
+          <div class="sub">Peer-to-peer · push-to-talk · never recorded</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="vJoinBtn" disabled>Join voice</button>
+        <button id="vPtt" class="hidden">🎙️ Hold to talk</button>
+      </div>
+      <div class="vstatus" id="vStatus"></div>
+      <h3 class="sec">The Circle</h3>
+      <div id="vMembers"></div>
+      <div class="hint">Hold the button — or the <b>Space</b> bar — to talk. Your mic is muted until you do, and audio goes straight between you and your covenmates. Covenmates playing the game are in the same channel.</div>
+    </div>
+  </div>
+</main>
+
+<script src="/voice.js" defer></script>
+</body>
+</html>
