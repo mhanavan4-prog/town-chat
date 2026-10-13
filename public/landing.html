@@ -21,8 +21,11 @@
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
+  html{overflow-x:hidden}
   body{
     margin:0; color:var(--ink);
+    /* Never let the page scroll sideways on mobile. */
+    overflow-x:hidden; max-width:100vw;
     font-family:'Segoe UI', system-ui, Arial, sans-serif; line-height:1.55;
     background:
       radial-gradient(1100px 620px at 78% -5%, rgba(146,109,222,0.18), transparent 55%),
@@ -66,7 +69,30 @@
   .nav nav a.link:hover{color:var(--ink)}
   .nav .cta{display:flex; align-items:center; gap:10px; margin-left:4px}
   .nav .btn{padding:9px 18px; border-radius:9px}
-  @media(max-width:720px){ .nav nav a.link{display:none} }
+  @media(max-width:720px){
+    /* The nav is one no-wrap row: brand + search + Log in + Play free. On a
+       phone that doesn't fit, so the whole page was forced wider than the
+       screen (everything shifted, the CTAs pushed off the right edge). Drop
+       the secondary links + the search box here — search lives in-app — and
+       tighten spacing so brand + Log in + Play free sit on one row that fits. */
+    .nav nav a.link{display:none}
+    #siteSearch{display:none}
+    .nav .wrap{gap:10px}
+    .nav nav{gap:0}
+    .nav .cta{gap:8px; margin-left:0}
+    .nav .btn{padding:8px 13px}
+    .brand .name{font-size:17px}
+  }
+  @media(max-width:380px){
+    /* Very narrow phones: tighten further so brand + Log in + Play free still
+       fit on one row without pushing the page sideways. */
+    .nav .wrap{gap:8px}
+    .brand{gap:7px}
+    .brand .sigil{width:24px; height:24px}
+    .brand .name{font-size:15px}
+    .nav .cta{gap:6px}
+    .nav .btn{padding:7px 10px; font-size:13px}
+  }
 
   /* ── hero / banner ── */
   .hero{position:relative; overflow:hidden; padding:66px 0 40px}
