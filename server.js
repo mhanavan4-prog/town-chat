@@ -5107,6 +5107,13 @@ function tickPlayerStatusHealth(now, dt) {
   }
 }
 
+// Broadcast cadence — load testing showed the single-threaded event loop on a
+// small box is bound by the socket-write volume of these two firehoses (~half
+// of CPU under load is in writev/send), not by game computation. Slightly
+// slower cadences cut that volume across the board; clients interpolate, so
+// 6–7Hz still reads as smooth. Env-tunable to dial in per box.
+const WILDLIFE_MS = parseInt(process.env.WILDLIFE_MS, 10) || 220;
+const BROADCAST_MS = parseInt(process.env.BROADCAST_MS, 10) || 150;
 let lastWildlifeTick = Date.now();
 setInterval(() => {
   const now = Date.now();
@@ -5188,7 +5195,7 @@ setInterval(() => {
     if (msg === undefined) { msg = JSON.stringify(wildlifeFor(p.room)); cache.set(p.room, msg); }
     p.ws.send(msg);
   }
-}, 150);
+}, WILDLIFE_MS);
 
 // ---------------------------------------------------------------------------
 // Ground-placed spell traps — currently just Stumble Hex's sigil (see the
@@ -11143,7 +11150,13 @@ const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-
 // (A per-recipient area-of-interest cull was tried and measured WORSE here: it
 //  builds a distinct payload per player, which costs more CPU/GC than the bytes
 //  it saves on one box. Left out on purpose.)
-const CROWD_THRESHOLD = parseInt(process.env.CROWD_THRESHOLD, 10) || 60;
+// Lowered 60→30: above this, a room switches to one full-roster snapshot at
+// HALF cadence instead of per-tick delta snapshots. Under churn (everyone
+// moving) the full-roster-at-half-cadence is ~half the write volume of
+// full-cadence deltas, so a lower threshold means medium rooms (the launch
+// case: ~50–100 split across town + the Wilds) get the cheaper path too. This
+// is exactly what the split load test was missing when it collapsed.
+const CROWD_THRESHOLD = parseInt(process.env.CROWD_THRESHOLD, 10) || 30;
 let _stateTick = 0;
 function broadcastPlayerState() {
   if (players.size === 0) { _roomMemberSig.clear(); return; }
@@ -11189,7 +11202,7 @@ function broadcastPlayerState() {
   // Drop bookkeeping for channels that emptied this tick.
   for (const chan of _roomMemberSig.keys()) if (!seenChans.has(chan)) _roomMemberSig.delete(chan);
 }
-setInterval(broadcastPlayerState, 120);
+setInterval(broadcastPlayerState, BROADCAST_MS);
 
 // Low-rate reconciliation: every client learns the full roster of ITS OWN
 // instance (who's online + which room they're in) for counts, recipient lists
