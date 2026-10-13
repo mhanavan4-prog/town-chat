@@ -1354,6 +1354,37 @@ const banStore = persistLoad('bans', BANS_FILE) || {};
 if (!banStore.account) banStore.account = {};
 if (!banStore.ip) banStore.ip = {};
 persistRegister('bans', BANS_FILE, () => banStore);
+
+// Player reports — a durable triage queue (not just audit-log lines) so a
+// moderator can review who flagged whom and why, see the target's captured
+// media, and act (mute / ban / dismiss). Benign moderation state, admin-gated.
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+const reports = persistLoad('reports', REPORTS_FILE) || {}; // id -> record
+persistRegister('reports', REPORTS_FILE, () => reports);
+function saveReports() { try { persistSave('reports', REPORTS_FILE, reports); } catch (e) {} }
+function addReport(rec) {
+  const id = makeId();
+  reports[id] = Object.assign({ id, at: Date.now(), status: 'open' }, rec);
+  const ids = Object.keys(reports);
+  if (ids.length > 600) { // keep the newest ~500
+    ids.map((k) => reports[k]).sort((a, b) => a.at - b.at).slice(0, ids.length - 500).forEach((r) => delete reports[r.id]);
+  }
+  saveReports();
+  return id;
+}
+function reportsList(status) {
+  let arr = Object.values(reports);
+  if (status && status !== 'all') arr = arr.filter((r) => r.status === status);
+  return arr.sort((a, b) => b.at - a.at).slice(0, 300);
+}
+function reportsResolve(id, status, by) {
+  const r = reports[String(id)];
+  if (!r) return false;
+  r.status = status === 'dismissed' ? 'dismissed' : 'resolved';
+  r.resolvedAt = Date.now(); r.resolvedBy = by || 'admin';
+  saveReports();
+  return true;
+}
 const bans = {
   entry(target, value) {
     const e = banStore[target] && banStore[target][value];
@@ -1389,6 +1420,7 @@ const bans = {
 };
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
+  reportsList, reportsResolve,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -7751,15 +7783,20 @@ wss.on('connection', (ws, req) => {
       if (n > 6) return; // quietly ignore a flood of reports from one source
       const target = players.get(String(msg.targetId || ''));
       const reason = String(msg.reason || '').replace(/[<>]/g, '').slice(0, 60);
-      audit.log({ level: 'warn', type: 'player_report', ip: ws._ip,
-        account: player.accountKey || null, name: player.name,
-        detail: {
-          targetName: target ? target.name : String(msg.targetName || '').slice(0, 24),
-          targetAccount: target ? (target.accountKey || null) : null,
-          targetIp: target ? ((target.ws && target.ws._ip) || null) : null,
-          targetRoom: target ? target.room : null,
-          reason
-        } });
+      const rdetail = {
+        targetName: target ? target.name : String(msg.targetName || '').slice(0, 24),
+        targetAccount: target ? (target.accountKey || null) : null,
+        targetIp: target ? ((target.ws && target.ws._ip) || null) : null,
+        targetRoom: target ? target.room : null,
+        reason
+      };
+      audit.log({ level: 'warn', type: 'player_report', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: rdetail });
+      // Also file it in the durable review queue (see /admin/reports).
+      addReport({
+        reporterName: player.name, reporterAccount: player.accountKey || null,
+        targetName: rdetail.targetName, targetAccount: rdetail.targetAccount,
+        targetIp: rdetail.targetIp, targetRoom: rdetail.targetRoom, reason
+      });
       send(ws, { type: 'announce_soft', message: '🚩 Thanks — your report has been sent to the moderators.' });
       return;
     }
@@ -11163,6 +11200,7 @@ global.__testHooks = {
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets, voiceClients, buildIceConfig,
+  reports, reportsList, reportsResolve,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
