@@ -11160,9 +11160,12 @@ const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-
 //      was actually falling behind under load. A crowded channel sends the FULL
 //      roster on its emit ticks (not a delta) so a skipped tick never swallows
 //      a move. Normal rooms are completely unchanged (full-rate delta stream).
-// (A per-recipient area-of-interest cull was tried and measured WORSE here: it
-//  builds a distinct payload per player, which costs more CPU/GC than the bytes
-//  it saves on one box. Left out on purpose.)
+// A per-recipient area-of-interest cull (AOI_RADIUS, see below) is available
+// for crowded rooms: an earlier attempt judged it WORSE because it was measured
+// where CPU — not wire bytes — was the cost, but load testing later pinned the
+// real ceiling as bytes to the receiver, which is exactly what AOI slashes. It
+// trades a little per-recipient CPU for a ~10× byte cut, so it's behind a flag
+// (default off) to enable on boxes where bandwidth is the bind.
 // Lowered 60→30: above this, a room switches to one full-roster snapshot at
 // HALF cadence instead of per-tick delta snapshots. Under churn (everyone
 // moving) the full-roster-at-half-cadence is ~half the write volume of
@@ -11170,6 +11173,19 @@ const _roomMemberSig = new Map(); // room|instance -> last tick's sorted member-
 // case: ~50–100 split across town + the Wilds) get the cheaper path too. This
 // is exactly what the split load test was missing when it collapsed.
 const CROWD_THRESHOLD = parseInt(process.env.CROWD_THRESHOLD, 10) || 30;
+// Area-of-interest cull for the high-frequency (120–150ms) player-state stream.
+// When AOI_RADIUS > 0, a CROWDED room sends each player only the others within
+// that many world units — turning the roster from O(N) per recipient into
+// O(nearby), which is the ~10× cut to wire bytes that the load test pinned as
+// the real ceiling on a small box. SAFE because it only touches this fast
+// stream: the separate 1.6s full-instance roster (below) still refreshes every
+// player, so anyone out of AOI range simply updates coarsely instead of
+// vanishing — no client change, no frozen ghosts. Default OFF (0); enable and
+// tune per box once validated (town is 3200×2200, the Wilds 10000×10000, so a
+// radius of ~1400 covers a generous view in town). Each recipient always
+// includes itself so own health/status stays responsive.
+const AOI_RADIUS = parseInt(process.env.AOI_RADIUS, 10) || 0;
+const AOI_R2 = AOI_RADIUS > 0 ? AOI_RADIUS * AOI_RADIUS : 0;
 let _stateTick = 0;
 function broadcastPlayerState() {
   if (players.size === 0) { _roomMemberSig.clear(); return; }
@@ -11200,6 +11216,21 @@ function broadcastPlayerState() {
       // membership bookkeeping current, done above) — on the membership-change
       // tick, always emit so arrivals/departures still land promptly.
       if (!membershipChanged && (_stateTick & 1)) continue;
+      if (AOI_R2 > 0) {
+        // Per-recipient area-of-interest: each player gets itself + the others
+        // within AOI range. Far room-mates still refresh via the 1.6s roster.
+        for (const p of arr) {
+          if (!canStreamTo(p.ws)) continue;
+          let frags = p._pubFrag;
+          for (const q of arr) {
+            if (q === p) continue;
+            const dx = q.x - p.x, dy = q.y - p.y;
+            if (dx * dx + dy * dy <= AOI_R2) frags += ',' + q._pubFrag;
+          }
+          p.ws.send('{"type":"state","players":[' + frags + ']}');
+        }
+        continue;
+      }
       const snap = '{"type":"state","players":[' + arr.map(p => p._pubFrag).join(',') + ']}';
       for (const p of arr) if (canStreamTo(p.ws)) p.ws.send(snap);
       continue;

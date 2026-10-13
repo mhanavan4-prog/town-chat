@@ -55,6 +55,7 @@ const MOVE_HZ = parseFloat(arg('move', 3));
 const CHAT_HZ = parseFloat(arg('chat', 0.05));
 const PING_HZ = parseFloat(arg('ping', 0.5));
 const WILDS_PCT = parseFloat(arg('wilds', 0));
+const SCATTER = arg('scatter', false) === true || String(arg('scatter', '')) === 'true';
 const PASSWORD = String(arg('password', '') || '');
 const QUIET = arg('quiet', false) === true || String(arg('quiet', '')) === 'true';
 
@@ -103,7 +104,12 @@ function spawnClient(i) {
   const area = inWilds ? WILDS : TOWN;
   const room = inWilds ? 'wilds' : 'outside';
   const c = {
-    i, ws: null, room, x: area.sx + (Math.random() * 400 - 200), y: area.sy + (Math.random() * 400 - 200),
+    i, ws: null, room,
+    // --scatter spreads players across the whole map (realistic exploration,
+    // and the only way to exercise area-of-interest culling); default clusters
+    // near spawn like a fresh crowd.
+    x: SCATTER ? Math.random() * area.w : area.sx + (Math.random() * 400 - 200),
+    y: SCATTER ? Math.random() * area.h : area.sy + (Math.random() * 400 - 200),
     connectAt: 0, joinedAt: 0, lastRecvAt: 0, msgs: 0, bytes: 0, alive: false, joinedFlag: false, timers: [],
   };
   clients.push(c);
