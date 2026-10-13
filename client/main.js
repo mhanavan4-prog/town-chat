@@ -10103,6 +10103,15 @@ function fsSetExpanded(on, autoCollapseMs) {
   }
   renderFirstSteps();
 }
+// Concrete "how to actually do it" guidance for each First Step — this is what
+// turns the checklist into a guided first session. Phrased per input type.
+const FS_HINTS = {
+  talked:    { d: 'Walk up to a glowing townsperson and press F to talk.',              m: 'Walk up to a glowing townsperson and tap the prompt that appears.' },
+  ability:   { d: 'Press 1 to use your first ability — your hotbar runs along the bottom.', m: 'Tap an ability on the right to use it.' },
+  killed:    { d: 'Night creatures roam after dark — press R, or click one, to strike.', m: 'Night creatures roam after dark — tap one to strike.' },
+  harvested: { d: 'Take the north portal to the Wilds, then click a plant to harvest it.', m: 'Take the north portal to the Wilds, then tap a plant to harvest it.' }
+};
+function fsHint(id) { const h = FS_HINTS[id]; return h ? (MOBILE_UI ? h.m : h.d) : ''; }
 function renderFirstSteps() {
   const chip = document.getElementById('firstStepsChip');
   if (!chip) return;
@@ -10110,8 +10119,7 @@ function renderFirstSteps() {
   chip.innerHTML = '';
   const steps = firstStepsState.steps || [];
   const doneCount = steps.filter(s => s.done).length;
-  // Desktop keeps the always-on full card at bottom-left (Michael: "the
-  // placement on my laptop is perfect") — only touch collapses to the pill.
+  const current = steps.find(s => !s.done) || null; // the one objective to guide toward right now
   if (MOBILE_UI && !_fsExpanded) {
     chip.classList.add('fsMini');
     chip.textContent = `🏮 ${doneCount}/${steps.length}`;
@@ -10124,14 +10132,21 @@ function renderFirstSteps() {
   title.className = 'fsTitle';
   title.textContent = `🏮 First Steps · ${doneCount}/${steps.length}`;
   chip.appendChild(title);
+  // The active objective, spelled out as a concrete action.
+  if (current) {
+    const next = document.createElement('div');
+    next.className = 'fsNext';
+    next.innerHTML = `<span class="fsNextLabel">👉 ${current.icon} ${current.label}</span><span class="fsNextHint">${fsHint(current.id)}</span>`;
+    chip.appendChild(next);
+  }
   for (const s of steps) {
     const row = document.createElement('div');
-    if (s.done) row.className = 'fsDone';
+    row.className = s.done ? 'fsDone' : (current && s.id === current.id ? 'fsCur' : '');
     row.textContent = `${s.done ? '✓' : s.icon} ${s.label}`;
     chip.appendChild(row);
   }
   const note = document.createElement('div');
-  note.style.cssText = 'color:#9a8ac0;font-size:11px;margin-top:2px;';
+  note.style.cssText = 'color:#9a8ac0;font-size:11px;margin-top:3px;';
   note.textContent = `Finish all ${steps.length} for ${firstStepsState.rewardGold} gold`;
   chip.appendChild(note);
   chip.classList.remove('hidden');
