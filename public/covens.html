@@ -44,6 +44,23 @@
   .lapsed{color:var(--mut2)}
   .loading,.emptyAll{text-align:center;color:var(--mut2);padding:60px 0;font-style:italic}
   .emptyAll .btn{margin-top:16px;font-style:normal}
+  .intro{max-width:720px;margin:6px auto 0;text-align:center;color:var(--mut);font-size:15px;line-height:1.6}
+  .perks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:30px 0 8px}
+  @media(max-width:760px){ .perks{grid-template-columns:1fr 1fr} }
+  @media(max-width:480px){ .perks{grid-template-columns:1fr} }
+  .perk{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .perk .pi{font-size:24px}
+  .perk h4{font-family:'Cinzel',serif;font-weight:600;font-size:15px;margin:8px 0 4px;color:#f1e9ff}
+  .perk p{color:var(--mut);font-size:13px;margin:0;line-height:1.5}
+  .ways{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0 6px}
+  @media(max-width:700px){ .ways{grid-template-columns:1fr} }
+  .way{background:linear-gradient(180deg,rgba(140,90,255,0.09),rgba(16,10,26,0.5));border:1px solid var(--line);border-radius:16px;padding:20px}
+  .way h3{font-family:'Cinzel',serif;font-weight:600;font-size:19px;margin:0 0 4px;color:#f1e9ff}
+  .way .cost{color:var(--teal);font-weight:700;font-size:13px;margin-bottom:8px}
+  .way p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:0}
+  .way .btn{margin-top:14px}
+  .divide{border:none;border-top:1px solid rgba(185,138,255,0.12);margin:40px 0 0}
+  .sectitle{font-family:'Cinzel',serif;font-weight:600;font-size:14px;letter-spacing:1.6px;text-transform:uppercase;color:var(--violet);text-align:center;margin:30px 0 2px}
 </style>
 </head>
 <body>
@@ -66,8 +83,37 @@
   <div class="head">
     <h1 class="grad-text">COVENS</h1>
     <p>Band together, hold the longest night, claim the Manor.</p>
-    <div class="count" id="count"></div>
   </div>
+
+  <p class="intro">A coven is your circle in Thornreach — up to eight witches, werewolves and liches who share a sigil, a home, and a run at the crown. Band together and the whole town plays differently.</p>
+
+  <div class="perks">
+    <div class="perk"><div class="pi">🌑</div><h4>A private world</h4><p>Every coven gets its own private copy of the Wilds — your circle's own world, unseen by the public town. Only the founder pays; the circle shares it.</p></div>
+    <div class="perk"><div class="pi">🏰</div><h4>Your own Manor</h4><p>An eight-bedroom mansion in your private Wilds, with a séance altar and shared storage. The reigning champion claims it.</p></div>
+    <div class="perk"><div class="pi">💰</div><h4>A shared Bank</h4><p>Pool gold and up to twelve item slots for the whole circle to draw on.</p></div>
+    <div class="perk"><div class="pi">🕯️</div><h4>Weekly Rites</h4><p>The seasonal Wheel-of-the-Year questline, run together — a new Rite turns with every sabbat.</p></div>
+    <div class="perk"><div class="pi">👑</div><h4>Standings &amp; Crowns</h4><p>Climb the weekly coven leaderboard. The champion coven takes a 750-gold purse and the crown.</p></div>
+    <div class="perk"><div class="pi">🎙️</div><h4>Voice &amp; chat</h4><p>A members-only chat channel and coven voice — in the game and right here on the web.</p></div>
+  </div>
+
+  <div class="ways">
+    <div class="way">
+      <h3>🤝 Join a circle</h3>
+      <div class="cost">Free — just need an invite</div>
+      <p>Get an invite from any coven leader and you're in: the private world, the Manor, the Bank, the Rites, voice, and the champion's run are all yours to share. Browse the living circles below, or find one in town.</p>
+      <a class="btn ghost" href="/play">Enter the Town</a>
+    </div>
+    <div class="way">
+      <h3>🌙 Found your own</h3>
+      <div class="cost">$9.99 Charter · $9.99/month upkeep</div>
+      <p>Light the Hagstone in town, name your circle and choose its sigil, and lead up to eight. A one-time Charter founds it and its private world; monthly upkeep keeps the Rites running and gets every member into the Phantom Parlor free.</p>
+      <a class="btn" href="/play">Found a coven</a>
+    </div>
+  </div>
+
+  <hr class="divide">
+  <div class="sectitle">The living circles</div>
+  <div class="count" id="count"></div>
   <div class="loading" id="loading">Gathering the circles…</div>
   <div class="grid" id="grid" style="display:none"></div>
 </main>
