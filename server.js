@@ -1385,6 +1385,28 @@ function reportsResolve(id, status, by) {
   saveReports();
   return true;
 }
+// Phantom echoes — faint spectral shades of players who recently walked the
+// public town, so a quiet town never feels abandoned (and it fits the lore).
+// Transient, in-memory, benign: a name, look, last spot, and when they left.
+const TOWN_ECHO_TTL = 30 * 60 * 1000;
+const TOWN_ECHO_MAX = 8;
+let townEchoes = []; // { name, charId, x, y, leftAt }
+function recordTownEcho(player) {
+  if (!player || (player.instance || '') !== '' || player.room !== 'outside') return;
+  townEchoes = townEchoes.filter((e) => e.name !== player.name); // one shade per soul — freshest spot wins
+  townEchoes.push({ name: player.name, charId: player.charId || 0, x: player.x, y: player.y, leftAt: Date.now() });
+  if (townEchoes.length > TOWN_ECHO_MAX) townEchoes = townEchoes.slice(-TOWN_ECHO_MAX);
+}
+function townEchoPayload() {
+  const now = Date.now();
+  townEchoes = townEchoes.filter((e) => now - e.leftAt < TOWN_ECHO_TTL);
+  // Never echo someone currently in the public town (incl. an instant rejoin).
+  const live = new Set();
+  for (const p of players.values()) if ((p.instance || '') === '' && p.room === 'outside') live.add(p.name);
+  return townEchoes.filter((e) => !live.has(e.name)).map((e) => ({ name: e.name, charId: e.charId, x: e.x, y: e.y, leftAt: e.leftAt }));
+}
+function broadcastTownEchoes() { try { broadcastInstance('', { type: 'echoes', echoes: townEchoPayload() }); } catch (e) {} }
+
 const bans = {
   entry(target, value) {
     const e = banStore[target] && banStore[target][value];
@@ -7445,6 +7467,7 @@ wss.on('connection', (ws, req) => {
         world: WORLD,
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
+        echoes: townEchoPayload(),
         // Equipment stat catalog — the client uses this to preview how a swap
         // would change your stats before you commit, with no server round-trip.
         equipStats: EQUIP_STATS,
@@ -11057,8 +11080,10 @@ wss.on('connection', (ws, req) => {
       if (player.room !== 'outside') {
         broadcastInstance(player.instance, { type: 'clear_user_messages', room: player.room, id: player.id });
       }
+      recordTownEcho(player); // leave a spectral shade behind in the public town
       players.delete(player.id);
       broadcastInstance(player.instance, { type: 'player_left', id: player.id });
+      if ((player.instance || '') === '' && player.room === 'outside') broadcastTownEchoes();
     }
   });
 });

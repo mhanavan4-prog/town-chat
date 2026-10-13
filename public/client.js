@@ -15234,6 +15234,7 @@ function onWsMessage(ev) {
       }
     }
     for (const p of msg.players) addPlayer(p);
+    if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
     me = players[myId];
     // A fresh connection always lands in the public world (the server resets
     // instance on resume), so clear any stale Moot state from a prior session.
@@ -15365,6 +15366,7 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'echoes') { reconcileEchoes(msg.echoes); return; }
   if (msg.type === 'player_left') {
     removePlayer(msg.id);
     if (Modals.isOpen('inventoryOpen')) refreshNoteRecipients();
@@ -17267,6 +17269,59 @@ function showGhostOverlay() {
 function hideGhostOverlay() {
   const el = document.getElementById('ghostOverlay');
   if (el) el.classList.add('hidden');
+}
+
+// ── Phantom echoes ──────────────────────────────────────────────────────────
+// Faint spectral shades of players who recently walked the public town, so a
+// quiet town never feels abandoned — and it suits a game about the departed.
+// Atmospheric only: they drift, bob and fade, carry a ghostly name, and are
+// NOT in `visuals`, so they can never be targeted, attacked, or reported.
+const ECHO_TTL_MS = 30 * 60 * 1000;
+const echoVisuals = {}; // key -> { group, nameEl, baseX, baseZ, phase, bornAt, leftAt, name }
+function echoKey(e) { return e.name + '|' + Math.round(e.x) + '|' + Math.round(e.y) + '|' + e.leftAt; }
+function makeEchoVisual(e) {
+  const group = makeGhostMesh();
+  group.traverse((o) => { if (o.material) { try { o.material = o.material.clone(); } catch (err) {} o.material.transparent = true; o.material.depthWrite = false; } });
+  const nameEl = document.createElement('div');
+  nameEl.className = 'nameTag echoTag';
+  nameEl.textContent = 'the shade of ' + e.name;
+  document.body.appendChild(nameEl);
+  return { group, nameEl, baseX: e.x, baseZ: e.y, phase: Math.random() * Math.PI * 2, bornAt: performance.now(), leftAt: e.leftAt, name: e.name };
+}
+function destroyEchoVisual(v) {
+  try { if (v.group && v.group.parent) v.group.parent.remove(v.group); } catch (err) {}
+  try { if (v.nameEl) v.nameEl.remove(); } catch (err) {}
+}
+function reconcileEchoes(list) {
+  const want = {};
+  for (const e of (list || [])) { if (e && e.name) want[echoKey(e)] = e; }
+  for (const k of Object.keys(echoVisuals)) if (!want[k]) { destroyEchoVisual(echoVisuals[k]); delete echoVisuals[k]; }
+  for (const k of Object.keys(want)) if (!echoVisuals[k]) { try { echoVisuals[k] = makeEchoVisual(want[k]); } catch (err) {} }
+}
+function updateEchoes(dt) {
+  const inTown = activeScene === outdoorScene && currentRoom === 'outside';
+  const nowP = performance.now();
+  for (const k of Object.keys(echoVisuals)) {
+    const v = echoVisuals[k];
+    let livePresent = false;
+    for (const id in players) { if (id !== myId && players[id].name === v.name && players[id].room === currentRoom) { livePresent = true; break; } }
+    const show = inTown && !livePresent;
+    if (show && !v.group.parent) outdoorScene.add(v.group);
+    else if (!show && v.group.parent) v.group.parent.remove(v.group);
+    if (!show) { if (v.nameEl) v.nameEl.style.display = 'none'; continue; }
+    v.phase += dt;
+    const bob = Math.sin(v.phase * 1.3) * 6;
+    v.group.position.set(v.baseX + Math.sin(v.phase * 0.5) * 20, groundY + 14 + bob, v.baseZ + Math.cos(v.phase * 0.37) * 20);
+    v.group.rotation.y += dt * 0.3;
+    const fadeIn = Math.min(1, (nowP - v.bornAt) / 1500);
+    const lifeLeft = ECHO_TTL_MS - (Date.now() - v.leftAt);
+    const fadeOut = Math.max(0, Math.min(1, lifeLeft / 120000));
+    const op = 0.4 * fadeIn * fadeOut;
+    v.group.traverse((o) => { if (o.material && 'opacity' in o.material) o.material.opacity = op; });
+    const s = worldToScreen(v.group.position.x, v.group.position.y + 58, v.group.position.z);
+    if (s.visible) { v.nameEl.style.display = ''; v.nameEl.style.left = s.x + 'px'; v.nameEl.style.top = s.y + 'px'; v.nameEl.style.opacity = String(Math.min(0.85, op * 2)); }
+    else v.nameEl.style.display = 'none';
+  }
 }
 
 const respawnBtn = document.getElementById('respawnBtn');
@@ -26386,6 +26441,7 @@ function update(dt) {
   }
 
   syncVisuals(dt);
+  updateEchoes(dt);
   updateStatusVisuals(dt);
   updateFireballs();
   updateGroundTrapVisuals();

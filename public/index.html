@@ -628,6 +628,12 @@
     border:0.5px solid rgba(140,100,200,0.32);
     border-radius:3px;
   }
+  /* Phantom echoes — faint, cold, ethereal name for a departed townsfolk's shade. */
+  .nameTag.echoTag {
+    color:#bcdcff; font-size:11px; font-weight:500;
+    background:rgba(8,12,26,0.38); border-color:rgba(120,160,230,0.28);
+    text-shadow:0 0 8px rgba(90,150,255,0.6), 0 1px 3px rgba(0,0,0,0.9);
+  }
   /* Glimpse the Future glow — overrides colour while spell is active */
   .nameTag.glimpseHighlight {
     color:#e0c8ff;
@@ -3258,6 +3264,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=e1a49a340d"></script>
+<script src="client.js?v=2af8659269"></script>
 </body>
 </html>
