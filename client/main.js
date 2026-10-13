@@ -3082,8 +3082,14 @@ if (_playerCtxCovenBtn) _playerCtxCovenBtn.addEventListener('click', () => {
   hidePlayerContextMenu();
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_invite', targetId: id }));
 });
-// Click anywhere else to dismiss the context menu
+// Click anywhere else to dismiss the context menu. The menu opens on
+// mouseup/touchend, and the browser then fires a `click` on the canvas from
+// that same gesture — which, landing outside the menu, used to close it
+// instantly, so on desktop the menu never appeared to open at all. Ignore any
+// click within a brief window of opening so the opening gesture can't
+// self-dismiss; a later click outside still closes it as before.
 document.addEventListener('click', (e) => {
+  if (Date.now() - _playerCtxMenuOpenedAt < 500) return;
   if (_playerCtxMenu && !_playerCtxMenu.contains(e.target)) hidePlayerContextMenu();
 });
 
@@ -5030,8 +5036,10 @@ const { applyGroundTrapsState, updateGroundTrapVisuals } = createGroundTraps({
 });
 
 let playerContextMenuId = null;
+let _playerCtxMenuOpenedAt = 0; // guards the document click-dismiss from closing the menu on the same gesture that opened it
 function showPlayerContextMenu(targetId, x, y) {
   playerContextMenuId = targetId;
+  _playerCtxMenuOpenedAt = Date.now();
   const menu = document.getElementById('playerContextMenu');
   const p = players[targetId];
   // Tapping someone is also how you ASK for their name on mobile (names
