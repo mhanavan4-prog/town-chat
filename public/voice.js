@@ -5,7 +5,9 @@
    Audio is peer-to-peer; the server only relays the connection handshake. */
 (function () {
   "use strict";
-  var RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  // STUN-only until the server sends its ICE config (may include TURN) in
+  // voice_hello_ok / coven_voice_joined. Mutable so it lands before peers form.
+  var rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   var supported = typeof RTCPeerConnection !== 'undefined' &&
     typeof navigator !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
@@ -80,7 +82,7 @@
   function ensurePeer(id, name) {
     var peer = peers[id];
     if (peer) { if (name) peer.name = name; return peer; }
-    var pc = new RTCPeerConnection(RTC_CONFIG);
+    var pc = new RTCPeerConnection(rtcConfig);
     peer = { pc: pc, name: name || '', audioEl: null, analyser: null, speaking: false };
     peers[id] = peer;
     if (localStream) localStream.getTracks().forEach(function (t) { pc.addTrack(t, localStream); });
@@ -197,6 +199,7 @@
       switch (msg.type) {
         case 'voice_hello_ok':
           selfId = msg.selfId; coven = msg.coven || null; roster = msg.voice || [];
+          if (msg.ice && msg.ice.iceServers && msg.ice.iceServers.length) rtcConfig = msg.ice;
           $('vGate').classList.add('hidden'); $('vMain').classList.remove('hidden');
           if (coven) { $('vCovenName').textContent = coven.name; $('vCovenSigil').textContent = coven.sigil || '🌙'; }
           setStatus('Ready — click “Join voice” to come on.', '');
@@ -207,6 +210,7 @@
           break;
         case 'coven_voice_joined':
           selfId = msg.selfId;
+          if (msg.ice && msg.ice.iceServers && msg.ice.iceServers.length) rtcConfig = msg.ice;
           (msg.peers || []).forEach(function (pr) { ensurePeer(pr.id, pr.name); if (selfId != null && String(selfId) < String(pr.id)) makeOffer(pr.id); });
           render();
           break;

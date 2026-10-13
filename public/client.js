@@ -2087,7 +2087,9 @@ function renderCovenRite() {
 // ---------------------------------------------------------------------------
 
 function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
-  const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  // STUN-only until the server hands us its ICE config (which may add a TURN
+  // relay) in coven_voice_joined. Mutable so that update lands before peers form.
+  let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   const supported = typeof RTCPeerConnection !== 'undefined' &&
     typeof navigator !== 'undefined' &&
     !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -2160,7 +2162,7 @@ function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
   function ensurePeer(id, name) {
     let peer = peers.get(id);
     if (peer) { if (name) peer.name = name; return peer; }
-    const pc = new RTCPeerConnection(RTC_CONFIG);
+    const pc = new RTCPeerConnection(rtcConfig);
     peer = { pc, name: name || '', audioEl: null, analyser: null, speaking: false };
     peers.set(id, peer);
     if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -2227,6 +2229,7 @@ function createCovenVoice({ getWs, getCovenState, setUnlockToast, getMobile }) {
     switch (msg.type) {
       case 'coven_voice_joined': {
         selfId = msg.selfId;
+        if (msg.ice && Array.isArray(msg.ice.iceServers) && msg.ice.iceServers.length) rtcConfig = msg.ice;
         for (const pr of (msg.peers || [])) {
           ensurePeer(pr.id, pr.name);
           if (selfId != null && String(selfId) < String(pr.id)) makeOffer(pr.id); // smaller id offers
