@@ -56,6 +56,9 @@ const CHAT_HZ = parseFloat(arg('chat', 0.05));
 const PING_HZ = parseFloat(arg('ping', 0.5));
 const WILDS_PCT = parseFloat(arg('wilds', 0));
 const SCATTER = arg('scatter', false) === true || String(arg('scatter', '')) === 'true';
+// --at <unix-seconds>: hold until this wall-clock time before ramping, so
+// several machines fire in unison (distributed load). 0 = start immediately.
+const AT = parseInt(arg('at', 0), 10) || 0;
 const PASSWORD = String(arg('password', '') || '');
 const QUIET = arg('quiet', false) === true || String(arg('quiet', '')) === 'true';
 
@@ -70,7 +73,7 @@ const joinLat = [];                 // ms, connect→init
 let rtt = [];                       // ms, rolling WS ping RTT this window
 let winMsgs = 0, winBytes = 0;      // inbound since last tick
 let totalMsgs = 0, totalBytes = 0;
-const started = Date.now();
+let started = Date.now(); // reset when the ramp actually begins (see --at)
 
 function pct(arr, p) {
   if (!arr.length) return null;
@@ -178,10 +181,45 @@ console.log(`  clients=${N}  ramp=${RAMP_MS}ms/conn (~${Math.round(1000 / RAMP_M
 console.log(`  health=${HEALTH_URL || '(none)'}\n`);
 
 let launched = 0;
-const rampTimer = setInterval(() => {
-  if (launched >= N) { clearInterval(rampTimer); return; }
-  spawnClient(launched++);
-}, RAMP_MS);
+function begin() {
+  started = Date.now();
+  const rampTimer = setInterval(() => {
+    if (launched >= N) { clearInterval(rampTimer); return; }
+    spawnClient(launched++);
+  }, RAMP_MS);
+  const liveTimer = setInterval(() => tick(false), 2000);
+  // End = time to launch everything + the hold window.
+  const totalMs = N * RAMP_MS + DUR_S * 1000;
+  setTimeout(async () => {
+    clearInterval(liveTimer);
+    await tick(true);
+    const aliveNow = clients.filter(c => c.alive).length;
+    const uptimeS = (Date.now() - started) / 1000;
+    console.log('\n──────── summary ────────');
+    console.log(`target            ${TARGET}`);
+    console.log(`requested         ${N} clients`);
+    console.log(`peak connected    ${connected}   (still alive at end: ${aliveNow})`);
+    console.log(`joined world      ${joined}`);
+    console.log(`failed to connect ${failedConnect}`);
+    console.log(`dropped post-join ${droppedAfterJoin}`);
+    console.log(`socket errors     ${sockErrors}`);
+    console.log(`join latency ms   p50=${pct(joinLat, 50)}  p95=${pct(joinLat, 95)}  max=${joinLat.length ? Math.max(...joinLat) : '—'}`);
+    console.log(`inbound total     ${totalMsgs} msgs / ${(totalBytes / 1024 / 1024).toFixed(1)} MB`);
+    console.log(`inbound avg/client ${joined ? (totalBytes / joined / 1024 / uptimeS).toFixed(1) : '—'} KB/s each over the run`);
+    const verdict = failedConnect === 0 && droppedAfterJoin === 0;
+    console.log(`\n${verdict ? '✅ all requested clients connected, joined, and stayed connected' : '⚠️  some clients failed or dropped — see counts above'}`);
+    clients.forEach(c => { c.timers.forEach(clearInterval); try { c.ws && c.ws.close(); } catch {} });
+    setTimeout(() => process.exit(verdict ? 0 : 1), 500);
+  }, totalMs);
+}
+
+const waitMs = AT > 0 ? AT * 1000 - Date.now() : 0;
+if (waitMs > 0) {
+  console.log(`  holding ${(waitMs / 1000).toFixed(1)}s until synchronized start at ${new Date(AT * 1000).toISOString()}…\n`);
+  setTimeout(begin, waitMs);
+} else {
+  begin();
+}
 
 async function tick(final) {
   const el = ((Date.now() - started) / 1000).toFixed(0);
@@ -204,28 +242,3 @@ async function tick(final) {
   winMsgs = 0; winBytes = 0;
 }
 
-const liveTimer = setInterval(() => tick(false), 2000);
-
-// End = time to launch everything + the hold window.
-const totalMs = N * RAMP_MS + DUR_S * 1000;
-setTimeout(async () => {
-  clearInterval(liveTimer);
-  await tick(true);
-  const aliveNow = clients.filter(c => c.alive).length;
-  const uptimeS = (Date.now() - started) / 1000;
-  console.log('\n──────── summary ────────');
-  console.log(`target            ${TARGET}`);
-  console.log(`requested         ${N} clients`);
-  console.log(`peak connected    ${connected}   (still alive at end: ${aliveNow})`);
-  console.log(`joined world      ${joined}`);
-  console.log(`failed to connect ${failedConnect}`);
-  console.log(`dropped post-join ${droppedAfterJoin}`);
-  console.log(`socket errors     ${sockErrors}`);
-  console.log(`join latency ms   p50=${pct(joinLat, 50)}  p95=${pct(joinLat, 95)}  max=${joinLat.length ? Math.max(...joinLat) : '—'}`);
-  console.log(`inbound total     ${totalMsgs} msgs / ${(totalBytes / 1024 / 1024).toFixed(1)} MB`);
-  console.log(`inbound avg/client ${joined ? (totalBytes / joined / 1024 / uptimeS).toFixed(1) : '—'} KB/s each over the run`);
-  const verdict = failedConnect === 0 && droppedAfterJoin === 0;
-  console.log(`\n${verdict ? '✅ all requested clients connected, joined, and stayed connected' : '⚠️  some clients failed or dropped — see counts above'}`);
-  clients.forEach(c => { c.timers.forEach(clearInterval); try { c.ws && c.ws.close(); } catch {} });
-  setTimeout(() => process.exit(verdict ? 0 : 1), 500);
-}, totalMs);
