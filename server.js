@@ -268,7 +268,7 @@ app.use('/api', (req, res, next) => {
 });
 // The marketing homepage lives at /, the game at /play (registered before the
 // static middleware so / serves landing.html instead of the game's index.html).
-app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/play', (req, res) => { analytics.bump('page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 // Shareable pages get per-entity Open Graph / Twitter tags injected server-side
 // so a pasted link unfurls with the right title (and the shared cover image),
@@ -303,8 +303,8 @@ function sendWithOg(req, res, file, og) {
 // every caller falls back to the plain static card below.
 const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
 
-app.get('/', (req, res) => sendWithOg(req, res, 'landing.html',
-  { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }));
+app.get('/', (req, res) => { analytics.bump('page.landing'); return sendWithOg(req, res, 'landing.html',
+  { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
 app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
   { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }));
 app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
@@ -667,6 +667,7 @@ app.get('/api/verify-session', async (req, res) => {
     if (accountKey && (townPasses[accountKey] || 0) < expiresAt) {
       townPasses[accountKey] = expiresAt;
       saveTownPasses();
+      analytics.bump('purchase.townpass');
     }
     // A player already in the town gets their live connection stamped too,
     // so the pass works the moment they walk back from checkout.
@@ -797,6 +798,7 @@ app.get('/api/verify-ms-session', async (req, res) => {
     const packId = session.metadata && session.metadata.ms_pack;
     if (!MS_PACKS[packId]) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Moonstone pack.' });
     const g = grantMoonstones('stripe_' + String(sessionId), accountKey, packId);
+    if (g.granted > 0) analytics.bump('purchase.moonstones');
     pushMsStateIfOnline(accountKey);
     audit.log({ level: 'info', type: g.granted > 0 ? 'ms_pack_granted' : 'ms_pack_replay',
       ip: audit.clientIp(req), account: accountKey, detail: { pack: packId, granted: g.granted, balance: g.balance } });
@@ -822,6 +824,7 @@ app.get('/api/verify-charter', async (req, res) => {
     if (session.payment_status !== 'paid') return res.json({ granted: 0 });
     if (!(session.metadata && session.metadata.coven_charter)) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Coven Charter.' });
     const g = grantCharter('charter_' + String(sessionId), accountKey);
+    if (g.granted > 0) analytics.bump('purchase.charter');
     audit.log({ level: 'info', type: g.granted > 0 ? 'charter_purchased' : 'charter_replay',
       ip: audit.clientIp(req), account: accountKey, detail: { charters: g.balance } });
     res.json({ granted: g.granted, charters: g.balance });
@@ -848,6 +851,7 @@ app.get('/api/verify-upkeep', async (req, res) => {
     const cv = covens[session.metadata.covenId];
     if (!cv) return res.json({ granted: 0, error: 'That coven no longer exists.' });
     const g = creditCovenUpkeep('upkeep_' + String(sessionId), cv);
+    if (g.granted > 0) analytics.bump('purchase.upkeep');
     audit.log({ level: 'info', type: g.granted > 0 ? 'coven_upkeep_paid' : 'coven_upkeep_replay',
       ip: audit.clientIp(req), account: accountKey, detail: { coven: cv.id, paidThroughAt: g.paidThroughAt } });
     if (g.granted > 0) covenBroadcast(cv); // everyone in the coven sees the new paid-through date
@@ -882,7 +886,7 @@ app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => 
     // Resident Pass rides the same path with a longer window (Session L).
     const expiresAt = grantForSession(v.txId, v.purchaseMs || Date.now(), productId === IAP_PRODUCT30_ID ? TOWN_PASS30_HOURS : TOWN_PASS_HOURS);
     const accountKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
-    if (accountKey && (townPasses[accountKey] || 0) < expiresAt) { townPasses[accountKey] = expiresAt; saveTownPasses(); }
+    if (accountKey && (townPasses[accountKey] || 0) < expiresAt) { townPasses[accountKey] = expiresAt; saveTownPasses(); analytics.bump('purchase.townpass'); }
     for (const p of players.values()) {
       if (accountKey && p.accountKey === accountKey) {
         p.passUntil = Math.max(p.passUntil || 0, expiresAt);
@@ -1189,6 +1193,52 @@ function saveAccounts() { persistSave('accounts', ACCOUNTS_FILE, accounts); }
 
 const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, color, createdAt }
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
+
+// Privacy-respecting, aggregate-only product analytics (see lib/analytics.js).
+const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+// Count one unique active account per day (and, once ever, the first time an
+// account comes back on a later day than it registered). Uses a single date
+// marker on the account — no event log, no PII.
+function noteActive(key) {
+  if (!key) return;
+  const acc = accounts[key];
+  if (!acc) return;
+  const d = analytics.day();
+  if (acc.lastActiveDay === d) return;
+  acc.lastActiveDay = d;
+  analytics.bump('dau');
+  const created = acc.createdAt ? analytics.day(acc.createdAt) : d;
+  if (d !== created && !acc.returnedCounted) { acc.returnedCounted = true; analytics.bump('returning'); }
+  try { saveAccounts(); } catch (e) {}
+}
+
+// Account-derived rollups for the analytics dashboard: totals, return rate, and
+// recent-activity counts computed from existing timestamps (no event log).
+// A function declaration so it can be passed to the admin mount above while its
+// body (playerProgress / covens / players) resolves at request time.
+function analyticsSummary() {
+  const keys = Object.keys(accounts);
+  const now = Date.now();
+  let returned = 0, active1 = 0, active7 = 0, active30 = 0;
+  for (const k of keys) {
+    if (accounts[k] && accounts[k].returnedCounted) returned++;
+    const prog = playerProgress[k];
+    let last = 0;
+    if (prog && prog.characters) for (const c of Object.values(prog.characters)) if ((c.lastPlayedAt || 0) > last) last = c.lastPlayedAt;
+    if (last) {
+      if (now - last < 24 * 3600e3) active1++;
+      if (now - last < 7 * 24 * 3600e3) active7++;
+      if (now - last < 30 * 24 * 3600e3) active30++;
+    }
+  }
+  return {
+    totalAccounts: keys.length,
+    returnRate: keys.length ? +((returned / keys.length) * 100).toFixed(1) : 0,
+    onlineNow: players.size,
+    activeLast24h: active1, activeLast7d: active7, activeLast30d: active30,
+    covens: Object.keys(covens).length
+  };
+}
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
 // longer silently invalidates every login. Without this, every deploy logged
 // everyone out: their auto-reconnect presented a token the fresh process had
@@ -1338,7 +1388,7 @@ const bans = {
   }
 };
 require('./lib/admin')(app, {
-  audit, getAdminKey: () => ADMIN_KEY, bans, evidence,
+  audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -1441,6 +1491,7 @@ app.post('/api/register', (req, res) => {
   const burst = audit.hit(ip, 'account_create', 24 * 3600 * 1000);
   audit.log({ level: burst > 5 ? 'alert' : 'info', type: burst > 5 ? 'account_create_burst' : 'account_create',
     ip, account: key, name: username, detail: burst > 5 ? { fromThisIp24h: burst } : {} });
+  analytics.bump('register');
   res.json({ token, username, color: accounts[key].color });
 });
 
@@ -1477,6 +1528,7 @@ app.post('/api/login', (req, res) => {
     }
   } catch (e) {}
   audit.log({ level: 'info', type: 'login_ok', ip, account: key, name: account.username });
+  analytics.bump('login');
   res.json({ token, username: account.username, color: account.color });
 });
 
@@ -6030,6 +6082,7 @@ function voiceJoin(part) {
   const cvId = part.accountKey && covenIndex.get(part.accountKey);
   if (!cvId) { send(part.ws, { type: 'coven_voice_error', message: 'Join a coven first.' }); return; }
   part.voiceOn = true;
+  analytics.bump(part.isVoiceClient ? 'voice.join.web' : 'voice.join.game');
   const peers = [];
   for (const m of voiceParticipants(cvId)) {
     if (m.id === part.id) continue;
@@ -7199,6 +7252,14 @@ wss.on('connection', (ws, req) => {
         if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
       }
       players.set(id, player);
+      // Analytics: count fresh joins (not seamless reconnects), split by guest
+      // vs account and by class, and mark the account active for DAU.
+      if (!resume) {
+        analytics.bump('join');
+        analytics.bump(accountKey ? 'join.account' : 'join.guest');
+        analytics.bump('class.' + (CLASS_NAMES[charId] || 'drifter').toLowerCase());
+      }
+      if (accountKey) noteActive(accountKey);
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
       // Carry the account's chosen honorific onto the live player so it rides the
       // state broadcast (publicPlayer) and shows on their nameplate.
@@ -9960,6 +10021,7 @@ wss.on('connection', (ws, req) => {
       };
       covenIndex.set(player.accountKey, id);
       covenLog(covens[id], player.name, 'founded the coven');
+      analytics.bump('coven.found');
       saveCoven(id);
       audit.log({ level: 'info', type: 'coven_founded', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: id, name } });
       send(ws, { type: 'coven_state', ...covenStatePayload(covens[id], player.accountKey) });
@@ -10002,6 +10064,7 @@ wss.on('connection', (ws, req) => {
       if (covenOf(player.accountKey)) return;
       cv.members.push(player.accountKey);
       covenIndex.set(player.accountKey, cv.id);
+      analytics.bump('coven.join');
       covenLog(cv, player.name, 'joined the circle');
       saveCoven(cv.id);
       covenBroadcast(cv);
