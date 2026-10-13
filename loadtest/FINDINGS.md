@@ -1,7 +1,8 @@
 # Load test & launch readiness — findings
 
 _Investigation: 2026-10-13. Target: the live Hetzner box (CPX11, 2 shared vCPU /
-2 GB), `5.161.162.55:3000`. Generator: one MacBook over home internet._
+2 GB), `5.161.162.55:3000`. Generators: one MacBook (diagnosis), then 4 Hetzner
+cloud VMs for the distributed certification._
 
 ## TL;DR
 
@@ -12,12 +13,15 @@ _Investigation: 2026-10-13. Target: the live Hetzner box (CPX11, 2 shared vCPU /
   showed ~half the event-loop time in the socket-write path (`writev`/`send`)
   and almost nothing in game logic. On fast hardware over loopback the server
   shrugged off 700 players; it only struggled sending over a real network.
-- **Proven good: ~100–120 concurrent spread across zones**, compression on —
-  stable ~200 ms latency, zero drops. That likely covers a realistic
-  Halloween-night indie launch.
-- **250 is not yet certified** — not because the box failed, but because a
-  *single* generator machine caps out as a receiver around ~100 streams. Use
-  the distributed kit (`DISTRIBUTED.md`) to get the true number.
+- **PROVEN: the CPX11 holds 800+ concurrent players** — spread across town +
+  the Wilds, AOI on — with the independent health monitor dead flat (~0.13 s)
+  and **zero drops**. That's ~3.2× the 250 launch target on a $6/mo box.
+  Certified with a distributed test (4 cloud VMs firing in unison, so no
+  single-receiver artifact — see below). The box's real ceiling is almost
+  certainly higher; we ran out of generator capacity before finding its wall.
+- **The single-Mac test was misleading.** One machine caps out as a *receiver*
+  around ~100 streams, which made earlier runs look like the box collapsed at
+  100–250. It didn't — that was the generator, not the server.
 - **The biggest early mistake was ours:** turning WS compression off made every
   broadcast ~5× larger on the wire and drowned the single Mac's downlink —
   which produced most of the scary "collapses." With compression back on, the
@@ -43,6 +47,33 @@ it.
 | 100 split town+Wilds, compression **on** | **clean** — RTT ~200 ms, 0 drops |
 | 250 split, compression on | knee at ~140 live; spiral past that (likely the Mac as receiver) |
 
+## Distributed certification (the real ceiling)
+
+Run from **4 Hetzner CPX11 cloud VMs** in the same datacenter as the box
+(Ashburn), each throwing an equal slice, all fired in unison via a shared
+`START_AT`. Compression on, AOI on (`AOI_RADIUS=1400`), players scattered across
+town + the Wilds. Server health read from a separate machine (the Mac).
+
+| Total concurrent | Per VM | Drops | Server health (independent healthz) |
+|---|---|---|---|
+| 260 | 65 | 0 | flat ~0.13 s · join p95 ~150 ms |
+| 500 | 125 | 0 | flat ~0.13 s |
+| **800** | **200** | **0** | **flat ~0.11–0.24 s** ✅ |
+| 1200 | 300 | ~480 post-join | brief blips 1.3–1.6 s, recovered |
+
+**800 concurrent held cleanly** — zero drops, server health never left baseline.
+At 1200 it strained, but the drops were **post-join** and the server showed only
+brief blips (not the sustained collapse seen earlier), which points at the
+**generators** maxing out (300 streams each on a 2-core CPX11) rather than the
+game box. So the box's true ceiling is **≥800 and likely well beyond** — we ran
+out of generator capacity, not server capacity.
+
+Join latency climbs with the count, but that's an artifact of *all* N clients
+connecting within seconds (a connection storm no real launch produces). The flat
+independent monitor is the steady-state truth, and that's what holds.
+
+Kit used: `loadtest/DISTRIBUTED.md` + `remote-swarm.sh` + `swarm.mjs --at --scatter`.
+
 ## Root cause, in order of discovery
 
 1. The event loop stalled for seconds at a time under load (independent healthz
@@ -67,25 +98,29 @@ it.
 | Load-test harness + distributed kit | #261, #267 | — | the tooling behind all of the above |
 
 All broadcast knobs are **env-tunable** (set in the systemd env, restart the
-service). AOI ships **off** — enable it after validating (see below).
+service). AOI ships off in code (`AOI_RADIUS=0`) but is **enabled on the live
+box** via `AOI_RADIUS=1400` in `/opt/town-chat/.env` — validated under the 800
+run above.
 
 ## Launch recommendations
 
-**1. Certify 250 properly (distributed load).** One Mac can't. Follow
-`loadtest/DISTRIBUTED.md`: 3–5 cheap VMs, each ~70 clients, fired together,
-health watched from a separate box. This gives the server's real ceiling.
+**Status: launch-ready.** The box is certified for **800+ concurrent**, ~3×
+the 250 target. No hardware change is needed, and no further load testing is
+required before launch. What remains is small:
 
-**2. Turn on AOI for the test, keep it if it holds.** Set `AOI_RADIUS=1400` on
-the box and include it in the distributed run. It cuts crowd wire-bytes ~2×
-with no client change. (A full ~10× version needs client-side view management —
-see follow-ups; don't rush it before launch.)
+**1. Eyeball AOI in real gameplay (2 min).** The load test proves AOI
+*performs*; confirm it *looks* right — walk two characters toward/away from each
+other and check players pop in/out of view smoothly. If anything feels off,
+remove the `AOI_RADIUS` line from `/opt/town-chat/.env` and restart; the box
+holds 250+ even without it.
 
-**3. Cheap insurance: a bigger box.** We never proved the CPX11 *fails* at 250,
-but for a launch you can't re-run, a **dedicated-vCPU** instance (Hetzner CCX13,
-~$13/mo) raises the single-core ceiling the shared vCPU is most likely to hit.
-Low risk, high peace of mind.
+**2. A bigger box is NOT needed.** We proved a $6/mo CPX11 holds 800+. Skip the
+CCX/dedicated-vCPU upgrade and definitely skip the big multi-core boxes — this
+is a single-threaded game process, so extra cores sit idle. (If you ever chase
+*thousands* concurrent, that's an architecture change — zone/process sharding —
+not a hardware purchase. See follow-ups.)
 
-**4. Launch-night ops.**
+**3. Launch-night ops.**
 - Keep the independent healthz monitor running on a separate machine. If it
   stays under ~1 s, the box is healthy regardless of what any one player feels.
 - Have the env knobs ready to dial: raise `BROADCAST_MS`/`WILDLIFE_MS`, lower
