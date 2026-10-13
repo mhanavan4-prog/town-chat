@@ -315,6 +315,8 @@ app.get('/privacy', (req, res) => sendWithOg(req, res, 'privacy.html',
   { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }));
 app.get('/terms', (req, res) => sendWithOg(req, res, 'terms.html',
   { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }));
+app.get('/voice', (req, res) => sendWithOg(req, res, 'voice.html',
+  { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }));
 
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
@@ -6000,34 +6002,69 @@ function playerByAccount(key) { if (!key) return null; for (const p of players.v
 // touches it; coven members connect peer-to-peer (see client/coven-voice.js).
 // Who's currently in voice is transient per-connection (player.voiceOn), never
 // persisted. Everything is gated to the player's own coven.
-function covenVoiceRoster(cv) {
-  const roster = [];
-  for (const key of cv.members) {
-    const m = findConnectionByAccountKey(key);
-    if (m && m.voiceOn) roster.push({ id: m.id, name: m.name });
-  }
-  return roster;
+// Voice participants span two kinds of connection: full game players (in the
+// `players` map) and website voice-only clients (in `voiceClients`). Both carry
+// { id, accountKey, name, ws, voiceOn }, so the signaling relay treats them
+// uniformly — a covenmate in the game and one on the website share one channel.
+const voiceClients = new Map(); // id -> { id, accountKey, name, ws, voiceOn, isVoiceClient }
+
+// Every live connection for a coven, across both maps (any voice state).
+function covenConnections(cvId) {
+  const out = [];
+  for (const p of players.values()) if (p.accountKey && covenIndex.get(p.accountKey) === cvId) out.push(p);
+  for (const c of voiceClients.values()) if (c.accountKey && covenIndex.get(c.accountKey) === cvId) out.push(c);
+  return out;
 }
-function covenVoiceBroadcastRoster(cv) {
-  const voice = covenVoiceRoster(cv);
-  for (const key of cv.members) {
-    const m = findConnectionByAccountKey(key);
-    if (m) send(m.ws, { type: 'coven_voice_roster', voice });
-  }
+function voiceParticipants(cvId) { return covenConnections(cvId).filter((m) => m.voiceOn); }
+function findVoiceParticipant(id) { return players.get(String(id)) || voiceClients.get(String(id)) || null; }
+
+function covenVoiceRoster(cvId) { return voiceParticipants(cvId).map((m) => ({ id: m.id, name: m.name })); }
+function covenVoiceBroadcastRoster(cvId) {
+  const voice = covenVoiceRoster(cvId);
+  for (const m of covenConnections(cvId)) send(m.ws, { type: 'coven_voice_roster', voice });
 }
-// Drop a player out of voice and tell their coven peers to tear the peer down.
-// Safe to call unconditionally (no-op if they weren't in voice).
-function covenVoiceLeave(player) {
-  if (!player || !player.voiceOn) return;
-  player.voiceOn = false;
-  const cv = player.accountKey && covenOf(player.accountKey);
-  if (!cv) return;
-  for (const key of cv.members) {
-    const m = findConnectionByAccountKey(key);
-    if (m && m.id !== player.id) send(m.ws, { type: 'coven_voice_peer_leave', id: player.id });
+
+// Bring a participant (game player or web client) into voice: hand them the
+// current peers, tell those peers a newcomer arrived, and refresh the roster.
+function voiceJoin(part) {
+  const cvId = part.accountKey && covenIndex.get(part.accountKey);
+  if (!cvId) { send(part.ws, { type: 'coven_voice_error', message: 'Join a coven first.' }); return; }
+  part.voiceOn = true;
+  const peers = [];
+  for (const m of voiceParticipants(cvId)) {
+    if (m.id === part.id) continue;
+    peers.push({ id: m.id, name: m.name });
+    send(m.ws, { type: 'coven_voice_peer_join', id: part.id, name: part.name });
   }
-  covenVoiceBroadcastRoster(cv);
+  send(part.ws, { type: 'coven_voice_joined', selfId: part.id, peers });
+  covenVoiceBroadcastRoster(cvId);
 }
+
+// Relay one WebRTC signaling blob, but only to a voice-on member of the SAME
+// coven. Audio itself never passes through here — this is just the handshake.
+function voiceSignal(part, toId, data) {
+  const cvId = part.accountKey && covenIndex.get(part.accountKey);
+  if (!cvId || !part.voiceOn) return;
+  const target = findVoiceParticipant(toId);
+  if (!target || !target.voiceOn || !target.accountKey || covenIndex.get(target.accountKey) !== cvId) return;
+  let ok = true;
+  try { if (JSON.stringify(data || null).length > 20000) ok = false; } catch (e) { ok = false; }
+  if (!ok) return; // oversized / unserializable signaling payload — drop
+  send(target.ws, { type: 'coven_voice_signal', fromId: part.id, data });
+}
+
+// Drop a participant out of voice and tell their coven peers to tear the peer
+// down. Safe to call unconditionally (no-op if they weren't in voice).
+function voiceLeave(part) {
+  if (!part || !part.voiceOn) return;
+  part.voiceOn = false;
+  const cvId = part.accountKey && covenIndex.get(part.accountKey);
+  if (!cvId) return;
+  for (const m of covenConnections(cvId)) if (m.id !== part.id) send(m.ws, { type: 'coven_voice_peer_leave', id: part.id });
+  covenVoiceBroadcastRoster(cvId);
+}
+// Back-compat name used across the game code (kick, leave, disconnect).
+function covenVoiceLeave(player) { voiceLeave(player); }
 
 // The bedroom ownership map for a coven's manor, resolved to display names, plus
 // every claimed altar's decoration arrangement (so everyone sees them) and the
@@ -6920,6 +6957,7 @@ function worldChatBacklog() { return worldChatLog.slice(-20).map(m => ({ id: m.i
 
 wss.on('connection', (ws, req) => {
   let player = null;
+  let voiceClient = null; // set when a website voice-only client identifies via voice_hello
   ws._ip = audit.clientIp(req);
   ws._ua = (req && req.headers && req.headers['user-agent']) ? String(req.headers['user-agent']).slice(0, 300) : null;
   ws._isGuest = true; // until a join resolves a real account (gates images)
@@ -6963,6 +7001,32 @@ wss.on('connection', (ws, req) => {
       const _pN = audit.hit(ws._ip || player.id, 'hd_prereq', 5 * 60 * 1000);
       if (_pN === 3) audit.log({ level: 'warn', type: 'prereq_violation', ip: ws._ip,
         account: player.accountKey || null, name: player.name, detail: { need: 'hard_drive', action: msg.type } });
+    }
+
+    // ── Website voice-only clients ──────────────────────────────────────────
+    // A /voice page identifies with voice_hello + its account token. It never
+    // 'join's the game world — it's registered as a lightweight voice
+    // participant so it shares the coven's voice channel with in-game members.
+    if (msg.type === 'voice_hello') {
+      if (player || voiceClient) return; // a socket is a game player OR a voice client, never both
+      const key = msg.token ? sessions.get(String(msg.token)) : null;
+      if (!key || !accounts[key]) { send(ws, { type: 'voice_hello_error', message: 'Log in to use voice.' }); try { ws.close(4001, 'auth'); } catch (e) {} return; }
+      const cv = covenOf(key);
+      if (!cv) { send(ws, { type: 'voice_hello_error', message: 'Voice is coven-only — join or found a coven first.' }); try { ws.close(4002, 'no-coven'); } catch (e) {} return; }
+      voiceClient = { id: makeId(), accountKey: key, name: covenDisplayName(key), ws, voiceOn: false, isVoiceClient: true };
+      voiceClients.set(voiceClient.id, voiceClient);
+      const members = cv.members.map((k) => ({ name: covenDisplayName(k), online: !!findConnectionByAccountKey(k) }));
+      send(ws, { type: 'voice_hello_ok', selfId: voiceClient.id,
+        coven: { id: cv.id, name: cv.name, sigil: cv.sigil, members },
+        voice: covenVoiceRoster(cv.id) });
+      return;
+    }
+    if (voiceClient) {
+      // A voice client speaks only the voice protocol; ignore anything else.
+      if (msg.type === 'coven_voice_join') voiceJoin(voiceClient);
+      else if (msg.type === 'coven_voice_leave') voiceLeave(voiceClient);
+      else if (msg.type === 'coven_voice_signal') voiceSignal(voiceClient, msg.toId, msg.data);
+      return;
     }
 
     if (msg.type === 'join') {
@@ -10018,39 +10082,9 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Coven voice: signaling relay only (audio is peer-to-peer) ──
-    if (msg.type === 'coven_voice_join') {
-      const cv = player.accountKey && covenOf(player.accountKey);
-      if (!cv) { send(ws, { type: 'coven_voice_error', message: 'Join a coven first.' }); return; }
-      player.voiceOn = true;
-      // Tell the joiner who's already talking, and tell each of those peers a
-      // new voice member arrived; both sides use the id-ordering rule in
-      // client/coven-voice.js to decide who sends the WebRTC offer (no glare).
-      const peers = [];
-      for (const key of cv.members) {
-        if (key === player.accountKey) continue;
-        const m = findConnectionByAccountKey(key);
-        if (m && m.voiceOn) {
-          peers.push({ id: m.id, name: m.name });
-          send(m.ws, { type: 'coven_voice_peer_join', id: player.id, name: player.name });
-        }
-      }
-      send(ws, { type: 'coven_voice_joined', selfId: player.id, peers });
-      covenVoiceBroadcastRoster(cv);
-      return;
-    }
-    if (msg.type === 'coven_voice_leave') { covenVoiceLeave(player); return; }
-    if (msg.type === 'coven_voice_signal') {
-      const cv = player.accountKey && covenOf(player.accountKey);
-      if (!cv || !player.voiceOn) return;
-      const target = players.get(String(msg.toId));
-      // Relay ONLY to a voice-on member of the SAME coven.
-      if (!target || !target.voiceOn || !target.accountKey || covenIndex.get(target.accountKey) !== cv.id) return;
-      let ok = true;
-      try { if (JSON.stringify(msg.data || null).length > 20000) ok = false; } catch (e) { ok = false; }
-      if (!ok) return; // oversized / unserializable signaling payload — drop
-      send(target.ws, { type: 'coven_voice_signal', fromId: player.id, data: msg.data });
-      return;
-    }
+    if (msg.type === 'coven_voice_join') { voiceJoin(player); return; }
+    if (msg.type === 'coven_voice_leave') { voiceLeave(player); return; }
+    if (msg.type === 'coven_voice_signal') { voiceSignal(player, msg.toId, msg.data); return; }
 
     if (msg.type === 'coven_motd') {
       const cv = player.accountKey && covenOf(player.accountKey);
@@ -10837,6 +10871,14 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
+    // A website voice-only client: drop it out of voice (tearing down peers)
+    // and forget it. It never had a game-world presence to clean up.
+    if (voiceClient) {
+      voiceLeave(voiceClient);
+      voiceClients.delete(voiceClient.id);
+      voiceClient = null;
+      return;
+    }
     // If a resume join already kicked this player out of the map (see the
     // duplicate-prevention pass in the join handler), everything below
     // already happened — including the successor taking over — so this
@@ -11030,7 +11072,7 @@ global.__testHooks = {
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
-  sessions, covenInvites, resumeStashes, passwordResets,
+  sessions, covenInvites, resumeStashes, passwordResets, voiceClients,
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
