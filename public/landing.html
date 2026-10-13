@@ -97,7 +97,7 @@
   /* ── hero / banner ── */
   .hero{position:relative; overflow:hidden; padding:66px 0 40px}
   .hero .moon{
-    position:absolute; top:26px; right:6%; width:118px; height:118px; border-radius:50%; z-index:1;
+    position:absolute; top:-30px; right:6%; width:110px; height:110px; border-radius:50%; z-index:1;
     background:radial-gradient(circle at 62% 42%, #fdf6e3 0 44%, #d9cfa6 58%, transparent 72%);
     box-shadow:0 0 54px 8px rgba(240,230,190,0.20);
   }
@@ -110,10 +110,7 @@
   h1.title{
     font-family:'Cinzel Decorative','Cinzel',Georgia,serif; font-weight:900;
     font-size:clamp(40px,8vw,82px); letter-spacing:6px; margin:0 0 14px;
-    /* Dark halo so the cream end of the gradient still reads where the title
-       crosses the bright moon (the "…CH" was washing out). Renders behind the
-       clipped gradient glyphs. */
-    text-shadow:0 2px 6px rgba(7,4,16,0.9), 0 0 18px rgba(7,4,16,0.75), 0 0 36px rgba(160,120,255,0.3);
+    text-shadow:0 0 34px rgba(160,120,255,0.3);
   }
   .tagline{font-family:Georgia, serif; font-style:italic; color:var(--mut); font-size:clamp(15px,2.3vw,20px); max-width:640px; margin:0 auto 10px}
   .pillars{color:var(--green); font-size:14px; letter-spacing:0.4px; margin:16px 0 26px; font-weight:600}
