@@ -1915,6 +1915,30 @@ app.get('/api/covens', (req, res) => {
 // Live population — connected players right now. Public, tiny, read-only.
 app.get('/api/online', (req, res) => res.json({ online: players.size }));
 
+// Liveness for the join screen — makes a quiet town feel inviting rather than
+// dead: who's online now, how many walked the town today, active covens, and
+// the next big gathering (Blood Moon / Tournament / Festival) to rally around.
+app.get('/api/live', (req, res) => {
+  const now = Date.now();
+  let event = null;
+  try {
+    const cal = calendarPublicState(now);
+    const cands = [];
+    if (cal.bloodMoon) {
+      if (cal.bloodMoon.active) cands.push({ name: 'Blood Moon', icon: '🔴', active: true });
+      else if (cal.bloodMoon.nextRiseAt) cands.push({ name: 'Blood Moon', icon: '🔴', at: cal.bloodMoon.nextRiseAt });
+    }
+    if (cal.tourney) {
+      if (cal.tourney.active) cands.push({ name: 'Tournament', icon: '⚔️', active: true });
+      else if (cal.tourney.startsAt > now) cands.push({ name: 'Tournament', icon: '⚔️', at: cal.tourney.startsAt });
+    }
+    if (cal.festival && cal.festival.active) cands.push({ name: cal.festival.name || 'Festival', icon: '🎃', active: true });
+    event = cands.find((e) => e.active) || cands.filter((e) => e.at).sort((a, b) => a.at - b.at)[0] || null;
+  } catch (e) {}
+  const today = ((analytics.data[analytics.day()]) || {}).join || 0;
+  res.json({ online: players.size, today, covens: Object.keys(covens).length, event });
+});
+
 // Site search — jump to any player or coven by name. Public, read-only.
 // Prefix matches rank above substring matches; a few of each.
 app.get('/api/search', (req, res) => {

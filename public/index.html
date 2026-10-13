@@ -231,6 +231,11 @@
     text-shadow:0 0 26px rgba(160,120,255,0.28);
   }
   #joinScreen .subtitle { color:#a99bc4; font-family:Georgia, serif; font-style:italic; }
+  #joinScreen .liveNow { display:flex; flex-wrap:wrap; justify-content:center; gap:7px; margin:0 0 16px; }
+  #joinScreen .liveNow.hidden { display:none; }
+  #joinScreen .liveNow .lv { font-size:11.5px; font-weight:700; letter-spacing:.2px; padding:4px 10px; border-radius:20px; background:rgba(20,12,36,0.6); border:1px solid rgba(150,110,220,0.3); color:#c9bbe8; display:inline-flex; align-items:center; gap:5px; }
+  #joinScreen .liveNow .lv .dotlive { width:7px; height:7px; border-radius:50%; background:#6fe0a0; box-shadow:0 0 7px rgba(111,224,160,0.8); }
+  #joinScreen .liveNow .lv.event { background:linear-gradient(90deg,rgba(176,90,120,0.28),rgba(140,60,90,0.18)); border-color:rgba(255,120,140,0.4); color:#ffc3cf; }
   #joinScreen #charSelectLabel {
     color:#b9a8cf; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase;
     text-align:center; margin-bottom:9px;
@@ -3120,6 +3125,7 @@
     </svg>
     <div class="title">THORNREACH</div>
     <div class="subtitle">Six callings. One crooked little town. The lanterns are lit — come in out of the dark.</div>
+    <div id="liveNow" class="liveNow hidden"></div>
 
     <div id="charSelectLabel">Choose your calling</div>
     <div id="charSelectRow">
@@ -3231,6 +3237,27 @@ window.onerror = function(msg, src, line, col, err) {
   window.THORNREACH_ASSET_BASE = '';
 </script>
 <script src="face-api.min.js"></script>
+<script>
+/* Join-screen liveness — make a quiet town feel inviting, with a gathering to rally around. */
+(function(){
+  var el = document.getElementById('liveNow'); if(!el) return;
+  function esc(s){ return String(s==null?'':s).replace(/[<>&]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
+  function fmtIn(ms){ var m=Math.round(ms/60000); if(m<1)return'soon'; if(m<60)return'in '+m+'m'; var h=Math.round(m/60); if(h<24)return'in '+h+'h'; return'in '+Math.round(h/24)+'d'; }
+  function pill(txt,cls,dot){ return '<span class="lv'+(cls?' '+cls:'')+'">'+(dot?'<span class="dotlive"></span>':'')+txt+'</span>'; }
+  function paint(d){
+    var parts=[], on=d.online||0;
+    if(on>0) parts.push(pill(on+' online now','',true));
+    if(d.covens>0) parts.push(pill('🕯️ '+d.covens+' coven'+(d.covens===1?'':'s')));
+    if(d.today>0) parts.push(pill('✨ '+d.today+' walked today'));
+    if(d.event){ var e=d.event; parts.push(pill(e.active ? (e.icon+' '+esc(e.name)+' is rising') : (e.icon+' '+esc(e.name)+' '+fmtIn(e.at-Date.now())), 'event')); }
+    if(!parts.length) parts.push(pill('🌙 a quiet night — light the first lantern'));
+    el.innerHTML=parts.join(''); el.classList.remove('hidden');
+  }
+  function load(){ fetch('/api/live').then(function(r){return r.json();}).then(paint).catch(function(){}); }
+  load();
+  setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
+})();
+</script>
 <script src="client.js?v=e1a49a340d"></script>
 </body>
 </html>
