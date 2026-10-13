@@ -56,6 +56,8 @@ function applyAcctSubMode() {
   if (emailEl) emailEl.classList.toggle('hidden', !reg);
   const ageGateEl = document.getElementById('accountAgeGate');
   if (ageGateEl) ageGateEl.classList.toggle('hidden', !reg);
+  const consentEl = document.getElementById('accountConsent');
+  if (consentEl) consentEl.classList.toggle('hidden', !reg);
   if (accountLoginBtn) accountLoginBtn.classList.toggle('hidden', reg);
   if (accountRegisterBtn) accountRegisterBtn.classList.toggle('hidden', !reg);
   const forgotPwRowEl = document.getElementById('forgotPwRow');
@@ -81,7 +83,7 @@ function updateCharPickerVisibility() {
   // username/password/Log In; 'register' adds the email box + 18+ confirmation.
   const switchRowEl = document.getElementById('acctSwitchRow');
   if (loggedIn) {
-    ['accountEmailInput', 'accountAgeGate', 'forgotPwRow'].forEach((id) => {
+    ['accountEmailInput', 'accountAgeGate', 'accountConsent', 'forgotPwRow'].forEach((id) => {
       const el = document.getElementById(id); if (el) el.classList.add('hidden');
     });
     if (switchRowEl) switchRowEl.classList.add('hidden');
