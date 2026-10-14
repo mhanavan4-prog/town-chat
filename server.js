@@ -3889,11 +3889,85 @@ function sanitizeText(raw) {
 // sending (see client.js), this just rejects anything malformed or abusive
 // — a data: URL of an allowed image type, capped at ~350KB of base64 text.
 const MAX_IMAGE_DATA_URL_LENGTH = 350000;
+
+// Strip identifying metadata (EXIF/GPS location!, XMP, ICC, comments) from an
+// accepted image, losslessly, by dropping the metadata marker segments (JPEG) /
+// ancillary chunks (PNG) / EXIF & XMP chunks (WebP). The client already does
+// this via a canvas redraw before sending; this ENFORCES it server-side so a
+// crafted or modified client can't leak a player's home location to everyone
+// in the room (or into the evidence store). GIF carries no EXIF, so it passes
+// through untouched. Synchronous and allocation-light; on any parse surprise it
+// returns null and the caller falls back to the (already length/type-checked)
+// original — this never fails an upload.
+function stripJpegMeta(b) {
+  if (b.length < 4 || b[0] !== 0xFF || b[1] !== 0xD8) return b;
+  const parts = [b.subarray(0, 2)]; let i = 2;
+  while (i < b.length) {
+    if (b[i] !== 0xFF) { i++; continue; }
+    const m = b[i + 1];
+    if (m === 0xD9) { parts.push(b.subarray(i, i + 2)); break; }        // EOI
+    if (m === 0xDA) { parts.push(b.subarray(i)); break; }               // SOS → entropy data, verbatim
+    if (i + 4 > b.length) break;
+    const len = (b[i + 2] << 8) | b[i + 3];
+    if (len < 2 || i + 2 + len > b.length) break;                       // malformed — stop
+    const drop = (m >= 0xE1 && m <= 0xEF) || m === 0xFE;                // APP1..APP15 (EXIF/XMP/ICC/Photoshop) + COM; keep APP0 (JFIF)
+    if (!drop) parts.push(b.subarray(i, i + 2 + len));
+    i += 2 + len;
+  }
+  return Buffer.concat(parts);
+}
+function stripPngMeta(b) {
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  for (let k = 0; k < 8; k++) if (b[k] !== sig[k]) return b;
+  const KEEP = { IHDR: 1, PLTE: 1, IDAT: 1, IEND: 1, tRNS: 1, acTL: 1, fcTL: 1, fdAT: 1 }; // critical + APNG animation
+  const parts = [b.subarray(0, 8)]; let i = 8;
+  while (i + 12 <= b.length) {
+    const len = b.readUInt32BE(i);
+    const type = b.toString('latin1', i + 4, i + 8);
+    const end = i + 12 + len;
+    if (end > b.length) break;
+    if (KEEP[type]) parts.push(b.subarray(i, end));
+    if (type === 'IEND') break;
+    i = end;
+  }
+  return Buffer.concat(parts);
+}
+function stripWebpMeta(b) {
+  if (b.length < 12 || b.toString('latin1', 0, 4) !== 'RIFF' || b.toString('latin1', 8, 12) !== 'WEBP') return b;
+  const parts = []; let i = 12;
+  while (i + 8 <= b.length) {
+    const fourcc = b.toString('latin1', i, i + 4);
+    const size = b.readUInt32LE(i + 4);
+    let end = i + 8 + size + (size & 1);                               // chunks are padded to an even size
+    if (end > b.length) end = b.length;
+    if (fourcc !== 'EXIF' && fourcc !== 'XMP ') parts.push(b.subarray(i, end));
+    i = end;
+  }
+  for (const p of parts) if (p.length >= 9 && p.toString('latin1', 0, 4) === 'VP8X') p[8] = p[8] & ~0x0C; // clear EXIF/XMP flag bits
+  const out = Buffer.concat([b.subarray(0, 12), Buffer.concat(parts)]);
+  out.writeUInt32LE(out.length - 8, 4);                                 // fix the RIFF container size
+  return out;
+}
+function stripImageMetadata(raw) {
+  const m = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/.exec(raw);
+  if (!m) return null;
+  const type = m[1];
+  if (type === 'gif') return raw;                                       // GIF has no EXIF
+  let buf;
+  try { buf = Buffer.from(m[2], 'base64'); } catch (e) { return null; }
+  if (!buf || !buf.length) return null;
+  let clean;
+  try { clean = type === 'jpeg' ? stripJpegMeta(buf) : type === 'png' ? stripPngMeta(buf) : stripWebpMeta(buf); }
+  catch (e) { return null; }
+  if (!clean || !clean.length) return null;
+  return 'data:image/' + type + ';base64,' + clean.toString('base64');
+}
+
 function sanitizeImage(raw) {
   if (typeof raw !== 'string') return null;
   if (raw.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
   if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(raw)) return null;
-  return raw;
+  return stripImageMetadata(raw) || raw; // enforce metadata removal; never fail a valid upload
 }
 
 // Image gate + evidence capture (Session M). The ONLY path by which a
@@ -11486,6 +11560,7 @@ global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
   noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
+  sanitizeImage, stripImageMetadata, // test-only: image metadata stripping
   // Durable storage (Session L)
   getSqliteDb, persistLoad, persistSave, persistSetKey,
   DATA_DIR, accounts, saveAccounts, playerProgress, saveProgress,
