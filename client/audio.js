@@ -23,6 +23,12 @@ try { musicChoice = localStorage.getItem('tc_music') || 'off'; } catch (e) {}
 // SFX_LEVEL is the master effects volume — kept well below unity so the game
 // never blares, especially the rapid-fire combat hits.
 const SFX_LEVEL = 0.5;
+// TEMP kill switch — the oscillator synth is being retired in favor of real
+// recorded CC0 audio. While that's being sourced, every synthesized voice
+// (music notes + all SFX) is silenced at the source, so nothing beeps no
+// matter what triggers it. Flip to false (or delete these guards) once the
+// sampled-audio engine is in.
+const SYNTH_MUTED = true;
 let sfxGain = null, sfxMuted = false, noiseBuffer = null;
 // The 🔈 button is one global mute for BOTH music and sfx. It has a single
 // source of truth — tc_audio_muted — so the two buses can never drift apart. (An
@@ -76,6 +82,7 @@ function makeReverbIR(seconds, decay) {
 }
 
 function playNote(freq, time, dur, vol, type) {
+  if (SYNTH_MUTED) return;
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
@@ -280,6 +287,7 @@ function setMusicMuted(muted) {
 // All synthesized (oscillators + a touch of filtered noise), no audio files,
 // same spirit as the music above. One call per game moment: playSfx('hit'), etc.
 function sfxTone(freq, t, dur, vol, type, freqEnd) {
+  if (SYNTH_MUTED) return;
   if (!audioCtx || !sfxGain) return;
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
   o.type = type || 'square';
@@ -292,6 +300,7 @@ function sfxTone(freq, t, dur, vol, type, freqEnd) {
   o.start(t); o.stop(t + dur + 0.02);
 }
 function sfxNoise(t, dur, vol, filterFreq) {
+  if (SYNTH_MUTED) return;
   if (!audioCtx || !sfxGain) return;
   if (!noiseBuffer) {
     noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.4, audioCtx.sampleRate);
