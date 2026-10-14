@@ -272,9 +272,20 @@ app.use('/api', (req, res, next) => {
 // (?src= / ?ref= / ?utm_source=, normalized to a short safe slug — point the
 // QR code at ?src=qr, Reddit links at ?src=reddit, etc.), and a coarse
 // mobile/desktop split from the User-Agent. All aggregate, no PII.
+// Canonical sources we actively tag links with. Any incoming slug that *starts
+// with* one of these folds to it, so a pasted URL or stray words after the tag
+// (e.g. "browsergaming https://..." or "browsergaming would") can't spawn a
+// junk variant — they all collapse back to "browsergaming".
+const KNOWN_REFS = ['browsergaming', 'reddit', 'discord', 'twitter', 'youtube', 'tiktok', 'qr', 'direct'];
 function refSlug(req) {
   const raw = (req.query && (req.query.src || req.query.ref || req.query.utm_source)) || '';
-  const s = String(raw).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
+  // Take only the leading slug token — cut at the first char that isn't a-z/0-9/_/-
+  // (a space, slash, colon, etc.), instead of stripping those chars and gluing
+  // the remainder on. "browsergaming%20https" -> "browsergaming", not "...https".
+  const m = String(raw).toLowerCase().match(/^[a-z0-9_-]{1,24}/);
+  let s = (m && m[0]) || '';
+  const hit = KNOWN_REFS.find(k => s.startsWith(k));
+  if (hit) s = hit;
   return s || 'direct';
 }
 function isMobileUA(req) {
