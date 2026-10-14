@@ -23,6 +23,9 @@ let musicChoice = 'off';   // the player's saved pick: 'off' | a track id
 let musicIsRoomTune = false; // true when the cafe started it, not the player
 try { musicChoice = localStorage.getItem('tc_music') || 'off'; } catch (e) {}
 // Sound effects: their own bus, default ON (music is the one that defaults off).
+// SFX_LEVEL is the master effects volume — kept well below unity so the game
+// never blares, especially the rapid-fire combat hits.
+const SFX_LEVEL = 0.5;
 let sfxGain = null, sfxMuted = false, noiseBuffer = null;
 // The 🔈 button is one global mute for BOTH music and sfx. It has a single
 // source of truth — tc_audio_muted — so the two buses can never drift apart. (An
@@ -46,9 +49,33 @@ function ensureAudio() {
     musicGain.connect(audioCtx.destination);
     // Separate bus for sound effects, so SFX and music mute independently.
     sfxGain = audioCtx.createGain();
-    sfxGain.gain.value = sfxMuted ? 0 : 0.9;
-    sfxGain.connect(audioCtx.destination);
+    sfxGain.gain.value = sfxMuted ? 0 : SFX_LEVEL;
+    // Warmth chain on the WHOLE sfx bus: a gentle low-pass rolls off the harsh
+    // upper harmonics of the square/saw voices (the main cause of "cheap, buzzy,
+    // fatiguing"), and a short reverb gives the otherwise bone-dry blips some
+    // room so they read as crafted rather than beeped. Both buses feed the
+    // output; the reverb is mixed in low.
+    const sfxFilter = audioCtx.createBiquadFilter();
+    sfxFilter.type = 'lowpass'; sfxFilter.frequency.value = 3600; sfxFilter.Q.value = 0.6;
+    sfxGain.connect(sfxFilter);
+    sfxFilter.connect(audioCtx.destination);                 // dry
+    try {
+      const conv = audioCtx.createConvolver(); conv.buffer = makeReverbIR(0.55, 2.4);
+      const wet = audioCtx.createGain(); wet.gain.value = 0.16;
+      sfxFilter.connect(conv); conv.connect(wet); wet.connect(audioCtx.destination); // wet tail
+    } catch (e) { /* no convolver — dry path still works */ }
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
+}
+
+// A short synthetic reverb impulse (decaying white noise) for the sfx tail.
+function makeReverbIR(seconds, decay) {
+  const rate = audioCtx.sampleRate, len = Math.max(1, Math.floor(rate * seconds));
+  const ir = audioCtx.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  return ir;
 }
 
 function playNote(freq, time, dur, vol, type) {
@@ -297,18 +324,18 @@ function playSfx(name) {
   const t = audioCtx.currentTime;
   switch (name) {
     // ── Combat ──
-    case 'hit':     sfxNoise(t, 0.07, 0.42, 1400); sfxTone(150, t, 0.08, 0.22, 'square', 70); break;        // a dry bone-thud
-    case 'kill':    sfxEcho(540, t, 0.42, 0.18, 'sawtooth', 120); sfxNoise(t, 0.3, 0.28, 900); break;         // a ghost's falling wail
-    case 'hurt':    sfxTone(300, t, 0.14, 0.24, 'square', 150); sfxTone(317, t, 0.14, 0.14, 'square', 158); sfxNoise(t, 0.1, 0.2, 1200); break; // dissonant stab
+    case 'hit':     sfxNoise(t, 0.07, 0.36, 1300); sfxTone(150, t, 0.08, 0.2, 'triangle', 70); break;       // a dry bone-thud
+    case 'kill':    sfxEcho(540, t, 0.42, 0.16, 'sawtooth', 120); sfxNoise(t, 0.3, 0.24, 900); break;         // a ghost's falling wail
+    case 'hurt':    sfxTone(300, t, 0.12, 0.2, 'triangle', 150); sfxNoise(t, 0.08, 0.16, 1000); break;        // a soft pained stab
     case 'death':   sfxTone(196, t, 0.95, 0.22, 'sine', 70); sfxTone(98, t, 1.05, 0.14, 'triangle', 44); sfxTone(392, t, 0.9, 0.08, 'sine', 160); break; // tolling bell + sinking drone
     // ── Spellcasting ──
     case 'cast':    sfxTone(300, t, 0.3, 0.11, 'triangle', 780); sfxTone(303, t, 0.3, 0.09, 'triangle', 792); sfxTone(1400, t + 0.18, 0.12, 0.04, 'sine'); break; // rising witch-shimmer + sparkle
     case 'summon':  // the earth splits — a low swell, then a dissonant chord claws up (A–C–D♯, a tritone in the minor)
-                    sfxTone(65, t, 0.6, 0.22, 'sawtooth', 150); sfxNoise(t, 0.5, 0.2, 650);
-                    [220.00, 261.63, 311.13].forEach((f, i) => sfxTone(f, t + 0.26 + i * 0.03, 0.5, 0.12, 'sawtooth')); break;
-    case 'curse':   sfxTone(440, t, 0.34, 0.2, 'sawtooth', 150); sfxTone(466, t, 0.34, 0.14, 'sawtooth', 160); break; // a hex, falling and clashing
+                    sfxTone(65, t, 0.6, 0.2, 'triangle', 150); sfxNoise(t, 0.5, 0.18, 620);
+                    [220.00, 261.63, 311.13].forEach((f, i) => sfxTone(f, t + 0.26 + i * 0.03, 0.5, 0.1, 'triangle')); break;
+    case 'curse':   sfxTone(440, t, 0.34, 0.17, 'triangle', 150); sfxTone(466, t, 0.34, 0.1, 'triangle', 160); break; // a hex, falling and clashing
     case 'ward':    sfxTone(110, t, 0.45, 0.16, 'sine'); sfxTone(164.81, t, 0.45, 0.1, 'sine'); sfxTone(220, t + 0.1, 0.4, 0.06, 'sine'); break;   // a protective hum
-    case 'buff':    sfxTone(120, t, 0.32, 0.2, 'sawtooth', 300); sfxTone(90, t, 0.32, 0.12, 'square', 220); break;   // a growling swell
+    case 'buff':    sfxTone(120, t, 0.32, 0.18, 'triangle', 300); sfxTone(90, t, 0.32, 0.1, 'triangle', 220); break; // a growling swell
     case 'heal':    [392.00, 523.25, 659.25, 783.99].forEach((f, i) => sfxTone(f, t + i * 0.07, 0.4, 0.1, 'sine')); break; // soft rising shimmer
     case 'reveal':  sfxTone(1245, t, 0.26, 0.07, 'sine'); sfxTone(1661, t + 0.09, 0.22, 0.05, 'sine'); sfxNoise(t, 0.3, 0.05, 6500); break; // whispery high glimmer
     // ── Rewards & world ──
@@ -316,13 +343,13 @@ function playSfx(name) {
     case 'loot':    sfxTone(988, t, 0.12, 0.13, 'sine'); sfxTone(1318.5, t + 0.08, 0.18, 0.12, 'sine'); break; // glassy chime
     case 'harvest': sfxNoise(t, 0.12, 0.12, 3600); sfxTone(330, t, 0.1, 0.07, 'triangle', 420); break;        // a soft rustle
     case 'drink':   [320, 280, 240].forEach((f, i) => sfxTone(f, t + i * 0.07, 0.07, 0.13, 'sine')); break;    // a quick glug
-    case 'error':   sfxTone(92, t, 0.18, 0.17, 'square', 70); sfxTone(97, t, 0.18, 0.1, 'square', 74); break;  // a low dissonant 'no'
+    case 'error':   sfxTone(92, t, 0.16, 0.14, 'triangle', 70); sfxTone(97, t, 0.16, 0.08, 'triangle', 74); break; // a low dissonant 'no'
     default: break;
   }
 }
 function setSfxMuted(muted) {
   sfxMuted = muted;
-  if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : 0.9, audioCtx.currentTime);
+  if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : SFX_LEVEL, audioCtx.currentTime);
 }
 
 // The one global mute. Persists a single flag (tc_audio_muted) and drives both buses
