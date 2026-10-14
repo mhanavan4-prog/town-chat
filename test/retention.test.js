@@ -88,9 +88,17 @@ setTimeout(() => {
   hooks.accounts[mk] = { username: 'MileAcct', createdAt: Date.now() };
   hooks.noteMilestone({ accountKey: mk }, 'lvl5');
   hooks.noteMilestone({ accountKey: mk }, 'lvl5'); // dup
-  check('milestone counts once per account', g('mile.lvl5') === 1, g('mile.lvl5'));
-  hooks.noteMilestone({ accountKey: null }, 'lvl5'); // guest
-  check('milestone ignores guests', g('mile.lvl5') === 1, g('mile.lvl5'));
+  check('account milestone counts once, under mile.*', g('mile.lvl5') === 1, g('mile.lvl5'));
+
+  // ── Guest depth: routed to guest.*, deduped per session, never to mile.* ──
+  const guestPlayer = { accountKey: null }; // one live guest session
+  hooks.noteMilestone(guestPlayer, 'lvl5');
+  hooks.noteMilestone(guestPlayer, 'lvl5'); // same session → no double count
+  check('guest milestone counts under guest.*', g('guest.lvl5') === 1, g('guest.lvl5'));
+  check('guest milestone does NOT touch the account metric', g('mile.lvl5') === 1, g('mile.lvl5'));
+  const guest2 = { accountKey: null }; // a second guest session reaches it too
+  hooks.noteMilestone(guest2, 'lvl5');
+  check('a second guest session adds to guest.*', g('guest.lvl5') === 2, g('guest.lvl5'));
 
   // ── Return cohorts via noteActive ──
   const rk = 'ret_acct';

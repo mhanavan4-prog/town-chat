@@ -1315,18 +1315,28 @@ function consumeRecentGuest(ip) {
   recentGuestIps.delete(ip);
   return (Date.now() - ts) < 24 * 3600e3;
 }
-// Progression milestone, counted at most once per ACCOUNT (guests excluded —
-// retention is an account question). Mirrors the acct.firstImageAt pattern.
+// Progression milestone. For an ACCOUNT, counted at most once ever (persisted
+// on the account, mirroring acct.firstImageAt) under 'mile.<id>'. For a GUEST —
+// who has no persistent identity — counted at most once per live session under
+// 'guest.<id>', so we can see how deep the (majority) guest wave gets before
+// leaving. Guest counts are raw session reaches, not unique players.
 function noteMilestone(player, id) {
-  const key = player && player.accountKey;
-  if (!key) return;
-  const acc = accounts[key];
-  if (!acc) return;
-  if (!acc.miles) acc.miles = {};
-  if (acc.miles[id]) return;
-  acc.miles[id] = Date.now();
-  analytics.bump('mile.' + id);
-  try { saveAccounts(); } catch (e) {}
+  if (!player) return;
+  const key = player.accountKey;
+  if (key) {
+    const acc = accounts[key];
+    if (!acc) return;
+    if (!acc.miles) acc.miles = {};
+    if (acc.miles[id]) return;
+    acc.miles[id] = Date.now();
+    analytics.bump('mile.' + id);
+    try { saveAccounts(); } catch (e) {}
+  } else {
+    if (!player._guestMiles) player._guestMiles = new Set();
+    if (player._guestMiles.has(id)) return;
+    player._guestMiles.add(id);
+    analytics.bump('guest.' + id);
+  }
 }
 
 // Account-derived rollups for the analytics dashboard: totals, return rate, and
@@ -3103,9 +3113,10 @@ function grantXP(player, amount) {
       message: `⬆️ Level up! You are now Level ${prog.level}. Skill points: ${prog.skillPoints}.`
     });
   }
-  if (leveled && player.accountKey) {
-    // Progression milestones (once per account) — the levels where players
-    // stick or stall.
+  if (leveled) {
+    // Progression milestones — the levels where players stick or stall.
+    // noteMilestone routes accounts to 'mile.*' (once ever) and guests to
+    // 'guest.*' (once per session), so the guest wave's depth is captured too.
     if (prog.level >= 2) noteMilestone(player, 'lvl2');
     if (prog.level >= 5) noteMilestone(player, 'lvl5');
     if (prog.level >= 10) noteMilestone(player, 'lvl10');
