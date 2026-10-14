@@ -272,18 +272,43 @@ app.use('/api', (req, res, next) => {
 // (?src= / ?ref= / ?utm_source=, normalized to a short safe slug — point the
 // QR code at ?src=qr, Reddit links at ?src=reddit, etc.), and a coarse
 // mobile/desktop split from the User-Agent. All aggregate, no PII.
+// Canonical sources we actively tag links with. Any incoming slug that *starts
+// with* one of these folds to it, so a pasted URL or stray words after the tag
+// (e.g. "browsergaming https://..." or "browsergaming would") can't spawn a
+// junk variant — they all collapse back to "browsergaming".
+const KNOWN_REFS = ['browsergaming', 'reddit', 'discord', 'twitter', 'youtube', 'tiktok', 'qr', 'direct'];
 function refSlug(req) {
   const raw = (req.query && (req.query.src || req.query.ref || req.query.utm_source)) || '';
-  const s = String(raw).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
+  // Take only the leading slug token — cut at the first char that isn't a-z/0-9/_/-
+  // (a space, slash, colon, etc.), instead of stripping those chars and gluing
+  // the remainder on. "browsergaming%20https" -> "browsergaming", not "...https".
+  const m = String(raw).toLowerCase().match(/^[a-z0-9_-]{1,24}/);
+  let s = (m && m[0]) || '';
+  const hit = KNOWN_REFS.find(k => s.startsWith(k));
+  if (hit) s = hit;
   return s || 'direct';
 }
 function isMobileUA(req) {
   return /Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(String(req.get('user-agent') || ''));
 }
+// Per-IP website-visit record in the security audit log (admin-only), mirroring
+// how in-game activity is logged by IP. Deduped to one line per IP+page per
+// 30 min so refreshes, OG unfurlers and bot re-hits don't flood the console.
+// Aggregate (no-PII) counters are handled separately by trackVisit/analytics.
+function logPageVisit(req, pageName) {
+  try {
+    const ip = audit.clientIp(req);
+    if (audit.hit(ip, 'visit:' + pageName, 30 * 60 * 1000) !== 1) return;
+    audit.log({ level: 'info', type: 'page_visit', ip, detail: {
+      page: pageName, ref: refSlug(req), device: isMobileUA(req) ? 'mobile' : 'desktop'
+    } });
+  } catch (e) {}
+}
 function trackVisit(req, pageMetric) {
   analytics.bump(pageMetric);
   analytics.bump('ref.' + refSlug(req));
   analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
+  logPageVisit(req, pageMetric.replace(/^page\./, ''));
 }
 app.get('/play', (req, res) => { trackVisit(req, 'page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
@@ -322,18 +347,18 @@ const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path
 
 app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
-app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
-  { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }));
-app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
-  { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }));
-app.get('/profile', (req, res) => sendWithOg(req, res, 'profile.html',
-  { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }));
-app.get('/privacy', (req, res) => sendWithOg(req, res, 'privacy.html',
-  { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }));
-app.get('/terms', (req, res) => sendWithOg(req, res, 'terms.html',
-  { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }));
-app.get('/voice', (req, res) => sendWithOg(req, res, 'voice.html',
-  { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }));
+app.get('/leaderboards', (req, res) => { logPageVisit(req, 'leaderboards'); return sendWithOg(req, res, 'leaderboards.html',
+  { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }); });
+app.get('/covens', (req, res) => { logPageVisit(req, 'covens'); return sendWithOg(req, res, 'covens.html',
+  { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }); });
+app.get('/profile', (req, res) => { logPageVisit(req, 'profile'); return sendWithOg(req, res, 'profile.html',
+  { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }); });
+app.get('/privacy', (req, res) => { logPageVisit(req, 'privacy'); return sendWithOg(req, res, 'privacy.html',
+  { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }); });
+app.get('/terms', (req, res) => { logPageVisit(req, 'terms'); return sendWithOg(req, res, 'terms.html',
+  { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }); });
+app.get('/voice', (req, res) => { logPageVisit(req, 'voice'); return sendWithOg(req, res, 'voice.html',
+  { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }); });
 
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
