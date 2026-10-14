@@ -8801,7 +8801,7 @@ let animalVisuals2 = {};
 const {
   addAnimals, addAnimals2, applyAnimalState, applyAnimal2State, updateAnimalVisuals, updateAnimal2Visuals,
 } = createCreatures({
-  lerpAngle, makeHealthBarSprite, updateHealthBar,
+  lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight,
   getOutdoorScene: () => outdoorScene, getWildsScene: () => wildsScene,
   getAnimalVisuals: () => animalVisuals, setAnimalVisuals: (v) => { animalVisuals = v; },
   getAnimalVisuals2: () => animalVisuals2, setAnimalVisuals2: (v) => { animalVisuals2 = v; },

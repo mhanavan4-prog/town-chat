@@ -5587,7 +5587,12 @@ function makeSigilFloorTexture() {
 // pools live in main (shared with targeting / mob-pools / debug) and are injected
 // via get/set; the scenes are reassigned lets, injected as getters.
 // ---------------------------------------------------------------------------
-function createCreatures({ lerpAngle, makeHealthBarSprite, updateHealthBar, getOutdoorScene, getWildsScene, getAnimalVisuals, setAnimalVisuals, getAnimalVisuals2, setAnimalVisuals2 }) {
+function createCreatures({ lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, getOutdoorScene, getWildsScene, getAnimalVisuals, setAnimalVisuals, getAnimalVisuals2, setAnimalVisuals2 }) {
+  // Sample terrain height so animals ride the ground instead of sitting at a
+  // flat Y (the rolling Wilds moor lifts the ground well above 0, so without
+  // this the critters sink into the hillside). Mirrors how players/minions
+  // use getFloorHeight. Guarded so a missing fn just means flat ground.
+  const floorAt = (room, x, z) => (typeof getFloorHeight === 'function' ? getFloorHeight(room, x, z) : 0);
 // ---------------------------------------------------------------------------
 // Wildlife — a handful of rabbits wandering the open grass, purely cosmetic
 // flavor. Positions/flee state are server-authoritative (see server.js) so
@@ -5781,7 +5786,7 @@ function updateAnimalVisuals(dt) {
     v.hopPhase += dt * (v.fleeing ? 14 : 5);
     const hop = moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0;
 
-    v.mesh.position.set(v.x, hop, v.y);
+    v.mesh.position.set(v.x, floorAt('outside', v.x, v.y) + hop, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = !v.dead;
   }
@@ -5845,7 +5850,7 @@ function updateAnimal2Visuals(dt) {
       ? 10 + Math.sin(v.hopPhase * 0.6) * 3
       : (moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0);
 
-    v.mesh.position.set(v.x, bob, v.y);
+    v.mesh.position.set(v.x, floorAt('wilds', v.x, v.y) + bob, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = !v.dead;
   }
@@ -23103,7 +23108,7 @@ let animalVisuals2 = {};
 const {
   addAnimals, addAnimals2, applyAnimalState, applyAnimal2State, updateAnimalVisuals, updateAnimal2Visuals,
 } = createCreatures({
-  lerpAngle, makeHealthBarSprite, updateHealthBar,
+  lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight,
   getOutdoorScene: () => outdoorScene, getWildsScene: () => wildsScene,
   getAnimalVisuals: () => animalVisuals, setAnimalVisuals: (v) => { animalVisuals = v; },
   getAnimalVisuals2: () => animalVisuals2, setAnimalVisuals2: (v) => { animalVisuals2 = v; },
