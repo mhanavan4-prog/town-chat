@@ -268,7 +268,24 @@ app.use('/api', (req, res, next) => {
 });
 // The marketing homepage lives at /, the game at /play (registered before the
 // static middleware so / serves landing.html instead of the game's index.html).
-app.get('/play', (req, res) => { analytics.bump('page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+// Acquisition tracking for a page view: the page metric, the traffic source
+// (?src= / ?ref= / ?utm_source=, normalized to a short safe slug — point the
+// QR code at ?src=qr, Reddit links at ?src=reddit, etc.), and a coarse
+// mobile/desktop split from the User-Agent. All aggregate, no PII.
+function refSlug(req) {
+  const raw = (req.query && (req.query.src || req.query.ref || req.query.utm_source)) || '';
+  const s = String(raw).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
+  return s || 'direct';
+}
+function isMobileUA(req) {
+  return /Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(String(req.get('user-agent') || ''));
+}
+function trackVisit(req, pageMetric) {
+  analytics.bump(pageMetric);
+  analytics.bump('ref.' + refSlug(req));
+  analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
+}
+app.get('/play', (req, res) => { trackVisit(req, 'page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 // Shareable pages get per-entity Open Graph / Twitter tags injected server-side
 // so a pasted link unfurls with the right title (and the shared cover image),
@@ -303,7 +320,7 @@ function sendWithOg(req, res, file, og) {
 // every caller falls back to the plain static card below.
 const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
 
-app.get('/', (req, res) => { analytics.bump('page.landing'); return sendWithOg(req, res, 'landing.html',
+app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
 app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
   { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }));
@@ -5937,9 +5954,11 @@ function noteFirstStep(player, stepId) {
   const st = firstStepsState(prog);
   if (st.done || st[stepId]) return;
   st[stepId] = true;
+  analytics.bump('fs.' + stepId); // onboarding funnel: which of the 4 steps players reach
   const allDone = FIRST_STEPS.every(s => st[s.id]);
   if (allDone) {
     st.done = true;
+    analytics.bump('fs.complete');
     if (player.accountKey) {
       ensureBankAccount(player.accountKey).balance += FIRST_STEPS_REWARD_GOLD;
       saveBankAccounts();
@@ -7394,6 +7413,7 @@ wss.on('connection', (ws, req) => {
         if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
       }
       players.set(id, player);
+      analytics.peak('concurrent', players.size); // daily high-water mark of simultaneous players
       // Analytics: count fresh joins (not seamless reconnects), split by guest
       // vs account and by class, and mark the account active for DAU.
       if (!resume) {
