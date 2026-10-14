@@ -941,6 +941,24 @@
   }
   @keyframes loadPillPulse { 0%,100%{opacity:.45;} 50%{opacity:1;} }
 
+  /* ── Themed pre-spawn loading screen ── */
+  .worldLoading {
+    position:fixed; inset:0; z-index:10050; display:none;
+    align-items:center; justify-content:center; text-align:center;
+    background:radial-gradient(1100px 760px at 50% 32%, #2a1f45 0%, #140e24 62%, #0b0716 100%);
+    color:#eafff0; -webkit-tap-highlight-color:transparent;
+  }
+  .worldLoading.show { display:flex; animation:wlFade .3s ease; }
+  .worldLoading .wlInner { max-width:360px; padding:0 24px; }
+  .worldLoading .wlSigil { font-size:46px; filter:drop-shadow(0 0 18px rgba(240,230,190,.5)); animation:wlFloat 3s ease-in-out infinite; }
+  .worldLoading .wlTitle { margin-top:14px; font-size:19px; font-weight:700; color:#f3e9c9; letter-spacing:.2px; }
+  .worldLoading .wlSub { margin-top:6px; font-size:13px; color:#b9a7d6; }
+  .worldLoading .wlTrack { margin:20px auto 0; width:220px; max-width:70vw; height:6px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
+  .worldLoading .wlBar { display:block; height:100%; width:38%; border-radius:999px; background:linear-gradient(90deg,#d98a4f,#9ee37d); animation:wlSlide 1.3s ease-in-out infinite; }
+  @keyframes wlSlide { 0%{transform:translateX(-130%);} 100%{transform:translateX(360%);} }
+  @keyframes wlFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
+  @keyframes wlFade { from{opacity:0;} to{opacity:1;} }
+
   /* ── Tracker "where" hints + goal-gradient glow ── */
   .trackerWhere { color:#9fd3e8; font-size:11px; margin-top:3px; }
   #storyTrackerFill.nearlyDone, #questTrackerFill.nearlyDone {
@@ -1891,6 +1909,18 @@
 <!-- Asset-load pill: follows the cursor while the KayKit models stream in, so a
      new player understands the brief rough-graphics moment. Hides at 100%. -->
 <div id="loadPill" class="loadPill" aria-live="polite"></div>
+
+<!-- Themed pre-spawn loading screen: covers the brief wait while the town and
+     your chosen body stream in, so a first-time visitor never lands on the
+     classic fallback graphics. Toggled by showWorldLoading() in account-select. -->
+<div id="worldLoading" class="worldLoading" aria-live="polite" role="status">
+  <div class="wlInner">
+    <div class="wlSigil">🌙</div>
+    <div class="wlTitle">Stitching the town together…</div>
+    <div class="wlSub">Thornreach is pulling itself out of the fog.</div>
+    <div class="wlTrack"><span class="wlBar"></span></div>
+  </div>
+</div>
 
 <div id="reconnectBanner" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd43b;padding:18px 36px;border-radius:14px;font-size:1.15em;z-index:9999;text-align:center;pointer-events:none;letter-spacing:0.02em;"><div id="reconnectMsg">⚡ Connection lost — reconnecting…</div><button id="reconnectNowBtn" class="hidden" onclick="window.__reconnectNow&&window.__reconnectNow()" style="pointer-events:auto;margin-top:12px;background:#ffd43b;color:#1a1206;border:none;padding:9px 20px;border-radius:9px;font-size:0.82em;font-weight:800;cursor:pointer;letter-spacing:0.02em;">Reconnect now</button></div>
 
@@ -3323,6 +3353,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=e63f64f39e"></script>
+<script src="client.js?v=acfb3292b1"></script>
 </body>
 </html>

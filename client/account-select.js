@@ -319,18 +319,37 @@ if (thirdEyeOptInCheckbox) thirdEyeOptInCheckbox.addEventListener('change', (e) 
 const thirdEyeOptInCheckboxInGame = document.getElementById('thirdEyeOptInCheckboxInGame');
 if (thirdEyeOptInCheckboxInGame) thirdEyeOptInCheckboxInGame.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
 
+// Themed pre-spawn loading screen — shown while the town + chosen body stream
+// in, so a first-time visitor never sees the classic fallback graphics. The
+// bar is an indeterminate shimmer (CSS), so it stays honest without a
+// misleading percentage.
+function showWorldLoading(on) {
+  try { const ov = document.getElementById('worldLoading'); if (ov) ov.classList.toggle('show', !!on); } catch (e) {}
+}
+
 function attemptJoin() {
   // Arm the asset-load pill: from the first join click onward it rides the
   // cursor until every model has streamed in, then hides itself.
   try { window.__tcLoadArmed = true; } catch (e) {}
-  // Tier-3 assets: hold the join until the preload settles (or 12s cap),
-  // so the town builds with KayKit models instead of racing the loader.
-  if (!KK.settled && !attemptJoin._waited) {
+  // Tier-3 assets: hold the join until the shared town AND the body you picked
+  // are in hand, so you spawn into a real KayKit town — not the classic
+  // fallback. Only the chosen class gates spawn (the other four stream in behind
+  // you via beginChars), so this waits on ~5MB, not the old ~17MB. A themed
+  // loading screen covers the wait instead of dropping you into old graphics.
+  const assetsReady = KK.settled && KK.charReady(selectedCharId);
+  if (!assetsReady && !attemptJoin._waited) {
     attemptJoin._waited = true;
     const oldLabel = joinBtn.textContent;
     joinBtn.textContent = 'Summoning…';
     joinBtn.disabled = true;
-    Promise.race([KK.promise, new Promise(r => setTimeout(r, 12000))]).then(() => {
+    showWorldLoading(true);
+    KK.beginChars(selectedCharId);
+    // Wait on what actually matters (town + your body), not a blind time cap.
+    // The generous safety cap only releases if something genuinely stalls;
+    // asset failures resolve on their own and simply fall back for that piece.
+    const ready = Promise.all([KK.promise, KK.whenChar(selectedCharId)]);
+    Promise.race([ready, new Promise(r => setTimeout(r, 45000))]).then(() => {
+      showWorldLoading(false);
       joinBtn.textContent = oldLabel;
       joinBtn.disabled = false;
       attemptJoin();

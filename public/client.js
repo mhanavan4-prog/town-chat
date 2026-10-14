@@ -12565,18 +12565,37 @@ if (thirdEyeOptInCheckbox) thirdEyeOptInCheckbox.addEventListener('change', (e) 
 const thirdEyeOptInCheckboxInGame = document.getElementById('thirdEyeOptInCheckboxInGame');
 if (thirdEyeOptInCheckboxInGame) thirdEyeOptInCheckboxInGame.addEventListener('change', (e) => setThirdEyeOptIn(e.target.checked));
 
+// Themed pre-spawn loading screen — shown while the town + chosen body stream
+// in, so a first-time visitor never sees the classic fallback graphics. The
+// bar is an indeterminate shimmer (CSS), so it stays honest without a
+// misleading percentage.
+function showWorldLoading(on) {
+  try { const ov = document.getElementById('worldLoading'); if (ov) ov.classList.toggle('show', !!on); } catch (e) {}
+}
+
 function attemptJoin() {
   // Arm the asset-load pill: from the first join click onward it rides the
   // cursor until every model has streamed in, then hides itself.
   try { window.__tcLoadArmed = true; } catch (e) {}
-  // Tier-3 assets: hold the join until the preload settles (or 12s cap),
-  // so the town builds with KayKit models instead of racing the loader.
-  if (!KK.settled && !attemptJoin._waited) {
+  // Tier-3 assets: hold the join until the shared town AND the body you picked
+  // are in hand, so you spawn into a real KayKit town — not the classic
+  // fallback. Only the chosen class gates spawn (the other four stream in behind
+  // you via beginChars), so this waits on ~5MB, not the old ~17MB. A themed
+  // loading screen covers the wait instead of dropping you into old graphics.
+  const assetsReady = KK.settled && KK.charReady(selectedCharId);
+  if (!assetsReady && !attemptJoin._waited) {
     attemptJoin._waited = true;
     const oldLabel = joinBtn.textContent;
     joinBtn.textContent = 'Summoning…';
     joinBtn.disabled = true;
-    Promise.race([KK.promise, new Promise(r => setTimeout(r, 12000))]).then(() => {
+    showWorldLoading(true);
+    KK.beginChars(selectedCharId);
+    // Wait on what actually matters (town + your body), not a blind time cap.
+    // The generous safety cap only releases if something genuinely stalls;
+    // asset failures resolve on their own and simply fall back for that piece.
+    const ready = Promise.all([KK.promise, KK.whenChar(selectedCharId)]);
+    Promise.race([ready, new Promise(r => setTimeout(r, 45000))]).then(() => {
+      showWorldLoading(false);
       joinBtn.textContent = oldLabel;
       joinBtn.disabled = false;
       attemptJoin();
@@ -14615,43 +14634,82 @@ const KK = (() => {
   const totalCount = Object.keys(MANIFEST).length;
   let loadedCount = 0, allDone = false;
 
-  // The Necromancer's SUMMONED undead (not any player's body) — needed only when
-  // a Necromancer casts, never at spawn. Kept OFF the critical path so the join
-  // button ("Summoning…") doesn't wait on their download or anim retargeting;
-  // they stream in the background and are ready long before the first summon.
-  const DEFERRED = new Set(['skel_minion', 'skel_warrior', 'skel_rogue']);
+  // Load groups. The critical GATE to spawn is just the shared town — buildings,
+  // props and the small socket prop (~1.3MB). The heavy character bodies (5 ×
+  // ~3.4MB) are NOT gated: you only need the ONE you picked to spawn, so it's
+  // awaited at join (beginChars/whenChar) while the other four stream in behind
+  // you. This keeps first-load off the ~17MB cliff that used to dump slow
+  // visitors into the classic fallback. Summoned undead stay fully background.
+  const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue'];
+  const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
+  let loader = null;
+  const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
+
+  const store = (key) => (gltf) => {
+    const box = new THREE.Box3().setFromObject(gltf.scene);
+    models[key] = { scene: gltf.scene, animations: gltf.animations || [],
+      size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
+      minY: box.min.y };
+  };
+  // After any asset settles: backfill borrowed clips once the donor (char0) is
+  // present (gives char5 / the skeletons their animations), and flip allDone
+  // when the whole manifest has streamed.
+  function afterLoad() {
+    if (models.char0) borrowAnims();
+    if (loadedCount >= totalCount) allDone = true;
+  }
+  // Load ONE manifest key, memoized. Resolves on success OR failure (failure
+  // leaves the classic fallback in place), so a slow/broken asset never hangs a
+  // join — it just falls back for that one piece.
+  function loadKey(key) {
+    if (models[key]) return Promise.resolve();
+    if (keyPromises[key]) return keyPromises[key];
+    if (!loader) return Promise.resolve();
+    keyPromises[key] = new Promise((res) => {
+      loader.load(assetUrl(MANIFEST[key]),
+        (gltf) => { store(key)(gltf); loadedCount++; afterLoad(); res(); },
+        undefined,
+        () => { console.warn('KK asset failed, using fallback:', key); loadedCount++; afterLoad(); res(); });
+    });
+    return keyPromises[key];
+  }
 
   function load() {
     if (typeof THREE === 'undefined' || !THREE.GLTFLoader) { settled = true; allDone = true; resolveReady(); return; }
-    const loader = new THREE.GLTFLoader();
-    const store = (key) => (gltf) => {
-      const box = new THREE.Box3().setFromObject(gltf.scene);
-      models[key] = { scene: gltf.scene, animations: gltf.animations || [],
-        size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
-        minY: box.min.y };
-    };
-    const allKeys = Object.keys(MANIFEST);
-    const criticalKeys = allKeys.filter((k) => !DEFERRED.has(k));
-    const deferredKeys = allKeys.filter((k) => DEFERRED.has(k));
-    // Critical set: everything the spawn town + any visible player body needs.
-    // The join gate (KK.promise / KK.settled) resolves when THIS set is done.
-    pending = criticalKeys.length;
-    const onCritical = () => { loadedCount++; if (--pending === 0) { borrowAnims(); settled = true; resolveReady(); loadDeferred(); } };
-    for (const key of criticalKeys) {
-      loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); onCritical(); },
-        undefined, () => { console.warn('KK asset failed, using fallback:', key); onCritical(); });
+    loader = new THREE.GLTFLoader();
+    // Gate = the shared town only. Resolves KK.promise / KK.settled fast (~1.3MB)
+    // so spawn is never blocked on the big character bodies.
+    pending = GATING_KEYS.length;
+    if (!pending) { settled = true; resolveReady(); }
+    for (const key of GATING_KEYS) {
+      loadKey(key).then(() => { if (--pending === 0) { settled = true; resolveReady(); } });
     }
-    if (!criticalKeys.length) { settled = true; resolveReady(); loadDeferred(); }
+  }
 
-    function loadDeferred() {
-      if (!deferredKeys.length) { allDone = true; return; }
-      let dp = deferredKeys.length;
-      const done = () => { loadedCount++; if (--dp === 0) { borrowAnims(); allDone = true; } }; // give the summon models their clips (idempotent for the rest)
-      for (const key of deferredKeys) {
-        loader.load(assetUrl(MANIFEST[key]), (gltf) => { store(key)(gltf); done(); },
-          undefined, () => { console.warn('KK deferred asset failed, using fallback:', key); done(); });
-      }
+  // Await the specific body a player is about to spawn as. The Necromancer
+  // (char5) is a Skeleton-pack body with no clips of its own, so it also needs
+  // the Mage (char0) as its animation donor.
+  function whenChar(charId) {
+    if (charId === 5) return Promise.all([loadKey('char5'), loadKey('char0')]).then(() => { if (models.char0) borrowAnims(); });
+    return loadKey('char' + charId);
+  }
+
+  // Kick off character streaming: the picked body first (alone, full bandwidth),
+  // then the donor Mage, the other classes, and the summon skeletons behind it.
+  let charsStarted = false;
+  function beginChars(priorityCharId) {
+    if (!loader) return Promise.resolve();
+    const prio = whenChar(priorityCharId);
+    if (!charsStarted) {
+      charsStarted = true;
+      prio.then(() => {
+        loadKey('char0').then(() => { if (models.char0) borrowAnims(); }); // donor early
+        for (const k of CHAR_KEYS) if (k !== 'char' + priorityCharId) loadKey(k);
+        for (const k of BG_KEYS) loadKey(k);
+      });
     }
+    return prio;
   }
 
   // KayKit Skeletons-pack models ship with no animation clips of their own,
@@ -14721,6 +14779,7 @@ const KK = (() => {
   }
 
   return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance,
+    whenChar, beginChars,
     get settled() { return settled; }, promise,
     // Loading-pill progress: fraction 0..1 of the whole manifest, and whether
     // everything (critical + the streamed-in summon models) is done.
