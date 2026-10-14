@@ -434,6 +434,25 @@
     margin-bottom:8px; padding-bottom:6px;
     border-bottom:1px solid rgba(217,138,79,0.3);
   }
+  /* Chat channel tabs: World (always) + the building you're inside. */
+  #chatTabs { display:flex; gap:6px; margin-bottom:8px; }
+  .chatTab {
+    pointer-events:auto; position:relative;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(217,138,79,0.22);
+    color:#c9b89a; font-size:12px; font-weight:700; cursor:pointer;
+    padding:5px 11px; border-radius:8px; max-width:48%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .chatTab:hover { background:rgba(255,255,255,0.1); }
+  .chatTab.on {
+    background:linear-gradient(180deg, rgba(217,138,79,0.28), rgba(217,138,79,0.16));
+    border-color:rgba(255,200,130,0.55); color:#ffe9c2;
+  }
+  .chatTabBadge {
+    display:inline-block; min-width:16px; height:16px; line-height:16px;
+    margin-left:6px; padding:0 4px; border-radius:9px; vertical-align:middle;
+    background:#d04a3a; color:#fff; font-size:10px; font-weight:800; text-align:center;
+  }
   #chatMinimizeBtn {
     pointer-events:auto;
     background:rgba(255,255,255,0.08); border:1px solid rgba(217,138,79,0.3);
@@ -2145,11 +2164,15 @@
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
-    <span id="chatHeaderText">🌍 World</span>
+    <span id="chatHeaderText">💬 Chat</span>
     <button id="chatMinimizeBtn" title="Minimize">–</button>
     <button id="chatHideBtn" title="Hide chat">✕</button>
   </div>
   <div id="chatLogView">
+    <div id="chatTabs">
+      <button id="chatTabWorld" class="chatTab on" data-chan="world">🌍 World<span id="chatBadgeWorld" class="chatTabBadge hidden"></span></button>
+      <button id="chatTabRoom" class="chatTab hidden" data-chan="room"><span id="chatTabRoomName">Room</span><span id="chatBadgeRoom" class="chatTabBadge hidden"></span></button>
+    </div>
     <div id="chatLog"></div>
     <div id="chatImagePreview">
       <img id="chatImagePreviewImg" alt="">
@@ -3292,6 +3315,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=46900bc5cd"></script>
+<script src="client.js?v=6da74f59f7"></script>
 </body>
 </html>

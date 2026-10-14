@@ -1189,6 +1189,12 @@ setInterval(() => {
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
 ['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'manor'].forEach(r => ROOM_IDS.add(r));
+// Open-air areas share the global WORLD channel; every other room is an
+// interior with its own private, occupants-only chat tab (see the 'chat'
+// handler + room backlog replay). A "building room" is any known room that
+// isn't one of these open zones.
+const OPEN_WORLD_ROOMS = new Set(['outside', 'wilds', 'ember_wastes']);
+function isBuildingRoom(r) { return ROOM_IDS.has(r) && !OPEN_WORLD_ROOMS.has(r); }
 
 const { COLORS } = require('./data/gameConstants'); // Tier 3.4 Phase A: extracted to data/
 
@@ -7722,6 +7728,18 @@ wss.on('connection', (ws, req) => {
         const changedRoom = player.room !== msg.room;
         player.room = msg.room;
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
+        // Entering a building: replay its recent private chat so the room feels
+        // alive instead of empty. Occupants-only channel, so this is the one
+        // place a newcomer catches up. Guests never receive images.
+        if (changedRoom && isBuildingRoom(msg.room)) {
+          const log = roomChatLogs.get(msg.room) || [];
+          if (log.length) {
+            send(ws, { type: 'room_backlog', room: msg.room, log: log.slice(-20).map(e => ({
+              name: e.name, color: e.color, text: e.text,
+              image: ws._isGuest ? undefined : e.image, scope: 'room', room: msg.room, ts: e.ts
+            })) });
+          }
+        }
         // Walking into the café tells you whose sigil hangs over the big
         // table right now (Session L covens).
         if (changedRoom && msg.room === 'cafe') {
@@ -7821,8 +7839,22 @@ wss.on('connection', (ws, req) => {
       // left uncensored (per launch policy).
       const inCoven = typeof player.instance === 'string' && player.instance.startsWith('coven_');
       const inPassRoom = LOCKED_ROOMS.has(player.room);
-      const isFreeWorld = !inCoven && !inPassRoom;
-      if (isFreeWorld && text) {
+      const inBuilding = isBuildingRoom(player.room);
+      // The client tells us which tab the line was sent from: the global WORLD
+      // channel or this building's private room. Coven moots are always their
+      // own instance channel. A 'room' request only means anything inside a
+      // building; otherwise it falls back to world.
+      let channel;
+      if (inCoven) channel = 'coven';
+      else if (msg.channel === 'room' && inBuilding) channel = 'room';
+      else if (msg.channel === 'world') channel = 'world';
+      else if (inPassRoom) channel = 'room'; // paid rooms stay isolated even for channel-less legacy clients (never leak to world)
+      else channel = 'world';                // regular buildings + open world default to the global channel
+      // The content filter guards the FREE shared spaces anyone can wander into:
+      // the world channel and ordinary building rooms. Paid pass rooms and
+      // private coven moots stay uncensored (per launch policy).
+      const moderated = channel === 'world' || (channel === 'room' && !inPassRoom);
+      if (moderated && text) {
         const hit = wordFilter.matchBlocked(text);
         if (hit) {
           const n = audit.hit(player.accountKey || ws._ip || player.id, 'chat_blocked', 10 * 60 * 1000);
@@ -7852,17 +7884,17 @@ wss.on('connection', (ws, req) => {
         }
       };
       flagLinkIfAny(text, 'chat', player, ws);
-      recordRoomChat(player.room, player.name, player.color, text, image);
-      // Delivery (channels computed above):
-      //   • coven  — instance-scoped, private to the moot;
-      //   • pass   — room-scoped, seen only by those in the same pass room
-      //              (lounge/arcade, all pass-holders); NOT added to the global
-      //              feed, so it doesn't flood — or leak into — free world chat;
-      //   • world  — the global free channel every open-world player shares.
-      chatMsg.message.scope = inCoven ? 'coven' : (inPassRoom ? 'pass' : 'world');
-      if (inCoven) {
+      // Delivery by channel:
+      //   • coven — instance-scoped, private to the moot;
+      //   • room  — this building's private channel: seen only by those inside
+      //             it right now, and recorded to the room's rolling backlog so
+      //             a newcomer walks into an active conversation (not silence);
+      //   • world — the global free channel every open-world player shares.
+      chatMsg.message.scope = channel;
+      if (channel === 'coven') {
         broadcastInstance(player.instance, chatMsg);
-      } else if (inPassRoom) {
+      } else if (channel === 'room') {
+        recordRoomChat(player.room, player.name, player.color, text, image);
         broadcastRoom(player.room, chatMsg, player.instance);
       } else {
         recordWorldChat(chatMsg.message);

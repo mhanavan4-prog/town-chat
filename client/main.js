@@ -183,6 +183,13 @@ let currentRoom = 'outside';
 let mootInstanceActive = false; // Session N: true while inside your coven's private copy (the Moot Stone)
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
 const worldFeed = []; // unified global WORLD chat — shown in every room, seeded from init's backlog
+// Chat tabs: 'world' (the global channel, always available) and 'room' (the
+// private chat of the building you're inside, occupants-only). Entering a
+// building adds + auto-switches to its room tab; leaving drops back to World.
+let activeChatTab = 'world';
+const chatUnread = { world: 0, room: 0 };
+// A "building room" has its own private chat; the open-air zones share World.
+function isBuildingRoom(r) { return !!r && r !== 'outside' && r !== 'wilds' && r !== 'ember_wastes'; }
 // Completely hide chat (panel + overhead bubbles/banners) for players who don't
 // want it on screen. Persisted per-viewer; a small floating button restores it.
 let chatHidden = false;
@@ -1942,12 +1949,18 @@ function onWsMessage(ev) {
     // World chat (the default global channel) rides the always-visible feed;
     // coven-private chat stays in its room bucket. Either way the server only
     // delivered it to someone meant to see it.
+    let destTab;
     if (m.scope === 'world' || !m.scope) {
       worldFeed.push(m); if (worldFeed.length > 120) worldFeed.shift();
+      destTab = 'world';
     } else {
       if (!messagesByRoom[m.room]) messagesByRoom[m.room] = [];
       messagesByRoom[m.room].push(m);
+      destTab = 'room';
     }
+    // Badge the other tab if a line landed there while you're reading this one
+    // (your own lines never badge).
+    if (destTab !== activeChatTab && m.id !== myId) bumpChatBadge(destTab);
     renderChatLog();
     if (m.id && players[m.id]) players[m.id].lastChatAt = Date.now();
     // An overhead bubble / mobile banner only makes sense for a speaker you can
@@ -1959,6 +1972,16 @@ function onWsMessage(ev) {
       if (!MOBILE_UI) setOverheadBubble(m.id, m.text, !!m.image);
       else spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image, self: m.id === myId });
     }
+    return;
+  }
+
+  if (msg.type === 'room_backlog') {
+    // Walking into a building: seed its private tab with recent lines so it
+    // reads as an active room. Keep any system beats already queued for it.
+    const room = msg.room;
+    const sys = (messagesByRoom[room] || []).filter(x => x.system);
+    messagesByRoom[room] = sys.concat((msg.log || []).map(x => ({ ...x, scope: 'room', room })));
+    if (currentRoom === room) renderChatLog();
     return;
   }
 
@@ -6099,16 +6122,57 @@ function sendChatMessage() {
   }
   const payload = { type: 'chat', text: outText };
   if (pendingImage) payload.image = pendingImage;
+  // Route to the tab you're typing in: the building's private room, or World.
+  payload.channel = (activeChatTab === 'room' && isBuildingRoom(currentRoom)) ? 'room' : 'world';
   ws.send(JSON.stringify(payload));
   chatInput.value = '';
   clearPendingImage();
 }
 
+// ── Chat tabs (World ⟷ the building you're in) ──────────────────────────────
+function bumpChatBadge(which) {
+  if (which !== 'world' && which !== 'room') return;
+  chatUnread[which] = (chatUnread[which] || 0) + 1;
+  syncChatTabs();
+}
+function clearChatBadge(which) { if (chatUnread[which]) { chatUnread[which] = 0; syncChatTabs(); } }
+function setActiveChatTab(which) {
+  if (which === 'room' && !isBuildingRoom(currentRoom)) which = 'world';
+  activeChatTab = which;
+  clearChatBadge(which);
+  renderChatLog();
+  try { if (!MOBILE_UI) chatInput.focus(); } catch (e) {}
+}
+// Reflect current tab state into the DOM (active highlight, room tab label +
+// visibility, unread badges). Safe to call on every render.
+function syncChatTabs() {
+  const inBuilding = isBuildingRoom(currentRoom);
+  if (activeChatTab === 'room' && !inBuilding) activeChatTab = 'world';
+  const tW = document.getElementById('chatTabWorld');
+  const tR = document.getElementById('chatTabRoom');
+  if (!tW || !tR) return;
+  tR.classList.toggle('hidden', !inBuilding);
+  if (inBuilding) {
+    const nm = document.getElementById('chatTabRoomName');
+    if (nm) nm.textContent = (typeof roomLabel === 'function' ? roomLabel(currentRoom) : 'Room');
+  }
+  tW.classList.toggle('on', activeChatTab === 'world');
+  tR.classList.toggle('on', activeChatTab === 'room');
+  const bW = document.getElementById('chatBadgeWorld');
+  const bR = document.getElementById('chatBadgeRoom');
+  if (bW) { bW.textContent = chatUnread.world > 9 ? '9+' : String(chatUnread.world || ''); bW.classList.toggle('hidden', !chatUnread.world || activeChatTab === 'world'); }
+  if (bR) { bR.textContent = chatUnread.room > 9 ? '9+' : String(chatUnread.room || ''); bR.classList.toggle('hidden', !chatUnread.room || activeChatTab === 'room' || !inBuilding); }
+}
+
 function renderChatLog() {
-  // The feed merges the global WORLD channel with this room's local lines
-  // (system beats + any coven-private chat), newest 40, in time order.
-  const local = messagesByRoom[currentRoom] || [];
-  const msgs = worldFeed.concat(local).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
+  syncChatTabs();
+  // Show the ACTIVE tab's channel — World (global) or this room's private chat
+  // — always alongside system beats (story/combat), newest 40, in time order.
+  const roomMsgs = messagesByRoom[currentRoom] || [];
+  const systemLines = roomMsgs.filter(m => m.system);
+  const onRoomTab = activeChatTab === 'room' && isBuildingRoom(currentRoom);
+  const channelLines = onRoomTab ? roomMsgs.filter(m => !m.system) : worldFeed;
+  const msgs = systemLines.concat(channelLines).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
   chatLog.innerHTML = '';
   let shown = 0;
   for (const m of msgs) {
@@ -6155,7 +6219,9 @@ function renderChatLog() {
     const empty = document.createElement('div');
     empty.className = 'chatLine systemLine';
     empty.style.opacity = '0.65';
-    empty.textContent = '🌙 Town is quiet. Say hello — press Enter to start chatting.';
+    empty.textContent = (activeChatTab === 'room' && isBuildingRoom(currentRoom))
+      ? `🌙 ${roomLabel(currentRoom)} is quiet. Say hello — press Enter to start chatting.`
+      : '🌙 Town is quiet. Say hello — press Enter to start chatting.';
     chatLog.appendChild(empty);
   }
   chatLog.scrollTop = chatLog.scrollHeight;
@@ -6233,20 +6299,31 @@ function setChatHidden(hidden) {
 }
 if (chatHideBtn) chatHideBtn.addEventListener('click', () => setChatHidden(true));
 if (chatShowBtn) chatShowBtn.addEventListener('click', () => setChatHidden(false));
+{
+  const tW = document.getElementById('chatTabWorld');
+  const tR = document.getElementById('chatTabRoom');
+  if (tW) tW.addEventListener('click', () => setActiveChatTab('world'));
+  if (tR) tR.addEventListener('click', () => setActiveChatTab('room'));
+}
 
 let lastRoom = null; // null (not 'outside') so the FIRST room-UI pass always runs — otherwise spawning into the town short-circuits it and the chat panel never un-hides there
 function maybeUpdateRoomUI(room) {
   if (room === lastRoom) return;
+  const prevRoom = lastRoom;
   lastRoom = room;
   currentRoom = room;
   document.getElementById('roomLabel').textContent = roomLabel(room);
   pokeRoomTag();
-  // World chat is global now, so the panel lives in every room (town included)
-  // — unless the viewer has hidden it. It's the one place the whole server talks.
+  // World chat is global, so the panel lives in every room (town included) —
+  // unless the viewer has hidden it. Inside a building you also get that
+  // building's private room tab, auto-focused; the open air is World-only.
   syncChatVisibility();
   document.getElementById('chatPanel').classList.toggle('arcadeMode', room === 'arcade');
-  const headerText = document.getElementById('chatHeaderText');
-  if (headerText) headerText.textContent = '🌍 World';
+  // Leaving a building: drop its now-stale local lines (the backlog is re-sent
+  // on re-entry) and fall back to the World tab.
+  if (isBuildingRoom(prevRoom) && prevRoom !== room) { delete messagesByRoom[prevRoom]; chatUnread.room = 0; }
+  if (isBuildingRoom(room)) { activeChatTab = 'room'; chatUnread.room = 0; }
+  else { activeChatTab = 'world'; }
   renderChatLog();
   // Session L: the coven table sprite lives only in the café, and the event
   // pill re-evaluates per room (it hides indoors-agnostically otherwise).
