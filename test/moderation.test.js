@@ -83,7 +83,7 @@ setTimeout(async () => {
     carol.emit('message', JSON.stringify({ type: 'chat', text: 'this faggot word is not filtered here' }));
     const carolEcho = carol.sent.slice(beforeCarol).filter(m => m.type === 'chat');
     check('pass-room slur IS delivered in the pass room (unfiltered)', carolEcho.some(m => m.message.text.includes('faggot')));
-    check('pass-room chat is tagged scope=pass', carolEcho.some(m => m.message.scope === 'pass'));
+    check('pass-room chat is tagged scope=room (unified room channel)', carolEcho.some(m => m.message.scope === 'room'));
     check('pass-room chat does NOT leak to the free world', !alice.sent.slice(beforeAlice3).some(m => m.type === 'chat' && m.message.text.includes('faggot')));
 
     // ── Player report files an audit entry + acks the reporter ──

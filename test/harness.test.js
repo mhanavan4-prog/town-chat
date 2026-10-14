@@ -88,6 +88,27 @@ setTimeout(() => {
   const aliceChats2 = alice.sent.slice(beforeAlice2).filter(m => m.type === 'chat');
   check('alice (in cafe) DOES receive outside world chat (global)', aliceChats2.some(m => m.message.text === 'Hello town square'));
 
+  // --- Building room channel: private to occupants, tagged scope=room ---
+  // Alice & bob are in the cafe; carol is outside. A line sent on the ROOM
+  // channel must reach bob (same room) but NOT carol (outside), and be tagged
+  // scope=room so the client files it under the building's tab.
+  const beforeBobR = bob.sent.length, beforeCarolR = carol.sent.length;
+  alice.emit('message', JSON.stringify({ type: 'chat', text: 'cafe-only line', channel: 'room' }));
+  const bobRoom = bob.sent.slice(beforeBobR).filter(m => m.type === 'chat');
+  const carolRoom = carol.sent.slice(beforeCarolR).filter(m => m.type === 'chat' && m.message.text === 'cafe-only line');
+  check('room chat reaches a same-room occupant', bobRoom.some(m => m.message.text === 'cafe-only line'));
+  check('room chat is tagged scope=room', bobRoom.some(m => m.message.text === 'cafe-only line' && m.message.scope === 'room'));
+  check('room chat does NOT reach someone outside the building', carolRoom.length === 0);
+
+  // --- Backlog replay: a newcomer entering the cafe catches recent room chat ---
+  const dave = makeMockSocket('dave');
+  connHandler(dave);
+  dave.emit('message', JSON.stringify({ type: 'join', name: 'Dave' }));
+  const beforeDave = dave.sent.length;
+  dave.emit('message', JSON.stringify({ type: 'move', x: cafeX + 8, y: cafeY, room: 'cafe' }));
+  const daveBacklog = dave.sent.slice(beforeDave).find(m => m.type === 'room_backlog' && m.room === 'cafe');
+  check('entering a building replays its room backlog', !!daveBacklog && daveBacklog.log.some(l => l.text === 'cafe-only line'));
+
   // --- XSS / length sanitization ---
   carol.emit('message', JSON.stringify({ type: 'chat', text: '<script>alert(1)</script>' + 'x'.repeat(500) }));
   const carolOwnChat = carol.allOfType('chat').slice(-1)[0];
