@@ -198,8 +198,9 @@
   footer{border-top:1px solid rgba(185,138,255,0.12); padding:36px 0; margin-top:40px}
   footer .wrap{display:flex; align-items:center; gap:16px; flex-wrap:wrap; color:var(--mut2); font-size:13px}
   footer .brand .name{font-size:16px}
-  footer nav{margin-left:auto; display:flex; gap:20px}
+  footer nav{margin-left:auto; display:flex; gap:20px; flex-wrap:wrap}
   footer a:hover{color:var(--ink)}
+  @media(max-width:400px){ footer nav{margin-left:0; width:100%; justify-content:center; gap:12px 16px} footer .wrap{justify-content:center; text-align:center} }
   .mark{color:var(--mut2); font-size:12px; margin-top:6px}
 </style>
 </head>
