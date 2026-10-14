@@ -495,10 +495,18 @@
     background:rgba(0,0,0,0.35); color:#eafff0; font-size:13.5px; outline:none;
   }
   #chatInput::placeholder { color:#8a7560; }
-  /* Image upload is disabled on the global world chat (moderation): the entry
-     point is hidden, so chat is text-only. Markup kept so the client's image
-     helpers (clearPendingImage, etc.) still resolve their elements. */
+  /* Image upload is disabled on the global WORLD chat (moderation): the entry
+     point stays hidden there, so world chat is text-only. It's revealed by the
+     client (.show) only on a building's private room tab — including the paid
+     lounge/arcade — where chat is scoped to the people in the room. */
   #chatImageBtn { display:none; }
+  #chatImageBtn.show {
+    display:inline-flex; align-items:center; justify-content:center;
+    flex-shrink:0; width:44px; border-radius:20px; cursor:pointer;
+    border:1px solid rgba(217,138,79,0.35); background:rgba(0,0,0,0.35);
+    color:#eafff0; font-size:16px; -webkit-tap-highlight-color:transparent;
+  }
+  #chatImageBtn.show:hover { background:rgba(217,138,79,0.18); }
   #chatSendBtn {
     flex-shrink:0; width:44px; border-radius:20px; border:none; cursor:pointer;
     background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#1b1430;
@@ -3315,6 +3323,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=6da74f59f7"></script>
+<script src="client.js?v=e63f64f39e"></script>
 </body>
 </html>
