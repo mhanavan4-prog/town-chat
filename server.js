@@ -1237,6 +1237,70 @@ function noteActive(key) {
   analytics.bump('dau');
   const created = acc.createdAt ? analytics.day(acc.createdAt) : d;
   if (d !== created && !acc.returnedCounted) { acc.returnedCounted = true; analytics.bump('returning'); }
+  // Retention cohorts (aggregate, no PII): how long after signup an account
+  // first comes back. Each bucket is counted at most once per account, so the
+  // totals read as "N accounts returned the next day", "…within their first
+  // week", "…only after a week+". Compare against new-account counts to eyeball
+  // a D1 / week-1 return rate.
+  const off = dayDelta(created, d);
+  if (off != null && off >= 1) {
+    if (off === 1 && !acc.retNextDay) { acc.retNextDay = true; analytics.bump('ret.next_day'); }
+    if (off <= 7 && !acc.retWeek1) { acc.retWeek1 = true; analytics.bump('ret.week1'); }
+    if (off >= 8 && !acc.retWeek2) { acc.retWeek2 = true; analytics.bump('ret.week2plus'); }
+  }
+  try { saveAccounts(); } catch (e) {}
+}
+
+// ── Retention instrumentation helpers (aggregate, no PII) ──────────────────
+// Whole-day difference between two YYYY-MM-DD strings (b - a), or null.
+function dayDelta(a, b) {
+  const ta = Date.parse(a + 'T00:00:00Z'), tb = Date.parse(b + 'T00:00:00Z');
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return null;
+  return Math.round((tb - ta) / 86400000);
+}
+// Hour-of-day (00–23) in the owner's timezone, for the "when do people play"
+// histogram — so the buckets line up with the hours they'd schedule events.
+function playHourSlug() {
+  try {
+    const h = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(new Date());
+    return String(parseInt(h, 10) % 24).padStart(2, '0');
+  } catch (e) { return String(new Date().getUTCHours()).padStart(2, '0'); }
+}
+// Session-length bucket from a minute count.
+function sessionBucket(mins) {
+  if (mins < 1) return 'lt1m';
+  if (mins < 5) return '1_5m';
+  if (mins < 15) return '5_15m';
+  if (mins < 30) return '15_30m';
+  if (mins < 60) return '30_60m';
+  return 'gt60m';
+}
+// Guest→account conversion: remember which IPs recently played as a guest, so
+// when an account joins from the same IP we can count the guest that converted.
+const recentGuestIps = new Map(); // ip -> last guest-join ts
+function markRecentGuest(ip) {
+  if (!ip) return;
+  if (recentGuestIps.size > 5000) recentGuestIps.clear(); // bound memory
+  recentGuestIps.set(ip, Date.now());
+}
+function consumeRecentGuest(ip) {
+  if (!ip) return false;
+  const ts = recentGuestIps.get(ip);
+  if (ts == null) return false;
+  recentGuestIps.delete(ip);
+  return (Date.now() - ts) < 24 * 3600e3;
+}
+// Progression milestone, counted at most once per ACCOUNT (guests excluded —
+// retention is an account question). Mirrors the acct.firstImageAt pattern.
+function noteMilestone(player, id) {
+  const key = player && player.accountKey;
+  if (!key) return;
+  const acc = accounts[key];
+  if (!acc) return;
+  if (!acc.miles) acc.miles = {};
+  if (acc.miles[id]) return;
+  acc.miles[id] = Date.now();
+  analytics.bump('mile.' + id);
   try { saveAccounts(); } catch (e) {}
 }
 
@@ -3013,6 +3077,13 @@ function grantXP(player, amount) {
       skillPoints: prog.skillPoints,
       message: `⬆️ Level up! You are now Level ${prog.level}. Skill points: ${prog.skillPoints}.`
     });
+  }
+  if (leveled && player.accountKey) {
+    // Progression milestones (once per account) — the levels where players
+    // stick or stall.
+    if (prog.level >= 2) noteMilestone(player, 'lvl2');
+    if (prog.level >= 5) noteMilestone(player, 'lvl5');
+    if (prog.level >= 10) noteMilestone(player, 'lvl10');
   }
   // First-ever level-up also awards a Hard Drive — a one-time bonus (never
   // granted again, even if a big XP dump jumps several levels at once
@@ -7426,6 +7497,15 @@ wss.on('connection', (ws, req) => {
         analytics.bump('join');
         analytics.bump(accountKey ? 'join.account' : 'join.guest');
         analytics.bump('class.' + (CLASS_NAMES[charId] || 'drifter').toLowerCase());
+        // Retention signals at the moment of a fresh join:
+        //  • was the town empty or lively when they walked in (the #1 bounce
+        //    driver for a young MMO) — players.size already includes this join;
+        //  • what hour of day they played, in the owner's timezone;
+        //  • a guest→account conversion if this IP just played as a guest.
+        analytics.bump((players.size - 1) > 0 ? 'join.withothers' : 'join.alone');
+        analytics.bump('hour.' + playHourSlug());
+        if (accountKey) { if (consumeRecentGuest(ws._ip)) analytics.bump('conv.guest_to_account'); }
+        else markRecentGuest(ws._ip);
       }
       if (accountKey) noteActive(accountKey);
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
@@ -9237,6 +9317,7 @@ wss.on('connection', (ws, req) => {
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'craft_result', message: '🎇 You bind five holly hearts into a wand. Equip it — it glows, and it will light your way at night.' });
+      noteMilestone(player, 'craft');
       return;
     }
 
@@ -9258,6 +9339,7 @@ wss.on('connection', (ws, req) => {
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'craft_result', message: '🔻 Five shards fuse into a circlet, still warm as a heartbeat. Wear the red night proudly.' });
+      noteMilestone(player, 'craft');
       return;
     }
 
@@ -9807,12 +9889,14 @@ wss.on('connection', (ws, req) => {
       player.x = sp.x; player.y = sp.y; player.room = room;
       player.roomLockUntil = Date.now() + 1500;
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
+      noteMilestone(player, 'delve');
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
         const msp = spawnWithJitter();
         member.x = msp.x; member.y = msp.y; member.room = room;
         member.roomLockUntil = Date.now() + 1500;
         send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level, affixes: dungeonAffixPublic() });
+        noteMilestone(member, 'delve');
       }
       return;
     }
@@ -10222,6 +10306,7 @@ wss.on('connection', (ws, req) => {
       covenIndex.set(player.accountKey, id);
       covenLog(covens[id], player.name, 'founded the coven');
       analytics.bump('coven.found');
+      noteMilestone(player, 'coven');
       saveCoven(id);
       audit.log({ level: 'info', type: 'coven_founded', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: id, name } });
       send(ws, { type: 'coven_state', ...covenStatePayload(covens[id], player.accountKey) });
@@ -10265,6 +10350,7 @@ wss.on('connection', (ws, req) => {
       cv.members.push(player.accountKey);
       covenIndex.set(player.accountKey, cv.id);
       analytics.bump('coven.join');
+      noteMilestone(player, 'coven');
       covenLog(cv, player.name, 'joined the circle');
       saveCoven(cv.id);
       covenBroadcast(cv);
@@ -10897,6 +10983,7 @@ wss.on('connection', (ws, req) => {
       });
       // Brewing at Hazel's cauldron is the Witch campaign's finale objective.
       storyEvent(player, 'craft_potion', { recipeId });
+      noteMilestone(player, 'craft');
       return;
     }
 
@@ -10924,6 +11011,7 @@ wss.on('connection', (ws, req) => {
       { const cp = getProgress(player); cp.itemsCrafted = (cp.itemsCrafted || 0) + 1; } // Artificer ladder
       checkAchievements(player);
       storyEvent(player, 'craft_item', { recipeId: recipe.id }); // Episode II ch8 — forge at the Workshop
+      noteMilestone(player, 'craft');
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'workshop_craft_result',
         resultIcon: resultItem?.icon || '🔨',
@@ -11157,6 +11245,19 @@ wss.on('connection', (ws, req) => {
           stash: buildResumeStash(player)
         });
       }
+      // Retention: how long this session lasted, and — for a player still
+      // inside the onboarding funnel — how far they got before leaving. The
+      // session buckets expose a bounce problem (lots of <1m sessions); the
+      // onboarding exit buckets map the cliff (where first sessions die).
+      try {
+        const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
+        analytics.bump('sess.' + sessionBucket(mins));
+        const prog = getProgress(player);
+        if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
+          const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3
+          analytics.bump('exit.onboard' + reached);
+        }
+      } catch (e) {}
       leaveParty(player);
       covenVoiceLeave(player);
       delveLeave(player, 'disconnect');
@@ -11341,6 +11442,8 @@ setInterval(() => {
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
+  analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
+  noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
   // Durable storage (Session L)
   getSqliteDb, persistLoad, persistSave, persistSetKey,
   DATA_DIR, accounts, saveAccounts, playerProgress, saveProgress,
