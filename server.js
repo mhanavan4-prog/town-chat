@@ -7542,6 +7542,12 @@ wss.on('connection', (ws, req) => {
         analytics.bump('hour.' + playHourSlug());
         if (accountKey) { if (consumeRecentGuest(ws._ip)) analytics.bump('conv.guest_to_account'); }
         else markRecentGuest(ws._ip);
+        // Per-IP join record for the admin "Traffic by IP" breakdown. Deduped
+        // per IP per 10 min so a reconnect storm or a load test can't flood the
+        // log — it marks that an IP joined, it is not a precise join count.
+        if (audit.hit(ws._ip, 'join_log', 10 * 60 * 1000) === 1) {
+          audit.log({ level: 'info', type: 'game_join', ip: ws._ip, detail: { guest: !accountKey } });
+        }
       }
       if (accountKey) noteActive(accountKey);
       syncProgressToPlayer(player); // sets player.maxHealth from vitality skills
