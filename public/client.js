@@ -20371,7 +20371,9 @@ function clearPendingImage() {
 
 if (chatImageBtn) {
   chatImageBtn.addEventListener('click', () => {
-    if (currentRoom === 'outside') return;
+    // Pictures only from a building's private room tab (incl. paid rooms);
+    // never from world chat (text-only for moderation).
+    if (!(activeChatTab === 'room' && isBuildingRoom(currentRoom))) return;
     chatImageFile.click();
   });
 }
@@ -20465,6 +20467,13 @@ function syncChatTabs() {
   }
   tW.classList.toggle('on', activeChatTab === 'world');
   tR.classList.toggle('on', activeChatTab === 'room');
+  // Picture upload is allowed only on a building's private room tab (incl. the
+  // paid lounge/arcade); world chat stays text-only for moderation. Reveal the
+  // camera there, and drop any staged image when we're not on a room tab so it
+  // can never ride a world-channel send.
+  const canImage = activeChatTab === 'room' && inBuilding;
+  if (chatImageBtn) chatImageBtn.classList.toggle('show', canImage);
+  if (!canImage && typeof clearPendingImage === 'function' && pendingImage) clearPendingImage();
   const bW = document.getElementById('chatBadgeWorld');
   const bR = document.getElementById('chatBadgeRoom');
   if (bW) { bW.textContent = chatUnread.world > 9 ? '9+' : String(chatUnread.world || ''); bW.classList.toggle('hidden', !chatUnread.world || activeChatTab === 'world'); }
