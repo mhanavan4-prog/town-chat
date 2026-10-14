@@ -359,6 +359,11 @@ app.get('/terms', (req, res) => { logPageVisit(req, 'terms'); return sendWithOg(
   { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }); });
 app.get('/voice', (req, res) => { logPageVisit(req, 'voice'); return sendWithOg(req, res, 'voice.html',
   { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }); });
+// EXIF Inspector PWA — static files live in public/exif/, but express.static is
+// mounted with index:false, so serve the directory's index.html explicitly.
+// Only the trailing-slash form serves the app (its assets are relative); the
+// no-slash /exif 301-redirects to /exif/ via express.static.
+app.get('/exif/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'exif', 'index.html')));
 
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
@@ -463,6 +468,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
       // instead of revalidating every load. If you ever upgrade one, change its
       // filename (or bump this) so caches pick the new version up.
       res.setHeader('Cache-Control', 'public, max-age=2592000');
+    } else if (/\.webmanifest$/i.test(filePath)) {
+      // PWA manifest (the /exif tool). Serve the right type so Chrome treats it
+      // as installable, and let updates land immediately.
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.setHeader('Cache-Control', 'no-cache');
     } else if (/\.(js|css|html)$/i.test(filePath)) {
       // Our own code changes every deploy: cache but force revalidation, so
       // updates land immediately while unchanged files come back as a cheap 304.
