@@ -291,10 +291,24 @@ function refSlug(req) {
 function isMobileUA(req) {
   return /Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(String(req.get('user-agent') || ''));
 }
+// Per-IP website-visit record in the security audit log (admin-only), mirroring
+// how in-game activity is logged by IP. Deduped to one line per IP+page per
+// 30 min so refreshes, OG unfurlers and bot re-hits don't flood the console.
+// Aggregate (no-PII) counters are handled separately by trackVisit/analytics.
+function logPageVisit(req, pageName) {
+  try {
+    const ip = audit.clientIp(req);
+    if (audit.hit(ip, 'visit:' + pageName, 30 * 60 * 1000) !== 1) return;
+    audit.log({ level: 'info', type: 'page_visit', ip, detail: {
+      page: pageName, ref: refSlug(req), device: isMobileUA(req) ? 'mobile' : 'desktop'
+    } });
+  } catch (e) {}
+}
 function trackVisit(req, pageMetric) {
   analytics.bump(pageMetric);
   analytics.bump('ref.' + refSlug(req));
   analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
+  logPageVisit(req, pageMetric.replace(/^page\./, ''));
 }
 app.get('/play', (req, res) => { trackVisit(req, 'page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
@@ -333,18 +347,18 @@ const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path
 
 app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
-app.get('/leaderboards', (req, res) => sendWithOg(req, res, 'leaderboards.html',
-  { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }));
-app.get('/covens', (req, res) => sendWithOg(req, res, 'covens.html',
-  { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }));
-app.get('/profile', (req, res) => sendWithOg(req, res, 'profile.html',
-  { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }));
-app.get('/privacy', (req, res) => sendWithOg(req, res, 'privacy.html',
-  { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }));
-app.get('/terms', (req, res) => sendWithOg(req, res, 'terms.html',
-  { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }));
-app.get('/voice', (req, res) => sendWithOg(req, res, 'voice.html',
-  { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }));
+app.get('/leaderboards', (req, res) => { logPageVisit(req, 'leaderboards'); return sendWithOg(req, res, 'leaderboards.html',
+  { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }); });
+app.get('/covens', (req, res) => { logPageVisit(req, 'covens'); return sendWithOg(req, res, 'covens.html',
+  { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }); });
+app.get('/profile', (req, res) => { logPageVisit(req, 'profile'); return sendWithOg(req, res, 'profile.html',
+  { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }); });
+app.get('/privacy', (req, res) => { logPageVisit(req, 'privacy'); return sendWithOg(req, res, 'privacy.html',
+  { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }); });
+app.get('/terms', (req, res) => { logPageVisit(req, 'terms'); return sendWithOg(req, res, 'terms.html',
+  { title: 'Terms of Service — Thornreach', desc: 'The rules for playing Thornreach — in plain language.' }); });
+app.get('/voice', (req, res) => { logPageVisit(req, 'voice'); return sendWithOg(req, res, 'voice.html',
+  { title: 'Coven Voice — Thornreach', desc: 'Talk to your coven by voice, right from the web.' }); });
 
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
