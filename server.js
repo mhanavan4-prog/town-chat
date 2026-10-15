@@ -364,7 +364,7 @@ app.get('/class/:id', (req, res) => {
 app.get('/api/class/:id', (req, res) => {
   const cls = classShowcase.byId(parseInt(req.params.id, 10));
   if (!cls) return res.status(404).json({ error: 'unknown class' });
-  res.json(cls);
+  res.json(Object.assign({ propMeshes: classShowcase.PROP_MESHES }, cls));
 });
 app.get('/leaderboards', (req, res) => { logPageVisit(req, 'leaderboards'); return sendWithOg(req, res, 'leaderboards.html',
   { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }); });

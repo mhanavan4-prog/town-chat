@@ -232,6 +232,16 @@
     var loader = new THREE.GLTFLoader();
     loader.load('/' + cls.model, function(gltf){
       var model = gltf.scene;
+      // Cull the bundled hand props exactly as the game does: hide every
+      // swappable prop mesh except this class's curated KEEP list, so the staff
+      // doesn't render through the spellbook (etc). Must run before measuring.
+      var props = cls.propMeshes || [], keep = cls.keep || [];
+      model.traverse(function(o){
+        if ((o.isMesh || o.isSkinnedMesh)){
+          o.frustumCulled = false; // borrowed-anim bodies (Lich) mis-cull otherwise
+          if (props.indexOf(o.name) !== -1) o.visible = (keep.indexOf(o.name) !== -1);
+        }
+      });
       // Center + scale so its height ~ 2 units regardless of source rig.
       var box = new THREE.Box3().setFromObject(model);
       var size = new THREE.Vector3(); box.getSize(size);
@@ -240,6 +250,14 @@
       var s = 2.0 / h; model.scale.setScalar(s);
       model.position.set(-center.x*s, -box.min.y*s, -center.z*s); // feet on y=0, centered
       root.add(model);
+      // Some bodies (the Lich's Skeleton Mage) ship no weapon mesh — the game
+      // sockets a separate staff model into the right-hand bone. Do the same so
+      // the Lich isn't empty-handed. KayKit props are authored at the origin, so
+      // an identity attach to the hand slot sits it in the grip.
+      if (cls.staffModel){
+        var hand = model.getObjectByName('handslotr') || model.getObjectByName('handr');
+        if (hand){ new THREE.GLTFLoader().load('/' + cls.staffModel, function(sg){ hand.add(sg.scene); }, undefined, function(){}); }
+      }
       targetY = 1.0; camDist = 3.2;
       // Play an idle-ish clip if the model ships one (char5 ships none).
       if (gltf.animations && gltf.animations.length){
