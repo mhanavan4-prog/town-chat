@@ -978,6 +978,31 @@ app.post('/api/client-error', (req, res) => {
   const stack = String(b.stack || '').slice(0, 2000).replace(/\n/g, ' | ');
   const ua = String(b.ua || '').slice(0, 200);
   console.error('[client-error] ' + kind + ': ' + message + ' @ ' + source + ':' + line + ' ua="' + ua + '"' + (stack ? ' :: ' + stack : ''));
+  // Fold into client-health telemetry: an aggregate tick (total + by device) and
+  // a ring entry so the admin dashboard shows what's breaking without SSH.
+  try { telemetry.recordError({ kind, message, source, line, stack, device: isMobileUA(req) ? 'mobile' : 'desktop' }); } catch (e) {}
+  res.status(204).end();
+});
+
+// == Client-health beacons (Session N) =======================================
+// A tiny public write endpoint for non-crash health signal: 'playable' (ms from
+// page load to first render after join) and 'assetfail' (a streamed KayKit model
+// that failed/stalled to its fallback). Shares the client-error per-IP throttle.
+// Strictly validated; device is derived server-side from the UA (never trusted
+// from the body); everything lands as aggregate buckets — no player data.
+app.post('/api/telemetry', (req, res) => {
+  if (clientErrThrottled(req.ip)) return res.status(429).end();
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
+  const event = String(b.event || '').slice(0, 16);
+  if (event !== 'playable' && event !== 'assetfail') return res.status(204).end();
+  try {
+    telemetry.recordBeacon({
+      event,
+      ms: b.ms,
+      asset: b.asset,
+      device: isMobileUA(req) ? 'mobile' : 'desktop'
+    });
+  } catch (e) {}
   res.status(204).end();
 });
 
@@ -1259,6 +1284,10 @@ persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 
 // Privacy-respecting, aggregate-only product analytics (see lib/analytics.js).
 const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+// Client-health telemetry: folds load-time / asset-failure / crash signal into
+// aggregate analytics and keeps a bounded ring of recent reports for the admin
+// dashboard (see lib/telemetry.js). Nothing here is persisted or per-user.
+const telemetry = require('./lib/telemetry')({ analytics });
 // Count one unique active account per day (and, once ever, the first time an
 // account comes back on a later day than it registered). Uses a single date
 // marker on the account — no event log, no PII.
@@ -1580,7 +1609,7 @@ const bans = {
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   reportsList, reportsResolve,
-  worldChatRecent, hostSay,
+  worldChatRecent, hostSay, telemetry,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -11378,7 +11407,7 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code) => {
     // A website voice-only client: drop it out of voice (tearing down peers)
     // and forget it. It never had a game-world presence to clean up.
     if (voiceClient) {
@@ -11409,6 +11438,12 @@ wss.on('connection', (ws, req) => {
       try {
         const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
         analytics.bump('sess.' + sessionBucket(mins));
+        // Connection-health: a clean close (1000/1001, tab closed or navigated
+        // away) vs an abnormal drop (1006 — network blip, phone screen off),
+        // which usually precedes a seamless resume. A high drop share flags
+        // instability; mobile naturally skews toward drops because of resume.
+        analytics.bump('disconnect');
+        analytics.bump(code === 1000 || code === 1001 ? 'disconnect.clean' : 'disconnect.drop');
         const prog = getProgress(player);
         if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
           const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3

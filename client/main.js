@@ -140,6 +140,22 @@ function wsUrl() {
   });
 })();
 
+// Client-health beacon: fire-and-forget health signal (time-to-playable, asset
+// failures) to /api/telemetry. Uses sendBeacon when available so it survives a
+// page teardown; never throws into the app. Deliberately NO player data.
+function sendHealthBeacon(obj) {
+  try {
+    const body = JSON.stringify(obj);
+    const url = apiUrl('/api/telemetry');
+    if (navigator && typeof navigator.sendBeacon === 'function') {
+      navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    } else {
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(function () {});
+    }
+  } catch (_e) { /* telemetry must never break the app */ }
+}
+let _ttpBeaconSent = false;
+
 let ws;
 let lastJoinPayload = null;
 let gameStarted = false;
@@ -349,7 +365,7 @@ const KK = (() => {
       loader.load(assetUrl(MANIFEST[key]),
         (gltf) => { store(key)(gltf); loadedCount++; afterLoad(); res(); },
         undefined,
-        () => { console.warn('KK asset failed, using fallback:', key); loadedCount++; afterLoad(); res(); });
+        () => { console.warn('KK asset failed, using fallback:', key); try { sendHealthBeacon({ event: 'assetfail', asset: key }); } catch (e) {} loadedCount++; afterLoad(); res(); });
     });
     return keyPromises[key];
   }
@@ -1133,6 +1149,13 @@ function onWsMessage(ev) {
       last = performance.now();
       requestAnimationFrame(loop);
       gameStarted = true;
+      // Time-to-playable: ms from page load to this first render after join
+      // (performance.now() is relative to the page's time origin). First join
+      // only — reconnects reuse the already-loaded client, so they're not loads.
+      if (!_ttpBeaconSent) {
+        _ttpBeaconSent = true;
+        sendHealthBeacon({ event: 'playable', ms: Math.round(performance.now()) });
+      }
       // Now that play has started, reveal world chat (unless the viewer hid it)
       // and paint the backlog — the room-UI pass can't be relied on for this
       // when you spawn straight into the town (its no-op-on-same-room guard).
