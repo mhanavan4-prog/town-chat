@@ -183,6 +183,7 @@ let currentRoom = 'outside';
 let mootInstanceActive = false; // Session N: true while inside your coven's private copy (the Moot Stone)
 const messagesByRoom = {}; // room id -> array of {name,color,text,ts}
 const worldFeed = []; // unified global WORLD chat — shown in every room, seeded from init's backlog
+const _notifiedHostTs = new Set(); // host greetings already popped as a notif, so a reconnect doesn't repeat them
 // Chat tabs: 'world' (the global channel, always available) and 'room' (the
 // private chat of the building you're inside, occupants-only). Entering a
 // building adds + auto-switches to its room tab; leaving drops back to World.
@@ -944,7 +945,23 @@ function onWsMessage(ev) {
   if (msg.type === 'init') {
     const wasStarted = gameStarted;
     myId = msg.id;
-    if (Array.isArray(msg.worldChat)) { worldFeed.length = 0; for (const m of msg.worldChat) worldFeed.push(m); }
+    if (Array.isArray(msg.worldChat)) {
+      worldFeed.length = 0; for (const m of msg.worldChat) worldFeed.push(m);
+      // Pop a just-posted host greeting on (re)connect. Seeding the backlog
+      // alone never notifies, so a greeting sent in the moments before a player
+      // finished loading — exactly the "greet them as they arrive" case — would
+      // otherwise only sit silently in the (closed-on-mobile) chat panel. Only
+      // fresh host lines, only once each. spawnChatNotif is a no-op on desktop.
+      try {
+        const now = Date.now();
+        for (const m of msg.worldChat) {
+          if (m && m.host && m.ts && now - m.ts < 180000 && !_notifiedHostTs.has(m.ts)) {
+            _notifiedHostTs.add(m.ts);
+            spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image });
+          }
+        }
+      } catch (e) {}
+    }
     world = msg.world;
     TOWN_WORLD = world;
     // Equipment stat catalog — used to preview how a gear swap changes stats.
