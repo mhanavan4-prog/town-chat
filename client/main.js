@@ -8640,7 +8640,7 @@ const {
 // friendly villagers; the visual pool is private to the module.
 // createHumanoid/kkSetState/lerpAngle injected; Wilds scene via getter. ──
 const { applyVillageNpcState, updateVillageNpcVisuals } = createVillageNpcs({
-  createHumanoid, kkSetState, lerpAngle, getWildsScene: () => wildsScene,
+  createHumanoid, kkSetState, lerpAngle, getWildsScene: () => wildsScene, KK,
 });
 
 // ---------------------------------------------------------------------------
@@ -8657,7 +8657,7 @@ const townTorchVisuals = {}; // id -> { flame, light } — populated in initScen
 // createHumanoid/helpers by ref; town scene via getter. ──
 const { applyTownTorchNpcState, updateTownTorchNpcVisuals, applyTownTorchState } = createTownTorchNpcs({
   createHumanoid, getFloorHeight, kkSetState, lerpAngle, makeNpcNameSprite, townTorchVisuals,
-  getOutdoorScene: () => outdoorScene,
+  getOutdoorScene: () => outdoorScene, KK,
 });
 
 // ── Dungeon enemy archetypes ────────────────────────────────────────────────

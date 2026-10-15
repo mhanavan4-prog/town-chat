@@ -5,21 +5,39 @@
 // external readers, never reset by reassignment), so it lives here; createHumanoid,
 // the KayKit state helper, and lerpAngle are injected, the Wilds scene via getter.
 // ---------------------------------------------------------------------------
-export default function createVillageNpcs({ createHumanoid, kkSetState, lerpAngle, getWildsScene }) {
+export default function createVillageNpcs({ createHumanoid, kkSetState, lerpAngle, getWildsScene, KK }) {
   let villageNpcVisuals = {};
+
+function buildVillageNpcRig(charId) {
+  const built = createHumanoid(charId);
+  built.group.visible = false;
+  if (getWildsScene()) getWildsScene().add(built.group);
+  return { group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR, kk: built.kk };
+}
 
 function getOrCreateVillageNpcVisual(id, charId) {
   if (!villageNpcVisuals[id]) {
-    const built = createHumanoid(charId);
-    built.group.visible = false;
-    if (getWildsScene()) getWildsScene().add(built.group);
+    const rig = buildVillageNpcRig(charId);
     villageNpcVisuals[id] = {
-      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      ...rig, charId,
       x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
       working: false, walkPhase: 0, initialized: false
     };
   }
   return villageNpcVisuals[id];
+}
+
+// KayKit recovery (mirrors the player-visuals upgrade): rebuild any villager
+// still on the classic fallback rig the moment KK settles, so none stay stuck
+// on the old model until a reload.
+function upgradeVillageNpcsToKK() {
+  for (const id in villageNpcVisuals) {
+    const v = villageNpcVisuals[id];
+    if (v.kk || !KK.charReady(v.charId)) continue;
+    if (v.group && v.group.parent) v.group.parent.remove(v.group);
+    const rig = buildVillageNpcRig(v.charId);
+    v.group = rig.group; v.armL = rig.armL; v.armR = rig.armR; v.legL = rig.legL; v.legR = rig.legR; v.kk = rig.kk;
+  }
 }
 
 function applyVillageNpcState(npcs) {
@@ -29,6 +47,9 @@ function applyVillageNpcState(npcs) {
     v.targetX = n.x; v.targetY = n.y; v.targetFacing = n.facing; v.working = n.working;
     if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
   }
+  // Self-heal: upgrade any villager still on the classic fallback rig as its
+  // KayKit model finishes streaming in. A no-op once everyone's on KayKit.
+  if (KK) upgradeVillageNpcsToKK();
 }
 
 function updateVillageNpcVisuals(dt) {
