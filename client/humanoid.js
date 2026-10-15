@@ -398,5 +398,46 @@ function createKayKitByKey(key, heightScale) {
   return { group, kk, dispose() { try { mixer.stopAllAction(); } catch (e) {} KK.mixers.delete(mixer); } };
 }
 
-  return { createHumanoid, createKayKitByKey };
+  // ── Self-upgrading static NPCs ────────────────────────────────────────────
+  // Decorative, non-interpolated NPCs (town quest-givers, the Peddler, the
+  // Locksmith, interior shopkeepers, the cave witch) are built once via
+  // createHumanoid(...).group and keep no visual object — so, exactly like a
+  // player drawn before KayKit finished loading, they'd be stuck on the classic
+  // fallback rig forever. createStaticNpc wraps the build, remembers the group,
+  // and swaps it to the KayKit rig in place once that class's model is ready.
+  // Drop-in for createHumanoid at those call sites (same return shape).
+  const _staticNpcs = [];
+  function createStaticNpc(charId, presetOverride) {
+    const built = createHumanoid(charId, presetOverride);
+    // presetOverride figures (bespoke Ember-Wastes palettes) are classic by
+    // design — never upgrade those. Only track real fallback builds.
+    if (!presetOverride && !built.kk) _staticNpcs.push({ group: built.group, charId, done: false });
+    return built;
+  }
+  function upgradeStaticNpcs() {
+    for (const rec of _staticNpcs) {
+      if (rec.done || !rec.group || !KK.charReady(rec.charId)) continue;
+      const old = rec.group;
+      const nb = createHumanoid(rec.charId);
+      nb.group.position.copy(old.position);
+      nb.group.quaternion.copy(old.quaternion);
+      nb.group.scale.copy(old.scale);
+      nb.group.visible = old.visible;
+      if (old.parent) { old.parent.add(nb.group); old.parent.remove(old); }
+      rec.group = nb.group; rec.done = !!nb.kk;
+    }
+  }
+  // Fire once KayKit has settled AND each class model has streamed in: `settled`
+  // flips true on the critical set while individual class bodies keep loading,
+  // so a one-shot on KK.promise alone would run before charReady() is true for
+  // the stragglers. Wait on both, per class. NPCs built AFTER a class loads get
+  // the KayKit rig straight from createHumanoid and are never tracked.
+  if (KK && KK.promise && typeof KK.promise.then === 'function') {
+    for (let c = 0; c <= 5; c++) {
+      const whenReady = KK.whenChar ? KK.whenChar(c) : KK.promise;
+      Promise.all([KK.promise, whenReady]).then(upgradeStaticNpcs).catch(() => {});
+    }
+  }
+
+  return { createHumanoid, createKayKitByKey, createStaticNpc };
 }

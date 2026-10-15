@@ -6398,7 +6398,7 @@ const CHAR = {
 };
 // ── Humanoid builder constructed here (right after CHAR) so createHumanoid is
 // available to all the scene/mob/NPC constructions below. See client/humanoid.js. ──
-const { createHumanoid, createKayKitByKey } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
+const { createHumanoid, createKayKitByKey, createStaticNpc } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
 const WALL_HEIGHT = 110;
 // Outdoor follow camera — pulled back ~10% (was back:165 height:125) so
 // more of the town/wilds is on screen at once. Indoor cams stay as-is:
@@ -7547,7 +7547,7 @@ let delveStoneGroup = null, peddlerStallGroup = null, locksmithGroup = null;
 const {
   buildTownNPCs, buildTownRitualTorch, buildTownTemple, kkTownDressing,
 } = createTownScene({
-  KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace,
+  KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid: createStaticNpc, getDoorSide, getDoorWorldPos, kkPlace,
   makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture,
   getMe: () => me,
   setDelveStoneGroup: (g) => { delveStoneGroup = g; },
@@ -7845,7 +7845,7 @@ const VAULT_KIOSKS = [
 // includes addCaveWallShelves + its nested decoration makers). THREE global;
 // helpers + CAVE_WORLD injected; scene/camera written back via setters. ──
 const { buildCaveScene } = createCaveScene({
-  makeSignSprite, makeNpcNameSprite, createHumanoid, CAVE_WORLD,
+  makeSignSprite, makeNpcNameSprite, createHumanoid: createStaticNpc, CAVE_WORLD,
   setCaveScene: (s) => { caveScene = s; },
   setCaveCamera: (c) => { caveCamera = c; },
 });
@@ -8784,7 +8784,7 @@ const {
   buildFurniture, makeBarrel, buildTorch,
 } = createFurniture({
   INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC,
-  canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting,
+  canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting,
 });
 // ── Town-decor props — extracted to client/props-town.js (Phase C, first prop
 // library slice). Pure THREE-group builders; makeGlowTexture/makeBarrel injected. ──
