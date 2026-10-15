@@ -33,6 +33,11 @@ check('every class has name/tagline/model + a non-empty ability list', everyAbil
 check('every ability has icon + name + description', everyAbilityOk);
 check('every referenced model file exists under public/', everyModelExists);
 check('byId returns a class and null for unknown', !!showcase.byId(0) && showcase.byId(9) === null);
+// Prop-culling data: the viewer hides every PROP_MESHES mesh not in a class's
+// KEEP list, so the model doesn't render overlapping hand props (staff/book).
+check('PROP_MESHES is exported and non-empty', Array.isArray(showcase.PROP_MESHES) && showcase.PROP_MESHES.length > 0);
+check('every class carries a keep list', showcase.CLASSES.every(c => Array.isArray(c.keep)));
+check("the Witch keeps the staff (not the spellbook)", showcase.byId(0).keep.includes('2H_Staff') && !showcase.byId(0).keep.includes('Spellbook') && showcase.PROP_MESHES.includes('Spellbook'));
 
 require('../server.js');
 
@@ -53,6 +58,7 @@ require('../server.js');
     const data = JSON.parse(api.body);
     check('it is the Knight with its model', data.name === 'Knight' && data.model === 'kk/Knight.glb', data.name);
     check('abilities come through with display fields', data.abilities.length > 0 && data.abilities.every(a => a.icon && a.name && a.description));
+    check('the API includes prop-culling data (keep + propMeshes)', Array.isArray(data.keep) && Array.isArray(data.propMeshes) && data.propMeshes.length > 0);
 
     const bad = await get(port, '/api/class/9');
     check('GET /api/class/9 (unknown) is a 404', bad.status === 404, bad.status);

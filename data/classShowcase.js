@@ -113,7 +113,7 @@ const CLASSES = [
     ]
   },
   {
-    id: 5, key: 'lich', name: 'Lich', model: 'kk/Skeleton_Mage.glb',
+    id: 5, key: 'lich', name: 'Lich', model: 'kk/Skeleton_Mage.glb', staffModel: 'kk/Skeleton_Staff.glb',
     tagline: 'Raises the undead to fight for you.',
     blurb: 'The summoner: three tiers of undead that rise and fight until slain, plus a life-draining strike and grave-cold curses.',
     abilities: [
@@ -127,7 +127,26 @@ const CLASSES = [
   }
 ];
 
+// KayKit models bundle EVERY swappable hand prop inside the one file (staff,
+// spellbook, wand, axes, shields …), all overlapping. In-game, client/humanoid.js
+// hides each PROP_MESHES mesh unless it's in that class's KEEP list, so only the
+// one curated weapon shows. The showcase viewer applies the same culling so the
+// model doesn't render the staff clipping through the spellbook, etc. MIRRORS
+// the PROP_MESHES / KEEP in client/humanoid.js — keep them in sync.
+const PROP_MESHES = ['Spellbook', 'Spellbook_open', '1H_Wand', '2H_Staff', '1H_Axe', '1H_Axe_Offhand', '2H_Axe', 'Mug',
+  'Barbarian_Round_Shield', 'Knife', 'Knife_Offhand', '1H_Crossbow', '2H_Crossbow', 'Throwable',
+  '1H_Sword', '1H_Sword_Offhand', '2H_Sword', 'Badge_Shield', 'Round_Shield', 'Rectangle_Shield', 'Spike_Shield'];
+const KEEP = {
+  0: ['Mage_Hat', 'Mage_Cape', '2H_Staff'],
+  1: ['Barbarian_Hat', 'Barbarian_Cape'],
+  2: ['Rogue_Cape'],
+  3: ['Knight_Helmet', 'Knight_Cape', '1H_Sword', 'Badge_Shield'],
+  4: ['Rogue_Cape', 'Knife'],
+  5: []
+};
+for (const c of CLASSES) c.keep = KEEP[c.id] || [];
+
 const BY_ID = {};
 for (const c of CLASSES) BY_ID[c.id] = c;
 
-module.exports = { CLASSES, byId: (id) => BY_ID[id] || null };
+module.exports = { CLASSES, PROP_MESHES, byId: (id) => BY_ID[id] || null };
