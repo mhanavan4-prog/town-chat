@@ -1580,6 +1580,7 @@ const bans = {
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   reportsList, reportsResolve,
+  worldChatRecent, hostSay,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -7361,10 +7362,27 @@ function recordRoomChat(room, name, color, text, image) {
 // layer or zone you're in. A short rolling backlog is replayed to each arrival
 // (text only — guests never receive images) so a newcomer lands into an active
 // conversation instead of silence. Coven moot chat stays private (instance).
-const WORLD_CHAT_LIMIT = 40;
+const WORLD_CHAT_LIMIT = 120;
 const worldChatLog = [];
-function recordWorldChat(m) { worldChatLog.push({ id: m.id, name: m.name, color: m.color, text: m.text, ts: m.ts }); if (worldChatLog.length > WORLD_CHAT_LIMIT) worldChatLog.shift(); }
-function worldChatBacklog() { return worldChatLog.slice(-20).map(m => ({ id: m.id, name: m.name, color: m.color, text: m.text, scope: 'world', ts: m.ts })); }
+function recordWorldChat(m) { worldChatLog.push({ id: m.id, name: m.name, color: m.color, text: m.text, ts: m.ts, host: !!m.host }); if (worldChatLog.length > WORLD_CHAT_LIMIT) worldChatLog.shift(); }
+function worldChatBacklog() { return worldChatLog.slice(-20).map(m => ({ id: m.id, name: m.name, color: m.color, text: m.text, scope: 'world', ts: m.ts, host: !!m.host })); }
+// Recent world-chat lines for the admin monitor (oldest→newest). No PII beyond
+// the public name/line players already broadcast to everyone in the open world.
+function worldChatRecent(n) { return worldChatLog.slice(-(n || 80)).map(m => ({ name: m.name, color: m.color, text: m.text, ts: m.ts, host: !!m.host })); }
+// Host/admin broadcast into the free WORLD channel — the dev greeting arrivals.
+// Renders as a normal world line from a distinct, non-player host identity;
+// bypasses the word filter/flood guard (the endpoint is ADMIN_KEY-gated) but is
+// still length-capped by sanitizeText and recorded like any other world line.
+const HOST_CHAT_NAME = process.env.HOST_CHAT_NAME || '🎃 Thornkeeper';
+function hostSay(text, nameOverride) {
+  const clean = sanitizeText(text);
+  if (!clean) return null;
+  const name = sanitizeText(nameOverride) || HOST_CHAT_NAME;
+  const message = { id: 'host', name, color: '#ffcf6a', text: clean, image: null, room: 'outside', ts: Date.now(), scope: 'world', host: true };
+  recordWorldChat(message);
+  broadcastWorld({ type: 'chat', message });
+  return message;
+}
 
 wss.on('connection', (ws, req) => {
   let player = null;
