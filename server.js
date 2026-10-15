@@ -3683,6 +3683,13 @@ function objectiveMatches(obj, eventType, detail) {
 // from player.activeQuest so a side quest and a chapter can both tick off
 // the same kill.
 function storyEvent(player, eventType, detail = {}) {
+  // Progression: ability usage. Both cast sites (cast_spell / cast_attack) route
+  // through here, so one counter here covers all casts — total + by class
+  // (bounded set), showing whether the kits players pick actually get used.
+  if (eventType === 'cast_ability') {
+    analytics.bump('ability.cast');
+    try { analytics.bump('ability.cast.' + (CLASS_NAMES[player.charId] || 'drifter').toLowerCase()); } catch (e) {}
+  }
   // First Steps piggyback (Session L): every talk/harvest/kill already
   // funnels through here, so the newcomer tracker needs no extra call sites.
   if (eventType === 'kill_mob') noteFirstStep(player, 'killed');
@@ -3723,6 +3730,16 @@ function storyEvent(player, eventType, detail = {}) {
   st.chapter++;
   st.progress = 0;
   st.active = false;
+  // Progression funnel: a chapter completion (total + by class), plus a
+  // once-per-account "reached chapter N" milestone so the dashboard can show
+  // how far the campaign carries players before they stall — the question of
+  // whether built story content is actually seen.
+  try {
+    const cls = (CLASS_NAMES[player.charId] || 'drifter').toLowerCase();
+    analytics.bump('chapter.complete');
+    analytics.bump('chapter.complete.' + cls);
+    noteMilestone(player, 'chapter' + st.chapter);
+  } catch (e) {}
   // The Necromancer's ritual questline is also their power spine: every rite
   // completed deepens their NECRO RANK, which scales the health/damage of the
   // undead they raise and (at rank 2 / 4) widens the active cap. Rank mirrors
@@ -11699,6 +11716,7 @@ global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
   noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
+  getStoryState, CLASS_NAMES, // test-only: drive campaign progression + ability-cast analytics (storyEvent/STORYLINES already exposed below)
   sanitizeImage, stripImageMetadata, // test-only: image metadata stripping
   // Durable storage (Session L)
   getSqliteDb, persistLoad, persistSave, persistSetKey,
