@@ -1339,6 +1339,27 @@ function sessionBucket(mins) {
   if (mins < 60) return '30_60m';
   return 'gt60m';
 }
+
+// Per-room activity (Session N, PR 3). The game's whole premise is "every
+// building is a chat room", but nothing tracked which rooms people actually
+// enter or how long they linger — so dead vs lively spaces were invisible.
+// Building room ids are a bounded, developer-controlled set (isBuildingRoom),
+// so the slugs are safe to use raw. enterBuilding stamps arrival; exitBuilding
+// (called on walking out, leaving, or disconnect) records the visit + dwell ms.
+function enterBuilding(player, room) {
+  if (!player || !room) return;
+  analytics.bump('room.enter.' + room);
+  player.buildingRoom = room;
+  player.buildingSince = Date.now();
+}
+function exitBuildingIfAny(player) {
+  if (!player || !player.buildingRoom) return;
+  const ms = Math.max(0, Math.min(6 * 3600 * 1000, Date.now() - (player.buildingSince || Date.now())));
+  analytics.bump('room.dwellms.' + player.buildingRoom, ms);
+  analytics.bump('room.visit.' + player.buildingRoom); // completed visits — denominator for average dwell
+  player.buildingRoom = null;
+  player.buildingSince = 0;
+}
 // Guest→account conversion: remember which IPs recently played as a guest, so
 // when an account joins from the same IP we can count the guest that converted.
 const recentGuestIps = new Map(); // ip -> last guest-join ts
@@ -7992,12 +8013,16 @@ wss.on('connection', (ws, req) => {
         // Setting foot somewhere new advances any visit-this-place story
         // chapter — fired only on an actual change, not every move tick.
         const changedRoom = player.room !== msg.room;
+        // Per-room activity: close out the building they're leaving (dwell) and,
+        // below, open the one they're entering. A no-op when neither is a room.
+        if (changedRoom) exitBuildingIfAny(player);
         player.room = msg.room;
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
         // Entering a building: replay its recent private chat so the room feels
         // alive instead of empty. Occupants-only channel, so this is the one
         // place a newcomer catches up. Guests never receive images.
         if (changedRoom && isBuildingRoom(msg.room)) {
+          enterBuilding(player, msg.room);
           const log = roomChatLogs.get(msg.room) || [];
           if (log.length) {
             send(ws, { type: 'room_backlog', room: msg.room, log: log.slice(-20).map(e => ({
@@ -8035,6 +8060,7 @@ wss.on('connection', (ws, req) => {
       // chat log — chat in a building doesn't outlive your visit there.
       const room = String(msg.room || '');
       if (!ROOM_IDS.has(room) || room === 'outside') return;
+      exitBuildingIfAny(player); // record the visit + dwell for the room they left
       player.room = 'outside';
       player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       broadcastInstance(player.instance, { type: 'clear_user_messages', room, id: player.id });
@@ -11460,6 +11486,8 @@ wss.on('connection', (ws, req) => {
         // The real empty-world metric: did anyone else share the world at any
         // point during this whole session, or were they alone start to finish?
         analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
+        // A visit that ends by disconnecting inside a building still counts.
+        exitBuildingIfAny(player);
         const prog = getProgress(player);
         if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
           const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3
