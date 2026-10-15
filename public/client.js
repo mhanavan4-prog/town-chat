@@ -15364,8 +15364,14 @@ function maybeReconnectNow() {
   showReconnectBanner(true);
   setupWs();
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeReconnectNow(); });
-window.addEventListener('online', maybeReconnectNow);
+// On refocus: if the socket died it reconnects (and gets a fresh backlog via
+// init); if it's still open it just missed live lines, so ask for a catch-up.
+function requestWorldResync() {
+  if (!gameStarted) return;
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'world_resync' }));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { maybeReconnectNow(); requestWorldResync(); } });
+window.addEventListener('online', () => { maybeReconnectNow(); requestWorldResync(); });
 // Manual retry from the reconnect banner's "Reconnect now" button.
 window.__reconnectNow = maybeReconnectNow;
 window.addEventListener('pageshow', (e) => {
@@ -16433,6 +16439,23 @@ function onWsMessage(ev) {
 
   if (msg.type === 'spyglass_notice') {
     setUnlockToast(`🔭 ${msg.casterName} is watching this room through Spy Glass.`);
+    return;
+  }
+
+  if (msg.type === 'world_sync') {
+    // Catch-up after a refocus (see requestWorldResync): merge any world lines
+    // we missed while backgrounded, de-duped against what we already have.
+    const have = new Set(worldFeed.map(x => (x.id || '') + '|' + (x.ts || 0) + '|' + (x.text || '')));
+    let added = 0;
+    for (const x of (msg.messages || [])) {
+      const k = (x.id || '') + '|' + (x.ts || 0) + '|' + (x.text || '');
+      if (!have.has(k)) { worldFeed.push(x); have.add(k); added++; }
+    }
+    if (added) {
+      worldFeed.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      while (worldFeed.length > 120) worldFeed.shift();
+      renderChatLog();
+    }
     return;
   }
 

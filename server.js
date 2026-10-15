@@ -8047,6 +8047,19 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // World-chat catch-up: a tab that was backgrounded with the socket still
+    // open misses live world lines (and never gets a fresh init backlog the way
+    // a reconnect does). On refocus the client asks to re-sync; reply with the
+    // recent world backlog. Lightly throttled so a chatty focus loop can't spam.
+    if (msg.type === 'world_resync') {
+      if (!player) return;
+      const now = Date.now();
+      if (ws._lastResync && now - ws._lastResync < 1500) return;
+      ws._lastResync = now;
+      send(ws, { type: 'world_sync', messages: worldChatBacklog() });
+      return;
+    }
+
     if (msg.type === 'chat') {
       const text = sanitizeText(msg.text);
       const image = captureImage(msg.image, 'chat', player, ws, { room: player.room });
