@@ -387,6 +387,31 @@
       if(any) document.getElementById('activity').hidden=false;
     }).catch(function(){});
   })();
+
+  // Landing engagement: time on the page + whether the visitor headed to /play
+  // (conversion) or left (bounce). One fire-and-forget beacon, keepalive so it
+  // survives the navigation. No player data — just dwell + a yes/no.
+  (function(){
+    var now=function(){return (window.performance&&performance.now)?performance.now():Date.now();};
+    var t0=now(), sent=false;
+    function beacon(play){
+      if(sent)return; sent=true;
+      try{
+        var body=JSON.stringify({event:'landing',ms:Math.round(now()-t0),play:!!play});
+        if(navigator.sendBeacon) navigator.sendBeacon('/api/telemetry', new Blob([body],{type:'application/json'}));
+        else fetch('/api/telemetry',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
+      }catch(e){}
+    }
+    // Any click heading to /play is a conversion — fire before the navigation.
+    document.addEventListener('click',function(e){
+      var a=e.target&&e.target.closest?e.target.closest('a[href^="/play"]'):null;
+      if(a) beacon(true);
+    },true);
+    // Leaving the page without playing. pagehide is the reliable last moment
+    // across browsers (including mobile Safari); if they already converted, the
+    // single-send guard keeps this from overwriting it.
+    window.addEventListener('pagehide',function(){ beacon(false); });
+  })();
 </script>
 <script src="/site-search.js" defer></script>
 </body>

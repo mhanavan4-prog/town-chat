@@ -63,6 +63,20 @@ function fakeAnalytics() {
     check('unknown asset folds to other', b.counts['asset_fail.other'] === 1 && b.counts['asset_fail'] === 1);
   }
 
+  // ── landing beacons ─────────────────────────────────────────────────────────
+  {
+    const a = fakeAnalytics();
+    const t = createTelemetry({ analytics: a });
+    t.recordBeacon({ event: 'landing', ms: 8000, play: true, device: 'desktop' });
+    check('landing bumps landing.view', a.counts['landing.view'] === 1);
+    check('landing buckets dwell (5_15s)', a.counts['landing.dwell.5_15s'] === 1);
+    check('a converting landing counts landing.play', a.counts['landing.play'] === 1 && !a.counts['landing.left']);
+    check('landingBucket boundaries', t.landingBucket(0) === 'lt5s' && t.landingBucket(5000) === '5_15s' && t.landingBucket(60000) === 'gt60s');
+    const b = fakeAnalytics();
+    createTelemetry({ analytics: b }).recordBeacon({ event: 'landing', ms: 2000, play: false });
+    check('a non-converting landing counts landing.left', b.counts['landing.left'] === 1 && !b.counts['landing.play']);
+  }
+
   // ── validation + ring bound ─────────────────────────────────────────────────
   {
     const a = fakeAnalytics();
