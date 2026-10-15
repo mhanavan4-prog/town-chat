@@ -8845,16 +8845,14 @@ function createKayKitByKey(key, heightScale) {
       rec.group = nb.group; rec.done = !!nb.kk;
     }
   }
-  // Fire once KayKit has settled AND each class model has streamed in: `settled`
-  // flips true on the critical set while individual class bodies keep loading,
-  // so a one-shot on KK.promise alone would run before charReady() is true for
-  // the stragglers. Wait on both, per class. NPCs built AFTER a class loads get
-  // the KayKit rig straight from createHumanoid and are never tracked.
-  if (KK && KK.promise && typeof KK.promise.then === 'function') {
-    for (let c = 0; c <= 5; c++) {
-      const whenReady = KK.whenChar ? KK.whenChar(c) : KK.promise;
-      Promise.all([KK.promise, whenReady]).then(upgradeStaticNpcs).catch(() => {});
-    }
+  // Re-check after each KayKit asset settles, upgrading any tracked NPC whose
+  // class model has now arrived. This REACTS to the normal staggered load
+  // (gating set → picked body → the rest) — it must never force a load itself:
+  // kicking off all the ~3.4MB class bodies up front floods a real connection
+  // and can stall the whole manifest (the "17MB cliff" the loader avoids).
+  if (KK) {
+    if (KK.onAssetLoad) KK.onAssetLoad(upgradeStaticNpcs);
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(upgradeStaticNpcs).catch(() => {});
   }
 
   return { createHumanoid, createKayKitByKey, createStaticNpc };
@@ -14778,9 +14776,13 @@ const KK = (() => {
   // After any asset settles: backfill borrowed clips once the donor (char0) is
   // present (gives char5 / the skeletons their animations), and flip allDone
   // when the whole manifest has streamed.
+  const _assetCbs = [];
   function afterLoad() {
     if (models.char0) borrowAnims();
     if (loadedCount >= totalCount) allDone = true;
+    // Notify subscribers (e.g. the static-NPC upgrader) that an asset settled —
+    // lets them react to models arriving WITHOUT forcing any early load.
+    for (const cb of _assetCbs) { try { cb(); } catch (e) {} }
   }
   // Load ONE manifest key, memoized. Resolves on success OR failure (failure
   // leaves the classic fallback in place), so a slow/broken asset never hangs a
@@ -14908,6 +14910,7 @@ const KK = (() => {
     // everything (critical + the streamed-in summon models) is done.
     get fullyLoaded() { return allDone; },
     loadFrac() { return totalCount ? loadedCount / totalCount : 1; },
+    onAssetLoad(cb) { _assetCbs.push(cb); },
     tick(dt) { for (const m of mixers) m.update(dt); } };
 })();
 KK.load();
