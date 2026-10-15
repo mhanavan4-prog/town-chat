@@ -5556,11 +5556,11 @@ function groundTrapsPublicState() {
 const SPELL_CATALOG = {
   open_third_eye: {
     name: 'Open 3rd Eye', icon: '👁️', kind: 'targeted', effect: 'camera',
-    description: "Asks to peer through a target's own eyes — with their permission — and sends what it sees back to you as a note."
+    description: "Asks another player to open their camera — only with their permission — and sends a photo of them back to you as a note. They choose whether to accept."
   },
   toads_tongue: {
-    name: "Toad's Tongue", icon: '🐸', kind: 'targeted', effect: 'status', statusType: 'toad', durationMs: 45000,
-    description: 'Curses the target to croak mid-sentence in chat for a while.'
+    name: "Toad's Tongue", icon: '🐸', kind: 'targeted', effect: 'status', statusType: 'stumble', durationMs: 20000,
+    description: "A lashing toad-tongue tangles the target's legs — their walking speed is halved for a while."
   },
   // The one 'ground' spell — instead of picking a player, the caster picks
   // a spot on the ground (see the 'ground' branch in cast_spell below) and
@@ -7265,7 +7265,7 @@ const WEREWOLF_ATTACK_CATALOG = {
   moonlit_mending:  { name: 'Moonlit Mending',   kind: 'self', effect: 'status', statusType: 'regen', durationMs: 12000 },
   rapid_swipe:      { name: 'Rapid Swipe',       kind: 'targeted', effect: 'note_steal' },
   lunar_howl:       { name: 'Lunar Howl',       kind: 'aoe', effect: 'status', statusType: 'stumble',    durationMs: 15000 },
-  terrifying_roar:  { name: 'Terrifying Roar',  kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
+  terrifying_roar:  { name: 'Terrifying Roar',  kind: 'aoe', effect: 'status', statusType: 'wolfmark', durationMs: 12000 },
   alpha_bite:       { name: 'Alpha Bite',        kind: 'targeted', effect: 'status', statusType: 'shrink',     durationMs: 25000 },
   feral_dash:       { name: 'Feral Dash',        kind: 'self', effect: 'status', statusType: 'speedboost', durationMs: 12000 },
   blood_frenzy:     { name: 'Blood Frenzy',      kind: 'self', effect: 'status', statusType: 'giant',      durationMs: 15000 },
@@ -7316,7 +7316,7 @@ const WANDERER_ATTACK_CATALOG = {
   packmule_guard:     { name: "Packmule's Guard",    kind: 'self', effect: 'status', statusType: 'ward',  durationMs: 30000 },
   spy_glass:          { name: 'Spy Glass',           kind: 'building', effect: 'spyglass', durationMs: 60000 },
   sleight_of_hand:    { name: 'Sleight of Hand',     kind: 'targeted', effect: 'pickpocket', stealChance: 0.35 },
-  echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'gibberish', durationMs: 20000 },
+  echo_canyon:        { name: 'Echo Canyon',         kind: 'aoe', effect: 'status', statusType: 'stumble', durationMs: 15000 },
   deep_meditation:    { name: 'Deep Meditation',     kind: 'self', effect: 'meditate', durationMs: 60000 },
   heavy_pack:         { name: 'Heavy Pack',          kind: 'targeted', effect: 'damage', dmgMin: 12, dmgMax: 20, statusAfter: 'rooted', statusMs: 4000 },
   endless_road:       { name: 'Endless Road',        kind: 'targeted', effect: 'status', statusType: 'stumble',    durationMs: 25000 },
