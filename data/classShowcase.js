@@ -113,7 +113,7 @@ const CLASSES = [
     ]
   },
   {
-    id: 5, key: 'lich', name: 'Lich', model: 'kk/Skeleton_Mage.glb', staffModel: 'kk/Skeleton_Staff.glb',
+    id: 5, key: 'lich', name: 'Lich', model: 'kk/Skeleton_Mage.glb', staffModel: 'kk/Skeleton_Staff.glb', donorModel: 'kk/Mage.glb',
     tagline: 'Raises the undead to fight for you.',
     blurb: 'The summoner: three tiers of undead that rise and fight until slain, plus a life-draining strike and grave-cold curses.',
     abilities: [
