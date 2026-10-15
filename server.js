@@ -8176,6 +8176,14 @@ wss.on('connection', (ws, req) => {
         return;
       }
       if (cf === 13) audit.log({ level: 'warn', type: 'chat_fast', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { in10s: cf } });
+      // Chat engagement: a delivered message (guards passed). Total + by channel,
+      // a once-per-session "this session spoke" flag (paired with sess.silent on
+      // close), and chat.void — a world-channel line sent when nobody else is
+      // online, i.e. talking into an empty town, the signal the owner asked for.
+      analytics.bump('chat.sent');
+      analytics.bump('chat.sent.' + channel);
+      if (!player.spoke) player.spoke = true;
+      if (channel === 'world' && players.size <= 1) analytics.bump('chat.void');
       const chatMsg = {
         type: 'chat',
         message: {
@@ -11486,6 +11494,8 @@ wss.on('connection', (ws, req) => {
         // The real empty-world metric: did anyone else share the world at any
         // point during this whole session, or were they alone start to finish?
         analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
+        // Did this session ever say anything, or arrive and leave in silence?
+        analytics.bump(player.spoke ? 'sess.spoke' : 'sess.silent');
         // A visit that ends by disconnecting inside a building still counts.
         exitBuildingIfAny(player);
         const prog = getProgress(player);
