@@ -329,9 +329,13 @@ const KK = (() => {
   // After any asset settles: backfill borrowed clips once the donor (char0) is
   // present (gives char5 / the skeletons their animations), and flip allDone
   // when the whole manifest has streamed.
+  const _assetCbs = [];
   function afterLoad() {
     if (models.char0) borrowAnims();
     if (loadedCount >= totalCount) allDone = true;
+    // Notify subscribers (e.g. the static-NPC upgrader) that an asset settled —
+    // lets them react to models arriving WITHOUT forcing any early load.
+    for (const cb of _assetCbs) { try { cb(); } catch (e) {} }
   }
   // Load ONE manifest key, memoized. Resolves on success OR failure (failure
   // leaves the classic fallback in place), so a slow/broken asset never hangs a
@@ -459,6 +463,7 @@ const KK = (() => {
     // everything (critical + the streamed-in summon models) is done.
     get fullyLoaded() { return allDone; },
     loadFrac() { return totalCount ? loadedCount / totalCount : 1; },
+    onAssetLoad(cb) { _assetCbs.push(cb); },
     tick(dt) { for (const m of mixers) m.update(dt); } };
 })();
 KK.load();

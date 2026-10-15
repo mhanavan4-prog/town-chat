@@ -427,16 +427,14 @@ function createKayKitByKey(key, heightScale) {
       rec.group = nb.group; rec.done = !!nb.kk;
     }
   }
-  // Fire once KayKit has settled AND each class model has streamed in: `settled`
-  // flips true on the critical set while individual class bodies keep loading,
-  // so a one-shot on KK.promise alone would run before charReady() is true for
-  // the stragglers. Wait on both, per class. NPCs built AFTER a class loads get
-  // the KayKit rig straight from createHumanoid and are never tracked.
-  if (KK && KK.promise && typeof KK.promise.then === 'function') {
-    for (let c = 0; c <= 5; c++) {
-      const whenReady = KK.whenChar ? KK.whenChar(c) : KK.promise;
-      Promise.all([KK.promise, whenReady]).then(upgradeStaticNpcs).catch(() => {});
-    }
+  // Re-check after each KayKit asset settles, upgrading any tracked NPC whose
+  // class model has now arrived. This REACTS to the normal staggered load
+  // (gating set → picked body → the rest) — it must never force a load itself:
+  // kicking off all the ~3.4MB class bodies up front floods a real connection
+  // and can stall the whole manifest (the "17MB cliff" the loader avoids).
+  if (KK) {
+    if (KK.onAssetLoad) KK.onAssetLoad(upgradeStaticNpcs);
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(upgradeStaticNpcs).catch(() => {});
   }
 
   return { createHumanoid, createKayKitByKey, createStaticNpc };
