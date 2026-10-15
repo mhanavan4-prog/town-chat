@@ -347,6 +347,25 @@ const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path
 
 app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
+// Per-class showcase pages: a 3D turntable of the class model + its ability kit
+// with hover tooltips. Linked from the landing character grid. The page is one
+// static file (public/class.html) that reads its data from /api/class/:id.
+const classShowcase = require('./data/classShowcase');
+app.get('/class/:id', (req, res) => {
+  const cls = classShowcase.byId(parseInt(req.params.id, 10));
+  if (!cls) return res.redirect(302, '/');
+  trackVisit(req, 'page.class');
+  return sendWithOg(req, res, 'class.html', {
+    title: cls.name + ' — Thornreach',
+    desc: cls.tagline + ' ' + cls.blurb,
+    image: '/charselect/char' + cls.id + '.png'
+  });
+});
+app.get('/api/class/:id', (req, res) => {
+  const cls = classShowcase.byId(parseInt(req.params.id, 10));
+  if (!cls) return res.status(404).json({ error: 'unknown class' });
+  res.json(cls);
+});
 app.get('/leaderboards', (req, res) => { logPageVisit(req, 'leaderboards'); return sendWithOg(req, res, 'leaderboards.html',
   { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }); });
 app.get('/covens', (req, res) => { logPageVisit(req, 'covens'); return sendWithOg(req, res, 'covens.html',

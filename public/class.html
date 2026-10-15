@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class — Thornreach</title>
+<meta name="description" content="Meet the six callings of Thornreach — see each one in 3D and read its full ability kit.">
+<!--OG-->
+<meta name="theme-color" content="#140f2b">
+<link rel="icon" href="/icon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#130c22; --bg1:#0b0716; --bg2:#060410;
+    --ink:#e9ddff; --mut:#a99bc4; --mut2:#8d80a8;
+    --violet:#b98aff; --teal:#7ef0c3; --green:#9ee37d; --gold:#e8d9a8;
+    --card:rgba(16,10,26,0.72); --line:rgba(185,138,255,0.18);
+    --grad:linear-gradient(90deg,#a678f0,#5ee7c0);
+  }
+  *{box-sizing:border-box}
+  html{overflow-x:hidden}
+  body{
+    margin:0; color:var(--ink); overflow-x:hidden; max-width:100vw;
+    font-family:'Segoe UI', system-ui, Arial, sans-serif; line-height:1.55;
+    background:
+      radial-gradient(1100px 620px at 78% -5%, rgba(146,109,222,0.18), transparent 55%),
+      radial-gradient(820px 520px at 6% 12%, rgba(94,231,192,0.07), transparent 60%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
+    background-attachment:fixed;
+  }
+  a{color:inherit; text-decoration:none}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 20px}
+  .serif{font-family:'Cinzel', Georgia, serif}
+  .wordmark{font-family:'Cinzel Decorative','Cinzel',Georgia,serif; letter-spacing:3px; font-weight:900}
+  .grad-text{background:linear-gradient(90deg,#c9a7ff 0%, #8de8c8 55%, #e8d9a8 100%);-webkit-background-clip:text; background-clip:text; color:transparent;}
+  .btn{display:inline-block; font-weight:800; letter-spacing:0.4px; cursor:pointer; border:none; border-radius:11px; padding:13px 24px; color:#0b0713; background:var(--grad); box-shadow:0 6px 26px rgba(130,90,230,0.35); transition:transform .14s ease, box-shadow .14s ease;}
+  .btn:hover{transform:translateY(-2px); box-shadow:0 10px 32px rgba(130,90,230,0.5)}
+  .btn.ghost{background:rgba(10,6,20,0.5); color:var(--ink); border:1px solid var(--line); box-shadow:none;}
+  .btn.ghost:hover{border-color:rgba(185,138,255,0.5)}
+
+  header.nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(10px); background:linear-gradient(180deg, rgba(11,7,22,0.86), rgba(11,7,22,0.55)); border-bottom:1px solid rgba(185,138,255,0.12);}
+  .nav .wrap{display:flex; align-items:center; gap:18px; height:64px}
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .sigil{width:30px; height:30px; flex:0 0 auto}
+  .brand .name{font-size:19px}
+  .nav .cta{margin-left:auto; display:flex; align-items:center; gap:10px}
+
+  /* ── layout ── */
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:30px; align-items:start; padding:28px 0 56px}
+  @media(max-width:860px){ .stage{grid-template-columns:1fr; gap:22px} }
+
+  .viewer{position:relative; border:1px solid var(--line); border-radius:18px; overflow:hidden;
+    background:radial-gradient(130% 120% at 50% 18%, rgba(146,109,222,0.16), rgba(8,5,16,0.0) 60%), linear-gradient(180deg, rgba(20,13,38,0.7), rgba(8,5,16,0.65));
+    aspect-ratio:3/4; min-height:380px;}
+  @media(max-width:860px){ .viewer{aspect-ratio:1/1; min-height:320px} }
+  .viewer canvas{display:block; width:100%; height:100%; cursor:grab}
+  .viewer canvas:active{cursor:grabbing}
+  .viewer .hint{position:absolute; left:0; right:0; bottom:10px; text-align:center; color:var(--mut2); font-size:11px; letter-spacing:.4px; pointer-events:none}
+  .viewer .vstate{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; color:var(--mut); font-size:13px; text-align:center; padding:20px}
+  .viewer .vstate img{width:150px; height:150px; object-fit:contain; opacity:.9; filter:drop-shadow(0 10px 24px rgba(0,0,0,.5))}
+  .spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(185,138,255,0.25);border-top-color:var(--violet);animation:sp 0.9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .info h1{font-family:'Cinzel Decorative','Cinzel',Georgia,serif; font-size:40px; line-height:1.04; margin:2px 0 4px}
+  @media(max-width:860px){ .info h1{font-size:32px} }
+  .tagline{color:var(--teal); font-size:15px; font-weight:600; letter-spacing:.2px}
+  .blurb{color:var(--mut); font-size:14.5px; margin:10px 0 18px; max-width:52ch}
+  .kit-h{font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:2px; text-transform:uppercase; color:var(--mut2); margin:4px 0 10px}
+
+  /* ── hotbar ── */
+  .bar{display:flex; flex-wrap:wrap; gap:9px}
+  .slot{position:relative; width:56px; height:56px; border-radius:12px; border:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(28,19,50,0.9), rgba(16,10,28,0.9));
+    display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;}
+  .slot:hover,.slot.on{transform:translateY(-3px); border-color:rgba(185,138,255,0.65); box-shadow:0 8px 22px rgba(130,90,230,0.3)}
+  .slot .key{position:absolute; top:-7px; left:-7px; width:19px; height:19px; border-radius:6px; background:#120c24; border:1px solid var(--line); color:var(--mut); font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center}
+  .slot:focus{outline:2px solid var(--violet); outline-offset:2px}
+
+  /* floating tooltip */
+  #tip{position:fixed; z-index:80; max-width:280px; background:rgba(14,9,26,0.98); border:1px solid rgba(185,138,255,0.4);
+    border-radius:12px; padding:11px 13px; box-shadow:0 14px 40px rgba(0,0,0,0.6); pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .12s ease, transform .12s ease}
+  #tip.show{opacity:1; transform:translateY(0)}
+  #tip .tn{font-weight:800; color:#f1e9ff; font-size:14px; margin-bottom:4px}
+  #tip .tn .ti{margin-right:6px}
+  #tip .td{color:var(--mut); font-size:12.5px; line-height:1.45}
+
+  /* persistent detail (mobile + always-on) */
+  .detail{margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:var(--card); min-height:92px}
+  .detail .dn{font-weight:800; color:#f1e9ff; font-size:16px; display:flex; align-items:center; gap:9px}
+  .detail .dn .di{font-size:22px}
+  .detail .dd{color:var(--mut); font-size:13.5px; margin-top:6px}
+
+  .row{display:flex; gap:12px; align-items:center; margin-top:22px; flex-wrap:wrap}
+  .classnav{display:flex; align-items:center; gap:10px; margin-left:auto}
+  .classnav a{width:40px; height:40px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:18px; background:rgba(10,6,20,0.5)}
+  .classnav a:hover{color:var(--ink); border-color:rgba(185,138,255,0.5)}
+  .foot{text-align:center; color:var(--mut2); font-size:12px; padding:24px 0 40px}
+  .foot a{color:var(--teal)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="/">
+    <img class="sigil" src="/icon-192.png?v=2" alt="">
+    <span class="name wordmark grad-text">THORNREACH</span>
+  </a>
+  <div class="cta"><a class="btn ghost" href="/">← All classes</a><a class="btn" href="/play" id="playTop">Play free</a></div>
+</div></header>
+
+<main class="wrap">
+  <div class="stage">
+    <div class="viewer" id="viewer">
+      <div class="vstate" id="vstate"><div class="spin"></div><div>Summoning the model…</div></div>
+      <div class="hint" id="hint" style="opacity:0">drag to turn · scroll to zoom</div>
+    </div>
+    <div class="info">
+      <div class="tagline serif" id="tagline">&nbsp;</div>
+      <h1 id="cname">&nbsp;</h1>
+      <p class="blurb" id="blurb"></p>
+      <div class="kit-h">The kit — hover an ability</div>
+      <div class="bar" id="bar"></div>
+      <div class="detail" id="detail">
+        <div class="dn"><span class="di" id="dIcon"></span><span id="dName">Hover or tap an ability</span></div>
+        <div class="dd" id="dDesc">Every ability in this class's kit is below. Point at one to read what it does.</div>
+      </div>
+      <div class="row">
+        <a class="btn" href="/play" id="playBtn">Play as this class</a>
+        <div class="classnav">
+          <a id="prev" href="#" title="Previous class" aria-label="Previous class">‹</a>
+          <a id="next" href="#" title="Next class" aria-label="Next class">›</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">CC0 character models by <a href="https://kaylousberg.com" rel="noopener" target="_blank">KayKit</a> · <a href="/">back to Thornreach</a></div>
+</main>
+
+<div id="tip"><div class="tn"><span class="ti" id="tipIcon"></span><span id="tipName"></span></div><div class="td" id="tipDesc"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>if(typeof THREE==='undefined')document.write('<script src="/three.min.js"><\/script>');</script>
+<script src="/GLTFLoader.js"></script>
+<script>
+(function(){
+  'use strict';
+  // Which class? From the /class/<id> path, default to the Witch.
+  var id = parseInt((location.pathname.match(/\/class\/(\d+)/)||[])[1], 10);
+  if (isNaN(id) || id < 0 || id > 5) id = 0;
+
+  var esc = function(s){ return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); };
+
+  // ── Data + DOM render ──────────────────────────────────────────────────────
+  fetch('/api/class/'+id).then(function(r){ if(!r.ok) throw new Error('bad'); return r.json(); }).then(function(cls){
+    document.title = cls.name + ' — Thornreach';
+    document.getElementById('cname').textContent = cls.name;
+    document.getElementById('tagline').textContent = cls.tagline;
+    document.getElementById('blurb').textContent = cls.blurb || '';
+    document.getElementById('prev').href = '/class/' + ((id + 5) % 6);
+    document.getElementById('next').href = '/class/' + ((id + 1) % 6);
+
+    var KEYS = ['1','2','3','4','5','6','7','8','9','0'];
+    var bar = document.getElementById('bar');
+    var tip = document.getElementById('tip');
+    function setDetail(a){ document.getElementById('dIcon').textContent=a.icon||''; document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description; }
+    function showTip(a, el){
+      document.getElementById('tipIcon').textContent=a.icon||'';
+      document.getElementById('tipName').textContent=a.name;
+      document.getElementById('tipDesc').textContent=a.description;
+      tip.classList.add('show');
+      var r=el.getBoundingClientRect(), tr=tip.getBoundingClientRect();
+      var left=Math.min(Math.max(8, r.left + r.width/2 - tr.width/2), window.innerWidth - tr.width - 8);
+      var top=r.top - tr.height - 10; if(top<8) top=r.bottom+10;
+      tip.style.left=left+'px'; tip.style.top=top+'px';
+    }
+    function hideTip(){ tip.classList.remove('show'); }
+
+    (cls.abilities||[]).forEach(function(a, i){
+      var el=document.createElement('button');
+      el.className='slot'; el.type='button'; el.setAttribute('aria-label', a.name + ' — ' + a.description);
+      el.innerHTML = (i<KEYS.length? '<span class="key">'+KEYS[i]+'</span>':'') + esc(a.icon||'✦');
+      el.addEventListener('mouseenter', function(){ setDetail(a); showTip(a, el); markOn(el); });
+      el.addEventListener('mouseleave', hideTip);
+      el.addEventListener('focus', function(){ setDetail(a); showTip(a, el); markOn(el); });
+      el.addEventListener('blur', hideTip);
+      el.addEventListener('click', function(){ setDetail(a); markOn(el); }); // tap on touch
+      bar.appendChild(el);
+    });
+    function markOn(el){ var on=bar.querySelector('.slot.on'); if(on)on.classList.remove('on'); el.classList.add('on'); }
+    // Seed the detail panel with the first ability so the page never looks empty.
+    if (cls.abilities && cls.abilities.length) setDetail(cls.abilities[0]);
+    window.addEventListener('scroll', hideTip, { passive:true });
+
+    // ── 3D turntable ──────────────────────────────────────────────────────────
+    initModel(cls);
+  }).catch(function(){
+    document.getElementById('vstate').innerHTML = '<div>Couldn\'t load this class.</div>';
+  });
+
+  // ── Three.js model viewer: load the KayKit model, frame it, slow turntable
+  //    with drag-to-rotate and scroll-zoom. Plays an idle clip if the model has
+  //    one; otherwise just turns. Falls back to the class portrait on any error.
+  function initModel(cls){
+    var host = document.getElementById('viewer');
+    var vstate = document.getElementById('vstate');
+    function fail(){ vstate.style.display='flex'; vstate.innerHTML = '<img src="/charselect/char'+cls.id+'.png" alt="'+esc(cls.name)+'">'; }
+    if (typeof THREE === 'undefined' || !THREE.WebGLRenderer || !THREE.GLTFLoader){ fail(); return; }
+
+    var renderer, scene, camera, root, mixer, raf;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    } catch(e){ fail(); return; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    host.insertBefore(renderer.domElement, vstate);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+
+    // Spooky-but-readable lighting: soft fill + a warm key + a violet rim.
+    scene.add(new THREE.HemisphereLight(0xcdbbff, 0x241634, 1.05));
+    var key = new THREE.DirectionalLight(0xfff0d8, 1.25); key.position.set(3, 6, 4); scene.add(key);
+    var rim = new THREE.DirectionalLight(0xb98aff, 0.9); rim.position.set(-4, 3, -3); scene.add(rim);
+
+    root = new THREE.Group(); scene.add(root);
+    var dragging=false, lastX=0, vel=0.0045, camDist=3.0, targetY=0;
+
+    var loader = new THREE.GLTFLoader();
+    loader.load('/' + cls.model, function(gltf){
+      var model = gltf.scene;
+      // Center + scale so its height ~ 2 units regardless of source rig.
+      var box = new THREE.Box3().setFromObject(model);
+      var size = new THREE.Vector3(); box.getSize(size);
+      var center = new THREE.Vector3(); box.getCenter(center);
+      var h = size.y || 1;
+      var s = 2.0 / h; model.scale.setScalar(s);
+      model.position.set(-center.x*s, -box.min.y*s, -center.z*s); // feet on y=0, centered
+      root.add(model);
+      targetY = 1.0; camDist = 3.2;
+      // Play an idle-ish clip if the model ships one (char5 ships none).
+      if (gltf.animations && gltf.animations.length){
+        mixer = new THREE.AnimationMixer(model);
+        var clip = gltf.animations.find(function(c){ return /idle/i.test(c.name); }) || gltf.animations[0];
+        mixer.clipAction(clip).play();
+      }
+      vstate.style.display='none';
+      var hint=document.getElementById('hint'); hint.style.opacity='1'; setTimeout(function(){ hint.style.transition='opacity .6s'; hint.style.opacity='0'; }, 3500);
+      resize();
+      var clock = new THREE.Clock();
+      (function loop(){
+        raf = requestAnimationFrame(loop);
+        var dt = clock.getDelta();
+        if (mixer) mixer.update(dt);
+        if (!dragging) root.rotation.y += vel;
+        camera.position.set(0, targetY, camDist);
+        camera.lookAt(0, targetY, 0);
+        renderer.render(scene, camera);
+      })();
+    }, undefined, function(){ cancelAnimationFrame(raf); fail(); });
+
+    function resize(){
+      var w = host.clientWidth, hh = host.clientHeight;
+      if (!w || !hh) return;
+      renderer.setSize(w, hh, false);
+      camera.aspect = w/hh; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    // Drag to turn.
+    var el = renderer.domElement;
+    function down(x){ dragging=true; lastX=x; }
+    function moveX(x){ if(!dragging)return; root.rotation.y += (x-lastX)*0.01; lastX=x; }
+    function up(){ dragging=false; }
+    el.addEventListener('mousedown', function(e){ down(e.clientX); });
+    window.addEventListener('mousemove', function(e){ moveX(e.clientX); });
+    window.addEventListener('mouseup', up);
+    el.addEventListener('touchstart', function(e){ if(e.touches[0]) down(e.touches[0].clientX); }, {passive:true});
+    el.addEventListener('touchmove', function(e){ if(e.touches[0]) moveX(e.touches[0].clientX); }, {passive:true});
+    el.addEventListener('touchend', up);
+    el.addEventListener('wheel', function(e){ e.preventDefault(); camDist = Math.max(1.8, Math.min(5.5, camDist + (e.deltaY>0?0.3:-0.3))); }, {passive:false});
+  }
+})();
+</script>
+</body>
+</html>
