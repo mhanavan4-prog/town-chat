@@ -994,12 +994,13 @@ app.post('/api/telemetry', (req, res) => {
   if (clientErrThrottled(req.ip)) return res.status(429).end();
   const b = (req.body && typeof req.body === 'object') ? req.body : {};
   const event = String(b.event || '').slice(0, 16);
-  if (event !== 'playable' && event !== 'assetfail') return res.status(204).end();
+  if (event !== 'playable' && event !== 'assetfail' && event !== 'landing') return res.status(204).end();
   try {
     telemetry.recordBeacon({
       event,
       ms: b.ms,
       asset: b.asset,
+      play: !!b.play,
       device: isMobileUA(req) ? 'mobile' : 'desktop'
     });
   } catch (e) {}
@@ -7456,6 +7457,10 @@ wss.on('connection', (ws, req) => {
   let voiceClient = null; // set when a website voice-only client identifies via voice_hello
   ws._ip = audit.clientIp(req);
   ws._ua = (req && req.headers && req.headers['user-agent']) ? String(req.headers['user-agent']).slice(0, 300) : null;
+  // Device class from the upgrade UA (same test as isMobileUA, which needs an
+  // Express req). Lets session-length / engagement be split mobile vs desktop —
+  // mobile is where the client bugs keep surfacing, so churn there matters.
+  ws._device = /Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(ws._ua || '') ? 'mobile' : 'desktop';
   ws._isGuest = true; // until a join resolves a real account (gates images)
   // IP-level ban: refuse the socket outright.
   if (bans.isBanned(null, ws._ip)) {
@@ -7695,6 +7700,7 @@ wss.on('connection', (ws, req) => {
         if (resume.guestHardDrive) player.guestHardDrive = resume.guestHardDrive;
       }
       players.set(id, player);
+      player.device = ws._device || 'desktop'; // for device-split session/engagement metrics
       analytics.peak('concurrent', players.size); // daily high-water mark of simultaneous players
       // World-liveness: peak concurrent BY HOUR (ET) so the dashboard can show
       // when the town is actually alive, not just the day's single high mark.
@@ -11502,6 +11508,11 @@ wss.on('connection', (ws, req) => {
       try {
         const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
         analytics.bump('sess.' + sessionBucket(mins));
+        // Device-split session length + whether they spoke — so mobile vs desktop
+        // churn and engagement can be compared directly.
+        const dev = player.device === 'mobile' ? 'mobile' : 'desktop';
+        analytics.bump('sess.' + dev + '.' + sessionBucket(mins));
+        analytics.bump('sess.' + dev + (player.spoke ? '.spoke' : '.silent'));
         // Connection-health: a clean close (1000/1001, tab closed or navigated
         // away) vs an abnormal drop (1006 — network blip, phone screen off),
         // which usually precedes a seamless resume. A high drop share flags
