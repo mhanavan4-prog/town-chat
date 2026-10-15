@@ -1610,7 +1610,7 @@ require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   reportsList, reportsResolve,
   worldChatRecent, hostSay, telemetry,
-  onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room })),
+  onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room, id: String(p.id || '').slice(0, 4), since: p.joinedAt || null })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
     return a ? { username: a.username, createdAt: a.createdAt, over18: !!a.over18, over18At: a.over18At || null, over18Ip: a.over18Ip || null } : null;
@@ -7658,6 +7658,19 @@ wss.on('connection', (ws, req) => {
       }
       players.set(id, player);
       analytics.peak('concurrent', players.size); // daily high-water mark of simultaneous players
+      // World-liveness: peak concurrent BY HOUR (ET) so the dashboard can show
+      // when the town is actually alive, not just the day's single high mark.
+      // (A periodic sampler below also raises this so presence between joins is
+      // captured, not only arrival moments.)
+      analytics.peak('cc.hour.' + playHourSlug(), players.size);
+      // "Alone the whole session" is the true empty-world signal: join.alone
+      // only sees the arrival instant. Mark this player as having shared the
+      // world the moment anyone else is present — and, since their arrival makes
+      // the town non-empty for everyone already here, lift that flag on all the
+      // players currently online too. On close we count whether a session was
+      // ever NOT alone (see sess.alone_whole / sess.saw_others).
+      if (players.size > 1) { for (const other of players.values()) other.everWithOthers = true; }
+      else if (player.everWithOthers === undefined) { player.everWithOthers = false; }
       // Analytics: count fresh joins (not seamless reconnects), split by guest
       // vs account and by class, and mark the account active for DAU.
       if (!resume) {
@@ -11444,6 +11457,9 @@ wss.on('connection', (ws, req) => {
         // instability; mobile naturally skews toward drops because of resume.
         analytics.bump('disconnect');
         analytics.bump(code === 1000 || code === 1001 ? 'disconnect.clean' : 'disconnect.drop');
+        // The real empty-world metric: did anyone else share the world at any
+        // point during this whole session, or were they alone start to finish?
+        analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
         const prog = getProgress(player);
         if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
           const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3
@@ -11469,6 +11485,15 @@ wss.on('connection', (ws, req) => {
     }
   });
 });
+
+// World-liveness sampler: once a minute, raise the current hour's peak-concurrent
+// high-water mark. Joins already record a peak at arrival; this captures sustained
+// presence BETWEEN joins (a quiet room of three that nobody new entered still
+// counts), so "peak concurrent by hour" reflects reality, not just arrival spikes.
+const _ccHourTimer = setInterval(() => {
+  try { if (players.size > 0) analytics.peak('cc.hour.' + playHourSlug(), players.size); } catch (e) {}
+}, 60 * 1000);
+if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 
 // Periodic position sync so everyone stays smooth even if a 'move' packet is
 // dropped. ROOM-SCOPED: each player only receives the players in their own
