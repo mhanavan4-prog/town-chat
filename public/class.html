@@ -259,11 +259,37 @@
         if (hand){ new THREE.GLTFLoader().load('/' + cls.staffModel, function(sg){ hand.add(sg.scene); }, undefined, function(){}); }
       }
       targetY = 1.0; camDist = 3.2;
-      // Play an idle-ish clip if the model ships one (char5 ships none).
-      if (gltf.animations && gltf.animations.length){
-        mixer = new THREE.AnimationMixer(model);
-        var clip = gltf.animations.find(function(c){ return /idle/i.test(c.name); }) || gltf.animations[0];
+      function playIdle(target, clips){
+        if (!clips || !clips.length) return;
+        mixer = new THREE.AnimationMixer(target);
+        var clip = clips.find(function(c){ return /idle/i.test(c.name); }) || clips[0];
         mixer.clipAction(clip).play();
+      }
+      // Play an idle-ish clip if the model ships one (every class but the Lich).
+      if (gltf.animations && gltf.animations.length){
+        playIdle(model, gltf.animations);
+      } else if (cls.donorModel){
+        // The Lich's Skeleton Mage body ships NO clips — it shares the KayKit rig
+        // with the Mage, so borrow the Mage's idle. The Mage's clips also drive
+        // IK/control bones the skeleton lacks; those tracks would bind to the
+        // model ROOT and distort it (shrink/tip it), so keep only the tracks
+        // whose target node actually resolves in the skeleton's own rig. Same
+        // fix as borrowAnims() in client/humanoid.js.
+        new THREE.GLTFLoader().load('/' + cls.donorModel, function(dg){
+          var donor = dg.animations || [];
+          if (!donor.length) return;
+          var memo = {};
+          function resolves(name){
+            if (memo[name] !== undefined) return memo[name];
+            var ok = false;
+            try { var b = THREE.PropertyBinding.create(model, name); b.bind(); ok = !!b.node && b.node !== model; } catch(e){ ok = false; }
+            memo[name] = ok; return ok;
+          }
+          var kept = donor.map(function(clip){
+            return new THREE.AnimationClip(clip.name, clip.duration, clip.tracks.filter(function(t){ return resolves(t.name); }));
+          });
+          playIdle(model, kept);
+        }, undefined, function(){});
       }
       vstate.style.display='none';
       var hint=document.getElementById('hint'); hint.style.opacity='1'; setTimeout(function(){ hint.style.transition='opacity .6s'; hint.style.opacity='0'; }, 3500);
