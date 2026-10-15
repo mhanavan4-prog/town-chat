@@ -16,7 +16,7 @@ const CLASSES = [
     tagline: 'Casts hexes and blessings from a Spellbook.',
     blurb: 'A full book of curses, wards and sight — control the town square without ever landing a blow.',
     abilities: [
-      { icon: '👁️', name: 'Open 3rd Eye', description: "Asks to peer through a target's own eyes — with their permission — and sends what it sees back to you as a note." },
+      { icon: '👁️', name: 'Open 3rd Eye', description: "Asks another player to open their camera — only with their permission — and sends a photo of them back to you as a note. They choose whether to accept." },
       { icon: '🐸', name: "Toad's Tongue", description: 'Curses the target to croak mid-sentence in chat for a while.' },
       { icon: '🦶', name: 'Stumble Hex', description: 'Draws a witchy sigil on the ground — anyone who steps into it gets hexed with halved walking speed.' },
       { icon: '🔥', name: 'Fireball', description: 'Hurls a roaring ball of witchfire at the target for real damage.' },
