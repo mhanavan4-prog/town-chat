@@ -16483,8 +16483,13 @@ function onWsMessage(ev) {
     // World chatter from elsewhere just rides the feed. Suppressed entirely when
     // the viewer has hidden chat.
     const speakerVisible = m.id && players[m.id] && players[m.id].room === currentRoom;
-    if (!chatHidden && speakerVisible && !(m.id !== myId && isMutedName(m.name))) {
-      if (!MOBILE_UI) setOverheadBubble(m.id, m.text, !!m.image);
+    // Host/system lines (the dev greeting the world) have no in-world avatar,
+    // so there's no one to float an overhead bubble over — but on mobile, where
+    // the chat panel is usually closed, they'd otherwise never surface. Pop them
+    // as a chat notification like any visible speaker so arrivals actually see
+    // the greeting. (spawnChatNotif is a no-op on desktop, which has the panel.)
+    if (!chatHidden && (speakerVisible || m.host) && !(m.id !== myId && isMutedName(m.name))) {
+      if (!MOBILE_UI && speakerVisible) setOverheadBubble(m.id, m.text, !!m.image);
       else spawnChatNotif({ name: m.name, color: m.color, text: m.text, image: m.image, self: m.id === myId });
     }
     return;
