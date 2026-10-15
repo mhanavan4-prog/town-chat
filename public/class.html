@@ -88,10 +88,12 @@
   #tip .td{color:var(--mut); font-size:12.5px; line-height:1.45}
 
   /* persistent detail (mobile + always-on) */
-  .detail{margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:var(--card); min-height:92px}
-  .detail .dn{font-weight:800; color:#f1e9ff; font-size:16px; display:flex; align-items:center; gap:9px}
+  /* Fixed height so a longer description never reflows the Play button below
+     it — the name row stays put and the text scrolls inside if it's very long. */
+  .detail{margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:var(--card); height:150px; display:flex; flex-direction:column; overflow:hidden}
+  .detail .dn{font-weight:800; color:#f1e9ff; font-size:16px; display:flex; align-items:center; gap:9px; flex:0 0 auto}
   .detail .dn .di{font-size:22px}
-  .detail .dd{color:var(--mut); font-size:13.5px; margin-top:6px}
+  .detail .dd{color:var(--mut); font-size:13.5px; margin-top:6px; overflow-y:auto; flex:1 1 auto}
 
   .row{display:flex; gap:12px; align-items:center; margin-top:22px; flex-wrap:wrap}
   .classnav{display:flex; align-items:center; gap:10px; margin-left:auto}
