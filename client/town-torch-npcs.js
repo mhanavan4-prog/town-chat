@@ -6,28 +6,49 @@
 // reference). createHumanoid + floor/rig/angle/name-sprite helpers injected;
 // the town scene via getter.
 // ---------------------------------------------------------------------------
-export default function createTownTorchNpcs({ createHumanoid, getFloorHeight, kkSetState, lerpAngle, makeNpcNameSprite, townTorchVisuals, getOutdoorScene }) {
+export default function createTownTorchNpcs({ createHumanoid, getFloorHeight, kkSetState, lerpAngle, makeNpcNameSprite, townTorchVisuals, getOutdoorScene, KK }) {
   let townTorchNpcVisuals = {};
+
+// Build the rig + name label and drop it into the scene. Returns the visual's
+// render fields (group/limb pivots and the KayKit handle, when the model is up).
+function buildTorchNpcRig(charId, name) {
+  const built = createHumanoid(charId);
+  built.group.visible = false;
+  // Local (0, 90, 0) — rotating the group around Y (facing) never moves
+  // a point that sits exactly on the Y axis, so this stays put above
+  // their head and doesn't swing around as they turn, without needing
+  // to be repositioned every frame like a scene-level label would.
+  const label = makeNpcNameSprite(name, 'Keeper of the Flame');
+  label.position.set(0, 90, 0);
+  built.group.add(label);
+  if (getOutdoorScene()) getOutdoorScene().add(built.group);
+  return { group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR, kk: built.kk };
+}
 
 function getOrCreateTownTorchNpcVisual(id, charId, name) {
   if (!townTorchNpcVisuals[id]) {
-    const built = createHumanoid(charId);
-    built.group.visible = false;
-    // Local (0, 90, 0) — rotating the group around Y (facing) never moves
-    // a point that sits exactly on the Y axis, so this stays put above
-    // their head and doesn't swing around as they turn, without needing
-    // to be repositioned every frame like a scene-level label would.
-    const label = makeNpcNameSprite(name, 'Keeper of the Flame');
-    label.position.set(0, 90, 0);
-    built.group.add(label);
-    if (getOutdoorScene()) getOutdoorScene().add(built.group);
+    const rig = buildTorchNpcRig(charId, name);
     townTorchNpcVisuals[id] = {
-      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      ...rig, charId, name,
       x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
       working: false, praying: false, walkPhase: 0, initialized: false
     };
   }
   return townTorchNpcVisuals[id];
+}
+
+// KayKit recovery (mirrors the player-visuals upgrade): a Torchkeeper drawn
+// before the ~18MB of models finish loading gets the classic fallback rig and
+// would otherwise be stuck on it. The moment KK settles, rebuild any Keeper
+// still on the fallback so they all upgrade to the KayKit model in place.
+function upgradeTorchNpcsToKK() {
+  for (const id in townTorchNpcVisuals) {
+    const v = townTorchNpcVisuals[id];
+    if (v.kk || !KK.charReady(v.charId)) continue; // already KayKit, or model not ready
+    if (v.group && v.group.parent) v.group.parent.remove(v.group);
+    const rig = buildTorchNpcRig(v.charId, v.name);
+    v.group = rig.group; v.armL = rig.armL; v.armR = rig.armR; v.legL = rig.legL; v.legR = rig.legR; v.kk = rig.kk;
+  }
 }
 
 function applyTownTorchNpcState(npcs) {
@@ -38,6 +59,10 @@ function applyTownTorchNpcState(npcs) {
     v.praying = !!n.praying;
     if (!v.initialized) { v.x = n.x; v.y = n.y; v.facing = n.facing; v.initialized = true; }
   }
+  // Self-heal: KayKit character models stream in after the critical set settles,
+  // so each broadcast re-checks and upgrades any Keeper still on the fallback rig
+  // now that its model is ready. A no-op once everyone's on KayKit.
+  if (KK) upgradeTorchNpcsToKK();
 }
 
 function updateTownTorchNpcVisuals(dt) {
