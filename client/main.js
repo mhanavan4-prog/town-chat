@@ -6902,7 +6902,21 @@ const GFX = (() => {
   };
 
   function buildComposer() {
-    st.composer = new THREE.EffectComposer(renderer);
+    // MSAA in the post-processing path. `antialias:true` on the renderer only
+    // anti-aliases its DEFAULT framebuffer; once the scene renders THROUGH the
+    // composer (medium/high), it lands in an offscreen target with no MSAA, so
+    // FXAA alone was left to fight the edges — which it loses on high-contrast
+    // silhouettes and shadow boundaries (the "sawtoothing"). On WebGL2 we give
+    // the composer a multisampled target so real MSAA runs again; FXAA stays to
+    // clean up the texture/alpha edges MSAA doesn't. WebGL1 falls back to the
+    // old single-sample target (FXAA only), unchanged.
+    let msaaTarget = null;
+    if (renderer.capabilities && renderer.capabilities.isWebGL2 && typeof THREE.WebGLMultisampleRenderTarget === 'function') {
+      const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+      msaaTarget = new THREE.WebGLMultisampleRenderTarget(Math.max(2, sz.x), Math.max(2, sz.y), { format: THREE.RGBAFormat });
+      msaaTarget.samples = st.quality === 'high' ? 4 : 2; // gentler on mobile/medium
+    }
+    st.composer = new THREE.EffectComposer(renderer, msaaTarget || undefined);
     st.renderPass = new THREE.RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     st.composer.addPass(st.renderPass);
     st.bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(W || 1280, H || 720), 0.42, 0.55, 0.82);
