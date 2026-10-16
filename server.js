@@ -357,7 +357,19 @@ app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
-const { sanitizeAppearance } = require('./data/wardrobe'); // Phase 1 cosmetics
+const { WARDROBE, weaponUnlock, sanitizeAppearance } = require('./data/wardrobe'); // cosmetics
+
+// Is a weapon look unlocked for this player? Free looks always are; level/chapter
+// looks unlock automatically once earned; Moonstone looks require a purchase
+// recorded in progress.wardrobeUnlocks. (Toggles are always free — not checked.)
+function lookUnlocked(player, charId, weaponId) {
+  const u = weaponUnlock(charId, weaponId);
+  if (!u) return true;
+  if (u.lvl) return (player.level || 1) >= u.lvl;
+  if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
+  if (u.ms) { const prog = getProgress(player); return !!(prog.wardrobeUnlocks && prog.wardrobeUnlocks[charId] && prog.wardrobeUnlocks[charId].indexOf(weaponId) !== -1); }
+  return false;
+}
 app.get('/class/:id', (req, res) => {
   const cls = classShowcase.byId(parseInt(req.params.id, 10));
   if (!cls) return res.redirect(302, '/');
@@ -7888,6 +7900,13 @@ wss.on('connection', (ws, req) => {
         // merges legendaryCatalog into its own ITEM_CATALOG at init — one
         // authoritative copy, no hand-sync.
         moonstones: player.accountKey ? msBalance(player.accountKey) : 0,
+        // Wardrobe unlock state for the Phase-2 shop UI: looks bought on this
+        // class, and how many campaign chapters are done (for chapter-gated
+        // looks). Level-gated looks the client reads from the live level.
+        wardrobe: {
+          purchased: (getProgress(player).wardrobeUnlocks || {})[player.charId] || [],
+          chaptersDone: (() => { try { return getStoryState(player).chapter || 0; } catch (e) { return 0; } })()
+        },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
@@ -8134,12 +8153,36 @@ wss.on('connection', (ws, req) => {
       if (!player) return;
       const clean = sanitizeAppearance(player.charId, msg.appearance);
       if (!clean) return;
+      // Can't wear a look you haven't unlocked — fall back to the free default.
+      if (!lookUnlocked(player, player.charId, clean.weapon)) clean.weapon = WARDROBE[player.charId].defaultWeapon;
       player.appearance = clean;
       const prog = getProgress(player);
       if (!prog.appearance) prog.appearance = {};
       prog.appearance[player.charId] = clean;
       if (player.accountKey) { try { saveProgress(); } catch (e) {} }
       send(ws, { type: 'appearance_set', appearance: clean });
+      return;
+    }
+
+    // Buy a Moonstone-gated look (account only). Permanently unlocks it on the
+    // account's progress; the player can then equip it via set_appearance.
+    if (msg.type === 'buy_look') {
+      if (!player) return;
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to buy looks.' }); return; }
+      const def = WARDROBE[player.charId];
+      const w = def && def.weapons.find((x) => x.id === String(msg.weapon || ''));
+      const u = w ? weaponUnlock(player.charId, w.id) : null;
+      if (!u || !u.ms) { send(ws, { type: 'ms_error', message: 'That look isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.wardrobeUnlocks) prog.wardrobeUnlocks = {};
+      if (!prog.wardrobeUnlocks[player.charId]) prog.wardrobeUnlocks[player.charId] = [];
+      if (prog.wardrobeUnlocks[player.charId].indexOf(w.id) !== -1) { send(ws, { type: 'look_bought', weapon: w.id }); return; } // already owned
+      if (msBalance(player.accountKey) < u.ms) { send(ws, { type: 'ms_error', message: `That look is ${u.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+      msAdjust(player.accountKey, -u.ms);
+      prog.wardrobeUnlocks[player.charId].push(w.id);
+      try { saveProgress(); } catch (e) {}
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'look_bought', weapon: w.id });
       return;
     }
 

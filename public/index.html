@@ -2533,6 +2533,9 @@
 #wardrobeList .wrOpt{background:#1b1430;border:1px solid rgba(185,138,255,0.22);color:#e9ddff;border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer}
 #wardrobeList .wrOpt:hover{border-color:rgba(185,138,255,0.5)}
 #wardrobeList .wrOpt.on{background:linear-gradient(90deg,#a678f0,#5ee7c0);color:#0b0713;border:none}
+#wardrobeList .wrOpt.locked{opacity:.5;cursor:not-allowed;border-style:dashed}
+#wardrobeList .wrOpt.buy{border-color:rgba(232,217,168,0.55);color:#e8d9a8}
+#wardrobeList .wrOpt.buy:hover{background:rgba(232,217,168,0.12)}
 </style>
 <div id="wardrobeModal" class="overlay hidden">
   <div class="card" id="wardrobeCard">
@@ -3371,6 +3374,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=1188f12bc6"></script>
+<script src="client.js?v=375855ea51"></script>
 </body>
 </html>

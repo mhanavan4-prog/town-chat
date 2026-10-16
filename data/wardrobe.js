@@ -83,6 +83,21 @@ const WARDROBE = {
   }
 };
 
+// Phase 2 unlocks — which weapon looks cost something to use. Absent = free, and
+// toggles (hat/cape/hood) are ALWAYS free. { lvl } and { chapter } unlock
+// automatically once earned through play; { ms } is a Moonstone purchase (account
+// only), recorded in progress.wardrobeUnlocks[charId]. Tunable here — this is the
+// whole monetization/earn surface. Keep weapon ids in sync with WARDROBE above.
+const UNLOCKS = {
+  0: { tome: { chapter: 3 } },
+  1: { axe_shield: { lvl: 5 }, greataxe: { lvl: 10 }, tankard: { ms: 300 } },
+  2: { dual: { lvl: 5 }, crossbow: { lvl: 10 } },
+  3: { sword_kite: { lvl: 5 }, sword_spike: { lvl: 10 }, greatsword: { ms: 400 }, dual_swords: { ms: 400 } },
+  4: { crossbow: { lvl: 5 }, throwing: { lvl: 10 } },
+  5: {}
+};
+function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
+
 // Clamp an arbitrary (possibly hostile) appearance object to a valid one for a
 // class: a known weapon id (else the default) and boolean toggles (default on).
 // Returns null for an unknown class. Used server-side before persisting.
@@ -115,4 +130,4 @@ function resolveLook(charId, ap) {
   return { showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff };
 }
 
-module.exports = { WARDROBE, sanitizeAppearance, resolveLook };
+module.exports = { WARDROBE, UNLOCKS, weaponUnlock, sanitizeAppearance, resolveLook };
