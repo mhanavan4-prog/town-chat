@@ -25487,11 +25487,6 @@ const { openNotifModal } = _notif;
     { x: 6500, y: 6200, icon: '🌳', label: 'The Great Tree' }
   ];
   const EMBER_SAFE_R = 1800; // keep in sync with server EMBER_SAFE_RADIUS
-  function hexA(hex, a) {
-    const s = String(hex || '#888').replace('#', '');
-    const n = parseInt(s.length === 3 ? s.replace(/(.)/g, '$1$1') : s, 16);
-    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
-  }
   function roundRect(ctx, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
@@ -25504,6 +25499,112 @@ const { openNotifModal } = _notif;
     for (; px >= 9; px--) { ctx.font = '600 ' + px + 'px system-ui, sans-serif'; if (ctx.measureText(text).width <= maxW) return px; }
     ctx.font = '600 9px system-ui, sans-serif';
     return 9;
+  }
+  // Per-building sprite recipe: which silhouette + real-model colors to draw
+  // on the map, so each lot shows a little 2.5-D version of the actual KayKit
+  // building instead of a flat colored box. (arch + palette; keep in sync with
+  // KK_MODELS archetypes.)
+  const BUILDING_SPEC = {
+    cafe:    { arch: 'barrel',     p: { wall: '#9a6a34', roof: '#7c4a26', trim: '#2e2013', stone: '#9aa0a8' } },
+    library: { arch: 'steeple',    p: { wall: '#e9e4d6', roof: '#3f6aa8', trim: '#262b36' } },
+    arcade:  { arch: 'timber',     p: { wall: '#e4dcc6', roof: '#c8702e', trim: '#5f4327' } },
+    lounge:  { arch: 'stonetower', p: { wall: '#8b9099', roof: '#7c3030', trim: '#43474e' } },
+    hall:    { arch: 'keep',       p: { wall: '#8b9099', roof: '#b23b2b', trim: '#43474e' } },
+    bank:    { arch: 'steeple',    p: { wall: '#efe7cf', roof: '#d7a52c', trim: '#2a2a2f' } }
+  };
+  // Rough height-as-multiple-of-s per archetype, used to shrink a sprite that
+  // would otherwise clip the top edge of the map canvas (e.g. Town Hall).
+  const BUILDING_HF = { barrel: 1.5, timber: 1.3, steeple: 1.5, keep: 2.0, stonetower: 1.6 };
+  // Lighten/darken a hex color by factor f (returns an rgb() string).
+  function shade(hex, f) {
+    const s = String(hex).replace('#', '');
+    const n = parseInt(s.length === 3 ? s.replace(/(.)/g, '$1$1') : s, 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.max(0, Math.min(255, r * f | 0)); g = Math.max(0, Math.min(255, g * f | 0)); b = Math.max(0, Math.min(255, b * f | 0));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+  // Draw a small 2.5-D building whose ground point is (gx,gy), front-face width
+  // s, silhouette `arch`, themed by palette `p` {wall,roof,trim,stone?}.
+  function drawBuilding(ctx, gx, gy, s, arch, p) {
+    const P = (q, a, b) => [q[0] + (a || 0), q[1] + (b || 0)];
+    const dxk = 0.40, dyk = -0.28;
+    function shadow(w) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(gx + w * 0.2, gy + w * 0.12, w * 0.78, w * 0.26, 0, 0, 7); ctx.fill(); }
+    function body(bw, bh, wall) {
+      const dx = bw * dxk, dy = bw * dyk;
+      const FLb = [gx - bw / 2, gy], FRb = [gx + bw / 2, gy], FLt = [gx - bw / 2, gy - bh], FRt = [gx + bw / 2, gy - bh];
+      ctx.strokeStyle = shade(wall, 0.45); ctx.lineWidth = 1.4;
+      ctx.fillStyle = shade(wall, 0.66); ctx.beginPath(); ctx.moveTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...P(FRt, dx, dy)); ctx.lineTo(...P(FRb, dx, dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = wall; ctx.beginPath(); ctx.moveTo(...FLb); ctx.lineTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...FLt); ctx.closePath(); ctx.fill(); ctx.stroke();
+      return { FLt, FRt, dx, dy };
+    }
+    function door(bw, bh) { ctx.fillStyle = p.trim; ctx.fillRect(gx - bw * 0.11, gy - bh * 0.42, bw * 0.22, bh * 0.42); }
+    function win(x, y, w, h) { ctx.fillStyle = shade(p.roof, 1.1); ctx.fillRect(x - w / 2, y, w, h); }
+    function gableRoof(b, bw, rh, roof) {
+      const apF = [gx, b.FLt[1] - rh], apB = P(apF, b.dx, b.dy);
+      ctx.strokeStyle = shade(roof, 0.5);
+      ctx.fillStyle = shade(roof, 0.68); ctx.beginPath(); ctx.moveTo(...b.FRt); ctx.lineTo(...apF); ctx.lineTo(...apB); ctx.lineTo(...P(b.FRt, b.dx, b.dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(...b.FLt); ctx.lineTo(...b.FRt); ctx.lineTo(...apF); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    function cone(cx, baseY, bw, ch, roof) {
+      const dx = bw * dxk, dy = bw * dyk;
+      const L = [cx - bw / 2, baseY], R = [cx + bw / 2, baseY], tip = [cx, baseY - ch], tipB = P(tip, dx, dy);
+      ctx.strokeStyle = shade(roof, 0.5);
+      ctx.fillStyle = shade(roof, 0.66); ctx.beginPath(); ctx.moveTo(...R); ctx.lineTo(...tip); ctx.lineTo(...tipB); ctx.lineTo(...P(R, dx, dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(...L); ctx.lineTo(...R); ctx.lineTo(...tip); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    if (arch === 'barrel') {
+      const R = s * 0.42, legH = s * 0.3, cyB = gy - legH - R;
+      shadow(s * 0.9);
+      ctx.fillStyle = shade(p.stone, 0.7); ctx.fillRect(gx - R * 0.8, gy - legH, R * 0.22, legH); ctx.fillRect(gx + R * 0.6, gy - legH, R * 0.22, legH);
+      ctx.fillStyle = p.stone; ctx.fillRect(gx - R * 0.95, gy - legH - s * 0.06, R * 1.9, s * 0.08);
+      const dx = R * 0.6, dy = -R * 0.42; ctx.fillStyle = shade(p.wall, 0.62); ctx.strokeStyle = p.trim; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(gx + dx, cyB + dy, R * 0.6, R, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(gx, cyB - R); ctx.lineTo(gx + dx, cyB - R + dy); ctx.moveTo(gx, cyB + R); ctx.lineTo(gx + dx, cyB + R + dy); ctx.stroke();
+      ctx.fillStyle = p.wall; ctx.beginPath(); ctx.ellipse(gx, cyB, R * 0.82, R, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = shade(p.wall, 0.5); for (const fx of [-0.4, 0, 0.4]) { ctx.beginPath(); ctx.moveTo(gx + fx * R * 0.82, cyB - R * 0.9); ctx.lineTo(gx + fx * R * 0.82, cyB + R * 0.9); ctx.stroke(); }
+      ctx.strokeStyle = p.trim; ctx.lineWidth = 3; for (const hy of [-0.55, 0.55]) { ctx.beginPath(); ctx.ellipse(gx, cyB + hy * R, R * 0.78, R * 0.46, 0, 0, 7); ctx.stroke(); }
+      ctx.lineWidth = 1.4; ctx.fillStyle = shade(p.roof, 1); ctx.strokeStyle = shade(p.roof, 0.55);
+      ctx.beginPath(); ctx.moveTo(gx - R, cyB - R * 0.9); ctx.lineTo(gx + R, cyB - R * 0.9); ctx.lineTo(gx, cyB - R * 1.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      return;
+    }
+    if (arch === 'timber') {
+      shadow(s * 0.9); const bw = s * 0.9, bh = s * 0.72; const b = body(bw, bh, p.wall);
+      ctx.strokeStyle = p.trim; ctx.lineWidth = 2; ctx.strokeRect(gx - bw / 2, gy - bh, bw, bh);
+      ctx.beginPath(); ctx.moveTo(gx - bw / 2, gy - bh * 0.5); ctx.lineTo(gx + bw / 2, gy - bh * 0.5);
+      ctx.moveTo(gx, gy - bh); ctx.lineTo(gx, gy - bh * 0.5);
+      ctx.moveTo(gx - bw / 2, gy - bh); ctx.lineTo(gx - bw * 0.2, gy - bh * 0.5);
+      ctx.moveTo(gx + bw / 2, gy - bh); ctx.lineTo(gx + bw * 0.2, gy - bh * 0.5); ctx.stroke();
+      win(gx - bw * 0.28, gy - bh * 0.42, bw * 0.16, bh * 0.22); win(gx + bw * 0.28, gy - bh * 0.42, bw * 0.16, bh * 0.22);
+      door(bw, bh); gableRoof(b, bw, s * 0.62, p.roof);
+      return;
+    }
+    if (arch === 'steeple') {
+      shadow(s * 0.95); const bw = s * 0.8, bh = s * 0.66; const b = body(bw, bh, p.wall);
+      win(gx + bw * 0.22, gy - bh * 0.5, bw * 0.16, bh * 0.3); door(bw, bh);
+      gableRoof(b, bw, s * 0.42, p.roof);
+      const tw = s * 0.34, tx = gx - bw * 0.5 + tw * 0.1, th = s * 0.86, dx = tw * dxk, dy = tw * dyk;
+      const FLb = [tx - tw / 2, gy], FRb = [tx + tw / 2, gy], FLt = [tx - tw / 2, gy - th], FRt = [tx + tw / 2, gy - th];
+      ctx.strokeStyle = shade(p.wall, 0.45); ctx.lineWidth = 1.4;
+      ctx.fillStyle = shade(p.wall, 0.66); ctx.beginPath(); ctx.moveTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...P(FRt, dx, dy)); ctx.lineTo(...P(FRb, dx, dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = p.wall; ctx.beginPath(); ctx.moveTo(...FLb); ctx.lineTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...FLt); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = p.trim; ctx.fillRect(tx - tw * 0.16, gy - th * 0.8, tw * 0.32, th * 0.26);
+      cone(tx, gy - th, tw * 1.02, s * 0.6, p.trim);
+      return;
+    }
+    if (arch === 'keep' || arch === 'stonetower') {
+      const tall = arch === 'keep'; shadow(s * 0.85);
+      const bw = s * (tall ? 0.66 : 0.72), bh = s * (tall ? 1.08 : 0.92); body(bw, bh, p.wall);
+      ctx.strokeStyle = shade(p.wall, 0.78); ctx.lineWidth = 1;
+      for (let y = gy - bh * 0.25; y > gy - bh; y -= bh * 0.25) { ctx.beginPath(); ctx.moveTo(gx - bw / 2, y); ctx.lineTo(gx + bw / 2, y); ctx.stroke(); }
+      win(gx, gy - bh * 0.55, bw * 0.14, bh * 0.2); door(bw, bh);
+      if (tall) {
+        ctx.fillStyle = shade(p.wall, 0.9); const n = 3, mw = bw / (n * 2 - 1);
+        for (let i = 0; i < n; i++) { const mx = gx - bw / 2 + i * 2 * mw; ctx.fillRect(mx, gy - bh - s * 0.14, mw, s * 0.14); ctx.strokeStyle = shade(p.wall, 0.45); ctx.strokeRect(mx, gy - bh - s * 0.14, mw, s * 0.14); }
+        cone(gx, gy - bh - s * 0.14, bw * 0.92, s * 0.78, p.roof);
+        for (const sg of [-1, 1]) { const tx = gx + sg * bw * 0.52; ctx.fillStyle = shade(p.wall, 0.6); ctx.fillRect(tx - s * 0.07, gy - bh * 0.72, s * 0.14, bh * 0.72); ctx.strokeRect(tx - s * 0.07, gy - bh * 0.72, s * 0.14, bh * 0.72); cone(tx, gy - bh * 0.72, s * 0.2, s * 0.3, p.roof); }
+      } else { cone(gx, gy - bh, bw * 1.06, s * 0.68, p.roof); }
+      return;
+    }
   }
   // A labeled marker: emoji glyph at (px,py), short label beneath.
   function marker(ctx, px, py, icon, label, color) {
@@ -25575,30 +25676,38 @@ const { openNotifModal } = _notif;
     for (const b of world.buildings) {
       const bx = PX(b.x), by = PY(b.y), bw = b.w * sx, bh = b.h * sy;
       const here = meRoom === b.id;
-      ctx.fillStyle = hexA(b.color, here ? 0.78 : 0.5);
-      ctx.strokeStyle = here ? '#5ee7c0' : b.color;
-      ctx.lineWidth = here ? 3 : 2;
+      const cx = bx + bw / 2, cy = by + bh / 2;
+      const spec = BUILDING_SPEC[b.id] ||
+        { arch: 'timber', p: { wall: b.color || '#8a8f98', roof: shade(b.color || '#8a8f98', 0.6), trim: '#2a2a2f' } };
+      // Faint footprint "lot" so the building's real location + size still read.
+      ctx.fillStyle = 'rgba(126,240,195,0.045)';
+      ctx.strokeStyle = here ? '#5ee7c0' : 'rgba(200,220,255,0.12)';
+      ctx.lineWidth = here ? 2.5 : 1;
       roundRect(ctx, bx, by, bw, bh, 6); ctx.fill(); ctx.stroke();
+      // The 2.5-D building sprite, centered on the lot and shrunk if it would
+      // otherwise poke past the top edge of the map canvas.
+      const gy = cy + bh * 0.18;
+      let s = Math.max(24, Math.min(bw * 0.5, bh * 0.78, 54));
+      const avail = gy - 4, need = s * (BUILDING_HF[spec.arch] || 1.5);
+      if (need > avail) s = Math.max(20, s * avail / need);
+      drawBuilding(ctx, cx - s * 0.14, gy, s, spec.arch, spec.p);
+      // Name + service caption beneath the lot.
       const parts = String(b.name || '').split(' ');
       const emoji = parts[0]; const name = parts.slice(1).join(' ') || b.name;
-      const cx = bx + bw / 2, cy = by + bh / 2;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = '#f3ecff';
-      ctx.font = Math.max(12, Math.min(22, bh * 0.32)) + 'px serif';
-      ctx.fillText(emoji, cx, cy - (bh > 44 ? 9 : 0));
-      if (bh > 44) {
-        fitText(ctx, name, bw - 8, 13);
-        ctx.fillText(name, cx, cy + 11);
-        const svc = BUILDING_SVC[b.id];
-        if (svc && bh > 60) {
-          ctx.fillStyle = 'rgba(233,221,255,0.72)';
-          fitText(ctx, svc, bw - 6, 10);
-          ctx.fillText(svc, cx, cy + 25);
-        }
+      fitText(ctx, emoji + ' ' + name, bw + 36, 13);
+      ctx.fillText(emoji + ' ' + name, cx, by + bh + 5);
+      let ly = by + bh + 5 + 15;
+      const svc = BUILDING_SVC[b.id];
+      if (svc) {
+        ctx.fillStyle = 'rgba(233,221,255,0.72)';
+        fitText(ctx, svc, bw + 36, 10);
+        ctx.fillText(svc, cx, ly); ly += 13;
       }
       if (here) {
         ctx.fillStyle = '#5ee7c0'; ctx.font = '700 10px system-ui, sans-serif';
-        ctx.fillText("● you're inside", cx, by + bh + 9);
+        ctx.fillText("● you're inside", cx, ly);
       }
     }
     if (world.spawn) {
