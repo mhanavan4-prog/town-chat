@@ -10,7 +10,7 @@ import { Modals } from './modals.js';
 
 const STAT_LABEL = { power: 'Power', guard: 'Guard', vitality: 'Vitality', haste: 'Haste', swift: 'Swift', leech: 'Leech', xp: 'XP', forage: 'Forage' };
 
-export default function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats }) {
+export default function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold }) {
 function countItem(id) {
   const st = getInventoryState();
   const slots = (st && st.slots) || [];
@@ -54,6 +54,34 @@ function renderWorkshopModal() {
       list.appendChild(head);
     }
     const out = CAT[r.result] || {};
+    const stats = statLine(r.result);
+    // Purchasable (gold-priced) recipes must be LEARNED before they can be
+    // forged. Until then, show the price + a Learn button instead of the
+    // ingredient tally.
+    const owned = !r.gold || (getRecipesUnlocked && (getRecipesUnlocked() || []).indexOf(r.id) !== -1);
+    const row = document.createElement('div');
+
+    if (r.gold && !owned) {
+      const gold = (getGold && getGold()) || 0;
+      const afford = gold >= r.gold;
+      row.className = 'craftRow locked';
+      row.innerHTML =
+        `<div class="craftHead">
+           <span class="craftIcon">${out.icon || '🔨'}</span>
+           <span class="craftName">${out.name || r.result} <span class="craftLock">🔒 recipe</span></span>
+           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}🪙</button>
+         </div>
+         ${stats ? `<div class="craftStats">${stats}</div>` : ''}
+         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
+      row.querySelector('.craftBtn').addEventListener('click', () => {
+        if (!afford) return;
+        document.getElementById('workshopErr').textContent = '';
+        send({ type: 'buy_recipe', recipeId: r.id });
+      });
+      list.appendChild(row);
+      continue;
+    }
+
     let canCraft = true;
     const chips = r.ingredients.map(ing => {
       const have = countItem(ing.id);
@@ -62,14 +90,12 @@ function renderWorkshopModal() {
       const meta = CAT[ing.id] || {};
       return `<span class="craftChip ${ok ? 'ok' : 'short'}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
     }).join('');
-    const stats = statLine(r.result);
 
-    const row = document.createElement('div');
     row.className = 'craftRow' + (canCraft ? ' ready' : '');
     row.innerHTML =
       `<div class="craftHead">
          <span class="craftIcon">${out.icon || '🔨'}</span>
-         <span class="craftName">${out.name || r.result}</span>
+         <span class="craftName">${out.name || r.result}${r.gold ? ' <span class="craftLock owned">✓ learned</span>' : ''}</span>
          <button class="craftBtn" ${canCraft ? '' : 'disabled'}>Craft</button>
        </div>
        ${stats ? `<div class="craftStats">${stats}</div>` : ''}

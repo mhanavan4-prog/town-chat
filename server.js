@@ -382,6 +382,14 @@ function dyeUnlocked(player, dyeId) {
   if (u.ms) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
 }
+
+// Has this player LEARNED a purchasable (gold-priced) crafting recipe? Free
+// recipes aren't tracked — only the Artisan sidegrade line is bought. Recorded
+// account-wide in progress.recipesUnlocked (guests can't buy — no bank).
+function recipeUnlocked(player, recipeId) {
+  const prog = getProgress(player);
+  return !!(prog.recipesUnlocked && prog.recipesUnlocked.indexOf(recipeId) !== -1);
+}
 app.get('/class/:id', (req, res) => {
   const cls = classShowcase.byId(parseInt(req.params.id, 10));
   if (!cls) return res.redirect(302, '/');
@@ -7997,6 +8005,9 @@ wss.on('connection', (ws, req) => {
         // The Artificer's Workshop crafting tree (Session N) — authoritative
         // recipe list so the client renders the tree with no hand-synced copy.
         craftRecipes: CRAFT_RECIPES,
+        // Purchasable "Artisan" recipes this account has learned (Session O) —
+        // so the Workshop shows which are owned vs still for sale.
+        recipesUnlocked: getProgress(player).recipesUnlocked || [],
         // A short backlog of recent WORLD chat so a newcomer arrives into a
         // live conversation rather than an empty screen (text only).
         worldChat: worldChatBacklog(),
@@ -11485,6 +11496,11 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'workshop_craft') {
       const recipe = CRAFT_RECIPE_BY_ID.get(String(msg.recipeId || ''));
       if (!recipe) { send(ws, { type: 'workshop_craft_error', message: 'Unknown recipe.' }); return; }
+      // Purchasable recipes (those with a gold price) must be LEARNED first.
+      if (recipe.gold && !recipeUnlocked(player, recipe.id)) {
+        send(ws, { type: 'workshop_craft_error', message: `Learn this recipe first — ${recipe.gold} 🪙 at the Workshop.` });
+        return;
+      }
       const inv = getInventory(player);
       for (const ing of recipe.ingredients) {
         if (countItemQty(inv, ing.id) < ing.qty) {
@@ -11510,6 +11526,31 @@ wss.on('connection', (ws, req) => {
         resultName: resultItem?.name || recipe.result,
         message: `🔨 You craft ${resultItem?.icon || ''} ${resultItem?.name || recipe.result}.`
       });
+      return;
+    }
+
+    // Learn a purchasable recipe — a gold sink. Permanently unlocks it on the
+    // account; the player then crafts it from materials like any other recipe.
+    if (msg.type === 'buy_recipe') {
+      const recipe = CRAFT_RECIPE_BY_ID.get(String(msg.recipeId || ''));
+      if (!recipe || !recipe.gold) { send(ws, { type: 'workshop_craft_error', message: 'That recipe isn’t for sale.' }); return; }
+      if (!player.accountKey) { send(ws, { type: 'workshop_craft_error', message: 'Sign in with an account to learn recipes (guests have no bank).' }); return; }
+      const prog = getProgress(player);
+      if (!prog.recipesUnlocked) prog.recipesUnlocked = [];
+      if (prog.recipesUnlocked.indexOf(recipe.id) !== -1) { send(ws, { type: 'recipe_bought', recipeId: recipe.id }); return; } // already known
+      const acct = ensureBankAccount(player.accountKey);
+      if (acct.balance < recipe.gold) {
+        send(ws, { type: 'workshop_craft_error', message: `This recipe costs ${recipe.gold} 🪙 — your vault holds ${Math.floor(acct.balance)}.` });
+        return;
+      }
+      acct.balance -= recipe.gold;
+      prog.recipesUnlocked.push(recipe.id);
+      saveBankAccounts();
+      try { saveProgress(); } catch (e) {}
+      const out = ITEM_CATALOG[recipe.result];
+      analytics.bump('recipe.bought');
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      send(ws, { type: 'recipe_bought', recipeId: recipe.id, message: `📜 Recipe learned — ${out?.icon || ''} ${out?.name || recipe.result}. Gather the materials and forge it at the Workshop.` });
       return;
     }
 

@@ -2381,6 +2381,12 @@
   .craftChip { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid transparent; }
   .craftChip.ok { color:#9ee37d; background:rgba(158,227,125,0.10); border-color:rgba(158,227,125,0.3); }
   .craftChip.short { color:#d79a9a; background:rgba(215,120,120,0.08); border-color:rgba(215,120,120,0.25); }
+  .craftRow.locked .craftChip { color:#b3a9cf; background:rgba(185,138,255,0.07); border-color:rgba(185,138,255,0.18); }
+  .craftRow.locked { border-color:rgba(232,217,168,0.35); background:linear-gradient(90deg,rgba(232,217,168,0.07),rgba(232,217,168,0.01)); }
+  .craftLock { font-size:10px; font-weight:700; letter-spacing:.4px; color:#e8d9a8; margin-left:6px; }
+  .craftLock.owned { color:#5ee7c0; }
+  .craftBtn.learn { background:#5a4a1e; color:#f4e6b8; border-color:#e8d9a8; white-space:nowrap; }
+  .craftBtn.learn[disabled] { background:transparent; color:#6a6482; border-color:#3a3550; }
   /* Delve boon draft — big tappable cards over everything */
   #boonDraft { z-index:40; }
   #boonCards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:14px 0; }
@@ -3426,6 +3432,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=e8bf69b9c1"></script>
+<script src="client.js?v=e77ed2c768"></script>
 </body>
 </html>

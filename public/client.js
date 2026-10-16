@@ -1139,7 +1139,7 @@ function renderTitlesModal() {
 
 const STAT_LABEL = { power: 'Power', guard: 'Guard', vitality: 'Vitality', haste: 'Haste', swift: 'Swift', leech: 'Leech', xp: 'XP', forage: 'Forage' };
 
-function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats }) {
+function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold }) {
 function countItem(id) {
   const st = getInventoryState();
   const slots = (st && st.slots) || [];
@@ -1183,6 +1183,34 @@ function renderWorkshopModal() {
       list.appendChild(head);
     }
     const out = CAT[r.result] || {};
+    const stats = statLine(r.result);
+    // Purchasable (gold-priced) recipes must be LEARNED before they can be
+    // forged. Until then, show the price + a Learn button instead of the
+    // ingredient tally.
+    const owned = !r.gold || (getRecipesUnlocked && (getRecipesUnlocked() || []).indexOf(r.id) !== -1);
+    const row = document.createElement('div');
+
+    if (r.gold && !owned) {
+      const gold = (getGold && getGold()) || 0;
+      const afford = gold >= r.gold;
+      row.className = 'craftRow locked';
+      row.innerHTML =
+        `<div class="craftHead">
+           <span class="craftIcon">${out.icon || '🔨'}</span>
+           <span class="craftName">${out.name || r.result} <span class="craftLock">🔒 recipe</span></span>
+           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}🪙</button>
+         </div>
+         ${stats ? `<div class="craftStats">${stats}</div>` : ''}
+         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
+      row.querySelector('.craftBtn').addEventListener('click', () => {
+        if (!afford) return;
+        document.getElementById('workshopErr').textContent = '';
+        send({ type: 'buy_recipe', recipeId: r.id });
+      });
+      list.appendChild(row);
+      continue;
+    }
+
     let canCraft = true;
     const chips = r.ingredients.map(ing => {
       const have = countItem(ing.id);
@@ -1191,14 +1219,12 @@ function renderWorkshopModal() {
       const meta = CAT[ing.id] || {};
       return `<span class="craftChip ${ok ? 'ok' : 'short'}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
     }).join('');
-    const stats = statLine(r.result);
 
-    const row = document.createElement('div');
     row.className = 'craftRow' + (canCraft ? ' ready' : '');
     row.innerHTML =
       `<div class="craftHead">
          <span class="craftIcon">${out.icon || '🔨'}</span>
-         <span class="craftName">${out.name || r.result}</span>
+         <span class="craftName">${out.name || r.result}${r.gold ? ' <span class="craftLock owned">✓ learned</span>' : ''}</span>
          <button class="craftBtn" ${canCraft ? '' : 'disabled'}>Craft</button>
        </div>
        ${stats ? `<div class="craftStats">${stats}</div>` : ''}
@@ -15642,6 +15668,7 @@ function onWsMessage(ev) {
     if (msg.calendar) applyCalendarState(msg.calendar);
     if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
     if (Array.isArray(msg.craftRecipes)) craftRecipesClient = msg.craftRecipes;
+    if (Array.isArray(msg.recipesUnlocked)) myRecipesUnlocked = msg.recipesUnlocked;
     if (msg.covenSigils) covenSigilsCatalog = msg.covenSigils;
     pushPublicKey = msg.pushPublicKey || null;
     pushAvailable = !!msg.pushAvailable;
@@ -16302,6 +16329,12 @@ function onWsMessage(ev) {
   if (msg.type === 'workshop_craft_error') {
     const el = document.getElementById('workshopErr');
     if (el) el.textContent = msg.message || 'That craft failed.';
+    return;
+  }
+  if (msg.type === 'recipe_bought') {
+    if (myRecipesUnlocked.indexOf(msg.recipeId) === -1) myRecipesUnlocked.push(msg.recipeId);
+    if (msg.message) setUnlockToast(msg.message);
+    renderWorkshopModal(); // bank_state (sent alongside) refreshes gold; redraw so it's now learned
     return;
   }
 
@@ -17769,6 +17802,7 @@ let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
 let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
+let myRecipesUnlocked = [];   // purchasable recipes this account has learned (from init / recipe_bought)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
@@ -25114,6 +25148,8 @@ const _workshop = createWorkshop({
   getInventoryState: () => lastInventoryState,
   getItemCatalog: () => ITEM_CATALOG,
   getEquipStats: () => equipStatsCatalog,
+  getRecipesUnlocked: () => myRecipesUnlocked,
+  getGold: () => (lastBankState ? lastBankState.balance : 0),
 });
 const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
 
