@@ -27,6 +27,12 @@ const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: proce
 // Content filter (Session O) — targeted slur/hate blocklist for chat + names.
 const wordFilter = require('./data/wordfilter');
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
+// Load-test / synthetic-traffic marker. When set, a join carrying a matching
+// `synthetic` token (tools/loadtest.mjs --token) is excluded from ALL product
+// analytics so a stress run never inflates joins / class choice / concurrency /
+// sessions. Unset (the default) = no exclusion, nothing changes. Security and
+// moderation logging is never affected by this.
+const LOADTEST_TOKEN = process.env.LOADTEST_TOKEN || '';
 
 // Durable storage (Session L) — extracted to lib/persistence.js (Tier 3.4 Phase B).
 // onError surfaces any save/load failure as an audit alert — a silent save
@@ -7720,23 +7726,29 @@ wss.on('connection', (ws, req) => {
       }
       players.set(id, player);
       player.device = ws._device || 'desktop'; // for device-split session/engagement metrics
-      analytics.peak('concurrent', players.size); // daily high-water mark of simultaneous players
+      // Synthetic load-test traffic (tools/loadtest.mjs run against a real server
+      // with the matching LOADTEST_TOKEN) is flagged here and kept out of every
+      // product-analytics counter below, so a stress run never pollutes the
+      // dashboard. Real players never carry the token.
+      player._synthetic = !!(LOADTEST_TOKEN && msg.synthetic && String(msg.synthetic) === LOADTEST_TOKEN);
+      // Concurrency high-water marks count only real players (bots excluded).
+      let _realCount = 0; for (const p of players.values()) if (!p._synthetic) _realCount++;
+      analytics.peak('concurrent', _realCount); // daily high-water mark of simultaneous players
       // World-liveness: peak concurrent BY HOUR (ET) so the dashboard can show
       // when the town is actually alive, not just the day's single high mark.
       // (A periodic sampler below also raises this so presence between joins is
       // captured, not only arrival moments.)
-      analytics.peak('cc.hour.' + playHourSlug(), players.size);
+      analytics.peak('cc.hour.' + playHourSlug(), _realCount);
       // "Alone the whole session" is the true empty-world signal: join.alone
-      // only sees the arrival instant. Mark this player as having shared the
-      // world the moment anyone else is present — and, since their arrival makes
-      // the town non-empty for everyone already here, lift that flag on all the
-      // players currently online too. On close we count whether a session was
-      // ever NOT alone (see sess.alone_whole / sess.saw_others).
-      if (players.size > 1) { for (const other of players.values()) other.everWithOthers = true; }
-      else if (player.everWithOthers === undefined) { player.everWithOthers = false; }
-      // Analytics: count fresh joins (not seamless reconnects), split by guest
-      // vs account and by class, and mark the account active for DAU.
-      if (!resume) {
+      // only sees the arrival instant. Mark a real player as having shared the
+      // world the moment another REAL player is present (bots don't count as
+      // company) — and lift that flag on the real players already online too.
+      if (!player._synthetic && _realCount > 1) { for (const other of players.values()) if (!other._synthetic) other.everWithOthers = true; }
+      else if (!player._synthetic && player.everWithOthers === undefined) { player.everWithOthers = false; }
+      // Analytics: count fresh joins (not seamless reconnects, not load-test
+      // bots), split by guest vs account and by class, and mark the account
+      // active for DAU.
+      if (!resume && !player._synthetic) {
         analytics.bump('join');
         analytics.bump(accountKey ? 'join.account' : 'join.guest');
         analytics.bump('class.' + (CLASS_NAMES[charId] || 'drifter').toLowerCase());
@@ -11525,30 +11537,35 @@ wss.on('connection', (ws, req) => {
       // session buckets expose a bounce problem (lots of <1m sessions); the
       // onboarding exit buckets map the cliff (where first sessions die).
       try {
-        const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
-        analytics.bump('sess.' + sessionBucket(mins));
-        // Device-split session length + whether they spoke — so mobile vs desktop
-        // churn and engagement can be compared directly.
-        const dev = player.device === 'mobile' ? 'mobile' : 'desktop';
-        analytics.bump('sess.' + dev + '.' + sessionBucket(mins));
-        analytics.bump('sess.' + dev + (player.spoke ? '.spoke' : '.silent'));
-        // Connection-health: a clean close (1000/1001, tab closed or navigated
-        // away) vs an abnormal drop (1006 — network blip, phone screen off),
-        // which usually precedes a seamless resume. A high drop share flags
-        // instability; mobile naturally skews toward drops because of resume.
-        analytics.bump('disconnect');
-        analytics.bump(code === 1000 || code === 1001 ? 'disconnect.clean' : 'disconnect.drop');
-        // The real empty-world metric: did anyone else share the world at any
-        // point during this whole session, or were they alone start to finish?
-        analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
-        // Did this session ever say anything, or arrive and leave in silence?
-        analytics.bump(player.spoke ? 'sess.spoke' : 'sess.silent');
+        // Load-test bots are excluded from every session counter (see join).
+        if (!player._synthetic) {
+          const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
+          analytics.bump('sess.' + sessionBucket(mins));
+          // Device-split session length + whether they spoke — so mobile vs desktop
+          // churn and engagement can be compared directly.
+          const dev = player.device === 'mobile' ? 'mobile' : 'desktop';
+          analytics.bump('sess.' + dev + '.' + sessionBucket(mins));
+          analytics.bump('sess.' + dev + (player.spoke ? '.spoke' : '.silent'));
+          // Connection-health: a clean close (1000/1001, tab closed or navigated
+          // away) vs an abnormal drop (1006 — network blip, phone screen off),
+          // which usually precedes a seamless resume. A high drop share flags
+          // instability; mobile naturally skews toward drops because of resume.
+          analytics.bump('disconnect');
+          analytics.bump(code === 1000 || code === 1001 ? 'disconnect.clean' : 'disconnect.drop');
+          // The real empty-world metric: did anyone else share the world at any
+          // point during this whole session, or were they alone start to finish?
+          analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
+          // Did this session ever say anything, or arrive and leave in silence?
+          analytics.bump(player.spoke ? 'sess.spoke' : 'sess.silent');
+        }
         // A visit that ends by disconnecting inside a building still counts.
         exitBuildingIfAny(player);
-        const prog = getProgress(player);
-        if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
-          const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3
-          analytics.bump('exit.onboard' + reached);
+        if (!player._synthetic) {
+          const prog = getProgress(player);
+          if (prog && prog.firstSteps && !prog.firstSteps.done && (prog.level || 1) < 5) {
+            const reached = FIRST_STEPS.filter(s => prog.firstSteps[s.id]).length; // 0..3
+            analytics.bump('exit.onboard' + reached);
+          }
         }
       } catch (e) {}
       leaveParty(player);
@@ -11576,7 +11593,7 @@ wss.on('connection', (ws, req) => {
 // presence BETWEEN joins (a quiet room of three that nobody new entered still
 // counts), so "peak concurrent by hour" reflects reality, not just arrival spikes.
 const _ccHourTimer = setInterval(() => {
-  try { if (players.size > 0) analytics.peak('cc.hour.' + playHourSlug(), players.size); } catch (e) {}
+  try { let rc = 0; for (const p of players.values()) if (!p._synthetic) rc++; if (rc > 0) analytics.peak('cc.hour.' + playHourSlug(), rc); } catch (e) {}
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 
