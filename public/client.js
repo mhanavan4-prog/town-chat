@@ -8938,6 +8938,18 @@ const WARDROBE = {
   }
 };
 
+// Phase 2 unlocks — MUST STAY IN SYNC with data/wardrobe.js. Absent = free;
+// { lvl } / { chapter } unlock through play; { ms } is a Moonstone purchase.
+const UNLOCKS = {
+  0: { tome: { chapter: 3 } },
+  1: { axe_shield: { lvl: 5 }, greataxe: { lvl: 10 }, tankard: { ms: 300 } },
+  2: { dual: { lvl: 5 }, crossbow: { lvl: 10 } },
+  3: { sword_kite: { lvl: 5 }, sword_spike: { lvl: 10 }, greatsword: { ms: 400 }, dual_swords: { ms: 400 } },
+  4: { crossbow: { lvl: 5 }, throwing: { lvl: 10 } },
+  5: {}
+};
+function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
+
 // Resolve an appearance into concrete render instructions (see data/wardrobe.js).
 function resolveLook(charId, ap) {
   const def = WARDROBE[charId];
@@ -15567,6 +15579,7 @@ function onWsMessage(ev) {
       }
     }
     myMoonstones = msg.moonstones || 0;
+    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0 };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
@@ -16128,6 +16141,15 @@ function onWsMessage(ev) {
     const me = (myId && players[myId]) ? players[myId] : null;
     if (me) { me.appearance = msg.appearance || null; refreshPlayerAppearance(me); }
     if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
+    return;
+  }
+
+  if (msg.type === 'look_bought') {
+    // A Moonstone look just unlocked — record it and wear it right away.
+    if (myWardrobe.purchased.indexOf(msg.weapon) === -1) myWardrobe.purchased.push(msg.weapon);
+    setUnlockToast('🎭 New look unlocked!');
+    if (typeof window.__applyWardrobe === 'function') try { window.__applyWardrobe({ weapon: msg.weapon }); } catch (e) {}
+    else if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
 
@@ -17675,6 +17697,9 @@ let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from in
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
+// Wardrobe unlock state (Phase 2): looks bought on the current class + chapters
+// done, from init; the live level drives level-gated looks. look_bought keeps it fresh.
+let myWardrobe = { purchased: [], chaptersDone: 0 };
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 
 // ── Session L state ──────────────────────────────────────────────────────────
@@ -25098,6 +25123,16 @@ const { openNotifModal } = _notif;
 // the server, which stores it and carries it to everyone on the next broadcast.
 (function () {
   const meRec = () => (myId && players[myId]) ? players[myId] : null;
+  // What can this player do with a weapon look? ok = wear it; locked = earn it
+  // (shows the requirement); buy = Moonstone purchase.
+  function lookState(me, w) {
+    const u = weaponUnlock(me.charId, w.id);
+    if (!u) return { k: 'ok' };
+    if (u.lvl) return (me.level || 1) >= u.lvl ? { k: 'ok' } : { k: 'locked', why: 'Lv ' + u.lvl };
+    if (u.chapter) return (myWardrobe.chaptersDone || 0) >= u.chapter ? { k: 'ok' } : { k: 'locked', why: 'Ch. ' + u.chapter };
+    if (u.ms) return (myWardrobe.purchased || []).indexOf(w.id) !== -1 ? { k: 'ok' } : { k: 'buy', ms: u.ms };
+    return { k: 'locked', why: 'Locked' };
+  }
   function renderWardrobe() {
     const me = meRec(); const list = document.getElementById('wardrobeList');
     if (!me || !list) return;
@@ -25106,15 +25141,24 @@ const { openNotifModal } = _notif;
     const ap = me.appearance || {};
     const curW = def.weapons.some((w) => w.id === ap.weapon) ? ap.weapon : def.defaultWeapon;
     let h = '<div class="wrSec">Weapon</div><div class="wrOpts">';
-    h += def.weapons.map((w) => '<button class="wrOpt' + (w.id === curW ? ' on' : '') + '" data-w="' + w.id + '">' + w.label + '</button>').join('');
+    h += def.weapons.map((w) => {
+      const s = lookState(me, w);
+      if (s.k === 'buy') return '<button class="wrOpt buy" data-buy="' + w.id + '">' + w.label + ' · ' + s.ms + '💎</button>';
+      if (s.k === 'locked') return '<button class="wrOpt locked" disabled>' + w.label + ' · ' + s.why + '</button>';
+      return '<button class="wrOpt' + (w.id === curW ? ' on' : '') + '" data-w="' + w.id + '">' + w.label + '</button>';
+    }).join('');
     h += '</div>';
     if (def.toggles.length) {
       h += '<div class="wrSec">Show</div><div class="wrOpts">';
       h += def.toggles.map((t) => { const on = ap[t.id] === undefined ? true : !!ap[t.id]; return '<button class="wrOpt' + (on ? ' on' : '') + '" data-t="' + t.id + '">' + t.label + (on ? ' ✓' : '') + '</button>'; }).join('');
       h += '</div>';
     }
+    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
+    list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'buy_look', weapon: b.getAttribute('data-buy') }));
+    }));
     list.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
       const me2 = meRec(); const id = b.getAttribute('data-t');
       const cur = (me2 && me2.appearance && me2.appearance[id] !== undefined) ? !!me2.appearance[id] : true;
@@ -25132,6 +25176,7 @@ const { openNotifModal } = _notif;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_appearance', appearance: next }));
   }
   window.__renderWardrobe = renderWardrobe; // so the ack handler can refresh it
+  window.__applyWardrobe = applyWardrobe;    // so look_bought can auto-equip the new look
   const mw = document.getElementById('menuWardrobe');
   if (mw) mw.addEventListener('click', () => { document.getElementById('menuSheet').classList.add('hidden'); renderWardrobe(); const m = document.getElementById('wardrobeModal'); if (m) m.classList.remove('hidden'); });
   const cb = document.getElementById('wardrobeCloseBtn');

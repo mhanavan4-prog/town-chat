@@ -71,6 +71,18 @@ export const WARDROBE = {
   }
 };
 
+// Phase 2 unlocks — MUST STAY IN SYNC with data/wardrobe.js. Absent = free;
+// { lvl } / { chapter } unlock through play; { ms } is a Moonstone purchase.
+export const UNLOCKS = {
+  0: { tome: { chapter: 3 } },
+  1: { axe_shield: { lvl: 5 }, greataxe: { lvl: 10 }, tankard: { ms: 300 } },
+  2: { dual: { lvl: 5 }, crossbow: { lvl: 10 } },
+  3: { sword_kite: { lvl: 5 }, sword_spike: { lvl: 10 }, greatsword: { ms: 400 }, dual_swords: { ms: 400 } },
+  4: { crossbow: { lvl: 5 }, throwing: { lvl: 10 } },
+  5: {}
+};
+export function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
+
 // Resolve an appearance into concrete render instructions (see data/wardrobe.js).
 export function resolveLook(charId, ap) {
   const def = WARDROBE[charId];

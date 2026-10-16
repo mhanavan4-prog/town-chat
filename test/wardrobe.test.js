@@ -4,7 +4,7 @@
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-wardrobe-');
 
-const { sanitizeAppearance, resolveLook, WARDROBE } = require('../data/wardrobe.js');
+const { sanitizeAppearance, resolveLook, WARDROBE, weaponUnlock } = require('../data/wardrobe.js');
 
 function makeMockSocket(tag) {
   return {
@@ -45,10 +45,10 @@ setTimeout(() => {
   // ── A guest sets a look ───────────────────────────────────────────────────────
   const g = join('Dresser', 0);
   check('a fresh player has no appearance yet', !g.p.appearance, g.p.appearance);
-  g.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'tome', hat: false } }));
-  check('set_appearance applies to the live player', g.p.appearance && g.p.appearance.weapon === 'tome' && g.p.appearance.hat === false, g.p.appearance);
-  check('the server acks the (sanitized) look', (() => { const a = g.s.lastOfType('appearance_set'); return a && a.appearance.weapon === 'tome'; })());
-  check('the look persists onto progress (per class)', (() => { const prog = h.getStoryState ? null : null; return g.p.guestProgress && g.p.guestProgress.appearance && g.p.guestProgress.appearance[0] && g.p.guestProgress.appearance[0].weapon === 'tome'; })(), g.p.guestProgress && g.p.guestProgress.appearance);
+  g.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'wand', hat: false } }));
+  check('set_appearance applies to the live player', g.p.appearance && g.p.appearance.weapon === 'wand' && g.p.appearance.hat === false, g.p.appearance);
+  check('the server acks the (sanitized) look', (() => { const a = g.s.lastOfType('appearance_set'); return a && a.appearance.weapon === 'wand'; })());
+  check('the look persists onto progress (per class)', (() => { const prog = h.getStoryState ? null : null; return g.p.guestProgress && g.p.guestProgress.appearance && g.p.guestProgress.appearance[0] && g.p.guestProgress.appearance[0].weapon === 'wand'; })(), g.p.guestProgress && g.p.guestProgress.appearance);
 
   // ── A bogus weapon is clamped, not trusted ────────────────────────────────────
   g.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'rocket_launcher' } }));
@@ -56,9 +56,43 @@ setTimeout(() => {
 
   // ── A different class gets its own look slot ───────────────────────────────────
   const k = join('SirDress', 3);
-  k.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'greatsword', helmet: false } }));
-  check('a Knight look validates against the Knight catalog', k.p.appearance.weapon === 'greatsword' && k.p.appearance.helmet === false, k.p.appearance);
+  k.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'sword_round', helmet: false } }));
+  check('a Knight look validates against the Knight catalog', k.p.appearance.weapon === 'sword_round' && k.p.appearance.helmet === false, k.p.appearance);
   check('an invalid toggle key is simply ignored', k.p.appearance.cape === true, k.p.appearance);
+
+  // ── Phase 2: unlocks ──────────────────────────────────────────────────────────
+  check('weaponUnlock returns the gate config', (() => { const u = weaponUnlock(1, 'tankard'); return u && u.ms === 300; })());
+  check('a free weapon has no unlock', weaponUnlock(0, 'staff') === null);
+
+  // A low-level player can't equip a level-gated look — it clamps to the default.
+  const lw = join('CubScout', 1); // Werewolf, level 1
+  lw.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'axe_shield' } })); // needs Lv 5
+  check('a level-locked look clamps to the default', lw.p.appearance.weapon === 'claws', lw.p.appearance);
+
+  // A chapter-gated look clamps when the campaign isn't there yet.
+  const cw = join('Apprentice', 0); // Witch, no chapters done
+  cw.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'tome' } })); // needs Chapter 3
+  check('a chapter-locked look clamps to the default', cw.p.appearance.weapon === 'staff', cw.p.appearance);
+
+  // A guest can't buy a Moonstone look.
+  lw.s.emit('message', JSON.stringify({ type: 'buy_look', weapon: 'tankard' }));
+  check('a guest buying a look gets an account prompt', (() => { const e = lw.s.lastOfType('ms_error'); return e && /account/i.test(e.message); })());
+
+  // ── Phase 2: a real Moonstone purchase ────────────────────────────────────────
+  const buyer = join('RichWolf', 1); // Werewolf
+  buyer.p.accountKey = 'richwolf';
+  h.accounts['richwolf'] = h.accounts['richwolf'] || { username: 'richwolf', miles: {} };
+  h.playerProgress['richwolf'] = h.playerProgress['richwolf'] || { level: 1, xp: 0 };
+  h.msAdjust('richwolf', 1000);
+  buyer.s.emit('message', JSON.stringify({ type: 'buy_look', weapon: 'tankard' })); // 300 💎
+  check('buying a look confirms with look_bought', (() => { const b = buyer.s.lastOfType('look_bought'); return b && b.weapon === 'tankard'; })());
+  check('the purchase debits Moonstones', h.msBalance('richwolf') === 700, h.msBalance('richwolf'));
+  check('the look is recorded on the account', (() => { const pr = h.playerProgress['richwolf']; return pr.wardrobeUnlocks && pr.wardrobeUnlocks[1] && pr.wardrobeUnlocks[1].indexOf('tankard') !== -1; })());
+  buyer.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'tankard' } }));
+  check('a purchased look can now be equipped', buyer.p.appearance.weapon === 'tankard', buyer.p.appearance);
+  const balBefore = h.msBalance('richwolf');
+  buyer.s.emit('message', JSON.stringify({ type: 'buy_look', weapon: 'tankard' }));
+  check('re-buying an owned look does not double-charge', h.msBalance('richwolf') === balBefore, h.msBalance('richwolf'));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
