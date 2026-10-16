@@ -45,12 +45,12 @@ function updateGoldReadouts() {
   const menuGold = document.getElementById('menuGoldVal');
   if (menuGold) {
     menuGold.classList.toggle('hidden', gold == null);
-    if (gold != null) menuGold.textContent = '🪙 ' + gold;
+    if (gold != null) menuGold.innerHTML = '<span class="coin"></span> ' + gold;
   }
   const invLine = document.getElementById('invGoldLine');
   if (invLine) {
     invLine.classList.toggle('hidden', gold == null);
-    if (gold != null) invLine.innerHTML = '🪙 <b>' + gold + '</b> gold banked · 💎 <b>' + getMyMoonstones() + '</b> carried';
+    if (gold != null) invLine.innerHTML = '<span class="coin"></span> <b>' + gold + '</b> gold banked · 💎 <b>' + getMyMoonstones() + '</b> carried';
   }
   const aucLine = document.getElementById('auctionBalanceLine');
   if (aucLine) {
