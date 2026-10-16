@@ -56,6 +56,7 @@ whenReady(() => {
   let feed = auctionFeedRecent(50);
   check('listing records a "list" event', feed.length === 1 && feed[0].kind === 'list', feed);
   check('the list line names the seller + item', feed[0].name === 'Hawker' && feed[0].text.indexOf(itemName) !== -1, feed[0]);
+  check('the list event carries the item card (icon + name + id)', (() => { const it = feed[0].item; return it && it.itemId === ITEM && it.name === itemName && !!it.icon && Array.isArray(it.stats); })(), feed[0].item);
 
   // Bidder places a bid below buyout.
   const bidder = joinAs('Bidder', 'bidderkey');

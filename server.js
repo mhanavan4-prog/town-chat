@@ -3997,7 +3997,7 @@ function makeId() {
 
 
 // Auction house (Sessions I/M) — extracted to lib/auctions.js (Tier 3.4 Phase B).
-const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent });
+const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo });
 const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
 
 setInterval(() => {
@@ -7508,9 +7508,46 @@ function recordAuctionEvent(ev) {
     kind: ['list', 'bid', 'sold', 'expired'].indexOf(ev.kind) !== -1 ? ev.kind : 'list',
     name: String(ev.name || '').slice(0, 40),   // the actor: seller / bidder / winner
     text: String(ev.text || '').slice(0, 180),
-    currency: ev.currency === 'ms' ? 'ms' : 'gold'
+    currency: ev.currency === 'ms' ? 'ms' : 'gold',
+    item: ev.item || null                         // the in-game item card (see auctionItemInfo)
   });
   if (auctionFeedLog.length > AUCTION_FEED_LIMIT) auctionFeedLog.shift();
+}
+// How each equip stat reads in-game (mirrors client STAT_DISPLAY). pct stats are
+// shown as a percentage; vitality is a flat health number.
+const AUCTION_STAT_META = {
+  power:    { icon: '⚔️', label: 'Attack',     pct: true,  sign: '+' },
+  guard:    { icon: '🛡️', label: 'Defense',    pct: true,  sign: '+' },
+  vitality: { icon: '❤️', label: 'Max Health', pct: false, sign: '+' },
+  swift:    { icon: '💨', label: 'Move Speed', pct: true,  sign: '+' },
+  haste:    { icon: '⏱️', label: 'Haste',      pct: true,  sign: '-' },
+  leech:    { icon: '🩸', label: 'Lifesteal',  pct: true,  sign: '+' },
+  xp:       { icon: '✨', label: 'XP',          pct: true,  sign: '+' },
+  forage:   { icon: '🌿', label: 'Harvest',    pct: true,  sign: '+' }
+};
+// Build the item "card" an admin should see for a listing — the same identity a
+// player sees on the in-game item tooltip: icon, name, slot, stat lines, blurb.
+// Selfie/voice listings have no catalog item, so they return null.
+function auctionItemInfo(listing) {
+  if (!listing || listing.isSelfie || listing.isVoice) return null;
+  const def = ITEM_CATALOG[listing.itemId];
+  if (!def) return null;
+  const stats = [];
+  const s = EQUIP_STATS[listing.itemId];
+  if (s) for (const k of Object.keys(s)) {
+    const m = AUCTION_STAT_META[k]; if (!m) continue;
+    const v = s[k];
+    stats.push(m.icon + ' ' + m.sign + (m.pct ? Math.round(Math.abs(v) * 100) + '%' : Math.round(Math.abs(v))) + ' ' + m.label);
+  }
+  return {
+    itemId: listing.itemId,
+    name: String(def.name || listing.itemId).slice(0, 48),
+    icon: def.icon || '📦',
+    qty: listing.qty || 1,
+    slot: def.slot || null,
+    stats: stats.slice(0, 6),
+    desc: def.desc ? String(def.desc).slice(0, 160) : ''
+  };
 }
 function auctionFeedRecent(n) { return auctionFeedLog.slice(-(n || 80)); } // oldest→newest, like world chat
 // Short human label for an item/selfie/voice listing in a feed line.
@@ -8545,7 +8582,7 @@ wss.on('connection', (ws, req) => {
       };
       listings.push(listing);
       saveListings();
-      recordAuctionEvent({ kind: 'list', name: player.name, currency,
+      recordAuctionEvent({ kind: 'list', name: player.name, currency, item: auctionItemInfo(listing),
         text: 'listed ' + auctionFeedLabel(listing) + ' — start ' + startingBid + auctionCurTag(currency) + (buyoutPrice ? (' · buyout ' + buyoutPrice + auctionCurTag(currency)) : '') });
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       broadcastAuctionState();
@@ -8646,7 +8683,7 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       }
 
-      recordAuctionEvent({ kind: 'bid', name: player.name, currency: listing.currency,
+      recordAuctionEvent({ kind: 'bid', name: player.name, currency: listing.currency, item: auctionItemInfo(listing),
         text: 'bid ' + amount + auctionCurTag(listing.currency) + ' on ' + auctionFeedLabel(listing) });
       if (listing.buyoutPrice && amount >= listing.buyoutPrice) {
         resolveListing(listing);
