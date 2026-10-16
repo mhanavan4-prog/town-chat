@@ -98,6 +98,44 @@ const UNLOCKS = {
 };
 function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
 
+// Phase 3 — DYES. A second cosmetic axis on top of the weapon look: a player can
+// tint their OUTFIT (body + sleeves + legs) and their ACCENT (hat/helmet + cape)
+// with a color. The tint is a multiply over the KayKit atlas texture, so detail
+// survives — `hex: null` ('none') means the natural, untinted look. Dyes are
+// account-wide (not per-class) and shared by every character the account plays;
+// head / face / skin and held props are never tinted. Keep ids stable — they
+// persist on accounts. The same palette serves both the outfit and accent slots.
+const DYES = [
+  { id: 'none',    label: 'Natural',  hex: null },
+  { id: 'ash',     label: 'Ash',      hex: 0x9aa0a8 },
+  { id: 'sienna',  label: 'Sienna',   hex: 0xb5794a },
+  { id: 'crimson', label: 'Crimson',  hex: 0xc83232 },
+  { id: 'forest',  label: 'Forest',   hex: 0x4f9d55 },
+  { id: 'cobalt',  label: 'Cobalt',   hex: 0x4a73c8 },
+  { id: 'royal',   label: 'Royal',    hex: 0x9a5cc8 },
+  { id: 'rose',    label: 'Rose',     hex: 0xe58ab0 },
+  { id: 'gold',    label: 'Gold',     hex: 0xe0b84a },
+  { id: 'void',    label: 'Void',     hex: 0x6a4a9a },
+  { id: 'arcane',  label: 'Arcane',   hex: 0x45c8c0 }
+];
+const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
+
+// Dye unlocks — absent = free (none/ash/sienna). { lvl } / { chapter } unlock
+// through play; { ms } is a Moonstone purchase recorded (account-wide) in
+// progress.dyeUnlocks. Tunable here — the whole dye earn/monetization surface.
+const DYE_UNLOCKS = {
+  crimson: { lvl: 3 },
+  forest:  { lvl: 6 },
+  cobalt:  { lvl: 9 },
+  royal:   { chapter: 2 },
+  rose:    { ms: 150 },
+  gold:    { ms: 250 },
+  void:    { ms: 200 },
+  arcane:  { ms: 300 }
+};
+function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
+function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
+
 // Clamp an arbitrary (possibly hostile) appearance object to a valid one for a
 // class: a known weapon id (else the default) and boolean toggles (default on).
 // Returns null for an unknown class. Used server-side before persisting.
@@ -108,6 +146,10 @@ function sanitizeAppearance(charId, ap) {
   const weapon = def.weapons.some((w) => w.id === ap.weapon) ? ap.weapon : def.defaultWeapon;
   const out = { weapon };
   for (const t of def.toggles) out[t.id] = ap[t.id] === undefined ? true : !!ap[t.id];
+  // Phase 3 dyes: a known dye id per slot, else 'none'. Unlock enforcement
+  // (level/chapter/Moonstone) is the server's job, same as weapons.
+  out.dyeBody = DYE_BY_ID[ap.dyeBody] ? ap.dyeBody : 'none';
+  out.dyeAccent = DYE_BY_ID[ap.dyeAccent] ? ap.dyeAccent : 'none';
   return out;
 }
 
@@ -115,9 +157,11 @@ function sanitizeAppearance(charId, ap) {
 //   showProps    — KayKit prop NODE names to make visible (all others hidden)
 //   hideCosmetic — headwear/cape mesh names to HIDE (toggled off)
 //   staff        — whether to attach the Lich's separate staff model
+//   bodyTint     — hex to multiply onto outfit nodes (body/arms/legs), or null
+//   accentTint   — hex to multiply onto accent nodes (hat/helmet/cape), or null
 function resolveLook(charId, ap) {
   const def = WARDROBE[charId];
-  if (!def) return { showProps: [], hideCosmetic: [], staff: false };
+  if (!def) return { showProps: [], hideCosmetic: [], staff: false, bodyTint: null, accentTint: null };
   ap = ap || {};
   const w = def.weapons.find((x) => x.id === ap.weapon) || def.weapons.find((x) => x.id === def.defaultWeapon) || def.weapons[0];
   const show = (w && w.show) ? w.show : [];
@@ -127,7 +171,10 @@ function resolveLook(charId, ap) {
     const on = ap[t.id] === undefined ? true : !!ap[t.id];
     if (!on) hideCosmetic.push(t.mesh);
   }
-  return { showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff };
+  return {
+    showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff,
+    bodyTint: dyeHex(ap.dyeBody), accentTint: dyeHex(ap.dyeAccent)
+  };
 }
 
-module.exports = { WARDROBE, UNLOCKS, weaponUnlock, sanitizeAppearance, resolveLook };
+module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook };

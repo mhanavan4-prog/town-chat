@@ -357,7 +357,7 @@ app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
-const { WARDROBE, weaponUnlock, sanitizeAppearance } = require('./data/wardrobe'); // cosmetics
+const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance } = require('./data/wardrobe'); // cosmetics
 
 // Is a weapon look unlocked for this player? Free looks always are; level/chapter
 // looks unlock automatically once earned; Moonstone looks require a purchase
@@ -368,6 +368,18 @@ function lookUnlocked(player, charId, weaponId) {
   if (u.lvl) return (player.level || 1) >= u.lvl;
   if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
   if (u.ms) { const prog = getProgress(player); return !!(prog.wardrobeUnlocks && prog.wardrobeUnlocks[charId] && prog.wardrobeUnlocks[charId].indexOf(weaponId) !== -1); }
+  return false;
+}
+
+// Is a dye unlocked for this player? Dyes are account-wide (not per-class): free
+// dyes always are; level/chapter dyes unlock through play; Moonstone dyes require
+// a purchase recorded in progress.dyeUnlocks. 'none' (and any unknown) is free.
+function dyeUnlocked(player, dyeId) {
+  const u = dyeUnlock(dyeId);
+  if (!u) return true;
+  if (u.lvl) return (player.level || 1) >= u.lvl;
+  if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
+  if (u.ms) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
 }
 app.get('/class/:id', (req, res) => {
@@ -7907,7 +7919,10 @@ wss.on('connection', (ws, req) => {
         // looks). Level-gated looks the client reads from the live level.
         wardrobe: {
           purchased: (getProgress(player).wardrobeUnlocks || {})[player.charId] || [],
-          chaptersDone: (() => { try { return getStoryState(player).chapter || 0; } catch (e) { return 0; } })()
+          chaptersDone: (() => { try { return getStoryState(player).chapter || 0; } catch (e) { return 0; } })(),
+          // Phase 3: Moonstone dyes bought on this account (level/chapter dyes
+          // the client gates from the live level + chaptersDone above).
+          dyesPurchased: getProgress(player).dyeUnlocks || []
         },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
@@ -8157,6 +8172,9 @@ wss.on('connection', (ws, req) => {
       if (!clean) return;
       // Can't wear a look you haven't unlocked — fall back to the free default.
       if (!lookUnlocked(player, player.charId, clean.weapon)) clean.weapon = WARDROBE[player.charId].defaultWeapon;
+      // Likewise a locked dye falls back to natural (not the class default).
+      if (!dyeUnlocked(player, clean.dyeBody)) clean.dyeBody = 'none';
+      if (!dyeUnlocked(player, clean.dyeAccent)) clean.dyeAccent = 'none';
       player.appearance = clean;
       const prog = getProgress(player);
       if (!prog.appearance) prog.appearance = {};
@@ -8185,6 +8203,28 @@ wss.on('connection', (ws, req) => {
       try { saveProgress(); } catch (e) {}
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
       send(ws, { type: 'look_bought', weapon: w.id });
+      return;
+    }
+
+    // Buy a Moonstone-gated dye (account only). Dyes are account-wide — once
+    // bought, any character on the account can wear the color. Recorded in
+    // progress.dyeUnlocks; the player then equips it via set_appearance.
+    if (msg.type === 'buy_dye') {
+      if (!player) return;
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to buy dyes.' }); return; }
+      const dyeId = String(msg.dye || '');
+      const d = DYES.find((x) => x.id === dyeId);
+      const u = d ? dyeUnlock(dyeId) : null;
+      if (!d || !u || !u.ms) { send(ws, { type: 'ms_error', message: 'That dye isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.dyeUnlocks) prog.dyeUnlocks = [];
+      if (prog.dyeUnlocks.indexOf(dyeId) !== -1) { send(ws, { type: 'dye_bought', dye: dyeId }); return; } // already owned
+      if (msBalance(player.accountKey) < u.ms) { send(ws, { type: 'ms_error', message: `That dye is ${u.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+      msAdjust(player.accountKey, -u.ms);
+      prog.dyeUnlocks.push(dyeId);
+      try { saveProgress(); } catch (e) {}
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'dye_bought', dye: dyeId });
       return;
     }
 

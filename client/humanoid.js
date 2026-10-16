@@ -292,6 +292,12 @@ function createKayKitHumanoid(charId, appearance) {
   const look = resolveLook(charId, appearance);
   const keep = look.showProps;        // prop node names to SHOW (rest hidden)
   const hideCosmetic = look.hideCosmetic; // headwear/cape to HIDE (toggled off)
+  // Phase 3 dyes: tint colors multiplied over the atlas. Outfit = body + sleeves
+  // + legs (_Body/_ArmLeft/_ArmRight/_LegLeft/_LegRight across every class);
+  // accent = headwear + cape (_Hat/_Helmet/_Cape). Head / skull / jaw / eyes and
+  // held props are left natural. null tint = no change.
+  const bodyTintCol = look.bodyTint != null ? new THREE.Color(look.bodyTint) : null;
+  const accentTintCol = look.accentTint != null ? new THREE.Color(look.accentTint) : null;
   const embeddedWeapons = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
@@ -311,6 +317,15 @@ function createKayKitHumanoid(charId, appearance) {
     // own material copies (textures stay shared — clone() only forks the props).
     if (o.material) {
       o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    }
+    // Dye tint — multiply the (now per-instance) material color over the atlas.
+    // Each mesh carries its class-prefixed node name, so a suffix test picks the
+    // outfit vs the accent pieces without a per-class table.
+    if ((bodyTintCol || accentTintCol) && o.material && o.name) {
+      const isOutfit = /_(Body|ArmLeft|ArmRight|LegLeft|LegRight)$/.test(o.name);
+      const isAccent = /_(Hat|Helmet|Cape)$/.test(o.name);
+      const tint = isOutfit ? bodyTintCol : (isAccent ? accentTintCol : null);
+      if (tint) { const mats = Array.isArray(o.material) ? o.material : [o.material]; for (const m of mats) if (m.color) m.color.multiply(tint); }
     }
     if (KK.PROP_MESHES.includes(o.name)) {
       o.visible = keep.includes(o.name);
