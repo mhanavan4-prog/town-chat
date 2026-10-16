@@ -282,7 +282,7 @@ app.use('/api', (req, res, next) => {
 // with* one of these folds to it, so a pasted URL or stray words after the tag
 // (e.g. "browsergaming https://..." or "browsergaming would") can't spawn a
 // junk variant — they all collapse back to "browsergaming".
-const KNOWN_REFS = ['browsergaming', 'reddit', 'discord', 'twitter', 'youtube', 'tiktok', 'qr', 'direct'];
+const KNOWN_REFS = ['browsergaming', 'reddit', 'indiegaming', 'discord', 'twitter', 'youtube', 'tiktok', 'qr', 'direct'];
 function refSlug(req) {
   const raw = (req.query && (req.query.src || req.query.ref || req.query.utm_source)) || '';
   // Take only the leading slug token — cut at the first char that isn't a-z/0-9/_/-
