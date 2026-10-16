@@ -403,6 +403,8 @@ app.get('/covens', (req, res) => { logPageVisit(req, 'covens'); return sendWithO
   { title: 'Covens of Thornreach', desc: 'Every coven in Thornreach — band together and hold the longest night.' }); });
 app.get('/profile', (req, res) => { logPageVisit(req, 'profile'); return sendWithOg(req, res, 'profile.html',
   { title: 'Your Grimoire — Thornreach', desc: 'Your characters, standing and coven in Thornreach.' }); });
+app.get('/faq', (req, res) => { logPageVisit(req, 'faq'); return sendWithOg(req, res, 'faq.html',
+  { title: 'FAQ — Thornreach', desc: 'Answers to common questions about Thornreach — the free, browser-based spooky MMO town.' }); });
 app.get('/privacy', (req, res) => { logPageVisit(req, 'privacy'); return sendWithOg(req, res, 'privacy.html',
   { title: 'Privacy Policy — Thornreach', desc: 'How Thornreach handles your data — in plain language.' }); });
 app.get('/terms', (req, res) => { logPageVisit(req, 'terms'); return sendWithOg(req, res, 'terms.html',
