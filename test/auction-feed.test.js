@@ -84,6 +84,13 @@ whenReady(() => {
   const exp = feed[feed.length - 1];
   check('a no-bid resolve records an "expired" event', exp.kind === 'expired' && exp.name === 'Hawker', exp);
 
+  // A selfie listing carries the photo as media (what a player sees on the block).
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  seller.sock.emit('message', JSON.stringify({ type: 'auction_list_selfie', image: PNG, startingBid: 100, durationMinutes: 5 }));
+  feed = auctionFeedRecent(50);
+  const self = feed[feed.length - 1];
+  check('a selfie listing records media (the photo)', self && self.media && self.media.kind === 'selfie' && /^data:image\//.test(self.media.image), self && self.media);
+
   // Every event carries a timestamp and a currency tag.
   check('every feed row has ts + currency', auctionFeedRecent(50).every((e) => typeof e.ts === 'number' && (e.currency === 'gold' || e.currency === 'ms')));
 
