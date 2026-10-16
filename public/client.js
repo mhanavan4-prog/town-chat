@@ -11943,7 +11943,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: roomW - 150, z: roomD * 0.4, npc: 'hint', npcId: 'npc_knight', npcName: 'Sir Dorran' });
     }
   } else { // bank — door is north, so "deeper into the room" means higher z
-    scene.add(makeRug(cx, roomD * 0.38, roomW * 0.32, roomD * 0.5, 0x7a1f1f));
+    // (No floor rug here: a flat untextured plane read as a hard red/brown
+    // square on the wood rather than a carpet, so the bare floor looks better.)
     scene.add(makeBanner(30, 100, 6, 0, 0xd4af37));
     scene.add(makeBanner(roomW - 30, 100, 6, 0, 0xd4af37));
 
