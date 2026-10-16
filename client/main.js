@@ -105,12 +105,24 @@ function wsUrl() {
 // handlers forward the technical shape of a crash to /api/client-error so it
 // lands in the logs. Deliberately NO player data - no names, chat, positions,
 // or media; message/stack/source only.
+// A small ring of the most recent client errors, kept in memory only so the
+// in-game bug reporter can attach "what was on fire just now" to a report.
+// window.__recentErrors() returns newest-first short strings; never persisted.
+(function () {
+  const RING = [];
+  const RING_MAX = 8;
+  window.__pushRecentError = function (s) {
+    try { RING.push(String(s || '').slice(0, 300)); if (RING.length > RING_MAX) RING.shift(); } catch (_e) {}
+  };
+  window.__recentErrors = function () { return RING.slice().reverse(); };
+})();
 (function installErrorTelemetry() {
   let sent = 0;
   const MAX_PER_LOAD = 8;          // never flood the server from a single tab
   const seen = new Set();          // collapse identical repeats within a load
   function report(kind, message, source, line, col, stack) {
     try {
+      try { window.__pushRecentError((kind || 'error') + ': ' + (message || '') + (line ? (' @' + line) : '')); } catch (_e) {}
       if (sent >= MAX_PER_LOAD) return;
       const key = kind + '|' + (message || '') + '|' + (line || '');
       if (seen.has(key)) return;
@@ -1580,6 +1592,16 @@ function onWsMessage(ev) {
     setUnlockToast('🎭 New look unlocked!');
     if (typeof window.__applyWardrobe === 'function') try { window.__applyWardrobe({ weapon: msg.weapon }); } catch (e) {}
     else if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
+    return;
+  }
+
+  if (msg.type === 'bug_ack') {
+    // Server received (or rejected) an in-game bug report. Toast the result and,
+    // on success, close the modal so the player gets a clean "done" beat.
+    const sb = document.getElementById('bugSendBtn');
+    if (sb) { sb.disabled = false; sb.textContent = 'Send report'; }
+    setUnlockToast((msg.ok ? '' : '⚠️ ') + (msg.message || (msg.ok ? 'Thank you! Your report was sent.' : 'Could not send that report.')));
+    if (msg.ok && typeof window.__closeBugModal === 'function') try { window.__closeBugModal(); } catch (e) {}
     return;
   }
 
@@ -10611,6 +10633,55 @@ const { openNotifModal } = _notif;
   if (mw) mw.addEventListener('click', () => { document.getElementById('menuSheet').classList.add('hidden'); renderWardrobe(); const m = document.getElementById('wardrobeModal'); if (m) m.classList.remove('hidden'); });
   const cb = document.getElementById('wardrobeCloseBtn');
   if (cb) cb.addEventListener('click', () => { const m = document.getElementById('wardrobeModal'); if (m) m.classList.add('hidden'); });
+})();
+
+// == In-game bug reporter ====================================================
+// A "Report a Bug" menu entry players can use to tell us what broke. The server
+// attaches their identity + context (class, room, level, device, IP); the
+// client adds the build hash and a snapshot of recent client errors so a report
+// carries "what was on fire just now" without the player having to know any of
+// it. Pure dev-feedback channel — never touches moderation or the audit log.
+(function installBugReporter() {
+  function buildHash() {
+    try {
+      const s = document.querySelector('script[src*="client.js"]');
+      const m = s && /[?&]v=([\w.-]+)/.exec(s.getAttribute('src') || '');
+      return m ? m[1] : '';
+    } catch (_e) { return ''; }
+  }
+  function open() {
+    const sheet = document.getElementById('menuSheet'); if (sheet) sheet.classList.add('hidden');
+    const m = document.getElementById('bugModal'); if (!m) return;
+    const meta = document.getElementById('bugMeta');
+    if (meta) {
+      let errs = []; try { errs = (window.__recentErrors && window.__recentErrors()) || []; } catch (_e) {}
+      const b = buildHash();
+      meta.textContent = '🔒 We attach: your name, class, room, and build' + (b ? (' ' + b) : '') +
+        (errs.length ? (' · ' + errs.length + ' recent error' + (errs.length === 1 ? '' : 's')) : '') + '.';
+    }
+    const err = document.getElementById('bugText'); if (err) err.value = '';
+    const sb = document.getElementById('bugSendBtn'); if (sb) { sb.disabled = false; sb.textContent = 'Send report'; }
+    m.classList.remove('hidden');
+    if (err) try { err.focus(); } catch (_e) {}
+  }
+  function close() { const m = document.getElementById('bugModal'); if (m) m.classList.add('hidden'); }
+  function send() {
+    const ta = document.getElementById('bugText');
+    const text = ta ? String(ta.value || '').trim() : '';
+    if (!text) { setUnlockToast('Please add a short description of the bug first.'); if (ta) try { ta.focus(); } catch (_e) {} return; }
+    let errs = []; try { errs = (window.__recentErrors && window.__recentErrors()) || []; } catch (_e) {}
+    const sb = document.getElementById('bugSendBtn'); if (sb) { sb.disabled = true; sb.textContent = 'Sending…'; }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'bug_report', text: text.slice(0, 1000), build: buildHash(), errors: errs.slice(0, 5) }));
+    } else {
+      setUnlockToast('⚠️ Not connected — reconnect and try again.');
+      if (sb) { sb.disabled = false; sb.textContent = 'Send report'; }
+    }
+  }
+  const mb = document.getElementById('menuBug'); if (mb) mb.addEventListener('click', open);
+  const cl = document.getElementById('bugCloseBtn'); if (cl) cl.addEventListener('click', close);
+  const sn = document.getElementById('bugSendBtn'); if (sn) sn.addEventListener('click', send);
+  window.__closeBugModal = close;
 })();
 
 

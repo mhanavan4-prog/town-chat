@@ -2108,6 +2108,7 @@
       <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
       <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
       <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
+      <button class="menuRow" id="menuBug" title="Tell the Thornkeeper about a bug or glitch">🐛 Report a Bug</button>
       <button class="menuRow" id="menuLogout" title="Disconnect and go back to the start screen">🌒 Leave the town</button>
     </div>
     <div id="menuMeta"><span id="menuPeople">1 in town</span> · <span id="menuDayNight">☀️ Day</span> · <span id="menuPassState"></span></div>
@@ -2543,6 +2544,19 @@
     <div class="subtitle">Change how you look — pure style, no effect on your stats. Your choice shows to everyone in town.</div>
     <div class="slList" id="wardrobeList" style="max-height:56vh"></div>
     <button class="btn" id="wardrobeCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="bugModal" class="overlay hidden">
+  <div class="card" id="bugCard">
+    <div class="title" style="font-size:20px;">🐛 Report a Bug</div>
+    <div class="subtitle">Something broken, stuck, or weird? Tell the Thornkeeper what happened — we attach your class, room, and build automatically so you don't have to.</div>
+    <textarea id="bugText" maxlength="1000" rows="5" placeholder="What were you doing when it happened? What did you expect, and what actually happened?" style="width:100%;box-sizing:border-box;resize:vertical;background:#120c22;color:#e9ddff;border:1px solid rgba(185,138,255,0.3);border-radius:10px;padding:10px;font-family:inherit;font-size:14px;"></textarea>
+    <div id="bugMeta" class="subtitle" style="margin-top:6px;opacity:0.8;"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn" id="bugSendBtn" style="flex:1;">Send report</button>
+      <button class="btn" id="bugCloseBtn" style="flex:1;">Close</button>
+    </div>
   </div>
 </div>
 
@@ -3374,6 +3388,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=375855ea51"></script>
+<script src="client.js?v=df4fd51fac"></script>
 </body>
 </html>

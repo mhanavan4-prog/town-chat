@@ -1327,6 +1327,8 @@ const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, p
 // aggregate analytics and keeps a bounded ring of recent reports for the admin
 // dashboard (see lib/telemetry.js). Nothing here is persisted or per-user.
 const telemetry = require('./lib/telemetry')({ analytics });
+// In-game bug reports (persisted, admin-read). See lib/bugreports.js.
+const bugReports = require('./lib/bugreports')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
 // Count one unique active account per day (and, once ever, the first time an
 // account comes back on a later day than it registered). Uses a single date
 // marker on the account — no event log, no PII.
@@ -1669,7 +1671,7 @@ const bans = {
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   reportsList, reportsResolve,
-  worldChatRecent, hostSay, telemetry,
+  worldChatRecent, hostSay, telemetry, bugReports,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room, id: String(p.id || '').slice(0, 4), since: p.joinedAt || null })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -8186,6 +8188,32 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // In-game bug report: the player writes what happened; we attach their live
+    // identity + context (room, class, level, device, IP) and the client-supplied
+    // build hash + recent console errors, then store it for the admin console.
+    // Rate-limited; the free text bypasses the word filter (it's a private report
+    // to the dev, not public chat).
+    if (msg.type === 'bug_report') {
+      if (!player) return;
+      const rlKey = player.accountKey || ws._ip || player.id;
+      if (audit.hit(rlKey, 'bug_report', 10 * 60 * 1000) > 3) {
+        send(ws, { type: 'bug_ack', ok: false, message: "You've already sent a few reports — thank you! Try again in a bit." });
+        return;
+      }
+      const text = String(msg.text || '').trim().slice(0, 1000);
+      if (!text) { send(ws, { type: 'bug_ack', ok: false, message: 'Please add a short description of the bug first.' }); return; }
+      const rep = bugReports.add({
+        text, name: player.name, account: player.accountKey || null, room: player.room,
+        charId: player.charId, level: player.level || 1, device: ws._device,
+        build: String(msg.build || ''), ip: ws._ip,
+        errors: Array.isArray(msg.errors) ? msg.errors : []
+      });
+      analytics.bump('bug.report');
+      audit.log({ level: 'info', type: 'bug_report', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { id: rep.id, room: player.room } });
+      send(ws, { type: 'bug_ack', ok: true, message: 'Thank you! Your report was sent to the Thornkeeper. 🐛' });
+      return;
+    }
+
     if (msg.type === 'send_note') {
       // Private, point-to-point note — kept in target.inbox in memory for
       // as long as it's undestroyed so Rapid Swipe has something to
@@ -11827,6 +11855,8 @@ setInterval(() => {
 global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
+  bugReports, // test-only: inspect the in-game bug-report store
+
   noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
   getStoryState, CLASS_NAMES, // test-only: drive campaign progression + ability-cast analytics (storyEvent/STORYLINES already exposed below)
   sanitizeImage, stripImageMetadata, // test-only: image metadata stripping
