@@ -4012,7 +4012,7 @@ function makeId() {
 
 
 // Auction house (Sessions I/M) — extracted to lib/auctions.js (Tier 3.4 Phase B).
-const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo });
+const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo, auctionMediaInfo });
 const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, AUCTION_GOLD_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
 
 setInterval(() => {
@@ -7524,9 +7524,20 @@ function recordAuctionEvent(ev) {
     name: String(ev.name || '').slice(0, 40),   // the actor: seller / bidder / winner
     text: String(ev.text || '').slice(0, 180),
     currency: ev.currency === 'ms' ? 'ms' : 'gold',
-    item: ev.item || null                         // the in-game item card (see auctionItemInfo)
+    item: ev.item || null,                         // the in-game item card (see auctionItemInfo)
+    media: ev.media || null                        // selfie photo / howl audio (see auctionMediaInfo)
   });
   if (auctionFeedLog.length > AUCTION_FEED_LIMIT) auctionFeedLog.shift();
+}
+// For selfie / voice listings there's no catalog item — what a player actually
+// sees is the photo or the recording. Carry that into the feed so the admin
+// sees the same thing. (Selfies are already public to every player on the
+// auction block, so showing them here is consistent.) Returns null for gear.
+function auctionMediaInfo(listing) {
+  if (!listing) return null;
+  if (listing.isSelfie && listing.image) return { kind: 'selfie', image: listing.image };
+  if (listing.isVoice && listing.audio) return { kind: 'voice', audio: listing.audio };
+  return null;
 }
 // How each equip stat reads in-game (mirrors client STAT_DISPLAY). pct stats are
 // shown as a percentage; vitality is a flat health number.
@@ -8640,7 +8651,7 @@ wss.on('connection', (ws, req) => {
       };
       listings.push(listing);
       saveListings();
-      recordAuctionEvent({ kind: 'list', name: player.name, currency: 'gold',
+      recordAuctionEvent({ kind: 'list', name: player.name, currency: 'gold', media: auctionMediaInfo(listing),
         text: 'listed a selfie — start ' + startingBid + auctionCurTag('gold') + (buyoutPrice ? (' · buyout ' + buyoutPrice + auctionCurTag('gold')) : '') });
       broadcastAuctionState();
       return;
@@ -8702,7 +8713,7 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       }
 
-      recordAuctionEvent({ kind: 'bid', name: player.name, currency: listing.currency, item: auctionItemInfo(listing),
+      recordAuctionEvent({ kind: 'bid', name: player.name, currency: listing.currency, item: auctionItemInfo(listing), media: auctionMediaInfo(listing),
         text: 'bid ' + amount + auctionCurTag(listing.currency) + ' on ' + auctionFeedLabel(listing) });
       if (listing.buyoutPrice && amount >= listing.buyoutPrice) {
         resolveListing(listing);
