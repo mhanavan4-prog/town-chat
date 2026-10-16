@@ -2295,7 +2295,7 @@ function onWsMessage(ev) {
     if (lastBankState) lastBankState.balance = msg.balance;
     if (Modals.isOpen('npcShopOpen')) {
       const balEl = document.getElementById('npcShopBalance');
-      if (balEl) balEl.textContent = `Balance: ${msg.balance} 🪙`;
+      if (balEl) balEl.innerHTML = `Balance: ${msg.balance} <span class="coin"></span>`;
       refreshShopSellTab(); // reflect the now-smaller stack
     }
     return;

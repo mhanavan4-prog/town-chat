@@ -35,7 +35,8 @@ function renderNpcShop(msg) {
   document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
   const bal = getBankState() ? getBankState().balance : '?';
   const balEl = document.getElementById('npcShopBalance');
-  balEl.textContent = (msg.greeting ? `“${msg.greeting}”  ·  ` : '') + `Balance: ${bal} 🪙`;
+  balEl.textContent = (msg.greeting ? `“${msg.greeting}”  ·  ` : '') + `Balance: ${bal} `;
+  balEl.insertAdjacentHTML('beforeend', '<span class="coin"></span>');
   ensureShopTabs();
   renderShopTab();
   document.getElementById('npcShopErr').textContent = '';

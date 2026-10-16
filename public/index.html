@@ -17,6 +17,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet">
 <style>
+  /* A true-gold coin chip used for the gold currency (the 🪙 emoji renders
+     pale/silver on some platforms, so we draw the coin ourselves). */
+  .coin { display:inline-block; width:0.92em; height:0.92em; border-radius:50%;
+    background:radial-gradient(circle at 36% 30%, #fff3b0, #ffd85a 34%, #eab12a 66%, #b07d12);
+    box-shadow: inset 0 0 0 1.4px rgba(120,86,12,0.9), inset 1px 1px 2px rgba(255,248,210,0.6);
+    vertical-align:-0.11em; }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body {
     width:100%; height:100%; overflow:hidden;
@@ -1938,7 +1944,7 @@
 <div id="npcShopModal" class="overlay hidden">
   <div class="card" style="width:min(400px,92vw);">
     <div class="title" style="font-size:20px;" id="npcShopTitle">🛒 Shop</div>
-    <div class="subtitle" id="npcShopBalance">Balance: 0 🪙</div>
+    <div class="subtitle" id="npcShopBalance">Balance: 0 <span class="coin"></span></div>
     <div id="npcShopItems" style="margin:14px 0;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
     <div class="err" id="npcShopErr"></div>
     <button class="btn" id="npcShopQuestBtn">💬 Ask for a Quest</button>
@@ -2086,7 +2092,7 @@
   <div id="menuSheetCard">
     <div id="menuSheetTitle">Thornreach</div>
     <div id="menuGrid">
-      <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;">🪙 0</span></button>
+      <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;"><span class="coin"></span> 0</span></button>
       <button class="menuRow" id="menuJournal">📜 Journal</button>
       <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
       <button class="menuRow" id="menuKit">⚔️ Abilities</button>
@@ -2709,7 +2715,7 @@
       </div>
       <div id="covenBankView" class="hidden">
         <div class="slNote" id="covenBankNote">The shared tab is used at the 🏦 Gilded Vault, like your own account.</div>
-        <div class="subtitle">Tab gold: <span id="covenGold">0</span> 🪙</div>
+        <div class="subtitle">Tab gold: <span id="covenGold">0</span> <span class="coin"></span></div>
         <div style="display:flex; gap:6px; justify-content:center; margin:6px 0;">
           <input id="covenGoldAmt" type="number" min="1" placeholder="amount" style="width:110px; background:#170f2a; border:1px solid #4a3b6a; color:#e8dcc8; border-radius:9px; padding:7px 10px;">
           <button class="btn" id="covenDepositBtn" style="margin:0">Deposit</button>
@@ -2797,7 +2803,7 @@
 <div id="bankModal" class="overlay hidden">
   <div class="card" id="bankCard">
     <div class="title" style="font-size:20px;">🏦 Your Bank Account</div>
-    <div class="subtitle">Balance: <span id="bankBalance">0</span> 🪙 gold — 24 slots below</div>
+    <div class="subtitle">Balance: <span id="bankBalance">0</span> <span class="coin"></span> gold — 24 slots below</div>
     <div id="bankSlotsGrid" class="itemSlotsGrid"></div>
     <div id="bankListForm" class="hidden">
       <div class="passInfo">
@@ -2835,7 +2841,7 @@
     <div class="title" style="font-size:20px;">💸 Wire Clerk</div>
     <div class="subtitle">Send gold straight from your bank balance to another player who's online right now.</div>
     <div class="passInfo">
-      <div class="passTitle">Your balance: <span id="sendMoneyBalance">0</span> 🪙 gold</div>
+      <div class="passTitle">Your balance: <span id="sendMoneyBalance">0</span> <span class="coin"></span> gold</div>
       <label>Send to</label>
       <select id="sendMoneyRecipient"></select>
       <label>Amount (gold)</label>
@@ -3061,7 +3067,7 @@
   </div>
 
   <div id="invItemsView">
-    <div id="invGoldLine" class="hidden" style="margin-bottom:8px; padding:7px 10px; background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.35); border-radius:6px; color:#ffd700; font-size:13px;">🪙 0</div>
+    <div id="invGoldLine" class="hidden" style="margin-bottom:8px; padding:7px 10px; background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.35); border-radius:6px; color:#ffd700; font-size:13px;"><span class="coin"></span> 0</div>
     <div id="dungeonTokenSection" style="margin-bottom:8px; padding:8px; background:#120a22; border:1px solid #5a2a8a; border-radius:6px;">
       <div style="font-weight:bold; color:#cc88ff; margin-bottom:4px;">⚡ Wildlands Token</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">Personal level-matched dungeon — Permanent · Cannot be traded or stolen</div>
@@ -3432,6 +3438,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=c8b066c7ff"></script>
+<script src="client.js?v=f8af8e3237"></script>
 </body>
 </html>
