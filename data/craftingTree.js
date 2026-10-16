@@ -95,4 +95,13 @@ const CRAFT_RECIPES = [
     desc: 'Warded Band + Spirit Thread + Druid Stone + Ember Glass → Starforged Signet' },
 ];
 
+// Session O — merge in the purchasable "Artisan" sidegrade recipes (the gold
+// sink). They ride the same CRAFT_ITEMS / CRAFT_EQUIP / CRAFT_RECIPES exports,
+// so the catalog merge, the client payload, the integrity test and the auction
+// item-card all pick them up with no extra plumbing.
+const { CRAFT_SHOP_ITEMS, CRAFT_SHOP_EQUIP, CRAFT_SHOP_RECIPES } = require('./craftShop');
+Object.assign(CRAFT_ITEMS, CRAFT_SHOP_ITEMS);
+Object.assign(CRAFT_EQUIP, CRAFT_SHOP_EQUIP);
+for (const r of CRAFT_SHOP_RECIPES) CRAFT_RECIPES.push(r);
+
 module.exports = { CRAFT_ITEMS, CRAFT_EQUIP, CRAFT_RECIPES };

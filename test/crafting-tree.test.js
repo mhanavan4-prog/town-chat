@@ -110,6 +110,40 @@ setTimeout(() => {
   const apprentice = s.sent.filter(m => m.type === 'achievement_unlocked' && m.ach && m.ach.id === 'craft_1');
   check('crafting 5 items unlocks Apprentice', apprentice.length === 1, apprentice.length);
 
+  // ── Session O: purchasable sidegrade recipes (the gold sink) ──
+  const shopRecipes = RECIPES.filter(r => r.gold);
+  check('there is a large purchasable sidegrade catalog', shopRecipes.length >= 40, shopRecipes.length);
+  const totalGold = shopRecipes.reduce((n, r) => n + r.gold, 0);
+  check('buying every recipe costs a hundreds-of-days total (>1M gold)', totalGold > 1000000, totalGold);
+
+  const shop = shopRecipes[0]; // cheapest-ish; grab any
+  const acct = h.ensureBankAccount('smith');
+  // Can't craft a purchasable recipe you haven't learned.
+  acct.balance = 0;
+  give(shop.ingredients[0].id, shop.ingredients[0].qty); // stock one ingredient so the gate (not stock) is what blocks
+  craft(shop.id);
+  check('a purchasable recipe can’t be crafted unlocked', s.lastOfType('workshop_craft_error') && /learn/i.test(s.lastOfType('workshop_craft_error').message), s.lastOfType('workshop_craft_error'));
+
+  // Buying with too little gold is refused.
+  acct.balance = shop.gold - 1;
+  s.emit('message', JSON.stringify({ type: 'buy_recipe', recipeId: shop.id }));
+  check('learning a recipe with too little gold is refused', !s.lastOfType('recipe_bought') && /costs/i.test((s.lastOfType('workshop_craft_error') || {}).message || ''), acct.balance);
+
+  // Buy it: gold is spent and the recipe is recorded account-wide.
+  acct.balance = shop.gold + 500;
+  s.emit('message', JSON.stringify({ type: 'buy_recipe', recipeId: shop.id }));
+  check('buying a recipe confirms with recipe_bought', (() => { const b = s.lastOfType('recipe_bought'); return b && b.recipeId === shop.id; })());
+  check('the purchase debits the gold price', Math.round(acct.balance) === 500, acct.balance);
+  check('the recipe is recorded on the account', (() => { const pr = h.getProgress(p); return pr.recipesUnlocked && pr.recipesUnlocked.indexOf(shop.id) !== -1; })());
+
+  // Now it crafts (given materials); and re-buying doesn't double-charge.
+  const balBefore = acct.balance;
+  s.emit('message', JSON.stringify({ type: 'buy_recipe', recipeId: shop.id }));
+  check('re-learning an owned recipe does not double-charge', Math.round(acct.balance) === Math.round(balBefore), acct.balance);
+  for (const ing of shop.ingredients) give(ing.id, ing.qty);
+  craft(shop.id);
+  check('a learned recipe forges from materials', qty(shop.result) === 1, qty(shop.result));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 200);

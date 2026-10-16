@@ -1029,6 +1029,7 @@ function onWsMessage(ev) {
     if (msg.calendar) applyCalendarState(msg.calendar);
     if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
     if (Array.isArray(msg.craftRecipes)) craftRecipesClient = msg.craftRecipes;
+    if (Array.isArray(msg.recipesUnlocked)) myRecipesUnlocked = msg.recipesUnlocked;
     if (msg.covenSigils) covenSigilsCatalog = msg.covenSigils;
     pushPublicKey = msg.pushPublicKey || null;
     pushAvailable = !!msg.pushAvailable;
@@ -1689,6 +1690,12 @@ function onWsMessage(ev) {
   if (msg.type === 'workshop_craft_error') {
     const el = document.getElementById('workshopErr');
     if (el) el.textContent = msg.message || 'That craft failed.';
+    return;
+  }
+  if (msg.type === 'recipe_bought') {
+    if (myRecipesUnlocked.indexOf(msg.recipeId) === -1) myRecipesUnlocked.push(msg.recipeId);
+    if (msg.message) setUnlockToast(msg.message);
+    renderWorkshopModal(); // bank_state (sent alongside) refreshes gold; redraw so it's now learned
     return;
   }
 
@@ -3156,6 +3163,7 @@ let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
 let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
+let myRecipesUnlocked = [];   // purchasable recipes this account has learned (from init / recipe_bought)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
 // mirrored here for display; ms_state pushes keep it fresh.
 let myMoonstones = 0;
@@ -10501,6 +10509,8 @@ const _workshop = createWorkshop({
   getInventoryState: () => lastInventoryState,
   getItemCatalog: () => ITEM_CATALOG,
   getEquipStats: () => equipStatsCatalog,
+  getRecipesUnlocked: () => myRecipesUnlocked,
+  getGold: () => (lastBankState ? lastBankState.balance : 0),
 });
 const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
 
