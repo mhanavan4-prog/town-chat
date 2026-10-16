@@ -25479,12 +25479,12 @@ const { openNotifModal } = _notif;
   // (The 6 named camp NPCs come from WILDS_NPCS and campfires from
   // WILDS_CAMPFIRES — referenced live, not duplicated here.)
   const WILDS_POI = [
-    { x: 5000, y: 3000, icon: '🏚️', label: 'The Village' },
-    { x: 2200, y: 5000, icon: '🪓', label: 'Unbound Camp' },
-    { x: 7800, y: 5000, icon: '🛡️', label: 'Thornwarden Camp' },
-    { x: 2000, y: 2000, icon: '🕯️', label: "Witch's Cave" },
-    { x: 3000, y: 3000, icon: '🏰', label: 'Coven Manor (coven only)' },
-    { x: 6500, y: 6200, icon: '🌳', label: 'The Great Tree' }
+    { x: 5000, y: 3000, kind: 'village', label: 'The Village' },
+    { x: 2200, y: 5000, kind: 'camp', color: '#b5633a', label: 'Unbound Camp' },
+    { x: 7800, y: 5000, kind: 'camp', color: '#5f7fa0', label: 'Thornwarden Camp' },
+    { x: 2000, y: 2000, kind: 'cave', label: "Witch's Cave" },
+    { x: 3000, y: 3000, kind: 'manor', label: 'Coven Manor (coven only)' },
+    { x: 6500, y: 6200, kind: 'tree', label: 'The Great Tree' }
   ];
   const EMBER_SAFE_R = 1800; // keep in sync with server EMBER_SAFE_RADIUS
   function roundRect(ctx, x, y, w, h, r) {
@@ -25607,19 +25607,29 @@ const { openNotifModal } = _notif;
     }
   }
   // A labeled marker: emoji glyph at (px,py), short label beneath.
-  function marker(ctx, px, py, icon, label, color) {
-    ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(icon, px, py);
-    if (label) {
-      ctx.fillStyle = color || '#cfc3e8'; ctx.font = '600 9px system-ui, sans-serif'; ctx.textBaseline = 'top';
-      ctx.fillText(label, px, py + 9);
-    }
-  }
   // A small 3-D-ish map prop (ground point gx,gy, scale s) for landmarks,
   // services, portals and quest NPCs — the marker equivalent of drawBuilding.
-  function drawProp(ctx, gx, gy, s, kind) {
+  function drawProp(ctx, gx, gy, s, kind, opt) {
+    opt = opt || {};
+    const P = (q, a, b) => [q[0] + (a || 0), q[1] + (b || 0)];
     function shadow(w, h) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(gx, gy, w || s * 0.5, h || s * 0.18, 0, 0, 7); ctx.fill(); }
     function post(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x - w / 2, y - h, w, h); ctx.strokeStyle = shade(c, 0.6); ctx.lineWidth = 1; ctx.strokeRect(x - w / 2, y - h, w, h); }
+    function hut(cx, base, w, hh, wall, roof) {
+      const dx = w * 0.34, dy = -w * 0.24;
+      const FLb = [cx - w / 2, base], FRb = [cx + w / 2, base], FLt = [cx - w / 2, base - hh], FRt = [cx + w / 2, base - hh];
+      ctx.strokeStyle = shade(wall, 0.5); ctx.lineWidth = 1.2;
+      ctx.fillStyle = shade(wall, 0.66); ctx.beginPath(); ctx.moveTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...P(FRt, dx, dy)); ctx.lineTo(...P(FRb, dx, dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = wall; ctx.beginPath(); ctx.moveTo(...FLb); ctx.lineTo(...FRb); ctx.lineTo(...FRt); ctx.lineTo(...FLt); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const apF = [cx, base - hh - w * 0.42], apB = P(apF, dx, dy);
+      ctx.fillStyle = shade(roof, 0.7); ctx.beginPath(); ctx.moveTo(...FRt); ctx.lineTo(...apF); ctx.lineTo(...apB); ctx.lineTo(...P(FRt, dx, dy)); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(...FLt); ctx.lineTo(...FRt); ctx.lineTo(...apF); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    function flame(cx, base, r, warm) {
+      const g = ctx.createRadialGradient(cx, base - r, 1, cx, base - r, r * 1.6);
+      if (warm) { g.addColorStop(0, '#fff2b0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(200,60,0,0)'); }
+      else { g.addColorStop(0, '#d8fff0'); g.addColorStop(0.5, '#4fe0c0'); g.addColorStop(1, 'rgba(40,160,130,0)'); }
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, base - r, r, r * 1.4, 0, 0, 7); ctx.fill();
+    }
     if (kind === 'npc') {
       shadow(s * 0.34);
       ctx.fillStyle = '#4a7a3c'; ctx.strokeStyle = '#2f4a26'; ctx.lineWidth = 1.2;
@@ -25700,11 +25710,83 @@ const { openNotifModal } = _notif;
       ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.46, s * 0.17, s * 0.24, 0, 0, 7); ctx.fill();
       return;
     }
+    if (kind === 'village') {
+      shadow(s * 0.55);
+      hut(gx + s * 0.22, gy, s * 0.5, s * 0.4, '#b98a5a', '#9a5a30');
+      hut(gx - s * 0.14, gy, s * 0.62, s * 0.5, '#cdb088', '#b5673a');
+      return;
+    }
+    if (kind === 'camp') {
+      shadow(s * 0.55); const c = opt.color || '#b5633a';
+      ctx.fillStyle = c; ctx.strokeStyle = shade(c, 0.55); ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.5, gy); ctx.lineTo(gx, gy - s * 0.66); ctx.lineTo(gx + s * 0.5, gy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = shade(c, 0.72); ctx.beginPath(); ctx.moveTo(gx, gy - s * 0.66); ctx.lineTo(gx + s * 0.5, gy); ctx.lineTo(gx, gy); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(c, 0.38); ctx.beginPath(); ctx.moveTo(gx, gy - s * 0.4); ctx.lineTo(gx - s * 0.12, gy); ctx.lineTo(gx + s * 0.12, gy); ctx.closePath(); ctx.fill();
+      post(gx, gy - s * 0.66, s * 0.03, s * 0.16, '#5f4327');
+      ctx.fillStyle = shade(c, 1.35); ctx.beginPath(); ctx.moveTo(gx + s * 0.015, gy - s * 0.82); ctx.lineTo(gx + s * 0.26, gy - s * 0.76); ctx.lineTo(gx + s * 0.015, gy - s * 0.7); ctx.closePath(); ctx.fill();
+      flame(gx - s * 0.42, gy, s * 0.1, true);
+      return;
+    }
+    if (kind === 'cave') {
+      shadow(s * 0.55);
+      ctx.fillStyle = '#5a5560'; ctx.strokeStyle = '#36323c'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.5, gy); ctx.quadraticCurveTo(gx - s * 0.5, gy - s * 0.7, gx, gy - s * 0.72); ctx.quadraticCurveTo(gx + s * 0.55, gy - s * 0.68, gx + s * 0.5, gy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#17131c'; ctx.beginPath(); ctx.moveTo(gx - s * 0.18, gy); ctx.quadraticCurveTo(gx - s * 0.18, gy - s * 0.4, gx, gy - s * 0.42); ctx.quadraticCurveTo(gx + s * 0.18, gy - s * 0.4, gx + s * 0.18, gy); ctx.closePath(); ctx.fill();
+      flame(gx, gy - s * 0.04, s * 0.09, true);
+      return;
+    }
+    if (kind === 'manor') {
+      shadow(s * 0.5);
+      hut(gx + s * 0.06, gy, s * 0.66, s * 0.56, '#54506a', '#3a2f52');
+      post(gx - s * 0.34, gy, s * 0.26, s * 0.95, '#5e5a76');
+      ctx.fillStyle = '#3a2f52'; ctx.strokeStyle = '#2a2240'; ctx.beginPath(); ctx.moveTo(gx - s * 0.49, gy - s * 0.95); ctx.lineTo(gx - s * 0.19, gy - s * 0.95); ctx.lineTo(gx - s * 0.34, gy - s * 1.22); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd77a'; ctx.fillRect(gx - s * 0.4, gy - s * 0.6, s * 0.12, s * 0.14);
+      return;
+    }
+    if (kind === 'tree') {
+      shadow(s * 0.5);
+      post(gx, gy, s * 0.14, s * 0.4, '#5f4327');
+      ctx.fillStyle = '#3f7a46'; ctx.strokeStyle = '#2c5632'; ctx.lineWidth = 1.2;
+      for (const c of [[-0.22, -0.5, 0.3], [0.22, -0.52, 0.3], [0, -0.72, 0.36], [0, -0.5, 0.34]]) { ctx.beginPath(); ctx.arc(gx + c[0] * s, gy + c[1] * s, c[2] * s, 0, 7); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#53934f'; for (const c of [[-0.14, -0.66, 0.16], [0.16, -0.6, 0.14]]) { ctx.beginPath(); ctx.arc(gx + c[0] * s, gy + c[1] * s, c[2] * s, 0, 7); ctx.fill(); }
+      return;
+    }
+    if (kind === 'campfire') {
+      shadow(s * 0.4);
+      ctx.strokeStyle = '#5f4327'; ctx.lineWidth = s * 0.1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.3, gy); ctx.lineTo(gx + s * 0.3, gy - s * 0.08); ctx.moveTo(gx - s * 0.3, gy - s * 0.08); ctx.lineTo(gx + s * 0.3, gy); ctx.stroke(); ctx.lineCap = 'butt';
+      flame(gx, gy - s * 0.02, s * 0.22, true);
+      return;
+    }
+    if (kind === 'haven') {
+      shadow(s * 0.4);
+      post(gx, gy, s * 0.12, s * 0.5, '#8a8f98');
+      ctx.fillStyle = '#b7bcc4'; ctx.strokeStyle = '#6a6f78'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.5, s * 0.2, s * 0.09, 0, 0, 7); ctx.fill(); ctx.stroke();
+      flame(gx, gy - s * 0.5, s * 0.2, false);
+      return;
+    }
+    if (kind === 'boss') {
+      shadow(s * 0.45);
+      post(gx, gy, s * 0.1, s * 0.6, '#2a2228');
+      ctx.fillStyle = '#e6e0d4'; ctx.strokeStyle = '#8a8276'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(gx, gy - s * 0.72, s * 0.24, Math.PI, 2 * Math.PI); ctx.lineTo(gx + s * 0.16, gy - s * 0.5); ctx.lineTo(gx - s * 0.16, gy - s * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff3a2a'; ctx.beginPath(); ctx.arc(gx - s * 0.09, gy - s * 0.74, s * 0.055, 0, 7); ctx.arc(gx + s * 0.09, gy - s * 0.74, s * 0.055, 0, 7); ctx.fill();
+      ctx.fillStyle = '#2a2228'; ctx.fillRect(gx - s * 0.03, gy - s * 0.56, s * 0.02, s * 0.06); ctx.fillRect(gx + s * 0.01, gy - s * 0.56, s * 0.02, s * 0.06);
+      return;
+    }
+    if (kind === 'ember_crag') {
+      shadow(s * 0.5);
+      ctx.fillStyle = '#2e2622'; ctx.strokeStyle = '#120d0a'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.4, gy); ctx.lineTo(gx - s * 0.22, gy - s * 0.6); ctx.lineTo(gx + s * 0.06, gy - s * 0.78); ctx.lineTo(gx + s * 0.34, gy - s * 0.5); ctx.lineTo(gx + s * 0.42, gy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = s * 0.05; ctx.beginPath(); ctx.moveTo(gx - s * 0.1, gy); ctx.lineTo(gx + s * 0.02, gy - s * 0.4); ctx.lineTo(gx - s * 0.04, gy - s * 0.56); ctx.stroke();
+      const g = ctx.createRadialGradient(gx, gy - s * 0.2, 1, gx, gy - s * 0.2, s * 0.3); g.addColorStop(0, 'rgba(255,120,30,0.5)'); g.addColorStop(1, 'rgba(255,120,30,0)'); ctx.fillStyle = g; ctx.fillRect(gx - s * 0.4, gy - s * 0.5, s * 0.8, s * 0.5);
+      return;
+    }
   }
   // Prop marker centered on (px,py) with a short label beneath, at scale s.
-  function propMarker(ctx, px, py, kind, label, color, s) {
+  function propMarker(ctx, px, py, kind, label, color, s, opt) {
     const gy = py + s * 0.2;
-    drawProp(ctx, px, gy, s, kind);
+    drawProp(ctx, px, gy, s, kind, opt);
     if (label) {
       ctx.fillStyle = color || '#cfc3e8'; ctx.font = '600 9px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -25827,32 +25909,31 @@ const { openNotifModal } = _notif;
     drawPlayers(ctx, PX, PY, 'outside');
   }
   function drawWilds(ctx, PX, PY, cw, ch) {
+    const propS = Math.max(18, Math.min(cw * 0.024, 28));
+    const npcS = Math.max(16, propS * 0.82), fireS = Math.max(14, propS * 0.7);
     // Spawn / portal home (they sit together at the south edge).
     if (world2.spawn) {
-      const px = PX(world2.spawn.x), py = PY(world2.spawn.y);
-      ctx.fillStyle = '#9b5fc0'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
-      marker(ctx, px, py, '', '🌀 Portal home', '#d7b8ff');
+      propMarker(ctx, PX(world2.spawn.x), PY(world2.spawn.y), 'wilds_portal', '🌀 Portal home', '#d7b8ff', propS);
     }
-    // Landmark labels; seed the label-placement list so NPC names below won't
+    // Landmark props; seed the label-placement list so NPC names below won't
     // collide with them.
     const placed = [];
-    for (const poi of WILDS_POI) { marker(ctx, PX(poi.x), PY(poi.y), poi.icon, poi.label, '#cbbdf0'); placed.push({ x: PX(poi.x), y: PY(poi.y) + 9 }); }
-    // Campfires: icon only — five identical "Campfire" labels were just noise,
-    // and the 🔥 glyph reads on its own.
-    if (typeof WILDS_CAMPFIRES !== 'undefined') {
-      ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (const f of WILDS_CAMPFIRES) ctx.fillText('🔥', PX(f.x), PY(f.y));
+    for (const poi of WILDS_POI) {
+      propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#cbbdf0', propS, { color: poi.color });
+      placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
     }
-    // NPCs: icons at their true spots, then names stacked downward so the tight
-    // camp clusters read as a clean list instead of a tangle.
+    // Campfires: prop only — five identical "Campfire" labels were just noise.
+    if (typeof WILDS_CAMPFIRES !== 'undefined') {
+      for (const f of WILDS_CAMPFIRES) drawProp(ctx, PX(f.x), PY(f.y) + fireS * 0.2, fireS, 'campfire');
+    }
+    // NPCs: villager props at their true spots, then names stacked downward so
+    // the tight camp clusters read as a clean list instead of a tangle.
     if (typeof WILDS_NPCS !== 'undefined') {
-      ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (const n of WILDS_NPCS) ctx.fillText('❗', PX(n.x), PY(n.y));
+      for (const n of WILDS_NPCS) drawProp(ctx, PX(n.x), PY(n.y) + npcS * 0.2, npcS, 'npc');
       ctx.font = '600 9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#ffd479';
-      const list = WILDS_NPCS.map((n) => ({ name: n.name, x: PX(n.x), y: PY(n.y) })).sort((a, b) => a.y - b.y || a.x - b.x);
+      const list = WILDS_NPCS.map((n) => ({ name: n.name, x: PX(n.x), y: PY(n.y) + npcS * 0.2 })).sort((a, b) => a.y - b.y || a.x - b.x);
       for (const it of list) {
-        let ly = it.y + 9, guard = 0;
+        let ly = it.y + 6, guard = 0;
         while (placed.some((p) => Math.abs(p.x - it.x) < 60 && Math.abs(p.y - ly) < 11) && guard++ < 14) ly += 11;
         placed.push({ x: it.x, y: ly });
         ctx.fillText(it.name, it.x, ly);
@@ -25861,19 +25942,20 @@ const { openNotifModal } = _notif;
     drawPlayers(ctx, PX, PY, 'wilds');
   }
   function drawEmber(ctx, PX, PY, cw, ch) {
+    const emberPropS = Math.max(18, Math.min(cw * 0.024, 28));
     const sp = EMBER_WORLD.spawn;
     // Safe haven ring around spawn.
     if (sp) {
       const px = PX(sp.x), py = PY(sp.y), rr = EMBER_SAFE_R * (cw / EMBER_WORLD.width);
       ctx.fillStyle = 'rgba(126,240,195,0.07)'; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(126,240,195,0.35)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-      marker(ctx, px, py, '🛟', 'Safe haven', '#7ef0c3');
+      propMarker(ctx, px, py, 'haven', 'Safe haven', '#7ef0c3', emberPropS);
     }
     // Named POIs streamed in on entry (warlord = the boss).
     if (typeof emberLandmarks !== 'undefined' && Array.isArray(emberLandmarks)) {
       for (const lm of emberLandmarks) {
         if (typeof lm.x !== 'number') continue;
-        marker(ctx, PX(lm.x), PY(lm.y), lm.icon || (lm.warlord ? '💀' : '📍'), lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a');
+        propMarker(ctx, PX(lm.x), PY(lm.y), lm.warlord ? 'boss' : 'ember_crag', lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a', lm.warlord ? emberPropS * 1.15 : emberPropS);
       }
     }
     drawPlayers(ctx, PX, PY, 'ember_wastes');
