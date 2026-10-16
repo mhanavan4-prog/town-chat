@@ -50,6 +50,12 @@ const CHAR_COUNT = 6;
 // tell you when the tick is falling behind.
 const URL = arg('url', null);
 const REMOTE = !!URL;
+// Synthetic-traffic token: when hammering a REAL server (--url), pass --token
+// (or set LOADTEST_TOKEN) to the same value the server has in its LOADTEST_TOKEN
+// env, and every bot join is tagged so it's excluded from the product analytics
+// (joins, class choice, concurrency, sessions). Without it, bots count like
+// real players — fine for the local throwaway server, not for prod.
+const SYNTHETIC_TOKEN = arg('token', process.env.LOADTEST_TOKEN || null);
 // Spread the swarm across the real room so area-of-interest behaves as it would
 // live (a corner-packed swarm would all sit inside one view radius and hide the
 // effect). Override with --spread W,H.
@@ -99,7 +105,9 @@ class Bot {
       this.ws = new WebSocket(URL || `ws://127.0.0.1:${PORT}`);
       this.ws.on('open', () => {
         this.joinSentAt = Date.now();
-        this.ws.send(JSON.stringify({ type: 'join', name: this.name, charId: this.id % CHAR_COUNT }));
+        const join = { type: 'join', name: this.name, charId: this.id % CHAR_COUNT };
+        if (SYNTHETIC_TOKEN) join.synthetic = SYNTHETIC_TOKEN; // keep stress runs out of product analytics
+        this.ws.send(JSON.stringify(join));
         resolve(true);
       });
       this.ws.on('message', (raw) => {
