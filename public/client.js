@@ -25615,6 +25615,102 @@ const { openNotifModal } = _notif;
       ctx.fillText(label, px, py + 9);
     }
   }
+  // A small 3-D-ish map prop (ground point gx,gy, scale s) for landmarks,
+  // services, portals and quest NPCs — the marker equivalent of drawBuilding.
+  function drawProp(ctx, gx, gy, s, kind) {
+    function shadow(w, h) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(gx, gy, w || s * 0.5, h || s * 0.18, 0, 0, 7); ctx.fill(); }
+    function post(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x - w / 2, y - h, w, h); ctx.strokeStyle = shade(c, 0.6); ctx.lineWidth = 1; ctx.strokeRect(x - w / 2, y - h, w, h); }
+    if (kind === 'npc') {
+      shadow(s * 0.34);
+      ctx.fillStyle = '#4a7a3c'; ctx.strokeStyle = '#2f4a26'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.2, gy); ctx.lineTo(gx - s * 0.26, gy - s * 0.42); ctx.lineTo(gx + s * 0.26, gy - s * 0.42); ctx.lineTo(gx + s * 0.2, gy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#e8b887'; ctx.beginPath(); ctx.arc(gx, gy - s * 0.56, s * 0.19, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#6b4a2a'; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.68, s * 0.22, s * 0.1, 0, Math.PI, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(gx, gy - s * 0.98, s * 0.16, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a2a05'; ctx.font = '700 ' + (s * 0.22 | 0) + 'px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', gx, gy - s * 0.96);
+      return;
+    }
+    if (kind === 'legend') {
+      shadow(s * 0.5);
+      post(gx - s * 0.32, gy, s * 0.07, s * 0.5, '#6b4a2a'); post(gx + s * 0.32, gy, s * 0.07, s * 0.5, '#6b4a2a');
+      ctx.fillStyle = '#8a6a40'; ctx.fillRect(gx - s * 0.4, gy - s * 0.28, s * 0.8, s * 0.1);
+      const aw = s * 0.9; for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? '#b98ad8' : '#efe4f6'; ctx.beginPath(); ctx.moveTo(gx - aw / 2 + i * aw / 5, gy - s * 0.5); ctx.lineTo(gx - aw / 2 + (i + 1) * aw / 5, gy - s * 0.5); ctx.lineTo(gx - aw / 2 + (i + 0.5) * aw / 5, gy - s * 0.38); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = '#c9a6e8'; ctx.fillRect(gx - aw / 2, gy - s * 0.62, aw, s * 0.12);
+      ctx.fillStyle = '#d7b8ff'; ctx.beginPath(); ctx.arc(gx, gy - s * 0.33, s * 0.08, 0, 7); ctx.fill(); ctx.strokeStyle = '#9b6bc0'; ctx.stroke();
+      return;
+    }
+    if (kind === 'locksmith') {
+      shadow(s * 0.3);
+      ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = s * 0.1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(gx, gy - s * 0.75); ctx.lineTo(gx, gy - s * 0.1); ctx.stroke();
+      ctx.fillStyle = '#e8c84d'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = s * 0.07;
+      ctx.beginPath(); ctx.arc(gx, gy - s * 0.78, s * 0.18, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#2a2010'; ctx.beginPath(); ctx.arc(gx, gy - s * 0.78, s * 0.07, 0, 7); ctx.fill();
+      ctx.fillStyle = '#e8c84d'; ctx.fillRect(gx, gy - s * 0.26, s * 0.16, s * 0.07); ctx.fillRect(gx, gy - s * 0.16, s * 0.12, s * 0.06);
+      ctx.lineCap = 'butt';
+      return;
+    }
+    if (kind === 'board') {
+      shadow(s * 0.44);
+      post(gx - s * 0.26, gy, s * 0.07, s * 0.6, '#5f4327'); post(gx + s * 0.26, gy, s * 0.07, s * 0.6, '#5f4327');
+      ctx.fillStyle = '#8a6a40'; ctx.strokeStyle = '#4a3320'; ctx.lineWidth = 1.4; ctx.fillRect(gx - s * 0.4, gy - s * 0.62, s * 0.8, s * 0.4); ctx.strokeRect(gx - s * 0.4, gy - s * 0.62, s * 0.8, s * 0.4);
+      ctx.fillStyle = '#e8e2d2'; ctx.fillRect(gx - s * 0.3, gy - s * 0.56, s * 0.22, s * 0.14); ctx.fillRect(gx + s * 0.04, gy - s * 0.5, s * 0.24, s * 0.2);
+      ctx.fillStyle = '#e8c84d'; ctx.strokeStyle = '#8a6a1a'; ctx.beginPath(); ctx.moveTo(gx - s * 0.1, gy - s * 0.66); ctx.lineTo(gx + s * 0.1, gy - s * 0.66); ctx.lineTo(gx + s * 0.05, gy - s * 0.78); ctx.lineTo(gx - s * 0.05, gy - s * 0.78); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillRect(gx - s * 0.02, gy - s * 0.66, s * 0.04, s * 0.05);
+      return;
+    }
+    if (kind === 'delve') {
+      shadow(s * 0.5); const c = '#4c4c56';
+      post(gx - s * 0.3, gy, s * 0.16, s * 0.62, c); post(gx + s * 0.3, gy, s * 0.16, s * 0.62, c);
+      ctx.fillStyle = shade(c, 1.1); ctx.strokeStyle = shade(c, 0.6); ctx.lineWidth = 1; ctx.fillRect(gx - s * 0.46, gy - s * 0.74, s * 0.92, s * 0.16); ctx.strokeRect(gx - s * 0.46, gy - s * 0.74, s * 0.92, s * 0.16);
+      const g = ctx.createRadialGradient(gx, gy - s * 0.34, 1, gx, gy - s * 0.34, s * 0.22); g.addColorStop(0, 'rgba(150,120,255,0.7)'); g.addColorStop(1, 'rgba(90,60,160,0)');
+      ctx.fillStyle = g; ctx.fillRect(gx - s * 0.22, gy - s * 0.6, s * 0.44, s * 0.5);
+      return;
+    }
+    if (kind === 'moot') {
+      shadow(s * 0.4);
+      ctx.fillStyle = '#8a8a92'; ctx.strokeStyle = '#4a4a52'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(gx - s * 0.24, gy); ctx.lineTo(gx - s * 0.3, gy - s * 0.66); ctx.lineTo(gx - s * 0.05, gy - s * 0.82); ctx.lineTo(gx + s * 0.26, gy - s * 0.7); ctx.lineTo(gx + s * 0.22, gy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const g = ctx.createRadialGradient(gx, gy - s * 0.4, 1, gx, gy - s * 0.4, s * 0.16); g.addColorStop(0, '#d7b8ff'); g.addColorStop(1, '#5a3a8a');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.4, s * 0.12, s * 0.15, 0, 0, 7); ctx.fill();
+      return;
+    }
+    if (kind === 'spawn') {
+      shadow(s * 0.3);
+      post(gx, gy, s * 0.06, s * 0.8, '#8a6a40');
+      ctx.fillStyle = '#e8d9a8'; ctx.strokeStyle = '#b89a60'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx + s * 0.03, gy - s * 0.78); ctx.lineTo(gx + s * 0.4, gy - s * 0.66); ctx.lineTo(gx + s * 0.03, gy - s * 0.54); ctx.closePath(); ctx.fill(); ctx.stroke();
+      return;
+    }
+    if (kind === 'wilds_portal') {
+      shadow(s * 0.4);
+      ctx.fillStyle = '#6a6a74'; ctx.strokeStyle = '#3a3a42'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.5, s * 0.34, s * 0.5, 0, 0, 7); ctx.fill(); ctx.stroke();
+      const g = ctx.createRadialGradient(gx, gy - s * 0.5, 1, gx, gy - s * 0.5, s * 0.3); g.addColorStop(0, '#bfe0ff'); g.addColorStop(0.5, '#7a6bff'); g.addColorStop(1, '#3a2a8a');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.5, s * 0.24, s * 0.4, 0, 0, 7); ctx.fill();
+      return;
+    }
+    if (kind === 'ember_temple') {
+      shadow(s * 0.6);
+      ctx.fillStyle = '#d8d2c4'; ctx.strokeStyle = '#a8a090'; ctx.lineWidth = 1.2;
+      ctx.fillRect(gx - s * 0.5, gy - s * 0.14, s * 1.0, s * 0.14); ctx.strokeRect(gx - s * 0.5, gy - s * 0.14, s * 1.0, s * 0.14);
+      ctx.fillRect(gx - s * 0.38, gy - s * 0.24, s * 0.76, s * 0.1);
+      post(gx - s * 0.32, gy - s * 0.24, s * 0.1, s * 0.42, '#cfc8ba'); post(gx + s * 0.32, gy - s * 0.24, s * 0.1, s * 0.42, '#cfc8ba');
+      const g = ctx.createRadialGradient(gx, gy - s * 0.46, 1, gx, gy - s * 0.46, s * 0.26); g.addColorStop(0, '#ffd0a0'); g.addColorStop(0.5, '#ff5a2a'); g.addColorStop(1, '#7a1500');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(gx, gy - s * 0.46, s * 0.17, s * 0.24, 0, 0, 7); ctx.fill();
+      return;
+    }
+  }
+  // Prop marker centered on (px,py) with a short label beneath, at scale s.
+  function propMarker(ctx, px, py, kind, label, color, s) {
+    const gy = py + s * 0.2;
+    drawProp(ctx, px, gy, s, kind);
+    if (label) {
+      ctx.fillStyle = color || '#cfc3e8'; ctx.font = '600 9px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(label, px, gy + 5);
+    }
+  }
   // Dots for everyone else in `room`, then the teal "You" marker.
   function drawPlayers(ctx, PX, PY, room) {
     for (const id in players) {
@@ -25710,29 +25806,22 @@ const { openNotifModal } = _notif;
         ctx.fillText("● you're inside", cx, ly);
       }
     }
+    const propS = Math.max(22, Math.min(cw * 0.028, 34));
     if (world.spawn) {
-      const px = PX(world.spawn.x), py = PY(world.spawn.y);
-      ctx.fillStyle = 'rgba(232,217,168,0.22)'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#e8d9a8'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText('Spawn', px, py + 7);
+      propMarker(ctx, PX(world.spawn.x), PY(world.spawn.y), 'spawn', 'Spawn', '#e8d9a8', propS);
     }
     if (typeof world2 !== 'undefined' && world2 && world2.portalInTown) {
-      const px = PX(world2.portalInTown.x), py = PY(world2.portalInTown.y);
-      ctx.fillStyle = '#9b5fc0'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#d7b8ff'; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText('🌀 Wilds', px, py + 13);
+      propMarker(ctx, PX(world2.portalInTown.x), PY(world2.portalInTown.y), 'wilds_portal', '🌀 Wilds', '#d7b8ff', propS);
     }
     // The Torchkeepers' temple — where the Ember Wastes portal opens at night.
     if (typeof TEMPLE_PLATFORM_X !== 'undefined') {
-      marker(ctx, PX(TEMPLE_PLATFORM_X), PY(TEMPLE_PLATFORM_Z), '🔥', 'Ember Temple (night)', '#ff8a8a');
+      propMarker(ctx, PX(TEMPLE_PLATFORM_X), PY(TEMPLE_PLATFORM_Z), 'ember_temple', 'Ember Temple (night)', '#ff8a8a', propS);
     }
     if (typeof OUTDOOR_KIOSKS !== 'undefined' && Array.isArray(OUTDOOR_KIOSKS)) {
       for (const k of OUTDOOR_KIOSKS) {
         const m = KIOSK_MARKERS[k.npc];
         if (!m || typeof k.x !== 'number') continue;
-        marker(ctx, PX(k.x), PY(k.z), m.icon, m.role || k.npcName || '', m.color);
+        propMarker(ctx, PX(k.x), PY(k.z), k.npc, m.role || k.npcName || '', m.color, propS);
       }
     }
     drawPlayers(ctx, PX, PY, 'outside');
