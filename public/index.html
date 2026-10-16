@@ -2097,6 +2097,7 @@
       <button class="menuRow" id="menuControls">❓ Controls</button>
       <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
+      <button class="menuRow" id="menuWardrobe">🎭 Wardrobe</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
       <button class="menuRow" id="menuWorkshop">🔨 Workshop</button>
@@ -2522,6 +2523,23 @@
     <div class="subtitle" id="titlesSummary">Honorifics you've earned — fly one over your head.</div>
     <div class="slList" id="titlesList" style="max-height:56vh"></div>
     <button class="btn" id="titlesCloseBtn">Close</button>
+  </div>
+</div>
+
+<style>
+#wardrobeList .wrSec{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9b8fc0;margin:14px 2px 6px}
+#wardrobeList .wrSec:first-child{margin-top:2px}
+#wardrobeList .wrOpts{display:flex;flex-wrap:wrap;gap:8px}
+#wardrobeList .wrOpt{background:#1b1430;border:1px solid rgba(185,138,255,0.22);color:#e9ddff;border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer}
+#wardrobeList .wrOpt:hover{border-color:rgba(185,138,255,0.5)}
+#wardrobeList .wrOpt.on{background:linear-gradient(90deg,#a678f0,#5ee7c0);color:#0b0713;border:none}
+</style>
+<div id="wardrobeModal" class="overlay hidden">
+  <div class="card" id="wardrobeCard">
+    <div class="title" style="font-size:20px;">🎭 Wardrobe</div>
+    <div class="subtitle">Change how you look — pure style, no effect on your stats. Your choice shows to everyone in town.</div>
+    <div class="slList" id="wardrobeList" style="max-height:56vh"></div>
+    <button class="btn" id="wardrobeCloseBtn">Close</button>
   </div>
 </div>
 
@@ -3353,6 +3371,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=a88357d77e"></script>
+<script src="client.js?v=1188f12bc6"></script>
 </body>
 </html>

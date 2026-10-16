@@ -8424,7 +8424,7 @@ function updateVillageNpcVisuals(dt) {
 // that spawns a humanoid. THREE/LEGEND_FX are globals; the character data tables
 // (CHAR/CHARACTER_PRESETS/KK) and the KayKit state helper are injected.
 // ---------------------------------------------------------------------------
-function createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState }) {
+function createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState, resolveLook }) {
 // ---------------------------------------------------------------------------
 // Eyes/brows/mouth, placed at a fixed local +Z offset on the head sphere —
 // +Z is "forward" at rotation.y = 0 in this engine's convention (matches
@@ -8684,10 +8684,10 @@ function createHumanoidClassic(charId, presetOverride) {
 // Tier-3 dispatcher: KayKit model when loaded, classic build otherwise.
 // presetOverride callers (Ember Wastes mobs with custom palettes) always
 // get the classic builder — their look is bespoke by design.
-function createHumanoid(charId, presetOverride) {
+function createHumanoid(charId, presetOverride, appearance) {
   const built = (presetOverride || !KK.charReady(charId))
     ? createHumanoidClassic(charId, presetOverride)
-    : createKayKitHumanoid(charId);
+    : createKayKitHumanoid(charId, appearance);
   // Mark the whole figure so the shadow tagger can let characters CAST ground
   // shadows but not RECEIVE them — self-shadowing on these small models under
   // the wide follow shadow map produced saw-tooth acne across the body.
@@ -8695,7 +8695,7 @@ function createHumanoid(charId, presetOverride) {
   return built;
 }
 
-function createKayKitHumanoid(charId) {
+function createKayKitHumanoid(charId, appearance) {
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const t = KK.models[KK.charKey(charId)];
   const inst = THREE.SkeletonUtils.clone(t.scene);
@@ -8704,8 +8704,12 @@ function createKayKitHumanoid(charId) {
   const group = new THREE.Group();
   group.add(inst);
 
-  // curate the embedded hand props for this class
-  const keep = KK.KEEP[charId] || [];
+  // Curate the embedded hand props + headwear for this class per the player's
+  // WARDROBE choice. resolveLook defaults to the class's standard look when no
+  // appearance is set, so unchanged players (and NPCs) look exactly as before.
+  const look = resolveLook(charId, appearance);
+  const keep = look.showProps;        // prop node names to SHOW (rest hidden)
+  const hideCosmetic = look.hideCosmetic; // headwear/cape to HIDE (toggled off)
   const embeddedWeapons = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
@@ -8730,6 +8734,8 @@ function createKayKitHumanoid(charId) {
       o.visible = keep.includes(o.name);
       if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
     }
+    // Wardrobe: headwear / cape the player has toggled off.
+    if (hideCosmetic.length && hideCosmetic.indexOf(o.name) !== -1) o.visible = false;
     // the Mage's full hat brim fills the whole behind-the-shoulder camera
     // view — trim it so the witch's body stays visible
     if (o.name === 'Mage_Hat') { o.scale.multiplyScalar(0.8); o.position.y -= 0.03; }
@@ -8762,7 +8768,7 @@ function createKayKitHumanoid(charId) {
   // GLB has no weapon mesh, so socket the separate Skeleton_Staff model to the
   // right-hand slot bone — KayKit props are authored at the origin for exactly
   // this, so an identity attach sits it in the grip and it rides every anim.
-  if (charId === 5 && kk.handR && KK.models.skel_staff) {
+  if (charId === 5 && look.staff && kk.handR && KK.models.skel_staff) {
     const staff = THREE.SkeletonUtils.clone(KK.models.skel_staff.scene);
     kk.handR.add(staff);
   }
@@ -8856,6 +8862,96 @@ function createKayKitByKey(key, heightScale) {
   }
 
   return { createHumanoid, createKayKitByKey, createStaticNpc };
+}
+
+// ===== client/wardrobe.js =====
+// Wardrobe (client copy) — MUST STAY IN SYNC with data/wardrobe.js (the server's
+// copy, used for validation/persistence). Same split as SPELL_CATALOG etc: the
+// client bundles ESM, the server requires CJS, so the catalog lives in both.
+//
+// Phase 1 cosmetic appearance: a player's look is { weapon, <toggles> } the model
+// honors at build time — pure fashion, no stats. `show` lists the KayKit NODE
+// names a weapon look makes visible (the rest of that class's props are hidden).
+// '__SKEL_STAFF__' marks the Lich's separately-socketed staff. Defaults
+// reproduce the current in-game look, so unchanged players look exactly as before.
+
+const WARDROBE = {
+  0: {
+    weapons: [
+      { id: 'staff', label: 'Staff', show: ['2H_Staff'] },
+      { id: 'wand', label: 'Wand', show: ['1H_Wand'] },
+      { id: 'tome', label: 'Spellbook', show: ['Spellbook'] }
+    ],
+    defaultWeapon: 'staff',
+    toggles: [ { id: 'hat', label: 'Hat', mesh: 'Mage_Hat' }, { id: 'cape', label: 'Cape', mesh: 'Mage_Cape' } ]
+  },
+  1: {
+    weapons: [
+      { id: 'claws', label: 'Claws', show: [] },
+      { id: 'axe', label: 'Axe', show: ['1H_Axe'] },
+      { id: 'axe_shield', label: 'Axe & Shield', show: ['1H_Axe', 'Barbarian_Round_Shield'] },
+      { id: 'greataxe', label: 'Great Axe', show: ['2H_Axe'] },
+      { id: 'tankard', label: 'Tankard', show: ['Mug'] }
+    ],
+    defaultWeapon: 'claws',
+    toggles: [ { id: 'hat', label: 'Hat', mesh: 'Barbarian_Hat' }, { id: 'cape', label: 'Cape', mesh: 'Barbarian_Cape' } ]
+  },
+  2: {
+    weapons: [
+      { id: 'none', label: 'Bare (spirits)', show: [] },
+      { id: 'dagger', label: 'Dagger', show: ['Knife'] },
+      { id: 'dual', label: 'Dual Daggers', show: ['Knife', 'Knife_Offhand'] },
+      { id: 'crossbow', label: 'Crossbow', show: ['2H_Crossbow'] }
+    ],
+    defaultWeapon: 'none',
+    toggles: [ { id: 'cape', label: 'Cape', mesh: 'Rogue_Cape' } ]
+  },
+  3: {
+    weapons: [
+      { id: 'sword_crest', label: 'Sword & Crest', show: ['1H_Sword', 'Badge_Shield'] },
+      { id: 'sword_round', label: 'Sword & Round Shield', show: ['1H_Sword', 'Round_Shield'] },
+      { id: 'sword_kite', label: 'Sword & Kite Shield', show: ['1H_Sword', 'Rectangle_Shield'] },
+      { id: 'sword_spike', label: 'Sword & Spiked Shield', show: ['1H_Sword', 'Spike_Shield'] },
+      { id: 'greatsword', label: 'Greatsword', show: ['2H_Sword'] },
+      { id: 'dual_swords', label: 'Dual Swords', show: ['1H_Sword', '1H_Sword_Offhand'] }
+    ],
+    defaultWeapon: 'sword_crest',
+    toggles: [ { id: 'helmet', label: 'Helmet', mesh: 'Knight_Helmet' }, { id: 'cape', label: 'Cape', mesh: 'Knight_Cape' } ]
+  },
+  4: {
+    weapons: [
+      { id: 'dagger', label: 'Dagger', show: ['Knife'] },
+      { id: 'dual', label: 'Dual Daggers', show: ['Knife', 'Knife_Offhand'] },
+      { id: 'crossbow', label: 'Crossbow', show: ['2H_Crossbow'] },
+      { id: 'throwing', label: 'Throwing Knife', show: ['Throwable'] }
+    ],
+    defaultWeapon: 'dagger',
+    toggles: [ { id: 'cape', label: 'Cape', mesh: 'Rogue_Cape' } ]
+  },
+  5: {
+    weapons: [
+      { id: 'staff', label: 'Bone Staff', show: ['__SKEL_STAFF__'] },
+      { id: 'none', label: 'Bare Hands', show: [] }
+    ],
+    defaultWeapon: 'staff',
+    toggles: [ { id: 'hat', label: 'Hat', mesh: 'Skeleton_Mage_Hat' } ]
+  }
+};
+
+// Resolve an appearance into concrete render instructions (see data/wardrobe.js).
+function resolveLook(charId, ap) {
+  const def = WARDROBE[charId];
+  if (!def) return { showProps: [], hideCosmetic: [], staff: false };
+  ap = ap || {};
+  const w = def.weapons.find((x) => x.id === ap.weapon) || def.weapons.find((x) => x.id === def.defaultWeapon) || def.weapons[0];
+  const show = (w && w.show) ? w.show : [];
+  const staff = show.indexOf('__SKEL_STAFF__') !== -1;
+  const hideCosmetic = [];
+  for (const t of def.toggles) {
+    const on = ap[t.id] === undefined ? true : !!ap[t.id];
+    if (!on) hideCosmetic.push(t.mesh);
+  }
+  return { showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff };
 }
 
 // ===== client/journal-skills.js =====
@@ -10271,9 +10367,14 @@ function updateWerewolfNpc(dt) {
   }
 }
 
+// A stable signature of a player's cosmetic appearance, so we can tell when it
+// changes and rebuild the rig (the KayKit prop/headwear curation happens at
+// build time).
+function appearanceKey(ap) { try { return ap ? JSON.stringify(ap) : ''; } catch (e) { return ''; } }
+
 function ensurePlayerVisual(p) {
   if (visuals[p.id]) return;
-  const built = createHumanoid(p.charId || 0);
+  const built = createHumanoid(p.charId || 0, null, p.appearance || null);
 
   const nameEl = document.createElement('div');
   nameEl.className = 'nameTag';
@@ -10288,7 +10389,7 @@ function ensurePlayerVisual(p) {
   // applyEquipVisual() the first time this player actually has something
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
-    ...built, nameEl, inScene: false, parentScene: null,
+    ...built, nameEl, inScene: false, parentScene: null, _appKey: appearanceKey(p.appearance),
     ghostGroup, ghostInScene: false, ghostParentScene: null,
     deathAnimStartAt: null,
     attackAnimStartAt: null, attackAnimType: 'punch',
@@ -10514,7 +10615,18 @@ function syncVisuals(dt) {
   }
 }
 
-  return { updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals };
+  // Wardrobe: if a player's cosmetic appearance changed (theirs or someone
+  // else's, arriving on the state broadcast), rebuild their rig — the prop /
+  // headwear curation happens at build time. A no-op when unchanged.
+  function refreshPlayerAppearance(p) {
+    const v = visuals[p.id];
+    if (!v) return;
+    if (appearanceKey(p.appearance) === v._appKey) return;
+    destroyPlayerVisual(p.id);
+    ensurePlayerVisual(p);
+  }
+
+  return { updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals, refreshPlayerAppearance };
 }
 
 // ===== client/furniture.js =====
@@ -15688,6 +15800,9 @@ function onWsMessage(ev) {
         existing.equippedFeet   = p.equippedFeet   || null;
         existing.equippedRing   = p.equippedRing   || null;
         applyEquipVisual(p.id, p);
+        // Wardrobe: pick up another player's cosmetic change and rebuild their rig.
+        existing.appearance = p.appearance || null;
+        refreshPlayerAppearance(existing);
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
@@ -16005,6 +16120,14 @@ function onWsMessage(ev) {
     // Personal event beats (delve floors, first steps) — toast, no banner.
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'appearance_set') {
+    // Server-confirmed wardrobe look (possibly clamped). Reconcile + rebuild.
+    const me = (myId && players[myId]) ? players[myId] : null;
+    if (me) { me.appearance = msg.appearance || null; refreshPlayerAppearance(me); }
+    if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
 
@@ -16944,6 +17067,7 @@ function addPlayer(p) {
     equippedChest:  p.equippedChest  || null,
     equippedFeet:   p.equippedFeet   || null,
     equippedRing:   p.equippedRing   || null,
+    appearance: p.appearance || null, // Phase 1 cosmetic wardrobe
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
     maxHealth: typeof p.maxHealth === 'number' ? p.maxHealth : 100,
@@ -20918,7 +21042,7 @@ const CHAR = {
 };
 // ── Humanoid builder constructed here (right after CHAR) so createHumanoid is
 // available to all the scene/mob/NPC constructions below. See client/humanoid.js. ──
-const { createHumanoid, createKayKitByKey, createStaticNpc } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
+const { createHumanoid, createKayKitByKey, createStaticNpc } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState, resolveLook });
 const WALL_HEIGHT = 110;
 // Outdoor follow camera — pulled back ~10% (was back:165 height:125) so
 // more of the town/wilds is on screen at once. Indoor cams stay as-is:
@@ -24219,7 +24343,7 @@ const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipV
 // readers) and is injected by reference; rig/equip/status/render helpers by ref;
 // reassigned world state (me/players/scenes/seatedAt/jump/lexton) via getters. ──
 const {
-  updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals,
+  updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals, refreshPlayerAppearance,
 } = createPlayerVisuals({
   CHAR, JUMP_DURATION, JUMP_HEIGHT, KK, applyEquipVisual, applyStatusVisual, contextMatches, createHumanoid, getDayNightState, getFloorHeight, getRenderPos, kkDrivePlayer, kkSetState, lerpAngle, makeGhostMesh, setUnlockToast, visuals,
   getActiveScene: () => activeScene, getGroundY: () => groundY, getJumpActive: () => jumpActive, getJumpT: () => jumpT,
@@ -24966,6 +25090,52 @@ const { openNotifModal } = _notif;
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
+})();
+
+// ── Wardrobe (Phase 1 cosmetics) ─────────────────────────────────────────────
+// A dressing room: pick which weapon you visibly hold and toggle headwear/cape
+// for your class. Pure fashion — applied to your own rig immediately and sent to
+// the server, which stores it and carries it to everyone on the next broadcast.
+(function () {
+  const meRec = () => (myId && players[myId]) ? players[myId] : null;
+  function renderWardrobe() {
+    const me = meRec(); const list = document.getElementById('wardrobeList');
+    if (!me || !list) return;
+    const def = WARDROBE[me.charId];
+    if (!def) { list.innerHTML = '<div class="slNote">No looks for this class yet.</div>'; return; }
+    const ap = me.appearance || {};
+    const curW = def.weapons.some((w) => w.id === ap.weapon) ? ap.weapon : def.defaultWeapon;
+    let h = '<div class="wrSec">Weapon</div><div class="wrOpts">';
+    h += def.weapons.map((w) => '<button class="wrOpt' + (w.id === curW ? ' on' : '') + '" data-w="' + w.id + '">' + w.label + '</button>').join('');
+    h += '</div>';
+    if (def.toggles.length) {
+      h += '<div class="wrSec">Show</div><div class="wrOpts">';
+      h += def.toggles.map((t) => { const on = ap[t.id] === undefined ? true : !!ap[t.id]; return '<button class="wrOpt' + (on ? ' on' : '') + '" data-t="' + t.id + '">' + t.label + (on ? ' ✓' : '') + '</button>'; }).join('');
+      h += '</div>';
+    }
+    list.innerHTML = h;
+    list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
+    list.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
+      const me2 = meRec(); const id = b.getAttribute('data-t');
+      const cur = (me2 && me2.appearance && me2.appearance[id] !== undefined) ? !!me2.appearance[id] : true;
+      const ch = {}; ch[id] = !cur; applyWardrobe(ch);
+    }));
+  }
+  function applyWardrobe(change) {
+    const me = meRec(); if (!me) return;
+    const def = WARDROBE[me.charId]; if (!def) return;
+    const next = Object.assign({ weapon: def.defaultWeapon }, me.appearance || {}, change);
+    for (const t of def.toggles) if (next[t.id] === undefined) next[t.id] = true;
+    me.appearance = next;
+    refreshPlayerAppearance(me); // rebuild your own rig immediately
+    renderWardrobe();
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_appearance', appearance: next }));
+  }
+  window.__renderWardrobe = renderWardrobe; // so the ack handler can refresh it
+  const mw = document.getElementById('menuWardrobe');
+  if (mw) mw.addEventListener('click', () => { document.getElementById('menuSheet').classList.add('hidden'); renderWardrobe(); const m = document.getElementById('wardrobeModal'); if (m) m.classList.remove('hidden'); });
+  const cb = document.getElementById('wardrobeCloseBtn');
+  if (cb) cb.addEventListener('click', () => { const m = document.getElementById('wardrobeModal'); if (m) m.classList.add('hidden'); });
 })();
 
 

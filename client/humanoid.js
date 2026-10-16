@@ -6,7 +6,7 @@
 // that spawns a humanoid. THREE/LEGEND_FX are globals; the character data tables
 // (CHAR/CHARACTER_PRESETS/KK) and the KayKit state helper are injected.
 // ---------------------------------------------------------------------------
-export default function createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState }) {
+export default function createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState, resolveLook }) {
 // ---------------------------------------------------------------------------
 // Eyes/brows/mouth, placed at a fixed local +Z offset on the head sphere —
 // +Z is "forward" at rotation.y = 0 in this engine's convention (matches
@@ -266,10 +266,10 @@ function createHumanoidClassic(charId, presetOverride) {
 // Tier-3 dispatcher: KayKit model when loaded, classic build otherwise.
 // presetOverride callers (Ember Wastes mobs with custom palettes) always
 // get the classic builder — their look is bespoke by design.
-function createHumanoid(charId, presetOverride) {
+function createHumanoid(charId, presetOverride, appearance) {
   const built = (presetOverride || !KK.charReady(charId))
     ? createHumanoidClassic(charId, presetOverride)
-    : createKayKitHumanoid(charId);
+    : createKayKitHumanoid(charId, appearance);
   // Mark the whole figure so the shadow tagger can let characters CAST ground
   // shadows but not RECEIVE them — self-shadowing on these small models under
   // the wide follow shadow map produced saw-tooth acne across the body.
@@ -277,7 +277,7 @@ function createHumanoid(charId, presetOverride) {
   return built;
 }
 
-function createKayKitHumanoid(charId) {
+function createKayKitHumanoid(charId, appearance) {
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const t = KK.models[KK.charKey(charId)];
   const inst = THREE.SkeletonUtils.clone(t.scene);
@@ -286,8 +286,12 @@ function createKayKitHumanoid(charId) {
   const group = new THREE.Group();
   group.add(inst);
 
-  // curate the embedded hand props for this class
-  const keep = KK.KEEP[charId] || [];
+  // Curate the embedded hand props + headwear for this class per the player's
+  // WARDROBE choice. resolveLook defaults to the class's standard look when no
+  // appearance is set, so unchanged players (and NPCs) look exactly as before.
+  const look = resolveLook(charId, appearance);
+  const keep = look.showProps;        // prop node names to SHOW (rest hidden)
+  const hideCosmetic = look.hideCosmetic; // headwear/cape to HIDE (toggled off)
   const embeddedWeapons = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
@@ -312,6 +316,8 @@ function createKayKitHumanoid(charId) {
       o.visible = keep.includes(o.name);
       if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
     }
+    // Wardrobe: headwear / cape the player has toggled off.
+    if (hideCosmetic.length && hideCosmetic.indexOf(o.name) !== -1) o.visible = false;
     // the Mage's full hat brim fills the whole behind-the-shoulder camera
     // view — trim it so the witch's body stays visible
     if (o.name === 'Mage_Hat') { o.scale.multiplyScalar(0.8); o.position.y -= 0.03; }
@@ -344,7 +350,7 @@ function createKayKitHumanoid(charId) {
   // GLB has no weapon mesh, so socket the separate Skeleton_Staff model to the
   // right-hand slot bone — KayKit props are authored at the origin for exactly
   // this, so an identity attach sits it in the grip and it rides every anim.
-  if (charId === 5 && kk.handR && KK.models.skel_staff) {
+  if (charId === 5 && look.staff && kk.handR && KK.models.skel_staff) {
     const staff = THREE.SkeletonUtils.clone(KK.models.skel_staff.scene);
     kk.handR.add(staff);
   }

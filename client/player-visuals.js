@@ -65,9 +65,14 @@ function updateWerewolfNpc(dt) {
   }
 }
 
+// A stable signature of a player's cosmetic appearance, so we can tell when it
+// changes and rebuild the rig (the KayKit prop/headwear curation happens at
+// build time).
+function appearanceKey(ap) { try { return ap ? JSON.stringify(ap) : ''; } catch (e) { return ''; } }
+
 function ensurePlayerVisual(p) {
   if (visuals[p.id]) return;
-  const built = createHumanoid(p.charId || 0);
+  const built = createHumanoid(p.charId || 0, null, p.appearance || null);
 
   const nameEl = document.createElement('div');
   nameEl.className = 'nameTag';
@@ -82,7 +87,7 @@ function ensurePlayerVisual(p) {
   // applyEquipVisual() the first time this player actually has something
   // equipped, rather than built upfront for every character.
   visuals[p.id] = {
-    ...built, nameEl, inScene: false, parentScene: null,
+    ...built, nameEl, inScene: false, parentScene: null, _appKey: appearanceKey(p.appearance),
     ghostGroup, ghostInScene: false, ghostParentScene: null,
     deathAnimStartAt: null,
     attackAnimStartAt: null, attackAnimType: 'punch',
@@ -308,5 +313,16 @@ function syncVisuals(dt) {
   }
 }
 
-  return { updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals };
+  // Wardrobe: if a player's cosmetic appearance changed (theirs or someone
+  // else's, arriving on the state broadcast), rebuild their rig — the prop /
+  // headwear curation happens at build time. A no-op when unchanged.
+  function refreshPlayerAppearance(p) {
+    const v = visuals[p.id];
+    if (!v) return;
+    if (appearanceKey(p.appearance) === v._appKey) return;
+    destroyPlayerVisual(p.id);
+    ensurePlayerVisual(p);
+  }
+
+  return { updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals, refreshPlayerAppearance };
 }

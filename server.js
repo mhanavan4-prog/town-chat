@@ -357,6 +357,7 @@ app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
+const { sanitizeAppearance } = require('./data/wardrobe'); // Phase 1 cosmetics
 app.get('/class/:id', (req, res) => {
   const cls = classShowcase.byId(parseInt(req.params.id, 10));
   if (!cls) return res.redirect(302, '/');
@@ -3232,6 +3233,8 @@ function syncProgressToPlayer(player) {
   player.level = prog.level;
   player.skillPoints = prog.skillPoints;
   player.maxHealth = playerMaxHealth(player);
+  // Cosmetic wardrobe is stored per class (each calling has its own look).
+  player.appearance = (prog.appearance && prog.appearance[player.charId]) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -4242,6 +4245,7 @@ function publicPlayer(p) {
   const status = p.activeStatus && p.activeStatus.expiresAt > Date.now() ? p.activeStatus : null;
   return {
     id: p.id, name: p.name, color: p.color, charId: p.charId, x: p.x, y: p.y, room: p.room,
+    appearance: p.appearance || null, // Phase 1 cosmetic wardrobe (per-class look)
     equippedWeapon: p.equippedWeapon || null,
     equippedHead:   p.equippedHead   || null,
     equippedChest:  p.equippedChest  || null,
@@ -8118,6 +8122,24 @@ wss.on('connection', (ws, req) => {
       player.room = 'outside';
       player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
       broadcastInstance(player.instance, { type: 'clear_user_messages', room, id: player.id });
+      return;
+    }
+
+    // Cosmetic wardrobe (Phase 1): set this player's per-class look. Validated
+    // server-side (unknown weapon ids fall back to the default), stored on the
+    // account/guest progress, and carried to everyone on the next state
+    // broadcast (publicPlayer.appearance) so the look updates in place. Pure
+    // fashion — no stats, no inventory.
+    if (msg.type === 'set_appearance') {
+      if (!player) return;
+      const clean = sanitizeAppearance(player.charId, msg.appearance);
+      if (!clean) return;
+      player.appearance = clean;
+      const prog = getProgress(player);
+      if (!prog.appearance) prog.appearance = {};
+      prog.appearance[player.charId] = clean;
+      if (player.accountKey) { try { saveProgress(); } catch (e) {} }
+      send(ws, { type: 'appearance_set', appearance: clean });
       return;
     }
 

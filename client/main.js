@@ -37,6 +37,7 @@ import createEmberNodes from './ember-nodes.js';
 import createDungeonMobs from './dungeon-mobs.js';
 import createVillageNpcs from './village-npcs.js';
 import createHumanoidBuilder from './humanoid.js';
+import { WARDROBE, resolveLook } from './wardrobe.js';
 import createJournalSkills from './journal-skills.js';
 import createBankAuction from './bank-auction.js';
 import createNotesDrive from './notes-drive.js';
@@ -1241,6 +1242,9 @@ function onWsMessage(ev) {
         existing.equippedFeet   = p.equippedFeet   || null;
         existing.equippedRing   = p.equippedRing   || null;
         applyEquipVisual(p.id, p);
+        // Wardrobe: pick up another player's cosmetic change and rebuild their rig.
+        existing.appearance = p.appearance || null;
+        refreshPlayerAppearance(existing);
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
@@ -1558,6 +1562,14 @@ function onWsMessage(ev) {
     // Personal event beats (delve floors, first steps) — toast, no banner.
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
+    return;
+  }
+
+  if (msg.type === 'appearance_set') {
+    // Server-confirmed wardrobe look (possibly clamped). Reconcile + rebuild.
+    const me = (myId && players[myId]) ? players[myId] : null;
+    if (me) { me.appearance = msg.appearance || null; refreshPlayerAppearance(me); }
+    if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
 
@@ -2497,6 +2509,7 @@ function addPlayer(p) {
     equippedChest:  p.equippedChest  || null,
     equippedFeet:   p.equippedFeet   || null,
     equippedRing:   p.equippedRing   || null,
+    appearance: p.appearance || null, // Phase 1 cosmetic wardrobe
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
     maxHealth: typeof p.maxHealth === 'number' ? p.maxHealth : 100,
@@ -6471,7 +6484,7 @@ const CHAR = {
 };
 // ── Humanoid builder constructed here (right after CHAR) so createHumanoid is
 // available to all the scene/mob/NPC constructions below. See client/humanoid.js. ──
-const { createHumanoid, createKayKitByKey, createStaticNpc } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState });
+const { createHumanoid, createKayKitByKey, createStaticNpc } = createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState, resolveLook });
 const WALL_HEIGHT = 110;
 // Outdoor follow camera — pulled back ~10% (was back:165 height:125) so
 // more of the town/wilds is on screen at once. Indoor cams stay as-is:
@@ -9772,7 +9785,7 @@ const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipV
 // readers) and is injected by reference; rig/equip/status/render helpers by ref;
 // reassigned world state (me/players/scenes/seatedAt/jump/lexton) via getters. ──
 const {
-  updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals,
+  updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals, refreshPlayerAppearance,
 } = createPlayerVisuals({
   CHAR, JUMP_DURATION, JUMP_HEIGHT, KK, applyEquipVisual, applyStatusVisual, contextMatches, createHumanoid, getDayNightState, getFloorHeight, getRenderPos, kkDrivePlayer, kkSetState, lerpAngle, makeGhostMesh, setUnlockToast, visuals,
   getActiveScene: () => activeScene, getGroundY: () => groundY, getJumpActive: () => jumpActive, getJumpT: () => jumpT,
@@ -10519,6 +10532,52 @@ const { openNotifModal } = _notif;
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
+})();
+
+// ── Wardrobe (Phase 1 cosmetics) ─────────────────────────────────────────────
+// A dressing room: pick which weapon you visibly hold and toggle headwear/cape
+// for your class. Pure fashion — applied to your own rig immediately and sent to
+// the server, which stores it and carries it to everyone on the next broadcast.
+(function () {
+  const meRec = () => (myId && players[myId]) ? players[myId] : null;
+  function renderWardrobe() {
+    const me = meRec(); const list = document.getElementById('wardrobeList');
+    if (!me || !list) return;
+    const def = WARDROBE[me.charId];
+    if (!def) { list.innerHTML = '<div class="slNote">No looks for this class yet.</div>'; return; }
+    const ap = me.appearance || {};
+    const curW = def.weapons.some((w) => w.id === ap.weapon) ? ap.weapon : def.defaultWeapon;
+    let h = '<div class="wrSec">Weapon</div><div class="wrOpts">';
+    h += def.weapons.map((w) => '<button class="wrOpt' + (w.id === curW ? ' on' : '') + '" data-w="' + w.id + '">' + w.label + '</button>').join('');
+    h += '</div>';
+    if (def.toggles.length) {
+      h += '<div class="wrSec">Show</div><div class="wrOpts">';
+      h += def.toggles.map((t) => { const on = ap[t.id] === undefined ? true : !!ap[t.id]; return '<button class="wrOpt' + (on ? ' on' : '') + '" data-t="' + t.id + '">' + t.label + (on ? ' ✓' : '') + '</button>'; }).join('');
+      h += '</div>';
+    }
+    list.innerHTML = h;
+    list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
+    list.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
+      const me2 = meRec(); const id = b.getAttribute('data-t');
+      const cur = (me2 && me2.appearance && me2.appearance[id] !== undefined) ? !!me2.appearance[id] : true;
+      const ch = {}; ch[id] = !cur; applyWardrobe(ch);
+    }));
+  }
+  function applyWardrobe(change) {
+    const me = meRec(); if (!me) return;
+    const def = WARDROBE[me.charId]; if (!def) return;
+    const next = Object.assign({ weapon: def.defaultWeapon }, me.appearance || {}, change);
+    for (const t of def.toggles) if (next[t.id] === undefined) next[t.id] = true;
+    me.appearance = next;
+    refreshPlayerAppearance(me); // rebuild your own rig immediately
+    renderWardrobe();
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_appearance', appearance: next }));
+  }
+  window.__renderWardrobe = renderWardrobe; // so the ack handler can refresh it
+  const mw = document.getElementById('menuWardrobe');
+  if (mw) mw.addEventListener('click', () => { document.getElementById('menuSheet').classList.add('hidden'); renderWardrobe(); const m = document.getElementById('wardrobeModal'); if (m) m.classList.remove('hidden'); });
+  const cb = document.getElementById('wardrobeCloseBtn');
+  if (cb) cb.addEventListener('click', () => { const m = document.getElementById('wardrobeModal'); if (m) m.classList.add('hidden'); });
 })();
 
 
