@@ -1481,12 +1481,19 @@ function analyticsSummary() {
       if (now - last < 30 * 24 * 3600e3) active30++;
     }
   }
+  // Total gold in circulation — every account vault + every coven tab. The
+  // headline economy-health number: watch it against the sinks (auction cut,
+  // recipe unlocks) to see whether gold is actually tightening.
+  let goldInEconomy = 0;
+  for (const a of Object.values(bankAccounts)) goldInEconomy += (a && a.balance) || 0;
+  for (const cv of Object.values(covens)) goldInEconomy += (cv && cv.bank && cv.bank.gold) || 0;
   return {
     totalAccounts: keys.length,
     returnRate: keys.length ? +((returned / keys.length) * 100).toFixed(1) : 0,
     onlineNow: players.size,
     activeLast24h: active1, activeLast7d: active7, activeLast30d: active30,
-    covens: Object.keys(covens).length
+    covens: Object.keys(covens).length,
+    goldInEconomy: Math.round(goldInEconomy)
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
