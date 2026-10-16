@@ -4006,7 +4006,7 @@ function makeId() {
 
 // Auction house (Sessions I/M) — extracted to lib/auctions.js (Tier 3.4 Phase B).
 const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo });
-const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
+const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, AUCTION_GOLD_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
 
 setInterval(() => {
   const now = Date.now();
@@ -8000,6 +8000,7 @@ wss.on('connection', (ws, req) => {
         },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
+        goldAuctionFee: AUCTION_GOLD_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
         itemCatalog: ITEM_CATALOG,
         // The Artificer's Workshop crafting tree (Session N) — authoritative
