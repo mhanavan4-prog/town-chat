@@ -348,11 +348,8 @@ if (auctionCreateSubmitBtn) auctionCreateSubmitBtn.addEventListener('click', () 
   getWs().send(JSON.stringify({ type: 'auction_create', itemId: slot.itemId, qty, startingBid, buyoutPrice, durationHours, currency, source }));
   document.getElementById('auctionCreateForm').classList.add('hidden');
 });
-const auctionCurrencySel = document.getElementById('auctionCurrency');
-if (auctionCurrencySel) auctionCurrencySel.addEventListener('change', () => {
-  const note = document.getElementById('auctionMsFeeNote');
-  if (note) note.classList.toggle('hidden', auctionCurrencySel.value !== 'ms');
-});
+// The 10% house cut now applies to both lanes (gold and Moonstone), so the fee
+// note stays visible for either currency — no toggle needed.
 
 function formatTimeRemaining(expiresAt) {
   const ms = expiresAt - Date.now();

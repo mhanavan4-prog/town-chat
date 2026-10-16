@@ -167,7 +167,9 @@ whenReady(() => {
   buyer.sock.emit('message', JSON.stringify({ type: 'auction_bid', listingId: s3Listing.id, amount: 50 }));
   check('buyout resolves the pack-sourced listing', !hooks.listingsLive.some((l) => l.id === s3Listing.id));
   check('winner received the item in their bank', countItemQty(buyerBank, Z) === 1);
-  check('seller paid the hammer price into their bank', s3Bank.balance === s3GoldBefore + 50, { got: s3Bank.balance, want: s3GoldBefore + 50 });
+  // Session O: the gold lane now takes a 10% house cut (a gold sink), so the
+  // seller nets floor(50 * 0.9) = 45, not the full hammer price.
+  check('seller paid the hammer price minus the 10% house cut', s3Bank.balance === s3GoldBefore + 45, { got: s3Bank.balance, want: s3GoldBefore + 45 });
   check('sold item did NOT bounce back into the seller pack', countItemQty(s3Inv, Z) === 0);
 
   // ── 6. the original bank-sourced flow is unchanged (regression) ──────
