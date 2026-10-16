@@ -21614,7 +21614,11 @@ const GFX = (() => {
   function configureShadow(light, scene, info) {
     const q = st.quality;
     light.castShadow = q !== 'low';
-    const mapSize = q === 'high' ? 2048 : 1024;
+    // Interiors are a single small room, so a far sharper shadow map is cheap
+    // there — the follow (outdoor) map covers the whole town and stays modest.
+    // The old 2048 over the interior's ~1240-unit span gave ~0.6 units/texel,
+    // which stair-stepped the cast shadow on the floor; 4096 roughly halves that.
+    const mapSize = info.follow ? (q === 'high' ? 2048 : 1024) : (q === 'high' ? 4096 : 2048);
     light.shadow.mapSize.set(mapSize, mapSize);
     if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
     const span = info.follow ? 720 : 620;
@@ -25420,7 +25424,7 @@ const { openNotifModal } = _notif;
     locksmith: { icon: '🔑', role: 'Locksmith',  color: '#e8d9a8' },
     board:     { icon: '🏆', role: 'Town Board', color: '#9ee37d' },
     delve:     { icon: '🕳️', role: 'Weekly Delve', color: '#ff8a8a' },
-    moot:      { icon: '🕸️', role: 'Coven Moot', color: '#b98aff' }
+    moot:      { icon: '🕸️', role: 'Coven Hagstone', color: '#b98aff' }
   };
   // One-line "what's inside" captions per building. Keep in sync with the
   // building NPCs in client/furniture.js + server NPC_WHEREABOUTS.
