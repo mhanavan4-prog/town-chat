@@ -11957,7 +11957,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // hole, same trick as everything else stylized in this scene.
     const vaultHingeX = cx - 70;
     const vaultHinge = new THREE.Group();
-    vaultHinge.position.set(vaultHingeX, 0, roomD - 10);
+    // z = roomD - 95 (not roomD - 10): the door must sit in FRONT of the
+    // recessed treasure chamber, whose dark back panel is at z≈roomD-59. At
+    // roomD-10 the whole door landed behind that panel, so from the room the
+    // dark chamber box occluded the brass — the door read as a dark square.
+    // Pulling the hinge forward puts the door in the chamber's mouth with the
+    // treasure as a backdrop behind it, exactly as intended.
+    vaultHinge.position.set(vaultHingeX, 0, roomD - 95);
     // Positive, not negative: this swings the door out toward -Z (into the
     // room, where the player actually is) instead of +Z, which sends it
     // behind the room's own solid back wall — completely hidden from
