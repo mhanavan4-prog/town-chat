@@ -10780,7 +10780,7 @@ const { openNotifModal } = _notif;
     { x: 2200, y: 5000, icon: '🪓', label: 'Unbound Camp' },
     { x: 7800, y: 5000, icon: '🛡️', label: 'Thornwarden Camp' },
     { x: 2000, y: 2000, icon: '🕯️', label: "Witch's Cave" },
-    { x: 3000, y: 3000, icon: '🏰', label: 'Coven Manor' },
+    { x: 3000, y: 3000, icon: '🏰', label: 'Coven Manor (coven only)' },
     { x: 6500, y: 6200, icon: '🌳', label: 'The Great Tree' }
   ];
   const EMBER_SAFE_R = 1800; // keep in sync with server EMBER_SAFE_RADIUS
@@ -10933,9 +10933,30 @@ const { openNotifModal } = _notif;
       ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
       marker(ctx, px, py, '', '🌀 Portal home', '#d7b8ff');
     }
-    for (const poi of WILDS_POI) marker(ctx, PX(poi.x), PY(poi.y), poi.icon, poi.label, '#cbbdf0');
-    if (typeof WILDS_CAMPFIRES !== 'undefined') for (const f of WILDS_CAMPFIRES) marker(ctx, PX(f.x), PY(f.y), '🔥', 'Campfire', '#ffb067');
-    if (typeof WILDS_NPCS !== 'undefined') for (const n of WILDS_NPCS) marker(ctx, PX(n.x), PY(n.y), '❗', n.name, '#ffd479');
+    // Landmark labels; seed the label-placement list so NPC names below won't
+    // collide with them.
+    const placed = [];
+    for (const poi of WILDS_POI) { marker(ctx, PX(poi.x), PY(poi.y), poi.icon, poi.label, '#cbbdf0'); placed.push({ x: PX(poi.x), y: PY(poi.y) + 9 }); }
+    // Campfires: icon only — five identical "Campfire" labels were just noise,
+    // and the 🔥 glyph reads on its own.
+    if (typeof WILDS_CAMPFIRES !== 'undefined') {
+      ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const f of WILDS_CAMPFIRES) ctx.fillText('🔥', PX(f.x), PY(f.y));
+    }
+    // NPCs: icons at their true spots, then names stacked downward so the tight
+    // camp clusters read as a clean list instead of a tangle.
+    if (typeof WILDS_NPCS !== 'undefined') {
+      ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const n of WILDS_NPCS) ctx.fillText('❗', PX(n.x), PY(n.y));
+      ctx.font = '600 9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#ffd479';
+      const list = WILDS_NPCS.map((n) => ({ name: n.name, x: PX(n.x), y: PY(n.y) })).sort((a, b) => a.y - b.y || a.x - b.x);
+      for (const it of list) {
+        let ly = it.y + 9, guard = 0;
+        while (placed.some((p) => Math.abs(p.x - it.x) < 60 && Math.abs(p.y - ly) < 11) && guard++ < 14) ly += 11;
+        placed.push({ x: it.x, y: ly });
+        ctx.fillText(it.name, it.x, ly);
+      }
+    }
     drawPlayers(ctx, PX, PY, 'wilds');
   }
   function drawEmber(ctx, PX, PY, cw, ch) {
