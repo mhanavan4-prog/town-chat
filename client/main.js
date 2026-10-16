@@ -37,7 +37,7 @@ import createEmberNodes from './ember-nodes.js';
 import createDungeonMobs from './dungeon-mobs.js';
 import createVillageNpcs from './village-npcs.js';
 import createHumanoidBuilder from './humanoid.js';
-import { WARDROBE, resolveLook, weaponUnlock } from './wardrobe.js';
+import { WARDROBE, resolveLook, weaponUnlock, DYES, dyeUnlock } from './wardrobe.js';
 import createJournalSkills from './journal-skills.js';
 import createBankAuction from './bank-auction.js';
 import createNotesDrive from './notes-drive.js';
@@ -1021,7 +1021,7 @@ function onWsMessage(ev) {
       }
     }
     myMoonstones = msg.moonstones || 0;
-    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0 };
+    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [] };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
@@ -1592,6 +1592,16 @@ function onWsMessage(ev) {
     setUnlockToast('🎭 New look unlocked!');
     if (typeof window.__applyWardrobe === 'function') try { window.__applyWardrobe({ weapon: msg.weapon }); } catch (e) {}
     else if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
+    return;
+  }
+
+  if (msg.type === 'dye_bought') {
+    // A Moonstone dye just unlocked (account-wide) — record it and just re-render
+    // the shop so the new swatch becomes selectable (don't force-wear a color).
+    if (!myWardrobe.dyesPurchased) myWardrobe.dyesPurchased = [];
+    if (myWardrobe.dyesPurchased.indexOf(msg.dye) === -1) myWardrobe.dyesPurchased.push(msg.dye);
+    setUnlockToast('🎨 New dye unlocked!');
+    if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
 
@@ -3151,7 +3161,7 @@ let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from in
 let myMoonstones = 0;
 // Wardrobe unlock state (Phase 2): looks bought on the current class + chapters
 // done, from init; the live level drives level-gated looks. look_bought keeps it fresh.
-let myWardrobe = { purchased: [], chaptersDone: 0 };
+let myWardrobe = { purchased: [], chaptersDone: 0, dyesPurchased: [] };
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 
 // ── Session L state ──────────────────────────────────────────────────────────
@@ -10585,6 +10595,31 @@ const { openNotifModal } = _notif;
     if (u.ms) return (myWardrobe.purchased || []).indexOf(w.id) !== -1 ? { k: 'ok' } : { k: 'buy', ms: u.ms };
     return { k: 'locked', why: 'Locked' };
   }
+  // Same three-state logic for a dye (account-wide, so purchases read from
+  // myWardrobe.dyesPurchased rather than the per-class weapon list).
+  function dyeState(me, dyeId) {
+    const u = dyeUnlock(dyeId);
+    if (!u) return { k: 'ok' };
+    if (u.lvl) return (me.level || 1) >= u.lvl ? { k: 'ok' } : { k: 'locked', why: 'Lv ' + u.lvl };
+    if (u.chapter) return (myWardrobe.chaptersDone || 0) >= u.chapter ? { k: 'ok' } : { k: 'locked', why: 'Ch. ' + u.chapter };
+    if (u.ms) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'buy', ms: u.ms };
+    return { k: 'locked', why: 'Locked' };
+  }
+  // One row of dye swatches for a slot ('dyeBody' | 'dyeAccent'). Owned dyes are
+  // clickable chips; locked ones show their requirement; Moonstone ones show a
+  // price and buy on click. The active dye is ringed.
+  function dyeRow(me, slot, cur) {
+    return DYES.map((d) => {
+      const s = dyeState(me, d.id);
+      const sw = d.hex == null
+        ? 'background:linear-gradient(135deg,#2a2140 50%,#4a3f66 50%)'
+        : 'background:#' + d.hex.toString(16).padStart(6, '0');
+      const on = (cur || 'none') === d.id;
+      if (s.k === 'locked') return '<button class="wrDye locked" disabled title="' + d.label + ' · ' + s.why + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.why + '</span></button>';
+      if (s.k === 'buy') return '<button class="wrDye buy" data-buydye="' + d.id + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.ms + '💎</span></button>';
+      return '<button class="wrDye' + (on ? ' on' : '') + '" data-dye="' + d.id + '" data-slot="' + slot + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + d.label + '</span></button>';
+    }).join('');
+  }
   function renderWardrobe() {
     const me = meRec(); const list = document.getElementById('wardrobeList');
     if (!me || !list) return;
@@ -10605,7 +10640,11 @@ const { openNotifModal } = _notif;
       h += def.toggles.map((t) => { const on = ap[t.id] === undefined ? true : !!ap[t.id]; return '<button class="wrOpt' + (on ? ' on' : '') + '" data-t="' + t.id + '">' + t.label + (on ? ' ✓' : '') + '</button>'; }).join('');
       h += '</div>';
     }
-    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. 💎 ' + myMoonstones + '</div>';
+    // Colors (Phase 3 dyes): two swatch rows — the outfit tint and the accent
+    // (hat/cape) tint. Shared account-wide palette; head/face stay natural.
+    h += '<div class="wrSec">Outfit color</div><div class="wrDyes">' + dyeRow(me, 'dyeBody', ap.dyeBody) + '</div>';
+    h += '<div class="wrSec">Accent color</div><div class="wrDyes">' + dyeRow(me, 'dyeAccent', ap.dyeAccent) + '</div>';
+    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
     list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
@@ -10615,6 +10654,12 @@ const { openNotifModal } = _notif;
       const me2 = meRec(); const id = b.getAttribute('data-t');
       const cur = (me2 && me2.appearance && me2.appearance[id] !== undefined) ? !!me2.appearance[id] : true;
       const ch = {}; ch[id] = !cur; applyWardrobe(ch);
+    }));
+    list.querySelectorAll('[data-dye]').forEach((b) => b.addEventListener('click', () => {
+      const ch = {}; ch[b.getAttribute('data-slot')] = b.getAttribute('data-dye'); applyWardrobe(ch);
+    }));
+    list.querySelectorAll('[data-buydye]').forEach((b) => b.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'buy_dye', dye: b.getAttribute('data-buydye') }));
     }));
   }
   function applyWardrobe(change) {

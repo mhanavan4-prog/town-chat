@@ -4,7 +4,7 @@
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-wardrobe-');
 
-const { sanitizeAppearance, resolveLook, WARDROBE, weaponUnlock } = require('../data/wardrobe.js');
+const { sanitizeAppearance, resolveLook, WARDROBE, weaponUnlock, DYES, dyeUnlock, dyeHex } = require('../data/wardrobe.js');
 
 function makeMockSocket(tag) {
   return {
@@ -28,6 +28,16 @@ check('resolveLook maps a weapon to its prop meshes', (() => { const r = resolve
 check('resolveLook hides a toggled-off cosmetic', (() => { const r = resolveLook(0, { weapon: 'staff', hat: false }); return r.hideCosmetic.indexOf('Mage_Hat') !== -1; })());
 check('resolveLook flags the Lich staff on, off', (() => { return resolveLook(5, { weapon: 'staff' }).staff === true && resolveLook(5, { weapon: 'none' }).staff === false; })());
 check('resolveLook(null) gives the default look', (() => { const r = resolveLook(0, null); return r.showProps[0] === '2H_Staff' && r.hideCosmetic.length === 0; })());
+
+// ── Phase 3: dyes (pure catalog) ──────────────────────────────────────────────
+check('the dye palette has a free Natural default', (() => { const n = DYES.find((d) => d.id === 'none'); return n && n.hex === null; })());
+check('free dyes have no unlock', dyeUnlock('ash') === null && dyeUnlock('sienna') === null);
+check('dyeUnlock returns gate configs', (() => { return dyeUnlock('crimson').lvl === 3 && dyeUnlock('royal').chapter === 2 && dyeUnlock('void').ms === 200; })());
+check('dyeHex maps an id to its color (and none → null)', dyeHex('crimson') === 0xc83232 && dyeHex('none') === null);
+check('sanitize defaults dyes to none', (() => { const a = sanitizeAppearance(0, {}); return a.dyeBody === 'none' && a.dyeAccent === 'none'; })());
+check('sanitize keeps valid dyes, drops bogus ones', (() => { const a = sanitizeAppearance(0, { dyeBody: 'crimson', dyeAccent: 'not_a_dye' }); return a.dyeBody === 'crimson' && a.dyeAccent === 'none'; })());
+check('resolveLook surfaces the tint hexes', (() => { const r = resolveLook(0, { dyeBody: 'crimson', dyeAccent: 'gold' }); return r.bodyTint === 0xc83232 && r.accentTint === 0xe0b84a; })());
+check('resolveLook tints are null with no dye', (() => { const r = resolveLook(0, {}); return r.bodyTint === null && r.accentTint === null; })());
 
 require('../server.js');
 
@@ -93,6 +103,41 @@ setTimeout(() => {
   const balBefore = h.msBalance('richwolf');
   buyer.s.emit('message', JSON.stringify({ type: 'buy_look', weapon: 'tankard' }));
   check('re-buying an owned look does not double-charge', h.msBalance('richwolf') === balBefore, h.msBalance('richwolf'));
+
+  // ── Phase 3: dyes through the server ──────────────────────────────────────────
+  // A free dye applies and rides the appearance.
+  const d1 = join('Painter', 0);
+  d1.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'wand', dyeBody: 'ash', dyeAccent: 'sienna' } }));
+  check('free dyes apply to the live player', d1.p.appearance.dyeBody === 'ash' && d1.p.appearance.dyeAccent === 'sienna', d1.p.appearance);
+
+  // A level-locked dye clamps to natural (not the class default) for a low level.
+  const d2 = join('Novice', 0); // level 1
+  d2.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { dyeBody: 'cobalt' } })); // needs Lv 9
+  check('a level-locked dye clamps to none', d2.p.appearance.dyeBody === 'none', d2.p.appearance);
+
+  // A guest can't buy a Moonstone dye.
+  d2.s.emit('message', JSON.stringify({ type: 'buy_dye', dye: 'void' }));
+  check('a guest buying a dye gets an account prompt', (() => { const e = d2.s.lastOfType('ms_error'); return e && /account/i.test(e.message); })());
+
+  // A real account buys a Moonstone dye (account-wide) and can then wear it.
+  const dbuyer = join('Dyer', 3);
+  dbuyer.p.accountKey = 'dyer';
+  h.accounts['dyer'] = h.accounts['dyer'] || { username: 'dyer', miles: {} };
+  h.playerProgress['dyer'] = h.playerProgress['dyer'] || { level: 1, xp: 0 };
+  h.msAdjust('dyer', 1000);
+  dbuyer.s.emit('message', JSON.stringify({ type: 'buy_dye', dye: 'void' })); // 200 💎
+  check('buying a dye confirms with dye_bought', (() => { const b = dbuyer.s.lastOfType('dye_bought'); return b && b.dye === 'void'; })());
+  check('the dye purchase debits Moonstones', h.msBalance('dyer') === 800, h.msBalance('dyer'));
+  check('the dye is recorded account-wide', (() => { const pr = h.playerProgress['dyer']; return pr.dyeUnlocks && pr.dyeUnlocks.indexOf('void') !== -1; })());
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { dyeBody: 'void' } }));
+  check('a purchased dye can now be worn', dbuyer.p.appearance.dyeBody === 'void', dbuyer.p.appearance);
+  const dBal = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'buy_dye', dye: 'void' }));
+  check('re-buying an owned dye does not double-charge', h.msBalance('dyer') === dBal, h.msBalance('dyer'));
+  check('an un-owned Moonstone dye still clamps to none when worn', (() => {
+    dbuyer.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { dyeAccent: 'arcane' } })); // not bought
+    return dbuyer.p.appearance.dyeAccent === 'none';
+  })(), dbuyer.p.appearance);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

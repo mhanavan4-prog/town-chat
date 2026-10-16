@@ -83,10 +83,35 @@ export const UNLOCKS = {
 };
 export function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
 
+// Phase 3 DYES — MUST STAY IN SYNC with data/wardrobe.js. A second cosmetic axis:
+// tint the OUTFIT (body/arms/legs) and ACCENT (hat/helmet/cape) with a color
+// multiplied over the KayKit atlas. `hex: null` is the natural look. Account-wide
+// (shared across every class); head / face / skin and props are never tinted.
+export const DYES = [
+  { id: 'none',    label: 'Natural',  hex: null },
+  { id: 'ash',     label: 'Ash',      hex: 0x9aa0a8 },
+  { id: 'sienna',  label: 'Sienna',   hex: 0xb5794a },
+  { id: 'crimson', label: 'Crimson',  hex: 0xc83232 },
+  { id: 'forest',  label: 'Forest',   hex: 0x4f9d55 },
+  { id: 'cobalt',  label: 'Cobalt',   hex: 0x4a73c8 },
+  { id: 'royal',   label: 'Royal',    hex: 0x9a5cc8 },
+  { id: 'rose',    label: 'Rose',     hex: 0xe58ab0 },
+  { id: 'gold',    label: 'Gold',     hex: 0xe0b84a },
+  { id: 'void',    label: 'Void',     hex: 0x6a4a9a },
+  { id: 'arcane',  label: 'Arcane',   hex: 0x45c8c0 }
+];
+const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
+export const DYE_UNLOCKS = {
+  crimson: { lvl: 3 }, forest: { lvl: 6 }, cobalt: { lvl: 9 }, royal: { chapter: 2 },
+  rose: { ms: 150 }, gold: { ms: 250 }, void: { ms: 200 }, arcane: { ms: 300 }
+};
+export function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
+export function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
+
 // Resolve an appearance into concrete render instructions (see data/wardrobe.js).
 export function resolveLook(charId, ap) {
   const def = WARDROBE[charId];
-  if (!def) return { showProps: [], hideCosmetic: [], staff: false };
+  if (!def) return { showProps: [], hideCosmetic: [], staff: false, bodyTint: null, accentTint: null };
   ap = ap || {};
   const w = def.weapons.find((x) => x.id === ap.weapon) || def.weapons.find((x) => x.id === def.defaultWeapon) || def.weapons[0];
   const show = (w && w.show) ? w.show : [];
@@ -96,5 +121,8 @@ export function resolveLook(charId, ap) {
     const on = ap[t.id] === undefined ? true : !!ap[t.id];
     if (!on) hideCosmetic.push(t.mesh);
   }
-  return { showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff };
+  return {
+    showProps: show.filter((m) => m !== '__SKEL_STAFF__'), hideCosmetic, staff,
+    bodyTint: dyeHex(ap.dyeBody), accentTint: dyeHex(ap.dyeAccent)
+  };
 }

@@ -2537,6 +2537,17 @@
 #wardrobeList .wrOpt.locked{opacity:.5;cursor:not-allowed;border-style:dashed}
 #wardrobeList .wrOpt.buy{border-color:rgba(232,217,168,0.55);color:#e8d9a8}
 #wardrobeList .wrOpt.buy:hover{background:rgba(232,217,168,0.12)}
+#wardrobeList .wrDyes{display:flex;flex-wrap:wrap;gap:8px}
+#wardrobeList .wrDye{display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:1px solid transparent;border-radius:10px;padding:4px;cursor:pointer;width:58px}
+#wardrobeList .wrDye .wrSw{width:40px;height:40px;border-radius:10px;border:2px solid rgba(255,255,255,0.14);box-shadow:inset 0 1px 3px rgba(0,0,0,0.4)}
+#wardrobeList .wrDye .wrDyeLbl{font-size:10px;color:#9b8fc0;line-height:1.1;text-align:center}
+#wardrobeList .wrDye:hover .wrSw{border-color:rgba(185,138,255,0.6)}
+#wardrobeList .wrDye.on .wrSw{border-color:#5ee7c0;box-shadow:0 0 0 2px rgba(94,231,192,0.5)}
+#wardrobeList .wrDye.on .wrDyeLbl{color:#e9ddff;font-weight:700}
+#wardrobeList .wrDye.locked{opacity:.5;cursor:not-allowed}
+#wardrobeList .wrDye.locked .wrSw{border-style:dashed}
+#wardrobeList .wrDye.buy .wrDyeLbl{color:#e8d9a8;font-weight:700}
+#wardrobeList .wrDye.buy .wrSw{border-color:rgba(232,217,168,0.55)}
 </style>
 <div id="wardrobeModal" class="overlay hidden">
   <div class="card" id="wardrobeCard">
@@ -3388,6 +3399,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=df4fd51fac"></script>
+<script src="client.js?v=5d19bc7166"></script>
 </body>
 </html>
