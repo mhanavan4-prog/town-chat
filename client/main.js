@@ -10751,6 +10751,27 @@ const { openNotifModal } = _notif;
 // server data: it reads what the client already has.
 (function installTownMap() {
   let timer = null;
+  // Outdoor NPC / landmark markers, keyed by the kiosk's `npc` type (the live
+  // OUTDOOR_KIOSKS list is the source of truth for positions). 'npc' is a town
+  // quest-giver villager (its own name is shown). Portals are drawn separately.
+  const KIOSK_MARKERS = {
+    npc:       { icon: '❗', role: null,         color: '#ffd479' },
+    legend:    { icon: '🌒', role: 'Peddler',    color: '#d7b8ff' },
+    locksmith: { icon: '🔑', role: 'Locksmith',  color: '#e8d9a8' },
+    board:     { icon: '🏆', role: 'Town Board', color: '#9ee37d' },
+    delve:     { icon: '🕳️', role: 'Weekly Delve', color: '#ff8a8a' },
+    moot:      { icon: '🕸️', role: 'Coven Moot', color: '#b98aff' }
+  };
+  // One-line "what's inside" captions per building. Keep in sync with the
+  // building NPCs in client/furniture.js + server NPC_WHEREABOUTS.
+  const BUILDING_SVC = {
+    bank:    '🏦 Banker · Auctioneer',
+    cafe:    '☕ Tavern · quests',
+    library: '📚 Lore · quests',
+    hall:    '🏛️ Armorer · quests',
+    arcade:  '🎮 Games (Town Pass)',
+    lounge:  '👻 Séances (Town Pass)'
+  };
   function hexA(hex, a) {
     const s = String(hex || '#888').replace('#', '');
     const n = parseInt(s.length === 3 ? s.replace(/(.)/g, '$1$1') : s, 16);
@@ -10811,6 +10832,12 @@ const { openNotifModal } = _notif;
       if (bh > 44) {
         fitText(ctx, name, bw - 8, 13);
         ctx.fillText(name, cx, cy + 11);
+        const svc = BUILDING_SVC[b.id];
+        if (svc && bh > 60) {
+          ctx.fillStyle = 'rgba(233,221,255,0.72)';
+          fitText(ctx, svc, bw - 6, 10);
+          ctx.fillText(svc, cx, cy + 25);
+        }
       }
       if (here) {
         ctx.fillStyle = '#5ee7c0'; ctx.font = '700 10px system-ui, sans-serif';
@@ -10834,6 +10861,22 @@ const { openNotifModal } = _notif;
       ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#d7b8ff'; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText('🌀 Wilds', px, py + 13);
+    }
+
+    // Outdoor NPCs + service landmarks, straight from the live kiosk list.
+    if (typeof OUTDOOR_KIOSKS !== 'undefined' && Array.isArray(OUTDOOR_KIOSKS)) {
+      for (const k of OUTDOOR_KIOSKS) {
+        const m = KIOSK_MARKERS[k.npc];
+        if (!m || typeof k.x !== 'number') continue;
+        const px = PX(k.x), py = PY(k.z);
+        const label = m.role || k.npcName || '';
+        ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(m.icon, px, py);
+        if (label) {
+          ctx.fillStyle = m.color; ctx.font = '600 9px system-ui, sans-serif'; ctx.textBaseline = 'top';
+          ctx.fillText(label, px, py + 9);
+        }
+      }
     }
 
     // Other players currently in the open town.
