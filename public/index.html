@@ -2098,6 +2098,7 @@
       <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
       <button class="menuRow" id="menuWardrobe">🎭 Wardrobe</button>
+      <button class="menuRow" id="menuMap" title="Town map — see where everything is (M)">🗺️ Town Map</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
       <button class="menuRow" id="menuWorkshop">🔨 Workshop</button>
@@ -2556,6 +2557,31 @@
     <div class="slList" id="wardrobeList" style="max-height:56vh"></div>
     <button class="btn" id="wardrobeCloseBtn">Close</button>
   </div>
+</div>
+
+<style>
+#mapModal{position:fixed;inset:0;z-index:60;background:rgba(8,5,18,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+#mapModal.hidden{display:none}
+#mapModal .mapHead{display:flex;align-items:center;gap:12px;color:#e9ddff;font-weight:800;font-size:18px;margin-bottom:10px}
+#mapModal .mapHead .mapHint{font-size:12px;color:#9b8fc0;font-weight:600}
+#mapCanvasWrap{position:relative;width:100%;max-width:900px;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+#mapCanvas{max-width:100%;max-height:100%;border:1px solid rgba(185,138,255,0.25);border-radius:14px;background:#0e1a12;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
+#mapModal .mapLegend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;color:#9b8fc0;font-size:12px;margin-top:10px}
+#mapModal .mapLegend span{display:inline-flex;align-items:center;gap:5px}
+#mapModal .mapLegend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+#mapModal .mapBtns{margin-top:12px}
+#mapModal .mapBtns .btn{min-width:160px}
+</style>
+<div id="mapModal" class="hidden">
+  <div class="mapHead">🗺️ Thornreach — Town Map <span class="mapHint">press M or Esc to close</span></div>
+  <div id="mapCanvasWrap"><canvas id="mapCanvas"></canvas></div>
+  <div class="mapLegend">
+    <span><i style="background:#5ee7c0"></i>You</span>
+    <span><i style="background:#b98aff"></i>Other players</span>
+    <span><i style="background:#e8d9a8"></i>Spawn</span>
+    <span><i style="background:#9b5fc0"></i>Wilds portal</span>
+  </div>
+  <div class="mapBtns"><button class="btn" id="mapCloseBtn">Close</button></div>
 </div>
 
 <div id="bugModal" class="overlay hidden">
@@ -3399,6 +3425,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=5d19bc7166"></script>
+<script src="client.js?v=4a78b9c57d"></script>
 </body>
 </html>

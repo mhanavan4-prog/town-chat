@@ -4693,7 +4693,7 @@ function tryJump() {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (typing || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen')) return;
+  if (typing || Modals.isOpen('mapModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen')) return;
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
@@ -4731,6 +4731,20 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   }
+});
+
+// M toggles the full-screen town map. Its own listener (not the movement one,
+// which is suppressed while the map is open) so M can also CLOSE it. Opens only
+// when nothing else is claiming the screen — while any other modal or the ☰
+// menu is up, M is a no-op (except the map itself, which it closes).
+window.addEventListener('keydown', (e) => {
+  if ((e.key !== 'm' && e.key !== 'M') || e.repeat || typing) return;
+  if (Modals.isOpen('mapModalOpen')) { e.preventDefault(); window.__closeTownMap && window.__closeTownMap(); return; }
+  const sheet = document.getElementById('menuSheet');
+  const menuUp = sheet && !sheet.classList.contains('hidden');
+  if (!gameStarted || menuUp || Modals.any()) return;
+  e.preventDefault();
+  window.__toggleTownMap && window.__toggleTownMap();
 });
 
 // ── Mobile mode ─────────────────────────────────────────────────────────────
@@ -5141,7 +5155,7 @@ function raycastHitAt(clientX, clientY) {
 // lands on, say, the inventory panel doesn't also strike whatever's behind
 // it on the canvas.
 function anyOverlayOpen() {
-  return typing || Modals.isOpen('passModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') ||
+  return typing || Modals.isOpen('mapModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') ||
     Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('inventoryOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('locksmithModalOpen');
 }
 
@@ -10729,6 +10743,142 @@ const { openNotifModal } = _notif;
   window.__closeBugModal = close;
 })();
 
+// == Full-screen town map (press M) ==========================================
+// A top-down overview of the town drawn from the authoritative world geometry
+// the server sends on join (world.buildings + bounds + spawn), plus the live
+// positions already tracked for every player. Answers "where is everything?"
+// — the exact confusion a veteran hit on Reddit about the auction house. No new
+// server data: it reads what the client already has.
+(function installTownMap() {
+  let timer = null;
+  function hexA(hex, a) {
+    const s = String(hex || '#888').replace('#', '');
+    const n = parseInt(s.length === 3 ? s.replace(/(.)/g, '$1$1') : s, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  // Shrink a label until it fits `maxW` (floor 9px), else hard-truncate.
+  function fitText(ctx, text, maxW, base) {
+    let px = base;
+    for (; px >= 9; px--) { ctx.font = '600 ' + px + 'px system-ui, sans-serif'; if (ctx.measureText(text).width <= maxW) return px; }
+    ctx.font = '600 9px system-ui, sans-serif';
+    return 9;
+  }
+  function render() {
+    const canvas = document.getElementById('mapCanvas');
+    const wrap = document.getElementById('mapCanvasWrap');
+    if (!canvas || !wrap || !world || !world.buildings) return;
+    const W = world.width, H = world.height, aspect = W / H;
+    let cw = wrap.clientWidth, ch = cw / aspect;
+    if (ch > wrap.clientHeight) { ch = wrap.clientHeight; cw = ch * aspect; }
+    if (cw < 10 || ch < 10) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+    canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sx = cw / W, sy = ch / H;
+    const PX = (x) => x * sx, PY = (y) => y * sy;
+
+    // Ground + faint grid.
+    ctx.fillStyle = '#10211a'; ctx.fillRect(0, 0, cw, ch);
+    ctx.strokeStyle = 'rgba(126,240,195,0.05)'; ctx.lineWidth = 1;
+    for (let gx = 0; gx <= W; gx += 400) { ctx.beginPath(); ctx.moveTo(PX(gx), 0); ctx.lineTo(PX(gx), ch); ctx.stroke(); }
+    for (let gy = 0; gy <= H; gy += 400) { ctx.beginPath(); ctx.moveTo(0, PY(gy)); ctx.lineTo(cw, PY(gy)); ctx.stroke(); }
+
+    const meRoom = me && me.room;
+    // Buildings.
+    for (const b of world.buildings) {
+      const bx = PX(b.x), by = PY(b.y), bw = b.w * sx, bh = b.h * sy;
+      const here = meRoom === b.id;
+      ctx.fillStyle = hexA(b.color, here ? 0.78 : 0.5);
+      ctx.strokeStyle = here ? '#5ee7c0' : b.color;
+      ctx.lineWidth = here ? 3 : 2;
+      roundRect(ctx, bx, by, bw, bh, 6); ctx.fill(); ctx.stroke();
+      // Label: emoji (first token) above, name below, scaled to fit.
+      const parts = String(b.name || '').split(' ');
+      const emoji = parts[0]; const name = parts.slice(1).join(' ') || b.name;
+      const cx = bx + bw / 2, cy = by + bh / 2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f3ecff';
+      ctx.font = Math.max(12, Math.min(22, bh * 0.32)) + 'px serif';
+      ctx.fillText(emoji, cx, cy - (bh > 44 ? 9 : 0));
+      if (bh > 44) {
+        fitText(ctx, name, bw - 8, 13);
+        ctx.fillText(name, cx, cy + 11);
+      }
+      if (here) {
+        ctx.fillStyle = '#5ee7c0'; ctx.font = '700 10px system-ui, sans-serif';
+        ctx.fillText("● you're inside", cx, by + bh + 9);
+      }
+    }
+
+    // Spawn plaza.
+    if (world.spawn) {
+      const px = PX(world.spawn.x), py = PY(world.spawn.y);
+      ctx.fillStyle = 'rgba(232,217,168,0.22)'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e8d9a8'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('Spawn', px, py + 7);
+    }
+
+    // Wilds portal (town-side), if known.
+    if (typeof world2 !== 'undefined' && world2 && world2.portalInTown) {
+      const px = PX(world2.portalInTown.x), py = PY(world2.portalInTown.y);
+      ctx.fillStyle = '#9b5fc0'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#d7b8ff'; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('🌀 Wilds', px, py + 13);
+    }
+
+    // Other players currently in the open town.
+    for (const id in players) {
+      const p = players[id];
+      if (!p || id === myId || p.room !== 'outside' || typeof p.x !== 'number') continue;
+      ctx.fillStyle = '#b98aff'; ctx.beginPath(); ctx.arc(PX(p.x), PY(p.y), 4, 0, Math.PI * 2); ctx.fill();
+    }
+    // You.
+    if (me && me.room === 'outside' && typeof me.x === 'number') {
+      const px = PX(me.x), py = PY(me.y);
+      ctx.strokeStyle = 'rgba(94,231,192,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#5ee7c0'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5ee7c0'; ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('You', px, py - 11);
+    } else if (me && meRoom && meRoom !== 'outside' && !world.buildings.some((b) => b.id === meRoom)) {
+      // Away from town entirely (wilds / ember / dungeon / interior with no town rect).
+      ctx.fillStyle = 'rgba(233,221,255,0.85)'; ctx.font = '600 13px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText("You're away from the town square", cw / 2, ch - 10);
+    }
+  }
+  function open() {
+    if (!world || !world.buildings) { setUnlockToast('The map loads once you’re in town.'); return; }
+    const sheet = document.getElementById('menuSheet'); if (sheet) sheet.classList.add('hidden');
+    const m = document.getElementById('mapModal'); if (!m) return;
+    Modals.set('mapModalOpen', true);
+    m.classList.remove('hidden');
+    render();
+    if (timer) clearInterval(timer);
+    timer = setInterval(render, 500); // live player dots while open
+  }
+  function close() {
+    const m = document.getElementById('mapModal'); if (m) m.classList.add('hidden');
+    Modals.set('mapModalOpen', false);
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+  function toggle() { Modals.isOpen('mapModalOpen') ? close() : open(); }
+  window.__toggleTownMap = toggle;
+  window.__closeTownMap = close;
+  const mi = document.getElementById('menuMap'); if (mi) mi.addEventListener('click', open);
+  const cb = document.getElementById('mapCloseBtn'); if (cb) cb.addEventListener('click', close);
+  window.addEventListener('resize', () => { if (Modals.isOpen('mapModalOpen')) render(); });
+})();
+
 
 function openPassModal() {
   const modal = document.getElementById('passModal');
@@ -12132,6 +12282,10 @@ window.addEventListener('keydown', (e) => {
   const _menuSheet = document.getElementById('menuSheet');
   if (_menuSheet && !_menuSheet.classList.contains('hidden')) {
     if (e.key === 'Escape' && !e.repeat) _menuSheet.classList.add('hidden');
+    return;
+  }
+  if (Modals.isOpen('mapModalOpen')) {
+    if (e.key === 'Escape' && !e.repeat) { window.__closeTownMap && window.__closeTownMap(); }
     return;
   }
   if (Modals.isOpen('boardModalOpen')) {
