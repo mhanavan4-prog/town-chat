@@ -25385,6 +25385,18 @@ const { openNotifModal } = _notif;
     arcade:  '🎮 Games (Town Pass)',
     lounge:  '👻 Séances (Town Pass)'
   };
+  // Major Wilds landmarks. Keep in sync with wildsFlatZones() positions above.
+  // (The 6 named camp NPCs come from WILDS_NPCS and campfires from
+  // WILDS_CAMPFIRES — referenced live, not duplicated here.)
+  const WILDS_POI = [
+    { x: 5000, y: 3000, icon: '🏚️', label: 'The Village' },
+    { x: 2200, y: 5000, icon: '🪓', label: 'Unbound Camp' },
+    { x: 7800, y: 5000, icon: '🛡️', label: 'Thornwarden Camp' },
+    { x: 2000, y: 2000, icon: '🕯️', label: "Witch's Cave" },
+    { x: 3000, y: 3000, icon: '🏰', label: 'Coven Manor' },
+    { x: 6500, y: 6200, icon: '🌳', label: 'The Great Tree' }
+  ];
+  const EMBER_SAFE_R = 1800; // keep in sync with server EMBER_SAFE_RADIUS
   function hexA(hex, a) {
     const s = String(hex || '#888').replace('#', '');
     const n = parseInt(s.length === 3 ? s.replace(/(.)/g, '$1$1') : s, 16);
@@ -25403,11 +25415,48 @@ const { openNotifModal } = _notif;
     ctx.font = '600 9px system-ui, sans-serif';
     return 9;
   }
+  // A labeled marker: emoji glyph at (px,py), short label beneath.
+  function marker(ctx, px, py, icon, label, color) {
+    ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(icon, px, py);
+    if (label) {
+      ctx.fillStyle = color || '#cfc3e8'; ctx.font = '600 9px system-ui, sans-serif'; ctx.textBaseline = 'top';
+      ctx.fillText(label, px, py + 9);
+    }
+  }
+  // Dots for everyone else in `room`, then the teal "You" marker.
+  function drawPlayers(ctx, PX, PY, room) {
+    for (const id in players) {
+      const p = players[id];
+      if (!p || id === myId || p.room !== room || typeof p.x !== 'number') continue;
+      ctx.fillStyle = '#b98aff'; ctx.beginPath(); ctx.arc(PX(p.x), PY(p.y), 4, 0, Math.PI * 2); ctx.fill();
+    }
+    if (me && me.room === room && typeof me.x === 'number') {
+      const px = PX(me.x), py = PY(me.y);
+      ctx.strokeStyle = 'rgba(94,231,192,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#5ee7c0'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5ee7c0'; ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('You', px, py - 11);
+    }
+  }
+  // Which zone the map should show, and the geometry + title for it.
+  function activeZone() {
+    const r = me && me.room;
+    if (r === 'wilds' && typeof world2 !== 'undefined' && world2) {
+      return { key: 'wilds', W: world2.width, H: world2.height, bg: '#161022', title: '🗺️ The Wilds' };
+    }
+    if (r === 'ember_wastes' && typeof EMBER_WORLD !== 'undefined' && EMBER_WORLD) {
+      return { key: 'ember', W: EMBER_WORLD.width, H: EMBER_WORLD.height, bg: '#1c0e0a', title: '🗺️ The Ember Wastes' };
+    }
+    if (world && world.buildings) return { key: 'town', W: world.width, H: world.height, bg: '#10211a', title: '🗺️ Thornreach — Town Map' };
+    return null;
+  }
   function render() {
     const canvas = document.getElementById('mapCanvas');
     const wrap = document.getElementById('mapCanvasWrap');
-    if (!canvas || !wrap || !world || !world.buildings) return;
-    const W = world.width, H = world.height, aspect = W / H;
+    const zone = activeZone();
+    if (!canvas || !wrap || !zone) return;
+    const W = zone.W, H = zone.H, aspect = W / H;
     let cw = wrap.clientWidth, ch = cw / aspect;
     if (ch > wrap.clientHeight) { ch = wrap.clientHeight; cw = ch * aspect; }
     if (cw < 10 || ch < 10) return;
@@ -25418,15 +25467,21 @@ const { openNotifModal } = _notif;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sx = cw / W, sy = ch / H;
     const PX = (x) => x * sx, PY = (y) => y * sy;
+    const t = document.getElementById('mapTitle'); if (t) t.textContent = zone.title;
 
     // Ground + faint grid.
-    ctx.fillStyle = '#10211a'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = zone.bg; ctx.fillRect(0, 0, cw, ch);
     ctx.strokeStyle = 'rgba(126,240,195,0.05)'; ctx.lineWidth = 1;
-    for (let gx = 0; gx <= W; gx += 400) { ctx.beginPath(); ctx.moveTo(PX(gx), 0); ctx.lineTo(PX(gx), ch); ctx.stroke(); }
-    for (let gy = 0; gy <= H; gy += 400) { ctx.beginPath(); ctx.moveTo(0, PY(gy)); ctx.lineTo(cw, PY(gy)); ctx.stroke(); }
+    const step = W / 8;
+    for (let gx = 0; gx <= W; gx += step) { ctx.beginPath(); ctx.moveTo(PX(gx), 0); ctx.lineTo(PX(gx), ch); ctx.stroke(); }
+    for (let gy = 0; gy <= H; gy += step) { ctx.beginPath(); ctx.moveTo(0, PY(gy)); ctx.lineTo(cw, PY(gy)); ctx.stroke(); }
 
+    if (zone.key === 'town') drawTown(ctx, PX, PY, sx, sy, cw, ch);
+    else if (zone.key === 'wilds') drawWilds(ctx, PX, PY, cw, ch);
+    else if (zone.key === 'ember') drawEmber(ctx, PX, PY, cw, ch);
+  }
+  function drawTown(ctx, PX, PY, sx, sy, cw, ch) {
     const meRoom = me && me.room;
-    // Buildings.
     for (const b of world.buildings) {
       const bx = PX(b.x), by = PY(b.y), bw = b.w * sx, bh = b.h * sy;
       const here = meRoom === b.id;
@@ -25434,7 +25489,6 @@ const { openNotifModal } = _notif;
       ctx.strokeStyle = here ? '#5ee7c0' : b.color;
       ctx.lineWidth = here ? 3 : 2;
       roundRect(ctx, bx, by, bw, bh, 6); ctx.fill(); ctx.stroke();
-      // Label: emoji (first token) above, name below, scaled to fit.
       const parts = String(b.name || '').split(' ');
       const emoji = parts[0]; const name = parts.slice(1).join(' ') || b.name;
       const cx = bx + bw / 2, cy = by + bh / 2;
@@ -25457,8 +25511,6 @@ const { openNotifModal } = _notif;
         ctx.fillText("● you're inside", cx, by + bh + 9);
       }
     }
-
-    // Spawn plaza.
     if (world.spawn) {
       const px = PX(world.spawn.x), py = PY(world.spawn.y);
       ctx.fillStyle = 'rgba(232,217,168,0.22)'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
@@ -25466,8 +25518,6 @@ const { openNotifModal } = _notif;
       ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText('Spawn', px, py + 7);
     }
-
-    // Wilds portal (town-side), if known.
     if (typeof world2 !== 'undefined' && world2 && world2.portalInTown) {
       const px = PX(world2.portalInTown.x), py = PY(world2.portalInTown.y);
       ctx.fillStyle = '#9b5fc0'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
@@ -25475,45 +25525,54 @@ const { openNotifModal } = _notif;
       ctx.fillStyle = '#d7b8ff'; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText('🌀 Wilds', px, py + 13);
     }
-
-    // Outdoor NPCs + service landmarks, straight from the live kiosk list.
+    // The Torchkeepers' temple — where the Ember Wastes portal opens at night.
+    if (typeof TEMPLE_PLATFORM_X !== 'undefined') {
+      marker(ctx, PX(TEMPLE_PLATFORM_X), PY(TEMPLE_PLATFORM_Z), '🔥', 'Ember Temple (night)', '#ff8a8a');
+    }
     if (typeof OUTDOOR_KIOSKS !== 'undefined' && Array.isArray(OUTDOOR_KIOSKS)) {
       for (const k of OUTDOOR_KIOSKS) {
         const m = KIOSK_MARKERS[k.npc];
         if (!m || typeof k.x !== 'number') continue;
-        const px = PX(k.x), py = PY(k.z);
-        const label = m.role || k.npcName || '';
-        ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(m.icon, px, py);
-        if (label) {
-          ctx.fillStyle = m.color; ctx.font = '600 9px system-ui, sans-serif'; ctx.textBaseline = 'top';
-          ctx.fillText(label, px, py + 9);
-        }
+        marker(ctx, PX(k.x), PY(k.z), m.icon, m.role || k.npcName || '', m.color);
       }
     }
-
-    // Other players currently in the open town.
-    for (const id in players) {
-      const p = players[id];
-      if (!p || id === myId || p.room !== 'outside' || typeof p.x !== 'number') continue;
-      ctx.fillStyle = '#b98aff'; ctx.beginPath(); ctx.arc(PX(p.x), PY(p.y), 4, 0, Math.PI * 2); ctx.fill();
+    drawPlayers(ctx, PX, PY, 'outside');
+  }
+  function drawWilds(ctx, PX, PY, cw, ch) {
+    // Spawn / portal home (they sit together at the south edge).
+    if (world2.spawn) {
+      const px = PX(world2.spawn.x), py = PY(world2.spawn.y);
+      ctx.fillStyle = '#9b5fc0'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(155,95,192,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2); ctx.stroke();
+      marker(ctx, px, py, '', '🌀 Portal home', '#d7b8ff');
     }
-    // You.
-    if (me && me.room === 'outside' && typeof me.x === 'number') {
-      const px = PX(me.x), py = PY(me.y);
-      ctx.strokeStyle = 'rgba(94,231,192,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#5ee7c0'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#5ee7c0'; ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText('You', px, py - 11);
-    } else if (me && meRoom && meRoom !== 'outside' && !world.buildings.some((b) => b.id === meRoom)) {
-      // Away from town entirely (wilds / ember / dungeon / interior with no town rect).
-      ctx.fillStyle = 'rgba(233,221,255,0.85)'; ctx.font = '600 13px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText("You're away from the town square", cw / 2, ch - 10);
+    for (const poi of WILDS_POI) marker(ctx, PX(poi.x), PY(poi.y), poi.icon, poi.label, '#cbbdf0');
+    if (typeof WILDS_CAMPFIRES !== 'undefined') for (const f of WILDS_CAMPFIRES) marker(ctx, PX(f.x), PY(f.y), '🔥', 'Campfire', '#ffb067');
+    if (typeof WILDS_NPCS !== 'undefined') for (const n of WILDS_NPCS) marker(ctx, PX(n.x), PY(n.y), '❗', n.name, '#ffd479');
+    drawPlayers(ctx, PX, PY, 'wilds');
+  }
+  function drawEmber(ctx, PX, PY, cw, ch) {
+    const sp = EMBER_WORLD.spawn;
+    // Safe haven ring around spawn.
+    if (sp) {
+      const px = PX(sp.x), py = PY(sp.y), rr = EMBER_SAFE_R * (cw / EMBER_WORLD.width);
+      ctx.fillStyle = 'rgba(126,240,195,0.07)'; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(126,240,195,0.35)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      marker(ctx, px, py, '🛟', 'Safe haven', '#7ef0c3');
     }
+    // Named POIs streamed in on entry (warlord = the boss).
+    if (typeof emberLandmarks !== 'undefined' && Array.isArray(emberLandmarks)) {
+      for (const lm of emberLandmarks) {
+        if (typeof lm.x !== 'number') continue;
+        marker(ctx, PX(lm.x), PY(lm.y), lm.icon || (lm.warlord ? '💀' : '📍'), lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a');
+      }
+    }
+    drawPlayers(ctx, PX, PY, 'ember_wastes');
+    ctx.fillStyle = 'rgba(255,160,140,0.75)'; ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('⚔️ Open PvP — anyone may strike you outside the haven', cw / 2, ch - 8);
   }
   function open() {
-    if (!world || !world.buildings) { setUnlockToast('The map loads once you’re in town.'); return; }
+    if (!activeZone()) { setUnlockToast('The map loads once you’re in the world.'); return; }
     const sheet = document.getElementById('menuSheet'); if (sheet) sheet.classList.add('hidden');
     const m = document.getElementById('mapModal'); if (!m) return;
     Modals.set('mapModalOpen', true);

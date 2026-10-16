@@ -2573,7 +2573,7 @@
 #mapModal .mapBtns .btn{min-width:160px}
 </style>
 <div id="mapModal" class="hidden">
-  <div class="mapHead">🗺️ Thornreach — Town Map <span class="mapHint">press M or Esc to close</span></div>
+  <div class="mapHead"><span id="mapTitle">🗺️ Thornreach — Town Map</span> <span class="mapHint">press M or Esc to close</span></div>
   <div id="mapCanvasWrap"><canvas id="mapCanvas"></canvas></div>
   <div class="mapLegend">
     <span><i style="background:#5ee7c0"></i>You</span>
@@ -3426,6 +3426,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=06a2418c7d"></script>
+<script src="client.js?v=259d22fa03"></script>
 </body>
 </html>
