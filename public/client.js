@@ -11969,7 +11969,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // frame. That's what read as "backwards"/wrong. 0.45 rad keeps it
     // near its frame (lands around z=1039.6, well inside the chamber's
     // depth) while still clearly standing ajar.
-    vaultHinge.rotation.y = 0.45;
+    // 0.30 rad keeps the door clearly ajar but a touch flatter than 0.45 so
+    // its decorated face turns toward the player. The wheel/rim/bolts below
+    // now sit on the room-facing side (-z) rather than the wall side (+z) —
+    // at 0.45 with the detail on +z the handwheel pointed into the back wall
+    // and the door read as a blank grey disc from inside the room.
+    vaultHinge.rotation.y = 0.30;
     // A thick round steel door so it reads as a bank vault, not a grey disc.
     const steelMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ad });
     const steelDarkMat = new THREE.MeshLambertMaterial({ color: 0x6b727d });
@@ -11979,27 +11984,30 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     vault.position.set(70, 95, 0);
     vaultHinge.add(vault);
     // A raised rim ring around the edge (reads as the door's lip).
+    // All the door's detail (rim, bolts, handwheel) sits at negative local z
+    // — the room-facing side once the hinge swings toward the player — so the
+    // brass catches the light instead of hiding against the back wall.
     const rim = new THREE.Mesh(new THREE.TorusGeometry(66, 6, 10, 32), steelDarkMat);
-    rim.position.set(70, 95, 9);
+    rim.position.set(70, 95, -9);
     vaultHinge.add(rim);
     // Locking bolts studded around the rim.
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
       const bolt = new THREE.Mesh(new THREE.SphereGeometry(4.5, 8, 8), brassMat);
-      bolt.position.set(70 + Math.cos(a) * 56, 95 + Math.sin(a) * 56, 10);
+      bolt.position.set(70 + Math.cos(a) * 56, 95 + Math.sin(a) * 56, -10);
       vaultHinge.add(bolt);
     }
     // The handwheel: a hub + spokes + an outer ring — the thing that says "vault".
     const vaultHub = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 14, 16), brassMat);
     vaultHub.rotation.x = Math.PI / 2;
-    vaultHub.position.set(70, 95, 10);
+    vaultHub.position.set(70, 95, -10);
     vaultHinge.add(vaultHub);
     const wheelRing = new THREE.Mesh(new THREE.TorusGeometry(34, 4, 10, 28), brassMat);
-    wheelRing.position.set(70, 95, 14);
+    wheelRing.position.set(70, 95, -14);
     vaultHinge.add(wheelRing);
     for (let i = 0; i < 3; i++) {
       const spoke = new THREE.Mesh(new THREE.BoxGeometry(70, 6, 6), brassMat);
-      spoke.position.set(70, 95, 14);
+      spoke.position.set(70, 95, -14);
       spoke.rotation.z = (i / 3) * Math.PI; // 3 bars → 6 spokes
       vaultHinge.add(spoke);
     }
