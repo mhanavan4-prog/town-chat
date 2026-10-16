@@ -1683,7 +1683,7 @@ const bans = {
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   reportsList, reportsResolve,
-  worldChatRecent, hostSay, telemetry, bugReports,
+  worldChatRecent, hostSay, telemetry, bugReports, auctionFeedRecent,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room, id: String(p.id || '').slice(0, 4), since: p.joinedAt || null })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -3995,7 +3995,7 @@ function makeId() {
 
 
 // Auction house (Sessions I/M) — extracted to lib/auctions.js (Tier 3.4 Phase B).
-const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG });
+const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent });
 const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
 
 setInterval(() => {
@@ -7492,6 +7492,33 @@ function worldChatBacklog() { return worldChatLog.slice(-20).map(m => ({ id: m.i
 // Recent world-chat lines for the admin monitor (oldest→newest). No PII beyond
 // the public name/line players already broadcast to everyone in the open world.
 function worldChatRecent(n) { return worldChatLog.slice(-(n || 80)).map(m => ({ name: m.name, color: m.color, text: m.text, ts: m.ts, host: !!m.host })); }
+
+// Live auction-house activity feed for the admin monitor — a small in-memory
+// ring of recent events (listings, bids, sales, expiries), surfaced read-only
+// the same way world chat is. Not persisted (it's a live tail), and carries no
+// PII beyond the public display names already shown on every listing in-game.
+const AUCTION_FEED_LIMIT = 200;
+const auctionFeedLog = [];
+function recordAuctionEvent(ev) {
+  if (!ev) return;
+  auctionFeedLog.push({
+    ts: Date.now(),
+    kind: ['list', 'bid', 'sold', 'expired'].indexOf(ev.kind) !== -1 ? ev.kind : 'list',
+    name: String(ev.name || '').slice(0, 40),   // the actor: seller / bidder / winner
+    text: String(ev.text || '').slice(0, 180),
+    currency: ev.currency === 'ms' ? 'ms' : 'gold'
+  });
+  if (auctionFeedLog.length > AUCTION_FEED_LIMIT) auctionFeedLog.shift();
+}
+function auctionFeedRecent(n) { return auctionFeedLog.slice(-(n || 80)); } // oldest→newest, like world chat
+// Short human label for an item/selfie/voice listing in a feed line.
+function auctionFeedLabel(listing) {
+  if (listing.isSelfie) return 'a selfie';
+  if (listing.isVoice) return 'a howl recording';
+  const nm = (ITEM_CATALOG[listing.itemId] && ITEM_CATALOG[listing.itemId].name) || 'an item';
+  return (listing.qty > 1 ? listing.qty + '× ' : '') + nm;
+}
+function auctionCurTag(c) { return c === 'ms' ? '💎' : '🪙'; }
 // Host/admin broadcast into the free WORLD channel — the dev greeting arrivals.
 // Renders as a normal world line from a distinct, non-player host identity;
 // bypasses the word filter/flood guard (the endpoint is ADMIN_KEY-gated) but is
@@ -8516,6 +8543,8 @@ wss.on('connection', (ws, req) => {
       };
       listings.push(listing);
       saveListings();
+      recordAuctionEvent({ kind: 'list', name: player.name, currency,
+        text: 'listed ' + auctionFeedLabel(listing) + ' — start ' + startingBid + auctionCurTag(currency) + (buyoutPrice ? (' · buyout ' + buyoutPrice + auctionCurTag(currency)) : '') });
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       broadcastAuctionState();
       return;
@@ -8553,6 +8582,8 @@ wss.on('connection', (ws, req) => {
       };
       listings.push(listing);
       saveListings();
+      recordAuctionEvent({ kind: 'list', name: player.name, currency: 'gold',
+        text: 'listed a selfie — start ' + startingBid + auctionCurTag('gold') + (buyoutPrice ? (' · buyout ' + buyoutPrice + auctionCurTag('gold')) : '') });
       broadcastAuctionState();
       return;
     }
@@ -8613,6 +8644,8 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       }
 
+      recordAuctionEvent({ kind: 'bid', name: player.name, currency: listing.currency,
+        text: 'bid ' + amount + auctionCurTag(listing.currency) + ' on ' + auctionFeedLabel(listing) });
       if (listing.buyoutPrice && amount >= listing.buyoutPrice) {
         resolveListing(listing);
       } else {
@@ -11896,6 +11929,7 @@ global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
   bugReports, // test-only: inspect the in-game bug-report store
+  auctionFeedRecent, // test-only: inspect the live auction activity feed
 
   noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
   getStoryState, CLASS_NAMES, // test-only: drive campaign progression + ability-cast analytics (storyEvent/STORYLINES already exposed below)
