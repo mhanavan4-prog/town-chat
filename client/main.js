@@ -6996,6 +6996,11 @@ const GFX = (() => {
     // are too high; dial back toward -0.00035 / 3.)
     light.shadow.bias = -0.0006;
     light.shadow.normalBias = 4;
+    // Soften the edge. Resolution (above) shrinks the texel; radius widens the
+    // PCF kernel so the shadow boundary gets a real penumbra instead of a hard,
+    // stair-stepped line — the interior "sawtooth". Interiors can take a wide,
+    // soft radius; the outdoor follow map stays crisp.
+    light.shadow.radius = info.follow ? 2 : 7;
     c.updateProjectionMatrix();
     if (!light.target.parent && light.parent) light.parent.add(light.target);
   }

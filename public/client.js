@@ -11970,20 +11970,39 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // near its frame (lands around z=1039.6, well inside the chamber's
     // depth) while still clearly standing ajar.
     vaultHinge.rotation.y = 0.45;
-    const vault = new THREE.Mesh(
-      new THREE.CylinderGeometry(70, 70, 8, 24),
-      new THREE.MeshLambertMaterial({ color: 0x6b6b6b })
-    );
+    // A thick round steel door so it reads as a bank vault, not a grey disc.
+    const steelMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ad });
+    const steelDarkMat = new THREE.MeshLambertMaterial({ color: 0x6b727d });
+    const brassMat = new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x3a2d08, emissiveIntensity: 0.3 });
+    const vault = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 16, 32), steelMat);
     vault.rotation.x = Math.PI / 2;
     vault.position.set(70, 95, 0);
     vaultHinge.add(vault);
-    const vaultHub = new THREE.Mesh(
-      new THREE.CylinderGeometry(16, 16, 12, 12),
-      new THREE.MeshLambertMaterial({ color: 0xd4af37 })
-    );
+    // A raised rim ring around the edge (reads as the door's lip).
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(66, 6, 10, 32), steelDarkMat);
+    rim.position.set(70, 95, 9);
+    vaultHinge.add(rim);
+    // Locking bolts studded around the rim.
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const bolt = new THREE.Mesh(new THREE.SphereGeometry(4.5, 8, 8), brassMat);
+      bolt.position.set(70 + Math.cos(a) * 56, 95 + Math.sin(a) * 56, 10);
+      vaultHinge.add(bolt);
+    }
+    // The handwheel: a hub + spokes + an outer ring — the thing that says "vault".
+    const vaultHub = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 14, 16), brassMat);
     vaultHub.rotation.x = Math.PI / 2;
-    vaultHub.position.set(70, 95, 4);
+    vaultHub.position.set(70, 95, 10);
     vaultHinge.add(vaultHub);
+    const wheelRing = new THREE.Mesh(new THREE.TorusGeometry(34, 4, 10, 28), brassMat);
+    wheelRing.position.set(70, 95, 14);
+    vaultHinge.add(wheelRing);
+    for (let i = 0; i < 3; i++) {
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(70, 6, 6), brassMat);
+      spoke.position.set(70, 95, 14);
+      spoke.rotation.z = (i / 3) * Math.PI; // 3 bars → 6 spokes
+      vaultHinge.add(spoke);
+    }
     scene.add(vaultHinge);
 
     // Recessed treasure chamber — dark panels framing the opening, filled
@@ -21632,6 +21651,11 @@ const GFX = (() => {
     // are too high; dial back toward -0.00035 / 3.)
     light.shadow.bias = -0.0006;
     light.shadow.normalBias = 4;
+    // Soften the edge. Resolution (above) shrinks the texel; radius widens the
+    // PCF kernel so the shadow boundary gets a real penumbra instead of a hard,
+    // stair-stepped line — the interior "sawtooth". Interiors can take a wide,
+    // soft radius; the outdoor follow map stays crisp.
+    light.shadow.radius = info.follow ? 2 : 7;
     c.updateProjectionMatrix();
     if (!light.target.parent && light.parent) light.parent.add(light.target);
   }
