@@ -27,9 +27,24 @@ HEALTHZ="${HEALTHZ_URL:-http://localhost:3000/healthz}"
 
 [ -n "$HC" ] || { echo "HEARTBEAT_HC_URL not set"; exit 0; }
 
+# A deploy restarts the server for a second or two; deploy.sh drops a
+# "$APP_DIR/.deploying" flag across that window. If the flag is present AND
+# fresh (touched within the last 3 min), we skip the fail-ping for a transient
+# unhealthy reading — a real outage still alerts, because a stale flag is
+# ignored and a stuck deploy stops pinging success entirely.
+deploying=0
+FLAG="$APP_DIR/.deploying"
+if [ -f "$FLAG" ]; then
+  now="$(date +%s)"
+  mt="$(stat -c %Y "$FLAG" 2>/dev/null || stat -f %m "$FLAG" 2>/dev/null || echo 0)"
+  [ $((now - mt)) -lt 180 ] && deploying=1
+fi
+
 code="$(curl -fsS -m 10 -o /dev/null -w '%{http_code}' "$HEALTHZ" 2>/dev/null || echo 000)"
 if [ "$code" = "200" ]; then
   curl -fsS -m 10 --retry 3 "$HC" >/dev/null 2>&1 || true   # healthy -> ping
+elif [ "$deploying" = "1" ]; then
+  :   # deploy in progress — ignore the brief restart gap, don't fail yet
 else
   curl -fsS -m 10 --retry 3 "$HC/fail" >/dev/null 2>&1 || true   # serving but unhealthy -> fail now
 fi
