@@ -72,7 +72,7 @@ fi
 # One line per run so a false "down" is diagnosable after the fact: was the
 # server unhealthy (healthz!=200), or did the ping just fail to egress
 # (ping=SEND-FAILED)? Keep the tail trimmed so it never grows unbounded.
-LOG="$APP_DIR/heartbeat.log"
+LOG="$SELF_DIR/heartbeat.log"   # ops/heartbeat.log, beside this script
 printf '%s healthz=%s action=%s ping=%s\n' "$(date -u +%FT%TZ)" "$code" "$action" "$ping" >> "$LOG" 2>/dev/null || true
 if [ "$(wc -l < "$LOG" 2>/dev/null || echo 0)" -gt 600 ]; then
   tail -n 500 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG" 2>/dev/null || true
