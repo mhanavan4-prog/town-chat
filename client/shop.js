@@ -84,8 +84,8 @@ function renderShopBuyList(container) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     const priceHtml = item.basePrice && item.basePrice !== item.price
-      ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} 🪙</span>`
-      : `<span style="color:#ffd700;font-weight:700;">${item.price} 🪙</span>`;
+      ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} <span class="coin"></span></span>`
+      : `<span style="color:#ffd700;font-weight:700;">${item.price} <span class="coin"></span></span>`;
     row.innerHTML = `<span style="font-size:20px;">${item.icon}</span>
       <span style="flex:1;color:#eafff0;">${item.name}</span>
       ${priceHtml}
@@ -123,7 +123,7 @@ function renderShopSellList(container) {
     row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     row.innerHTML = `<span style="font-size:20px;">${meta.icon}</span>
       <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span></span>
-      <span style="color:#ffd700;font-weight:700;">${unit} 🪙<span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
+      <span style="color:#ffd700;font-weight:700;">${unit} <span class="coin"></span><span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
       <button data-q="1" style="padding:5px 10px;background:#2f7a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Sell 1</button>
       <button data-q="all" style="padding:5px 10px;background:rgba(47,122,79,0.55);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">All (${qty})</button>`;
     row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {

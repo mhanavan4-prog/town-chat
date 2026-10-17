@@ -55,7 +55,7 @@ function updateGoldReadouts() {
   const aucLine = document.getElementById('auctionBalanceLine');
   if (aucLine) {
     if (gold == null) aucLine.textContent = 'Gold is held at the 🏦 bank — log in to a Town Chat account to earn and spend it.';
-    else aucLine.innerHTML = 'You have 🪙 <b>' + gold + '</b> (bank) · 💎 <b>' + getMyMoonstones() + '</b>';
+    else aucLine.innerHTML = 'You have <span class="coin"></span> <b>' + gold + '</b> (bank) · 💎 <b>' + getMyMoonstones() + '</b>';
   }
 }
 function msPriceLabel(cents) { return '$' + (cents / 100).toFixed(2); }
