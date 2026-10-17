@@ -10,7 +10,7 @@ import { Modals } from './modals.js';
 
 const STAT_LABEL = { power: 'Power', guard: 'Guard', vitality: 'Vitality', haste: 'Haste', swift: 'Swift', leech: 'Leech', xp: 'XP', forage: 'Forage' };
 
-export default function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold }) {
+export default function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold, showItemTooltip, hideTooltip }) {
 function countItem(id) {
   const st = getInventoryState();
   const slots = (st && st.slots) || [];
@@ -72,7 +72,7 @@ function renderWorkshopModal() {
            <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}<span class="coin"></span></button>
          </div>
          ${stats ? `<div class="craftStats">${stats}</div>` : ''}
-         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
+         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip" data-item="${ing.id}">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
       row.querySelector('.craftBtn').addEventListener('click', () => {
         if (!afford) return;
         document.getElementById('workshopErr').textContent = '';
@@ -88,7 +88,7 @@ function renderWorkshopModal() {
       const ok = have >= ing.qty;
       if (!ok) canCraft = false;
       const meta = CAT[ing.id] || {};
-      return `<span class="craftChip ${ok ? 'ok' : 'short'}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
+      return `<span class="craftChip ${ok ? 'ok' : 'short'}" data-item="${ing.id}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
     }).join('');
 
     row.className = 'craftRow' + (canCraft ? ' ready' : '');
@@ -107,6 +107,23 @@ function renderWorkshopModal() {
     });
     list.appendChild(row);
   }
+  wireChipTooltips(list);
+}
+// Hover (desktop) or tap (touch) an ingredient chip to see what it is and
+// where to find it. Delegated per render; tap toggles so it works without a
+// cursor. No-op if the tooltip helpers weren't injected.
+function wireChipTooltips(list) {
+  if (!showItemTooltip || !hideTooltip) return;
+  let tapped = null;
+  list.querySelectorAll('.craftChip[data-item]').forEach((chip) => {
+    const id = chip.dataset.item;
+    chip.addEventListener('mouseenter', (e) => showItemTooltip(e, id));
+    chip.addEventListener('mouseleave', () => { if (tapped !== chip) hideTooltip(); });
+    chip.addEventListener('click', (e) => {
+      if (tapped === chip) { hideTooltip(); tapped = null; }
+      else { showItemTooltip(e, id); tapped = chip; }
+    });
+  });
 }
 (function () {
   const close = document.getElementById('workshopCloseBtn');

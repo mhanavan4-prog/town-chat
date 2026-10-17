@@ -1140,7 +1140,7 @@ function renderTitlesModal() {
 
 const STAT_LABEL = { power: 'Power', guard: 'Guard', vitality: 'Vitality', haste: 'Haste', swift: 'Swift', leech: 'Leech', xp: 'XP', forage: 'Forage' };
 
-function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold }) {
+function createWorkshop({ send, getCraftRecipes, getInventoryState, getItemCatalog, getEquipStats, getRecipesUnlocked, getGold, showItemTooltip, hideTooltip }) {
 function countItem(id) {
   const st = getInventoryState();
   const slots = (st && st.slots) || [];
@@ -1202,7 +1202,7 @@ function renderWorkshopModal() {
            <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}<span class="coin"></span></button>
          </div>
          ${stats ? `<div class="craftStats">${stats}</div>` : ''}
-         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
+         <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip" data-item="${ing.id}">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
       row.querySelector('.craftBtn').addEventListener('click', () => {
         if (!afford) return;
         document.getElementById('workshopErr').textContent = '';
@@ -1218,7 +1218,7 @@ function renderWorkshopModal() {
       const ok = have >= ing.qty;
       if (!ok) canCraft = false;
       const meta = CAT[ing.id] || {};
-      return `<span class="craftChip ${ok ? 'ok' : 'short'}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
+      return `<span class="craftChip ${ok ? 'ok' : 'short'}" data-item="${ing.id}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
     }).join('');
 
     row.className = 'craftRow' + (canCraft ? ' ready' : '');
@@ -1237,6 +1237,23 @@ function renderWorkshopModal() {
     });
     list.appendChild(row);
   }
+  wireChipTooltips(list);
+}
+// Hover (desktop) or tap (touch) an ingredient chip to see what it is and
+// where to find it. Delegated per render; tap toggles so it works without a
+// cursor. No-op if the tooltip helpers weren't injected.
+function wireChipTooltips(list) {
+  if (!showItemTooltip || !hideTooltip) return;
+  let tapped = null;
+  list.querySelectorAll('.craftChip[data-item]').forEach((chip) => {
+    const id = chip.dataset.item;
+    chip.addEventListener('mouseenter', (e) => showItemTooltip(e, id));
+    chip.addEventListener('mouseleave', () => { if (tapped !== chip) hideTooltip(); });
+    chip.addEventListener('click', (e) => {
+      if (tapped === chip) { hideTooltip(); tapped = null; }
+      else { showItemTooltip(e, id); tapped = chip; }
+    });
+  });
 }
 (function () {
   const close = document.getElementById('workshopCloseBtn');
@@ -25210,6 +25227,7 @@ const _workshop = createWorkshop({
   getEquipStats: () => equipStatsCatalog,
   getRecipesUnlocked: () => myRecipesUnlocked,
   getGold: () => (lastBankState ? lastBankState.balance : 0),
+  showItemTooltip, hideTooltip,
 });
 const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
 
@@ -26131,6 +26149,27 @@ const _ttName  = document.getElementById('ttName');
 const _ttSlot  = document.getElementById('ttSlot');
 const _ttStats = document.getElementById('ttStats');
 const _ttDesc  = document.getElementById('ttDesc');
+const _ttSource = document.getElementById('ttSource');
+// Where to find each crafting material — shown as a "📍" line in the item
+// tooltip (and on the Workshop ingredient chips). Derived from the real loot
+// tables (data/gameConstants.js), the Ember Wastes harvest nodes and warlord
+// drops (server.js), and the refine tree (data/craftingTree.js); keep in sync
+// if those move. Only materials that are crafting inputs need an entry.
+const MATERIAL_SOURCES = {
+  fur_scrap:      'Common drop from Wilds beasts & critters',
+  animal_pelt:    'Drops from Wilds beasts — bog brutes, duskfawn, boars',
+  bone_shard:     'Drops from undead — crows, wights, rot swarms',
+  shadow_essence: 'Drops from Wilds shades, wisps & hexers',
+  glimmerdust:    'Drops from embermoths in the Wilds',
+  iron_ore:       'Drops from bramble boars in the Wilds',
+  dragon_scale:   'Rare drop from Ember Wastes elites & the warlord boss',
+  emberbloom:     'Harvested at Ember Wastes nodes (Cinder Bazaar, Emberfall Caldera)',
+  cinder_salt:    'Harvested at Ember Wastes nodes (Charhold Keep, the Great Ossuary)',
+  cured_leather:  'Crafted here: 3× Fur Scrap + Animal Pelt',
+  tempered_ingot: 'Crafted here: 2× Iron Ore + Bone Shard',
+  spirit_thread:  'Crafted here: 2× Shadow Essence + Glimmerdust',
+  ember_glass:    'Crafted here: 2× Emberbloom + 2× Cinder-Salt',
+};
 const SLOT_LABELS = { weapon: 'Weapon', head: 'Head', chest: 'Chest', feet: 'Feet', ring: 'Ring' };
 const KIND_LABELS  = { targeted: 'Targeted', aoe: 'Area of Effect', self: 'Self', building: 'Building' };
 
@@ -26167,6 +26206,7 @@ function showItemTooltip(e, itemId) {
   _ttStats.innerHTML = lines.join('<br>');
   _ttDesc.textContent = item.desc || '';
   _ttDesc.style.display = item.desc ? '' : 'none';
+  if (_ttSource) _ttSource.textContent = MATERIAL_SOURCES[itemId] ? ('📍 ' + MATERIAL_SOURCES[itemId]) : '';
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }
@@ -26179,6 +26219,7 @@ function showActionTooltip(e, action) {
   _ttStats.innerHTML   = '';
   _ttDesc.textContent  = action.description || '';
   _ttDesc.style.display = action.description ? '' : 'none';
+  if (_ttSource) _ttSource.textContent = '';
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }
