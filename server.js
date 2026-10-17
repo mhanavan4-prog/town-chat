@@ -24,6 +24,23 @@ try { require('fs').mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 // (a Discord or Slack incoming webhook) receives high-severity alerts.
 // Created before persistence so a storage failure can raise an audit alert.
 const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
+// Growth pings — new account / new coven — to a Discord (or Slack) webhook so
+// you hear about signups as they happen. Opt-in: set NOTIFY_WEBHOOK_URL in the
+// env for a dedicated channel; falls back to ALERT_WEBHOOK_URL, and is a no-op
+// if neither is set. Fire-and-forget — never blocks or throws into a request.
+const NOTIFY_WEBHOOK_URL = process.env.NOTIFY_WEBHOOK_URL || process.env.ALERT_WEBHOOK_URL || '';
+function notifyGrowth(text) {
+  if (!NOTIFY_WEBHOOK_URL) return;
+  try {
+    const u = new URL(NOTIFY_WEBHOOK_URL);
+    const lib = u.protocol === 'http:' ? require('http') : require('https');
+    const body = JSON.stringify({ content: text, text }); // content = Discord, text = Slack
+    const rq = lib.request(u, { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }, timeout: 8000 });
+    rq.on('error', () => {});
+    rq.on('timeout', () => { try { rq.destroy(); } catch (e) {} });
+    rq.end(body);
+  } catch (e) {}
+}
 // Content filter (Session O) — targeted slur/hate blocklist for chat + names.
 const wordFilter = require('./data/wordfilter');
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
@@ -1864,6 +1881,7 @@ app.post('/api/register', (req, res) => {
   audit.log({ level: burst > 5 ? 'alert' : 'info', type: burst > 5 ? 'account_create_burst' : 'account_create',
     ip, account: key, name: username, detail: burst > 5 ? { fromThisIp24h: burst } : {} });
   analytics.bump('register');
+  notifyGrowth('🆕 New account signed up: **' + username + '**');
   res.json({ token, username, color: accounts[key].color });
 });
 
@@ -10896,6 +10914,7 @@ wss.on('connection', (ws, req) => {
       covenIndex.set(player.accountKey, id);
       covenLog(covens[id], player.name, 'founded the coven');
       analytics.bump('coven.found');
+      notifyGrowth('🕸️ New coven founded: **' + name + '** ' + (sigil || '') + ' — by ' + player.name);
       noteMilestone(player, 'coven');
       saveCoven(id);
       audit.log({ level: 'info', type: 'coven_founded', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: id, name } });
