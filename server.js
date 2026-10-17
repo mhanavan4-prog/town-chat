@@ -910,7 +910,7 @@ app.get('/api/verify-ms-session', async (req, res) => {
     const packId = session.metadata && session.metadata.ms_pack;
     if (!MS_PACKS[packId]) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Moonstone pack.' });
     const g = grantMoonstones('stripe_' + String(sessionId), accountKey, packId);
-    if (g.granted > 0) analytics.bump('purchase.moonstones');
+    if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + packId); }
     pushMsStateIfOnline(accountKey);
     audit.log({ level: 'info', type: g.granted > 0 ? 'ms_pack_granted' : 'ms_pack_replay',
       ip: audit.clientIp(req), account: accountKey, detail: { pack: packId, granted: g.granted, balance: g.balance } });
@@ -990,6 +990,7 @@ app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => 
       const msKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
       if (!msKey) return res.status(400).json({ unlocked: false, error: 'account_required' });
       const g = grantMoonstones(v.txId, msKey, productId);
+      if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + productId); }
       pushMsStateIfOnline(msKey);
       return res.json({ unlocked: true, moonstones: g.balance, granted: g.granted, txId: v.txId });
     }
@@ -1487,13 +1488,62 @@ function analyticsSummary() {
   let goldInEconomy = 0;
   for (const a of Object.values(bankAccounts)) goldInEconomy += (a && a.balance) || 0;
   for (const cv of Object.values(covens)) goldInEconomy += (cv && cv.bank && cv.bank.gold) || 0;
+  // Purchase analytics, last 30 days. Every buy bumps per-key daily counters:
+  //   gold items/recipes  → buy.n.<key> (units) + buy.g.<key> (gold spent)
+  //   moonstone sinks      → buy.msn.<key> (units) + buy.msg.<key> (💎 spent)
+  //   real-money packs     → buy.pack.<packId> (count; revenue = count × price)
+  // We sum each over the window and resolve names here (catalogs are in scope).
+  const purchases = (() => {
+    let snap;
+    try { snap = analytics.snapshot(30); } catch (e) { return { packs: [], msItems: [], goldItems: [], goldTypes: [] }; }
+    const sums = {};                 // prefix-stripped key → summed value, per metric family
+    const fam = { 'buy.n.': 'gn', 'buy.g.': 'gg', 'buy.msn.': 'mn', 'buy.msg.': 'mg', 'buy.pack.': 'pk' };
+    for (const f of Object.values(fam)) sums[f] = {};
+    for (const day of (snap.days || [])) {
+      const row = snap.data[day] || {};
+      for (const key in row) {
+        for (const pre in fam) { if (key.indexOf(pre) === 0) { const id = key.slice(pre.length); const b = sums[fam[pre]]; b[id] = (b[id] || 0) + row[key]; break; } }
+      }
+    }
+    const typeOf = (slot) => slot === 'weapon' ? 'Weapons' : slot === 'ring' ? 'Rings'
+      : (slot === 'head' || slot === 'chest' || slot === 'feet') ? 'Armor' : 'Consumables';
+    const nameIcon = (id) => {
+      if (id.indexOf('rec:') === 0) { const rec = CRAFT_RECIPE_BY_ID[id.slice(4)]; const out = rec && ITEM_CATALOG[rec.result]; return { name: (out ? out.name : id.slice(4)) + ' recipe', icon: '📜', type: 'Recipes' }; }
+      if (id.indexOf('dye:') === 0) return { name: id.slice(4).replace(/_/g, ' ') + ' dye', icon: '🎨', type: 'Dyes' };
+      if (id.indexOf('look:') === 0) return { name: id.slice(5).replace(/_/g, ' ') + ' look', icon: '🎭', type: 'Looks' };
+      const it = ITEM_CATALOG[id]; return { name: it ? it.name : id, icon: it ? it.icon : '•', type: typeOf(it ? it.slot : null) };
+    };
+    // Real-money packs — the headline revenue view.
+    const packs = Object.keys(sums.pk).map((pid) => {
+      const p = MS_PACKS[pid] || {}; const count = sums.pk[pid] || 0;
+      return { id: pid, name: p.name || pid, count, cents: p.cents || 0, revenue: Math.round((count * (p.cents || 0)) / 100) };
+    }).filter((x) => x.count > 0).sort((a, b) => b.revenue - a.revenue);
+    // Moonstone (💎) sinks — what premium currency is spent on.
+    const msIds = Array.from(new Set(Object.keys(sums.mn).concat(Object.keys(sums.mg))));
+    const msItems = msIds.map((id) => { const ni = nameIcon(id); return { id, name: ni.name, icon: ni.icon, type: ni.type, units: sums.mn[id] || 0, ms: Math.round(sums.mg[id] || 0) }; })
+      .filter((x) => x.units > 0 || x.ms > 0).sort((a, b) => b.ms - a.ms).slice(0, 12);
+    // Gold sinks — in-game economy (shop buys + learned recipes).
+    const gIds = Array.from(new Set(Object.keys(sums.gn).concat(Object.keys(sums.gg))));
+    const goldItems = gIds.map((id) => { const ni = nameIcon(id); return { id, name: ni.name, icon: ni.icon, type: ni.type, units: sums.gn[id] || 0, gold: Math.round(sums.gg[id] || 0) }; })
+      .filter((x) => x.units > 0 || x.gold > 0);
+    const gByType = {};
+    for (const it of goldItems) { const t = gByType[it.type] || (gByType[it.type] = { type: it.type, units: 0, gold: 0 }); t.units += it.units; t.gold += it.gold; }
+    return {
+      packs,
+      packRevenue: packs.reduce((s, p) => s + p.revenue, 0),
+      msItems,
+      goldItems: goldItems.sort((a, b) => b.gold - a.gold).slice(0, 12),
+      goldTypes: Object.values(gByType).sort((a, b) => b.gold - a.gold)
+    };
+  })();
   return {
     totalAccounts: keys.length,
     returnRate: keys.length ? +((returned / keys.length) * 100).toFixed(1) : 0,
     onlineNow: players.size,
     activeLast24h: active1, activeLast7d: active7, activeLast30d: active30,
     covens: Object.keys(covens).length,
-    goldInEconomy: Math.round(goldInEconomy)
+    goldInEconomy: Math.round(goldInEconomy),
+    purchases
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
@@ -8295,6 +8345,8 @@ wss.on('connection', (ws, req) => {
       if (prog.wardrobeUnlocks[player.charId].indexOf(w.id) !== -1) { send(ws, { type: 'look_bought', weapon: w.id }); return; } // already owned
       if (msBalance(player.accountKey) < u.ms) { send(ws, { type: 'ms_error', message: `That look is ${u.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
       msAdjust(player.accountKey, -u.ms);
+      analytics.bump('buy.msn.look:' + w.id);
+      analytics.bump('buy.msg.look:' + w.id, u.ms);
       prog.wardrobeUnlocks[player.charId].push(w.id);
       try { saveProgress(); } catch (e) {}
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
@@ -8317,6 +8369,8 @@ wss.on('connection', (ws, req) => {
       if (prog.dyeUnlocks.indexOf(dyeId) !== -1) { send(ws, { type: 'dye_bought', dye: dyeId }); return; } // already owned
       if (msBalance(player.accountKey) < u.ms) { send(ws, { type: 'ms_error', message: `That dye is ${u.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
       msAdjust(player.accountKey, -u.ms);
+      analytics.bump('buy.msn.dye:' + dyeId);
+      analytics.bump('buy.msg.dye:' + dyeId, u.ms);
       prog.dyeUnlocks.push(dyeId);
       try { saveProgress(); } catch (e) {}
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
@@ -10633,6 +10687,8 @@ wss.on('connection', (ws, req) => {
         return;
       }
       msAdjust(player.accountKey, -lg.ms);
+      analytics.bump('buy.msn.' + itemId);
+      analytics.bump('buy.msg.' + itemId, lg.ms);
       saveInventories();
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
@@ -10692,6 +10748,8 @@ wss.on('connection', (ws, req) => {
       account.balance -= price;
       saveBankAccounts();
       if (player.accountKey) saveInventories();
+      analytics.bump('buy.n.' + itemId);
+      analytics.bump('buy.g.' + itemId, Math.round(price));
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'shop_bought', itemId, itemName: ITEM_CATALOG[itemId]?.name, price });
       return;
@@ -11568,6 +11626,8 @@ wss.on('connection', (ws, req) => {
       try { saveProgress(); } catch (e) {}
       const out = ITEM_CATALOG[recipe.result];
       analytics.bump('recipe.bought');
+      analytics.bump('buy.n.rec:' + recipe.id);
+      analytics.bump('buy.g.rec:' + recipe.id, Math.round(recipe.gold));
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       send(ws, { type: 'recipe_bought', recipeId: recipe.id, message: `📜 Recipe learned — ${out?.icon || ''} ${out?.name || recipe.result}. Gather the materials and forge it at the Workshop.` });
       return;
