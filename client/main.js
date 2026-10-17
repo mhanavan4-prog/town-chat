@@ -10534,6 +10534,7 @@ const _workshop = createWorkshop({
   getEquipStats: () => equipStatsCatalog,
   getRecipesUnlocked: () => myRecipesUnlocked,
   getGold: () => (lastBankState ? lastBankState.balance : 0),
+  showItemTooltip, hideTooltip,
 });
 const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
 
@@ -11455,6 +11456,27 @@ const _ttName  = document.getElementById('ttName');
 const _ttSlot  = document.getElementById('ttSlot');
 const _ttStats = document.getElementById('ttStats');
 const _ttDesc  = document.getElementById('ttDesc');
+const _ttSource = document.getElementById('ttSource');
+// Where to find each crafting material — shown as a "📍" line in the item
+// tooltip (and on the Workshop ingredient chips). Derived from the real loot
+// tables (data/gameConstants.js), the Ember Wastes harvest nodes and warlord
+// drops (server.js), and the refine tree (data/craftingTree.js); keep in sync
+// if those move. Only materials that are crafting inputs need an entry.
+const MATERIAL_SOURCES = {
+  fur_scrap:      'Common drop from Wilds beasts & critters',
+  animal_pelt:    'Drops from Wilds beasts — bog brutes, duskfawn, boars',
+  bone_shard:     'Drops from undead — crows, wights, rot swarms',
+  shadow_essence: 'Drops from Wilds shades, wisps & hexers',
+  glimmerdust:    'Drops from embermoths in the Wilds',
+  iron_ore:       'Drops from bramble boars in the Wilds',
+  dragon_scale:   'Rare drop from Ember Wastes elites & the warlord boss',
+  emberbloom:     'Harvested at Ember Wastes nodes (Cinder Bazaar, Emberfall Caldera)',
+  cinder_salt:    'Harvested at Ember Wastes nodes (Charhold Keep, the Great Ossuary)',
+  cured_leather:  'Crafted here: 3× Fur Scrap + Animal Pelt',
+  tempered_ingot: 'Crafted here: 2× Iron Ore + Bone Shard',
+  spirit_thread:  'Crafted here: 2× Shadow Essence + Glimmerdust',
+  ember_glass:    'Crafted here: 2× Emberbloom + 2× Cinder-Salt',
+};
 const SLOT_LABELS = { weapon: 'Weapon', head: 'Head', chest: 'Chest', feet: 'Feet', ring: 'Ring' };
 const KIND_LABELS  = { targeted: 'Targeted', aoe: 'Area of Effect', self: 'Self', building: 'Building' };
 
@@ -11491,6 +11513,7 @@ function showItemTooltip(e, itemId) {
   _ttStats.innerHTML = lines.join('<br>');
   _ttDesc.textContent = item.desc || '';
   _ttDesc.style.display = item.desc ? '' : 'none';
+  if (_ttSource) _ttSource.textContent = MATERIAL_SOURCES[itemId] ? ('📍 ' + MATERIAL_SOURCES[itemId]) : '';
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }
@@ -11503,6 +11526,7 @@ function showActionTooltip(e, action) {
   _ttStats.innerHTML   = '';
   _ttDesc.textContent  = action.description || '';
   _ttDesc.style.display = action.description ? '' : 'none';
+  if (_ttSource) _ttSource.textContent = '';
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }
