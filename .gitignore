@@ -35,3 +35,7 @@ evidence/
 
 # rendered OG card cache (regenerated on demand)
 og-cache/
+
+# Ops runtime (created on the box)
+ops/heartbeat.log
+.deploying
