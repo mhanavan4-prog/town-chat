@@ -16,8 +16,15 @@ PORT=3000
 
 cd "$APP_DIR"
 
-echo "→ pulling latest (fast-forward only)…"
-git pull --ff-only
+echo "→ syncing to origin/main (discarding local build-artifact changes)…"
+# Hard-reset instead of `git pull --ff-only`: the build step below re-stamps
+# public/index.html and rewrites public/client.js, both tracked files, so the
+# working tree is always dirty after a deploy. A plain pull then aborts the
+# next time an incoming commit touches those files ("local changes would be
+# overwritten"). Fetch + reset throws away that build residue and lands exactly
+# on origin/main every time; the bundle is rebuilt immediately after anyway.
+git fetch origin main
+git reset --hard origin/main
 
 echo "→ installing runtime deps…"
 npm install --omit=dev --no-audit --no-fund
