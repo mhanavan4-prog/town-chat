@@ -1497,7 +1497,8 @@ function analyticsSummary() {
     let snap;
     try { snap = analytics.snapshot(30); } catch (e) { return { packs: [], msItems: [], goldItems: [], goldTypes: [] }; }
     const sums = {};                 // prefix-stripped key → summed value, per metric family
-    const fam = { 'buy.n.': 'gn', 'buy.g.': 'gg', 'buy.msn.': 'mn', 'buy.msg.': 'mg', 'buy.pack.': 'pk' };
+    const fam = { 'buy.n.': 'gn', 'buy.g.': 'gg', 'buy.msn.': 'mn', 'buy.msg.': 'mg', 'buy.pack.': 'pk',
+      'auc.cnt.': 'ac', 'auc.g.': 'ag', 'auc.msg.': 'am' };
     for (const f of Object.values(fam)) sums[f] = {};
     for (const day of (snap.days || [])) {
       const row = snap.data[day] || {};
@@ -1511,6 +1512,8 @@ function analyticsSummary() {
       if (id.indexOf('rec:') === 0) { const rec = CRAFT_RECIPE_BY_ID[id.slice(4)]; const out = rec && ITEM_CATALOG[rec.result]; return { name: (out ? out.name : id.slice(4)) + ' recipe', icon: '📜', type: 'Recipes' }; }
       if (id.indexOf('dye:') === 0) return { name: id.slice(4).replace(/_/g, ' ') + ' dye', icon: '🎨', type: 'Dyes' };
       if (id.indexOf('look:') === 0) return { name: id.slice(5).replace(/_/g, ' ') + ' look', icon: '🎭', type: 'Looks' };
+      if (id === 'selfie') return { name: 'Auction selfie', icon: '📸', type: 'Selfies' };
+      if (id === 'howl') return { name: 'Howl recording', icon: '🐺', type: 'Howls' };
       const it = ITEM_CATALOG[id]; return { name: it ? it.name : id, icon: it ? it.icon : '•', type: typeOf(it ? it.slot : null) };
     };
     // Real-money packs — the headline revenue view.
@@ -1528,12 +1531,19 @@ function analyticsSummary() {
       .filter((x) => x.units > 0 || x.gold > 0);
     const gByType = {};
     for (const it of goldItems) { const t = gByType[it.type] || (gByType[it.type] = { type: it.type, units: 0, gold: 0 }); t.units += it.units; t.gold += it.gold; }
+    // Player-to-player auction volume — what trades between players, and for how
+    // much (gold or 💎). Not revenue to you; a demand signal.
+    const aIds = Array.from(new Set(Object.keys(sums.ac).concat(Object.keys(sums.ag), Object.keys(sums.am))));
+    const auctionItems = aIds.map((id) => { const ni = nameIcon(id); return { id, name: ni.name, icon: ni.icon, lots: sums.ac[id] || 0, gold: Math.round(sums.ag[id] || 0), ms: Math.round(sums.am[id] || 0) }; })
+      .filter((x) => x.lots > 0).sort((a, b) => (b.gold + b.ms) - (a.gold + a.ms)).slice(0, 12);
+    const sumVals = (o) => Object.values(o).reduce((s, v) => s + v, 0);
     return {
       packs,
       packRevenue: packs.reduce((s, p) => s + p.revenue, 0),
       msItems,
       goldItems: goldItems.sort((a, b) => b.gold - a.gold).slice(0, 12),
-      goldTypes: Object.values(gByType).sort((a, b) => b.gold - a.gold)
+      goldTypes: Object.values(gByType).sort((a, b) => b.gold - a.gold),
+      auction: { items: auctionItems, lots: sumVals(sums.ac), goldVolume: Math.round(sumVals(sums.ag)), msVolume: Math.round(sumVals(sums.am)) }
     };
   })();
   return {
@@ -4062,7 +4072,7 @@ function makeId() {
 
 
 // Auction house (Sessions I/M) — extracted to lib/auctions.js (Tier 3.4 Phase B).
-const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo, auctionMediaInfo });
+const auctions = require('./lib/auctions')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, broadcastAll, players, send, ensureBankAccount, saveBankAccounts, pushBankStateIfOnline, inventories, addItemToAccount, saveInventories, pushInventoryStateIfOnline, findConnectionByAccountKey, makeId, saveInboxes, msAdjust, pushMsStateIfOnline, ITEM_CATALOG, recordAuctionEvent, auctionItemInfo, auctionMediaInfo, analyticsBump: (m, n) => analytics.bump(m, n) });
 const { listings, publicListing, broadcastAuctionState, returnListingItemToSeller, resolveListing, saveListings, AUCTION_DURATIONS_MS, AUCTION_MS_FEE, AUCTION_GOLD_FEE, SELFIE_AUCTION_DURATIONS_MS } = auctions;
 
 setInterval(() => {
