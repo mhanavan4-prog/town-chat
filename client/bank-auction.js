@@ -412,14 +412,19 @@ function renderAuctionModal() {
       row.appendChild(itemLine);
     }
 
-    const sym = (l.currency === 'ms') ? ' 💎' : ' 🪙';
-    const bidLine = l.currentBid != null
-      ? ('Current bid: ' + l.currentBid + sym + ' by ' + l.currentBidderName)
-      : ('Starting bid: ' + l.startingBid + sym);
-    const buyoutLine = l.buyoutPrice ? (' · Buyout: ' + l.buyoutPrice + sym) : '';
     const metaLine = document.createElement('div');
     metaLine.className = 'auctionMeta';
-    metaLine.textContent = 'Seller: ' + l.sellerName + ' · ' + bidLine + buyoutLine + ' · ' + formatTimeRemaining(l.expiresAt);
+    // Built with append() (strings become inert text nodes, so player names
+    // can't inject markup) and a styled gold-coin chip for the currency.
+    const cur = (el) => {
+      if (l.currency === 'ms') { el.append(' 💎'); return; }
+      el.append(' '); const s = document.createElement('span'); s.className = 'coin'; el.append(s);
+    };
+    metaLine.append('Seller: ' + l.sellerName + ' · ');
+    if (l.currentBid != null) { metaLine.append('Current bid: ' + l.currentBid); cur(metaLine); metaLine.append(' by ' + l.currentBidderName); }
+    else { metaLine.append('Starting bid: ' + l.startingBid); cur(metaLine); }
+    if (l.buyoutPrice) { metaLine.append(' · Buyout: ' + l.buyoutPrice); cur(metaLine); }
+    metaLine.append(' · ' + formatTimeRemaining(l.expiresAt));
     row.appendChild(metaLine);
 
     const bidRow = document.createElement('div');

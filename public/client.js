@@ -571,8 +571,8 @@ function renderShopBuyList(container) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     const priceHtml = item.basePrice && item.basePrice !== item.price
-      ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} 🪙</span>`
-      : `<span style="color:#ffd700;font-weight:700;">${item.price} 🪙</span>`;
+      ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} <span class="coin"></span></span>`
+      : `<span style="color:#ffd700;font-weight:700;">${item.price} <span class="coin"></span></span>`;
     row.innerHTML = `<span style="font-size:20px;">${item.icon}</span>
       <span style="flex:1;color:#eafff0;">${item.name}</span>
       ${priceHtml}
@@ -610,7 +610,7 @@ function renderShopSellList(container) {
     row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     row.innerHTML = `<span style="font-size:20px;">${meta.icon}</span>
       <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span></span>
-      <span style="color:#ffd700;font-weight:700;">${unit} 🪙<span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
+      <span style="color:#ffd700;font-weight:700;">${unit} <span class="coin"></span><span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
       <button data-q="1" style="padding:5px 10px;background:#2f7a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Sell 1</button>
       <button data-q="all" style="padding:5px 10px;background:rgba(47,122,79,0.55);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">All (${qty})</button>`;
     row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
@@ -1199,7 +1199,7 @@ function renderWorkshopModal() {
         `<div class="craftHead">
            <span class="craftIcon">${out.icon || '🔨'}</span>
            <span class="craftName">${out.name || r.result} <span class="craftLock">🔒 recipe</span></span>
-           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}🪙</button>
+           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}<span class="coin"></span></button>
          </div>
          ${stats ? `<div class="craftStats">${stats}</div>` : ''}
          <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
@@ -9682,14 +9682,19 @@ function renderAuctionModal() {
       row.appendChild(itemLine);
     }
 
-    const sym = (l.currency === 'ms') ? ' 💎' : ' 🪙';
-    const bidLine = l.currentBid != null
-      ? ('Current bid: ' + l.currentBid + sym + ' by ' + l.currentBidderName)
-      : ('Starting bid: ' + l.startingBid + sym);
-    const buyoutLine = l.buyoutPrice ? (' · Buyout: ' + l.buyoutPrice + sym) : '';
     const metaLine = document.createElement('div');
     metaLine.className = 'auctionMeta';
-    metaLine.textContent = 'Seller: ' + l.sellerName + ' · ' + bidLine + buyoutLine + ' · ' + formatTimeRemaining(l.expiresAt);
+    // Built with append() (strings become inert text nodes, so player names
+    // can't inject markup) and a styled gold-coin chip for the currency.
+    const cur = (el) => {
+      if (l.currency === 'ms') { el.append(' 💎'); return; }
+      el.append(' '); const s = document.createElement('span'); s.className = 'coin'; el.append(s);
+    };
+    metaLine.append('Seller: ' + l.sellerName + ' · ');
+    if (l.currentBid != null) { metaLine.append('Current bid: ' + l.currentBid); cur(metaLine); metaLine.append(' by ' + l.currentBidderName); }
+    else { metaLine.append('Starting bid: ' + l.startingBid); cur(metaLine); }
+    if (l.buyoutPrice) { metaLine.append(' · Buyout: ' + l.buyoutPrice); cur(metaLine); }
+    metaLine.append(' · ' + formatTimeRemaining(l.expiresAt));
     row.appendChild(metaLine);
 
     const bidRow = document.createElement('div');
@@ -14638,7 +14643,7 @@ function updateGoldReadouts() {
   const aucLine = document.getElementById('auctionBalanceLine');
   if (aucLine) {
     if (gold == null) aucLine.textContent = 'Gold is held at the 🏦 bank — log in to a Town Chat account to earn and spend it.';
-    else aucLine.innerHTML = 'You have 🪙 <b>' + gold + '</b> (bank) · 💎 <b>' + getMyMoonstones() + '</b>';
+    else aucLine.innerHTML = 'You have <span class="coin"></span> <b>' + gold + '</b> (bank) · 💎 <b>' + getMyMoonstones() + '</b>';
   }
 }
 function msPriceLabel(cents) { return '$' + (cents / 100).toFixed(2); }

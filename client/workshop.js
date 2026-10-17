@@ -69,7 +69,7 @@ function renderWorkshopModal() {
         `<div class="craftHead">
            <span class="craftIcon">${out.icon || '🔨'}</span>
            <span class="craftName">${out.name || r.result} <span class="craftLock">🔒 recipe</span></span>
-           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}🪙</button>
+           <button class="craftBtn learn" ${afford ? '' : 'disabled'}>Learn · ${r.gold}<span class="coin"></span></button>
          </div>
          ${stats ? `<div class="craftStats">${stats}</div>` : ''}
          <div class="craftChips">${r.ingredients.map(ing => { const m = CAT[ing.id] || {}; return `<span class="craftChip">${m.icon || '?'} ${m.name || ing.id} ×${ing.qty}</span>`; }).join('')}</div>`;
