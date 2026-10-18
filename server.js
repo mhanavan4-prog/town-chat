@@ -1530,21 +1530,28 @@ function liveOnSite() {
   const browsing = presence.count();
   return { onSite: browsing + inGame, inGame, browsing };
 }
-function analyticsSummary() {
-  const keys = Object.keys(accounts);
+// Active accounts by recency window — one definition, reused by the dashboard
+// summary and the daily DAU/WAU/MAU sampler. "Active" = the account's most
+// recently played character falls inside the window.
+function activeCounts() {
   const now = Date.now();
-  let returned = 0, active1 = 0, active7 = 0, active30 = 0;
-  for (const k of keys) {
-    if (accounts[k] && accounts[k].returnedCounted) returned++;
+  let d1 = 0, d7 = 0, d30 = 0;
+  for (const k of Object.keys(accounts)) {
     const prog = playerProgress[k];
     let last = 0;
     if (prog && prog.characters) for (const c of Object.values(prog.characters)) if ((c.lastPlayedAt || 0) > last) last = c.lastPlayedAt;
-    if (last) {
-      if (now - last < 24 * 3600e3) active1++;
-      if (now - last < 7 * 24 * 3600e3) active7++;
-      if (now - last < 30 * 24 * 3600e3) active30++;
-    }
+    if (!last) continue;
+    if (now - last < 24 * 3600e3) d1++;
+    if (now - last < 7 * 24 * 3600e3) d7++;
+    if (now - last < 30 * 24 * 3600e3) d30++;
   }
+  return { d1, d7, d30 };
+}
+function analyticsSummary() {
+  const keys = Object.keys(accounts);
+  let returned = 0;
+  for (const k of keys) if (accounts[k] && accounts[k].returnedCounted) returned++;
+  const { d1: active1, d7: active7, d30: active30 } = activeCounts();
   // Total gold in circulation — every account vault + every coven tab. The
   // headline economy-health number: watch it against the sinks (auction cut,
   // recipe unlocks) to see whether gold is actually tightening.
@@ -1619,11 +1626,13 @@ function analyticsSummary() {
     for (const dayKey in rows) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
       const ym = dayKey.slice(0, 7);
-      const m = md[ym] || (md[ym] = { month: ym, accounts: 0, covens: 0, joins: 0, peakConcurrent: 0, peakOnSite: 0, packRevenue: 0, msSpent: 0, goldSpent: 0, auctionGold: 0 });
+      const m = md[ym] || (md[ym] = { month: ym, accounts: 0, covens: 0, joins: 0, landing: 0, play: 0, peakConcurrent: 0, peakOnSite: 0, packRevenue: 0, msSpent: 0, goldSpent: 0, auctionGold: 0 });
       const r = rows[dayKey] || {};
       m.accounts += r['register'] || 0;
       m.covens += r['coven.found'] || 0;
       m.joins += r['join'] || 0;
+      m.landing += r['page.landing'] || 0;
+      m.play += r['page.play'] || 0;
       if ((r['concurrent'] || 0) > m.peakConcurrent) m.peakConcurrent = r['concurrent'];
       if ((r['onsite'] || 0) > m.peakOnSite) m.peakOnSite = r['onsite'];
       for (const k in r) {
@@ -12049,6 +12058,15 @@ const _ccHourTimer = setInterval(() => {
   } catch (e) {}
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
+
+// Daily active-user snapshot: every 15 min, raise the day's high-water DAU /
+// WAU / MAU (accounts whose most-recent character was played within 1 / 7 / 30
+// days). peak() keeps the day's max, so the dashboard's daily table trends them
+// and the live summary derives stickiness (DAU/MAU). Cheap scan; unref'd.
+const _activeTimer = setInterval(() => {
+  try { const a = activeCounts(); analytics.peak('dau', a.d1); analytics.peak('wau', a.d7); analytics.peak('mau', a.d30); } catch (e) {}
+}, 15 * 60 * 1000);
+if (_activeTimer && _activeTimer.unref) _activeTimer.unref();
 
 // Periodic position sync so everyone stays smooth even if a 'move' packet is
 // dropped. ROOM-SCOPED: each player only receives the players in their own
