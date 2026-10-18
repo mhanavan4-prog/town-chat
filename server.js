@@ -406,6 +406,34 @@ function ensureAbId(req, res) {
 }
 app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
+// SEO: let crawlers in, keep the API and admin console out, and point them at
+// the sitemap. The game app (/play → index.html) carries its own noindex meta,
+// so it's crawlable-but-not-indexed rather than blocked here (a blocked page
+// can't be read to SEE a noindex).
+app.get('/robots.txt', (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`;
+  res.type('text/plain').send(
+    'User-agent: *\n' +
+    'Allow: /\n' +
+    'Disallow: /api/\n' +
+    'Disallow: /admin\n' +
+    'Sitemap: ' + base + '/sitemap.xml\n'
+  );
+});
+// Sitemap of the stable, indexable marketing/content pages. Dynamic profile
+// (/u) and coven (/c) pages are left out — they're noindex until populated and
+// get discovered by crawl as they're linked.
+app.get('/sitemap.xml', (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`;
+  const urls = ['/', '/faq', '/covens', '/leaderboards', '/privacy', '/terms'];
+  for (let i = 0; i < CHARACTER_COUNT; i++) urls.push('/class/' + i);
+  const body = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map((u) => '  <url><loc>' + base + u + '</loc></url>').join('\n') +
+    '\n</urlset>\n';
+  res.type('application/xml').send(body);
+});
+
 // Shareable pages get per-entity Open Graph / Twitter tags injected server-side
 // so a pasted link unfurls with the right title (and the shared cover image),
 // without needing a separate rendered card per player/coven. The page's <head>
@@ -418,19 +446,26 @@ function readPage(file) {
 function ogEsc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
 function sendWithOg(req, res, file, og) {
   const html = readPage(file);
-  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  // Canonical = the clean path with NO query string, so the ?src= attribution
+  // variants (…/?src=reddit, ?src=qr, …) all collapse to one indexable URL
+  // instead of splitting ranking signal across duplicates. og:url uses it too.
+  const canonical = `${req.protocol}://${req.get('host')}${req.path}`;
   const img = `${req.protocol}://${req.get('host')}${og.image || '/og-cover.png'}`;
   const tags = [
+    `<link rel="canonical" href="${ogEsc(canonical)}">`,
+    // Thin / dynamic pages (empty profiles & covens) stay out of the index until
+    // they have real content; "follow" still lets link equity flow through.
+    og.noindex ? '<meta name="robots" content="noindex,follow">' : '',
     `<meta property="og:title" content="${ogEsc(og.title)}">`,
     `<meta property="og:description" content="${ogEsc(og.desc)}">`,
     `<meta property="og:type" content="website">`,
-    `<meta property="og:url" content="${ogEsc(url)}">`,
+    `<meta property="og:url" content="${ogEsc(canonical)}">`,
     `<meta property="og:image" content="${ogEsc(img)}">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${ogEsc(og.title)}">`,
     `<meta name="twitter:description" content="${ogEsc(og.desc)}">`,
     `<meta name="twitter:image" content="${ogEsc(img)}">`
-  ].join('\n');
+  ].filter(Boolean).join('\n');
   res.type('html').send(html.replace('<!--OG-->', tags).replace(/\{\{AB_CTA\}\}/g, req._abCta || 'Enter the Town'));
 }
 
@@ -543,10 +578,16 @@ app.get('/u/:username', (req, res) => {
   const image = validChar
     ? (ogRender.available && accounts[key] ? `/og/player/${encodeURIComponent(name)}.png` : `/og/class-${charId}.png`)
     : null;
+  // Keep thin/empty profiles out of the search index until there's real content
+  // to show: a real account with a character that's reached level 3+. The page
+  // still unfurls fine when shared (OG tags are unaffected by noindex).
+  let topLevel = 0;
+  try { const pr = playerProgress[key]; if (pr && pr.characters) for (const c of Object.values(pr.characters)) if ((c.level || 1) > topLevel) topLevel = (c.level || 1); } catch (e) {}
+  const noindex = !(accounts[key] && topLevel >= 3);
   sendWithOg(req, res, 'profile.html', {
     title: `${name} — Thornreach`,
     desc: `See ${name}'s character, coven and standing in Thornreach — a crooked little town of witches, werewolves and covens.`,
-    image
+    image, noindex
   });
 });
 
@@ -563,7 +604,10 @@ app.get('/c/:id', (req, res) => {
   sendWithOg(req, res, 'coven.html', {
     title: `${nm} — Thornreach`,
     desc: cv ? `${cv.name} — a coven of ${(cv.members || []).length} in Thornreach.` : 'A coven in Thornreach.',
-    image
+    image,
+    // Index a coven page only once it's a real group (2+ members); keep
+    // missing or one-person covens out of search until they fill.
+    noindex: !(cv && (cv.members || []).length >= 2)
   });
 });
 
