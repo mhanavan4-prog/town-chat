@@ -17639,8 +17639,43 @@ loadSavedAccount();
 // ---------------------------------------------------------------------------
 function buildWalls(w) {
   const list = [];
-  for (const b of w.buildings) list.push(...buildWallsForOne(b, w));
+  // Tag each rect with its building id so refitBuildingColliders() can replace
+  // a building's wall rects in-place later (once its KayKit model is measured)
+  // without disturbing the decor/tree colliders addNatureDecor() mixes in.
+  for (const b of w.buildings) for (const r of buildWallsForOne(b, w)) list.push({ ...r, bld: b.id });
   return list;
+}
+
+// Shrink a building's footprint to the part its placed model actually fills,
+// clamped so it never exceeds the data rect. The outdoor collider is built from
+// the full data rectangle, but a KayKit building model is scaled uniformly to
+// the geometric mean of that rectangle — so for a non-square footprint the model
+// is narrower (or shallower) than the collider, leaving walled-but-open-looking
+// ground beside it ("invisible walls", worst on the wide, shallow Town Hall).
+// box = { minx, minz, maxx, maxz } of the placed model in world XZ; a missing or
+// degenerate box falls back to the data rect unchanged. Pure.
+function fitBuildingFootprint(b, box) {
+  if (!box) return { x: b.x, y: b.y, w: b.w, h: b.h };
+  const x0 = Math.max(b.x, box.minx), z0 = Math.max(b.y, box.minz);
+  const x1 = Math.min(b.x + b.w, box.maxx), z1 = Math.min(b.y + b.h, box.maxz);
+  const w = x1 - x0, h = z1 - z0;
+  if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h }; // never trust a degenerate fit
+  return { x: x0, y: z0, w, h };
+}
+
+// Re-cut every building's outdoor collider to the footprint its placed KayKit
+// model actually fills, so collision lines up with what you see. Client-only:
+// the server does no wall collision (it only clamps to room bounds + flags
+// teleports), so there's no desync. Decor/tree colliders (untagged) are kept.
+function refitBuildingColliders() {
+  walls = walls.filter((r) => !r.bld);
+  for (const b of world.buildings) {
+    const bb = KK_BLD_BOXES[b.id];
+    const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
+    const fit = fitBuildingFootprint(b, box);
+    const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
+    for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });
+  }
 }
 
 // Which wall a building's door is cut into. Defaults to 'south'; a building
@@ -22442,6 +22477,7 @@ function initScene(w) {
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
   refreshBuildingLockVisuals();
+  refitBuildingColliders(); // tighten building colliders to their placed KayKit models (no "invisible walls")
   TOWN_WALLS = walls; // snapshot now that tree colliders from addNatureDecor are in place
 
   buildDungeonScene();
