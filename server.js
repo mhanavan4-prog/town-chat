@@ -1755,6 +1755,13 @@ const SESSION_TTL_MS = 60 * 24 * 3600 * 1000; // 60 days
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const sessionStore = persistLoad('sessions', SESSIONS_FILE) || {}; // token -> { k, t }
 persistRegister('sessions', SESSIONS_FILE, () => sessionStore);
+
+// Small persisted "ops state" bag — markers the server keeps between restarts
+// that aren't game data (last weekly-digest date, last-fired alert records).
+const OPS_FILE = path.join(DATA_DIR, 'ops-state.json');
+const opsState = persistLoad('ops', OPS_FILE) || {};
+persistRegister('ops', OPS_FILE, () => opsState);
+function saveOpsState() { try { persistSave('ops', OPS_FILE, opsState); } catch (e) {} }
 const sessions = new Map();      // token -> usernameLower (rebuilt from sessionStore)
 {
   const now = Date.now();
@@ -12157,6 +12164,48 @@ const _activeTimer = setInterval(() => {
   try { const a = activeCounts(); analytics.peak('dau', a.d1); analytics.peak('wau', a.d7); analytics.peak('mau', a.d30); } catch (e) {}
 }, 15 * 60 * 1000);
 if (_activeTimer && _activeTimer.unref) _activeTimer.unref();
+
+// Weekly growth digest — once a week (Monday ~10am ET), the server composes a
+// short summary from the same analytics the dashboard shows and pushes it to
+// the Town Crier webhook, so the numbers come to you without opening the admin
+// page. Fired at most once per Monday; the last-sent date is persisted so a
+// restart can't double-send.
+function sendWeeklyDigest() {
+  try {
+    const sum = analyticsSummary();
+    const snap = analytics.snapshot(7);
+    const win = (m) => { let t = 0; for (const d of (snap.days || [])) t += (snap.data[d] || {})[m] || 0; return t; };
+    const peakOnSite = (() => { let x = 0; for (const d of (snap.days || [])) { const v = (snap.data[d] || {})['onsite'] || 0; if (v > x) x = v; } return x; })();
+    // Best traffic source by signups in the window.
+    const bySrc = {};
+    for (const d of (snap.days || [])) { const r = snap.data[d] || {}; for (const k in r) if (k.indexOf('reg.src.') === 0) bySrc[k.slice(8)] = (bySrc[k.slice(8)] || 0) + r[k]; }
+    const topSrc = Object.keys(bySrc).sort((a, b) => bySrc[b] - bySrc[a])[0];
+    const land = win('page.landing'), play = win('page.play'), rev = sum.revenue || {};
+    const lines = [
+      '📊 **Thornreach — weekly digest**',
+      '• New accounts (7d): **' + win('register') + '**  ·  joins: **' + win('join') + '**',
+      '• Peak on site (7d): **' + peakOnSite + '**  ·  active 7d: **' + (sum.activeLast7d || 0) + '**',
+      '• Landing→Play: **' + (land ? Math.round(play / land * 100) : 0) + '%**',
+      '• Revenue: **$' + (rev.lifetimeUsd || 0) + '** lifetime  ·  payers: **' + (rev.payers || 0) + '** (' + (rev.payerConversion || 0) + '%)',
+      '• Total accounts: **' + (sum.totalAccounts || 0) + '**' + (topSrc ? '  ·  top source (7d): **' + topSrc + '**' : '')
+    ];
+    notifyGrowth(lines.join('\n'));
+  } catch (e) {}
+}
+function maybeWeeklyDigest() {
+  try {
+    if (!NOTIFY_WEBHOOK_URL) return;
+    const now = new Date();
+    if (now.getUTCDay() !== 1 || now.getUTCHours() < 14) return; // Monday, ~10am ET or later
+    const today = now.toISOString().slice(0, 10);
+    if (opsState.lastWeeklyDigest === today) return;             // already sent this Monday
+    opsState.lastWeeklyDigest = today; saveOpsState();
+    sendWeeklyDigest();
+  } catch (e) {}
+}
+const _digestTimer = setInterval(maybeWeeklyDigest, 60 * 60 * 1000);
+if (_digestTimer && _digestTimer.unref) _digestTimer.unref();
+maybeWeeklyDigest(); // also check on boot (a Monday-morning deploy still sends)
 
 // Periodic position sync so everyone stays smooth even if a 'move' packet is
 // dropped. ROOM-SCOPED: each player only receives the players in their own
