@@ -7996,7 +7996,7 @@ wss.on('connection', (ws, req) => {
         // per IP per 10 min so a reconnect storm or a load test can't flood the
         // log — it marks that an IP joined, it is not a precise join count.
         if (audit.hit(ws._ip, 'join_log', 10 * 60 * 1000) === 1) {
-          audit.log({ level: 'info', type: 'game_join', ip: ws._ip, detail: { guest: !accountKey } });
+          audit.log({ level: 'info', type: 'game_join', ip: ws._ip, account: accountKey || null, name, detail: { guest: !accountKey, name } });
         }
       }
       if (accountKey) noteActive(accountKey);
@@ -11942,6 +11942,19 @@ wss.on('connection', (ws, req) => {
           analytics.bump(player.everWithOthers ? 'sess.saw_others' : 'sess.alone_whole');
           // Did this session ever say anything, or arrive and leave in silence?
           analytics.bump(player.spoke ? 'sess.spoke' : 'sess.silent');
+          // Admin visibility: pair the game_join entry with a game_leave that
+          // carries the character's chosen name and how long they stayed. The
+          // audit entry is timestamped on write, so this records the leave time.
+          // Deduped per IP like the join log so resume/drop churn can't flood
+          // the feed; name rides in detail too, since the feed shows a detail
+          // column but no dedicated name column (guests have no account to show).
+          if (audit.hit(ws._ip, 'leave_log', 10 * 60 * 1000) === 1) {
+            audit.log({ level: 'info', type: 'game_leave', ip: ws._ip,
+              account: player.accountKey || null, name: player.name,
+              detail: { guest: !player.accountKey, name: player.name,
+                mins: Math.round(mins * 10) / 10,
+                clean: code === 1000 || code === 1001 } });
+          }
         }
         // A visit that ends by disconnecting inside a building still counts.
         exitBuildingIfAny(player);
