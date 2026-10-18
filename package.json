@@ -24,7 +24,7 @@
     "express": "^4.19.2",
     "geoip-lite": "^1.4.10",
     "stripe": "^16.0.0",
-    "ws": "^8.17.0"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
