@@ -71,3 +71,21 @@ test('buildUserContent frames the coven, moon and question', () => {
   const silent = createSpirit.buildUserContent({ covenName: 'Hags' });
   assert.ok(/ask nothing/i.test(silent));
 });
+
+test('buildUserContent passes world facts and tells the spirit to echo the question', () => {
+  const facts = 'it is night; the next blood moon (the full moon) rises in about 3 nights';
+  const c = createSpirit.buildUserContent({ facts, question: 'when is the next full moon' });
+  assert.ok(/WORLD FACTS/i.test(c), 'facts are injected');
+  assert.ok(/blood moon/i.test(c), 'the real game fact is present');
+  assert.ok(/echo what they ask/i.test(c), 'the spirit is told to answer the question');
+  // facts win over the plain moon line when both are present
+  const both = createSpirit.buildUserContent({ facts, moon: 'the moon is thin' });
+  assert.ok(/WORLD FACTS/i.test(both) && !/moon is thin/.test(both));
+});
+
+test('the system prompt tells the spirit to answer the world truthfully but cryptically', () => {
+  const sys = createSpirit.SYSTEM_PROMPT;
+  assert.ok(/WORLD FACTS/i.test(sys), 'it is told it has world facts');
+  assert.ok(/moon|season/i.test(sys), 'it knows it can answer about the moon/season');
+  assert.ok(/outside world/i.test(sys), 'but stays vague about the real world');
+});

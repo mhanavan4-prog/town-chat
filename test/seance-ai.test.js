@@ -76,6 +76,13 @@ setTimeout(async () => {
     r = await hooks.resolveSeanceAnswer(cv, 'morgana', 'x');
     check('a runaway AI reply is length-capped', r.message.length <= hooks.seance.CONFIG.MAX_CHARS, r.message.length);
 
+    // ── the spirit is fed live world facts (so it can answer about the moon) ──
+    let capturedCtx = null;
+    setGen(async (ctx) => { capturedCtx = ctx; return 'soon'; });
+    await hooks.resolveSeanceAnswer(cv, 'morgana', 'when is the next full moon');
+    check('the prompt carries live world facts', capturedCtx && typeof capturedCtx.facts === 'string' && /moon|night|day/i.test(capturedCtx.facts), capturedCtx && capturedCtx.facts);
+    check('the asked question reaches the spirit', capturedCtx && /full moon/i.test(capturedCtx.question || ''), capturedCtx && capturedCtx.question);
+
     // ── end to end: seance_start → the AI reply is spelled and ends ──────
     // shrink the ritual timings so the full run finishes fast
     Object.assign(hooks.seance.CONFIG, { BUILDUP_MS: 20, TRAVEL_MS: 8, DWELL_MS: 4, SPACE_MS: 6, CLOSE_MS: 20 });

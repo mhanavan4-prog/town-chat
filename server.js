@@ -7168,6 +7168,31 @@ function seanceMoon() {
   return seanceBloodMoon() ? 'a blood moon hangs low over the Wilds' : 'the moon is thin';
 }
 
+// What is TRUE in the world right now — fed to the spirit so it can answer the
+// coven's questions about the moon / night / season truthfully but cryptically
+// (the board knows its own world, so "when is the next full moon" gets a real,
+// in-fiction answer). A pure read of the live day/night clock + event calendar.
+function seanceGameState() {
+  const now = Date.now();
+  const facts = [];
+  try { facts.push(isNightNow() ? 'it is night' : 'it is day'); } catch (e) { /* noop */ }
+  try {
+    const bm = bloodMoonWindow(now);
+    if (bm.active) {
+      facts.push('the blood moon (the full moon) is risen right now');
+    } else {
+      const mins = Math.max(0, Math.round((bm.nextRiseAt - now) / 60000));
+      const nights = Math.max(1, Math.round((bm.nextRiseAt - now) / CYCLE_MS));
+      facts.push(`the next blood moon (the full moon) rises in about ${nights} night${nights === 1 ? '' : 's'} (${mins} minutes)`);
+    }
+  } catch (e) { /* noop */ }
+  try {
+    const s = seasonWindow(now);
+    if (s && s.name) facts.push(`the season is ${s.name}${s.isSabbatDay ? ', and today is its sabbat' : ''}`);
+  } catch (e) { /* noop */ }
+  return facts.join('; ');
+}
+
 // Decide the answer. A fraction of séances (higher on a blood moon) carry a REAL
 // story hint: the seed is slipped into the spirit's prompt to reveal cryptically
 // (source 'ai_hint'), or — if the AI is off or declines — the curated hint line
@@ -7178,7 +7203,7 @@ async function resolveSeanceAnswer(cv, askerKey, question) {
   const bloodMoon = seanceBloodMoon();
   const chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
   const hint = seance.shouldHint(Math.random, chance) ? seance.pickLoreHint() : null;
-  const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon() };
+  const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon(), facts: seanceGameState() };
   if (hint) ctx.secret = hint.seed;
 
   let raw = null, message = null, source;
