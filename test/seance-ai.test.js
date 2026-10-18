@@ -46,6 +46,10 @@ setTimeout(async () => {
     B.p.room = 'manor'; B.p.instance = 'coven_cvs';
 
     const setGen = (fn) => { hooks.seanceSpirit.generate = fn; };
+    // Disable lore hints here so the AI/fallback source assertions are
+    // deterministic — hint behaviour is covered by test/seance-lore.test.js.
+    hooks.seance.CONFIG.HINT_CHANCE = 0;
+    hooks.seance.CONFIG.HINT_CHANCE_BLOODMOON = 0;
 
     // ── AI path: a clean spirit reply is sanitized and used verbatim ─────
     setGen(async () => 'the veil THINS at midnight');
