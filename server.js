@@ -7072,6 +7072,112 @@ function manorStateBody(cv, viewerKey) {
     msBalance: viewerKey ? msBalance(viewerKey) : 0,
   };
 }
+
+// ── The Séance Board (Tier 3.5) — a coven ritual in the Manor ───────────────
+// A coven gathers in their Manor and calls through the thinning veil; a
+// planchette spells out a reply, broadcast in sync to every member present.
+// Phase 2: the reply comes from lib/seance's hand-written fallback bank — no
+// live AI yet (Phase 3 swaps pickAnswer() for an LLM call guarded by the same
+// sanitize() + fallback path). The engine (charset, steps, gating, fallback)
+// is pure in lib/seance; this glue owns the timers, the broadcast, the offering
+// and the per-coven cooldown. State is transient (animation only); only the
+// cooldown deadline persists, on the coven record (cv.seanceCdUntil).
+const seance = require('./lib/seance');
+function seanceEnabled() { return !opsState.seanceOff; }  // ops kill-switch
+function setSeanceEnabled(on) {
+  if (on) delete opsState.seanceOff; else opsState.seanceOff = true;
+  saveOpsState();
+  return true;
+}
+const seanceSessions = new Map(); // covenId -> active ritual
+
+// Coven members currently standing in their own Manor.
+function manorMembersOf(cv) {
+  const inst = 'coven_' + cv.id, out = [];
+  for (const p of players.values()) {
+    if (p.room === 'manor' && p.accountKey && p.instance === inst) {
+      const pcv = covenOf(p.accountKey);
+      if (pcv && pcv.id === cv.id) out.push(p);
+    }
+  }
+  return out;
+}
+function broadcastSeance(cv, data) { for (const p of manorMembersOf(cv)) send(p.ws, data); }
+
+function seanceStateBody(cv) {
+  const now = Date.now();
+  const sess = seanceSessions.get(cv.id);
+  const cdUntil = cv.seanceCdUntil || 0;
+  return {
+    enabled: seanceEnabled(),
+    active: !!sess,
+    phase: sess ? sess.phase : 'idle',
+    membersPresent: manorMembersOf(cv).length,
+    minMembers: seance.CONFIG.MIN_MEMBERS,
+    offeringCost: seance.CONFIG.OFFERING_GOLD,
+    cooldownUntil: cdUntil > now ? cdUntil : 0,
+    asker: sess ? sess.askerName : null,
+    question: sess ? sess.question : null,
+    revealed: sess ? sess.revealed : '',
+  };
+}
+function pushSeanceState(cv) { broadcastSeance(cv, { type: 'seance_state', ...seanceStateBody(cv) }); }
+
+// Map a canStart() failure to a player-facing line.
+function seanceReason(gate) {
+  switch (gate.reason) {
+    case 'disabled': return 'The veil is quiet tonight — try again later.';
+    case 'need_members': return `The ritual needs ${gate.need} coven-mates in the Manor — only ${gate.have} ${gate.have === 1 ? 'is' : 'are'} here.`;
+    case 'cannot_afford': return `The board asks an offering of ${gate.need} gold — you hold ${gate.have}.`;
+    case 'already_active': return 'The board is already speaking — wait for it to finish.';
+    case 'cooldown': return 'The veil is spent — give it time before calling again.';
+    default: return 'The board will not answer right now.';
+  }
+}
+
+function clearSeance(cv) {
+  const sess = seanceSessions.get(cv.id);
+  if (!sess) return;
+  for (const t of sess.timers) clearTimeout(t);
+  seanceSessions.delete(cv.id);
+}
+
+// Schedule the buildup, then each planchette step, then the close. Every beat is
+// broadcast to the members in the Manor so they animate in lockstep; the server
+// owns the timing so no client can drive or peek the board ahead of the reveal.
+function runSeance(cv, askerName, question) {
+  const cfg = seance.CONFIG;
+  const answer = seance.pickAnswer();                 // Phase 2: fallback bank
+  const clean = seance.sanitize(answer) || 'GOODBYE'; // belt-and-suspenders
+  const { steps } = seance.buildSteps(clean);
+  const sched = seance.scheduleFor(steps, cfg);
+  const sess = { phase: 'channeling', askerName, question, message: clean, revealed: '', glyph: null, timers: [] };
+  seanceSessions.set(cv.id, sess);
+
+  broadcastSeance(cv, {
+    type: 'seance_begin', asker: askerName, question,
+    buildupMs: cfg.BUILDUP_MS, total: steps.length,
+    travelMs: cfg.TRAVEL_MS, dwellMs: cfg.DWELL_MS,
+  });
+  pushSeanceState(cv);
+
+  sess.timers.push(setTimeout(() => { sess.phase = 'spelling'; }, cfg.BUILDUP_MS));
+  sched.forEach((step, i) => {
+    sess.timers.push(setTimeout(() => {
+      if (step.kind === 'space') sess.revealed += ' ';
+      else if (step.char && !step.close) sess.revealed += step.char.length > 1 ? ` ${step.char} ` : step.char;
+      sess.glyph = step.glyph;
+      broadcastSeance(cv, { type: 'seance_step', i, kind: step.kind, glyph: step.glyph, char: step.char, repeat: !!step.repeat });
+    }, cfg.BUILDUP_MS + step.atMs));
+  });
+  const totalMs = cfg.BUILDUP_MS + (sched.length ? sched[sched.length - 1].atMs : 0) + cfg.CLOSE_MS;
+  sess.timers.push(setTimeout(() => {
+    broadcastSeance(cv, { type: 'seance_end', message: clean });
+    clearSeance(cv);
+    pushSeanceState(cv);
+  }, totalMs));
+}
+
 // A claimed bed doubles as personal storage. The chest is keyed to the member's
 // account (not the bed slot) and persisted on the coven, so it follows them if
 // they switch beds and is never exposed to whoever takes their old room.
@@ -11617,6 +11723,7 @@ wss.on('connection', (ws, req) => {
       player.roomLockUntil = Date.now() + 1500;
       player.x = MANOR_SPAWN.x; player.y = MANOR_SPAWN.y;
       send(ws, { type: 'manor_entered', spawn: MANOR_SPAWN, covenName: cv.name, ...manorStateBody(cv, player.accountKey) });
+      pushSeanceState(cv); // entrant + anyone already inside get the live board
       audit.log({ level: 'info', type: 'manor_enter', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id } });
       return;
     }
@@ -11636,6 +11743,8 @@ wss.on('connection', (ws, req) => {
       player.x = rx; player.y = ry;
       player.manorReturnX = null; player.manorReturnY = null;
       send(ws, { type: 'manor_exited', x: rx, y: ry });
+      // leaving changes who's present — refresh the board for those still inside
+      { const cv = player.accountKey && covenOf(player.accountKey); if (cv) pushSeanceState(cv); }
       return;
     }
 
@@ -11805,6 +11914,49 @@ wss.on('connection', (ws, req) => {
       send(target.ws, { type: 'toast', message: `${RITUALS[mine.id].emoji} ${player.name} blesses you with ${RITUALS[mine.id].name} — ${RITUALS[mine.id].desc}.` });
       send(ws, { type: 'toast', message: `✨ You bless ${target.name} with ${RITUALS[mine.id].name}.` });
       audit.log({ level: 'info', type: 'bless', account: player.accountKey, name: player.name, detail: { ritual: mine.id, target: target.name } });
+      return;
+    }
+
+    // ── The Séance Board: read the current board state ──
+    if (msg.type === 'seance_state') {
+      if (!player.accountKey) return;
+      const cv = covenOf(player.accountKey);
+      if (!cv || player.room !== 'manor' || player.instance !== 'coven_' + cv.id) return;
+      send(ws, { type: 'seance_state', ...seanceStateBody(cv) });
+      return;
+    }
+
+    // ── The Séance Board: begin a ritual (gate → charge offering → run) ──
+    if (msg.type === 'seance_start') {
+      if (!player.accountKey) { send(ws, { type: 'seance_error', message: 'Log into an account to call the board.' }); return; }
+      const cv = covenOf(player.accountKey);
+      if (!cv || player.room !== 'manor' || player.instance !== 'coven_' + cv.id) {
+        send(ws, { type: 'seance_error', message: 'The board waits in your coven’s Manor — gather there first.' });
+        return;
+      }
+      const now = Date.now();
+      if (cv.seanceCdUntil && cv.seanceCdUntil > now) {
+        send(ws, { type: 'seance_error', message: `The veil is spent — rest ${Math.ceil((cv.seanceCdUntil - now) / 60000)} min before calling again.` });
+        return;
+      }
+      const acct = ensureBankAccount(player.accountKey);
+      const gate = seance.canStart({
+        enabled: seanceEnabled(), inCoven: true, inManor: true,
+        active: seanceSessions.has(cv.id),
+        membersPresent: manorMembersOf(cv).length,
+        gold: acct.balance, lastAt: 0, now, cooldownMs: 0,
+      });
+      if (!gate.ok) { send(ws, { type: 'seance_error', message: seanceReason(gate) }); return; }
+      if (audit.hit(player.accountKey, 'seance_start', 60 * 1000) > 3) return; // anti-spam
+      // charge the offering from the asker's bank, then lock the coven's cooldown
+      acct.balance -= seance.CONFIG.OFFERING_GOLD;
+      saveBankAccounts();
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      cv.seanceCdUntil = now + seance.CONFIG.COOLDOWN_MS;
+      saveCoven(cv.id);
+      const question = seance.normalizeMessage(msg.question || '').slice(0, 80);
+      audit.log({ level: 'info', type: 'seance_start', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id, present: manorMembersOf(cv).length } });
+      runSeance(cv, player.name, question);
       return;
     }
 
@@ -12649,6 +12801,8 @@ global.__testHooks = {
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
+  // Session: the Séance Board (coven ritual)
+  seance, seanceEnabled, setSeanceEnabled, seanceSessions, manorMembersOf, seanceStateBody, runSeance, clearSeance,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets, voiceClients, buildIceConfig,
