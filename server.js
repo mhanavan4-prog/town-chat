@@ -896,6 +896,7 @@ function recordPurchase(key, packId) {
     if (!acc.firstPaidAt) acc.firstPaidAt = Date.now();
     acc.lastPaidAt = Date.now();
     saveAccounts();
+    checkRevenueMilestone();
   } catch (e) {}
 }
 function pushMsStateIfOnline(key) {
@@ -12152,9 +12153,62 @@ const _ccHourTimer = setInterval(() => {
     // in-game slice — trends over the game's life and shows its live windows.
     const onSite = rc + presence.count();
     if (onSite > 0) { analytics.peak('onsite', onSite); analytics.peak('onsite.hour.' + slug, onSite); }
+    // Alerts: new all-time highs, and an extended-quiet heads-up.
+    checkPeakRecord('peakOnSite', onSite, 'peak on site');
+    checkPeakRecord('peakConcurrent', rc, 'peak concurrent (in game)');
+    checkQuiet(onSite);
   } catch (e) {}
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
+
+// ── Growth alerts (Town Crier) ───────────────────────────────────────────────
+// Lightweight, debounced pings to the notify webhook for the few events worth
+// interrupting you for. All state lives in the persisted opsState bag so a
+// restart neither forgets a record nor re-fires an old alert.
+//
+// New all-time high for a live metric. The record updates silently every time,
+// but an actual ping is rate-limited to once per 6h per metric, so a launch
+// surge that ticks 5→6→7→… gives you one "new record" with the latest number,
+// not a stream. Floored at 2 so the very first player isn't a "record".
+function checkPeakRecord(metric, value, label) {
+  try {
+    if (!NOTIFY_WEBHOOK_URL || !(value >= 2)) return;
+    const recKey = metric + 'Record', atKey = metric + 'AlertAt';
+    if (value <= (opsState[recKey] || 0)) return;
+    opsState[recKey] = value;
+    const now = Date.now();
+    if (now - (opsState[atKey] || 0) > 6 * 3600 * 1000) { opsState[atKey] = now; notifyGrowth('🎉 New ' + label + ' record: **' + value + '**!'); }
+    saveOpsState();
+  } catch (e) {}
+}
+// Lifetime revenue crossing a milestone — announced once per milestone, ever.
+function checkRevenueMilestone() {
+  try {
+    if (!NOTIFY_WEBHOOK_URL) return;
+    let total = 0; for (const k in accounts) { const a = accounts[k]; if (a && a.spendCents) total += a.spendCents; }
+    const MS = [10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000];
+    let hit = 0; for (const m of MS) if (total >= m) hit = m;
+    if (hit && (opsState.revenueMilestone || 0) < hit) {
+      opsState.revenueMilestone = hit; saveOpsState();
+      notifyGrowth('💰 Revenue milestone: crossed **$' + (hit / 100).toLocaleString() + '** lifetime! (now $' + Math.round(total / 100).toLocaleString() + ')');
+    }
+  } catch (e) {}
+}
+// Extended quiet: nobody on the whole site for 6+ hours — one ping per spell,
+// cleared the moment someone returns. (lastSeen resets on boot, so a restart
+// never triggers a false quiet alert.)
+function checkQuiet(onSite) {
+  try {
+    if (!NOTIFY_WEBHOOK_URL) return;
+    const now = Date.now();
+    if (onSite > 0) { opsState.lastSeenSomeone = now; if (opsState.quietAlerted) { opsState.quietAlerted = false; saveOpsState(); } return; }
+    if (opsState.lastSeenSomeone == null) { opsState.lastSeenSomeone = now; return; }
+    if (!opsState.quietAlerted && (now - opsState.lastSeenSomeone) > 6 * 3600 * 1000) {
+      opsState.quietAlerted = true; saveOpsState();
+      notifyGrowth('🌙 Quiet spell: nobody has been on the site for 6+ hours.');
+    }
+  } catch (e) {}
+}
 
 // Daily active-user snapshot: every 15 min, raise the day's high-water DAU /
 // WAU / MAU (accounts whose most-recent character was played within 1 / 7 / 30
