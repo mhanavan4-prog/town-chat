@@ -351,7 +351,25 @@ function trackVisit(req, pageMetric) {
   analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
   logPageVisit(req, pageMetric.replace(/^page\./, ''));
 }
-app.get('/play', (req, res) => { trackVisit(req, 'page.play'); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+// First-touch acquisition attribution. A visitor who arrives tagged (?src=…)
+// gets a 30-day tr_src cookie, set once and never overwritten, so the source
+// that first brought them is still known when they later sign up — turning raw
+// "visits by source" into real "which sources actually convert." Server-side
+// only (no client change); the cookie holds just a short source slug, no PII.
+function readSrcCookie(req) {
+  const raw = String((req.headers && req.headers.cookie) || '');
+  const m = raw.match(/(?:^|;\s*)tr_src=([a-z0-9_-]{1,24})/i);
+  return m ? m[1].toLowerCase() : '';
+}
+function maybeSetSrcCookie(req, res) {
+  try {
+    if (readSrcCookie(req)) return;          // first-touch wins — don't overwrite
+    const s = refSlug(req);
+    if (!s || s === 'direct') return;        // only record a real, known source
+    res.setHeader('Set-Cookie', 'tr_src=' + s + '; Max-Age=' + (30 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly');
+  } catch (e) {}
+}
+app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 // Shareable pages get per-entity Open Graph / Twitter tags injected server-side
 // so a pasted link unfurls with the right title (and the shared cover image),
@@ -386,7 +404,7 @@ function sendWithOg(req, res, file, og) {
 // every caller falls back to the plain static card below.
 const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
 
-app.get('/', (req, res) => { trackVisit(req, 'page.landing'); return sendWithOg(req, res, 'landing.html',
+app.get('/', (req, res) => { trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res); return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
 // Per-class showcase pages: a 3D turntable of the class model + its ability kit
 // with hover tooltips. Linked from the landing character grid. The page is one
@@ -1955,9 +1973,14 @@ app.post('/api/register', (req, res) => {
     over18At: Date.now(),
     over18Ip: ip,
     email: email || null,
-    emailAt: email ? Date.now() : null
+    emailAt: email ? Date.now() : null,
+    // First-touch acquisition source (from the tr_src cookie), kept on the
+    // account so signups — and later revenue — can be split by where the
+    // player originally came from.
+    src: readSrcCookie(req) || 'direct'
   };
   saveAccounts();
+  analytics.bump('reg.src.' + (accounts[key].src));
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   registerSession(token, key);
