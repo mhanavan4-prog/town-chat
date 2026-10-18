@@ -1565,6 +1565,44 @@ function activeCounts() {
   }
   return { d1, d7, d30 };
 }
+// Retention by signup cohort. Groups accounts by the calendar week they signed
+// up (Monday, UTC) and, for each cohort, the share that was still playing at
+// least N days after signup (D1 / D7 / D30) — the standard "is retention
+// improving as we ship?" view. Computed from createdAt + the account's most
+// recent character; no new tracking. A cell is null until the whole cohort week
+// is at least N days in the past, so a young cohort never reads as a false 0%.
+function weekKeyOf(ts) {
+  const d = new Date(ts);
+  const dow = (d.getUTCDay() + 6) % 7; // 0 = Monday
+  const mon = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow);
+  return { key: new Date(mon).toISOString().slice(0, 10), start: mon };
+}
+function retentionCohorts(maxWeeks) {
+  maxWeeks = maxWeeks || 16;
+  const now = Date.now(), DAY = 864e5, coh = {};
+  for (const k of Object.keys(accounts)) {
+    const acc = accounts[k];
+    if (!acc || !acc.createdAt) continue;
+    const prog = playerProgress[k];
+    let last = 0;
+    if (prog && prog.characters) for (const c of Object.values(prog.characters)) if ((c.lastPlayedAt || 0) > last) last = c.lastPlayedAt;
+    const wk = weekKeyOf(acc.createdAt);
+    const b = coh[wk.key] || (coh[wk.key] = { week: wk.key, start: wk.start, size: 0, d1: 0, d7: 0, d30: 0 });
+    b.size++;
+    const span = last ? last - acc.createdAt : 0;
+    if (span >= 1 * DAY) b.d1++;
+    if (span >= 7 * DAY) b.d7++;
+    if (span >= 30 * DAY) b.d30++;
+  }
+  return Object.values(coh).sort((a, b) => (a.week < b.week ? 1 : -1)).slice(0, maxWeeks).map((b) => {
+    const measurable = (n) => (now - (b.start + 7 * DAY)) >= n * DAY; // whole week + N elapsed
+    const rate = (c) => (b.size ? Math.round((c / b.size) * 100) : 0);
+    return { week: b.week, size: b.size,
+      d1: measurable(1) ? rate(b.d1) : null,
+      d7: measurable(7) ? rate(b.d7) : null,
+      d30: measurable(30) ? rate(b.d30) : null };
+  });
+}
 function analyticsSummary() {
   const keys = Object.keys(accounts);
   let returned = 0;
@@ -1673,7 +1711,8 @@ function analyticsSummary() {
     covens: Object.keys(covens).length,
     goldInEconomy: Math.round(goldInEconomy),
     purchases,
-    monthly
+    monthly,
+    cohorts: retentionCohorts()
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
