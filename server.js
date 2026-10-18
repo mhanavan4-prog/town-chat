@@ -345,9 +345,27 @@ function logPageVisit(req, pageName) {
     } });
   } catch (e) {}
 }
+// Coarse (country-level only) geolocation for acquisition geography. Prefers a
+// CDN-provided country header when one exists; otherwise a bundled offline
+// MaxMind lookup (geoip-lite) on the visitor IP. Lazy + optional: if the module
+// isn't installed the feature degrades to 'ZZ' (unknown) and nothing breaks. No
+// IP or city is ever stored — only the two-letter country code, in aggregate.
+let _geoip = null, _geoipTried = false;
+function geoipMod() { if (!_geoipTried) { _geoipTried = true; try { _geoip = require('geoip-lite'); } catch (e) { _geoip = null; } } return _geoip; }
+function countryOf(req) {
+  try {
+    const h = req.headers || {};
+    const edge = String(h['cf-ipcountry'] || h['cloudfront-viewer-country'] || h['x-vercel-ip-country'] || '').toUpperCase();
+    if (/^[A-Z]{2}$/.test(edge)) return edge;
+    const g = geoipMod(); if (!g) return 'ZZ';
+    const r = g.lookup(audit.clientIp(req));
+    return (r && r.country) || 'ZZ';
+  } catch (e) { return 'ZZ'; }
+}
 function trackVisit(req, pageMetric) {
   analytics.bump(pageMetric);
   analytics.bump('ref.' + refSlug(req));
+  analytics.bump('geo.' + countryOf(req));
   analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
   logPageVisit(req, pageMetric.replace(/^page\./, ''));
 }
@@ -2054,10 +2072,13 @@ app.post('/api/register', (req, res) => {
     // First-touch acquisition source (from the tr_src cookie), kept on the
     // account so signups — and later revenue — can be split by where the
     // player originally came from.
-    src: readSrcCookie(req) || 'direct'
+    src: readSrcCookie(req) || 'direct',
+    // Coarse signup geography (country code only), for the acquisition map.
+    country: countryOf(req)
   };
   saveAccounts();
   analytics.bump('reg.src.' + (accounts[key].src));
+  analytics.bump('geo.reg.' + (accounts[key].country));
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   registerSession(token, key);
