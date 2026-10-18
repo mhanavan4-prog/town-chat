@@ -7133,6 +7133,7 @@ function seanceStateBody(cv) {
     asker: sess ? sess.askerName : null,
     question: sess ? sess.question : null,
     revealed: sess ? sess.revealed : '',
+    glyph: sess ? sess.glyph : null, // where the planchette rests, for late-join sync
   };
 }
 function pushSeanceState(cv) { broadcastSeance(cv, { type: 'seance_state', ...seanceStateBody(cv) }); }
@@ -7160,24 +7161,34 @@ function clearSeance(cv) {
 // broadcast to the members in the Manor so they animate in lockstep; the server
 // owns the timing so no client can drive or peek the board ahead of the reveal.
 // A scrap of sky-flavour for the spirit prompt (atmosphere only).
+function seanceBloodMoon() {
+  try { return typeof bloodMoonActive === 'function' && !!bloodMoonActive(); } catch (e) { return false; }
+}
 function seanceMoon() {
-  try { if (typeof bloodMoonActive === 'function' && bloodMoonActive()) return 'a blood moon hangs low over the Wilds'; } catch (e) { /* noop */ }
-  return 'the moon is thin';
+  return seanceBloodMoon() ? 'a blood moon hangs low over the Wilds' : 'the moon is thin';
 }
 
-// Decide the answer: ask the spirit (LLM), run it through the SAME safety gate
-// as everything else (charset map + blocklist + length cap), and fall back to
-// the hand-written bank on null / reject / failure. Nothing reaches the board
-// unsanitized. Every call is logged for ops review (never read by gameplay).
+// Decide the answer. A fraction of séances (higher on a blood moon) carry a REAL
+// story hint: the seed is slipped into the spirit's prompt to reveal cryptically
+// (source 'ai_hint'), or — if the AI is off or declines — the curated hint line
+// is spelled directly (source 'lore'). Otherwise it's an ordinary AI or fallback
+// reply. Every route passes the SAME safety gate (charset + blocklist + cap);
+// nothing reaches the board unsanitized. Each call is logged for ops review.
 async function resolveSeanceAnswer(cv, askerKey, question) {
+  const bloodMoon = seanceBloodMoon();
+  const chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
+  const hint = seance.shouldHint(Math.random, chance) ? seance.pickLoreHint() : null;
   const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon() };
-  let raw = null;
+  if (hint) ctx.secret = hint.seed;
+
+  let raw = null, message = null, source;
   try { raw = await seanceSpirit.generate(ctx); } catch (e) { raw = null; }
-  let message = seance.sanitize(raw, { blocklist: SEANCE_BLOCKLIST });
-  const source = message ? 'ai' : 'fallback';
-  if (!message) message = seance.sanitize(seance.pickAnswer(), { blocklist: SEANCE_BLOCKLIST }) || 'GOODBYE';
+  message = seance.sanitize(raw, { blocklist: SEANCE_BLOCKLIST });
+  if (message) source = hint ? 'ai_hint' : 'ai';
+  else if (hint) { message = seance.sanitize(hint.line, { blocklist: SEANCE_BLOCKLIST }); source = 'lore'; }
+  if (!message) { message = seance.sanitize(seance.pickAnswer(), { blocklist: SEANCE_BLOCKLIST }) || 'GOODBYE'; source = 'fallback'; }
   try {
-    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, question: question || '', raw: raw || '', message } });
+    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, bloodMoon, question: question || '', raw: raw || '', message } });
   } catch (e) { /* logging must never break the ritual */ }
   return { message, source };
 }

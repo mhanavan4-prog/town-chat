@@ -174,6 +174,20 @@ export default function createSeance({ send, getMe, shortWhen }) {
     switch (msg.type) {
       case 'seance_state':
         state = msg;
+        if (msg.active && msg.phase && msg.phase !== 'idle') {
+          // catch a late joiner up to where the ritual currently is
+          busy = true;
+          const r = document.getElementById('seanceReadout');
+          if (r && msg.revealed) r.textContent = msg.revealed;
+          if (msg.glyph && coords && coords[msg.glyph]) {
+            const g = coords[msg.glyph];
+            pos = { x: g.x, y: g.y }; to = { x: g.x, y: g.y }; moving = false;
+            placePlanchette(g.x, g.y);
+          }
+          if (planchette) planchette.classList.add('channeling');
+        } else {
+          busy = false;
+        }
         renderPanel();
         return true;
       case 'seance_begin':
