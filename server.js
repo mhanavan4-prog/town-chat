@@ -1663,6 +1663,31 @@ function retentionCohorts(maxWeeks) {
       d30: measurable(30) ? rate(b.d30) : null };
   });
 }
+// Lifetime value by signup cohort. Per signup week: how many signed up, how
+// many ever paid, and revenue per signup (ARPU) / per payer (ARPPU) from the
+// lifetime spend on each account. ARPU climbs as a cohort ages (more time to
+// spend), so read down the age column and this is an LTV curve in table form.
+function ltvCohorts(maxWeeks) {
+  maxWeeks = maxWeeks || 16;
+  const now = Date.now(), DAY = 864e5, coh = {};
+  for (const k of Object.keys(accounts)) {
+    const a = accounts[k];
+    if (!a || !a.createdAt) continue;
+    const wk = weekKeyOf(a.createdAt);
+    const b = coh[wk.key] || (coh[wk.key] = { week: wk.key, start: wk.start, signups: 0, payers: 0, cents: 0 });
+    b.signups++;
+    if (a.spendCents) { b.payers++; b.cents += a.spendCents; }
+  }
+  return Object.values(coh).sort((x, y) => (x.week < y.week ? 1 : -1)).slice(0, maxWeeks).map((b) => ({
+    week: b.week,
+    ageWeeks: Math.max(0, Math.round((now - b.start) / (7 * DAY))),
+    signups: b.signups, payers: b.payers,
+    payerPct: b.signups ? Math.round((b.payers / b.signups) * 100) : 0,
+    revenueUsd: Math.round(b.cents / 100),
+    arpuUsd: b.signups ? +((b.cents / 100) / b.signups).toFixed(2) : 0,
+    arppuUsd: b.payers ? +((b.cents / 100) / b.payers).toFixed(2) : 0
+  }));
+}
 function analyticsSummary() {
   const keys = Object.keys(accounts);
   let returned = 0;
@@ -1784,7 +1809,8 @@ function analyticsSummary() {
     purchases,
     revenue,
     monthly,
-    cohorts: retentionCohorts()
+    cohorts: retentionCohorts(),
+    ltv: ltvCohorts()
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
