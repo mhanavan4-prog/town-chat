@@ -28,6 +28,8 @@ const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: proce
 // own players are counted from their live WebSocket instead). Powers the
 // "on site now" number on the analytics dashboard.
 const presence = require('./lib/presence')();
+// A/B experiment harness — stable per-visitor bucketing + exposure/conversion.
+const ab = require('./lib/ab');
 // Growth pings — new account / new coven — to a Discord (or Slack) webhook so
 // you hear about signups as they happen. Opt-in: set NOTIFY_WEBHOOK_URL in the
 // env for a dedicated channel; falls back to ALERT_WEBHOOK_URL, and is a no-op
@@ -384,8 +386,22 @@ function maybeSetSrcCookie(req, res) {
     if (readSrcCookie(req)) return;          // first-touch wins — don't overwrite
     const s = refSlug(req);
     if (!s || s === 'direct') return;        // only record a real, known source
-    res.setHeader('Set-Cookie', 'tr_src=' + s + '; Max-Age=' + (30 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly');
+    res.append('Set-Cookie', 'tr_src=' + s + '; Max-Age=' + (30 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly');
   } catch (e) {}
+}
+// Stable per-visitor A/B id (tr_ab cookie), minted on first visit so a visitor
+// stays in the same bucket across sessions. Returns the id (existing or new).
+function readAbId(req) {
+  const m = String((req.headers && req.headers.cookie) || '').match(/(?:^|;\s*)tr_ab=([A-Za-z0-9]{1,40})/);
+  return m ? m[1] : '';
+}
+function ensureAbId(req, res) {
+  let id = readAbId(req);
+  if (!id) {
+    id = crypto.randomBytes(12).toString('hex');
+    try { res.append('Set-Cookie', 'tr_ab=' + id + '; Max-Age=' + (365 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly'); } catch (e) {}
+  }
+  return id;
 }
 app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
@@ -414,7 +430,7 @@ function sendWithOg(req, res, file, og) {
     `<meta name="twitter:description" content="${ogEsc(og.desc)}">`,
     `<meta name="twitter:image" content="${ogEsc(img)}">`
   ].join('\n');
-  res.type('html').send(html.replace('<!--OG-->', tags));
+  res.type('html').send(html.replace('<!--OG-->', tags).replace(/\{\{AB_CTA\}\}/g, req._abCta || 'Enter the Town'));
 }
 
 // Rendered per-entity OG cards (name + stats composited onto the base class /
@@ -422,7 +438,14 @@ function sendWithOg(req, res, file, og) {
 // every caller falls back to the plain static card below.
 const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
 
-app.get('/', (req, res) => { trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res); return sendWithOg(req, res, 'landing.html',
+app.get('/', (req, res) => {
+  trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res);
+  // A/B: assign the landing hero CTA variant for this visitor, count the
+  // exposure, and pass the copy to sendWithOg (which swaps {{AB_CTA}}).
+  const ctaVariant = ab.variantFor('cta', ensureAbId(req, res));
+  req._abCta = ctaVariant === 'playfree' ? 'Play free — no download' : 'Enter the Town';
+  analytics.bump('exp.cta.' + ctaVariant + '.view');
+  return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
 // Per-class showcase pages: a 3D turntable of the class model + its ability kit
 // with hover tooltips. Linked from the landing character grid. The page is one
@@ -2079,6 +2102,8 @@ app.post('/api/register', (req, res) => {
   saveAccounts();
   analytics.bump('reg.src.' + (accounts[key].src));
   analytics.bump('geo.reg.' + (accounts[key].country));
+  // A/B conversion: credit each experiment this visitor is bucketed into.
+  { const abId = readAbId(req); if (abId) for (const exp in ab.EXPERIMENTS) analytics.bump('exp.' + exp + '.' + ab.variantFor(exp, abId) + '.signup'); }
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   registerSession(token, key);
