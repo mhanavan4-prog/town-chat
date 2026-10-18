@@ -41,6 +41,20 @@ function notifyGrowth(text) {
     rq.end(body);
   } catch (e) {}
 }
+// Stamp a player's in-game location onto an audit detail so the per-player
+// timeline in the admin console can answer "where did this happen?" — the
+// public town uses one shared coordinate space; a coven instance is a private
+// copy, flagged so a position there isn't mistaken for the public map. Returns
+// an empty object when no live player is in scope, so it's always safe to
+// spread into a detail literal.
+function whereDetail(p) {
+  if (!p) return {};
+  const d = { room: p.room || 'outside' };
+  if (Number.isFinite(p.x)) d.x = Math.round(p.x);
+  if (Number.isFinite(p.y)) d.y = Math.round(p.y);
+  if (p.instance) d.instance = 'coven';
+  return d;
+}
 // Content filter (Session O) — targeted slur/hate blocklist for chat + names.
 const wordFilter = require('./data/wordfilter');
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
@@ -7749,7 +7763,7 @@ wss.on('connection', (ws, req) => {
     if (!RATE_EXEMPT_TYPES.has(msg.type)) {
       const _actN = audit.hit(ws._ip || (player && player.id) || 'anon', 'act:' + msg.type, 5000);
       if (_actN === 60) audit.log({ level: 'warn', type: 'rapid_identical_action', ip: ws._ip,
-        account: (player && player.accountKey) || null, name: player && player.name, detail: { action: msg.type, in5s: _actN } });
+        account: (player && player.accountKey) || null, name: player && player.name, detail: { action: msg.type, in5s: _actN, ...whereDetail(player) } });
     }
     // Prereq violation: a Hard Drive operation from someone who doesn't hold the
     // item. A courtesy client hides these controls, so repeated attempts smell
@@ -8285,7 +8299,7 @@ wss.on('connection', (ws, req) => {
           if (jump > 0.9 * diag) {
             const n = audit.hit(ws._ip || player.id, 'move_jump', 30 * 1000);
             if (n >= 5) audit.log({ level: 'warn', type: 'movement_anomaly', ip: ws._ip,
-              account: player.accountKey || null, name: player.name, detail: { dist: Math.round(jump), room: player.room, in30s: n } });
+              account: player.accountKey || null, name: player.name, detail: { dist: Math.round(jump), in30s: n, ...whereDetail(player) } });
           }
         }
         player._lastMoveAt = _now;
@@ -8298,7 +8312,7 @@ wss.on('connection', (ws, req) => {
         if (LOCKED_ROOMS.has(msg.room) && player.room !== msg.room && !canEnterPassRoom(player, msg.room)) {
           // Repeatedly hammering a locked door is a crafted-client signal.
           if (audit.hit(ws._ip || player.id, 'locked_probe', 60 * 1000) > 12) {
-            audit.log({ level: 'alert', type: 'locked_room_probe', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { room: msg.room } });
+            audit.log({ level: 'alert', type: 'locked_room_probe', ip: ws._ip, account: player.accountKey || null, name: player.name, detail: { targetRoom: msg.room, ...whereDetail(player) } });
           }
           send(ws, {
             type: 'room_locked',
@@ -9769,7 +9783,7 @@ wss.on('connection', (ws, req) => {
           // this; sustained hits from one source are a reach/teleport hack.
           const n = audit.hit(ws._ip || player.id, 'oor_strike', 60 * 1000);
           if (n >= 6) audit.log({ level: 'warn', type: 'action_out_of_range', ip: ws._ip,
-            account: player.accountKey || null, name: player.name, detail: { targetType, in60s: n } });
+            account: player.accountKey || null, name: player.name, detail: { targetType, in60s: n, ...whereDetail(player) } });
         }
         return;
       }
