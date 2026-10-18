@@ -442,10 +442,13 @@ const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path
 app.get('/', (req, res) => {
   trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res);
   // A/B: assign the landing hero CTA variant for this visitor, count the
-  // exposure, and pass the copy to sendWithOg (which swaps {{AB_CTA}}).
-  const ctaVariant = ab.variantFor('cta', ensureAbId(req, res));
-  req._abCta = ctaVariant === 'playfree' ? 'Play free — no download' : 'Enter the Town';
-  analytics.bump('exp.cta.' + ctaVariant + '.view');
+  // exposure, and pass the copy to sendWithOg (which swaps {{AB_CTA}}). When the
+  // experiment is paused, everyone gets the control and nothing is recorded.
+  if (abEnabled('cta')) {
+    const ctaVariant = ab.variantFor('cta', ensureAbId(req, res));
+    req._abCta = ctaVariant === 'playfree' ? 'Play free — no download' : 'Enter the Town';
+    analytics.bump('exp.cta.' + ctaVariant + '.view');
+  }
   return sendWithOg(req, res, 'landing.html',
   { title: 'Thornreach — a crooked little town of witches, werewolves & covens', desc: 'Six callings. One crooked little town. A browser MMO with covens, class campaigns and the Wilds — no gacha, no energy, nothing pay-to-win, ever.' }); });
 // Per-class showcase pages: a 3D turntable of the class model + its ability kit
@@ -1833,7 +1836,8 @@ function analyticsSummary() {
     monthly,
     cohorts: retentionCohorts(),
     ltv: ltvCohorts(),
-    ltvCurve: ltvCurve()
+    ltvCurve: ltvCurve(),
+    experiments: Object.keys(ab.EXPERIMENTS).map((e) => ({ name: e, variants: ab.EXPERIMENTS[e].variants, enabled: abEnabled(e) }))
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
@@ -1855,6 +1859,17 @@ const OPS_FILE = path.join(DATA_DIR, 'ops-state.json');
 const opsState = persistLoad('ops', OPS_FILE) || {};
 persistRegister('ops', OPS_FILE, () => opsState);
 function saveOpsState() { try { persistSave('ops', OPS_FILE, opsState); } catch (e) {} }
+// A/B experiment on/off, persisted so a test can be paused from the dashboard
+// without a deploy. Disabled → everyone gets the control (first) variant and no
+// exposure/conversion is recorded for it.
+function abEnabled(exp) { return !(opsState.abOff && opsState.abOff[exp]); }
+function setAbEnabled(exp, enabled) {
+  if (!ab.EXPERIMENTS[exp]) return false;
+  if (!opsState.abOff) opsState.abOff = {};
+  if (enabled) delete opsState.abOff[exp]; else opsState.abOff[exp] = true;
+  saveOpsState();
+  return true;
+}
 const sessions = new Map();      // token -> usernameLower (rebuilt from sessionStore)
 {
   const now = Date.now();
@@ -2046,6 +2061,7 @@ const bans = {
 };
 require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
+  setAbEnabled,
   reportsList, reportsResolve,
   worldChatRecent, hostSay, telemetry, bugReports, auctionFeedRecent,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room, id: String(p.id || '').slice(0, 4), since: p.joinedAt || null })),
@@ -2152,7 +2168,7 @@ app.post('/api/register', (req, res) => {
   analytics.bump('reg.src.' + (accounts[key].src));
   analytics.bump('geo.reg.' + (accounts[key].country));
   // A/B conversion: credit each experiment this visitor is bucketed into.
-  { const abId = readAbId(req); if (abId) for (const exp in ab.EXPERIMENTS) analytics.bump('exp.' + exp + '.' + ab.variantFor(exp, abId) + '.signup'); }
+  { const abId = readAbId(req); if (abId) for (const exp in ab.EXPERIMENTS) if (abEnabled(exp)) analytics.bump('exp.' + exp + '.' + ab.variantFor(exp, abId) + '.signup'); }
   clearLoginFailures(ip);
   const token = crypto.randomBytes(24).toString('hex');
   registerSession(token, key);
