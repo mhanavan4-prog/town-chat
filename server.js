@@ -1713,6 +1713,30 @@ function ltvCurve() {
     return { day: N, accounts: elig, ltvUsd: elig ? +((cents / 100) / elig).toFixed(2) : 0 };
   });
 }
+// Source quality beyond raw signups: for each first-touch source (account.src),
+// how many signed up, D7 retention, payer % and ARPU — which channels bring
+// players who actually stick and pay, not just click. From account fields only.
+function sourceQuality() {
+  const now = Date.now(), DAY = 864e5, by = {};
+  for (const k of Object.keys(accounts)) {
+    const a = accounts[k];
+    if (!a || !a.createdAt) continue;
+    const src = a.src || 'direct';
+    const b = by[src] || (by[src] = { src, signups: 0, d7elig: 0, d7: 0, payers: 0, cents: 0 });
+    b.signups++;
+    const prog = playerProgress[k];
+    let last = 0;
+    if (prog && prog.characters) for (const c of Object.values(prog.characters)) if ((c.lastPlayedAt || 0) > last) last = c.lastPlayedAt;
+    if (now - a.createdAt >= 7 * DAY) { b.d7elig++; if (last && (last - a.createdAt) >= 7 * DAY) b.d7++; }
+    if (a.spendCents) { b.payers++; b.cents += a.spendCents; }
+  }
+  return Object.values(by).sort((x, y) => y.signups - x.signups).map((b) => ({
+    src: b.src, signups: b.signups,
+    d7: b.d7elig ? Math.round((b.d7 / b.d7elig) * 100) : null,
+    payerPct: b.signups ? Math.round((b.payers / b.signups) * 100) : 0,
+    arpuUsd: b.signups ? +((b.cents / 100) / b.signups).toFixed(2) : 0
+  }));
+}
 function analyticsSummary() {
   const keys = Object.keys(accounts);
   let returned = 0;
@@ -1837,7 +1861,8 @@ function analyticsSummary() {
     cohorts: retentionCohorts(),
     ltv: ltvCohorts(),
     ltvCurve: ltvCurve(),
-    experiments: Object.keys(ab.EXPERIMENTS).map((e) => ({ name: e, variants: ab.EXPERIMENTS[e].variants, enabled: abEnabled(e) }))
+    experiments: Object.keys(ab.EXPERIMENTS).map((e) => ({ name: e, variants: ab.EXPERIMENTS[e].variants, enabled: abEnabled(e) })),
+    sourceQuality: sourceQuality()
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
