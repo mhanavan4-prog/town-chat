@@ -882,6 +882,22 @@ const moonstones = require('./lib/moonstones')({ dataDir: DATA_DIR, persistLoad,
   }
 });
 const { msData, msBalance, msAdjust, grantMoonstones, saveMoonstones } = moonstones;
+// Record a real-money purchase against the buyer's account for revenue-depth
+// metrics (payer conversion, ARPU, ARPPU). Called only on a FIRST grant (the
+// caller gates on g.granted > 0, which is already replay-proof by grant id), so
+// a reload or store replay never double-counts. No-op for a key with no account.
+function recordPurchase(key, packId) {
+  try {
+    const acc = key && accounts[key];
+    if (!acc) return;
+    const cents = (MS_PACKS[packId] && MS_PACKS[packId].cents) || 0;
+    acc.spendCents = (acc.spendCents || 0) + cents;
+    acc.purchases = (acc.purchases || 0) + 1;
+    if (!acc.firstPaidAt) acc.firstPaidAt = Date.now();
+    acc.lastPaidAt = Date.now();
+    saveAccounts();
+  } catch (e) {}
+}
 function pushMsStateIfOnline(key) {
   const p = findConnectionByAccountKey(key);
   if (p) send(p.ws, { type: 'ms_state', balance: msBalance(key) });
@@ -963,7 +979,7 @@ app.get('/api/verify-ms-session', async (req, res) => {
     const packId = session.metadata && session.metadata.ms_pack;
     if (!MS_PACKS[packId]) return res.status(400).json({ granted: 0, error: 'That checkout wasn’t a Moonstone pack.' });
     const g = grantMoonstones('stripe_' + String(sessionId), accountKey, packId);
-    if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + packId); }
+    if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + packId); recordPurchase(accountKey, packId); }
     pushMsStateIfOnline(accountKey);
     audit.log({ level: 'info', type: g.granted > 0 ? 'ms_pack_granted' : 'ms_pack_replay',
       ip: audit.clientIp(req), account: accountKey, detail: { pack: packId, granted: g.granted, balance: g.balance } });
@@ -1043,7 +1059,7 @@ app.post('/api/verify-iap', express.json({ limit: '1mb' }), async (req, res) => 
       const msKey = req.body.accountToken ? sessions.get(String(req.body.accountToken)) : null;
       if (!msKey) return res.status(400).json({ unlocked: false, error: 'account_required' });
       const g = grantMoonstones(v.txId, msKey, productId);
-      if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + productId); }
+      if (g.granted > 0) { analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + productId); recordPurchase(msKey, productId); }
       pushMsStateIfOnline(msKey);
       return res.json({ unlocked: true, moonstones: g.balance, granted: g.granted, txId: v.txId });
     }
@@ -1608,6 +1624,17 @@ function analyticsSummary() {
   let returned = 0;
   for (const k of keys) if (accounts[k] && accounts[k].returnedCounted) returned++;
   const { d1: active1, d7: active7, d30: active30 } = activeCounts();
+  // Revenue depth: how many accounts ever paid, and revenue per user / per
+  // payer — from lifetime spend recorded on each account at grant time.
+  let payers = 0, lifetimeCents = 0, payCount = 0;
+  for (const k of keys) { const a = accounts[k]; if (a && a.spendCents) { payers++; lifetimeCents += a.spendCents; payCount += (a.purchases || 0); } }
+  const revenue = {
+    lifetimeUsd: Math.round(lifetimeCents / 100),
+    payers, purchases: payCount,
+    payerConversion: keys.length ? +((payers / keys.length) * 100).toFixed(1) : 0,
+    arpuUsd: keys.length ? +((lifetimeCents / 100) / keys.length).toFixed(2) : 0,
+    arppuUsd: payers ? +((lifetimeCents / 100) / payers).toFixed(2) : 0
+  };
   // Total gold in circulation — every account vault + every coven tab. The
   // headline economy-health number: watch it against the sinks (auction cut,
   // recipe unlocks) to see whether gold is actually tightening.
@@ -1711,6 +1738,7 @@ function analyticsSummary() {
     covens: Object.keys(covens).length,
     goldInEconomy: Math.round(goldInEconomy),
     purchases,
+    revenue,
     monthly,
     cohorts: retentionCohorts()
   };
