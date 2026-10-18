@@ -1362,7 +1362,10 @@ const accounts = loadAccounts(); // usernameLower -> { username, salt, hash, col
 persistRegister('accounts', ACCOUNTS_FILE, () => accounts);
 
 // Privacy-respecting, aggregate-only product analytics (see lib/analytics.js).
-const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+// retainDays set to ~5 years so the daily counters accrue into a real
+// long-term record (they're tiny integer tallies — a year is a few hundred KB),
+// letting the monthly-trends view compare arbitrary months across the game's life.
+const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister, retainDays: 1825 });
 // Client-health telemetry: folds load-time / asset-failure / crash signal into
 // aggregate analytics and keeps a bounded ring of recent reports for the admin
 // dashboard (see lib/telemetry.js). Nothing here is persisted or per-user.
@@ -1563,6 +1566,33 @@ function analyticsSummary() {
       auction: { items: auctionItems, lots: sumVals(sums.ac), goldVolume: Math.round(sumVals(sums.ag)), msVolume: Math.round(sumVals(sums.am)) }
     };
   })();
+  // Monthly trends across the whole retained window — the daily counters rolled
+  // up per calendar month so trends reveal themselves over the game's life.
+  // Most metrics sum; peak-concurrent takes the month's high-water mark; pack
+  // revenue is resolved to US$ from the pack prices.
+  const monthly = (() => {
+    const md = {};
+    const rows = analytics.data || {};
+    for (const dayKey in rows) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+      const ym = dayKey.slice(0, 7);
+      const m = md[ym] || (md[ym] = { month: ym, accounts: 0, covens: 0, joins: 0, peakConcurrent: 0, packRevenue: 0, msSpent: 0, goldSpent: 0, auctionGold: 0 });
+      const r = rows[dayKey] || {};
+      m.accounts += r['register'] || 0;
+      m.covens += r['coven.found'] || 0;
+      m.joins += r['join'] || 0;
+      if ((r['concurrent'] || 0) > m.peakConcurrent) m.peakConcurrent = r['concurrent'];
+      for (const k in r) {
+        if (k.indexOf('buy.pack.') === 0) { const p = MS_PACKS[k.slice(9)]; if (p) m.packRevenue += (r[k] * (p.cents || 0)) / 100; }
+        else if (k.indexOf('buy.msg.') === 0) m.msSpent += r[k];
+        else if (k.indexOf('buy.g.') === 0) m.goldSpent += r[k];
+        else if (k.indexOf('auc.g.') === 0) m.auctionGold += r[k];
+      }
+    }
+    return Object.values(md).sort((a, b) => (a.month < b.month ? -1 : 1)).map((m) => ({
+      ...m, packRevenue: Math.round(m.packRevenue), msSpent: Math.round(m.msSpent), goldSpent: Math.round(m.goldSpent), auctionGold: Math.round(m.auctionGold)
+    }));
+  })();
   return {
     totalAccounts: keys.length,
     returnRate: keys.length ? +((returned / keys.length) * 100).toFixed(1) : 0,
@@ -1570,7 +1600,8 @@ function analyticsSummary() {
     activeLast24h: active1, activeLast7d: active7, activeLast30d: active30,
     covens: Object.keys(covens).length,
     goldInEconomy: Math.round(goldInEconomy),
-    purchases
+    purchases,
+    monthly
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
