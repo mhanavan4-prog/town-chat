@@ -1619,12 +1619,13 @@ function analyticsSummary() {
     for (const dayKey in rows) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
       const ym = dayKey.slice(0, 7);
-      const m = md[ym] || (md[ym] = { month: ym, accounts: 0, covens: 0, joins: 0, peakConcurrent: 0, packRevenue: 0, msSpent: 0, goldSpent: 0, auctionGold: 0 });
+      const m = md[ym] || (md[ym] = { month: ym, accounts: 0, covens: 0, joins: 0, peakConcurrent: 0, peakOnSite: 0, packRevenue: 0, msSpent: 0, goldSpent: 0, auctionGold: 0 });
       const r = rows[dayKey] || {};
       m.accounts += r['register'] || 0;
       m.covens += r['coven.found'] || 0;
       m.joins += r['join'] || 0;
       if ((r['concurrent'] || 0) > m.peakConcurrent) m.peakConcurrent = r['concurrent'];
+      if ((r['onsite'] || 0) > m.peakOnSite) m.peakOnSite = r['onsite'];
       for (const k in r) {
         if (k.indexOf('buy.pack.') === 0) { const p = MS_PACKS[k.slice(9)]; if (p) m.packRevenue += (r[k] * (p.cents || 0)) / 100; }
         else if (k.indexOf('buy.msg.') === 0) m.msSpent += r[k];
@@ -12035,7 +12036,17 @@ wss.on('connection', (ws, req) => {
 // presence BETWEEN joins (a quiet room of three that nobody new entered still
 // counts), so "peak concurrent by hour" reflects reality, not just arrival spikes.
 const _ccHourTimer = setInterval(() => {
-  try { let rc = 0; for (const p of players.values()) if (!p._synthetic) rc++; if (rc > 0) analytics.peak('cc.hour.' + playHourSlug(), rc); } catch (e) {}
+  try {
+    let rc = 0; for (const p of players.values()) if (!p._synthetic) rc++;
+    const slug = playHourSlug();
+    if (rc > 0) analytics.peak('cc.hour.' + slug, rc);
+    // Site-wide reach: everyone on the site (browsing tabs + in-game players),
+    // sampled every minute like concurrency. Daily high-water ('onsite') and
+    // per-hour-of-day peak ('onsite.hour.NN') so total reach — not just the
+    // in-game slice — trends over the game's life and shows its live windows.
+    const onSite = rc + presence.count();
+    if (onSite > 0) { analytics.peak('onsite', onSite); analytics.peak('onsite.hour.' + slug, onSite); }
+  } catch (e) {}
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 
