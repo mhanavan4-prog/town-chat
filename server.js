@@ -938,6 +938,11 @@ function recordPurchase(key, packId) {
     acc.purchases = (acc.purchases || 0) + 1;
     if (!acc.firstPaidAt) acc.firstPaidAt = Date.now();
     acc.lastPaidAt = Date.now();
+    // Purchase log for the day-N LTV curve: the buyer's age (days since signup)
+    // at purchase time + the amount. Kept per account, capped, PII-free.
+    const ageDays = acc.createdAt ? Math.max(0, Math.round((Date.now() - acc.createdAt) / 864e5)) : 0;
+    (acc.spendLog || (acc.spendLog = [])).push({ age: ageDays, cents });
+    if (acc.spendLog.length > 50) acc.spendLog = acc.spendLog.slice(-50);
     saveAccounts();
     checkRevenueMilestone();
   } catch (e) {}
@@ -1688,6 +1693,22 @@ function ltvCohorts(maxWeeks) {
     arppuUsd: b.payers ? +((b.cents / 100) / b.payers).toFixed(2) : 0
   }));
 }
+// True day-N LTV curve: average cumulative revenue per account by days since
+// signup. For each day N, over every account old enough to have reached age N,
+// the mean of its spend made within N days of its own signup (non-payers count
+// as $0 — standard LTV). Built from the per-account purchase log, so it fills in
+// for purchases made after logging began; a flat early curve just means little
+// history yet.
+function ltvCurve() {
+  const now = Date.now(), DAY = 864e5, buckets = [0, 1, 3, 7, 14, 30, 60, 90];
+  const accs = [];
+  for (const k of Object.keys(accounts)) { const a = accounts[k]; if (a && a.createdAt) accs.push({ ageNow: (now - a.createdAt) / DAY, log: a.spendLog || [] }); }
+  return buckets.map((N) => {
+    let elig = 0, cents = 0;
+    for (const a of accs) { if (a.ageNow + 1e-9 < N) continue; elig++; for (const e of a.log) if (e.age <= N) cents += e.cents; }
+    return { day: N, accounts: elig, ltvUsd: elig ? +((cents / 100) / elig).toFixed(2) : 0 };
+  });
+}
 function analyticsSummary() {
   const keys = Object.keys(accounts);
   let returned = 0;
@@ -1810,7 +1831,8 @@ function analyticsSummary() {
     revenue,
     monthly,
     cohorts: retentionCohorts(),
-    ltv: ltvCohorts()
+    ltv: ltvCohorts(),
+    ltvCurve: ltvCurve()
   };
 }
 // Session tokens (token -> usernameLower). PERSISTED, so a server restart no
