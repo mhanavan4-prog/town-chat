@@ -366,6 +366,7 @@ function countryOf(req) {
 }
 function trackVisit(req, pageMetric) {
   analytics.bump(pageMetric);
+  analytics.bump(pageMetric + (isMobileUA(req) ? '.mob' : '.desk')); // device-split for the device funnel
   analytics.bump('ref.' + refSlug(req));
   analytics.bump('geo.' + countryOf(req));
   analytics.bump(isMobileUA(req) ? 'device.mobile' : 'device.desktop');
@@ -2160,6 +2161,7 @@ app.post('/api/register', (req, res) => {
   audit.log({ level: burst > 5 ? 'alert' : 'info', type: burst > 5 ? 'account_create_burst' : 'account_create',
     ip, account: key, name: username, detail: burst > 5 ? { fromThisIp24h: burst } : {} });
   analytics.bump('register');
+  analytics.bump('register.' + (isMobileUA(req) ? 'mob' : 'desk')); // device funnel
   notifyGrowth('🆕 New account signed up: **' + username + '**');
   res.json({ token, username, color: accounts[key].color });
 });
@@ -8229,6 +8231,7 @@ wss.on('connection', (ws, req) => {
       // active for DAU.
       if (!resume && !player._synthetic) {
         analytics.bump('join');
+        analytics.bump('join.' + (player.device === 'mobile' ? 'mob' : 'desk')); // device funnel
         analytics.bump(accountKey ? 'join.account' : 'join.guest');
         analytics.bump('class.' + (CLASS_NAMES[charId] || 'drifter').toLowerCase());
         // Retention signals at the moment of a fresh join:
