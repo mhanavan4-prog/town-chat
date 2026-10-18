@@ -967,6 +967,236 @@ function renderBoardModal() {
   return { openBoardModal, closeBoardModal, renderBoardModal };
 }
 
+// ===== client/seance.js =====
+// ---------------------------------------------------------------------------
+// The Séance Board (Tier 3.5) — a coven ritual in the Manor. DI factory,
+// open-state via the Modals registry. The board, the planchette and the ask
+// panel live here; the SERVER drives the ritual: it answers seance_state, and
+// on a start it broadcasts seance_begin → seance_step… → seance_end to every
+// member present, which this module animates in lockstep. The client never
+// decides what the board spells — it only renders what the server sends.
+// ---------------------------------------------------------------------------
+
+function createSeance({ send, getMe, shortWhen }) {
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const REST = { x: 500, y: 330 };
+  let coords = null;        // glyph key -> { x, y, el }
+  let planchette = null;
+  let built = false;
+  let raf = 0;
+  let pos = { x: REST.x, y: REST.y };
+  let from = { x: REST.x, y: REST.y };
+  let to = { x: REST.x, y: REST.y };
+  let tStart = 0, tDur = 600, moving = false;
+  let state = null;         // last seance_state payload
+  let busy = false;         // a ritual is playing
+
+  const reduce = typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  // ── build the board once ──────────────────────────────────────────────────
+  function buildBoard() {
+    const svg = document.getElementById('seanceBoardSvg');
+    if (!svg || built) return;
+    coords = {};
+    const addText = (ch, x, y, cls, size) => {
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+      t.setAttribute('class', 'sbGlyph' + (cls ? ' ' + cls : ''));
+      t.setAttribute('font-size', size || 34);
+      t.textContent = ch;
+      svg.appendChild(t);
+      return t;
+    };
+    const reg = (key, x, y, el) => { coords[key] = { x, y, el }; };
+    const arc = (cx, cy, rx, ry, a0, a1) => {
+      const p0 = [cx + rx * Math.cos(a0), cy + ry * Math.sin(a0)];
+      const p1 = [cx + rx * Math.cos(a1), cy + ry * Math.sin(a1)];
+      const path = document.createElementNS(SVGNS, 'path');
+      path.setAttribute('d', `M ${p0[0]} ${p0[1]} A ${rx} ${ry} 0 0 1 ${p1[0]} ${p1[1]}`);
+      path.setAttribute('class', 'sbArc');
+      svg.appendChild(path);
+    };
+    arc(500, 250, 400, 150, Math.PI * 1.08, Math.PI * 1.92);
+    arc(500, 250, 400, 236, Math.PI * 1.06, Math.PI * 1.94);
+    reg('YES', 120, 92, addText('yes', 120, 92, 'sbWord', 30));
+    reg('NO', 880, 92, addText('no', 880, 92, 'sbWord', 30));
+    'ABCDEFGHIJKLM'.split('').forEach((ch, i) => {
+      const t = i / 12, x = 170 + t * 660, y = 212 - 46 * Math.sin(Math.PI * t);
+      reg(ch, x, y, addText(ch, x, y));
+    });
+    'NOPQRSTUVWXYZ'.split('').forEach((ch, i) => {
+      const t = i / 12, x = 170 + t * 660, y = 316 - 34 * Math.sin(Math.PI * t);
+      reg(ch, x, y, addText(ch, x, y));
+    });
+    '0123456789'.split('').forEach((ch, i) => {
+      const t = i / 9, x = 250 + t * 500, y = 412 - 8 * Math.sin(Math.PI * t);
+      reg(ch, x, y, addText(ch, x, y));
+    });
+    reg('GOODBYE', 500, 520, addText('goodbye', 500, 520, 'sbWord', 30));
+
+    planchette = document.createElementNS(SVGNS, 'g');
+    planchette.setAttribute('id', 'sbPlanchette');
+    planchette.innerHTML =
+      '<path class="sbBody" d="M0,-58 C34,-58 52,-30 44,2 C38,28 20,44 0,62 C-20,44 -38,28 -44,2 C-52,-30 -34,-58 0,-58 Z"></path>'
+      + '<circle class="sbRing" cx="0" cy="-8" r="26"></circle>'
+      + '<circle class="sbRingInner" cx="0" cy="-8" r="20"></circle>'
+      + '<line class="sbTick" x1="0" y1="-16" x2="0" y2="0"></line>'
+      + '<line class="sbTick" x1="-8" y1="-8" x2="8" y2="-8"></line>';
+    svg.appendChild(planchette);
+    placePlanchette(REST.x, REST.y);
+    built = true;
+  }
+
+  function placePlanchette(x, y) {
+    if (planchette) planchette.setAttribute('transform', `translate(${x.toFixed(2)},${(y - 8).toFixed(2)})`);
+  }
+
+  function loop(now) {
+    if (!Modals.isOpen('seanceModalOpen')) { raf = 0; return; }
+    let wx = 0, wy = 0;
+    if (!reduce) { wx = 1.8 * Math.sin(now / 520) + 0.7 * Math.sin(now / 170); wy = 1.8 * Math.cos(now / 430); }
+    if (moving) {
+      const t = Math.min(1, (now - tStart) / tDur);
+      const e = easeInOut(t);
+      pos.x = from.x + (to.x - from.x) * e;
+      pos.y = from.y + (to.y - from.y) * e;
+      if (t >= 1) moving = false;
+    }
+    placePlanchette(pos.x + wx, pos.y + wy);
+    raf = requestAnimationFrame(loop);
+  }
+  function startLoop() { if (!raf) raf = requestAnimationFrame(loop); }
+  function glideTo(x, y, dur) {
+    from = { x: pos.x, y: pos.y };
+    to = { x, y };
+    tStart = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    tDur = reduce ? Math.min(dur, 240) : dur;
+    moving = true;
+  }
+
+  // ── readout ────────────────────────────────────────────────────────────────
+  function setReadout(ghost) {
+    const r = document.getElementById('seanceReadout');
+    if (r) r.innerHTML = ghost ? `<span class="sbGhost">${ghost}</span>` : '<span class="sbCursor">◆</span>';
+  }
+  function pushReadout(chars) {
+    const r = document.getElementById('seanceReadout');
+    if (!r) return;
+    const cursor = r.querySelector('.sbCursor');
+    const span = document.createElement('span');
+    span.textContent = chars;
+    if (cursor) r.insertBefore(span, cursor); else r.appendChild(span);
+  }
+  function lightGlyph(key) {
+    const g = key && coords && coords[key];
+    if (!g || !g.el) return;
+    g.el.classList.add('lit');
+    setTimeout(() => g.el.classList.remove('lit'), 1600);
+  }
+  function veil(on, text) {
+    const v = document.getElementById('seanceVeil');
+    if (!v) return;
+    if (text) v.querySelector('.sbVeilText').textContent = text;
+    v.classList.toggle('on', !!on);
+  }
+
+  // ── ask panel ────────────────────────────────────────────────────────────────
+  function renderPanel() {
+    const status = document.getElementById('seanceStatus');
+    const btn = document.getElementById('seanceCommuneBtn');
+    if (!status || !btn) return;
+    if (!state) { status.textContent = 'Consulting the board…'; btn.disabled = true; return; }
+    const now = Date.now();
+    let msg, canStart = false;
+    if (busy || state.active) { msg = 'The board is speaking — hold the circle…'; }
+    else if (!state.enabled) { msg = 'The veil is quiet tonight.'; }
+    else if (state.cooldownUntil && state.cooldownUntil > now) { msg = `The veil is spent — it settles ${shortWhen(state.cooldownUntil)}.`; }
+    else if (state.membersPresent < state.minMembers) { msg = `The ritual needs ${state.minMembers} here — ${state.membersPresent} present.`; }
+    else { msg = `Offering: ${state.offeringCost} gold · ${state.membersPresent} gathered.`; canStart = true; }
+    status.textContent = msg;
+    btn.disabled = !canStart;
+  }
+
+  // ── public: open / close / render / message handling ──────────────────────
+  function openSeanceModal() {
+    buildBoard();
+    Modals.set('seanceModalOpen', true);
+    const m = document.getElementById('seanceModal');
+    if (m) m.classList.remove('hidden');
+    setReadout('the board waits in silence…');
+    startLoop();
+    send({ type: 'seance_state' });
+    renderPanel();
+  }
+  function closeSeanceModal() {
+    Modals.set('seanceModalOpen', false);
+    const m = document.getElementById('seanceModal');
+    if (m) m.classList.add('hidden');
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  }
+
+  // Server → client ritual events. Returns true if it handled the message.
+  function handleSeanceMessage(msg) {
+    switch (msg.type) {
+      case 'seance_state':
+        state = msg;
+        renderPanel();
+        return true;
+      case 'seance_begin':
+        busy = true;
+        setReadout();
+        veil(true, 'opening the channel…');
+        if (planchette) planchette.classList.add('channeling');
+        renderPanel();
+        return true;
+      case 'seance_step': {
+        veil(false);
+        if (msg.kind === 'space') { pushReadout(' '); return true; }
+        const g = coords && coords[msg.glyph];
+        if (g) {
+          if (msg.repeat) { glideTo(g.x, g.y - 22, 180); setTimeout(() => glideTo(g.x, g.y, 360), 190); }
+          else glideTo(g.x, g.y, 560);
+          lightGlyph(msg.glyph);
+        }
+        if (msg.char && !(msg.kind === 'word' && msg.char === '')) {
+          pushReadout(msg.char.length > 1 ? ' ' + msg.char + ' ' : msg.char);
+        }
+        return true;
+      }
+      case 'seance_end':
+        if (planchette) planchette.classList.remove('channeling');
+        glideTo(REST.x, REST.y, 700);
+        busy = false;
+        { const c = document.getElementById('seanceReadout'); const cur = c && c.querySelector('.sbCursor'); if (cur) cur.remove(); }
+        renderPanel();
+        return true;
+      case 'seance_error':
+        if (window.__seanceToast) window.__seanceToast(msg.message);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // wiring
+  (function () {
+    const close = document.getElementById('seanceCloseBtn');
+    if (close) close.addEventListener('click', closeSeanceModal);
+    const btn = document.getElementById('seanceCommuneBtn');
+    if (btn) btn.addEventListener('click', () => {
+      const q = document.getElementById('seanceQuestion');
+      send({ type: 'seance_start', question: (q && q.value) || '' });
+    });
+    const q = document.getElementById('seanceQuestion');
+    if (q) q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = document.getElementById('seanceCommuneBtn'); if (b && !b.disabled) b.click(); } });
+  })();
+
+  return { openSeanceModal, closeSeanceModal, handleSeanceMessage };
+}
+
 // ===== client/achievements.js =====
 // ---------------------------------------------------------------------------
 // The Collection Log (Session N) — a permanent trophy shelf. DI factory, same
@@ -3955,6 +4185,25 @@ function buildManorScene() {
     rug.position.set(W / 2, 1, D / 2);
     scene.add(rug);
   } catch (e) { /* sigil texture is decorative — fine to skip if it throws */ }
+
+  // ── The Séance Board (Tier 3.5) — a round table on the centre rug where the
+  // coven gathers to call through the veil. The planchette and the spelling play
+  // out in the 2D board overlay; this is the in-world focal point + F-kiosk. ──
+  try {
+    const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(66, 66, 8, 48), new THREE.MeshLambertMaterial({ color: 0x241c33 })); top.position.y = 44; g.add(top);
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(16, 24, 44, 16), new THREE.MeshLambertMaterial({ color: 0x1a1526 })); pedestal.position.y = 22; g.add(pedestal);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(40, 48, 48), new THREE.MeshBasicMaterial({ color: 0x7fe8d0, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 48.3; g.add(ring);
+    ring.onBeforeRender = () => { ring.material.opacity = 0.34 + Math.sin(performance.now() * 0.0022) * 0.18; };
+    const pl = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xcdc7b0, transparent: true, opacity: 0.55, depthWrite: false }));
+    pl.rotation.x = -Math.PI / 2; pl.position.set(10, 48.6, 6); g.add(pl);
+    g.position.set(W / 2, 0, D / 2);
+    scene.add(g);
+    const bsign = makeSignSprite('🔮 The Séance Board — Press F');
+    bsign.position.set(W / 2, 112, D / 2);
+    scene.add(bsign);
+  } catch (e) { /* board prop is decorative — fine to skip if it throws */ }
 
   // ── Stone outer walls: four sides, the south wall split for the door ──
   const stoneTex = makeStoneTexture();
@@ -17089,6 +17338,12 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type && msg.type.indexOf('seance_') === 0) {
+    if (msg.type === 'seance_error') setUnlockToast(msg.message || 'The board will not answer.');
+    handleSeanceMessage(msg);
+    return;
+  }
+
   if (msg.type === 'vault_entered') {
     if (me) { me.room = 'bank_vault'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
     swapToVaultMap();
@@ -22786,6 +23041,7 @@ const MANOR_BED_SPOTS = [
 // Exit sits at the south door; one claim kiosk per bed (manorBed = slot).
 const MANOR_KIOSKS = [
   { x: MANOR_WORLD.width / 2, z: MANOR_WORLD.height - 24, portal: 'manor_exit' },
+  { x: MANOR_WORLD.width / 2, z: MANOR_WORLD.height / 2, npc: 'seance' }, // the séance board on the centre rug
   ...MANOR_BED_SPOTS.map((s, i) => ({ x: s.x, z: s.y, manorBed: i })),
 ];
 let manorBedState = {};        // slot -> { key, name } | null, from the server
@@ -25208,6 +25464,13 @@ const _board = createBoard({
 });
 const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 
+const _seance = createSeance({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getMe: () => me,
+  shortWhen,
+});
+const { openSeanceModal, closeSeanceModal, handleSeanceMessage } = _seance;
+
 const _ach = createAchievements({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
   getAchState: () => achState,
@@ -27181,6 +27444,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
+  if (kiosk && kiosk.npc === 'seance') { openSeanceModal(); return; }
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
   if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
   if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
@@ -27212,7 +27476,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -27246,6 +27510,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'rite_altar') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} light a candle for the Rite`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'seance') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} gather at the Séance Board`;
     return;
   }
   if (kiosk && kiosk.game) {

@@ -5,6 +5,7 @@ import createShop from './shop.js';
 import createSpellbook from './spellbook.js';
 import createAttacks from './attacks.js';
 import createBoard from './board.js';
+import createSeance from './seance.js';
 import createAchievements from './achievements.js';
 import createTitles from './titles.js';
 import createWorkshop from './workshop.js';
@@ -2393,6 +2394,12 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'manor_error') {
     setUnlockToast(msg.message || 'The Manor door will not open.');
+    return;
+  }
+
+  if (msg.type && msg.type.indexOf('seance_') === 0) {
+    if (msg.type === 'seance_error') setUnlockToast(msg.message || 'The board will not answer.');
+    handleSeanceMessage(msg);
     return;
   }
 
@@ -8093,6 +8100,7 @@ const MANOR_BED_SPOTS = [
 // Exit sits at the south door; one claim kiosk per bed (manorBed = slot).
 const MANOR_KIOSKS = [
   { x: MANOR_WORLD.width / 2, z: MANOR_WORLD.height - 24, portal: 'manor_exit' },
+  { x: MANOR_WORLD.width / 2, z: MANOR_WORLD.height / 2, npc: 'seance' }, // the séance board on the centre rug
   ...MANOR_BED_SPOTS.map((s, i) => ({ x: s.x, z: s.y, manorBed: i })),
 ];
 let manorBedState = {};        // slot -> { key, name } | null, from the server
@@ -10515,6 +10523,13 @@ const _board = createBoard({
 });
 const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 
+const _seance = createSeance({
+  send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
+  getMe: () => me,
+  shortWhen,
+});
+const { openSeanceModal, closeSeanceModal, handleSeanceMessage } = _seance;
+
 const _ach = createAchievements({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
   getAchState: () => achState,
@@ -12488,6 +12503,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
+  if (kiosk && kiosk.npc === 'seance') { openSeanceModal(); return; }
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
   if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
   if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
@@ -12519,7 +12535,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -12553,6 +12569,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'rite_altar') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} light a candle for the Rite`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'seance') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} gather at the Séance Board`;
     return;
   }
   if (kiosk && kiosk.game) {

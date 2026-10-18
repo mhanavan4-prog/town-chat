@@ -2528,6 +2528,51 @@
   </div>
 </div>
 
+<div id="seanceModal" class="overlay hidden">
+  <div class="card" id="seanceCard">
+    <div class="title" style="font-size:20px;">🔮 The Séance Board</div>
+    <div class="subtitle">Gather the coven and call through the thinning veil.</div>
+    <div id="seanceReadout"><span class="sbGhost">the board waits in silence…</span></div>
+    <div id="seanceStage">
+      <svg id="seanceBoardSvg" viewBox="0 0 1000 620" role="img" aria-label="A spirit board; a planchette spells out a reply."></svg>
+      <div id="seanceVeil"><span class="sbVeilText">opening the channel…</span></div>
+    </div>
+    <div id="seanceConsole">
+      <input type="text" id="seanceQuestion" maxlength="48" placeholder="ask the dark… (optional)" autocomplete="off">
+      <button class="btn" id="seanceCommuneBtn" disabled>Commune</button>
+    </div>
+    <div class="slNote" id="seanceStatus">Consulting the board…</div>
+    <button class="btn" id="seanceCloseBtn">Close</button>
+  </div>
+</div>
+<style>
+#seanceCard{max-width:620px;width:94vw}
+#seanceReadout{min-height:2em;display:flex;align-items:center;justify-content:center;gap:.14em;flex-wrap:wrap;padding:.4em .7em;margin:8px 0;border:1px solid rgba(127,232,208,.25);border-radius:10px;background:linear-gradient(180deg,#1d1a38,#141229);font-family:"Cinzel","Palatino",Georgia,serif;letter-spacing:.2em;font-size:clamp(1rem,3.4vw,1.5rem);color:#7fe8d0;text-shadow:0 0 12px rgba(127,232,208,.45);min-width:0}
+#seanceReadout .sbGhost{color:#6f6a58;text-shadow:none;font-style:italic;letter-spacing:normal;font-size:.8em}
+#seanceReadout .sbCursor{color:#4bbfa6;animation:sbBlink 1s steps(2) infinite}
+@keyframes sbBlink{50%{opacity:0}}
+#seanceStage{position:relative;border-radius:14px;padding:8px;background:linear-gradient(180deg,#2a2550,#0f0d20);border:1px solid #39335e;box-shadow:inset 0 0 50px rgba(0,0,0,.5)}
+#seanceBoardSvg{display:block;width:100%;height:auto}
+#seanceBoardSvg .sbGlyph{font-family:"Cinzel","Palatino",Georgia,serif;font-weight:600;fill:#6f6a58;transition:fill .3s ease,filter .3s ease}
+#seanceBoardSvg .sbGlyph.sbWord{letter-spacing:.06em}
+#seanceBoardSvg .sbGlyph.lit{fill:#7fe8d0;filter:drop-shadow(0 0 6px rgba(127,232,208,.9)) drop-shadow(0 0 16px rgba(127,232,208,.5))}
+#seanceBoardSvg .sbArc{fill:none;stroke:#39335e;stroke-width:1;opacity:.5}
+#sbPlanchette{pointer-events:none}
+#sbPlanchette .sbBody{fill:rgba(18,16,38,.74);stroke:#4bbfa6;stroke-width:2}
+#sbPlanchette .sbRing{fill:none;stroke:#7fe8d0;stroke-width:2.2}
+#sbPlanchette .sbRingInner{fill:none;stroke:rgba(127,232,208,.5);stroke-width:1}
+#sbPlanchette .sbTick{stroke:#7fe8d0;stroke-width:1.2;opacity:.8}
+#sbPlanchette.channeling .sbRing{filter:drop-shadow(0 0 7px rgba(127,232,208,.85))}
+#seanceVeil{position:absolute;inset:0;border-radius:14px;display:grid;place-items:center;background:radial-gradient(60% 60% at 50% 45%,rgba(10,9,22,.35),rgba(8,7,18,.9));color:#7fe8d0;font-family:"Cinzel","Palatino",Georgia,serif;letter-spacing:.24em;text-transform:uppercase;font-size:clamp(.8rem,2.6vw,1rem);opacity:0;visibility:hidden;transition:opacity .5s ease,visibility .5s;pointer-events:none}
+#seanceVeil.on{opacity:1;visibility:visible}
+#seanceVeil .sbVeilText{animation:sbPulse 2.2s ease-in-out infinite;text-shadow:0 0 18px rgba(127,232,208,.6)}
+@keyframes sbPulse{0%,100%{opacity:.45}50%{opacity:1}}
+#seanceConsole{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
+#seanceQuestion{flex:1 1 200px;min-width:0;background:#1d1a38;border:1px solid #39335e;border-radius:8px;color:#cdc7b0;padding:9px 11px;font-size:14px}
+#seanceCommuneBtn{flex:0 0 auto}
+@media (prefers-reduced-motion:reduce){#seanceVeil .sbVeilText,#seanceReadout .sbCursor{animation:none}}
+</style>
+
 <div id="achModal" class="overlay hidden">
   <div class="card" id="achCard">
     <div class="title" style="font-size:20px;">🏅 Collection Log</div>
@@ -3444,6 +3489,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=092b2bed5a"></script>
+<script src="client.js?v=73f80d3f51"></script>
 </body>
 </html>
