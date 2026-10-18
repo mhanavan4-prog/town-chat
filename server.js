@@ -24,6 +24,10 @@ try { require('fs').mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 // (a Discord or Slack incoming webhook) receives high-severity alerts.
 // Created before persistence so a storage failure can raise an audit alert.
 const audit = require('./lib/audit')({ dataDir: DATA_DIR, alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || '' });
+// Live site presence — per-tab heartbeats from the non-game pages (the game's
+// own players are counted from their live WebSocket instead). Powers the
+// "on site now" number on the analytics dashboard.
+const presence = require('./lib/presence')();
 // Growth pings — new account / new coven — to a Discord (or Slack) webhook so
 // you hear about signups as they happen. Opt-in: set NOTIFY_WEBHOOK_URL in the
 // env for a dedicated channel; falls back to ALERT_WEBHOOK_URL, and is a no-op
@@ -1099,6 +1103,21 @@ app.post('/api/telemetry', (req, res) => {
   res.status(204).end();
 });
 
+// Live presence heartbeat — every non-game page beacons a per-tab id here on a
+// timer so the dashboard can show how many people are on the site right now.
+// Cheap and silent: no logging, no analytics, no DB — just a touch + a tiny
+// reply (which the page may use to show the number itself). A per-IP cap keeps
+// a flood of junk ids from being used to inflate the count.
+app.post('/api/presence', (req, res) => {
+  try {
+    if (audit.hit(audit.clientIp(req), 'presence', 10 * 1000) <= 20) {
+      const b = (req.body && typeof req.body === 'object') ? req.body : {};
+      presence.touch(String(b.sid || (req.query && req.query.sid) || ''));
+    }
+  } catch (e) {}
+  res.json({ onSite: liveOnSite().onSite });
+});
+
 // == Deploy health check (Tier 3.2) ==========================================
 // Render pings this on every deploy and holds traffic on the OLD build until
 // the new one passes - so a build that boots but can't reach its data never
@@ -1501,6 +1520,16 @@ function noteMilestone(player, id) {
 // recent-activity counts computed from existing timestamps (no event log).
 // A function declaration so it can be passed to the admin mount above while its
 // body (playerProgress / covens / players) resolves at request time.
+// "On the site right now" = people browsing the non-game pages (live per-tab
+// heartbeats) PLUS real players connected to the game world (live WebSockets,
+// bots excluded). The two don't overlap except briefly while someone walks from
+// the landing page into the game, so a simple sum is the honest live headcount.
+function liveOnSite() {
+  let inGame = 0;
+  for (const p of players.values()) if (!p._synthetic) inGame++;
+  const browsing = presence.count();
+  return { onSite: browsing + inGame, inGame, browsing };
+}
 function analyticsSummary() {
   const keys = Object.keys(accounts);
   const now = Date.now();
@@ -1611,6 +1640,7 @@ function analyticsSummary() {
     totalAccounts: keys.length,
     returnRate: keys.length ? +((returned / keys.length) * 100).toFixed(1) : 0,
     onlineNow: players.size,
+    live: liveOnSite(),
     activeLast24h: active1, activeLast7d: active7, activeLast30d: active30,
     covens: Object.keys(covens).length,
     goldInEconomy: Math.round(goldInEconomy),
