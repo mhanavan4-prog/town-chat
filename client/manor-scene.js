@@ -88,6 +88,25 @@ function buildManorScene() {
     scene.add(rug);
   } catch (e) { /* sigil texture is decorative — fine to skip if it throws */ }
 
+  // ── The Séance Board (Tier 3.5) — a round table on the centre rug where the
+  // coven gathers to call through the veil. The planchette and the spelling play
+  // out in the 2D board overlay; this is the in-world focal point + F-kiosk. ──
+  try {
+    const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(66, 66, 8, 48), new THREE.MeshLambertMaterial({ color: 0x241c33 })); top.position.y = 44; g.add(top);
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(16, 24, 44, 16), new THREE.MeshLambertMaterial({ color: 0x1a1526 })); pedestal.position.y = 22; g.add(pedestal);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(40, 48, 48), new THREE.MeshBasicMaterial({ color: 0x7fe8d0, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 48.3; g.add(ring);
+    ring.onBeforeRender = () => { ring.material.opacity = 0.34 + Math.sin(performance.now() * 0.0022) * 0.18; };
+    const pl = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xcdc7b0, transparent: true, opacity: 0.55, depthWrite: false }));
+    pl.rotation.x = -Math.PI / 2; pl.position.set(10, 48.6, 6); g.add(pl);
+    g.position.set(W / 2, 0, D / 2);
+    scene.add(g);
+    const bsign = makeSignSprite('🔮 The Séance Board — Press F');
+    bsign.position.set(W / 2, 112, D / 2);
+    scene.add(bsign);
+  } catch (e) { /* board prop is decorative — fine to skip if it throws */ }
+
   // ── Stone outer walls: four sides, the south wall split for the door ──
   const stoneTex = makeStoneTexture();
   stoneTex.repeat.set(W / 120, WALL_H / 120);
