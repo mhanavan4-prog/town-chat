@@ -481,6 +481,7 @@ app.get('/exif/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'exi
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
 app.get('/u/:username', (req, res) => {
+  analytics.bump('share.click'); analytics.bump('share.click.player'); // virality: a shared player link was opened
   const name = String(req.params.username || '').slice(0, 40);
   const key = name.toLowerCase();
   let charId = null;
@@ -506,6 +507,7 @@ app.get('/u/:username', (req, res) => {
 
 // Public coven page at /c/<id> — the coven's sigil card as the share image.
 app.get('/c/:id', (req, res) => {
+  analytics.bump('share.click'); analytics.bump('share.click.coven'); // virality: a shared coven link was opened
   const cv = covens[String(req.params.id || '')];
   const nm = cv ? `${cv.sigil || '🌑'} ${cv.name}` : 'A coven';
   let image = null;
@@ -11128,6 +11130,7 @@ wss.on('connection', (ws, req) => {
       covenInvites.set(inviteId, { covenId: cv.id, targetKey: target.accountKey, expiresAt: Date.now() + 60000 });
       send(target.ws, { type: 'coven_invited', inviteId, covenName: cv.name, sigil: cv.sigil, fromName: player.name, members: cv.members.length });
       send(ws, { type: 'coven_error', message: `Invitation carried to ${target.name}.` });
+      analytics.bump('invite.sent'); // virality: coven invites extended
       return;
     }
 
@@ -11142,6 +11145,7 @@ wss.on('connection', (ws, req) => {
       cv.members.push(player.accountKey);
       covenIndex.set(player.accountKey, cv.id);
       analytics.bump('coven.join');
+      analytics.bump('invite.accepted'); // virality: invites that converted to a join
       noteMilestone(player, 'coven');
       covenLog(cv, player.name, 'joined the circle');
       saveCoven(cv.id);
