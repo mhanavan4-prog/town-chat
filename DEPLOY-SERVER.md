@@ -76,6 +76,8 @@ Your server is now at `https://your-chosen-name.fly.dev`. Put that in each app's
 | `GOOGLE_PLAY_PACKAGE` | Android: your Play package name. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Android: a service-account JSON (inline) with Play Developer API access. |
 | `ANTHROPIC_API_KEY` | Optional — Witch Hazel's selfie-shop face check (fails open if unset). |
+| `SEANCE_API_KEY` | Optional — the coven Séance Board's AI voice (Anthropic Messages API). Leave unset and the board spells from a hand-written fallback bank (no AI). Deliberately separate from `ANTHROPIC_API_KEY` so the board never goes live by accident. Disable at runtime with the ops kill-switch regardless. |
+| `SEANCE_MODEL` | Optional — model id for the Séance Board (default `claude-haiku-5-5`). |
 | `TURN_URLS` | Optional — comma-separated TURN relay URLs for coven voice (e.g. `turn:turn.you.com:3478,turns:turn.you.com:5349`). Unset ⇒ STUN-only. |
 | `TURN_SECRET` | Optional — coturn `static-auth-secret`; the server mints short-lived ephemeral TURN credentials from it. |
 | `TURN_USERNAME` / `TURN_PASSWORD` | Optional — static TURN credentials instead of a secret (if your relay uses fixed creds). |

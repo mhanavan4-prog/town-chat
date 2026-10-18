@@ -64,7 +64,9 @@ setTimeout(() => {
     check('seance_begin reaches the asker', !!A.s.lastOfType('seance_begin'));
     check('seance_begin reaches the present coven-mate (in sync)', !!B.s.lastOfType('seance_begin'));
     const begin = A.s.lastOfType('seance_begin');
-    check('seance_begin carries a buildup window', begin && begin.buildupMs > 0 && begin.total > 0, begin);
+    // total is 0 at begin by design — the answer resolves asynchronously during
+    // the buildup, so the step count isn't known until spelling starts.
+    check('seance_begin carries a buildup window', begin && begin.buildupMs > 0, begin);
 
     // clean up the active session's timers so the test can continue + exit
     hooks.clearSeance(cv);

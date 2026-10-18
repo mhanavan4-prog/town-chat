@@ -64,6 +64,23 @@ test('pickAnswer is deterministic under a seeded rng and stays in the bank', () 
   assert.ok(s.FALLBACK_LINES.includes(s.pickAnswer({ rng: () => 0.5 })));
 });
 
+test('shouldHint fires below the chance threshold', () => {
+  assert.equal(s.shouldHint(() => 0.10, 0.15), true);
+  assert.equal(s.shouldHint(() => 0.20, 0.15), false);
+  assert.equal(s.shouldHint(() => 0.0, 0.15), true);
+});
+
+test('pickLoreHint returns a seed+line from the bank, deterministically', () => {
+  const h = s.pickLoreHint({ rng: () => 0 });
+  assert.equal(h, s.LORE_HINTS[0]);
+  assert.ok(h.seed && h.line);
+  // every curated line survives the board sanitizer unchanged in shape
+  for (const hint of s.LORE_HINTS) {
+    const clean = s.sanitize(hint.line);
+    assert.ok(clean && clean.length <= s.CONFIG.MAX_CHARS, hint.line);
+  }
+});
+
 test('canStart passes only when every gate is satisfied', () => {
   const base = {
     enabled: true, inCoven: true, inManor: true, active: false,

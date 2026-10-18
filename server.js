@@ -7083,6 +7083,20 @@ function manorStateBody(cv, viewerKey) {
 // and the per-coven cooldown. State is transient (animation only); only the
 // cooldown deadline persists, on the coven record (cv.seanceCdUntil).
 const seance = require('./lib/seance');
+// Phase 3: the voice on the far side. The LLM call runs server-side only; the
+// key lives in the server .env as a DEDICATED SEANCE_API_KEY (deliberately not
+// the face-check's ANTHROPIC_API_KEY, so the board never goes live by accident
+// on an existing key). With no key the spirit is disabled and every answer
+// comes from the fallback bank — exactly the Phase 2 behaviour — so this ships
+// dark until SEANCE_API_KEY is set.
+const seanceSpirit = require('./lib/spirit')({
+  apiKey: process.env.SEANCE_API_KEY || '',
+  model: process.env.SEANCE_MODEL || undefined,
+});
+// A safety-net blocklist applied after the charset map. Empty by default (the
+// charset + length cap + the model's own guardrails do most of the work); an
+// ops-managed list can be dropped in here without touching the flow.
+const SEANCE_BLOCKLIST = [];
 function seanceEnabled() { return !opsState.seanceOff; }  // ops kill-switch
 function setSeanceEnabled(on) {
   if (on) delete opsState.seanceOff; else opsState.seanceOff = true;
@@ -7119,6 +7133,7 @@ function seanceStateBody(cv) {
     asker: sess ? sess.askerName : null,
     question: sess ? sess.question : null,
     revealed: sess ? sess.revealed : '',
+    glyph: sess ? sess.glyph : null, // where the planchette rests, for late-join sync
   };
 }
 function pushSeanceState(cv) { broadcastSeance(cv, { type: 'seance_state', ...seanceStateBody(cv) }); }
@@ -7145,37 +7160,86 @@ function clearSeance(cv) {
 // Schedule the buildup, then each planchette step, then the close. Every beat is
 // broadcast to the members in the Manor so they animate in lockstep; the server
 // owns the timing so no client can drive or peek the board ahead of the reveal.
-function runSeance(cv, askerName, question) {
+// A scrap of sky-flavour for the spirit prompt (atmosphere only).
+function seanceBloodMoon() {
+  try { return typeof bloodMoonActive === 'function' && !!bloodMoonActive(); } catch (e) { return false; }
+}
+function seanceMoon() {
+  return seanceBloodMoon() ? 'a blood moon hangs low over the Wilds' : 'the moon is thin';
+}
+
+// Decide the answer. A fraction of séances (higher on a blood moon) carry a REAL
+// story hint: the seed is slipped into the spirit's prompt to reveal cryptically
+// (source 'ai_hint'), or — if the AI is off or declines — the curated hint line
+// is spelled directly (source 'lore'). Otherwise it's an ordinary AI or fallback
+// reply. Every route passes the SAME safety gate (charset + blocklist + cap);
+// nothing reaches the board unsanitized. Each call is logged for ops review.
+async function resolveSeanceAnswer(cv, askerKey, question) {
+  const bloodMoon = seanceBloodMoon();
+  const chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
+  const hint = seance.shouldHint(Math.random, chance) ? seance.pickLoreHint() : null;
+  const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon() };
+  if (hint) ctx.secret = hint.seed;
+
+  let raw = null, message = null, source;
+  try { raw = await seanceSpirit.generate(ctx); } catch (e) { raw = null; }
+  message = seance.sanitize(raw, { blocklist: SEANCE_BLOCKLIST });
+  if (message) source = hint ? 'ai_hint' : 'ai';
+  else if (hint) { message = seance.sanitize(hint.line, { blocklist: SEANCE_BLOCKLIST }); source = 'lore'; }
+  if (!message) { message = seance.sanitize(seance.pickAnswer(), { blocklist: SEANCE_BLOCKLIST }) || 'GOODBYE'; source = 'fallback'; }
+  try {
+    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, bloodMoon, question: question || '', raw: raw || '', message } });
+  } catch (e) { /* logging must never break the ritual */ }
+  return { message, source };
+}
+
+// Schedule the planchette steps + the close, relative to now (the buildup has
+// already played). Broadcast each beat to members present so they animate in
+// lockstep; the server owns the timing so no client drives or peeks the board.
+function spellSeance(cv, sess, clean) {
   const cfg = seance.CONFIG;
-  const answer = seance.pickAnswer();                 // Phase 2: fallback bank
-  const clean = seance.sanitize(answer) || 'GOODBYE'; // belt-and-suspenders
   const { steps } = seance.buildSteps(clean);
   const sched = seance.scheduleFor(steps, cfg);
-  const sess = { phase: 'channeling', askerName, question, message: clean, revealed: '', glyph: null, timers: [] };
-  seanceSessions.set(cv.id, sess);
-
-  broadcastSeance(cv, {
-    type: 'seance_begin', asker: askerName, question,
-    buildupMs: cfg.BUILDUP_MS, total: steps.length,
-    travelMs: cfg.TRAVEL_MS, dwellMs: cfg.DWELL_MS,
-  });
-  pushSeanceState(cv);
-
-  sess.timers.push(setTimeout(() => { sess.phase = 'spelling'; }, cfg.BUILDUP_MS));
+  sess.phase = 'spelling';
   sched.forEach((step, i) => {
     sess.timers.push(setTimeout(() => {
       if (step.kind === 'space') sess.revealed += ' ';
       else if (step.char && !step.close) sess.revealed += step.char.length > 1 ? ` ${step.char} ` : step.char;
       sess.glyph = step.glyph;
       broadcastSeance(cv, { type: 'seance_step', i, kind: step.kind, glyph: step.glyph, char: step.char, repeat: !!step.repeat });
-    }, cfg.BUILDUP_MS + step.atMs));
+    }, step.atMs));
   });
-  const totalMs = cfg.BUILDUP_MS + (sched.length ? sched[sched.length - 1].atMs : 0) + cfg.CLOSE_MS;
+  const totalMs = (sched.length ? sched[sched.length - 1].atMs : 0) + cfg.CLOSE_MS;
   sess.timers.push(setTimeout(() => {
     broadcastSeance(cv, { type: 'seance_end', message: clean });
     clearSeance(cv);
     pushSeanceState(cv);
   }, totalMs));
+}
+
+// Run a ritual: open the channel at once (the buildup hides the generation
+// latency), resolve the answer asynchronously, then — once at least the
+// buildup window has passed — spell it out. A slow answer simply holds the veil
+// a little longer; a failed one falls back, invisibly.
+async function runSeance(cv, askerName, askerKey, question) {
+  const cfg = seance.CONFIG;
+  const sess = { phase: 'channeling', askerName, question, message: '', source: null, revealed: '', glyph: null, timers: [] };
+  seanceSessions.set(cv.id, sess);
+  broadcastSeance(cv, {
+    type: 'seance_begin', asker: askerName, question,
+    buildupMs: cfg.BUILDUP_MS, total: 0,
+    travelMs: cfg.TRAVEL_MS, dwellMs: cfg.DWELL_MS,
+  });
+  pushSeanceState(cv);
+
+  const t0 = Date.now();
+  const { message, source } = await resolveSeanceAnswer(cv, askerKey, question);
+  if (seanceSessions.get(cv.id) !== sess) return; // cleared while we waited
+  sess.message = message; sess.source = source;
+  const wait = Math.max(0, cfg.BUILDUP_MS - (Date.now() - t0));
+  sess.timers.push(setTimeout(() => {
+    if (seanceSessions.get(cv.id) === sess) spellSeance(cv, sess, message);
+  }, wait));
 }
 
 // A claimed bed doubles as personal storage. The chest is keyed to the member's
@@ -11956,7 +12020,7 @@ wss.on('connection', (ws, req) => {
       saveCoven(cv.id);
       const question = seance.normalizeMessage(msg.question || '').slice(0, 80);
       audit.log({ level: 'info', type: 'seance_start', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id, present: manorMembersOf(cv).length } });
-      runSeance(cv, player.name, question);
+      runSeance(cv, player.name, player.accountKey, question).catch((e) => { try { clearSeance(cv); } catch (_) { /* noop */ } });
       return;
     }
 
@@ -12801,8 +12865,9 @@ global.__testHooks = {
   covenStandings, covenChampionBody, COVEN_STANDING_WEIGHTS, covenCrownWeek, covenReigningChampion, COVEN_CHAMPION_PURSE,
   covenCharters, charterBalance, grantCharter, consumeCharter, COVEN_CHARTER_PRICE_CENTS,
   MANOR_WILDS_SPOT, MANOR_BEDROOMS, manorStateBody, manorChest, MANOR_STORAGE_SLOTS,
-  // Session: the Séance Board (coven ritual)
+  // Session: the Séance Board (coven ritual) + Phase 3 AI voice
   seance, seanceEnabled, setSeanceEnabled, seanceSessions, manorMembersOf, seanceStateBody, runSeance, clearSeance,
+  seanceSpirit, resolveSeanceAnswer, spellSeance,
   FIRST_STEPS, noteFirstStep, firstStepsPayload,
   applyLoginStreak, buildWelcomeLetter, LETTER_AWAY_MS, HARVEST_COOLDOWN_MS,
   sessions, covenInvites, resumeStashes, passwordResets, voiceClients, buildIceConfig,
