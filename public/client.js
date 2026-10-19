@@ -14141,6 +14141,15 @@ function buildBuildingMesh(b, w) {
   const useKK = !!kkBld;
   if (useKK) {
     kkAutoAlign(kkBld, b, w);
+    // Darken the building to a cohesive, moody witch-town palette. Clone each
+    // material first so the tint applies exactly once and never bleeds into the
+    // other instances that share a source material (static clones share them).
+    const BUILDING_TINT = 0.62;
+    kkBld.traverse((ch) => {
+      if (!ch.isMesh || !ch.material) return;
+      const tintOne = (m) => { const c = m.clone(); if (c.color) c.color.multiplyScalar(BUILDING_TINT); return c; };
+      ch.material = Array.isArray(ch.material) ? ch.material.map(tintOne) : tintOne(ch.material);
+    });
     group.add(kkBld);
     kkMeasureStairs(kkBld, b, w);
     // remember the placed model's ground box so dressing can stay clear of it
@@ -15256,12 +15265,15 @@ const KK = (() => {
     skel_warrior: 'kk/Skeleton_Warrior.glb',
     skel_rogue:   'kk/Skeleton_Rogue.glb',
     skel_staff:   'kk/Skeleton_Staff.glb',
+    // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
+    // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
+    // keep (tower_base) so it reads as a vault rather than a church.
     bld_cafe:    'kk/bld/building_tavern_red.gltf',
-    bld_library: 'kk/bld/building_church_blue.gltf',
-    bld_arcade:  'kk/bld/building_home_B_yellow.gltf',
-    bld_lounge:  'kk/bld/building_tower_A_green.gltf',
+    bld_library: 'kk/bld/building_church_red.gltf',
+    bld_arcade:  'kk/bld/building_home_B_red.gltf',
+    bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
-    bld_bank:    'kk/bld/building_church_yellow.gltf',
+    bld_bank:    'kk/bld/building_tower_base_red.gltf',
     prop_bench:    'kk/props/bench_decorated.gltf',
     prop_lamppost: 'kk/props/post_lantern.gltf',
     prop_well:     'kk/bld/building_well_blue.gltf',

@@ -248,6 +248,15 @@ function buildBuildingMesh(b, w) {
   const useKK = !!kkBld;
   if (useKK) {
     kkAutoAlign(kkBld, b, w);
+    // Darken the building to a cohesive, moody witch-town palette. Clone each
+    // material first so the tint applies exactly once and never bleeds into the
+    // other instances that share a source material (static clones share them).
+    const BUILDING_TINT = 0.62;
+    kkBld.traverse((ch) => {
+      if (!ch.isMesh || !ch.material) return;
+      const tintOne = (m) => { const c = m.clone(); if (c.color) c.color.multiplyScalar(BUILDING_TINT); return c; };
+      ch.material = Array.isArray(ch.material) ? ch.material.map(tintOne) : tintOne(ch.material);
+    });
     group.add(kkBld);
     kkMeasureStairs(kkBld, b, w);
     // remember the placed model's ground box so dressing can stay clear of it
