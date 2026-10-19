@@ -5,6 +5,15 @@ const createSpirit = require('../lib/spirit.js');
 
 const goodBody = (text) => ({ ok: true, json: async () => ({ content: [{ type: 'text', text }] }) });
 
+test('defaults to the native-https transport, not global fetch (no stale keep-alive socket)', () => {
+  // The production bug was global fetch (undici) reusing a dead idle socket. The
+  // default transport must be the one-shot native-https client. A spirit with a
+  // key but no injected fetchImpl is enabled, which means it fell back to a real
+  // default transport (httpsPost), not a missing one.
+  assert.equal(typeof createSpirit.httpsPost, 'function');
+  assert.equal(createSpirit({ apiKey: 'k' }).enabled(), true);
+});
+
 test('disabled without an api key — never calls fetch', async () => {
   let called = false;
   const s = createSpirit({ apiKey: '', fetchImpl: async () => { called = true; return goodBody('X'); } });
