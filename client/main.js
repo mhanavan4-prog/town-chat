@@ -320,7 +320,14 @@ const KK = (() => {
     tree_bare1c:   'kk/nature/Tree_Bare_1_C_Color1.gltf',
     tree_bare2a:   'kk/nature/Tree_Bare_2_A_Color1.gltf',
     tree_bare2b:   'kk/nature/Tree_Bare_2_B_Color1.gltf',
-    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf'
+    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf',
+    // Forest Nature Pack — leafy trees for the TOWN (eerie teal, Color4),
+    // replacing the procedural makeTree greenery. A varied mix: round, umbrella,
+    // fir and tall lollipop.
+    tree_leaf1:    'kk/nature/Tree_1_C_Color4.gltf',
+    tree_leaf2:    'kk/nature/Tree_3_B_Color4.gltf',
+    tree_leaf3:    'kk/nature/Tree_5_C_Color4.gltf',
+    tree_leaf4:    'kk/nature/Tree_7_C_Color4.gltf'
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -7874,6 +7881,23 @@ function makeKayTree(x, z) {
   return g;
 }
 
+// KayKit leafy tree (Forest Nature Pack, eerie teal) for the TOWN's harvestable
+// tree decor — a varied upgrade over the procedural makeTree. Returns null if
+// the models aren't loaded yet so the caller falls back to makeTree; the group
+// is flagged userData.camFade so the chase-camera obstruction fader still ghosts
+// it, exactly like makeTree does.
+const KAY_LEAF_TREES = ['tree_leaf1', 'tree_leaf2', 'tree_leaf3', 'tree_leaf4'];
+function makeKayLeafTree(x, z, scale) {
+  const key = KAY_LEAF_TREES[Math.floor(Math.random() * KAY_LEAF_TREES.length)];
+  const h = (72 + Math.random() * 30) * (scale || 1);
+  const g = KK.staticInstance(key, h, 'height');
+  if (!g) return null;
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  g.userData.camFade = true;
+  return g;
+}
+
 function makeGravestone(x, z) {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
@@ -9162,7 +9186,7 @@ function addNatureDecor(scene, w, pool, wallsOut) {
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
-      group = makeTree(d.x, d.y, d.scale);
+      group = makeKayLeafTree(d.x, d.y, d.scale) || makeTree(d.x, d.y, d.scale);
       const r = 8 * (d.scale || 1);
       wallsTarget.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
     } else if (d.type === 'shrub') {
