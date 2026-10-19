@@ -200,14 +200,20 @@ setTimeout(async () => {
   const drafts1 = d1.sock.lastOfType('delve_state');
   check('draft offers 3 boons (or 4 under Lucky Stars)', drafts1 && drafts1.myOffer && (drafts1.myOffer.length === 3 || drafts1.myOffer.length === 4));
   const pick = drafts1.myOffer[0].id;
+  // Capture the baseline contribution for this boon's stat BEFORE picking, then
+  // assert the INCREASE equals the boon's value. delveBoonContrib legitimately
+  // folds in an active weekly mod too (e.g. Glass Souls adds +0.3 to 'power'),
+  // so comparing contrib directly to the boon value flaked whenever a power
+  // boon was offered first in a Glass Souls week. The delta is mod-independent.
+  const pickStat = hooks.DELVE_BOONS[pick].stats;
+  const pickKey = pickStat ? Object.keys(pickStat)[0] : null;
+  const baseContrib = pickKey ? hooks.delveBoonContrib(d1.player, pickKey) : 0;
   d1.sock.emit('message', JSON.stringify({ type: 'delve_pick_boon', boonId: pick }));
   const member1 = run.members.get(d1.player.id);
   check('boon pick registered', member1.boons[pick] === 1);
   check('boon flows into statContrib', (() => {
-    const st = hooks.DELVE_BOONS[pick].stats;
-    if (!st) return true; // non-stat boon (broth/gravedigger)
-    const key = Object.keys(st)[0];
-    return Math.abs(hooks.delveBoonContrib(d1.player, key) - st[key]) < 1e-9;
+    if (!pickStat) return true; // non-stat boon (broth/gravedigger)
+    return Math.abs((hooks.delveBoonContrib(d1.player, pickKey) - baseContrib) - pickStat[pickKey]) < 1e-9;
   })());
   d2.sock.emit('message', JSON.stringify({ type: 'delve_pick_boon', boonId: d2.sock.lastOfType('delve_state').myOffer[0].id }));
   hooks.tickDelves(0.1);
