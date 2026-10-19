@@ -15282,7 +15282,20 @@ const KK = (() => {
     tree_bare1c:   'kk/nature/Tree_Bare_1_C_Color1.gltf',
     tree_bare2a:   'kk/nature/Tree_Bare_2_A_Color1.gltf',
     tree_bare2b:   'kk/nature/Tree_Bare_2_B_Color1.gltf',
-    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf'
+    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf',
+    // Forest Nature Pack — leafy trees for the TOWN (eerie teal, Color4),
+    // replacing the procedural makeTree greenery. A varied mix of shapes.
+    tree_leaf1:    'kk/nature/Tree_1_C_Color4.gltf',
+    tree_leaf2:    'kk/nature/Tree_3_B_Color4.gltf',
+    tree_leaf3:    'kk/nature/Tree_5_C_Color4.gltf',
+    tree_leaf4:    'kk/nature/Tree_7_C_Color4.gltf',
+    // Ground detail — teal bushes (match the trees) + neutral grey rocks.
+    bush1:         'kk/nature/Bush_1_C_Color4.gltf',
+    bush2:         'kk/nature/Bush_2_D_Color4.gltf',
+    bush3:         'kk/nature/Bush_3_B_Color4.gltf',
+    rock1:         'kk/nature/Rock_3_H_Color1.gltf',
+    rock2:         'kk/nature/Rock_5_D_Color1.gltf',
+    rock3:         'kk/nature/Rock_6_C_Color1.gltf'
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -22837,6 +22850,47 @@ function makeKayTree(x, z) {
   return g;
 }
 
+// KayKit leafy tree (Forest Nature Pack, eerie teal) for the TOWN's harvestable
+// tree decor — a varied upgrade over the procedural makeTree. Returns null if
+// the models aren't loaded yet so the caller falls back to makeTree; flagged
+// userData.camFade so the chase-camera obstruction fader still ghosts it.
+const KAY_LEAF_TREES = ['tree_leaf1', 'tree_leaf2', 'tree_leaf3', 'tree_leaf4'];
+function makeKayLeafTree(x, z, scale) {
+  const key = KAY_LEAF_TREES[Math.floor(Math.random() * KAY_LEAF_TREES.length)];
+  const h = (72 + Math.random() * 30) * (scale || 1);
+  const g = KK.staticInstance(key, h, 'height');
+  if (!g) return null;
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  g.userData.camFade = true;
+  return g;
+}
+
+// KayKit bush (teal) for 'shrub' decor. Short ground cover — no camFade needed.
+// Sized by max horizontal extent ('fit'). Null → caller falls back to makeShrub.
+const KAY_BUSHES = ['bush1', 'bush2', 'bush3'];
+function makeKayBush(x, z, scale) {
+  const key = KAY_BUSHES[Math.floor(Math.random() * KAY_BUSHES.length)];
+  const w = (26 + Math.random() * 12) * (scale || 1);
+  const g = KK.staticInstance(key, w, 'fit');
+  if (!g) return null;
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// KayKit rock (grey) for 'rock' decor — pure scenery. Null → fallback to makeRock.
+const KAY_ROCKS = ['rock1', 'rock2', 'rock3'];
+function makeKayRock(x, z, scale) {
+  const key = KAY_ROCKS[Math.floor(Math.random() * KAY_ROCKS.length)];
+  const w = (22 + Math.random() * 14) * (scale || 1);
+  const g = KK.staticInstance(key, w, 'fit');
+  if (!g) return null;
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
 function makeGravestone(x, z) {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
@@ -24125,13 +24179,13 @@ function addNatureDecor(scene, w, pool, wallsOut) {
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
-      group = makeTree(d.x, d.y, d.scale);
+      group = makeKayLeafTree(d.x, d.y, d.scale) || makeTree(d.x, d.y, d.scale);
       const r = 8 * (d.scale || 1);
       wallsTarget.push({ x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 });
     } else if (d.type === 'shrub') {
-      group = makeShrub(d.x, d.y, d.scale);
+      group = makeKayBush(d.x, d.y, d.scale) || makeShrub(d.x, d.y, d.scale);
     } else if (d.type === 'rock') {
-      group = makeRock(d.x, d.y, d.scale);
+      group = makeKayRock(d.x, d.y, d.scale) || makeRock(d.x, d.y, d.scale);
     } else if (d.type === 'flower') {
       group = makeFlowerPatch(d.x, d.y, d.scale);
     } else if (PROP_BUILDERS[d.type]) {
