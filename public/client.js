@@ -10790,19 +10790,29 @@ function destroyPlayerVisual(id) {
 // ensurePlayerVisual short-circuits after). The moment KK settles, rebuild
 // anyone still on the fallback so every character upgrades to the KayKit model
 // instead of being stuck on the old rig until a page reload.
-if (KK && KK.promise && typeof KK.promise.then === 'function') {
-  KK.promise.then(() => {
-    const players = getPlayers() || {};
-    const meP = getMe();
-    for (const id of Object.keys(visuals)) {
-      const v = visuals[id];
-      if (!v || v.kk) continue; // already a KayKit model — leave it
-      const p = players[id] || (meP && meP.id === id ? meP : null);
-      if (!p) continue;
-      destroyPlayerVisual(id);
-      ensurePlayerVisual(p);
-    }
-  });
+// Rebuild any player still on the fallback rig the moment THEIR class model is
+// ready. This must re-run on every asset settle (not just once when KK.promise
+// resolves): the character bodies stream in AFTER the town gates, so a one-shot
+// pass fired at settle sees charReady=false and leaves the player on the
+// fallback forever. That one-shot timing is exactly why, on a hard-refresh
+// auto-resume, your own body stayed the classic rig while the NPCs (whose
+// upgrader already re-runs on each load) turned KayKit. The charReady guard
+// means each fallback player is rebuilt once, when its model actually arrives.
+function upgradeFallbackPlayers() {
+  const players = getPlayers() || {};
+  const meP = getMe();
+  for (const id of Object.keys(visuals)) {
+    const v = visuals[id];
+    if (!v || v.kk) continue; // already a KayKit model — leave it
+    const p = players[id] || (meP && meP.id === id ? meP : null);
+    if (!p || !KK.charReady(p.charId || 0)) continue; // wait until the model is in
+    destroyPlayerVisual(id);
+    ensurePlayerVisual(p);
+  }
+}
+if (KK) {
+  if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(upgradeFallbackPlayers).catch(() => {});
+  if (KK.onAssetLoad) KK.onAssetLoad(upgradeFallbackPlayers);
 }
 
 function syncVisuals(dt) {
