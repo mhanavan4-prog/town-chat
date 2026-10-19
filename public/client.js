@@ -16083,6 +16083,14 @@ function onWsMessage(ev) {
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
     me = players[myId];
+    // Stream the KayKit character bodies for ANY spawn path. The join-button
+    // flow (attemptJoin) calls KK.beginChars, but an auto-resume — a hard
+    // refresh or a killed/restored tab rejoining from the stashed token — skips
+    // that screen, so without this the bodies were never requested: you'd sit on
+    // the classic fallback body and the "Loading world…" pill would wait forever
+    // for a character that never streamed. beginChars is guarded (charsStarted),
+    // so this is a no-op when the join screen already kicked it off.
+    if (me && KK && KK.beginChars) { try { KK.beginChars(me.charId); } catch (e) {} }
     // A fresh connection always lands in the public world (the server resets
     // instance on resume), so clear any stale Moot state from a prior session.
     mootInstanceActive = false; setMootBanner(null);
