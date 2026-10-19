@@ -2750,6 +2750,10 @@ function refitBuildingColliders() {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
     const fit = fitBuildingFootprint(b, box, getDoorSide(b));
+    // Stash the fitted footprint on the building so roomAt() (room entry + the
+    // location label) keys off the SAME rect the walls do — otherwise the data
+    // rect's unwalled margins become a free teleport into the interior.
+    b._fit = { x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     if (dbg) { try { console.log('[collider]', b.id, 'door', getDoorSide(b), 'data', { x: b.x, y: b.y, w: b.w, h: b.h }, 'model', box, 'fit', fit); } catch (e) { /* noop */ } }
     const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });

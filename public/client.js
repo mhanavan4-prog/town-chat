@@ -424,7 +424,14 @@ function collidesIndoor(x, y, wallsLocal) {
 
 function roomAt(x, y) {
   for (const b of getWorld().buildings) {
-    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.id;
+    // Use the fitted collider footprint (b._fit, set by refitBuildingColliders)
+    // when present, NOT the raw data rect. The collider was shrunk to the placed
+    // model, so the data rect has unwalled strips of open grass beside/behind the
+    // building; keying room-entry off the data rect teleported players inside the
+    // moment they stepped onto that grass. Keying off the real footprint means the
+    // door is the only way in again — matching what the walls actually block.
+    const f = b._fit || b;
+    if (x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h) return b.id;
   }
   return 'outside';
 }
@@ -17705,6 +17712,10 @@ function refitBuildingColliders() {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
     const fit = fitBuildingFootprint(b, box, getDoorSide(b));
+    // Stash the fitted footprint on the building so roomAt() (room entry + the
+    // location label) keys off the SAME rect the walls do — otherwise the data
+    // rect's unwalled margins become a free teleport into the interior.
+    b._fit = { x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     if (dbg) { try { console.log('[collider]', b.id, 'door', getDoorSide(b), 'data', { x: b.x, y: b.y, w: b.w, h: b.h }, 'model', box, 'fit', fit); } catch (e) { /* noop */ } }
     const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });

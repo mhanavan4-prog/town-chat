@@ -29,7 +29,14 @@ function collidesIndoor(x, y, wallsLocal) {
 
 function roomAt(x, y) {
   for (const b of getWorld().buildings) {
-    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.id;
+    // Use the fitted collider footprint (b._fit, set by refitBuildingColliders)
+    // when present, NOT the raw data rect. The collider was shrunk to the placed
+    // model, so the data rect has unwalled strips of open grass beside/behind the
+    // building; keying room-entry off the data rect teleported players inside the
+    // moment they stepped onto that grass. Keying off the real footprint means the
+    // door is the only way in again — matching what the walls actually block.
+    const f = b._fit || b;
+    if (x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h) return b.id;
   }
   return 'outside';
 }

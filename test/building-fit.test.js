@@ -95,6 +95,24 @@ test('a laterally-shifted model box still yields a centered collider (no side wa
   assert.ok(f.w > 370 && f.w < 385, 'width still tracks the model (~379): ' + f.w);
 });
 
+test('room-entry keys off the fitted footprint, not the data-rect margins', () => {
+  // The bug behind "I ended up in the building": entry fires when roomAt() says
+  // you're inside a building, and roomAt used the full data rect. With the
+  // collider shrunk to the model, the data rect's side strips are unwalled grass
+  // — stepping onto them teleported you inside. roomAt must use the fitted rect.
+  const b = { ...HALL, _fit: fitBuildingFootprint(HALL, CASTLE_BOX) };
+  const roomAt = (x, y) => {
+    const f = b._fit || b;
+    return (x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h) ? 'hall' : 'outside';
+  };
+  assert.equal(roomAt(1385, 200), 'outside', 'west grass strip is NOT an entry zone (no auto-enter)');
+  assert.equal(roomAt(1820, 200), 'outside', 'east grass strip is NOT an entry zone');
+  assert.equal(roomAt(1600, 390), 'hall', 'the doorway still enters');
+  // and the raw data rect (no _fit) would have wrongly entered from the strip
+  const rawRoomAt = (x, y) => (x >= HALL.x && x <= HALL.x + HALL.w && y >= HALL.y && y <= HALL.y + HALL.h) ? 'hall' : 'outside';
+  assert.equal(rawRoomAt(1385, 200), 'hall', 'the old data-rect entry fired from the strip (the bug)');
+});
+
 test('a missing or degenerate model box leaves the data footprint unchanged', () => {
   assert.deepEqual(fitBuildingFootprint(HALL, null), { x: 1360, y: 110, w: 480, h: 290 });
   const tiny = fitBuildingFootprint(HALL, { minx: 1600, minz: 250, maxx: 1610, maxz: 260 });
