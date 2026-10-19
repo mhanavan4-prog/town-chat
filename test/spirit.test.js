@@ -62,6 +62,29 @@ test('a slow call is aborted by the timeout → null', async () => {
   assert.equal(await s.generate({}), null);
 });
 
+test('lastError records WHY a generate returned null (so a fallback is diagnosable)', async () => {
+  const off = createSpirit({ apiKey: '' });
+  await off.generate({});
+  assert.equal(off.lastError(), 'disabled');
+
+  const http = createSpirit({ apiKey: 'k', fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({}) }) });
+  await http.generate({});
+  assert.equal(http.lastError(), 'http_429');
+
+  const ok = createSpirit({ apiKey: 'k', fetchImpl: async () => goodBody('SOON') });
+  await ok.generate({});
+  assert.equal(ok.lastError(), null, 'null on success');
+
+  const slow = createSpirit({
+    apiKey: 'k', timeoutMs: 20,
+    fetchImpl: (url, opts) => new Promise((resolve, reject) => {
+      if (opts.signal) opts.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    }),
+  });
+  await slow.generate({});
+  assert.equal(slow.lastError(), 'timeout');
+});
+
 test('buildUserContent frames the coven, moon and question', () => {
   const c = createSpirit.buildUserContent({ covenName: 'Hags', present: 2, moon: 'the moon is thin', question: 'who are you' });
   assert.ok(/Hags/.test(c));
