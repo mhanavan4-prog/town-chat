@@ -17646,23 +17646,27 @@ function buildWalls(w) {
   return list;
 }
 
-// Shrink a building's footprint to the part its placed model actually fills,
-// clamped so it never exceeds the data rect. The outdoor collider is built from
-// the full data rectangle, but a KayKit building model is scaled uniformly to
-// the geometric mean of that rectangle — so for a non-square footprint the model
-// is narrower (or shallower) than the collider, leaving walled-but-open-looking
-// ground beside it ("invisible walls", worst on the wide, shallow Town Hall).
+// Re-cut a building's collider to match the footprint its placed KayKit model
+// ACTUALLY fills, so collision lines up with what you see. The outdoor collider
+// starts as the full data rectangle, but a model is scaled uniformly to the
+// geometric mean of that rect, so on a non-square footprint it is both narrower
+// across the door AND (for the castle-style models) DEEPER front-to-back than the
+// rect, then flushed to the door wall — so its rear overhangs the footprint.
 //
-// DEPTH (the door axis) is fit to the model's real span, clamped to the data
-// rect: the model is flushed to the door wall during placement, so its box lines
-// up with what you see front-to-back. The CROSS axis (width) is instead CENTERED
-// on the footprint, with width = the model's extent capped to the footprint — it
-// deliberately does NOT follow the model box's lateral position. kkAutoAlign can
-// shift a model sideways by up to ~29% of the footprint to line its steps up with
-// the door; an intersection with that shifted box put the collider off to one
-// side, so you could cross the visible base and only hit a wall deep inside
-// ("walk into the building"). Centering keeps the collider symmetric under the
-// model, so the worst case is a slightly-too-wide wall, never a walk-through.
+// Both axes therefore track the model box, not the data rect:
+//  - DOOR AXIS (depth): use the model's real span verbatim, NOT clamped to the
+//    data rect. Clamping it was the "walk into the building" bug — the model's
+//    rear stuck out past the rect, the clamp left that overhang with no wall, and
+//    you could stroll in the back and only stop at a wall deep inside.
+//  - CROSS AXIS (width): the model's real width, but CENTERED on the footprint
+//    rather than placed at the model box's own position. kkAutoAlign can shift a
+//    model sideways by up to ~29% to line its steps up with the door; following
+//    that offset put the collider off to one side (the earlier walk-in). Centering
+//    keeps it symmetric under the model.
+//
+// Net: the collider is the model's XZ bounding box, recentred across the door —
+// it matches the visible walls, so no invisible wall beside it and no open gap to
+// walk through into it.
 //
 // box = { minx, minz, maxx, maxz } of the placed model in world XZ; a missing or
 // degenerate box falls back to the data rect unchanged. side = the door side
@@ -17672,17 +17676,15 @@ function fitBuildingFootprint(b, box, side) {
   const s = side || (b && b.door) || 'south';
   const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
   const doorAxisZ = (s === 'south' || s === 'north'); // depth runs along Z
+  const modelW = box.maxx - box.minx; // model's real span across X
+  const modelD = box.maxz - box.minz; // model's real span across Z
   let x0, z0, w, h;
   if (doorAxisZ) {
-    z0 = Math.max(b.y, box.minz);
-    h = Math.min(b.y + b.h, box.maxz) - z0;      // depth: clamp to data rect
-    w = Math.min(b.w, box.maxx - box.minx);      // width: model extent, capped
-    x0 = cx - w / 2;                             // …centered, not offset
+    z0 = box.minz; h = modelD;         // depth: the model's real span (covers the rear overhang)
+    w = modelW; x0 = cx - w / 2;       // width: model width, centered on the footprint
   } else {
-    x0 = Math.max(b.x, box.minx);
-    w = Math.min(b.x + b.w, box.maxx) - x0;      // depth: clamp to data rect
-    h = Math.min(b.h, box.maxz - box.minz);      // width: model extent, capped
-    z0 = cz - h / 2;                             // …centered, not offset
+    x0 = box.minx; w = modelW;         // depth runs along X
+    h = modelD; z0 = cz - h / 2;       // width runs along Z, centered
   }
   if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h }; // never trust a degenerate fit
   return { x: x0, y: z0, w, h };
@@ -17694,10 +17696,16 @@ function fitBuildingFootprint(b, box, side) {
 // teleports), so there's no desync. Decor/tree colliders (untagged) are kept.
 function refitBuildingColliders() {
   walls = walls.filter((r) => !r.bld);
+  // Opt-in diagnostic: load the game with ?colliderdebug=1 to print each
+  // building's data rect, its measured model box, and the fitted collider — so a
+  // mismatch can be read off the console instead of guessed at.
+  let dbg = false;
+  try { dbg = typeof location !== 'undefined' && !!location.search && location.search.includes('colliderdebug'); } catch (e) { /* noop */ }
   for (const b of world.buildings) {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
     const fit = fitBuildingFootprint(b, box, getDoorSide(b));
+    if (dbg) { try { console.log('[collider]', b.id, 'door', getDoorSide(b), 'data', { x: b.x, y: b.y, w: b.w, h: b.h }, 'model', box, 'fit', fit); } catch (e) { /* noop */ } }
     const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });
   }

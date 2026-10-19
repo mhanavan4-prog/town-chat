@@ -38,6 +38,7 @@ test('sends the right endpoint, headers and body', async () => {
   assert.equal(cap.opts.headers['content-type'], 'application/json');
   const body = JSON.parse(cap.opts.body);
   assert.equal(body.model, 'claude-haiku-5-5');
+  assert.deepEqual(body.thinking, { type: 'disabled' }, 'extended thinking is disabled so the token budget goes to the answer');
   assert.ok(body.max_tokens > 0 && body.max_tokens <= 64);
   assert.ok(/presence/i.test(body.system));
   assert.equal(body.messages[0].role, 'user');
