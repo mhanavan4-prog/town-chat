@@ -24,7 +24,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGroundVariation, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGroundVariation, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeFlagstoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -7492,65 +7492,44 @@ function initScene(w) {
     scene.add(clearing);
   })();
 
-  // ── Town paths + plaza ─ worn cobble linking the spawn hub to every door.
-  // Reintroduces walkways (the old hard-flagstone version was pulled); this one
-  // uses a warm, soft-edged stone that feathers into the moor so it reads as a
-  // trodden path, not a cut slab. Purely visual — no colliders, players walk it.
+  // ── Town paths + plaza ─ flagstone paving linking the spawn hub to every
+  // door. Fully OPAQUE on purpose: an earlier transparent version disturbed the
+  // transparency sort order and made the name-tag sprites flicker/glow as the
+  // camera turned. Opaque meshes render in the normal pass and write depth, so
+  // they stay out of that sort entirely. Purely visual — no colliders.
   (function () {
-    const PLAZA_R = 180, PATH_W = 80, PATH_COLOR = 0xc3b89e;
+    const PLAZA_R = 180, PATH_W = 80, REP = 130, PATH_TINT = 0xffffff;
     const sx = w.spawn.x, sy = w.spawn.y;
-    // Edge mask for the straight paths: fully opaque down the length (V), only
-    // the two long SIDES (U) feather into the moor. (A radial/4-edge fade would
-    // shrink each path to a faint centerline streak — don't touch V.)
-    const feather = (() => {
-      const cc = document.createElement('canvas'); cc.width = cc.height = 64;
-      const cx = cc.getContext('2d');
-      cx.fillStyle = '#fff'; cx.fillRect(10, 0, 44, 64); // opaque center band, full height
-      let g = cx.createLinearGradient(0, 0, 10, 0); g.addColorStop(0, '#000'); g.addColorStop(1, '#fff');
-      cx.fillStyle = g; cx.fillRect(0, 0, 10, 64);       // left side feather
-      g = cx.createLinearGradient(54, 0, 64, 0); g.addColorStop(0, '#fff'); g.addColorStop(1, '#000');
-      cx.fillStyle = g; cx.fillRect(54, 0, 10, 64);      // right side feather
-      const t = new THREE.CanvasTexture(cc); t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
-      return t;
-    })();
-    // Radial mask for the plaza disc: opaque core, only the rim feathers.
-    const radial = (() => {
-      const cc = document.createElement('canvas'); cc.width = cc.height = 128;
-      const cx = cc.getContext('2d');
-      const g = cx.createRadialGradient(64, 64, 40, 64, 64, 64);
-      g.addColorStop(0, '#fff'); g.addColorStop(0.86, '#fff'); g.addColorStop(1, '#000');
-      cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
-      return new THREE.CanvasTexture(cc);
-    })();
-    // A spoke from the plaza out to each building's door. depthWrite:false so
-    // the overlapping inner ends (hidden under the plaza anyway) just blend
-    // instead of z-fighting.
+    // A spoke from the plaza out to each building's door. Each gets a slightly
+    // different height so the ends that overlap under the plaza don't z-fight.
+    let i = 0;
     for (const b of w.buildings) {
       const dp = getDoorWorldPos(b);
       const dx = dp.x - sx, dz = dp.y - sy;
       const full = Math.max(1, Math.hypot(dx, dz));
-      const startD = PLAZA_R * 0.85, endD = full + 40; // tuck under plaza + under the stoop
+      const startD = PLAZA_R * 0.7, endD = full + 40; // tuck under the plaza + under the stoop
       const segLen = endD - startD;
-      const tex = makeWhiteStoneTexture();
-      tex.repeat.set(PATH_W / 50, segLen / 50);
+      const tex = makeFlagstoneTexture();
+      tex.repeat.set(PATH_W / REP, segLen / REP);
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(PATH_W, 0.5, segLen),
-        new THREE.MeshLambertMaterial({ map: tex, alphaMap: feather, color: PATH_COLOR, transparent: true, depthWrite: false })
+        new THREE.MeshLambertMaterial({ map: tex, color: PATH_TINT })
       );
       mesh.rotation.y = Math.atan2(dx, dz);
       const midD = startD + segLen / 2;
-      mesh.position.set(sx + (dx / full) * midD, 0.24, sy + (dz / full) * midD);
+      mesh.position.set(sx + (dx / full) * midD, 0.22 + (i++) * 0.012, sy + (dz / full) * midD);
       scene.add(mesh);
     }
-    // The paved plaza at the hub.
-    const ptex = makeWhiteStoneTexture();
-    ptex.repeat.set((PLAZA_R * 2) / 60, (PLAZA_R * 2) / 60);
+    // The paved plaza at the hub — sits just above the spokes so it reads as one
+    // surface and hides their overlapping inner ends.
+    const ptex = makeFlagstoneTexture();
+    ptex.repeat.set((PLAZA_R * 2) / REP, (PLAZA_R * 2) / REP);
     const plaza = new THREE.Mesh(
       new THREE.CircleGeometry(PLAZA_R, 48),
-      new THREE.MeshLambertMaterial({ map: ptex, alphaMap: radial, color: PATH_COLOR, transparent: true, depthWrite: false })
+      new THREE.MeshLambertMaterial({ map: ptex, color: PATH_TINT })
     );
     plaza.rotation.x = -Math.PI / 2;
-    plaza.position.set(sx, 0.26, sy);
+    plaza.position.set(sx, 0.34, sy);
     scene.add(plaza);
   })();
 
