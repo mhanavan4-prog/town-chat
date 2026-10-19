@@ -24,7 +24,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGroundVariation, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeFlagstoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeFlagstoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -303,6 +303,9 @@ const KK = (() => {
     bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
+    // Hex terrain tile — the whole map floor is carpeted with instances of this
+    // (see the hex-floor builder in initScene). Top face sits at model y=0.
+    tile_grass:  'kk/tiles/hex_grass.gltf',
     prop_bench:    'kk/props/bench_decorated.gltf',
     prop_lamppost: 'kk/props/post_lantern.gltf',
     prop_well:     'kk/bld/building_well_blue.gltf',
@@ -7450,47 +7453,48 @@ function initScene(w) {
   sunMesh.userData.glow = sunGlow;
   scene.add(sunMesh);
 
-  const grassTex = makeMoorTexture(); // spooky Withered Moor ground (town only; the Wilds keeps grass)
-  const groundSpan = Math.max(w.width, w.height) + 600;
-  grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
-  const groundGeo = new THREE.PlaneGeometry(w.width + 600, w.height + 600);
-  const groundMat = new THREE.MeshLambertMaterial({ map: grassTex });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(w.width / 2, 0, w.height / 2);
-  scene.add(ground);
-
-  // Macro tone variation, stretched ONCE over the whole lawn so the repeating
-  // grass tile stops reading as one flat sheet — big soft meadows, mossy
-  // hollows and drier patches. Just above the grass, blended, no depth write.
-  const groundVar = new THREE.Mesh(
-    new THREE.PlaneGeometry(w.width + 600, w.height + 600),
-    new THREE.MeshLambertMaterial({ map: makeGroundVariation(), transparent: true, depthWrite: false })
-  );
-  groundVar.rotation.x = -Math.PI / 2;
-  groundVar.position.set(w.width / 2, 0.08, w.height / 2);
-  scene.add(groundVar);
-
-  // Town-square clearing: a soft patch where the grass just shifts tone at the
-  // spawn point — no hard stone ring and no radial paths (the old cracked-
-  // flagstone plaza + walkways were removed for a cleaner, minimal look). A
-  // radial fade keeps the edge soft so it reads as trampled lawn, not a disc.
-  (function () {
-    const cc = document.createElement('canvas'); cc.width = cc.height = 128;
-    const cx = cc.getContext('2d');
-    const grad = cx.createRadialGradient(64, 64, 8, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(122,126,88,0.55)');   // worn, sunlit center
-    grad.addColorStop(0.7, 'rgba(112,118,82,0.32)');
-    grad.addColorStop(1, 'rgba(112,118,82,0)');      // fades into the grass
-    cx.fillStyle = grad; cx.fillRect(0, 0, 128, 128);
-    const clearing = new THREE.Mesh(
-      new THREE.CircleGeometry(200, 44),
-      new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cc), transparent: true, depthWrite: false })
+  // ── Hex-tile floor ─ the whole town is carpeted with KayKit medieval hex
+  // tiles instead of the old flat moor plane. One InstancedMesh carries every
+  // tile (a single draw call for the entire ground, so it stays light on
+  // mobile / the 2 GB box). Each tile's top face is modelled at y=0, so the
+  // buildings, trees and props already placed at y=0 sit flush on it. A
+  // dark-moss tint tames KayKit's bright lime into the witch-town's mood.
+  // A plain dark plane sits just below as a backstop (covers the horizon beyond
+  // the carpet, and any gap if the tiles somehow fail to load).
+  {
+    const base = new THREE.Mesh(
+      new THREE.PlaneGeometry(w.width + 2400, w.height + 2400),
+      new THREE.MeshLambertMaterial({ color: 0x3b4233 })
     );
-    clearing.rotation.x = -Math.PI / 2;
-    clearing.position.set(w.spawn.x, 0.2, w.spawn.y);
-    scene.add(clearing);
-  })();
+    base.rotation.x = -Math.PI / 2;
+    base.position.set(w.width / 2, -6, w.height / 2);
+    scene.add(base);
+  }
+  if (KK.settled && KK.has('tile_grass')) {
+    const S = 100;            // world units per model unit
+    const HW = 2.0 * S;       // hex flat-to-flat width (x)
+    const PP = 2.309 * S;     // hex point-to-point (z)
+    const DZ = 0.75 * PP;     // row spacing for a pointy-top layout
+    let geo = null, mat = null;
+    KK.models.tile_grass.scene.traverse((ch) => { if (ch.isMesh && !geo) { geo = ch.geometry; mat = ch.material; } });
+    if (geo) {
+      geo = geo.clone();
+      mat = mat.clone(); mat.color = new THREE.Color(0x76805a); // dark moss over the atlas
+      const MARGIN = 420;
+      const cells = [];
+      let r = 0;
+      for (let z = -MARGIN; z <= w.height + MARGIN; z += DZ, r++) {
+        const xoff = (r % 2) ? HW / 2 : 0;
+        for (let x = -MARGIN; x <= w.width + MARGIN; x += HW) cells.push([x + xoff, z]);
+      }
+      const inst = new THREE.InstancedMesh(geo, mat, cells.length);
+      inst.frustumCulled = false; // spans the whole map — never cull the carpet
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
+      for (let i = 0; i < cells.length; i++) { pos.set(cells[i][0], 0, cells[i][1]); m4.compose(pos, q, scl); inst.setMatrixAt(i, m4); }
+      inst.instanceMatrix.needsUpdate = true;
+      scene.add(inst);
+    }
+  }
 
   // ── Town paths + plaza ─ flagstone paving linking the spawn hub to every
   // door. Fully OPAQUE on purpose: an earlier transparent version disturbed the
