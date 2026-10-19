@@ -6668,6 +6668,7 @@ let activeDungeonTier = 1, activeDungeonIsDelve = false; // set from dungeon_ent
 let activeScene, activeCamera;
 let mode = 'outdoor';          // 'outdoor' | 'indoor'
 let indoorBuildingId = null;
+let justExitedRoom = null;     // building id just left — suppress instant re-entry until clear
 let currentInterior = null;    // { scene, camera, roomW, roomD, doorStart, doorEnd, wallsLocal }
 let groundY = 0;
 const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, parentScene }
@@ -13072,12 +13073,17 @@ function exitBuilding(b) {
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   const side = getDoorSide(b);
-  // nudge just outside the door (whichever wall it's on) so they don't
-  // immediately re-enter
-  if (side === 'east') { me.x = b.x + b.w + 26; me.y = b.y + b.h / 2; }
-  else if (side === 'west') { me.x = b.x - 26; me.y = b.y + b.h / 2; }
-  else if (side === 'north') { me.x = b.x + b.w / 2; me.y = b.y - 26; }
-  else { me.x = b.x + b.w / 2; me.y = b.y + b.h + 26; }
+  // Nudge just outside the door so they don't immediately re-enter. This must
+  // clear the FITTED footprint (b._fit), not the raw data rect: roomAt() keys
+  // entry off the fitted footprint now, and a model flushed to the door wall can
+  // overhang the data edge — dropping the player at data-edge+26 could land them
+  // back inside the entry zone and re-enter in a loop (got stuck in the Bank).
+  const f = b._fit || b;
+  if (side === 'east') { me.x = f.x + f.w + 30; me.y = f.y + f.h / 2; }
+  else if (side === 'west') { me.x = f.x - 30; me.y = f.y + f.h / 2; }
+  else if (side === 'north') { me.x = f.x + f.w / 2; me.y = f.y - 30; }
+  else { me.x = f.x + f.w / 2; me.y = f.y + f.h + 30; }
+  justExitedRoom = b.id; // backstop: block auto re-entry until we read 'outside'
   me.room = 'outside';
   stopMusic({ roomTune: true }); // a player-picked track keeps playing outdoors
   clearPendingImage();
@@ -13153,6 +13159,15 @@ function updateOutdoor(stepX, stepY) {
   me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
 
   const room = roomAt(me.x, me.y);
+  // Re-entry guard: right after leaving a building, exitBuilding drops us just
+  // outside its door. If that spot still reads as inside (tight geometry), don't
+  // get sucked straight back in — wait until we've stepped fully clear.
+  if (room === justExitedRoom && room !== 'outside') {
+    me.room = 'outside';
+    maybeUpdateRoomUI('outside');
+    return;
+  }
+  justExitedRoom = null;
   if (room !== 'outside' && !isLockedRoom(room)) {
     enterBuilding(room);
     return;
