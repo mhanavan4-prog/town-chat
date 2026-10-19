@@ -9,11 +9,26 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 // — mirror of client fitBuildingFootprint —
-function fitBuildingFootprint(b, box) {
+// Depth (door axis) is fit to the model span clamped to the data rect; the cross
+// axis is CENTERED on the footprint (width = model extent capped), so a model the
+// placer shifted sideways can't drag the collider off to one side ("walk inside").
+function fitBuildingFootprint(b, box, side) {
   if (!box) return { x: b.x, y: b.y, w: b.w, h: b.h };
-  const x0 = Math.max(b.x, box.minx), z0 = Math.max(b.y, box.minz);
-  const x1 = Math.min(b.x + b.w, box.maxx), z1 = Math.min(b.y + b.h, box.maxz);
-  const w = x1 - x0, h = z1 - z0;
+  const s = side || (b && b.door) || 'south';
+  const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
+  const doorAxisZ = (s === 'south' || s === 'north');
+  let x0, z0, w, h;
+  if (doorAxisZ) {
+    z0 = Math.max(b.y, box.minz);
+    h = Math.min(b.y + b.h, box.maxz) - z0;
+    w = Math.min(b.w, box.maxx - box.minx);
+    x0 = cx - w / 2;
+  } else {
+    x0 = Math.max(b.x, box.minx);
+    w = Math.min(b.x + b.w, box.maxx) - x0;
+    h = Math.min(b.h, box.maxz - box.minz);
+    z0 = cz - h / 2;
+  }
   if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h };
   return { x: x0, y: z0, w, h };
 }
@@ -65,4 +80,22 @@ test('a missing or degenerate model box leaves the data footprint unchanged', ()
   assert.deepEqual(fitBuildingFootprint(HALL, null), { x: 1360, y: 110, w: 480, h: 290 });
   const tiny = fitBuildingFootprint(HALL, { minx: 1600, minz: 250, maxx: 1610, maxz: 260 });
   assert.deepEqual(tiny, { x: 1360, y: 110, w: 480, h: 290 }, 'degenerate fit is rejected');
+});
+
+// Regression: kkAutoAlign can shift a model sideways (to center its steps on the
+// door) by a big fraction of the footprint. The OLD intersection-based fit
+// followed that shift and put the collider off to one side — so approaching from
+// the shifted-away side you crossed the visible base and only hit a wall deep
+// inside ("walk into the building"). The centered fit must ignore the lateral
+// offset: same 379-wide model, but shifted ~80 west, still yields a CENTERED
+// collider, so no side has an open band you can walk through into a buried wall.
+test('a laterally-shifted model box still yields a centered collider (no walk-inside)', () => {
+  const SHIFTED = { minx: 1330.3, minz: -21, maxx: 1709.7, maxz: 412 }; // 379 wide, centre 1520 (−80)
+  const f = fitBuildingFootprint(HALL, SHIFTED, 'south');
+  const centre = f.x + f.w / 2;
+  assert.ok(Math.abs(centre - 1600) < 1, 'collider stays centred on the footprint, not the shifted box: ' + centre);
+  assert.ok(f.w > 370 && f.w < 385, 'width still tracks the model (~379): ' + f.w);
+  // the band is symmetric: equal open grass on BOTH sides, never all on one side
+  const fit = southWalls(f);
+  assert.equal(blocked(fit, 1385, 395), blocked(fit, 1815, 395), 'west and east bands are symmetric');
 });

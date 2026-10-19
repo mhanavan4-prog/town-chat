@@ -2697,13 +2697,38 @@ function buildWalls(w) {
 // the geometric mean of that rectangle — so for a non-square footprint the model
 // is narrower (or shallower) than the collider, leaving walled-but-open-looking
 // ground beside it ("invisible walls", worst on the wide, shallow Town Hall).
+//
+// DEPTH (the door axis) is fit to the model's real span, clamped to the data
+// rect: the model is flushed to the door wall during placement, so its box lines
+// up with what you see front-to-back. The CROSS axis (width) is instead CENTERED
+// on the footprint, with width = the model's extent capped to the footprint — it
+// deliberately does NOT follow the model box's lateral position. kkAutoAlign can
+// shift a model sideways by up to ~29% of the footprint to line its steps up with
+// the door; an intersection with that shifted box put the collider off to one
+// side, so you could cross the visible base and only hit a wall deep inside
+// ("walk into the building"). Centering keeps the collider symmetric under the
+// model, so the worst case is a slightly-too-wide wall, never a walk-through.
+//
 // box = { minx, minz, maxx, maxz } of the placed model in world XZ; a missing or
-// degenerate box falls back to the data rect unchanged. Pure.
-function fitBuildingFootprint(b, box) {
+// degenerate box falls back to the data rect unchanged. side = the door side
+// ('south'|'north'|'east'|'west'); it decides which axis is depth vs width. Pure.
+function fitBuildingFootprint(b, box, side) {
   if (!box) return { x: b.x, y: b.y, w: b.w, h: b.h };
-  const x0 = Math.max(b.x, box.minx), z0 = Math.max(b.y, box.minz);
-  const x1 = Math.min(b.x + b.w, box.maxx), z1 = Math.min(b.y + b.h, box.maxz);
-  const w = x1 - x0, h = z1 - z0;
+  const s = side || (b && b.door) || 'south';
+  const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
+  const doorAxisZ = (s === 'south' || s === 'north'); // depth runs along Z
+  let x0, z0, w, h;
+  if (doorAxisZ) {
+    z0 = Math.max(b.y, box.minz);
+    h = Math.min(b.y + b.h, box.maxz) - z0;      // depth: clamp to data rect
+    w = Math.min(b.w, box.maxx - box.minx);      // width: model extent, capped
+    x0 = cx - w / 2;                             // …centered, not offset
+  } else {
+    x0 = Math.max(b.x, box.minx);
+    w = Math.min(b.x + b.w, box.maxx) - x0;      // depth: clamp to data rect
+    h = Math.min(b.h, box.maxz - box.minz);      // width: model extent, capped
+    z0 = cz - h / 2;                             // …centered, not offset
+  }
   if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h }; // never trust a degenerate fit
   return { x: x0, y: z0, w, h };
 }
@@ -2717,7 +2742,7 @@ function refitBuildingColliders() {
   for (const b of world.buildings) {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
-    const fit = fitBuildingFootprint(b, box);
+    const fit = fitBuildingFootprint(b, box, getDoorSide(b));
     const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });
   }
