@@ -15274,7 +15274,15 @@ const KK = (() => {
     prop_shrine:   'kk/props/shrine_candles.gltf',
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
-    prop_arch:     'kk/props/arch_gate.gltf'
+    prop_arch:     'kk/props/arch_gate.gltf',
+    // Forest Nature Pack — bare/dead trees for the Wilds & graveyard scenery
+    // (replacing the procedural makeSpookyTree cones). Six variants for variety.
+    tree_bare1a:   'kk/nature/Tree_Bare_1_A_Color1.gltf',
+    tree_bare1b:   'kk/nature/Tree_Bare_1_B_Color1.gltf',
+    tree_bare1c:   'kk/nature/Tree_Bare_1_C_Color1.gltf',
+    tree_bare2a:   'kk/nature/Tree_Bare_2_A_Color1.gltf',
+    tree_bare2b:   'kk/nature/Tree_Bare_2_B_Color1.gltf',
+    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf'
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -22813,6 +22821,21 @@ function makeSpookyTree(x, z) {
   return g;
 }
 
+// KayKit bare/dead tree (Forest Nature Pack) for the Wilds & graveyards — a
+// detailed leafless tree that suits the spooky mood far better than the old
+// procedural cones. Picks a random variant and facing; falls back to the
+// procedural tree if the models haven't finished loading yet.
+const KAY_BARE_TREES = ['tree_bare1a', 'tree_bare1b', 'tree_bare1c', 'tree_bare2a', 'tree_bare2b', 'tree_bare2c'];
+function makeKayTree(x, z) {
+  const key = KAY_BARE_TREES[Math.floor(Math.random() * KAY_BARE_TREES.length)];
+  const h = 72 + Math.random() * 46; // world-units tall, a little varied
+  const g = KK.staticInstance(key, h, 'height');
+  if (!g) return makeSpookyTree(x, z); // models not ready → procedural fallback
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
 function makeGravestone(x, z) {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
@@ -22912,7 +22935,7 @@ function addSpookyDecor(scene, w2) {
   for (let i = 0; i < 85; i++) {
     const x = rng(300, w2.width - 300), z = rng(300, w2.height - 300);
     if (!clearOf(x, z)) continue;
-    scene.add(makeSpookyTree(x, z));
+    scene.add(makeKayTree(x, z));
     wildsCollide(x, z, 9);
   }
   // Graveyard clusters (two more than before, filling the SE and far west)
@@ -22926,7 +22949,7 @@ function addSpookyDecor(scene, w2) {
     for (let i = 0; i < 5; i++) {
       const x = cx + rng(-200, 200), z = cz + rng(-200, 200);
       if (!clearOf(x, z)) continue;
-      scene.add(makeSpookyTree(x, z));
+      scene.add(makeKayTree(x, z));
       wildsCollide(x, z, 9);
     }
     // …and the remains of whatever visits graveyards at night
