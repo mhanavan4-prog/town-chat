@@ -85,6 +85,42 @@ test('lastError records WHY a generate returned null (so a fallback is diagnosab
   assert.equal(slow.lastError(), 'timeout');
 });
 
+test('retries once on a stalled call and then succeeds (fresh attempt)', async () => {
+  let n = 0;
+  const s = createSpirit({
+    apiKey: 'k', timeoutMs: 20, retries: 1,
+    fetchImpl: (url, opts) => {
+      n++;
+      if (n === 1) return new Promise((resolve, reject) => { if (opts.signal) opts.signal.addEventListener('abort', () => reject(new Error('aborted'))); });
+      return goodBody('SOON');
+    },
+  });
+  assert.equal(await s.generate({}), 'SOON');
+  assert.equal(n, 2, 'made a second attempt after the first stalled');
+  assert.equal(s.lastError(), null);
+});
+
+test('retries a 429 but NOT a 400', async () => {
+  let n429 = 0;
+  const s429 = createSpirit({ apiKey: 'k', retries: 1, fetchImpl: async () => { n429++; return { ok: false, status: 429, json: async () => ({}) }; } });
+  assert.equal(await s429.generate({}), null);
+  assert.equal(n429, 2, '429 is retried');
+
+  let n400 = 0;
+  const s400 = createSpirit({ apiKey: 'k', retries: 1, fetchImpl: async () => { n400++; return { ok: false, status: 400, json: async () => ({}) }; } });
+  assert.equal(await s400.generate({}), null);
+  assert.equal(n400, 1, '400 is not retried');
+  assert.equal(s400.lastError(), 'http_400');
+});
+
+test('retries are exhausted → null with the last reason', async () => {
+  let n = 0;
+  const s = createSpirit({ apiKey: 'k', retries: 1, fetchImpl: async () => { n++; return { ok: false, status: 503, json: async () => ({}) }; } });
+  assert.equal(await s.generate({}), null);
+  assert.equal(n, 2, 'tried 1 + 1 retry');
+  assert.equal(s.lastError(), 'http_503');
+});
+
 test('buildUserContent frames the coven, moon and question', () => {
   const c = createSpirit.buildUserContent({ covenName: 'Hags', present: 2, moon: 'the moon is thin', question: 'who are you' });
   assert.ok(/Hags/.test(c));
