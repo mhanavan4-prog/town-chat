@@ -12943,6 +12943,19 @@ global.__testHooks = {
   computeStatBlock, statContrib, gearStatContrib, invEquipField
 };
 
+// A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
+// is emitted as an 'error' event on the server. Without this listener it would
+// bubble to the uncaughtException handler above, which logs but does NOT exit —
+// leaving a live-but-not-listening zombie that systemd considers "running" and
+// never restarts. Treat any listen error as fatal: log it, then exit(1) so the
+// supervisor (Restart=always) retries cleanly once the port frees.
+server.on('error', (err) => {
+  try { audit.log({ level: 'alert', type: 'listen_error',
+    detail: { code: err && err.code, message: (err && err.message) || String(err) } }); } catch (e) {}
+  console.error('FATAL listen error — exiting for supervisor restart:', err);
+  process.exit(1);
+});
+
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
   if (TOWN_PASSWORD) console.log('Passcode protection: ON');
