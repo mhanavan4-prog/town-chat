@@ -7576,13 +7576,16 @@ function initScene(w) {
   scene.add(emberPortalVisual.group);
   EMBER_PORTAL_KIOSK.x = templeCx; EMBER_PORTAL_KIOSK.z = templeCz;
 
-  // A lone watchtower landmark on the north green, southwest of the Town Hall
-  // — scenery only (no interior/door, not part of w.buildings), the same
-  // precedent as the Torchkeepers' temple above. Dark-tinted to match the
-  // buildings; a central collider keeps players from walking through its stone
-  // base, and camFade lets it ghost out when it comes between cam and player.
+  // A lone watchtower landmark tucked into the north edge, in the gap between
+  // the Town Hall and the Library below the tree line — scenery only (no
+  // interior/door, not part of w.buildings), the same precedent as the
+  // Torchkeepers' temple above. Kept well off the plaza and the spawn→delve
+  // path so it reads as a distant skyline marker, not an obstacle. Dark-tinted
+  // to match the buildings; a central collider keeps players from walking
+  // through its stone base, and camFade lets it ghost out when it comes
+  // between cam and player.
   if (KK.settled && KK.has('landmark_watchtower')) {
-    const wt = kkPlace(scene, 'landmark_watchtower', 1320, 640, 300, 0.55, 'height');
+    const wt = kkPlace(scene, 'landmark_watchtower', 2040, 500, 300, -0.63, 'height');
     if (wt) {
       wt.traverse((ch) => { if (ch.isMesh && ch.material) {
         // 0.62 == BUILDING_TINT in building-mesh.js; clone so the tint applies
@@ -7592,7 +7595,7 @@ function initScene(w) {
       }});
       wt.userData.camFade = true;
       const wr = 130; // collider half-width over the stone base footprint
-      walls.push({ x: 1320 - wr, y: 640 - wr, w: wr * 2, h: wr * 2 });
+      walls.push({ x: 2040 - wr, y: 500 - wr, w: wr * 2, h: wr * 2 });
     }
   }
 
