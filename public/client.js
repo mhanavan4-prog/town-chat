@@ -15274,6 +15274,9 @@ const KK = (() => {
     bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
+    // Scenery-only landmark (no interior, not in w.buildings) — placed by hand
+    // on the north green in initScene, same precedent as the Torchkeepers' temple.
+    landmark_watchtower: 'kk/bld/building_watchtower_red.gltf',
     prop_bench:    'kk/props/bench_decorated.gltf',
     prop_lamppost: 'kk/props/post_lantern.gltf',
     prop_well:     'kk/bld/building_well_blue.gltf',
@@ -22543,6 +22546,26 @@ function initScene(w) {
   emberPortalVisual = buildEmberPortal(templeCx, templeCz);
   scene.add(emberPortalVisual.group);
   EMBER_PORTAL_KIOSK.x = templeCx; EMBER_PORTAL_KIOSK.z = templeCz;
+
+  // A lone watchtower landmark on the north green, southwest of the Town Hall
+  // — scenery only (no interior/door, not part of w.buildings), the same
+  // precedent as the Torchkeepers' temple above. Dark-tinted to match the
+  // buildings; a central collider keeps players from walking through its stone
+  // base, and camFade lets it ghost out when it comes between cam and player.
+  if (KK.settled && KK.has('landmark_watchtower')) {
+    const wt = kkPlace(scene, 'landmark_watchtower', 1320, 640, 300, 0.55, 'height');
+    if (wt) {
+      wt.traverse((ch) => { if (ch.isMesh && ch.material) {
+        // 0.62 == BUILDING_TINT in building-mesh.js; clone so the tint applies
+        // once and never bleeds into other instances sharing a source material.
+        const tintOne = (m) => { const c = m.clone(); if (c.color) c.color.multiplyScalar(0.62); return c; };
+        ch.material = Array.isArray(ch.material) ? ch.material.map(tintOne) : tintOne(ch.material);
+      }});
+      wt.userData.camFade = true;
+      const wr = 130; // collider half-width over the stone base footprint
+      walls.push({ x: 1320 - wr, y: 640 - wr, w: wr * 2, h: wr * 2 });
+    }
+  }
 
   kkTownDressing(scene, w);
   GFX.initSky(scene);
