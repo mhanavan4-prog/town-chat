@@ -7092,6 +7092,9 @@ const seance = require('./lib/seance');
 const seanceSpirit = require('./lib/spirit')({
   apiKey: process.env.SEANCE_API_KEY || '',
   model: process.env.SEANCE_MODEL || undefined,
+  // Live round trips from this host run ~3–4s; the lib default (12s) clears
+  // that with room to spare. Overridable per-host without a redeploy.
+  timeoutMs: Number(process.env.SEANCE_TIMEOUT_MS) || undefined,
 });
 // A safety-net blocklist applied after the charset map. Empty by default (the
 // charset + length cap + the model's own guardrails do most of the work); an
@@ -7208,12 +7211,16 @@ async function resolveSeanceAnswer(cv, askerKey, question) {
 
   let raw = null, message = null, source;
   try { raw = await seanceSpirit.generate(ctx); } catch (e) { raw = null; }
+  // Why the AI produced nothing (null on success) — surfaced in the audit so an
+  // all-fallback board is diagnosable at a glance instead of by guesswork.
+  let aiError = null;
+  try { aiError = seanceSpirit.lastError ? seanceSpirit.lastError() : null; } catch (e) { /* noop */ }
   message = seance.sanitize(raw, { blocklist: SEANCE_BLOCKLIST });
   if (message) source = hint ? 'ai_hint' : 'ai';
   else if (hint) { message = seance.sanitize(hint.line, { blocklist: SEANCE_BLOCKLIST }); source = 'lore'; }
   if (!message) { message = seance.sanitize(seance.pickAnswer(), { blocklist: SEANCE_BLOCKLIST }) || 'GOODBYE'; source = 'fallback'; }
   try {
-    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, bloodMoon, question: question || '', raw: raw || '', message } });
+    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, bloodMoon, aiError, question: question || '', raw: raw || '', message } });
   } catch (e) { /* logging must never break the ritual */ }
   return { message, source };
 }
