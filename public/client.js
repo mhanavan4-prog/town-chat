@@ -7922,7 +7922,7 @@ function buildTownTemple(cx, cz) {
 // debug snapshot read it) and is injected via get/set; the active scene and the
 // day/night flag are reassigned lets, injected as getters.
 // ---------------------------------------------------------------------------
-function createMobsTown({ getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar }) {
+function createMobsTown({ getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight }) {
 function makeMob() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
@@ -7986,7 +7986,13 @@ function updateMobVisuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    v.mesh.position.set(v.x, 0, v.y);
+    // Sit on the floor, not a flat y=0 — otherwise mobs that wander onto the
+    // raised Temple platform sink through its base. Chased (not snapped) so the
+    // platform edge reads as a step up, same as players/Torchkeepers.
+    const baseYT = (typeof getFloorHeight === 'function') ? getFloorHeight('outside', v.x, v.y) : 0;
+    if (v.baseYS === undefined || Math.abs(baseYT - v.baseYS) > 34) v.baseYS = baseYT;
+    else v.baseYS += (baseYT - v.baseYS) * f;
+    v.mesh.position.set(v.x, v.baseYS, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = getLastWildlifeIsNight() && !v.dead;
   }
@@ -24215,7 +24221,7 @@ let mobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFaci
 const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
   getMobVisuals: () => mobVisuals, setMobVisuals: (v) => { mobVisuals = v; },
   getOutdoorScene: () => outdoorScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
-  lerpAngle, makeHealthBarSprite, updateHealthBar,
+  lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight,
 });
 
 // ---------------------------------------------------------------------------

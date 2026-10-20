@@ -9103,7 +9103,7 @@ let mobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFaci
 const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
   getMobVisuals: () => mobVisuals, setMobVisuals: (v) => { mobVisuals = v; },
   getOutdoorScene: () => outdoorScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
-  lerpAngle, makeHealthBarSprite, updateHealthBar,
+  lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight,
 });
 
 // ---------------------------------------------------------------------------
