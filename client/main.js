@@ -304,6 +304,13 @@ const KK = (() => {
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
     prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
+    // KayKit set-dressing props (swapped in for the old procedural versions).
+    prop_crate:   'kk/bld/crate_A_big.gltf',
+    prop_barrel:  'kk/bld/barrel.gltf',
+    prop_haybale: 'kk/bld/haybale.gltf',
+    prop_log:     'kk/bld/resource_lumber.gltf',
+    prop_stump:   'kk/bld/tree_single_A_cut.gltf',
+    prop_stall:   'kk/bld/building_market_red.gltf', // market stall (also the Peddler's canopy)
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.

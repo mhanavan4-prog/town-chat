@@ -108,6 +108,8 @@ function makeStallCanopyTexture(variant) {
 }
 
 function makeMarketStall(d) {
+  const kkG = KK.staticInstance('prop_stall', 120, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const counter = new THREE.Mesh(new THREE.BoxGeometry(64, 22, 40), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   counter.position.y = 11; g.add(counter);
@@ -136,6 +138,8 @@ function makeMarketStall(d) {
 }
 
 function makeCrate(d) {
+  const kkG = KK.staticInstance('prop_crate', 26, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const crate = new THREE.Mesh(new THREE.BoxGeometry(17, 17, 17), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   crate.position.y = 8.5;
@@ -149,6 +153,8 @@ function makeCrate(d) {
 }
 
 function makeBarrelProp(d) { // see makeBenchProp note — renamed to dodge the interior makeBarrel(x, z)
+  const kkG = KK.staticInstance('prop_barrel', 26, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 20, 10), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   body.position.y = 10;
@@ -166,6 +172,8 @@ function makeBarrelProp(d) { // see makeBenchProp note — renamed to dodge the 
 }
 
 function makeHaybale(d) {
+  const kkG = KK.staticInstance('prop_haybale', 38, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const bale = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 26, 10), new THREE.MeshLambertMaterial({ color: 0xd8b64e }));
   bale.rotation.z = Math.PI / 2;
@@ -198,6 +206,8 @@ function makeFenceSeg(d) {
 }
 
 function makeStump(d) {
+  const kkG = KK.staticInstance('prop_stump', 28, 'height');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const stump = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 10, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   stump.position.y = 5; g.add(stump);
@@ -208,6 +218,8 @@ function makeStump(d) {
 }
 
 function makeFallenLog(d) {
+  const kkG = KK.staticInstance('prop_log', 46, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const log = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 48, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   log.rotation.z = Math.PI / 2;
