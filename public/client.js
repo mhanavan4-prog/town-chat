@@ -22556,16 +22556,19 @@ function initScene(w) {
       const line = hexLine(hub, door);
       for (let i = 0; i < line.length - 1; i++) mark(line[i], line[i + 1]);
       // The terminus would otherwise be a dead-end stub whose road graphic runs
-      // only from the hex centre back toward the approach, leaving a grass gap to
-      // the door. Add a spur on the terminus pointing at the building (the edge
-      // best aligned with -n), so the road runs through the hex and meets the door.
+      // only from the hex centre back toward the approach. Add a spur pointing at
+      // the actual DOOR POINT so the road turns toward the threshold. (Aiming at
+      // -n — the building centre — sent the stub into the wall when the door sat
+      // off to one side of the terminus hex, e.g. the arcade's east door, whose
+      // hex rounds to the building's NE corner with the door ~106u south.)
       const tc = axToWorld(door[0], door[1]);
-      let be = 0, bd = Infinity;
+      const ddx = dp.x - tc.x, ddz = dp.y - tc.z, dL = Math.hypot(ddx, ddz) || 1;
+      let be = 0, bd = -Infinity;
       for (let i = 0; i < 6; i++) {
         const cc = axToWorld(door[0] + NB[i][0], door[1] + NB[i][1]);
         const dx = cc.x - tc.x, dz = cc.z - tc.z, L = Math.hypot(dx, dz) || 1;
-        const d = (dx / L) * n[0] + (dz / L) * n[1];
-        if (d < bd) { bd = d; be = i; }
+        const d = (dx / L) * (ddx / dL) + (dz / L) * (ddz / dL);
+        if (d > bd) { bd = d; be = i; }
       }
       const tkey = key(door[0], door[1]);
       if (!roadEdges.has(tkey)) { roadEdges.set(tkey, new Set()); roadQR.set(tkey, door); }
@@ -22628,12 +22631,26 @@ function initScene(w) {
   // haven't arrived when initScene runs — so every building fell back to the
   // plain procedural box and never upgraded. Build once KK has settled (warm:
   // immediately; cold: when the gated batch lands), so the KayKit buildings show.
-  let townBuilt = false;
+  // Town collision is refit to the KayKit models and snapshotted into TOWN_WALLS
+  // at the end of initScene. But buildings AND decor are now deferred to KK-settle
+  // (below), so on a cold load neither has happened by then: the refit ran against
+  // empty model boxes and left the full data-rect walls standing beyond the
+  // smaller models — invisible walls. Re-finalize collision once BOTH deferred
+  // builds are done, whichever finishes last (no-op on a warm load, where the
+  // end-of-initScene refit already ran with everything in place).
+  let townBuilt = false, decorBuilt = false, collisionFinalized = false;
+  const finalizeTownCollision = () => {
+    if (collisionFinalized || !townBuilt || !decorBuilt) return;
+    collisionFinalized = true;
+    refitBuildingColliders(); // re-cut building walls to the now-placed model boxes
+    TOWN_WALLS = walls;        // re-snapshot so swapToTownMap() restores the fit collision
+  };
   const bldScene = scene; // capture the town scene; `scene` may be swapped later
   const buildTownBuildings = () => {
     if (townBuilt || !KK.settled) return;
     townBuilt = true;
     for (const b of w.buildings) bldScene.add(buildBuildingMesh(b, w));
+    finalizeTownCollision();
   };
   buildTownBuildings();
   if (!townBuilt && KK) {
@@ -22646,12 +22663,12 @@ function initScene(w) {
   // never upgraded. addNatureDecor also registers colliders + harvestables, so
   // re-running it would duplicate — instead defer the single call until KK has
   // settled (warm: now; cold: when the gated batch lands), same as floor/buildings.
-  let decorBuilt = false;
   const decorScene = scene;
   const buildDecor = () => {
     if (decorBuilt || !KK.settled) return;
     decorBuilt = true;
     addNatureDecor(decorScene, w, decorVisuals);
+    finalizeTownCollision();
   };
   buildDecor();
   if (!decorBuilt && KK) {
