@@ -7430,11 +7430,28 @@ function addVillageBuildings(scene) {
   forgeGlow.scale.set(80, 80, 1); forgeGlow.position.set(AFX + 52, 36, AFZ); scene.add(forgeGlow);
   const forgeLight = new THREE.PointLight(0xff7a2a, 1.1, 280);
   forgeLight.position.set(AFX + 52, 42, AFZ); scene.add(forgeLight);
-  // The Artificer, tending the anvil
-  const artificer = createHumanoid(1).group;
-  artificer.position.set(AFX + 16, 0, AFZ + 26); artificer.rotation.y = Math.PI; scene.add(artificer);
+  // The Artificer — a vampire lord lounging on his throne by the forge. Throne
+  // and vampire are scaled by the SAME factor (140 vs 134, their native-height
+  // ratio) so the shared-rig Sit_Chair_Idle clip lands him on the seat; both
+  // face +z toward approaching players. Falls back to the procedural smith until
+  // the bodies stream in.
+  const artX = AFX + 16, artZ = AFZ + 26;
+  let artLabelY = 92;
+  const vampReady = hasKK && hasKK('npc_vampire') && hasKK('prop_throne') && createKayKitByKey && KK.staticInstance;
+  if (vampReady) {
+    const throne = KK.staticInstance('prop_throne', 134, 'height');
+    if (throne) { throne.position.set(artX, 0, artZ); scene.add(throne); }
+    const built = createKayKitByKey('npc_vampire', 140);
+    if (kkSetState && built.kk) kkSetState(built.kk, 'Sit_Chair_Idle');
+    built.group.position.set(artX, 0, artZ);
+    scene.add(built.group);
+    artLabelY = 170;
+  } else {
+    const artificer = createHumanoid(1).group;
+    artificer.position.set(artX, 0, artZ); artificer.rotation.y = Math.PI; scene.add(artificer);
+  }
   const artLabel = makeNpcNameSprite('⚒️ The Artificer');
-  artLabel.position.set(AFX + 16, 92, AFZ + 26); scene.add(artLabel);
+  artLabel.position.set(artX, artLabelY, artZ); scene.add(artLabel);
   const forgeSign = makeSignSprite('🔨 Artificer\'s Workshop — Press F');
   forgeSign.position.set(AFX + 26, 118, AFZ); scene.add(forgeSign);
   WILDS_KIOSKS.push({ x: AFX + 26, z: AFZ + 40, npc: 'artificer', radius: 110 });
@@ -16143,6 +16160,8 @@ const KK = (() => {
     skel_mage:    'kk/Skeleton_Mage.glb',
     skel_golem:   'kk/Skeleton_Golem.glb',
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
+    npc_vampire:  'kk/Vampire.glb',        // the Artificer, lounging on his throne
+    prop_throne:  'kk/vampire/Vampire_Throne.gltf', // the Artificer's vampire throne
     mon_beast:    'kk/Monster.glb',        // Wilds world-boss reskin (Mother of Thorns, the Wyrm)
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
@@ -16271,7 +16290,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne'];
   const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
