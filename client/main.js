@@ -7528,8 +7528,28 @@ function initScene(w) {
       for (let i = 0; i <= N; i++) { const t = N ? i / N : 0; out.push(axRound(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)); }
       return out;
     }
+    const DOOR_OUT = { east: [1, 0], west: [-1, 0], north: [0, -1], south: [0, 1] };
     for (const b of w.buildings) {
-      const dp = getDoorWorldPos(b), door = worldToAx(dp.x, dp.y), line = hexLine(hub, door);
+      const dp = getDoorWorldPos(b), n = DOOR_OUT[getDoorSide(b)] || [0, 1];
+      let door = worldToAx(dp.x, dp.y);
+      // The door point lands on the footprint edge, so its hex can sit UNDER the
+      // building — the road tile there is hidden by the mesh, so the path looks
+      // like it stops short or veers aside. Step the target outward along the
+      // door normal until the hex centre clears the footprint: that hex is where
+      // a player actually stands at the door, so the road ends right at it.
+      for (let g = 0; g < 4; g++) {
+        const c = axToWorld(door[0], door[1]);
+        if (!(c.x > b.x && c.x < b.x + b.w && c.z > b.y && c.z < b.y + b.h)) break;
+        let best = 0, bestDot = -Infinity;
+        for (let i = 0; i < 6; i++) {
+          const cc = axToWorld(door[0] + NB[i][0], door[1] + NB[i][1]);
+          const dx = cc.x - c.x, dz = cc.z - c.z, L = Math.hypot(dx, dz) || 1;
+          const d = (dx / L) * n[0] + (dz / L) * n[1];
+          if (d > bestDot) { bestDot = d; best = i; }
+        }
+        door = [door[0] + NB[best][0], door[1] + NB[best][1]];
+      }
+      const line = hexLine(hub, door);
       for (let i = 0; i < line.length - 1; i++) mark(line[i], line[i + 1]);
     }
 
