@@ -6,7 +6,7 @@
 // THREE/LEGEND_FX are globals; textures/sprites, createHumanoid, door helpers,
 // and TOWN_NPCS/KK/kiosk data are injected; `me` via getter.
 // ---------------------------------------------------------------------------
-export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
+export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
     const mesh = createHumanoid(npc.charId).group;
@@ -483,6 +483,9 @@ function makePentacleMedallion(x, y, z) {
 function buildTownTemple(cx, cz) {
   const g = new THREE.Group();
   const platformW = 360, platformD = 260, platformH = 16;
+  // Fresh registry each build (the temple is built once per session, but keep
+  // this idempotent so a rebuild never leaves stale lights ramping).
+  if (TEMPLE_TORCH_LIGHTS) TEMPLE_TORCH_LIGHTS.length = 0;
   const whiteStoneTex = makeWhiteStoneTexture();
   whiteStoneTex.repeat.set(platformW / 50, platformD / 50);
 
@@ -581,9 +584,16 @@ function buildTownTemple(cx, cz) {
         flame.position.set(px, platformH + 60, pz);
         g.add(flame);
       }
-      const torchLight = new THREE.PointLight(0xff8a3c, 0.8, 150);
-      torchLight.position.set(px, platformH + 52, pz);
+      // Tighter range so each torch throws a localized warm pool (the old 150
+      // washed the whole platform, flattening the night). Intensity is ramped
+      // by the day/night cycle via TEMPLE_TORCH_LIGHTS — low by day, bright at
+      // night — so the flames read as the temple's own light after dark.
+      const torchLight = new THREE.PointLight(0xff8a3c, 0.3, 85);
+      torchLight.position.set(px, platformH + 50, pz);
       g.add(torchLight);
+      if (TEMPLE_TORCH_LIGHTS) {
+        TEMPLE_TORCH_LIGHTS.push({ light: torchLight, phase: TEMPLE_TORCH_LIGHTS.length * 1.7 });
+      }
     }
   }
 

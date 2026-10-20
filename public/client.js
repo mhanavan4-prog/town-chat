@@ -7284,7 +7284,7 @@ function buildWildsNPCs(scene) {
 // THREE/LEGEND_FX are globals; textures/sprites, createHumanoid, door helpers,
 // and TOWN_NPCS/KK/kiosk data are injected; `me` via getter.
 // ---------------------------------------------------------------------------
-function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
+function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
     const mesh = createHumanoid(npc.charId).group;
@@ -7761,6 +7761,9 @@ function makePentacleMedallion(x, y, z) {
 function buildTownTemple(cx, cz) {
   const g = new THREE.Group();
   const platformW = 360, platformD = 260, platformH = 16;
+  // Fresh registry each build (the temple is built once per session, but keep
+  // this idempotent so a rebuild never leaves stale lights ramping).
+  if (TEMPLE_TORCH_LIGHTS) TEMPLE_TORCH_LIGHTS.length = 0;
   const whiteStoneTex = makeWhiteStoneTexture();
   whiteStoneTex.repeat.set(platformW / 50, platformD / 50);
 
@@ -7859,9 +7862,16 @@ function buildTownTemple(cx, cz) {
         flame.position.set(px, platformH + 60, pz);
         g.add(flame);
       }
-      const torchLight = new THREE.PointLight(0xff8a3c, 0.8, 150);
-      torchLight.position.set(px, platformH + 52, pz);
+      // Tighter range so each torch throws a localized warm pool (the old 150
+      // washed the whole platform, flattening the night). Intensity is ramped
+      // by the day/night cycle via TEMPLE_TORCH_LIGHTS — low by day, bright at
+      // night — so the flames read as the temple's own light after dark.
+      const torchLight = new THREE.PointLight(0xff8a3c, 0.3, 85);
+      torchLight.position.set(px, platformH + 50, pz);
       g.add(torchLight);
+      if (TEMPLE_TORCH_LIGHTS) {
+        TEMPLE_TORCH_LIGHTS.push({ light: torchLight, phase: TEMPLE_TORCH_LIGHTS.length * 1.7 });
+      }
     }
   }
 
@@ -14588,7 +14598,7 @@ function applyTownTorchState(torches) {
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
+function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -14652,7 +14662,10 @@ function updateDayNightCycle() {
   if (hagstone) _ambientColor.copy(AMBIENT_HAG);
   else _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   getOutdoorAmbient().color.copy(_ambientColor);
-  getOutdoorAmbient().intensity = hagstone ? 0.52 : (0.38 + lightAmount * 0.27);
+  // Strong day↔night contrast: night ambient drops low (0.22) so the scene
+  // genuinely darkens and the warm torch/lantern/portal pools read, while day
+  // stays bright and warm (0.64). Hagstone keeps its own hushed mid-level.
+  getOutdoorAmbient().intensity = hagstone ? 0.5 : (0.22 + lightAmount * 0.42);
 
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
@@ -14688,7 +14701,7 @@ function updateDayNightCycle() {
 
   getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
   getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
-  getOutdoorMoonLight().intensity = moonStrength * 0.55;
+  getOutdoorMoonLight().intensity = moonStrength * 0.48;
   // The moon blushes red on blood nights, glows violet in the Hagstone world.
   const moonColor = bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_PALE_COLOR;
   getMoonMesh().material.color.copy(moonColor);
@@ -14705,6 +14718,18 @@ function updateDayNightCycle() {
     for (const l of getLampGlows()) {
       l.glassMat.opacity = 0.22 + glow * 0.72;
       l.glowMat.opacity = glow * 0.55;
+    }
+  }
+
+  // Temple of the Flame torches: low warm fill by day, bright pools by night,
+  // each with its own gentle flicker so the flames read as alive after dark.
+  const torches = getTempleTorchLights && getTempleTorchLights();
+  if (torches && torches.length) {
+    const nightAmt = 1 - effLight;
+    const t = performance.now() * 0.006;
+    for (const e of torches) {
+      const flicker = 1 + Math.sin(t + e.phase) * 0.08 + Math.sin(t * 2.3 + e.phase) * 0.04;
+      e.light.intensity = (0.3 + nightAmt * 0.85) * flicker;
     }
   }
 
@@ -21831,6 +21856,9 @@ const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, p
 let outdoorAmbient = null;
 let outdoorSun = null;
 let outdoorMoonLight = null;
+// Temple of the Flame torch point lights — registered by buildTownTemple and
+// ramped up at night (see updateDayNightCycle) so the flames "carry the dark".
+const TEMPLE_TORCH_LIGHTS = [];
 let moonMesh = null;
 let sunMesh = null;
 const interiorScenes = {};     // buildingId -> interior record
@@ -23156,6 +23184,7 @@ const {
   KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid: createStaticNpc, getDoorSide, getDoorWorldPos, kkPlace,
   makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture,
   getMe: () => me,
+  TEMPLE_TORCH_LIGHTS,
   setDelveStoneGroup: (g) => { delveStoneGroup = g; },
   setPeddlerStallGroup: (g) => { peddlerStallGroup = g; },
   setLocksmithGroup: (g) => { locksmithGroup = g; },
@@ -24110,13 +24139,15 @@ const NIGHT_MS = 20 * 60 * 1000;
 const CYCLE_MS = DAY_MS + NIGHT_MS;
 const DAY_NIGHT_TRANSITION_MS = 90 * 1000; // dawn/dusk blend window, eats into the tail of each phase
 
-// Witchlight daytime: no more postcard-blue noon. Day is a moody mauve —
-// still clearly daylight (mobs stay asleep, lamps stay off), but the town
-// reads as the kind of place where the Cauldron Café makes sense.
-const SKY_DAY = new THREE.Color(0x9b93c9);
+// Witchlight daytime: no postcard-blue noon, but cozy rather than cold —
+// a warm golden-hour light over a soft warm-lavender sky, so the town reads
+// as a welcoming witch-town where the Cauldron Café makes sense. Night swings
+// hard the other way: a deep moonlit blue (see the ambient-intensity curve in
+// day-night.js) so the torches, lanterns and the ember portal carry the dark.
+const SKY_DAY = new THREE.Color(0xb6a7c2);
 const SKY_NIGHT = new THREE.Color(0x0a1230);
-const AMBIENT_DAY = new THREE.Color(0xe6dcf5);
-const AMBIENT_NIGHT = new THREE.Color(0x8fa0ff);
+const AMBIENT_DAY = new THREE.Color(0xf4e7cf);
+const AMBIENT_NIGHT = new THREE.Color(0x6c7ac8);
 const _skyColor = new THREE.Color();
 const _ambientColor = new THREE.Color();
 
@@ -24135,6 +24166,7 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
   hagstoneActiveClient: () => mootInstanceActive, // 🌑 re-grade to violet night inside a coven's private world
   getLampGlows: () => LAMP_GLOWS,
+  getTempleTorchLights: () => TEMPLE_TORCH_LIGHTS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
   getWildsScene: () => wildsScene,

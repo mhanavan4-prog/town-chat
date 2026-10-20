@@ -7,7 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
+export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -71,7 +71,10 @@ function updateDayNightCycle() {
   if (hagstone) _ambientColor.copy(AMBIENT_HAG);
   else _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   getOutdoorAmbient().color.copy(_ambientColor);
-  getOutdoorAmbient().intensity = hagstone ? 0.52 : (0.38 + lightAmount * 0.27);
+  // Strong day↔night contrast: night ambient drops low (0.22) so the scene
+  // genuinely darkens and the warm torch/lantern/portal pools read, while day
+  // stays bright and warm (0.64). Hagstone keeps its own hushed mid-level.
+  getOutdoorAmbient().intensity = hagstone ? 0.5 : (0.22 + lightAmount * 0.42);
 
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
@@ -107,7 +110,7 @@ function updateDayNightCycle() {
 
   getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
   getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
-  getOutdoorMoonLight().intensity = moonStrength * 0.55;
+  getOutdoorMoonLight().intensity = moonStrength * 0.48;
   // The moon blushes red on blood nights, glows violet in the Hagstone world.
   const moonColor = bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_PALE_COLOR;
   getMoonMesh().material.color.copy(moonColor);
@@ -124,6 +127,18 @@ function updateDayNightCycle() {
     for (const l of getLampGlows()) {
       l.glassMat.opacity = 0.22 + glow * 0.72;
       l.glowMat.opacity = glow * 0.55;
+    }
+  }
+
+  // Temple of the Flame torches: low warm fill by day, bright pools by night,
+  // each with its own gentle flicker so the flames read as alive after dark.
+  const torches = getTempleTorchLights && getTempleTorchLights();
+  if (torches && torches.length) {
+    const nightAmt = 1 - effLight;
+    const t = performance.now() * 0.006;
+    for (const e of torches) {
+      const flicker = 1 + Math.sin(t + e.phase) * 0.08 + Math.sin(t * 2.3 + e.phase) * 0.04;
+      e.light.intensity = (0.3 + nightAmt * 0.85) * flicker;
     }
   }
 
