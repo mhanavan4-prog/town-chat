@@ -11141,7 +11141,8 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
-  wire('menuWorkshop', openWorkshopModal);
+  // The Workshop is now reached only at the Artificer's forge in the Wildlands
+  // Village (see the 'artificer' kiosk) — no menu entry.
   wire('menuAchievements', openAchModal);
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
