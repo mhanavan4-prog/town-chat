@@ -946,21 +946,35 @@
   .playerMenu button:hover { background:rgba(255,255,255,0.08); }
   .playerMenu button.playerMenuReport { color:#f0a89f; }
 
-  /* Loading pill — follows the cursor while assets stream in, fades at 100%. */
+  /* Loading pill — a prominent top-centre banner while the world's KayKit
+     graphics stream in, so a brand-new player knows the brief rough-graphics
+     moment is the world still loading (not a broken game) and waits it out
+     instead of bouncing. Fades once the world has finished painting in. */
   .loadPill {
     position:fixed; z-index:10001; pointer-events:none;
-    transform:translate(14px,16px); /* sit just off the cursor tip */
-    display:flex; align-items:center; gap:7px;
-    padding:5px 11px; border-radius:999px;
-    background:rgba(20,14,38,0.86); border:1px solid rgba(158,227,125,0.4);
-    color:#eafff0; font-size:12px; font-weight:600; letter-spacing:.01em;
-    box-shadow:0 4px 14px rgba(0,0,0,0.4); white-space:nowrap;
-    opacity:0; visibility:hidden; transition:opacity .35s ease;
+    left:50%; top:18px; transform:translate(-50%,-14px);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:9px 18px 11px; border-radius:16px;
+    background:rgba(24,16,40,0.92); border:1px solid rgba(255,180,90,0.5);
+    color:#fff4e6; font-size:13px; font-weight:600; letter-spacing:.01em;
+    box-shadow:0 6px 22px rgba(0,0,0,0.5); white-space:nowrap; text-align:center;
+    opacity:0; visibility:hidden; transition:opacity .4s ease, transform .4s ease;
   }
-  .loadPill.show { opacity:1; visibility:visible; }
-  .loadPill::before {
-    content:""; width:9px; height:9px; border-radius:50%;
-    background:#9ee37d; box-shadow:0 0 7px #9ee37d; animation:loadPillPulse 1s ease-in-out infinite;
+  .loadPill.show { opacity:1; visibility:visible; transform:translate(-50%,0); }
+  .loadPillTop { display:flex; align-items:center; gap:8px; }
+  .loadPillTop::before {
+    content:""; width:9px; height:9px; border-radius:50%; flex:none;
+    background:#ffb45a; box-shadow:0 0 8px #ffb45a; animation:loadPillPulse 1s ease-in-out infinite;
+  }
+  .loadPillSub { font-size:11px; font-weight:500; opacity:.82; letter-spacing:.01em; }
+  .loadPillBar {
+    width:200px; max-width:62vw; height:5px; border-radius:999px; margin-top:2px;
+    background:rgba(255,255,255,0.14); overflow:hidden;
+  }
+  .loadPillFill {
+    display:block; height:100%; width:0%; border-radius:999px;
+    background:linear-gradient(90deg,#ff8a3d,#ffcf6a);
+    box-shadow:0 0 8px rgba(255,160,70,0.7); transition:width .25s ease;
   }
   @keyframes loadPillPulse { 0%,100%{opacity:.45;} 50%{opacity:1;} }
 
@@ -1932,7 +1946,7 @@
 <canvas id="game"></canvas>
 <!-- Asset-load pill: follows the cursor while the KayKit models stream in, so a
      new player understands the brief rough-graphics moment. Hides at 100%. -->
-<div id="loadPill" class="loadPill" aria-live="polite"></div>
+<div id="loadPill" class="loadPill" aria-live="polite"><span class="loadPillTop"><span id="loadPillText">Loading the world’s graphics…</span></span><span class="loadPillSub">hang tight — the rough look clears in a moment</span><span class="loadPillBar"><i id="loadPillFill" class="loadPillFill"></i></span></div>
 
 <!-- Themed pre-spawn loading screen: covers the brief wait while the town and
      your chosen body stream in, so a first-time visitor never lands on the
@@ -3506,6 +3520,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=9e93a16fc0"></script>
+<script src="client.js?v=546540ed84"></script>
 </body>
 </html>
