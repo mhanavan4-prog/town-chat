@@ -6,7 +6,7 @@
 // injected via get/set; the Wilds scene + day/night flag are reassigned lets,
 // injected as getters.
 // ---------------------------------------------------------------------------
-export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
+export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, kkSetState, kkOneShot, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
 // Ground height under a wilds mob so it rides the rolling terrain instead of a
 // flat y=0 plane (without this, hovering mobs sink beneath raised ground and
 // walkers float over valleys). v.x is world-x, v.y is world-z.
@@ -24,7 +24,8 @@ function getOrCreateMob2Visual(id, mobType) {
     mesh.userData = { kind: 'mob2', targetId: id };
     getWildsScene().add(mesh);
     const vis = MOB2_VISUALS[mobType] || {};
-    v = getMobVisuals2()[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null };
+    v = getMobVisuals2()[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null,
+      isKK: !!(mesh.userData && mesh.userData.isKK), kk: mesh.userData && mesh.userData.kk, kkAttack: mesh.userData && mesh.userData.kkAttack, _lastAtkFired: null };
   }
   return v;
 }
@@ -48,15 +49,34 @@ function updateMob2Visuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in getMobVisuals2()) {
     const v = getMobVisuals2()[id];
+    const prevX = v.x, prevY = v.y;
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    const lungeFactor = mobAttackLungeAmount(v);
-    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob;
-    // walkers sit on it. Either way, start from the terrain height here.
+    const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
     let hover = groundUnder(v.x, v.y);
     if (v.fly) { v.wingPhase += dt * 6; hover += v.fly + Math.sin(v.wingPhase) * 3; }
+
+    if (v.isKK) {
+      // Animated KayKit body: drive the shared-rig clips instead of the blob
+      // lunge-tilt. KK.tick advances the mixer globally.
+      const now = performance.now();
+      if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
+        v._lastAtkFired = v.attackAnimStartAt;
+        if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
+      }
+      if (now >= (v.kk.busyUntil || 0) && kkSetState) {
+        const moving = actualSpeed > 4;
+        kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+      }
+      v.mesh.position.set(v.x, hover, v.y);
+      v.mesh.rotation.y = v.facing;
+      v.mesh.visible = getLastWildlifeIsNight() && !v.dead && !v.hidden;
+      continue;
+    }
+
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;

@@ -9350,18 +9350,23 @@ const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
 // recolored/rescaled per type (see MOB2_VISUALS) so the 4 read as distinct
 // threats at a glance, matching their distinct stats from server.js.
 // ---------------------------------------------------------------------------
+// The humanoid/undead/beast threats are animated KayKit bodies (shared-rig,
+// scorch/recoloured via kkTint — a lerp toward the hue so a bone-white skeleton
+// can read as a rot-green wight). The abstract ones (the Will-o'-Wisp orb, the
+// Gloom Bat) have no KayKit fit and stay their hand-built rigs. kkKey → model,
+// kkHeight → world-unit height, kkAttack → borrowed clip, kkTint → { to,amt,emissive,ei }.
 const MOB2_VISUALS = {
-  shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85 },
-  bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35 },
-  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0 },
+  shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85, kkKey: 'skel_rogue',   kkHeight: 62,  kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { to: 0x7a5aa6, amt: 0.6, emissive: 0x2a1040, ei: 0.35 } },
+  bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35, kkKey: 'skel_warrior', kkHeight: 96,  kkAttack: '2H_Melee_Attack_Slice',           kkTint: { to: 0x5c7a2e, amt: 0.55, emissive: 0x24340e, ei: 0.35 } },
+  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0,  kkKey: 'npc_werewolf', kkHeight: 78,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { to: 0x26222e, amt: 0.5, emissive: 0x3a0606, ei: 0.3 } },
   will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 },
-  // ── Session M horrors (custom rigs where the blob won't do) ──
-  fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12 },
-  rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42 }, // recolored mini-blob
-  barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05 },
+  // ── Session M horrors ──
+  fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12, kkKey: 'skel_mage',    kkHeight: 68, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x9070c0, amt: 0.6, emissive: 0x2e1448, ei: 0.4 } },
+  rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42, kkKey: 'skel_minion',  kkHeight: 42, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x6a8a3a, amt: 0.55, emissive: 0x24340e, ei: 0.35 } },
+  barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05, kkKey: 'mon_beast',    kkHeight: 76, kkAttack: '2H_Melee_Attack_Slice',        kkTint: { to: 0x9a6038, amt: 0.5, emissive: 0x3a1c08, ei: 0.4 } },
   gloom_bat:   { color: 0x1c1c26, eyeColor: 0xff2a2a, scale: 0.7,  fly: 26 },
-  barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1 }, // recolored base blob — pale corpse, cold blue glow
-  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true }
+  barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1,  kkKey: 'skel_minion',  kkHeight: 70, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xaab8ac, amt: 0.35, emissive: 0x16303a, ei: 0.3 } },
+  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true, kkKey: 'skel_golem', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xa0432c, amt: 0.5, emissive: 0x4a1206, ei: 0.4 } }
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
@@ -9419,7 +9424,7 @@ const DUNGEON_BOSS_NAMES = {
 // horrors + the mob3 critters — pure THREE/LEGEND_FX geometry; makeMob base +
 // MOB2_VISUALS + health-bar sprite injected. makeMob2/makeMob3 are called by the
 // mob2/mob3 visual pools (still in main). ──
-const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite });
+const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key) });
 
 let mobVisuals2 = {};
 let mobVisuals3 = {};
@@ -9452,6 +9457,7 @@ const {
   addMobs2, addMobs3, applyMob2State, applyMob3State, updateMob2Visuals, updateMob3Visuals,
 } = createMobsWilds({
   MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar,
+  kkSetState, kkOneShot,
   getWildsScene: () => wildsScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
   getMobVisuals2: () => mobVisuals2, setMobVisuals2: (v) => { mobVisuals2 = v; },
   getMobVisuals3: () => mobVisuals3, setMobVisuals3: (v) => { mobVisuals3 = v; },
