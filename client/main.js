@@ -1120,6 +1120,14 @@ function onWsMessage(ev) {
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
     me = players[myId];
+    // Stream the KayKit character bodies for ANY spawn path. The join-button
+    // flow (attemptJoin) calls KK.beginChars, but an auto-resume — a hard
+    // refresh or a killed/restored tab rejoining from the stashed token — skips
+    // that screen, so without this the bodies were never requested: you'd sit on
+    // the classic fallback body and the "Loading world…" pill would wait forever
+    // for a character that never streamed. beginChars is guarded (charsStarted),
+    // so this is a no-op when the join screen already kicked it off.
+    if (me && KK && KK.beginChars) { try { KK.beginChars(me.charId); } catch (e) {} }
     // A fresh connection always lands in the public world (the server resets
     // instance on resume), so clear any stale Moot state from a prior session.
     mootInstanceActive = false; setMootBanner(null);
@@ -4892,7 +4900,14 @@ if (MOBILE_UI) document.body.classList.add('touchMode');
     // Show once the player has committed to entering (join armed) or is in-game,
     // and only while assets are still streaming.
     const armed = gameStarted || window.__tcLoadArmed;
-    if (armed && !KK.fullyLoaded) {
+    // The world is ready to play once the town (gating assets, incl. the hex
+    // floor) has settled and — once spawned — the player's OWN character body is
+    // in. The other five bodies + summon skeletons keep streaming in silently
+    // afterwards, so the pill no longer parks at ~80% for the whole cold-load
+    // character tail (which looked like a hang on a hard refresh; a warm rejoin
+    // had them cached and finished instantly).
+    const worldReady = KK.settled && (!me || KK.charReady(me.charId));
+    if (armed && !worldReady) {
       const pct = Math.min(100, Math.round(KK.loadFrac() * 100));
       pill.textContent = 'Loading world… ' + pct + '%';
       if (MOBILE_UI) {

@@ -9075,10 +9075,16 @@ function createKayKitHumanoid(charId, appearance) {
   KK.mixers.add(mixer);
   const actions = {};
   function act(name) {
-    if (actions[name] !== undefined) return actions[name];
-    const clip = t.animations.find(a => a.name === name) || null;
-    actions[name] = clip ? mixer.clipAction(clip) : null;
-    return actions[name];
+    if (actions[name]) return actions[name]; // cache only a resolved action
+    // Don't memoize a MISS. A borrowed-clip body (the Necromancer borrows the
+    // Mage's clips) can have its rig built before the donor's clips are attached
+    // — on a hard-refresh auto-resume the rebuild beats the borrow. Caching null
+    // here left it unable to ever find 'Idle', so it stuck on the last movement
+    // clip (feet running in place, T-pose before first move). Re-resolve until
+    // the clip actually arrives.
+    const clip = t.animations.find(a => a.name === name);
+    if (clip) actions[name] = mixer.clipAction(clip);
+    return actions[name] || null;
   }
   const kk = {
     mixer, act, inst, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
@@ -9140,10 +9146,16 @@ function createKayKitByKey(key, heightScale) {
   KK.mixers.add(mixer);
   const actions = {};
   function act(name) {
-    if (actions[name] !== undefined) return actions[name];
-    const clip = t.animations.find(a => a.name === name) || null;
-    actions[name] = clip ? mixer.clipAction(clip) : null;
-    return actions[name];
+    if (actions[name]) return actions[name]; // cache only a resolved action
+    // Don't memoize a MISS. A borrowed-clip body (the Necromancer borrows the
+    // Mage's clips) can have its rig built before the donor's clips are attached
+    // — on a hard-refresh auto-resume the rebuild beats the borrow. Caching null
+    // here left it unable to ever find 'Idle', so it stuck on the last movement
+    // clip (feet running in place, T-pose before first move). Re-resolve until
+    // the clip actually arrives.
+    const clip = t.animations.find(a => a.name === name);
+    if (clip) actions[name] = mixer.clipAction(clip);
+    return actions[name] || null;
   }
   const kk = { mixer, act, inst, baseScale: s, cur: null, busyUntil: 0,
     handR: inst.getObjectByName('handslotr') || null, handL: inst.getObjectByName('handslotl') || null };
@@ -10790,19 +10802,29 @@ function destroyPlayerVisual(id) {
 // ensurePlayerVisual short-circuits after). The moment KK settles, rebuild
 // anyone still on the fallback so every character upgrades to the KayKit model
 // instead of being stuck on the old rig until a page reload.
-if (KK && KK.promise && typeof KK.promise.then === 'function') {
-  KK.promise.then(() => {
-    const players = getPlayers() || {};
-    const meP = getMe();
-    for (const id of Object.keys(visuals)) {
-      const v = visuals[id];
-      if (!v || v.kk) continue; // already a KayKit model — leave it
-      const p = players[id] || (meP && meP.id === id ? meP : null);
-      if (!p) continue;
-      destroyPlayerVisual(id);
-      ensurePlayerVisual(p);
-    }
-  });
+// Rebuild any player still on the fallback rig the moment THEIR class model is
+// ready. This must re-run on every asset settle (not just once when KK.promise
+// resolves): the character bodies stream in AFTER the town gates, so a one-shot
+// pass fired at settle sees charReady=false and leaves the player on the
+// fallback forever. That one-shot timing is exactly why, on a hard-refresh
+// auto-resume, your own body stayed the classic rig while the NPCs (whose
+// upgrader already re-runs on each load) turned KayKit. The charReady guard
+// means each fallback player is rebuilt once, when its model actually arrives.
+function upgradeFallbackPlayers() {
+  const players = getPlayers() || {};
+  const meP = getMe();
+  for (const id of Object.keys(visuals)) {
+    const v = visuals[id];
+    if (!v || v.kk) continue; // already a KayKit model — leave it
+    const p = players[id] || (meP && meP.id === id ? meP : null);
+    if (!p || !KK.charReady(p.charId || 0)) continue; // wait until the model is in
+    destroyPlayerVisual(id);
+    ensurePlayerVisual(p);
+  }
+}
+if (KK) {
+  if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(upgradeFallbackPlayers).catch(() => {});
+  if (KK.onAssetLoad) KK.onAssetLoad(upgradeFallbackPlayers);
 }
 
 function syncVisuals(dt) {
@@ -16091,6 +16113,14 @@ function onWsMessage(ev) {
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
     me = players[myId];
+    // Stream the KayKit character bodies for ANY spawn path. The join-button
+    // flow (attemptJoin) calls KK.beginChars, but an auto-resume — a hard
+    // refresh or a killed/restored tab rejoining from the stashed token — skips
+    // that screen, so without this the bodies were never requested: you'd sit on
+    // the classic fallback body and the "Loading world…" pill would wait forever
+    // for a character that never streamed. beginChars is guarded (charsStarted),
+    // so this is a no-op when the join screen already kicked it off.
+    if (me && KK && KK.beginChars) { try { KK.beginChars(me.charId); } catch (e) {} }
     // A fresh connection always lands in the public world (the server resets
     // instance on resume), so clear any stale Moot state from a prior session.
     mootInstanceActive = false; setMootBanner(null);
@@ -19863,7 +19893,14 @@ if (MOBILE_UI) document.body.classList.add('touchMode');
     // Show once the player has committed to entering (join armed) or is in-game,
     // and only while assets are still streaming.
     const armed = gameStarted || window.__tcLoadArmed;
-    if (armed && !KK.fullyLoaded) {
+    // The world is ready to play once the town (gating assets, incl. the hex
+    // floor) has settled and — once spawned — the player's OWN character body is
+    // in. The other five bodies + summon skeletons keep streaming in silently
+    // afterwards, so the pill no longer parks at ~80% for the whole cold-load
+    // character tail (which looked like a hang on a hard refresh; a warm rejoin
+    // had them cached and finished instantly).
+    const worldReady = KK.settled && (!me || KK.charReady(me.charId));
+    if (armed && !worldReady) {
       const pct = Math.min(100, Math.round(KK.loadFrac() * 100));
       pill.textContent = 'Loading world… ' + pct + '%';
       if (MOBILE_UI) {
