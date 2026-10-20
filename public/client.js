@@ -4852,13 +4852,17 @@ const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) :
 function scorch(group, amt) {
   group.traverse(c => {
     if (c.isMesh && c.material) {
-      const mats = Array.isArray(c.material) ? c.material : [c.material];
-      c.material = mats.map(mm => {
+      // Preserve single-vs-array material shape: a mesh with no geometry groups
+      // and a one-element material array draws nothing, so unwrap back to a bare
+      // material when the original was not an array.
+      const wasArr = Array.isArray(c.material);
+      const mats = wasArr ? c.material : [c.material];
+      const cloned = mats.map(mm => {
         const m = mm.clone();
         if (m.color) { m.color.offsetHSL(-0.02, -0.18, -(amt || 0.14)); m.color.lerp(new THREE.Color(0x2a1810), 0.22); }
         return m;
       });
-      if (!Array.isArray(c.material)) c.material = c.material[0];
+      c.material = wasArr ? cloned : cloned[0];
     }
   });
   return group;
@@ -5026,14 +5030,15 @@ function buildEmberScene() {
     const shade = 0.9 + rnd() * 0.3;
     g.traverse(c => {
       if (!c.isMesh || !c.material) return;
-      const mats = Array.isArray(c.material) ? c.material : [c.material];
-      c.material = mats.map(mm => {
+      const wasArr = Array.isArray(c.material);
+      const mats = wasArr ? c.material : [c.material];
+      const cloned = mats.map(mm => {
         const m = mm.clone();
         if (m.color) m.color.setRGB(0.62 * shade, 0.05, 0.11 * shade);
         if ('emissive' in m) { m.emissive = new THREE.Color(0xc01525); m.emissiveIntensity = 0.55; }
         return m;
       });
-      if (!Array.isArray(c.material)) c.material = c.material[0];
+      c.material = wasArr ? cloned : cloned[0];
     });
     g.position.set(x, 0, z);
     g.rotation.y = rnd() * Math.PI * 2;
@@ -5196,9 +5201,10 @@ function buildEmberScene() {
     if (keep) {
       keep.traverse(c => {
         if (!c.isMesh || !c.material) return;
-        const mats = Array.isArray(c.material) ? c.material : [c.material];
-        c.material = mats.map(mm => { const m = mm.clone(); if (m.color) { m.color.offsetHSL(0.015, 0.08, -0.04); m.color.lerp(new THREE.Color(0x6a2e12), 0.3); } return m; });
-        if (!Array.isArray(c.material)) c.material = c.material[0];
+        const wasArr = Array.isArray(c.material);
+        const mats = wasArr ? c.material : [c.material];
+        const cloned = mats.map(mm => { const m = mm.clone(); if (m.color) { m.color.offsetHSL(0.015, 0.08, -0.04); m.color.lerp(new THREE.Color(0x6a2e12), 0.3); } return m; });
+        c.material = wasArr ? cloned : cloned[0];
       });
       keep.position.set(REFUGE_X, 0, REFUGE_Z);
       keep.userData.camFade = true;
