@@ -206,7 +206,63 @@ function buildEmberScene() {
   const portal = buildPortalMesh(exitX, exitY);
   portal.position.y += H(exitX, exitY);
   scene.add(portal);
-  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }]);
+
+  // ── The Ember Refuge — a warm stone shelter a short walk from the return
+  // portal, for a player who missed the portal back. Its glowing door is an
+  // interact kiosk that drops you into the private refuge chat room. Position
+  // kept in sync with the server's EMBER_REFUGE_SPOT (server.js). The door
+  // faces south, toward the arrival portal.
+  const REFUGE_X = 10720, REFUGE_Z = 18300;
+  const hut = new THREE.Group();
+  const hw = 220, hd = 170, hh = 150, wt = 16;
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x4a3a34 });
+  const doorGap = 70; // centred gap on the south (+z) wall
+  // Four walls; the south wall is split to leave a doorway.
+  const wallParts = [
+    [hw, hh, wt, 0, hh / 2, -hd / 2],                              // north (back)
+    [wt, hh, hd, -hw / 2, hh / 2, 0],                             // west
+    [wt, hh, hd, hw / 2, hh / 2, 0],                              // east
+    [(hw - doorGap) / 2, hh, wt, -(doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2], // south-left
+    [(hw - doorGap) / 2, hh, wt, (doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2]   // south-right
+  ];
+  for (const [w, h, d, x, y, z] of wallParts) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stoneMat);
+    seg.position.set(x, y, z);
+    hut.add(seg);
+  }
+  // A lintel over the door + a peaked roof.
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorGap + 40, 28, wt), stoneMat);
+  lintel.position.set(0, hh - 14, hd / 2);
+  hut.add(lintel);
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(hw * 0.92, 90, 4),
+    new THREE.MeshLambertMaterial({ color: 0x2a1c16 })
+  );
+  roof.position.set(0, hh + 44, 0);
+  roof.rotation.y = Math.PI / 4;
+  hut.add(roof);
+  // Warm light spilling from the doorway + a glow plane so it reads as a haven.
+  const doorGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(doorGap, hh - 30),
+    new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+  );
+  doorGlow.position.set(0, (hh - 30) / 2, hd / 2 - 2);
+  hut.add(doorGlow);
+  const doorLight = new THREE.PointLight(0xffa64d, 1.3, 520);
+  doorLight.position.set(0, hh * 0.5, hd / 2 + 40);
+  hut.add(doorLight);
+  // A hanging sign so it's legible as a refuge from a distance.
+  if (typeof makeNpcNameSprite === 'function') {
+    const sign = makeNpcNameSprite('⛺ Refuge');
+    sign.position.set(0, hh + 110, 0);
+    hut.add(sign);
+  }
+  hut.position.set(REFUGE_X, 0, REFUGE_Z);
+  scene.add(hut);
+  // Interact door kiosk, just outside the south threshold.
+  const refugeKiosk = { x: REFUGE_X, z: REFUGE_Z + hd / 2 + 30, portal: 'refuge_enter' };
+
+  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk]);
   setEmberKiosks(getEmberStaticKiosks().slice());
 
   const _mv = getEmberMobVisuals(); for (const id in _mv) scene.remove(_mv[id].group);
