@@ -106,15 +106,15 @@ function updateTownTorchNpcVisuals(dt) {
       v.legR.rotation.x = 0;
     } else if (v.praying) {
       // Kneeling at the altar by day — legs bent under, arms raised in a
-      // slow chant-like sway, sunk down slightly to read as kneeling
-      // rather than standing (still well clear of the ground below the
-      // platform — see baseY above).
+      // slow chant-like sway. Only a small settle (the bent legs already read
+      // as kneeling); the old -9 drop sank them through the raised Temple
+      // platform's top (baseY is the platform surface, not the ground below).
       const sway = Math.sin(v.walkPhase * 0.6) * 0.18;
       v.armL.rotation.x = -1.9 + sway;
       v.armR.rotation.x = -1.9 - sway;
       v.legL.rotation.x = -1.3;
       v.legR.rotation.x = -1.3;
-      poseY = -9 + Math.sin(v.walkPhase * 0.6) * 1.2;
+      poseY = -1 + Math.sin(v.walkPhase * 0.6) * 0.6;
     } else {
       v.armL.rotation.x *= 0.85;
       v.armR.rotation.x *= 0.85;

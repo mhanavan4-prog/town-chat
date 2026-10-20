@@ -530,20 +530,28 @@ function buildTownTemple(cx, cz) {
     kkShrine.rotation.y = Math.PI; // face the townward (−z) approach
     g.add(kkShrine);
   } else {
-    // Procedural fallback: the old framing pillars, so the temple still
-    // reads as a structure if the KayKit model hasn't loaded.
-    const pillarH = 84;
-    const pillarMat = new THREE.MeshLambertMaterial({ color: 0xf5f2e6 });
-    const pillarGeo = new THREE.CylinderGeometry(11, 13, pillarH, 8);
-    const capGeo = new THREE.CylinderGeometry(16, 12, 9, 8);
-    for (const sx of [-1, 1]) {
-      const px = cx + sx * (platformW / 2 - 34);
-      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-      pillar.position.set(px, platformH + pillarH / 2, shrineZ);
-      g.add(pillar);
-      const cap = new THREE.Mesh(capGeo, pillarMat);
-      cap.position.set(px, platformH + pillarH + 4.5, shrineZ);
-      g.add(cap);
+    // Cold load: the shrine model hasn't streamed in yet. Stand up a low dark
+    // placeholder block (never the old tall pillars — those blocked the view
+    // of the torches) and swap in the real shrine the moment it finishes
+    // loading, mirroring the self-heal the town buildings/decor already do.
+    const placeholder = new THREE.Mesh(
+      new THREE.BoxGeometry(72, 30, 56),
+      new THREE.MeshLambertMaterial({ color: 0x3b3b44 })
+    );
+    placeholder.position.set(cx, platformH + 15, shrineZ);
+    g.add(placeholder);
+    if (KK && KK.onAssetLoad) {
+      let swapped = false;
+      KK.onAssetLoad(() => {
+        if (swapped) return;
+        const s = KK.staticInstance('shrine_temple', 110, 'fit');
+        if (!s) return;
+        swapped = true;
+        g.remove(placeholder);
+        s.position.set(cx, platformH, shrineZ);
+        s.rotation.y = Math.PI;
+        g.add(s);
+      });
     }
   }
 
