@@ -9075,10 +9075,16 @@ function createKayKitHumanoid(charId, appearance) {
   KK.mixers.add(mixer);
   const actions = {};
   function act(name) {
-    if (actions[name] !== undefined) return actions[name];
-    const clip = t.animations.find(a => a.name === name) || null;
-    actions[name] = clip ? mixer.clipAction(clip) : null;
-    return actions[name];
+    if (actions[name]) return actions[name]; // cache only a resolved action
+    // Don't memoize a MISS. A borrowed-clip body (the Necromancer borrows the
+    // Mage's clips) can have its rig built before the donor's clips are attached
+    // — on a hard-refresh auto-resume the rebuild beats the borrow. Caching null
+    // here left it unable to ever find 'Idle', so it stuck on the last movement
+    // clip (feet running in place, T-pose before first move). Re-resolve until
+    // the clip actually arrives.
+    const clip = t.animations.find(a => a.name === name);
+    if (clip) actions[name] = mixer.clipAction(clip);
+    return actions[name] || null;
   }
   const kk = {
     mixer, act, inst, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
@@ -9140,10 +9146,16 @@ function createKayKitByKey(key, heightScale) {
   KK.mixers.add(mixer);
   const actions = {};
   function act(name) {
-    if (actions[name] !== undefined) return actions[name];
-    const clip = t.animations.find(a => a.name === name) || null;
-    actions[name] = clip ? mixer.clipAction(clip) : null;
-    return actions[name];
+    if (actions[name]) return actions[name]; // cache only a resolved action
+    // Don't memoize a MISS. A borrowed-clip body (the Necromancer borrows the
+    // Mage's clips) can have its rig built before the donor's clips are attached
+    // — on a hard-refresh auto-resume the rebuild beats the borrow. Caching null
+    // here left it unable to ever find 'Idle', so it stuck on the last movement
+    // clip (feet running in place, T-pose before first move). Re-resolve until
+    // the clip actually arrives.
+    const clip = t.animations.find(a => a.name === name);
+    if (clip) actions[name] = mixer.clipAction(clip);
+    return actions[name] || null;
   }
   const kk = { mixer, act, inst, baseScale: s, cur: null, busyUntil: 0,
     handR: inst.getObjectByName('handslotr') || null, handL: inst.getObjectByName('handslotl') || null };
