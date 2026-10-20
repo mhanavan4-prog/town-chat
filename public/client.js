@@ -15301,6 +15301,7 @@ const KK = (() => {
     // routed between the buildings. Each tile's top face sits at model y=0.
     tile_grass:  'kk/tiles/hex_grass.gltf',
     tile_water:  'kk/tiles/hex_water.gltf',
+    tile_coast_c: 'kk/tiles/hex_coast_C.gltf',
     lily_a:      'kk/tiles/waterlily_A.gltf', lily_b: 'kk/tiles/waterlily_B.gltf',
     tile_road_a: 'kk/tiles/hex_road_A.gltf', tile_road_b: 'kk/tiles/hex_road_B.gltf',
     tile_road_c: 'kk/tiles/hex_road_C.gltf', tile_road_d: 'kk/tiles/hex_road_D.gltf',
@@ -22605,18 +22606,29 @@ function initScene(w) {
     const grassGM = meshOf('tile_grass', 0x76805a);
     const grassM = [], roadGM = {}, roadM = {};
     // A small pond on the east tree line — a disc of hexes verified (offline sim)
-    // clear of the road network and every building footprint. Cosmetic for now:
-    // walkable, no shoreline/collision yet (a follow-up pass with hex_coast tiles
-    // + pond colliders is planned).
+    // clear of the road network and every building footprint. The centre hex is
+    // open water; the 6 ring hexes are KayKit coast_C tiles (3 contiguous land
+    // edges, water on the other 3) rotated so the grassy bank faces OUTWARD and
+    // the water faces the centre — giving a round pond with banks all around.
+    // coast_C's water edges are [3,4,5]; for a ring hex in NB-direction k the
+    // rotation is (1-k) mod 6 (derived: base edge e renders at world edge e-k).
     const WATER = new Set(['10,7', '11,7', '10,8', '9,8', '9,7', '10,6', '11,6']);
+    const POND_CENTER = '10,7';
+    const COAST_ROT = { '11,7': 1, '10,8': 0, '9,8': 5, '9,7': 4, '10,6': 3, '11,6': 2 };
     const waterGM = meshOf('tile_water', 0x8fb0c4);
-    const waterM = [];
+    const coastGM = meshOf('tile_coast_c', 0x8a9471); // bank tinted toward the moss grass
+    const waterM = [], coastM = [];
     const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
     for (let r = -4; r <= 17; r++) {
       for (let q = Math.floor(-2 - r / 2); q <= Math.ceil(18 - r / 2); q++) {
         const k = key(q, r), wld = axToWorld(q, r);
         pos.set(wld.x, 0, wld.z);
-        if (WATER.has(k) && waterGM) { qt.identity(); m4.compose(pos, qt, scl); waterM.push(m4.clone()); continue; }
+        if (WATER.has(k)) {
+          if (k !== POND_CENTER && coastGM && (k in COAST_ROT)) {
+            qt.setFromAxisAngle(yUp, (Math.PI / 3) * COAST_ROT[k]); m4.compose(pos, qt, scl); coastM.push(m4.clone()); continue;
+          }
+          if (waterGM) { qt.identity(); m4.compose(pos, qt, scl); waterM.push(m4.clone()); continue; }
+        }
         const pick = roadEdges.has(k) ? pickTile(roadEdges.get(k)) : null;
         if (pick && KK.has(pick[0])) {
           const [tk, kRot] = pick;
@@ -22629,10 +22641,12 @@ function initScene(w) {
     const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
     addInst(grassGM, grassM);
     addInst(waterGM, waterM);
+    addInst(coastGM, coastM);
     // A few KayKit waterlilies floating on the pond for life/detail. Placed on
     // chosen water hexes with a small in-hex offset; sized via staticInstance so
     // they read as lily pads, not tiles. Pure scenery (no collider).
-    const LILIES = [['11,7', 'lily_a', 42, -20], ['9,8', 'lily_b', -34, 28], ['10,6', 'lily_a', 10, 40], ['10,8', 'lily_b', 30, 24]];
+    // Lilies now float on the open-water CENTRE hex (the ring hexes became banks).
+    const LILIES = [['10,7', 'lily_a', 55, -32], ['10,7', 'lily_b', -48, 40], ['10,7', 'lily_a', 18, 58], ['10,7', 'lily_b', -30, -50]];
     for (const [hk, lk, ox, oz] of LILIES) {
       if (!WATER.has(hk) || !KK.has(lk)) continue;
       const [lq, lr] = hk.split(',').map(Number), lc = axToWorld(lq, lr);
