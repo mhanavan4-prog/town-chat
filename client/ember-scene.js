@@ -3,7 +3,7 @@
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
 // injected; scene/camera/kiosk-lists/mob-visuals written back via get/set.
 // ---------------------------------------------------------------------------
-export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite }) {
+export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 // Burnt-over any mesh: pull its colours toward charcoal/scorch so KayKit's
 // bright pack tints read as ember-scorched without needing new textures.
@@ -250,6 +250,57 @@ function buildEmberScene() {
         scene.add(l);
       }
     }
+  }
+  // ── Lava / ember pools ───────────────────────────────────────────────────
+  // Molten pools break up the flat ruby field with bright self-lit glow and a
+  // charred crust ring. Unlit (MeshBasic) so they read as glowing lava at no
+  // light cost, laid just above the hex floor to avoid z-fighting.
+  for (let i = 0; i < 26; i++) {
+    const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), rad = 90 + rnd() * 170;
+    const crust = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 36, 26), new THREE.MeshBasicMaterial({ color: 0x2e0c06, side: THREE.DoubleSide }));
+    crust.rotation.x = -Math.PI / 2; crust.position.set(x, 1.4, z); scene.add(crust);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(rad, 24), new THREE.MeshBasicMaterial({ color: 0xff5a1e }));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(x, 1.8, z); scene.add(pool);
+    // a darker molten swirl inset for a bit of depth
+    const core = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.5, 20), new THREE.MeshBasicMaterial({ color: 0xffb347 }));
+    core.rotation.x = -Math.PI / 2; core.position.set(x + (rnd() - 0.5) * rad * 0.3, 2.0, z + (rnd() - 0.5) * rad * 0.3); scene.add(core);
+  }
+
+  // ── Ember geysers ────────────────────────────────────────────────────────
+  // Thin glowing columns venting from the ground — vertical interest + more
+  // silhouettes. Additive, so they read as hot gas rather than solid pillars.
+  for (let i = 0; i < 18; i++) {
+    const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), gh = 200 + rnd() * 320;
+    const col = new THREE.Mesh(
+      new THREE.CylinderGeometry(6, 26, gh, 7, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xff7a1e, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    );
+    col.position.set(x, gh / 2, z); scene.add(col);
+    const base = new THREE.Mesh(new THREE.CircleGeometry(34, 16), new THREE.MeshBasicMaterial({ color: 0xffb347 }));
+    base.rotation.x = -Math.PI / 2; base.position.set(x, 2.2, z); scene.add(base);
+  }
+
+  // ── Drifting ember particles ─────────────────────────────────────────────
+  // A field of glowing embers rising through the air, recentred on the camera
+  // each tick (see updateEmberAmbient) so the whole zone feels alive without a
+  // point per 20k² of floor. Same Points-with-velocity trick as the Manor.
+  if (typeof makeGlowTexture === 'function' && typeof setEmberAmbient === 'function') {
+    const N = 850, RAD = 2600, CEIL = 1500;
+    const arr = new Float32Array(N * 3), vel = new Float32Array(N);
+    const sx = EMBER_WORLD.spawn.x, sz = EMBER_WORLD.spawn.y;
+    for (let i = 0; i < N; i++) {
+      arr[i * 3] = sx + (rnd() - 0.5) * 2 * RAD;
+      arr[i * 3 + 1] = rnd() * CEIL;
+      arr[i * 3 + 2] = sz + (rnd() - 0.5) * 2 * RAD;
+      vel[i] = 45 + rnd() * 95;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const mat = new THREE.PointsMaterial({ size: 30, map: makeGlowTexture(), color: 0xff7a2e, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    scene.add(points);
+    setEmberAmbient({ points, vel, RAD, CEIL });
   }
 
   // A tall beacon + floating nameplate at each landmark — a silhouette to steer
