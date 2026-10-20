@@ -7808,20 +7808,28 @@ function buildTownTemple(cx, cz) {
     kkShrine.rotation.y = Math.PI; // face the townward (−z) approach
     g.add(kkShrine);
   } else {
-    // Procedural fallback: the old framing pillars, so the temple still
-    // reads as a structure if the KayKit model hasn't loaded.
-    const pillarH = 84;
-    const pillarMat = new THREE.MeshLambertMaterial({ color: 0xf5f2e6 });
-    const pillarGeo = new THREE.CylinderGeometry(11, 13, pillarH, 8);
-    const capGeo = new THREE.CylinderGeometry(16, 12, 9, 8);
-    for (const sx of [-1, 1]) {
-      const px = cx + sx * (platformW / 2 - 34);
-      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-      pillar.position.set(px, platformH + pillarH / 2, shrineZ);
-      g.add(pillar);
-      const cap = new THREE.Mesh(capGeo, pillarMat);
-      cap.position.set(px, platformH + pillarH + 4.5, shrineZ);
-      g.add(cap);
+    // Cold load: the shrine model hasn't streamed in yet. Stand up a low dark
+    // placeholder block (never the old tall pillars — those blocked the view
+    // of the torches) and swap in the real shrine the moment it finishes
+    // loading, mirroring the self-heal the town buildings/decor already do.
+    const placeholder = new THREE.Mesh(
+      new THREE.BoxGeometry(72, 30, 56),
+      new THREE.MeshLambertMaterial({ color: 0x3b3b44 })
+    );
+    placeholder.position.set(cx, platformH + 15, shrineZ);
+    g.add(placeholder);
+    if (KK && KK.onAssetLoad) {
+      let swapped = false;
+      KK.onAssetLoad(() => {
+        if (swapped) return;
+        const s = KK.staticInstance('shrine_temple', 110, 'fit');
+        if (!s) return;
+        swapped = true;
+        g.remove(placeholder);
+        s.position.set(cx, platformH, shrineZ);
+        s.rotation.y = Math.PI;
+        g.add(s);
+      });
     }
   }
 
@@ -14537,15 +14545,15 @@ function updateTownTorchNpcVisuals(dt) {
       v.legR.rotation.x = 0;
     } else if (v.praying) {
       // Kneeling at the altar by day — legs bent under, arms raised in a
-      // slow chant-like sway, sunk down slightly to read as kneeling
-      // rather than standing (still well clear of the ground below the
-      // platform — see baseY above).
+      // slow chant-like sway. Only a small settle (the bent legs already read
+      // as kneeling); the old -9 drop sank them through the raised Temple
+      // platform's top (baseY is the platform surface, not the ground below).
       const sway = Math.sin(v.walkPhase * 0.6) * 0.18;
       v.armL.rotation.x = -1.9 + sway;
       v.armR.rotation.x = -1.9 - sway;
       v.legL.rotation.x = -1.3;
       v.legR.rotation.x = -1.3;
-      poseY = -9 + Math.sin(v.walkPhase * 0.6) * 1.2;
+      poseY = -1 + Math.sin(v.walkPhase * 0.6) * 0.6;
     } else {
       v.armL.rotation.x *= 0.85;
       v.armR.rotation.x *= 0.85;
