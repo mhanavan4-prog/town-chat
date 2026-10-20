@@ -7004,7 +7004,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -7832,25 +7832,29 @@ function addGiantWerewolfTree(scene) {
   treeSign.position.set(TX, 620, TZ);
   scene.add(treeSign);
 
-  // ── Lexton Greyfur — werewolf NPC on the treehouse platform
-  const lextonBuilt = createHumanoid(1); // charId 1 = Werewolf
-  const lextonMesh = lextonBuilt.group;
+  // ── Lexton Greyfur — the KayKit werewolf, out on the balcony looking over the
+  // Wilds. Animated via the shared rig (Idle) so he stands naturally rather than
+  // in the model's T-pose; the old procedural humanoid is the cold-load fallback.
+  let lextonMesh, lextonRefs;
+  if (hasKK && hasKK('npc_werewolf') && createKayKitByKey) {
+    const built = createKayKitByKey('npc_werewolf', 150);
+    lextonMesh = built.group;
+    if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
+    lextonRefs = { group: lextonMesh, armL: null, armR: null, head: null, lastHowlAt: 0 };
+  } else {
+    const b = createHumanoid(1); // charId 1 = Werewolf (procedural fallback)
+    lextonMesh = b.group;
+    lextonRefs = { group: lextonMesh, armL: b.armL, armR: b.armR, head: b.head, lastHowlAt: 0 };
+  }
   lextonMesh.position.set(TX, PLATFORM_Y + PLANK_H, TZ - 40);
-  lextonMesh.rotation.y = Math.PI; // faces south (toward approaching players)
+  lextonMesh.rotation.y = Math.PI; // faces south, out over the open Wilds
   scene.add(lextonMesh);
 
   const lextonLabel = makeNpcNameSprite('Lexton Greyfur', 'Voice of the Howl');
-  lextonLabel.position.set(TX, PLATFORM_Y + PLANK_H + 95, TZ - 40);
+  lextonLabel.position.set(TX, PLATFORM_Y + PLANK_H + 175, TZ - 40);
   scene.add(lextonLabel);
 
-  // Store arm/head refs for night-howl animation
-  setLextonNpc({
-    armL: lextonBuilt.armL,
-    armR: lextonBuilt.armR,
-    head: lextonBuilt.head,
-    group: lextonMesh,
-    lastHowlAt: 0,
-  });
+  setLextonNpc(lextonRefs);
 
   // ── Register kiosk — 'wolf_pact' type. Large radius so players can interact
   // from anywhere around the wide trunk base without needing to clip into it.
@@ -16078,6 +16082,7 @@ const KK = (() => {
     // Bonecaller; skel_golem is the hulking boss/brute body.
     skel_mage:    'kk/Skeleton_Mage.glb',
     skel_golem:   'kk/Skeleton_Golem.glb',
+    npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
@@ -16205,7 +16210,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf'];
   const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
@@ -24245,10 +24250,16 @@ function addSpookyDecor(scene, w2) {
       scene.add(makeBonePile(cx + rng(-170, 170), cz + rng(-170, 170)));
     }
   }
-  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall now builds a crypt)
+  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall builds a crypt).
+  // Placed on a jittered ring so the tombs stand apart as a graveyard rather
+  // than clipping into one another (they used to scatter within ±170 and
+  // overlap). Each tomb is ~120 wide, so a ~300-radius ring keeps them clear.
   for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
-    for (let i = 0; i < 4; i++) {
-      const x = cx + rng(-170, 170), z = cz + rng(-170, 170);
+    const n = 3, R = 300;
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const ang = a0 + (i / n) * Math.PI * 2;
+      const x = cx + Math.cos(ang) * (R + rng(-40, 40)), z = cz + Math.sin(ang) * (R + rng(-40, 40));
       scene.add(makeRuinedWall(x, z));
       wildsCollide(x, z, 30); // solid tomb — bigger than the old wall
     }
@@ -24950,7 +24961,7 @@ function exitRefuge() {
 const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
-  KK, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
+  KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
