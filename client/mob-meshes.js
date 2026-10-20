@@ -6,15 +6,49 @@
 // MOB2_VISUALS recolour table, and the health-bar sprite are injected; the mob
 // visual pools that call makeMob2/makeMob3 stay in main.
 // ---------------------------------------------------------------------------
-export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite }) {
+export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK }) {
+// Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
+// reads as a rot-green wight) + a dim flavour emissive.
+function tintKKMob(group, tint) {
+  if (!tint) return;
+  const to = new THREE.Color(tint.to != null ? tint.to : 0xffffff);
+  const amt = tint.amt != null ? tint.amt : 0.5;
+  const em = new THREE.Color(tint.emissive || 0x000000);
+  group.traverse(c => {
+    if (!c.isMesh && !c.isSkinnedMesh) return;
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    for (const m of mats) {
+      if (!m) continue;
+      if (m.color) m.color.lerp(to, amt);
+      if ('emissive' in m) { m.emissive = em.clone(); if ('emissiveIntensity' in m) m.emissiveIntensity = (tint.ei != null ? tint.ei : 0.35); }
+    }
+  });
+}
 function makeMob2(mobType) {
+  const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
+  // Preferred: an animated KayKit body (same shared-rig path as the ember army
+  // and the world bosses). Falls back to the hand-built rig below until the
+  // model streams in, and the abstract horrors (wisp, bat) have no kkKey so they
+  // always use their purpose-built rigs.
+  if (visual.kkKey && hasKK && hasKK(visual.kkKey) && createKayKitByKey) {
+    const h = visual.kkHeight || 68;
+    const built = createKayKitByKey(visual.kkKey, h);
+    if (built) {
+      tintKKMob(built.group, visual.kkTint);
+      if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
+      const bar = makeHealthBarSprite(h + 22); built.group.add(bar);
+      built.group.userData.isKK = true;
+      built.group.userData.kk = built.kk;
+      built.group.userData.kkAttack = visual.kkAttack;
+      return built.group;
+    }
+  }
   // The distinctive Session M horrors get purpose-built rigs; everything else
   // (the original four + the Grave-Mite) is a recolored/rescaled base blob.
   if (mobType === 'gloom_bat')   return withHealthBar(makeGloomBat(), 24);
   if (mobType === 'fen_hexer')   return withHealthBar(makeFenHexer(), 28);
   if (mobType === 'barrow_maw')  return withHealthBar(makeBarrowMaw(), 34);
   if (mobType === 'old_marrowe') return withHealthBar(makeOldMarrowe(), 64);
-  const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
   const g = makeMob();
   g.traverse(child => {
     if (!child.isMesh) return;

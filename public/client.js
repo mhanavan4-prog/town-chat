@@ -8691,15 +8691,49 @@ function updateMobVisuals(dt) {
 // MOB2_VISUALS recolour table, and the health-bar sprite are injected; the mob
 // visual pools that call makeMob2/makeMob3 stay in main.
 // ---------------------------------------------------------------------------
-function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite }) {
+function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK }) {
+// Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
+// reads as a rot-green wight) + a dim flavour emissive.
+function tintKKMob(group, tint) {
+  if (!tint) return;
+  const to = new THREE.Color(tint.to != null ? tint.to : 0xffffff);
+  const amt = tint.amt != null ? tint.amt : 0.5;
+  const em = new THREE.Color(tint.emissive || 0x000000);
+  group.traverse(c => {
+    if (!c.isMesh && !c.isSkinnedMesh) return;
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    for (const m of mats) {
+      if (!m) continue;
+      if (m.color) m.color.lerp(to, amt);
+      if ('emissive' in m) { m.emissive = em.clone(); if ('emissiveIntensity' in m) m.emissiveIntensity = (tint.ei != null ? tint.ei : 0.35); }
+    }
+  });
+}
 function makeMob2(mobType) {
+  const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
+  // Preferred: an animated KayKit body (same shared-rig path as the ember army
+  // and the world bosses). Falls back to the hand-built rig below until the
+  // model streams in, and the abstract horrors (wisp, bat) have no kkKey so they
+  // always use their purpose-built rigs.
+  if (visual.kkKey && hasKK && hasKK(visual.kkKey) && createKayKitByKey) {
+    const h = visual.kkHeight || 68;
+    const built = createKayKitByKey(visual.kkKey, h);
+    if (built) {
+      tintKKMob(built.group, visual.kkTint);
+      if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
+      const bar = makeHealthBarSprite(h + 22); built.group.add(bar);
+      built.group.userData.isKK = true;
+      built.group.userData.kk = built.kk;
+      built.group.userData.kkAttack = visual.kkAttack;
+      return built.group;
+    }
+  }
   // The distinctive Session M horrors get purpose-built rigs; everything else
   // (the original four + the Grave-Mite) is a recolored/rescaled base blob.
   if (mobType === 'gloom_bat')   return withHealthBar(makeGloomBat(), 24);
   if (mobType === 'fen_hexer')   return withHealthBar(makeFenHexer(), 28);
   if (mobType === 'barrow_maw')  return withHealthBar(makeBarrowMaw(), 34);
   if (mobType === 'old_marrowe') return withHealthBar(makeOldMarrowe(), 64);
-  const visual = MOB2_VISUALS[mobType] || MOB2_VISUALS.night_howler;
   const g = makeMob();
   g.traverse(child => {
     if (!child.isMesh) return;
@@ -8899,7 +8933,7 @@ function makeMob3(mobType) {
 // injected via get/set; the Wilds scene + day/night flag are reassigned lets,
 // injected as getters.
 // ---------------------------------------------------------------------------
-function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
+function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, kkSetState, kkOneShot, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
 // Ground height under a wilds mob so it rides the rolling terrain instead of a
 // flat y=0 plane (without this, hovering mobs sink beneath raised ground and
 // walkers float over valleys). v.x is world-x, v.y is world-z.
@@ -8917,7 +8951,8 @@ function getOrCreateMob2Visual(id, mobType) {
     mesh.userData = { kind: 'mob2', targetId: id };
     getWildsScene().add(mesh);
     const vis = MOB2_VISUALS[mobType] || {};
-    v = getMobVisuals2()[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null };
+    v = getMobVisuals2()[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null,
+      isKK: !!(mesh.userData && mesh.userData.isKK), kk: mesh.userData && mesh.userData.kk, kkAttack: mesh.userData && mesh.userData.kkAttack, _lastAtkFired: null };
   }
   return v;
 }
@@ -8941,15 +8976,34 @@ function updateMob2Visuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in getMobVisuals2()) {
     const v = getMobVisuals2()[id];
+    const prevX = v.x, prevY = v.y;
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-    const lungeFactor = mobAttackLungeAmount(v);
-    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    // Flyers (Gloom Bat, Fen Hexer) ride above the ground with a lazy bob;
-    // walkers sit on it. Either way, start from the terrain height here.
+    const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
     let hover = groundUnder(v.x, v.y);
     if (v.fly) { v.wingPhase += dt * 6; hover += v.fly + Math.sin(v.wingPhase) * 3; }
+
+    if (v.isKK) {
+      // Animated KayKit body: drive the shared-rig clips instead of the blob
+      // lunge-tilt. KK.tick advances the mixer globally.
+      const now = performance.now();
+      if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
+        v._lastAtkFired = v.attackAnimStartAt;
+        if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
+      }
+      if (now >= (v.kk.busyUntil || 0) && kkSetState) {
+        const moving = actualSpeed > 4;
+        kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+      }
+      v.mesh.position.set(v.x, hover, v.y);
+      v.mesh.rotation.y = v.facing;
+      v.mesh.visible = getLastWildlifeIsNight() && !v.dead && !v.hidden;
+      continue;
+    }
+
+    const lungeFactor = mobAttackLungeAmount(v);
+    const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
@@ -25209,18 +25263,23 @@ const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
 // recolored/rescaled per type (see MOB2_VISUALS) so the 4 read as distinct
 // threats at a glance, matching their distinct stats from server.js.
 // ---------------------------------------------------------------------------
+// The humanoid/undead/beast threats are animated KayKit bodies (shared-rig,
+// scorch/recoloured via kkTint — a lerp toward the hue so a bone-white skeleton
+// can read as a rot-green wight). The abstract ones (the Will-o'-Wisp orb, the
+// Gloom Bat) have no KayKit fit and stay their hand-built rigs. kkKey → model,
+// kkHeight → world-unit height, kkAttack → borrowed clip, kkTint → { to,amt,emissive,ei }.
 const MOB2_VISUALS = {
-  shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85 },
-  bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35 },
-  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0 },
+  shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85, kkKey: 'skel_rogue',   kkHeight: 62,  kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { to: 0x7a5aa6, amt: 0.6, emissive: 0x2a1040, ei: 0.35 } },
+  bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35, kkKey: 'skel_warrior', kkHeight: 96,  kkAttack: '2H_Melee_Attack_Slice',           kkTint: { to: 0x5c7a2e, amt: 0.55, emissive: 0x24340e, ei: 0.35 } },
+  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0,  kkKey: 'npc_werewolf', kkHeight: 78,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { to: 0x26222e, amt: 0.5, emissive: 0x3a0606, ei: 0.3 } },
   will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 },
-  // ── Session M horrors (custom rigs where the blob won't do) ──
-  fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12 },
-  rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42 }, // recolored mini-blob
-  barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05 },
+  // ── Session M horrors ──
+  fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12, kkKey: 'skel_mage',    kkHeight: 68, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x9070c0, amt: 0.6, emissive: 0x2e1448, ei: 0.4 } },
+  rot_swarm:   { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 0.42, kkKey: 'skel_minion',  kkHeight: 42, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x6a8a3a, amt: 0.55, emissive: 0x24340e, ei: 0.35 } },
+  barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05, kkKey: 'mon_beast',    kkHeight: 76, kkAttack: '2H_Melee_Attack_Slice',        kkTint: { to: 0x9a6038, amt: 0.5, emissive: 0x3a1c08, ei: 0.4 } },
   gloom_bat:   { color: 0x1c1c26, eyeColor: 0xff2a2a, scale: 0.7,  fly: 26 },
-  barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1 }, // recolored base blob — pale corpse, cold blue glow
-  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true }
+  barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1,  kkKey: 'skel_minion',  kkHeight: 70, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xaab8ac, amt: 0.35, emissive: 0x16303a, ei: 0.3 } },
+  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true, kkKey: 'skel_golem', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xa0432c, amt: 0.5, emissive: 0x4a1206, ei: 0.4 } }
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
@@ -25278,7 +25337,7 @@ const DUNGEON_BOSS_NAMES = {
 // horrors + the mob3 critters — pure THREE/LEGEND_FX geometry; makeMob base +
 // MOB2_VISUALS + health-bar sprite injected. makeMob2/makeMob3 are called by the
 // mob2/mob3 visual pools (still in main). ──
-const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite });
+const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key) });
 
 let mobVisuals2 = {};
 let mobVisuals3 = {};
@@ -25311,6 +25370,7 @@ const {
   addMobs2, addMobs3, applyMob2State, applyMob3State, updateMob2Visuals, updateMob3Visuals,
 } = createMobsWilds({
   MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar,
+  kkSetState, kkOneShot,
   getWildsScene: () => wildsScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
   getMobVisuals2: () => mobVisuals2, setMobVisuals2: (v) => { mobVisuals2 = v; },
   getMobVisuals3: () => mobVisuals3, setMobVisuals3: (v) => { mobVisuals3 = v; },
