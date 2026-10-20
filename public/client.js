@@ -22631,12 +22631,26 @@ function initScene(w) {
   // haven't arrived when initScene runs — so every building fell back to the
   // plain procedural box and never upgraded. Build once KK has settled (warm:
   // immediately; cold: when the gated batch lands), so the KayKit buildings show.
-  let townBuilt = false;
+  // Town collision is refit to the KayKit models and snapshotted into TOWN_WALLS
+  // at the end of initScene. But buildings AND decor are now deferred to KK-settle
+  // (below), so on a cold load neither has happened by then: the refit ran against
+  // empty model boxes and left the full data-rect walls standing beyond the
+  // smaller models — invisible walls. Re-finalize collision once BOTH deferred
+  // builds are done, whichever finishes last (no-op on a warm load, where the
+  // end-of-initScene refit already ran with everything in place).
+  let townBuilt = false, decorBuilt = false, collisionFinalized = false;
+  const finalizeTownCollision = () => {
+    if (collisionFinalized || !townBuilt || !decorBuilt) return;
+    collisionFinalized = true;
+    refitBuildingColliders(); // re-cut building walls to the now-placed model boxes
+    TOWN_WALLS = walls;        // re-snapshot so swapToTownMap() restores the fit collision
+  };
   const bldScene = scene; // capture the town scene; `scene` may be swapped later
   const buildTownBuildings = () => {
     if (townBuilt || !KK.settled) return;
     townBuilt = true;
     for (const b of w.buildings) bldScene.add(buildBuildingMesh(b, w));
+    finalizeTownCollision();
   };
   buildTownBuildings();
   if (!townBuilt && KK) {
@@ -22649,12 +22663,12 @@ function initScene(w) {
   // never upgraded. addNatureDecor also registers colliders + harvestables, so
   // re-running it would duplicate — instead defer the single call until KK has
   // settled (warm: now; cold: when the gated batch lands), same as floor/buildings.
-  let decorBuilt = false;
   const decorScene = scene;
   const buildDecor = () => {
     if (decorBuilt || !KK.settled) return;
     decorBuilt = true;
     addNatureDecor(decorScene, w, decorVisuals);
+    finalizeTownCollision();
   };
   buildDecor();
   if (!decorBuilt && KK) {
