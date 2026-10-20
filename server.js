@@ -1498,7 +1498,7 @@ setInterval(() => {
 }, 30000);
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'manor'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor'].forEach(r => ROOM_IDS.add(r));
 // Open-air areas share the global WORLD channel; every other room is an
 // interior with its own private, occupants-only chat tab (see the 'chat'
 // handler + room backlog replay). A "building room" is any known room that
@@ -7322,6 +7322,14 @@ const VAULT_SPAWN = { x: 150, y: 60 };
 // vast north is open ground to fight, flee, and hunt across.
 const EMBER_WORLD_DIMS = { width: 20000, height: 20000 };
 const EMBER_SPAWN = { x: 10000, y: 18600 };
+// The Ember Refuge — a warm stone shelter standing in the arrival haven, a
+// stride from the return portal. Its door is a private, occupants-only chat
+// room (ember_refuge ∉ OPEN_WORLD_ROOMS) where a player who missed the portal
+// back can hole up and talk. Kept in sync with the client's EMBER_REFUGE_SPOT
+// (ember-scene.js) which draws the hut + its interact door at the same point.
+const EMBER_REFUGE_SPOT = { x: 10720, y: 18300 };   // door location out on the ember flat
+const EMBER_REFUGE_DIMS = { width: 760, height: 620 }; // cozy interior bounds
+const EMBER_REFUGE_SPAWN = { x: 380, y: 540 };      // just inside the south door
 // A no-PvP haven around the arrival portal so newcomers aren't spawn-camped.
 // Outside this ring the whole zone is open free-for-all.
 const EMBER_SAFE_RADIUS = 1800;
@@ -7906,6 +7914,7 @@ function roomBounds(room) {
   if (room === 'manor') return MANOR_INTERIOR;
   if (room === 'bank_vault') return VAULT_WORLD_DIMS;
   if (room === 'ember_wastes') return EMBER_WORLD_DIMS;
+  if (room === 'ember_refuge') return EMBER_REFUGE_DIMS;
   if (typeof room === 'string' && room.startsWith('dungeon_')) return { width: DUNGEON_SIZE, height: DUNGEON_SIZE };
   return WORLD;
 }
@@ -8599,7 +8608,7 @@ wss.on('connection', (ws, req) => {
       if (resume) {
         if ((resume.passUntil || 0) > player.passUntil) player.passUntil = resume.passUntil;
         const knownRoom = (r) => r === 'outside' || r === 'wilds' || r === 'witch_cave'
-          || r === 'bank_vault' || r === 'ember_wastes' || WORLD.buildings.some(b => b.id === r);
+          || r === 'bank_vault' || r === 'ember_wastes' || r === 'ember_refuge' || WORLD.buildings.some(b => b.id === r);
         if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !canEnterPassRoom(player, player.room))) {
           player.room = 'outside';
           player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
@@ -11808,6 +11817,39 @@ wss.on('connection', (ws, req) => {
       player.witchCaveReturnX = null;
       player.witchCaveReturnY = null;
       send(ws, { type: 'witch_cave_exited', x: retX, y: retY });
+      return;
+    }
+
+    // ── The Ember Refuge — a shelter + private chat room out on the ember
+    // flat, for a player who missed the portal back. Same shape as the Witch's
+    // Cave: enter by standing at its door in the Ember Wastes, exit back to the
+    // spot you came from. The room itself is private (ember_refuge is not an
+    // OPEN_WORLD_ROOM), so chat inside is occupants-only. ──
+    if (msg.type === 'enter_ember_refuge') {
+      if (player.room !== 'ember_wastes' || player.isDead) return;
+      if (Math.hypot(player.x - EMBER_REFUGE_SPOT.x, player.y - EMBER_REFUGE_SPOT.y) > 220) return;
+      player.emberRefugeReturnX = player.x;
+      player.emberRefugeReturnY = player.y;
+      player.room = 'ember_refuge';
+      player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
+      player.x = EMBER_REFUGE_SPAWN.x;
+      player.y = EMBER_REFUGE_SPAWN.y;
+      send(ws, { type: 'ember_refuge_entered', spawn: EMBER_REFUGE_SPAWN });
+      storyEvent(player, 'visit_room', { room: 'ember_refuge' });
+      return;
+    }
+
+    if (msg.type === 'exit_ember_refuge') {
+      if (player.room !== 'ember_refuge') return;
+      const retX = player.emberRefugeReturnX || EMBER_REFUGE_SPOT.x;
+      const retY = player.emberRefugeReturnY || EMBER_REFUGE_SPOT.y + 60;
+      player.room = 'ember_wastes';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = retX;
+      player.y = retY;
+      player.emberRefugeReturnX = null;
+      player.emberRefugeReturnY = null;
+      send(ws, { type: 'ember_refuge_exited', x: retX, y: retY });
       return;
     }
 
