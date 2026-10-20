@@ -165,7 +165,11 @@ WORLD.natureDecor = [
   { id: 'decor_131', type: 'barrel', x: 2300, y: 660 },
   { id: 'decor_132', type: 'haybale', x: 760, y: 1470, rot: 1.2 },
   { id: 'decor_133', type: 'crate', x: 2305, y: 1500, rot: 0.2 },
-  { id: 'decor_134', type: 'bench', x: 1652, y: 1560, rot: 0 }
+  { id: 'decor_134', type: 'bench', x: 1652, y: 1560, rot: 0 },
+  // Watermill landmark on the pond's SE shore (pond centre ~2700,1212). Spot
+  // verified clear of roads, buildings, the trees, Scholar Lyra (2230,1180) and
+  // the animal spawn (2700,1300). rot aims the wheel roughly toward the water.
+  { id: 'decor_watermill', type: 'watermill', x: 2900, y: 1480, rot: 3.8 }
 ];
 
 const WORLD2 = {

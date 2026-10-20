@@ -248,5 +248,14 @@ function makeNoticeboard(d) {
   return g;
 }
 
-  return { makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard };
+  // The pond's watermill landmark — a tall KayKit building model (no procedural
+  // fallback; empty group if the model hasn't loaded). camFade so it ghosts out
+  // when it stands between the chase camera and the player, like the trees do.
+  function makeWatermill(d) {
+    const kkG = KK.staticInstance('prop_watermill', 210, 'fit');
+    if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); kkG.userData.camFade = true; return kkG; }
+    return new THREE.Group();
+  }
+
+  return { makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard, makeWatermill };
 }
