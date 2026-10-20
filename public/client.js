@@ -17038,6 +17038,17 @@ const ATTACK_CATALOGS = {
 let sessionTakenOver = false;
 function setupWs() {
   ws = new WebSocket(wsUrl());
+  // Harden every send against reconnect races. The socket is reassigned on each
+  // reconnect, and any of the ~100 ws.send() call sites (timers, the movement
+  // loop, UI panels) can fire in the brief CONNECTING/CLOSING window before a
+  // fresh socket is OPEN — a raw send then throws "InvalidStateError: The object
+  // is in an invalid state", which surfaces as a scary red error banner even
+  // though nothing is actually broken. A non-OPEN send loses the message either
+  // way (it never reaches the server), so we drop it quietly instead of throwing;
+  // onWsOpen re-sends the join and the client requests a world_resync on
+  // reconnect, so transient dropped frames reconcile on their own.
+  const rawSend = ws.send.bind(ws);
+  ws.send = (data) => { if (ws.readyState === WebSocket.OPEN) rawSend(data); };
   ws.addEventListener('open', onWsOpen);
   ws.addEventListener('close', onWsClose);
   ws.addEventListener('error', onWsError);
