@@ -6830,13 +6830,12 @@ const LOUNGE_PLATFORM_HEIGHT = 76;
 // The Temple's altar platform — a raised dais out in the open town square
 // (room 'outside'), not tied to any building interior. Unlike the Lounge's
 // stairs (a ramp along one axis), this is a rectangular footprint, so it
-// needs both x and z; the height still ramps smoothly over the outer edge
-// (TEMPLE_RAMP units) rather than snapping instantly, same "no real
-// verticality, just a rendered Y function of position" approach. Shared
-// with initScene()'s temple placement/collision so the numbers can't drift.
+// needs both x and z. The rendered Y is flat to the platform top across the
+// footprint (the visible dais is a flat box, so a ramp left players sinking
+// through the rim). Shared with initScene()'s temple placement/collision so
+// the numbers can't drift.
 const TEMPLE_PLATFORM_X = 1060, TEMPLE_PLATFORM_Z = 1900;
 const TEMPLE_PLATFORM_W = 360, TEMPLE_PLATFORM_D = 260, TEMPLE_PLATFORM_HEIGHT = 16;
-const TEMPLE_RAMP = 24;
 
 function getFloorHeight(roomId, rx, rz) {
   if (roomId === 'wilds') return wildsHeightAt(rx, rz || 0);
@@ -6846,7 +6845,13 @@ function getFloorHeight(roomId, rx, rz) {
     const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
     if (dx <= halfW && dz <= halfD) {
       const depth = Math.min(halfW - dx, halfD - dz);
-      return Math.min(TEMPLE_PLATFORM_HEIGHT, TEMPLE_PLATFORM_HEIGHT * (depth / TEMPLE_RAMP));
+      // Flat to the platform top: the visible dais is a flat box (top at
+      // platformH), so ramping the collision height up over the outer edge left
+      // a standing player BELOW the visible floor near the rim — sinking through
+      // it. Match the flat visual instead; stepping up onto a 16-unit dais reads
+      // fine. (A proper stepped/KayKit platform is the real fix — see the temple
+      // rebuild — which can restore a smooth edge.)
+      return TEMPLE_PLATFORM_HEIGHT;
     }
     // KayKit building entrance stairs (see kkMeasureStairs). The profile is
     // already a smooth capped-slope ramp; here it just gets sampled, plus a
