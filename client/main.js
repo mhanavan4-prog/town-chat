@@ -300,6 +300,7 @@ const KK = (() => {
     // Bonecaller; skel_golem is the hulking boss/brute body.
     skel_mage:    'kk/Skeleton_Mage.glb',
     skel_golem:   'kk/Skeleton_Golem.glb',
+    npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
@@ -427,7 +428,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf'];
   const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
@@ -8467,10 +8468,16 @@ function addSpookyDecor(scene, w2) {
       scene.add(makeBonePile(cx + rng(-170, 170), cz + rng(-170, 170)));
     }
   }
-  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall now builds a crypt)
+  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall builds a crypt).
+  // Placed on a jittered ring so the tombs stand apart as a graveyard rather
+  // than clipping into one another (they used to scatter within ±170 and
+  // overlap). Each tomb is ~120 wide, so a ~300-radius ring keeps them clear.
   for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
-    for (let i = 0; i < 4; i++) {
-      const x = cx + rng(-170, 170), z = cz + rng(-170, 170);
+    const n = 3, R = 300;
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const ang = a0 + (i / n) * Math.PI * 2;
+      const x = cx + Math.cos(ang) * (R + rng(-40, 40)), z = cz + Math.sin(ang) * (R + rng(-40, 40));
       scene.add(makeRuinedWall(x, z));
       wildsCollide(x, z, 30); // solid tomb — bigger than the old wall
     }
@@ -9172,7 +9179,7 @@ function exitRefuge() {
 const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
-  KK, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
+  KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
