@@ -367,7 +367,12 @@ const KK = (() => {
     bush3:         'kk/nature/Bush_3_B_Color4.gltf',
     rock1:         'kk/nature/Rock_3_H_Color1.gltf',
     rock2:         'kk/nature/Rock_5_D_Color1.gltf',
-    rock3:         'kk/nature/Rock_6_C_Color1.gltf'
+    rock3:         'kk/nature/Rock_6_C_Color1.gltf',
+    // Grass tufts (teal) — scattered as Wilds ground detail (kkWildsGroundDetail).
+    grass1:        'kk/nature/Grass_1_A_Color4.gltf',
+    grass2:        'kk/nature/Grass_1_C_Color4.gltf',
+    grass3:        'kk/nature/Grass_2_A_Color4.gltf',
+    grass4:        'kk/nature/Grass_2_C_Color4.gltf'
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -8182,6 +8187,65 @@ function makeKayRock(x, z, scale) {
   return g;
 }
 
+// KayKit grass tuft (teal) — Wilds ground detail. Sized by HEIGHT so the thin
+// blade variants don't balloon the way a horizontal 'fit' would. Short, so no
+// camFade and no collision (walk-through). Null → caller skips it.
+const KAY_GRASS = ['grass1', 'grass2', 'grass3', 'grass4'];
+function makeKayGrass(x, z, scale) {
+  const key = KAY_GRASS[Math.floor(Math.random() * KAY_GRASS.length)];
+  const h = (20 + Math.random() * 14) * (scale || 1);
+  const g = KK.staticInstance(key, h, 'height');
+  if (!g) return null;
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// Wilds ground-detail scatter — grass tufts (in clusters), scattered rocks and
+// low bushes across the walkable moor, lifted onto the rolling terrain. All
+// pure scenery (walk-through, no colliders) and deterministic so every client
+// sees the same floor. Keeps spawn and the campfires clear.
+function kkWildsGroundDetail(scene, w2) {
+  if (!KK.settled) return;
+  const rawScene = scene;
+  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
+  let seed = 0x9e3779b1 >>> 0;
+  const rand = () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rng = (a, b) => a + rand() * (b - a);
+  const W2 = w2.width || 10000, H2 = w2.height || 10000;
+  const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
+  const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
+  // Grass in clusters (reads as patches of undergrowth rather than even stubble)
+  for (let c = 0; c < 22; c++) {
+    const cx = rng(300, W2 - 300), cz = rng(300, H2 - 300);
+    if (!clearOf(cx, cz)) continue;
+    const n = 6 + Math.floor(rand() * 7);
+    for (let i = 0; i < n; i++) {
+      const g = makeKayGrass(cx + rng(-90, 90), cz + rng(-90, 90), 0.8 + rand() * 0.6);
+      if (g) scene.add(g);
+    }
+  }
+  // Scattered boulders
+  for (let i = 0; i < 44; i++) {
+    const x = rng(300, W2 - 300), z = rng(300, H2 - 300);
+    if (!clearOf(x, z)) continue;
+    const g = makeKayRock(x, z, 0.9 + rand() * 1.0);
+    if (g) scene.add(g);
+  }
+  // Scattered low bushes
+  for (let i = 0; i < 34; i++) {
+    const x = rng(300, W2 - 300), z = rng(300, H2 - 300);
+    if (!clearOf(x, z)) continue;
+    const g = makeKayBush(x, z, 0.9 + rand() * 0.6);
+    if (g) scene.add(g);
+  }
+}
+
 function makeGravestone(x, z) {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
@@ -8953,7 +9017,7 @@ const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
-  kkWildsDressing, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
+  kkWildsDressing, kkWildsGroundDetail, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
