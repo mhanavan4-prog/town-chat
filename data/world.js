@@ -169,7 +169,48 @@ WORLD.natureDecor = [
   // Watermill landmark on the pond's SE shore (pond centre ~2700,1212). Spot
   // verified clear of roads, buildings, the trees, Scholar Lyra (2230,1180) and
   // the animal spawn (2700,1300). rot aims the wheel roughly toward the water.
-  { id: 'decor_watermill', type: 'watermill', x: 2900, y: 1480, rot: 0.66 }
+  { id: 'decor_watermill', type: 'watermill', x: 2900, y: 1480, rot: 0.66 },
+  // Perimeter treeline — a forest border framing the town. Purely visual:
+  // the server already clamps players to the [0,3200]x[0,2200] bounds, so
+  // no colliders are needed here beyond the trees' own. 38 trees.
+  { id: 'decor_pt0', type: 'tree', x: 74, y: 79, scale: 2.82 },
+  { id: 'decor_pt1', type: 'tree', x: 350, y: 56, scale: 2.57 },
+  { id: 'decor_pt2', type: 'tree', x: 573, y: 55, scale: 2.86 },
+  { id: 'decor_pt3', type: 'tree', x: 779, y: 41, scale: 3.22 },
+  { id: 'decor_pt4', type: 'tree', x: 1029, y: 61, scale: 3.17 },
+  { id: 'decor_pt5', type: 'tree', x: 1271, y: 71, scale: 2.89 },
+  { id: 'decor_pt6', type: 'tree', x: 1481, y: 87, scale: 3.17 },
+  { id: 'decor_pt7', type: 'tree', x: 1735, y: 40, scale: 3.28 },
+  { id: 'decor_pt8', type: 'tree', x: 1957, y: 90, scale: 2.66 },
+  { id: 'decor_pt9', type: 'tree', x: 2196, y: 59, scale: 3.39 },
+  { id: 'decor_pt10', type: 'tree', x: 2438, y: 35, scale: 2.71 },
+  { id: 'decor_pt11', type: 'tree', x: 2667, y: 35, scale: 3.25 },
+  { id: 'decor_pt12', type: 'tree', x: 2940, y: 81, scale: 2.68 },
+  { id: 'decor_pt13', type: 'tree', x: 225, y: 2156, scale: 3.40 },
+  { id: 'decor_pt14', type: 'tree', x: 443, y: 2130, scale: 2.54 },
+  { id: 'decor_pt15', type: 'tree', x: 649, y: 2164, scale: 3.05 },
+  { id: 'decor_pt16', type: 'tree', x: 936, y: 2155, scale: 2.80 },
+  { id: 'decor_pt17', type: 'tree', x: 1143, y: 2135, scale: 3.06 },
+  { id: 'decor_pt18', type: 'tree', x: 1374, y: 2169, scale: 2.92 },
+  { id: 'decor_pt19', type: 'tree', x: 1640, y: 2156, scale: 2.83 },
+  { id: 'decor_pt20', type: 'tree', x: 1857, y: 2107, scale: 2.71 },
+  { id: 'decor_pt21', type: 'tree', x: 2088, y: 2151, scale: 3.07 },
+  { id: 'decor_pt22', type: 'tree', x: 2286, y: 2165, scale: 2.88 },
+  { id: 'decor_pt23', type: 'tree', x: 2540, y: 2139, scale: 3.25 },
+  { id: 'decor_pt24', type: 'tree', x: 2757, y: 2160, scale: 2.74 },
+  { id: 'decor_pt25', type: 'tree', x: 3011, y: 2166, scale: 3.33 },
+  { id: 'decor_pt26', type: 'tree', x: 35, y: 330, scale: 2.53 },
+  { id: 'decor_pt27', type: 'tree', x: 41, y: 564, scale: 3.34 },
+  { id: 'decor_pt28', type: 'tree', x: 87, y: 757, scale: 3.11 },
+  { id: 'decor_pt29', type: 'tree', x: 88, y: 1027, scale: 3.06 },
+  { id: 'decor_pt30', type: 'tree', x: 56, y: 1259, scale: 2.94 },
+  { id: 'decor_pt31', type: 'tree', x: 41, y: 1491, scale: 2.65 },
+  { id: 'decor_pt32', type: 'tree', x: 54, y: 1685, scale: 2.73 },
+  { id: 'decor_pt33', type: 'tree', x: 3144, y: 416, scale: 3.29 },
+  { id: 'decor_pt34', type: 'tree', x: 3105, y: 640, scale: 2.87 },
+  { id: 'decor_pt35', type: 'tree', x: 3129, y: 845, scale: 3.31 },
+  { id: 'decor_pt36', type: 'tree', x: 3136, y: 1602, scale: 2.80 },
+  { id: 'decor_pt37', type: 'tree', x: 3142, y: 1817, scale: 3.11 }
 ];
 
 const WORLD2 = {
