@@ -16267,6 +16267,7 @@ function onWsMessage(ev) {
       if (typeof refreshBuildingLockVisuals === 'function') refreshBuildingLockVisuals();
     }
     world2 = msg.world2 || world2;
+    if (world2) schedulePrebuildWilds(); // build the Wilds in the background so the first portal trip is instant
     walls = buildWalls(world);
     // Clear all existing remote-player meshes before rebuilding the list,
     // whether this is the first join or a reconnect after a dropped connection.
@@ -23059,42 +23060,85 @@ function exitDungeon() {
 let portalCooldownUntil = 0;
 const PORTAL_COOLDOWN_MS = 2500;
 
+// Portal transition cover: show an opaque "loading" screen INSTANTLY (so it
+// fully hides the map swap / first-entry build — a heavy synchronous build
+// would otherwise show through a mid-fade overlay), run the swap behind it,
+// let the new scene paint a few frames, then fade the cover out. doSwap returns
+// false to abort (e.g. a failed build) — then we uncover immediately.
+function portalFade(text, doSwap) {
+  const ov = document.getElementById('portalFade');
+  if (!ov) { doSwap(); return; }
+  const label = document.getElementById('portalFadeText');
+  if (label) label.textContent = text || '';
+  ov.classList.remove('hidden');
+  ov.style.transition = 'none';
+  ov.style.opacity = '1';
+  void ov.offsetWidth; // flush so the cover is painted opaque before the build
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    let ok = true;
+    try { ok = doSwap() !== false; } catch (e) { ok = false; console.error('portal swap failed:', e); }
+    setTimeout(() => {
+      ov.style.transition = 'opacity 0.55s ease';
+      ov.style.opacity = '0';
+      setTimeout(() => { ov.classList.add('hidden'); ov.style.transition = ''; }, 600);
+    }, ok ? 300 : 0); // let the revealed world render a few frames first
+  }));
+}
+
+// Build the Wilds ahead of time during idle (after the town's assets settle),
+// so the first trip through the portal is usually instant — the portal cover
+// then just plays as a transition rather than hiding a build hitch.
+let wildsPrebuildScheduled = false;
+function prebuildWilds() {
+  if (wildsScene || !world2 || !KK.settled) return;
+  try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('Wilds pre-build failed:', e); }
+}
+function schedulePrebuildWilds() {
+  if (wildsPrebuildScheduled || !world2) return;
+  wildsPrebuildScheduled = true;
+  const idle = () => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(prebuildWilds, { timeout: 7000 });
+    else setTimeout(prebuildWilds, 4000);
+  };
+  if (KK.settled) idle();
+  else if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(idle).catch(() => {});
+  else setTimeout(idle, 5000);
+}
+
 function enterWilds() {
   if (!world2 || !me) return;
-  swapToWildsMap(); // builds the Wilds on first entry (lazy)
-  if (activeScene !== wildsScene) return; // build failed / not ready — don't half-enter
-
-  // Face toward the actual Wilds (facing=Math.PI is -Y), not just away
-  // from the return portal. Spawn sits at y=8800 in a 10000-tall map —
-  // only 1200 units from the southern edge — while everything worth
-  // seeing (WILDS_NPCS, the giant tree, the ritual circle) clusters
-  // around y≈5000, thousands of units north. facing=0 (+Y) faced the
-  // player at that nearby empty edge instead of the Wilds itself. The
-  // return portal sits off to the east (see buildWildsScene), out of both
-  // the initial view and the walking line north. This also replaces a
-  // temporary cameraYawOffset hack that only faked the initial view for
-  // one frame — see git history for that fix.
-  me.facing = Math.PI;
-  me.room = 'wilds';
-  me.x = world2.spawn.x;
-  me.y = world2.spawn.y;
-  portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
-  ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
-  setUnlockToast('🌀 You step through the portal into the Wilds.');
+  portalFade('Stepping into the Wilds…', () => {
+    swapToWildsMap(); // builds the Wilds on first entry (lazy; usually pre-built by now)
+    if (activeScene !== wildsScene) return false; // build failed / not ready — don't half-enter
+    // Face toward the actual Wilds (facing=Math.PI is -Y). Spawn sits near the
+    // southern edge while the content clusters ~thousands of units north, so
+    // facing -Y points the camera at the Wilds itself (see git history for the
+    // old cameraYawOffset hack this replaced).
+    me.facing = Math.PI;
+    me.room = 'wilds';
+    me.x = world2.spawn.x;
+    me.y = world2.spawn.y;
+    portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
+    ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
+    setUnlockToast('🌀 You step through the portal into the Wilds.');
+    return true;
+  });
 }
 
 function exitWilds() {
   if (!outdoorScene || !TOWN_WORLD || !me || !world2) return;
-  swapToTownMap();
-  me.room = 'outside';
-  // Land clear of the town-side portal kiosk — outside its 80-unit
-  // interact radius (the old +70 nudge left the tap button already on
-  // screen the moment you arrived), plus the traversal grace below.
-  me.x = world2.portalInTown.x;
-  me.y = world2.portalInTown.y + 115;
-  portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
-  ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
-  setUnlockToast('🌀 You step back through the portal into town.');
+  portalFade('Returning to town…', () => {
+    swapToTownMap();
+    me.room = 'outside';
+    // Land clear of the town-side portal kiosk — outside its 80-unit interact
+    // radius, plus the traversal grace below.
+    me.x = world2.portalInTown.x;
+    me.y = world2.portalInTown.y + 115;
+    portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
+    ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
+    setUnlockToast('🌀 You step back through the portal into town.');
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,18 @@
     display:flex; align-items:center; justify-content:center;
     background:rgba(10,16,12,0.82); backdrop-filter:blur(3px);
   }
+  /* Portal transition cover — hides the map swap / first-entry build so the
+     next world appears fully formed. Shown opaque instantly, then faded out. */
+  #portalFade {
+    position:fixed; inset:0; z-index:55; opacity:0;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 46%, #1a1030 0%, #0a0616 70%);
+    pointer-events:none;
+  }
+  #portalFade.hidden { display:none; }
+  #portalFadeGlyph { font-size:46px; animation:portalSpin 2.2s linear infinite; filter:drop-shadow(0 0 14px rgba(160,90,220,0.7)); }
+  #portalFadeText { margin-top:16px; color:#cdbbe8; font-size:18px; letter-spacing:0.05em; font-style:italic; }
+  @keyframes portalSpin { to { transform:rotate(360deg); } }
   .hidden { display:none !important; }
 
   .card {
@@ -1915,6 +1927,7 @@
 </style>
 </head>
 <body>
+<div id="portalFade" class="hidden"><div style="text-align:center;"><div id="portalFadeGlyph">🌀</div><div id="portalFadeText"></div></div></div>
 
 <canvas id="game"></canvas>
 <!-- Asset-load pill: follows the cursor while the KayKit models stream in, so a
@@ -3493,6 +3506,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=937b621dbe"></script>
+<script src="client.js?v=904ea7f235"></script>
 </body>
 </html>
