@@ -7540,7 +7540,6 @@ function initScene(w) {
       return out;
     }
     const DOOR_OUT = { east: [1, 0], west: [-1, 0], north: [0, -1], south: [0, 1] };
-    const doormats = []; // {ax,az} terminus centre → {bx,bz} door point, bridged below
     for (const b of w.buildings) {
       const dp = getDoorWorldPos(b), n = DOOR_OUT[getDoorSide(b)] || [0, 1];
       let door = worldToAx(dp.x, dp.y);
@@ -7578,7 +7577,6 @@ function initScene(w) {
       const tkey = key(door[0], door[1]);
       if (!roadEdges.has(tkey)) { roadEdges.set(tkey, new Set()); roadQR.set(tkey, door); }
       roadEdges.get(tkey).add(be);
-      doormats.push({ ax: tc.x, az: tc.z, bx: dp.x, bz: dp.y });
     }
 
     // Base edge-set of each road tile (from pixel-sampling the atlas), and a
@@ -7625,22 +7623,6 @@ function initScene(w) {
     const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
     addInst(grassGM, grassM);
     for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
-    // Doorstep bridges: hex centres sit 200 apart and never align with a door,
-    // so the nearest road hex can stop up to ~1.5 hexes short (worst on the wide
-    // buildings and the N/S doors this pointy-top grid can only reach diagonally).
-    // Lay a short road-tinted slab from each terminus to its door so the path
-    // always meets the threshold. Centre it on the midpoint with depth = the gap
-    // (+ a little past the door); a symmetric slab + lookAt covers the span
-    // whichever way it faces, so there's no rotation-sign guesswork.
-    const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x9a8f63, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    for (const d of doormats) {
-      const gap = Math.hypot(d.bx - d.ax, d.bz - d.az);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(118, 1.2, gap + 70), bridgeMat);
-      mesh.position.set((d.ax + d.bx) / 2, 0.4, (d.az + d.bz) / 2);
-      mesh.lookAt(d.bx, 0.4, d.bz); // align local Z with the span; symmetric depth spans both ways
-      mesh.frustumCulled = false;
-      scene.add(mesh);
-    }
   };
   buildHexFloor(); // warm load: tiles already cached → build immediately
   if (!hexFloorBuilt && KK) {
@@ -7648,8 +7630,22 @@ function initScene(w) {
     if (KK.onAssetLoad) KK.onAssetLoad(buildHexFloor); // fires as each asset settles
   }
 
-  for (const b of w.buildings) {
-    scene.add(buildBuildingMesh(b, w));
+  // Same cold-hard-refresh race as the floor: buildBuildingMesh asks KK for each
+  // building's model (bld_*, all in the gating set), and on a cold load those
+  // haven't arrived when initScene runs — so every building fell back to the
+  // plain procedural box and never upgraded. Build once KK has settled (warm:
+  // immediately; cold: when the gated batch lands), so the KayKit buildings show.
+  let townBuilt = false;
+  const bldScene = scene; // capture the town scene; `scene` may be swapped later
+  const buildTownBuildings = () => {
+    if (townBuilt || !KK.settled) return;
+    townBuilt = true;
+    for (const b of w.buildings) bldScene.add(buildBuildingMesh(b, w));
+  };
+  buildTownBuildings();
+  if (!townBuilt && KK) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildTownBuildings).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildTownBuildings);
   }
 
   addNatureDecor(scene, w, decorVisuals);
