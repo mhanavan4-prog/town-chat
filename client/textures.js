@@ -154,6 +154,59 @@ export function makeMoorTexture() {
   return tex;
 }
 
+// Wilds forest floor — a richer, KayKit-matched ground for the reskinned Wilds:
+// a mossy teal-green base with leaf-litter and bare-earth patches, moss clumps,
+// scattered pebbles and fine grass, on a larger 512px canvas so the tiling
+// repeats less obviously across the big rolling map. Height tinting (vertex
+// colors in wilds-scene) then shades it bog-dark in hollows, mossy on the rises.
+export function makeWildsFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const cx = c.getContext('2d');
+  // Mossy green-teal base (ties to the Color4 teal foliage)
+  cx.fillStyle = '#33402c';
+  cx.fillRect(0, 0, 512, 512);
+  // Large soft patches: bare earth + brighter moss, for low-frequency variation
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 26 + Math.random() * 70;
+    const earth = Math.random() < 0.5;
+    cx.fillStyle = earth ? 'rgba(60,46,32,0.28)' : 'rgba(58,90,68,0.22)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Mottled moss clumps (teal-green) + cold shadow
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 8 + Math.random() * 24;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(62,98,74,0.26)' : 'rgba(26,38,28,0.3)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Leaf litter flecks (warm browns + the odd rust leaf)
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const rust = Math.random() < 0.18;
+    cx.fillStyle = rust ? 'rgba(150,78,40,0.35)' : 'rgba(96,74,46,0.32)';
+    cx.fillRect(x, y, 2 + Math.random() * 3, 3 + Math.random() * 4);
+  }
+  // Scattered pebbles
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 1.5 + Math.random() * 3;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(120,120,128,0.3)' : 'rgba(70,72,80,0.32)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Fine grass blades (varied green shades)
+  for (let i = 0; i < 2600; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const len = 3 + Math.random() * 7, ang = Math.random() * Math.PI * 2;
+    const g = 70 + Math.random() * 60;
+    cx.strokeStyle = `rgba(${g - 30}, ${g + 10}, ${g - 26}, 0.4)`;
+    cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); cx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 // Cracked Flagstone — the town's eerie paths + plaza: weathered slate flagstones
 // with dark mortar cracks and moss creeping in, replacing the tan dirt.
 export function makeFlagstoneTexture() {

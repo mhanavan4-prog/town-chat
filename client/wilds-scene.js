@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -17,9 +17,9 @@ function buildWildsScene(w2) {
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
 
-  const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
+  const grassTex = makeWildsFloorTexture(); // reskinned forest floor (KayKit-matched)
   const groundSpan = Math.max(w2.width, w2.height) + 200;
-  grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
+  grassTex.repeat.set(groundSpan / 170, groundSpan / 170);
   // Rolling terrain: a segmented plane displaced by the shared wilds heightfield
   // (flat under the developed zones; see wildsHeightAt in main.js). The geometry
   // is pre-rotated so each vertex's local x/z already read as world x/z once the
@@ -27,13 +27,37 @@ function buildWildsScene(w2) {
   const cx0 = w2.width / 2, cz0 = w2.height / 2;
   const groundGeo = new THREE.PlaneGeometry(w2.width + 200, w2.height + 200, 160, 160);
   groundGeo.rotateX(-Math.PI / 2);
+  let tinted = false;
   if (typeof wildsHeightAt === 'function') {
     const gp = groundGeo.attributes.position;
-    for (let i = 0; i < gp.count; i++) gp.setY(i, wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i)));
+    let minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < gp.count; i++) {
+      const y = wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i));
+      gp.setY(i, y);
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
     gp.needsUpdate = true;
     groundGeo.computeVertexNormals();
+    // Height tinting — bog-dark/earthy in the hollows, brighter moss on the
+    // rises. Vertex colors MULTIPLY the floor texture (so the whole floor still
+    // reads as one surface, just shaded by elevation).
+    const span = maxY - minY;
+    if (span > 1) {
+      const low = new THREE.Color(0x6a6450);  // dim, earthy — lowland/bog
+      const high = new THREE.Color(0xdfe6c0); // bright, mossy — highland
+      const tmp = new THREE.Color();
+      const colors = new Float32Array(gp.count * 3);
+      for (let i = 0; i < gp.count; i++) {
+        let t = (gp.getY(i) - minY) / span;
+        t = t * t * (3 - 2 * t); // smoothstep for a gentler gradient
+        tmp.copy(low).lerp(high, t);
+        colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+      }
+      groundGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      tinted = true;
+    }
   }
-  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex }));
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex, vertexColors: tinted }));
   ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
