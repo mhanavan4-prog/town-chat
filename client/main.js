@@ -24,7 +24,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -8296,6 +8296,12 @@ function kkWildsGroundDetail(scene, w2) {
 }
 
 function makeGravestone(x, z) {
+  // KayKit headstone (Halloween props) — varied; procedural stone below is the
+  // fallback if the models haven't streamed in.
+  const kk = (KK && KK.staticInstance)
+    ? KK.staticInstance(Math.random() < 0.5 ? 'prop_grave_a' : 'prop_grave_b', 26 + Math.random() * 12, 'height')
+    : null;
+  if (kk) { kk.rotation.y = (Math.random() - 0.5) * 0.7; kk.position.set(x, 0, z); return kk; }
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
   const stone = new THREE.Mesh(new THREE.BoxGeometry(14, 22, 5), mat);
@@ -8316,6 +8322,10 @@ function makeGravestone(x, z) {
 }
 
 function makeRuinedWall(x, z) {
+  // KayKit crypt — a grand graveyard tomb, replacing the old crude notched
+  // wall. Procedural ruined wall below is the fallback.
+  const kk = (KK && KK.staticInstance) ? KK.staticInstance('prop_crypt', 88 + Math.random() * 30, 'fit') : null;
+  if (kk) { kk.rotation.y = Math.random() * Math.PI * 2; kk.position.set(x, 0, z); kk.userData.camFade = true; return kk; }
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x3a3030 });
   const h = 25 + Math.random() * 45;
@@ -8416,12 +8426,12 @@ function addSpookyDecor(scene, w2) {
       scene.add(makeBonePile(cx + rng(-170, 170), cz + rng(-170, 170)));
     }
   }
-  // Ruined buildings (two more clusters)
+  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall now builds a crypt)
   for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
     for (let i = 0; i < 4; i++) {
-      const x = cx + rng(-160, 160), z = cz + rng(-160, 160);
+      const x = cx + rng(-170, 170), z = cz + rng(-170, 170);
       scene.add(makeRuinedWall(x, z));
-      wildsCollide(x, z, 16);
+      wildsCollide(x, z, 30); // solid tomb — bigger than the old wall
     }
     scene.add(makeBonePile(cx + rng(-120, 120), cz + rng(-120, 120)));
   }
@@ -9067,7 +9077,7 @@ const { buildWildsScene } = createWildsScene({
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   KK, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,

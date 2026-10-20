@@ -5630,6 +5630,59 @@ function makeMoorTexture() {
   return tex;
 }
 
+// Wilds forest floor — a richer, KayKit-matched ground for the reskinned Wilds:
+// a mossy teal-green base with leaf-litter and bare-earth patches, moss clumps,
+// scattered pebbles and fine grass, on a larger 512px canvas so the tiling
+// repeats less obviously across the big rolling map. Height tinting (vertex
+// colors in wilds-scene) then shades it bog-dark in hollows, mossy on the rises.
+function makeWildsFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const cx = c.getContext('2d');
+  // Mossy green-teal base (ties to the Color4 teal foliage)
+  cx.fillStyle = '#33402c';
+  cx.fillRect(0, 0, 512, 512);
+  // Large soft patches: bare earth + brighter moss, for low-frequency variation
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 26 + Math.random() * 70;
+    const earth = Math.random() < 0.5;
+    cx.fillStyle = earth ? 'rgba(60,46,32,0.28)' : 'rgba(58,90,68,0.22)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Mottled moss clumps (teal-green) + cold shadow
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 8 + Math.random() * 24;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(62,98,74,0.26)' : 'rgba(26,38,28,0.3)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Leaf litter flecks (warm browns + the odd rust leaf)
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const rust = Math.random() < 0.18;
+    cx.fillStyle = rust ? 'rgba(150,78,40,0.35)' : 'rgba(96,74,46,0.32)';
+    cx.fillRect(x, y, 2 + Math.random() * 3, 3 + Math.random() * 4);
+  }
+  // Scattered pebbles
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 1.5 + Math.random() * 3;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(120,120,128,0.3)' : 'rgba(70,72,80,0.32)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Fine grass blades (varied green shades)
+  for (let i = 0; i < 2600; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const len = 3 + Math.random() * 7, ang = Math.random() * Math.PI * 2;
+    const g = 70 + Math.random() * 60;
+    cx.strokeStyle = `rgba(${g - 30}, ${g + 10}, ${g - 26}, 0.4)`;
+    cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); cx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 // Cracked Flagstone — the town's eerie paths + plaza: weathered slate flagstones
 // with dark mortar cracks and moss creeping in, replacing the tan dirt.
 function makeFlagstoneTexture() {
@@ -6447,7 +6500,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -6458,9 +6511,9 @@ function buildWildsScene(w2) {
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
 
-  const grassTex = makeMoorTexture(); // Withered Moor ground — matches the town's spooky reskin
+  const grassTex = makeWildsFloorTexture(); // reskinned forest floor (KayKit-matched)
   const groundSpan = Math.max(w2.width, w2.height) + 200;
-  grassTex.repeat.set(groundSpan / 140, groundSpan / 140);
+  grassTex.repeat.set(groundSpan / 170, groundSpan / 170);
   // Rolling terrain: a segmented plane displaced by the shared wilds heightfield
   // (flat under the developed zones; see wildsHeightAt in main.js). The geometry
   // is pre-rotated so each vertex's local x/z already read as world x/z once the
@@ -6468,13 +6521,37 @@ function buildWildsScene(w2) {
   const cx0 = w2.width / 2, cz0 = w2.height / 2;
   const groundGeo = new THREE.PlaneGeometry(w2.width + 200, w2.height + 200, 160, 160);
   groundGeo.rotateX(-Math.PI / 2);
+  let tinted = false;
   if (typeof wildsHeightAt === 'function') {
     const gp = groundGeo.attributes.position;
-    for (let i = 0; i < gp.count; i++) gp.setY(i, wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i)));
+    let minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < gp.count; i++) {
+      const y = wildsHeightAt(cx0 + gp.getX(i), cz0 + gp.getZ(i));
+      gp.setY(i, y);
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
     gp.needsUpdate = true;
     groundGeo.computeVertexNormals();
+    // Height tinting — bog-dark/earthy in the hollows, brighter moss on the
+    // rises. Vertex colors MULTIPLY the floor texture (so the whole floor still
+    // reads as one surface, just shaded by elevation).
+    const span = maxY - minY;
+    if (span > 1) {
+      const low = new THREE.Color(0x6a6450);  // dim, earthy — lowland/bog
+      const high = new THREE.Color(0xdfe6c0); // bright, mossy — highland
+      const tmp = new THREE.Color();
+      const colors = new Float32Array(gp.count * 3);
+      for (let i = 0; i < gp.count; i++) {
+        let t = (gp.getY(i) - minY) / span;
+        t = t * t * (3 - 2 * t); // smoothstep for a gentler gradient
+        tmp.copy(low).lerp(high, t);
+        colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+      }
+      groundGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      tinted = true;
+    }
   }
-  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex }));
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex, vertexColors: tinted }));
   ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
@@ -23433,6 +23510,12 @@ function kkWildsGroundDetail(scene, w2) {
 }
 
 function makeGravestone(x, z) {
+  // KayKit headstone (Halloween props) — varied; procedural stone below is the
+  // fallback if the models haven't streamed in.
+  const kk = (KK && KK.staticInstance)
+    ? KK.staticInstance(Math.random() < 0.5 ? 'prop_grave_a' : 'prop_grave_b', 26 + Math.random() * 12, 'height')
+    : null;
+  if (kk) { kk.rotation.y = (Math.random() - 0.5) * 0.7; kk.position.set(x, 0, z); return kk; }
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x55555e });
   const stone = new THREE.Mesh(new THREE.BoxGeometry(14, 22, 5), mat);
@@ -23453,6 +23536,10 @@ function makeGravestone(x, z) {
 }
 
 function makeRuinedWall(x, z) {
+  // KayKit crypt — a grand graveyard tomb, replacing the old crude notched
+  // wall. Procedural ruined wall below is the fallback.
+  const kk = (KK && KK.staticInstance) ? KK.staticInstance('prop_crypt', 88 + Math.random() * 30, 'fit') : null;
+  if (kk) { kk.rotation.y = Math.random() * Math.PI * 2; kk.position.set(x, 0, z); kk.userData.camFade = true; return kk; }
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x3a3030 });
   const h = 25 + Math.random() * 45;
@@ -23553,12 +23640,12 @@ function addSpookyDecor(scene, w2) {
       scene.add(makeBonePile(cx + rng(-170, 170), cz + rng(-170, 170)));
     }
   }
-  // Ruined buildings (two more clusters)
+  // Crypt grounds — clusters of KayKit tombs (makeRuinedWall now builds a crypt)
   for (const [cx, cz] of [[3000,5000],[7000,7000],[1500,4000],[8500,2000],[4200,6600],[8600,5200]]) {
     for (let i = 0; i < 4; i++) {
-      const x = cx + rng(-160, 160), z = cz + rng(-160, 160);
+      const x = cx + rng(-170, 170), z = cz + rng(-170, 170);
       scene.add(makeRuinedWall(x, z));
-      wildsCollide(x, z, 16);
+      wildsCollide(x, z, 30); // solid tomb — bigger than the old wall
     }
     scene.add(makeBonePile(cx + rng(-120, 120), cz + rng(-120, 120)));
   }
@@ -24204,7 +24291,7 @@ const { buildWildsScene } = createWildsScene({
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   KK, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
