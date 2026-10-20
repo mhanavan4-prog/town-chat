@@ -124,12 +124,12 @@ function buildEmberScene() {
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   const W = EMBER_WORLD.width, Hh = EMBER_WORLD.height, m = 500;
   const spots = [];
-  for (let i = 0; i < 240; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
+  for (let i = 0; i < 560; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
   const landmarks = (typeof getEmberLandmarks === 'function' && getEmberLandmarks().length)
     ? getEmberLandmarks()
     : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
   for (const lm of landmarks) {
-    for (let i = 0; i < 30; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
+    for (let i = 0; i < 44; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   // Pool of scorched KayKit keys (all in the gating set, already loaded) with a
   // size + fit-mode for each. Weighted toward dead/bare trees + boulders.
@@ -207,7 +207,7 @@ function buildEmberScene() {
   }
   if (canKK) {
     // Crystal fields scattered the whole zone over, so bare floor is rare.
-    for (let i = 0; i < 30; i++) gemCluster(m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2), 3 + Math.floor(rnd() * 4), 90 + rnd() * 130);
+    for (let i = 0; i < 80; i++) gemCluster(m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2), 3 + Math.floor(rnd() * 4), 90 + rnd() * 130);
     // A dense ruby reef beside each non-warlord POI.
     for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
   }
@@ -255,7 +255,7 @@ function buildEmberScene() {
   // Molten pools break up the flat ruby field with bright self-lit glow and a
   // charred crust ring. Unlit (MeshBasic) so they read as glowing lava at no
   // light cost, laid just above the hex floor to avoid z-fighting.
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 42; i++) {
     const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), rad = 90 + rnd() * 170;
     const crust = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 36, 26), new THREE.MeshBasicMaterial({ color: 0x2e0c06, side: THREE.DoubleSide }));
     crust.rotation.x = -Math.PI / 2; crust.position.set(x, 1.4, z); scene.add(crust);
@@ -269,7 +269,7 @@ function buildEmberScene() {
   // ── Ember geysers ────────────────────────────────────────────────────────
   // Thin glowing columns venting from the ground — vertical interest + more
   // silhouettes. Additive, so they read as hot gas rather than solid pillars.
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 30; i++) {
     const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), gh = 200 + rnd() * 320;
     const col = new THREE.Mesh(
       new THREE.CylinderGeometry(6, 26, gh, 7, 1, true),
@@ -344,54 +344,64 @@ function buildEmberScene() {
   // kept in sync with the server's EMBER_REFUGE_SPOT (server.js). The door
   // faces south, toward the arrival portal.
   const REFUGE_X = 10720, REFUGE_Z = 18300;
-  const hut = new THREE.Group();
-  const hw = 220, hd = 170, hh = 150, wt = 16;
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x4a3a34 });
-  const doorGap = 70; // centred gap on the south (+z) wall
-  // Four walls; the south wall is split to leave a doorway.
-  const wallParts = [
-    [hw, hh, wt, 0, hh / 2, -hd / 2],                              // north (back)
-    [wt, hh, hd, -hw / 2, hh / 2, 0],                             // west
-    [wt, hh, hd, hw / 2, hh / 2, 0],                              // east
-    [(hw - doorGap) / 2, hh, wt, -(doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2], // south-left
-    [(hw - doorGap) / 2, hh, wt, (doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2]   // south-right
-  ];
-  for (const [w, h, d, x, y, z] of wallParts) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stoneMat);
-    seg.position.set(x, y, z);
-    hut.add(seg);
+  let refugeFrontZ = REFUGE_Z + 125; // front (door) face in +z, toward spawn — refined once the model is measured
+  let refugePlaced = false;
+  if (canKK) {
+    // A KayKit stone keep, warm-ember tinted so it reads as a lit haven rather
+    // than the grey town Bank it shares a model with. Door faces +z (toward the
+    // arrival portal), so no rotation.
+    const keep = KK.staticInstance('bld_refuge', 320, 'height');
+    if (keep) {
+      keep.traverse(c => {
+        if (!c.isMesh || !c.material) return;
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        c.material = mats.map(mm => { const m = mm.clone(); if (m.color) { m.color.offsetHSL(0.015, 0.08, -0.04); m.color.lerp(new THREE.Color(0x6a2e12), 0.3); } return m; });
+        if (!Array.isArray(c.material)) c.material = c.material[0];
+      });
+      keep.position.set(REFUGE_X, 0, REFUGE_Z);
+      keep.userData.camFade = true;
+      scene.add(keep);
+      const box = new THREE.Box3().setFromObject(keep);
+      refugeFrontZ = box.max.z;
+      // warm doorway glow + a lantern light so the entrance reads as a haven
+      const doorGlow = new THREE.Mesh(
+        new THREE.PlaneGeometry(64, 120),
+        new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+      );
+      doorGlow.position.set(REFUGE_X, 62, refugeFrontZ + 2); scene.add(doorGlow);
+      const doorLight = new THREE.PointLight(0xffa64d, 1.4, 650);
+      doorLight.position.set(REFUGE_X, 110, refugeFrontZ + 60); scene.add(doorLight);
+      refugePlaced = true;
+    }
   }
-  // A lintel over the door + a peaked roof.
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorGap + 40, 28, wt), stoneMat);
-  lintel.position.set(0, hh - 14, hd / 2);
-  hut.add(lintel);
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(hw * 0.92, 90, 4),
-    new THREE.MeshLambertMaterial({ color: 0x2a1c16 })
-  );
-  roof.position.set(0, hh + 44, 0);
-  roof.rotation.y = Math.PI / 4;
-  hut.add(roof);
-  // Warm light spilling from the doorway + a glow plane so it reads as a haven.
-  const doorGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(doorGap, hh - 30),
-    new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
-  );
-  doorGlow.position.set(0, (hh - 30) / 2, hd / 2 - 2);
-  hut.add(doorGlow);
-  const doorLight = new THREE.PointLight(0xffa64d, 1.3, 520);
-  doorLight.position.set(0, hh * 0.5, hd / 2 + 40);
-  hut.add(doorLight);
+  if (!refugePlaced) {
+    // Procedural cold-load fallback — a simple stone hut with a lit doorway.
+    const hut = new THREE.Group();
+    const hw = 220, hd = 170, hh = 150, wt = 16, doorGap = 70;
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x4a3a34 });
+    const wallParts = [
+      [hw, hh, wt, 0, hh / 2, -hd / 2], [wt, hh, hd, -hw / 2, hh / 2, 0], [wt, hh, hd, hw / 2, hh / 2, 0],
+      [(hw - doorGap) / 2, hh, wt, -(doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2],
+      [(hw - doorGap) / 2, hh, wt, (doorGap + (hw - doorGap) / 2) / 2, hh / 2, hd / 2]
+    ];
+    for (const [w, h, d, x, y, z] of wallParts) { const seg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stoneMat); seg.position.set(x, y, z); hut.add(seg); }
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(hw * 0.92, 90, 4), new THREE.MeshLambertMaterial({ color: 0x2a1c16 }));
+    roof.position.set(0, hh + 44, 0); roof.rotation.y = Math.PI / 4; hut.add(roof);
+    const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(doorGap, hh - 30), new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    doorGlow.position.set(0, (hh - 30) / 2, hd / 2 - 2); hut.add(doorGlow);
+    const doorLight = new THREE.PointLight(0xffa64d, 1.3, 520); doorLight.position.set(0, hh * 0.5, hd / 2 + 40); hut.add(doorLight);
+    hut.position.set(REFUGE_X, 0, REFUGE_Z); scene.add(hut);
+    refugeFrontZ = REFUGE_Z + hd / 2;
+  }
   // A hanging sign so it's legible as a refuge from a distance.
   if (typeof makeNpcNameSprite === 'function') {
     const sign = makeNpcNameSprite('⛺ Refuge');
-    sign.position.set(0, hh + 110, 0);
-    hut.add(sign);
+    sign.position.set(REFUGE_X, 380, REFUGE_Z);
+    scene.add(sign);
   }
-  hut.position.set(REFUGE_X, 0, REFUGE_Z);
-  scene.add(hut);
-  // Interact door kiosk, just outside the south threshold.
-  const refugeKiosk = { x: REFUGE_X, z: REFUGE_Z + hd / 2 + 30, portal: 'refuge_enter' };
+  // Interact door kiosk, just outside the south threshold (within the server's
+  // 220u enter radius of EMBER_REFUGE_SPOT).
+  const refugeKiosk = { x: REFUGE_X, z: refugeFrontZ + 24, portal: 'refuge_enter' };
 
   setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk]);
   setEmberKiosks(getEmberStaticKiosks().slice());
