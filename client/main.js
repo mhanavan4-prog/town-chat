@@ -24,7 +24,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeFlagstoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -303,9 +303,17 @@ const KK = (() => {
     bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
-    // Hex terrain tile — the whole map floor is carpeted with instances of this
-    // (see the hex-floor builder in initScene). Top face sits at model y=0.
+    // Hex terrain tiles — the whole map floor is carpeted with instances of
+    // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
+    // routed between the buildings. Each tile's top face sits at model y=0.
     tile_grass:  'kk/tiles/hex_grass.gltf',
+    tile_road_a: 'kk/tiles/hex_road_A.gltf', tile_road_b: 'kk/tiles/hex_road_B.gltf',
+    tile_road_c: 'kk/tiles/hex_road_C.gltf', tile_road_d: 'kk/tiles/hex_road_D.gltf',
+    tile_road_e: 'kk/tiles/hex_road_E.gltf', tile_road_f: 'kk/tiles/hex_road_F.gltf',
+    tile_road_g: 'kk/tiles/hex_road_G.gltf', tile_road_h: 'kk/tiles/hex_road_H.gltf',
+    tile_road_i: 'kk/tiles/hex_road_I.gltf', tile_road_j: 'kk/tiles/hex_road_J.gltf',
+    tile_road_k: 'kk/tiles/hex_road_K.gltf', tile_road_l: 'kk/tiles/hex_road_L.gltf',
+    tile_road_m: 'kk/tiles/hex_road_M.gltf',
     prop_bench:    'kk/props/bench_decorated.gltf',
     prop_lamppost: 'kk/props/post_lantern.gltf',
     prop_well:     'kk/bld/building_well_blue.gltf',
@@ -7486,71 +7494,90 @@ function initScene(w) {
     scene.add(base);
   }
   if (KK.settled && KK.has('tile_grass')) {
-    const S = 100;            // world units per model unit
-    const HW = 2.0 * S;       // hex flat-to-flat width (x)
-    const PP = 2.309 * S;     // hex point-to-point (z)
-    const DZ = 0.75 * PP;     // row spacing for a pointy-top layout
-    let geo = null, mat = null;
-    KK.models.tile_grass.scene.traverse((ch) => { if (ch.isMesh && !geo) { geo = ch.geometry; mat = ch.material; } });
-    if (geo) {
-      geo = geo.clone();
-      mat = mat.clone(); mat.color = new THREE.Color(0x76805a); // dark moss over the atlas
-      const MARGIN = 420;
-      const cells = [];
-      let r = 0;
-      for (let z = -MARGIN; z <= w.height + MARGIN; z += DZ, r++) {
-        const xoff = (r % 2) ? HW / 2 : 0;
-        for (let x = -MARGIN; x <= w.width + MARGIN; x += HW) cells.push([x + xoff, z]);
-      }
-      const inst = new THREE.InstancedMesh(geo, mat, cells.length);
-      inst.frustumCulled = false; // spans the whole map — never cull the carpet
-      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
-      for (let i = 0; i < cells.length; i++) { pos.set(cells[i][0], 0, cells[i][1]); m4.compose(pos, q, scl); inst.setMatrixAt(i, m4); }
-      inst.instanceMatrix.needsUpdate = true;
-      scene.add(inst);
+    // Pointy-top hex grid in axial (q,r) coords. One model unit = S world units.
+    const S = 100, HW = 2.0 * S, ROW = 0.75 * 2.309 * S; // col spacing 200, row 173.2
+    const axToWorld = (q, r) => ({ x: HW * (q + r / 2), z: ROW * r });
+    function axRound(q, r) { // cube rounding of fractional axial
+      let x = q, z = r, y = -x - z, rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+      const dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+      if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+      return [rx, rz];
     }
-  }
+    const worldToAx = (x, z) => { const r = z / ROW; return axRound(x / HW - r / 2, r); };
+    const NB = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]; // edge e (60e°) → neighbour
+    const key = (q, r) => q + ',' + r;
 
-  // ── Town paths + plaza ─ flagstone paving linking the spawn hub to every
-  // door. Fully OPAQUE on purpose: an earlier transparent version disturbed the
-  // transparency sort order and made the name-tag sprites flicker/glow as the
-  // camera turned. Opaque meshes render in the normal pass and write depth, so
-  // they stay out of that sort entirely. Purely visual — no colliders.
-  (function () {
-    const PLAZA_R = 180, PATH_W = 80, REP = 130, PATH_TINT = 0xffffff;
-    const sx = w.spawn.x, sy = w.spawn.y;
-    // A spoke from the plaza out to each building's door. Each gets a slightly
-    // different height so the ends that overlap under the plaza don't z-fight.
-    let i = 0;
-    for (const b of w.buildings) {
-      const dp = getDoorWorldPos(b);
-      const dx = dp.x - sx, dz = dp.y - sy;
-      const full = Math.max(1, Math.hypot(dx, dz));
-      const startD = PLAZA_R * 0.7, endD = full + 40; // tuck under the plaza + under the stoop
-      const segLen = endD - startD;
-      const tex = makeFlagstoneTexture();
-      tex.repeat.set(PATH_W / REP, segLen / REP);
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(PATH_W, 0.5, segLen),
-        new THREE.MeshLambertMaterial({ map: tex, color: PATH_TINT })
-      );
-      mesh.rotation.y = Math.atan2(dx, dz);
-      const midD = startD + segLen / 2;
-      mesh.position.set(sx + (dx / full) * midD, 0.22 + (i++) * 0.012, sy + (dz / full) * midD);
-      scene.add(mesh);
+    // Route a spoke of hexes from the spawn hub to each building's door, and
+    // record which edges each road hex connects to its neighbours on the path.
+    const hub = worldToAx(w.spawn.x, w.spawn.y);
+    const roadEdges = new Map(), roadQR = new Map();
+    function mark(a, b) {
+      let e = -1;
+      for (let i = 0; i < 6; i++) if (a[0] + NB[i][0] === b[0] && a[1] + NB[i][1] === b[1]) { e = i; break; }
+      if (e < 0) return;
+      for (const [h, ed] of [[a, e], [b, (e + 3) % 6]]) {
+        const k = key(h[0], h[1]);
+        if (!roadEdges.has(k)) { roadEdges.set(k, new Set()); roadQR.set(k, h); }
+        roadEdges.get(k).add(ed);
+      }
     }
-    // The paved plaza at the hub — sits just above the spokes so it reads as one
-    // surface and hides their overlapping inner ends.
-    const ptex = makeFlagstoneTexture();
-    ptex.repeat.set((PLAZA_R * 2) / REP, (PLAZA_R * 2) / REP);
-    const plaza = new THREE.Mesh(
-      new THREE.CircleGeometry(PLAZA_R, 48),
-      new THREE.MeshLambertMaterial({ map: ptex, color: PATH_TINT })
-    );
-    plaza.rotation.x = -Math.PI / 2;
-    plaza.position.set(sx, 0.34, sy);
-    scene.add(plaza);
-  })();
+    function hexLine(a, b) { // adjacent-step path via cube lerp
+      const ay = -a[0] - a[1], by = -b[0] - b[1];
+      const N = Math.max(Math.abs(a[0] - b[0]), Math.abs(ay - by), Math.abs(a[1] - b[1]));
+      const out = [];
+      for (let i = 0; i <= N; i++) { const t = N ? i / N : 0; out.push(axRound(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)); }
+      return out;
+    }
+    for (const b of w.buildings) {
+      const dp = getDoorWorldPos(b), door = worldToAx(dp.x, dp.y), line = hexLine(hub, door);
+      for (let i = 0; i < line.length - 1; i++) mark(line[i], line[i + 1]);
+    }
+
+    // Base edge-set of each road tile (from pixel-sampling the atlas), and a
+    // picker: find [tileKey, k] whose base set rotated by k (rotation.y = +60k
+    // maps base edge e → e-k) matches the hex's required edge mask exactly.
+    const ROAD = {
+      tile_road_a: [0, 3], tile_road_b: [3, 5], tile_road_c: [3, 4], tile_road_d: [1, 3, 5],
+      tile_road_e: [0, 3, 5], tile_road_f: [0, 1, 3], tile_road_g: [2, 3, 4], tile_road_h: [0, 2, 3, 4],
+      tile_road_i: [1, 2, 4, 5], tile_road_j: [0, 1, 2, 3], tile_road_k: [1, 2, 3, 4, 5],
+      tile_road_l: [0, 1, 2, 3, 4, 5], tile_road_m: [3]
+    };
+    function pickTile(mask) {
+      const want = [...mask].sort((p, n) => p - n).join(',');
+      for (const [tk, base] of Object.entries(ROAD)) {
+        for (let k = 0; k < 6; k++) {
+          if (base.map((e) => (e - k + 6) % 6).sort((p, n) => p - n).join(',') === want) return [tk, k];
+        }
+      }
+      return null;
+    }
+    const meshOf = (tk, tint) => { // clone a tile's geometry+material once
+      let g = null, m = null;
+      KK.models[tk].scene.traverse((ch) => { if (ch.isMesh && !g) { g = ch.geometry; m = ch.material; } });
+      return g ? [g.clone(), (m = m.clone(), m.color = new THREE.Color(tint), m)] : null;
+    };
+
+    // Carpet the whole map: grass everywhere, a road tile where the network runs.
+    const grassGM = meshOf('tile_grass', 0x76805a);
+    const grassM = [], roadGM = {}, roadM = {};
+    const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
+    for (let r = -4; r <= 17; r++) {
+      for (let q = Math.floor(-2 - r / 2); q <= Math.ceil(18 - r / 2); q++) {
+        const k = key(q, r), wld = axToWorld(q, r);
+        pos.set(wld.x, 0, wld.z);
+        const pick = roadEdges.has(k) ? pickTile(roadEdges.get(k)) : null;
+        if (pick && KK.has(pick[0])) {
+          const [tk, kRot] = pick;
+          if (!roadGM[tk]) { roadGM[tk] = meshOf(tk, 0x9a8f63); roadM[tk] = []; } // warm earth road
+          if (roadGM[tk]) { qt.setFromAxisAngle(yUp, (Math.PI / 3) * kRot); m4.compose(pos, qt, scl); roadM[tk].push(m4.clone()); continue; }
+        }
+        qt.identity(); m4.compose(pos, qt, scl); grassM.push(m4.clone());
+      }
+    }
+    const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
+    addInst(grassGM, grassM);
+    for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
+  }
 
   for (const b of w.buildings) {
     scene.add(buildBuildingMesh(b, w));
