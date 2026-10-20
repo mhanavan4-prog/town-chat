@@ -192,22 +192,29 @@ function buildMootStone(scene) {
 const PEDDLER_SPOT = { x: 554, y: 1313 }; // clear pocket in the wooded clearing east of the Starlight Arcade — nudged off the haybale/tree cluster (nearest prop ~78u away), still beside the tree circle
 function buildMidnightPeddler(scene) {
   const g = new THREE.Group();
-  const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
-  const cloth = new THREE.MeshLambertMaterial({ color: 0x241a3b });
-  // canopy on four posts
-  for (const [px, pz] of [[-26, -18], [26, -18], [-26, 18], [26, 18]]) {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 46, 6), post);
-    p.position.set(px, 23, pz);
-    g.add(p);
+  // The stall: a KayKit market stall (awninged counter — a proper thing to
+  // stand under) when the model loaded, else the old violet canopy + table.
+  const kkStall = (KK && KK.staticInstance) ? KK.staticInstance('prop_stall', 150, 'fit') : null;
+  if (kkStall) {
+    kkStall.rotation.y = Math.PI; // counter/awning toward the customer side — flip if reversed
+    kkStall.position.set(0, 0, 2);
+    g.add(kkStall);
+  } else {
+    const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
+    const cloth = new THREE.MeshLambertMaterial({ color: 0x241a3b });
+    for (const [px, pz] of [[-26, -18], [26, -18], [-26, 18], [26, 18]]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 46, 6), post);
+      p.position.set(px, 23, pz);
+      g.add(p);
+    }
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 3, 46), cloth);
+    roof.position.y = 47;
+    roof.rotation.z = 0.05;
+    g.add(roof);
+    const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
+    table.position.set(0, 16, 8);
+    g.add(table);
   }
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 3, 46), cloth);
-  roof.position.y = 47;
-  roof.rotation.z = 0.05;
-  g.add(roof);
-  // table
-  const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
-  table.position.set(0, 16, 8);
-  g.add(table);
   // the peddler — a KayKit character, built exactly like the town NPCs above
   // (createHumanoid(charId).group, no preset) so he uses the loaded KayKit model
   // and matches everyone else instead of the old cone+sphere blob. The Witch

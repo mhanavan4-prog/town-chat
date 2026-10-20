@@ -4837,6 +4837,8 @@ function makeStallCanopyTexture(variant) {
 }
 
 function makeMarketStall(d) {
+  const kkG = KK.staticInstance('prop_stall', 120, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const counter = new THREE.Mesh(new THREE.BoxGeometry(64, 22, 40), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   counter.position.y = 11; g.add(counter);
@@ -4865,6 +4867,8 @@ function makeMarketStall(d) {
 }
 
 function makeCrate(d) {
+  const kkG = KK.staticInstance('prop_crate', 26, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const crate = new THREE.Mesh(new THREE.BoxGeometry(17, 17, 17), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   crate.position.y = 8.5;
@@ -4878,6 +4882,8 @@ function makeCrate(d) {
 }
 
 function makeBarrelProp(d) { // see makeBenchProp note — renamed to dodge the interior makeBarrel(x, z)
+  const kkG = KK.staticInstance('prop_barrel', 26, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 20, 10), new THREE.MeshLambertMaterial({ color: PROP_WOOD }));
   body.position.y = 10;
@@ -4895,6 +4901,8 @@ function makeBarrelProp(d) { // see makeBenchProp note — renamed to dodge the 
 }
 
 function makeHaybale(d) {
+  const kkG = KK.staticInstance('prop_haybale', 38, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const bale = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 26, 10), new THREE.MeshLambertMaterial({ color: 0xd8b64e }));
   bale.rotation.z = Math.PI / 2;
@@ -4927,6 +4935,8 @@ function makeFenceSeg(d) {
 }
 
 function makeStump(d) {
+  const kkG = KK.staticInstance('prop_stump', 28, 'height');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const stump = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 10, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   stump.position.y = 5; g.add(stump);
@@ -4937,6 +4947,8 @@ function makeStump(d) {
 }
 
 function makeFallenLog(d) {
+  const kkG = KK.staticInstance('prop_log', 46, 'fit');
+  if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); return kkG; }
   const g = new THREE.Group();
   const log = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 48, 8), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   log.rotation.z = Math.PI / 2;
@@ -7458,22 +7470,29 @@ function buildMootStone(scene) {
 const PEDDLER_SPOT = { x: 554, y: 1313 }; // clear pocket in the wooded clearing east of the Starlight Arcade — nudged off the haybale/tree cluster (nearest prop ~78u away), still beside the tree circle
 function buildMidnightPeddler(scene) {
   const g = new THREE.Group();
-  const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
-  const cloth = new THREE.MeshLambertMaterial({ color: 0x241a3b });
-  // canopy on four posts
-  for (const [px, pz] of [[-26, -18], [26, -18], [-26, 18], [26, 18]]) {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 46, 6), post);
-    p.position.set(px, 23, pz);
-    g.add(p);
+  // The stall: a KayKit market stall (awninged counter — a proper thing to
+  // stand under) when the model loaded, else the old violet canopy + table.
+  const kkStall = (KK && KK.staticInstance) ? KK.staticInstance('prop_stall', 150, 'fit') : null;
+  if (kkStall) {
+    kkStall.rotation.y = Math.PI; // counter/awning toward the customer side — flip if reversed
+    kkStall.position.set(0, 0, 2);
+    g.add(kkStall);
+  } else {
+    const post = new THREE.MeshLambertMaterial({ color: 0x3b2c4a });
+    const cloth = new THREE.MeshLambertMaterial({ color: 0x241a3b });
+    for (const [px, pz] of [[-26, -18], [26, -18], [-26, 18], [26, 18]]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 46, 6), post);
+      p.position.set(px, 23, pz);
+      g.add(p);
+    }
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 3, 46), cloth);
+    roof.position.y = 47;
+    roof.rotation.z = 0.05;
+    g.add(roof);
+    const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
+    table.position.set(0, 16, 8);
+    g.add(table);
   }
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 3, 46), cloth);
-  roof.position.y = 47;
-  roof.rotation.z = 0.05;
-  g.add(roof);
-  // table
-  const table = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 20), new THREE.MeshLambertMaterial({ color: 0x4a3b2c }));
-  table.position.set(0, 16, 8);
-  g.add(table);
   // the peddler — a KayKit character, built exactly like the town NPCs above
   // (createHumanoid(charId).group, no preset) so he uses the loaded KayKit model
   // and matches everyone else instead of the old cone+sphere blob. The Witch
@@ -15306,6 +15325,13 @@ const KK = (() => {
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
     prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
+    // KayKit set-dressing props (swapped in for the old procedural versions).
+    prop_crate:   'kk/bld/crate_A_big.gltf',
+    prop_barrel:  'kk/bld/barrel.gltf',
+    prop_haybale: 'kk/bld/haybale.gltf',
+    prop_log:     'kk/bld/resource_lumber.gltf',
+    prop_stump:   'kk/bld/tree_single_A_cut.gltf',
+    prop_stall:   'kk/bld/building_market_red.gltf', // market stall (also the Peddler's canopy)
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
