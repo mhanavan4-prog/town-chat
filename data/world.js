@@ -169,7 +169,7 @@ WORLD.natureDecor = [
   // Watermill landmark on the pond's SE shore (pond centre ~2700,1212). Spot
   // verified clear of roads, buildings, the trees, Scholar Lyra (2230,1180) and
   // the animal spawn (2700,1300). rot aims the wheel roughly toward the water.
-  { id: 'decor_watermill', type: 'watermill', x: 2900, y: 1480, rot: 3.8 }
+  { id: 'decor_watermill', type: 'watermill', x: 2900, y: 1480, rot: 0.66 }
 ];
 
 const WORLD2 = {
