@@ -2112,7 +2112,6 @@
       <button class="menuRow" id="menuMap" title="Town map — see where everything is (M)">🗺️ Town Map</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
-      <button class="menuRow" id="menuWorkshop">🔨 Workshop</button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
@@ -2665,7 +2664,12 @@
   <div class="card" id="workshopCard">
     <div class="title" style="font-size:20px;">🔨 The Artificer's Workshop</div>
     <div class="subtitle">Refine what you gather, forge it into gear, and temper the best into Starforged relics.</div>
-    <div class="slList" id="workshopList" style="max-height:54vh"></div>
+    <div id="artificerGreet" style="margin:8px 0 10px;padding:8px 12px;border-left:3px solid #d98a4f;background:rgba(217,138,79,0.12);border-radius:6px;font-style:italic;color:#e8c9a0;font-size:13px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button data-tab="forge"   id="wsTabForge"   style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(217,138,79,0.4);color:#e8b07a;cursor:pointer;font-size:12px;font-weight:700;background:#8a4a1e;">⚒️ Forge</button>
+      <button data-tab="recipes" id="wsTabRecipes" style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(217,138,79,0.4);color:#e8b07a;cursor:pointer;font-size:12px;font-weight:700;background:transparent;">📜 Recipes</button>
+    </div>
+    <div class="slList" id="workshopList" style="max-height:46vh"></div>
     <div class="slNote" id="workshopErr" style="color:#ff9a9a"></div>
     <button class="btn" id="workshopCloseBtn">Close</button>
   </div>
@@ -3489,6 +3493,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=be038121a9"></script>
+<script src="client.js?v=b554958421"></script>
 </body>
 </html>

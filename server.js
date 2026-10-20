@@ -4126,7 +4126,7 @@ function objectiveWhere(obj) {
     }
     case 'craft_potion': return "Hazel's cauldron, inside her cave (north-west Wilds)";
     case 'delve_depth': return 'the Weekly Delve — descend through the floors (open the 🕳️ Delve from the menu)';
-    case 'craft_item': return "the Artificer's Workshop — 🔨 Workshop in the menu (gather materials, then forge)";
+    case 'craft_item': return "the Artificer's forge in the Wildlands Village (the Wilds) — gather materials, then forge";
     case 'defeat_world_boss': return 'the Blighted Hollow, far north in the Wilds — rally when a World Boss rises';
     default: return '';
   }

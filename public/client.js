@@ -1407,11 +1407,31 @@ function statLine(itemId) {
     return k === 'vitality' ? `+${v} ${label}` : `+${Math.round(v * 100)}% ${label}`;
   }).join(' · ');
 }
+// The Artificer's patter — a random line each time you open the forge.
+const GREETINGS = [
+  "Mind the sparks. Hand me what you've gathered and we'll see what it wants to become.",
+  "Everything's got a truer shape inside it — the forge just… encourages it.",
+  "Bones, bark, bloodmoon glass — bring it all. Nothing's wasted at my anvil.",
+  "You bring the makings, I bring the fire. Fair trade.",
+  "Steel remembers how it was made. Let's give this one a story worth telling.",
+  "Back again? Good — the coals are hot, and idle hands make dull blades."
+];
+let activeTab = 'forge';
+function setWorkshopTab(tab) {
+  activeTab = tab;
+  const forge = document.getElementById('wsTabForge');
+  const rec = document.getElementById('wsTabRecipes');
+  if (forge) forge.style.background = tab === 'forge' ? '#8a4a1e' : 'transparent';
+  if (rec) rec.style.background = tab === 'recipes' ? '#8a4a1e' : 'transparent';
+  renderWorkshopModal();
+}
 function openWorkshopModal() {
   Modals.set('workshopModalOpen', true);
   document.getElementById('workshopModal').classList.remove('hidden');
   document.getElementById('workshopErr').textContent = '';
-  renderWorkshopModal();
+  const greet = document.getElementById('artificerGreet');
+  if (greet) greet.textContent = '⚒️ ' + GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+  setWorkshopTab('forge');
 }
 function closeWorkshopModal() {
   Modals.set('workshopModalOpen', false);
@@ -1425,8 +1445,19 @@ function renderWorkshopModal() {
   const CAT = getItemCatalog() || {};
   list.innerHTML = '';
   if (!recipes.length) { list.innerHTML = '<div class="slNote">The workbench is bare — try again in a moment.</div>'; return; }
+  const unlocked = (getRecipesUnlocked && getRecipesUnlocked()) || [];
+  const isOwned = (r) => !r.gold || unlocked.indexOf(r.id) !== -1;
+  // Forge tab = recipes you can make (free + learned); Recipes tab = the shop,
+  // gold-priced recipes you haven't learned yet.
+  const shown = recipes.filter(r => activeTab === 'forge' ? isOwned(r) : (r.gold && !isOwned(r)));
+  if (!shown.length) {
+    list.innerHTML = activeTab === 'forge'
+      ? '<div class="slNote">Nothing you can forge yet — learn a recipe on the 📜 Recipes tab.</div>'
+      : '<div class="slNote">You\'ve learned every recipe the Artificer has to teach.</div>';
+    return;
+  }
   let lastCat = null;
-  for (const r of recipes) {
+  for (const r of shown) {
     if (r.category !== lastCat) {
       lastCat = r.category;
       const head = document.createElement('div');
@@ -1436,13 +1467,10 @@ function renderWorkshopModal() {
     }
     const out = CAT[r.result] || {};
     const stats = statLine(r.result);
-    // Purchasable (gold-priced) recipes must be LEARNED before they can be
-    // forged. Until then, show the price + a Learn button instead of the
-    // ingredient tally.
-    const owned = !r.gold || (getRecipesUnlocked && (getRecipesUnlocked() || []).indexOf(r.id) !== -1);
     const row = document.createElement('div');
 
-    if (r.gold && !owned) {
+    if (activeTab === 'recipes') {
+      // Shop row — learn the recipe for gold.
       const gold = (getGold && getGold()) || 0;
       const afford = gold >= r.gold;
       row.className = 'craftRow locked';
@@ -1463,6 +1491,7 @@ function renderWorkshopModal() {
       continue;
     }
 
+    // Forge row — craft it if you have the ingredients.
     let canCraft = true;
     const chips = r.ingredients.map(ing => {
       const have = countItem(ing.id);
@@ -1509,6 +1538,10 @@ function wireChipTooltips(list) {
 (function () {
   const close = document.getElementById('workshopCloseBtn');
   if (close) close.addEventListener('click', closeWorkshopModal);
+  const tf = document.getElementById('wsTabForge');
+  const tr = document.getElementById('wsTabRecipes');
+  if (tf) tf.addEventListener('click', () => setWorkshopTab('forge'));
+  if (tr) tr.addEventListener('click', () => setWorkshopTab('recipes'));
 })();
 
   return { openWorkshopModal, closeWorkshopModal, renderWorkshopModal };
@@ -26239,7 +26272,8 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
-  wire('menuWorkshop', openWorkshopModal);
+  // The Workshop is now reached only at the Artificer's forge in the Wildlands
+  // Village (see the 'artificer' kiosk) — no menu entry.
   wire('menuAchievements', openAchModal);
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
