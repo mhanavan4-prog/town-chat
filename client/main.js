@@ -295,6 +295,11 @@ const KK = (() => {
     skel_warrior: 'kk/Skeleton_Warrior.glb',
     skel_rogue:   'kk/Skeleton_Rogue.glb',
     skel_staff:   'kk/Skeleton_Staff.glb',
+    // Ember Wastes army (same Skeletons pack; borrow the Mage's clips like the
+    // other skel_* bodies). skel_mage reuses the Necromancer's body file for the
+    // Bonecaller; skel_golem is the hulking boss/brute body.
+    skel_mage:    'kk/Skeleton_Mage.glb',
+    skel_golem:   'kk/Skeleton_Golem.glb',
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
@@ -412,7 +417,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem'];
   const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
@@ -8951,14 +8956,20 @@ const setEmberKiosksWithNodes = (k) => { EMBER_KIOSKS = emberNodeKiosks.length ?
 // one of the 5 playable looks, so they read as hostile at a glance instead
 // of looking like another player. Glowing eye colors match the flavor each
 // type already had (fire/ember, bone/death, molten-brute).
+// Each ember mob is an animated KayKit Skeleton (same pack as the Necromancer's
+// summons — they borrow the Mage's clips), ember-scorched via kkTint so the
+// bone-white pack reads as risen-from-ash undead. The classic `preset` stays as
+// the cold-load fallback used only until the skeleton body streams in.
+// kkKey → model, kkHeight → world-unit height, kkAttack → borrowed attack clip,
+// kkTint → { mul (multiply the bones toward this), emissive, ei } .
 const EMBER_MOB_VISUALS = {
-  ash_wraith:    { name: 'Ash Wraith',    scale: 0.95, preset: { skin: 0xb85a30, hair: 0x3a1810, hairStyle: 'mohawk', eye: 0xffcc66, shirt: 0x5a2015, pants: 0x2a1a15 } },
-  ashen_stalker: { name: 'Ashen Stalker', scale: 1.0,  preset: { skin: 0xd06a28, hair: 0x2a1008, hairStyle: 'mohawk', eye: 0xffdd88, shirt: 0x6a2810, pants: 0x331808 } },
-  bonecaller:    { name: 'Bonecaller',    scale: 1.0,  preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
-  soot_revenant: { name: 'Soot Revenant', scale: 1.1,  preset: { skin: 0x6a4a7a, hair: 0x120a1a, hairStyle: 'long',   eye: 0xcc88ff, shirt: 0x2a1a3a, pants: 0x160e22 } },
-  cinder_brute:  { name: 'Cinder Brute',  scale: 1.25, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } },
-  magma_golem:   { name: 'Magma Golem',   scale: 1.6,  preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } },
-  ember_warlord: { name: 'Ashlord Cindermaw', scale: 2.5, preset: { skin: 0xff3a00, hair: 0x1a0300, hairStyle: 'mohawk', eye: 0xffff66, shirt: 0x7a1000, pants: 0x2a0600 } }
+  ash_wraith:    { name: 'Ash Wraith',    scale: 0.95, kkKey: 'skel_rogue',   kkHeight: 60,  kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { mul: 0xd98a4a, emissive: 0x401505, ei: 0.35, eye: 0xffcc66 }, preset: { skin: 0xb85a30, hair: 0x3a1810, hairStyle: 'mohawk', eye: 0xffcc66, shirt: 0x5a2015, pants: 0x2a1a15 } },
+  ashen_stalker: { name: 'Ashen Stalker', scale: 1.0,  kkKey: 'skel_minion',  kkHeight: 64,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { mul: 0xe07838, emissive: 0x501a04, ei: 0.4,  eye: 0xffdd88 }, preset: { skin: 0xd06a28, hair: 0x2a1008, hairStyle: 'mohawk', eye: 0xffdd88, shirt: 0x6a2810, pants: 0x331808 } },
+  bonecaller:    { name: 'Bonecaller',    scale: 1.0,  kkKey: 'skel_mage',    kkHeight: 66,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { mul: 0xbfe0a8, emissive: 0x0e3a1c, ei: 0.4,  eye: 0x66ffaa }, preset: { skin: 0xd8d0b8, hair: 0x1a1a1a, hairStyle: 'long',   eye: 0x66ffaa, shirt: 0x2a2418, pants: 0x1c1810 } },
+  soot_revenant: { name: 'Soot Revenant', scale: 1.1,  kkKey: 'skel_minion',  kkHeight: 70,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { mul: 0x9a6ab0, emissive: 0x2a0e44, ei: 0.45, eye: 0xcc88ff }, preset: { skin: 0x6a4a7a, hair: 0x120a1a, hairStyle: 'long',   eye: 0xcc88ff, shirt: 0x2a1a3a, pants: 0x160e22 } },
+  cinder_brute:  { name: 'Cinder Brute',  scale: 1.25, kkKey: 'skel_warrior', kkHeight: 86,  kkAttack: '2H_Melee_Attack_Slice',           kkTint: { mul: 0xd0481c, emissive: 0x5a1400, ei: 0.5,  eye: 0xffaa00 }, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } },
+  magma_golem:   { name: 'Magma Golem',   scale: 1.6,  kkKey: 'skel_golem',   kkHeight: 128, kkAttack: '2H_Melee_Attack_Slice',           kkTint: { mul: 0xc8401a, emissive: 0x6a1800, ei: 0.6,  eye: 0xffee44 }, preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } },
+  ember_warlord: { name: 'Ashlord Cindermaw', scale: 2.5, kkKey: 'skel_golem', kkHeight: 220, kkAttack: '2H_Melee_Attack_Slice',          kkTint: { mul: 0xe83a08, emissive: 0x8a1800, ei: 0.75, eye: 0xffff66 }, preset: { skin: 0xff3a00, hair: 0x1a0300, hairStyle: 'mohawk', eye: 0xffff66, shirt: 0x7a1000, pants: 0x2a0600 } }
 };
 
 let emberMobVisuals = {};
@@ -8969,6 +8980,7 @@ let emberMobVisuals = {};
 // getter (declared later). ──
 const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
   EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
+  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
   getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,
   getEmberScene: () => emberScene,
   getEmberMobVisuals: () => emberMobVisuals,

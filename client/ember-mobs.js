@@ -6,12 +6,52 @@
 // injected via get/set; EMBER_MOB_VISUALS + humanoid/sprite helpers by ref;
 // MOB_ATTACK_LUNGE_DIST via getter (declared after this module's ctor point).
 // ---------------------------------------------------------------------------
-export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
+export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
 const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
+
+// Ember-scorch a KayKit skeleton: multiply the bone-white materials toward the
+// type's ember hue and give them a dim molten emissive so they read as risen
+// from the ash, not a bright pack skeleton. Materials are already cloned by
+// createKayKitByKey, so this is safe to mutate in place.
+function emberScorch(group, tint) {
+  if (!tint) return;
+  const mul = new THREE.Color(tint.mul || 0xffffff);
+  const em = new THREE.Color(tint.emissive || 0x000000);
+  group.traverse(c => {
+    if (!c.isMesh && !c.isSkinnedMesh) return;
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    for (const m of mats) {
+      if (!m) continue;
+      if (m.color) m.color.multiply(mul);
+      if ('emissive' in m) { m.emissive = em.clone(); if ('emissiveIntensity' in m) m.emissiveIntensity = (tint.ei != null ? tint.ei : 0.4); }
+    }
+  });
+}
+
 function getOrCreateEmberMobVisual(id, mobType) {
   let v = getEmberMobVisuals()[id];
   if (!v) {
     const visual = EMBER_MOB_VISUALS[mobType] || EMBER_MOB_VISUALS.ash_wraith;
+    // Preferred: an animated KayKit skeleton (same shared-rig path the
+    // Necromancer's summons use). Falls back to the classic humanoid until the
+    // skeleton body has streamed in (BG_KEYS), so mobs never go invisible.
+    if (visual.kkKey && hasKK && hasKK(visual.kkKey) && createKayKitByKey) {
+      const h = visual.kkHeight || 68;
+      const built = createKayKitByKey(visual.kkKey, h);
+      if (built) {
+        emberScorch(built.group, visual.kkTint);
+        built.group.visible = false;
+        built.group.userData = { kind: 'ember_mob', targetId: id };
+        const bar = makeHealthBarSprite(78); bar.position.set(0, h + 26, 0); built.group.add(bar);
+        const label = makeNpcNameSprite(visual.name); label.position.set(0, h + 42, 0); built.group.add(label);
+        if (getEmberScene()) getEmberScene().add(built.group);
+        return (getEmberMobVisuals()[id] = {
+          isKK: true, group: built.group, kk: built.kk, dispose: built.dispose, attackClip: visual.kkAttack,
+          x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+          initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null, _lastAtkFired: null
+        });
+      }
+    }
     const built = createHumanoid(0, visual.preset);
     built.group.scale.setScalar(visual.scale);
     built.group.visible = false;
@@ -22,7 +62,7 @@ function getOrCreateEmberMobVisual(id, mobType) {
     built.group.add(label);
     if (getEmberScene()) getEmberScene().add(built.group);
     v = getEmberMobVisuals()[id] = {
-      group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
+      isKK: false, group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR,
       x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
       initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null, walkPhase: Math.random() * 10
     };
@@ -72,8 +112,29 @@ function updateEmberMobVisuals(dt) {
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
-
     const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
+
+    // ── Animated KayKit skeleton: drive the shared-rig clips (KK.tick advances
+    // the mixer globally) instead of hand-rotating limbs. ──
+    if (v.isKK) {
+      const now = performance.now();
+      // A fresh attack (server stamped attackAnimStartAt) fires a one-shot swing.
+      if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
+        v._lastAtkFired = v.attackAnimStartAt;
+        if (v.attackClip) kkOneShot(v.kk, v.attackClip);
+      }
+      if (!v.dead) {
+        if (now >= (v.kk.busyUntil || 0)) {
+          const moving = actualSpeed > 4;
+          kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+        }
+      }
+      v.group.position.set(v.x, groundY(v.x, v.y), v.y);
+      v.group.rotation.y = v.facing;
+      v.group.visible = !v.dead;
+      continue;
+    }
+
     const atk = mobAttackLungeAmount(v);
     const moving = actualSpeed > 4;
     if (atk === 0) v.walkPhase += dt * actualSpeed * MOB_WALK_RADIANS_PER_UNIT;
