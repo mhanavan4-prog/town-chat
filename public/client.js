@@ -14186,7 +14186,27 @@ function buildBuildingMesh(b, w) {
     // remember the placed model's ground box so dressing can stay clear of it
     kkBld.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(kkBld);
-    KK_BLD_BOXES[b.id] = bb;
+    // The collider footprint is taken from GROUND-LEVEL geometry only — the
+    // lowest slice of the model — so roof overhangs (e.g. the tavern's barrels)
+    // don't push the collider out past the wall and leave an invisible wall at
+    // ground level. Sweep the mesh vertices below 30% of the model height for
+    // their world XZ extent; fall back to the full box if that comes up empty.
+    const groundY = bb.min.y + 0.30 * (bb.max.y - bb.min.y);
+    let gx0 = Infinity, gx1 = -Infinity, gz0 = Infinity, gz1 = -Infinity, nv = 0;
+    const _gv = new THREE.Vector3();
+    kkBld.traverse((ch) => {
+      const pos = ch.isMesh && ch.geometry && ch.geometry.attributes && ch.geometry.attributes.position;
+      if (!pos) return;
+      for (let i = 0; i < pos.count; i++) {
+        _gv.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(ch.matrixWorld);
+        if (_gv.y > groundY) continue;
+        if (_gv.x < gx0) gx0 = _gv.x; if (_gv.x > gx1) gx1 = _gv.x;
+        if (_gv.z < gz0) gz0 = _gv.z; if (_gv.z > gz1) gz1 = _gv.z; nv++;
+      }
+    });
+    KK_BLD_BOXES[b.id] = (nv > 2 && gx1 > gx0 && gz1 > gz0)
+      ? new THREE.Box3(new THREE.Vector3(gx0, bb.min.y, gz0), new THREE.Vector3(gx1, bb.max.y, gz1))
+      : bb;
     // camera blocker: the COLLISION footprint (player can never be inside
     // it, unlike the model box whose stoop/bulge the player can stand in)
     // up to just under the model's roofline
