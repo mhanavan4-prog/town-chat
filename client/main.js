@@ -301,6 +301,7 @@ const KK = (() => {
     skel_mage:    'kk/Skeleton_Mage.glb',
     skel_golem:   'kk/Skeleton_Golem.glb',
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
+    mon_beast:    'kk/Monster.glb',        // Wilds world-boss reskin (Mother of Thorns, the Wyrm)
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
@@ -428,7 +429,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast'];
   const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
@@ -9054,6 +9055,7 @@ function checkEmberLandmarkDiscovery() {
 // humanoid with a shared healthbar; state from wildlife_state.worldBoss. ──
 const { applyWorldBossState, updateWorldBossVisuals, worldBossVisualPos, worldBossGroup } = createWorldBoss({
   createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
+  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
   getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,
   getWildsScene: () => wildsScene,
 });
