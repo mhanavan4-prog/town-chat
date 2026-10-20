@@ -18,6 +18,7 @@ import createNotif from './notif.js';
 import createLegendShop from './legend.js';
 import createConsent from './consent.js';
 import createVaultScene from './vault-scene.js';
+import createRefugeScene from './refuge-scene.js';
 import createCaveScene from './cave-scene.js';
 import createManorScene from './manor-scene.js';
 import createDungeonScene from './dungeon-scene.js';
@@ -1148,7 +1149,7 @@ function onWsMessage(ev) {
       // Reconnect: scene is already built. Reset the view to the town map
       // first — a resumed player gets swapped back into their restored
       // room just below, and a plain rejoin really is back at the spawn.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === refugeScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -2426,6 +2427,20 @@ function onWsMessage(ev) {
     if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
     swapToWildsMap();
     setUnlockToast('You leave the Witch\'s cave.');
+    return;
+  }
+
+  // ── The Ember Refuge (private chat shelter on the ember flat) ─────────────
+  if (msg.type === 'ember_refuge_entered') {
+    if (me) { me.room = 'ember_refuge'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToRefugeMap();
+    return;
+  }
+
+  if (msg.type === 'ember_refuge_exited') {
+    if (me) { me.room = 'ember_wastes'; me.x = msg.x; me.y = msg.y; }
+    swapToEmberMap();
+    setUnlockToast('🔥 You step back out onto the ember flat.');
     return;
   }
 
@@ -5412,7 +5427,7 @@ function raycastGroundAt(clientX, clientY) {
 // for whatever room the player is currently in, so a ground click can be
 // sent to the server in the same coordinate space player.x/y already use.
 function sceneToWorldPos(room, sceneX, sceneZ) {
-  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'manor' || !world) {
+  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'ember_refuge' || room === 'manor' || !world) {
     return { x: sceneX, y: sceneZ };
   }
   const b = world.buildings.find(bb => bb.id === room);
@@ -5467,6 +5482,7 @@ function sceneForRoom(room) {
   if (room === 'manor') return manorScene || null;
   if (room === 'bank_vault') return vaultScene || null;
   if (room === 'ember_wastes') return emberScene || null;
+  if (room === 'ember_refuge') return refugeScene || null;
   if (typeof room === 'string' && room.startsWith('dungeon_')) return dungeonScene || null;
   if (!world || !world.buildings.find(b => b.id === room)) return null;
   const rec = getInteriorScene(room);
@@ -6990,7 +7006,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'manor' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'ember_refuge' || p.room === 'manor' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -7004,6 +7020,7 @@ function contextMatches(room) {
   if (activeScene === manorScene) return room === 'manor';
   if (activeScene === vaultScene) return room === 'bank_vault';
   if (activeScene === emberScene) return room === 'ember_wastes';
+  if (activeScene === refugeScene) return room === 'ember_refuge';
   return room === 'outside';
 }
 
@@ -8586,6 +8603,25 @@ const { buildVaultScene } = createVaultScene({
 });
 
 // ---------------------------------------------------------------------------
+// The Ember Refuge — a warm shelter standing on the ember flat (at
+// EMBER_REFUGE_SPOT, drawn by ember-scene.js), whose door is a private,
+// occupants-only chat room for players who missed the portal back. Same
+// "indoor sub-room" architecture as the Vault: own scene/camera/bounds, mode
+// stays 'outdoor' so the building-interior logic never mistakes it for a town
+// building. Kept in sync with the server's EMBER_REFUGE_DIMS/SPAWN.
+// ---------------------------------------------------------------------------
+let refugeScene, refugeCamera;
+const REFUGE_WORLD = { width: 760, height: 620, buildings: [], spawn: { x: 380, y: 540 } };
+const REFUGE_KIOSKS = [
+  { x: 380, z: 600, portal: 'refuge_exit' }
+];
+const { buildRefugeScene } = createRefugeScene({
+  makeStoneTexture, makeWoodSidingTexture, makeSignSprite, REFUGE_WORLD,
+  setRefugeScene: (s) => { refugeScene = s; },
+  setRefugeCamera: (c) => { refugeCamera = c; },
+});
+
+// ---------------------------------------------------------------------------
 // The Coven Manor — an 8-bedroom hall in a coven's PRIVATE world (reached from
 // the Wilds once you've stepped through the Moot Stone). Same "indoor sub-room"
 // architecture as the Vault: its own scene/camera/bounds, mode stays 'outdoor'
@@ -9052,6 +9088,34 @@ function enterVault() {
 
 function exitVault() {
   ws.send(JSON.stringify({ type: 'exit_vault' }));
+}
+
+function swapToRefugeMap() {
+  if (!refugeScene) { try { buildRefugeScene(); } catch (e) { console.error('buildRefugeScene failed:', e); } } // lazy: built on first entry, not at boot
+  if (!refugeScene || activeScene === refugeScene) return;
+  world = REFUGE_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(refugeScene, refugeCamera, null);
+}
+
+function enterRefuge() {
+  if (!me || me.isDead) return;
+  // Same standalone sub-room treatment as the Vault: mode stays 'outdoor' so
+  // the building-interior logic never mistakes the refuge for a town building.
+  mode = 'outdoor';
+  indoorBuildingId = null;
+  swapToRefugeMap();
+  me.room = 'ember_refuge';
+  me.x = REFUGE_WORLD.spawn.x;
+  me.y = REFUGE_WORLD.spawn.y;
+  ws.send(JSON.stringify({ type: 'enter_ember_refuge' }));
+  setUnlockToast('🔥 You duck into the refuge — warm, and out of the ash.');
+}
+
+function exitRefuge() {
+  ws.send(JSON.stringify({ type: 'exit_ember_refuge' }));
 }
 
 // ── The Wilds scene ─ extracted to client/wilds-scene.js (Phase C 3D slice).
@@ -10855,6 +10919,7 @@ function findNearestKiosk() {
   if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   if (me.room === 'bank_vault') return nearestKioskIn(VAULT_KIOSKS, me.x, me.y);
   if (me.room === 'ember_wastes') return nearestKioskIn(EMBER_KIOSKS, me.x, me.y);
+  if (me.room === 'ember_refuge') return nearestKioskIn(REFUGE_KIOSKS, me.x, me.y);
   if (me.room === 'manor') return nearestKioskIn(MANOR_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
@@ -13044,6 +13109,8 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
   if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
+  if (kiosk && kiosk.portal === 'refuge_enter') { enterRefuge(); return; }
+  if (kiosk && kiosk.portal === 'refuge_exit') { exitRefuge(); return; }
   if (kiosk && kiosk.npc === 'rite_altar') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rite_light_candle' })); return; }
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
@@ -13214,6 +13281,16 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'ember_exit') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} step back through the portal`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'refuge_enter') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} shelter in the refuge`;
+    return;
+  }
+  if (kiosk && kiosk.portal === 'refuge_exit') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} step back onto the ember flat`;
     return;
   }
   if (kiosk && kiosk.npc === 'ember_mob') {
@@ -13587,20 +13664,22 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === MANOR_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'manor') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
+    const inRefuge = world === REFUGE_WORLD || me.room === 'ember_refuge';
     const inManor = world === MANOR_WORLD || me.room === 'manor';
-    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inManor ? MANOR_WORLD.width : world.width;
-    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inManor ? MANOR_WORLD.height : world.height;
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inRefuge ? REFUGE_WORLD.width : inManor ? MANOR_WORLD.width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
     if (inCave) { me.room = 'witch_cave'; }
     else if (inVault) { me.room = 'bank_vault'; }
     else if (inEmber) { me.room = 'ember_wastes'; }
+    else if (inRefuge) { me.room = 'ember_refuge'; }
     else if (inManor) { me.room = 'manor'; }
     else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
@@ -13955,6 +14034,7 @@ function restoreSceneForRoom(room) {
   if (room === 'witch_cave') { swapToCaveMap(); maybeUpdateRoomUI(room); return; }
   if (room === 'bank_vault') { swapToVaultMap(); maybeUpdateRoomUI(room); return; }
   if (room === 'ember_wastes') { swapToEmberMap(); maybeUpdateRoomUI(room); return; }
+  if (room === 'ember_refuge') { swapToRefugeMap(); maybeUpdateRoomUI(room); return; }
   maybeUpdateRoomUI('outside');
 }
 
