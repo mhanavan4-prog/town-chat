@@ -4977,7 +4977,16 @@ function makeNoticeboard(d) {
   return g;
 }
 
-  return { makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard };
+  // The pond's watermill landmark — a tall KayKit building model (no procedural
+  // fallback; empty group if the model hasn't loaded). camFade so it ghosts out
+  // when it stands between the chase camera and the player, like the trees do.
+  function makeWatermill(d) {
+    const kkG = KK.staticInstance('prop_watermill', 210, 'fit');
+    if (kkG) { kkG.rotation.y = d.rot || 0; kkG.position.set(d.x, 0, d.y); kkG.userData.camFade = true; return kkG; }
+    return new THREE.Group();
+  }
+
+  return { makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard, makeWatermill };
 }
 
 // ===== client/props-nature.js =====
@@ -15296,6 +15305,7 @@ const KK = (() => {
     bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
+    prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -24329,7 +24339,7 @@ const {
 // ── Town-decor props — extracted to client/props-town.js (Phase C, first prop
 // library slice). Pure THREE-group builders; makeGlowTexture/makeBarrel injected. ──
 const {
-  makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard,
+  makeBenchProp, makeLamppost, makeWell, makeMarketStall, makeCrate, makeBarrelProp, makeHaybale, makeFenceSeg, makeStump, makeFallenLog, makeNoticeboard, makeWatermill,
 } = createTownProps({ makeGlowTexture, makeBarrel, KK, LAMP_GLOWS });
 
 
@@ -24393,6 +24403,7 @@ const PROP_BUILDERS = {
   crate: { make: makeCrate, collide: () => ({ w: 19, h: 19 }) },
   barrel: { make: makeBarrelProp, collide: () => ({ w: 19, h: 19 }) },
   haybale: { make: makeHaybale, collide: () => ({ w: 28, h: 28 }) },
+  watermill: { make: makeWatermill, collide: () => ({ w: 150, h: 150 }) },
   fence: { make: makeFenceSeg, collide: (d) => (Math.abs((d.rot || 0) % Math.PI) > 0.8 ? { w: 7, h: 58 } : { w: 58, h: 7 }) },
   stump: { make: makeStump, collide: () => ({ w: 17, h: 17 }) },
   log: { make: makeFallenLog, collide: () => ({ w: 34, h: 34 }) },
