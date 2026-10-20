@@ -6728,6 +6728,37 @@ function addVillageBuildings(scene) {
   kkPlace(scene, 'bld_arcade', VX + 470, VZ + 420, 375, -0.35, 'fit');        // Cottage B (red, SE)
   kkPlace(scene, 'prop_well', VX, VZ + 320, 60, 0, 'fit');                    // Village well (front courtyard)
 
+  // ── The Artificer's forge — a physical home for the Workshop crafting
+  // station by the blacksmith. Press F here opens the same Workshop UI as the
+  // menu (see the 'artificer' kiosk handler in main.js); crafting there still
+  // fires the craft_item quest event server-side, so nothing else changes.
+  const AFX = VX + 300, AFZ = VZ - 20;
+  const ironMat = new THREE.MeshLambertMaterial({ color: 0x2b2b30 });
+  const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(18, 20, 12), ironMat);
+  anvilBase.position.set(AFX, 10, AFZ); scene.add(anvilBase);
+  const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(36, 9, 16), ironMat);
+  anvilTop.position.set(AFX, 24, AFZ); scene.add(anvilTop);
+  const anvilHorn = new THREE.Mesh(new THREE.ConeGeometry(5, 16, 6), ironMat);
+  anvilHorn.rotation.z = -Math.PI / 2; anvilHorn.position.set(AFX - 24, 24, AFZ); scene.add(anvilHorn);
+  // Forge hearth with glowing coals + warm light
+  const hearth = new THREE.Mesh(new THREE.CylinderGeometry(20, 24, 28, 8), stoneMat);
+  hearth.position.set(AFX + 52, 14, AFZ); scene.add(hearth);
+  const coals = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 6),
+    new THREE.MeshLambertMaterial({ color: 0xff5a1e, emissive: 0xff3300, emissiveIntensity: 0.9 }));
+  coals.scale.y = 0.5; coals.position.set(AFX + 52, 29, AFZ); scene.add(coals);
+  const forgeGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff7a2a, transparent: true, opacity: 0.5, depthWrite: false }));
+  forgeGlow.scale.set(80, 80, 1); forgeGlow.position.set(AFX + 52, 36, AFZ); scene.add(forgeGlow);
+  const forgeLight = new THREE.PointLight(0xff7a2a, 1.1, 280);
+  forgeLight.position.set(AFX + 52, 42, AFZ); scene.add(forgeLight);
+  // The Artificer, tending the anvil
+  const artificer = createHumanoid(1).group;
+  artificer.position.set(AFX + 16, 0, AFZ + 26); artificer.rotation.y = Math.PI; scene.add(artificer);
+  const artLabel = makeNpcNameSprite('⚒️ The Artificer');
+  artLabel.position.set(AFX + 16, 92, AFZ + 26); scene.add(artLabel);
+  const forgeSign = makeSignSprite('🔨 Artificer\'s Workshop — Press F');
+  forgeSign.position.set(AFX + 26, 118, AFZ); scene.add(forgeSign);
+  WILDS_KIOSKS.push({ x: AFX + 26, z: AFZ + 40, npc: 'artificer', radius: 110 });
+
   // ── Fire pit (front-right courtyard, clear of the enlarged hall)
   const FPX = VX + 230, FPZ = VZ + 340;
   const emberMat = new THREE.MeshLambertMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 0.8 });
@@ -28073,6 +28104,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
+  if (kiosk && kiosk.npc === 'artificer') { openWorkshopModal(); return; } // the Artificer's forge in the Wildlands Village
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
@@ -28253,6 +28285,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.witch === 'hazel') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Witch Hazel`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'artificer') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} work the Artificer's forge`;
     return;
   }
   if (kiosk && kiosk.npc === 'npc') {

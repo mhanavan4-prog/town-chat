@@ -13006,6 +13006,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'ember_mob') { ws.send(JSON.stringify({ type: 'steal_from_mob', targetId: kiosk.targetId })); return; }
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
+  if (kiosk && kiosk.npc === 'artificer') { openWorkshopModal(); return; } // the Artificer's forge in the Wildlands Village
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
@@ -13186,6 +13187,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.witch === 'hazel') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} speak with Witch Hazel`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'artificer') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} work the Artificer's forge`;
     return;
   }
   if (kiosk && kiosk.npc === 'npc') {
