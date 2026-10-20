@@ -308,6 +308,7 @@ const KK = (() => {
     // routed between the buildings. Each tile's top face sits at model y=0.
     tile_grass:  'kk/tiles/hex_grass.gltf',
     tile_water:  'kk/tiles/hex_water.gltf',
+    lily_a:      'kk/tiles/waterlily_A.gltf', lily_b: 'kk/tiles/waterlily_B.gltf',
     tile_road_a: 'kk/tiles/hex_road_A.gltf', tile_road_b: 'kk/tiles/hex_road_B.gltf',
     tile_road_c: 'kk/tiles/hex_road_C.gltf', tile_road_d: 'kk/tiles/hex_road_D.gltf',
     tile_road_e: 'kk/tiles/hex_road_E.gltf', tile_road_f: 'kk/tiles/hex_road_F.gltf',
@@ -7635,6 +7636,19 @@ function initScene(w) {
     const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
     addInst(grassGM, grassM);
     addInst(waterGM, waterM);
+    // A few KayKit waterlilies floating on the pond for life/detail. Placed on
+    // chosen water hexes with a small in-hex offset; sized via staticInstance so
+    // they read as lily pads, not tiles. Pure scenery (no collider).
+    const LILIES = [['11,7', 'lily_a', 42, -20], ['9,8', 'lily_b', -34, 28], ['10,6', 'lily_a', 10, 40], ['10,8', 'lily_b', 30, 24]];
+    for (const [hk, lk, ox, oz] of LILIES) {
+      if (!WATER.has(hk) || !KK.has(lk)) continue;
+      const [lq, lr] = hk.split(',').map(Number), lc = axToWorld(lq, lr);
+      const g = KK.staticInstance(lk, 46, 'fit');
+      if (!g) continue;
+      g.position.set(lc.x + ox, 1.5, lc.z + oz);
+      g.rotation.y = Math.random() * Math.PI * 2;
+      scene.add(g);
+    }
     for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
   };
   buildHexFloor(); // warm load: tiles already cached → build immediately
