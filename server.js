@@ -404,7 +404,14 @@ function ensureAbId(req, res) {
   }
   return id;
 }
-app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res);
+  // The game shell embeds the hashed client.js, so it must never be cached:
+  // res.sendFile otherwise sends Express's default `public, max-age=0`, which
+  // lets Safari (and any CDN in front) reuse a stale index.html through a
+  // refresh — pinning the old client.js?v= hash and the old graphics with it.
+  // Match the `no-cache` the static middleware already gives .html files.
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 // SEO: let crawlers in, keep the API and admin console out, and point them at
 // the sitemap. The game app (/play → index.html) carries its own noindex meta,
