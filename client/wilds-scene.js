@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -287,11 +287,14 @@ function buildWildsScene(w2) {
 const VX = 5000, VZ = 3000; // village center (mirrors VILLAGE_CENTER on server)
 
 function addVillageBuildings(scene) {
-  const woodMat  = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
   const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a7c6e });
-  const roofMat  = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
-  const thatchMat = new THREE.MeshLambertMaterial({ color: 0xb8933a });
-  const darkWood = new THREE.MeshLambertMaterial({ color: 0x3d2410 });
+  const woodMat  = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
+
+  // Sit the whole village on the rolling moor: lift every added object by the
+  // terrain height at its own x/z (mirrors kkWildsDressing). KayKit buildings
+  // placed via kkPlace(scene, …) ride this too, since kkPlace adds through it.
+  const rawScene = scene;
+  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
 
   function box(w, h, d, mat, px, py, pz) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -300,59 +303,19 @@ function addVillageBuildings(scene) {
     return m;
   }
 
-  // ── Longhouse (main hall) centered at village origin
-  box(260, 85, 110, woodMat, VX, 42, VZ);
-  // Roof — two sloped panels meeting at a ridge
-  const roofA = new THREE.Mesh(new THREE.BoxGeometry(275, 12, 75), roofMat);
-  roofA.rotation.z = 0.45; roofA.position.set(VX, 107, VZ - 22); scene.add(roofA);
-  const roofB = new THREE.Mesh(new THREE.BoxGeometry(275, 12, 75), roofMat);
-  roofB.rotation.z = -0.45; roofB.position.set(VX, 107, VZ + 22); scene.add(roofB);
-  // Ridge cap
-  box(280, 10, 10, darkWood, VX, 120, VZ);
-  // Door opening (dark box slightly proud of front wall)
-  box(32, 52, 8, darkWood, VX, 26, VZ - 57);
-  // Label sprite above longhouse
+  // ── KayKit Hexagon buildings replace the old box huts. Weathered green/yellow
+  // so the Wildlands Village reads as its own rough settlement, not the red
+  // town. kkPlace falls back to null only if the models haven't loaded — but
+  // the Wilds is built lazily on first portal entry, long after KK settles.
+  kkPlace(scene, 'vil_hall', VX, VZ, 205, Math.PI, 'fit');                   // Village Hall (big yellow hall)
   const lhSign = makeSignSprite('🏚️ Village Hall');
-  lhSign.position.set(VX, 145, VZ); scene.add(lhSign);
-
-  // ── Blacksmith/Workshop (east of hall)
-  box(90, 70, 80, stoneMat, VX + 135, 35, VZ - 50);
-  // Chimney
-  box(22, 55, 22, stoneMat, VX + 145, 75, VZ - 40);
-  // Chimney cap (slightly wider)
-  box(28, 8, 28, darkWood, VX + 145, 105, VZ - 40);
-  box(35, 52, 8, darkWood, VX + 135, 26, VZ - 93); // door
-
-  // ── Barn (west of hall)
-  box(130, 80, 95, woodMat, VX - 135, 40, VZ - 45);
-  // Barn roof (gambrel-ish — two-section pitched)
-  const barnRoofA = new THREE.Mesh(new THREE.BoxGeometry(142, 10, 60), roofMat);
-  barnRoofA.rotation.z = 0.4; barnRoofA.position.set(VX - 135, 90, VZ - 67); scene.add(barnRoofA);
-  const barnRoofB = new THREE.Mesh(new THREE.BoxGeometry(142, 10, 60), roofMat);
-  barnRoofB.rotation.z = -0.4; barnRoofB.position.set(VX - 135, 90, VZ - 23); scene.add(barnRoofB);
-  box(138, 8, 8, darkWood, VX - 135, 97, VZ - 45); // ridge
-
-  // ── Guard Tower (north of hall)
-  box(58, 150, 58, stoneMat, VX + 50, 75, VZ - 175);
-  // Battlements (4 merlons on top)
-  for (let i = -1; i <= 1; i += 2) {
-    box(14, 22, 12, stoneMat, VX + 50 + i * 18, 162, VZ - 175 - 27);
-    box(14, 22, 12, stoneMat, VX + 50 + i * 18, 162, VZ - 175 + 27);
-    box(12, 22, 14, stoneMat, VX + 50 - 27, 162, VZ - 175 + i * 18);
-    box(12, 22, 14, stoneMat, VX + 50 + 27, 162, VZ - 175 + i * 18);
-  }
-  // Tower door
-  box(22, 45, 8, darkWood, VX + 50, 22, VZ - 175 + 32);
-
-  // ── Well (south of hall center)
-  const wellBase = new THREE.Mesh(new THREE.CylinderGeometry(22, 24, 38, 10), stoneMat);
-  wellBase.position.set(VX - 20, 19, VZ + 75); scene.add(wellBase);
-  const wellTop = new THREE.Mesh(new THREE.CylinderGeometry(24, 22, 6, 10), darkWood);
-  wellTop.position.set(VX - 20, 41, VZ + 75); scene.add(wellTop);
-  // Well frame posts
-  box(5, 50, 5, darkWood, VX - 20 - 18, 60, VZ + 75 - 18);
-  box(5, 50, 5, darkWood, VX - 20 + 18, 60, VZ + 75 - 18);
-  box(40, 5, 5, darkWood, VX - 20, 83, VZ + 75 - 18); // crossbar
+  lhSign.position.set(VX, 175, VZ); scene.add(lhSign);
+  kkPlace(scene, 'prop_stall', VX + 215, VZ - 60, 110, -Math.PI / 2, 'fit'); // Blacksmith / workshop stall (east)
+  kkPlace(scene, 'vil_home', VX - 225, VZ - 55, 130, Math.PI / 2, 'fit');    // Barn (west)
+  kkPlace(scene, 'vil_tower', VX + 95, VZ - 265, 160, 0, 'height');          // Guard tower (green, north)
+  kkPlace(scene, 'vil_home', VX - 180, VZ + 185, 105, 0.3, 'fit');           // Cottage A (yellow, SW)
+  kkPlace(scene, 'bld_arcade', VX + 180, VZ + 185, 105, -0.35, 'fit');       // Cottage B (red, SE)
+  kkPlace(scene, 'prop_well', VX - 15, VZ + 130, 52, 0, 'fit');              // Village well (front courtyard)
 
   // ── Fire pit (southeast of hall)
   const emberMat = new THREE.MeshLambertMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 0.8 });
@@ -368,23 +331,7 @@ function addVillageBuildings(scene) {
   const fireLight = new THREE.PointLight(0xff6600, 1.4, 320);
   fireLight.position.set(VX + 60, 35, VZ + 80); scene.add(fireLight);
 
-  // ── Cottage A (southwest)
-  box(80, 58, 68, woodMat, VX - 105, 29, VZ + 115);
-  const cotARoofA = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
-  cotARoofA.rotation.z = 0.5; cotARoofA.position.set(VX - 105, 68, VZ + 115 - 16); scene.add(cotARoofA);
-  const cotARoofB = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
-  cotARoofB.rotation.z = -0.5; cotARoofB.position.set(VX - 105, 68, VZ + 115 + 16); scene.add(cotARoofB);
-  box(90, 6, 6, darkWood, VX - 105, 78, VZ + 115); // ridge
-  box(24, 40, 8, darkWood, VX - 105, 20, VZ + 115 - 37); // door
-
-  // ── Cottage B (southeast)
-  box(80, 58, 68, woodMat, VX + 105, 29, VZ + 115);
-  const cotBRoofA = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
-  cotBRoofA.rotation.z = 0.5; cotBRoofA.position.set(VX + 105, 68, VZ + 115 - 16); scene.add(cotBRoofA);
-  const cotBRoofB = new THREE.Mesh(new THREE.BoxGeometry(88, 8, 45), thatchMat);
-  cotBRoofB.rotation.z = -0.5; cotBRoofB.position.set(VX + 105, 68, VZ + 115 + 16); scene.add(cotBRoofB);
-  box(90, 6, 6, darkWood, VX + 105, 78, VZ + 115); // ridge
-  box(24, 40, 8, darkWood, VX + 105, 20, VZ + 115 - 37); // door
+  // (Cottages A/B now placed as KayKit homes above.)
 
   // ── Construction site (north — half-built wall segments + scaffolding)
   const csMat = new THREE.MeshLambertMaterial({ color: 0x9a8a76 });

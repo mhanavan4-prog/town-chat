@@ -304,6 +304,11 @@ const KK = (() => {
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
     prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
+    // Wildlands Village (the Wilds) — weathered green/yellow hexagon buildings,
+    // set apart from the red town. (home_B_red/market_red/well_blue reused below.)
+    vil_hall:   'kk/bld/building_church_yellow.gltf',  // Village Hall
+    vil_tower:  'kk/bld/building_tower_A_green.gltf',   // guard tower
+    vil_home:   'kk/bld/building_home_B_yellow.gltf',  // barn / cottages
     shrine_temple:  'kk/bld/building_shrine_red.gltf',    // Temple of the Flame centerpiece (hexagon atlas)
     prop_torch:     'kk/bld/torch_lit.gltf',              // lit flame torch (Dungeon atlas) — temple corners
     // KayKit set-dressing props (swapped in for the old procedural versions).
@@ -9017,7 +9022,7 @@ const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
-  kkWildsDressing, kkWildsGroundDetail, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
+  kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
