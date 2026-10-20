@@ -309,6 +309,7 @@ const KK = (() => {
     bld_lounge:  'kk/bld/building_tower_A_red.gltf',
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
+    bld_refuge:  'kk/bld/building_tower_base_red.gltf', // Ember Refuge shelter (warm-tinted stone keep)
     prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
     // Wildlands Village (the Wilds) — weathered green/yellow hexagon buildings,
     // set apart from the red town. (home_B_red/market_red/well_blue reused below.)
