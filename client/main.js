@@ -6744,6 +6744,9 @@ const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, p
 let outdoorAmbient = null;
 let outdoorSun = null;
 let outdoorMoonLight = null;
+// Temple of the Flame torch point lights — registered by buildTownTemple and
+// ramped up at night (see updateDayNightCycle) so the flames "carry the dark".
+const TEMPLE_TORCH_LIGHTS = [];
 let moonMesh = null;
 let sunMesh = null;
 const interiorScenes = {};     // buildingId -> interior record
@@ -8069,6 +8072,7 @@ const {
   KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid: createStaticNpc, getDoorSide, getDoorWorldPos, kkPlace,
   makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture,
   getMe: () => me,
+  TEMPLE_TORCH_LIGHTS,
   setDelveStoneGroup: (g) => { delveStoneGroup = g; },
   setPeddlerStallGroup: (g) => { peddlerStallGroup = g; },
   setLocksmithGroup: (g) => { locksmithGroup = g; },
@@ -9023,13 +9027,15 @@ const NIGHT_MS = 20 * 60 * 1000;
 const CYCLE_MS = DAY_MS + NIGHT_MS;
 const DAY_NIGHT_TRANSITION_MS = 90 * 1000; // dawn/dusk blend window, eats into the tail of each phase
 
-// Witchlight daytime: no more postcard-blue noon. Day is a moody mauve —
-// still clearly daylight (mobs stay asleep, lamps stay off), but the town
-// reads as the kind of place where the Cauldron Café makes sense.
-const SKY_DAY = new THREE.Color(0x9b93c9);
+// Witchlight daytime: no postcard-blue noon, but cozy rather than cold —
+// a warm golden-hour light over a soft warm-lavender sky, so the town reads
+// as a welcoming witch-town where the Cauldron Café makes sense. Night swings
+// hard the other way: a deep moonlit blue (see the ambient-intensity curve in
+// day-night.js) so the torches, lanterns and the ember portal carry the dark.
+const SKY_DAY = new THREE.Color(0xb6a7c2);
 const SKY_NIGHT = new THREE.Color(0x0a1230);
-const AMBIENT_DAY = new THREE.Color(0xe6dcf5);
-const AMBIENT_NIGHT = new THREE.Color(0x8fa0ff);
+const AMBIENT_DAY = new THREE.Color(0xf4e7cf);
+const AMBIENT_NIGHT = new THREE.Color(0x6c7ac8);
 const _skyColor = new THREE.Color();
 const _ambientColor = new THREE.Color();
 
@@ -9048,6 +9054,7 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
   hagstoneActiveClient: () => mootInstanceActive, // 🌑 re-grade to violet night inside a coven's private world
   getLampGlows: () => LAMP_GLOWS,
+  getTempleTorchLights: () => TEMPLE_TORCH_LIGHTS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
   getWildsScene: () => wildsScene,
