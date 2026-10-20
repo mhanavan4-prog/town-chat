@@ -24,7 +24,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -6968,25 +6968,14 @@ function wildsHeightAt(x, z) {
 // spawn/decor there sit flat. Client-only (collision stays 2D); getFloorHeight
 // ('ember_wastes') rides this, as do the ground mesh, scattered decor, and the
 // ember mobs. Amplitude a touch higher than the Wilds' moor for a harsher land.
-const EMBER_AMP = 130;
-function emberHeightAt(x, z) {
-  const vn = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
-  const sm = (t) => t * t * (3 - 2 * t);
-  const lattice = (fx, fy) => {
-    const xi = Math.floor(fx), yi = Math.floor(fy), xf = fx - xi, yf = fy - yi;
-    const u = sm(xf), v = sm(yf);
-    const a = vn(xi, yi), b = vn(xi + 1, yi), c = vn(xi, yi + 1), d = vn(xi + 1, yi + 1);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-  };
-  const n = x * 0.00024, m = z * 0.00024;
-  let h = (lattice(n * 3 + 5, m * 3 + 5) - 0.5) * 1.0;
-  h += (lattice(n * 7 + 22, m * 7 + 22) - 0.5) * 0.45;
-  h += (lattice(n * 16, m * 16) - 0.5) * 0.18;
-  h *= EMBER_AMP;
-  const sx = EMBER_WORLD.spawn.x, sy = EMBER_WORLD.spawn.y, r = 1700; // level arrival haven
-  const d = Math.hypot(x - sx, z - sy);
-  if (d < r) { const t = d / r; h *= t * t * (3 - 2 * t); }
-  return h;
+// The Ember Wastes is a FLAT zone — a dead level plain of ruby-hex ground. It
+// used to roll like the Wilds' moor (a displaced heightfield), but it now reads
+// as a glassy ember flat carpeted with ruby hex tiles (see the ember scene's
+// hex floor), so the heightfield is flattened to 0. Kept as a function (not a
+// const 0) because the ground mesh, scattered decor, ember mobs and nodes all
+// call it as groundY(x,z) — they now all sit dead level.
+function emberHeightAt(/* x, z */) {
+  return 0;
 }
 
 let seatedAt = null; // {x,z,facing} in render-space coords, or null when standing
@@ -8998,7 +8987,7 @@ const { applyMinionState, updateMinionVisuals, destroyMinions } = createMinions(
 // THREE global; prop-helpers + EMBER_WORLD injected; scene/camera/kiosks/mob-
 // visuals written back via get/set. ──
 const { buildEmberScene } = createEmberScene({
-  makeGrassTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt,
+  makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK,
   setEmberScene: (s) => { emberScene = s; },
   setEmberCamera: (c) => { emberCamera = c; },
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
