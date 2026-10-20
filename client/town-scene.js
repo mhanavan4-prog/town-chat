@@ -486,6 +486,19 @@ function buildTownTemple(cx, cz) {
   const whiteStoneTex = makeWhiteStoneTexture();
   whiteStoneTex.repeat.set(platformW / 50, platformD / 50);
 
+  // A lower, wider plinth step gives the platform a stepped "temple base"
+  // read; the main platform sits on top of it. The walkable surface (and the
+  // flat collision in getFloorHeight) stays at platformH — the plinth is
+  // purely a visual step up and spills a little past the walkable footprint.
+  const plinthTex = makeWhiteStoneTexture();
+  plinthTex.repeat.set((platformW + 48) / 50, (platformD + 48) / 50);
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(platformW + 48, 8, platformD + 48),
+    new THREE.MeshLambertMaterial({ map: plinthTex, color: 0xe8e4d6 })
+  );
+  plinth.position.set(cx, 4, cz);
+  g.add(plinth);
+
   const platform = new THREE.Mesh(
     new THREE.BoxGeometry(platformW, platformH, platformD),
     new THREE.MeshLambertMaterial({ map: whiteStoneTex, color: 0xffffff })
@@ -496,7 +509,7 @@ function buildTownTemple(cx, cz) {
   // Ritual sigils carved into the platform floor, ringing the altar — a
   // flat transparent-background decal laid just above the stone surface so
   // it reads as etched into it rather than pasted on top. Drawn before the
-  // altar/pillars so it never overdraws anything sitting on top of it.
+  // altar/shrine so it never overdraws anything sitting on top of it.
   const sigilPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
     new THREE.MeshBasicMaterial({ map: makeSigilFloorTexture(), transparent: true })
@@ -505,45 +518,90 @@ function buildTownTemple(cx, cz) {
   sigilPlane.position.set(cx, platformH + 0.3, cz);
   g.add(sigilPlane);
 
-  // Corner pillars — short, purely decorative, framing the platform now
-  // that there's no roof for them to hold up. A simple capital cap on each
-  // gives them a finished, "ruins" look rather than plain cylinders.
-  const pillarH = 84;
-  const pillarMat = new THREE.MeshLambertMaterial({ color: 0xf5f2e6 });
-  const pillarGeo = new THREE.CylinderGeometry(11, 13, pillarH, 8);
-  const capGeo = new THREE.CylinderGeometry(16, 12, 9, 8);
-  const marginX = 34, marginZ = 28;
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const px = cx + sx * (platformW / 2 - marginX);
-      const pz = cz + sz * (platformD / 2 - marginZ);
+  // Centerpiece shrine — a KayKit hexagon-pack shrine (same atlas as the
+  // rest of the town, so it reads as native) standing at the back edge of
+  // the platform, facing the townward approach. The altar + hovering portal
+  // sit in front of it at the platform's true center, so a tall centerpiece
+  // here never fouls the portal (which hovers at y≈100 over the altar).
+  const shrineZ = cz + 72;
+  const kkShrine = (KK && KK.staticInstance) ? KK.staticInstance('shrine_temple', 110, 'fit') : null;
+  if (kkShrine) {
+    kkShrine.position.set(cx, platformH, shrineZ);
+    kkShrine.rotation.y = Math.PI; // face the townward (−z) approach
+    g.add(kkShrine);
+  } else {
+    // Procedural fallback: the old framing pillars, so the temple still
+    // reads as a structure if the KayKit model hasn't loaded.
+    const pillarH = 84;
+    const pillarMat = new THREE.MeshLambertMaterial({ color: 0xf5f2e6 });
+    const pillarGeo = new THREE.CylinderGeometry(11, 13, pillarH, 8);
+    const capGeo = new THREE.CylinderGeometry(16, 12, 9, 8);
+    for (const sx of [-1, 1]) {
+      const px = cx + sx * (platformW / 2 - 34);
       const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-      pillar.position.set(px, platformH + pillarH / 2, pz);
+      pillar.position.set(px, platformH + pillarH / 2, shrineZ);
       g.add(pillar);
       const cap = new THREE.Mesh(capGeo, pillarMat);
-      cap.position.set(px, platformH + pillarH + 4.5, pz);
+      cap.position.set(px, platformH + pillarH + 4.5, shrineZ);
       g.add(cap);
     }
   }
 
-  // Altar — a two-tier stone pedestal at the platform's center, doubling as
-  // the anchor point the portal hovers over once the torches are lit.
-  const altarMat = new THREE.MeshLambertMaterial({ color: 0xefeade });
-  const altarBase = new THREE.Mesh(new THREE.BoxGeometry(64, 30, 64), altarMat);
-  altarBase.position.set(cx, platformH + 15, cz);
+  // Four corner flame torches — the "Flame" of the Temple of the Flame.
+  // KayKit lit-torch models (Dungeon pack) with a warm point light at each
+  // so they actually cast a glow; a small procedural brazier stands in if
+  // the model is missing.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const px = cx + sx * (platformW / 2 - 30);
+      const pz = cz + sz * (platformD / 2 - 26);
+      const kkTorch = (KK && KK.staticInstance) ? KK.staticInstance('prop_torch', 56, 'height') : null;
+      if (kkTorch) {
+        kkTorch.position.set(px, platformH, pz);
+        g.add(kkTorch);
+      } else {
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(3, 4, 54, 6),
+          new THREE.MeshLambertMaterial({ color: 0x4a3320 })
+        );
+        pole.position.set(px, platformH + 27, pz);
+        g.add(pole);
+        const flame = new THREE.Mesh(
+          new THREE.ConeGeometry(6, 16, 8),
+          new THREE.MeshBasicMaterial({ color: 0xff9d3c })
+        );
+        flame.position.set(px, platformH + 60, pz);
+        g.add(flame);
+      }
+      const torchLight = new THREE.PointLight(0xff8a3c, 0.8, 150);
+      torchLight.position.set(px, platformH + 52, pz);
+      g.add(torchLight);
+    }
+  }
+
+  // Altar — a low dark-stone offering slab at the platform's center, sitting
+  // in front of the shrine. Kept low and dark (to match the KayKit shrine
+  // rather than the old bright-white pedestal) so the Ember portal still
+  // reads clearly hovering above it once the torches are lit.
+  const altarMat = new THREE.MeshLambertMaterial({ color: 0x3b3b44 });
+  const altarBase = new THREE.Mesh(new THREE.BoxGeometry(62, 22, 48), altarMat);
+  altarBase.position.set(cx, platformH + 11, cz);
   g.add(altarBase);
-  const altarTop = new THREE.Mesh(new THREE.BoxGeometry(40, 12, 40), altarMat);
-  altarTop.position.set(cx, platformH + 36, cz);
-  g.add(altarTop);
-  // A faint permanent ember glow on the altar top hints at what happens at night.
-  const emberGlow = new THREE.PointLight(0xff5522, 0.4, 90);
-  emberGlow.position.set(cx, platformH + 46, cz);
+  const altarRim = new THREE.Mesh(
+    new THREE.BoxGeometry(72, 5, 58),
+    new THREE.MeshLambertMaterial({ color: 0x4a4a55 })
+  );
+  altarRim.position.set(cx, platformH + 24.5, cz);
+  g.add(altarRim);
+  // A faint permanent ember glow on the altar hints at what happens at night.
+  const emberGlow = new THREE.PointLight(0xff5522, 0.5, 100);
+  emberGlow.position.set(cx, platformH + 34, cz);
   g.add(emberGlow);
 
-  // Altar trinkets — the top surface sits at platformH + 42 (altarTop's
-  // center 36 + half its 12 height). Pentacle medallion dead center, the
-  // rest spread across the four corners of the 40x40 top with margin to spare.
-  const topY = platformH + 42;
+  // Altar trinkets — the rim top sits at platformH + 27 (rim center 24.5 +
+  // half its 5 height). Pentacle medallion dead center, the rest spread
+  // across the slab's corners with margin to spare.
+  const topY = platformH + 27;
   g.add(makePentacleMedallion(cx, topY + 0.2, cz));
   g.add(makeIncenseBowl(cx - 12, topY, cz - 12));
   g.add(makeAltarSkull(cx + 12, topY + 5, cz - 12));
@@ -551,7 +609,7 @@ function buildTownTemple(cx, cz) {
   g.add(makeAltarDagger(cx + 12, topY + 0.6, cz + 12, 0.6));
 
   const sign = makeSignSprite('⛩️ Temple of the Flame');
-  sign.position.set(cx, platformH + pillarH + 40, cz);
+  sign.position.set(cx, platformH + 150, cz);
   g.add(sign);
 
   return g;
