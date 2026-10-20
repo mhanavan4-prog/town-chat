@@ -7829,21 +7829,17 @@ function addGiantWerewolfTree(scene) {
     scene.add(rung);
   }
 
-  // ── Treehouse platform — circular ring around trunk at PLATFORM_Y
-  // Represented as 8 planks forming a hexadecagonal deck
-  const PLANK_COUNT = 12, PLANK_W = 38, PLANK_D = 50, PLANK_H = 6;
-  const PLANK_R = 105; // distance from trunk center to plank center
-  for (let i = 0; i < PLANK_COUNT; i++) {
-    const ang = (i / PLANK_COUNT) * Math.PI * 2;
-    const px = TX + Math.cos(ang) * PLANK_R;
-    const pz = TZ + Math.sin(ang) * PLANK_R;
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(PLANK_W, PLANK_H, PLANK_D), woodPlank);
-    plank.position.set(px, PLATFORM_Y + PLANK_H / 2, pz);
-    plank.rotation.y = ang;
-    scene.add(plank);
-  }
-  // Center infill boards (cover the gap around trunk)
-  box(120, PLANK_H, 120, woodPlank, TX, PLATFORM_Y + PLANK_H / 2, TZ);
+  // ── Treehouse platform — a clean 16-sided wooden deck around the trunk
+  // (replaces the old gappy radial planks that splayed out past the railing).
+  const PLANK_COUNT = 12, PLANK_H = 6;
+  const DECK_R = 140;
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(DECK_R, DECK_R + 4, PLANK_H, 16), woodPlank);
+  deck.position.set(TX, PLATFORM_Y + PLANK_H / 2, TZ);
+  scene.add(deck);
+  // A thin darker underside rim so the deck reads as a solid platform from below.
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(DECK_R + 4, DECK_R - 8, 10, 16), darkWood);
+  rim.position.set(TX, PLATFORM_Y - 4, TZ);
+  scene.add(rim);
 
   // Platform railing posts and rails
   for (let i = 0; i < PLANK_COUNT; i++) {
@@ -7869,30 +7865,51 @@ function addGiantWerewolfTree(scene) {
     }
   }
 
-  // ── Treehouse cabin — small wooden hut on the north side of the platform
-  const HX = TX, HZ = TZ - 80;
+  // ── Treehouse cabin — a KayKit cottage on the north side of the platform
+  // (replaces the old boxy procedural hut), dark-wood tinted so it reads as a
+  // weathered treehouse den. Door faces +z toward Lexton + approaching players.
+  const HX = TX, HZ = TZ - 90;
   const HOUSE_Y = PLATFORM_Y + PLANK_H;
-  // Walls (four separate panels to avoid z-fighting)
-  box(92, 60, 6, woodPlank, HX,       HOUSE_Y + 30, HZ - 33); // back wall
-  box(92, 60, 6, woodPlank, HX,       HOUSE_Y + 30, HZ + 33); // front wall (with door gap below)
-  box(6, 60, 66, woodPlank, HX - 46,  HOUSE_Y + 30, HZ);       // left wall
-  box(6, 60, 66, woodPlank, HX + 46,  HOUSE_Y + 30, HZ);       // right wall
-  box(92, 6, 66, woodPlank, HX,       HOUSE_Y + 57, HZ);        // ceiling
-  // Door opening — black inset on front wall
-  box(20, 36, 8, new THREE.MeshLambertMaterial({ color: 0x080408 }), HX, HOUSE_Y + 18, HZ + 33);
-  // Glowing windows on side walls
-  for (const side of [-1, 1]) {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(8, 14, 8),
-      new THREE.MeshLambertMaterial({ color: 0xffd06a, emissive: 0xffd06a, emissiveIntensity: 0.5 }));
-    win.position.set(HX + side * 46, HOUSE_Y + 35, HZ);
-    scene.add(win);
+  let cabinPlaced = false;
+  if (KK && KK.staticInstance) {
+    // 88 deep (door face lands at ~TZ-46, clearing Lexton at TZ-40); back rests
+    // at the north deck edge.
+    const house = KK.staticInstance('vil_home', 88, 'fit');
+    if (house) {
+      house.traverse(c => {
+        if (!c.isMesh || !c.material) return;
+        const wasArr = Array.isArray(c.material);
+        const mats = wasArr ? c.material : [c.material];
+        const cl = mats.map(mm => { const m = mm.clone(); if (m.color) m.color.lerp(new THREE.Color(0x3a2a1a), 0.42); return m; });
+        c.material = wasArr ? cl : cl[0];
+      });
+      house.position.set(HX, HOUSE_Y, HZ);
+      scene.add(house);
+      // warm glow spilling from the cottage + a couple of props for a lived-in den
+      const winGlow = new THREE.PointLight(0xffd06a, 1.1, 240);
+      winGlow.position.set(HX, HOUSE_Y + 50, HZ + 10); scene.add(winGlow);
+      const barrel = KK.staticInstance('prop_barrel', 24, 'height');
+      if (barrel) { barrel.position.set(HX + 58, HOUSE_Y, HZ + 8); scene.add(barrel); }
+      const crate = KK.staticInstance('prop_crate', 26, 'fit');
+      if (crate) { crate.position.set(HX - 58, HOUSE_Y, HZ + 14); crate.rotation.y = 0.5; scene.add(crate); }
+      cabinPlaced = true;
+    }
   }
-  // Peaked roof
-  const roofGeo = new THREE.CylinderGeometry(0, 60, 50, 4);
-  const roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.position.set(HX, HOUSE_Y + 60 + 25, HZ);
-  roof.rotation.y = Math.PI / 4;
-  scene.add(roof);
+  if (!cabinPlaced) {
+    // Procedural cold-load fallback — the original boxy hut.
+    box(92, 60, 6, woodPlank, HX, HOUSE_Y + 30, HZ - 33);
+    box(92, 60, 6, woodPlank, HX, HOUSE_Y + 30, HZ + 33);
+    box(6, 60, 66, woodPlank, HX - 46, HOUSE_Y + 30, HZ);
+    box(6, 60, 66, woodPlank, HX + 46, HOUSE_Y + 30, HZ);
+    box(92, 6, 66, woodPlank, HX, HOUSE_Y + 57, HZ);
+    box(20, 36, 8, new THREE.MeshLambertMaterial({ color: 0x080408 }), HX, HOUSE_Y + 18, HZ + 33);
+    for (const side of [-1, 1]) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(8, 14, 8), new THREE.MeshLambertMaterial({ color: 0xffd06a, emissive: 0xffd06a, emissiveIntensity: 0.5 }));
+      win.position.set(HX + side * 46, HOUSE_Y + 35, HZ); scene.add(win);
+    }
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 60, 50, 4), roofMat);
+    roof.position.set(HX, HOUSE_Y + 85, HZ); roof.rotation.y = Math.PI / 4; scene.add(roof);
+  }
 
   // ── Point lights
   // Warm candle glow from inside the treehouse
