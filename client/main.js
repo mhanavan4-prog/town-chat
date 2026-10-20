@@ -307,6 +307,7 @@ const KK = (() => {
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
     tile_grass:  'kk/tiles/hex_grass.gltf',
+    tile_water:  'kk/tiles/hex_water.gltf',
     tile_road_a: 'kk/tiles/hex_road_A.gltf', tile_road_b: 'kk/tiles/hex_road_B.gltf',
     tile_road_c: 'kk/tiles/hex_road_C.gltf', tile_road_d: 'kk/tiles/hex_road_D.gltf',
     tile_road_e: 'kk/tiles/hex_road_E.gltf', tile_road_f: 'kk/tiles/hex_road_F.gltf',
@@ -7609,11 +7610,19 @@ function initScene(w) {
     // Carpet the whole map: grass everywhere, a road tile where the network runs.
     const grassGM = meshOf('tile_grass', 0x76805a);
     const grassM = [], roadGM = {}, roadM = {};
+    // A small pond on the east tree line — a disc of hexes verified (offline sim)
+    // clear of the road network and every building footprint. Cosmetic for now:
+    // walkable, no shoreline/collision yet (a follow-up pass with hex_coast tiles
+    // + pond colliders is planned).
+    const WATER = new Set(['10,7', '11,7', '10,8', '9,8', '9,7', '10,6', '11,6']);
+    const waterGM = meshOf('tile_water', 0x8fb0c4);
+    const waterM = [];
     const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
     for (let r = -4; r <= 17; r++) {
       for (let q = Math.floor(-2 - r / 2); q <= Math.ceil(18 - r / 2); q++) {
         const k = key(q, r), wld = axToWorld(q, r);
         pos.set(wld.x, 0, wld.z);
+        if (WATER.has(k) && waterGM) { qt.identity(); m4.compose(pos, qt, scl); waterM.push(m4.clone()); continue; }
         const pick = roadEdges.has(k) ? pickTile(roadEdges.get(k)) : null;
         if (pick && KK.has(pick[0])) {
           const [tk, kRot] = pick;
@@ -7625,6 +7634,7 @@ function initScene(w) {
     }
     const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
     addInst(grassGM, grassM);
+    addInst(waterGM, waterM);
     for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
   };
   buildHexFloor(); // warm load: tiles already cached → build immediately
