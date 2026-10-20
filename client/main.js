@@ -358,6 +358,15 @@ const KK = (() => {
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
     prop_arch:     'kk/props/arch_gate.gltf',
+    // Ember Wastes landmarks — Resource-pack gems become glowing ruby spires;
+    // Dungeon-pack walls/pillars/torches build the Ashlord's ruined citadel.
+    gem_large:     'kk/resource/Gem_Large.gltf',
+    gem_medium:    'kk/resource/Gem_Medium.gltf',
+    ruin_pillar:   'kk/dungeon/pillar.gltf',
+    ruin_pillar2:  'kk/dungeon/pillar_decorated.gltf',
+    ruin_wall:     'kk/dungeon/wall_sloped.gltf',
+    ruin_corner:   'kk/dungeon/wall_corner_small.gltf',
+    ruin_torch:    'kk/dungeon/torch.gltf',
     // Forest Nature Pack — bare/dead trees for the Wilds & graveyard scenery
     // (replacing the procedural makeSpookyTree cones). Six variants for variety.
     tree_bare1a:   'kk/nature/Tree_Bare_1_A_Color1.gltf',

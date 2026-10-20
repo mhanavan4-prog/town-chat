@@ -124,12 +124,12 @@ function buildEmberScene() {
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   const W = EMBER_WORLD.width, Hh = EMBER_WORLD.height, m = 500;
   const spots = [];
-  for (let i = 0; i < 160; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
+  for (let i = 0; i < 240; i++) spots.push([m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2)]);
   const landmarks = (typeof getEmberLandmarks === 'function' && getEmberLandmarks().length)
     ? getEmberLandmarks()
     : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
   for (const lm of landmarks) {
-    for (let i = 0; i < 22; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
+    for (let i = 0; i < 30; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   // Pool of scorched KayKit keys (all in the gating set, already loaded) with a
   // size + fit-mode for each. Weighted toward dead/bare trees + boulders.
@@ -160,7 +160,7 @@ function buildEmberScene() {
     for (const lm of landmarks) {
       if (lm.x === undefined) continue;
       const tombs = [['prop_crypt', 110, 'fit'], ['prop_grave_a', 30, 'height'], ['prop_grave_b', 30, 'height'], ['prop_arch', 150, 'fit']];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 8; i++) {
         const [key, size, mode] = tombs[i % tombs.length];
         const g = KK.staticInstance(key, size * (0.85 + rnd() * 0.4), mode);
         if (!g) continue;
@@ -168,6 +168,86 @@ function buildEmberScene() {
         g.position.set(lm.x + (rnd() - 0.5) * 900, 0, lm.y + (rnd() - 0.5) * 900);
         scorch(g, 0.08 + rnd() * 0.1);
         scene.add(g);
+      }
+    }
+  }
+
+  // ── Ruby crystal formations ──────────────────────────────────────────────
+  // Giant glowing ruby gems jut from the ember flat in clusters — the zone's
+  // signature landmark, tying to the ruby floor and giving big silhouettes to
+  // steer by through the fog. Deep-red with a strong emissive so they glow on
+  // their own (emissive = no per-light shader cost, unlike a PointLight each).
+  function rubyGem(x, z, size) {
+    const key = rnd() < 0.5 ? 'gem_large' : 'gem_medium';
+    const g = KK.staticInstance(key, size, 'height');
+    if (!g) return null;
+    const shade = 0.9 + rnd() * 0.3;
+    g.traverse(c => {
+      if (!c.isMesh || !c.material) return;
+      const mats = Array.isArray(c.material) ? c.material : [c.material];
+      c.material = mats.map(mm => {
+        const m = mm.clone();
+        if (m.color) m.color.setRGB(0.62 * shade, 0.05, 0.11 * shade);
+        if ('emissive' in m) { m.emissive = new THREE.Color(0xc01525); m.emissiveIntensity = 0.55; }
+        return m;
+      });
+      if (!Array.isArray(c.material)) c.material = c.material[0];
+    });
+    g.position.set(x, 0, z);
+    g.rotation.y = rnd() * Math.PI * 2;
+    g.rotation.z = (rnd() - 0.5) * 0.35; // lean the spires
+    return g;
+  }
+  function gemCluster(cx, cz, n, baseSize) {
+    for (let i = 0; i < n; i++) {
+      const ang = rnd() * Math.PI * 2, r = rnd() * baseSize * 1.5;
+      const g = rubyGem(cx + Math.cos(ang) * r, cz + Math.sin(ang) * r, baseSize * (0.5 + rnd() * 1.2));
+      if (g) scene.add(g);
+    }
+  }
+  if (canKK) {
+    // Crystal fields scattered the whole zone over, so bare floor is rare.
+    for (let i = 0; i < 30; i++) gemCluster(m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2), 3 + Math.floor(rnd() * 4), 90 + rnd() * 130);
+    // A dense ruby reef beside each non-warlord POI.
+    for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
+  }
+
+  // ── The Ashlord's Citadel ────────────────────────────────────────────────
+  // A ruined dungeon-stone keep around the warlord's throne: a broken ring of
+  // sloped walls + corners with gaps, crumbling pillars, and torches (emissive
+  // flame + a few real lights at the heart) — the zone's one big structure.
+  if (canKK) {
+    const seat = landmarks.find(l => l.warlord && l.x !== undefined) || landmarks.find(l => l.x !== undefined);
+    if (seat) {
+      const cx = seat.x, cz = seat.y, RING = 460;
+      for (let i = 0; i < 14; i++) {
+        if (rnd() < 0.22) continue; // leave gaps so it reads as ruined, not walled
+        const ang = (i / 14) * Math.PI * 2;
+        const key = (i % 4 === 0) ? 'ruin_corner' : 'ruin_wall';
+        const g = KK.staticInstance(key, 150 + rnd() * 40, 'fit');
+        if (!g) continue;
+        g.position.set(cx + Math.cos(ang) * RING, 0, cz + Math.sin(ang) * RING);
+        g.rotation.y = -ang + Math.PI / 2 + (rnd() - 0.5) * 0.3;
+        scorch(g, 0.14);
+        scene.add(g);
+      }
+      for (let i = 0; i < 7; i++) {
+        const ang = (i / 7) * Math.PI * 2;
+        const p = KK.staticInstance(i % 2 ? 'ruin_pillar2' : 'ruin_pillar', 200 + rnd() * 90, 'height');
+        if (p) { p.position.set(cx + Math.cos(ang) * RING * 0.52, 0, cz + Math.sin(ang) * RING * 0.52); p.rotation.y = rnd() * Math.PI; scorch(p, 0.1); scene.add(p); }
+        const t = KK.staticInstance('ruin_torch', 95, 'height');
+        if (t) {
+          const tx = cx + Math.cos(ang) * RING * 0.82, tz = cz + Math.sin(ang) * RING * 0.82;
+          t.position.set(tx, 0, tz); scene.add(t);
+          const flame = new THREE.Mesh(new THREE.ConeGeometry(10, 30, 6), new THREE.MeshBasicMaterial({ color: 0xff8a2e }));
+          flame.position.set(tx, 95, tz); scene.add(flame);
+        }
+      }
+      // A few real lights only at the citadel heart (kept to a handful for perf).
+      for (const [dx, dz] of [[0, 0], [RING * 0.5, 0], [-RING * 0.5, 0]]) {
+        const l = new THREE.PointLight(0xff6a28, 0.9, 900);
+        l.position.set(cx + dx, 160, cz + dz);
+        scene.add(l);
       }
     }
   }
