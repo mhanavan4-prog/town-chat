@@ -304,6 +304,8 @@ const KK = (() => {
     bld_hall:    'kk/bld/building_castle_red.gltf',
     bld_bank:    'kk/bld/building_tower_base_red.gltf',
     prop_watermill: 'kk/bld/building_watermill_red.gltf', // pond landmark (decor prop)
+    shrine_temple:  'kk/bld/building_shrine_red.gltf',    // Temple of the Flame centerpiece (hexagon atlas)
+    prop_torch:     'kk/bld/torch_lit.gltf',              // lit flame torch (Dungeon atlas) — temple corners
     // KayKit set-dressing props (swapped in for the old procedural versions).
     prop_crate:   'kk/bld/crate_A_big.gltf',
     prop_barrel:  'kk/bld/barrel.gltf',
@@ -7794,10 +7796,13 @@ function initScene(w) {
   // matching rendered-height ramp), same as addNatureDecor() adding tree
   // colliders by hand. Position/size shared with getFloorHeight() via the
   // TEMPLE_PLATFORM_* constants so the two can't drift apart.
-  const templeCx = TEMPLE_PLATFORM_X, templeCz = TEMPLE_PLATFORM_Z, templeD = TEMPLE_PLATFORM_D;
+  const templeCx = TEMPLE_PLATFORM_X, templeCz = TEMPLE_PLATFORM_Z;
   scene.add(buildTownTemple(templeCx, templeCz));
   const altarW = 64, altarD = 64;
   walls.push({ x: templeCx - altarW / 2, y: templeCz - altarD / 2, w: altarW, h: altarD });
+  // The KayKit shrine backdrop sits toward the platform's back (cz + 72 in
+  // buildTownTemple) — block it so players can't walk through the model.
+  walls.push({ x: templeCx - 49, y: (templeCz + 72) - 55, w: 98, h: 110 });
 
   // Ember Wastes portal — hovers over the altar, only visible/enterable
   // once all 4 torches are lit (see applyTemplePortalState, driven by
