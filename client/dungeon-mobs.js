@@ -7,7 +7,25 @@
 // active/dungeon scenes and `me` are reassigned lets, also getters. THREE and
 // LEGEND_FX are globals; the data tables + helpers are injected by reference.
 // ---------------------------------------------------------------------------
-export default function createDungeonMobs({ DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, getActiveScene, getDungeonScene, getDungeonMobVisuals, getMe }) {
+export default function createDungeonMobs({ DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getActiveScene, getDungeonScene, getDungeonMobVisuals, getMe }) {
+// Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
+// reads as a rot-green wight) + a dim flavour emissive. Bodies from
+// createKayKitByKey have per-instance cloned materials, so this is safe.
+function tintKKMob(group, tint) {
+  if (!tint) return;
+  const to = new THREE.Color(tint.to != null ? tint.to : 0xffffff);
+  const amt = tint.amt != null ? tint.amt : 0.5;
+  const em = new THREE.Color(tint.emissive || 0x000000);
+  group.traverse(c => {
+    if (!c.isMesh && !c.isSkinnedMesh) return;
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    for (const m of mats) {
+      if (!m) continue;
+      if (m.color) m.color.lerp(to, amt);
+      if ('emissive' in m) { m.emissive = em.clone(); if ('emissiveIntensity' in m) m.emissiveIntensity = (tint.ei != null ? tint.ei : 0.35); }
+    }
+  });
+}
 // --- Resculpted dungeon creatures (KayKit-style flat-shaded low-poly) ---
 // Builders take (color, eyeColor) and return a Group; per-type colour/
 // scale come from DUNGEON_MOB_VISUALS via makeDungeonMob (unchanged).
@@ -115,28 +133,52 @@ function mobArchetype(t) {
   if (/rat/.test(t)) return 'rodent';
   return 'wraith';
 }
+// Attach the boss name-plate + ember glow to a finished body. `s` scales the
+// label/glow for a hand-built rig (divide by the group's own scale) vs a KK
+// body already sized in world units (yTop = its height; no division).
+function addBossMarkers(g, mobType, visual, yTop, s) {
+  if (!(visual.boss && DUNGEON_BOSS_NAMES[mobType])) return;
+  const label = makeNpcNameSprite('⚔️ ' + DUNGEON_BOSS_NAMES[mobType]);
+  label.position.set(0, yTop, 0);
+  label.scale.multiplyScalar(1.5 * s);
+  g.add(label);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: LEGEND_FX.glowTexture(), color: visual.eyeColor, transparent: true, opacity: 0.4,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  const gs = 60 * s;
+  glow.scale.set(gs, gs, 1);
+  glow.position.set(0, yTop * 0.3, 0);
+  glow.name = 'bossGlow'; // recolored red + enlarged when the boss enrages (below half HP)
+  g.add(glow);
+}
 function makeDungeonMob(mobType) {
   const visual = DUNGEON_MOB_VISUALS[mobType] || { color: 0x2a1a33, eyeColor: 0xff2222, scale: 1.0 };
+  // Preferred: an animated KayKit body (shared-rig path, same as the Wilds
+  // horrors & ember army) for the humanoid/beast/undead archetypes. The
+  // critters KayKit has no model for (rats, bats, spiders, serpents) have no
+  // kkKey and fall through to their purpose-built rigs below.
+  if (visual.kkKey && hasKK && hasKK(visual.kkKey) && createKayKitByKey) {
+    const h = visual.kkHeight || 70;
+    const built = createKayKitByKey(visual.kkKey, h);
+    if (built && built.group) {
+      tintKKMob(built.group, visual.kkTint);
+      if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
+      built.group.add(makeHealthBarSprite(h + 20));
+      built.group.userData.isKK = true;
+      built.group.userData.kk = built.kk;
+      built.group.userData.kkAttack = visual.kkAttack;
+      addBossMarkers(built.group, mobType, visual, h + 12, 1);
+      return built.group;
+    }
+  }
   const builder = MOB_ARCH_BUILDERS[mobArchetype(mobType)] || MOB_ARCH_BUILDERS.wraith;
   const g = builder(visual.color, visual.eyeColor);
   g.add(makeHealthBarSprite(38));
   g.scale.setScalar(visual.scale);
   // Signature bosses (Session L) wear their name and a low ember glow —
   // unmistakable across the arena.
-  if (visual.boss && DUNGEON_BOSS_NAMES[mobType]) {
-    const label = makeNpcNameSprite('⚔️ ' + DUNGEON_BOSS_NAMES[mobType]);
-    label.position.set(0, 46 / visual.scale, 0);
-    label.scale.multiplyScalar(1.5 / visual.scale);
-    g.add(label);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: LEGEND_FX.glowTexture(), color: visual.eyeColor, transparent: true, opacity: 0.4,
-      depthWrite: false, blending: THREE.AdditiveBlending
-    }));
-    glow.scale.set(60 / visual.scale, 60 / visual.scale, 1);
-    glow.position.set(0, 10, 0);
-    glow.name = 'bossGlow'; // recolored red + enlarged when the boss enrages (below half HP)
-    g.add(glow);
-  }
+  addBossMarkers(g, mobType, visual, 46 / visual.scale, 1 / visual.scale);
   return g;
 }
 
@@ -148,7 +190,8 @@ function getOrCreateDungeonMobVisual(id, mobType) {
     mesh.userData = { kind: 'dungeon', targetId: id };
     mesh.traverse(c => { if (c !== mesh) c.userData = mesh.userData; });
     if (getDungeonScene()) getDungeonScene().add(mesh);
-    v = getDungeonMobVisuals()[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null };
+    v = getDungeonMobVisuals()[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null,
+      isKK: !!(mesh.userData && mesh.userData.isKK), kk: mesh.userData && mesh.userData.kk, kkAttack: mesh.userData && mesh.userData.kkAttack, _lastAtkFired: null };
   }
   return v;
 }
@@ -187,15 +230,37 @@ function updateDungeonMobVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in getDungeonMobVisuals()) {
     const v = getDungeonMobVisuals()[id];
+    const prevX = v.x, prevY = v.y;
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    const shouldShow = inDungeon && !v.dead && getMe() && v.room === getMe().room;
+
+    if (v.isKK) {
+      // Animated KayKit body: drive the shared-rig clips (Idle/Walk/Run + a
+      // one-shot on attack) instead of the blob lunge-tilt. KK.tick advances
+      // the mixer globally.
+      const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
+      const now = performance.now();
+      if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
+        v._lastAtkFired = v.attackAnimStartAt;
+        if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
+      }
+      if (now >= (v.kk && v.kk.busyUntil || 0) && kkSetState) {
+        const moving = actualSpeed > 4;
+        kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+      }
+      v.mesh.position.set(v.x, 0, v.y);
+      v.mesh.rotation.y = v.facing;
+      v.mesh.visible = shouldShow;
+      continue;
+    }
+
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
-    const shouldShow = inDungeon && !v.dead && getMe() && v.room === getMe().room;
     v.mesh.visible = shouldShow;
   }
 }
