@@ -22641,7 +22641,23 @@ function initScene(w) {
     if (KK.onAssetLoad) KK.onAssetLoad(buildTownBuildings);
   }
 
-  addNatureDecor(scene, w, decorVisuals);
+  // Trees/bushes/rocks use gated KayKit models (makeKayLeafTree/Bush/Rock), so
+  // on a cold hard refresh they fell back to the plain procedural cones and
+  // never upgraded. addNatureDecor also registers colliders + harvestables, so
+  // re-running it would duplicate — instead defer the single call until KK has
+  // settled (warm: now; cold: when the gated batch lands), same as floor/buildings.
+  let decorBuilt = false;
+  const decorScene = scene;
+  const buildDecor = () => {
+    if (decorBuilt || !KK.settled) return;
+    decorBuilt = true;
+    addNatureDecor(decorScene, w, decorVisuals);
+  };
+  buildDecor();
+  if (!decorBuilt && KK) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildDecor).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildDecor);
+  }
 
   // Fairy rings — circles of red-capped mushrooms in the town's quieter
   // corners, one of them fae-touched and faintly aglow. Pure walk-through
