@@ -7563,16 +7563,19 @@ function initScene(w) {
       const line = hexLine(hub, door);
       for (let i = 0; i < line.length - 1; i++) mark(line[i], line[i + 1]);
       // The terminus would otherwise be a dead-end stub whose road graphic runs
-      // only from the hex centre back toward the approach, leaving a grass gap to
-      // the door. Add a spur on the terminus pointing at the building (the edge
-      // best aligned with -n), so the road runs through the hex and meets the door.
+      // only from the hex centre back toward the approach. Add a spur pointing at
+      // the actual DOOR POINT so the road turns toward the threshold. (Aiming at
+      // -n — the building centre — sent the stub into the wall when the door sat
+      // off to one side of the terminus hex, e.g. the arcade's east door, whose
+      // hex rounds to the building's NE corner with the door ~106u south.)
       const tc = axToWorld(door[0], door[1]);
-      let be = 0, bd = Infinity;
+      const ddx = dp.x - tc.x, ddz = dp.y - tc.z, dL = Math.hypot(ddx, ddz) || 1;
+      let be = 0, bd = -Infinity;
       for (let i = 0; i < 6; i++) {
         const cc = axToWorld(door[0] + NB[i][0], door[1] + NB[i][1]);
         const dx = cc.x - tc.x, dz = cc.z - tc.z, L = Math.hypot(dx, dz) || 1;
-        const d = (dx / L) * n[0] + (dz / L) * n[1];
-        if (d < bd) { bd = d; be = i; }
+        const d = (dx / L) * (ddx / dL) + (dz / L) * (ddz / dL);
+        if (d > bd) { bd = d; be = i; }
       }
       const tkey = key(door[0], door[1]);
       if (!roadEdges.has(tkey)) { roadEdges.set(tkey, new Set()); roadQR.set(tkey, door); }
