@@ -6447,7 +6447,7 @@ function makeNpcNameSprite(name, title) {
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-function createWildsScene({ GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+function createWildsScene({ KK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -6646,44 +6646,50 @@ function buildWildsScene(w2) {
   scene.add(buildPortalMesh(returnPortalX, returnPortalY));
   WILDS_KIOSKS.push({ x: returnPortalX, z: returnPortalY, portal: 'town' });
 
-  // Witch cave entrance — a proper LARGE rock formation now: a mound of
-  // huge weathered boulders shouldering each other around a dark maw,
-  // mossy caps on top, rubble at the foot — not the old floating box.
+  // Witch cave entrance — a mound of KayKit Forest boulders shouldering each
+  // other around a dark maw, a little moss on the high stones, rubble at the
+  // foot. (Was flat-shaded dodecahedra; the KayKit rocks match the reskinned
+  // Wilds.)
   const CX = WITCH_CAVE_ENTRANCE_X, CZ = WITCH_CAVE_ENTRANCE_Z;
   const rockMat = new THREE.MeshLambertMaterial({ color: 0x4a4550 });
   const rockDark = new THREE.MeshLambertMaterial({ color: 0x38343f });
   const mossMat = new THREE.MeshLambertMaterial({ color: 0x2f4a30 });
-  // [dx, y, dz, radius, material] — one great back boulder, two shoulders,
-  // a capstone bridging the maw, and rubble by the mouth.
-  const CAVE_BOULDERS = [
-    [0, 55, -55, 105, rockMat],     // the mountain of the thing
-    [-105, 42, -10, 70, rockDark],  // west shoulder
-    [102, 40, -14, 66, rockMat],    // east shoulder
-    [-2, 118, -30, 52, rockDark],   // capstone over the maw
-    [-58, 14, 48, 26, rockMat],     // rubble, west of the mouth
-    [60, 12, 50, 22, rockDark],     // rubble, east of the mouth
-    [-150, 10, 45, 16, rockMat],    // outlying stone
-    [148, 9, 40, 14, rockDark]      // outlying stone
+  // [rockKey, size, dx, y, dz] — base on the ground except the capstone, which
+  // is lifted to bridge over the mouth. Procedural fallback keeps the formation
+  // if the rock models haven't streamed in yet.
+  const CAVE_ROCKS = [
+    ['rock1', 230,    0,  0, -70], // the back mountain
+    ['rock1', 160, -125,  0, -15], // west shoulder
+    ['rock1', 155,  120,  0, -18], // east shoulder
+    ['rock2', 150,    0, 80,  -8], // capstone bridging the maw
+    ['rock3',  72,  -62,  0,  52], // rubble west of the mouth
+    ['rock3',  64,   64,  0,  54], // rubble east of the mouth
+    ['rock2',  52, -158,  0,  48], // outlying stone
+    ['rock3',  46,  156,  0,  44]  // outlying stone
   ];
-  CAVE_BOULDERS.forEach(([dx, y, dz, r, mat], i) => {
-    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-    b.position.set(CX + dx, y, CZ + dz);
-    b.rotation.set(i * 0.7, i * 1.3, i * 0.5);
-    scene.add(b);
+  CAVE_ROCKS.forEach(([key, size, dx, y, dz], i) => {
+    const b = (KK && KK.staticInstance) ? KK.staticInstance(key, size, 'fit') : null;
+    if (b) {
+      b.position.set(CX + dx, y, CZ + dz);
+      b.rotation.y = i * 1.3;
+      scene.add(b);
+    } else {
+      const fb = new THREE.Mesh(new THREE.DodecahedronGeometry(size * 0.46, 0), i % 2 ? rockDark : rockMat);
+      fb.position.set(CX + dx, y + size * 0.32, CZ + dz);
+      fb.rotation.set(i * 0.7, i * 1.3, i * 0.5);
+      scene.add(fb);
+    }
   });
-  // Collision for the formation's ground boulders — the visuals alone let
-  // players walk straight through the whole cave (reported). Square colliders
-  // on the back mountain + two shoulders seal the mass; the maw side (toward
-  // the approach) stays open so you can still walk up and press F. Server
-  // entry allows anywhere within 140 of the centre (see enter_witch_cave), so
-  // this never blocks entry.
-  wildsCollide(CX + 0,   CZ - 55, 75); // back mountain
-  wildsCollide(CX - 105, CZ - 10, 58); // west shoulder
-  wildsCollide(CX + 102, CZ - 14, 55); // east shoulder
-  // Moss caps draped on the high stones
-  for (const [dx, y, dz, r] of [[-10, 148, -35, 30], [-95, 95, -20, 22], [95, 88, -25, 20]]) {
+  // Collision on the back mass + two shoulders; the maw side (toward the
+  // approach) stays open so you can walk up and press F. Server entry allows
+  // anywhere within 140 of the centre (enter_witch_cave), so this never blocks.
+  wildsCollide(CX + 0,   CZ - 70, 80); // back mountain
+  wildsCollide(CX - 125, CZ - 15, 62); // west shoulder
+  wildsCollide(CX + 120, CZ - 18, 60); // east shoulder
+  // A little moss on the high stones.
+  for (const [dx, y, dz, r] of [[0, 212, -70, 34], [-118, 150, -15, 24], [116, 148, -18, 22]]) {
     const moss = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mossMat);
-    moss.scale.y = 0.45;
+    moss.scale.y = 0.4;
     moss.position.set(CX + dx, y, CZ + dz);
     scene.add(moss);
   }
@@ -24152,7 +24158,7 @@ function exitVault() {
 const { buildWildsScene } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
-  addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
+  KK, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   getDecorVisuals2: () => decorVisuals2,
