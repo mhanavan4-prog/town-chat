@@ -7126,6 +7126,16 @@ function buildWildsScene(w2) {
   // close-behind third-person camera can usefully see along the ground.
   scene.fog = new THREE.Fog(0x8fd0ef, 700, 2200);
 
+  // Idempotent-rebuild support: this build PUSHES to the collider + kiosk lists,
+  // so clear them first — otherwise the upgrade rebuild (re-run once the KayKit
+  // models finish streaming, so the Artificer, Lexton and the village buildings
+  // appear instead of placeholders) would stack a second set of colliders and
+  // interact points. The campfire/waymarker lists are static input data this
+  // build only reads, so they're left untouched; the mob/animal visual pools
+  // reset themselves inside addMobs2/addMobs3/addAnimals2 below.
+  WILDS_WALLS.length = 0;
+  WILDS_KIOSKS.length = 0;
+
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
 
   const grassTex = makeWildsFloorTexture(); // reskinned forest floor (KayKit-matched)
@@ -23960,7 +23970,17 @@ function initScene(w) {
 // toast on top of the defeat one.
 // ---------------------------------------------------------------------------
 function swapToWildsMap() {
-  if (!wildsScene && world2) { try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('buildWildsScene failed:', e); } } // lazy: built on first entry, not at boot
+  if (!wildsScene && world2) {
+    try {
+      buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); // lazy: built on first entry, not at boot
+      // If the KayKit models hadn't all streamed in yet — e.g. a reload/resume
+      // straight into the Wilds on a cold load — this build used placeholder
+      // NPCs (a procedural Artificer, no Lexton) and skipped the KayKit
+      // buildings (kkPlace returns null before load). Upgrade to the full scene
+      // once the models settle.
+      if (!KK.settled) scheduleWildsUpgrade();
+    } catch (e) { console.error('buildWildsScene failed:', e); }
+  }
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
   for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
@@ -24055,6 +24075,37 @@ function schedulePrebuildWilds() {
   if (KK.settled) idle();
   else if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(idle).catch(() => {});
   else setTimeout(idle, 5000);
+}
+
+// If the Wilds got built before the KayKit models finished streaming (a resume
+// straight into the Wilds on a cold load), rebuild it once the models land so
+// the Artificer, Lexton and the village buildings come in for real instead of
+// their placeholders. buildWildsScene self-clears its collider/kiosk lists and
+// its mob/animal pools, so the rebuild is clean; we just move the shared lights
+// across and re-point the player if they're standing in it.
+let wildsUpgradeScheduled = false;
+function scheduleWildsUpgrade() {
+  if (wildsUpgradeScheduled) return;
+  wildsUpgradeScheduled = true;
+  const run = () => {
+    wildsUpgradeScheduled = false;
+    if (!wildsScene || !world2 || !KK.settled) return;
+    const sharedLights = [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean);
+    const wasActive = (activeScene === wildsScene);
+    for (const light of sharedLights) wildsScene.remove(light); // free the shared lights from the stale scene
+    manorExteriorGroup = null; // force ensureManorExterior to re-add to the fresh scene
+    wildsScene = null;         // force a full rebuild on the next call
+    try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('Wilds upgrade rebuild failed:', e); return; }
+    if (wasActive && wildsScene) {
+      for (const light of sharedLights) wildsScene.add(light);
+      world = world2; walls = WILDS_WALLS; cameraYawOffset = 0; cameraPitchOffset = 0;
+      ensureManorExterior();
+      applyManorInstanceState(mootInstanceActive);
+      setActiveContext(wildsScene, wildsCamera, null);
+    }
+  };
+  if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(run).catch(() => {});
+  else setTimeout(run, 2500);
 }
 
 function enterWilds() {

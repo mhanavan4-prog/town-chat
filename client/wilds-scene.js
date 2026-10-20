@@ -15,6 +15,16 @@ function buildWildsScene(w2) {
   // close-behind third-person camera can usefully see along the ground.
   scene.fog = new THREE.Fog(0x8fd0ef, 700, 2200);
 
+  // Idempotent-rebuild support: this build PUSHES to the collider + kiosk lists,
+  // so clear them first — otherwise the upgrade rebuild (re-run once the KayKit
+  // models finish streaming, so the Artificer, Lexton and the village buildings
+  // appear instead of placeholders) would stack a second set of colliders and
+  // interact points. The campfire/waymarker lists are static input data this
+  // build only reads, so they're left untouched; the mob/animal visual pools
+  // reset themselves inside addMobs2/addMobs3/addAnimals2 below.
+  WILDS_WALLS.length = 0;
+  WILDS_KIOSKS.length = 0;
+
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 6, 4000); // near=6 for depth precision (kills edge z-fighting); see town camera note
 
   const grassTex = makeWildsFloorTexture(); // reskinned forest floor (KayKit-matched)
