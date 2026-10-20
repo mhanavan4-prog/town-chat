@@ -8058,6 +8058,28 @@ function updatePortals(dt) {
 
 // Drift the Manor's embers upward, wrapping back to the floor — only while the
 // Manor is the active scene, so it costs nothing anywhere else.
+// Drifting ember field for the Ember Wastes — rises and recentres on the camera
+// so embers surround the player wherever they roam (a full-zone cloud would be
+// mostly wasted beyond the fog). Same Points-with-velocity trick as the Manor.
+function updateEmberAmbient(dt) {
+  if (!emberAmbient || activeScene !== emberScene) return;
+  const cam = emberCamera;
+  const cx = cam ? cam.position.x : EMBER_WORLD.spawn.x;
+  const cz = cam ? cam.position.z : EMBER_WORLD.spawn.y;
+  const pos = emberAmbient.points.geometry.attributes.position;
+  const a = pos.array, vel = emberAmbient.vel, RAD = emberAmbient.RAD, CEIL = emberAmbient.CEIL;
+  for (let i = 0; i < vel.length; i++) {
+    a[i * 3 + 1] += vel[i] * dt;
+    const dx = a[i * 3] - cx, dz = a[i * 3 + 2] - cz;
+    if (a[i * 3 + 1] > CEIL || dx > RAD || dx < -RAD || dz > RAD || dz < -RAD) {
+      a[i * 3] = cx + (Math.random() - 0.5) * 2 * RAD;
+      a[i * 3 + 1] = 2 + Math.random() * 60;
+      a[i * 3 + 2] = cz + (Math.random() - 0.5) * 2 * RAD;
+    }
+  }
+  pos.needsUpdate = true;
+}
+
 function updateManorEmbers(dt) {
   if (!manorEmbers || activeScene !== manorScene) return;
   const pos = manorEmbers.points.geometry.attributes.position;
@@ -9041,8 +9063,10 @@ const { applyMinionState, updateMinionVisuals, destroyMinions } = createMinions(
 // ── Ember Wastes scene — extracted to client/ember-scene.js (Phase C 3D slice).
 // THREE global; prop-helpers + EMBER_WORLD injected; scene/camera/kiosks/mob-
 // visuals written back via get/set. ──
+let emberAmbient = null; // { points, vel, RAD, CEIL } — drifting embers, ticked in the render loop
 const { buildEmberScene } = createEmberScene({
   makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK,
+  makeGlowTexture, setEmberAmbient: (e) => { emberAmbient = e; },
   setEmberScene: (s) => { emberScene = s; },
   setEmberCamera: (c) => { emberCamera = c; },
   getEmberStaticKiosks: () => EMBER_STATIC_KIOSKS,
@@ -13943,6 +13967,7 @@ function update(dt) {
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
   updateEmberMobVisuals(dt);
+  updateEmberAmbient(dt);
   if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
   updateWorldBossVisuals(dt);
   updateMinionVisuals(dt);
