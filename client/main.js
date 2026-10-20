@@ -313,6 +313,14 @@ const KK = (() => {
     prop_log:     'kk/bld/resource_lumber.gltf',
     prop_stump:   'kk/bld/tree_single_A_cut.gltf',
     prop_stall:   'kk/bld/building_market_red.gltf', // market stall (also the Peddler's canopy)
+    // Wilds flora — KayKit Forest Nature Pack, recolored per species (dark green
+    // c2, teal/hexed c4, pale c1). Each gltf references its own forest_c*.png.
+    fl_watchpine:  'kk/forest/watchpine.gltf',  // dark-green pine
+    fl_deadwood:   'kk/forest/deadwood.gltf',   // gnarled bare dead tree
+    fl_hexoak:     'kk/forest/hexoak.gltf',     // teal broad "hexed" oak
+    fl_palebirch:  'kk/forest/palebirch.gltf',  // pale tall birch
+    fl_bramble:    'kk/forest/bramble.gltf',    // broad bramble bush
+    fl_thornsnarl: 'kk/forest/thornsnarl.gltf', // small teal thorn bush
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -9428,6 +9436,35 @@ function applyDecorState(list) {
 // Prop builders + their player-collision footprints. rot-aware where the
 // prop is meaningfully oblong AND only ever placed axis-aligned (fences);
 // diagonal-rotated props get a square that covers their core.
+// Wilds flora: a KayKit Forest Nature Pack instance in place of the procedural
+// builder, seated at the decor point with a deterministic per-id yaw so the
+// forest doesn't read as clones. Returns null if the model hasn't streamed in
+// yet, so the caller falls back to the procedural version. `extra` tacks on
+// per-species detail (e.g. deadwood's harvestable spirit-glint).
+function makeKKFlora(key, d, targetH, extra) {
+  const inst = (KK && KK.staticInstance) ? KK.staticInstance(key, targetH * (d.scale || 1), 'height') : null;
+  if (!inst) return null;
+  let h = 0; const id = d.id || '';
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  inst.rotation.y = (((h % 360) + 360) % 360) * Math.PI / 180;
+  inst.position.set(d.x, 0, d.y);
+  inst.userData.camFade = true;
+  if (extra) extra(inst, d);
+  return inst;
+}
+
+// Deadwood's spirit-wisp glint — the cue that THIS dead tree is harvestable
+// (the scenery spooky trees have none). Re-added to the KayKit model so the
+// tell survives the swap (mirrors makeDeadwood in props-nature.js).
+function addDeadwoodGlint(g, d) {
+  const s = d.scale || 1;
+  const gy = (g.userData.kkHeight || 90) * 0.8;
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(3.4 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
+  glint.position.set(2.5 * s, gy, 2.5 * s); g.add(glint);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(6.2 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.22 }));
+  halo.position.copy(glint.position); g.add(halo);
+}
+
 const PROP_BUILDERS = {
   bench: { make: makeBenchProp, collide: () => ({ w: 40, h: 40 }) },
   lamppost: { make: makeLamppost, collide: () => ({ w: 9, h: 9 }) },
@@ -9442,15 +9479,15 @@ const PROP_BUILDERS = {
   log: { make: makeFallenLog, collide: () => ({ w: 34, h: 34 }) },
   noticeboard: { make: makeNoticeboard, collide: () => ({ w: 34, h: 12 }) },
   // ── Wilds flora — trees block movement (small collider), bushes walk-through ──
-  watchpine:       { make: (d) => makeWatchpine(d.x, d.y, d.scale),      collide: () => ({ w: 16, h: 16 }) },
-  deadwood:        { make: (d) => makeDeadwood(d.x, d.y, d.scale),       collide: () => ({ w: 15, h: 15 }) },
+  watchpine:       { make: (d) => makeKKFlora('fl_watchpine', d, 132) || makeWatchpine(d.x, d.y, d.scale),       collide: () => ({ w: 16, h: 16 }) },
+  deadwood:        { make: (d) => makeKKFlora('fl_deadwood', d, 92, addDeadwoodGlint) || makeDeadwood(d.x, d.y, d.scale), collide: () => ({ w: 15, h: 15 }) },
   mourning_willow: { make: (d) => makeMourningWillow(d.x, d.y, d.scale), collide: () => ({ w: 18, h: 18 }) },
   capwood:         { make: (d) => makeCapwood(d.x, d.y, d.scale),        collide: () => ({ w: 22, h: 22 }) },
-  hexoak:          { make: (d) => makeHexoak(d.x, d.y, d.scale),         collide: () => ({ w: 20, h: 20 }) },
-  palebirch:       { make: (d) => makePalebirch(d.x, d.y, d.scale),      collide: () => ({ w: 18, h: 18 }) },
-  bramblebush:     { make: (d) => makeBramblebush(d.x, d.y, d.scale),    collide: () => null },
+  hexoak:          { make: (d) => makeKKFlora('fl_hexoak', d, 112) || makeHexoak(d.x, d.y, d.scale),             collide: () => ({ w: 20, h: 20 }) },
+  palebirch:       { make: (d) => makeKKFlora('fl_palebirch', d, 100) || makePalebirch(d.x, d.y, d.scale),       collide: () => ({ w: 18, h: 18 }) },
+  bramblebush:     { make: (d) => makeKKFlora('fl_bramble', d, 34) || makeBramblebush(d.x, d.y, d.scale),        collide: () => null },
   nightberry:      { make: (d) => makeNightberry(d.x, d.y, d.scale),     collide: () => null },
-  thornsnarl:      { make: (d) => makeThornsnarl(d.x, d.y, d.scale),     collide: () => null },
+  thornsnarl:      { make: (d) => makeKKFlora('fl_thornsnarl', d, 30) || makeThornsnarl(d.x, d.y, d.scale),      collide: () => null },
   fenfern:         { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null },
   toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null }
 };
