@@ -207,6 +207,68 @@ export function makeWildsFloorTexture() {
   return tex;
 }
 
+// Ember Wastes floor — scorched, cracked ground: a charred ash-grey base shot
+// through with dried blood-earth patches, cooling-ember glints, cinders and
+// soot-black cracks. Paired with the ember ground's per-vertex height tint
+// (dark soot in the hollows → ash-pale, ember-lit crests) the same way the
+// Wilds floor texture pairs with its moss-to-highland tint.
+export function makeEmberFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const cx = c.getContext('2d');
+  // Charred ashen base
+  cx.fillStyle = '#3a2a22';
+  cx.fillRect(0, 0, 512, 512);
+  // Large soft patches: cracked blood-earth + paler ash drifts
+  for (let i = 0; i < 44; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 26 + Math.random() * 74;
+    const scorch = Math.random() < 0.5;
+    cx.fillStyle = scorch ? 'rgba(74,34,22,0.30)' : 'rgba(120,96,82,0.20)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Soot-black burn blotches + warm scorch haloes
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 7 + Math.random() * 24;
+    cx.fillStyle = Math.random() < 0.55 ? 'rgba(20,12,10,0.34)' : 'rgba(150,66,30,0.16)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Cooling-ember flecks — hot orange/red glints scattered like dying coals
+  for (let i = 0; i < 240; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const hot = Math.random();
+    cx.fillStyle = hot < 0.2 ? 'rgba(255,150,46,0.55)' : hot < 0.5 ? 'rgba(200,78,28,0.4)' : 'rgba(60,34,26,0.4)';
+    cx.fillRect(x, y, 2 + Math.random() * 3, 2 + Math.random() * 3);
+  }
+  // Charcoal pebbles + burnt grit
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 1.5 + Math.random() * 3;
+    cx.fillStyle = Math.random() < 0.5 ? 'rgba(40,36,38,0.4)' : 'rgba(78,60,52,0.36)';
+    cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  }
+  // Soot cracks — thin dark fissures threading across the crust
+  cx.lineWidth = 1;
+  for (let i = 0; i < 140; i++) {
+    let x = Math.random() * 512, y = Math.random() * 512;
+    cx.strokeStyle = 'rgba(14,9,8,0.4)';
+    cx.beginPath(); cx.moveTo(x, y);
+    const segs = 2 + Math.floor(Math.random() * 3);
+    for (let s = 0; s < segs; s++) { x += (Math.random() - 0.5) * 30; y += (Math.random() - 0.5) * 30; cx.lineTo(x, y); }
+    cx.stroke();
+  }
+  // Sparse burnt stubble — scorched, near-dead blades
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const len = 2 + Math.random() * 5, ang = Math.random() * Math.PI * 2;
+    const g = 50 + Math.random() * 40;
+    cx.strokeStyle = `rgba(${g + 20}, ${g - 16}, ${g - 30}, 0.34)`;
+    cx.beginPath(); cx.moveTo(x, y);
+    cx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); cx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 // Cracked Flagstone — the town's eerie paths + plaza: weathered slate flagstones
 // with dark mortar cracks and moss creeping in, replacing the tan dirt.
 export function makeFlagstoneTexture() {
