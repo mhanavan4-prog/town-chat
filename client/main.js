@@ -560,6 +560,12 @@ const KK = (() => {
     // everything (critical + the streamed-in summon models) is done.
     get fullyLoaded() { return allDone; },
     loadFrac() { return totalCount ? loadedCount / totalCount : 1; },
+    // Gating-only fraction (0..1): the SHARED WORLD graphics — buildings, hex
+    // floor, trees, props. Reaches 1 exactly when KK.settled flips, so the
+    // loading pill's bar fills to 100% right as the world finishes painting in
+    // (loadFrac, over the whole manifest incl. the silent character tail, only
+    // ever reaches ~80% by then — which looked like a stall in the pill).
+    gatingFrac() { const n = GATING_KEYS.length; return n ? (n - pending) / n : 1; },
     onAssetLoad(cb) { _assetCbs.push(cb); },
     tick(dt) { for (const m of mixers) m.update(dt); } };
 })();
@@ -4948,11 +4954,8 @@ if (MOBILE_UI) document.body.classList.add('touchMode');
 (() => {
   const pill = document.getElementById('loadPill');
   if (!pill) return;
-  let mx = window.innerWidth / 2, my = window.innerHeight - 160; // sensible default: above the hotbar
-  let moved = false;
-  if (!MOBILE_UI) {
-    window.addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; moved = true; }, { passive: true });
-  }
+  const fillEl = document.getElementById('loadPillFill');
+  const textEl = document.getElementById('loadPillText');
   function frame() {
     // Show once the player has committed to entering (join armed) or is in-game,
     // and only while assets are still streaming.
@@ -4960,23 +4963,18 @@ if (MOBILE_UI) document.body.classList.add('touchMode');
     // The world is ready to play once the town (gating assets, incl. the hex
     // floor) has settled and — once spawned — the player's OWN character body is
     // in. The other five bodies + summon skeletons keep streaming in silently
-    // afterwards, so the pill no longer parks at ~80% for the whole cold-load
-    // character tail (which looked like a hang on a hard refresh; a warm rejoin
-    // had them cached and finished instantly).
+    // afterwards, so the pill no longer parks for the whole cold-load character
+    // tail (which looked like a hang on a hard refresh; a warm rejoin had them
+    // cached and finished instantly).
     const worldReady = KK.settled && (!me || KK.charReady(me.charId));
     if (armed && !worldReady) {
-      const pct = Math.min(100, Math.round(KK.loadFrac() * 100));
-      pill.textContent = 'Loading world… ' + pct + '%';
-      if (MOBILE_UI) {
-        // No cursor to follow — pin centered, just above the hotbar.
-        pill.style.left = '50%'; pill.style.top = (window.innerHeight - 150) + 'px';
-        pill.style.transform = 'translate(-50%,0)';
-      } else {
-        const x = Math.min(mx, window.innerWidth - 150);
-        const y = Math.min(my, window.innerHeight - 50);
-        pill.style.left = x + 'px'; pill.style.top = y + 'px';
-        pill.style.transform = 'translate(14px,16px)';
-      }
+      // Fill off the GATING fraction (the shared world's own graphics) so the
+      // bar climbs to ~100% exactly as the world finishes painting in, rather
+      // than stalling in the 70s like the whole-manifest fraction would.
+      const frac = (typeof KK.gatingFrac === 'function') ? KK.gatingFrac() : KK.loadFrac();
+      const pct = Math.max(4, Math.min(100, Math.round(frac * 100)));
+      if (fillEl) fillEl.style.width = pct + '%';
+      if (textEl) textEl.textContent = 'Loading the world’s graphics… ' + pct + '%';
       pill.classList.add('show');
     } else {
       pill.classList.remove('show');
