@@ -7493,7 +7493,18 @@ function initScene(w) {
     base.position.set(w.width / 2, -6, w.height / 2);
     scene.add(base);
   }
-  if (KK.settled && KK.has('tile_grass')) {
+  // Build the hex-tile floor + road network in a retryable closure. On a warm
+  // load the ~19MB of KayKit tile models are already cached, so this runs now.
+  // On a cold HARD REFRESH the init packet can beat the tiles to the client, so
+  // initScene would run with no tiles and skip the floor FOREVER (leaving only
+  // the dark backstop plane) — the bug behind "hard refresh never loads the new
+  // ground". So we also retry once the KayKit asset batch settles.
+  let hexFloorBuilt = false;
+  const floorScene = scene; // capture the town scene; `scene` may be swapped later
+  const buildHexFloor = () => {
+    if (hexFloorBuilt || !(KK.settled && KK.has('tile_grass'))) return;
+    hexFloorBuilt = true;
+    const scene = floorScene;
     // Pointy-top hex grid in axial (q,r) coords. One model unit = S world units.
     const S = 100, HW = 2.0 * S, ROW = 0.75 * 2.309 * S; // col spacing 200, row 173.2
     const axToWorld = (q, r) => ({ x: HW * (q + r / 2), z: ROW * r });
@@ -7612,6 +7623,11 @@ function initScene(w) {
     const addInst = (gm, mats) => { if (!gm || !mats.length) return; const im = new THREE.InstancedMesh(gm[0], gm[1], mats.length); im.frustumCulled = false; for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]); im.instanceMatrix.needsUpdate = true; scene.add(im); };
     addInst(grassGM, grassM);
     for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
+  };
+  buildHexFloor(); // warm load: tiles already cached → build immediately
+  if (!hexFloorBuilt && KK) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildHexFloor).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildHexFloor); // fires as each asset settles
   }
 
   for (const b of w.buildings) {
