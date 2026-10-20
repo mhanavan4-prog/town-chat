@@ -372,6 +372,13 @@ const KK = (() => {
     ruin_wall:     'kk/dungeon/wall_sloped.gltf',
     ruin_corner:   'kk/dungeon/wall_corner_small.gltf',
     ruin_torch:    'kk/dungeon/torch.gltf',
+    // Low floor debris for the Delve/dungeon — rubble & rocks that hug the
+    // walls instead of the view-blocking stalagmite spikes they replace.
+    ruin_rubble:   'kk/dungeon/rubble_large.gltf',
+    ruin_rubble2:  'kk/dungeon/rubble_half.gltf',
+    ruin_rocks:    'kk/dungeon/rocks_small.gltf',
+    ruin_rocks2:   'kk/dungeon/rocks_decorated.gltf',
+    ruin_floor:    'kk/dungeon/floor_tile_large.gltf',
     // Forest Nature Pack — bare/dead trees for the Wilds & graveyard scenery
     // (replacing the procedural makeSpookyTree cones). Six variants for variety.
     tree_bare1a:   'kk/nature/Tree_Bare_1_A_Color1.gltf',
@@ -9243,6 +9250,8 @@ const DUNGEON_CAVE_THEMES = {
 // camera/kiosks/mob-visuals written back via setters. ──
 const { buildDungeonScene, rebuildDungeonForTier } = createDungeonScene({
   buildPortalMesh, DUNGEON_LAYOUTS, DUNGEON_CAVE_THEMES,
+  kkStatic: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode || 'fit') : null),
+  hasKK: (key) => KK.has(key),
   getDungeonScene: () => dungeonScene,
   setDungeonScene: (s) => { dungeonScene = s; },
   setDungeonCamera: (c) => { dungeonCamera = c; },
@@ -9370,48 +9379,55 @@ const MOB2_VISUALS = {
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
+// Dungeon mobs. The humanoid/beast/undead archetypes wear animated KayKit
+// bodies (shared-rig path, same as the Wilds horrors): canines → the Werewolf
+// & Monster, brutes → the Skeleton Golem, undead/wraiths → the robed & armoured
+// Skeletons — all background-streamed keys, lerp-tinted toward each mob's hue.
+// The critters KayKit has no model for (rats, bats, spiders, serpents) keep
+// their purpose-built flat-shaded low-poly rigs. kkHeight (world units) carries
+// the size, so KK mobs ignore `scale`.
 const DUNGEON_MOB_VISUALS = {
   // Tier 1
   cave_rat:        { color: 0x6b4c2a, eyeColor: 0xff9944, scale: 0.55 },
   stone_bat:       { color: 0x5a5a6e, eyeColor: 0xccccff, scale: 0.6  },
   moss_crawler:    { color: 0x3d5c2a, eyeColor: 0x99ff44, scale: 0.75 },
-  fungal_grunt:    { color: 0x7a5f3a, eyeColor: 0xffdd88, scale: 1.0  },
-  mud_slinger:     { color: 0x5a4a2e, eyeColor: 0xaabb66, scale: 0.85 },
+  fungal_grunt:    { color: 0x7a5f3a, eyeColor: 0xffdd88, scale: 1.0, kkKey: 'skel_warrior', kkHeight: 70, kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { to: 0x7a7f4a, amt: 0.52, emissive: 0x242a10, ei: 0.28 } },
+  mud_slinger:     { color: 0x5a4a2e, eyeColor: 0xaabb66, scale: 0.85, kkKey: 'skel_minion', kkHeight: 60, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x6a5a3a, amt: 0.55, emissive: 0x201808, ei: 0.25 } },
   tunnel_rat:      { color: 0x7a5a3a, eyeColor: 0xff8833, scale: 0.65 },
   rock_beetle:     { color: 0x4a4a4a, eyeColor: 0x88ff44, scale: 0.9  },
-  pale_sprite:     { color: 0xd4c8ff, eyeColor: 0xffffff, scale: 0.5  },
+  pale_sprite:     { color: 0xd4c8ff, eyeColor: 0xffffff, scale: 0.5, kkKey: 'skel_minion', kkHeight: 46, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xd4c8ff, amt: 0.5, emissive: 0x4a4668, ei: 0.5 } },
   // Tier 2
-  shadow_wolf:     { color: 0x2a2a3a, eyeColor: 0xff4444, scale: 1.05 },
+  shadow_wolf:     { color: 0x2a2a3a, eyeColor: 0xff4444, scale: 1.05, kkKey: 'npc_werewolf', kkHeight: 74, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x2a2a3a, amt: 0.55, emissive: 0x2a0606, ei: 0.3 } },
   dark_adder:      { color: 0x1e2b1e, eyeColor: 0x44ff88, scale: 0.75 },
   crypt_spider:    { color: 0x3a1a3a, eyeColor: 0xdd44ff, scale: 0.85 },
-  bone_hound:      { color: 0xd8d0b8, eyeColor: 0xff2222, scale: 1.0  },
+  bone_hound:      { color: 0xd8d0b8, eyeColor: 0xff2222, scale: 1.0, kkKey: 'mon_beast', kkHeight: 66, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xcfc7ac, amt: 0.5, emissive: 0x2a0808, ei: 0.3 } },
   venom_crawler:   { color: 0x2a4a1a, eyeColor: 0x88ff22, scale: 0.9  },
-  swamp_lurker:    { color: 0x2e4a2a, eyeColor: 0x66ff44, scale: 1.15 },
-  cave_troll:      { color: 0x4a5a3a, eyeColor: 0xffaa00, scale: 1.4  },
-  marsh_specter:   { color: 0x6aafcc, eyeColor: 0xeaffff, scale: 0.7  },
+  swamp_lurker:    { color: 0x2e4a2a, eyeColor: 0x66ff44, scale: 1.15, kkKey: 'mon_beast', kkHeight: 82, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x2e4a2a, amt: 0.55, emissive: 0x0e2408, ei: 0.3 } },
+  cave_troll:      { color: 0x4a5a3a, eyeColor: 0xffaa00, scale: 1.4, kkKey: 'skel_golem', kkHeight: 104, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x5a6a44, amt: 0.52, emissive: 0x241e08, ei: 0.3 } },
+  marsh_specter:   { color: 0x6aafcc, eyeColor: 0xeaffff, scale: 0.7, kkKey: 'skel_mage', kkHeight: 58, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x6aafcc, amt: 0.5, emissive: 0x18404a, ei: 0.45 } },
   // Tier 3
   blood_bat:       { color: 0x8a0020, eyeColor: 0xff0000, scale: 0.8  },
-  iron_golem:      { color: 0x5a6070, eyeColor: 0x4488ff, scale: 1.7  },
-  feral_warden:    { color: 0x6a2020, eyeColor: 0xff6600, scale: 1.1  },
-  chaos_imp:       { color: 0xcc4400, eyeColor: 0xffdd00, scale: 0.65 },
-  plague_hound:    { color: 0x4a5a1a, eyeColor: 0x88ff00, scale: 1.05 },
-  void_walker:     { color: 0x1a0a2a, eyeColor: 0xaa44ff, scale: 0.75 },
-  stone_giant:     { color: 0x6a6a5a, eyeColor: 0xffcc44, scale: 1.8  },
-  dusk_wraith:     { color: 0x4a2060, eyeColor: 0xcc88ff, scale: 0.9  },
+  iron_golem:      { color: 0x5a6070, eyeColor: 0x4488ff, scale: 1.7, kkKey: 'skel_golem', kkHeight: 128, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x5a6070, amt: 0.55, emissive: 0x10203a, ei: 0.35 } },
+  feral_warden:    { color: 0x6a2020, eyeColor: 0xff6600, scale: 1.1, kkKey: 'mon_beast', kkHeight: 78, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x7a2828, amt: 0.55, emissive: 0x2e0c04, ei: 0.35 } },
+  chaos_imp:       { color: 0xcc4400, eyeColor: 0xffdd00, scale: 0.65, kkKey: 'skel_minion', kkHeight: 50, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xcc4400, amt: 0.55, emissive: 0x4a1600, ei: 0.4 } },
+  plague_hound:    { color: 0x4a5a1a, eyeColor: 0x88ff00, scale: 1.05, kkKey: 'mon_beast', kkHeight: 70, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x5a6a2a, amt: 0.55, emissive: 0x1e2808, ei: 0.3 } },
+  void_walker:     { color: 0x1a0a2a, eyeColor: 0xaa44ff, scale: 0.75, kkKey: 'skel_mage', kkHeight: 62, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x3a1a5a, amt: 0.55, emissive: 0x280a40, ei: 0.45 } },
+  stone_giant:     { color: 0x6a6a5a, eyeColor: 0xffcc44, scale: 1.8, kkKey: 'skel_golem', kkHeight: 138, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x6a6a5a, amt: 0.55, emissive: 0x2a2410, ei: 0.3 } },
+  dusk_wraith:     { color: 0x4a2060, eyeColor: 0xcc88ff, scale: 0.9, kkKey: 'skel_mage', kkHeight: 70, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x5a2a78, amt: 0.55, emissive: 0x2a1240, ei: 0.45 } },
   // Tier 4
-  nightmare_beast: { color: 0x1a0022, eyeColor: 0xff00ff, scale: 1.3  },
-  shadow_titan:    { color: 0x0a0010, eyeColor: 0x8800ff, scale: 1.9  },
+  nightmare_beast: { color: 0x1a0022, eyeColor: 0xff00ff, scale: 1.3, kkKey: 'mon_beast', kkHeight: 92, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x2a0a33, amt: 0.6, emissive: 0x380a40, ei: 0.4 } },
+  shadow_titan:    { color: 0x0a0010, eyeColor: 0x8800ff, scale: 1.9, kkKey: 'skel_golem', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x160a24, amt: 0.6, emissive: 0x2a0a4a, ei: 0.4 } },
   void_serpent:    { color: 0x220033, eyeColor: 0xdd00ff, scale: 0.85 },
-  abyssal_hound:   { color: 0x1a0030, eyeColor: 0xff22aa, scale: 1.15 },
-  infernal_brute:  { color: 0x8a1a00, eyeColor: 0xff4400, scale: 1.6  },
-  death_knight:    { color: 0x1a1a2a, eyeColor: 0x4444ff, scale: 1.2  },
+  abyssal_hound:   { color: 0x1a0030, eyeColor: 0xff22aa, scale: 1.15, kkKey: 'npc_werewolf', kkHeight: 80, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x2a0a40, amt: 0.6, emissive: 0x360838, ei: 0.4 } },
+  infernal_brute:  { color: 0x8a1a00, eyeColor: 0xff4400, scale: 1.6, kkKey: 'skel_golem', kkHeight: 120, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x8a1a00, amt: 0.58, emissive: 0x4a1000, ei: 0.5 } },
+  death_knight:    { color: 0x1a1a2a, eyeColor: 0x4444ff, scale: 1.2, kkKey: 'skel_warrior', kkHeight: 86, kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { to: 0x2a2a44, amt: 0.55, emissive: 0x10104a, ei: 0.4 } },
   chaos_dragon:    { color: 0x660000, eyeColor: 0xff6600, scale: 1.5  },
-  void_leviathan:  { color: 0x000022, eyeColor: 0x0066ff, scale: 2.0  },
+  void_leviathan:  { color: 0x000022, eyeColor: 0x0066ff, scale: 2.0, kkKey: 'skel_golem', kkHeight: 160, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x0a1a3a, amt: 0.6, emissive: 0x0a2050, ei: 0.4 } },
   // ── The signature bosses (Session L) — one per named dungeon ──
   boss_rat_king:       { color: 0x8a6a3a, eyeColor: 0xffcc44, scale: 1.5,  boss: true },
   boss_crypt_weaver:   { color: 0x5a2a5a, eyeColor: 0xff88ff, scale: 1.65, boss: true },
-  boss_forge_tyrant:   { color: 0xb84a10, eyeColor: 0xffee66, scale: 1.95, boss: true },
-  boss_pale_sovereign: { color: 0xd8d8ea, eyeColor: 0xaaccff, scale: 2.1,  boss: true }
+  boss_forge_tyrant:   { color: 0xb84a10, eyeColor: 0xffee66, scale: 1.95, boss: true, kkKey: 'skel_golem', kkHeight: 152, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xb84a10, amt: 0.56, emissive: 0x5a1c00, ei: 0.55 } },
+  boss_pale_sovereign: { color: 0xd8d8ea, eyeColor: 0xaaccff, scale: 2.1,  boss: true, kkKey: 'skel_mage', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xd8d8ea, amt: 0.5, emissive: 0x3a4a6a, ei: 0.5 } }
 };
 const DUNGEON_BOSS_NAMES = {
   boss_rat_king: 'Old Gnawbone, the Rat King',
@@ -9504,6 +9520,7 @@ function _dmEyes(g, ec, y, z, sep, r) {
 // me via getters; DUNGEON_* tables + helpers injected). ──
 const { applyDungeonMobState, updateDungeonMobVisuals } = createDungeonMobs({
   DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
+  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
   getActiveScene: () => activeScene,
   getDungeonScene: () => dungeonScene,
   getDungeonMobVisuals: () => dungeonMobVisuals,

@@ -5,7 +5,21 @@
 // injected; scene/camera/mob-visuals are written back via setters, and the
 // per-entry kiosk list via get/set (it's rebuilt then pushed to).
 // ---------------------------------------------------------------------------
-export default function createDungeonScene({ buildPortalMesh, DUNGEON_LAYOUTS, DUNGEON_CAVE_THEMES, getDungeonScene, setDungeonScene, setDungeonCamera, getDungeonKiosks, setDungeonKiosks, setDungeonMobVisuals, getBuiltDungeonTier, setBuiltDungeonTier }) {
+export default function createDungeonScene({ buildPortalMesh, DUNGEON_LAYOUTS, DUNGEON_CAVE_THEMES, kkStatic, hasKK, getDungeonScene, setDungeonScene, setDungeonCamera, getDungeonKiosks, setDungeonKiosks, setDungeonMobVisuals, getBuiltDungeonTier, setBuiltDungeonTier }) {
+// Drop a KayKit dungeon-pack prop (static, shared-material) into the scene at a
+// floor position. Returns the group (or null if the model hasn't streamed in),
+// so callers can tweak rotation. `mode` is 'fit' (largest footprint = size) or
+// 'height'. Props sit with their base at y=0.
+function kkProp(scene, key, x, z, size, mode, roty, tilt) {
+  if (!kkStatic || !hasKK || !hasKK(key)) return null;
+  const g = kkStatic(key, size, mode || 'fit');
+  if (!g) return null;
+  g.position.set(x, 0, z);
+  if (roty) g.rotation.y = roty;
+  if (tilt) g.rotation.x = tilt;
+  scene.add(g);
+  return g;
+}
 // A glowing red arcane sigil drawn to a canvas — used as an EMISSIVE MAP on
 // the rock so the mark reads as the stone itself glowing, not a decal.
 function makeCaveSigilTexture(variant) {
@@ -42,11 +56,17 @@ function buildDungeonCaveScene(theme, layout) {
   const scene = new THREE.Scene();
   const BG = theme.bg;
   scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.Fog(BG, 950, 2200);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2600);
+  // Fog pulled well back (was 950/2200): the arena is 1200 across, so at the
+  // old near-plane mobs a lane or two away were already hazing out. Now the
+  // whole fighting floor reads clearly and the murk only closes in past the
+  // far walls — moody, but nothing hides in it.
+  scene.fog = new THREE.Fog(BG, 1250, 2800);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2800);
 
-  scene.add(new THREE.AmbientLight(theme.amb, 1.0));
-  scene.add(new THREE.HemisphereLight(theme.hemiTop, theme.hemiBot, 0.7));
+  // A touch brighter than before (amb 1.0→1.3, hemi 0.7→0.95) so creatures
+  // read against the dark stone without washing out the cave mood.
+  scene.add(new THREE.AmbientLight(theme.amb, 1.3));
+  scene.add(new THREE.HemisphereLight(theme.hemiTop, theme.hemiBot, 0.95));
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200),
     new THREE.MeshLambertMaterial({ color: theme.floor }));
@@ -58,30 +78,42 @@ function buildDungeonCaveScene(theme, layout) {
   const plainRock = new THREE.MeshLambertMaterial({ color: theme.rock });
   let sigilTexN = 0;
   const WALL_H = 150;
-  // Boulder ridges follow each wall rect along its LONG axis, so horizontal
-  // serpentines, vertical corridors and ring walls all read as real rock.
+  const rockFloorPieces = ['ruin_rubble', 'ruin_rocks2', 'ruin_rubble2', 'ruin_rocks'];
+  // Walls follow each wall rect along its LONG axis. The maze barriers are now
+  // real KayKit dungeon-pack walls (ruin_wall), with the original glowing
+  // boulder ridge kept as a fallback for any piece whose model hasn't streamed
+  // in yet, so the layout is never missing its lanes.
   for (const w of layout.walls) {
     const horiz = w.w >= w.h;
     const longLen = horiz ? w.w : w.h;
     const nChunks = Math.max(3, Math.round(longLen / 104));
+    const seg = longLen / nChunks;
     const cxShort = w.x + w.w / 2, czShort = w.y + w.h / 2;
     for (let i = 0; i < nChunks; i++) {
       const t = (i + 0.5) / nChunks;
       const rx = horiz ? (w.x + t * w.w) : cxShort;
       const rz = horiz ? czShort : (w.y + t * w.h);
-      const r = 42 + (i % 3) * 4;
-      let mat;
-      if (i % 2 === 0) {
-        const tex = rootcellarSigilTextures[sigilTexN++ % rootcellarSigilTextures.length];
-        mat = new THREE.MeshLambertMaterial({ color: theme.rock, emissive: theme.glow, emissiveMap: tex, emissiveIntensity: 1.25 });
-      } else {
-        mat = plainRock;
+      const wall = kkProp(scene, 'ruin_wall', rx, rz, seg * 1.12, 'fit', horiz ? 0 : Math.PI / 2);
+      if (!wall) {
+        // Fallback: the original glowing boulder chunk.
+        const r = 42 + (i % 3) * 4;
+        let mat;
+        if (i % 2 === 0) {
+          const tex = rootcellarSigilTextures[sigilTexN++ % rootcellarSigilTextures.length];
+          mat = new THREE.MeshLambertMaterial({ color: theme.rock, emissive: theme.glow, emissiveMap: tex, emissiveIntensity: 1.25 });
+        } else { mat = plainRock; }
+        const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
+        chunk.position.set(rx, WALL_H * 0.42, rz);
+        chunk.rotation.set(i * 0.6, i * 1.1, i * 0.4);
+        chunk.scale.set(horiz ? 1.05 : 0.62, WALL_H / (r * 1.6), horiz ? 0.62 : 1.05);
+        scene.add(chunk);
+      } else if (i % 2 === 1) {
+        // Low rubble tucked against the wall base (offset to its SHORT side so
+        // it never spills into a combat lane) — the "different rocks" that stay
+        // out of the sightline instead of the old floor-wide spikes.
+        const off = 26, pick = rockFloorPieces[(sigilTexN++) % rockFloorPieces.length];
+        kkProp(scene, pick, rx + (horiz ? 0 : off), rz + (horiz ? off : 0), 24, 'fit', i * 1.3);
       }
-      const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-      chunk.position.set(rx, WALL_H * 0.42, rz);
-      chunk.rotation.set(i * 0.6, i * 1.1, i * 0.4);
-      chunk.scale.set(horiz ? 1.05 : 0.62, WALL_H / (r * 1.6), horiz ? 0.62 : 1.05);
-      scene.add(chunk);
     }
   }
 
@@ -104,16 +136,27 @@ function buildDungeonCaveScene(theme, layout) {
   }
 
   const bx = layout.boss.x, bz = layout.boss.y;
-  const spikeMat = new THREE.MeshLambertMaterial({ color: theme.rock });
-  for (let i = 0; i < 30; i++) {
-    const gx = 80 + (i * 197) % 1040, gz = 80 + (i * 311) % 1040;
-    const up = i % 2 === 0;
-    if (Math.hypot(gx - bx, gz - bz) < 250) continue; // keep boss chamber floor clear
-    const h = 46 + (i % 4) * 26;
-    const sp = new THREE.Mesh(new THREE.ConeGeometry(10, h, 6), spikeMat);
-    sp.position.set(gx, up ? h / 2 : 230 - h / 2, gz);
-    if (!up) sp.rotation.x = Math.PI;
-    scene.add(sp);
+  // Floor dressing (replaces the 30 tall stalagmite spikes that used to be
+  // scattered — and hang from the ceiling — right across the fighting floor,
+  // hiding mobs). Low KayKit rubble & rocks hug the four corners and the arena
+  // rim only; nothing stands over ankle height in the open, so a creature is
+  // never lost behind the scenery. Each is kept well clear of the boss circle.
+  const cornerClusters = [[150, 150], [1050, 150], [150, 1050], [1050, 1050], [600, 90], [90, 600], [1110, 600], [600, 1110]];
+  let dN = 0;
+  for (const [cxp, czp] of cornerClusters) {
+    const nRock = 2 + (dN % 2);
+    for (let k = 0; k < nRock; k++) {
+      const jx = cxp + (((dN * 53) % 70) - 35), jz = czp + (((dN * 89) % 70) - 35);
+      if (Math.hypot(jx - bx, jz - bz) < 240) { dN++; continue; }
+      const pick = rockFloorPieces[dN % rockFloorPieces.length];
+      const sz = 20 + (dN % 3) * 8;
+      if (!kkProp(scene, pick, jx, jz, sz, 'fit', dN * 1.7)) {
+        // Fallback: a squat boulder (low, never a spike) if KK hasn't streamed.
+        const b = new THREE.Mesh(new THREE.DodecahedronGeometry(sz * 0.6, 0), plainRock);
+        b.position.set(jx, sz * 0.3, jz); b.scale.y = 0.5; scene.add(b);
+      }
+      dN++;
+    }
   }
 
   // Boss chamber: glowing summoning circle, coloured light, crown of crystals.
@@ -137,12 +180,22 @@ function buildDungeonCaveScene(theme, layout) {
   bossGlow.scale.set(480, 480, 1);
   bossGlow.position.set(bx, 150, bz);
   scene.add(bossGlow);
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2;
-    const cry = new THREE.Mesh(new THREE.ConeGeometry(8, 40, 5),
+  // Boss-chamber colonnade: a ring of KayKit decorated pillars around the
+  // summoning circle (replacing the old crown of 14 bare crystal cones), each
+  // capped with a glowing accent crystal so the ring still reads as arcane. A
+  // bare crystal is the per-pillar fallback until the model streams in.
+  const nPillar = 8;
+  for (let i = 0; i < nPillar; i++) {
+    const a = (i / nPillar) * Math.PI * 2;
+    const ox = bx + Math.cos(a) * 250, oz = bz + Math.sin(a) * 250;
+    const pil = kkProp(scene, 'ruin_pillar2', ox, oz, 150, 'height', -a);
+    const capY = pil ? (pil.userData.kkHeight || 150) : 0;
+    const cry = new THREE.Mesh(new THREE.ConeGeometry(pil ? 7 : 8, pil ? 22 : 40, 5),
       new THREE.MeshBasicMaterial({ color: theme.accent }));
-    cry.position.set(bx + Math.cos(a) * 235, 25, bz + Math.sin(a) * 235);
+    cry.position.set(ox, pil ? capY + 11 : 25, oz);
     scene.add(cry);
+    const cg = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: theme.accent, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    cg.scale.set(48, 48, 1); cg.position.set(ox, pil ? capY + 11 : 25, oz); scene.add(cg);
   }
 
   // Exit portal in the entry chamber (by spawn).
