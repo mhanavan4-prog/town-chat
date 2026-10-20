@@ -8223,7 +8223,7 @@ function kkWildsGroundDetail(scene, w2) {
   };
   const rng = (a, b) => a + rand() * (b - a);
   const W2 = w2.width || 10000, H2 = w2.height || 10000;
-  const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
+  const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, { x: 5000, y: 3000, r: 560 }, ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Grass in clusters (reads as patches of undergrowth rather than even stubble)
   for (let c = 0; c < 22; c++) {

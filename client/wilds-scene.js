@@ -109,7 +109,7 @@ function buildWildsScene(w2) {
     { x: w2.spawn.x + 170,      z: w2.spawn.y + 20,       r: 130 }, // return portal
     { x: WITCH_CAVE_ENTRANCE_X, z: WITCH_CAVE_ENTRANCE_Z, r: 230 }, // Witch's Cave mouth
     { x: 2200, z: 5000, r: 240 }, // the Unbound Circle ritual altar
-    { x: 5000, z: 3000, r: 340 }, // the village
+    { x: 5000, z: 3000, r: 620 }, // the village (town-scale buildings spread wider)
     { x: 6500, z: 6200, r: 220 }, // the giant werewolf tree
     { x: 7800, z: 5000, r: 230 }, // the Thornwarden camp
   ];
@@ -307,55 +307,56 @@ function addVillageBuildings(scene) {
   // so the Wildlands Village reads as its own rough settlement, not the red
   // town. kkPlace falls back to null only if the models haven't loaded — but
   // the Wilds is built lazily on first portal entry, long after KK settles.
-  kkPlace(scene, 'vil_hall', VX, VZ, 205, Math.PI, 'fit');                   // Village Hall (big yellow hall)
+  // Town-scale buildings (the town places its own at ~375-475 'fit'), spread
+  // out so the bigger footprints don't overlap. Weathered green/yellow so the
+  // Wildlands Village still reads as its own settlement, not the red town.
+  kkPlace(scene, 'vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall)
   const lhSign = makeSignSprite('🏚️ Village Hall');
-  lhSign.position.set(VX, 175, VZ); scene.add(lhSign);
-  kkPlace(scene, 'prop_stall', VX + 215, VZ - 60, 110, -Math.PI / 2, 'fit'); // Blacksmith / workshop stall (east)
-  kkPlace(scene, 'vil_home', VX - 225, VZ - 55, 130, Math.PI / 2, 'fit');    // Barn (west)
-  kkPlace(scene, 'vil_tower', VX + 95, VZ - 265, 160, 0, 'height');          // Guard tower (green, north)
-  kkPlace(scene, 'vil_home', VX - 180, VZ + 185, 105, 0.3, 'fit');           // Cottage A (yellow, SW)
-  kkPlace(scene, 'bld_arcade', VX + 180, VZ + 185, 105, -0.35, 'fit');       // Cottage B (red, SE)
-  kkPlace(scene, 'prop_well', VX - 15, VZ + 130, 52, 0, 'fit');              // Village well (front courtyard)
+  lhSign.position.set(VX, 660, VZ); scene.add(lhSign);
+  kkPlace(scene, 'prop_stall', VX + 430, VZ - 70, 220, -Math.PI / 2, 'fit');  // Blacksmith / workshop stall (east)
+  kkPlace(scene, 'vil_home', VX - 505, VZ - 60, 390, Math.PI / 2, 'fit');     // Barn (west)
+  kkPlace(scene, 'vil_tower', VX + 130, VZ - 520, 400, 0, 'fit');             // Guard tower (green, north)
+  kkPlace(scene, 'vil_home', VX - 470, VZ + 420, 375, 0.3, 'fit');            // Cottage A (yellow, SW)
+  kkPlace(scene, 'bld_arcade', VX + 470, VZ + 420, 375, -0.35, 'fit');        // Cottage B (red, SE)
+  kkPlace(scene, 'prop_well', VX, VZ + 320, 60, 0, 'fit');                    // Village well (front courtyard)
 
-  // ── Fire pit (southeast of hall)
+  // ── Fire pit (front-right courtyard, clear of the enlarged hall)
+  const FPX = VX + 230, FPZ = VZ + 340;
   const emberMat = new THREE.MeshLambertMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 0.8 });
   const fireMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 6), emberMat);
-  fireMesh.position.set(VX + 60, 8, VZ + 80); scene.add(fireMesh);
-  // Stone ring around fire
+  fireMesh.position.set(FPX, 8, FPZ); scene.add(fireMesh);
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
     const stone = new THREE.Mesh(new THREE.BoxGeometry(14, 10, 10), stoneMat);
-    stone.position.set(VX + 60 + Math.cos(a) * 22, 5, VZ + 80 + Math.sin(a) * 22);
+    stone.position.set(FPX + Math.cos(a) * 22, 5, FPZ + Math.sin(a) * 22);
     stone.rotation.y = a; scene.add(stone);
   }
   const fireLight = new THREE.PointLight(0xff6600, 1.4, 320);
-  fireLight.position.set(VX + 60, 35, VZ + 80); scene.add(fireLight);
+  fireLight.position.set(FPX, 35, FPZ); scene.add(fireLight);
 
   // (Cottages A/B now placed as KayKit homes above.)
 
-  // ── Construction site (north — half-built wall segments + scaffolding)
+  // ── Construction site (half-built wall segments + scaffolding), moved out to
+  // the NE corner so it clears the bigger hall and tower.
+  const CSX = VX + 460, CSZ = VZ - 330;
   const csMat = new THREE.MeshLambertMaterial({ color: 0x9a8a76 });
-  // Partial foundation walls at varying heights
-  box(90, 30, 10, csMat, VX - 40, 15, VZ - 120);
-  box(10, 55, 80, csMat, VX - 85, 27, VZ - 120);
-  box(10, 42, 80, csMat, VX + 5,  21, VZ - 120);
-  // Wooden floor boards (flat)
-  box(100, 4, 85, woodMat, VX - 40, 3, VZ - 120);
-  // Scaffolding poles
+  box(90, 30, 10, csMat, CSX - 40, 15, CSZ);
+  box(10, 55, 80, csMat, CSX - 85, 27, CSZ);
+  box(10, 42, 80, csMat, CSX + 5,  21, CSZ);
+  box(100, 4, 85, woodMat, CSX - 40, 3, CSZ);
   const poleMat = new THREE.MeshLambertMaterial({ color: 0x8b6330 });
-  for (const [px, pz] of [[VX - 80, VZ - 80], [VX - 80, VZ - 160], [VX + 5, VZ - 80], [VX + 5, VZ - 160]]) {
+  for (const [px, pz] of [[CSX - 80, CSZ + 40], [CSX - 80, CSZ - 40], [CSX + 5, CSZ + 40], [CSX + 5, CSZ - 40]]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 90, 6), poleMat);
     pole.position.set(px, 45, pz); scene.add(pole);
   }
-  // Horizontal scaffold planks
-  box(92, 5, 8, woodMat, VX - 38, 72, VZ - 80);
-  box(92, 5, 8, woodMat, VX - 38, 72, VZ - 160);
-  box(8, 5, 88, woodMat, VX - 80, 72, VZ - 120);
-  box(8, 5, 88, woodMat, VX + 5, 72, VZ - 120);
+  box(92, 5, 8, woodMat, CSX - 38, 72, CSZ + 40);
+  box(92, 5, 8, woodMat, CSX - 38, 72, CSZ - 40);
+  box(8, 5, 88, woodMat, CSX - 80, 72, CSZ);
+  box(8, 5, 88, woodMat, CSX + 5, 72, CSZ);
 
   // ── Village entrance sign (south approach)
   const entranceSign = makeSignSprite('🏘️ Wildlands Village');
-  entranceSign.position.set(VX, 110, VZ + 240); scene.add(entranceSign);
+  entranceSign.position.set(VX, 200, VZ + 560); scene.add(entranceSign);
 }
 
 // ---------------------------------------------------------------------------
