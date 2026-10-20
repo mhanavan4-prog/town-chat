@@ -17787,6 +17787,9 @@ function fitBuildingFootprint(b, box, side) {
 // model actually fills, so collision lines up with what you see. Client-only:
 // the server does no wall collision (it only clamps to room bounds + flags
 // teleports), so there's no desync. Decor/tree colliders (untagged) are kept.
+// Per-building collider inset for round tower models, whose square bounding box
+// leaves empty, still-colliding corners (see the note in refitBuildingColliders).
+const ROUND_TOWER_INSET = { lounge: 0.8, bank: 0.82 };
 function refitBuildingColliders() {
   walls = walls.filter((r) => !r.bld);
   // Opt-in diagnostic: load the game with ?colliderdebug=1 to print each
@@ -17798,6 +17801,14 @@ function refitBuildingColliders() {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
     const fit = fitBuildingFootprint(b, box, getDoorSide(b));
+    // Round tower models (the lounge's tower_A, the bank's tower_base) don't fill
+    // their square model box, so the empty corners of a rectangular collider read
+    // as invisible walls (user-reported beside the lounge). Collision is AABB-only,
+    // so inset these two toward the round silhouette: it trades the big empty
+    // corners for letting you brush a little closer to the curved wall at the
+    // cardinal edges. Centred, so the door gap stays under the tower.
+    const f = ROUND_TOWER_INSET[b.id];
+    if (f) { fit.x += fit.w * (1 - f) / 2; fit.y += fit.h * (1 - f) / 2; fit.w *= f; fit.h *= f; }
     // Stash the fitted footprint on the building so roomAt() (room entry + the
     // location label) keys off the SAME rect the walls do — otherwise the data
     // rect's unwalled margins become a free teleport into the interior.
