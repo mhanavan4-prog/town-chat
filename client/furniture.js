@@ -24,6 +24,7 @@ function kkFurn(key, size, mode, x, y, z, rotY) {
 // side a person faces into) isn't +z at rest. Verified against offline renders.
 const CHAIR_FWD = 0;      // dining chair_A faces +z at rest
 const ARMCHAIR_FWD = 0;   // armchair faces +z at rest
+let THRONE_FWD = 0;       // vampire throne forward axis (verified via render)
 function buildTorch(x, z) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
@@ -1264,12 +1265,38 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     }
   } else if (type === 'greathall') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.6, 0x5c1f2a));
-    scene.add(makeThrone(cx, 30, 0));
-    scene.add(makeTable(cx, cz + 15));
-    scene.add(makeBench(cx - 26, cz + 30, 0));
-    scene.add(makeBench(cx + 26, cz + 30, 0));
+    // A grand KayKit throne at the head of the hall (the ornate vampire throne,
+    // same model the Artificer lounges on). Procedural throne is the fallback
+    // until prop_throne has streamed in.
+    const throne = kkFurn('prop_throne', 88, 'height', cx, 0, 36, Math.PI + THRONE_FWD);
+    if (throne) scene.add(throne); else scene.add(makeThrone(cx, 30, 0));
+    // The council table + high-backed chairs set on the pentacle. KayKit long
+    // table ringed by four chairs; procedural table + benches as the fallback.
+    const council = kkFurn('furn_table', 64, 'fit', cx, 0, cz + 15);
+    if (council) {
+      scene.add(council);
+      for (const [dx, dz, side] of [[-20, -22, -1], [20, -22, -1], [-20, 22, 1], [20, 22, 1]]) {
+        const yaw = (side < 0 ? 0 : Math.PI) + CHAIR_FWD; // seat opens toward the table
+        const ch = kkFurn('furn_chair', 34, 'height', cx + dx, 0, cz + 15 + dz, yaw);
+        if (ch) scene.add(ch);
+      }
+    } else {
+      scene.add(makeTable(cx, cz + 15));
+      scene.add(makeBench(cx - 26, cz + 30, 0));
+      scene.add(makeBench(cx + 26, cz + 30, 0));
+    }
     scene.add(makeBanner(20, 95, 6, 0, 0xd84a5a));
     scene.add(makeBanner(roomW - 20, 95, 6, 0, 0xd84a5a));
+    // KayKit side dressing: a sideboard cabinet with a book stack against each
+    // of the long side walls (facing into the hall).
+    for (const [cxp, ry] of [[58, Math.PI / 2], [roomW - 58, -Math.PI / 2]]) {
+      const cab = kkFurn('furn_cabinet', 50, 'fit', cxp, 0, cz, ry);
+      if (cab) {
+        scene.add(cab);
+        const bk = kkFurn('furn_books', 18, 'fit', cxp, (cab.userData && cab.userData.kkHeight) || 24, cz);
+        if (bk) scene.add(bk);
+      }
+    }
 
     // ── Witchy dressing: the Coven Court ──
     // A great pentacle inlaid in the floor, the council table set upon it
