@@ -12751,14 +12751,18 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // anything — she just gives a hint about whatever quest you're
       // currently on (npc_hint_talk), or tells you to come back once you
       // are on one.
+      // Barkeep Joss tends bar from BEHIND the counter (bar sits at x=50, runs
+      // z 50..210) rather than standing out in the room — keeps him clear of
+      // the dining floor and the Champions' Table, and reads more like a tavern
+      // keeper. Players order across the bar (proximity F reaches over it).
       const bartender = createHumanoid(3).group;
-      bartender.position.set(78, 0, 130);
-      bartender.rotation.y = Math.atan2(cx - 78, cz - 130);
+      bartender.position.set(26, 0, 130);
+      bartender.rotation.y = Math.atan2(cx - 26, cz - 130); // face across the bar into the room
       scene.add(bartender);
       const bartenderLabel = makeNpcNameSprite('Barkeep Joss', 'Tavern Keeper');
-      bartenderLabel.position.set(78, 90, 130);
+      bartenderLabel.position.set(26, 90, 130);
       scene.add(bartenderLabel);
-      kiosksOut.push({ x: 78, z: 130, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss' });
+      kiosksOut.push({ x: 26, z: 130, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss', radius: 95 });
 
       const patron = createHumanoid(0).group;
       patron.position.set(460, 0, 90);
