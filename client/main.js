@@ -419,7 +419,10 @@ const KK = (() => {
     furn_books:     'kk/furn/book_set.gltf',          // book stack (dressing)
     furn_mug:       'kk/furn/mug_A.gltf',             // mug (café table dressing)
     furn_sidetable: 'kk/furn/table_small.gltf',       // small side table
-    furn_rug:       'kk/furn/rug_rectangle_A.gltf'    // accent rug
+    furn_rug:       'kk/furn/rug_rectangle_A.gltf',   // accent rug
+    furn_desk:      'kk/furn/desk.gltf',              // scholar's desk (library)
+    furn_deskchair: 'kk/furn/chair_desk_A.gltf',      // desk chair
+    furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf' // book-laden wall shelf
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
