@@ -429,6 +429,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         addDiningSet(scene, seatsOut, x, z, isChampions);
       }
     }
+    // A persistent "🏆 Champions' Table" sign built straight into the scene over
+    // the centre-front set — always present (unlike the dynamic coven banner,
+    // which depends on the coven message timing), so the table is always
+    // findable. The dynamic banner adds the holder's name on top of this.
+    if (typeof makeSignSprite === 'function') {
+      const champSign = makeSignSprite("🏆 Champions' Table");
+      champSign.position.set(colX[1], 100, rowZ[0]);
+      scene.add(champSign);
+    }
     // ── KayKit furnishings (Furniture Bits) — purely additive dressing that
     // streams in post-spawn; each piece simply no-ops until its model arrives. ──
     // Bar stools tucked against the counter's room-side edge (x≈82), clear of

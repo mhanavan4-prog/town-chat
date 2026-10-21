@@ -2270,22 +2270,20 @@ function refreshCovenTableVisual() {
     if (!getMe() || getMe().room !== 'cafe' || !getCurrentInterior() || !getCurrentInterior().scene) return;
     const champ = (typeof getCovenChampions === 'function' && getCovenChampions()) || null;
     const seat = getCovenTableState();
-    // Always mark the table so players can see it (and know why they can't sit
-    // there unless their coven holds the crown): the crowned coven when there is
-    // one, else whoever casually claimed it, else a plain Champions' Table sign.
-    let label;
-    if (champ) label = `🏆 ${champ.sigil} ${champ.name} — Champions' Table`;
-    else if (seat) label = `${seat.sigil} ${seat.name}'s table`;
-    else label = "🏆 The Champions' Table";
+    // The table itself is always marked by a static "🏆 Champions' Table" sign
+    // built with the furniture; this dynamic banner just adds WHO holds it,
+    // stacked just above that sign. No holder yet → nothing to add.
+    let label = null;
+    if (champ) label = `👑 ${champ.sigil} ${champ.name}`;
+    else if (seat) label = `${seat.sigil} ${seat.name}`;
+    if (!label) return;
     covenTableSprite = makeNpcNameSprite(label);
-    // Float it over the café's centre-front dining table rather than the old
-    // hardcoded (0,95,-40), which landed in the NW corner on top of Barkeep
-    // Joss. y must stay BELOW INDOOR_WALL_HEIGHT (150) or the banner hides in
-    // the ceiling — which is exactly what happened at y=150.
+    // Over the café's centre-front dining table, just above the static sign.
+    // y must stay BELOW INDOOR_WALL_HEIGHT (150) or it hides in the ceiling.
     const ci = getCurrentInterior();
     const bx = (ci && ci.roomW ? ci.roomW : 1080) * 0.5;
     const bz = (ci && ci.roomD ? ci.roomD : 612) * 0.35;
-    covenTableSprite.position.set(bx, 100, bz);
+    covenTableSprite.position.set(bx, 122, bz);
     ci.scene.add(covenTableSprite);
   } catch (e) { /* cosmetic only */ }
 }
@@ -12630,6 +12628,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         const isChampions = (x === colX[1] && z === rowZ[0]);
         addDiningSet(scene, seatsOut, x, z, isChampions);
       }
+    }
+    // A persistent "🏆 Champions' Table" sign built straight into the scene over
+    // the centre-front set — always present (unlike the dynamic coven banner,
+    // which depends on the coven message timing), so the table is always
+    // findable. The dynamic banner adds the holder's name on top of this.
+    if (typeof makeSignSprite === 'function') {
+      const champSign = makeSignSprite("🏆 Champions' Table");
+      champSign.position.set(colX[1], 100, rowZ[0]);
+      scene.add(champSign);
     }
     // ── KayKit furnishings (Furniture Bits) — purely additive dressing that
     // streams in post-spawn; each piece simply no-ops until its model arrives. ──
