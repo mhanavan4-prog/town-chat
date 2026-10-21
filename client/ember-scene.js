@@ -3,7 +3,7 @@
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
 // injected; scene/camera/kiosk-lists/mob-visuals written back via get/set.
 // ---------------------------------------------------------------------------
-export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite }) {
+export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 // Burnt-over any mesh: pull its colours toward charcoal/scorch so KayKit's
 // bright pack tints read as ember-scorched without needing new textures.
@@ -447,7 +447,33 @@ function buildEmberScene() {
   // 220u enter radius of EMBER_REFUGE_SPOT).
   const refugeKiosk = { x: REFUGE_X, z: refugeFrontZ + 24, portal: 'refuge_enter' };
 
-  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk]);
+  // ── Warden Kol — the Ashblood Trials quest-giver ──────────────────────────
+  // Stands in the arrival haven just off the refuge, facing the open flats, so
+  // new arrivals meet the PvP line the moment they step out. He gives the arc
+  // and (once done) the standing bounties. A 'quest' kiosk routes straight to
+  // the quest dialogue (npcId must match data/quests.js: 'npc_warden').
+  const WARDEN_X = REFUGE_X - 210, WARDEN_Z = refugeFrontZ + 70;
+  const wardenGY = emberHeightAt ? emberHeightAt(WARDEN_X, WARDEN_Z) : 0;
+  let wardenGroup = null;
+  if (typeof createStaticNpc === 'function') {
+    try {
+      const warden = createStaticNpc(2); // charId 2 reads as a hard-bitten fighter
+      if (warden && warden.group) {
+        warden.group.position.set(WARDEN_X, wardenGY, WARDEN_Z);
+        warden.group.rotation.y = Math.PI; // face south, toward arriving players
+        scene.add(warden.group);
+        wardenGroup = warden.group;
+      }
+    } catch (e) { /* fallback rig may not be ready; the kiosk still works */ }
+  }
+  if (typeof makeNpcNameSprite === 'function') {
+    const wsign = makeNpcNameSprite('🔥 Warden Kol');
+    if (wardenGroup) { wsign.position.set(0, 96, 0); wardenGroup.add(wsign); } // ride the figure, head-height
+    else { wsign.position.set(WARDEN_X, wardenGY + 96, WARDEN_Z); scene.add(wsign); }
+  }
+  const wardenKiosk = { x: WARDEN_X, z: WARDEN_Z, npc: 'quest', npcId: 'npc_warden', npcName: '🔥 Warden Kol' };
+
+  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk, wardenKiosk]);
   setEmberKiosks(getEmberStaticKiosks().slice());
 
   const _mv = getEmberMobVisuals(); for (const id in _mv) scene.remove(_mv[id].group);

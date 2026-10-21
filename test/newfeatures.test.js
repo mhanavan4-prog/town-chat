@@ -369,9 +369,13 @@ setTimeout(() => {
     const _allQuestXp = Object.values(hooks.QUEST_CATALOG).reduce((a, q) => a + q.xpReward, 0);
     check('campaign chapters alone come nowhere near the finale gate (≤ a third of it)',
       knightChXp * 3 < xpForL8, { knightChXp, xpForL8 });
+    // Earned-through-play types: a kill, a harvest, or a PvP defeat out in the
+    // Ember Wastes (the Ashblood Trials) — all won through play, never handed
+    // over. pvp_defeat is as earned as it gets: you take it off another player.
+    const EARNED_QUEST_TYPES = ['kill_mob', 'kill_creature', 'harvest_plant', 'harvest_specific', 'pvp_defeat'];
     check('every side quest is earned through open-world play, never just handed over',
-      Object.values(hooks.QUEST_CATALOG).every(q => ['kill_mob', 'kill_creature', 'harvest_plant', 'harvest_specific'].includes(q.type)),
-      Object.values(hooks.QUEST_CATALOG).filter(q => !['kill_mob', 'kill_creature', 'harvest_plant', 'harvest_specific'].includes(q.type)).map(q => q.type));
+      Object.values(hooks.QUEST_CATALOG).every(q => EARNED_QUEST_TYPES.includes(q.type)),
+      Object.values(hooks.QUEST_CATALOG).filter(q => !EARNED_QUEST_TYPES.includes(q.type)).map(q => q.type));
 
     // Time-floor model, deliberately generous to the player (documented so
     // the numbers can be argued with):
