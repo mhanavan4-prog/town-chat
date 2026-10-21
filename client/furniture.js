@@ -901,6 +901,38 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(sign2);
       kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
 
+      // ── KayKit furnishings (streamed post-spawn; additive dressing) ──
+      // A stool pulled up to each game cabinet.
+      for (const sx of [cab1X, cab2X]) {
+        const st = kkFurn('furn_stool', 20, 'height', sx, 0, cabZ + 32);
+        if (st) scene.add(st);
+      }
+      // Apothecary Vex's workbench tucked along the south wall (between the
+      // star charts): a KayKit desk with a lamp, tonic books and a mug, a desk
+      // chair, and a book-laden cabinet beside it.
+      const wbx = 262, wbz = roomD - 32;
+      const wdesk = kkFurn('furn_desk', 56, 'fit', wbx, 0, wbz, DESK_FWD);
+      if (wdesk) {
+        scene.add(wdesk);
+        const ws = (wdesk.userData && wdesk.userData.kkHeight) || 19;
+        const wch = kkFurn('furn_deskchair', 34, 'height', wbx, 0, wbz - 26, DESKCHAIR_FWD);
+        if (wch) scene.add(wch);
+        const wl = kkFurn('furn_lamp', 22, 'height', wbx + 22, ws, wbz + 6); if (wl) scene.add(wl);
+        const wb = kkFurn('furn_books', 15, 'fit', wbx - 18, ws, wbz + 6); if (wb) scene.add(wb);
+        const wm = kkFurn('furn_mug', 7, 'fit', wbx + 4, ws, wbz - 4); if (wm) scene.add(wm);
+      }
+      const wcab = kkFurn('furn_cabinet', 44, 'fit', 176, 0, roomD - 26, 0);
+      if (wcab) {
+        scene.add(wcab);
+        const cb = kkFurn('furn_books', 16, 'fit', 176, (wcab.userData && wcab.userData.kkHeight) || 22, roomD - 26);
+        if (cb) scene.add(cb);
+      }
+      // A two-tier book shelf on the west wall, south of the moon-phase plaques.
+      for (const sy of [44, 76]) {
+        const wsh = kkFurn('furn_shelfdec', 50, 'fit', 10, sy, 430, Math.PI / 2);
+        if (wsh) scene.add(wsh);
+      }
+
       // ── Symbols and decorations all over the walls ────────────────────
       // North wall: four constellation charts flanking the banner
       [
