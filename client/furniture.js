@@ -608,9 +608,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // with books on it, so a stacked 2×3 grid reads as full bookcases. Falls
     // back to the procedural shelves until the model streams in. ──
     if (KK && KK.has && KK.has('furn_shelfdec')) {
+      // Inset must clear the east wall's THICKNESS, not just its inner face:
+      // the wall is a solid box ~wallThickness*INDOOR_SCALE (≈25) deep, spanning
+      // render-x [roomW-25, roomW]. At the old inset of 12 the shelves' back
+      // (12.5 deep) sat at roomW-12 — fully inside that box, so the books poked
+      // out through the inner face. roomW-26 mounts the back flush to the inner
+      // face with the books facing the room. (Same lesson as the café wall shelf.)
       for (const sz of [170, 262]) {
         for (const sy of [26, 54, 82]) {
-          const sh = kkFurn('furn_shelfdec', 50, 'fit', roomW - 12, sy, sz, -Math.PI / 2);
+          const sh = kkFurn('furn_shelfdec', 50, 'fit', roomW - 26, sy, sz, -Math.PI / 2);
           if (sh) scene.add(sh);
         }
       }
@@ -929,8 +935,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         if (cb) scene.add(cb);
       }
       // A two-tier book shelf on the west wall, south of the moon-phase plaques.
+      // x=26 clears the west wall's ~25-deep box (render-x [0,25]); at the old
+      // x=10 the shelf back sat inside the wall and books poked through (same
+      // wall-thickness issue fixed on the library's east-wall shelves).
       for (const sy of [44, 76]) {
-        const wsh = kkFurn('furn_shelfdec', 50, 'fit', 10, sy, 430, Math.PI / 2);
+        const wsh = kkFurn('furn_shelfdec', 50, 'fit', 26, sy, 430, Math.PI / 2);
         if (wsh) scene.add(wsh);
       }
 
