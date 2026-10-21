@@ -12226,6 +12226,8 @@ const CHAIR_FWD = 0;      // dining chair_A faces +z at rest
 const ARMCHAIR_FWD = 0;   // armchair faces +z at rest
 let THRONE_FWD = Math.PI; // vampire throne forward axis — flipped 180° so the
                           // seat opens into the hall, not into the back wall
+let DESK_FWD = 0;         // scholar's desk forward axis (verified via render)
+let DESKCHAIR_FWD = 0;    // desk chair forward axis (verified via render)
 function buildTorch(x, z) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
@@ -12800,10 +12802,45 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // 194 and 244, both inside that range, so they sat almost exactly in
     // the entrance path. Removed rather than just moved; the two on the
     // east wall (away from the door) are enough for the room.
-    scene.add(makeBookshelf(roomW - 20, cz - 40, -Math.PI / 2));
-    scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
-    scene.add(makeTable(cx, cz - 10));
+    // ── KayKit library shelving: a wall of book-laden shelves on the east wall
+    // (replaces the two procedural bookcases). shelf_B_large_decorated ships
+    // with books on it, so a stacked 2×3 grid reads as full bookcases. Falls
+    // back to the procedural shelves until the model streams in. ──
+    if (KK && KK.has && KK.has('furn_shelfdec')) {
+      for (const sz of [170, 262]) {
+        for (const sy of [26, 54, 82]) {
+          const sh = kkFurn('furn_shelfdec', 50, 'fit', roomW - 12, sy, sz, -Math.PI / 2);
+          if (sh) scene.add(sh);
+        }
+      }
+    } else {
+      scene.add(makeBookshelf(roomW - 20, cz - 40, -Math.PI / 2));
+      scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
+    }
+    scene.add(makeTable(cx, cz - 10)); // reading table — the crystal ball sits on it
     scene.add(makeBanner(cx, 90, 8, 0, 0x9a7ad9));
+    // A scholar's desk against the south wall: KayKit desk + desk chair + a
+    // lamp and a book stack. A cosy reading armchair + side table in the SW
+    // corner (clear of the west-wall door). All additive; no-ops until streamed.
+    const desk = kkFurn('furn_desk', 58, 'fit', cx, 0, roomD - 36, DESK_FWD);
+    if (desk) {
+      scene.add(desk);
+      const dsurf = (desk.userData && desk.userData.kkHeight) || 19;
+      const dchair = kkFurn('furn_deskchair', 34, 'height', cx, 0, roomD - 62, DESKCHAIR_FWD);
+      if (dchair) scene.add(dchair);
+      const dlamp = kkFurn('furn_lamp', 22, 'height', cx + 20, dsurf, roomD - 40);
+      if (dlamp) scene.add(dlamp);
+      const dbooks = kkFurn('furn_books', 15, 'fit', cx - 18, dsurf, roomD - 40);
+      if (dbooks) scene.add(dbooks);
+    }
+    const rchair = kkFurn('furn_armchair', 34, 'height', 72, 0, roomD - 72, Math.PI / 4 + ARMCHAIR_FWD);
+    if (rchair) scene.add(rchair);
+    const rtable = kkFurn('furn_sidetable', 20, 'fit', 112, 0, roomD - 48);
+    if (rtable) {
+      scene.add(rtable);
+      const rl = kkFurn('furn_lamp', 24, 'height', 112, (rtable.userData && rtable.userData.kkHeight) || 20, roomD - 48);
+      if (rl) scene.add(rl);
+    }
 
     // ── Witchy dressing: the Midnight Archive ──
     // Rune ring painted on the floor around the reading table
@@ -16738,7 +16775,10 @@ const KK = (() => {
     furn_books:     'kk/furn/book_set.gltf',          // book stack (dressing)
     furn_mug:       'kk/furn/mug_A.gltf',             // mug (café table dressing)
     furn_sidetable: 'kk/furn/table_small.gltf',       // small side table
-    furn_rug:       'kk/furn/rug_rectangle_A.gltf'    // accent rug
+    furn_rug:       'kk/furn/rug_rectangle_A.gltf',   // accent rug
+    furn_desk:      'kk/furn/desk.gltf',              // scholar's desk (library)
+    furn_deskchair: 'kk/furn/chair_desk_A.gltf',      // desk chair
+    furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf' // book-laden wall shelf
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
