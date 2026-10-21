@@ -9041,42 +9041,53 @@ let manorExteriorGroup = null;
 
 function buildManorExterior() {
   const g = new THREE.Group();
-  // DoubleSide on the shell: if the third-person camera ever grazes a wall the
-  // interior faces still render, so the manor never reads as hollow/see-through.
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x241d3a, side: THREE.DoubleSide });
-  const trimMat = new THREE.MeshLambertMaterial({ color: 0x17112a, side: THREE.DoubleSide });
-  const roofMat = new THREE.MeshLambertMaterial({ color: 0x120c22, side: THREE.DoubleSide });
-  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf87 });
-  // Main hall — a broad two-storey block.
-  const BODY_W = 360, BODY_H = 220, BODY_D = 260;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(BODY_W, BODY_H, BODY_D), stoneMat);
-  body.position.y = BODY_H / 2; g.add(body);
-  // Gabled roof (a flattened pyramid) + ridge.
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(BODY_W * 0.62, 120, 4), roofMat);
-  roof.rotation.y = Math.PI / 4; roof.position.y = BODY_H + 56; g.add(roof);
-  // Two spire towers flanking the facade.
-  for (const sx of [-BODY_W / 2 - 10, BODY_W / 2 + 10]) {
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(34, 38, BODY_H + 70, 10), trimMat);
-    tower.position.set(sx, (BODY_H + 70) / 2, BODY_D / 2 - 30); g.add(tower);
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(42, 74, 10), roofMat);
-    cap.position.set(sx, BODY_H + 70 + 37, BODY_D / 2 - 30); g.add(cap);
+  // Preferred: the KayKit castle (bld_hall) — a grey-stone keep with red-roofed
+  // towers and banners, so the Coven Manor reads as a prize worth joining a coven
+  // for rather than a dark box. Its wooden gate is on the +z face, matching the
+  // old manor's door and the enter kiosk's approach side. Sized by HEIGHT so the
+  // tall keep stays imposing without ballooning to its ~800u fit height. Falls
+  // back to the procedural manor below until the model streams in.
+  const castle = (KK && KK.staticInstance && KK.has && KK.has('bld_hall')) ? KK.staticInstance('bld_hall', 440, 'height') : null;
+  if (castle) {
+    g.add(castle);
+    const ch = castle.userData.kkHeight || 440;
+    // Warm light spilling from the gate so the keep glows against the wilds night.
+    const lamp = new THREE.PointLight(0xffb060, 1.8, 900, 1.5);
+    lamp.position.set(0, 120, 150); g.add(lamp);
+    const sign = makeSignSprite('🏰 The Coven Manor — Press F');
+    sign.position.set(0, ch + 46, 120); g.add(sign);
+  } else {
+    // ── Procedural fallback (cold load, before the castle model streams in) ──
+    // DoubleSide on the shell: if the third-person camera ever grazes a wall the
+    // interior faces still render, so the manor never reads as hollow.
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x241d3a, side: THREE.DoubleSide });
+    const trimMat = new THREE.MeshLambertMaterial({ color: 0x17112a, side: THREE.DoubleSide });
+    const roofMat = new THREE.MeshLambertMaterial({ color: 0x120c22, side: THREE.DoubleSide });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf87 });
+    const BODY_W = 360, BODY_H = 220, BODY_D = 260;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(BODY_W, BODY_H, BODY_D), stoneMat);
+    body.position.y = BODY_H / 2; g.add(body);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(BODY_W * 0.62, 120, 4), roofMat);
+    roof.rotation.y = Math.PI / 4; roof.position.y = BODY_H + 56; g.add(roof);
+    for (const sx of [-BODY_W / 2 - 10, BODY_W / 2 + 10]) {
+      const tower = new THREE.Mesh(new THREE.CylinderGeometry(34, 38, BODY_H + 70, 10), trimMat);
+      tower.position.set(sx, (BODY_H + 70) / 2, BODY_D / 2 - 30); g.add(tower);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(42, 74, 10), roofMat);
+      cap.position.set(sx, BODY_H + 70 + 37, BODY_D / 2 - 30); g.add(cap);
+    }
+    const door = new THREE.Mesh(new THREE.BoxGeometry(70, 120, 10), new THREE.MeshLambertMaterial({ color: 0x3a2416 }));
+    door.position.set(0, 60, BODY_D / 2 + 2); g.add(door);
+    const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(74, 16), glowMat);
+    doorGlow.position.set(0, 128, BODY_D / 2 + 3); g.add(doorGlow);
+    for (const wy of [70, 150]) for (const wx of [-120, -60, 60, 120]) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(28, 40), glowMat);
+      win.position.set(wx, wy, BODY_D / 2 + 1.5); g.add(win);
+    }
+    const lamp = new THREE.PointLight(0xffb060, 1.4, 600, 1.6);
+    lamp.position.set(0, 150, BODY_D / 2 + 40); g.add(lamp);
+    const sign = makeSignSprite('🏚️ The Coven Manor — Press F');
+    sign.position.set(0, BODY_H + 150, BODY_D / 2 + 10); g.add(sign);
   }
-  // Tall double door on the south face (facing the approach / spawn side).
-  const door = new THREE.Mesh(new THREE.BoxGeometry(70, 120, 10), new THREE.MeshLambertMaterial({ color: 0x3a2416 }));
-  door.position.set(0, 60, BODY_D / 2 + 2); g.add(door);
-  const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(74, 16), glowMat);
-  doorGlow.position.set(0, 128, BODY_D / 2 + 3); g.add(doorGlow);
-  // Glowing windows down both storeys of the facade.
-  for (const wy of [70, 150]) for (const wx of [-120, -60, 60, 120]) {
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(28, 40), glowMat);
-    win.position.set(wx, wy, BODY_D / 2 + 1.5); g.add(win);
-  }
-  // A warm glow from the doorway so the manor reads even at wilds night.
-  const lamp = new THREE.PointLight(0xffb060, 1.4, 600, 1.6);
-  lamp.position.set(0, 150, BODY_D / 2 + 40); g.add(lamp);
-  // A hint sign floating over the door.
-  const sign = makeSignSprite('🏚️ The Coven Manor — Press F');
-  sign.position.set(0, BODY_H + 150, BODY_D / 2 + 10); g.add(sign);
   g.position.set(MANOR_WILDS_SPOT.x, 0, MANOR_WILDS_SPOT.y);
   g.visible = false;
   return g;
@@ -9089,8 +9100,9 @@ function ensureManorExterior() {
   try {
     manorExteriorGroup = buildManorExterior();
     wildsScene.add(manorExteriorGroup);
-    // Body footprint collider (slightly inset from the door so entry is clear).
-    WILDS_WALLS.push({ x: MANOR_WILDS_SPOT.x - 180, y: MANOR_WILDS_SPOT.y - 130, w: 360, h: 230 });
+    // Body footprint collider for the castle keep (~219×250), inset on the +z
+    // gate side so the entrance stays walkable up to the kiosk.
+    WILDS_WALLS.push({ x: MANOR_WILDS_SPOT.x - 105, y: MANOR_WILDS_SPOT.y - 125, w: 210, h: 180 });
   } catch (e) { console.error('buildManorExterior failed:', e); }
 }
 
