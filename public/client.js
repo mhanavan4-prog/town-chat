@@ -12199,7 +12199,23 @@ function syncVisuals(dt) {
 // layout constants, the canvas, createHumanoid, the sign/name sprites and the
 // wall-painting helper are injected. makeBarrel is re-used by the town props.
 // ---------------------------------------------------------------------------
-function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting }) {
+function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK }) {
+// KayKit Furniture Bits helper: return a positioned static instance of a furn_*
+// model if it has streamed in (FURN_KEYS load after spawn), else null so the
+// caller drops back to its procedural mesh. mode 'fit' sizes by max(x,z),
+// 'height' by y; base is anchored at floor (y=0). rotY turns it in place.
+function kkFurn(key, size, mode, x, y, z, rotY) {
+  if (!(KK && KK.has && KK.has(key) && KK.staticInstance)) return null;
+  const g = KK.staticInstance(key, size, mode);
+  if (!g) return null;
+  g.position.set(x || 0, y || 0, z || 0);
+  if (rotY) g.rotation.y = rotY;
+  return g;
+}
+// Forward-axis corrections for the KayKit furniture models whose "front" (the
+// side a person faces into) isn't +z at rest. Verified against offline renders.
+const CHAIR_FWD = 0;      // dining chair_A faces +z at rest
+const ARMCHAIR_FWD = 0;   // armchair faces +z at rest
 function buildTorch(x, z) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
@@ -12492,17 +12508,38 @@ function makeWindowGlow(x, y, z, rotY, color) {
 
 // A dining set = one table + two benches + four registered seats (render-
 // space coords), used for the sit-down interaction.
+const DINING_SEAT_OFFSETS = [
+  { dx: -14, dz: -18, facing: Math.PI },
+  { dx: 14,  dz: -18, facing: Math.PI },
+  { dx: -14, dz: 18,  facing: 0 },
+  { dx: 14,  dz: 18,  facing: 0 }
+];
 function addDiningSet(scene, seatsOut, tx, tz) {
+  // KayKit path: a long table ringed by four chairs (backs to the outside, seat
+  // opening toward the table). Falls back to the procedural table + plank
+  // benches until furn_table/furn_chair have streamed in. Seat COORDINATES are
+  // identical either way — they drive where players actually sit.
+  const haveKK = KK && KK.has && KK.has('furn_table') && KK.has('furn_chair');
+  if (haveKK) {
+    const table = kkFurn('furn_table', 48, 'fit', tx, 0, tz);
+    scene.add(table);
+    const surfaceY = (table.userData && table.userData.kkHeight) || 16;
+    const mug = kkFurn('furn_mug', 7, 'fit', tx + 8, surfaceY, tz + 5);
+    if (mug) scene.add(mug);
+    for (const s of DINING_SEAT_OFFSETS) {
+      // seat opens toward the table centre: north-side chairs (dz<0) face +z,
+      // south-side chairs face -z. CHAIR_FWD aligns the model's own forward.
+      const yaw = (s.dz < 0 ? 0 : Math.PI) + CHAIR_FWD;
+      const chair = kkFurn('furn_chair', 30, 'height', tx + s.dx, 0, tz + s.dz, yaw);
+      if (chair) scene.add(chair);
+      seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
+    }
+    return;
+  }
   scene.add(makeTable(tx, tz));
   scene.add(makeBench(tx, tz - 18, 0));
   scene.add(makeBench(tx, tz + 18, 0));
-  const seatOffsets = [
-    { dx: -14, dz: -18, facing: Math.PI },
-    { dx: 14,  dz: -18, facing: Math.PI },
-    { dx: -14, dz: 18,  facing: 0 },
-    { dx: 14,  dz: 18,  facing: 0 }
-  ];
-  for (const s of seatOffsets) {
+  for (const s of DINING_SEAT_OFFSETS) {
     seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
   }
 }
@@ -12559,6 +12596,38 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         addDiningSet(scene, seatsOut, x, z);
       }
     }
+    // ── KayKit furnishings (Furniture Bits) — purely additive dressing that
+    // streams in post-spawn; each piece simply no-ops until its model arrives. ──
+    // Bar stools tucked against the counter's room-side edge (x≈82), clear of
+    // Barkeep Joss at (78,130).
+    for (const sz of [72, 165, 198]) {
+      const stool = kkFurn('furn_stool', 20, 'height', 82, 0, sz);
+      if (stool) scene.add(stool);
+    }
+    // A fireside pair of armchairs angled at the hearth (fireplace sits at
+    // cx,14), framing the central walkway rather than blocking it, with a
+    // lamp-topped side table beside them.
+    const faceHearth = (ax, az) => Math.atan2(cx - ax, 14 - az) + ARMCHAIR_FWD;
+    for (const ax of [cx - 48, cx + 48]) {
+      const ac = kkFurn('furn_armchair', 34, 'height', ax, 0, 58, faceHearth(ax, 58));
+      if (ac) scene.add(ac);
+    }
+    const fsTable = kkFurn('furn_sidetable', 20, 'fit', cx - 92, 0, 48);
+    if (fsTable) {
+      scene.add(fsTable);
+      const lamp = kkFurn('furn_lamp', 24, 'height', cx - 92, (fsTable.userData && fsTable.userData.kkHeight) || 20, 48);
+      if (lamp) scene.add(lamp);
+    }
+    // A sideboard cabinet against the north wall (west of the hearth) with a
+    // book stack on top, and a wall shelf east of the hearth.
+    const cab = kkFurn('furn_cabinet', 44, 'fit', 120, 0, 22, 0);
+    if (cab) {
+      scene.add(cab);
+      const bk = kkFurn('furn_books', 16, 'fit', 120, (cab.userData && cab.userData.kkHeight) || 22, 22);
+      if (bk) scene.add(bk);
+    }
+    const wallShelf = kkFurn('furn_shelf', 60, 'fit', 470, 72, 9, 0);
+    if (wallShelf) scene.add(wallShelf);
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
     scene.add(makeBanner(28, 100, 8, 0, 0xff9a3c));
@@ -16578,7 +16647,22 @@ const KK = (() => {
     grass1:        'kk/nature/Grass_1_A_Color4.gltf',
     grass2:        'kk/nature/Grass_1_C_Color4.gltf',
     grass3:        'kk/nature/Grass_2_A_Color4.gltf',
-    grass4:        'kk/nature/Grass_2_C_Color4.gltf'
+    grass4:        'kk/nature/Grass_2_C_Color4.gltf',
+    // KayKit Furniture Bits — interior dressing. These stream in AFTER spawn
+    // (see FURN_KEYS, excluded from the gate) and are only consumed when you
+    // step into a furnished interior, which falls back to the procedural
+    // furniture until the model has arrived. Shared furniturebits_texture.png.
+    furn_table:     'kk/furn/table_medium_long.gltf', // dining table (banquet, long axis x)
+    furn_chair:     'kk/furn/chair_A.gltf',           // dining chair
+    furn_stool:     'kk/furn/chair_stool_wood.gltf',  // bar stool
+    furn_shelf:     'kk/furn/shelf_B_large.gltf',     // wall shelf
+    furn_cabinet:   'kk/furn/cabinet_medium.gltf',    // sideboard / cabinet
+    furn_armchair:  'kk/furn/armchair.gltf',          // fireside armchair
+    furn_lamp:      'kk/furn/lamp_table.gltf',         // table lamp
+    furn_books:     'kk/furn/book_set.gltf',          // book stack (dressing)
+    furn_mug:       'kk/furn/mug_A.gltf',             // mug (café table dressing)
+    furn_sidetable: 'kk/furn/table_small.gltf',       // small side table
+    furn_rug:       'kk/furn/rug_rectangle_A.gltf'    // accent rug
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -16613,7 +16697,11 @@ const KK = (() => {
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
   const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne'];
-  const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
+  // Interior furniture (Furniture Bits) — tiny models only needed once you enter
+  // a furnished building, so they stream with the character tail rather than
+  // gating first paint. buildFurniture falls back to procedural until present.
+  const FURN_KEYS = Object.keys(MANIFEST).filter((k) => /^furn_/.test(k));
+  const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k) && !FURN_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
 
@@ -16682,6 +16770,7 @@ const KK = (() => {
         loadKey('char0').then(() => { if (models.char0) borrowAnims(); }); // donor early
         for (const k of CHAR_KEYS) if (k !== 'char' + priorityCharId) loadKey(k);
         for (const k of BG_KEYS) loadKey(k);
+        for (const k of FURN_KEYS) loadKey(k);
       });
     }
     return prio;
@@ -25941,7 +26030,7 @@ const {
   buildFurniture, makeBarrel, buildTorch,
 } = createFurniture({
   INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC,
-  canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting,
+  canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK,
 });
 // ── Town-decor props — extracted to client/props-town.js (Phase C, first prop
 // library slice). Pure THREE-group builders; makeGlowTexture/makeBarrel injected. ──
