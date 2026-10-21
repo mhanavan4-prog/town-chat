@@ -7940,7 +7940,7 @@ function swapToWildsMap() {
       // NPCs (a procedural Artificer, no Lexton) and skipped the KayKit
       // buildings (kkPlace returns null before load). Upgrade to the full scene
       // once the models settle.
-      if (!KK.settled) scheduleWildsUpgrade();
+      if (!KK.fullyLoaded) scheduleWildsUpgrade();
     } catch (e) { console.error('buildWildsScene failed:', e); }
   }
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
@@ -8025,7 +8025,14 @@ function portalFade(text, doSwap) {
 let wildsPrebuildScheduled = false;
 function prebuildWilds() {
   if (wildsScene || !world2 || !KK.settled) return;
-  try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('Wilds pre-build failed:', e); }
+  try {
+    buildWildsScene(world2); applyDrawDistanceTier(GFX.quality);
+    // Prebuild runs as soon as the GATING town settles, which is typically
+    // before the character/NPC bodies finish streaming — so the Artificer,
+    // Lexton and the Wilds quest NPCs would be baked as procedural stand-ins.
+    // Upgrade once the whole manifest is in.
+    if (!KK.fullyLoaded) scheduleWildsUpgrade();
+  } catch (e) { console.error('Wilds pre-build failed:', e); }
 }
 function schedulePrebuildWilds() {
   if (wildsPrebuildScheduled || !world2) return;
@@ -8045,13 +8052,21 @@ function schedulePrebuildWilds() {
 // their placeholders. buildWildsScene self-clears its collider/kiosk lists and
 // its mob/animal pools, so the rebuild is clean; we just move the shared lights
 // across and re-point the player if they're standing in it.
-let wildsUpgradeScheduled = false;
+// 0 = idle, 1 = waiting for the models, 2 = done (rebuild fired once).
+let wildsUpgradeState = 0;
 function scheduleWildsUpgrade() {
-  if (wildsUpgradeScheduled) return;
-  wildsUpgradeScheduled = true;
+  if (wildsUpgradeState !== 0) return;
+  wildsUpgradeState = 1;
   const run = () => {
-    wildsUpgradeScheduled = false;
-    if (!wildsScene || !world2 || !KK.settled) return;
+    // Wait for the WHOLE manifest, not just the gating town: the Artificer,
+    // Lexton AND the Wilds quest/faction NPC bodies are character models that
+    // stream in on the tail AFTER KK.settled, so KK.promise (which resolves at
+    // gating-settle) is too early — a rebuild then would still bake procedural
+    // stand-ins. onAssetLoad fires on every asset settle; this no-ops until the
+    // last body lands, then rebuilds once.
+    if (wildsUpgradeState !== 1 || !KK.fullyLoaded) return;
+    wildsUpgradeState = 2;
+    if (!wildsScene || !world2) return;
     const sharedLights = [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean);
     const wasActive = (activeScene === wildsScene);
     for (const light of sharedLights) wildsScene.remove(light); // free the shared lights from the stale scene
@@ -8066,8 +8081,9 @@ function scheduleWildsUpgrade() {
       setActiveContext(wildsScene, wildsCamera, null);
     }
   };
-  if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(run).catch(() => {});
-  else setTimeout(run, 2500);
+  if (KK.fullyLoaded) run();
+  else if (KK.onAssetLoad) KK.onAssetLoad(run);
+  else setTimeout(run, 4000);
 }
 
 function enterWilds() {
