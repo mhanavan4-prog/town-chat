@@ -6007,11 +6007,26 @@ setInterval(() => {
     o.minions = minionsInRoom(room); // the Necromancer's undead live in whatever room their summoner is in
     return o;
   };
+  // The Ember Wastes is a vast (20000²), heavily-populated zone, and its mob
+  // list isn't shared-cacheable once we cull it: AOI-cull per player so one
+  // client never receives — or builds a KayKit body for — the whole ~235-strong
+  // population at once. The radius sits at the ember fog far plane (5200), so any
+  // culled mob was already lost in haze: no popping. The warlord boss is always
+  // sent so raiders can always track it. Every other room keeps the shared
+  // per-room message (built once, sent to all its occupants).
+  const EMBER_AOI_R2 = 5200 * 5200;
   const cache = new Map();
   for (const p of players.values()) {
     if (!canStreamTo(p.ws)) continue; // backpressure: skip a backed-up socket
-    let msg = cache.get(p.room);
-    if (msg === undefined) { msg = JSON.stringify(wildlifeFor(p.room)); cache.set(p.room, msg); }
+    let msg;
+    if (p.room === 'ember_wastes' && P.ember.length) {
+      const o = wildlifeFor(p.room);
+      o.emberMobs = P.ember.filter(m => m.boss || ((m.x - p.x) * (m.x - p.x) + (m.y - p.y) * (m.y - p.y)) <= EMBER_AOI_R2);
+      msg = JSON.stringify(o);
+    } else {
+      msg = cache.get(p.room);
+      if (msg === undefined) { msg = JSON.stringify(wildlifeFor(p.room)); cache.set(p.room, msg); }
+    }
     p.ws.send(msg);
   }
 }, WILDLIFE_MS);

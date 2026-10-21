@@ -73,7 +73,9 @@ function getOrCreateEmberMobVisual(id, mobType) {
 function applyEmberMobState(list) {
   if (!getEmberScene()) return;
   const aliveKiosks = [];
+  const seen = new Set();
   for (const m of list) {
+    seen.add(m.id);
     const v = getOrCreateEmberMobVisual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
@@ -83,6 +85,18 @@ function applyEmberMobState(list) {
       if (hpBar) updateHealthBar(hpBar, m.health, m.maxHealth);
     }
     if (!m.dead) aliveKiosks.push({ x: m.x, z: m.y, npc: 'ember_mob', targetId: m.id });
+  }
+  // AOI cull: a mob that dropped out of this update (now beyond the server's
+  // per-player range) is removed so it doesn't linger as a frozen ghost — and
+  // its KayKit mixer disposed so culling/un-culling never leaks animators. It
+  // re-creates cleanly if it comes back into range.
+  const pool = getEmberMobVisuals();
+  for (const id in pool) {
+    if (seen.has(id)) continue;
+    const v = pool[id];
+    if (v.group && getEmberScene()) getEmberScene().remove(v.group);
+    if (typeof v.dispose === 'function') { try { v.dispose(); } catch (e) {} }
+    delete pool[id];
   }
   setEmberKiosks(getEmberStaticKiosks().concat(aliveKiosks));
 }
