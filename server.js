@@ -4134,15 +4134,15 @@ const NPC_WHEREABOUTS = {
   npc_finn: 'the west-side garden — the herbalist tends his beds by the fence',
   npc_scholar: '📚 the Library, behind the counter',
   npc_bartender: '☕ the Cafe, behind the bar',
-  npc_apothecary: '☕ the Cafe — corner table with the vials',
-  npc_tailor: '🏛️ Town Hall, by the banners',
+  npc_apothecary: '🎮 the Starlight Arcade — Apothecary Vex at her workbench',
+  npc_tailor: '👻 the Phantom Parlor — Tailor Ines by the lounge',
   npc_armorer: '🏛️ Town Hall, at the armor rack',
   npc_patron: '☕ the Cafe — Old Mabel at her usual table',
-  npc_apprentice: '🎮 the Starlight Arcade (Town Pass building)',
-  npc_tinkerer: '🎮 the Starlight Arcade (Town Pass building)',
+  npc_apprentice: '📚 the Library — Apprentice Wren among the shelves',
+  npc_tinkerer: '🎮 the Starlight Arcade — Tinkerer Oswin at his bench',
   npc_noble: '👻 the Phantom Parlor (Town Pass building)',
   npc_knight: '🏛️ Town Hall — Sir Dorran on guard duty',
-  npc_guard: '🏦 the Bank, by the door',
+  npc_guard: '🏛️ Town Hall — Guard Petra by the door',
   npc_warden: '🔥 the Ember Wastes — Warden Kol at the refuge haven'
 };
 function objectiveWhere(obj) {
@@ -6652,7 +6652,7 @@ function covenStandings(wk) {
 // has scored at all. Null before the first point of the week is earned.
 function covenChampionBody() {
   const leader = covenStandings(weekKey(Date.now()))[0];
-  return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points } : null;
+  return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points, covenId: leader.covenId } : null;
 }
 // The weekly crown ceremony. Called once per closed week from the leaderboards'
 // lazy settlement (so no cron): the week's #1 coven is crowned — a lasting

@@ -59,6 +59,15 @@
   .way .cost{color:var(--teal);font-weight:700;font-size:13px;margin-bottom:8px}
   .way p{color:var(--mut);font-size:13.5px;line-height:1.55;margin:0}
   .way .btn{margin-top:14px}
+  .seance{display:flex;gap:16px;align-items:flex-start;background:linear-gradient(180deg,rgba(140,90,255,0.1),rgba(16,10,26,0.5));border:1px solid var(--line);border-radius:16px;padding:20px;margin:26px 0 6px}
+  .seance .si{font-size:30px;line-height:1;flex:none}
+  .seance h3{font-family:'Cinzel',serif;font-weight:600;font-size:18px;margin:0 0 6px;color:#f1e9ff;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .seance .tag{font-family:system-ui,sans-serif;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--bg2);background:var(--grad);padding:3px 8px;border-radius:999px}
+  .seance p{color:var(--mut);font-size:13.5px;line-height:1.6;margin:0 0 8px}
+  .seance p:last-child{margin-bottom:0}
+  .seance .fine{color:var(--mut2)}
+  .seance .fine b{color:#d9c7ff}
+  @media(max-width:480px){ .seance{flex-direction:column;gap:10px} }
   .divide{border:none;border-top:1px solid rgba(185,138,255,0.12);margin:40px 0 0}
   .sectitle{font-family:'Cinzel',serif;font-weight:600;font-size:14px;letter-spacing:1.6px;text-transform:uppercase;color:var(--violet);text-align:center;margin:30px 0 2px}
   /* Mobile: the nav is one wide no-wrap row (brand + search + links). Let it
@@ -105,6 +114,15 @@
     <div class="perk"><div class="pi">🕯️</div><h4>Weekly Rites</h4><p>The seasonal Wheel-of-the-Year questline, run together — a new Rite turns with every sabbat.</p></div>
     <div class="perk"><div class="pi">👑</div><h4>Standings &amp; Crowns</h4><p>Climb the weekly coven leaderboard. The champion coven takes a 750-gold purse and the crown.</p></div>
     <div class="perk"><div class="pi">🎙️</div><h4>Voice &amp; chat</h4><p>A members-only chat channel and coven voice — in the game and right here on the web.</p></div>
+  </div>
+
+  <div class="seance">
+    <div class="si">🔮</div>
+    <div>
+      <h3>The Séance Board <span class="tag">AI-powered</span></h3>
+      <p>Gather your circle at the Manor's altar, pay an offering to light the ouija board, and put one question to the dark — and something on the far side answers, spelling its reply across the board one letter at a time.</p>
+      <p class="fine"><b>What it is — and isn't.</b> The spirit is driven by a real language model, but it is <b>not a chatbot</b>. It only breathes short, cryptic omens in its own ancient voice — a word or two, never a back-and-forth — and it will not break character, hand you plain facts, or answer like an assistant. A séance is a ritual, not a chat window: it needs a coven gathered at the board, costs an offering, and must rest between callings. Ask once, and listen closely.</p>
+    </div>
   </div>
 
   <div class="ways">

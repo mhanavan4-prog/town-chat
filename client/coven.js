@@ -278,13 +278,21 @@ function refreshCovenTableVisual() {
     if (!getMe() || getMe().room !== 'cafe' || !getCurrentInterior() || !getCurrentInterior().scene) return;
     const champ = (typeof getCovenChampions === 'function' && getCovenChampions()) || null;
     const seat = getCovenTableState();
+    // The table itself is always marked by a static "🏆 Champions' Table" sign
+    // built with the furniture; this dynamic banner just adds WHO holds it,
+    // stacked just above that sign. No holder yet → nothing to add.
     let label = null;
-    if (champ) label = `🏆 ${champ.sigil} ${champ.name} — Champions' Table`;
-    else if (seat) label = `${seat.sigil} ${seat.name}'s table`;
+    if (champ) label = `👑 ${champ.sigil} ${champ.name}`;
+    else if (seat) label = `${seat.sigil} ${seat.name}`;
     if (!label) return;
     covenTableSprite = makeNpcNameSprite(label);
-    covenTableSprite.position.set(0, 95, -40);
-    getCurrentInterior().scene.add(covenTableSprite);
+    // Over the café's centre-front dining table, just above the static sign.
+    // y must stay BELOW INDOOR_WALL_HEIGHT (150) or it hides in the ceiling.
+    const ci = getCurrentInterior();
+    const bx = (ci && ci.roomW ? ci.roomW : 1080) * 0.5;
+    const bz = (ci && ci.roomD ? ci.roomD : 612) * 0.35;
+    covenTableSprite.position.set(bx, 122, bz);
+    ci.scene.add(covenTableSprite);
   } catch (e) { /* cosmetic only */ }
 }
 // The weekly inter-coven standings board — the Champions' Table race. Fed by

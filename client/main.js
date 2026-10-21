@@ -404,7 +404,27 @@ const KK = (() => {
     grass1:        'kk/nature/Grass_1_A_Color4.gltf',
     grass2:        'kk/nature/Grass_1_C_Color4.gltf',
     grass3:        'kk/nature/Grass_2_A_Color4.gltf',
-    grass4:        'kk/nature/Grass_2_C_Color4.gltf'
+    grass4:        'kk/nature/Grass_2_C_Color4.gltf',
+    // KayKit Furniture Bits — interior dressing. These stream in AFTER spawn
+    // (see FURN_KEYS, excluded from the gate) and are only consumed when you
+    // step into a furnished interior, which falls back to the procedural
+    // furniture until the model has arrived. Shared furniturebits_texture.png.
+    furn_table:     'kk/furn/table_medium_long.gltf', // dining table (banquet, long axis x)
+    furn_chair:     'kk/furn/chair_A.gltf',           // dining chair
+    furn_stool:     'kk/furn/chair_stool_wood.gltf',  // bar stool
+    furn_shelf:     'kk/furn/shelf_B_large.gltf',     // wall shelf
+    furn_cabinet:   'kk/furn/cabinet_medium.gltf',    // sideboard / cabinet
+    furn_armchair:  'kk/furn/armchair.gltf',          // fireside armchair
+    furn_lamp:      'kk/furn/lamp_table.gltf',         // table lamp
+    furn_books:     'kk/furn/book_set.gltf',          // book stack (dressing)
+    furn_mug:       'kk/furn/mug_A.gltf',             // mug (café table dressing)
+    furn_sidetable: 'kk/furn/table_small.gltf',       // small side table
+    furn_rug:       'kk/furn/rug_rectangle_A.gltf',   // accent rug
+    furn_desk:      'kk/furn/desk.gltf',              // scholar's desk (library)
+    furn_deskchair: 'kk/furn/chair_desk_A.gltf',      // desk chair
+    furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf', // book-laden wall shelf
+    furn_couch:     'kk/furn/couch_pillows.gltf',     // lounge couch (parlor)
+    furn_coffee:    'kk/furn/table_low.gltf'          // low coffee table
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
@@ -439,7 +459,11 @@ const KK = (() => {
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
   const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne'];
-  const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k));
+  // Interior furniture (Furniture Bits) — tiny models only needed once you enter
+  // a furnished building, so they stream with the character tail rather than
+  // gating first paint. buildFurniture falls back to procedural until present.
+  const FURN_KEYS = Object.keys(MANIFEST).filter((k) => /^furn_/.test(k));
+  const GATING_KEYS = Object.keys(MANIFEST).filter((k) => !CHAR_KEYS.includes(k) && !BG_KEYS.includes(k) && !FURN_KEYS.includes(k));
   let loader = null;
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
 
@@ -508,6 +532,7 @@ const KK = (() => {
         loadKey('char0').then(() => { if (models.char0) borrowAnims(); }); // donor early
         for (const k of CHAR_KEYS) if (k !== 'char' + priorityCharId) loadKey(k);
         for (const k of BG_KEYS) loadKey(k);
+        for (const k of FURN_KEYS) loadKey(k);
       });
     }
     return prio;
@@ -574,6 +599,12 @@ const KK = (() => {
     const g = new THREE.Group();
     inst.scale.setScalar(s);
     inst.position.y = -t.minY * s;
+    // Disable frustum culling on every mesh (same reason createKayKitByKey does
+    // it): a scaled clone's cached bounding sphere can be wrong, so THREE culls
+    // the whole prop when the camera turns — the large throne in the Coven Court
+    // was vanishing by angle. These are a handful of static props, so the cost
+    // of always drawing them is negligible.
+    inst.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     g.add(inst);
     g.userData.kkHeight = t.size.y * s;
     return g;
@@ -9767,7 +9798,7 @@ const {
   buildFurniture, makeBarrel, buildTorch,
 } = createFurniture({
   INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC,
-  canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting,
+  canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK,
 });
 // ── Town-decor props — extracted to client/props-town.js (Phase C, first prop
 // library slice). Pure THREE-group builders; makeGlowTexture/makeBarrel injected. ──
@@ -11082,6 +11113,14 @@ function updateCoordBar() {
 // messages needed. Movement is fully locked while seated; only an explicit
 // E-press stands back up.
 // ---------------------------------------------------------------------------
+// The Champions' Table seats are gated to members of the coven that currently
+// holds the crown. Until a coven is crowned (no champion yet) the table is open
+// to everyone, so it isn't dead weight at the start of a week.
+function canSitChampionsTable() {
+  if (!covenChampions || !covenChampions.covenId) return true;
+  return !!(covenState && covenState.id && covenState.id === covenChampions.covenId);
+}
+
 function seatIsOccupied(seat) {
   for (const id in players) {
     if (id === myId) continue;
@@ -13288,6 +13327,7 @@ function tryInteract() {
   if (seatedAt) { standUp(); return; }
   const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
   if (seat) {
+    if (seat.championsOnly && !canSitChampionsTable()) { setUnlockToast("🏆 The Champions' Table is reserved for the reigning coven."); return; }
     if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
     sitDown(seat);
     return;
@@ -13378,7 +13418,8 @@ function updateInteractHint() {
   const seat = findNearestSeat();
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} sit`;
+    document.getElementById('interactHintText').textContent =
+      (seat.championsOnly && !canSitChampionsTable()) ? "🏆 Champions' Table — reigning coven only" : `${interactVerb()} sit`;
     return;
   }
   // Cave interactions bypass the kiosk distance system — zone-based on y position
