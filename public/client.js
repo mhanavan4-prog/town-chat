@@ -7461,54 +7461,65 @@ function addVillageBuildings(scene) {
   // Town-scale buildings (the town places its own at ~375-475 'fit'), spread
   // out so the bigger footprints don't overlap. Weathered green/yellow so the
   // Wildlands Village still reads as its own settlement, not the red town.
-  kkPlace(scene, 'vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall)
+  // Footprints spread much wider than before (the old ±470-505 ring crowded the
+  // hall and left the Artificer squeezed against the blacksmith stall). Each
+  // building now sits on its own plot around a roomy commons, with the Artificer
+  // given his own corner to the far east (below).
+  kkPlace(scene, 'vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall) — the anchor, dead center
   const lhSign = makeSignSprite('🏚️ Village Hall');
   lhSign.position.set(VX, 660, VZ); scene.add(lhSign);
-  kkPlace(scene, 'prop_stall', VX + 430, VZ - 70, 220, -Math.PI / 2, 'fit');  // Blacksmith / workshop stall (east)
-  kkPlace(scene, 'vil_home', VX - 505, VZ - 60, 390, Math.PI / 2, 'fit');     // Barn (west)
-  kkPlace(scene, 'vil_tower', VX + 130, VZ - 520, 400, 0, 'fit');             // Guard tower (green, north)
-  kkPlace(scene, 'vil_home', VX - 470, VZ + 420, 375, 0.3, 'fit');            // Cottage A (yellow, SW)
-  kkPlace(scene, 'bld_arcade', VX + 470, VZ + 420, 375, -0.35, 'fit');        // Cottage B (red, SE)
-  kkPlace(scene, 'prop_well', VX, VZ + 320, 60, 0, 'fit');                    // Village well (front courtyard)
+  kkPlace(scene, 'vil_home', VX - 720, VZ - 40, 390, Math.PI / 2, 'fit');     // Barn (far west)
+  kkPlace(scene, 'vil_tower', VX - 150, VZ - 660, 400, 0, 'fit');             // Guard tower (green, far north)
+  kkPlace(scene, 'vil_home', VX - 620, VZ + 560, 375, 0.3, 'fit');            // Cottage A (yellow, far SW)
+  kkPlace(scene, 'bld_arcade', VX + 640, VZ + 560, 375, -0.35, 'fit');        // Cottage B (red, far SE)
+  kkPlace(scene, 'prop_stall', VX + 330, VZ + 330, 220, -Math.PI / 2, 'fit'); // Market stall (front-east commons — moved off the Artificer's plot)
+  kkPlace(scene, 'prop_well', VX, VZ + 360, 60, 0, 'fit');                    // Village well (front courtyard)
 
-  // ── The Artificer's forge — a physical home for the Workshop crafting
-  // station by the blacksmith. Press F here opens the same Workshop UI as the
-  // menu (see the 'artificer' kiosk handler in main.js); crafting there still
-  // fires the craft_item quest event server-side, so nothing else changes.
-  const AFX = VX + 300, AFZ = VZ - 20;
+  // ── The Artificer's forge-tower — the vampire lord now has a structure of his
+  // own on a dedicated plot at the far east of the commons, instead of a throne
+  // marooned in the open between the hall and a stall. His red forge-tower stands
+  // at the back (north); the forge, anvil and his throne sit in front of its door
+  // (south), facing the players who approach from the village entrance. Press F
+  // here opens the same Workshop UI as the menu (see the 'artificer' kiosk
+  // handler in main.js); crafting still fires the craft_item quest event
+  // server-side, so nothing else changes.
+  const ABX = VX + 720, ABZ = VZ - 150;              // the forge-tower (his own corner)
+  kkPlace(scene, 'bld_lounge', ABX, ABZ, 360, Math.PI, 'fit'); // The Artificer's forge-tower (dark red keep)
+  const AFX = ABX, AFZ = ABZ + 200;                  // forge in the yard in front of the tower
   const ironMat = new THREE.MeshLambertMaterial({ color: 0x2b2b30 });
   const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(18, 20, 12), ironMat);
-  anvilBase.position.set(AFX, 10, AFZ); scene.add(anvilBase);
+  anvilBase.position.set(AFX - 40, 10, AFZ); scene.add(anvilBase);
   const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(36, 9, 16), ironMat);
-  anvilTop.position.set(AFX, 24, AFZ); scene.add(anvilTop);
+  anvilTop.position.set(AFX - 40, 24, AFZ); scene.add(anvilTop);
   const anvilHorn = new THREE.Mesh(new THREE.ConeGeometry(5, 16, 6), ironMat);
-  anvilHorn.rotation.z = -Math.PI / 2; anvilHorn.position.set(AFX - 24, 24, AFZ); scene.add(anvilHorn);
+  anvilHorn.rotation.z = -Math.PI / 2; anvilHorn.position.set(AFX - 64, 24, AFZ); scene.add(anvilHorn);
   // Forge hearth with glowing coals + warm light
   const hearth = new THREE.Mesh(new THREE.CylinderGeometry(20, 24, 28, 8), stoneMat);
-  hearth.position.set(AFX + 52, 14, AFZ); scene.add(hearth);
+  hearth.position.set(AFX + 60, 14, AFZ); scene.add(hearth);
   const coals = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 6),
     new THREE.MeshLambertMaterial({ color: 0xff5a1e, emissive: 0xff3300, emissiveIntensity: 0.9 }));
-  coals.scale.y = 0.5; coals.position.set(AFX + 52, 29, AFZ); scene.add(coals);
+  coals.scale.y = 0.5; coals.position.set(AFX + 60, 29, AFZ); scene.add(coals);
   const forgeGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff7a2a, transparent: true, opacity: 0.5, depthWrite: false }));
-  forgeGlow.scale.set(80, 80, 1); forgeGlow.position.set(AFX + 52, 36, AFZ); scene.add(forgeGlow);
+  forgeGlow.scale.set(80, 80, 1); forgeGlow.position.set(AFX + 60, 36, AFZ); scene.add(forgeGlow);
   const forgeLight = new THREE.PointLight(0xff7a2a, 1.1, 280);
-  forgeLight.position.set(AFX + 52, 42, AFZ); scene.add(forgeLight);
-  // The Artificer — a vampire lord lounging on his throne by the forge. Throne
-  // and vampire are scaled by the SAME factor (140 vs 134, their native-height
-  // ratio) so the shared-rig Sit_Chair_Idle clip lands him on the seat; both
-  // face +z toward approaching players. Falls back to the procedural smith until
-  // the bodies stream in.
-  const artX = AFX + 16, artZ = AFZ + 26;
-  let artLabelY = 92;
+  forgeLight.position.set(AFX + 60, 42, AFZ); scene.add(forgeLight);
+  // The Artificer — a vampire lord on his throne before the forge, now sized like
+  // a lord rather than a giant (85 vs the old 140; a plain villager is 68). The
+  // throne scales by the SAME factor as before (ratio 134/140 preserved) so the
+  // shared-rig Sit_Chair_Idle clip still lands him on the seat; both face +z
+  // toward approaching players. Falls back to the procedural smith until the
+  // bodies stream in.
+  const artX = AFX + 10, artZ = AFZ + 40;
+  let artLabelY = 60;
   const vampReady = hasKK && hasKK('npc_vampire') && hasKK('prop_throne') && createKayKitByKey && KK.staticInstance;
   if (vampReady) {
-    const throne = KK.staticInstance('prop_throne', 134, 'height');
+    const throne = KK.staticInstance('prop_throne', 81, 'height');
     if (throne) { throne.position.set(artX, 0, artZ); scene.add(throne); }
-    const built = createKayKitByKey('npc_vampire', 140);
+    const built = createKayKitByKey('npc_vampire', 85);
     if (kkSetState && built.kk) kkSetState(built.kk, 'Sit_Chair_Idle');
     built.group.position.set(artX, 0, artZ);
     scene.add(built.group);
-    artLabelY = 170;
+    artLabelY = 104;
   } else {
     const artificer = createHumanoid(1).group;
     artificer.position.set(artX, 0, artZ); artificer.rotation.y = Math.PI; scene.add(artificer);
@@ -7516,11 +7527,11 @@ function addVillageBuildings(scene) {
   const artLabel = makeNpcNameSprite('⚒️ The Artificer');
   artLabel.position.set(artX, artLabelY, artZ); scene.add(artLabel);
   const forgeSign = makeSignSprite('🔨 Artificer\'s Workshop — Press F');
-  forgeSign.position.set(AFX + 26, 118, AFZ); scene.add(forgeSign);
-  WILDS_KIOSKS.push({ x: AFX + 26, z: AFZ + 40, npc: 'artificer', radius: 110 });
+  forgeSign.position.set(AFX + 30, 118, AFZ); scene.add(forgeSign);
+  WILDS_KIOSKS.push({ x: AFX + 10, z: AFZ + 40, npc: 'artificer', radius: 120 });
 
-  // ── Fire pit (front-right courtyard, clear of the enlarged hall)
-  const FPX = VX + 230, FPZ = VZ + 340;
+  // ── Fire pit (SW courtyard, clear of the hall and the Artificer's east plot)
+  const FPX = VX - 230, FPZ = VZ + 360;
   const emberMat = new THREE.MeshLambertMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 0.8 });
   const fireMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 6), emberMat);
   fireMesh.position.set(FPX, 8, FPZ); scene.add(fireMesh);
@@ -7535,9 +7546,9 @@ function addVillageBuildings(scene) {
 
   // (Cottages A/B now placed as KayKit homes above.)
 
-  // ── Construction site (half-built wall segments + scaffolding), moved out to
-  // the NE corner so it clears the bigger hall and tower.
-  const CSX = VX + 460, CSZ = VZ - 330;
+  // ── Construction site (half-built wall segments + scaffolding), out at the NW
+  // corner so it clears the hall and the Artificer's east forge-tower plot.
+  const CSX = VX - 480, CSZ = VZ - 470;
   const csMat = new THREE.MeshLambertMaterial({ color: 0x9a8a76 });
   box(90, 30, 10, csMat, CSX - 40, 15, CSZ);
   box(10, 55, 80, csMat, CSX - 85, 27, CSZ);
