@@ -12664,13 +12664,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     }
     // A sideboard cabinet against the north wall (west of the hearth) with a
     // book stack on top, and a wall shelf east of the hearth.
-    const cab = kkFurn('furn_cabinet', 44, 'fit', 120, 0, 22, 0);
+    const cab = kkFurn('furn_cabinet', 44, 'fit', 120, 0, 30, 0);
     if (cab) {
       scene.add(cab);
-      const bk = kkFurn('furn_books', 16, 'fit', 120, (cab.userData && cab.userData.kkHeight) || 22, 22);
+      const bk = kkFurn('furn_books', 16, 'fit', 120, (cab.userData && cab.userData.kkHeight) || 22, 30);
       if (bk) scene.add(bk);
     }
-    const wallShelf = kkFurn('furn_shelf', 60, 'fit', 470, 72, 9, 0);
+    // Wall shelf pulled clear of the north wall (was z=9, which buried it in the
+    // wall) so it reads as a mounted shelf jutting into the room.
+    const wallShelf = kkFurn('furn_shelf', 60, 'fit', 470, 72, 26, 0);
     if (wallShelf) scene.add(wallShelf);
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
@@ -13469,7 +13471,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // A grand KayKit throne at the head of the hall (the ornate vampire throne,
     // same model the Artificer lounges on). Procedural throne is the fallback
     // until prop_throne has streamed in.
-    const throne = kkFurn('prop_throne', 88, 'height', cx, 0, 36, Math.PI + THRONE_FWD);
+    const throne = kkFurn('prop_throne', 88, 'height', cx, 0, 70, Math.PI + THRONE_FWD);
     if (throne) scene.add(throne); else scene.add(makeThrone(cx, 30, 0));
     // The council table + high-backed chairs set on the pentacle. KayKit long
     // table ringed by four chairs; procedural table + benches as the fallback.
