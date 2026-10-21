@@ -25,6 +25,38 @@ function scorch(group, amt) {
   });
   return group;
 }
+// Collapse a crowd of identical scorched props into ONE InstancedMesh per model
+// (a single draw call instead of one per prop). The scorch is applied once to a
+// size-1 reference and baked into the shared material; each prop's scale, turn
+// and spot go into its instance matrix. `items` is [{x,y,scale,roty}] on the
+// flat ember ground. The per-instance scorch jitter the per-mesh version had was
+// a subtle lightness-only wobble, so a fixed mid-scorch reads the same across
+// the haze-dimmed flat.
+function addScorchedInstances(scene, key, mode, items) {
+  if (!items.length || !(KK && KK.has && KK.has(key) && KK.staticInstance)) return;
+  const unit = KK.staticInstance(key, 1, mode); // size-1 reference, base at y=0
+  if (!unit) return;
+  scorch(unit, 0.16);
+  unit.updateMatrixWorld(true);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  unit.traverse((o) => {
+    if (!o.isMesh) return;
+    const geo = o.geometry.clone();
+    geo.applyMatrix4(o.matrixWorld); // bake unit scale + local offset: prop at size 1, base y=0
+    const im = new THREE.InstancedMesh(geo, o.material, items.length);
+    im.frustumCulled = false;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      q.setFromAxisAngle(yUp, it.roty);
+      pos.set(it.x, 0, it.y);
+      scl.set(it.scale, it.scale, it.scale);
+      m4.compose(pos, q, scl);
+      im.setMatrixAt(i, m4);
+    }
+    im.instanceMatrix.needsUpdate = true;
+    scene.add(im);
+  });
+}
 function buildEmberScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a0f0a);
@@ -144,19 +176,28 @@ function buildEmberScene() {
     ['rock1', 90, 'fit'], ['rock2', 110, 'fit'], ['rock3', 100, 'fit']
   ];
   const canKK = KK && KK.staticInstance;
-  spots.forEach(([x, y], i) => {
-    let group = null;
-    if (canKK) {
+  if (canKK) {
+    // Bucket the ~700 scorched props by model, then emit one InstancedMesh each
+    // (was one draw call per prop). rnd() is consumed in the SAME order/count as
+    // the per-mesh version — pick, scale, turn, and the old per-instance scorch
+    // amount — so the rest of the ember scene's seeded scatter is unchanged.
+    const byKey = {};
+    spots.forEach(([x, y]) => {
       const [key, size, mode] = DEAD[Math.floor(rnd() * DEAD.length)];
-      group = KK.staticInstance(key, size * (0.8 + rnd() * 0.5), mode);
-      if (group) { group.rotation.y = rnd() * Math.PI * 2; group.position.set(x, 0, y); scorch(group, 0.1 + rnd() * 0.12); }
-    }
-    if (!group) { // procedural fallback (cold load)
-      group = (i % 2 === 0) ? makeRock(x, y, 1.1 + rnd() * 0.9) : makeTree(x, y, 2.2 + rnd() * 1.4);
+      const scale = size * (0.8 + rnd() * 0.5);
+      const roty = rnd() * Math.PI * 2;
+      rnd(); // was scorch(group, 0.1 + rnd()*0.12) — scorch is now a fixed per-key tint; keep the draw to preserve the RNG stream
+      (byKey[key] || (byKey[key] = { mode, items: [] })).items.push({ x, y, scale, roty });
+    });
+    for (const key in byKey) addScorchedInstances(scene, key, byKey[key].mode, byKey[key].items);
+  } else {
+    // Procedural fallback (cold load, before the KayKit props stream in).
+    spots.forEach(([x, y], i) => {
+      const group = (i % 2 === 0) ? makeRock(x, y, 1.1 + rnd() * 0.9) : makeTree(x, y, 2.2 + rnd() * 1.4);
       group.traverse(c => { if (c.isMesh && c.material && c.material.color) { c.material = c.material.clone(); c.material.color.offsetHSL(0, 0, -0.08); } });
-    }
-    scene.add(group);
-  });
+      scene.add(group);
+    });
+  }
 
   // Tombs + ruined gateways clustered at each landmark — gives the POIs the
   // look of a long-dead necropolis on the ember flat.
