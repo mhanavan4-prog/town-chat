@@ -9419,7 +9419,11 @@ const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
 const MOB2_VISUALS = {
   shade_stalker: { color: 0x3a1a4a, eyeColor: 0xb98aff, scale: 0.85, kkKey: 'skel_rogue',   kkHeight: 62,  kkAttack: '1H_Melee_Attack_Slice_Diagonal', kkTint: { to: 0x7a5aa6, amt: 0.6, emissive: 0x2a1040, ei: 0.35 } },
   bog_brute:     { color: 0x3a4a26, eyeColor: 0xd8ff6f, scale: 1.35, kkKey: 'skel_warrior', kkHeight: 96,  kkAttack: '2H_Melee_Attack_Slice',           kkTint: { to: 0x5c7a2e, amt: 0.55, emissive: 0x24340e, ei: 0.35 } },
-  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0,  kkKey: 'npc_werewolf', kkHeight: 78,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { to: 0x26222e, amt: 0.5, emissive: 0x3a0606, ei: 0.3 } },
+  // A hostile shadow-werewolf — deliberately NOT Lexton. He shares the werewolf
+  // model, so this one is tinted near-black and mangy with a strong red ember
+  // glow (vs Lexton's natural grey coat + red jacket) and kept clearly smaller
+  // (72 vs Lexton's 150) so there's no mistaking the two.
+  night_howler:  { color: 0x1a1a22, eyeColor: 0xff2a2a, scale: 1.0,  kkKey: 'npc_werewolf', kkHeight: 72,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { to: 0x181420, amt: 0.82, emissive: 0x580a0a, ei: 0.34 } },
   will_o_wisp:   { color: 0x4fb8d8, eyeColor: 0xeafcff, scale: 0.6 },
   // ── Session M horrors ──
   fen_hexer:   { color: 0x3a1a4a, eyeColor: 0xd8b0ff, scale: 0.9,  fly: 12, kkKey: 'skel_mage',    kkHeight: 68, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x9070c0, amt: 0.6, emissive: 0x2e1448, ei: 0.4 } },
