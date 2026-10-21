@@ -203,6 +203,23 @@ function makeShield(x, y, z, rotY, color) {
 // physical "buy a Town Pass" object. Purely decorative geometry; the
 // interaction itself is driven by the kiosk point registered alongside it.
 function makeStatue(x, z) {
+  // KayKit monument: a decorated stone pillar crowned with a glowing crystal —
+  // a far cleaner Town Pass shrine than the old blocky robed figure. Pillar and
+  // gem are gating assets (loaded before spawn), so this is the normal path;
+  // the procedural figure below stays as a safety fallback.
+  if (KK && KK.has && KK.staticInstance && KK.has('ruin_pillar2') && KK.has('gem_large')) {
+    const g = new THREE.Group();
+    const pillar = KK.staticInstance('ruin_pillar2', 80, 'height');
+    let topY = 80;
+    if (pillar) { g.add(pillar); topY = (pillar.userData && pillar.userData.kkHeight) || 80; }
+    const gem = KK.staticInstance('gem_large', 36, 'height');
+    if (gem) { gem.position.y = topY - 6; g.add(gem); }
+    const glow = new THREE.PointLight(0xffe0a0, 1.0, 170);
+    glow.position.set(0, topY + 12, 0);
+    g.add(glow);
+    g.position.set(x, 0, z);
+    return g;
+  }
   const g = new THREE.Group();
   const stoneMat = new THREE.MeshLambertMaterial({ color: 0x9a9a90 });
   const darkStoneMat = new THREE.MeshLambertMaterial({ color: 0x6e6e64 });
@@ -316,11 +333,15 @@ function makeWindowGlow(x, y, z, rotY, color) {
 
 // A dining set = one table + two benches + four registered seats (render-
 // space coords), used for the sit-down interaction.
+// Seated players face the table (matching which way the chair opens): a seat
+// north of the table centre (dz<0) looks +z toward it, a south seat looks -z.
+// (The old values faced sitters outward — unnoticed on backless benches, but
+// plainly wrong once the chairs have a back.)
 const DINING_SEAT_OFFSETS = [
-  { dx: -14, dz: -18, facing: Math.PI },
-  { dx: 14,  dz: -18, facing: Math.PI },
-  { dx: -14, dz: 18,  facing: 0 },
-  { dx: 14,  dz: 18,  facing: 0 }
+  { dx: -14, dz: -18, facing: 0 },
+  { dx: 14,  dz: -18, facing: 0 },
+  { dx: -14, dz: 18,  facing: Math.PI },
+  { dx: 14,  dz: 18,  facing: Math.PI }
 ];
 function addDiningSet(scene, seatsOut, tx, tz) {
   // KayKit path: a long table ringed by four chairs (backs to the outside, seat

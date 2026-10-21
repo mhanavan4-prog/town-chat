@@ -283,8 +283,14 @@ function refreshCovenTableVisual() {
     else if (seat) label = `${seat.sigil} ${seat.name}'s table`;
     if (!label) return;
     covenTableSprite = makeNpcNameSprite(label);
-    covenTableSprite.position.set(0, 95, -40);
-    getCurrentInterior().scene.add(covenTableSprite);
+    // Float it over the café's centre-front dining table rather than the old
+    // hardcoded (0,95,-40), which landed in the NW corner on top of Barkeep
+    // Joss — so the Champions' Table banner no longer overlaps the shop NPC.
+    const ci = getCurrentInterior();
+    const bx = (ci && ci.roomW ? ci.roomW : 1080) * 0.5;
+    const bz = (ci && ci.roomD ? ci.roomD : 612) * 0.35;
+    covenTableSprite.position.set(bx, 150, bz);
+    ci.scene.add(covenTableSprite);
   } catch (e) { /* cosmetic only */ }
 }
 // The weekly inter-coven standings board — the Champions' Table race. Fed by
