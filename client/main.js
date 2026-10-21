@@ -592,6 +592,16 @@ const KK = (() => {
     // (loadFrac, over the whole manifest incl. the silent character tail, only
     // ever reaches ~80% by then — which looked like a stall in the pill).
     gatingFrac() { const n = GATING_KEYS.length; return n ? (n - pending) / n : 1; },
+    // Character-tail fraction (0..1): the player/NPC bodies + summon skeletons
+    // that stream in AFTER the gating world is up (CHAR_KEYS + BG_KEYS). Drives
+    // the second, non-blocking pill phase so a fresh player knows the blocky
+    // stand-in NPCs are still sharpening into their KayKit bodies.
+    charTailFrac() {
+      const tail = totalCount - GATING_KEYS.length;
+      if (tail <= 0) return 1;
+      const gatingLoaded = GATING_KEYS.length - pending;
+      return Math.min(1, Math.max(0, loadedCount - gatingLoaded) / tail);
+    },
     onAssetLoad(cb) { _assetCbs.push(cb); },
     tick(dt) { for (const m of mixers) m.update(dt); } };
 })();
@@ -4993,25 +5003,35 @@ if (MOBILE_UI) document.body.classList.add('touchMode');
   if (!pill) return;
   const fillEl = document.getElementById('loadPillFill');
   const textEl = document.getElementById('loadPillText');
+  const subEl = pill.querySelector('.loadPillSub');
   function frame() {
     // Show once the player has committed to entering (join armed) or is in-game,
     // and only while assets are still streaming.
     const armed = gameStarted || window.__tcLoadArmed;
     // The world is ready to play once the town (gating assets, incl. the hex
     // floor) has settled and — once spawned — the player's OWN character body is
-    // in. The other five bodies + summon skeletons keep streaming in silently
-    // afterwards, so the pill no longer parks for the whole cold-load character
-    // tail (which looked like a hang on a hard refresh; a warm rejoin had them
-    // cached and finished instantly).
+    // in.
     const worldReady = KK.settled && (!me || KK.charReady(me.charId));
     if (armed && !worldReady) {
-      // Fill off the GATING fraction (the shared world's own graphics) so the
-      // bar climbs to ~100% exactly as the world finishes painting in, rather
-      // than stalling in the 70s like the whole-manifest fraction would.
+      // Phase 1 — the shared world's own graphics. Fill off the GATING fraction
+      // so the bar climbs to ~100% exactly as the world finishes painting in,
+      // rather than stalling in the 70s like the whole-manifest fraction would.
       const frac = (typeof KK.gatingFrac === 'function') ? KK.gatingFrac() : KK.loadFrac();
       const pct = Math.max(4, Math.min(100, Math.round(frac * 100)));
       if (fillEl) fillEl.style.width = pct + '%';
       if (textEl) textEl.textContent = 'Loading the world’s graphics… ' + pct + '%';
+      if (subEl) subEl.textContent = 'hang tight — the rough look clears in a moment';
+      pill.classList.add('show');
+    } else if (armed && !KK.fullyLoaded && typeof KK.charTailFrac === 'function') {
+      // Phase 2 (non-blocking) — the town is up and playable, but the player/NPC
+      // bodies + summon skeletons are still streaming in behind their blocky
+      // stand-ins. A fresh player used to just see those stand-ins pop over with
+      // no hint it was coming; keep a quiet indicator up so they know the figures
+      // sharpen into real characters — and that they can dive in right now.
+      const pct = Math.max(4, Math.min(99, Math.round(KK.charTailFrac() * 100)));
+      if (fillEl) fillEl.style.width = pct + '%';
+      if (textEl) textEl.textContent = '✨ Loading characters… ' + pct + '%';
+      if (subEl) subEl.textContent = 'jump in — the blocky figures sharpen up as they arrive';
       pill.classList.add('show');
     } else {
       pill.classList.remove('show');
