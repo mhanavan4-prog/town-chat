@@ -8374,14 +8374,49 @@ function makeKayGrass(x, z, scale) {
   return g;
 }
 
+// Collapse a crowd of identical KayKit decor props into ONE InstancedMesh per
+// model (a single draw call for the whole scatter instead of one per prop),
+// baking each prop's size, terrain height and random turn into its instance
+// matrix. This is the GPU-over-CPU win for the Wilds ground detail: the hundreds
+// of grass/rock/bush groups it used to add are the bulk of the map's draw calls.
+// `placements` is [{x,z,size,roty}]; `mode` sizes it like KK.staticInstance
+// ('height' or 'fit'). A null model (not streamed) just adds nothing.
+function addInstancedDecor(scene, key, mode, placements) {
+  if (!placements || !placements.length || !KK.has(key)) return 0;
+  const unit = KK.staticInstance(key, 1, mode); // size-1 reference, base at y=0
+  if (!unit) return 0;
+  unit.updateMatrixWorld(true);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  let made = 0;
+  unit.traverse((o) => {
+    if (!o.isMesh) return;
+    const geo = o.geometry.clone();
+    geo.applyMatrix4(o.matrixWorld); // bake the unit scale + local offset: prop now sits at size 1, base y=0
+    const im = new THREE.InstancedMesh(geo, o.material, placements.length);
+    im.frustumCulled = false; // one big object spanning the map — never cull it whole
+    for (let i = 0; i < placements.length; i++) {
+      const p = placements[i];
+      q.setFromAxisAngle(yUp, p.roty || 0);
+      pos.set(p.x, (typeof wildsHeightAt === 'function' ? wildsHeightAt(p.x, p.z) : 0), p.z);
+      scl.set(p.size, p.size, p.size);
+      m4.compose(pos, q, scl);
+      im.setMatrixAt(i, m4);
+    }
+    im.instanceMatrix.needsUpdate = true;
+    scene.add(im);
+    made++;
+  });
+  return made;
+}
+
 // Wilds ground-detail scatter — grass tufts (in clusters), scattered rocks and
 // low bushes across the walkable moor, lifted onto the rolling terrain. All
 // pure scenery (walk-through, no colliders) and deterministic so every client
-// sees the same floor. Keeps spawn and the campfires clear.
+// sees the same floor. Keeps spawn and the campfires clear. Emitted as one
+// InstancedMesh per model (see addInstancedDecor) rather than ~300 separate
+// prop groups — same look, a fraction of the draw calls.
 function kkWildsGroundDetail(scene, w2) {
   if (!KK.settled) return;
-  const rawScene = scene;
-  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
   let seed = 0x9e3779b1 >>> 0;
   const rand = () => {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -8393,30 +8428,29 @@ function kkWildsGroundDetail(scene, w2) {
   const W2 = w2.width || 10000, H2 = w2.height || 10000;
   const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, { x: 5000, y: 3000, r: 560 }, ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
-  // Grass in clusters (reads as patches of undergrowth rather than even stubble)
+  const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+  // Gather placements per model key, then emit one InstancedMesh each.
+  const place = {}; // key -> [{x,z,size,roty}]
+  const push = (key, x, z, size) => { (place[key] || (place[key] = [])).push({ x, z, size, roty: rand() * Math.PI * 2 }); };
+  // Grass in clusters (reads as patches of undergrowth rather than even stubble); sized by HEIGHT.
   for (let c = 0; c < 22; c++) {
     const cx = rng(300, W2 - 300), cz = rng(300, H2 - 300);
     if (!clearOf(cx, cz)) continue;
     const n = 6 + Math.floor(rand() * 7);
-    for (let i = 0; i < n; i++) {
-      const g = makeKayGrass(cx + rng(-90, 90), cz + rng(-90, 90), 0.8 + rand() * 0.6);
-      if (g) scene.add(g);
-    }
+    for (let i = 0; i < n; i++) push(pick(KAY_GRASS), cx + rng(-90, 90), cz + rng(-90, 90), (20 + rand() * 14) * (0.8 + rand() * 0.6));
   }
-  // Scattered boulders
+  // Scattered boulders; sized by FIT.
   for (let i = 0; i < 44; i++) {
     const x = rng(300, W2 - 300), z = rng(300, H2 - 300);
-    if (!clearOf(x, z)) continue;
-    const g = makeKayRock(x, z, 0.9 + rand() * 1.0);
-    if (g) scene.add(g);
+    if (clearOf(x, z)) push(pick(KAY_ROCKS), x, z, (22 + rand() * 14) * (0.9 + rand() * 1.0));
   }
-  // Scattered low bushes
+  // Scattered low bushes; sized by FIT.
   for (let i = 0; i < 34; i++) {
     const x = rng(300, W2 - 300), z = rng(300, H2 - 300);
-    if (!clearOf(x, z)) continue;
-    const g = makeKayBush(x, z, 0.9 + rand() * 0.6);
-    if (g) scene.add(g);
+    if (clearOf(x, z)) push(pick(KAY_BUSHES), x, z, (26 + rand() * 12) * (0.9 + rand() * 0.6));
   }
+  const grassKeys = new Set(KAY_GRASS);
+  for (const key in place) addInstancedDecor(scene, key, grassKeys.has(key) ? 'height' : 'fit', place[key]);
 }
 
 function makeGravestone(x, z) {
