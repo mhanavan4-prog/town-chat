@@ -193,29 +193,77 @@ function buildWildsScene(w2) {
   // with faint wandering lights at night rather than sitting dead still.
   // Additive, depthWrite off, unlit — they glow in the dark and fade by day
   // along with everything else the night grading dims. ──
-  const wispTex = makeGlowTexture();
-  const wispCols = [0x8dffbe, 0x8dffbe, 0x8dffbe, 0xbfa0ff]; // mostly green, some violet
-  for (let i = 0; i < 46; i++) {
+  // One GPU-animated THREE.Points carries the whole field instead of 46 CPU
+  // sprites. Each mote's drift (lissajous on x/z), bob and opacity breath are
+  // computed in the vertex shader from a single uTime uniform, so the field is
+  // ONE draw call and costs ~0 CPU per frame (vs 46 onBeforeRender callbacks
+  // each doing trig + a heightfield sample). The ground height is sampled ONCE
+  // per mote at build — they wander only ~40-90u over gentle moor, so a constant
+  // base reads identically — and additive blending keeps them glowing at night
+  // and washing out by day, exactly like the sprites.
+  const WISP_N = 46;
+  const wispGeo = new THREE.BufferGeometry();
+  const wPos = new Float32Array(WISP_N * 3);    // base wx, groundY, wz
+  const wWander = new Float32Array(WISP_N * 4); // rx, rz, hoverBase, bob
+  const wFreq = new Float32Array(WISP_N * 3);   // sx, sz, sy
+  const wPhase = new Float32Array(WISP_N * 3);  // px, pz, py
+  const wPulse = new Float32Array(WISP_N * 3);  // baseOp, opAmp, sop
+  const wSize = new Float32Array(WISP_N);
+  const wColor = new Float32Array(WISP_N * 3);
+  const wGreen = new THREE.Color(0x8dffbe), wViolet = new THREE.Color(0xbfa0ff);
+  for (let i = 0; i < WISP_N; i++) {
     const wx = 300 + grand() * (w2.width - 600), wz = 300 + grand() * (w2.height - 600);
-    const gh = sampleH(wx, wz);
-    const mat = new THREE.SpriteMaterial({ map: wispTex, color: wispCols[(grand() * wispCols.length) | 0], transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
-    const wisp = new THREE.Sprite(mat);
-    const sc = 7 + grand() * 10;
-    wisp.scale.set(sc, sc, 1);
-    // wander: independent radii/speeds/phases on x, z and the vertical bob
-    const rx = 40 + grand() * 90, rz = 40 + grand() * 90, hoverBase = 28 + grand() * 90, bob = 10 + grand() * 22;
-    const sx = 0.00012 + grand() * 0.0003, sz = 0.00012 + grand() * 0.0003, sy = 0.0004 + grand() * 0.0008;
-    const px = grand() * Math.PI * 2, pz = grand() * Math.PI * 2, py = grand() * Math.PI * 2;
-    const baseOp = 0.4 + grand() * 0.35, opAmp = 0.18 + grand() * 0.14, sop = 0.0009 + grand() * 0.0016;
-    wisp.position.set(wx, gh + hoverBase, wz);
-    wisp.onBeforeRender = () => {
-      const t = performance.now();
-      const nx = wx + Math.sin(t * sx + px) * rx, nz = wz + Math.cos(t * sz + pz) * rz;
-      wisp.position.set(nx, sampleH(nx, nz) + hoverBase + Math.sin(t * sy + py) * bob, nz);
-      mat.opacity = Math.max(0, baseOp + opAmp * Math.sin(t * sop + px));
-    };
-    scene.add(wisp);
+    wPos[i * 3] = wx; wPos[i * 3 + 1] = sampleH(wx, wz); wPos[i * 3 + 2] = wz;
+    wWander[i * 4] = 40 + grand() * 90; wWander[i * 4 + 1] = 40 + grand() * 90; wWander[i * 4 + 2] = 28 + grand() * 90; wWander[i * 4 + 3] = 10 + grand() * 22;
+    wFreq[i * 3] = 0.00012 + grand() * 0.0003; wFreq[i * 3 + 1] = 0.00012 + grand() * 0.0003; wFreq[i * 3 + 2] = 0.0004 + grand() * 0.0008;
+    wPhase[i * 3] = grand() * 6.2832; wPhase[i * 3 + 1] = grand() * 6.2832; wPhase[i * 3 + 2] = grand() * 6.2832;
+    wPulse[i * 3] = 0.4 + grand() * 0.35; wPulse[i * 3 + 1] = 0.18 + grand() * 0.14; wPulse[i * 3 + 2] = 0.0009 + grand() * 0.0016;
+    wSize[i] = 7 + grand() * 10;
+    const c = ((grand() * 4) | 0) === 3 ? wViolet : wGreen; // ~3/4 green, 1/4 violet
+    wColor[i * 3] = c.r; wColor[i * 3 + 1] = c.g; wColor[i * 3 + 2] = c.b;
   }
+  wispGeo.setAttribute('position', new THREE.BufferAttribute(wPos, 3));
+  wispGeo.setAttribute('aWander', new THREE.BufferAttribute(wWander, 4));
+  wispGeo.setAttribute('aFreq', new THREE.BufferAttribute(wFreq, 3));
+  wispGeo.setAttribute('aPhase', new THREE.BufferAttribute(wPhase, 3));
+  wispGeo.setAttribute('aPulse', new THREE.BufferAttribute(wPulse, 3));
+  wispGeo.setAttribute('aSize', new THREE.BufferAttribute(wSize, 1));
+  wispGeo.setAttribute('aColor', new THREE.BufferAttribute(wColor, 3));
+  // Match the old sprite's world-size → on-screen-size mapping (perspective
+  // attenuation): pixels = worldSize * (viewportH/2) / (tan(fov/2) * dist).
+  const wispPixelScale = (window.innerHeight * 0.5) / Math.tan((62 * Math.PI / 180) / 2);
+  const wispMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uTex: { value: makeGlowTexture() }, uPixelScale: { value: wispPixelScale } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      uniform float uTime; uniform float uPixelScale;
+      attribute vec4 aWander; attribute vec3 aFreq; attribute vec3 aPhase; attribute vec3 aPulse; attribute float aSize; attribute vec3 aColor;
+      varying vec3 vColor; varying float vOpacity;
+      void main() {
+        float t = uTime;
+        vec3 p = position;
+        p.x += sin(t * aFreq.x + aPhase.x) * aWander.x;
+        p.z += cos(t * aFreq.y + aPhase.y) * aWander.y;
+        p.y += aWander.z + sin(t * aFreq.z + aPhase.z) * aWander.w;
+        vColor = aColor;
+        vOpacity = max(0.0, aPulse.x + aPulse.y * sin(t * aPulse.z + aPhase.x));
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * (uPixelScale / -mv.z);
+      }`,
+    fragmentShader: `
+      uniform sampler2D uTex;
+      varying vec3 vColor; varying float vOpacity;
+      void main() {
+        vec4 tex = texture2D(uTex, gl_PointCoord);
+        gl_FragColor = vec4(vColor * tex.rgb, tex.a * vOpacity);
+      }`,
+  });
+  const wisps = new THREE.Points(wispGeo, wispMat);
+  wisps.frustumCulled = false;
+  wisps.renderOrder = 3;
+  wisps.onBeforeRender = () => { wispMat.uniforms.uTime.value = performance.now(); };
+  scene.add(wisps);
 
   addNatureDecor(scene, w2, getDecorVisuals2(), WILDS_WALLS);
   getAddAnimals2()(scene);
