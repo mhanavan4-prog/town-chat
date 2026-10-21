@@ -4096,15 +4096,15 @@ const NPC_WHEREABOUTS = {
   npc_finn: 'the west-side garden — the herbalist tends his beds by the fence',
   npc_scholar: '📚 the Library, behind the counter',
   npc_bartender: '☕ the Cafe, behind the bar',
-  npc_apothecary: '☕ the Cafe — corner table with the vials',
-  npc_tailor: '🏛️ Town Hall, by the banners',
+  npc_apothecary: '🎮 the Starlight Arcade — Apothecary Vex at her workbench',
+  npc_tailor: '👻 the Phantom Parlor — Tailor Ines by the lounge',
   npc_armorer: '🏛️ Town Hall, at the armor rack',
   npc_patron: '☕ the Cafe — Old Mabel at her usual table',
-  npc_apprentice: '🎮 the Starlight Arcade (Town Pass building)',
-  npc_tinkerer: '🎮 the Starlight Arcade (Town Pass building)',
+  npc_apprentice: '📚 the Library — Apprentice Wren among the shelves',
+  npc_tinkerer: '🎮 the Starlight Arcade — Tinkerer Oswin at his bench',
   npc_noble: '👻 the Phantom Parlor (Town Pass building)',
   npc_knight: '🏛️ Town Hall — Sir Dorran on guard duty',
-  npc_guard: '🏦 the Bank, by the door'
+  npc_guard: '🏛️ Town Hall — Guard Petra by the door'
 };
 function objectiveWhere(obj) {
   if (obj.where) return obj.where;
