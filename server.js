@@ -6612,7 +6612,7 @@ function covenStandings(wk) {
 // has scored at all. Null before the first point of the week is earned.
 function covenChampionBody() {
   const leader = covenStandings(weekKey(Date.now()))[0];
-  return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points } : null;
+  return (leader && leader.points > 0) ? { name: leader.name, sigil: leader.sigil, points: leader.points, covenId: leader.covenId } : null;
 }
 // The weekly crown ceremony. Called once per closed week from the leaderboards'
 // lazy settlement (so no cron): the week's #1 coven is crowned — a lasting
