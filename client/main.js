@@ -594,6 +594,12 @@ const KK = (() => {
     const g = new THREE.Group();
     inst.scale.setScalar(s);
     inst.position.y = -t.minY * s;
+    // Disable frustum culling on every mesh (same reason createKayKitByKey does
+    // it): a scaled clone's cached bounding sphere can be wrong, so THREE culls
+    // the whole prop when the camera turns — the large throne in the Coven Court
+    // was vanishing by angle. These are a handful of static props, so the cost
+    // of always drawing them is negligible.
+    inst.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     g.add(inst);
     g.userData.kkHeight = t.size.y * s;
     return g;
