@@ -12228,6 +12228,7 @@ let THRONE_FWD = Math.PI; // vampire throne forward axis — flipped 180° so th
                           // seat opens into the hall, not into the back wall
 let DESK_FWD = 0;         // scholar's desk forward axis (verified via render)
 let DESKCHAIR_FWD = 0;    // desk chair forward axis (verified via render)
+let COUCH_FWD = 0;        // couch forward axis — seat opens +z at rest (verified)
 function buildTorch(x, z) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
@@ -13400,6 +13401,27 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       [roomW * 0.40, roomD * 0.16], [roomW * 0.60, roomD * 0.16]
     ];
     for (const [x, z] of diningSpots) addDiningSet(scene, seatsOut, x, z);
+
+    // ── Lounge nooks: a KayKit couch + two armchairs around a low coffee table
+    // on an accent rug, in the clear bands between the séance circle and the
+    // side walls (west & east). Makes the open hall read as a parlour. All
+    // additive; no-ops until the models stream in. ──
+    const loungeNook = (nx, nz, couchSide) => {
+      const faceT = (x, z, fwd) => Math.atan2(nx - x, nz - z) + fwd;
+      scene.add(makeRug(nx, nz, 200, 150, 0x183d31));
+      const cfx = nx + couchSide * 62; // couch sits on the wall side, faces in
+      const couch = kkFurn('furn_couch', 36, 'height', cfx, 0, nz, faceT(cfx, nz, COUCH_FWD));
+      if (couch) scene.add(couch);
+      const coffee = kkFurn('furn_coffee', 46, 'fit', nx, 0, nz);
+      if (coffee) scene.add(coffee);
+      for (const dz of [-54, 54]) {
+        const ax = nx - couchSide * 44; // armchairs face the couch across the table
+        const ac = kkFurn('furn_armchair', 36, 'height', ax, 0, nz + dz, faceT(ax, nz + dz, ARMCHAIR_FWD));
+        if (ac) scene.add(ac);
+      }
+    };
+    loungeNook(roomW * 0.19, roomD * 0.5, -1); // west nook, couch against west wall
+    loungeNook(roomW * 0.81, roomD * 0.5, 1);  // east nook, couch against east wall
 
     // The "Widow's Watch" name lives on as a wall sign on the east end,
     // where the old upstairs terrace used to be.
@@ -16810,7 +16832,9 @@ const KK = (() => {
     furn_rug:       'kk/furn/rug_rectangle_A.gltf',   // accent rug
     furn_desk:      'kk/furn/desk.gltf',              // scholar's desk (library)
     furn_deskchair: 'kk/furn/chair_desk_A.gltf',      // desk chair
-    furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf' // book-laden wall shelf
+    furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf', // book-laden wall shelf
+    furn_couch:     'kk/furn/couch_pillows.gltf',     // lounge couch (parlor)
+    furn_coffee:    'kk/furn/table_low.gltf'          // low coffee table
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
