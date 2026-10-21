@@ -8103,12 +8103,17 @@ function addGiantWerewolfTree(scene) {
     lextonMesh = b.group;
     lextonRefs = { group: lextonMesh, armL: b.armL, armR: b.armR, head: b.head, lastHowlAt: 0 };
   }
-  lextonMesh.position.set(TX, PLATFORM_Y + PLANK_H, TZ - 40);
-  lextonMesh.rotation.y = Math.PI; // faces south, out over the open Wilds
+  // Out on the deck beside the cabin, NOT at TZ-40: the trunk is ~75 units wide
+  // at deck height (cyl 60→85 over h400), so the old spot buried him inside it —
+  // which is why the werewolf on the balcony was never actually visible. (TX+85,
+  // TZ-95) sits him ~127u from the trunk centre: clear of the ~75u trunk, inside
+  // the 140u deck, and off to the side of the cabin so nothing hides him.
+  lextonMesh.position.set(TX + 85, PLATFORM_Y + PLANK_H, TZ - 95);
+  lextonMesh.rotation.y = Math.PI; // faces out over the open Wilds / the approach
   scene.add(lextonMesh);
 
   const lextonLabel = makeNpcNameSprite('Lexton Greyfur', 'Voice of the Howl');
-  lextonLabel.position.set(TX, PLATFORM_Y + PLANK_H + 175, TZ - 40);
+  lextonLabel.position.set(TX + 85, PLATFORM_Y + PLANK_H + 175, TZ - 95);
   scene.add(lextonLabel);
 
   setLextonNpc(lextonRefs);
