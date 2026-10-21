@@ -7388,7 +7388,11 @@ const EMBER_MOB_TYPES = {
 // landmarks, so the POIs feel garrisoned and the open ground between them stays
 // genuinely empty-but-dangerous — the crossing IS the content. The rest roam
 // the wastes at large. A safe ring around the arrival portal is always excluded.
-const EMBER_SPAWN_COUNTS = { ash_wraith: 10, ashen_stalker: 10, bonecaller: 8, soot_revenant: 8, cinder_brute: 6, magma_golem: 5 };
+// ~5× the original population (was 10/10/8/8/6/5 = 47) so the vast ember flat
+// reads as overrun rather than sparse. Spread across the 20000² zone + landmark
+// clusters, so a player still only meets a handful at a time. The warlord boss
+// is pushed in separately below and is NOT multiplied.
+const EMBER_SPAWN_COUNTS = { ash_wraith: 50, ashen_stalker: 50, bonecaller: 40, soot_revenant: 40, cinder_brute: 30, magma_golem: 25 };
 const EMBER_MOB_SPAWNS = (() => {
   const rng = mulberry32(0x5afe10c5);
   const out = [];
