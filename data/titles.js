@@ -43,6 +43,11 @@ const TITLES = {
     id: 'second_harvest', name: 'Warden of the Second Harvest', glyph: '🍂',
     desc: 'Brought in the last sheaves and released what could not last the dark.',
     from: 'The Reckoning Harvest — Mabon'
+  },
+  ember_warden: {
+    id: 'ember_warden', name: 'Warden of the Ember Wastes', glyph: '🔥',
+    desc: 'Proved themselves in open blood out on the ash flats, and walked back wearing the Wastes like a crown.',
+    from: "The Ashblood Trials — the Ember Wastes"
   }
 };
 

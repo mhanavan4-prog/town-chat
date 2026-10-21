@@ -116,7 +116,8 @@ const DYES = [
   { id: 'rose',    label: 'Rose',     hex: 0xe58ab0 },
   { id: 'gold',    label: 'Gold',     hex: 0xe0b84a },
   { id: 'void',    label: 'Void',     hex: 0x6a4a9a },
-  { id: 'arcane',  label: 'Arcane',   hex: 0x45c8c0 }
+  { id: 'arcane',  label: 'Arcane',   hex: 0x45c8c0 },
+  { id: 'ember',   label: 'Ember',    hex: 0xd9531e }
 ];
 const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
 
@@ -131,7 +132,10 @@ const DYE_UNLOCKS = {
   rose:    { ms: 150 },
   gold:    { ms: 250 },
   void:    { ms: 200 },
-  arcane:  { ms: 300 }
+  arcane:  { ms: 300 },
+  // Earned, not bought: unlocks when the Ashblood Trials arc is completed
+  // (its final quest recorded in progress.questsDone). See dyeUnlocked().
+  ember:   { quest: 'ashblood_ascension' }
 };
 function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
 function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
