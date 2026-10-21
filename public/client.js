@@ -2270,18 +2270,22 @@ function refreshCovenTableVisual() {
     if (!getMe() || getMe().room !== 'cafe' || !getCurrentInterior() || !getCurrentInterior().scene) return;
     const champ = (typeof getCovenChampions === 'function' && getCovenChampions()) || null;
     const seat = getCovenTableState();
-    let label = null;
+    // Always mark the table so players can see it (and know why they can't sit
+    // there unless their coven holds the crown): the crowned coven when there is
+    // one, else whoever casually claimed it, else a plain Champions' Table sign.
+    let label;
     if (champ) label = `🏆 ${champ.sigil} ${champ.name} — Champions' Table`;
     else if (seat) label = `${seat.sigil} ${seat.name}'s table`;
-    if (!label) return;
+    else label = "🏆 The Champions' Table";
     covenTableSprite = makeNpcNameSprite(label);
     // Float it over the café's centre-front dining table rather than the old
     // hardcoded (0,95,-40), which landed in the NW corner on top of Barkeep
-    // Joss — so the Champions' Table banner no longer overlaps the shop NPC.
+    // Joss. y must stay BELOW INDOOR_WALL_HEIGHT (150) or the banner hides in
+    // the ceiling — which is exactly what happened at y=150.
     const ci = getCurrentInterior();
     const bx = (ci && ci.roomW ? ci.roomW : 1080) * 0.5;
     const bz = (ci && ci.roomD ? ci.roomD : 612) * 0.35;
-    covenTableSprite.position.set(bx, 150, bz);
+    covenTableSprite.position.set(bx, 100, bz);
     ci.scene.add(covenTableSprite);
   } catch (e) { /* cosmetic only */ }
 }
