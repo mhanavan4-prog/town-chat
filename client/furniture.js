@@ -343,7 +343,7 @@ const DINING_SEAT_OFFSETS = [
   { dx: -14, dz: 18,  facing: Math.PI },
   { dx: 14,  dz: 18,  facing: Math.PI }
 ];
-function addDiningSet(scene, seatsOut, tx, tz) {
+function addDiningSet(scene, seatsOut, tx, tz, championsOnly) {
   // KayKit path: a long table ringed by four chairs (backs to the outside, seat
   // opening toward the table). Falls back to the procedural table + plank
   // benches until furn_table/furn_chair have streamed in. Seat COORDINATES are
@@ -361,7 +361,7 @@ function addDiningSet(scene, seatsOut, tx, tz) {
       const yaw = (s.dz < 0 ? 0 : Math.PI) + CHAIR_FWD;
       const chair = kkFurn('furn_chair', 30, 'height', tx + s.dx, 0, tz + s.dz, yaw);
       if (chair) scene.add(chair);
-      seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
+      seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing, championsOnly: !!championsOnly });
     }
     return;
   }
@@ -369,7 +369,7 @@ function addDiningSet(scene, seatsOut, tx, tz) {
   scene.add(makeBench(tx, tz - 18, 0));
   scene.add(makeBench(tx, tz + 18, 0));
   for (const s of DINING_SEAT_OFFSETS) {
-    seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing });
+    seatsOut.push({ x: tx + s.dx, z: tz + s.dz, facing: s.facing, championsOnly: !!championsOnly });
   }
 }
 
@@ -422,7 +422,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     for (const z of rowZ) {
       scene.add(makeChandelier(roomW * 0.5, z));
       for (const x of colX) {
-        addDiningSet(scene, seatsOut, x, z);
+        // The centre-front set (under the floating Champions' Table banner, at
+        // roomW*0.5 / roomD*0.35) is the Coven Champions' Table — its seats are
+        // gated to the reigning coven (see the championsOnly check on sit).
+        const isChampions = (x === colX[1] && z === rowZ[0]);
+        addDiningSet(scene, seatsOut, x, z, isChampions);
       }
     }
     // ── KayKit furnishings (Furniture Bits) — purely additive dressing that
@@ -553,18 +557,18 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // anything — she just gives a hint about whatever quest you're
       // currently on (npc_hint_talk), or tells you to come back once you
       // are on one.
-      // Barkeep Joss tends bar from BEHIND the counter (bar sits at x=50, runs
-      // z 50..210) rather than standing out in the room — keeps him clear of
-      // the dining floor and the Champions' Table, and reads more like a tavern
-      // keeper. Players order across the bar (proximity F reaches over it).
+      // Barkeep Joss stands room-side at the quiet SOUTH end of the bar (the
+      // counter hugs the west wall at x~50, so there's no room behind it without
+      // clipping the back-bar shelf). This keeps him off the dining floor and
+      // well clear of the Champions' Table out in the centre.
       const bartender = createHumanoid(3).group;
-      bartender.position.set(26, 0, 130);
-      bartender.rotation.y = Math.atan2(cx - 26, cz - 130); // face across the bar into the room
+      bartender.position.set(95, 0, 240);
+      bartender.rotation.y = Math.atan2(cx - 95, cz - 240); // face into the room
       scene.add(bartender);
       const bartenderLabel = makeNpcNameSprite('Barkeep Joss', 'Tavern Keeper');
-      bartenderLabel.position.set(26, 90, 130);
+      bartenderLabel.position.set(95, 90, 240);
       scene.add(bartenderLabel);
-      kiosksOut.push({ x: 26, z: 130, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss', radius: 95 });
+      kiosksOut.push({ x: 95, z: 240, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss' });
 
       const patron = createHumanoid(0).group;
       patron.position.set(460, 0, 90);

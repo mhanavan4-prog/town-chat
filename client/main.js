@@ -11102,6 +11102,14 @@ function updateCoordBar() {
 // messages needed. Movement is fully locked while seated; only an explicit
 // E-press stands back up.
 // ---------------------------------------------------------------------------
+// The Champions' Table seats are gated to members of the coven that currently
+// holds the crown. Until a coven is crowned (no champion yet) the table is open
+// to everyone, so it isn't dead weight at the start of a week.
+function canSitChampionsTable() {
+  if (!covenChampions || !covenChampions.covenId) return true;
+  return !!(covenState && covenState.id && covenState.id === covenChampions.covenId);
+}
+
 function seatIsOccupied(seat) {
   for (const id in players) {
     if (id === myId) continue;
@@ -13308,6 +13316,7 @@ function tryInteract() {
   if (seatedAt) { standUp(); return; }
   const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
   if (seat) {
+    if (seat.championsOnly && !canSitChampionsTable()) { setUnlockToast("🏆 The Champions' Table is reserved for the reigning coven."); return; }
     if (seatIsOccupied(seat)) { setUnlockToast('That seat is taken.'); return; }
     sitDown(seat);
     return;
@@ -13398,7 +13407,8 @@ function updateInteractHint() {
   const seat = findNearestSeat();
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} sit`;
+    document.getElementById('interactHintText').textContent =
+      (seat.championsOnly && !canSitChampionsTable()) ? "🏆 Champions' Table — reigning coven only" : `${interactVerb()} sit`;
     return;
   }
   // Cave interactions bypass the kiosk distance system — zone-based on y position
