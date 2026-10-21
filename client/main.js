@@ -9260,6 +9260,7 @@ const { buildEmberScene } = createEmberScene({
   setEmberMobVisuals: (v) => { emberMobVisuals = v; },
   getEmberLandmarks: () => emberLandmarks,
   makeNpcNameSprite,
+  createStaticNpc, // Warden Kol, the Ashblood Trials quest-giver at the refuge
 });
 
 function swapToEmberMap() {

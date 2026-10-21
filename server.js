@@ -519,6 +519,7 @@ function dyeUnlocked(player, dyeId) {
   if (!u) return true;
   if (u.lvl) return (player.level || 1) >= u.lvl;
   if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
+  if (u.quest) { const prog = getProgress(player); return !!(prog.questsDone && prog.questsDone[u.quest]); }
   if (u.ms) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
 }
@@ -3301,6 +3302,10 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       t.isDead = true;
       noteDeath(t);
       endDuelPair(player, t); // a duel is settled by a kill
+      // Ashblood Trials credit: any player you put down out here counts, open-
+      // world or by duel (both reach this branch). A kill is the gate — one
+      // credit per actual defeat, so there's nothing to farm but real fights.
+      advanceQuestProgress(player, 'pvp_defeat', null);
       // PvP loot: one random carried (not equipped) item stack changes
       // hands, the same "self-directed carried items only" scope Sleight
       // of Hand already uses — real stakes, but never touches equipped
@@ -3908,6 +3913,20 @@ for (const [id, q] of Object.entries(QUEST_CATALOG)) {
 // Which of an NPC's quests applies to THIS player right now: the one they're
 // already on with this NPC, else the first not on cooldown, else the first
 // (so the caller can still show a coherent "come back later").
+// Is a quest offerable to this player at all (cooldown aside)? Gates for the
+// chained/one-time lines (the Ashblood Trials PvP arc): a prerequisite quest
+// must be permanently done, a one-time quest must NOT already be done, and any
+// requiresLevel must be met. Quests without these fields are always eligible —
+// the entire existing catalog is unaffected.
+function questEligible(prog, qid) {
+  const q = QUEST_CATALOG[qid];
+  if (!q) return false;
+  if (q.requiresQuestDone && !(prog.questsDone && prog.questsDone[q.requiresQuestDone])) return false;
+  if (q.oneTime && prog.questsDone && prog.questsDone[qid]) return false;
+  if (q.requiresLevel && (prog.level || 1) < q.requiresLevel) return false;
+  return true;
+}
+
 function questForNpc(player, npcId) {
   const list = QUEST_BY_NPC[npcId];
   if (!list || !list.length) return null;
@@ -3916,11 +3935,15 @@ function questForNpc(player, npcId) {
     if (aq && aq.npcId === npcId) return player.activeQuest.questId;
   }
   const prog = getProgress(player);
-  for (const qid of list) {
+  const eligible = list.filter((qid) => questEligible(prog, qid));
+  if (!eligible.length) return null;
+  // Prefer an eligible quest off cooldown; else the first eligible one, so the
+  // offer handler can report its cooldown rather than go silent.
+  for (const qid of eligible) {
     const last = prog.questCooldowns && prog.questCooldowns[qid];
     if (!last || Date.now() - last >= QUEST_COOLDOWN_MS) return qid;
   }
-  return list[0];
+  return eligible[0];
 }
 
 // Creature quarry → display label + where-to-find, for quest text/hints.
@@ -3944,6 +3967,9 @@ function advanceQuestProgress(player, eventType, itemId) {
   // Creature-specific hunts (Session M): the killed creature's type is passed
   // as the itemId arg, so only the right quarry counts.
   if (quest.type === 'kill_creature' && eventType === 'kill_creature' && itemId === quest.targetCreature) matches = true;
+  // PvP objectives (the Ashblood Trials): any player defeat out in the Wastes,
+  // open-world or by duel, funnels through here as a 'pvp_defeat' event.
+  if (quest.type === 'pvp_defeat' && eventType === 'pvp_defeat') matches = true;
   if (!matches) return;
 
   aq.progress++;
@@ -3982,6 +4008,18 @@ function advanceQuestProgress(player, eventType, itemId) {
     const rewardParts = [`+${quest.xpReward} XP`];
     if (quest.goldReward) rewardParts.push(`+${quest.goldReward}🪙`);
     if (itemsGranted.length) rewardParts.push(itemsGranted.join(', '));
+
+    // Title reward (the Ashblood finale). grantRiteTitle is the general earned-
+    // title store despite the name; recording it also auto-unlocks the ember
+    // dye, which keys off this quest's questsDone record (see dyeUnlocked).
+    if (quest.grantsTitle && player.accountKey) {
+      grantRiteTitle(player.accountKey, quest.grantsTitle);
+      const tt = TITLES[quest.grantsTitle];
+      if (tt) {
+        rewardParts.push(`${tt.glyph} Title: ${tt.name}`);
+        send(player.ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      }
+    }
 
     send(player.ws, {
       type: 'quest_complete',
@@ -4104,7 +4142,8 @@ const NPC_WHEREABOUTS = {
   npc_tinkerer: '🎮 the Starlight Arcade — Tinkerer Oswin at his bench',
   npc_noble: '👻 the Phantom Parlor (Town Pass building)',
   npc_knight: '🏛️ Town Hall — Sir Dorran on guard duty',
-  npc_guard: '🏛️ Town Hall — Guard Petra by the door'
+  npc_guard: '🏛️ Town Hall — Guard Petra by the door',
+  npc_warden: '🔥 the Ember Wastes — Warden Kol at the refuge haven'
 };
 function objectiveWhere(obj) {
   if (obj.where) return obj.where;
@@ -4128,6 +4167,7 @@ function objectiveWhere(obj) {
     case 'delve_depth': return 'the Weekly Delve — descend through the floors (open the 🕳️ Delve from the menu)';
     case 'craft_item': return "the Artificer's forge in the Wildlands Village (the Wilds) — gather materials, then forge";
     case 'defeat_world_boss': return 'the Blighted Hollow, far north in the Wilds — rally when a World Boss rises';
+    case 'pvp_defeat': return '🔥 the Ember Wastes — out past the refuge haven, where every player is fair game (or call a duel if the flats are quiet)';
     default: return '';
   }
 }

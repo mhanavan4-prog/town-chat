@@ -269,6 +269,55 @@ const QUEST_CATALOG = {
     type: 'kill_creature', targetCreature: 'old_marrowe', target: 1, xpReward: 350, goldReward: 300,
     itemRewards: [{ itemId: 'spirit_ring', qty: 1 }, { itemId: 'hollow_shard', qty: 3 }, { itemId: 'bloodmoon_shard', qty: 1 }],
     description: 'On the Blood Moon — and only then — a thing wearing the shape of a scarecrow rises in the Wilds graveyard: Old Marrowe, the Gallows Warden, the Hollow\'s own steward. It is more than any single blade should face. Gather your strength, wait for the red moon, and end it. Do this and the Circle will name you kin.'
+  },
+
+  // ── The Ashblood Trials (Ember Wastes PvP line) ──────────────────────────
+  // A charId-independent endgame arc given by Warden Kol at the Ember Refuge,
+  // out in the one zone where player-vs-player is open. Chained one-time steps
+  // (requiresQuestDone gates each on the last) escalate the body count; the
+  // finale grants the 'ember_warden' title and — via its questsDone record —
+  // unlocks the 'ember' dye (see data/wardrobe.js). Objective type 'pvp_defeat'
+  // counts any player you put down out here, OPEN-WORLD OR BY DUEL — so a quiet
+  // Wastes never hard-blocks the line: arrange a duel and it still counts.
+  // After the arc, two repeatable bounties (not oneTime) rotate on the normal
+  // quest cooldown as endless endgame. Levels are kept reachable for anyone who
+  // has finished the campaign. pvp_defeat has no cooldown of its own — the body
+  // IS the gate.
+  ashblood_bloodrite: {
+    npcId: 'npc_warden', npcName: 'Warden Kol',
+    name: 'First Blood on the Ash',
+    type: 'pvp_defeat', target: 2, requiresLevel: 8, oneTime: true,
+    xpReward: 160, goldReward: 90, itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: 'Kol doesn\'t look up from the whetstone. "The refuge ring is the only safe ground out here, and safe ground makes nothing worth keeping. Past the haven it\'s open blood — every soul on the flats is fair game, and so are you. Put two of them down and come back breathing. Then we\'ll talk about what you really want." Open-world kills count; so does a duel, if you\'d rather pick your fight.'
+  },
+  ashblood_proving: {
+    npcId: 'npc_warden', npcName: 'Warden Kol',
+    name: 'The Proving Ground',
+    type: 'pvp_defeat', target: 3, oneTime: true, requiresQuestDone: 'ashblood_bloodrite',
+    xpReward: 240, goldReward: 140, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }],
+    description: '"Two was luck. Three is a pattern." Kol finally meets your eye. "The Wastes don\'t hand out reputations — you take them off the people who thought the reputation was theirs. Three more. I want to see if the first blood woke something up in you, or just scared you clean." Defeat three more players out past the haven — any fight you win, or a duel you call.'
+  },
+  ashblood_ascension: {
+    npcId: 'npc_warden', npcName: 'Warden Kol',
+    name: 'Ashblood Ascension',
+    type: 'pvp_defeat', target: 5, requiresLevel: 12, oneTime: true, requiresQuestDone: 'ashblood_proving',
+    grantsTitle: 'ember_warden',
+    xpReward: 450, goldReward: 300, itemRewards: [{ itemId: 'bloodmoon_shard', qty: 1 }],
+    description: '"Last trial — and it isn\'t a number, it\'s a verdict." Kol stands, and the ash swirls off his shoulders like he\'s been standing there a very long time. "Five. Win them however you win them. Do it, and the Wastes stop being a place you visit — they become a thing you ARE. The flats will know your scorch on sight, and so will everyone fool enough to meet you on them." Finish this and claim the Warden of the Ember Wastes title and the Ember dye.'
+  },
+  ashblood_bounty: {
+    npcId: 'npc_warden', npcName: 'Warden Kol',
+    name: "Warden's Bounty: Thin the Flats",
+    type: 'pvp_defeat', target: 3, requiresQuestDone: 'ashblood_ascension',
+    xpReward: 200, goldReward: 170, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }],
+    description: '"You\'re Wastes-blooded now, so you work the Wastes." Kol tosses you a tally-stick. "Three heads off the flats and the coin\'s yours. Come back whenever the ash gets loud — there\'s always more." A standing bounty: defeat three players out past the haven.'
+  },
+  ashblood_hunt: {
+    npcId: 'npc_warden', npcName: 'Warden Kol',
+    name: "Warden's Bounty: The Long Hunt",
+    type: 'pvp_defeat', target: 4, requiresQuestDone: 'ashblood_ascension',
+    xpReward: 270, goldReward: 230, itemRewards: [{ itemId: 'bloodmoon_shard', qty: 1 }],
+    description: '"Bigger stick, bigger tally." Kol grins without warmth. "Four this time, and I\'ll make it worth the ash in your lungs. The flats don\'t thin themselves." A heavier standing bounty: defeat four players out past the haven.'
   }
 };
 
