@@ -10323,11 +10323,20 @@ wss.on('connection', (ws, req) => {
           : `🤝 ${result.name} hasn't agreed to fight. Click them → Challenge to Battle first.` });
         else if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
         else if (result.range) {
-          // Striking a target beyond melee reach. A courtesy client never sends
-          // this; sustained hits from one source are a reach/teleport hack.
+          // Striking a target beyond melee reach (STRIKE_RANGE). Sustained hits
+          // from one source are a reach/teleport hack, so keep auditing them...
           const n = audit.hit(ws._ip || player.id, 'oor_strike', 60 * 1000);
           if (n >= 6) audit.log({ level: 'warn', type: 'action_out_of_range', ip: ws._ip,
             account: player.accountKey || null, name: player.name, detail: { targetType, in60s: n, ...whereDetail(player) } });
+          // ...but also give an HONEST player a reason. A silent rejection read
+          // as "nothing happens" and bounced brand-new visitors who clicked a
+          // distant mob and never learned to close in (see security log). The
+          // nudge is throttled so a rapid-clicker can't spam their own screen,
+          // and it tells a reach-hacker nothing they don't already know.
+          if (!player.lastOorMsgAt || now - player.lastOorMsgAt > 1200) {
+            player.lastOorMsgAt = now;
+            send(ws, { type: 'attack_error', message: '🏃 Too far — move closer to attack!' });
+          }
         }
         return;
       }
