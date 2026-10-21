@@ -12224,7 +12224,8 @@ function kkFurn(key, size, mode, x, y, z, rotY) {
 // side a person faces into) isn't +z at rest. Verified against offline renders.
 const CHAIR_FWD = 0;      // dining chair_A faces +z at rest
 const ARMCHAIR_FWD = 0;   // armchair faces +z at rest
-let THRONE_FWD = 0;       // vampire throne forward axis (verified via render)
+let THRONE_FWD = Math.PI; // vampire throne forward axis — flipped 180° so the
+                          // seat opens into the hall, not into the back wall
 function buildTorch(x, z) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
