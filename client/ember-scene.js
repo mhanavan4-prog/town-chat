@@ -410,12 +410,9 @@ function buildEmberScene() {
       scene.add(keep);
       const box = new THREE.Box3().setFromObject(keep);
       refugeFrontZ = box.max.z;
-      // warm doorway glow + a lantern light so the entrance reads as a haven
-      const doorGlow = new THREE.Mesh(
-        new THREE.PlaneGeometry(64, 120),
-        new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
-      );
-      doorGlow.position.set(REFUGE_X, 62, refugeFrontZ + 2); scene.add(doorGlow);
+      // warm lantern light so the entrance reads as a haven. (The model's own
+      // arched doorway already glows, so no overlay plane is needed — a flat
+      // quad there just read as a tan rectangle covering the nicer door art.)
       const doorLight = new THREE.PointLight(0xffa64d, 1.4, 650);
       doorLight.position.set(REFUGE_X, 110, refugeFrontZ + 60); scene.add(doorLight);
       refugePlaced = true;
