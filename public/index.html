@@ -2140,6 +2140,7 @@
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
+      <button class="menuRow" id="menuCodex">📘 Codex</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
@@ -3466,6 +3467,44 @@
 #reliquaryGrid .forbEntry .fbadge{color:#b9a6e0}
 </style>
 
+<!-- The Codex (unified): every collection's progress + the titles earned, in
+     one place. Each collection's "View" opens its own detail modal. -->
+<div id="codexModal" class="overlay hidden">
+  <div class="card" id="codexCard">
+    <div class="title" style="font-size:20px;">📘 The Codex</div>
+    <div id="codexSummary"></div>
+    <div id="codexCollections"></div>
+    <div id="codexTitlesHead" class="codexSectionHead">🎖️ Titles earned</div>
+    <div id="codexTitles"></div>
+    <button class="btn" id="codexCloseBtn">Close</button>
+  </div>
+</div>
+<style>
+#codexCard{max-width:480px}
+#codexSummary{color:#bcb0e0;font-size:12.5px;margin:4px 0 14px}
+#codexCollections{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+.codexRow{display:flex;align-items:center;gap:11px;border:1px solid #39335e;border-radius:11px;padding:10px 12px;background:#1b1733}
+.codexRow.done{border-color:#4e7a5e;background:linear-gradient(180deg,#17271d,#141b17)}
+.codexRow .cxIcon{font-size:20px;flex:0 0 auto;width:24px;text-align:center}
+.codexRow .cxBody{flex:1 1 auto;min-width:0}
+.codexRow .cxLabel{font-size:13.5px;color:#eae4f6;font-weight:600}
+.codexRow .cxLabel .cxCheck{color:#8fe3b0;margin-left:5px}
+.codexRow .cxSub{font-size:11px;color:#9a90bd;margin-top:1px}
+.codexBar{height:5px;border-radius:3px;background:#2a2446;margin-top:6px;overflow:hidden}
+.codexBar>span{display:block;height:100%;background:linear-gradient(90deg,#8a6ad0,#b98aff)}
+.codexRow.done .codexBar>span{background:linear-gradient(90deg,#4e9a6e,#7fe3a6)}
+.codexRow .cxCount{flex:0 0 auto;font-size:12px;color:#c6b7ff;font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.codexRow .btn{flex:0 0 auto;padding:6px 11px;font-size:12px}
+.codexSectionHead{font-size:13px;color:#cfc0ff;font-weight:600;margin:4px 0 9px;border-top:1px solid #2a2446;padding-top:12px}
+#codexTitles{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}
+.codexTitle{display:flex;gap:10px;align-items:flex-start;font-size:12.5px}
+.codexTitle .ctGlyph{font-size:18px;flex:0 0 auto}
+.codexTitle .ctName{color:#ffe6a6;font-weight:600}
+.codexTitle .ctName.active::after{content:' ★';color:#ffd27a}
+.codexTitle .ctFrom{color:#9a90bd;font-size:11px;font-style:italic;margin-top:1px}
+.codexEmpty{color:#6f6a8a;font-style:italic;font-size:12px}
+</style>
+
 <!-- Story beat — the in-the-moment dialogue box for a campaign chapter's
      intro (on Begin) and outro (on complete). The full narrative also stays
      archived in the Journal; this surfaces it so the story lands without
@@ -3706,6 +3745,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=506acd0908"></script>
+<script src="client.js?v=f0ea15fb8d"></script>
 </body>
 </html>

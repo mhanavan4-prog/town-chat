@@ -18175,6 +18175,7 @@ function onWsMessage(ev) {
   if (msg.type === 'vigil_register') { renderVigilRegister(msg); return; }
   if (msg.type === 'relic_card') { showRelicCard(msg); return; }
   if (msg.type === 'reliquary') { renderReliquary(msg); return; }
+  if (msg.type === 'codex_state') { renderCodex(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -20937,6 +20938,67 @@ function showRelicCardView() {
     const b = document.getElementById(id);
     if (b) b.addEventListener('click', closeRelicModal);
   });
+})();
+
+// ── The Codex (unified): one screen for every collection + titles earned ──
+function openCodexModal() {
+  // The menu sheet is already closed by the menu wiring (closeSheet) before this runs.
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'codex_state' }));
+}
+function closeCodexModal() { document.getElementById('codexModal').classList.add('hidden'); }
+function renderCodex(msg) {
+  const cols = msg.collections || [];
+  const doneCount = cols.filter((c) => c.complete).length;
+  document.getElementById('codexSummary').textContent =
+    `${doneCount} of ${cols.length} collections complete · ${(msg.titles || []).length} title${(msg.titles || []).length === 1 ? '' : 's'} earned`;
+
+  const wrap = document.getElementById('codexCollections');
+  wrap.innerHTML = '';
+  const addRow = (icon, label, sub, count, total, complete, openMsg) => {
+    const row = document.createElement('div');
+    row.className = 'codexRow' + (complete ? ' done' : '');
+    const pct = total ? Math.round((count / total) * 100) : 0;
+    const ic = document.createElement('div'); ic.className = 'cxIcon'; ic.textContent = icon;
+    const body = document.createElement('div'); body.className = 'cxBody';
+    body.innerHTML = `<div class="cxLabel">${label}${complete ? '<span class="cxCheck">✓</span>' : ''}</div><div class="cxSub">${sub}</div><div class="codexBar"><span style="width:${pct}%"></span></div>`;
+    const cnt = document.createElement('div'); cnt.className = 'cxCount'; cnt.textContent = `${count}/${total}`;
+    const view = document.createElement('button'); view.className = 'btn'; view.textContent = 'View';
+    view.addEventListener('click', () => { closeCodexModal(); if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: openMsg })); });
+    row.appendChild(ic); row.appendChild(body); row.appendChild(cnt); row.appendChild(view);
+    wrap.appendChild(row);
+  };
+  cols.forEach((c) => addRow(c.icon, c.label, `in ${c.where}`, c.count, c.total, c.complete, c.open));
+  // The Arcade is a daily board rather than a set, so it shows your bests.
+  const arc = msg.arcade || {};
+  const arcRow = document.createElement('div');
+  arcRow.className = 'codexRow' + (arc.champion ? ' done' : '');
+  const arcSub = `Snake best ${arc.snake || 0} · Breakout best ${arc.breakout || 0} (today)`;
+  arcRow.innerHTML = `<div class="cxIcon">🕹️</div><div class="cxBody"><div class="cxLabel">Starlight Arcade${arc.champion ? '<span class="cxCheck">✓ champion</span>' : ''}</div><div class="cxSub">${arcSub}</div></div>`;
+  const arcView = document.createElement('button'); arcView.className = 'btn'; arcView.textContent = 'View';
+  arcView.addEventListener('click', () => { closeCodexModal(); if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'arcade_board' })); });
+  arcRow.appendChild(arcView);
+  wrap.appendChild(arcRow);
+
+  const tWrap = document.getElementById('codexTitles');
+  tWrap.innerHTML = '';
+  if (!(msg.titles || []).length) {
+    const e = document.createElement('div'); e.className = 'codexEmpty'; e.textContent = 'No titles yet — complete a collection or a rite to earn one.';
+    tWrap.appendChild(e);
+  } else {
+    msg.titles.forEach((t) => {
+      const d = document.createElement('div'); d.className = 'codexTitle';
+      const g = document.createElement('div'); g.className = 'ctGlyph'; g.textContent = t.glyph || '🎖️';
+      const body = document.createElement('div');
+      const active = msg.activeTitle === t.id;
+      body.innerHTML = `<div class="ctName${active ? ' active' : ''}">${t.name}</div><div class="ctFrom">${t.from || ''}</div>`;
+      d.appendChild(g); d.appendChild(body); tWrap.appendChild(d);
+    });
+  }
+  document.getElementById('codexModal').classList.remove('hidden');
+}
+(function wireCodexModal() {
+  const b = document.getElementById('codexCloseBtn');
+  if (b) b.addEventListener('click', closeCodexModal);
 })();
 
 // The building locals aren't just hint machines anymore — every one of them
@@ -28525,6 +28587,7 @@ const { openNotifModal } = _notif;
   // The Workshop is now reached only at the Artificer's forge in the Wildlands
   // Village (see the 'artificer' kiosk) — no menu entry.
   wire('menuAchievements', openAchModal);
+  wire('menuCodex', openCodexModal);
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
