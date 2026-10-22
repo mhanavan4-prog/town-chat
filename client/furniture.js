@@ -594,6 +594,33 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       patronLabel.position.set(460, 90, 90);
       scene.add(patronLabel);
       kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
+
+      // ── The Daily Special board (roadmap #6) — a chalkboard easel on the
+      // east side, clear of the dining grid and the Champions' Table. Order
+      // the day's special here; a new one is chalked up each day. (Emissive
+      // chalk glow, no extra point light — mobile-safe.)
+      const boardX = roomW * 0.9, boardZ = roomD * 0.34;
+      const easel = new THREE.Group();
+      const legMat = new THREE.MeshLambertMaterial({ color: 0x5a4328 });
+      for (const lx of [-13, 13]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
+        leg.position.set(lx, 37, 4); leg.rotation.x = 0.16; easel.add(leg);
+      }
+      const backLeg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
+      backLeg.position.set(0, 37, -10); backLeg.rotation.x = -0.26; easel.add(backLeg);
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(40, 48, 3),
+        new THREE.MeshLambertMaterial({ color: 0x14130f }));
+      slate.position.set(0, 52, 5); slate.rotation.x = 0.16; easel.add(slate);
+      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(30, 34),
+        new THREE.MeshBasicMaterial({ color: 0xcfc3a6, transparent: true, opacity: 0.28 }));
+      chalk.position.set(0, 52, 6.7); chalk.rotation.x = 0.16; easel.add(chalk);
+      easel.position.set(boardX, 0, boardZ);
+      easel.rotation.y = Math.atan2(cx - boardX, cz - boardZ); // face into the room
+      scene.add(easel);
+      const boardLabel = makeNpcNameSprite('☕ Daily Special', 'a new dish each day');
+      boardLabel.position.set(boardX, 100, boardZ);
+      scene.add(boardLabel);
+      kiosksOut.push({ x: boardX, z: boardZ, npc: 'cafe_special', npcName: '☕ Daily Special' });
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a2a5c));

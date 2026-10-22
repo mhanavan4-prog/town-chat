@@ -53,6 +53,11 @@ const TITLES = {
     id: 'well_read', name: 'Reader of the Forbidden Shelf', glyph: '📖',
     desc: 'Read every volume the Midnight Archive keeps under lock, and carried none of them back out — only what they said.',
     from: 'The Forbidden Shelf — the Midnight Archive'
+  },
+  cauldron_regular: {
+    id: 'cauldron_regular', name: 'Regular at the Cauldron', glyph: '☕',
+    desc: 'Worked through every special Barkeep Joss ever chalked up, and has a stool that is, by now, unofficially theirs.',
+    from: 'The Daily Special — the Cauldron Café'
   }
 };
 

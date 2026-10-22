@@ -5107,6 +5107,13 @@ function forbiddenReadMap(player) {
   if (!prog.forbiddenBooksRead || typeof prog.forbiddenBooksRead !== 'object') prog.forbiddenBooksRead = {};
   return prog.forbiddenBooksRead;
 }
+const { CAFE_SPECIALS } = require('./data/cafeSpecials'); // roadmap #6: the Café's daily special + tasting menu
+function cafeSpecialToday() { return CAFE_SPECIALS[Math.floor(Date.now() / 86400000) % CAFE_SPECIALS.length]; }
+function cafeTastedMap(player) {
+  const prog = getProgress(player);
+  if (!prog.cafeSpecialsTasted || typeof prog.cafeSpecialsTasted !== 'object') prog.cafeSpecialsTasted = {};
+  return prog.cafeSpecialsTasted;
+}
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -10265,6 +10272,50 @@ wss.on('connection', (ws, req) => {
       });
       const readCount = entries.reduce((n, e) => n + (e.read ? 1 : 0), 0);
       send(ws, { type: 'forbidden_codex', entries, readCount, total: FORBIDDEN_BOOKS.length });
+      return;
+    }
+
+    // ── The Café Daily Special (roadmap #6): order today's date-seeded special
+    //    at the Cauldron. First taste of a given special is logged to the
+    //    Tasting Menu; taste them all for the Regular at the Cauldron title. ──
+    if (msg.type === 'order_special') {
+      const special = cafeSpecialToday();
+      const tasted = cafeTastedMap(player);
+      let firstTaste = false, completed = false, grantedTitleName = null;
+      if (!tasted[special.id]) {
+        tasted[special.id] = Date.now();
+        firstTaste = true;
+        analytics.bump('cafe_special.tasted'); // daily-habit funnel: distinct specials tasted
+        if (player.accountKey && CAFE_SPECIALS.every((s) => tasted[s.id])) {
+          const acc = playerProgress[player.accountKey];
+          const had = acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes('cauldron_regular');
+          grantRiteTitle(player.accountKey, 'cauldron_regular');
+          if (!had) { completed = true; grantedTitleName = titleNameOf('cauldron_regular'); analytics.bump('cafe_special.completed'); }
+        }
+        if (player.accountKey) saveProgress();
+      }
+      const tastedCount = CAFE_SPECIALS.reduce((n, s) => n + (tasted[s.id] ? 1 : 0), 0);
+      send(ws, {
+        type: 'cafe_special',
+        id: special.id, name: special.name, desc: special.desc, taste: special.taste,
+        firstTaste, tastedCount, total: CAFE_SPECIALS.length,
+        completed, grantedTitleName,
+      });
+      if (completed) send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+
+    // The Tasting Menu — the full specials board, tasted ones revealed, untasted
+    // locked (name withheld so there's a reason to come back tomorrow).
+    if (msg.type === 'cafe_menu') {
+      const tasted = cafeTastedMap(player);
+      const todayId = cafeSpecialToday().id;
+      const entries = CAFE_SPECIALS.map((s) => {
+        const isTasted = !!tasted[s.id];
+        return { id: s.id, tasted: isTasted, today: s.id === todayId, name: isTasted ? s.name : null, desc: isTasted ? s.desc : null };
+      });
+      const tastedCount = entries.reduce((n, e) => n + (e.tasted ? 1 : 0), 0);
+      send(ws, { type: 'cafe_menu', entries, tastedCount, total: CAFE_SPECIALS.length });
       return;
     }
 

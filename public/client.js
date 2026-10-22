@@ -12875,6 +12875,33 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       patronLabel.position.set(460, 90, 90);
       scene.add(patronLabel);
       kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
+
+      // ── The Daily Special board (roadmap #6) — a chalkboard easel on the
+      // east side, clear of the dining grid and the Champions' Table. Order
+      // the day's special here; a new one is chalked up each day. (Emissive
+      // chalk glow, no extra point light — mobile-safe.)
+      const boardX = roomW * 0.9, boardZ = roomD * 0.34;
+      const easel = new THREE.Group();
+      const legMat = new THREE.MeshLambertMaterial({ color: 0x5a4328 });
+      for (const lx of [-13, 13]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
+        leg.position.set(lx, 37, 4); leg.rotation.x = 0.16; easel.add(leg);
+      }
+      const backLeg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
+      backLeg.position.set(0, 37, -10); backLeg.rotation.x = -0.26; easel.add(backLeg);
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(40, 48, 3),
+        new THREE.MeshLambertMaterial({ color: 0x14130f }));
+      slate.position.set(0, 52, 5); slate.rotation.x = 0.16; easel.add(slate);
+      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(30, 34),
+        new THREE.MeshBasicMaterial({ color: 0xcfc3a6, transparent: true, opacity: 0.28 }));
+      chalk.position.set(0, 52, 6.7); chalk.rotation.x = 0.16; easel.add(chalk);
+      easel.position.set(boardX, 0, boardZ);
+      easel.rotation.y = Math.atan2(cx - boardX, cz - boardZ); // face into the room
+      scene.add(easel);
+      const boardLabel = makeNpcNameSprite('☕ Daily Special', 'a new dish each day');
+      boardLabel.position.set(boardX, 100, boardZ);
+      scene.add(boardLabel);
+      kiosksOut.push({ x: boardX, z: boardZ, npc: 'cafe_special', npcName: '☕ Daily Special' });
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a2a5c));
@@ -18087,6 +18114,8 @@ function onWsMessage(ev) {
 
   if (msg.type === 'forbidden_book') { showForbiddenBook(msg); return; }
   if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
+  if (msg.type === 'cafe_special') { showCafeSpecial(msg); return; }
+  if (msg.type === 'cafe_menu') { renderCafeMenu(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -20643,6 +20672,63 @@ function showForbiddenBookView() {
   ['forbiddenCloseBtn', 'forbiddenCodexCloseBtn'].forEach((id) => {
     const b = document.getElementById(id);
     if (b) b.addEventListener('click', closeForbiddenModal);
+  });
+})();
+
+// ── The Café Daily Special (roadmap #6): today's special + the Tasting Menu ──
+function showCafeSpecial(msg) {
+  document.getElementById('cafeSpecialName').textContent = msg.name || 'Today’s Special';
+  document.getElementById('cafeSpecialDesc').textContent = msg.desc || '';
+  document.getElementById('cafeSpecialTaste').textContent = msg.taste || '';
+  const note = document.getElementById('cafeSpecialNote');
+  if (msg.completed && msg.grantedTitleName) {
+    note.textContent = `☕ Every special tasted. Joss says you've earned “${msg.grantedTitleName}.”`;
+    note.className = 'done';
+  } else if (msg.firstTaste) {
+    note.textContent = `Added to your Tasting Menu — ${msg.tastedCount} of ${msg.total} tasted.`;
+    note.className = 'done';
+  } else {
+    note.textContent = `You've had this one before — ${msg.tastedCount} of ${msg.total} on the menu.`;
+    note.className = '';
+  }
+  document.getElementById('cafeSpecialView').classList.remove('hidden');
+  document.getElementById('cafeMenuView').classList.add('hidden');
+  document.getElementById('cafeSpecialModal').classList.remove('hidden');
+  if (msg.firstTaste) setUnlockToast(msg.completed ? '☕ Tasting Menu complete!' : `☕ New special tasted — ${msg.tastedCount}/${msg.total}`);
+}
+function renderCafeMenu(msg) {
+  const prog = document.getElementById('cafeMenuProgress');
+  const done = msg.tastedCount === msg.total;
+  prog.textContent = `${msg.tastedCount} of ${msg.total} specials tasted` + (done ? ' — the whole menu’s yours.' : ' — a new one is chalked up each day.');
+  const grid = document.getElementById('cafeMenuGrid');
+  grid.innerHTML = '';
+  (msg.entries || []).forEach((e) => {
+    const d = document.createElement('div');
+    d.className = 'forbEntry' + (e.tasted ? ' read' : ' locked') + (e.today ? ' today' : '');
+    const t = document.createElement('div'); t.className = 'ft';
+    t.textContent = e.tasted ? e.name : '??? — not yet tasted';
+    d.appendChild(t);
+    if (e.tasted && e.desc) { const a = document.createElement('div'); a.className = 'fa'; a.textContent = e.desc; d.appendChild(a); }
+    if (e.today) { const b = document.createElement('div'); b.className = 'fbadge'; b.textContent = e.tasted ? '• on the board today' : '• on the board today — go order it'; d.appendChild(b); }
+    grid.appendChild(d);
+  });
+  document.getElementById('cafeSpecialView').classList.add('hidden');
+  document.getElementById('cafeMenuView').classList.remove('hidden');
+  document.getElementById('cafeSpecialModal').classList.remove('hidden');
+}
+function closeCafeSpecialModal() { document.getElementById('cafeSpecialModal').classList.add('hidden'); }
+function showCafeSpecialView() {
+  document.getElementById('cafeMenuView').classList.add('hidden');
+  document.getElementById('cafeSpecialView').classList.remove('hidden');
+}
+(function wireCafeSpecialModal() {
+  const menuBtn = document.getElementById('cafeMenuBtn');
+  if (menuBtn) menuBtn.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'cafe_menu' })); });
+  const backBtn = document.getElementById('cafeMenuBackBtn');
+  if (backBtn) backBtn.addEventListener('click', showCafeSpecialView);
+  ['cafeSpecialCloseBtn', 'cafeMenuCloseBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeCafeSpecialModal);
   });
 })();
 
@@ -30112,6 +30198,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
+  if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -30180,6 +30267,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'forbidden_book') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the Forbidden Shelf`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'cafe_special') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} order the Daily Special`;
     return;
   }
   if (kiosk && kiosk.game) {
