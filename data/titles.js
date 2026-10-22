@@ -68,6 +68,11 @@ const TITLES = {
     id: 'vigil_keeper', name: 'Keeper of the Midnight Vigil', glyph: '🌙',
     desc: 'Sat the Parlor vigil night after night until every departed guest had spoken, and learned the courtesy of looking up.',
     from: 'The Midnight Vigil — the Phantom Parlor'
+  },
+  reliquary_keeper: {
+    id: 'reliquary_keeper', name: 'Keeper of the Reliquary', glyph: '🗝️',
+    desc: 'Stood before every relic under glass in Thornreach and read it down to the last line — and now knows which of them is listening back.',
+    from: 'The Reliquary — the Arcade & the Parlor'
   }
 };
 

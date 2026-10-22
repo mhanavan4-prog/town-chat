@@ -1073,6 +1073,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         core.position.y = 38; p.add(core);
         const sign = makeSignSprite('🔮 Scrying Orb');
         sign.position.set(90, 74, 120); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: 90, z: 120, npc: 'relic', relicId: 'scrying_orb', npcName: '🔮 Scrying Orb' });
       })();
       // Star grimoire — open book hovering above the pedestal
       (function() {
@@ -1091,6 +1092,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         }
         const sign = makeSignSprite('📖 Star Grimoire');
         sign.position.set(roomW - 90, 74, 120); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 120, npc: 'relic', relicId: 'star_grimoire', npcName: '📖 Star Grimoire' });
       })();
       // Starforged blade — upright, point down
       (function() {
@@ -1103,6 +1105,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         pommel.position.set(-1.4, 58.5, 0); p.add(pommel);
         const sign = makeSignSprite('🗡️ Starforged Blade');
         sign.position.set(90, 78, 356); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: 90, z: 356, npc: 'relic', relicId: 'starforged_blade', npcName: '🗡️ Starforged Blade' });
       })();
       // Moon relic — a silver crescent with two trailing motes
       (function() {
@@ -1118,6 +1121,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         m2.position.set(-4, 50, 2); p.add(m2);
         const sign = makeSignSprite('🌙 Moon Relic');
         sign.position.set(roomW - 90, 78, 356); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 356, npc: 'relic', relicId: 'moon_relic', npcName: '🌙 Moon Relic' });
       })();
 
       const alchemist = createHumanoid(0).group;
@@ -1388,6 +1392,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       flame.scale.y = 1.5; flame.position.y = 40.5; p.add(flame);
       const sign = makeSignSprite('🕯️ Phantom Lantern');
       sign.position.set(lx, 74, lz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: lx, z: lz, npc: 'relic', relicId: 'phantom_lantern', npcName: '🕯️ Phantom Lantern' });
     })();
     // Spirit bell — rings by itself, allegedly
     (function() {
@@ -1402,6 +1407,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       clapper.position.set(1.2, 35, 0); p.add(clapper);
       const sign = makeSignSprite('🔔 Spirit Bell');
       sign.position.set(bx, 74, bz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: bx, z: bz, npc: 'relic', relicId: 'spirit_bell', npcName: '🔔 Spirit Bell' });
     })();
     // Bound spirit — a jar nobody should open
     (function() {
@@ -1417,6 +1423,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       mote.position.set(2, 43, -1); p.add(mote);
       const sign = makeSignSprite('🫙 Bound Spirit');
       sign.position.set(jx, 74, jz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: jx, z: jz, npc: 'relic', relicId: 'bound_spirit', npcName: '🫙 Bound Spirit' });
     })();
     // Séance planchette on its own pedestal
     (function() {
@@ -1430,6 +1437,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       tip.position.set(-2.6, 36.6, -7.2); tip.rotation.z = Math.PI / 2; tip.rotation.y = 0.5; p.add(tip);
       const sign = makeSignSprite('🔮 Séance Planchette');
       sign.position.set(px, 74, pz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: px, z: pz, npc: 'relic', relicId: 'seance_planchette', npcName: '🔮 Séance Planchette' });
     })();
 
     if (kiosksOut) {
