@@ -2140,7 +2140,7 @@ require('./lib/admin')(app, {
   audit, getAdminKey: () => ADMIN_KEY, bans, evidence, analytics, analyticsSummary,
   setAbEnabled,
   reportsList, reportsResolve,
-  worldChatRecent, hostSay, telemetry, bugReports, auctionFeedRecent,
+  worldChatRecent, hostSay, roomChatRecent, hostSayRoom, telemetry, bugReports, auctionFeedRecent,
   onlineList: () => Array.from(players.values()).map((p) => ({ name: p.name, account: p.accountKey || null, room: p.room, id: String(p.id || '').slice(0, 4), since: p.joinedAt || null })),
   accountInfo: (key) => {
     const a = accounts[String(key || '').toLowerCase()];
@@ -8210,12 +8210,19 @@ function pickpocketChanceForLevel(level, baseChance) {
 // chat log, not just a stripped-down text echo.
 const ROOM_CHAT_LOG_LIMIT = 50;
 const roomChatLogs = new Map(); // roomId -> [{name, color, text, image, ts}]
-function recordRoomChat(room, name, color, text, image) {
+function recordRoomChat(room, name, color, text, image, host) {
   if (!text && !image) return;
   const log = roomChatLogs.get(room) || [];
-  log.push({ name, color, text, image, ts: Date.now() });
+  log.push({ name, color, text, image, ts: Date.now(), host: !!host });
   if (log.length > ROOM_CHAT_LOG_LIMIT) log.shift();
   roomChatLogs.set(room, log);
+}
+// Recent lines from one building room's rolling backlog, oldest→newest — the
+// per-room mirror of worldChatRecent, read by the admin dashboard's room tabs.
+// Text only (no images) and capped, same as the world feed.
+function roomChatRecent(room, n) {
+  const log = roomChatLogs.get(room) || [];
+  return log.slice(-(n || 80)).map(m => ({ name: m.name, color: m.color, text: m.text || (m.image ? '📷 (image)' : ''), ts: m.ts, host: !!m.host }));
 }
 
 // Unified WORLD chat (Session N) — a single global channel every public player
@@ -8317,6 +8324,21 @@ function hostSay(text, nameOverride) {
   const message = { id: 'host', name, color: '#ffcf6a', text: clean, image: null, room: 'outside', ts: Date.now(), scope: 'world', host: true };
   recordWorldChat(message);
   broadcastWorld({ type: 'chat', message });
+  return message;
+}
+// Host post into ONE building room's private channel (the per-room analogue of
+// hostSay) — lets the owner greet or moderate each interior from the dashboard
+// without being in-game. Only real building rooms qualify; the open world goes
+// through hostSay. Records to the room backlog (so it replays for whoever walks
+// in next) and broadcasts live to everyone currently in that room.
+function hostSayRoom(room, text, nameOverride) {
+  if (!isBuildingRoom(room)) return null;
+  const clean = sanitizeText(text);
+  if (!clean) return null;
+  const name = sanitizeText(nameOverride) || HOST_CHAT_NAME;
+  const message = { id: 'host', name, color: '#ffcf6a', text: clean, image: null, room, ts: Date.now(), scope: 'room', host: true };
+  recordRoomChat(room, name, message.color, clean, null, true);
+  broadcastRoom(room, { type: 'chat', message }, null);
   return message;
 }
 
