@@ -306,6 +306,11 @@ setTimeout(async () => {
   check('letter counts exactly the regrown plants', letter.regrown === 1, letter.regrown);
   check('letter counts the quests that cooled down while away', letter.questsReady === 1, letter.questsReady);
   check('letter carries the calendar', !!letter.calendar && !!letter.calendar.tourney);
+  // roadmap #4: town/coven news on the doormat.
+  check('letter nudges toward the daily rooms after a day away', Array.isArray(letter.nudges) && letter.nudges.length >= 2, letter.nudges);
+  check('letter has no coven line for a coven-less player', letter.coven === null, letter.coven);
+  const quick = hooks.buildWelcomeLetter(wanderer.player, { ...prog, lastSeenAt: now - 10 * 3600 * 1000 }, null, now);
+  check('a shorter (10h) absence gets the letter but no room nudges', quick && Array.isArray(quick.nudges) && quick.nudges.length === 0, quick && quick.nudges);
   check('no letter for a quick errand (2h)', hooks.buildWelcomeLetter(wanderer.player, { ...prog, lastSeenAt: now - 2 * 3600 * 1000 }, null, now) === null);
   check('same-day relog does not double-pay the streak', hooks.applyLoginStreak(wanderer.player, prog, now) === null);
 
