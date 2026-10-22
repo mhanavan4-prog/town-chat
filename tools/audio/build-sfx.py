@@ -145,10 +145,27 @@ def main():
             failed += 1
             print(f"FAILED: {e}")
 
+    write_index()
+
     print(f"\nDone — {made} generated, {skipped} skipped (unchanged), {failed} failed.")
     print(f"MP3s in {os.path.relpath(OUT_DIR, ROOT)}/  ·  cache in {os.path.relpath(CACHE, ROOT)}")
     if made:
-        print("Next: commit the new public/audio/sfx/*.mp3 and I'll wire them into client/audio.js.")
+        print("Next: commit the new public/audio/sfx/*.mp3 + index.json and I'll wire them into client/audio.js.")
+
+
+def write_index():
+    """Scan the output dir and write index.json: { id: [files...] }. The client
+    reads this to preload exactly the SFX that exist, grouping variants under
+    their base id (footstep-1.mp3 .. footstep-4.mp3 -> "footstep": [...])."""
+    files = sorted(f for f in os.listdir(OUT_DIR) if f.endswith(".mp3"))
+    groups = {}
+    for f in files:
+        base = f[:-4]  # strip .mp3
+        if "-" in base and base.rsplit("-", 1)[1].isdigit():
+            base = base.rsplit("-", 1)[0]
+        groups.setdefault(base, []).append(f)
+    save_json(os.path.join(OUT_DIR, "index.json"), groups)
+    print(f"  wrote index.json ({len(groups)} sounds, {len(files)} files)")
 
 
 if __name__ == "__main__":
