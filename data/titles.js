@@ -58,6 +58,11 @@ const TITLES = {
     id: 'cauldron_regular', name: 'Regular at the Cauldron', glyph: '☕',
     desc: 'Worked through every special Barkeep Joss ever chalked up, and has a stool that is, by now, unofficially theirs.',
     from: 'The Daily Special — the Cauldron Café'
+  },
+  arcade_champion: {
+    id: 'arcade_champion', name: 'Champion of the Starlight Arcade', glyph: '🕹️',
+    desc: 'Topped the day\'s board at the cabinets with the whole town to beat, and held the high score when the lights came up.',
+    from: 'The Daily High Scores — the Starlight Arcade'
   }
 };
 
