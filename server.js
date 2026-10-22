@@ -6902,6 +6902,35 @@ function buildWelcomeLetter(player, prog, streakInfo, nowMs) {
   const regrown = Object.values(myHarv).filter(t => nowMs - t >= HARVEST_COOLDOWN_MS).length;
   const cds = prog.questCooldowns || {};
   const questsReady = Object.values(cds).filter(t => nowMs - t >= QUEST_COOLDOWN_MS && t > prog.lastSeenAt - QUEST_COOLDOWN_MS).length;
+
+  // Coven news (roadmap #4): where your coven stands on this week's board, and
+  // whether it's holding the Champions' Table right now. A read, not a nag.
+  let coven = null;
+  if (player.accountKey) {
+    const cv = covenOf(player.accountKey);
+    if (cv) {
+      const standings = covenStandings(weekKey(nowMs));
+      const idx = standings.findIndex((s) => s.covenId === cv.id);
+      const row = idx >= 0 ? standings[idx] : null;
+      const champ = covenChampionBody();
+      coven = {
+        name: cv.name, sigil: cv.sigil || '',
+        rank: (row && row.points > 0) ? idx + 1 : null,
+        points: row ? row.points : 0,
+        holdsCrown: !!(champ && champ.covenId === cv.id),
+      };
+    }
+  }
+
+  // Gentle nudges toward the daily/nightly rooms — only after a full day away,
+  // so a quick break doesn't trigger them. Reasons to walk back in, not chores.
+  const nudges = [];
+  if (awayMs >= 20 * 3600 * 1000) {
+    nudges.push('A new volume waits on the Forbidden Shelf in the Archive.');
+    nudges.push('Barkeep Joss has chalked up a new Daily Special at the Café.');
+    if (isNightNow()) nudges.push('It is night — a spirit is restless at the Parlor vigil.');
+  }
+
   return {
     type: 'welcome_letter',
     awayHours: Math.floor(awayMs / 3600000),
@@ -6909,7 +6938,9 @@ function buildWelcomeLetter(player, prog, streakInfo, nowMs) {
     questsReady,
     peddlerRotated: legendaryWeekIndex(prog.lastSeenAt) !== legendaryWeekIndex(nowMs),
     streak: streakInfo,
-    calendar: calendarPublicState(nowMs)
+    calendar: calendarPublicState(nowMs),
+    coven,
+    nudges,
   };
 }
 
