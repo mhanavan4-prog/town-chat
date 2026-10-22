@@ -13665,7 +13665,7 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'waymark') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} read the waymarker`;
+    document.getElementById('interactHintText').textContent = `${interactVerb()} read ${kiosk.npcName || 'the waymarker'}`;
     return;
   }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') {

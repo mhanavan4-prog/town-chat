@@ -36,6 +36,14 @@ const WILDS_CAMPFIRES = [
 ];
 
 const WAYMARKER_LORE = {
+  // The Phantom Parlor's "Widow's Watch" — once a railed upper terrace, taken
+  // down when the top floor grew unreliable. The name lives on as a wall sign;
+  // reading it now turns the dangling reference into a lore beat that ties into
+  // the room's portrait gallery (THE WIDOW — "she keeps the watch").
+  widows_watch: {
+    name: "🌙 Widow's Watch",
+    text: 'This was a terrace once — a high, railed walk where the Widow stood each night to watch the road for a carriage that never came. They took the staircase down when the upper floor grew… unreliable. But ask the regulars and they will lower their voices: she kept her post anyway. On a still night the boards overhead still answer a slow, pacing step — heel, toe, heel — and it always stops at the spot where the rail used to be. She is watching the road yet. The Parlor keeps her name so she knows she was not forgotten. Mind you look up now and then; it is only polite.'
+  },
   way_severance: {
     name: '⛰️ Waymarker — The Fifth Severance',
     text: 'Five hands raised the seal. Four are buried where their oaths can watch them. The stone does not say what the fifth hand is doing now, and the moss refuses to grow over that part.'
