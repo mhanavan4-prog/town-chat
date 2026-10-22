@@ -23876,6 +23876,14 @@ const GFX = (() => {
 
   // ── fireflies: per-scene clusters, alive at night ─────────────────────
   function addFireflies(scene, anchors, perAnchor) {
+    // Mobile night-fill pass: fireflies are additive Points with size
+    // attenuation, so looking straight at a cluster balloons each one to fill
+    // the screen and they stack transparent overdraw (profiled: a town firefly
+    // cluster dropped the phone to ~11fps). On touch devices, thin the swarm and
+    // pin a small FIXED pixel size (no attenuation) so a near cluster can't
+    // explode the fill. Desktop keeps the full, size-attenuated swarm.
+    const _mob = typeof MOBILE_UI !== 'undefined' && MOBILE_UI;
+    if (_mob) perAnchor = Math.min(perAnchor, 8);
     const n = anchors.length * perAnchor;
     const pos = new Float32Array(n * 3);
     const base = new Float32Array(n * 3);
@@ -23894,7 +23902,7 @@ const GFX = (() => {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: 0xd8ffa0, size: 5.5, sizeAttenuation: true, transparent: true,
+    const mat = new THREE.PointsMaterial({ color: 0xd8ffa0, size: _mob ? 4 : 5.5, sizeAttenuation: !_mob, transparent: true,
       opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
