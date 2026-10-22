@@ -5138,6 +5138,16 @@ function arcadePersonalBestToday(player, game) {
   const b = prog.arcadeBest && prog.arcadeBest[game];
   return (b && b.day === arcadeDayNow()) ? b.score : 0;
 }
+const { PARLOR_SPIRITS } = require('./data/parlorSpirits'); // roadmap #6: the Parlor's nightly vigil + register
+// Tonight's restless spirit, seeded by the day/night CYCLE index (not the UTC
+// day) so each in-game night has its own — and it's only hearable while it is
+// actually night (see the sit_vigil handler).
+function parlorSpiritTonight() { return PARLOR_SPIRITS[Math.floor(Date.now() / CYCLE_MS) % PARLOR_SPIRITS.length]; }
+function vigilHeardMap(player) {
+  const prog = getProgress(player);
+  if (!prog.vigilHeard || typeof prog.vigilHeard !== 'object') prog.vigilHeard = {};
+  return prog.vigilHeard;
+}
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -10402,6 +10412,50 @@ wss.on('connection', (ws, req) => {
         yourBreakout: arcadePersonalBestToday(player, 'breakout'),
         resetsDaily: true,
       });
+      return;
+    }
+
+    // ── The Midnight Vigil (roadmap #6): sit the Parlor's séance table. By day
+    //    the spirits sleep; by night, tonight's restless departed speaks, and a
+    //    first hearing is logged to the Vigil Register (all heard → a title). ──
+    if (msg.type === 'sit_vigil') {
+      if (!isNightNow()) { send(ws, { type: 'vigil_result', night: false }); return; }
+      const spirit = parlorSpiritTonight();
+      const heard = vigilHeardMap(player);
+      let firstHeard = false, completed = false, grantedTitleName = null;
+      if (!heard[spirit.id]) {
+        heard[spirit.id] = Date.now();
+        firstHeard = true;
+        analytics.bump('vigil.heard'); // nightly-event funnel: distinct spirits heard
+        if (player.accountKey && PARLOR_SPIRITS.every((s) => heard[s.id])) {
+          const acc = playerProgress[player.accountKey];
+          const had = acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes('vigil_keeper');
+          grantRiteTitle(player.accountKey, 'vigil_keeper');
+          if (!had) { completed = true; grantedTitleName = titleNameOf('vigil_keeper'); analytics.bump('vigil.completed'); }
+        }
+        if (player.accountKey) saveProgress();
+      }
+      const heardCount = PARLOR_SPIRITS.reduce((n, s) => n + (heard[s.id] ? 1 : 0), 0);
+      send(ws, {
+        type: 'vigil_result', night: true,
+        id: spirit.id, name: spirit.name, epitaph: spirit.epitaph, message: spirit.message,
+        firstHeard, heardCount, total: PARLOR_SPIRITS.length, completed, grantedTitleName,
+      });
+      if (completed) send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+
+    // The Vigil Register — the full gallery of the departed, heard ones named,
+    // the rest withheld until their night comes round and you sit for them.
+    if (msg.type === 'vigil_register') {
+      const heard = vigilHeardMap(player);
+      const tonightId = parlorSpiritTonight().id;
+      const entries = PARLOR_SPIRITS.map((s) => {
+        const isHeard = !!heard[s.id];
+        return { id: s.id, heard: isHeard, tonight: s.id === tonightId, name: isHeard ? s.name : null, epitaph: isHeard ? s.epitaph : null };
+      });
+      const heardCount = entries.reduce((n, e) => n + (e.heard ? 1 : 0), 0);
+      send(ws, { type: 'vigil_register', entries, heardCount, total: PARLOR_SPIRITS.length, night: isNightNow() });
       return;
     }
 

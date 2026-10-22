@@ -1310,6 +1310,26 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(watchSign);
     kiosksOut.push({ x: roomW - 55, z: roomD * 0.5, npc: 'waymark', markerId: 'widows_watch', npcName: "🌙 Widow's Watch" });
 
+    // ── The Midnight Vigil (roadmap #6) — a single black candle on the séance
+    // circle's centre is the interact point: sit the vigil after dark and the
+    // night's restless portrait speaks. (Emissive flame, no extra point light.)
+    const vigil = new THREE.Group();
+    const vCandle = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.6, 22, 8),
+      new THREE.MeshLambertMaterial({ color: 0x14130f }));
+    vCandle.position.y = 11; vigil.add(vCandle);
+    const vFlame = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
+    vFlame.scale.y = 1.7; vFlame.position.y = 25; vigil.add(vFlame);
+    const vDish = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 2.2, 10),
+      new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+    vDish.position.y = 1.1; vigil.add(vDish);
+    vigil.position.set(hallCx, 0, hallCz);
+    scene.add(vigil);
+    const vigilLabel = makeNpcNameSprite('🌙 The Midnight Vigil', 'the spirits stir after dark');
+    vigilLabel.position.set(hallCx, 70, hallCz);
+    scene.add(vigilLabel);
+    kiosksOut.push({ x: hallCx, z: hallCz, npc: 'midnight_vigil', npcName: '🌙 The Midnight Vigil' });
+
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
       { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: 4, rotY: 0 },

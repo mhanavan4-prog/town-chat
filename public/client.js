@@ -13591,6 +13591,26 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(watchSign);
     kiosksOut.push({ x: roomW - 55, z: roomD * 0.5, npc: 'waymark', markerId: 'widows_watch', npcName: "🌙 Widow's Watch" });
 
+    // ── The Midnight Vigil (roadmap #6) — a single black candle on the séance
+    // circle's centre is the interact point: sit the vigil after dark and the
+    // night's restless portrait speaks. (Emissive flame, no extra point light.)
+    const vigil = new THREE.Group();
+    const vCandle = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.6, 22, 8),
+      new THREE.MeshLambertMaterial({ color: 0x14130f }));
+    vCandle.position.y = 11; vigil.add(vCandle);
+    const vFlame = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
+    vFlame.scale.y = 1.7; vFlame.position.y = 25; vigil.add(vFlame);
+    const vDish = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 2.2, 10),
+      new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+    vDish.position.y = 1.1; vigil.add(vDish);
+    vigil.position.set(hallCx, 0, hallCz);
+    scene.add(vigil);
+    const vigilLabel = makeNpcNameSprite('🌙 The Midnight Vigil', 'the spirits stir after dark');
+    vigilLabel.position.set(hallCx, 70, hallCz);
+    scene.add(vigilLabel);
+    kiosksOut.push({ x: hallCx, z: hallCz, npc: 'midnight_vigil', npcName: '🌙 The Midnight Vigil' });
+
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
       { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: 4, rotY: 0 },
@@ -18143,6 +18163,8 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'arcade_board') { renderArcadeBoard(msg); return; }
+  if (msg.type === 'vigil_result') { showVigilResult(msg); return; }
+  if (msg.type === 'vigil_register') { renderVigilRegister(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -20787,6 +20809,67 @@ function renderArcadeBoard(msg) {
 (function wireArcadeScores() {
   const b = document.getElementById('arcadeScoresCloseBtn');
   if (b) b.addEventListener('click', () => document.getElementById('arcadeScoresModal').classList.add('hidden'));
+})();
+
+// ── The Phantom Parlor — Midnight Vigil (roadmap #6): night-gated spirit event ──
+function showVigilResult(msg) {
+  const nameEl = document.getElementById('vigilSpiritName');
+  const epEl = document.getElementById('vigilSpiritEpitaph');
+  const textEl = document.getElementById('vigilSpiritText');
+  const note = document.getElementById('vigilSpiritNote');
+  if (!msg.night) {
+    // By day the table is quiet — a gentle "come back after dark".
+    nameEl.textContent = 'The table is still';
+    epEl.textContent = '';
+    textEl.textContent = 'The candle will not catch and the portraits only watch. The spirits keep their own hours — they stir after dark. Come back at night and sit the vigil then.';
+    note.textContent = '';
+  } else {
+    nameEl.textContent = msg.name || 'A Restless Spirit';
+    epEl.textContent = msg.epitaph ? `— ${msg.epitaph}` : '';
+    textEl.textContent = msg.message || '';
+    if (msg.completed && msg.grantedTitleName) note.textContent = `🌙 Every departed guest has spoken to you. You are “${msg.grantedTitleName}.”`;
+    else if (msg.firstHeard) note.textContent = `Recorded in your Vigil Register — ${msg.heardCount} of ${msg.total} heard.`;
+    else note.textContent = `You have sat with this one before — ${msg.heardCount} of ${msg.total} in the Register.`;
+    if (msg.firstHeard) setUnlockToast(msg.completed ? '🌙 The Vigil Register is complete!' : `🌙 A new spirit heard — ${msg.heardCount}/${msg.total}`);
+  }
+  document.getElementById('vigilSpiritView').classList.remove('hidden');
+  document.getElementById('vigilRegisterView').classList.add('hidden');
+  document.getElementById('vigilModal').classList.remove('hidden');
+}
+function renderVigilRegister(msg) {
+  const prog = document.getElementById('vigilRegisterProgress');
+  const done = msg.heardCount === msg.total;
+  prog.textContent = `${msg.heardCount} of ${msg.total} departed heard` + (done ? ' — the whole house has spoken.' : (msg.night ? ' — one is restless tonight.' : ' — return after dark to hear more.'));
+  const grid = document.getElementById('vigilRegisterGrid');
+  grid.innerHTML = '';
+  (msg.entries || []).forEach((e) => {
+    const d = document.createElement('div');
+    d.className = 'forbEntry' + (e.heard ? ' read' : ' locked') + (e.tonight ? ' today' : '');
+    const t = document.createElement('div'); t.className = 'ft';
+    t.textContent = e.heard ? e.name : '??? — unheard';
+    d.appendChild(t);
+    if (e.heard && e.epitaph) { const a = document.createElement('div'); a.className = 'fa'; a.textContent = e.epitaph; d.appendChild(a); }
+    if (e.tonight && msg.night) { const b = document.createElement('div'); b.className = 'fbadge'; b.textContent = e.heard ? '• restless tonight' : '• restless tonight — sit with them'; d.appendChild(b); }
+    grid.appendChild(d);
+  });
+  document.getElementById('vigilSpiritView').classList.add('hidden');
+  document.getElementById('vigilRegisterView').classList.remove('hidden');
+  document.getElementById('vigilModal').classList.remove('hidden');
+}
+function closeVigilModal() { document.getElementById('vigilModal').classList.add('hidden'); }
+function showVigilSpiritView() {
+  document.getElementById('vigilRegisterView').classList.add('hidden');
+  document.getElementById('vigilSpiritView').classList.remove('hidden');
+}
+(function wireVigilModal() {
+  const regBtn = document.getElementById('vigilRegisterBtn');
+  if (regBtn) regBtn.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'vigil_register' })); });
+  const backBtn = document.getElementById('vigilRegisterBackBtn');
+  if (backBtn) backBtn.addEventListener('click', showVigilSpiritView);
+  ['vigilCloseBtn', 'vigilRegisterCloseBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeVigilModal);
+  });
 })();
 
 // The building locals aren't just hint machines anymore — every one of them
@@ -30265,6 +30348,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
   if (kiosk && kiosk.npc === 'arcade_scores') { ws.send(JSON.stringify({ type: 'arcade_board' })); return; }
+  if (kiosk && kiosk.npc === 'midnight_vigil') { ws.send(JSON.stringify({ type: 'sit_vigil' })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -30343,6 +30427,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'arcade_scores') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} check the Hall of Scores`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'midnight_vigil') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} sit the Midnight Vigil`;
     return;
   }
   if (kiosk && kiosk.game) {
