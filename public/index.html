@@ -3280,6 +3280,50 @@
   </div>
 </div>
 
+<!-- The Forbidden Shelf (roadmap #6): the Library's daily book-of-the-day, and
+     the Forbidden Archive codex of every volume read. Two views in one card. -->
+<div id="forbiddenModal" class="overlay hidden">
+  <div class="card" id="forbiddenCard">
+    <!-- Book view -->
+    <div id="forbiddenBookView">
+      <div class="title" id="forbiddenBookTitle" style="font-size:19px;">Book Title</div>
+      <div id="forbiddenBookAuthor"></div>
+      <div id="forbiddenBookText"></div>
+      <div id="forbiddenBookNote"></div>
+      <div class="forbRow">
+        <button class="btn" id="forbiddenCodexBtn">📚 Forbidden Archive</button>
+        <button class="btn" id="forbiddenCloseBtn">Close the book</button>
+      </div>
+    </div>
+    <!-- Codex view -->
+    <div id="forbiddenCodexView" class="hidden">
+      <div class="title" style="font-size:19px;">📚 The Forbidden Archive</div>
+      <div id="forbiddenCodexProgress"></div>
+      <div id="forbiddenCodexGrid"></div>
+      <button class="btn" id="forbiddenCodexBackBtn">← Back</button>
+      <button class="btn" id="forbiddenCodexCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+<style>
+#forbiddenCard{max-width:460px}
+#forbiddenBookAuthor{color:#9a86c8;font-style:italic;font-size:12px;margin:3px 0 12px}
+#forbiddenBookText{line-height:1.6;color:#e3dcf2;font-size:13.5px;font-family:"Palatino",Georgia,serif;border-left:2px solid #6a4ab0;padding:2px 0 2px 13px;margin-bottom:12px}
+#forbiddenBookNote{font-size:12px;color:#c6a7ff;min-height:1em;margin-bottom:12px}
+#forbiddenBookNote.done{color:#8fe3b0}
+.forbRow{display:flex;gap:8px;flex-wrap:wrap}
+.forbRow .btn{flex:1 1 auto}
+#forbiddenCodexProgress{color:#b8a6e0;font-size:13px;margin:8px 0 12px}
+#forbiddenCodexGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:46vh;overflow:auto;margin-bottom:12px}
+.forbEntry{border:1px solid #39335e;border-radius:9px;padding:9px 11px;background:#1b1733;font-size:12.5px}
+.forbEntry.read{border-color:#6a4ab0;background:linear-gradient(180deg,#221a3e,#191230)}
+.forbEntry.today{box-shadow:0 0 0 1px #c6a7ff inset}
+.forbEntry .ft{color:#e3dcf2;font-weight:600;line-height:1.3}
+.forbEntry.locked .ft{color:#6f6a8a;font-style:italic;letter-spacing:.06em}
+.forbEntry .fa{color:#9a86c8;font-style:italic;font-size:11px;margin-top:3px}
+.forbEntry .fbadge{display:inline-block;margin-top:5px;font-size:10.5px;color:#c6a7ff}
+</style>
+
 <!-- Story beat — the in-the-moment dialogue box for a campaign chapter's
      intro (on Begin) and outro (on complete). The full narrative also stays
      archived in the Journal; this surfaces it so the story lands without
@@ -3520,6 +3564,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=6864c3534a"></script>
+<script src="client.js?v=f22f6a3cb4"></script>
 </body>
 </html>

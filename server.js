@@ -5099,6 +5099,14 @@ const CAMPFIRE_HEAL_RATE_PER_SEC = 20;
 // built on. Walk up, press F (or tap the pill), read. Positions mirrored
 // in client.js (WILDS_WAYMARKERS there) for the visuals + interact kiosks.
 const { WAYMARKER_LORE } = require('./data/townDecor'); // Tier 3.4 Phase A: extracted to data/
+const { FORBIDDEN_BOOKS } = require('./data/forbiddenBooks'); // roadmap #6: the Library's daily book-of-the-day + codex
+// Today's forbidden book, date-seeded (changes once per day, no scheduler).
+function forbiddenBookToday() { return FORBIDDEN_BOOKS[Math.floor(Date.now() / 86400000) % FORBIDDEN_BOOKS.length]; }
+function forbiddenReadMap(player) {
+  const prog = getProgress(player);
+  if (!prog.forbiddenBooksRead || typeof prog.forbiddenBooksRead !== 'object') prog.forbiddenBooksRead = {};
+  return prog.forbiddenBooksRead;
+}
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -10212,6 +10220,51 @@ wss.on('connection', (ws, req) => {
       const marker = WAYMARKER_LORE[String(msg.markerId || '')];
       if (!marker) return;
       send(ws, { type: 'npc_hint_dialogue', npcId: String(msg.markerId), npcName: marker.name, message: marker.text });
+      return;
+    }
+
+    // ── The Forbidden Shelf (roadmap #6): read today's date-seeded book at the
+    //    Library's locked case. First read of a given book is logged to the
+    //    player's Forbidden Archive codex; reading all of them grants a title. ──
+    if (msg.type === 'read_forbidden_book') {
+      const book = forbiddenBookToday();
+      const read = forbiddenReadMap(player);
+      let firstRead = false, completed = false, grantedTitleName = null;
+      if (!read[book.id]) {
+        read[book.id] = Date.now();
+        firstRead = true;
+        analytics.bump('forbidden_book.read'); // daily-habit funnel: distinct book reads
+        // Completion: every book logged → the Reader of the Forbidden Shelf title.
+        if (player.accountKey && FORBIDDEN_BOOKS.every((b) => read[b.id])) {
+          const acc = playerProgress[player.accountKey];
+          const had = acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes('well_read');
+          grantRiteTitle(player.accountKey, 'well_read');
+          if (!had) { completed = true; grantedTitleName = titleNameOf('well_read'); analytics.bump('forbidden_book.completed'); }
+        }
+        if (player.accountKey) saveProgress();
+      }
+      const readCount = FORBIDDEN_BOOKS.reduce((n, b) => n + (read[b.id] ? 1 : 0), 0);
+      send(ws, {
+        type: 'forbidden_book',
+        id: book.id, title: book.title, author: book.author, text: book.text,
+        firstRead, readCount, total: FORBIDDEN_BOOKS.length,
+        completed, grantedTitleName,
+      });
+      if (completed) send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+
+    // The Forbidden Archive codex — the full shelf, read ones revealed, unread
+    // ones locked (title withheld so there's a reason to come back and read).
+    if (msg.type === 'forbidden_codex') {
+      const read = forbiddenReadMap(player);
+      const todayId = forbiddenBookToday().id;
+      const entries = FORBIDDEN_BOOKS.map((b) => {
+        const isRead = !!read[b.id];
+        return { id: b.id, read: isRead, today: b.id === todayId, title: isRead ? b.title : null, author: isRead ? b.author : null };
+      });
+      const readCount = entries.reduce((n, e) => n + (e.read ? 1 : 0), 0);
+      send(ws, { type: 'forbidden_codex', entries, readCount, total: FORBIDDEN_BOOKS.length });
       return;
     }
 
