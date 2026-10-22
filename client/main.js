@@ -7212,8 +7212,18 @@ const GFX = (() => {
     st.composer = new THREE.EffectComposer(renderer, msaaTarget || undefined);
     st.renderPass = new THREE.RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     st.composer.addPass(st.renderPass);
-    st.bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(W || 1280, H || 720), 0.42, 0.55, 0.82);
-    st.composer.addPass(st.bloomPass);
+    // Bloom is by far the heaviest composer pass — several fullscreen blur
+    // iterations at the device's internal resolution every frame. Profiling
+    // showed the town is GPU-FILL-bound on mobile (frame ~27ms GPU vs ~2ms JS),
+    // and this pass is the single biggest chunk of that fill. Skip it on touch
+    // devices; keep the cheap grade (saturation + vignette) and FXAA so the mood
+    // and edges survive. Desktop keeps the full glow. st.bloomPass stays null and
+    // its one other reader (night strength tweak) is already guarded.
+    const wantBloom = !(typeof MOBILE_UI !== 'undefined' && MOBILE_UI);
+    if (wantBloom) {
+      st.bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(W || 1280, H || 720), 0.42, 0.55, 0.82);
+      st.composer.addPass(st.bloomPass);
+    }
     st.gradePass = new THREE.ShaderPass(GradeShader);
     st.composer.addPass(st.gradePass);
     st.fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
