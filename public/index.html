@@ -3324,6 +3324,42 @@
 .forbEntry .fbadge{display:inline-block;margin-top:5px;font-size:10.5px;color:#c6a7ff}
 </style>
 
+<!-- The Cauldron Café — Daily Special (roadmap #6): today's special + the
+     Tasting Menu codex. Reuses the .forbEntry / .forbRow codex styling. -->
+<div id="cafeSpecialModal" class="overlay hidden">
+  <div class="card" id="cafeSpecialCard">
+    <div id="cafeSpecialView">
+      <div class="title" id="cafeSpecialName" style="font-size:19px;">Special</div>
+      <div id="cafeSpecialDesc"></div>
+      <div id="cafeSpecialTaste"></div>
+      <div id="cafeSpecialNote"></div>
+      <div class="forbRow">
+        <button class="btn" id="cafeMenuBtn">📋 Tasting Menu</button>
+        <button class="btn" id="cafeSpecialCloseBtn">Leave the bar</button>
+      </div>
+    </div>
+    <div id="cafeMenuView" class="hidden">
+      <div class="title" style="font-size:19px;">📋 The Tasting Menu</div>
+      <div id="cafeMenuProgress"></div>
+      <div id="cafeMenuGrid"></div>
+      <button class="btn" id="cafeMenuBackBtn">← Back</button>
+      <button class="btn" id="cafeMenuCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+<style>
+#cafeSpecialCard{max-width:460px}
+#cafeSpecialDesc{line-height:1.55;color:#e8dfc8;font-size:13.5px;margin:4px 0 12px}
+#cafeSpecialTaste{line-height:1.6;color:#d9c9a8;font-size:13px;font-style:italic;border-left:2px solid #b5833a;padding:2px 0 2px 13px;margin-bottom:12px}
+#cafeSpecialNote{font-size:12px;color:#e0b878;min-height:1em;margin-bottom:12px}
+#cafeSpecialNote.done{color:#8fe3b0}
+#cafeMenuProgress{color:#e0c38f;font-size:13px;margin:8px 0 12px}
+#cafeMenuGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:46vh;overflow:auto;margin-bottom:12px}
+#cafeMenuGrid .forbEntry.read{border-color:#b5833a;background:linear-gradient(180deg,#2a2114,#1d1710)}
+#cafeMenuGrid .forbEntry.today{box-shadow:0 0 0 1px #e0b878 inset}
+#cafeMenuGrid .forbEntry .fbadge{color:#e0b878}
+</style>
+
 <!-- Story beat — the in-the-moment dialogue box for a campaign chapter's
      intro (on Begin) and outro (on complete). The full narrative also stays
      archived in the Journal; this surfaces it so the story lands without
@@ -3564,6 +3600,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=f22f6a3cb4"></script>
+<script src="client.js?v=3edec768d0"></script>
 </body>
 </html>
