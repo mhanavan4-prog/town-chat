@@ -42,3 +42,6 @@ ops/heartbeat.log
 
 # Generated client bundle — built by CI and on deploy (npm run build:client), not committed (it collided on every merge).
 public/client.js
+
+# Python bytecode cache (audio tooling)
+__pycache__/

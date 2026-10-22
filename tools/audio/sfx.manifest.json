@@ -1,0 +1,51 @@
+{
+  "_about": "Source of truth for Thornreach's generated sound effects. build-sfx.py reads this, calls the ElevenLabs Sound Effects API once per (id, variant), writes MP3s to public/audio/sfx/<id>[-<n>].mp3, and records a content hash so unchanged prompts are skipped on re-runs. Each id matches a playSfx('<id>') name in client/audio.js, so a generated file transparently replaces that synth case; ids marked \"new\": true need a new trigger in the client (see notes). Tune the prompts/durations here before generating — this file is what spends credits.",
+  "_output_format": "mp3_44100_128",
+  "_defaults": { "prompt_influence": 0.4, "variants": 1 },
+  "sfx": [
+    { "id": "hit",     "category": "combat", "existing": true, "duration_seconds": 0.5, "variants": 3,
+      "prompt": "A single dry, close-mic combat impact — a wooden staff or blunt weapon thudding into flesh and bone. Punchy, short, no music, no reverb tail, no voice." },
+    { "id": "hurt",    "category": "combat", "existing": true, "duration_seconds": 0.5, "variants": 3,
+      "prompt": "A short, sharp non-verbal flinch of pain — a quick muffled grunt/gasp, androgynous, quiet and dry. No words, no music." },
+    { "id": "kill",    "category": "combat", "existing": true, "duration_seconds": 0.8,
+      "prompt": "A ghostly night-creature dissipating — a brief falling spectral wail that thins into a hiss of air. Eerie, otherworldly, short. No music, no words." },
+    { "id": "death",   "category": "combat", "existing": true, "duration_seconds": 1.4,
+      "prompt": "The player's death knell — a single deep funeral bell toll over a low sinking drone that fades. Solemn, witchy, ominous. No music bed, no voice." },
+
+    { "id": "footstep", "category": "movement", "existing": false, "new": true, "duration_seconds": 0.3, "variants": 4,
+      "prompt": "A single soft footstep on damp earth, moss and scattered leaves — muffled, close, understated. One step only, no music, no reverb.",
+      "note": "NEW sound. Needs a trigger in the movement loop: play a round-robin of the variants on a step cadence while the player is moving (and not on every frame). I'll wire that when we integrate." },
+
+    { "id": "cast",    "category": "spell", "existing": true, "duration_seconds": 0.7,
+      "prompt": "A witch casting a spell — a quick rising magical shimmer that charges up and releases with a soft sparkle tail. Airy, arcane, bright. No music, no words." },
+    { "id": "summon",  "category": "spell", "existing": true, "duration_seconds": 1.1,
+      "prompt": "A dark summoning — the earth splitting with a low rumbling swell, then a dissonant minor chord of energy clawing upward. Ominous, ritual, heavy. No melody, no voice." },
+    { "id": "curse",   "category": "spell", "existing": true, "duration_seconds": 0.6,
+      "prompt": "A malevolent hex being cast — a falling, clashing, dissonant magical zap with a bitter metallic edge. Short, nasty, arcane. No music." },
+    { "id": "ward",    "category": "spell", "existing": true, "duration_seconds": 0.7,
+      "prompt": "A protective ward rising — a warm magical hum that swells into a steady shielding tone. Reassuring, resonant, brief. No melody, no voice." },
+    { "id": "buff",    "category": "spell", "existing": true, "duration_seconds": 0.6,
+      "prompt": "An empowering buff — a low growling energy swell rising in power, like strength surging into the body. Dark, potent, short. No music." },
+    { "id": "heal",    "category": "spell", "existing": true, "duration_seconds": 0.7,
+      "prompt": "A gentle healing spell — a soft rising chime shimmer, warm and restorative, like light knitting a wound closed. Pretty, airy. No words." },
+    { "id": "reveal",  "category": "spell", "existing": true, "duration_seconds": 0.6,
+      "prompt": "A hidden thing revealed — a whispery high glimmer, airy sparkle rising, a secret surfacing. Delicate, magical, short. No music, no voice." },
+
+    { "id": "levelup", "category": "reward", "existing": true, "duration_seconds": 1.2,
+      "prompt": "A triumphant level-up flourish — a bright ascending magical arpeggio resolving to a shining top note, with a soft sparkle. Rewarding, uplifting, short. No full music track." },
+    { "id": "loot",    "category": "reward", "existing": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "Picking up a small treasure — a clean glassy chime, two quick bright notes, pleasant and crisp. No music bed." },
+    { "id": "harvest", "category": "world", "existing": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "Gathering a herb from the ground — a soft leafy rustle and a light pluck as the plant comes free. Natural, muffled, short. No music." },
+    { "id": "drink",   "category": "world", "existing": true, "duration_seconds": 0.5,
+      "prompt": "Drinking a potion — a quick series of liquid glugs and a soft swallow. Close, wet, short. No music, no words." },
+    { "id": "error",   "category": "ui", "existing": true, "duration_seconds": 0.35,
+      "prompt": "An action-denied cue — a low, soft, dissonant two-tone 'no' buzz. Muted, brief, not harsh. No music." }
+  ],
+  "_optional_candidates": [
+    "ui_click — a soft muffled UI tap/click for menu buttons (new trigger)",
+    "portal — a whooshing arcane portal traversal (town<->wilds) (new trigger)",
+    "coven_bell — a single deep coven/seance bell toll (new trigger)",
+    "door — a heavy wooden building door open/close (new trigger)"
+  ]
+}
