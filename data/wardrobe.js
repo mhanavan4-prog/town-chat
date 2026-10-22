@@ -117,7 +117,16 @@ const DYES = [
   { id: 'gold',    label: 'Gold',     hex: 0xe0b84a },
   { id: 'void',    label: 'Void',     hex: 0x6a4a9a },
   { id: 'arcane',  label: 'Arcane',   hex: 0x45c8c0 },
-  { id: 'ember',   label: 'Ember',    hex: 0xd9531e }
+  { id: 'ember',   label: 'Ember',    hex: 0xd9531e },
+  // ── The Finery line (roadmap #7) — a premium palette bought with GOLD, a
+  // sink for engaged players. Account-wide and visible to everyone, so it
+  // reads as the show-off tier. Priced in dyeUnlocks below ({ gold }).
+  { id: 'obsidian', label: 'Obsidian', hex: 0x1b1d2a },
+  { id: 'bone',     label: 'Bone',     hex: 0xe8e0cf },
+  { id: 'oxblood',  label: 'Oxblood',  hex: 0x6e1f2a },
+  { id: 'viridian', label: 'Viridian', hex: 0x1f7a6a },
+  { id: 'amethyst', label: 'Amethyst', hex: 0x8e44c8 },
+  { id: 'pearl',    label: 'Pearl',    hex: 0xdfe6f0 }
 ];
 const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
 
@@ -135,7 +144,16 @@ const DYE_UNLOCKS = {
   arcane:  { ms: 300 },
   // Earned, not bought: unlocks when the Ashblood Trials arc is completed
   // (its final quest recorded in progress.questsDone). See dyeUnlocked().
-  ember:   { quest: 'ashblood_ascension' }
+  ember:   { quest: 'ashblood_ascension' },
+  // The Finery line — a GOLD sink (roadmap #7). Once bought, ownership is
+  // recorded in progress.dyeUnlocks (same as the Moonstone dyes). See
+  // dyeUnlocked() + the buy_dye handler, which charges the bank for { gold }.
+  obsidian: { gold: 500 },
+  bone:     { gold: 500 },
+  oxblood:  { gold: 700 },
+  viridian: { gold: 700 },
+  amethyst: { gold: 900 },
+  pearl:    { gold: 1200 }
 };
 function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
 function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
