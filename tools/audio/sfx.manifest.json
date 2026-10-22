@@ -12,7 +12,7 @@
     { "id": "death",   "category": "combat", "existing": true, "duration_seconds": 1.4,
       "prompt": "The player's death knell — a single deep funeral bell toll over a low sinking drone that fades. Solemn, witchy, ominous. No music bed, no voice." },
 
-    { "id": "footstep", "category": "movement", "existing": false, "new": true, "duration_seconds": 0.3, "variants": 4,
+    { "id": "footstep", "category": "movement", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 4,
       "prompt": "A single soft footstep on damp earth, moss and scattered leaves — muffled, close, understated. One step only, no music, no reverb.",
       "note": "NEW sound. Needs a trigger in the movement loop: play a round-robin of the variants on a step cadence while the player is moving (and not on every frame). I'll wire that when we integrate." },
 
@@ -39,7 +39,7 @@
       "prompt": "Gathering a herb from the ground — a soft leafy rustle and a light pluck as the plant comes free. Natural, muffled, short. No music." },
     { "id": "drink",   "category": "world", "existing": true, "duration_seconds": 0.5,
       "prompt": "Drinking a potion — a quick series of liquid glugs and a soft swallow. Close, wet, short. No music, no words." },
-    { "id": "error",   "category": "ui", "existing": true, "duration_seconds": 0.35,
+    { "id": "error",   "category": "ui", "existing": true, "duration_seconds": 0.5,
       "prompt": "An action-denied cue — a low, soft, dissonant two-tone 'no' buzz. Muted, brief, not harsh. No music." }
   ],
   "_optional_candidates": [

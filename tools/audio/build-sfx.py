@@ -104,6 +104,10 @@ def main():
         variants = int(sfx.get("variants", defaults.get("variants", 1)))
         influence = float(sfx.get("prompt_influence", def_infl))
         duration = sfx.get("duration_seconds")
+        # ElevenLabs requires 0.5 <= duration_seconds <= 30. Clamp rather than
+        # 400, so a shorter value in the manifest just rounds up to the floor.
+        if duration is not None:
+            duration = max(0.5, min(30.0, float(duration)))
         prompt = sfx["prompt"]
         for v in range(1, variants + 1):
             fn = filename_for(sid, v, variants)
