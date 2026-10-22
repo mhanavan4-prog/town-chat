@@ -20024,6 +20024,99 @@ function updateEchoes(dt) {
   }
 }
 
+// ── Ambient NPC life (roadmap #4 — liveness) ────────────────────────────────
+// A near-empty town still has townsfolk; they just stood like statues. Now the
+// interior NPCs mutter to themselves: a speech bubble pops over a random one
+// every several seconds with a short in-character bark (their own voice, same
+// personalities as the hint dialogue). Purely a client-side ambience layer —
+// no server, no network — so one lone player walking into the Café still finds
+// Mabel grumbling at her cold tea. Short, self-talk lines (not aimed at you).
+const NPC_BARKS = {
+  npc_bartender: ['polishes a tankard that was already clean.', '"Another quiet one. Suits me fine."', '"Mead’s on the house. …It isn’t. But it sounds nice."'],
+  npc_patron:    ['"In my day, the ghosts had manners."', '"Tea’s gone cold. Again."', '"I heard that. I hear everything, dear."'],
+  npc_scholar:   ['"Shh. The books are sleeping."', '"Someone reshelved the grimoires by COLOUR. Barbarians."', '"Fourteen overdue tomes. Fourteen."'],
+  npc_apprentice:['"Don’t open the warm books. Don’t open the warm books."', '"Scholar Elior is going to end me."', 'squints at a shelf. "…was that there before?"'],
+  npc_apothecary:['"Two drops. Not three. Three is how you get a frog."', '"This one bubbles when you lie near it. Useful."', '"Mind the green vial. Actually — mind all of them."'],
+  npc_tinkerer:  ['"Don’t touch the glowing bits. …fine, touch them."', 'counts. "Eight fingers. Still eight. Good week."', '"It’s not on fire. Yet."'],
+  npc_tailor:    ['"A hem is a promise, darling."', '"Black is always in. Especially here."', '"Hold sti— no, you’re a coat rack. Never mind."'],
+  npc_noble:     ['"One does NOT lean on the séance table."', '"The company here is… present. Barely."', '"Is that last season’s cloak? How brave."'],
+  npc_armorer:   ['"A dull blade’s just a heavy stick."', '"Dented AGAIN. Do you people walk into walls?"', '"Steel doesn’t lie. People do."'],
+  npc_knight:    ['"The hall is secure."', '"Strike, then step. Strike, then step."', '"Stand straight. The dead are watching."'],
+  npc_guard:     ['"Too quiet. I don’t trust it."', '"Move along. …oh. It’s just you."', '"State your business. Mentally. I’m tired."']
+};
+
+function _ambientRoundRect(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function makeSpeechBubbleSprite(text) {
+  const font = '600 26px sans-serif';
+  const meas = document.createElement('canvas').getContext('2d'); meas.font = font;
+  const maxW = 440, padX = 22, lineH = 32;
+  const words = String(text).split(' '); const lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (meas.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur);
+  const textW = Math.min(maxW, Math.max.apply(null, lines.map((l) => meas.measureText(l).width)));
+  const W = Math.ceil(textW) + padX * 2, bodyH = lines.length * lineH + 20, tail = 14, H = bodyH + tail;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d'); ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(248,250,255,0.96)';
+  _ambientRoundRect(ctx, 1, 1, W - 2, bodyH - 2, 16); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(W / 2 - 11, bodyH - 2); ctx.lineTo(W / 2, H - 1); ctx.lineTo(W / 2 + 11, bodyH - 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1a1726';
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, 14 + i * lineH + lineH / 2));
+  const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false, opacity: 0 });
+  const sp = new THREE.Sprite(mat);
+  const scale = 0.42; sp.scale.set(W * scale, H * scale, 1);
+  sp.userData.halfH = (H * scale) / 2;
+  return sp;
+}
+let ambientBubbles = [];
+let ambientNextAt = 0;
+let ambientRoom = null;
+function clearAmbientBubbles() {
+  for (const b of ambientBubbles) {
+    if (b.sprite.parent) b.sprite.parent.remove(b.sprite);
+    if (b.sprite.material.map) b.sprite.material.map.dispose();
+    b.sprite.material.dispose();
+  }
+  ambientBubbles.length = 0;
+}
+function updateAmbientChatter(dt) {
+  const inInterior = currentInterior && activeScene === currentInterior.scene && Array.isArray(currentInterior.kiosks);
+  const now = performance.now();
+  const roomNow = (me && me.room) || null;
+  if (!inInterior) { if (ambientBubbles.length) clearAmbientBubbles(); ambientRoom = null; return; }
+  if (ambientRoom !== roomNow) { clearAmbientBubbles(); ambientRoom = roomNow; ambientNextAt = now + 1500; } // settle before the first bark
+  // Advance / fade / expire active bubbles.
+  for (let i = ambientBubbles.length - 1; i >= 0; i--) {
+    const b = ambientBubbles[i], age = now - b.bornAt;
+    if (age >= b.ttl) {
+      if (b.sprite.parent) b.sprite.parent.remove(b.sprite);
+      if (b.sprite.material.map) b.sprite.material.map.dispose();
+      b.sprite.material.dispose(); ambientBubbles.splice(i, 1); continue;
+    }
+    const op = age < 300 ? age / 300 : (age > b.ttl - 600 ? Math.max(0, (b.ttl - age) / 600) : 1);
+    b.sprite.material.opacity = op * 0.96;
+  }
+  // Pop a new bark on a random NPC who isn't already speaking.
+  if (now >= ambientNextAt && ambientBubbles.length < 2) {
+    const cands = currentInterior.kiosks.filter((k) => (k.npc === 'npc' || k.npc === 'hint') && NPC_BARKS[k.npcId] && !ambientBubbles.some((b) => b.npcId === k.npcId));
+    if (cands.length) {
+      const k = cands[Math.floor(Math.random() * cands.length)];
+      const barks = NPC_BARKS[k.npcId];
+      const sp = makeSpeechBubbleSprite(barks[Math.floor(Math.random() * barks.length)]);
+      sp.position.set(k.x, 104 + (sp.userData.halfH || 30), k.z); // tail just above the name plate (y≈90)
+      currentInterior.scene.add(sp);
+      ambientBubbles.push({ sprite: sp, npcId: k.npcId, bornAt: now, ttl: 4200 });
+      ambientNextAt = now + 5000 + Math.random() * 4500;
+    } else {
+      ambientNextAt = now + 3000;
+    }
+  }
+}
+
 const respawnBtn = document.getElementById('respawnBtn');
 if (respawnBtn) respawnBtn.addEventListener('click', () => {
   if (me && me.isDead) ws.send(JSON.stringify({ type: 'respawn' }));
@@ -30721,6 +30814,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateEchoes(dt);
+  updateAmbientChatter(dt);
   updateStatusVisuals(dt);
   updateFireballs();
   updateGroundTrapVisuals();
