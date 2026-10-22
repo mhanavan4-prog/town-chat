@@ -10508,6 +10508,32 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── The Codex: one overview of every collection + the titles earned. It's
+    //    a launcher — each collection's "View" opens its existing detail modal
+    //    — so it gathers the scattered room systems into one place without
+    //    duplicating their data. ──
+    if (msg.type === 'codex_state') {
+      const prog = getProgress(player);
+      const tally = (map, set) => set.reduce((n, x) => n + ((map && map[x.id]) ? 1 : 0), 0);
+      const acc = player.accountKey && playerProgress[player.accountKey];
+      const hasTitle = (id) => !!(acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes(id));
+      const collections = [
+        { key: 'forbidden', open: 'forbidden_codex', label: 'Forbidden Archive', icon: '📖', where: 'the Midnight Archive', count: tally(prog.forbiddenBooksRead, FORBIDDEN_BOOKS), total: FORBIDDEN_BOOKS.length, title: 'well_read' },
+        { key: 'cafe', open: 'cafe_menu', label: 'Tasting Menu', icon: '☕', where: 'the Cauldron Café', count: tally(prog.cafeSpecialsTasted, CAFE_SPECIALS), total: CAFE_SPECIALS.length, title: 'cauldron_regular' },
+        { key: 'vigil', open: 'vigil_register', label: 'Vigil Register', icon: '🌙', where: 'the Phantom Parlor', count: tally(prog.vigilHeard, PARLOR_SPIRITS), total: PARLOR_SPIRITS.length, title: 'vigil_keeper' },
+        { key: 'reliquary', open: 'reliquary', label: 'The Reliquary', icon: '🗝️', where: 'the Arcade & the Parlor', count: tally(prog.relicsInspected, RELICS), total: RELICS.length, title: 'reliquary_keeper' },
+      ].map((c) => ({ ...c, complete: c.count >= c.total, earnedTitle: hasTitle(c.title) }));
+      const { earned, active } = titlesPayloadFor(player.accountKey);
+      send(ws, {
+        type: 'codex_state',
+        collections,
+        arcade: { snake: arcadePersonalBestToday(player, 'snake'), breakout: arcadePersonalBestToday(player, 'breakout'), champion: hasTitle('arcade_champion') },
+        titles: earned.map((t) => ({ id: t.id, name: t.name, glyph: t.glyph, desc: t.desc, from: t.from })),
+        activeTitle: active,
+      });
+      return;
+    }
+
     if (msg.type === 'npc_hint_talk') {
       const npcId = String(msg.npcId || '');
       const giver = NPC_HINT_GIVERS[npcId];
