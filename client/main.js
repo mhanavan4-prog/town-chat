@@ -13940,7 +13940,7 @@ let moveSendTimer = 0;
 // frame-rate gap on a real phone without an admin login. Tap it to hide.
 // renderer.info is read with autoReset off so the count spans every composer
 // pass (scene + shadow + post), i.e. the whole frame's GPU draw calls.
-let _perfOn = true, _perfEl = null, _perfFrames = 0, _perfWindowStart = performance.now(), _perfFps = 0;
+let _perfOn = true, _perfEl = null, _perfFrames = 0, _perfWindowStart = performance.now(), _perfFps = 0, _perfUpdMs = 0;
 function updatePerfHud(now) {
   if (!_perfEl) {
     _perfEl = document.createElement('div');
@@ -13963,9 +13963,15 @@ function updatePerfHud(now) {
     if (activeScene) activeScene.traverse(o => { if (o.visible && (o.isPointLight || o.isSpotLight)) lights++; });
     const trisTxt = tris >= 1000 ? (Math.round(tris / 100) / 10) + 'k' : String(tris);
     const zone = (me && me.room) ? me.room : '—';
+    let objs = 0;
+    if (activeScene) activeScene.traverse(() => objs++);
     _perfEl.style.display = 'block';
-    _perfEl.style.color = _perfFps >= 50 ? '#9effa6' : _perfFps >= 35 ? '#ffe08a' : '#ff8a8a';
-    _perfEl.textContent = _perfFps + ' fps · ' + calls + ' draws · ' + trisTxt + ' tris · ' + lights + ' lights · ' + zone;
+    const c = _perfFps >= 50 ? '#9effa6' : _perfFps >= 35 ? '#ffe08a' : '#ff8a8a';
+    // Two lines: the CPU/JS cost of update() (the tell for CPU- vs GPU-bound)
+    // up top with fps, the GPU/scene counters below. High cpu-ms in town ⇒
+    // JS/scene-graph bound; low cpu-ms but low fps ⇒ GPU overdraw.
+    _perfEl.innerHTML = '<span style="color:' + c + '">' + _perfFps + ' fps</span> · ' + _perfUpdMs.toFixed(1) + 'ms cpu · ' + zone
+      + '<br>' + calls + ' draws · ' + trisTxt + ' tris · ' + lights + ' lights · ' + objs + ' obj';
   }
 }
 const SPEED = 230;       // world units/sec, forward/back
@@ -14311,7 +14317,9 @@ function render() {
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  const _u0 = performance.now();
   update(dt);
+  _perfUpdMs += ((performance.now() - _u0) - _perfUpdMs) * 0.1; // EMA-smoothed CPU cost of update()
   render();
   requestAnimationFrame(loop);
 }
