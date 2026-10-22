@@ -147,6 +147,7 @@ const https = require('https');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
+const fs = require('fs'); // used by gameShellHtml (serve-time cache-bust) and elsewhere
 const Stripe = require('stripe');
 
 const PORT = process.env.PORT || 3000;
@@ -404,6 +405,29 @@ function ensureAbId(req, res) {
   }
   return id;
 }
+// Cache-busting moved from build time to serve time (so public/index.html and
+// the generated public/client.js no longer carry a per-build hash in git, where
+// every branch collided on it). We read the shell + the bundle, inject
+// `client.js?v=<hash of the bundle>` into the <script> tag, and cache the result
+// keyed on both files' mtimes — so a rebuild (new client.js) or an edit to the
+// shell is picked up on the next request, but steady state is a cheap mtime stat.
+const _INDEX_HTML_PATH = path.join(__dirname, 'public', 'index.html');
+const _CLIENT_JS_PATH = path.join(__dirname, 'public', 'client.js');
+let _gameShell = null; // { html, idxMtime, jsMtime }
+function gameShellHtml() {
+  try {
+    const idxMtime = fs.statSync(_INDEX_HTML_PATH).mtimeMs;
+    const jsMtime = fs.statSync(_CLIENT_JS_PATH).mtimeMs;
+    if (_gameShell && _gameShell.idxMtime === idxMtime && _gameShell.jsMtime === jsMtime) return _gameShell.html;
+    const raw = fs.readFileSync(_INDEX_HTML_PATH, 'utf8');
+    const hash = crypto.createHash('sha256').update(fs.readFileSync(_CLIENT_JS_PATH)).digest('hex').slice(0, 10);
+    const html = raw.replace(/(<script\s+src=")client\.js(?:\?v=[0-9a-f]+)?(")/i, `$1client.js?v=${hash}$2`);
+    _gameShell = { html, idxMtime, jsMtime };
+    return html;
+  } catch (e) {
+    return null; // fall back to sending the file as-is
+  }
+}
 app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res);
   // The game shell embeds the hashed client.js, so it must never be cached:
   // res.sendFile otherwise sends Express's default `public, max-age=0`, which
@@ -411,7 +435,9 @@ app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie
   // refresh — pinning the old client.js?v= hash and the old graphics with it.
   // Match the `no-cache` the static middleware already gives .html files.
   res.set('Cache-Control', 'no-cache');
-  res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+  const shell = gameShellHtml();
+  if (shell != null) res.type('html').send(shell);
+  else res.sendFile(_INDEX_HTML_PATH); });
 
 // SEO: let crawlers in, keep the API and admin console out, and point them at
 // the sitemap. The game app (/play → index.html) carries its own noindex meta,
