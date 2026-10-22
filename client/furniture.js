@@ -1232,11 +1232,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     loungeNook(roomW * 0.19, roomD * 0.5, -1); // west nook, couch against west wall
     loungeNook(roomW * 0.81, roomD * 0.5, 1);  // east nook, couch against east wall
 
-    // The "Widow's Watch" name lives on as a wall sign on the east end,
-    // where the old upstairs terrace used to be.
+    // The "Widow's Watch" name lives on as a wall sign on the east end, where
+    // the old upstairs terrace used to be — now a readable lore node (press to
+    // read, via the waymarker-lore path) so the name isn't a dead reference.
     const watchSign = makeSignSprite("🌙 Widow's Watch");
-    watchSign.position.set(roomW - 12, 112, roomD * 0.5);
+    watchSign.position.set(roomW - 34, 112, roomD * 0.5);
     scene.add(watchSign);
+    kiosksOut.push({ x: roomW - 55, z: roomD * 0.5, npc: 'waymark', markerId: 'widows_watch', npcName: "🌙 Widow's Watch" });
 
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
