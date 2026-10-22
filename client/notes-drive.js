@@ -271,9 +271,19 @@ function renderHardDriveMedia() {
       const playBtn = document.createElement('button');
       playBtn.className = 'noteReadBtn';
       playBtn.textContent = '▶️';
-      playBtn.title = 'Play this clip';
+      playBtn.title = 'Preview this clip (only you hear it)';
       playBtn.addEventListener('click', () => { try { new Audio(c.audio).play(); } catch (e) {} });
       row.appendChild(playBtn);
+      // Play it ALOUD so everyone nearby in the game hears it (voice_say).
+      const aloudBtn = document.createElement('button');
+      aloudBtn.className = 'noteReadBtn';
+      aloudBtn.textContent = '📢';
+      aloudBtn.title = 'Play aloud — everyone nearby hears it';
+      aloudBtn.addEventListener('click', () => {
+        try { getWs().send(JSON.stringify({ type: 'voice_say', clipId: c.id })); } catch (e) {}
+        setUnlockToast(`📢 "${c.label}" plays out across the area…`);
+      });
+      row.appendChild(aloudBtn);
     }
     const delBtn = document.createElement('button');
     delBtn.className = 'noteDestroyBtn';
@@ -287,7 +297,7 @@ function renderHardDriveMedia() {
   if (!(st.clips || []).length) {
     const none = document.createElement('div');
     none.className = 'hdMediaEmpty';
-    none.textContent = 'No clips yet — record one. Played mid-fight (V), it startles everything in earshot.';
+    none.textContent = 'No clips yet — record one. Play it aloud (📢) so everyone nearby hears it, or fire it mid-fight (V) to startle everything in earshot.';
     wrap.appendChild(none);
   }
 

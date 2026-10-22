@@ -5285,6 +5285,11 @@ const VOICE_CM_EVADE_MS = 4000;
 const VOICE_CM_SCARE_MS = 8000;
 const VOICE_CM_COOLDOWN_MS = 45000;
 const VOICE_CM_RADIUS = 320;
+// Social "play a clip aloud" (voice_say): no combat gating, no evasion — just
+// your recorded voice carrying to whoever's nearby. Its own short cooldown
+// keeps it from becoming an audio spam button; earshot matches the CM radius.
+const VOICE_SAY_COOLDOWN_MS = 6000;
+const VOICE_SAY_RADIUS = VOICE_CM_RADIUS;
 // Snapshots: close-range, per-photographer cooldown.
 const SNAP_RANGE = 140;
 const SNAP_COOLDOWN_MS = 15000;
@@ -9823,6 +9828,51 @@ wss.on('connection', (ws, req) => {
         }
       }
       send(ws, { type: 'cm_result', message: `📢 "${clip.label}" rings out — you slip through the chaos! (${Math.round(VOICE_CM_EVADE_MS / 1000)}s)` });
+      return;
+    }
+
+    // Social voice: play one of your clips ALOUD so everyone nearby hears it —
+    // no combat needed (unlike cm_voice), no evasion, just your voice carrying
+    // across the area. A short cooldown stops it being an audio-spam button,
+    // and a muted account can't broadcast noise either.
+    if (msg.type === 'voice_say') {
+      if (player.isDead) return;
+      if (!hasHardDriveAccess(player)) {
+        send(ws, { type: 'cm_error', message: 'You need your 💽 Hard Drive on you to play a clip.' });
+        return;
+      }
+      if (bans.isMuted(player.accountKey || null, ws._ip)) {
+        send(ws, { type: 'cm_error', message: 'You’re muted right now — no voice clips.' });
+        return;
+      }
+      const now = Date.now();
+      if (now - (player.lastVoiceSayAt || 0) < VOICE_SAY_COOLDOWN_MS) {
+        const left = Math.ceil((VOICE_SAY_COOLDOWN_MS - (now - player.lastVoiceSayAt)) / 1000);
+        send(ws, { type: 'cm_error', message: `Give it a second — ${left}s before you can play another clip aloud.` });
+        return;
+      }
+      const hd = driveMedia(getHardDrive(player));
+      const clip = hd.clips.find(c => c.id === String(msg.clipId || '')) || hd.clips[0];
+      if (!clip) {
+        send(ws, { type: 'cm_error', message: 'No voice clips on your drive — record one from the 💽 Hard Drive panel.' });
+        return;
+      }
+      player.lastVoiceSayAt = now;
+      // Proximity broadcast — only those in the same room and within earshot,
+      // the sender included (they hear their own voice carry).
+      const payload = JSON.stringify({
+        type: 'voice_echo',
+        from: player.name,
+        playerId: player.id,
+        x: player.x, y: player.y,
+        audio: clip.audio,
+        label: clip.label
+      });
+      for (const p of players.values()) {
+        if (p.room === player.room && Math.hypot(p.x - player.x, p.y - player.y) <= VOICE_SAY_RADIUS && p.ws.readyState === p.ws.OPEN) {
+          p.ws.send(payload);
+        }
+      }
       return;
     }
 

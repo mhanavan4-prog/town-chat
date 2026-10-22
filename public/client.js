@@ -11510,9 +11510,19 @@ function renderHardDriveMedia() {
       const playBtn = document.createElement('button');
       playBtn.className = 'noteReadBtn';
       playBtn.textContent = '▶️';
-      playBtn.title = 'Play this clip';
+      playBtn.title = 'Preview this clip (only you hear it)';
       playBtn.addEventListener('click', () => { try { new Audio(c.audio).play(); } catch (e) {} });
       row.appendChild(playBtn);
+      // Play it ALOUD so everyone nearby in the game hears it (voice_say).
+      const aloudBtn = document.createElement('button');
+      aloudBtn.className = 'noteReadBtn';
+      aloudBtn.textContent = '📢';
+      aloudBtn.title = 'Play aloud — everyone nearby hears it';
+      aloudBtn.addEventListener('click', () => {
+        try { getWs().send(JSON.stringify({ type: 'voice_say', clipId: c.id })); } catch (e) {}
+        setUnlockToast(`📢 "${c.label}" plays out across the area…`);
+      });
+      row.appendChild(aloudBtn);
     }
     const delBtn = document.createElement('button');
     delBtn.className = 'noteDestroyBtn';
@@ -11526,7 +11536,7 @@ function renderHardDriveMedia() {
   if (!(st.clips || []).length) {
     const none = document.createElement('div');
     none.className = 'hdMediaEmpty';
-    none.textContent = 'No clips yet — record one. Played mid-fight (V), it startles everything in earshot.';
+    none.textContent = 'No clips yet — record one. Play it aloud (📢) so everyone nearby hears it, or fire it mid-fight (V) to startle everything in earshot.';
     wrap.appendChild(none);
   }
 
@@ -18422,6 +18432,11 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'voice_echo') {
+    playVoiceEcho(msg);
+    return;
+  }
+
   if (msg.type === 'cm_state') {
     cmHasDrive = !!msg.hasDrive;
     cmClips = msg.clips || [];
@@ -21277,6 +21292,22 @@ function playVoiceCountermeasure(msg) {
     setUnlockToast(`📢 ${msg.from}'s voice echoes: "${msg.label}"`);
   }
   appendSystemChatLine(`📢 ${msg.from} played "${msg.label}" — the night scattered.`);
+}
+
+// Social sibling of the above: someone nearby played a clip ALOUD (voice_say),
+// no combat involved. Same "hear it + see the ring + read it" delivery, minus
+// the countermeasure framing (no evasion, no "the night scattered").
+function playVoiceEcho(msg) {
+  try {
+    if (cmAudioEl) { cmAudioEl.pause(); }
+    cmAudioEl = new Audio(msg.audio);
+    cmAudioEl.volume = 0.9;
+    cmAudioEl.play().catch(() => {});
+  } catch (e) {}
+  spawnVoiceRings(me ? me.room : 'outside', msg.x, msg.y);
+  if (msg.playerId === myId) setUnlockToast(`📢 You played "${msg.label}" aloud.`);
+  else setUnlockToast(`📢 ${msg.from}: "${msg.label}"`);
+  appendSystemChatLine(`📢 ${msg.from} played "${msg.label}" aloud.`);
 }
 
 // Ghosty shimmer on your own body while the evasion window is live, so
