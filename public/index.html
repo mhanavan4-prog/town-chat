@@ -3396,6 +3396,41 @@
 .arcYours{margin-top:7px;font-size:12px;color:#e0c38f;text-align:center}
 </style>
 
+<!-- The Phantom Parlor — Midnight Vigil (roadmap #6): tonight's restless spirit
+     and the Vigil Register of the departed you've heard. Night-gated. -->
+<div id="vigilModal" class="overlay hidden">
+  <div class="card" id="vigilCard">
+    <div id="vigilSpiritView">
+      <div class="title" id="vigilSpiritName" style="font-size:19px;">The Vigil</div>
+      <div id="vigilSpiritEpitaph"></div>
+      <div id="vigilSpiritText"></div>
+      <div id="vigilSpiritNote"></div>
+      <div class="forbRow">
+        <button class="btn" id="vigilRegisterBtn">🕯️ Vigil Register</button>
+        <button class="btn" id="vigilCloseBtn">Rise</button>
+      </div>
+    </div>
+    <div id="vigilRegisterView" class="hidden">
+      <div class="title" style="font-size:19px;">🕯️ The Vigil Register</div>
+      <div id="vigilRegisterProgress"></div>
+      <div id="vigilRegisterGrid"></div>
+      <button class="btn" id="vigilRegisterBackBtn">← Back</button>
+      <button class="btn" id="vigilRegisterCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+<style>
+#vigilCard{max-width:460px}
+#vigilSpiritEpitaph{color:#7fc9a0;font-style:italic;font-size:12px;margin:3px 0 12px}
+#vigilSpiritText{line-height:1.6;color:#dcf2e6;font-size:13.5px;font-family:"Palatino",Georgia,serif;border-left:2px solid #3e9a74;padding:2px 0 2px 13px;margin-bottom:12px}
+#vigilSpiritNote{font-size:12px;color:#8fe3b0;min-height:1em;margin-bottom:12px}
+#vigilRegisterProgress{color:#9fd8bc;font-size:13px;margin:8px 0 12px}
+#vigilRegisterGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:46vh;overflow:auto;margin-bottom:12px}
+#vigilRegisterGrid .forbEntry.read{border-color:#3e9a74;background:linear-gradient(180deg,#132a20,#0e1f17)}
+#vigilRegisterGrid .forbEntry.today{box-shadow:0 0 0 1px #8fffbe inset}
+#vigilRegisterGrid .forbEntry .fbadge{color:#8fffbe}
+</style>
+
 <!-- Story beat — the in-the-moment dialogue box for a campaign chapter's
      intro (on Begin) and outro (on complete). The full narrative also stays
      archived in the Journal; this surfaces it so the story lands without
@@ -3636,6 +3671,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=551e698e70"></script>
+<script src="client.js?v=c605eb5d7e"></script>
 </body>
 </html>

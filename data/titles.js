@@ -63,6 +63,11 @@ const TITLES = {
     id: 'arcade_champion', name: 'Champion of the Starlight Arcade', glyph: '🕹️',
     desc: 'Topped the day\'s board at the cabinets with the whole town to beat, and held the high score when the lights came up.',
     from: 'The Daily High Scores — the Starlight Arcade'
+  },
+  vigil_keeper: {
+    id: 'vigil_keeper', name: 'Keeper of the Midnight Vigil', glyph: '🌙',
+    desc: 'Sat the Parlor vigil night after night until every departed guest had spoken, and learned the courtesy of looking up.',
+    from: 'The Midnight Vigil — the Phantom Parlor'
   }
 };
 
