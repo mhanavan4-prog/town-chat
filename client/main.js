@@ -12011,6 +12011,9 @@ const { openNotifModal } = _notif;
     if (u.lvl) return (me.level || 1) >= u.lvl ? { k: 'ok' } : { k: 'locked', why: 'Lv ' + u.lvl };
     if (u.chapter) return (myWardrobe.chaptersDone || 0) >= u.chapter ? { k: 'ok' } : { k: 'locked', why: 'Ch. ' + u.chapter };
     if (u.ms) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'buy', ms: u.ms };
+    // Finery line (roadmap #7): a gold-priced cosmetic sink. Ownership rides the
+    // same account-wide dyesPurchased list as the Moonstone dyes.
+    if (u.gold) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'buygold', gold: u.gold };
     return { k: 'locked', why: 'Locked' };
   }
   // One row of dye swatches for a slot ('dyeBody' | 'dyeAccent'). Owned dyes are
@@ -12025,6 +12028,7 @@ const { openNotifModal } = _notif;
       const on = (cur || 'none') === d.id;
       if (s.k === 'locked') return '<button class="wrDye locked" disabled title="' + d.label + ' · ' + s.why + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.why + '</span></button>';
       if (s.k === 'buy') return '<button class="wrDye buy" data-buydye="' + d.id + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.ms + '💎</span></button>';
+      if (s.k === 'buygold') return '<button class="wrDye buygold" data-buydye="' + d.id + '" title="' + d.label + ' — Finery (gold)"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.gold + 'g</span></button>';
       return '<button class="wrDye' + (on ? ' on' : '') + '" data-dye="' + d.id + '" data-slot="' + slot + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + d.label + '</span></button>';
     }).join('');
   }
@@ -12052,7 +12056,7 @@ const { openNotifModal } = _notif;
     // (hat/cape) tint. Shared account-wide palette; head/face stay natural.
     h += '<div class="wrSec">Outfit color</div><div class="wrDyes">' + dyeRow(me, 'dyeBody', ap.dyeBody) + '</div>';
     h += '<div class="wrSec">Accent color</div><div class="wrDyes">' + dyeRow(me, 'dyeAccent', ap.dyeAccent) + '</div>';
-    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. 💎 ' + myMoonstones + '</div>';
+    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. The <b>Finery</b> line (gold swatches) is bought with gold. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
     list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
