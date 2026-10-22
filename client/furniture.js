@@ -728,6 +728,28 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       apprenticeLabel.position.set(320, 90, 60);
       scene.add(apprenticeLabel);
       kiosksOut.push({ x: 320, z: 60, npc: 'hint', npcId: 'npc_apprentice', npcName: 'Apprentice Wren' });
+
+      // ── The Forbidden Shelf (roadmap #6) — a locked lectern by the south-wall
+      // "do not read aloud" paintings, holding the day's forbidden book. Walk up
+      // and read it; a new volume surfaces each day. (Emissive glow, no extra
+      // point light, so it stays cheap on mobile.)
+      const shelfX = cx, shelfZ = roomD - 70;
+      const lectern = new THREE.Group();
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(7, 10, 46, 8),
+        new THREE.MeshLambertMaterial({ color: 0x2a2140 }));
+      column.position.y = 23; lectern.add(column);
+      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(34, 4, 24),
+        new THREE.MeshLambertMaterial({ color: 0x3a2d55 }));
+      deskTop.position.y = 48; deskTop.rotation.x = -0.5; lectern.add(deskTop);
+      const tome = new THREE.Mesh(new THREE.BoxGeometry(26, 3, 18),
+        new THREE.MeshLambertMaterial({ color: 0x1a1230, emissive: 0x7a4acc, emissiveIntensity: 0.55 }));
+      tome.position.set(0, 52, 1); tome.rotation.x = -0.5; lectern.add(tome);
+      lectern.position.set(shelfX, 0, shelfZ);
+      scene.add(lectern);
+      const shelfLabel = makeNpcNameSprite('📖 The Forbidden Shelf', 'a new volume each day');
+      shelfLabel.position.set(shelfX, 86, shelfZ);
+      scene.add(shelfLabel);
+      kiosksOut.push({ x: shelfX, z: shelfZ, npc: 'forbidden_book', npcName: '📖 The Forbidden Shelf' });
     }
   } else if (type === 'alchemist') {
     // ── The Starlit Arcade ──────────────────────────────────────────────

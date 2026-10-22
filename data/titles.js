@@ -48,6 +48,11 @@ const TITLES = {
     id: 'ember_warden', name: 'Warden of the Ember Wastes', glyph: '🔥',
     desc: 'Proved themselves in open blood out on the ash flats, and walked back wearing the Wastes like a crown.',
     from: "The Ashblood Trials — the Ember Wastes"
+  },
+  well_read: {
+    id: 'well_read', name: 'Reader of the Forbidden Shelf', glyph: '📖',
+    desc: 'Read every volume the Midnight Archive keeps under lock, and carried none of them back out — only what they said.',
+    from: 'The Forbidden Shelf — the Midnight Archive'
   }
 };
 

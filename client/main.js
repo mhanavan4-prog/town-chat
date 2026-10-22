@@ -1555,6 +1555,9 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'forbidden_book') { showForbiddenBook(msg); return; }
+  if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
+
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
     // Side-quest ticks used to be silent — a progress beat you can feel
@@ -4055,6 +4058,63 @@ function closeNpcHintModal() {
 
 const npcHintCloseBtn = document.getElementById('npcHintCloseBtn');
 if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal);
+
+// ── The Forbidden Shelf (roadmap #6): the Library's daily book + the codex ──
+function showForbiddenBook(msg) {
+  document.getElementById('forbiddenBookTitle').textContent = msg.title || 'A Forbidden Book';
+  document.getElementById('forbiddenBookAuthor').textContent = msg.author ? `— ${msg.author}` : '';
+  document.getElementById('forbiddenBookText').textContent = msg.text || '';
+  const note = document.getElementById('forbiddenBookNote');
+  if (msg.completed && msg.grantedTitleName) {
+    note.textContent = `📖 Every forbidden volume read. The Archive names you “${msg.grantedTitleName}.”`;
+    note.className = 'done';
+  } else if (msg.firstRead) {
+    note.textContent = `Logged to your Forbidden Archive — ${msg.readCount} of ${msg.total} read.`;
+    note.className = 'done';
+  } else {
+    note.textContent = `You've read this one before — ${msg.readCount} of ${msg.total} in the Archive.`;
+    note.className = '';
+  }
+  document.getElementById('forbiddenBookView').classList.remove('hidden');
+  document.getElementById('forbiddenCodexView').classList.add('hidden');
+  document.getElementById('forbiddenModal').classList.remove('hidden');
+  if (msg.firstRead) setUnlockToast(msg.completed ? '📖 Forbidden Archive complete!' : `📖 New book logged — ${msg.readCount}/${msg.total}`);
+}
+function renderForbiddenCodex(msg) {
+  const prog = document.getElementById('forbiddenCodexProgress');
+  const done = msg.readCount === msg.total;
+  prog.textContent = `${msg.readCount} of ${msg.total} volumes read` + (done ? ' — the shelf is yours.' : ' — a new one surfaces each day.');
+  const grid = document.getElementById('forbiddenCodexGrid');
+  grid.innerHTML = '';
+  (msg.entries || []).forEach((e) => {
+    const d = document.createElement('div');
+    d.className = 'forbEntry' + (e.read ? ' read' : ' locked') + (e.today ? ' today' : '');
+    const t = document.createElement('div'); t.className = 'ft';
+    t.textContent = e.read ? e.title : '??? — unread';
+    d.appendChild(t);
+    if (e.read && e.author) { const a = document.createElement('div'); a.className = 'fa'; a.textContent = `— ${e.author}`; d.appendChild(a); }
+    if (e.today) { const b = document.createElement('div'); b.className = 'fbadge'; b.textContent = e.read ? '• on the shelf today' : '• on the shelf today — go read it'; d.appendChild(b); }
+    grid.appendChild(d);
+  });
+  document.getElementById('forbiddenBookView').classList.add('hidden');
+  document.getElementById('forbiddenCodexView').classList.remove('hidden');
+  document.getElementById('forbiddenModal').classList.remove('hidden');
+}
+function closeForbiddenModal() { document.getElementById('forbiddenModal').classList.add('hidden'); }
+function showForbiddenBookView() {
+  document.getElementById('forbiddenCodexView').classList.add('hidden');
+  document.getElementById('forbiddenBookView').classList.remove('hidden');
+}
+(function wireForbiddenModal() {
+  const codexBtn = document.getElementById('forbiddenCodexBtn');
+  if (codexBtn) codexBtn.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'forbidden_codex' })); });
+  const backBtn = document.getElementById('forbiddenCodexBackBtn');
+  if (backBtn) backBtn.addEventListener('click', showForbiddenBookView);
+  ['forbiddenCloseBtn', 'forbiddenCodexCloseBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeForbiddenModal);
+  });
+})();
 
 // The building locals aren't just hint machines anymore — every one of them
 // has a side quest of their own now (see QUEST_CATALOG wave two in
@@ -13521,6 +13581,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
+  if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -13584,6 +13645,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'seance') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} gather at the Séance Board`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'forbidden_book') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} read the Forbidden Shelf`;
     return;
   }
   if (kiosk && kiosk.game) {
