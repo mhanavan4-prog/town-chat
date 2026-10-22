@@ -14444,6 +14444,8 @@ let last = performance.now();
 let moveSendTimer = 0;
 const SPEED = 230;       // world units/sec, forward/back
 const TURN_SPEED = 3.0;  // radians/sec
+const FOOT_STRIDE = 110; // world units walked per footstep sound — cadence scales with speed
+let _footAccum = 0;      // distance banked toward the next step (primed when standing still)
 
 function updateOutdoor(stepX, stepY) {
   const nx = me.x + stepX, ny = me.y + stepY;
@@ -14687,6 +14689,22 @@ function update(dt) {
   if (delveSpeedMult !== 1 && me && typeof me.room === 'string' && me.room.startsWith('dungeon_delve_')) speed *= delveSpeedMult;
   const stepX = (fx * moveInput + rx * strafeInput) * speed * dt;
   const stepY = (fy * moveInput + ry * strafeInput) * speed * dt;
+
+  // Footsteps — paced by distance walked (not frames), so the cadence scales
+  // with speed (boosts sound faster) and stops when you stand still. playSfx
+  // routes to the recorded footstep variants (random pick) or the synth. Primed
+  // to FOOT_STRIDE while idle so the first step on moving off lands promptly.
+  // Teleports set me.x directly without going through stepX/stepY, so they can't
+  // trigger a burst.
+  if (me && !me.isDead) {
+    const stepped = Math.hypot(stepX, stepY);
+    if (stepped > 0.0001) {
+      _footAccum += stepped;
+      if (_footAccum >= FOOT_STRIDE) { _footAccum -= FOOT_STRIDE; if (typeof playSfx === 'function') playSfx('footstep'); }
+    } else {
+      _footAccum = FOOT_STRIDE;
+    }
+  }
 
   if (jumpActive) {
     jumpT += dt;

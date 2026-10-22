@@ -30,6 +30,16 @@ const SFX_LEVEL = 0.5;
 // sampled-audio engine is in.
 const SYNTH_MUTED = true;
 let sfxGain = null, sfxMuted = false, noiseBuffer = null;
+// Recorded SFX (ElevenLabs, public/audio/sfx/) ride a PARALLEL clean bus:
+// sfxFileGain → destination, bypassing the 3600 Hz low-pass + reverb that the
+// synth path uses (that chain is tuned to tame buzzy oscillators and would just
+// dull real recordings). It still tracks the same mute/volume as sfxGain. Buffers
+// are decoded once at audio-init from /audio/sfx/index.json; playSfx prefers a
+// loaded buffer and falls back to the synth for any id without a file.
+let sfxFileGain = null;
+let sfxBuffers = {};        // id -> [AudioBuffer, ...] (variants)
+let sfxLoadStarted = false;
+const SFX_FILE_GAIN = { footstep: 0.45 }; // per-id trim; footsteps sit under the mix
 // The 🔈 button is one global mute for BOTH music and sfx. It has a single
 // source of truth — tc_audio_muted — so the two buses can never drift apart. (An
 // earlier build persisted only the sfx half, which left reloads silent with
@@ -67,7 +77,59 @@ function ensureAudio() {
       const wet = audioCtx.createGain(); wet.gain.value = 0.16;
       sfxFilter.connect(conv); conv.connect(wet); wet.connect(audioCtx.destination); // wet tail
     } catch (e) { /* no convolver — dry path still works */ }
+    // Parallel clean bus for recorded SFX (no low-pass/reverb), same volume/mute.
+    sfxFileGain = audioCtx.createGain();
+    sfxFileGain.gain.value = sfxMuted ? 0 : SFX_LEVEL;
+    sfxFileGain.connect(audioCtx.destination);
+    loadSfxFiles(); // decode the generated set once
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
+}
+
+// Fetch the generated SFX manifest and decode each file into memory once. Best
+// effort: a missing index.json or a failed decode just leaves that id on the
+// synth fallback, so the game never breaks for want of an audio file.
+async function loadSfxFiles() {
+  if (sfxLoadStarted || !audioCtx) return;
+  sfxLoadStarted = true;
+  let index;
+  try {
+    const res = await fetch('/audio/sfx/index.json', { cache: 'force-cache' });
+    if (!res.ok) return;
+    index = await res.json();
+  } catch (e) { return; }
+  for (const id of Object.keys(index || {})) {
+    const files = index[id] || [];
+    for (const fn of files) {
+      try {
+        const r = await fetch('/audio/sfx/' + fn, { cache: 'force-cache' });
+        if (!r.ok) continue;
+        const buf = await audioCtx.decodeAudioData(await r.arrayBuffer());
+        (sfxBuffers[id] = sfxBuffers[id] || []).push(buf);
+      } catch (e) { /* skip this variant; synth covers the id */ }
+    }
+  }
+}
+
+// Play a recorded SFX for `name` if one is loaded; returns true if it did. Picks
+// a random variant (so repeats — footsteps, hits — don't sound identical) and
+// routes through the clean file bus with an optional per-id trim.
+function playSfxFile(name) {
+  const bufs = sfxBuffers[name];
+  if (!bufs || !bufs.length || !sfxFileGain || !audioCtx) return false;
+  const buf = bufs.length === 1 ? bufs[0] : bufs[(Math.random() * bufs.length) | 0];
+  try {
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const trim = SFX_FILE_GAIN[name];
+    if (trim != null && trim !== 1) {
+      const g = audioCtx.createGain(); g.gain.value = trim;
+      src.connect(g); g.connect(sfxFileGain);
+    } else {
+      src.connect(sfxFileGain);
+    }
+    src.start(audioCtx.currentTime);
+    return true;
+  } catch (e) { return false; }
 }
 
 // A short synthetic reverb impulse (decaying white noise) for the sfx tail.
@@ -327,6 +389,8 @@ function playSfx(name) {
   ensureAudio();
   if (!audioCtx || !sfxGain) return;
   if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+  // Prefer a recorded sound for this id; fall back to the synth voices below.
+  if (playSfxFile(name)) return;
   const t = audioCtx.currentTime;
   switch (name) {
     // ── Combat ──
@@ -356,6 +420,7 @@ function playSfx(name) {
 function setSfxMuted(muted) {
   sfxMuted = muted;
   if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : SFX_LEVEL, audioCtx.currentTime);
+  if (audioCtx && sfxFileGain) sfxFileGain.gain.setValueAtTime(muted ? 0 : SFX_LEVEL, audioCtx.currentTime); // clean bus mutes in lock-step
 }
 
 // The one global mute. Persists a single flag (tc_audio_muted) and drives both buses
