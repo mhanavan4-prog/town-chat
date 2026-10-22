@@ -11758,6 +11758,13 @@ function openLetterModal(letter) {
   if (letter.regrown > 0) lines.push(['🌿', `<b>${letter.regrown}</b> of your foraging patches ${letter.regrown === 1 ? 'has' : 'have'} regrown in the Wilds.`]);
   if (letter.questsReady > 0) lines.push(['📜', `<b>${letter.questsReady}</b> side ${letter.questsReady === 1 ? 'quest is' : 'quests are'} ready to take again.`]);
   if (letter.peddlerRotated) lines.push(['🌒', `The Midnight Peddler has turned his cart — <b>five new wonders</b> on the table.`]);
+  if (letter.coven) {
+    const c = letter.coven;
+    const who = `${c.sigil ? c.sigil + ' ' : ''}<b>${c.name}</b>`;
+    if (c.holdsCrown) lines.push(['🏆', `Your coven ${who} holds the Champions' Table this week — <b>${c.points}</b> points.`]);
+    else if (c.rank) lines.push(['🕸️', `Your coven ${who} sits <b>#${c.rank}</b> on the board this week with <b>${c.points}</b> points.`]);
+    else lines.push(['🕸️', `Your coven ${who} hasn't put a mark on the board yet this week — it's all to play for.`]);
+  }
   const cal = letter.calendar || calendarState;
   if (cal) {
     const now = Date.now();
@@ -11767,6 +11774,9 @@ function openLetterModal(letter) {
     if (now >= cal.festival.startsAt && now < cal.festival.endsAt) lines.push(['🏮', 'The Hearthmoon Festival fills the town today — +25% XP!']);
     if (bloodMoonActiveClient(now)) lines.push(['🔴', 'The BLOOD MOON is up at this very moment. Shards are falling.']);
   }
+  // Gentle nudges toward the daily/nightly rooms (server only sends these after
+  // a full day away) — reasons to wander back in.
+  (letter.nudges || []).forEach((n) => lines.push(['✨', n]));
   body.innerHTML = '';
   for (const [ico, html] of lines) {
     const row = document.createElement('div');
