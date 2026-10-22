@@ -6,7 +6,7 @@
 // THREE/LEGEND_FX are globals; textures/sprites, createHumanoid, door helpers,
 // and TOWN_NPCS/KK/kiosk data are injected; `me` via getter.
 // ---------------------------------------------------------------------------
-export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
+export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, mobileLite, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
     const mesh = createHumanoid(npc.charId).group;
@@ -400,9 +400,11 @@ function makeAltarCandle(x, y, z) {
   const flame = new THREE.Mesh(new THREE.ConeGeometry(1.6, 4, 8), new THREE.MeshBasicMaterial({ color: 0xffaa44 }));
   flame.position.y = 14;
   g.add(flame);
-  const flicker = new THREE.PointLight(0xffaa44, 0.5, 50);
-  flicker.position.y = 14;
-  g.add(flicker);
+  if (!mobileLite) {
+    const flicker = new THREE.PointLight(0xffaa44, 0.5, 50);
+    flicker.position.y = 14;
+    g.add(flicker);
+  }
   g.position.set(x, y, z);
   return g;
 }
@@ -588,11 +590,18 @@ function buildTownTemple(cx, cz) {
       // washed the whole platform, flattening the night). Intensity is ramped
       // by the day/night cycle via TEMPLE_TORCH_LIGHTS — low by day, bright at
       // night — so the flames read as the temple's own light after dark.
-      const torchLight = new THREE.PointLight(0xff8a3c, 0.3, 85);
-      torchLight.position.set(px, platformH + 50, pz);
-      g.add(torchLight);
-      if (TEMPLE_TORCH_LIGHTS) {
-        TEMPLE_TORCH_LIGHTS.push({ light: torchLight, phase: TEMPLE_TORCH_LIGHTS.length * 1.7 });
+      // Mobile GPU-fill pass: every scene PointLight is re-evaluated on every
+      // ground pixel, and the town's floor fills the screen — profiling put it
+      // ~2× slower looking down vs up. The four temple torches are clustered
+      // ambiance on one platform, so skip their lights on mobile (the flames/
+      // models still show). Keeps the per-ground-pixel light loop short.
+      if (!mobileLite) {
+        const torchLight = new THREE.PointLight(0xff8a3c, 0.3, 85);
+        torchLight.position.set(px, platformH + 50, pz);
+        g.add(torchLight);
+        if (TEMPLE_TORCH_LIGHTS) {
+          TEMPLE_TORCH_LIGHTS.push({ light: torchLight, phase: TEMPLE_TORCH_LIGHTS.length * 1.7 });
+        }
       }
     }
   }
@@ -612,9 +621,12 @@ function buildTownTemple(cx, cz) {
   altarRim.position.set(cx, platformH + 24.5, cz);
   g.add(altarRim);
   // A faint permanent ember glow on the altar hints at what happens at night.
-  const emberGlow = new THREE.PointLight(0xff5522, 0.5, 100);
-  emberGlow.position.set(cx, platformH + 34, cz);
-  g.add(emberGlow);
+  // Dropped on mobile with the rest of the temple-cluster lights (fill pass).
+  if (!mobileLite) {
+    const emberGlow = new THREE.PointLight(0xff5522, 0.5, 100);
+    emberGlow.position.set(cx, platformH + 34, cz);
+    g.add(emberGlow);
+  }
 
   // Altar trinkets — the rim top sits at platformH + 27 (rim center 24.5 +
   // half its 5 height). Pentacle medallion dead center, the rest spread
