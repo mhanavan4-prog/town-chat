@@ -8336,6 +8336,7 @@ const {
   KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid: createStaticNpc, getDoorSide, getDoorWorldPos, kkPlace,
   makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture,
   getMe: () => me,
+  mobileLite: MOBILE_UI, // mobile GPU-fill pass: drop the clustered temple ambiance lights
   TEMPLE_TORCH_LIGHTS,
   setDelveStoneGroup: (g) => { delveStoneGroup = g; },
   setPeddlerStallGroup: (g) => { peddlerStallGroup = g; },
