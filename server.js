@@ -6901,14 +6901,92 @@ const NPC_SHOPS = {
 // whatever quest they're already on. See npc_hint_talk below and
 // getQuestHint() for how the actual hint text is derived from the quest's
 // own type/target rather than being hand-authored per quest.
+// Building-interior locals. Not quest-givers (not in QUEST_BY_NPC), but no
+// longer empty: each has their own voice — a pool of rotating `flavor` lines,
+// an optional `daily` set that rotates once per day (date-seeded, so it reads
+// as "today's gossip/book/drill" with no cron), and an optional `live(player)`
+// hook that pulls REAL game state (the week's top coven, the Ember Wastes PvP
+// watch). getNpcHintLine() below composes one line per visit; a player on an
+// active quest still gets their hint appended, so these stay useful when stuck.
 const NPC_HINT_GIVERS = {
-  npc_patron: { name: 'Old Mabel' },
-  npc_apprentice: { name: 'Apprentice Wren' },
-  npc_tinkerer: { name: 'Tinkerer Oswin' },
-  npc_noble: { name: 'Lady Corwin' },
-  npc_knight: { name: 'Sir Dorran' },
-  npc_guard: { name: 'Guard Petra' }
+  npc_patron: { name: 'Old Mabel', flavor: [
+    'settles her shawl. "This tea\'s gone cold twice over waiting for someone interesting to walk in. You\'ll do."',
+    '"You\'ve the look of someone who skips breakfast. A body can\'t hex on an empty stomach, dear."',
+    'squints. "I knew your face before you had it. Or someone\'s. They all blur after ninety winters."'
+  ], daily: [
+    'leans in with a glint. "Heard the Scholar\'s been talking to the books again — and the books talking BACK."',
+    'murmurs. "Someone left a single boot in the séance circle. Still waiting on the other, I expect."',
+    'tuts. "Tinkerer Oswin\'s got a new gadget. Last one set the notice-board alight, so mind yourself."',
+    '"The crows are walking instead of flying. That\'s never once meant good news."',
+    'sighs. "Lady Corwin\'s wearing last season\'s cloak. The scandal. I\'ve aged a year just seeing it."'
+  ] },
+  npc_apprentice: { name: 'Apprentice Wren', flavor: [
+    'nearly drops an armful of scrolls. "Oh — hello! Sorry, I\'m not supposed to— well. Scholar Elior\'s very particular."',
+    'whispers. "Shelf thirteen hums at night. Elior says it\'s the pipes. We don\'t have pipes."',
+    '"If you ever find a book that\'s warm to the touch — DON\'T open it. That\'s rule one. Of forty."'
+  ], daily: [
+    'leans in. "Today\'s locked-away one is \'On the Folding of Doors.\' I read half a page and forgot my own name for an hour."',
+    'glances at the glass case. "The forbidden shelf gave up \'Correspondence With the Drowned\' this morning. The ink\'s still wet."',
+    'shivers. "Today it\'s \'A Gardener\'s Guide to Teeth.\' I didn\'t ask. I never ask."',
+    'points at a blank spine. "Today\'s is just a book titled \'You Already Know.\' Those are the worst ones."',
+    'whispers. "\'Seven Names the Moon Answers To\' is out today. Elior won\'t say the sixth."'
+  ] },
+  npc_tinkerer: { name: 'Tinkerer Oswin', flavor: [
+    'doesn\'t look up from a sparking gizmo. "Mm? Oh. Don\'t touch the glowing bits. Or do — I need test data."',
+    '"The arcade cabinets? Built \'em myself. Mostly. One of them bites. I forget which."',
+    'counts his hands. "Genius is ninety percent not losing a finger. I\'m at eight. Great week."'
+  ], daily: [
+    'taps a schematic. "Today\'s build: a lantern that runs on secrets. Trouble is it only lights when you lie to it."',
+    '"Working on self-sorting dice. So far they only roll the number you\'ll regret."',
+    'grins. "New prototype — a compass that points at whatever you\'re avoiding. Unpopular. Very accurate."',
+    'shakes a backwards-ticking clock. "Says it\'s yesterday. Honestly? More productive."'
+  ] },
+  npc_noble: { name: 'Lady Corwin', flavor: [
+    'regards you down her nose. "Mm. You may look. Briefly."',
+    '"The Parlor isn\'t what it was. Though it never was much, so perhaps it\'s exactly what it was."',
+    'waves a gloved hand. "One does not \'hang about\' the séance circle, darling. One attends it."'
+  ], live(/* player */) {
+    const top = covenStandings(weekKey(Date.now()))[0];
+    return (top && top.points > 0)
+      ? `sniffs. "The ${top.sigil || '🕸️'} ${top.name} lead the boards this week. Dreadfully nouveau, but one does keep count."`
+      : 'inspects a nail. "Not one coven has stirred itself up the boards this week. Typical. Nobody has ambition anymore."';
+  } },
+  npc_knight: { name: 'Sir Dorran', flavor: [
+    'stands a little straighter. "Citizen. The hall is secure. See that you keep it so."',
+    '"I\'ve stood this post through three Mabons. The dead get restless when the leaves turn — stay sharp after dark."',
+    'rests a hand on his pommel. "A blade\'s only as steady as the hand that holds it."'
+  ], daily: [
+    'nods curtly. "Today\'s counsel: strike, then step. Standing still in a fight is a decision to be hit."',
+    '"Watch the horizon, not the blade in front of you. The blow that lands is the one you didn\'t count."',
+    '"Rest is a weapon. A tired guard is an open gate. Don\'t grind yourself to nothing chasing coin."'
+  ] },
+  npc_guard: { name: 'Guard Petra', flavor: [
+    'keeps her stare on the door. "Move along, or state your business. Preferably the first."',
+    '"Town\'s quiet. I don\'t trust quiet. Quiet is just loud that hasn\'t happened yet."',
+    'sizes you up. "You carry yourself like trouble. Good — we\'re short on it lately and I\'m bored."'
+  ], live(/* player */) {
+    const warlord = (typeof emberMobs !== 'undefined') && emberMobs.some((m) => m.boss && !m.dead);
+    return warlord
+      ? 'lowers her voice. "Past the Ember portal it\'s open blood — everyone\'s a target out on the flats. And the Wastes\' warlord still draws breath. Pity the fools who go looking."'
+      : 'jerks a thumb toward the Wastes. "Past the Ember portal it\'s open blood — everyone\'s fair game out there. Warden Kol\'s trials have folk limping home all week."';
+  } }
 };
+
+// Compose a hint-giver's spoken line: one of their flavor lines, or today's
+// rotating daily line, or their live-state line — picked at random so repeat
+// visits vary and the data hooks surface on rotation. Date-seeds `daily` by the
+// day number so it changes once per day without any scheduler.
+function getNpcHintLine(giver, player) {
+  const pool = Array.isArray(giver.flavor) ? giver.flavor.slice() : [];
+  if (Array.isArray(giver.daily) && giver.daily.length) {
+    const day = Math.floor(Date.now() / 86400000);
+    pool.push(giver.daily[day % giver.daily.length]);
+  }
+  if (typeof giver.live === 'function') {
+    try { const l = giver.live(player); if (l) pool.push(l); } catch (e) { /* live hook is best-effort */ }
+  }
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : 'nods at you.';
+}
 
 // Generic, type-driven hint text — works for any quest without needing a
 // hand-written line per quest id, so new quests/hint-NPCs don't need this
@@ -10069,15 +10147,14 @@ wss.on('connection', (ws, req) => {
       const giver = NPC_HINT_GIVERS[npcId];
       if (!giver) return;
       storyEvent(player, 'talk_npc', { npcId });
+      // Always lead with the NPC's own voice (flavor / today's line / a live
+      // hook) so a visit is never empty. If the player is mid-quest, append the
+      // quest hint quietly afterward, so these locals still help when you're stuck.
+      let message = `${giver.name} ${getNpcHintLine(giver, player)}`;
       const aq = player.activeQuest;
-      let message;
-      if (!aq) {
-        message = `${giver.name} shrugs. "You're not chasing anything right now — find someone with work for you, then come find me again."`;
-      } else {
+      if (aq) {
         const quest = QUEST_CATALOG[aq.questId];
-        message = quest
-          ? `${giver.name} leans in. "${getQuestHint(quest, aq.progress)}"`
-          : `${giver.name} tilts their head. "Can't place what you're on about — ask whoever sent you."`;
+        if (quest) message += ` Then, quieter: "${getQuestHint(quest, aq.progress)}"`;
       }
       send(ws, { type: 'npc_hint_dialogue', npcId, npcName: giver.name, message });
       return;
