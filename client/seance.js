@@ -21,6 +21,8 @@ export default function createSeance({ send, getMe, shortWhen }) {
   let tStart = 0, tDur = 600, moving = false;
   let state = null;         // last seance_state payload
   let busy = false;         // a ritual is playing
+  let soloMode = false;     // opened at the town Hagstone by a coven-less seeker
+  let soloSpent = false;    // the one free solo question has been asked this open
 
   const reduce = typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -139,6 +141,14 @@ export default function createSeance({ send, getMe, shortWhen }) {
     const status = document.getElementById('seanceStatus');
     const btn = document.getElementById('seanceCommuneBtn');
     if (!status || !btn) return;
+    // Solo Hagstone taste: no coven, no offering, no member gate — one free
+    // question, then the found-a-coven hook.
+    if (soloMode) {
+      if (busy) { status.textContent = 'The veil is open — hold still and listen…'; btn.disabled = true; }
+      else if (soloSpent) { status.textContent = 'The veil closes. It answers louder for a circle — found a coven at this stone to call the board whenever you wish.'; btn.disabled = true; }
+      else { status.textContent = 'The old stone will answer a lone seeker but once. Ask, and the veil opens.'; btn.disabled = false; }
+      return;
+    }
     if (!state) { status.textContent = 'Consulting the board…'; btn.disabled = true; return; }
     const now = Date.now();
     let msg, canStart = false;
@@ -151,15 +161,35 @@ export default function createSeance({ send, getMe, shortWhen }) {
     btn.disabled = !canStart;
   }
 
+  // Swap the board's title/subtitle/button between coven and solo framing.
+  function applyModeChrome() {
+    const card = document.getElementById('seanceCard');
+    if (!card) return;
+    const title = card.querySelector('.title');
+    const sub = card.querySelector('.subtitle');
+    const btn = document.getElementById('seanceCommuneBtn');
+    if (title) title.textContent = soloMode ? '🔮 The Hagstone Whispers' : '🔮 The Séance Board';
+    if (sub) sub.textContent = soloMode
+      ? 'You stand alone at the old stone. Ask once; the veil will answer.'
+      : 'Gather the coven and call through the thinning veil.';
+    if (btn) btn.textContent = soloMode ? 'Ask the veil' : 'Commune';
+  }
+
   // ── public: open / close / render / message handling ──────────────────────
-  function openSeanceModal() {
+  function openSeanceModal(opts) {
+    soloMode = !!(opts && opts.solo);
+    soloSpent = false;
+    busy = false;
     buildBoard();
+    applyModeChrome();
     Modals.set('seanceModalOpen', true);
     const m = document.getElementById('seanceModal');
     if (m) m.classList.remove('hidden');
-    setReadout('the board waits in silence…');
+    setReadout(soloMode ? 'the stone waits, patient and cold…' : 'the board waits in silence…');
     startLoop();
-    send({ type: 'seance_state' });
+    // Solo has no coven-side state to fetch; its panel is driven locally.
+    if (soloMode) { state = { enabled: true }; }
+    else { send({ type: 'seance_state' }); }
     renderPanel();
   }
   function closeSeanceModal() {
@@ -215,6 +245,7 @@ export default function createSeance({ send, getMe, shortWhen }) {
         if (planchette) planchette.classList.remove('channeling');
         glideTo(REST.x, REST.y, 700);
         busy = false;
+        if (soloMode || msg.solo) soloSpent = true; // the one free question is spent
         { const c = document.getElementById('seanceReadout'); const cur = c && c.querySelector('.sbCursor'); if (cur) cur.remove(); }
         renderPanel();
         return true;
@@ -233,7 +264,9 @@ export default function createSeance({ send, getMe, shortWhen }) {
     const btn = document.getElementById('seanceCommuneBtn');
     if (btn) btn.addEventListener('click', () => {
       const q = document.getElementById('seanceQuestion');
-      send({ type: 'seance_start', question: (q && q.value) || '' });
+      const question = (q && q.value) || '';
+      if (soloMode) { busy = true; renderPanel(); send({ type: 'solo_seance_start', question }); }
+      else send({ type: 'seance_start', question });
     });
     const q = document.getElementById('seanceQuestion');
     if (q) q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = document.getElementById('seanceCommuneBtn'); if (b && !b.disabled) b.click(); } });

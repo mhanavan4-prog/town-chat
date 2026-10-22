@@ -141,6 +141,21 @@ test('buildUserContent frames the coven, moon and question', () => {
   assert.ok(/ask nothing/i.test(silent));
 });
 
+test('buildUserContent frames a solo Hagstone seeker, not a coven', () => {
+  // The solo taste (roadmap #5) must not describe a gathered coven or a circle
+  // of witches — it is one seeker at the stone. The question still threads
+  // through, and world facts still apply.
+  const c = createSpirit.buildUserContent({ solo: true, seekerName: 'Vesper', question: 'who are you', facts: 'it is night' });
+  assert.ok(/lone seeker/i.test(c), 'framed as a lone seeker');
+  assert.ok(/Vesper/.test(c), 'the seeker name threads through');
+  assert.ok(!/is gathered at the board/i.test(c), 'not framed as a gathered coven');
+  assert.ok(!/witches hold the circle/i.test(c), 'no circle of witches');
+  assert.ok(/who are you/.test(c) && /WORLD FACTS/i.test(c), 'question + world facts still present');
+  // Nameless solo seeker still works.
+  const anon = createSpirit.buildUserContent({ solo: true });
+  assert.ok(/lone seeker/i.test(anon) && !/is gathered at the board/i.test(anon));
+});
+
 test('buildUserContent passes world facts and tells the spirit to echo the question', () => {
   const facts = 'it is night; the next blood moon (the full moon) rises in about 3 nights';
   const c = createSpirit.buildUserContent({ facts, question: 'when is the next full moon' });

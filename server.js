@@ -7275,7 +7275,7 @@ function seanceStateBody(cv) {
     active: !!sess,
     phase: sess ? sess.phase : 'idle',
     membersPresent: manorMembersOf(cv).length,
-    minMembers: seance.CONFIG.MIN_MEMBERS,
+    minMembers: cv.seanceEverRun ? seance.CONFIG.MIN_MEMBERS : 1, // founding séance runs with one
     offeringCost: seance.CONFIG.OFFERING_GOLD,
     cooldownUntil: cdUntil > now ? cdUntil : 0,
     asker: sess ? sess.askerName : null,
@@ -7347,11 +7347,15 @@ function seanceGameState() {
 // is spelled directly (source 'lore'). Otherwise it's an ordinary AI or fallback
 // reply. Every route passes the SAME safety gate (charset + blocklist + cap);
 // nothing reaches the board unsanitized. Each call is logged for ops review.
-async function resolveSeanceAnswer(cv, askerKey, question) {
+// The shared answer core — ONE safety gate for every board, coven or solo.
+// Takes a ready spirit context (minus the secret, which it slips in) plus audit
+// meta, and returns the sanitized { message, source }. Both the coven board and
+// the solo Hagstone taste resolve through here so neither can drift from the
+// other's charset/blocklist/cap handling.
+async function resolveSeanceCtx(ctx, auditMeta) {
   const bloodMoon = seanceBloodMoon();
   const chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
   const hint = seance.shouldHint(Math.random, chance) ? seance.pickLoreHint() : null;
-  const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon(), facts: seanceGameState() };
   if (hint) ctx.secret = hint.seed;
 
   let raw = null, message = null, source;
@@ -7365,9 +7369,23 @@ async function resolveSeanceAnswer(cv, askerKey, question) {
   else if (hint) { message = seance.sanitize(hint.line, { blocklist: SEANCE_BLOCKLIST }); source = 'lore'; }
   if (!message) { message = seance.sanitize(seance.pickAnswer(), { blocklist: SEANCE_BLOCKLIST }) || 'GOODBYE'; source = 'fallback'; }
   try {
-    audit.log({ level: 'info', type: 'seance_answer', account: askerKey || null, detail: { coven: cv.id, source, bloodMoon, aiError, question: question || '', raw: raw || '', message } });
+    audit.log({ level: 'info', type: 'seance_answer', account: (auditMeta && auditMeta.account) || null, detail: Object.assign({ source, bloodMoon, aiError, question: ctx.question || '', raw: raw || '', message }, (auditMeta && auditMeta.detail) || {}) });
   } catch (e) { /* logging must never break the ritual */ }
   return { message, source };
+}
+
+async function resolveSeanceAnswer(cv, askerKey, question) {
+  const ctx = { covenName: cv.name, present: manorMembersOf(cv).length, question, moon: seanceMoon(), facts: seanceGameState() };
+  return resolveSeanceCtx(ctx, { account: askerKey, detail: { coven: cv.id } });
+}
+
+// The solo Hagstone taste (roadmap #5): a lone, coven-less seeker gets ONE free
+// question of the veil in the town square. Same spirit, same safety gate as the
+// coven board — only the framing is solitary (no covenName/present; a solo flag
+// steers the prompt) and the audit is tagged solo for the onboarding funnel.
+async function resolveSoloSeanceAnswer(seekerName, askerKey, question) {
+  const ctx = { solo: true, seekerName, question, moon: seanceMoon(), facts: seanceGameState() };
+  return resolveSeanceCtx(ctx, { account: askerKey, detail: { solo: true } });
 }
 
 // Schedule the planchette steps + the close, relative to now (the buildup has
@@ -7416,6 +7434,61 @@ async function runSeance(cv, askerName, askerKey, question) {
   const wait = Math.max(0, cfg.BUILDUP_MS - (Date.now() - t0));
   sess.timers.push(setTimeout(() => {
     if (seanceSessions.get(cv.id) === sess) spellSeance(cv, sess, message);
+  }, wait));
+}
+
+// The solo Hagstone ritual — a private, one-player echo of runSeance/spellSeance.
+// It never touches seanceSessions or broadcastSeance (those are coven-keyed);
+// everything is sent to the one seeker's socket. The session rides on the player
+// object (player._soloSeance) so a disconnect or a second attempt can't leave
+// orphaned timers spelling into the void. The SAME seance.buildSteps /
+// scheduleFor / CONFIG timing drives it, so the board animates identically.
+function clearSoloSeance(player) {
+  const sess = player && player._soloSeance;
+  if (!sess) return;
+  for (const t of sess.timers) clearTimeout(t);
+  player._soloSeance = null;
+}
+// Who gets the free solo question: a signed-in player (so the one-shot persists
+// and guests can't farm it), with no coven (coven members have the real board),
+// who hasn't spent it yet. Room is checked at the call site — this is the
+// persistent half of the gate.
+function soloSeanceEligible(player) {
+  if (!player || !player.accountKey) return false;
+  if (!seanceEnabled()) return false;               // respect the ops kill-switch
+  if (covenOf(player.accountKey)) return false;
+  let prog; try { prog = getProgress(player); } catch (e) { return false; }
+  return !(prog && prog.soloSeanceUsed);
+}
+async function runSoloSeance(player, question) {
+  const cfg = seance.CONFIG;
+  const sess = { timers: [] };
+  player._soloSeance = sess;
+  const alive = () => player._soloSeance === sess && player.ws && player.ws.readyState === 1 && players.get(player.id) === player;
+  send(player.ws, {
+    type: 'seance_begin', asker: player.name, question,
+    buildupMs: cfg.BUILDUP_MS, total: 0, travelMs: cfg.TRAVEL_MS, dwellMs: cfg.DWELL_MS, solo: true,
+  });
+
+  const t0 = Date.now();
+  const { message } = await resolveSoloSeanceAnswer(player.name, player.accountKey, question);
+  if (!alive()) { clearSoloSeance(player); return; }
+  const wait = Math.max(0, cfg.BUILDUP_MS - (Date.now() - t0));
+  sess.timers.push(setTimeout(() => {
+    if (!alive()) { clearSoloSeance(player); return; }
+    const { steps } = seance.buildSteps(message);
+    const sched = seance.scheduleFor(steps, cfg);
+    sched.forEach((step, i) => {
+      sess.timers.push(setTimeout(() => {
+        if (!alive()) return;
+        send(player.ws, { type: 'seance_step', i, kind: step.kind, glyph: step.glyph, char: step.char, repeat: !!step.repeat });
+      }, step.atMs));
+    });
+    const totalMs = (sched.length ? sched[sched.length - 1].atMs : 0) + cfg.CLOSE_MS;
+    sess.timers.push(setTimeout(() => {
+      if (alive()) send(player.ws, { type: 'seance_end', message, solo: true });
+      clearSoloSeance(player);
+    }, totalMs));
   }, wait));
 }
 
@@ -11373,7 +11446,15 @@ wss.on('connection', (ws, req) => {
       }
       if (delveRunOf(player)) { send(ws, { type: 'moot_error', message: 'Not while you’re delving.' }); return; }
       const cv = player.accountKey && covenOf(player.accountKey);
-      if (!cv) { send(ws, { type: 'moot_error', message: 'The stone is cold to your touch — you belong to no coven.' }); return; }
+      if (!cv) {
+        // No coven — but the stone isn't dead to a lone seeker. Offer the
+        // one free solo séance (roadmap #5) so the board's magic lands BEFORE
+        // the coven ask, not after. Spent-once or guest → the old cold line,
+        // now pointed at founding a coven here.
+        if (soloSeanceEligible(player)) { send(ws, { type: 'solo_seance_offer' }); return; }
+        send(ws, { type: 'moot_error', message: 'The stone is cold to your touch — found a coven here to call the board with your circle.' });
+        return;
+      }
       const leaving = player.instance;                        // current channel
       const target = player.instance ? null : ('coven_' + cv.id); // toggle public <-> private
       broadcastInstance(leaving, { type: 'player_left', id: player.id }, ws);  // vanish from the world you're leaving
@@ -11384,6 +11465,33 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: target ? 'moot_entered' : 'moot_exited', covenName: cv.name, covenSigil: cv.sigil, roster });
       audit.log({ level: 'info', type: target ? 'moot_enter' : 'moot_exit',
         ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id } });
+      return;
+    }
+
+    // ── The solo Hagstone taste (roadmap #5): one free question for a lone,
+    //    coven-less seeker in the town square. Server owns the whole ritual;
+    //    the client just renders the board it's already sent. ──
+    if (msg.type === 'solo_seance_start') {
+      if (!player || player.room !== 'outside' || (player.roomLockUntil && Date.now() < player.roomLockUntil)) {
+        send(ws, { type: 'seance_error', message: 'The Hagstone only answers in the town square.' });
+        return;
+      }
+      if (delveRunOf(player)) { send(ws, { type: 'seance_error', message: 'Not while you’re delving.' }); return; }
+      if (!soloSeanceEligible(player)) {
+        send(ws, { type: 'seance_error', message: 'The stone has already whispered to you once. Found a coven to call the board again.' });
+        return;
+      }
+      if (player._soloSeance) { send(ws, { type: 'seance_error', message: 'The veil is already open — wait for it to close.' }); return; }
+      if (audit.hit(player.accountKey, 'solo_seance', 60 * 1000) > 3) return; // anti-spam
+      // Burn the one-shot BEFORE running so a mid-ritual disconnect/retry can't
+      // farm a second question; it's a taste, not a faucet.
+      const prog = getProgress(player);
+      prog.soloSeanceUsed = true;
+      if (player.accountKey) saveProgress();
+      const question = seance.normalizeMessage(msg.question || '').slice(0, 80);
+      audit.log({ level: 'info', type: 'solo_seance_start', ip: ws._ip, account: player.accountKey, name: player.name, detail: {} });
+      analytics.bump('solo_seance.used'); // onboarding funnel: solo taste → coven conversion
+      runSoloSeance(player, question).catch(() => { try { clearSoloSeance(player); } catch (_) { /* noop */ } });
       return;
     }
 
@@ -12302,10 +12410,15 @@ wss.on('connection', (ws, req) => {
         return;
       }
       const acct = ensureBankAccount(player.accountKey);
+      // Founding séance: a brand-new coven's very FIRST board call works with a
+      // single member present, so a coven of one isn't dead content until they
+      // recruit. Every call after that needs the usual circle (MIN_MEMBERS).
+      const foundingCall = !cv.seanceEverRun;
       const gate = seance.canStart({
         enabled: seanceEnabled(), inCoven: true, inManor: true,
         active: seanceSessions.has(cv.id),
         membersPresent: manorMembersOf(cv).length,
+        minMembers: foundingCall ? 1 : undefined,
         gold: acct.balance, lastAt: 0, now, cooldownMs: 0,
       });
       if (!gate.ok) { send(ws, { type: 'seance_error', message: seanceReason(gate) }); return; }
@@ -12315,6 +12428,7 @@ wss.on('connection', (ws, req) => {
       saveBankAccounts();
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       cv.seanceCdUntil = now + seance.CONFIG.COOLDOWN_MS;
+      if (foundingCall) cv.seanceEverRun = true; // spend the one-member grace
       saveCoven(cv.id);
       const question = seance.normalizeMessage(msg.question || '').slice(0, 80);
       audit.log({ level: 'info', type: 'seance_start', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: cv.id, present: manorMembersOf(cv).length } });

@@ -2575,6 +2575,7 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'solo_seance_offer') { openSeanceModal({ solo: true }); return; }
   if (msg.type && msg.type.indexOf('seance_') === 0) {
     if (msg.type === 'seance_error') setUnlockToast(msg.message || 'The board will not answer.');
     handleSeanceMessage(msg);
@@ -13728,7 +13729,11 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'moot') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
+    // A coven-less seeker is invited to ask the veil (the free solo taste);
+    // a coven member steps through to their private world.
+    document.getElementById('interactHintText').textContent = !covenState
+      ? `${interactVerb()} ask the veil at the Hagstone`
+      : `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
     return;
   }
   if (kiosk && kiosk.npc === 'locksmith') {
