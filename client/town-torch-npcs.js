@@ -133,6 +133,12 @@ function applyTownTorchState(torches) {
     if (!v) continue;
     v.flame.visible = t.lit;
     v.light.intensity = t.lit ? 1.3 : 0;
+    // Perf: an unlit torch's PointLight sits at intensity 0 but Three.js still
+    // iterates it per-pixel in every lit material's shader. Hiding it drops it
+    // from the light loop entirely — a real mobile win by day, when all four
+    // ritual torches are dark. (Toggling visibility recompiles the lighting
+    // shader once, at dusk/dawn when they actually light — not per frame.)
+    v.light.visible = t.lit;
   }
 }
 

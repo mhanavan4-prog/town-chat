@@ -15926,6 +15926,12 @@ function applyTownTorchState(torches) {
     if (!v) continue;
     v.flame.visible = t.lit;
     v.light.intensity = t.lit ? 1.3 : 0;
+    // Perf: an unlit torch's PointLight sits at intensity 0 but Three.js still
+    // iterates it per-pixel in every lit material's shader. Hiding it drops it
+    // from the light loop entirely — a real mobile win by day, when all four
+    // ritual torches are dark. (Toggling visibility recompiles the lighting
+    // shader once, at dusk/dawn when they actually light — not per frame.)
+    v.light.visible = t.lit;
   }
 }
 
@@ -30388,6 +30394,41 @@ if (leaveBtn) leaveBtn.addEventListener('click', leaveCurrentBuilding);
 // ---------------------------------------------------------------------------
 let last = performance.now();
 let moveSendTimer = 0;
+
+// ── TEMPORARY perf HUD (remove after mobile profiling) ──────────────────────
+// A tiny always-on readout for ALL players: smoothed FPS + draw calls +
+// triangles + visible dynamic-light count, so we can measure the town-vs-wilds
+// frame-rate gap on a real phone without an admin login. Tap it to hide.
+// renderer.info is read with autoReset off so the count spans every composer
+// pass (scene + shadow + post), i.e. the whole frame's GPU draw calls.
+let _perfOn = true, _perfEl = null, _perfFrames = 0, _perfWindowStart = performance.now(), _perfFps = 0;
+function updatePerfHud(now) {
+  if (!_perfEl) {
+    _perfEl = document.createElement('div');
+    _perfEl.id = 'perfHud';
+    _perfEl.style.cssText = 'position:fixed;top:92px;left:8px;z-index:60;background:rgba(10,8,22,0.82);color:#9effa6;font:600 11px/1.3 ui-monospace,Menlo,monospace;padding:5px 8px;border-radius:7px;border:1px solid rgba(158,255,166,0.25);pointer-events:auto;white-space:nowrap;letter-spacing:.2px';
+    _perfEl.title = 'Tap to hide (temporary perf meter)';
+    _perfEl.addEventListener('click', () => { _perfOn = false; _perfEl.style.display = 'none'; });
+    (document.body || document.documentElement).appendChild(_perfEl);
+  }
+  if (!_perfOn) { _perfEl.style.display = 'none'; return; }
+  _perfFrames++;
+  const span = now - _perfWindowStart;
+  if (span >= 500) {
+    _perfFps = Math.round((_perfFrames * 1000) / span);
+    _perfFrames = 0; _perfWindowStart = now;
+    const ri = (renderer && renderer.info && renderer.info.render) ? renderer.info.render : null;
+    const calls = ri ? ri.calls : 0;
+    const tris = ri ? ri.triangles : 0;
+    let lights = 0;
+    if (activeScene) activeScene.traverse(o => { if (o.visible && (o.isPointLight || o.isSpotLight)) lights++; });
+    const trisTxt = tris >= 1000 ? (Math.round(tris / 100) / 10) + 'k' : String(tris);
+    const zone = (me && me.room) ? me.room : '—';
+    _perfEl.style.display = 'block';
+    _perfEl.style.color = _perfFps >= 50 ? '#9effa6' : _perfFps >= 35 ? '#ffe08a' : '#ff8a8a';
+    _perfEl.textContent = _perfFps + ' fps · ' + calls + ' draws · ' + trisTxt + ' tris · ' + lights + ' lights · ' + zone;
+  }
+}
 const SPEED = 230;       // world units/sec, forward/back
 const TURN_SPEED = 3.0;  // radians/sec
 
@@ -30709,6 +30750,11 @@ function update(dt) {
 
 function render() {
   if (!me || !world || !renderer || !activeScene || !activeCamera) return;
+  // Count draw calls across the WHOLE frame (shadow pass + scene + post) for the
+  // temporary perf HUD: turn off auto-reset and reset once here, so every
+  // renderer.render inside composer.render() accumulates instead of clobbering.
+  if (renderer.info.autoReset !== false) renderer.info.autoReset = false;
+  renderer.info.reset();
   GFX.beforeRender();
   if (GFX.composerActive()) {
     GFX.renderPass.scene = activeScene;
@@ -30717,6 +30763,7 @@ function render() {
   } else {
     renderer.render(activeScene, activeCamera);
   }
+  updatePerfHud(performance.now());
   syncLabels();
   updateNameLabelHover();
   updateLootIcons();
