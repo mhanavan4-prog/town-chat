@@ -520,7 +520,8 @@ function dyeUnlocked(player, dyeId) {
   if (u.lvl) return (player.level || 1) >= u.lvl;
   if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
   if (u.quest) { const prog = getProgress(player); return !!(prog.questsDone && prog.questsDone[u.quest]); }
-  if (u.ms) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
+  // Moonstone AND gold purchases both record ownership in progress.dyeUnlocks.
+  if (u.ms || u.gold) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
 }
 
@@ -9300,10 +9301,24 @@ wss.on('connection', (ws, req) => {
       const dyeId = String(msg.dye || '');
       const d = DYES.find((x) => x.id === dyeId);
       const u = d ? dyeUnlock(dyeId) : null;
-      if (!d || !u || !u.ms) { send(ws, { type: 'ms_error', message: 'That dye isn’t for sale.' }); return; }
+      if (!d || !u || !(u.ms || u.gold)) { send(ws, { type: 'ms_error', message: 'That dye isn’t for sale.' }); return; }
       const prog = getProgress(player);
       if (!prog.dyeUnlocks) prog.dyeUnlocks = [];
       if (prog.dyeUnlocks.indexOf(dyeId) !== -1) { send(ws, { type: 'dye_bought', dye: dyeId }); return; } // already owned
+      if (u.gold) {
+        // The Finery line (roadmap #7): a GOLD cosmetic sink, charged from the bank.
+        const acct = ensureBankAccount(player.accountKey);
+        if (acct.balance < u.gold) { send(ws, { type: 'ms_error', message: `That dye is ${u.gold} gold — you hold ${acct.balance}.` }); return; }
+        acct.balance -= u.gold;
+        saveBankAccounts();
+        analytics.bump('buy.gdn.dye:' + dyeId);          // gold dye count
+        analytics.bump('buy.gdg.dye:' + dyeId, u.gold);  // gold spent on dyes (a real sink metric)
+        prog.dyeUnlocks.push(dyeId);
+        try { saveProgress(); } catch (e) {}
+        send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+        send(ws, { type: 'dye_bought', dye: dyeId });
+        return;
+      }
       if (msBalance(player.accountKey) < u.ms) { send(ws, { type: 'ms_error', message: `That dye is ${u.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
       msAdjust(player.accountKey, -u.ms);
       analytics.bump('buy.msn.dye:' + dyeId);
