@@ -24,7 +24,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
-import crypto from 'node:crypto';
 
 const ROOT = path.resolve(url.fileURLToPath(import.meta.url), '..', '..');
 const ENTRY = path.join(ROOT, 'client', 'main.js');
@@ -75,29 +74,21 @@ process(ENTRY);
 const bundle = '(() => {\n"use strict";\n' + chunks.join('\n') + '\n})();\n';
 fs.writeFileSync(OUT, bundle);
 
-// Cache-busting: stamp index.html's <script src="client.js"> with a short hash
-// of the bundle's contents. A changed bundle gets a new URL (client.js?v=HASH),
-// which is a guaranteed cache miss at every layer — the browser AND any CDN in
-// front (Cloudflare caches .js by extension and can serve a stale copy for a
-// long time otherwise, stranding players on an old build after a deploy). The
-// server serves client.js?v=… as plain client.js (express.static ignores the
-// query), and index.html itself is sent no-cache so it's always fresh enough to
-// carry the new hash. index.html is committed alongside client.js, so the two
-// can never drift.
-const HASH = crypto.createHash('sha256').update(bundle).digest('hex').slice(0, 10);
+// Cache-busting is now applied at SERVE time, not build time: the server reads
+// public/client.js, hashes it, and injects `client.js?v=HASH` into the shell it
+// sends for /play (see gameShellHtml in server.js). That keeps public/index.html
+// static in git — the hash used to be stamped here and committed, so every
+// branch changed the same line and the generated bundle, and the two collided
+// on every merge. public/client.js is likewise generated and no longer tracked
+// (.gitignore); CI and the deploy build it. This script only writes the bundle.
+//
+// We still sanity-check that the shell has a client.js <script> tag to stamp, so
+// a broken index.html fails the build loudly rather than silently serving no JS.
 const INDEX = path.join(ROOT, 'public', 'index.html');
-const TAG_RE = /(<script\s+src=")client\.js(?:\?v=[0-9a-f]+)?(")/i;
+const TAG_RE = /<script\s+src="client\.js(?:\?v=[0-9a-f]+)?"/i;
 const html = fs.readFileSync(INDEX, 'utf8');
-// Only a genuinely MISSING tag is an error. An unchanged bundle (same hash,
-// e.g. after an index.html-only edit) re-stamps to the same value and writes
-// nothing — that's a no-op, not a failure, so it must not throw.
 if (!TAG_RE.test(html)) {
-  if (/client\.js/.test(html)) {
-    throw new Error('bundle-client: could not find the <script src="client.js"> tag to version in public/index.html');
-  }
-} else {
-  const updated = html.replace(TAG_RE, `$1client.js?v=${HASH}$2`);
-  if (updated !== html) fs.writeFileSync(INDEX, updated);
+  throw new Error('bundle-client: public/index.html is missing its <script src="client.js"> tag (the server stamps the cache-bust hash onto it at serve time)');
 }
 
-console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines) · stamped index.html client.js?v=${HASH}`);
+console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines)`);

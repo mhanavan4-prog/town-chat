@@ -39,3 +39,6 @@ og-cache/
 # Ops runtime (created on the box)
 ops/heartbeat.log
 .deploying
+
+# Generated client bundle — built by CI and on deploy (npm run build:client), not committed (it collided on every merge).
+public/client.js
