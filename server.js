@@ -5114,6 +5114,30 @@ function cafeTastedMap(player) {
   if (!prog.cafeSpecialsTasted || typeof prog.cafeSpecialsTasted !== 'object') prog.cafeSpecialsTasted = {};
   return prog.cafeSpecialsTasted;
 }
+// ── The Starlight Arcade daily high scores (roadmap #6, room three) ──────────
+// A town-wide daily leaderboard for the two cabinet games, reset each UTC day.
+// Personal bests persist on progress (so "your best today" survives a reconnect);
+// the town board is in-memory and best-effort (a mid-day deploy clears it, which
+// is fine for an ephemeral daily board). Scores are client-reported, so nothing
+// of value rides on them — just the board and a one-time vanity title for a
+// champion-grade run. `cap` rejects impossible scores; `champ` is the skill bar
+// for the title (snake +1/food, breakout +1/brick, so these are real runs).
+const ARCADE_GAMES = { snake: { cap: 260, champ: 20 }, breakout: { cap: 55, champ: 25 } };
+function arcadeDayNow() { return Math.floor(Date.now() / 86400000); }
+let arcadeDaily = { day: -1, snake: new Map(), breakout: new Map() }; // game → Map(accountKey → {name, score})
+function arcadeRollDay() {
+  const d = arcadeDayNow();
+  if (arcadeDaily.day !== d) arcadeDaily = { day: d, snake: new Map(), breakout: new Map() };
+  return arcadeDaily;
+}
+function arcadeTopToday(game, limit) {
+  return [...arcadeRollDay()[game].values()].sort((a, b) => b.score - a.score).slice(0, limit || 10).map((e) => ({ name: e.name, score: e.score }));
+}
+function arcadePersonalBestToday(player, game) {
+  const prog = getProgress(player);
+  const b = prog.arcadeBest && prog.arcadeBest[game];
+  return (b && b.day === arcadeDayNow()) ? b.score : 0;
+}
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -10316,6 +10340,68 @@ wss.on('connection', (ws, req) => {
       });
       const tastedCount = entries.reduce((n, e) => n + (e.tasted ? 1 : 0), 0);
       send(ws, { type: 'cafe_menu', entries, tastedCount, total: CAFE_SPECIALS.length });
+      return;
+    }
+
+    // ── The Starlight Arcade: a finished game reports its score (roadmap #6).
+    //    Tracks the player's personal best today (persisted) and the town's
+    //    daily board (in-memory); a champion-grade run at #1 earns the title. ──
+    if (msg.type === 'arcade_score') {
+      const game = String(msg.game || '');
+      const cfg = ARCADE_GAMES[game];
+      if (!cfg) return;
+      const score = Math.floor(Number(msg.score));
+      if (!Number.isFinite(score) || score < 0) return;
+      if (score > cfg.cap) { // impossible for these games → drop, don't record
+        try { audit.log({ level: 'warn', type: 'arcade_score_reject', account: player.accountKey || null, detail: { game, score } }); } catch (e) { /* noop */ }
+        return;
+      }
+      if (audit.hit(player.accountKey || ws._ip, 'arcade_score', 10 * 1000) > 12) return; // anti-spam
+
+      const day = arcadeDayNow();
+      const prog = getProgress(player);
+      if (!prog.arcadeBest || typeof prog.arcadeBest !== 'object') prog.arcadeBest = {};
+      const pb = prog.arcadeBest[game];
+      const prevBest = (pb && pb.day === day) ? pb.score : 0;
+      const isPersonalBest = score > prevBest;
+      if (isPersonalBest) { prog.arcadeBest[game] = { day, score }; if (player.accountKey) saveProgress(); }
+
+      let rank = null, completed = false, grantedTitleName = null;
+      if (player.accountKey) {
+        const board = arcadeRollDay()[game];
+        const cur = board.get(player.accountKey);
+        if (!cur || score > cur.score) board.set(player.accountKey, { name: player.name, score });
+        const mine = board.get(player.accountKey).score;
+        rank = 1 + [...board.values()].filter((e) => e.score > mine).length;
+        // Champion: a champ-grade run that sits at #1 on the day's board.
+        if (rank === 1 && mine >= cfg.champ) {
+          const acc = playerProgress[player.accountKey];
+          const had = acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes('arcade_champion');
+          grantRiteTitle(player.accountKey, 'arcade_champion');
+          if (!had) { completed = true; grantedTitleName = titleNameOf('arcade_champion'); analytics.bump('arcade.champion'); }
+        }
+      }
+      if (isPersonalBest) analytics.bump('arcade.personal_best');
+      send(ws, {
+        type: 'arcade_result', game, score,
+        yourBestToday: Math.max(score, prevBest), isPersonalBest, rank,
+        topToday: arcadeTopToday(game, 10), completed, grantedTitleName,
+      });
+      if (completed) send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+
+    // The Hall of Scores board — today's top ten for both cabinet games plus
+    // the viewer's own best today.
+    if (msg.type === 'arcade_board') {
+      send(ws, {
+        type: 'arcade_board',
+        snakeTop: arcadeTopToday('snake', 10),
+        breakoutTop: arcadeTopToday('breakout', 10),
+        yourSnake: arcadePersonalBestToday(player, 'snake'),
+        yourBreakout: arcadePersonalBestToday(player, 'breakout'),
+        resetsDaily: true,
+      });
       return;
     }
 

@@ -13238,6 +13238,27 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(sign2);
       kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
 
+      // ── The Hall of Scores (roadmap #6) — a lit high-score board between the
+      // cabinets, set back toward the wall. Shows today's town top for both
+      // games; resets each day. (Emissive panel, no extra point light.)
+      const hsX = cx, hsZ = cabZ - 52;
+      const hsBoard = new THREE.Group();
+      const hsPost = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 70, 6),
+        new THREE.MeshLambertMaterial({ color: 0x2a2f52 }));
+      hsPost.position.y = 35; hsBoard.add(hsPost);
+      const hsPanel = new THREE.Mesh(new THREE.BoxGeometry(54, 34, 3),
+        new THREE.MeshLambertMaterial({ color: 0x0b1024 }));
+      hsPanel.position.y = 84; hsBoard.add(hsPanel);
+      const hsGlow = new THREE.Mesh(new THREE.PlaneGeometry(46, 26),
+        new THREE.MeshBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.22 }));
+      hsGlow.position.set(0, 84, 1.7); hsBoard.add(hsGlow);
+      hsBoard.position.set(hsX, 0, hsZ);
+      scene.add(hsBoard);
+      const hsLabel = makeNpcNameSprite('🕹️ Hall of Scores', "today's high scores");
+      hsLabel.position.set(hsX, 112, hsZ);
+      scene.add(hsLabel);
+      kiosksOut.push({ x: hsX, z: hsZ, npc: 'arcade_scores', npcName: '🕹️ Hall of Scores' });
+
       // ── KayKit furnishings (streamed post-spawn; additive dressing) ──
       // A stool pulled up to each game cabinet.
       for (const sx of [cab1X, cab2X]) {
@@ -18116,6 +18137,12 @@ function onWsMessage(ev) {
   if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
   if (msg.type === 'cafe_special') { showCafeSpecial(msg); return; }
   if (msg.type === 'cafe_menu') { renderCafeMenu(msg); return; }
+  if (msg.type === 'arcade_result') {
+    if (msg.completed && msg.grantedTitleName) setUnlockToast(`🕹️ ${msg.grantedTitleName}! You top today's board.`);
+    else if (msg.isPersonalBest) setUnlockToast(`🏆 New best today: ${msg.score}` + (msg.rank ? ` — #${msg.rank} in town` : ''));
+    return;
+  }
+  if (msg.type === 'arcade_board') { renderArcadeBoard(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -20730,6 +20757,36 @@ function showCafeSpecialView() {
     const b = document.getElementById(id);
     if (b) b.addEventListener('click', closeCafeSpecialModal);
   });
+})();
+
+// ── The Starlight Arcade — Hall of Scores (roadmap #6): today's daily board ──
+function renderArcadeBoard(msg) {
+  const myName = (me && me.name) || null;
+  const fill = (listId, rows) => {
+    const ol = document.getElementById(listId);
+    if (!ol) return;
+    ol.innerHTML = '';
+    if (!rows || !rows.length) {
+      const li = document.createElement('li'); li.className = 'arcEmpty'; li.textContent = 'No scores yet today — be the first.';
+      ol.appendChild(li); return;
+    }
+    rows.forEach((r, i) => {
+      const li = document.createElement('li');
+      if (myName && r.name === myName) li.className = 'me';
+      const n = document.createElement('span'); n.className = 'an'; n.textContent = `${i + 1}. ${r.name}`;
+      const v = document.createElement('span'); v.className = 'av'; v.textContent = r.score;
+      li.appendChild(n); li.appendChild(v); ol.appendChild(li);
+    });
+  };
+  fill('arcadeSnakeList', msg.snakeTop);
+  fill('arcadeBreakoutList', msg.breakoutTop);
+  document.getElementById('arcadeSnakeYours').textContent = `Your best today: ${msg.yourSnake || 0}`;
+  document.getElementById('arcadeBreakoutYours').textContent = `Your best today: ${msg.yourBreakout || 0}`;
+  document.getElementById('arcadeScoresModal').classList.remove('hidden');
+}
+(function wireArcadeScores() {
+  const b = document.getElementById('arcadeScoresCloseBtn');
+  if (b) b.addEventListener('click', () => document.getElementById('arcadeScoresModal').classList.add('hidden'));
 })();
 
 // The building locals aren't just hint machines anymore — every one of them
@@ -29961,7 +30018,9 @@ function renderBreakout(ctx) {
   }
 }
 
+let arcadeSubmitted = false; // one score report per game, on the game-over edge
 function resetArcadeGame(type) {
+  arcadeSubmitted = false;
   if (type === 'snake') resetSnake(); else resetBreakout();
 }
 
@@ -29971,6 +30030,12 @@ function arcadeLoop(now) {
   arcadeLast = now;
   if (arcadeGameType === 'snake') { updateSnake(dt); renderSnake(arcadeCtx); }
   else { updateBreakout(dt); renderBreakout(arcadeCtx); }
+  // On the finish edge, report the score once for the daily high-score board.
+  const st = arcadeGameType === 'snake' ? snakeState : breakoutState;
+  if (st && (st.gameOver || st.won) && !arcadeSubmitted) {
+    arcadeSubmitted = true;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'arcade_score', game: arcadeGameType, score: st.score | 0 }));
+  }
   arcadeRAF = requestAnimationFrame(arcadeLoop);
 }
 
@@ -30199,6 +30264,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
+  if (kiosk && kiosk.npc === 'arcade_scores') { ws.send(JSON.stringify({ type: 'arcade_board' })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -30272,6 +30338,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'cafe_special') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} order the Daily Special`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'arcade_scores') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} check the Hall of Scores`;
     return;
   }
   if (kiosk && kiosk.game) {

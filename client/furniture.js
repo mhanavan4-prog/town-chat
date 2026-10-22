@@ -957,6 +957,27 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(sign2);
       kiosksOut.push({ id: 'arcade_game_breakout', x: cab2X, z: cabZ, game: 'breakout' });
 
+      // ── The Hall of Scores (roadmap #6) — a lit high-score board between the
+      // cabinets, set back toward the wall. Shows today's town top for both
+      // games; resets each day. (Emissive panel, no extra point light.)
+      const hsX = cx, hsZ = cabZ - 52;
+      const hsBoard = new THREE.Group();
+      const hsPost = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 70, 6),
+        new THREE.MeshLambertMaterial({ color: 0x2a2f52 }));
+      hsPost.position.y = 35; hsBoard.add(hsPost);
+      const hsPanel = new THREE.Mesh(new THREE.BoxGeometry(54, 34, 3),
+        new THREE.MeshLambertMaterial({ color: 0x0b1024 }));
+      hsPanel.position.y = 84; hsBoard.add(hsPanel);
+      const hsGlow = new THREE.Mesh(new THREE.PlaneGeometry(46, 26),
+        new THREE.MeshBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.22 }));
+      hsGlow.position.set(0, 84, 1.7); hsBoard.add(hsGlow);
+      hsBoard.position.set(hsX, 0, hsZ);
+      scene.add(hsBoard);
+      const hsLabel = makeNpcNameSprite('🕹️ Hall of Scores', "today's high scores");
+      hsLabel.position.set(hsX, 112, hsZ);
+      scene.add(hsLabel);
+      kiosksOut.push({ x: hsX, z: hsZ, npc: 'arcade_scores', npcName: '🕹️ Hall of Scores' });
+
       // ── KayKit furnishings (streamed post-spawn; additive dressing) ──
       // A stool pulled up to each game cabinet.
       for (const sx of [cab1X, cab2X]) {
