@@ -13354,6 +13354,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         core.position.y = 38; p.add(core);
         const sign = makeSignSprite('🔮 Scrying Orb');
         sign.position.set(90, 74, 120); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: 90, z: 120, npc: 'relic', relicId: 'scrying_orb', npcName: '🔮 Scrying Orb' });
       })();
       // Star grimoire — open book hovering above the pedestal
       (function() {
@@ -13372,6 +13373,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         }
         const sign = makeSignSprite('📖 Star Grimoire');
         sign.position.set(roomW - 90, 74, 120); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 120, npc: 'relic', relicId: 'star_grimoire', npcName: '📖 Star Grimoire' });
       })();
       // Starforged blade — upright, point down
       (function() {
@@ -13384,6 +13386,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         pommel.position.set(-1.4, 58.5, 0); p.add(pommel);
         const sign = makeSignSprite('🗡️ Starforged Blade');
         sign.position.set(90, 78, 356); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: 90, z: 356, npc: 'relic', relicId: 'starforged_blade', npcName: '🗡️ Starforged Blade' });
       })();
       // Moon relic — a silver crescent with two trailing motes
       (function() {
@@ -13399,6 +13402,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         m2.position.set(-4, 50, 2); p.add(m2);
         const sign = makeSignSprite('🌙 Moon Relic');
         sign.position.set(roomW - 90, 78, 356); scene.add(sign);
+        if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 356, npc: 'relic', relicId: 'moon_relic', npcName: '🌙 Moon Relic' });
       })();
 
       const alchemist = createHumanoid(0).group;
@@ -13669,6 +13673,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       flame.scale.y = 1.5; flame.position.y = 40.5; p.add(flame);
       const sign = makeSignSprite('🕯️ Phantom Lantern');
       sign.position.set(lx, 74, lz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: lx, z: lz, npc: 'relic', relicId: 'phantom_lantern', npcName: '🕯️ Phantom Lantern' });
     })();
     // Spirit bell — rings by itself, allegedly
     (function() {
@@ -13683,6 +13688,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       clapper.position.set(1.2, 35, 0); p.add(clapper);
       const sign = makeSignSprite('🔔 Spirit Bell');
       sign.position.set(bx, 74, bz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: bx, z: bz, npc: 'relic', relicId: 'spirit_bell', npcName: '🔔 Spirit Bell' });
     })();
     // Bound spirit — a jar nobody should open
     (function() {
@@ -13698,6 +13704,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       mote.position.set(2, 43, -1); p.add(mote);
       const sign = makeSignSprite('🫙 Bound Spirit');
       sign.position.set(jx, 74, jz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: jx, z: jz, npc: 'relic', relicId: 'bound_spirit', npcName: '🫙 Bound Spirit' });
     })();
     // Séance planchette on its own pedestal
     (function() {
@@ -13711,6 +13718,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       tip.position.set(-2.6, 36.6, -7.2); tip.rotation.z = Math.PI / 2; tip.rotation.y = 0.5; p.add(tip);
       const sign = makeSignSprite('🔮 Séance Planchette');
       sign.position.set(px, 74, pz); scene.add(sign);
+      if (kiosksOut) kiosksOut.push({ x: px, z: pz, npc: 'relic', relicId: 'seance_planchette', npcName: '🔮 Séance Planchette' });
     })();
 
     if (kiosksOut) {
@@ -18165,6 +18173,8 @@ function onWsMessage(ev) {
   if (msg.type === 'arcade_board') { renderArcadeBoard(msg); return; }
   if (msg.type === 'vigil_result') { showVigilResult(msg); return; }
   if (msg.type === 'vigil_register') { renderVigilRegister(msg); return; }
+  if (msg.type === 'relic_card') { showRelicCard(msg); return; }
+  if (msg.type === 'reliquary') { renderReliquary(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -20869,6 +20879,63 @@ function showVigilSpiritView() {
   ['vigilCloseBtn', 'vigilRegisterCloseBtn'].forEach((id) => {
     const b = document.getElementById(id);
     if (b) b.addEventListener('click', closeVigilModal);
+  });
+})();
+
+// ── The Reliquary (roadmap #8): relic lore cards + the collection ──
+function showRelicCard(msg) {
+  document.getElementById('relicName').textContent = msg.name || 'A Relic';
+  document.getElementById('relicRoom').textContent = msg.room ? `under glass in ${msg.room}` : '';
+  document.getElementById('relicText').textContent = msg.text || '';
+  const note = document.getElementById('relicNote');
+  if (msg.completed && msg.grantedTitleName) {
+    note.textContent = `🗝️ Every relic inspected. You are “${msg.grantedTitleName}.”`;
+    note.className = 'done';
+  } else if (msg.firstSeen) {
+    note.textContent = `Added to your Reliquary — ${msg.seenCount} of ${msg.total} collected.`;
+    note.className = 'done';
+  } else {
+    note.textContent = `Already in your Reliquary — ${msg.seenCount} of ${msg.total} collected.`;
+    note.className = '';
+  }
+  document.getElementById('relicCardView').classList.remove('hidden');
+  document.getElementById('reliquaryView').classList.add('hidden');
+  document.getElementById('relicModal').classList.remove('hidden');
+  if (msg.firstSeen) setUnlockToast(msg.completed ? '🗝️ The Reliquary is complete!' : `🗝️ Relic collected — ${msg.seenCount}/${msg.total}`);
+}
+function renderReliquary(msg) {
+  const prog = document.getElementById('reliquaryProgress');
+  const done = msg.seenCount === msg.total;
+  prog.textContent = `${msg.seenCount} of ${msg.total} relics collected` + (done ? ' — the whole reliquary is yours.' : ' — the rest wait under glass around town.');
+  const grid = document.getElementById('reliquaryGrid');
+  grid.innerHTML = '';
+  (msg.entries || []).forEach((e) => {
+    const d = document.createElement('div');
+    d.className = 'forbEntry' + (e.seen ? ' read' : ' locked');
+    const t = document.createElement('div'); t.className = 'ft';
+    t.textContent = e.seen ? e.name : '??? — uninspected';
+    d.appendChild(t);
+    // The room is shown even when locked, as a breadcrumb to where it waits.
+    if (e.room) { const a = document.createElement('div'); a.className = 'fa'; a.textContent = e.seen ? `under glass in ${e.room}` : `somewhere in ${e.room}`; d.appendChild(a); }
+    grid.appendChild(d);
+  });
+  document.getElementById('relicCardView').classList.add('hidden');
+  document.getElementById('reliquaryView').classList.remove('hidden');
+  document.getElementById('relicModal').classList.remove('hidden');
+}
+function closeRelicModal() { document.getElementById('relicModal').classList.add('hidden'); }
+function showRelicCardView() {
+  document.getElementById('reliquaryView').classList.add('hidden');
+  document.getElementById('relicCardView').classList.remove('hidden');
+}
+(function wireRelicModal() {
+  const relBtn = document.getElementById('reliquaryBtn');
+  if (relBtn) relBtn.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reliquary' })); });
+  const backBtn = document.getElementById('reliquaryBackBtn');
+  if (backBtn) backBtn.addEventListener('click', showRelicCardView);
+  ['relicCloseBtn', 'reliquaryCloseBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeRelicModal);
   });
 })();
 
@@ -30349,6 +30416,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
   if (kiosk && kiosk.npc === 'arcade_scores') { ws.send(JSON.stringify({ type: 'arcade_board' })); return; }
   if (kiosk && kiosk.npc === 'midnight_vigil') { ws.send(JSON.stringify({ type: 'sit_vigil' })); return; }
+  if (kiosk && kiosk.npc === 'relic') { ws.send(JSON.stringify({ type: 'inspect_relic', relicId: kiosk.relicId })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -30432,6 +30500,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'midnight_vigil') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} sit the Midnight Vigil`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'relic') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} inspect ${kiosk.npcName || 'the relic'}`;
     return;
   }
   if (kiosk && kiosk.game) {

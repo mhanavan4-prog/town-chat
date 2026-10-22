@@ -1567,6 +1567,8 @@ function onWsMessage(ev) {
   if (msg.type === 'arcade_board') { renderArcadeBoard(msg); return; }
   if (msg.type === 'vigil_result') { showVigilResult(msg); return; }
   if (msg.type === 'vigil_register') { renderVigilRegister(msg); return; }
+  if (msg.type === 'relic_card') { showRelicCard(msg); return; }
+  if (msg.type === 'reliquary') { renderReliquary(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -4271,6 +4273,63 @@ function showVigilSpiritView() {
   ['vigilCloseBtn', 'vigilRegisterCloseBtn'].forEach((id) => {
     const b = document.getElementById(id);
     if (b) b.addEventListener('click', closeVigilModal);
+  });
+})();
+
+// ── The Reliquary (roadmap #8): relic lore cards + the collection ──
+function showRelicCard(msg) {
+  document.getElementById('relicName').textContent = msg.name || 'A Relic';
+  document.getElementById('relicRoom').textContent = msg.room ? `under glass in ${msg.room}` : '';
+  document.getElementById('relicText').textContent = msg.text || '';
+  const note = document.getElementById('relicNote');
+  if (msg.completed && msg.grantedTitleName) {
+    note.textContent = `🗝️ Every relic inspected. You are “${msg.grantedTitleName}.”`;
+    note.className = 'done';
+  } else if (msg.firstSeen) {
+    note.textContent = `Added to your Reliquary — ${msg.seenCount} of ${msg.total} collected.`;
+    note.className = 'done';
+  } else {
+    note.textContent = `Already in your Reliquary — ${msg.seenCount} of ${msg.total} collected.`;
+    note.className = '';
+  }
+  document.getElementById('relicCardView').classList.remove('hidden');
+  document.getElementById('reliquaryView').classList.add('hidden');
+  document.getElementById('relicModal').classList.remove('hidden');
+  if (msg.firstSeen) setUnlockToast(msg.completed ? '🗝️ The Reliquary is complete!' : `🗝️ Relic collected — ${msg.seenCount}/${msg.total}`);
+}
+function renderReliquary(msg) {
+  const prog = document.getElementById('reliquaryProgress');
+  const done = msg.seenCount === msg.total;
+  prog.textContent = `${msg.seenCount} of ${msg.total} relics collected` + (done ? ' — the whole reliquary is yours.' : ' — the rest wait under glass around town.');
+  const grid = document.getElementById('reliquaryGrid');
+  grid.innerHTML = '';
+  (msg.entries || []).forEach((e) => {
+    const d = document.createElement('div');
+    d.className = 'forbEntry' + (e.seen ? ' read' : ' locked');
+    const t = document.createElement('div'); t.className = 'ft';
+    t.textContent = e.seen ? e.name : '??? — uninspected';
+    d.appendChild(t);
+    // The room is shown even when locked, as a breadcrumb to where it waits.
+    if (e.room) { const a = document.createElement('div'); a.className = 'fa'; a.textContent = e.seen ? `under glass in ${e.room}` : `somewhere in ${e.room}`; d.appendChild(a); }
+    grid.appendChild(d);
+  });
+  document.getElementById('relicCardView').classList.add('hidden');
+  document.getElementById('reliquaryView').classList.remove('hidden');
+  document.getElementById('relicModal').classList.remove('hidden');
+}
+function closeRelicModal() { document.getElementById('relicModal').classList.add('hidden'); }
+function showRelicCardView() {
+  document.getElementById('reliquaryView').classList.add('hidden');
+  document.getElementById('relicCardView').classList.remove('hidden');
+}
+(function wireRelicModal() {
+  const relBtn = document.getElementById('reliquaryBtn');
+  if (relBtn) relBtn.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reliquary' })); });
+  const backBtn = document.getElementById('reliquaryBackBtn');
+  if (backBtn) backBtn.addEventListener('click', showRelicCardView);
+  ['relicCloseBtn', 'reliquaryCloseBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeRelicModal);
   });
 })();
 
@@ -13751,6 +13810,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
   if (kiosk && kiosk.npc === 'arcade_scores') { ws.send(JSON.stringify({ type: 'arcade_board' })); return; }
   if (kiosk && kiosk.npc === 'midnight_vigil') { ws.send(JSON.stringify({ type: 'sit_vigil' })); return; }
+  if (kiosk && kiosk.npc === 'relic') { ws.send(JSON.stringify({ type: 'inspect_relic', relicId: kiosk.relicId })); return; }
   if (PAYWALLS_ENABLED && kiosk && kiosk.id === 'town_pass') { openPassModal(); return; }
   // Fallback: no kiosk here — try to gather the nearest ripe plant.
   const decorId = nearestHarvestableDecor();
@@ -13834,6 +13894,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'midnight_vigil') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} sit the Midnight Vigil`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'relic') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} inspect ${kiosk.npcName || 'the relic'}`;
     return;
   }
   if (kiosk && kiosk.game) {

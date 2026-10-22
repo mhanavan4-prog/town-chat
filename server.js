@@ -5148,6 +5148,13 @@ function vigilHeardMap(player) {
   if (!prog.vigilHeard || typeof prog.vigilHeard !== 'object') prog.vigilHeard = {};
   return prog.vigilHeard;
 }
+const { RELICS } = require('./data/relics'); // roadmap #8: the Reliquary — inspect the relics-under-glass to collect them
+const RELIC_BY_ID = RELICS.reduce((o, r) => { o[r.id] = r; return o; }, {});
+function relicsInspectedMap(player) {
+  const prog = getProgress(player);
+  if (!prog.relicsInspected || typeof prog.relicsInspected !== 'object') prog.relicsInspected = {};
+  return prog.relicsInspected;
+}
 
 function tickTorchHealing(dt) {
   const litTorches = TOWN_TORCHES.filter((t, idx) => {
@@ -10456,6 +10463,48 @@ wss.on('connection', (ws, req) => {
       });
       const heardCount = entries.reduce((n, e) => n + (e.heard ? 1 : 0), 0);
       send(ws, { type: 'vigil_register', entries, heardCount, total: PARLOR_SPIRITS.length, night: isNightNow() });
+      return;
+    }
+
+    // ── The Reliquary (roadmap #8): inspect a relic under glass to read its
+    //    lore card and collect it; inspect all eight for the Keeper title. ──
+    if (msg.type === 'inspect_relic') {
+      const relic = RELIC_BY_ID[String(msg.relicId || '')];
+      if (!relic) return;
+      const seen = relicsInspectedMap(player);
+      let firstSeen = false, completed = false, grantedTitleName = null;
+      if (!seen[relic.id]) {
+        seen[relic.id] = Date.now();
+        firstSeen = true;
+        analytics.bump('relic.inspected'); // exploration funnel: distinct relics found
+        if (player.accountKey && RELICS.every((r) => seen[r.id])) {
+          const acc = playerProgress[player.accountKey];
+          const had = acc && Array.isArray(acc.riteTitles) && acc.riteTitles.includes('reliquary_keeper');
+          grantRiteTitle(player.accountKey, 'reliquary_keeper');
+          if (!had) { completed = true; grantedTitleName = titleNameOf('reliquary_keeper'); analytics.bump('relic.completed'); }
+        }
+        if (player.accountKey) saveProgress();
+      }
+      const seenCount = RELICS.reduce((n, r) => n + (seen[r.id] ? 1 : 0), 0);
+      send(ws, {
+        type: 'relic_card',
+        id: relic.id, name: relic.name, room: relic.room, text: relic.text,
+        firstSeen, seenCount, total: RELICS.length, completed, grantedTitleName,
+      });
+      if (completed) send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      return;
+    }
+
+    // The Reliquary — the full set of relics, collected ones named, the rest
+    // withheld (a silhouette) until you find and inspect them in the world.
+    if (msg.type === 'reliquary') {
+      const seen = relicsInspectedMap(player);
+      const entries = RELICS.map((r) => {
+        const isSeen = !!seen[r.id];
+        return { id: r.id, seen: isSeen, name: isSeen ? r.name : null, room: r.room };
+      });
+      const seenCount = entries.reduce((n, e) => n + (e.seen ? 1 : 0), 0);
+      send(ws, { type: 'reliquary', entries, seenCount, total: RELICS.length });
       return;
     }
 

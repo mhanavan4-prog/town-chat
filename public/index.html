@@ -3431,6 +3431,41 @@
 #vigilRegisterGrid .forbEntry .fbadge{color:#8fffbe}
 </style>
 
+<!-- The Reliquary (roadmap #8): a relic's lore card and the collection of
+     relics-under-glass you've inspected across the town. -->
+<div id="relicModal" class="overlay hidden">
+  <div class="card" id="relicCard">
+    <div id="relicCardView">
+      <div class="title" id="relicName" style="font-size:19px;">Relic</div>
+      <div id="relicRoom"></div>
+      <div id="relicText"></div>
+      <div id="relicNote"></div>
+      <div class="forbRow">
+        <button class="btn" id="reliquaryBtn">🗝️ The Reliquary</button>
+        <button class="btn" id="relicCloseBtn">Step back</button>
+      </div>
+    </div>
+    <div id="reliquaryView" class="hidden">
+      <div class="title" style="font-size:19px;">🗝️ The Reliquary</div>
+      <div id="reliquaryProgress"></div>
+      <div id="reliquaryGrid"></div>
+      <button class="btn" id="reliquaryBackBtn">← Back</button>
+      <button class="btn" id="reliquaryCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+<style>
+#relicCard{max-width:460px}
+#relicRoom{color:#b9a6e0;font-style:italic;font-size:12px;margin:3px 0 12px}
+#relicText{line-height:1.6;color:#e6ddf4;font-size:13.5px;font-family:"Palatino",Georgia,serif;border-left:2px solid #6a5ab0;padding:2px 0 2px 13px;margin-bottom:12px}
+#relicNote{font-size:12px;color:#c6b7ff;min-height:1em;margin-bottom:12px}
+#relicNote.done{color:#8fe3b0}
+#reliquaryProgress{color:#bcb0e0;font-size:13px;margin:8px 0 12px}
+#reliquaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:46vh;overflow:auto;margin-bottom:12px}
+#reliquaryGrid .forbEntry.read{border-color:#6a5ab0;background:linear-gradient(180deg,#201b3a,#15112b)}
+#reliquaryGrid .forbEntry .fbadge{color:#b9a6e0}
+</style>
+
 <!-- Story beat — the in-the-moment dialogue box for a campaign chapter's
      intro (on Begin) and outro (on complete). The full narrative also stays
      archived in the Journal; this surfaces it so the story lands without
@@ -3671,6 +3706,6 @@ window.onerror = function(msg, src, line, col, err) {
   setInterval(function(){ var js=document.getElementById('joinScreen'); if(js && js.style.display!=='none' && !js.classList.contains('hidden')) load(); }, 30000);
 })();
 </script>
-<script src="client.js?v=c605eb5d7e"></script>
+<script src="client.js?v=506acd0908"></script>
 </body>
 </html>
