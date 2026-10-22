@@ -1971,6 +1971,11 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'voice_echo') {
+    playVoiceEcho(msg);
+    return;
+  }
+
   if (msg.type === 'cm_state') {
     cmHasDrive = !!msg.hasDrive;
     cmClips = msg.clips || [];
@@ -4826,6 +4831,22 @@ function playVoiceCountermeasure(msg) {
     setUnlockToast(`📢 ${msg.from}'s voice echoes: "${msg.label}"`);
   }
   appendSystemChatLine(`📢 ${msg.from} played "${msg.label}" — the night scattered.`);
+}
+
+// Social sibling of the above: someone nearby played a clip ALOUD (voice_say),
+// no combat involved. Same "hear it + see the ring + read it" delivery, minus
+// the countermeasure framing (no evasion, no "the night scattered").
+function playVoiceEcho(msg) {
+  try {
+    if (cmAudioEl) { cmAudioEl.pause(); }
+    cmAudioEl = new Audio(msg.audio);
+    cmAudioEl.volume = 0.9;
+    cmAudioEl.play().catch(() => {});
+  } catch (e) {}
+  spawnVoiceRings(me ? me.room : 'outside', msg.x, msg.y);
+  if (msg.playerId === myId) setUnlockToast(`📢 You played "${msg.label}" aloud.`);
+  else setUnlockToast(`📢 ${msg.from}: "${msg.label}"`);
+  appendSystemChatLine(`📢 ${msg.from} played "${msg.label}" aloud.`);
 }
 
 // Ghosty shimmer on your own body while the evasion window is live, so
