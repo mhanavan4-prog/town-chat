@@ -3068,7 +3068,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, playNarration, stopNarration, narrationAvailable } = _audio;
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
 // sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/
@@ -4053,11 +4053,14 @@ function showQuestOffer(msg) {
   document.getElementById('questDialogueDesc').textContent = msg.description || '';
   document.getElementById('questDialogueXP').textContent = msg.xpReward || 0;
   document.getElementById('questDialogue').classList.remove('hidden');
+  // Voice the quest-giver's pitch, if this quest has a narration clip.
+  if (typeof playNarration === 'function' && msg.questId) playNarration(msg.questId);
 }
 
 function closeQuestDialogue() {
   document.getElementById('questDialogue').classList.add('hidden');
   pendingQuestNpcId = null;
+  if (typeof stopNarration === 'function') stopNarration(); // cut the voice when the card closes
 }
 
 const questAcceptBtn = document.getElementById('questAcceptBtn');

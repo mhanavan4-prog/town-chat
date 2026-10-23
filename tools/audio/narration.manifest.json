@@ -1,0 +1,20 @@
+{
+  "_about": "Source of truth for Thornreach's quest-line narration. build-narration.py reads this, calls the ElevenLabs Text-to-Speech API once per (id), writes an MP3 to public/audio/narration/<id>.mp3, and records a content hash so unchanged text is skipped on re-runs. Each id is a quest id (QUEST_CATALOG key); the client plays /audio/narration/<id>.mp3 when that quest's offer dialogue opens (showQuestOffer). Text is mirrored from data/quests.js descriptions but can be tweaked here for how it READS ALOUD without touching the on-screen quest text. This file is what spends TTS credits — edit prompts/voice here before generating. PILOT: the 5 main-arc 'rite' quests only; expand once the voice and mix are approved.",
+  "_output_format": "mp3_44100_128",
+  "_model_id": "eleven_multilingual_v2",
+  "_voice_id": "JBFqnCBsd6RMkjVDRZzb",
+  "_voice_note": "Single narrator for every quest. JBFqnCBsd6RMkjVDRZzb is ElevenLabs' 'George' — a warm, mature storyteller. To use a different narrator, open your ElevenLabs Voice Library, pick a voice, copy its Voice ID, and replace _voice_id above, then regenerate. A per-NPC voice map can be added later (an optional voice_id on each entry would override this default).",
+  "_voice_settings": { "stability": 0.45, "similarity_boost": 0.8, "style": 0.15, "use_speaker_boost": true },
+  "narration": [
+    { "id": "circles_first_rite", "npc": "Elder Morvaine",
+      "text": "The corruption that bled from the Hollow has twisted the creatures of the Thornreach. Six of them must be put down. This is the first step of the old rite — do not falter." },
+    { "id": "circles_second_rite", "npc": "Sister Talwyn",
+      "text": "The Fifth Severance requires the living essence of untouched plants — the old grove still holds some. Gather eight offerings from the Wilds. I can feel the seal weakening as we speak." },
+    { "id": "circles_final_rite", "npc": "Brother Caelum",
+      "text": "The Hollow draws strength from its servants. Ten more must fall before Elder Morvaine can attempt the sealing ritual. Every corrupted creature you slay brings the Thornreach closer to peace." },
+    { "id": "circle_hexers", "npc": "Elder Morvaine",
+      "text": "The Fen Hexers are no dumb beast — they were coven once, before the Hollow hollowed them. Now they hang back in the dark and throw their hexes from range. Five must be silenced before their casting weakens the seal further. Close the distance fast; they are frail once you reach them." },
+    { "id": "gallows_warden", "npc": "Sister Talwyn",
+      "text": "On the Blood Moon — and only then — a thing wearing the shape of a scarecrow rises in the Wilds graveyard: Old Marrowe, the Gallows Warden, the Hollow's own steward. It is more than any single blade should face. Gather your strength, wait for the red moon, and end it. Do this and the Circle will name you kin." }
+  ]
+}
