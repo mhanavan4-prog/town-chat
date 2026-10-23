@@ -599,7 +599,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // east side, clear of the dining grid and the Champions' Table. Order
       // the day's special here; a new one is chalked up each day. (Emissive
       // chalk glow, no extra point light — mobile-safe.)
-      const boardX = roomW * 0.9, boardZ = roomD * 0.34;
+      // Flush against the south wall in the open SE corner — it used to float
+      // at (roomW*0.9, roomD*0.34), right beside the east doorway, where it read
+      // as plonked in the walkway rather than belonging to a wall.
+      const boardX = roomW * 0.84, boardZ = roomD - 34;
       const easel = new THREE.Group();
       const legMat = new THREE.MeshLambertMaterial({ color: 0x5a4328 });
       for (const lx of [-13, 13]) {
@@ -613,7 +616,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       slate.position.set(0, 52, 5); slate.rotation.x = 0.16; easel.add(slate);
       const chalk = new THREE.Mesh(new THREE.PlaneGeometry(30, 34),
         new THREE.MeshBasicMaterial({ color: 0xcfc3a6, transparent: true, opacity: 0.28 }));
-      chalk.position.set(0, 52, 6.7); chalk.rotation.x = 0.16; easel.add(chalk);
+      // The slate's front face is at local z≈6.5; the chalk plane used to sit at
+      // 6.7 — a 0.2u gap that z-fights (the diagonal "zebra" shimmer). Stand it
+      // off to ~1.1u so it reads as chalk on the board without fighting it.
+      chalk.position.set(0, 52, 7.6); chalk.rotation.x = 0.16; easel.add(chalk);
       easel.position.set(boardX, 0, boardZ);
       easel.rotation.y = Math.atan2(cx - boardX, cz - boardZ); // face into the room
       scene.add(easel);
