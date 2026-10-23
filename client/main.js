@@ -1890,6 +1890,9 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'delve_over') {
+    // A climb-out gets a completion flourish; a death is already voiced by the
+    // you_died 'death' toll that preceded this, so don't double it here.
+    if (msg.reason !== 'death' && typeof playSfx === 'function') playSfx('quest_fanfare');
     delveState = null;
     delveSpeedMult = 1;
     renderDelveHud();
@@ -2065,6 +2068,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'dungeon_entered') {
+    if (typeof playSfx === 'function') playSfx('portal'); // traversal into the dungeon / next delve floor
     if (me) { me.x = msg.spawn.x; me.y = msg.spawn.y; me.room = msg.room; }
     activeDungeonTier = msg.tier || 1;
     activeDungeonIsDelve = !!msg.delve;
