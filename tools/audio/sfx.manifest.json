@@ -71,6 +71,10 @@
       "prompt": "A witch's cauldron finishing a potion — thick liquid bubbling and glooping, then a soft glass cork pop as it's bottled. Wet, magical, cozy, mid-range. No music, no voice. Short.",
       "note": "NEW sound. Plays on witch_craft_result (Witch Hazel's cauldron brews)." },
 
+    { "id": "hagstone", "category": "world", "existing": false, "new": true, "duration_seconds": 1.1,
+      "prompt": "Slipping through a hagstone into the otherworld — a cold rushing whoosh through a hole in ancient stone, a veil parting with an eerie airy shimmer over a low resonant hum, as if passing between worlds. Mystical, hushed, witchy. No music, no voice. Short.",
+      "note": "NEW sound. Plays on moot_entered / moot_exited (passing through the coven Hagstone either way)." },
+
     { "id": "quest_fanfare", "category": "reward", "existing": false, "new": true, "duration_seconds": 1.4,
       "prompt": "A quest-complete flourish — a short triumphant magical chime that rises and resolves warmly, bells and shimmer. Rewarding, distinct from a level-up. No full music track." },
     { "id": "quest_accept", "category": "reward", "existing": false, "new": true, "duration_seconds": 0.9,

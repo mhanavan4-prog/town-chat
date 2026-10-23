@@ -39,7 +39,7 @@ let sfxGain = null, sfxMuted = false, noiseBuffer = null;
 let sfxFileGain = null;
 let sfxBuffers = {};        // id -> [AudioBuffer, ...] (variants)
 let sfxLoadStarted = false;
-const SFX_FILE_GAIN = { footstep: 0.45, kill: 0.55 }; // per-id trim; footsteps + the kill wail sit under the mix
+const SFX_FILE_GAIN = { footstep: 0.45, kill: 0.55, hagstone: 0.5 }; // per-id trim; footsteps + the kill wail + the hagstone whoosh sit under the mix
 const SFX_FILE_LOWPASS = { kill: 2400 };              // per-id high-cut (Hz) — tame the kill's shrill top so combos don't fatigue
 // The 🔈 button is one global mute for BOTH music and sfx. It has a single
 // source of truth — tc_audio_muted — so the two buses can never drift apart. (An

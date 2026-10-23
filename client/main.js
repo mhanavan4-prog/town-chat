@@ -2099,6 +2099,7 @@ function onWsMessage(ev) {
   // world we left, then populate from the fresh roster for the world we entered.
   if (msg.type === 'moot_entered' || msg.type === 'moot_exited') {
     mootInstanceActive = (msg.type === 'moot_entered');
+    if (typeof playSfx === 'function') playSfx('hagstone'); // the veil parting as you pass through, either way
     for (const id of Object.keys(players)) { if (id !== myId) removePlayer(id); }
     if (Array.isArray(msg.roster)) for (const p of msg.roster) { if (p.id !== myId) addPlayer(p); }
     applyManorInstanceState(mootInstanceActive); // the Manor exists only in a coven's private Wilds
