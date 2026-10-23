@@ -60,6 +60,10 @@
     { "id": "howl",    "category": "combat", "existing": false, "new": true, "duration_seconds": 1.3,
       "prompt": "A lone werewolf howl rising into the night — feral, mournful, swelling then fading. Wild and lonely. No music, no words." },
 
+    { "id": "siphon",  "category": "spell", "existing": false, "new": true, "duration_seconds": 0.8,
+      "prompt": "Life force being siphoned out of a victim — a wet mid-range sucking, drawing, draining pull, like warm vitality pulled through the air toward the caster. Gurgling, visceral, organic, centered in the mids. No shrill highs, no deep sub rumble, no music, no voice. Short.",
+      "note": "NEW sound. Wired in sfxForAbility: all leech-effect abilities (Leech Hex, Soul Siphon, Life Siphon) route here, falling back to 'curse' if the file isn't loaded." },
+
     { "id": "quest_fanfare", "category": "reward", "existing": false, "new": true, "duration_seconds": 1.4,
       "prompt": "A quest-complete flourish — a short triumphant magical chime that rises and resolves warmly, bells and shimmer. Rewarding, distinct from a level-up. No full music track." },
     { "id": "coin",    "category": "reward", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,

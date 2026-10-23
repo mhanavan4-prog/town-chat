@@ -13126,7 +13126,7 @@ function sfxForAbility(atk) {
   switch (atk.effect) {
     case 'summon': return 'summon';
     case 'heal': return 'heal';
-    case 'leech': return 'curse';
+    case 'leech': return (typeof sfxAvailable === 'function' && sfxAvailable('siphon')) ? 'siphon' : 'curse';
     case 'veil': return 'ward';
     case 'reveal': case 'intel_sweep': case 'camera': case 'spyglass': return 'reveal';
     case 'meditate': case 'cloak': case 'evade': return 'ward';
