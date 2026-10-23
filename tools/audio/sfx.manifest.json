@@ -8,7 +8,7 @@
     { "id": "hurt",    "category": "combat", "existing": true, "duration_seconds": 0.5, "variants": 3,
       "prompt": "A short, sharp non-verbal flinch of pain — a quick muffled grunt/gasp, androgynous, quiet and dry. No words, no music." },
     { "id": "kill",    "category": "combat", "existing": true, "duration_seconds": 0.8,
-      "prompt": "A ghostly night-creature dissipating — a brief falling spectral wail that thins into a hiss of air. Eerie, otherworldly, short. No music, no words." },
+      "prompt": "A night-creature dissipating — a low, hollow spectral groan that falls and fades into soft dark air. Warm low-mid body, rounded and muffled, soft at the edges. NO shrill highs, no sharp hiss, no piercing wail, no music, no words. Short and gentle." },
     { "id": "death",   "category": "combat", "existing": true, "duration_seconds": 1.4,
       "prompt": "The player's death knell — a single deep funeral bell toll over a low sinking drone that fades. Solemn, witchy, ominous. No music bed, no voice." },
 
