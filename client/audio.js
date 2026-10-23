@@ -445,6 +445,9 @@ if (muteBtn) {
   return {
     ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel,
     playSfx, setSfxMuted,
+    // True once a recorded file for `id` is loaded — lets callers prefer a
+    // specific new sound but fall back (e.g. per-class melee → generic 'hit').
+    sfxAvailable: (id) => !!(sfxBuffers[id] && sfxBuffers[id].length),
     // Snapshot for the __testDrive.music() probe (kept identical to the old
     // inline reads of this module's private state).
     musicState: () => ({
