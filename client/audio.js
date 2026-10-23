@@ -133,14 +133,14 @@ async function loadSfxFiles() {
 // Play a recorded SFX for `name` if one is loaded; returns true if it did. Picks
 // a random variant (so repeats — footsteps, hits — don't sound identical) and
 // routes through the clean file bus with an optional per-id trim.
-function playSfxFile(name) {
+function playSfxFile(name, vol) {
   const bufs = sfxBuffers[name];
   if (!bufs || !bufs.length || !sfxFileGain || !audioCtx) return false;
   const buf = bufs.length === 1 ? bufs[0] : bufs[(Math.random() * bufs.length) | 0];
   try {
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
-    // Chain src → [high-cut] → [trim] → bus. Each stage is optional per id.
+    // Chain src → [high-cut] → [trim×vol] → bus. Each stage is optional per id.
     let node = src;
     const lp = SFX_FILE_LOWPASS[name];
     if (lp) {
@@ -148,9 +148,12 @@ function playSfxFile(name) {
       f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 0.6;
       node.connect(f); node = f;
     }
+    // Per-id trim folded together with an optional per-call volume (distance
+    // falloff for remote players' actions).
     const trim = SFX_FILE_GAIN[name];
-    if (trim != null && trim !== 1) {
-      const g = audioCtx.createGain(); g.gain.value = trim;
+    const mul = (trim != null ? trim : 1) * (vol != null ? vol : 1);
+    if (mul !== 1) {
+      const g = audioCtx.createGain(); g.gain.value = mul;
       node.connect(g); node = g;
     }
     node.connect(sfxFileGain);
@@ -411,13 +414,15 @@ function sfxEcho(freq, t, dur, vol, type, freqEnd) {
 }
 // The spooky songbook of one-shots — minor intervals, tritones, bells and
 // airy noise. Every game moment maps to one call: playSfx('summon'), etc.
-function playSfx(name) {
+function playSfx(name, vol) {
   if (sfxMuted) return;
   ensureAudio();
   if (!audioCtx || !sfxGain) return;
   if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
   // Prefer a recorded sound for this id; fall back to the synth voices below.
-  if (playSfxFile(name)) return;
+  // vol (0..1) attenuates recorded sounds — used for distance falloff on
+  // remote players' actions; the synth fallback plays at its own level.
+  if (playSfxFile(name, vol)) return;
   const t = audioCtx.currentTime;
   switch (name) {
     // ── Combat ──

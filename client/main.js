@@ -2019,6 +2019,8 @@ function onWsMessage(ev) {
     if (msg.casterId === myId) {
       if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : meleeHitSfx()); // my blow landed (per-class melee)
       if (msg.dead) { shakeScreen('S'); haptic([12, 25, 20]); }
+    } else {
+      remoteActionSfx(msg.casterId, msg.dead ? 'kill' : remoteMeleeSfx(msg.casterId)); // a nearby player's blow landed
     }
     return;
   }
@@ -2200,6 +2202,8 @@ function onWsMessage(ev) {
     // Leech Hex: same flight fx reversed — a crimson orb of stolen life
     // flying from the victim back into the Witch.
     else if (msg.spellId === 'leech_hex') spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, { reverse: true, coreColor: 0xff8899, glowColor: 0xcc0033, lightColor: 0xff2244 });
+    const sid = REMOTE_SPELL_SFX[msg.spellId];
+    if (sid) remoteActionSfx(msg.casterId, sid === 'siphon' ? sfxPick('siphon', 'curse') : sid); // a nearby player's spell
     return;
   }
 
@@ -2216,11 +2220,14 @@ function onWsMessage(ev) {
       smite:       { coreColor: 0xfff2aa, glowColor: 0xcc9900, lightColor: 0xffdd44 }
     };
     spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, ATTACK_FX_STYLES[msg.attackId] || {});
+    const aid = REMOTE_ATTACK_SFX[msg.attackId];
+    if (aid) remoteActionSfx(msg.casterId, aid === 'siphon' ? sfxPick('siphon', 'curse') : sfxPick(aid, 'hit')); // a nearby player's class attack
     return;
   }
 
   if (msg.type === 'veil_fx') {
     spawnVeilDome(msg.casterId, msg.radius || 200);
+    remoteActionSfx(msg.casterId, 'ward'); // a nearby player's protective veil
     return;
   }
 
@@ -3081,6 +3088,35 @@ function meleeHitSfx() {
   const id = (me && CLASS_MELEE[me.charId]) || 'hit';
   return (typeof sfxAvailable === 'function' && sfxAvailable(id)) ? id : 'hit';
 }
+
+// Hearing OTHER players act. Their spell/attack/melee broadcasts (spell_fx,
+// attack_fx, veil_fx, hit_fx) used to be visual-only — you heard yourself but
+// never anyone nearby. remoteActionSfx voices a same-room player's action,
+// gated to within audible range of you and attenuated by distance so a busy
+// town doesn't turn into a wall of noise. Your own actions are skipped here —
+// they're already voiced by the local cast/hit paths, so this never doubles.
+const SFX_AUDIBLE_RANGE = 950; // world units; past this a remote action is silent
+function sfxPick(id, fallback) { return (typeof sfxAvailable === 'function' && sfxAvailable(id)) ? id : fallback; }
+function remoteActionSfx(casterId, soundId) {
+  if (!soundId || casterId === myId || !me || typeof playSfx !== 'function') return;
+  const other = players[casterId];
+  if (!other || typeof other.x !== 'number') return;
+  const d = Math.hypot(other.x - me.x, other.y - me.y);
+  if (d >= SFX_AUDIBLE_RANGE) return;
+  const vol = Math.max(0.12, 1 - d / SFX_AUDIBLE_RANGE); // linear falloff, floored so near-edge still reads
+  playSfx(soundId, vol);
+}
+// A remote player's landed melee, voiced by THEIR class (not yours).
+function remoteMeleeSfx(casterId) {
+  const o = players[casterId];
+  const cm = o && CLASS_MELEE[o.charId];
+  return sfxPick(cm || 'hit', 'hit');
+}
+// spellId / attackId → an existing sound (falling back when the dedicated clip
+// isn't loaded), mirroring sfxForAbility's intent for the broadcast FX.
+const REMOTE_SPELL_SFX = { fireball: 'cast', leech_hex: 'siphon' };
+const REMOTE_ATTACK_SFX = { savage_bite: 'rend', knife_throw: 'slash', spirit_lash: 'slash', soul_siphon: 'siphon', smite: 'cast' };
+
 let _wasBloodMoon = null; // for the once-per-rise blood-moon toll (null = first check, don't toll)
 
 // ---------------------------------------------------------------------------
