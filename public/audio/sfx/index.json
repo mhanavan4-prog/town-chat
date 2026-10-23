@@ -1,0 +1,62 @@
+{
+  "buff": [
+    "buff.mp3"
+  ],
+  "cast": [
+    "cast.mp3"
+  ],
+  "curse": [
+    "curse.mp3"
+  ],
+  "death": [
+    "death.mp3"
+  ],
+  "drink": [
+    "drink.mp3"
+  ],
+  "error": [
+    "error.mp3"
+  ],
+  "footstep": [
+    "footstep-1.mp3",
+    "footstep-2.mp3",
+    "footstep-3.mp3",
+    "footstep-4.mp3"
+  ],
+  "harvest": [
+    "harvest-1.mp3",
+    "harvest-2.mp3"
+  ],
+  "heal": [
+    "heal.mp3"
+  ],
+  "hit": [
+    "hit-1.mp3",
+    "hit-2.mp3",
+    "hit-3.mp3"
+  ],
+  "hurt": [
+    "hurt-1.mp3",
+    "hurt-2.mp3",
+    "hurt-3.mp3"
+  ],
+  "kill": [
+    "kill.mp3"
+  ],
+  "levelup": [
+    "levelup.mp3"
+  ],
+  "loot": [
+    "loot-1.mp3",
+    "loot-2.mp3"
+  ],
+  "reveal": [
+    "reveal.mp3"
+  ],
+  "summon": [
+    "summon.mp3"
+  ],
+  "ward": [
+    "ward.mp3"
+  ]
+}
