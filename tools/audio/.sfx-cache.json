@@ -46,5 +46,9 @@
   "coven_crown.mp3": "da4eca5f8f93ab83",
   "arcade_eat.mp3": "256872a268eb4f71",
   "arcade_break.mp3": "4109d09de497fef4",
-  "siphon.mp3": "da053833937c047f"
+  "siphon.mp3": "da053833937c047f",
+  "forge.mp3": "b2868450a3585164",
+  "brew.mp3": "b940109913d9d782",
+  "quest_accept.mp3": "7b1e75c591c6b811",
+  "equip.mp3": "6e4ff1f976d766f3"
 }
