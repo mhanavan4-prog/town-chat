@@ -1,115 +1,256 @@
 {
   "arcade_break": [
-    "arcade_break.mp3"
+    {
+      "f": "arcade_break.mp3",
+      "v": "47eef322"
+    }
   ],
   "arcade_eat": [
-    "arcade_eat.mp3"
+    {
+      "f": "arcade_eat.mp3",
+      "v": "31686dcf"
+    }
   ],
   "bloodmoon": [
-    "bloodmoon.mp3"
+    {
+      "f": "bloodmoon.mp3",
+      "v": "18367661"
+    }
   ],
   "buff": [
-    "buff.mp3"
+    {
+      "f": "buff.mp3",
+      "v": "0dc201b0"
+    }
   ],
   "cast": [
-    "cast.mp3"
+    {
+      "f": "cast.mp3",
+      "v": "c2342bbb"
+    }
   ],
   "coin": [
-    "coin-1.mp3",
-    "coin-2.mp3"
+    {
+      "f": "coin-1.mp3",
+      "v": "e093a5dc"
+    },
+    {
+      "f": "coin-2.mp3",
+      "v": "3ec3d0e7"
+    }
   ],
   "coven_crown": [
-    "coven_crown.mp3"
+    {
+      "f": "coven_crown.mp3",
+      "v": "bc257f01"
+    }
   ],
   "curse": [
-    "curse.mp3"
+    {
+      "f": "curse.mp3",
+      "v": "6ca11045"
+    }
   ],
   "death": [
-    "death.mp3"
+    {
+      "f": "death.mp3",
+      "v": "d474a16a"
+    }
   ],
   "door": [
-    "door.mp3"
+    {
+      "f": "door.mp3",
+      "v": "b0549fca"
+    }
   ],
   "drink": [
-    "drink.mp3"
+    {
+      "f": "drink.mp3",
+      "v": "da8c358b"
+    }
   ],
   "error": [
-    "error.mp3"
+    {
+      "f": "error.mp3",
+      "v": "0faf6d00"
+    }
   ],
   "footstep": [
-    "footstep-1.mp3",
-    "footstep-2.mp3",
-    "footstep-3.mp3",
-    "footstep-4.mp3"
+    {
+      "f": "footstep-1.mp3",
+      "v": "420148fe"
+    },
+    {
+      "f": "footstep-2.mp3",
+      "v": "1695827e"
+    },
+    {
+      "f": "footstep-3.mp3",
+      "v": "8f71fcd7"
+    },
+    {
+      "f": "footstep-4.mp3",
+      "v": "39f878ed"
+    }
   ],
   "harvest": [
-    "harvest-1.mp3",
-    "harvest-2.mp3"
+    {
+      "f": "harvest-1.mp3",
+      "v": "d6ed8c9b"
+    },
+    {
+      "f": "harvest-2.mp3",
+      "v": "5466bee2"
+    }
   ],
   "heal": [
-    "heal.mp3"
+    {
+      "f": "heal.mp3",
+      "v": "2e693865"
+    }
   ],
   "hit": [
-    "hit-1.mp3",
-    "hit-2.mp3",
-    "hit-3.mp3"
+    {
+      "f": "hit-1.mp3",
+      "v": "d2c5d834"
+    },
+    {
+      "f": "hit-2.mp3",
+      "v": "5152a251"
+    },
+    {
+      "f": "hit-3.mp3",
+      "v": "b242befe"
+    }
   ],
   "howl": [
-    "howl.mp3"
+    {
+      "f": "howl.mp3",
+      "v": "6fb80512"
+    }
   ],
   "hurt": [
-    "hurt-1.mp3",
-    "hurt-2.mp3",
-    "hurt-3.mp3"
+    {
+      "f": "hurt-1.mp3",
+      "v": "de773024"
+    },
+    {
+      "f": "hurt-2.mp3",
+      "v": "aa747ba6"
+    },
+    {
+      "f": "hurt-3.mp3",
+      "v": "4152cdc4"
+    }
   ],
   "jump": [
-    "jump.mp3"
+    {
+      "f": "jump.mp3",
+      "v": "7a263aa6"
+    }
   ],
   "kill": [
-    "kill.mp3"
+    {
+      "f": "kill.mp3",
+      "v": "9d6d6cde"
+    }
   ],
   "levelup": [
-    "levelup.mp3"
+    {
+      "f": "levelup.mp3",
+      "v": "b6a197f0"
+    }
   ],
   "loot": [
-    "loot-1.mp3",
-    "loot-2.mp3"
+    {
+      "f": "loot-1.mp3",
+      "v": "1a7e379c"
+    },
+    {
+      "f": "loot-2.mp3",
+      "v": "66410c92"
+    }
   ],
   "portal": [
-    "portal.mp3"
+    {
+      "f": "portal.mp3",
+      "v": "c5eb1584"
+    }
   ],
   "quest_fanfare": [
-    "quest_fanfare.mp3"
+    {
+      "f": "quest_fanfare.mp3",
+      "v": "e42d9d49"
+    }
   ],
   "rend": [
-    "rend-1.mp3",
-    "rend-2.mp3"
+    {
+      "f": "rend-1.mp3",
+      "v": "ea1a85a4"
+    },
+    {
+      "f": "rend-2.mp3",
+      "v": "81717e35"
+    }
   ],
   "reveal": [
-    "reveal.mp3"
+    {
+      "f": "reveal.mp3",
+      "v": "cfd0d615"
+    }
   ],
   "seance": [
-    "seance.mp3"
+    {
+      "f": "seance.mp3",
+      "v": "80f2f227"
+    }
   ],
   "slash": [
-    "slash-1.mp3",
-    "slash-2.mp3"
+    {
+      "f": "slash-1.mp3",
+      "v": "914df0af"
+    },
+    {
+      "f": "slash-2.mp3",
+      "v": "3e111602"
+    }
   ],
   "summon": [
-    "summon.mp3"
+    {
+      "f": "summon.mp3",
+      "v": "636a6f04"
+    }
   ],
   "swing": [
-    "swing-1.mp3",
-    "swing-2.mp3"
+    {
+      "f": "swing-1.mp3",
+      "v": "634c31cc"
+    },
+    {
+      "f": "swing-2.mp3",
+      "v": "d3198d65"
+    }
   ],
   "thud": [
-    "thud-1.mp3",
-    "thud-2.mp3"
+    {
+      "f": "thud-1.mp3",
+      "v": "6708c929"
+    },
+    {
+      "f": "thud-2.mp3",
+      "v": "e5ddb9db"
+    }
   ],
   "ui_click": [
-    "ui_click.mp3"
+    {
+      "f": "ui_click.mp3",
+      "v": "dae3296d"
+    }
   ],
   "ward": [
-    "ward.mp3"
+    {
+      "f": "ward.mp3",
+      "v": "42814ce0"
+    }
   ]
 }

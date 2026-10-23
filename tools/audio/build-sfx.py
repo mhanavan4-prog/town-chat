@@ -77,7 +77,12 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="list what would generate; make no API calls")
     ap.add_argument("--force", action="store_true", help="regenerate even if the cache says unchanged")
     ap.add_argument("--only", default="", help="comma-separated sfx ids to limit to (e.g. hit,footstep)")
+    ap.add_argument("--index-only", action="store_true", help="just (re)write index.json from the files on disk; no API calls, no key needed")
     args = ap.parse_args()
+
+    if args.index_only:
+        write_index()
+        return
 
     man = load_json(MANIFEST)
     if not man:
@@ -154,8 +159,9 @@ def main():
 
 
 def write_index():
-    """Scan the output dir and write index.json: { id: [files...] }. The client
-    reads this to preload exactly the SFX that exist, grouping variants under
+    """Scan the output dir and write index.json: { id: [{f, v}, ...] }. `f` is the
+    filename, `v` a short content hash the client appends as ?v= for cache-busting
+    (same filename, new content → new URL → no stale audio). Variants group under
     their base id (footstep-1.mp3 .. footstep-4.mp3 -> "footstep": [...])."""
     files = sorted(f for f in os.listdir(OUT_DIR) if f.endswith(".mp3"))
     groups = {}
@@ -163,7 +169,9 @@ def write_index():
         base = f[:-4]  # strip .mp3
         if "-" in base and base.rsplit("-", 1)[1].isdigit():
             base = base.rsplit("-", 1)[0]
-        groups.setdefault(base, []).append(f)
+        with open(os.path.join(OUT_DIR, f), "rb") as fh:
+            v = hashlib.sha256(fh.read()).hexdigest()[:8]
+        groups.setdefault(base, []).append({"f": f, "v": v})
     save_json(os.path.join(OUT_DIR, "index.json"), groups)
     print(f"  wrote index.json ({len(groups)} sounds, {len(files)} files)")
 

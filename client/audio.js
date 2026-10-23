@@ -102,15 +102,25 @@ async function loadSfxFiles() {
   sfxLoadStarted = true;
   let index;
   try {
-    const res = await fetch('/audio/sfx/index.json', { cache: 'force-cache' });
+    // index.json is tiny and the source of truth for which sounds + which
+    // versions exist — always fetch it fresh so a regenerated sound is picked
+    // up (the MP3s below are themselves cache-busted by ?v=).
+    const res = await fetch('/audio/sfx/index.json', { cache: 'no-store' });
     if (!res.ok) return;
     index = await res.json();
   } catch (e) { return; }
   for (const id of Object.keys(index || {})) {
-    const files = index[id] || [];
-    for (const fn of files) {
+    const entries = index[id] || [];
+    for (const entry of entries) {
+      // Accept both the versioned shape ({ f, v }) and the old flat string.
+      const fn = (typeof entry === 'string') ? entry : (entry && entry.f);
+      const ver = (entry && entry.v) ? ('?v=' + entry.v) : '';
+      if (!fn) continue;
       try {
-        const r = await fetch('/audio/sfx/' + fn, { cache: 'force-cache' });
+        // Same filename + a content-hash query → a changed sound gets a new URL,
+        // so force-cache can serve the rest instantly without stranding players
+        // on a stale recording.
+        const r = await fetch('/audio/sfx/' + fn + ver, { cache: 'force-cache' });
         if (!r.ok) continue;
         const buf = await audioCtx.decodeAudioData(await r.arrayBuffer());
         (sfxBuffers[id] = sfxBuffers[id] || []).push(buf);
