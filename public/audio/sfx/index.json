@@ -1,15 +1,34 @@
 {
+  "arcade_break": [
+    "arcade_break.mp3"
+  ],
+  "arcade_eat": [
+    "arcade_eat.mp3"
+  ],
+  "bloodmoon": [
+    "bloodmoon.mp3"
+  ],
   "buff": [
     "buff.mp3"
   ],
   "cast": [
     "cast.mp3"
   ],
+  "coin": [
+    "coin-1.mp3",
+    "coin-2.mp3"
+  ],
+  "coven_crown": [
+    "coven_crown.mp3"
+  ],
   "curse": [
     "curse.mp3"
   ],
   "death": [
     "death.mp3"
+  ],
+  "door": [
+    "door.mp3"
   ],
   "drink": [
     "drink.mp3"
@@ -35,10 +54,16 @@
     "hit-2.mp3",
     "hit-3.mp3"
   ],
+  "howl": [
+    "howl.mp3"
+  ],
   "hurt": [
     "hurt-1.mp3",
     "hurt-2.mp3",
     "hurt-3.mp3"
+  ],
+  "jump": [
+    "jump.mp3"
   ],
   "kill": [
     "kill.mp3"
@@ -50,11 +75,39 @@
     "loot-1.mp3",
     "loot-2.mp3"
   ],
+  "portal": [
+    "portal.mp3"
+  ],
+  "quest_fanfare": [
+    "quest_fanfare.mp3"
+  ],
+  "rend": [
+    "rend-1.mp3",
+    "rend-2.mp3"
+  ],
   "reveal": [
     "reveal.mp3"
   ],
+  "seance": [
+    "seance.mp3"
+  ],
+  "slash": [
+    "slash-1.mp3",
+    "slash-2.mp3"
+  ],
   "summon": [
     "summon.mp3"
+  ],
+  "swing": [
+    "swing-1.mp3",
+    "swing-2.mp3"
+  ],
+  "thud": [
+    "thud-1.mp3",
+    "thud-2.mp3"
+  ],
+  "ui_click": [
+    "ui_click.mp3"
   ],
   "ward": [
     "ward.mp3"
