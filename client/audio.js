@@ -39,7 +39,8 @@ let sfxGain = null, sfxMuted = false, noiseBuffer = null;
 let sfxFileGain = null;
 let sfxBuffers = {};        // id -> [AudioBuffer, ...] (variants)
 let sfxLoadStarted = false;
-const SFX_FILE_GAIN = { footstep: 0.45 }; // per-id trim; footsteps sit under the mix
+const SFX_FILE_GAIN = { footstep: 0.45, kill: 0.55 }; // per-id trim; footsteps + the kill wail sit under the mix
+const SFX_FILE_LOWPASS = { kill: 2400 };              // per-id high-cut (Hz) — tame the kill's shrill top so combos don't fatigue
 // The 🔈 button is one global mute for BOTH music and sfx. It has a single
 // source of truth — tc_audio_muted — so the two buses can never drift apart. (An
 // earlier build persisted only the sfx half, which left reloads silent with
@@ -80,7 +81,15 @@ function ensureAudio() {
     // Parallel clean bus for recorded SFX (no low-pass/reverb), same volume/mute.
     sfxFileGain = audioCtx.createGain();
     sfxFileGain.gain.value = sfxMuted ? 0 : SFX_LEVEL;
-    sfxFileGain.connect(audioCtx.destination);
+    // A gentle limiter on the whole recorded-SFX bus so rapid, stacking sounds
+    // (a kill combo, say) can't pile up into something painful — it rides the
+    // peaks down without dulling a single hit.
+    try {
+      const comp = audioCtx.createDynamicsCompressor();
+      comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 4;
+      comp.attack.value = 0.003; comp.release.value = 0.18;
+      sfxFileGain.connect(comp); comp.connect(audioCtx.destination);
+    } catch (e) { sfxFileGain.connect(audioCtx.destination); }
     loadSfxFiles(); // decode the generated set once
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
 }
@@ -120,13 +129,20 @@ function playSfxFile(name) {
   try {
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
+    // Chain src → [high-cut] → [trim] → bus. Each stage is optional per id.
+    let node = src;
+    const lp = SFX_FILE_LOWPASS[name];
+    if (lp) {
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 0.6;
+      node.connect(f); node = f;
+    }
     const trim = SFX_FILE_GAIN[name];
     if (trim != null && trim !== 1) {
       const g = audioCtx.createGain(); g.gain.value = trim;
-      src.connect(g); g.connect(sfxFileGain);
-    } else {
-      src.connect(sfxFileGain);
+      node.connect(g); node = g;
     }
+    node.connect(sfxFileGain);
     src.start(audioCtx.currentTime);
     return true;
   } catch (e) { return false; }
