@@ -91,6 +91,7 @@ function ensureAudio() {
       sfxFileGain.connect(comp); comp.connect(audioCtx.destination);
     } catch (e) { sfxFileGain.connect(audioCtx.destination); }
     loadSfxFiles(); // decode the generated set once
+    loadNarrationIndex(); // and learn which quests are voiced (fetch only, no decode)
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
 }
 
@@ -443,6 +444,52 @@ function playSfx(name) {
     default: break;
   }
 }
+// ── Quest-line narration ────────────────────────────────────────────────────
+// Long voiced clips (ElevenLabs TTS, one MP3 per quest id) streamed through a
+// plain <audio> element rather than the Web Audio graph: they run several
+// seconds, want their own volume above the SFX bed, and must stop cleanly when
+// you close the dialogue or open another offer. Best-effort like the recorded
+// SFX — a missing index or file just means that quest isn't voiced.
+const NARRATION_LEVEL = 0.9;
+let narrationIndex = {};        // { questId: { f, v } }
+let narrationLoadStarted = false;
+let narrationEl = null;         // the single reused <audio> player
+let narrationCurId = null;
+
+async function loadNarrationIndex() {
+  if (narrationLoadStarted) return;
+  narrationLoadStarted = true;
+  try {
+    const res = await fetch('/audio/narration/index.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    narrationIndex = (await res.json()) || {};
+  } catch (e) { /* no narration index — quests simply aren't voiced */ }
+}
+
+function narrationAvailable(id) { return !!(narrationIndex && narrationIndex[id]); }
+
+function stopNarration() {
+  if (narrationEl) { try { narrationEl.pause(); narrationEl.currentTime = 0; } catch (e) {} }
+  narrationCurId = null;
+}
+
+function playNarration(id) {
+  if (allMuted) return false;
+  const entry = narrationIndex && narrationIndex[id];
+  if (!entry) return false;
+  stopNarration(); // never stack two voices
+  try {
+    if (!narrationEl) { narrationEl = new Audio(); narrationEl.preload = 'auto'; }
+    narrationEl.volume = NARRATION_LEVEL;
+    const ver = entry.v ? `?v=${entry.v}` : '';
+    narrationEl.src = `/audio/narration/${entry.f}${ver}`;
+    narrationCurId = id;
+    const p = narrationEl.play();
+    if (p && p.catch) p.catch(() => {}); // autoplay block / interrupted — ignore
+    return true;
+  } catch (e) { return false; }
+}
+
 function setSfxMuted(muted) {
   sfxMuted = muted;
   if (audioCtx && sfxGain) sfxGain.gain.setValueAtTime(muted ? 0 : SFX_LEVEL, audioCtx.currentTime);
@@ -456,6 +503,7 @@ function setAllMuted(muted) {
   try { localStorage.setItem('tc_audio_muted', muted ? '1' : '0'); } catch (e) {}
   setMusicMuted(muted);
   setSfxMuted(muted);
+  if (muted) stopNarration(); // voice honours the master mute
 }
 
 const muteBtn = document.getElementById('muteBtn');
@@ -471,6 +519,8 @@ if (muteBtn) {
   return {
     ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel,
     playSfx, setSfxMuted,
+    // Quest-line narration (voiced offer pitches).
+    playNarration, stopNarration, narrationAvailable,
     // True once a recorded file for `id` is loaded — lets callers prefer a
     // specific new sound but fall back (e.g. per-class melee → generic 'hit').
     sfxAvailable: (id) => !!(sfxBuffers[id] && sfxBuffers[id].length),
