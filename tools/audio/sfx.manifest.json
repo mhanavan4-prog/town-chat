@@ -64,6 +64,13 @@
       "prompt": "Life force being siphoned out of a victim — a wet mid-range sucking, drawing, draining pull, like warm vitality pulled through the air toward the caster. Gurgling, visceral, organic, centered in the mids. No shrill highs, no deep sub rumble, no music, no voice. Short.",
       "note": "NEW sound. Wired in sfxForAbility: all leech-effect abilities (Leech Hex, Soul Siphon, Life Siphon) route here, falling back to 'curse' if the file isn't loaded." },
 
+    { "id": "forge",   "category": "craft", "existing": false, "new": true, "duration_seconds": 0.8,
+      "prompt": "A blacksmith forging gear — a hammer ringing against hot metal on an anvil, a bright metallic clang with a short ring-out and a faint ember hiss. Satisfying, warm, close. No music, no voice. Short.",
+      "note": "NEW sound. Plays on craft_result and workshop_craft_result (gear/item crafts)." },
+    { "id": "brew",    "category": "craft", "existing": false, "new": true, "duration_seconds": 0.9,
+      "prompt": "A witch's cauldron finishing a potion — thick liquid bubbling and glooping, then a soft glass cork pop as it's bottled. Wet, magical, cozy, mid-range. No music, no voice. Short.",
+      "note": "NEW sound. Plays on witch_craft_result (Witch Hazel's cauldron brews)." },
+
     { "id": "quest_fanfare", "category": "reward", "existing": false, "new": true, "duration_seconds": 1.4,
       "prompt": "A quest-complete flourish — a short triumphant magical chime that rises and resolves warmly, bells and shimmer. Rewarding, distinct from a level-up. No full music track." },
     { "id": "coin",    "category": "reward", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
