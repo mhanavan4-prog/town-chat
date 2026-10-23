@@ -34,7 +34,7 @@
     { "id": "levelup", "category": "reward", "existing": true, "duration_seconds": 1.2,
       "prompt": "A triumphant level-up flourish — a bright ascending magical arpeggio resolving to a shining top note, with a soft sparkle. Rewarding, uplifting, short. No full music track." },
     { "id": "loot",    "category": "reward", "existing": true, "duration_seconds": 0.5, "variants": 2,
-      "prompt": "Picking up a small treasure — a clean glassy chime, two quick bright notes, pleasant and crisp. No music bed." },
+      "prompt": "Picking up loot — a soft handful of coins clinking and shifting against each other as they settle, gentle and muffled, warm metallic. No bright chime or jingle, close and quiet. Short. No music, no voice." },
     { "id": "harvest", "category": "world", "existing": true, "duration_seconds": 0.5, "variants": 2,
       "prompt": "Gathering a herb from the ground — a soft leafy rustle and a light pluck as the plant comes free. Natural, muffled, short. No music." },
     { "id": "drink",   "category": "world", "existing": true, "duration_seconds": 0.5,
