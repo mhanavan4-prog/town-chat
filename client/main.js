@@ -1581,6 +1581,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'quest_complete') {
     clearQuestTracker();
+    if (typeof playSfx === 'function') playSfx('quest_fanfare');
     setUnlockToast(msg.message);
     appendSystemChatLine(msg.message);
     // Refresh inventory so newly granted items appear immediately
@@ -1742,6 +1743,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'announce') {
     // Town-wide news (campaign finales, etc.) — banner + a system chat line.
+    if (typeof playSfx === 'function' && /Champions. Table/i.test(msg.message || '')) playSfx('coven_crown');
     showAnnounceBanner(msg.message);
     appendSystemChatLine(msg.message);
     return;
@@ -2009,7 +2011,7 @@ function onWsMessage(ev) {
       if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
     }
     if (msg.casterId === myId) {
-      if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : 'hit'); // my blow landed
+      if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : meleeHitSfx()); // my blow landed (per-class melee)
       if (msg.dead) { shakeScreen('S'); haptic([12, 25, 20]); }
     }
     return;
@@ -2473,6 +2475,7 @@ function onWsMessage(ev) {
   if (msg.type === 'shop_sold') {
     if (typeof playSfx === 'function') playSfx('loot');
     setUnlockToast(`💰 Sold ${msg.itemName}${msg.qty > 1 ? ' ×' + msg.qty : ''} for ${msg.gold} gold!`);
+    if (typeof playSfx === 'function') playSfx('coin');
     if (lastBankState) lastBankState.balance = msg.balance;
     if (Modals.isOpen('npcShopOpen')) {
       const balEl = document.getElementById('npcShopBalance');
@@ -2593,6 +2596,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'solo_seance_offer') { openSeanceModal({ solo: true }); return; }
   if (msg.type && msg.type.indexOf('seance_') === 0) {
+    if (msg.type === 'seance_begin' && typeof playSfx === 'function') playSfx('seance');
     if (msg.type === 'seance_error') setUnlockToast(msg.message || 'The board will not answer.');
     handleSeanceMessage(msg);
     return;
@@ -3056,7 +3060,19 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable } = _audio;
+
+// Per-class melee flavour: a landed basic attack picks a weapon-appropriate
+// sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/
+// Wanderer blade → slash), falling back to the generic 'hit' until that
+// recording exists. 'kill' (the enemy dying) is unchanged. See classShowcase.js
+// for the charId roster.
+const CLASS_MELEE = { 0: 'thud', 1: 'rend', 2: 'slash', 3: 'slash', 4: 'slash', 5: 'thud' };
+function meleeHitSfx() {
+  const id = (me && CLASS_MELEE[me.charId]) || 'hit';
+  return (typeof sfxAvailable === 'function' && sfxAvailable(id)) ? id : 'hit';
+}
+let _wasBloodMoon = null; // for the once-per-rise blood-moon toll (null = first check, don't toll)
 
 // ---------------------------------------------------------------------------
 // Inventory panel — two tabs. "Items" is the player's real 24-slot carried
@@ -3373,6 +3389,7 @@ function strikeNearestEnemy() {
     if (d < nearestDist) { nearestDist = d; nearest = uid; }
   }
   if (nearest) {
+    if (typeof playSfx === 'function') playSfx('swing'); // weapon whoosh on the swing
     ws.send(JSON.stringify({ type: 'strike', targetType: nearest.kind, targetId: nearest.targetId }));
     flashCreatureHit(nearest.kind, nearest.targetId);
     triggerAttackAnim();
@@ -3714,6 +3731,7 @@ if (_playerCtxAttackBtn) _playerCtxAttackBtn.addEventListener('click', () => {
   if (!playerContextMenuId) return;
   const id = playerContextMenuId;
   hidePlayerContextMenu();
+  if (typeof playSfx === 'function') playSfx('swing');
   ws.send(JSON.stringify({ type: 'strike', targetType: 'player', targetId: id }));
   triggerAttackAnim();
 });
@@ -5414,6 +5432,7 @@ let jumpActive = false, jumpT = 0;
 function tryJump() {
   if (jumpActive || typing || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || seatedAt) return;
   jumpActive = true;
+  if (typeof playSfx === 'function') playSfx('jump');
   jumpT = 0;
 }
 
@@ -6147,6 +6166,7 @@ function handleCanvasClick(clientX, clientY) {
     return;
   }
   if (ATTACKABLE_KINDS.has(hit.kind)) {
+    if (typeof playSfx === 'function') playSfx('swing');
     ws.send(JSON.stringify({ type: 'strike', targetType: hit.kind, targetId: hit.targetId }));
     flashCreatureHit(hit.kind, hit.targetId);
     triggerAttackAnim();
@@ -6300,7 +6320,7 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
     else if (myAttackCatalog) { if (!Modals.isOpen('attackPanelOpen')) openAttackPanel(); }
   });
   on('chatToggleBtn', () => toggleMobileChat());
-  on('menuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
+  on('menuBtn', () => { if (typeof playSfx === 'function') playSfx('ui_click'); document.getElementById('menuSheet').classList.remove('hidden'); });
   // Desktop's ☰ chip opens the very same sheet — one menu for both platforms.
   on('pcMenuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
   on('menuCloseBtn', () => document.getElementById('menuSheet').classList.add('hidden'));
@@ -8503,6 +8523,7 @@ const PORTAL_COOLDOWN_MS = 2500;
 // let the new scene paint a few frames, then fade the cover out. doSwap returns
 // false to abort (e.g. a failed build) — then we uncover immediately.
 function portalFade(text, doSwap) {
+  if (typeof playSfx === 'function') playSfx('portal'); // all traversals (wilds/cave/ember/manor/vault) fade through here
   const ov = document.getElementById('portalFade');
   if (!ov) { doSwap(); return; }
   const label = document.getElementById('portalFadeText');
@@ -13100,6 +13121,8 @@ function nearestBuilding() {
 let lastCastAtk = null;
 function sfxForAbility(atk) {
   if (!atk) return 'cast';
+  // Werewolf howls get their own feral cue, whatever their mechanical effect.
+  if (atk.effect === 'howl_location' || /howl/i.test(atk.name || '')) return 'howl';
   switch (atk.effect) {
     case 'summon': return 'summon';
     case 'heal': return 'heal';
@@ -13556,6 +13579,7 @@ function updateSnake(dt) {
   s.cells.unshift({ x: nx, y: ny });
   if (nx === s.food.x && ny === s.food.y) {
     s.score++;
+    if (typeof playSfx === 'function') playSfx('arcade_eat');
     s.food = randomFoodCell(s.cells);
   } else {
     s.cells.pop();
@@ -13619,7 +13643,7 @@ function updateBreakout(dt) {
   for (const b of s.bricks) {
     if (!b.alive) continue;
     if (s.ballX > b.x && s.ballX < b.x + b.w && s.ballY > b.y && s.ballY < b.y + b.h) {
-      b.alive = false; s.score++; s.ballVY *= -1; break;
+      b.alive = false; s.score++; if (typeof playSfx === 'function') playSfx('arcade_break'); s.ballVY *= -1; break;
     }
   }
   if (s.bricks.every(b => !b.alive)) s.won = true;
@@ -14346,6 +14370,7 @@ window.addEventListener('keydown', (e) => {
 // Entering / leaving a building
 // ---------------------------------------------------------------------------
 function enterBuilding(roomId) {
+  if (typeof playSfx === 'function') playSfx('door');
   const interior = getInteriorScene(roomId);
   mode = 'indoor';
   indoorBuildingId = roomId;
@@ -14390,6 +14415,7 @@ function enterBuilding(roomId) {
 }
 
 function exitBuilding(b) {
+  if (typeof playSfx === 'function') playSfx('door');
   mode = 'outdoor';
   indoorBuildingId = null;
   // Same reasoning as enterBuilding(): don't let a leftover look-angle from
@@ -14716,6 +14742,7 @@ function update(dt) {
   // out there to see it change. Wildlife visuals interpolate unconditionally
   // too, same reasoning as remote players just below.
   updateDayNightCycle();
+  { const _bm = bloodMoonActiveClient(Date.now()); if (_wasBloodMoon !== null && _bm && !_wasBloodMoon && typeof playSfx === 'function') playSfx('bloodmoon'); _wasBloodMoon = _bm; }
   KK.tick(dt);
   LEGEND_FX.tick(dt);
   if (peddlerStallGroup && peddlerStallGroup.userData.tick) peddlerStallGroup.userData.tick(performance.now() / 1000);

@@ -40,7 +40,45 @@
     { "id": "drink",   "category": "world", "existing": true, "duration_seconds": 0.5,
       "prompt": "Drinking a potion — a quick series of liquid glugs and a soft swallow. Close, wet, short. No music, no words." },
     { "id": "error",   "category": "ui", "existing": true, "duration_seconds": 0.5,
-      "prompt": "An action-denied cue — a low, soft, dissonant two-tone 'no' buzz. Muted, brief, not harsh. No music." }
+      "prompt": "An action-denied cue — a low, soft, dissonant two-tone 'no' buzz. Muted, brief, not harsh. No music." },
+
+    { "id": "jump",    "category": "movement", "existing": false, "new": true, "duration_seconds": 0.5,
+      "prompt": "A light jump — a soft cloth-and-leather whoomph of a body springing up, understated, close. No music, no voice." },
+    { "id": "portal",  "category": "world", "existing": false, "new": true, "duration_seconds": 0.9,
+      "prompt": "Stepping through an arcane portal — a swelling magical whoosh with an airy shimmer as reality folds past you. Mystical, brief. No music, no words." },
+    { "id": "door",    "category": "world", "existing": false, "new": true, "duration_seconds": 0.7,
+      "prompt": "A heavy wooden tavern door — an old iron latch and a low creak as it swings open and thuds shut. Close, wooden, no music." },
+
+    { "id": "swing",   "category": "combat", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "A weapon swung hard through the air — a quick low whoosh, no impact, no clang. Dry and close. No music." },
+    { "id": "slash",   "category": "combat", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "A bladed weapon slashing into a body — a sharp wet edged cut, quick and visceral. Close-mic, no reverb, no music, no voice." },
+    { "id": "thud",    "category": "combat", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "A heavy blunt impact — a staff or mace thudding dully into flesh and bone. Weighty, short, dry. No music, no voice." },
+    { "id": "rend",    "category": "combat", "existing": false, "new": true, "duration_seconds": 0.6, "variants": 2,
+      "prompt": "A bestial claw rending flesh — a feral tearing swipe with a low snarl edge, wet and savage. Short, close. No music." },
+    { "id": "howl",    "category": "combat", "existing": false, "new": true, "duration_seconds": 1.3,
+      "prompt": "A lone werewolf howl rising into the night — feral, mournful, swelling then fading. Wild and lonely. No music, no words." },
+
+    { "id": "quest_fanfare", "category": "reward", "existing": false, "new": true, "duration_seconds": 1.4,
+      "prompt": "A quest-complete flourish — a short triumphant magical chime that rises and resolves warmly, bells and shimmer. Rewarding, distinct from a level-up. No full music track." },
+    { "id": "coin",    "category": "reward", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
+      "prompt": "A gold reward — coins clinking together and dropping into a leather purse, a bright pleasant jingle. Short, close. No music." },
+
+    { "id": "ui_click", "category": "ui", "existing": false, "new": true, "duration_seconds": 0.5,
+      "prompt": "A soft UI tap — a muffled wooden or parchment click opening a menu, understated and quick. No music, no tone beep." },
+
+    { "id": "seance",  "category": "world", "existing": false, "new": true, "duration_seconds": 1.1,
+      "prompt": "A séance board stirring to life — a planchette scraping across wood and a cold whispering breath of contact from the other side. Eerie, hushed. No words, no music." },
+    { "id": "bloodmoon", "category": "event", "existing": false, "new": true, "duration_seconds": 2.0,
+      "prompt": "The blood moon rising — a deep ominous horn and bell toll swelling with dread over a low drone. Foreboding, ceremonial. No melody, no voice." },
+    { "id": "coven_crown", "category": "event", "existing": false, "new": true, "duration_seconds": 1.6,
+      "prompt": "A coven claiming the crown — a regal coronation flourish, bright bells over a rising triumphant chord. Ceremonial, proud, short. No full music track." },
+
+    { "id": "arcade_eat",   "category": "arcade", "existing": false, "new": true, "duration_seconds": 0.5,
+      "prompt": "A retro 8-bit pickup blip — a short bright chiptune 'bloop' as the snake eats. Clean, digital, tiny. No music." },
+    { "id": "arcade_break", "category": "arcade", "existing": false, "new": true, "duration_seconds": 0.5,
+      "prompt": "A retro 8-bit brick-break blip — a short crisp chiptune 'tok' as a block shatters. Clean, digital, tiny. No music." }
   ],
   "_optional_candidates": [
     "ui_click — a soft muffled UI tap/click for menu buttons (new trigger)",
