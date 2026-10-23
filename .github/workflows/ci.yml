@@ -28,7 +28,23 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      - name: Install Chromium for smoke test
+      # Cache the Playwright browser binary so the smoke test doesn't re-download
+      # Chromium (~120MB) on every run — that step was taking 20+ minutes. The
+      # cache key is the installed Playwright version, so a version bump busts it.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "v=$(node -e "console.log(require('playwright/package.json').version)")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.v }}
+      - name: Install Chromium + system deps (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install Chromium system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Browser smoke test (boots client.js, catches load crashes)
         run: npm run test:smoke
