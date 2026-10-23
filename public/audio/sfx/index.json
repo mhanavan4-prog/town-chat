@@ -17,6 +17,12 @@
       "v": "18367661"
     }
   ],
+  "brew": [
+    {
+      "f": "brew.mp3",
+      "v": "b21613a5"
+    }
+  ],
   "buff": [
     {
       "f": "buff.mp3",
@@ -69,6 +75,12 @@
       "v": "da8c358b"
     }
   ],
+  "equip": [
+    {
+      "f": "equip.mp3",
+      "v": "9e34eb1a"
+    }
+  ],
   "error": [
     {
       "f": "error.mp3",
@@ -91,6 +103,12 @@
     {
       "f": "footstep-4.mp3",
       "v": "39f878ed"
+    }
+  ],
+  "forge": [
+    {
+      "f": "forge.mp3",
+      "v": "795b17f9"
     }
   ],
   "harvest": [
@@ -175,6 +193,12 @@
     {
       "f": "portal.mp3",
       "v": "c5eb1584"
+    }
+  ],
+  "quest_accept": [
+    {
+      "f": "quest_accept.mp3",
+      "v": "4a500e1e"
     }
   ],
   "quest_fanfare": [
