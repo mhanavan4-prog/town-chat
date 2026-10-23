@@ -9568,6 +9568,7 @@ if (bedChestCloseBtn) bedChestCloseBtn.addEventListener('click', closeManorChest
 const MANOR_WILDS_SPOT = { x: 3000, y: 3000 };
 const MANOR_ENTER_KIOSK = { x: MANOR_WILDS_SPOT.x, z: MANOR_WILDS_SPOT.y, portal: 'manor_enter', radius: 150 };
 let manorExteriorGroup = null;
+let manorCollider = null; // the footprint rect; added to WILDS_WALLS only while the Manor is visible
 
 function buildManorExterior() {
   const g = new THREE.Group();
@@ -9631,8 +9632,11 @@ function ensureManorExterior() {
     manorExteriorGroup = buildManorExterior();
     wildsScene.add(manorExteriorGroup);
     // Body footprint collider for the castle keep (~219×250), inset on the +z
-    // gate side so the entrance stays walkable up to the kiosk.
-    WILDS_WALLS.push({ x: MANOR_WILDS_SPOT.x - 105, y: MANOR_WILDS_SPOT.y - 125, w: 210, h: 180 });
+    // gate side so the entrance stays walkable up to the kiosk. Stored here but
+    // only pushed into WILDS_WALLS while the Manor is actually visible (see
+    // applyManorInstanceState): the Manor exists only inside a coven instance,
+    // so in the public Wilds this box was a solid invisible wall at (3000,3000).
+    manorCollider = { x: MANOR_WILDS_SPOT.x - 105, y: MANOR_WILDS_SPOT.y - 125, w: 210, h: 180 };
   } catch (e) { console.error('buildManorExterior failed:', e); }
 }
 
@@ -9642,6 +9646,14 @@ function applyManorInstanceState(active) {
   const idx = WILDS_KIOSKS.indexOf(MANOR_ENTER_KIOSK);
   if (active && idx === -1) WILDS_KIOSKS.push(MANOR_ENTER_KIOSK);
   else if (!active && idx !== -1) WILDS_KIOSKS.splice(idx, 1);
+  // The footprint collider follows the Manor's visibility — present when the
+  // keep is actually standing there, gone in the public Wilds so there's no
+  // invisible wall where the hidden Manor would be.
+  if (manorCollider) {
+    const ci = WILDS_WALLS.indexOf(manorCollider);
+    if (active && ci === -1) WILDS_WALLS.push(manorCollider);
+    else if (!active && ci !== -1) WILDS_WALLS.splice(ci, 1);
+  }
 }
 
 // ---------------------------------------------------------------------------
