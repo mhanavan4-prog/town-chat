@@ -75,7 +75,7 @@ WORLD.natureDecor = [
   { id: 'decor_38', type: 'lamppost', x: 1021, y: 739 },
   { id: 'decor_40', type: 'lamppost', x: 2132, y: 710 },
   { id: 'decor_42', type: 'lamppost', x: 985, y: 1524 },
-  { id: 'decor_44', type: 'lamppost', x: 2094, y: 1522 },
+  { id: 'decor_44', type: 'lamppost', x: 2170, y: 1560 },
   // decor_46/57/58 used to sit stacked in one ~110-unit patch right behind
   // the Wilds portal (1600,700) — spread out: the lamp lights the lane's
   // east side, the noticeboard stands by Town Hall's door, and the bench
