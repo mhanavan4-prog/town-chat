@@ -1545,6 +1545,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'quest_started') {
     closeQuestDialogue();
+    if (typeof playSfx === 'function') playSfx('quest_accept');
     setUnlockToast(msg.message || `📜 Quest started: "${msg.questName}" — ${msg.description}`);
     appendSystemChatLine(msg.message || `📜 Quest started: "${msg.questName}"`);
     updateQuestTracker(msg.questId, msg.questName, 0, msg.target, msg.where);
@@ -3172,6 +3173,7 @@ const {
   getEquipStatsCatalog: () => equipStatsCatalog, getLastInventoryState: () => lastInventoryState,
   getMyStatBlock: () => myStatBlock, getWs: () => ws, getUpdateGoldReadouts: () => updateGoldReadouts,
   getSelectedInvSlotIdx: () => selectedInvSlotIdx, setSelectedInvSlotIdx: (v) => { selectedInvSlotIdx = v; },
+  playSfx,
 });
 
 // ── Notes + Hard-Drive tab ─ extracted to client/notes-drive.js (Phase C).

@@ -6,7 +6,7 @@
 // Item catalog / stat-display tables + the item-icon/tooltip helpers + the tab
 // switchers are injected; the gold-readout refresh via getter (declared later).
 // ---------------------------------------------------------------------------
-export default function createInventoryPanel({ ITEM_CATALOG, Modals, PLANT_EFFECTS, STAT_DISPLAY, buildItemIconEl, hideTooltip, showInvTab, showItemTooltip, toggleInventory, getEquipStatsCatalog, getLastInventoryState, getMyStatBlock, getWs, getUpdateGoldReadouts, getSelectedInvSlotIdx, setSelectedInvSlotIdx }) {
+export default function createInventoryPanel({ ITEM_CATALOG, Modals, PLANT_EFFECTS, STAT_DISPLAY, buildItemIconEl, hideTooltip, showInvTab, showItemTooltip, toggleInventory, getEquipStatsCatalog, getLastInventoryState, getMyStatBlock, getWs, getUpdateGoldReadouts, getSelectedInvSlotIdx, setSelectedInvSlotIdx, playSfx }) {
 function renderStats() {
   const list = document.getElementById('invStatsList');
   if (!list) return;
@@ -157,6 +157,7 @@ function renderEquipSlot(elId, itemId, equipKind) {
   el.onmouseleave = hideTooltip;
   el.onclick = () => {
     document.getElementById('invModalErr').textContent = '';
+    if (typeof playSfx === 'function') playSfx('equip');
     getWs().send(JSON.stringify({ type: 'inventory_unequip', equipSlot: equipKind }));
   };
 }
@@ -184,6 +185,7 @@ function selectInvSlot(idx) {
     btn.textContent = SLOT_LABELS[meta.slot] || '⚙️ Equip';
     btn.addEventListener('click', () => {
       document.getElementById('invModalErr').textContent = '';
+      if (typeof playSfx === 'function') playSfx('equip');
       getWs().send(JSON.stringify({ type: 'inventory_equip', slotIdx: idx, equipSlot: meta.slot }));
     });
     buttons.appendChild(btn);

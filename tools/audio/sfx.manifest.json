@@ -73,6 +73,13 @@
 
     { "id": "quest_fanfare", "category": "reward", "existing": false, "new": true, "duration_seconds": 1.4,
       "prompt": "A quest-complete flourish — a short triumphant magical chime that rises and resolves warmly, bells and shimmer. Rewarding, distinct from a level-up. No full music track." },
+    { "id": "quest_accept", "category": "reward", "existing": false, "new": true, "duration_seconds": 0.9,
+      "prompt": "Accepting a quest — a soft parchment scroll unfurling with a gentle low chime of resolve, a task begun. Understated, warm, brief. Clearly lighter than a quest-complete fanfare. No music bed, no voice.",
+      "note": "NEW sound. Plays on quest_started (the server's accept confirmation)." },
+
+    { "id": "equip",   "category": "gear", "existing": false, "new": true, "duration_seconds": 0.6,
+      "prompt": "Equipping gear — a quick leather-and-metal shuffle and a soft buckle cinch as a weapon or armor piece is donned. Close, dry, understated. No music, no voice. Short.",
+      "note": "NEW sound. Plays on inventory_equip and inventory_unequip (client send)." },
     { "id": "coin",    "category": "reward", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
       "prompt": "A gold reward — coins clinking together and dropping into a leather purse, a bright pleasant jingle. Short, close. No music." },
 
