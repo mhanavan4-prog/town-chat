@@ -1506,6 +1506,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'craft_result') {
+    if (typeof playSfx === 'function') playSfx('forge');
     setUnlockToast(msg.message);
     // A craft (Holly Wand / Bloodmoon Circlet) just changed our item counts.
     // The grid already refreshed via the inventory_state sent right before
@@ -1861,6 +1862,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'workshop_craft_result') {
+    if (typeof playSfx === 'function') playSfx('forge');
     setUnlockToast(msg.message || `🔨 Crafted ${msg.resultName || ''}`);
     renderWorkshopModal(); // inventory_state (sent alongside) refreshes counts; redraw the tree
     return;
@@ -2740,6 +2742,7 @@ function onWsMessage(ev) {
   if (msg.type === 'witch_craft_result') {
     const errEl = document.getElementById('witchCraftErr');
     if (errEl) errEl.textContent = '';
+    if (typeof playSfx === 'function') playSfx('brew');
     setUnlockToast(msg.message);
     return;
   }
