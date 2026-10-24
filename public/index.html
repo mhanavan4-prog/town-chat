@@ -2173,6 +2173,27 @@
   </div>
 </div>
 
+<!-- In-game account creation for a guest. Registering here (over the live
+     connection) lets the server carry the guest's current character straight
+     into the new account before anything reloads — see claim_guest. -->
+<div id="guestRegister" class="hidden" style="position:fixed;inset:0;z-index:41;display:flex;align-items:center;justify-content:center;background:rgba(8,6,20,0.72);padding:16px;">
+  <div style="width:100%;max-width:400px;background:#1b1733;border:1px solid #39335e;border-radius:16px;padding:22px;color:#eae4f6;">
+    <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:4px;">✨ Save your progress</div>
+    <div style="font-size:12.5px;color:#c6bce0;line-height:1.5;margin-bottom:14px;">Your current witch comes with you — same level, quests and items, now saved to your account.</div>
+    <input id="grUser" placeholder="Username" autocomplete="username" maxlength="24" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:11px 12px;background:#120f24;border:1px solid #39335e;border-radius:9px;color:#eae4f6;font-size:14px;">
+    <input id="grPass" type="password" placeholder="Password" autocomplete="new-password" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:11px 12px;background:#120f24;border:1px solid #39335e;border-radius:9px;color:#eae4f6;font-size:14px;">
+    <input id="grEmail" type="email" placeholder="Email (optional, for password recovery)" autocomplete="email" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:11px 12px;background:#120f24;border:1px solid #39335e;border-radius:9px;color:#eae4f6;font-size:13px;">
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:#c6bce0;line-height:1.4;margin-bottom:12px;cursor:pointer;">
+      <input id="grOver18" type="checkbox" style="margin-top:2px;flex:0 0 auto;"><span>I confirm I am 18 or older.</span>
+    </label>
+    <div id="grStatus" style="font-size:12.5px;min-height:16px;margin-bottom:10px;color:#f0a0a0;"></div>
+    <div style="display:flex;gap:8px;">
+      <button id="grSubmit" class="btn" style="flex:1;margin:0;">Create account &amp; save</button>
+      <button id="grCancel" class="btn" style="flex:0 0 auto;margin:0;width:auto;padding:11px 14px;background:#2a2446;color:#c6bce0;">Not now</button>
+    </div>
+  </div>
+</div>
+
 <div id="emoteWheel" class="hidden"></div>
 <div id="streakTag"></div>
 
