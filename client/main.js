@@ -1251,6 +1251,7 @@ function onWsMessage(ev) {
     }
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
+    if (msg.bell) { bellState = msg.bell; try { renderBellTag(); } catch (e) {} }
     me = players[myId];
     // Stream the KayKit character bodies for ANY spawn path. The join-button
     // flow (attemptJoin) calls KK.beginChars, but an auto-resume — a hard
@@ -1400,6 +1401,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'echoes') { reconcileEchoes(msg.echoes); return; }
+  if (msg.type === 'town_bell') { onTownBell(msg); return; }
   if (msg.type === 'player_left') {
     removePlayer(msg.id);
     if (Modals.isOpen('inventoryOpen')) refreshNoteRecipients();
@@ -15057,6 +15059,63 @@ function renderGatherHint() {
 // Tapping the nudge tucks it away until you next change rooms, so it informs
 // without nagging. (A fresh town_pulse in the same room won't force it back.)
 let _gatherDismissedRoom = null;
+
+// ── The Town Bell ────────────────────────────────────────────────────────────
+// A scheduled gathering: every half hour a bell tolls and everyone has a short
+// window to reach the plaza well together. The pill counts down to the next
+// toll (only in the final minutes, to stay out of the way), then flips to an
+// urgent "gather now" state while the window is open.
+let bellState = null; // { nextAt, ringingUntil, gatherMs, well, radius }
+function onTownBell(msg) {
+  if (!bellState) bellState = {};
+  if (msg.phase === 'ring') {
+    bellState.ringingUntil = msg.endsAt;
+    if (msg.well) bellState.well = msg.well;
+    if (msg.radius) bellState.radius = msg.radius;
+    try { if (typeof playSfx === 'function') playSfx('coven_crown'); } catch (e) {} // bright ceremonial bells
+    try { setUnlockToast('🔔 The town bell tolls — gather at the well!'); } catch (e) {}
+  } else if (msg.phase === 'reward') {
+    bellState.ringingUntil = 0;
+    if (msg.nextAt) bellState.nextAt = msg.nextAt;
+    try { if (typeof playSfx === 'function') playSfx('quest_fanfare'); } catch (e) {} // the server's announce_soft carries the exact reward
+  } else if (msg.phase === 'idle') {
+    bellState.ringingUntil = 0;
+    if (msg.nextAt) bellState.nextAt = msg.nextAt;
+  }
+  try { renderBellTag(); } catch (e) {}
+}
+function _mmss(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+const BELL_PREVIEW_MS = 5 * 60 * 1000; // start showing the countdown this far out
+function renderBellTag() {
+  const el = document.getElementById('bellTag');
+  if (!el) return;
+  if (!bellState || !me) { el.classList.add('hidden'); return; }
+  const now = Date.now();
+  if (bellState.ringingUntil && now < bellState.ringingUntil) {
+    const atWell = me.room === 'outside' && bellState.well &&
+      Math.hypot((me.x || 0) - bellState.well.x, (me.y || 0) - bellState.well.y) <= (bellState.radius || 240);
+    el.classList.add('bellRinging');
+    el.textContent = atWell
+      ? `🔔 You're at the well — hold on! (${_mmss(bellState.ringingUntil - now)})`
+      : `🔔 The bell tolls — gather at the well! (${_mmss(bellState.ringingUntil - now)})`;
+    el.classList.remove('hidden');
+    return;
+  }
+  el.classList.remove('bellRinging');
+  const untilNext = (bellState.nextAt || 0) - now;
+  if (untilNext > 0 && untilNext <= BELL_PREVIEW_MS) {
+    el.textContent = `🔔 Town Bell in ${_mmss(untilNext)}`;
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+// Tick the countdown once a second (decoupled from the 60fps render loop).
+setInterval(() => { try { renderBellTag(); } catch (e) {} }, 1000);
+
 function renderTownPulse() {
   const cEl = document.getElementById('peopleCount');
   if (!cEl) return;

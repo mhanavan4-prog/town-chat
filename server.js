@@ -3774,6 +3774,11 @@ function grantXP(player, amount) {
   if (player.restedUntil && now < player.restedUntil) {
     amount = Math.round(amount * REST_XP_MULT);
   }
+  // 🔔 Town Bell blessing: a short +50% window for everyone who answered the
+  // last toll at the well (see the bell engine). Transient, like Rested.
+  if (player.bellBuffUntil && now < player.bellBuffUntil) {
+    amount = Math.round(amount * BELL_XP_MULT);
+  }
   // 🏮 The Hearthmoon Festival (first Saturday, monthly): +25% XP for
   // everyone, all day — a calendar beat, same transient spirit as Rested.
   if (festivalWindow(now).active) {
@@ -9129,6 +9134,7 @@ wss.on('connection', (ws, req) => {
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
         echoes: townEchoPayload(),
+        bell: bellPublicState(), // Town Bell schedule so the client can count down to the next toll
         // Equipment stat catalog — the client uses this to preview how a swap
         // would change your stats before you commit, with no server round-trip.
         equipStats: EQUIP_STATS,
@@ -13526,6 +13532,73 @@ const _ccHourTimer = setInterval(() => {
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 
+// ── The Town Bell (liveness: a scheduled gathering) ──────────────────────────
+// Every half hour on the wall clock, a bell tolls and everyone online has a
+// short window to gather at the plaza well. Whoever answers shares a reward
+// that GROWS with the crowd. This is the one liveness mechanic that manufactures
+// concurrency rather than surfacing it: a shared time AND place pulls scattered
+// players into the same spot at the same moment — which is where chat, grouping
+// and "oh, people DO play this" actually happen.
+const BELL_PERIOD_MS = 30 * 60 * 1000;     // every half hour, anchored to the wall clock
+const BELL_GATHER_MS = 75 * 1000;          // time to reach the well once it tolls
+const BELL_WELL = { x: 1120, y: 800 };     // the plaza well (data/world.js decor_51)
+const BELL_RADIUS = 240;                   // "at the well" — generous; the square is large
+const BELL_XP_MULT = 1.5;                  // the gathering's blessing…
+const BELL_BUFF_MS = 10 * 60 * 1000;       // …for ten minutes after
+const BELL_GOLD_BASE = 15;                 // account reward floor
+const BELL_GOLD_PER_HEAD = 10;             // +per OTHER witch who answered (turnout flywheel)
+const BELL_GOLD_MAX = 120;
+function bellNextHalfHour(from) {
+  const d = new Date(from);
+  d.setSeconds(0, 0);
+  d.setMinutes(d.getMinutes() < 30 ? 30 : 60); // rolls the hour over cleanly at 60
+  return d.getTime();
+}
+let bellNextAt = bellNextHalfHour(Date.now());
+let bellRingingUntil = 0;
+function bellPublicState() { return { nextAt: bellNextAt, ringingUntil: bellRingingUntil, gatherMs: BELL_GATHER_MS, well: BELL_WELL, radius: BELL_RADIUS }; }
+function bellAtWell(p) {
+  return !!p && !p._synthetic && (p.instance || '') === '' && p.room === 'outside' &&
+    Math.hypot((p.x || 0) - BELL_WELL.x, (p.y || 0) - BELL_WELL.y) <= BELL_RADIUS;
+}
+function ringBell() {
+  bellRingingUntil = Date.now() + BELL_GATHER_MS;
+  broadcastAll({ type: 'town_bell', phase: 'ring', endsAt: bellRingingUntil, well: BELL_WELL, radius: BELL_RADIUS });
+  try { analytics.bump('bell.ring'); } catch (e) {}
+}
+function closeBell() {
+  const now = Date.now();
+  bellRingingUntil = 0;
+  bellNextAt = bellNextHalfHour(now + 1000);
+  const answered = [];
+  for (const p of players.values()) if (bellAtWell(p)) answered.push(p);
+  const count = answered.length;
+  try { analytics.bump('bell.close'); if (count > 0) { analytics.bump('bell.attend', count); analytics.peak('bell.turnout', count); } } catch (e) {}
+  const gold = Math.min(BELL_GOLD_MAX, BELL_GOLD_BASE + BELL_GOLD_PER_HEAD * Math.max(0, count - 1));
+  for (const p of answered) {
+    p.bellBuffUntil = now + BELL_BUFF_MS; // the XP blessing reaches everyone who came, guest or account
+    let goldMsg = '';
+    if (p.accountKey) {
+      try { ensureBankAccount(p.accountKey).balance += gold; saveBankAccounts(); pushBankStateIfOnline(p.accountKey); } catch (e) {}
+      goldMsg = ` · +${gold} gold`;
+    }
+    try {
+      send(p.ws, { type: 'town_bell', phase: 'reward', count, gold: p.accountKey ? gold : 0, buffMs: BELL_BUFF_MS, nextAt: bellNextAt });
+      send(p.ws, { type: 'announce_soft', message: `🔔 ${count === 1 ? 'You answered the bell' : count + ' witches gathered at the well'} — a blessing on you all: +50% XP for 10 minutes${goldMsg}.` });
+    } catch (e) {}
+  }
+  // Everyone (including no-shows) gets the idle schedule so their countdown resets.
+  broadcastAll({ type: 'town_bell', phase: 'idle', nextAt: bellNextAt });
+}
+const _bellTimer = setInterval(() => {
+  try {
+    const now = Date.now();
+    if (bellRingingUntil) { if (now >= bellRingingUntil) closeBell(); }
+    else if (now >= bellNextAt) ringBell();
+  } catch (e) {}
+}, 1000);
+if (_bellTimer && _bellTimer.unref) _bellTimer.unref();
+
 // ── Growth alerts (Town Crier) ───────────────────────────────────────────────
 // Lightweight, debounced pings to the notify webhook for the few events worth
 // interrupting you for. All state lives in the persisted opsState bag so a
@@ -13839,6 +13912,8 @@ global.__testHooks = {
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   townPulsePayload, // test-only: town-wide liveness headcount
+  ringBell, closeBell, bellPublicState, bellAtWell, bellNextHalfHour, // test-only: the Town Bell
+  BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
