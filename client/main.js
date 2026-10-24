@@ -1590,6 +1590,7 @@ function onWsMessage(ev) {
   if (msg.type === 'codex_state') { renderCodex(msg); return; }
   if (msg.type === 'guest_nudge') { showGuestNudge(); return; }
   if (msg.type === 'claim_result') { onClaimResult(msg); return; }
+  if (msg.type === 'town_pulse') { onTownPulse(msg); return; }
   if (msg.type === 'invite_state') { renderInvite(msg); return; }
 
   if (msg.type === 'quest_update') {
@@ -14998,7 +14999,32 @@ function update(dt) {
     }
   }
 
-  document.getElementById('peopleCount').textContent = Object.keys(players).length;
+  renderTownPulse();
+}
+
+// Town-wide liveness. The local `players` map only holds whoever shares your
+// room (the AOI), so counting it told a player alone in a room that there was
+// "1 in town" even with others elsewhere — a counter that actively made the
+// world feel dead. town_pulse carries the real town-wide headcount; we floor it
+// by the local count only as a pre-first-pulse safety net.
+let townInTown = 1, townToday = 0;
+function onTownPulse(msg) {
+  if (msg && typeof msg.inTown === 'number') townInTown = msg.inTown;
+  if (msg && typeof msg.today === 'number') townToday = msg.today;
+  renderTownPulse();
+}
+function renderTownPulse() {
+  const cEl = document.getElementById('peopleCount');
+  if (!cEl) return;
+  const n = Math.max(townInTown | 0, Object.keys(players).length, 1);
+  cEl.textContent = n;
+  const label = document.getElementById('peopleLabel');
+  if (label) {
+    // Alone right now: soften the lonely "1 in town" with how many have
+    // wandered through today, so the town still reads as a place people visit.
+    if (n <= 1 && townToday > 1) label.textContent = 'in town · ' + townToday + ' today';
+    else label.textContent = 'in town';
+  }
 }
 
 function render() {
