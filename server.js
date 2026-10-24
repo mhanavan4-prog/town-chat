@@ -145,6 +145,7 @@ if (_diskEarly.unref) _diskEarly.unref();
 
 const https = require('https');
 const express = require('express');
+const compression = require('compression');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
 const fs = require('fs'); // used by gameShellHtml (serve-time cache-bust) and elsewhere
@@ -259,6 +260,13 @@ const app = express();
 // SMS rate limit below would silently become "3 texts total for the whole
 // app" instead of "3 texts per visitor."
 app.set('trust proxy', 1);
+// gzip/brotli text responses before anything else serves them. The big win is
+// the ~1.5MB client bundle and index.html (JS/HTML/CSS/gltf compress ~3-4x),
+// cutting the slow-load tail that was pushing ~1 in 5 new players past 10s to
+// first render. The default filter skips already-compressed types (png/jpg/mp3
+// and binary .glb), so CPU is only spent where it helps; a proxy in front won't
+// double-compress an already-encoded response.
+app.use(compression());
 
 // Stripe webhook (optional) — the async source of truth for the money events
 // the client-redirect verify flow never sees: refunds, disputes/chargebacks,
