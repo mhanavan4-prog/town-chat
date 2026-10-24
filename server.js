@@ -4972,6 +4972,28 @@ function broadcastAll(data, exceptWs) {
   }
 }
 
+// ── Town pulse (liveness) ─────────────────────────────────────────────────
+// A town-wide "who's here" signal pushed to every player, independent of the
+// room or instance they're in. The AOI only ever shows the handful in your own
+// room, which is exactly why a lightly-populated town reads as dead: three
+// people in three rooms each believe they're alone. inTown is the real-player
+// headcount (load-test bots excluded); today is fresh joins so far today — a
+// warmer line for the quiet hours when you genuinely are on your own.
+function townPulsePayload() {
+  let inTown = 0; for (const p of players.values()) if (!p._synthetic) inTown++;
+  const today = ((analytics.data[analytics.day()]) || {}).join || 0;
+  return { type: 'town_pulse', inTown, today };
+}
+let _pulseTimer = null;
+function broadcastTownPulse() {
+  if (_pulseTimer) return; // coalesce bursts (a reconnect storm, several joins at once)
+  _pulseTimer = setTimeout(() => {
+    _pulseTimer = null;
+    try { broadcastAll(townPulsePayload()); } catch (e) {}
+  }, 400);
+  if (_pulseTimer.unref) _pulseTimer.unref();
+}
+
 // WORLD chat delivery: every player in the PUBLIC world, across all rooms and
 // town layers — but NOT anyone tucked into a private coven moot (their instance
 // is their own channel; public chatter shouldn't reach them there, same as the
@@ -9244,6 +9266,7 @@ wss.on('connection', (ws, req) => {
         });
       }
       broadcastInstance(player.instance, { type: 'player_joined', player: publicPlayer(player) }, ws);
+      broadcastTownPulse(); // refresh everyone's town headcount, incl. the newcomer
       return;
     }
 
@@ -13465,6 +13488,7 @@ wss.on('connection', (ws, req) => {
       recordTownEcho(player); // leave a spectral shade behind in the public town
       players.delete(player.id);
       broadcastInstance(player.instance, { type: 'player_left', id: player.id });
+      if (!player._synthetic) broadcastTownPulse(); // one fewer witch in town
       if ((player.instance || '') === '' && player.room === 'outside') broadcastTownEchoes();
     }
   });
@@ -13805,6 +13829,7 @@ global.__testHooks = {
   getVapidKeys, encryptWebPush, vapidAuthHeader, sendWebPush, pushBroadcast, pushSubs,
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
+  townPulsePayload, // test-only: town-wide liveness headcount
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
