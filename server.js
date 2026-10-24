@@ -1596,6 +1596,10 @@ const analytics = require('./lib/analytics')({ dataDir: DATA_DIR, persistLoad, p
 const telemetry = require('./lib/telemetry')({ analytics });
 // In-game bug reports (persisted, admin-read). See lib/bugreports.js.
 const bugReports = require('./lib/bugreports')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+// Seamless guest -> account carry-over: moves a just-registered guest's live
+// character/inventory into their brand-new account. Guarded so an established
+// account can never be clobbered. See lib/guestClaim.js.
+const { adoptGuestInto } = require('./lib/guestClaim');
 // Count one unique active account per day (and, once ever, the first time an
 // account comes back on a later day than it registered). Uses a single date
 // marker on the account — no event log, no PII.
@@ -12369,6 +12373,31 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'invite_state', code: player.accountKey,
         brought: acc.referredCount || 0, rewarded: acc.referralEarned || 0,
         welcome: REFERRAL_WELCOME_GOLD, referee: REFERRAL_REFEREE_GOLD, referrer: REFERRAL_REFERRER_GOLD });
+      return;
+    }
+
+    if (msg.type === 'claim_guest') {
+      // A guest who just registered an account in-game, upgrading to it: carry
+      // the character they've been playing (level, xp, skills, quests, items)
+      // into the brand-new account so nothing is lost. The token comes from
+      // the /api/register call the client just made, so it's always their own
+      // freshly-minted account; the adoption guard refuses to overwrite any
+      // account that already has character progress, as a second safety net.
+      if (player.accountKey) { send(ws, { type: 'claim_result', ok: false }); return; }
+      const key = msg.token ? sessions.get(String(msg.token)) : null;
+      if (!key || !accounts[key]) { send(ws, { type: 'claim_result', ok: false }); return; }
+      const r = adoptGuestInto({
+        playerProgress, inventories, accountKey: key,
+        guestProgress: player.guestProgress, guestInventory: player.guestInventory,
+      });
+      if (!r.ok) { send(ws, { type: 'claim_result', ok: false }); return; }
+      if (r.changed) {
+        try { saveProgress(); } catch (e) {}
+        try { saveInventories(); } catch (e) {}
+        try { ensureBankAccount(key); saveBankAccounts(); } catch (e) {}
+        analytics.bump('guest.claimed');
+      }
+      send(ws, { type: 'claim_result', ok: true, already: !!r.already });
       return;
     }
 
