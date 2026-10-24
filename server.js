@@ -12350,6 +12350,16 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    if (msg.type === 'invite_request') {
+      // The player's own referral link + how many friends they've brought.
+      if (!player.accountKey) { send(ws, { type: 'invite_state', guest: true }); return; }
+      const acc = accounts[player.accountKey] || {};
+      send(ws, { type: 'invite_state', code: player.accountKey,
+        brought: acc.referredCount || 0, rewarded: acc.referralEarned || 0,
+        welcome: REFERRAL_WELCOME_GOLD, referee: REFERRAL_REFEREE_GOLD, referrer: REFERRAL_REFERRER_GOLD });
+      return;
+    }
+
     if (msg.type === 'coven_leave') {
       const cv = player.accountKey && covenOf(player.accountKey);
       if (!cv) return;
