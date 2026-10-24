@@ -1572,6 +1572,7 @@ function onWsMessage(ev) {
   if (msg.type === 'relic_card') { showRelicCard(msg); return; }
   if (msg.type === 'reliquary') { renderReliquary(msg); return; }
   if (msg.type === 'codex_state') { renderCodex(msg); return; }
+  if (msg.type === 'invite_state') { renderInvite(msg); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -4365,6 +4366,36 @@ function showRelicCard(msg) {
   document.getElementById('relicModal').classList.remove('hidden');
   if (msg.firstSeen) setUnlockToast(msg.completed ? '🗝️ The Reliquary is complete!' : `🗝️ Relic collected — ${msg.seenCount}/${msg.total}`);
 }
+// ── Invite a Friend (referral loop) ──────────────────────────────────────────
+function openInviteModal() {
+  const m = document.getElementById('inviteModal'); if (!m) return;
+  const body = document.getElementById('inviteBody'); if (body) body.textContent = 'Loading…';
+  m.classList.remove('hidden');
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'invite_request' }));
+}
+function renderInvite(msg) {
+  const body = document.getElementById('inviteBody'); if (!body) return;
+  if (msg.guest) {
+    body.innerHTML = 'Make a free account to get your own invite link — then every friend you bring earns you both gold.';
+    return;
+  }
+  const url = 'https://thornreach.com/?invite=' + encodeURIComponent(msg.code);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  body.innerHTML =
+    '<p style="margin:0 0 10px">Share your link. A friend who joins through it gets a welcome bonus, and when they reach <b>level 5</b> you <b>both</b> earn gold (+' + msg.referrer + ' for you).</p>' +
+    '<div style="display:flex;gap:8px;align-items:center;background:#120f24;border:1px solid #39335e;border-radius:9px;padding:8px 10px;margin-bottom:10px">' +
+      '<input id="inviteLink" readonly value="' + esc(url) + '" style="flex:1;min-width:0;background:transparent;border:none;color:#cfe3ff;font-size:12.5px;">' +
+      '<button id="inviteCopyBtn" class="btn" style="margin:0;padding:6px 12px;font-size:12px;width:auto;white-space:nowrap;">Copy</button>' +
+    '</div>' +
+    '<div style="font-size:12.5px;color:#9a90bd">Friends brought: <b style="color:#eae4f6">' + (msg.brought || 0) + '</b> · rewarded: <b style="color:#eae4f6">' + (msg.rewarded || 0) + '</b></div>';
+  const copyBtn = document.getElementById('inviteCopyBtn'), inp = document.getElementById('inviteLink');
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    const done = () => { copyBtn.textContent = 'Copied!'; };
+    const fallback = () => { try { if (inp) { inp.focus(); inp.select(); document.execCommand('copy'); } } catch (e) {} done(); };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(fallback); else fallback(); }
+    catch (e) { fallback(); }
+  });
+}
 function renderReliquary(msg) {
   const prog = document.getElementById('reliquaryProgress');
   const done = msg.seenCount === msg.total;
@@ -6388,6 +6419,9 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
     showInvTab('invHardDriveView');
   }));
   on('menuPass', closeSheetAnd(openPassModal));
+  on('menuInvite', closeSheetAnd(openInviteModal));
+  on('inviteCloseBtn', () => { const m = document.getElementById('inviteModal'); if (m) m.classList.add('hidden'); });
+  { const im = document.getElementById('inviteModal'); if (im) im.addEventListener('click', (e) => { if (e.target === im) im.classList.add('hidden'); }); }
   on('menuMoonstones', closeSheetAnd(() => openMsModal()));
   // ── Graphics quality: Auto → Low → Medium → High (persisted) ──
   const gfxLabel = () => {

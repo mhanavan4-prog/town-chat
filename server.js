@@ -391,6 +391,23 @@ function maybeSetSrcCookie(req, res) {
     res.append('Set-Cookie', 'tr_src=' + s + '; Max-Age=' + (30 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly');
   } catch (e) {}
 }
+// Player referral: a friend's invite link is ?invite=<username> — kept separate
+// from the marketing ?src/?ref tags above so a real player's name can't be
+// mistaken for a traffic source (or vice versa). First-touch, 30-day, HttpOnly.
+// Attribution + reward happen at register and at the invitee's level-5 (below).
+function readRefCookie(req) {
+  const m = String((req.headers && req.headers.cookie) || '').match(/(?:^|;\s*)tr_ref=([a-z0-9_]{3,18})/i);
+  return m ? m[1].toLowerCase() : '';
+}
+function maybeSetRefCookie(req, res) {
+  try {
+    if (readRefCookie(req)) return;          // first-touch wins
+    const raw = (req.query && req.query.invite) || '';
+    const m = String(raw).toLowerCase().match(/^[a-z0-9_]{3,18}$/); // a username, nothing else
+    if (!m) return;
+    res.append('Set-Cookie', 'tr_ref=' + m[0] + '; Max-Age=' + (30 * 24 * 3600) + '; Path=/; SameSite=Lax; HttpOnly');
+  } catch (e) {}
+}
 // Stable per-visitor A/B id (tr_ab cookie), minted on first visit so a visitor
 // stays in the same bucket across sessions. Returns the id (existing or new).
 function readAbId(req) {
@@ -428,7 +445,7 @@ function gameShellHtml() {
     return null; // fall back to sending the file as-is
   }
 }
-app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res);
+app.get('/play', (req, res) => { trackVisit(req, 'page.play'); maybeSetSrcCookie(req, res); maybeSetRefCookie(req, res);
   // The game shell embeds the hashed client.js, so it must never be cached:
   // res.sendFile otherwise sends Express's default `public, max-age=0`, which
   // lets Safari (and any CDN in front) reuse a stale index.html through a
@@ -508,7 +525,7 @@ function sendWithOg(req, res, file, og) {
 const ogRender = require('./lib/og-render')({ dataDir: DATA_DIR, publicDir: path.join(__dirname, 'public') });
 
 app.get('/', (req, res) => {
-  trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res);
+  trackVisit(req, 'page.landing'); maybeSetSrcCookie(req, res); maybeSetRefCookie(req, res);
   // A/B: assign the landing hero CTA variant for this visitor, count the
   // exposure, and pass the copy to sendWithOg (which swaps {{AB_CTA}}). When the
   // experiment is paused, everyone gets the control and nothing is recorded.
@@ -1673,12 +1690,47 @@ function noteMilestone(player, id) {
     if (acc.miles[id]) return;
     acc.miles[id] = Date.now();
     analytics.bump('mile.' + id);
+    // A referred newcomer reaching level 5 proves they're a real player (not a
+    // throwaway), so this is when both they and the friend who invited them get
+    // paid. noteMilestone fires once-ever per account, so the reward can't double.
+    if (id === 'lvl5') { try { grantReferralReward(player); } catch (e) {} }
     try { saveAccounts(); } catch (e) {}
   } else {
     if (!player._guestMiles) player._guestMiles = new Set();
     if (player._guestMiles.has(id)) return;
     player._guestMiles.add(id);
     analytics.bump('guest.' + id);
+  }
+}
+
+// ── Referral loop ────────────────────────────────────────────────────────────
+// Invite a friend (?invite=<username>), and when they stick, you both get gold.
+// The three payouts are tunable here. Anti-farming: the big payout waits for the
+// invitee to reach level 5 (real play), and self-referral is blocked.
+const REFERRAL_WELCOME_GOLD = 50;   // the newcomer, the moment they sign up via an invite link
+const REFERRAL_REFEREE_GOLD = 100;  // the newcomer again, when they reach level 5
+const REFERRAL_REFERRER_GOLD = 200; // the friend who invited them, when that newcomer reaches level 5
+// Paid when a referred account first reaches level 5 (called from noteMilestone,
+// so it runs at most once per account). Credits both parties' banks.
+function grantReferralReward(player) {
+  const key = player && player.accountKey;
+  const acc = key && accounts[key];
+  if (!acc) return;
+  const ref = acc.referredBy;
+  if (!ref || ref === key || acc.referralRewarded || !accounts[ref]) return;
+  acc.referralRewarded = true;
+  ensureBankAccount(key).balance += REFERRAL_REFEREE_GOLD;
+  ensureBankAccount(ref).balance += REFERRAL_REFERRER_GOLD;
+  accounts[ref].referralEarned = (accounts[ref].referralEarned || 0) + 1;
+  try { saveBankAccounts(); } catch (e) {}
+  try { saveAccounts(); } catch (e) {}
+  analytics.bump('ref.reward');
+  if (player.ws) send(player.ws, { type: 'announce_soft', message: `🎁 +${REFERRAL_REFEREE_GOLD} gold — and the friend who brought you got a reward too!` });
+  try { pushBankStateIfOnline(key); } catch (e) {}
+  const conn = findConnectionByAccountKey(ref);
+  if (conn && conn.ws) {
+    send(conn.ws, { type: 'announce_soft', message: `🎁 ${player.name} reached level 5 — +${REFERRAL_REFERRER_GOLD} gold for bringing them to Thornreach!` });
+    try { pushBankStateIfOnline(ref); } catch (e) {}
   }
 }
 
@@ -2268,6 +2320,20 @@ app.post('/api/register', (req, res) => {
     // Coarse signup geography (country code only), for the acquisition map.
     country: countryOf(req)
   };
+  // Referral attribution: if this visitor first arrived through a friend's
+  // invite link (tr_ref cookie → an existing, different account), record who
+  // brought them and drop a small welcome purse in their bank. The friend's
+  // reward waits until this newcomer reaches level 5 (see grantReferralReward).
+  try {
+    const ref = readRefCookie(req);
+    if (ref && ref !== key && accounts[ref]) {
+      accounts[key].referredBy = ref;
+      accounts[ref].referredCount = (accounts[ref].referredCount || 0) + 1;
+      ensureBankAccount(key).balance += REFERRAL_WELCOME_GOLD;
+      saveBankAccounts();
+      analytics.bump('ref.signup');
+    }
+  } catch (e) {}
   saveAccounts();
   analytics.bump('reg.src.' + (accounts[key].src));
   analytics.bump('geo.reg.' + (accounts[key].country));
@@ -12281,6 +12347,16 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'coven_invite_decline') {
       covenInvites.delete(String(msg.inviteId || ''));
+      return;
+    }
+
+    if (msg.type === 'invite_request') {
+      // The player's own referral link + how many friends they've brought.
+      if (!player.accountKey) { send(ws, { type: 'invite_state', guest: true }); return; }
+      const acc = accounts[player.accountKey] || {};
+      send(ws, { type: 'invite_state', code: player.accountKey,
+        brought: acc.referredCount || 0, rewarded: acc.referralEarned || 0,
+        welcome: REFERRAL_WELCOME_GOLD, referee: REFERRAL_REFEREE_GOLD, referrer: REFERRAL_REFERRER_GOLD });
       return;
     }
 
