@@ -2200,6 +2200,7 @@
 <!-- Session L HUD: active calendar event pill, the newcomer First Steps
      tracker, and the in-delve floor chip. All small, all self-hiding. -->
 <div id="eventTag" class="hidden"></div>
+<div id="gatherHint" class="hidden"></div>
 <div id="firstStepsChip" class="hidden"></div>
 <div id="delveHud" class="hidden">
   <div id="delveHudFloor">🕳️ Floor 1</div>
@@ -2377,6 +2378,19 @@
   #eventTag.tagFaded { opacity:0; pointer-events:none; }
   body.touchMode #eventTag { top:60px; font-size:11.5px; max-width:86vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   body.panelOpen #eventTag, body.composeOpen #eventTag, body.emoteWheelOpen #eventTag { display:none; }
+  /* Gather nudge: appears only when you're effectively alone in your room but
+     other witches are elsewhere in town — points you to the crowd so a lightly
+     populated world stops feeling empty. Sits just below the event pill. */
+  #gatherHint {
+    position:fixed; top:128px; left:50%; transform:translateX(-50%); z-index:7;
+    background:rgba(16,30,22,0.9); border:1px solid rgba(150,220,160,0.4); color:#bdf0c6;
+    padding:5px 14px; border-radius:14px; font-size:12.5px;
+    cursor:pointer; pointer-events:auto; transition:opacity 0.45s; max-width:86vw;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #gatherHint.hidden { display:none; }
+  body.touchMode #gatherHint { top:92px; font-size:11.5px; }
+  body.panelOpen #gatherHint, body.composeOpen #gatherHint, body.emoteWheelOpen #gatherHint { display:none; }
   #firstStepsChip {
     position:fixed; left:16px; bottom:150px; z-index:7;
     background:rgba(20,12,34,0.85); border:1px solid #4a3b6a; border-radius:12px;
