@@ -1700,6 +1700,10 @@ function noteMilestone(player, id) {
     if (player._guestMiles.has(id)) return;
     player._guestMiles.add(id);
     analytics.bump('guest.' + id);
+    // A guest who's reached level 2 is engaged enough to pitch an account —
+    // the moment to convert, before they close the tab and lose everything.
+    // Once per session (the _guestMiles dedupe above guarantees it).
+    if (id === 'lvl2' && player.ws) { try { send(player.ws, { type: 'guest_nudge' }); analytics.bump('guest.nudge'); } catch (e) {} }
   }
 }
 
