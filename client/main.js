@@ -1589,6 +1589,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reliquary') { renderReliquary(msg); return; }
   if (msg.type === 'codex_state') { renderCodex(msg); return; }
   if (msg.type === 'guest_nudge') { showGuestNudge(); return; }
+  if (msg.type === 'claim_result') { onClaimResult(msg); return; }
   if (msg.type === 'invite_state') { renderInvite(msg); return; }
 
   if (msg.type === 'quest_update') {
@@ -4395,6 +4396,67 @@ function showGuestNudge() {
   if (n) n.classList.remove('hidden');
 }
 
+// ── Guest → account carry-over ───────────────────────────────────────────────
+// A guest registers an account WITHOUT leaving the game. Doing it over the live
+// connection is what makes the carry-over possible: the guest's character lives
+// only in server memory on this socket, so we register, then ask the server to
+// adopt that character into the fresh account (claim_guest) BEFORE any reload.
+function openGuestRegister() {
+  const m = document.getElementById('guestRegister'); if (!m) return;
+  const n = document.getElementById('guestNudge'); if (n) n.classList.add('hidden');
+  const st = document.getElementById('grStatus'); if (st) st.textContent = '';
+  m.classList.remove('hidden');
+  const u = document.getElementById('grUser'); if (u) setTimeout(() => u.focus(), 30);
+}
+let _grBusy = false;
+function submitGuestRegister() {
+  if (_grBusy) return;
+  const st = document.getElementById('grStatus');
+  const setStatus = (t, bad) => { if (st) { st.textContent = t || ''; st.style.color = bad ? '#f0a0a0' : '#9ee37d'; } };
+  const username = (document.getElementById('grUser') || {}).value;
+  const password = (document.getElementById('grPass') || {}).value;
+  const email = ((document.getElementById('grEmail') || {}).value || '').trim();
+  const over18 = !!(document.getElementById('grOver18') || {}).checked;
+  if (!username || !username.trim() || !password) { setStatus('Enter a username and password.', true); return; }
+  if (!over18) { setStatus('You must confirm you are 18 or older.', true); return; }
+  _grBusy = true;
+  setStatus('Creating account…');
+  fetch(apiUrl('/api/register'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username.trim(), password, over18, email })
+  })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok || !data || !data.token) { _grBusy = false; setStatus((data && data.error) || 'Could not create the account.', true); return; }
+      // Persist the account so the reload after the claim comes back logged in,
+      // on the same character (tc_charid is untouched), with their roster.
+      try { localStorage.setItem('tc_account', JSON.stringify({ token: data.token, username: data.username, color: data.color })); } catch (e) {}
+      // Ask the server to move this guest's live character into the new account.
+      setStatus('Saving your progress…');
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'claim_guest', token: data.token }));
+      } else {
+        // No live socket (shouldn't happen mid-game): the account exists, so at
+        // least get them logged in — they keep the account, fresh character.
+        location.reload();
+      }
+    })
+    .catch(() => { _grBusy = false; setStatus('Could not reach the server.', true); });
+}
+function onClaimResult(msg) {
+  const st = document.getElementById('grStatus');
+  if (!msg || !msg.ok) {
+    _grBusy = false;
+    if (st) { st.style.color = '#f0a0a0'; st.textContent = 'Something went wrong saving your progress. Your account was created — try logging in.'; }
+    return;
+  }
+  if (st) { st.style.color = '#9ee37d'; st.textContent = '✓ Saved! Welcome to Thornreach — bringing you back in…'; }
+  // The progress is now persisted under the account server-side, so a reload is
+  // completely safe even if it's interrupted. Reload re-enters logged in, and
+  // the roster offers "continue as" the character we just carried over.
+  setTimeout(() => { try { location.reload(); } catch (e) {} }, 850);
+}
+
 // ── Invite a Friend (referral loop) ──────────────────────────────────────────
 function openInviteModal() {
   const m = document.getElementById('inviteModal'); if (!m) return;
@@ -6439,8 +6501,12 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
   // Guest → account nudge: "Create a free account" reloads to the join screen
   // with a flag so it opens straight into the register form.
-  on('guestNudgeYes', () => { try { localStorage.setItem('tc_goto_register', '1'); } catch (e) {} location.reload(); });
+  on('guestNudgeYes', () => { openGuestRegister(); });
   on('guestNudgeNo', () => { const n = document.getElementById('guestNudge'); if (n) n.classList.add('hidden'); });
+  on('grSubmit', () => { submitGuestRegister(); });
+  on('grCancel', () => { const m = document.getElementById('guestRegister'); if (m) m.classList.add('hidden'); });
+  { const gp = document.getElementById('grPass'); if (gp) gp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuestRegister(); }); }
+  { const ge = document.getElementById('grEmail'); if (ge) ge.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuestRegister(); }); }
   on('menuJournal', closeSheetAnd(() => { if (!Modals.isOpen('journalOpen')) openJournal(); }));
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {

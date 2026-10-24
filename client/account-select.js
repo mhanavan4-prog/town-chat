@@ -257,21 +257,6 @@ if (acctSwitchLink) acctSwitchLink.addEventListener('click', (e) => {
 const accountEmailEl = document.getElementById('accountEmailInput');
 if (accountEmailEl) accountEmailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAccount('register'); });
 
-// A guest who tapped "Create a free account" on the in-game nudge gets sent
-// here with a flag — open straight into the account/register form so they land
-// where they meant to. Best-effort: if anything's off it just shows the normal
-// join screen.
-try {
-  if (localStorage.getItem('tc_goto_register') === '1') {
-    localStorage.removeItem('tc_goto_register');
-    setJoinMode('account');
-    acctSubMode = 'register';
-    applyAcctSubMode();
-    setAccountStatus('Create a free account to save your progress and earn daily rewards.');
-    if (accountUserInput) accountUserInput.focus();
-  }
-} catch (e) {}
-
 // "Forgot password?" — ask for a username or email and request a reset link.
 // The server always answers the same way (no account enumeration), so the
 // confirmation we show is deliberately generic.
