@@ -4048,6 +4048,8 @@ function advanceQuestProgress(player, eventType, itemId) {
       }
     }
 
+    analytics.bump('quest.complete');
+    try { analytics.bump('quest.complete.' + aq.questId); } catch (e) {}
     send(player.ws, {
       type: 'quest_complete',
       questId: aq.questId,
@@ -4284,7 +4286,13 @@ function storyEvent(player, eventType, detail = {}) {
   // funnels through here, so the newcomer tracker needs no extra call sites.
   if (eventType === 'kill_mob') noteFirstStep(player, 'killed');
   else if (eventType === 'harvest_plant') noteFirstStep(player, 'harvested');
-  else if (eventType === 'talk_npc') noteFirstStep(player, 'talked');
+  else if (eventType === 'talk_npc') {
+    noteFirstStep(player, 'talked');
+    // Which NPCs actually get talked to (quest / hint / shop all route through
+    // here) — total + per-NPC, so a never-visited NPC shows as a zero.
+    analytics.bump('npc.talk');
+    try { if (detail && detail.npcId) analytics.bump('npc.talk.' + detail.npcId); } catch (e) {}
+  }
   const line = STORYLINES[player.charId];
   if (!line) return;
   const st = getStoryState(player);
@@ -10633,6 +10641,8 @@ wss.on('connection', (ws, req) => {
       const lastDone = prog.questCooldowns && prog.questCooldowns[questId];
       if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) return;
       player.activeQuest = { questId, progress: 0 };
+      analytics.bump('quest.accept');
+      try { analytics.bump('quest.accept.' + questId); } catch (e) {}
       const quest = QUEST_CATALOG[questId];
       const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId, targetCreature: quest.targetCreature });
       send(ws, { type: 'quest_started', questId, questName: quest.name,
