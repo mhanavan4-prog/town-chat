@@ -1251,6 +1251,7 @@ function onWsMessage(ev) {
     }
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
+    if (Array.isArray(msg.townFeed)) townFeed = msg.townFeed.slice(0, TOWN_FEED_MAX);
     me = players[myId];
     // Stream the KayKit character bodies for ANY spawn path. The join-button
     // flow (attemptJoin) calls KK.beginChars, but an auto-resume — a hard
@@ -1591,6 +1592,7 @@ function onWsMessage(ev) {
   if (msg.type === 'guest_nudge') { showGuestNudge(); return; }
   if (msg.type === 'claim_result') { onClaimResult(msg); return; }
   if (msg.type === 'town_pulse') { onTownPulse(msg); return; }
+  if (msg.type === 'town_feed_add') { onTownFeedAdd(msg.item); return; }
   if (msg.type === 'invite_state') { renderInvite(msg); return; }
 
   if (msg.type === 'quest_update') {
@@ -6522,6 +6524,9 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('menuPass', closeSheetAnd(openPassModal));
   on('menuInvite', closeSheetAnd(openInviteModal));
   on('inviteCloseBtn', () => { const m = document.getElementById('inviteModal'); if (m) m.classList.add('hidden'); });
+  on('menuCrier', closeSheetAnd(openCrierModal));
+  on('crierCloseBtn', () => closeCrierModal());
+  { const cm = document.getElementById('crierModal'); if (cm) cm.addEventListener('click', (e) => { if (e.target === cm) closeCrierModal(); }); }
   { const im = document.getElementById('inviteModal'); if (im) im.addEventListener('click', (e) => { if (e.target === im) im.classList.add('hidden'); }); }
   on('menuMoonstones', closeSheetAnd(() => openMsModal()));
   // ── Graphics quality: Auto → Low → Medium → High (persisted) ──
@@ -15057,6 +15062,55 @@ function renderGatherHint() {
 // Tapping the nudge tucks it away until you next change rooms, so it informs
 // without nagging. (A fresh town_pulse in the same room won't force it back.)
 let _gatherDismissedRoom = null;
+
+// ── Town Crier ───────────────────────────────────────────────────────────────
+// A highlight reel of recent real-player milestones. The whole point is async
+// liveness: alone in a quiet hour, you still see the town is actually played.
+const TOWN_FEED_MAX = 40;
+let townFeed = []; // newest first: { id, icon, text, at }
+function onTownFeedAdd(item) {
+  if (!item || !item.text) return;
+  townFeed.unshift(item);
+  if (townFeed.length > TOWN_FEED_MAX) townFeed.length = TOWN_FEED_MAX;
+  // A tiny unread dot on the menu button, so people discover the feed exists.
+  try { const b = document.getElementById('crierMenuBadge'); if (b && !Modals.isOpen('crierModalOpen')) b.classList.remove('hidden'); } catch (e) {}
+  if (Modals.isOpen('crierModalOpen')) renderCrier();
+}
+function _agoText(ms) {
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 90) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + 'm ago';
+  const h = Math.round(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.round(h / 24) + 'd ago';
+}
+function renderCrier() {
+  const body = document.getElementById('crierBody'); if (!body) return;
+  if (!townFeed.length) {
+    body.innerHTML = '<div style="color:#9a90bd;font-size:13px;padding:8px 0;">The town has been quiet. Be the first to make the Crier shout — reach level 5, finish a chapter, or found a coven.</div>';
+    return;
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  body.innerHTML = townFeed.map((it) =>
+    '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(80,70,120,0.25);">' +
+      '<span style="font-size:15px;flex:0 0 auto;">' + esc(it.icon || '✨') + '</span>' +
+      '<span style="flex:1;min-width:0;color:#eae4f6;font-size:13px;">' + esc(it.text) + '</span>' +
+      '<span style="flex:0 0 auto;color:#8a80ad;font-size:11.5px;">' + esc(_agoText(it.at)) + '</span>' +
+    '</div>'
+  ).join('');
+}
+function openCrierModal() {
+  const m = document.getElementById('crierModal'); if (!m) return;
+  renderCrier();
+  m.classList.remove('hidden');
+  try { Modals.set('crierModalOpen', true); } catch (e) {}
+  try { const b = document.getElementById('crierMenuBadge'); if (b) b.classList.add('hidden'); } catch (e) {}
+}
+function closeCrierModal() {
+  const m = document.getElementById('crierModal'); if (m) m.classList.add('hidden');
+  try { Modals.set('crierModalOpen', false); } catch (e) {}
+}
 function renderTownPulse() {
   const cEl = document.getElementById('peopleCount');
   if (!cEl) return;
