@@ -1572,6 +1572,7 @@ function onWsMessage(ev) {
   if (msg.type === 'relic_card') { showRelicCard(msg); return; }
   if (msg.type === 'reliquary') { renderReliquary(msg); return; }
   if (msg.type === 'codex_state') { renderCodex(msg); return; }
+  if (msg.type === 'guest_nudge') { showGuestNudge(); return; }
 
   if (msg.type === 'quest_update') {
     updateQuestTracker(msg.questId, msg.questName, msg.progress, msg.target, msg.where);
@@ -4365,6 +4366,18 @@ function showRelicCard(msg) {
   document.getElementById('relicModal').classList.remove('hidden');
   if (msg.firstSeen) setUnlockToast(msg.completed ? '🗝️ The Reliquary is complete!' : `🗝️ Relic collected — ${msg.seenCount}/${msg.total}`);
 }
+// ── Guest → account conversion nudge ─────────────────────────────────────────
+// Shown once per session when a guest reaches level 2 (server sends guest_nudge).
+// "Create a free account" flags the reload so the join screen opens straight
+// into the register form; "Keep playing" just dismisses.
+let _guestNudgeShown = false;
+function showGuestNudge() {
+  if (_guestNudgeShown) return;
+  _guestNudgeShown = true;
+  const n = document.getElementById('guestNudge');
+  if (n) n.classList.remove('hidden');
+}
+
 function renderReliquary(msg) {
   const prog = document.getElementById('reliquaryProgress');
   const done = msg.seenCount === msg.total;
@@ -6377,6 +6390,10 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.classList.add('hidden'); });
   const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); fn(); };
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
+  // Guest → account nudge: "Create a free account" reloads to the join screen
+  // with a flag so it opens straight into the register form.
+  on('guestNudgeYes', () => { try { localStorage.setItem('tc_goto_register', '1'); } catch (e) {} location.reload(); });
+  on('guestNudgeNo', () => { const n = document.getElementById('guestNudge'); if (n) n.classList.add('hidden'); });
   on('menuJournal', closeSheetAnd(() => { if (!Modals.isOpen('journalOpen')) openJournal(); }));
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
