@@ -2211,6 +2211,7 @@
 
 <!-- Session L HUD: active calendar event pill, the newcomer First Steps
      tracker, and the in-delve floor chip. All small, all self-hiding. -->
+<div id="bellTag" class="hidden"></div>
 <div id="eventTag" class="hidden"></div>
 <div id="gatherHint" class="hidden"></div>
 <div id="firstStepsChip" class="hidden"></div>
@@ -2403,6 +2404,24 @@
   #gatherHint.hidden { display:none; }
   body.touchMode #gatherHint { top:92px; font-size:11.5px; }
   body.panelOpen #gatherHint, body.composeOpen #gatherHint, body.emoteWheelOpen #gatherHint { display:none; }
+  /* Town Bell — the scheduled gathering. A quiet countdown pill in the final
+     minutes; a loud gold "gather now" banner while the toll window is open. */
+  #bellTag {
+    position:fixed; top:62px; left:50%; transform:translateX(-50%); z-index:8;
+    background:rgba(26,16,42,0.9); border:1px solid #6a5a3b; color:#ffe6a6;
+    padding:5px 15px; border-radius:14px; font-size:12.5px; font-weight:700;
+    cursor:default; pointer-events:none; max-width:90vw; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  #bellTag.hidden { display:none; }
+  #bellTag.bellRinging {
+    color:#1a1206; background:linear-gradient(180deg,#ffd76a,#f0b047);
+    border-color:#ffe9a0; box-shadow:0 0 18px rgba(255,200,80,0.6);
+    animation:bellPulse 1s ease-in-out infinite;
+  }
+  @keyframes bellPulse { 0%,100% { transform:translateX(-50%) scale(1); } 50% { transform:translateX(-50%) scale(1.05); } }
+  body.touchMode #bellTag { top:30px; font-size:11.5px; }
+  body.panelOpen #bellTag, body.composeOpen #bellTag, body.emoteWheelOpen #bellTag { display:none; }
   #firstStepsChip {
     position:fixed; left:16px; bottom:150px; z-index:7;
     background:rgba(20,12,34,0.85); border:1px solid #4a3b6a; border-radius:12px;
