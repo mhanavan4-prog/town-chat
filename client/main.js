@@ -2214,7 +2214,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_result') {
-    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk));
+    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -2226,8 +2226,13 @@ function onWsMessage(ev) {
     // Leech Hex: same flight fx reversed — a crimson orb of stolen life
     // flying from the victim back into the Witch.
     else if (msg.spellId === 'leech_hex') spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, { reverse: true, coreColor: 0xff8899, glowColor: 0xcc0033, lightColor: 0xff2244 });
+    // Prefer this spell's own bespoke clip (id == sound id) when it's been
+    // generated; otherwise the generic per-effect fallback as before.
     const sid = REMOTE_SPELL_SFX[msg.spellId];
-    if (sid) remoteActionSfx(msg.casterId, sid === 'siphon' ? sfxPick('siphon', 'curse') : sid); // a nearby player's spell
+    if (sid || (typeof sfxAvailable === 'function' && sfxAvailable(msg.spellId))) {
+      const fb = sid === 'siphon' ? sfxPick('siphon', 'curse') : (sid || 'cast');
+      remoteActionSfx(msg.casterId, sfxPick(msg.spellId, fb)); // a nearby player's spell
+    }
     return;
   }
 
@@ -2245,7 +2250,10 @@ function onWsMessage(ev) {
     };
     spawnFireballFx(msg.casterId, msg.targetId, msg.targetType, ATTACK_FX_STYLES[msg.attackId] || {});
     const aid = REMOTE_ATTACK_SFX[msg.attackId];
-    if (aid) remoteActionSfx(msg.casterId, aid === 'siphon' ? sfxPick('siphon', 'curse') : sfxPick(aid, 'hit')); // a nearby player's class attack
+    if (aid || (typeof sfxAvailable === 'function' && sfxAvailable(msg.attackId))) {
+      const fb = aid === 'siphon' ? sfxPick('siphon', 'curse') : sfxPick(aid || 'hit', 'hit');
+      remoteActionSfx(msg.casterId, sfxPick(msg.attackId, fb)); // a nearby player's class attack
+    }
     return;
   }
 
@@ -2277,7 +2285,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
-    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk));
+    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -6310,6 +6318,7 @@ function handleCanvasClick(clientX, clientY) {
     }
     const worldPos = sceneToWorldPos(me.room, ground.x, ground.z);
     lastCastAtk = (armedTarget.msgType === 'cast_spell' ? SPELL_CATALOG : myAttackCatalog)[armedTarget.attackId] || null;
+    lastCastId = armedTarget.attackId;
     const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, x: worldPos.x, y: worldPos.y };
     ws.send(JSON.stringify(payload));
     triggerAttackAnim();
@@ -6326,6 +6335,7 @@ function handleCanvasClick(clientX, clientY) {
         return;
       }
       lastCastAtk = (armedTarget.msgType === 'cast_spell' ? SPELL_CATALOG : myAttackCatalog)[armedTarget.attackId] || null;
+    lastCastId = armedTarget.attackId;
       const payload = { type: armedTarget.msgType, [armedTarget.idField]: armedTarget.attackId, targetId: hit.targetId };
       if (hit.kind !== 'player') payload.targetType = hit.kind;
       ws.send(JSON.stringify(payload));
@@ -13326,8 +13336,15 @@ function nearestBuilding() {
 // so a summon rumbles, a heal shimmers, a hex falls, a ward hums. Damage/leech
 // keep the generic cast whoosh — their impact is voiced separately by hit_fx.
 let lastCastAtk = null;
-function sfxForAbility(atk) {
+let lastCastId = null; // the ability id of the last cast — lets sfxForAbility pick a per-ability sound
+function sfxForAbility(atk, id) {
   if (!atk) return 'cast';
+  // Per-ability sound: every ability id doubles as a sound id (they're globally
+  // unique), so the moment a bespoke clip for this ability has been generated
+  // and loaded, it wins — that's how the "every action is its own sound" pass
+  // lights up incrementally. Until an ability's clip exists, sfxAvailable is
+  // false and we fall through to the generic effect-bucket below (no silence).
+  if (id && typeof sfxAvailable === 'function' && sfxAvailable(id)) return id;
   // Werewolf howls get their own feral cue, whatever their mechanical effect.
   if (atk.effect === 'howl_location' || /howl/i.test(atk.name || '')) return 'howl';
   switch (atk.effect) {
@@ -13350,6 +13367,7 @@ function castFromHotbar(id) {
   const atk = myActionCatalog[id];
   if (!atk) return;
   lastCastAtk = atk; // remembered so the result handler voices the right sound
+  lastCastId = id;   // ...and its id, so a per-ability sound can be chosen
   if (actionOnCooldown(id)) {
     setUnlockToast(myActionMsgType === 'cast_spell' ? 'Your magic needs to recharge a moment.' : 'Still recovering — wait a moment.');
     return;
