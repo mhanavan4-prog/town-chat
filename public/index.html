@@ -2139,6 +2139,7 @@
       <button class="menuRow" id="menuMap" title="Town map — see where everything is (M)">🗺️ Town Map</button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
+      <button class="menuRow" id="menuCrier">📣 Town Crier<span id="crierMenuBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuCodex">📘 Codex</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
@@ -2170,6 +2171,17 @@
     <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:6px;">🤝 Invite a Friend</div>
     <div id="inviteBody" style="font-size:13.5px;color:#c6bce0;line-height:1.5;">Loading…</div>
     <button id="inviteCloseBtn" class="btn" style="margin-top:16px;">Close</button>
+  </div>
+</div>
+
+<!-- Town Crier — recent real-player milestones, so a quiet hour still shows the
+     town is played. Populated from init + live town_feed_add messages. -->
+<div id="crierModal" class="hidden" style="position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(8,6,20,0.72);padding:16px;">
+  <div style="width:100%;max-width:440px;background:#1b1733;border:1px solid #39335e;border-radius:16px;padding:22px;color:#eae4f6;">
+    <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:4px;">📣 Town Crier</div>
+    <div style="font-size:12.5px;color:#9a90bd;margin-bottom:10px;">Lately in Thornreach</div>
+    <div id="crierBody" style="max-height:min(52vh,380px);overflow-y:auto;"></div>
+    <button id="crierCloseBtn" class="btn" style="margin-top:16px;">Close</button>
   </div>
 </div>
 

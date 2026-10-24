@@ -1600,6 +1600,16 @@ const bugReports = require('./lib/bugreports')({ dataDir: DATA_DIR, persistLoad,
 // character/inventory into their brand-new account. Guarded so an established
 // account can never be clobbered. See lib/guestClaim.js.
 const { adoptGuestInto } = require('./lib/guestClaim');
+// Town Crier — a small persisted highlight reel of recent real-player
+// milestones, so a solo visitor in a quiet hour still sees the town is played.
+// See lib/townfeed.js.
+const townfeed = require('./lib/townfeed')({ dataDir: DATA_DIR, persistLoad, persistSave, persistRegister });
+function townfeedPush(icon, text) {
+  try {
+    const item = townfeed.push(icon, text);
+    if (item) broadcastAll({ type: 'town_feed_add', item });
+  } catch (e) {}
+}
 // Count one unique active account per day (and, once ever, the first time an
 // account comes back on a later day than it registered). Uses a single date
 // marker on the account — no event log, no PII.
@@ -1706,6 +1716,14 @@ function noteMilestone(player, id) {
     // throwaway), so this is when both they and the friend who invited them get
     // paid. noteMilestone fires once-ever per account, so the reward can't double.
     if (id === 'lvl5') { try { grantReferralReward(player); } catch (e) {} }
+    // Town Crier: the few milestones worth a public shout. Once-ever per account
+    // (we're inside the first-fire guard above), so the feed can't be farmed.
+    try {
+      const nm = player.name || 'A witch';
+      if (id === 'lvl5') townfeedPush('⚔️', nm + ' reached level 5');
+      else if (id === 'lvl10') townfeedPush('⚔️', nm + ' reached level 10');
+      else { const cm = /^chapter(\d+)$/.exec(id); if (cm) townfeedPush('📖', nm + ' completed chapter ' + cm[1] + ' of their story'); }
+    } catch (e) {}
     try { saveAccounts(); } catch (e) {}
   } else {
     if (!player._guestMiles) player._guestMiles = new Set();
@@ -9129,6 +9147,7 @@ wss.on('connection', (ws, req) => {
         world2: WORLD2,
         players: Array.from(players.values()).map(publicPlayer),
         echoes: townEchoPayload(),
+        townFeed: townfeed.recent(20), // Town Crier highlight reel (newest first)
         // Equipment stat catalog — the client uses this to preview how a swap
         // would change your stats before you commit, with no server round-trip.
         equipStats: EQUIP_STATS,
@@ -12341,6 +12360,7 @@ wss.on('connection', (ws, req) => {
       analytics.bump('coven.found');
       notifyGrowth('🕸️ New coven founded: **' + name + '** ' + (sigil || '') + ' — by ' + player.name);
       noteMilestone(player, 'coven');
+      try { townfeedPush('🕸️', (player.name || 'A witch') + ' founded the coven ' + (sigil ? sigil + ' ' : '') + name); } catch (e) {}
       saveCoven(id);
       audit.log({ level: 'info', type: 'coven_founded', ip: ws._ip, account: player.accountKey, name: player.name, detail: { coven: id, name } });
       send(ws, { type: 'coven_state', ...covenStatePayload(covens[id], player.accountKey) });
@@ -13792,6 +13812,7 @@ global.__testHooks = {
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
   bugReports, // test-only: inspect the in-game bug-report store
+  townfeed, townfeedPush, // test-only: the Town Crier highlight reel
   auctionFeedRecent, // test-only: inspect the live auction activity feed
 
   noteMilestone, noteActive, // test-only: drive a milestone / return-cohort directly
