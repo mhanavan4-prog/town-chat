@@ -491,11 +491,27 @@ const KK = (() => {
     if (models[key]) return Promise.resolve();
     if (keyPromises[key]) return keyPromises[key];
     if (!loader) return Promise.resolve();
+    // Retry a failed fetch before giving up to the fallback. Streaming 120
+    // model files at once means a transient blip (dropped request, a slow
+    // socket) is common, and a single failure used to leave that piece on the
+    // classic procedural fallback for the whole session — measured at ~1 in 8
+    // sessions losing a character body. Two quick retries recover most of them;
+    // only a genuinely-missing asset still falls back (and only then does the
+    // assetfail beacon fire, so the metric now means "truly failed").
+    const MAX_TRIES = 3;
     keyPromises[key] = new Promise((res) => {
-      loader.load(assetUrl(MANIFEST[key]),
-        (gltf) => { store(key)(gltf); loadedCount++; afterLoad(); res(); },
-        undefined,
-        () => { console.warn('KK asset failed, using fallback:', key); try { sendHealthBeacon({ event: 'assetfail', asset: key }); } catch (e) {} loadedCount++; afterLoad(); res(); });
+      const attempt = (tryNum) => {
+        loader.load(assetUrl(MANIFEST[key]),
+          (gltf) => { store(key)(gltf); loadedCount++; afterLoad(); res(); },
+          undefined,
+          () => {
+            if (tryNum < MAX_TRIES) { setTimeout(() => attempt(tryNum + 1), 500 * tryNum); return; }
+            console.warn('KK asset failed after ' + MAX_TRIES + ' tries, using fallback:', key);
+            try { sendHealthBeacon({ event: 'assetfail', asset: key }); } catch (e) {}
+            loadedCount++; afterLoad(); res();
+          });
+      };
+      attempt(1);
     });
     return keyPromises[key];
   }
