@@ -4980,9 +4980,18 @@ function broadcastAll(data, exceptWs) {
 // headcount (load-test bots excluded); today is fresh joins so far today — a
 // warmer line for the quiet hours when you genuinely are on your own.
 function townPulsePayload() {
-  let inTown = 0; for (const p of players.values()) if (!p._synthetic) inTown++;
+  // inTown is the whole-world real headcount; rooms is where those players are,
+  // public town only (coven instances are private copies — pointing a stranger
+  // toward one would be wrong), so the client can nudge a player who's drifted
+  // into an empty interior toward wherever everyone actually is.
+  let inTown = 0; const rooms = {};
+  for (const p of players.values()) {
+    if (p._synthetic) continue;
+    inTown++;
+    if ((p.instance || '') === '') rooms[p.room] = (rooms[p.room] || 0) + 1;
+  }
   const today = ((analytics.data[analytics.day()]) || {}).join || 0;
-  return { type: 'town_pulse', inTown, today };
+  return { type: 'town_pulse', inTown, today, rooms };
 }
 let _pulseTimer = null;
 function broadcastTownPulse() {

@@ -57,6 +57,25 @@ setTimeout(() => {
     if (botInit) { const bp = h.players.get(botInit.id); if (bp) bp._synthetic = true; }
     check('load-test bot is excluded from inTown', h.townPulsePayload().inTown === 3, h.townPulsePayload());
 
+    // Per-room breakdown: where those players actually are, for the "head over"
+    // nudge. alice=outside, bob=apothecary, cleo=witch_cave; the bot is excluded.
+    {
+      const rooms = h.townPulsePayload().rooms || {};
+      check('rooms: outside has 1', rooms.outside === 1, rooms);
+      check('rooms: apothecary has 1', rooms.apothecary === 1, rooms);
+      check('rooms: witch_cave has 1', rooms.witch_cave === 1, rooms);
+    }
+
+    // A player inside a coven's private instance counts toward inTown but must
+    // NOT appear in rooms — pointing a stranger into a private world is wrong.
+    const d = join('dar');
+    d.p.room = 'outside'; d.p.instance = 'coven_test';
+    {
+      const pay = h.townPulsePayload();
+      check('coven-instance player counts in inTown', pay.inTown === 4, pay.inTown);
+      check('coven-instance player NOT in public rooms', (pay.rooms.outside || 0) === 1, pay.rooms);
+    }
+
     // today = fresh joins recorded today (the 3 real joins; the forced-synthetic
     // bot joined before we flagged it, so today may include it — we only assert
     // the field exists and is a number >= the real joins).

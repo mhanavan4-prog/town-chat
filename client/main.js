@@ -6504,6 +6504,7 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   // with a flag so it opens straight into the register form.
   on('guestNudgeYes', () => { openGuestRegister(); });
   on('guestNudgeNo', () => { const n = document.getElementById('guestNudge'); if (n) n.classList.add('hidden'); });
+  on('gatherHint', () => { const el = document.getElementById('gatherHint'); if (el) el.classList.add('hidden'); if (me) _gatherDismissedRoom = me.room; });
   on('grSubmit', () => { submitGuestRegister(); });
   on('grCancel', () => { const m = document.getElementById('guestRegister'); if (m) m.classList.add('hidden'); });
   { const gp = document.getElementById('grPass'); if (gp) gp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuestRegister(); }); }
@@ -7461,6 +7462,10 @@ function maybeUpdateRoomUI(room) {
   // pill re-evaluates per room (it hides indoors-agnostically otherwise).
   try { refreshCovenTableVisual(); } catch (e) {}
   try { renderEventTag(); } catch (e) {}
+  // A new room means the gather nudge should re-evaluate (and any dismissal is
+  // cleared — you've moved, so pointing you somewhere is useful again).
+  _gatherDismissedRoom = null;
+  try { renderGatherHint(); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -15007,12 +15012,51 @@ function update(dt) {
 // "1 in town" even with others elsewhere — a counter that actively made the
 // world feel dead. town_pulse carries the real town-wide headcount; we floor it
 // by the local count only as a pre-first-pulse safety net.
-let townInTown = 1, townToday = 0;
+let townInTown = 1, townToday = 0, townRooms = {};
 function onTownPulse(msg) {
   if (msg && typeof msg.inTown === 'number') townInTown = msg.inTown;
   if (msg && typeof msg.today === 'number') townToday = msg.today;
+  if (msg && msg.rooms && typeof msg.rooms === 'object') townRooms = msg.rooms;
   renderTownPulse();
+  renderGatherHint();
 }
+
+// Rooms where a gather nudge would be noise rather than help: focused/solo
+// content you don't walk into looking for company, and the Wilds. Everywhere
+// else is part of the social town hub (the square + its buildings).
+function _isContentRoom(r) {
+  return r === 'wilds' || r === 'ember_wastes' || r === 'ember_refuge' || r === 'manor' ||
+    (typeof r === 'string' && r.startsWith('dungeon_'));
+}
+// The wayfinding nudge: only when you're effectively alone in your current hub
+// room but other witches are gathered somewhere else in the public town. Points
+// you at the busiest other room so a scattered, lightly-populated town can
+// actually find itself. Hidden the moment you're with people or the town empties.
+function renderGatherHint() {
+  const el = document.getElementById('gatherHint');
+  if (!el) return;
+  const hide = () => el.classList.add('hidden');
+  if (!me || mootInstanceActive || _isContentRoom(me.room)) return hide();
+  if (_gatherDismissedRoom === me.room) return hide();
+  const here = townRooms[me.room] || 0;
+  const othersHere = Math.max(here - 1, 0); // server counts me in my own room
+  if (othersHere >= 1) return hide(); // already in company
+  // Busiest other public room.
+  let bestRoom = null, bestN = 0;
+  for (const r in townRooms) {
+    if (r === me.room || _isContentRoom(r)) continue;
+    const n = townRooms[r] || 0;
+    if (n > bestN) { bestN = n; bestRoom = r; }
+  }
+  if (!bestRoom || bestN < 1) return hide(); // no one to point to
+  const label = (typeof roomLabel === 'function') ? roomLabel(bestRoom) : bestRoom;
+  const who = bestN === 1 ? '1 witch' : bestN + ' witches';
+  el.textContent = `✨ ${who} in ${label} — head over`;
+  el.classList.remove('hidden');
+}
+// Tapping the nudge tucks it away until you next change rooms, so it informs
+// without nagging. (A fresh town_pulse in the same room won't force it back.)
+let _gatherDismissedRoom = null;
 function renderTownPulse() {
   const cEl = document.getElementById('peopleCount');
   if (!cEl) return;
