@@ -2143,6 +2143,7 @@
       <button class="menuRow" id="menuCodex">📘 Codex</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
+      <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
       <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
       <button class="menuRow hidden" id="menuLeave">🚪 Leave building</button>
@@ -2161,6 +2162,14 @@
   <div style="display:flex;gap:8px;">
     <button id="guestNudgeYes" class="btn" style="flex:1;margin:0;">Create a free account</button>
     <button id="guestNudgeNo" class="btn" style="flex:0 0 auto;margin:0;width:auto;padding:11px 14px;background:#2a2446;color:#c6bce0;">Keep playing</button>
+  </div>
+</div>
+
+<div id="inviteModal" class="hidden" style="position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(8,6,20,0.72);padding:16px;">
+  <div style="width:100%;max-width:420px;background:#1b1733;border:1px solid #39335e;border-radius:16px;padding:22px;color:#eae4f6;">
+    <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:6px;">🤝 Invite a Friend</div>
+    <div id="inviteBody" style="font-size:13.5px;color:#c6bce0;line-height:1.5;">Loading…</div>
+    <button id="inviteCloseBtn" class="btn" style="margin-top:16px;">Close</button>
   </div>
 </div>
 
