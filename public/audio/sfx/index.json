@@ -17,6 +17,12 @@
       "v": "18367661"
     }
   ],
+  "bone_knit": [
+    {
+      "f": "bone_knit.mp3",
+      "v": "f1acda08"
+    }
+  ],
   "brew": [
     {
       "f": "brew.mp3",
@@ -87,10 +93,20 @@
       "v": "0faf6d00"
     }
   ],
+  "fireball": [
+    {
+      "f": "fireball.mp3",
+      "v": "482a1076"
+    }
+  ],
   "footstep": [
     {
       "f": "footstep-1.mp3",
       "v": "420148fe"
+    },
+    {
+      "f": "footstep-2.mp3",
+      "v": "1695827e"
     },
     {
       "f": "footstep-3.mp3",
@@ -105,6 +121,12 @@
     {
       "f": "forge.mp3",
       "v": "795b17f9"
+    }
+  ],
+  "gourd_ward": [
+    {
+      "f": "gourd_ward.mp3",
+      "v": "55ae75a1"
     }
   ],
   "harvest": [
@@ -169,6 +191,12 @@
       "v": "9d6d6cde"
     }
   ],
+  "leech_hex": [
+    {
+      "f": "leech_hex.mp3",
+      "v": "60efff96"
+    }
+  ],
   "levelup": [
     {
       "f": "levelup.mp3",
@@ -183,6 +211,24 @@
     {
       "f": "loot-2.mp3",
       "v": "653f45e2"
+    }
+  ],
+  "monstrous_form": [
+    {
+      "f": "monstrous_form.mp3",
+      "v": "0f53ea37"
+    }
+  ],
+  "nightwing_augury": [
+    {
+      "f": "nightwing_augury.mp3",
+      "v": "ccc1fe66"
+    }
+  ],
+  "open_third_eye": [
+    {
+      "f": "open_third_eye.mp3",
+      "v": "ea3bc517"
     }
   ],
   "portal": [
@@ -203,6 +249,12 @@
       "v": "e42d9d49"
     }
   ],
+  "ravens_cloak": [
+    {
+      "f": "ravens_cloak.mp3",
+      "v": "08b4937d"
+    }
+  ],
   "rend": [
     {
       "f": "rend-1.mp3",
@@ -217,6 +269,12 @@
     {
       "f": "reveal.mp3",
       "v": "cfd0d615"
+    }
+  ],
+  "scrying_orb": [
+    {
+      "f": "scrying_orb.mp3",
+      "v": "1057fdc8"
     }
   ],
   "seance": [
@@ -239,6 +297,12 @@
     {
       "f": "slash-2.mp3",
       "v": "3e111602"
+    }
+  ],
+  "stumble_hex": [
+    {
+      "f": "stumble_hex.mp3",
+      "v": "afc3e9fe"
     }
   ],
   "summon": [
@@ -267,6 +331,12 @@
       "v": "e5ddb9db"
     }
   ],
+  "toads_tongue": [
+    {
+      "f": "toads_tongue.mp3",
+      "v": "f33f06e5"
+    }
+  ],
   "ui_click": [
     {
       "f": "ui_click.mp3",
@@ -277,6 +347,12 @@
     {
       "f": "ward.mp3",
       "v": "42814ce0"
+    }
+  ],
+  "withering_hex": [
+    {
+      "f": "withering_hex.mp3",
+      "v": "58c7e73b"
     }
   ]
 }
