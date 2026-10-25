@@ -275,6 +275,55 @@ app.use(compression());
 // signing secret). Mounted here, BEFORE express.json(), because signature
 // verification needs the raw request body.
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+// Webhook-side fulfilment. The success-URL verify routes are the fast path, but
+// they only run if the buyer's browser makes it back to the game; a paid
+// checkout whose redirect never completed would otherwise go ungranted. This
+// grants the same purchase from Stripe's own event. Every grant is keyed by the
+// same Stripe session id the verify routes use, so whichever path runs second
+// is a replay no-op. The buyer comes from client_reference_id, which we set at
+// checkout creation from their logged-in account.
+function grantFromWebhookSession(session) {
+  if (!session || session.payment_status !== 'paid') return;
+  const sid = String(session.id || '');
+  const meta = session.metadata || {};
+  const accountKey = session.client_reference_id ? String(session.client_reference_id) : null;
+  if (meta.ms_pack) {
+    const g = grantMoonstones('stripe_' + sid, accountKey, meta.ms_pack);
+    if (g.granted > 0) {
+      analytics.bump('purchase.moonstones'); analytics.bump('buy.pack.' + meta.ms_pack); recordPurchase(accountKey, meta.ms_pack);
+      audit.log({ level: 'info', type: 'ms_pack_granted', account: accountKey, detail: { pack: meta.ms_pack, source: 'webhook' } });
+    }
+    if (accountKey) pushMsStateIfOnline(accountKey);
+  } else if (meta.coven_charter) {
+    if (!accountKey) return;
+    const g = grantCharter('charter_' + sid, accountKey);
+    if (g.granted > 0) {
+      analytics.bump('purchase.charter');
+      audit.log({ level: 'info', type: 'charter_purchased', account: accountKey, detail: { source: 'webhook' } });
+    }
+  } else if (meta.coven_upkeep) {
+    const cv = covens[meta.covenId];
+    if (!cv) return;
+    const g = creditCovenUpkeep('upkeep_' + sid, cv);
+    if (g.granted > 0) {
+      analytics.bump('purchase.upkeep'); covenBroadcast(cv);
+      audit.log({ level: 'info', type: 'coven_upkeep_paid', detail: { coven: cv.id, source: 'webhook' } });
+    }
+  } else if (meta.town_pass === '1') {
+    const expiresAt = grantForSession(sid, (session.created || Math.floor(Date.now() / 1000)) * 1000, passHoursForStripeSession(session));
+    if (!accountKey || (townPasses[accountKey] || 0) >= expiresAt) return; // guest receipt, or already applied
+    townPasses[accountKey] = expiresAt;
+    saveTownPasses();
+    analytics.bump('purchase.townpass');
+    audit.log({ level: 'info', type: 'pass_granted', account: accountKey, detail: { source: 'webhook', expiresAt } });
+    for (const p of players.values()) {
+      if (p.accountKey === accountKey) {
+        p.passUntil = Math.max(p.passUntil || 0, expiresAt);
+        send(p.ws, { type: 'pass_state', passUntil: p.passUntil });
+      }
+    }
+  }
+}
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   if (!stripeClient || !STRIPE_WEBHOOK_SECRET) return res.status(503).end();
   let event;
@@ -282,12 +331,23 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req,
     event = stripeClient.webhooks.constructEvent(req.body, req.get('stripe-signature'), STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     // A bad signature means someone is POSTing forged events at the endpoint.
-    audit.log({ level: 'alert', type: 'webhook_bad_signature', ip: audit.clientIp(req), detail: { message: err.message } });
+    // secret: length + last 4 only, so an ops check can tell which value the
+    // process loaded without writing the whole signing secret into the log.
+    const secret = { length: STRIPE_WEBHOOK_SECRET.length, last4: STRIPE_WEBHOOK_SECRET.slice(-4) };
+    audit.log({ level: 'alert', type: 'webhook_bad_signature', ip: audit.clientIp(req), detail: { message: err.message, secret } });
     return res.status(400).send('bad signature');
   }
   const obj = (event.data && event.data.object) || {};
   const base = { event: event.type, id: obj.id || null,
     amountCents: obj.amount || obj.amount_refunded || obj.amount_captured || 0, currency: obj.currency || 'usd' };
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+    try { grantFromWebhookSession(obj); }
+    catch (err) {
+      // 500 makes Stripe retry the event; the grants are replay-proof, so a retry is safe.
+      console.error('Webhook grant error:', err.message);
+      return res.status(500).end();
+    }
+  }
   switch (event.type) {
     case 'charge.refunded':
       audit.log({ level: 'warn', type: 'refund', detail: base }); break;
@@ -851,6 +911,7 @@ app.post('/api/checkout', async (req, res) => {
         mode: 'payment',
         payment_method_types: ['card'],
         metadata: { ms_pack: product },
+        client_reference_id: accountKey,
         line_items: [{
           price_data: {
             currency: 'usd',
@@ -876,6 +937,7 @@ app.post('/api/checkout', async (req, res) => {
         mode: 'payment',
         payment_method_types: ['card'],
         metadata: { coven_charter: '1' },
+        client_reference_id: accountKey,
         line_items: [{
           price_data: {
             currency: 'usd',
@@ -903,6 +965,7 @@ app.post('/api/checkout', async (req, res) => {
         mode: 'payment',
         payment_method_types: ['card'],
         metadata: { coven_upkeep: '1', covenId: cv.id },
+        client_reference_id: accountKey,
         line_items: [{
           price_data: {
             currency: 'usd',
@@ -923,12 +986,16 @@ app.post('/api/checkout', async (req, res) => {
     }
     // Two shapes of the same pass: the day pass (default — the original
     // behavior) and the 30-day Resident Pass (Session L).
+    // A signed-in buyer's account rides on the session as client_reference_id,
+    // so the webhook can attach the pass even if the success redirect never lands.
+    const passAccount = req.body && req.body.account_token ? sessions.get(String(req.body.account_token)) : null;
     const isResident = product === 'pass30';
     const hoursLabel = TOWN_PASS_HOURS === 24 ? 'a full day' : `${TOWN_PASS_HOURS} hours`;
     const session = await stripeClient.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      metadata: isResident ? { pass_product: 'pass30' } : {},
+      metadata: isResident ? { town_pass: '1', pass_product: 'pass30' } : { town_pass: '1' },
+      ...(passAccount ? { client_reference_id: passAccount } : {}),
       line_items: [{
         price_data: {
           currency: 'usd',
