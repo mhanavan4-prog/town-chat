@@ -17,6 +17,18 @@
       "v": "31686dcf"
     }
   ],
+  "banner_of_dread": [
+    {
+      "f": "banner_of_dread.mp3",
+      "v": "3df16a64"
+    }
+  ],
+  "banshee_wail": [
+    {
+      "f": "banshee_wail.mp3",
+      "v": "99fbfb09"
+    }
+  ],
   "blood_frenzy": [
     {
       "f": "blood_frenzy.mp3",
@@ -35,6 +47,12 @@
       "v": "f1acda08"
     }
   ],
+  "bone_ward": [
+    {
+      "f": "bone_ward.mp3",
+      "v": "0840ff2d"
+    }
+  ],
   "brew": [
     {
       "f": "brew.mp3",
@@ -47,10 +65,22 @@
       "v": "0dc201b0"
     }
   ],
+  "campfire_tale": [
+    {
+      "f": "campfire_tale.mp3",
+      "v": "6ae8655e"
+    }
+  ],
   "cast": [
     {
       "f": "cast.mp3",
       "v": "c2342bbb"
+    }
+  ],
+  "challenge": [
+    {
+      "f": "challenge.mp3",
+      "v": "b62dc352"
     }
   ],
   "coin": [
@@ -61,6 +91,12 @@
     {
       "f": "coin-2.mp3",
       "v": "3ec3d0e7"
+    }
+  ],
+  "compass_trick": [
+    {
+      "f": "compass_trick.mp3",
+      "v": "d88b9a41"
     }
   ],
   "coven_crown": [
@@ -81,6 +117,12 @@
       "v": "d474a16a"
     }
   ],
+  "deep_meditation": [
+    {
+      "f": "deep_meditation.mp3",
+      "v": "dd1057df"
+    }
+  ],
   "door": [
     {
       "f": "door.mp3",
@@ -91,6 +133,18 @@
     {
       "f": "drink.mp3",
       "v": "da8c358b"
+    }
+  ],
+  "echo_canyon": [
+    {
+      "f": "echo_canyon.mp3",
+      "v": "ece63174"
+    }
+  ],
+  "endless_road": [
+    {
+      "f": "endless_road.mp3",
+      "v": "d5cb2c83"
     }
   ],
   "equip": [
@@ -105,6 +159,18 @@
       "v": "0faf6d00"
     }
   ],
+  "ethereal_veil": [
+    {
+      "f": "ethereal_veil.mp3",
+      "v": "c46066fe"
+    }
+  ],
+  "featherlight_pack": [
+    {
+      "f": "featherlight_pack.mp3",
+      "v": "c7044b94"
+    }
+  ],
   "feral_dash": [
     {
       "f": "feral_dash.mp3",
@@ -115,6 +181,12 @@
     {
       "f": "feral_haze.mp3",
       "v": "e0f4299e"
+    }
+  ],
+  "field_dressing": [
+    {
+      "f": "field_dressing.mp3",
+      "v": "37c196ff"
     }
   ],
   "fireball": [
@@ -147,10 +219,40 @@
       "v": "795b17f9"
     }
   ],
+  "ghost_step": [
+    {
+      "f": "ghost_step.mp3",
+      "v": "12ec9e6b"
+    }
+  ],
   "gourd_ward": [
     {
       "f": "gourd_ward.mp3",
       "v": "55ae75a1"
+    }
+  ],
+  "grave_chill": [
+    {
+      "f": "grave_chill.mp3",
+      "v": "40f08736"
+    }
+  ],
+  "graveyard_chill": [
+    {
+      "f": "graveyard_chill.mp3",
+      "v": "e731a852"
+    }
+  ],
+  "guardians_pledge": [
+    {
+      "f": "guardians_pledge.mp3",
+      "v": "da68f09e"
+    }
+  ],
+  "guardians_veil": [
+    {
+      "f": "guardians_veil.mp3",
+      "v": "3c51b1ad"
     }
   ],
   "harvest": [
@@ -163,10 +265,28 @@
       "v": "5466bee2"
     }
   ],
+  "haunting": [
+    {
+      "f": "haunting.mp3",
+      "v": "0d9e34b3"
+    }
+  ],
   "heal": [
     {
       "f": "heal.mp3",
       "v": "2e693865"
+    }
+  ],
+  "heavy_pack": [
+    {
+      "f": "heavy_pack.mp3",
+      "v": "cd4de242"
+    }
+  ],
+  "heralds_muster": [
+    {
+      "f": "heralds_muster.mp3",
+      "v": "0ce84838"
     }
   ],
   "hit": [
@@ -227,6 +347,18 @@
       "v": "9d6d6cde"
     }
   ],
+  "knife_throw": [
+    {
+      "f": "knife_throw.mp3",
+      "v": "35507d6a"
+    }
+  ],
+  "lay_on_hands": [
+    {
+      "f": "lay_on_hands.mp3",
+      "v": "b7c07624"
+    }
+  ],
   "leech_hex": [
     {
       "f": "leech_hex.mp3",
@@ -237,6 +369,12 @@
     {
       "f": "levelup.mp3",
       "v": "b6a197f0"
+    }
+  ],
+  "life_siphon": [
+    {
+      "f": "life_siphon.mp3",
+      "v": "939b9527"
     }
   ],
   "loot": [
@@ -255,6 +393,12 @@
       "v": "69cf52c5"
     }
   ],
+  "mending_spirits": [
+    {
+      "f": "mending_spirits.mp3",
+      "v": "e8a904c5"
+    }
+  ],
   "monstrous_form": [
     {
       "f": "monstrous_form.mp3",
@@ -267,16 +411,34 @@
       "v": "6d54d1bd"
     }
   ],
+  "nightwatch_cloak": [
+    {
+      "f": "nightwatch_cloak.mp3",
+      "v": "cdbf3746"
+    }
+  ],
   "nightwing_augury": [
     {
       "f": "nightwing_augury.mp3",
       "v": "ccc1fe66"
     }
   ],
+  "oath_of_iron": [
+    {
+      "f": "oath_of_iron.mp3",
+      "v": "b78d74c0"
+    }
+  ],
   "open_third_eye": [
     {
       "f": "open_third_eye.mp3",
       "v": "ea3bc517"
+    }
+  ],
+  "packmule_guard": [
+    {
+      "f": "packmule_guard.mp3",
+      "v": "20a145d9"
     }
   ],
   "portal": [
@@ -295,6 +457,30 @@
     {
       "f": "quest_fanfare.mp3",
       "v": "e42d9d49"
+    }
+  ],
+  "raise_boneknight": [
+    {
+      "f": "raise_boneknight.mp3",
+      "v": "e0c32f1b"
+    }
+  ],
+  "raise_skeleton": [
+    {
+      "f": "raise_skeleton.mp3",
+      "v": "42eb9790"
+    }
+  ],
+  "raise_wight": [
+    {
+      "f": "raise_wight.mp3",
+      "v": "f557ab0f"
+    }
+  ],
+  "rallying_wrath": [
+    {
+      "f": "rallying_wrath.mp3",
+      "v": "c1517e5c"
     }
   ],
   "rapid_swipe": [
@@ -349,6 +535,30 @@
       "v": "80f2f227"
     }
   ],
+  "seance_of_mending": [
+    {
+      "f": "seance_of_mending.mp3",
+      "v": "992fffca"
+    }
+  ],
+  "sentinels_watch": [
+    {
+      "f": "sentinels_watch.mp3",
+      "v": "0472b1ae"
+    }
+  ],
+  "shadow_owls": [
+    {
+      "f": "shadow_owls.mp3",
+      "v": "ef7f6523"
+    }
+  ],
+  "shield_bash": [
+    {
+      "f": "shield_bash.mp3",
+      "v": "b927870e"
+    }
+  ],
   "siphon": [
     {
       "f": "siphon.mp3",
@@ -365,10 +575,58 @@
       "v": "3e111602"
     }
   ],
+  "sleight_of_hand": [
+    {
+      "f": "sleight_of_hand.mp3",
+      "v": "253447b3"
+    }
+  ],
+  "smite": [
+    {
+      "f": "smite.mp3",
+      "v": "1995946d"
+    }
+  ],
   "snarl": [
     {
       "f": "snarl.mp3",
       "v": "2555934d"
+    }
+  ],
+  "soul_siphon": [
+    {
+      "f": "soul_siphon.mp3",
+      "v": "75ca4a79"
+    }
+  ],
+  "spirit_lash": [
+    {
+      "f": "spirit_lash.mp3",
+      "v": "50cbfd13"
+    }
+  ],
+  "spirit_walk": [
+    {
+      "f": "spirit_walk.mp3",
+      "v": "b46ff596"
+    }
+  ],
+  "spirit_ward": [
+    {
+      "f": "spirit_ward.mp3",
+      "v": "7662bddd"
+    }
+  ],
+  "spy_glass": [
+    {
+      "f": "spy_glass.mp3",
+      "v": "05708f81"
+    }
+  ],
+  "steadfast_march": [
+    {
+      "f": "steadfast_march.mp3",
+      "v": "e8109d3d"
     }
   ],
   "stumble_hex": [
@@ -415,16 +673,34 @@
       "v": "f33f06e5"
     }
   ],
+  "trail_remedy": [
+    {
+      "f": "trail_remedy.mp3",
+      "v": "fc6bbb1f"
+    }
+  ],
   "ui_click": [
     {
       "f": "ui_click.mp3",
       "v": "dae3296d"
     }
   ],
+  "wanderlust": [
+    {
+      "f": "wanderlust.mp3",
+      "v": "509e9d02"
+    }
+  ],
   "ward": [
     {
       "f": "ward.mp3",
       "v": "42814ce0"
+    }
+  ],
+  "whispered_secret": [
+    {
+      "f": "whispered_secret.mp3",
+      "v": "a235d596"
     }
   ],
   "withering_hex": [
