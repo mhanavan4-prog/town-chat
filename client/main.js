@@ -5082,7 +5082,7 @@ async function startPassCheckout(btn, product) {
   fetch(apiUrlMaybe('/api/checkout'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ product: product === 'pass30' ? 'pass30' : 'pass' })
+    body: JSON.stringify({ product: product === 'pass30' ? 'pass30' : 'pass', account_token: savedAccount ? savedAccount.token : undefined })
   })
     .then(r => r.json())
     .then(data => {
