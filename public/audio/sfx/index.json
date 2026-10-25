@@ -1,4 +1,10 @@
 {
+  "alpha_bite": [
+    {
+      "f": "alpha_bite.mp3",
+      "v": "d3ad1148"
+    }
+  ],
   "arcade_break": [
     {
       "f": "arcade_break.mp3",
@@ -9,6 +15,12 @@
     {
       "f": "arcade_eat.mp3",
       "v": "31686dcf"
+    }
+  ],
+  "blood_frenzy": [
+    {
+      "f": "blood_frenzy.mp3",
+      "v": "8be39e03"
     }
   ],
   "bloodmoon": [
@@ -93,6 +105,18 @@
       "v": "0faf6d00"
     }
   ],
+  "feral_dash": [
+    {
+      "f": "feral_dash.mp3",
+      "v": "14ebc6ba"
+    }
+  ],
+  "feral_haze": [
+    {
+      "f": "feral_haze.mp3",
+      "v": "e0f4299e"
+    }
+  ],
   "fireball": [
     {
       "f": "fireball.mp3",
@@ -165,6 +189,12 @@
       "v": "6fb80512"
     }
   ],
+  "hunters_read": [
+    {
+      "f": "hunters_read.mp3",
+      "v": "0027c436"
+    }
+  ],
   "hurt": [
     {
       "f": "hurt-1.mp3",
@@ -177,6 +207,12 @@
     {
       "f": "hurt-3.mp3",
       "v": "4152cdc4"
+    }
+  ],
+  "iron_pelt": [
+    {
+      "f": "iron_pelt.mp3",
+      "v": "2067bb2e"
     }
   ],
   "jump": [
@@ -213,10 +249,22 @@
       "v": "653f45e2"
     }
   ],
+  "lunar_howl": [
+    {
+      "f": "lunar_howl.mp3",
+      "v": "69cf52c5"
+    }
+  ],
   "monstrous_form": [
     {
       "f": "monstrous_form.mp3",
       "v": "0f53ea37"
+    }
+  ],
+  "moonlit_mending": [
+    {
+      "f": "moonlit_mending.mp3",
+      "v": "6d54d1bd"
     }
   ],
   "nightwing_augury": [
@@ -249,6 +297,12 @@
       "v": "e42d9d49"
     }
   ],
+  "rapid_swipe": [
+    {
+      "f": "rapid_swipe.mp3",
+      "v": "21ca5d6c"
+    }
+  ],
   "ravens_cloak": [
     {
       "f": "ravens_cloak.mp3",
@@ -269,6 +323,18 @@
     {
       "f": "reveal.mp3",
       "v": "cfd0d615"
+    }
+  ],
+  "savage_bite": [
+    {
+      "f": "savage_bite.mp3",
+      "v": "7364d94b"
+    }
+  ],
+  "scent_trail": [
+    {
+      "f": "scent_trail.mp3",
+      "v": "fe3a97a2"
     }
   ],
   "scrying_orb": [
@@ -299,6 +365,12 @@
       "v": "3e111602"
     }
   ],
+  "snarl": [
+    {
+      "f": "snarl.mp3",
+      "v": "2555934d"
+    }
+  ],
   "stumble_hex": [
     {
       "f": "stumble_hex.mp3",
@@ -319,6 +391,12 @@
     {
       "f": "swing-2.mp3",
       "v": "d3198d65"
+    }
+  ],
+  "terrifying_roar": [
+    {
+      "f": "terrifying_roar.mp3",
+      "v": "2286f2e5"
     }
   ],
   "thud": [
@@ -353,6 +431,12 @@
     {
       "f": "withering_hex.mp3",
       "v": "58c7e73b"
+    }
+  ],
+  "wolf_mark": [
+    {
+      "f": "wolf_mark.mp3",
+      "v": "fc1b7fcf"
     }
   ]
 }
