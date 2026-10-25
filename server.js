@@ -331,7 +331,10 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req,
     event = stripeClient.webhooks.constructEvent(req.body, req.get('stripe-signature'), STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     // A bad signature means someone is POSTing forged events at the endpoint.
-    audit.log({ level: 'alert', type: 'webhook_bad_signature', ip: audit.clientIp(req), detail: { message: err.message } });
+    // secret: length + last 4 only, so an ops check can tell which value the
+    // process loaded without writing the whole signing secret into the log.
+    const secret = { length: STRIPE_WEBHOOK_SECRET.length, last4: STRIPE_WEBHOOK_SECRET.slice(-4) };
+    audit.log({ level: 'alert', type: 'webhook_bad_signature', ip: audit.clientIp(req), detail: { message: err.message, secret } });
     return res.status(400).send('bad signature');
   }
   const obj = (event.data && event.data.object) || {};
