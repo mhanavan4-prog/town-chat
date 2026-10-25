@@ -8,13 +8,13 @@
   "arcade_break": [
     {
       "f": "arcade_break.mp3",
-      "v": "47eef322"
+      "v": "6919325c"
     }
   ],
   "arcade_eat": [
     {
       "f": "arcade_eat.mp3",
-      "v": "31686dcf"
+      "v": "0596f266"
     }
   ],
   "banner_of_dread": [
@@ -86,11 +86,11 @@
   "coin": [
     {
       "f": "coin-1.mp3",
-      "v": "e093a5dc"
+      "v": "3ddc683e"
     },
     {
       "f": "coin-2.mp3",
-      "v": "3ec3d0e7"
+      "v": "42961e98"
     }
   ],
   "compass_trick": [
@@ -368,7 +368,7 @@
   "levelup": [
     {
       "f": "levelup.mp3",
-      "v": "b6a197f0"
+      "v": "ec960b9e"
     }
   ],
   "life_siphon": [

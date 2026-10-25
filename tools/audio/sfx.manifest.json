@@ -32,7 +32,7 @@
       "prompt": "A hidden thing revealed — a whispery high glimmer, airy sparkle rising, a secret surfacing. Delicate, magical, short. No music, no voice." },
 
     { "id": "levelup", "category": "reward", "existing": true, "duration_seconds": 1.2,
-      "prompt": "A triumphant level-up flourish — a bright ascending magical arpeggio resolving to a shining top note, with a soft sparkle. Rewarding, uplifting, short. No full music track." },
+      "prompt": "A dark witchy ascension — a bubbling cauldron swelling into a rising eerie arcane shimmer, climbing a haunted minor run to a resonant bell toll. Ominous, empowering, short. No full music track." },
     { "id": "loot",    "category": "reward", "existing": true, "duration_seconds": 0.5, "variants": 2,
       "prompt": "Picking up loot — a soft handful of coins clinking and shifting against each other as they settle, gentle and muffled, warm metallic. No bright chime or jingle, close and quiet. Short. No music, no voice." },
     { "id": "harvest", "category": "world", "existing": true, "duration_seconds": 0.5, "variants": 2,
@@ -85,7 +85,7 @@
       "prompt": "Equipping gear — a quick leather-and-metal shuffle and a soft buckle cinch as a weapon or armor piece is donned. Close, dry, understated. No music, no voice. Short.",
       "note": "NEW sound. Plays on inventory_equip and inventory_unequip (client send)." },
     { "id": "coin",    "category": "reward", "existing": false, "new": true, "duration_seconds": 0.5, "variants": 2,
-      "prompt": "A gold reward — coins clinking together and dropping into a leather purse, a bright pleasant jingle. Short, close. No music." },
+      "prompt": "Old tarnished coins — a few heavy copper coins clinking and sliding into a leather purse with a muted, grubby rattle. Close, dry, understated. No bright jingle. No music." },
 
     { "id": "ui_click", "category": "ui", "existing": false, "new": true, "duration_seconds": 0.5,
       "prompt": "A soft UI tap — a muffled wooden or parchment click opening a menu, understated and quick. No music, no tone beep." },
@@ -98,9 +98,9 @@
       "prompt": "A coven claiming the crown — a regal coronation flourish, bright bells over a rising triumphant chord. Ceremonial, proud, short. No full music track." },
 
     { "id": "arcade_eat",   "category": "arcade", "existing": false, "new": true, "duration_seconds": 0.5,
-      "prompt": "A retro 8-bit pickup blip — a short bright chiptune 'bloop' as the snake eats. Clean, digital, tiny. No music." },
+      "prompt": "A witchy pickup chime — a small glass vial tinkling against another with a soft bubbling fizz, like a drop of potion collected. Crystalline, magical, tiny. No music, no voice." },
     { "id": "arcade_break", "category": "arcade", "existing": false, "new": true, "duration_seconds": 0.5,
-      "prompt": "A retro 8-bit brick-break blip — a short crisp chiptune 'tok' as a block shatters. Clean, digital, tiny. No music." },
+      "prompt": "A clay vessel shattering — a brittle pottery crack and a faint arcane fizzle of spilled magic, sharp and short. Dry, eerie, tiny. No music, no voice." },
 
     { "id": "fireball", "category": "ability_witch", "existing": false, "new": true, "duration_seconds": 0.8,
       "prompt": "A witch hurling a ball of green-tinged witchfire — a fast whooshing gout of flame igniting and roaring out, crackling embers with an arcane hiss. Fiery, forceful, short. No music, no voice.",
