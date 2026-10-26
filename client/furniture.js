@@ -595,29 +595,33 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(patronLabel);
       kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
 
-      // ── The Daily Special menu — a framed chalk board hung FLAT on the south
-      // wall (z≈roomD), instead of the old free-standing easel that floated ~34u
-      // out in the corner and read as plonked in the room. Order the day's
-      // special here; a new one is chalked up daily. (No point light — mobile-safe.)
-      const boardX = roomW * 0.84;   // along the south wall, clear of the SE doorway
-      const boardZ = roomD - 2;      // the board hangs on the wall itself
+      // ── The Daily Special menu — a framed chalk board hung on the south wall,
+      // in line with the tavern paintings (same wall, same height). The south
+      // wall is a solid box ~wallThickness*INDOOR_SCALE (≈25) deep spanning
+      // z=[roomD-25, roomD], so the board's whole body must sit PROUD of that
+      // inner face or it vanishes into the wall (the bug this fixes). We hang it
+      // so even its back clears the inner face, a touch further into the room
+      // than the flat paintings at roomD-4. Order the day's special here; a new
+      // one is chalked up daily. (No point light — mobile-safe.)
+      const boardX = roomW * 0.84;   // south wall, right of the paintings (0.28/0.5/0.72), clear of the corner pumpkins
+      const boardZ = roomD - 10;     // center; frame back lands at ~roomD-8, clear of the inner wall face
       const board = new THREE.Group();
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(52, 58, 4),
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(56, 64, 4),
         new THREE.MeshLambertMaterial({ color: 0x5a4328 }));            // wooden frame
       board.add(frame);
-      const slate = new THREE.Mesh(new THREE.BoxGeometry(42, 46, 2),
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(46, 52, 2),
         new THREE.MeshLambertMaterial({ color: 0x14130f }));            // dark slate
-      slate.position.z = 2.5; board.add(slate);
-      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(32, 36),
+      slate.position.z = 2.5; board.add(slate);                         // local +z → room side after the Math.PI flip
+      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(36, 42),
         new THREE.MeshBasicMaterial({ color: 0xcfc3a6, transparent: true, opacity: 0.28 }));
       chalk.position.z = 3.6; board.add(chalk);                         // chalk, stood off the slate so it never z-fights
-      board.position.set(boardX, 66, boardZ);                          // hung at eye-ish height
-      board.rotation.y = Math.PI;                                       // face off the wall, straight into the room
+      board.position.set(boardX, 82, boardZ);                          // painting-height on the wall
+      board.rotation.y = Math.PI;                                       // decorated face turns into the room
       scene.add(board);
       const boardLabel = makeNpcNameSprite('☕ Daily Special', 'a new dish each day');
-      boardLabel.position.set(boardX, 108, boardZ - 4);
+      boardLabel.position.set(boardX, 124, boardZ);                    // sprite sits with the board, not behind the wall
       scene.add(boardLabel);
-      kiosksOut.push({ x: boardX, z: roomD - 44, npc: 'cafe_special', npcName: '☕ Daily Special' }); // stand a step off the wall to order
+      kiosksOut.push({ x: boardX, z: roomD - 48, npc: 'cafe_special', npcName: '☕ Daily Special' }); // stand a step off the wall to order
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a2a5c));
