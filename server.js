@@ -532,6 +532,7 @@ app.get('/robots.txt', (req, res) => {
     'Allow: /\n' +
     'Disallow: /api/\n' +
     'Disallow: /admin\n' +
+    'Disallow: /cdn-cgi/\n' + // Cloudflare internals (email-obfuscation link etc.) — never indexable, stops the bogus /cdn-cgi/l/email-protection 404 in Search Console
     'Sitemap: ' + base + '/sitemap.xml\n'
   );
 });
