@@ -15057,10 +15057,12 @@ function _isContentRoom(r) {
 // room but other witches are gathered somewhere else in the public town. Points
 // you at the busiest other room so a scattered, lightly-populated town can
 // actually find itself. Hidden the moment you're with people or the town empties.
+let _gatherText = '';        // last nudge shown, so an unchanged state doesn't keep re-announcing
+let _gatherFadeTimer = null;
 function renderGatherHint() {
   const el = document.getElementById('gatherHint');
   if (!el) return;
-  const hide = () => el.classList.add('hidden');
+  const hide = () => { el.classList.add('hidden'); _gatherText = ''; };
   if (!me || mootInstanceActive || _isContentRoom(me.room)) return hide();
   if (_gatherDismissedRoom === me.room) return hide();
   const here = townRooms[me.room] || 0;
@@ -15076,8 +15078,18 @@ function renderGatherHint() {
   if (!bestRoom || bestN < 1) return hide(); // no one to point to
   const label = (typeof roomLabel === 'function') ? roomLabel(bestRoom) : bestRoom;
   const who = bestN === 1 ? '1 witch' : bestN + ' witches';
-  el.textContent = `✨ ${who} in ${label} — head over`;
+  const text = `✨ ${who} in ${label} — head over`;
+  el.textContent = text;
   el.classList.remove('hidden');
+  // Announce, then fade out of the way — so it isn't parked in the corner the
+  // whole time you're alone. A new target (room changes, or the count shifts)
+  // re-announces; an unchanged one stays faded.
+  if (text !== _gatherText) {
+    _gatherText = text;
+    el.classList.remove('faded');
+    clearTimeout(_gatherFadeTimer);
+    _gatherFadeTimer = setTimeout(() => { try { el.classList.add('faded'); } catch (e) {} }, 7000);
+  }
 }
 // Tapping the nudge tucks it away until you next change rooms, so it informs
 // without nagging. (A fresh town_pulse in the same room won't force it back.)

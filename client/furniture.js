@@ -595,38 +595,29 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(patronLabel);
       kiosksOut.push({ x: 460, z: 90, npc: 'hint', npcId: 'npc_patron', npcName: 'Old Mabel' });
 
-      // ── The Daily Special board (roadmap #6) — a chalkboard easel on the
-      // east side, clear of the dining grid and the Champions' Table. Order
-      // the day's special here; a new one is chalked up each day. (Emissive
-      // chalk glow, no extra point light — mobile-safe.)
-      // Flush against the south wall in the open SE corner — it used to float
-      // at (roomW*0.9, roomD*0.34), right beside the east doorway, where it read
-      // as plonked in the walkway rather than belonging to a wall.
-      const boardX = roomW * 0.84, boardZ = roomD - 34;
-      const easel = new THREE.Group();
-      const legMat = new THREE.MeshLambertMaterial({ color: 0x5a4328 });
-      for (const lx of [-13, 13]) {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
-        leg.position.set(lx, 37, 4); leg.rotation.x = 0.16; easel.add(leg);
-      }
-      const backLeg = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 74, 6), legMat);
-      backLeg.position.set(0, 37, -10); backLeg.rotation.x = -0.26; easel.add(backLeg);
-      const slate = new THREE.Mesh(new THREE.BoxGeometry(40, 48, 3),
-        new THREE.MeshLambertMaterial({ color: 0x14130f }));
-      slate.position.set(0, 52, 5); slate.rotation.x = 0.16; easel.add(slate);
-      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(30, 34),
+      // ── The Daily Special menu — a framed chalk board hung FLAT on the south
+      // wall (z≈roomD), instead of the old free-standing easel that floated ~34u
+      // out in the corner and read as plonked in the room. Order the day's
+      // special here; a new one is chalked up daily. (No point light — mobile-safe.)
+      const boardX = roomW * 0.84;   // along the south wall, clear of the SE doorway
+      const boardZ = roomD - 2;      // the board hangs on the wall itself
+      const board = new THREE.Group();
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(52, 58, 4),
+        new THREE.MeshLambertMaterial({ color: 0x5a4328 }));            // wooden frame
+      board.add(frame);
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(42, 46, 2),
+        new THREE.MeshLambertMaterial({ color: 0x14130f }));            // dark slate
+      slate.position.z = 2.5; board.add(slate);
+      const chalk = new THREE.Mesh(new THREE.PlaneGeometry(32, 36),
         new THREE.MeshBasicMaterial({ color: 0xcfc3a6, transparent: true, opacity: 0.28 }));
-      // The slate's front face is at local z≈6.5; the chalk plane used to sit at
-      // 6.7 — a 0.2u gap that z-fights (the diagonal "zebra" shimmer). Stand it
-      // off to ~1.1u so it reads as chalk on the board without fighting it.
-      chalk.position.set(0, 52, 7.6); chalk.rotation.x = 0.16; easel.add(chalk);
-      easel.position.set(boardX, 0, boardZ);
-      easel.rotation.y = Math.atan2(cx - boardX, cz - boardZ); // face into the room
-      scene.add(easel);
+      chalk.position.z = 3.6; board.add(chalk);                         // chalk, stood off the slate so it never z-fights
+      board.position.set(boardX, 66, boardZ);                          // hung at eye-ish height
+      board.rotation.y = Math.PI;                                       // face off the wall, straight into the room
+      scene.add(board);
       const boardLabel = makeNpcNameSprite('☕ Daily Special', 'a new dish each day');
-      boardLabel.position.set(boardX, 100, boardZ);
+      boardLabel.position.set(boardX, 108, boardZ - 4);
       scene.add(boardLabel);
-      kiosksOut.push({ x: boardX, z: boardZ, npc: 'cafe_special', npcName: '☕ Daily Special' });
+      kiosksOut.push({ x: boardX, z: roomD - 44, npc: 'cafe_special', npcName: '☕ Daily Special' }); // stand a step off the wall to order
     }
   } else if (type === 'library') {
     scene.add(makeRug(cx, cz, roomW * 0.5, roomD * 0.35, 0x3a2a5c));
