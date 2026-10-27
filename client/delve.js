@@ -80,7 +80,7 @@ function renderDelveModal() {
 function renderDelveHud() {
   const hud = document.getElementById('delveHud');
   if (!hud) return;
-  if (!getDelveState() || !getDelveState().inRun) { hud.classList.add('hidden'); return; }
+  if (!getDelveState() || !getDelveState().inRun) { hud.classList.add('hidden'); document.body.classList.remove('inDelveRun'); return; }
   document.getElementById('delveHudFloor').textContent = `🕳️ Floor ${getDelveState().floor}`;
   document.getElementById('delveHudKills').textContent =
     getDelveState().state === 'draft' ? '✨ draft' : `${getDelveState().kills} / ${getDelveState().killsNeeded}`;
@@ -88,6 +88,7 @@ function renderDelveHud() {
   boons.textContent = Object.entries(getDelveState().myBoons || {})
     .map(([id, n]) => { const b = delveBoonMeta(id); return b ? b.icon.repeat(Math.min(n, 3)) : ''; }).join('');
   hud.classList.remove('hidden');
+  document.body.classList.add('inDelveRun'); // CSS drops the town-bell banner below this HUD so they don't stack
 }
 function delveBoonMeta(id) {
   if (getDelveState() && getDelveState().myOffer) {

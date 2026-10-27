@@ -1471,7 +1471,7 @@ function onWsMessage(ev) {
     if (msg.mobs2) applyMob2State(msg.mobs2);
     if (msg.mobs3) applyMob3State(msg.mobs3);
     if (msg.decor) applyDecorState(msg.decor);
-    if (msg.dungeonMobs) applyDungeonMobState(msg.dungeonMobs);
+    if (msg.dungeonMobs) { applyDungeonMobState(msg.dungeonMobs); reconcileDungeonMobVisuals(msg.dungeonMobs); }
     if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
     if (msg.torchNpcs) applyTownTorchNpcState(msg.torchNpcs);
     if (msg.torches) applyTownTorchState(msg.torches);
@@ -10483,6 +10483,43 @@ function updateLootIcons() {
     } else {
       hideLootIcon(key);
     }
+  }
+}
+
+// Tear down dungeon/delve mob visuals the latest snapshot no longer lists.
+// applyDungeonMobState only adds/updates, so without this, mobs that were
+// looted-and-cleared server-side — or, in a Delve, left behind when the floor
+// advanced (run.mobs is reset each floor) — keep their meshes AND their 💰 loot
+// icons forever. Every Delve floor shares one room id (dungeon_delve_<id>, no
+// floor number), so the `v.room === me.room` guard in updateLootIcons never
+// hides those stale bags: they pile up across floors and can't be collected
+// (the server already discarded the mob, so loot_corpse returns "nothing here").
+// The wildlife snapshot is the FULL per-room set, so anything absent is gone.
+function reconcileDungeonMobVisuals(list) {
+  const live = new Set();
+  for (const m of list) live.add(String(m.id));
+  for (const id in dungeonMobVisuals) {
+    if (live.has(String(id))) continue;
+    const v = dungeonMobVisuals[id];
+    if (v && v.mesh) {
+      if (v.mesh.parent) v.mesh.parent.remove(v.mesh);
+      v.mesh.traverse((c) => {
+        if (c.geometry && c.geometry.dispose) c.geometry.dispose();
+        const mats = Array.isArray(c.material) ? c.material : (c.material ? [c.material] : []);
+        for (const mm of mats) { if (mm && mm.dispose) mm.dispose(); }
+      });
+    }
+    const key = 'dungeon:' + id;
+    const spr = lootIconVisuals[key];
+    if (spr) {
+      if (spr.parent) spr.parent.remove(spr);
+      if (spr.material) {
+        if (spr.material.map && spr.material.map.dispose) spr.material.map.dispose();
+        if (spr.material.dispose) spr.material.dispose();
+      }
+      delete lootIconVisuals[key];
+    }
+    delete dungeonMobVisuals[id];
   }
 }
 
