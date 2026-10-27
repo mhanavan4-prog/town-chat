@@ -723,13 +723,21 @@
     /* Above modal overlays (z-index 20): toasts announce checkout results
        and pass errors, which must stay readable while a modal is open. */
     position:fixed; top:104px; left:0; right:0; z-index:50;
-    display:flex; justify-content:center; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:7px; pointer-events:none;
   }
   #unlockToast.hidden { display:none !important; }
-  #unlockToast span {
+  /* Each toast is its own pill, stacked newest-at-the-bottom like a message
+     thread (see setUnlockToast — capped + self-fading) instead of all landing
+     on one overwritten slot. */
+  .unlockToastItem {
     background:rgba(20,10,8,0.82); border:1px solid rgba(230,190,120,0.35);
     color:#ffe9c2; font-size:12.5px; padding:7px 16px; border-radius:16px;
+    max-width:min(520px,86vw); text-align:center;
+    animation:unlockToastIn 0.2s ease-out;
+    transition:opacity 0.5s ease, transform 0.5s ease;
   }
+  .unlockToastItem.fading { opacity:0; transform:translateY(-6px); }
+  @keyframes unlockToastIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
 
   .passInfo {
     text-align:left; background:rgba(0,0,0,0.25); border-radius:10px;
@@ -2086,7 +2094,7 @@
     <button id="unlockBtn">🎟️ Day pass — <span id="unlockPrice">$0.99</span></button>
   </div>
 </div>
-<div id="unlockToast" class="hidden"><span id="unlockToastText"></span></div>
+<div id="unlockToast" class="hidden"></div>
 <div id="announceBanner" class="hidden"></div>
 <div id="cmPrompt" class="hidden"><span id="cmPromptText"></span></div>
 <div id="ceremonyOverlay" class="hidden">

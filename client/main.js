@@ -4901,24 +4901,39 @@ setInterval(refreshPassHud, 30000);
 // even during a stretch with no XP events.
 setInterval(() => { if (gameStarted && restedUntil) updateXPDisplay(); }, 15000);
 
-let toastTimer = null;
 let lastToastText = '', lastToastAt = 0; // shared with systemChatNotif's de-dupe
+// Toasts stack like a message thread instead of overwriting one slot: each call
+// appends a pill below the last (newest at the bottom), the lane is capped, and
+// every pill fades on its own timer. This stops the old pile-up where a burst of
+// notices (load-in: admin access, respawn, a bell toll…) all landed on the same
+// top-centre spot and smeared together.
+const UNLOCK_TOAST_LIFE_MS = 4200;
+const UNLOCK_TOAST_MAX = 4;
 function setUnlockToast(text) {
   const wrap = document.getElementById('unlockToast');
-  const span = document.getElementById('unlockToastText');
-  if (!wrap || !span) return;
-  span.textContent = text;
+  if (!wrap) return;
   wrap.classList.remove('hidden');
-  // The mobile message banners duck out of the toast's lane while it's up
-  // (body.toastVisible → #chatNotifStack shifts down), and remember what
-  // the toast said so systemChatNotif() doesn't repeat it as a banner.
+  const el = document.createElement('div');
+  el.className = 'unlockToastItem';
+  el.textContent = text;
+  wrap.appendChild(el);
+  // keep the lane short — drop the oldest (top) once it's too tall
+  while (wrap.children.length > UNLOCK_TOAST_MAX) wrap.firstChild.remove();
+  // The mobile message banners duck out of the toast's lane while any pill is up
+  // (body.toastVisible → #chatNotifStack shifts down), and remember the latest
+  // line so systemChatNotif() doesn't repeat it as a banner.
   lastToastText = text; lastToastAt = Date.now();
   document.body.classList.add('toastVisible');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    wrap.classList.add('hidden');
-    document.body.classList.remove('toastVisible');
-  }, 3200);
+  setTimeout(() => {
+    el.classList.add('fading');
+    setTimeout(() => {
+      el.remove();
+      if (!wrap.children.length) {
+        wrap.classList.add('hidden');
+        document.body.classList.remove('toastVisible');
+      }
+    }, 550);
+  }, UNLOCK_TOAST_LIFE_MS);
 }
 
 // Persistent banner shown while inside a coven's private Moot instance (Session
