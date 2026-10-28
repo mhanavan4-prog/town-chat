@@ -90,10 +90,26 @@
 
   // ── Peer plumbing (mirrors client/coven-voice.js) ─────────────────────────
   function signal(toId, data) { sendWs({ type: 'coven_voice_signal', toId: toId, data: data }); }
+  // True when the ICE config actually carries a TURN relay.
+  function hasTurn(cfg) {
+    try {
+      return (cfg.iceServers || []).some(function (s) {
+        var u = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return u.some(function (x) { return /^turns?:/.test(x || ''); });
+      });
+    } catch (e) { return false; }
+  }
   function ensurePeer(id, name) {
     var peer = peers[id];
     if (peer) { if (name) peer.name = name; return peer; }
-    var pc = new RTCPeerConnection(rtcConfig);
+    // When a TURN relay is available, force relay-only transport. Safari gathers
+    // a relay candidate but often won't fall back to it after the host/srflx
+    // pairs fail between two NAT'd peers — the allocation sits unused (coturn
+    // logs "peer usage rp=0") and the connection times out. Relay-only removes
+    // the dead direct candidates so the browser must use the relay that works.
+    // (No TURN in the config → keep the default so STUN-only can still try direct.)
+    var cfg = hasTurn(rtcConfig) ? Object.assign({}, rtcConfig, { iceTransportPolicy: 'relay' }) : rtcConfig;
+    var pc = new RTCPeerConnection(cfg);
     peer = { pc: pc, name: name || '', audioEl: null, analyser: null, speaking: false };
     peers[id] = peer;
     if (localStream) localStream.getTracks().forEach(function (t) { pc.addTrack(t, localStream); });
