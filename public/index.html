@@ -2433,6 +2433,9 @@
   /* In a Delve run the floor HUD (#delveHud) owns the top-center slot, so drop
      the bell banner below it instead of letting the two stack on the same row. */
   body.inDelveRun #bellTag { top:102px; }
+  /* A town-wide announce banner sits at top:110; while it's up, drop the toast
+     lane beneath it so personal toasts don't stack on top of the announcement. */
+  body.announceUp #unlockToast { top:168px; }
   body.panelOpen #bellTag, body.composeOpen #bellTag, body.emoteWheelOpen #bellTag { display:none; }
   #firstStepsChip {
     position:fixed; left:16px; bottom:150px; z-index:7;
