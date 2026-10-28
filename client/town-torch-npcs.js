@@ -87,7 +87,11 @@ function updateTownTorchNpcVisuals(dt) {
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
     v.walkPhase += dt * (moving ? 5.5 : (v.working || v.praying) ? 3 : 0);
-    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : v.working ? 'Interact' : v.praying ? 'Sit_Floor_Idle' : 'Idle');
+    // The Skeletons-pack character models have no 'Interact' clip, and kkSetState
+    // no-ops on a missing clip — so a keeper tending its torch kept playing the
+    // previous Walking_A and walked in place. Stand Idle at the torch instead
+    // (Sit_Floor_Idle does exist, so the daytime temple prayer still works).
+    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : v.praying ? 'Sit_Floor_Idle' : 'Idle');
 
     let poseY = 0;
     if (moving) {
