@@ -13532,6 +13532,11 @@ wss.on('connection', (ws, req) => {
         // Load-test bots are excluded from every session counter (see join).
         if (!player._synthetic) {
           const mins = (Date.now() - (player.joinedAt || Date.now())) / 60000;
+          // Combined time-on-game, summed per day across all real players. Keyed
+          // by day() like every counter, so data[day]['playSeconds'] is that
+          // day's total playtime in seconds (visible in /api/admin/metrics and
+          // the CSV export). Attributed to the day the session ENDS.
+          analytics.bump('playSeconds', Math.round(Math.max(0, mins) * 60));
           analytics.bump('sess.' + sessionBucket(mins));
           // Device-split session length + whether they spoke — so mobile vs desktop
           // churn and engagement can be compared directly.
@@ -13762,6 +13767,7 @@ function sendWeeklyDigest() {
       '📊 **Thornreach — weekly digest**',
       '• New accounts (7d): **' + win('register') + '**  ·  joins: **' + win('join') + '**',
       '• Peak on site (7d): **' + peakOnSite + '**  ·  active 7d: **' + (sum.activeLast7d || 0) + '**',
+      '• Playtime (7d): **' + (win('playSeconds') / 3600).toFixed(1) + ' h** combined, all players',
       '• Landing→Play: **' + (land ? Math.round(play / land * 100) : 0) + '%**',
       '• Revenue: **$' + (rev.lifetimeUsd || 0) + '** lifetime  ·  payers: **' + (rev.payers || 0) + '** (' + (rev.payerConversion || 0) + '%)',
       '• Total accounts: **' + (sum.totalAccounts || 0) + '**' + (topSrc ? '  ·  top source (7d): **' + topSrc + '**' : '')
