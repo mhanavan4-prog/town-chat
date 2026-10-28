@@ -39,9 +39,13 @@ external-ip=$EXTERNAL_IP
 min-port=49152
 max-port=65535
 no-multicast-peers
-denied-peer-ip=10.0.0.0-10.255.255.255
-denied-peer-ip=172.16.0.0-172.31.255.255
-denied-peer-ip=192.168.0.0-192.168.255.255
+# Protect services on the box itself (game server / DB on localhost) — but do
+# NOT deny the RFC1918 ranges: NAT'd clients (phones on carrier NAT, laptops on
+# home wifi) advertise 10.x / 192.168.x host candidates, and denying those makes
+# coturn reject CREATE_PERMISSION (403 Forbidden IP) so media never flows. This
+# is a single public box with no internal private network, so loopback is the
+# only range worth blocking.
+denied-peer-ip=127.0.0.0-127.255.255.255
 EOF
 
 echo "==> Enabling the coturn daemon"
