@@ -65,7 +65,12 @@ function updateVillageNpcVisuals(dt) {
 
     const moving = Math.hypot(v.targetX - v.x, v.targetY - v.y) > 3;
     v.walkPhase += dt * (moving ? 5.5 : v.working ? 4 : 0);
-    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : (v.working ? 'Interact' : 'Idle'));
+    // No 'Interact' clip exists in the KayKit Skeletons-pack character models,
+    // and kkSetState no-ops on a missing clip — so 'Interact' left the builder
+    // playing the previous Walking_A while standing, i.e. walking in place at the
+    // build site. Stand idle instead (the procedural work-sway on the fallback
+    // rig still animates).
+    if (v.kk) kkSetState(v.kk, moving ? 'Walking_A' : 'Idle');
 
     if (moving) {
       const swing = Math.sin(v.walkPhase) * 0.45;
