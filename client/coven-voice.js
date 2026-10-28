@@ -85,10 +85,25 @@ export default function createCovenVoice({ getWs, getCovenState, setUnlockToast,
   }
 
   // ── Peer plumbing ───────────────────────────────────────────────────────────
+  // True when the ICE config actually carries a TURN relay.
+  function hasTurn(cfg) {
+    try {
+      return (cfg.iceServers || []).some((s) => {
+        const u = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return u.some((x) => /^turns?:/.test(x || ''));
+      });
+    } catch (e) { return false; }
+  }
   function ensurePeer(id, name) {
     let peer = peers.get(id);
     if (peer) { if (name) peer.name = name; return peer; }
-    const pc = new RTCPeerConnection(rtcConfig);
+    // Relay-only when a TURN relay is available: browsers (Safari especially)
+    // gather a relay candidate but won't fall back to it after the direct pairs
+    // fail between two NAT'd peers, so the allocation sits unused and the link
+    // fails. Forcing relay transport removes the dead direct candidates. (No
+    // TURN in the config → keep default so STUN-only can still try direct.)
+    const cfg = hasTurn(rtcConfig) ? Object.assign({}, rtcConfig, { iceTransportPolicy: 'relay' }) : rtcConfig;
+    const pc = new RTCPeerConnection(cfg);
     peer = { pc, name: name || '', audioEl: null, analyser: null, speaking: false };
     peers.set(id, peer);
     if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -194,13 +209,22 @@ export default function createCovenVoice({ getWs, getCovenState, setUnlockToast,
     try {
       if (data.sdp) {
         await peer.pc.setRemoteDescription(data.sdp);
+        peer.remoteReady = true;
+        // Flush candidates that arrived before the remote description was set —
+        // addIceCandidate throws otherwise and the dropped candidate (often the
+        // TURN relay one) would leave no working media path.
+        if (peer.pendingCands) {
+          for (const c of peer.pendingCands) { try { await peer.pc.addIceCandidate(c); } catch (e) {} }
+          peer.pendingCands = [];
+        }
         if (data.sdp.type === 'offer') {
           const answer = await peer.pc.createAnswer();
           await peer.pc.setLocalDescription(answer);
           signal(fromId, { sdp: peer.pc.localDescription });
         }
       } else if (data.candidate) {
-        await peer.pc.addIceCandidate(data.candidate);
+        if (peer.remoteReady) { await peer.pc.addIceCandidate(data.candidate); }
+        else { (peer.pendingCands = peer.pendingCands || []).push(data.candidate); }
       }
     } catch (e) { /* ignore malformed/duplicate signaling */ }
   }
