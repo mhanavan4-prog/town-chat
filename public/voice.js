@@ -64,8 +64,19 @@
       var isMe = nl === mine.toLowerCase();
       var voiceHere = Object.prototype.hasOwnProperty.call(inVoice, nl);
       var speaking = !!speakingNames[nl] || (talking && isMe);
+      // Surface a remote covenmate's actual peer-connection health: if the WebRTC
+      // link never reaches "connected" (e.g. no media path without a TURN relay),
+      // show that instead of a misleading "in voice" — this is exactly the
+      // "everyone's listed but nobody hears anyone" symptom.
+      var link = '';
+      if (voiceHere && !isMe) {
+        var pr = peers[inVoice[nl]];
+        var cs = pr && pr.connState;
+        if (cs && cs !== 'connected' && cs !== 'completed') link = (cs === 'failed' || cs === 'disconnected') ? 'link failed' : 'linking…';
+      }
       var state, label;
-      if (speaking) { state = 'speaking'; label = 'speaking'; }
+      if (link) { state = 'off'; label = link; }
+      else if (speaking) { state = 'speaking'; label = 'speaking'; }
       else if (voiceHere) { state = 'invoice'; label = 'in voice'; }
       else if (isMe) { state = 'online'; label = 'here'; }           // you're on the voice page
       else if (m.online) { state = 'online'; label = 'in town'; }
@@ -88,6 +99,9 @@
     if (localStream) localStream.getTracks().forEach(function (t) { pc.addTrack(t, localStream); });
     pc.onicecandidate = function (e) { if (e.candidate) signal(id, { candidate: e.candidate }); };
     pc.ontrack = function (e) { attachRemote(id, e.streams[0]); };
+    // Track link health so the roster can show when a peer connection never
+    // actually reaches "connected" (no media path — the classic no-TURN case).
+    pc.onconnectionstatechange = function () { peer.connState = pc.connectionState; render(); };
     return peer;
   }
   function dropPeer(id) {
