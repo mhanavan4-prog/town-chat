@@ -451,12 +451,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const stool = kkFurn('furn_stool', 20, 'height', 82, 0, sz);
       if (stool) scene.add(stool);
     }
-    // A fireside pair of armchairs angled at the hearth (fireplace sits at
-    // cx,14), framing the central walkway rather than blocking it, with a
-    // lamp-topped side table beside them.
-    const faceHearth = (ax, az) => Math.atan2(cx - ax, 14 - az) + ARMCHAIR_FWD;
+    // A fireside pair of armchairs near the hearth (fireplace sits at cx,14),
+    // framing the central walkway. They face INTO the room (toward room centre),
+    // not back at the hearth wall — sitting with your back to the wall reads
+    // better here than two chairs staring at the fire/north wall.
+    const faceRoom = (ax, az) => Math.atan2(cx - ax, (roomD / 2) - az) + ARMCHAIR_FWD;
     for (const ax of [cx - 48, cx + 48]) {
-      const ac = kkFurn('furn_armchair', 34, 'height', ax, 0, 58, faceHearth(ax, 58));
+      const ac = kkFurn('furn_armchair', 34, 'height', ax, 0, 58, faceRoom(ax, 58));
       if (ac) scene.add(ac);
     }
     const fsTable = kkFurn('furn_sidetable', 20, 'fit', cx - 92, 0, 48);
@@ -466,20 +467,16 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       if (lamp) scene.add(lamp);
     }
     // A sideboard cabinet against the north wall (west of the hearth) with a
-    // book stack on top, and a wall shelf east of the hearth.
+    // book stack on top.
     const cab = kkFurn('furn_cabinet', 44, 'fit', 120, 0, 30, 0);
     if (cab) {
       scene.add(cab);
       const bk = kkFurn('furn_books', 16, 'fit', 120, (cab.userData && cab.userData.kkHeight) || 22, 30);
       if (bk) scene.add(bk);
     }
-    // Wall shelf east of the hearth. z was 9 (buried), then 26 — but 26 still
-    // left its shallow back panel ~coplanar with the north wall's inner face
-    // (~wallThickness*INDOOR_SCALE ≈ 22), which z-fights into vertical "zebra"
-    // stripes on the wall by the armchairs. z=36 clears the inner face so it
-    // reads as a mounted shelf jutting into the room, no flicker.
-    const wallShelf = kkFurn('furn_shelf', 60, 'fit', 470, 72, 36, 0);
-    if (wallShelf) scene.add(wallShelf);
+    // (Removed the furn_shelf that used to sit east of the hearth: its shallow
+    // back panel kept z-fighting the north wall into vertical "zebra" stripes no
+    // matter the inset, so it's gone rather than fought further.)
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
     scene.add(makeBanner(28, 100, 8, 0, 0xff9a3c));
