@@ -5323,8 +5323,9 @@ function showAnnounceBanner(text) {
   el.classList.remove('hidden');
   el.classList.remove('announceIn'); void el.offsetWidth; // restart the animation
   el.classList.add('announceIn');
+  document.body.classList.add('announceUp'); // CSS drops the toast lane below the banner so they don't stack on the same row
   clearTimeout(announceTimer);
-  announceTimer = setTimeout(() => el.classList.add('hidden'), 6000);
+  announceTimer = setTimeout(() => { el.classList.add('hidden'); document.body.classList.remove('announceUp'); }, 6000);
 }
 
 // A short center-screen ceremony for chapter completions — the peak-end

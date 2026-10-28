@@ -55,7 +55,11 @@ function renderTitlesModal() {
     if (opts.from) { const f = document.createElement('div'); f.style.cssText = 'font-size:11px;opacity:.55;margin-top:2px'; f.textContent = opts.from; body.appendChild(f); }
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.style.cssText = 'margin:0;white-space:nowrap;' + (on ? 'opacity:.6;pointer-events:none' : '');
+    // The shared .btn class is width:100%, which in this flex row eats all the
+    // space and squeezes the name/description down to one word per line. Pin it
+    // to its content width (same fix as .codexRow .btn) so the text column gets
+    // the room it needs.
+    btn.style.cssText = 'margin:0;white-space:nowrap;flex:0 0 auto;width:auto;padding:7px 14px;font-size:12.5px;' + (on ? 'opacity:.6;pointer-events:none' : '');
     btn.textContent = on ? '✓ Active' : 'Fly it';
     btn.addEventListener('click', () => send({ type: 'set_title', title: opts.id }));
     row.appendChild(icon); row.appendChild(body); row.appendChild(btn);
