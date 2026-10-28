@@ -97,11 +97,12 @@
     peer = { pc: pc, name: name || '', audioEl: null, analyser: null, speaking: false };
     peers[id] = peer;
     if (localStream) localStream.getTracks().forEach(function (t) { pc.addTrack(t, localStream); });
-    pc.onicecandidate = function (e) { if (e.candidate) signal(id, { candidate: e.candidate }); };
+    pc.onicecandidate = function (e) { if (e.candidate) { try { console.log('[voice] local', (e.candidate.type || '?'), 'candidate ->', id); } catch (x) {} signal(id, { candidate: e.candidate }); } };
     pc.ontrack = function (e) { attachRemote(id, e.streams[0]); };
     // Track link health so the roster can show when a peer connection never
     // actually reaches "connected" (no media path — the classic no-TURN case).
-    pc.onconnectionstatechange = function () { peer.connState = pc.connectionState; render(); };
+    pc.onconnectionstatechange = function () { peer.connState = pc.connectionState; try { console.log('[voice] peer', id, 'connectionState =', pc.connectionState); } catch (x) {} render(); };
+    pc.oniceconnectionstatechange = function () { try { console.log('[voice] peer', id, 'iceConnectionState =', pc.iceConnectionState); } catch (x) {} };
     return peer;
   }
   function dropPeer(id) {
@@ -142,6 +143,15 @@
     var peer = ensurePeer(fromId);
     if (data.sdp) {
       peer.pc.setRemoteDescription(data.sdp).then(function () {
+        peer.remoteReady = true;
+        // Flush any ICE candidates that arrived before the remote description was
+        // set. addIceCandidate throws if called first, and the old code dropped
+        // those candidates — which can lose the TURN *relay* candidate and leave
+        // no working media path (allocations succeed but 0 bytes ever relay).
+        if (peer.pendingCands) {
+          peer.pendingCands.forEach(function (c) { peer.pc.addIceCandidate(c).catch(function () {}); });
+          peer.pendingCands = [];
+        }
         if (data.sdp.type === 'offer') {
           return peer.pc.createAnswer().then(function (ans) {
             return peer.pc.setLocalDescription(ans).then(function () { signal(fromId, { sdp: peer.pc.localDescription }); });
@@ -149,7 +159,9 @@
         }
       }).catch(function () {});
     } else if (data.candidate) {
-      peer.pc.addIceCandidate(data.candidate).catch(function () {});
+      try { var parts = (data.candidate.candidate || '').split(' '); console.log('[voice] remote', (parts[7] || '?'), 'candidate <-', fromId); } catch (x) {}
+      if (peer.remoteReady) { peer.pc.addIceCandidate(data.candidate).catch(function () {}); }
+      else { (peer.pendingCands = peer.pendingCands || []).push(data.candidate); }
     }
   }
 
