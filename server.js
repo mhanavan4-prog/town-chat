@@ -2970,6 +2970,7 @@ const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
+const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
@@ -13373,6 +13374,40 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'ancestor_state', ...ancestorAltarBody(player) });
       const forWhom = nameRaw ? ` for ${nameRaw}` : '';
       send(ws, { type: 'toast', message: `${virtue.emoji} You set a place${forWhom} and keep the silence. ${virtue.line} (${ANCESTOR_BLESSING_HOURS}h)` });
+      return;
+    }
+
+    // ── The Release Fire — the letting-go Samhain rite ──
+    if (msg.type === 'release_state') {
+      let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+      if (!player.accountKey) {
+        send(ws, { type: 'release_state', veilThin: false, todayKept: false, prompts: RELEASE_PROMPTS, lastBurden: '', xp: RELEASE_XP, needAccount: true });
+        return;
+      }
+      const acct = accounts[player.accountKey] || {};
+      const todayKept = (acct.lastReleaseDay === Math.floor(Date.now() / 86400000));
+      send(ws, { type: 'release_state', veilThin, todayKept, prompts: RELEASE_PROMPTS, lastBurden: acct.lastReleaseBurden || '', xp: RELEASE_XP });
+      return;
+    }
+    if (msg.type === 'release_burden') {
+      if (!player.accountKey) { send(ws, { type: 'release_error', message: 'Log into an account to keep the hearth\'s memory.' }); return; }
+      let isSamhain = false; try { isSamhain = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+      if (!isSamhain) { send(ws, { type: 'release_error', message: 'The fire is only lit at Samhain, when the year turns.' }); return; }
+      const today = Math.floor(Date.now() / 86400000);
+      if (accounts[player.accountKey].lastReleaseDay === today) { send(ws, { type: 'release_error', message: 'You have given to the flames today. Return tomorrow.' }); return; }
+      accounts[player.accountKey].lastReleaseDay = today;
+      const burdenRaw = String(msg.burden || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80);
+      if (burdenRaw) accounts[player.accountKey].lastReleaseBurden = burdenRaw;
+      // The fire burns away a curse that clings to you (your own active debuff).
+      let cleansed = false;
+      if (player.activeStatus && VULNERABLE_STATUSES.has(player.activeStatus.type)) { player.activeStatus = null; cleansed = true; }
+      saveAccounts();
+      grantXP(player, RELEASE_XP); // a small, unfarmable growth for letting go
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'release_state', veilThin: true, todayKept: true, prompts: RELEASE_PROMPTS, lastBurden: accounts[player.accountKey].lastReleaseBurden || '', xp: RELEASE_XP });
+      const whatGone = burdenRaw ? `“${burdenRaw}” is` : 'The weight is';
+      const lifted = cleansed ? ' A curse clinging to you burns away with it.' : '';
+      send(ws, { type: 'toast', message: `🔥 You give it to the flames. ${whatGone} gone, and you grow a little, lighter now. (+${RELEASE_XP} XP)${lifted}` });
       return;
     }
 
