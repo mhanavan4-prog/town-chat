@@ -1181,6 +1181,10 @@ function onWsMessage(ev) {
     TOWN_WORLD = world;
     // Equipment stat catalog — used to preview how a gear swap changes stats.
     if (msg.equipStats) equipStatsCatalog = msg.equipStats;
+    // 🎃 Guise catalog (server-authoritative; see GUISES_CLIENT). The Disguise
+    // menu renders from this, so a guise added/removed server-side needs no
+    // client edit beyond its 3D mesh in client/guises.js.
+    if (msg.guises) GUISES_CLIENT = msg.guises;
     // Merge the server's authoritative usable-item list so every consumable
     // (incl. any newly added brew) shows a Use button — no client hand-sync.
     if (Array.isArray(msg.usableItems)) for (const id of msg.usableItems) PLANT_EFFECTS.add(id);
@@ -9847,14 +9851,11 @@ function closeFamiliarModal() {
 }
 
 // ── Wardrobe: don a Samhain guise (cosmetic, account-scoped) ──
-const GUISES_CLIENT = {
-  skull: { name: 'Bone Mask', emoji: '💀', blurb: 'A bleached skull over your face.' },
-  pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved, candle-lit pumpkin head.' },
-  devil: { name: 'Little Devil', emoji: '😈', blurb: 'Red-skinned and sharp-horned — the mummers’ devil of the Samhain play.' },
-  raven: { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask.' },
-  witch: { name: 'Pointed Hat', emoji: '🧙', blurb: 'The tall, wide-brimmed hat of the old stories.' },
-  stag: { name: 'The Horned', emoji: '🦌', blurb: 'A crown of antlers — the wild hunter.' },
-};
+// The guise catalog (id → name/emoji/blurb) is server-authoritative: it rides
+// in on the init payload (from data/guises.js) and fills this map, so there is
+// no hand-synced copy to drift out of lockstep. 3D rendering lives in
+// client/guises.js keyed by the same ids.
+let GUISES_CLIENT = {};
 let myGuise; // last known from guise_state (undefined = unheard; null = doffed)
 function renderGuiseModal() {
   const el = document.getElementById('guiseContent');
@@ -9862,7 +9863,7 @@ function renderGuiseModal() {
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = (myGuise !== undefined) ? myGuise : ((me && players[me.id] && players[me.id].guise) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
-  for (const id of ['skull', 'pumpkin', 'devil', 'raven', 'witch', 'stag']) {
+  for (const id of Object.keys(GUISES_CLIENT)) {
     const g = GUISES_CLIENT[id];
     if (!g) continue; // never let a stale/unknown guise id crash the menu
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
