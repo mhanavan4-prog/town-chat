@@ -11647,6 +11647,7 @@ wss.on('connection', (ws, req) => {
         // the ones that come for the warding window.
         if (player.activeStatus && VULNERABLE_STATUSES.has(player.activeStatus.type)) player.activeStatus = null;
         player.wardUntil = now + (plant.durationMs || 60000);
+        send(ws, { type: 'ward_state', until: player.wardUntil }); // for the active-effect bar
         usedMsg = `🧂 You lay a Circle of Salt — curses are turned aside for ${Math.round((plant.durationMs || 60000) / 1000)}s.`;
       }
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
