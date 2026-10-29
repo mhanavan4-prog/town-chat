@@ -1453,6 +1453,11 @@ function onWsMessage(ev) {
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
+        // 🎃 Samhain guise + 🐈‍⬛ bonded familiar ride the 70ms state stream;
+        // updateGuises()/updateFamiliars() read them off the player each frame
+        // and (re)build the overlay/companion when they change.
+        existing.guise = p.guise || null;
+        existing.familiar = p.familiar || null;
         existing.isDead = !!p.isDead;
         existing.hasLoot = !!p.hasLoot;
         existing.deathX = p.deathX; existing.deathY = p.deathY; existing.deathRoom = p.deathRoom;
@@ -2852,6 +2857,8 @@ function addPlayer(p) {
     equippedFeet:   p.equippedFeet   || null,
     equippedRing:   p.equippedRing   || null,
     appearance: p.appearance || null, // Phase 1 cosmetic wardrobe
+    guise: p.guise || null, // 🎃 Samhain costume overlay (client/guises.js)
+    familiar: p.familiar || null, // 🐈‍⬛ bonded companion (client/familiars.js)
     activeStatus: p.activeStatus || null,
     health: typeof p.health === 'number' ? p.health : 100,
     maxHealth: typeof p.maxHealth === 'number' ? p.maxHealth : 100,
@@ -4548,11 +4555,11 @@ function renderInvite(msg) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   body.innerHTML =
     '<p style="margin:0 0 10px">Share your link. A friend who joins through it gets a welcome bonus, and when they reach <b>level 5</b> you <b>both</b> earn gold (+' + msg.referrer + ' for you).</p>' +
-    '<div style="display:flex;gap:8px;align-items:center;background:#120f24;border:1px solid #39335e;border-radius:9px;padding:8px 10px;margin-bottom:10px">' +
-      '<input id="inviteLink" readonly value="' + esc(url) + '" style="flex:1;min-width:0;background:transparent;border:none;color:#cfe3ff;font-size:12.5px;">' +
+    '<div style="display:flex;gap:8px;align-items:center;background:rgba(0,0,0,0.25);border:1px solid rgba(230,190,120,0.25);border-radius:9px;padding:8px 10px;margin-bottom:10px">' +
+      '<input id="inviteLink" readonly value="' + esc(url) + '" style="flex:1;min-width:0;background:transparent;border:none;color:#ffe9c2;font-size:12.5px;">' +
       '<button id="inviteCopyBtn" class="btn" style="margin:0;padding:6px 12px;font-size:12px;width:auto;white-space:nowrap;">Copy</button>' +
     '</div>' +
-    '<div style="font-size:12.5px;color:#9a90bd">Friends brought: <b style="color:#eae4f6">' + (msg.brought || 0) + '</b> · rewarded: <b style="color:#eae4f6">' + (msg.rewarded || 0) + '</b></div>';
+    '<div style="font-size:12.5px;color:#b6a888">Friends brought: <b style="color:#ffe08a">' + (msg.brought || 0) + '</b> · rewarded: <b style="color:#ffe08a">' + (msg.rewarded || 0) + '</b></div>';
   const copyBtn = document.getElementById('inviteCopyBtn'), inp = document.getElementById('inviteLink');
   if (copyBtn) copyBtn.addEventListener('click', () => {
     const done = () => { copyBtn.textContent = 'Copied!'; };
