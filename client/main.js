@@ -1436,6 +1436,11 @@ function onWsMessage(ev) {
             updateHealthHud();
           }
         }
+        // 🎃🐈‍⬛ Guise + familiar are account-scoped and server-authoritative (no
+        // local prediction), so our OWN costume/companion must flow in here too
+        // — otherwise updateGuises()/updateFamiliars() read a stale id and the
+        // overlay never changes when we swap or doff it.
+        { const self = players[myId]; if (self) { self.guise = p.guise || null; self.familiar = p.familiar || null; } }
         continue;
       }
       const existing = players[p.id];
@@ -9800,12 +9805,15 @@ const FAMILIARS_CLIENT = {
   toad: { name: 'Toad', emoji: '🐸', blurb: '+25 max health' },
   hare: { name: 'Hare', emoji: '🐇', blurb: '+10% move speed' },
 };
-let myFamiliar = null; // last known from familiar_state (account-scoped)
+// undefined = not yet heard from the server (fall back to the live stream);
+// null = explicitly dismissed. Distinguishing them keeps "No familiar" from
+// being overridden by the stale stream value in the tick before it updates.
+let myFamiliar; // last known from familiar_state (account-scoped)
 function renderFamiliarModal() {
   const el = document.getElementById('familiarContent');
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
-  const cur = myFamiliar || (me && players[me.id] && players[me.id].familiar) || null;
+  const cur = (myFamiliar !== undefined) ? myFamiliar : ((me && players[me.id] && players[me.id].familiar) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div><div class="menuCols">';
   for (const id of ['cat', 'raven', 'toad', 'hare']) {
     const f = FAMILIARS_CLIENT[id];
@@ -9840,12 +9848,12 @@ const GUISES_CLIENT = {
   witch: { name: 'Pointed Hat', emoji: '🧙', blurb: 'The tall black hat of the old stories.' },
   stag: { name: 'The Horned', emoji: '🦌', blurb: 'A crown of antlers — the wild hunter.' },
 };
-let myGuise = null; // last known from guise_state (account-scoped)
+let myGuise; // last known from guise_state (undefined = unheard; null = doffed)
 function renderGuiseModal() {
   const el = document.getElementById('guiseContent');
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
-  const cur = myGuise || (me && players[me.id] && players[me.id].guise) || null;
+  const cur = (myGuise !== undefined) ? myGuise : ((me && players[me.id] && players[me.id].guise) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
   for (const id of ['skull', 'pumpkin', 'ghost', 'raven', 'witch', 'stag']) {
     const g = GUISES_CLIENT[id];
