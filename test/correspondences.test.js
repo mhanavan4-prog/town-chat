@@ -36,10 +36,15 @@ check('working on its planetary day adds dayMatch', Math.abs(onDay.bonus - ALIGN
 const offering = altarAlignment({ ritualId: 'vigor', decos: [], moon: {}, day: null, offered: true });
 check('an offering adds the offering bonus', Math.abs(offering.bonus - ALIGN.offering) < 1e-9, offering);
 
-// Everything aligned caps at ALIGN.cap and lists its reasons.
-const stacked = altarAlignment({ ritualId: 'fortune', decos: RITUAL_DECOS.fortune.slice(), moon: { key: 'full', isFull: true }, day: 4, offered: true });
+// Samhain (the thin veil) deepens any rite.
+const sam = altarAlignment({ ritualId: 'vigor', decos: [], moon: {}, day: null, offered: false, samhain: true });
+check('Samhain adds its bonus', Math.abs(sam.bonus - ALIGN.samhain) < 1e-9, sam);
+check('Samhain names the thin veil', sam.reasons.some((r) => /Samhain/i.test(r)), sam.reasons);
+
+// Everything aligned (incl. Samhain) caps at ALIGN.cap and lists its reasons.
+const stacked = altarAlignment({ ritualId: 'fortune', decos: RITUAL_DECOS.fortune.slice(), moon: { key: 'full', isFull: true }, day: 4, offered: true, samhain: true });
 check('a fully-aligned rite caps at the max bonus', stacked.bonus === ALIGN.cap, stacked);
-check('a fully-aligned rite lists its reasons', Array.isArray(stacked.reasons) && stacked.reasons.length >= 3, stacked.reasons);
+check('a fully-aligned rite lists its reasons', Array.isArray(stacked.reasons) && stacked.reasons.length >= 4, stacked.reasons);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

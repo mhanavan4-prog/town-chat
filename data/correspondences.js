@@ -57,14 +57,15 @@ const ALIGN = {
   moonFavor: 0.10, // a phase that favours this rite in particular
   dayMatch: 0.15,  // worked on its planetary day
   offering: 0.25,  // a moon-water offering
-  cap: 0.75,       // maximum total bonus (+75%)
+  samhain: 0.15,   // the thin veil of Samhain deepens every rite
+  cap: 0.90,       // maximum total bonus (+90%)
 };
 
 // Score how well an altar + moment align with the blessing being worked.
 // decos: the player's altar arrangement (array of deco ids | null).
 // moon: { key, isFull } from moonPhaseWindow. day: 0–6 (getUTCDay). offered: bool.
 // Returns { bonus, reasons:[string] } — bonus scales the blessing strength.
-function altarAlignment({ ritualId, decos = [], moon = {}, day = null, offered = false }) {
+function altarAlignment({ ritualId, decos = [], moon = {}, day = null, offered = false, samhain = false }) {
   const reasons = [];
   let bonus = 0;
   const want = RITUAL_DECOS[ritualId] || [];
@@ -77,6 +78,7 @@ function altarAlignment({ ritualId, decos = [], moon = {}, day = null, offered =
   else if (moon && moon.key && (MOON_RITUAL[moon.key] || []).includes(ritualId)) { bonus += ALIGN.moonFavor; reasons.push('the moon favours it'); }
   if (day != null && DAY_RITUAL[day] === ritualId) { bonus += ALIGN.dayMatch; reasons.push('its planetary day'); }
   if (offered) { bonus += ALIGN.offering; reasons.push('your offering'); }
+  if (samhain) { bonus += ALIGN.samhain; reasons.push('the thin veil of Samhain'); }
   bonus = Math.min(ALIGN.cap, Math.round(bonus * 100) / 100);
   return { bonus, reasons };
 }

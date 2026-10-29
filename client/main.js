@@ -9635,7 +9635,8 @@ function altarAttunePreview(ritualId) {
   else if (moon && moon.key && (MOON_RITUAL[moon.key] || []).includes(ritualId)) { bonus += 0.10; reasons.push('the moon'); }
   if (DAY_RITUAL[new Date().getUTCDay()] === ritualId) { bonus += 0.15; reasons.push('its day'); }
   if (altarOfferMoonWater && moonWaterCount() > 0) { bonus += 0.25; reasons.push('offering'); }
-  bonus = Math.min(0.75, Math.round(bonus * 100) / 100);
+  if (calendarState && calendarState.season && calendarState.season.key === 'samhain') { bonus += 0.15; reasons.push('Samhain'); }
+  bonus = Math.min(0.90, Math.round(bonus * 100) / 100);
   return { pct: Math.round(bonus * 100), reasons };
 }
 

@@ -7687,7 +7687,8 @@ function seanceGameState() {
   } catch (e) { /* noop */ }
   try {
     const s = seasonWindow(now);
-    if (s && s.name) facts.push(`the season is ${s.name}${s.isSabbatDay ? ', and today is its sabbat' : ''}`);
+    if (s && s.key === 'samhain') facts.push('it is Samhain — the veil between the living and the dead is at its very thinnest, and the dead are close enough to touch; speak more freely and truly than on any other night');
+    else if (s && s.name) facts.push(`the season is ${s.name}${s.isSabbatDay ? ', and today is its sabbat' : ''}`);
   } catch (e) { /* noop */ }
   return facts.join('; ');
 }
@@ -7705,7 +7706,13 @@ function seanceGameState() {
 // other's charset/blocklist/cap handling.
 async function resolveSeanceCtx(ctx, auditMeta) {
   const bloodMoon = seanceBloodMoon();
-  const chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
+  // 🕯️ Divination night: Samhain is the most powerful night for the sight, so a
+  // séance drops a true story hint far more often — the strongest of any night,
+  // above even a blood moon.
+  let samhain = false;
+  try { samhain = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+  let chance = bloodMoon ? seance.CONFIG.HINT_CHANCE_BLOODMOON : seance.CONFIG.HINT_CHANCE;
+  if (samhain) chance = Math.max(chance, 0.20);
   const hint = seance.shouldHint(Math.random, chance) ? seance.pickLoreHint() : null;
   if (hint) ctx.secret = hint.seed;
 
@@ -9316,6 +9323,16 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'inbox_state', notes: player.inbox });
       // Your own view of what's grown back (regrowth is per player).
       pushDecorState(player);
+      // 🕯️ Samhain welcome: a fresh arrival on the witches' new year feels the
+      // thinning veil at once. A one-time banner (not on a mid-session resume),
+      // separate from the ambient season pill so opening night lands.
+      if (!resume) {
+        try {
+          if (seasonWindow().key === 'samhain') {
+            send(ws, { type: 'announce', message: '🕯️ Samhain is come — the veil between the living and the dead hangs thin. The dead walk near, and the sight runs clear.' });
+          }
+        } catch (e) { /* noop */ }
+      }
       // Catch the newcomer up on any masks currently being worn — the 70ms
       // state stream only carries names, the images travel once, here.
       for (const p of players.values()) {
@@ -13031,7 +13048,8 @@ wss.on('connection', (ws, req) => {
         if (player.accountKey) saveInventories();
       }
       const decos = manorAltar(cv, player.accountKey) || [];
-      const align = altarAlignment({ ritualId: rid, decos, moon: moonPhaseWindow(now), day: new Date(now).getUTCDay(), offered });
+      const _sam = (seasonWindow(now).key === 'samhain');
+      const align = altarAlignment({ ritualId: rid, decos, moon: moonPhaseWindow(now), day: new Date(now).getUTCDay(), offered, samhain: _sam });
       grantBlessing(player.accountKey, rid, 1 + align.bonus);
       a.ritualCdUntil = now + RITUAL_COOLDOWN_MS;
       saveAccounts();
