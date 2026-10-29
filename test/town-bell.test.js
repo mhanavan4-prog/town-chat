@@ -35,9 +35,12 @@ setTimeout(() => {
   try {
     check('bell hooks exposed', typeof h.ringBell === 'function' && typeof h.closeBell === 'function' && !!W);
 
-    // bellNextHalfHour always lands on :00 or :30, in the future.
-    const na = h.bellNextHalfHour(Date.parse('2026-10-24T15:17:00Z'));
-    check('schedule rolls to a half hour', new Date(na).getUTCMinutes() === 30 && new Date(na).getSeconds() === 0, new Date(na).toISOString());
+    // bellNextPeriod lands on a clean two-hour boundary (:00), in the future.
+    const from = Date.parse('2026-10-24T15:17:00Z');
+    const na = h.bellNextPeriod(from);
+    check('schedule rolls to a clean period boundary',
+      na > from && new Date(na).getUTCMinutes() === 0 && new Date(na).getSeconds() === 0 && (na % (2 * 60 * 60 * 1000)) === 0,
+      new Date(na).toISOString());
 
     // Three players: two at the well (one account, one guest), one far away.
     const acct = join('Mordra'); acct.p.accountKey = 'mordra'; acct.p.room = 'outside'; acct.p.x = W.x + 20; acct.p.y = W.y - 10;
