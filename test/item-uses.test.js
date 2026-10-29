@@ -49,7 +49,8 @@ setTimeout(() => {
   const inert = Object.entries(PLANT_CATALOG).filter(([, pl]) => !(
     (pl.effect === 'status' && VALID_STATUS.has(pl.statusType) && pl.durationMs > 0) ||
     (pl.effect === 'heal' && pl.amount > 0) ||
-    (pl.effect === 'cleanse')
+    (pl.effect === 'cleanse') ||
+    (pl.effect === 'ward' && pl.durationMs > 0) // 🧂 Circle of Salt (Tier 3.5)
   )).map(([k]) => k);
   check('no consumable is inert — every PLANT_CATALOG item resolves a real effect',
     inert.length === 0, inert);

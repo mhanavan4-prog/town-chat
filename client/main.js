@@ -688,6 +688,7 @@ const ITEM_CATALOG = {
   glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null, desc: 'Empty and waiting. Fill it and set it under a full moon, and the water remembers the light.' },
   moon_water:     { name: 'Moon Water',     icon: '💧', slot: null, desc: 'Water charged under the full moon. Cool to the touch and faintly bright — the base of the strongest brews.' },
   moonwell_draught: { name: 'Moonwell Draught', icon: '💙', slot: null, desc: 'Moon water drawn through healing herb. The deepest mending a cauldron can hold (heals 120 HP).' },
+  salt: { name: 'Salt', icon: '🧂', slot: null, desc: 'Blessed salt for a protective circle. Use it to lift any curse on you and turn aside the next for a time.' },
   // Character starter sets
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest', def: 6,  desc: 'Woven at new moon; the hem drinks the light.' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet',  def: 5,  desc: 'Cursed to never wear out — the cobbler wants them back.' },

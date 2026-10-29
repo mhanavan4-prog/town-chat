@@ -262,6 +262,8 @@ const PLANT_CATALOG = {
   witchwood_balm:         { name: 'Witchwood Balm',         icon: '✨',  effect: 'cleanse' },
   // --- Moon-water brew (Tier 3.5): drawn only under the full moon; the strongest heal ---
   moonwell_draught:       { name: 'Moonwell Draught',       icon: '💙',  effect: 'heal',   amount: 120 },
+  // --- Warding (Tier 3.5): use to cast a Circle of Salt — cleanse + curse immunity ---
+  salt:                   { name: 'Salt',                  icon: '🧂',  effect: 'ward',   durationMs: 60000 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

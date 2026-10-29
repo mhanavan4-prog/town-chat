@@ -1502,8 +1502,11 @@ const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, PLANT_KEYS.length * PLANTS_
 // PLANT_CATALOG for their use-effects but shouldn't grow wild. Skipping them
 // here (rather than filtering PLANT_KEYS) keeps every wdecor_<i>_<n> id stable.
 const BREW_RESULT_KEYS = new Set(require('./data/gameConstants').POTION_RECIPES.map(r => r.result));
+// Consumables that live in PLANT_CATALOG for their use-effect but are not wild
+// harvestables and must not scatter in the Wilds (salt is bought, not foraged).
+const NON_WILD_CONSUMABLES = new Set(['salt']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
-  if (BREW_RESULT_KEYS.has(type)) return [];
+  if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
   for (let n = 0; n < PLANTS_PER_TYPE; n++) {
     const [x, y] = PLANT_POSITIONS[i * PLANTS_PER_TYPE + n];
@@ -3361,6 +3364,9 @@ function stealRandomCarriedItem(victim) {
 function hasStatus(p, type) {
   return !!(p.activeStatus && p.activeStatus.type === type && p.activeStatus.expiresAt > Date.now());
 }
+// 🧂 Circle of Salt (warding): while a ward holds, incoming curses/debuffs are
+// turned aside. A transient per-player flag (combat state, not persisted).
+function isWarded(p) { return !!(p && p.wardUntil && p.wardUntil > Date.now()); }
 
 // ── Combo: control sets up the burst. A target reeling under a debilitating
 // debuff — a hex, a stumble, a shrink, a toad, a fit of gibberish — takes
@@ -6516,6 +6522,7 @@ function tickGroundTraps(now) {
     for (const p of players.values()) {
       if (p.room !== trap.room || p.isDead) continue;
       if (Math.hypot(p.x - trap.x, p.y - trap.y) > trap.radius) continue;
+      if (isWarded(p)) continue; // 🧂 a Circle of Salt turns the hex aside
       p.activeStatus = { type: trap.statusType, expiresAt: now + trap.statusDurationMs };
     }
   }
@@ -7346,7 +7353,7 @@ const NPC_SHOPS = {
   npc_apothecary: { name: 'Apothecary Vex', items: [
     { id: 'healing_potion', price: 14 }, { id: 'magic_scroll', price: 22 },
     { id: 'regen_root', price: 18 }, { id: 'berries', price: 5 },
-    { id: 'glass_vial', price: 6 }
+    { id: 'glass_vial', price: 6 }, { id: 'salt', price: 8 }
   ]},
   npc_tailor: { name: 'Tailor Ines', items: [
     { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
@@ -11145,16 +11152,22 @@ wss.on('connection', (ws, req) => {
 
       if (spell.effect === 'status') {
         const recipient = spell.kind === 'self' ? player : target;
-        recipient.activeStatus = { type: spell.statusType, expiresAt: now + spell.durationMs };
-        // The Withering Hex actually hurts (see tickPlayerStatusHealth) —
-        // unlike the prank curses, its target deserves an explicit "you are
-        // being attacked" notification, same as any combat hit.
-        if (spell.statusType === 'wither' && recipient !== player) {
-          send(recipient.ws, { type: 'attack_hit', casterName: player.name, attackName: spell.name, detail: 'Your life drains away — the hex must run its course.', effect: 'status' });
+        // 🧂 A warded target turns an incoming curse aside (self-buffs never blocked).
+        const warded = (recipient !== player && isWarded(recipient) && VULNERABLE_STATUSES.has(spell.statusType));
+        if (warded) {
+          try { if (recipient.ws) send(recipient.ws, { type: 'toast', message: '🧂 Your Circle of Salt turns the curse aside.' }); } catch (e) { /* noop */ }
+        } else {
+          recipient.activeStatus = { type: spell.statusType, expiresAt: now + spell.durationMs };
+          // The Withering Hex actually hurts (see tickPlayerStatusHealth) —
+          // unlike the prank curses, its target deserves an explicit "you are
+          // being attacked" notification, same as any combat hit.
+          if (spell.statusType === 'wither' && recipient !== player) {
+            send(recipient.ws, { type: 'attack_hit', casterName: player.name, attackName: spell.name, detail: 'Your life drains away — the hex must run its course.', effect: 'status' });
+          }
         }
         send(ws, {
           type: 'spell_result', spellId,
-          message: `${spell.icon} ${spell.name} cast${spell.kind === 'targeted' ? ' on ' + target.name : ''}.`
+          message: `${spell.icon} ${spell.name} cast${warded ? ' — but the ward held' : (spell.kind === 'targeted' ? ' on ' + target.name : '')}.`
         });
         return;
       }
@@ -11612,15 +11625,22 @@ wss.on('connection', (ws, req) => {
       removeItemFromAccount(inv, stack.itemId, 1);
       if (player.accountKey) saveInventories();
       const now = Date.now();
+      let usedMsg = `${plant.icon} Used ${plant.name}.`;
       if (plant.effect === 'status') {
         player.activeStatus = { type: plant.statusType, expiresAt: now + plant.durationMs };
       } else if (plant.effect === 'heal') {
         player.health = Math.min(playerMaxHealth(player), player.health + plant.amount);
       } else if (plant.effect === 'cleanse') {
         player.activeStatus = null;
+      } else if (plant.effect === 'ward') {
+        // 🧂 Cast a Circle of Salt — lift any curse on you now, and turn aside
+        // the ones that come for the warding window.
+        if (player.activeStatus && VULNERABLE_STATUSES.has(player.activeStatus.type)) player.activeStatus = null;
+        player.wardUntil = now + (plant.durationMs || 60000);
+        usedMsg = `🧂 You lay a Circle of Salt — curses are turned aside for ${Math.round((plant.durationMs || 60000) / 1000)}s.`;
       }
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'use_result', message: `${plant.icon} Used ${plant.name}.` });
+      send(ws, { type: 'use_result', message: usedMsg });
       return;
     }
 
@@ -11707,7 +11727,11 @@ wss.on('connection', (ws, req) => {
         // (visualStatus 'bats'). Cosmetic-or-control status rides on the hit.
         if (atkTargetType === 'player' && !result.dead && (attack.statusAfter || attack.visualStatus)) {
           const pt = players.get(targetId);
-          if (pt && !pt.isDead) pt.activeStatus = { type: attack.statusAfter || attack.visualStatus, expiresAt: now + (attack.statusMs || attack.visualMs || 8000) };
+          // 🧂 A ward turns aside a control after-effect (statusAfter); a purely
+          // cosmetic visualStatus (e.g. circling bats) still shows.
+          const warded = pt && attack.statusAfter && isWarded(pt);
+          if (pt && !pt.isDead && !warded) pt.activeStatus = { type: attack.statusAfter || attack.visualStatus, expiresAt: now + (attack.statusMs || attack.visualMs || 8000) };
+          else if (warded && pt.ws) { try { send(pt.ws, { type: 'toast', message: '🧂 Your Circle of Salt holds.' }); } catch (e) { /* noop */ } }
         }
         let healedHint = '';
         if (attack.effect === 'leech' && !player.isDead) {
