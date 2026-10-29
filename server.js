@@ -2961,6 +2961,7 @@ app.get('/api/coven', (req, res) => {
 // curios) — both inventory_equip and the client's slot-action UI key off
 // this to decide what a given item can actually do.
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
+const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -7416,11 +7417,16 @@ function ritualBuffContrib(player, statKey) {
 }
 // Apply a blessing to an account (fresh 20-min duration). Recomputes the live
 // player's max-health if they're online so the HP bar updates at once.
-function grantBlessing(key, ritualId) {
+function grantBlessing(key, ritualId, mult) {
   const def = RITUALS[ritualId];
   if (!accounts[key] || !def) return null;
-  const until = Date.now() + RITUAL_BUFF_MS;
-  accounts[key].ritual = { id: ritualId, stat: def.stat, amount: def.amount, until };
+  // 🔮 Correspondence attunement (altar_ritual_perform) scales a blessing's
+  // strength and how long it holds. mult defaults to 1 (a bare altar, and
+  // blessings passed to others), so nothing else changes.
+  const m = (typeof mult === 'number' && mult > 0) ? mult : 1;
+  const amount = (Number.isInteger(def.amount)) ? Math.round(def.amount * m) : Math.round(def.amount * m * 100) / 100;
+  const until = Date.now() + Math.round(RITUAL_BUFF_MS * m);
+  accounts[key].ritual = { id: ritualId, stat: def.stat, amount, until, mult: m };
   const p = playerByAccount(key);
   if (p) p.maxHealth = playerMaxHealth(p);
   return accounts[key].ritual;
@@ -13014,12 +13020,27 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'manor_error', message: `The altar is still spent — rest ${Math.ceil((a.ritualCdUntil - now) / 60000)} min before the next rite.` });
         return;
       }
-      grantBlessing(player.accountKey, rid);
+      // 🔮 Correspondence attunement: the altar's decorations, the live moon
+      // phase, the planetary day, and an optional moon-water offering deepen the
+      // blessing (strength + duration). An offering is consumed only if present.
+      const invA = getInventory(player);
+      let offered = false;
+      if (msg.offer && countItemQty(invA, 'moon_water') >= 1) {
+        removeItemFromAccount(invA, 'moon_water', 1);
+        offered = true;
+        if (player.accountKey) saveInventories();
+      }
+      const decos = manorAltar(cv, player.accountKey) || [];
+      const align = altarAlignment({ ritualId: rid, decos, moon: moonPhaseWindow(now), day: new Date(now).getUTCDay(), offered });
+      grantBlessing(player.accountKey, rid, 1 + align.bonus);
       a.ritualCdUntil = now + RITUAL_COOLDOWN_MS;
       saveAccounts();
       send(ws, { type: 'ritual_state', ...ritualStateBody(player.accountKey) });
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // refresh HP/speed/stat panel
-      send(ws, { type: 'toast', message: `${RITUALS[rid].emoji} ${RITUALS[rid].name} settles over you — ${RITUALS[rid].desc}.` });
+      if (offered) send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      const pct = Math.round(align.bonus * 100);
+      const attune = pct > 0 ? ` — attuned +${pct}% (${align.reasons.join(', ')})` : '';
+      send(ws, { type: 'toast', message: `${RITUALS[rid].emoji} ${RITUALS[rid].name} settles over you — ${RITUALS[rid].desc}${attune}.` });
       return;
     }
 

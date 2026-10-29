@@ -9614,6 +9614,31 @@ const RITUALS = [
 let ritualActive = null;   // { id, stat, amount, until } (local-clock until) or null
 let ritualCdUntil = 0;     // local-clock timestamp the altar is free again
 
+// ── Correspondence attunement (mirror of data/correspondences.js) ────────────
+// Used only to PREVIEW how aligned a rite is before working it; the server is
+// authoritative on the actual bonus. Keep these three maps in sync with the
+// data module.
+const RITUAL_DECOS = { vigor: ['chalice', 'candles'], swiftness: ['raven', 'incense'], ward: ['pentacle', 'skull'], fortune: ['grimoire', 'crystals'], forage: ['cauldron', 'runes'], quicken: ['bell', 'mirror'] };
+const DAY_RITUAL = { 0: 'vigor', 1: 'forage', 2: 'ward', 3: 'quicken', 4: 'fortune', 5: 'swiftness', 6: 'ward' };
+const MOON_RITUAL = { waxing_crescent: ['forage', 'fortune'], waxing_gibbous: ['forage', 'fortune'], waning_gibbous: ['ward'], last_quarter: ['ward'], waning_crescent: ['ward'] };
+let altarOfferMoonWater = false;   // toggle: spend 1 moon water on the next rite
+function moonWaterCount() { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === 'moon_water') n += (it.qty || 1); return n; }
+function altarAttunePreview(ritualId) {
+  const decos = (manorAltars && manorChestSlot != null && manorAltars[manorChestSlot]) || [];
+  const want = RITUAL_DECOS[ritualId] || [];
+  const matched = [...new Set(decos.filter((d) => d && want.includes(d)))];
+  const reasons = [];
+  let bonus = matched.length * 0.15;
+  if (matched.length) reasons.push(`${matched.length} symbol${matched.length > 1 ? 's' : ''}`);
+  const moon = calendarState && calendarState.moon;
+  if (moon && moon.isFull) { bonus += 0.20; reasons.push('full moon'); }
+  else if (moon && moon.key && (MOON_RITUAL[moon.key] || []).includes(ritualId)) { bonus += 0.10; reasons.push('the moon'); }
+  if (DAY_RITUAL[new Date().getUTCDay()] === ritualId) { bonus += 0.15; reasons.push('its day'); }
+  if (altarOfferMoonWater && moonWaterCount() > 0) { bonus += 0.25; reasons.push('offering'); }
+  bonus = Math.min(0.75, Math.round(bonus * 100) / 100);
+  return { pct: Math.round(bonus * 100), reasons };
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -9753,13 +9778,26 @@ function renderRituals() {
   }
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   wrap.innerHTML = '';
+  // Offering toggle — spend one moon water to deepen the next rite (+25%).
+  const mw = moonWaterCount();
+  if (mw <= 0) altarOfferMoonWater = false;
+  else {
+    const off = document.createElement('div');
+    off.className = 'arite' + (altarOfferMoonWater ? ' active' : '');
+    off.style.cursor = 'pointer';
+    off.innerHTML = `<span class="aemoji">💧</span><span><b>Offer moon water ${altarOfferMoonWater ? '✓' : ''}</b><br><span class="adesc">Deepen the next rite +25% — you have ${mw}</span></span>`;
+    off.addEventListener('click', () => { altarOfferMoonWater = !altarOfferMoonWater; renderRituals(); });
+    wrap.appendChild(off);
+  }
   RITUALS.forEach((r) => {
     const isActive = ritualActive && ritualActive.id === r.id && ritualActive.until > now;
+    const att = altarAttunePreview(r.id);
+    const attLine = att.pct > 0 ? `<br><span class="adesc" style="color:#9fe6b0">✨ attuned +${att.pct}% · ${att.reasons.join(', ')}</span>` : '';
     const row = document.createElement('div');
     row.className = 'arite' + (isActive ? ' active' : '') + (onCd && !isActive ? ' locked' : '');
-    row.innerHTML = `<span class="aemoji">${r.emoji}</span><span><b>${r.name}</b><br><span class="adesc">${r.desc}</span></span>`;
+    row.innerHTML = `<span class="aemoji">${r.emoji}</span><span><b>${r.name}</b><br><span class="adesc">${r.desc}</span>${attLine}</span>`;
     row.title = onCd && !isActive ? 'The altar is still spent — wait for the cooldown.' : `Perform ${r.name}`;
-    row.addEventListener('click', () => { if (!onCd || isActive) send({ type: 'altar_ritual_perform', ritualId: r.id }); });
+    row.addEventListener('click', () => { if (!onCd || isActive) send({ type: 'altar_ritual_perform', ritualId: r.id, offer: altarOfferMoonWater }); });
     wrap.appendChild(row);
   });
 }
