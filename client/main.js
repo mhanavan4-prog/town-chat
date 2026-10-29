@@ -9952,18 +9952,24 @@ function renderTarotModal(result) {
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   if (!result) {
-    el.innerHTML = '<div class="tarotBack">🂠</div><div style="font-size:12.5px;opacity:0.85;margin-bottom:12px;">Turn one card for the day\'s reading.</div><button id="tarotDrawBtn">Draw your card</button>';
+    el.innerHTML = '<div class="tarotBack">🂠 🂠 🂠</div><div style="font-size:12.5px;opacity:0.9;margin-bottom:14px;">Lay the spread — <b>The Past</b>, <b>The Present</b>, and <b>What Comes</b>.</div><button id="tarotDrawBtn">Lay your spread</button>';
     const b = document.getElementById('tarotDrawBtn');
-    if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning…'; send({ type: 'tarot_draw' }); });
+    if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning the cards…'; send({ type: 'tarot_draw' }); });
     return;
   }
-  if (!result.card) { el.innerHTML = `<div style="font-size:12.5px;opacity:0.85;">${result.message || 'The cards are quiet.'}</div>`; return; }
-  const c = result.card;
-  let h = `<div id="tarotCard"><div class="tg">${c.emoji}</div><div class="tn">${c.name}</div><div class="tr">${c.reading}</div>`;
-  if (result.secret) h += `<div class="tsecret">🕯️ The cards whisper: "${result.secret}"</div>`;
+  if (!result.spread || !result.spread.length) { el.innerHTML = `<div style="font-size:12.5px;opacity:0.85;">${result.message || 'The cards are quiet.'}</div>`; return; }
+  let h = '<div class="tspread">';
+  for (const s of result.spread) {
+    h += `<div class="tseat"><div class="tpos">${esc(s.pos)}</div>`;
+    h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner"><div class="tcNum">${esc(s.num)}</div><div class="tcGlyph">${s.emoji}</div><div class="tcName">${esc(s.name)}</div></div>`;
+    if (s.reversed) h += '<div class="tcRev">⟲ reversed</div>';
+    h += `</div><div class="tMeaning">${esc(s.meaning)}</div></div>`;
+  }
   h += '</div>';
-  if (result.alreadyDrawn) h += '<div style="font-size:11.5px;opacity:0.7;">Today\'s card. Return tomorrow for a new draw.</div>';
-  else if (result.gold) h += `<div id="tarotReward"><span class="coin"></span> +${result.gold} gold</div><div style="font-size:11px;opacity:0.7;">Return tomorrow for a new draw.</div>`;
+  if (result.synthesis) h += `<div class="tSynth"><div class="tSynthLabel">The reading</div>${esc(result.synthesis)}</div>`;
+  if (result.secret) h += `<div class="tsecret">🕯️ The cards whisper: "${esc(result.secret)}"</div>`;
+  if (result.alreadyDrawn) h += '<div style="font-size:11.5px;opacity:0.72;text-align:center;margin-top:10px;">Today\'s spread. Return tomorrow for a new one.</div>';
+  else if (result.gold) h += `<div id="tarotReward"><span class="coin"></span> +${result.gold} gold</div><div style="font-size:11px;opacity:0.72;text-align:center;">Return tomorrow for a new spread.</div>`;
   el.innerHTML = h;
 }
 function openTarotModal() {
