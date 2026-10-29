@@ -619,6 +619,25 @@
     max-height:78vh; overflow-y:auto;
   }
   .floatPanel.hidden { display:none !important; }
+  /* Book of Shadows — the witch's working reference (moon, wheel, altar, brews) */
+  #bookModal { width:min(480px, 94vw); max-height:84vh; overflow-y:auto; }
+  #bookContent { font-size:12.5px; color:#e8dcc8; }
+  .bookSec { margin-bottom:16px; }
+  .bookSec h4 { margin:0 0 8px; color:#ffe9c2; font-size:14px; }
+  .bookGrid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+  .bookCell { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:7px 4px; text-align:center; display:flex; flex-direction:column; gap:2px; }
+  .bookCell.cur { border-color:rgba(255,220,130,0.6); background:rgba(255,220,130,0.1); box-shadow:0 0 8px rgba(255,220,130,0.2); }
+  .bookCell .bg { font-size:20px; }
+  .bookCell b { font-size:11.5px; color:#fff; }
+  .bookCell .bi { font-size:10px; opacity:0.72; }
+  .bookTable { width:100%; border-collapse:collapse; }
+  .bookTable th, .bookTable td { text-align:left; padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:11.5px; }
+  .bookTable th { color:#cba6ff; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; }
+  .bookNote { font-size:10.5px; opacity:0.65; margin-top:6px; font-style:italic; }
+  .bookBrews { display:flex; flex-direction:column; gap:5px; }
+  .bookBrew { display:flex; justify-content:space-between; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border-radius:6px; padding:5px 8px; }
+  .bookBrew .bi { font-size:10.5px; opacity:0.72; text-align:right; }
+  body.touchMode #bookModal { width:94vw; }
   .floatPanelHandle {
     display:flex; align-items:center; justify-content:space-between;
     padding:10px 0 8px; font-size:16px; font-weight:700; color:#ffe9c2;
@@ -2163,6 +2182,7 @@
       <button class="menuRow" id="menuCrier">📣 Town Crier<span id="crierMenuBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuCodex">📘 Codex</button>
+      <button class="menuRow" id="menuBook">📖 Book of Shadows</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
@@ -3163,6 +3183,14 @@
   </div>
   <div id="journalContent"></div>
   <button class="btn" id="journalCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="bookModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>📖 Book of Shadows</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="bookContent"></div>
+  <button class="btn" id="bookCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <!-- Skills — the class skill tree (🌟 button / K key). Spend level-up points
