@@ -6585,11 +6585,14 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('chatToggleBtn', () => toggleMobileChat());
   on('menuBtn', () => { if (typeof playSfx === 'function') playSfx('ui_click'); document.getElementById('menuSheet').classList.remove('hidden'); });
   // Desktop's ☰ chip opens the very same sheet — one menu for both platforms.
-  on('pcMenuBtn', () => document.getElementById('menuSheet').classList.remove('hidden'));
-  on('menuCloseBtn', () => document.getElementById('menuSheet').classList.add('hidden'));
+  // __fromMenu tracks whether the open panel was launched from the ☰ menu, so
+  // Escape can step back INTO the menu rather than closing everything (the menu
+  // and every panel share one shape, so it reads as the content swapping).
+  on('pcMenuBtn', () => { document.getElementById('menuSheet').classList.remove('hidden'); window.__fromMenu = false; });
+  on('menuCloseBtn', () => { document.getElementById('menuSheet').classList.add('hidden'); window.__fromMenu = false; });
   const sheet = document.getElementById('menuSheet');
-  if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.classList.add('hidden'); });
-  const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); fn(); };
+  if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) { sheet.classList.add('hidden'); window.__fromMenu = false; } });
+  const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); window.__fromMenu = true; fn(); };
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
   // Guest → account nudge: "Create a free account" reloads to the join screen
   // with a flag so it opens straight into the register form.
@@ -15179,6 +15182,17 @@ function updateInteractHint() {
   hint.classList.add('hidden');
 }
 
+// Step back into the ☰ menu after closing a menu panel, so Escape walks one
+// level up instead of dropping to the game. Reopening through pcMenuBtn also
+// refreshes the menu's live labels (graphics, moonstones, …).
+function backToMenu() {
+  const p = document.getElementById('pcMenuBtn');
+  if (p) { p.click(); return; }
+  const s = document.getElementById('menuSheet');
+  if (s) s.classList.remove('hidden');
+  window.__fromMenu = false;
+}
+
 window.addEventListener('keydown', (e) => {
   if (typing) return;
   const _lightbox = document.getElementById('imageLightbox');
@@ -15278,50 +15292,62 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('journalOpen') && e.key === 'Escape' && !e.repeat) {
     closeJournal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('bookOpen') && e.key === 'Escape' && !e.repeat) {
     closeBookModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('familiarOpen') && e.key === 'Escape' && !e.repeat) {
     closeFamiliarModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('guiseOpen') && e.key === 'Escape' && !e.repeat) {
     closeGuiseModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('scryOpen') && e.key === 'Escape' && !e.repeat) {
     closeScryModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
     closeTarotModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('gardenOpen') && e.key === 'Escape' && !e.repeat) {
     closeGardenModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('kitchenOpen') && e.key === 'Escape' && !e.repeat) {
     closeKitchenModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('pathOpen') && e.key === 'Escape' && !e.repeat) {
     closePathModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('ancestorOpen') && e.key === 'Escape' && !e.repeat) {
     closeAncestorModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('releaseOpen') && e.key === 'Escape' && !e.repeat) {
     closeReleaseModal();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
     closeSkills();
+    if (window.__fromMenu) backToMenu();
     return;
   }
   if (Modals.isOpen('npcShopOpen')) {
@@ -15376,6 +15402,26 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'h' || e.key === 'H') && !e.repeat) { toggleControlsModal(); return; }
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
+  }
+  // Catch-all: any open menu or panel not claimed by a handler above (the
+  // overlay modals, and any panel added without its own Escape wiring) still
+  // backs out ONE level on Escape — close the topmost open one through its
+  // Close button, so you never have to reach for the mouse. Runs after every
+  // specific handler, so consent/confirm dialogs (which decline on Escape) are
+  // already handled and never reach here.
+  if (e.key === 'Escape' && !e.repeat) {
+    const openMenus = [...document.querySelectorAll('.overlay:not(.hidden), .floatPanel:not(.hidden)')]
+      .filter((el) => getComputedStyle(el).display !== 'none');
+    if (openMenus.length) {
+      const top = openMenus.sort((a, b) => (parseInt(getComputedStyle(b).zIndex, 10) || 0) - (parseInt(getComputedStyle(a).zIndex, 10) || 0))[0];
+      let btn = top.querySelector('[id$="CloseBtn"]');
+      if (!btn) btn = [...top.querySelectorAll('button, .btn')].find((b) => /\bclose\b/i.test(b.textContent || ''));
+      const fromMenu = window.__fromMenu;
+      if (btn) btn.click(); else top.classList.add('hidden');
+      if (fromMenu) backToMenu(); // step back into the ☰ menu, one level up
+      e.preventDefault();
+      return;
+    }
   }
   if (e.key === 'Escape' && !e.repeat) {
     // Escape with nothing else open pops the ☰ menu (the open-menu branch up
