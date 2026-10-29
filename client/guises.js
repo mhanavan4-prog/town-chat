@@ -1,17 +1,26 @@
 // Guising — the Samhain costume layer. For each present player carrying a
-// `guise` id (data/guises.js), draw a procedural disguise over their body. The
-// overlay is parented directly to the player's own body group (the shared
-// `visuals` map), so it rides their position and facing rigidly with no
-// per-frame math — purely cosmetic, visible to everyone, the gameplay-free
-// cousin of client/familiars.js.
+// `guise` id (data/guises.js), draw a disguise over their head.
 //
-// Head geometry mirrors client/main.js CHAR: head centre at y≈62, radius≈8,
-// forward = +z. Overlays that stand in for the head are a touch larger and
-// opaque so they cover the original; hats and antlers simply sit on top.
+// Mounting: the overlay is socketed on the player's KayKit **head bone** (via a
+// dedicated slot_guise wrapper), so it rides the head's position, facing and
+// bob rigidly — the same way equipped hats mount. That also means it sits in
+// the head bone's local space (KayKit model units), not the old procedural
+// CHAR space, which is what used to make the overlays float high above the
+// KayKit body. A blocky pre-model stand-in (no v.kk) falls back to the old
+// body-group mount so there's still *something* while the real body streams in.
+//
+// Three guises are real KayKit meshes cloned from the loaded asset set:
+//   • skull   → guise_skull   (Halloween Bits skull)
+//   • pumpkin → prop_pumpkin  (Halloween Bits jack-o'-lantern, already loaded)
+//   • stag    → guise_antlers (Adventurers Druid hooded-antler head, baked to
+//                              head-bone-local space so it sockets exactly)
+// The other three (ghost, raven, witch hat) have no KayKit prop, so they stay
+// procedural — but are scaled/placed into the same head-bone space so they no
+// longer float.
 
-export default function createGuises({ getPlayers, getVisuals }) {
-  const HY = 62, HR = 8; // head centre y, head radius (CHAR.headY / CHAR.headR)
-  const pool = {}; // playerId -> { group, type }
+export default function createGuises({ getPlayers, getVisuals, getKK }) {
+  const HY = 62, HR = 8; // procedural CHAR head centre y / radius (builder space)
+  const pool = {}; // playerId -> { group, type, glb, parent }
 
   function lambert(color, opts) { return new THREE.MeshLambertMaterial(Object.assign({ color }, opts || {})); }
   function basic(color, opts) { return new THREE.MeshBasicMaterial(Object.assign({ color }, opts || {})); }
@@ -34,7 +43,6 @@ export default function createGuises({ getPlayers, getVisuals }) {
     const g = new THREE.Group();
     const rind = lambert(0xe3741a);
     const pk = new THREE.Mesh(new THREE.SphereGeometry(HR + 2, 14, 12), rind); pk.position.y = HY; pk.scale.set(1.12, 0.92, 1.12); g.add(pk);
-    // faint vertical ribs
     for (const s of [-1, 1]) { const rib = new THREE.Mesh(new THREE.SphereGeometry(HR + 2.1, 8, 10), lambert(0xc9600f)); rib.position.y = HY; rib.scale.set(0.28, 0.92, 1.1); rib.position.x = s * 4; g.add(rib); }
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.8, 4, 6), lambert(0x4f7a2a)); stem.position.set(0, HY + HR + 1.5, 0); stem.rotation.z = 0.2; g.add(stem);
     const glow = basic(0xffc63a);
@@ -68,7 +76,6 @@ export default function createGuises({ getPlayers, getVisuals }) {
     const beak = new THREE.Mesh(new THREE.ConeGeometry(2.1, 15, 8), lambert(0x6a5212)); beak.position.set(0, HY - 1, HR + 5); beak.rotation.x = Math.PI / 2; g.add(beak);
     const glint = basic(0xffcf5a);
     for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(1.7, 8, 8), glint); eye.position.set(s * 4, HY + 2, HR - 0.5); g.add(eye); }
-    // a couple of swept crest feathers
     for (const s of [-1, 0, 1]) { const f = new THREE.Mesh(new THREE.ConeGeometry(1.1, 6, 5), black); f.position.set(s * 2.2, HY + HR, -2); f.rotation.x = -0.6; g.add(f); }
     return g;
   }
@@ -84,7 +91,12 @@ export default function createGuises({ getPlayers, getVisuals }) {
     return g;
   }
 
-  // 🦌 The Horned — a crown of antlers rising from the head.
+  // Procedural builders — used for the three guises with no KayKit prop, and as
+  // a fallback for the KayKit ones until their asset has streamed in.
+  const PROC = { skull: makeSkull, pumpkin: makePumpkin, ghost: makeGhost, raven: makeRaven, witch: makeWitchHat, stag: makeStag };
+
+  // 🦌 The Horned — procedural fallback crown of antlers (the real guise is the
+  // KayKit Druid hood below; this only shows if that asset hasn't loaded yet).
   function makeStag() {
     const g = new THREE.Group();
     const horn = lambert(0xcbb089);
@@ -102,14 +114,51 @@ export default function createGuises({ getPlayers, getVisuals }) {
     return g;
   }
 
-  const BUILDERS = {
-    skull: makeSkull,
-    pumpkin: makePumpkin,
-    ghost: makeGhost,
-    raven: makeRaven,
-    witch: makeWitchHat,
-    stag: makeStag,
+  // KayKit mesh guises — cloned from the loaded asset set and socketed on the
+  // head bone. scale/y are in head-bone-local (model) units; tune if a head
+  // sits too high/low or too big. antlers are baked exact, so scale 1 / y 0.
+  const GLB = {
+    skull:   { key: 'guise_skull',   scale: 1.15, y: 0.00, ry: 0 },
+    pumpkin: { key: 'prop_pumpkin',  scale: 0.90, y: 0.00, ry: 0 },
+    stag:    { key: 'guise_antlers', scale: 1.00, y: 0.00, ry: 0 },
   };
+  // Procedural → head-bone-local transform: shrink CHAR-space builders (head at
+  // y≈62, radius 8) down onto the KayKit head (radius ≈0.5, centre ≈0.4).
+  const PROC_SCALE = 0.0625;
+  const PROC_Y = 0.4 - HY * PROC_SCALE; // lands the builder's head centre on the bone's head
+
+  // The per-player head-bone wrapper the guise hangs from (created lazily).
+  function guiseSlot(v) {
+    if (!v.kk || !v.kk.headBone) return null;
+    if (!v.kk.slots) v.kk.slots = {};
+    let w = v.kk.slots.slot_guise;
+    if (!w) { w = new THREE.Group(); v.kk.headBone.add(w); v.kk.slots.slot_guise = w; }
+    return w;
+  }
+
+  // Build the overlay object for a guise on a given visual. Returns { group, glb }.
+  function makeGuise(type, v) {
+    const KK = getKK && getKK();
+    const onBone = !!(v.kk && v.kk.headBone);
+    const spec = GLB[type];
+    if (onBone && spec && KK && KK.has && KK.has(spec.key) && KK.models[spec.key]) {
+      const inst = KK.models[spec.key].scene.clone(true);
+      // a scaled clone's cached bounding sphere can be wrong → keep it drawn
+      inst.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      const g = new THREE.Group(); g.add(inst);
+      g.scale.setScalar(spec.scale); g.position.y = spec.y; g.rotation.y = spec.ry || 0;
+      return { group: g, glb: true };
+    }
+    const mk = PROC[type]; if (!mk) return null;
+    const built = mk();
+    if (onBone) {
+      // procedural builder lives in CHAR space — scale+shift it onto the head bone
+      const w = new THREE.Group(); w.add(built);
+      w.scale.setScalar(PROC_SCALE); w.position.y = PROC_Y;
+      return { group: w, glb: false };
+    }
+    return { group: built, glb: false }; // blocky stand-in: old body-group coords
+  }
 
   function removeRec(id) {
     const r = pool[id];
@@ -117,31 +166,37 @@ export default function createGuises({ getPlayers, getVisuals }) {
     delete pool[id];
   }
 
-  // Keep every present player's guise drawn on their body. Parented to the
-  // player's own group, so it follows position + facing with no math here.
+  // Keep every present player's guise drawn, parented to their head bone (or
+  // body group for a pre-model stand-in). Rebuilds when the guise changes, when
+  // a KayKit asset finishes loading (proc → real mesh), or when the body rig is
+  // rebuilt (appearance change / scene swap) and the slot must be re-seated.
   function updateGuises() {
     const players = getPlayers() || {};
     const visuals = getVisuals() || {};
-    // Drop guises whose owner left, doffed the costume, or left the scene.
+    const KK = getKK && getKK();
     for (const id in pool) {
       const p = players[id]; const v = visuals[id];
-      if (!p || !p.guise || !BUILDERS[p.guise] || !v || !v.group || v.group.visible === false) removeRec(id);
+      if (!p || !p.guise || !PROC[p.guise] || !v || !v.group || v.group.visible === false) removeRec(id);
     }
     for (const id in players) {
       const p = players[id];
-      if (!p.guise || !BUILDERS[p.guise]) continue;
+      if (!p.guise || !PROC[p.guise]) continue;
       const v = visuals[id];
       if (!v || !v.group || v.group.visible === false) continue;
+      const onBone = !!(v.kk && v.kk.headBone);
+      const parent = onBone ? guiseSlot(v) : v.group;
+      if (!parent) continue;
+      const wantGlb = onBone && !!GLB[p.guise] && KK && KK.has && KK.has(GLB[p.guise].key);
       let r = pool[id];
-      if (r && r.type !== p.guise) { removeRec(id); r = null; }
+      if (r && (r.type !== p.guise || r.glb !== wantGlb)) { removeRec(id); r = null; }
       if (!r) {
-        const group = BUILDERS[p.guise]();
-        v.group.add(group);
-        pool[id] = { group, type: p.guise };
-      } else if (r.group.parent !== v.group) {
-        // The body group was rebuilt (appearance change / scene swap) — re-seat.
+        const built = makeGuise(p.guise, v);
+        if (!built) continue;
+        parent.add(built.group);
+        pool[id] = { group: built.group, type: p.guise, glb: built.glb, parent };
+      } else if (r.group.parent !== parent) {
         if (r.group.parent) r.group.parent.remove(r.group);
-        v.group.add(r.group);
+        parent.add(r.group); r.parent = parent;
       }
     }
   }
