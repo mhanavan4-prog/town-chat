@@ -2968,6 +2968,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
+const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
@@ -13324,6 +13325,34 @@ wss.on('connection', (ws, req) => {
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
       send(ws, { type: 'tarot_result', card: { name: card.name, emoji: card.emoji, reading: card.reading }, gold, alreadyDrawn, secret, balance });
+      return;
+    }
+
+    // ── The Scrying Bowl (divination): gaze into dark water and read the
+    // turning of the wheel — the moon, the Blood Moon, the next sabbat, drawn
+    // live from the calendar — plus one authored omen for the day. Flavor-first
+    // and free; no account needed (a wanderer may scry too). ──
+    if (msg.type === 'scry') {
+      const now = Date.now();
+      const cal = calendarPublicState(now);
+      const moon = cal.moon || {};
+      const bm = cal.bloodMoon || {};
+      const season = cal.season || {};
+      let next = {}; try { next = seasonWindow(season.endsAt) || {}; } catch (e) { /* noop */ }
+      const seed = player.accountKey || player.id || 'wanderer';
+      const omen = OMENS[omenFor(seed, Math.floor(now / 86400000), OMENS.length)];
+      send(ws, {
+        type: 'scry_reading',
+        moon: { name: moon.name || 'Moon', glyph: moon.glyph || '🌙', isFull: !!moon.isFull, isBlood: !!moon.isBlood, nextFullMs: moon.isFull ? 0 : Math.max(0, (moon.nextFullAt || now) - now) },
+        bloodMoon: { active: !!bm.active, nextRiseMs: Math.max(0, (bm.nextRiseAt || now) - now), nextNights: Math.max(0, Math.round(((bm.nextRiseAt || now) - now) / CYCLE_MS)) },
+        wheel: {
+          seasonName: season.name || '', seasonGlyph: season.glyph || '🎡', epithet: season.epithet || '', blurb: season.blurb || '',
+          nextName: next.name || '', nextGlyph: next.glyph || '🎡', turnsMs: Math.max(0, (season.endsAt || now) - now)
+        },
+        samhain: season.key === 'samhain',
+        omen: omen || '',
+        now
+      });
       return;
     }
 

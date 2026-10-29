@@ -2645,6 +2645,7 @@ function onWsMessage(ev) {
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
+  if (msg.type === 'scry_reading') { lastScry = msg; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -3485,6 +3486,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
   makeDraggable(document.getElementById('guiseModal'),      document.querySelector('#guiseModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
@@ -6605,6 +6607,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('familiarCloseBtn', closeFamiliarModal);
   on('menuGuise', closeSheetAnd(() => { if (!Modals.isOpen('guiseOpen')) openGuiseModal(); }));
   on('guiseCloseBtn', closeGuiseModal);
+  on('menuScry', closeSheetAnd(() => { if (!Modals.isOpen('scryOpen')) openScryModal(); }));
+  on('scryCloseBtn', closeScryModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
@@ -9847,6 +9851,59 @@ function closeGuiseModal() {
   Modals.set('guiseOpen', false);
 }
 
+// ── The Scrying Bowl: gaze into the water and read the turning wheel ──
+let lastScry = null;
+function scryDur(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d >= 1) return h >= 1 ? `${d}d ${h}h` : `${d}d`;
+  if (h >= 1) return m >= 1 ? `${h}h ${m}m` : `${h}h`;
+  return `${Math.max(1, m)}m`;
+}
+function renderScryModal() {
+  const el = document.getElementById('scryContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastScry;
+  if (!st) { el.innerHTML = '<div class="scryGaze">The water darkens, and clouds…</div>'; send({ type: 'scry' }); return; }
+  let h = '<div class="scryGaze">You cup the dark water and gaze. It clouds, then clears…</div>';
+  // The moon
+  const mn = st.moon || {};
+  const moonLine = mn.isBlood ? 'A <b>Blood Moon</b> hangs full and red tonight.'
+    : (mn.isFull ? 'The moon is <b>full</b> tonight — the water drinks its light.'
+      : `The next <b>full moon</b> rises in <b>${scryDur(mn.nextFullMs)}</b>.`);
+  h += `<div class="scryRow"><span class="sge">${esc(mn.glyph || '🌙')}</span><span class="sgt"><div class="sgh">${esc(mn.name || 'The Moon')}</div><div class="sgs">${moonLine}</div></span></div>`;
+  // The Blood Moon (when not already the moon line's subject)
+  const bm = st.bloodMoon || {};
+  if (!mn.isBlood) {
+    const bmLine = bm.active ? 'It burns in the sky <b>now</b>.' : `It rises again in <b>${bm.nextNights} ${bm.nextNights === 1 ? 'night' : 'nights'}</b>.`;
+    h += `<div class="scryRow"><span class="sge">🔴</span><span class="sgt"><div class="sgh">The Blood Moon</div><div class="sgs">${bmLine}</div></span></div>`;
+  }
+  // The turning wheel
+  const w = st.wheel || {};
+  let wheelLine = w.seasonName ? `<b>${esc(w.seasonName)}</b>${w.epithet ? ', ' + esc(w.epithet) + ',' : ''} holds.` : '';
+  if (w.nextName) wheelLine += ` ${esc(w.nextGlyph || '')} <b>${esc(w.nextName)}</b> turns in <b>${scryDur(w.turnsMs)}</b>.`;
+  h += `<div class="scryRow"><span class="sge">${esc(w.seasonGlyph || '🎡')}</span><span class="sgt"><div class="sgh">The Wheel of the Year</div><div class="sgs">${wheelLine}</div></span></div>`;
+  // The day's omen
+  if (st.omen) h += `<div class="scryOmen"><div class="sol">The water whispers</div><div class="sot">“${esc(st.omen)}”</div></div>`;
+  if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the water shows more than it should.</div>';
+  el.innerHTML = h;
+}
+function openScryModal() {
+  const modal = document.getElementById('scryModal');
+  if (!modal) return;
+  renderScryModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('scryOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'scry' }));
+}
+function closeScryModal() {
+  const modal = document.getElementById('scryModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('scryOpen', false);
+}
+
 // ── Witch path picker ───────────────────────────────────────────────────────
 const WITCH_PATHS_CLIENT = {
   green: { name: 'Green Witch', emoji: '🌿', blurb: '+10% harvest luck · foraging & gardening' },
@@ -12667,7 +12724,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); if (Modals.isOpen('releaseOpen')) renderReleaseModal(); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); if (Modals.isOpen('releaseOpen')) renderReleaseModal(); if (Modals.isOpen('scryOpen') && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'scry' })); }, 20000);
 setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 (function () {
   const el = document.getElementById('eventTag');
@@ -15229,6 +15286,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('guiseOpen') && e.key === 'Escape' && !e.repeat) {
     closeGuiseModal();
+    return;
+  }
+  if (Modals.isOpen('scryOpen') && e.key === 'Escape' && !e.repeat) {
+    closeScryModal();
     return;
   }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
