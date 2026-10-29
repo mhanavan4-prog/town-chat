@@ -2670,7 +2670,7 @@ function onWsMessage(ev) {
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
-  if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
+  if (msg.type === 'garden_state') { lastGardenState = msg; if (Array.isArray(msg.plantable)) for (const id of msg.plantable) gardenPlantable.add(id); if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
   if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
@@ -13870,6 +13870,27 @@ const _ttSlot  = document.getElementById('ttSlot');
 const _ttStats = document.getElementById('ttStats');
 const _ttDesc  = document.getElementById('ttDesc');
 const _ttSource = document.getElementById('ttSource');
+const _ttUses = document.getElementById('ttUses');
+// Items the Garden will let you sow — learned from garden_state (so the tooltip
+// can say "Plant it" once you've visited your beds at least once).
+const gardenPlantable = new Set();
+
+// Everything the player can DO with an item, derived from the same catalogs the
+// Garden / Cauldron / Workshop menus use — so the inventory tooltip answers
+// "what is this for?" instead of leaving a material looking like dead weight.
+function itemUses(itemId, item) {
+  const uses = [];
+  if (item.slot) uses.push('🧤 Equip — ' + (SLOT_LABELS[item.slot] || item.slot) + ' slot');
+  if (PLANT_EFFECTS.has(itemId)) uses.push('✨ Use for its effect');
+  if (gardenPlantable.has(itemId)) uses.push('🌱 Plant it in the Garden');
+  const nameOf = (r) => r.name || r.id;
+  const brews = POTION_RECIPES_CLIENT.filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(nameOf);
+  if (brews.length) uses.push('🧪 Cauldron ingredient — ' + brews.slice(0, 3).join(', ') + (brews.length > 3 ? '…' : ''));
+  const crafts = (craftRecipesClient || []).filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(nameOf);
+  if (crafts.length) uses.push('🔨 Workshop material — ' + crafts.slice(0, 3).join(', ') + (crafts.length > 3 ? '…' : ''));
+  if (!uses.length) uses.push('🏦 Nothing to do here — deposit or auction it at the Bank');
+  return uses;
+}
 // Where to find each crafting material — shown as a "📍" line in the item
 // tooltip (and on the Workshop ingredient chips). Derived from the real loot
 // tables (data/gameConstants.js), the Ember Wastes harvest nodes and warlord
@@ -13927,6 +13948,7 @@ function showItemTooltip(e, itemId) {
   _ttDesc.textContent = item.desc || '';
   _ttDesc.style.display = item.desc ? '' : 'none';
   if (_ttSource) _ttSource.textContent = MATERIAL_SOURCES[itemId] ? ('📍 ' + MATERIAL_SOURCES[itemId]) : '';
+  if (_ttUses) _ttUses.innerHTML = itemUses(itemId, item).map((u) => `<span class="ttUse">${u}</span>`).join('');
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }
@@ -13940,6 +13962,7 @@ function showActionTooltip(e, action) {
   _ttDesc.textContent  = action.description || '';
   _ttDesc.style.display = action.description ? '' : 'none';
   if (_ttSource) _ttSource.textContent = '';
+  if (_ttUses) _ttUses.innerHTML = '';
   _tt.classList.remove('hidden');
   _positionTooltip(e);
 }

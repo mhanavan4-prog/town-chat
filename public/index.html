@@ -628,6 +628,10 @@
   #ttDesc { font-size:11px; color:#9080a8; margin-top:6px; font-style:italic; line-height:1.45; }
   #ttSource { font-size:11px; color:#e8c86a; margin-top:6px; line-height:1.4; }
   #ttSource:empty { display:none; }
+  /* What the player can DO with the item (equip / use / brew / plant / sell). */
+  #ttUses { font-size:11px; color:#9fe3c0; margin-top:6px; line-height:1.5; }
+  #ttUses:empty { display:none; }
+  #ttUses .ttUse { display:block; }
 
   #targetingBanner {
     /* pointer-events stays ON: tapping/clicking the banner cancels the
@@ -2597,6 +2601,7 @@
   <div id="ttSlot"></div>
   <div id="ttStats"></div>
   <div id="ttDesc"></div>
+  <div id="ttUses"></div>
   <div id="ttSource"></div>
 </div>
 
