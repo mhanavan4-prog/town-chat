@@ -372,6 +372,7 @@ const KK = (() => {
     guise_skull:   'kk/guises/skull.gltf',
     guise_antlers: 'kk/guises/antlered_hood.glb',
     guise_hat:     'kk/guises/witch_hat.glb', // Mystery Series 5 Witch's pointed hat
+    guise_devil:   'kk/guises/tiefling_head.glb', // Mystery Series 5 Tiefling's horned head
     prop_shrine:   'kk/props/shrine_candles.gltf',
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
@@ -471,7 +472,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil'];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -9861,7 +9862,7 @@ function renderGuiseModal() {
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = (myGuise !== undefined) ? myGuise : ((me && players[me.id] && players[me.id].guise) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
-  for (const id of ['skull', 'pumpkin', 'ghost', 'raven', 'witch', 'stag']) {
+  for (const id of ['skull', 'pumpkin', 'devil', 'raven', 'witch', 'stag']) {
     const g = GUISES_CLIENT[id];
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
   }

@@ -41,10 +41,22 @@
   canvas { display:block; touch-action:none; }
 
   .overlay {
-    position:fixed; inset:0; z-index:20;
+    position:fixed; inset:0; z-index:61;
     display:flex; align-items:center; justify-content:center;
     background:rgba(5,8,6,0.72); backdrop-filter:blur(3px);
   }
+  /* One shared dim+blur behind the draggable panels (floatPanel / inventory):
+     those are transform-centered, so they can't host their own fixed backdrop
+     the way .overlay and #menuSheet do. This matches those backdrops exactly, so
+     every menu dims the world — HUD, chat, hotbar — the same, continuous way.
+     Shown only while such a panel is open (:has), and click-through so it never
+     changes how the panel behaves. */
+  #menuScrim {
+    position:fixed; inset:0; z-index:59; display:none; pointer-events:none;
+    background:rgba(5,8,6,0.72); backdrop-filter:blur(3px);
+  }
+  body:has(.floatPanel:not(.hidden)) #menuScrim,
+  body:has(#inventoryPanel:not(.hidden)) #menuScrim { display:block; }
   /* Portal transition cover — hides the map swap / first-entry build so the
      next world appears fully formed. Shown opaque instantly, then faded out. */
   #portalFade {
@@ -634,7 +646,7 @@
     /* z 19: above ALL HUD chrome (action buttons are 8/9 — a panel must
        never have buttons drawn over it) but below overlay modals (20),
        so e.g. the loadout editor still paints above the Attacks panel. */
-    position:fixed; z-index:19; width:300px; max-width:90vw;
+    position:fixed; z-index:60; width:300px; max-width:90vw;
     background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
     border:2px solid rgba(230,190,120,0.35); border-radius:16px;
     padding:0 14px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.55);
@@ -661,9 +673,9 @@
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
     transform:translate(-50%, -50%) !important;
     width:min(720px, 94vw) !important; height:min(840px, 86vh) !important; max-height:86vh;
-    /* Dim the world behind the panel so every menu darkens it the same way the
-       ☰ sheet and overlay menus do (the big spread fills the viewport). */
-    box-shadow:0 8px 30px rgba(0,0,0,0.55), 0 0 0 100vmax rgba(5,8,6,0.72) !important;
+    /* z above the chat/HUD (40) so the shared #menuScrim (z59) dims them; the
+       world dim itself is #menuScrim, matching the ☰ sheet and .overlay. */
+    box-shadow:0 8px 30px rgba(0,0,0,0.55) !important; z-index:60 !important;
   }
   /* The wider inventory spreads its items across more columns. */
   body:not(.touchMode) #inventoryPanel .itemSlotsGrid { grid-template-columns:repeat(8, 1fr); }
@@ -920,9 +932,10 @@
     background:linear-gradient(90deg,#ffd27a,#ff9d5c);
   }
   #unlockToast {
-    /* Above modal overlays (z-index 20): toasts announce checkout results
-       and pass errors, which must stay readable while a modal is open. */
-    position:fixed; top:104px; left:0; right:0; z-index:50;
+    /* Above every menu (sheet/overlay/floatPanel + the scrim all sit at 59-61):
+       toasts announce checkout results, guise/familiar changes and pass errors,
+       which must stay readable while a menu is open. */
+    position:fixed; top:104px; left:0; right:0; z-index:65;
     display:flex; flex-direction:column; align-items:center; gap:7px; pointer-events:none;
   }
   #unlockToast.hidden { display:none !important; }
@@ -2306,6 +2319,7 @@
     <button id="unlockBtn">🎟️ Day pass — <span id="unlockPrice">$0.99</span></button>
   </div>
 </div>
+<div id="menuScrim"></div>
 <div id="unlockToast" class="hidden"></div>
 <div id="announceBanner" class="hidden"></div>
 <div id="cmPrompt" class="hidden"><span id="cmPromptText"></span></div>

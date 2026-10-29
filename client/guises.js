@@ -53,21 +53,6 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     return g;
   }
 
-  // 👻 Sheet Ghost — a pale winding-sheet draped over head and shoulders.
-  function makeGhost() {
-    const g = new THREE.Group();
-    const sheet = new THREE.Mesh(
-      new THREE.ConeGeometry(16, 40, 14, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0xf2f0e8, transparent: true, opacity: 0.82, side: THREE.DoubleSide })
-    );
-    sheet.position.y = HY - 8; g.add(sheet);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(16, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xf2f0e8, transparent: true, opacity: 0.82, side: THREE.DoubleSide }));
-    cap.position.y = HY + 12; g.add(cap);
-    const dark = basic(0x1b1b22);
-    for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.CircleGeometry(2.2, 12), dark); eye.position.set(s * 3.6, HY + 2, 13.6); g.add(eye); }
-    return g;
-  }
-
   // 🐦‍⬛ Plague Raven — a long-beaked black bird mask.
   function makeRaven() {
     const g = new THREE.Group();
@@ -91,9 +76,11 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     return g;
   }
 
-  // Procedural builders — used for the three guises with no KayKit prop, and as
-  // a fallback for the KayKit ones until their asset has streamed in.
-  const PROC = { skull: makeSkull, pumpkin: makePumpkin, ghost: makeGhost, raven: makeRaven, witch: makeWitchHat, stag: makeStag };
+  // Procedural builders — used for the raven (no KayKit prop) and as a fallback
+  // for the KayKit ones until their asset has streamed in. (The devil is KayKit-
+  // only; it simply doesn't draw until guise_devil loads.)
+  const PROC = { skull: makeSkull, pumpkin: makePumpkin, raven: makeRaven, witch: makeWitchHat, stag: makeStag };
+  const isGuise = (id) => !!(PROC[id] || GLB[id]);
 
   // 🦌 The Horned — procedural fallback crown of antlers (the real guise is the
   // KayKit Druid hood below; this only shows if that asset hasn't loaded yet).
@@ -122,6 +109,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     pumpkin: { key: 'prop_pumpkin',  scale: 0.90, y: 0.00, ry: 0 },
     stag:    { key: 'guise_antlers', scale: 1.00, y: 0.00, ry: 0 },
     witch:   { key: 'guise_hat',     scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Witch's hat, baked exact
+    devil:   { key: 'guise_devil',   scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Tiefling's horned head
   };
   // Procedural → head-bone-local transform: shrink CHAR-space builders (head at
   // y≈62, radius 8) down onto the KayKit head (radius ≈0.5, centre ≈0.4).
@@ -177,11 +165,11 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     const KK = getKK && getKK();
     for (const id in pool) {
       const p = players[id]; const v = visuals[id];
-      if (!p || !p.guise || !PROC[p.guise] || !v || !v.group || v.group.visible === false) removeRec(id);
+      if (!p || !p.guise || !isGuise(p.guise) || !v || !v.group || v.group.visible === false) removeRec(id);
     }
     for (const id in players) {
       const p = players[id];
-      if (!p.guise || !PROC[p.guise]) continue;
+      if (!p.guise || !isGuise(p.guise)) continue;
       const v = visuals[id];
       if (!v || !v.group || v.group.visible === false) continue;
       const onBone = !!(v.kk && v.kk.headBone);
