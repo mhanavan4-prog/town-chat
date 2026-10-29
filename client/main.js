@@ -6593,6 +6593,14 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   const sheet = document.getElementById('menuSheet');
   if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) { sheet.classList.add('hidden'); window.__fromMenu = false; } });
   const closeSheetAnd = (fn) => () => { document.getElementById('menuSheet').classList.add('hidden'); window.__fromMenu = true; fn(); };
+  // One place that marks EVERY ☰ menu-row launch "from menu" (so Escape steps
+  // back into the menu, not the game) — covers closeSheetAnd, wire, and inline
+  // handlers alike. Capture phase runs before the row's own click handler.
+  const _menuGridEl = document.getElementById('menuGrid');
+  if (_menuGridEl) _menuGridEl.addEventListener('click', (e) => {
+    const row = e.target && e.target.closest && e.target.closest('.menuRow');
+    if (row && row.id !== 'menuCloseBtn') window.__fromMenu = true;
+  }, true);
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
   // Guest → account nudge: "Create a free account" reloads to the join screen
   // with a flag so it opens straight into the register form.
@@ -9757,7 +9765,9 @@ function renderBookModal() {
   h += '<div class="bookSec"><h4>🧪 The Cauldron — Brews</h4><div class="bookBrews">';
   for (const rec of POTION_RECIPES_CLIENT) {
     const ing = rec.ingredients.map((i) => { const meta = ITEM_CATALOG[i.id]; return `${i.qty}× ${meta ? meta.name : i.id}`; }).join(' + ');
-    h += `<div class="bookBrew"><b>${rec.icon} ${esc(rec.name)}</b><span class="bi">${esc(ing)}${rec.requiresMoon ? ' · 🌕 full moon' : ''}</span></div>`;
+    const made = ITEM_CATALOG[rec.id];
+    const effect = (made && made.desc) ? made.desc : '';
+    h += `<div class="bookBrew" title="${esc(effect)}"><b>${rec.icon} ${esc(rec.name)}</b><span class="bi">${esc(ing)}${rec.requiresMoon ? ' · 🌕 full moon' : ''}</span>${effect ? `<span class="brewFx">${esc(effect)}</span>` : ''}</div>`;
   }
   h += '</div></div>';
   el.innerHTML = h;
@@ -15214,15 +15224,15 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('mapModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) { window.__closeTownMap && window.__closeTownMap(); }
+    if (e.key === 'Escape' && !e.repeat) { window.__closeTownMap && window.__closeTownMap(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('boardModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closeBoardModal();
+    if (e.key === 'Escape' && !e.repeat) { closeBoardModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('delveModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closeDelveModal();
+    if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('locksmithModalOpen')) {
@@ -15230,7 +15240,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('covenModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closeCovenModal();
+    if (e.key === 'Escape' && !e.repeat) { closeCovenModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('bedChestModalOpen')) {
@@ -15238,7 +15248,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('notifModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) { Modals.set('notifModalOpen', false); document.getElementById('notifModal').classList.add('hidden'); }
+    if (e.key === 'Escape' && !e.repeat) { Modals.set('notifModalOpen', false); document.getElementById('notifModal').classList.add('hidden'); if (window.__fromMenu) backToMenu(); }
     return;
   }
   const _storyBeat = document.getElementById('storyBeatModal');
@@ -15261,11 +15271,11 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('msModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closeMsModal();
+    if (e.key === 'Escape' && !e.repeat) { closeMsModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('passModalOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closePassModal();
+    if (e.key === 'Escape' && !e.repeat) { closePassModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('bankModalOpen')) {
@@ -15293,7 +15303,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('attackPanelOpen')) {
-    if (e.key === 'Escape' && !e.repeat) closeAttackPanel();
+    if (e.key === 'Escape' && !e.repeat) { closeAttackPanel(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('journalOpen') && e.key === 'Escape' && !e.repeat) {
@@ -15383,7 +15393,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('arcadeModalOpen')) return; // the dedicated arcade-game keydown listener owns Escape/controls while playing
-  if (Modals.isOpen('inventoryOpen') && e.key === 'Escape' && !e.repeat) { toggleInventory(); return; }
+  if (Modals.isOpen('inventoryOpen') && e.key === 'Escape' && !e.repeat) { toggleInventory(); if (window.__fromMenu) backToMenu(); return; }
   if (armedTarget && e.key === 'Escape' && !e.repeat) { cancelTargeting(); return; }
   // I = open/close inventory, same toggle the HUD button already calls
   if ((e.key === 'i' || e.key === 'I') && !e.repeat) { toggleInventory(); return; }

@@ -656,11 +656,14 @@
   body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
   body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal,
   body:not(.touchMode) #journalModal, body:not(.touchMode) #skillsModal,
-  body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal {
+  body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
+  body:not(.touchMode) #inventoryPanel {
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
     transform:translate(-50%, -50%) !important;
     width:min(720px, 94vw) !important; height:min(840px, 86vh) !important; max-height:86vh;
   }
+  /* The wider inventory spreads its items across more columns. */
+  body:not(.touchMode) #inventoryPanel .itemSlotsGrid { grid-template-columns:repeat(8, 1fr); }
   /* The overlay-style menus (Titles, Loadout, Codex, Collection Log, Coven,
      Delve, Board, Pass, Moonstones, Notifications, Wardrobe, Controls, Report
      a Bug) share the exact same frame. NPC/confirm dialogs keep their own
@@ -694,9 +697,10 @@
   .bookTable th, .bookTable td { text-align:left; padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:11.5px; }
   .bookTable th { color:#d9b86a; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; }
   .bookNote { font-size:10.5px; opacity:0.85; margin-top:6px; font-style:italic; }
-  .bookBrews { display:flex; flex-direction:column; gap:5px; }
-  .bookBrew { display:flex; justify-content:space-between; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border-radius:6px; padding:5px 8px; }
+  .bookBrews { display:flex; flex-direction:column; gap:6px; }
+  .bookBrew { display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; background:rgba(255,255,255,0.03); border-radius:7px; padding:7px 10px; }
   .bookBrew .bi { font-size:10.5px; opacity:0.9; text-align:right; }
+  .bookBrew .brewFx { flex-basis:100%; font-size:11px; color:#d8c9a8; opacity:0.92; font-style:italic; line-height:1.35; margin-top:3px; }
   body.touchMode #bookModal { width:94vw; }
   /* Familiar picker */
   #familiarModal, #pathModal, #guiseModal { width:min(360px, 92vw); max-height:84vh; overflow-y:auto; }
