@@ -2641,6 +2641,8 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
+  if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
     _lastTarotResult = msg;
     if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
@@ -3470,6 +3472,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6584,6 +6587,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('familiarCloseBtn', closeFamiliarModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
+  on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
+  on('gardenCloseBtn', closeGardenModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9809,6 +9814,61 @@ function closeTarotModal() {
   Modals.set('tarotOpen', false);
 }
 
+// ── Green-witch garden ──────────────────────────────────────────────────────
+let lastGardenState = null;
+function gardenMoonTier() {
+  const m = calendarState && calendarState.moon;
+  if (m && m.isFull) return { yield: 4, label: '🌕 the full moon' };
+  if (m && ['waxing_crescent', 'first_quarter', 'waxing_gibbous'].includes(m.key)) return { yield: 3, label: '🌔 the waxing moon' };
+  return { yield: 2, label: 'the moon' };
+}
+function gardenHerbCount(id) { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === id) n += (it.qty || 1); return n; }
+function gardenFmtLeft(ms) { const m = Math.ceil(ms / 60000); return m <= 1 ? 'under a minute' : m + ' min'; }
+function renderGardenModal() {
+  const el = document.getElementById('gardenContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastGardenState;
+  if (!st || !st.plots) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Tending the beds…</div>'; send({ type: 'garden_state' }); return; }
+  const mt = gardenMoonTier();
+  const now = Date.now();
+  let h = `<div class="gardenHint">Sow a herb and it grows into more. Planted under ${mt.label} now, a bed yields <b>${mt.yield}×</b> — plant as the moon fills for a richer crop.</div>`;
+  (st.plots || []).forEach((p, i) => {
+    h += '<div class="gardenPlot">';
+    if (!p) {
+      h += `<div class="gpTitle">Bed ${i + 1} — empty</div><div class="gardenPlant">`;
+      for (const id of (st.plantable || [])) {
+        const meta = ITEM_CATALOG[id]; const have = gardenHerbCount(id);
+        h += `<span class="gardenSeed${have > 0 ? '' : ' disabled'}" data-herb="${id}" data-plot="${i}">${meta ? meta.icon : '🌱'} ${meta ? meta.name : id} <span style="opacity:.6">(${have})</span></span>`;
+      }
+      h += '</div>';
+    } else {
+      const meta = ITEM_CATALOG[p.herb];
+      const ready = p.ready || (now - p.plantedAt >= p.growMs);
+      if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div><button class="gpReady" data-harvest="${i}">🌿 Harvest ${p.yield}×</button>`;
+      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div>`;
+    }
+    h += '</div>';
+  });
+  el.innerHTML = h;
+  el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb') })); });
+  el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest') })));
+}
+function openGardenModal() {
+  const modal = document.getElementById('gardenModal');
+  if (!modal) return;
+  renderGardenModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('gardenOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'garden_state' }));
+}
+function closeGardenModal() {
+  const modal = document.getElementById('gardenModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('gardenOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -12276,7 +12336,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); }, 20000);
 (function () {
   const el = document.getElementById('eventTag');
   if (!el) return;
@@ -14837,6 +14897,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
     closeTarotModal();
+    return;
+  }
+  if (Modals.isOpen('gardenOpen') && e.key === 'Escape' && !e.repeat) {
+    closeGardenModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {

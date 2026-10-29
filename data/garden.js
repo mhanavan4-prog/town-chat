@@ -1,0 +1,22 @@
+// Green-witch gardening (Tier 3.5) — grow your own herbs. The town had
+// gather-and-regrow foraging but no cultivation; this closes the loop: plant a
+// herb you hold, let it grow, and harvest more than you sowed — more still when
+// you plant as the moon fills. A personal, account-scoped garden (menu-based),
+// so every witch can tend one.
+
+const GARDEN_PLOTS = 4;                   // beds per witch
+const GARDEN_GROW_MS = 12 * 60 * 1000;    // 12 minutes to mature
+
+// The brewing staples you can sow (all common harvestable herbs).
+const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_clover', 'meditation_lotus', 'pumpkin_blossom'];
+
+// Yield is set by the moon phase AT PLANTING — sow as the moon waxes or fills
+// for a richer crop. You always sow one seed, so even 'other' nets a gain.
+const MOON_YIELD = { full: 4, waxing: 3, other: 2 };
+function moonTierAtPlant(moon) {
+  if (moon && moon.isFull) return 'full';
+  if (moon && ['waxing_crescent', 'first_quarter', 'waxing_gibbous'].includes(moon.key)) return 'waxing';
+  return 'other';
+}
+
+module.exports = { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant };

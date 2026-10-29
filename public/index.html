@@ -657,6 +657,17 @@
   #tarotDrawBtn { background:#4a2a7a; color:#fff; border:1px solid #7a4ab0; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:700; }
   #tarotDrawBtn:disabled { opacity:0.5; cursor:default; }
   .tarotBack { font-size:52px; opacity:0.5; margin:10px 0; }
+  /* Garden */
+  #gardenModal { width:min(380px, 92vw); max-height:84vh; overflow-y:auto; }
+  .gardenHint { font-size:11.5px; opacity:0.78; margin-bottom:8px; line-height:1.4; }
+  .gardenPlot { border:1px solid rgba(120,200,120,0.25); background:rgba(26,44,26,0.4); border-radius:10px; padding:10px; margin:7px 0; }
+  .gardenPlot .gpTitle { font-weight:700; color:#cde6cd; font-size:13px; margin-bottom:6px; }
+  .gardenPlant { display:flex; flex-wrap:wrap; gap:6px; }
+  .gardenSeed { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px; color:#dfe8df; }
+  .gardenSeed:hover { background:rgba(120,200,120,0.18); }
+  .gardenSeed.disabled { opacity:0.38; cursor:default; }
+  .gpReady { background:#2a5a2a; color:#dfffdf; border:1px solid #4a8a4a; padding:6px 14px; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700; }
+  .gpGrow { font-size:12px; color:#bcd0bc; }
   .floatPanelHandle {
     display:flex; align-items:center; justify-content:space-between;
     padding:10px 0 8px; font-size:16px; font-weight:700; color:#ffe9c2;
@@ -2204,6 +2215,7 @@
       <button class="menuRow" id="menuBook">📖 Book of Shadows</button>
       <button class="menuRow" id="menuFamiliar">🐈‍⬛ Familiar</button>
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
+      <button class="menuRow" id="menuGarden">🌱 Garden</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
@@ -3228,6 +3240,14 @@
   </div>
   <div id="tarotContent"></div>
   <button class="btn" id="tarotCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="gardenModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🌱 Your Garden</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="gardenContent"></div>
+  <button class="btn" id="gardenCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <!-- Skills — the class skill tree (🌟 button / K key). Spend level-up points

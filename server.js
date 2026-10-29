@@ -2964,6 +2964,7 @@ const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extract
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
+const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -4053,6 +4054,29 @@ function repairCostFor(player) {
   let cost = pts * DURA_REPAIR_PER_POINT;
   try { if (moonPhaseWindow(Date.now()).chargesMoonWater) cost = Math.round(cost * 0.8); } catch (e) { /* noop */ }
   return Math.round(cost);
+}
+
+// ── Green-witch gardening (Tier 3.5) ────────────────────────────────────────
+// A per-account set of garden beds, each null or { herb, plantedAt, moonTier }.
+function gardenOf(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  if (!Array.isArray(a.garden) || a.garden.length !== GARDEN_PLOTS) {
+    const g = new Array(GARDEN_PLOTS).fill(null);
+    if (Array.isArray(a.garden)) for (let i = 0; i < Math.min(a.garden.length, GARDEN_PLOTS); i++) g[i] = a.garden[i] || null;
+    a.garden = g;
+  }
+  return a.garden;
+}
+function gardenStateBody(player) {
+  const g = gardenOf(player && player.accountKey) || [];
+  const now = Date.now();
+  const plots = g.map((p) => p ? {
+    herb: p.herb, plantedAt: p.plantedAt, moonTier: p.moonTier,
+    growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
+    yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
+  } : null);
+  return { plots, plantable: PLANTABLE_HERBS, now };
 }
 // Combined skill + gear + (during a delve run) boon contribution — the
 // single source of truth every derived stat (and the client stats panel)
@@ -13185,6 +13209,50 @@ wss.on('connection', (ws, req) => {
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
       send(ws, { type: 'tarot_result', card: { name: card.name, emoji: card.emoji, reading: card.reading }, gold, alreadyDrawn, secret, balance });
+      return;
+    }
+
+    // ── Green-witch gardening: plant a herb, let it grow, harvest more ──
+    if (msg.type === 'garden_state') {
+      if (!player.accountKey) { send(ws, { type: 'garden_state', plots: [], plantable: PLANTABLE_HERBS }); return; }
+      send(ws, { type: 'garden_state', ...gardenStateBody(player) });
+      return;
+    }
+    if (msg.type === 'garden_plant') {
+      if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
+      const idx = Math.floor(Number(msg.plotIndex));
+      const herb = String(msg.herb || '');
+      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
+      if (!PLANTABLE_HERBS.includes(herb)) { send(ws, { type: 'garden_error', message: 'That seed will not take here.' }); return; }
+      const g = gardenOf(player.accountKey);
+      if (g[idx]) { send(ws, { type: 'garden_error', message: 'That bed is already planted.' }); return; }
+      const inv = getInventory(player);
+      if (countItemQty(inv, herb) < 1) { send(ws, { type: 'garden_error', message: `You hold no ${ITEM_CATALOG[herb] ? ITEM_CATALOG[herb].name : herb} to sow.` }); return; }
+      removeItemFromAccount(inv, herb, 1);
+      g[idx] = { herb, plantedAt: Date.now(), moonTier: moonTierAtPlant(moonPhaseWindow(Date.now())) };
+      saveAccounts(); if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'garden_state', ...gardenStateBody(player) });
+      return;
+    }
+    if (msg.type === 'garden_harvest') {
+      if (!player.accountKey) return;
+      const idx = Math.floor(Number(msg.plotIndex));
+      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
+      const g = gardenOf(player.accountKey);
+      const p = g[idx];
+      if (!p) return;
+      if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
+      const amount = MOON_YIELD[p.moonTier] || MOON_YIELD.other;
+      const inv = getInventory(player);
+      let got = 0;
+      for (let i = 0; i < amount; i++) { if (addItemToAccount(inv, p.herb, 1)) got++; else break; }
+      if (got === 0) { send(ws, { type: 'garden_error', message: 'Your inventory is full — clear a slot first.' }); return; }
+      g[idx] = null;
+      saveAccounts(); if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'garden_state', ...gardenStateBody(player) });
+      send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your garden.` });
       return;
     }
 
