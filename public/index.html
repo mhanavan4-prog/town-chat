@@ -60,12 +60,12 @@
   .hidden { display:none !important; }
 
   .card {
-    width:min(380px, 88vw); text-align:center;
-    padding:32px 26px; border-radius:16px;
-    color:#e8dcc8; /* light default so no unstyled modal text falls back to black */
-    background:linear-gradient(160deg, rgba(28,40,30,0.97), rgba(16,24,18,0.97));
-    border:1px solid rgba(160,220,160,0.18);
-    box-shadow:0 0 50px rgba(120,200,120,0.1), 0 10px 40px rgba(0,0,0,0.5);
+    width:min(600px, 94vw); text-align:center;
+    padding:28px 26px; border-radius:16px;
+    color:#f0e6d2; /* light default so no unstyled modal text falls back to black */
+    background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
+    border:1px solid rgba(230,190,120,0.38);
+    box-shadow:0 12px 44px rgba(0,0,0,0.55);
   }
 
   /* Story beat dialogue box — gothic/violet, prose set like story text. */
@@ -97,10 +97,10 @@
   }
   .title {
     font-size:28px; font-weight:800; margin-bottom:6px;
-    background:linear-gradient(90deg,#9ee37d,#5ee7c0,#7ad9ff);
+    background:linear-gradient(90deg,#ffe9c2,#e8c87a,#d9a94a);
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  .subtitle { color:#9bc49a; font-size:12.5px; margin-bottom:20px; line-height:1.5; }
+  .subtitle { color:#d8c9a8; font-size:12.5px; margin-bottom:20px; line-height:1.5; }
   input[type=text], input[type=password], input[type=email], input[type=number], select {
     width:100%; padding:11px 14px; margin-bottom:12px; font-size:14px;
     border-radius:8px; border:1px solid rgba(160,220,160,0.25);
@@ -636,7 +636,7 @@
        so e.g. the loadout editor still paints above the Attacks panel. */
     position:fixed; z-index:19; width:300px; max-width:90vw;
     background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
-    border:2px solid rgba(230,190,120,0.35); border-radius:12px;
+    border:2px solid rgba(230,190,120,0.35); border-radius:16px;
     padding:0 14px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.55);
     max-height:78vh; overflow-y:auto; color:#f0e6d2;
   }
@@ -646,16 +646,33 @@
   /* Centered rectangular menu format (desktop): the craft panels open centered,
      wider, and lay their options out in two columns so they stop scrolling.
      Touch mode keeps the existing fullscreen treatment below. */
+  /* Uniform menu shape (desktop): every menu the player flips through is the
+     SAME centered rectangle with a fixed height, so switching between them — or
+     Escaping back a level — swaps the content without the frame moving at all.
+     Short menus simply have room to spare; the Book of Shadows fills it. */
   body:not(.touchMode) #bookModal, body:not(.touchMode) #familiarModal,
   body:not(.touchMode) #guiseModal, body:not(.touchMode) #pathModal,
-  body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal {
-    left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
-    transform:translate(-50%, -50%) !important; width:min(660px, 94vw); max-height:88vh;
-  }
+  body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal,
   body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
-  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal {
+  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal,
+  body:not(.touchMode) #journalModal, body:not(.touchMode) #skillsModal,
+  body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal {
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
-    transform:translate(-50%, -50%) !important; width:min(460px, 94vw); max-height:88vh;
+    transform:translate(-50%, -50%) !important;
+    width:min(720px, 94vw) !important; height:min(840px, 86vh) !important; max-height:86vh;
+  }
+  /* The overlay-style menus (Titles, Loadout, Codex, Collection Log, Coven,
+     Delve, Board, Pass, Moonstones, Notifications, Wardrobe, Controls, Report
+     a Bug) share the exact same frame. NPC/confirm dialogs keep their own
+     compact .card size. */
+  body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card,
+  body:not(.touchMode) #wardrobeModal > .card, body:not(.touchMode) #achModal > .card,
+  body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
+  body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card,
+  body:not(.touchMode) #delveModal > .card, body:not(.touchMode) #msModal > .card,
+  body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
+  body:not(.touchMode) #controlsModal > .card {
+    width:min(720px, 94vw); height:min(840px, 86vh); overflow-y:auto;
   }
   /* Options flow into two columns inside the wide panels (the render functions
      wrap their repeating rows in .menuCols; intros/actions stay full width). */
@@ -1327,12 +1344,13 @@
   }
   body.touchMode #menuSheet.hidden { display:none; }
   #menuSheetCard {
-    width:100%; max-width:480px; background:linear-gradient(180deg, rgba(30,22,14,0.98), rgba(18,13,8,0.99));
-    border:1px solid rgba(230,190,120,0.4);
-    border-radius:22px; padding:16px;
+    width:100%; max-width:720px; background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
+    border:1px solid rgba(230,190,120,0.38);
+    border-radius:16px; padding:18px;
   }
+  body:not(.touchMode) #menuSheetCard { height:min(840px, 86vh); overflow-y:auto; }
   body.touchMode #menuSheetCard {
-    border-bottom:none; border-radius:22px 22px 0 0;
+    border-bottom:none; border-radius:16px 16px 0 0;
     padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   }
   #menuSheetTitle { color:#ffe9c2; font-weight:800; font-size:16px; text-align:center; margin-bottom:12px; }
@@ -1359,11 +1377,11 @@
   #menuSkillsBadge.show { display:inline-block; }
   #menuMeta { color:#9a8a6a; font-size:12px; text-align:center; margin-top:12px; }
   #menuCloseBtn {
-    width:100%; margin-top:12px; padding:13px; border-radius:12px;
-    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2);
-    color:#cfd8c8; font-size:14px; font-weight:700; cursor:pointer;
+    width:100%; margin-top:12px; padding:13px; border-radius:10px;
+    background:linear-gradient(90deg,#9ee37d,#5ee7c0); border:none;
+    color:#1b1430; font-size:14px; font-weight:800; cursor:pointer;
   }
-  #menuCloseBtn:hover { background:rgba(255,255,255,0.14); }
+  #menuCloseBtn:hover { filter:brightness(1.05); }
 
   body.touchMode #emoteWheel {
     display:block; position:fixed; z-index:58;
@@ -2680,11 +2698,11 @@
     border:1px solid transparent; font-size:13.5px;
   }
   .slRow:nth-child(odd) { background:rgba(255,255,255,0.03); }
-  .slRow .slRank { width:30px; text-align:right; color:#9a8ac0; font-weight:800; }
+  .slRow .slRank { width:30px; text-align:right; color:#d9b86a; font-weight:800; }
   .slRow .slName { flex:1; color:#e8dcc8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .slRow .slVal { color:#ffd9a0; font-weight:800; }
-  .slRow.slMe { border-color:#5ee7c0; background:rgba(94,231,192,0.07); }
-  .slNote { color:#9a8ac0; font-size:12px; margin-top:8px; }
+  .slRow.slMe { border-color:rgba(255,220,130,0.6); background:rgba(255,220,130,0.08); }
+  .slNote { color:#c9b89a; font-size:12px; margin-top:8px; }
   .slSection { margin-top:12px; text-align:left; }
   .slSection h4 { color:#ffe9c2; margin:0 0 6px; font-size:13.5px; }
   /* Collection Log — a trophy shelf with progress bars */
@@ -2918,11 +2936,11 @@
 </div>
 
 <style>
-#wardrobeList .wrSec{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9b8fc0;margin:14px 2px 6px}
+#wardrobeList .wrSec{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#d9b86a;margin:14px 2px 6px}
 #wardrobeList .wrSec:first-child{margin-top:2px}
 #wardrobeList .wrOpts{display:flex;flex-wrap:wrap;gap:8px}
-#wardrobeList .wrOpt{background:#1b1430;border:1px solid rgba(185,138,255,0.22);color:#e9ddff;border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer}
-#wardrobeList .wrOpt:hover{border-color:rgba(185,138,255,0.5)}
+#wardrobeList .wrOpt{background:rgba(255,255,255,0.05);border:1px solid rgba(230,190,120,0.25);color:#ecdcc2;border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer}
+#wardrobeList .wrOpt:hover{border-color:rgba(230,190,120,0.55)}
 #wardrobeList .wrOpt.on{background:linear-gradient(90deg,#a678f0,#5ee7c0);color:#0b0713;border:none}
 #wardrobeList .wrOpt.locked{opacity:.5;cursor:not-allowed;border-style:dashed}
 #wardrobeList .wrOpt.buy{border-color:rgba(232,217,168,0.55);color:#e8d9a8}
