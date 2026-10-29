@@ -683,6 +683,10 @@ const ITEM_CATALOG = {
   bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head', desc: 'Five shards fused on a Blood Moon night. It beats faintly, like a second pulse. Proof you stood outside when the sky went red.' },
   berries:        { name: 'Berries',        icon: '🍓', slot: null, desc: 'Picked by moonlight. Probably edible. Probably.' },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null, desc: 'It turns to face you when you look away.' },
+  // Witchcraft reagents (Tier 3.5) — mirrored from server.js
+  glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null, desc: 'Empty and waiting. Fill it and set it under a full moon, and the water remembers the light.' },
+  moon_water:     { name: 'Moon Water',     icon: '💧', slot: null, desc: 'Water charged under the full moon. Cool to the touch and faintly bright — the base of the strongest brews.' },
+  moonwell_draught: { name: 'Moonwell Draught', icon: '💙', slot: null, desc: 'Moon water drawn through healing herb. The deepest mending a cauldron can hold (heals 120 HP).' },
   // Character starter sets
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest', def: 6,  desc: 'Woven at new moon; the hem drinks the light.' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet',  def: 5,  desc: 'Cursed to never wear out — the cobbler wants them back.' },
@@ -3950,6 +3954,9 @@ const POTION_RECIPES_CLIENT = [
   { id: 'fernstep_philtre',   icon: '🌀',  name: 'Fernstep Philtre',   desc: 'Fern Frond + Blackthorn',     ingredients: [{ id: 'fern_frond', qty: 2 }, { id: 'blackthorn', qty: 1 }] },
   { id: 'bramble_poultice',   icon: '💚',  name: 'Bramble Poultice',   desc: 'Bramble Vine + Hex Acorn',    ingredients: [{ id: 'bramble_vine', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
   { id: 'witchwood_balm',     icon: '✨',  name: 'Witchwood Balm',     desc: 'Witchwood + Hex Acorn',       ingredients: [{ id: 'witchwood', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
+  // --- Moon water (Tier 3.5): the full-moon ritual + what it unlocks ---
+  { id: 'moon_water',         icon: '💧',  name: 'Moon Water',         desc: 'Glass Vial (full moon only)', ingredients: [{ id: 'glass_vial', qty: 1 }], requiresMoon: 'full' },
+  { id: 'moonwell_draught',   icon: '💙',  name: 'Moonwell Draught',   desc: 'Moon Water + 2× Healing Herb',ingredients: [{ id: 'moon_water', qty: 1 }, { id: 'healing_herb', qty: 2 }] },
 ];
 
 let _witchActiveTab = 'shop';
@@ -4006,13 +4013,22 @@ function _renderWitchTab() {
         const meta = ITEM_CATALOG[i.id];
         return `${meta?.icon || '?'} ${i.qty}× ${meta?.name || i.id}`;
       }).join(' + ');
+      // 🌕 Moon-gated recipes (moon water) only brew under a full moon. Reflect
+      // the live phase (calendarState.moon.chargesMoonWater) so the button is
+      // disabled off-phase rather than failing on click.
+      const needsFull = recipe.requiresMoon === 'full';
+      const moonReady = !needsFull || !!(calendarState && calendarState.moon && calendarState.moon.chargesMoonWater);
+      const moonNote = needsFull
+        ? `<span style="color:${moonReady ? '#9fe6b0' : '#e6b36a'};font-size:11px;flex-basis:100%;padding-left:36px;">${moonReady ? '🌕 The moon is full — draw it now.' : '🌑 Only under a full moon.'}</span>`
+        : '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);flex-wrap:wrap;';
       row.innerHTML = `<span style="font-size:22px;">${recipe.icon}</span>
         <span style="flex:1;min-width:120px;color:#e8d0ff;font-weight:600;">${recipe.name}</span>
         <span style="color:#cc88ff;font-size:11px;flex-basis:100%;padding-left:36px;">${ingText}</span>
-        <button data-rid="${recipe.id}" style="margin-left:auto;padding:5px 14px;background:#3a1866;color:#ddb0ff;border:1px solid #6622aa;border-radius:6px;cursor:pointer;font-size:12px;">Brew</button>`;
-      row.querySelector('button').addEventListener('click', () => {
+        ${moonNote}
+        <button data-rid="${recipe.id}"${moonReady ? '' : ' disabled'} style="margin-left:auto;padding:5px 14px;background:${moonReady ? '#3a1866' : '#2a1a2a'};color:${moonReady ? '#ddb0ff' : '#7a6a88'};border:1px solid ${moonReady ? '#6622aa' : '#3a2a4a'};border-radius:6px;cursor:${moonReady ? 'pointer' : 'not-allowed'};font-size:12px;">Brew</button>`;
+      if (moonReady) row.querySelector('button').addEventListener('click', () => {
         document.getElementById('witchCraftErr').textContent = '';
         ws.send(JSON.stringify({ type: 'witch_craft', recipeId: recipe.id }));
       });

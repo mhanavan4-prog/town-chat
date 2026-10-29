@@ -17,5 +17,8 @@ module.exports = {
   // Wilds flora — harvest materials + cauldron brews
   pine_pitch: 4, witchwood: 5, willow_frond: 4, toadcap: 6, hex_acorn: 5, birch_bark: 4,
   bramble_vine: 3, nightberry: 6, blackthorn: 4, fern_frond: 3, ring_cap: 5,
-  barkbind_salve: 9, capwood_elixir: 11, nightsight_draught: 11, fernstep_philtre: 9, bramble_poultice: 10, witchwood_balm: 10
+  barkbind_salve: 9, capwood_elixir: 11, nightsight_draught: 11, fernstep_philtre: 9, bramble_poultice: 10, witchwood_balm: 10,
+  // Witchcraft reagents (Tier 3.5): moon water is only drawn on full-moon nights,
+  // so it carries a real price — a reason for non-brewers to gather it too.
+  glass_vial: 2, moon_water: 20, moonwell_draught: 18
 };
