@@ -2967,7 +2967,7 @@ const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extract
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
-const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
+const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
@@ -13311,20 +13311,31 @@ wss.on('connection', (ws, req) => {
       if (!player.accountKey) { send(ws, { type: 'tarot_result', card: null, message: 'Log into an account to keep a daily reading.' }); return; }
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
-      let card, gold = 0, alreadyDrawn = false, secret = null, balance = null;
-      if (a.lastTarotDay === today && a.lastTarotCard) {
-        card = TAROT_CARDS.find((c) => c.key === a.lastTarotCard) || TAROT_CARDS[0];
+      let stored, gold = 0, alreadyDrawn = false, secret = null, balance = null;
+      if (a.lastTarotDay === today && Array.isArray(a.lastTarotSpread) && a.lastTarotSpread.length === 3) {
+        stored = a.lastTarotSpread;
         alreadyDrawn = true;
       } else {
-        card = TAROT_CARDS[Math.floor(Math.random() * TAROT_CARDS.length)];
+        // Deal three distinct Major Arcana — Past · Present · What Comes — each
+        // falling upright or reversed. Stored so the day's spread is stable.
+        const deck = TAROT_CARDS.slice();
+        for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+        stored = deck.slice(0, 3).map((c) => ({ key: c.key, rev: Math.random() < 0.5 }));
         gold = 20;
-        a.lastTarotDay = today; a.lastTarotCard = card.key;
+        a.lastTarotDay = today; a.lastTarotSpread = stored;
         const account = ensureBankAccount(player.accountKey);
         account.balance += gold; balance = account.balance;
         saveBankAccounts(); saveAccounts();
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
-      send(ws, { type: 'tarot_result', card: { name: card.name, emoji: card.emoji, reading: card.reading }, gold, alreadyDrawn, secret, balance });
+      const byKey = (k) => TAROT_CARDS.find((c) => c.key === k) || TAROT_CARDS[0];
+      const spreadCards = stored.map((s) => ({ card: byKey(s.key), reversed: !!s.rev }));
+      const spread = spreadCards.map((s, i) => ({
+        pos: (TAROT_POSITIONS[i] || {}).label || '', hint: (TAROT_POSITIONS[i] || {}).hint || '',
+        name: s.card.name, num: s.card.num, emoji: s.card.emoji, reversed: s.reversed,
+        meaning: s.reversed ? s.card.reversed : s.card.reading,
+      }));
+      send(ws, { type: 'tarot_result', spread, synthesis: tarotSynthesis(spreadCards), gold, alreadyDrawn, secret, balance });
       return;
     }
 
