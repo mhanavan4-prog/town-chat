@@ -2650,6 +2650,8 @@ function onWsMessage(ev) {
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
   if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
   if (msg.type === 'ancestor_error') { setUnlockToast(msg.message || 'The altar is silent.'); return; }
+  if (msg.type === 'release_state') { lastReleaseState = msg; if (Modals.isOpen('releaseOpen')) renderReleaseModal(); return; }
+  if (msg.type === 'release_error') { setUnlockToast(msg.message || 'The fire is cold.'); return; }
   if (msg.type === 'tea_error') { setUnlockToast(`🍵 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
     _lastTarotResult = msg;
@@ -3484,6 +3486,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('pathModal'),       document.querySelector('#pathModal .floatPanelHandle'));
   makeDraggable(document.getElementById('ancestorModal'),   document.querySelector('#ancestorModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('releaseModal'),    document.querySelector('#releaseModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6605,6 +6608,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('menuPath', closeSheetAnd(() => { if (!Modals.isOpen('pathOpen')) openPathModal(); }));
   on('menuAncestor', closeSheetAnd(() => { if (!Modals.isOpen('ancestorOpen')) openAncestorModal(); }));
   on('ancestorCloseBtn', closeAncestorModal);
+  on('menuRelease', closeSheetAnd(() => { if (!Modals.isOpen('releaseOpen')) openReleaseModal(); }));
+  on('releaseCloseBtn', closeReleaseModal);
   on('pathCloseBtn', closePathModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
@@ -10039,6 +10044,55 @@ function closeAncestorModal() {
   Modals.set('ancestorOpen', false);
 }
 
+// ── The Release Fire — the letting-go Samhain rite ──
+let lastReleaseState = null;
+function renderReleaseModal() {
+  const el = document.getElementById('releaseContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastReleaseState;
+  if (!st) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">The embers stir…</div>'; send({ type: 'release_state' }); return; }
+  if (st.needAccount) { el.innerHTML = '<div class="relClosed">Log into an account to keep the hearth’s memory.</div>'; return; }
+  let h = '';
+  if (!st.veilThin) {
+    h += '<div class="relClosed">The fire is only lit at Samhain, when the year turns and the old burdens are given to the flames.</div>';
+    if (st.lastBurden) h += `<div class="relLast">Last given to the flames: “${esc(st.lastBurden)}”.</div>`;
+    el.innerHTML = h;
+    return;
+  }
+  if (st.todayKept) {
+    h += '<div class="relClosed">You have given to the flames today, and walked away lighter. Return tomorrow.</div>';
+    if (st.lastBurden) h += `<div class="relLast">You released: “${esc(st.lastBurden)}”.</div>`;
+    el.innerHTML = h;
+    return;
+  }
+  h += '<div class="relHint">The year turns, and the veil thins. Name what you carry — a grief, a fear, an old anger — and give it to the flames. The fire burns away a curse that clings to you, and you grow a little, <span class="relName">lighter now</span> (+' + (st.xp || 40) + ' XP). Once a day.</div>';
+  const ph = (st.prompts && st.prompts.length) ? st.prompts[Math.floor(Math.random() * st.prompts.length)] : 'what you are ready to set down';
+  h += `<textarea class="relBurden" id="relBurdenIn" maxlength="80" placeholder="${esc(ph)}…"></textarea>`;
+  h += '<button id="relBurnBtn">🔥 Give it to the flames</button>';
+  if (st.lastBurden) h += `<div class="relLast">Last time you released: “${esc(st.lastBurden)}”.</div>`;
+  el.innerHTML = h;
+  const btn = document.getElementById('relBurnBtn');
+  if (btn) btn.addEventListener('click', () => {
+    const b = (document.getElementById('relBurdenIn') || {}).value || '';
+    send({ type: 'release_burden', burden: b });
+  });
+}
+function openReleaseModal() {
+  const modal = document.getElementById('releaseModal');
+  if (!modal) return;
+  renderReleaseModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('releaseOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'release_state' }));
+}
+function closeReleaseModal() {
+  const modal = document.getElementById('releaseModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('releaseOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -12564,7 +12618,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); if (Modals.isOpen('releaseOpen')) renderReleaseModal(); }, 20000);
 setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 (function () {
   const el = document.getElementById('eventTag');
@@ -15142,6 +15196,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('ancestorOpen') && e.key === 'Escape' && !e.repeat) {
     closeAncestorModal();
+    return;
+  }
+  if (Modals.isOpen('releaseOpen') && e.key === 'Escape' && !e.repeat) {
+    closeReleaseModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
