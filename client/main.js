@@ -11994,6 +11994,22 @@ function showSessionTakeover(message) {
 function applyCalendarState(cal) {
   calendarState = cal || calendarState;
   renderEventTag();
+  renderMoonTag();
+}
+// The live moon phase pill (HUD, beside the day/night clock). Always on so the
+// phase is readable at a glance — the full moon glows gold (esbat / charge moon
+// water), a blood moon glows red. Phase + flavor come from the server's
+// calendar_state (calendarState.moon); the client only displays it.
+function renderMoonTag() {
+  const el = document.getElementById('moonTag');
+  if (!el) return;
+  const m = calendarState && calendarState.moon;
+  if (!m || !me) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.textContent = `${m.glyph} ${m.name}`;
+  el.title = `${m.name} — ${m.intention}` + (m.blurb ? `\n${m.blurb}` : '');
+  el.classList.toggle('fullMoon', !!m.isFull && !m.isBlood);
+  el.classList.toggle('bloodMoon', !!m.isBlood);
 }
 // The event pill announces, then gets out of the way (the Session I location-
 // pill lesson, re-learned live on Michael's phone): it shows for a few seconds
@@ -12029,7 +12045,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(renderEventTag, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); }, 20000);
 (function () {
   const el = document.getElementById('eventTag');
   if (!el) return;

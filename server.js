@@ -4016,7 +4016,12 @@ function skillHarvestExtraChance(player) {
   const now = Date.now();
   const season = seasonWindow(now);
   const seasonForage = (season && season.effects && season.effects.forageBonus) || 0;
-  return statContrib(player, 'forage') + (festivalWindow(now).active ? FESTIVAL_FORAGE_BONUS : 0) + seasonForage;
+  // 🌙 The waxing and full moon swell what the Wilds give up — the lunar analogue
+  // of the sabbat forage bonus, added the same way so the raw forage stat is
+  // untouched. Herbs gathered as the moon fills yield more.
+  const moon = moonPhaseWindow(now);
+  const moonForage = (moon && moon.effects && moon.effects.forageBonus) || 0;
+  return statContrib(player, 'forage') + (festivalWindow(now).active ? FESTIVAL_FORAGE_BONUS : 0) + seasonForage + moonForage;
 }
 function skillXpMult(player)        { return 1 + statContrib(player, 'xp'); }
 function skillSpeedMult(player)     { return 1 + statContrib(player, 'swift'); }
@@ -6583,8 +6588,15 @@ function boardStatePayload(player) {
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
 const { SABBATS } = require('./data/seasons');
-const calendar = require('./lib/calendar')({ CYCLE_MS, DAY_MS, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, legendaryWeekIndex, SABBATS });
-const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
+const { MOON_PHASES, FULL_MOON_INDEX } = require('./data/moon');
+// Compressed lunar month: one full new→full→new cycle. 20h is deliberately not
+// a divisor of 24h, so the full moon drifts across the time of day (a player
+// who only logs in at one hour still catches every phase over ~5 days). Tune
+// here — shorter = full moons come around more often. The 8 phases each run
+// LUNAR_MONTH_MS/8 (2.5h at 20h), with the full moon up that long each cycle.
+const LUNAR_MONTH_MS = 20 * 3600 * 1000;
+const calendar = require('./lib/calendar')({ CYCLE_MS, DAY_MS, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, legendaryWeekIndex, SABBATS, MOON_PHASES, FULL_MOON_INDEX, LUNAR_MONTH_MS });
+const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, moonPhaseWindow, calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
 const FESTIVAL_XP_MULT = 1.25;
 const FESTIVAL_FORAGE_BONUS = 0.15;
 
@@ -7636,7 +7648,15 @@ function seanceBloodMoon() {
   try { return typeof bloodMoonActive === 'function' && !!bloodMoonActive(); } catch (e) { return false; }
 }
 function seanceMoon() {
-  return seanceBloodMoon() ? 'a blood moon hangs low over the Wilds' : 'the moon is thin';
+  // The spirit answers truer under the right moon — feed it the real phase so
+  // its voice matches the sky. A blood moon still reads as its own dread omen.
+  try {
+    const m = moonPhaseWindow(Date.now());
+    if (m.isBlood) return 'a blood moon hangs low over the Wilds';
+    return `the ${m.name.toLowerCase()} hangs over the Wilds — the hour of ${m.intention}`;
+  } catch (e) {
+    return seanceBloodMoon() ? 'a blood moon hangs low over the Wilds' : 'the moon is thin';
+  }
 }
 
 // What is TRUE in the world right now — fed to the spirit so it can answer the
