@@ -2642,6 +2642,8 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
+  if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
@@ -3477,6 +3479,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('pathModal'),       document.querySelector('#pathModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6595,6 +6598,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('gardenCloseBtn', closeGardenModal);
   on('menuKitchen', closeSheetAnd(() => { if (!Modals.isOpen('kitchenOpen')) openKitchenModal(); }));
   on('kitchenCloseBtn', closeKitchenModal);
+  on('menuPath', closeSheetAnd(() => { if (!Modals.isOpen('pathOpen')) openPathModal(); }));
+  on('pathCloseBtn', closePathModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9783,6 +9788,44 @@ function closeFamiliarModal() {
   const modal = document.getElementById('familiarModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('familiarOpen', false);
+}
+
+// ── Witch path picker ───────────────────────────────────────────────────────
+const WITCH_PATHS_CLIENT = {
+  green: { name: 'Green Witch', emoji: '🌿', blurb: '+10% harvest luck · foraging & gardening' },
+  lunar: { name: 'Lunar Witch', emoji: '🌙', blurb: '+8% XP · the moon & moon water' },
+  hedge: { name: 'Hedge Witch', emoji: '🕯️', blurb: '+5% lifesteal · séance & divination' },
+  kitchen: { name: 'Kitchen Witch', emoji: '🍵', blurb: '+20 max health · brewing & teas' },
+  sea: { name: 'Sea Witch', emoji: '🌊', blurb: '+8% move speed · tides & water' },
+  hearth: { name: 'Hearth Witch', emoji: '🛡️', blurb: '+8% damage resist · altar & warding' },
+};
+let myWitchPath = null;
+function renderPathModal() {
+  const el = document.getElementById('pathContent');
+  if (!el) return;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+  const cur = myWitchPath || null;
+  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Walk a tradition — a small gift, and a sense of which craft is yours. Change it any time.</div>';
+  for (const id of ['green', 'lunar', 'hedge', 'kitchen', 'sea', 'hearth']) {
+    const p = WITCH_PATHS_CLIENT[id];
+    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-pid="${id}"><span class="fe">${p.emoji}</span><span style="flex:1"><div class="fn">${p.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${p.blurb}</div></span></div>`;
+  }
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-pid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No path${!cur ? ' ✓' : ''}</div><div class="fb">Walk your own way.</div></span></div>`;
+  el.innerHTML = h;
+  el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => send({ type: 'choose_path', pathId: row.getAttribute('data-pid') || null })));
+}
+function openPathModal() {
+  const modal = document.getElementById('pathModal');
+  if (!modal) return;
+  renderPathModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 150);
+  Modals.set('pathOpen', true);
+}
+function closePathModal() {
+  const modal = document.getElementById('pathModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('pathOpen', false);
 }
 
 // ── Daily Tarot ─────────────────────────────────────────────────────────────
@@ -14953,6 +14996,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('kitchenOpen') && e.key === 'Escape' && !e.repeat) {
     closeKitchenModal();
+    return;
+  }
+  if (Modals.isOpen('pathOpen') && e.key === 'Escape' && !e.repeat) {
+    closePathModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
