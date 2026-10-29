@@ -14167,7 +14167,7 @@ if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 // concurrency rather than surfacing it: a shared time AND place pulls scattered
 // players into the same spot at the same moment — which is where chat, grouping
 // and "oh, people DO play this" actually happen.
-const BELL_PERIOD_MS = 30 * 60 * 1000;     // every half hour, anchored to the wall clock
+const BELL_PERIOD_MS = 2 * 60 * 60 * 1000; // every two hours, anchored to clean wall-clock boundaries
 const BELL_GATHER_MS = 75 * 1000;          // time to reach the well once it tolls
 const BELL_WELL = { x: 1120, y: 800 };     // the plaza well (data/world.js decor_51)
 const BELL_RADIUS = 240;                   // "at the well" — generous; the square is large
@@ -14176,13 +14176,12 @@ const BELL_BUFF_MS = 10 * 60 * 1000;       // …for ten minutes after
 const BELL_GOLD_BASE = 15;                 // account reward floor
 const BELL_GOLD_PER_HEAD = 10;             // +per OTHER witch who answered (turnout flywheel)
 const BELL_GOLD_MAX = 120;
-function bellNextHalfHour(from) {
-  const d = new Date(from);
-  d.setSeconds(0, 0);
-  d.setMinutes(d.getMinutes() < 30 ? 30 : 60); // rolls the hour over cleanly at 60
-  return d.getTime();
+function bellNextPeriod(from) {
+  // Next clean BELL_PERIOD boundary, anchored to the epoch so the cadence is
+  // steady wall-clock times (e.g. a two-hour period lands on 00:00, 02:00, …).
+  return Math.ceil((from + 1) / BELL_PERIOD_MS) * BELL_PERIOD_MS;
 }
-let bellNextAt = bellNextHalfHour(Date.now());
+let bellNextAt = bellNextPeriod(Date.now());
 let bellRingingUntil = 0;
 function bellPublicState() { return { nextAt: bellNextAt, ringingUntil: bellRingingUntil, gatherMs: BELL_GATHER_MS, well: BELL_WELL, radius: BELL_RADIUS }; }
 function bellAtWell(p) {
@@ -14197,7 +14196,7 @@ function ringBell() {
 function closeBell() {
   const now = Date.now();
   bellRingingUntil = 0;
-  bellNextAt = bellNextHalfHour(now + 1000);
+  bellNextAt = bellNextPeriod(now + 1000);
   const answered = [];
   for (const p of players.values()) if (bellAtWell(p)) answered.push(p);
   const count = answered.length;
@@ -14542,7 +14541,7 @@ global.__testHooks = {
   TOWN_PASS30_PRICE_CENTS, TOWN_PASS30_HOURS, IAP_PRODUCT30_ID, passHoursForStripeSession,
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   townPulsePayload, // test-only: town-wide liveness headcount
-  ringBell, closeBell, bellPublicState, bellAtWell, bellNextHalfHour, // test-only: the Town Bell
+  ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,

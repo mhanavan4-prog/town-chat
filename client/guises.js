@@ -191,32 +191,41 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     syncHeadwear(players, visuals);
   }
 
-  // A guise is a head/headwear replacement, so while one is worn the player's
-  // own hat/helmet/hood would clash with it. Hide those accent meshes for the
-  // duration and restore them — to their real Wardrobe-toggle state — when the
-  // guise comes off. Purely visual, per-frame, and self-correcting: the base
-  // visibility is captured off the freshly built model (the Wardrobe toggles
-  // are already applied there), and v.kk is rebuilt on any appearance change,
-  // so a hat toggled in the Wardrobe is picked up without a menu round-trip.
+  // Guises that REPLACE the whole head (vs. just adding headwear like the hat).
+  // For these, the player's own head — skull/jaw/eyes on a skeleton body, the
+  // face/hair mesh on the others — must hide too, or it bleeds through the
+  // smaller guise head. The witch hat sits ON your head, so it is NOT here.
+  const COVERS_HEAD = new Set(['skull', 'pumpkin', 'devil', 'stag', 'raven']);
+  const RE_HEADWEAR = /_(Hat|Helmet|Hood)$/;                 // your own hat — hidden by ANY guise
+  const RE_HEADCORE = /(_Head(_Hooded)?|_Skull|_Jaw|_Eyes)$/; // your own head — hidden by a head-covering guise
+
+  // While a guise is worn, hide the player's own headwear (always) and — for a
+  // full-head guise — their own head, so nothing clips through. Restore both to
+  // their real built state when the guise comes off. Purely visual, per-frame,
+  // self-correcting: base visibility is captured off the freshly built model
+  // (Wardrobe toggles already applied), and v.kk rebuilds on any appearance
+  // change, so a hat toggled in the Wardrobe is honoured with no menu round-trip.
   function syncHeadwear(players, visuals) {
     for (const id in visuals) {
       const v = visuals[id];
       if (!v || !v.kk || !v.kk.inst) continue;
-      let list = v.kk._headwear;
-      if (!list) {
-        list = [];
+      let hw = v.kk._headwear, hc = v.kk._headcore;
+      if (!hw || !hc) {
+        hw = []; hc = [];
         v.kk.inst.traverse((o) => {
-          if (o.isMesh && /_(Hat|Helmet|Hood)$/.test(o.name || '')) {
-            if (o.userData._hwBase === undefined) o.userData._hwBase = o.visible; // Wardrobe state
-            list.push(o);
-          }
+          if (!o.isMesh) return;
+          const nm = o.name || '';
+          if (RE_HEADWEAR.test(nm)) { if (o.userData._hwBase === undefined) o.userData._hwBase = o.visible; hw.push(o); }
+          else if (RE_HEADCORE.test(nm)) { if (o.userData._hcBase === undefined) o.userData._hcBase = o.visible; hc.push(o); }
         });
-        v.kk._headwear = list;
+        v.kk._headwear = hw; v.kk._headcore = hc;
       }
-      if (!list.length) continue;
       const p = players[id];
-      const hide = !!(p && p.guise && isGuise(p.guise));
-      for (const m of list) { const want = hide ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
+      const g = p && p.guise;
+      const worn = !!(g && isGuise(g));
+      const hideHead = worn && COVERS_HEAD.has(g);
+      for (const m of hw) { const want = worn ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
+      for (const m of hc) { const want = hideHead ? false : m.userData._hcBase; if (m.visible !== want) m.visible = want; }
     }
   }
 
