@@ -44,7 +44,15 @@ setTimeout(() => {
     A.s.emit('message', JSON.stringify({ type: 'altar_ritual_perform', ritualId: 'vigor' }));
     const rs = A.s.lastOfType('ritual_state');
     check('a ritual_state with the active blessing is returned', rs && rs.active && rs.active.id === 'vigor', rs);
-    check('Brew of Vigor raises max health by 40', hooks.playerMaxHealth(A.p) === hpBefore + 40, { before: hpBefore, after: hooks.playerMaxHealth(A.p) });
+    // Max health rises by the blessing's granted amount. That amount is the +40
+    // base scaled by the altar's Correspondence attunement (decorations, moon,
+    // planetary day, an offering, and the Samhain season) — so it's ≥40 and is
+    // exactly 40 only at a bare, unaligned altar. Assert against the granted
+    // amount (robust year-round) plus the base floor, not a fixed +40 that the
+    // Samhain window would break.
+    const vigorAmt = hooks.accounts.morgana.ritual.amount;
+    check('the vigor blessing is at least its +40 base', vigorAmt >= 40, vigorAmt);
+    check('Brew of Vigor raises max health by the blessing amount', hooks.playerMaxHealth(A.p) === hpBefore + vigorAmt, { before: hpBefore, after: hooks.playerMaxHealth(A.p), granted: vigorAmt });
     check('the altar goes on cooldown', rs && rs.cdUntil > Date.now());
 
     // ── Cooldown blocks an immediate second rite ─────────────────────────
