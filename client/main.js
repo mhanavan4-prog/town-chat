@@ -197,9 +197,14 @@ let WILDS_KIOSKS = [];   // interact points in the Wilds scene
 // The Thornwarden Scouts: militant camp in the eastern wilds (~7800, 5000)
 // Both factions tie into "The Thornreach Chronicles" storyline.
 const WILDS_NPCS = [
-  { id: 'npc_morvaine', name: 'Elder Morvaine',       charId: 2, x: 2200, y: 5100 },
+  // Morvaine and Caelum sat exactly on the Unbound Circle's radius-110 megalith
+  // ring (CX 2200, CZ 5000): Morvaine at (2200,5100) was jammed into the +z
+  // stone at (2200,5110), Caelum at (2210,4890) into the -z stone at (2200,4890).
+  // Move both into clear open ground flanking the central altar (where the
+  // ritual-tenders belong), well inside the torch ring and clear of every stone.
+  { id: 'npc_morvaine', name: 'Elder Morvaine',       charId: 2, x: 2200, y: 5050 },
   { id: 'npc_talwyn',   name: 'Sister Talwyn',         charId: 0, x: 2360, y: 5010 },
-  { id: 'npc_caelum',   name: 'Brother Caelum',        charId: 3, x: 2210, y: 4890 },
+  { id: 'npc_caelum',   name: 'Brother Caelum',        charId: 3, x: 2200, y: 4945 },
   { id: 'npc_rhedyn',   name: 'Captain Rhedyn',        charId: 1, x: 7800, y: 4900 },
   { id: 'npc_brynn',    name: 'Quartermaster Brynn',   charId: 3, x: 7960, y: 5010 },
   { id: 'npc_elara',    name: 'Scout Elara',           charId: 4, x: 7800, y: 5110 },
