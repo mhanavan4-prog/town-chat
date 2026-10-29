@@ -2969,6 +2969,7 @@ const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companion
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
+const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -4115,7 +4116,14 @@ function teaBuffContrib(player, statKey) {
   if (!t || !t.until || t.until <= Date.now()) return 0;
   return (t.stat === statKey) ? (t.amount || 0) : 0;
 }
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey); }
+// 🧙‍♀️ A chosen witch path's one small passive perk (account-scoped).
+function pathBuffContrib(player, statKey) {
+  const key = player && player.accountKey;
+  const pid = key && accounts[key] && accounts[key].witchPath;
+  const w = pid && WITCH_PATHS[pid];
+  return (w && w.stat === statKey) ? (w.amount || 0) : 0;
+}
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -9456,6 +9464,8 @@ wss.on('connection', (ws, req) => {
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
       send(ws, { type: 'inbox_state', notes: player.inbox });
+      // 🧙‍♀️ Tell the client the account's chosen witch path so the picker shows it.
+      if (player.accountKey && accounts[player.accountKey]) send(ws, { type: 'path_state', path: accounts[player.accountKey].witchPath || null });
       // Your own view of what's grown back (regrowth is per player).
       pushDecorState(player);
       // 🕯️ Samhain welcome: a fresh arrival on the witches' new year feels the
@@ -13228,6 +13238,20 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
       if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
       else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+
+    // ── Choose / change / abandon a witch path (account-scoped, free) ──
+    if (msg.type === 'choose_path') {
+      if (!player.accountKey) { send(ws, { type: 'path_error', message: 'Log into an account to walk a path.' }); return; }
+      const pid = msg.pathId ? String(msg.pathId) : null;
+      if (pid && !WITCH_PATHS[pid]) { send(ws, { type: 'path_error', message: 'No such path.' }); return; }
+      accounts[player.accountKey].witchPath = pid;
+      saveAccounts();
+      send(ws, { type: 'path_state', path: pid });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
+      if (pid) send(ws, { type: 'toast', message: `${WITCH_PATHS[pid].emoji} You walk the way of the ${WITCH_PATHS[pid].name}. ${WITCH_PATHS[pid].blurb}` });
+      else send(ws, { type: 'toast', message: 'You set no path for now — the way is open.' });
       return;
     }
 

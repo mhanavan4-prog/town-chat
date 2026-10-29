@@ -639,7 +639,7 @@
   .bookBrew .bi { font-size:10.5px; opacity:0.72; text-align:right; }
   body.touchMode #bookModal { width:94vw; }
   /* Familiar picker */
-  #familiarModal { width:min(360px, 92vw); max-height:84vh; overflow-y:auto; }
+  #familiarModal, #pathModal { width:min(360px, 92vw); max-height:84vh; overflow-y:auto; }
   .famRow { display:flex; align-items:center; gap:10px; padding:9px 11px; margin:6px 0; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); cursor:pointer; }
   .famRow:hover { background:rgba(255,255,255,0.07); }
   .famRow.cur { border-color:rgba(255,220,130,0.55); background:rgba(255,220,130,0.1); }
@@ -2229,6 +2229,7 @@
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
       <button class="menuRow" id="menuGarden">🌱 Garden</button>
       <button class="menuRow" id="menuKitchen">🍵 Kitchen</button>
+      <button class="menuRow" id="menuPath">🧙‍♀️ Witch Path</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
@@ -3269,6 +3270,14 @@
   </div>
   <div id="kitchenContent"></div>
   <button class="btn" id="kitchenCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="pathModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🧙‍♀️ Your Path</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="pathContent"></div>
+  <button class="btn" id="pathCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <!-- Skills — the class skill tree (🌟 button / K key). Spend level-up points
