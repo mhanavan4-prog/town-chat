@@ -46,6 +46,7 @@ import createNotesDrive from './notes-drive.js';
 import createInventoryPanel from './inventory-panel.js';
 import createPlayerVisuals from './player-visuals.js';
 import createFamiliars from './familiars.js';
+import createGuises from './guises.js';
 import createFurniture from './furniture.js';
 import createInteriorScene from './interior-scene.js';
 import createAccountSelect from './account-select.js';
@@ -2642,6 +2643,8 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
+  if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -3481,6 +3484,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('journalModal'),   document.querySelector('#journalModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('guiseModal'),      document.querySelector('#guiseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
@@ -6599,6 +6603,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('bookCloseBtn', closeBookModal);
   on('menuFamiliar', closeSheetAnd(() => { if (!Modals.isOpen('familiarOpen')) openFamiliarModal(); }));
   on('familiarCloseBtn', closeFamiliarModal);
+  on('menuGuise', closeSheetAnd(() => { if (!Modals.isOpen('guiseOpen')) openGuiseModal(); }));
+  on('guiseCloseBtn', closeGuiseModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
@@ -9801,6 +9807,46 @@ function closeFamiliarModal() {
   Modals.set('familiarOpen', false);
 }
 
+// ── Wardrobe: don a Samhain guise (cosmetic, account-scoped) ──
+const GUISES_CLIENT = {
+  skull: { name: 'Bone Mask', emoji: '💀', blurb: 'A bleached skull over your face.' },
+  pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved, candle-lit pumpkin head.' },
+  ghost: { name: 'Sheet Ghost', emoji: '👻', blurb: 'A pale winding-sheet. Boo.' },
+  raven: { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask.' },
+  witch: { name: 'Pointed Hat', emoji: '🧙', blurb: 'The tall black hat of the old stories.' },
+  stag: { name: 'The Horned', emoji: '🦌', blurb: 'A crown of antlers — the wild hunter.' },
+};
+let myGuise = null; // last known from guise_state (account-scoped)
+function renderGuiseModal() {
+  const el = document.getElementById('guiseContent');
+  if (!el) return;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+  const cur = myGuise || (me && players[me.id] && players[me.id].guise) || null;
+  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div>';
+  for (const id of ['skull', 'pumpkin', 'ghost', 'raven', 'witch', 'stag']) {
+    const g = GUISES_CLIENT[id];
+    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
+  }
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div>`;
+  el.innerHTML = h;
+  el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
+    send({ type: 'choose_guise', guiseId: row.getAttribute('data-gid') || null });
+  }));
+}
+function openGuiseModal() {
+  const modal = document.getElementById('guiseModal');
+  if (!modal) return;
+  renderGuiseModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 140);
+  Modals.set('guiseOpen', true);
+}
+function closeGuiseModal() {
+  const modal = document.getElementById('guiseModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('guiseOpen', false);
+}
+
 // ── Witch path picker ───────────────────────────────────────────────────────
 const WITCH_PATHS_CLIENT = {
   green: { name: 'Green Witch', emoji: '🌿', blurb: '+10% harvest luck · foraging & gardening' },
@@ -12033,6 +12079,9 @@ const {
 // reading the shared visuals map for positions (cosmetic; perk is server-side).
 const { updateFamiliars } = createFamiliars({
   getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
+});
+const { updateGuises } = createGuises({
+  getPlayers: () => players, getVisuals: () => visuals,
 });
 
 function lerpAngle(a, b, t) {
@@ -15178,6 +15227,10 @@ window.addEventListener('keydown', (e) => {
     closeFamiliarModal();
     return;
   }
+  if (Modals.isOpen('guiseOpen') && e.key === 'Escape' && !e.repeat) {
+    closeGuiseModal();
+    return;
+  }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
     closeTarotModal();
     return;
@@ -15686,6 +15739,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateFamiliars(dt); // after syncVisuals so player group positions are current
+  updateGuises(); // costume overlays, parented to each player's body group
   updateEchoes(dt);
   updateAmbientChatter(dt);
   updateStatusVisuals(dt);

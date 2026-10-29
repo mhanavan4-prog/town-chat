@@ -2966,6 +2966,7 @@ app.get('/api/coven', (req, res) => {
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
+const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
@@ -5180,7 +5181,10 @@ function publicPlayer(p) {
     // 🐈‍⬛ Bonded familiar id (or null) — every nearby client trails the matching
     // companion behind this player (client/familiars.js). Cosmetic; the perk is
     // applied server-side via familiarBuffContrib.
-    familiar: p.familiar || null
+    familiar: p.familiar || null,
+    // 🎃 Worn guise id (or null) — every nearby client draws the matching Samhain
+    // costume over this player's body (client/guises.js). Purely cosmetic.
+    guise: p.guise || null
   };
 }
 
@@ -9405,6 +9409,8 @@ wss.on('connection', (ws, req) => {
       // 🐈‍⬛ The bonded familiar (account-scoped) rides into the player so it
       // broadcasts in publicPlayer and every nearby client trails it.
       player.familiar = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiar) || null;
+      // 🎃 The worn guise (account-scoped) likewise, so the costume broadcasts.
+      player.guise = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].guise) || null;
 
       // Live resume token — minted for every join and sent in init. If this
       // socket later dies without warning (phone screen off, network blip),
@@ -13267,6 +13273,20 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
       if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
       else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+
+    // ── Don / change / doff a Samhain guise (account-scoped, free, cosmetic) ──
+    if (msg.type === 'choose_guise') {
+      if (!player.accountKey) { send(ws, { type: 'guise_error', message: 'Log into an account to keep a costume.' }); return; }
+      const gid = msg.guiseId ? String(msg.guiseId) : null;
+      if (gid && !GUISES[gid]) { send(ws, { type: 'guise_error', message: 'No such guise.' }); return; }
+      accounts[player.accountKey].guise = gid;
+      player.guise = gid;
+      saveAccounts();
+      send(ws, { type: 'guise_state', guise: gid });
+      if (gid) send(ws, { type: 'toast', message: `${GUISES[gid].emoji} You pull on the ${GUISES[gid].name}. ${GUISES[gid].blurb}` });
+      else send(ws, { type: 'toast', message: 'You shed your disguise.' });
       return;
     }
 
