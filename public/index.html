@@ -646,13 +646,33 @@
   /* Centered rectangular menu format (desktop): the craft panels open centered,
      wider, and lay their options out in two columns so they stop scrolling.
      Touch mode keeps the existing fullscreen treatment below. */
+  /* Uniform menu shape (desktop): every menu the player flips through is the
+     SAME centered rectangle with a fixed height, so switching between them — or
+     Escaping back a level — swaps the content without the frame moving at all.
+     Short menus simply have room to spare; the Book of Shadows fills it. */
   body:not(.touchMode) #bookModal, body:not(.touchMode) #familiarModal,
   body:not(.touchMode) #guiseModal, body:not(.touchMode) #pathModal,
   body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal,
   body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
-  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal {
+  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal,
+  body:not(.touchMode) #journalModal, body:not(.touchMode) #skillsModal,
+  body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal {
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
-    transform:translate(-50%, -50%) !important; width:min(600px, 94vw); max-height:88vh;
+    transform:translate(-50%, -50%) !important;
+    width:min(720px, 94vw) !important; height:min(840px, 86vh) !important; max-height:86vh;
+  }
+  /* The overlay-style menus (Titles, Loadout, Codex, Collection Log, Coven,
+     Delve, Board, Pass, Moonstones, Notifications, Wardrobe, Controls, Report
+     a Bug) share the exact same frame. NPC/confirm dialogs keep their own
+     compact .card size. */
+  body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card,
+  body:not(.touchMode) #wardrobeModal > .card, body:not(.touchMode) #achModal > .card,
+  body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
+  body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card,
+  body:not(.touchMode) #delveModal > .card, body:not(.touchMode) #msModal > .card,
+  body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
+  body:not(.touchMode) #controlsModal > .card {
+    width:min(720px, 94vw); height:min(840px, 86vh); overflow-y:auto;
   }
   /* Options flow into two columns inside the wide panels (the render functions
      wrap their repeating rows in .menuCols; intros/actions stay full width). */
@@ -1324,10 +1344,11 @@
   }
   body.touchMode #menuSheet.hidden { display:none; }
   #menuSheetCard {
-    width:100%; max-width:600px; background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
+    width:100%; max-width:720px; background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
     border:1px solid rgba(230,190,120,0.38);
     border-radius:16px; padding:18px;
   }
+  body:not(.touchMode) #menuSheetCard { height:min(840px, 86vh); overflow-y:auto; }
   body.touchMode #menuSheetCard {
     border-bottom:none; border-radius:16px 16px 0 0;
     padding:16px 16px calc(16px + env(safe-area-inset-bottom));
