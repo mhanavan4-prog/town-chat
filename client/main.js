@@ -2641,6 +2641,13 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'tarot_result') {
+    _lastTarotResult = msg;
+    if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
+    try { updateGoldReadouts(); } catch (e) { /* readouts not ready */ }
+    if (Modals.isOpen('tarotOpen')) renderTarotModal(msg);
+    return;
+  }
   if (msg.type === 'familiar_error') { setUnlockToast(`🐈‍⬛ ${msg.message}`); return; }
   if (msg.type === 'ritual_state') {
     // { active: {id,stat,amount,until}|null, cdUntil, now } — rebase the server
@@ -3462,6 +3469,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('journalModal'),   document.querySelector('#journalModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6574,6 +6582,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('bookCloseBtn', closeBookModal);
   on('menuFamiliar', closeSheetAnd(() => { if (!Modals.isOpen('familiarOpen')) openFamiliarModal(); }));
   on('familiarCloseBtn', closeFamiliarModal);
+  on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
+  on('tarotCloseBtn', closeTarotModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9762,6 +9772,41 @@ function closeFamiliarModal() {
   const modal = document.getElementById('familiarModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('familiarOpen', false);
+}
+
+// ── Daily Tarot ─────────────────────────────────────────────────────────────
+let _lastTarotResult = null; // today's card once drawn this session
+function renderTarotModal(result) {
+  const el = document.getElementById('tarotContent');
+  if (!el) return;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+  if (!result) {
+    el.innerHTML = '<div class="tarotBack">🂠</div><div style="font-size:12.5px;opacity:0.85;margin-bottom:12px;">Turn one card for the day\'s reading.</div><button id="tarotDrawBtn">Draw your card</button>';
+    const b = document.getElementById('tarotDrawBtn');
+    if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning…'; send({ type: 'tarot_draw' }); });
+    return;
+  }
+  if (!result.card) { el.innerHTML = `<div style="font-size:12.5px;opacity:0.85;">${result.message || 'The cards are quiet.'}</div>`; return; }
+  const c = result.card;
+  let h = `<div id="tarotCard"><div class="tg">${c.emoji}</div><div class="tn">${c.name}</div><div class="tr">${c.reading}</div>`;
+  if (result.secret) h += `<div class="tsecret">🕯️ The cards whisper: "${result.secret}"</div>`;
+  h += '</div>';
+  if (result.alreadyDrawn) h += '<div style="font-size:11.5px;opacity:0.7;">Today\'s card. Return tomorrow for a new draw.</div>';
+  else if (result.gold) h += `<div id="tarotReward"><span class="coin"></span> +${result.gold} gold</div><div style="font-size:11px;opacity:0.7;">Return tomorrow for a new draw.</div>`;
+  el.innerHTML = h;
+}
+function openTarotModal() {
+  const modal = document.getElementById('tarotModal');
+  if (!modal) return;
+  renderTarotModal(_lastTarotResult);
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 150);
+  Modals.set('tarotOpen', true);
+}
+function closeTarotModal() {
+  const modal = document.getElementById('tarotModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('tarotOpen', false);
 }
 
 const { buildManorScene, setAltarDecor } = createManorScene({
@@ -14788,6 +14833,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('familiarOpen') && e.key === 'Escape' && !e.repeat) {
     closeFamiliarModal();
+    return;
+  }
+  if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
+    closeTarotModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
