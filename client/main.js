@@ -12685,26 +12685,26 @@ function renderMoonTag() {
 // activeStatus curse/buff, the altar blessing, a sipped tea, and a salt ward.
 // Red = a curse/debuff, green = a blessing, gold = a ward.
 const STATUS_FX = {
-  wither: { icon: '☠️', label: 'Withering', debuff: true },
-  stumble: { icon: '🌀', label: 'Stumbling', debuff: true },
-  shrink: { icon: '🔻', label: 'Shrunken', debuff: true },
-  toad: { icon: '🐸', label: 'Toaded', debuff: true },
-  gibberish: { icon: '💬', label: 'Gibberish', debuff: true },
-  wolfmark: { icon: '🐺', label: 'Wolf-marked', debuff: true },
-  rooted: { icon: '🪤', label: 'Rooted', debuff: true },
-  reversed: { icon: '🔄', label: 'Reversed', debuff: true },
-  bloodcurse: { icon: '🩸', label: 'Blood-cursed', debuff: true },
-  pumpkin: { icon: '🎃', label: 'Pumpkin-headed', debuff: true },
-  regen: { icon: '🫧', label: 'Regenerating', debuff: false },
-  speedboost: { icon: '💨', label: 'Swift', debuff: false },
-  ravencloak: { icon: '🌘', label: 'Raven Cloak', debuff: false },
-  giant: { icon: '🍄', label: 'Giant', debuff: false },
-  bats: { icon: '🦇', label: 'Bat Swarm', debuff: false },
-  meditate: { icon: '🪷', label: 'Meditating', debuff: false },
-  wolfpact: { icon: '🐺', label: "Wolf's Pact", debuff: false },
-  feather: { icon: '🍃', label: 'Featherfall', debuff: false },
-  ward: { icon: '🛡️', label: 'Gourd Ward', debuff: false },
-  colorcycle: { icon: '🌈', label: 'Chaos', debuff: false },
+  wither: { icon: '☠️', label: 'Withering', debuff: true, desc: 'Grave-rot gnaws at you — losing health over time.' },
+  stumble: { icon: '🌀', label: 'Stumbling', debuff: true, desc: 'Off-balance — your steps lurch and wander.' },
+  shrink: { icon: '🔻', label: 'Shrunken', debuff: true, desc: 'Shrunk down small.' },
+  toad: { icon: '🐸', label: 'Toaded', debuff: true, desc: 'A toad for now — your words come out as croaks.' },
+  gibberish: { icon: '💬', label: 'Gibberish', debuff: true, desc: 'Your speech comes out as nonsense.' },
+  wolfmark: { icon: '🐺', label: 'Wolf-marked', debuff: true, desc: 'Marked by the hunt — the pack can find you.' },
+  rooted: { icon: '🪤', label: 'Rooted', debuff: true, desc: 'Snared in place — you cannot move.' },
+  reversed: { icon: '🔄', label: 'Reversed', debuff: true, desc: 'Up is down — your movement is reversed.' },
+  bloodcurse: { icon: '🩸', label: 'Blood-cursed', debuff: true, desc: 'Every blow you land bleeds you, and the blood feeds whoever cursed you.' },
+  pumpkin: { icon: '🎃', label: 'Pumpkin-headed', debuff: true, desc: 'A carved gourd for a head — but all damage against you is halved while it grins.' },
+  regen: { icon: '🫧', label: 'Regenerating', debuff: false, desc: 'Health knits back steadily over time.' },
+  speedboost: { icon: '💨', label: 'Swift', debuff: false, desc: 'Fleet-footed — increased movement speed.' },
+  ravencloak: { icon: '🌘', label: 'Raven Cloak', debuff: false, desc: 'Cloaked in feathers and shadow.' },
+  giant: { icon: '🍄', label: 'Giant', debuff: false, desc: 'Grown huge — you tower over the town.' },
+  bats: { icon: '🦇', label: 'Bat Swarm', debuff: false, desc: 'A swarm of bats wheels around you.' },
+  meditate: { icon: '🪷', label: 'Meditating', debuff: false, desc: 'Centered and calm.' },
+  wolfpact: { icon: '🐺', label: "Wolf's Pact", debuff: false, desc: "The pack's strength runs in you." },
+  feather: { icon: '🍃', label: 'Featherfall', debuff: false, desc: 'Light as a leaf — you drift down gently.' },
+  ward: { icon: '🛡️', label: 'Warded', debuff: false, desc: 'Shielded — all damage against you is halved while it holds.' },
+  colorcycle: { icon: '🌈', label: 'Chaos', debuff: false, desc: 'Your colors cycle wildly.' },
 };
 let myWardUntil = 0; // Circle of Salt (server-pushed on cast)
 function fxTimeLabel(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 60 ? Math.ceil(s / 60) + 'm' : s + 's'; }
@@ -12717,25 +12717,39 @@ function renderStatusEffects() {
   const as = me.activeStatus;
   if (as && as.type && as.expiresAt > now) {
     const meta = STATUS_FX[as.type] || { icon: '✨', label: as.type, debuff: false };
-    fx.push({ icon: meta.icon, label: meta.label, cls: meta.debuff ? 'debuff' : 'buff', until: as.expiresAt });
+    fx.push({ icon: meta.icon, label: meta.label, desc: meta.desc || '', cls: meta.debuff ? 'debuff' : 'buff', kind: meta.debuff ? 'Curse' : 'Blessing', until: as.expiresAt });
   }
   if (ritualActive && ritualActive.until > now) {
     const d = ritualDef(ritualActive.id);
-    fx.push({ icon: d ? d.emoji : '✨', label: (d ? d.name : 'Blessing') + (ritualActive.mult > 1 ? ` (+${Math.round((ritualActive.mult - 1) * 100)}%)` : ''), cls: 'buff', until: ritualActive.until });
+    fx.push({ icon: d ? d.emoji : '✨', label: (d ? d.name : 'Blessing') + (ritualActive.mult > 1 ? ` (+${Math.round((ritualActive.mult - 1) * 100)}%)` : ''), desc: (d && (d.desc || d.description)) || 'An altar blessing.', cls: 'buff', kind: 'Altar rite', until: ritualActive.until });
   }
   if (lastTeaState && lastTeaState.active && lastTeaState.active.until > now) {
     const t = (lastTeaState.teas || []).find((x) => x.id === lastTeaState.active.id);
-    fx.push({ icon: t ? t.emoji : '🍵', label: t ? t.name : 'Tea', cls: 'buff', until: lastTeaState.active.until });
+    fx.push({ icon: t ? t.emoji : '🍵', label: t ? t.name : 'Tea', desc: (t && (t.desc || t.effect)) || 'A brewed tea.', cls: 'buff', kind: 'Tea', until: lastTeaState.active.until });
   }
   if (lastAncestorState && lastAncestorState.active && lastAncestorState.active.until > now) {
     const v = (lastAncestorState.virtues || []).find((x) => x.id === lastAncestorState.active.id);
-    fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', cls: 'buff', until: lastAncestorState.active.until });
+    fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', desc: (v && (v.line || v.desc)) || "A forebear's blessing.", cls: 'buff', kind: 'Ancestor', until: lastAncestorState.active.until });
   }
-  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', cls: 'ward', until: myWardUntil });
+  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   bar.innerHTML = fx.map((f) => {
     const t = fxTimeLabel(f.until - now);
-    return `<div class="statusFx ${f.cls}" title="${f.label} — ${t} left">${f.icon}<span class="sfxTime">${t}</span></div>`;
+    return `<div class="statusFx ${f.cls}" data-fxname="${esc(f.label)}" data-fxdesc="${esc(f.desc)}" data-fxicon="${esc(f.icon)}" data-fxkind="${esc(f.kind || '')}">${f.icon}<span class="sfxTime">${t}</span></div>`;
   }).join('');
+  if (!bar._tipWired) {
+    // One delegated set of handlers (the bar is re-rendered constantly) → a rich
+    // hover popup naming the effect and what it does, reusing the item tooltip.
+    bar._tipWired = true;
+    const show = (e) => {
+      const el = e.target && e.target.closest && e.target.closest('.statusFx');
+      if (!el) return;
+      showActionTooltip(e, { icon: el.dataset.fxicon || '✨', name: el.dataset.fxname || '', kind: el.dataset.fxkind || '', description: el.dataset.fxdesc || '' });
+    };
+    bar.addEventListener('mouseover', show);
+    bar.addEventListener('mousemove', (e) => { if (_ttOwner && e.target.closest && e.target.closest('.statusFx')) _positionTooltip(e); });
+    bar.addEventListener('mouseout', (e) => { if (!e.relatedTarget || !(e.relatedTarget.closest && e.relatedTarget.closest('.statusFx'))) hideTooltip(); });
+  }
 }
 // The event pill announces, then gets out of the way (the Session I location-
 // pill lesson, re-learned live on Michael's phone): it shows for a few seconds
