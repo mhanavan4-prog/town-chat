@@ -646,6 +646,17 @@
   .famRow .fe { font-size:24px; width:30px; text-align:center; }
   .famRow .fn { font-weight:700; color:#fff; font-size:13px; }
   .famRow .fb { font-size:11px; opacity:0.75; }
+  /* Daily Tarot */
+  #tarotModal { width:min(340px, 92vw); text-align:center; }
+  #tarotCard { margin:6px auto 10px; padding:16px 12px; border-radius:14px; border:1px solid rgba(190,150,255,0.4); background:linear-gradient(180deg, rgba(40,20,64,0.9), rgba(24,14,40,0.9)); }
+  #tarotCard .tg { font-size:48px; line-height:1; }
+  #tarotCard .tn { font-weight:800; color:#e8d0ff; font-size:16px; margin-top:8px; letter-spacing:0.5px; }
+  #tarotCard .tr { font-size:12.5px; color:#cbb6e6; margin-top:8px; font-style:italic; line-height:1.4; }
+  #tarotCard .tsecret { margin-top:10px; font-size:11.5px; color:#ffe08a; letter-spacing:1px; }
+  #tarotReward { font-size:12px; color:#ffd700; margin-bottom:8px; }
+  #tarotDrawBtn { background:#4a2a7a; color:#fff; border:1px solid #7a4ab0; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:700; }
+  #tarotDrawBtn:disabled { opacity:0.5; cursor:default; }
+  .tarotBack { font-size:52px; opacity:0.5; margin:10px 0; }
   .floatPanelHandle {
     display:flex; align-items:center; justify-content:space-between;
     padding:10px 0 8px; font-size:16px; font-weight:700; color:#ffe9c2;
@@ -2192,6 +2203,7 @@
       <button class="menuRow" id="menuCodex">📘 Codex</button>
       <button class="menuRow" id="menuBook">📖 Book of Shadows</button>
       <button class="menuRow" id="menuFamiliar">🐈‍⬛ Familiar</button>
+      <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
@@ -3208,6 +3220,14 @@
   </div>
   <div id="familiarContent"></div>
   <button class="btn" id="familiarCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="tarotModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🔮 Daily Tarot</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="tarotContent"></div>
+  <button class="btn" id="tarotCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <!-- Skills — the class skill tree (🌟 button / K key). Spend level-up points

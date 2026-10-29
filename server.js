@@ -2963,6 +2963,7 @@ app.get('/api/coven', (req, res) => {
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
+const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -13161,6 +13162,29 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
       if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
       else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+
+    // ── Daily tarot draw (divination): one card per UTC day, a reading + a
+    // little gold, and a 1-in-8 whispered secret from the séance lore pool ──
+    if (msg.type === 'tarot_draw') {
+      if (!player.accountKey) { send(ws, { type: 'tarot_result', card: null, message: 'Log into an account to keep a daily reading.' }); return; }
+      const a = accounts[player.accountKey];
+      const today = Math.floor(Date.now() / 86400000);
+      let card, gold = 0, alreadyDrawn = false, secret = null, balance = null;
+      if (a.lastTarotDay === today && a.lastTarotCard) {
+        card = TAROT_CARDS.find((c) => c.key === a.lastTarotCard) || TAROT_CARDS[0];
+        alreadyDrawn = true;
+      } else {
+        card = TAROT_CARDS[Math.floor(Math.random() * TAROT_CARDS.length)];
+        gold = 20;
+        a.lastTarotDay = today; a.lastTarotCard = card.key;
+        const account = ensureBankAccount(player.accountKey);
+        account.balance += gold; balance = account.balance;
+        saveBankAccounts(); saveAccounts();
+        try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
+      }
+      send(ws, { type: 'tarot_result', card: { name: card.name, emoji: card.emoji, reading: card.reading }, gold, alreadyDrawn, secret, balance });
       return;
     }
 
