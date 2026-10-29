@@ -3453,6 +3453,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('attackModal'),    document.querySelector('#attackModal .floatPanelHandle'));
   makeDraggable(document.getElementById('spellbookModal'), document.querySelector('#spellbookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('journalModal'),   document.querySelector('#journalModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6561,6 +6562,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   { const gp = document.getElementById('grPass'); if (gp) gp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuestRegister(); }); }
   { const ge = document.getElementById('grEmail'); if (ge) ge.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuestRegister(); }); }
   on('menuJournal', closeSheetAnd(() => { if (!Modals.isOpen('journalOpen')) openJournal(); }));
+  on('menuBook', closeSheetAnd(() => { if (!Modals.isOpen('bookOpen')) openBookModal(); }));
+  on('bookCloseBtn', closeBookModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9640,6 +9643,79 @@ function altarAttunePreview(ritualId) {
   return { pct: Math.round(bonus * 100), reasons };
 }
 
+// ── Book of Shadows ─────────────────────────────────────────────────────────
+// The witch's working reference: the Wheel of the Year, the Moon's phases and
+// their intentions, the altar correspondences, and the cauldron's brews. A
+// read-only grimoire assembled from the client mirrors (the systems' own data);
+// the live season/phase is highlighted from calendarState.
+const BOOK_SABBATS = [
+  { key: 'imbolc', g: '🌱', n: 'Imbolc', e: 'the First Stirring' },
+  { key: 'ostara', g: '🥚', n: 'Ostara', e: 'the Balance of Spring' },
+  { key: 'beltane', g: '🔥', n: 'Beltane', e: 'the Bright Fire' },
+  { key: 'litha', g: '☀️', n: 'Litha', e: 'the Sun at its Height' },
+  { key: 'lughnasadh', g: '🌾', n: 'Lughnasadh', e: 'the First Harvest' },
+  { key: 'mabon', g: '🍂', n: 'Mabon', e: 'the Second Harvest' },
+  { key: 'samhain', g: '🕯️', n: 'Samhain', e: "the Witches' New Year" },
+  { key: 'yule', g: '❄️', n: 'Yule', e: 'the Longest Night' },
+];
+const BOOK_MOON = [
+  { key: 'new', g: '🌑', n: 'New Moon', i: 'intentions & fresh starts' },
+  { key: 'waxing_crescent', g: '🌒', n: 'Waxing Crescent', i: 'growth & drawing in' },
+  { key: 'first_quarter', g: '🌓', n: 'First Quarter', i: 'decisions & building' },
+  { key: 'waxing_gibbous', g: '🌔', n: 'Waxing Gibbous', i: 'refining & attraction' },
+  { key: 'full', g: '🌕', n: 'Full Moon', i: 'power, charging & divination' },
+  { key: 'waning_gibbous', g: '🌖', n: 'Waning Gibbous', i: 'gratitude & release' },
+  { key: 'last_quarter', g: '🌗', n: 'Last Quarter', i: 'banishing & cleansing' },
+  { key: 'waning_crescent', g: '🌘', n: 'Waning Crescent', i: 'rest & deep divination' },
+];
+const BOOK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderBookModal() {
+  const el = document.getElementById('bookContent');
+  if (!el) return;
+  const curSeason = (calendarState && calendarState.season && calendarState.season.key) || null;
+  const curMoon = (calendarState && calendarState.moon && calendarState.moon.key) || null;
+  const decoEmoji = {}; try { ALTAR_DECOS.forEach((d) => { decoEmoji[d.id] = d.emoji; }); } catch (e) { /* noop */ }
+  const ritualDays = {}; Object.keys(DAY_RITUAL).forEach((d) => { const r = DAY_RITUAL[d]; (ritualDays[r] = ritualDays[r] || []).push(BOOK_DAY_NAMES[d]); });
+  const ritualPhases = {}; Object.keys(MOON_RITUAL).forEach((ph) => { MOON_RITUAL[ph].forEach((r) => { (ritualPhases[r] = ritualPhases[r] || []).push(ph); }); });
+  const phaseName = {}; BOOK_MOON.forEach((m) => { phaseName[m.key] = m.n; });
+  let h = '';
+  h += '<div class="bookSec"><h4>🎡 The Wheel of the Year</h4><div class="bookGrid">';
+  for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${s.g}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span></div>`;
+  h += '</div></div>';
+  h += '<div class="bookSec"><h4>🌙 The Moon</h4><div class="bookGrid">';
+  for (const m of BOOK_MOON) h += `<div class="bookCell${m.key === curMoon ? ' cur' : ''}"><span class="bg">${m.g}</span><b>${esc(m.n)}</b><span class="bi">${esc(m.i)}</span></div>`;
+  h += '</div><div class="bookNote">Charge moon water and work the esbat at the full moon.</div></div>';
+  h += '<div class="bookSec"><h4>🔮 The Altar — Correspondences</h4><table class="bookTable"><tr><th>Blessing</th><th>Symbols</th><th>Day</th><th>Moon</th></tr>';
+  for (const r of RITUALS) {
+    const syms = (RITUAL_DECOS[r.id] || []).map((d) => decoEmoji[d] || '•').join(' ');
+    const days = (ritualDays[r.id] || []).join(', ') || '—';
+    const phs = (ritualPhases[r.id] || []).map((p) => phaseName[p]).join(', ') || 'Full Moon';
+    h += `<tr><td>${r.emoji} ${esc(r.name)}</td><td>${syms}</td><td>${esc(days)}</td><td>${esc(phs)}</td></tr>`;
+  }
+  h += '</table><div class="bookNote">Match the symbols, the day, and the moon to deepen a rite; an offering of moon water deepens it further.</div></div>';
+  h += '<div class="bookSec"><h4>🧪 The Cauldron — Brews</h4><div class="bookBrews">';
+  for (const rec of POTION_RECIPES_CLIENT) {
+    const ing = rec.ingredients.map((i) => { const meta = ITEM_CATALOG[i.id]; return `${i.qty}× ${meta ? meta.name : i.id}`; }).join(' + ');
+    h += `<div class="bookBrew"><b>${rec.icon} ${esc(rec.name)}</b><span class="bi">${esc(ing)}${rec.requiresMoon ? ' · 🌕 full moon' : ''}</span></div>`;
+  }
+  h += '</div></div>';
+  el.innerHTML = h;
+}
+function openBookModal() {
+  const modal = document.getElementById('bookModal');
+  if (!modal) return;
+  renderBookModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 370, 120);
+  Modals.set('bookOpen', true);
+}
+function closeBookModal() {
+  const modal = document.getElementById('bookModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('bookOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -12050,6 +12126,7 @@ function applyCalendarState(cal) {
   calendarState = cal || calendarState;
   renderEventTag();
   renderMoonTag();
+  if (Modals.isOpen('bookOpen')) renderBookModal();
 }
 // The live moon phase pill (HUD, beside the day/night clock). Always on so the
 // phase is readable at a glance — the full moon glows gold (esbat / charge moon
@@ -14649,6 +14726,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('journalOpen') && e.key === 'Escape' && !e.repeat) {
     closeJournal();
+    return;
+  }
+  if (Modals.isOpen('bookOpen') && e.key === 'Escape' && !e.repeat) {
+    closeBookModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
