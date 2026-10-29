@@ -2969,6 +2969,7 @@ const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companion
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
+const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
@@ -4095,6 +4096,24 @@ function teaStateBody(player) {
   const teas = TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, herbs: x.herbs, day: x.day }));
   return { active, teas, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
 }
+// 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
+// (Samhain season), whether today's rite is already kept, the active blessing,
+// the virtues on offer, the offerings the altar accepts, and the name last
+// remembered (private — echoed only to this player).
+function ancestorAltarBody(player) {
+  const key = player && player.accountKey;
+  const acct = key && accounts[key];
+  const veilThin = (() => { try { return seasonWindow(Date.now()).key === 'samhain'; } catch (e) { return false; } })();
+  const b = acct && acct.ancestorBuff;
+  const active = (b && b.until && b.until > Date.now()) ? { id: b.id, stat: b.stat, amount: b.amount, until: b.until } : null;
+  const todayKept = !!(acct && acct.lastAncestorDay === Math.floor(Date.now() / 86400000));
+  const virtues = ANCESTOR_VIRTUES.map((v) => ({ id: v.id, name: v.name, emoji: v.emoji, line: v.line }));
+  const offerName = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;
+  const offerIcon = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].icon) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].icon) || '🕯️';
+  const inv = key ? getInventory(player) : null;
+  const offerings = ANCESTOR_OFFERINGS.map((id) => ({ id, name: offerName(id), icon: offerIcon(id), have: inv ? countItemQty(inv, id) : 0 }));
+  return { veilThin, todayKept, active, virtues, offerings, lastName: (acct && acct.lastAncestorName) || '', hours: ANCESTOR_BLESSING_HOURS, now: Date.now() };
+}
 // Combined skill + gear + (during a delve run) boon contribution — the
 // single source of truth every derived stat (and the client stats panel)
 // reads from. Delve boons speak the same stat vocabulary, so a run's drafted
@@ -4123,7 +4142,15 @@ function pathBuffContrib(player, statKey) {
   const w = pid && WITCH_PATHS[pid];
   return (w && w.stat === statKey) ? (w.amount || 0) : 0;
 }
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey); }
+// 🕯️ An ancestor's blessing (the solitary Samhain rite), in its own slot so it
+// stacks with a tea rather than overwriting it. Timed; set by the dumb supper.
+function ancestorBuffContrib(player, statKey) {
+  const key = player && player.accountKey;
+  const b = key && accounts[key] && accounts[key].ancestorBuff;
+  if (!b || !b.until || b.until <= Date.now()) return 0;
+  return (b.stat === statKey) ? (b.amount || 0) : 0;
+}
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -13304,6 +13331,48 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
       send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${onDay ? ' — steeped on its day, it holds longer' : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
+      return;
+    }
+
+    // ── The Ancestor Altar — the solitary Samhain rite (dumb supper) ──
+    if (msg.type === 'ancestor_state') {
+      if (!player.accountKey) {
+        send(ws, { type: 'ancestor_state', veilThin: false, todayKept: false, active: null,
+          virtues: ANCESTOR_VIRTUES.map((v) => ({ id: v.id, name: v.name, emoji: v.emoji, line: v.line })),
+          offerings: [], lastName: '', hours: ANCESTOR_BLESSING_HOURS, now: Date.now(), needAccount: true });
+        return;
+      }
+      send(ws, { type: 'ancestor_state', ...ancestorAltarBody(player) });
+      return;
+    }
+    if (msg.type === 'ancestor_offering') {
+      if (!player.accountKey) { send(ws, { type: 'ancestor_error', message: 'Log into an account to keep a forebear\'s blessing.' }); return; }
+      let isSamhain = false; try { isSamhain = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+      if (!isSamhain) { send(ws, { type: 'ancestor_error', message: 'The veil is not thin enough. The altar wakes only at Samhain.' }); return; }
+      const today = Math.floor(Date.now() / 86400000);
+      if (accounts[player.accountKey].lastAncestorDay === today) { send(ws, { type: 'ancestor_error', message: 'You have already set a place today. Keep the rite again tomorrow.' }); return; }
+      const virtue = ANCESTOR_VIRTUES.find((v) => v.id === String(msg.virtueId || ''));
+      if (!virtue) { send(ws, { type: 'ancestor_error', message: 'Name the virtue you carry forward.' }); return; }
+      const offerId = String(msg.offeringId || '');
+      if (!ANCESTOR_OFFERINGS.includes(offerId)) { send(ws, { type: 'ancestor_error', message: 'The altar does not accept that.' }); return; }
+      const inv = getInventory(player);
+      if (countItemQty(inv, offerId) < 1) {
+        const nm = (ITEM_CATALOG[offerId] && ITEM_CATALOG[offerId].name) || (PLANT_CATALOG[offerId] && PLANT_CATALOG[offerId].name) || offerId;
+        send(ws, { type: 'ancestor_error', message: `You have no ${nm} to lay down.` }); return;
+      }
+      removeItemFromAccount(inv, offerId, 1);
+      const until = Date.now() + Math.round(ANCESTOR_BLESSING_HOURS * 3600000);
+      accounts[player.accountKey].ancestorBuff = { stat: virtue.stat, amount: virtue.amount, until, id: virtue.id };
+      accounts[player.accountKey].lastAncestorDay = today;
+      const nameRaw = String(msg.rememberName || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40);
+      if (nameRaw) accounts[player.accountKey].lastAncestorName = nameRaw;
+      const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
+      saveAccounts(); saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'ancestor_state', ...ancestorAltarBody(player) });
+      const forWhom = nameRaw ? ` for ${nameRaw}` : '';
+      send(ws, { type: 'toast', message: `${virtue.emoji} You set a place${forWhom} and keep the silence. ${virtue.line} (${ANCESTOR_BLESSING_HOURS}h)` });
       return;
     }
 

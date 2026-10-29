@@ -2648,6 +2648,8 @@ function onWsMessage(ev) {
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
+  if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
+  if (msg.type === 'ancestor_error') { setUnlockToast(msg.message || 'The altar is silent.'); return; }
   if (msg.type === 'tea_error') { setUnlockToast(`🍵 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
     _lastTarotResult = msg;
@@ -3481,6 +3483,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('pathModal'),       document.querySelector('#pathModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('ancestorModal'),   document.querySelector('#ancestorModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6600,6 +6603,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('menuKitchen', closeSheetAnd(() => { if (!Modals.isOpen('kitchenOpen')) openKitchenModal(); }));
   on('kitchenCloseBtn', closeKitchenModal);
   on('menuPath', closeSheetAnd(() => { if (!Modals.isOpen('pathOpen')) openPathModal(); }));
+  on('menuAncestor', closeSheetAnd(() => { if (!Modals.isOpen('ancestorOpen')) openAncestorModal(); }));
+  on('ancestorCloseBtn', closeAncestorModal);
   on('pathCloseBtn', closePathModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
@@ -9961,6 +9966,79 @@ function closeKitchenModal() {
   Modals.set('kitchenOpen', false);
 }
 
+// ── The Ancestor Altar — the solitary Samhain rite (dumb supper) ──
+let lastAncestorState = null;
+let ancestorPick = { offeringId: null, virtueId: null };
+function renderAncestorModal() {
+  const el = document.getElementById('ancestorContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastAncestorState;
+  if (!st) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">The candle gutters…</div>'; send({ type: 'ancestor_state' }); return; }
+  if (st.needAccount) { el.innerHTML = '<div class="ancClosed">Log into an account to keep a forebear’s blessing across your characters.</div>'; return; }
+  let h = '';
+  // A live blessing, whatever the season — it was earned and still holds.
+  if (st.active && st.active.until > Date.now()) {
+    const v = (st.virtues || []).find((x) => x.id === st.active.id);
+    const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
+    const left = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+    h += `<div class="ancActive">${v ? v.emoji : '🕯️'} ${v ? v.name + '’s' : 'A forebear’s'} blessing watches over you${st.lastName ? ` — ${esc(st.lastName)} remembered` : ''}. ${left} left.</div>`;
+  }
+  if (!st.veilThin) {
+    h += '<div class="ancClosed">The veil is not yet thin. The Ancestor Altar wakes only at Samhain, when the dead walk closer to the torchlight.</div>';
+    el.innerHTML = h;
+    return;
+  }
+  if (st.todayKept) {
+    h += '<div class="ancClosed">You have set a place today, and kept the silence. Return tomorrow to keep the rite again.</div>';
+    el.innerHTML = h;
+    return;
+  }
+  h += '<div class="ancHint">Set a place at the table for your dead. Lay down an offering in silence — the dumb supper — name a forebear and the virtue you carry forward, and receive their blessing (lasts ' + (st.hours || 6) + 'h). Once a day.</div>';
+  h += `<input class="ancName" id="ancNameIn" maxlength="40" placeholder="a name to remember (optional)" value="${esc(st.lastName || '')}">`;
+  h += '<div class="ancLabel">The offering</div><div class="ancOfferRow">';
+  for (const o of (st.offerings || [])) {
+    const out = (o.have || 0) < 1;
+    const cls = 'ancOffer' + (out ? ' out' : '') + (ancestorPick.offeringId === o.id ? ' pick' : '');
+    h += `<div class="${cls}" ${out ? '' : `data-offer="${o.id}"`}>${o.icon || '🕯️'} ${o.name}<span class="ao0">×${o.have || 0}</span></div>`;
+  }
+  h += '</div>';
+  h += '<div class="ancLabel">The virtue you carry forward</div>';
+  for (const v of (st.virtues || [])) {
+    const cls = 'ancVirtue' + (ancestorPick.virtueId === v.id ? ' pick' : '');
+    h += `<div class="${cls}" data-virtue="${v.id}"><div class="avh"><span class="ave">${v.emoji}</span><span class="avn">${v.name}</span></div><div class="avl">${esc(v.line || '')}</div></div>`;
+  }
+  const ready = !!ancestorPick.offeringId && !!ancestorPick.virtueId;
+  h += `<button id="ancSetBtn"${ready ? '' : ' disabled'}>🕯️ Set a place &amp; keep the silence</button>`;
+  el.innerHTML = h;
+  // Preserve a half-typed name across re-renders triggered by selection clicks.
+  const nameIn = document.getElementById('ancNameIn');
+  if (nameIn) nameIn.addEventListener('input', () => { if (lastAncestorState) lastAncestorState.lastName = nameIn.value; });
+  el.querySelectorAll('.ancOffer[data-offer]').forEach((b) => b.addEventListener('click', () => { ancestorPick.offeringId = b.getAttribute('data-offer'); renderAncestorModal(); }));
+  el.querySelectorAll('.ancVirtue[data-virtue]').forEach((b) => b.addEventListener('click', () => { ancestorPick.virtueId = b.getAttribute('data-virtue'); renderAncestorModal(); }));
+  const setBtn = document.getElementById('ancSetBtn');
+  if (setBtn && ready) setBtn.addEventListener('click', () => {
+    const nm = (document.getElementById('ancNameIn') || {}).value || '';
+    send({ type: 'ancestor_offering', offeringId: ancestorPick.offeringId, virtueId: ancestorPick.virtueId, rememberName: nm });
+    ancestorPick = { offeringId: null, virtueId: null };
+  });
+}
+function openAncestorModal() {
+  const modal = document.getElementById('ancestorModal');
+  if (!modal) return;
+  ancestorPick = { offeringId: null, virtueId: null };
+  renderAncestorModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('ancestorOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ancestor_state' }));
+}
+function closeAncestorModal() {
+  const modal = document.getElementById('ancestorModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('ancestorOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -12442,6 +12520,10 @@ function renderStatusEffects() {
     const t = (lastTeaState.teas || []).find((x) => x.id === lastTeaState.active.id);
     fx.push({ icon: t ? t.emoji : '🍵', label: t ? t.name : 'Tea', cls: 'buff', until: lastTeaState.active.until });
   }
+  if (lastAncestorState && lastAncestorState.active && lastAncestorState.active.until > now) {
+    const v = (lastAncestorState.virtues || []).find((x) => x.id === lastAncestorState.active.id);
+    fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', cls: 'buff', until: lastAncestorState.active.until });
+  }
   if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', cls: 'ward', until: myWardUntil });
   bar.innerHTML = fx.map((f) => {
     const t = fxTimeLabel(f.until - now);
@@ -12482,7 +12564,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); }, 20000);
 setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 (function () {
   const el = document.getElementById('eventTag');
@@ -15056,6 +15138,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('pathOpen') && e.key === 'Escape' && !e.repeat) {
     closePathModal();
+    return;
+  }
+  if (Modals.isOpen('ancestorOpen') && e.key === 'Escape' && !e.repeat) {
+    closeAncestorModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
