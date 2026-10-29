@@ -635,12 +635,33 @@
        never have buttons drawn over it) but below overlay modals (20),
        so e.g. the loadout editor still paints above the Attacks panel. */
     position:fixed; z-index:19; width:300px; max-width:90vw;
-    background:linear-gradient(160deg, rgba(28,20,14,0.97), rgba(16,12,8,0.98));
+    background:linear-gradient(160deg, rgba(34,25,17,0.98), rgba(20,15,10,0.985));
     border:2px solid rgba(230,190,120,0.35); border-radius:12px;
     padding:0 14px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.55);
-    max-height:78vh; overflow-y:auto;
+    max-height:78vh; overflow-y:auto; color:#f0e6d2;
   }
+  /* Readable base for any panel body/description text that doesn't set its own. */
+  .floatPanel p, .floatPanel .gardenHint, .floatPanel .famRow .fb { color:#e5d8bf; }
   .floatPanel.hidden { display:none !important; }
+  /* Centered rectangular menu format (desktop): the craft panels open centered,
+     wider, and lay their options out in two columns so they stop scrolling.
+     Touch mode keeps the existing fullscreen treatment below. */
+  body:not(.touchMode) #bookModal, body:not(.touchMode) #familiarModal,
+  body:not(.touchMode) #guiseModal, body:not(.touchMode) #pathModal,
+  body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal {
+    left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
+    transform:translate(-50%, -50%) !important; width:min(660px, 94vw); max-height:88vh;
+  }
+  body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
+  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal {
+    left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
+    transform:translate(-50%, -50%) !important; width:min(460px, 94vw); max-height:88vh;
+  }
+  /* Options flow into two columns inside the wide panels (the render functions
+     wrap their repeating rows in .menuCols; intros/actions stay full width). */
+  .menuCols { display:grid; grid-template-columns:1fr 1fr; gap:9px 11px; align-items:start; margin-top:4px; }
+  .menuCols > * { margin-top:0 !important; margin-bottom:0 !important; }
+  body.touchMode .menuCols { grid-template-columns:1fr; }
   /* Book of Shadows — the witch's working reference (moon, wheel, altar, brews) */
   #bookModal { width:min(480px, 94vw); max-height:84vh; overflow-y:auto; }
   #bookContent { font-size:12.5px; color:#e8dcc8; }
@@ -651,14 +672,14 @@
   .bookCell.cur { border-color:rgba(255,220,130,0.6); background:rgba(255,220,130,0.1); box-shadow:0 0 8px rgba(255,220,130,0.2); }
   .bookCell .bg { font-size:20px; }
   .bookCell b { font-size:11.5px; color:#fff; }
-  .bookCell .bi { font-size:10px; opacity:0.72; }
+  .bookCell .bi { font-size:10px; opacity:0.9; color:#e0d2b8; }
   .bookTable { width:100%; border-collapse:collapse; }
   .bookTable th, .bookTable td { text-align:left; padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:11.5px; }
-  .bookTable th { color:#cba6ff; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; }
-  .bookNote { font-size:10.5px; opacity:0.65; margin-top:6px; font-style:italic; }
+  .bookTable th { color:#d9b86a; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; }
+  .bookNote { font-size:10.5px; opacity:0.85; margin-top:6px; font-style:italic; }
   .bookBrews { display:flex; flex-direction:column; gap:5px; }
   .bookBrew { display:flex; justify-content:space-between; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border-radius:6px; padding:5px 8px; }
-  .bookBrew .bi { font-size:10.5px; opacity:0.72; text-align:right; }
+  .bookBrew .bi { font-size:10.5px; opacity:0.9; text-align:right; }
   body.touchMode #bookModal { width:94vw; }
   /* Familiar picker */
   #familiarModal, #pathModal, #guiseModal { width:min(360px, 92vw); max-height:84vh; overflow-y:auto; }
@@ -681,21 +702,21 @@
   .famRow.cur { border-color:rgba(255,220,130,0.55); background:rgba(255,220,130,0.1); }
   .famRow .fe { font-size:24px; width:30px; text-align:center; }
   .famRow .fn { font-weight:700; color:#fff; font-size:13px; }
-  .famRow .fb { font-size:11px; opacity:0.75; }
+  .famRow .fb { font-size:11px; opacity:0.92; }
   /* Daily Tarot */
   #tarotModal { width:min(340px, 92vw); text-align:center; }
-  #tarotCard { margin:6px auto 10px; padding:16px 12px; border-radius:14px; border:1px solid rgba(190,150,255,0.4); background:linear-gradient(180deg, rgba(40,20,64,0.9), rgba(24,14,40,0.9)); }
+  #tarotCard { margin:6px auto 10px; padding:16px 12px; border-radius:14px; border:1px solid rgba(230,190,120,0.42); background:linear-gradient(180deg, rgba(46,35,22,0.92), rgba(28,20,12,0.94)); }
   #tarotCard .tg { font-size:48px; line-height:1; }
-  #tarotCard .tn { font-weight:800; color:#e8d0ff; font-size:16px; margin-top:8px; letter-spacing:0.5px; }
-  #tarotCard .tr { font-size:12.5px; color:#cbb6e6; margin-top:8px; font-style:italic; line-height:1.4; }
+  #tarotCard .tn { font-weight:800; color:#ffe9c2; font-size:16px; margin-top:8px; letter-spacing:0.5px; }
+  #tarotCard .tr { font-size:12.5px; color:#e8d9bf; margin-top:8px; font-style:italic; line-height:1.4; }
   #tarotCard .tsecret { margin-top:10px; font-size:11.5px; color:#ffe08a; letter-spacing:1px; }
   #tarotReward { font-size:12px; color:#ffd700; margin-bottom:8px; }
-  #tarotDrawBtn { background:#4a2a7a; color:#fff; border:1px solid #7a4ab0; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:700; }
+  #tarotDrawBtn { background:linear-gradient(180deg,#6a4a22,#4a3016); color:#ffe9c2; border:1px solid #8a5a2e; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:800; }
   #tarotDrawBtn:disabled { opacity:0.5; cursor:default; }
   .tarotBack { font-size:52px; opacity:0.5; margin:10px 0; }
   /* Garden */
   #gardenModal { width:min(380px, 92vw); max-height:84vh; overflow-y:auto; }
-  .gardenHint { font-size:11.5px; opacity:0.78; margin-bottom:8px; line-height:1.4; }
+  .gardenHint { font-size:11.5px; opacity:0.92; margin-bottom:8px; line-height:1.4; color:#dcccb0; }
   .gardenPlot { border:1px solid rgba(120,200,120,0.25); background:rgba(26,44,26,0.4); border-radius:10px; padding:10px; margin:7px 0; }
   .gardenPlot .gpTitle { font-weight:700; color:#cde6cd; font-size:13px; margin-bottom:6px; }
   .gardenPlant { display:flex; flex-wrap:wrap; gap:6px; }
@@ -745,8 +766,8 @@
   #relBurnBtn { width:100%; margin-top:2px; background:linear-gradient(180deg,#6a4a22,#4a3016); color:#ffe9c2; border:1px solid #8a5a2e; padding:10px 14px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:800; letter-spacing:0.01em; }
   #relBurnBtn:hover { background:linear-gradient(180deg,#7a5628,#56381a); }
   .relLast { font-size:11px; color:#c9b8a8; opacity:0.85; margin-top:9px; font-style:italic; }
-  .teaRow .trb { font-size:11.5px; opacity:0.8; margin:5px 0; }
-  .teaRow .tri { font-size:11px; opacity:0.7; }
+  .teaRow .trb { font-size:11.5px; opacity:0.92; margin:5px 0; }
+  .teaRow .tri { font-size:11px; opacity:0.9; }
   .teaBrewBtn { margin-top:6px; background:#5a3a1e; color:#ffe9c2; border:1px solid #8a5a2e; padding:5px 14px; border-radius:7px; cursor:pointer; font-size:12px; }
   .teaBrewBtn:disabled { opacity:0.4; cursor:default; }
   .floatPanelHandle {
@@ -2326,7 +2347,6 @@
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
 
       <div class="menuSection">Settings</div>
-      <button class="menuRow" id="menuMusic">🎶 Music: Off</button>
       <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
       <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>

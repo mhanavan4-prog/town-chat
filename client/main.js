@@ -9786,12 +9786,12 @@ function renderFamiliarModal() {
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = myFamiliar || (me && players[me.id] && players[me.id].familiar) || null;
-  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div>';
+  let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div><div class="menuCols">';
   for (const id of ['cat', 'raven', 'toad', 'hare']) {
     const f = FAMILIARS_CLIENT[id];
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div></span></div>`;
   }
-  h += `<div class="famRow${!cur ? ' cur' : ''}" data-fid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No familiar${!cur ? ' ✓' : ''}</div><div class="fb">Walk alone.</div></span></div>`;
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-fid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No familiar${!cur ? ' ✓' : ''}</div><div class="fb">Walk alone.</div></span></div></div>`;
   el.innerHTML = h;
   el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
     send({ type: 'choose_familiar', familiarId: row.getAttribute('data-fid') || null });
@@ -9826,12 +9826,12 @@ function renderGuiseModal() {
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = myGuise || (me && players[me.id] && players[me.id].guise) || null;
-  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div>';
+  let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
   for (const id of ['skull', 'pumpkin', 'ghost', 'raven', 'witch', 'stag']) {
     const g = GUISES_CLIENT[id];
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
   }
-  h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div>`;
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div></div>`;
   el.innerHTML = h;
   el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
     send({ type: 'choose_guise', guiseId: row.getAttribute('data-gid') || null });
@@ -9919,12 +9919,12 @@ function renderPathModal() {
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = myWitchPath || null;
-  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Walk a tradition — a small gift, and a sense of which craft is yours. Change it any time.</div>';
+  let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Walk a tradition — a small gift, and a sense of which craft is yours. Change it any time.</div><div class="menuCols">';
   for (const id of ['green', 'lunar', 'hedge', 'kitchen', 'sea', 'hearth']) {
     const p = WITCH_PATHS_CLIENT[id];
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-pid="${id}"><span class="fe">${p.emoji}</span><span style="flex:1"><div class="fn">${p.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${p.blurb}</div></span></div>`;
   }
-  h += `<div class="famRow${!cur ? ' cur' : ''}" data-pid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No path${!cur ? ' ✓' : ''}</div><div class="fb">Walk your own way.</div></span></div>`;
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-pid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No path${!cur ? ' ✓' : ''}</div><div class="fb">Walk your own way.</div></span></div></div>`;
   el.innerHTML = h;
   el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => send({ type: 'choose_path', pathId: row.getAttribute('data-pid') || null })));
 }
@@ -9996,6 +9996,7 @@ function renderGardenModal() {
   const mt = gardenMoonTier();
   const now = Date.now();
   let h = `<div class="gardenHint">Sow a herb and it grows into more. Planted under ${mt.label} now, a bed yields <b>${mt.yield}×</b> — plant as the moon fills for a richer crop.</div>`;
+  h += '<div class="menuCols">';
   (st.plots || []).forEach((p, i) => {
     h += '<div class="gardenPlot">';
     if (!p) {
@@ -10013,6 +10014,7 @@ function renderGardenModal() {
     }
     h += '</div>';
   });
+  h += '</div>';
   el.innerHTML = h;
   el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb') })); });
   el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest') })));
@@ -10048,6 +10050,7 @@ function renderKitchenModal() {
     h += `<div class="teaActive">${t ? t.emoji : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
   }
   h += `<div class="gardenHint">Brew a herb into a tea and sip it on the spot. On a tea's planetary day it steeps longer (×${st.dayBonus || 1.5}).</div>`;
+  h += '<div class="menuCols">';
   for (const tea of st.teas) {
     const onDay = st.today === tea.day;
     const ings = (tea.herbs || []).map((ing) => { const meta = ITEM_CATALOG[ing.id]; const have = gardenHerbCount(ing.id); return { text: `${meta ? meta.icon : '🌿'} ${ing.qty}× ${meta ? meta.name : ing.id}`, ok: have >= ing.qty }; });
@@ -10056,6 +10059,7 @@ function renderKitchenModal() {
     h += `<div class="trb">${tea.blurb}</div><div class="tri">${ings.map((i) => i.text).join(' + ')}</div>`;
     h += `<button class="teaBrewBtn" data-tea="${tea.id}"${canBrew ? '' : ' disabled'}>Brew &amp; sip</button></div>`;
   }
+  h += '</div>';
   el.innerHTML = h;
   el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
 }
