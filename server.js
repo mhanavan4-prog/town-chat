@@ -9459,6 +9459,9 @@ wss.on('connection', (ws, req) => {
         goldAuctionFee: AUCTION_GOLD_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
         itemCatalog: ITEM_CATALOG,
+        // 🎃 Samhain guise catalog (name/emoji/blurb) — the one authoritative
+        // copy, so the Disguise menu renders from it with no hand-synced list.
+        guises: GUISES,
         // The Artificer's Workshop crafting tree (Session N) — authoritative
         // recipe list so the client renders the tree with no hand-synced copy.
         craftRecipes: CRAFT_RECIPES,
