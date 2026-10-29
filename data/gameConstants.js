@@ -53,6 +53,16 @@ const POTION_RECIPES = [
   { id: 'witchwood_balm', result: 'witchwood_balm',
     ingredients: [{ id: 'witchwood', qty: 2 }, { id: 'hex_acorn', qty: 1 }],
     desc: '2× Witchwood + Hex Acorn → Witchwood Balm (cleanses all effects)' },
+  // --- Moon water (Tier 3.5): the full-moon ritual. `requiresMoon:'full'` gates
+  // the brew to a full-moon (or blood-moon) night; the handler checks the live
+  // phase. Glass vials come from the apothecary; moon water then brews the
+  // strongest heal in the game, the Moonwell Draught. ---
+  { id: 'moon_water', result: 'moon_water', requiresMoon: 'full',
+    ingredients: [{ id: 'glass_vial', qty: 1 }],
+    desc: 'Glass Vial → Moon Water — only under the full moon' },
+  { id: 'moonwell_draught', result: 'moonwell_draught',
+    ingredients: [{ id: 'moon_water', qty: 1 }, { id: 'healing_herb', qty: 2 }],
+    desc: 'Moon Water + 2× Healing Herb → Moonwell Draught (heals 120 HP)' },
 ];
 
 const LOOT_TABLES = {

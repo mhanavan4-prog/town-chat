@@ -7198,7 +7198,8 @@ const NPC_SHOPS = {
   ]},
   npc_finn: { name: 'Herbalist Finn', items: [
     { id: 'healing_potion', price: 15 }, { id: 'magic_scroll', price: 25 },
-    { id: 'regen_root', price: 20 }, { id: 'cleansing_clover', price: 18 }
+    { id: 'regen_root', price: 20 }, { id: 'cleansing_clover', price: 18 },
+    { id: 'glass_vial', price: 6 }
   ]},
   npc_dex: { name: 'Hunter Dex', items: [
     { id: 'iron_sword', price: 50 }, { id: 'beast_crown', price: 35 },
@@ -7219,7 +7220,8 @@ const NPC_SHOPS = {
   ]},
   npc_apothecary: { name: 'Apothecary Vex', items: [
     { id: 'healing_potion', price: 14 }, { id: 'magic_scroll', price: 22 },
-    { id: 'regen_root', price: 18 }, { id: 'berries', price: 5 }
+    { id: 'regen_root', price: 18 }, { id: 'berries', price: 5 },
+    { id: 'glass_vial', price: 6 }
   ]},
   npc_tailor: { name: 'Tailor Ines', items: [
     { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
@@ -13226,6 +13228,12 @@ wss.on('connection', (ws, req) => {
       const recipeId = String(msg.recipeId || '');
       const recipe = POTION_RECIPES.find(r => r.id === recipeId);
       if (!recipe) { send(ws, { type: 'witch_craft_error', message: 'Unknown recipe.' }); return; }
+      // 🌕 Moon-gated recipes (moon water) only brew while the moon is full — the
+      // live phase, with a blood moon counting as a full moon (chargesMoonWater).
+      if (recipe.requiresMoon === 'full' && !moonPhaseWindow(Date.now()).chargesMoonWater) {
+        send(ws, { type: 'witch_craft_error', message: 'The moon must be full to draw moon water. Come back under a full moon.' });
+        return;
+      }
       const inv = getInventory(player);
       for (const ing of recipe.ingredients) {
         if (countItemQty(inv, ing.id) < ing.qty) {

@@ -260,6 +260,8 @@ const PLANT_CATALOG = {
   fernstep_philtre:       { name: 'Fernstep Philtre',       icon: '🌀',  effect: 'status', statusType: 'speedboost', durationMs: 45000 },
   bramble_poultice:       { name: 'Bramble Poultice',       icon: '💚',  effect: 'heal',   amount: 50 },
   witchwood_balm:         { name: 'Witchwood Balm',         icon: '✨',  effect: 'cleanse' },
+  // --- Moon-water brew (Tier 3.5): drawn only under the full moon; the strongest heal ---
+  moonwell_draught:       { name: 'Moonwell Draught',       icon: '💙',  effect: 'heal',   amount: 120 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

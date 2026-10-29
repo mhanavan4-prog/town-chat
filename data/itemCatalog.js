@@ -22,6 +22,12 @@ module.exports = {
   holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon' },
   bloodmoon_shard:   { name: 'Bloodmoon Shard',   icon: '🩸', slot: null },
   bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head' },
+  // ---- Witchcraft reagents (Tier 3.5) ----
+  // An empty vial (bought from an apothecary) and the moon water it becomes
+  // when filled and charged under the full moon at Hazel's cauldron. Moon water
+  // is a potent brewing reagent and a sellable good gathered on full-moon nights.
+  glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null },
+  moon_water:     { name: 'Moon Water',     icon: '💧', slot: null },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
