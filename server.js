@@ -3237,8 +3237,24 @@ function inventoryStatePayload(player) {
     // Whether the 💽 Hard Drive tab is usable — true once bound to the account
     // (item consumed) or while the un-opened item is still carried. Lets the
     // client keep the tab live after the item dissolves.
-    hardDriveOwned: hasHardDriveAccess(player)
+    hardDriveOwned: hasHardDriveAccess(player),
+    // 🗡️ Durability: the edge on each worn high-tier item, the total repair
+    // cost (full-moon discounted), and whether anything is fully dulled.
+    gearEdge: durabilityPayload(player),
+    repairCost: repairCostFor(player),
+    gearDulled: EQUIP_SLOTS.some((s) => { const id = inv[invEquipField(s)]; return isHighTierItem(id) && gearEdgeOf(player.accountKey, id) <= 0; })
   };
+}
+// Per-equipped-item edge (high-tier only) for the client durability display.
+function durabilityPayload(player) {
+  const key = player && player.accountKey;
+  const inv = getInventory(player);
+  const out = {};
+  for (const slot of EQUIP_SLOTS) {
+    const id = inv[invEquipField(slot)];
+    if (isHighTierItem(id)) out[id] = gearEdgeOf(key, id);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -3843,6 +3859,10 @@ function noteDelveDepth(player, depth) {
 function grantXP(player, amount) {
   if (amount <= 0) return;
   const now = Date.now();
+  // 🗡️ Gear wears as you adventure — a touch of edge off every worn high-tier
+  // item each reward event (gentle; ~200 to dull, and it only dulls, never
+  // breaks). Guests keep no edge.
+  decayGear(player);
   if (player.activeStatus && player.activeStatus.type === 'wolfpact' && player.activeStatus.expiresAt > now) {
     amount *= 2;
   }
@@ -3976,14 +3996,62 @@ function skillStatContrib(player, statKey) {
   return (SKILL_STAT_PER_RANK[statKey] || 0) * skillEffectRank(player, eff);
 }
 // Gear-only contribution: sum every equipped item's EQUIP_STATS[statKey].
+// ── Gear durability (Tier 3.5): the gentle version ──────────────────────────
+// Only high-tier gear (legendaries, crafted/Starforged, the Bloodmoon Circlet)
+// carries an edge; starter and common gear never dulls. Edge runs 0..DURA_MAX,
+// decays slowly as you adventure, and NEVER breaks or is lost — at 0 the item
+// is merely "dulled" (its stats drop to DURA_DULL_FACTOR until repaired). Edge
+// lives per itemId on the account (so it survives equip/unequip and can't be
+// reset by swapping), and repair is a cheap gold sink — cheaper under a full
+// moon (a blade honed by moonlight holds its edge).
+const DURA_MAX = 100;
+const DURA_DECAY = 0.5;          // per reward event (grantXP); ~200 to dull
+const DURA_DULL_FACTOR = 0.8;    // stat multiplier while fully dulled
+const DURA_REPAIR_PER_POINT = 1; // gold per edge point restored
+function isHighTierItem(itemId) { return !!(itemId && (LEGENDARY_CATALOG[itemId] || CRAFT_EQUIP[itemId] || itemId === 'bloodmoon_circlet')); }
+function gearEdgeMap(key) { const a = key && accounts[key]; if (!a) return null; if (!a.gearEdge) a.gearEdge = {}; return a.gearEdge; }
+function gearEdgeOf(key, itemId) {
+  if (!isHighTierItem(itemId)) return DURA_MAX; // common gear is always sharp
+  const m = gearEdgeMap(key); if (!m) return DURA_MAX;
+  return (m[itemId] != null) ? m[itemId] : DURA_MAX;
+}
+function durabilityFactor(key, itemId) { return (isHighTierItem(itemId) && gearEdgeOf(key, itemId) <= 0) ? DURA_DULL_FACTOR : 1; }
+
 function gearStatContrib(player, statKey) {
   let sum = 0;
+  const key = player && player.accountKey;
   for (const slot of EQUIP_SLOTS) {
     const itemId = player[invEquipField(slot)];
     const st = itemId && EQUIP_STATS[itemId];
-    if (st && st[statKey]) sum += st[statKey];
+    if (st && st[statKey]) sum += st[statKey] * durabilityFactor(key, itemId);
   }
   return sum;
+}
+// Wear every equipped high-tier item a touch as you adventure (called from
+// grantXP). Account-holders only; guests keep no edge.
+function decayGear(player) {
+  const key = player && player.accountKey;
+  const m = gearEdgeMap(key); if (!m) return;
+  for (const slot of EQUIP_SLOTS) {
+    const itemId = player[invEquipField(slot)];
+    if (!isHighTierItem(itemId)) continue;
+    const cur = (m[itemId] != null) ? m[itemId] : DURA_MAX;
+    m[itemId] = Math.max(0, Math.round((cur - DURA_DECAY) * 10) / 10);
+  }
+}
+// Gold to make every worn high-tier item sharp again (full-moon discount).
+function repairCostFor(player) {
+  const key = player && player.accountKey;
+  if (!key) return 0;
+  let pts = 0;
+  for (const slot of EQUIP_SLOTS) {
+    const itemId = player[invEquipField(slot)];
+    if (!isHighTierItem(itemId)) continue;
+    pts += Math.max(0, DURA_MAX - gearEdgeOf(key, itemId));
+  }
+  let cost = pts * DURA_REPAIR_PER_POINT;
+  try { if (moonPhaseWindow(Date.now()).chargesMoonWater) cost = Math.round(cost * 0.8); } catch (e) { /* noop */ }
+  return Math.round(cost);
 }
 // Combined skill + gear + (during a delve run) boon contribution — the
 // single source of truth every derived stat (and the client stats panel)
@@ -13093,6 +13161,23 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
       if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
       else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+
+    // ── Repair worn gear (gold sink; cheaper under a full moon) ──
+    if (msg.type === 'repair_gear') {
+      if (!player.accountKey) { send(ws, { type: 'shop_error', message: 'Log into an account to repair gear.' }); return; }
+      const cost = repairCostFor(player);
+      if (cost <= 0) { send(ws, { type: 'toast', message: 'Your gear holds its edge — nothing to repair.' }); return; }
+      const account = ensureBankAccount(player.accountKey);
+      if (account.balance < cost) { send(ws, { type: 'shop_error', message: `Repairing costs ${cost} gold, you have ${account.balance}.` }); return; }
+      account.balance -= cost;
+      const m = gearEdgeMap(player.accountKey);
+      for (const slot of EQUIP_SLOTS) { const id = player[invEquipField(slot)]; if (isHighTierItem(id)) m[id] = DURA_MAX; }
+      saveBankAccounts(); saveAccounts();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'toast', message: `🔧 Your gear is honed sharp again — ${cost} gold.` });
       return;
     }
 

@@ -97,6 +97,32 @@ if (driveBtn) driveBtn.addEventListener('click', () => {
   showInvTab('invHardDriveView');
 });
 
+// 🔧 Repair worn high-tier gear (gold sink; the server computes the cost,
+// cheaper under a full moon).
+const gearRepairBtn = document.getElementById('gearRepairBtn');
+if (gearRepairBtn) gearRepairBtn.addEventListener('click', () => {
+  if (getWs() && getWs().readyState === WebSocket.OPEN) getWs().send(JSON.stringify({ type: 'repair_gear' }));
+});
+function updateGearRepairLine() {
+  const line = document.getElementById('gearRepairLine');
+  const txt = document.getElementById('gearRepairText');
+  const btn = document.getElementById('gearRepairBtn');
+  if (!line || !txt) return;
+  const st = getLastInventoryState() || {};
+  const tracked = Object.keys(st.gearEdge || {}).length;
+  const cost = st.repairCost || 0;
+  if (!tracked || cost <= 0) { line.classList.add('hidden'); return; } // no high-tier worn, or all sharp
+  line.classList.remove('hidden');
+  if (st.gearDulled) {
+    line.style.background = 'rgba(230,120,60,0.1)'; line.style.border = '1px solid rgba(230,120,60,0.4)';
+    txt.innerHTML = '⚠️ <b>Dulled gear</b> — worn edges are dragging your stats down.';
+  } else {
+    line.style.background = 'rgba(255,255,255,0.03)'; line.style.border = '1px solid rgba(255,255,255,0.08)';
+    txt.textContent = '🗡️ Your gear is wearing — hone it to keep its edge.';
+  }
+  if (btn) btn.textContent = `🔧 Repair · ${cost}g`;
+}
+
 const useDungeonTokenBtn = document.getElementById('useDungeonTokenBtn');
 if (useDungeonTokenBtn) {
   useDungeonTokenBtn.addEventListener('click', () => {
@@ -121,6 +147,7 @@ function renderInventoryItemsPanel() {
   renderEquipSlot('equipChestSlot',  getLastInventoryState().equippedChest,  'chest');
   renderEquipSlot('equipFeetSlot',   getLastInventoryState().equippedFeet,   'feet');
   renderEquipSlot('equipRingSlot',   getLastInventoryState().equippedRing,   'ring');
+  updateGearRepairLine();
 
   const grid = document.getElementById('invSlotsGrid');
   if (!grid) return;

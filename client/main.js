@@ -2212,7 +2212,11 @@ function onWsMessage(ev) {
       equippedRing:   msg.equippedRing   || null,
       // Access flag for the 💽 tab — must be carried through or the tab reads
       // "you don't have one" once the bound drive's item has dissolved.
-      hardDriveOwned: !!msg.hardDriveOwned
+      hardDriveOwned: !!msg.hardDriveOwned,
+      // 🗡️ Durability: per-item edge, total repair cost, any fully-dulled gear.
+      gearEdge: msg.gearEdge || {},
+      repairCost: msg.repairCost || 0,
+      gearDulled: !!msg.gearDulled
     };
     renderInventoryItemsPanel();
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
