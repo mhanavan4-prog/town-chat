@@ -188,6 +188,36 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
         parent.add(r.group); r.parent = parent;
       }
     }
+    syncHeadwear(players, visuals);
+  }
+
+  // A guise is a head/headwear replacement, so while one is worn the player's
+  // own hat/helmet/hood would clash with it. Hide those accent meshes for the
+  // duration and restore them — to their real Wardrobe-toggle state — when the
+  // guise comes off. Purely visual, per-frame, and self-correcting: the base
+  // visibility is captured off the freshly built model (the Wardrobe toggles
+  // are already applied there), and v.kk is rebuilt on any appearance change,
+  // so a hat toggled in the Wardrobe is picked up without a menu round-trip.
+  function syncHeadwear(players, visuals) {
+    for (const id in visuals) {
+      const v = visuals[id];
+      if (!v || !v.kk || !v.kk.inst) continue;
+      let list = v.kk._headwear;
+      if (!list) {
+        list = [];
+        v.kk.inst.traverse((o) => {
+          if (o.isMesh && /_(Hat|Helmet|Hood)$/.test(o.name || '')) {
+            if (o.userData._hwBase === undefined) o.userData._hwBase = o.visible; // Wardrobe state
+            list.push(o);
+          }
+        });
+        v.kk._headwear = list;
+      }
+      if (!list.length) continue;
+      const p = players[id];
+      const hide = !!(p && p.guise && isGuise(p.guise));
+      for (const m of list) { const want = hide ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
+    }
   }
 
   return { updateGuises };
