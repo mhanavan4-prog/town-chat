@@ -9850,9 +9850,9 @@ function closeFamiliarModal() {
 const GUISES_CLIENT = {
   skull: { name: 'Bone Mask', emoji: '💀', blurb: 'A bleached skull over your face.' },
   pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved, candle-lit pumpkin head.' },
-  ghost: { name: 'Sheet Ghost', emoji: '👻', blurb: 'A pale winding-sheet. Boo.' },
+  devil: { name: 'Little Devil', emoji: '😈', blurb: 'Red-skinned and sharp-horned — the mummers’ devil of the Samhain play.' },
   raven: { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask.' },
-  witch: { name: 'Pointed Hat', emoji: '🧙', blurb: 'The tall black hat of the old stories.' },
+  witch: { name: 'Pointed Hat', emoji: '🧙', blurb: 'The tall, wide-brimmed hat of the old stories.' },
   stag: { name: 'The Horned', emoji: '🦌', blurb: 'A crown of antlers — the wild hunter.' },
 };
 let myGuise; // last known from guise_state (undefined = unheard; null = doffed)
@@ -9864,6 +9864,7 @@ function renderGuiseModal() {
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
   for (const id of ['skull', 'pumpkin', 'devil', 'raven', 'witch', 'stag']) {
     const g = GUISES_CLIENT[id];
+    if (!g) continue; // never let a stale/unknown guise id crash the menu
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
   }
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div></div>`;
