@@ -2644,6 +2644,7 @@ function onWsMessage(ev) {
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
+  if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
@@ -12393,6 +12394,60 @@ function renderMoonTag() {
   el.classList.toggle('fullMoon', !!m.isFull && !m.isBlood);
   el.classList.toggle('bloodMoon', !!m.isBlood);
 }
+
+// ── Active-effect bar ───────────────────────────────────────────────────────
+// Little squares (like the hotbar) for everything timed riding the player: the
+// activeStatus curse/buff, the altar blessing, a sipped tea, and a salt ward.
+// Red = a curse/debuff, green = a blessing, gold = a ward.
+const STATUS_FX = {
+  wither: { icon: '☠️', label: 'Withering', debuff: true },
+  stumble: { icon: '🌀', label: 'Stumbling', debuff: true },
+  shrink: { icon: '🔻', label: 'Shrunken', debuff: true },
+  toad: { icon: '🐸', label: 'Toaded', debuff: true },
+  gibberish: { icon: '💬', label: 'Gibberish', debuff: true },
+  wolfmark: { icon: '🐺', label: 'Wolf-marked', debuff: true },
+  rooted: { icon: '🪤', label: 'Rooted', debuff: true },
+  reversed: { icon: '🔄', label: 'Reversed', debuff: true },
+  bloodcurse: { icon: '🩸', label: 'Blood-cursed', debuff: true },
+  pumpkin: { icon: '🎃', label: 'Pumpkin-headed', debuff: true },
+  regen: { icon: '🫧', label: 'Regenerating', debuff: false },
+  speedboost: { icon: '💨', label: 'Swift', debuff: false },
+  ravencloak: { icon: '🌘', label: 'Raven Cloak', debuff: false },
+  giant: { icon: '🍄', label: 'Giant', debuff: false },
+  bats: { icon: '🦇', label: 'Bat Swarm', debuff: false },
+  meditate: { icon: '🪷', label: 'Meditating', debuff: false },
+  wolfpact: { icon: '🐺', label: "Wolf's Pact", debuff: false },
+  feather: { icon: '🍃', label: 'Featherfall', debuff: false },
+  ward: { icon: '🛡️', label: 'Gourd Ward', debuff: false },
+  colorcycle: { icon: '🌈', label: 'Chaos', debuff: false },
+};
+let myWardUntil = 0; // Circle of Salt (server-pushed on cast)
+function fxTimeLabel(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 60 ? Math.ceil(s / 60) + 'm' : s + 's'; }
+function renderStatusEffects() {
+  const bar = document.getElementById('statusFxBar');
+  if (!bar) return;
+  if (!me) { bar.innerHTML = ''; return; }
+  const now = Date.now();
+  const fx = [];
+  const as = me.activeStatus;
+  if (as && as.type && as.expiresAt > now) {
+    const meta = STATUS_FX[as.type] || { icon: '✨', label: as.type, debuff: false };
+    fx.push({ icon: meta.icon, label: meta.label, cls: meta.debuff ? 'debuff' : 'buff', until: as.expiresAt });
+  }
+  if (ritualActive && ritualActive.until > now) {
+    const d = ritualDef(ritualActive.id);
+    fx.push({ icon: d ? d.emoji : '✨', label: (d ? d.name : 'Blessing') + (ritualActive.mult > 1 ? ` (+${Math.round((ritualActive.mult - 1) * 100)}%)` : ''), cls: 'buff', until: ritualActive.until });
+  }
+  if (lastTeaState && lastTeaState.active && lastTeaState.active.until > now) {
+    const t = (lastTeaState.teas || []).find((x) => x.id === lastTeaState.active.id);
+    fx.push({ icon: t ? t.emoji : '🍵', label: t ? t.name : 'Tea', cls: 'buff', until: lastTeaState.active.until });
+  }
+  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', cls: 'ward', until: myWardUntil });
+  bar.innerHTML = fx.map((f) => {
+    const t = fxTimeLabel(f.until - now);
+    return `<div class="statusFx ${f.cls}" title="${f.label} — ${t} left">${f.icon}<span class="sfxTime">${t}</span></div>`;
+  }).join('');
+}
 // The event pill announces, then gets out of the way (the Session I location-
 // pill lesson, re-learned live on Michael's phone): it shows for a few seconds
 // whenever the ACTIVE EVENT SET changes (an event starting or ending), then
@@ -12428,6 +12483,7 @@ function renderEventTag() {
   }
 }
 setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); }, 20000);
+setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 (function () {
   const el = document.getElementById('eventTag');
   if (!el) return;
