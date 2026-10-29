@@ -43,7 +43,7 @@
   .overlay {
     position:fixed; inset:0; z-index:20;
     display:flex; align-items:center; justify-content:center;
-    background:rgba(10,16,12,0.82); backdrop-filter:blur(3px);
+    background:rgba(5,8,6,0.72); backdrop-filter:blur(3px);
   }
   /* Portal transition cover — hides the map swap / first-entry build so the
      next world appears fully formed. Shown opaque instantly, then faded out. */
@@ -661,6 +661,9 @@
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
     transform:translate(-50%, -50%) !important;
     width:min(720px, 94vw) !important; height:min(840px, 86vh) !important; max-height:86vh;
+    /* Dim the world behind the panel so every menu darkens it the same way the
+       ☰ sheet and overlay menus do (the big spread fills the viewport). */
+    box-shadow:0 8px 30px rgba(0,0,0,0.55), 0 0 0 100vmax rgba(5,8,6,0.72) !important;
   }
   /* The wider inventory spreads its items across more columns. */
   body:not(.touchMode) #inventoryPanel .itemSlotsGrid { grid-template-columns:repeat(8, 1fr); }
