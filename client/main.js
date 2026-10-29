@@ -2643,6 +2643,8 @@ function onWsMessage(ev) {
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
+  if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
+  if (msg.type === 'tea_error') { setUnlockToast(`🍵 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
     _lastTarotResult = msg;
     if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
@@ -3473,6 +3475,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6589,6 +6592,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('tarotCloseBtn', closeTarotModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
   on('gardenCloseBtn', closeGardenModal);
+  on('menuKitchen', closeSheetAnd(() => { if (!Modals.isOpen('kitchenOpen')) openKitchenModal(); }));
+  on('kitchenCloseBtn', closeKitchenModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9869,6 +9874,48 @@ function closeGardenModal() {
   Modals.set('gardenOpen', false);
 }
 
+// ── Kitchen witchery (teas) ─────────────────────────────────────────────────
+let lastTeaState = null;
+const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function renderKitchenModal() {
+  const el = document.getElementById('kitchenContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastTeaState;
+  if (!st || !st.teas) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Putting the kettle on…</div>'; send({ type: 'tea_state' }); return; }
+  let h = '';
+  if (st.active && st.active.until > Date.now()) {
+    const t = (st.teas || []).find((x) => x.id === st.active.id);
+    const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
+    h += `<div class="teaActive">${t ? t.emoji : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
+  }
+  h += `<div class="gardenHint">Brew a herb into a tea and sip it on the spot. On a tea's planetary day it steeps longer (×${st.dayBonus || 1.5}).</div>`;
+  for (const tea of st.teas) {
+    const onDay = st.today === tea.day;
+    const ings = (tea.herbs || []).map((ing) => { const meta = ITEM_CATALOG[ing.id]; const have = gardenHerbCount(ing.id); return { text: `${meta ? meta.icon : '🌿'} ${ing.qty}× ${meta ? meta.name : ing.id}`, ok: have >= ing.qty }; });
+    const canBrew = ings.every((i) => i.ok);
+    h += `<div class="teaRow"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${tea.name}</span>${onDay ? '<span class="trDay">✨ steeps longer today</span>' : `<span class="trDay" style="opacity:.55">${TEA_DAY_NAMES[tea.day]}</span>`}</div>`;
+    h += `<div class="trb">${tea.blurb}</div><div class="tri">${ings.map((i) => i.text).join(' + ')}</div>`;
+    h += `<button class="teaBrewBtn" data-tea="${tea.id}"${canBrew ? '' : ' disabled'}>Brew &amp; sip</button></div>`;
+  }
+  el.innerHTML = h;
+  el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
+}
+function openKitchenModal() {
+  const modal = document.getElementById('kitchenModal');
+  if (!modal) return;
+  renderKitchenModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('kitchenOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'tea_state' }));
+}
+function closeKitchenModal() {
+  const modal = document.getElementById('kitchenModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('kitchenOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -12336,7 +12383,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); }, 20000);
 (function () {
   const el = document.getElementById('eventTag');
   if (!el) return;
@@ -14901,6 +14948,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('gardenOpen') && e.key === 'Escape' && !e.repeat) {
     closeGardenModal();
+    return;
+  }
+  if (Modals.isOpen('kitchenOpen') && e.key === 'Escape' && !e.repeat) {
+    closeKitchenModal();
     return;
   }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {

@@ -2965,6 +2965,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
 const { TAROT_CARDS } = require('./data/tarot'); // Tier 3.5: daily tarot draw (divination)
 const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
+const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -4078,6 +4079,15 @@ function gardenStateBody(player) {
   } : null);
   return { plots, plantable: PLANTABLE_HERBS, now };
 }
+
+// ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
+function teaStateBody(player) {
+  const key = player && player.accountKey;
+  const t = key && accounts[key] && accounts[key].teaBuff;
+  const active = (t && t.until && t.until > Date.now()) ? { id: t.id, stat: t.stat, amount: t.amount, until: t.until } : null;
+  const teas = TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, herbs: x.herbs, day: x.day }));
+  return { active, teas, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+}
 // Combined skill + gear + (during a delve run) boon contribution — the
 // single source of truth every derived stat (and the client stats panel)
 // reads from. Delve boons speak the same stat vocabulary, so a run's drafted
@@ -4091,7 +4101,15 @@ function familiarBuffContrib(player, statKey) {
   const f = fid && FAMILIARS[fid];
   return (f && f.stat === statKey) ? (f.amount || 0) : 0;
 }
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey); }
+// 🍵 A sipped tea's buff (kitchen witchcraft), in its own slot so it stacks with
+// an altar blessing rather than overwriting it.
+function teaBuffContrib(player, statKey) {
+  const key = player && player.accountKey;
+  const t = key && accounts[key] && accounts[key].teaBuff;
+  if (!t || !t.until || t.until <= Date.now()) return 0;
+  return (t.stat === statKey) ? (t.amount || 0) : 0;
+}
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -13209,6 +13227,34 @@ wss.on('connection', (ws, req) => {
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
       send(ws, { type: 'tarot_result', card: { name: card.name, emoji: card.emoji, reading: card.reading }, gold, alreadyDrawn, secret, balance });
+      return;
+    }
+
+    // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    if (msg.type === 'tea_state') {
+      if (!player.accountKey) { send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, herbs: x.herbs, day: x.day })), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
+      send(ws, { type: 'tea_state', ...teaStateBody(player) });
+      return;
+    }
+    if (msg.type === 'brew_tea') {
+      if (!player.accountKey) { send(ws, { type: 'tea_error', message: 'Log into an account to keep a tea\'s warmth.' }); return; }
+      const tea = TEAS.find((t) => t.id === String(msg.teaId || ''));
+      if (!tea) return;
+      const inv = getInventory(player);
+      const herbName = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;
+      for (const ing of tea.herbs) {
+        if (countItemQty(inv, ing.id) < ing.qty) { send(ws, { type: 'tea_error', message: `You need ${ing.qty}× ${herbName(ing.id)}.` }); return; }
+      }
+      for (const ing of tea.herbs) removeItemFromAccount(inv, ing.id, ing.qty);
+      const onDay = (new Date().getUTCDay() === tea.day);
+      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1));
+      accounts[player.accountKey].teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
+      const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
+      saveAccounts(); if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'tea_state', ...teaStateBody(player) });
+      send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${onDay ? ' — steeped on its day, it holds longer' : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
       return;
     }
 
