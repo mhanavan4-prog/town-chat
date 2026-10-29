@@ -10,9 +10,9 @@
 const GUISES = {
   skull:   { name: 'Bone Mask',    emoji: '💀', blurb: 'A bleached skull over your face. The dead nod to their own.' },
   pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved pumpkin for a head, candle-lit from within.' },
-  ghost:   { name: 'Sheet Ghost',  emoji: '👻', blurb: 'A pale winding-sheet with two dark eyeholes. Boo.' },
+  devil:   { name: 'Little Devil',  emoji: '😈', blurb: 'Red-skinned and sharp-horned — the mummers’ devil of the Samhain play.' },
   raven:   { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask, for crossing between worlds.' },
-  witch:   { name: 'Pointed Hat',  emoji: '🧙', blurb: 'The tall black hat of the old stories. Lean into it.' },
+  witch:   { name: 'Pointed Hat',  emoji: '🧙', blurb: 'The tall, wide-brimmed hat of the old stories. Lean into it.' },
   stag:    { name: 'The Horned',   emoji: '🦌', blurb: 'A crown of antlers — the hunter of the wild Samhain night.' },
 };
 
