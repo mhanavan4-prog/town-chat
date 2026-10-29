@@ -2387,8 +2387,14 @@
     background:linear-gradient(90deg,#9ee37d,#5ee7c0); color:#1b1430; font-size:10.5px; font-weight:900; vertical-align:2px;
   }
   /* HUD pills */
+  /* The season banner sits at the crown — its own top-center row, above the
+     bell (62) and clear of the toast lane (#unlockToast, top:104, z-index:50)
+     and the announce banner (top:110, z-index:40). At the old top:96 it shared
+     that band but had the lowest z-index, so any login toast ("Rested!", "Admin
+     access") painted over it and the live sabbat (Mabon, and the Samhain change
+     on Halloween) got clipped. Nothing else occupies top:30 center on desktop. */
   #eventTag {
-    position:fixed; top:96px; left:50%; transform:translateX(-50%); z-index:7;
+    position:fixed; top:30px; left:50%; transform:translateX(-50%); z-index:7;
     background:rgba(26,16,42,0.88); border:1px solid #4a3b6a; color:#ffd9a0;
     padding:5px 14px; border-radius:14px; font-size:12.5px;
     cursor:pointer; pointer-events:auto; transition:opacity 0.45s;
