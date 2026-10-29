@@ -28,7 +28,10 @@ function getDayNightState() {
 const SKY_BLOOD = new THREE.Color(0x2a0812);
 const AMBIENT_BLOOD = new THREE.Color(0xc06a6a);
 const MOON_BLOOD_COLOR = new THREE.Color(0xff5a4a);
-const MOON_PALE_COLOR = new THREE.Color(0xeaf2ff); // the moon's authored face
+const MOON_PALE_COLOR = new THREE.Color(0xeaf2ff); // the moon's authored face (cool, as it reads in the sky)
+// The LIGHT the moon casts is warmer than its face — a soft candle-ivory so the
+// village is gently lit rather than lit by a cold, glaring spotlight.
+const MOON_LIGHT_COLOR = new THREE.Color(0xe9e1c0);
 // 🌑 Hagstone world (the coven's private instance): a perpetual violet night,
 // held apart from the public world's clock so stepping through the Hagstone
 // unmistakably reads as "somewhere else". Overrides sky/ambient/moon below.
@@ -71,10 +74,11 @@ function updateDayNightCycle() {
   if (hagstone) _ambientColor.copy(AMBIENT_HAG);
   else _ambientColor.copy(bloodMoon ? AMBIENT_BLOOD : AMBIENT_NIGHT).lerp(AMBIENT_DAY, lightAmount);
   getOutdoorAmbient().color.copy(_ambientColor);
-  // Strong day↔night contrast: night ambient drops low (0.22) so the scene
-  // genuinely darkens and the warm torch/lantern/portal pools read, while day
-  // stays bright and warm (0.64). Hagstone keeps its own hushed mid-level.
-  getOutdoorAmbient().intensity = hagstone ? 0.5 : (0.22 + lightAmount * 0.42);
+  // Strong day↔night contrast, but the night floor is lifted a touch (0.28) so
+  // the whole village is gently lit rather than pitch-dark between the warm
+  // torch/lantern/portal pools; day stays bright and warm (0.64). Hagstone keeps
+  // its own hushed mid-level.
+  getOutdoorAmbient().intensity = hagstone ? 0.5 : (0.28 + lightAmount * 0.36);
 
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
@@ -110,12 +114,14 @@ function updateDayNightCycle() {
 
   getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
   getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
-  getOutdoorMoonLight().intensity = moonStrength * 0.48;
+  getOutdoorMoonLight().intensity = moonStrength * 0.30; // softer, so it no longer glares off the ground
   // The moon blushes red on blood nights, glows violet in the Hagstone world.
   const moonColor = bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_PALE_COLOR;
   getMoonMesh().material.color.copy(moonColor);
   getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : hagstone ? 1.4 : 1); // bigger, closer moon in the Hagstone world
-  getOutdoorMoonLight().color.copy(moonColor);
+  // The cast light is warm ivory on a normal night (the mesh stays cool); blood
+  // and Hagstone nights keep their signature coloured light.
+  getOutdoorMoonLight().color.copy(bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_LIGHT_COLOR);
   getMoonMesh().material.opacity = moonStrength;
   getMoonMesh().visible = moonStrength > 0.02;
 

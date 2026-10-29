@@ -10839,7 +10839,7 @@ const DAY_NIGHT_TRANSITION_MS = 90 * 1000; // dawn/dusk blend window, eats into 
 const SKY_DAY = new THREE.Color(0xb6a7c2);
 const SKY_NIGHT = new THREE.Color(0x0a1230);
 const AMBIENT_DAY = new THREE.Color(0xf4e7cf);
-const AMBIENT_NIGHT = new THREE.Color(0x6c7ac8);
+const AMBIENT_NIGHT = new THREE.Color(0x7a7cae); // night fill, warmed slightly off icy-blue
 const _skyColor = new THREE.Color();
 const _ambientColor = new THREE.Color();
 
