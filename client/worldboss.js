@@ -14,8 +14,14 @@
 // kkTint → { mul, emissive, ei }.
 const WB_VISUALS = {
   skeleton: { scale: 2.1, kkKey: 'skel_golem', kkHeight: 300, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xaab89a, amt: 0.4, emissive: 0x163a2c, ei: 0.3 }, preset: { skin: 0xe8e2d0, hair: 0x2a2a2a, hairStyle: 'long',   eye: 0x66ffcc, shirt: 0x3a3020, pants: 0x242018 } },
-  wyrm:     { scale: 2.3, kkKey: 'mon_beast',  kkHeight: 280, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x3f74c0, amt: 0.72, emissive: 0x16305e, ei: 0.45 }, preset: { skin: 0x3a4a6a, hair: 0x101828, hairStyle: 'mohawk', eye: 0x99ddff, shirt: 0x1a2440, pants: 0x101828 } },
-  briar:    { scale: 2.0, kkKey: 'mon_beast',  kkHeight: 260, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x5aa038, amt: 0.5, emissive: 0x2a4a10, ei: 0.4 }, preset: { skin: 0x4a6a3a, hair: 0x201808, hairStyle: 'long',   eye: 0xffdd66, shirt: 0x2a3a1a, pants: 0x1a2410 } },
+  // Gloamwyrm + Mother of Thorns both rode the KayKit Monster body (mon_beast) —
+  // the "giant in a dinosaur suit with a front zipper". Swapped to the horned
+  // Skeleton_Warrior (same shared-rig borrow as the Hollow King's golem, so it
+  // animates identically), each kept at its own flavour tint: the wyrm's deep
+  // frost-blue reads as the icy skeletal warrior, the briar's green as a
+  // bone-warrior wrapped in thorns.
+  wyrm:     { scale: 2.3, kkKey: 'skel_warrior', kkHeight: 290, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x3f74c0, amt: 0.72, emissive: 0x16305e, ei: 0.45 }, preset: { skin: 0x3a4a6a, hair: 0x101828, hairStyle: 'mohawk', eye: 0x99ddff, shirt: 0x1a2440, pants: 0x101828 } },
+  briar:    { scale: 2.0, kkKey: 'skel_warrior', kkHeight: 270, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x5aa038, amt: 0.5, emissive: 0x2a4a10, ei: 0.4 }, preset: { skin: 0x4a6a3a, hair: 0x201808, hairStyle: 'long',   eye: 0xffdd66, shirt: 0x2a3a1a, pants: 0x1a2410 } },
 };
 
 export default function createWorldBoss({ createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getMobAttackLungeDist, getWildsScene }) {

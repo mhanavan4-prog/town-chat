@@ -303,7 +303,7 @@ const KK = (() => {
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     npc_vampire:  'kk/Vampire.glb',        // the Artificer, lounging on his throne
     prop_throne:  'kk/vampire/Vampire_Throne.gltf', // the Artificer's vampire throne
-    mon_beast:    'kk/Monster.glb',        // Wilds world-boss reskin (Mother of Thorns, the Wyrm)
+    mon_beast:    'kk/Monster.glb',        // the smaller Wilds beast-mobs (barrow maw, bone hound, swamp lurker, …); the world bosses now use skel_warrior
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
