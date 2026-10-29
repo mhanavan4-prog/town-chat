@@ -2962,6 +2962,7 @@ app.get('/api/coven', (req, res) => {
 // this to decide what a given item can actually do.
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
+const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
 // crafting reward (5 tree harvests), never random loot.
 const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
@@ -3989,7 +3990,15 @@ function gearStatContrib(player, statKey) {
 // reads from. Delve boons speak the same stat vocabulary, so a run's drafted
 // power/guard/vitality/haste/swift/leech simply joins the sum for its
 // duration (delveBoonContrib is 0 for anyone not in a run).
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey); }
+// 🐈‍⬛ A bonded familiar's one passive perk, added to the matching derived stat
+// (read from the account so it survives before player.familiar is synced).
+function familiarBuffContrib(player, statKey) {
+  const key = player && player.accountKey;
+  const fid = key && accounts[key] && accounts[key].familiar;
+  const f = fid && FAMILIARS[fid];
+  return (f && f.stat === statKey) ? (f.amount || 0) : 0;
+}
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -5014,7 +5023,11 @@ function publicPlayer(p) {
     // they mark the fixed spot the body fell, independent of wherever the
     // ghost wanders off to afterward (see the 'strike' PvP branch above).
     hasLoot: !!(p.pendingLoot && p.pendingLoot.length),
-    deathX: p.deathX, deathY: p.deathY, deathRoom: p.deathRoom
+    deathX: p.deathX, deathY: p.deathY, deathRoom: p.deathRoom,
+    // 🐈‍⬛ Bonded familiar id (or null) — every nearby client trails the matching
+    // companion behind this player (client/familiars.js). Cosmetic; the perk is
+    // applied server-side via familiarBuffContrib.
+    familiar: p.familiar || null
   };
 }
 
@@ -9235,6 +9248,10 @@ wss.on('connection', (ws, req) => {
         }
       }
 
+      // 🐈‍⬛ The bonded familiar (account-scoped) rides into the player so it
+      // broadcasts in publicPlayer and every nearby client trails it.
+      player.familiar = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiar) || null;
+
       // Live resume token — minted for every join and sent in init. If this
       // socket later dies without warning (phone screen off, network blip),
       // the close handler stashes the player under this token, and the
@@ -13064,6 +13081,21 @@ wss.on('connection', (ws, req) => {
 
     // ── Bestow your active blessing on a nearby player (any player, coven or
     // not). Purely positive, so no consent gate; a short cooldown stops spam. ──
+    // ── Bond / change / dismiss a familiar (account-scoped, free) ──
+    if (msg.type === 'choose_familiar') {
+      if (!player.accountKey) { send(ws, { type: 'familiar_error', message: 'Log into an account to bond a familiar.' }); return; }
+      const fid = msg.familiarId ? String(msg.familiarId) : null;
+      if (fid && !FAMILIARS[fid]) { send(ws, { type: 'familiar_error', message: 'No such familiar.' }); return; }
+      accounts[player.accountKey].familiar = fid;
+      player.familiar = fid;
+      saveAccounts();
+      send(ws, { type: 'familiar_state', familiar: fid });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
+      if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
+      else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+
     if (msg.type === 'bless_player') {
       if (!player.accountKey) { send(ws, { type: 'manor_error', message: 'Log into an account to bless others.' }); return; }
       const mine = ritualOf(player.accountKey);

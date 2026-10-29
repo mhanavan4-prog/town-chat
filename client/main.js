@@ -45,6 +45,7 @@ import createBankAuction from './bank-auction.js';
 import createNotesDrive from './notes-drive.js';
 import createInventoryPanel from './inventory-panel.js';
 import createPlayerVisuals from './player-visuals.js';
+import createFamiliars from './familiars.js';
 import createFurniture from './furniture.js';
 import createInteriorScene from './interior-scene.js';
 import createAccountSelect from './account-select.js';
@@ -2635,6 +2636,8 @@ function onWsMessage(ev) {
     if (msg.message) setUnlockToast(msg.message);
     return;
   }
+  if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'familiar_error') { setUnlockToast(`🐈‍⬛ ${msg.message}`); return; }
   if (msg.type === 'ritual_state') {
     // { active: {id,stat,amount,until}|null, cdUntil, now } — rebase the server
     // clock to local so the countdowns are accurate regardless of clock skew.
@@ -3454,6 +3457,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('spellbookModal'), document.querySelector('#spellbookModal .floatPanelHandle'));
   makeDraggable(document.getElementById('journalModal'),   document.querySelector('#journalModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bookModal'),       document.querySelector('#bookModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
 })();
 
 // ---------------------------------------------------------------------------
@@ -6564,6 +6568,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   on('menuJournal', closeSheetAnd(() => { if (!Modals.isOpen('journalOpen')) openJournal(); }));
   on('menuBook', closeSheetAnd(() => { if (!Modals.isOpen('bookOpen')) openBookModal(); }));
   on('bookCloseBtn', closeBookModal);
+  on('menuFamiliar', closeSheetAnd(() => { if (!Modals.isOpen('familiarOpen')) openFamiliarModal(); }));
+  on('familiarCloseBtn', closeFamiliarModal);
   on('menuSkills', closeSheetAnd(() => { if (!Modals.isOpen('skillsOpen')) openSkills(); }));
   on('menuKit', closeSheetAnd(() => {
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
@@ -9716,6 +9722,44 @@ function closeBookModal() {
   Modals.set('bookOpen', false);
 }
 
+// ── Familiar picker ─────────────────────────────────────────────────────────
+const FAMILIARS_CLIENT = {
+  cat: { name: 'Black Cat', emoji: '🐈‍⬛', blurb: '+15% harvest luck' },
+  raven: { name: 'Raven', emoji: '🐦‍⬛', blurb: '+10% XP gained' },
+  toad: { name: 'Toad', emoji: '🐸', blurb: '+25 max health' },
+  hare: { name: 'Hare', emoji: '🐇', blurb: '+10% move speed' },
+};
+let myFamiliar = null; // last known from familiar_state (account-scoped)
+function renderFamiliarModal() {
+  const el = document.getElementById('familiarContent');
+  if (!el) return;
+  const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
+  const cur = myFamiliar || (me && players[me.id] && players[me.id].familiar) || null;
+  let h = '<div style="font-size:12px;opacity:0.8;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div>';
+  for (const id of ['cat', 'raven', 'toad', 'hare']) {
+    const f = FAMILIARS_CLIENT[id];
+    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div></span></div>`;
+  }
+  h += `<div class="famRow${!cur ? ' cur' : ''}" data-fid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No familiar${!cur ? ' ✓' : ''}</div><div class="fb">Walk alone.</div></span></div>`;
+  el.innerHTML = h;
+  el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
+    send({ type: 'choose_familiar', familiarId: row.getAttribute('data-fid') || null });
+  }));
+}
+function openFamiliarModal() {
+  const modal = document.getElementById('familiarModal');
+  if (!modal) return;
+  renderFamiliarModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 140);
+  Modals.set('familiarOpen', true);
+}
+function closeFamiliarModal() {
+  const modal = document.getElementById('familiarModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('familiarOpen', false);
+}
+
 const { buildManorScene, setAltarDecor } = createManorScene({
   makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
   setManorScene: (s) => { manorScene = s; },
@@ -11650,6 +11694,12 @@ const {
   getActiveScene: () => activeScene, getGroundY: () => groundY, getJumpActive: () => jumpActive, getJumpT: () => jumpT,
   getLextonNpc: () => lextonNpc, getMe: () => me, getMyId: () => myId, getPlayers: () => players,
   getSeatedAt: () => seatedAt, getWildsScene: () => wildsScene,
+});
+
+// 🐈‍⬛ Familiars — trail a companion behind every present player who has one,
+// reading the shared visuals map for positions (cosmetic; perk is server-side).
+const { updateFamiliars } = createFamiliars({
+  getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
 });
 
 function lerpAngle(a, b, t) {
@@ -14732,6 +14782,10 @@ window.addEventListener('keydown', (e) => {
     closeBookModal();
     return;
   }
+  if (Modals.isOpen('familiarOpen') && e.key === 'Escape' && !e.repeat) {
+    closeFamiliarModal();
+    return;
+  }
   if (Modals.isOpen('skillsOpen') && e.key === 'Escape' && !e.repeat) {
     closeSkills();
     return;
@@ -15215,6 +15269,7 @@ function update(dt) {
   }
 
   syncVisuals(dt);
+  updateFamiliars(dt); // after syncVisuals so player group positions are current
   updateEchoes(dt);
   updateAmbientChatter(dt);
   updateStatusVisuals(dt);
