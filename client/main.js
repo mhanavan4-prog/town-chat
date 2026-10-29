@@ -366,6 +366,12 @@ const KK = (() => {
     prop_crypt:    'kk/props/crypt.gltf',
     prop_pumpkin:  'kk/props/pumpkin_orange_jackolantern.gltf',
     prop_pumpkin2: 'kk/props/pumpkin_orange.gltf',
+    // 🎃 Samhain guise head-props (client/guises.js) — socketed on the player's
+    // KayKit head bone. The pumpkin reuses prop_pumpkin above. antlered_hood is
+    // the Adventurers Druid's hooded-antler head, baked to head-bone-local space.
+    guise_skull:   'kk/guises/skull.gltf',
+    guise_antlers: 'kk/guises/antlered_hood.glb',
+    guise_hat:     'kk/guises/witch_hat.glb', // Mystery Series 5 Witch's pointed hat
     prop_shrine:   'kk/props/shrine_candles.gltf',
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
@@ -465,7 +471,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat'];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -12176,7 +12182,7 @@ const { updateFamiliars } = createFamiliars({
   getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
 });
 const { updateGuises } = createGuises({
-  getPlayers: () => players, getVisuals: () => visuals,
+  getPlayers: () => players, getVisuals: () => visuals, getKK: () => KK,
 });
 
 function lerpAngle(a, b, t) {
