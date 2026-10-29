@@ -13883,11 +13883,16 @@ function itemUses(itemId, item) {
   if (item.slot) uses.push('🧤 Equip — ' + (SLOT_LABELS[item.slot] || item.slot) + ' slot');
   if (PLANT_EFFECTS.has(itemId)) uses.push('✨ Use for its effect');
   if (gardenPlantable.has(itemId)) uses.push('🌱 Plant it in the Garden');
-  const nameOf = (r) => r.name || r.id;
-  const brews = POTION_RECIPES_CLIENT.filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(nameOf);
-  if (brews.length) uses.push('🧪 Cauldron ingredient — ' + brews.slice(0, 3).join(', ') + (brews.length > 3 ? '…' : ''));
-  const crafts = (craftRecipesClient || []).filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(nameOf);
-  if (crafts.length) uses.push('🔨 Workshop material — ' + crafts.slice(0, 3).join(', ') + (crafts.length > 3 ? '…' : ''));
+  // Resolve a recipe's output to its readable catalog name (brews carry one
+  // directly; crafts name their output via `result`). Prettify is a safety net
+  // for any id the catalog hasn't got, so nothing ever shows a raw variable.
+  const prettyId = (id) => String(id).replace(/^cs_/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const nameFor = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || prettyId(id);
+  const joinNames = (names) => names.slice(0, 3).join(', ') + (names.length > 3 ? '…' : '');
+  const brews = POTION_RECIPES_CLIENT.filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(r => r.name || nameFor(r.id));
+  if (brews.length) uses.push('🧪 Cauldron ingredient — brews ' + joinNames(brews));
+  const crafts = (craftRecipesClient || []).filter(r => (r.ingredients || []).some(i => i.id === itemId)).map(r => nameFor(r.result || r.id));
+  if (crafts.length) uses.push('🔨 Workshop material — forges ' + joinNames(crafts));
   if (!uses.length) uses.push('🏦 Nothing to do here — deposit or auction it at the Bank');
   return uses;
 }
