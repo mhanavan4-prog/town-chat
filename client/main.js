@@ -15377,6 +15377,24 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
     tryInteract();
   }
+  // Catch-all: any open menu or panel not claimed by a handler above (the
+  // overlay modals, and any panel added without its own Escape wiring) still
+  // backs out ONE level on Escape — close the topmost open one through its
+  // Close button, so you never have to reach for the mouse. Runs after every
+  // specific handler, so consent/confirm dialogs (which decline on Escape) are
+  // already handled and never reach here.
+  if (e.key === 'Escape' && !e.repeat) {
+    const openMenus = [...document.querySelectorAll('.overlay:not(.hidden), .floatPanel:not(.hidden)')]
+      .filter((el) => getComputedStyle(el).display !== 'none');
+    if (openMenus.length) {
+      const top = openMenus.sort((a, b) => (parseInt(getComputedStyle(b).zIndex, 10) || 0) - (parseInt(getComputedStyle(a).zIndex, 10) || 0))[0];
+      let btn = top.querySelector('[id$="CloseBtn"]');
+      if (!btn) btn = [...top.querySelectorAll('button, .btn')].find((b) => /\bclose\b/i.test(b.textContent || ''));
+      if (btn) btn.click(); else top.classList.add('hidden');
+      e.preventDefault();
+      return;
+    }
+  }
   if (e.key === 'Escape' && !e.repeat) {
     // Escape with nothing else open pops the ☰ menu (the open-menu branch up
     // top closes it, so Escape toggles). Driving it through the hidden
