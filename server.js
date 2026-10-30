@@ -413,6 +413,35 @@ function logPageVisit(req, pageName) {
     } });
   } catch (e) {}
 }
+
+// Link-preview unfurlers (Discord/Slack/iMessage/Twitter/Facebook/…), search
+// crawlers and bare script clients fetch the OG-tagged /u and /c share pages to
+// build a card — so counting every request to those as a "share opened" vastly
+// over-reports virality. Treat these user-agents as non-human.
+function isCrawlerUA(req) {
+  const ua = String(req.get('user-agent') || '');
+  if (!ua) return true; // no UA at all is almost always a bot or a script
+  return /bot|crawl|spider|slurp|headless|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discord|telegram|whatsapp|linkedinbot|embedly|iframely|pinterest|redditbot|applebot|bingpreview|skypeuripreview|vkshare|yandex|duckduckgo|baidu|ahrefs|semrush|python-requests|curl\/|wget\/|axios\/|go-http|okhttp|uptime|monitor/i.test(ua);
+}
+
+// Optionally exclude your own test traffic from virality: set env
+// ANALYTICS_EXCLUDE_IPS to a comma-separated list of IPs to ignore.
+const _analyticsExcludeIps = new Set(String(process.env.ANALYTICS_EXCLUDE_IPS || '').split(',').map((s) => s.trim()).filter(Boolean));
+
+// Count a real, distinct human opening of a shared player/coven page: skip
+// crawlers and excluded test IPs, and dedup per IP per 30 min (so a refresh or
+// a repeat unfurl from the same place doesn't inflate it). Returns whether it
+// counted. The page itself still renders for everyone — only the metric is gated.
+function countShareOpen(req, kind) {
+  try {
+    if (isCrawlerUA(req)) return false;
+    const ip = audit.clientIp(req);
+    if (_analyticsExcludeIps.has(ip)) return false;
+    if (audit.hit(ip, 'shareopen:' + kind, 30 * 60 * 1000) !== 1) return false;
+    analytics.bump('share.click'); analytics.bump('share.click.' + kind);
+    return true;
+  } catch (e) { return false; }
+}
 // Coarse (country-level only) geolocation for acquisition geography. Prefers a
 // CDN-provided country header when one exists; otherwise a bundled offline
 // MaxMind lookup (geoip-lite) on the visitor IP. Lazy + optional: if the module
@@ -679,7 +708,7 @@ app.get('/exif/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'exi
 // Public profile at /u/<name> — same page in public mode, with the player's OG
 // (their class card as the share image).
 app.get('/u/:username', (req, res) => {
-  analytics.bump('share.click'); analytics.bump('share.click.player'); // virality: a shared player link was opened
+  countShareOpen(req, 'player'); // virality: a real, deduped, non-bot open of a shared player link
   const name = String(req.params.username || '').slice(0, 40);
   const key = name.toLowerCase();
   let charId = null;
@@ -711,7 +740,7 @@ app.get('/u/:username', (req, res) => {
 
 // Public coven page at /c/<id> — the coven's sigil card as the share image.
 app.get('/c/:id', (req, res) => {
-  analytics.bump('share.click'); analytics.bump('share.click.coven'); // virality: a shared coven link was opened
+  countShareOpen(req, 'coven'); // virality: a real, deduped, non-bot open of a shared coven link
   const cv = covens[String(req.params.id || '')];
   const nm = cv ? `${cv.sigil || '🌑'} ${cv.name}` : 'A coven';
   let image = null;
@@ -14542,6 +14571,7 @@ global.__testHooks = {
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   townPulsePayload, // test-only: town-wide liveness headcount
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
+  isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
