@@ -29,15 +29,27 @@ function makeBenchProp(d) {
 function makeLamppost(d) {
   const kkG = KK.staticInstance('prop_lamppost', 78, 'height');
   if (kkG) {
+    // The lantern hangs off the post's arm (node 'post_lantern_lantern', out at
+    // +z), not over the pole centre — so anchor the glow to that node's actual
+    // position instead of a hard-coded (0,58,6), which sat the light back by the
+    // pole. Fall back to the old spot if the node name ever changes.
+    const lx = { x: 0, y: 58, z: 6 };
+    const lantNode = kkG.getObjectByName('post_lantern_lantern');
+    if (lantNode) {
+      kkG.updateMatrixWorld(true);
+      const p = new THREE.Vector3().setFromMatrixPosition(lantNode.matrixWorld)
+        .applyMatrix4(new THREE.Matrix4().copy(kkG.matrixWorld).invert());
+      lx.x = p.x; lx.y = p.y - 4; lx.z = p.z; // nudge down to the bulb centre
+    }
     const glassMat = new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffd9a0, transparent: true, opacity: 0.25, depthWrite: false });
     const glass = new THREE.Sprite(glassMat);
     glass.scale.set(16, 16, 1);
-    glass.position.set(0, 58, 6);
+    glass.position.set(lx.x, lx.y, lx.z);
     kkG.add(glass);
     const glowMat = new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffc372, transparent: true, opacity: 0, depthWrite: false });
     const glow = new THREE.Sprite(glowMat);
     glow.scale.set(48, 48, 1);
-    glow.position.set(0, 58, 6);
+    glow.position.set(lx.x, lx.y, lx.z);
     kkG.add(glow);
     LAMP_GLOWS.push({ glassMat, glowMat });
     kkG.rotation.y = d.rot || 0;
