@@ -8125,27 +8125,26 @@ const GFX = (() => {
     return new THREE.CanvasTexture(c);
   }
 
-  // A puffy cloud silhouette: a cluster of soft white blobs with a flattish
-  // base and a lumpy top, drawn wide (2:1). Reads as a cloud, and the varied
-  // alpha across the blobs hides the 8-bit banding a single smooth disc showed.
-  function makeCloudTex() {
-    const c = document.createElement('canvas');
-    c.width = 256; c.height = 128;
-    const x = c.getContext('2d');
-    // [cx, cy, r] — lumpy top (smaller, higher) over a broad flat-ish base row
+  // A low-poly cloud: a cluster of flat-shaded, flattened icosahedra forming a
+  // puffy silhouette with a flat base — solid geometry, matching the faceted
+  // look of the trees and buildings. No transparency, so nothing for the
+  // display to dither into the "rainbow speckle" the soft sprite clouds showed.
+  function makeLowpolyCloud() {
+    const grp = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x2a3048, emissiveIntensity: 0.35, flatShading: true });
+    mat.fog = false; // clouds sit beyond the fog's far plane; don't let it eat them
+    // [x, y, z, r] — a broad flat base row with a few lumps piled on top
     const blobs = [
-      [128, 84, 50], [86, 80, 40], [172, 82, 42], [56, 88, 30], [202, 90, 32],
-      [128, 60, 44], [102, 66, 34], [156, 64, 36], [74, 74, 26], [186, 72, 28],
+      [0, 0, 0, 62], [-78, -4, 10, 46], [80, -3, -8, 48], [-140, -8, 4, 34], [138, -7, -4, 36],
+      [-36, 34, -4, 46], [44, 30, 8, 42], [4, 46, 2, 34],
     ];
-    for (const [bx, by, br] of blobs) {
-      const g = x.createRadialGradient(bx, by, 0, bx, by, br);
-      g.addColorStop(0, 'rgba(255,255,255,0.92)');
-      g.addColorStop(0.55, 'rgba(255,255,255,0.46)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = g; x.fillRect(0, 0, 256, 128);
+    for (const [x, y, z, r] of blobs) {
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat);
+      mesh.position.set(x, y, z);
+      mesh.scale.set(1, 0.62, 0.85); // squashed so the cloud is wide and shallow
+      grp.add(mesh);
     }
-    const t = new THREE.CanvasTexture(c);
-    return t;
+    return { group: grp, mat };
   }
 
   function initSky(scene) {
@@ -8182,19 +8181,15 @@ const GFX = (() => {
       grp.add(pts);
       st.stars.push({ mat, phase: L.phase, speed: L.speed });
     }
-    // slow clouds — a puffy, lumpy silhouette (several overlapping soft blobs)
-    // rather than one smooth radial disc. The single disc, thin over the sky,
-    // quantised to an 8-bit dither band that read as "rainbow speckle" instead
-    // of a cloud; clustered blobs give a real cloud edge and hide the banding.
-    const cloudTex = makeCloudTex();
-    for (let i = 0; i < 8; i++) {
-      const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.5, depthWrite: false, fog: false });
-      const sp = new THREE.Sprite(m);
-      const sc = 420 + Math.random() * 460;
-      sp.scale.set(sc * (1.5 + Math.random() * 0.7), sc * 0.62, 1); // texture is 2:1, so keep the sprite wide
-      sp.position.set((Math.random() - 0.5) * 3000, 560 + Math.random() * 380, (Math.random() - 0.5) * 3000);
+    // slow low-poly clouds — solid flat-shaded geometry (see makeLowpolyCloud),
+    // drifting across the sky. Opaque, so no soft-gradient dither speckle.
+    for (let i = 0; i < 7; i++) {
+      const { group: sp, mat: m } = makeLowpolyCloud();
+      const sc = 3.4 + Math.random() * 2.2;
+      sp.scale.set(sc * (1 + Math.random() * 0.25), sc, sc);
+      sp.position.set((Math.random() - 0.5) * 3200, 620 + Math.random() * 360, (Math.random() - 0.5) * 3200);
       grp.add(sp);
-      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, base: 0.4 + Math.random() * 0.22 });
+      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9 });
     }
     scene.add(grp);
     st.skyGroup = grp;
@@ -8270,11 +8265,11 @@ const GFX = (() => {
     }
     for (const c of st.clouds) {
       c.sp.position.x += c.speed * (1 / 60);
-      if (c.sp.position.x > 2200) c.sp.position.x = -2200;
-      c.m.opacity = c.base * (0.35 + lightAmount * 0.65);
-      // White by day (desaturate as the sun rises), dusky blue-violet at night
-      // to settle into the dark sky instead of glowing as lavender speckle.
-      c.m.color.setHSL(0.62, 0.14 * (1 - lightAmount), 0.5 + lightAmount * 0.42);
+      if (c.sp.position.x > 2400) c.sp.position.x = -2400;
+      // Opaque geometry, so tint instead of fade: bright white by day, dusky
+      // blue-grey at night so the clouds recede into the dark sky.
+      c.m.color.setHSL(0.62, 0.12 * (1 - lightAmount), 0.34 + lightAmount * 0.6);
+      c.m.emissiveIntensity = 0.18 + lightAmount * 0.3;
     }
     // moon clouds drift across the face; dim the halo when one covers it
     let _moonCover = 0;
