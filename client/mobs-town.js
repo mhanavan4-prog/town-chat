@@ -5,7 +5,7 @@
 // debug snapshot read it) and is injected via get/set; the active scene and the
 // day/night flag are reassigned lets, injected as getters.
 // ---------------------------------------------------------------------------
-export default function createMobsTown({ getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight }) {
+export default function createMobsTown({ getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, mobAttackLungeAmount, getMobAttackLungeDist }) {
 function makeMob() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
@@ -75,8 +75,14 @@ function updateMobVisuals(dt) {
     const baseYT = (typeof getFloorHeight === 'function') ? getFloorHeight('outside', v.x, v.y) : 0;
     if (v.baseYS === undefined || Math.abs(baseYT - v.baseYS) > 34) v.baseYS = baseYT;
     else v.baseYS += (baseYT - v.baseYS) * f;
-    v.mesh.position.set(v.x, v.baseYS, v.y);
+    // Lunge forward on a swing (set via triggerMobAttackAnim on a landed hit) —
+    // a quick shove + nose-down tilt so the blow reads, the same tell the wilds
+    // blob mobs use.
+    const lungeFactor = mobAttackLungeAmount ? mobAttackLungeAmount(v) : 0;
+    const lungeDist = lungeFactor * (getMobAttackLungeDist ? getMobAttackLungeDist() : 0);
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, v.baseYS, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
+    v.mesh.rotation.x = -0.5 * lungeFactor;
     v.mesh.visible = getLastWildlifeIsNight() && !v.dead;
   }
 }

@@ -10920,6 +10920,7 @@ const { makeMob, addMobs, applyMobState, updateMobVisuals } = createMobsTown({
   getMobVisuals: () => mobVisuals, setMobVisuals: (v) => { mobVisuals = v; },
   getOutdoorScene: () => outdoorScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
   lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight,
+  mobAttackLungeAmount, getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,
 });
 
 // ---------------------------------------------------------------------------
@@ -11026,7 +11027,7 @@ const MOB_ATTACK_ANIM_MS = 380;
 const MOB_ATTACK_LUNGE_DIST = 16;
 function triggerMobAttackAnim(mobId) {
   if (!mobId) return;
-  const v = mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
+  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
   if (v) v.attackAnimStartAt = performance.now();
 }
 // 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
