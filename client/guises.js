@@ -181,6 +181,14 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
       if (!r) {
         const built = makeGuise(p.guise, v);
         if (!built) continue;
+        // Tag every mesh in the overlay as guise-owned. The overlay is socketed
+        // on the head bone, which lives *inside* v.kk.inst — so syncHeadwear's
+        // inst.traverse would otherwise sweep up the guise's own meshes. The
+        // antlered-HOOD guise has a '..._Hood' mesh that matches RE_HEADWEAR, so
+        // without this tag syncHeadwear hid the guise itself on top of the base
+        // head → a fully headless player (only on warm/cached loads, where the
+        // guise attaches before the headwear list is first cached).
+        built.group.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.userData._guiseMesh = true; });
         parent.add(built.group);
         pool[id] = { group: built.group, type: p.guise, glb: built.glb, parent, onBone };
       } else if (r.group.parent !== parent) {
@@ -214,6 +222,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
         hw = []; hc = [];
         v.kk.inst.traverse((o) => {
           if (!o.isMesh) return;
+          if (o.userData._guiseMesh) return; // the socketed guise overlay is not the player's own headwear
           const nm = o.name || '';
           if (RE_HEADWEAR.test(nm)) { if (o.userData._hwBase === undefined) o.userData._hwBase = o.visible; hw.push(o); }
           else if (RE_HEADCORE.test(nm)) { if (o.userData._hcBase === undefined) o.userData._hcBase = o.visible; hc.push(o); }
