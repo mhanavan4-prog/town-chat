@@ -8125,6 +8125,29 @@ const GFX = (() => {
     return new THREE.CanvasTexture(c);
   }
 
+  // A puffy cloud silhouette: a cluster of soft white blobs with a flattish
+  // base and a lumpy top, drawn wide (2:1). Reads as a cloud, and the varied
+  // alpha across the blobs hides the 8-bit banding a single smooth disc showed.
+  function makeCloudTex() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 128;
+    const x = c.getContext('2d');
+    // [cx, cy, r] — lumpy top (smaller, higher) over a broad flat-ish base row
+    const blobs = [
+      [128, 84, 50], [86, 80, 40], [172, 82, 42], [56, 88, 30], [202, 90, 32],
+      [128, 60, 44], [102, 66, 34], [156, 64, 36], [74, 74, 26], [186, 72, 28],
+    ];
+    for (const [bx, by, br] of blobs) {
+      const g = x.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, 'rgba(255,255,255,0.92)');
+      g.addColorStop(0.55, 'rgba(255,255,255,0.46)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, 256, 128);
+    }
+    const t = new THREE.CanvasTexture(c);
+    return t;
+  }
+
   function initSky(scene) {
     if (st.skyGroup) return;
     const grp = new THREE.Group();
@@ -8159,16 +8182,19 @@ const GFX = (() => {
       grp.add(pts);
       st.stars.push({ mat, phase: L.phase, speed: L.speed });
     }
-    // slow clouds
-    const cloudTex = softTex('rgba(255,255,255,0.85)', 18);
+    // slow clouds — a puffy, lumpy silhouette (several overlapping soft blobs)
+    // rather than one smooth radial disc. The single disc, thin over the sky,
+    // quantised to an 8-bit dither band that read as "rainbow speckle" instead
+    // of a cloud; clustered blobs give a real cloud edge and hide the banding.
+    const cloudTex = makeCloudTex();
     for (let i = 0; i < 8; i++) {
-      const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.32, depthWrite: false, fog: false });
+      const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.5, depthWrite: false, fog: false });
       const sp = new THREE.Sprite(m);
-      const sc = 380 + Math.random() * 420;
-      sp.scale.set(sc * (1.6 + Math.random() * 0.8), sc * 0.5, 1);
-      sp.position.set((Math.random() - 0.5) * 3000, 620 + Math.random() * 260, (Math.random() - 0.5) * 3000);
+      const sc = 420 + Math.random() * 460;
+      sp.scale.set(sc * (1.5 + Math.random() * 0.7), sc * 0.62, 1); // texture is 2:1, so keep the sprite wide
+      sp.position.set((Math.random() - 0.5) * 3000, 560 + Math.random() * 380, (Math.random() - 0.5) * 3000);
       grp.add(sp);
-      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, base: 0.22 + Math.random() * 0.16 });
+      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, base: 0.4 + Math.random() * 0.22 });
     }
     scene.add(grp);
     st.skyGroup = grp;
@@ -8246,7 +8272,9 @@ const GFX = (() => {
       c.sp.position.x += c.speed * (1 / 60);
       if (c.sp.position.x > 2200) c.sp.position.x = -2200;
       c.m.opacity = c.base * (0.35 + lightAmount * 0.65);
-      c.m.color.setHSL(0.7, 0.15, 0.35 + lightAmount * 0.55);
+      // White by day (desaturate as the sun rises), dusky blue-violet at night
+      // to settle into the dark sky instead of glowing as lavender speckle.
+      c.m.color.setHSL(0.62, 0.14 * (1 - lightAmount), 0.5 + lightAmount * 0.42);
     }
     // moon clouds drift across the face; dim the halo when one covers it
     let _moonCover = 0;

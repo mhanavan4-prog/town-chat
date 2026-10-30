@@ -59,7 +59,7 @@ const M = () => ({
   iron: mat({ color: 0x1b1720 }),
   bronze: mat({ color: 0x8a6a2f, emissive: 0x2a1d08, emissiveIntensity: 0.4 }),
   wax: mat({ color: 0x1a1622 }),
-  bone: mat({ color: 0xd8d0c0 }),
+  bone: mat({ color: 0x9c8e70 }), // aged/carved bone — was near-white (0xd8d0c0), which blew out to a glow under the brightened manor lights
   crystal: mat({ color: 0x9b6cff, emissive: 0x3a1d6e, emissiveIntensity: 0.7, transparent: true, opacity: 0.85 }),
   book: mat({ color: 0x2a1030 }),
 });
