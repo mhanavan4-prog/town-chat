@@ -67,7 +67,7 @@ function getInteriorScene(buildingId) {
     // players don't read as silhouettes against the dark stone.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0x8fb8ff, 0.8);
     fill.position.set(roomW * 0.6, 260, roomD * 0.7);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const crystalMat = new THREE.MeshLambertMaterial({
       color: theme.crystalColor != null ? theme.crystalColor : 0x9fd4ff,
       emissive: theme.crystalEmissive != null ? theme.crystalEmissive : 0x1d5ecc,
@@ -97,7 +97,7 @@ function getInteriorScene(buildingId) {
     // light. Heights vary so they read as drifting, not mounted.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0x9fffd0, 0.7);
     fill.position.set(roomW * 0.5, 260, roomD * 0.7);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const wCol = theme.wispColor != null ? theme.wispColor : 0x8fffbe;
     const lCol = theme.lightColor != null ? theme.lightColor : 0x3fd98a;
     const spots = [
@@ -121,7 +121,7 @@ function getInteriorScene(buildingId) {
     // fittings, chained down from the beams, each carrying a warm light.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffc890, 0.65);
     fill.position.set(roomW * 0.55, 260, roomD * 0.6);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const ironMat = new THREE.MeshLambertMaterial({ color: 0x1a120a });
     const spots = [
       [roomW * 0.2, roomD * 0.28], [roomW * 0.5, roomD * 0.22], [roomW * 0.8, roomD * 0.3],
@@ -152,7 +152,7 @@ function getInteriorScene(buildingId) {
     // in mid-air, warm flames against the cool violet room.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xd0c4ff, 0.75);
     fill.position.set(roomW * 0.5, 260, roomD * 0.65);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const waxMat = new THREE.MeshLambertMaterial({ color: 0xf0e8d8 });
     const spots = [
       [roomW * 0.18, roomD * 0.25], [roomW * 0.5, roomD * 0.18], [roomW * 0.82, roomD * 0.3],
@@ -179,7 +179,7 @@ function getInteriorScene(buildingId) {
     // legs, burning low and red.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffb9a0, 0.6);
     fill.position.set(roomW * 0.5, 260, roomD * 0.7);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const ironMat = new THREE.MeshLambertMaterial({ color: 0x16100c });
     const spots = [
       [40, 44], [roomW - 40, 44], [40, roomD - 60], [roomW - 40, roomD - 60], [roomW / 2, roomD * 0.62]
@@ -213,7 +213,7 @@ function getInteriorScene(buildingId) {
     // pale-green flames apiece — counting-house light for cursed coin.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffe9a0, 0.65);
     fill.position.set(roomW * 0.5, 260, roomD * 0.55);
-    scene.add(fill);
+    fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
     const goldMatL = new THREE.MeshLambertMaterial({ color: 0xb8912a, emissive: 0x3a2c08, emissiveIntensity: 0.35 });
     const spots = [
       [44, roomD * 0.14], [roomW - 44, roomD * 0.14], [44, roomD * 0.5], [roomW - 44, roomD * 0.5], [roomW / 2, roomD * 0.32]

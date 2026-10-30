@@ -8086,8 +8086,11 @@ const GFX = (() => {
     // normalBias especially helps grazing-angle faces like a vertical door.
     // (If shadows ever visibly detach from their caster — peter-panning — these
     // are too high; dial back toward -0.00035 / 3.)
-    light.shadow.bias = -0.0006;
-    light.shadow.normalBias = 4;
+    // Interiors (non-follow) are small rooms lit by a near light, which acnes
+    // walls and curved surfaces (helmets) more — and a touch of peter-panning
+    // there is far less visible than the zebra striping, so bias harder.
+    light.shadow.bias = info.follow ? -0.0006 : -0.0009;
+    light.shadow.normalBias = info.follow ? 4 : 6;
     // Soften the edge. Resolution (above) shrinks the texel; radius widens the
     // PCF kernel so the shadow boundary gets a real penumbra instead of a hard,
     // stair-stepped line — the interior "sawtooth". Interiors can take a wide,
