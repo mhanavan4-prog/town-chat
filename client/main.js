@@ -8456,12 +8456,37 @@ function initScene(w) {
   outdoorMoonLight.position.set(-400, 500, -300);
   scene.add(outdoorMoonLight);
 
-  moonMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(130, 24, 24),
-    // fog:false so the fog wall (opaque by ~2200u) can't wash the moon out —
-    // the old 50u moon sat past it in the map corner and was never seen.
-    new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0, fog: false })
-  );
+  // The moon shows its real phase: a lit sphere with a soft terminator, driven
+  // by a view-space "sun direction" uniform (see moonPhaseSun), so the lit limb
+  // reads face-on and stays screen-stable as the camera orbits. uLit carries the
+  // night's colour (pale / blood-red / Hagstone-violet); the dark limb keeps a
+  // faint earthshine so the disc is still findable (and a New Moon reads dark).
+  const moonMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uLit: { value: new THREE.Color(0xeaf2ff) },
+      uDark: { value: new THREE.Color(0x121526) },
+      uSun: { value: new THREE.Vector3(0, 0, 1) }, // camera-space direction to the sun
+      uOpacity: { value: 0 },
+    },
+    transparent: true, depthWrite: false, fog: false,
+    vertexShader: `
+      varying vec3 vN;
+      void main() {
+        vN = normalize(normalMatrix * normal); // surface normal in view (camera) space
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uLit; uniform vec3 uDark; uniform vec3 uSun; uniform float uOpacity;
+      varying vec3 vN;
+      void main() {
+        float d = dot(normalize(vN), normalize(uSun));
+        float lit = smoothstep(-0.07, 0.10, d); // soft terminator
+        vec3 col = mix(uDark, uLit, lit);
+        float a = uOpacity * mix(0.14, 1.0, lit); // faint earthshine on the dark limb
+        gl_FragColor = vec4(col, a);
+      }`,
+  });
+  moonMesh = new THREE.Mesh(new THREE.SphereGeometry(130, 32, 32), moonMat);
   scene.add(moonMesh);
 
   // A visible daytime sun to match the moon: a warm glowing disc with an
@@ -10887,6 +10912,26 @@ const _ambientColor = new THREE.Color();
 // consts + GFX by ref, lamp glows + scene-lighting objects via getters. ──
 // Night flag lives here (net handler writes it; mob modules read it via getters).
 let lastWildlifeIsNight = false;
+// The moon's phase as a camera-space "direction to the sun" for the moon shader.
+// theta: 0 = full (sun behind viewer, whole face lit) → π = new (sun behind the
+// moon, face dark). dir: +1 waxing (lit limb on the right) / −1 waning (left).
+// Keyed to the same calendar phase the HUD and Book of Shadows show.
+const MOON_PHASE_GEOM = {
+  new:             [Math.PI,        1],
+  waxing_crescent: [Math.PI * 0.72, 1],
+  first_quarter:   [Math.PI * 0.5,  1],
+  waxing_gibbous:  [Math.PI * 0.28, 1],
+  full:            [0,              1],
+  waning_gibbous:  [Math.PI * 0.28, -1],
+  last_quarter:    [Math.PI * 0.5,  -1],
+  waning_crescent: [Math.PI * 0.72, -1],
+};
+const _moonSun = new THREE.Vector3(0, 0, 1);
+function moonPhaseSun() {
+  const key = (calendarState && calendarState.moon && calendarState.moon.key) || 'full';
+  const g = MOON_PHASE_GEOM[key] || MOON_PHASE_GEOM.full;
+  return _moonSun.set(Math.sin(g[0]) * g[1], 0, Math.cos(g[0]));
+}
 const { getDayNightState, updateDayNightCycle } = createDayNight({
   DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT,
   _skyColor, _ambientColor, GFX, bloodMoonActiveClient,
@@ -10896,6 +10941,7 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
   getOutdoorHemi: () => outdoorHemi,
+  getMoonPhaseSun: moonPhaseSun,
   getWildsScene: () => wildsScene,
   getSunMesh: () => sunMesh, getSkyAnchor: () => activeCamera ? activeCamera.position : null,
 });

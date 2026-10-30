@@ -7,7 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getWildsScene, getSunMesh, getSkyAnchor }) {
+export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getMoonPhaseSun, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -132,13 +132,24 @@ function updateDayNightCycle() {
   getOutdoorMoonLight().intensity = moonStrength * 0.30; // softer, so it no longer glares off the ground
   // The moon blushes red on blood nights, glows violet in the Hagstone world.
   const moonColor = bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_PALE_COLOR;
-  getMoonMesh().material.color.copy(moonColor);
-  getMoonMesh().scale.setScalar(bloodMoon ? 1.9 : hagstone ? 1.4 : 1); // bigger, closer moon in the Hagstone world
+  const mm = getMoonMesh();
+  const mu = mm.material.uniforms;
+  if (mu) {
+    // Phase shader: lit colour, a dim earthshine dark limb, the phase direction,
+    // and the night-fade opacity. The phase itself comes from the calendar.
+    mu.uLit.value.copy(moonColor);
+    mu.uDark.value.copy(moonColor).multiplyScalar(0.12);
+    if (getMoonPhaseSun) mu.uSun.value.copy(getMoonPhaseSun());
+    mu.uOpacity.value = moonStrength;
+  } else {
+    mm.material.color.copy(moonColor);
+    mm.material.opacity = moonStrength;
+  }
+  mm.scale.setScalar(bloodMoon ? 1.9 : hagstone ? 1.4 : 1); // bigger, closer moon in the Hagstone world
   // The cast light is warm ivory on a normal night (the mesh stays cool); blood
   // and Hagstone nights keep their signature coloured light.
   getOutdoorMoonLight().color.copy(bloodMoon ? MOON_BLOOD_COLOR : hagstone ? MOON_HAG_COLOR : MOON_LIGHT_COLOR);
-  getMoonMesh().material.opacity = moonStrength;
-  getMoonMesh().visible = moonStrength > 0.02;
+  mm.visible = moonStrength > 0.02;
 
   // Lane lampposts come on with the dark — a warm counterpoint to the cool
   // moonlight, riding the same lightAmount curve so they fade in through
