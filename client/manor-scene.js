@@ -35,7 +35,7 @@ function setAltarDecor(slot, arrangement) {
     if (!id) continue;
     const d = buildDecoration(id);
     if (!d) continue;
-    d.scale.setScalar(0.8);
+    d.scale.setScalar(1.15); // was 0.8 — small premium pieces (skull, crystals) were easy to miss against the candelabra
     d.position.set(ALTAR_SLOT_POS[i].x, ALTAR_TOP_Y, ALTAR_SLOT_POS[i].z);
     dg.add(d);
   }

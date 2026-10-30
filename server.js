@@ -5701,6 +5701,12 @@ const TOWN_MOB_COMBAT = {
   hitCooldownMs: 1500
 };
 const TOWN_MOB_XP = 10; // they also pay XP now that they can kill you
+// Hostile mobs were noticing players only at point-blank, which made the night
+// feel toothless. One shared multiplier widens every hostile's aggro bubble
+// (town + wilds night mobs) without disturbing their relative tuning — raise it
+// to make the world hungrier, lower it to calm it. Strike range is untouched,
+// so they still only *hit* up close; they just start the hunt from farther off.
+const MOB_AGGRO_MULT = 1.8;
 
 const mobs = MOB_SPAWNS.map((p, i) => ({
   id: 'mob_' + i,
@@ -5886,7 +5892,7 @@ function tickWildlife(dt) {
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * C.chaseSpeed;
       vy = dy * inv * C.chaseSpeed;
-    } else if (nearestP && dist < C.aggroRadius && !isEvading(nearestP)) {
+    } else if (nearestP && dist < C.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP)) {
       // Aggro: chase, and swing when close enough. An evading player has
       // slipped out of their senses entirely (see cm_voice).
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
@@ -6205,7 +6211,7 @@ function tickWilds(dt) {
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
-    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
+    } else if (nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP)) {
       // Ranged casters (Fen Hexer) kite: back off if the player closes inside
       // kiteRange, hold position in the mid-band, and strike from anywhere
       // within their long strikeRange. Everyone else just charges in.
@@ -6241,7 +6247,7 @@ function tickWilds(dt) {
     if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
     if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
     // A caster keeps facing its quarry even while backpedalling.
-    if (preset.ranged && nearestP && dist < preset.aggroRadius) m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
+    if (preset.ranged && nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT) m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
   }
 }
 
