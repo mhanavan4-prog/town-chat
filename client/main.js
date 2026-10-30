@@ -8036,6 +8036,7 @@ const GFX = (() => {
       if (!o.isMesh) return;
       const m = o.material;
       if (!m) return;
+      if (o.userData && o.userData._noShadow) { o.castShadow = false; o.receiveShadow = false; return; } // e.g. sky clouds
       const glowy = m.transparent === true || (m.blending !== undefined && m.blending !== THREE.NormalBlending) || m.isMeshBasicMaterial;
       if (glowy) { o.castShadow = false; o.receiveShadow = false; return; }
       const g = o.geometry;
@@ -8142,6 +8143,8 @@ const GFX = (() => {
       const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat);
       mesh.position.set(x, y, z);
       mesh.scale.set(1, 0.62, 0.85); // squashed so the cloud is wide and shallow
+      mesh.castShadow = false; mesh.receiveShadow = false;
+      mesh.userData._noShadow = true; // high in the sky — don't throw a huge shadow across the ground
       grp.add(mesh);
     }
     return { group: grp, mat };
