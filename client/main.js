@@ -8456,30 +8456,42 @@ function initScene(w) {
   outdoorMoonLight.position.set(-400, 500, -300);
   scene.add(outdoorMoonLight);
 
-  // The moon shows its real phase: a lit sphere with a soft terminator, driven
-  // by a view-space "sun direction" uniform (see moonPhaseSun), so the lit limb
-  // reads face-on and stays screen-stable as the camera orbits. uLit carries the
-  // night's colour (pale / blood-red / Hagstone-violet); the dark limb keeps a
-  // faint earthshine so the disc is still findable (and a New Moon reads dark).
+  // The moon shows its real phase: a lit sphere with a soft terminator. The
+  // "direction to the sun" is built per-frame IN THE SHADER from the actual
+  // camera→moon axis (not a fixed screen direction), so the phase is correct no
+  // matter where the moon sits in view or how the camera is turned. uTheta is
+  // the phase angle (0 = full, π = new) and uDir the waxing(+1)/waning(−1) side.
+  // uLit carries the night's colour (pale / blood-red / Hagstone-violet); the
+  // dark limb keeps a faint earthshine so the disc is still findable.
   const moonMat = new THREE.ShaderMaterial({
     uniforms: {
       uLit: { value: new THREE.Color(0xeaf2ff) },
       uDark: { value: new THREE.Color(0x121526) },
-      uSun: { value: new THREE.Vector3(0, 0, 1) }, // camera-space direction to the sun
+      uTheta: { value: 0 },
+      uDir: { value: 1 },
       uOpacity: { value: 0 },
     },
     transparent: true, depthWrite: false, fog: false,
     vertexShader: `
+      uniform float uTheta; uniform float uDir;
       varying vec3 vN;
+      varying vec3 vSun;
       void main() {
-        vN = normalize(normalMatrix * normal); // surface normal in view (camera) space
+        vN = normalize(normalMatrix * normal);           // surface normal in view space
+        vec3 Mv = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; // moon centre in view space
+        vec3 d = normalize(Mv);                          // camera→moon axis
+        vec3 right = normalize(cross(d, vec3(0.0, 1.0, 0.0))); // moon's screen-right, perp to d
+        // dirToSun: -d at full (lit face toward camera), swings to +d at new,
+        // crossing the right/left limb at the quarters.
+        vSun = normalize(-cos(uTheta) * d + sin(uTheta) * uDir * right);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 uLit; uniform vec3 uDark; uniform vec3 uSun; uniform float uOpacity;
+      uniform vec3 uLit; uniform vec3 uDark; uniform float uOpacity;
       varying vec3 vN;
+      varying vec3 vSun;
       void main() {
-        float d = dot(normalize(vN), normalize(uSun));
+        float d = dot(normalize(vN), normalize(vSun));
         float lit = smoothstep(-0.07, 0.10, d); // soft terminator
         vec3 col = mix(uDark, uLit, lit);
         float a = uOpacity * mix(0.14, 1.0, lit); // faint earthshine on the dark limb
@@ -10912,9 +10924,9 @@ const _ambientColor = new THREE.Color();
 // consts + GFX by ref, lamp glows + scene-lighting objects via getters. ──
 // Night flag lives here (net handler writes it; mob modules read it via getters).
 let lastWildlifeIsNight = false;
-// The moon's phase as a camera-space "direction to the sun" for the moon shader.
-// theta: 0 = full (sun behind viewer, whole face lit) → π = new (sun behind the
-// moon, face dark). dir: +1 waxing (lit limb on the right) / −1 waning (left).
+// The moon's phase as [theta, dir] for the moon shader, which builds the sun
+// direction from the live camera→moon axis. theta: 0 = full (whole face lit) →
+// π = new (face dark). dir: +1 waxing (lit limb on the right) / −1 waning (left).
 // Keyed to the same calendar phase the HUD and Book of Shadows show.
 const MOON_PHASE_GEOM = {
   new:             [Math.PI,        1],
@@ -10926,11 +10938,9 @@ const MOON_PHASE_GEOM = {
   last_quarter:    [Math.PI * 0.5,  -1],
   waning_crescent: [Math.PI * 0.72, -1],
 };
-const _moonSun = new THREE.Vector3(0, 0, 1);
-function moonPhaseSun() {
+function moonPhaseGeom() {
   const key = (calendarState && calendarState.moon && calendarState.moon.key) || 'full';
-  const g = MOON_PHASE_GEOM[key] || MOON_PHASE_GEOM.full;
-  return _moonSun.set(Math.sin(g[0]) * g[1], 0, Math.cos(g[0]));
+  return MOON_PHASE_GEOM[key] || MOON_PHASE_GEOM.full;
 }
 const { getDayNightState, updateDayNightCycle } = createDayNight({
   DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT,
@@ -10941,7 +10951,7 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
   getOutdoorHemi: () => outdoorHemi,
-  getMoonPhaseSun: moonPhaseSun,
+  getMoonPhaseGeom: moonPhaseGeom,
   getWildsScene: () => wildsScene,
   getSunMesh: () => sunMesh, getSkyAnchor: () => activeCamera ? activeCamera.position : null,
 });
