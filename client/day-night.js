@@ -7,7 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getMoonPhaseSun, getWildsScene, getSunMesh, getSkyAnchor }) {
+export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getMoonPhaseGeom, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -139,7 +139,7 @@ function updateDayNightCycle() {
     // and the night-fade opacity. The phase itself comes from the calendar.
     mu.uLit.value.copy(moonColor);
     mu.uDark.value.copy(moonColor).multiplyScalar(0.12);
-    if (getMoonPhaseSun) mu.uSun.value.copy(getMoonPhaseSun());
+    if (getMoonPhaseGeom) { const g = getMoonPhaseGeom(); mu.uTheta.value = g[0]; mu.uDir.value = g[1]; }
     mu.uOpacity.value = moonStrength;
   } else {
     mm.material.color.copy(moonColor);
