@@ -66,9 +66,19 @@ function updateMobVisuals(dt) {
   const f = 1 - Math.exp(-dt * 8);
   for (const id in getMobVisuals()) {
     const v = getMobVisuals()[id];
+    const prevX = v.x, prevY = v.y;
     v.x += (v.targetX - v.x) * f;
     v.y += (v.targetY - v.y) * f;
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
+    // These blobs have no legs, so a lifeless slide reads as "shifting" at you.
+    // Give them a scuttling gait: a hop + side-to-side waddle + squash, scaled
+    // by how fast they're actually moving, so they look like they're chasing.
+    const spd = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
+    const moving = Math.min(1, spd / 45);
+    v.walkPhase = (v.walkPhase || 0) + dt * (5 + spd * 0.09);
+    const hop = Math.abs(Math.sin(v.walkPhase)) * 4.5 * moving;
+    const waddle = Math.sin(v.walkPhase) * 0.14 * moving;
+    const squash = 1 - Math.abs(Math.sin(v.walkPhase)) * 0.10 * moving;
     // Sit on the floor, not a flat y=0 — otherwise mobs that wander onto the
     // raised Temple platform sink through its base. Chased (not snapped) so the
     // platform edge reads as a step up, same as players/Torchkeepers.
@@ -80,9 +90,11 @@ function updateMobVisuals(dt) {
     // blob mobs use.
     const lungeFactor = mobAttackLungeAmount ? mobAttackLungeAmount(v) : 0;
     const lungeDist = lungeFactor * (getMobAttackLungeDist ? getMobAttackLungeDist() : 0);
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, v.baseYS, v.y + Math.cos(v.facing) * lungeDist);
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, v.baseYS + hop, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
-    v.mesh.rotation.x = -0.5 * lungeFactor;
+    v.mesh.rotation.z = waddle;
+    v.mesh.rotation.x = -0.5 * lungeFactor + 0.12 * moving; // lean into the chase, dive on a swing
+    v.mesh.scale.y = squash;
     v.mesh.visible = getLastWildlifeIsNight() && !v.dead;
   }
 }
