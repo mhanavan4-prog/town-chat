@@ -247,8 +247,13 @@ function updateDungeonMobVisuals(dt) {
         if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
       }
       if (now >= (v.kk && v.kk.busyUntil || 0) && kkSetState) {
-        const moving = actualSpeed > 4;
-        kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+        v.animSpeed = (v.animSpeed || 0) * 0.8 + actualSpeed * 0.2;
+        const spd = v.animSpeed;
+        const moving = spd > 3;
+        const state = moving ? (spd > 130 ? 'Running_A' : 'Walking_A') : 'Idle';
+        kkSetState(v.kk, state);
+        // Match clip rate to ground speed so slow mobs don't moon-walk/float.
+        if (moving) { const a = v.kk.act(state); if (a) a.timeScale = Math.max(0.5, Math.min(1.9, spd / (state === 'Running_A' ? 170 : 58))); }
       }
       v.mesh.position.set(v.x, 0, v.y);
       v.mesh.rotation.y = v.facing;

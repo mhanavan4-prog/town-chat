@@ -66,8 +66,17 @@ function updateMob2Visuals(dt) {
         if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
       }
       if (now >= (v.kk.busyUntil || 0) && kkSetState) {
-        const moving = actualSpeed > 4;
-        kkSetState(v.kk, moving ? (actualSpeed > 120 ? 'Running_A' : 'Walking_A') : 'Idle');
+        // Smooth the interpolated speed so brief catch-up dips between server
+        // updates don't flicker the gait to Idle.
+        v.animSpeed = (v.animSpeed || 0) * 0.8 + actualSpeed * 0.2;
+        const spd = v.animSpeed;
+        const moving = spd > 3;
+        const state = moving ? (spd > 130 ? 'Running_A' : 'Walking_A') : 'Idle';
+        kkSetState(v.kk, state);
+        // Scale the clip's playback to the real ground speed so the feet keep
+        // pace instead of moon-walking — slow mobs (e.g. the Bog Brute at 16u/s)
+        // otherwise cycle their legs while sliding, reading as a floating drift.
+        if (moving) { const a = v.kk.act(state); if (a) a.timeScale = Math.max(0.5, Math.min(1.9, spd / (state === 'Running_A' ? 170 : 58))); }
       }
       v.mesh.position.set(v.x, hover, v.y);
       v.mesh.rotation.y = v.facing;
