@@ -7675,6 +7675,7 @@ const visuals = {}; // id -> { group, armL, armR, legL, legR, nameEl, inScene, p
 let outdoorAmbient = null;
 let outdoorSun = null;
 let outdoorMoonLight = null;
+let outdoorHemi = null; // violet-sky / warm-amber-ground wash: cheap torchlight bounce, no per-torch lights
 // Temple of the Flame torch point lights — registered by buildTownTemple and
 // ramped up at night (see updateDayNightCycle) so the flames "carry the dark".
 const TEMPLE_TORCH_LIGHTS = [];
@@ -8415,6 +8416,13 @@ function initScene(w) {
 
   outdoorAmbient = new THREE.AmbientLight(0xffffff, 0.65);
   scene.add(outdoorAmbient);
+  // One hemisphere light = the whole village catches a warm, torch-coloured
+  // bounce from below (amber ground) under a cool violet sky — the night's
+  // "lit by firelight" feel without a crowd of point lights to render. The
+  // day/night grade (day-night.js) fades its warmth in with the dark and
+  // recolours it for blood-moon and Hagstone nights.
+  outdoorHemi = new THREE.HemisphereLight(0x3a3a6e, 0x7a4a22, 0.0);
+  scene.add(outdoorHemi);
   outdoorSun = new THREE.DirectionalLight(0xffe2b8, 0.9); // low amber sun — perpetual witch-hour light
   outdoorSun.position.set(400, 600, 300);
   scene.add(outdoorSun);
@@ -8806,7 +8814,7 @@ function swapToWildsMap() {
     } catch (e) { console.error('buildWildsScene failed:', e); }
   }
   if (!wildsScene || !world2 || activeScene === wildsScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorHemi, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     outdoorScene.remove(light);
     wildsScene.add(light);
   }
@@ -8821,7 +8829,7 @@ function swapToWildsMap() {
 
 function swapToTownMap() {
   if (!outdoorScene || !TOWN_WORLD || activeScene === outdoorScene) return;
-  for (const light of [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
+  for (const light of [outdoorAmbient, outdoorHemi, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean)) {
     if (wildsScene) wildsScene.remove(light); // wilds may be unbuilt (lazy) if never visited — nothing to remove
     outdoorScene.add(light);
   }
@@ -8930,7 +8938,7 @@ function scheduleWildsUpgrade() {
     if (wildsUpgradeState !== 1 || !KK.fullyLoaded) return;
     wildsUpgradeState = 2;
     if (!wildsScene || !world2) return;
-    const sharedLights = [outdoorAmbient, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean);
+    const sharedLights = [outdoorAmbient, outdoorHemi, outdoorSun, outdoorMoonLight, moonMesh, sunMesh, outdoorSun.target, outdoorMoonLight.target, GFX.st.skyGroup].filter(Boolean);
     const wasActive = (activeScene === wildsScene);
     for (const light of sharedLights) wildsScene.remove(light); // free the shared lights from the stale scene
     manorExteriorGroup = null; // force ensureManorExterior to re-add to the fresh scene
@@ -10864,6 +10872,7 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
   getTempleTorchLights: () => TEMPLE_TORCH_LIGHTS,
   getOutdoorScene: () => outdoorScene, getOutdoorSun: () => outdoorSun, getMoonMesh: () => moonMesh,
   getOutdoorAmbient: () => outdoorAmbient, getOutdoorMoonLight: () => outdoorMoonLight,
+  getOutdoorHemi: () => outdoorHemi,
   getWildsScene: () => wildsScene,
   getSunMesh: () => sunMesh, getSkyAnchor: () => activeCamera ? activeCamera.position : null,
 });

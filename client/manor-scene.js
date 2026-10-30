@@ -43,8 +43,8 @@ function setAltarDecor(slot, arrangement) {
 function buildManorScene() {
   altarDecorGroups.length = 0;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0c0a1c);
-  scene.fog = new THREE.FogExp2(0x0c0a1c, 0.0016);
+  scene.background = new THREE.Color(0x151029);
+  scene.fog = new THREE.FogExp2(0x151029, 0.0013);
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2000);
   // Assign early so swapToManorMap works even if geometry building throws below.
   setManorScene(scene);
@@ -54,14 +54,18 @@ function buildManorScene() {
   // nobody feels dwarfed looking up (an earlier 320 made the player tiny).
   const W = MANOR_WORLD.width, D = MANOR_WORLD.height, WALL_H = 200;
 
-  // ── Light: a dim violet wash + warm points so candles read, never flat ──
-  scene.add(new THREE.HemisphereLight(0x3a2d66, 0x0a0714, 0.9));
-  scene.add(new THREE.AmbientLight(0x4a3b7a, 0.5));
-  const chandLight = new THREE.PointLight(0xffcf87, 2.0, 900, 1.6);
+  // ── Light: a violet wash + warm points so candles read, never flat. The
+  // hemisphere does the cheap "torchlight" trick — a violet sky overhead but a
+  // warm amber GROUND colour, so floors and upturned faces catch a fire-lit
+  // bounce with no extra light sources to render. Ambient lifted and the warm
+  // points strengthened/widened so the hall is readable, not murky. ──
+  scene.add(new THREE.HemisphereLight(0x4e3f80, 0x3a2410, 1.15));
+  scene.add(new THREE.AmbientLight(0x5f4f8c, 0.72));
+  const chandLight = new THREE.PointLight(0xffcf87, 2.7, 1150, 1.5);
   chandLight.position.set(W / 2, WALL_H * 0.78, D / 2);
   scene.add(chandLight);
   for (const [lx, lz, col] of [[W * 0.22, D * 0.5, 0xffb060], [W * 0.78, D * 0.5, 0xffb060]]) {
-    const warm = new THREE.PointLight(col, 1.0, 520, 1.8);
+    const warm = new THREE.PointLight(col, 1.55, 680, 1.7);
     warm.position.set(lx, 150, lz);
     scene.add(warm);
   }

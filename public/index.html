@@ -699,7 +699,7 @@
   body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card,
   body:not(.touchMode) #delveModal > .card, body:not(.touchMode) #msModal > .card,
   body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
-  body:not(.touchMode) #controlsModal > .card {
+  body:not(.touchMode) #controlsModal > .card, body:not(.touchMode) #bedChestCard {
     width:min(720px, 94vw); height:min(840px, 86vh); overflow-y:auto;
   }
   /* Options flow into two columns inside the wide panels (the render functions
@@ -2817,6 +2817,10 @@
     flex:1; background:#170f2a; border:1px solid #4a3b6a; color:#e8dcc8;
     border-radius:9px; padding:7px 10px; font-size:13px;
   }
+  /* The altar card holds a lot (adorn slots, catalog, rituals, chest, pack) —
+     cap it to a scrollable sheet like the ☰ menu instead of letting it run off
+     the screen. Desktop gets the shared overlay frame above; this covers touch. */
+  #bedChestCard { max-height:86vh; overflow-y:auto; }
   .covenSlotGrid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:6px; }
   .covenSlot {
     aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
