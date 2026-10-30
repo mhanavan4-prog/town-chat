@@ -182,10 +182,10 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
         const built = makeGuise(p.guise, v);
         if (!built) continue;
         parent.add(built.group);
-        pool[id] = { group: built.group, type: p.guise, glb: built.glb, parent };
+        pool[id] = { group: built.group, type: p.guise, glb: built.glb, parent, onBone };
       } else if (r.group.parent !== parent) {
         if (r.group.parent) r.group.parent.remove(r.group);
-        parent.add(r.group); r.parent = parent;
+        parent.add(r.group); r.parent = parent; r.onBone = onBone;
       }
     }
     syncHeadwear(players, visuals);
@@ -223,7 +223,14 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
       const p = players[id];
       const g = p && p.guise;
       const worn = !!(g && isGuise(g));
-      const hideHead = worn && COVERS_HEAD.has(g);
+      // Only hide your real head once the full-head guise is actually drawn on
+      // the head bone. On a cold refresh the guise asset loads a beat after the
+      // player data arrives — hiding the head before the guise mesh exists (or
+      // while it's still a mislocated pre-rig stand-in) left you headless and
+      // stuck there for the whole load window.
+      const rec = pool[id];
+      const guiseOnBone = !!(rec && rec.type === g && rec.onBone && rec.group && rec.group.parent);
+      const hideHead = worn && COVERS_HEAD.has(g) && guiseOnBone;
       for (const m of hw) { const want = worn ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
       for (const m of hc) { const want = hideHead ? false : m.userData._hcBase; if (m.visible !== want) m.visible = want; }
     }

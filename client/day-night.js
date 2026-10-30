@@ -7,7 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
-export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getWildsScene, getSunMesh, getSkyAnchor }) {
+export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
   let lightAmount;
@@ -36,8 +36,14 @@ const MOON_LIGHT_COLOR = new THREE.Color(0xe9e1c0);
 // held apart from the public world's clock so stepping through the Hagstone
 // unmistakably reads as "somewhere else". Overrides sky/ambient/moon below.
 const SKY_HAG = new THREE.Color(0x160f33);
-const AMBIENT_HAG = new THREE.Color(0x5a49a0);
+const AMBIENT_HAG = new THREE.Color(0x6a54a8); // violet instance wash, lifted so its world isn't murky
 const MOON_HAG_COLOR = new THREE.Color(0xc9bcff);
+// Hemisphere wash colours — a cool sky overhead, a warm torch-amber bounce from
+// the ground. This one light gives the whole outdoor night a firelit warmth with
+// no per-torch point lights; its intensity fades in with the dark.
+const HEMI_SKY_NIGHT = new THREE.Color(0x3a3a6e), HEMI_GROUND_NIGHT = new THREE.Color(0x8a5226);
+const HEMI_SKY_BLOOD = new THREE.Color(0x5a1e1e), HEMI_GROUND_BLOOD = new THREE.Color(0x8a2e14);
+const HEMI_SKY_HAG   = new THREE.Color(0x2a2060), HEMI_GROUND_HAG   = new THREE.Color(0x7a3f86);
 function updateDayNightCycle() {
   if (!getOutdoorScene() || !getOutdoorAmbient() || !getOutdoorSun()) return;
   const { lightAmount, isNight, dayProgress, nightProgress } = getDayNightState();
@@ -78,7 +84,16 @@ function updateDayNightCycle() {
   // the whole village is gently lit rather than pitch-dark between the warm
   // torch/lantern/portal pools; day stays bright and warm (0.64). Hagstone keeps
   // its own hushed mid-level.
-  getOutdoorAmbient().intensity = hagstone ? 0.5 : (0.28 + lightAmount * 0.36);
+  getOutdoorAmbient().intensity = hagstone ? 0.56 : (0.34 + lightAmount * 0.34);
+
+  // The torch-warm hemisphere wash: strongest in deep dark, gone by midday so it
+  // never muddies the clean daylight. Hagstone keeps a steady firelit glow.
+  const hemi = getOutdoorHemi && getOutdoorHemi();
+  if (hemi) {
+    if (hagstone) { hemi.color.copy(HEMI_SKY_HAG); hemi.groundColor.copy(HEMI_GROUND_HAG); hemi.intensity = 0.6; }
+    else if (bloodMoon) { hemi.color.copy(HEMI_SKY_BLOOD); hemi.groundColor.copy(HEMI_GROUND_BLOOD); hemi.intensity = 0.62 * (1 - lightAmount); }
+    else { hemi.color.copy(HEMI_SKY_NIGHT); hemi.groundColor.copy(HEMI_GROUND_NIGHT); hemi.intensity = 0.55 * (1 - lightAmount); }
+  }
 
   // Sun arcs from one horizon to the other across the day; moon mirrors it
   // across the night. Using sin() for height means both rise and set
