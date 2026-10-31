@@ -280,6 +280,79 @@ const SALT = S(`
   <circle cx="25" cy="33" r="1.6" fill="${C.bone}"/><circle cx="31" cy="30" r="1.6" fill="${C.bone}"/>
   <circle cx="22" cy="35" r="1.6" fill="${C.bone}"/>`);
 
+// ── Items: weapons ───────────────────────────────────────────────────────────
+
+const I_IRON_SWORD = S(`
+  <path d="M22 4 L26 9 L24 27 L20 27 L18 9 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M22 5 L22 26" stroke="#c9d2dc" stroke-width="1.4" opacity="0.9"/>
+  <path d="M13 28 L31 28" stroke="${C.amber2}" stroke-width="3.6"/>
+  <path d="M22 28 L22 39" stroke="${C.bone2}" stroke-width="3.4"/>
+  <circle cx="22" cy="39" r="2.4" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.2"/>`);
+
+const I_SPELL_TOME = S(`
+  <path d="M9 9 L31 9 Q34 9 34 12 L34 34 Q34 36 31 36 L9 36 Q7 36 7 33 L7 11 Q7 9 9 9 Z"
+    fill="${C.red2}" stroke="#7a1f36" stroke-width="2"/>
+  <path d="M11 9 L11 36" stroke="#7a1f36" stroke-width="2"/>
+  <path d="M20 15 l1.8 4 4.2 0 -3.4 2.7 1.3 4 -3.9 -2.4 -3.9 2.4 1.3 -4 -3.4 -2.7 4.2 0 Z"
+    fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.8"/>`);
+
+const I_HOLLY_WAND = S(`
+  <path d="M14 34 L30 11" stroke="#8a5a30" stroke-width="3" stroke-linecap="round"/>
+  <path d="M30 11 l2 -5 3 2 -1 4 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1"/>
+  <path d="M12 30 q-5 -1 -6 -6 q5 1 6 6 Z M14 33 q-1 5 -6 6 q1 -5 6 -6 Z" fill="#4e8c3a" stroke="#3c6e2c" stroke-width="1"/>
+  <circle cx="31" cy="8" r="2.4" fill="${C.bone}"/>
+  <path d="M27 6 l-2 -3 M35 12 l3 -1" stroke="${C.teal}" stroke-width="1.8"/>`);
+
+const I_CURSED_BLADE = S(`
+  <path d="M22 4 L26 10 L25 20 L27 24 L23 27 L21 27 L17 24 L19 20 L18 10 Z"
+    fill="#3a2850" stroke="#1f1430" stroke-width="1.6"/>
+  <path d="M22 6 L22 25" stroke="${C.red}" stroke-width="1.6"/>
+  <path d="M13 28 L31 28" stroke="#5a3a2a" stroke-width="3.4"/>
+  <path d="M22 28 L22 39" stroke="#2a1d40" stroke-width="3.4"/>
+  <circle cx="22" cy="39" r="2.4" fill="${C.red}" stroke="${C.red2}" stroke-width="1"/>`);
+
+const I_SHADOW_STAFF = S(`
+  <path d="M20 38 L24 12" stroke="#4a3368" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="25" cy="10" r="7" fill="#241836" stroke="#4a3368" stroke-width="2"/>
+  <path d="M25 10 m-4 0 a4 4 0 0 0 7 2.5" fill="${C.plum}"/>
+  <path d="M30 5 l3 -2 M18 7 l-3 -1" stroke="${C.plum}" stroke-width="1.8"/>`);
+
+const I_VOID_STAFF = S(`
+  <path d="M19 38 L25 12" stroke="#2a1d40" stroke-width="3" stroke-linecap="round"/>
+  <path d="M26 10 m0 -7 a7 7 0 1 1 -6 11 a4 4 0 1 0 5 -7" fill="none" stroke="${C.teal}" stroke-width="2.4"/>
+  <circle cx="26" cy="10" r="1.8" fill="${C.amber}"/>`);
+
+const I_ALPHA_FANG = S(`
+  <path d="M16 6 Q30 8 30 22 Q30 34 22 38 Q20 30 18 24 Q15 14 16 6 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M19 12 Q24 16 24 24" stroke="${C.bone2}" stroke-width="1.4" opacity="0.7"/>
+  <path d="M14 8 L18 12 M14 11 L17 15" stroke="${C.amber2}" stroke-width="2.2"/>`);
+
+// ── Items: starter gear ──────────────────────────────────────────────────────
+
+const I_STEEL_SHIELD = S(`
+  <path d="M22 5 L35 10 C35 24 30 33 22 38 C14 33 9 24 9 10 Z"
+    fill="#aeb8c4" stroke="#6f7a88" stroke-width="2"/>
+  <path d="M22 5 L22 38 M9 15 L35 15" stroke="#6f7a88" stroke-width="1.6" opacity="0.7"/>
+  <path d="M22 5 L35 10 C35 20 32 27 22 33" fill="#c7d0da" opacity="0.5"/>`);
+
+const I_WIZARD_HAT = S(`
+  <path d="M22 4 L33 32 L11 32 Z" fill="#3a2a60" stroke="#241840" stroke-width="2"/>
+  <path d="M6 32 L38 32 L36 37 L8 37 Z" fill="#2a1d48" stroke="#241840" stroke-width="2"/>
+  <path d="M24 18 l1.2 3 3.3 0 -2.7 2 1 3.2 -2.8 -1.9 -2.8 1.9 1 -3.2 -2.7 -2 3.3 0 Z"
+    fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.7"/>`);
+
+const I_LEATHER_BOOTS = S(`
+  <path d="M15 6 L22 6 L23 22 L32 24 Q36 25 36 30 L36 35 L12 35 L12 10 Q12 6 15 6 Z"
+    fill="#8a5a34" stroke="#5e3c22" stroke-width="2"/>
+  <path d="M12 30 L36 30" stroke="#5e3c22" stroke-width="2"/>
+  <path d="M16 12 L19 12 M16 17 L19 17" stroke="#5e3c22" stroke-width="1.6"/>`);
+
+const I_SILVER_RING = S(`
+  <circle cx="22" cy="25" r="11" fill="none" stroke="#c9d2dc" stroke-width="4"/>
+  <circle cx="22" cy="25" r="11" fill="none" stroke="#eef3f8" stroke-width="1.4" opacity="0.6"/>
+  <path d="M22 14 L26 8 L22 4 L18 8 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1.4"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -296,6 +369,13 @@ export const UI_ICONS = {
   regen: REGEN, speedboost: SPEED, ravencloak: RAVENCLOAK, giant: GIANT, bats: BATS,
   meditate: MEDITATE, wolfpact: WOLFPACT, feather: FEATHER, ward: WARD, colorcycle: COLORCYCLE,
   salt: SALT,
+  // items — weapons
+  iron_sword: I_IRON_SWORD, spell_tome: I_SPELL_TOME, holly_wand: I_HOLLY_WAND,
+  cursed_blade: I_CURSED_BLADE, shadow_staff: I_SHADOW_STAFF, void_staff: I_VOID_STAFF,
+  alpha_fang: I_ALPHA_FANG,
+  // items — starter gear
+  steel_shield: I_STEEL_SHIELD, wizard_hat: I_WIZARD_HAT,
+  leather_boots: I_LEATHER_BOOTS, silver_ring: I_SILVER_RING,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]

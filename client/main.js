@@ -841,10 +841,11 @@ const FLOWER_ICON_SVG = `<svg viewBox="0 0 24 24" width="24" height="24" xmlns="
 // the plain emoji span for every item except the Flower, which gets the
 // SVG above instead.
 function buildItemIconEl(itemId) {
-  if (itemId === 'flower_bloom') {
+  const custom = uiIcon(itemId);
+  if (custom || itemId === 'flower_bloom') {
     const wrap = document.createElement('span');
     wrap.className = 'itemIconSvg';
-    wrap.innerHTML = FLOWER_ICON_SVG;
+    wrap.innerHTML = custom || FLOWER_ICON_SVG;
     return wrap;
   }
   const item = ITEM_CATALOG[itemId];
@@ -4057,7 +4058,7 @@ function _renderWitchTab() {
     for (const item of witchShopItems) {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);';
-      row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+      row.innerHTML = `<span class="rowGi" style="font-size:22px;">${glyphHTML(item.id, 'rowGi', item.icon)}</span>
         <span style="flex:1;color:#e8d0ff;font-weight:600;">${item.name}</span>
         <span style="color:#cc88ff;font-size:12px;">📸 selfie</span>
         <button data-id="${item.id}" style="padding:5px 14px;background:#6622aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
@@ -4087,7 +4088,7 @@ function _renderWitchTab() {
         : '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);flex-wrap:wrap;';
-      row.innerHTML = `<span style="font-size:22px;">${recipe.icon}</span>
+      row.innerHTML = `<span class="rowGi" style="font-size:22px;">${glyphHTML(recipe.id, 'rowGi', recipe.icon)}</span>
         <span style="flex:1;min-width:120px;color:#e8d0ff;font-weight:600;">${recipe.name}</span>
         <span style="color:#cc88ff;font-size:11px;flex-basis:100%;padding-left:36px;">${ingText}</span>
         ${moonNote}
