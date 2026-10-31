@@ -1045,6 +1045,15 @@ const M_TICKET = S(`
   <path d="M22 14 L22 30" stroke="${C.amber2}" stroke-width="1.4" stroke-dasharray="2 2"/>
   <path d="M27 19 A4 4 0 1 0 27 25 A5 5 0 0 1 27 19 Z" fill="${C.bone}"/>`);
 
+// Wheel of the Year — used on the marketing site's feature grid.
+const WHEEL = S(`
+  <circle cx="22" cy="22" r="15" fill="none" stroke="#e8d9a8" stroke-width="2.4"/>
+  <circle cx="22" cy="22" r="4" fill="${C.plum}" stroke="#8a6ac0" stroke-width="1.4"/>
+  <g stroke="#e8d9a8" stroke-width="2">
+    <path d="M22 7 L22 18 M22 26 L22 37 M7 22 L18 22 M26 22 L37 22
+             M11.5 11.5 L18 18 M26 26 L32.5 32.5 M32.5 11.5 L26 18 M18 26 L11.5 32.5"/>
+  </g>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -1145,6 +1154,7 @@ export const UI_ICONS = {
   m_titles: M_TITLES, m_familiar: M_FAMILIAR, m_garden: M_GARDEN, m_tarot: M_TAROT,
   m_mirror: M_MIRROR, m_candle: M_CANDLE, m_guise: M_GUISE, m_map: M_MAP, m_board: M_BOARD,
   m_delve: M_DELVE, m_coven: M_COVEN, m_medal: M_MEDAL, m_codex: M_CODEX, m_ticket: M_TICKET,
+  wheel: WHEEL,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]

@@ -47,3 +47,4 @@ public/client.js
 __pycache__/
 # Local secrets written by `elevenlabs onboard`
 /.env.local
+public/tr-icons.js

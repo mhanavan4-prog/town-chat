@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build:client": "node tools/bundle-client.mjs",
+    "build:client": "node tools/bundle-client.mjs && node tools/build-icons.mjs",
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "test:boot": "node test/eval-boot.mjs",
