@@ -7019,8 +7019,8 @@ function buildMobileQuickSlots() {
     if (me.charId === 0 || myAttackCatalog) kitBtn.style.opacity = '1';
   }
   if (!myActionCatalog) return;
-  const ids = orderedAbilityIds().slice(0, 3);
-  ['qs1', 'qs2', 'qs3'].forEach((qid, i) => {
+  const ids = orderedAbilityIds().slice(0, 5);
+  ['qs1', 'qs2', 'qs3', 'qs4', 'qs5'].forEach((qid, i) => {
     const btn = document.getElementById(qid);
     if (!btn) return;
     const abilityId = ids[i];
@@ -7040,7 +7040,9 @@ function buildMobileQuickSlots() {
     btn.classList.remove('hidden');
     btn.style.display = 'flex';
     btn.title = ab.name || abilityId;
-    btn.onclick = (e) => { e.preventDefault(); castFromHotbar(abilityId); };
+    btn._castId = abilityId;
+    btn.onclick = (e) => { e.preventDefault(); castFromHotbar(abilityId); }; // gamepad / non-touch
+    attachCastOnRelease(btn); // touch: tap = quick-cast, drag = aim + cast-on-release
     // Hold-to-read: the peek always reflects the CURRENT assignment (the
     // element is re-tagged on every rebuild; the wiring itself is once).
     btn._peekAbilityId = abilityId;
@@ -14369,7 +14371,7 @@ function sfxForAbility(atk, id) {
   }
 }
 
-function castFromHotbar(id) {
+function castFromHotbar(id, aim) {
   if (!myActionCatalog || !myActionMsgType) return;
   const atk = myActionCatalog[id];
   if (!atk) return;
@@ -14381,31 +14383,120 @@ function castFromHotbar(id) {
   }
   cancelTargeting(); // a hotbar press means "do this nearest-target cast now", not "wait for my next click"
   const payload = { type: myActionMsgType, [myActionIdField]: id };
+  // `aim` (mobile cast-on-release) overrides the default nearest-target pick:
+  // { target: {id,targetType} } for entity casts, { groundPt: {x,z} } for
+  // ground-placed ones. Absent → the original nearest-target / at-your-feet.
   if (atk.kind === 'targeted' || atk.kind === 'reveal') {
-    if (atk.effect === 'damage' || atk.effect === 'leech') {
-      const target = nearestAttackable();
-      if (!target) { setUnlockToast('No one else is here to target.'); return; }
-      payload.targetId = target.id;
-      if (target.targetType !== 'player') payload.targetType = target.targetType;
-    } else {
-      const target = nearestOtherPlayer();
-      if (!target) { setUnlockToast('No one else is here to target.'); return; }
-      payload.targetId = target.id;
+    const damage = atk.effect === 'damage' || atk.effect === 'leech';
+    let target = aim && aim.target ? aim.target : null;
+    if (!target) {
+      if (damage) target = nearestAttackable();
+      else { const p = nearestOtherPlayer(); target = p ? { id: p.id, targetType: 'player' } : null; }
     }
+    if (!target) { setUnlockToast('No one else is here to target.'); return; }
+    payload.targetId = target.id;
+    if (target.targetType && target.targetType !== 'player') payload.targetType = target.targetType;
   } else if (atk.kind === 'building') {
     const building = nearestBuilding();
     if (!building) { setUnlockToast('No building nearby.'); return; }
     payload.buildingId = building.id;
   } else if (atk.kind === 'ground') {
-    // No cursor position to aim with from a keypress, so a hotbar press
-    // just drops the sigil at the Witch's own feet — click-to-place (see
-    // handleCanvasClick) is still there for actually aiming it somewhere.
-    payload.x = me.x;
-    payload.y = me.y;
+    if (aim && aim.groundPt) {
+      const w = sceneToWorldPos(me.room, aim.groundPt.x, aim.groundPt.z);
+      payload.x = w.x; payload.y = w.y;
+    } else {
+      // No aim → drop the sigil at the Witch's own feet (click-to-place in
+      // handleCanvasClick still aims it on desktop).
+      payload.x = me.x; payload.y = me.y;
+    }
   }
   ws.send(JSON.stringify(payload));
   triggerAttackAnim();
   startActionCooldown(id);
+}
+
+// ── Cast-on-release aiming (mobile) ─────────────────────────────────────────
+// Press an ability, drag to aim — the nearest entity to your finger locks on
+// (or the ground point, for placed spells) — release to fire. A quick tap
+// keeps the old nearest-target quick-cast; a still hold is the read-peek
+// (attachAbilityPeek, via abilityPeekSwallowUntil). The joystick is a separate
+// touch on a separate element, so aiming and moving never fight.
+let _aimReticle = null, _aimRing = null;
+function ensureAimUI() {
+  if (_aimReticle) return;
+  const layer = document.getElementById('fxLayer');
+  if (!layer) return;
+  _aimReticle = document.createElement('div'); _aimReticle.className = 'aimReticle hidden'; layer.appendChild(_aimReticle);
+  _aimRing = document.createElement('div'); _aimRing.className = 'aimRing hidden'; layer.appendChild(_aimRing);
+}
+function hideAimUI() { if (_aimReticle) _aimReticle.classList.add('hidden'); if (_aimRing) _aimRing.classList.add('hidden'); }
+function showAimUI(cx, cy, ringPos, kind) {
+  ensureAimUI();
+  if (_aimReticle) { _aimReticle.classList.remove('hidden'); _aimReticle.style.left = cx + 'px'; _aimReticle.style.top = cy + 'px'; _aimReticle.dataset.kind = kind || 'self'; }
+  if (_aimRing) {
+    if (ringPos && ringPos.visible !== false) { _aimRing.classList.remove('hidden'); _aimRing.style.left = ringPos.x + 'px'; _aimRing.style.top = ringPos.y + 'px'; _aimRing.dataset.kind = kind || 'self'; }
+    else _aimRing.classList.add('hidden');
+  }
+}
+// Candidate attackables (players always; mobs/animals only for a damage cast),
+// mirroring castFromHotbar's targeting rules, so we can pick nearest-to-finger.
+function aimCandidates(damageOnly) {
+  const out = [];
+  for (const pid in players) if (pid !== myId && visuals[pid] && visuals[pid].inScene) out.push({ id: pid, targetType: 'player' });
+  if (damageOnly && me) {
+    const pools = me.room === 'outside' ? [['animal', animalVisuals], ['mob', mobVisuals]]
+      : me.room === 'wilds' ? [['animal2', animalVisuals2], ['mob2', mobVisuals2], ['mob3', mobVisuals3]]
+      : me.room === 'ember_wastes' ? [['ember_mob', emberMobVisuals]]
+      : (typeof me.room === 'string' && me.room.startsWith('dungeon_')) ? [['dungeon', dungeonMobVisuals]]
+      : [];
+    for (const [tt, vis] of pools) for (const mid in vis) { const v = vis[mid]; if (v.dead || v.hidden || (tt === 'dungeon' && v.room !== me.room)) continue; out.push({ id: mid, targetType: tt }); }
+  }
+  return out;
+}
+function pickAimTarget(cx, cy, atk) {
+  const damage = atk.effect === 'damage' || atk.effect === 'leech';
+  let best = null, bestD = 150; // px radius of forgiveness
+  for (const c of aimCandidates(damage)) {
+    const s = screenPosForTarget(c.targetType, c.id);
+    if (!s || s.visible === false) continue;
+    const d = Math.hypot(s.x - cx, s.y - cy);
+    if (d < bestD) { bestD = d; best = { id: c.id, targetType: c.targetType, _s: s }; }
+  }
+  return best;
+}
+function attachCastOnRelease(btn) {
+  if (btn._aimWired) return; btn._aimWired = true;
+  btn.addEventListener('touchstart', (e) => {
+    if (typing || anyOverlayOpen() || !btn._castId) return;
+    const t = e.changedTouches[0];
+    btn._aim = { sx: t.clientX, sy: t.clientY, aiming: false, target: null, groundPt: null };
+    if (e.cancelable) e.preventDefault(); // suppress the synthetic click (onclick stays for gamepad)
+  }, { passive: false });
+  btn.addEventListener('touchmove', (e) => {
+    const a = btn._aim; if (!a) return;
+    const t = e.changedTouches[0];
+    if (!a.aiming && Math.hypot(t.clientX - a.sx, t.clientY - a.sy) > 16) a.aiming = true;
+    if (!a.aiming) return;
+    const atk = myActionCatalog && myActionCatalog[btn._castId]; if (!atk) return;
+    if (atk.kind === 'ground') {
+      a.groundPt = raycastGroundAt(t.clientX, t.clientY); a.target = null;
+      const gs = a.groundPt ? worldToScreen(a.groundPt.x, 0, a.groundPt.z) : null;
+      showAimUI(t.clientX, t.clientY, gs, 'ground');
+    } else if (atk.kind === 'targeted' || atk.kind === 'reveal') {
+      a.target = pickAimTarget(t.clientX, t.clientY, atk); a.groundPt = null;
+      showAimUI(t.clientX, t.clientY, a.target ? a.target._s : null, (atk.effect === 'damage' || atk.effect === 'leech') ? 'enemy' : 'hex');
+    } else {
+      a.target = null; a.groundPt = null; showAimUI(t.clientX, t.clientY, null, 'self');
+    }
+  }, { passive: false });
+  btn.addEventListener('touchend', () => {
+    const a = btn._aim; btn._aim = null; hideAimUI();
+    if (!a || !btn._castId) return;
+    if (Date.now() < abilityPeekSwallowUntil) return; // a read-peek just happened — don't cast
+    if (a.aiming) castFromHotbar(btn._castId, { target: a.target, groundPt: a.groundPt });
+    else castFromHotbar(btn._castId);
+  });
+  btn.addEventListener('touchcancel', () => { btn._aim = null; hideAimUI(); });
 }
 
 // ---------------------------------------------------------------------------
