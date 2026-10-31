@@ -27,6 +27,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
+import { EMOTE_DEFS, uiIcon } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -6601,6 +6602,17 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
   };
+  // Swap the cluster's emoji glyphs for the custom carved-icon set.
+  const setIcon = (id, key) => {
+    const el = document.getElementById(id);
+    const svg = uiIcon(key);
+    if (el && svg) el.innerHTML = svg;
+  };
+  setIcon('btnStrike', 'attack');
+  setIcon('btnJump', 'jump');
+  setIcon('btnEmote', 'emote');
+  setIcon('btnCm', 'callout');
+  setIcon('btnKit', 'kit');
   on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
   on('btnJump', tryJump);
   on('btnEmote', () => toggleEmoteWheel());
@@ -7013,24 +7025,28 @@ function buildMobileQuickSlots() {
 // Eight emotes in a ring (mobile: around the 😀 button; desktop: center
 // screen on T). The cheapest social mechanic there is — and unlike chat it
 // works outdoors, which is exactly where you pass people.
-const EMOTES = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
+// Eight keyed emotes, each drawn as a custom carved-talisman icon (ui-icons.js)
+// rather than a system emoji, so the wheel stays in the game's visual language.
+const EMOTES = EMOTE_DEFS.map((d) => d.key);
 let emoteWheelTimer = null;
 
 function buildEmoteWheel() {
   const wheel = document.getElementById('emoteWheel');
   if (!wheel || wheel.childElementCount) return;
   const R = 88, cx = 115, cy = 115;
-  EMOTES.forEach((em, i) => {
-    const ang = (i / EMOTES.length) * Math.PI * 2 - Math.PI / 2;
+  EMOTE_DEFS.forEach((def, i) => {
+    const ang = (i / EMOTE_DEFS.length) * Math.PI * 2 - Math.PI / 2;
     const b = document.createElement('button');
     b.className = 'emoteBtn';
-    b.textContent = em;
+    b.innerHTML = uiIcon(def.key) || '';
+    b.title = def.label;
+    b.setAttribute('aria-label', def.label);
     b.style.left = (cx + Math.cos(ang) * R - 26) + 'px';
     b.style.top = (cy + Math.sin(ang) * R - 26) + 'px';
     b.style.animationDelay = (i * 0.02) + 's';
     b.addEventListener('click', (e) => {
       e.preventDefault();
-      ws.send(JSON.stringify({ type: 'emote', emote: em }));
+      ws.send(JSON.stringify({ type: 'emote', emote: def.key }));
       toggleEmoteWheel(false);
     });
     wheel.appendChild(b);
@@ -7060,7 +7076,8 @@ function spawnEmoteFloat(playerId, emote) {
   if (!layer) return;
   const el = document.createElement('div');
   el.className = 'emoteFloat';
-  el.textContent = emote;
+  const svg = uiIcon(emote);
+  if (svg) el.innerHTML = svg; else el.textContent = emote;
   layer.appendChild(el);
   activeEmoteFloats.push({ el, playerId, until: performance.now() + 2350 });
 }
