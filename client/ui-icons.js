@@ -760,6 +760,115 @@ const A_GRAVE_CHILL = S(`
   <circle cx="17" cy="19" r="2.2" fill="#3a5a6a"/><circle cx="27" cy="19" r="2.2" fill="#3a5a6a"/>
   <path d="M22 3 L22 9 M19 5 L22 8 L25 5 M8 14 l4 2 M36 14 l-4 2" stroke="#8ac8e8" stroke-width="1.8"/>`);
 
+// ── Abilities: Wanderer (traveler) ───────────────────────────────────────────
+
+const A_KNIFE_THROW = S(`
+  <path d="M30 6 L36 8 L16 30 L12 32 L13 28 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M12 32 L8 36 M13 28 L9 27 M16 30 L17 34" stroke="#8a6a4a" stroke-width="2.2"/>
+  <path d="M30 6 l-2 4 M34 10 l-4 1" stroke="${C.amber}" stroke-width="1.8"/>`);
+const A_PACKMULE_GUARD = S(`
+  <path d="M22 6 L34 10 C34 23 29 31 22 36 C15 31 10 23 10 10 Z" fill="#8a6a44" stroke="#5e442c" stroke-width="2"/>
+  <rect x="16" y="15" width="12" height="11" rx="2" fill="#6a4e2e" stroke="#4a3420" stroke-width="1.4"/>
+  <path d="M16 20 l12 0" stroke="#4a3420" stroke-width="1.6"/>`);
+const A_SPY_GLASS = S(`
+  <path d="M8 30 L24 14" stroke="#8a6a4a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 12 L32 8 Q36 10 34 16 L26 20 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.6"/>
+  <circle cx="9" cy="31" r="3" fill="${C.bone}" stroke="#8a6a4a" stroke-width="1.4"/>`);
+const A_SLEIGHT_OF_HAND = S(`
+  <path d="M12 30 Q10 20 18 20 L26 20 Q30 20 30 24 L30 30 Q30 34 24 34 L18 34 Q13 34 12 30 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M18 20 L17 13 M22 20 L22 12 M26 20 L27 14" stroke="${C.bone}" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="30" cy="12" r="4.5" fill="#d9b84e" stroke="#a9842c" stroke-width="1.4"/>`);
+const A_ECHO_CANYON = S(`
+  <path d="M6 34 L15 16 L21 26 L27 10 L38 34 Z" fill="#8a6a4a" stroke="#5e442c" stroke-width="1.8"/>
+  <path d="M30 8 C34 11 34 17 30 20 M33 5 C39 9 39 19 33 23" fill="none" stroke="${C.teal}" stroke-width="2"/>`);
+const A_DEEP_MEDITATION = S(`
+  <circle cx="22" cy="12" r="4.5" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M10 34 Q12 20 22 20 Q32 20 34 34 Z" fill="${C.teal2}" stroke="#2e7d6a" stroke-width="1.8"/>
+  <path d="M10 30 L34 30" stroke="#2e7d6a" stroke-width="1.6"/>
+  <circle cx="22" cy="12" r="8" fill="none" stroke="${C.teal}" stroke-width="1.2" opacity="0.5"/>`);
+const A_HEAVY_PACK = S(`
+  <path d="M15 12 Q15 8 22 8 Q29 8 29 12 L29 16 Q33 17 33 22 L33 34 Q33 36 31 36 L13 36 Q11 36 11 34 L11 22 Q11 17 15 16 Z" fill="#7a5a38" stroke="#4e3820" stroke-width="2"/>
+  <rect x="16" y="22" width="12" height="9" rx="2" fill="#5e4428" stroke="#4e3820" stroke-width="1.4"/>
+  <path d="M18 12 L26 12" stroke="#4e3820" stroke-width="2"/>`);
+const A_ENDLESS_ROAD = S(`
+  <path d="M14 36 L19 20 Q20 14 26 14 Q32 14 30 22 L24 36" fill="#9a8a6a" stroke="#6a5a3e" stroke-width="2"/>
+  <path d="M20 32 l2 0 M22 26 l1 0 M25 20 l1 0" stroke="${C.bone}" stroke-width="1.6"/>
+  <path d="M26 10 l0 -4 M30 11 l3 -2" stroke="${C.amber}" stroke-width="1.8"/>`);
+const A_FEATHERLIGHT_PACK = S(`
+  <path d="M15 14 Q15 10 22 10 Q29 10 29 14 L29 34 Q29 36 27 36 L17 36 Q15 36 15 34 Z" fill="#6a7a8a" stroke="#45545e" stroke-width="1.8"/>
+  <path d="M34 8 C26 10 20 17 19 28 C22 25 25 25 27 26 C26 23 28 20 32 18 C29 19 28 19 27 21 C30 16 32 12 34 8 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.2"/>`);
+const A_SHADOW_OWLS = S(`
+  <path d="M10 16 Q10 8 16 10 Q22 6 28 10 Q34 8 34 16 Q34 30 22 34 Q10 30 10 16 Z" fill="#3a3346" stroke="#1f1a2a" stroke-width="1.8"/>
+  <circle cx="16" cy="18" r="3.4" fill="${C.amber}"/><circle cx="28" cy="18" r="3.4" fill="${C.amber}"/>
+  <circle cx="16" cy="18" r="1.4" fill="#1f1a2a"/><circle cx="28" cy="18" r="1.4" fill="#1f1a2a"/>
+  <path d="M20 22 L22 25 L24 22 Z" fill="${C.amber2}"/>`);
+const A_WANDERLUST = S(`
+  <path d="M14 8 L21 8 L22 22 L31 24 Q35 25 35 30 L35 33 L11 33 L11 12 Q11 8 14 8 Z" fill="#8a5a34" stroke="#5e3c22" stroke-width="2"/>
+  <path d="M11 29 L35 29" stroke="#5e3c22" stroke-width="2"/>
+  <path d="M8 37 Q22 33 38 37" stroke="${C.amber}" stroke-width="1.8" fill="none" opacity="0.8"/>`);
+const A_CAMPFIRE_TALE = S(`
+  <path d="M22 10 C25 16 30 17 28 24 C31 22 31 20 31 20 C34 26 30 32 22 32 C14 32 11 26 14 21 C14 24 16 24 17 23 C15 18 19 13 22 10 Z" fill="#ff8a3a" stroke="#d95f1e" stroke-width="1.6"/>
+  <path d="M8 36 L20 30 M36 36 L24 30 M14 33 L30 33" stroke="#8a6a4a" stroke-width="2.4"/>`);
+const A_NIGHTWATCH_CLOAK = S(`
+  <path d="M22 6 C13 8 9 16 10 30 L15 27 Q16 33 22 34 Q28 33 29 27 L34 30 C35 16 31 8 22 6 Z" fill="#2a2d5a" stroke="#191b3e" stroke-width="2"/>
+  <circle cx="17" cy="18" r="1.2" fill="${C.bone}"/><circle cx="27" cy="16" r="1.4" fill="${C.bone}"/><circle cx="22" cy="24" r="1.1" fill="${C.teal}"/><circle cx="29" cy="24" r="1" fill="${C.bone}"/>`);
+const A_COMPASS_TRICK = S(`
+  <circle cx="22" cy="22" r="15" fill="#c9b88a" stroke="#8a7646" stroke-width="2"/>
+  <circle cx="22" cy="22" r="11" fill="#2a2338" stroke="#8a7646" stroke-width="1.2"/>
+  <path d="M22 11 L26 22 L22 33 L18 22 Z" fill="${C.red}" stroke="${C.bone}" stroke-width="0.8"/>
+  <path d="M22 11 L26 22 L22 22 Z" fill="${C.bone}"/>`);
+
+// ── Abilities: Mystic (spirit) ───────────────────────────────────────────────
+
+const A_SPIRIT_LASH = S(`
+  <path d="M12 10 C7 10 7 20 11 24 C8 27 10 33 15 32 C17 36 22 36 23 31 L23 24 C23 18 20 10 12 10 Z" fill="#b9a8ef" opacity="0.85" stroke="#8a78c0" stroke-width="1.6"/>
+  <circle cx="13" cy="18" r="1.8" fill="#3a2d56"/>
+  <path d="M23 24 Q32 22 34 30 Q36 36 30 37" fill="none" stroke="${C.teal}" stroke-width="2.4"/>`);
+const A_SOUL_SIPHON = S(`
+  <path d="M22 32 C12 26 11 16 17 14 C21 12.5 22 17 22 17 C22 17 23 12.5 27 14 C33 16 32 26 22 32 Z" fill="#9a6ad0" stroke="#6a4aa0" stroke-width="1.8"/>
+  <path d="M22 17 C19 22 19 27 22 30" stroke="#d9c0ef" stroke-width="1.8"/>
+  <path d="M30 10 C34 14 34 10 36 8 M34 30 C36 34 38 32 40 32" stroke="#b9a8ef" stroke-width="1.6" opacity="0.7"/>`);
+const A_BANSHEE_WAIL = S(`
+  <path d="M11 14 C11 8 33 8 33 20 C33 30 27 34 24 30 Q22 36 20 30 C17 34 11 30 11 20 Z" fill="#c9d8ef" opacity="0.9" stroke="#8aa0c0" stroke-width="1.6"/>
+  <circle cx="17" cy="18" r="2.2" fill="#3a4a6a"/><circle cx="27" cy="18" r="2.2" fill="#3a4a6a"/>
+  <ellipse cx="22" cy="25" rx="2.4" ry="3.4" fill="#3a4a6a"/>
+  <path d="M35 12 l3 -1 M36 18 l3 1" stroke="${C.teal}" stroke-width="1.8"/>`);
+const A_ETHEREAL_VEIL = S(`
+  <path d="M8 16 Q22 12 36 16 M6 23 Q22 18 38 23 M8 30 Q22 25 36 30 M10 36 Q22 32 34 36" fill="none" stroke="#a9c8e0" stroke-width="2.2" opacity="0.85" stroke-linecap="round"/>`);
+const A_SPIRIT_WARD = S(`
+  <path d="M19 36 L25 36 L24 24 L20 24 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.6"/>
+  <rect x="20" y="20" width="4" height="5" fill="#8a7a5a"/>
+  <path d="M22 20 C19 16 22 11 22 11 C22 11 25 16 22 20 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.2"/>
+  <circle cx="22" cy="18" r="9" fill="none" stroke="${C.teal}" stroke-width="1.4" opacity="0.5"/>`);
+const A_GHOST_STEP = S(`
+  <path d="M13 10 Q9 10 9 15 Q9 20 15 22 Q18 23 17 18 Q16 12 13 10 Z" fill="${C.bone}" opacity="0.85" stroke="${C.bone2}" stroke-width="1.2"/>
+  <path d="M28 22 Q24 22 24 27 Q24 32 30 34 Q33 35 32 30 Q31 24 28 22 Z" fill="${C.teal}" opacity="0.7" stroke="${C.teal2}" stroke-width="1.2"/>
+  <circle cx="10" cy="13" r="1" fill="${C.bone}"/><circle cx="33" cy="27" r="1" fill="${C.teal}"/>`);
+const A_SEANCE_OF_MENDING = S(`
+  <path d="M8 24 Q16 10 24 16 Q34 10 36 20 Q30 20 24 24 Q18 20 14 26 Q10 28 8 24 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M24 16 L24 24" stroke="${C.bone2}" stroke-width="1.2"/>
+  <path d="M22 30 l0 7 M18.5 33.5 l7 0" stroke="#5fbf7a" stroke-width="2.4"/>`);
+const A_MENDING_SPIRITS = S(`
+  <path d="M15 12 C9 14 10 24 16 26 C13 30 16 35 21 33 L21 20 C21 15 19 12 15 12 Z" fill="#9fe0b8" opacity="0.8" stroke="#5fbf7a" stroke-width="1.4"/>
+  <circle cx="15" cy="18" r="1.4" fill="#2e6e4a"/>
+  <path d="M30 14 l0 10 M25 19 l10 0" stroke="#3a8c52" stroke-width="2.6"/>`);
+const A_WHISPERED_SECRET = S(`
+  <path d="M11 14 C11 8 33 8 33 19 C33 29 27 33 24 30 Q22 35 20 30 C17 33 11 29 11 19 Z" fill="#c9c0e0" opacity="0.9" stroke="#9a8ac0" stroke-width="1.6"/>
+  <circle cx="17" cy="17" r="1.8" fill="#4a3d66"/><circle cx="27" cy="17" r="1.8" fill="#4a3d66"/>
+  <path d="M18 24 L26 24" stroke="#4a3d66" stroke-width="2.4"/>
+  <path d="M22 24 L22 20" stroke="${C.amber}" stroke-width="2"/>`);
+const A_SPIRIT_WALK = S(`
+  <path d="M22 22 m0 -14 a14 14 0 1 1 -12 21 a9 9 0 1 0 9 -15 a5 5 0 1 1 3 7" fill="none" stroke="#9a8ac0" stroke-width="3"/>
+  <circle cx="22" cy="22" r="2.4" fill="${C.teal}"/>`);
+const A_HAUNTING = S(`
+  <path d="M11 16 C11 9 33 9 33 18 L33 32 L28 28 L25 32 L22 28 L19 32 L16 28 L11 32 Z" fill="#8a7ab0" opacity="0.85" stroke="#5e4e8a" stroke-width="1.6"/>
+  <circle cx="18" cy="18" r="2" fill="#2a2040"/><circle cx="26" cy="18" r="2" fill="#2a2040"/>
+  <path d="M33 11 l3 -2 M11 11 l-3 -2" stroke="${C.plum}" stroke-width="1.8"/>`);
+const A_GRAVEYARD_CHILL = S(`
+  <path d="M14 36 L14 16 Q14 8 22 8 Q30 8 30 16 L30 36 Z" fill="#8a909a" stroke="#5a606a" stroke-width="2"/>
+  <path d="M22 14 L22 26 M17 18 L27 18" stroke="#5a606a" stroke-width="2"/>
+  <path d="M10 10 L13 13 M34 10 L31 13 M22 3 L22 7 M8 24 l3 1 M36 24 l-3 1" stroke="#9fd8ef" stroke-width="1.8"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -838,6 +947,17 @@ export const UI_ICONS = {
   // abilities — Necromancer
   raise_skeleton: A_RAISE_SKELETON, raise_boneknight: A_RAISE_BONEKNIGHT, raise_wight: A_RAISE_WIGHT,
   life_siphon: A_LIFE_SIPHON, bone_ward: A_BONE_WARD, grave_chill: A_GRAVE_CHILL,
+  // abilities — Wanderer (traveler)
+  knife_throw: A_KNIFE_THROW, packmule_guard: A_PACKMULE_GUARD, spy_glass: A_SPY_GLASS,
+  sleight_of_hand: A_SLEIGHT_OF_HAND, echo_canyon: A_ECHO_CANYON, deep_meditation: A_DEEP_MEDITATION,
+  heavy_pack: A_HEAVY_PACK, endless_road: A_ENDLESS_ROAD, featherlight_pack: A_FEATHERLIGHT_PACK,
+  shadow_owls: A_SHADOW_OWLS, wanderlust: A_WANDERLUST, campfire_tale: A_CAMPFIRE_TALE,
+  nightwatch_cloak: A_NIGHTWATCH_CLOAK, compass_trick: A_COMPASS_TRICK,
+  // abilities — Mystic (spirit)
+  spirit_lash: A_SPIRIT_LASH, soul_siphon: A_SOUL_SIPHON, banshee_wail: A_BANSHEE_WAIL,
+  ethereal_veil: A_ETHEREAL_VEIL, spirit_ward: A_SPIRIT_WARD, ghost_step: A_GHOST_STEP,
+  seance_of_mending: A_SEANCE_OF_MENDING, mending_spirits: A_MENDING_SPIRITS, whispered_secret: A_WHISPERED_SECRET,
+  spirit_walk: A_SPIRIT_WALK, haunting: A_HAUNTING, graveyard_chill: A_GRAVEYARD_CHILL,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
