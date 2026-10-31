@@ -941,11 +941,15 @@
     color:#2a1605; cursor:pointer;
     background:linear-gradient(90deg,#ffd27a,#ff9d5c);
   }
+  /* The shared top-centre column. Above every menu (sheet/overlay/floatPanel +
+     the scrim all sit at 59-61) so toasts stay readable while a menu is open.
+     Its children (the announce banner, then the toast lane) flow top-to-bottom
+     with a gap, so a login burst never piles onto one spot. */
+  #topStack {
+    position:fixed; top:100px; left:0; right:0; z-index:65;
+    display:flex; flex-direction:column; align-items:center; gap:9px; pointer-events:none;
+  }
   #unlockToast {
-    /* Above every menu (sheet/overlay/floatPanel + the scrim all sit at 59-61):
-       toasts announce checkout results, guise/familiar changes and pass errors,
-       which must stay readable while a menu is open. */
-    position:fixed; top:104px; left:0; right:0; z-index:65;
     display:flex; flex-direction:column; align-items:center; gap:7px; pointer-events:none;
   }
   #unlockToast.hidden { display:none !important; }
@@ -1113,15 +1117,14 @@
 
   /* ── Town-wide announcement banner ── */
   #announceBanner {
-    position:fixed; top:110px; left:50%; transform:translateX(-50%);
-    z-index:40; max-width:min(680px, 92vw); text-align:center;
+    max-width:min(680px, 92vw); text-align:center;
     background:linear-gradient(180deg, rgba(60,40,10,0.95), rgba(35,22,6,0.95));
     border:1px solid rgba(255,210,110,0.65); border-radius:12px;
     color:#ffe9b0; font-weight:700; font-size:15px; padding:12px 22px;
     box-shadow:0 6px 30px rgba(0,0,0,0.5);
   }
   #announceBanner.hidden { display:none !important; }
-  @keyframes announcePop { 0% { transform:translateX(-50%) scale(0.85); opacity:0; } 60% { transform:translateX(-50%) scale(1.04); opacity:1; } 100% { transform:translateX(-50%) scale(1); } }
+  @keyframes announcePop { 0% { transform:scale(0.85); opacity:0; } 60% { transform:scale(1.04); opacity:1; } 100% { transform:scale(1); } }
   #announceBanner.announceIn { animation:announcePop 0.45s ease-out; }
 
   /* ── Countermeasure prompt (V) ── */
@@ -1490,8 +1493,7 @@
   /* The panel handle already says the story title — don't say it twice on a small screen */
   body.touchMode #journalModal .journalStoryTitle { display:none; }
   /* Toasts/banners drop below the top-left XP strip's lane (safe+54..80) */
-  body.touchMode #unlockToast { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
-  body.touchMode #announceBanner { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
+  body.touchMode #topStack { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
   /* Chat as a bottom sheet, toggled by 💬 */
   /* ── Mobile chat, rebuilt as text-message notifications ──────────────────
      Phones don't get the scrolling chat log at all anymore: incoming
@@ -2330,8 +2332,12 @@
   </div>
 </div>
 <div id="menuScrim"></div>
-<div id="unlockToast" class="hidden"></div>
-<div id="announceBanner" class="hidden"></div>
+<!-- One top-centre column so the announce banner and the toast lane flow and
+     stack instead of landing on the same spot and smearing together. -->
+<div id="topStack">
+  <div id="announceBanner" class="hidden"></div>
+  <div id="unlockToast" class="hidden"></div>
+</div>
 <div id="cmPrompt" class="hidden"><span id="cmPromptText"></span></div>
 <div id="ceremonyOverlay" class="hidden">
   <div id="ceremonyTitle"></div>
@@ -2657,6 +2663,9 @@
     cursor:pointer; pointer-events:auto; transition:opacity 0.45s;
   }
   #eventTag.hidden { display:none; }
+  /* While the loading pill is up it sits right over the season tag — hold the
+     tag back until the world has streamed in so they don't overlap on login. */
+  body:has(.loadPill.show) #eventTag { display:none; }
   /* Same manners as the location pill (Session I lesson): announce, then get
      out of the way. Fades a few seconds after any change; tap opens the board. */
   #eventTag.tagFaded { opacity:0; pointer-events:none; }
@@ -2698,7 +2707,8 @@
   body.inDelveRun #bellTag { top:102px; }
   /* A town-wide announce banner sits at top:110; while it's up, drop the toast
      lane beneath it so personal toasts don't stack on top of the announcement. */
-  body.announceUp #unlockToast { top:168px; }
+  /* (obsolete) the announce banner and toast lane now flow in #topStack, so the
+     lane no longer needs to be nudged down when a banner is up. */
   body.panelOpen #bellTag, body.composeOpen #bellTag, body.emoteWheelOpen #bellTag { display:none; }
   #firstStepsChip {
     position:fixed; left:16px; bottom:150px; z-index:7;
