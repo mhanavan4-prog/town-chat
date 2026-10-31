@@ -1494,6 +1494,9 @@
   body.touchMode #journalModal .journalStoryTitle { display:none; }
   /* Toasts/banners drop below the top-left XP strip's lane (safe+54..80) */
   body.touchMode #topStack { top:max(96px, calc(env(safe-area-inset-top) + 88px)); }
+  /* On phones the announce banner spanned nearly edge-to-edge (92vw). Pull it in
+     to a tidy centred card with real side margins, and ease the type a touch. */
+  body.touchMode #announceBanner { max-width:min(400px, 84vw); font-size:14px; padding:11px 18px; }
   /* Chat as a bottom sheet, toggled by 💬 */
   /* ── Mobile chat, rebuilt as text-message notifications ──────────────────
      Phones don't get the scrolling chat log at all anymore: incoming
