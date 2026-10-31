@@ -27,7 +27,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
-import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml } from './ui-icons.js';
+import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -12826,7 +12826,7 @@ function renderMoonTag() {
   const m = calendarState && calendarState.moon;
   if (!m || !me) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
-  el.textContent = `${m.glyph} ${m.name}`;
+  el.innerHTML = `<span class="moonGi">${moonPhaseIcon(m.key, m.isBlood) || ''}</span>${escHtml(m.name)}`;
   el.title = `${m.name} — ${m.intention}` + (m.blurb ? `\n${m.blurb}` : '');
   el.classList.toggle('fullMoon', !!m.isFull && !m.isBlood);
   el.classList.toggle('bloodMoon', !!m.isBlood);

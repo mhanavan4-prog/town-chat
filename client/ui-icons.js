@@ -152,6 +152,41 @@ const BELL = S(`
   <path d="M18 31 Q18 36 22 36 Q26 36 26 31" fill="${C.amber2}" stroke="${C.amber2}" stroke-width="1.6"/>
   <path d="M20 16 Q19 20 19.5 24" stroke="${C.bone}" stroke-width="1.6" opacity="0.7"/>`);
 
+// Moon-phase disc for the HUD moon tag — real terminator geometry in the
+// game palette (lit bone / shadow violet), waxing lit on the right, waning on
+// the left. `k` is illuminated fraction (0 new … 1 full); blood = red full moon.
+function moonDisc(k, waxing, blood) {
+  const cx = 22, cy = 22, r = 15;
+  const lit = blood ? '#d2556a' : C.bone;
+  const litEdge = blood ? '#9a3048' : C.bone2;
+  let g = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${lit}" stroke="${litEdge}" stroke-width="1.2"/>`;
+  g += `<circle cx="18" cy="18" r="2.2" fill="${litEdge}" opacity="0.5"/><circle cx="25" cy="25" r="2.8" fill="${litEdge}" opacity="0.45"/><circle cx="16" cy="27" r="1.5" fill="${litEdge}" opacity="0.45"/>`;
+  if (k <= 0.001) {
+    g += `<circle cx="${cx}" cy="${cy}" r="${r - 0.5}" fill="${C.plum}"/>`;
+  } else if (k < 0.999) {
+    const rx = r * Math.abs(1 - 2 * k);
+    if (waxing) {
+      const t = k < 0.5 ? `A ${rx} ${r} 0 0 1 ${cx} ${cy - r}` : `A ${rx} ${r} 0 0 0 ${cx} ${cy - r}`;
+      g += `<path d="M ${cx} ${cy - r} A ${r} ${r} 0 0 0 ${cx} ${cy + r} ${t} Z" fill="${C.plum}"/>`;
+    } else {
+      const t = k < 0.5 ? `A ${rx} ${r} 0 0 0 ${cx} ${cy - r}` : `A ${rx} ${r} 0 0 1 ${cx} ${cy - r}`;
+      g += `<path d="M ${cx} ${cy - r} A ${r} ${r} 0 0 1 ${cx} ${cy + r} ${t} Z" fill="${C.plum}"/>`;
+    }
+  }
+  return S(g);
+}
+const MOONPHASE = {
+  new: moonDisc(0, true), waxing_crescent: moonDisc(0.25, true), first_quarter: moonDisc(0.5, true),
+  waxing_gibbous: moonDisc(0.75, true), full: moonDisc(1, true), waning_gibbous: moonDisc(0.75, false),
+  last_quarter: moonDisc(0.5, false), waning_crescent: moonDisc(0.25, false),
+};
+const MOON_BLOOD = moonDisc(1, true, true);
+// Returns the inline <svg> for a phase key (blood → red full moon).
+export function moonPhaseIcon(key, blood) {
+  if (blood) return MOON_BLOOD;
+  return MOONPHASE[key] || MOONPHASE.full;
+}
+
 // ── Status effects (buffs / curses / wards) ──────────────────────────────────
 // Keys match STATUS_FX in main.js. Debuffs lean red/plum, buffs teal/amber.
 
