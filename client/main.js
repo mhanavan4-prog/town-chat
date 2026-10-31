@@ -11235,6 +11235,12 @@ function updateLootIcons() {
     if (v.hasLoot && wildsScene) showLootIcon(key, wildsScene, v.x, LOOT_ICON_HEIGHT, v.y, 'mob3', id);
     else hideLootIcon(key);
   }
+  for (const id in animalVisuals2) {
+    const key = 'animal2:' + id;
+    const v = animalVisuals2[id];
+    if (v.hasLoot && wildsScene) showLootIcon(key, wildsScene, v.x, LOOT_ICON_HEIGHT, v.y, 'animal2', id);
+    else hideLootIcon(key);
+  }
   for (const id in dungeonMobVisuals) {
     const key = 'dungeon:' + id;
     const v = dungeonMobVisuals[id];

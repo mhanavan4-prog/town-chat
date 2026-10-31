@@ -6133,6 +6133,7 @@ function tickRespawns2(now) {
     if (a.dead && now >= a.respawnAt) {
       a.dead = false; a.health = CRITTER2_TYPES[a.critterType].hp;
       a.x = a.spawnX; a.y = a.spawnY; a.fleeing = false;
+      a.pendingLoot = null; a.lootKillerId = null; // drop any unclaimed loot when it respawns
     }
   }
   for (const m of mobs2) {
@@ -6526,7 +6527,7 @@ setInterval(() => {
   const P = {
     animals: hasOutside ? animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })) : EMPTY,
     mobs: hasOutside ? mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
-    animals2: hasWilds ? animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead })) : EMPTY,
+    animals2: hasWilds ? animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead, hasLoot: !!(a.pendingLoot && a.pendingLoot.length) })) : EMPTY,
     mobs2: hasWilds ? mobs2.map(m => {
       const p = MOB2_TYPES[m.mobType];
       // Hide a Barrow Maw while it's still buried, and Old Marrowe on any
@@ -11519,7 +11520,7 @@ wss.on('connection', (ws, req) => {
       // handler above — distance alone isn't enough, since e.g. dungeon
       // tiers and building interiors can share overlapping coordinate
       // ranges despite being different rooms entirely.
-      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', mob3: 'wilds', ember_mob: 'ember_wastes' };
+      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', mob3: 'wilds', animal2: 'wilds', ember_mob: 'ember_wastes' };
       let t = null;
       if (targetType === 'player') {
         t = players.get(targetId) || null;
@@ -11531,7 +11532,7 @@ wss.on('connection', (ws, req) => {
         if (t && t.room !== player.room) t = null;
       } else if (LOOT_ROOMS[targetType]) {
         if (player.room === LOOT_ROOMS[targetType]) {
-          const pool = { mob: mobs, mob2: mobs2, mob3: mobs3, ember_mob: emberMobs }[targetType];
+          const pool = { mob: mobs, mob2: mobs2, mob3: mobs3, animal2: animals2, ember_mob: emberMobs }[targetType];
           t = pool.find(x => x.id === targetId) || null;
         }
       }
