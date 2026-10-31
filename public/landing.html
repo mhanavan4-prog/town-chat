@@ -168,6 +168,7 @@
   .features{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
   .feat{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px}
   .feat .ic{font-size:26px; margin-bottom:10px; display:block}
+  .feat .ic svg{width:30px; height:30px; display:inline-block}
   .feat h3{margin:0 0 6px; font-size:16px; color:#f1e9ff; letter-spacing:0.3px}
   .feat p{margin:0; color:var(--mut); font-size:13.5px}
   @media(max-width:860px){ .features{grid-template-columns:repeat(2,1fr)} }
@@ -287,14 +288,14 @@
       <p>Thornreach is a persistent little world you share with everyone online — fair, strange, and built to be played for the love of it.</p>
     </div>
     <div class="features">
-      <div class="feat"><span class="ic">🕯️</span><h3>Honest by design</h3><p>No gacha, no energy timers, no pay-to-win — ever. Everyone plays the same game.</p></div>
-      <div class="feat" id="covens"><span class="ic">🌑</span><h3>Covens</h3><p>Band together, hold the longest night, run coven Rites, and claim the Manor as your own.</p></div>
-      <div class="feat"><span class="ic">🔮</span><h3>The Séance Board</h3><p>Gather your coven at the Manor's board, pay an offering, and put one question to the dark — and something on the far side answers, one letter at a time.</p></div>
-      <div class="feat"><span class="ic">📜</span><h3>Six campaigns</h3><p>Each calling has its own nine-chapter story — the whispers, the barrows, the sixth rite.</p></div>
-      <div class="feat"><span class="ic">🌲</span><h3>The Wilds & the Delve</h3><p>Hunt the night creatures, descend the weekly Delve, and rally to fell world bosses.</p></div>
-      <div class="feat"><span class="ic">🌕</span><h3>The Blood Moon</h3><p>When the blood moon rises the night bites harder — half again the XP, and rare shards for those brave enough to hunt beneath it.</p></div>
-      <div class="feat"><span class="ic">☸️</span><h3>The Wheel of the Year</h3><p>A new coven Rite turns with every sabbat — Samhain, Yule, and the six that follow.</p></div>
-      <div class="feat"><span class="ic">🌙</span><h3>Play anywhere</h3><p>Runs right in your browser — no download — and follows you across your devices.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_candle">🕯️</span><h3>Honest by design</h3><p>No gacha, no energy timers, no pay-to-win — ever. Everyone plays the same game.</p></div>
+      <div class="feat" id="covens"><span class="ic" data-ic="m_coven">🌑</span><h3>Covens</h3><p>Band together, hold the longest night, run coven Rites, and claim the Manor as your own.</p></div>
+      <div class="feat"><span class="ic" data-ic="scrying_orb">🔮</span><h3>The Séance Board</h3><p>Gather your coven at the Manor's board, pay an offering, and put one question to the dark — and something on the far side answers, one letter at a time.</p></div>
+      <div class="feat"><span class="ic" data-ic="magic_scroll">📜</span><h3>Six campaigns</h3><p>Each calling has its own nine-chapter story — the whispers, the barrows, the sixth rite.</p></div>
+      <div class="feat"><span class="ic" data-ic="pine_pitch">🌲</span><h3>The Wilds & the Delve</h3><p>Hunt the night creatures, descend the weekly Delve, and rally to fell world bosses.</p></div>
+      <div class="feat"><span class="ic" data-ic="moonphase_blood">🌕</span><h3>The Blood Moon</h3><p>When the blood moon rises the night bites harder — half again the XP, and rare shards for those brave enough to hunt beneath it.</p></div>
+      <div class="feat"><span class="ic" data-ic="wheel">☸️</span><h3>The Wheel of the Year</h3><p>A new coven Rite turns with every sabbat — Samhain, Yule, and the six that follow.</p></div>
+      <div class="feat"><span class="ic" data-ic="moonphase_waxing_crescent">🌙</span><h3>Play anywhere</h3><p>Runs right in your browser — no download — and follows you across your devices.</p></div>
     </div>
   </div>
 </section>
@@ -307,14 +308,14 @@
       <p>Thornreach is built on real witchcraft — the practices, not the costume. The moon keeps its calendar, the sabbats turn the year, and at Samhain the veil thins and the dead walk closer to the torchlight.</p>
     </div>
     <div class="features">
-      <div class="feat"><span class="ic">🕯️</span><h3>The Ancestor Altar</h3><p>Set a place at the table for your dead, lay an offering in silence — the dumb supper — and carry a forebear's blessing with you.</p></div>
-      <div class="feat"><span class="ic">🔥</span><h3>The Release Fire</h3><p>At the turning of the year, name what you carry — a grief, a fear, an old anger — and give it to the flames. Walk away lighter.</p></div>
-      <div class="feat"><span class="ic">🎭</span><h3>Guising</h3><p>Pull on a disguise — a bone mask, a jack-o'-head, a horned little devil, a crown of antlers — and the whole town sees you wear it.</p></div>
-      <div class="feat"><span class="ic">🪞</span><h3>The Scrying Bowl</h3><p>Gaze into dark water and read the turning wheel — the moon, the Blood Moon's next rise, the sabbat to come — and the day's omen.</p></div>
-      <div class="feat"><span class="ic">🌒</span><h3>The Moon's Phases</h3><p>The waxing and waning moon colours every rite, and moon water charges only beneath a full moon.</p></div>
-      <div class="feat"><span class="ic">🌿</span><h3>A living craft</h3><p>Keep a herb garden, brew teas by their planetary day, bond a familiar, and walk one of the old paths — green, lunar, hedge, kitchen, sea or hearth.</p></div>
-      <div class="feat"><span class="ic">🔮</span><h3>Daily Tarot</h3><p>Lay a three-card spread from the Major Arcana each day — past, present, and what comes — for a reading, a little gold, and the occasional whispered secret.</p></div>
-      <div class="feat"><span class="ic">✨</span><h3>Altar & correspondence</h3><p>Dress the altar to the day, the moon and the sabbat, make your offering, and the rite you work rings truer for it.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_candle">🕯️</span><h3>The Ancestor Altar</h3><p>Set a place at the table for your dead, lay an offering in silence — the dumb supper — and carry a forebear's blessing with you.</p></div>
+      <div class="feat"><span class="ic" data-ic="fireball">🔥</span><h3>The Release Fire</h3><p>At the turning of the year, name what you carry — a grief, a fear, an old anger — and give it to the flames. Walk away lighter.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_guise">🎭</span><h3>Guising</h3><p>Pull on a disguise — a bone mask, a jack-o'-head, a horned little devil, a crown of antlers — and the whole town sees you wear it.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_mirror">🪞</span><h3>The Scrying Bowl</h3><p>Gaze into dark water and read the turning wheel — the moon, the Blood Moon's next rise, the sabbat to come — and the day's omen.</p></div>
+      <div class="feat"><span class="ic" data-ic="moonphase_first_quarter">🌒</span><h3>The Moon's Phases</h3><p>The waxing and waning moon colours every rite, and moon water charges only beneath a full moon.</p></div>
+      <div class="feat"><span class="ic" data-ic="healing_herb">🌿</span><h3>A living craft</h3><p>Keep a herb garden, brew teas by their planetary day, bond a familiar, and walk one of the old paths — green, lunar, hedge, kitchen, sea or hearth.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_tarot">🔮</span><h3>Daily Tarot</h3><p>Lay a three-card spread from the Major Arcana each day — past, present, and what comes — for a reading, a little gold, and the occasional whispered secret.</p></div>
+      <div class="feat"><span class="ic" data-ic="m_skills">✨</span><h3>Altar & correspondence</h3><p>Dress the altar to the day, the moon and the sabbat, make your offering, and the rite you work rings truer for it.</p></div>
     </div>
   </div>
 </section>
@@ -443,6 +444,8 @@
     window.addEventListener('pagehide',function(){ beacon(false); });
   })();
 </script>
+<script src="/tr-icons.js"></script>
+<script>(function(){try{var m=window.TR_ICONS;if(!m)return;document.querySelectorAll(".ic[data-ic]").forEach(function(el){var s=m[el.getAttribute("data-ic")];if(s)el.innerHTML=s;});}catch(e){}})();</script>
 <script src="/site-search.js" defer></script>
 <script src="/presence.js" defer></script>
 </body>

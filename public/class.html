@@ -93,6 +93,12 @@
   .detail{margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:var(--card); height:150px; display:flex; flex-direction:column; overflow:hidden}
   .detail .dn{font-weight:800; color:#f1e9ff; font-size:16px; display:flex; align-items:center; gap:9px; flex:0 0 auto}
   .detail .dn .di{font-size:22px}
+  .slot .gi{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px}
+  .slot .gi svg{width:100%; height:100%; display:block}
+  .detail .dn .di .gi{display:inline-flex; width:26px; height:26px; vertical-align:-0.3em}
+  .detail .dn .di .gi svg{width:100%; height:100%; display:block}
+  #tip .ti .gi{display:inline-flex; width:20px; height:20px; vertical-align:-0.25em}
+  #tip .ti .gi svg{width:100%; height:100%; display:block}
   .detail .dd{color:var(--mut); font-size:13.5px; margin-top:6px; overflow-y:auto; flex:1 1 auto}
 
   .row{display:flex; gap:12px; align-items:center; margin-top:22px; flex-wrap:wrap}
@@ -145,6 +151,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>if(typeof THREE==='undefined')document.write('<script src="/three.min.js"><\/script>');</script>
 <script src="/GLTFLoader.js"></script>
+<script src="/tr-icons.js"></script>
 <script>
 (function(){
   'use strict';
@@ -153,6 +160,18 @@
   if (isNaN(id) || id < 0 || id > 5) id = 0;
 
   var esc = function(s){ return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); };
+
+  // Ability-id order per class (matches classShowcase) → custom icon lookup in
+  // window.TR_ICONS. Falls back to the ability's emoji if the set isn't loaded.
+  var CLASS_KEYS = [
+    ['open_third_eye','toads_tongue','stumble_hex','fireball','withering_hex','leech_hex','monstrous_form','gourd_ward','ravens_cloak','bone_knit','scrying_orb','nightwing_augury'],
+    ['savage_bite','iron_pelt','moonlit_mending','rapid_swipe','lunar_howl','terrifying_roar','alpha_bite','feral_dash','blood_frenzy','wolf_mark','feral_haze','snarl','scent_trail','hunters_read'],
+    ['spirit_lash','soul_siphon','banshee_wail','ethereal_veil','spirit_ward','ghost_step','seance_of_mending','mending_spirits','whispered_secret','spirit_walk','haunting','graveyard_chill'],
+    ['smite','shield_bash','rallying_wrath','oath_of_iron','guardians_pledge','field_dressing','lay_on_hands','sentinels_watch','heralds_muster','challenge','steadfast_march','banner_of_dread','guardians_veil'],
+    ['knife_throw','trail_remedy','packmule_guard','spy_glass','sleight_of_hand','echo_canyon','deep_meditation','heavy_pack','endless_road','featherlight_pack','shadow_owls','wanderlust','campfire_tale','nightwatch_cloak','compass_trick'],
+    ['raise_skeleton','raise_boneknight','raise_wight','life_siphon','bone_ward','grave_chill']
+  ];
+  function abIcon(a){ return a && a._svg ? '<span class="gi">'+a._svg+'</span>' : esc((a&&a.icon)||'✦'); }
 
   // ── Data + DOM render ──────────────────────────────────────────────────────
   fetch('/api/class/'+id).then(function(r){ if(!r.ok) throw new Error('bad'); return r.json(); }).then(function(cls){
@@ -166,9 +185,12 @@
     var KEYS = ['1','2','3','4','5','6','7','8','9','0'];
     var bar = document.getElementById('bar');
     var tip = document.getElementById('tip');
-    function setDetail(a){ document.getElementById('dIcon').textContent=a.icon||''; document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description; }
+    // Stamp each ability with its custom icon SVG (by class-ordered key).
+    var CK = CLASS_KEYS[id] || [];
+    (cls.abilities||[]).forEach(function(a, i){ var k = CK[i]; a._svg = (window.TR_ICONS && k) ? window.TR_ICONS[k] : null; });
+    function setDetail(a){ document.getElementById('dIcon').innerHTML=abIcon(a); document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description; }
     function showTip(a, el){
-      document.getElementById('tipIcon').textContent=a.icon||'';
+      document.getElementById('tipIcon').innerHTML=abIcon(a);
       document.getElementById('tipName').textContent=a.name;
       document.getElementById('tipDesc').textContent=a.description;
       tip.classList.add('show');
@@ -182,7 +204,7 @@
     (cls.abilities||[]).forEach(function(a, i){
       var el=document.createElement('button');
       el.className='slot'; el.type='button'; el.setAttribute('aria-label', a.name + ' — ' + a.description);
-      el.innerHTML = (i<KEYS.length? '<span class="key">'+KEYS[i]+'</span>':'') + esc(a.icon||'✦');
+      el.innerHTML = (i<KEYS.length? '<span class="key">'+KEYS[i]+'</span>':'') + abIcon(a);
       el.addEventListener('mouseenter', function(){ setDetail(a); showTip(a, el); markOn(el); });
       el.addEventListener('mouseleave', hideTip);
       el.addEventListener('focus', function(){ setDetail(a); showTip(a, el); markOn(el); });
