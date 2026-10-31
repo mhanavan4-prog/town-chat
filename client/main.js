@@ -6597,6 +6597,32 @@ const {
 // ── extracted to client/overhead-bubbles.js (Phase C); players via getter. ──
 const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayers: () => players });
 
+// Replace the ☰ menu rows' leading emoji with custom carved icons. Reuses
+// existing item/ability icons where the concept matches; m_* are menu-only.
+const MENU_ICONS = {
+  menuInventory: 'm_bag', menuSkills: 'm_skills', menuLoadout: 'm_loadout', menuWardrobe: 'm_wardrobe',
+  menuTitles: 'm_titles', menuJournal: 'magic_scroll', menuDrive: 'hard_drive', menuPath: 'wizard_hat',
+  menuFamiliar: 'm_familiar', menuGarden: 'm_garden', menuKitchen: 'trail_remedy', menuBook: 'kit',
+  menuTarot: 'm_tarot', menuScry: 'm_mirror', menuAncestor: 'm_candle', menuRelease: 'fireball',
+  menuGuise: 'm_guise', menuMap: 'm_map', menuBoard: 'm_board', menuCrier: 'callout', menuDelve: 'm_delve',
+  menuCoven: 'm_coven', menuAchievements: 'm_medal', menuCodex: 'm_codex',
+};
+function hydrateMenuRows() {
+  for (const id in MENU_ICONS) {
+    const el = document.getElementById(id);
+    if (!el || el._menuIconed) continue;
+    const svg = uiIcon(MENU_ICONS[id]);
+    if (!svg) continue;
+    const t = el.childNodes[0];
+    if (t && t.nodeType === 3) t.textContent = t.textContent.replace(/^\s*\S+\s*/u, '');
+    const span = document.createElement('span');
+    span.className = 'menuGi';
+    span.innerHTML = svg;
+    el.insertBefore(span, el.firstChild);
+    el._menuIconed = true;
+  }
+}
+
 // ── Action wheel wiring ──
 (function wireActionCluster() {
   const on = (id, fn) => {
@@ -6616,6 +6642,7 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   setIcon('btnKit', 'kit');
   // Inject the static HUD icons (heart / moonstone / chat / day-night).
   hydrateIcons(document);
+  hydrateMenuRows();
   on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
   on('btnJump', tryJump);
   on('btnEmote', () => toggleEmoteWheel());

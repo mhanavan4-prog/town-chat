@@ -927,6 +927,89 @@ const A_GUARDIANS_VEIL = S(`
   <circle cx="22" cy="19" r="8" fill="none" stroke="${C.teal}" stroke-width="1.6" opacity="0.6"/>
   <path d="M18 19 l3 3 l6 -6" stroke="${C.teal2}" stroke-width="2" fill="none"/>`);
 
+// ── Menu glyphs ──────────────────────────────────────────────────────────────
+
+const M_BAG = S(`
+  <path d="M14 14 Q14 7 22 7 Q30 7 30 14 M11 14 L33 14 L31 35 Q31 37 29 37 L15 37 Q13 37 13 35 Z"
+    fill="#8a6244" stroke="#5e4028" stroke-width="2"/>
+  <path d="M11 20 L33 20" stroke="#5e4028" stroke-width="1.6"/>
+  <circle cx="22" cy="24" r="2.4" fill="${C.amber}"/>`);
+const M_SKILLS = S(`
+  <path d="M22 5 L25 17 L37 20 L25 23 L22 35 L19 23 L7 20 L19 17 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.6"/>
+  <path d="M33 8 l2 4 M9 32 l2 -4" stroke="${C.teal}" stroke-width="2"/>`);
+const M_LOADOUT = S(`
+  <path d="M8 13 L36 13 M8 22 L36 22 M8 31 L36 31" stroke="#8a929c" stroke-width="2.6"/>
+  <circle cx="16" cy="13" r="3.4" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.4"/>
+  <circle cx="28" cy="22" r="3.4" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1.4"/>
+  <circle cx="19" cy="31" r="3.4" fill="${C.red}" stroke="${C.red2}" stroke-width="1.4"/>`);
+const M_WARDROBE = S(`
+  <path d="M22 7 Q18 7 18 11 Q18 14 22 14 L22 15 L8 26 L36 26 L22 15" fill="none" stroke="#a39a86" stroke-width="1.8"/>
+  <path d="M10 26 L34 26 L31 37 L13 37 Z" fill="#4a2f6e" stroke="#301d49" stroke-width="1.8"/>
+  <path d="M22 26 L22 37" stroke="#301d49" stroke-width="1.4"/>`);
+const M_TITLES = S(`
+  <circle cx="22" cy="16" r="9" fill="#c9a83e" stroke="#8a7020" stroke-width="2"/>
+  <path d="M22 11 l1.5 3.5 3.8 .3 -2.9 2.5 .9 3.7 -3.3 -2 -3.3 2 .9 -3.7 -2.9 -2.5 3.8 -.3 Z" fill="#8a6a1e"/>
+  <path d="M17 23 L14 37 L22 32 L30 37 L27 23" fill="${C.red}" stroke="${C.red2}" stroke-width="1.6"/>`);
+const M_FAMILIAR = S(`
+  <path d="M12 16 L10 8 L17 13 Q22 11 27 13 L34 8 L32 16 Q36 22 32 30 Q28 36 22 36 Q16 36 12 30 Q8 22 12 16 Z"
+    fill="#241a2e" stroke="#130c1a" stroke-width="1.8"/>
+  <path d="M15 24 q3 2 0 4 M29 24 q-3 2 0 4" stroke="${C.teal}" stroke-width="2.2"/>
+  <path d="M20 31 l2 2 l2 -2" stroke="${C.plum}" stroke-width="1.6"/>`);
+const M_GARDEN = S(`
+  <path d="M8 30 Q22 26 36 30 L34 37 L10 37 Z" fill="#6b4a2c" stroke="#45301c" stroke-width="1.8"/>
+  <path d="M22 30 L22 14" stroke="#3a7d2e" stroke-width="2.2"/>
+  <path d="M22 20 Q14 18 11 11 Q20 12 22 19 M22 24 Q30 22 33 15 Q24 16 22 23" fill="#5faa44" stroke="#3a7d2e" stroke-width="1.2"/>`);
+const M_TAROT = S(`
+  <rect x="12" y="6" width="20" height="32" rx="3" fill="#2a2348" stroke="${C.amber2}" stroke-width="1.8"/>
+  <path d="M26 14 A6 6 0 1 0 26 26 A7.5 7.5 0 0 1 26 14 Z" fill="${C.bone}"/>
+  <path d="M16 10 l1 2 M28 32 l-1 -2 M18 30 l1 2" stroke="${C.amber}" stroke-width="1.4"/>`);
+const M_MIRROR = S(`
+  <ellipse cx="22" cy="17" rx="11" ry="13" fill="#9fc8d8" stroke="#a39a86" stroke-width="2.2"/>
+  <ellipse cx="22" cy="17" rx="11" ry="13" fill="#c9e6f0" opacity="0.4"/>
+  <path d="M18 10 Q15 14 17 20" stroke="${C.bone}" stroke-width="1.8" opacity="0.8"/>
+  <path d="M22 30 L22 38 M18 38 L26 38" stroke="#8a7a5a" stroke-width="2.6"/>`);
+const M_CANDLE = S(`
+  <path d="M22 6 C25 10 25 13 22 14 C19 13 19 10 22 6 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.2"/>
+  <path d="M22 14 L22 18" stroke="#5e442c" stroke-width="1.4"/>
+  <rect x="17" y="18" width="10" height="18" rx="2" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M17 22 Q22 20 27 22" stroke="${C.bone2}" stroke-width="1.2"/>`);
+const M_GUISE = S(`
+  <path d="M8 14 Q22 10 36 14 Q37 24 30 30 Q22 35 14 30 Q7 24 8 14 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M12 19 Q17 16 21 19 Q17 23 12 19 Z M23 19 Q27 16 32 19 Q27 23 23 19 Z" fill="#2a2234"/>
+  <path d="M22 10 L22 5 M19 7 L22 4 L25 7" stroke="${C.plum}" stroke-width="2"/>`);
+const M_MAP = S(`
+  <path d="M8 10 L17 13 L27 10 L36 13 L36 34 L27 31 L17 34 L8 31 Z" fill="#d8c9a4" stroke="#8a7a52" stroke-width="1.8"/>
+  <path d="M17 13 L17 34 M27 10 L27 31" stroke="#8a7a52" stroke-width="1.4"/>
+  <path d="M22 18 Q26 18 26 22 Q26 26 22 29 Q18 26 18 22 Q18 18 22 18 Z" fill="${C.red}" stroke="${C.red2}" stroke-width="1"/>
+  <circle cx="22" cy="22" r="1.6" fill="${C.bone}"/>`);
+const M_BOARD = S(`
+  <rect x="8" y="10" width="28" height="22" rx="2" fill="#8a6244" stroke="#5e4028" stroke-width="2"/>
+  <path d="M14 8 L14 12 M30 8 L30 12" stroke="#45301c" stroke-width="2"/>
+  <rect x="13" y="15" width="8" height="7" rx="1" fill="${C.bone}" transform="rotate(-4 17 18)"/>
+  <rect x="24" y="17" width="8" height="8" rx="1" fill="${C.bone2}" transform="rotate(5 28 21)"/>
+  <circle cx="17" cy="15" r="1.2" fill="${C.red}"/><circle cx="28" cy="17" r="1.2" fill="${C.teal2}"/>`);
+const M_DELVE = S(`
+  <path d="M6 36 Q10 14 22 12 Q34 14 38 36 Z" fill="#2a2338" stroke="#15101c" stroke-width="2"/>
+  <path d="M13 36 Q16 22 22 20 Q28 22 31 36" fill="#140d20"/>
+  <path d="M18 36 L20 30 L24 30 L26 36 M20 30 L21 26 L23 26 L24 30" fill="none" stroke="#5a5064" stroke-width="1.6"/>`);
+const M_COVEN = S(`
+  <path d="M22 4 L22 40 M4 22 L40 22 M9 9 L35 35 M35 9 L9 35" stroke="#5a5064" stroke-width="1.2"/>
+  <path d="M22 11 Q27 13 29 18 Q27 16 22 15 Q17 16 15 18 Q17 13 22 11 Z M31 22 Q33 27 31 32 M13 22 Q11 27 13 32" fill="none" stroke="${C.plum}" stroke-width="1.6"/>
+  <circle cx="22" cy="22" r="3" fill="#2a2040" stroke="${C.plum}" stroke-width="1.4"/>`);
+const M_MEDAL = S(`
+  <path d="M15 6 L20 20 L24 20 L29 6 L25 6 L22 15 L19 6 Z" fill="${C.red}" stroke="${C.red2}" stroke-width="1.4"/>
+  <circle cx="22" cy="27" r="9" fill="#c9a83e" stroke="#8a7020" stroke-width="2"/>
+  <path d="M22 22 l1.3 2.8 3 .3 -2.2 2 .7 3 -2.8 -1.6 -2.8 1.6 .7 -3 -2.2 -2 3 -.3 Z" fill="#8a6a1e"/>`);
+const M_CODEX = S(`
+  <path d="M11 8 L29 8 Q32 8 32 11 L32 36 L14 36 Q11 36 11 33 Z" fill="#3a4d8a" stroke="#242f5e" stroke-width="2"/>
+  <path d="M11 8 L11 33 Q11 36 14 36" fill="none" stroke="#242f5e" stroke-width="2"/>
+  <path d="M27 8 L27 20 L23 16 L19 20 L19 8" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1"/>`);
+const M_TICKET = S(`
+  <path d="M7 15 Q9 15 9 17 Q9 19 7 19 L7 25 Q9 25 9 27 Q9 29 7 29 L7 32 L37 32 L37 29 Q35 29 35 27 Q35 25 37 25 L37 19 Q35 19 35 17 Q35 15 37 15 L37 12 L7 12 Z"
+    fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.8"/>
+  <path d="M22 14 L22 30" stroke="${C.amber2}" stroke-width="1.4" stroke-dasharray="2 2"/>
+  <path d="M27 19 A4 4 0 1 0 27 25 A5 5 0 0 1 27 19 Z" fill="${C.bone}"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -1022,6 +1105,11 @@ export const UI_ICONS = {
   lay_on_hands: A_LAY_ON_HANDS, sentinels_watch: A_SENTINELS_WATCH, heralds_muster: A_HERALDS_MUSTER,
   challenge: A_CHALLENGE, steadfast_march: A_STEADFAST_MARCH, banner_of_dread: A_BANNER_OF_DREAD,
   guardians_veil: A_GUARDIANS_VEIL,
+  // menu glyphs
+  m_bag: M_BAG, m_skills: M_SKILLS, m_loadout: M_LOADOUT, m_wardrobe: M_WARDROBE,
+  m_titles: M_TITLES, m_familiar: M_FAMILIAR, m_garden: M_GARDEN, m_tarot: M_TAROT,
+  m_mirror: M_MIRROR, m_candle: M_CANDLE, m_guise: M_GUISE, m_map: M_MAP, m_board: M_BOARD,
+  m_delve: M_DELVE, m_coven: M_COVEN, m_medal: M_MEDAL, m_codex: M_CODEX, m_ticket: M_TICKET,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
