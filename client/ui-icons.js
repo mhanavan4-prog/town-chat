@@ -353,6 +353,120 @@ const I_SILVER_RING = S(`
   <circle cx="22" cy="25" r="11" fill="none" stroke="#eef3f8" stroke-width="1.4" opacity="0.6"/>
   <path d="M22 14 L26 8 L22 4 L18 8 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1.4"/>`);
 
+// ── Items: the wardrobe ──────────────────────────────────────────────────────
+// Shared bases keep the gear cohesive; per-item accents make each distinct.
+
+const BOOT = (fill, stroke, accent) => S(`
+  <path d="M16 6 L22 6 L23 22 L32 24 Q36 25 36 30 L36 35 L12 35 L12 10 Q12 6 16 6 Z"
+    fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+  <path d="M12 30 L36 30" stroke="${stroke}" stroke-width="2"/>
+  ${accent || ''}`);
+
+const CHESTPC = (fill, stroke, accent) => S(`
+  <path d="M9 13 L16 11 L22 14 L28 11 L35 13 L32 22 L34 35 L10 35 L12 22 Z"
+    fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+  <path d="M22 14 L22 35" stroke="${stroke}" stroke-width="1.1" opacity="0.5"/>
+  ${accent || ''}`);
+
+const RINGPC = (band, hi, gem) => S(`
+  <circle cx="22" cy="27" r="10" fill="none" stroke="${band}" stroke-width="4"/>
+  <circle cx="22" cy="27" r="10" fill="none" stroke="${hi}" stroke-width="1.2" opacity="0.55"/>
+  ${gem}`);
+
+// heads
+const I_BLOODMOON_CIRCLET = S(`
+  <path d="M8 26 Q22 17 36 26" fill="none" stroke="${C.red2}" stroke-width="3.6"/>
+  <path d="M9 25 Q22 19 35 25" fill="none" stroke="${C.red}" stroke-width="1.4" opacity="0.7"/>
+  <path d="M22 19 L27 25 L22 32 L17 25 Z" fill="${C.red}" stroke="#7a1f36" stroke-width="1.6"/>
+  <circle cx="10" cy="25" r="2" fill="${C.red2}"/><circle cx="34" cy="25" r="2" fill="${C.red2}"/>`);
+
+const I_BEAST_CROWN = S(`
+  <path d="M7 33 L9 17 L14 25 L18 12 L22 23 L26 12 L30 25 L35 17 L37 33 Z"
+    fill="#6b4f2e" stroke="#453219" stroke-width="1.8"/>
+  <circle cx="22" cy="29" r="2.2" fill="${C.amber}"/>
+  <circle cx="14" cy="29" r="1.6" fill="${C.red2}"/><circle cx="30" cy="29" r="1.6" fill="${C.red2}"/>`);
+
+const I_SPIRIT_VEIL = S(`
+  <path d="M22 6 C12 6 8 16 9 28 L9 35 L35 35 L35 28 C36 16 32 6 22 6 Z"
+    fill="#a9c8ff" opacity="0.45" stroke="#7f9fe0" stroke-width="1.6"/>
+  <path d="M22 7 C15 7 12 13 12 21" fill="none" stroke="#7f9fe0" stroke-width="1.4" opacity="0.8"/>
+  <path d="M17 16 l0.8 2 2 0 -1.6 1.3 .6 2 -1.8 -1.2 -1.8 1.2 .6 -2 -1.6 -1.3 2 0 Z" fill="${C.bone}"/>
+  <circle cx="28" cy="20" r="1.4" fill="${C.bone}"/><circle cx="25" cy="28" r="1.2" fill="${C.bone}"/>`);
+
+const I_DREAD_HELM = S(`
+  <path d="M10 21 C10 10 34 10 34 21 L34 30 Q34 34 30 34 L27 34 L27 29 L25 34 L19 34 L17 29 L17 34 L14 34 Q10 34 10 30 Z"
+    fill="#2a2234" stroke="#15101c" stroke-width="2"/>
+  <path d="M14 20 L20 23 M30 20 L24 23" stroke="${C.red}" stroke-width="2.6"/>
+  <path d="M22 24 L22 33" stroke="#15101c" stroke-width="2"/>`);
+
+const I_SHADOW_CROWN = S(`
+  <path d="M8 33 L8 17 L15 24 L22 13 L29 24 L36 17 L36 33 Z"
+    fill="#241836" stroke="#120b22" stroke-width="1.8"/>
+  <path d="M19 9 A4 4 0 1 0 25 9 A5 5 0 0 1 19 9 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1"/>
+  <circle cx="15" cy="27" r="1.6" fill="${C.plum}"/><circle cx="29" cy="27" r="1.6" fill="${C.plum}"/>`);
+
+const I_KNIGHTS_HELM = S(`
+  <path d="M12 11 L32 11 Q34 11 34 15 L34 31 Q34 35 30 35 L14 35 Q10 35 10 31 L10 15 Q10 11 12 11 Z"
+    fill="#aeb8c4" stroke="#6f7a88" stroke-width="2"/>
+  <path d="M13 19 L31 19 M13 23 L31 23" stroke="#6f7a88" stroke-width="2.2"/>
+  <path d="M22 11 L22 6 L27 4 L25 9" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.2"/>`);
+
+const I_TRAVELERS_HOOD = S(`
+  <path d="M22 6 C12 6 8 16 10 29 L14 26 Q15 32 22 33 Q29 32 30 26 L34 29 C36 16 32 6 22 6 Z"
+    fill="#7a6a4a" stroke="#564a33" stroke-width="2"/>
+  <path d="M22 11 C17 11 15 16 16 23 Q19 26 22 26 Q25 26 28 23 C29 16 27 11 22 11 Z"
+    fill="#3a3326" stroke="#564a33" stroke-width="1.4"/>`);
+
+// chest
+const I_BEAST_HIDE = CHESTPC('#8a6240', '#5e3f26', `
+  <path d="M10 34 l3 -4 3 4 3 -4 3 4 3 -4 3 4 3 -4 3 4" fill="none" stroke="#5e3f26" stroke-width="1.6"/>
+  <path d="M16 18 l3 3 M26 18 l-3 3" stroke="#5e3f26" stroke-width="1.6"/>`);
+const I_SPIRIT_ROBE = CHESTPC('#2a2d5e', '#191b3e', `
+  <circle cx="17" cy="21" r="1.2" fill="${C.bone}"/><circle cx="27" cy="19" r="1.4" fill="${C.bone}"/>
+  <circle cx="22" cy="27" r="1.1" fill="${C.bone}"/><circle cx="30" cy="28" r="1.1" fill="${C.teal}"/>
+  <path d="M14 30 l0.7 1.6 1.7 0 -1.4 1.1 .5 1.7 -1.5 -1 -1.5 1 .5 -1.7 -1.4 -1.1 1.7 0 Z" fill="${C.bone}"/>`);
+const I_BONE_ARMOR = CHESTPC(C.bone, C.bone2, `
+  <path d="M22 16 L22 33 M15 20 Q22 23 29 20 M14 25 Q22 28 30 25 M15 30 Q22 32 29 30"
+    fill="none" stroke="${C.bone2}" stroke-width="1.8"/>`);
+const I_SHADOW_CLOAK = CHESTPC('#241836', '#140d24', `
+  <path d="M9 13 L22 18 L35 13" fill="none" stroke="#4a3368" stroke-width="2"/>
+  <circle cx="22" cy="17" r="2.4" fill="${C.plum}" stroke="#4a3368" stroke-width="1.2"/>`);
+const I_ABYSSAL_ARMOR = CHESTPC('#161022', '#0a0612', `
+  <circle cx="22" cy="24" r="5" fill="none" stroke="${C.teal}" stroke-width="2"/>
+  <circle cx="22" cy="24" r="1.6" fill="${C.teal}"/>`);
+const I_MOONHOWL_PELT = CHESTPC('#d8d2c4', '#a39a86', `
+  <circle cx="22" cy="23" r="5" fill="${C.bone}" stroke="#a39a86" stroke-width="1.4"/>
+  <circle cx="24" cy="22" r="4" fill="#d8d2c4"/>
+  <path d="M13 19 l3 3 M31 19 l-3 3" stroke="#a39a86" stroke-width="1.6"/>`);
+const I_WITCH_ROBE = CHESTPC('#4a2f6e', '#301d49', `
+  <path d="M22 14 L22 35" stroke="#2a1a44" stroke-width="2"/>
+  <path d="M12 22 L10 35 M32 22 L34 35" fill="none" stroke="${C.amber2}" stroke-width="1.6" opacity="0.8"/>`);
+const I_TRAVELERS_VEST = CHESTPC('#6a5a3c', '#473a26', `
+  <path d="M22 14 L22 35" stroke="#473a26" stroke-width="2"/>
+  <rect x="14" y="24" width="5" height="6" rx="1" fill="none" stroke="#473a26" stroke-width="1.6"/>
+  <rect x="25" y="24" width="5" height="6" rx="1" fill="none" stroke="#473a26" stroke-width="1.6"/>`);
+
+// feet
+const I_HEXED_BOOTS = BOOT('#3a2a56', '#241836', `<path d="M27 12 A4.5 4.5 0 1 0 33 12 A5.5 5.5 0 0 1 27 12 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1"/>`);
+const I_PAW_BOOTS = BOOT('#8a5a34', '#5e3c22', `
+  <circle cx="22" cy="24" r="2.6" fill="${C.bone}"/>
+  <circle cx="18" cy="20" r="1.3" fill="${C.bone}"/><circle cx="22" cy="18.5" r="1.3" fill="${C.bone}"/><circle cx="26" cy="20" r="1.3" fill="${C.bone}"/>`);
+const I_SOUL_TREADS = BOOT('#2c2238', '#181020', `
+  <path d="M19 22 Q24 18 29 22 Q24 26 19 22 Z" fill="${C.bone}" stroke="#181020" stroke-width="1"/>
+  <circle cx="24" cy="22" r="1.8" fill="${C.teal}"/>`);
+const I_WRAITH_TREADS = BOOT('#8690a0', '#59606e', `
+  <path d="M14 20 q6 -3 12 0 M12 25 q8 -3 16 0" fill="none" stroke="${C.bone}" stroke-width="1.6" opacity="0.8"/>`);
+const I_NIGHTFANG_BOOTS = BOOT('#201a2e', '#100b1a', `<path d="M22 16 Q26 17 26 22 Q26 27 23 30 Q21 24 20 20 Q20 18 22 16 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1"/>`);
+
+// rings / amulets
+const I_HEX_AMULET = RINGPC('#5a3f7a', '#8a6ab0', `<circle cx="22" cy="12" r="6" fill="#6a4a95" stroke="#3a2456" stroke-width="1.6"/><circle cx="20" cy="10" r="2" fill="#c9a8ef"/>`);
+const I_SPIRIT_RING = RINGPC('#8a78c0', '#b9a8ef', `<path d="M22 14 L27 8 L22 3 L17 8 Z" fill="#9a6ae0" stroke="#6a4aa0" stroke-width="1.4"/>`);
+const I_TRAIL_RING = RINGPC('#9a8456', '#c9b87e', `<path d="M22 13 C17 13 16 8 18 5 C19 8 22 9 22 9 C22 9 25 8 26 5 C28 8 27 13 22 13 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.2"/><circle cx="22" cy="9" r="1.4" fill="${C.bone}"/>`);
+const I_DEATH_RING = RINGPC('#2a2234', '#5a4a68', `<path d="M22 4 C17 4 14 7 14 11 C14 13 15 14 16 15 L16 17 L28 17 L28 15 C29 14 30 13 30 11 C30 7 27 4 22 4 Z" fill="${C.bone}" stroke="#c9bca0" stroke-width="1"/><circle cx="19" cy="10" r="1.2" fill="#2a2234"/><circle cx="25" cy="10" r="1.2" fill="#2a2234"/>`);
+const I_PACKBOUND_RING = RINGPC('#7a5a38', '#a9824e', `<path d="M18 9 Q22 4 26 9 Q30 13 26 15 Q22 10 18 15 Q14 13 18 9 Z" fill="none" stroke="${C.amber2}" stroke-width="2.4"/>`);
+const I_ORDER_SIGNET = RINGPC('#c9a83e', '#eed47a', `<circle cx="22" cy="12" r="7" fill="#d9b84e" stroke="#a9842c" stroke-width="1.6"/><path d="M22 8 L24 11 L27 11 L24.5 13 L25.5 16 L22 14 L18.5 16 L19.5 13 L17 11 L20 11 Z" fill="#8a6a1e"/>`);
+const I_WITCHES_BOON = RINGPC('#4a6a9a', '#7f9fcf', `<circle cx="22" cy="12" r="7" fill="#2a5a9a" stroke="#1a3a6a" stroke-width="1.4"/><circle cx="22" cy="12" r="4" fill="#a9c8ff"/><circle cx="22" cy="12" r="1.8" fill="#1a2a4a"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -376,6 +490,21 @@ export const UI_ICONS = {
   // items — starter gear
   steel_shield: I_STEEL_SHIELD, wizard_hat: I_WIZARD_HAT,
   leather_boots: I_LEATHER_BOOTS, silver_ring: I_SILVER_RING,
+  // items — wardrobe: heads
+  bloodmoon_circlet: I_BLOODMOON_CIRCLET, beast_crown: I_BEAST_CROWN, spirit_veil: I_SPIRIT_VEIL,
+  dread_helm: I_DREAD_HELM, shadow_crown: I_SHADOW_CROWN, knights_helm: I_KNIGHTS_HELM,
+  travelers_hood: I_TRAVELERS_HOOD,
+  // items — wardrobe: chest
+  beast_hide: I_BEAST_HIDE, spirit_robe: I_SPIRIT_ROBE, bone_armor: I_BONE_ARMOR,
+  shadow_cloak: I_SHADOW_CLOAK, abyssal_armor: I_ABYSSAL_ARMOR, moonhowl_pelt: I_MOONHOWL_PELT,
+  witch_robe: I_WITCH_ROBE, travelers_vest: I_TRAVELERS_VEST,
+  // items — wardrobe: feet
+  hexed_boots: I_HEXED_BOOTS, paw_boots: I_PAW_BOOTS, soul_treads: I_SOUL_TREADS,
+  wraith_treads: I_WRAITH_TREADS, nightfang_boots: I_NIGHTFANG_BOOTS,
+  // items — wardrobe: rings / amulets
+  hex_amulet: I_HEX_AMULET, spirit_ring: I_SPIRIT_RING, trail_ring: I_TRAIL_RING,
+  death_ring: I_DEATH_RING, packbound_ring: I_PACKBOUND_RING, order_signet: I_ORDER_SIGNET,
+  witches_boon: I_WITCHES_BOON,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
