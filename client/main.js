@@ -27,6 +27,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
+import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -840,10 +841,11 @@ const FLOWER_ICON_SVG = `<svg viewBox="0 0 24 24" width="24" height="24" xmlns="
 // the plain emoji span for every item except the Flower, which gets the
 // SVG above instead.
 function buildItemIconEl(itemId) {
-  if (itemId === 'flower_bloom') {
+  const custom = uiIcon(itemId);
+  if (custom || itemId === 'flower_bloom') {
     const wrap = document.createElement('span');
     wrap.className = 'itemIconSvg';
-    wrap.innerHTML = FLOWER_ICON_SVG;
+    wrap.innerHTML = custom || FLOWER_ICON_SVG;
     return wrap;
   }
   const item = ITEM_CATALOG[itemId];
@@ -4056,7 +4058,7 @@ function _renderWitchTab() {
     for (const item of witchShopItems) {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);';
-      row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+      row.innerHTML = `<span class="rowGi" style="font-size:22px;">${glyphHTML(item.id, 'rowGi', item.icon)}</span>
         <span style="flex:1;color:#e8d0ff;font-weight:600;">${item.name}</span>
         <span style="color:#cc88ff;font-size:12px;">📸 selfie</span>
         <button data-id="${item.id}" style="padding:5px 14px;background:#6622aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
@@ -4086,7 +4088,7 @@ function _renderWitchTab() {
         : '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(100,0,200,0.12);border-radius:8px;border:1px solid rgba(150,50,255,0.2);flex-wrap:wrap;';
-      row.innerHTML = `<span style="font-size:22px;">${recipe.icon}</span>
+      row.innerHTML = `<span class="rowGi" style="font-size:22px;">${glyphHTML(recipe.id, 'rowGi', recipe.icon)}</span>
         <span style="flex:1;min-width:120px;color:#e8d0ff;font-weight:600;">${recipe.name}</span>
         <span style="color:#cc88ff;font-size:11px;flex-basis:100%;padding-left:36px;">${ingText}</span>
         ${moonNote}
@@ -6601,6 +6603,19 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
   };
+  // Swap the cluster's emoji glyphs for the custom carved-icon set.
+  const setIcon = (id, key) => {
+    const el = document.getElementById(id);
+    const svg = uiIcon(key);
+    if (el && svg) el.innerHTML = svg;
+  };
+  setIcon('btnStrike', 'attack');
+  setIcon('btnJump', 'jump');
+  setIcon('btnEmote', 'emote');
+  setIcon('btnCm', 'callout');
+  setIcon('btnKit', 'kit');
+  // Inject the static HUD icons (heart / moonstone / chat / day-night).
+  hydrateIcons(document);
   on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
   on('btnJump', tryJump);
   on('btnEmote', () => toggleEmoteWheel());
@@ -7013,24 +7028,28 @@ function buildMobileQuickSlots() {
 // Eight emotes in a ring (mobile: around the 😀 button; desktop: center
 // screen on T). The cheapest social mechanic there is — and unlike chat it
 // works outdoors, which is exactly where you pass people.
-const EMOTES = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
+// Eight keyed emotes, each drawn as a custom carved-talisman icon (ui-icons.js)
+// rather than a system emoji, so the wheel stays in the game's visual language.
+const EMOTES = EMOTE_DEFS.map((d) => d.key);
 let emoteWheelTimer = null;
 
 function buildEmoteWheel() {
   const wheel = document.getElementById('emoteWheel');
   if (!wheel || wheel.childElementCount) return;
   const R = 88, cx = 115, cy = 115;
-  EMOTES.forEach((em, i) => {
-    const ang = (i / EMOTES.length) * Math.PI * 2 - Math.PI / 2;
+  EMOTE_DEFS.forEach((def, i) => {
+    const ang = (i / EMOTE_DEFS.length) * Math.PI * 2 - Math.PI / 2;
     const b = document.createElement('button');
     b.className = 'emoteBtn';
-    b.textContent = em;
+    b.innerHTML = uiIcon(def.key) || '';
+    b.title = def.label;
+    b.setAttribute('aria-label', def.label);
     b.style.left = (cx + Math.cos(ang) * R - 26) + 'px';
     b.style.top = (cy + Math.sin(ang) * R - 26) + 'px';
     b.style.animationDelay = (i * 0.02) + 's';
     b.addEventListener('click', (e) => {
       e.preventDefault();
-      ws.send(JSON.stringify({ type: 'emote', emote: em }));
+      ws.send(JSON.stringify({ type: 'emote', emote: def.key }));
       toggleEmoteWheel(false);
     });
     wheel.appendChild(b);
@@ -7060,7 +7079,8 @@ function spawnEmoteFloat(playerId, emote) {
   if (!layer) return;
   const el = document.createElement('div');
   el.className = 'emoteFloat';
-  el.textContent = emote;
+  const svg = uiIcon(emote);
+  if (svg) el.innerHTML = svg; else el.textContent = emote;
   layer.appendChild(el);
   activeEmoteFloats.push({ el, playerId, until: performance.now() + 2350 });
 }
@@ -12822,7 +12842,7 @@ function renderStatusEffects() {
   const as = me.activeStatus;
   if (as && as.type && as.expiresAt > now) {
     const meta = STATUS_FX[as.type] || { icon: '✨', label: as.type, debuff: false };
-    fx.push({ icon: meta.icon, label: meta.label, desc: meta.desc || '', cls: meta.debuff ? 'debuff' : 'buff', kind: meta.debuff ? 'Curse' : 'Blessing', until: as.expiresAt });
+    fx.push({ icon: meta.icon, ikey: as.type, label: meta.label, desc: meta.desc || '', cls: meta.debuff ? 'debuff' : 'buff', kind: meta.debuff ? 'Curse' : 'Blessing', until: as.expiresAt });
   }
   if (ritualActive && ritualActive.until > now) {
     const d = ritualDef(ritualActive.id);
@@ -12836,11 +12856,11 @@ function renderStatusEffects() {
     const v = (lastAncestorState.virtues || []).find((x) => x.id === lastAncestorState.active.id);
     fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', desc: (v && (v.line || v.desc)) || "A forebear's blessing.", cls: 'buff', kind: 'Ancestor', until: lastAncestorState.active.until });
   }
-  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
+  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', ikey: 'salt', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   bar.innerHTML = fx.map((f) => {
     const t = fxTimeLabel(f.until - now);
-    return `<div class="statusFx ${f.cls}" data-fxname="${esc(f.label)}" data-fxdesc="${esc(f.desc)}" data-fxicon="${esc(f.icon)}" data-fxkind="${esc(f.kind || '')}">${f.icon}<span class="sfxTime">${t}</span></div>`;
+    return `<div class="statusFx ${f.cls}" data-fxname="${esc(f.label)}" data-fxdesc="${esc(f.desc)}" data-fxicon="${esc(f.ikey || f.icon)}" data-fxkind="${esc(f.kind || '')}">${glyphHTML(f.ikey || f.icon)}<span class="sfxTime">${t}</span></div>`;
   }).join('');
   if (!bar._tipWired) {
     // One delegated set of handlers (the bar is re-rendered constantly) → a rich
@@ -14062,7 +14082,7 @@ function showItemTooltip(e, itemId) {
   const item = ITEM_CATALOG[itemId];
   if (!item) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.textContent  = item.icon + '  ' + item.name;
+  _ttName.innerHTML    = glyphHTML(item.iconKey || item.icon, 'ttGi') + '  ' + escHtml(item.name);
   _ttSlot.textContent  = item.slot ? (SLOT_LABELS[item.slot] || item.slot) : 'Item';
   const lines = [];
   if (item.atk) lines.push('⚔️ ATK  +' + item.atk);
@@ -14080,7 +14100,7 @@ function showItemTooltip(e, itemId) {
 function showActionTooltip(e, action) {
   if (!_tt || !action) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.textContent  = action.icon + '  ' + action.name;
+  _ttName.innerHTML    = glyphHTML(action.iconKey || action.icon, 'ttGi') + '  ' + escHtml(action.name);
   _ttSlot.textContent  = KIND_LABELS[action.kind] || (action.kind || '');
   _ttStats.innerHTML   = '';
   _ttDesc.textContent  = action.description || '';

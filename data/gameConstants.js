@@ -213,6 +213,11 @@ const STARTER_GEAR = {
 const XP_THRESHOLDS = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 6000,
                         8200, 11000, 14500, 19000, 25000, 32500, 42000, 54000, 69000, 87000];
 
-const EMOTE_SET = ['👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃'];
+// Keyed emotes (client renders each as a custom carved-talisman icon). Legacy
+// glyphs kept accepted so an older client / in-flight emote still validates.
+const EMOTE_SET = [
+  'wave', 'laugh', 'heart', 'wow', 'cry', 'angry', 'thumb', 'dance',
+  '👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃',
+];
 
 module.exports = { MS_PACKS, COLORS, POTION_RECIPES, LOOT_TABLES, STARTER_GEAR, XP_THRESHOLDS, EMOTE_SET };

@@ -6,6 +6,8 @@
 // messages (phones have no scrollback). MOBILE_UI/Modals + the wheel/quickslot/
 // joystick/lightbox helpers are injected; the live state it reads via getters.
 // ---------------------------------------------------------------------------
+import { uiIcon } from './ui-icons.js';
+
 export default function createMobileHud({ MOBILE_UI, Modals, buildEmoteWheel, buildMobileQuickSlots, hasTownPass, openImageLightbox, restJoystick, getCmClips, getCmHasDrive, getLastAttackedClientAt, getLastToastText, getMe, getMode, getPaymentsEnabled, passTimeLeftLabel, passPriceLabel, getPlayers, getLastToastAt }) {
   let mobileHudInited = false;
 
@@ -35,10 +37,15 @@ function setTextIfChanged(id, text) {
 }
 function refreshMobileHud() {
   if (!MOBILE_UI || !getMe()) return;
-  setTextIfChanged('mvHeart', `❤️${Math.round(getMe().health ?? 100)}`);
+  setTextIfChanged('mvHeartVal', `${Math.round(getMe().health ?? 100)}`);
   setTextIfChanged('mvLevel', `Lv ${getMe().level || 1}`);
   const night = document.getElementById('dayNightTag');
-  setTextIfChanged('mvClock', night && night.classList.contains('nightTag') ? '🌕' : '☀️');
+  const isNight = !!(night && night.classList.contains('nightTag'));
+  if (_mv.mvClock !== (isNight ? 'n' : 'd')) {
+    _mv.mvClock = isNight ? 'n' : 'd';
+    const c = document.getElementById('mvClock');
+    if (c) c.innerHTML = uiIcon(isNight ? 'moon' : 'sun') || '';
+  }
   // 📢 shows only once there's actually a clip to fire; pulses while the
   // countermeasure window is open.
   const cmBtn = document.getElementById('btnCm');
