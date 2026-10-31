@@ -392,6 +392,11 @@
   #ttName .giWrap svg { width:100%; height:100%; display:block; }
   .rowGi .giWrap { display:inline-flex; width:24px; height:24px; vertical-align:middle; }
   .rowGi .giWrap svg { width:100%; height:100%; display:block; }
+  .stripGi { display:inline-flex; width:1.25em; height:1.25em; vertical-align:-0.24em; margin-right:3px; }
+  .stripGi svg { width:100%; height:100%; display:block; }
+  .stripSep { opacity:0.55; }
+  .feedGi .giWrap { display:inline-flex; width:18px; height:18px; vertical-align:middle; }
+  .feedGi .giWrap svg { width:100%; height:100%; display:block; }
   .statusFx.debuff { border-color:rgba(232,96,96,0.65); box-shadow:0 0 9px rgba(230,70,70,0.3); }
   .statusFx.buff { border-color:rgba(120,220,150,0.55); }
   .statusFx.ward { border-color:rgba(255,220,130,0.65); box-shadow:0 0 9px rgba(255,210,120,0.25); }
@@ -2258,11 +2263,11 @@
 
 <div id="npcShopModal" class="overlay hidden">
   <div class="card" style="width:min(400px,92vw);">
-    <div class="title" style="font-size:20px;" id="npcShopTitle">🛒 Shop</div>
+    <div class="title" style="font-size:20px;" id="npcShopTitle"><span class="hudGi" data-hudicon="m_shop"></span>Shop</div>
     <div class="subtitle" id="npcShopBalance">Balance: 0 <span class="coin"></span></div>
     <div id="npcShopItems" style="margin:14px 0;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
     <div class="err" id="npcShopErr"></div>
-    <button class="btn" id="npcShopQuestBtn">💬 Ask for a Quest</button>
+    <button class="btn" id="npcShopQuestBtn"><span class="hudGi" data-hudicon="chat"></span>Ask for a Quest</button>
     <button class="btn" id="npcShopCloseBtn" style="background:rgba(255,255,255,0.08);color:#eafff0;margin-top:6px;">Close (Esc)</button>
   </div>
 </div>
@@ -2276,7 +2281,7 @@
 </div>
 
 <div id="partyHud" class="hidden" style="position:fixed;right:16px;bottom:100px;z-index:6;background:rgba(10,20,50,0.88);border:1px solid rgba(100,160,255,0.28);border-radius:10px;padding:10px 12px;min-width:200px;max-width:260px;color:#aaddff;font-size:12px;">
-  <div style="font-weight:700;margin-bottom:6px;color:#88ccff;">⚔️ Party</div>
+  <div style="font-weight:700;margin-bottom:6px;color:#88ccff;"><span class="hudGi" data-hudicon="attack"></span>Party</div>
   <div id="partyMemberList" style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;"></div>
   <!-- Party chat -->
   <div style="border-top:1px solid rgba(100,160,255,0.15);padding-top:7px;">
@@ -2352,7 +2357,7 @@
   <div id="moonstoneTag" class="hidden" title="Your Moonstones — tap to get more"><span class="hudGi" data-hudicon="moonstone"></span><span id="moonstoneTagVal">0</span></div>
   <div id="dayNightTag"><span class="hudGi" id="dnIcon"></span><span id="dnLabel">Day</span></div>
   <div id="moonTag" class="hidden">🌕 Full Moon</div>
-  <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
+  <div id="passTag" class="hidden" title="Your Town Pass"><span class="hudGi" data-hudicon="m_ticket"></span>Town Pass</div>
 </div>
 
 <!-- Active effects on you — curses, blessings, teas, wards — as little squares
@@ -2371,7 +2376,7 @@
 <div id="unlockBar" class="hidden">
   <div id="unlockInner">
     🔒 The 👻 Parlor &amp; 🎮 Arcade take a Town Pass
-    <button id="unlockBtn">🎟️ Day pass — <span id="unlockPrice">$0.99</span></button>
+    <button id="unlockBtn"><span class="hudGi" data-hudicon="m_ticket"></span>Day pass — <span id="unlockPrice">$0.99</span></button>
   </div>
 </div>
 <div id="menuScrim"></div>
@@ -2436,7 +2441,7 @@
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
       <button class="menuRow" id="menuScry">🪞 Scrying Bowl</button>
 
-      <div class="menuSection">🕯️ Samhain</div>
+      <div class="menuSection"><span class="hudGi" data-hudicon="s_samhain"></span>Samhain</div>
       <button class="menuRow" id="menuAncestor">🕯️ Ancestor Altar</button>
       <button class="menuRow" id="menuRelease">🔥 Release Fire</button>
       <button class="menuRow" id="menuGuise">👻 Disguise</button>
@@ -2491,7 +2496,7 @@
      town is played. Populated from init + live town_feed_add messages. -->
 <div id="crierModal" class="hidden" style="position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(8,6,20,0.72);padding:16px;">
   <div style="width:100%;max-width:440px;background:#1b1733;border:1px solid #39335e;border-radius:16px;padding:22px;color:#eae4f6;">
-    <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:4px;">📣 Town Crier</div>
+    <div style="font:700 19px Georgia,serif;color:#9ee37d;margin-bottom:4px;"><span class="hudGi" data-hudicon="callout"></span>Town Crier</div>
     <div style="font-size:12.5px;color:#9a90bd;margin-bottom:10px;">Lately in Thornreach</div>
     <div id="crierBody" style="max-height:min(52vh,380px);overflow-y:auto;"></div>
     <button id="crierCloseBtn" class="btn" style="margin-top:16px;">Close</button>
@@ -2609,7 +2614,7 @@
 
 <div id="chatPanel" class="hidden">
   <div id="chatHeader">
-    <span id="chatHeaderText">💬 Chat</span>
+    <span id="chatHeaderText"><span class="hudGi" data-hudicon="chat"></span>Chat</span>
     <button id="chatMinimizeBtn" title="Minimize">–</button>
     <button id="chatHideBtn" title="Hide chat">✕</button>
   </div>
@@ -2632,7 +2637,7 @@
     </div>
   </div>
 </div>
-<button id="chatShowBtn" class="hidden" title="Show chat" aria-label="Show chat">💬</button>
+<button id="chatShowBtn" class="hidden" title="Show chat" aria-label="Show chat"><span class="hudGi" data-hudicon="chat"></span></button>
 
 <div id="interactHint" class="hidden"><span id="interactHintText">Press E to sit</span></div>
 
@@ -2659,7 +2664,7 @@
     <div class="title" style="font-size:22px;">🗿 Town Pass Statue</div>
     <div class="subtitle">A weathered stone statue, etched with a ledger of town privileges.</div>
     <div class="passInfo">
-      <div class="passTitle">🎟️ Day Pass — <span id="roomPassPrice">$0.99</span></div>
+      <div class="passTitle"><span class="hudGi" data-hudicon="m_ticket"></span>Day Pass — <span id="roomPassPrice">$0.99</span></div>
       <div class="passDetail">Opens BOTH ticketed buildings — the 👻 Phantom Parlor and the 🎮 Starlight Arcade — for <span id="roomPassHours">24</span> hours. Payment via Stripe Checkout; the pass starts the moment payment clears.</div>
       <div class="passDetail" id="passModalStatus"></div>
     </div>
@@ -3270,7 +3275,7 @@
 
 <div id="notifModal" class="overlay hidden">
   <div class="card">
-    <div class="title" style="font-size:20px;">🔔 Notifications</div>
+    <div class="title" style="font-size:20px;"><span class="hudGi" data-hudicon="bell"></span>Notifications</div>
     <div class="subtitle" id="notifSub">A raven can find you when something stirs — even with the town closed.</div>
     <div id="notifRows">
       <div class="notifRow"><div><div class="nLabel">🌕 When the moon rises</div><div class="nSub">At most one a day — the first hunt pays a trophy.</div></div><button class="notifToggle" data-pref="moonrise">OFF</button></div>

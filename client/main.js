@@ -6606,6 +6606,7 @@ const MENU_ICONS = {
   menuTarot: 'm_tarot', menuScry: 'm_mirror', menuAncestor: 'm_candle', menuRelease: 'fireball',
   menuGuise: 'm_guise', menuMap: 'm_map', menuBoard: 'm_board', menuCrier: 'callout', menuDelve: 'm_delve',
   menuCoven: 'm_coven', menuAchievements: 'm_medal', menuCodex: 'm_codex',
+  menuPass: 'm_ticket', menuMoonstones: 'moonstone', menuNotifs: 'bell', menuInvite: 'm_handshake',
 };
 function hydrateMenuRows() {
   for (const id in MENU_ICONS) {
@@ -12909,6 +12910,14 @@ function renderStatusEffects() {
 // fades. Tapping it while visible opens the Town Board.
 let _eventTagSig = null;
 let _eventTagFadeTimer = null;
+// Turn an event-strip segment ("🕯️ Samhain — +15% XP") into HTML whose leading
+// glyph becomes a custom icon, the rest kept as text.
+function iconizeStripPart(p) {
+  const m = String(p).match(/^(\S+)\s+([\s\S]*)$/u);
+  if (!m) return escHtml(p);
+  const svg = uiIcon(m[1]);
+  return (svg ? '<span class="stripGi">' + svg + '</span>' : escHtml(m[1]) + ' ') + escHtml(m[2]);
+}
 function renderEventTag() {
   const el = document.getElementById('eventTag');
   if (!el) return;
@@ -12927,7 +12936,7 @@ function renderEventTag() {
   if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');
   const sig = parts.join('|');
   if (!parts.length) { el.classList.add('hidden'); _eventTagSig = sig; return; }
-  el.textContent = parts.join(' · ');
+  el.innerHTML = parts.map(iconizeStripPart).join(' <span class="stripSep">·</span> ');
   el.classList.remove('hidden');
   if (sig !== _eventTagSig) {
     // The set changed — surface it fresh, then fade back out of the way.
@@ -16263,7 +16272,7 @@ function renderCrier() {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   body.innerHTML = townFeed.map((it) =>
     '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(80,70,120,0.25);">' +
-      '<span style="font-size:15px;flex:0 0 auto;">' + esc(it.icon || '✨') + '</span>' +
+      '<span class="feedGi" style="font-size:15px;flex:0 0 auto;">' + glyphHTML(it.icon || '✨', 'feedGi') + '</span>' +
       '<span style="flex:1;min-width:0;color:#eae4f6;font-size:13px;">' + esc(it.text) + '</span>' +
       '<span style="flex:0 0 auto;color:#8a80ad;font-size:11.5px;">' + esc(_agoText(it.at)) + '</span>' +
     '</div>'

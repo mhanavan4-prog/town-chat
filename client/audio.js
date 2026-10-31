@@ -8,6 +8,8 @@
 // reads from the app (getMe, setUnlockToast) and returns the handles the rest
 // of the client calls. Everything else here is unchanged from the monolith.
 // ---------------------------------------------------------------------------
+import { uiIcon } from './ui-icons.js';
+
 export default function createAudio({ getMe, setUnlockToast }) {
 let audioCtx = null;
 let musicGain = null;
@@ -514,10 +516,10 @@ function setAllMuted(muted) {
 const muteBtn = document.getElementById('muteBtn');
 if (muteBtn) {
   // Reflect the real, persisted state on load so the icon can't lie.
-  muteBtn.textContent = allMuted ? '🔇' : '🔈';
+  muteBtn.innerHTML = '<span class="hudGi">' + (uiIcon(allMuted ? 'm_muted' : 'm_speaker') || '') + '</span>';
   muteBtn.addEventListener('click', () => {
     setAllMuted(!allMuted);
-    muteBtn.textContent = allMuted ? '🔇' : '🔈';
+    muteBtn.innerHTML = '<span class="hudGi">' + (uiIcon(allMuted ? 'm_muted' : 'm_speaker') || '') + '</span>';
   });
 }
 
