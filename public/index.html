@@ -1492,6 +1492,27 @@
   .moonGi svg { width:100%; height:100%; display:block; }
   .emoteBtn:active { transform:scale(1.15); background:rgba(60,40,20,0.95); }
   @keyframes emoteBtnIn { from { opacity:0; transform:scale(0.3); } to { opacity:1; transform:scale(1); } }
+  /* Ability overflow wheel — the kit button fans out every ability past the
+     5-slot arc, colour-ringed by type (red offense / teal support / violet
+     utility). Tap one to quick-cast; the dim backdrop taps to close. */
+  #abilityWheelBg { position:fixed; inset:0; z-index:58; background:rgba(8,5,16,0.5); }
+  #abilityWheelBg.hidden { display:none; }
+  body.touchMode #abilityWheel { position:fixed; z-index:59; right:34px; bottom:104px; width:300px; height:300px; pointer-events:none; }
+  body.touchMode #abilityWheel.hidden { display:none; }
+  body:not(.touchMode) #abilityWheel { position:fixed; z-index:59; left:50%; bottom:150px; transform:translateX(-50%); width:300px; height:300px; pointer-events:none; }
+  body:not(.touchMode) #abilityWheel.hidden { display:none; }
+  .awBtn {
+    position:absolute; pointer-events:auto; width:56px; height:56px; border-radius:50%;
+    background:rgba(20,14,10,0.92); border:2px solid rgba(230,190,120,0.5);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 3px 14px rgba(0,0,0,0.5);
+    -webkit-tap-highlight-color:transparent; animation:emoteBtnIn 0.16s ease-out backwards;
+  }
+  .awBtn .uiIcon { width:62%; height:62%; display:block; }
+  .awBtn.onCd { opacity:0.42; }
+  .awBtn.awOffense { border-color:rgba(255,120,110,0.75); }
+  .awBtn.awSupport { border-color:rgba(120,232,200,0.75); }
+  .awBtn.awUtility { border-color:rgba(185,140,255,0.65); }
+  .awBtn:active { transform:scale(1.12); background:rgba(60,40,20,0.95); }
 
   /* Streak counter — grows with the number */
   #streakTag {
@@ -2539,6 +2560,8 @@
 </div>
 
 <div id="emoteWheel" class="hidden"></div>
+<div id="abilityWheelBg" class="hidden"></div>
+<div id="abilityWheel" class="hidden"></div>
 <div id="streakTag"></div>
 
 <!-- Session L HUD: active calendar event pill, the newcomer First Steps
