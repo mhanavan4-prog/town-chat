@@ -48,8 +48,12 @@ setTimeout(async () => {
     const setGen = (fn) => { hooks.seanceSpirit.generate = fn; };
     // Disable lore hints here so the AI/fallback source assertions are
     // deterministic — hint behaviour is covered by test/seance-lore.test.js.
+    // NOTE: Samhain floors the hint chance to 0.20 regardless of CONFIG (and when
+    // these tests run on Oct 31 it IS Samhain), so zeroing the config isn't
+    // enough — stub shouldHint to false so no hint ever fires here.
     hooks.seance.CONFIG.HINT_CHANCE = 0;
     hooks.seance.CONFIG.HINT_CHANCE_BLOODMOON = 0;
+    hooks.seance.shouldHint = () => false;
 
     // ── AI path: a clean spirit reply is sanitized and used verbatim ─────
     setGen(async () => 'the veil THINS at midnight');
