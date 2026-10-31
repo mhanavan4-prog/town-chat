@@ -668,6 +668,98 @@ const A_NIGHTWING_AUGURY = S(`
   <path d="M22 18 q4 -5 8 0 q4 -5 8 0 q0 6 -8 10 q-8 -4 -8 -10 z" transform="translate(-8 0)" fill="${C.plum}" stroke="#20142f" stroke-width="1.4"/>
   <circle cx="18" cy="12" r="1.4" fill="${C.teal}"/><circle cx="12" cy="26" r="1.2" fill="${C.teal}"/>`);
 
+// ── Abilities: Werewolf (beast) ──────────────────────────────────────────────
+
+const A_SAVAGE_BITE = S(`
+  <path d="M8 10 Q22 16 36 10 Q33 18 28 20 L31 30 L26 22 L24 31 L22 22 L20 31 L18 22 L13 30 L16 20 Q11 18 8 10 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M14 34 Q22 30 30 34" stroke="${C.red2}" stroke-width="2" fill="none"/>`);
+const A_IRON_PELT = S(`
+  <path d="M22 5 L35 10 C35 24 30 33 22 38 C14 33 9 24 9 10 Z" fill="#8a6244" stroke="#5e4028" stroke-width="2"/>
+  <path d="M14 14 l3 3 M22 12 l0 4 M30 14 l-3 3 M16 22 l3 2 M28 22 l-3 2" stroke="#5e4028" stroke-width="1.6"/>
+  <circle cx="22" cy="20" r="3" fill="#aeb8c4" stroke="#6f7a88" stroke-width="1.4"/>`);
+const A_MOONLIT_MENDING = S(`
+  <path d="M27 6 A15 15 0 1 0 38 28 A18 18 0 0 1 27 6 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M18 22 l0 9 M13.5 26.5 l9 0" stroke="${C.teal2}" stroke-width="2.6"/>`);
+const A_RAPID_SWIPE = S(`
+  <path d="M10 8 Q20 20 16 38 M19 6 Q29 18 25 36 M28 8 Q36 18 33 34" fill="none" stroke="${C.bone}" stroke-width="3" stroke-linecap="round"/>`);
+const A_LUNAR_HOWL = S(`
+  <circle cx="31" cy="12" r="6" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M6 36 L10 20 L8 12 L14 16 L18 14 L16 22 Q22 24 20 32 Q16 38 10 36 Z" fill="#6a5a44" stroke="#453a28" stroke-width="1.8"/>
+  <circle cx="12" cy="22" r="1.4" fill="${C.amber}"/>`);
+const A_TERRIFYING_ROAR = S(`
+  <path d="M11 14 Q22 8 33 14 Q33 26 26 32 L28 26 L24 28 L22 33 L20 28 L16 26 L18 32 Q11 26 11 14 Z"
+    fill="#7a4a34" stroke="#4e2e1e" stroke-width="1.8"/>
+  <path d="M16 18 l5 2 M28 18 l-5 2" stroke="#ffd43b" stroke-width="2"/>
+  <path d="M34 10 l4 -2 M35 16 l4 0 M34 22 l4 2" stroke="${C.red}" stroke-width="2"/>`);
+const A_ALPHA_BITE = S(`
+  <path d="M11 10 L15 20 L10 30 C10 34 16 36 22 36 C28 36 34 34 34 30 L29 20 L33 10 L26 15 L18 15 Z"
+    fill="#6a5a44" stroke="#453a28" stroke-width="1.6"/>
+  <path d="M17 28 L19 33 L22 30 L25 33 L27 28" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1"/>
+  <circle cx="18" cy="23" r="1.8" fill="${C.amber}"/><circle cx="26" cy="23" r="1.8" fill="${C.amber}"/>`);
+const A_FERAL_DASH = S(`
+  <circle cx="26" cy="26" r="4" fill="${C.bone}"/><circle cx="22" cy="20" r="2" fill="${C.bone}"/><circle cx="28" cy="19" r="2" fill="${C.bone}"/><circle cx="33" cy="22" r="1.8" fill="${C.bone}"/>
+  <path d="M6 18 l10 0 M4 24 l10 0 M8 30 l8 0" stroke="${C.teal}" stroke-width="2.4"/>`);
+const A_BLOOD_FRENZY = S(`
+  <path d="M12 6 Q18 20 15 36 M20 5 Q26 19 23 35 M28 7 Q33 19 30 33" fill="none" stroke="${C.red}" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="15" cy="37" r="1.6" fill="${C.red2}"/><circle cx="23" cy="36" r="1.6" fill="${C.red2}"/><circle cx="30" cy="34" r="1.4" fill="${C.red2}"/>`);
+const A_BONE_CRUNCH = S(`
+  <path d="M10 12 Q7 12 7 15 Q7 18 10 18 L18 26 L14 30 L18 30 L17 34 L22 31 L27 34 L26 30 L30 30 L26 26 L34 18 Q37 18 37 15 Q37 12 34 12 Q33 9 35 7 L28 13 L16 13 L9 7 Q11 9 10 12 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>`);
+const A_SHADOW_CLAWS = S(`
+  <path d="M10 8 Q20 20 16 38 M19 6 Q29 18 25 36 M28 8 Q36 18 33 34" fill="none" stroke="#3a2850" stroke-width="3" stroke-linecap="round"/>
+  <path d="M10 8 Q20 20 16 38" stroke="${C.plum}" stroke-width="1.2" fill="none"/>`);
+const A_WOLF_MARK = S(`
+  <path d="M22 5 L35 22 L22 39 L9 22 Z" fill="#4a3826" stroke="#2e2016" stroke-width="2"/>
+  <path d="M15 14 Q24 24 20 34 M21 12 Q30 22 26 32 M27 15 Q34 23 31 30" fill="none" stroke="${C.amber}" stroke-width="2" stroke-linecap="round"/>`);
+const A_FERAL_HAZE = S(`
+  <path d="M8 30 Q12 22 10 16 Q16 20 18 14 Q20 22 24 16 Q26 24 30 16 Q32 22 36 16 Q38 26 34 32 Q22 38 8 30 Z"
+    fill="#c24a2a" stroke="#8a2e18" stroke-width="1.6" opacity="0.9"/>
+  <path d="M16 26 Q20 22 24 26" stroke="${C.amber}" stroke-width="1.8" fill="none"/>`);
+const A_SNARL = S(`
+  <path d="M9 18 Q22 12 35 18 Q33 24 28 26 L30 22 L26 24 L24 28 L22 24 L20 28 L18 24 L14 22 L16 26 Q11 24 9 18 Z"
+    fill="#6a5a44" stroke="#453a28" stroke-width="1.6"/>
+  <path d="M12 16 l6 2 M32 16 l-6 2" stroke="${C.bone}" stroke-width="2"/>`);
+const A_SCENT_TRAIL = S(`
+  <path d="M14 22 Q10 16 16 14 Q22 12 22 18 Q22 12 28 14 Q34 16 30 22 Q28 26 22 27 Q16 26 14 22 Z" fill="#5a4a36" stroke="#3a2e20" stroke-width="1.6"/>
+  <path d="M18 21 q-2 2 0 3 M26 21 q2 2 0 3" stroke="#2a2016" stroke-width="1.4"/>
+  <circle cx="14" cy="32" r="1.8" fill="${C.teal}"/><circle cx="22" cy="35" r="1.6" fill="${C.teal}" opacity="0.7"/><circle cx="30" cy="33" r="1.4" fill="${C.teal}" opacity="0.5"/>`);
+const A_HUNTERS_READ = S(`
+  <path d="M8 20 Q14 14 20 20 Q14 26 8 20 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/><circle cx="14" cy="20" r="2.6" fill="${C.amber}"/>
+  <path d="M24 20 Q30 14 36 20 Q30 26 24 20 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/><circle cx="30" cy="20" r="2.6" fill="${C.amber}"/>
+  <path d="M10 30 l6 2 M34 30 l-6 2 M20 33 l4 0" stroke="#6a5a44" stroke-width="2"/>`);
+
+// ── Abilities: Necromancer ───────────────────────────────────────────────────
+
+const A_RAISE_SKELETON = S(`
+  <path d="M22 9 C14 9 10 15 10 21 C10 25 12 27 12 29 L16 29 L16 32 L19 32 L19 29 L22 29 L22 32 L25 32 L25 29 L28 29 L28 29 C28 27 34 25 34 21 C34 15 30 9 22 9 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <circle cx="17" cy="20" r="2.4" fill="#2a2234"/><circle cx="27" cy="20" r="2.4" fill="#2a2234"/>
+  <path d="M9 14 L5 10 M35 14 L39 10 M22 7 L22 3" stroke="${C.teal}" stroke-width="2"/>`);
+const A_RAISE_BONEKNIGHT = S(`
+  <path d="M12 12 L32 12 Q34 12 34 16 L34 28 Q34 32 30 32 L14 32 Q10 32 10 28 L10 16 Q10 12 12 12 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M13 20 L31 20" stroke="#2a2234" stroke-width="2.4"/>
+  <path d="M22 24 L22 32" stroke="#2a2234" stroke-width="2"/>
+  <path d="M8 36 L36 30 M8 30 L36 36" stroke="${C.bone2}" stroke-width="2.4"/>`);
+const A_RAISE_WIGHT = S(`
+  <path d="M22 8 C13 8 9 15 11 25 C8 27 9 33 15 33 L15 29 L18 33 L22 29 L26 33 L29 29 L29 33 C35 33 36 27 33 25 C35 15 31 8 22 8 Z"
+    fill="#2a3a30" stroke="#16241c" stroke-width="1.6" opacity="0.95"/>
+  <circle cx="17" cy="20" r="2.4" fill="#5fe0a0"/><circle cx="27" cy="20" r="2.4" fill="#5fe0a0"/>
+  <path d="M33 10 l3 -2 M11 10 l-3 -2" stroke="#5fe0a0" stroke-width="1.8"/>`);
+const A_LIFE_SIPHON = S(`
+  <path d="M12 10 C20 12 20 20 14 22 C8 24 10 32 18 33 C24 34 26 28 22 26" fill="none" stroke="${C.red}" stroke-width="2.6"/>
+  <path d="M22 26 C28 24 32 28 30 34" fill="none" stroke="#5fbf7a" stroke-width="2.6"/>
+  <circle cx="12" cy="10" r="2" fill="${C.red2}"/><circle cx="30" cy="34" r="2" fill="#3a8c52"/>`);
+const A_BONE_WARD = S(`
+  <path d="M22 5 L35 10 C35 24 30 33 22 38 C14 33 9 24 9 10 Z" fill="#2a2234" stroke="#15101c" stroke-width="2"/>
+  <path d="M22 12 L22 31 M15 17 Q22 20 29 17 M14 23 Q22 26 30 23" fill="none" stroke="${C.bone}" stroke-width="2"/>`);
+const A_GRAVE_CHILL = S(`
+  <path d="M22 10 C15 10 11 15 11 20 C11 23 13 25 13 27 L17 27 L17 30 L20 30 L20 27 L24 27 L24 30 L27 30 L27 27 L31 27 C31 25 33 23 33 20 C33 15 29 10 22 10 Z"
+    fill="${C.bone}" stroke="#a9c8d8" stroke-width="1.6"/>
+  <circle cx="17" cy="19" r="2.2" fill="#3a5a6a"/><circle cx="27" cy="19" r="2.2" fill="#3a5a6a"/>
+  <path d="M22 3 L22 9 M19 5 L22 8 L25 5 M8 14 l4 2 M36 14 l-4 2" stroke="#8ac8e8" stroke-width="1.8"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -737,6 +829,15 @@ export const UI_ICONS = {
   fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
   monstrous_form: A_MONSTROUS_FORM, gourd_ward: A_GOURD_WARD, ravens_cloak: A_RAVENS_CLOAK,
   bone_knit: A_BONE_KNIT, scrying_orb: A_SCRYING_ORB, nightwing_augury: A_NIGHTWING_AUGURY,
+  // abilities — Werewolf (beast)
+  savage_bite: A_SAVAGE_BITE, iron_pelt: A_IRON_PELT, moonlit_mending: A_MOONLIT_MENDING,
+  rapid_swipe: A_RAPID_SWIPE, lunar_howl: A_LUNAR_HOWL, terrifying_roar: A_TERRIFYING_ROAR,
+  alpha_bite: A_ALPHA_BITE, feral_dash: A_FERAL_DASH, blood_frenzy: A_BLOOD_FRENZY,
+  bone_crunch: A_BONE_CRUNCH, shadow_claws: A_SHADOW_CLAWS, wolf_mark: A_WOLF_MARK,
+  feral_haze: A_FERAL_HAZE, snarl: A_SNARL, scent_trail: A_SCENT_TRAIL, hunters_read: A_HUNTERS_READ,
+  // abilities — Necromancer
+  raise_skeleton: A_RAISE_SKELETON, raise_boneknight: A_RAISE_BONEKNIGHT, raise_wight: A_RAISE_WIGHT,
+  life_siphon: A_LIFE_SIPHON, bone_ward: A_BONE_WARD, grave_chill: A_GRAVE_CHILL,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
