@@ -7014,7 +7014,7 @@ function buildMobileQuickSlots() {
   if (kitBtn && me) {
     kitBtn.classList.remove('hidden');
     kitBtn.style.display = 'flex';
-    kitBtn.textContent = me.charId === 0 ? '📖' : '✨';
+    kitBtn.innerHTML = uiIcon(me.charId === 0 ? 'kit' : 'm_skills') || (me.charId === 0 ? '📖' : '✨');
     if (me.charId === 0 || myAttackCatalog) kitBtn.style.opacity = '1';
   }
   if (!myActionCatalog) return;
@@ -7026,7 +7026,9 @@ function buildMobileQuickSlots() {
     if (!abilityId) { btn.classList.add('hidden'); btn.style.display = 'none'; return; }
     const ab = myActionCatalog[abilityId];
     btn.innerHTML = '';
-    btn.appendChild(document.createTextNode(ab.icon || '✨'));
+    const _svg = uiIcon(abilityId);
+    if (_svg) { const _w = document.createElement('span'); _w.innerHTML = _svg; btn.appendChild(_w.firstElementChild); }
+    else { btn.appendChild(document.createTextNode(ab.icon || '✨')); }
     const cd = document.createElement('div');
     cd.className = 'hotbarCooldown';
     cd.style.borderRadius = '50%';
