@@ -467,6 +467,89 @@ const I_PACKBOUND_RING = RINGPC('#7a5a38', '#a9824e', `<path d="M18 9 Q22 4 26 9
 const I_ORDER_SIGNET = RINGPC('#c9a83e', '#eed47a', `<circle cx="22" cy="12" r="7" fill="#d9b84e" stroke="#a9842c" stroke-width="1.6"/><path d="M22 8 L24 11 L27 11 L24.5 13 L25.5 16 L22 14 L18.5 16 L19.5 13 L17 11 L20 11 Z" fill="#8a6a1e"/>`);
 const I_WITCHES_BOON = RINGPC('#4a6a9a', '#7f9fcf', `<circle cx="22" cy="12" r="7" fill="#2a5a9a" stroke="#1a3a6a" stroke-width="1.4"/><circle cx="22" cy="12" r="4" fill="#a9c8ff"/><circle cx="22" cy="12" r="1.8" fill="#1a2a4a"/>`);
 
+// ── Items: consumables, potions & brews ──────────────────────────────────────
+// A shared flask/jar language; distinct liquid colors + effect motifs per item.
+
+const POTION = (liquid, lo, accent) => S(`
+  <path d="M19 4 L25 4 L25 10 L29 17 Q33 23 33 30 Q33 38 22 38 Q11 38 11 30 Q11 23 15 17 L19 10 Z"
+    fill="#1c1630" stroke="${C.bone}" stroke-width="2"/>
+  <path d="M14 23 Q11 30 22 35.5 Q33 30 30 23 Z" fill="${liquid}" stroke="${lo}" stroke-width="1"/>
+  <rect x="17.5" y="2.5" width="9" height="4.5" rx="1.5" fill="#8a6a4a" stroke="#5e442c" stroke-width="1"/>
+  ${accent || ''}`);
+
+const JAR = (fill, lo, accent) => S(`
+  <rect x="11" y="16" width="22" height="20" rx="4" fill="${fill}" stroke="${lo}" stroke-width="2"/>
+  <rect x="9" y="10" width="26" height="7" rx="3" fill="${C.bone2}" stroke="${lo}" stroke-width="1.6"/>
+  ${accent || ''}`);
+
+const I_HEALING_POTION   = POTION('#e2566a', '#b8324e', `<path d="M22 26 l0 7 M18.5 29.5 l7 0" stroke="${C.bone}" stroke-width="2.4"/>`);
+const I_HEALTH_POTION_II = POTION('#e2566a', '#b8324e', `<path d="M22 24 l-2.5 5 2.5 -1 -1 5 3 -6 -2.5 1 z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.8"/>`);
+const I_MOONWELL_DRAUGHT = POTION('#6f9ee8', '#3f66b0', `<path d="M25 25 A4 4 0 1 0 25 33 A5 5 0 0 1 25 25 Z" fill="${C.bone}"/>`);
+const I_REGEN_BREW        = POTION('#5fbf7a', '#3a8c52', `<circle cx="20" cy="28" r="1.6" fill="${C.bone}"/><circle cx="25" cy="31" r="1.2" fill="${C.bone}"/><circle cx="23" cy="26" r="1" fill="${C.bone}"/>`);
+const I_SWIFT_BREW        = POTION('#78e8c8', '#3fb79a', `<path d="M16 27 l10 0 M17 30 l8 0 M18 33 l6 0" stroke="${C.bone}" stroke-width="1.6"/>`);
+const I_SHADOW_DRAUGHT    = POTION('#2a1d40', '#140d24', `<path d="M26 24 A4.5 4.5 0 1 0 26 33 A5.5 5.5 0 0 1 26 24 Z" fill="${C.plum}"/>`);
+const I_GIANTS_ELIXIR     = POTION('#b98a52', '#8a5f32', `<path d="M22 33 L22 25 M18 28 L22 24 L26 28" stroke="${C.bone}" stroke-width="2" fill="none"/>`);
+const I_BAT_SWARM_POTION  = POTION('#4a3368', '#2a1d40', `<path d="M18 29 q2 -3 4 0 q2 -3 4 0 l-1 3 q-3 -2 -3 0 q0 -2 -3 0 z" fill="${C.bone}"/>`);
+const I_CLARITY_DRAUGHT   = POTION('#d9e6ff', '#9fb8e0', `<path d="M22 24 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.7"/>`);
+const I_CHAOS_BREW        = POTION('#b56ad0', '#7a3f95', `<path d="M18 27 q4 -3 8 0 q-2 4 -8 2 q4 3 8 1" fill="none" stroke="${C.amber}" stroke-width="1.6"/>`);
+const I_WOLF_PACT_BREW    = POTION('#c98a3a', '#9a6424', `<circle cx="22" cy="30" r="1.8" fill="${C.bone}"/><circle cx="19" cy="27" r="1" fill="${C.bone}"/><circle cx="22" cy="26" r="1" fill="${C.bone}"/><circle cx="25" cy="27" r="1" fill="${C.bone}"/>`);
+const I_MOON_WATER        = POTION('#a9c8ff', '#6f9ee8', `<circle cx="24" cy="29" r="3.4" fill="${C.bone}"/><circle cx="25.6" cy="28" r="2.6" fill="#a9c8ff"/>`);
+const I_GLASS_VIAL        = S(`
+  <path d="M19 4 L25 4 L25 10 L29 17 Q33 23 33 30 Q33 38 22 38 Q11 38 11 30 Q11 23 15 17 L19 10 Z"
+    fill="none" stroke="${C.bone}" stroke-width="2"/>
+  <path d="M17 7 L27 7" stroke="${C.bone2}" stroke-width="2.4"/>
+  <path d="M20 14 Q18 18 19 22" stroke="${C.bone2}" stroke-width="1.4" opacity="0.6"/>`);
+
+const I_BARKBIND_SALVE   = JAR('#8a6a44', '#5e442c', `<path d="M15 26 q7 -4 14 0" stroke="${C.bone}" stroke-width="2" fill="none"/>`);
+const I_CAPWOOD_ELIXIR   = POTION('#a9724a', '#7a4e2e', `<path d="M17 27 q5 -5 10 0 q-1 4 -5 4 q-4 0 -5 -4 z M22 23 l0 4" fill="${C.bone}" stroke="#7a4e2e" stroke-width="0.8"/>`);
+const I_NIGHTSIGHT_DRAUGHT = POTION('#2c2238', '#181020', `<path d="M18 29 q4 -4 8 0 q-4 4 -8 0 z" fill="${C.bone}"/><circle cx="22" cy="29" r="1.6" fill="${C.teal}"/>`);
+const I_FERNSTEP_PHILTRE = POTION('#5fb0a0', '#3a8072', `<path d="M18 27 q4 -3 7 1 q-3 3 -6 0 q2 2 4 1" fill="none" stroke="${C.bone}" stroke-width="1.6"/>`);
+const I_BRAMBLE_POULTICE = JAR('#4e7d4a', '#355833', `<path d="M22 24 C22 24 17 28 22 32 C27 28 22 24 22 24 Z" fill="${C.bone}"/>`);
+const I_WITCHWOOD_BALM   = JAR('#7a6a4a', '#564a33', `<path d="M22 24 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.7"/>`);
+const I_TRAIL_REMEDY     = S(`
+  <path d="M11 17 L31 17 L30 27 Q30 33 21 33 Q12 33 12 27 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="2"/>
+  <path d="M31 19 Q37 20 36 25 Q35 28 31 28" fill="none" stroke="${C.bone2}" stroke-width="2"/>
+  <path d="M19 9 Q17 12 19 14 M24 9 Q22 12 24 14" stroke="${C.bone2}" stroke-width="1.6" opacity="0.7"/>`);
+
+// special consumables / valuables
+const I_MAGIC_SCROLL = S(`
+  <path d="M12 10 Q9 10 9 13 Q9 16 12 16 L30 16 Q33 16 33 13 Q33 10 30 10 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.4"/>
+  <path d="M12 16 L12 32 Q12 34 14 34 L30 34 L30 16" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M30 28 Q35 28 35 31 Q35 34 31 34" fill="none" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M16 21 l11 0 M16 25 l9 0" stroke="${C.amber2}" stroke-width="1.6" opacity="0.8"/>`);
+const I_DRAGON_SCALE = S(`
+  <path d="M22 5 Q34 11 32 24 Q30 35 22 38 Q14 35 12 24 Q10 11 22 5 Z" fill="#3a8c6a" stroke="#246048" stroke-width="2"/>
+  <path d="M22 12 Q28 15 27 23 M22 12 Q16 15 17 23 M22 20 Q27 23 26 30 M22 20 Q17 23 18 30"
+    fill="none" stroke="#246048" stroke-width="1.6"/>
+  <path d="M19 10 l3 2 l3 -2" stroke="${C.teal}" stroke-width="1.6" opacity="0.7"/>`);
+const I_ENCHANTED_GEM = S(`
+  <path d="M22 5 L34 16 L22 39 L10 16 Z" fill="#b56ad0" stroke="#7a3f95" stroke-width="2"/>
+  <path d="M22 5 L22 39 M10 16 L34 16 M15 16 L22 5 L29 16" stroke="#e0b8f0" stroke-width="1.3" opacity="0.6" fill="none"/>
+  <path d="M13 12 L17 14" stroke="#ffffff" stroke-width="1.6" opacity="0.8"/>`);
+const I_ANCIENT_COIN = S(`
+  <circle cx="22" cy="22" r="15" fill="#d9b84e" stroke="#a9842c" stroke-width="2"/>
+  <circle cx="22" cy="22" r="11" fill="none" stroke="#a9842c" stroke-width="1.2"/>
+  <path d="M22 14 A4 4 0 1 0 22 22 A5.5 5.5 0 0 1 22 14 Z" fill="#a9842c"/>
+  <path d="M20 26 l4 0" stroke="#a9842c" stroke-width="2"/>`);
+const I_GOLDEN_CHALICE = S(`
+  <path d="M13 9 L31 9 Q31 20 22 22 Q13 20 13 9 Z" fill="#d9b84e" stroke="#a9842c" stroke-width="2"/>
+  <path d="M22 22 L22 32 M15 34 L29 34 Q29 31 22 31 Q15 31 15 34 Z" fill="#d9b84e" stroke="#a9842c" stroke-width="2"/>
+  <path d="M16 12 L28 12" stroke="#eed47a" stroke-width="1.6" opacity="0.7"/>`);
+const I_HARD_DRIVE = S(`
+  <rect x="9" y="11" width="26" height="22" rx="3" fill="#2a2a36" stroke="#14141c" stroke-width="2"/>
+  <circle cx="22" cy="22" r="7" fill="none" stroke="#6f7a88" stroke-width="2"/>
+  <circle cx="22" cy="22" r="2" fill="${C.amber}"/>
+  <path d="M22 22 L28 16" stroke="${C.amber2}" stroke-width="1.8"/>
+  <path d="M30 29 l2 0" stroke="${C.teal}" stroke-width="2"/>`);
+const I_BLOODMOON_SHARD = S(`
+  <path d="M20 4 L27 16 L24 38 L19 24 L15 14 Z" fill="${C.red}" stroke="${C.red2}" stroke-width="1.8"/>
+  <path d="M20 8 L22 22" stroke="#ff9aa8" stroke-width="1.4" opacity="0.7"/>`);
+const I_BERRIES = S(`
+  <circle cx="17" cy="27" r="7" fill="#c23050" stroke="#8a1e38" stroke-width="1.6"/>
+  <circle cx="27" cy="29" r="6" fill="#d8405e" stroke="#8a1e38" stroke-width="1.6"/>
+  <circle cx="15" cy="25" r="1.4" fill="#ff9aa8"/><circle cx="25" cy="27" r="1.2" fill="#ff9aa8"/>
+  <path d="M17 20 L20 10 L25 9 M20 10 L28 14" stroke="#4e8c3a" stroke-width="2" fill="none"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -505,6 +588,18 @@ export const UI_ICONS = {
   hex_amulet: I_HEX_AMULET, spirit_ring: I_SPIRIT_RING, trail_ring: I_TRAIL_RING,
   death_ring: I_DEATH_RING, packbound_ring: I_PACKBOUND_RING, order_signet: I_ORDER_SIGNET,
   witches_boon: I_WITCHES_BOON,
+  // items — consumables, potions & brews
+  healing_potion: I_HEALING_POTION, health_potion_ii: I_HEALTH_POTION_II, moonwell_draught: I_MOONWELL_DRAUGHT,
+  regen_brew: I_REGEN_BREW, swift_brew: I_SWIFT_BREW, shadow_draught: I_SHADOW_DRAUGHT,
+  giants_elixir: I_GIANTS_ELIXIR, bat_swarm_potion: I_BAT_SWARM_POTION, clarity_draught: I_CLARITY_DRAUGHT,
+  chaos_brew: I_CHAOS_BREW, wolf_pact_brew: I_WOLF_PACT_BREW, moon_water: I_MOON_WATER, glass_vial: I_GLASS_VIAL,
+  barkbind_salve: I_BARKBIND_SALVE, capwood_elixir: I_CAPWOOD_ELIXIR, nightsight_draught: I_NIGHTSIGHT_DRAUGHT,
+  fernstep_philtre: I_FERNSTEP_PHILTRE, bramble_poultice: I_BRAMBLE_POULTICE, witchwood_balm: I_WITCHWOOD_BALM,
+  trail_remedy: I_TRAIL_REMEDY,
+  // items — special consumables / valuables
+  magic_scroll: I_MAGIC_SCROLL, dragon_scale: I_DRAGON_SCALE, enchanted_gem: I_ENCHANTED_GEM,
+  ancient_coin: I_ANCIENT_COIN, golden_chalice: I_GOLDEN_CHALICE, hard_drive: I_HARD_DRIVE,
+  bloodmoon_shard: I_BLOODMOON_SHARD, berries: I_BERRIES,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
