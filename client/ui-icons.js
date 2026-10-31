@@ -152,6 +152,134 @@ const BELL = S(`
   <path d="M18 31 Q18 36 22 36 Q26 36 26 31" fill="${C.amber2}" stroke="${C.amber2}" stroke-width="1.6"/>
   <path d="M20 16 Q19 20 19.5 24" stroke="${C.bone}" stroke-width="1.6" opacity="0.7"/>`);
 
+// ── Status effects (buffs / curses / wards) ──────────────────────────────────
+// Keys match STATUS_FX in main.js. Debuffs lean red/plum, buffs teal/amber.
+
+const WITHER = S(`
+  <path d="M22 7 C13 7 9 13 9 20 C9 25 12 27 12 30 L14 30 L14 33 L17 33 L17 30 L20 30 L20 33 L24 33 L24 30 L27 30 L27 33 L30 33 L30 30 L32 30 C32 27 35 25 35 20 C35 13 31 7 22 7 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M15 19 l5 4 M20 19 l-5 4 M24 19 l5 4 M29 19 l-5 4" stroke="${C.red2}" stroke-width="2.2"/>
+  <path d="M20 27 l4 0" stroke="${C.red2}" stroke-width="2"/>`);
+
+const STUMBLE = S(`
+  <path d="M22 22 m0 -13 a13 13 0 1 1 -11 20 a9 9 0 1 0 9 -15 a5 5 0 1 1 3 7"
+    stroke="${C.plum}" stroke-width="3" fill="none"/>
+  <circle cx="22" cy="22" r="2.4" fill="${C.amber}"/>`);
+
+const SHRINK = S(`
+  <path d="M10 10 L18 10 M10 10 L10 18 M34 10 L26 10 M34 10 L34 18 M10 34 L18 34 M10 34 L10 26 M34 34 L26 34 M34 34 L34 26"
+    stroke="${C.red2}" stroke-width="2.6"/>
+  <rect x="17" y="17" width="10" height="10" rx="2" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>`);
+
+const TOAD = S(`
+  <path d="M8 26 C8 16 16 13 22 13 C28 13 36 16 36 26 C36 32 30 34 22 34 C14 34 8 32 8 26 Z"
+    fill="#6fae52" stroke="#4e7d38" stroke-width="2"/>
+  <circle cx="15" cy="13" r="5" fill="#6fae52" stroke="#4e7d38" stroke-width="2"/>
+  <circle cx="29" cy="13" r="5" fill="#6fae52" stroke="#4e7d38" stroke-width="2"/>
+  <circle cx="15" cy="12.5" r="2" fill="${C.amber}"/><circle cx="29" cy="12.5" r="2" fill="${C.amber}"/>
+  <path d="M14 28 q8 4 16 0" stroke="#3c6029" stroke-width="2"/>`);
+
+const GIBBERISH = S(`
+  <path d="M7 12 L37 12 Q39 12 39 15 L39 27 Q39 30 37 30 L19 30 L12 36 L13 30 L7 30 Q5 30 5 27 L5 15 Q5 12 7 12 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M12 20 q3 -4 5 0 t5 0 M26 17 l0 6 M26 26 l0 0.5" stroke="${C.red2}" stroke-width="2.4"/>`);
+
+const WOLFMARK = S(`
+  <path d="M11 11 L15 20 L10 30 C10 34 16 36 22 36 C28 36 34 34 34 30 L29 20 L33 11 L26 16 L18 16 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <circle cx="18" cy="24" r="1.8" fill="${C.plum}"/><circle cx="26" cy="24" r="1.8" fill="${C.plum}"/>
+  <path d="M19 30 l3 2 l3 -2" stroke="${C.plum}" stroke-width="1.8"/>
+  <path d="M30 8 l-5 7 M34 11 l-5 6 M37 15 l-5 5" stroke="${C.red}" stroke-width="2.2"/>`);
+
+const ROOTED = S(`
+  <path d="M22 6 L22 22" stroke="${C.bone2}" stroke-width="2.6"/>
+  <path d="M22 22 C16 24 12 30 10 38 M22 22 C28 24 32 30 34 38 M22 22 L22 38 M16 30 L12 34 M28 30 L32 34"
+    stroke="#8a6b3f" stroke-width="2.6" fill="none"/>
+  <circle cx="22" cy="10" r="4" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.6"/>`);
+
+const REVERSED = S(`
+  <path d="M12 16 C12 10 22 9 26 14 L23 14 M26 14 L26 11" stroke="${C.plum}" stroke-width="2.8" fill="none"/>
+  <path d="M32 28 C32 34 22 35 18 30 L21 30 M18 30 L18 33" stroke="${C.amber}" stroke-width="2.8" fill="none"/>`);
+
+const BLOODCURSE = S(`
+  <path d="M22 7 C22 7 12 21 12 28 A10 10 0 0 0 32 28 C32 21 22 7 22 7 Z"
+    fill="${C.red}" stroke="${C.red2}" stroke-width="2"/>
+  <path d="M22 16 L19 24 L24 24 L21 32" stroke="${C.bone}" stroke-width="2" fill="none"/>`);
+
+const PUMPKIN = S(`
+  <path d="M22 11 C14 11 8 16 8 24 C8 32 14 36 22 36 C30 36 36 32 36 24 C36 16 30 11 22 11 Z"
+    fill="${C.amber}" stroke="${C.amber2}" stroke-width="2"/>
+  <path d="M22 11 L22 36 M14 13 L14 35 M30 13 L30 35" stroke="${C.amber2}" stroke-width="1.4" opacity="0.6"/>
+  <path d="M21 7 Q24 8 23 11" stroke="#5c7d3a" stroke-width="2.4"/>
+  <path d="M14 21 l4 4 l-4 0 Z M30 21 l-4 4 l4 0 Z" fill="${C.plum}"/>
+  <path d="M15 30 q7 5 14 0 l-3 -3 -4 2 -4 -2 Z" fill="${C.plum}"/>`);
+
+const REGEN = S(`
+  <path d="M22 35 C22 35 12 28 12 19 C12 13 17 12 20 15 C21 16 22 18 22 18 C22 18 23 16 24 15 C27 12 32 13 32 19 C32 28 22 35 22 35 Z"
+    fill="none" stroke="${C.teal2}" stroke-width="2"/>
+  <path d="M22 13 L22 25 M16 19 L28 19" stroke="${C.teal}" stroke-width="2.8"/>`);
+
+const SPEED = S(`
+  <path d="M8 16 L30 16 M6 22 L34 22 M10 28 L26 28" stroke="${C.teal}" stroke-width="3"/>
+  <path d="M30 16 l6 0 M34 22 l4 0 M26 28 l5 0" stroke="${C.amber}" stroke-width="3"/>`);
+
+const RAVENCLOAK = S(`
+  <path d="M8 16 Q22 12 36 16 Q30 22 34 30 Q22 26 10 30 Q14 22 8 16 Z"
+    fill="${C.plum}" stroke="#20142f" stroke-width="1.6"/>
+  <path d="M22 14 L22 30 M15 17 L16 28 M29 17 L28 28" stroke="#20142f" stroke-width="1.4" opacity="0.7"/>
+  <path d="M33 11 l2 -3 M36 16 l3 -1" stroke="${C.teal}" stroke-width="2" opacity="0.8"/>`);
+
+const GIANT = S(`
+  <circle cx="22" cy="12" r="5.5" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M12 37 L14 22 Q22 17 30 22 L32 37 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M9 19 L9 11 L17 11 M9 11 L15 17" stroke="${C.teal}" stroke-width="2.6" fill="none"/>
+  <path d="M35 19 L35 11 L27 11 M35 11 L29 17" stroke="${C.teal}" stroke-width="2.6" fill="none"/>`);
+
+const BATS = S(`
+  <path d="M22 16 C19 12 15 11 11 13 C13 14 13 17 11 19 C15 18 17 20 18 23 C19 20 20 19 22 19 C24 19 25 20 26 23 C27 20 29 18 33 19 C31 17 31 14 33 13 C29 11 25 12 22 16 Z"
+    fill="${C.plum}" stroke="#20142f" stroke-width="1.4"/>
+  <path d="M22 19 L22 24" stroke="#20142f" stroke-width="2"/>
+  <circle cx="34" cy="28" r="2" fill="${C.plum}"/><circle cx="12" cy="30" r="1.6" fill="${C.plum}"/>`);
+
+const MEDITATE = S(`
+  <path d="M22 30 C22 30 10 26 10 18 C14 18 18 22 22 30 Z M22 30 C22 30 34 26 34 18 C30 18 26 22 22 30 Z
+           M22 30 C18 22 18 14 22 10 C26 14 26 22 22 30 Z M22 30 C16 26 12 24 8 24 C12 30 18 31 22 30 Z
+           M22 30 C28 26 32 24 36 24 C32 30 26 31 22 30 Z"
+    fill="${C.teal}" stroke="${C.teal2}" stroke-width="1.4"/>
+  <circle cx="22" cy="31" r="2.4" fill="${C.amber}"/>`);
+
+const WOLFPACT = S(`
+  <path d="M11 11 L15 20 L10 30 C10 34 16 36 22 36 C28 36 34 34 34 30 L29 20 L33 11 L26 16 L18 16 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <circle cx="18" cy="24" r="1.8" fill="${C.teal2}"/><circle cx="26" cy="24" r="1.8" fill="${C.teal2}"/>
+  <path d="M19 30 l3 2 l3 -2" stroke="${C.teal2}" stroke-width="1.8"/>
+  <path d="M34 9 l2 -3 M8 12 l-2 -3" stroke="${C.teal}" stroke-width="2"/>`);
+
+const FEATHER = S(`
+  <path d="M32 9 C20 11 12 20 11 33 C11 33 16 30 20 30 C19 27 21 24 25 22 C22 23 21 23 20 25 C23 19 28 15 32 9 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M30 12 C24 16 19 22 15 30" stroke="${C.teal2}" stroke-width="1.6" opacity="0.8"/>`);
+
+const WARD = S(`
+  <path d="M22 6 L35 11 C35 24 30 33 22 38 C14 33 9 24 9 11 Z"
+    fill="${C.bone}" stroke="${C.amber2}" stroke-width="2"/>
+  <path d="M22 13 L22 31 M14 15 L30 15" stroke="${C.amber}" stroke-width="2.6"/>
+  <path d="M22 6 L35 11 C35 24 30 33 22 38" fill="none" stroke="${C.amber}" stroke-width="1.6" opacity="0.6"/>`);
+
+const COLORCYCLE = S(`
+  <path d="M9 30 A13 13 0 0 1 35 30" stroke="${C.red}" stroke-width="3" fill="none"/>
+  <path d="M13 30 A9 9 0 0 1 31 30" stroke="${C.amber}" stroke-width="3" fill="none"/>
+  <path d="M17 30 A5 5 0 0 1 27 30" stroke="${C.teal}" stroke-width="3" fill="none"/>
+  <path d="M33 30 l2 -4 M11 30 l-2 -4" stroke="${C.plum}" stroke-width="2"/>`);
+
+const SALT = S(`
+  <path d="M17 8 L27 8 L28 15 L16 15 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M16 15 L28 15 L30 22 L14 22 Z" fill="${C.bone2}" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M19 10 l1 0 M23 11 l1 0" stroke="${C.bone2}" stroke-width="1.4"/>
+  <circle cx="13" cy="30" r="1.6" fill="${C.bone}"/><circle cx="19" cy="33" r="1.6" fill="${C.bone}"/>
+  <circle cx="25" cy="33" r="1.6" fill="${C.bone}"/><circle cx="31" cy="30" r="1.6" fill="${C.bone}"/>
+  <circle cx="22" cy="35" r="1.6" fill="${C.bone}"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -162,6 +290,12 @@ export const UI_ICONS = {
   attack: ATTACK, jump: JUMP, emote: EMOTE, callout: CALLOUT, kit: KIT,
   // HUD chrome (vitals heart reuses the emote `heart` above)
   sun: SUN, moon: MOON, moonstone: MOONSTONE, chat: CHAT, bell: BELL,
+  // status effects (keys match STATUS_FX)
+  wither: WITHER, stumble: STUMBLE, shrink: SHRINK, toad: TOAD, gibberish: GIBBERISH,
+  wolfmark: WOLFMARK, rooted: ROOTED, reversed: REVERSED, bloodcurse: BLOODCURSE, pumpkin: PUMPKIN,
+  regen: REGEN, speedboost: SPEED, ravencloak: RAVENCLOAK, giant: GIANT, bats: BATS,
+  meditate: MEDITATE, wolfpact: WOLFPACT, feather: FEATHER, ward: WARD, colorcycle: COLORCYCLE,
+  salt: SALT,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
@@ -200,4 +334,19 @@ export function uiIcon(key) {
   if (UI_ICONS[key]) return UI_ICONS[key];
   const mapped = LEGACY_EMOTE[key];
   return mapped ? UI_ICONS[mapped] : null;
+}
+
+export function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+  ));
+}
+
+// Inline HTML for a value that may be a custom-icon key OR a plain emoji/text.
+// Known keys render as a sized SVG span; anything else falls through, escaped,
+// so render sites can adopt this without needing every glyph converted first.
+export function glyphHTML(value, cls) {
+  const svg = uiIcon(value);
+  if (svg) return `<span class="giWrap ${cls || ''}">${svg}</span>`;
+  return escHtml(value);
 }

@@ -27,7 +27,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
-import { EMOTE_DEFS, uiIcon, hydrateIcons } from './ui-icons.js';
+import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -12841,7 +12841,7 @@ function renderStatusEffects() {
   const as = me.activeStatus;
   if (as && as.type && as.expiresAt > now) {
     const meta = STATUS_FX[as.type] || { icon: '✨', label: as.type, debuff: false };
-    fx.push({ icon: meta.icon, label: meta.label, desc: meta.desc || '', cls: meta.debuff ? 'debuff' : 'buff', kind: meta.debuff ? 'Curse' : 'Blessing', until: as.expiresAt });
+    fx.push({ icon: meta.icon, ikey: as.type, label: meta.label, desc: meta.desc || '', cls: meta.debuff ? 'debuff' : 'buff', kind: meta.debuff ? 'Curse' : 'Blessing', until: as.expiresAt });
   }
   if (ritualActive && ritualActive.until > now) {
     const d = ritualDef(ritualActive.id);
@@ -12855,11 +12855,11 @@ function renderStatusEffects() {
     const v = (lastAncestorState.virtues || []).find((x) => x.id === lastAncestorState.active.id);
     fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', desc: (v && (v.line || v.desc)) || "A forebear's blessing.", cls: 'buff', kind: 'Ancestor', until: lastAncestorState.active.until });
   }
-  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
+  if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', ikey: 'salt', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   bar.innerHTML = fx.map((f) => {
     const t = fxTimeLabel(f.until - now);
-    return `<div class="statusFx ${f.cls}" data-fxname="${esc(f.label)}" data-fxdesc="${esc(f.desc)}" data-fxicon="${esc(f.icon)}" data-fxkind="${esc(f.kind || '')}">${f.icon}<span class="sfxTime">${t}</span></div>`;
+    return `<div class="statusFx ${f.cls}" data-fxname="${esc(f.label)}" data-fxdesc="${esc(f.desc)}" data-fxicon="${esc(f.ikey || f.icon)}" data-fxkind="${esc(f.kind || '')}">${glyphHTML(f.ikey || f.icon)}<span class="sfxTime">${t}</span></div>`;
   }).join('');
   if (!bar._tipWired) {
     // One delegated set of handlers (the bar is re-rendered constantly) → a rich
@@ -14081,7 +14081,7 @@ function showItemTooltip(e, itemId) {
   const item = ITEM_CATALOG[itemId];
   if (!item) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.textContent  = item.icon + '  ' + item.name;
+  _ttName.innerHTML    = glyphHTML(item.iconKey || item.icon, 'ttGi') + '  ' + escHtml(item.name);
   _ttSlot.textContent  = item.slot ? (SLOT_LABELS[item.slot] || item.slot) : 'Item';
   const lines = [];
   if (item.atk) lines.push('⚔️ ATK  +' + item.atk);
@@ -14099,7 +14099,7 @@ function showItemTooltip(e, itemId) {
 function showActionTooltip(e, action) {
   if (!_tt || !action) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.textContent  = action.icon + '  ' + action.name;
+  _ttName.innerHTML    = glyphHTML(action.iconKey || action.icon, 'ttGi') + '  ' + escHtml(action.name);
   _ttSlot.textContent  = KIND_LABELS[action.kind] || (action.kind || '');
   _ttStats.innerHTML   = '';
   _ttDesc.textContent  = action.description || '';
