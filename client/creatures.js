@@ -246,6 +246,7 @@ function applyAnimal2State(list) {
   for (const a of list) {
     const v = getOrCreateAnimal2Visual(a.id, a.type);
     v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
+    v.hasLoot = !!a.hasLoot; // wilds critters (Embermoth etc.) drop materials — surface the claim icon
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
     if (a.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
