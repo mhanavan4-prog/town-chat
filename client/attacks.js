@@ -5,6 +5,7 @@
 // myAttackCatalog stays in main (shared) and is injected via getAttackCatalog.
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
+import { glyphHTML, escHtml } from './ui-icons.js';
 
 export default function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown }) {
 let selectedAttackId = null;
@@ -53,7 +54,7 @@ function renderAttackList() {
     row.className = 'attackRow' + (selectedAttackId === id ? ' selected' : '');
     const name = document.createElement('div');
     name.className = 'attackName';
-    name.textContent = atk.icon + ' ' + atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : atk.kind === 'building' ? ' (pick building)' : '');
+    name.innerHTML = glyphHTML(id, 'listGi', atk.icon) + ' ' + escHtml(atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : atk.kind === 'building' ? ' (pick building)' : ''));
     const desc = document.createElement('div');
     desc.className = 'attackDesc';
     desc.textContent = atk.description;
