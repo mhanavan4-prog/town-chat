@@ -5407,7 +5407,11 @@ function showAnnounceBanner(text) {
   el.classList.remove('hidden');
   el.classList.remove('announceIn'); void el.offsetWidth; // restart the animation
   el.classList.add('announceIn');
-  document.body.classList.add('announceUp'); // CSS drops the toast lane below the banner so they don't stack on the same row
+  // The announce banner IS the prominent display of this line, so don't let the
+  // paired appendSystemChatLine() re-banner the same words on mobile — that was
+  // the faded duplicate stacked behind the banner. Reuse the toast de-dupe seam.
+  lastToastText = text; lastToastAt = Date.now();
+  document.body.classList.add('announceUp');
   clearTimeout(announceTimer);
   announceTimer = setTimeout(() => { el.classList.add('hidden'); document.body.classList.remove('announceUp'); }, 6000);
 }
