@@ -1045,6 +1045,57 @@ const M_TICKET = S(`
   <path d="M22 14 L22 30" stroke="${C.amber2}" stroke-width="1.4" stroke-dasharray="2 2"/>
   <path d="M27 19 A4 4 0 1 0 27 25 A5 5 0 0 1 27 19 Z" fill="${C.bone}"/>`);
 
+// Sabbat / event / chrome glyphs (sweep of remaining UI emoji).
+const S_EGG = S(`
+  <ellipse cx="22" cy="24" rx="11" ry="14" fill="#e8d9f0" stroke="#b8a0d0" stroke-width="1.8"/>
+  <path d="M12 22 q5 3 10 0 t10 0" fill="none" stroke="${C.teal2}" stroke-width="1.8"/>
+  <path d="M13 29 q5 -3 9 0 t9 0" fill="none" stroke="${C.amber2}" stroke-width="1.8"/>
+  <circle cx="17" cy="17" r="1.4" fill="${C.red}"/><circle cx="27" cy="18" r="1.4" fill="${C.teal2}"/>`);
+const S_WHEAT = S(`
+  <path d="M22 38 L22 12" stroke="#b0892e" stroke-width="2.2"/>
+  <path d="M22 14 l-6 -4 M22 14 l6 -4 M22 20 l-7 -3 M22 20 l7 -3 M22 26 l-7 -2 M22 26 l7 -2 M22 32 l-6 -2 M22 32 l6 -2"
+    stroke="#d9b24e" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M22 9 l-3 -4 M22 9 l3 -4 M22 9 L22 4" stroke="#d9b24e" stroke-width="2.2" stroke-linecap="round"/>`);
+const S_LEAF = S(`
+  <path d="M10 34 C10 18 20 8 34 8 C34 24 24 34 10 34 Z" fill="#c8702e" stroke="#9a4e1e" stroke-width="1.8"/>
+  <path d="M30 12 L14 30 M26 13 l-3 7 M22 17 l-3 7 M19 22 l-3 6" stroke="#9a4e1e" stroke-width="1.4"/>`);
+const S_SNOW = S(`
+  <g stroke="#a9d8ef" stroke-width="2.2" stroke-linecap="round">
+    <path d="M22 5 L22 39 M7 13 L37 31 M37 13 L7 31"/>
+    <path d="M22 11 l-4 -3 M22 11 l4 -3 M22 33 l-4 3 M22 33 l4 3
+             M12 16 l-5 0 M12 16 l1 -5 M32 28 l5 0 M32 28 l-1 5
+             M32 16 l5 0 M32 16 l-1 -5 M12 28 l-5 0 M12 28 l1 5"/>
+  </g>`);
+const M_BOW = S(`
+  <path d="M14 6 C30 12 30 32 14 38" fill="none" stroke="#8a5a30" stroke-width="2.6"/>
+  <path d="M14 6 L14 38" stroke="${C.bone}" stroke-width="1.4"/>
+  <path d="M8 22 L34 22" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M34 22 l-5 -3 M34 22 l-5 3 M30 22 l-3 -2 M30 22 l-3 2" stroke="${C.amber}" stroke-width="2"/>`);
+const M_FESTIVAL = S(`
+  <path d="M17 7 L27 7" stroke="#8a2e1e" stroke-width="2"/>
+  <path d="M22 7 L22 10 M22 34 L22 37" stroke="#8a2e1e" stroke-width="2"/>
+  <path d="M14 12 Q22 8 30 12 L31 28 Q22 34 13 28 Z" fill="#e24a3a" stroke="#9a2e1e" stroke-width="1.8"/>
+  <path d="M19 10 L19 30 M25 10 L25 30" stroke="#b83020" stroke-width="1.4" opacity="0.6"/>
+  <path d="M18 37 L26 37" stroke="${C.amber}" stroke-width="2"/>`);
+const M_SPEAKER = S(`
+  <path d="M8 17 L15 17 L23 10 L23 34 L15 27 L8 27 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M28 16 C31 19 31 25 28 28 M31 12 C36 17 36 27 31 32" fill="none" stroke="${C.teal}" stroke-width="2.2"/>`);
+const M_MUTED = S(`
+  <path d="M8 17 L15 17 L23 10 L23 34 L15 27 L8 27 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.8"/>
+  <path d="M29 16 L39 26 M39 16 L29 26" stroke="${C.red}" stroke-width="2.4"/>`);
+const M_SHOP = S(`
+  <path d="M8 16 L10 9 L34 9 L36 16 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.8"/>
+  <path d="M8 16 Q11 20 14 16 Q17 20 20 16 Q22 20 24 16 Q27 20 30 16 Q33 20 36 16" fill="#e24a3a" stroke="#9a2e1e" stroke-width="1.6"/>
+  <path d="M10 16 L10 35 L34 35 L34 16" fill="#c9a86a" stroke="#8a7042" stroke-width="1.8"/>
+  <rect x="18" y="24" width="8" height="11" fill="#8a6a44" stroke="#5e4028" stroke-width="1.4"/>`);
+const M_HANDSHAKE = S(`
+  <path d="M6 18 L14 15 L22 19 L21 26 Q14 29 9 24 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M38 18 L30 15 L22 19 L23 26 Q30 29 35 24 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.6"/>
+  <path d="M16 22 L24 22" stroke="#8a7a5a" stroke-width="2.4"/>`);
+const BLOODMOON_DOT = S(`
+  <circle cx="22" cy="22" r="13" fill="#d2556a" stroke="#9a3048" stroke-width="2"/>
+  <circle cx="18" cy="18" r="2.4" fill="#b84058" opacity="0.7"/><circle cx="26" cy="25" r="3" fill="#b84058" opacity="0.6"/>`);
+
 // Wheel of the Year — used on the marketing site's feature grid.
 const WHEEL = S(`
   <circle cx="22" cy="22" r="15" fill="none" stroke="#e8d9a8" stroke-width="2.4"/>
@@ -1155,6 +1206,34 @@ export const UI_ICONS = {
   m_mirror: M_MIRROR, m_candle: M_CANDLE, m_guise: M_GUISE, m_map: M_MAP, m_board: M_BOARD,
   m_delve: M_DELVE, m_coven: M_COVEN, m_medal: M_MEDAL, m_codex: M_CODEX, m_ticket: M_TICKET,
   wheel: WHEEL,
+  // sabbats / events / chrome
+  s_imbolc: I_HEALING_HERB, s_ostara: S_EGG, s_beltane: A_FIREBALL, s_litha: SUN,
+  s_lughnasadh: S_WHEAT, s_mabon: S_LEAF, s_samhain: M_CANDLE, s_yule: S_SNOW,
+  m_bow: M_BOW, m_festival: M_FESTIVAL, m_speaker: M_SPEAKER, m_muted: M_MUTED,
+  m_shop: M_SHOP, m_handshake: M_HANDSHAKE, bloodmoon_dot: BLOODMOON_DOT,
+};
+
+// Plain-emoji → icon-key aliases, so UI render sites that carry a raw emoji
+// (server feeds, event strips, static chrome) resolve to a custom icon via
+// uiIcon()/glyphHTML() without each site needing a dedicated key. Prose/flavor
+// emoji are left untouched because only glyph render sites route through this.
+export const GLYPH_ALIAS = {
+  // sabbats
+  '🌱': 's_imbolc', '🥚': 's_ostara', '🔥': 's_beltane', '☀️': 's_litha',
+  '🌾': 's_lughnasadh', '🍂': 's_mabon', '🕯️': 's_samhain', '❄️': 's_yule',
+  // events / calendar
+  '🔴': 'bloodmoon_dot', '🏹': 'm_bow', '🏮': 'm_festival', '🎃': 'pumpkin',
+  '🌕': 'moonphase_full', '🌑': 'moonphase_new', '🌙': 'moon',
+  // chrome / menu
+  '🎟️': 'm_ticket', '💎': 'moonstone', '🔔': 'bell', '💬': 'chat', '📣': 'callout',
+  '🔈': 'm_speaker', '🔊': 'm_speaker', '🔇': 'm_muted', '🛒': 'm_shop', '🤝': 'm_handshake',
+  '🗺️': 'm_map', '🏆': 'm_board', '📖': 'kit', '📜': 'magic_scroll', '🎭': 'm_guise',
+  '🪞': 'm_mirror', '🧪': 'healing_potion', '🩹': 'field_dressing', '🧭': 'compass_trick',
+  // common feed / status emoji → existing icons
+  '🔮': 'scrying_orb', '🩸': 'leech_hex', '🦴': 'bone_knit', '👹': 'monstrous_form',
+  '🥀': 'withering_hex', '🦇': 'bats', '🪽': 'ravens_cloak', '⚔️': 'attack',
+  '🛡️': 'ward', '❤️': 'heart', '💨': 'speedboost', '🌿': 'healing_herb', '✨': 'm_skills',
+  '🐺': 'wolfpact', '👻': 'spirit_lash', '🌀': 'spirit_walk', '🥶': 'graveyard_chill',
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
@@ -1187,12 +1266,20 @@ export const LEGACY_EMOTE = {
   '😢': 'cry', '😡': 'angry', '👍': 'thumb', '💃': 'dance',
 };
 
-// Returns an inline <svg> string for a key (or legacy glyph), else null.
+// Returns an inline <svg> string for a key (icon key, moonphase_<k>, legacy
+// emote glyph, or an aliased plain emoji), else null.
 export function uiIcon(key) {
   if (!key) return null;
   if (UI_ICONS[key]) return UI_ICONS[key];
+  if (key.indexOf('moonphase_') === 0) {
+    const pk = key.slice(10);
+    return pk === 'blood' ? moonPhaseIcon('full', true) : moonPhaseIcon(pk, false);
+  }
   const mapped = LEGACY_EMOTE[key];
-  return mapped ? UI_ICONS[mapped] : null;
+  if (mapped && UI_ICONS[mapped]) return UI_ICONS[mapped];
+  const alias = GLYPH_ALIAS[key];
+  if (alias && alias !== key) return uiIcon(alias);
+  return null;
 }
 
 export function escHtml(s) {
