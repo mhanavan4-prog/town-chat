@@ -1525,6 +1525,11 @@
   }
   body.touchMode #chatNotifStack { display:flex; }
   body.toastVisible #chatNotifStack { transform:translateY(48px); } /* duck under an active toast */
+  /* The announce banner is taller (multi-line) and lives in the same top lane,
+     so duck further when one is up — otherwise an incoming chat notif lands on
+     top of it. The announce case wins when a toast is also showing. */
+  body.announceUp #chatNotifStack,
+  body.announceUp.toastVisible #chatNotifStack { transform:translateY(116px); }
   .chatNotif {
     pointer-events:auto;
     display:flex; gap:9px; align-items:flex-start;
