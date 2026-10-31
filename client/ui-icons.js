@@ -120,6 +120,38 @@ const KIT = S(`
     fill="${C.teal}" stroke="${C.teal2}" stroke-width="1" transform="translate(-0.5 0) scale(0.92) translate(1 1)"/>
   <path d="M12 17 l6 0 M12 22 l6 0 M12 27 l4 0" stroke="${C.amber2}" stroke-width="1.8" opacity="0.8"/>`);
 
+// ── HUD chrome ──────────────────────────────────────────────────────────────
+// (the vitals heart reuses the emote HEART above.)
+
+const SUN = S(`
+  <circle cx="22" cy="22" r="8.5" fill="${C.amber}" stroke="${C.amber2}" stroke-width="2"/>
+  <path d="M22 4 L22 9 M22 35 L22 40 M4 22 L9 22 M35 22 L40 22
+           M9 9 L12.5 12.5 M31.5 31.5 L35 35 M35 9 L31.5 12.5 M9 35 L12.5 31.5"
+    stroke="${C.amber}" stroke-width="2.6"/>`);
+
+const MOON = S(`
+  <path d="M26 6 A17 17 0 1 0 38 30 A20 20 0 0 1 26 6 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <circle cx="17" cy="20" r="2.4" fill="${C.bone2}" opacity="0.7"/>
+  <circle cx="23" cy="28" r="3" fill="${C.bone2}" opacity="0.6"/>
+  <circle cx="14" cy="28" r="1.6" fill="${C.bone2}" opacity="0.6"/>
+  <path d="M33 11 l2 -3 M37 17 l3 -1" stroke="${C.teal}" stroke-width="2" opacity="0.8"/>`);
+
+const MOONSTONE = S(`
+  <path d="M22 5 L35 17 L22 39 L9 17 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="2"/>
+  <path d="M22 5 L22 39 M9 17 L35 17 M15 17 L22 5 L29 17 L22 39 Z" stroke="${C.bone}" stroke-width="1.4" opacity="0.65" fill="none"/>
+  <path d="M13 13 L17 15" stroke="#ffffff" stroke-width="1.6" opacity="0.8"/>`);
+
+const CHAT = S(`
+  <path d="M7 11 L37 11 Q39 11 39 14 L39 28 Q39 31 37 31 L19 31 L12 37 L13 31 L7 31 Q5 31 5 28 L5 14 Q5 11 7 11 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M12 18 l20 0 M12 24 l14 0" stroke="${C.amber2}" stroke-width="2.2" opacity="0.85"/>`);
+
+const BELL = S(`
+  <path d="M22 6 Q23.5 6 23.5 8 L23.5 9.5 Q31 11.5 31 22 Q31 29 35 31 L9 31 Q13 29 13 22 Q13 11.5 20.5 9.5 L20.5 8 Q20.5 6 22 6 Z"
+    fill="${C.amber}" stroke="${C.amber2}" stroke-width="2"/>
+  <path d="M18 31 Q18 36 22 36 Q26 36 26 31" fill="${C.amber2}" stroke="${C.amber2}" stroke-width="1.6"/>
+  <path d="M20 16 Q19 20 19.5 24" stroke="${C.bone}" stroke-width="1.6" opacity="0.7"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -128,7 +160,20 @@ export const UI_ICONS = {
   cry: CRY, angry: ANGRY, thumb: THUMB, dance: DANCE,
   // action cluster
   attack: ATTACK, jump: JUMP, emote: EMOTE, callout: CALLOUT, kit: KIT,
+  // HUD chrome (vitals heart reuses the emote `heart` above)
+  sun: SUN, moon: MOON, moonstone: MOONSTONE, chat: CHAT, bell: BELL,
 };
+
+// Replace emoji in any static markup: every element with [data-hudicon="key"]
+// gets its inner SVG injected. Safe to call repeatedly (skips hydrated nodes).
+export function hydrateIcons(root) {
+  const scope = root || document;
+  scope.querySelectorAll('[data-hudicon]').forEach((el) => {
+    if (el._iconDone) return;
+    const svg = uiIcon(el.getAttribute('data-hudicon'));
+    if (svg) { el.innerHTML = svg; el._iconDone = true; }
+  });
+}
 
 // The emote wheel order + the key each one sends to the server.
 export const EMOTE_DEFS = [

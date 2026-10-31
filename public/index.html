@@ -1453,6 +1453,13 @@
     animation:emoteBtnIn 0.18s ease-out backwards;
   }
   .emoteBtn .uiIcon { width:34px; height:34px; display:block; }
+  /* Inline HUD icons that replace emoji in chips/pills — scale with text. */
+  .hudGi { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.18em; }
+  .hudGi .uiIcon { width:1.3em; height:1.3em; display:block; }
+  #mvHeart { display:inline-flex; align-items:center; gap:2px; }
+  #mvHeart i { font-style:normal; }
+  #dayNightTag { display:inline-flex; align-items:center; gap:4px; }
+  #moonstoneTag { display:inline-flex; align-items:center; gap:3px; }
   .emoteBtn:active { transform:scale(1.15); background:rgba(60,40,20,0.95); }
   @keyframes emoteBtnIn { from { opacity:0; transform:scale(0.3); } to { opacity:1; transform:scale(1); } }
 
@@ -2319,8 +2326,8 @@
     </svg>
     <span id="healthPercentText">100%</span>
   </div>
-  <div id="moonstoneTag" class="hidden" title="Your Moonstones — tap to get more">💎 <span id="moonstoneTagVal">0</span></div>
-  <div id="dayNightTag">☀️ Day</div>
+  <div id="moonstoneTag" class="hidden" title="Your Moonstones — tap to get more"><span class="hudGi" data-hudicon="moonstone"></span><span id="moonstoneTagVal">0</span></div>
+  <div id="dayNightTag"><span class="hudGi" id="dnIcon"></span><span id="dnLabel">Day</span></div>
   <div id="moonTag" class="hidden">🌕 Full Moon</div>
   <div id="passTag" class="hidden" title="Your Town Pass">🎟️ Town Pass</div>
 </div>
@@ -2378,8 +2385,8 @@
 </div>
 
 <div id="mobileTopBar" class="hidden">
-  <div id="mobileVitals"><span id="mvHeart">❤️100</span><span id="mvLevel">Lv 1</span><span id="mvClock">☀️</span></div>
-  <button id="chatToggleBtn" class="hidden">💬<span id="chatUnread" class="hidden">0</span></button>
+  <div id="mobileVitals"><span id="mvHeart"><span class="hudGi" data-hudicon="heart"></span><i id="mvHeartVal">100</i></span><span id="mvLevel">Lv 1</span><span id="mvClock" class="hudGi"></span></div>
+  <button id="chatToggleBtn" class="hidden"><span class="hudGi" data-hudicon="chat"></span><span id="chatUnread" class="hidden">0</span></button>
   <button id="menuBtn">☰</button>
 </div>
 

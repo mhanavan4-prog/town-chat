@@ -7,6 +7,7 @@
 // frame. Timing/color consts + GFX/lamp glows injected; the scene-lighting
 // objects via getters (they're built in initScene).
 // ---------------------------------------------------------------------------
+import { uiIcon } from './ui-icons.js';
 export default function createDayNight({ DAY_MS, NIGHT_MS, CYCLE_MS, DAY_NIGHT_TRANSITION_MS, SKY_DAY, SKY_NIGHT, AMBIENT_DAY, AMBIENT_NIGHT, _skyColor, _ambientColor, GFX, getLampGlows, getTempleTorchLights, bloodMoonActiveClient, hagstoneActiveClient, getOutdoorScene, getOutdoorSun, getMoonMesh, getOutdoorAmbient, getOutdoorMoonLight, getOutdoorHemi, getMoonPhaseGeom, getWildsScene, getSunMesh, getSkyAnchor }) {
 function getDayNightState() {
   const cyclePos = Date.now() % CYCLE_MS;
@@ -190,7 +191,10 @@ function updateDayNightHud(isNight) {
   lastDayNightHudState = isNight;
   const tag = document.getElementById('dayNightTag');
   if (!tag) return;
-  tag.textContent = isNight ? '🌕 Night' : '☀️ Day';
+  const icon = document.getElementById('dnIcon');
+  const label = document.getElementById('dnLabel');
+  if (icon) icon.innerHTML = uiIcon(isNight ? 'moon' : 'sun') || '';
+  if (label) label.textContent = isNight ? 'Night' : 'Day';
   tag.classList.toggle('nightTag', isNight);
 }
 

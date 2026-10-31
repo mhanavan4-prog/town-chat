@@ -27,7 +27,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
-import { EMOTE_DEFS, uiIcon } from './ui-icons.js';
+import { EMOTE_DEFS, uiIcon, hydrateIcons } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
@@ -6613,6 +6613,8 @@ const { setOverheadBubble, updateBubbleTag } = createOverheadBubbles({ getPlayer
   setIcon('btnEmote', 'emote');
   setIcon('btnCm', 'callout');
   setIcon('btnKit', 'kit');
+  // Inject the static HUD icons (heart / moonstone / chat / day-night).
+  hydrateIcons(document);
   on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
   on('btnJump', tryJump);
   on('btnEmote', () => toggleEmoteWheel());
