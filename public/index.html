@@ -1376,6 +1376,10 @@
     -webkit-tap-highlight-color:transparent;
   }
   #chatToggleBtn.hidden { display:none !important; }
+  /* The top bar is space-between (vitals | chat | menu), which parks the chat
+     button dead-centre — right under the centred Town Bell pill. Push it to the
+     right so it sits beside the menu and leaves the centre clear for the pill. */
+  body.touchMode #chatToggleBtn { margin-left:auto; }
   #chatUnread {
     position:absolute; top:-4px; right:-4px; min-width:18px; height:18px;
     background:#d04a3a; color:#fff; font-size:11px; font-weight:800;
