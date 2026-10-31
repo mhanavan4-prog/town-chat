@@ -869,6 +869,64 @@ const A_GRAVEYARD_CHILL = S(`
   <path d="M22 14 L22 26 M17 18 L27 18" stroke="#5a606a" stroke-width="2"/>
   <path d="M10 10 L13 13 M34 10 L31 13 M22 3 L22 7 M8 24 l3 1 M36 24 l-3 1" stroke="#9fd8ef" stroke-width="1.8"/>`);
 
+// ── Abilities: Knight (order) ────────────────────────────────────────────────
+
+const A_SMITE = S(`
+  <path d="M22 3 L22 24 M15 9 L22 3 L29 9" stroke="${C.amber}" stroke-width="2.4" fill="none"/>
+  <path d="M20 10 L24 10 L23 26 L21 26 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M15 27 L29 27" stroke="#c9a83e" stroke-width="3.4"/>
+  <path d="M22 27 L22 39" stroke="${C.bone2}" stroke-width="3.2"/>
+  <path d="M8 20 l4 -2 M36 20 l-4 -2" stroke="${C.amber}" stroke-width="2"/>`);
+const A_SHIELD_BASH = S(`
+  <path d="M16 6 L31 10 C31 22 27 30 20 35 C13 30 10 22 10 10 Z" fill="#aeb8c4" stroke="#6f7a88" stroke-width="2"/>
+  <circle cx="20" cy="18" r="3.4" fill="#c9a83e" stroke="#8a7020" stroke-width="1.4"/>
+  <path d="M33 14 l5 -2 M34 22 l5 0 M33 29 l5 2" stroke="${C.amber}" stroke-width="2.2"/>`);
+const A_RALLYING_WRATH = S(`
+  <path d="M14 36 L14 7 L15 7 Q26 9 32 7 L28 15 L32 22 Q24 20 15 22" fill="#c23a2a" stroke="#8a2418" stroke-width="1.8"/>
+  <path d="M19 14 C22 18 22 23 19 27 C16 23 16 18 19 14 Z" fill="${C.amber}" opacity="0.8"/>`);
+const A_OATH_OF_IRON = S(`
+  <circle cx="22" cy="22" r="13" fill="none" stroke="#8a929c" stroke-width="4"/>
+  <g fill="#6f7a88"><rect x="20" y="4" width="4" height="6"/><rect x="20" y="34" width="4" height="6"/><rect x="4" y="20" width="6" height="4"/><rect x="34" y="20" width="6" height="4"/></g>
+  <circle cx="22" cy="22" r="6" fill="none" stroke="${C.amber}" stroke-width="2.2"/>`);
+const A_GUARDIANS_PLEDGE = S(`
+  <path d="M6 20 L14 16 L22 20 L20 26 Q14 28 10 24 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M38 20 L30 16 L22 20 L24 26 Q30 28 34 24 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.6"/>
+  <path d="M18 22 L26 22" stroke="#8a7a5a" stroke-width="2"/>
+  <path d="M22 10 l1.5 3.5 3.5 .3 -2.7 2.3 .9 3.6 -3.2 -2 -3.2 2 .9 -3.6 -2.7 -2.3 3.5 -.3 Z" fill="${C.amber}" transform="translate(0 -2) scale(0.8) translate(5.5 4)"/>`);
+const A_FIELD_DRESSING = S(`
+  <rect x="7" y="18" width="30" height="9" rx="3" transform="rotate(-25 22 22)" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M22 18 l0 8 M18 22 l8 0" stroke="${C.red}" stroke-width="2.4" transform="rotate(-25 22 22)"/>`);
+const A_LAY_ON_HANDS = S(`
+  <path d="M12 32 Q10 22 18 22 L26 22 Q30 22 30 26 L30 32 Q30 36 24 36 L18 36 Q13 36 12 32 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M18 22 L17 15 M22 22 L22 14 M26 22 L27 16" stroke="${C.bone}" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M22 4 l0 8 M18 8 l8 0" stroke="#5fbf7a" stroke-width="2.8"/>`);
+const A_SENTINELS_WATCH = S(`
+  <path d="M14 38 L14 18 L12 14 L18 16 L22 11 L26 16 L32 14 L30 18 L30 38 Z" fill="#8a929c" stroke="#5a606a" stroke-width="1.8"/>
+  <rect x="19" y="24" width="6" height="14" fill="#2a2338"/>
+  <circle cx="22" cy="11" r="2" fill="${C.amber}"/>`);
+const A_HERALDS_MUSTER = S(`
+  <path d="M8 16 L26 16 L34 10 L34 30 L26 24 L8 24 Z" fill="#c9a83e" stroke="#8a7020" stroke-width="2"/>
+  <path d="M11 24 L11 30 L16 30 L15 24" fill="#a9842c" stroke="#8a7020" stroke-width="1.4"/>
+  <path d="M37 14 C40 17 40 23 37 26 M40 10 C45 15 45 25 40 30" stroke="${C.amber}" stroke-width="2.2"/>`);
+const A_CHALLENGE = S(`
+  <path d="M14 34 L16 18 Q16 14 22 14 Q28 14 28 18 L30 34 Z" fill="#aeb8c4" stroke="#6f7a88" stroke-width="2"/>
+  <path d="M19 20 L19 30 M25 20 L25 30" stroke="#6f7a88" stroke-width="1.4"/>
+  <path d="M22 14 L22 4 M18 7 L22 4 L26 7" stroke="${C.red}" stroke-width="2.4" fill="none"/>`);
+const A_STEADFAST_MARCH = S(`
+  <path d="M10 10 L15 10 L16 24 L24 26 Q28 27 28 31 L28 34 L8 34 L8 14 Q8 10 10 10 Z" fill="#8a929c" stroke="#5a606a" stroke-width="1.8"/>
+  <path d="M8 30 L28 30" stroke="#5a606a" stroke-width="1.8"/>
+  <path d="M31 16 L37 16 M31 23 L37 23 M31 30 L37 30" stroke="${C.amber}" stroke-width="2.2"/>`);
+const A_BANNER_OF_DREAD = S(`
+  <path d="M12 4 L12 40" stroke="#5a606a" stroke-width="2.4"/>
+  <path d="M12 6 L34 6 L30 14 L34 22 L12 22 Z" fill="#2a2234" stroke="#15101c" stroke-width="1.8"/>
+  <path d="M22 11 C19 13 20 17 22 17 C24 17 25 13 22 11 Z" fill="${C.bone}"/>
+  <path d="M19 18 l6 0" stroke="${C.bone}" stroke-width="1.6"/>`);
+const A_GUARDIANS_VEIL = S(`
+  <path d="M22 6 L34 10 C34 23 29 31 22 36 C15 31 10 23 10 10 Z" fill="${C.bone}" stroke="#a39a86" stroke-width="2" opacity="0.92"/>
+  <path d="M22 6 L34 10 C34 23 29 31 22 36 Z" fill="${C.teal}" opacity="0.18"/>
+  <circle cx="22" cy="19" r="8" fill="none" stroke="${C.teal}" stroke-width="1.6" opacity="0.6"/>
+  <path d="M18 19 l3 3 l6 -6" stroke="${C.teal2}" stroke-width="2" fill="none"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -958,6 +1016,12 @@ export const UI_ICONS = {
   ethereal_veil: A_ETHEREAL_VEIL, spirit_ward: A_SPIRIT_WARD, ghost_step: A_GHOST_STEP,
   seance_of_mending: A_SEANCE_OF_MENDING, mending_spirits: A_MENDING_SPIRITS, whispered_secret: A_WHISPERED_SECRET,
   spirit_walk: A_SPIRIT_WALK, haunting: A_HAUNTING, graveyard_chill: A_GRAVEYARD_CHILL,
+  // abilities — Knight (order)
+  smite: A_SMITE, shield_bash: A_SHIELD_BASH, rallying_wrath: A_RALLYING_WRATH,
+  oath_of_iron: A_OATH_OF_IRON, guardians_pledge: A_GUARDIANS_PLEDGE, field_dressing: A_FIELD_DRESSING,
+  lay_on_hands: A_LAY_ON_HANDS, sentinels_watch: A_SENTINELS_WATCH, heralds_muster: A_HERALDS_MUSTER,
+  challenge: A_CHALLENGE, steadfast_march: A_STEADFAST_MARCH, banner_of_dread: A_BANNER_OF_DREAD,
+  guardians_veil: A_GUARDIANS_VEIL,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
