@@ -219,7 +219,7 @@ const REGEN = S(`
     fill="none" stroke="${C.teal2}" stroke-width="2"/>
   <path d="M22 13 L22 25 M16 19 L28 19" stroke="${C.teal}" stroke-width="2.8"/>`);
 
-const SPEED = S(`
+const SPEEDFX = S(`
   <path d="M8 16 L30 16 M6 22 L34 22 M10 28 L26 28" stroke="${C.teal}" stroke-width="3"/>
   <path d="M30 16 l6 0 M34 22 l4 0 M26 28 l5 0" stroke="${C.amber}" stroke-width="3"/>`);
 
@@ -366,7 +366,7 @@ export const UI_ICONS = {
   // status effects (keys match STATUS_FX)
   wither: WITHER, stumble: STUMBLE, shrink: SHRINK, toad: TOAD, gibberish: GIBBERISH,
   wolfmark: WOLFMARK, rooted: ROOTED, reversed: REVERSED, bloodcurse: BLOODCURSE, pumpkin: PUMPKIN,
-  regen: REGEN, speedboost: SPEED, ravencloak: RAVENCLOAK, giant: GIANT, bats: BATS,
+  regen: REGEN, speedboost: SPEEDFX, ravencloak: RAVENCLOAK, giant: GIANT, bats: BATS,
   meditate: MEDITATE, wolfpact: WOLFPACT, feather: FEATHER, ward: WARD, colorcycle: COLORCYCLE,
   salt: SALT,
   // items — weapons
