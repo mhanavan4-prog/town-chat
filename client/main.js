@@ -6649,6 +6649,9 @@ function hydrateMenuRows() {
   on('btnEmote', () => toggleEmoteWheel());
   on('btnCm', fireVoiceCountermeasure);
   on('btnKit', () => {
+    // Mobile: fan out the overflow abilities as a radial. The full panel
+    // (descriptions + loadout) still lives on the ☰ menu's Abilities row.
+    if (MOBILE_UI) { toggleAbilityWheel(); return; }
     if (me && me.charId === 0) { if (!Modals.isOpen('spellbookOpen')) openSpellbook(); }
     else if (myAttackCatalog) { if (!Modals.isOpen('attackPanelOpen')) openAttackPanel(); }
   });
@@ -7102,6 +7105,63 @@ function toggleEmoteWheel(open) {
   clearTimeout(emoteWheelTimer);
   if (Modals.isOpen('emoteWheelOpen')) emoteWheelTimer = setTimeout(() => toggleEmoteWheel(false), 4000);
 }
+
+// ── Ability overflow wheel (mobile) ─────────────────────────────────────────
+// The kit button fans out every ability past the 5-slot arc as a radial, so a
+// 12–15 ability class can reach its situational skills in one tap. Tap an
+// ability to quick-cast it (nearest target); the dim backdrop taps to close.
+let abilityWheelTimer = null;
+function abilityTint(ab) {
+  const e = ab && ab.effect;
+  if (e === 'damage' || e === 'leech') return 'awOffense';
+  if (e === 'heal') return 'awSupport';
+  return 'awUtility';
+}
+function buildAbilityWheel() {
+  const wheel = document.getElementById('abilityWheel');
+  if (!wheel || !myActionCatalog) return;
+  wheel.innerHTML = '';
+  const ids = orderedAbilityIds().slice(5); // everything past the 5-slot arc
+  const n = ids.length;
+  if (!n) return;
+  const cx = 150, cy = 150;             // wheel box is 300×300
+  const R = Math.min(122, 44 + n * 9);  // ring grows with the count, capped
+  ids.forEach((id, i) => {
+    const ab = myActionCatalog[id]; if (!ab) return;
+    const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const b = document.createElement('button');
+    b.className = 'awBtn ' + abilityTint(ab);
+    const svg = uiIcon(id);
+    if (svg) b.innerHTML = svg; else b.textContent = ab.icon || '✨';
+    b.title = ab.name || id;
+    b.style.left = (cx + Math.cos(ang) * R - 28) + 'px';
+    b.style.top = (cy + Math.sin(ang) * R - 28) + 'px';
+    b.style.animationDelay = (i * 0.015) + 's';
+    if (actionOnCooldown(id)) b.classList.add('onCd');
+    b.addEventListener('click', (e) => { e.preventDefault(); castFromHotbar(id); toggleAbilityWheel(false); });
+    attachAbilityPeek(b, () => ({ id, icon: ab.icon, name: ab.name, kind: ab.kind, description: ab.description }));
+    wheel.appendChild(b);
+  });
+}
+function toggleAbilityWheel(open) {
+  const wheel = document.getElementById('abilityWheel');
+  const bg = document.getElementById('abilityWheelBg');
+  if (!wheel) return;
+  const willOpen = open === undefined ? wheel.classList.contains('hidden') : open;
+  if (willOpen) {
+    buildAbilityWheel();
+    if (!wheel.childElementCount) { setUnlockToast('All your abilities are already on the bar.'); return; }
+  }
+  wheel.classList.toggle('hidden', !willOpen);
+  if (bg) bg.classList.toggle('hidden', !willOpen);
+  document.body.classList.toggle('abilityWheelOpen', willOpen);
+  clearTimeout(abilityWheelTimer);
+  if (willOpen) abilityWheelTimer = setTimeout(() => toggleAbilityWheel(false), 6000);
+}
+(function wireAbilityWheelBg() {
+  const bg = document.getElementById('abilityWheelBg');
+  if (bg) { bg.addEventListener('click', () => toggleAbilityWheel(false)); bg.addEventListener('touchstart', (e) => { e.preventDefault(); toggleAbilityWheel(false); }, { passive: false }); }
+})();
 
 // Emote floats — the emoji bounces above the sender's head for a couple of
 // seconds, tracked to their moving position each frame.
