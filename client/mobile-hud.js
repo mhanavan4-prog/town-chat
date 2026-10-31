@@ -71,7 +71,10 @@ function refreshMobileHud() {
   const leaveRow = document.getElementById('menuLeave');
   if (leaveRow) leaveRow.classList.toggle('hidden', getMode() !== 'indoor');
   const kitRow = document.getElementById('menuKit');
-  if (kitRow && getMe()) kitRow.textContent = getMe().charId === 0 ? '📖 Spellbook' : '⚔️ Attacks';
+  if (kitRow && getMe()) {
+    const mage = getMe().charId === 0;
+    kitRow.innerHTML = '<span class="menuGi">' + (uiIcon(mage ? 'kit' : 'attack') || '') + '</span>' + (mage ? 'Spellbook' : 'Attacks');
+  }
 }
 
 function toggleMobileChat(open) {
