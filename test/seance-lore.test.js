@@ -17,10 +17,14 @@ setTimeout(async () => {
     const CFG = hooks.seance.CONFIG;
     const loreLines = hooks.seance.LORE_HINTS.map((h) => hooks.seance.sanitize(h.line));
     const setGen = (fn) => { hooks.seanceSpirit.generate = fn; };
-    const orig = { h: CFG.HINT_CHANCE, b: CFG.HINT_CHANCE_BLOODMOON };
+    const orig = { h: CFG.HINT_CHANCE, b: CFG.HINT_CHANCE_BLOODMOON, sh: hooks.seance.shouldHint };
 
     // ── force a hint, AI OFF → the curated lore line is spelled directly ──
+    // Stub shouldHint directly rather than leaning on HINT_CHANCE: on Samhain the
+    // resolver floors the chance to 0.20 regardless of config, which otherwise
+    // makes the "no hint" cases below flaky when these run on Oct 31.
     CFG.HINT_CHANCE = 1; CFG.HINT_CHANCE_BLOODMOON = 1;
+    hooks.seance.shouldHint = () => true;
     let captured = null;
     setGen(async (ctx) => { captured = ctx; return null; }); // AI declines
     let r = await hooks.resolveSeanceAnswer(cv, 'k', 'who holds the door');
@@ -34,6 +38,7 @@ setTimeout(async () => {
 
     // ── no hint → ordinary AI / fallback behaviour is unchanged ──
     CFG.HINT_CHANCE = 0; CFG.HINT_CHANCE_BLOODMOON = 0;
+    hooks.seance.shouldHint = () => false;
     setGen(async () => 'soon');
     r = await hooks.resolveSeanceAnswer(cv, 'k', 'x');
     check('no hint + AI on → plain ai', r.source === 'ai' && r.message === 'SOON', r);
@@ -41,7 +46,7 @@ setTimeout(async () => {
     r = await hooks.resolveSeanceAnswer(cv, 'k', 'x');
     check('no hint + AI declines → fallback bank', r.source === 'fallback' && hooks.seance.FALLBACK_LINES.includes(r.message), r);
 
-    CFG.HINT_CHANCE = orig.h; CFG.HINT_CHANCE_BLOODMOON = orig.b;
+    CFG.HINT_CHANCE = orig.h; CFG.HINT_CHANCE_BLOODMOON = orig.b; hooks.seance.shouldHint = orig.sh;
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail ? 1 : 0);
   } catch (e) {
