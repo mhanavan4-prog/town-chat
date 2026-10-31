@@ -550,6 +550,70 @@ const I_BERRIES = S(`
   <circle cx="15" cy="25" r="1.4" fill="#ff9aa8"/><circle cx="25" cy="27" r="1.2" fill="#ff9aa8"/>
   <path d="M17 20 L20 10 L25 9 M20 10 L28 14" stroke="#4e8c3a" stroke-width="2" fill="none"/>`);
 
+// ── Items: crafting materials ────────────────────────────────────────────────
+
+const MUSH = (cap, capLo, stem, spots) => S(`
+  <path d="M8 22 Q8 11 22 11 Q36 11 36 22 Q36 25 22 25 Q8 25 8 22 Z" fill="${cap}" stroke="${capLo}" stroke-width="1.8"/>
+  <path d="M18 25 L17 35 Q22 37 27 35 L26 25 Z" fill="${stem}" stroke="${capLo}" stroke-width="1.6"/>
+  ${spots || ''}`);
+
+const I_WOOD        = S(`<path d="M10 14 L30 14 Q36 14 36 22 Q36 30 30 30 L10 30 Q4 30 4 22 Q4 14 10 14 Z" fill="#9a6e42" stroke="#6b4a28" stroke-width="2"/><ellipse cx="30" cy="22" rx="4" ry="8" fill="#b98a56" stroke="#6b4a28" stroke-width="1.4"/><ellipse cx="30" cy="22" rx="1.6" ry="4" fill="#6b4a28"/>`);
+const I_WITCHWOOD   = S(`<path d="M10 14 L30 14 Q36 14 36 22 Q36 30 30 30 L10 30 Q4 30 4 22 Q4 14 10 14 Z" fill="#3a2d50" stroke="#20142f" stroke-width="2"/><ellipse cx="30" cy="22" rx="4" ry="8" fill="#4a3368" stroke="#20142f" stroke-width="1.4"/><ellipse cx="30" cy="22" rx="1.6" ry="4" fill="${C.teal}"/>`);
+const I_LUMBER_BUNDLE = S(`<rect x="7" y="12" width="30" height="6" rx="2" fill="#b98a56" stroke="#6b4a28" stroke-width="1.6"/><rect x="7" y="20" width="30" height="6" rx="2" fill="#a97c48" stroke="#6b4a28" stroke-width="1.6"/><rect x="7" y="28" width="30" height="6" rx="2" fill="#b98a56" stroke="#6b4a28" stroke-width="1.6"/><path d="M14 10 L14 36 M30 10 L30 36" stroke="#5e3f22" stroke-width="2"/>`);
+const I_STONE_BLOCK = S(`<path d="M10 14 L34 14 L34 32 Q34 34 32 34 L10 34 Q8 34 8 32 L8 16 Z" fill="#9aa0a8" stroke="#636973" stroke-width="2"/><path d="M8 16 L34 14 M20 14 L20 34 M8 24 L34 24" stroke="#636973" stroke-width="1.4" opacity="0.6"/>`);
+const I_IRON_ORE    = S(`<path d="M9 24 L15 13 L28 11 L36 20 L32 33 L18 35 Z" fill="#7a7f88" stroke="#4e525a" stroke-width="2"/><path d="M18 18 l3 3 M26 22 l3 2 M20 27 l2 2" stroke="#c9d2dc" stroke-width="2.2"/>`);
+const I_IRON_INGOT  = S(`<path d="M8 24 L12 18 L32 18 L36 24 L36 30 Q36 32 34 32 L10 32 Q8 32 8 30 Z" fill="#aeb8c4" stroke="#6f7a88" stroke-width="2"/><path d="M12 18 L36 24 M8 24 L32 18" stroke="#6f7a88" stroke-width="1.4" opacity="0.5"/><path d="M14 22 L22 22" stroke="#eef3f8" stroke-width="1.4" opacity="0.7"/>`);
+const I_DRUID_STONE = S(`<path d="M15 6 Q22 4 29 6 L31 34 Q22 37 13 34 Z" fill="#8a8f98" stroke="#5a5f68" stroke-width="2"/><path d="M22 13 A4 4 0 1 0 22 21 A5 5 0 0 1 22 13 Z" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1"/><path d="M18 26 l8 0 M19 30 l6 0" stroke="#5a5f68" stroke-width="1.6"/>`);
+const I_PINE_PITCH  = S(`<path d="M22 6 L29 16 L26 16 L32 26 L28 26 L34 34 L10 34 L16 26 L12 26 L18 16 L15 16 Z" fill="#2e6e4a" stroke="#1e4a30" stroke-width="1.8"/><circle cx="22" cy="30" r="2.4" fill="${C.amber}" opacity="0.85"/>`);
+const I_BIRCH_BARK  = S(`<path d="M14 8 Q10 20 14 36 Q22 33 30 36 Q26 20 30 8 Q22 11 14 8 Z" fill="#e8e2d4" stroke="#b0a890" stroke-width="1.8"/><path d="M17 15 l5 0 M18 22 l6 0 M17 29 l5 0" stroke="#5a5244" stroke-width="2"/>`);
+const I_BRAMBLE_VINE = S(`<path d="M8 32 Q16 24 20 28 Q24 32 30 22 Q34 16 36 10" fill="none" stroke="#3a6e34" stroke-width="2.6"/><path d="M16 27 l-3 -3 M24 27 l3 -3 M30 20 l3 2 M14 30 l2 3" stroke="#2a5226" stroke-width="2"/><circle cx="36" cy="10" r="2" fill="#5a2a44"/>`);
+const I_WILLOW_FROND = S(`<path d="M22 5 L22 36" stroke="#6b8a3a" stroke-width="2"/><path d="M22 10 Q12 14 10 26 M22 14 Q14 18 13 30 M22 10 Q32 14 34 26 M22 14 Q30 18 31 30" fill="none" stroke="#7faa44" stroke-width="2"/>`);
+const I_FERN_FROND  = S(`<path d="M22 37 L22 8" stroke="#4e8c3a" stroke-width="2"/><path d="M22 12 q-8 -2 -11 -7 M22 17 q-7 -1 -10 -5 M22 22 q-6 0 -9 -4 M22 12 q8 -2 11 -7 M22 17 q7 -1 10 -5 M22 22 q6 0 9 -4" fill="none" stroke="#5faa48" stroke-width="1.8"/>`);
+const I_BLACKTHORN  = S(`<path d="M10 34 Q18 20 22 6" fill="none" stroke="#2a2030" stroke-width="2.6"/><path d="M16 22 l-4 -2 M19 15 l4 -1 M14 28 l-4 0" stroke="#1a1420" stroke-width="2"/><path d="M22 6 C19 8 20 12 22 12 C24 12 25 8 22 6 Z" fill="#5a2a44" stroke="#3a1a2c" stroke-width="1"/>`);
+const I_NIGHTBERRY  = S(`<circle cx="16" cy="26" r="6" fill="#3a4a8a" stroke="#242f5e" stroke-width="1.6"/><circle cx="26" cy="28" r="5.5" fill="#4a5a9a" stroke="#242f5e" stroke-width="1.6"/><circle cx="22" cy="19" r="5" fill="#3a4a8a" stroke="#242f5e" stroke-width="1.6"/><circle cx="14" cy="24" r="1.3" fill="#9aacff"/><path d="M22 14 L24 8" stroke="#4e8c3a" stroke-width="2"/>`);
+const I_HEX_ACORN   = S(`<path d="M12 20 Q22 14 32 20 Q30 24 22 24 Q14 24 12 20 Z" fill="#8a6a3a" stroke="#5e4624" stroke-width="1.6"/><path d="M14 20 Q22 36 30 20 Q30 33 22 35 Q14 33 14 20 Z" fill="#c99a56" stroke="#8a6230" stroke-width="1.8"/><path d="M22 12 L22 15" stroke="#5e4624" stroke-width="2.2"/>`);
+const I_TOADCAP     = MUSH('#9a6e42', '#6b4a28', '#d8c8a8', `<circle cx="16" cy="18" r="1.6" fill="#d8c8a8"/><circle cx="24" cy="16" r="2" fill="#d8c8a8"/><circle cx="29" cy="19" r="1.4" fill="#d8c8a8"/>`);
+const I_RING_CAP    = MUSH('#c99a56', '#8a6230', C.bone, `<path d="M17 29 q5 2 10 0" stroke="#8a6230" stroke-width="1.6" fill="none"/>`);
+const I_FUR_SCRAP   = S(`<path d="M10 24 Q8 16 16 15 Q18 9 25 12 Q33 10 34 18 Q38 22 33 27 Q34 34 26 33 Q20 37 15 31 Q9 30 10 24 Z" fill="#b89a6a" stroke="#8a714a" stroke-width="1.8"/><path d="M16 20 l2 3 M24 18 l2 3 M22 26 l2 3 M29 22 l2 2" stroke="#8a714a" stroke-width="1.4"/>`);
+const I_ANIMAL_PELT = S(`<path d="M12 8 Q8 10 10 15 L10 30 Q10 36 16 35 L28 35 Q34 36 34 30 L34 15 Q36 10 32 8 Q28 12 22 11 Q16 12 12 8 Z" fill="#9a6e48" stroke="#6b4a2c" stroke-width="2"/><path d="M22 14 L22 33" stroke="#6b4a2c" stroke-width="1.2" opacity="0.5"/><circle cx="18" cy="20" r="1.4" fill="#6b4a2c"/><circle cx="26" cy="22" r="1.4" fill="#6b4a2c"/>`);
+const I_LEATHER_HIDE = S(`<path d="M9 12 L33 10 Q36 14 34 20 L35 32 Q30 35 22 34 Q14 35 9 32 L10 20 Q7 15 9 12 Z" fill="#a9743e" stroke="#744a24" stroke-width="2"/><path d="M14 16 l0 14 M28 15 l0 15" stroke="#744a24" stroke-width="1.2" opacity="0.5"/>`);
+const I_BONE_SHARD  = S(`<path d="M12 9 Q9 9 9 12 Q9 15 12 15 Q13 18 11 21 L20 30 Q23 32 25 34 Q25 37 28 37 Q31 37 31 34 Q34 34 34 31 Q34 28 31 28 Q29 26 27 24 L18 15 Q16 13 15 11 Q15 9 12 9 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>`);
+const I_ENCHANTED_FUR = S(`<path d="M10 24 Q8 16 16 15 Q18 9 25 12 Q33 10 34 18 Q38 22 33 27 Q34 34 26 33 Q20 37 15 31 Q9 30 10 24 Z" fill="#9a8ac0" stroke="#6a5a95" stroke-width="1.8"/><path d="M24 14 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="0.6"/>`);
+const I_SHADOW_ESSENCE = S(`<path d="M22 7 C13 9 11 18 14 24 C10 27 11 33 17 33 C19 37 26 37 28 33 C34 33 35 27 31 24 C34 18 32 9 22 7 Z" fill="#241836" stroke="#140d24" stroke-width="1.8" opacity="0.92"/><circle cx="19" cy="21" r="1.6" fill="${C.plum}"/><circle cx="26" cy="24" r="1.4" fill="${C.plum}"/>`);
+const I_GLIMMERDUST = S(`<path d="M14 30 Q12 18 22 12 Q20 20 26 22 Q22 25 24 32 Q18 28 14 30 Z" fill="#c9b86a" stroke="#9a8440" stroke-width="1.4"/><path d="M28 12 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z" fill="${C.amber}"/><circle cx="16" cy="16" r="1.4" fill="${C.bone}"/><circle cx="31" cy="28" r="1.4" fill="${C.bone}"/>`);
+const I_HOLLOW_SHARD = S(`<path d="M22 5 L34 16 L22 39 L10 16 Z" fill="#4a7f9a" stroke="#2e5a70" stroke-width="2" opacity="0.85"/><path d="M22 5 L22 39 M10 16 L34 16" stroke="#a9d8ef" stroke-width="1.3" opacity="0.6"/><path d="M22 14 A4 4 0 1 0 22 22 A5 5 0 0 1 22 14 Z" fill="#1c2a34"/>`);
+
+// ── Items: garden herbs ──────────────────────────────────────────────────────
+
+const FLOWER = (petal, lo, center, stem) => S(`
+  <path d="M22 34 L22 20" stroke="${stem || '#4e8c3a'}" stroke-width="2"/>
+  <path d="M30 26 Q26 24 22 25 M14 26 Q18 24 22 25" fill="none" stroke="${stem || '#4e8c3a'}" stroke-width="1.8"/>
+  <g fill="${petal}" stroke="${lo}" stroke-width="1.2">
+    <ellipse cx="22" cy="11" rx="3.4" ry="6"/>
+    <ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(72 22 16)"/>
+    <ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(144 22 16)"/>
+    <ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(216 22 16)"/>
+    <ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(288 22 16)"/>
+  </g>
+  <circle cx="22" cy="16" r="3" fill="${center}"/>`);
+
+const I_SWIFT_ROOT   = S(`<path d="M24 10 Q32 18 26 32 Q22 40 18 32 Q12 18 20 10 Q22 8 24 10 Z" fill="#e08a3a" stroke="#b0641e" stroke-width="1.8"/><path d="M20 15 l8 0 M19 20 l9 0 M20 25 l7 0" stroke="#b0641e" stroke-width="1.2"/><path d="M22 10 Q18 4 14 5 M22 10 Q26 4 30 5 M22 10 L22 3" stroke="${C.teal}" stroke-width="2" fill="none"/>`);
+const I_FEATHERLEAF  = S(`<path d="M30 8 Q14 12 12 34 Q18 30 22 30 Q20 24 24 22 Q28 16 30 8 Z" fill="#6faa5a" stroke="#4a7d3c" stroke-width="1.6"/><path d="M28 12 Q20 18 15 29" stroke="#4a7d3c" stroke-width="1.4"/>`);
+const I_GIANTS_CAP   = MUSH('#c86a4a', '#9a4a30', C.bone, `<circle cx="16" cy="18" r="2" fill="${C.bone}"/><circle cx="24" cy="16" r="2.4" fill="${C.bone}"/><circle cx="30" cy="19" r="1.8" fill="${C.bone}"/><path d="M20 30 L22 24 L24 30" fill="none" stroke="#9a4a30" stroke-width="1.6"/>`);
+const I_SHRINKING_VIOLET = FLOWER('#9a6ad0', '#6a4aa0', '#e0c850', '#4e8c3a');
+const I_PUMPKIN_BLOSSOM  = FLOWER('#e89a3a', '#b86a1e', '#8a5a1e', '#5c7d3a');
+const I_BATS_BREATH  = S(`<path d="M22 34 L22 20" stroke="#5a5a6a" stroke-width="2"/><path d="M14 14 q4 -5 8 0 q4 -5 8 0 q0 5 -8 9 q-8 -4 -8 -9 z" fill="#3a3a4e" stroke="#242432" stroke-width="1.4"/><circle cx="18" cy="15" r="1.2" fill="${C.plum}"/><circle cx="26" cy="15" r="1.2" fill="${C.plum}"/>`);
+const I_RAINBOW_PETAL = S(`<path d="M22 34 L22 22" stroke="#4e8c3a" stroke-width="2"/><g stroke-width="1.1"><ellipse cx="22" cy="11" rx="3.4" ry="6" fill="#e2566a" stroke="#b8324e"/><ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(72 22 16)" fill="#e8a53a" stroke="#b87a1e"/><ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(144 22 16)" fill="#5fbf7a" stroke="#3a8c52"/><ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(216 22 16)" fill="#5a9ae8" stroke="#3a6ab0"/><ellipse cx="22" cy="11" rx="3.4" ry="6" transform="rotate(288 22 16)" fill="#9a6ad0" stroke="#6a4aa0"/></g><circle cx="22" cy="16" r="2.6" fill="${C.bone}"/>`);
+const I_RAVENS_FEATHER_PLANT = S(`<path d="M22 36 L22 10" stroke="#3a3a4e" stroke-width="2"/><path d="M22 14 Q14 16 11 26 Q18 24 22 20 M22 20 Q30 22 33 30 Q26 28 22 24" fill="#2a2a3e" stroke="#16161f" stroke-width="1.4"/><path d="M19 8 l2 -4 M25 8 l-2 -4" stroke="${C.teal}" stroke-width="1.6"/>`);
+const I_STUMBLEWEED  = S(`<circle cx="22" cy="23" r="13" fill="none" stroke="#b09a56" stroke-width="2"/><path d="M12 18 Q22 24 32 16 M10 26 Q22 20 34 28 M16 12 Q20 24 26 34 M28 12 Q22 24 16 34" fill="none" stroke="#9a8440" stroke-width="1.6"/>`);
+const I_GIBBERISH_ROOT = S(`<path d="M14 12 Q10 18 14 22 Q8 24 12 30 Q16 36 22 32 Q28 37 31 30 Q37 27 32 22 Q36 16 30 14 Q26 8 20 12 Q17 9 14 12 Z" fill="#c99a6a" stroke="#9a6e42" stroke-width="1.8"/><path d="M20 18 l0 10 M26 20 l0 8" stroke="#9a6e42" stroke-width="1.2"/>`);
+const I_TOADSTOOL    = MUSH('#d23a3a', '#9a1e1e', C.bone, `<circle cx="16" cy="18" r="2" fill="${C.bone}"/><circle cx="24" cy="16" r="2.4" fill="${C.bone}"/><circle cx="30" cy="19" r="1.6" fill="${C.bone}"/>`);
+const I_WOLFSBANE_BLOOM = S(`<path d="M22 36 L22 18" stroke="#3a6e34" stroke-width="2"/><path d="M14 24 Q18 20 22 22 M30 24 Q26 20 22 22" fill="none" stroke="#3a6e34" stroke-width="1.8"/><path d="M22 6 Q16 8 17 16 Q22 14 22 14 Q22 14 27 16 Q28 8 22 6 Z" fill="#6a4ab0" stroke="#4a3080" stroke-width="1.6"/><path d="M22 9 L22 15" stroke="#9a7ad8" stroke-width="1.4"/>`);
+const I_MEDITATION_LOTUS = S(`<path d="M22 32 C22 32 10 28 10 20 C14 20 18 24 22 32 Z M22 32 C22 32 34 28 34 20 C30 20 26 24 22 32 Z M22 32 C18 24 18 16 22 12 C26 16 26 24 22 32 Z M22 32 C16 28 12 26 8 26 C12 32 18 33 22 32 Z M22 32 C28 28 32 26 36 26 C32 32 26 33 22 32 Z" fill="#f0a0c8" stroke="#c86a9a" stroke-width="1.4"/><circle cx="22" cy="31" r="2.4" fill="${C.amber}"/>`);
+const I_HEALING_HERB = S(`<path d="M22 37 L22 12" stroke="#3a7d2e" stroke-width="2"/><path d="M22 20 Q13 18 10 9 Q19 10 22 18 M22 26 Q31 24 34 15 Q25 16 22 24" fill="#5faa44" stroke="#3a7d2e" stroke-width="1.4"/>`);
+const I_REGEN_ROOT   = S(`<path d="M16 12 Q10 20 16 26 Q12 34 20 34 Q24 38 28 33 Q35 31 30 24 Q35 18 28 15 Q26 9 20 12 Q18 9 16 12 Z" fill="#8aae5a" stroke="#5e7d3a" stroke-width="1.8"/><path d="M22 18 l0 10" stroke="#5e7d3a" stroke-width="1.4"/><path d="M20 9 Q22 4 24 9" stroke="#3a7d2e" stroke-width="2" fill="none"/>`);
+const I_CLEANSING_CLOVER = S(`<g fill="#4e9c3a" stroke="#357028" stroke-width="1.2"><path d="M22 20 C18 14 12 16 14 21 C16 24 20 23 22 20 Z"/><path d="M22 20 C26 14 32 16 30 21 C28 24 24 23 22 20 Z"/><path d="M22 20 C16 22 15 28 20 28 C23 28 23 24 22 20 Z"/><path d="M22 20 C28 22 29 28 24 28 C21 28 21 24 22 20 Z"/></g><path d="M22 22 L23 36" stroke="#357028" stroke-width="2"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -600,6 +664,20 @@ export const UI_ICONS = {
   magic_scroll: I_MAGIC_SCROLL, dragon_scale: I_DRAGON_SCALE, enchanted_gem: I_ENCHANTED_GEM,
   ancient_coin: I_ANCIENT_COIN, golden_chalice: I_GOLDEN_CHALICE, hard_drive: I_HARD_DRIVE,
   bloodmoon_shard: I_BLOODMOON_SHARD, berries: I_BERRIES,
+  // items — crafting materials
+  wood: I_WOOD, witchwood: I_WITCHWOOD, lumber_bundle: I_LUMBER_BUNDLE, stone_block: I_STONE_BLOCK,
+  iron_ore: I_IRON_ORE, iron_ingot: I_IRON_INGOT, druid_stone: I_DRUID_STONE, pine_pitch: I_PINE_PITCH,
+  birch_bark: I_BIRCH_BARK, bramble_vine: I_BRAMBLE_VINE, willow_frond: I_WILLOW_FROND, fern_frond: I_FERN_FROND,
+  blackthorn: I_BLACKTHORN, nightberry: I_NIGHTBERRY, hex_acorn: I_HEX_ACORN, toadcap: I_TOADCAP,
+  ring_cap: I_RING_CAP, fur_scrap: I_FUR_SCRAP, animal_pelt: I_ANIMAL_PELT, leather_hide: I_LEATHER_HIDE,
+  bone_shard: I_BONE_SHARD, enchanted_fur: I_ENCHANTED_FUR, shadow_essence: I_SHADOW_ESSENCE,
+  glimmerdust: I_GLIMMERDUST, hollow_shard: I_HOLLOW_SHARD,
+  // items — garden herbs
+  swift_root: I_SWIFT_ROOT, featherleaf: I_FEATHERLEAF, giants_cap: I_GIANTS_CAP, shrinking_violet: I_SHRINKING_VIOLET,
+  pumpkin_blossom: I_PUMPKIN_BLOSSOM, bats_breath: I_BATS_BREATH, rainbow_petal: I_RAINBOW_PETAL,
+  ravens_feather_plant: I_RAVENS_FEATHER_PLANT, stumbleweed: I_STUMBLEWEED, gibberish_root: I_GIBBERISH_ROOT,
+  toadstool: I_TOADSTOOL, wolfsbane_bloom: I_WOLFSBANE_BLOOM, meditation_lotus: I_MEDITATION_LOTUS,
+  healing_herb: I_HEALING_HERB, regen_root: I_REGEN_ROOT, cleansing_clover: I_CLEANSING_CLOVER,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
