@@ -6878,7 +6878,7 @@ let abilityPeekSwallowUntil = 0;
 function showAbilityPeek(info, anchorEl) {
   const card = document.getElementById('abilityPeek');
   if (!card || !info) return;
-  card.querySelector('.apName').textContent = `${info.icon || '✨'} ${info.name || ''}`;
+  card.querySelector('.apName').innerHTML = glyphHTML(info.id || info.icon || '✨', 'apGi', info.icon || '✨') + ' ' + escHtml(info.name || '');
   const KIND_LABELS = {
     targeted: '🎯 strikes the nearest enemy', aoe: '💥 hits everyone nearby',
     self: '🫧 affects you', ground: '🌀 placed at your feet',
@@ -14188,7 +14188,8 @@ function buildHotbar() {
     slot.className = 'hotbarSlot';
     const icon = document.createElement('span');
     icon.className = 'hotbarIcon';
-    icon.textContent = atk.icon;
+    const _svg = uiIcon(id);
+    if (_svg) { icon.classList.add('hbGi'); icon.innerHTML = _svg; } else { icon.textContent = atk.icon; }
     const key = document.createElement('span');
     key.className = 'hotbarKey';
     key.textContent = HOTBAR_KEY_LABELS[idx];

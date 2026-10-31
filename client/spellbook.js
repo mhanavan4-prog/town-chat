@@ -4,6 +4,7 @@
 // Modals.isOpen('spellbookOpen'), so nothing outside needed rewiring.
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
+import { glyphHTML, escHtml } from './ui-icons.js';
 
 export default function createSpellbook({ send, cancelTargeting, setDefaultFloatPos, SPELL_CATALOG, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, visuals }) {
 let selectedSpellId = null;
@@ -42,7 +43,7 @@ function renderSpellList() {
     row.className = 'spellRow' + (selectedSpellId === id ? ' selected' : '');
     const name = document.createElement('div');
     name.className = 'spellName';
-    name.textContent = spell.icon + ' ' + spell.name;
+    name.innerHTML = glyphHTML(id, 'listGi', spell.icon) + ' ' + escHtml(spell.name);
     const desc = document.createElement('div');
     desc.className = 'spellDesc';
     desc.textContent = spell.description;

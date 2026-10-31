@@ -614,6 +614,60 @@ const I_HEALING_HERB = S(`<path d="M22 37 L22 12" stroke="#3a7d2e" stroke-width=
 const I_REGEN_ROOT   = S(`<path d="M16 12 Q10 20 16 26 Q12 34 20 34 Q24 38 28 33 Q35 31 30 24 Q35 18 28 15 Q26 9 20 12 Q18 9 16 12 Z" fill="#8aae5a" stroke="#5e7d3a" stroke-width="1.8"/><path d="M22 18 l0 10" stroke="#5e7d3a" stroke-width="1.4"/><path d="M20 9 Q22 4 24 9" stroke="#3a7d2e" stroke-width="2" fill="none"/>`);
 const I_CLEANSING_CLOVER = S(`<g fill="#4e9c3a" stroke="#357028" stroke-width="1.2"><path d="M22 20 C18 14 12 16 14 21 C16 24 20 23 22 20 Z"/><path d="M22 20 C26 14 32 16 30 21 C28 24 24 23 22 20 Z"/><path d="M22 20 C16 22 15 28 20 28 C23 28 23 24 22 20 Z"/><path d="M22 20 C28 22 29 28 24 28 C21 28 21 24 22 20 Z"/></g><path d="M22 22 L23 36" stroke="#357028" stroke-width="2"/>`);
 
+// ── Abilities: Witch / Mage spells ───────────────────────────────────────────
+
+const A_OPEN_THIRD_EYE = S(`
+  <path d="M6 22 Q22 10 38 22 Q22 34 6 22 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <circle cx="22" cy="22" r="5.5" fill="#6a4aa0"/><ellipse cx="22" cy="22" rx="2" ry="5" fill="#1a1030"/>
+  <path d="M22 9 L22 4 M13 12 L10 8 M31 12 L34 8" stroke="${C.amber}" stroke-width="2"/>`);
+const A_TOADS_TONGUE = S(`
+  <path d="M8 24 Q8 14 22 14 Q36 14 36 24 Q36 30 22 30 Q8 30 8 24 Z" fill="#6fae52" stroke="#4e7d38" stroke-width="2"/>
+  <circle cx="15" cy="14" r="4.5" fill="#6fae52" stroke="#4e7d38" stroke-width="1.8"/><circle cx="29" cy="14" r="4.5" fill="#6fae52" stroke="#4e7d38" stroke-width="1.8"/>
+  <circle cx="15" cy="13.5" r="1.8" fill="${C.amber}"/><circle cx="29" cy="13.5" r="1.8" fill="${C.amber}"/>
+  <path d="M19 26 q3 8 6 0" fill="${C.red}" stroke="#9a1e38" stroke-width="1.2"/>`);
+const A_STUMBLE_HEX = S(`
+  <path d="M14 10 Q22 14 20 22 Q18 30 26 34 L30 32 L28 38 L22 36 L25 35 Q17 31 16 23 Q15 15 11 12 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M30 14 q4 2 3 7 M33 11 q6 3 4 10" fill="none" stroke="${C.plum}" stroke-width="2"/>`);
+const A_FIREBALL = S(`
+  <path d="M22 4 C26 12 32 13 30 22 C34 20 34 16 34 16 C38 24 34 38 22 38 C10 38 6 26 12 18 C12 22 14 24 16 23 C13 15 18 10 22 4 Z"
+    fill="#ff8a3a" stroke="#d95f1e" stroke-width="1.8"/>
+  <path d="M22 18 C25 22 25 28 22 32 C19 28 19 22 22 18 Z" fill="${C.amber}"/>`);
+const A_WITHERING_HEX = S(`
+  <path d="M22 38 L22 20" stroke="#5a6e3a" stroke-width="2"/>
+  <path d="M22 24 Q14 24 11 31 Q18 31 22 26" fill="#6e7d4a" stroke="#4e5a2e" stroke-width="1.4"/>
+  <path d="M24 10 Q32 12 31 20 Q26 24 21 20 Q16 14 18 9 Q21 12 24 10 Z" fill="#8a5a7a" stroke="#5e3a52" stroke-width="1.6"/>
+  <path d="M28 20 l3 4 M30 16 l4 2" stroke="#5e3a52" stroke-width="1.6"/>`);
+const A_LEECH_HEX = S(`
+  <path d="M22 7 C22 7 12 21 12 28 A10 10 0 0 0 32 28 C32 21 22 7 22 7 Z" fill="${C.red}" stroke="${C.red2}" stroke-width="2"/>
+  <path d="M22 30 m0 -5 a5 5 0 1 1 -4 8" fill="none" stroke="${C.bone}" stroke-width="2"/>`);
+const A_MONSTROUS_FORM = S(`
+  <path d="M9 16 L13 11 L15 16 M35 16 L31 11 L29 16" fill="#7a3a2a" stroke="#4e2418" stroke-width="1.6"/>
+  <path d="M11 18 C11 10 33 10 33 18 C33 30 27 36 22 36 C17 36 11 30 11 18 Z" fill="#9a4a34" stroke="#6a2e1e" stroke-width="2"/>
+  <path d="M15 20 l5 2 M29 20 l-5 2" stroke="#ffd43b" stroke-width="2.4"/>
+  <path d="M16 28 l3 -2 2 2 2 -2 3 2" fill="none" stroke="${C.bone}" stroke-width="1.8"/>`);
+const A_GOURD_WARD = S(`
+  <circle cx="22" cy="23" r="16" fill="none" stroke="${C.teal}" stroke-width="1.6" opacity="0.55"/>
+  <path d="M22 13 C15 13 10 17 10 24 C10 30 15 33 22 33 C29 33 34 30 34 24 C34 17 29 13 22 13 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="2"/>
+  <path d="M14 21 l4 4 l-4 0 Z M30 21 l-4 4 l4 0 Z M16 28 q6 4 12 0 l-3 -2 -3 1 -3 -1 Z" fill="${C.plum}"/>`);
+const A_RAVENS_CLOAK = S(`
+  <path d="M34 10 C20 12 10 20 8 34 C14 30 18 30 21 31 C20 27 22 23 27 21 C23 22 22 22 20 24 C24 18 29 14 34 10 Z"
+    fill="#2a2a3e" stroke="#15151f" stroke-width="1.6"/>
+  <path d="M30 14 C22 18 16 25 12 32" stroke="${C.plum}" stroke-width="1.4"/>
+  <path d="M32 7 l2 -3 M37 12 l3 -1" stroke="${C.teal}" stroke-width="1.8"/>`);
+const A_BONE_KNIT = S(`
+  <path d="M12 9 Q9 9 9 12 Q9 15 12 15 Q13 18 11 21 L31 33 Q33 36 36 36 Q39 36 39 33 Q39 30 36 30 Q35 27 37 24 L17 12 Q15 9 12 9 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
+  <path d="M22 18 l0 8 M18 22 l8 0" stroke="${C.teal2}" stroke-width="2.4"/>`);
+const A_SCRYING_ORB = S(`
+  <circle cx="22" cy="19" r="12" fill="#6a9ad0" stroke="#3f6ab0" stroke-width="2"/>
+  <path d="M17 14 Q15 18 17 22" stroke="${C.bone}" stroke-width="2" opacity="0.7"/>
+  <circle cx="27" cy="15" r="2" fill="${C.bone}" opacity="0.8"/>
+  <path d="M12 32 L32 32 Q34 36 22 37 Q10 36 12 32 Z" fill="#8a6a4a" stroke="#5e442c" stroke-width="1.6"/>`);
+const A_NIGHTWING_AUGURY = S(`
+  <path d="M34 12 A14 14 0 1 0 34 32 A17 17 0 0 1 34 12 Z" fill="none" stroke="${C.teal}" stroke-width="1.6" opacity="0.6"/>
+  <path d="M22 18 q4 -5 8 0 q4 -5 8 0 q0 6 -8 10 q-8 -4 -8 -10 z" transform="translate(-8 0)" fill="${C.plum}" stroke="#20142f" stroke-width="1.4"/>
+  <circle cx="18" cy="12" r="1.4" fill="${C.teal}"/><circle cx="12" cy="26" r="1.2" fill="${C.teal}"/>`);
+
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
@@ -678,6 +732,11 @@ export const UI_ICONS = {
   ravens_feather_plant: I_RAVENS_FEATHER_PLANT, stumbleweed: I_STUMBLEWEED, gibberish_root: I_GIBBERISH_ROOT,
   toadstool: I_TOADSTOOL, wolfsbane_bloom: I_WOLFSBANE_BLOOM, meditation_lotus: I_MEDITATION_LOTUS,
   healing_herb: I_HEALING_HERB, regen_root: I_REGEN_ROOT, cleansing_clover: I_CLEANSING_CLOVER,
+  // abilities — Witch / Mage spells
+  open_third_eye: A_OPEN_THIRD_EYE, toads_tongue: A_TOADS_TONGUE, stumble_hex: A_STUMBLE_HEX,
+  fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
+  monstrous_form: A_MONSTROUS_FORM, gourd_ward: A_GOURD_WARD, ravens_cloak: A_RAVENS_CLOAK,
+  bone_knit: A_BONE_KNIT, scrying_orb: A_SCRYING_ORB, nightwing_augury: A_NIGHTWING_AUGURY,
 };
 
 // Replace emoji in any static markup: every element with [data-hudicon="key"]
