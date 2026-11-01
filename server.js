@@ -4370,6 +4370,7 @@ function skillStatePayload(player) {
 // otherwise repeatable. Only one quest can be active at a time.
 // ---------------------------------------------------------------------------
 const QUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const QUEST_SKIP_MS_COST = 8; // 💎 to skip a repeatable quest's 24h cooldown (premium convenience sink; the whole price dial)
 
 // ── The Thornreach Chronicles ─────────────────────────────────────────────────
 // Five centuries ago the Old Circle performed "The Fifth Severance" — a ritual
@@ -10889,8 +10890,14 @@ wss.on('connection', (ws, req) => {
       const lastDone = prog.questCooldowns && prog.questCooldowns[questId];
       if (lastDone && Date.now() - lastDone < QUEST_COOLDOWN_MS) {
         const hoursLeft = Math.ceil((QUEST_COOLDOWN_MS - (Date.now() - lastDone)) / 3600000);
-        send(ws, { type: 'quest_offer', questId: null, npcId, npcName: quest.npcName,
-          message: `You've already done that recently. Come back in about ${hoursLeft}h.` });
+        // Premium convenience: offer to skip the wait for Moonstones. Keep the
+        // real questId + details so the client can show the quest and a "set out
+        // now · 💎N" action; declining just closes the card.
+        send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName,
+          questName: quest.name, description: quest.description,
+          target: quest.target, xpReward: quest.xpReward,
+          cooldown: true, hoursLeft, skipCost: QUEST_SKIP_MS_COST,
+          message: `You've already done that recently (about ${hoursLeft}h to go). I could set you on it again right now for ${QUEST_SKIP_MS_COST} 💎.` });
         return;
       }
       // Offer the quest
@@ -11190,6 +11197,34 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // 💎 Skip a repeatable quest's 24h cooldown for Moonstones — a premium
+    // convenience sink. Clears the cooldown, then re-offers the quest so the
+    // card flips straight to "Accept". Pure time-skip: the reward is unchanged.
+    if (msg.type === 'quest_cooldown_skip') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Log into an account first.' }); return; }
+      const npcId = String(msg.npcId || '');
+      const questId = questForNpc(player, npcId) || String(msg.questId || '');
+      const quest = QUEST_CATALOG[questId];
+      if (!quest) { send(ws, { type: 'quest_offer', questId: null, npcId, npcName: 'They', message: 'No work to hurry along.' }); return; }
+      const prog = getProgress(player);
+      const lastDone = prog.questCooldowns && prog.questCooldowns[questId];
+      // Already off cooldown (or never done) — nothing to buy; offer it normally.
+      if (!lastDone || Date.now() - lastDone >= QUEST_COOLDOWN_MS) {
+        send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName, questName: quest.name, description: quest.description, target: quest.target, xpReward: quest.xpReward });
+        return;
+      }
+      if (msBalance(player.accountKey) < QUEST_SKIP_MS_COST) {
+        send(ws, { type: 'ms_error', message: `Setting out again now is ${QUEST_SKIP_MS_COST} 💎 — you carry ${msBalance(player.accountKey)}.` });
+        return;
+      }
+      msAdjust(player.accountKey, -QUEST_SKIP_MS_COST);
+      delete prog.questCooldowns[questId];
+      saveProgress();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'toast', message: `💎 The wait is behind you — "${quest.name}" is yours to take again.` });
+      send(ws, { type: 'quest_offer', questId, npcId, npcName: quest.npcName, questName: quest.name, description: quest.description, target: quest.target, xpReward: quest.xpReward });
+      return;
+    }
     if (msg.type === 'quest_accept') {
       const npcId = String(msg.npcId || '');
       const questId = questForNpc(player, npcId);
