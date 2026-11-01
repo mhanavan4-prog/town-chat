@@ -10294,6 +10294,7 @@ function closeTarotModal() {
 
 // ── Green-witch garden ──────────────────────────────────────────────────────
 let lastGardenState = null;
+let gardenView = 'beds'; // 'beds' | 'almanac' — the garden modal's two pages
 function gardenMoonTier() {
   const m = calendarState && calendarState.moon;
   if (m && m.isFull) return { yield: 4, label: '🌕 the full moon' };
@@ -10308,9 +10309,16 @@ function renderGardenModal() {
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   const st = lastGardenState;
   if (!st || !st.plots) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Tending the beds…</div>'; send({ type: 'garden_state' }); return; }
+  // A two-page panel: the beds you tend, and the Almanac of plants you've found.
+  const alm = st.almanac;
+  const tabs = `<div class="gardenTabs">`
+    + `<button class="gtab${gardenView === 'beds' ? ' on' : ''}" data-view="beds">🌿 Garden</button>`
+    + (alm ? `<button class="gtab${gardenView === 'almanac' ? ' on' : ''}" data-view="almanac">📖 Almanac <span class="gtabCount">${alm.discovered}/${alm.total}</span></button>` : '')
+    + `</div>`;
+  if (gardenView === 'almanac' && alm) { renderAlmanacInto(el, tabs, alm); return; }
   const mt = gardenMoonTier();
   const now = Date.now();
-  let h = '';
+  let h = tabs;
   // The Green Path — a gardening questline surfaced right here, since sowing and
   // harvesting ARE the objectives. Shows the current chapter + progress.
   const gp = st.greenPath;
@@ -10348,10 +10356,52 @@ function renderGardenModal() {
   el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb') })); });
   el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest') })));
   el.querySelectorAll('.gpRush').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_rush', plotIndex: +b.getAttribute('data-rush') })));
+  wireGardenTabs(el);
+}
+
+// Hooks up the Garden / Almanac tab buttons (present in both views).
+function wireGardenTabs(el) {
+  el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
+    const v = b.getAttribute('data-view');
+    if (v && v !== gardenView) { gardenView = v; renderGardenModal(); }
+  }));
+}
+
+// The Garden Almanac — a collection page of the real-witchcraft Green Path
+// plants, grouped by category, each with its folk lore. Undiscovered entries are
+// hidden until you've held the plant (server-tracked), for a pokedex-style hook.
+function renderAlmanacInto(el, tabs, alm) {
+  const pct = alm.total ? Math.round((alm.discovered / alm.total) * 100) : 0;
+  let h = tabs;
+  h += `<div class="almIntro">A green witch's record of every plant she has grown or found. `
+    + `<b>${alm.discovered} of ${alm.total}</b> discovered.`
+    + `<div class="almBar"><span style="width:${pct}%"></span></div></div>`;
+  for (const cat of (alm.categories || [])) {
+    const found = cat.plants.filter((p) => p.discovered).length;
+    h += `<div class="almCat">`
+      + `<div class="almCatHead">${escHtml(cat.name)} <span class="almCatN">${found}/${cat.plants.length}</span></div>`
+      + `<div class="almCatLore">${escHtml(cat.lore)}</div>`
+      + `<div class="almGrid">`;
+    for (const p of cat.plants) {
+      if (p.discovered) {
+        h += `<div class="almCell"><div class="almIcon">${uiIcon(p.id) || '🌿'}</div>`
+          + `<div class="almName">${escHtml(p.name)}</div>`
+          + `<div class="almLore">${escHtml(p.lore)}</div></div>`;
+      } else {
+        h += `<div class="almCell locked"><div class="almIcon">?</div>`
+          + `<div class="almName">Undiscovered</div>`
+          + `<div class="almLore">Grow or find this plant to record it.</div></div>`;
+      }
+    }
+    h += `</div></div>`;
+  }
+  el.innerHTML = h;
+  wireGardenTabs(el);
 }
 function openGardenModal() {
   const modal = document.getElementById('gardenModal');
   if (!modal) return;
+  gardenView = 'beds'; // always open to the beds
   renderGardenModal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 130);
