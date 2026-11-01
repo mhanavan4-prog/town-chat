@@ -6,7 +6,8 @@
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-seeddrops-');
 
-const { LOOT_TABLES, POTION_RECIPES, WILDS_SEED_DROPS, WILDS_SEED_DROP_MOBS } = require('../data/gameConstants.js');
+const { LOOT_TABLES, POTION_RECIPES, WILDS_SEED_DROPS, WILDS_SEED_DROP_MOBS,
+  HEDGE_SEED_DROPS, HEDGE_SEED_DROP_MOBS, BANE_SEED_DROPS, BANE_SEED_DROP_MOBS } = require('../data/gameConstants.js');
 const { PLANTABLE_HERBS } = require('../data/garden.js');
 const { PLANT_CATALOG } = require('../data/world.js');
 
@@ -28,8 +29,24 @@ const SEED_IDS = WILDS_SEED_DROPS.map((d) => d.itemId);
 check('the two Hedge seeds drop: mugwort + yarrow', SEED_IDS.includes('mugwort') && SEED_IDS.includes('yarrow'), SEED_IDS);
 check('seed drop odds are low (rare feels rare)', WILDS_SEED_DROPS.every((d) => d.chance > 0 && d.chance <= 0.05), WILDS_SEED_DROPS);
 check('every Wilds mob pool carries both seed drops', WILDS_SEED_DROP_MOBS.every((m) => SEED_IDS.every((id) => (LOOT_TABLES[m] || []).some((d) => d.itemId === id))));
-check('town mobs never drop seeds', !(LOOT_TABLES.town_mob || []).some((d) => SEED_IDS.includes(d.itemId)));
-check('dungeon chests never drop seeds', ['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4'].every((t) => !(LOOT_TABLES[t] || []).some((d) => SEED_IDS.includes(d.itemId))));
+check('town mobs never drop any seed tier', !(LOOT_TABLES.town_mob || []).some((d) => /mugwort|yarrow|vervain|belladonna/.test(d.itemId || '')));
+check('the common Mugwort/Yarrow tier stays out of the dungeons', ['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4'].every((t) => !(LOOT_TABLES[t] || []).some((d) => SEED_IDS.includes(d.itemId))));
+
+// ── Tiered drops: Hedge from tough mobs/low dungeons, Poison from elites/deep ──
+const HEDGE_IDS = HEDGE_SEED_DROPS.map((d) => d.itemId);
+const BANE_IDS = BANE_SEED_DROPS.map((d) => d.itemId);
+check('the five Hedge herbs are the tier-2 drops', ['vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry'].every((id) => HEDGE_IDS.includes(id)));
+check('the eight baneful herbs are the tier-3 drops', ['belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore'].every((id) => BANE_IDS.includes(id)));
+check('rarity climbs: hedge rarer than common, bane rarer than hedge', (() => {
+  const common = Math.max(...WILDS_SEED_DROPS.map((d) => d.chance));
+  const hedge = Math.max(...HEDGE_SEED_DROPS.map((d) => d.chance));
+  const bane = Math.max(...BANE_SEED_DROPS.map((d) => d.chance));
+  return hedge < common && bane < hedge;
+})());
+check('Hedge herbs drop from the tough night mobs + low dungeons', HEDGE_SEED_DROP_MOBS.every((m) => HEDGE_IDS.every((id) => (LOOT_TABLES[m] || []).some((d) => d.itemId === id))));
+check('Poison herbs drop from elites + the deep dungeon floors', BANE_SEED_DROP_MOBS.every((m) => BANE_IDS.every((id) => (LOOT_TABLES[m] || []).some((d) => d.itemId === id))));
+check('a common Wilds mob drops only the tier-1 seeds (no hedge/bane)', !(LOOT_TABLES.shade_stalker || []).some((d) => HEDGE_IDS.includes(d.itemId) || BANE_IDS.includes(d.itemId)));
+check('tier placement is exclusive: a low dungeon has hedge but not bane', (LOOT_TABLES.dungeon_t2 || []).some((d) => HEDGE_IDS.includes(d.itemId)) && !(LOOT_TABLES.dungeon_t2 || []).some((d) => BANE_IDS.includes(d.itemId)));
 
 // ── Pure data: the herbs exist, are plantable, and brew ──────────────────────
 check('mugwort & yarrow exist in the plant catalog with real names', PLANT_CATALOG.mugwort && PLANT_CATALOG.mugwort.name === 'Mugwort' && PLANT_CATALOG.yarrow && PLANT_CATALOG.yarrow.name === 'Yarrow');

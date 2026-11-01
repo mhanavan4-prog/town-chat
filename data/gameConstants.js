@@ -288,8 +288,38 @@ const WILDS_SEED_DROP_MOBS = [
   'mossback_tortoise', 'gravewing_crow', 'fen_hexer', 'rot_swarm', 'barrow_maw',
   'gloom_bat', 'old_marrowe',
 ];
+// Tier 2 — the Hedge & Wild herbs. Rarer, and only from the tougher night-hunt
+// Wilds creatures and the lower dungeon floors, so the harder you hunt, the
+// rarer the cuttings you turn up.
+const HEDGE_SEED_DROPS = [
+  { itemId: 'vervain', qty: 1, chance: 0.012 },
+  { itemId: 'wormwood', qty: 1, chance: 0.012 },
+  { itemId: 'rue', qty: 1, chance: 0.012 },
+  { itemId: 'st_johns_wort', qty: 1, chance: 0.012 },
+  { itemId: 'rowan_berry', qty: 1, chance: 0.012 },
+];
+const HEDGE_SEED_DROP_MOBS = ['fen_hexer', 'rot_swarm', 'barrow_maw', 'gloom_bat', 'dungeon_t1', 'dungeon_t2'];
+// Tier 3 — the baneful Poison Path herbs. The rarest, from elites and the deep
+// dungeon floors only: the dark art is earned in the dark places.
+const BANE_SEED_DROPS = [
+  { itemId: 'belladonna', qty: 1, chance: 0.006 },
+  { itemId: 'henbane', qty: 1, chance: 0.006 },
+  { itemId: 'mandrake', qty: 1, chance: 0.006 },
+  { itemId: 'wolfsbane', qty: 1, chance: 0.006 },
+  { itemId: 'datura', qty: 1, chance: 0.006 },
+  { itemId: 'hemlock', qty: 1, chance: 0.006 },
+  { itemId: 'foxglove', qty: 1, chance: 0.006 },
+  { itemId: 'black_hellebore', qty: 1, chance: 0.006 },
+];
+const BANE_SEED_DROP_MOBS = ['old_marrowe', 'dungeon_t3', 'dungeon_t4'];
 for (const _m of WILDS_SEED_DROP_MOBS) {
   if (Array.isArray(LOOT_TABLES[_m])) LOOT_TABLES[_m].push(...WILDS_SEED_DROPS.map((d) => ({ ...d })));
+}
+for (const _m of HEDGE_SEED_DROP_MOBS) {
+  if (Array.isArray(LOOT_TABLES[_m])) LOOT_TABLES[_m].push(...HEDGE_SEED_DROPS.map((d) => ({ ...d })));
+}
+for (const _m of BANE_SEED_DROP_MOBS) {
+  if (Array.isArray(LOOT_TABLES[_m])) LOOT_TABLES[_m].push(...BANE_SEED_DROPS.map((d) => ({ ...d })));
 }
 
 const STARTER_GEAR = {
@@ -311,4 +341,4 @@ const EMOTE_SET = [
   '👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃',
 ];
 
-module.exports = { MS_PACKS, COLORS, POTION_RECIPES, LOOT_TABLES, STARTER_GEAR, XP_THRESHOLDS, EMOTE_SET, WILDS_SEED_DROPS, WILDS_SEED_DROP_MOBS };
+module.exports = { MS_PACKS, COLORS, POTION_RECIPES, LOOT_TABLES, STARTER_GEAR, XP_THRESHOLDS, EMOTE_SET, WILDS_SEED_DROPS, WILDS_SEED_DROP_MOBS, HEDGE_SEED_DROPS, HEDGE_SEED_DROP_MOBS, BANE_SEED_DROPS, BANE_SEED_DROP_MOBS };
