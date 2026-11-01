@@ -2715,6 +2715,8 @@ function onWsMessage(ev) {
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Array.isArray(msg.plantable)) for (const id of msg.plantable) gardenPlantable.add(id); if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
+  if (msg.type === 'home_state') { lastHomeState = msg; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
+  if (msg.type === 'home_error') { setUnlockToast(`🏠 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
   if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
   if (msg.type === 'ancestor_error') { setUnlockToast(msg.message || 'The altar is silent.'); return; }
@@ -3555,6 +3557,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('homeModal'),       document.querySelector('#homeModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('pathModal'),       document.querySelector('#pathModal .floatPanelHandle'));
   makeDraggable(document.getElementById('ancestorModal'),   document.querySelector('#ancestorModal .floatPanelHandle'));
@@ -6766,6 +6769,8 @@ function hydrateMenuRows() {
   on('tarotCloseBtn', closeTarotModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
   on('gardenCloseBtn', closeGardenModal);
+  on('menuHome', closeSheetAnd(() => { if (!Modals.isOpen('homeOpen')) openHomeModal(); }));
+  on('homeCloseBtn', closeHomeModal);
   on('menuKitchen', closeSheetAnd(() => { if (!Modals.isOpen('kitchenOpen')) openKitchenModal(); }));
   on('kitchenCloseBtn', closeKitchenModal);
   on('menuPath', closeSheetAnd(() => { if (!Modals.isOpen('pathOpen')) openPathModal(); }));
@@ -10458,6 +10463,141 @@ function closeGardenModal() {
   const modal = document.getElementById('gardenModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('gardenOpen', false);
+}
+
+// ── Player housing: the cottage grid editor ─────────────────────────────────
+// Slice 1 — a flat 8×8 floor you furnish from a palette of (cosmetic) pieces.
+// Interaction: tap a palette piece to pick it up, then tap the grid to drop it;
+// tap a placed piece to select it, then move / rotate / remove it. The server
+// owns placement truth (bounds + overlap), so a bad drop just gets a toast.
+let lastHomeState = null;
+let homeSelPalette = null;   // a catalog piece id "in hand" for placement
+let homeSelPiece = null;     // index of a placed piece that's selected
+let homePendRot = 0;         // rotation to place / rotate the selection with
+// The cells a piece covers when anchored (top-left) at (x,y) — mirrors the
+// server's footprintCells so we can draw a live ghost and the occupancy grid.
+function homeFootprint(piece, x, y, rot) {
+  const swap = (rot === 1 || rot === 3);
+  const fw = swap ? piece.h : piece.w;
+  const fh = swap ? piece.w : piece.h;
+  const cells = [];
+  for (let cy = y; cy < y + fh; cy++) for (let cx = x; cx < x + fw; cx++) cells.push([cx, cy]);
+  return cells;
+}
+function renderHomeModal() {
+  const el = document.getElementById('homeContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastHomeState;
+  if (!st || !st.grid) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Opening the cottage…</div>'; send({ type: 'home_state' }); return; }
+  const { grid, pieces = [], catalog = [] } = st;
+  const byId = {};
+  for (const c of catalog) byId[c.id] = c;
+  // Occupancy: which placed-piece index (if any) sits on each cell.
+  const occ = {};
+  pieces.forEach((pc, idx) => {
+    const meta = byId[pc.id];
+    if (!meta) return;
+    for (const [cx, cy] of homeFootprint(meta, pc.x, pc.y, pc.rot || 0)) occ[cx + ',' + cy] = idx;
+  });
+  // The selected piece's footprint (so we can outline it).
+  const selCells = {};
+  if (homeSelPiece != null && pieces[homeSelPiece]) {
+    const pc = pieces[homeSelPiece]; const meta = byId[pc.id];
+    if (meta) for (const [cx, cy] of homeFootprint(meta, pc.x, pc.y, pc.rot || 0)) selCells[cx + ',' + cy] = true;
+  }
+
+  let h = '';
+  const inHand = homeSelPalette ? byId[homeSelPalette] : null;
+  if (inHand) h += `<div class="homeHint">Holding <b>${escHtml(inHand.name)}</b> — tap a spot to set it down. ↻ turns it first.</div>`;
+  else if (homeSelPiece != null && pieces[homeSelPiece]) h += `<div class="homeHint">Selected <b>${escHtml((byId[pieces[homeSelPiece].id] || {}).name || 'piece')}</b> — tap a new spot to move it, or use the buttons below.</div>`;
+  else h += `<div class="homeHint">Tap a piece below to pick it up, then tap the floor to place it. Tap a placed piece to move or remove it.</div>`;
+
+  // Toolbar — rotate / remove / deselect (context-aware).
+  const hasSel = (homeSelPiece != null && pieces[homeSelPiece]) || inHand;
+  h += '<div class="homeToolbar">';
+  h += `<button data-act="rotate"${hasSel ? '' : ' disabled'}>↻ Rotate</button>`;
+  h += `<button data-act="remove"${(homeSelPiece != null && pieces[homeSelPiece]) ? '' : ' disabled'}>🗑 Remove</button>`;
+  h += `<button data-act="deselect"${hasSel ? '' : ' disabled'}>✕ Done</button>`;
+  h += '</div>';
+
+  // The floor grid.
+  const CELL = 36;
+  h += '<div class="homeGridWrap"><div class="homeGrid" style="grid-template-columns:repeat(' + grid.w + ',' + CELL + 'px);grid-template-rows:repeat(' + grid.h + ',' + CELL + 'px);">';
+  for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) {
+    const key = x + ',' + y;
+    const idx = occ[key];
+    let cls = 'homeCell';
+    if (idx != null) cls += ' occ';
+    if (selCells[key]) cls += ' sel';
+    // The anchor cell of each placed piece carries its icon.
+    let ico = '';
+    if (idx != null) {
+      const pc = pieces[idx];
+      if (pc.x === x && pc.y === y) { const m = byId[pc.id]; ico = `<span class="hpIco">${m ? m.icon : '▪'}</span>`; }
+    }
+    h += `<div class="${cls}" data-x="${x}" data-y="${y}">${ico}</div>`;
+  }
+  h += '</div></div>';
+
+  // The palette of owned pieces.
+  h += '<div class="homePalette">';
+  for (const c of catalog) {
+    if (!c.owned) continue;
+    h += `<div class="homePiece${homeSelPalette === c.id ? ' on' : ''}" data-piece="${c.id}"><span class="hpIco">${c.icon}</span><span class="hpName">${escHtml(c.name)}</span></div>`;
+  }
+  h += '</div>';
+  el.innerHTML = h;
+
+  // Wire the palette.
+  el.querySelectorAll('.homePiece').forEach((p) => p.addEventListener('click', () => {
+    const id = p.getAttribute('data-piece');
+    homeSelPalette = (homeSelPalette === id) ? null : id;
+    homeSelPiece = null; homePendRot = 0;
+    renderHomeModal();
+  }));
+  // Wire the grid.
+  el.querySelectorAll('.homeCell').forEach((cell) => cell.addEventListener('click', () => {
+    const x = +cell.getAttribute('data-x'), y = +cell.getAttribute('data-y');
+    const idx = occ[x + ',' + y];
+    if (idx != null && homeSelPalette == null) {
+      // Select the placed piece under this cell.
+      homeSelPiece = idx; homePendRot = pieces[idx].rot || 0; homeSelPalette = null;
+      renderHomeModal();
+    } else if (homeSelPalette) {
+      send({ type: 'home_place', pieceId: homeSelPalette, x, y, rot: homePendRot });
+    } else if (homeSelPiece != null && pieces[homeSelPiece]) {
+      send({ type: 'home_move', idx: homeSelPiece, x, y, rot: homePendRot });
+    }
+  }));
+  // Wire the toolbar.
+  el.querySelectorAll('.homeToolbar button').forEach((b) => b.addEventListener('click', () => {
+    const act = b.getAttribute('data-act');
+    if (act === 'rotate') {
+      homePendRot = (homePendRot + 1) % 4;
+      if (homeSelPiece != null && pieces[homeSelPiece]) { const pc = pieces[homeSelPiece]; send({ type: 'home_move', idx: homeSelPiece, x: pc.x, y: pc.y, rot: homePendRot }); }
+      else renderHomeModal();
+    } else if (act === 'remove') {
+      if (homeSelPiece != null) { send({ type: 'home_remove', idx: homeSelPiece }); homeSelPiece = null; }
+    } else if (act === 'deselect') {
+      homeSelPalette = null; homeSelPiece = null; homePendRot = 0; renderHomeModal();
+    }
+  }));
+}
+function openHomeModal() {
+  const modal = document.getElementById('homeModal');
+  if (!modal) return;
+  homeSelPalette = null; homeSelPiece = null; homePendRot = 0;
+  renderHomeModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('homeOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'home_state' }));
+}
+function closeHomeModal() {
+  const modal = document.getElementById('homeModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('homeOpen', false);
 }
 
 // ── Kitchen witchery (teas) ─────────────────────────────────────────────────
@@ -15968,6 +16108,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('gardenOpen') && e.key === 'Escape' && !e.repeat) {
     closeGardenModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('homeOpen') && e.key === 'Escape' && !e.repeat) {
+    closeHomeModal();
     if (window.__fromMenu) backToMenu();
     return;
   }
