@@ -493,14 +493,23 @@ function addVillageBuildings(scene) {
       }
     }
   } catch (e) { /* decorative only */ }
-  // Mother Yarrow herself — the witch (charId 0: the KayKit Mage, orange pointed
-  // hat + round glasses), at the south edge of her bed, facing the players who
-  // walk up from the village commons.
+  // Mother Yarrow herself — the witch (KayKit Mage: orange pointed hat, round
+  // glasses, salmon hair), at the south edge of her bed, facing +z toward the
+  // players who walk up from the village commons. Build the REAL KayKit model
+  // (createKayKitByKey('char0')) like the Artificer does with his vampire body;
+  // fall back to the procedural humanoid only until that model streams in (the
+  // scene rebuilds once KayKit finishes loading — see the note at the top).
   const myX = GX, myZ = GZ + GH - 6;
-  try {
-    const yarrow = createHumanoid(0).group;
-    yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow);
-  } catch (e) { /* model may still be streaming */ }
+  const yarrowReady = hasKK && hasKK('char0') && createKayKitByKey;
+  if (yarrowReady) {
+    const built = createKayKitByKey('char0', 70);
+    if (built && built.group) {
+      if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
+      built.group.position.set(myX, 0, myZ); scene.add(built.group);
+    }
+  } else {
+    try { const yarrow = createHumanoid(0).group; yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow); } catch (e) { /* streaming */ }
+  }
   const yarrowLabel = makeNpcNameSprite('🌿 Mother Yarrow');
   yarrowLabel.position.set(myX, 60, myZ); scene.add(yarrowLabel);
   const gardenSign = makeSignSprite('🌿 Mother Yarrow — the Green Path · Press F');
