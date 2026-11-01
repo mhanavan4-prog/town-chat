@@ -55,34 +55,63 @@ export function makeLootIconSprite() {
   return sprite;
 }
 
+// Small rounded-rect path helper (ctx.roundRect isn't on every target browser).
+function signRoundRect(cx, x, y, w, h, r) {
+  cx.beginPath();
+  cx.moveTo(x + r, y);
+  cx.arcTo(x + w, y, x + w, y + h, r);
+  cx.arcTo(x + w, y + h, x, y + h, r);
+  cx.arcTo(x, y + h, x, y, r);
+  cx.arcTo(x, y, x + w, y, r);
+  cx.closePath();
+}
+
 export function makeSignSprite(text) {
-  const font = 'bold 30px sans-serif';
-  // The canvas used to be a fixed 256px wide regardless of text length, so
-  // anything longer than a short label (e.g. "⛩️ Temple of the Flame",
-  // "🕯️ Witch's Cave — Press F to enter") got clipped at the edge instead
-  // of shrinking or wrapping. Measure first and widen the canvas to fit.
+  // Carved-talisman theme — the same language as the NPC nameplates and the
+  // overhead player tags (dark plum parchment, a two-tone gold/violet border,
+  // warm cream Georgia serif, diamond end-glyphs) so world signs stop reading
+  // as a flat sans-serif overlay and sit inside the game's look.
+  const font = 'bold 27px Georgia, "Times New Roman", serif';
+  // The canvas widens to fit the text (a fixed width used to clip long labels
+  // like "🕯️ Witch's Cave — Press F to enter"). Measure first.
   const measureCtx = document.createElement('canvas').getContext('2d');
   measureCtx.font = font;
   const textWidth = measureCtx.measureText(text).width;
-  const paddingX = 24;
+  const paddingX = 30; // room for the border + the diamond end-glyphs
   const width = Math.max(256, Math.ceil(textWidth) + paddingX * 2);
   const height = 64;
 
   const c = document.createElement('canvas');
   c.width = width; c.height = height;
   const cx = c.getContext('2d');
-  cx.font = font;
+  const r = 13;
+  // Plum parchment panel
+  signRoundRect(cx, 3, 3, width - 6, height - 6, r);
+  const grad = cx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, 'rgba(28,19,36,0.9)');
+  grad.addColorStop(1, 'rgba(12,8,20,0.92)');
+  cx.fillStyle = grad; cx.fill();
+  // Two-tone border: gold outer, violet inner (matches makeNpcNameSprite)
+  cx.lineWidth = 2; cx.strokeStyle = 'rgba(184,142,62,0.6)'; cx.stroke();
+  signRoundRect(cx, 6, 6, width - 12, height - 12, r - 3);
+  cx.lineWidth = 1; cx.strokeStyle = 'rgba(120,70,190,0.4)'; cx.stroke();
+  // Diamond glyphs at the ends
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.fillStyle = 'rgba(10,16,12,0.55)';
-  cx.fillRect(0, 0, c.width, c.height);
-  cx.fillStyle = '#eafff0';
-  cx.fillText(text, c.width / 2, c.height / 2 + 2);
+  cx.fillStyle = 'rgba(200,160,70,0.5)'; cx.font = '12px serif';
+  cx.fillText('◆', 17, height / 2);
+  cx.fillText('◆', width - 17, height / 2);
+  // The label — warm cream serif, soft shadow for legibility over any terrain
+  cx.font = font;
+  cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 5;
+  cx.fillStyle = '#ecd9a8';
+  cx.fillText(text, width / 2, height / 2 + 2);
+  cx.shadowBlur = 0;
+
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
   const sprite = new THREE.Sprite(mat);
-  // Same world-units-per-canvas-pixel ratio the old fixed 256x64 -> 110x28
-  // used, so every existing short sign renders at exactly the size it
-  // always has — only text long enough to need a wider canvas gets wider.
+  // Same world-units-per-canvas-pixel ratio (256px -> 110 units) every sign has
+  // always used, so sizes are unchanged — only a wider canvas renders wider.
   const scale = 110 / 256;
   sprite.scale.set(width * scale, height * scale, 1);
   return sprite;
