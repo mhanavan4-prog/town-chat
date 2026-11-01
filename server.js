@@ -2998,7 +2998,7 @@ const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companion
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
-const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
+const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
@@ -4184,7 +4184,7 @@ function gardenStateBody(player) {
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
     yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
   } : null);
-  return { plots, plantable: PLANTABLE_HERBS, now };
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST };
 }
 
 // ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
@@ -13667,6 +13667,30 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
       send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your garden.` });
+      return;
+    }
+    // 💎 Grow a bed instantly for Moonstones — the premium convenience sink on
+    // the longer 60-minute cycle. Backdates plantedAt so the bed reads ready
+    // (and harvests) exactly as if it had matured; the yield is unchanged (it's
+    // locked to the moon tier at PLANTING, so rushing never pays better).
+    if (msg.type === 'garden_rush') {
+      if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
+      const idx = Math.floor(Number(msg.plotIndex));
+      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
+      const g = gardenOf(player.accountKey);
+      const p = g[idx];
+      if (!p) { send(ws, { type: 'garden_error', message: 'That bed is empty.' }); return; }
+      if (Date.now() - p.plantedAt >= GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'That bed is already grown — just harvest it.' }); return; }
+      if (msBalance(player.accountKey) < GARDEN_RUSH_MS_COST) {
+        send(ws, { type: 'ms_error', message: `Growing a bed instantly is ${GARDEN_RUSH_MS_COST} 💎 — you carry ${msBalance(player.accountKey)}.` });
+        return;
+      }
+      msAdjust(player.accountKey, -GARDEN_RUSH_MS_COST);
+      p.plantedAt = Date.now() - GARDEN_GROW_MS; // mature it now
+      saveAccounts();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'garden_state', ...gardenStateBody(player) });
+      send(ws, { type: 'toast', message: `💎 You coax the bed to full bloom in an instant — ${GARDEN_RUSH_MS_COST} 💎.` });
       return;
     }
 

@@ -3,7 +3,7 @@
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 
-const { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('../data/garden.js');
+const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('../data/garden.js');
 const { PLANT_CATALOG } = require('../data/world.js');
 
 // ── Config + data ─────────────────────────────────────────────────────────────
@@ -28,6 +28,13 @@ check('a bed is ready at maturity', isReady(t0, t0 + GARDEN_GROW_MS));
 // Planting one and harvesting the tier yield is a net gain.
 const sown = 1, reaped = MOON_YIELD.waxing;
 check('sowing 1 under a waxing moon reaps more than sown', reaped - sown >= 2, { sown, reaped });
+
+// ── Moonstone rush: pay 💎 to mature a bed instantly ──────────────────────────
+check('an instant-grow Moonstone cost is set', typeof GARDEN_RUSH_MS_COST === 'number' && GARDEN_RUSH_MS_COST > 0, GARDEN_RUSH_MS_COST);
+// The rush handler backdates plantedAt by the full grow time — mirror that and
+// confirm the bed then reads ready, same gate the harvest handler enforces.
+check('rushing a bed (backdate plantedAt) makes it ready at once', isReady(t0 - GARDEN_GROW_MS, t0));
+check('the 60-minute cycle is what rushing shortcuts', GARDEN_GROW_MS === 60 * 60 * 1000, GARDEN_GROW_MS);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

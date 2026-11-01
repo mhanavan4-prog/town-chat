@@ -5,7 +5,8 @@
 // so every witch can tend one.
 
 const GARDEN_PLOTS = 4;                   // beds per witch
-const GARDEN_GROW_MS = 12 * 60 * 1000;    // 12 minutes to mature
+const GARDEN_GROW_MS = 60 * 60 * 1000;    // 60 minutes to mature (rush it with 💎)
+const GARDEN_RUSH_MS_COST = 5;            // 💎 Moonstones to grow one bed instantly (the whole price dial)
 
 // The brewing staples you can sow (all common harvestable herbs).
 const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_clover', 'meditation_lotus', 'pumpkin_blossom'];
@@ -19,4 +20,4 @@ function moonTierAtPlant(moon) {
   return 'other';
 }
 
-module.exports = { GARDEN_PLOTS, GARDEN_GROW_MS, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant };
+module.exports = { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant };
