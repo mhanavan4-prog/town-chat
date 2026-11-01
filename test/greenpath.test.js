@@ -200,6 +200,13 @@ setTimeout(() => {
     return h.countItemQty(inv, 'hemlock') === 3 && h.countItemQty(inv, 'foxglove') === 3 && h.countItemQty(inv, 'black_hellebore') === 3;
   })());
 
+  // ── Capstone trophies: completing the path earns the Verdant aura + a 5th bed ─
+  check('completing the path unlocks the earned Verdant aura', (h.getProgress(g.p).auraUnlocks || []).indexOf('verdant') !== -1, h.getProgress(g.p).auraUnlocks);
+  check('completers get a permanent fifth garden bed', h.gardenPlotsFor(g.p) === 5, h.gardenPlotsFor(g.p));
+  // A player still mid-path has the normal four beds.
+  const mid = join('Sprout'); mid.p.accountKey = 'sprout';
+  check('a mid-path player still has four beds', h.gardenPlotsFor(mid.p) === 4, h.gardenPlotsFor(mid.p));
+
   // Further events on a finished path are no-ops (no crash, no extra grants).
   const vervainFinal = h.countItemQty(h.getInventory(g.p), 'vervain');
   h.greenPathEvent(g.p, 'garden_plant');

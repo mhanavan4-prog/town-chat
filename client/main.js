@@ -13509,8 +13509,14 @@ const { openNotifModal } = _notif;
       const sw = (a.hex == null)
         ? 'background:linear-gradient(135deg,#2a2140 50%,#4a3f66 50%)'
         : 'background:radial-gradient(circle,#' + a.hex.toString(16).padStart(6, '0') + ' 30%,rgba(0,0,0,0.2) 100%)';
-      const isOwned = !a.ms || owned.indexOf(a.id) !== -1;
-      if (!isOwned) return '<button class="wrDye buy" data-aura="' + a.id + '" title="' + a.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + a.ms + '💎</span></button>';
+      const isOwned = owned.indexOf(a.id) !== -1 || (!a.ms && !a.earned);
+      if (!isOwned) {
+        // Earned auras (Verdant, from the Green Path) show a locked 🌿 badge, not
+        // a 💎 price — they can't be bought.
+        const lbl = a.earned ? '🌿' : (a.ms + '💎');
+        const ttl = a.earned ? a.label + ' — earned on the Green Path' : a.label;
+        return '<button class="wrDye buy' + (a.earned ? ' earned' : '') + '" data-aura="' + a.id + '" title="' + ttl + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + lbl + '</span></button>';
+      }
       return '<button class="wrDye' + (cur === a.id ? ' on' : '') + '" data-aura="' + a.id + '" title="' + a.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + a.label + '</span></button>';
     }).join('');
   }

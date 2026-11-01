@@ -236,6 +236,8 @@ const AURAS = [
   { id: 'crimson',  label: 'Crimson',  hex: 0xff4d5e, ms: 18 },
   { id: 'spectral', label: 'Spectral', hex: 0x9afff0, ms: 18 },
   { id: 'gilded',   label: 'Gilded',   hex: 0xffd94a, ms: 18 },
+  // Earned, never sold: granted for completing the whole nine-chapter Green Path.
+  { id: 'verdant',  label: 'Verdant',  hex: 0x6add7a, earned: true },
 ];
 const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
 function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }
