@@ -409,8 +409,8 @@
   body.panelOpen #statusFxBar, body.composeOpen #statusFxBar, body.emoteWheelOpen #statusFxBar { display:none; }
   #roomTag {
     pointer-events:auto;
-    background:rgba(10,16,12,0.6); border:1px solid rgba(160,220,160,0.2);
-    color:#eafff0; font-size:13px; font-weight:700; padding:8px 16px;
+    background:rgba(22,15,30,0.74); border:1px solid rgba(184,142,62,0.42);
+    color:#ecd9a8; font-size:13px; font-weight:700; padding:8px 16px;
     border-radius:20px; backdrop-filter:blur(4px);
     transition:opacity 0.9s ease;
   }
@@ -421,17 +421,17 @@
   }
   #dayNightTag {
     pointer-events:auto; align-self:flex-start;
-    background:rgba(10,16,12,0.6); border:1px solid rgba(160,220,160,0.2);
-    color:#ffe9a8; font-size:12.5px; font-weight:700; padding:8px 16px;
+    background:rgba(22,15,30,0.74); border:1px solid rgba(184,142,62,0.42);
+    color:#ffe3a0; font-size:12.5px; font-weight:700; padding:8px 16px;
     border-radius:20px; backdrop-filter:blur(4px); transition:color .4s ease, border-color .4s ease;
   }
-  #dayNightTag.nightTag { color:#cfd9ff; border-color:rgba(140,160,220,0.35); }
+  #dayNightTag.nightTag { color:#cfd9ff; border-color:rgba(150,160,220,0.42); }
   /* The live moon phase — an always-on HUD pill beside the day/night clock, so
      a witch can always read the sky (full moon = charge moon water, esbat). */
   #moonTag {
     pointer-events:auto; align-self:flex-start; cursor:default;
-    background:rgba(14,12,26,0.6); border:1px solid rgba(150,160,220,0.25);
-    color:#dfe0ff; font-size:12.5px; font-weight:700; padding:8px 14px;
+    background:rgba(22,15,30,0.74); border:1px solid rgba(150,130,205,0.35);
+    color:#e4e2ff; font-size:12.5px; font-weight:700; padding:8px 14px;
     border-radius:20px; backdrop-filter:blur(4px); white-space:nowrap;
   }
   #moonTag.hidden { display:none; }
@@ -441,18 +441,18 @@
   #peopleTag {
     position:fixed; bottom:16px; right:18px; z-index:6;
     pointer-events:auto;
-    background:rgba(10,16,12,0.6); border:1px solid rgba(160,220,160,0.2);
-    color:#cfe9cf; font-size:12px; padding:8px 14px; border-radius:20px;
+    background:rgba(22,15,30,0.74); border:1px solid rgba(184,142,62,0.42);
+    color:#e8dcc0; font-size:12px; padding:8px 14px; border-radius:20px;
     display:flex; align-items:center; gap:10px; backdrop-filter:blur(4px);
   }
   #muteBtn {
     pointer-events:auto;
-    background:none; border:none; color:#cfe9cf; font-size:14px;
+    background:none; border:none; color:#e8dcc0; font-size:14px;
     cursor:pointer; line-height:1; padding:0;
   }
   #moonstoneTag {
     pointer-events:auto; align-self:flex-start;
-    background:rgba(14,10,26,0.72); border:1px solid rgba(170,140,245,0.5);
+    background:rgba(22,15,30,0.74); border:1px solid rgba(170,140,245,0.5);
     color:#e6ddff; font-size:12.5px; font-weight:700; padding:8px 14px;
     border-radius:20px; backdrop-filter:blur(4px); cursor:pointer;
   }
@@ -917,12 +917,12 @@
   #xpStrip {
     position:fixed; left:50%; bottom:90px; transform:translateX(-50%);
     z-index:6; display:flex; align-items:center; gap:8px;
-    background:rgba(10,16,12,0.72); border:1px solid rgba(160,220,160,0.2);
+    background:rgba(22,15,30,0.74); border:1px solid rgba(184,142,62,0.42);
     border-radius:12px; padding:5px 12px; pointer-events:none;
     white-space:nowrap;
   }
   #xpStrip.hidden { display:none !important; }
-  #xpStripLevel { color:#9ee37d; font-size:12px; font-weight:800; }
+  #xpStripLevel { color:#ecd9a8; font-size:12px; font-weight:800; }
   #xpBarWrap { width:100px; height:5px; background:rgba(255,255,255,0.12); border-radius:3px; }
   #xpBarFill { height:5px; border-radius:3px; background:#ffd43b; width:0%; transition:width 0.4s; }
   #xpStripSP { color:#ffd43b; font-size:11px; font-weight:700; }
