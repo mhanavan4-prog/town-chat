@@ -67,36 +67,92 @@ function renderSkills() {
   if (pts) pts.textContent = sp === 1 ? '1 skill point to spend' : `${sp} skill points to spend`;
   list.innerHTML = '';
   if (!st || !st.skills) { list.textContent = 'Loading your skills…'; return; }
-  for (const sk of st.skills) {
+
+  // A skill carrying `mods` (keystone pacts + trade-off skills) shows its real
+  // stat swings as chips — green for a gain, red for the price you pay — so the
+  // build-defining choices read as choices, not flavor text. Magnitudes are
+  // per-rank; vitality is flat HP, everything else a percentage.
+  const STAT_LABEL = { power: 'dmg', guard: 'def', vitality: 'HP', haste: 'haste', swift: 'speed', leech: 'leech', xp: 'XP', forage: 'forage' };
+  const STAT_ORDER = ['power', 'guard', 'vitality', 'haste', 'swift', 'leech', 'xp', 'forage'];
+  function modChips(mods) {
+    const wrap = document.createElement('div');
+    wrap.className = 'skillMods';
+    for (const k of STAT_ORDER) {
+      const v = mods[k];
+      if (v == null || v === 0) continue;
+      const up = v > 0;
+      const chip = document.createElement('span');
+      chip.className = 'skillMod ' + (up ? 'up' : 'down');
+      const mag = k === 'vitality'
+        ? `${up ? '+' : '−'}${Math.abs(v)} ${STAT_LABEL[k]}`
+        : `${up ? '+' : '−'}${Math.round(Math.abs(v) * 100)}% ${STAT_LABEL[k]}`;
+      chip.textContent = mag;
+      wrap.appendChild(chip);
+    }
+    return wrap;
+  }
+  function sendAllocate(id) {
+    if (getWs() && getWs().readyState === 1) getWs().send(JSON.stringify({ type: 'skill_allocate', skillId: id }));
+  }
+
+  function skillRow(sk) {
+    const chosen = sk.tier === 'keystone' && sk.rank > 0;
     const row = document.createElement('div');
-    row.className = 'skillRow' + (sk.rank >= sk.maxRank ? ' maxed' : '');
+    row.className = 'skillRow'
+      + (sk.rank >= sk.maxRank ? ' maxed' : '')
+      + (sk.tier === 'keystone' ? ' keystone' : '')
+      + (sk.locked ? ' locked' : '')
+      + (chosen ? ' chosen' : '');
     const icon = document.createElement('div');
     icon.className = 'skillIcon'; icon.textContent = sk.icon;
     const main = document.createElement('div');
     main.className = 'skillMain';
     const nm = document.createElement('div');
-    nm.className = 'skillName'; nm.textContent = `${sk.name} — rank ${sk.rank}/${sk.maxRank}`;
+    nm.className = 'skillName';
+    // Keystones are a binary pact, so "rank 0/1" reads oddly — show the vow.
+    nm.textContent = sk.tier === 'keystone'
+      ? (chosen ? `${sk.name} — sworn` : sk.name)
+      : `${sk.name} — rank ${sk.rank}/${sk.maxRank}`;
     const ds = document.createElement('div');
     ds.className = 'skillDesc'; ds.textContent = sk.desc;
-    const pips = document.createElement('div');
-    pips.className = 'skillPips';
-    for (let i = 0; i < sk.maxRank; i++) {
-      const pip = document.createElement('div');
-      pip.className = 'skillPip' + (i < sk.rank ? ' filled' : '');
-      pips.appendChild(pip);
+    main.appendChild(nm); main.appendChild(ds);
+    if (sk.mods) main.appendChild(modChips(sk.mods));
+    // Rank pips only for multi-rank (core) skills; a pact is all-or-nothing.
+    if (sk.maxRank > 1) {
+      const pips = document.createElement('div');
+      pips.className = 'skillPips';
+      for (let i = 0; i < sk.maxRank; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'skillPip' + (i < sk.rank ? ' filled' : '');
+        pips.appendChild(pip);
+      }
+      main.appendChild(pips);
     }
-    main.appendChild(nm); main.appendChild(ds); main.appendChild(pips);
     const buy = document.createElement('button');
-    buy.className = 'skillBuy';
-    buy.textContent = '+';
-    const canBuy = sk.rank < sk.maxRank && sp > 0;
+    buy.className = 'skillBuy' + (sk.tier === 'keystone' ? ' keystoneBuy' : '');
+    buy.textContent = chosen ? '✓' : (sk.tier === 'keystone' ? 'Swear' : '+');
+    const canBuy = sk.rank < sk.maxRank && sp > 0 && !sk.locked;
     buy.disabled = !canBuy;
-    buy.title = sk.rank >= sk.maxRank ? 'Maxed out' : (sp > 0 ? `Spend 1 point on ${sk.name}` : 'No skill points — level up to earn more');
-    buy.addEventListener('click', () => {
-      if (getWs() && getWs().readyState === 1) getWs().send(JSON.stringify({ type: 'skill_allocate', skillId: sk.id }));
-    });
+    buy.title = sk.locked ? 'Respec to change your sworn pact'
+      : sk.rank >= sk.maxRank ? (sk.tier === 'keystone' ? 'Sworn' : 'Maxed out')
+      : (sp > 0 ? `Spend 1 point on ${sk.name}` : 'No skill points — level up to earn more');
+    buy.addEventListener('click', () => sendAllocate(sk.id));
     row.appendChild(icon); row.appendChild(main); row.appendChild(buy);
-    list.appendChild(row);
+    return row;
+  }
+
+  const core = st.skills.filter(s => (s.tier || 'core') !== 'keystone');
+  const keys = st.skills.filter(s => s.tier === 'keystone');
+  for (const sk of core) list.appendChild(skillRow(sk));
+
+  if (keys.length) {
+    const hdr = document.createElement('div');
+    hdr.className = 'skillSectionHdr';
+    const sworn = keys.some(k => k.rank > 0);
+    hdr.innerHTML = `<span class="skillSectionTitle">⚜️ Sworn Pact</span>`
+      + `<span class="skillSectionSub">${sworn ? 'Respec to change your path.' : 'Choose one — it remakes how your Lich plays.'}</span>`;
+    list.appendChild(hdr);
+    for (const sk of keys) list.appendChild(skillRow(sk));
   }
 }
 

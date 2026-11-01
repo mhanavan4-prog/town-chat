@@ -4014,7 +4014,7 @@ function syncProgressToPlayer(player) {
 // stated no-anti-cheat movement model.
 // ---------------------------------------------------------------------------
 const SKILL_MAX_RANK = 3;
-const { SKILL_FX, SKILL_CATALOG } = require('./data/skills'); // Tier 3.4 Phase A: extracted to data/
+const { SKILL_FX, SKILL_CATALOG, skillMaxRank } = require('./data/skills'); // Tier 3.4 Phase A: extracted to data/
 
 function skillTreeFor(charId) { return SKILL_CATALOG[charId] || []; }
 function getSkillAlloc(player) {
@@ -4035,8 +4035,20 @@ function skillEffectRank(player, effect) {
 // Skill-only contribution to a derived stat (per-rank magnitude × ranks).
 function skillStatContrib(player, statKey) {
   const eff = STAT_SKILL_EFFECT[statKey];
-  if (!eff) return 0;
-  return (SKILL_STAT_PER_RANK[statKey] || 0) * skillEffectRank(player, eff);
+  // Core single-effect skills: per-rank magnitude × ranks in that effect.
+  let total = eff ? (SKILL_STAT_PER_RANK[statKey] || 0) * skillEffectRank(player, eff) : 0;
+  // Multi-stat skills (keystone pacts + trade-off skills) carry explicit
+  // `mods` — a per-stat per-rank delta, which may be negative. These stack on
+  // top of the core skills and are the only skills that can LOWER a stat, so a
+  // glass-cannon pact genuinely trades defense for damage. Each is clamped to
+  // its own maxRank (keystones = 1).
+  const alloc = getSkillAlloc(player);
+  for (const s of skillTreeFor(player.charId)) {
+    if (!s.mods || s.mods[statKey] == null) continue;
+    const rank = Math.min(skillMaxRank(s, SKILL_MAX_RANK), alloc[s.id] || 0);
+    total += s.mods[statKey] * rank;
+  }
+  return total;
 }
 // Gear-only contribution: sum every equipped item's EQUIP_STATS[statKey].
 // ── Gear durability (Tier 3.5): the gentle version ──────────────────────────
@@ -4275,10 +4287,18 @@ function skillStatePayload(player) {
     // character stats panel — recomputed here so it's always current with
     // both the skill allocation AND whatever's equipped.
     statBlock: computeStatBlock(player),
-    skills: skillTreeFor(player.charId).map(s => ({
-      id: s.id, name: s.name, icon: s.icon, desc: s.desc, effect: s.effect,
-      rank: alloc[s.id] || 0, maxRank: SKILL_MAX_RANK
-    }))
+    skills: skillTreeFor(player.charId).map(s => {
+      const tier = s.tier || 'core';
+      // A keystone is locked while a DIFFERENT keystone is already sworn — the
+      // client dims it and explains that a respec is needed to switch paths.
+      const locked = tier === 'keystone' && skillTreeFor(player.charId)
+        .some(o => o.tier === 'keystone' && o.id !== s.id && (alloc[o.id] || 0) > 0);
+      return {
+        id: s.id, name: s.name, icon: s.icon, desc: s.desc, effect: s.effect,
+        tier, mods: s.mods || null, locked,
+        rank: alloc[s.id] || 0, maxRank: skillMaxRank(s, SKILL_MAX_RANK)
+      };
+    })
   };
 }
 
@@ -12445,13 +12465,20 @@ wss.on('connection', (ws, req) => {
       const prog = getProgress(player);
       const alloc = getSkillAlloc(player);
       const cur = alloc[skillId] || 0;
-      if (cur >= SKILL_MAX_RANK) { send(ws, { type: 'skill_error', message: `${skill.name} is already at maximum rank.` }); return; }
+      const cap = skillMaxRank(skill, SKILL_MAX_RANK);
+      if (cur >= cap) { send(ws, { type: 'skill_error', message: `${skill.name} is already at maximum rank.` }); return; }
+      // Keystone pacts are exclusive: you may swear only one. A second pact is
+      // refused until you respec (which clears the whole tree, pact included).
+      if (skill.tier === 'keystone') {
+        const sworn = skillTreeFor(player.charId).find(s => s.tier === 'keystone' && s.id !== skillId && (alloc[s.id] || 0) > 0);
+        if (sworn) { send(ws, { type: 'skill_error', message: `You have already sworn the ${sworn.name} pact — respec to change your path.` }); return; }
+      }
       if ((prog.skillPoints || 0) < 1) { send(ws, { type: 'skill_error', message: 'No skill points to spend — level up to earn more.' }); return; }
       prog.skillPoints -= 1;
       alloc[skillId] = cur + 1;
       syncProgressToPlayer(player); // refreshes player.maxHealth
       if (player.accountKey) saveProgress();
-      send(ws, { type: 'skill_result', message: `${skill.icon} ${skill.name} is now rank ${alloc[skillId]}/${SKILL_MAX_RANK}.` });
+      send(ws, { type: 'skill_result', message: `${skill.icon} ${skill.name} is now rank ${alloc[skillId]}/${cap}.` });
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: 0 });
       return;
