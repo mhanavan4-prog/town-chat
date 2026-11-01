@@ -157,7 +157,8 @@ const SKILL_CATALOG = {
       desc: 'PACT — Death made swift and brittle. +26% damage and +10% lifesteal, and you take 16% more damage — but every kill restores 20% of your max health, so you live by chaining kills.' },
     { id: 'necro_k_plague',   name: 'Plaguelord',   icon: '🩸', tier: 'keystone', maxRank: 1,
       mods: { leech: 0.14, haste: 0.12, vitality: -25 },
-      desc: 'PACT — Win by attrition. +14% lifesteal and 12% faster rites, but −25 max HP — you live on the edge.' }
+      behavior: { combatRegen: 2, text: 'Festering Vigor · regenerate 2 HP/s, even mid-fight' },
+      desc: 'PACT — Win by attrition. +14% lifesteal and 12% faster rites, −25 max HP — and the rot never stops mending you: a steady 2 HP/s that keeps ticking even in combat, where ordinary healing stalls.' }
   ]
 };
 
