@@ -77,6 +77,15 @@ setTimeout(() => {
   pactOnKill(plain);
   check('no pact → no on-kill heal', plain.health === 10, plain.health);
 
+  // ── 6. Bonus point sources: Tome of Insight recipe (chapters are tested via story) ──
+  const CT = require('../data/craftingTree');
+  const tome = CT.CRAFT_RECIPES.find(r => r.id === 'tome_insight');
+  check('Tome of Insight is a real craftable recipe', !!tome && tome.result === 'tome_insight');
+  check('Tome yields a real catalog item', !!CT.CRAFT_ITEMS.tome_insight);
+  check('Tome is gated behind the rarest mats', !!tome && ['dragon_scale', 'bloodmoon_shard', 'hollow_shard'].every(id => tome.ingredients.some(i => i.id === id)));
+  check('Tome is not gold-purchased (crafted from mats, not bought)', !!tome && !tome.gold);
+  check('Tome stays out of the Tier-1/2/3 chain rules', !!tome && tome.tier === 4);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 150);

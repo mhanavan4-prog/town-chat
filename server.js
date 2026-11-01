@@ -4811,12 +4811,21 @@ function storyEvent(player, eventType, detail = {}) {
     }
     if (player.accountKey) saveInventories();
   }
+  // Story capstone: each chapter completed grants ONE permanent skill point —
+  // a finite, non-grindable way past the level cap's ~19 points (bounded by the
+  // number of chapters), so campaign progress widens the build you can afford.
+  const prog = getProgress(player);
+  prog.skillPoints = (prog.skillPoints || 0) + 1;
   if (player.accountKey) saveProgress();
+  // Refresh the client's live skill-point count + badge (xp_gain is the channel
+  // the counter listens on; grantXP above already fired one with the old total).
+  send(player.ws, { type: 'xp_gain', xp: prog.xp, level: prog.level, skillPoints: prog.skillPoints, gained: 0 });
 
   const storyDone = st.chapter >= line.chapters.length;
   const rewardParts = [`+${chapter.xpReward} XP`];
   if (chapter.goldReward) rewardParts.push(`+${chapter.goldReward}🪙${player.accountKey ? '' : ' (lost — guests have no bank)'}`);
   if (itemsGranted.length) rewardParts.push(itemsGranted.join(', '));
+  rewardParts.push('✨ +1 Skill Point');
   // What's next, spelled out — if the following chapter is level-gated
   // above the player, say so HERE, at the moment of triumph, so the gate
   // reads as "here's your next goal" rather than a surprise wall later.
@@ -9556,7 +9565,7 @@ wss.on('connection', (ws, req) => {
         // entry resolves an effect in the use_item handler. The client merges this
         // into its PLANT_EFFECTS set so any consumable shows a Use button with no
         // hand-sync (this is what kept the flora brews from being "un-equippable").
-        usableItems: Object.keys(PLANT_CATALOG),
+        usableItems: [...Object.keys(PLANT_CATALOG), 'tome_insight'], // the Tome is read from the pack like a consumable
         // Premium currency + the Peddler's catalog (Session I). The client
         // merges legendaryCatalog into its own ITEM_CATALOG at init — one
         // authoritative copy, no hand-sync.
@@ -11782,6 +11791,19 @@ wss.on('connection', (ws, req) => {
       const inv = getInventory(player);
       const slotIdx = Math.floor(Number(msg.slotIdx));
       const stack = inv.slots[slotIdx];
+      // 📘 Tome of Insight — read once for a permanent skill point, then it's
+      // spent. Handled ahead of the plant path since it's a crafted item, not a
+      // herb. The rarity of its ingredients is what keeps this finite.
+      if (stack && stack.itemId === 'tome_insight') {
+        removeItemFromAccount(inv, 'tome_insight', 1);
+        const tprog = getProgress(player);
+        tprog.skillPoints = (tprog.skillPoints || 0) + 1;
+        if (player.accountKey) { saveInventories(); saveProgress(); }
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'xp_gain', xp: tprog.xp, level: tprog.level, skillPoints: tprog.skillPoints, gained: 0 });
+        send(ws, { type: 'use_result', message: '📘 You read the Tome of Insight — its pages crumble to ash, and a truth settles into you. ✨ +1 Skill Point.' });
+        return;
+      }
       const plant = stack && PLANT_CATALOG[stack.itemId];
       if (!stack || !plant) {
         send(ws, { type: 'use_error', message: 'That item can’t be used.' });
