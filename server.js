@@ -4273,18 +4273,25 @@ function repairCostFor(player) {
 
 // ── Green-witch gardening (Tier 3.5) ────────────────────────────────────────
 // A per-account set of garden beds, each null or { herb, plantedAt, moonTier }.
-function gardenOf(key) {
+// How many garden beds this player has. Completing the whole Green Path earns a
+// permanent extra bed — the capstone's garden perk.
+function gardenPlotsFor(player) {
+  const prog = player && getProgress(player);
+  const done = prog && prog.greenPath && prog.greenPath.chapter >= GREEN_PATH.length;
+  return done ? GARDEN_PLOTS + 1 : GARDEN_PLOTS;
+}
+function gardenOf(key, plots) {
   const a = key && accounts[key];
   if (!a) return null;
-  if (!Array.isArray(a.garden) || a.garden.length !== GARDEN_PLOTS) {
-    const g = new Array(GARDEN_PLOTS).fill(null);
-    if (Array.isArray(a.garden)) for (let i = 0; i < Math.min(a.garden.length, GARDEN_PLOTS); i++) g[i] = a.garden[i] || null;
-    a.garden = g;
-  }
+  const want = plots || GARDEN_PLOTS;
+  // Grow-only: pad up to the wanted bed count, but never truncate (so a perk bed
+  // that later recomputes smaller — e.g. a reset — can't destroy a planted bed).
+  if (!Array.isArray(a.garden)) a.garden = new Array(want).fill(null);
+  else while (a.garden.length < want) a.garden.push(null);
   return a.garden;
 }
 function gardenStateBody(player) {
-  const g = gardenOf(player && player.accountKey) || [];
+  const g = gardenOf(player && player.accountKey, gardenPlotsFor(player)) || [];
   const now = Date.now();
   const plots = g.map((p) => p ? {
     herb: p.herb, plantedAt: p.plantedAt, moonTier: p.moonTier,
@@ -4345,6 +4352,22 @@ function greenPathEvent(player, type) {
   try { saveInventories(); saveProgress(); } catch (e) {}
   const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
   try { send(player.ws, { type: 'toast', message: `🌿 Green Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
+
+  // ── Capstone: finishing the whole path earns the trophies ──
+  if (gp.chapter >= GREEN_PATH.length) {
+    const prog = getProgress(player);
+    // The Verdant aura — earned, never sold.
+    if (!prog.auraUnlocks) prog.auraUnlocks = [];
+    if (prog.auraUnlocks.indexOf('verdant') === -1) {
+      prog.auraUnlocks.push('verdant');
+      try { saveProgress(); } catch (e) {}
+      try { send(player.ws, { type: 'aura_set', auraId: (accounts[player.accountKey] && accounts[player.accountKey].auraId) || 'none', owned: prog.auraUnlocks }); } catch (e) {}
+    }
+    // The permanent garden perk — a fifth bed (gardenPlotsFor now returns 5).
+    try { gardenOf(player.accountKey, gardenPlotsFor(player)); } catch (e) {}
+    try { send(player.ws, { type: 'toast', message: '🌿✨ The Green Path is complete. Mother Yarrow names you a green witch true — you gain the Verdant aura and a fifth garden bed.' }); } catch (e) {}
+    try { send(player.ws, { type: 'garden_state', ...gardenStateBody(player) }); } catch (e) {}
+  }
 }
 
 // ── The Garden Almanac ──────────────────────────────────────────────────────
@@ -13767,6 +13790,12 @@ wss.on('connection', (ws, req) => {
       if (!a) { send(ws, { type: 'ms_error', message: 'That aura isn’t for sale.' }); return; }
       const prog = getProgress(player);
       if (!prog.auraUnlocks) prog.auraUnlocks = [];
+      // Earned auras (the Green Path's Verdant) can't be bought — only worn once
+      // the account has unlocked them by finishing the path.
+      if (a.earned && id !== 'none' && prog.auraUnlocks.indexOf(id) === -1) {
+        send(ws, { type: 'ms_error', message: 'The Verdant aura is earned by walking the whole Green Path — not for sale.' });
+        return;
+      }
       if (a.ms && prog.auraUnlocks.indexOf(id) === -1) {
         if (msBalance(player.accountKey) < a.ms) { send(ws, { type: 'ms_error', message: `That aura is ${a.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
         msAdjust(player.accountKey, -a.ms);
@@ -13986,9 +14015,9 @@ wss.on('connection', (ws, req) => {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
       const idx = Math.floor(Number(msg.plotIndex));
       const herb = String(msg.herb || '');
-      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
+      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
       if (!PLANTABLE_HERBS.includes(herb)) { send(ws, { type: 'garden_error', message: 'That seed will not take here.' }); return; }
-      const g = gardenOf(player.accountKey);
+      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
       if (g[idx]) { send(ws, { type: 'garden_error', message: 'That bed is already planted.' }); return; }
       const inv = getInventory(player);
       if (countItemQty(inv, herb) < 1) { send(ws, { type: 'garden_error', message: `You hold no ${ITEM_CATALOG[herb] ? ITEM_CATALOG[herb].name : herb} to sow.` }); return; }
@@ -14003,8 +14032,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'garden_harvest') {
       if (!player.accountKey) return;
       const idx = Math.floor(Number(msg.plotIndex));
-      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
-      const g = gardenOf(player.accountKey);
+      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
+      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
       const p = g[idx];
       if (!p) return;
       if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
@@ -14028,8 +14057,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'garden_rush') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
       const idx = Math.floor(Number(msg.plotIndex));
-      if (!(idx >= 0 && idx < GARDEN_PLOTS)) return;
-      const g = gardenOf(player.accountKey);
+      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
+      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
       const p = g[idx];
       if (!p) { send(ws, { type: 'garden_error', message: 'That bed is empty.' }); return; }
       if (Date.now() - p.plantedAt >= GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'That bed is already grown — just harvest it.' }); return; }
@@ -15080,6 +15109,7 @@ global.__testHooks = {
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
+  gardenStateBody, gardenPlotsFor,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
