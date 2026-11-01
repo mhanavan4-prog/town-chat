@@ -3,7 +3,21 @@
 > A personal, decoratable home each player owns — furnish it, grow a window-box,
 > and let covenmates visit. The highest-retention, best-compounding big feature
 > for a cozy witch-town, and the next big home for the cosmetic/premium runway.
-> Status: **blueprint / not built.** This document is the plan, not code.
+> Status: **blueprint / not built — direction locked.**
+>
+> **Decisions locked (Nov 2026):**
+> - **Instanced, not a shared plot town.** Each player owns a private instanced
+>   cottage (reusing the Manor's per-account instancing). Infinite scale, no plot
+>   scarcity, no griefing; the "quiet town" feel comes from a cozy instanced lane
+>   + visiting, not a contested shared map.
+> - **Free to own, premium to decorate.** Every player gets a free starter
+>   cottage (the retention hook must reach everyone). Money monetizes the
+>   furniture/theme runway — expression, never access, never stats. (No pay-to-win.)
+> - **Assets:** the connected KayKit collection includes a **Furniture Bits**
+>   pack, so real furniture models are available — but per §3d we still start with
+>   tinted primitives and swap meshes in incrementally.
+> - **Build order unchanged:** persistence + placement (with a test) FIRST, before
+>   any rendering (§6).
 
 ## 1. Vision & pillars
 

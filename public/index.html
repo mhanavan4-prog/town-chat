@@ -685,7 +685,7 @@
      Short menus simply have room to spare; the Book of Shadows fills it. */
   body:not(.touchMode) #bookModal, body:not(.touchMode) #familiarModal,
   body:not(.touchMode) #guiseModal, body:not(.touchMode) #pathModal,
-  body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal,
+  body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal, body:not(.touchMode) #homeModal,
   body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
   body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal,
   body:not(.touchMode) #journalModal, body:not(.touchMode) #skillsModal,
@@ -803,6 +803,27 @@
   .gardenSeed.disabled { opacity:0.38; cursor:default; }
   .gpReady { background:#2a5a2a; color:#dfffdf; border:1px solid #4a8a4a; padding:6px 14px; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700; }
   .gpGrow { font-size:12px; color:#bcd0bc; }
+  /* ── Player housing: the cottage grid editor ───────────────────────────── */
+  #homeModal { width:min(380px, 92vw); max-height:84vh; overflow-y:auto; }
+  .homeHint { font-size:11.5px; color:#dcccb0; line-height:1.45; margin-bottom:9px; }
+  .homeGridWrap { display:flex; justify-content:center; margin-bottom:10px; }
+  .homeGrid { display:grid; gap:2px; background:rgba(184,142,62,0.25); border:2px solid rgba(184,142,62,0.45); border-radius:8px; padding:3px; touch-action:manipulation; }
+  .homeCell { background:rgba(40,30,22,0.55); border-radius:3px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
+  .homeCell:hover { background:rgba(60,46,32,0.7); }
+  .homeCell.occ { background:linear-gradient(160deg,rgba(70,54,36,0.9),rgba(48,36,24,0.9)); }
+  .homeCell.sel { outline:2px solid #ffd43b; outline-offset:-2px; z-index:2; }
+  .homeCell .hpIco { font-size:16px; line-height:1; pointer-events:none; }
+  .homeCell.ghostOk { background:rgba(110,216,122,0.3); }
+  .homeCell.ghostBad { background:rgba(230,90,90,0.3); }
+  .homePalette { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
+  .homePiece { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:52px; padding:6px 4px; background:rgba(26,19,12,0.55); border:1px solid rgba(184,142,62,0.3); border-radius:9px; cursor:pointer; }
+  .homePiece.on { border-color:#ffd43b; background:rgba(60,46,20,0.6); }
+  .homePiece .hpIco { font-size:20px; }
+  .homePiece .hpName { font-size:9.5px; color:#cbb98f; text-align:center; line-height:1.1; }
+  .homeToolbar { display:flex; gap:7px; margin-bottom:9px; }
+  .homeToolbar button { flex:1; background:rgba(40,30,22,0.7); border:1px solid rgba(184,142,62,0.4); color:#ecd9a8; font-size:12px; font-weight:700; padding:7px; border-radius:8px; cursor:pointer; }
+  .homeToolbar button:disabled { opacity:0.4; cursor:default; }
+  .homeToolbar button:not(:disabled):hover { filter:brightness(1.12); }
   /* Mother Yarrow's chapter-aware greeting atop the garden panel */
   .yarrowSays { background:linear-gradient(180deg,rgba(28,19,36,0.6),rgba(16,11,24,0.6)); border:1px solid rgba(184,142,62,0.3); border-left:3px solid rgba(184,142,62,0.55); border-radius:10px; padding:8px 12px; margin-bottom:9px; }
   .yarrowSays .ysWho { font-family:Georgia,'Times New Roman',serif; font-weight:800; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:#d8b86a; margin-bottom:2px; }
@@ -2550,6 +2571,7 @@
       <button class="menuRow" id="menuPath">🧙‍♀️ Witch Path</button>
       <button class="menuRow" id="menuFamiliar">🐈‍⬛ Familiar</button>
       <button class="menuRow" id="menuGarden">🌱 Garden</button>
+      <button class="menuRow" id="menuHome">🏠 Home</button>
       <button class="menuRow" id="menuKitchen">🍵 Kitchen</button>
       <button class="menuRow" id="menuBook">📖 Book of Shadows</button>
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
@@ -3633,6 +3655,14 @@
   </div>
   <div id="gardenContent"></div>
   <button class="btn" id="gardenCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="homeModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🏠 Your Cottage</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="homeContent"></div>
+  <button class="btn" id="homeCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="kitchenModal" class="floatPanel hidden">

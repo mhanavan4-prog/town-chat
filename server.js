@@ -4416,6 +4416,84 @@ function almanacStateBody(player) {
   return { categories, discovered: ALMANAC_PLANT_IDS.filter((id) => found.has(id)).length, total: ALMANAC_PLANT_IDS.length };
 }
 
+// ── Player housing (slice 1): the home layout ───────────────────────────────
+// Each account owns a cottage — a grid of furniture pieces, stored account-wide
+// as account.home = { pieces: [{ id, x, y, rot }] }. The server owns all
+// placement truth: every placement is validated (piece owned, in bounds, no
+// overlap) before it's saved, the same discipline as inventory/skills. Furniture
+// is cosmetic only. Rendering the cottage in 3D is a later slice; this is the
+// persistence + placement backbone, built and tested first (see the blueprint).
+const { HOME_GRID, FURNITURE, FURNITURE_BY_ID, footprintCells } = require('./data/furniture');
+
+function homeOf(player) {
+  const key = player && player.accountKey;
+  if (!key) return null;
+  const a = accounts[key] || (accounts[key] = {});
+  if (!a.home || !Array.isArray(a.home.pieces)) a.home = { pieces: [] };
+  return a.home;
+}
+// Which furniture ids this account may place. MVP: every 'default' piece; the
+// runway will add owned craft/premium/earned ids from prog later.
+function ownsFurniture(player, pieceId) {
+  const f = FURNITURE_BY_ID[pieceId];
+  return !!f && f.source === 'default';
+}
+// True if `piece` at (x,y,rot) fits in the grid and clears `occupied` (a Set of
+// "cx,cy" strings). `skipIdx` lets a move ignore the piece's own current cells.
+function homeFits(home, piece, x, y, rot, skipIdx) {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(rot) || rot < 0 || rot > 3) return false;
+  const cells = footprintCells(piece, x, y, rot);
+  for (const [cx, cy] of cells) if (cx < 0 || cy < 0 || cx >= HOME_GRID.w || cy >= HOME_GRID.h) return false;
+  const occ = new Set();
+  home.pieces.forEach((p, i) => {
+    if (i === skipIdx) return;
+    const pf = FURNITURE_BY_ID[p.id];
+    if (pf) for (const [cx, cy] of footprintCells(pf, p.x, p.y, p.rot || 0)) occ.add(cx + ',' + cy);
+  });
+  for (const [cx, cy] of cells) if (occ.has(cx + ',' + cy)) return false;
+  return true;
+}
+function homeStateBody(player) {
+  const home = homeOf(player);
+  if (!home) return null;
+  return {
+    grid: HOME_GRID,
+    pieces: home.pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
+    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, owned: ownsFurniture(player, f.id) })),
+  };
+}
+// Place a new piece; returns { ok } or { ok:false, message }.
+function homePlace(player, pieceId, x, y, rot) {
+  const home = homeOf(player);
+  if (!home) return { ok: false, message: 'Sign in with an account to furnish a home.' };
+  const piece = FURNITURE_BY_ID[pieceId];
+  if (!piece) return { ok: false, message: 'No such furniture.' };
+  if (!ownsFurniture(player, pieceId)) return { ok: false, message: 'You don’t own that piece yet.' };
+  if (home.pieces.length >= 64) return { ok: false, message: 'Your cottage is full.' };
+  if (!homeFits(home, piece, x, y, rot | 0)) return { ok: false, message: 'It won’t fit there.' };
+  home.pieces.push({ id: pieceId, x, y, rot: rot | 0 });
+  try { saveAccounts(); } catch (e) {}
+  return { ok: true };
+}
+// Move an existing piece (by index) to a new spot/rotation.
+function homeMove(player, idx, x, y, rot) {
+  const home = homeOf(player);
+  if (!home || !home.pieces[idx]) return { ok: false, message: 'Nothing there to move.' };
+  const piece = FURNITURE_BY_ID[home.pieces[idx].id];
+  if (!piece) return { ok: false, message: 'Unknown piece.' };
+  if (!homeFits(home, piece, x, y, rot | 0, idx)) return { ok: false, message: 'It won’t fit there.' };
+  home.pieces[idx] = { id: home.pieces[idx].id, x, y, rot: rot | 0 };
+  try { saveAccounts(); } catch (e) {}
+  return { ok: true };
+}
+function homeRemove(player, idx) {
+  const home = homeOf(player);
+  if (!home || !home.pieces[idx]) return { ok: false };
+  home.pieces.splice(idx, 1);
+  try { saveAccounts(); } catch (e) {}
+  return { ok: true };
+}
+
 // ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
 function teaStateBody(player) {
   const key = player && player.accountKey;
@@ -14015,6 +14093,30 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
       return;
     }
+
+    // ── Player housing (slice 1): the cottage layout editor ──
+    if (msg.type === 'home_state') {
+      if (!player.accountKey) { send(ws, { type: 'home_state', grid: HOME_GRID, pieces: [], catalog: [] }); return; }
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
+    if (msg.type === 'home_place') {
+      const r = homePlace(player, String(msg.pieceId || ''), msg.x | 0, msg.y | 0, msg.rot | 0);
+      if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t place that.' }); return; }
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
+    if (msg.type === 'home_move') {
+      const r = homeMove(player, msg.idx | 0, msg.x | 0, msg.y | 0, msg.rot | 0);
+      if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t move that.' }); return; }
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
+    if (msg.type === 'home_remove') {
+      const r = homeRemove(player, msg.idx | 0);
+      if (r.ok) send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
     if (msg.type === 'garden_plant') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
       const idx = Math.floor(Number(msg.plotIndex));
@@ -15114,6 +15216,7 @@ global.__testHooks = {
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
+  homeStateBody, homePlace, homeMove, homeRemove, homeOf, HOME_GRID, FURNITURE,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
