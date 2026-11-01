@@ -9993,6 +9993,9 @@ let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlo
 let cottageScene, cottageCamera;
 let lastCottageLayout = null;       // the most recent {grid,pieces,catalog} we rendered
 const cottagePlacedProps = [];      // THREE objects we've placed, cleared on each refresh
+let cottageWalls = [];              // {x,y,w,h} collider rects for solid furniture (x,y in world x/z)
+// Furniture you can walk through: flat floor coverings and wall-mounted pieces.
+const COTTAGE_NONSOLID = new Set(['rug', 'wall_charm']);
 const COTTAGE_WORLD = { width: 1140, height: 1140, buildings: [], spawn: { x: 570, y: 1070 } };
 const COTTAGE_CELL = 120;           // world units per grid cell
 const COTTAGE_ORIGIN = 90;          // the grid's top-left inset from the wall
@@ -10853,7 +10856,7 @@ function swapToCottageMap() {
   if (!cottageScene) { try { buildCottageScene(); } catch (e) { console.error('buildCottageScene failed:', e); } } // lazy: first entry
   if (!cottageScene || activeScene === cottageScene) return;
   world = COTTAGE_WORLD;
-  walls = [];
+  walls = cottageWalls; // solid furniture colliders (rebuilt by renderCottageFurniture)
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(cottageScene, cottageCamera, null);
@@ -10880,7 +10883,8 @@ function renderCottageFurniture(layout) {
     o.traverse && o.traverse((c) => { if (c.geometry) c.geometry.dispose && c.geometry.dispose(); if (c.material) { const m = c.material; if (m.map) m.map.dispose && m.map.dispose(); m.dispose && m.dispose(); } });
   }
   cottagePlacedProps.length = 0;
-  if (!st || !Array.isArray(st.pieces)) return;
+  const newWalls = [];
+  if (!st || !Array.isArray(st.pieces)) { cottageWalls = newWalls; if (activeScene === cottageScene) walls = cottageWalls; return; }
   const byId = {};
   for (const c of (st.catalog || [])) byId[c.id] = c;
   const gw = (st.grid && st.grid.w) || 8;
@@ -10902,7 +10906,8 @@ function renderCottageFurniture(layout) {
     // door, so pieces there stay put rather than blocking the entrance.)
     const minx = Math.min(...cells.map((c) => c[0])), maxx = Math.max(...cells.map((c) => c[0]));
     const miny = Math.min(...cells.map((c) => c[1]));
-    if (miny === 0 || minx === 0 || maxx === gw - 1) {
+    const onEdge = (miny === 0 || minx === 0 || maxx === gw - 1);
+    if (onEdge) {
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
       if (isFinite(box.min.z)) {
@@ -10913,7 +10918,22 @@ function renderCottageFurniture(layout) {
     }
     cottageScene.add(obj);
     cottagePlacedProps.push(obj);
+    // Solid pieces get a collider matching their real rendered footprint, so you
+    // bump into the bed and the hearth instead of walking through them. Rugs and
+    // the wall charm stay walk-through (flat / wall-mounted).
+    if (!COTTAGE_NONSOLID.has(pc.id)) {
+      obj.updateMatrixWorld(true);
+      const fb = new THREE.Box3().setFromObject(obj);
+      if (isFinite(fb.min.x) && isFinite(fb.min.z)) {
+        const INSET = 4; // a hair smaller than the model so you slide along, not snag
+        const rx = fb.min.x + INSET, rz = fb.min.z + INSET;
+        const rw = (fb.max.x - fb.min.x) - INSET * 2, rh = (fb.max.z - fb.min.z) - INSET * 2;
+        if (rw > 2 && rh > 2) newWalls.push({ x: rx, y: rz, w: rw, h: rh });
+      }
+    }
   }
+  cottageWalls = newWalls;
+  if (activeScene === cottageScene) walls = cottageWalls;
 }
 
 // A minimal fallback so a never-opened-editor layout can still name footprints.
@@ -16544,8 +16564,11 @@ function updateOutdoor(stepX, stepY) {
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
   if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || world === COTTAGE_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor' || me.room === 'cottage') {
-    if (!collides(nx, me.y)) me.x = nx;
-    if (!collides(me.x, ny)) me.y = ny;
+    // If you're already overlapping a collider (e.g. you placed furniture right
+    // where you stand), don't lock up — let the move through so you can walk out.
+    const stuck = collides(me.x, me.y);
+    if (stuck || !collides(nx, me.y)) me.x = nx;
+    if (stuck || !collides(me.x, ny)) me.y = ny;
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
