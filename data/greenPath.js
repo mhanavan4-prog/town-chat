@@ -71,6 +71,16 @@ const GREEN_PATH = [
     objective: { type: 'garden_harvest', target: 3, label: 'Harvest from your beds three times' },
     outro: 'Three cuttings, and the beds already ask for more. Yarrow presses sun-orange seeds into your hand. "Calendula. Grows toward the light, mends what’s torn. A good next thing to learn."',
     xpReward: 60, goldReward: 30, itemRewards: [{ itemId: 'calendula', qty: 3 }]
+  },
+  {
+    id: 'gp3', title: 'Hearth and Healing', band: 'cottage', requiresLevel: 5,
+    objective: { type: 'garden_brew', target: 1, label: "Brew any remedy at Hazel's cauldron" },
+    outro: 'Steam curls from the pot and the cottage smells of healing. "You’ve the hands for it," says Mother Yarrow, and loads your arms with seed — comfrey to knit the bone, lemon balm to ease the heart, feverfew for the fever, lavender for peace. "The whole cottage garden is yours now."',
+    xpReward: 100, goldReward: 50,
+    itemRewards: [
+      { itemId: 'comfrey', qty: 3 }, { itemId: 'lemon_balm', qty: 3 },
+      { itemId: 'feverfew', qty: 3 }, { itemId: 'lavender', qty: 3 }
+    ]
   }
 ];
 
