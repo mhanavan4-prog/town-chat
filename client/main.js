@@ -10061,6 +10061,7 @@ const FAMILIARS_CLIENT = {
   raven: { name: 'Raven', emoji: '🐦‍⬛', blurb: '+10% XP gained' },
   toad: { name: 'Toad', emoji: '🐸', blurb: '+25 max health' },
   hare: { name: 'Hare', emoji: '🐇', blurb: '+10% move speed' },
+  bat: { name: 'Bat', emoji: '🦇', blurb: '+6% lifesteal' },
 };
 // undefined = not yet heard from the server (fall back to the live stream);
 // null = explicitly dismissed. Distinguishing them keeps "No familiar" from
@@ -10079,7 +10080,7 @@ function renderFamiliarModal() {
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = (myFamiliar !== undefined) ? myFamiliar : ((me && players[me.id] && players[me.id].familiar) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div><div class="menuCols">';
-  for (const id of ['cat', 'raven', 'toad', 'hare']) {
+  for (const id of ['cat', 'raven', 'toad', 'hare', 'bat']) {
     const f = FAMILIARS_CLIENT[id];
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div></span></div>`;
   }

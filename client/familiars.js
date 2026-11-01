@@ -54,7 +54,20 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
     const tail = new THREE.Mesh(new THREE.SphereGeometry(1.2, 6, 6), pale); tail.position.set(0, 4.5, -3.4); g.add(tail);
     return g;
   }
-  const BUILDERS = { cat: makeCat, raven: makeRaven, toad: makeToad, hare: makeHare };
+  function makeBat(coat) {
+    const g = new THREE.Group();
+    const membrane = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x2a1f30) });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 8), membrane); body.scale.set(1, 1.1, 1.2); body.position.y = 7; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 8), membrane); head.position.set(0, 8.4, 0.8); g.add(head);
+    // Two pointed ears and two wide, thin wings swept back.
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.8, 4), membrane); ear.position.set(s * 0.8, 9.6, 0.6); g.add(ear);
+      const wing = new THREE.Mesh(new THREE.SphereGeometry(3.6, 7, 6), membrane); wing.scale.set(1.5, 0.12, 0.9); wing.position.set(s * 3.6, 7, -0.4); wing.rotation.z = s * -0.25; g.add(wing);
+      const eye = glow(0xffd36a, 0.35); eye.position.set(s * 0.6, 8.6, 1.9); g.add(eye);
+    }
+    return g;
+  }
+  const BUILDERS = { cat: makeCat, raven: makeRaven, toad: makeToad, hare: makeHare, bat: makeBat };
 
   function removeRec(id) {
     const r = pool[id];
@@ -102,7 +115,8 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
       r.z += (tz - r.z) * f;
       r.y += (gp.y - r.y) * f;
       r.phase += dt * 6;
-      const hop = p.familiar === 'hare' ? Math.abs(Math.sin(r.phase)) * 3 : p.familiar === 'raven' ? 6 + Math.sin(r.phase) * 1.5 : Math.abs(Math.sin(r.phase)) * 1.2;
+      const flyer = p.familiar === 'raven' || p.familiar === 'bat';
+      const hop = p.familiar === 'hare' ? Math.abs(Math.sin(r.phase)) * 3 : flyer ? 6 + Math.sin(r.phase) * 1.5 : Math.abs(Math.sin(r.phase)) * 1.2;
       r.group.position.set(r.x, r.y + hop, r.z);
       // Face the way it's heading.
       const dx = gp.x - r.x, dz = gp.z - r.z;
