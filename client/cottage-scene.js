@@ -33,19 +33,14 @@ function buildCottageScene() {
   warm.position.set(W / 2, 130, D / 2);
   scene.add(warm);
 
-  // ── Floor: warm wood planks + darker seams so it doesn't read as one sheet ──
-  const plankMat = new THREE.MeshLambertMaterial({ color: 0x4a3420 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), plankMat);
+  // ── Floor: warm wood planks. The plank seams are BAKED into one texture on a
+  // single plane, not separate strips just above the floor — those coplanar
+  // strips z-fought the floor at grazing angles and showed as "zebra" banding. ──
+  const floorMat = new THREE.MeshLambertMaterial({ map: makeCottageFloorTexture() });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(W / 2, 0, D / 2);
   scene.add(floor);
-  const seamMat = new THREE.MeshBasicMaterial({ color: 0x33230f });
-  for (let z = 60; z < D; z += 60) {
-    const seam = new THREE.Mesh(new THREE.PlaneGeometry(W, 2), seamMat);
-    seam.rotation.x = -Math.PI / 2;
-    seam.position.set(W / 2, 0.5, z);
-    scene.add(seam);
-  }
 
   // ── Plaster + timber walls: four sides, the south wall split for the door ──
   const plasterMat = new THREE.MeshLambertMaterial({ color: 0x6b513a });
@@ -97,6 +92,28 @@ function buildCottageScene() {
   scene.add(sign);
 
   return scene;
+}
+
+// A warm plank-floor texture — base wood with darker seam lines and a touch of
+// grain baked in, so the floor reads as boards without any coplanar geometry.
+// Tiled across the floor; mipmapped, so the seams never shimmer at distance.
+function makeCottageFloorTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = '#4a3420'; x.fillRect(0, 0, 128, 128);
+  // faint grain
+  for (let i = 0; i < 48; i++) {
+    x.strokeStyle = `rgba(${90 + Math.random() * 30 | 0},${64 + Math.random() * 24 | 0},36,0.14)`;
+    x.lineWidth = 1; x.beginPath();
+    const yy = Math.random() * 128; x.moveTo(0, yy); x.lineTo(128, yy + (Math.random() * 6 - 3)); x.stroke();
+  }
+  // plank seams — two darker lines per tile
+  x.strokeStyle = '#33230f'; x.lineWidth = 2;
+  for (const yy of [0, 64]) { x.beginPath(); x.moveTo(0, yy + 1); x.lineTo(128, yy + 1); x.stroke(); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(5, 5); // ~ a plank every ~114u across the 1140 floor
+  return tex;
 }
 
   return { buildCottageScene };
