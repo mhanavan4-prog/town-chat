@@ -13,6 +13,7 @@ const FAMILIARS = {
   raven: { name: 'Raven',     emoji: '🐦‍⬛', stat: 'xp',       amount: 0.10, blurb: 'The dead gossip to ravens, and what they learn, you learn — +10% XP.' },
   toad:  { name: 'Toad',      emoji: '🐸',  stat: 'vitality', amount: 25,   blurb: "A toad's old patience steadies the blood — +25 max health." },
   hare:  { name: 'Hare',      emoji: '🐇',  stat: 'swift',    amount: 0.10, blurb: 'Quick as a moonlit hare — +10% move speed.' },
+  bat:   { name: 'Bat',       emoji: '🦇',  stat: 'leech',    amount: 0.06, blurb: 'It drinks what you spill, and shares — heal 6% of the damage you deal.' },
 };
 
 // ── Familiar coats (cosmetic skins) ─────────────────────────────────────────
