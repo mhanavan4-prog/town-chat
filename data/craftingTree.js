@@ -34,6 +34,8 @@ const CRAFT_ITEMS = {
   starforged_blade:  { name: 'Starforged Blade',  icon: '🔪', slot: 'weapon' },
   starforged_aegis:  { name: 'Starforged Aegis',  icon: '🦺', slot: 'chest'  },
   starforged_signet: { name: 'Starforged Signet', icon: '💫', slot: 'ring'   },
+  // ── Arcane: a consumable tome (read once for a skill point, see recipes) ──
+  tome_insight:      { name: 'Tome of Insight',   icon: '📘', slot: null     },
 };
 
 // Stat contributions for the crafted gear (kept at/below relic parity).
@@ -93,6 +95,16 @@ const CRAFT_RECIPES = [
   { id: 'starforged_signet', tier: 3, category: 'Starforged', result: 'starforged_signet',
     ingredients: [{ id: 'warded_band', qty: 1 }, { id: 'spirit_thread', qty: 1 }, { id: 'druid_stone', qty: 1 }, { id: 'ember_glass', qty: 1 }],
     desc: 'Warded Band + Spirit Thread + Druid Stone + Ember Glass → Starforged Signet' },
+
+  // ── Arcane — the Tome of Insight ────────────────────────────────────────
+  // Not gear: read once (use_item) for +1 permanent skill point — a finite,
+  // non-grindable way past the level cap, gated by the WORLD'S RAREST drops
+  // (a dragon's scale, blood of the full moon, a splinter of the Hollow), so
+  // each Tome is a genuine expedition, not a faucet. tier 4 keeps it out of
+  // the Tier-1/2/3 chain rules (it refines raw rarities, not a Tier-2 item).
+  { id: 'tome_insight', tier: 4, category: 'Arcane', result: 'tome_insight',
+    ingredients: [{ id: 'dragon_scale', qty: 2 }, { id: 'bloodmoon_shard', qty: 2 }, { id: 'hollow_shard', qty: 1 }],
+    desc: "2× Dragon Scale + 2× Bloodmoon Shard + Hollow Shard → Tome of Insight (read once for +1 skill point)" },
 ];
 
 // Session O — merge in the purchasable "Artisan" sidegrade recipes (the gold
