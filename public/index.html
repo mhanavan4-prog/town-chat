@@ -1511,15 +1511,17 @@
   body.touchMode #abilityWheel.hidden { display:none; }
   body:not(.touchMode) #abilityWheel { position:fixed; z-index:59; left:50%; bottom:150px; transform:translateX(-50%); width:300px; height:300px; pointer-events:none; }
   body:not(.touchMode) #abilityWheel.hidden { display:none; }
-  /* Landscape phones are short: the full-circle overflow wheel is 300px tall
-     and would clip off the top. Scale it down from the bottom-right thumb
-     corner so the whole ring fits the available height (two tiers for very
-     short viewports). Portrait is untouched. */
+  /* Landscape phones are short: the full-circle overflow + emote wheels are
+     tall and would clip off the top. Scale them down from the bottom-right
+     thumb corner so the whole ring fits the available height (two tiers for
+     very short viewports). Portrait is untouched. */
   @media (orientation: landscape) and (max-height: 540px) {
-    body.touchMode #abilityWheel { transform:scale(0.72); transform-origin:right bottom; }
+    body.touchMode #abilityWheel,
+    body.touchMode #emoteWheel { transform:scale(0.72); transform-origin:right bottom; }
   }
   @media (orientation: landscape) and (max-height: 430px) {
-    body.touchMode #abilityWheel { transform:scale(0.6); transform-origin:right bottom; }
+    body.touchMode #abilityWheel,
+    body.touchMode #emoteWheel { transform:scale(0.6); transform-origin:right bottom; }
   }
   .awBtn {
     position:absolute; pointer-events:auto; width:56px; height:56px; border-radius:50%;
