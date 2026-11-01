@@ -1541,7 +1541,11 @@ const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomi
   'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil',
   // Hedge & Wild band (chapter-granted + garden-grown).
   'vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry',
-  'vervain_charm', 'wormwood_bitters', 'rue_water', 'st_johns_oil', 'rowan_charm']);
+  'vervain_charm', 'wormwood_bitters', 'rue_water', 'st_johns_oil', 'rowan_charm',
+  // Poison Path band (chapter-granted + garden-grown).
+  'belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore',
+  'flying_ointment', 'henbane_smoke', 'mandrake_draught', 'wolfsbane_draught', 'datura_trance',
+  'hemlock_philter', 'foxglove_cordial', 'hellebore_ward', 'draught_of_the_green_path']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];

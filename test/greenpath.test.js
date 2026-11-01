@@ -54,11 +54,19 @@ check('the Hedge band is chapters 4–6 (seed_found, harvest, brew — gated 8/1
   return GREEN_PATH[3].objective.type === 'seed_found' && GREEN_PATH[3].requiresLevel === 8 &&
     GREEN_PATH[4].objective.type === 'garden_harvest' && GREEN_PATH[4].requiresLevel === 11 &&
     GREEN_PATH[5].objective.type === 'garden_brew' && GREEN_PATH[5].requiresLevel === 14 &&
-    GREEN_PATH.slice(3).every((c) => c.band === 'hedge');
+    GREEN_PATH.slice(3, 6).every((c) => c.band === 'hedge');
 })());
 check('the Hedge chapters grant the five remaining Hedge herbs', (() => {
-  const grants = GREEN_PATH.slice(3).flatMap((c) => (c.itemRewards || []).map((r) => r.itemId));
+  const grants = GREEN_PATH.slice(3, 6).flatMap((c) => (c.itemRewards || []).map((r) => r.itemId));
   return ['vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry'].every((id) => grants.includes(id));
+})());
+check('the nine-chapter path ends with the baneful Poison Path (7–9)', (() => {
+  return GREEN_PATH.length === 9 && GREEN_PATH.slice(6).every((c) => c.band === 'baneful') &&
+    GREEN_PATH[6].requiresLevel === 17 && GREEN_PATH[8].requiresLevel === 20;
+})());
+check('the Poison Path grants all eight baneful herbs', (() => {
+  const grants = GREEN_PATH.slice(6).flatMap((c) => (c.itemRewards || []).map((r) => r.itemId));
+  return ['belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore'].every((id) => grants.includes(id));
 })());
 
 require('../server.js');
@@ -156,12 +164,41 @@ setTimeout(() => {
   check('Chapter 5 completes to Chapter 6 (Bitter Sight)', s5 && s5.chapter === 5 && s5.title === 'Bitter Sight', s5);
   check('Chapter 5 grants wormwood + rue', h.countItemQty(h.getInventory(g.p), 'wormwood') === 3 && h.countItemQty(h.getInventory(g.p), 'rue') === 3);
 
-  // ── Chapter 6: brew a hedge remedy, level-gated at 14 → completes the Hedge band
+  // ── Chapter 6: brew a hedge remedy, level-gated at 14 → on to the Poison Path
   h.getProgress(g.p).level = 14;
   h.greenPathEvent(g.p, 'garden_brew');
   const s6 = h.greenPathStateBody(g.p);
-  check('brewing completes Chapter 6 and the whole path so far', s6 && s6.done === true && s6.chapter === GREEN_PATH.length, s6);
+  check('finishing Chapter 6 advances to Chapter 7 (The Beautiful Lady)', s6 && s6.done === false && s6.chapter === 6 && s6.title === 'The Beautiful Lady', s6);
   check('Chapter 6 grants st_johns_wort + rowan_berry', h.countItemQty(h.getInventory(g.p), 'st_johns_wort') === 3 && h.countItemQty(h.getInventory(g.p), 'rowan_berry') === 3);
+
+  // ── Chapter 7: tend the dark beds — harvest 7×, level-gated at 17 ─────────────
+  h.getProgress(g.p).level = 17;
+  for (let i = 0; i < 6; i++) h.greenPathEvent(g.p, 'garden_harvest');
+  check('six of seven harvests leaves Chapter 7 in progress', h.greenPathStateBody(g.p).chapter === 6 && h.greenPathStateBody(g.p).progress === 6);
+  h.greenPathEvent(g.p, 'garden_harvest'); // seventh completes it
+  const s7 = h.greenPathStateBody(g.p);
+  check('Chapter 7 completes to Chapter 8 (The Screaming Root)', s7 && s7.chapter === 7 && s7.title === 'The Screaming Root', s7);
+  check('Chapter 7 grants belladonna + henbane', h.countItemQty(h.getInventory(g.p), 'belladonna') === 3 && h.countItemQty(h.getInventory(g.p), 'henbane') === 3);
+
+  // ── Chapter 8: sow a nightshade (garden_plant), level-gated at 19 ─────────────
+  h.getProgress(g.p).level = 19;
+  h.greenPathEvent(g.p, 'garden_plant');
+  const s8 = h.greenPathStateBody(g.p);
+  check('Chapter 8 completes to Chapter 9 (The Witch’s Garden)', s8 && s8.chapter === 8 && s8.title === "The Witch's Garden", s8);
+  check('Chapter 8 grants mandrake + wolfsbane + datura', (() => {
+    const inv = h.getInventory(g.p);
+    return h.countItemQty(inv, 'mandrake') === 3 && h.countItemQty(inv, 'wolfsbane') === 3 && h.countItemQty(inv, 'datura') === 3;
+  })());
+
+  // ── Chapter 9: the final working (garden_brew), level-gated at 20 → completes all
+  h.getProgress(g.p).level = 20;
+  h.greenPathEvent(g.p, 'garden_brew');
+  const s9 = h.greenPathStateBody(g.p);
+  check('brewing completes Chapter 9 — the whole nine-chapter Green Path', s9 && s9.done === true && s9.chapter === GREEN_PATH.length && GREEN_PATH.length === 9, s9);
+  check('Chapter 9 grants hemlock + foxglove + black_hellebore', (() => {
+    const inv = h.getInventory(g.p);
+    return h.countItemQty(inv, 'hemlock') === 3 && h.countItemQty(inv, 'foxglove') === 3 && h.countItemQty(inv, 'black_hellebore') === 3;
+  })());
 
   // Further events on a finished path are no-ops (no crash, no extra grants).
   const vervainFinal = h.countItemQty(h.getInventory(g.p), 'vervain');

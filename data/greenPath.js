@@ -104,6 +104,29 @@ const GREEN_PATH = [
     outro: 'The bitter brew opens something behind your eyes — the hedge, and the Other side of it. "That’s the sight," says Yarrow quietly, and gives you the last of the wild herbs: St. John’s Wort for the sun’s guard, and rowan, the witch-tree’s own ward against ill. "The whole hedge is yours now."',
     xpReward: 240, goldReward: 120,
     itemRewards: [{ itemId: 'st_johns_wort', qty: 3 }, { itemId: 'rowan_berry', qty: 3 }]
+  },
+  // ── The Poison Path (mythic / baneful) — the witch's dark art. The climax.
+  // (In game: trance & warding effects, never anything depicting real harm.)
+  {
+    id: 'gp7', title: 'The Beautiful Lady', band: 'baneful', requiresLevel: 17,
+    objective: { type: 'garden_harvest', target: 7, label: 'Tend the dark beds — harvest seven times' },
+    outro: 'Mother Yarrow studies you a long moment, then unlocks the black cabinet. "You’re ready for the baneful herbs. Belladonna — the beautiful lady — for the sight and the flight. Henbane for the oracle’s madness. Grow them with respect. They don’t forgive carelessness."',
+    xpReward: 300, goldReward: 150,
+    itemRewards: [{ itemId: 'belladonna', qty: 3 }, { itemId: 'henbane', qty: 3 }]
+  },
+  {
+    id: 'gp8', title: 'The Screaming Root', band: 'baneful', requiresLevel: 19,
+    objective: { type: 'garden_plant', target: 1, label: 'Sow a nightshade of your own' },
+    outro: 'The seed goes down and the ground seems to listen. "Now the deep ones," says Yarrow — "mandrake, the screaming root, for power and command; wolfsbane for the shapeshifter; datura for the deepest trance. And the old recipe: the flying ointment itself."',
+    xpReward: 380, goldReward: 190,
+    itemRewards: [{ itemId: 'mandrake', qty: 3 }, { itemId: 'wolfsbane', qty: 3 }, { itemId: 'datura', qty: 3 }]
+  },
+  {
+    id: 'gp9', title: "The Witch's Garden", band: 'baneful', requiresLevel: 20,
+    objective: { type: 'garden_brew', target: 1, label: 'Brew a baneful draught — the final working' },
+    outro: 'The cauldron settles, and so does something in you. Mother Yarrow presses the last three seeds into your palm — hemlock, foxglove, black hellebore — and steps back. "There’s nothing left to teach you. The whole green path is yours now, cottage to poison. You’re a green witch true." Brew Belladonna, Henbane and Mandrake together for the Draught of the Green Path — the green witch sees all.',
+    xpReward: 500, goldReward: 250,
+    itemRewards: [{ itemId: 'hemlock', qty: 3 }, { itemId: 'foxglove', qty: 3 }, { itemId: 'black_hellebore', qty: 3 }]
   }
 ];
 
