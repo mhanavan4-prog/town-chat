@@ -11086,6 +11086,7 @@ const { buildWildsScene } = createWildsScene({
   KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeFlowerPatch, makePlantBloom, // Mother Yarrow's garden plot (the Green Path)
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
@@ -15468,6 +15469,7 @@ function tryInteract() {
   if (kiosk && kiosk.node === 'ember_node') { ws.send(JSON.stringify({ type: 'harvest_ember_node', nodeId: kiosk.nodeId })); return; }
   if (kiosk && kiosk.witch === 'hazel') { ws.send(JSON.stringify({ type: 'witch_talk' })); return; }
   if (kiosk && kiosk.npc === 'artificer') { openWorkshopModal(); return; } // the Artificer's forge in the Wildlands Village
+  if (kiosk && kiosk.npc === 'yarrow') { openGardenModal(); return; } // Mother Yarrow's garden plot — the Green Path
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
@@ -15694,6 +15696,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'artificer') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} work the Artificer's forge`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'yarrow') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} tend Mother Yarrow's garden`;
     return;
   }
   if (kiosk && kiosk.npc === 'npc') {

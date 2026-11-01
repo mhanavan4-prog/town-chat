@@ -6,7 +6,7 @@
 // quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
-export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -466,6 +466,45 @@ function addVillageBuildings(scene) {
   const forgeSign = makeSignSprite('🔨 Artificer\'s Workshop — Press F');
   forgeSign.position.set(AFX + 30, 118, AFZ); scene.add(forgeSign);
   WILDS_KIOSKS.push({ x: AFX + 10, z: AFZ + 40, npc: 'artificer', radius: 120 });
+
+  // ── Mother Yarrow's garden — the Green Path's hedgewitch, on her own fenced
+  // plot just north-west of the Artificer's forge. A low KayKit fence rings a
+  // little bed of flowers and growing herbs; walking up and pressing F opens the
+  // Garden (and its Almanac), the same UI as the menu. Placed clear of the hall
+  // (center) and the forge-tower (east). ──
+  const GX = VX + 430, GZ = VZ - 320;        // the garden plot center
+  const GW = 150, GH = 120;                   // half-extents of the fenced bed
+  // A three-sided fence (open on the south, where players approach Yarrow).
+  if (hasKK && hasKK('prop_fence')) {
+    const fencePost = (fx, fz, rot) => { try { kkPlace(scene, 'prop_fence', fx, fz, 56, rot, 'fit'); } catch (e) {} };
+    for (let x = -GW; x <= GW; x += 50) { fencePost(GX + x, GZ - GH, 0); }          // north rail
+    for (let z = -GH; z <= GH - 30; z += 50) { fencePost(GX - GW, GZ + z, Math.PI / 2); fencePost(GX + GW, GZ + z, Math.PI / 2); } // east/west rails
+  }
+  // Flower beds + growing herbs inside the plot (procedural, always present).
+  const gardenColors = [0xff8fb3, 0xf4c838, 0xc07ad0, 0xffffff, 0xff9a3c, 0x9a7bc8];
+  try {
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        const px = GX - 90 + c * 60 + (r % 2 ? 14 : 0);
+        const pz = GZ - 70 + r * 52;
+        const col = gardenColors[(r * 4 + c) % gardenColors.length];
+        if ((r + c) % 2 === 0 && makeFlowerPatch) { const fp = makeFlowerPatch(px, pz, 1.1); if (fp) scene.add(fp); }
+        else if (makePlantBloom) { const pb = makePlantBloom(px, pz, col, false); if (pb) scene.add(pb); }
+      }
+    }
+  } catch (e) { /* decorative only */ }
+  // Mother Yarrow herself — a hooded hedgewitch (charId 2), at the south edge of
+  // her bed, facing the players who walk up from the village commons.
+  const myX = GX, myZ = GZ + GH - 6;
+  try {
+    const yarrow = createHumanoid(2).group;
+    yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow);
+  } catch (e) { /* model may still be streaming */ }
+  const yarrowLabel = makeNpcNameSprite('🌿 Mother Yarrow');
+  yarrowLabel.position.set(myX, 60, myZ); scene.add(yarrowLabel);
+  const gardenSign = makeSignSprite('🌿 Mother Yarrow — the Green Path · Press F');
+  gardenSign.position.set(myX, 104, myZ); scene.add(gardenSign);
+  WILDS_KIOSKS.push({ x: myX, z: myZ, npc: 'yarrow', radius: 110 });
 
   // ── Fire pit (SW courtyard, clear of the hall and the Artificer's east plot)
   const FPX = VX - 230, FPZ = VZ + 360;
