@@ -199,4 +199,27 @@ function resolveLook(charId, ap) {
   };
 }
 
-module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook };
+// ── Name colors (chat + nameplate flair) ────────────────────────────────────
+// The most visible cosmetic — your name in every chat line and over your head.
+// 'default' is your account's own assigned color (always free); the rest are
+// account-wide Moonstone cosmetics. Pure flair: never touches stats.
+const NAME_COLORS = [
+  { id: 'default',  label: 'Natural',   hex: null },            // revert to the assigned color
+  { id: 'rose',     label: 'Rose',      hex: 0xff6f91, ms: 12 },
+  { id: 'amber',    label: 'Amber',     hex: 0xffb44a, ms: 12 },
+  { id: 'gold',     label: 'Gold',      hex: 0xffd94a, ms: 12 },
+  { id: 'jade',     label: 'Jade',      hex: 0x4ee6a8, ms: 12 },
+  { id: 'teal',     label: 'Teal',      hex: 0x4bd6e6, ms: 12 },
+  { id: 'sky',      label: 'Sky',       hex: 0x6fb3ff, ms: 12 },
+  { id: 'violet',   label: 'Violet',    hex: 0xb07cff, ms: 12 },
+  { id: 'magenta',  label: 'Magenta',   hex: 0xff6fe0, ms: 12 },
+  { id: 'crimson',  label: 'Crimson',   hex: 0xff4d5e, ms: 15 },
+  { id: 'spectral', label: 'Spectral',  hex: 0x9afff0, ms: 15 },
+  { id: 'bone',     label: 'Bonelight', hex: 0xf3e7cb, ms: 15 },
+];
+const NAME_COLOR_BY_ID = NAME_COLORS.reduce((o, c) => { o[c.id] = c; return o; }, {});
+// CSS hex for a palette id, or null for 'default' (caller substitutes the
+// account's own assigned color).
+function nameColorHexCss(id) { const c = NAME_COLOR_BY_ID[id]; return (c && c.hex != null) ? '#' + c.hex.toString(16).padStart(6, '0') : null; }
+
+module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss };

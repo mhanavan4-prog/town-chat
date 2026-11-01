@@ -1213,7 +1213,7 @@ function onWsMessage(ev) {
       }
     }
     myMoonstones = msg.moonstones || 0;
-    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [] };
+    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
@@ -1841,6 +1841,15 @@ function onWsMessage(ev) {
     if (!myWardrobe.dyesPurchased) myWardrobe.dyesPurchased = [];
     if (myWardrobe.dyesPurchased.indexOf(msg.dye) === -1) myWardrobe.dyesPurchased.push(msg.dye);
     setUnlockToast('🎨 New dye unlocked!');
+    if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
+    return;
+  }
+  if (msg.type === 'name_color_set') {
+    // Name color equipped (and bought if it was premium). Record ownership +
+    // the worn id; the live nameplate/chat color updates from server state.
+    myWardrobe.nameColorsOwned = msg.owned || myWardrobe.nameColorsOwned || [];
+    myWardrobe.nameColor = msg.colorId;
+    setUnlockToast('🎨 Name color set!');
     if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
@@ -13341,6 +13350,21 @@ const { openNotifModal } = _notif;
       return '<button class="wrDye' + (on ? ' on' : '') + '" data-dye="' + d.id + '" data-slot="' + slot + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + d.label + '</span></button>';
     }).join('');
   }
+  // One row of name-color swatches. Owned/default chips equip on click; locked
+  // premium chips show their 💎 price and buy-then-equip on click (server-side).
+  function nameColorRow() {
+    const owned = myWardrobe.nameColorsOwned || [];
+    const cur = myWardrobe.nameColor || 'default';
+    return (myWardrobe.nameColors || []).map((c) => {
+      const sw = (c.hex == null)
+        ? 'background:linear-gradient(135deg,#2a2140 50%,#4a3f66 50%)'
+        : 'background:#' + c.hex.toString(16).padStart(6, '0');
+      const isOwned = !c.ms || owned.indexOf(c.id) !== -1;
+      if (!isOwned) return '<button class="wrDye buy" data-namecolor="' + c.id + '" title="' + c.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + c.ms + '💎</span></button>';
+      const on = cur === c.id;
+      return '<button class="wrDye' + (on ? ' on' : '') + '" data-namecolor="' + c.id + '" title="' + c.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + c.label + '</span></button>';
+    }).join('');
+  }
   function renderWardrobe() {
     const me = meRec(); const list = document.getElementById('wardrobeList');
     if (!me || !list) return;
@@ -13365,6 +13389,8 @@ const { openNotifModal } = _notif;
     // (hat/cape) tint. Shared account-wide palette; head/face stay natural.
     h += '<div class="wrSec">Outfit color</div><div class="wrDyes">' + dyeRow(me, 'dyeBody', ap.dyeBody) + '</div>';
     h += '<div class="wrSec">Accent color</div><div class="wrDyes">' + dyeRow(me, 'dyeAccent', ap.dyeAccent) + '</div>';
+    // Name color (chat + nameplate flair) — account-wide, server-sourced palette.
+    h += '<div class="wrSec">Name color</div><div class="wrDyes">' + nameColorRow() + '</div>';
     h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. The <b>Finery</b> line (gold swatches) is bought with gold. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
@@ -13381,6 +13407,9 @@ const { openNotifModal } = _notif;
     }));
     list.querySelectorAll('[data-buydye]').forEach((b) => b.addEventListener('click', () => {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'buy_dye', dye: b.getAttribute('data-buydye') }));
+    }));
+    list.querySelectorAll('[data-namecolor]').forEach((b) => b.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_name_color', colorId: b.getAttribute('data-namecolor') }));
     }));
   }
   function applyWardrobe(change) {
