@@ -1660,7 +1660,7 @@ setInterval(() => {
 }, 30000);
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor', 'cottage'].forEach(r => ROOM_IDS.add(r));
 // Open-air areas share the global WORLD channel; every other room is an
 // interior with its own private, occupants-only chat tab (see the 'chat'
 // handler + room backlog replay). A "building room" is any known room that
@@ -7974,6 +7974,14 @@ const MANOR_INTERIOR = { width: 1120, height: 1120 }; // roomy hall — 4× the 
 const MANOR_SPAWN = { x: 560, y: 1040 };          // just inside the south door
 const MANOR_BEDROOMS = 8;
 
+// Player housing (slice 2): the cottage interior. An 8×8 furniture grid (see
+// data/furniture.js) laid out on a cozy one-room floor. CELL/ORIGIN mirror the
+// client's placement maths so a piece in grid cell (cx,cy) lands in the same
+// spot in both the 2D editor and the 3D room. Instanced per account — nobody
+// shares your cottage (visiting arrives in a later slice).
+const COTTAGE_INTERIOR = { width: 1140, height: 1140 };
+const COTTAGE_SPAWN = { x: 570, y: 1070 };        // just inside the south door
+
 // ── Altar decorations (the beds became personal witch-altars) ──────────────
 // Each claimed altar displays up to ALTAR_SLOTS adornments the owner arranges.
 // Free pieces are always placeable; the rest are a one-time Moonstone unlock
@@ -9100,6 +9108,7 @@ function roomBounds(room) {
   if (room === 'wilds') return WORLD2;
   if (room === 'witch_cave') return { width: 800, height: 700 };
   if (room === 'manor') return MANOR_INTERIOR;
+  if (room === 'cottage') return COTTAGE_INTERIOR;
   if (room === 'bank_vault') return VAULT_WORLD_DIMS;
   if (room === 'ember_wastes') return EMBER_WORLD_DIMS;
   if (room === 'ember_refuge') return EMBER_REFUGE_DIMS;
@@ -9821,6 +9830,7 @@ wss.on('connection', (ws, req) => {
           || r === 'bank_vault' || r === 'ember_wastes' || r === 'ember_refuge' || WORLD.buildings.some(b => b.id === r);
         if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !canEnterPassRoom(player, player.room))) {
           player.room = 'outside';
+          player.instance = ''; // a cottage/instanced room reset must land you in the public world
           player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
           player.x = WORLD.spawn.x;
           player.y = WORLD.spawn.y;
@@ -13662,6 +13672,38 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── Player housing (slice 2): step into your own cottage ────────────────
+    if (msg.type === 'enter_cottage') {
+      if (player.isDead) return;
+      if (!player.accountKey) { send(ws, { type: 'home_error', message: 'Sign in with an account to visit your cottage.' }); return; }
+      // Enter from the public town square only — keeps instance/return bookkeeping
+      // simple (you're always stepping home from town, and back to it on leaving).
+      if (player.room !== 'outside' || (player.instance || '') !== '') {
+        send(ws, { type: 'home_error', message: 'Head to the town square to step into your cottage.' });
+        return;
+      }
+      player.cottageReturnX = player.x; player.cottageReturnY = player.y;
+      player.room = 'cottage';
+      player.instance = 'home_' + player.accountKey;   // a private copy, yours alone
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = COTTAGE_SPAWN.x; player.y = COTTAGE_SPAWN.y;
+      send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, ...homeStateBody(player) });
+      return;
+    }
+
+    if (msg.type === 'exit_cottage') {
+      if (player.room !== 'cottage') return;
+      const rx = (typeof player.cottageReturnX === 'number') ? player.cottageReturnX : WORLD.spawn.x;
+      const ry = (typeof player.cottageReturnY === 'number') ? player.cottageReturnY : WORLD.spawn.y;
+      player.room = 'outside';
+      player.instance = '';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = rx; player.y = ry;
+      player.cottageReturnX = null; player.cottageReturnY = null;
+      send(ws, { type: 'cottage_exited', x: rx, y: ry });
+      return;
+    }
+
     if (msg.type === 'manor_claim_bedroom') {
       if (player.room !== 'manor') return;
       const cv = player.accountKey && covenOf(player.accountKey);
@@ -14104,17 +14146,19 @@ wss.on('connection', (ws, req) => {
       const r = homePlace(player, String(msg.pieceId || ''), msg.x | 0, msg.y | 0, msg.rot | 0);
       if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t place that.' }); return; }
       send(ws, { type: 'home_state', ...homeStateBody(player) });
+      if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) });
       return;
     }
     if (msg.type === 'home_move') {
       const r = homeMove(player, msg.idx | 0, msg.x | 0, msg.y | 0, msg.rot | 0);
       if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t move that.' }); return; }
       send(ws, { type: 'home_state', ...homeStateBody(player) });
+      if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) });
       return;
     }
     if (msg.type === 'home_remove') {
       const r = homeRemove(player, msg.idx | 0);
-      if (r.ok) send(ws, { type: 'home_state', ...homeStateBody(player) });
+      if (r.ok) { send(ws, { type: 'home_state', ...homeStateBody(player) }); if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) }); }
       return;
     }
     if (msg.type === 'garden_plant') {
@@ -15216,7 +15260,7 @@ global.__testHooks = {
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
-  homeStateBody, homePlace, homeMove, homeRemove, homeOf, HOME_GRID, FURNITURE,
+  homeStateBody, homePlace, homeMove, homeRemove, homeOf, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,

@@ -21,6 +21,7 @@ import createVaultScene from './vault-scene.js';
 import createRefugeScene from './refuge-scene.js';
 import createCaveScene from './cave-scene.js';
 import createManorScene from './manor-scene.js';
+import createCottageScene from './cottage-scene.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -1284,7 +1285,7 @@ function onWsMessage(ev) {
       // Reconnect: scene is already built. Reset the view to the town map
       // first — a resumed player gets swapped back into their restored
       // room just below, and a plain rejoin really is back at the spawn.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === refugeScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === refugeScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene || activeScene === cottageScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -2670,6 +2671,26 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) closeManorChest();
     swapToWildsMap();
     setUnlockToast('You step back out into the Wilds.');
+    return;
+  }
+
+  // ── The cottage (player housing, slice 2) ────────────────────────────────
+  if (msg.type === 'cottage_entered') {
+    if (me) { me.room = 'cottage'; me.instance = 'home'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    swapToCottageMap();
+    renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
+    if (Modals.isOpen('homeOpen')) closeHomeModal();
+    setUnlockToast('🏠 You step into your cottage. Press F at the door to leave; open 🏠 Home to rearrange.');
+    return;
+  }
+  if (msg.type === 'cottage_exited') {
+    if (me) { me.room = 'outside'; me.instance = ''; me.x = msg.x; me.y = msg.y; }
+    swapToTownMap();
+    setUnlockToast('You step back out into the town square.');
+    return;
+  }
+  if (msg.type === 'cottage_layout') {
+    renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
     return;
   }
   if (msg.type === 'manor_state') {
@@ -6350,7 +6371,7 @@ function raycastGroundAt(clientX, clientY) {
 // for whatever room the player is currently in, so a ground click can be
 // sent to the server in the same coordinate space player.x/y already use.
 function sceneToWorldPos(room, sceneX, sceneZ) {
-  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'ember_refuge' || room === 'manor' || !world) {
+  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'ember_refuge' || room === 'manor' || room === 'cottage' || !world) {
     return { x: sceneX, y: sceneZ };
   }
   const b = world.buildings.find(bb => bb.id === room);
@@ -6403,6 +6424,7 @@ function sceneForRoom(room) {
   if (room === 'wilds') return wildsScene || null;
   if (room === 'witch_cave') return caveScene || null;
   if (room === 'manor') return manorScene || null;
+  if (room === 'cottage') return cottageScene || null;
   if (room === 'bank_vault') return vaultScene || null;
   if (room === 'ember_wastes') return emberScene || null;
   if (room === 'ember_refuge') return refugeScene || null;
@@ -8095,7 +8117,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'ember_refuge' || p.room === 'manor' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'ember_refuge' || p.room === 'manor' || p.room === 'cottage' || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -8107,6 +8129,7 @@ function contextMatches(room) {
   if (activeScene === wildsScene) return room === 'wilds';
   if (activeScene === caveScene) return room === 'witch_cave';
   if (activeScene === manorScene) return room === 'manor';
+  if (activeScene === cottageScene) return room === 'cottage';
   if (activeScene === vaultScene) return room === 'bank_vault';
   if (activeScene === emberScene) return room === 'ember_wastes';
   if (activeScene === refugeScene) return room === 'ember_refuge';
@@ -9960,6 +9983,28 @@ const manorBedplates = [];     // slot -> THREE.Sprite (doorplate), rebuilt on s
 let manorAltars = {};          // slot -> [ALTAR_SLOTS] deco ids|null, every claimed altar
 let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlocked
 
+// ── Player housing (slice 2): the cottage interior ──────────────────────────
+// A cozy instanced one-room cottage that renders the furniture you place in the
+// Home grid editor (slice 1). The shell is built by cottage-scene.js; the
+// furniture is placed here (renderCottageFurniture), since this is where the
+// KayKit loader + the catalog→prop map live. COTTAGE_CELL/ORIGIN mirror the
+// server's placement maths exactly so a piece sits in the same spot in the 2D
+// editor and the 3D room.
+let cottageScene, cottageCamera;
+let lastCottageLayout = null;       // the most recent {grid,pieces,catalog} we rendered
+const cottagePlacedProps = [];      // THREE objects we've placed, cleared on each refresh
+const COTTAGE_WORLD = { width: 1140, height: 1140, buildings: [], spawn: { x: 570, y: 1070 } };
+const COTTAGE_CELL = 120;           // world units per grid cell
+const COTTAGE_ORIGIN = 90;          // the grid's top-left inset from the wall
+const COTTAGE_CAM = { back: 150, height: 155, lookUp: 36 };
+const COTTAGE_KIOSKS = [
+  { x: COTTAGE_WORLD.width / 2, z: COTTAGE_WORLD.height - 26, portal: 'cottage_exit' },
+];
+// Grid cell (cx,cy) → world centre of that cell.
+function cottageCellCentre(cx, cy) {
+  return { x: COTTAGE_ORIGIN + cx * COTTAGE_CELL + COTTAGE_CELL / 2, z: COTTAGE_ORIGIN + cy * COTTAGE_CELL + COTTAGE_CELL / 2 };
+}
+
 // ── Altar rituals (mirror of server RITUALS; keep in sync) ──────────────────
 const RITUALS = [
   { id: 'vigor',     name: 'Brew of Vigor',         emoji: '🧪', desc: '+40 max health' },
@@ -10508,6 +10553,7 @@ function renderHomeModal() {
   }
 
   let h = '';
+  h += `<button class="btn homeEnterBtn" data-act="enter">🚪 Step Inside Your Cottage</button>`;
   const inHand = homeSelPalette ? byId[homeSelPalette] : null;
   if (inHand) h += `<div class="homeHint">Holding <b>${escHtml(inHand.name)}</b> — tap a spot to set it down. ↻ turns it first.</div>`;
   else if (homeSelPiece != null && pieces[homeSelPiece]) h += `<div class="homeHint">Selected <b>${escHtml((byId[pieces[homeSelPiece].id] || {}).name || 'piece')}</b> — tap a new spot to move it, or use the buttons below.</div>`;
@@ -10549,6 +10595,8 @@ function renderHomeModal() {
   h += '</div>';
   el.innerHTML = h;
 
+  // Wire the "step inside" button.
+  { const eb = el.querySelector('.homeEnterBtn'); if (eb) eb.addEventListener('click', () => enterCottage()); }
   // Wire the palette.
   el.querySelectorAll('.homePiece').forEach((p) => p.addEventListener('click', () => {
     const id = p.getAttribute('data-piece');
@@ -10792,6 +10840,136 @@ function enterManor() {
 
 function exitManor() {
   ws.send(JSON.stringify({ type: 'exit_manor' }));
+}
+
+// ── The cottage (player housing, slice 2) ───────────────────────────────────
+const { buildCottageScene } = createCottageScene({
+  makeSignSprite, COTTAGE_WORLD,
+  setCottageScene: (s) => { cottageScene = s; },
+  setCottageCamera: (c) => { cottageCamera = c; },
+});
+
+function swapToCottageMap() {
+  if (!cottageScene) { try { buildCottageScene(); } catch (e) { console.error('buildCottageScene failed:', e); } } // lazy: first entry
+  if (!cottageScene || activeScene === cottageScene) return;
+  world = COTTAGE_WORLD;
+  walls = [];
+  cameraYawOffset = 0;
+  cameraPitchOffset = 0;
+  setActiveContext(cottageScene, cottageCamera, null);
+}
+
+function enterCottage() {
+  if (!me || me.isDead) return;
+  ws.send(JSON.stringify({ type: 'enter_cottage' }));
+}
+function exitCottage() {
+  ws.send(JSON.stringify({ type: 'exit_cottage' }));
+}
+
+// Clear and rebuild every furniture prop from the saved layout. Each placed
+// piece maps to a KayKit model (preferred) or a small procedural stand-in,
+// dropped at the world centre of its footprint and turned to its rotation.
+function renderCottageFurniture(layout) {
+  if (!cottageScene) return;
+  lastCottageLayout = layout || lastCottageLayout;
+  const st = lastCottageLayout;
+  // tear down the previous set
+  for (const o of cottagePlacedProps) {
+    cottageScene.remove(o);
+    o.traverse && o.traverse((c) => { if (c.geometry) c.geometry.dispose && c.geometry.dispose(); if (c.material) { const m = c.material; if (m.map) m.map.dispose && m.map.dispose(); m.dispose && m.dispose(); } });
+  }
+  cottagePlacedProps.length = 0;
+  if (!st || !Array.isArray(st.pieces)) return;
+  const byId = {};
+  for (const c of (st.catalog || [])) byId[c.id] = c;
+  for (const pc of st.pieces) {
+    const meta = byId[pc.id] || HOME_CATALOG_FALLBACK[pc.id];
+    if (!meta) continue;
+    // footprint centre (averaged cell centres) so rotation never shifts the piece
+    const cells = homeFootprint(meta, pc.x, pc.y, pc.rot || 0);
+    let sx = 0, sz = 0;
+    for (const [cx, cy] of cells) { const c = cottageCellCentre(cx, cy); sx += c.x; sz += c.z; }
+    const px = sx / cells.length, pz = sz / cells.length;
+    const yaw = -(pc.rot || 0) * Math.PI / 2;
+    const obj = buildCottageProp(pc.id, meta, px, pz, yaw);
+    if (obj) { cottageScene.add(obj); cottagePlacedProps.push(obj); }
+  }
+}
+
+// A minimal fallback so a never-opened-editor layout can still name footprints.
+const HOME_CATALOG_FALLBACK = {
+  rug: { w: 3, h: 2 }, bed: { w: 2, h: 2 }, table: { w: 2, h: 1 }, chair: { w: 1, h: 1 },
+  bookshelf: { w: 2, h: 1 }, hearth: { w: 2, h: 1 }, cauldron: { w: 1, h: 1 },
+  candle_stand: { w: 1, h: 1 }, potted_herb: { w: 1, h: 1 }, wall_charm: { w: 1, h: 1 },
+};
+
+// id → a THREE object for the cottage floor. KayKit models where we have a good
+// match; small procedural props otherwise. Sized so its footprint roughly fills
+// its grid cells (COTTAGE_CELL per cell).
+function buildCottageProp(id, meta, x, z, yaw) {
+  const long = Math.max(meta.w || 1, meta.h || 1) * COTTAGE_CELL * 0.82; // target footprint of the long axis
+  const kk = (key, size, mode) => { const g = KK.staticInstance(key, size, mode || 'fit'); if (g) { g.rotation.y = yaw; g.position.set(x, 0, z); } return g; };
+  let g = null;
+  switch (id) {
+    case 'rug':        g = kk('furn_rug', long, 'fit'); break;
+    case 'table':      g = kk('furn_table', long, 'fit'); break;
+    case 'chair':      g = kk('furn_chair', COTTAGE_CELL * 0.7, 'fit'); break;
+    case 'bookshelf':  g = kk('furn_shelfdec', long, 'fit') || kk('furn_shelf', long, 'fit'); break;
+    case 'cauldron':   g = kk('wprop_cauldron', COTTAGE_CELL * 0.6, 'fit'); break;
+    default: break;
+  }
+  if (g) return g;
+  // ── procedural stand-ins (bed, hearth, candle_stand, potted_herb, wall_charm,
+  // and any KayKit model not yet loaded) ──
+  return buildProceduralProp(id, meta, x, z, yaw);
+}
+
+function buildProceduralProp(id, meta, x, z, yaw) {
+  const g = new THREE.Group();
+  const put = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); g.add(m); return m; };
+  const wood = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
+  const woodDark = new THREE.MeshLambertMaterial({ color: 0x4a3017 });
+  const cw = COTTAGE_CELL;
+  if (id === 'bed') {
+    put(new THREE.BoxGeometry(cw * 1.5, 22, cw * 1.8), woodDark, 0, 11, 0);                 // frame
+    put(new THREE.BoxGeometry(cw * 1.4, 18, cw * 1.6), new THREE.MeshLambertMaterial({ color: 0x8a5a7a }), 0, 30, 6); // mattress
+    put(new THREE.BoxGeometry(cw * 1.2, 16, cw * 0.4), new THREE.MeshLambertMaterial({ color: 0xece0d0 }), 0, 38, -cw * 0.6); // pillow
+    put(new THREE.BoxGeometry(cw * 1.5, 46, 14), woodDark, 0, 23, -cw * 0.85);              // headboard
+  } else if (id === 'hearth') {
+    const stone = new THREE.MeshLambertMaterial({ color: 0x6a5f54 });
+    put(new THREE.BoxGeometry(cw * 1.6, 110, 36), stone, 0, 55, -cw * 0.2);                 // surround
+    put(new THREE.BoxGeometry(cw * 1.1, 70, 26), new THREE.MeshLambertMaterial({ color: 0x2a2018 }), 0, 40, -cw * 0.14); // firebox
+    put(new THREE.BoxGeometry(cw * 1.8, 16, 44), stone, 0, 112, -cw * 0.2);                 // mantle
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(16, 48, 10), new THREE.MeshBasicMaterial({ color: 0xffac3a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fire.position.set(0, 34, -cw * 0.1); fire.onBeforeRender = () => { fire.scale.y = 0.85 + Math.sin(performance.now() * 0.006) * 0.15; }; g.add(fire);
+    const fl = new THREE.PointLight(0xffb060, 1.1, 420, 1.8); fl.position.set(0, 50, 20); g.add(fl);
+  } else if (id === 'candle_stand') {
+    put(new THREE.CylinderGeometry(5, 9, 12, 10), woodDark, 0, 6, 0);                        // base
+    put(new THREE.CylinderGeometry(3, 3.5, 60, 8), new THREE.MeshLambertMaterial({ color: 0x2a2018 }), 0, 38, 0); // post
+    put(new THREE.CylinderGeometry(5, 6, 16, 10), new THREE.MeshLambertMaterial({ color: 0xece0cf }), 0, 74, 0);  // candle
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(3.4, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+    flame.position.set(0, 88, 0); flame.onBeforeRender = () => { flame.scale.y = 0.85 + Math.sin(performance.now() * 0.009) * 0.18; }; g.add(flame);
+    const fl = new THREE.PointLight(0xffcf87, 0.7, 240, 2); fl.position.set(0, 90, 0); g.add(fl);
+  } else if (id === 'potted_herb') {
+    put(new THREE.CylinderGeometry(16, 12, 26, 12), new THREE.MeshLambertMaterial({ color: 0x8a4a2a }), 0, 13, 0); // pot
+    put(new THREE.CylinderGeometry(15, 15, 4, 12), new THREE.MeshLambertMaterial({ color: 0x3a2414 }), 0, 26, 0);  // soil
+    for (const [lx, lz, h] of [[0, 0, 40], [8, 6, 30], [-7, 5, 32], [5, -6, 28]]) {
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(6, h, 6), new THREE.MeshLambertMaterial({ color: 0x5a9a4a }));
+      leaf.position.set(lx, 26 + h / 2, lz); g.add(leaf);
+    }
+  } else if (id === 'wall_charm') {
+    const disc = new THREE.Mesh(new THREE.TorusGeometry(16, 3, 8, 20), new THREE.MeshLambertMaterial({ color: 0xc9a24a }));
+    disc.position.set(0, 100, 0); g.add(disc);
+    const star = new THREE.Mesh(new THREE.CircleGeometry(13, 5), new THREE.MeshBasicMaterial({ color: 0x8e6bff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
+    star.position.set(0, 100, 0.5); g.add(star);
+  } else {
+    // generic crate-ish stand-in for any unmapped piece
+    put(new THREE.BoxGeometry(cw * 0.7, 40, cw * 0.7), wood, 0, 20, 0);
+  }
+  g.rotation.y = yaw;
+  g.position.set(x, 0, z);
+  return g;
 }
 
 // Rebuild the floating doorplate over every bed from the latest ownership map.
@@ -12982,7 +13160,8 @@ function updateCamera(dt) {
   const f = me.facing + cameraYawOffset; // camera-only angle — drag-to-look never touches actual movement facing
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
   const cam = (activeScene === manorScene && !seatedAt) ? MANOR_CAM
-            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene) ? OUTDOOR_CAM
+            : (activeScene === cottageScene && !seatedAt) ? COTTAGE_CAM
+            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene && activeScene !== cottageScene) ? OUTDOOR_CAM
             : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
@@ -13004,6 +13183,7 @@ function updateCamera(dt) {
   let roomW = 0, roomD = 0;
   if (mode === 'indoor' && currentInterior) { roomW = currentInterior.roomW; roomD = currentInterior.roomD; }
   else if (activeScene === manorScene) { roomW = MANOR_WORLD.width; roomD = MANOR_WORLD.height; }
+  else if (activeScene === cottageScene) { roomW = COTTAGE_WORLD.width; roomD = COTTAGE_WORLD.height; }
   else if (activeScene === caveScene)  { roomW = CAVE_WORLD.width;  roomD = CAVE_WORLD.height; }
   else if (activeScene === vaultScene) { roomW = VAULT_WORLD.width; roomD = VAULT_WORLD.height; }
   if (roomW) {
@@ -13170,6 +13350,7 @@ function findNearestKiosk() {
   if (me.room === 'ember_wastes') return nearestKioskIn(EMBER_KIOSKS, me.x, me.y);
   if (me.room === 'ember_refuge') return nearestKioskIn(REFUGE_KIOSKS, me.x, me.y);
   if (me.room === 'manor') return nearestKioskIn(MANOR_KIOSKS, me.x, me.y);
+  if (me.room === 'cottage') return nearestKioskIn(COTTAGE_KIOSKS, me.x, me.y);
   if (activeScene === outdoorScene) return nearestKioskIn(OUTDOOR_KIOSKS, me.x, me.y);
   if (activeScene === wildsScene) return nearestKioskIn(WILDS_KIOSKS, me.x, me.y);
   if (activeScene === dungeonScene) return nearestKioskIn(DUNGEON_KIOSKS, me.x, me.y);
@@ -15643,6 +15824,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
   if (kiosk && kiosk.portal === 'manor_enter') { enterManor(); return; }
   if (kiosk && kiosk.portal === 'manor_exit') { exitManor(); return; }
+  if (kiosk && kiosk.portal === 'cottage_exit') { exitCottage(); return; }
   if (kiosk && Number.isInteger(kiosk.manorBed)) {
     const slot = kiosk.manorBed;
     if (manorYours === slot) openManorChest(slot);                                  // your bed → open its chest
@@ -16342,7 +16524,7 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || world === COTTAGE_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor' || me.room === 'cottage') {
     if (!collides(nx, me.y)) me.x = nx;
     if (!collides(me.x, ny)) me.y = ny;
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
@@ -16350,8 +16532,9 @@ function updateOutdoor(stepX, stepY) {
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
     const inRefuge = world === REFUGE_WORLD || me.room === 'ember_refuge';
     const inManor = world === MANOR_WORLD || me.room === 'manor';
-    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inRefuge ? REFUGE_WORLD.width : inManor ? MANOR_WORLD.width : world.width;
-    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : world.height;
+    const inCottage = world === COTTAGE_WORLD || me.room === 'cottage';
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inRefuge ? REFUGE_WORLD.width : inManor ? MANOR_WORLD.width : inCottage ? COTTAGE_WORLD.width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : inCottage ? COTTAGE_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
     if (inCave) { me.room = 'witch_cave'; }
@@ -16359,6 +16542,7 @@ function updateOutdoor(stepX, stepY) {
     else if (inEmber) { me.room = 'ember_wastes'; }
     else if (inRefuge) { me.room = 'ember_refuge'; }
     else if (inManor) { me.room = 'manor'; }
+    else if (inCottage) { me.room = 'cottage'; }
     else if (world !== DUNGEON_WORLD) { me.room = 'wilds'; }
     maybeUpdateRoomUI(me.room);
     return;
@@ -16688,7 +16872,7 @@ function onTownPulse(msg) {
 // content you don't walk into looking for company, and the Wilds. Everywhere
 // else is part of the social town hub (the square + its buildings).
 function _isContentRoom(r) {
-  return r === 'wilds' || r === 'ember_wastes' || r === 'ember_refuge' || r === 'manor' ||
+  return r === 'wilds' || r === 'ember_wastes' || r === 'ember_refuge' || r === 'manor' || r === 'cottage' ||
     (typeof r === 'string' && r.startsWith('dungeon_'));
 }
 // The wayfinding nudge: only when you're effectively alone in your current hub
