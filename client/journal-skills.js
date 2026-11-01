@@ -117,6 +117,14 @@ function renderSkills() {
     ds.className = 'skillDesc'; ds.textContent = sk.desc;
     main.appendChild(nm); main.appendChild(ds);
     if (sk.mods) main.appendChild(modChips(sk.mods));
+    // A pact `behavior` is a real play-changing combat hook, not a stat — call
+    // it out with its own marked chip so it reads as something new.
+    if (sk.behavior) {
+      const bh = document.createElement('div');
+      bh.className = 'skillBehavior';
+      bh.textContent = '⚡ ' + sk.behavior;
+      main.appendChild(bh);
+    }
     // Rank pips only for multi-rank (core) skills; a pact is all-or-nothing.
     if (sk.maxRank > 1) {
       const pips = document.createElement('div');
