@@ -222,4 +222,22 @@ const NAME_COLOR_BY_ID = NAME_COLORS.reduce((o, c) => { o[c.id] = c; return o; }
 // account's own assigned color).
 function nameColorHexCss(id) { const c = NAME_COLOR_BY_ID[id]; return (c && c.hex != null) ? '#' + c.hex.toString(16).padStart(6, '0') : null; }
 
-module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss };
+// ── Auras (cosmetic glow at a player's feet) ────────────────────────────────
+// Visible in-world to everyone nearby, on every platform. 'none' is free; the
+// rest are account-wide Moonstone cosmetics. Pure flair — no stats, nothing
+// earned is cheapened (it's a brand-new decorative surface).
+const AURAS = [
+  { id: 'none',     label: 'None',     hex: null },
+  { id: 'rose',     label: 'Rose',     hex: 0xff6f91, ms: 15 },
+  { id: 'amber',    label: 'Amber',    hex: 0xffb44a, ms: 15 },
+  { id: 'jade',     label: 'Jade',     hex: 0x4ee6a8, ms: 15 },
+  { id: 'sky',      label: 'Sky',      hex: 0x6fb3ff, ms: 15 },
+  { id: 'violet',   label: 'Violet',   hex: 0xb07cff, ms: 15 },
+  { id: 'crimson',  label: 'Crimson',  hex: 0xff4d5e, ms: 18 },
+  { id: 'spectral', label: 'Spectral', hex: 0x9afff0, ms: 18 },
+  { id: 'gilded',   label: 'Gilded',   hex: 0xffd94a, ms: 18 },
+];
+const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
+function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }
+
+module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID, auraHex };

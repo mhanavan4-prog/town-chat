@@ -166,6 +166,19 @@ setTimeout(() => {
   dbuyer.s.emit('message', JSON.stringify({ type: 'set_familiar_skin', skinId: 'default' }));
   check('reverting to the natural coat is free', h.msBalance('dyer') === fcBal2 && h.accounts['dyer'].familiarSkin === 'default');
 
+  // ── Aura (cosmetic foot-glow) ──
+  const auBal = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_aura', auraId: 'violet' })); // 15 💎
+  check('setting a premium aura confirms with aura_set', (() => { const m = dbuyer.s.lastOfType('aura_set'); return m && m.auraId === 'violet'; })());
+  check('the aura debits its Moonstone price', h.msBalance('dyer') === auBal - 15, h.msBalance('dyer'));
+  check('the aura is owned account-wide', (() => { const pr = h.playerProgress['dyer']; return pr.auraUnlocks && pr.auraUnlocks.indexOf('violet') !== -1; })());
+  check('the worn aura rides the account + live player', h.accounts['dyer'].auraId === 'violet' && dbuyer.p.aura === 'violet');
+  const auBal2 = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_aura', auraId: 'violet' }));
+  check('re-equipping an owned aura does not double-charge', h.msBalance('dyer') === auBal2, h.msBalance('dyer'));
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_aura', auraId: 'none' }));
+  check('clearing the aura (none) is free', h.msBalance('dyer') === auBal2 && h.accounts['dyer'].auraId === 'none');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 250);

@@ -635,7 +635,7 @@ app.get('/', (req, res) => {
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
-const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss } = require('./data/wardrobe'); // cosmetics
+const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID } = require('./data/wardrobe'); // cosmetics
 
 // Is a weapon look unlocked for this player? Free looks always are; level/chapter
 // looks unlock automatically once earned; Moonstone looks require a purchase
@@ -5304,6 +5304,7 @@ function publicPlayer(p) {
     // applied server-side via familiarBuffContrib.
     familiar: p.familiar || null,
     familiarSkin: p.familiarSkin || null, // bonded coat (cosmetic recolor; client/familiars.js)
+    aura: p.aura || null, // cosmetic glow id at the feet (client/auras.js)
     // 🎃 Worn guise id (or null) — every nearby client draws the matching Samhain
     // costume over this player's body (client/guises.js). Purely cosmetic.
     guise: p.guise || null
@@ -9539,6 +9540,7 @@ wss.on('connection', (ws, req) => {
       // broadcasts in publicPlayer and every nearby client trails it.
       player.familiar = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiar) || null;
       player.familiarSkin = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiarSkin) || null; // bonded coat
+      player.aura = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].auraId) || null; // cosmetic aura
       // 🎃 The worn guise (account-scoped) likewise, so the costume broadcasts.
       player.guise = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].guise) || null;
 
@@ -9594,6 +9596,12 @@ wss.on('connection', (ws, req) => {
           skins: FAMILIAR_SKINS,
           owned: getProgress(player).familiarSkinUnlocks || [],
           skin: (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiarSkin) || 'default'
+        },
+        // Auras (cosmetic glow): palette + owned + worn, for the wardrobe picker.
+        auraCos: {
+          auras: AURAS,
+          owned: getProgress(player).auraUnlocks || [],
+          aura: (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].auraId) || 'none'
         },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
@@ -13534,6 +13542,31 @@ wss.on('connection', (ws, req) => {
       try { saveAccounts(); saveProgress(); } catch (e) { /* noop */ }
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
       send(ws, { type: 'familiar_skin_set', skinId: id, owned: prog.familiarSkinUnlocks });
+      return;
+    }
+    // 🌟 Set your aura (cosmetic glow at your feet). Premium auras are bought-on-
+    // first-pick with Moonstones and owned account-wide; 'none' clears it free.
+    // Only changes account.auraId/player.aura, which rides publicPlayer, so
+    // every nearby client draws the glow live. Pure flair — no stats.
+    if (msg.type === 'set_aura') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to wear an aura.' }); return; }
+      const id = String(msg.auraId || '');
+      const a = AURA_BY_ID[id];
+      if (!a) { send(ws, { type: 'ms_error', message: 'That aura isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.auraUnlocks) prog.auraUnlocks = [];
+      if (a.ms && prog.auraUnlocks.indexOf(id) === -1) {
+        if (msBalance(player.accountKey) < a.ms) { send(ws, { type: 'ms_error', message: `That aura is ${a.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+        msAdjust(player.accountKey, -a.ms);
+        analytics.bump('buy.msn.aura:' + id);
+        analytics.bump('buy.msg.aura:' + id, a.ms);
+        prog.auraUnlocks.push(id);
+      }
+      accounts[player.accountKey].auraId = id;
+      player.aura = id;
+      try { saveAccounts(); saveProgress(); } catch (e) { /* noop */ }
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'aura_set', auraId: id, owned: prog.auraUnlocks });
       return;
     }
 
