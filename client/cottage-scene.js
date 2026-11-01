@@ -78,31 +78,9 @@ function buildCottageScene() {
     scene.add(beam);
   }
 
-  // ── The hearth: a stone fireplace on the north wall with a flickering fire.
-  // Always present (it's the heart of the cottage) regardless of what furniture
-  // the player places. The point-light above sits at its mouth. ──
-  try {
-    const g = new THREE.Group();
-    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x5a5048 });
-    const stoneDark = new THREE.MeshLambertMaterial({ color: 0x3d352d });
-    const mantleW = 200, mantleH = 120;
-    g.add(mesh(new THREE.BoxGeometry(mantleW, mantleH, 40), stoneMat, 0, mantleH / 2, 0));           // surround
-    g.add(mesh(new THREE.BoxGeometry(mantleW - 56, 74, 30), stoneDark, 0, 42, 8));                    // firebox recess
-    g.add(mesh(new THREE.BoxGeometry(mantleW + 24, 18, 50), stoneMat, 0, mantleH + 2, 2));            // mantle shelf
-    // the fire: stacked emissive cones that breathe
-    const fire = new THREE.Group();
-    for (const [fx, s, col] of [[-20, 1, 0xff7a24], [16, 0.9, 0xffa23a], [0, 1.3, 0xffd257]]) {
-      const fl = new THREE.Mesh(new THREE.ConeGeometry(12 * s, 44 * s, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
-      fl.position.set(fx, 26 * s, 10); fire.add(fl);
-    }
-    fire.position.set(0, 6, 0);
-    fire.onBeforeRender = () => { const t = performance.now() * 0.006; fire.scale.y = 0.9 + Math.sin(t) * 0.12; fire.children.forEach((c, i) => { c.material.opacity = 0.72 + Math.sin(t + i * 1.7) * 0.22; }); };
-    g.add(fire);
-    g.position.set(W / 2, 0, 20);
-    scene.add(g);
-  } catch (e) { /* the hearth is decorative — a bare north wall is fine if it throws */ }
-
-  function mesh(geo, mat, x, y, z) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m; }
+  // (No built-in fireplace — the player places their own Stone Hearth from the
+  // Home catalog, so a fixed one here would just double up. The warm north-wall
+  // point-light above stays, so an unfurnished cottage still feels lit.)
 
   // ── Two little windows on the side walls — warm dusk light, for charm ──
   const paneMat = new THREE.MeshBasicMaterial({ color: 0x6a4a9a, transparent: true, opacity: 0.55 });
