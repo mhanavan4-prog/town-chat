@@ -744,6 +744,66 @@ const I_YARROW = S(`
   </g>
 `);
 
+// ── Green Path herbs, batch 2: the rest of the Cottage Garden category ─────────
+
+// Comfrey (Symphytum): nodding bell-flowers curling from the stem tip over big,
+// coarse lance-shaped leaves.
+const I_COMFREY = S(`
+  <path d="M19 42 Q19 24 20 15 Q21 9 27 11" stroke="#3a7d2e" stroke-width="1.8" fill="none"/>
+  <path d="M19 31 Q8 28 6 17 Q16 18 20 28 Z" fill="#4e8f3a" stroke="#357028" stroke-width="1"/>
+  <path d="M20 35 Q32 33 35 23 Q24 23 20 32 Z" fill="#5fa047" stroke="#357028" stroke-width="1"/>
+  <path d="M19 31 Q13 25 9 19 M20 33 Q27 29 32 25" stroke="#357028" stroke-width="0.7" fill="none"/>
+  <g fill="#bd83bc" stroke="#935a8f" stroke-width="0.8">
+    <path d="M28 10 Q24 11 24 16 Q24 19 27 19 Q30 18 30 15 Q30 11 28 10 Z"/>
+    <path d="M24 13 Q20 14 20 19 Q20 22 23 22 Q26 21 26 18 Q26 14 24 13 Z"/>
+    <path d="M20.5 17 Q16.5 18 16.5 23 Q16.5 26 19.5 26 Q22.5 25 22.5 22 Q22.5 18 20.5 17 Z"/>
+  </g>
+  <g fill="#e8c6e6"><ellipse cx="27.2" cy="12" rx="1.3" ry="1"/><ellipse cx="23.2" cy="15" rx="1.3" ry="1"/><ellipse cx="19.7" cy="19" rx="1.3" ry="1"/></g>
+`);
+
+// Lemon Balm (Melissa): bushy opposite pairs of toothed, heart-shaped leaves —
+// the mint-family silhouette.
+const I_LEMON_BALM = S(`
+  <path d="M22 42 L22 9" stroke="#3a7d2e" stroke-width="1.6"/>
+  <g fill="#6aab48" stroke="#357028" stroke-width="0.8" stroke-linejoin="round">
+    <path d="M21 15 Q16 9 10 10 Q7 13 9 17 Q13 21 21 18 Z"/>
+    <path d="M23 15 Q28 9 34 10 Q37 13 35 17 Q31 21 23 18 Z"/>
+    <path d="M21 27 Q15 21 8 23 Q5 26 8 30 Q13 34 21 30 Z"/>
+    <path d="M23 27 Q29 21 36 23 Q39 26 36 30 Q31 34 23 30 Z"/>
+  </g>
+  <path d="M10 13 Q16 15 21 17 M34 13 Q28 15 23 17 M8 26 Q15 28 21 29 M36 26 Q29 28 23 29" stroke="#357028" stroke-width="0.6" fill="none"/>
+  <path d="M12 10 l1 1.6 M16 9.6 l0.8 1.8 M32 10 l-1 1.6 M28 9.6 l-0.8 1.8 M10 23 l1 1.8 M15 22 l0.7 2 M34 23 l-1 1.8 M29 22 l-0.7 2" stroke="#4e8f3a" stroke-width="0.6"/>
+`);
+
+// Feverfew (Tanacetum parthenium): a spray of several small, flat-centred
+// daisies over lobed foliage — chamomile's busy little cousin.
+const I_FEVERFEW = S(`
+  <path d="M22 42 Q22 30 15 23 M22 34 Q22 28 29 22 M22 28 L22 16" stroke="#3a7d2e" stroke-width="1.4" fill="none"/>
+  <path d="M19 33 Q14 31 11 35 M25 30 Q30 29 33 33 M20 27 Q17 24 18 20" stroke="#4e8f3a" stroke-width="2.2" stroke-linecap="round"/>
+  <g fill="#fbfae8" stroke="#e7e1c0" stroke-width="0.5">
+    <ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(0 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(45 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(90 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(135 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(180 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(225 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(270 14 17)"/><ellipse cx="14" cy="13.4" rx="1" ry="2.4" transform="rotate(315 14 17)"/>
+    <ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(0 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(45 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(90 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(135 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(180 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(225 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(270 30 18)"/><ellipse cx="30" cy="14.4" rx="1" ry="2.4" transform="rotate(315 30 18)"/>
+    <ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(0 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(45 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(90 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(135 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(180 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(225 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(270 22 12.5)"/><ellipse cx="22" cy="8.6" rx="1.1" ry="2.6" transform="rotate(315 22 12.5)"/>
+  </g>
+  <circle cx="14" cy="17" r="2" fill="#f4c430" stroke="#d89a1e" stroke-width="0.6"/>
+  <circle cx="30" cy="18" r="2" fill="#f4c430" stroke="#d89a1e" stroke-width="0.6"/>
+  <circle cx="22" cy="12.5" r="2.1" fill="#f4c430" stroke="#d89a1e" stroke-width="0.6"/>
+`);
+
+// Lavender (Lavandula): the unmistakable purple flower-spike on a slender stem
+// with narrow grey-green leaves.
+const I_LAVENDER = S(`
+  <path d="M19 42 Q19 30 20 22 M26 42 Q26 32 25 24" stroke="#3a7d2e" stroke-width="1.5" fill="none"/>
+  <path d="M19 36 L14 35 M19 32 L14 31 M26 37 L31 36 M26 33 L31 32" stroke="#6f9960" stroke-width="1.3"/>
+  <g fill="#9a7bc8" stroke="#6f52a8" stroke-width="0.5">
+    <ellipse cx="20" cy="20.5" rx="2.1" ry="1.7"/><ellipse cx="20.3" cy="17.8" rx="2" ry="1.6"/><ellipse cx="20.6" cy="15.2" rx="1.8" ry="1.5"/><ellipse cx="20.9" cy="12.8" rx="1.6" ry="1.4"/><ellipse cx="21.2" cy="10.6" rx="1.4" ry="1.3"/><ellipse cx="21.5" cy="8.6" rx="1.1" ry="1.1"/><ellipse cx="21.8" cy="7" rx="0.8" ry="0.9"/>
+    <ellipse cx="25.2" cy="22.4" rx="1.9" ry="1.6"/><ellipse cx="25.5" cy="19.9" rx="1.7" ry="1.5"/><ellipse cx="25.8" cy="17.6" rx="1.5" ry="1.3"/><ellipse cx="26.1" cy="15.5" rx="1.3" ry="1.2"/><ellipse cx="26.4" cy="13.7" rx="1" ry="1"/>
+  </g>
+  <g fill="#c6aae8">
+    <circle cx="20" cy="20.1" r="0.7"/><circle cx="20.4" cy="17.4" r="0.6"/><circle cx="20.7" cy="14.8" r="0.6"/><circle cx="25.2" cy="22" r="0.6"/><circle cx="25.6" cy="19.5" r="0.6"/>
+  </g>
+`);
+
 // ── Abilities: Witch / Mage spells ───────────────────────────────────────────
 
 const A_OPEN_THIRD_EYE = S(`
@@ -1266,6 +1326,7 @@ export const UI_ICONS = {
   healing_herb: I_HEALING_HERB, regen_root: I_REGEN_ROOT, cleansing_clover: I_CLEANSING_CLOVER,
   // Green Path herbs (real plants, drawn from life)
   chamomile: I_CHAMOMILE, calendula: I_CALENDULA, mugwort: I_MUGWORT, yarrow: I_YARROW,
+  comfrey: I_COMFREY, lemon_balm: I_LEMON_BALM, feverfew: I_FEVERFEW, lavender: I_LAVENDER,
   // abilities — Witch / Mage spells
   open_third_eye: A_OPEN_THIRD_EYE, toads_tongue: A_TOADS_TONGUE, stumble_hex: A_STUMBLE_HEX,
   fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
