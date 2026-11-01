@@ -1533,7 +1533,9 @@ const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, PLANT_KEYS.length * PLANTS_
 const BREW_RESULT_KEYS = new Set(require('./data/gameConstants').POTION_RECIPES.map(r => r.result));
 // Consumables that live in PLANT_CATALOG for their use-effect but are not wild
 // harvestables and must not scatter in the Wilds (salt is bought, not foraged).
-const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomile_tisane']);
+const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomile_tisane',
+  // Hedge & Wild herbs come from creature drops (WILDS_SEED_DROPS), not forage.
+  'mugwort', 'yarrow', 'mugwort_draught', 'yarrow_salve']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -15030,7 +15032,7 @@ global.__testHooks = {
   mobs, mobs2, tickWildlife, TOWN_MOB_COMBAT, TOWN_MOB_XP,
   // Session M creatures — peaceful critters, neutral pool, new hostiles, quests
   animals2, mobs3, MOB2_TYPES, MOB3_TYPES, CRITTER2_TYPES, LOOT_TABLES,
-  provokeNeutral, creatureStrike, tickWilds, questForNpc, CREATURE_LABEL, rollPendingLoot,
+  provokeNeutral, creatureStrike, tickWilds, questForNpc, CREATURE_LABEL, rollPendingLoot, grantLoot,
   applyDamage, isEvading, vulnerableMult, getHardDrive, driveMedia,
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,

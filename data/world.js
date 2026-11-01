@@ -273,6 +273,13 @@ const PLANT_CATALOG = {
   chamomile:              { name: 'Chamomile',              icon: '🌼', effect: 'heal',    amount: 30 },
   calendula:              { name: 'Calendula',              icon: '🧡', effect: 'status',  statusType: 'regen',      durationMs: 18000 },
   chamomile_tisane:       { name: 'Chamomile Tisane',       icon: '🍵', effect: 'heal',    amount: 90 },
+  // The Hedge & Wild band — rare herbs that are NOT quest-granted: they only
+  // DROP from Wilds creatures (see WILDS_SEED_DROPS in data/gameConstants.js),
+  // so a found cutting is a real find. Grow more of them in your beds, then brew.
+  mugwort:                { name: 'Mugwort',                icon: '🌿', effect: 'status',  statusType: 'regen',      durationMs: 20000 },
+  yarrow:                 { name: 'Yarrow',                 icon: '🌾', effect: 'heal',    amount: 40 },
+  mugwort_draught:        { name: 'Mugwort Dream-Draught',  icon: '🌙', effect: 'status',  statusType: 'ravencloak', durationMs: 60000 },
+  yarrow_salve:           { name: 'Yarrow Salve',           icon: '🩹', effect: 'heal',    amount: 70 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };
