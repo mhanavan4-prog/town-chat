@@ -12,7 +12,10 @@ const GARDEN_RUSH_MS_COST = 5;            // 💎 Moonstones to grow one bed ins
 const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_clover', 'meditation_lotus', 'pumpkin_blossom',
   // Green Path herbs — only sowable once a chapter has granted you some (you
   // can't hold them otherwise), so adding them here just makes them plantable.
-  'chamomile', 'calendula'];
+  'chamomile', 'calendula',
+  // Hedge & Wild herbs — drop-only (never wild-scattered); once a creature drops
+  // you a cutting, you can grow more here.
+  'mugwort', 'yarrow'];
 
 // Yield is set by the moon phase AT PLANTING — sow as the moon waxes or fills
 // for a richer crop. You always sow one seed, so even 'other' nets a gain.

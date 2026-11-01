@@ -68,6 +68,13 @@ const POTION_RECIPES = [
   { id: 'moonwell_draught', result: 'moonwell_draught',
     ingredients: [{ id: 'moon_water', qty: 1 }, { id: 'healing_herb', qty: 2 }],
     desc: 'Moon Water + 2× Healing Herb → Moonwell Draught (heals 120 HP)' },
+  // ── Green Path (Hedge & Wild band): brews from the drop-only herbs ──
+  { id: 'yarrow_salve', result: 'yarrow_salve',
+    ingredients: [{ id: 'yarrow', qty: 2 }],
+    desc: '2× Yarrow → Yarrow Salve (staunches wounds — heals 70 HP)' },
+  { id: 'mugwort_draught', result: 'mugwort_draught',
+    ingredients: [{ id: 'mugwort', qty: 2 }],
+    desc: "2× Mugwort → Mugwort Dream-Draught (cross the hedge unseen — Raven's Cloak for 60s)" },
 ];
 
 const LOOT_TABLES = {
@@ -206,6 +213,26 @@ const LOOT_TABLES = {
   ],
 };
 
+// ── Green Path: rare seed drops (hunting the Wilds feeds your garden) ──────────
+// Low-odds Hedge & Wild herb cuttings dropped by Wilds creatures, so a found
+// seed feels like a real find and chasing mobs has a reason beyond gold/XP. Only
+// the overworld Wilds pools get them — never town mobs, never dungeon chests
+// (dungeons already drip their own tiered loot). Each herb is drop-only
+// elsewhere (NON_WILD_CONSUMABLES), so this is the one way into the garden.
+const WILDS_SEED_DROPS = [
+  { itemId: 'mugwort', qty: 1, chance: 0.03 },
+  { itemId: 'yarrow',  qty: 1, chance: 0.03 },
+];
+const WILDS_SEED_DROP_MOBS = [
+  'shade_stalker', 'bog_brute', 'night_howler', 'barrow_wight', 'will_o_wisp',
+  'embermoth', 'thistlehog', 'duskfawn', 'mirefowl', 'bramble_boar',
+  'mossback_tortoise', 'gravewing_crow', 'fen_hexer', 'rot_swarm', 'barrow_maw',
+  'gloom_bat', 'old_marrowe',
+];
+for (const _m of WILDS_SEED_DROP_MOBS) {
+  if (Array.isArray(LOOT_TABLES[_m])) LOOT_TABLES[_m].push(...WILDS_SEED_DROPS.map((d) => ({ ...d })));
+}
+
 const STARTER_GEAR = {
   0: { weapon: 'spell_tome',  head: 'wizard_hat',    chest: 'witch_robe',    feet: 'hexed_boots',    ring: 'hex_amulet'   },
   1: { weapon: 'iron_sword',  head: 'beast_crown',   chest: 'beast_hide',    feet: 'paw_boots',      ring: 'silver_ring'  },
@@ -225,4 +252,4 @@ const EMOTE_SET = [
   '👋', '😂', '❤️', '😮', '😢', '😡', '👍', '💃',
 ];
 
-module.exports = { MS_PACKS, COLORS, POTION_RECIPES, LOOT_TABLES, STARTER_GEAR, XP_THRESHOLDS, EMOTE_SET };
+module.exports = { MS_PACKS, COLORS, POTION_RECIPES, LOOT_TABLES, STARTER_GEAR, XP_THRESHOLDS, EMOTE_SET, WILDS_SEED_DROPS, WILDS_SEED_DROP_MOBS };
