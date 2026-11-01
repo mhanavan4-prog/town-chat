@@ -649,6 +649,101 @@ const I_HEALING_HERB = S(`<path d="M22 37 L22 12" stroke="#3a7d2e" stroke-width=
 const I_REGEN_ROOT   = S(`<path d="M16 12 Q10 20 16 26 Q12 34 20 34 Q24 38 28 33 Q35 31 30 24 Q35 18 28 15 Q26 9 20 12 Q18 9 16 12 Z" fill="#8aae5a" stroke="#5e7d3a" stroke-width="1.8"/><path d="M22 18 l0 10" stroke="#5e7d3a" stroke-width="1.4"/><path d="M20 9 Q22 4 24 9" stroke="#3a7d2e" stroke-width="2" fill="none"/>`);
 const I_CLEANSING_CLOVER = S(`<g fill="#4e9c3a" stroke="#357028" stroke-width="1.2"><path d="M22 20 C18 14 12 16 14 21 C16 24 20 23 22 20 Z"/><path d="M22 20 C26 14 32 16 30 21 C28 24 24 23 22 20 Z"/><path d="M22 20 C16 22 15 28 20 28 C23 28 23 24 22 20 Z"/><path d="M22 20 C28 22 29 28 24 28 C21 28 21 24 22 20 Z"/></g><path d="M22 22 L23 36" stroke="#357028" stroke-width="2"/>`);
 
+// ── Green Path herbs — drawn from life, not emoji ─────────────────────────────
+// Each keeps the carved-talisman hand (44×44, green #3a7d2e stems) but matches
+// the real plant's silhouette so it's recognisable at a glance.
+
+// Chamomile (Matricaria): white ray petals ringing a raised, domed gold disc;
+// thread-fine feathery foliage on a thin stem.
+const I_CHAMOMILE = S(`
+  <path d="M22 22 Q20 31 22 41" stroke="#3a7d2e" stroke-width="1.6" fill="none"/>
+  <path d="M22 31 Q16 30 13 25 M22 35 Q28 34 31 30 M22 27 Q18 25 15 21" stroke="#4e8f3a" stroke-width="1.1" fill="none"/>
+  <g fill="#fbfae8" stroke="#e7e1c0" stroke-width="0.7">
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(0 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(30 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(60 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(90 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(120 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(150 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(180 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(210 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(240 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(270 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(300 22 16)"/>
+    <ellipse cx="22" cy="9.6" rx="1.8" ry="5" transform="rotate(330 22 16)"/>
+  </g>
+  <ellipse cx="22" cy="16" rx="4" ry="3.4" fill="#f4b73c" stroke="#d1922a" stroke-width="1"/>
+  <path d="M18.6 17.2 Q22 19.6 25.4 17.2" stroke="#d1922a" stroke-width="0.9" fill="none"/>
+`);
+
+// Calendula (pot marigold): a dense, flat head — two overlapping rings of
+// broad orange ray petals around a small amber-brown disc; a broad leaf at base.
+const I_CALENDULA = S(`
+  <path d="M22 23 Q21 32 22 41" stroke="#3a7d2e" stroke-width="1.6" fill="none"/>
+  <path d="M22 33 Q15 33 12 28 Q18 28 22 33 M22 36 Q29 36 32 31 Q26 31 22 36" fill="#4e8f3a" stroke="#357028" stroke-width="0.8"/>
+  <g fill="#f59433" stroke="#d9741d" stroke-width="0.7">
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(0 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(30 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(60 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(90 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(120 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(150 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(180 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(210 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(240 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(270 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(300 22 17)"/>
+    <ellipse cx="22" cy="9.8" rx="2.2" ry="5.1" transform="rotate(330 22 17)"/>
+  </g>
+  <g fill="#ffb84a" stroke="#e8922b" stroke-width="0.6">
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(15 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(45 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(75 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(105 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(135 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(165 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(195 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(225 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(255 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(285 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(315 22 17)"/>
+    <ellipse cx="22" cy="12.4" rx="1.7" ry="3.6" transform="rotate(345 22 17)"/>
+  </g>
+  <circle cx="22" cy="17" r="2.9" fill="#c96a22" stroke="#a5531a" stroke-width="0.8"/>
+`);
+
+// Mugwort (Artemisia vulgaris): tall reddish stem, deeply pinnate leaves with
+// pointed lobes — dark green face, a paler sprig hinting the silvery underside.
+const I_MUGWORT = S(`
+  <path d="M22 42 Q21 25 22 8" stroke="#7a5a44" stroke-width="1.8" fill="none"/>
+  <g stroke="#35602a" stroke-width="0.7" stroke-linejoin="round">
+    <path d="M22 12 Q16 11 12 14 Q16 14 14 17 Q18 15 17 18 Q20 15 22 16 Z" fill="#4e8f3a"/>
+    <path d="M22 13 Q28 12 32 16 Q28 15 30 19 Q26 16 27 20 Q24 16 22 17 Z" fill="#5fa047"/>
+    <path d="M22 21 Q14 20 9 24 Q14 24 11 28 Q17 24 15 29 Q20 24 22 25 Z" fill="#4e8f3a"/>
+    <path d="M22 22 Q30 21 35 26 Q30 25 33 29 Q27 25 29 30 Q24 25 22 26 Z" fill="#5fa047"/>
+    <path d="M22 30 Q16 30 12 34 Q16 34 14 38 Q19 33 18 37 Q21 33 22 33 Z" fill="#9fb487"/>
+    <path d="M22 31 Q28 31 31 35 Q27 35 29 38 Q25 34 25 37 Q23 34 22 34 Z" fill="#7f986c"/>
+  </g>
+`);
+
+// Yarrow (Achillea millefolium): a flat-topped corymb of many tiny white
+// flowers over feathery, finely-divided fern leaves.
+const I_YARROW = S(`
+  <path d="M22 13 L22 42" stroke="#3a7d2e" stroke-width="1.6"/>
+  <g stroke="#4e8f3a" stroke-width="0.9" fill="none">
+    <path d="M22 28 Q16 30 12 36 M22 30 L14 32 M22 32 L15 35 M22 34 L17 38"/>
+    <path d="M22 31 Q28 33 32 39 M22 33 L30 35 M22 35 L29 38"/>
+  </g>
+  <g fill="#fbfae8" stroke="#dcd6b4" stroke-width="0.5">
+    <circle cx="12.5" cy="9.2" r="1.8"/><circle cx="16" cy="8.4" r="1.8"/><circle cx="19.5" cy="8" r="1.8"/><circle cx="23" cy="8" r="1.8"/><circle cx="26.5" cy="8.4" r="1.8"/><circle cx="30" cy="9.2" r="1.8"/><circle cx="33.5" cy="10" r="1.8"/>
+    <circle cx="14.4" cy="11.2" r="1.8"/><circle cx="18" cy="10.6" r="1.8"/><circle cx="21.6" cy="10.4" r="1.8"/><circle cx="25.2" cy="10.6" r="1.8"/><circle cx="28.8" cy="11.2" r="1.8"/>
+    <circle cx="17" cy="13.2" r="1.7"/><circle cx="20.6" cy="12.8" r="1.7"/><circle cx="24.2" cy="12.8" r="1.7"/><circle cx="27.6" cy="13.4" r="1.7"/>
+  </g>
+  <g fill="#f4d06a">
+    <circle cx="16" cy="8.4" r="0.6"/><circle cx="19.5" cy="8" r="0.6"/><circle cx="23" cy="8" r="0.6"/><circle cx="26.5" cy="8.4" r="0.6"/><circle cx="18" cy="10.6" r="0.6"/><circle cx="21.6" cy="10.4" r="0.6"/><circle cx="25.2" cy="10.6" r="0.6"/><circle cx="20.6" cy="12.8" r="0.6"/><circle cx="24.2" cy="12.8" r="0.6"/>
+  </g>
+`);
+
 // ── Abilities: Witch / Mage spells ───────────────────────────────────────────
 
 const A_OPEN_THIRD_EYE = S(`
@@ -1169,6 +1264,8 @@ export const UI_ICONS = {
   ravens_feather_plant: I_RAVENS_FEATHER_PLANT, stumbleweed: I_STUMBLEWEED, gibberish_root: I_GIBBERISH_ROOT,
   toadstool: I_TOADSTOOL, wolfsbane_bloom: I_WOLFSBANE_BLOOM, meditation_lotus: I_MEDITATION_LOTUS,
   healing_herb: I_HEALING_HERB, regen_root: I_REGEN_ROOT, cleansing_clover: I_CLEANSING_CLOVER,
+  // Green Path herbs (real plants, drawn from life)
+  chamomile: I_CHAMOMILE, calendula: I_CALENDULA, mugwort: I_MUGWORT, yarrow: I_YARROW,
   // abilities — Witch / Mage spells
   open_third_eye: A_OPEN_THIRD_EYE, toads_tongue: A_TOADS_TONGUE, stumble_hex: A_STUMBLE_HEX,
   fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
