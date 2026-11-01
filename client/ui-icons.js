@@ -887,6 +887,127 @@ const I_ROWAN_BERRY = S(`
   <g fill="#7a1f12"><circle cx="13" cy="16" r="0.5"/><circle cx="19" cy="15" r="0.5"/><circle cx="16" cy="21" r="0.5"/><circle cx="22" cy="20" r="0.5"/></g>
 `);
 
+// ── Green Path herbs, batch 4: the baneful Poison Path ─────────────────────────
+// The nightshades and baneful roots — the darkest, most atmospheric set.
+
+// Belladonna (Atropa belladonna): a glossy black berry in its green star-calyx
+// below a drooping dusky-purple bell flower.
+const I_BELLADONNA = S(`
+  <path d="M22 42 Q22 30 22 14" stroke="#3a6a30" stroke-width="1.6" fill="none"/>
+  <path d="M22 23 Q13 21 9 13 Q17 14 22 21 Z" fill="#3a6a30" stroke="#2c5024" stroke-width="0.8"/>
+  <path d="M29 13 Q25 14 25 19 Q25 23 29 23 Q33 22 32.5 17 Q32.5 13 29 13 Z" fill="#6b4866" stroke="#4a2f47" stroke-width="0.8"/>
+  <path d="M26 14 Q29 17 32 14" stroke="#4a2f47" stroke-width="0.6" fill="none"/>
+  <circle cx="19" cy="31" r="5.4" fill="#1d1726" stroke="#0d0916" stroke-width="0.8"/>
+  <ellipse cx="17" cy="29" rx="1.7" ry="1.2" fill="#5c5068"/>
+  <g fill="#3a6a30" stroke="#2c5024" stroke-width="0.4">
+    <path d="M19 26 l-3 -2 M19 26 l3 -2 M19 26 l-4 0.5 M19 26 l4 0.5 M19 26 l0 -3" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+`);
+
+// Henbane (Hyoscyamus niger): a creamy funnel flower laced with dark purple
+// veins around a near-black throat.
+const I_HENBANE = S(`
+  <path d="M22 42 Q22 30 22 22" stroke="#6e7a4a" stroke-width="1.6" fill="none"/>
+  <path d="M22 30 Q13 30 9 25 Q10 31 17 32 Q21 31 22 28 Z" fill="#8a9458" stroke="#64703e" stroke-width="0.7"/>
+  <path d="M22 28 Q30 28 34 23 Q33 29 26 30 Q22 29 22 26 Z" fill="#9aa468" stroke="#64703e" stroke-width="0.7"/>
+  <path d="M22 6 Q31 8 31 15 Q31 21 22 22 Q13 21 13 15 Q13 8 22 6 Z" fill="#e6dcb2" stroke="#b9a86e" stroke-width="1"/>
+  <g stroke="#5a3a58" stroke-width="0.7" fill="none">
+    <path d="M22 14 L22 7 M22 14 L28 9 M22 14 L30 15 M22 14 L27 20 M22 14 L17 20 M22 14 L14 15 M22 14 L16 9"/>
+  </g>
+  <circle cx="22" cy="14.5" r="3.2" fill="#3a2038" stroke="#2a1628" stroke-width="0.6"/>
+`);
+
+// Mandrake (Mandragora): the famous forked, man-shaped root beneath a rosette of
+// broad crinkled leaves.
+const I_MANDRAKE = S(`
+  <g fill="#4e8f3a" stroke="#357028" stroke-width="0.8" stroke-linejoin="round">
+    <path d="M22 16 Q16 6 11 8 Q13 14 20 16 Z"/><path d="M22 16 Q28 6 33 8 Q31 14 24 16 Z"/>
+    <path d="M22 15 Q18 4 22 3 Q26 4 22 15 Z"/>
+  </g>
+  <path d="M22 16 Q14 17 16 24 Q18 29 22 27 Q26 29 28 24 Q30 17 22 16 Z" fill="#d6bf92" stroke="#a98c5c" stroke-width="1"/>
+  <path d="M20 26 Q15 30 14 38 Q17 40 19 36 Q20 31 22 29 Q24 31 25 36 Q27 40 30 38 Q29 30 24 26 Z" fill="#d6bf92" stroke="#a98c5c" stroke-width="1"/>
+  <path d="M17 23 Q11 23 9 27 M27 23 Q33 23 35 27" stroke="#c7ac78" stroke-width="2.6" stroke-linecap="round"/>
+  <g stroke="#a98c5c" stroke-width="0.6" fill="none"><path d="M22 20 L22 34 M20 32 Q22 33 24 32"/></g>
+`);
+
+// Wolfsbane / Monkshood (Aconitum): a spike of deep blue-purple hooded flowers
+// over a deeply divided palmate leaf.
+const I_WOLFSBANE = S(`
+  <path d="M22 42 Q22 30 22 12" stroke="#3a6a30" stroke-width="1.6" fill="none"/>
+  <g fill="#3a7d2e" stroke="#2c5a22" stroke-width="0.6" stroke-linejoin="round">
+    <path d="M18 32 Q10 30 7 34 Q11 36 15 35 Q12 37 10 40 Q15 39 17 35 Q15 38 16 41 Q19 37 18 33 Z"/>
+  </g>
+  <g fill="#4a54a8" stroke="#2f3780" stroke-width="0.8">
+    <path d="M22 9 Q17 9 17 14 Q17 17 22 17 Q27 17 27 13 Q27 9 22 9 Z"/>
+    <path d="M22 16 Q16 16 16 21 Q16 24 22 24 Q28 24 28 20 Q28 16 22 16 Z"/>
+    <path d="M22 23 Q15 23 15 28 Q15 31 22 31 Q29 31 29 27 Q29 23 22 23 Z"/>
+  </g>
+  <g fill="#6b74c8"><ellipse cx="22" cy="12.5" rx="1.6" ry="1.2"/><ellipse cx="22" cy="19.5" rx="1.8" ry="1.3"/><ellipse cx="22" cy="26.5" rx="2" ry="1.4"/></g>
+`);
+
+// Datura (thornapple): a pale upward trumpet flower beside its spiny seed pod.
+const I_DATURA = S(`
+  <path d="M22 42 L22 28" stroke="#3a6a30" stroke-width="1.6"/>
+  <path d="M21 28 Q19 19 14 12 Q12 9 15.5 8 L17.5 10.5 L19.5 7.5 L22 9.4 L24.5 7.5 L26.5 10.5 L28.5 8 Q32 9 30 12 Q25 19 23 28 Z" fill="#efe8d2" stroke="#c3b3cf" stroke-width="1"/>
+  <path d="M19 11 Q20 20 21 27 M25 11 Q24 20 23 27" stroke="#d8cbe0" stroke-width="0.6" fill="none"/>
+  <path d="M21 27 Q22 23 23 27" fill="#cdb8dc"/>
+  <circle cx="31" cy="30" r="4.2" fill="#5f8a3e" stroke="#436828" stroke-width="0.8"/>
+  <g stroke="#436828" stroke-width="1" stroke-linecap="round">
+    <path d="M31 25.8 L31 23.5 M34.3 27 L36 25.6 M35.2 30 L37.4 30 M34.3 33 L36 34.4 M31 34.2 L31 36.4 M27.7 33 L26 34.4 M26.8 30 L24.6 30 M27.7 27 L26 25.6"/>
+  </g>
+`);
+
+// Hemlock (Conium maculatum): a rounded white umbel over a purple-spotted stem
+// and finely-divided fern leaf.
+const I_HEMLOCK = S(`
+  <path d="M22 16 L22 42" stroke="#5f8a4a" stroke-width="1.6"/>
+  <g fill="#8a2f6a"><circle cx="22" cy="24" r="0.9"/><circle cx="21" cy="30" r="0.9"/><circle cx="23" cy="35" r="0.9"/><circle cx="21.5" cy="39" r="0.8"/></g>
+  <g stroke="#4e8f3a" stroke-width="0.8" fill="none">
+    <path d="M22 28 Q15 31 11 37 M14 33 L13 35 M17 34 L16.5 36"/>
+    <path d="M22 31 Q29 33 32 38 M28 34 L29 36"/>
+  </g>
+  <g stroke="#cfd8be" stroke-width="0.7"><path d="M22 16 L13 10 M22 16 L17 9 M22 16 L22 7 M22 16 L27 9 M22 16 L31 10 M22 15 L19 11 M22 15 L25 11"/></g>
+  <g fill="#fbfae8" stroke="#dcd6b4" stroke-width="0.5">
+    <circle cx="13" cy="9.6" r="1.7"/><circle cx="17" cy="8.2" r="1.7"/><circle cx="22" cy="7" r="1.8"/><circle cx="27" cy="8.2" r="1.7"/><circle cx="31" cy="9.6" r="1.7"/>
+    <circle cx="15.5" cy="12" r="1.6"/><circle cx="19.5" cy="10.8" r="1.6"/><circle cx="24.5" cy="10.8" r="1.6"/><circle cx="28.5" cy="12" r="1.6"/>
+    <circle cx="18.5" cy="13.6" r="1.5"/><circle cx="22" cy="12.8" r="1.5"/><circle cx="25.5" cy="13.6" r="1.5"/>
+  </g>
+`);
+
+// Foxglove (Digitalis): a one-sided spike of drooping speckled tubular bells.
+const I_FOXGLOVE = S(`
+  <path d="M24 42 Q23 26 22 10" stroke="#3a7d2e" stroke-width="1.6" fill="none"/>
+  <path d="M24 34 Q17 33 13 37 Q18 39 24 37 Z" fill="#4e8f3a" stroke="#357028" stroke-width="0.7"/>
+  <g fill="#c069a6" stroke="#974a81" stroke-width="0.8" stroke-linejoin="round">
+    <path d="M22 11 Q18 11 18 15 Q18 18 21 18 Q24 18 24 14 Q24 11 22 11 Z"/>
+    <path d="M22 17 Q16 17 15 22 Q15 26 19 26 Q23 25 23 20 Q23 17 22 17 Z"/>
+    <path d="M22 24 Q15 25 14 30 Q14 34 18 34 Q23 33 23 27 Q23 24 22 24 Z"/>
+    <path d="M23 32 Q16 34 15 39 Q16 42 20 41 Q24 39 24 34 Q24 32 23 32 Z"/>
+  </g>
+  <g fill="#f0d0e4"><ellipse cx="20" cy="17" rx="1.6" ry="1.1"/><ellipse cx="18" cy="25" rx="1.8" ry="1.2"/><ellipse cx="17" cy="33" rx="1.9" ry="1.3"/><ellipse cx="18" cy="40" rx="1.9" ry="1.3"/></g>
+  <g fill="#8a3a70"><circle cx="20" cy="17" r="0.5"/><circle cx="18" cy="25" r="0.5"/><circle cx="17" cy="33" r="0.5"/><circle cx="18" cy="40" r="0.5"/></g>
+`);
+
+// Black Hellebore (Helleborus niger, the Christmas rose): a nodding white cup
+// with a yellow-green stamen ring over dark leathery leaves.
+const I_BLACK_HELLEBORE = S(`
+  <path d="M22 42 Q22 30 21 20" stroke="#2f5a28" stroke-width="1.6" fill="none"/>
+  <g fill="#2e5526" stroke="#203c1a" stroke-width="0.7" stroke-linejoin="round">
+    <path d="M20 30 Q11 29 7 33 Q12 36 20 33 Z"/><path d="M22 32 Q31 31 35 35 Q30 38 22 35 Z"/>
+    <path d="M14 31 L18 32 M9 32 L13 33 M30 33 L26 34 M34 34 L30 35" stroke="#203c1a" stroke-width="0.5"/>
+  </g>
+  <g fill="#f3ece0" stroke="#d2c6b2" stroke-width="0.8">
+    <ellipse cx="22" cy="9.2" rx="3.2" ry="5" transform="rotate(0 22 14)"/>
+    <ellipse cx="22" cy="9.2" rx="3.2" ry="5" transform="rotate(72 22 14)"/>
+    <ellipse cx="22" cy="9.2" rx="3.2" ry="5" transform="rotate(144 22 14)"/>
+    <ellipse cx="22" cy="9.2" rx="3.2" ry="5" transform="rotate(216 22 14)"/>
+    <ellipse cx="22" cy="9.2" rx="3.2" ry="5" transform="rotate(288 22 14)"/>
+  </g>
+  <circle cx="22" cy="14" r="2.6" fill="#d8e07a"/>
+  <g stroke="#adb94e" stroke-width="0.7" stroke-linecap="round"><path d="M22 14 L22 11 M22 14 L24.5 12.5 M22 14 L24.5 15.5 M22 14 L19.5 15.5 M22 14 L19.5 12.5"/></g>
+  <circle cx="22" cy="14" r="1" fill="#9aa83e"/>
+`);
+
 // ── Abilities: Witch / Mage spells ───────────────────────────────────────────
 
 const A_OPEN_THIRD_EYE = S(`
@@ -1411,6 +1532,8 @@ export const UI_ICONS = {
   chamomile: I_CHAMOMILE, calendula: I_CALENDULA, mugwort: I_MUGWORT, yarrow: I_YARROW,
   comfrey: I_COMFREY, lemon_balm: I_LEMON_BALM, feverfew: I_FEVERFEW, lavender: I_LAVENDER,
   vervain: I_VERVAIN, wormwood: I_WORMWOOD, rue: I_RUE, st_johns_wort: I_ST_JOHNS_WORT, rowan_berry: I_ROWAN_BERRY,
+  belladonna: I_BELLADONNA, henbane: I_HENBANE, mandrake: I_MANDRAKE, wolfsbane: I_WOLFSBANE,
+  datura: I_DATURA, hemlock: I_HEMLOCK, foxglove: I_FOXGLOVE, black_hellebore: I_BLACK_HELLEBORE,
   // abilities — Witch / Mage spells
   open_third_eye: A_OPEN_THIRD_EYE, toads_tongue: A_TOADS_TONGUE, stumble_hex: A_STUMBLE_HEX,
   fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
