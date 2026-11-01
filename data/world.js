@@ -264,6 +264,15 @@ const PLANT_CATALOG = {
   moonwell_draught:       { name: 'Moonwell Draught',       icon: '💙',  effect: 'heal',   amount: 120 },
   // --- Warding (Tier 3.5): use to cast a Circle of Salt — cleanse + curse immunity ---
   salt:                   { name: 'Salt',                  icon: '🧂',  effect: 'ward',   durationMs: 60000 },
+  // ── The Green Path (gardening questline) — real witchcraft herbs, granted by
+  // chapters and organized by traditional category (see data/greenPath.js). These
+  // are account-granted and garden-grown, never wild-scattered, so they live at
+  // the tail of the catalog to keep every foraged plant's wdecor id/position
+  // stable. The Cottage Garden band (healing/cunning) is grown here first; the
+  // Hedge & Wild and the baneful Poison Path arrive with later chapters.
+  chamomile:              { name: 'Chamomile',              icon: '🌼', effect: 'heal',    amount: 30 },
+  calendula:              { name: 'Calendula',              icon: '🧡', effect: 'status',  statusType: 'regen',      durationMs: 18000 },
+  chamomile_tisane:       { name: 'Chamomile Tisane',       icon: '🍵', effect: 'heal',    amount: 90 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

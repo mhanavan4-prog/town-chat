@@ -1533,7 +1533,7 @@ const PLANT_POSITIONS = makeWildsScatter(0x9a17, 16, PLANT_KEYS.length * PLANTS_
 const BREW_RESULT_KEYS = new Set(require('./data/gameConstants').POTION_RECIPES.map(r => r.result));
 // Consumables that live in PLANT_CATALOG for their use-effect but are not wild
 // harvestables and must not scatter in the Wilds (salt is bought, not foraged).
-const NON_WILD_CONSUMABLES = new Set(['salt']);
+const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomile_tisane']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -2999,6 +2999,7 @@ const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosm
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
+const { GREEN_PATH } = require('./data/greenPath'); // the gardening questline
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
@@ -4270,7 +4271,59 @@ function gardenStateBody(player) {
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
     yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
   } : null);
-  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST };
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player) };
+}
+
+// ── The Green Path (gardening questline) ────────────────────────────────────
+// Account-wide progress (prog.greenPath). Chapters auto-advance as you garden —
+// the garden plant/harvest handlers emit greenPathEvent, which ticks the active
+// chapter's objective and, on completion, grants its rewards and moves on.
+function greenPathOf(player) {
+  const prog = getProgress(player);
+  if (!prog.greenPath) prog.greenPath = { chapter: 0, progress: 0 };
+  return prog.greenPath;
+}
+function greenPathStateBody(player) {
+  if (!player || !player.accountKey) return null;
+  const gp = greenPathOf(player);
+  const total = GREEN_PATH.length;
+  if (gp.chapter >= total) return { done: true, chapter: total, total };
+  const ch = GREEN_PATH[gp.chapter];
+  const level = getProgress(player).level || 1;
+  return {
+    done: false, chapter: gp.chapter, total, title: ch.title,
+    label: ch.objective.label, progress: gp.progress || 0, target: ch.objective.target,
+    requiresLevel: ch.requiresLevel || 1, levelOk: level >= (ch.requiresLevel || 1)
+  };
+}
+// Advance the active chapter if `type` matches its objective (and the level gate
+// is met). On completion: grant XP/gold/seeds, move to the next chapter, and
+// toast the outro. The caller (garden handlers) re-sends inventory + garden
+// state afterwards, so this only emits the narrative toast.
+function greenPathEvent(player, type) {
+  if (!player || !player.accountKey) return;
+  const gp = greenPathOf(player);
+  if (gp.chapter >= GREEN_PATH.length) return;
+  const ch = GREEN_PATH[gp.chapter];
+  if (!ch || ch.objective.type !== type) return;
+  if ((getProgress(player).level || 1) < (ch.requiresLevel || 1)) return;
+  gp.progress = (gp.progress || 0) + 1;
+  if (gp.progress < ch.objective.target) { try { saveProgress(); } catch (e) {} return; }
+  // Chapter complete — advance and pay out.
+  gp.chapter += 1; gp.progress = 0;
+  if (ch.xpReward) grantXP(player, ch.xpReward);
+  if (ch.goldReward) { try { const a = ensureBankAccount(player.accountKey); a.balance += ch.goldReward; saveBankAccounts(); } catch (e) {} }
+  const inv = getInventory(player);
+  const got = [];
+  for (const r of (ch.itemRewards || [])) {
+    if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
+      const m = ITEM_CATALOG[r.itemId] || PLANT_CATALOG[r.itemId];
+      got.push(`${m ? m.icon : ''} ${m ? m.name : r.itemId}${(r.qty || 1) > 1 ? ' ×' + (r.qty || 1) : ''}`);
+    }
+  }
+  try { saveInventories(); saveProgress(); } catch (e) {}
+  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
+  try { send(player.ws, { type: 'toast', message: `🌿 Green Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
 }
 
 // ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
@@ -13878,6 +13931,7 @@ wss.on('connection', (ws, req) => {
       if (countItemQty(inv, herb) < 1) { send(ws, { type: 'garden_error', message: `You hold no ${ITEM_CATALOG[herb] ? ITEM_CATALOG[herb].name : herb} to sow.` }); return; }
       removeItemFromAccount(inv, herb, 1);
       g[idx] = { herb, plantedAt: Date.now(), moonTier: moonTierAtPlant(moonPhaseWindow(Date.now())) };
+      greenPathEvent(player, 'garden_plant'); // may grant a chapter reward into inv
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
@@ -13897,6 +13951,7 @@ wss.on('connection', (ws, req) => {
       for (let i = 0; i < amount; i++) { if (addItemToAccount(inv, p.herb, 1)) got++; else break; }
       if (got === 0) { send(ws, { type: 'garden_error', message: 'Your inventory is full — clear a slot first.' }); return; }
       g[idx] = null;
+      greenPathEvent(player, 'garden_harvest'); // may grant a chapter reward into inv
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
@@ -14955,6 +15010,7 @@ global.__testHooks = {
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
+  greenPathEvent, greenPathStateBody, GREEN_PATH,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,

@@ -13,6 +13,11 @@ const POTION_RECIPES = [
   { id: 'health_potion_ii', result: 'health_potion_ii',
     ingredients: [{ id: 'healing_herb', qty: 2 }],
     desc: '2× Healing Herb → Greater Healing Potion (restores 80 HP)' },
+  // The Green Path's first brew — a kitchen-witch tea from the chamomile you
+  // grow in Chapter 1 (the Cottage Garden band).
+  { id: 'chamomile_tisane', result: 'chamomile_tisane',
+    ingredients: [{ id: 'chamomile', qty: 2 }],
+    desc: '2× Chamomile → Chamomile Tisane (restores 90 HP)' },
   { id: 'regen_brew', result: 'regen_brew',
     ingredients: [{ id: 'regen_root', qty: 1 }, { id: 'healing_herb', qty: 1 }],
     desc: 'Regen Root + Healing Herb → Regen Brew (regenerates HP over 45s)' },
