@@ -17,7 +17,9 @@ const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_
   // you a cutting, you can grow more here.
   'mugwort', 'yarrow',
   // Cottage Garden band (granted by Green Path chapter 3).
-  'comfrey', 'lemon_balm', 'feverfew', 'lavender'];
+  'comfrey', 'lemon_balm', 'feverfew', 'lavender',
+  // Hedge & Wild band (granted by Green Path chapters 4–6).
+  'vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry'];
 
 // Yield is set by the moon phase AT PLANTING — sow as the moon waxes or fills
 // for a richer crop. You always sow one seed, so even 'other' nets a gain.
