@@ -1214,6 +1214,7 @@ function onWsMessage(ev) {
     }
     myMoonstones = msg.moonstones || 0;
     if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
+    if (msg.familiarCos) myFamiliarCos = { skins: msg.familiarCos.skins || [], owned: msg.familiarCos.owned || [], skin: msg.familiarCos.skin || 'default' };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
@@ -2675,6 +2676,14 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'familiar_skin_set') {
+    myFamiliarCos.owned = msg.owned || myFamiliarCos.owned || [];
+    myFamiliarCos.skin = msg.skinId;
+    if (me && players[me.id]) players[me.id].familiarSkin = msg.skinId; // recolor your own follower at once
+    setUnlockToast('🎨 Familiar coat set!');
+    if (Modals.isOpen('familiarOpen')) renderFamiliarModal();
+    return;
+  }
   if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'scry_reading') { lastScry = msg; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
@@ -3625,6 +3634,7 @@ let mySkillState = null;      // latest skill_state payload
 let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
+let myFamiliarCos = { skins: [], owned: [], skin: 'default' }; // familiar coat palette/owned/worn (from init)
 let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
 let myRecipesUnlocked = [];   // purchasable recipes this account has learned (from init / recipe_bought)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
@@ -10039,6 +10049,13 @@ const FAMILIARS_CLIENT = {
 // null = explicitly dismissed. Distinguishing them keeps "No familiar" from
 // being overridden by the stale stream value in the tick before it updates.
 let myFamiliar; // last known from familiar_state (account-scoped)
+// Numeric coat hex for a skin id (null = natural), used by client/familiars.js
+// to recolor the follower's body material.
+function familiarSkinHex(id) {
+  if (!id || id === 'default') return null;
+  const s = (myFamiliarCos.skins || []).find((x) => x.id === id);
+  return (s && s.hex != null) ? s.hex : null;
+}
 function renderFamiliarModal() {
   const el = document.getElementById('familiarContent');
   if (!el) return;
@@ -10050,9 +10067,27 @@ function renderFamiliarModal() {
     h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div></span></div>`;
   }
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-fid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No familiar${!cur ? ' ✓' : ''}</div><div class="fb">Walk alone.</div></span></div></div>`;
+  // Coat picker — recolors whichever familiar you've bonded. Account-wide,
+  // server-sourced palette; owned/default equip on click, locked show 💎 price.
+  if ((myFamiliarCos.skins || []).length) {
+    const owned = myFamiliarCos.owned || []; const curSkin = myFamiliarCos.skin || 'default';
+    h += '<div class="famCoatSec">Coat</div><div class="famCoats">';
+    for (const s of myFamiliarCos.skins) {
+      const sw = (s.hex == null)
+        ? 'background:linear-gradient(135deg,#2a2140 50%,#4a3f66 50%)'
+        : 'background:#' + s.hex.toString(16).padStart(6, '0');
+      const isOwned = !s.ms || owned.indexOf(s.id) !== -1;
+      if (!isOwned) h += '<button class="famCoat buy" data-skin="' + s.id + '" title="' + s.label + '"><span class="famSw" style="' + sw + '"></span><span class="famCoatLbl">' + s.ms + '💎</span></button>';
+      else h += '<button class="famCoat' + (curSkin === s.id ? ' on' : '') + '" data-skin="' + s.id + '" title="' + s.label + '"><span class="famSw" style="' + sw + '"></span><span class="famCoatLbl">' + s.label + '</span></button>';
+    }
+    h += '</div>';
+  }
   el.innerHTML = h;
   el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
     send({ type: 'choose_familiar', familiarId: row.getAttribute('data-fid') || null });
+  }));
+  el.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => {
+    send({ type: 'set_familiar_skin', skinId: b.getAttribute('data-skin') });
   }));
 }
 function openFamiliarModal() {
@@ -12430,6 +12465,7 @@ const {
 // reading the shared visuals map for positions (cosmetic; perk is server-side).
 const { updateFamiliars } = createFamiliars({
   getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
+  getSkinHex: (id) => familiarSkinHex(id),
 });
 const { updateGuises } = createGuises({
   getPlayers: () => players, getVisuals: () => visuals, getKK: () => KK,

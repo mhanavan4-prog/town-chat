@@ -15,4 +15,23 @@ const FAMILIARS = {
   hare:  { name: 'Hare',      emoji: '🐇',  stat: 'swift',    amount: 0.10, blurb: 'Quick as a moonlit hare — +10% move speed.' },
 };
 
-module.exports = { FAMILIARS };
+// ── Familiar coats (cosmetic skins) ─────────────────────────────────────────
+// A shared palette of coat colors that recolor whichever familiar you've bonded
+// (the primary body material — fur/feather/skin — client-side). 'default' is
+// the familiar's natural coat and is always free; the rest are account-wide
+// Moonstone cosmetics. Pure flair: the perk is unchanged, and nearby players
+// see your coat because familiarSkin rides publicPlayer.
+const FAMILIAR_SKINS = [
+  { id: 'default',  label: 'Natural',  hex: null },
+  { id: 'ashen',    label: 'Ashen',    hex: 0xe8e2d0, ms: 12 },
+  { id: 'spectral', label: 'Spectral', hex: 0x8fe9ff, ms: 12 },
+  { id: 'ember',    label: 'Ember',    hex: 0xff7a3c, ms: 12 },
+  { id: 'moonlit',  label: 'Moonlit',  hex: 0xb9c2ff, ms: 12 },
+  { id: 'shadow',   label: 'Shadow',   hex: 0x4a3568, ms: 12 },
+  { id: 'verdant',  label: 'Verdant',  hex: 0x5fbf6a, ms: 12 },
+  { id: 'rosewood', label: 'Rosewood', hex: 0xd98fa8, ms: 15 },
+  { id: 'gilded',   label: 'Gilded',   hex: 0xffcf5a, ms: 15 },
+];
+const FAMILIAR_SKIN_BY_ID = FAMILIAR_SKINS.reduce((o, s) => { o[s.id] = s; return o; }, {});
+
+module.exports = { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID };

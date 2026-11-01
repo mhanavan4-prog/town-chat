@@ -9,40 +9,44 @@
 // Same chibi language as client/creatures.js — Lambert bodies, a couple of
 // distinguishing shapes, small unlit "glow" eyes.
 // ---------------------------------------------------------------------------
-export default function createFamiliars({ getPlayers, getVisuals, getMe }) {
-  let pool = {}; // playerId -> { group, type, x, y, z, phase }
+export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkinHex }) {
+  let pool = {}; // playerId -> { group, type, skin, x, y, z, phase }
 
   function glow(color, r) { return new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color })); }
+  // A bonded coat recolors only the PRIMARY body material of each familiar
+  // (fur/feather/skin) — beaks, eyes, mouths and accents keep their own color.
+  // `coat` is a numeric hex (from the owner's familiarSkin) or null for natural.
+  function coatColor(coat, natural) { return (coat != null) ? coat : natural; }
 
-  function makeCat() {
+  function makeCat(coat) {
     const g = new THREE.Group();
-    const fur = new THREE.MeshLambertMaterial({ color: 0x1a1620 });
+    const fur = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x1a1620) });
     const body = new THREE.Mesh(new THREE.SphereGeometry(3.4, 8, 8), fur); body.scale.set(1, 0.85, 1.5); body.position.y = 4.2; g.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), fur); head.position.set(0, 6, 3.4); g.add(head);
     for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(1, 2.2, 4), fur); ear.position.set(s * 1.3, 8, 3.4); g.add(ear); const e = glow(0x8cff7a, 0.5); e.position.set(s * 0.9, 6.2, 5.2); g.add(e); }
     const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 6, 5), fur); tail.position.set(0, 5.5, -4); tail.rotation.x = 1.1; g.add(tail);
     return g;
   }
-  function makeRaven() {
+  function makeRaven(coat) {
     const g = new THREE.Group();
-    const feather = new THREE.MeshLambertMaterial({ color: 0x14141c });
+    const feather = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x14141c) });
     const body = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8), feather); body.scale.set(1, 1, 1.7); body.position.y = 7; g.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), feather); head.position.set(0, 9, 3.6); g.add(head);
     const beak = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.4, 5), new THREE.MeshLambertMaterial({ color: 0x3a2a12 })); beak.position.set(0, 9, 6); beak.rotation.x = Math.PI / 2; g.add(beak);
     for (const s of [-1, 1]) { const wing = new THREE.Mesh(new THREE.SphereGeometry(3.2, 7, 7), feather); wing.scale.set(0.25, 1, 1.6); wing.position.set(s * 2.6, 7, 0); g.add(wing); const e = glow(0xaad4ff, 0.45); e.position.set(s * 0.8, 9.2, 5); g.add(e); }
     return g;
   }
-  function makeToad() {
+  function makeToad(coat) {
     const g = new THREE.Group();
-    const skin = new THREE.MeshLambertMaterial({ color: 0x3c5a28 });
+    const skin = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x3c5a28) });
     const body = new THREE.Mesh(new THREE.SphereGeometry(3.6, 8, 8), skin); body.scale.set(1.4, 0.8, 1.2); body.position.y = 3; g.add(body);
     for (const s of [-1, 1]) { const bump = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), skin); bump.position.set(s * 1.6, 5, 2); g.add(bump); const e = glow(0xffe06a, 0.7); e.position.set(s * 1.6, 5.6, 2.6); g.add(e); }
     const mouth = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 0.4), new THREE.MeshLambertMaterial({ color: 0x24381a })); mouth.position.set(0, 3, 4); g.add(mouth);
     return g;
   }
-  function makeHare() {
+  function makeHare(coat) {
     const g = new THREE.Group();
-    const fur = new THREE.MeshLambertMaterial({ color: 0x9a8468 });
+    const fur = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x9a8468) });
     const pale = new THREE.MeshLambertMaterial({ color: 0xd8c8ad });
     const body = new THREE.Mesh(new THREE.SphereGeometry(3.2, 8, 8), fur); body.scale.set(1, 1.1, 1.3); body.position.y = 4.5; g.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(2.1, 8, 8), fur); head.position.set(0, 7.5, 2.4); g.add(head);
@@ -76,13 +80,16 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe }) {
       const v = visuals[id];
       if (!v || !v.group || !v.group.parent || v.group.visible === false) continue;
       const gp = v.group.position;
+      const skin = p.familiarSkin || null; // the owner's bonded coat (cosmetic)
       let r = pool[id];
-      if (r && r.type !== p.familiar) { removeRec(id); r = null; }
+      // Rebuild when the familiar OR its coat changes.
+      if (r && (r.type !== p.familiar || r.skin !== skin)) { removeRec(id); r = null; }
       if (!r) {
-        const group = BUILDERS[p.familiar]();
+        const coat = (typeof getSkinHex === 'function') ? getSkinHex(skin) : null;
+        const group = BUILDERS[p.familiar](coat);
         group.scale.setScalar(me && me.id === id ? 1.0 : 1.0);
         v.group.parent.add(group);
-        r = pool[id] = { group, type: p.familiar, x: gp.x, y: gp.y, z: gp.z, phase: Math.random() * 6 };
+        r = pool[id] = { group, type: p.familiar, skin, x: gp.x, y: gp.y, z: gp.z, phase: Math.random() * 6 };
       } else if (r.group.parent !== v.group.parent) {
         // The owner changed scenes — re-parent into their current one.
         if (r.group.parent) r.group.parent.remove(r.group);

@@ -760,6 +760,14 @@
   .famRow .fe { font-size:24px; width:30px; text-align:center; }
   .famRow .fn { font-weight:700; color:#fff; font-size:13px; }
   .famRow .fb { font-size:11px; opacity:0.92; }
+  .famCoatSec { margin:12px 2px 6px; font-weight:800; color:#ffd9a0; font-size:12px; letter-spacing:.3px; }
+  .famCoats { display:flex; flex-wrap:wrap; gap:8px; }
+  .famCoat { display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; padding:0; cursor:pointer; }
+  .famCoat .famSw { width:38px; height:38px; border-radius:10px; border:2px solid rgba(255,255,255,0.14); box-shadow:inset 0 1px 3px rgba(0,0,0,0.4); }
+  .famCoat:hover .famSw { border-color:rgba(185,138,255,0.6); }
+  .famCoat.on .famSw { border-color:#5ee7c0; box-shadow:0 0 0 2px rgba(94,231,192,0.5); }
+  .famCoat.buy .famSw { border-color:rgba(232,217,168,0.55); }
+  .famCoatLbl { font-size:10px; font-weight:700; color:#e5d8bf; }
   /* Daily Tarot */
   #tarotModal { width:min(340px, 92vw); text-align:center; }
   /* Three-card spread: Past · Present · What Comes, each a real card face. */

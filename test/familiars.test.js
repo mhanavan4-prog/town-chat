@@ -4,7 +4,7 @@
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 
-const { FAMILIARS } = require('../data/familiars.js');
+const { FAMILIARS, FAMILIAR_SKINS } = require('../data/familiars.js');
 
 const ids = Object.keys(FAMILIARS);
 check('four familiars defined', ids.length === 4, ids);
@@ -34,6 +34,12 @@ check('unknown familiar = no buff', familiarBuff('dragon', 'forage') === 0);
 // Perks are spread across stats (not all the same one), so the choice matters.
 const statsUsed = new Set(ids.map((id) => FAMILIARS[id].stat));
 check('familiars steer toward different stats', statsUsed.size >= 3, [...statsUsed]);
+
+// ── Familiar coats (cosmetic skins) ──
+check('there is a coat palette', Array.isArray(FAMILIAR_SKINS) && FAMILIAR_SKINS.length >= 3);
+check('a free natural (default) coat exists', FAMILIAR_SKINS.some((s) => s.id === 'default' && s.hex == null && !s.ms));
+check('every premium coat has a hex and a positive price', FAMILIAR_SKINS.filter((s) => s.id !== 'default').every((s) => typeof s.hex === 'number' && s.ms > 0), FAMILIAR_SKINS);
+check('coat ids are unique', new Set(FAMILIAR_SKINS.map((s) => s.id)).size === FAMILIAR_SKINS.length);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

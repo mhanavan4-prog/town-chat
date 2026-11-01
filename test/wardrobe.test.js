@@ -153,6 +153,19 @@ setTimeout(() => {
   dbuyer.s.emit('message', JSON.stringify({ type: 'set_name_color', colorId: 'default' }));
   check('reverting to the default name color is free and un-charged', h.msBalance('dyer') === ncBal2 && h.accounts['dyer'].nameColorId === 'default');
 
+  // ── Familiar coat (cosmetic skin) ──
+  const fcBal = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_familiar_skin', skinId: 'ashen' })); // 12 💎
+  check('setting a premium familiar coat confirms with familiar_skin_set', (() => { const m = dbuyer.s.lastOfType('familiar_skin_set'); return m && m.skinId === 'ashen'; })());
+  check('the familiar coat debits its Moonstone price', h.msBalance('dyer') === fcBal - 12, h.msBalance('dyer'));
+  check('the familiar coat is owned account-wide', (() => { const pr = h.playerProgress['dyer']; return pr.familiarSkinUnlocks && pr.familiarSkinUnlocks.indexOf('ashen') !== -1; })());
+  check('the worn coat rides the account + live player', h.accounts['dyer'].familiarSkin === 'ashen' && dbuyer.p.familiarSkin === 'ashen');
+  const fcBal2 = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_familiar_skin', skinId: 'ashen' }));
+  check('re-equipping an owned coat does not double-charge', h.msBalance('dyer') === fcBal2, h.msBalance('dyer'));
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_familiar_skin', skinId: 'default' }));
+  check('reverting to the natural coat is free', h.msBalance('dyer') === fcBal2 && h.accounts['dyer'].familiarSkin === 'default');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 250);
