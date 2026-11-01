@@ -3126,9 +3126,13 @@ function rollPendingLoot(table) {
   return pending;
 }
 
-// The Hedge & Wild seed cuttings (Mugwort, Yarrow) that drop from Wilds mobs —
-// finding one is the Green Path chapter-4 objective ('seed_found').
-const WILDS_SEED_IDS = new Set(require('./data/gameConstants').WILDS_SEED_DROPS.map(d => d.itemId));
+// Every Green Path cutting that can drop from a creature — the common Mugwort/
+// Yarrow plus the rarer Hedge & baneful tiers. Finding any of them is the Green
+// Path chapter-4 objective ('seed_found'), so a lucky early find counts too.
+const WILDS_SEED_IDS = new Set((() => {
+  const gc = require('./data/gameConstants');
+  return [...gc.WILDS_SEED_DROPS, ...gc.HEDGE_SEED_DROPS, ...gc.BANE_SEED_DROPS].map(d => d.itemId);
+})());
 
 // Actually hands over a previously-rolled pending loot list to whoever just
 // looted the body — mirrors what the old rollLoot used to do immediately,
