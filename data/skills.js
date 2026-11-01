@@ -160,4 +160,27 @@ const SKILL_CATALOG = {
 // agree on one definition.
 function skillMaxRank(skill, fallback) { return (skill && skill.maxRank) || fallback; }
 
-module.exports = { STAT_KEYS, SKILL_STAT_PER_RANK, STAT_SKILL_EFFECT, SKILL_FX, SKILL_CATALOG, skillMaxRank };
+// ── Point economy (scarcity): deeper ranks cost more ────────────────────────
+// Each rank of a core/trade-off skill costs progressively more, so maxing one
+// skill (6 pts) is a real commitment and you CANNOT fill the whole tree. With
+// the level cap at 20 you earn ~19 points for life, while completing a class
+// tree now costs far more than that — every point spent is a sacrifice. A
+// keystone pact is a flat cost (it's maxRank 1). Changing these two values is
+// the whole balance dial for the system.
+const SKILL_RANK_COSTS = [1, 2, 3]; // points to buy the 1st / 2nd / 3rd rank
+const KEYSTONE_COST = 3;            // flat points to swear a pact
+// Cost of the single rank that takes a skill from (rank-1) up to `rank`.
+function skillRankCost(skill, rank) {
+  if (!rank || rank < 1) return 0;
+  if (skill && skill.tier === 'keystone') return KEYSTONE_COST;
+  const c = SKILL_RANK_COSTS[rank - 1];
+  return c != null ? c : rank; // graceful fallback past the table
+}
+// Total points sunk into a skill currently at `ranks` (sum of each rank's cost).
+function skillSpentCost(skill, ranks) {
+  let total = 0;
+  for (let r = 1; r <= (ranks || 0); r++) total += skillRankCost(skill, r);
+  return total;
+}
+
+module.exports = { STAT_KEYS, SKILL_STAT_PER_RANK, STAT_SKILL_EFFECT, SKILL_FX, SKILL_CATALOG, skillMaxRank, SKILL_RANK_COSTS, KEYSTONE_COST, skillRankCost, skillSpentCost };

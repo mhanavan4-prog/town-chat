@@ -3755,6 +3755,28 @@ const PROGRESS_FILE = path.join(DATA_DIR, 'playerProgress.json');
 function loadProgress() { return persistLoad('playerProgress', PROGRESS_FILE); }
 function saveProgress() { persistSave('playerProgress', PROGRESS_FILE, playerProgress); }
 const playerProgress = loadProgress(); // accountKey -> { characters:{charId:{xp,level,skillPoints}}, skills, story, questCooldowns, ... }
+// One-time, boot-only respec for the escalating-cost skill economy. Pre-deploy
+// ranks were bought at a flat 1-point-per-rank; the new economy charges more
+// for deeper ranks, so every stored allocation is refunded at exactly what it
+// was paid (1/rank) back to that character's point pool and the tree cleared,
+// letting everyone re-spend fairly under the new costs. Guarded by its own flag
+// so it never double-applies, and NOT run lazily in getProgress — new accounts
+// are born with the flag set, so only accounts saved before this deploy are
+// touched, and only once.
+function migrateSkillEconomy(a) {
+  if (!a || a._skillEconV2) return;
+  if (a.skills && typeof a.skills === 'object') {
+    for (const cid of Object.keys(a.skills)) {
+      const allocd = a.skills[cid] || {};
+      const refund = Object.values(allocd).reduce((s, r) => s + (r || 0), 0); // old cost = 1/rank
+      if (refund > 0 && a.characters && a.characters[cid]) {
+        a.characters[cid].skillPoints = (a.characters[cid].skillPoints || 0) + refund;
+      }
+      a.skills[cid] = {};
+    }
+  }
+  a._skillEconV2 = true;
+}
 // One-time migration of every stored account from the old account-wide pool to
 // per-character levels. Runs before any connection and before /api/characters
 // (which reads playerProgress directly), so the roster never shows stale data.
@@ -3762,7 +3784,10 @@ const playerProgress = loadProgress(); // accountKey -> { characters:{charId:{xp
   let migrated = 0;
   for (const key of Object.keys(playerProgress)) {
     const a = playerProgress[key];
-    if (a && !a._charLeveled) { try { migrateAccountProgress(a); migrated++; } catch (e) {} }
+    if (!a) continue;
+    if (!a._charLeveled) { try { migrateAccountProgress(a); migrated++; } catch (e) {} }
+    // Then fold the pre-deploy skill allocations into a clean re-spend.
+    if (!a._skillEconV2) { try { migrateSkillEconomy(a); migrated++; } catch (e) {} }
   }
   if (migrated) { try { saveProgress(); } catch (e) {} }
 }
@@ -3849,12 +3874,12 @@ function getProgress(player) {
   let account;
   if (player.accountKey) {
     if (!playerProgress[player.accountKey]) {
-      playerProgress[player.accountKey] = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true };
+      playerProgress[player.accountKey] = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true, _skillEconV2: true };
       saveProgress();
     }
     account = playerProgress[player.accountKey];
   } else {
-    if (!player.guestProgress) player.guestProgress = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true };
+    if (!player.guestProgress) player.guestProgress = { questCooldowns: {}, pickpocketSuccesses: 0, characters: {}, _charLeveled: true, _skillEconV2: true };
     account = player.guestProgress;
   }
   migrateAccountProgress(account);
@@ -4014,7 +4039,7 @@ function syncProgressToPlayer(player) {
 // stated no-anti-cheat movement model.
 // ---------------------------------------------------------------------------
 const SKILL_MAX_RANK = 3;
-const { SKILL_FX, SKILL_CATALOG, skillMaxRank } = require('./data/skills'); // Tier 3.4 Phase A: extracted to data/
+const { SKILL_FX, SKILL_CATALOG, skillMaxRank, skillRankCost, skillSpentCost } = require('./data/skills'); // Tier 3.4 Phase A: extracted to data/
 
 function skillTreeFor(charId) { return SKILL_CATALOG[charId] || []; }
 function getSkillAlloc(player) {
@@ -4293,10 +4318,16 @@ function skillStatePayload(player) {
       // client dims it and explains that a respec is needed to switch paths.
       const locked = tier === 'keystone' && skillTreeFor(player.charId)
         .some(o => o.tier === 'keystone' && o.id !== s.id && (alloc[o.id] || 0) > 0);
+      const rank = alloc[s.id] || 0;
+      const maxRank = skillMaxRank(s, SKILL_MAX_RANK);
       return {
         id: s.id, name: s.name, icon: s.icon, desc: s.desc, effect: s.effect,
         tier, mods: s.mods || null, locked,
-        rank: alloc[s.id] || 0, maxRank: skillMaxRank(s, SKILL_MAX_RANK)
+        rank, maxRank,
+        // Scarcity surfacing: what the next rank costs (null when maxed) and
+        // how much is already sunk in, so the panel can price every choice.
+        nextCost: rank < maxRank ? skillRankCost(s, rank + 1) : null,
+        spent: skillSpentCost(s, rank)
       };
     })
   };
@@ -12473,8 +12504,11 @@ wss.on('connection', (ws, req) => {
         const sworn = skillTreeFor(player.charId).find(s => s.tier === 'keystone' && s.id !== skillId && (alloc[s.id] || 0) > 0);
         if (sworn) { send(ws, { type: 'skill_error', message: `You have already sworn the ${sworn.name} pact — respec to change your path.` }); return; }
       }
-      if ((prog.skillPoints || 0) < 1) { send(ws, { type: 'skill_error', message: 'No skill points to spend — level up to earn more.' }); return; }
-      prog.skillPoints -= 1;
+      // Scarcity: deeper ranks cost more. You cannot fill the whole tree, so
+      // each point is a choice — this is where that bites.
+      const cost = skillRankCost(skill, cur + 1);
+      if ((prog.skillPoints || 0) < cost) { send(ws, { type: 'skill_error', message: `Not enough skill points — rank ${cur + 1} of ${skill.name} costs ${cost}. Level up to earn more.` }); return; }
+      prog.skillPoints -= cost;
       alloc[skillId] = cur + 1;
       syncProgressToPlayer(player); // refreshes player.maxHealth
       if (player.accountKey) saveProgress();
@@ -12486,7 +12520,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'skill_respec') {
       const prog = getProgress(player);
       const alloc = getSkillAlloc(player);
-      const refunded = Object.values(alloc).reduce((a, r) => a + (r || 0), 0);
+      // Refund the real escalating cost that was paid, not one-per-rank, so a
+      // respec always returns exactly what was spent.
+      const byId = {}; for (const s of skillTreeFor(player.charId)) byId[s.id] = s;
+      const refunded = Object.keys(alloc).reduce((a, id) => a + skillSpentCost(byId[id], alloc[id] || 0), 0);
       if (refunded === 0) { send(ws, { type: 'skill_error', message: 'You have not spent any points in this class yet.' }); return; }
       prog.skillPoints = (prog.skillPoints || 0) + refunded;
       prog.skills[String(player.charId)] = {};
@@ -14607,7 +14644,7 @@ global.__testHooks = {
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory,
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,

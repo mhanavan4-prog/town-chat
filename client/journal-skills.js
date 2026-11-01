@@ -128,14 +128,27 @@ function renderSkills() {
       }
       main.appendChild(pips);
     }
+    // Scarcity made visible: the price of the next rank, greyed when you can't
+    // yet afford it. Maxed/sworn/locked rows say so instead of a price.
+    const maxed = sk.rank >= sk.maxRank;
+    const nextCost = sk.nextCost;
+    const afford = !sk.locked && !maxed && sp >= (nextCost || 0);
+    const costEl = document.createElement('div');
+    costEl.className = 'skillCost' + (afford ? '' : ' unafford');
+    if (sk.locked) costEl.textContent = '🔒 Respec to change your pact';
+    else if (maxed) costEl.textContent = sk.tier === 'keystone' ? '✓ Sworn' : '✓ Maxed';
+    else costEl.textContent = (sk.tier === 'keystone' ? 'Swear' : `Next rank`) + ` · ${nextCost} pt${nextCost === 1 ? '' : 's'}`;
+    main.appendChild(costEl);
+
     const buy = document.createElement('button');
     buy.className = 'skillBuy' + (sk.tier === 'keystone' ? ' keystoneBuy' : '');
     buy.textContent = chosen ? '✓' : (sk.tier === 'keystone' ? 'Swear' : '+');
-    const canBuy = sk.rank < sk.maxRank && sp > 0 && !sk.locked;
+    const canBuy = !maxed && afford;
     buy.disabled = !canBuy;
     buy.title = sk.locked ? 'Respec to change your sworn pact'
-      : sk.rank >= sk.maxRank ? (sk.tier === 'keystone' ? 'Sworn' : 'Maxed out')
-      : (sp > 0 ? `Spend 1 point on ${sk.name}` : 'No skill points — level up to earn more');
+      : maxed ? (sk.tier === 'keystone' ? 'Sworn' : 'Maxed out')
+      : afford ? `Spend ${nextCost} point${nextCost === 1 ? '' : 's'} on ${sk.name}`
+      : `Costs ${nextCost} points — you have ${sp}. Level up to earn more.`;
     buy.addEventListener('click', () => sendAllocate(sk.id));
     row.appendChild(icon); row.appendChild(main); row.appendChild(buy);
     return row;
