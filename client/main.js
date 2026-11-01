@@ -4202,11 +4202,23 @@ function openQuestDialogue(npcId, npcName) {
   ws.send(JSON.stringify({ type: 'quest_talk', npcId, npcName }));
 }
 
+let pendingQuestSkip = null; // {npcId, questId, cost} when the offer is a cooldown-skip
 function showQuestOffer(msg) {
   document.getElementById('questDialogueNpc').textContent = `💬 ${msg.npcName}`;
   document.getElementById('questDialogueName').textContent = msg.questName || '';
-  document.getElementById('questDialogueDesc').textContent = msg.description || '';
+  // On cooldown: show the quest-giver's "come back later / pay to hurry" line
+  // above the quest blurb, and flip the accept button into a 💎 skip button.
+  const desc = msg.cooldown && msg.message ? `${msg.message}\n\n${msg.description || ''}` : (msg.description || '');
+  document.getElementById('questDialogueDesc').textContent = desc;
   document.getElementById('questDialogueXP').textContent = msg.xpReward || 0;
+  const accept = document.getElementById('questAcceptBtn');
+  if (msg.cooldown) {
+    pendingQuestSkip = { npcId: pendingQuestNpcId, questId: msg.questId, cost: msg.skipCost || 8 };
+    if (accept) accept.textContent = `💎 Set out now · ${msg.skipCost || 8}`;
+  } else {
+    pendingQuestSkip = null;
+    if (accept) accept.textContent = 'Accept Quest';
+  }
   document.getElementById('questDialogue').classList.remove('hidden');
   // Voice the quest-giver's pitch, if this quest has a narration clip.
   if (typeof playNarration === 'function' && msg.questId) playNarration(msg.questId);
@@ -4215,12 +4227,20 @@ function showQuestOffer(msg) {
 function closeQuestDialogue() {
   document.getElementById('questDialogue').classList.add('hidden');
   pendingQuestNpcId = null;
+  pendingQuestSkip = null;
   if (typeof stopNarration === 'function') stopNarration(); // cut the voice when the card closes
 }
 
 const questAcceptBtn = document.getElementById('questAcceptBtn');
 if (questAcceptBtn) questAcceptBtn.addEventListener('click', () => {
   if (!pendingQuestNpcId) return;
+  // Cooldown-skip mode: buy down the wait; the server replies with a fresh
+  // (now-acceptable) quest_offer that reopens this card in normal Accept mode.
+  if (pendingQuestSkip) {
+    ws.send(JSON.stringify({ type: 'quest_cooldown_skip', npcId: pendingQuestSkip.npcId, questId: pendingQuestSkip.questId }));
+    pendingQuestSkip = null;
+    return;
+  }
   ws.send(JSON.stringify({ type: 'quest_accept', npcId: pendingQuestNpcId }));
   closeQuestDialogue();
 });
