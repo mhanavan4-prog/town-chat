@@ -86,6 +86,37 @@ setTimeout(() => {
   check('Tome is not gold-purchased (crafted from mats, not bought)', !!tome && !tome.gold);
   check('Tome stays out of the Tier-1/2/3 chain rules', !!tome && tome.tier === 4);
 
+  // ── 7. More pact combat behaviors (Wounded Fury, Last Stand) ──
+  const { activePactBehavior, pactOutgoingDamage, pactIncomingDamage } = global.__testHooks;
+  // Data: the two marquee pacts carry their behavior blocks.
+  const bmSkill = S.SKILL_CATALOG[1].find((s) => s.id === 'wolf_k_bloodmoon');
+  const jgSkill = S.SKILL_CATALOG[3].find((s) => s.id === 'knight_k_juggernaut');
+  check('Bloodmoon Beast carries a Wounded Fury behavior', !!bmSkill.behavior && bmSkill.behavior.woundedFury > 0, bmSkill.behavior);
+  check('Juggernaut carries a Last Stand behavior', !!jgSkill.behavior && jgSkill.behavior.lastStand > 0, jgSkill.behavior);
+
+  // Wounded Fury (attacker-side): +35% damage scaling with missing health.
+  delete playerProgress['bmT'];
+  playerProgress['bmT'] = { _charLeveled: true, _skillEconV2: true, characters: { '1': { level: 10 } }, skills: { '1': { wolf_k_bloodmoon: 1 } } };
+  const bm = { accountKey: 'bmT', charId: 1, health: 10, isDead: false }; // maxHP 100, 10% → +31.5%
+  check('a sworn pact exposes its behavior block', !!activePactBehavior(bm) && activePactBehavior(bm).woundedFury === 0.35);
+  check('Wounded Fury scales damage up at low HP', pactOutgoingDamage(bm, 100) === 132, pactOutgoingDamage(bm, 100)); // 100 * 1.315
+  bm.health = 100;
+  check('Wounded Fury is nil at full HP', pactOutgoingDamage(bm, 100) === 100, pactOutgoingDamage(bm, 100));
+
+  // Last Stand (victim-side): −35% damage below 30% HP (maxHP 155 via +55 vit).
+  delete playerProgress['jgT'];
+  playerProgress['jgT'] = { _charLeveled: true, _skillEconV2: true, characters: { '3': { level: 10 } }, skills: { '3': { knight_k_juggernaut: 1 } } };
+  const jg = { accountKey: 'jgT', charId: 3, health: 40, isDead: false }; // 40/155 = 0.26 < 0.3
+  check('Last Stand cuts damage below the threshold', pactIncomingDamage(jg, 100) === 65, pactIncomingDamage(jg, 100));
+  jg.health = 150; // 0.97 > 0.3
+  check('Last Stand does nothing above the threshold', pactIncomingDamage(jg, 100) === 100, pactIncomingDamage(jg, 100));
+
+  // A player with no pact is untouched by both hooks.
+  delete playerProgress['noPactC'];
+  playerProgress['noPactC'] = { _charLeveled: true, _skillEconV2: true, characters: { '1': { level: 10 } }, skills: { '1': {} } };
+  const np = { accountKey: 'noPactC', charId: 1, health: 10, isDead: false };
+  check('no pact → neither damage hook fires', pactOutgoingDamage(np, 100) === 100 && pactIncomingDamage(np, 100) === 100);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 150);
