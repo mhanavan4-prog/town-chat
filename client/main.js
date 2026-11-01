@@ -312,6 +312,15 @@ const KK = (() => {
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     npc_vampire:  'kk/Vampire.glb',        // the Artificer, lounging on his throne
     npc_witch:    'kk/Witch.glb',          // Mother Yarrow — KayKit Mystery Monthly S5 "The Witch" (CC0): orange hat, round glasses, salmon hair. No clips of her own; borrows the Mage's via the shared KayKit rig (see borrowAnims)
+    // Mother Yarrow's garden dressing — the Witch pack's themed props (CC0, same
+    // Mystery Monthly S5 set; all share witch_texture_A). Placed in her plot.
+    wprop_cauldron:     'kk/witch/Cauldron.gltf',
+    wprop_potionstn:    'kk/witch/Potionstation_decorated.gltf',
+    wprop_wtable:       'kk/witch/Table_Small.gltf',
+    wprop_mortar:       'kk/witch/Mortar.gltf',
+    wprop_pestle:       'kk/witch/Pestle.gltf',
+    wprop_mushbasket:   'kk/witch/Basket_Mushrooms.gltf',
+    wprop_broom:        'kk/witch/Broom.gltf',
     prop_throne:  'kk/vampire/Vampire_Throne.gltf', // the Artificer's vampire throne
     mon_beast:    'kk/Monster.glb',        // the smaller Wilds beast-mobs (barrow maw, bone hound, swamp lurker, …); the world bosses now use skel_warrior
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
@@ -475,7 +484,10 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil'];
+  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
+    // Mother Yarrow's garden props (stream in after the player body; the Wilds
+    // scene rebuilds once KayKit finishes loading, so they appear then).
+    'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
