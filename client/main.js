@@ -10310,7 +10310,21 @@ function renderGardenModal() {
   if (!st || !st.plots) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Tending the beds…</div>'; send({ type: 'garden_state' }); return; }
   const mt = gardenMoonTier();
   const now = Date.now();
-  let h = `<div class="gardenHint">Sow a herb and it grows into more. Planted under ${mt.label} now, a bed yields <b>${mt.yield}×</b> — plant as the moon fills for a richer crop.</div>`;
+  let h = '';
+  // The Green Path — a gardening questline surfaced right here, since sowing and
+  // harvesting ARE the objectives. Shows the current chapter + progress.
+  const gp = st.greenPath;
+  if (gp) {
+    if (gp.done) {
+      h += '<div class="gpQuest done">🌿 <b>The Green Path</b> — complete. The garden is yours.</div>';
+    } else {
+      const sub = !gp.levelOk
+        ? `🔒 Unlocks at Level ${gp.requiresLevel}`
+        : `${gp.label} · <b>${gp.progress}/${gp.target}</b>`;
+      h += `<div class="gpQuest"><div class="gpqHead">🌿 The Green Path · Ch. ${gp.chapter + 1}/${gp.total}: ${gp.title}</div><div class="gpqObj">${sub}</div></div>`;
+    }
+  }
+  h += `<div class="gardenHint">Sow a herb and it grows into more. Planted under ${mt.label} now, a bed yields <b>${mt.yield}×</b> — plant as the moon fills for a richer crop.</div>`;
   h += '<div class="menuCols">';
   (st.plots || []).forEach((p, i) => {
     h += '<div class="gardenPlot">';

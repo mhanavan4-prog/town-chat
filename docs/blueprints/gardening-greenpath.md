@@ -1,9 +1,17 @@
 # Blueprint — The Green Path (gardening expansion)
 
 > A botanical questline that runs parallel to the main campaign. Nine chapters,
-> each unlocking a rarer seed than the last, with seeds also **found** in the
-> world (rare mob drops, foraging) and new potions brewed from every harvest.
-> Status: **blueprint / not built.** This document is the plan, not code.
+> each unlocking a rarer plant than the last, drawn from **real witchcraft
+> herbalism** and organized by traditional category — the gentle **Cottage
+> Garden**, the **Hedge & Wild**, and the baneful **Poison Path**. Plants are
+> also **found** in the world (rare mob drops, foraging) and new potions are
+> brewed from every harvest.
+> Status: **Chapters 1–2 built** (the Cottage Garden MVP — Chamomile, Calendula,
+> Chamomile Tisane). Chapters 3–9 are the plan below, not yet code.
+>
+> The full plant catalogue, by category, is the authoritative list in
+> `data/greenPath.js` (`GREEN_PATH_CATEGORIES`). This document is the plan around
+> it.
 
 ## 1. Vision & pillars
 
@@ -35,36 +43,53 @@ Three pillars:
 **Key insight:** almost none of this needs new engine code. The Green Path is
 mostly *data* plus a thin "green quest" tracker modeled on the existing story.
 
-## 3. Seed rarity tiers
+## 3. The plant categories (real witchcraft herbalism)
 
-Nine chapters, three rarity bands. Each seed has a grow time (rarer = longer),
-a base yield value, and a signature potion.
+Nine chapters, three traditional categories that also serve as the rarity bands.
+Each plant is a **real herb from folk witchcraft**, with its traditional
+correspondence; each has a grow time (rarer = longer), a base yield value, and a
+signature potion. The categories climb in power and danger, so the taxonomy and
+the progression are the same ladder.
 
-| Tier | Chapters | Example seeds | Grow time | Where it comes from |
-|---|---|---|---|---|
-| **Common garden** | 1–3 | Dawnpetal, Mistroot, Emberleaf | 30–60 min | Chapter reward + common forage |
-| **Wild & rare** | 4–6 | Gravebloom, Moonthistle, Witch-ivy | 1–2 h | Chapter reward + **rare mob drops** |
-| **Mythic** | 7–9 | Hollowbloom, Starcap, Heartroot | 3–6 h | Chapter reward + **boss/elite drops** + lunar mutation |
+| Category | Band | Chapters | Real plants | Grow time | Where it comes from |
+|---|---|---|---|---|---|
+| **The Cottage Garden** — everyday healing & hearth-cunning | common | 1–3 | **Chamomile, Calendula**, Comfrey, Lemon Balm, Feverfew, Lavender | 30–60 min | Chapter reward + common forage |
+| **The Hedge & Wild** — warding & crossing the hedge to see | rare | 4–6 | Mugwort, Vervain, Yarrow, Wormwood, Rue, St. John's Wort, Rowan | 1–2 h | Chapter reward + **rare mob drops** |
+| **The Poison Path** — the baneful herbs, the witch's dark art | mythic | 7–9 | Belladonna, Henbane, Mandrake, Wolfsbane, Datura, Hemlock, Foxglove, Black Hellebore | 3–6 h | Chapter reward + **boss/elite drops** + lunar mutation |
+
+**The Poison Path is the climax** and the most evocative category — nightshades
+and baneful roots steeped in real witch-lore (the "flying ointment" herbs:
+belladonna, henbane, mandrake, datura). In-game they brew *debuffs, baneful
+draughts and trance effects* — never anything depicting real-world harm or
+preparation; the fantasy is the folklore, not a recipe.
 
 Yield still scales with the **moon phase at planting** (existing `MOON_YIELD`),
-so the "plant as the moon fills" skill carries all the way up.
+so the "plant as the moon fills" skill carries all the way up — fitting, since
+the baneful herbs are traditionally gathered by the moon.
 
 ## 4. The nine-chapter storyline
 
-Questgiver: a new NPC — **Mother Yarrow, the Hedgewitch** (west-side garden,
-near Herbalist Finn). Each chapter gates on player level and the previous
-chapter, mirrors the main story's structure (intro → objective → outro +
-reward), and pays a seed packet.
+Narrator: **Mother Yarrow, the Hedgewitch.** In the MVP she is a *voice* in the
+garden panel (her outro toasts hand you the next seeds) rather than a walk-up
+NPC — the garden actions themselves are the objectives, so no new dialogue UI is
+needed. She can graduate to a proper west-side NPC (near Herbalist Finn) when the
+later categories ship. Each chapter gates on player level and the previous
+chapter, and pays a seed packet (plus XP/gold).
 
-1. **A Handful of Earth** (Lv 1) — sow your first bed. *Reward: Dawnpetal seeds.*
-2. **The First Cutting** (Lv 3) — harvest 3 beds. *Reward: Mistroot seeds + a potion recipe.*
-3. **Reading the Moon** (Lv 5) — harvest a bed planted under a waxing/full moon. *Reward: Emberleaf.*
-4. **What the Wilds Hide** (Lv 8) — forage/kill in the Wilds until a **Gravebloom seed** drops. *Reward: Gravebloom + recipe.*
-5. **The Thistle Witch** (Lv 11) — brew a Tier-2 potion and deliver it. *Reward: Moonthistle.*
-6. **Ivy and Iron** (Lv 14) — grow Witch-ivy and clear a dungeon tier with its potion active. *Reward: Witch-ivy + recipe.*
-7. **Bloom in the Hollow** (Lv 17) — a **Hollowbloom seed** drops from a Wilds elite/boss. *Reward: Hollowbloom.*
-8. **Catch a Falling Star** (Lv 19) — harvest a Starcap (mythic grow time; plan around the moon). *Reward: Starcap + recipe.*
-9. **The Heartroot** (Lv 20) — the capstone: grow Heartroot and brew the **Draught of the Green Path**. *Reward: a cosmetic title-adjacent flourish (earned, not sold) + a permanent garden perk.*
+*Cottage Garden (common):*
+1. **A Handful of Earth** (Lv 1) — sow your first bed. *Reward: Chamomile.* ✅ built
+2. **The First Cutting** (Lv 3) — harvest 3 beds. *Reward: Calendula.* ✅ built
+3. **Hearth and Healing** (Lv 5) — harvest a bed planted under a waxing/full moon, then brew. *Reward: Comfrey + Lemon Balm; a healing recipe.*
+
+*The Hedge & Wild (rare):*
+4. **Crossing the Hedge** (Lv 8) — forage/kill in the Wilds until a **Mugwort** sprig drops. *Reward: Mugwort + a dream/divination recipe.*
+5. **The Warding Herbs** (Lv 11) — grow Vervain and Yarrow, brew a protective draught and deliver it. *Reward: Rue (the curse-breaker).*
+6. **Bitter Sight** (Lv 14) — grow Wormwood and clear a dungeon tier with its brew active. *Reward: St. John's Wort + Rowan + recipe.*
+
+*The Poison Path (mythic / baneful):*
+7. **The Beautiful Lady** (Lv 17) — a **Belladonna** cutting drops from a Wilds elite/boss; grow it with care. *Reward: Belladonna + Henbane.*
+8. **The Screaming Root** (Lv 19) — harvest a Mandrake (mythic grow time; pull it by the moon). *Reward: Mandrake + Wolfsbane + Datura; the "flying ointment" recipe (a trance/levitation cosmetic buff).*
+9. **The Witch's Garden** (Lv 20) — the capstone: grow Hemlock, Foxglove and Black Hellebore and brew the **Draught of the Green Path**. *Reward: an earned (never sold) cosmetic flourish + a permanent garden perk.*
 
 Chapter rewards escalate like the main story (XP, gold, the seed, sometimes a
 recipe) and — consistent with the recent change — **+1 skill point per chapter**
@@ -88,29 +113,38 @@ Three sources so the garden stays fed between chapters:
 
 ## 6. New potions
 
-Every tier's herb anchors a recipe (`POTION_RECIPES` + the cauldron). Keep them
-**sidegrades/consumables**, never permanent power, to match the crafting-tree
-rule. Examples:
+Every plant anchors a recipe (`POTION_RECIPES` + the cauldron), each drawn from
+the herb's real correspondence. Keep them **sidegrades/consumables**, never
+permanent power, to match the crafting-tree rule. Examples:
 
-- **Dawnpetal Tonic** (T1) — small out-of-combat heal.
-- **Mistroot Philtre** (T1) — brief move-speed, for travel.
-- **Gravebloom Elixir** (T2) — a timed lifesteal buff (pairs with combat).
-- **Moonthistle Draught** (T2) — forage-luck buff for a gathering session.
-- **Hollowbloom Brew** (T3) — a short, strong damage-taken reduction (a panic button).
+- **Chamomile Tisane** (Cottage) — a steady heal (restores 90 HP). ✅ built
+- **Calendula Salve** (Cottage) — a brief regen-over-time, skin-mending lore.
+- **Mugwort Dream-Draught** (Hedge) — a divination/forage-luck buff for a gathering session.
+- **Yarrow Ward** (Hedge) — a timed damage-reduction, the "staunching, courage" herb.
+- **Rue Cleansing Philtre** (Hedge) — strips curses/debuffs (the grace-herb, curse-breaker).
+- **Flying Ointment** (Poison Path) — a trance/levitation *cosmetic* buff (belladonna/henbane/mandrake lore; purely visual flight-feel, no power).
 - **Draught of the Green Path** (capstone) — a signature buff that stacks a
   little of everything for a few minutes; the "I finished the garden" trophy.
 
 ## 7. Data model (new/extended)
 
-- `PLANT_CATALOG`: +9 seeds/herbs (id, name, icon, forage/plant metadata).
-- `data/garden.js`: per-seed grow time (`GROW_MS_BY_SEED`), the `PLANTABLE_HERBS`
-  list widened as chapters unlock seeds (gate plantability on seeds owned).
-- `POTION_RECIPES`: +~8 recipes.
-- `LOOT_TABLES`: seed entries on the right mob pools.
-- **New:** `data/greenPath.js` — the 9-chapter catalog (giver, level gate,
-  objective type, target, reward), modeled on `data/quests.js` / the story arc.
-- Per-account state: `greenPathChapter` (progress), `seedsUnlocked` (which seeds
-  you may plant) — stored like the existing story/skill progress.
+- `PLANT_CATALOG` (`data/world.js`): the real herbs (id, name, icon, use-effect).
+  **Non-wild Green-Path plants live at the tail of the catalog** so foraged
+  plants keep their `wdecor_<i>_<n>` ids and wild-scatter positions stable, and
+  are added to `NON_WILD_CONSUMABLES` in `server.js` so they never scatter.
+  *(Built: chamomile, calendula, chamomile_tisane.)*
+- `data/garden.js`: `PLANTABLE_HERBS` widened as chapters unlock plants (built:
+  chamomile, calendula). Later: per-plant grow time (`GROW_MS_BY_SEED`), gate
+  plantability on plants owned.
+- `POTION_RECIPES` (`data/gameConstants.js`): one recipe per plant (built:
+  chamomile_tisane).
+- `LOOT_TABLES`: plant-drop entries on the right mob pools (Hedge & Poison tiers).
+- `data/greenPath.js` — **built.** `GREEN_PATH` (the chapter list: title, band,
+  level gate, objective type/target, outro, rewards) and `GREEN_PATH_CATEGORIES`
+  (the authoritative real-plant taxonomy with per-plant lore).
+- Per-account state: `prog.greenPath = { chapter, progress }` — stored like the
+  existing story/skill progress; surfaced in the garden panel, auto-advancing
+  off the plant/harvest handlers. *(Built.)*
 
 ## 8. Balance & monetization guardrails
 
@@ -124,15 +158,18 @@ rule. Examples:
 
 Ship a **thin vertical slice first**, then widen tier by tier:
 
-1. **MVP (one PR):** `data/greenPath.js` with **Chapter 1–2 only**, Mother
-   Yarrow NPC + the green-quest tracker (reuse the quest/story UI), one new seed
-   (Dawnpetal) with its grow time, and **one** potion recipe. Prove the whole
-   loop end-to-end: talk → quest → seed → plant → harvest → brew.
-2. **Rare-drop system:** add seed loot entries + the forage-up-tier roll.
-3. **Tiers 2–3 content:** chapters 3–9, the remaining seeds/potions, the lunar
-   mutation, the capstone reward.
-4. **Polish:** a Green-Path page in the Journal, a garden "almanac" of seeds
-   you've discovered (a collection hook).
+1. **MVP (one PR):** ✅ **done.** `data/greenPath.js` with **Chapters 1–2**
+   (Cottage Garden), the green-quest tracker surfaced *inside the garden panel*
+   (no new NPC/dialogue UI — garden actions ARE the objectives), Chamomile and
+   Calendula as plantables, and the Chamomile Tisane recipe. The loop is proven
+   end-to-end: sow → harvest → chapter reward (seeds) → plant/brew.
+2. **Rare-drop system:** plant loot entries + the forage-up-tier roll (feeds the
+   Hedge & Poison categories).
+3. **Categories 2–3 content:** chapters 3–9 — the Hedge & Wild and the baneful
+   Poison Path herbs/potions, the lunar mutation, the capstone. Mother Yarrow can
+   graduate from a garden-panel voice to a proper west-side NPC here.
+4. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
+   you've discovered (a collection hook), each with its real-world lore.
 
 Each step is testable with the existing harness (quest/story tests, crafting
 integrity test, garden test) — the same green pipeline every PR has used.
