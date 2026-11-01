@@ -60,6 +60,7 @@ function renderSkills() {
   if (!list) return;
   const st = getMySkillState();
   const CLASS_TREE_NAME = ['📖 Coven Secrets', '🐺 Feral Instincts', '🕯️ Spirit Communion', '⚔️ Martial Discipline', '🥾 Road Wisdom', '💀 Death Rites'];
+  const CLASS_NAME = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer', 'Lich']; // by charId — see CHARACTER_PRESETS
   if (titleEl && st) titleEl.textContent = '🌟 ' + (CLASS_TREE_NAME[st.charId] || 'Skills');
   // getMe().skillPoints is the live count (kept fresh by xp_gain/level_up); the
   // skill_state snapshot can lag a level-up that didn't re-send it.
@@ -171,7 +172,7 @@ function renderSkills() {
     hdr.className = 'skillSectionHdr';
     const sworn = keys.some(k => k.rank > 0);
     hdr.innerHTML = `<span class="skillSectionTitle">⚜️ Sworn Pact</span>`
-      + `<span class="skillSectionSub">${sworn ? 'Respec to change your path.' : 'Choose one — it remakes how your Lich plays.'}</span>`;
+      + `<span class="skillSectionSub">${sworn ? 'Respec to change your path.' : 'Choose one — it remakes how your ' + (CLASS_NAME[st.charId] || 'character') + ' plays.'}</span>`;
     list.appendChild(hdr);
     for (const sk of keys) list.appendChild(skillRow(sk));
   }
