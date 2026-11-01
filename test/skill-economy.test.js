@@ -111,6 +111,14 @@ setTimeout(() => {
   jg.health = 150; // 0.97 > 0.3
   check('Last Stand does nothing above the threshold', pactIncomingDamage(jg, 100) === 100, pactIncomingDamage(jg, 100));
 
+  // Plaguelord — Festering Vigor (a tick behavior): data + resolver.
+  const plSkill = S.SKILL_CATALOG[5].find((s) => s.id === 'necro_k_plague');
+  check('Plaguelord carries a Festering Vigor behavior', !!plSkill.behavior && plSkill.behavior.combatRegen > 0, plSkill.behavior);
+  delete playerProgress['plT'];
+  playerProgress['plT'] = { _charLeveled: true, _skillEconV2: true, characters: { '5': { level: 10 } }, skills: { '5': { necro_k_plague: 1 } } };
+  const pl = { accountKey: 'plT', charId: 5, health: 10, isDead: false };
+  check('a sworn Plaguelord exposes its combat-regen behavior', !!activePactBehavior(pl) && activePactBehavior(pl).combatRegen === 2);
+
   // A player with no pact is untouched by both hooks.
   delete playerProgress['noPactC'];
   playerProgress['noPactC'] = { _charLeveled: true, _skillEconV2: true, characters: { '1': { level: 10 } }, skills: { '1': {} } };

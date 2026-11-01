@@ -6586,6 +6586,12 @@ function tickPlayerStatusHealth(now, dt) {
       if (mend > 0 && p.health < playerMaxHealth(p) && now - (p.lastAttackedAt || 0) > ATTACKED_RECENT_MS) {
         p.health = Math.min(playerMaxHealth(p), p.health + mend * dt);
       }
+      // Pact behavior — Festering Vigor (Plaguelord): a steady regen that never
+      // stops, even mid-fight where ordinary mending stalls. The attrition pact.
+      const _pb = activePactBehavior(p);
+      if (_pb && _pb.combatRegen && p.health < playerMaxHealth(p)) {
+        p.health = Math.min(playerMaxHealth(p), p.health + _pb.combatRegen * dt);
+      }
     }
     if (!p.activeStatus || p.activeStatus.expiresAt <= now) continue;
     if (p.activeStatus.type === 'regen') {
