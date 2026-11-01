@@ -81,6 +81,29 @@ const GREEN_PATH = [
       { itemId: 'comfrey', qty: 3 }, { itemId: 'lemon_balm', qty: 3 },
       { itemId: 'feverfew', qty: 3 }, { itemId: 'lavender', qty: 3 }
     ]
+  },
+  // ── The Hedge & Wild (rare) — warding the home and crossing the hedge to see.
+  // These herbs are wild-gathered (Mugwort & Yarrow drop from Wilds creatures),
+  // so the band opens by sending you out to hunt for a cutting.
+  {
+    id: 'gp4', title: 'Crossing the Hedge', band: 'hedge', requiresLevel: 8,
+    objective: { type: 'seed_found', target: 1, label: 'Find a wild herb cutting out in the Wilds' },
+    outro: 'The Wilds give up a cutting, and something in you crosses over with it. "You’ve stepped past the garden fence now," murmurs Mother Yarrow, and presses vervain into your hand — "the enchanter’s herb. It wards a threshold like nothing else."',
+    xpReward: 140, goldReward: 70, itemRewards: [{ itemId: 'vervain', qty: 3 }]
+  },
+  {
+    id: 'gp5', title: 'The Warding Herbs', band: 'hedge', requiresLevel: 11,
+    objective: { type: 'garden_harvest', target: 5, label: 'Harvest five times to stock your warding herbs' },
+    outro: 'Your beds brim with protection now. Yarrow nods at the full baskets. "Wormwood for the bitter sight, rue to break what’s been laid on you. The old wives called rue the herb of grace — and they weren’t wrong."',
+    xpReward: 180, goldReward: 90,
+    itemRewards: [{ itemId: 'wormwood', qty: 3 }, { itemId: 'rue', qty: 3 }]
+  },
+  {
+    id: 'gp6', title: 'Bitter Sight', band: 'hedge', requiresLevel: 14,
+    objective: { type: 'garden_brew', target: 1, label: 'Brew a hedge remedy at the cauldron' },
+    outro: 'The bitter brew opens something behind your eyes — the hedge, and the Other side of it. "That’s the sight," says Yarrow quietly, and gives you the last of the wild herbs: St. John’s Wort for the sun’s guard, and rowan, the witch-tree’s own ward against ill. "The whole hedge is yours now."',
+    xpReward: 240, goldReward: 120,
+    itemRewards: [{ itemId: 'st_johns_wort', qty: 3 }, { itemId: 'rowan_berry', qty: 3 }]
   }
 ];
 

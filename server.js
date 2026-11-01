@@ -1538,7 +1538,10 @@ const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomi
   'mugwort', 'yarrow', 'mugwort_draught', 'yarrow_salve',
   // Cottage Garden band (chapter-granted + garden-grown, never wild-scattered).
   'comfrey', 'lemon_balm', 'feverfew', 'lavender',
-  'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil']);
+  'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil',
+  // Hedge & Wild band (chapter-granted + garden-grown).
+  'vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry',
+  'vervain_charm', 'wormwood_bitters', 'rue_water', 'st_johns_oil', 'rowan_charm']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -3119,6 +3122,10 @@ function rollPendingLoot(table) {
   return pending;
 }
 
+// The Hedge & Wild seed cuttings (Mugwort, Yarrow) that drop from Wilds mobs —
+// finding one is the Green Path chapter-4 objective ('seed_found').
+const WILDS_SEED_IDS = new Set(require('./data/gameConstants').WILDS_SEED_DROPS.map(d => d.itemId));
+
 // Actually hands over a previously-rolled pending loot list to whoever just
 // looted the body — mirrors what the old rollLoot used to do immediately,
 // just deferred to loot time. Returns label strings for the result toast.
@@ -3138,6 +3145,9 @@ function grantLoot(pending, player) {
         if (player.accountKey) saveInventories();
         const meta = ITEM_CATALOG[drop.itemId];
         earned.push(`${meta?.icon || '?'} ${meta?.name || drop.itemId}`);
+        // Green Path ch.4 — finding a wild cutting (the caller re-sends inventory
+        // after grantLoot, so any chapter-reward seeds display too).
+        if (WILDS_SEED_IDS.has(drop.itemId)) greenPathEvent(player, 'seed_found');
       }
     }
   }

@@ -88,6 +88,22 @@ const POTION_RECIPES = [
   { id: 'lavender_oil', result: 'lavender_oil',
     ingredients: [{ id: 'lavender', qty: 2 }],
     desc: '2× Lavender → Lavender Oil (deep calm — regen for 60s)' },
+  // ── Green Path (Hedge & Wild band): warding & visionary charms ──
+  { id: 'vervain_charm', result: 'vervain_charm',
+    ingredients: [{ id: 'vervain', qty: 2 }],
+    desc: '2× Vervain → Vervain Charm (a ward of protection — curse immunity 45s)' },
+  { id: 'wormwood_bitters', result: 'wormwood_bitters',
+    ingredients: [{ id: 'wormwood', qty: 2 }],
+    desc: "2× Wormwood → Wormwood Bitters (the bitter sight — Raven's Cloak 60s)" },
+  { id: 'rue_water', result: 'rue_water',
+    ingredients: [{ id: 'rue', qty: 2 }],
+    desc: '2× Rue → Rue Water (banishes ill — curse immunity 45s)' },
+  { id: 'st_johns_oil', result: 'st_johns_oil',
+    ingredients: [{ id: 'st_johns_wort', qty: 2 }],
+    desc: "2× St. John's Wort → St. John's Oil (the sun's guard — heals 90 HP)" },
+  { id: 'rowan_charm', result: 'rowan_charm',
+    ingredients: [{ id: 'rowan_berry', qty: 2 }],
+    desc: '2× Rowan Berry → Rowan Charm (the witch-tree ward — curse immunity 60s)' },
 ];
 
 const LOOT_TABLES = {

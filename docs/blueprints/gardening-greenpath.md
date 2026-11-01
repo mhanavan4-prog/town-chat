@@ -6,11 +6,11 @@
 > Garden**, the **Hedge & Wild**, and the baneful **Poison Path**. Plants are
 > also **found** in the world (rare mob drops, foraging) and new potions are
 > brewed from every harvest.
-> Status: **Cottage Garden category complete (Chapters 1–3 built)** — all six
-> cottage herbs (Chamomile, Calendula, Comfrey, Lemon Balm, Feverfew, Lavender)
-> are growable and brewable, and every plant in all three categories has its
-> finished icon. Chapters 4–9 (Hedge & Wild, Poison Path) are the plan below, not
-> yet wired. A rare-seed drop system is also live (Mugwort, Yarrow from Wilds mobs).
+> Status: **Cottage Garden + Hedge & Wild complete (Chapters 1–6 built)** — all
+> thirteen herbs of both categories are growable and brewable, and every plant in
+> all three categories has its finished icon. Chapters 7–9 (the baneful Poison
+> Path) are the plan below, not yet wired. Rare seeds (Mugwort, Yarrow) drop from
+> Wilds mobs and open the Hedge band.
 >
 > The full plant catalogue, by category, is the authoritative list in
 > `data/greenPath.js` (`GREEN_PATH_CATEGORIES`). This document is the plan around
@@ -85,9 +85,9 @@ chapter, and pays a seed packet (plus XP/gold).
 3. **Hearth and Healing** (Lv 5) — brew any remedy at Hazel's cauldron. *Reward: the rest of the cottage garden — Comfrey, Lemon Balm, Feverfew, Lavender (each with its own brew).* ✅ built
 
 *The Hedge & Wild (rare):*
-4. **Crossing the Hedge** (Lv 8) — forage/kill in the Wilds until a **Mugwort** sprig drops. *Reward: Mugwort + a dream/divination recipe.*
-5. **The Warding Herbs** (Lv 11) — grow Vervain and Yarrow, brew a protective draught and deliver it. *Reward: Rue (the curse-breaker).*
-6. **Bitter Sight** (Lv 14) — grow Wormwood and clear a dungeon tier with its brew active. *Reward: St. John's Wort + Rowan + recipe.*
+4. **Crossing the Hedge** (Lv 8) — find a wild herb cutting out in the Wilds (loot a Mugwort/Yarrow drop). *Reward: Vervain.* ✅ built
+5. **The Warding Herbs** (Lv 11) — harvest five times to stock your warding herbs. *Reward: Wormwood + Rue (each with its own charm/brew).* ✅ built
+6. **Bitter Sight** (Lv 14) — brew a hedge remedy at the cauldron. *Reward: St. John's Wort + Rowan — completes the Hedge & Wild band.* ✅ built
 
 *The Poison Path (mythic / baneful):*
 7. **The Beautiful Lady** (Lv 17) — a **Belladonna** cutting drops from a Wilds elite/boss; grow it with care. *Reward: Belladonna + Henbane.*
@@ -173,10 +173,13 @@ Ship a **thin vertical slice first**, then widen tier by tier:
    objective (`garden_brew`) hooks the cauldron. All six cottage herbs are live.
 4. **Art for the whole library:** ✅ **done.** Every plant in all three categories
    has a hand-drawn icon (`client/ui-icons.js`), dormant until its item ships.
-5. **Categories 2–3 content:** chapters 4–9 — the Hedge & Wild and the baneful
-   Poison Path herbs/potions, the lunar mutation, the capstone. Mother Yarrow can
-   graduate from a garden-panel voice to a proper west-side NPC here.
-6. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
+5. **Hedge & Wild content:** ✅ **done.** Chapters 4–6 — ch.4 keys off *finding*
+   a wild cutting (a `seed_found` hook on the loot grant), then Vervain, Wormwood,
+   Rue, St. John's Wort and Rowan arrive as grown/brewed warding herbs.
+6. **Poison Path content:** chapters 7–9 — the baneful nightshades/potions, the
+   lunar mutation, the capstone. Mother Yarrow can graduate from a garden-panel
+   voice to a proper west-side NPC here.
+7. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
    you've discovered (a collection hook), each with its real-world lore.
 
 Each step is testable with the existing harness (quest/story tests, crafting

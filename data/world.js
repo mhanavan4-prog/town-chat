@@ -291,6 +291,18 @@ const PLANT_CATALOG = {
   lemon_balm_cordial:     { name: 'Lemon Balm Cordial',     icon: '🍵', effect: 'status',  statusType: 'regen',      durationMs: 45000 },
   feverfew_tincture:      { name: 'Feverfew Tincture',      icon: '🧪', effect: 'ward',    durationMs: 45000 },
   lavender_oil:           { name: 'Lavender Oil',           icon: '🫧', effect: 'status',  statusType: 'regen',      durationMs: 60000 },
+  // Hedge & Wild band — warding and visionary herbs, granted by Green Path
+  // chapters 4–6. (Mugwort & Yarrow, above, are the drop-found pair.)
+  vervain:                { name: 'Vervain',                icon: '💜', effect: 'status',  statusType: 'regen',      durationMs: 18000 },
+  wormwood:               { name: 'Wormwood',               icon: '🌿', effect: 'status',  statusType: 'ravencloak', durationMs: 12000 },
+  rue:                    { name: 'Rue',                    icon: '🌿', effect: 'cleanse' },
+  st_johns_wort:          { name: "St. John's Wort",        icon: '🌼', effect: 'heal',    amount: 40 },
+  rowan_berry:            { name: 'Rowan Berry',            icon: '🔴', effect: 'ward',    durationMs: 20000 },
+  vervain_charm:          { name: 'Vervain Charm',          icon: '🧿', effect: 'ward',    durationMs: 45000 },
+  wormwood_bitters:       { name: 'Wormwood Bitters',       icon: '🥃', effect: 'status',  statusType: 'ravencloak', durationMs: 60000 },
+  rue_water:              { name: 'Rue Water',              icon: '💧', effect: 'ward',    durationMs: 45000 },
+  st_johns_oil:           { name: "St. John's Oil",         icon: '🌟', effect: 'heal',    amount: 90 },
+  rowan_charm:            { name: 'Rowan Charm',            icon: '📿', effect: 'ward',    durationMs: 60000 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

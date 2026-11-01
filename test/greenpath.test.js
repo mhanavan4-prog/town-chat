@@ -50,6 +50,16 @@ check('Chapter 3 completes the Cottage Garden (grants comfrey, lemon balm, fever
   const grants = (GREEN_PATH[2].itemRewards || []).map((r) => r.itemId);
   return ['comfrey', 'lemon_balm', 'feverfew', 'lavender'].every((id) => grants.includes(id));
 })());
+check('the Hedge band is chapters 4–6 (seed_found, harvest, brew — gated 8/11/14)', (() => {
+  return GREEN_PATH[3].objective.type === 'seed_found' && GREEN_PATH[3].requiresLevel === 8 &&
+    GREEN_PATH[4].objective.type === 'garden_harvest' && GREEN_PATH[4].requiresLevel === 11 &&
+    GREEN_PATH[5].objective.type === 'garden_brew' && GREEN_PATH[5].requiresLevel === 14 &&
+    GREEN_PATH.slice(3).every((c) => c.band === 'hedge');
+})());
+check('the Hedge chapters grant the five remaining Hedge herbs', (() => {
+  const grants = GREEN_PATH.slice(3).flatMap((c) => (c.itemRewards || []).map((r) => r.itemId));
+  return ['vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry'].every((id) => grants.includes(id));
+})());
 
 require('../server.js');
 
@@ -117,20 +127,48 @@ setTimeout(() => {
   h.greenPathEvent(g.p, 'garden_harvest');
   check('a harvest does not count toward the brew objective', h.greenPathStateBody(g.p).chapter === 2 && h.greenPathStateBody(g.p).progress === 0);
 
-  h.greenPathEvent(g.p, 'garden_brew'); // completes Chapter 3 → the whole path
+  h.greenPathEvent(g.p, 'garden_brew'); // completes Chapter 3 → on to the Hedge band
   const s3 = h.greenPathStateBody(g.p);
-  check('brewing completes Chapter 3 and the whole path', s3 && s3.done === true && s3.chapter === GREEN_PATH.length, s3);
+  check('finishing Chapter 3 advances to Chapter 4 (Crossing the Hedge)', s3 && s3.done === false && s3.chapter === 3 && s3.title === 'Crossing the Hedge', s3);
   check('Chapter 3 grants the four Cottage herbs', (() => {
     const inv = h.getInventory(g.p);
     return h.countItemQty(inv, 'comfrey') === comfreyBefore + 3 && h.countItemQty(inv, 'lemon_balm') === 3 &&
       h.countItemQty(inv, 'feverfew') === 3 && h.countItemQty(inv, 'lavender') === 3;
   })());
 
-  // Further events on a finished path are no-ops (no crash, no extra grants).
-  const comfreyFinal = h.countItemQty(h.getInventory(g.p), 'comfrey');
-  h.greenPathEvent(g.p, 'garden_plant');
+  // ── Chapter 4: find a wild cutting (seed_found), level-gated at 8 ─────────────
+  check('Chapter 4 objective is seed_found', s3.label.includes('Find'), s3);
+  h.greenPathEvent(g.p, 'seed_found'); // level 5, below gate 8 → no advance
+  check('Chapter 4 is blocked below level 8', h.greenPathStateBody(g.p).chapter === 3 && h.greenPathStateBody(g.p).levelOk === false);
+  h.getProgress(g.p).level = 8;
+  // The real path: looting a Wilds seed fires seed_found through grantLoot.
+  h.grantLoot([{ kind: 'item', itemId: 'mugwort', qty: 1 }], g.p);
+  const s4 = h.greenPathStateBody(g.p);
+  check('looting a Wilds cutting completes Chapter 4', s4 && s4.chapter === 4 && s4.title === 'The Warding Herbs', s4);
+  check('Chapter 4 grants 3× vervain', h.countItemQty(h.getInventory(g.p), 'vervain') === 3);
+
+  // ── Chapter 5: harvest five times, level-gated at 11 ─────────────────────────
+  h.getProgress(g.p).level = 11;
+  for (let i = 0; i < 4; i++) h.greenPathEvent(g.p, 'garden_harvest');
+  check('four of five harvests leaves Chapter 5 in progress', h.greenPathStateBody(g.p).chapter === 4 && h.greenPathStateBody(g.p).progress === 4);
+  h.greenPathEvent(g.p, 'garden_harvest'); // fifth completes it
+  const s5 = h.greenPathStateBody(g.p);
+  check('Chapter 5 completes to Chapter 6 (Bitter Sight)', s5 && s5.chapter === 5 && s5.title === 'Bitter Sight', s5);
+  check('Chapter 5 grants wormwood + rue', h.countItemQty(h.getInventory(g.p), 'wormwood') === 3 && h.countItemQty(h.getInventory(g.p), 'rue') === 3);
+
+  // ── Chapter 6: brew a hedge remedy, level-gated at 14 → completes the Hedge band
+  h.getProgress(g.p).level = 14;
   h.greenPathEvent(g.p, 'garden_brew');
-  check('a completed path ignores further events', h.greenPathStateBody(g.p).done === true && h.countItemQty(h.getInventory(g.p), 'comfrey') === comfreyFinal);
+  const s6 = h.greenPathStateBody(g.p);
+  check('brewing completes Chapter 6 and the whole path so far', s6 && s6.done === true && s6.chapter === GREEN_PATH.length, s6);
+  check('Chapter 6 grants st_johns_wort + rowan_berry', h.countItemQty(h.getInventory(g.p), 'st_johns_wort') === 3 && h.countItemQty(h.getInventory(g.p), 'rowan_berry') === 3);
+
+  // Further events on a finished path are no-ops (no crash, no extra grants).
+  const vervainFinal = h.countItemQty(h.getInventory(g.p), 'vervain');
+  h.greenPathEvent(g.p, 'garden_plant');
+  h.greenPathEvent(g.p, 'seed_found');
+  h.greenPathEvent(g.p, 'garden_brew');
+  check('a completed path ignores further events', h.greenPathStateBody(g.p).done === true && h.countItemQty(h.getInventory(g.p), 'vervain') === vervainFinal);
 
   // A guest with no account gets a null state (never throws).
   const guest = join('Passerby', 0);
