@@ -57,6 +57,26 @@ setTimeout(() => {
   getProgress({ accountKey: 'freshT', charId: 5 });
   check('new accounts are stamped _skillEconV2 at creation', playerProgress['freshT']._skillEconV2 === true, playerProgress['freshT']._skillEconV2);
 
+  // ── 5. Combat hook: the Pale Reaper pact heals on kill (behavior, not a stat) ──
+  const { hasPact, pactOnKill, playerMaxHealth } = global.__testHooks;
+  delete playerProgress['reaperT'];
+  playerProgress['reaperT'] = { _charLeveled: true, _skillEconV2: true, characters: { '5': { level: 10, xp: 0, skillPoints: 0 } }, skills: { '5': { necro_k_reaper: 1 } } };
+  const reaper = { accountKey: 'reaperT', charId: 5, health: 10, isDead: false };
+  check('a sworn Reaper is detected by hasPact', hasPact(reaper, 'necro_k_reaper') === true);
+  const cap = playerMaxHealth(reaper);
+  pactOnKill(reaper);
+  check('Reaper heals 20% of max HP on a kill', reaper.health === Math.min(cap, 10 + Math.round(cap * 0.20)), { health: reaper.health, cap });
+  // A dead Reaper does not resurrect off a kill credited in the same frame.
+  const deadReaper = { accountKey: 'reaperT', charId: 5, health: 0, isDead: true };
+  pactOnKill(deadReaper);
+  check('a dead Reaper is not healed by the hook', deadReaper.health === 0);
+  // A Lich WITHOUT the pact gets no on-kill heal.
+  delete playerProgress['noReaperT'];
+  playerProgress['noReaperT'] = { _charLeveled: true, _skillEconV2: true, characters: { '5': { level: 10 } }, skills: { '5': {} } };
+  const plain = { accountKey: 'noReaperT', charId: 5, health: 10, isDead: false };
+  pactOnKill(plain);
+  check('no pact → no on-kill heal', plain.health === 10, plain.health);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 150);

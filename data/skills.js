@@ -148,7 +148,11 @@ const SKILL_CATALOG = {
       desc: 'PACT — The tyrant that will not fall. +16% defense and +50 max HP, but your blows land 10% softer.' },
     { id: 'necro_k_reaper',   name: 'Pale Reaper',  icon: '☠️', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, leech: 0.10, guard: -0.16 },
-      desc: 'PACT — Death made swift and brittle. +26% damage and +10% lifesteal, but you take 16% more damage.' },
+      // `behavior` (prototype): a combat hook the server recognises by this
+      // pact's id — not a stat. It changes how the Reaper PLAYS: fragile, but
+      // each kill refuels you, so you survive by chaining kills, not by armor.
+      behavior: { onKillHealPct: 0.20, text: 'On kill · restore 20% max HP' },
+      desc: 'PACT — Death made swift and brittle. +26% damage and +10% lifesteal, and you take 16% more damage — but every kill restores 20% of your max health, so you live by chaining kills.' },
     { id: 'necro_k_plague',   name: 'Plaguelord',   icon: '🩸', tier: 'keystone', maxRank: 1,
       mods: { leech: 0.14, haste: 0.12, vitality: -25 },
       desc: 'PACT — Win by attrition. +14% lifesteal and 12% faster rites, but −25 max HP — you live on the edge.' }

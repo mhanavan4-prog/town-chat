@@ -3553,6 +3553,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
     if (t.health <= 0) {
       t.health = 0;
       t.isDead = true;
+      pactOnKill(player); // sworn-pact on-kill behavior (e.g. Reaper's Harvest)
       noteDeath(t);
       endDuelPair(player, t); // a duel is settled by a kill
       // Ashblood Trials credit: any player you put down out here counts, open-
@@ -3590,6 +3591,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
     broadcastHitFx(player.room, 'dungeon', targetId, dmg, t.health <= 0, player.id);
     if (t.health <= 0) {
       t.dead = true;
+      pactOnKill(player); // sworn-pact on-kill behavior (e.g. Reaper's Harvest)
       t.respawnAt = Date.now() + (t.boss ? DUNGEON_BOSS_RESPAWN_MS : DUNGEON_RESPAWN_MS);
       grantXP(player, preset.xp);
       registerHuntKill(player);
@@ -3653,6 +3655,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   broadcastHitFx(player.room, targetType, targetId, dmg, t.health <= 0, player.id);
   if (t.health <= 0) {
     t.dead = true;
+    pactOnKill(player); // sworn-pact on-kill behavior (e.g. Reaper's Harvest)
     // 🎡 Samhain — the veil thins and the slain rise again faster (veilThin is a
     // respawn-time multiplier < 1). Only the hostile pools quicken; peaceful
     // critters keep their cadence. MAX concurrent count is unchanged (fixed
@@ -4049,6 +4052,33 @@ function getSkillAlloc(player) {
   if (!prog.skills[key]) prog.skills[key] = {};
   return prog.skills[key];
 }
+// Has this player sworn a given keystone pact (allocated, rank > 0)? The pact
+// only exists in its own class's tree, so a mismatched charId simply never
+// finds it — safe to ask for any pact id on any player.
+function hasPact(player, pactId) {
+  if (!player || player.charId == null) return false;
+  const alloc = getSkillAlloc(player);
+  return (alloc[pactId] || 0) > 0;
+}
+// Look up a pact definition's `behavior` block (combat hooks keyed by pact id).
+function pactBehavior(player, pactId) {
+  if (!hasPact(player, pactId)) return null;
+  const s = skillTreeFor(player.charId).find(k => k.id === pactId);
+  return (s && s.behavior) || null;
+}
+// Combat hook (prototype): called at every kill site inside applyDamage, right
+// after the victim's death flag is set. Pure behavior, not a stat — the Pale
+// Reaper refuels on kills, so the pact changes how the Lich is PLAYED. A no-op
+// for anyone who hasn't sworn a pact with an on-kill behavior.
+function pactOnKill(player) {
+  if (!player || player.isDead) return;
+  const b = pactBehavior(player, 'necro_k_reaper');
+  if (b && b.onKillHealPct) {
+    const cap = playerMaxHealth(player);
+    const heal = Math.round(cap * b.onKillHealPct);
+    if (heal > 0) player.health = Math.min(cap, (player.health || 0) + heal);
+  }
+}
 // Rank invested in whichever skill in this class's tree carries `effect`
 // (each tree has at most one skill per effect).
 function skillEffectRank(player, effect) {
@@ -4322,7 +4352,7 @@ function skillStatePayload(player) {
       const maxRank = skillMaxRank(s, SKILL_MAX_RANK);
       return {
         id: s.id, name: s.name, icon: s.icon, desc: s.desc, effect: s.effect,
-        tier, mods: s.mods || null, locked,
+        tier, mods: s.mods || null, behavior: (s.behavior && s.behavior.text) || null, locked,
         rank, maxRank,
         // Scarcity surfacing: what the next rank costs (null when maxed) and
         // how much is already sunk in, so the panel can price every choice.
@@ -14644,7 +14674,7 @@ global.__testHooks = {
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy,
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
