@@ -47,6 +47,7 @@ import createNotesDrive from './notes-drive.js';
 import createInventoryPanel from './inventory-panel.js';
 import createPlayerVisuals from './player-visuals.js';
 import createFamiliars from './familiars.js';
+import createAuras from './auras.js';
 import createGuises from './guises.js';
 import createFurniture from './furniture.js';
 import createInteriorScene from './interior-scene.js';
@@ -1215,6 +1216,7 @@ function onWsMessage(ev) {
     myMoonstones = msg.moonstones || 0;
     if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
     if (msg.familiarCos) myFamiliarCos = { skins: msg.familiarCos.skins || [], owned: msg.familiarCos.owned || [], skin: msg.familiarCos.skin || 'default' };
+    if (msg.auraCos) myAuraCos = { auras: msg.auraCos.auras || [], owned: msg.auraCos.owned || [], aura: msg.auraCos.aura || 'none' };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
@@ -2684,6 +2686,14 @@ function onWsMessage(ev) {
     if (Modals.isOpen('familiarOpen')) renderFamiliarModal();
     return;
   }
+  if (msg.type === 'aura_set') {
+    myAuraCos.owned = msg.owned || myAuraCos.owned || [];
+    myAuraCos.aura = msg.auraId;
+    if (me && players[me.id]) players[me.id].aura = msg.auraId; // light your own aura at once
+    setUnlockToast('🌟 Aura set!');
+    if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
+    return;
+  }
   if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'scry_reading') { lastScry = msg; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
@@ -3635,6 +3645,13 @@ let mySkillSpeedMult = 1;     // 'swift' skill — read by the movement loop
 let myStatBlock = null;       // latest computeStatBlock (skill+gear derived stats)
 let equipStatsCatalog = {};   // itemId -> stat contributions, for swap previews
 let myFamiliarCos = { skins: [], owned: [], skin: 'default' }; // familiar coat palette/owned/worn (from init)
+let myAuraCos = { auras: [], owned: [], aura: 'none' }; // aura palette/owned/worn (from init)
+// Numeric hex for an aura id (null = none/unknown), for client/auras.js.
+function auraHexClient(id) {
+  if (!id || id === 'none') return null;
+  const a = (myAuraCos.auras || []).find((x) => x.id === id);
+  return (a && a.hex != null) ? a.hex : null;
+}
 let craftRecipesClient = [];  // the Artificer's Workshop crafting tree (from init)
 let myRecipesUnlocked = [];   // purchasable recipes this account has learned (from init / recipe_bought)
 // 💎 Moonstones (Session I) — premium currency. Balance is server truth,
@@ -12467,6 +12484,9 @@ const { updateFamiliars } = createFamiliars({
   getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
   getSkinHex: (id) => familiarSkinHex(id),
 });
+const { updateAuras } = createAuras({
+  getPlayers: () => players, getVisuals: () => visuals, getAuraHex: (id) => auraHexClient(id),
+});
 const { updateGuises } = createGuises({
   getPlayers: () => players, getVisuals: () => visuals, getKK: () => KK,
 });
@@ -13401,6 +13421,20 @@ const { openNotifModal } = _notif;
       return '<button class="wrDye' + (on ? ' on' : '') + '" data-namecolor="' + c.id + '" title="' + c.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + c.label + '</span></button>';
     }).join('');
   }
+  // One row of aura swatches (the foot-glow). Same three-state swatch language
+  // as dyes/name colors: owned/none equip on click, locked show their 💎 price.
+  function auraRow() {
+    const owned = myAuraCos.owned || [];
+    const cur = myAuraCos.aura || 'none';
+    return (myAuraCos.auras || []).map((a) => {
+      const sw = (a.hex == null)
+        ? 'background:linear-gradient(135deg,#2a2140 50%,#4a3f66 50%)'
+        : 'background:radial-gradient(circle,#' + a.hex.toString(16).padStart(6, '0') + ' 30%,rgba(0,0,0,0.2) 100%)';
+      const isOwned = !a.ms || owned.indexOf(a.id) !== -1;
+      if (!isOwned) return '<button class="wrDye buy" data-aura="' + a.id + '" title="' + a.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + a.ms + '💎</span></button>';
+      return '<button class="wrDye' + (cur === a.id ? ' on' : '') + '" data-aura="' + a.id + '" title="' + a.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + a.label + '</span></button>';
+    }).join('');
+  }
   function renderWardrobe() {
     const me = meRec(); const list = document.getElementById('wardrobeList');
     if (!me || !list) return;
@@ -13427,6 +13461,8 @@ const { openNotifModal } = _notif;
     h += '<div class="wrSec">Accent color</div><div class="wrDyes">' + dyeRow(me, 'dyeAccent', ap.dyeAccent) + '</div>';
     // Name color (chat + nameplate flair) — account-wide, server-sourced palette.
     h += '<div class="wrSec">Name color</div><div class="wrDyes">' + nameColorRow() + '</div>';
+    // Aura (a glow at your feet, seen in-world) — account-wide, server-sourced.
+    h += '<div class="wrSec">Aura</div><div class="wrDyes">' + auraRow() + '</div>';
     h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. The <b>Finery</b> line (gold swatches) is bought with gold. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
@@ -13446,6 +13482,9 @@ const { openNotifModal } = _notif;
     }));
     list.querySelectorAll('[data-namecolor]').forEach((b) => b.addEventListener('click', () => {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_name_color', colorId: b.getAttribute('data-namecolor') }));
+    }));
+    list.querySelectorAll('[data-aura]').forEach((b) => b.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'set_aura', auraId: b.getAttribute('data-aura') }));
     }));
   }
   function applyWardrobe(change) {
@@ -16333,6 +16372,7 @@ function update(dt) {
 
   syncVisuals(dt);
   updateFamiliars(dt); // after syncVisuals so player group positions are current
+  updateAuras(dt); // cosmetic foot-glow, attached to each player's visual group
   updateGuises(); // costume overlays, parented to each player's body group
   updateEchoes(dt);
   updateAmbientChatter(dt);
