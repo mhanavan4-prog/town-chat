@@ -59,7 +59,8 @@ const SKILL_CATALOG = {
       desc: 'PACT — The pack bends to the biggest beast. +55 max HP and +12% defense, but your blows land 8% softer.' },
     { id: 'wolf_k_bloodmoon', name: 'Bloodmoon Beast', icon: '🌕', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, leech: 0.12, guard: -0.18 },
-      desc: 'PACT — All teeth, no caution. +26% damage and +12% lifesteal, but you take 18% more damage.' },
+      behavior: { woundedFury: 0.35, text: 'Wounded Fury · up to +35% damage as your health drops' },
+      desc: 'PACT — All teeth, no caution. +26% damage and +12% lifesteal, you take 18% more damage — and the closer you are to death, the harder you hit (up to +35% at the brink).' },
     { id: 'wolf_k_dire',   name: 'Dire Runner',      icon: '💨', tier: 'keystone', maxRank: 1,
       mods: { swift: 0.18, haste: 0.12, vitality: -30 },
       desc: 'PACT — Run it down and never stop. +18% move speed and 12% faster attacks, but −30 max HP.' }
@@ -98,7 +99,8 @@ const SKILL_CATALOG = {
     // ── Sworn Pact (choose one) ────────────────────────────────────────────
     { id: 'knight_k_juggernaut', name: 'Juggernaut',  icon: '🏰', tier: 'keystone', maxRank: 1,
       mods: { guard: 0.18, vitality: 55, haste: -0.10 },
-      desc: 'PACT — An immovable wall of steel. +18% defense and +55 max HP, but your heavy plate recharges 10% slower.' },
+      behavior: { lastStand: 0.35, lastStandAt: 0.3, text: 'Last Stand · −35% damage taken below 30% HP' },
+      desc: 'PACT — An immovable wall of steel. +18% defense and +55 max HP, your heavy plate recharges 10% slower — and when you drop below 30% health the wall holds, cutting all damage you take by a further 35%.' },
     { id: 'knight_k_duelist',    name: 'Duelist',     icon: '⚔️', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, swift: 0.10, guard: -0.16 },
       desc: 'PACT — Blade over shield. +26% damage and +10% move speed, but you take 16% more damage.' },

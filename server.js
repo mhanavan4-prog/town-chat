@@ -3432,6 +3432,8 @@ function absorbIncomingDamage(target, dmg) {
   // this player takes from both PvP and hunting mobs.
   const gm = incomingDamageMult(target);
   if (gm !== 1) dmg = Math.max(1, Math.round(dmg * gm));
+  // Victim-side pact behavior (e.g. Last Stand) — the final mitigation layer.
+  dmg = pactIncomingDamage(target, dmg);
   return dmg;
 }
 
@@ -3521,6 +3523,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   // Strike and every ranged ability funnel through here.
   const _skillPower = outgoingDamageMult(player);
   if (_skillPower !== 1) dmg = Math.max(1, Math.round(dmg * _skillPower));
+  // Attacker-side pact behavior (e.g. Wounded Fury) scales on top of skill power.
+  dmg = pactOutgoingDamage(player, dmg);
 
   // The World Boss (Session N) — one shared pool, its own damage ledger and
   // multi-winner payout; the module owns everything past the hit.
@@ -4066,18 +4070,55 @@ function pactBehavior(player, pactId) {
   const s = skillTreeFor(player.charId).find(k => k.id === pactId);
   return (s && s.behavior) || null;
 }
-// Combat hook (prototype): called at every kill site inside applyDamage, right
-// after the victim's death flag is set. Pure behavior, not a stat — the Pale
-// Reaper refuels on kills, so the pact changes how the Lich is PLAYED. A no-op
-// for anyone who hasn't sworn a pact with an on-kill behavior.
+// The behavior block of whichever keystone pact this player has sworn (any
+// class), or null. Every combat hook reads its own field off this, so a pact's
+// play-changing behavior lives entirely in its data definition — adding one to
+// another pact needs no new plumbing here.
+function activePactBehavior(player) {
+  if (!player || player.charId == null) return null;
+  const alloc = getSkillAlloc(player);
+  for (const s of skillTreeFor(player.charId)) {
+    if (s.tier === 'keystone' && (alloc[s.id] || 0) > 0) return s.behavior || null;
+  }
+  return null;
+}
+// Combat hook: called at every kill site inside applyDamage, right after the
+// victim's death flag is set. Pure behavior, not a stat — a pact can refuel you
+// on kills (Pale Reaper), changing how the class is PLAYED. No-op without one.
 function pactOnKill(player) {
   if (!player || player.isDead) return;
-  const b = pactBehavior(player, 'necro_k_reaper');
+  const b = activePactBehavior(player);
   if (b && b.onKillHealPct) {
     const cap = playerMaxHealth(player);
     const heal = Math.round(cap * b.onKillHealPct);
     if (heal > 0) player.health = Math.min(cap, (player.health || 0) + heal);
   }
+}
+// Attacker-side pact hook, applied to ALL this player's outgoing damage (the
+// one place every ability + strike funnels through). Wounded Fury (Bloodmoon
+// Beast): the lower your own health, the harder you hit — up to +woundedFury
+// at death's door. Returns the (possibly scaled) damage.
+function pactOutgoingDamage(player, dmg) {
+  const b = activePactBehavior(player);
+  if (b && b.woundedFury) {
+    const cap = playerMaxHealth(player);
+    const frac = cap > 0 ? Math.max(0, Math.min(1, (player.health || 0) / cap)) : 1;
+    const mult = 1 + b.woundedFury * (1 - frac);
+    if (mult !== 1) return Math.max(1, Math.round(dmg * mult));
+  }
+  return dmg;
+}
+// Victim-side pact hook, applied to ALL incoming damage (absorbIncomingDamage
+// is the one choke point for PvP and mob hits alike). Last Stand (Juggernaut):
+// below the threshold the wall holds — incoming damage is cut further.
+function pactIncomingDamage(target, dmg) {
+  const b = activePactBehavior(target);
+  if (b && b.lastStand) {
+    const cap = playerMaxHealth(target);
+    const frac = cap > 0 ? (target.health || 0) / cap : 1;
+    if (frac <= (b.lastStandAt || 0.3)) return Math.max(1, Math.round(dmg * (1 - b.lastStand)));
+  }
+  return dmg;
 }
 // Rank invested in whichever skill in this class's tree carries `effect`
 // (each tree has at most one skill per effect).
@@ -14858,7 +14899,7 @@ global.__testHooks = {
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact,
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
