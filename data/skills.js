@@ -63,13 +63,36 @@ const SKILL_CATALOG = {
     { id: 'wanderer_sage',     name: 'Worldly Wisdom',    icon: '📜', effect: 'sage',     desc: 'Every road is a lesson — +10% XP per rank.' }
   ],
   5: [ // Necromancer — Death Rites
+    // ── Core (the familiar single-stat ranks every class has) ──────────────
     { id: 'necro_power',    name: 'Grave Might',      icon: '💀', effect: 'power',    desc: 'The dead strike with your hatred — +8% damage per rank.' },
     { id: 'necro_leech',    name: 'Soul Leech',       icon: '🩸', effect: 'leech',    desc: 'Every wound you open feeds you — heal 6% of damage dealt per rank.' },
     { id: 'necro_guard',    name: 'Bonewall',         icon: '🦴', effect: 'guard',    desc: 'A lattice of bone turns the blow — take 6% less damage per rank.' },
     { id: 'necro_haste',    name: 'Hastened Rites',   icon: '☠️', effect: 'haste',    desc: 'The grave answers quicker — abilities recharge 10% faster per rank.' },
     { id: 'necro_vitality', name: 'Deathless Flesh',  icon: '🖤', effect: 'vitality', desc: 'Half in the next world already — +12 maximum health per rank.' },
-    { id: 'necro_sage',     name: 'Forbidden Lore',   icon: '📜', effect: 'sage',     desc: 'The dead keep their secrets for you — +10% XP per rank.' }
+    { id: 'necro_sage',     name: 'Forbidden Lore',   icon: '📜', effect: 'sage',     desc: 'The dead keep their secrets for you — +10% XP per rank.' },
+    // ── Trade-off (prototype): raw aggression bought with your own hide. ────
+    // Uses explicit `mods` (per-stat per-rank deltas) instead of a single
+    // `effect`, so one skill can push two stats at once — one up, one down.
+    { id: 'necro_reckless', name: 'Reckless Rites',   icon: '🔥', mods: { power: 0.09, guard: -0.05 },
+      desc: 'Spend your own flesh for the kill — +9% damage but +5% damage taken per rank.' },
+    // ── Keystone pacts (prototype): swear ONE. Each remakes how the Lich ───
+    // plays. tier:'keystone' + maxRank:1 → the client shows them as a
+    // choose-one row and the server refuses a second pact until you respec.
+    { id: 'necro_k_bonelord', name: 'Bonelord',     icon: '🦴', tier: 'keystone', maxRank: 1,
+      mods: { guard: 0.16, vitality: 50, power: -0.10 },
+      desc: 'PACT — The tyrant that will not fall. +16% defense and +50 max HP, but your blows land 10% softer.' },
+    { id: 'necro_k_reaper',   name: 'Pale Reaper',  icon: '☠️', tier: 'keystone', maxRank: 1,
+      mods: { power: 0.26, leech: 0.10, guard: -0.16 },
+      desc: 'PACT — Death made swift and brittle. +26% damage and +10% lifesteal, but you take 16% more damage.' },
+    { id: 'necro_k_plague',   name: 'Plaguelord',   icon: '🩸', tier: 'keystone', maxRank: 1,
+      mods: { leech: 0.14, haste: 0.12, vitality: -25 },
+      desc: 'PACT — Win by attrition. +14% lifesteal and 12% faster rites, but −25 max HP — you live on the edge.' }
   ]
 };
 
-module.exports = { STAT_KEYS, SKILL_STAT_PER_RANK, STAT_SKILL_EFFECT, SKILL_FX, SKILL_CATALOG };
+// Per-skill rank cap: keystone pacts are a single binary choice (0/1); every
+// other skill uses the shared SKILL_MAX_RANK. Kept here so server and payload
+// agree on one definition.
+function skillMaxRank(skill, fallback) { return (skill && skill.maxRank) || fallback; }
+
+module.exports = { STAT_KEYS, SKILL_STAT_PER_RANK, STAT_SKILL_EFFECT, SKILL_FX, SKILL_CATALOG, skillMaxRank };
