@@ -9996,6 +9996,10 @@ const cottagePlacedProps = [];      // THREE objects we've placed, cleared on ea
 let cottageWalls = [];              // {x,y,w,h} collider rects for solid furniture (x,y in world x/z)
 // Furniture you can walk through: flat floor coverings and wall-mounted pieces.
 const COTTAGE_NONSOLID = new Set(['rug', 'wall_charm']);
+// Only these genuinely belong against a wall, so only these get snapped flush to
+// it. Free-standing props (candle, potted herb, cauldron, chair, table) stay at
+// their cell centre — snapping them was burying thin props in the wall.
+const COTTAGE_WALL_FURNITURE = new Set(['hearth', 'bookshelf', 'wall_charm', 'bed']);
 const COTTAGE_WORLD = { width: 1140, height: 1140, buildings: [], spawn: { x: 570, y: 1070 } };
 const COTTAGE_CELL = 120;           // world units per grid cell
 const COTTAGE_ORIGIN = 90;          // the grid's top-left inset from the wall
@@ -10907,7 +10911,7 @@ function renderCottageFurniture(layout) {
     const minx = Math.min(...cells.map((c) => c[0])), maxx = Math.max(...cells.map((c) => c[0]));
     const miny = Math.min(...cells.map((c) => c[1]));
     const onEdge = (miny === 0 || minx === 0 || maxx === gw - 1);
-    if (onEdge) {
+    if (onEdge && COTTAGE_WALL_FURNITURE.has(pc.id)) {
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
       if (isFinite(box.min.z)) {
@@ -10951,9 +10955,12 @@ function buildCottageProp(id, meta, x, z, yaw) {
   const kk = (key, size, mode) => { const g = KK.staticInstance(key, size, mode || 'fit'); if (g) { g.rotation.y = yaw; g.position.set(x, 0, z); } return g; };
   let g = null;
   switch (id) {
-    case 'rug':        g = kk('furn_rug', long, 'fit'); break;
-    case 'table':      g = kk('furn_table', long, 'fit'); break;
-    case 'chair':      g = kk('furn_chair', COTTAGE_CELL * 0.7, 'fit'); break;
+    // Rug lifted a hair off the floor so its flat mesh doesn't z-fight the floor plane.
+    case 'rug':        g = kk('furn_rug', long, 'fit'); if (g) g.position.y = 1.2; break;
+    // Table + chair were bigger than the player — scaled down to read as cottage
+    // furniture, not a banquet hall. 'fit' shrinks height with width in step.
+    case 'table':      g = kk('furn_table', 125, 'fit'); break;
+    case 'chair':      g = kk('furn_chair', 50, 'fit'); break;
     case 'bookshelf':  g = kk('furn_shelfdec', long, 'fit') || kk('furn_shelf', long, 'fit'); break;
     case 'cauldron':   g = kk('wprop_cauldron', COTTAGE_CELL * 0.6, 'fit'); break;
     default: break;
