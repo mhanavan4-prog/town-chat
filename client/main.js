@@ -10883,6 +10883,8 @@ function renderCottageFurniture(layout) {
   if (!st || !Array.isArray(st.pieces)) return;
   const byId = {};
   for (const c of (st.catalog || [])) byId[c.id] = c;
+  const gw = (st.grid && st.grid.w) || 8;
+  const WT = 10; // inner wall face — snap targets sit a hair off it
   for (const pc of st.pieces) {
     const meta = byId[pc.id] || HOME_CATALOG_FALLBACK[pc.id];
     if (!meta) continue;
@@ -10893,7 +10895,24 @@ function renderCottageFurniture(layout) {
     const px = sx / cells.length, pz = sz / cells.length;
     const yaw = -(pc.rot || 0) * Math.PI / 2;
     const obj = buildCottageProp(pc.id, meta, px, pz, yaw);
-    if (obj) { cottageScene.add(obj); cottagePlacedProps.push(obj); }
+    if (!obj) continue;
+    // Edge pieces hug the wall: anything whose footprint touches the north/east/
+    // west edge of the grid is slid flush against that wall using its REAL model
+    // bounds, instead of floating a grid-margin away. (The south wall holds the
+    // door, so pieces there stay put rather than blocking the entrance.)
+    const minx = Math.min(...cells.map((c) => c[0])), maxx = Math.max(...cells.map((c) => c[0]));
+    const miny = Math.min(...cells.map((c) => c[1]));
+    if (miny === 0 || minx === 0 || maxx === gw - 1) {
+      obj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(obj);
+      if (isFinite(box.min.z)) {
+        if (miny === 0) obj.position.z += (WT - box.min.z);                           // north wall
+        if (minx === 0) obj.position.x += (WT - box.min.x);                           // west wall
+        else if (maxx === gw - 1) obj.position.x += ((COTTAGE_WORLD.width - WT) - box.max.x); // east wall
+      }
+    }
+    cottageScene.add(obj);
+    cottagePlacedProps.push(obj);
   }
 }
 
