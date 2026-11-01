@@ -496,14 +496,16 @@ function addVillageBuildings(scene) {
   // The witch's working clutter — the Witch pack's own themed props, set around
   // the plot's edges so they frame the flower beds rather than crowd them. Each
   // places only once its model has streamed in (the scene rebuilds then).
-  const wplace = (key, px, pz, size, rot) => { if (hasKK && hasKK(key)) { try { kkPlace(scene, key, px, pz, size, rot || 0, 'fit'); } catch (e) {} } };
-  wplace('wprop_cauldron',   GX - 95,  GZ - 82, 34, 0.3);    // black cauldron, back-left
-  wplace('wprop_potionstn',  GX + 92,  GZ - 80, 52, -0.45);  // decorated potion station, back-right
-  wplace('wprop_wtable',     GX + 108, GZ + 8,  46, -1.2);   // little work table, east side
-  wplace('wprop_mortar',     GX + 118, GZ + 28, 13, 0);      // mortar set down beside it
-  wplace('wprop_pestle',     GX + 101, GZ + 30, 13, 0.6);    // pestle beside the mortar
-  wplace('wprop_mushbasket', GX - 112, GZ + 44, 27, 0.5);    // basket of foraged mushrooms, west
-  wplace('wprop_broom',      GX - 136, GZ - 18, 56, 0.9);    // her broom, leaning at the fence
+  // 'fit' scales by the model's largest horizontal footprint, which balloons a
+  // thin-and-tall object (broom, pestle) — those use 'height' (scale by Y) instead.
+  const wplace = (key, px, pz, size, rot, mode) => { if (hasKK && hasKK(key)) { try { kkPlace(scene, key, px, pz, size, rot || 0, mode || 'fit'); } catch (e) {} } };
+  wplace('wprop_cauldron',   GX - 95,  GZ - 82, 34, 0.3);           // black cauldron, back-left
+  wplace('wprop_potionstn',  GX + 92,  GZ - 80, 46, -0.45);         // decorated potion station, back-right
+  wplace('wprop_wtable',     GX + 108, GZ + 8,  42, -1.2);          // little work table, east side
+  wplace('wprop_mortar',     GX + 118, GZ + 28, 12, 0);             // mortar set down beside it
+  wplace('wprop_pestle',     GX + 101, GZ + 30, 12, 0.6, 'height'); // pestle (thin & upright) beside the mortar
+  wplace('wprop_mushbasket', GX - 112, GZ + 44, 25, 0.5);           // basket of foraged mushrooms, west
+  wplace('wprop_broom',      GX - 128, GZ - 10, 50, 0.9, 'height'); // her broom, standing at the fence
   // Mother Yarrow herself — the dedicated KayKit Witch (Mystery Monthly S5: the
   // orange pointed hat, round glasses and salmon hair of the reference), at the
   // south edge of her bed, facing +z toward players who walk up from the commons.
