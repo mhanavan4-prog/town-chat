@@ -10243,7 +10243,7 @@ function renderGardenModal() {
       const meta = ITEM_CATALOG[p.herb];
       const ready = p.ready || (now - p.plantedAt >= p.growMs);
       if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div><button class="gpReady" data-harvest="${i}">🌿 Harvest ${p.yield}×</button>`;
-      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div>`;
+      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div><button class="gpRush" data-rush="${i}">💎 Grow now · ${st.rushCost || 5}</button>`;
     }
     h += '</div>';
   });
@@ -10251,6 +10251,7 @@ function renderGardenModal() {
   el.innerHTML = h;
   el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb') })); });
   el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest') })));
+  el.querySelectorAll('.gpRush').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_rush', plotIndex: +b.getAttribute('data-rush') })));
 }
 function openGardenModal() {
   const modal = document.getElementById('gardenModal');
