@@ -493,11 +493,12 @@ function addVillageBuildings(scene) {
       }
     }
   } catch (e) { /* decorative only */ }
-  // Mother Yarrow herself — a hooded hedgewitch (charId 2), at the south edge of
-  // her bed, facing the players who walk up from the village commons.
+  // Mother Yarrow herself — the witch (charId 0: the KayKit Mage, orange pointed
+  // hat + round glasses), at the south edge of her bed, facing the players who
+  // walk up from the village commons.
   const myX = GX, myZ = GZ + GH - 6;
   try {
-    const yarrow = createHumanoid(2).group;
+    const yarrow = createHumanoid(0).group;
     yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow);
   } catch (e) { /* model may still be streaming */ }
   const yarrowLabel = makeNpcNameSprite('🌿 Mother Yarrow');
