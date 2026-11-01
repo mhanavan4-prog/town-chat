@@ -2994,7 +2994,7 @@ app.get('/api/coven', (req, res) => {
 // this to decide what a given item can actually do.
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
-const { FAMILIARS } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower)
+const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
@@ -5303,6 +5303,7 @@ function publicPlayer(p) {
     // companion behind this player (client/familiars.js). Cosmetic; the perk is
     // applied server-side via familiarBuffContrib.
     familiar: p.familiar || null,
+    familiarSkin: p.familiarSkin || null, // bonded coat (cosmetic recolor; client/familiars.js)
     // 🎃 Worn guise id (or null) — every nearby client draws the matching Samhain
     // costume over this player's body (client/guises.js). Purely cosmetic.
     guise: p.guise || null
@@ -9537,6 +9538,7 @@ wss.on('connection', (ws, req) => {
       // 🐈‍⬛ The bonded familiar (account-scoped) rides into the player so it
       // broadcasts in publicPlayer and every nearby client trails it.
       player.familiar = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiar) || null;
+      player.familiarSkin = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiarSkin) || null; // bonded coat
       // 🎃 The worn guise (account-scoped) likewise, so the costume broadcasts.
       player.guise = (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].guise) || null;
 
@@ -9585,6 +9587,13 @@ wss.on('connection', (ws, req) => {
           nameColors: NAME_COLORS,
           nameColorsOwned: getProgress(player).nameColorUnlocks || [],
           nameColor: (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].nameColorId) || 'default'
+        },
+        // Familiar coats (cosmetic skins): palette + what this account owns +
+        // the worn coat, so the familiar panel can show the picker.
+        familiarCos: {
+          skins: FAMILIAR_SKINS,
+          owned: getProgress(player).familiarSkinUnlocks || [],
+          skin: (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].familiarSkin) || 'default'
         },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
@@ -13500,6 +13509,31 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the perk refreshes stats/HP
       if (fid) send(ws, { type: 'toast', message: `${FAMILIARS[fid].emoji} ${FAMILIARS[fid].name} pads to your side — ${FAMILIARS[fid].blurb}` });
       else send(ws, { type: 'toast', message: 'Your familiar slips back into the dark.' });
+      return;
+    }
+    // 🎨 Set your familiar's coat (cosmetic skin). Premium coats are bought-on-
+    // first-pick with Moonstones and owned account-wide; 'default' reverts free.
+    // Only changes account.familiarSkin/player.familiarSkin, which rides
+    // publicPlayer, so every nearby client recolors the follower live.
+    if (msg.type === 'set_familiar_skin') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to recolor your familiar.' }); return; }
+      const id = String(msg.skinId || '');
+      const s = FAMILIAR_SKIN_BY_ID[id];
+      if (!s) { send(ws, { type: 'ms_error', message: 'That coat isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.familiarSkinUnlocks) prog.familiarSkinUnlocks = [];
+      if (s.ms && prog.familiarSkinUnlocks.indexOf(id) === -1) {
+        if (msBalance(player.accountKey) < s.ms) { send(ws, { type: 'ms_error', message: `That coat is ${s.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+        msAdjust(player.accountKey, -s.ms);
+        analytics.bump('buy.msn.famskin:' + id);
+        analytics.bump('buy.msg.famskin:' + id, s.ms);
+        prog.familiarSkinUnlocks.push(id);
+      }
+      accounts[player.accountKey].familiarSkin = id;
+      player.familiarSkin = id;
+      try { saveAccounts(); saveProgress(); } catch (e) { /* noop */ }
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'familiar_skin_set', skinId: id, owned: prog.familiarSkinUnlocks });
       return;
     }
 
