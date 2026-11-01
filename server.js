@@ -4318,7 +4318,7 @@ function greenPathStateBody(player) {
   const ch = GREEN_PATH[gp.chapter];
   const level = getProgress(player).level || 1;
   return {
-    done: false, chapter: gp.chapter, total, title: ch.title,
+    done: false, chapter: gp.chapter, total, title: ch.title, band: ch.band,
     label: ch.objective.label, progress: gp.progress || 0, target: ch.objective.target,
     requiresLevel: ch.requiresLevel || 1, levelOk: level >= (ch.requiresLevel || 1)
   };

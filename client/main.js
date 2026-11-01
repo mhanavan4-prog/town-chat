@@ -10316,6 +10316,38 @@ function gardenMoonTier() {
 }
 function gardenHerbCount(id) { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === id) n += (it.qty || 1); return n; }
 function gardenFmtLeft(ms) { const m = Math.ceil(ms / 60000); return m <= 1 ? 'under a minute' : m + ' min'; }
+// Mother Yarrow's voice in the garden panel — a short line that reacts to how
+// far along the Green Path you are, so tending the garden always feels like
+// she's there tending it with you. Lines are trusted constants (no user input).
+function yarrowGreeting(gp) {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  if (gp.done) return pick([
+    "You've walked the whole path, cottage to poison. A green witch true — my garden is yours.",
+    "Nothing left to teach you, child. The beds know your hands now.",
+    "Belladonna to chamomile, all of it yours. I knew you had the green in you.",
+  ]);
+  if (gp.chapter === 0 && (gp.progress || 0) === 0) return pick([
+    "Welcome to my garden, child. The beds are bare and waiting — sow something, and we'll see what you can grow.",
+    "So you've come to learn the green way. Good. Put a seed in the earth, and we'll begin.",
+  ]);
+  if (!gp.levelOk) return pick([
+    "Patience. The next working asks more of you than you've got yet — grow a little stronger, then come back to me.",
+    "Not yet, child. Some herbs won't answer to a hand that isn't ready. Go, live a little, and return.",
+  ]);
+  if (gp.band === 'cottage') return pick([
+    "Keep at the cottage herbs — healing is where every green witch begins.",
+    "The gentle ones first: chamomile, calendula. Learn their tempers before you reach for anything with teeth.",
+  ]);
+  if (gp.band === 'hedge') return pick([
+    "You're crossing the hedge now. Mind what you gather out there — the wild doesn't give its herbs freely.",
+    "Mugwort and rue, vervain and yarrow — the warding herbs. You'll want them before the dark work comes.",
+  ]);
+  if (gp.band === 'baneful') return pick([
+    "The Poison Path. Grow these with respect, child — belladonna and henbane don't forgive carelessness.",
+    "Nightshade and mandrake now, the witch's dark art. Steady hands — and never taste your own work.",
+  ]);
+  return "Tend your beds, child. The garden rewards a patient hand.";
+}
 function renderGardenModal() {
   const el = document.getElementById('gardenContent');
   if (!el) return;
@@ -10336,6 +10368,7 @@ function renderGardenModal() {
   // harvesting ARE the objectives. Shows the current chapter + progress.
   const gp = st.greenPath;
   if (gp) {
+    h += `<div class="yarrowSays"><div class="ysWho">Mother Yarrow</div><div class="ysLine">“${yarrowGreeting(gp)}”</div></div>`;
     if (gp.done) {
       h += '<div class="gpQuest done">🌿 <b>The Green Path</b> — complete. The garden is yours.</div>';
     } else {
