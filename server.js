@@ -3011,7 +3011,7 @@ const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosm
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
-const { GREEN_PATH } = require('./data/greenPath'); // the gardening questline
+const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
@@ -3149,6 +3149,7 @@ function grantLoot(pending, player) {
         if (player.accountKey) saveInventories();
         const meta = ITEM_CATALOG[drop.itemId];
         earned.push(`${meta?.icon || '?'} ${meta?.name || drop.itemId}`);
+        noteAlmanacDiscovery(player, drop.itemId); // a looted plant enters the almanac
         // Green Path ch.4 — finding a wild cutting (the caller re-sends inventory
         // after grantLoot, so any chapter-reward seeds display too).
         if (WILDS_SEED_IDS.has(drop.itemId)) greenPathEvent(player, 'seed_found');
@@ -4290,7 +4291,7 @@ function gardenStateBody(player) {
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
     yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
   } : null);
-  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player) };
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player) };
 }
 
 // ── The Green Path (gardening questline) ────────────────────────────────────
@@ -4338,11 +4339,54 @@ function greenPathEvent(player, type) {
     if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
       const m = ITEM_CATALOG[r.itemId] || PLANT_CATALOG[r.itemId];
       got.push(`${m ? m.icon : ''} ${m ? m.name : r.itemId}${(r.qty || 1) > 1 ? ' ×' + (r.qty || 1) : ''}`);
+      noteAlmanacDiscovery(player, r.itemId); // a granted plant enters the almanac
     }
   }
   try { saveInventories(); saveProgress(); } catch (e) {}
   const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
   try { send(player.ws, { type: 'toast', message: `🌿 Green Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
+}
+
+// ── The Garden Almanac ──────────────────────────────────────────────────────
+// A collection page of the real-witchcraft Green Path plants (the taxonomy in
+// GREEN_PATH_CATEGORIES), each with its folk-magic lore. A plant is "discovered"
+// once you've held it — recorded account-wide in prog.almanac, with a lazy scan
+// of current holdings as a safety net so trades/gifts count too.
+const ALMANAC_PLANT_IDS = GREEN_PATH_CATEGORIES.flatMap((c) => c.plants.map((p) => p.id));
+const ALMANAC_PLANT_SET = new Set(ALMANAC_PLANT_IDS);
+
+function noteAlmanacDiscovery(player, itemId) {
+  if (!player || !player.accountKey || !ALMANAC_PLANT_SET.has(itemId)) return false;
+  const prog = getProgress(player);
+  if (!Array.isArray(prog.almanac)) prog.almanac = [];
+  if (prog.almanac.indexOf(itemId) !== -1) return false;
+  prog.almanac.push(itemId);
+  try { saveProgress(); } catch (e) {}
+  return true;
+}
+
+// Safety net: sweep current inventory + bank for any almanac plant and record it.
+function refreshAlmanacFromHoldings(player) {
+  if (!player || !player.accountKey) return;
+  const seen = new Set();
+  const inv = getInventory(player);
+  for (const s of (inv.slots || [])) if (s && s.itemId) seen.add(s.itemId);
+  const bank = bankAccounts[player.accountKey];
+  if (bank) for (const s of (bank.slots || [])) if (s && s.itemId) seen.add(s.itemId);
+  for (const id of seen) if (ALMANAC_PLANT_SET.has(id)) noteAlmanacDiscovery(player, id);
+}
+
+function almanacStateBody(player) {
+  if (!player || !player.accountKey) return null;
+  refreshAlmanacFromHoldings(player);
+  const found = new Set(getProgress(player).almanac || []);
+  const categories = GREEN_PATH_CATEGORIES.map((c) => ({
+    id: c.id, name: c.name, band: c.band, lore: c.lore,
+    plants: c.plants.map((p) => ({
+      id: p.id, name: p.name, lore: p.lore, discovered: found.has(p.id)
+    }))
+  }));
+  return { categories, discovered: ALMANAC_PLANT_IDS.filter((id) => found.has(id)).length, total: ALMANAC_PLANT_IDS.length };
 }
 
 // ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
@@ -15035,6 +15079,7 @@ global.__testHooks = {
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
   greenPathEvent, greenPathStateBody, GREEN_PATH,
+  almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
