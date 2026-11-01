@@ -6,8 +6,11 @@
 > Garden**, the **Hedge & Wild**, and the baneful **Poison Path**. Plants are
 > also **found** in the world (rare mob drops, foraging) and new potions are
 > brewed from every harvest.
-> Status: **Chapters 1–2 built** (the Cottage Garden MVP — Chamomile, Calendula,
-> Chamomile Tisane). Chapters 3–9 are the plan below, not yet code.
+> Status: **Cottage Garden category complete (Chapters 1–3 built)** — all six
+> cottage herbs (Chamomile, Calendula, Comfrey, Lemon Balm, Feverfew, Lavender)
+> are growable and brewable, and every plant in all three categories has its
+> finished icon. Chapters 4–9 (Hedge & Wild, Poison Path) are the plan below, not
+> yet wired. A rare-seed drop system is also live (Mugwort, Yarrow from Wilds mobs).
 >
 > The full plant catalogue, by category, is the authoritative list in
 > `data/greenPath.js` (`GREEN_PATH_CATEGORIES`). This document is the plan around
@@ -79,7 +82,7 @@ chapter, and pays a seed packet (plus XP/gold).
 *Cottage Garden (common):*
 1. **A Handful of Earth** (Lv 1) — sow your first bed. *Reward: Chamomile.* ✅ built
 2. **The First Cutting** (Lv 3) — harvest 3 beds. *Reward: Calendula.* ✅ built
-3. **Hearth and Healing** (Lv 5) — harvest a bed planted under a waxing/full moon, then brew. *Reward: Comfrey + Lemon Balm; a healing recipe.*
+3. **Hearth and Healing** (Lv 5) — brew any remedy at Hazel's cauldron. *Reward: the rest of the cottage garden — Comfrey, Lemon Balm, Feverfew, Lavender (each with its own brew).* ✅ built
 
 *The Hedge & Wild (rare):*
 4. **Crossing the Hedge** (Lv 8) — forage/kill in the Wilds until a **Mugwort** sprig drops. *Reward: Mugwort + a dream/divination recipe.*
@@ -163,12 +166,17 @@ Ship a **thin vertical slice first**, then widen tier by tier:
    (no new NPC/dialogue UI — garden actions ARE the objectives), Chamomile and
    Calendula as plantables, and the Chamomile Tisane recipe. The loop is proven
    end-to-end: sow → harvest → chapter reward (seeds) → plant/brew.
-2. **Rare-drop system:** plant loot entries + the forage-up-tier roll (feeds the
-   Hedge & Poison categories).
-3. **Categories 2–3 content:** chapters 3–9 — the Hedge & Wild and the baneful
+2. **Rare-drop system:** ✅ **done.** `WILDS_SEED_DROPS` — Mugwort & Yarrow drop
+   from the overworld Wilds pools (never town/dungeon), each growable and brewable.
+3. **Finish the Cottage Garden:** ✅ **done.** Chapter 3 ("Hearth and Healing")
+   introduces Comfrey, Lemon Balm, Feverfew and Lavender with a brew each; its
+   objective (`garden_brew`) hooks the cauldron. All six cottage herbs are live.
+4. **Art for the whole library:** ✅ **done.** Every plant in all three categories
+   has a hand-drawn icon (`client/ui-icons.js`), dormant until its item ships.
+5. **Categories 2–3 content:** chapters 4–9 — the Hedge & Wild and the baneful
    Poison Path herbs/potions, the lunar mutation, the capstone. Mother Yarrow can
    graduate from a garden-panel voice to a proper west-side NPC here.
-4. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
+6. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
    you've discovered (a collection hook), each with its real-world lore.
 
 Each step is testable with the existing harness (quest/story tests, crafting

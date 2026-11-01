@@ -280,6 +280,17 @@ const PLANT_CATALOG = {
   yarrow:                 { name: 'Yarrow',                 icon: '🌾', effect: 'heal',    amount: 40 },
   mugwort_draught:        { name: 'Mugwort Dream-Draught',  icon: '🌙', effect: 'status',  statusType: 'ravencloak', durationMs: 60000 },
   yarrow_salve:           { name: 'Yarrow Salve',           icon: '🩹', effect: 'heal',    amount: 70 },
+  // Cottage Garden band — the rest of the hearth-and-healing herbs, granted by
+  // Green Path chapter 3. Raw use is a gentle remedy; each brews into a stronger
+  // one at Hazel's cauldron.
+  comfrey:                { name: 'Comfrey',                icon: '🌿', effect: 'heal',    amount: 45 },
+  lemon_balm:             { name: 'Lemon Balm',             icon: '🍃', effect: 'status',  statusType: 'regen',      durationMs: 16000 },
+  feverfew:               { name: 'Feverfew',               icon: '🌼', effect: 'cleanse' },
+  lavender:               { name: 'Lavender',               icon: '💜', effect: 'status',  statusType: 'regen',      durationMs: 18000 },
+  comfrey_salve:          { name: 'Comfrey Salve',          icon: '🩹', effect: 'heal',    amount: 85 },
+  lemon_balm_cordial:     { name: 'Lemon Balm Cordial',     icon: '🍵', effect: 'status',  statusType: 'regen',      durationMs: 45000 },
+  feverfew_tincture:      { name: 'Feverfew Tincture',      icon: '🧪', effect: 'ward',    durationMs: 45000 },
+  lavender_oil:           { name: 'Lavender Oil',           icon: '🫧', effect: 'status',  statusType: 'regen',      durationMs: 60000 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

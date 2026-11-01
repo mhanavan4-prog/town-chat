@@ -1535,7 +1535,10 @@ const BREW_RESULT_KEYS = new Set(require('./data/gameConstants').POTION_RECIPES.
 // harvestables and must not scatter in the Wilds (salt is bought, not foraged).
 const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomile_tisane',
   // Hedge & Wild herbs come from creature drops (WILDS_SEED_DROPS), not forage.
-  'mugwort', 'yarrow', 'mugwort_draught', 'yarrow_salve']);
+  'mugwort', 'yarrow', 'mugwort_draught', 'yarrow_salve',
+  // Cottage Garden band (chapter-granted + garden-grown, never wild-scattered).
+  'comfrey', 'lemon_balm', 'feverfew', 'lavender',
+  'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -14235,6 +14238,11 @@ wss.on('connection', (ws, req) => {
       });
       // Brewing at Hazel's cauldron is the Witch campaign's finale objective.
       storyEvent(player, 'craft_potion', { recipeId });
+      // Green Path ch.3 — brewing any remedy completes it; a chapter payout adds
+      // seeds to the pack, so refresh inventory again to show them.
+      const gpBefore = greenPathOf(player).chapter;
+      greenPathEvent(player, 'garden_brew');
+      if (greenPathOf(player).chapter !== gpBefore) send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       noteMilestone(player, 'craft');
       return;
     }

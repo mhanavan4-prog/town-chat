@@ -15,7 +15,9 @@ const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_
   'chamomile', 'calendula',
   // Hedge & Wild herbs — drop-only (never wild-scattered); once a creature drops
   // you a cutting, you can grow more here.
-  'mugwort', 'yarrow'];
+  'mugwort', 'yarrow',
+  // Cottage Garden band (granted by Green Path chapter 3).
+  'comfrey', 'lemon_balm', 'feverfew', 'lavender'];
 
 // Yield is set by the moon phase AT PLANTING — sow as the moon waxes or fills
 // for a richer crop. You always sow one seed, so even 'other' nets a gain.

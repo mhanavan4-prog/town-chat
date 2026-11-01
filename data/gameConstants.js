@@ -75,6 +75,19 @@ const POTION_RECIPES = [
   { id: 'mugwort_draught', result: 'mugwort_draught',
     ingredients: [{ id: 'mugwort', qty: 2 }],
     desc: "2× Mugwort → Mugwort Dream-Draught (cross the hedge unseen — Raven's Cloak for 60s)" },
+  // ── Green Path (Cottage Garden band): the hearth-and-healing remedies ──
+  { id: 'comfrey_salve', result: 'comfrey_salve',
+    ingredients: [{ id: 'comfrey', qty: 2 }],
+    desc: '2× Comfrey → Comfrey Salve (knitbone — heals 85 HP)' },
+  { id: 'lemon_balm_cordial', result: 'lemon_balm_cordial',
+    ingredients: [{ id: 'lemon_balm', qty: 2 }],
+    desc: '2× Lemon Balm → Lemon Balm Cordial (a calming restorative — regen for 45s)' },
+  { id: 'feverfew_tincture', result: 'feverfew_tincture',
+    ingredients: [{ id: 'feverfew', qty: 2 }],
+    desc: '2× Feverfew → Feverfew Tincture (wards off sickness — curse immunity for 45s)' },
+  { id: 'lavender_oil', result: 'lavender_oil',
+    ingredients: [{ id: 'lavender', qty: 2 }],
+    desc: '2× Lavender → Lavender Oil (deep calm — regen for 60s)' },
 ];
 
 const LOOT_TABLES = {
