@@ -139,6 +139,20 @@ setTimeout(() => {
     return dbuyer.p.appearance.dyeAccent === 'none';
   })(), dbuyer.p.appearance);
 
+  // ── Name color (chat + nameplate flair) ──
+  const ncBal = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_name_color', colorId: 'violet' })); // 12 💎
+  check('setting a premium name color confirms with name_color_set', (() => { const m = dbuyer.s.lastOfType('name_color_set'); return m && m.colorId === 'violet'; })());
+  check('the name color debits its Moonstone price', h.msBalance('dyer') === ncBal - 12, h.msBalance('dyer'));
+  check('the name color is owned account-wide', (() => { const pr = h.playerProgress['dyer']; return pr.nameColorUnlocks && pr.nameColorUnlocks.indexOf('violet') !== -1; })());
+  check('account + live player color both update to the picked hex', h.accounts['dyer'].color === '#b07cff' && dbuyer.p.color === '#b07cff', { acct: h.accounts['dyer'].color, live: dbuyer.p.color });
+  check('the worn name-color id is recorded', h.accounts['dyer'].nameColorId === 'violet');
+  const ncBal2 = h.msBalance('dyer');
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_name_color', colorId: 'violet' }));
+  check('re-equipping an owned name color does not double-charge', h.msBalance('dyer') === ncBal2, h.msBalance('dyer'));
+  dbuyer.s.emit('message', JSON.stringify({ type: 'set_name_color', colorId: 'default' }));
+  check('reverting to the default name color is free and un-charged', h.msBalance('dyer') === ncBal2 && h.accounts['dyer'].nameColorId === 'default');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 250);

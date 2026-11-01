@@ -635,7 +635,7 @@ app.get('/', (req, res) => {
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
-const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance } = require('./data/wardrobe'); // cosmetics
+const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss } = require('./data/wardrobe'); // cosmetics
 
 // Is a weapon look unlocked for this player? Free looks always are; level/chapter
 // looks unlock automatically once earned; Moonstone looks require a purchase
@@ -9579,7 +9579,12 @@ wss.on('connection', (ws, req) => {
           chaptersDone: (() => { try { return getStoryState(player).chapter || 0; } catch (e) { return 0; } })(),
           // Phase 3: Moonstone dyes bought on this account (level/chapter dyes
           // the client gates from the live level + chaptersDone above).
-          dyesPurchased: getProgress(player).dyeUnlocks || []
+          dyesPurchased: getProgress(player).dyeUnlocks || [],
+          // Name-color flair: the palette, what this account owns, and the
+          // currently-worn id (server-sourced so the client never drifts).
+          nameColors: NAME_COLORS,
+          nameColorsOwned: getProgress(player).nameColorUnlocks || [],
+          nameColor: (player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].nameColorId) || 'default'
         },
         msPacks: MS_PACKS,
         msAuctionFee: AUCTION_MS_FEE,
@@ -9858,6 +9863,37 @@ wss.on('connection', (ws, req) => {
       prog.appearance[player.charId] = clean;
       if (player.accountKey) { try { saveProgress(); } catch (e) {} }
       send(ws, { type: 'appearance_set', appearance: clean });
+      return;
+    }
+
+    // 🎨 Set your name color (chat + nameplate flair). Premium colors are
+    // bought-on-first-pick with Moonstones and owned account-wide; 'default'
+    // reverts to your assigned color and is always free. Pure cosmetic — it
+    // only changes account.color/player.color, which every nameplate and chat
+    // line already reads, so the change shows live on the next state push.
+    if (msg.type === 'set_name_color') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to change your name color.' }); return; }
+      const id = String(msg.colorId || '');
+      const c = NAME_COLOR_BY_ID[id];
+      if (!c) { send(ws, { type: 'ms_error', message: 'That color isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      const acct = accounts[player.accountKey];
+      if (!acct) return;
+      if (!prog.nameColorUnlocks) prog.nameColorUnlocks = [];
+      // Premium color not yet owned → buy it now.
+      if (c.ms && prog.nameColorUnlocks.indexOf(id) === -1) {
+        if (msBalance(player.accountKey) < c.ms) { send(ws, { type: 'ms_error', message: `That color is ${c.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+        msAdjust(player.accountKey, -c.ms);
+        analytics.bump('buy.msn.namecolor:' + id);
+        analytics.bump('buy.msg.namecolor:' + id, c.ms);
+        prog.nameColorUnlocks.push(id);
+      }
+      // Equip: 'default' falls back to the account's own assigned color.
+      const hex = nameColorHexCss(id) || colorForUsername(player.accountKey);
+      acct.color = hex; acct.nameColorId = id; player.color = hex;
+      try { saveAccounts(); saveProgress(); } catch (e) { /* noop */ }
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'name_color_set', colorId: id, color: hex, owned: prog.nameColorUnlocks });
       return;
     }
 
