@@ -121,7 +121,7 @@ setTimeout(() => {
 
   // Completeness: EVERY keystone pact across all six classes now carries a
   // valid behavior (one of the four known hooks) with display text.
-  const BEHAVIOR_KINDS = ['onKillHealPct', 'woundedFury', 'lastStand', 'combatRegen'];
+  const BEHAVIOR_KINDS = ['onKillHealPct', 'woundedFury', 'lastStand', 'combatRegen', 'onHitDot'];
   let missing = [];
   for (let c = 0; c < 6; c++) {
     for (const s of S.SKILL_CATALOG[c]) {
@@ -131,6 +131,29 @@ setTimeout(() => {
     }
   }
   check('every keystone pact has a valid, named behavior', missing.length === 0, missing);
+
+  // ── 8. Enemy damage-over-time (Cinderburn): registry + tick lifecycle ──
+  const { registerPactDot, tickPactDots, activeDots } = global.__testHooks;
+  const pyreSkill = S.SKILL_CATALOG[0].find((s) => s.id === 'witch_k_pyre');
+  check('Pyre Witch carries an onHitDot (Cinderburn) behavior', !!pyreSkill.behavior && pyreSkill.behavior.onHitDot && pyreSkill.behavior.onHitDot.dps > 0, pyreSkill.behavior);
+  delete playerProgress['pyT'];
+  playerProgress['pyT'] = { _charLeveled: true, _skillEconV2: true, characters: { '0': { level: 10 } }, skills: { '0': { witch_k_pyre: 1 } } };
+  const pyre = { id: 'pyreP', accountKey: 'pyT', charId: 0, health: 100, isDead: false };
+  activeDots.clear();
+  registerPactDot(pyre, 'mob', 'm1', { ok: true, dead: false });
+  check('a landed hit registers a burn on the target', activeDots.has('mob|m1') && activeDots.get('mob|m1').dps === 5, [...activeDots.keys()]);
+  registerPactDot(pyre, 'mob', 'm2', { ok: true, dead: true }); // a killing blow leaves no burn
+  check('a fatal hit does not register a burn', !activeDots.has('mob|m2'));
+  const noDot = { id: 'plainP', accountKey: 'noPactC', charId: 0, health: 100 };
+  registerPactDot(noDot, 'mob', 'm3', { ok: true, dead: false });
+  check('a hit from a pactless attacker registers no burn', !activeDots.has('mob|m3'));
+  // Tick lifecycle: an expired burn, and one whose owner is offline, both drop.
+  activeDots.set('mob|m4', { dps: 5, until: Date.now() - 1, byId: 'pyreP', byAcct: 'pyT', targetType: 'mob', targetId: 'm4', acc: 0 });
+  activeDots.set('mob|m5', { dps: 5, until: Date.now() + 9999, byId: 'ghostOwner', byAcct: 'x', targetType: 'mob', targetId: 'm5', acc: 0 });
+  tickPactDots(Date.now(), 0.15);
+  check('an expired burn is dropped on tick', !activeDots.has('mob|m4'));
+  check('a burn whose owner is offline is dropped on tick', !activeDots.has('mob|m5'));
+  activeDots.clear();
 
   // A player with no pact is untouched by both hooks.
   delete playerProgress['noPactC'];

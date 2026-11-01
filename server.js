@@ -3497,13 +3497,18 @@ function pvpAllowed(attacker, target) {
 
 function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
+  // A pact damage-over-time tick re-enters applyDamage with its already-final
+  // damage (see tickPactDots): it reuses the whole target-resolution + kill +
+  // XP/loot pipeline, but must NOT re-apply the attacker's outgoing multipliers
+  // or self-bleed, which already shaped the original blow.
+  const _isDot = !!(opts && opts.isDot);
 
   // Bloodcurse (Bone Crunch / Shadow Claws): a cursed attacker bleeds with
   // every blow they throw — floored at 1 HP so it can't kill — and that blood
   // flows to whoever cursed them (true life drain). Skipped for hits channeled
   // through a minion (opts.viaMinion), so an undead's swings don't bleed its
   // summoner; this is the price of the CURSED player's own aggression.
-  if ((!opts || !opts.viaMinion) && player.activeStatus && player.activeStatus.type === 'bloodcurse' && player.activeStatus.expiresAt > Date.now()) {
+  if (!_isDot && (!opts || !opts.viaMinion) && player.activeStatus && player.activeStatus.type === 'bloodcurse' && player.activeStatus.expiresAt > Date.now()) {
     const bleed = Math.max(4, Math.round(dmg * 0.5));
     const before = player.health || 0;
     player.health = Math.max(1, before - bleed);
@@ -3517,14 +3522,17 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   // Monstrous Form (or any other source of the 'giant' status — the
   // Werewolf's Blood Frenzy and Wanderer's Campfire Tale share it) makes
   // the attacker hit half again as hard for its duration.
-  if (hasStatus(player, 'giant')) dmg = Math.round(dmg * 1.5);
+  if (!_isDot && hasStatus(player, 'giant')) dmg = Math.round(dmg * 1.5);
   // Skill-tree offense (Witchfire Mastery / Rending Fangs / … — the 'power'
   // skill each class carries) scales ALL of this player's damage, since both
-  // Strike and every ranged ability funnel through here.
-  const _skillPower = outgoingDamageMult(player);
-  if (_skillPower !== 1) dmg = Math.max(1, Math.round(dmg * _skillPower));
-  // Attacker-side pact behavior (e.g. Wounded Fury) scales on top of skill power.
-  dmg = pactOutgoingDamage(player, dmg);
+  // Strike and every ranged ability funnel through here. (A DoT tick is
+  // pre-scaled, so it skips this and the attacker-side pact multiplier.)
+  if (!_isDot) {
+    const _skillPower = outgoingDamageMult(player);
+    if (_skillPower !== 1) dmg = Math.max(1, Math.round(dmg * _skillPower));
+    // Attacker-side pact behavior (e.g. Wounded Fury) scales on top.
+    dmg = pactOutgoingDamage(player, dmg);
+  }
 
   // The World Boss (Session N) — one shared pool, its own damage ledger and
   // multi-winner payout; the module owns everything past the hit.
@@ -4119,6 +4127,43 @@ function pactIncomingDamage(target, dmg) {
     if (frac <= (b.lastStandAt || 0.3)) return Math.max(1, Math.round(dmg * (1 - b.lastStand)));
   }
   return dmg;
+}
+// ── Pact damage-over-time (Cinderburn etc.) ─────────────────────────────────
+// A DoT pact leaves a burn/rot on whatever you hit that keeps damaging it after
+// the blow lands. Stored in one registry keyed by target, each tick re-entering
+// applyDamage with opts.isDot so the real kill/XP/loot pipeline is reused — the
+// DoT never duplicates death handling.
+const activeDots = new Map(); // "targetType|targetId" -> { dps, until, byId, byAcct, targetType, targetId, acc }
+// Called from the damage callers after a landed, non-fatal hit. A no-op unless
+// the attacker has sworn a pact with an onHitDot, and never stacks: a fresh hit
+// refreshes the same single burn on that target.
+function registerPactDot(attacker, targetType, targetId, result) {
+  if (!result || !result.ok || result.dead) return;
+  const b = activePactBehavior(attacker);
+  if (!b || !b.onHitDot || !b.onHitDot.dps) return;
+  const d = b.onHitDot;
+  activeDots.set(targetType + '|' + targetId, {
+    dps: d.dps, until: Date.now() + (d.durationMs || 4000),
+    byId: attacker.id, byAcct: attacker.accountKey || null,
+    targetType, targetId: String(targetId), acc: 0
+  });
+}
+// Ticked from the main loop. Each live DoT accumulates fractional damage and
+// applies whole points through applyDamage (owner credited for the kill). A DoT
+// is dropped when it expires, its owner is gone/dead, or its target is gone.
+function tickPactDots(now, dt) {
+  if (activeDots.size === 0) return;
+  for (const [key, e] of activeDots) {
+    if (now >= e.until) { activeDots.delete(key); continue; }
+    const owner = players.get(e.byId);
+    if (!owner || owner.isDead) { activeDots.delete(key); continue; } // no one to credit
+    e.acc += e.dps * dt;
+    const whole = Math.floor(e.acc);
+    if (whole < 1) continue;
+    e.acc -= whole;
+    const result = applyDamage(owner, e.targetType, e.targetId, whole, null, { isDot: true });
+    if (!result || !result.ok || result.dead) activeDots.delete(key); // target dead, gone, or unreachable
+  }
 }
 // Rank invested in whichever skill in this class's tree carries `effect`
 // (each tree has at most one skill per effect).
@@ -6635,6 +6680,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickDelves(dt);
   tickPlayerStatusHealth(now, dt);
+  tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
   tickTorchNpcs(dt);
   updateTemplePortalState();
   tickTorchHealing(dt);
@@ -11532,6 +11578,7 @@ wss.on('connection', (ws, req) => {
           dmg = Math.round(dmg * (1 + _fireSeason.effects.fireBonus));
         }
         const result = applyDamage(player, targetType, targetId, dmg, ABILITY_MAX_RANGE);
+        registerPactDot(player, targetType, targetId, result); // Cinderburn etc.
         if (!result.ok) {
           send(ws, { type: 'spell_error', message: result.pvpBlocked
             ? (result.ember
@@ -11694,6 +11741,7 @@ wss.on('connection', (ws, req) => {
       const dmg = STRIKE_MIN_DMG + Math.floor(Math.random() * (STRIKE_MAX_DMG - STRIKE_MIN_DMG + 1));
 
       const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
+      registerPactDot(player, targetType, targetId, result); // Cinderburn etc.
       if (!result.ok) {
         if (result.pvpBlocked) send(ws, { type: 'attack_result', message: result.ember
           ? `🛡️ ${result.name} is in the spawn haven — no fighting there. Draw them out into the Wastes.`
@@ -12036,6 +12084,7 @@ wss.on('connection', (ws, req) => {
         const targetId = atkTargetsMob ? String(msg.targetId || '') : targets[0].id;
         const dmg = attack.dmgMin + Math.floor(Math.random() * (attack.dmgMax - attack.dmgMin + 1));
         const result = applyDamage(player, atkTargetType, targetId, dmg, ABILITY_MAX_RANGE);
+        registerPactDot(player, atkTargetType, targetId, result); // Cinderburn etc.
         if (!result.ok) {
           send(ws, { type: 'attack_error', message: result.evaded
             ? `💨 ${result.name} slips the blow — their echo still hangs in the air!`
@@ -14905,7 +14954,7 @@ global.__testHooks = {
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage,
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
