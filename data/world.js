@@ -303,6 +303,27 @@ const PLANT_CATALOG = {
   rue_water:              { name: 'Rue Water',              icon: '💧', effect: 'ward',    durationMs: 45000 },
   st_johns_oil:           { name: "St. John's Oil",         icon: '🌟', effect: 'heal',    amount: 90 },
   rowan_charm:            { name: 'Rowan Charm',            icon: '📿', effect: 'ward',    durationMs: 60000 },
+  // The Poison Path (baneful) — the witch's dark art, granted by Green Path
+  // chapters 7–9. In-game these brew TRANCE and WARDING effects (the folklore,
+  // never anything depicting real harm): belladonna's flight, henbane's madness,
+  // the mandrake's power, the famed flying ointment. All self-buffs/cosmetic.
+  belladonna:             { name: 'Belladonna',             icon: '🫐', effect: 'status',  statusType: 'ravencloak', durationMs: 15000 },
+  henbane:                { name: 'Henbane',                icon: '🌼', effect: 'status',  statusType: 'colorcycle', durationMs: 20000 },
+  mandrake:               { name: 'Mandrake',               icon: '🪬', effect: 'status',  statusType: 'giant',      durationMs: 15000 },
+  wolfsbane:              { name: 'Wolfsbane',              icon: '💜', effect: 'status',  statusType: 'wolfpact',   durationMs: 20000 },
+  datura:                 { name: 'Datura',                 icon: '🎺', effect: 'status',  statusType: 'colorcycle', durationMs: 18000 },
+  hemlock:                { name: 'Hemlock',                icon: '🌿', effect: 'ward',    durationMs: 25000 },
+  foxglove:               { name: 'Foxglove',               icon: '🔔', effect: 'heal',    amount: 50 },
+  black_hellebore:        { name: 'Black Hellebore',        icon: '🤍', effect: 'ward',    durationMs: 25000 },
+  flying_ointment:        { name: 'Flying Ointment',        icon: '🧴', effect: 'status',  statusType: 'ravencloak', durationMs: 90000 },
+  henbane_smoke:          { name: 'Henbane Smoke',          icon: '💨', effect: 'status',  statusType: 'colorcycle', durationMs: 60000 },
+  mandrake_draught:       { name: 'Mandrake Draught',       icon: '🧪', effect: 'status',  statusType: 'giant',      durationMs: 45000 },
+  wolfsbane_draught:      { name: 'Wolfsbane Draught',      icon: '🐺', effect: 'status',  statusType: 'wolfpact',   durationMs: 60000 },
+  datura_trance:          { name: 'Datura Trance',          icon: '🌀', effect: 'status',  statusType: 'ravencloak', durationMs: 75000 },
+  hemlock_philter:        { name: 'Hemlock Philter',        icon: '🫙', effect: 'ward',    durationMs: 60000 },
+  foxglove_cordial:       { name: 'Foxglove Cordial',       icon: '🍷', effect: 'heal',    amount: 100 },
+  hellebore_ward:         { name: 'Hellebore Ward',         icon: '🕯️', effect: 'ward',   durationMs: 75000 },
+  draught_of_the_green_path: { name: 'Draught of the Green Path', icon: '🏵️', effect: 'status', statusType: 'ravencloak', durationMs: 300000 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

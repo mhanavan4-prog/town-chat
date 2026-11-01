@@ -104,6 +104,36 @@ const POTION_RECIPES = [
   { id: 'rowan_charm', result: 'rowan_charm',
     ingredients: [{ id: 'rowan_berry', qty: 2 }],
     desc: '2× Rowan Berry → Rowan Charm (the witch-tree ward — curse immunity 60s)' },
+  // ── Green Path (Poison Path band): baneful draughts & the flying ointment ──
+  // Trance / warding effects only — the folklore, never anything depicting harm.
+  { id: 'flying_ointment', result: 'flying_ointment',
+    ingredients: [{ id: 'belladonna', qty: 2 }],
+    desc: "2× Belladonna → Flying Ointment (the witch's flight — Raven's Cloak 90s)" },
+  { id: 'henbane_smoke', result: 'henbane_smoke',
+    ingredients: [{ id: 'henbane', qty: 2 }],
+    desc: '2× Henbane → Henbane Smoke (oracular madness — a 60s haze)' },
+  { id: 'mandrake_draught', result: 'mandrake_draught',
+    ingredients: [{ id: 'mandrake', qty: 2 }],
+    desc: "2× Mandrake → Mandrake Draught (the screaming root's power — Giant form 45s)" },
+  { id: 'wolfsbane_draught', result: 'wolfsbane_draught',
+    ingredients: [{ id: 'wolfsbane', qty: 2 }],
+    desc: "2× Wolfsbane → Wolfsbane Draught (the shapeshifter's herb — Wolf's Pact 60s)" },
+  { id: 'datura_trance', result: 'datura_trance',
+    ingredients: [{ id: 'datura', qty: 2 }],
+    desc: "2× Datura → Datura Trance (the devil's trumpet — a 75s trance)" },
+  { id: 'hemlock_philter', result: 'hemlock_philter',
+    ingredients: [{ id: 'hemlock', qty: 2 }],
+    desc: '2× Hemlock → Hemlock Philter (a stilling ward — curse immunity 60s)' },
+  { id: 'foxglove_cordial', result: 'foxglove_cordial',
+    ingredients: [{ id: 'foxglove', qty: 2 }],
+    desc: "2× Foxglove → Foxglove Cordial (digitalis, for the heart — heals 100 HP)" },
+  { id: 'hellebore_ward', result: 'hellebore_ward',
+    ingredients: [{ id: 'black_hellebore', qty: 2 }],
+    desc: '2× Black Hellebore → Hellebore Ward (banishes the underworld — curse immunity 75s)' },
+  // The capstone: the signature draught that crowns the whole Green Path.
+  { id: 'draught_of_the_green_path', result: 'draught_of_the_green_path',
+    ingredients: [{ id: 'belladonna', qty: 1 }, { id: 'henbane', qty: 1 }, { id: 'mandrake', qty: 1 }],
+    desc: 'Belladonna + Henbane + Mandrake → Draught of the Green Path (the green witch sees all — Raven’s Cloak 5 min)' },
 ];
 
 const LOOT_TABLES = {

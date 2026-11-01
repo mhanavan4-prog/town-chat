@@ -6,11 +6,12 @@
 > Garden**, the **Hedge & Wild**, and the baneful **Poison Path**. Plants are
 > also **found** in the world (rare mob drops, foraging) and new potions are
 > brewed from every harvest.
-> Status: **Cottage Garden + Hedge & Wild complete (Chapters 1–6 built)** — all
-> thirteen herbs of both categories are growable and brewable, and every plant in
-> all three categories has its finished icon. Chapters 7–9 (the baneful Poison
-> Path) are the plan below, not yet wired. Rare seeds (Mugwort, Yarrow) drop from
-> Wilds mobs and open the Hedge band.
+> Status: **COMPLETE — all nine chapters built.** Every plant in the
+> `GREEN_PATH_CATEGORIES` taxonomy (Cottage Garden, Hedge & Wild, Poison Path) is
+> growable and brewable with its own hand-drawn icon, across a 9-chapter account-
+> wide questline. Rare seeds (Mugwort, Yarrow) drop from Wilds mobs and open the
+> Hedge band; the capstone is the Draught of the Green Path. Remaining work is
+> polish only (a Journal page / almanac; an optional Mother Yarrow NPC).
 >
 > The full plant catalogue, by category, is the authoritative list in
 > `data/greenPath.js` (`GREEN_PATH_CATEGORIES`). This document is the plan around
@@ -90,9 +91,9 @@ chapter, and pays a seed packet (plus XP/gold).
 6. **Bitter Sight** (Lv 14) — brew a hedge remedy at the cauldron. *Reward: St. John's Wort + Rowan — completes the Hedge & Wild band.* ✅ built
 
 *The Poison Path (mythic / baneful):*
-7. **The Beautiful Lady** (Lv 17) — a **Belladonna** cutting drops from a Wilds elite/boss; grow it with care. *Reward: Belladonna + Henbane.*
-8. **The Screaming Root** (Lv 19) — harvest a Mandrake (mythic grow time; pull it by the moon). *Reward: Mandrake + Wolfsbane + Datura; the "flying ointment" recipe (a trance/levitation cosmetic buff).*
-9. **The Witch's Garden** (Lv 20) — the capstone: grow Hemlock, Foxglove and Black Hellebore and brew the **Draught of the Green Path**. *Reward: an earned (never sold) cosmetic flourish + a permanent garden perk.*
+7. **The Beautiful Lady** (Lv 17) — tend the dark beds (harvest 7×); Mother Yarrow unlocks the baneful herbs. *Reward: Belladonna + Henbane.* ✅ built
+8. **The Screaming Root** (Lv 19) — sow a nightshade of your own. *Reward: Mandrake + Wolfsbane + Datura (incl. the Flying Ointment brew).* ✅ built
+9. **The Witch's Garden** (Lv 20) — the capstone: brew a baneful draught (the final working). *Reward: Hemlock, Foxglove, Black Hellebore — and the **Draught of the Green Path** recipe (Belladonna + Henbane + Mandrake). Completes the nine-chapter path.* ✅ built
 
 Chapter rewards escalate like the main story (XP, gold, the seed, sometimes a
 recipe) and — consistent with the recent change — **+1 skill point per chapter**
@@ -176,9 +177,9 @@ Ship a **thin vertical slice first**, then widen tier by tier:
 5. **Hedge & Wild content:** ✅ **done.** Chapters 4–6 — ch.4 keys off *finding*
    a wild cutting (a `seed_found` hook on the loot grant), then Vervain, Wormwood,
    Rue, St. John's Wort and Rowan arrive as grown/brewed warding herbs.
-6. **Poison Path content:** chapters 7–9 — the baneful nightshades/potions, the
-   lunar mutation, the capstone. Mother Yarrow can graduate from a garden-panel
-   voice to a proper west-side NPC here.
+6. **Poison Path content:** ✅ **done.** Chapters 7–9 — the eight baneful herbs,
+   each with a trance/warding brew, and the capstone Draught of the Green Path.
+   The nine-chapter questline is complete.
 7. **Polish:** a Green-Path page in the Journal, a garden "almanac" of plants
    you've discovered (a collection hook), each with its real-world lore.
 
