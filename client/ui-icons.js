@@ -804,6 +804,89 @@ const I_LAVENDER = S(`
   </g>
 `);
 
+// ── Green Path herbs, batch 3: the Hedge & Wild category ───────────────────────
+
+// Vervain (Verbena officinalis): wiry branching stems carrying slender spikes of
+// tiny pale-lilac flowers — airy and delicate.
+const I_VERVAIN = S(`
+  <path d="M22 42 Q21 30 21 22 Q21 17 16 12 Q13 9 12 6 M21 22 Q22 16 27 12 Q30 9 31 6 M21 26 Q21 20 22 15" stroke="#3a7d2e" stroke-width="1.3" fill="none"/>
+  <path d="M19 28 Q15 27 13 29 M23 25 Q27 24 29 26" stroke="#4e8f3a" stroke-width="1.8" stroke-linecap="round"/>
+  <g fill="#c3a3de" stroke="#9c7ec6" stroke-width="0.4">
+    <circle cx="12" cy="6" r="1.5"/><circle cx="14" cy="8.5" r="1.3"/><circle cx="15.6" cy="11" r="1.2"/>
+    <circle cx="31" cy="6" r="1.5"/><circle cx="29" cy="8.5" r="1.3"/><circle cx="27.4" cy="11" r="1.2"/>
+    <circle cx="22" cy="14.6" r="1.5"/><circle cx="21.6" cy="17.4" r="1.3"/>
+  </g>
+  <g fill="#e6d4f4"><circle cx="12" cy="6" r="0.6"/><circle cx="31" cy="6" r="0.6"/><circle cx="22" cy="14.6" r="0.6"/></g>
+`);
+
+// Wormwood (Artemisia absinthium): silvery grey-green, deeply divided lacy
+// foliage with small round yellow button-flowers — mugwort's silver sister.
+const I_WORMWOOD = S(`
+  <path d="M22 42 Q21 26 22 10" stroke="#8a9a76" stroke-width="1.7" fill="none"/>
+  <g stroke="#8fa081" stroke-width="0.6" stroke-linejoin="round">
+    <path d="M22 20 Q14 19 9 23 Q14 23 11 27 Q17 23 15 28 Q20 23 22 24 Z" fill="#c2cdb0"/>
+    <path d="M22 21 Q30 20 35 24 Q30 23 33 27 Q27 23 29 28 Q24 23 22 25 Z" fill="#aebb98"/>
+    <path d="M22 29 Q15 28 11 32 Q15 32 13 36 Q18 31 17 35 Q21 31 22 32 Z" fill="#c2cdb0"/>
+    <path d="M22 30 Q29 29 33 33 Q29 33 31 36 Q26 32 27 35 Q23 32 22 32 Z" fill="#aebb98"/>
+  </g>
+  <g fill="#e7cf52" stroke="#c7a82e" stroke-width="0.4">
+    <circle cx="19" cy="12" r="1.6"/><circle cx="23" cy="10.4" r="1.6"/><circle cx="25.6" cy="13.2" r="1.5"/><circle cx="21" cy="14.6" r="1.4"/>
+  </g>
+`);
+
+// Rue (Ruta graveolens): distinctive blue-green rounded, spoon-shaped leaflets
+// with clusters of small yellow four-petal flowers — the herb of grace.
+const I_RUE = S(`
+  <path d="M22 42 L22 24 M22 30 Q16 28 13 23 M22 32 Q28 30 31 25 M22 26 Q19 22 20 17 M22 26 Q25 22 24 17" stroke="#5a8a6e" stroke-width="1.3" fill="none"/>
+  <g fill="#8fb4a2" stroke="#5f8572" stroke-width="0.6">
+    <ellipse cx="12" cy="22" rx="2.3" ry="1.8"/><ellipse cx="15.5" cy="20" rx="2.1" ry="1.7"/><ellipse cx="13.5" cy="25" rx="2" ry="1.6"/>
+    <ellipse cx="32" cy="24" rx="2.3" ry="1.8"/><ellipse cx="28.5" cy="22" rx="2.1" ry="1.7"/><ellipse cx="30.5" cy="27" rx="2" ry="1.6"/>
+  </g>
+  <g fill="#f0cf45" stroke="#cfa623" stroke-width="0.5">
+    <path d="M20 15 l0 -3 M20 15 l0 3 M20 15 l-3 0 M20 15 l3 0" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M25 15 l0 -3 M25 15 l0 3 M25 15 l-3 0 M25 15 l3 0" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M22.5 10 l0 -3 M22.5 10 l0 3 M22.5 10 l-3 0 M22.5 10 l3 0" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <g fill="#b06a1e"><circle cx="20" cy="15" r="0.9"/><circle cx="25" cy="15" r="0.9"/><circle cx="22.5" cy="10" r="0.9"/></g>
+`);
+
+// St. John's Wort (Hypericum perforatum): a bright yellow five-petal star flower
+// with a burst of fine stamens, on a leafy stem — the sun's guard against the dark.
+const I_ST_JOHNS_WORT = S(`
+  <path d="M22 42 L22 20" stroke="#3a7d2e" stroke-width="1.6"/>
+  <g fill="#5fa047" stroke="#357028" stroke-width="0.7">
+    <path d="M21 30 Q14 28 11 32 Q15 34 21 32 Z"/><path d="M23 27 Q30 25 33 29 Q29 31 23 29 Z"/>
+  </g>
+  <g fill="#f4c838" stroke="#dca81f" stroke-width="0.7">
+    <ellipse cx="22" cy="9.6" rx="3" ry="5" transform="rotate(0 22 15)"/>
+    <ellipse cx="22" cy="9.6" rx="3" ry="5" transform="rotate(72 22 15)"/>
+    <ellipse cx="22" cy="9.6" rx="3" ry="5" transform="rotate(144 22 15)"/>
+    <ellipse cx="22" cy="9.6" rx="3" ry="5" transform="rotate(216 22 15)"/>
+    <ellipse cx="22" cy="9.6" rx="3" ry="5" transform="rotate(288 22 15)"/>
+  </g>
+  <g stroke="#e0a81e" stroke-width="0.6" stroke-linecap="round">
+    <path d="M22 15 L22 10.5 M22 15 L25.5 12 M22 15 L26 15.5 M22 15 L24 18.5 M22 15 L20 18.5 M22 15 L18 15.5 M22 15 L18.5 12"/>
+  </g>
+  <g fill="#f6e08a"><circle cx="22" cy="10.5" r="0.7"/><circle cx="25.5" cy="12" r="0.7"/><circle cx="26" cy="15.5" r="0.7"/><circle cx="24" cy="18.5" r="0.7"/><circle cx="20" cy="18.5" r="0.7"/><circle cx="18" cy="15.5" r="0.7"/><circle cx="18.5" cy="12" r="0.7"/></g>
+  <circle cx="22" cy="15" r="1.6" fill="#e6a81e"/>
+`);
+
+// Rowan (Sorbus aucuparia): a drooping cluster of round red-orange berries beside
+// a pinnate, serrated leaf — the witch-tree's ward against ill.
+const I_ROWAN_BERRY = S(`
+  <path d="M30 6 Q30 16 29 26" stroke="#6a4a30" stroke-width="1.4" fill="none"/>
+  <path d="M29 12 L34 9 M29 16 L35 14 M29 20 L34 19 M30 9 L25 7" stroke="#4e8f3a" stroke-width="0.9"/>
+  <g fill="#5fa047" stroke="#357028" stroke-width="0.5" stroke-linejoin="round">
+    <path d="M34 9 q3 -1 4 1 q-2 2 -4 1 Z"/><path d="M35 14 q3 -1 4 1 q-2 2 -4 1 Z"/><path d="M34 19 q3 -1 4 1 q-2 2 -4 1 Z"/><path d="M25 7 q-3 -1 -4 1 q2 2 4 1 Z"/>
+  </g>
+  <g fill="#e34a28" stroke="#b5321a" stroke-width="0.6">
+    <circle cx="13" cy="16" r="3"/><circle cx="19" cy="15" r="3"/><circle cx="16" cy="21" r="3"/><circle cx="22" cy="20" r="3"/><circle cx="11" cy="22" r="2.8"/><circle cx="19" cy="26" r="2.9"/><circle cx="14" cy="28" r="2.7"/><circle cx="24" cy="25" r="2.7"/>
+  </g>
+  <g fill="#f4a07a">
+    <circle cx="12" cy="15" r="0.9"/><circle cx="18" cy="14" r="0.9"/><circle cx="15" cy="20" r="0.9"/><circle cx="21" cy="19" r="0.9"/><circle cx="18" cy="25" r="0.8"/><circle cx="23" cy="24" r="0.8"/></g>
+  <g fill="#7a1f12"><circle cx="13" cy="16" r="0.5"/><circle cx="19" cy="15" r="0.5"/><circle cx="16" cy="21" r="0.5"/><circle cx="22" cy="20" r="0.5"/></g>
+`);
+
 // ── Abilities: Witch / Mage spells ───────────────────────────────────────────
 
 const A_OPEN_THIRD_EYE = S(`
@@ -1327,6 +1410,7 @@ export const UI_ICONS = {
   // Green Path herbs (real plants, drawn from life)
   chamomile: I_CHAMOMILE, calendula: I_CALENDULA, mugwort: I_MUGWORT, yarrow: I_YARROW,
   comfrey: I_COMFREY, lemon_balm: I_LEMON_BALM, feverfew: I_FEVERFEW, lavender: I_LAVENDER,
+  vervain: I_VERVAIN, wormwood: I_WORMWOOD, rue: I_RUE, st_johns_wort: I_ST_JOHNS_WORT, rowan_berry: I_ROWAN_BERRY,
   // abilities — Witch / Mage spells
   open_third_eye: A_OPEN_THIRD_EYE, toads_tongue: A_TOADS_TONGUE, stumble_hex: A_STUMBLE_HEX,
   fireball: A_FIREBALL, withering_hex: A_WITHERING_HEX, leech_hex: A_LEECH_HEX,
