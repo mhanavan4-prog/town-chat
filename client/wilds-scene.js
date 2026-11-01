@@ -493,16 +493,18 @@ function addVillageBuildings(scene) {
       }
     }
   } catch (e) { /* decorative only */ }
-  // Mother Yarrow herself — the witch (KayKit Mage: orange pointed hat, round
-  // glasses, salmon hair), at the south edge of her bed, facing +z toward the
-  // players who walk up from the village commons. Build the REAL KayKit model
-  // (createKayKitByKey('char0')) like the Artificer does with his vampire body;
-  // fall back to the procedural humanoid only until that model streams in (the
-  // scene rebuilds once KayKit finishes loading — see the note at the top).
+  // Mother Yarrow herself — the dedicated KayKit Witch (Mystery Monthly S5: the
+  // orange pointed hat, round glasses and salmon hair of the reference), at the
+  // south edge of her bed, facing +z toward players who walk up from the commons.
+  // Build the real model (createKayKitByKey('npc_witch')) like the Artificer does
+  // with his vampire body; she carries no clips of her own but borrows the Mage's
+  // through the shared KayKit rig (borrowAnims), so an Idle resolves. Fall back to
+  // the procedural humanoid until that model streams in (the scene rebuilds once
+  // KayKit finishes loading — see the note at the top).
   const myX = GX, myZ = GZ + GH - 6;
-  const yarrowReady = hasKK && hasKK('char0') && createKayKitByKey;
+  const yarrowReady = hasKK && hasKK('npc_witch') && createKayKitByKey;
   if (yarrowReady) {
-    const built = createKayKitByKey('char0', 70);
+    const built = createKayKitByKey('npc_witch', 70);
     if (built && built.group) {
       if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
       built.group.position.set(myX, 0, myZ); scene.add(built.group);
