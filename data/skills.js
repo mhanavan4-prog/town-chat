@@ -35,13 +35,16 @@ const SKILL_CATALOG = {
     // ── Sworn Pact (choose one) ────────────────────────────────────────────
     { id: 'witch_k_matriarch', name: 'Moonbound Matriarch', icon: '🌙', tier: 'keystone', maxRank: 1,
       mods: { guard: 0.15, vitality: 40, power: -0.10 },
-      desc: 'PACT — The coven draws its strength around you. +15% defense and +40 max HP, but your spells land 10% softer.' },
+      behavior: { combatRegen: 2, text: "Coven's Mending · regenerate 2 HP/s, even mid-fight" },
+      desc: 'PACT — The coven draws its strength around you. +15% defense and +40 max HP, your spells land 10% softer — and the circle keeps mending you, 2 HP/s even in the thick of a fight.' },
     { id: 'witch_k_pyre',      name: 'Pyre Witch',      icon: '🔥', tier: 'keystone', maxRank: 1,
       mods: { power: 0.28, haste: 0.08, guard: -0.18 },
-      desc: 'PACT — Everything, into the fire. +28% damage and 8% faster rites, but you take 18% more damage.' },
+      behavior: { woundedFury: 0.35, text: "Pyre's Rage · up to +35% damage as your health drops" },
+      desc: 'PACT — Everything, into the fire. +28% damage and 8% faster rites, you take 18% more damage — and you burn brightest at the end, hitting up to +35% harder the closer you are to death.' },
     { id: 'witch_k_green',     name: 'Green Witch',     icon: '🌿', tier: 'keystone', maxRank: 1,
       mods: { forage: 0.40, leech: 0.10, power: -0.08 },
-      desc: 'PACT — The hedge keeps you. +40% harvest luck and +10% lifesteal, but −8% damage — you win slow.' }
+      behavior: { combatRegen: 2, text: 'Hedgebound · regenerate 2 HP/s, even mid-fight' },
+      desc: 'PACT — The hedge keeps you. +40% harvest luck and +10% lifesteal, −8% damage — you win slow, and the green mends you steadily, 2 HP/s even in combat.' }
   ],
   1: [ // Werewolf — Feral Instincts
     { id: 'wolf_power',    name: 'Rending Fangs',    icon: '🦷', effect: 'power',    desc: 'Teeth meant for bone — +8% damage per rank.' },
@@ -56,14 +59,16 @@ const SKILL_CATALOG = {
     // ── Sworn Pact (choose one) ────────────────────────────────────────────
     { id: 'wolf_k_alpha',  name: 'Alpha',            icon: '🐺', tier: 'keystone', maxRank: 1,
       mods: { vitality: 55, guard: 0.12, power: -0.08 },
-      desc: 'PACT — The pack bends to the biggest beast. +55 max HP and +12% defense, but your blows land 8% softer.' },
+      behavior: { lastStand: 0.30, lastStandAt: 0.3, text: "Alpha's Hide · −30% damage taken below 30% HP" },
+      desc: 'PACT — The pack bends to the biggest beast. +55 max HP and +12% defense, your blows land 8% softer — and the hide thickens at the brink: below 30% health you take 30% less damage.' },
     { id: 'wolf_k_bloodmoon', name: 'Bloodmoon Beast', icon: '🌕', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, leech: 0.12, guard: -0.18 },
       behavior: { woundedFury: 0.35, text: 'Wounded Fury · up to +35% damage as your health drops' },
       desc: 'PACT — All teeth, no caution. +26% damage and +12% lifesteal, you take 18% more damage — and the closer you are to death, the harder you hit (up to +35% at the brink).' },
     { id: 'wolf_k_dire',   name: 'Dire Runner',      icon: '💨', tier: 'keystone', maxRank: 1,
       mods: { swift: 0.18, haste: 0.12, vitality: -30 },
-      desc: 'PACT — Run it down and never stop. +18% move speed and 12% faster attacks, but −30 max HP.' }
+      behavior: { woundedFury: 0.30, text: 'Relentless · up to +30% damage as your health drops' },
+      desc: 'PACT — Run it down and never stop. +18% move speed and 12% faster attacks, −30 max HP — and the more it costs you, the harder you bite: up to +30% damage as your health drops.' }
   ],
   2: [ // Mystic — Spirit Communion
     { id: 'mystic_power',    name: 'Spectral Force',     icon: '👻',  effect: 'power',    desc: 'The dead strike alongside you — +8% damage per rank.' },
@@ -78,13 +83,16 @@ const SKILL_CATALOG = {
     // ── Sworn Pact (choose one) ────────────────────────────────────────────
     { id: 'mystic_k_oracle',   name: 'Oracle',           icon: '🕊️', tier: 'keystone', maxRank: 1,
       mods: { guard: 0.15, vitality: 40, power: -0.10 },
-      desc: 'PACT — You see the blow before it falls. +15% defense and +40 max HP, but your strikes land 10% softer.' },
+      behavior: { lastStand: 0.35, lastStandAt: 0.35, text: 'Foreseen · −35% damage taken below 35% HP' },
+      desc: 'PACT — You see the blow before it falls. +15% defense and +40 max HP, your strikes land 10% softer — and foresight saves you late: below 35% health you take 35% less damage.' },
     { id: 'mystic_k_wraith',   name: 'Wraithcaller',     icon: '👻', tier: 'keystone', maxRank: 1,
       mods: { power: 0.27, haste: 0.10, guard: -0.17 },
-      desc: 'PACT — Call the angry dead and let them loose. +27% damage and 10% faster rites, but you take 17% more damage.' },
+      behavior: { onKillHealPct: 0.18, text: 'Soul Reap · each kill restores 18% max HP' },
+      desc: 'PACT — Call the angry dead and let them loose. +27% damage and 10% faster rites, you take 17% more damage — but each soul you reap mends you for 18% of your max health.' },
     { id: 'mystic_k_conduit',  name: 'Ancestral Conduit', icon: '✨', tier: 'keystone', maxRank: 1,
       mods: { xp: 0.20, leech: 0.12, guard: -0.08 },
-      desc: 'PACT — Every spirit you spill teaches you. +20% XP and +12% lifesteal, but −8% defense.' }
+      behavior: { onKillHealPct: 0.15, text: 'Spirit Feast · each kill restores 15% max HP' },
+      desc: 'PACT — Every spirit you spill teaches you. +20% XP and +12% lifesteal, −8% defense — and every kill feeds you, restoring 15% of your max health.' }
   ],
   3: [ // Knight — Martial Discipline
     { id: 'knight_power',    name: 'Honed Edge',      icon: '⚔️',  effect: 'power',    desc: 'A blade kept sharp — +8% damage per rank.' },
@@ -103,10 +111,12 @@ const SKILL_CATALOG = {
       desc: 'PACT — An immovable wall of steel. +18% defense and +55 max HP, your heavy plate recharges 10% slower — and when you drop below 30% health the wall holds, cutting all damage you take by a further 35%.' },
     { id: 'knight_k_duelist',    name: 'Duelist',     icon: '⚔️', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, swift: 0.10, guard: -0.16 },
-      desc: 'PACT — Blade over shield. +26% damage and +10% move speed, but you take 16% more damage.' },
+      behavior: { woundedFury: 0.30, text: 'Cornered Blade · up to +30% damage as your health drops' },
+      desc: 'PACT — Blade over shield. +26% damage and +10% move speed, you take 16% more damage — and a cornered duelist is deadliest: up to +30% damage as your health drops.' },
     { id: 'knight_k_warlord',    name: 'Warlord',     icon: '🎖️', tier: 'keystone', maxRank: 1,
       mods: { haste: 0.16, leech: 0.08, vitality: -25 },
-      desc: 'PACT — Press the attack, always. 16% faster attacks and +8% lifesteal, but −25 max HP.' }
+      behavior: { onKillHealPct: 0.18, text: 'Spoils of War · each kill restores 18% max HP' },
+      desc: 'PACT — Press the attack, always. 16% faster attacks and +8% lifesteal, −25 max HP — and victory sustains the charge: each kill restores 18% of your max health.' }
   ],
   4: [ // Wanderer — Road Wisdom
     { id: 'wanderer_power',    name: 'Deadly Aim',        icon: '🔪', effect: 'power',    desc: 'A thrown knife that means it — +8% damage per rank.' },
@@ -121,13 +131,16 @@ const SKILL_CATALOG = {
     // ── Sworn Pact (choose one) ────────────────────────────────────────────
     { id: 'wanderer_k_pathfinder', name: 'Pathfinder',  icon: '🎒', tier: 'keystone', maxRank: 1,
       mods: { vitality: 50, guard: 0.12, power: -0.08 },
-      desc: 'PACT — Outlast any road. +50 max HP and +12% defense, but your strikes land 8% softer.' },
+      behavior: { combatRegen: 2, text: 'Trailhardened · regenerate 2 HP/s, even mid-fight' },
+      desc: 'PACT — Outlast any road. +50 max HP and +12% defense, your strikes land 8% softer — and the miles harden you: a steady 2 HP/s that mends even in combat.' },
     { id: 'wanderer_k_assassin',   name: 'Assassin',    icon: '🔪', tier: 'keystone', maxRank: 1,
       mods: { power: 0.28, swift: 0.10, guard: -0.18 },
-      desc: 'PACT — One strike, gone before they turn. +28% damage and +10% move speed, but you take 18% more damage.' },
+      behavior: { onKillHealPct: 0.20, text: 'Bloodprice · each kill restores 20% max HP' },
+      desc: 'PACT — One strike, gone before they turn. +28% damage and +10% move speed, you take 18% more damage — and every mark you drop pays out: each kill restores 20% of your max health.' },
     { id: 'wanderer_k_vagabond',   name: 'Vagabond',    icon: '🧭', tier: 'keystone', maxRank: 1,
       mods: { swift: 0.16, forage: 0.40, vitality: -25 },
-      desc: 'PACT — The road provides for the quick. +16% move speed and +40% harvest luck, but −25 max HP.' }
+      behavior: { combatRegen: 2, text: 'The Road Provides · regenerate 2 HP/s, even mid-fight' },
+      desc: 'PACT — The road provides for the quick. +16% move speed and +40% harvest luck, −25 max HP — and the road keeps you on your feet: 2 HP/s that mends even in combat.' }
   ],
   5: [ // Necromancer — Death Rites
     // ── Core (the familiar single-stat ranks every class has) ──────────────
@@ -147,7 +160,8 @@ const SKILL_CATALOG = {
     // choose-one row and the server refuses a second pact until you respec.
     { id: 'necro_k_bonelord', name: 'Bonelord',     icon: '🦴', tier: 'keystone', maxRank: 1,
       mods: { guard: 0.16, vitality: 50, power: -0.10 },
-      desc: 'PACT — The tyrant that will not fall. +16% defense and +50 max HP, but your blows land 10% softer.' },
+      behavior: { lastStand: 0.35, lastStandAt: 0.3, text: 'Bonewall · −35% damage taken below 30% HP' },
+      desc: 'PACT — The tyrant that will not fall. +16% defense and +50 max HP, your blows land 10% softer — and the wall holds at the end: below 30% health you take 35% less damage.' },
     { id: 'necro_k_reaper',   name: 'Pale Reaper',  icon: '☠️', tier: 'keystone', maxRank: 1,
       mods: { power: 0.26, leech: 0.10, guard: -0.16 },
       // `behavior` (prototype): a combat hook the server recognises by this

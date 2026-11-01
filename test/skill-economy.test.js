@@ -119,6 +119,19 @@ setTimeout(() => {
   const pl = { accountKey: 'plT', charId: 5, health: 10, isDead: false };
   check('a sworn Plaguelord exposes its combat-regen behavior', !!activePactBehavior(pl) && activePactBehavior(pl).combatRegen === 2);
 
+  // Completeness: EVERY keystone pact across all six classes now carries a
+  // valid behavior (one of the four known hooks) with display text.
+  const BEHAVIOR_KINDS = ['onKillHealPct', 'woundedFury', 'lastStand', 'combatRegen'];
+  let missing = [];
+  for (let c = 0; c < 6; c++) {
+    for (const s of S.SKILL_CATALOG[c]) {
+      if (s.tier !== 'keystone') continue;
+      const ok = s.behavior && s.behavior.text && BEHAVIOR_KINDS.some((k) => s.behavior[k] != null);
+      if (!ok) missing.push(s.id);
+    }
+  }
+  check('every keystone pact has a valid, named behavior', missing.length === 0, missing);
+
   // A player with no pact is untouched by both hooks.
   delete playerProgress['noPactC'];
   playerProgress['noPactC'] = { _charLeveled: true, _skillEconV2: true, characters: { '1': { level: 10 } }, skills: { '1': {} } };
