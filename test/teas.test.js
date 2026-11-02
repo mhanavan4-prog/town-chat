@@ -30,7 +30,7 @@ const BANEFUL = new Set((GREEN_PATH_CATEGORIES.find((c) => c.id === 'baneful') |
 check('all seven planetary days are defined', PLANETS.length === 7 && PLANETS.every((p, i) => p.day === i));
 check('every planetary day has at least one tea', PLANETS.every((p) => TEAS.some((t) => t.day === p.day)), TEAS.map((t) => t.day));
 check('every tea buffs a real stat', TEAS.every((t) => VALID_STATS.has(t.stat)), TEAS.map((t) => t.stat));
-check('each tea carries its day’s correspondence (day → stat)', TEAS.every((t) => { const pl = PLANETS.find((p) => p.day === t.day); return pl && pl.stat === t.stat; }));
+check('each planetary tea carries its day’s correspondence (day → stat)', TEAS.filter((t) => t.day != null).every((t) => { const pl = PLANETS.find((p) => p.day === t.day); return pl && pl.stat === t.stat; }));
 check('every tea has lore for the Almanac + a herb + a duration', TEAS.every((t) => t.lore && t.herbs.length && t.hours > 0));
 check('no tea brews a baneful Poison-Path herb', !TEAS.some((t) => t.herbs.some((h) => BANEFUL.has(h.id))));
 check('the expansion actually brews the herbs you grow', TEAS.filter((t) => t.herbs.some((h) => GP_HERBS.has(h.id))).length >= 8, TEAS.filter((t) => t.herbs.some((h) => GP_HERBS.has(h.id))).map((t) => t.id));
@@ -79,6 +79,35 @@ setTimeout(() => {
   const dur = after.active.until - Date.now();
   const base = gpTea.hours * 3600000;
   check('the buff duration is the base, or the day-bonus multiple', dur > 0 && dur <= base * TEA_DAY_BONUS + 2000);
+
+  // ── Greater brews + the capstone (slice 2) ─────────────────────────────────
+  const greaters = TEAS.filter((t) => t.greater);
+  check('there are greater, two-herb draughts', greaters.length >= 3 && greaters.every((t) => t.herbs.length >= 2));
+  const cap = TEAS.find((t) => t.requires === 'allPlanets');
+  check('the capstone exists, belongs to no single day', !!cap && cap.day == null);
+
+  // Fresh brewer for the capstone gate.
+  const m = join('Master'); m.p.accountKey = 'master';
+  // The capstone is locked, and refused, before the collection is complete.
+  const b0 = h.teaStateBody(m.p);
+  check('the capstone starts locked', b0.teas.find((t) => t.id === cap.id).locked === true && b0.allPlanets === false);
+  for (const ing of cap.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], m.p);
+  m.s.sent.length = 0;
+  m.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: cap.id }));
+  check('brewing the capstone early is refused', !!m.s.lastOfType('tea_error') && h.teaStateBody(m.p).teas.find((t) => t.id === cap.id).discovered === false);
+
+  // Steep one tea from each of the seven planetary days.
+  const onePerDay = PLANETS.map((pl) => TEAS.find((t) => t.day === pl.day && !t.requires));
+  for (const t of onePerDay) { for (const ing of t.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], m.p); m.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: t.id })); }
+  const b1 = h.teaStateBody(m.p);
+  check('brewing one per day completes the collection', b1.allPlanets === true && b1.daysBrewed === 7);
+  check('the capstone is now unlocked', b1.teas.find((t) => t.id === cap.id).locked === false);
+
+  // Now the capstone brews (herbs were granted above; re-grant in case a day-tea spent one).
+  for (const ing of cap.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], m.p);
+  m.s.sent.length = 0;
+  m.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: cap.id }));
+  check('the master brew can now be steeped', h.teaStateBody(m.p).teas.find((t) => t.id === cap.id).discovered === true);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

@@ -10791,6 +10791,18 @@ function renderKitchenModal() {
       }
       h += `</div></div>`;
     }
+    // The capstone(s) — their own crowned category at the foot of the Almanac.
+    const masteryA = st.teas.filter((t) => t.requires);
+    if (masteryA.length) {
+      const found = masteryA.filter((t) => t.discovered).length;
+      h += `<div class="almCat"><div class="almCatHead">✨ The Master Brew <span class="almCatN">${found}/${masteryA.length}</span></div>`
+        + `<div class="almCatLore">The craft entire — brewed only by a hearth witch who has walked the whole week.</div><div class="almGrid">`;
+      for (const tea of masteryA) {
+        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+        else h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Undistilled</div><div class="almLore">Steep a tea from each planetary day, then brew the master draught.</div></div>`;
+      }
+      h += `</div></div>`;
+    }
     el.innerHTML = h;
     wireKitchenTabs(el);
     return;
@@ -10809,17 +10821,30 @@ function renderKitchenModal() {
     const onDay = st.today === pl.day;
     h += `<div class="teaPlanet${onDay ? ' today' : ''}"><span class="tpGlyph">${pl.glyph}</span><span class="tpName">${escHtml(pl.planet)}</span><span class="tpDay">${escHtml(TEA_DAY_NAMES[pl.day])}${onDay ? ' · ✨ today' : ''}</span></div>`;
     h += '<div class="menuCols">';
-    for (const tea of group) {
-      const canBrew = tea.canBrew;
-      h += `<div class="teaRow"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span></div>`;
-      h += `<div class="trb">${escHtml(tea.blurb)}</div><div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
-      h += `<button class="teaBrewBtn" data-tea="${tea.id}"${canBrew ? '' : ' disabled'}>${canBrew ? 'Brew &amp; sip' : 'Need herbs'}</button></div>`;
-    }
+    for (const tea of group) h += teaBrewCard(tea, ingText);
+    h += '</div>';
+  }
+  // ── ✨ The Master Brew — the capstone, gated by the collection ──
+  const mastery = st.teas.filter((t) => t.requires);
+  if (mastery.length) {
+    h += `<div class="teaPlanet mastery"><span class="tpGlyph">✨</span><span class="tpName">The Master Brew</span><span class="tpDay">${st.allPlanets ? 'unlocked' : (st.daysBrewed || 0) + '/7 days'}</span></div>`;
+    h += '<div class="menuCols">';
+    for (const tea of mastery) h += teaBrewCard(tea, ingText);
     h += '</div>';
   }
   el.innerHTML = h;
   el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
   wireKitchenTabs(el);
+}
+// One tea's brew card. Shows a "greater" badge for two-herb draughts, a locked
+// state for the capstone until the collection goal is met.
+function teaBrewCard(tea, ingText) {
+  let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span>${tea.greater ? '<span class="trGreater">greater</span>' : ''}${tea.requires ? '<span class="trGreater crown">capstone</span>' : ''}</div>`;
+  h += `<div class="trb">${escHtml(tea.blurb)}</div>`;
+  if (tea.locked) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
+  else h += `<div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
+  h += `<button class="teaBrewBtn" data-tea="${tea.id}"${tea.canBrew ? '' : ' disabled'}>${tea.locked ? 'Locked' : (tea.canBrew ? 'Brew &amp; sip' : 'Need herbs')}</button></div>`;
+  return h;
 }
 function wireKitchenTabs(el) {
   el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
