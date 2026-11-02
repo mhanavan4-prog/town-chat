@@ -11,6 +11,8 @@
 // action cluster. Items / HUD / menus follow the same system in later batches.
 // ---------------------------------------------------------------------------
 
+import { TEA_ICONS } from './tea-icons.js';
+
 // Shared palette — kept here so the whole set shifts together if we re-grade.
 const C = {
   bone:  '#f3e7cb', // parchment / carved-bone stroke + light fill
@@ -1467,6 +1469,7 @@ const WHEEL = S(`
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
 export const UI_ICONS = {
+  ...TEA_ICONS, // Hearth Path teas — uiIcon('chamomile_tea') etc.
   // emotes
   wave: WAVE, laugh: LAUGH, heart: HEART, wow: WOW,
   cry: CRY, angry: ANGRY, thumb: THUMB, dance: DANCE,
