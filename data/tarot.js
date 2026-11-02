@@ -48,4 +48,18 @@ function tarotSynthesis(spread) {
     `${nm(f)} is where it wants to go. Heed the middle card and move.`;
 }
 
-module.exports = { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis };
+// ── The Fool's Journey — the collectible arc of the Major Arcana. The 22 cards
+// are the Fool's road from 0 to the World, traditionally three legs. You record a
+// card in The Arcanum the first time it falls in a daily spread; completing a leg
+// pays a purse, and completing all 22 earns the Oracle aura. (The parallel to the
+// garden's Green Path and the kitchen's Hearth Path — a slow daily collection.)
+const ARCANA_LEGS = [
+  { id: 'worldly', name: 'The Worldly Road', lore: 'The Fool sets out — through magic and mystery, love and will — into the turning world.',
+    keys: ['fool', 'magician', 'priestess', 'empress', 'emperor', 'hierophant', 'lovers', 'chariot'], gold: 60 },
+  { id: 'self', name: 'The Road of the Self', lore: 'The inner road — strength and solitude, fortune and reckoning; the Fool meets what lies within.',
+    keys: ['strength', 'hermit', 'wheel', 'justice', 'hanged', 'death', 'temperance'], gold: 100 },
+  { id: 'spirit', name: 'The Road of the Spirit', lore: 'The last road — the chain and the fall, the star and the dawn; the Fool is made whole.',
+    keys: ['devil', 'tower', 'star', 'moon', 'sun', 'judgement', 'world'], gold: 160 },
+];
+
+module.exports = { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS };
