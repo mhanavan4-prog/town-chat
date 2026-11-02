@@ -4466,6 +4466,33 @@ function homeStateBody(player) {
     msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
   };
 }
+// A read-only layout for ANY account (used when visiting someone's cottage): the
+// host's placed pieces + the shared catalog geometry (w/h/icon) so the visitor's
+// client can render it. No ownership/balance — a visitor can't edit it anyway.
+function homeLayoutForKey(key) {
+  const a = accounts[key];
+  const pieces = (a && a.home && Array.isArray(a.home.pieces)) ? a.home.pieces : [];
+  return {
+    grid: HOME_GRID,
+    pieces: pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
+    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source })),
+  };
+}
+// Push a cottage's current layout to everyone standing in it — the owner AND any
+// visitors — so a host rearranging furniture updates live for the whole room.
+// Keyed by the EDITOR's account (their home instance), never their current room,
+// so a visitor editing their own (elsewhere) home can't repaint the cottage
+// they're standing in.
+function broadcastCottageLayout(editorKey) {
+  if (!editorKey) return;
+  const inst = 'home_' + editorKey;
+  const layout = homeLayoutForKey(editorKey);
+  for (const p of players.values()) {
+    if (p.room === 'cottage' && (p.instance || '') === inst && p.ws.readyState === p.ws.OPEN) {
+      send(p.ws, { type: 'cottage_layout', ...layout });
+    }
+  }
+}
 // Place a new piece; returns { ok } or { ok:false, message }.
 function homePlace(player, pieceId, x, y, rot) {
   const home = homeOf(player);
@@ -9835,6 +9862,7 @@ wss.on('connection', (ws, req) => {
         if (!knownRoom(player.room) || (LOCKED_ROOMS.has(player.room) && !canEnterPassRoom(player, player.room))) {
           player.room = 'outside';
           player.instance = ''; // a cottage/instanced room reset must land you in the public world
+          player.cottageHost = null;
           player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
           player.x = WORLD.spawn.x;
           player.y = WORLD.spawn.y;
@@ -13689,9 +13717,49 @@ wss.on('connection', (ws, req) => {
       player.cottageReturnX = player.x; player.cottageReturnY = player.y;
       player.room = 'cottage';
       player.instance = 'home_' + player.accountKey;   // a private copy, yours alone
+      player.cottageHost = player.accountKey;           // your own cottage
       player.roomLockUntil = Date.now() + 1500;
       player.x = COTTAGE_SPAWN.x; player.y = COTTAGE_SPAWN.y;
-      send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, ...homeStateBody(player) });
+      send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, host: null, visiting: false, ...homeStateBody(player) });
+      return;
+    }
+
+    // The covenmates whose cottages you may visit (same coven, excluding you).
+    // `idx` is the index into the coven's member list — a stable token the
+    // visit handler re-validates, so no account keys cross the wire.
+    if (msg.type === 'cottage_visit_list') {
+      const cv = player.accountKey && covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'cottage_visit_list', members: [] }); return; }
+      const members = (cv.members || []).map((k, idx) => ({ idx, key: k })).filter((m) => m.key !== player.accountKey).map((m) => {
+        const prog = playerProgress[m.key] || {};
+        let charId = Number.isInteger(prog.lastCharId) ? prog.lastCharId : 0;
+        return { idx: m.idx, name: covenDisplayName(m.key), charId, online: !!findConnectionByAccountKey(m.key) };
+      });
+      send(ws, { type: 'cottage_visit_list', members });
+      return;
+    }
+
+    // Step into a covenmate's cottage (read-only — you walk around their layout).
+    if (msg.type === 'visit_cottage') {
+      if (player.isDead) return;
+      if (!player.accountKey) { send(ws, { type: 'home_error', message: 'Sign in with an account to visit cottages.' }); return; }
+      if (player.room !== 'outside' || (player.instance || '') !== '') { send(ws, { type: 'home_error', message: 'Head to the town square to visit a cottage.' }); return; }
+      const cv = covenOf(player.accountKey);
+      if (!cv) { send(ws, { type: 'home_error', message: 'Join a coven to visit your covenmates’ cottages.' }); return; }
+      const idx = msg.idx | 0;
+      const hostKey = (cv.members || [])[idx];
+      if (!hostKey || hostKey === player.accountKey || (cv.members || []).indexOf(hostKey) === -1) { send(ws, { type: 'home_error', message: 'That covenmate isn’t available to visit.' }); return; }
+      player.cottageReturnX = player.x; player.cottageReturnY = player.y;
+      player.room = 'cottage';
+      player.instance = 'home_' + hostKey;
+      player.cottageHost = hostKey;
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = COTTAGE_SPAWN.x; player.y = COTTAGE_SPAWN.y;
+      const hostName = covenDisplayName(hostKey);
+      send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, host: hostName, visiting: true, ...homeLayoutForKey(hostKey) });
+      // Let the host know someone's dropped by, if they're online.
+      const hostConn = findConnectionByAccountKey(hostKey);
+      if (hostConn) { try { send(hostConn.ws, { type: 'toast', message: `🏠 ${player.name} is visiting your cottage.` }); } catch (e) {} }
       return;
     }
 
@@ -13701,6 +13769,7 @@ wss.on('connection', (ws, req) => {
       const ry = (typeof player.cottageReturnY === 'number') ? player.cottageReturnY : WORLD.spawn.y;
       player.room = 'outside';
       player.instance = '';
+      player.cottageHost = null;
       player.roomLockUntil = Date.now() + 1500;
       player.x = rx; player.y = ry;
       player.cottageReturnX = null; player.cottageReturnY = null;
@@ -14150,19 +14219,19 @@ wss.on('connection', (ws, req) => {
       const r = homePlace(player, String(msg.pieceId || ''), msg.x | 0, msg.y | 0, msg.rot | 0);
       if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t place that.' }); return; }
       send(ws, { type: 'home_state', ...homeStateBody(player) });
-      if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) });
+      broadcastCottageLayout(player.accountKey); // updates your cottage for anyone standing in it
       return;
     }
     if (msg.type === 'home_move') {
       const r = homeMove(player, msg.idx | 0, msg.x | 0, msg.y | 0, msg.rot | 0);
       if (!r.ok) { send(ws, { type: 'home_error', message: r.message || 'Can’t move that.' }); return; }
       send(ws, { type: 'home_state', ...homeStateBody(player) });
-      if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) });
+      broadcastCottageLayout(player.accountKey);
       return;
     }
     if (msg.type === 'home_remove') {
       const r = homeRemove(player, msg.idx | 0);
-      if (r.ok) { send(ws, { type: 'home_state', ...homeStateBody(player) }); if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) }); }
+      if (r.ok) { send(ws, { type: 'home_state', ...homeStateBody(player) }); broadcastCottageLayout(player.accountKey); }
       return;
     }
     // Unlock a premium furniture piece with Moonstones. Account-wide + permanent
@@ -15284,12 +15353,12 @@ global.__testHooks = {
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
-  homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
+  homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, homeLayoutForKey, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
-  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS,
+  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout,
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
   listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
