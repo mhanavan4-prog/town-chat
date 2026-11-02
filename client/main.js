@@ -1607,6 +1607,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'harvest_result') {
     if (typeof playSfx === 'function') playSfx('harvest');
+    if (visuals[myId] && visuals[myId].kk) kkOneShot(visuals[myId].kk, 'PickUp', { timeScale: 1.4 }); // crouch-and-grab
     setUnlockToast('🌿 ' + msg.message);
     return;
   }
@@ -2992,6 +2993,7 @@ function onWsMessage(ev) {
   if (msg.type === 'loot_drop') {
     if (msg.items && msg.items.length) {
       if (typeof playSfx === 'function') playSfx('loot');
+      if (visuals[myId] && visuals[myId].kk) kkOneShot(visuals[myId].kk, 'PickUp', { timeScale: 1.4 }); // crouch-and-grab
       setUnlockToast('💰 Looted: ' + msg.items.join('  '));
     }
     return;
