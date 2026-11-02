@@ -180,7 +180,7 @@ function renderEquipSlot(elId, itemId, equipKind) {
   el.classList.toggle('empty', !itemId);
   if (!itemId) { el.title = ''; el.onclick = null; return; }
   const item = ITEM_CATALOG[itemId];
-  el.textContent = item ? item.icon : '❓';
+  if (item) el.appendChild(buildItemIconEl(itemId)); else el.textContent = '❓'; // carved icon, emoji fallback
   el.title = '';
   el.onmouseenter = (e) => showItemTooltip(e, itemId);
   el.onmouseleave = hideTooltip;
@@ -200,8 +200,10 @@ function selectInvSlot(idx) {
   if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
   if (!slot) { panel.classList.add('hidden'); return; }
   const item = ITEM_CATALOG[slot.itemId];
-  document.getElementById('invActionItemLabel').textContent =
-    (item ? item.icon + ' ' + item.name : slot.itemId) + ' (have ' + slot.qty + ')';
+  const _lbl = document.getElementById('invActionItemLabel');
+  _lbl.innerHTML = '';
+  if (item) { _lbl.appendChild(buildItemIconEl(slot.itemId)); _lbl.appendChild(document.createTextNode(' ' + item.name + ' (have ' + slot.qty + ')')); }
+  else _lbl.textContent = slot.itemId + ' (have ' + slot.qty + ')';
   const buttons = document.getElementById('invActionButtons');
   buttons.innerHTML = '';
   const meta = item;
