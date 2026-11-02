@@ -222,7 +222,7 @@ const WORLD2 = {
   // for nudging a returning player just outside it, same idea as
   // getDoorWorldPos for buildings).
   spawn: { x: 5000, y: 8800 },
-  portalInTown: { x: 1600, y: 700 },
+  portalInTown: { x: 1850, y: 600 }, // moved off the central north lane to the NE — it was crowding the ritual torch + the Town Bonfire
   buildings: []
 };
 
