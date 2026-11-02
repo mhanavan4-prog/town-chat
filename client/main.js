@@ -314,6 +314,13 @@ const KK = (() => {
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     npc_vampire:  'kk/Vampire.glb',        // the Artificer, lounging on his throne
     npc_witch:    'kk/Witch.glb',          // Mother Yarrow — KayKit Mystery Monthly S5 "The Witch" (CC0): orange hat, round glasses, salmon hair. No clips of her own; borrows the Mage's via the shared KayKit rig (see borrowAnims)
+    // Extra motion clips (KayKit Character Animations 1.1, Rig_Medium, CC0),
+    // stripped to animations-only — no mesh. Their clips are appended to every
+    // rigged body at load (attachExtraAnims): the whole-body flinch, the death
+    // fall, and the jump. Share the universal KayKit rig, so they retarget by
+    // bone name exactly like the borrowed Mage clips.
+    anim_general:   'kk/anim/general.glb',   // Hit_A, Hit_B, Death_A, Death_A_Pose, Idle_B, PickUp, Interact
+    anim_movebasic: 'kk/anim/movebasic.glb', // Jump_Full_Short, Jump_Start, Jump_Idle, Jump_Land
     // Mother Yarrow's garden dressing — the Witch pack's themed props (CC0, same
     // Mystery Monthly S5 set; all share witch_texture_A). Placed in her plot.
     wprop_cauldron:     'kk/witch/Cauldron.gltf',
@@ -486,7 +493,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
+  const BG_KEYS = ['anim_general', 'anim_movebasic', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
@@ -510,6 +517,7 @@ const KK = (() => {
   const _assetCbs = [];
   function afterLoad() {
     if (models.char0) borrowAnims();
+    attachExtraAnims(); // append Hit/Death/Jump clips once the anim donors arrive
     if (loadedCount >= totalCount) allDone = true;
     // Notify subscribers (e.g. the static-NPC upgrader) that an asset settled —
     // lets them react to models arriving WITHOUT forcing any early load.
@@ -628,6 +636,41 @@ const KK = (() => {
       // Only rigged (skinned) models borrow clips — a static prop like the
       // staff has no bones and must stay animation-less.
       if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = clipsFor(models[k]);
+    }
+  }
+
+  // Append the extra motion clips (anim_* donors) onto every rigged body once
+  // ALL donors are present. Idempotent via the per-model _extraAnims flag: each
+  // body is augmented once, whether it loaded before or after the donors. Each
+  // clip's tracks are filtered to the bones that resolve on THAT rig — the same
+  // orphan-IK guard borrowAnims uses — so a stray control track never rebinds to
+  // the model root. New clips become reachable immediately because act() resolves
+  // lazily from models[key].animations and never caches a miss.
+  const EXTRA_ANIM_KEYS = ['anim_general', 'anim_movebasic'];
+  function attachExtraAnims() {
+    if (!EXTRA_ANIM_KEYS.every((ak) => models[ak] && models[ak].animations && models[ak].animations.length)) return;
+    const extra = [];
+    for (const ak of EXTRA_ANIM_KEYS) extra.push(...models[ak].animations);
+    const resolves = (root, trackName) => {
+      try { const b = THREE.PropertyBinding.create(root, trackName); b.bind(); return !!b.node && b.node !== root; }
+      catch (e) { return false; }
+    };
+    const skinned = (m) => { let y = false; m.scene.traverse((o) => { if (o.isSkinnedMesh) y = true; }); return y; };
+    for (const k of Object.keys(models)) {
+      if (EXTRA_ANIM_KEYS.includes(k)) continue; // the donors themselves
+      const m = models[k];
+      if (m._extraAnims || !m.animations || !skinned(m)) continue;
+      const have = new Set(m.animations.map((c) => c.name));
+      const memo = new Map();
+      const keep = (name) => { let r = memo.get(name); if (r === undefined) { r = resolves(m.scene, name); memo.set(name, r); } return r; };
+      for (const clip of extra) {
+        if (have.has(clip.name)) continue;
+        const tracks = clip.tracks.filter((t) => keep(t.name));
+        if (!tracks.length) continue;
+        m.animations.push(new THREE.AnimationClip(clip.name, clip.duration, tracks));
+        have.add(clip.name);
+      }
+      m._extraAnims = true;
     }
   }
 
@@ -1783,6 +1826,7 @@ function onWsMessage(ev) {
   if (msg.type === 'struck') {
     flashDamage();
     triggerMobAttackAnim(msg.mobId);
+    if (visuals[myId]) visuals[myId].hitAnimStartAt = performance.now(); // whole-body flinch
     if (typeof playSfx === 'function') playSfx('hurt'); // you took a hit
     setUnlockToast(`⚔️ ${msg.byName} hit you for ${msg.damage}!`);
     noteUnderAttack(); // arms the countermeasure prompt (V — play a clip)
@@ -2106,6 +2150,9 @@ function onWsMessage(ev) {
     if (!(msg.targetType === 'player' && msg.targetId === myId)) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
       if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
+      // Flinch the struck player's body (my own is handled by 'struck'). Skip a
+      // killing blow — the death fall takes over for them.
+      if (msg.targetType === 'player' && !msg.dead && visuals[msg.targetId]) visuals[msg.targetId].hitAnimStartAt = performance.now();
     }
     if (msg.casterId === myId) {
       if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : meleeHitSfx()); // my blow landed (per-class melee)
@@ -5895,6 +5942,10 @@ function tryJump() {
   jumpActive = true;
   if (typeof playSfx === 'function') playSfx('jump');
   jumpT = 0;
+  // Body jump to match the positional hop — a one-shot on the local kk visual,
+  // sped to land about when the arc does. No-op on the classic fallback body or
+  // before the movement-anim donor has streamed in.
+  if (visuals[myId] && visuals[myId].kk) kkOneShot(visuals[myId].kk, 'Jump_Full_Short', { timeScale: 1.9 });
 }
 
 window.addEventListener('keydown', (e) => {
@@ -13187,16 +13238,25 @@ function kkAttackClip(type, charId) {
 function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   const kk = v.kk;
   const now = performance.now();
+  const isDead = (id === myId) ? !!(me && me.isDead) : !!p.isDead;
   // attack one-shots ride on the same attackAnimStartAt contract
   if (v.attackAnimStartAt && kk.lastAttackAt !== v.attackAnimStartAt) {
     kk.lastAttackAt = v.attackAnimStartAt;
     kkOneShot(kk, kkAttackClip(v.attackAnimType, p.charId || 0));
   }
   if (v.attackAnimStartAt && now - v.attackAnimStartAt > 450) v.attackAnimStartAt = null;
+  // hit flinch — a short whole-body recoil the instant a blow lands, driven by
+  // hitAnimStartAt (set by the struck / hit_fx handlers). Suppressed while dead:
+  // the death fall owns the body then. Falls back to no-op if the clip is missing
+  // (anim donor still streaming), same as every other kk one-shot.
+  if (v.hitAnimStartAt && kk.lastHitAt !== v.hitAnimStartAt) {
+    kk.lastHitAt = v.hitAnimStartAt;
+    if (!isDead) kkOneShot(kk, 'Hit_A', { timeScale: 1.15 });
+  }
+  if (v.hitAnimStartAt && now - v.hitAnimStartAt > 400) v.hitAnimStartAt = null;
   if (now < kk.busyUntil) return;
   let want = 'Idle';
-  const isDead = (id === myId) ? !!(me && me.isDead) : !!p.isDead;
-  if (isDead) want = 'Death_A_Pose';
+  if (isDead) want = 'Death_A'; // the full fall; clamps on its final (collapsed) frame
   else if (id === myId && seatedAt) want = 'Sit_Chair_Idle';
   else if (v.statusType === 'meditate') want = 'Sit_Floor_Idle';
   else if (isMoving) {
