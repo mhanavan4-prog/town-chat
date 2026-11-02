@@ -391,6 +391,24 @@ function addVillageBuildings(scene) {
     return m;
   }
 
+  // Place a KayKit building AND register a collision rect matched to its actual
+  // footprint, so you walk around the Wilds village instead of through it (these
+  // buildings are scenery — no interior to enter, unlike the town's). The town
+  // tightens its colliders to the placed model with refitBuildingColliders; this
+  // does the lightweight equivalent: measure the real bounds and shrink a touch
+  // so you can brush the eaves without an invisible wall out in the yard.
+  function placeSolid(key, px, pz, size, rot, mode, shrink) {
+    const g = kkPlace(scene, key, px, pz, size, rot, mode || 'fit');
+    if (!g) return null;
+    g.updateWorldMatrix(true, true);
+    const b = new THREE.Box3().setFromObject(g);
+    const s = shrink == null ? 0.82 : shrink;
+    const hw = (b.max.x - b.min.x) / 2 * s, hh = (b.max.z - b.min.z) / 2 * s;
+    const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+    if (hw > 1 && hh > 1) WILDS_WALLS.push({ x: cx - hw, y: cz - hh, w: hw * 2, h: hh * 2 });
+    return g;
+  }
+
   // ── KayKit Hexagon buildings replace the old box huts. Weathered green/yellow
   // so the Wildlands Village reads as its own rough settlement, not the red
   // town. kkPlace falls back to null only if the models haven't loaded — but
@@ -402,15 +420,15 @@ function addVillageBuildings(scene) {
   // hall and left the Artificer squeezed against the blacksmith stall). Each
   // building now sits on its own plot around a roomy commons, with the Artificer
   // given his own corner to the far east (below).
-  kkPlace(scene, 'vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall) — the anchor, dead center
+  placeSolid('vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall) — the anchor, dead center
   const lhSign = makeSignSprite('🏚️ Village Hall');
   lhSign.position.set(VX, 660, VZ); scene.add(lhSign);
-  kkPlace(scene, 'vil_home', VX - 720, VZ - 40, 390, Math.PI / 2, 'fit');     // Barn (far west)
-  kkPlace(scene, 'vil_tower', VX - 150, VZ - 660, 400, 0, 'fit');             // Guard tower (green, far north)
-  kkPlace(scene, 'vil_home', VX - 620, VZ + 560, 375, 0.3, 'fit');            // Cottage A (yellow, far SW)
-  kkPlace(scene, 'bld_arcade', VX + 640, VZ + 560, 375, -0.35, 'fit');        // Cottage B (red, far SE)
-  kkPlace(scene, 'prop_stall', VX + 330, VZ + 330, 220, -Math.PI / 2, 'fit'); // Market stall (front-east commons — moved off the Artificer's plot)
-  kkPlace(scene, 'prop_well', VX, VZ + 360, 60, 0, 'fit');                    // Village well (front courtyard)
+  placeSolid('vil_home', VX - 720, VZ - 40, 390, Math.PI / 2, 'fit');     // Barn (far west)
+  placeSolid('vil_tower', VX - 150, VZ - 660, 400, 0, 'fit');             // Guard tower (green, far north)
+  placeSolid('vil_home', VX - 620, VZ + 560, 375, 0.3, 'fit');            // Cottage A (yellow, far SW)
+  placeSolid('bld_arcade', VX + 640, VZ + 560, 375, -0.35, 'fit');        // Cottage B (red, far SE)
+  placeSolid('prop_stall', VX + 330, VZ + 330, 220, -Math.PI / 2, 'fit', 0.7); // Market stall (semi-open; tighter collider so you can step to the counter)
+  placeSolid('prop_well', VX, VZ + 360, 60, 0, 'fit');                    // Village well (front courtyard)
 
   // ── The Artificer's forge-tower — the vampire lord now has a structure of his
   // own on a dedicated plot at the far east of the commons, instead of a throne
@@ -421,7 +439,7 @@ function addVillageBuildings(scene) {
   // handler in main.js); crafting still fires the craft_item quest event
   // server-side, so nothing else changes.
   const ABX = VX + 720, ABZ = VZ - 150;              // the forge-tower (his own corner)
-  kkPlace(scene, 'bld_lounge', ABX, ABZ, 360, Math.PI, 'fit'); // The Artificer's forge-tower (dark red keep)
+  placeSolid('bld_lounge', ABX, ABZ, 360, Math.PI, 'fit'); // The Artificer's forge-tower (dark red keep)
   const AFX = ABX, AFZ = ABZ + 200;                  // forge in the yard in front of the tower
   const ironMat = new THREE.MeshLambertMaterial({ color: 0x2b2b30 });
   const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(18, 20, 12), ironMat);
