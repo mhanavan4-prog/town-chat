@@ -4,11 +4,13 @@
 > tidy four-tea side-loop; the Hearth Path turns it into a **collection system
 > organised by the seven planetary days** of the witch's week, brewed from the
 > real herbs you grow on the Green Path, with a Teas Almanac to fill.
-> Status: **Slices 1–2 COMPLETE.** Slice 1: 16 teas across all 7 planetary days,
+> Status: **Slices 1–3 COMPLETE.** Slice 1: 16 teas across all 7 planetary days,
 > each day ruling a stat, a two-page kitchen panel (Brew / Almanac), discovery
 > tracking. Slice 2: greater two-herb draughts + the capstone **The Witches'
-> Brew**, gated by steeping a tea from each of the seven days. The authoritative
-> catalogue lives in `data/teas.js`.
+> Brew**, gated by steeping a tea from each of the seven days. Slice 3: **sabbat
+> teas** — a brew for each of the eight sabbats, steepable only while its season
+> turns (tied to the Wheel of the Year). The authoritative catalogue lives in
+> `data/teas.js`.
 
 ## 1. Pillars (mirroring the Green Path)
 

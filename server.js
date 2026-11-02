@@ -4558,17 +4558,23 @@ function teaStateBody(player) {
   const daysBrewed = new Set();
   for (const t of TEAS) { if (t.day != null && brewed.indexOf(t.id) !== -1) daysBrewed.add(t.day); }
   const allPlanets = PLANETS.every((p) => daysBrewed.has(p.day));
+  // The live sabbat — sabbat teas steep only while their season turns.
+  let seasonKey = null;
+  try { seasonKey = seasonWindow(Date.now()).key; } catch (e) {}
   const teas = TEAS.map((x) => {
     const herbs = x.herbs.map(herbInfo);
-    const locked = x.requires === 'allPlanets' && !allPlanets;
+    const outOfSeason = !!x.sabbat && x.sabbat !== seasonKey;
+    const locked = (x.requires === 'allPlanets' && !allPlanets) || outOfSeason;
     return {
       id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day,
-      stat: x.stat, amount: x.amount, herbs, greater: !!x.greater, requires: x.requires || null, locked,
+      stat: x.stat, amount: x.amount, herbs, greater: !!x.greater, requires: x.requires || null,
+      sabbat: x.sabbat || null, inSeason: x.sabbat ? !outOfSeason : null, locked,
       canBrew: !locked && herbs.every((h) => h.have >= h.qty),
       discovered: brewed.indexOf(x.id) !== -1,
     };
   });
-  return { active, teas, planets: PLANETS, daysBrewed: daysBrewed.size, allPlanets, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+  const sabbats = {}; for (const s of SABBATS) sabbats[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet };
+  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14166,7 +14172,7 @@ wss.on('connection', (ws, req) => {
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
     if (msg.type === 'tea_state') {
-      if (!player.accountKey) { send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day, stat: x.stat, amount: x.amount, herbs: x.herbs.map((hh) => ({ id: hh.id, qty: hh.qty, name: (ITEM_CATALOG[hh.id] && ITEM_CATALOG[hh.id].name) || (PLANT_CATALOG[hh.id] && PLANT_CATALOG[hh.id].name) || hh.id, have: 0 })), greater: !!x.greater, requires: x.requires || null, locked: x.requires === 'allPlanets', canBrew: false, discovered: false })), planets: PLANETS, daysBrewed: 0, allPlanets: false, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
+      if (!player.accountKey) { let sk0 = null; try { sk0 = seasonWindow(Date.now()).key; } catch (e) {} const sb0 = {}; for (const s of SABBATS) sb0[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet }; send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day, stat: x.stat, amount: x.amount, herbs: x.herbs.map((hh) => ({ id: hh.id, qty: hh.qty, name: (ITEM_CATALOG[hh.id] && ITEM_CATALOG[hh.id].name) || (PLANT_CATALOG[hh.id] && PLANT_CATALOG[hh.id].name) || hh.id, have: 0 })), greater: !!x.greater, requires: x.requires || null, sabbat: x.sabbat || null, inSeason: x.sabbat ? (x.sabbat === sk0) : null, locked: (x.requires === 'allPlanets') || (!!x.sabbat && x.sabbat !== sk0), canBrew: false, discovered: false })), planets: PLANETS, sabbats: sb0, season: sk0, daysBrewed: 0, allPlanets: false, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
       return;
     }
@@ -14180,6 +14186,11 @@ wss.on('connection', (ws, req) => {
         const brewed = (accounts[player.accountKey] && Array.isArray(accounts[player.accountKey].teasBrewed)) ? accounts[player.accountKey].teasBrewed : [];
         const days = new Set(); for (const t of TEAS) { if (t.day != null && brewed.indexOf(t.id) !== -1) days.add(t.day); }
         if (!PLANETS.every((p) => days.has(p.day))) { send(ws, { type: 'tea_error', message: 'Steep a tea from each of the seven planetary days before the master brew.' }); return; }
+      }
+      // A sabbat tea steeps only while its season turns.
+      if (tea.sabbat) {
+        let sk = null; try { sk = seasonWindow(Date.now()).key; } catch (e) {}
+        if (tea.sabbat !== sk) { const s = SABBATS.find((x) => x.key === tea.sabbat); send(ws, { type: 'tea_error', message: `${tea.name} can only be steeped at ${s ? s.name : 'its sabbat'}.` }); return; }
       }
       const inv = getInventory(player);
       const herbName = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;

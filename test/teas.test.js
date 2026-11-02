@@ -109,6 +109,29 @@ setTimeout(() => {
   m.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: cap.id }));
   check('the master brew can now be steeped', h.teaStateBody(m.p).teas.find((t) => t.id === cap.id).discovered === true);
 
+  // ── Sabbat teas — the Wheel of the Year (slice 3) ──────────────────────────
+  const sabbatTeas = TEAS.filter((t) => t.sabbat);
+  check('there is a brew for all eight sabbats', sabbatTeas.length === 8 && new Set(sabbatTeas.map((t) => t.sabbat)).size === 8);
+  const sb = join('Seasonal'); sb.p.accountKey = 'seasonal';
+  const bs = h.teaStateBody(sb.p);
+  check('the state ships the live season + the sabbats map', !!bs.season && bs.sabbats && Object.keys(bs.sabbats).length === 8);
+  const inKey = bs.season;
+  check('exactly the live sabbat’s brew is in season; the rest are locked', bs.teas.filter((t) => t.sabbat).every((t) => (t.sabbat === inKey) ? (t.locked === false && t.inSeason === true) : (t.locked === true && t.inSeason === false)));
+
+  // An out-of-season sabbat tea is refused even with its herb in hand.
+  const offTea = sabbatTeas.find((t) => t.sabbat !== inKey);
+  for (const ing of offTea.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], sb.p);
+  sb.s.sent.length = 0;
+  sb.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: offTea.id }));
+  check('an out-of-season sabbat brew is refused', !!sb.s.lastOfType('tea_error') && h.teaStateBody(sb.p).teas.find((t) => t.id === offTea.id).discovered === false);
+
+  // The in-season one steeps.
+  const onTea = sabbatTeas.find((t) => t.sabbat === inKey);
+  for (const ing of onTea.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], sb.p);
+  sb.s.sent.length = 0;
+  sb.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: onTea.id }));
+  check('the live sabbat’s brew steeps + records', h.teaStateBody(sb.p).teas.find((t) => t.id === onTea.id).discovered === true);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 400);
