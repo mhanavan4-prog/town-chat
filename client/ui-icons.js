@@ -1371,6 +1371,14 @@ const M_CANDLE = S(`
   <path d="M22 14 L22 18" stroke="#5e442c" stroke-width="1.4"/>
   <rect x="17" y="18" width="10" height="18" rx="2" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
   <path d="M17 22 Q22 20 27 22" stroke="${C.bone2}" stroke-width="1.2"/>`);
+// The hearth — a fireplace arch with a flame, for the cottage's "at your hearth"
+// daily-rituals panel.
+const M_HEARTH = S(`
+  <path d="M8 36 L8 19 Q8 13 15 13 L29 13 Q36 13 36 19 L36 36" fill="none" stroke="${C.bone}" stroke-width="2.3"/>
+  <path d="M6.5 36.5 L37.5 36.5" stroke="${C.bone}" stroke-width="2.6"/>
+  <path d="M8 19.5 L36 19.5" stroke="${C.bone2}" stroke-width="1.4" opacity="0.55"/>
+  <path d="M22 32 Q14.5 27 18 19.2 Q19 22.2 21 21.6 Q17.8 15.2 23.2 11 Q21.6 17.4 25.2 19.6 Q28.8 22 27.2 27.2 Q25.9 32 22 32 Z" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1"/>
+  <path d="M22 31 Q18.2 28 20 23.4 Q20.9 25.4 22.2 24.9 Q21 27.8 23.2 29.1 Q22.9 31 22 31 Z" fill="${C.red}" opacity="0.85"/>`);
 const M_GUISE = S(`
   <path d="M8 14 Q22 10 36 14 Q37 24 30 30 Q22 35 14 30 Q7 24 8 14 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
   <path d="M12 19 Q17 16 21 19 Q17 23 12 19 Z M23 19 Q27 16 32 19 Q27 23 23 19 Z" fill="#2a2234"/>
@@ -1585,7 +1593,7 @@ export const UI_ICONS = {
   // menu glyphs
   m_bag: M_BAG, m_skills: M_SKILLS, m_loadout: M_LOADOUT, m_wardrobe: M_WARDROBE,
   m_titles: M_TITLES, m_familiar: M_FAMILIAR, m_garden: M_GARDEN, m_tarot: M_TAROT,
-  m_mirror: M_MIRROR, m_candle: M_CANDLE, m_guise: M_GUISE, m_map: M_MAP, m_board: M_BOARD,
+  m_mirror: M_MIRROR, m_candle: M_CANDLE, m_hearth: M_HEARTH, m_guise: M_GUISE, m_map: M_MAP, m_board: M_BOARD,
   m_delve: M_DELVE, m_coven: M_COVEN, m_medal: M_MEDAL, m_codex: M_CODEX, m_ticket: M_TICKET,
   wheel: WHEEL,
   // sabbats / events / chrome

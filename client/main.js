@@ -10390,6 +10390,8 @@ let tarotView = 'reading';   // 'reading' | 'arcanum' — the tarot modal's two 
 // Each arcana's hand-drawn card icon (uiIcon('arcana_<key>')), falling back to
 // its emoji if the key is missing.
 function arcanaGlyph(key, emoji) { return (key && uiIcon('arcana_' + key)) || emoji || '🔮'; }
+// A hand-drawn uiIcon wrapped for an inline button/label, falling back to emoji.
+function hhIco(key, emoji) { const s = key && uiIcon(key); return s ? `<span class="hhGi">${s}</span>` : (emoji ? emoji + ' ' : ''); }
 function renderTarotModal(result) {
   const el = document.getElementById('tarotContent');
   if (!el) return;
@@ -10772,8 +10774,8 @@ function renderHomeModal() {
   // The daily rituals, brought home — reachable from your own hearth. (The tea
   // steeped here holds longer; the bonus is applied server-side when you brew.)
   if (me && me.room === 'cottage') {
-    h += `<div class="homeHearth"><div class="homeHearthHead">🔥 At your hearth</div>`
-      + `<div class="homeHearthBtns"><button class="btn hhBrew">🍵 Brew a tea</button><button class="btn hhTarot">🔮 Lay the tarot</button><button class="btn hhScry">🪞 Scrying bowl</button></div>`
+    h += `<div class="homeHearth"><div class="homeHearthHead">${hhIco('m_hearth', '🔥')}At your hearth</div>`
+      + `<div class="homeHearthBtns"><button class="btn hhBrew">${hhIco('trail_remedy', '🍵')}Brew a tea</button><button class="btn hhTarot">${hhIco('m_tarot', '🔮')}Lay the tarot</button><button class="btn hhScry">${hhIco('m_mirror', '🪞')}Scrying bowl</button></div>`
       + `<div class="homeHint" style="opacity:.78;margin-top:4px">Your daily rituals, at home — and a tea steeped at your own hearth holds longer.</div></div>`;
   }
   const inHand = homeSelPalette ? byId[homeSelPalette] : null;
