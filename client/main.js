@@ -10532,7 +10532,6 @@ function renderGardenModal() {
     + `</div>`;
   if (gardenView === 'almanac' && alm) { renderAlmanacInto(el, tabs, alm); return; }
   const mt = gardenMoonTier();
-  const now = Date.now();
   let h = tabs;
   // The Green Path — a gardening questline surfaced right here, since sowing and
   // harvesting ARE the objectives. Shows the current chapter + progress.
@@ -10548,31 +10547,53 @@ function renderGardenModal() {
       h += `<div class="gpQuest"><div class="gpqHead">🌿 The Green Path · Ch. ${gp.chapter + 1}/${gp.total}: ${gp.title}</div><div class="gpqObj">${sub}</div></div>`;
     }
   }
+  // The Cottage Garden — your home beds, tendable only inside your own cottage.
+  // A harvest here comes in richer (the hearth's blessing). Shown above the wild
+  // beds whenever you're home; otherwise a quiet hint points you back there.
+  const hg = st.homeGarden;
+  if (hg && hg.canTend) {
+    h += `<div class="gardenHomeHead">🏡 Your Cottage Garden</div>`;
+    h += `<div class="gardenHint">Beds at your own hearth — a harvest here comes in <b>+${hg.bonus}</b> richer, the hearth's blessing. Tend them whenever you're home.</div>`;
+    h += gardenBedsBlock(hg.plots || [], hg.plantable || st.plantable, 'home', hg.rushCost || st.rushCost);
+    h += `<div class="gardenHomeHead" style="margin-top:14px">🌿 The Wild Garden</div>`;
+  } else if (hg) {
+    h += `<div class="gardenHint" style="opacity:.75">🏡 You keep a <b>cottage garden</b> too — step inside your own cottage to tend its beds, where the harvest comes in richer.</div>`;
+  }
   h += `<div class="gardenHint">Sow a herb and it grows into more. Planted under ${mt.label} now, a bed yields <b>${mt.yield}×</b> — plant as the moon fills for a richer crop.</div>`;
-  h += '<div class="menuCols">';
-  (st.plots || []).forEach((p, i) => {
+  h += gardenBedsBlock(st.plots || [], st.plantable || [], '', st.rushCost);
+  el.innerHTML = h;
+  // Both bed sets share handlers; data-where ('home'|'' ) routes to the right beds.
+  el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb'), where: s.getAttribute('data-where') || undefined })); });
+  el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest'), where: b.getAttribute('data-where') || undefined })));
+  el.querySelectorAll('.gpRush').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_rush', plotIndex: +b.getAttribute('data-rush'), where: b.getAttribute('data-where') || undefined })));
+  wireGardenTabs(el);
+}
+// One bed grid (empty beds offer seeds; growing beds show a timer + rush; ready
+// beds offer harvest). `where` ('home' for the cottage garden) rides each control
+// as data-where so the shared handlers route to the right bed set.
+function gardenBedsBlock(plots, plantable, where, rushCost) {
+  const now = Date.now();
+  const wa = where ? ` data-where="${where}"` : '';
+  let h = '<div class="menuCols">';
+  plots.forEach((p, i) => {
     h += '<div class="gardenPlot">';
     if (!p) {
       h += `<div class="gpTitle">Bed ${i + 1} — empty</div><div class="gardenPlant">`;
-      for (const id of (st.plantable || [])) {
+      for (const id of (plantable || [])) {
         const meta = ITEM_CATALOG[id]; const have = gardenHerbCount(id);
-        h += `<span class="gardenSeed${have > 0 ? '' : ' disabled'}" data-herb="${id}" data-plot="${i}">${meta ? meta.icon : '🌱'} ${meta ? meta.name : id} <span style="opacity:.6">(${have})</span></span>`;
+        h += `<span class="gardenSeed${have > 0 ? '' : ' disabled'}" data-herb="${id}" data-plot="${i}"${wa}>${meta ? meta.icon : '🌱'} ${meta ? meta.name : id} <span style="opacity:.6">(${have})</span></span>`;
       }
       h += '</div>';
     } else {
       const meta = ITEM_CATALOG[p.herb];
       const ready = p.ready || (now - p.plantedAt >= p.growMs);
-      if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div><button class="gpReady" data-harvest="${i}">🌿 Harvest ${p.yield}×</button>`;
-      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div><button class="gpRush" data-rush="${i}">💎 Grow now · ${st.rushCost || 5}</button>`;
+      if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div><button class="gpReady" data-harvest="${i}"${wa}>🌿 Harvest ${p.yield}×</button>`;
+      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div><button class="gpRush" data-rush="${i}"${wa}>💎 Grow now · ${rushCost || 5}</button>`;
     }
     h += '</div>';
   });
   h += '</div>';
-  el.innerHTML = h;
-  el.querySelectorAll('.gardenSeed').forEach((s) => { if (!s.classList.contains('disabled')) s.addEventListener('click', () => send({ type: 'garden_plant', plotIndex: +s.getAttribute('data-plot'), herb: s.getAttribute('data-herb') })); });
-  el.querySelectorAll('.gpReady').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_harvest', plotIndex: +b.getAttribute('data-harvest') })));
-  el.querySelectorAll('.gpRush').forEach((b) => b.addEventListener('click', () => send({ type: 'garden_rush', plotIndex: +b.getAttribute('data-rush') })));
-  wireGardenTabs(el);
+  return h;
 }
 
 // Hooks up the Garden / Almanac tab buttons (present in both views).

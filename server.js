@@ -4302,7 +4302,36 @@ function gardenStateBody(player) {
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
     yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
   } : null);
-  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player) };
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player), homeGarden: homeGardenStateBody(player) };
+}
+
+// ── The Cottage Garden (housing ↔ gardening cross-feed) ─────────────────────
+// A few herb beds that live in your own cottage, tended only while you stand in
+// it. They run on the same garden engine, but a bed tended at your own hearth
+// yields one extra — the hearth's blessing — so growing at home stocks the
+// kettle a little faster. Account-wide in a.homeGarden.
+const COTTAGE_GARDEN_PLOTS = 3;
+const HOME_GARDEN_YIELD_BONUS = 1;
+function inOwnCottage(player) {
+  return !!(player && player.accountKey && player.room === 'cottage' && (player.instance || '') === 'home_' + player.accountKey);
+}
+function homeGardenOf(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  if (!Array.isArray(a.homeGarden)) a.homeGarden = new Array(COTTAGE_GARDEN_PLOTS).fill(null);
+  while (a.homeGarden.length < COTTAGE_GARDEN_PLOTS) a.homeGarden.push(null);
+  return a.homeGarden;
+}
+function homeGardenStateBody(player) {
+  if (!player || !player.accountKey) return null;
+  const g = homeGardenOf(player.accountKey) || [];
+  const now = Date.now();
+  const plots = g.map((p) => p ? {
+    herb: p.herb, plantedAt: p.plantedAt, moonTier: p.moonTier,
+    growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
+    yield: (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + HOME_GARDEN_YIELD_BONUS
+  } : null);
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, bonus: HOME_GARDEN_YIELD_BONUS, plotCount: COTTAGE_GARDEN_PLOTS, canTend: inOwnCottage(player) };
 }
 
 // ── The Green Path (gardening questline) ────────────────────────────────────
@@ -14515,11 +14544,14 @@ wss.on('connection', (ws, req) => {
     }
     if (msg.type === 'garden_plant') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
+      const atHome = msg.where === 'home';
+      if (atHome && !inOwnCottage(player)) { send(ws, { type: 'garden_error', message: 'You can tend the cottage garden only from inside your own cottage.' }); return; }
+      const bedCount = atHome ? COTTAGE_GARDEN_PLOTS : gardenPlotsFor(player);
       const idx = Math.floor(Number(msg.plotIndex));
       const herb = String(msg.herb || '');
-      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
+      if (!(idx >= 0 && idx < bedCount)) return;
       if (!PLANTABLE_HERBS.includes(herb)) { send(ws, { type: 'garden_error', message: 'That seed will not take here.' }); return; }
-      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
+      const g = atHome ? homeGardenOf(player.accountKey) : gardenOf(player.accountKey, gardenPlotsFor(player));
       if (g[idx]) { send(ws, { type: 'garden_error', message: 'That bed is already planted.' }); return; }
       const inv = getInventory(player);
       if (countItemQty(inv, herb) < 1) { send(ws, { type: 'garden_error', message: `You hold no ${ITEM_CATALOG[herb] ? ITEM_CATALOG[herb].name : herb} to sow.` }); return; }
@@ -14533,13 +14565,16 @@ wss.on('connection', (ws, req) => {
     }
     if (msg.type === 'garden_harvest') {
       if (!player.accountKey) return;
+      const atHome = msg.where === 'home';
+      if (atHome && !inOwnCottage(player)) { send(ws, { type: 'garden_error', message: 'You can tend the cottage garden only from inside your own cottage.' }); return; }
+      const bedCount = atHome ? COTTAGE_GARDEN_PLOTS : gardenPlotsFor(player);
       const idx = Math.floor(Number(msg.plotIndex));
-      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
-      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
+      if (!(idx >= 0 && idx < bedCount)) return;
+      const g = atHome ? homeGardenOf(player.accountKey) : gardenOf(player.accountKey, gardenPlotsFor(player));
       const p = g[idx];
       if (!p) return;
       if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
-      const amount = MOON_YIELD[p.moonTier] || MOON_YIELD.other;
+      const amount = (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + (atHome ? HOME_GARDEN_YIELD_BONUS : 0);
       const inv = getInventory(player);
       let got = 0;
       for (let i = 0; i < amount; i++) { if (addItemToAccount(inv, p.herb, 1)) got++; else break; }
@@ -14549,7 +14584,7 @@ wss.on('connection', (ws, req) => {
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
-      send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your garden.` });
+      send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your ${atHome ? 'cottage garden — the hearth\'s blessing' : 'garden'}.` });
       return;
     }
     // 💎 Grow a bed instantly for Moonstones — the premium convenience sink on
@@ -14558,9 +14593,12 @@ wss.on('connection', (ws, req) => {
     // locked to the moon tier at PLANTING, so rushing never pays better).
     if (msg.type === 'garden_rush') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
+      const atHome = msg.where === 'home';
+      if (atHome && !inOwnCottage(player)) { send(ws, { type: 'garden_error', message: 'You can tend the cottage garden only from inside your own cottage.' }); return; }
+      const bedCount = atHome ? COTTAGE_GARDEN_PLOTS : gardenPlotsFor(player);
       const idx = Math.floor(Number(msg.plotIndex));
-      if (!(idx >= 0 && idx < gardenPlotsFor(player))) return;
-      const g = gardenOf(player.accountKey, gardenPlotsFor(player));
+      if (!(idx >= 0 && idx < bedCount)) return;
+      const g = atHome ? homeGardenOf(player.accountKey) : gardenOf(player.accountKey, gardenPlotsFor(player));
       const p = g[idx];
       if (!p) { send(ws, { type: 'garden_error', message: 'That bed is empty.' }); return; }
       if (Date.now() - p.plantedAt >= GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'That bed is already grown — just harvest it.' }); return; }
@@ -15612,6 +15650,7 @@ global.__testHooks = {
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
+  homeGardenOf, homeGardenStateBody, inOwnCottage, COTTAGE_GARDEN_PLOTS, HOME_GARDEN_YIELD_BONUS, // Cottage Garden (housing ↔ gardening)
   homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, homeLayoutForKey, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
