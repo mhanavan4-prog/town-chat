@@ -19,7 +19,7 @@ const WORLD = {
     { id: 'library', name: '📚 The Library',       x: 2330, y: 375,  w: 400, h: 260, color: '#6f8fae', door: 'west' },
     { id: 'arcade',  name: '🎮 Starlight Arcade',  x: 295,  y: 1530, w: 400, h: 270, color: '#9b5fc0', door: 'east' },
     { id: 'lounge',  name: '👻 The Phantom Parlor', x: 2335, y: 1530, w: 400, h: 420, color: '#5a8a72', door: 'west' },
-    { id: 'hall',    name: '🏛️ Town Hall',        x: 1360, y: 110,  w: 480, h: 290, color: '#8a9a5b', door: 'south' },
+    { id: 'hall',    name: '🏛️ Town Hall',        x: 1360, y: 50,   w: 480, h: 290, color: '#8a9a5b', door: 'south' }, // nudged north 60u so the south door's hex lands just outside the footprint — the road then runs straight up the x1600 column to the threshold instead of veering east off an offset terminus hex
     // South of spawn, centered like Town Hall is to the north — spawn is
     // north of this one, so its door faces north (a code path that exists
     // but, until now, no other building actually used).
