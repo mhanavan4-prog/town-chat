@@ -9520,10 +9520,10 @@ const TOWN_NPCS = [
 // the wildlife_state broadcast's torch ids line up with these instances
 // (see applyTownTorchState).
 const TOWN_TORCHES = [
-  { id: 'torch_n', x: 1600, y: 880 },
-  { id: 'torch_e', x: 1820, y: 1100 },
-  { id: 'torch_s', x: 1600, y: 1320 },
-  { id: 'torch_w', x: 1380, y: 1100 }
+  { id: 'torch_n', x: 1600, y: 800 },
+  { id: 'torch_e', x: 1900, y: 1100 },
+  { id: 'torch_s', x: 1600, y: 1400 },
+  { id: 'torch_w', x: 1300, y: 1100 }
 ];
 
 // ── Town scene builders ─ extracted to client/town-scene.js (Phase C). Town
