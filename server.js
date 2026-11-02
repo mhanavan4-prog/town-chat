@@ -4507,6 +4507,46 @@ function homeLayoutForKey(key) {
     catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source })),
   };
 }
+// ── The Cottage Showcase (the Trophy Wall) — a read-only board of what an
+// account has gathered: earned auras, the two questlines finished, the collections
+// (teas, the Fool's Journey, the garden almanac, the room codices) and the titles
+// held. Account-keyed so a visitor sees the HOST's trophies, not their own, which
+// turns visiting a cottage into "see what they've done." All data is account-wide
+// and read straight from the host's progress/account — nothing is mutated.
+function cottageShowcase(hostKey, viewerKey) {
+  const prog = (hostKey && playerProgress[hostKey]) || {};
+  const acc = (hostKey && accounts[hostKey]) || {};
+  const mapTally = (map, set) => set.reduce((n, x) => n + ((map && map[x.id]) ? 1 : 0), 0);
+  const arrCount = (arr) => (Array.isArray(arr) ? new Set(arr).size : 0);
+  // Earned auras (the ones you can't buy — questline + collection capstones).
+  const earnedAuraIds = new Set(AURAS.filter((a) => a.earned).map((a) => a.id));
+  const auras = (prog.auraUnlocks || [])
+    .filter((id) => earnedAuraIds.has(id) && AURA_BY_ID[id])
+    .map((id) => ({ id, label: AURA_BY_ID[id].label, hex: AURA_BY_ID[id].hex }));
+  // The two questlines.
+  const paths = [
+    { key: 'green', icon: '🌿', label: 'The Green Path', done: !!(prog.greenPath && prog.greenPath.chapter >= GREEN_PATH.length) },
+    { key: 'hearth', icon: '🍵', label: 'The Hearth Path', done: !!(prog.hearthPath && prog.hearthPath.chapter >= HEARTH_PATH.length) },
+  ];
+  // The collections, each a count / total.
+  const col = (key, icon, label, count, total) => ({ key, icon, label, count: Math.min(count, total), total, done: count >= total });
+  const collections = [
+    col('teas', '🍵', 'Teas Brewed', arrCount(acc.teasBrewed), TEAS.length),
+    col('arcana', '🔮', "The Fool's Journey", (prog.arcana && arrCount(prog.arcana.drawn)) || 0, TAROT_CARDS.length),
+    col('garden', '🌿', 'Garden Almanac', arrCount(prog.almanac), ALMANAC_PLANT_IDS.length),
+    col('forbidden', '📖', 'Forbidden Archive', mapTally(prog.forbiddenBooksRead, FORBIDDEN_BOOKS), FORBIDDEN_BOOKS.length),
+    col('cafe', '☕', 'Tasting Menu', mapTally(prog.cafeSpecialsTasted, CAFE_SPECIALS), CAFE_SPECIALS.length),
+    col('vigil', '🌙', 'Vigil Register', mapTally(prog.vigilHeard, PARLOR_SPIRITS), PARLOR_SPIRITS.length),
+    col('reliquary', '🗝️', 'The Reliquary', mapTally(prog.relicsInspected, RELICS), RELICS.length),
+  ];
+  const titles = ((prog.riteTitles) || []).filter(titleExists).map((id) => ({ id, name: TITLES[id].name, glyph: TITLES[id].glyph }));
+  return {
+    host: covenDisplayName(hostKey) || 'A witch',
+    isSelf: !!(viewerKey && hostKey === viewerKey),
+    level: prog.level || 1,
+    auras, paths, collections, titles,
+  };
+}
 // Push a cottage's current layout to everyone standing in it — the owner AND any
 // visitors — so a host rearranging furniture updates live for the whole room.
 // Keyed by the EDITOR's account (their home instance), never their current room,
@@ -14034,6 +14074,18 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // The Cottage Showcase (Trophy Wall) — the trophies of whoever's cottage you
+    // stand in. Host is the room instance ('home_<key>'), so it works for your own
+    // cottage and when visiting; read-only, no account needed to look.
+    if (msg.type === 'cottage_showcase') {
+      if (player.room !== 'cottage') { send(ws, { type: 'cottage_showcase', ok: false, message: 'Step into a cottage to see its trophies.' }); return; }
+      const inst = player.instance || '';
+      const hostKey = inst.indexOf('home_') === 0 ? inst.slice(5) : null;
+      if (!hostKey) { send(ws, { type: 'cottage_showcase', ok: false, message: 'This cottage has no keeper.' }); return; }
+      send(ws, { type: 'cottage_showcase', ok: true, ...cottageShowcase(hostKey, player.accountKey) });
+      return;
+    }
+
     if (msg.type === 'manor_claim_bedroom') {
       if (player.room !== 'manor') return;
       const cv = player.accountKey && covenOf(player.accountKey);
@@ -15652,6 +15704,7 @@ global.__testHooks = {
   gardenStateBody, gardenPlotsFor,
   homeGardenOf, homeGardenStateBody, inOwnCottage, COTTAGE_GARDEN_PLOTS, HOME_GARDEN_YIELD_BONUS, // Cottage Garden (housing ↔ gardening)
   homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, homeLayoutForKey, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
+  cottageShowcase, // the Cottage Showcase / Trophy Wall
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
