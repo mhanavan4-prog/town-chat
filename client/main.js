@@ -10769,6 +10769,13 @@ function renderHomeModal() {
   let h = '';
   h += `<button class="btn homeEnterBtn" data-act="enter">🚪 Step Inside Your Cottage</button>`;
   h += `<button class="btn homeShowcaseBtn" style="margin-top:6px;">🏆 Trophy Wall — what you've gathered</button>`;
+  // The daily rituals, brought home — reachable from your own hearth. (The tea
+  // steeped here holds longer; the bonus is applied server-side when you brew.)
+  if (me && me.room === 'cottage') {
+    h += `<div class="homeHearth"><div class="homeHearthHead">🔥 At your hearth</div>`
+      + `<div class="homeHearthBtns"><button class="btn hhBrew">🍵 Brew a tea</button><button class="btn hhTarot">🔮 Lay the tarot</button><button class="btn hhScry">🪞 Scrying bowl</button></div>`
+      + `<div class="homeHint" style="opacity:.78;margin-top:4px">Your daily rituals, at home — and a tea steeped at your own hearth holds longer.</div></div>`;
+  }
   const inHand = homeSelPalette ? byId[homeSelPalette] : null;
   if (inHand) h += `<div class="homeHint">Holding <b>${escHtml(inHand.name)}</b> — tap a spot to set it down. ↻ turns it first.</div>`;
   else if (homeSelPiece != null && pieces[homeSelPiece]) h += `<div class="homeHint">Selected <b>${escHtml((byId[pieces[homeSelPiece].id] || {}).name || 'piece')}</b> — tap a new spot to move it, or use the buttons below.</div>`;
@@ -10847,6 +10854,9 @@ function renderHomeModal() {
   // Wire the "step inside" button.
   { const eb = el.querySelector('.homeEnterBtn'); if (eb) eb.addEventListener('click', () => enterCottage()); }
   { const sb = el.querySelector('.homeShowcaseBtn'); if (sb) sb.addEventListener('click', () => openShowcaseModal()); }
+  { const b = el.querySelector('.hhBrew'); if (b) b.addEventListener('click', () => openKitchenModal()); }
+  { const b = el.querySelector('.hhTarot'); if (b) b.addEventListener('click', () => openTarotModal()); }
+  { const b = el.querySelector('.hhScry'); if (b) b.addEventListener('click', () => openScryModal()); }
   // Wire the visit rows.
   el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
   // Wire the palette (owned pieces).
@@ -11033,6 +11043,8 @@ function renderKitchenModal() {
     }
   }
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
+  if (st.atHearth) h += `<div class="gardenHint" style="color:#ffc48a">🔥 You're at your own hearth — this steep holds <b>×${st.hearthBonus || 1.25}</b> longer, and stacks with the day bonus.</div>`;
+  else if (st.hearthBonus) h += `<div class="gardenHint" style="opacity:.78">🏡 Brew at your own cottage hearth and the steep holds <b>×${st.hearthBonus}</b> longer.</div>`;
   for (const pl of planets) {
     const group = byDay[pl.day] || [];
     if (!group.length) continue;
