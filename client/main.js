@@ -2626,6 +2626,17 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'cottage_invite_received') {
+    const notif = document.getElementById('cottageInviteNotif');
+    const text = document.getElementById('cottageInviteText');
+    if (notif && text) {
+      text.textContent = `🏠 ${msg.fromName} invites you to visit their cottage!`;
+      notif.classList.remove('hidden');
+    }
+    return;
+  }
+  if (msg.type === 'cottage_invite_sent') { setUnlockToast(`🏠 Cottage invite sent to ${msg.toName || 'them'}.`); return; }
+
   if (msg.type === 'party_msg') {
     appendPartyChatLine(msg.fromName, msg.text);
     return;
@@ -2688,10 +2699,11 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'cottage_exited') {
-    if (me) { me.room = 'outside'; me.instance = ''; me.x = msg.x; me.y = msg.y; }
+    const toWilds = msg.room === 'wilds';
+    if (me) { me.room = toWilds ? 'wilds' : 'outside'; me.instance = ''; me.x = msg.x; me.y = msg.y; }
     cottageVisiting = false; cottageHostName = null;
-    swapToTownMap();
-    setUnlockToast('You step back out into the town square.');
+    if (toWilds) swapToWildsMap(); else swapToTownMap();
+    setUnlockToast(toWilds ? 'You step back out into the Wilds.' : 'You step back out into the town square.');
     return;
   }
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
@@ -3953,6 +3965,17 @@ if (partyDeclineBtn) partyDeclineBtn.addEventListener('click', () => {
   document.getElementById('partyInviteNotif').classList.add('hidden');
 });
 
+const cottageAcceptBtn = document.getElementById('cottageAcceptBtn');
+if (cottageAcceptBtn) cottageAcceptBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'cottage_invite_accept' }));
+  document.getElementById('cottageInviteNotif').classList.add('hidden');
+});
+const cottageDeclineBtn = document.getElementById('cottageDeclineBtn');
+if (cottageDeclineBtn) cottageDeclineBtn.addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'cottage_invite_decline' }));
+  document.getElementById('cottageInviteNotif').classList.add('hidden');
+});
+
 // ---------------------------------------------------------------------------
 // Player context menu (appears on clicking another player)
 // ---------------------------------------------------------------------------
@@ -3996,6 +4019,16 @@ if (_playerCtxCovenBtn) _playerCtxCovenBtn.addEventListener('click', () => {
   const id = playerContextMenuId;
   hidePlayerContextMenu();
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'coven_invite', targetId: id }));
+});
+// Invite to Cottage — the general (non-coven) visit path. Anyone online can be
+// invited to tour your cottage; they get a prompt to accept. The server replies
+// on the home_error channel for refusals, and toasts you "sent" on success.
+const _playerCtxCottageBtn = document.getElementById('playerContextCottage');
+if (_playerCtxCottageBtn) _playerCtxCottageBtn.addEventListener('click', () => {
+  if (!playerContextMenuId) return;
+  const id = playerContextMenuId;
+  hidePlayerContextMenu();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'cottage_invite', targetId: id }));
 });
 // Click anywhere else to dismiss the context menu. The menu opens on
 // mouseup/touchend, and the browser then fires a `click` on the canvas from
