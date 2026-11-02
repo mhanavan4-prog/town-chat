@@ -4493,6 +4493,20 @@ function broadcastCottageLayout(editorKey) {
     }
   }
 }
+// Drop `player` into `hostKey`'s cottage as a visitor (read-only). Shared by the
+// coven visit list and the general invite accept. Remembers where they came from
+// so exit_cottage can put them back there.
+function beginCottageVisit(player, ws, hostKey) {
+  player.cottageReturnX = player.x; player.cottageReturnY = player.y; player.cottageReturnRoom = player.room;
+  player.room = 'cottage';
+  player.instance = 'home_' + hostKey;
+  player.cottageHost = hostKey;
+  player.roomLockUntil = Date.now() + 1500;
+  player.x = COTTAGE_SPAWN.x; player.y = COTTAGE_SPAWN.y;
+  send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, host: covenDisplayName(hostKey), visiting: true, ...homeLayoutForKey(hostKey) });
+  const hostConn = findConnectionByAccountKey(hostKey);
+  if (hostConn) { try { send(hostConn.ws, { type: 'toast', message: `🏠 ${player.name} is visiting your cottage.` }); } catch (e) {} }
+}
 // Place a new piece; returns { ok } or { ok:false, message }.
 function homePlace(player, pieceId, x, y, rot) {
   const home = homeOf(player);
@@ -9083,6 +9097,9 @@ const WEREWOLF_HOWL_ITEMS = [
 ];
 
 const partyInvites = new Map();
+// Cottage visit invites — targetPlayerId -> { hostKey, hostName, hostId, expiresAt }.
+// A general (non-coven) way to let anyone online tour your cottage.
+const cottageInvites = new Map();
 
 function getOrCreateParty(leaderId) {
   let partyId = playerParty.get(leaderId);
@@ -9123,6 +9140,9 @@ setInterval(() => {
   const now = Date.now();
   for (const [id, inv] of partyInvites) {
     if (inv.expiresAt <= now) partyInvites.delete(id);
+  }
+  for (const [id, inv] of cottageInvites) {
+    if (inv.expiresAt <= now) cottageInvites.delete(id);
   }
 }, 15000);
 
@@ -13714,7 +13734,7 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'home_error', message: 'Head to the town square to step into your cottage.' });
         return;
       }
-      player.cottageReturnX = player.x; player.cottageReturnY = player.y;
+      player.cottageReturnX = player.x; player.cottageReturnY = player.y; player.cottageReturnRoom = player.room;
       player.room = 'cottage';
       player.instance = 'home_' + player.accountKey;   // a private copy, yours alone
       player.cottageHost = player.accountKey;           // your own cottage
@@ -13749,31 +13769,54 @@ wss.on('connection', (ws, req) => {
       const idx = msg.idx | 0;
       const hostKey = (cv.members || [])[idx];
       if (!hostKey || hostKey === player.accountKey || (cv.members || []).indexOf(hostKey) === -1) { send(ws, { type: 'home_error', message: 'That covenmate isn’t available to visit.' }); return; }
-      player.cottageReturnX = player.x; player.cottageReturnY = player.y;
-      player.room = 'cottage';
-      player.instance = 'home_' + hostKey;
-      player.cottageHost = hostKey;
-      player.roomLockUntil = Date.now() + 1500;
-      player.x = COTTAGE_SPAWN.x; player.y = COTTAGE_SPAWN.y;
-      const hostName = covenDisplayName(hostKey);
-      send(ws, { type: 'cottage_entered', spawn: COTTAGE_SPAWN, host: hostName, visiting: true, ...homeLayoutForKey(hostKey) });
-      // Let the host know someone's dropped by, if they're online.
-      const hostConn = findConnectionByAccountKey(hostKey);
-      if (hostConn) { try { send(hostConn.ws, { type: 'toast', message: `🏠 ${player.name} is visiting your cottage.` }); } catch (e) {} }
+      beginCottageVisit(player, ws, hostKey);
+      return;
+    }
+
+    // ── General cottage invites (anyone online, no coven needed) ─────────────
+    if (msg.type === 'cottage_invite') {
+      if (!player.accountKey) { send(ws, { type: 'home_error', message: 'Sign in with an account to invite visitors.' }); return; }
+      const target = players.get(String(msg.targetId || ''));
+      if (!target || target.id === player.id) return;
+      if (!target.accountKey) { send(ws, { type: 'home_error', message: 'They need an account to visit a cottage.' }); return; }
+      cottageInvites.set(target.id, { hostKey: player.accountKey, hostName: player.name, hostId: player.id, expiresAt: Date.now() + 60000 });
+      send(target.ws, { type: 'cottage_invite_received', fromName: player.name, fromId: player.id });
+      send(ws, { type: 'cottage_invite_sent', toName: target.name });
+      return;
+    }
+    if (msg.type === 'cottage_invite_accept') {
+      const invite = cottageInvites.get(player.id);
+      if (!invite || Date.now() > invite.expiresAt) { send(ws, { type: 'home_error', message: 'That cottage invite has expired.' }); return; }
+      cottageInvites.delete(player.id);
+      if (player.isDead || (player.instance || '') !== '' || !(player.room === 'outside' || player.room === 'wilds')) {
+        send(ws, { type: 'home_error', message: 'Step out into the open to accept a cottage invite.' }); return;
+      }
+      beginCottageVisit(player, ws, invite.hostKey);
+      return;
+    }
+    if (msg.type === 'cottage_invite_decline') {
+      const invite = cottageInvites.get(player.id);
+      if (invite) {
+        cottageInvites.delete(player.id);
+        const hostP = players.get(invite.hostId);
+        if (hostP) send(hostP.ws, { type: 'toast', message: `${player.name} declined your cottage invite.` });
+      }
       return;
     }
 
     if (msg.type === 'exit_cottage') {
       if (player.room !== 'cottage') return;
-      const rx = (typeof player.cottageReturnX === 'number') ? player.cottageReturnX : WORLD.spawn.x;
-      const ry = (typeof player.cottageReturnY === 'number') ? player.cottageReturnY : WORLD.spawn.y;
-      player.room = 'outside';
+      const backRoom = (player.cottageReturnRoom === 'wilds') ? 'wilds' : 'outside';
+      const home = backRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+      const rx = (typeof player.cottageReturnX === 'number') ? player.cottageReturnX : home.x;
+      const ry = (typeof player.cottageReturnY === 'number') ? player.cottageReturnY : home.y;
+      player.room = backRoom;
       player.instance = '';
       player.cottageHost = null;
       player.roomLockUntil = Date.now() + 1500;
       player.x = rx; player.y = ry;
-      player.cottageReturnX = null; player.cottageReturnY = null;
-      send(ws, { type: 'cottage_exited', x: rx, y: ry });
+      player.cottageReturnX = null; player.cottageReturnY = null; player.cottageReturnRoom = null;
+      send(ws, { type: 'cottage_exited', x: rx, y: ry, room: backRoom });
       return;
     }
 
@@ -15358,7 +15401,7 @@ global.__testHooks = {
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
-  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout,
+  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites,
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
   listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
