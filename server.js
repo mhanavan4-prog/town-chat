@@ -4432,11 +4432,14 @@ function homeOf(player) {
   if (!a.home || !Array.isArray(a.home.pieces)) a.home = { pieces: [] };
   return a.home;
 }
-// Which furniture ids this account may place. MVP: every 'default' piece; the
-// runway will add owned craft/premium/earned ids from prog later.
+// Which furniture ids this account may place: every 'default' piece, plus any
+// 'premium' piece the account has unlocked with Moonstones (prog.furnitureUnlocks).
 function ownsFurniture(player, pieceId) {
   const f = FURNITURE_BY_ID[pieceId];
-  return !!f && f.source === 'default';
+  if (!f) return false;
+  if (f.source === 'default') return true;
+  const prog = player && player.accountKey && getProgress(player);
+  return !!(prog && Array.isArray(prog.furnitureUnlocks) && prog.furnitureUnlocks.indexOf(pieceId) !== -1);
 }
 // True if `piece` at (x,y,rot) fits in the grid and clears `occupied` (a Set of
 // "cx,cy" strings). `skipIdx` lets a move ignore the piece's own current cells.
@@ -4459,7 +4462,8 @@ function homeStateBody(player) {
   return {
     grid: HOME_GRID,
     pieces: home.pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
-    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, owned: ownsFurniture(player, f.id) })),
+    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, ms: f.ms || 0, owned: ownsFurniture(player, f.id) })),
+    msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
   };
 }
 // Place a new piece; returns { ok } or { ok:false, message }.
@@ -14161,6 +14165,26 @@ wss.on('connection', (ws, req) => {
       if (r.ok) { send(ws, { type: 'home_state', ...homeStateBody(player) }); if (player.room === 'cottage') send(ws, { type: 'cottage_layout', ...homeStateBody(player) }); }
       return;
     }
+    // Unlock a premium furniture piece with Moonstones. Account-wide + permanent
+    // (prog.furnitureUnlocks); cosmetic only. Mirrors buy_dye / buy_look.
+    if (msg.type === 'buy_furniture') {
+      if (!player.accountKey) { send(ws, { type: 'ms_error', message: 'Sign in with an account to unlock decor.' }); return; }
+      const f = FURNITURE_BY_ID[String(msg.pieceId || '')];
+      if (!f || f.source !== 'premium' || !f.ms) { send(ws, { type: 'ms_error', message: 'That piece isn’t for sale.' }); return; }
+      const prog = getProgress(player);
+      if (!Array.isArray(prog.furnitureUnlocks)) prog.furnitureUnlocks = [];
+      if (prog.furnitureUnlocks.indexOf(f.id) !== -1) { send(ws, { type: 'furniture_bought', pieceId: f.id }); send(ws, { type: 'home_state', ...homeStateBody(player) }); return; } // already owned
+      if (msBalance(player.accountKey) < f.ms) { send(ws, { type: 'ms_error', message: `${f.name} is ${f.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+      msAdjust(player.accountKey, -f.ms);
+      analytics.bump('buy.msn.furniture:' + f.id);
+      analytics.bump('buy.msg.furniture:' + f.id, f.ms);
+      prog.furnitureUnlocks.push(f.id);
+      try { saveProgress(); } catch (e) {}
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'furniture_bought', pieceId: f.id });
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
     if (msg.type === 'garden_plant') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
       const idx = Math.floor(Number(msg.plotIndex));
@@ -15260,7 +15284,7 @@ global.__testHooks = {
   greenPathEvent, greenPathStateBody, GREEN_PATH,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
-  homeStateBody, homePlace, homeMove, homeRemove, homeOf, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
+  homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
