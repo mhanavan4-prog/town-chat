@@ -2,11 +2,15 @@
 // wilds campfires, waymarker lore, tree colliders). Extracted verbatim from
 // server.js (Tier 3.4 Phase A). Pure data.
 
+// The four ritual torches ring the spawn plaza. Widened from a tight 220-unit
+// ring to ~300 so their night glow spreads across the square (each throws a
+// 260-unit pool) instead of pooling on top of each other and the Town Bonfire —
+// the centre is now carried by the bonfire's own light, these light the reaches.
 const TOWN_TORCHES = [
-  { id: 'torch_n', x: 1600, y: 880 },
-  { id: 'torch_e', x: 1820, y: 1100 },
-  { id: 'torch_s', x: 1600, y: 1320 },
-  { id: 'torch_w', x: 1380, y: 1100 }
+  { id: 'torch_n', x: 1600, y: 800 },
+  { id: 'torch_e', x: 1900, y: 1100 },
+  { id: 'torch_s', x: 1600, y: 1400 },
+  { id: 'torch_w', x: 1300, y: 1100 }
 ];
 
 const TEMPLE_ALTAR = { x: 1060, y: 1900 };
