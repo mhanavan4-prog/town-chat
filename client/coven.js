@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions, getCovenRite }) {
+export default function createCoven({ getWs, getMe, getPlayers, getCovenState, getCovenTableState, getCovenUnread, setCovenUnread, getCovenChatLines, getCovenSigilsCatalog, getCurrentInterior, makeNpcNameSprite, ITEM_CATALOG, buildItemIconEl, accountAuth, getCovenCharterInfo, startCharterCheckout, startUpkeepCheckout, getIsAdmin, getCovenStandings, getCovenChampions, getCovenRite }) {
   const isAdmin = () => typeof getIsAdmin === 'function' && !!getIsAdmin();
 let covenActiveTab = 'members';
 let covenPickedSigil = null;
@@ -137,7 +137,8 @@ function renderCovenModal() {
       cell.className = 'covenSlot';
       if (s) {
         const meta = ITEM_CATALOG[s.itemId];
-        cell.innerHTML = `${meta ? meta.icon : '❔'}<span class="qty">×${s.qty}</span>`;
+        if (buildItemIconEl) cell.appendChild(buildItemIconEl(s.itemId)); else cell.innerHTML = meta ? meta.icon : '❔'; // carved icon, emoji fallback
+        const _q = document.createElement('span'); _q.className = 'qty'; _q.textContent = `×${s.qty}`; cell.appendChild(_q);
         cell.title = meta ? meta.name : s.itemId;
         cell.addEventListener('click', () => getWs().send(JSON.stringify({ type: 'coven_withdraw_item', covenSlot: i })));
       }

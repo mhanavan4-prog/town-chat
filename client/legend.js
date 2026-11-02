@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createLegendShop({ getWs, getMyMoonstones, setMyMoonstones, refreshMsUI, openMsModal, ITEM_CATALOG }) {
+export default function createLegendShop({ getWs, getMyMoonstones, setMyMoonstones, refreshMsUI, openMsModal, ITEM_CATALOG, buildItemIconEl }) {
 let legendCountdownTimer = null;
 const LEGEND_TIER_NAMES = { 1: 'CURIO', 2: 'RELIC', 3: 'ARCANUM', 4: 'SEVERANCE-CLASS' };
 const LEGEND_STAT_LABELS = { power: 'Power', guard: 'Guard', vitality: 'Max HP', haste: 'Haste', swift: 'Speed', leech: 'Lifesteal', xp: 'XP', forage: 'Forage' };
@@ -53,7 +53,8 @@ function renderLegendShop(msg) {
     row.className = 'legendRow tier' + it.tier;
     const nameLine = document.createElement('div');
     nameLine.className = 'legendName';
-    nameLine.textContent = it.icon + ' ' + it.name;
+    if (buildItemIconEl) { nameLine.appendChild(buildItemIconEl(it.id)); nameLine.appendChild(document.createTextNode(' ' + it.name)); } // carved icon, emoji fallback
+    else nameLine.textContent = it.icon + ' ' + it.name;
     const tier = document.createElement('span');
     tier.className = 'legendTier';
     tier.textContent = LEGEND_TIER_NAMES[it.tier] || '';

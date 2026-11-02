@@ -14440,7 +14440,7 @@ const _coven = createCoven({
   getCovenState: () => covenState, getCovenTableState: () => covenTableState,
   getCovenUnread: () => covenUnread, setCovenUnread: (v) => { covenUnread = v; },
   getCovenChatLines: () => covenChatLines, getCovenSigilsCatalog: () => covenSigilsCatalog,
-  getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, accountAuth,
+  getCurrentInterior: () => currentInterior, makeNpcNameSprite, ITEM_CATALOG, buildItemIconEl, accountAuth,
   getCovenCharterInfo: () => covenCharterInfo, startCharterCheckout, startUpkeepCheckout,
   getIsAdmin: () => amAdmin, // admins found a coven for free (server allows it too)
   getCovenStandings: () => covenStandingsState, getCovenChampions: () => covenChampions,
@@ -15313,7 +15313,7 @@ const _legend = createLegendShop({
   getWs: () => ws,
   getMyMoonstones: () => myMoonstones,
   setMyMoonstones: (v) => { myMoonstones = v; },
-  refreshMsUI, openMsModal, ITEM_CATALOG,
+  refreshMsUI, openMsModal, ITEM_CATALOG, buildItemIconEl,
 });
 const { openLegendShop, closeLegendShop, renderLegendShop } = _legend;
 
