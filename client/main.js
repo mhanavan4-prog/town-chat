@@ -17582,13 +17582,13 @@ function update(dt) {
   else if (moveInput < -0.01) localMoveDir = 'back';
   else localMoveDir = 'forward';
 
-  // The instant the player actually moves or turns, snap any mouse-drag
-  // camera orbit back to normal (directly behind the character) — otherwise
-  // "forward" on screen and "forward" for the character can point two
-  // different ways, which is exactly the confusing case being avoided here.
-  // Mobile joystick movement is exempt: it folds the offset in smoothly
-  // (see above) rather than snapping.
-  if ((moveInput !== 0 || turnInput !== 0 || strafeInput !== 0) && !(MOBILE_UI && joyActive) && !(gamepadVec.x || gamepadVec.y)) cameraYawOffset = 0;
+  // Snap any mouse-drag camera orbit back to behind the character only when the
+  // player moves FORWARD — there "forward" on screen and "forward" for the
+  // character would otherwise point two different ways, the confusing case this
+  // avoids. Backing up (S) and strafing (Q/E) keep the character's facing, so a
+  // held camera angle is intentional and is left alone (you can backpedal while
+  // watching from the front). Mobile joystick folds the offset in smoothly above.
+  if ((moveInput > 0 || turnInput !== 0) && !(MOBILE_UI && joyActive) && !(gamepadVec.x || gamepadVec.y)) cameraYawOffset = 0;
 
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
