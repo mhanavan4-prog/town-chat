@@ -5,7 +5,8 @@
 // are injected; the action catalog and the hotbar key tables (declared later) via
 // getters; the selected-slot index is shared with main via get/set.
 // ---------------------------------------------------------------------------
-export default function createLoadout({ MOBILE_UI, attachAbilityPeek, haptic, orderedAbilityIds, saveLoadout, setUnlockToast, getMyActionCatalog, getHotbarKeys, getHotbarKeyLabels, getLoadoutSelectedSlot, setLoadoutSelectedSlot }) {
+export default function createLoadout({ MOBILE_UI, attachAbilityPeek, haptic, orderedAbilityIds, saveLoadout, setUnlockToast, getMyActionCatalog, getHotbarKeys, getHotbarKeyLabels, getLoadoutSelectedSlot, setLoadoutSelectedSlot, glyph }) {
+const abGlyph = (id, ab) => (glyph ? glyph(id, ab && ab.icon) : (ab ? ab.icon : '·')); // carved icon w/ emoji fallback
 function openLoadoutModal() {
   if (!getMyActionCatalog()) { setUnlockToast('Join with a class kit first.'); return; }
   setLoadoutSelectedSlot(null);
@@ -63,7 +64,7 @@ function renderLoadoutModal() {
       tag.textContent = `Wheel ${i + 1}`;
       const icon = document.createElement('div');
       icon.className = 'loBigIcon';
-      icon.textContent = ab ? ab.icon : '·';
+      icon.innerHTML = ab ? abGlyph(id, ab) : '·';
       const nm = document.createElement('div');
       nm.className = 'loBigName';
       nm.textContent = ab ? (ab.name || id) : '—';
@@ -86,7 +87,7 @@ function renderLoadoutModal() {
     const ab = getMyActionCatalog()[id];
     const cell = document.createElement('div');
     cell.className = 'loSlot' + (getLoadoutSelectedSlot() === i ? ' selected' : '');
-    cell.textContent = ab ? ab.icon : '·';
+    cell.innerHTML = ab ? abGlyph(id, ab) : '·';
     const key = document.createElement('span');
     key.className = 'loKey';
     key.textContent = MOBILE_UI ? String(i + 1) : getHotbarKeyLabels()[i];
@@ -125,7 +126,7 @@ function renderLoadoutModal() {
       cell.className = 'loAbRow' + (onWheel ? ' inSlots' : '');
       const icon = document.createElement('span');
       icon.className = 'loAbIcon';
-      icon.textContent = ab.icon;
+      icon.innerHTML = abGlyph(id, ab);
       const nm = document.createElement('span');
       nm.className = 'loAbName';
       nm.textContent = ab.name || id;
@@ -139,7 +140,7 @@ function renderLoadoutModal() {
     } else {
       cell = document.createElement('div');
       cell.className = 'loAb' + (onWheel && MOBILE_UI ? ' inSlots' : '');
-      cell.textContent = ab.icon;
+      cell.innerHTML = abGlyph(id, ab);
       cell.title = ab.name || id;
     }
     cell.addEventListener('click', () => loadoutPlaceAbility(id, ids));
