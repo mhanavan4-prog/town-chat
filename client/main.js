@@ -322,6 +322,7 @@ const KK = (() => {
     anim_general:   'kk/anim/general.glb',   // Hit_A, Hit_B, Death_A, Death_A_Pose, Idle_B, PickUp, Interact
     anim_movebasic: 'kk/anim/movebasic.glb', // Jump_Full_Short, Jump_Start, Jump_Idle, Jump_Land
     anim_moveadv:   'kk/anim/moveadv.glb',   // Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right
+    anim_combat:    'kk/anim/combat.glb',    // Melee variants: 1H chop/horizontal, 2H chop/stab, dual-wield slice/stab, unarmed kick
     // Mother Yarrow's garden dressing — the Witch pack's themed props (CC0, same
     // Mystery Monthly S5 set; all share witch_texture_A). Placed in her plot.
     wprop_cauldron:     'kk/witch/Cauldron.gltf',
@@ -494,7 +495,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
+  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
@@ -647,7 +648,7 @@ const KK = (() => {
   // orphan-IK guard borrowAnims uses — so a stray control track never rebinds to
   // the model root. New clips become reachable immediately because act() resolves
   // lazily from models[key].animations and never caches a miss.
-  const EXTRA_ANIM_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv'];
+  const EXTRA_ANIM_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat'];
   function attachExtraAnims() {
     if (!EXTRA_ANIM_KEYS.every((ak) => models[ak] && models[ak].animations && models[ak].animations.length)) return;
     const extra = [];
@@ -13233,13 +13234,34 @@ function kkOneShot(kk, name, opts) {
   kk.busyUntil = performance.now() + (a.getClip().duration / scale) * 1000 * 0.82;
 }
 
+// Each style is a rotation of swing clips so consecutive strikes don't look
+// identical. The variants (Melee_* prefix) come from the anim_combat donor; the
+// final entry of each list is a BAKED clip every body already has, so a body
+// whose combat donor hasn't streamed in yet still swings — just without the
+// variety. pickSwing walks the list from a per-body rotating index and lands on
+// the first clip the rig can actually resolve.
+const KK_SWING_VARIANTS = {
+  slash2h: ['Melee_2H_Attack_Chop', 'Melee_2H_Attack_Stab', '2H_Melee_Attack_Slice'],       // witch / necromancer staff
+  slash1h: ['Melee_1H_Attack_Slice_Horizontal', 'Melee_1H_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal'], // 1H sword
+  dual:    ['Melee_Dualwield_Attack_Slice', 'Melee_Dualwield_Attack_Stab', '1H_Melee_Attack_Stab'],         // wanderer's twin knives
+  punch:   ['Melee_Unarmed_Attack_Kick', 'Unarmed_Melee_Attack_Punch_A'],                    // bare-handed (werewolf, knight)
+};
+function pickSwing(style, kk) {
+  const list = KK_SWING_VARIANTS[style] || KK_SWING_VARIANTS.punch;
+  const ix = (kk.swingIx = (kk.swingIx || 0) + 1);
+  for (let i = 0; i < list.length; i++) {
+    const cand = list[(ix + i) % list.length];
+    if (kk.act(cand)) return cand; // first variant this rig has loaded
+  }
+  return list[list.length - 1]; // the baked fallback
+}
 // map the game's attack types onto class-flavored KayKit clips
-function kkAttackClip(type, charId) {
+function kkAttackClip(type, charId, kk) {
   if (type === 'cast') return 'Spellcast_Shoot';
-  if (type === 'slash') return (charId === 0 || charId === 5) ? '2H_Melee_Attack_Slice' : '1H_Melee_Attack_Slice_Diagonal'; // staff casters swing 2H
-  if (charId === 4) return '1H_Melee_Attack_Stab';        // wanderer's knife jab
+  if (type === 'slash') return pickSwing((charId === 0 || charId === 5) ? 'slash2h' : 'slash1h', kk); // staff casters swing 2H
   if (charId === 2 || charId === 5) return 'Spellcast_Shoot'; // mystic + necromancer strike with magic
-  return 'Unarmed_Melee_Attack_Punch_A';
+  if (charId === 4) return pickSwing('dual', kk);         // wanderer's twin knives
+  return pickSwing('punch', kk);
 }
 
 // per-frame driver for a kk player visual (called from syncVisuals)
@@ -13250,7 +13272,7 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   // attack one-shots ride on the same attackAnimStartAt contract
   if (v.attackAnimStartAt && kk.lastAttackAt !== v.attackAnimStartAt) {
     kk.lastAttackAt = v.attackAnimStartAt;
-    kkOneShot(kk, kkAttackClip(v.attackAnimType, p.charId || 0));
+    kkOneShot(kk, kkAttackClip(v.attackAnimType, p.charId || 0, kk));
   }
   if (v.attackAnimStartAt && now - v.attackAnimStartAt > 450) v.attackAnimStartAt = null;
   // hit flinch — a short whole-body recoil the instant a blow lands, driven by
