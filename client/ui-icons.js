@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { TEA_ICONS } from './tea-icons.js';
+import { TAROT_ARCANA_ICONS } from './tarot-arcana-icons.js';
 
 // Shared palette — kept here so the whole set shifts together if we re-grade.
 const C = {
@@ -1468,8 +1469,15 @@ const WHEEL = S(`
 
 // ── Registry + lookup ───────────────────────────────────────────────────────
 
+// Tarot card keys (star/moon/sun/wheel…) overlap generic icon names, so the
+// arcana set is merged under an 'arcana_' prefix — uiIcon('arcana_moon') etc.
+const ARCANA_PREFIXED = Object.fromEntries(
+  Object.entries(TAROT_ARCANA_ICONS).map(([k, v]) => ['arcana_' + k, v])
+);
+
 export const UI_ICONS = {
   ...TEA_ICONS, // Hearth Path teas — uiIcon('chamomile_tea') etc.
+  ...ARCANA_PREFIXED, // The Fool's Journey — uiIcon('arcana_fool') … uiIcon('arcana_world')
   // emotes
   wave: WAVE, laugh: LAUGH, heart: HEART, wow: WOW,
   cry: CRY, angry: ANGRY, thumb: THUMB, dance: DANCE,
