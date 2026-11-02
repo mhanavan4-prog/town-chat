@@ -4488,6 +4488,14 @@ function homeFits(home, piece, x, y, rot, skipIdx) {
   for (const [cx, cy] of cells) if (occ.has(cx + ',' + cy)) return false;
   return true;
 }
+// ── Bring a tea (hosting gift) — a cup a visitor brews and leaves on your sill.
+// Stored on the host account (a.teaGifts); the host accepts it from home for the
+// buff + an almanac entry. Brewing ↔ visiting ↔ the welcome back home.
+function teaGiftsBody(player) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  const gifts = (a && Array.isArray(a.teaGifts)) ? a.teaGifts : [];
+  return gifts.map((g) => { const t = TEAS.find((x) => x.id === g.teaId); return { from: g.from, teaId: g.teaId, teaName: (t && t.name) || g.teaId, emoji: (t && t.emoji) || '🍵', at: g.at }; });
+}
 function homeStateBody(player) {
   const home = homeOf(player);
   if (!home) return null;
@@ -4496,6 +4504,7 @@ function homeStateBody(player) {
     pieces: home.pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
     catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, ms: f.ms || 0, plant: f.plant, cost: f.cost, tint: f.tint, bloom: f.bloom, berry: f.berry, hang: f.hang, owned: ownsFurniture(player, f.id) })),
     msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
+    teaGifts: teaGiftsBody(player),
   };
 }
 // A read-only layout for ANY account (used when visiting someone's cottage): the
@@ -14468,6 +14477,67 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
       const longer = [onDay ? 'on its day' : '', atHearth ? 'at your hearth' : ''].filter(Boolean).join(' and ');
       send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${longer ? ` — steeped ${longer}, it holds longer` : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
+      return;
+    }
+
+    // ── Bring a tea (hosting gift) — while visiting a cottage, brew a cup from
+    // your own herbs and leave it for the host. They accept it from home. ──
+    if (msg.type === 'leave_tea') {
+      if (!player.accountKey) { send(ws, { type: 'tea_error', message: 'Log into an account to leave a gift.' }); return; }
+      if (player.room !== 'cottage') { send(ws, { type: 'tea_error', message: 'You can only leave a tea inside a cottage you\'re visiting.' }); return; }
+      const inst = player.instance || '';
+      const hostKey = inst.indexOf('home_') === 0 ? inst.slice(5) : null;
+      if (!hostKey || hostKey === player.accountKey) { send(ws, { type: 'tea_error', message: 'Leave a tea in a cottage you\'re visiting, not your own.' }); return; }
+      const tea = TEAS.find((t) => t.id === String(msg.teaId || ''));
+      if (!tea) return;
+      // A gift still respects the brew gates (capstone collection, sabbat season).
+      if (tea.requires === 'allPlanets') {
+        const brewed = (accounts[player.accountKey] && Array.isArray(accounts[player.accountKey].teasBrewed)) ? accounts[player.accountKey].teasBrewed : [];
+        const days = new Set(); for (const t of TEAS) { if (t.day != null && brewed.indexOf(t.id) !== -1) days.add(t.day); }
+        if (!PLANETS.every((p) => days.has(p.day))) { send(ws, { type: 'tea_error', message: 'Steep a tea from each of the seven planetary days before the master brew.' }); return; }
+      }
+      if (tea.sabbat) { let sk = null; try { sk = seasonWindow(Date.now()).key; } catch (e) {} if (tea.sabbat !== sk) { send(ws, { type: 'tea_error', message: `${tea.name} can only be steeped at its sabbat.` }); return; } }
+      const inv = getInventory(player);
+      const herbName = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;
+      for (const ing of tea.herbs) { if (countItemQty(inv, ing.id) < ing.qty) { send(ws, { type: 'tea_error', message: `You need ${ing.qty}× ${herbName(ing.id)} to brew that.` }); return; } }
+      for (const ing of tea.herbs) removeItemFromAccount(inv, ing.id, ing.qty);
+      const host = accounts[hostKey] || (accounts[hostKey] = {});
+      if (!Array.isArray(host.teaGifts)) host.teaGifts = [];
+      host.teaGifts.push({ from: covenDisplayName(player.accountKey) || player.name, fromKey: player.accountKey, teaId: tea.id, at: Date.now() });
+      while (host.teaGifts.length > 8) host.teaGifts.shift(); // keep the sill from overflowing
+      saveAccounts(); if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'tea_state', ...teaStateBody(player) });
+      send(ws, { type: 'toast', message: `${tea.emoji} You leave a cup of ${tea.name} on ${covenDisplayName(hostKey) || 'their'}'s sill — a gift for when they're home.` });
+      const hp = playerByAccount(hostKey); // tell the host if they're online
+      if (hp) { try { send(hp.ws, { type: 'toast', message: `🍵 ${player.name} left you a cup of ${tea.name} in your cottage.` }); } catch (e) {} }
+      return;
+    }
+    // Accept a tea a visitor left for you — the buff of a friend's cup, and it
+    // enters your Teas Almanac. Claimed from your own cottage.
+    if (msg.type === 'claim_tea_gift') {
+      if (!player.accountKey) return;
+      const acct = accounts[player.accountKey];
+      if (!acct || !Array.isArray(acct.teaGifts) || !acct.teaGifts.length) { send(ws, { type: 'home_state', ...homeStateBody(player) }); return; }
+      const idx = Math.max(0, Math.min(acct.teaGifts.length - 1, Math.floor(Number(msg.index)) || 0));
+      const gift = acct.teaGifts[idx];
+      const tea = TEAS.find((t) => t.id === gift.teaId);
+      if (!tea) { acct.teaGifts.splice(idx, 1); saveAccounts(); send(ws, { type: 'home_state', ...homeStateBody(player) }); return; }
+      const onDay = (new Date().getUTCDay() === tea.day);
+      const atHearth = inOwnCottage(player);
+      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1) * (atHearth ? HEARTH_BREW_BONUS : 1));
+      acct.teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
+      if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
+      if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id); // a received cup fills its almanac page
+      acct.teaGifts.splice(idx, 1);
+      const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
+      saveAccounts();
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'tea_state', ...teaStateBody(player) });
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      send(ws, { type: 'toast', message: `${tea.emoji} You accept ${gift.from}'s cup of ${tea.name}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
+      const gp = gift.fromKey && playerByAccount(gift.fromKey); // thank the giver if they're on
+      if (gp) { try { send(gp.ws, { type: 'toast', message: `🍵 ${player.name} accepted your cup of ${tea.name}.` }); } catch (e) {} }
       return;
     }
 

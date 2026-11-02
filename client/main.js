@@ -2702,9 +2702,12 @@ function onWsMessage(ev) {
     const _sk = (calendarState && calendarState.season && calendarState.season.key) || null;
     const _dress = _sk && SABBAT_DRESSING[_sk];
     const _dressTail = _dress ? ` It's dressed for ${_dress.label} — ${_dress.note}.` : '';
+    // A cup left for you (owner only) — nudge toward 🏠 Home to accept it.
+    const _gifts = (!cottageVisiting && Array.isArray(msg.teaGifts)) ? msg.teaGifts.length : 0;
+    const _giftTail = _gifts ? ` 🍵 ${_gifts} cup${_gifts > 1 ? 's' : ''} wait for you — open 🏠 Home to accept.` : '';
     setUnlockToast(cottageVisiting
       ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage.${_dressTail} Press F at the door to head home.`
-      : `🏠 You step into your cottage.${_dressTail} Press F at the door to leave; open 🏠 Home to rearrange.`);
+      : `🏠 You step into your cottage.${_dressTail}${_giftTail} Press F at the door to leave; open 🏠 Home to rearrange.`);
     return;
   }
   if (msg.type === 'cottage_exited') {
@@ -10783,6 +10786,16 @@ function renderHomeModal() {
       + `<div class="homeHearthBtns"><button class="btn hhBrew">${hhIco('trail_remedy', '🍵')}Brew a tea</button><button class="btn hhTarot">${hhIco('m_tarot', '🔮')}Lay the tarot</button><button class="btn hhScry">${hhIco('m_mirror', '🪞')}Scrying bowl</button></div>`
       + `<div class="homeHint" style="opacity:.78;margin-top:4px">Your daily rituals, at home — and a tea steeped at your own hearth holds longer.</div></div>`;
   }
+  // Tea a visitor left for you — accept it for the buff (and an almanac entry).
+  if (st.teaGifts && st.teaGifts.length) {
+    h += `<div class="homeGifts"><div class="homeGiftsHead">🍵 Left on your sill</div>`;
+    st.teaGifts.forEach((gf, i) => {
+      h += `<div class="homeGiftRow"><span class="hgIco">${gf.emoji || '🍵'}</span>`
+        + `<span class="hgTxt"><b>${escHtml(gf.teaName)}</b> — from ${escHtml(gf.from)}</span>`
+        + `<button class="btn hgAccept" data-gift-idx="${i}">Accept</button></div>`;
+    });
+    h += `</div>`;
+  }
   const inHand = homeSelPalette ? byId[homeSelPalette] : null;
   if (inHand) h += `<div class="homeHint">Holding <b>${escHtml(inHand.name)}</b> — tap a spot to set it down. ↻ turns it first.</div>`;
   else if (homeSelPiece != null && pieces[homeSelPiece]) h += `<div class="homeHint">Selected <b>${escHtml((byId[pieces[homeSelPiece].id] || {}).name || 'piece')}</b> — tap a new spot to move it, or use the buttons below.</div>`;
@@ -10883,6 +10896,7 @@ function renderHomeModal() {
   { const b = el.querySelector('.hhBrew'); if (b) b.addEventListener('click', () => openKitchenModal()); }
   { const b = el.querySelector('.hhTarot'); if (b) b.addEventListener('click', () => openTarotModal()); }
   { const b = el.querySelector('.hhScry'); if (b) b.addEventListener('click', () => openScryModal()); }
+  el.querySelectorAll('.hgAccept').forEach((b) => b.addEventListener('click', () => send({ type: 'claim_tea_gift', index: +b.getAttribute('data-gift-idx') })));
   // Wire the visit rows.
   el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
   // Wire the palette (owned pieces).
@@ -11075,7 +11089,8 @@ function renderKitchenModal() {
     }
   }
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
-  if (st.atHearth) h += `<div class="gardenHint" style="color:#ffc48a">🔥 You're at your own hearth — this steep holds <b>×${st.hearthBonus || 1.25}</b> longer, and stacks with the day bonus.</div>`;
+  if (cottageVisiting && me && me.room === 'cottage') h += `<div class="gardenHint" style="color:#ffc48a">🍵 You're in ${escHtml(cottageHostName || 'their')}'s cottage — brew a cup to <b>leave as a gift</b>. They'll find it when they're home.</div>`;
+  else if (st.atHearth) h += `<div class="gardenHint" style="color:#ffc48a">🔥 You're at your own hearth — this steep holds <b>×${st.hearthBonus || 1.25}</b> longer, and stacks with the day bonus.</div>`;
   else if (st.hearthBonus) h += `<div class="gardenHint" style="opacity:.78">🏡 Brew at your own cottage hearth and the steep holds <b>×${st.hearthBonus}</b> longer.</div>`;
   for (const pl of planets) {
     const group = byDay[pl.day] || [];
@@ -11105,7 +11120,7 @@ function renderKitchenModal() {
     h += '</div>';
   }
   el.innerHTML = h;
-  el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
+  el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: b.getAttribute('data-gift') ? 'leave_tea' : 'brew_tea', teaId: b.getAttribute('data-tea') })); });
   wireKitchenTabs(el);
 }
 // One tea's brew card. Shows a "greater" badge for two-herb draughts, a "sabbat"
@@ -11122,7 +11137,11 @@ function teaBrewCard(tea, ingText, st) {
   if (tea.locked && tea.requires) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
   else if (tea.locked && tea.sabbat) h += `<div class="tri" style="opacity:.8">🔒 Returns at ${sabMeta ? escHtml(sabMeta.name) + ' ' + sabbatGlyph(tea.sabbat, sabMeta.glyph) : 'its sabbat'}.</div>`;
   else h += `<div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
-  h += `<button class="teaBrewBtn" data-tea="${tea.id}"${tea.canBrew ? '' : ' disabled'}>${tea.locked ? (tea.sabbat ? 'Out of season' : 'Locked') : (tea.canBrew ? 'Brew &amp; sip' : 'Need herbs')}</button></div>`;
+  // While visiting a cottage, brewing leaves the cup as a gift for the host.
+  const visiting = cottageVisiting && me && me.room === 'cottage';
+  const label = tea.locked ? (tea.sabbat ? 'Out of season' : 'Locked')
+    : (tea.canBrew ? (visiting ? '🍵 Leave a cup' : 'Brew &amp; sip') : 'Need herbs');
+  h += `<button class="teaBrewBtn" data-tea="${tea.id}"${visiting ? ' data-gift="1"' : ''}${tea.canBrew ? '' : ' disabled'}>${label}</button></div>`;
   return h;
 }
 function wireKitchenTabs(el) {
