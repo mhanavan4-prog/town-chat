@@ -924,6 +924,13 @@
   .teaRow .tri { font-size:11px; opacity:0.9; }
   .teaBrewBtn { margin-top:6px; background:#5a3a1e; color:#ffe9c2; border:1px solid #8a5a2e; padding:5px 14px; border-radius:7px; cursor:pointer; font-size:12px; }
   .teaBrewBtn:disabled { opacity:0.4; cursor:default; }
+  /* The Hearth Path — planetary-day headers over each tea family */
+  .teaPlanet { display:flex; align-items:center; gap:8px; margin:12px 0 2px; padding-bottom:4px; border-bottom:1px solid rgba(184,142,62,0.2); }
+  .teaPlanet .tpGlyph { font-size:16px; color:#d8b86a; width:20px; text-align:center; }
+  .teaPlanet .tpName { font-family:Georgia,'Times New Roman',serif; font-weight:800; font-size:13px; color:#f0e2c8; letter-spacing:.02em; }
+  .teaPlanet .tpDay { font-size:10.5px; color:#b9a37a; margin-left:auto; }
+  .teaPlanet.today .tpName { color:#ffe08a; }
+  .teaPlanet.today .tpDay { color:#ffe08a; }
   .floatPanelHandle {
     display:flex; align-items:center; justify-content:space-between;
     padding:10px 0 8px; font-size:16px; font-weight:700; color:#ffe9c2;

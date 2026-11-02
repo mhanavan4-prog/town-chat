@@ -10750,8 +10750,9 @@ function closeHomeModal() {
   Modals.set('homeOpen', false);
 }
 
-// ── Kitchen witchery (teas) ─────────────────────────────────────────────────
+// ── Kitchen witchery — The Hearth Path (teas by planetary day) ───────────────
 let lastTeaState = null;
+let kitchenView = 'brew'; // 'brew' | 'almanac'
 const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function renderKitchenModal() {
   const el = document.getElementById('kitchenContent');
@@ -10759,29 +10760,77 @@ function renderKitchenModal() {
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   const st = lastTeaState;
   if (!st || !st.teas) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Putting the kettle on…</div>'; send({ type: 'tea_state' }); return; }
-  let h = '';
+  const planets = st.planets || [];
+  const discovered = st.teas.filter((t) => t.discovered).length;
+  // Two-page panel: the teas you brew, and the Almanac of those you've steeped.
+  const tabs = `<div class="gardenTabs">`
+    + `<button class="gtab${kitchenView === 'brew' ? ' on' : ''}" data-kview="brew">🍵 Brew</button>`
+    + `<button class="gtab${kitchenView === 'almanac' ? ' on' : ''}" data-kview="almanac">📖 Almanac <span class="gtabCount">${discovered}/${st.teas.length}</span></button>`
+    + `</div>`;
+
+  // group teas under their planetary day
+  const byDay = {};
+  for (const tea of st.teas) { (byDay[tea.day] = byDay[tea.day] || []).push(tea); }
+  const ingText = (ing) => { const meta = ITEM_CATALOG[ing.id]; return `${meta ? meta.icon : '🌿'} ${ing.qty}× ${ing.name || (meta ? meta.name : ing.id)}`; };
+
+  let h = tabs;
+  if (kitchenView === 'almanac') {
+    h += `<div class="almIntro">A hearth-witch's record of every tea she has steeped. <b>${discovered} of ${st.teas.length}</b> brewed.`
+      + `<div class="almBar"><span style="width:${st.teas.length ? Math.round(discovered / st.teas.length * 100) : 0}%"></span></div></div>`;
+    for (const pl of planets) {
+      const group = byDay[pl.day] || [];
+      const found = group.filter((t) => t.discovered).length;
+      h += `<div class="almCat"><div class="almCatHead">${pl.glyph} ${escHtml(pl.planet)} <span class="almCatN">${found}/${group.length}</span></div>`
+        + `<div class="almCatLore">${escHtml(TEA_DAY_NAMES[pl.day])} · ${escHtml(pl.theme)}</div><div class="almGrid">`;
+      for (const tea of group) {
+        if (tea.discovered) {
+          h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+        } else {
+          h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Unbrewed</div><div class="almLore">Brew this tea once to record it.</div></div>`;
+        }
+      }
+      h += `</div></div>`;
+    }
+    el.innerHTML = h;
+    wireKitchenTabs(el);
+    return;
+  }
+
+  // Brew page
   if (st.active && st.active.until > Date.now()) {
     const t = (st.teas || []).find((x) => x.id === st.active.id);
     const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
     h += `<div class="teaActive">${t ? t.emoji : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
   }
-  h += `<div class="gardenHint">Brew a herb into a tea and sip it on the spot. On a tea's planetary day it steeps longer (×${st.dayBonus || 1.5}).</div>`;
-  h += '<div class="menuCols">';
-  for (const tea of st.teas) {
-    const onDay = st.today === tea.day;
-    const ings = (tea.herbs || []).map((ing) => { const meta = ITEM_CATALOG[ing.id]; const have = gardenHerbCount(ing.id); return { text: `${meta ? meta.icon : '🌿'} ${ing.qty}× ${meta ? meta.name : ing.id}`, ok: have >= ing.qty }; });
-    const canBrew = ings.every((i) => i.ok);
-    h += `<div class="teaRow"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${tea.name}</span>${onDay ? '<span class="trDay">✨ steeps longer today</span>' : `<span class="trDay" style="opacity:.55">${TEA_DAY_NAMES[tea.day]}</span>`}</div>`;
-    h += `<div class="trb">${tea.blurb}</div><div class="tri">${ings.map((i) => i.text).join(' + ')}</div>`;
-    h += `<button class="teaBrewBtn" data-tea="${tea.id}"${canBrew ? '' : ' disabled'}>Brew &amp; sip</button></div>`;
+  h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
+  for (const pl of planets) {
+    const group = byDay[pl.day] || [];
+    if (!group.length) continue;
+    const onDay = st.today === pl.day;
+    h += `<div class="teaPlanet${onDay ? ' today' : ''}"><span class="tpGlyph">${pl.glyph}</span><span class="tpName">${escHtml(pl.planet)}</span><span class="tpDay">${escHtml(TEA_DAY_NAMES[pl.day])}${onDay ? ' · ✨ today' : ''}</span></div>`;
+    h += '<div class="menuCols">';
+    for (const tea of group) {
+      const canBrew = tea.canBrew;
+      h += `<div class="teaRow"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span></div>`;
+      h += `<div class="trb">${escHtml(tea.blurb)}</div><div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
+      h += `<button class="teaBrewBtn" data-tea="${tea.id}"${canBrew ? '' : ' disabled'}>${canBrew ? 'Brew &amp; sip' : 'Need herbs'}</button></div>`;
+    }
+    h += '</div>';
   }
-  h += '</div>';
   el.innerHTML = h;
   el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
+  wireKitchenTabs(el);
+}
+function wireKitchenTabs(el) {
+  el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
+    const v = b.getAttribute('data-kview');
+    if (v && v !== kitchenView) { kitchenView = v; renderKitchenModal(); }
+  }));
 }
 function openKitchenModal() {
   const modal = document.getElementById('kitchenModal');
   if (!modal) return;
+  kitchenView = 'brew';
   renderKitchenModal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 130);
