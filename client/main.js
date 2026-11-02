@@ -2677,18 +2677,24 @@ function onWsMessage(ev) {
   // ── The cottage (player housing, slice 2) ────────────────────────────────
   if (msg.type === 'cottage_entered') {
     if (me) { me.room = 'cottage'; me.instance = 'home'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
+    cottageVisiting = !!msg.visiting;
+    cottageHostName = msg.host || null;
     swapToCottageMap();
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
-    if (Modals.isOpen('homeOpen')) closeHomeModal();
-    setUnlockToast('🏠 You step into your cottage. Press F at the door to leave; open 🏠 Home to rearrange.');
+    if (Modals.isOpen('homeOpen')) closeHomeModal(); // get out of the way — show the room
+    setUnlockToast(cottageVisiting
+      ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage. Press F at the door to head home.`
+      : '🏠 You step into your cottage. Press F at the door to leave; open 🏠 Home to rearrange.');
     return;
   }
   if (msg.type === 'cottage_exited') {
     if (me) { me.room = 'outside'; me.instance = ''; me.x = msg.x; me.y = msg.y; }
+    cottageVisiting = false; cottageHostName = null;
     swapToTownMap();
     setUnlockToast('You step back out into the town square.');
     return;
   }
+  if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
   if (msg.type === 'cottage_layout') {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
     return;
@@ -10528,6 +10534,9 @@ let homeSelPalette = null;   // a catalog piece id "in hand" for placement
 let homeSelPiece = null;     // index of a placed piece that's selected
 let homePendRot = 0;         // rotation to place / rotate the selection with
 let homePendBuy = null;      // a locked shop piece armed for a confirm-tap purchase
+let cottageVisiting = false; // true while standing in someone else's cottage
+let cottageHostName = null;  // whose cottage you're visiting (display name)
+let lastVisitList = null;    // covenmates you can visit [{idx,name,charId,online}]
 // The cells a piece covers when anchored (top-left) at (x,y) — mirrors the
 // server's footprintCells so we can draw a live ghost and the occupancy grid.
 function homeFootprint(piece, x, y, rot) {
@@ -10542,6 +10551,12 @@ function renderHomeModal() {
   const el = document.getElementById('homeContent');
   if (!el) return;
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  // While you're standing in someone else's cottage, the editor is a guest view —
+  // you can't rearrange their furniture. Show a banner and the way out instead.
+  if (cottageVisiting && me && me.room === 'cottage') {
+    el.innerHTML = `<div class="homeVisitBanner">👋 You're visiting <b>${escHtml(cottageHostName || 'a covenmate')}</b>'s cottage.<br>Look around — press <b>F</b> at the door to head home.</div>`;
+    return;
+  }
   const st = lastHomeState;
   if (!st || !st.grid) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Opening the cottage…</div>'; send({ type: 'home_state' }); return; }
   const { grid, pieces = [], catalog = [] } = st;
@@ -10620,10 +10635,28 @@ function renderHomeModal() {
     }
     h += '</div>';
   }
+
+  // Visit a covenmate's cottage — only from town (visiting starts from the
+  // square). The list arrives via cottage_visit_list, requested on open.
+  const inTown = !me || me.room !== 'cottage';
+  if (inTown && lastVisitList && lastVisitList.length) {
+    h += `<div class="homeShopHead">🚪 Visit a Covenmate</div>`;
+    h += '<div class="homeVisitList">';
+    for (const m of lastVisitList) {
+      h += `<button class="homeVisitRow" data-visit="${m.idx}">`
+        + `<span class="hvDot${m.online ? ' on' : ''}"></span>`
+        + `<span class="hvName">${escHtml(m.name)}</span>`
+        + `<span class="hvGo">Visit →</span>`
+        + `</button>`;
+    }
+    h += '</div>';
+  }
   el.innerHTML = h;
 
   // Wire the "step inside" button.
   { const eb = el.querySelector('.homeEnterBtn'); if (eb) eb.addEventListener('click', () => enterCottage()); }
+  // Wire the visit rows.
+  el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
   // Wire the palette (owned pieces).
   el.querySelectorAll('.homePiece[data-piece]').forEach((p) => p.addEventListener('click', () => {
     const id = p.getAttribute('data-piece');
@@ -10673,7 +10706,10 @@ function openHomeModal() {
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 130);
   Modals.set('homeOpen', true);
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'home_state' }));
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'home_state' }));
+    if (!me || me.room !== 'cottage') ws.send(JSON.stringify({ type: 'cottage_visit_list' })); // who can I visit?
+  }
 }
 function closeHomeModal() {
   const modal = document.getElementById('homeModal');
