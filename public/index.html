@@ -801,6 +801,22 @@
   #tarotDrawBtn { background:linear-gradient(180deg,#6a4a22,#4a3016); color:#ffe9c2; border:1px solid #8a5a2e; padding:11px 22px; border-radius:9px; cursor:pointer; font-size:14px; font-weight:800; }
   #tarotDrawBtn:disabled { opacity:0.5; cursor:default; }
   .tarotBack { font-size:52px; opacity:0.5; margin:10px 0; letter-spacing:8px; }
+  /* The Cottage Showcase (Trophy Wall) */
+  #showcaseModal { width:min(360px, 92vw); }
+  .scTitle { display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:14px; color:#ffe9c2; margin-bottom:10px; }
+  .scLvl { font-size:10.5px; font-weight:700; color:#d9b86a; background:rgba(230,190,120,0.14); padding:2px 8px; border-radius:10px; }
+  .scSec { margin-bottom:12px; }
+  .scHead { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#d9b86a; margin-bottom:6px; }
+  .scEmpty { font-size:11px; color:#a99; font-style:italic; }
+  .scAuras, .scPaths, .scTitles { display:flex; flex-wrap:wrap; gap:6px; }
+  .scAura { font-size:11px; font-weight:800; color:#fff; padding:3px 10px; border-radius:11px; background:color-mix(in srgb, var(--aura) 30%, rgba(20,15,26,0.6)); border:1px solid var(--aura); box-shadow:0 0 8px color-mix(in srgb, var(--aura) 45%, transparent); }
+  .scPath { font-size:11px; font-weight:700; color:#b9a37a; padding:3px 9px; border-radius:9px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); }
+  .scPath.done { color:#a8e0b8; background:rgba(120,190,140,0.14); border-color:rgba(120,190,140,0.45); }
+  .scCol { margin-bottom:8px; }
+  .scColTop { display:flex; align-items:center; justify-content:space-between; font-size:11.5px; color:#dcccb0; margin-bottom:3px; }
+  .scColN { font-weight:700; color:#8fbf8f; }
+  .scColN.done { color:#ffd76a; }
+  .scTitleChip { font-size:11px; font-weight:700; color:#e0bbff; padding:3px 9px; border-radius:9px; background:rgba(200,150,230,0.14); border:1px solid rgba(200,150,230,0.4); }
   /* The Arcanum (The Fool's Journey) collection page */
   .tArcDone { margin-top:8px; font-size:12px; color:#d8c6ff; font-weight:600; }
   .tArcPurse { font-size:10.5px; color:#caa85c; margin:4px 0 8px; letter-spacing:0.3px; }
@@ -3719,6 +3735,14 @@
   </div>
   <div id="tarotContent"></div>
   <button class="btn" id="tarotCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="showcaseModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🏆 Trophy Wall</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="showcaseContent"></div>
+  <button class="btn" id="showcaseCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="gardenModal" class="floatPanel hidden">

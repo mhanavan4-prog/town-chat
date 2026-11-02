@@ -2715,6 +2715,11 @@ function onWsMessage(ev) {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
     return;
   }
+  if (msg.type === 'cottage_showcase') {
+    _lastShowcase = msg;
+    if (Modals.isOpen('showcaseOpen')) renderShowcaseModal();
+    return;
+  }
   if (msg.type === 'manor_state') {
     applyManorState(msg);
     return;
@@ -3605,6 +3610,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('guiseModal'),      document.querySelector('#guiseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('homeModal'),       document.querySelector('#homeModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
@@ -6838,6 +6844,7 @@ function hydrateMenuRows() {
   on('scryCloseBtn', closeScryModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
+  on('showcaseCloseBtn', closeShowcaseModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
   on('gardenCloseBtn', closeGardenModal);
   on('menuHome', closeSheetAnd(() => { if (!Modals.isOpen('homeOpen')) openHomeModal(); }));
@@ -10476,6 +10483,59 @@ function closeTarotModal() {
   Modals.set('tarotOpen', false);
 }
 
+// ── The Cottage Showcase (Trophy Wall) — the host's gathered trophies, read-only.
+let _lastShowcase = null;
+function renderShowcaseModal() {
+  const el = document.getElementById('showcaseContent');
+  if (!el) return;
+  const s = _lastShowcase;
+  if (!s) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">Reading the trophy wall…</div>'; return; }
+  if (!s.ok) { el.innerHTML = `<div style="font-size:12px;opacity:.85;">${esc(s.message || 'No trophies to show here.')}</div>`; return; }
+  const hx = (n) => '#' + (n != null ? (n >>> 0).toString(16).padStart(6, '0').slice(-6) : 'ffffff');
+  let h = '';
+  h += `<div class="scTitle">${s.isSelf ? 'Your trophies' : esc(s.host) + '’s trophies'}<span class="scLvl">Lv ${s.level}</span></div>`;
+  // Earned auras — the badges you can't buy.
+  h += `<div class="scSec"><div class="scHead">Auras earned</div>`;
+  if (s.auras && s.auras.length) {
+    h += '<div class="scAuras">';
+    for (const a of s.auras) h += `<span class="scAura" style="--aura:${hx(a.hex)}">${esc(a.label)}</span>`;
+    h += '</div>';
+  } else h += `<div class="scEmpty">None yet — earned by finishing a questline or a whole collection.</div>`;
+  h += `</div>`;
+  // Questlines.
+  h += `<div class="scSec"><div class="scHead">Questlines</div><div class="scPaths">`;
+  for (const p of (s.paths || [])) h += `<span class="scPath${p.done ? ' done' : ''}">${p.icon} ${esc(p.label)} ${p.done ? '✓' : '…'}</span>`;
+  h += `</div></div>`;
+  // Collections — progress bars.
+  h += `<div class="scSec"><div class="scHead">Collections</div>`;
+  for (const c of (s.collections || [])) {
+    const pct = c.total ? Math.round((c.count / c.total) * 100) : 0;
+    h += `<div class="scCol"><div class="scColTop"><span>${c.icon} ${esc(c.label)}</span><span class="scColN${c.done ? ' done' : ''}">${c.count}/${c.total}${c.done ? ' ✓' : ''}</span></div><div class="almBar"><span style="width:${pct}%"></span></div></div>`;
+  }
+  h += `</div>`;
+  // Titles held.
+  if (s.titles && s.titles.length) {
+    h += `<div class="scSec"><div class="scHead">Titles</div><div class="scTitles">`;
+    for (const t of s.titles) h += `<span class="scTitleChip">${t.glyph ? esc(t.glyph) + ' ' : ''}${esc(t.name)}</span>`;
+    h += `</div></div>`;
+  }
+  el.innerHTML = h;
+}
+function openShowcaseModal() {
+  const modal = document.getElementById('showcaseModal');
+  if (!modal) return;
+  renderShowcaseModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 140);
+  Modals.set('showcaseOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'cottage_showcase' }));
+}
+function closeShowcaseModal() {
+  const modal = document.getElementById('showcaseModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('showcaseOpen', false);
+}
+
 // ── Green-witch garden ──────────────────────────────────────────────────────
 let lastGardenState = null;
 let gardenView = 'beds'; // 'beds' | 'almanac' — the garden modal's two pages
@@ -10682,7 +10742,9 @@ function renderHomeModal() {
   // While you're standing in someone else's cottage, the editor is a guest view —
   // you can't rearrange their furniture. Show a banner and the way out instead.
   if (cottageVisiting && me && me.room === 'cottage') {
-    el.innerHTML = `<div class="homeVisitBanner">👋 You're visiting <b>${escHtml(cottageHostName || 'a covenmate')}</b>'s cottage.<br>Look around — press <b>F</b> at the door to head home.</div>`;
+    el.innerHTML = `<div class="homeVisitBanner">👋 You're visiting <b>${escHtml(cottageHostName || 'a covenmate')}</b>'s cottage.<br>Look around — press <b>F</b> at the door to head home.</div>`
+      + `<button class="btn homeShowcaseBtn" style="margin-top:10px;">🏆 See their Trophy Wall</button>`;
+    const sb = el.querySelector('.homeShowcaseBtn'); if (sb) sb.addEventListener('click', () => openShowcaseModal());
     return;
   }
   const st = lastHomeState;
@@ -10706,6 +10768,7 @@ function renderHomeModal() {
 
   let h = '';
   h += `<button class="btn homeEnterBtn" data-act="enter">🚪 Step Inside Your Cottage</button>`;
+  h += `<button class="btn homeShowcaseBtn" style="margin-top:6px;">🏆 Trophy Wall — what you've gathered</button>`;
   const inHand = homeSelPalette ? byId[homeSelPalette] : null;
   if (inHand) h += `<div class="homeHint">Holding <b>${escHtml(inHand.name)}</b> — tap a spot to set it down. ↻ turns it first.</div>`;
   else if (homeSelPiece != null && pieces[homeSelPiece]) h += `<div class="homeHint">Selected <b>${escHtml((byId[pieces[homeSelPiece].id] || {}).name || 'piece')}</b> — tap a new spot to move it, or use the buttons below.</div>`;
@@ -10783,6 +10846,7 @@ function renderHomeModal() {
 
   // Wire the "step inside" button.
   { const eb = el.querySelector('.homeEnterBtn'); if (eb) eb.addEventListener('click', () => enterCottage()); }
+  { const sb = el.querySelector('.homeShowcaseBtn'); if (sb) sb.addEventListener('click', () => openShowcaseModal()); }
   // Wire the visit rows.
   el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
   // Wire the palette (owned pieces).
@@ -16693,6 +16757,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
     closeTarotModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('showcaseOpen') && e.key === 'Escape' && !e.repeat) {
+    closeShowcaseModal();
     if (window.__fromMenu) backToMenu();
     return;
   }
