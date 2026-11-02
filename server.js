@@ -4727,7 +4727,7 @@ function tarotSpreadView(stored) {
   const spreadCards = stored.map((s) => ({ card: byKey(s.key), reversed: !!s.rev }));
   const spread = spreadCards.map((s, i) => ({
     pos: (TAROT_POSITIONS[i] || {}).label || '', hint: (TAROT_POSITIONS[i] || {}).hint || '',
-    name: s.card.name, num: s.card.num, emoji: s.card.emoji, reversed: s.reversed,
+    key: s.card.key, name: s.card.name, num: s.card.num, emoji: s.card.emoji, reversed: s.reversed,
     meaning: s.reversed ? s.card.reversed : s.card.reading,
   }));
   return { spread, synthesis: tarotSynthesis(spreadCards) };

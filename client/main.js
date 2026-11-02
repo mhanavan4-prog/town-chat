@@ -10374,6 +10374,9 @@ function closePathModal() {
 let _lastTarotResult = null; // today's spread once drawn this session
 let _lastArcana = null;      // The Arcanum (The Fool's Journey) collection
 let tarotView = 'reading';   // 'reading' | 'arcanum' — the tarot modal's two pages
+// Each arcana's hand-drawn card icon (uiIcon('arcana_<key>')), falling back to
+// its emoji if the key is missing.
+function arcanaGlyph(key, emoji) { return (key && uiIcon('arcana_' + key)) || emoji || '🔮'; }
 function renderTarotModal(result) {
   const el = document.getElementById('tarotContent');
   if (!el) return;
@@ -10403,7 +10406,7 @@ function renderTarotModal(result) {
   h += '<div class="tspread">';
   for (const s of result.spread) {
     h += `<div class="tseat"><div class="tpos">${esc(s.pos)}</div>`;
-    h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner"><div class="tcNum">${esc(s.num)}</div><div class="tcGlyph">${s.emoji}</div><div class="tcName">${esc(s.name)}</div></div>`;
+    h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner"><div class="tcNum">${esc(s.num)}</div><div class="tcGlyph">${arcanaGlyph(s.key, s.emoji)}</div><div class="tcName">${esc(s.name)}</div></div>`;
     if (s.reversed) h += '<div class="tcRev">⟲ reversed</div>';
     h += `</div><div class="tMeaning">${esc(s.meaning)}</div></div>`;
   }
@@ -10436,7 +10439,7 @@ function renderArcanumInto(el, tabs, arc) {
       + `<div class="almGrid">`;
     for (const c of leg.cards) {
       if (c.discovered) {
-        h += `<div class="almCell"><div class="almIcon">${c.emoji || '🔮'}</div>`
+        h += `<div class="almCell"><div class="almIcon">${arcanaGlyph(c.key, c.emoji)}</div>`
           + `<div class="almName"><span class="tArcNum">${esc(c.num)}</span> ${esc(c.name)}</div>`
           + `<div class="almLore">${esc(c.reading)}</div></div>`;
       } else {
