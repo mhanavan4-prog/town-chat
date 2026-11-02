@@ -4312,6 +4312,9 @@ function gardenStateBody(player) {
 // kettle a little faster. Account-wide in a.homeGarden.
 const COTTAGE_GARDEN_PLOTS = 3;
 const HOME_GARDEN_YIELD_BONUS = 1;
+// Brewing at your own hearth steeps longer — the housing ↔ brewing half of the
+// loop (grow at home, brew at home). Stacks with the planetary-day bonus.
+const HEARTH_BREW_BONUS = 1.25;
 function inOwnCottage(player) {
   return !!(player && player.accountKey && player.room === 'cottage' && (player.instance || '') === 'home_' + player.accountKey);
 }
@@ -4643,7 +4646,7 @@ function teaStateBody(player) {
     };
   });
   const sabbats = {}; for (const s of SABBATS) sabbats[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet };
-  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, hearthBonus: HEARTH_BREW_BONUS, atHearth: inOwnCottage(player), now: Date.now() };
 }
 
 // ── The Hearth Path — a brewing questline (parallel to the Green Path). Chapters
@@ -14450,7 +14453,8 @@ wss.on('connection', (ws, req) => {
       }
       for (const ing of tea.herbs) removeItemFromAccount(inv, ing.id, ing.qty);
       const onDay = (new Date().getUTCDay() === tea.day);
-      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1));
+      const atHearth = inOwnCottage(player); // brewing in your own cottage holds longer
+      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1) * (atHearth ? HEARTH_BREW_BONUS : 1));
       const acct = accounts[player.accountKey] || (accounts[player.accountKey] = {});
       acct.teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
       // Record it in the Teas Almanac (first brew reveals its page).
@@ -14462,7 +14466,8 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
-      send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${onDay ? ' — steeped on its day, it holds longer' : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
+      const longer = [onDay ? 'on its day' : '', atHearth ? 'at your hearth' : ''].filter(Boolean).join(' and ');
+      send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${longer ? ` — steeped ${longer}, it holds longer` : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
       return;
     }
 
@@ -15703,6 +15708,7 @@ global.__testHooks = {
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
   homeGardenOf, homeGardenStateBody, inOwnCottage, COTTAGE_GARDEN_PLOTS, HOME_GARDEN_YIELD_BONUS, // Cottage Garden (housing ↔ gardening)
+  HEARTH_BREW_BONUS, // the home hearth brewing bonus
   homeStateBody, homePlace, homeMove, homeRemove, homeOf, ownsFurniture, homeLayoutForKey, HOME_GRID, FURNITURE, COTTAGE_SPAWN, COTTAGE_INTERIOR,
   cottageShowcase, // the Cottage Showcase / Trophy Wall
   STORYLINES, QUEST_CATALOG, SPELL_CATALOG, ATTACK_CATALOGS, VULNERABLE_STATUSES,
