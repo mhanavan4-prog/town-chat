@@ -3012,7 +3012,7 @@ const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot')
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
-const { TEAS, TEA_DAY_BONUS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas)
+const { TEAS, TEA_DAY_BONUS, PLANETS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
@@ -4544,8 +4544,25 @@ function teaStateBody(player) {
   const key = player && player.accountKey;
   const t = key && accounts[key] && accounts[key].teaBuff;
   const active = (t && t.until && t.until > Date.now()) ? { id: t.id, stat: t.stat, amount: t.amount, until: t.until } : null;
-  const teas = TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, herbs: x.herbs, day: x.day }));
-  return { active, teas, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+  const inv = key ? getInventory(player) : null;
+  const brewed = (key && accounts[key] && Array.isArray(accounts[key].teasBrewed)) ? accounts[key].teasBrewed : [];
+  // Resolve each ingredient to a display name + how many you hold, so the client
+  // can show what you can brew now and what you still need to grow or forage.
+  const herbInfo = (ing) => {
+    const nm = (ITEM_CATALOG[ing.id] && ITEM_CATALOG[ing.id].name) || (PLANT_CATALOG[ing.id] && PLANT_CATALOG[ing.id].name) || ing.id;
+    const have = inv ? countItemQty(inv, ing.id) : 0;
+    return { id: ing.id, qty: ing.qty, name: nm, have };
+  };
+  const teas = TEAS.map((x) => {
+    const herbs = x.herbs.map(herbInfo);
+    return {
+      id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day,
+      stat: x.stat, amount: x.amount, herbs,
+      canBrew: herbs.every((h) => h.have >= h.qty),
+      discovered: brewed.indexOf(x.id) !== -1,
+    };
+  });
+  return { active, teas, planets: PLANETS, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14143,7 +14160,7 @@ wss.on('connection', (ws, req) => {
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
     if (msg.type === 'tea_state') {
-      if (!player.accountKey) { send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, herbs: x.herbs, day: x.day })), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
+      if (!player.accountKey) { send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day, stat: x.stat, amount: x.amount, herbs: x.herbs.map((hh) => ({ id: hh.id, qty: hh.qty, name: (ITEM_CATALOG[hh.id] && ITEM_CATALOG[hh.id].name) || (PLANT_CATALOG[hh.id] && PLANT_CATALOG[hh.id].name) || hh.id, have: 0 })), canBrew: false, discovered: false })), planets: PLANETS, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
       return;
     }
@@ -14159,7 +14176,11 @@ wss.on('connection', (ws, req) => {
       for (const ing of tea.herbs) removeItemFromAccount(inv, ing.id, ing.qty);
       const onDay = (new Date().getUTCDay() === tea.day);
       const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1));
-      accounts[player.accountKey].teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
+      const acct = accounts[player.accountKey] || (accounts[player.accountKey] = {});
+      acct.teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
+      // Record it in the Teas Almanac (first brew reveals its page).
+      if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
+      if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id);
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
@@ -15401,7 +15422,7 @@ global.__testHooks = {
   // Town Pass internals (tests grant passes directly — no Stripe in CI)
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
-  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites,
+  msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
   listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
