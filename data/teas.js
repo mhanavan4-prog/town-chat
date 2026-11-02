@@ -76,4 +76,59 @@ const TEAS = [
   { id: 'yule_tea',        name: 'Yule Hearth Tea',    emoji: '❄️', herbs: [{ id: 'chamomile', qty: 1 }, { id: 'comfrey', qty: 1 }], stat: 'vitality', amount: 25, hours: 3, day: null, sabbat: 'yule', lore: 'Yule — the longest night; the hearth held against the dark, the sun reborn.',  blurb: '+25 max health · the hearth against the longest night.' },
 ];
 
-module.exports = { TEAS, TEA_DAY_BONUS, PLANETS };
+// ── The Hearth Path — a brewing questline (parallel to the garden's Green Path).
+// Seven chapters that walk a new kitchen witch from her first steeping to the
+// master brew, voiced by Old Mabel, the town's hearth-witch. Chapters auto-
+// advance as you brew; each grants herbs (so the garden keeps feeding the
+// kettle) and the finale earns the Hearthfire aura. Objective types:
+//   brew            — steep any tea
+//   brew_greater    — steep a greater (two-herb) draught
+//   brew_sabbat     — steep a sabbat tea (in its season)
+//   brew_capstone   — steep The Witches' Brew
+//   planets         — have brewed a tea under this many distinct planetary days
+const HEARTH_PATH = [
+  {
+    id: 'hp1', title: 'The Kettle’s First Song', band: 'hearth', requiresLevel: 1,
+    objective: { type: 'brew', target: 1, label: 'Steep and sip any tea' },
+    outro: 'Steam curls up, and from her stool by the fire Old Mabel cracks one eye. "Hah — the kettle sings for you. Good. Here, child, for the next." She tips a twist of chamomile into your hand.',
+    xpReward: 30, goldReward: 15, itemRewards: [{ itemId: 'chamomile', qty: 3 }]
+  },
+  {
+    id: 'hp2', title: 'Steeped with Intention', band: 'hearth', requiresLevel: 3,
+    objective: { type: 'brew', target: 3, label: 'Brew three teas' },
+    outro: '"Three brews, and already your hands know the way of it," says Mabel. "A tea is a spell you can drink, remember that." She presses calendula and lavender on you — "the sun’s flower and the dreaming herb."',
+    xpReward: 60, goldReward: 30, itemRewards: [{ itemId: 'calendula', qty: 3 }, { itemId: 'lavender', qty: 3 }]
+  },
+  {
+    id: 'hp3', title: 'Under Three Planets', band: 'hearth', requiresLevel: 6,
+    objective: { type: 'planets', target: 3, label: 'Brew teas ruled by three different planets' },
+    outro: '"Each day has its planet, and each planet its working — you’re feeling it now," Mabel nods. "Mars for the edge, Mercury for the quick road." She gives you yarrow and vervain to carry them.',
+    xpReward: 100, goldReward: 50, itemRewards: [{ itemId: 'yarrow', qty: 3 }, { itemId: 'vervain', qty: 3 }]
+  },
+  {
+    id: 'hp4', title: 'A Greater Draught', band: 'hedge', requiresLevel: 9,
+    objective: { type: 'brew_greater', target: 1, label: 'Brew a greater, two-herb draught' },
+    outro: '"Two herbs in one pot — now you’re brewing proper," says Mabel, pleased. "Wormwood for the bitter will, comfrey to knit what’s torn. Strong things, the both of them."',
+    xpReward: 150, goldReward: 75, itemRewards: [{ itemId: 'wormwood', qty: 3 }, { itemId: 'comfrey', qty: 3 }]
+  },
+  {
+    id: 'hp5', title: 'The Turning of the Year', band: 'hedge', requiresLevel: 12,
+    objective: { type: 'brew_sabbat', target: 1, label: 'Brew a sabbat tea, in its season' },
+    outro: '"You caught the sabbat on the wing — that’s the hearth-witch’s whole art, brewing with the turning wheel," Mabel says softly. "Rowan to bless it, rue to ward it. The old protection."',
+    xpReward: 200, goldReward: 100, itemRewards: [{ itemId: 'rowan_berry', qty: 3 }, { itemId: 'rue', qty: 3 }]
+  },
+  {
+    id: 'hp6', title: 'The Whole Week', band: 'hedge', requiresLevel: 15,
+    objective: { type: 'planets', target: 7, label: 'Brew a tea under all seven planets' },
+    outro: '"All seven, Sun to Saturn — you’ve walked the whole week now," says Mabel, and there’s respect in it. "One thing left. The brew that is all of them at once." She gives you St. John’s Wort and the dreaming lotus for it.',
+    xpReward: 280, goldReward: 140, itemRewards: [{ itemId: 'st_johns_wort', qty: 3 }, { itemId: 'meditation_lotus', qty: 3 }]
+  },
+  {
+    id: 'hp7', title: "The Witches' Brew", band: 'master', requiresLevel: 18,
+    objective: { type: 'brew_capstone', target: 1, label: 'Steep The Witches’ Brew — the master draught' },
+    outro: '"There," breathes Old Mabel as the master brew settles. "Dream and courage and ward, all in the one cup. There’s nothing left I can teach you, child — the hearth is yours now, and the whole turning year with it. A kitchen witch true." She sets the Hearthfire upon you.',
+    xpReward: 500, goldReward: 250, itemRewards: []
+  }
+];
+
+module.exports = { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH };

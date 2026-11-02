@@ -3012,7 +3012,7 @@ const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot')
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
-const { TEAS, TEA_DAY_BONUS, PLANETS } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
+const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
@@ -4574,7 +4574,88 @@ function teaStateBody(player) {
     };
   });
   const sabbats = {}; for (const s of SABBATS) sabbats[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet };
-  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, now: Date.now() };
+}
+
+// ── The Hearth Path — a brewing questline (parallel to the Green Path). Chapters
+// auto-advance as you brew; the kitchen's brew_tea handler emits hearthPathEvent
+// with the tea it steeped, which ticks the active chapter's objective and, on
+// completion, pays out and moves on. Account-wide in prog.hearthPath.
+function hearthPathOf(player) {
+  const prog = getProgress(player);
+  if (!prog.hearthPath) prog.hearthPath = { chapter: 0, progress: 0 };
+  return prog.hearthPath;
+}
+// Distinct planetary days this account has brewed a tea under (for the 'planets'
+// objective + the capstone gate) — read from the Almanac discovery list.
+function hearthDistinctPlanets(player) {
+  const key = player && player.accountKey;
+  const brewed = (key && accounts[key] && Array.isArray(accounts[key].teasBrewed)) ? accounts[key].teasBrewed : [];
+  const days = new Set(); for (const t of TEAS) { if (t.day != null && brewed.indexOf(t.id) !== -1) days.add(t.day); }
+  return days.size;
+}
+function hearthPathStateBody(player) {
+  if (!player || !player.accountKey) return null;
+  const hp = hearthPathOf(player);
+  const total = HEARTH_PATH.length;
+  if (hp.chapter >= total) return { done: true, chapter: total, total };
+  const ch = HEARTH_PATH[hp.chapter];
+  const level = getProgress(player).level || 1;
+  // 'planets' objectives report live distinct-day progress, not a stored tick.
+  const progress = (ch.objective.type === 'planets') ? hearthDistinctPlanets(player) : (hp.progress || 0);
+  return {
+    done: false, chapter: hp.chapter, total, title: ch.title, band: ch.band,
+    label: ch.objective.label, progress, target: ch.objective.target,
+    requiresLevel: ch.requiresLevel || 1, levelOk: level >= (ch.requiresLevel || 1)
+  };
+}
+// Advance the active chapter if the just-brewed `tea` satisfies its objective and
+// the level gate is met. On completion: grant XP/gold/herbs, advance, toast the
+// outro; the finale earns the Hearthfire aura.
+function hearthPathEvent(player, tea) {
+  if (!player || !player.accountKey || !tea) return;
+  const hp = hearthPathOf(player);
+  if (hp.chapter >= HEARTH_PATH.length) return;
+  const ch = HEARTH_PATH[hp.chapter];
+  if (!ch) return;
+  if ((getProgress(player).level || 1) < (ch.requiresLevel || 1)) return;
+  const obj = ch.objective;
+  let done = false;
+  if (obj.type === 'brew') { hp.progress = (hp.progress || 0) + 1; done = hp.progress >= obj.target; }
+  else if (obj.type === 'brew_greater') { if (!tea.greater) return; hp.progress = (hp.progress || 0) + 1; done = hp.progress >= obj.target; }
+  else if (obj.type === 'brew_sabbat') { if (!tea.sabbat) return; hp.progress = (hp.progress || 0) + 1; done = hp.progress >= obj.target; }
+  else if (obj.type === 'brew_capstone') { if (tea.requires !== 'allPlanets') return; hp.progress = (hp.progress || 0) + 1; done = hp.progress >= obj.target; }
+  else if (obj.type === 'planets') { hp.progress = hearthDistinctPlanets(player); done = hp.progress >= obj.target; }
+  else return;
+  if (!done) { try { saveProgress(); } catch (e) {} return; }
+  // Chapter complete — advance and pay out.
+  hp.chapter += 1; hp.progress = 0;
+  if (ch.xpReward) grantXP(player, ch.xpReward);
+  if (ch.goldReward) { try { const a = ensureBankAccount(player.accountKey); a.balance += ch.goldReward; saveBankAccounts(); } catch (e) {} }
+  const inv = getInventory(player);
+  const got = [];
+  for (const r of (ch.itemRewards || [])) {
+    if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
+      const m = ITEM_CATALOG[r.itemId] || PLANT_CATALOG[r.itemId];
+      got.push(`${m ? m.icon : ''} ${m ? m.name : r.itemId}${(r.qty || 1) > 1 ? ' ×' + (r.qty || 1) : ''}`);
+      noteAlmanacDiscovery(player, r.itemId);
+    }
+  }
+  try { saveInventories(); saveProgress(); } catch (e) {}
+  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
+  try { send(player.ws, { type: 'toast', message: `🍵 Hearth Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
+
+  // ── Finale: finishing the whole path earns the Hearthfire aura ──
+  if (hp.chapter >= HEARTH_PATH.length) {
+    const prog = getProgress(player);
+    if (!prog.auraUnlocks) prog.auraUnlocks = [];
+    if (prog.auraUnlocks.indexOf('hearthfire') === -1) {
+      prog.auraUnlocks.push('hearthfire');
+      try { saveProgress(); } catch (e) {}
+      try { send(player.ws, { type: 'aura_set', auraId: (accounts[player.accountKey] && accounts[player.accountKey].auraId) || 'none', owned: prog.auraUnlocks }); } catch (e) {}
+    }
+    try { send(player.ws, { type: 'toast', message: '🍵✨ The Hearth Path is complete. Old Mabel names you a kitchen witch true — you gain the Hearthfire aura.' }); } catch (e) {}
+  }
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14205,6 +14286,7 @@ wss.on('connection', (ws, req) => {
       // Record it in the Teas Almanac (first brew reveals its page).
       if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
       if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id);
+      hearthPathEvent(player, tea); // may advance the questline + grant a chapter reward
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });

@@ -6,7 +6,7 @@
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-teas-');
 
-const { TEAS, TEA_DAY_BONUS, PLANETS } = require('../data/teas.js');
+const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('../data/teas.js');
 const { GREEN_PATH_CATEGORIES } = require('../data/greenPath.js');
 
 let pass = 0, fail = 0;
@@ -51,6 +51,7 @@ setTimeout(() => {
 
   const g = join('Brewer');
   g.p.accountKey = 'brewer';
+  h.getProgress(g.p).hearthPath = { chapter: HEARTH_PATH.length, progress: 0 }; // path done — no questline rewards skew the brew-mechanics checks below
 
   // The state ships planets + per-tea brewable/discovered + resolved herb names.
   const body = h.teaStateBody(g.p);
@@ -131,6 +132,53 @@ setTimeout(() => {
   sb.s.sent.length = 0;
   sb.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: onTea.id }));
   check('the live sabbat’s brew steeps + records', h.teaStateBody(sb.p).teas.find((t) => t.id === onTea.id).discovered === true);
+
+  // ── The Hearth Path questline (slice 4) ────────────────────────────────────
+  check('the Hearth Path has chapters with valid objectives', HEARTH_PATH.length >= 6 && HEARTH_PATH.every((c) => c.title && c.objective && ['brew', 'brew_greater', 'brew_sabbat', 'brew_capstone', 'planets'].includes(c.objective.type)));
+  const pw = join('Pathwalker'); pw.p.accountKey = 'pathwalker';
+  h.getProgress(pw.p).level = 20; // clear every chapter's level gate for the test
+  const hp0 = h.teaStateBody(pw.p).hearthPath;
+  check('a fresh account starts at chapter 1', hp0 && hp0.chapter === 0 && hp0.title === HEARTH_PATH[0].title);
+
+  // Chapter 1: brew any tea → advances.
+  h.grantLoot([{ kind: 'item', itemId: 'healing_herb', qty: 1 }], pw.p);
+  pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: 'hearthmoon_tea' }));
+  check('brewing advances the first chapter', h.teaStateBody(pw.p).hearthPath.chapter === 1);
+
+  // The 'planets' objective reports distinct-day progress (not a flat tick).
+  h.getProgress(pw.p).hearthPath = { chapter: HEARTH_PATH.findIndex((c) => c.objective.type === 'planets' && c.objective.target === 3), progress: 0 };
+  // brew teas under three different planets
+  for (const id of ['chamomile_tea', 'lavender_tea', 'yarrow_tea']) { const t = TEAS.find((x) => x.id === id); for (const ing of t.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], pw.p); pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: id })); }
+  check('the planets objective clears on three distinct days', h.teaStateBody(pw.p).hearthPath.chapter > HEARTH_PATH.findIndex((c) => c.objective.type === 'planets' && c.objective.target === 3));
+
+  // A 'brew_greater' chapter only advances on a greater draught.
+  h.getProgress(pw.p).hearthPath = { chapter: HEARTH_PATH.findIndex((c) => c.objective.type === 'brew_greater'), progress: 0 };
+  const gi = HEARTH_PATH.findIndex((c) => c.objective.type === 'brew_greater');
+  h.grantLoot([{ kind: 'item', itemId: 'healing_herb', qty: 1 }], pw.p);
+  pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: 'hearthmoon_tea' })); // a plain tea
+  check('a plain brew does not advance a greater-draught chapter', h.teaStateBody(pw.p).hearthPath.chapter === gi);
+  const greater = TEAS.find((t) => t.greater);
+  for (const ing of greater.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], pw.p);
+  pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: greater.id }));
+  check('a greater draught advances the greater chapter', h.teaStateBody(pw.p).hearthPath.chapter === gi + 1);
+
+  // The finale: brewing the capstone completes the path + earns the Hearthfire aura.
+  const capI = HEARTH_PATH.findIndex((c) => c.objective.type === 'brew_capstone');
+  const cap2 = TEAS.find((t) => t.requires === 'allPlanets');
+  for (const t of PLANETS.map((pl) => TEAS.find((x) => x.day === pl.day && !x.requires))) { for (const ing of t.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], pw.p); pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: t.id })); }
+  h.getProgress(pw.p).hearthPath = { chapter: capI, progress: 0 };
+  for (const ing of cap2.herbs) h.grantLoot([{ kind: 'item', itemId: ing.id, qty: ing.qty }], pw.p);
+  pw.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: cap2.id }));
+  check('brewing the capstone completes the Hearth Path', h.teaStateBody(pw.p).hearthPath.done === true);
+  check('completing the path earns the Hearthfire aura', (h.getProgress(pw.p).auraUnlocks || []).includes('hearthfire'));
+
+  // Level gate: a below-level account can't advance a gated chapter.
+  const rook = join('Rookie'); rook.p.accountKey = 'rookie'; h.getProgress(rook.p).level = 1;
+  h.getProgress(rook.p).hearthPath = { chapter: HEARTH_PATH.findIndex((c) => (c.requiresLevel || 1) > 1), progress: 0 };
+  const gatedI = HEARTH_PATH.findIndex((c) => (c.requiresLevel || 1) > 1);
+  h.grantLoot([{ kind: 'item', itemId: 'healing_herb', qty: 1 }], rook.p);
+  rook.s.emit('message', JSON.stringify({ type: 'brew_tea', teaId: 'hearthmoon_tea' }));
+  check('a below-level account cannot advance a gated chapter', h.teaStateBody(rook.p).hearthPath.chapter === gatedI);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
