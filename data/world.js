@@ -83,7 +83,7 @@ WORLD.natureDecor = [
   { id: 'decor_46', type: 'lamppost', x: 1720, y: 540 },
   { id: 'decor_48', type: 'lamppost', x: 1566, y: 1597 },
   { id: 'decor_51', type: 'well', x: 1120, y: 800 },
-  { id: 'decor_52', type: 'stall', x: 2210, y: 700, rot: 1.5708, variant: 0 },
+  { id: 'decor_52', type: 'stall', x: 2275, y: 765, rot: 1.5708, variant: 0 }, // nudged off the library road hex
   { id: 'decor_53', type: 'stall', x: 2300, y: 1285, rot: 1.5708, variant: 1 },
   { id: 'decor_54', type: 'bench', x: 950, y: 1120, rot: 0.6 },
   { id: 'decor_55', type: 'bench', x: 1210, y: 1400, rot: -0.6 },
@@ -95,7 +95,7 @@ WORLD.natureDecor = [
   { id: 'decor_61', type: 'tree', x: 424, y: 1353, scale: 2.8 },
   { id: 'decor_62', type: 'tree', x: 796, y: 1369, scale: 2.5 },
   { id: 'decor_63', type: 'stump', x: 656, y: 903 },
-  { id: 'decor_64', type: 'stump', x: 888, y: 1335 },
+  { id: 'decor_64', type: 'stump', x: 902, y: 1321 }, // nudged off the arcade road hex
   { id: 'decor_65', type: 'log', x: 700, y: 1310, rot: 0.5 },
   { id: 'decor_66', type: 'shrub', x: 304, y: 1020, scale: 1 },
   { id: 'decor_67', type: 'shrub', x: 736, y: 995, scale: 1 },
@@ -161,11 +161,11 @@ WORLD.natureDecor = [
   { id: 'decor_127', type: 'tree', x: 3060, y: 2075, scale: 2.5 },
   { id: 'decor_128', type: 'rock', x: 2985, y: 1900, scale: 1 },
   { id: 'decor_129', type: 'barrel', x: 830, y: 420 },
-  { id: 'decor_130', type: 'crate', x: 858, y: 445, rot: 0.4 },
+  { id: 'decor_130', type: 'crate', x: 858, y: 425, rot: 0.4 }, // nudged off the cafe road hex (stays by its barrel)
   { id: 'decor_131', type: 'barrel', x: 2300, y: 660 },
-  { id: 'decor_132', type: 'haybale', x: 760, y: 1470, rot: 1.2 },
+  { id: 'decor_132', type: 'haybale', x: 802, y: 1512, rot: 1.2 }, // nudged off the arcade road hex
   { id: 'decor_133', type: 'crate', x: 2305, y: 1500, rot: 0.2 },
-  { id: 'decor_134', type: 'bench', x: 1652, y: 1560, rot: 0 },
+  { id: 'decor_134', type: 'bench', x: 1600, y: 1560, rot: 0 }, // nudged off the bank road hex
   // Watermill landmark on the pond's SE shore (pond centre ~2700,1212). Spot
   // verified clear of roads, buildings, the trees, Scholar Lyra (2230,1180) and
   // the animal spawn (2700,1300). rot aims the wheel roughly toward the water.
