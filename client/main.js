@@ -10753,6 +10753,8 @@ function closeHomeModal() {
 // ── Kitchen witchery — The Hearth Path (teas by planetary day) ───────────────
 let lastTeaState = null;
 let kitchenView = 'brew'; // 'brew' | 'almanac'
+// Each tea's hand-drawn icon (a tinted witch's teacup), falling back to its emoji.
+const teaGlyph = (tea) => (tea && uiIcon(tea.id)) || (tea && tea.emoji) || '🍵';
 const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function renderKitchenModal() {
   const el = document.getElementById('kitchenContent');
@@ -10784,7 +10786,7 @@ function renderKitchenModal() {
         + `<div class="almCatLore">${escHtml(TEA_DAY_NAMES[pl.day])} · ${escHtml(pl.theme)}</div><div class="almGrid">`;
       for (const tea of group) {
         if (tea.discovered) {
-          h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+          h += `<div class="almCell"><div class="almIcon">${teaGlyph(tea)}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
         } else {
           h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Unbrewed</div><div class="almLore">Brew this tea once to record it.</div></div>`;
         }
@@ -10798,7 +10800,7 @@ function renderKitchenModal() {
       h += `<div class="almCat"><div class="almCatHead">🎡 The Wheel of the Year <span class="almCatN">${found}/${wheelA.length}</span></div>`
         + `<div class="almCatLore">A brew for each sabbat — steeped only while its season turns.</div><div class="almGrid">`;
       for (const tea of wheelA) {
-        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${teaGlyph(tea)}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
         else h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Unbrewed</div><div class="almLore">Steep this brew at its sabbat to record it.</div></div>`;
       }
       h += `</div></div>`;
@@ -10810,7 +10812,7 @@ function renderKitchenModal() {
       h += `<div class="almCat"><div class="almCatHead">✨ The Master Brew <span class="almCatN">${found}/${masteryA.length}</span></div>`
         + `<div class="almCatLore">The craft entire — brewed only by a hearth witch who has walked the whole week.</div><div class="almGrid">`;
       for (const tea of masteryA) {
-        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${teaGlyph(tea)}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
         else h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Undistilled</div><div class="almLore">Steep a tea from each planetary day, then brew the master draught.</div></div>`;
       }
       h += `</div></div>`;
@@ -10824,7 +10826,7 @@ function renderKitchenModal() {
   if (st.active && st.active.until > Date.now()) {
     const t = (st.teas || []).find((x) => x.id === st.active.id);
     const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
-    h += `<div class="teaActive">${t ? t.emoji : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
+    h += `<div class="teaActive">${t ? teaGlyph(t) : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
   }
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
   for (const pl of planets) {
@@ -10867,7 +10869,7 @@ function teaBrewCard(tea, ingText, st) {
   if (tea.greater) badge = '<span class="trGreater">greater</span>';
   else if (tea.requires) badge = '<span class="trGreater crown">capstone</span>';
   else if (tea.sabbat) badge = `<span class="trGreater sabbat">${sabMeta ? sabMeta.glyph : '🎡'} sabbat</span>`;
-  let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span>${badge}</div>`;
+  let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${teaGlyph(tea)}</span><span class="trn">${escHtml(tea.name)}</span>${badge}</div>`;
   h += `<div class="trb">${escHtml(tea.blurb)}</div>`;
   if (tea.locked && tea.requires) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
   else if (tea.locked && tea.sabbat) h += `<div class="tri" style="opacity:.8">🔒 Returns at ${sabMeta ? escHtml(sabMeta.name) + ' ' + sabMeta.glyph : 'its sabbat'}.</div>`;
