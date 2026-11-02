@@ -9124,7 +9124,7 @@ function initScene(w) {
   kkTownDressing(scene, w);
   GFX.initSky(scene);
   // fireflies cluster on the fairy rings, the plaza well and the portal
-  GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1600, 700], [900, 1500], [2200, 1500]], 22);
+  GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1850, 600], [900, 1500], [2200, 1500]], 22);
   outdoorScene = scene;
   outdoorCamera = camera;
   applyDrawDistanceTier(GFX.quality); // pull in fog/far if the player is on 'low'
@@ -9522,7 +9522,7 @@ const TOWN_NPCS = [
 // the wildlife_state broadcast's torch ids line up with these instances
 // (see applyTownTorchState).
 const TOWN_TORCHES = [
-  { id: 'torch_n', x: 1600, y: 800 },
+  { id: 'torch_n', x: 1600, y: 680 },
   { id: 'torch_e', x: 1900, y: 1100 },
   { id: 'torch_s', x: 1600, y: 1400 },
   { id: 'torch_w', x: 1300, y: 1100 }

@@ -6,8 +6,10 @@
 // ring to ~300 so their night glow spreads across the square (each throws a
 // 260-unit pool) instead of pooling on top of each other and the Town Bonfire —
 // the centre is now carried by the bonfire's own light, these light the reaches.
+// The north torch sits further back (y680) up the lane, clear of the bonfire and
+// the Wilds portal, which were crowding it at the top of the plaza.
 const TOWN_TORCHES = [
-  { id: 'torch_n', x: 1600, y: 800 },
+  { id: 'torch_n', x: 1600, y: 680 },
   { id: 'torch_e', x: 1900, y: 1100 },
   { id: 'torch_s', x: 1600, y: 1400 },
   { id: 'torch_w', x: 1300, y: 1100 }
