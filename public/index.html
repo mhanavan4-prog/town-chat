@@ -781,13 +781,18 @@
     background:linear-gradient(180deg, rgba(52,40,24,0.96), rgba(28,20,12,0.97));
     border:1.5px solid rgba(230,190,120,0.55); box-shadow:inset 0 0 0 3px rgba(230,190,120,0.14), 0 6px 16px rgba(0,0,0,0.45);
     overflow:hidden; }
-  .tcInner { position:absolute; inset:9px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
-  .tcard.rev .tcInner { transform:rotate(180deg); }
+  .tcInner { position:absolute; inset:7px; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  /* Top row: the numeral (left) and, when reversed, its tag (right) — a shared
+     row so they never overlap the art or each other. */
+  .tcTop { flex:0 0 auto; width:100%; display:flex; align-items:center; justify-content:space-between; gap:4px; min-height:15px; }
   .tcNum { font-size:12px; font-weight:800; letter-spacing:0.12em; color:#e8c87a; }
-  .tcGlyph { font-size:40px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
-  .tcGlyph .uiIcon { width:50px; height:50px; display:block; }
-  .tcName { font-size:11.5px; font-weight:800; color:#ffe9c2; line-height:1.15; text-align:center; letter-spacing:0.02em; }
-  .tcRev { position:absolute; left:0; right:0; bottom:5px; text-align:center; font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#e86a6a; text-shadow:0 1px 2px #000; }
+  .tcRev { font-size:8px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; color:#ffdede; background:rgba(176,38,58,0.82); border:1px solid rgba(255,130,130,0.5); padding:1px 5px; border-radius:7px; line-height:1.35; white-space:nowrap; }
+  /* The arcana art fills the card; only it inverts for a reversed card, so the
+     number + name stay readable and nothing overlaps. */
+  .tcGlyph { flex:1 1 auto; width:100%; min-height:0; display:flex; align-items:center; justify-content:center; line-height:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+  .tcGlyph .uiIcon { width:100%; height:auto; aspect-ratio:1; max-height:100%; display:block; }
+  .tcard.rev .tcGlyph { transform:rotate(180deg); }
+  .tcName { font-size:11.5px; font-weight:800; color:#ffe9c2; line-height:1.15; text-align:center; letter-spacing:0.02em; flex:0 0 auto; }
   .tMeaning { font-size:11.5px; color:#e8d9bf; line-height:1.4; margin-top:9px; font-style:italic; }
   .tSynth { border:1px solid rgba(230,190,120,0.32); background:rgba(255,255,255,0.04); border-radius:10px; padding:12px 14px; margin:2px auto 10px; max-width:560px; font-size:13px; color:#efe6cf; line-height:1.55; font-style:italic; }
   .tSynth .tSynthLabel { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#d9b86a; margin-bottom:6px; font-style:normal; }
