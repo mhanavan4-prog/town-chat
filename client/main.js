@@ -10137,7 +10137,7 @@ function renderBookModal() {
   const phaseName = {}; BOOK_MOON.forEach((m) => { phaseName[m.key] = m.n; });
   let h = '';
   h += '<div class="bookSec"><h4>🎡 The Wheel of the Year</h4><div class="bookGrid">';
-  for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${s.g}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span></div>`;
+  for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${sabbatGlyph(s.key, s.g)}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span></div>`;
   h += '</div></div>';
   h += '<div class="bookSec"><h4>🌙 The Moon</h4><div class="bookGrid">';
   for (const m of BOOK_MOON) h += `<div class="bookCell${m.key === curMoon ? ' cur' : ''}"><span class="bg">${m.g}</span><b>${esc(m.n)}</b><span class="bi">${esc(m.i)}</span></div>`;
@@ -10288,6 +10288,12 @@ function scryDur(ms) {
   if (h >= 1) return m >= 1 ? `${h}h ${m}m` : `${h}h`;
   return `${Math.max(1, m)}m`;
 }
+// A sabbat's traditional Wheel-of-the-Year sigil (uiIcon('sabbat_<key>')) wrapped
+// for inline use, falling back to its emoji if the key is missing.
+function sabbatGlyph(key, emoji) {
+  const svg = key && uiIcon('sabbat_' + key);
+  return svg ? `<span class="sgi">${svg}</span>` : (emoji || '🎡');
+}
 function renderScryModal() {
   const el = document.getElementById('scryContent');
   if (!el) return;
@@ -10310,8 +10316,8 @@ function renderScryModal() {
   // The turning wheel
   const w = st.wheel || {};
   let wheelLine = w.seasonName ? `<b>${esc(w.seasonName)}</b>${w.epithet ? ', ' + esc(w.epithet) + ',' : ''} holds.` : '';
-  if (w.nextName) wheelLine += ` ${esc(w.nextGlyph || '')} <b>${esc(w.nextName)}</b> turns in <b>${scryDur(w.turnsMs)}</b>.`;
-  h += `<div class="scryRow"><span class="sge">${esc(w.seasonGlyph || '🎡')}</span><span class="sgt"><div class="sgh">The Wheel of the Year</div><div class="sgs">${wheelLine}</div></span></div>`;
+  if (w.nextName) wheelLine += ` ${sabbatGlyph(w.nextKey, w.nextGlyph)} <b>${esc(w.nextName)}</b> turns in <b>${scryDur(w.turnsMs)}</b>.`;
+  h += `<div class="scryRow"><span class="sge">${sabbatGlyph(w.seasonKey, w.seasonGlyph)}</span><span class="sgt"><div class="sgh">The Wheel of the Year</div><div class="sgs">${wheelLine}</div></span></div>`;
   // The day's omen
   if (st.omen) h += `<div class="scryOmen"><div class="sol">The water whispers</div><div class="sot">“${esc(st.omen)}”</div></div>`;
   if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the water shows more than it should.</div>';
@@ -10954,7 +10960,7 @@ function renderKitchenModal() {
   const sabbatTeas = st.teas.filter((t) => t.sabbat);
   if (sabbatTeas.length) {
     const cur = st.season && st.sabbats && st.sabbats[st.season];
-    h += `<div class="teaPlanet wheel"><span class="tpGlyph">🎡</span><span class="tpName">The Wheel of the Year</span><span class="tpDay">${cur ? 'now: ' + escHtml(cur.name) + ' ' + cur.glyph : ''}</span></div>`;
+    h += `<div class="teaPlanet wheel"><span class="tpGlyph">🎡</span><span class="tpName">The Wheel of the Year</span><span class="tpDay">${cur ? 'now: ' + escHtml(cur.name) + ' ' + sabbatGlyph(st.season, cur.glyph) : ''}</span></div>`;
     h += '<div class="menuCols">';
     // in-season first, so the brew you can make is up top
     for (const tea of sabbatTeas.slice().sort((a, b) => (b.inSeason ? 1 : 0) - (a.inSeason ? 1 : 0))) h += teaBrewCard(tea, ingText, st);
@@ -10980,11 +10986,11 @@ function teaBrewCard(tea, ingText, st) {
   let badge = '';
   if (tea.greater) badge = '<span class="trGreater">greater</span>';
   else if (tea.requires) badge = '<span class="trGreater crown">capstone</span>';
-  else if (tea.sabbat) badge = `<span class="trGreater sabbat">${sabMeta ? sabMeta.glyph : '🎡'} sabbat</span>`;
+  else if (tea.sabbat) badge = `<span class="trGreater sabbat">${sabbatGlyph(tea.sabbat, sabMeta ? sabMeta.glyph : '🎡')} sabbat</span>`;
   let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${teaGlyph(tea)}</span><span class="trn">${escHtml(tea.name)}</span>${badge}</div>`;
   h += `<div class="trb">${escHtml(tea.blurb)}</div>`;
   if (tea.locked && tea.requires) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
-  else if (tea.locked && tea.sabbat) h += `<div class="tri" style="opacity:.8">🔒 Returns at ${sabMeta ? escHtml(sabMeta.name) + ' ' + sabMeta.glyph : 'its sabbat'}.</div>`;
+  else if (tea.locked && tea.sabbat) h += `<div class="tri" style="opacity:.8">🔒 Returns at ${sabMeta ? escHtml(sabMeta.name) + ' ' + sabbatGlyph(tea.sabbat, sabMeta.glyph) : 'its sabbat'}.</div>`;
   else h += `<div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
   h += `<button class="teaBrewBtn" data-tea="${tea.id}"${tea.canBrew ? '' : ' disabled'}>${tea.locked ? (tea.sabbat ? 'Out of season' : 'Locked') : (tea.canBrew ? 'Brew &amp; sip' : 'Need herbs')}</button></div>`;
   return h;
@@ -13874,7 +13880,8 @@ function renderEventTag() {
   const parts = [];
   if (calendarState.season) { // the current sabbat — always present, an ambient seasonal banner with its live blessing
     const se = calendarState.season.effects || {};
-    let tag = calendarState.season.glyph + ' ' + calendarState.season.name;
+    // Leading token is the sabbat's icon key so iconizeStripPart swaps in the sigil.
+    let tag = (calendarState.season.key ? 'sabbat_' + calendarState.season.key : calendarState.season.glyph) + ' ' + calendarState.season.name;
     if (se.xpMult) tag += ' — +' + Math.round((se.xpMult - 1) * 100) + '% XP';
     else if (se.forageBonus) tag += ' — +' + Math.round(se.forageBonus * 100) + '% foraging';
     parts.push(tag);
@@ -13943,7 +13950,7 @@ function openLetterModal(letter) {
   const cal = letter.calendar || calendarState;
   if (cal) {
     const now = Date.now();
-    if (cal.season) lines.push([cal.season.glyph, cal.season.blessing.slice(cal.season.glyph.length).trim()]);
+    if (cal.season) lines.push([sabbatGlyph(cal.season.key, cal.season.glyph), cal.season.blessing.slice(cal.season.glyph.length).trim()]);
     if (now >= cal.tourney.startsAt && now < cal.tourney.endsAt) lines.push(['🏹', 'The Weekend Hunt Tournament is ON right now — every kill counts.']);
     else if (cal.tourney.startsAt > now) lines.push(['🏹', `Next hunt tournament: ${shortWhen(cal.tourney.startsAt)}.`]);
     if (now >= cal.festival.startsAt && now < cal.festival.endsAt) lines.push(['🏮', 'The Hearthmoon Festival fills the town today — +25% XP!']);
@@ -13956,7 +13963,8 @@ function openLetterModal(letter) {
   for (const [ico, html] of lines) {
     const row = document.createElement('div');
     row.className = 'lLine';
-    const i = document.createElement('span'); i.className = 'lIco'; i.textContent = ico;
+    const i = document.createElement('span'); i.className = 'lIco';
+    if (ico && ico.charAt(0) === '<') i.innerHTML = ico; else i.textContent = ico; // ico may be an inline sigil span
     const t = document.createElement('span'); t.innerHTML = html; // authored above — no user text rides this
     row.appendChild(i); row.appendChild(t);
     body.appendChild(row);

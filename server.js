@@ -14330,8 +14330,8 @@ wss.on('connection', (ws, req) => {
         moon: { name: moon.name || 'Moon', glyph: moon.glyph || '🌙', isFull: !!moon.isFull, isBlood: !!moon.isBlood, nextFullMs: moon.isFull ? 0 : Math.max(0, (moon.nextFullAt || now) - now) },
         bloodMoon: { active: !!bm.active, nextRiseMs: Math.max(0, (bm.nextRiseAt || now) - now), nextNights: Math.max(0, Math.round(((bm.nextRiseAt || now) - now) / CYCLE_MS)) },
         wheel: {
-          seasonName: season.name || '', seasonGlyph: season.glyph || '🎡', epithet: season.epithet || '', blurb: season.blurb || '',
-          nextName: next.name || '', nextGlyph: next.glyph || '🎡', turnsMs: Math.max(0, (season.endsAt || now) - now)
+          seasonKey: season.key || null, seasonName: season.name || '', seasonGlyph: season.glyph || '🎡', epithet: season.epithet || '', blurb: season.blurb || '',
+          nextKey: next.key || null, nextName: next.name || '', nextGlyph: next.glyph || '🎡', turnsMs: Math.max(0, (season.endsAt || now) - now)
         },
         samhain: season.key === 'samhain',
         omen: omen || '',

@@ -13,6 +13,7 @@
 
 import { TEA_ICONS } from './tea-icons.js';
 import { TAROT_ARCANA_ICONS } from './tarot-arcana-icons.js';
+import { SABBAT_ICONS } from './sabbat-icons.js';
 
 // Shared palette — kept here so the whole set shifts together if we re-grade.
 const C = {
@@ -1474,10 +1475,15 @@ const WHEEL = S(`
 const ARCANA_PREFIXED = Object.fromEntries(
   Object.entries(TAROT_ARCANA_ICONS).map(([k, v]) => ['arcana_' + k, v])
 );
+// Sabbat sigils, likewise prefixed — uiIcon('sabbat_yule') etc.
+const SABBAT_PREFIXED = Object.fromEntries(
+  Object.entries(SABBAT_ICONS).map(([k, v]) => ['sabbat_' + k, v])
+);
 
 export const UI_ICONS = {
   ...TEA_ICONS, // Hearth Path teas — uiIcon('chamomile_tea') etc.
   ...ARCANA_PREFIXED, // The Fool's Journey — uiIcon('arcana_fool') … uiIcon('arcana_world')
+  ...SABBAT_PREFIXED, // Wheel of the Year — uiIcon('sabbat_yule') … uiIcon('sabbat_mabon')
   // emotes
   wave: WAVE, laugh: LAUGH, heart: HEART, wow: WOW,
   cry: CRY, angry: ANGRY, thumb: THUMB, dance: DANCE,
