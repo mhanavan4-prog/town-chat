@@ -10412,8 +10412,9 @@ function renderTarotModal(result) {
   h += '<div class="tspread">';
   for (const s of result.spread) {
     h += `<div class="tseat"><div class="tpos">${esc(s.pos)}</div>`;
-    h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner"><div class="tcNum">${esc(s.num)}</div><div class="tcGlyph">${arcanaGlyph(s.key, s.emoji)}</div><div class="tcName">${esc(s.name)}</div></div>`;
-    if (s.reversed) h += '<div class="tcRev">⟲ reversed</div>';
+    h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner">`;
+    h += `<div class="tcTop"><span class="tcNum">${esc(s.num)}</span>${s.reversed ? '<span class="tcRev">⟲ Reversed</span>' : ''}</div>`;
+    h += `<div class="tcGlyph">${arcanaGlyph(s.key, s.emoji)}</div><div class="tcName">${esc(s.name)}</div></div>`;
     h += `</div><div class="tMeaning">${esc(s.meaning)}</div></div>`;
   }
   h += '</div>';
