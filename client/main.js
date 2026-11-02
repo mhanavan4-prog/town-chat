@@ -10791,6 +10791,18 @@ function renderKitchenModal() {
       }
       h += `</div></div>`;
     }
+    // 🎡 The Wheel of the Year — the eight sabbat brews.
+    const wheelA = st.teas.filter((t) => t.sabbat);
+    if (wheelA.length) {
+      const found = wheelA.filter((t) => t.discovered).length;
+      h += `<div class="almCat"><div class="almCatHead">🎡 The Wheel of the Year <span class="almCatN">${found}/${wheelA.length}</span></div>`
+        + `<div class="almCatLore">A brew for each sabbat — steeped only while its season turns.</div><div class="almGrid">`;
+      for (const tea of wheelA) {
+        if (tea.discovered) h += `<div class="almCell"><div class="almIcon">${tea.emoji}</div><div class="almName">${escHtml(tea.name)}</div><div class="almLore">${escHtml(tea.lore || '')}</div></div>`;
+        else h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">Unbrewed</div><div class="almLore">Steep this brew at its sabbat to record it.</div></div>`;
+      }
+      h += `</div></div>`;
+    }
     // The capstone(s) — their own crowned category at the foot of the Almanac.
     const masteryA = st.teas.filter((t) => t.requires);
     if (masteryA.length) {
@@ -10821,7 +10833,17 @@ function renderKitchenModal() {
     const onDay = st.today === pl.day;
     h += `<div class="teaPlanet${onDay ? ' today' : ''}"><span class="tpGlyph">${pl.glyph}</span><span class="tpName">${escHtml(pl.planet)}</span><span class="tpDay">${escHtml(TEA_DAY_NAMES[pl.day])}${onDay ? ' · ✨ today' : ''}</span></div>`;
     h += '<div class="menuCols">';
-    for (const tea of group) h += teaBrewCard(tea, ingText);
+    for (const tea of group) h += teaBrewCard(tea, ingText, st);
+    h += '</div>';
+  }
+  // ── 🎡 The Wheel of the Year — a brew for each sabbat, in season only ──
+  const sabbatTeas = st.teas.filter((t) => t.sabbat);
+  if (sabbatTeas.length) {
+    const cur = st.season && st.sabbats && st.sabbats[st.season];
+    h += `<div class="teaPlanet wheel"><span class="tpGlyph">🎡</span><span class="tpName">The Wheel of the Year</span><span class="tpDay">${cur ? 'now: ' + escHtml(cur.name) + ' ' + cur.glyph : ''}</span></div>`;
+    h += '<div class="menuCols">';
+    // in-season first, so the brew you can make is up top
+    for (const tea of sabbatTeas.slice().sort((a, b) => (b.inSeason ? 1 : 0) - (a.inSeason ? 1 : 0))) h += teaBrewCard(tea, ingText, st);
     h += '</div>';
   }
   // ── ✨ The Master Brew — the capstone, gated by the collection ──
@@ -10829,21 +10851,28 @@ function renderKitchenModal() {
   if (mastery.length) {
     h += `<div class="teaPlanet mastery"><span class="tpGlyph">✨</span><span class="tpName">The Master Brew</span><span class="tpDay">${st.allPlanets ? 'unlocked' : (st.daysBrewed || 0) + '/7 days'}</span></div>`;
     h += '<div class="menuCols">';
-    for (const tea of mastery) h += teaBrewCard(tea, ingText);
+    for (const tea of mastery) h += teaBrewCard(tea, ingText, st);
     h += '</div>';
   }
   el.innerHTML = h;
   el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: 'brew_tea', teaId: b.getAttribute('data-tea') })); });
   wireKitchenTabs(el);
 }
-// One tea's brew card. Shows a "greater" badge for two-herb draughts, a locked
-// state for the capstone until the collection goal is met.
-function teaBrewCard(tea, ingText) {
-  let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span>${tea.greater ? '<span class="trGreater">greater</span>' : ''}${tea.requires ? '<span class="trGreater crown">capstone</span>' : ''}</div>`;
+// One tea's brew card. Shows a "greater" badge for two-herb draughts, a "sabbat"
+// badge for seasonal brews, and a locked state (capstone before the collection,
+// sabbat tea out of its season).
+function teaBrewCard(tea, ingText, st) {
+  const sabMeta = (tea.sabbat && st && st.sabbats) ? st.sabbats[tea.sabbat] : null;
+  let badge = '';
+  if (tea.greater) badge = '<span class="trGreater">greater</span>';
+  else if (tea.requires) badge = '<span class="trGreater crown">capstone</span>';
+  else if (tea.sabbat) badge = `<span class="trGreater sabbat">${sabMeta ? sabMeta.glyph : '🎡'} sabbat</span>`;
+  let h = `<div class="teaRow${tea.locked ? ' teaLocked' : ''}"><div class="trHead"><span class="tre">${tea.emoji}</span><span class="trn">${escHtml(tea.name)}</span>${badge}</div>`;
   h += `<div class="trb">${escHtml(tea.blurb)}</div>`;
-  if (tea.locked) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
+  if (tea.locked && tea.requires) h += `<div class="tri" style="opacity:.8">🔒 Steep a tea from each of the seven planetary days first.</div>`;
+  else if (tea.locked && tea.sabbat) h += `<div class="tri" style="opacity:.8">🔒 Returns at ${sabMeta ? escHtml(sabMeta.name) + ' ' + sabMeta.glyph : 'its sabbat'}.</div>`;
   else h += `<div class="tri">${(tea.herbs || []).map(ingText).join(' + ')}</div>`;
-  h += `<button class="teaBrewBtn" data-tea="${tea.id}"${tea.canBrew ? '' : ' disabled'}>${tea.locked ? 'Locked' : (tea.canBrew ? 'Brew &amp; sip' : 'Need herbs')}</button></div>`;
+  h += `<button class="teaBrewBtn" data-tea="${tea.id}"${tea.canBrew ? '' : ' disabled'}>${tea.locked ? (tea.sabbat ? 'Out of season' : 'Locked') : (tea.canBrew ? 'Brew &amp; sip' : 'Need herbs')}</button></div>`;
   return h;
 }
 function wireKitchenTabs(el) {

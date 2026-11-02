@@ -61,6 +61,19 @@ const TEAS = [
   // craft entire. Locked until you have steeped a tea from each of the seven
   // planetary days (`requires: 'allPlanets'`), then brews from a signature trio.
   { id: 'witches_brew',     name: "The Witches’ Brew", emoji: '🔮', herbs: [{ id: 'meditation_lotus', qty: 1 }, { id: 'yarrow', qty: 1 }, { id: 'rue', qty: 1 }], stat: 'xp', amount: 0.22, hours: 3, day: null, requires: 'allPlanets', lore: 'Dream, courage and ward in one cup — the whole Hearth Path distilled. The master brew of the kitchen witch.', blurb: '+22% XP · the master brew, the craft entire.' },
+
+  // ── 🎡 The Wheel of the Year — a brew for each sabbat, steepable ONLY while
+  // its season turns. A reason to come back to the kettle each turn of the year.
+  // `sabbat` gates availability to that season (see seasonWindow); `day: null`
+  // keeps them out of the planetary families.
+  { id: 'imbolc_tea',      name: 'Brigid’s Quickening', emoji: '🌱', herbs: [{ id: 'lemon_balm', qty: 1 }], stat: 'forage', amount: 0.16, hours: 2, day: null, sabbat: 'imbolc', lore: 'Imbolc — the first stirring; Brigid’s flame wakes the quickening earth.',         blurb: '+16% harvest luck · the first stirring of spring.' },
+  { id: 'ostara_tea',      name: 'Ostara Bloom Tea',   emoji: '🥚', herbs: [{ id: 'calendula', qty: 1 }],  stat: 'vitality', amount: 22,  hours: 2, day: null, sabbat: 'ostara', lore: 'Ostara — the balance of spring; new green and new light in equal measure.', blurb: '+22 max health · the balance of spring.' },
+  { id: 'beltane_tea',     name: 'Beltane Fire Tea',   emoji: '🔥', herbs: [{ id: 'swift_root', qty: 1 }], stat: 'power',    amount: 0.14, hours: 2, day: null, sabbat: 'beltane', lore: 'Beltane — the bright fire; the year leaps up in flame and the blood runs high.', blurb: '+14% power · the bright fire of Beltane.' },
+  { id: 'litha_tea',       name: 'Litha Sun Tea',      emoji: '☀️', herbs: [{ id: 'st_johns_wort', qty: 1 }], stat: 'xp',    amount: 0.16, hours: 2, day: null, sabbat: 'litha', lore: 'Litha — the Sun at its height; the longest, brightest day of all the year.',    blurb: '+16% XP · the Sun at its very height.' },
+  { id: 'lughnasadh_tea',  name: 'Lammas Grain Tea',   emoji: '🌾', herbs: [{ id: 'cleansing_clover', qty: 1 }], stat: 'forage', amount: 0.18, hours: 2, day: null, sabbat: 'lughnasadh', lore: 'Lughnasadh — the first harvest; the grain cut, the first bread broken.',   blurb: '+18% harvest luck · the first harvest.' },
+  { id: 'mabon_tea',       name: 'Mabon Mead Tea',     emoji: '🍂', herbs: [{ id: 'rowan_berry', qty: 1 }], stat: 'forage',   amount: 0.20, hours: 2, day: null, sabbat: 'mabon', lore: 'Mabon — the second harvest; the balance tips, at last, toward the dark.',      blurb: '+20% harvest luck · the second harvest.' },
+  { id: 'samhain_tea',     name: 'Samhain Veil Tea',   emoji: '🕯️', herbs: [{ id: 'meditation_lotus', qty: 1 }, { id: 'wormwood', qty: 1 }], stat: 'xp', amount: 0.20, hours: 3, day: null, sabbat: 'samhain', lore: 'Samhain — the Witches’ New Year; the veil at its thinnest, the dead close at hand.', blurb: '+20% XP · the veil thin, the dead close.' },
+  { id: 'yule_tea',        name: 'Yule Hearth Tea',    emoji: '❄️', herbs: [{ id: 'chamomile', qty: 1 }, { id: 'comfrey', qty: 1 }], stat: 'vitality', amount: 25, hours: 3, day: null, sabbat: 'yule', lore: 'Yule — the longest night; the hearth held against the dark, the sun reborn.',  blurb: '+25 max health · the hearth against the longest night.' },
 ];
 
 module.exports = { TEAS, TEA_DAY_BONUS, PLANETS };
