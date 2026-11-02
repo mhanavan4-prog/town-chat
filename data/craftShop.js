@@ -34,7 +34,7 @@ const SCHOOLS = [
 const SLOTS = [
   { slot: 'ring',   label: 'Band',   icon: '📿', mult: 1.00 },
   { slot: 'feet',   label: 'Treads', icon: '🥾', mult: 1.15 },
-  { slot: 'head',   label: 'Cowl',   icon: '🎕', mult: 1.30 },
+  { slot: 'head',   label: 'Cowl',   icon: '🥷', mult: 1.30 }, // 🥷 = hood, matching the Traveler's Hood (🎕 rendered as tofu)
   { slot: 'chest',  label: 'Mantle', icon: '🧥', mult: 1.50 },
   { slot: 'weapon', label: 'Edge',   icon: '🗡️', mult: 1.80 },
 ];
