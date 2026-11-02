@@ -1681,8 +1681,13 @@ export function escHtml(s) {
 // Inline HTML for a value that may be a custom-icon key OR a plain emoji/text.
 // Known keys render as a sized SVG span; anything else falls through, escaped,
 // so render sites can adopt this without needing every glyph converted first.
-export function glyphHTML(value, cls) {
+// Resolve `value` to a hand-drawn icon, wrapped for inline use. When it has no
+// icon, fall back to `fallback` (usually the item/ability's emoji) if given, else
+// the raw value. Lets a render site pass (id, cls, emoji): the carved icon when
+// one exists, the emoji otherwise — the basis of the UI's emoji passes.
+export function glyphHTML(value, cls, fallback) {
   const svg = uiIcon(value);
   if (svg) return `<span class="giWrap ${cls || ''}">${svg}</span>`;
+  if (fallback != null && fallback !== '') return `<span class="giWrap ${cls || ''}">${escHtml(fallback)}</span>`;
   return escHtml(value);
 }

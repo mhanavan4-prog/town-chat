@@ -3973,6 +3973,7 @@ const _shop = createShop({
   showItemTooltip,
   hideTooltip,
   openQuestDialogue,
+  glyph: (id, emoji) => `<span class="rowGi" style="font-size:20px;">${glyphHTML(id, 'rowGi', emoji)}</span>`, // carved icon, emoji fallback
 });
 const { openNpcShopModal, closeNpcShopModal, renderNpcShop, refreshShopSellTab } = _shop;
 
@@ -4899,7 +4900,7 @@ function openWerewolfModal(msg) {
   for (const item of werewolfShopItems) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(80,50,20,0.18);border-radius:8px;border:1px solid rgba(200,140,80,0.25);';
-    row.innerHTML = `<span style="font-size:22px;">${item.icon}</span>
+    row.innerHTML = `<span class="rowGi" style="font-size:22px;">${glyphHTML(item.id, 'rowGi', item.icon)}</span>
       <span style="flex:1;color:#f0d8b8;font-weight:600;">${item.name}</span>
       <span style="color:#e0a060;font-size:12px;">🎤 howl</span>
       <button data-id="${item.id}" style="padding:5px 14px;background:#8a4a1a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Trade</button>`;
@@ -7449,6 +7450,7 @@ const { openLoadoutModal, closeLoadoutModal, renderLoadoutModal } = createLoadou
   MOBILE_UI, attachAbilityPeek, haptic, orderedAbilityIds, saveLoadout, setUnlockToast,
   getMyActionCatalog: () => myActionCatalog, getHotbarKeys: () => HOTBAR_KEYS, getHotbarKeyLabels: () => HOTBAR_KEY_LABELS,
   getLoadoutSelectedSlot: () => loadoutSelectedSlot, setLoadoutSelectedSlot: (v) => { loadoutSelectedSlot = v; },
+  glyph: (id, emoji) => glyphHTML(id, '', emoji), // carved ability icon, emoji fallback
 });
 
 (function wireLoadoutModal() {
@@ -15464,7 +15466,7 @@ function showItemTooltip(e, itemId) {
   const item = ITEM_CATALOG[itemId];
   if (!item) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.innerHTML    = glyphHTML(item.iconKey || item.icon, 'ttGi') + '  ' + escHtml(item.name);
+  _ttName.innerHTML    = glyphHTML(item.iconKey || itemId, 'ttGi', item.icon) + '  ' + escHtml(item.name);
   _ttSlot.textContent  = item.slot ? (SLOT_LABELS[item.slot] || item.slot) : 'Item';
   const lines = [];
   if (item.atk) lines.push('⚔️ ATK  +' + item.atk);
@@ -15482,7 +15484,7 @@ function showItemTooltip(e, itemId) {
 function showActionTooltip(e, action) {
   if (!_tt || !action) return;
   _ttOwner = (e && e.currentTarget) || null;
-  _ttName.innerHTML    = glyphHTML(action.iconKey || action.icon, 'ttGi') + '  ' + escHtml(action.name);
+  _ttName.innerHTML    = glyphHTML(action.iconKey || action.id || action.icon, 'ttGi', action.icon) + '  ' + escHtml(action.name);
   _ttSlot.textContent  = KIND_LABELS[action.kind] || (action.kind || '');
   _ttStats.innerHTML   = '';
   _ttDesc.textContent  = action.description || '';

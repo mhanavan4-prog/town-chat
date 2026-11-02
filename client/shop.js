@@ -5,7 +5,8 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createShop({ send, getBankState, getInventoryState, ITEM_CATALOG, showItemTooltip, hideTooltip, openQuestDialogue }) {
+export default function createShop({ send, getBankState, getInventoryState, ITEM_CATALOG, showItemTooltip, hideTooltip, openQuestDialogue, glyph }) {
+const itemGlyph = glyph || ((id, emoji) => `<span style="font-size:20px;">${emoji || ''}</span>`); // carved icon w/ emoji fallback
 let currentShopNpcId = null;
 let currentShopNpcName = null;
 
@@ -86,7 +87,7 @@ function renderShopBuyList(container) {
     const priceHtml = item.basePrice && item.basePrice !== item.price
       ? `<span style="color:#8a9a8a;text-decoration:line-through;font-size:11px;">${item.basePrice}</span> <span style="color:#7ddc8f;font-weight:700;">${item.price} <span class="coin"></span></span>`
       : `<span style="color:#ffd700;font-weight:700;">${item.price} <span class="coin"></span></span>`;
-    row.innerHTML = `<span style="font-size:20px;">${item.icon}</span>
+    row.innerHTML = `${itemGlyph(item.id, item.icon)}
       <span style="flex:1;color:#eafff0;">${item.name}</span>
       ${priceHtml}
       <button data-item="${item.id}" style="padding:5px 14px;background:#3366aa;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Buy</button>`;
@@ -121,7 +122,7 @@ function renderShopSellList(container) {
     const qty = totals[itemId];
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
-    row.innerHTML = `<span style="font-size:20px;">${meta.icon}</span>
+    row.innerHTML = `${itemGlyph(itemId, meta.icon)}
       <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span></span>
       <span style="color:#ffd700;font-weight:700;">${unit} <span class="coin"></span><span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
       <button data-q="1" style="padding:5px 10px;background:#2f7a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Sell 1</button>
