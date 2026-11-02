@@ -2737,6 +2737,7 @@ function onWsMessage(ev) {
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Array.isArray(msg.plantable)) for (const id of msg.plantable) gardenPlantable.add(id); if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }
   if (msg.type === 'garden_error') { setUnlockToast(`🌱 ${msg.message}`); return; }
   if (msg.type === 'home_state') { lastHomeState = msg; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
+  if (msg.type === 'furniture_bought') { homePendBuy = null; setUnlockToast('✨ New decor unlocked!'); return; }
   if (msg.type === 'home_error') { setUnlockToast(`🏠 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
   if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
@@ -10526,6 +10527,7 @@ let lastHomeState = null;
 let homeSelPalette = null;   // a catalog piece id "in hand" for placement
 let homeSelPiece = null;     // index of a placed piece that's selected
 let homePendRot = 0;         // rotation to place / rotate the selection with
+let homePendBuy = null;      // a locked shop piece armed for a confirm-tap purchase
 // The cells a piece covers when anchored (top-left) at (x,y) — mirrors the
 // server's footprintCells so we can draw a live ghost and the occupancy grid.
 function homeFootprint(piece, x, y, rot) {
@@ -10593,23 +10595,47 @@ function renderHomeModal() {
   }
   h += '</div></div>';
 
-  // The palette of owned pieces.
+  // The palette of pieces you own — tap to pick up and place.
   h += '<div class="homePalette">';
   for (const c of catalog) {
     if (!c.owned) continue;
     h += `<div class="homePiece${homeSelPalette === c.id ? ' on' : ''}" data-piece="${c.id}"><span class="hpIco">${c.icon}</span><span class="hpName">${escHtml(c.name)}</span></div>`;
   }
   h += '</div>';
+
+  // The Decor Shop — premium pieces you can unlock with Moonstones. Tap once to
+  // arm, tap again to confirm the spend (so nobody buys by a stray tap).
+  const locked = catalog.filter((c) => !c.owned && c.source === 'premium' && c.ms);
+  if (locked.length) {
+    h += `<div class="homeShopHead">✨ Decor Shop <span class="homeShopBal">${(st.msBalance || 0)} 💎</span></div>`;
+    h += '<div class="homePalette">';
+    for (const c of locked) {
+      const arming = homePendBuy === c.id;
+      const afford = (st.msBalance || 0) >= c.ms;
+      h += `<div class="homePiece locked${arming ? ' arming' : ''}" data-buy="${c.id}">`
+        + `<span class="hpIco">${c.icon}</span>`
+        + `<span class="hpName">${escHtml(c.name)}</span>`
+        + `<span class="hpPrice${afford ? '' : ' cant'}">${arming ? 'Confirm?' : (c.ms + ' 💎')}</span>`
+        + `</div>`;
+    }
+    h += '</div>';
+  }
   el.innerHTML = h;
 
   // Wire the "step inside" button.
   { const eb = el.querySelector('.homeEnterBtn'); if (eb) eb.addEventListener('click', () => enterCottage()); }
-  // Wire the palette.
-  el.querySelectorAll('.homePiece').forEach((p) => p.addEventListener('click', () => {
+  // Wire the palette (owned pieces).
+  el.querySelectorAll('.homePiece[data-piece]').forEach((p) => p.addEventListener('click', () => {
     const id = p.getAttribute('data-piece');
     homeSelPalette = (homeSelPalette === id) ? null : id;
-    homeSelPiece = null; homePendRot = 0;
+    homeSelPiece = null; homePendRot = 0; homePendBuy = null;
     renderHomeModal();
+  }));
+  // Wire the shop (locked pieces) — two-tap unlock.
+  el.querySelectorAll('.homePiece[data-buy]').forEach((p) => p.addEventListener('click', () => {
+    const id = p.getAttribute('data-buy');
+    if (homePendBuy === id) { homePendBuy = null; send({ type: 'buy_furniture', pieceId: id }); }
+    else { homePendBuy = id; renderHomeModal(); }
   }));
   // Wire the grid.
   el.querySelectorAll('.homeCell').forEach((cell) => cell.addEventListener('click', () => {
@@ -10963,6 +10989,13 @@ function buildCottageProp(id, meta, x, z, yaw) {
     case 'chair':      g = kk('furn_chair', 50, 'fit'); break;
     case 'bookshelf':  g = kk('furn_shelfdec', long, 'fit') || kk('furn_shelf', long, 'fit'); break;
     case 'cauldron':   g = kk('wprop_cauldron', COTTAGE_CELL * 0.6, 'fit'); break;
+    // ── Premium decor (KayKit furniture + witch-pack props) ──
+    case 'armchair':      g = kk('furn_armchair', 62, 'fit'); break;
+    case 'settee':        g = kk('furn_couch', 150, 'fit'); break;
+    case 'apothecary':    g = kk('furn_cabinet', 150, 'fit'); break;
+    case 'potion_station':g = kk('wprop_potionstn', 70, 'fit'); break;
+    case 'scholar_desk':  g = kk('furn_desk', 150, 'fit'); break;
+    case 'brew_table':    g = kk('wprop_wtable', 72, 'fit'); break;
     default: break;
   }
   if (g) return g;

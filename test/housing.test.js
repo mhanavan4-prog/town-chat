@@ -50,7 +50,7 @@ setTimeout(() => {
   // A fresh home is empty and ships the catalog with ownership flags.
   const st0 = h.homeStateBody(g.p);
   check('a fresh cottage is empty', st0 && st0.pieces.length === 0);
-  check('the state ships the grid + the owned catalog', st0.grid.w === HOME_GRID.w && st0.catalog.length === FURNITURE.length && st0.catalog.every((c) => c.owned === true));
+  check('the state ships the grid + catalog, with the default set owned', st0.grid.w === HOME_GRID.w && st0.catalog.length === FURNITURE.length && st0.catalog.filter((c) => c.source === 'default').every((c) => c.owned === true));
 
   // Place a bed (2×2) at (0,0).
   check('placing a valid piece succeeds', h.homePlace(g.p, 'bed', 0, 0, 0).ok === true);
