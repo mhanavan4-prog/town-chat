@@ -3274,7 +3274,7 @@ const _collision = createCollision({
   getDungeonLore: () => dungeonLoreCatalog,
   getDelveState: () => delveState,
 });
-const { PLAYER_R, collides, collidesIndoor, roomAt, pokeRoomTag, roomLabel } = _collision;
+const { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel } = _collision;
 
 // ---------------------------------------------------------------------------
 // The Town Pass — two buildings (the Phantom Parlor and the Starlight Arcade) are
@@ -17369,6 +17369,9 @@ function updateOutdoor(stepX, stepY) {
     const stuck = collides(me.x, me.y);
     if (stuck || !collides(nx, me.y)) me.x = nx;
     if (stuck || !collides(me.x, ny)) me.y = ny;
+    // Auto-unstick: if still overlapping a collider (stood where a new collider
+    // appeared, or clipped in on an older client), eject to the nearest clear edge.
+    if (stuck) { const freed = resolveStuck(me.x, me.y); if (freed) { me.x = freed.x; me.y = freed.y; } }
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
@@ -17394,6 +17397,9 @@ function updateOutdoor(stepX, stepY) {
   const blockedY = isLockedRoom(roomAt(me.x, ny));
   if (blockedX) { showLockMessage(); } else if (!collides(nx, me.y)) { me.x = nx; }
   if (blockedY) { showLockMessage(); } else if (!collides(me.x, ny)) { me.y = ny; }
+  // Auto-unstick in town too — eject from any collider footprint you're inside
+  // (door gaps/interiors aren't colliders, so standing in a room never triggers).
+  if (collides(me.x, me.y)) { const freed = resolveStuck(me.x, me.y); if (freed) { me.x = freed.x; me.y = freed.y; } }
 
   me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
   me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));

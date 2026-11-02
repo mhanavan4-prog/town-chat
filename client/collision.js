@@ -27,6 +27,35 @@ function collidesIndoor(x, y, wallsLocal) {
   return false;
 }
 
+// If (x, y) is overlapping any collider, eject it to the nearest clear edge and
+// return the freed position; otherwise return null. Used as an auto-unstick so a
+// body left inside an asset (e.g. standing where a new collider appeared, or
+// clipped in on an older client before a collider shipped) is pushed out along
+// the minimal-penetration axis rather than trapped. A few passes settle corners
+// where two rects overlap. `wallsList` defaults to the active outdoor walls.
+function resolveStuck(x, y, wallsList) {
+  const list = wallsList || getWalls();
+  const hw = PLAYER_R;
+  let moved = false;
+  for (let iter = 0; iter < 4; iter++) {
+    let any = false;
+    for (const wall of list) {
+      const px0 = x - hw, px1 = x + hw, py0 = y - hw, py1 = y + hw;
+      const wx0 = wall.x, wx1 = wall.x + wall.w, wy0 = wall.y, wy1 = wall.y + wall.h;
+      if (px0 < wx1 && px1 > wx0 && py0 < wy1 && py1 > wy0) {
+        const pushL = px1 - wx0, pushR = wx1 - px0;   // clear to the −x / +x side
+        const pushU = py1 - wy0, pushD = wy1 - py0;   // clear to the −y / +y side
+        const minX = Math.min(pushL, pushR), minY = Math.min(pushU, pushD);
+        if (minX <= minY) x += (pushL < pushR ? -pushL : pushR);
+        else y += (pushU < pushD ? -pushU : pushD);
+        any = true; moved = true;
+      }
+    }
+    if (!any) break;
+  }
+  return moved ? { x, y } : null;
+}
+
 function roomAt(x, y) {
   for (const b of getWorld().buildings) {
     // Use the fitted collider footprint (b._fit, set by refitBuildingColliders)
@@ -75,5 +104,5 @@ function roomLabel(roomId) {
   return b ? b.name : roomId;
 }
 
-  return { PLAYER_R, collides, collidesIndoor, roomAt, pokeRoomTag, roomLabel };
+  return { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel };
 }
