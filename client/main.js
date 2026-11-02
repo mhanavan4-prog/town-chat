@@ -321,6 +321,7 @@ const KK = (() => {
     // bone name exactly like the borrowed Mage clips.
     anim_general:   'kk/anim/general.glb',   // Hit_A, Hit_B, Death_A, Death_A_Pose, Idle_B, PickUp, Interact
     anim_movebasic: 'kk/anim/movebasic.glb', // Jump_Full_Short, Jump_Start, Jump_Idle, Jump_Land
+    anim_moveadv:   'kk/anim/moveadv.glb',   // Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right
     // Mother Yarrow's garden dressing — the Witch pack's themed props (CC0, same
     // Mystery Monthly S5 set; all share witch_texture_A). Placed in her plot.
     wprop_cauldron:     'kk/witch/Cauldron.gltf',
@@ -493,7 +494,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['anim_general', 'anim_movebasic', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
+  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
@@ -646,7 +647,7 @@ const KK = (() => {
   // orphan-IK guard borrowAnims uses — so a stray control track never rebinds to
   // the model root. New clips become reachable immediately because act() resolves
   // lazily from models[key].animations and never caches a miss.
-  const EXTRA_ANIM_KEYS = ['anim_general', 'anim_movebasic'];
+  const EXTRA_ANIM_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv'];
   function attachExtraAnims() {
     if (!EXTRA_ANIM_KEYS.every((ak) => models[ak] && models[ak].animations && models[ak].animations.length)) return;
     const extra = [];
@@ -5936,6 +5937,11 @@ document.addEventListener('focusout', (e) => {
 // duration (see syncVisuals()/update()).
 const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
+// Which body-locomotion the LOCAL player is doing this frame, by facing-relative
+// input: 'forward' | 'back' | 'strafeL' | 'strafeR'. Remote players always face
+// their travel direction (facing is inferred from motion), so only the local
+// body can backpedal or strafe. kkDrivePlayer reads this to pick the clip.
+let localMoveDir = 'forward';
 
 function tryJump() {
   if (jumpActive || typing || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || seatedAt) return;
@@ -13261,9 +13267,28 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   else if (v.statusType === 'meditate') want = 'Sit_Floor_Idle';
   else if (isMoving) {
     const spd = moveDist / Math.max(dt, 1e-4);
-    want = spd > 200 ? 'Running_A' : 'Walking_A';
+    const fwd = spd > 200 ? 'Running_A' : 'Walking_A';
+    // The local body can backpedal / sidestep while facing a fixed way (remote
+    // bodies always face their travel, so they only ever go forward). Pick the
+    // directional clip, but fall back to the forward walk/run if it hasn't
+    // streamed in yet — never leave `want` on a clip this rig can't resolve.
+    want = fwd;
+    if (id === myId && localMoveDir !== 'forward') {
+      const dir = localMoveDir === 'back' ? 'Walking_Backwards'
+        : localMoveDir === 'strafeL' ? 'Running_Strafe_Left' : 'Running_Strafe_Right';
+      if (kk.act(dir)) want = dir;
+    }
     const a = kk.act(want);
     if (a) a.timeScale = Math.max(0.7, Math.min(1.7, spd / 170));
+  } else {
+    // Idle break — once standing a while, play a one-shot Idle_B (a stretch /
+    // look-around) so bodies aren't frozen statues, then re-blend to Idle. Each
+    // body keeps its own random cadence; no-ops until Idle_B has streamed in.
+    if (kk.nextIdleBreak == null) kk.nextIdleBreak = now + 6000 + Math.random() * 12000;
+    else if (now >= kk.nextIdleBreak) {
+      kk.nextIdleBreak = now + 9000 + Math.random() * 14000;
+      if (kk.cur === 'Idle' && kk.act('Idle_B')) { kkOneShot(kk, 'Idle_B', { timeScale: 1 }); return; } // let it play; don't re-blend this frame
+    }
   }
   kkSetState(kk, want);
   // classic walk-bob is baked into the clips; ease any leftover offset out
@@ -17520,6 +17545,12 @@ function update(dt) {
   if (me.activeStatus && me.activeStatus.type === 'reversed') {
     moveInput = -moveInput; turnInput = -turnInput; strafeInput = -strafeInput;
   }
+
+  // Final inputs → the local body's locomotion mode. Strafe wins when it's the
+  // larger axis (sidestep), else backpedal when moving backward, else forward.
+  if (Math.abs(strafeInput) > Math.abs(moveInput) + 0.01) localMoveDir = strafeInput > 0 ? 'strafeR' : 'strafeL';
+  else if (moveInput < -0.01) localMoveDir = 'back';
+  else localMoveDir = 'forward';
 
   // The instant the player actually moves or turns, snap any mouse-drag
   // camera orbit back to normal (directly behind the character) — otherwise
