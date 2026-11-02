@@ -238,6 +238,8 @@ const AURAS = [
   { id: 'gilded',   label: 'Gilded',   hex: 0xffd94a, ms: 18 },
   // Earned, never sold: granted for completing the whole nine-chapter Green Path.
   { id: 'verdant',  label: 'Verdant',  hex: 0x6add7a, earned: true },
+  // Earned: granted for completing the whole Hearth Path brewing questline.
+  { id: 'hearthfire', label: 'Hearthfire', hex: 0xff8a3a, earned: true },
 ];
 const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
 function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }

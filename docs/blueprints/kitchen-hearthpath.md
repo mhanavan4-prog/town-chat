@@ -4,7 +4,11 @@
 > tidy four-tea side-loop; the Hearth Path turns it into a **collection system
 > organised by the seven planetary days** of the witch's week, brewed from the
 > real herbs you grow on the Green Path, with a Teas Almanac to fill.
-> Status: **Slices 1–3 COMPLETE.** Slice 1: 16 teas across all 7 planetary days,
+> Status: **Slices 1–4 COMPLETE.** Slice 4: the **Hearth Path questline** — seven
+> chapters voiced by Old Mabel the hearth-witch, auto-advancing as you brew, that
+> walk you from your first steeping to the master brew and earn the Hearthfire
+> aura; surfaced as a quest card in the kitchen panel.
+> Slice 1: 16 teas across all 7 planetary days,
 > each day ruling a stat, a two-page kitchen panel (Brew / Almanac), discovery
 > tracking. Slice 2: greater two-herb draughts + the capstone **The Witches'
 > Brew**, gated by steeping a tea from each of the seven days. Slice 3: **sabbat

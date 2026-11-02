@@ -10828,6 +10828,18 @@ function renderKitchenModal() {
     const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
     h += `<div class="teaActive">${t ? teaGlyph(t) : '🍵'} ${t ? t.name : 'Tea'} warming you — ${mins} min left.</div>`;
   }
+  // The Hearth Path — a brewing questline surfaced right here (brewing IS the
+  // objective). Old Mabel, the hearth-witch, walks you from your first steeping
+  // to the master brew.
+  const hp = st.hearthPath;
+  if (hp) {
+    if (hp.done) {
+      h += '<div class="hpQuest done">🍵 <b>The Hearth Path</b> — complete. The hearth is yours.</div>';
+    } else {
+      const sub = !hp.levelOk ? `🔒 Unlocks at Level ${hp.requiresLevel}` : `${escHtml(hp.label)} · <b>${hp.progress}/${hp.target}</b>`;
+      h += `<div class="hpQuest"><div class="hpqHead">🍵 The Hearth Path · Ch. ${hp.chapter + 1}/${hp.total}: ${escHtml(hp.title)}</div><div class="hpqObj">${sub}</div></div>`;
+    }
+  }
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
   for (const pl of planets) {
     const group = byDay[pl.day] || [];
