@@ -50,6 +50,17 @@ const TEAS = [
   { id: 'feverfew_tea',   name: 'Feverfew Tea',   emoji: '🌸', herbs: [{ id: 'feverfew', qty: 1 }],     stat: 'leech',    amount: 0.05, hours: 1,   day: 5, lore: 'Fever, headache and the warding of sickness; Venus’s soothing hand.',               blurb: '+5% life drawn on each hit · a soothing ward.' },
   // ── ♄ Saturday · Saturn — guard / warding ─────────────────────────────────
   { id: 'rue_tea',        name: 'Rue Ward Tea',   emoji: '🛡️', herbs: [{ id: 'rue', qty: 1 }],          stat: 'guard',    amount: 0.10, hours: 1.5, day: 6, lore: 'The herb of grace; banishing, breaking curses, the old ward against ill.',          blurb: '+10% defense · the herb of grace, warding ill.' },
+
+  // ── Greater brews — two herbs, a stronger and longer draught. Steeped on the
+  // same planetary day as their family (so the day-bonus still applies). ──
+  { id: 'suns_blessing',    name: "The Sun’s Blessing", emoji: '🌻', herbs: [{ id: 'chamomile', qty: 1 }, { id: 'calendula', qty: 1 }], stat: 'vitality', amount: 28,   hours: 2, day: 0, greater: true, lore: 'Chamomile and marigold together — the whole hearth’s warmth in one cup.',        blurb: '+28 max health · a greater Sun-day draught.' },
+  { id: 'dreamers_draught', name: "The Dreamer’s Draught", emoji: '🌙', herbs: [{ id: 'meditation_lotus', qty: 1 }, { id: 'lavender', qty: 1 }], stat: 'forage', amount: 0.20, hours: 2, day: 1, greater: true, lore: 'Mugwort and lavender — the flying ointment’s gentler cousin; the dreaming road.', blurb: '+20% harvest luck · a greater Moon-day draught.' },
+  { id: 'ironblood_tea',    name: 'Ironblood Tea',  emoji: '⚔️', herbs: [{ id: 'yarrow', qty: 1 }, { id: 'wormwood', qty: 1 }], stat: 'power', amount: 0.18, hours: 2, day: 2, greater: true, lore: 'Yarrow and wormwood — courage and iron will, steeped bitter and strong.',         blurb: '+18% power · a greater Mars-day draught.' },
+
+  // ── The capstone — The Witches' Brew. Belongs to no single day; it is the
+  // craft entire. Locked until you have steeped a tea from each of the seven
+  // planetary days (`requires: 'allPlanets'`), then brews from a signature trio.
+  { id: 'witches_brew',     name: "The Witches’ Brew", emoji: '🔮', herbs: [{ id: 'meditation_lotus', qty: 1 }, { id: 'yarrow', qty: 1 }, { id: 'rue', qty: 1 }], stat: 'xp', amount: 0.22, hours: 3, day: null, requires: 'allPlanets', lore: 'Dream, courage and ward in one cup — the whole Hearth Path distilled. The master brew of the kitchen witch.', blurb: '+22% XP · the master brew, the craft entire.' },
 ];
 
 module.exports = { TEAS, TEA_DAY_BONUS, PLANETS };
