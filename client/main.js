@@ -10755,6 +10755,38 @@ let lastTeaState = null;
 let kitchenView = 'brew'; // 'brew' | 'almanac'
 // Each tea's hand-drawn icon (a tinted witch's teacup), falling back to its emoji.
 const teaGlyph = (tea) => (tea && uiIcon(tea.id)) || (tea && tea.emoji) || '🍵';
+// Old Mabel's voice in the kitchen — a dry, warm hearth-witch line that reacts
+// to how far along the Hearth Path you are, the way Mother Yarrow voices the
+// garden. She's the café crone, sixty years at her table; she calls you "dear".
+function mabelGreeting(hp) {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  if (hp.done) return pick([
+    "Nothing left I can teach you about a kettle, dear. The hearth's yours now.",
+    "You brew a truer cup than half the fools who've sat at my table sixty years. Good.",
+    "A kitchen witch true. Put the kettle on — the first one's on me.",
+  ]);
+  if (hp.chapter === 0 && (hp.progress || 0) === 0) return pick([
+    "Sit down, dear, and put the kettle on. A tea's just a spell you can drink — let's see if you've the hands for it.",
+    "So you'd learn the hearth-craft. Good. Steep something, and we'll begin.",
+  ]);
+  if (!hp.levelOk) return pick([
+    "Not yet, dear. That brew asks more of you than you've got. Go live a little, then come back to my fire.",
+    "Patience. A kettle rushed is a kettle spoiled. Grow a bit stronger first.",
+  ]);
+  if (hp.band === 'hearth') return pick([
+    "Start with the gentle brews, dear — chamomile and the like. Warmth before anything with an edge.",
+    "The hearth herbs first. Learn their tempers before you reach for Mars.",
+  ]);
+  if (hp.band === 'hedge') return pick([
+    "You're brewing with the planets now, and the turning year besides. Mind the sabbat — the wheel waits for no one.",
+    "Greater draughts and seasonal brews, dear. The craft deepens, and so does the cup.",
+  ]);
+  if (hp.band === 'master') return pick([
+    "One brew left — the one that's all of them at once. Steep it right and you're a kitchen witch true.",
+    "The Witches' Brew, dear. Dream, courage and ward in the one cup. Don't spill it.",
+  ]);
+  return "Keep the kettle warm, dear. The hearth rewards a patient hand.";
+}
 const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function renderKitchenModal() {
   const el = document.getElementById('kitchenContent');
@@ -10833,6 +10865,7 @@ function renderKitchenModal() {
   // to the master brew.
   const hp = st.hearthPath;
   if (hp) {
+    h += `<div class="mabelSays"><div class="ysWho">Old Mabel</div><div class="ysLine">“${escHtml(mabelGreeting(hp))}”</div></div>`;
     if (hp.done) {
       h += '<div class="hpQuest done">🍵 <b>The Hearth Path</b> — complete. The hearth is yours.</div>';
     } else {
