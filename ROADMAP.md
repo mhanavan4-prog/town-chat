@@ -3,131 +3,147 @@
 A living list of gaps, loose threads, and bets worth making. Not a spec — a
 place to park ideas so they don't live only in chat. Reprioritize freely.
 
-Last reviewed: 2026-10-22.
+Last reviewed: 2026-11-02.
+
+> **State of play:** the **entire** Oct-22 numbered list has shipped — #1–#8, with
+> #2 softened to "ongoing habit." Even #4, the "while you were away" feed, exists
+> (the Session L **welcome letter**). Since the last review, three large systems
+> that weren't on the list at all also landed: the **Green Path** (gardening), the
+> **Hearth Path** (kitchen witchery), and **player housing**. The old list is
+> cleared; the live questions are in **"new bets worth taking now"** at the bottom.
 
 ---
 
 ## Recently shipped (context)
 
-- **NPC directory reconciled** (roadmap #1, PR #485) — every "where to find
-  them" hint in `server.js` now matches the actual `kiosksOut.push({ npcId })`
-  placements in `client/furniture.js`.
-- **NPC voices** (roadmap #2, PR #496) — the six hint-givers gained rotating
-  flavor lines, date-seeded daily remarks, and live hooks (the Noble reads the
-  week's top coven off the boards; the Guard reacts to a living ember warlord).
-- **Widow's Watch is now a lore node** (roadmap #3, PR #497) — the dangling
-  Parlor sign became a readable waymarker tying into the room's portrait gallery.
-- **Ambient NPC life** (roadmap #4, PR #498) — interior NPCs mutter short
-  in-character barks on a timer, so a near-empty building still feels inhabited.
-  Client-only; pairs with the async phantom-echo presence already live.
-- **Mobile performance pass** (PRs #490–#495) — tracked down town stutter to
-  GPU fill from dynamic point lights on the screen-filling ground; cut mobile
-  dynamic lights / firefly overdraw / composer bloom behind the quality tier.
-  Day town now holds 60fps, night is smooth. Perf HUD added then removed.
-- **PvP quest line — the Ashblood Trials** (PR #486) — a bounty-board arc in the
-  Ember Wastes granting the Ember Warden title + ember dye.
-- **Analytics: per-room World Chat tabs** (PR #488) and **area voice echoes**
-  (PR #489 — nearby players hear played voice clips).
-- **All five building interiors reskinned with KayKit furniture** — the
-  Cauldron Café, the Coven Court (Town Hall), the Midnight Archive (Library),
-  the Starlight Arcade, and the Phantom Parlor. Each keeps its witchy
-  centrepiece (séance circles, pentacles, rune rings, relic displays, star
-  charts) and both NPCs; furniture streams post-spawn with procedural fallback.
-- **Café systems polish** — Champions' Table reserved for the reigning coven
-  (with a baked-in sign), Barkeep Joss repositioned, seat facing fixed.
-- **Rendering fix** — KayKit static props no longer frustum-cull/vanish by
-  camera angle (`staticInstance` now disables `frustumCulled`).
-- **Covens marketing page** — added a Séance Board section that sets clear
-  "it's AI but not a chatbot" guardrails.
+### Big systems since the last review
+
+- **Player housing** (PRs #688–#696) — every account owns an instanced **cottage**:
+  furnish it on an 8×8 grid (persistence + placement, server-authoritative),
+  **step inside** a cozy 3D room that renders your layout, unlock finer decor from
+  a Moonstone **decor shop** (cosmetic only), and let **covenmates visit** (a
+  browse list) or **invite anyone online** (a direct invite). Collision, wall-snap
+  and sizing all playtested. Surfaced on the landing page + FAQ (#696). _This is
+  roadmap #7 — the vanity/cosmetic sink — fully realized._
+- **The Hearth Path** — kitchen witchery expansion (PRs #697–#702) — the parallel
+  to the Green Path. 24 teas organised by the **seven planetary days**, brewed
+  from the real herbs you grow; **greater** two-herb draughts + the **Witches'
+  Brew** capstone (gated by the collection); **sabbat teas** that turn with the
+  Wheel of the Year; hand-drawn **tea icons** (no emoji); a seven-chapter
+  **questline** voiced by Old Mabel that earns the Hearthfire aura; and Old
+  Mabel's progress-aware greeting in the kitchen panel.
+- **The Green Path** — gardening expansion (PRs around the Green Path batch) —
+  a nine-chapter real-witchcraft gardening questline (Cottage Garden → Hedge &
+  Wild → Poison Path), a **Garden Almanac** collection page, 21 hand-drawn plant
+  icons, **rare seed drops** from the Wilds, and **Mother Yarrow** as a walk-up
+  NPC on her own garden plot with a chapter-aware greeting + the Verdant aura
+  capstone.
+- **Daily/nightly room hooks + collection codices** (roadmap #6 + #8) — every
+  interior now has its own reason to return, each with a collectible title:
+  the **Café daily special** (`data/cafeSpecials.js`), the **Starlight Arcade**
+  daily high-scores, the **Midnight Archive**'s book-of-the-day + **Forbidden
+  Shelf codex** (`data/forbiddenBooks.js` → *Reader of the Forbidden Shelf*), the
+  **Phantom Parlor**'s nightly vigil + register (`data/parlorSpirits.js` →
+  *Keeper of the Midnight Vigil*), and the **Reliquary** — inspect the
+  relics-under-glass to collect them (`data/relics.js` → *Keeper of the
+  Reliquary*).
+- **Solo → coven on-ramp** (roadmap #5) — a **solo séance** (`solo_seance_start`,
+  one per account) lets a new player taste the coven's AI séance magic before
+  committing to a coven.
+
+### Earlier (pre-Oct-22 context)
+
+- **NPC directory reconciled** (#485), **NPC voices** (#496), **Widow's Watch
+  lore node** (#497), **ambient NPC life** (#498), a **mobile performance pass**
+  (#490–#495), the **Ashblood Trials** PvP arc (#486), per-room World Chat tabs
+  (#488) + area voice echoes (#489), all five **building interiors reskinned**
+  with KayKit furniture, café polish, a static-prop frustum-cull fix, and the
+  covens marketing page.
 
 ---
 
 ## Now — concrete fixes (small, verifiable)
 
 ### 1. ✅ DONE (PR #485) — NPC "where to find them" directory reconciled
-The stale hints in `server.js` were audited against the real
-`kiosksOut.push({ npcId })` placements and fixed.
 
-### 2. NPCs with a nameplate but no job
-Some NPCs have a name + spot but no shop/interaction of substance (e.g.
-**Tinkerer Oswin** in the Arcade and **Old Mabel** have no `NPC_SHOPS` items).
-Either give each a real function (shop, repair, rumor/quest hook, mini-service)
-or accept them as flavor — but a player who walks up expecting something and
-gets nothing is a small letdown repeated across the town.
-
-_Partially softened by NPC voices (#496) and ambient barks (#498): a player who
-walks up now at least gets personality. A real function is still open._
+### 2. ✅ MOSTLY DONE — NPCs with a nameplate but no job
+The two called out both have real functions now: **Tinkerer Oswin** gives the
+*Oswin's Springs* quest, and **Old Mabel** gives *Mabel's Posies* + the
+Wanderer's *Gray Road* arc **and** mentors the whole Hearth Path brewing
+questline (with a progress-aware greeting in the kitchen). Combined with NPC
+voices (#496) + ambient barks (#498), the "walk up and get nothing" gap is
+closed for the named NPCs. _Open only as an ongoing habit: give any future
+named NPC a function, not just a nameplate._
 
 ### 3. ✅ DONE (PR #497) — "Widow's Watch" is now a lore node
-Leaned into deliberate lore: the Parlor wall sign became a readable waymarker
-that ties into the room's portrait gallery (THE WIDOW — "she keeps the watch").
 
 ---
 
 ## Next — bigger bets (retention / growth)
 
-### 4. Liveness when the town is near-empty  ⭐ highest leverage · mostly shipped
-Analytics show very low concurrency ("1 in town"). A beautiful empty room still
-feels empty, and this is the real growth blocker — a *feature* gap, not a
-marketing one. Candidate builds:
-- ✅ **Async presence** (shipped) — phantom echoes/shades of players who were
-  here recently render in the town, so it feels inhabited.
-- ✅ **Ambient NPC life** (PR #498) — interior NPCs chatter short in-character
-  barks on a timer; rooms feel lived-in even at zero concurrency.
-- ◻️ **"While you were away" feed** — what happened in town/your coven since
-  last login, surfaced on return. _Still open — the natural next liveness beat;
-  the Watch dashboard + coven-standings data already exist to populate it._
+### 4. ✅ DONE — "While you were away" feed
+Shipped as the **welcome letter** (`buildWelcomeLetter`, Session L; the code
+cites "roadmap #4"). After an 8h+ absence, returning players get a letter modal
+(`welcome_letter` → `openLetterModal`) that counts what regrew, which side
+quests cooled down, whether the Midnight Peddler rotated stock, the login streak
++ purse, the calendar ahead, and **coven news** — your coven's weekly-board rank
+and whether it's holding the Champions' Table — plus gentle nudges toward the
+daily/nightly rooms. A gift on the doormat, never a guilt trip.
 
-### 5. The solo → coven on-ramp
-Much of the best content is **coven-gated**: the AI séance board, the Manor, the
-private world, the weekly Rites. A new solo player can bounce before seeing any
-of it. Consider a solo-playable *taste* (a single séance question, a trial Rite
-step) so the coven pitch lands after the player has felt the magic, not before.
+### 5. ✅ DONE — The solo → coven on-ramp
+Shipped as the **solo séance**: a one-time solo taste of the coven's AI séance
+board, so the coven pitch lands after a player has felt the magic.
 
-### 6. A reason to *return* to each room
-The interiors look great now but several lean on one NPC/feature (esp. Library,
-Parlor). Add a daily/rotating hook per room — a rotating "forbidden book" in the
-Library, a nightly séance event in the Parlor, an arcade high-score board,
-café daily special — to turn pretty rooms into habits.
+### 6. ✅ DONE — A reason to return to each room
+Shipped across all four interiors: Café daily special, Arcade daily high-scores,
+Midnight Archive book-of-the-day + Forbidden Shelf codex, Phantom Parlor nightly
+vigil — each with a collectible title.
 
-_Seeded: Apprentice Wren's date-seeded daily remark (#496) is a first rotating
-Library hook. The rest of the rooms still want their own daily beat._
+### 7. ✅ DONE — A vanity / cosmetic sink
+Shipped as **player housing** (own + furnish a cottage, a premium decor shop,
+visiting), on top of the existing wardrobe looks, dyes, auras and titles, and
+the two questline auras (Verdant, Hearthfire). Expression, never power.
 
-### 7. A vanity / cosmetic sink
-There's gold + gems and consumable shops, but little to *show off*. Cosmetics —
-outfits, titles, coven-Manor decor, a personal home — are usually the strongest
-retention + monetization lever in a social game, and they pair perfectly with
-the KayKit art library now in place (the furniture set is already a head start
-on house/manor decor).
+### 8. ✅ DONE — Turn decorative systems into real ones
+Shipped as the **Reliquary** (inspect the relics-under-glass → lore card +
+*Keeper of the Reliquary*) and the **Forbidden Shelf codex** in the Archive.
 
-### 8. Turn decorative systems into real ones
-The "relics under glass" (Arcade, Parlor) are named with real care but do
-nothing. A lightweight **collection / lore codex** (inspect a relic → unlock a
-card) would turn exploration into a reason, and reuse art already shipped.
+---
+
+## New bets worth taking now
+
+With the whole Oct-22 list cleared, the live questions:
+
+- **Liveness, still #1 by data** — concurrency is the real growth ceiling, and
+  the biggest lever left. The welcome letter, async phantom presence, ambient
+  barks and away-nudges all help a returning/solo player; the next step is
+  *connecting* players across sessions: cross-session matchmaking nudges ("3
+  covenmates were on an hour ago"), scheduled town events people can plan around,
+  or shared async goals a coven chips at over a week.
+- **Economy audit** — with housing's decor shop, the Hearth/Green Path reward
+  herbs, and the auction house, re-check whether gold/Moonstones have enough
+  sinks for an engaged player, or whether currency still piles up.
+- **Endgame / progression ceiling** — what a maxed player chases after the weekly
+  crown loop. The two questlines (Green + Hearth) added mid-game depth; the top
+  end is still mostly the weekly coven crown.
+- **Tie the new systems together** — the garden already feeds the kettle; next,
+  let housing, gardening and brewing cross-pollinate (grow decor plants, display
+  a brewed-teas shelf in your cottage, a garden plot at home).
+- **Mobile combat/controls feel** — still worth a dedicated touch pass given how
+  much traffic is phone.
 
 ---
 
 ## Meta — let the data pick the holes
 
-The Watch dashboard already tracks traffic, a security/event log, and player
-counts. The highest-value gaps are the ones the data knows and a code review
-can't see:
-- Where do new players drop off? (We already caught one onboarding bounce — a
-  guest firing out-of-range strikes and leaving at ~36s — and added the
-  "move closer" nudge.)
-- Which rooms get zero visits? Which NPCs are never interacted with?
+The Watch dashboard tracks traffic, a security/event log, and player counts. The
+highest-value gaps are the ones the data knows and a code review can't see:
+- Where do new players drop off? (We caught one onboarding bounce already — a
+  guest firing out-of-range strikes and leaving at ~36s — and added the "move
+  closer" nudge.)
+- Which rooms get zero visits now that each has a daily hook? Which NPCs are
+  never interacted with?
 - What's the Day-1 / Day-7 return curve, and what did returners do differently?
 
 Action: a dedicated analytics pass to rank the above, and let it reprioritize
 this list rather than intuition.
-
----
-
-## Parking lot (unsorted)
-
-- Mobile combat/controls feel — a lot of casual traffic is likely phone; verify
-  the strike/ability loop feels good on touch.
-- Economy audit — are there enough gold/gem sinks for engaged players, or does
-  currency pile up with nothing to buy?
-- Progression ceiling — what does a maxed player chase after the weekly
-  crown loop?
