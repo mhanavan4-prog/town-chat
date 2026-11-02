@@ -10,7 +10,15 @@ import { glyphHTML, escHtml } from './ui-icons.js';
 export default function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown }) {
 let selectedAttackId = null;
 
-const ATTACK_PANEL_TITLES = { 1: '🐺 Wolf Attacks', 2: '🕯️ Mystic Rites', 3: '⚔️ Knightly Arts', 4: '🥾 Wanderer Skills', 5: '☠️ Lich Rites' };
+// charId → { carved class sigil, legacy emoji fallback, panel name }. Witch
+// (charId 0) uses the Spellbook, so the attack panel only covers 1–5.
+const ATTACK_PANEL_TITLES = {
+  1: { sigil: 'class_werewolf', emoji: '🐺', name: 'Wolf Attacks' },
+  2: { sigil: 'class_mystic',   emoji: '🕯️', name: 'Mystic Rites' },
+  3: { sigil: 'class_knight',   emoji: '⚔️', name: 'Knightly Arts' },
+  4: { sigil: 'class_wanderer', emoji: '🥾', name: 'Wanderer Skills' },
+  5: { sigil: 'class_lich',     emoji: '💀', name: 'Lich Rites' },
+};
 
 function openAttackPanel() {
   cancelTargeting();
@@ -20,7 +28,10 @@ function openAttackPanel() {
   selectedAttackId = null;
   document.getElementById('attackTargetPanel').classList.add('hidden');
   const title = document.getElementById('attackModalTitle');
-  if (title) title.textContent = (getMe() && ATTACK_PANEL_TITLES[getMe().charId]) || '⚔️ Attacks';
+  if (title) {
+    const t = getMe() && ATTACK_PANEL_TITLES[getMe().charId];
+    title.innerHTML = t ? glyphHTML(t.sigil, 'titleGi', t.emoji) + ' ' + escHtml(t.name) : '⚔️ Attacks'; // carved class sigil + name
+  }
   const howTo = document.getElementById('attackHowTo');
   if (howTo) {
     howTo.textContent = MOBILE_UI
