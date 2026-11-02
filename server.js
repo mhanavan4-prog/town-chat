@@ -4494,7 +4494,7 @@ function homeStateBody(player) {
   return {
     grid: HOME_GRID,
     pieces: home.pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
-    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, ms: f.ms || 0, owned: ownsFurniture(player, f.id) })),
+    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, ms: f.ms || 0, plant: f.plant, cost: f.cost, tint: f.tint, bloom: f.bloom, berry: f.berry, hang: f.hang, owned: ownsFurniture(player, f.id) })),
     msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
   };
 }
@@ -4507,7 +4507,7 @@ function homeLayoutForKey(key) {
   return {
     grid: HOME_GRID,
     pieces: pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
-    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source })),
+    catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, tint: f.tint, bloom: f.bloom, berry: f.berry, hang: f.hang })),
   };
 }
 // ── The Cottage Showcase (the Trophy Wall) — a read-only board of what an
@@ -14597,6 +14597,28 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
       send(ws, { type: 'furniture_bought', pieceId: f.id });
       send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
+    // Pot up a GROWN decor piece — spend a handful of a plant you raised on the
+    // Green Path to unlock its potted decor. Account-wide + permanent; cosmetic.
+    if (msg.type === 'pot_decor') {
+      if (!player.accountKey) { send(ws, { type: 'toast', message: '🪴 Sign in with an account to pot up decor.' }); return; }
+      const f = FURNITURE_BY_ID[String(msg.pieceId || '')];
+      if (!f || f.source !== 'grown' || !f.plant) { send(ws, { type: 'toast', message: 'That cutting won’t take.' }); return; }
+      const prog = getProgress(player);
+      if (!Array.isArray(prog.furnitureUnlocks)) prog.furnitureUnlocks = [];
+      if (prog.furnitureUnlocks.indexOf(f.id) !== -1) { send(ws, { type: 'furniture_bought', pieceId: f.id }); send(ws, { type: 'home_state', ...homeStateBody(player) }); return; } // already potted
+      const inv = getInventory(player);
+      const need = f.cost || 1;
+      const plantName = (ITEM_CATALOG[f.plant] && ITEM_CATALOG[f.plant].name) || (PLANT_CATALOG[f.plant] && PLANT_CATALOG[f.plant].name) || f.plant;
+      if (countItemQty(inv, f.plant) < need) { send(ws, { type: 'toast', message: `🪴 You need ${need}× ${plantName} to pot up ${f.name} — grow a little more.` }); return; }
+      removeItemFromAccount(inv, f.plant, need);
+      prog.furnitureUnlocks.push(f.id);
+      try { saveProgress(); if (player.accountKey) saveInventories(); } catch (e) {}
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'furniture_bought', pieceId: f.id });
+      send(ws, { type: 'home_state', ...homeStateBody(player) });
+      send(ws, { type: 'toast', message: `🪴 You pot up ${f.name} from your own harvest — ${need}× ${plantName}.` });
       return;
     }
     if (msg.type === 'garden_plant') {

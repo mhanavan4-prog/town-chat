@@ -28,6 +28,15 @@ const FURNITURE = [
   { id: 'potion_station', name: 'Potion Station',  icon: '⚗️', w: 1, h: 1, source: 'premium', ms: 60 },
   { id: 'scholar_desk', name: 'Scholar’s Desk',    icon: '📜', w: 2, h: 1, source: 'premium', ms: 80 },
   { id: 'brew_table',   name: 'Brewing Table',     icon: '🧪', w: 1, h: 1, source: 'premium', ms: 50 },
+  // ── Grown decor (pot up a plant you raised on the Green Path — garden ↔ home).
+  // `plant` is the herb id it's potted from, `cost` how many you spend, `tint` the
+  // foliage colour and `bloom`/`berry` the flower/fruit the client renders. ──
+  { id: 'decor_chamomile',  name: 'Potted Chamomile', icon: '🌼', w: 1, h: 1, source: 'grown', plant: 'chamomile',  cost: 6, tint: 0x6fae52, bloom: 0xf3e7a0 },
+  { id: 'decor_lavender',   name: 'Potted Lavender',  icon: '💜', w: 1, h: 1, source: 'grown', plant: 'lavender',   cost: 6, tint: 0x7fa06a, bloom: 0xb07cff },
+  { id: 'decor_calendula',  name: 'Potted Calendula', icon: '🧡', w: 1, h: 1, source: 'grown', plant: 'calendula',  cost: 6, tint: 0x6fae52, bloom: 0xffa63a },
+  { id: 'decor_mugwort',    name: 'Potted Mugwort',   icon: '🌿', w: 1, h: 1, source: 'grown', plant: 'mugwort',    cost: 5, tint: 0x9ab08a },
+  { id: 'decor_yarrow',     name: 'Hanging Yarrow',   icon: '🌾', w: 1, h: 1, source: 'grown', plant: 'yarrow',     cost: 5, tint: 0x9ab08a, bloom: 0xf0ead2, hang: true },
+  { id: 'decor_belladonna', name: 'Belladonna in a Pot', icon: '🟣', w: 1, h: 1, source: 'grown', plant: 'belladonna', cost: 4, tint: 0x3f5a3a, bloom: 0x7a3a7a, berry: 0x241028 },
 ];
 const FURNITURE_BY_ID = FURNITURE.reduce((o, f) => { o[f.id] = f; return o; }, {});
 
