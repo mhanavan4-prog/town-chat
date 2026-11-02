@@ -1900,7 +1900,11 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'welcome_letter') {
-    openLetterModal(msg);
+    // Don't stack it onto the join burst (loading bar, season banner, rested-XP
+    // + admin toasts). Hold it until the world is in and those have cleared, so
+    // the letter lands as a clean focal point — a gift on the doormat, not noise.
+    pendingWelcomeLetter = msg; welcomeLetterTries = 0;
+    showPendingWelcomeLetter();
     return;
   }
 
@@ -13839,6 +13843,19 @@ setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 })();
 
 // ── The while-you-were-gone letter ───────────────────────────────────────────
+// Hold the welcome letter until the world has loaded AND the join-time toast
+// burst has had a moment to fade, then show it — so it never collides with the
+// loading bar / season banner / rested-XP + admin toasts.
+let pendingWelcomeLetter = null, welcomeLetterTries = 0;
+function showPendingWelcomeLetter() {
+  if (!pendingWelcomeLetter) return;
+  const worldIn = (typeof KK !== 'undefined' && KK.settled);
+  const toastsClear = !document.body.classList.contains('toastVisible'); // the join-burst lane is empty
+  // Wait for the world to be in AND the toast lane to clear (capped ~20s so the
+  // letter always eventually arrives even if toasts keep firing).
+  if ((!worldIn || !toastsClear) && welcomeLetterTries < 40) { welcomeLetterTries++; setTimeout(showPendingWelcomeLetter, 500); return; }
+  setTimeout(() => { if (pendingWelcomeLetter) { openLetterModal(pendingWelcomeLetter); pendingWelcomeLetter = null; } }, 650);
+}
 function openLetterModal(letter) {
   const modal = document.getElementById('letterModal');
   const body = document.getElementById('letterBody');
