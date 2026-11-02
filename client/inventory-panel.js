@@ -6,6 +6,7 @@
 // Item catalog / stat-display tables + the item-icon/tooltip helpers + the tab
 // switchers are injected; the gold-readout refresh via getter (declared later).
 // ---------------------------------------------------------------------------
+import { glyphHTML } from './ui-icons.js';
 export default function createInventoryPanel({ ITEM_CATALOG, Modals, PLANT_EFFECTS, STAT_DISPLAY, buildItemIconEl, hideTooltip, showInvTab, showItemTooltip, toggleInventory, getEquipStatsCatalog, getLastInventoryState, getMyStatBlock, getWs, getUpdateGoldReadouts, getSelectedInvSlotIdx, setSelectedInvSlotIdx, playSfx }) {
 function renderStats() {
   const list = document.getElementById('invStatsList');
@@ -17,7 +18,7 @@ function renderStats() {
     const st = b.stats[d.key] || { skill: 0, gear: 0, total: 0 };
     const row = document.createElement('div');
     row.className = 'statRow';
-    const ic = document.createElement('div'); ic.className = 'statRowIcon'; ic.textContent = d.icon;
+    const ic = document.createElement('div'); ic.className = 'statRowIcon'; ic.innerHTML = glyphHTML('stat_' + d.key, 'statGi', d.icon); // carved attribute sigil, emoji fallback
     const main = document.createElement('div'); main.className = 'statRowMain';
     const nm = document.createElement('div'); nm.className = 'statRowName'; nm.textContent = d.name;
     const sp = document.createElement('div'); sp.className = 'statRowSplit';
@@ -67,7 +68,7 @@ function renderEquipPreview(itemId, slotKind) {
     const val = m.pct ? Math.round(Math.abs(delta) * 100) + '%' : String(Math.round(Math.abs(delta)));
     const cls = delta > 0 ? 'up' : 'down';
     const arrow = delta > 0 ? '▲' : '▼';
-    parts.push(`<span class="previewDelta">${m.icon} ${m.name} <span class="${cls}">${arrow}${val}</span></span>`);
+    parts.push(`<span class="previewDelta">${glyphHTML('stat_' + key, 'previewGi', m.icon)} ${m.name} <span class="${cls}">${arrow}${val}</span></span>`);
   }
   const title = alreadyOn ? '✓ Currently equipped'
     : (current ? `Replaces ${(ITEM_CATALOG[current] || {}).icon || ''} ${(ITEM_CATALOG[current] || {}).name || current}` : 'Equipping this:');

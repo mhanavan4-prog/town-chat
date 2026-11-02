@@ -14,6 +14,7 @@
 import { TEA_ICONS } from './tea-icons.js';
 import { TAROT_ARCANA_ICONS } from './tarot-arcana-icons.js';
 import { SABBAT_ICONS } from './sabbat-icons.js';
+import { PANEL_ICONS } from './panel-icons.js';
 
 // Shared palette — kept here so the whole set shifts together if we re-grade.
 const C = {
@@ -1492,6 +1493,8 @@ export const UI_ICONS = {
   ...TEA_ICONS, // Hearth Path teas — uiIcon('chamomile_tea') etc.
   ...ARCANA_PREFIXED, // The Fool's Journey — uiIcon('arcana_fool') … uiIcon('arcana_world')
   ...SABBAT_PREFIXED, // Wheel of the Year — uiIcon('sabbat_yule') … uiIcon('sabbat_mabon')
+  ...PANEL_ICONS, // stat_* attribute sigils, class_* class sigils, boon_* Delve relics
+
   // emotes
   wave: WAVE, laugh: LAUGH, heart: HEART, wow: WOW,
   cry: CRY, angry: ANGRY, thumb: THUMB, dance: DANCE,

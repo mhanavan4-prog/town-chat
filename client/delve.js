@@ -5,6 +5,7 @@
 // shared app state, injected via getters.
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
+import { glyphHTML } from './ui-icons.js';
 
 export default function createDelve({ getWs, getDelveState, getWeeklyDelveMods }) {
 function openDelveModal() {
@@ -113,7 +114,7 @@ function renderBoonDraft() {
   for (const b of offer) {
     const card = document.createElement('div');
     card.className = 'boonCard';
-    card.innerHTML = `<div class="bIcon">${b.icon}</div><div class="bName">${b.name}</div>`;
+    card.innerHTML = `<div class="bIcon">${glyphHTML('boon_' + b.id, 'bGi', b.icon)}</div><div class="bName">${b.name}</div>`; // carved relic sigil, emoji fallback
     const desc = document.createElement('div'); desc.className = 'bDesc'; desc.textContent = b.desc;
     card.appendChild(desc);
     card.addEventListener('click', () => {

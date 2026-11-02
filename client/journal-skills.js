@@ -6,6 +6,7 @@
 // helper are injected; me/ws/mySkillState/storyState via getters, storyLastOutro
 // get/set (the journal clears the outro once the next chapter begins).
 // ---------------------------------------------------------------------------
+import { glyphHTML } from './ui-icons.js';
 export default function createJournalSkills({ Modals, setDefaultFloatPos, getMe, getWs, getMySkillState, getStoryState, getStoryLastOutro, setStoryLastOutro }) {
 function openJournal() {
   const modal = document.getElementById('journalModal');
@@ -59,9 +60,17 @@ function renderSkills() {
   const titleEl = document.getElementById('skillsTitle');
   if (!list) return;
   const st = getMySkillState();
-  const CLASS_TREE_NAME = ['📖 Coven Secrets', '🐺 Feral Instincts', '🕯️ Spirit Communion', '⚔️ Martial Discipline', '🥾 Road Wisdom', '💀 Death Rites'];
+  const CLASS_TREE_NAME = ['Coven Secrets', 'Feral Instincts', 'Spirit Communion', 'Martial Discipline', 'Road Wisdom', 'Death Rites'];
+  const CLASS_TREE_EMOJI = ['📖', '🐺', '🕯️', '⚔️', '💀', '🥾']; // legacy fallbacks, by charId
+  const CLASS_SIGIL = ['class_witch', 'class_werewolf', 'class_mystic', 'class_knight', 'class_wanderer', 'class_lich'];
   const CLASS_NAME = ['Witch', 'Werewolf', 'Mystic', 'Knight', 'Wanderer', 'Lich']; // by charId — see CHARACTER_PRESETS
-  if (titleEl && st) titleEl.textContent = '🌟 ' + (CLASS_TREE_NAME[st.charId] || 'Skills');
+  if (titleEl && st) {
+    const cid = st.charId;
+    const nm = CLASS_TREE_NAME[cid];
+    titleEl.innerHTML = nm // carved class sigil + name, emoji fallback
+      ? glyphHTML(CLASS_SIGIL[cid], 'titleGi', CLASS_TREE_EMOJI[cid]) + ' ' + nm
+      : '🌟 Skills';
+  }
   // getMe().skillPoints is the live count (kept fresh by xp_gain/level_up); the
   // skill_state snapshot can lag a level-up that didn't re-send it.
   const sp = getMe() ? (getMe().skillPoints || 0) : (st ? st.skillPoints : 0);
