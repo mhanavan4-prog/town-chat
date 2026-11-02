@@ -240,6 +240,8 @@ const AURAS = [
   { id: 'verdant',  label: 'Verdant',  hex: 0x6add7a, earned: true },
   // Earned: granted for completing the whole Hearth Path brewing questline.
   { id: 'hearthfire', label: 'Hearthfire', hex: 0xff8a3a, earned: true },
+  // Earned: granted for gathering all 22 Major Arcana — The Fool's Journey whole.
+  { id: 'oracle',   label: 'Oracle',   hex: 0x8f7bff, earned: true },
 ];
 const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
 function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }

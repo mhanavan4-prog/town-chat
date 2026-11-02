@@ -3008,7 +3008,7 @@ const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extract
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
-const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread)
+const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
@@ -4656,6 +4656,81 @@ function hearthPathEvent(player, tea) {
     }
     try { send(player.ws, { type: 'toast', message: '🍵✨ The Hearth Path is complete. Old Mabel names you a kitchen witch true — you gain the Hearthfire aura.' }); } catch (e) {}
   }
+}
+
+// ── The Fool's Journey — the collectible arc of the Major Arcana (parallel to the
+// Green Path / Hearth Path, but gathered by the daily draw rather than by work).
+// Each card is recorded in The Arcanum the first time it falls in a daily spread;
+// completing one of the three legs (ARCANA_LEGS) pays a purse, and recording all
+// 22 earns the Oracle aura. State is account-wide in prog.arcana.
+function tarotArcanaOf(player) {
+  const prog = getProgress(player);
+  if (!prog.arcana) prog.arcana = { drawn: [], legs: [], done: false };
+  if (!Array.isArray(prog.arcana.drawn)) prog.arcana.drawn = [];
+  if (!Array.isArray(prog.arcana.legs)) prog.arcana.legs = [];
+  return prog.arcana;
+}
+// Record the keys that fell in today's spread. Returns the newly-discovered cards,
+// any legs completed by this draw (with their purse), and whether the finale (all
+// 22) just closed — so the draw handler can pay out gold and toast the milestones.
+function recordArcana(player, keys) {
+  if (!player || !player.accountKey) return { newKeys: [], legsDone: [], finale: false };
+  const ar = tarotArcanaOf(player);
+  const newKeys = [];
+  for (const k of keys) {
+    if (TAROT_CARDS.some((c) => c.key === k) && ar.drawn.indexOf(k) === -1) { ar.drawn.push(k); newKeys.push(k); }
+  }
+  const legsDone = [];
+  if (newKeys.length) {
+    for (const leg of ARCANA_LEGS) {
+      if (ar.legs.indexOf(leg.id) !== -1) continue;
+      if (leg.keys.every((k) => ar.drawn.indexOf(k) !== -1)) { ar.legs.push(leg.id); legsDone.push(leg); }
+    }
+  }
+  let finale = false;
+  if (!ar.done && TAROT_CARDS.every((c) => ar.drawn.indexOf(c.key) !== -1)) {
+    ar.done = true; finale = true;
+    // Gathering all 22 earns the Oracle aura (the collection's capstone).
+    const prog = getProgress(player);
+    if (!prog.auraUnlocks) prog.auraUnlocks = [];
+    if (prog.auraUnlocks.indexOf('oracle') === -1) {
+      prog.auraUnlocks.push('oracle');
+      const auraId = (accounts[player.accountKey] && accounts[player.accountKey].auraId) || 'none';
+      try { send(player.ws, { type: 'aura_set', auraId, owned: prog.auraUnlocks }); } catch (e) {}
+    }
+  }
+  try { saveProgress(); } catch (e) {}
+  return { newKeys, legsDone, finale };
+}
+// The Arcanum page: the 22 Major Arcana grouped by leg, each card revealed (with
+// its upright meaning) once recorded or face-down until then, plus per-leg and
+// overall progress and which legs' purses are already claimed.
+function tarotCollectionBody(player) {
+  if (!player || !player.accountKey) return null;
+  const ar = tarotArcanaOf(player);
+  const has = (k) => ar.drawn.indexOf(k) !== -1;
+  const legs = ARCANA_LEGS.map((leg) => ({
+    id: leg.id, name: leg.name, lore: leg.lore, gold: leg.gold,
+    claimed: ar.legs.indexOf(leg.id) !== -1,
+    count: leg.keys.filter(has).length, total: leg.keys.length,
+    cards: leg.keys.map((k) => {
+      const c = TAROT_CARDS.find((x) => x.key === k) || {};
+      const got = has(k);
+      return { key: k, num: c.num, discovered: got, name: got ? c.name : null, emoji: got ? c.emoji : null, reading: got ? c.reading : null };
+    }),
+  }));
+  return { legs, drawn: ar.drawn.length, total: TAROT_CARDS.length, done: !!ar.done };
+}
+// Render a stored spread ([{key,rev},…]) into the client-facing seats + synthesis.
+function tarotSpreadView(stored) {
+  const byKey = (k) => TAROT_CARDS.find((c) => c.key === k) || TAROT_CARDS[0];
+  const spreadCards = stored.map((s) => ({ card: byKey(s.key), reversed: !!s.rev }));
+  const spread = spreadCards.map((s, i) => ({
+    pos: (TAROT_POSITIONS[i] || {}).label || '', hint: (TAROT_POSITIONS[i] || {}).hint || '',
+    name: s.card.name, num: s.card.num, emoji: s.card.emoji, reversed: s.reversed,
+    meaning: s.reversed ? s.card.reversed : s.card.reading,
+  }));
+  return { spread, synthesis: tarotSynthesis(spreadCards) };
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14196,6 +14271,7 @@ wss.on('connection', (ws, req) => {
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
       let stored, gold = 0, alreadyDrawn = false, secret = null, balance = null;
+      const arcanaNews = [];
       if (a.lastTarotDay === today && Array.isArray(a.lastTarotSpread) && a.lastTarotSpread.length === 3) {
         stored = a.lastTarotSpread;
         alreadyDrawn = true;
@@ -14207,19 +14283,32 @@ wss.on('connection', (ws, req) => {
         stored = deck.slice(0, 3).map((c) => ({ key: c.key, rev: Math.random() < 0.5 }));
         gold = 20;
         a.lastTarotDay = today; a.lastTarotSpread = stored;
+        // Record today's three cards into The Arcanum (The Fool's Journey). Leg
+        // purses fold into the day's gold; recording all 22 earns the Oracle aura.
+        const rec = recordArcana(player, stored.map((s) => s.key));
+        for (const leg of rec.legsDone) { gold += leg.gold; arcanaNews.push(`📖 Leg complete — "${leg.name}" (+${leg.gold}🪙)`); }
+        if (rec.finale) arcanaNews.push('🔮✨ The Fool\'s Journey is whole — all 22 Arcana gathered. You gain the Oracle aura.');
         const account = ensureBankAccount(player.accountKey);
         account.balance += gold; balance = account.balance;
         saveBankAccounts(); saveAccounts();
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
-      const byKey = (k) => TAROT_CARDS.find((c) => c.key === k) || TAROT_CARDS[0];
-      const spreadCards = stored.map((s) => ({ card: byKey(s.key), reversed: !!s.rev }));
-      const spread = spreadCards.map((s, i) => ({
-        pos: (TAROT_POSITIONS[i] || {}).label || '', hint: (TAROT_POSITIONS[i] || {}).hint || '',
-        name: s.card.name, num: s.card.num, emoji: s.card.emoji, reversed: s.reversed,
-        meaning: s.reversed ? s.card.reversed : s.card.reading,
-      }));
-      send(ws, { type: 'tarot_result', spread, synthesis: tarotSynthesis(spreadCards), gold, alreadyDrawn, secret, balance });
+      const { spread, synthesis } = tarotSpreadView(stored);
+      send(ws, { type: 'tarot_result', spread, synthesis, gold, alreadyDrawn, secret, balance, arcana: tarotCollectionBody(player), arcanaNews });
+      return;
+    }
+    if (msg.type === 'tarot_state') {
+      // Read-only peek: today's spread if already laid, plus The Arcanum — so the
+      // modal (and its collection page) can open without consuming the daily draw.
+      if (!player.accountKey) { send(ws, { type: 'tarot_result', spread: [], arcana: null, peek: true }); return; }
+      const a = accounts[player.accountKey];
+      const today = Math.floor(Date.now() / 86400000);
+      let out = { type: 'tarot_result', spread: [], synthesis: '', alreadyDrawn: false, arcana: tarotCollectionBody(player), peek: true };
+      if (a.lastTarotDay === today && Array.isArray(a.lastTarotSpread) && a.lastTarotSpread.length === 3) {
+        const v = tarotSpreadView(a.lastTarotSpread);
+        out.spread = v.spread; out.synthesis = v.synthesis; out.alreadyDrawn = true;
+      }
+      send(ws, out);
       return;
     }
 
@@ -15529,6 +15618,8 @@ global.__testHooks = {
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
+  tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
+
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
   listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,

@@ -4,7 +4,7 @@
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 
-const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis } = require('../data/tarot.js');
+const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('../data/tarot.js');
 
 // ── Deck integrity ────────────────────────────────────────────────────────────
 check('the deck has the 22 Major Arcana', TAROT_CARDS.length === 22, TAROT_CARDS.length);
@@ -48,6 +48,15 @@ check('a second look the same day gives no new reward', d1b.gold === 0 && d1b.al
 check('the same day returns the same spread', d1b.spread === d1.spread);
 const d2 = dealsToday(acc, 101 * DAY + 1000);
 check('a new day allows a fresh rewarded spread', d2.gold === 20 && d2.alreadyDrawn === false, d2);
+
+// ── The Fool's Journey — the collectible arc (ARCANA_LEGS) ───────────────────
+check('there are three legs', Array.isArray(ARCANA_LEGS) && ARCANA_LEGS.length === 3, ARCANA_LEGS && ARCANA_LEGS.length);
+check('each leg has id/name/lore/keys/gold', ARCANA_LEGS.every((l) => l.id && l.name && l.lore && Array.isArray(l.keys) && l.keys.length && l.gold > 0));
+const legKeys = ARCANA_LEGS.flatMap((l) => l.keys);
+check('the three legs together cover all 22 cards exactly once', legKeys.length === 22 && new Set(legKeys).size === 22);
+check('every leg key is a real card', legKeys.every((k) => TAROT_CARDS.some((c) => c.key === k)), legKeys.filter((k) => !TAROT_CARDS.some((c) => c.key === k)));
+check('the legs are ordered by the Major Arcana (0..XXI)', (() => { const order = TAROT_CARDS.map((c) => c.key); let last = -1; for (const k of legKeys) { const i = order.indexOf(k); if (i < last) return false; last = i; } return true; })());
+check('the purse grows with each harder leg', ARCANA_LEGS[0].gold < ARCANA_LEGS[1].gold && ARCANA_LEGS[1].gold < ARCANA_LEGS[2].gold, ARCANA_LEGS.map((l) => l.gold));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

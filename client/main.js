@@ -2768,10 +2768,15 @@ function onWsMessage(ev) {
   if (msg.type === 'release_error') { setUnlockToast(msg.message || 'The fire is cold.'); return; }
   if (msg.type === 'tea_error') { setUnlockToast(`🍵 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
-    _lastTarotResult = msg;
+    if (msg.arcana) _lastArcana = msg.arcana; // The Arcanum (The Fool's Journey)
+    // A read-only peek carries the collection + today's spread without a new draw;
+    // only a real draw/reading replaces the reading page's content.
+    if (!msg.peek || (msg.spread && msg.spread.length)) _lastTarotResult = msg;
     if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
     try { updateGoldReadouts(); } catch (e) { /* readouts not ready */ }
-    if (Modals.isOpen('tarotOpen')) renderTarotModal(msg);
+    // Milestone toasts — a leg completed, or the whole Journey closed.
+    for (const line of (msg.arcanaNews || [])) { try { setUnlockToast(line); } catch (e) {} }
+    if (Modals.isOpen('tarotOpen')) renderTarotModal(_lastTarotResult);
     return;
   }
   if (msg.type === 'familiar_error') { setUnlockToast(`🐈‍⬛ ${msg.message}`); return; }
@@ -10366,19 +10371,36 @@ function closePathModal() {
 }
 
 // ── Daily Tarot ─────────────────────────────────────────────────────────────
-let _lastTarotResult = null; // today's card once drawn this session
+let _lastTarotResult = null; // today's spread once drawn this session
+let _lastArcana = null;      // The Arcanum (The Fool's Journey) collection
+let tarotView = 'reading';   // 'reading' | 'arcanum' — the tarot modal's two pages
 function renderTarotModal(result) {
   const el = document.getElementById('tarotContent');
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
-  if (!result) {
-    el.innerHTML = '<div class="tarotBack">🂠 🂠 🂠</div><div style="font-size:12.5px;opacity:0.9;margin-bottom:14px;">Lay the spread — <b>The Past</b>, <b>The Present</b>, and <b>What Comes</b>.</div><button id="tarotDrawBtn">Lay your spread</button>';
+  // Two-page panel: the daily Reading, and The Arcanum collection (mirrors the
+  // garden/kitchen Brew|Almanac tabs). The Arcanum tab shows a running count.
+  const arc = _lastArcana;
+  const tabs = `<div class="gardenTabs">`
+    + `<button class="gtab${tarotView === 'reading' ? ' on' : ''}" data-tview="reading">🔮 Reading</button>`
+    + (arc ? `<button class="gtab${tarotView === 'arcanum' ? ' on' : ''}" data-tview="arcanum">📖 The Arcanum <span class="gtabCount">${arc.drawn}/${arc.total}</span></button>` : '')
+    + `</div>`;
+  const wireTabs = () => el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
+    const v = b.getAttribute('data-tview');
+    if (v && v !== tarotView) { tarotView = v; renderTarotModal(_lastTarotResult); }
+  }));
+  if (tarotView === 'arcanum' && arc) { renderArcanumInto(el, tabs, arc); wireTabs(); return; }
+  let h = tabs;
+  if (!result || !result.spread || !result.spread.length) {
+    if (result && result.message) { h += `<div style="font-size:12.5px;opacity:0.85;">${esc(result.message)}</div>`; el.innerHTML = h; wireTabs(); return; }
+    h += '<div class="tarotBack">🂠 🂠 🂠</div><div style="font-size:12.5px;opacity:0.9;margin-bottom:14px;">Lay the spread — <b>The Past</b>, <b>The Present</b>, and <b>What Comes</b>.</div><button id="tarotDrawBtn">Lay your spread</button>';
+    el.innerHTML = h;
     const b = document.getElementById('tarotDrawBtn');
     if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning the cards…'; send({ type: 'tarot_draw' }); });
+    wireTabs();
     return;
   }
-  if (!result.spread || !result.spread.length) { el.innerHTML = `<div style="font-size:12.5px;opacity:0.85;">${result.message || 'The cards are quiet.'}</div>`; return; }
-  let h = '<div class="tspread">';
+  h += '<div class="tspread">';
   for (const s of result.spread) {
     h += `<div class="tseat"><div class="tpos">${esc(s.pos)}</div>`;
     h += `<div class="tcard${s.reversed ? ' rev' : ''}"><div class="tcInner"><div class="tcNum">${esc(s.num)}</div><div class="tcGlyph">${s.emoji}</div><div class="tcName">${esc(s.name)}</div></div>`;
@@ -10391,14 +10413,52 @@ function renderTarotModal(result) {
   if (result.alreadyDrawn) h += '<div style="font-size:11.5px;opacity:0.72;text-align:center;margin-top:10px;">Today\'s spread. Return tomorrow for a new one.</div>';
   else if (result.gold) h += `<div id="tarotReward"><span class="coin"></span> +${result.gold} gold</div><div style="font-size:11px;opacity:0.72;text-align:center;">Return tomorrow for a new spread.</div>`;
   el.innerHTML = h;
+  wireTabs();
+}
+// The Arcanum — the 22 Major Arcana as The Fool's Journey, grouped into its three
+// legs. A card is revealed (name + upright meaning) once it has fallen in a daily
+// spread; undrawn cards stay face-down. Completing a leg pays its purse; all 22
+// earns the Oracle aura. Lore is authored constant text (safe to inject).
+function renderArcanumInto(el, tabs, arc) {
+  const pct = arc.total ? Math.round((arc.drawn / arc.total) * 100) : 0;
+  let h = tabs;
+  h += `<div class="almIntro">The Fool's road from the leap to the whole world — recorded card by card as the daily spread turns them up. `
+    + `<b>${arc.drawn} of ${arc.total}</b> gathered.`
+    + `<div class="almBar"><span style="width:${pct}%"></span></div>`
+    + (arc.done ? `<div class="tArcDone">🔮 The Journey is whole — you bear the <b>Oracle</b> aura.</div>` : '')
+    + `</div>`;
+  for (const leg of (arc.legs || [])) {
+    const legDone = leg.count >= leg.total;
+    h += `<div class="almCat">`
+      + `<div class="almCatHead">${esc(leg.name)} <span class="almCatN">${leg.count}/${leg.total}${leg.claimed ? ' ✓' : ''}</span></div>`
+      + `<div class="almCatLore">${esc(leg.lore)}</div>`
+      + `<div class="tArcPurse${legDone ? ' got' : ''}">${legDone ? `Leg complete · +${leg.gold}🪙 claimed` : `Complete this leg for +${leg.gold}🪙`}</div>`
+      + `<div class="almGrid">`;
+    for (const c of leg.cards) {
+      if (c.discovered) {
+        h += `<div class="almCell"><div class="almIcon">${c.emoji || '🔮'}</div>`
+          + `<div class="almName"><span class="tArcNum">${esc(c.num)}</span> ${esc(c.name)}</div>`
+          + `<div class="almLore">${esc(c.reading)}</div></div>`;
+      } else {
+        h += `<div class="almCell locked"><div class="almIcon">🂠</div>`
+          + `<div class="almName">Card ${esc(c.num)}</div>`
+          + `<div class="almLore">Draw this card in a daily spread to turn it face-up.</div></div>`;
+      }
+    }
+    h += `</div></div>`;
+  }
+  el.innerHTML = h;
 }
 function openTarotModal() {
   const modal = document.getElementById('tarotModal');
   if (!modal) return;
+  tarotView = 'reading'; // always open to the reading
   renderTarotModal(_lastTarotResult);
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 150);
   Modals.set('tarotOpen', true);
+  // Peek: pull today's spread (if laid) + The Arcanum without spending a draw.
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'tarot_state' }));
 }
 function closeTarotModal() {
   const modal = document.getElementById('tarotModal');
