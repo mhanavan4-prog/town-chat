@@ -22,6 +22,7 @@ import createRefugeScene from './refuge-scene.js';
 import createCaveScene from './cave-scene.js';
 import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
+import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -2697,9 +2698,13 @@ function onWsMessage(ev) {
     swapToCottageMap();
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
     if (Modals.isOpen('homeOpen')) closeHomeModal(); // get out of the way — show the room
+    // The cottage wears the season — name the dressing on the way in.
+    const _sk = (calendarState && calendarState.season && calendarState.season.key) || null;
+    const _dress = _sk && SABBAT_DRESSING[_sk];
+    const _dressTail = _dress ? ` It's dressed for ${_dress.label} — ${_dress.note}.` : '';
     setUnlockToast(cottageVisiting
-      ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage. Press F at the door to head home.`
-      : '🏠 You step into your cottage. Press F at the door to leave; open 🏠 Home to rearrange.');
+      ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage.${_dressTail} Press F at the door to head home.`
+      : `🏠 You step into your cottage.${_dressTail} Press F at the door to leave; open 🏠 Home to rearrange.`);
     return;
   }
   if (msg.type === 'cottage_exited') {
@@ -11307,6 +11312,68 @@ function swapToCottageMap() {
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(cottageScene, cottageCamera, null);
+  try { applyCottageDressing(); } catch (e) { /* dressing is cosmetic — never block entry */ }
+}
+
+// ── Seasonal cottage dressing — the room turns with the Wheel of the Year. A
+// soft seasonal light + a drifting particle (blossom, leaves, snow, embers…),
+// rebuilt only when the live sabbat changes. Cosmetic; follows calendarState.
+let cottageDressing = null;      // { group, points, vel, W, D, CEIL, rise }
+let _cottageDressingSeason = undefined;
+function applyCottageDressing() {
+  if (!cottageScene || typeof THREE === 'undefined') return;
+  const key = (calendarState && calendarState.season && calendarState.season.key) || null;
+  if (key === _cottageDressingSeason && cottageDressing) return; // unchanged — keep it
+  _cottageDressingSeason = key;
+  if (cottageDressing) {
+    cottageScene.remove(cottageDressing.group);
+    cottageDressing.group.traverse((c) => { if (c.geometry) c.geometry.dispose && c.geometry.dispose(); if (c.material) c.material.dispose && c.material.dispose(); });
+    cottageDressing = null;
+  }
+  const d = key && SABBAT_DRESSING[key];
+  if (!d) return;
+  const W = (COTTAGE_WORLD && COTTAGE_WORLD.width) || 1140;
+  const D = (COTTAGE_WORLD && COTTAGE_WORLD.height) || 1140;
+  const CEIL = 150;
+  const group = new THREE.Group();
+  // A gentle seasonal wash, kept low so the warm hearth light still rules.
+  const light = new THREE.PointLight(d.light, 0.55, 1500, 1.5);
+  light.position.set(W / 2, 135, D / 2);
+  group.add(light);
+  // Drifting motes.
+  const count = d.count || 48;
+  const arr = new Float32Array(count * 3);
+  const vel = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    arr[i * 3] = Math.random() * W;
+    arr[i * 3 + 1] = 4 + Math.random() * (CEIL - 8);
+    arr[i * 3 + 2] = Math.random() * D;
+    vel[i] = (d.rise ? 1 : -1) * (7 + Math.random() * 15);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  const mat = new THREE.PointsMaterial({
+    color: d.accent, size: dressingPointSize(d.particle), transparent: true, opacity: 0.82,
+    depthWrite: false, blending: d.rise ? THREE.AdditiveBlending : THREE.NormalBlending,
+  });
+  const points = new THREE.Points(geo, mat);
+  group.add(points);
+  cottageScene.add(group);
+  cottageDressing = { group, points, vel, W, D, CEIL, rise: !!d.rise };
+}
+function updateCottageDressing(dt) {
+  if (!cottageDressing || activeScene !== cottageScene) return;
+  const { points, vel, W, D, CEIL, rise } = cottageDressing;
+  const a = points.geometry.attributes.position.array;
+  for (let i = 0; i < vel.length; i++) {
+    a[i * 3 + 1] += vel[i] * dt;
+    if (rise ? a[i * 3 + 1] > CEIL : a[i * 3 + 1] < 2) {
+      a[i * 3 + 1] = rise ? 2 : CEIL;
+      a[i * 3] = Math.random() * W;
+      a[i * 3 + 2] = Math.random() * D;
+    }
+  }
+  points.geometry.attributes.position.needsUpdate = true;
 }
 
 function enterCottage() {
@@ -13918,6 +13985,8 @@ function applyCalendarState(cal) {
   renderEventTag();
   renderMoonTag();
   if (Modals.isOpen('bookOpen')) renderBookModal();
+  // If the sabbat turns while you're standing in the cottage, re-dress the room.
+  if (activeScene === cottageScene) { try { applyCottageDressing(); } catch (e) { /* cosmetic */ } }
 }
 // The live moon phase pill (HUD, beside the day/night clock). Always on so the
 // phase is readable at a glance — the full moon glows gold (esbat / charge moon
@@ -17349,6 +17418,7 @@ function update(dt) {
   updateMinionVisuals(dt);
   updatePortals(dt);
   updateManorEmbers(dt);
+  updateCottageDressing(dt);
 
   if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
