@@ -4,7 +4,10 @@
 > tidy four-tea side-loop; the Hearth Path turns it into a **collection system
 > organised by the seven planetary days** of the witch's week, brewed from the
 > real herbs you grow on the Green Path, with a Teas Almanac to fill.
-> Status: **Slices 1–4 COMPLETE.** Slice 4: the **Hearth Path questline** — seven
+> Status: **Slices 1–4 COMPLETE + Old Mabel's voice.** The kitchen panel now
+> carries a progress-aware **Old Mabel** greeting (the café hearth-witch, the
+> Hearth Path's mentor), the exact counterpart to Mother Yarrow in the garden.
+> Slice 4: the **Hearth Path questline** — seven
 > chapters voiced by Old Mabel the hearth-witch, auto-advancing as you brew, that
 > walk you from your first steeping to the master brew and earn the Hearthfire
 > aura; surfaced as a quest card in the kitchen panel.
