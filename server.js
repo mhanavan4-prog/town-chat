@@ -6419,6 +6419,15 @@ const TOWN_MOB_XP = 10; // they also pay XP now that they can kill you
 // so they still only *hit* up close; they just start the hunt from farther off.
 const MOB_AGGRO_MULT = 1.8;
 
+// A safe radius around the town spawn plaza. Night mobs never aggro or strike a
+// player standing here, and any that wander in are steered back out — so a
+// player (above all a newcomer) is never jumped the instant they log in, before
+// the join menu has even cleared. Mirrors the Ember Wastes spawn haven.
+const TOWN_SPAWN = WORLD.spawn;
+const TOWN_SAFE_RADIUS = 400;
+const inTownHavenXY = (x, y) => Math.hypot(x - TOWN_SPAWN.x, y - TOWN_SPAWN.y) < TOWN_SAFE_RADIUS;
+const townSafeZone = (p) => !!(p && p.room === 'outside' && inTownHavenXY(p.x, p.y));
+
 const mobs = MOB_SPAWNS.map((p, i) => ({
   id: 'mob_' + i,
   spawnX: p.x, spawnY: p.y,
@@ -6603,9 +6612,10 @@ function tickWildlife(dt) {
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * C.chaseSpeed;
       vy = dy * inv * C.chaseSpeed;
-    } else if (nearestP && dist < C.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP)) {
+    } else if (nearestP && dist < C.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP) && !townSafeZone(nearestP)) {
       // Aggro: chase, and swing when close enough. An evading player has
-      // slipped out of their senses entirely (see cm_voice).
+      // slipped out of their senses entirely (see cm_voice); a player in the
+      // spawn haven is off-limits too, so a fresh login is never jumped.
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * C.chaseSpeed;
@@ -6635,6 +6645,13 @@ function tickWildlife(dt) {
         vx = Math.sin(m.wanderAngle) * MOB_WANDER_SPEED;
         vy = Math.cos(m.wanderAngle) * MOB_WANDER_SPEED;
       }
+    }
+    // Keep the spawn plaza clear — a mob inside the haven walks radially out of
+    // it (overriding whatever wander/flee it was doing) so it can't loiter where
+    // players appear.
+    if (inTownHavenXY(m.x, m.y)) {
+      const dx = m.x - TOWN_SPAWN.x, dy = m.y - TOWN_SPAWN.y, L = Math.hypot(dx, dy) || 1;
+      vx = (dx / L) * C.chaseSpeed; vy = (dy / L) * C.chaseSpeed;
     }
     const margin = 60;
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
