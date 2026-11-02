@@ -14541,6 +14541,39 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── The Town Bonfire — the town-wide seasonal goal ──
+    if (msg.type === 'town_bonfire') {
+      send(ws, { type: 'town_bonfire', ...townBonfireState(player) });
+      return;
+    }
+    if (msg.type === 'bonfire_offer') {
+      if (!player.accountKey) { send(ws, { type: 'toast', message: '🔥 Log into an account to feed the town fire.' }); return; }
+      ensureTownBonfire();
+      if (townBonfire.lit) { send(ws, { type: 'toast', message: '🔥 The fire already blazes this season — come back when the wheel turns.' }); send(ws, { type: 'town_bonfire', ...townBonfireState(player) }); return; }
+      const herb = String(msg.herb || '');
+      if (!ALMANAC_PLANT_SET.has(herb)) { send(ws, { type: 'toast', message: 'The fire takes herbs you\'ve grown or foraged.' }); return; }
+      let qty = Math.floor(Number(msg.qty)); if (!(qty >= 1)) qty = 1; qty = Math.min(qty, BONFIRE_MAX_PER_OFFER);
+      const inv = getInventory(player);
+      const have = countItemQty(inv, herb);
+      const room = townBonfire.target - townBonfire.progress;
+      const give = Math.min(qty, have, room);
+      if (give <= 0) { send(ws, { type: 'toast', message: have <= 0 ? 'You hold none of that to give.' : 'The fire is already full.' }); return; }
+      removeItemFromAccount(inv, herb, give);
+      townBonfire.progress += give;
+      townBonfire.contribs[player.accountKey] = (townBonfire.contribs[player.accountKey] || 0) + give;
+      grantXP(player, give * BONFIRE_GIVE_XP);
+      try { saveInventories(); } catch (e) {}
+      saveBonfire();
+      const nm = (ITEM_CATALOG[herb] && ITEM_CATALOG[herb].name) || (PLANT_CATALOG[herb] && PLANT_CATALOG[herb].name) || herb;
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'toast', message: `🔥 You feed ${give}× ${nm} to the ${bonfireSeasonName(townBonfire.seasonKey)} Bonfire.` });
+      if (townBonfire.progress >= townBonfire.target) lightTownBonfire();
+      else bonfireProgressBroadcast();
+      send(ws, { type: 'town_bonfire', ...townBonfireState(player) });
+      return;
+    }
+
     // ── The Ancestor Altar — the solitary Samhain rite (dumb supper) ──
     if (msg.type === 'ancestor_state') {
       if (!player.accountKey) {
@@ -15411,6 +15444,70 @@ const _ccHourTimer = setInterval(() => {
 }, 60 * 1000);
 if (_ccHourTimer && _ccHourTimer.unref) _ccHourTimer.unref();
 
+// ── The Town Bonfire (liveness: a town-wide seasonal goal) ───────────────────
+// Each sabbat the whole town — coven or not — feeds a shared bonfire in the
+// square with herbs they've grown or foraged. A visible pile that grows as the
+// town gives; when it reaches the target the fire is LIT, everyone online shares
+// a blessing, and it blazes for the rest of the season. Async + inclusive: a
+// lone, coven-less player still contributes and still counts. One town singleton,
+// rolled to a fresh goal each time the wheel turns.
+const BONFIRE_FILE = path.join(DATA_DIR, 'townBonfire.json');
+const BONFIRE_TARGET = 300;          // herbs the town gathers each season
+const BONFIRE_MAX_PER_OFFER = 50;    // cap one offering so the bar climbs, not jumps
+const BONFIRE_GIVE_XP = 2;           // XP per herb given — a nudge to contribute
+const BONFIRE_LIT_XP = 250;          // the blessing to everyone online when it lights
+const BONFIRE_LIT_GOLD = 40;
+const BONFIRE_GIVER_GOLD = 40;       // extra for those who actually fed it
+let townBonfire = { seasonKey: null, target: BONFIRE_TARGET, progress: 0, lit: false, litAt: 0, contribs: {} };
+persistRegister('townBonfire', BONFIRE_FILE, () => townBonfire);
+function saveBonfire() { try { persistSave('townBonfire', BONFIRE_FILE, townBonfire); } catch (e) {} }
+function bonfireSeasonName(key) { const s = SABBATS.find((x) => x.key === key); return s ? s.name : 'Season'; }
+function ensureTownBonfire() {
+  let key = null; try { key = seasonWindow(Date.now()).key; } catch (e) {}
+  if (townBonfire.seasonKey !== key) { // the wheel turned — a fresh fire to build
+    townBonfire = { seasonKey: key, target: BONFIRE_TARGET, progress: 0, lit: false, litAt: 0, contribs: {} };
+    saveBonfire();
+  }
+  if (!townBonfire.contribs) townBonfire.contribs = {};
+  return townBonfire;
+}
+function townBonfireState(player) {
+  ensureTownBonfire();
+  const b = townBonfire;
+  const inv = (player && player.accountKey) ? getInventory(player) : null;
+  // What this player can feed the fire right now — Green Path herbs they hold.
+  const offer = inv ? ALMANAC_PLANT_IDS
+    .map((id) => ({ id, name: (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id, have: countItemQty(inv, id) }))
+    .filter((o) => o.have > 0) : [];
+  return {
+    seasonKey: b.seasonKey, seasonName: bonfireSeasonName(b.seasonKey),
+    target: b.target, progress: Math.min(b.progress, b.target), lit: !!b.lit, litAt: b.litAt || 0,
+    youGave: (player && player.accountKey && b.contribs[player.accountKey]) || 0,
+    givers: Object.keys(b.contribs).length, offer, now: Date.now(),
+  };
+}
+function bonfireProgressBroadcast() {
+  broadcastAll({ type: 'town_bonfire_progress', progress: Math.min(townBonfire.progress, townBonfire.target), target: townBonfire.target, lit: !!townBonfire.lit, seasonName: bonfireSeasonName(townBonfire.seasonKey) });
+}
+// The fire reaches its target — light it, bless everyone online, and shout it.
+function lightTownBonfire() {
+  if (townBonfire.lit) return;
+  townBonfire.lit = true; townBonfire.litAt = Date.now();
+  saveBonfire();
+  const name = bonfireSeasonName(townBonfire.seasonKey);
+  for (const p of players.values()) {
+    if (!p.accountKey || p._synthetic) continue;
+    grantXP(p, BONFIRE_LIT_XP);
+    const bonus = townBonfire.contribs[p.accountKey] ? BONFIRE_GIVER_GOLD : 0;
+    try { const a = ensureBankAccount(p.accountKey); a.balance += BONFIRE_LIT_GOLD + bonus; } catch (e) {}
+    try { send(p.ws, { type: 'skill_state', ...skillStatePayload(p) }); } catch (e) {}
+    try { send(p.ws, { type: 'toast', message: `🔥 The ${name} Bonfire is LIT! The town gathered ${townBonfire.target} herbs together. +${BONFIRE_LIT_XP} XP${bonus ? ` and +${bonus}🪙 for feeding it` : ''}.` }); } catch (e) {}
+  }
+  try { saveBankAccounts(); } catch (e) {}
+  try { townfeedPush('🔥', `The ${name} Bonfire blazes in the square — the town gathered ${townBonfire.target} herbs together.`); } catch (e) {}
+  bonfireProgressBroadcast();
+}
+
 // ── The Town Bell (liveness: a scheduled gathering) ──────────────────────────
 // Every half hour on the wall clock, a bell tolls and everyone online has a
 // short window to gather at the plaza well. Whoever answers shares a reward
@@ -15793,6 +15890,7 @@ global.__testHooks = {
   broadcastPlayerState, publicPlayer, CROWD_THRESHOLD,
   townPulsePayload, // test-only: town-wide liveness headcount
   ringBell, closeBell, bellPublicState, bellAtWell, bellNextPeriod, // test-only: the Town Bell
+  townBonfireState, ensureTownBonfire, lightTownBonfire, getTownBonfire: () => townBonfire, BONFIRE_TARGET, // test-only: the Town Bonfire
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,

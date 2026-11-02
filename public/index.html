@@ -817,6 +817,23 @@
   .scColN { font-weight:700; color:#8fbf8f; }
   .scColN.done { color:#ffd76a; }
   .scTitleChip { font-size:11px; font-weight:700; color:#e0bbff; padding:3px 9px; border-radius:9px; background:rgba(200,150,230,0.14); border:1px solid rgba(200,150,230,0.4); }
+  /* The Town Bonfire */
+  #bonfireModal { width:min(360px, 92vw); }
+  .bfTitle { font-weight:800; font-size:15px; color:#ffd9a0; margin-bottom:6px; }
+  .bfIntro { font-size:11.5px; color:#dcccb0; line-height:1.45; margin-bottom:10px; }
+  .bfLit { font-size:12px; color:#ffc48a; background:rgba(255,150,60,0.12); border:1px solid rgba(255,150,60,0.4); border-radius:9px; padding:7px 10px; margin-bottom:10px; }
+  .bfBarWrap { display:flex; align-items:center; gap:9px; margin-bottom:6px; }
+  .bfBar { flex:1; height:12px; background:rgba(0,0,0,0.35); border-radius:7px; overflow:hidden; border:1px solid rgba(255,150,60,0.25); }
+  .bfBar > span { display:block; height:100%; background:linear-gradient(90deg,#d0702e,#ffac3a,#ffd27a); border-radius:7px; transition:width .4s; }
+  .bfBarN { font-size:11.5px; font-weight:800; color:#ffce8a; white-space:nowrap; }
+  .bfStats { font-size:11px; color:#b9a37a; margin-bottom:12px; }
+  .bfFeedHead { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#d9b86a; margin-bottom:6px; }
+  .bfFeed { display:flex; flex-direction:column; gap:5px; }
+  .bfHerb { display:flex; align-items:center; gap:8px; background:rgba(255,220,140,0.06); border:1px solid rgba(255,220,140,0.2); border-radius:9px; padding:5px 9px; }
+  .bfHerbNm { flex:1; font-size:11.5px; color:#efe6cf; }
+  .bfFeedBtn { flex:0 0 auto; background:linear-gradient(180deg,#8a4a22,#5a2f12); color:#ffe9c2; border:1px solid #b06a2e; padding:5px 12px; border-radius:8px; cursor:pointer; font-size:11px; font-weight:800; }
+  .bfFeedBtn:hover { filter:brightness(1.12); }
+  .bfEmpty { font-size:11.5px; color:#a99; font-style:italic; }
   /* The Arcanum (The Fool's Journey) collection page */
   .tArcDone { margin-top:8px; font-size:12px; color:#d8c6ff; font-weight:600; }
   .tArcPurse { font-size:10.5px; color:#caa85c; margin:4px 0 8px; letter-spacing:0.3px; }
@@ -2686,6 +2703,7 @@
 
       <div class="menuSection">Town</div>
       <button class="menuRow" id="menuMap" title="Town map — see where everything is (M)">🗺️ Town Map</button>
+      <button class="menuRow" id="menuBonfire">🔥 Town Bonfire<span id="menuBonfireBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuBoard">🏆 Town Board</button>
       <button class="menuRow" id="menuCrier">📣 Town Crier<span id="crierMenuBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuDelve">🕳️ Weekly Delve<span id="menuDelveBadge" class="menuMiniBadge hidden"></span></button>
@@ -3757,6 +3775,14 @@
   </div>
   <div id="showcaseContent"></div>
   <button class="btn" id="showcaseCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="bonfireModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🔥 Town Bonfire</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="bonfireContent"></div>
+  <button class="btn" id="bonfireCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="gardenModal" class="floatPanel hidden">
