@@ -10836,6 +10836,25 @@ function renderHomeModal() {
     h += '</div>';
   }
 
+  // The Potting Bench — pot up decor from plants you've grown on the Green Path.
+  // Two-tap like the shop; the cost is a handful of the herb (held/need shown).
+  const grown = catalog.filter((c) => !c.owned && c.source === 'grown');
+  if (grown.length) {
+    h += `<div class="homeShopHead">🪴 Potting Bench <span class="homeShopBal">from your garden</span></div>`;
+    h += '<div class="homePalette">';
+    for (const c of grown) {
+      const have = gardenHerbCount(c.plant);
+      const can = have >= (c.cost || 1);
+      const arming = homePendBuy === c.id;
+      h += `<div class="homePiece locked${arming ? ' arming' : ''}" data-pot="${c.id}">`
+        + `<span class="hpIco">${c.icon}</span>`
+        + `<span class="hpName">${escHtml(c.name)}</span>`
+        + `<span class="hpPrice${can ? '' : ' cant'}">${arming ? 'Confirm?' : have + '/' + (c.cost || 1)}</span>`
+        + `</div>`;
+    }
+    h += '</div>';
+  }
+
   // Visit a covenmate's cottage — only from town (visiting starts from the
   // square). The list arrives via cottage_visit_list, requested on open.
   const inTown = !me || me.room !== 'cottage';
@@ -10872,6 +10891,12 @@ function renderHomeModal() {
   el.querySelectorAll('.homePiece[data-buy]').forEach((p) => p.addEventListener('click', () => {
     const id = p.getAttribute('data-buy');
     if (homePendBuy === id) { homePendBuy = null; send({ type: 'buy_furniture', pieceId: id }); }
+    else { homePendBuy = id; renderHomeModal(); }
+  }));
+  // Wire the potting bench (grown decor) — two-tap to pot up for grown herbs.
+  el.querySelectorAll('.homePiece[data-pot]').forEach((p) => p.addEventListener('click', () => {
+    const id = p.getAttribute('data-pot');
+    if (homePendBuy === id) { homePendBuy = null; send({ type: 'pot_decor', pieceId: id }); }
     else { homePendBuy = id; renderHomeModal(); }
   }));
   // Wire the grid.
@@ -11434,6 +11459,29 @@ function buildProceduralProp(id, meta, x, z, yaw) {
     disc.position.set(0, 100, 0); g.add(disc);
     const star = new THREE.Mesh(new THREE.CircleGeometry(13, 5), new THREE.MeshBasicMaterial({ color: 0x8e6bff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
     star.position.set(0, 100, 0.5); g.add(star);
+  } else if (meta && meta.source === 'grown' && meta.tint != null) {
+    // Grown decor — a plant you potted from your own harvest. Foliage is tinted to
+    // the herb, with its blooms/berries dotted on. A "hang" piece is a wall bundle.
+    const leafMat = new THREE.MeshLambertMaterial({ color: meta.tint });
+    if (meta.hang) {
+      put(new THREE.CylinderGeometry(1.2, 1.2, 10, 6), woodDark, 0, 96, 0);                     // cord
+      put(new THREE.TorusGeometry(5, 1.5, 6, 12), new THREE.MeshLambertMaterial({ color: 0xcaa24a }), 0, 101, 0); // ring
+      for (const [ang, len] of [[-0.5, 46], [-0.18, 54], [0.18, 54], [0.5, 46], [0, 58]]) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(4, len, 6), leafMat);
+        leaf.position.set(Math.sin(ang) * 10, 90 - len / 2, Math.cos(ang) * 2); leaf.rotation.z = Math.PI + ang; g.add(leaf);
+        if (meta.bloom != null) { const b = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8), new THREE.MeshLambertMaterial({ color: meta.bloom })); b.position.set(Math.sin(ang) * 11, 90 - len, Math.cos(ang) * 2); g.add(b); }
+      }
+    } else {
+      put(new THREE.CylinderGeometry(16, 12, 26, 12), new THREE.MeshLambertMaterial({ color: 0x8a4a2a }), 0, 13, 0); // terracotta pot
+      put(new THREE.CylinderGeometry(15, 15, 4, 12), new THREE.MeshLambertMaterial({ color: 0x3a2414 }), 0, 26, 0);  // soil
+      const tips = [[0, 0, 44], [9, 7, 34], [-8, 6, 36], [6, -7, 32], [-6, -6, 30]];
+      for (const [lx, lz, hgt] of tips) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(6, hgt, 6), leafMat);
+        leaf.position.set(lx, 26 + hgt / 2, lz); g.add(leaf);
+        if (meta.bloom != null) { const b = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), new THREE.MeshLambertMaterial({ color: meta.bloom })); b.position.set(lx, 26 + hgt, lz); g.add(b); }
+        if (meta.berry != null) { const br = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshLambertMaterial({ color: meta.berry })); br.position.set(lx * 0.7, 26 + hgt * 0.7, lz * 0.7); g.add(br); }
+      }
+    }
   } else {
     // generic crate-ish stand-in for any unmapped piece
     put(new THREE.BoxGeometry(cw * 0.7, 40, cw * 0.7), wood, 0, 20, 0);
