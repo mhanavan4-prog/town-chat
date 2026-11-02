@@ -54,8 +54,8 @@ const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
 try {
   const CASES = [
     { charId: 0, name: 'HexSmoke',    spellbook: true,  attacks: false, storyTitle: 'The Fifth Hand' },
-    { charId: 2, name: 'MistSmoke',   spellbook: false, attacks: true,  storyTitle: 'Voices Beneath the Floorboards', panelTitle: '🕯️ Mystic Rites' },
-    { charId: 3, name: 'KnightSmoke', spellbook: false, attacks: true,  storyTitle: 'The Hollow Oath', panelTitle: '⚔️ Knightly Arts' }
+    { charId: 2, name: 'MistSmoke',   spellbook: false, attacks: true,  storyTitle: 'Voices Beneath the Floorboards', panelTitle: 'Mystic Rites' },
+    { charId: 3, name: 'KnightSmoke', spellbook: false, attacks: true,  storyTitle: 'The Hollow Oath', panelTitle: 'Knightly Arts' }
   ];
 
   for (const c of CASES) {
@@ -120,8 +120,10 @@ try {
       await page.waitForSelector('#attackModal:not(.hidden)', { timeout: 3000 });
       const rows = await page.$$eval('#attackList .attackRow', els => els.length);
       check(`[char ${c.charId}] attacks panel lists a full kit (${rows} abilities)`, rows >= 12);
-      const title = await page.$eval('#attackModalTitle', el => el.textContent);
-      check(`[char ${c.charId}] attacks panel titled "${c.panelTitle}"`, title === c.panelTitle);
+      // Title is now a carved class sigil (SVG) + the panel name, so compare the
+      // trimmed text and assert the sigil rendered rather than an emoji fallback.
+      const titleInfo = await page.$eval('#attackModalTitle', el => ({ text: el.textContent.trim(), hasSigil: !!el.querySelector('svg.uiIcon') }));
+      check(`[char ${c.charId}] attacks panel titled "${c.panelTitle}"`, titleInfo.text === c.panelTitle && titleInfo.hasSigil);
       // Cast a self ability straight from the hotbar via its key.
       await page.keyboard.press('Escape');
       const wardKeyIdx = await page.evaluate(() => {
