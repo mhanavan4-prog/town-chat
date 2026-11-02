@@ -110,30 +110,39 @@ function renderWorkshopModal() {
       continue;
     }
 
-    // Forge row — craft it if you have the ingredients.
+    // Forge row — craft it if you have the ingredients. maxBatch = how many the
+    // current materials can make, for the "Craft All" button (saves clicking one
+    // at a time when refining a big stack).
     let canCraft = true;
+    let maxBatch = Infinity;
     const chips = r.ingredients.map(ing => {
       const have = countItem(ing.id);
       const ok = have >= ing.qty;
       if (!ok) canCraft = false;
+      maxBatch = Math.min(maxBatch, Math.floor(have / ing.qty));
       const meta = CAT[ing.id] || {};
       return `<span class="craftChip ${ok ? 'ok' : 'short'}" data-item="${ing.id}">${meta.icon || '?'} ${meta.name || ing.id} ${have}/${ing.qty}</span>`;
     }).join('');
+    if (!isFinite(maxBatch)) maxBatch = 0;
 
     row.className = 'craftRow' + (canCraft ? ' ready' : '');
     row.innerHTML =
       `<div class="craftHead">
          <span class="craftIcon">${out.icon || '🔨'}</span>
          <span class="craftName">${out.name || r.result}${r.gold ? ' <span class="craftLock owned">✓ learned</span>' : ''}</span>
-         <button class="craftBtn" ${canCraft ? '' : 'disabled'}>Craft</button>
+         <button class="craftBtn craftOne" ${canCraft ? '' : 'disabled'}>Craft</button>
+         ${canCraft && maxBatch > 1 ? `<button class="craftBtn craftAll">All ×${maxBatch}</button>` : ''}
        </div>
        ${stats ? `<div class="craftStats">${stats}</div>` : ''}
        <div class="craftChips">${chips}</div>`;
-    row.querySelector('.craftBtn').addEventListener('click', () => {
+    const doCraft = (qty) => {
       if (!canCraft) return;
       document.getElementById('workshopErr').textContent = '';
-      send({ type: 'workshop_craft', recipeId: r.id });
-    });
+      send({ type: 'workshop_craft', recipeId: r.id, qty });
+    };
+    row.querySelector('.craftOne').addEventListener('click', () => doCraft(1));
+    const allBtn = row.querySelector('.craftAll');
+    if (allBtn) allBtn.addEventListener('click', () => doCraft(maxBatch));
     list.appendChild(row);
   }
   wireChipTooltips(list);

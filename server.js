@@ -15068,21 +15068,34 @@ wss.on('connection', (ws, req) => {
         return;
       }
       const inv = getInventory(player);
-      for (const ing of recipe.ingredients) {
-        if (countItemQty(inv, ing.id) < ing.qty) {
-          const item = ITEM_CATALOG[ing.id];
-          send(ws, { type: 'workshop_craft_error', message: `You need ${ing.qty}× ${item?.name || ing.id}.` });
-          return;
+      // How many can the materials make? (Craft All sends qty = this; a plain
+      // Craft sends 1 or omits it.) Report the first short ingredient if none.
+      let maxByMats = Infinity;
+      for (const ing of recipe.ingredients) maxByMats = Math.min(maxByMats, Math.floor(countItemQty(inv, ing.id) / ing.qty));
+      if (!isFinite(maxByMats) || maxByMats < 1) {
+        for (const ing of recipe.ingredients) {
+          if (countItemQty(inv, ing.id) < ing.qty) {
+            const item = ITEM_CATALOG[ing.id];
+            send(ws, { type: 'workshop_craft_error', message: `You need ${ing.qty}× ${item?.name || ing.id}.` });
+            return;
+          }
         }
+        return; // (unreachable — maxByMats<1 implies some ingredient is short)
       }
-      for (const ing of recipe.ingredients) removeItemFromAccount(inv, ing.id, ing.qty);
+      const want = Math.max(1, Math.min(Math.floor(Number(msg.qty) || 1), maxByMats));
       const resultItem = ITEM_CATALOG[recipe.result];
-      if (!addItemToAccount(inv, recipe.result, 1)) {
-        for (const ing of recipe.ingredients) addItemToAccount(inv, ing.id, ing.qty); // rollback
-        send(ws, { type: 'workshop_craft_error', message: 'Your pack is full — make room first.' }); return;
+      let made = 0;
+      for (let n = 0; n < want; n++) {
+        for (const ing of recipe.ingredients) removeItemFromAccount(inv, ing.id, ing.qty);
+        if (!addItemToAccount(inv, recipe.result, 1)) {
+          for (const ing of recipe.ingredients) addItemToAccount(inv, ing.id, ing.qty); // rollback this one
+          break; // pack filled up — stop with what we managed
+        }
+        made++;
       }
+      if (made === 0) { send(ws, { type: 'workshop_craft_error', message: 'Your pack is full — make room first.' }); return; }
       if (player.accountKey) saveInventories();
-      { const cp = getProgress(player); cp.itemsCrafted = (cp.itemsCrafted || 0) + 1; } // Artificer ladder
+      { const cp = getProgress(player); cp.itemsCrafted = (cp.itemsCrafted || 0) + made; } // Artificer ladder
       checkAchievements(player);
       storyEvent(player, 'craft_item', { recipeId: recipe.id }); // Episode II ch8 — forge at the Workshop
       noteMilestone(player, 'craft');
@@ -15090,7 +15103,10 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'workshop_craft_result',
         resultIcon: resultItem?.icon || '🔨',
         resultName: resultItem?.name || recipe.result,
-        message: `🔨 You craft ${resultItem?.icon || ''} ${resultItem?.name || recipe.result}.`
+        count: made,
+        message: made > 1
+          ? `🔨 You craft ${made}× ${resultItem?.icon || ''} ${resultItem?.name || recipe.result}.`
+          : `🔨 You craft ${resultItem?.icon || ''} ${resultItem?.name || recipe.result}.`
       });
       return;
     }
