@@ -1178,6 +1178,7 @@ function onWsMessage(ev) {
   if (msg.type === 'init') {
     const wasStarted = gameStarted;
     myId = msg.id;
+    try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'town_bonfire' })); } catch (e) {} // seed the square's bonfire state
     if (Array.isArray(msg.worldChat)) {
       worldFeed.length = 0; for (const m of msg.worldChat) worldFeed.push(m);
       // Pop a just-posted host greeting on (re)connect. Seeding the backlog
@@ -2728,6 +2729,18 @@ function onWsMessage(ev) {
     if (Modals.isOpen('showcaseOpen')) renderShowcaseModal();
     return;
   }
+  if (msg.type === 'town_bonfire') {
+    _lastBonfire = msg;
+    try { updateTownBonfireProp(msg.progress, msg.target, msg.lit); } catch (e) {}
+    if (Modals.isOpen('bonfireOpen')) renderBonfireModal();
+    return;
+  }
+  if (msg.type === 'town_bonfire_progress') {
+    if (_lastBonfire) { _lastBonfire.progress = msg.progress; _lastBonfire.target = msg.target; _lastBonfire.lit = msg.lit; }
+    try { updateTownBonfireProp(msg.progress, msg.target, msg.lit); } catch (e) {}
+    if (Modals.isOpen('bonfireOpen')) renderBonfireModal();
+    return;
+  }
   if (msg.type === 'manor_state') {
     applyManorState(msg);
     return;
@@ -3619,6 +3632,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('bonfireModal'),    document.querySelector('#bonfireModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
   makeDraggable(document.getElementById('homeModal'),       document.querySelector('#homeModal .floatPanelHandle'));
   makeDraggable(document.getElementById('kitchenModal'),    document.querySelector('#kitchenModal .floatPanelHandle'));
@@ -6853,6 +6867,7 @@ function hydrateMenuRows() {
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('showcaseCloseBtn', closeShowcaseModal);
+  on('bonfireCloseBtn', closeBonfireModal);
   on('menuGarden', closeSheetAnd(() => { if (!Modals.isOpen('gardenOpen')) openGardenModal(); }));
   on('gardenCloseBtn', closeGardenModal);
   on('menuHome', closeSheetAnd(() => { if (!Modals.isOpen('homeOpen')) openHomeModal(); }));
@@ -9179,6 +9194,8 @@ function swapToTownMap() {
   cameraPitchOffset = 0;
   setActiveContext(outdoorScene, outdoorCamera, null);
   indoorBuildingId = null;
+  // The town bonfire lives in the square — make sure it's present + up to date.
+  try { if (_lastBonfire) updateTownBonfireProp(_lastBonfire.progress, _lastBonfire.target, _lastBonfire.lit); else { ensureTownBonfireProp(); if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'town_bonfire' })); } } catch (e) {}
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.classList.add('hidden');
 }
@@ -9400,6 +9417,43 @@ function updateManorEmbers(dt) {
     if (a[i * 3 + 1] > H) { a[i * 3 + 1] = 2; a[i * 3] = Math.random() * manorEmbers.W; a[i * 3 + 2] = Math.random() * manorEmbers.D; }
   }
   pos.needsUpdate = true;
+}
+
+// ── The Town Bonfire prop — the visible town-goal structure in the square. A
+// ring of logs + stones with a flame that GROWS as the town fills the goal, and
+// blazes once it's lit. Position is a tunable plaza spot (north of spawn).
+const BONFIRE_WORLD_POS = { x: 1600, y: 940 };
+let townBonfireProp = null; // { group, flames, light }
+function buildTownBonfireProp() {
+  if (typeof THREE === 'undefined') return null;
+  const g = new THREE.Group();
+  const woodMat = new THREE.MeshLambertMaterial({ color: 0x5a3a1e });
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const log = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 72, 8), woodMat); log.position.set(Math.cos(a) * 14, 24, Math.sin(a) * 14); log.rotation.z = Math.cos(a) * 0.5; log.rotation.x = Math.sin(a) * 0.5; g.add(log); }
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6a5f54 });
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(9), stoneMat); st.position.set(Math.cos(a) * 36, 6, Math.sin(a) * 36); g.add(st); }
+  const flames = [];
+  for (const [r, hgt, col] of [[18, 90, 0xffac3a], [11, 120, 0xffd27a], [6, 150, 0xfff0c0]]) {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(r, hgt, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+    f.position.y = 22 + hgt / 2; g.add(f); flames.push(f);
+  }
+  const light = new THREE.PointLight(0xffb060, 1.4, 760, 1.8); light.position.y = 90; g.add(light);
+  g.position.set(BONFIRE_WORLD_POS.x, 0, BONFIRE_WORLD_POS.y);
+  g.onBeforeRender = () => { const t = performance.now() * 0.006; for (let i = 0; i < flames.length; i++) { flames[i].scale.y = 0.85 + Math.sin(t + i) * 0.15; flames[i].scale.x = 0.95 + Math.cos(t * 1.3 + i) * 0.08; } };
+  townBonfireProp = { group: g, flames, light };
+  return g;
+}
+function ensureTownBonfireProp() {
+  if (!outdoorScene || typeof THREE === 'undefined') return;
+  if (!townBonfireProp) buildTownBonfireProp();
+  if (townBonfireProp && townBonfireProp.group.parent !== outdoorScene) outdoorScene.add(townBonfireProp.group);
+}
+function updateTownBonfireProp(progress, target, lit) {
+  ensureTownBonfireProp();
+  if (!townBonfireProp) return;
+  const ratio = lit ? 1 : Math.max(0.12, Math.min(1, target ? progress / target : 0));
+  townBonfireProp.group.scale.setScalar(0.75 + ratio * 0.6);        // the pile grows as the town gives
+  townBonfireProp.light.intensity = (lit ? 2.6 : 1.0) * (0.5 + ratio);
+  townBonfireProp.light.distance = lit ? 1000 : 760;
 }
 
 // ---------------------------------------------------------------------------
@@ -10544,6 +10598,47 @@ function closeShowcaseModal() {
   const modal = document.getElementById('showcaseModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('showcaseOpen', false);
+}
+
+// ── The Town Bonfire — a town-wide seasonal goal everyone feeds together. ──
+let _lastBonfire = null;
+function renderBonfireModal() {
+  const el = document.getElementById('bonfireContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const s = _lastBonfire;
+  if (!s) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">The embers stir…</div>'; send({ type: 'town_bonfire' }); return; }
+  const pct = s.target ? Math.round((s.progress / s.target) * 100) : 0;
+  let h = `<div class="bfTitle">🔥 The ${esc(s.seasonName)} Bonfire</div>`;
+  h += `<div class="bfIntro">The whole town feeds one fire this season — herbs you've grown or foraged. Light it together and everyone shares the blessing.</div>`;
+  if (s.lit) h += `<div class="bfLit">🔥 The fire <b>blazes</b> — the town gathered all ${s.target} herbs. It burns until the wheel turns.</div>`;
+  h += `<div class="bfBarWrap"><div class="bfBar"><span style="width:${pct}%"></span></div><div class="bfBarN">${s.progress} / ${s.target}</div></div>`;
+  h += `<div class="bfStats">You've fed <b>${s.youGave}</b> · <b>${s.givers}</b> ${s.givers === 1 ? 'witch has' : 'witches have'} fed it</div>`;
+  if (!s.lit) {
+    if (s.offer && s.offer.length) {
+      h += `<div class="bfFeedHead">Feed the fire</div><div class="bfFeed">`;
+      for (const o of s.offer) h += `<div class="bfHerb"><span class="bfHerbNm">${esc(o.name)} <span style="opacity:.6">(${o.have})</span></span><button class="bfFeedBtn" data-herb="${o.id}" data-qty="${o.have}">🔥 Feed</button></div>`;
+      h += `</div>`;
+    } else {
+      h += `<div class="bfEmpty">You hold no herbs to give — grow some in your garden or forage the Wilds, then come warm the fire.</div>`;
+    }
+  }
+  el.innerHTML = h;
+  el.querySelectorAll('.bfFeedBtn').forEach((b) => b.addEventListener('click', () => send({ type: 'bonfire_offer', herb: b.getAttribute('data-herb'), qty: +b.getAttribute('data-qty') })));
+}
+function openBonfireModal() {
+  const modal = document.getElementById('bonfireModal');
+  if (!modal) return;
+  renderBonfireModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 150);
+  Modals.set('bonfireOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'town_bonfire' }));
+}
+function closeBonfireModal() {
+  const modal = document.getElementById('bonfireModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('bonfireOpen', false);
 }
 
 // ── Green-witch garden ──────────────────────────────────────────────────────
@@ -14407,6 +14502,7 @@ const { openNotifModal } = _notif;
   };
   wire('menuDelve', openDelveModal);
   wire('menuBoard', openBoardModal);
+  wire('menuBonfire', openBonfireModal);
   // The Workshop is now reached only at the Artificer's forge in the Wildlands
   // Village (see the 'artificer' kiosk) — no menu entry.
   wire('menuAchievements', openAchModal);
@@ -16912,6 +17008,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('showcaseOpen') && e.key === 'Escape' && !e.repeat) {
     closeShowcaseModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('bonfireOpen') && e.key === 'Escape' && !e.repeat) {
+    closeBonfireModal();
     if (window.__fromMenu) backToMenu();
     return;
   }
