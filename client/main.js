@@ -2173,6 +2173,10 @@ function onWsMessage(ev) {
 
   if (msg.type === 'emote_fx') {
     spawnEmoteFloat(msg.id, msg.emote);
+    // Drive the body too (not just the emoji float) — kkDrivePlayer reads these
+    // and plays the mapped clip / authored dance for whichever player emoted.
+    const ev = visuals[msg.id];
+    if (ev) { ev.emoteAnimStartAt = performance.now(); ev.emoteAnimKey = msg.emote; }
     return;
   }
 
@@ -13311,6 +13315,23 @@ function kkAttackClip(type, charId, kk) {
   return pickSwing('punch', kk);
 }
 
+// Emote wheel → body. Each emote plays a one-shot KayKit clip that best reads
+// as the gesture (the emoji float still spawns alongside it, see the emote_fx
+// handler). Dance has no fitting clip, so it's authored: a spin + bounce driven
+// through v.emoteSpin / v.emoteYOff, which player-visuals adds on top of facing
+// and ground height (both are re-set there every frame, so an authored motion
+// can't live on v.group directly). ts tunes how snappy each one-shot reads.
+const EMOTE_BODY = {
+  wave:  { clip: 'Interact',        ts: 1.1 },  // arm-up greeting gesture
+  laugh: { clip: 'Idle_B',          ts: 1.35 }, // shoulder-shaking cackle
+  heart: { clip: 'Hit_B',           ts: 0.85 }, // a soft back-lean swoon
+  wow:   { clip: 'Hit_A',           ts: 1.25 }, // a sharp startle / gasp
+  cry:   { clip: 'Sit_Floor_Idle',  ts: 1.1 },  // sink down, subdued
+  angry: { clip: 'Spellcast_Shoot', ts: 1.0 },  // hurl a hex
+  thumb: { clip: 'PickUp',          ts: 1.2 },  // an approving nod/dip
+  dance: { dance: true, dur: 2400 },            // authored spin + bounce
+};
+
 // per-frame driver for a kk player visual (called from syncVisuals)
 function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   const kk = v.kk;
@@ -13331,6 +13352,26 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
     if (!isDead) kkOneShot(kk, 'Hit_A', { timeScale: 1.15 });
   }
   if (v.hitAnimStartAt && now - v.hitAnimStartAt > 400) v.hitAnimStartAt = null;
+  // emote bodies — a fresh emote_fx sets emoteAnimStartAt/Key; fire the mapped
+  // one-shot, or kick off the authored dance. Suppressed while dead.
+  if (v.emoteAnimStartAt && kk.lastEmoteAt !== v.emoteAnimStartAt) {
+    kk.lastEmoteAt = v.emoteAnimStartAt;
+    kk.danceUntil = 0; v.emoteSpin = 0; v.emoteYOff = 0;
+    const em = EMOTE_BODY[v.emoteAnimKey];
+    if (em && !isDead) {
+      if (em.clip) kkOneShot(kk, em.clip, { timeScale: em.ts || 1.2 });
+      else if (em.dance) { kk.danceStart = now; kk.danceUntil = now + em.dur; kk.busyUntil = now + em.dur; }
+    }
+  }
+  // authored dance: continuous spin + a bouncy hop, holding Idle underneath.
+  if (kk.danceUntil && now < kk.danceUntil && !isDead) {
+    const t = now - kk.danceStart;
+    v.emoteSpin = t * 0.009;                          // ~0.5 turns/sec
+    v.emoteYOff = Math.abs(Math.sin(t * 0.012)) * 7;  // springy bob
+    if (kk.cur !== 'Idle') kkSetState(kk, 'Idle');
+    return;
+  }
+  if (kk.danceUntil) { kk.danceUntil = 0; v.emoteSpin = 0; v.emoteYOff = 0; }
   if (now < kk.busyUntil) return;
   let want = 'Idle';
   if (isDead) want = 'Death_A'; // the full fall; clamps on its final (collapsed) frame

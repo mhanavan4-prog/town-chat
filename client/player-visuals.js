@@ -308,8 +308,11 @@ function syncVisuals(dt) {
       }
       const posY = getGroundY() + seatedYOffset + jumpYOffset + floorYOffset + meditateYOffset;
       if (!isDead || v.deathAnimStartAt !== null) {
-        v.group.position.set(rp.x, posY, rp.z);
-        v.group.rotation.y = p.facing;
+        // Emote offsets (v.emoteSpin / v.emoteYOff) let an authored emote — the
+        // Dance spin+bounce — ride on top of facing and ground height, which are
+        // otherwise overwritten every frame here. Default 0 when not emoting.
+        v.group.position.set(rp.x, posY + (v.emoteYOff || 0), rp.z);
+        v.group.rotation.y = p.facing + (v.emoteSpin || 0);
       }
       // Ghost floats slightly above ground with a gentle bob
       if (ghostVisible) {
