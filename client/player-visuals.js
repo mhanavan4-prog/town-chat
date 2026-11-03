@@ -281,7 +281,7 @@ function syncVisuals(dt) {
 
     if (shouldShow) {
       const rp = getRenderPos(p);
-      const seatedYOffset = (id === getMyId() && getSeatedAt()) ? -8 : 0;
+      const seatedYOffset = ((id === getMyId() && getSeatedAt()) || p.seated) ? -8 : 0;
       const featherMult = (id === getMyId() && getMe().activeStatus && getMe().activeStatus.type === 'feather') ? 2.4 : 1;
       const jumpYOffset = (id === getMyId() && getJumpActive()) ? Math.sin(Math.PI * getJumpT() / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
       // Floor height rides a short critically-damped chase instead of

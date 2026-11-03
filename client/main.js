@@ -1541,6 +1541,11 @@ function onWsMessage(ev) {
         existing.guise = p.guise || null;
         existing.familiar = p.familiar || null;
         existing.isDead = !!p.isDead;
+        // Bench sitting rides the snapshot so a player who just entered the room
+        // sees anyone already seated; the seated facing pins a motionless body's
+        // direction (otherwise facing is inferred from movement, which is zero).
+        existing.seated = p.seated || null;
+        if (existing.seated) existing.facing = existing.seated.facing;
         existing.hasLoot = !!p.hasLoot;
         existing.deathX = p.deathX; existing.deathY = p.deathY; existing.deathRoom = p.deathRoom;
         // Disguise identity rides the state stream by name; the mask image
@@ -2173,6 +2178,17 @@ function onWsMessage(ev) {
 
   if (msg.type === 'emote_fx') {
     spawnEmoteFloat(msg.id, msg.emote);
+    return;
+  }
+
+  if (msg.type === 'sit_state') {
+    // Another player sat on / stood up from a bench. Store it so kkDrivePlayer
+    // renders the seated pose; the seated facing comes along so a motionless
+    // seated body faces the right way (remote facing is otherwise move-inferred).
+    if (msg.id !== myId) {
+      const pl = players[msg.id];
+      if (pl) { pl.seated = msg.seated || null; if (pl.seated) pl.facing = pl.seated.facing; }
+    }
     return;
   }
 
@@ -13334,7 +13350,7 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   if (now < kk.busyUntil) return;
   let want = 'Idle';
   if (isDead) want = 'Death_A'; // the full fall; clamps on its final (collapsed) frame
-  else if (id === myId && seatedAt) want = 'Sit_Chair_Idle';
+  else if ((id === myId && seatedAt) || p.seated) want = 'Sit_Chair_Idle';
   else if (v.statusType === 'meditate') want = 'Sit_Floor_Idle';
   else if (isMoving) {
     const spd = moveDist / Math.max(dt, 1e-4);
@@ -16666,9 +16682,35 @@ function nearestHarvestableDecor() {
   return best;
 }
 
+// Nearest town bench within sitting reach (outdoors only), or null. Benches are
+// ordinary solid decor; sitting doesn't move you onto the seat (that'd land you
+// inside its collider) — you sit where you're standing beside it, which reads
+// fine and keeps stand-up clean.
+const BENCH_SIT_REACH = 72;
+function nearestTownBench() {
+  if (!me || !(activeScene === outdoorScene || me.room === 'outside')) return null;
+  let best = null, bestD = BENCH_SIT_REACH;
+  for (const id in decorVisuals) {
+    const dv = decorVisuals[id];
+    if (!dv || dv.type !== 'bench') continue;
+    const p = dv.group.position;
+    const d = Math.hypot(me.x - p.x, me.y - p.z);
+    if (d < bestD) { bestD = d; best = dv; }
+  }
+  return best;
+}
+function sitOnBench() {
+  // Sit in place (facing whichever way you walked up), broadcast the pose so
+  // everyone renders it. Movement is blocked while seatedAt, so pressing F /
+  // tapping again — or any move input — stands you back up.
+  seatedAt = { x: me.x, z: me.y, facing: me.facing, outdoor: true };
+  ws.send(JSON.stringify({ type: 'sit', seated: true, x: me.x, z: me.y, facing: me.facing }));
+}
+
 function tryInteract() {
   if (!me) return;
-  if (seatedAt) { standUp(); return; }
+  if (seatedAt) { const wasOutdoor = seatedAt.outdoor; standUp(); if (wasOutdoor) ws.send(JSON.stringify({ type: 'sit', seated: false })); return; }
+  if (nearestTownBench()) { sitOnBench(); return; }
   const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
   if (seat) {
     if (seat.championsOnly && !canSitChampionsTable()) { setUnlockToast("🏆 The Champions' Table is reserved for the reigning coven."); return; }
@@ -16771,6 +16813,11 @@ function updateInteractHint() {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent =
       (seat.championsOnly && !canSitChampionsTable()) ? "🏆 Champions' Table — reigning coven only" : `${interactVerb()} sit`;
+    return;
+  }
+  if (nearestTownBench()) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} sit`;
     return;
   }
   // Cave interactions bypass the kiosk distance system — zone-based on y position

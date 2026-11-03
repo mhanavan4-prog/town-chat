@@ -5901,6 +5901,10 @@ function publicPlayer(p) {
     activeStatus: status, health: p.health, maxHealth: playerMaxHealth(p),
     level: p.level || 1, skillPoints: p.skillPoints || 0,
     isDead: !!p.isDead,
+    // Sitting on a bench — {x,z,facing} in render-space, or absent. Rides the
+    // 70ms snapshot so a player entering the room sees anyone already seated
+    // (the sit_state relay only reaches those present at the moment they sit).
+    seated: p.seated || null,
     invisible: !!(p.invisibleUntil && p.invisibleUntil > Date.now()), // Nightwatch Cloak — hidden from other clients
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
@@ -10422,6 +10426,10 @@ wss.on('connection', (ws, req) => {
       // one, a move claiming any other room can only be a stale packet, no
       // matter how late it straggles in. Drop it whole.
       if (player.room && player.room.startsWith('dungeon_') && msg.room !== player.room) return;
+      // Any real move means you stood up off a bench — drop the seated pose so
+      // you don't slide around still sitting. (The client blocks movement while
+      // seated, so a move packet here is a genuine stand-up.)
+      if (player.seated) { player.seated = null; broadcastRoom(player.room, { type: 'sit_state', id: player.id, seated: null }, player.instance); }
       const x = Number(msg.x), y = Number(msg.y);
       const bounds = roomBounds(msg.room);
       const _prevX = player.x, _prevY = player.y, _prevMoveAt = player._lastMoveAt || 0;
@@ -10503,6 +10511,25 @@ wss.on('connection', (ws, req) => {
       if (player.lastEmoteAt && now - player.lastEmoteAt < 1200) return;
       player.lastEmoteAt = now;
       broadcastRoom(player.room, { type: 'emote_fx', id: player.id, emote }, player.instance);
+      return;
+    }
+
+    if (msg.type === 'sit') {
+      // Bench sitting — a pose toggle. The client places itself on the bench and
+      // tells us where it's sitting; we just relay it (and carry it on the
+      // snapshot via publicPlayer) so everyone renders the seated body. No combat
+      // meaning, so no validation beyond finite coords and a light rate limit.
+      const now = Date.now();
+      if (player.lastSitAt && now - player.lastSitAt < 400) return;
+      player.lastSitAt = now;
+      if (msg.seated) {
+        const x = Number(msg.x), z = Number(msg.z), facing = Number(msg.facing);
+        if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+        player.seated = { x, z, facing: Number.isFinite(facing) ? facing : 0 };
+      } else {
+        player.seated = null;
+      }
+      broadcastRoom(player.room, { type: 'sit_state', id: player.id, seated: player.seated }, player.instance);
       return;
     }
 
