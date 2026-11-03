@@ -420,6 +420,13 @@ const KK = (() => {
     prop_gravemark_a: 'kk/props/gravemarker_A.gltf',
     prop_gravemark_b: 'kk/props/gravemarker_B.gltf',
     prop_ouija:    'kk/props/ouija_board.gltf',     // laid on the Manor's Séance Board
+    // Autumn + dead trees (Halloween Bits) — a Samhain palette for the tree lines.
+    prop_pine_o_l: 'kk/props/tree_pine_orange_large.gltf',
+    prop_pine_o_m: 'kk/props/tree_pine_orange_medium.gltf',
+    prop_pine_y_l: 'kk/props/tree_pine_yellow_large.gltf',
+    prop_pine_y_m: 'kk/props/tree_pine_yellow_medium.gltf',
+    prop_deadtree_dec: 'kk/props/tree_dead_large_decorated.gltf',
+    prop_deadtree_sm:  'kk/props/tree_dead_small.gltf',
     // Ember Wastes landmarks — Resource-pack gems become glowing ruby spires;
     // Dungeon-pack walls/pillars/torches build the Ashlord's ruined citadel.
     gem_large:     'kk/resource/Gem_Large.gltf',
@@ -13029,7 +13036,9 @@ function kkPlace(scene, key, x, y, size, rot, mode) {
   g.position.set(x, 0, y);
   // Tall dressing swallows the chase camera the same way trees do — let it
   // ghost out when it comes between the camera and the player.
-  if (key === 'prop_deadtree' || key === 'prop_deadtree2' || key === 'gate_arch' || key === 'building_crypt') g.userData.camFade = true;
+  if (key === 'prop_deadtree' || key === 'prop_deadtree2' || key === 'gate_arch' || key === 'building_crypt'
+      || key === 'prop_pine_o_l' || key === 'prop_pine_o_m' || key === 'prop_pine_y_l' || key === 'prop_pine_y_m'
+      || key === 'prop_deadtree_dec') g.userData.camFade = true;
   scene.add(g);
   return g;
 }

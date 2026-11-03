@@ -397,6 +397,20 @@ function kkTownDressing(scene, w) {
   // a melted-down pair flanking the fairy-ring shrine
   kkPlace(scene, 'prop_candle_skull', 2470, 912, 14, 0.6);
   kkPlace(scene, 'prop_candle3', 2430, 872, 13, -0.3);
+
+  // ── Samhain tree palette ─────────────────────────────────────────────────
+  // An autumn tree line behind the Torchkeepers' temple (back of the map, away
+  // from the roads) plus a few accents at the quiet town edges, so the season
+  // reads in the canopy. Walk-through dressing like the churchyard's dead trees.
+  const pines = [
+    ['prop_pine_o_l', 918,  2062, 100, 0.3],  ['prop_pine_y_m', 1002, 2082, 76, -0.4],
+    ['prop_pine_o_m', 1090, 2072, 82, 0.8],   ['prop_pine_y_l', 1172, 2056, 98, -0.2],
+    ['prop_deadtree_dec', 1246, 2076, 54, 0.5],
+    ['prop_pine_y_l', 902,  1932, 92, 0.6],   ['prop_pine_o_l', 1232, 1942, 96, -0.5],
+    ['prop_pine_o_m', 688,  292,  80, 0.2],   ['prop_pine_y_m', 2512, 418, 78, -0.7],
+    ['prop_deadtree_sm', 556, 1706, 34, 0.9], ['prop_deadtree_sm', 2604, 1748, 32, -0.3],
+  ];
+  for (const [key, x, z, s, r] of pines) kkPlace(scene, key, x, z, s, r);
 }
 
 // A torch that starts unlit (no flame, no light) and gets toggled lit by
