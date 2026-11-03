@@ -227,6 +227,12 @@ const LOOT_TABLES = {
     { itemId: 'hollow_shard', qty: 1, chance: 0.12 },
     { gold: true, min: 4, max: 14, chance: 0.55 },
   ],
+  // A treasure mimic — pays out more gold than most, plus a little arcane scrap.
+  grimoire_mimic: [
+    { itemId: 'shadow_essence', qty: 1, chance: 0.5 },
+    { itemId: 'hollow_shard',   qty: 1, chance: 0.2 },
+    { gold: true, min: 10, max: 28, chance: 0.85 },
+  ],
   gloom_bat: [
     { itemId: 'fur_scrap',      qty: 1, chance: 0.55 },
     { itemId: 'shadow_essence', qty: 1, chance: 0.25 },

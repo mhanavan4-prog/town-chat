@@ -6,7 +6,7 @@
 // MOB2_VISUALS recolour table, and the health-bar sprite are injected; the mob
 // visual pools that call makeMob2/makeMob3 stay in main.
 // ---------------------------------------------------------------------------
-export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK }) {
+export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK, kkStatic }) {
 // Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
 // reads as a rot-green wight) + a dim flavour emissive.
 function tintKKMob(group, tint) {
@@ -42,6 +42,14 @@ function makeMob2(mobType) {
       built.group.userData.kkAttack = visual.kkAttack;
       return built.group;
     }
+  }
+  // A static KayKit prop body (the Grimoire Mimic's book) — no rig, animated
+  // procedurally in the mob driver. Wrapped so its origin sits on the ground and
+  // it carries a health bar like every other mob. Falls through to the blob if
+  // the model hasn't streamed in yet.
+  if (visual.propModel && kkStatic) {
+    const g = kkStatic(visual.propModel, visual.propSize || 40);
+    if (g) { g.add(makeHealthBarSprite((visual.propSize || 40) * 0.9)); g.userData.isProp = true; return g; }
   }
   // The distinctive Session M horrors get purpose-built rigs; everything else
   // (the original four + the Grave-Mite) is a recolored/rescaled base blob.

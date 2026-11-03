@@ -37,6 +37,10 @@ function applyMob2State(list) {
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
     v.hidden = !!m.hidden; // buried Barrow Maw / dormant Old Marrowe
+    // Grimoire Mimic: visible-but-dormant (a book) until it springs. Stamp the
+    // moment it wakes so the driver can pop it open.
+    if (v._lastDormant === true && !m.dormant) v.springAt = performance.now();
+    v._lastDormant = v.dormant = !!m.dormant;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -91,9 +95,21 @@ function updateMob2Visuals(dt) {
 
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
+    let bobY = 0, tilt = -0.5 * lungeFactor, popScale = 1;
+    // Grimoire Mimic (static prop body): sits dead-still as a book while dormant,
+    // pops open when it springs, then hops as it chases.
+    if (v.mesh.userData && v.mesh.userData.isProp) {
+      const now = performance.now();
+      if (v.dormant) { tilt = 0; }
+      else {
+        if (v.springAt) { const t = (now - v.springAt) / 500; if (t < 1) { bobY += Math.sin(t * Math.PI) * 22; popScale = 1 + Math.sin(t * Math.PI) * 0.28; } else v.springAt = 0; }
+        if (actualSpeed > 3) { v.hopPhase = (v.hopPhase || 0) + dt * 9; bobY += Math.abs(Math.sin(v.hopPhase)) * 8; }
+      }
+      v.mesh.scale.setScalar(popScale);
+    }
+    v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover + bobY, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
-    v.mesh.rotation.x = -0.5 * lungeFactor;
+    v.mesh.rotation.x = tilt;
     v.mesh.visible = getLastWildlifeIsNight() && !v.dead && !v.hidden;
   }
 }
