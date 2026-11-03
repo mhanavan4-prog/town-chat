@@ -3211,6 +3211,16 @@ function fitBuildingFootprint(b, box, side) {
     x0 = box.minx; w = modelW;         // depth runs along X
     h = modelD; z0 = cz - h / 2;       // width runs along Z, centered
   }
+  // Keep the collider off the DOOR side. The model span covers overhangs on
+  // every side, which is right for the three closed sides (you can't walk under
+  // the back roof) but wrong for the entrance — a front porch / sign / awning
+  // over the door would wall off the very approach to it (user-reported as an
+  // invisible wall beside the Cafe's east door). Clamp just that one edge back
+  // to the walkable footprint; the other three sides keep their model fit.
+  if (s === 'east')  { const e = Math.min(x0 + w, b.x + b.w); w = e - x0; }
+  if (s === 'west')  { const west = Math.max(x0, b.x); w = (x0 + w) - west; x0 = west; }
+  if (s === 'south') { const sth = Math.min(z0 + h, b.y + b.h); h = sth - z0; }
+  if (s === 'north') { const nth = Math.max(z0, b.y); h = (z0 + h) - nth; z0 = nth; }
   if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h }; // never trust a degenerate fit
   return { x: x0, y: z0, w, h };
 }
