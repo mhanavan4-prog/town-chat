@@ -407,6 +407,18 @@ const KK = (() => {
     prop_web_d:    'kk/props/cobweb_D.gltf',    // shallow funnel web
     prop_candle_skull: 'kk/props/skull_candle.gltf',
     prop_candle3:  'kk/props/candle_triple.gltf',
+    // Graveyard landmark set (Halloween Bits) — share halloweenbits_texture.png.
+    prop_coffin:   'kk/props/coffin.gltf',
+    prop_bone_a:   'kk/props/bone_A.gltf',
+    prop_bone_c:   'kk/props/bone_C.gltf',
+    prop_ribcage:  'kk/props/ribcage.gltf',
+    prop_skull:    'kk/props/skull.gltf',
+    prop_scarecrow:'kk/props/scarecrow.gltf',
+    prop_lantern_std: 'kk/props/lantern_standing.gltf',
+    prop_fence_gate:  'kk/props/fence_gate.gltf',
+    prop_fence_pillar:'kk/props/fence_pillar.gltf',
+    prop_gravemark_a: 'kk/props/gravemarker_A.gltf',
+    prop_gravemark_b: 'kk/props/gravemarker_B.gltf',
     // Ember Wastes landmarks — Resource-pack gems become glowing ruby spires;
     // Dungeon-pack walls/pillars/torches build the Ashlord's ruined citadel.
     gem_large:     'kk/resource/Gem_Large.gltf',
