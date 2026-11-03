@@ -466,17 +466,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const lamp = kkFurn('furn_lamp', 24, 'height', cx - 92, (fsTable.userData && fsTable.userData.kkHeight) || 20, 48);
       if (lamp) scene.add(lamp);
     }
-    // A sideboard cabinet against the north wall (west of the hearth) with a
-    // book stack on top.
-    const cab = kkFurn('furn_cabinet', 44, 'fit', 120, 0, 30, 0);
-    if (cab) {
-      scene.add(cab);
-      const bk = kkFurn('furn_books', 16, 'fit', 120, (cab.userData && cab.userData.kkHeight) || 22, 30);
-      if (bk) scene.add(bk);
-    }
-    // (Removed the furn_shelf that used to sit east of the hearth: its shallow
-    // back panel kept z-fighting the north wall into vertical "zebra" stripes no
-    // matter the inset, so it's gone rather than fought further.)
+    // (Removed the sideboard cabinet + book stack that sat against the north
+    // wall at z30: its shallow back panel kept z-fighting the wall into vertical
+    // "zebra" stripes, the same issue that already cost the furn_shelf east of
+    // the hearth. Gone rather than fought further.)
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
     scene.add(makeBanner(28, 100, 8, 0, 0xff9a3c));
