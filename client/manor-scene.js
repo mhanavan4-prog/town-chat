@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 import { buildDecoration, ALTAR_SLOT_POS } from './altar-decor.js';
 
-export default function createManorScene({ makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, setManorScene, setManorCamera, setManorEmbers }) {
+export default function createManorScene({ makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, kkPlace, setManorScene, setManorCamera, setManorEmbers }) {
 // slot -> the empty THREE.Group on that altar's top surface that holds its
 // owner's decorations; repopulated at runtime by setAltarDecor as altar state
 // arrives from the server. Rebuilt whenever the manor scene is (re)built.
@@ -106,6 +106,10 @@ function buildManorScene() {
     pl.rotation.x = -Math.PI / 2; pl.position.set(10, 48.6, 6); g.add(pl);
     g.position.set(W / 2, 0, D / 2);
     scene.add(g);
+    // The actual spirit board laid flat on the table top (the glowing ring +
+    // planchette circle above still animate over it). kkPlace grounds at y=0, so
+    // lift it onto the ~48u-high table surface. No-ops if KK hasn't streamed in.
+    if (kkPlace) { const ouija = kkPlace(scene, 'prop_ouija', W / 2, D / 2, 62, Math.PI * 0.5); if (ouija) ouija.position.y = 48.2; }
     const bsign = makeSignSprite('🔮 The Séance Board — Press F');
     bsign.position.set(W / 2, 112, D / 2);
     scene.add(bsign);

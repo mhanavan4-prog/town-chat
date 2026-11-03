@@ -419,6 +419,7 @@ const KK = (() => {
     prop_fence_pillar:'kk/props/fence_pillar.gltf',
     prop_gravemark_a: 'kk/props/gravemarker_A.gltf',
     prop_gravemark_b: 'kk/props/gravemarker_B.gltf',
+    prop_ouija:    'kk/props/ouija_board.gltf',     // laid on the Manor's Séance Board
     // Ember Wastes landmarks — Resource-pack gems become glowing ruby spires;
     // Dungeon-pack walls/pillars/torches build the Ashlord's ruined citadel.
     gem_large:     'kk/resource/Gem_Large.gltf',
@@ -11532,7 +11533,7 @@ function closeReleaseModal() {
 }
 
 const { buildManorScene, setAltarDecor } = createManorScene({
-  makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS,
+  makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, kkPlace,
   setManorScene: (s) => { manorScene = s; },
   setManorCamera: (c) => { manorCamera = c; },
   setManorEmbers: (e) => { manorEmbers = e; },
