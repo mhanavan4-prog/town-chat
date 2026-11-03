@@ -974,11 +974,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: hsX, z: hsZ, npc: 'arcade_scores', npcName: '🕹️ Hall of Scores' });
 
       // ── KayKit furnishings (streamed post-spawn; additive dressing) ──
-      // A stool pulled up to each game cabinet.
-      for (const sx of [cab1X, cab2X]) {
-        const st = kkFurn('furn_stool', 20, 'height', sx, 0, cabZ + 32);
-        if (st) scene.add(st);
-      }
+      // A gaming chair pulled up to each cabinet (cyan at one, pink at the
+      // other), facing the screen — reads as a real arcade instead of a stool.
+      const gchairs = ['furn_gamerchair', 'furn_gamerchair2'];
+      [cab1X, cab2X].forEach((sx, i) => {
+        const gc = kkFurn(gchairs[i], 46, 'height', sx, 0, cabZ + 36, Math.PI);
+        if (gc) scene.add(gc);
+      });
       // Apothecary Vex's workbench tucked along the south wall (between the
       // star charts): a KayKit desk with a lamp, tonic books and a mug, a desk
       // chair, and a book-laden cabinet beside it.
@@ -992,12 +994,17 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         const wl = kkFurn('furn_lamp', 22, 'height', wbx + 22, ws, wbz + 6); if (wl) scene.add(wl);
         const wb = kkFurn('furn_books', 15, 'fit', wbx - 18, ws, wbz + 6); if (wb) scene.add(wb);
         const wm = kkFurn('furn_mug', 7, 'fit', wbx + 4, ws, wbz - 4); if (wm) scene.add(wm);
+        // Vex plays between tonics: cat-ear headphones + a handheld on the desk.
+        const wph = kkFurn('furn_catphones', 16, 'height', wbx - 2, ws, wbz - 6, 0.3); if (wph) scene.add(wph);
+        const whh = kkFurn('furn_handheld', 11, 'fit', wbx + 16, ws, wbz - 8, -0.4); if (whh) scene.add(whh);
       }
       const wcab = kkFurn('furn_cabinet', 44, 'fit', 176, 0, roomD - 26, 0);
       if (wcab) {
         scene.add(wcab);
-        const cb = kkFurn('furn_books', 16, 'fit', 176, (wcab.userData && wcab.userData.kkHeight) || 22, roomD - 26);
-        if (cb) scene.add(cb);
+        const ch = (wcab.userData && wcab.userData.kkHeight) || 22;
+        // a retro console + joystick parked on top of the cabinet
+        const rc = kkFurn('furn_retroconsole', 18, 'fit', 168, ch, roomD - 26, 0.2); if (rc) scene.add(rc);
+        const rj = kkFurn('furn_joystick', 10, 'height', 188, ch, roomD - 24, -0.3); if (rj) scene.add(rj);
       }
       // A two-tier book shelf on the west wall, south of the moon-phase plaques.
       // x=26 clears the west wall's ~25-deep box (render-x [0,25]); at the old
