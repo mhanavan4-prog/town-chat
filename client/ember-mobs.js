@@ -137,6 +137,11 @@ function updateEmberMobVisuals(dt) {
         v._lastAtkFired = v.attackAnimStartAt;
         if (v.attackClip) kkOneShot(v.kk, v.attackClip);
       }
+      // Hit flinch — a short Hit_A recoil when a blow lands, so your hits read.
+      if (v.hitAnimStartAt != null && v.hitAnimStartAt !== v._lastHitFired) {
+        v._lastHitFired = v.hitAnimStartAt;
+        if (!v.dead && kkOneShot) kkOneShot(v.kk, 'Hit_A', { timeScale: 1.2 });
+      }
       if (!v.dead) {
         if (now >= (v.kk.busyUntil || 0)) {
           v.animSpeed = (v.animSpeed || 0) * 0.8 + actualSpeed * 0.2;

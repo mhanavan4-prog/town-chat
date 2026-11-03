@@ -2161,6 +2161,8 @@ function onWsMessage(ev) {
       // Flinch the struck player's body (my own is handled by 'struck'). Skip a
       // killing blow — the death fall takes over for them.
       if (msg.targetType === 'player' && !msg.dead && visuals[msg.targetId]) visuals[msg.targetId].hitAnimStartAt = performance.now();
+      // A struck mob flinches too (killing blows are skipped — death takes over).
+      if (msg.targetType && msg.targetType !== 'player' && !msg.dead) triggerMobHitAnim(msg.targetId);
     }
     if (msg.casterId === myId) {
       if (typeof playSfx === 'function') playSfx(msg.dead ? 'kill' : meleeHitSfx()); // my blow landed (per-class melee)
@@ -12559,6 +12561,14 @@ function triggerMobAttackAnim(mobId) {
   if (!mobId) return;
   const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
   if (v) v.attackAnimStartAt = performance.now();
+}
+// Flinch a struck mob — the KayKit mob drivers watch hitAnimStartAt and fire a
+// Hit_A one-shot, so your blows visibly stagger the enemy (players already do
+// this; mobs didn't). Resolves across every mob pool, same as the attack poke.
+function triggerMobHitAnim(mobId) {
+  if (!mobId) return;
+  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
+  if (v && !v.dead) v.hitAnimStartAt = performance.now();
 }
 // 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
 function mobAttackLungeAmount(v) {
