@@ -1660,7 +1660,7 @@ setInterval(() => {
 }, 30000);
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
-['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor', 'cottage'].forEach(r => ROOM_IDS.add(r));
+['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor', 'cottage', 'crypt'].forEach(r => ROOM_IDS.add(r));
 // Open-air areas share the global WORLD channel; every other room is an
 // interior with its own private, occupants-only chat tab (see the 'chat'
 // handler + room backlog replay). A "building room" is any known room that
@@ -8303,6 +8303,10 @@ function getQuestHint(quest, progress) {
 // Witch cave — entrance in the Wilds, leads to a small cave room
 const WITCH_CAVE_ENTRANCE = { x: 2000, y: 2000 };
 const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
+// Shared crypt interior — every Wilds tomb leads to the same instanced room.
+// (No fixed entrance: the client only offers the door when you're beside a
+// crypt, and you exit back to wherever you went in, stored per-player.)
+const CRYPT_SPAWN = { x: 320, y: 470 };
 
 // ── The Coven Manor (Session N) ─────────────────────────────────────────────
 // An 8-bedroom mansion that stands in the Wilds of a COVEN'S PRIVATE WORLD (only
@@ -9454,6 +9458,7 @@ function describeRoom(roomId) {
 function roomBounds(room) {
   if (room === 'wilds') return WORLD2;
   if (room === 'witch_cave') return { width: 800, height: 700 };
+  if (room === 'crypt') return { width: 640, height: 560 };
   if (room === 'manor') return MANOR_INTERIOR;
   if (room === 'cottage') return COTTAGE_INTERIOR;
   if (room === 'bank_vault') return VAULT_WORLD_DIMS;
@@ -13967,6 +13972,36 @@ wss.on('connection', (ws, req) => {
       player.witchCaveReturnX = null;
       player.witchCaveReturnY = null;
       send(ws, { type: 'witch_cave_exited', x: retX, y: retY });
+      return;
+    }
+
+    // ── Crypts — step into any Wilds tomb and you're in the shared crypt room;
+    // step out and you're back where you went in. The client gates the door to a
+    // crypt's doorstep, so validation here is light (must be out in the Wilds).
+    if (msg.type === 'enter_crypt') {
+      if (player.room !== 'wilds' || player.isDead) return;
+      player.cryptReturnX = player.x;
+      player.cryptReturnY = player.y;
+      player.room = 'crypt';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = CRYPT_SPAWN.x;
+      player.y = CRYPT_SPAWN.y;
+      send(ws, { type: 'crypt_entered', spawn: CRYPT_SPAWN });
+      storyEvent(player, 'visit_room', { room: 'crypt' });
+      return;
+    }
+
+    if (msg.type === 'exit_crypt') {
+      if (player.room !== 'crypt') return;
+      const retX = Number.isFinite(player.cryptReturnX) ? player.cryptReturnX : WORLD2.width / 2;
+      const retY = Number.isFinite(player.cryptReturnY) ? player.cryptReturnY : WORLD2.height / 2;
+      player.room = 'wilds';
+      player.roomLockUntil = Date.now() + 1500;
+      player.x = retX;
+      player.y = retY;
+      player.cryptReturnX = null;
+      player.cryptReturnY = null;
+      send(ws, { type: 'crypt_exited', x: retX, y: retY });
       return;
     }
 
