@@ -3211,16 +3211,18 @@ function fitBuildingFootprint(b, box, side) {
     x0 = box.minx; w = modelW;         // depth runs along X
     h = modelD; z0 = cz - h / 2;       // width runs along Z, centered
   }
-  // Keep the collider off the DOOR side. The model span covers overhangs on
-  // every side, which is right for the three closed sides (you can't walk under
-  // the back roof) but wrong for the entrance — a front porch / sign / awning
-  // over the door would wall off the very approach to it (user-reported as an
-  // invisible wall beside the Cafe's east door). Clamp just that one edge back
-  // to the walkable footprint; the other three sides keep their model fit.
-  if (s === 'east')  { const e = Math.min(x0 + w, b.x + b.w); w = e - x0; }
-  if (s === 'west')  { const west = Math.max(x0, b.x); w = (x0 + w) - west; x0 = west; }
-  if (s === 'south') { const sth = Math.min(z0 + h, b.y + b.h); h = sth - z0; }
-  if (s === 'north') { const nth = Math.max(z0, b.y); h = (z0 + h) - nth; z0 = nth; }
+  // Clamp the fitted collider to the designed footprint on ALL sides, i.e.
+  // intersect the model span with the data rect. The model span includes roof
+  // eaves / porches / signs that reach PAST the walls, and those overhangs read
+  // as invisible walls out in the open ground around a building — reported all
+  // over town. The data rect is the walkable footprint, so the intersection
+  // keeps the model fit wherever the model is INSET (e.g. a round tower whose
+  // box has empty corners — the reason the fit exists) while trimming every
+  // overhang back to the walkable edge. The remaining round-tower corners are
+  // still shaved by ROUND_TOWER_INSET after this.
+  const ix0 = Math.max(x0, b.x), iz0 = Math.max(z0, b.y);
+  const ix1 = Math.min(x0 + w, b.x + b.w), iz1 = Math.min(z0 + h, b.y + b.h);
+  x0 = ix0; z0 = iz0; w = ix1 - ix0; h = iz1 - iz0;
   if (w < 40 || h < 40) return { x: b.x, y: b.y, w: b.w, h: b.h }; // never trust a degenerate fit
   return { x: x0, y: z0, w, h };
 }
