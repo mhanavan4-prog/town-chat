@@ -319,22 +319,44 @@ function kkTownDressing(scene, w) {
     kkPlace(scene, 'prop_pumpkin', dp.x + out[0] + perp[0], dp.y + out[1] + perp[1], 12, Math.PI * 0.15);
     kkPlace(scene, 'prop_pumpkin2', dp.x + out[0] - perp[0], dp.y + out[1] - perp[1], 10, -Math.PI * 0.2);
   }
-  // a small fenced graveyard tucked behind the Town Hall
+  // A proper fenced graveyard beside the Town Hall — a landmark to wander. The
+  // hall backs onto the map edge, so "behind" would be off-world; beside it
+  // reads from the plaza approach. Pure walk-through dressing (like the fairy
+  // rings) — no colliders, so you can wander among the stones.
   const hall = w.buildings.find(b => b.id === 'hall');
   if (hall) {
-    // A little churchyard in the wooded pocket beside the Town Hall — the
-    // hall backs onto the map edge, so "behind" would be invisible (and
-    // half off-world). Beside it reads from the plaza approach instead.
     const gx = Math.min(hall.x + hall.w + 150, (w.width || 3200) - 170);
     const gy = Math.max(150, hall.y + 60);
-    kkPlace(scene, 'prop_crypt', gx, gy - 26, 52, Math.PI);
-    kkPlace(scene, 'prop_grave_a', gx - 34, gy + 16, 20, 0.3);
-    kkPlace(scene, 'prop_grave_b', gx - 8, gy + 22, 18, -0.15);
-    kkPlace(scene, 'prop_grave_a', gx + 20, gy + 18, 19, 0.5);
-    kkPlace(scene, 'prop_grave_b', gx + 44, gy + 10, 17, -0.4);
-    kkPlace(scene, 'prop_fence', gx - 52, gy + 34, 52, 0);
-    kkPlace(scene, 'prop_fence', gx + 52, gy + 34, 52, 0);
-    kkPlace(scene, 'prop_deadtree2', gx + 66, gy - 18, 46, 0.7);
+    const W = 86, backZ = gy - 34, frontZ = gy + 72;
+    // perimeter: corner pillars + fence runs, with a gate at the front centre
+    for (const px of [gx - W, gx + W]) for (const pz of [backZ, frontZ]) kkPlace(scene, 'prop_fence_pillar', px, pz, 16, 0);
+    kkPlace(scene, 'prop_fence', gx - 44, backZ, 48, 0);
+    kkPlace(scene, 'prop_fence', gx + 44, backZ, 48, 0);
+    for (const sx of [gx - W, gx + W]) { kkPlace(scene, 'prop_fence', sx, gy, 52, Math.PI / 2); kkPlace(scene, 'prop_fence', sx, gy + 48, 44, Math.PI / 2); }
+    kkPlace(scene, 'prop_fence_gate', gx, frontZ, 60, 0);
+    kkPlace(scene, 'prop_fence', gx - 58, frontZ, 40, 0);
+    kkPlace(scene, 'prop_fence', gx + 58, frontZ, 40, 0);
+    // crypt centrepiece, two ragged rows of graves + markers
+    kkPlace(scene, 'prop_crypt', gx, backZ + 20, 54, Math.PI);
+    kkPlace(scene, 'prop_gravemark_a', gx - 50, gy, 20, 0.2);
+    kkPlace(scene, 'prop_grave_a',     gx - 18, gy - 2, 20, -0.15);
+    kkPlace(scene, 'prop_grave_b',     gx + 16, gy, 18, 0.25);
+    kkPlace(scene, 'prop_gravemark_b', gx + 50, gy - 2, 19, -0.3);
+    kkPlace(scene, 'prop_grave_a',     gx - 34, gy + 30, 19, 0.4);
+    kkPlace(scene, 'prop_gravemark_a', gx,      gy + 32, 18, -0.2);
+    kkPlace(scene, 'prop_grave_b',     gx + 34, gy + 30, 18, 0.1);
+    // a half-sunk coffin, scattered bones, a lone skull
+    const cof = kkPlace(scene, 'prop_coffin', gx - 60, gy + 44, 42, 0.5); if (cof) cof.position.y = -4;
+    kkPlace(scene, 'prop_ribcage', gx + 58, gy + 40, 20, 0.6);
+    kkPlace(scene, 'prop_bone_a',  gx + 44, gy + 52, 14, 1.1);
+    kkPlace(scene, 'prop_bone_c',  gx - 44, gy + 56, 16, -0.5);
+    kkPlace(scene, 'prop_skull',   gx + 4,  gy + 54, 12, 0.3);
+    // a scarecrow keeping watch; standing lanterns at the gate; dead trees
+    kkPlace(scene, 'prop_scarecrow', gx + 64, backZ + 10, 44, -0.5);
+    kkPlace(scene, 'prop_lantern_std', gx - 20, frontZ - 8, 18, 0);
+    kkPlace(scene, 'prop_lantern_std', gx + 20, frontZ - 8, 18, 0);
+    kkPlace(scene, 'prop_deadtree2', gx + 78, gy - 18, 46, 0.7);
+    kkPlace(scene, 'prop_deadtree',  gx - 80, gy - 24, 52, -0.4);
   }
   // a candle shrine at the fae-touched fairy ring
   kkPlace(scene, 'prop_shrine', 2450, 890, 24, -0.5);
