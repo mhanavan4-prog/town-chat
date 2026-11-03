@@ -3196,21 +3196,22 @@ function buildWalls(w) {
 // box = { minx, minz, maxx, maxz } of the placed model in world XZ; a missing or
 // degenerate box falls back to the data rect unchanged. side = the door side
 // ('south'|'north'|'east'|'west'); it decides which axis is depth vs width. Pure.
-function fitBuildingFootprint(b, box, side) {
+function fitBuildingFootprint(b, box) {
   if (!box) return { x: b.x, y: b.y, w: b.w, h: b.h };
-  const s = side || (b && b.door) || 'south';
-  const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
-  const doorAxisZ = (s === 'south' || s === 'north'); // depth runs along Z
-  const modelW = box.maxx - box.minx; // model's real span across X
-  const modelD = box.maxz - box.minz; // model's real span across Z
-  let x0, z0, w, h;
-  if (doorAxisZ) {
-    z0 = box.minz; h = modelD;         // depth: the model's real span (covers the rear overhang)
-    w = modelW; x0 = cx - w / 2;       // width: model width, centered on the footprint
-  } else {
-    x0 = box.minx; w = modelW;         // depth runs along X
-    h = modelD; z0 = cz - h / 2;       // width runs along Z, centered
-  }
+  // Use the model's ACTUAL world extents on BOTH axes — never re-center a span
+  // on the footprint center. kkAutoAlign flush-fits each model to its door wall,
+  // so the placed box is usually NOT centered on the data rect. The old code
+  // took the cross-axis span and re-centered it on the footprint center; that
+  // shifted the collider off the model, and the data-rect clamp below then
+  // pinned the shifted edge OUT PAST the model's real wall — a thin invisible
+  // wall along the building's sides (confirmed from live collider logs at the
+  // cafe's south face and the arcade's north face; round towers were spared only
+  // because they happen to sit symmetric). Taking box.min/max straight keeps the
+  // fit a subset of the real model footprint on every side, so the collider can
+  // never reach past what you see.
+  let x0 = box.minx, z0 = box.minz;      // actual model min corner
+  let w = box.maxx - box.minx;           // actual model span across X
+  let h = box.maxz - box.minz;           // actual model span across Z
   // Clamp the fitted collider to the designed footprint on ALL sides, i.e.
   // intersect the model span with the data rect. The model span includes roof
   // eaves / porches / signs that reach PAST the walls, and those overhangs read
@@ -3244,7 +3245,7 @@ function refitBuildingColliders() {
   for (const b of world.buildings) {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
-    const fit = fitBuildingFootprint(b, box, getDoorSide(b));
+    const fit = fitBuildingFootprint(b, box);
     // Round tower models (the lounge's tower_A, the bank's tower_base) don't fill
     // their square model box, so the empty corners of a rectangular collider read
     // as invisible walls (user-reported beside the lounge). Collision is AABB-only,
