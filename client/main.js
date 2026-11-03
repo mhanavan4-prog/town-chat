@@ -400,6 +400,13 @@ const KK = (() => {
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
     prop_arch:     'kk/props/arch_gate.gltf',
+    // Samhain dressing — cobwebs (KayKit Mixed Bag 2) + extra candles (Halloween
+    // Bits). Webs drape the eaves; candles cluster at the altar/shrine.
+    prop_web_a:    'kk/props/cobweb_A.gltf',    // flat corner drape
+    prop_web_c:    'kk/props/cobweb_C.gltf',    // tall hanging web
+    prop_web_d:    'kk/props/cobweb_D.gltf',    // shallow funnel web
+    prop_candle_skull: 'kk/props/skull_candle.gltf',
+    prop_candle3:  'kk/props/candle_triple.gltf',
     // Ember Wastes landmarks — Resource-pack gems become glowing ruby spires;
     // Dungeon-pack walls/pillars/torches build the Ashlord's ruined citadel.
     gem_large:     'kk/resource/Gem_Large.gltf',
