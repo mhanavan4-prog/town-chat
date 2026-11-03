@@ -3276,7 +3276,15 @@ function refitBuildingColliders() {
     // rect's unwalled margins become a free teleport into the interior.
     b._fit = { x: fit.x, y: fit.y, w: fit.w, h: fit.h };
     if (dbg) { try { console.log('[collider]', b.id, 'door', getDoorSide(b), 'data', { x: b.x, y: b.y, w: b.w, h: b.h }, 'model', box, 'fit', fit); } catch (e) { /* noop */ } }
-    const fb = { ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h };
+    // Carry the TRUE door centre (from the data rect, where the door mesh + stoop
+    // actually sit) so buildWallsForOne cuts the gap under the stoop instead of at
+    // the off-centre fit rect's midpoint — otherwise the flanking wall clips the
+    // stairs. Cross-axis of the door side: z for east/west, x for north/south.
+    const doorSide = getDoorSide(b);
+    const fb = {
+      ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h,
+      _doorC: (doorSide === 'east' || doorSide === 'west') ? b.y + b.h / 2 : b.x + b.w / 2
+    };
     for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });
   }
 }
@@ -13122,9 +13130,18 @@ function buildInteriorDoorway(side, doorStart, doorEnd, roomW, roomD, theme) {
 function buildWallsForOne(b, w) {
   const t = w.wallThickness, dw = w.doorWidth;
   const side = getDoorSide(b);
+  // Where the door gap is centred along the wall. Normally the wall's own
+  // midpoint, but the fitted collider (refitBuildingColliders) can be sized and
+  // positioned off the data rect's centre — and the door mesh + stoop stay at
+  // the DATA door position — so the gap would drift off the stoop and the
+  // flanking wall would clip the stairs (reported: "stairs are a problem").
+  // `_doorC` carries the true door centre so the gap lines up with the stoop;
+  // clamp keeps it inside the wall span. Falls back to the wall midpoint for the
+  // procedural / data-rect callers that pass no `_doorC`.
+  const clampGap = (c, lo, span) => Math.max(lo, Math.min(lo + span - dw, c - dw / 2));
 
   if (side === 'east' || side === 'west') {
-    const doorStart = b.y + (b.h - dw) / 2;
+    const doorStart = clampGap(b._doorC != null ? b._doorC : b.y + b.h / 2, b.y, b.h);
     const doorEnd = doorStart + dw;
     const sideWallX = side === 'east' ? b.x + b.w - t : b.x;
     const otherWallX = side === 'east' ? b.x : b.x + b.w - t;
@@ -13138,7 +13155,7 @@ function buildWallsForOne(b, w) {
   }
 
   if (side === 'north') {
-    const doorStart = b.x + (b.w - dw) / 2;
+    const doorStart = clampGap(b._doorC != null ? b._doorC : b.x + b.w / 2, b.x, b.w);
     const doorEnd = doorStart + dw;
     return [
       { x: b.x, y: b.y + b.h - t, w: b.w, h: t },                        // south
@@ -13150,7 +13167,7 @@ function buildWallsForOne(b, w) {
   }
 
   // south (default)
-  const doorStart = b.x + (b.w - dw) / 2;
+  const doorStart = clampGap(b._doorC != null ? b._doorC : b.x + b.w / 2, b.x, b.w);
   const doorEnd = doorStart + dw;
   return [
     { x: b.x, y: b.y, w: b.w, h: t },
