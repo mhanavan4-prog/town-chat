@@ -5047,6 +5047,7 @@ const CREATURE_LABEL = {
   embermoth: 'Embermoths', thistlehog: 'Thistlehogs', duskfawn: 'Duskfawn', mirefowl: 'Mirefowl',
   bramble_boar: 'Bramble Boars', mossback_tortoise: 'Mossback Tortoises', gravewing_crow: 'Gravewing Crows',
   fen_hexer: 'Fen Hexers', rot_swarm: 'Grave-Mites', barrow_maw: 'Barrow Maws', gloom_bat: 'Gloom Bats',
+  grimoire_mimic: 'Grimoire Mimics',
   barrow_wight: 'Barrow Wights',
   old_marrowe: 'Old Marrowe, the Gallows Warden',
 };
@@ -6731,7 +6732,11 @@ const MOB2_SPAWNS = [
   { x: 500, y: 480, type: 'rot_swarm' }, { x: 516, y: 490, type: 'rot_swarm' }, { x: 490, y: 500, type: 'rot_swarm' }, { x: 508, y: 508, type: 'rot_swarm' },
   { x: 820, y: 680, type: 'rot_swarm' }, { x: 836, y: 690, type: 'rot_swarm' }, { x: 810, y: 700, type: 'rot_swarm' }, { x: 828, y: 708, type: 'rot_swarm' },
   // Old Marrowe — a single rare elite that only rises on Blood Moon nights.
-  { x: 500, y: 320, type: 'old_marrowe' }
+  { x: 500, y: 320, type: 'old_marrowe' },
+  // Grimoire Mimics — books lying in wait in the quieter clearings; they spring
+  // when you wander close. Scattered so you stumble on them mid-forage.
+  { x: 380, y: 420, type: 'grimoire_mimic' }, { x: 640, y: 600, type: 'grimoire_mimic' },
+  { x: 760, y: 760, type: 'grimoire_mimic' }, { x: 240, y: 560, type: 'grimoire_mimic' }
 ].map(p => ({ x: p.x * WILDS_SCALE, y: p.y * WILDS_SCALE, type: p.type }));
 const MOB2_RESPAWN_MS = 120 * 1000;
 const mobs2 = MOB2_SPAWNS.map((p, i) => ({
@@ -7270,9 +7275,13 @@ setInterval(() => {
     mobs2: hasWilds ? mobs2.map(m => {
       const p = MOB2_TYPES[m.mobType];
       // Hide a Barrow Maw while it's still buried, and Old Marrowe on any
-      // ordinary (non-Blood-Moon) night — the client draws neither until they're real.
-      const hidden = (p.buried && !m.emerged) || (p.bloodMoonOnly && !bloodMoonActive());
-      return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
+      // ordinary (non-Blood-Moon) night — the client draws neither until they're
+      // real. The Grimoire Mimic is buried too but `ambushVisible`, so it STAYS
+      // on screen (as a dormant book) and the client gets a `dormant` flag to
+      // render the disguise + spring it open when it wakes.
+      const dormant = !!(p.buried && !m.emerged);
+      const hidden = (dormant && !p.ambushVisible) || (p.bloodMoonOnly && !bloodMoonActive());
+      return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, dormant, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
     }) : EMPTY,
     mobs3: hasWilds ? mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
     dungeon: hasDungeon ? [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,

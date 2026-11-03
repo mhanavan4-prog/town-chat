@@ -23,6 +23,11 @@ const MOB2_TYPES = {
   fen_hexer:   { name: 'Fen Hexer',   color: 0x3a1a4a, scale: 0.9, maxHealth: 30, speed: 40, aggroRadius: 260, strikeRange: 210, dmgMin: 7, dmgMax: 12, hitCooldownMs: 1800, xp: 20, ranged: true, kiteRange: 150 },
   rot_swarm:   { name: 'Grave-Mite',  color: 0x3a4a26, scale: 0.42, maxHealth: 12, speed: 62, aggroRadius: 150, strikeRange: 34, dmgMin: 2, dmgMax: 5, hitCooldownMs: 1000, xp: 5, swarm: true },
   barrow_maw:  { name: 'Barrow Maw',  color: 0x6a5038, scale: 1.05, maxHealth: 75, speed: 30, aggroRadius: 150, strikeRange: 52, dmgMin: 11, dmgMax: 17, hitCooldownMs: 1900, xp: 24, buried: true, ambushRange: 150 },
+  // Grimoire Mimic — disguised as a lootable book until you step into ambush
+  // range, then springs and hops after you. Shares the Barrow Maw's buried/ambush
+  // AI, but `ambushVisible` keeps it on-screen (as a book) while dormant rather
+  // than hidden. A hair faster and hoppier, a touch less health.
+  grimoire_mimic: { name: 'Grimoire Mimic', color: 0x5a3a1a, scale: 1.0, maxHealth: 66, speed: 46, aggroRadius: 170, strikeRange: 44, dmgMin: 9, dmgMax: 15, hitCooldownMs: 1600, xp: 26, buried: true, ambushRange: 120, ambushVisible: true },
   gloom_bat:   { name: 'Gloom Bat',   color: 0x1c1c26, scale: 0.7, maxHealth: 26, speed: 78, aggroRadius: 200, strikeRange: 44, dmgMin: 5, dmgMax: 9, hitCooldownMs: 1300, xp: 12, flyer: true, lifesteal: 0.5 },
   // A mid-tier undead risen from the barrows — relentless melee, a notch tougher
   // than the Night Howler but no elite. Uses the recolored base blob (no rig).

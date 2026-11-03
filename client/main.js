@@ -334,6 +334,7 @@ const KK = (() => {
     wprop_broom:        'kk/witch/Broom.gltf',
     prop_throne:  'kk/vampire/Vampire_Throne.gltf', // the Artificer's vampire throne
     mon_beast:    'kk/Monster.glb',        // the smaller Wilds beast-mobs (barrow maw, bone hound, swamp lurker, …); the world bosses now use skel_warrior
+    prop_book_mimic: 'kk/props/book_mimic.gltf', // the Grimoire Mimic's body (static; animated procedurally — shares kaykit_texture_A.png in kk/props/)
     // Unified to the red roofline + darkened at build time (see buildBuildingMesh)
     // for a cohesive, moody witch-town. The Bank is a squat crenellated stone
     // keep (tower_base) so it reads as a vault rather than a church.
@@ -12507,7 +12508,11 @@ const MOB2_VISUALS = {
   barrow_maw:  { color: 0x6a5038, eyeColor: 0xff7a2a, scale: 1.05, kkKey: 'mon_beast',    kkHeight: 76, kkAttack: '2H_Melee_Attack_Slice',        kkTint: { to: 0x9a6038, amt: 0.5, emissive: 0x3a1c08, ei: 0.4 } },
   gloom_bat:   { color: 0x1c1c26, eyeColor: 0xff2a2a, scale: 0.7,  fly: 26 },
   barrow_wight:{ color: 0x6a7a6a, eyeColor: 0x9fe0ff, scale: 1.1,  kkKey: 'skel_minion',  kkHeight: 70, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xaab8ac, amt: 0.35, emissive: 0x16303a, ei: 0.3 } },
-  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true, kkKey: 'skel_golem', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xa0432c, amt: 0.5, emissive: 0x4a1206, ei: 0.4 } }
+  old_marrowe: { color: 0x8a3a2a, eyeColor: 0xff5a4a, scale: 1.7,  elite: true, kkKey: 'skel_golem', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xa0432c, amt: 0.5, emissive: 0x4a1206, ei: 0.4 } },
+  // The Grimoire Mimic wears a static KayKit book (no rig) — animated procedurally
+  // in mobs-wilds (dormant book → spring → hopping chase). color/eyeColor are the
+  // blob fallback if the model hasn't streamed in yet.
+  grimoire_mimic: { color: 0x5a3a1a, eyeColor: 0xff6a2a, scale: 1.0, propModel: 'prop_book_mimic', propSize: 40 }
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
@@ -12572,7 +12577,7 @@ const DUNGEON_BOSS_NAMES = {
 // horrors + the mob3 critters — pure THREE/LEGEND_FX geometry; makeMob base +
 // MOB2_VISUALS + health-bar sprite injected. makeMob2/makeMob3 are called by the
 // mob2/mob3 visual pools (still in main). ──
-const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key) });
+const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), kkStatic: (key, size) => KK.staticInstance(key, size, 'fit') });
 
 let mobVisuals2 = {};
 let mobVisuals3 = {};
