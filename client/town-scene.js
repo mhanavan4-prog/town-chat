@@ -338,6 +338,43 @@ function kkTownDressing(scene, w) {
   }
   // a candle shrine at the fae-touched fairy ring
   kkPlace(scene, 'prop_shrine', 2450, 890, 24, -0.5);
+
+  // ── Samhain cobwebs + candles ────────────────────────────────────────────
+  // Drape a cobweb high in a corner of every building — a tall hanging web on
+  // one upper corner, a flat drape tucked into the eave of the adjacent one, so
+  // the whole town reads strung-up for the season. kkPlace grounds at y=0, so we
+  // raise each web to roughly eave height after placing it.
+  const WEB_Y = 92; // just under the ~110u wall top
+  w.buildings.forEach((b, i) => {
+    // rotate which corners get dressed per building so it doesn't look stamped
+    const cs = [
+      { x: b.x,        z: b.y,        r: Math.PI * 0.25 },
+      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75 },
+      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25 },
+      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75 },
+    ];
+    const c1 = cs[i % 4], c2 = cs[(i + 1) % 4];
+    const web = kkPlace(scene, 'prop_web_c', c1.x, c1.z, 46, c1.r);
+    if (web) web.position.y = WEB_Y - 26;              // tall web hangs from the eave down
+    const web2 = kkPlace(scene, 'prop_web_a', c2.x, c2.z, 40, c2.r);
+    if (web2) web2.position.y = WEB_Y;                  // flat drape sits in the eave angle
+  });
+  // low funnel webs in the Town Hall churchyard corners (dressing the fence)
+  const hall2 = w.buildings.find(b => b.id === 'hall');
+  if (hall2) {
+    const gx = Math.min(hall2.x + hall2.w + 150, (w.width || 3200) - 170);
+    const gy = Math.max(150, hall2.y + 60);
+    kkPlace(scene, 'prop_web_d', gx - 52, gy + 30, 26, 0.4);
+    kkPlace(scene, 'prop_candle_skull', gx - 2, gy - 20, 15, 0.2);
+  }
+  // candle clusters at the Torchkeepers' temple altar (shared platform coords)
+  const TPX = 1060, TPZ = 1900;
+  kkPlace(scene, 'prop_candle3', TPX - 30, TPZ + 20, 15, 0.3);
+  kkPlace(scene, 'prop_candle_skull', TPX + 30, TPZ + 20, 16, -0.4);
+  kkPlace(scene, 'prop_candle3', TPX + 10, TPZ - 30, 14, 1.1);
+  // a melted-down pair flanking the fairy-ring shrine
+  kkPlace(scene, 'prop_candle_skull', 2470, 912, 14, 0.6);
+  kkPlace(scene, 'prop_candle3', 2430, 872, 13, -0.3);
 }
 
 // A torch that starts unlit (no flame, no light) and gets toggled lit by
