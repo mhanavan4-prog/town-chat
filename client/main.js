@@ -480,7 +480,14 @@ const KK = (() => {
     furn_deskchair: 'kk/furn/chair_desk_A.gltf',      // desk chair
     furn_shelfdec:  'kk/furn/shelf_B_large_decorated.gltf', // book-laden wall shelf
     furn_couch:     'kk/furn/couch_pillows.gltf',     // lounge couch (parlor)
-    furn_coffee:    'kk/furn/table_low.gltf'          // low coffee table
+    furn_coffee:    'kk/furn/table_low.gltf',         // low coffee table
+    // Arcade gaming gear (KayKit Mixed Bag 2 — bring kaykit_texture_A.png).
+    furn_gamerchair:  'kk/furn/gamer_chair_A.gltf',   // cyan gaming chair
+    furn_gamerchair2: 'kk/furn/gamer_chair_B.gltf',   // pink gaming chair
+    furn_retroconsole:'kk/furn/retro_console.gltf',   // retro console box
+    furn_joystick:    'kk/furn/retro_joystick.gltf',  // retro joystick
+    furn_handheld:    'kk/furn/handheld_console.gltf',// handheld console
+    furn_catphones:   'kk/furn/cat_headphones_A.gltf' // cat-ear headphones
   };
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
