@@ -3235,6 +3235,15 @@ function fitBuildingFootprint(b, box) {
 // Per-building collider inset for round tower models, whose square bounding box
 // leaves empty, still-colliding corners (see the note in refitBuildingColliders).
 const ROUND_TOWER_INSET = { lounge: 0.8, bank: 0.82 };
+// Every other (rectangular) building gets a flat inset pulled in from its walls.
+// The player is a disc of radius 14, so a collider sitting exactly on the wall
+// still parks you 14u off it — and the square AABB corners cut the corners off
+// on a diagonal approach, so you can't tuck into them at all. Pulling the
+// collider ~a body-radius inside the wall lets you brush right up to (and just
+// touch) any wall and round the corners, which is the feel the round-tower
+// buildings already have from their inset. Fixed units, not a percentage, so big
+// and small buildings behave the same and you never clip deep into a wall.
+const BUILDING_WALL_INSET = 20;
 function refitBuildingColliders() {
   walls = walls.filter((r) => !r.bld);
   // Opt-in diagnostic: load the game with ?colliderdebug=1 to print each
@@ -3254,6 +3263,14 @@ function refitBuildingColliders() {
     // cardinal edges. Centred, so the door gap stays under the tower.
     const f = ROUND_TOWER_INSET[b.id];
     if (f) { fit.x += fit.w * (1 - f) / 2; fit.y += fit.h * (1 - f) / 2; fit.w *= f; fit.h *= f; }
+    else {
+      // Rectangular buildings: pull the collider a flat ~body-radius inside every
+      // wall so you can walk right up to it and into its corners. Capped at 30%
+      // of each side so a small or thin footprint can never invert or vanish.
+      const ix = Math.min(BUILDING_WALL_INSET, fit.w * 0.3);
+      const iz = Math.min(BUILDING_WALL_INSET, fit.h * 0.3);
+      fit.x += ix; fit.w -= 2 * ix; fit.y += iz; fit.h -= 2 * iz;
+    }
     // Stash the fitted footprint on the building so roomAt() (room entry + the
     // location label) keys off the SAME rect the walls do — otherwise the data
     // rect's unwalled margins become a free teleport into the interior.
