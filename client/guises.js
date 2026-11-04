@@ -114,9 +114,9 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     // these clone just the named head mesh out of a full KayKit character already
     // loaded for its NPC, then auto-centre it on the wearer's head bone (`node`
     // + `center:true`). scale/y fine-tune the fit; bump y to raise the head.
-    werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, scale: 1.15, y: 0.10, ry: 0 },
-    vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, scale: 1.15, y: 0.10, ry: 0 },
-    frankenstein: { key: 'mon_beast',    node: 'Monster_Head',       center: true, scale: 1.10, y: 0.10, ry: 0 },
+    werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, scale: 0.80, y: 0.05, ry: 0 },
+    vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, scale: 0.80, y: 0.05, ry: 0 },
+    frankenstein: { key: 'guise_frank',  node: 'Monstrosity_Head',   center: true, scale: 0.80, y: 0.05, ry: 0 },
   };
   // Procedural → head-bone-local transform: shrink CHAR-space builders (head at
   // y≈62, radius 8) down onto the KayKit head (radius ≈0.5, centre ≈0.4).
