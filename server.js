@@ -5432,6 +5432,29 @@ const NPC_WHEREABOUTS = {
   npc_guard: '🏛️ Town Hall — Guard Petra by the door',
   npc_warden: '🔥 the Ember Wastes — Warden Kol at the refuge haven'
 };
+// Which room each named NPC stands in — 'outside' is the town square. Lets the
+// Journal's waypoint say "this person, in this building" so the client can aim
+// its on-screen arrow at the NPC or at the right door (see objectiveGoal).
+const NPC_ROOM = {
+  npc_lyra: 'outside', npc_dex: 'outside', npc_mara: 'outside', npc_finn: 'outside',
+  npc_scholar: 'library', npc_apprentice: 'library',
+  npc_bartender: 'cafe', npc_patron: 'cafe',
+  npc_apothecary: 'arcade', npc_tinkerer: 'arcade',
+  npc_tailor: 'lounge', npc_noble: 'lounge',
+  npc_armorer: 'hall', npc_knight: 'hall', npc_guard: 'hall',
+  npc_warden: 'ember_refuge',
+};
+// A structured waypoint for the current objective — what the client needs to
+// draw a "go here" arrow: the target kind, the room it lives in, and (for an
+// NPC) who. Null for objectives with no single place (fight at night, cast).
+function objectiveGoal(obj) {
+  if (!obj) return null;
+  if (obj.type === 'talk_npc') return { kind: 'npc', npcId: obj.npcId, room: NPC_ROOM[obj.npcId] || null };
+  if (obj.type === 'visit_room') return { kind: 'room', room: obj.room };
+  if (obj.type === 'harvest_plant' || obj.type === 'harvest_specific') return { kind: 'room', room: 'wilds' };
+  if (obj.type === 'kill_creature' && obj.targetCreature === 'old_marrowe') return { kind: 'room', room: 'wilds' };
+  return null;
+}
 function objectiveWhere(obj) {
   if (obj.where) return obj.where;
   switch (obj.type) {
@@ -5498,6 +5521,7 @@ function storyStatePayload(player) {
         id: chapter.id, title: chapter.title, intro: chapter.intro,
         objectiveLabel: chapter.objective.label, target: chapter.objective.target,
         where: objectiveWhere(chapter.objective),
+        goal: objectiveGoal(chapter.objective), // drives the on-screen waypoint arrow
         requiresLevel: chapter.requiresLevel,
         levelOk: level >= chapter.requiresLevel,
         playerLevel: level,
@@ -16468,6 +16492,7 @@ global.__testHooks = {
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
+  objectiveGoal, NPC_ROOM, // quest waypoint goals
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)

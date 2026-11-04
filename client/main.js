@@ -57,6 +57,7 @@ import createFurniture from './furniture.js';
 import createInteriorScene from './interior-scene.js';
 import createAccountSelect from './account-select.js';
 import createHud from './hud.js';
+import createWaypoint from './waypoint.js';
 import createLoadout from './loadout.js';
 import createGroundTraps from './ground-traps.js';
 import createFireballs from './fireballs.js';
@@ -3876,6 +3877,20 @@ const {
 } = createHud({
   getMe: () => me, getGameStarted: () => gameStarted, getRestedUntil: () => restedUntil,
   getMyId: () => myId, getMyParty: () => myParty, getStoryState: () => storyState,
+});
+// 📍 Quest waypoint — a pin over the current story objective (or an edge arrow
+// toward it). Resolves the server's objective `goal` against map data the
+// client already holds; see client/waypoint.js.
+const waypoint = createWaypoint({
+  getMe: () => me, getStoryState: () => storyState, getCamera: () => activeCamera,
+  getCtx: () => ({
+    buildings: (TOWN_WORLD && TOWN_WORLD.buildings) || [],
+    getDoorWorldPos,
+    townNpcs: TOWN_NPCS,
+    portalInTown: world2 && world2.portalInTown,
+    wildsReturn: WILDS_KIOSKS.find((k) => k.portal === 'town') || null,
+    caveMouth: { x: WITCH_CAVE_ENTRANCE_X, z: WITCH_CAVE_ENTRANCE_Z },
+  }),
 });
 
 const questCancelBtn = document.getElementById('questCancelBtn');
@@ -15670,8 +15685,27 @@ const { openNotifModal } = _notif;
       const px = PX(me.x), py = PY(me.y);
       ctx.strokeStyle = 'rgba(94,231,192,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#5ee7c0'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+      // Facing wedge — which way you're walking (forward is +sin/+cos of facing,
+      // the same vector the camera trails behind).
+      if (typeof me.facing === 'number') {
+        const fx = Math.sin(me.facing), fy = Math.cos(me.facing), nx = -fy, ny = fx;
+        ctx.fillStyle = '#5ee7c0'; ctx.beginPath();
+        ctx.moveTo(px + fx * 17, py + fy * 17);
+        ctx.lineTo(px + fx * 9 + nx * 5, py + fy * 9 + ny * 5);
+        ctx.lineTo(px + fx * 9 - nx * 5, py + fy * 9 - ny * 5);
+        ctx.closePath(); ctx.fill();
+      }
       ctx.fillStyle = '#5ee7c0'; ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText('You', px, py - 11);
+      // 📍 The quest waypoint, in this map's coordinates (see client/waypoint.js).
+      const wt = waypoint.current();
+      if (wt) {
+        const wx = PX(wt.x), wy = PY(wt.z);
+        ctx.strokeStyle = 'rgba(255,211,107,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(wx, wy); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(wx, wy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#3a2a0e'; ctx.lineWidth = 1.5; ctx.stroke(); // no label: the NPC / building / portal already has its own
+      }
     }
   }
   // Which zone the map should show, and the geometry + title for it.
@@ -18477,6 +18511,7 @@ function render() {
     renderer.render(activeScene, activeCamera);
   }
   syncLabels();
+  waypoint.update();
   updateNameLabelHover();
   updateLootIcons();
 }
