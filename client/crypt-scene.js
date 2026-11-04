@@ -86,9 +86,11 @@ function buildCryptScene() {
   kkPlace(scene, 'prop_gravemark_a', W / 2 - 130, 60, 22, 0);
   kkPlace(scene, 'prop_gravemark_b', W / 2 + 130, 60, 22, 0);
 
-  // Cobwebs dripping from the upper corners.
-  const wa = kkPlace(scene, 'prop_web_c', 40, 40, 44, Math.PI * 0.25); if (wa) wa.position.y = 150;
-  const wb = kkPlace(scene, 'prop_web_c', W - 40, 40, 44, Math.PI * 0.75); if (wb) wb.position.y = 150;
+  // Cobwebs climbing the back corners. cobweb_C is anchored at its top and
+  // staticInstance grounds its base, so placed GROUNDED (no y-offset) it rises
+  // from the floor up the corner — raising it just floated the whole web.
+  kkPlace(scene, 'prop_web_c', 40, 40, 64, Math.PI * 0.25);
+  kkPlace(scene, 'prop_web_c', W - 40, 40, 64, Math.PI * 0.75);
   kkPlace(scene, 'prop_web_d', 60, D - 120, 28, 0.4);
 
   // ── Exit threshold — a glowing doorway back out to the Wilds, at the spawn
