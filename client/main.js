@@ -1287,6 +1287,7 @@ function onWsMessage(ev) {
     // menu renders from this, so a guise added/removed server-side needs no
     // client edit beyond its 3D mesh in client/guises.js.
     if (msg.guises) GUISES_CLIENT = msg.guises;
+    if (msg.guiseCos) { myGuiseOwned = msg.guiseCos.owned || []; if (typeof msg.guiseCos.msBalance === 'number') myGuiseBalance = msg.guiseCos.msBalance; }
     // Merge the server's authoritative usable-item list so every consumable
     // (incl. any newly added brew) shows a Use button — no client hand-sync.
     if (Array.isArray(msg.usableItems)) for (const id of msg.usableItems) PLANT_EFFECTS.add(id);
@@ -2905,7 +2906,7 @@ function onWsMessage(ev) {
     if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
-  if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
+  if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Array.isArray(msg.owned)) myGuiseOwned = msg.owned; if (typeof msg.balance === 'number') myGuiseBalance = msg.balance; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
@@ -10566,18 +10567,34 @@ function closeFamiliarModal() {
 // client/guises.js keyed by the same ids.
 let GUISES_CLIENT = {};
 let myGuise; // last known from guise_state (undefined = unheard; null = doffed)
+let myGuiseOwned = [];   // the collectible Otherworld guises this account owns
+let myGuiseBalance = 0;  // moonstones (for the price/afford display)
 function renderGuiseModal() {
   const el = document.getElementById('guiseContent');
   if (!el) return;
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = (myGuise !== undefined) ? myGuise : ((me && players[me.id] && players[me.id].guise) || null);
+  const owned = (id) => myGuiseOwned.indexOf(id) !== -1;
+  const ids = Object.keys(GUISES_CLIENT);
+  const freeIds = ids.filter((id) => !(GUISES_CLIENT[id] && GUISES_CLIENT[id].ms > 0));
+  const setIds = ids.filter((id) => GUISES_CLIENT[id] && GUISES_CLIENT[id].ms > 0);
+  const rowFor = (id) => {
+    const g = GUISES_CLIENT[id]; if (!g) return '';
+    const locked = g.ms > 0 && !owned(id);
+    const tag = locked ? ` <span class="guisePrice">${g.ms} 💎</span>` : '';
+    return `<div class="famRow${cur === id ? ' cur' : ''}${locked ? ' locked' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}${tag}</div><div class="fb">${g.blurb}</div></span></div>`;
+  };
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
-  for (const id of Object.keys(GUISES_CLIENT)) {
-    const g = GUISES_CLIENT[id];
-    if (!g) continue; // never let a stale/unknown guise id crash the menu
-    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${g.blurb}</div></span></div>`;
-  }
+  for (const id of freeIds) h += rowFor(id);
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div></div>`;
+  if (setIds.length) {
+    const gotAll = setIds.every(owned);
+    h += `<div class="guiseSetHead">👻 The Otherworld Masks <span class="guiseSetN">${setIds.filter(owned).length}/${setIds.length}</span></div>`;
+    h += `<div style="font-size:11px;opacity:0.8;margin-bottom:6px;">Not the dead you hide from — the dead themselves. Bought with Moonstones and kept; gather all three to earn the <b>Spirit-Clad</b> title.${gotAll ? ' <b>Complete.</b>' : ''}</div>`;
+    h += '<div class="menuCols">';
+    for (const id of setIds) h += rowFor(id);
+    h += `</div><div style="font-size:11px;opacity:0.72;margin-top:6px;">You carry <b>${myGuiseBalance}</b> 💎.</div>`;
+  }
   el.innerHTML = h;
   el.querySelectorAll('.famRow').forEach((row) => row.addEventListener('click', () => {
     send({ type: 'choose_guise', guiseId: row.getAttribute('data-gid') || null });

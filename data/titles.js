@@ -54,6 +54,11 @@ const TITLES = {
     desc: 'Read every volume the Midnight Archive keeps under lock, and carried none of them back out — only what they said.',
     from: 'The Forbidden Shelf — the Midnight Archive'
   },
+  spirit_clad: {
+    id: 'spirit_clad', name: 'Spirit-Clad', glyph: '👻',
+    desc: 'Gathered the whole Monsters’ Masque — the werewolf, the vampire and the stitched-up Monster — and wears the night’s own faces as easily as a cloak.',
+    from: 'The Monsters’ Masque — the Wardrobe'
+  },
   cauldron_regular: {
     id: 'cauldron_regular', name: 'Regular at the Cauldron', glyph: '☕',
     desc: 'Worked through every special Barkeep Joss ever chalked up, and has a stool that is, by now, unofficially theirs.',
