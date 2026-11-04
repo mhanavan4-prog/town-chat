@@ -782,6 +782,19 @@
   .penV.yes { color:#9be38a; } .penV.no { color:#ff8a8a; } .penV.unclear { color:#cdbf8f; }
   .penQ { font-size:10.5px; color:#b9a37a; margin-bottom:6px; font-style:italic; }
   .penL { font-size:12.5px; color:#efe6cf; font-style:italic; line-height:1.5; margin-top:6px; }
+  .runeGaze { font-size:11.5px; color:#dcccb0; line-height:1.45; margin-bottom:10px; }
+  .runeCastBtn { width:100%; padding:9px 12px; border-radius:10px; border:1px solid rgba(180,150,220,0.4); background:rgba(150,110,210,0.14); color:#e9ddff; font-size:12.5px; cursor:pointer; margin-bottom:4px; }
+  .runeCastBtn:disabled { opacity:0.5; cursor:default; }
+  .runeRow { display:flex; align-items:flex-start; gap:11px; border:1px solid rgba(180,150,220,0.2); background:rgba(255,255,255,0.03); border-radius:10px; padding:10px 12px; margin:8px 0; }
+  .runeSym { font-size:30px; line-height:1; color:#c9aef0; min-width:30px; text-align:center; }
+  .runeSym.rev { transform:rotate(180deg); color:#b79adf; opacity:0.9; }
+  .runeMeta { flex:1; }
+  .runePos { font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#b79adf; }
+  .runeNm { font-weight:700; color:#efe6ff; font-size:13px; }
+  .runeNm .rr { color:#c89adf; font-weight:600; font-size:11px; font-style:italic; }
+  .runeMn { font-size:11.5px; color:rgba(240,235,255,0.78); line-height:1.4; margin-top:2px; }
+  .runeSyn { margin-top:10px; border:1px solid rgba(180,150,220,0.3); background:rgba(150,110,210,0.08); border-radius:10px; padding:11px 13px; font-size:12px; color:#efe6ff; font-style:italic; line-height:1.5; }
+  .runeDrawn { text-align:center; font-size:10.5px; color:#b79adf; margin-top:7px; }
   .famRow { display:flex; align-items:center; gap:10px; padding:9px 11px; margin:6px 0; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); cursor:pointer; }
   .famRow:hover { background:rgba(255,255,255,0.07); }
   .famRow.cur { border-color:rgba(255,220,130,0.55); background:rgba(255,220,130,0.1); }
@@ -2734,6 +2747,7 @@
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
       <button class="menuRow" id="menuScry">🪞 Scrying Bowl</button>
       <button class="menuRow" id="menuPendulum">🪡 The Pendulum</button>
+      <button class="menuRow" id="menuRunes">ᚱ Rune Cast</button>
 
       <div class="menuSection"><span class="hudGi" data-hudicon="s_samhain"></span>Samhain</div>
       <button class="menuRow" id="menuAncestor">🕯️ Ancestor Altar</button>
@@ -3806,6 +3820,13 @@
   </div>
   <div id="pendulumContent"></div>
   <button class="btn" id="pendulumCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+<div id="runeModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>ᚱ Rune Cast</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="runeContent"></div>
+  <button class="btn" id="runeCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="tarotModal" class="floatPanel hidden">

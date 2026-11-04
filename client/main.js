@@ -2910,6 +2910,7 @@ function onWsMessage(ev) {
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'pendulum_reading') { lastPendulum = msg; if (Modals.isOpen('pendulumOpen')) renderPendulumModal(); return; }
+  if (msg.type === 'rune_result') { lastRunes = msg; if (Modals.isOpen('runeOpen')) renderRuneModal(); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -3801,6 +3802,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('guiseModal'),      document.querySelector('#guiseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('pendulumModal'),   document.querySelector('#pendulumModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('runeModal'),       document.querySelector('#runeModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bonfireModal'),    document.querySelector('#bonfireModal .floatPanelHandle'));
@@ -7048,6 +7050,8 @@ function hydrateMenuRows() {
   on('scryCloseBtn', closeScryModal);
   on('menuPendulum', closeSheetAnd(() => { if (!Modals.isOpen('pendulumOpen')) openPendulumModal(); }));
   on('pendulumCloseBtn', closePendulumModal);
+  on('menuRunes', closeSheetAnd(() => { if (!Modals.isOpen('runeOpen')) openRuneModal(); }));
+  on('runeCloseBtn', closeRuneModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('showcaseCloseBtn', closeShowcaseModal);
@@ -10695,6 +10699,41 @@ function closePendulumModal() {
   const modal = document.getElementById('pendulumModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('pendulumOpen', false);
+}
+
+// ── Rune casting — the daily three-stave cast ───────────────────────────────
+let lastRunes = null;
+function renderRuneModal() {
+  const el = document.getElementById('runeContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastRunes;
+  let h = '<div class="runeGaze">Cast three staves — the Root, the Crossing, and the Outcome. One cast a day; the runes hold until the day turns.</div>';
+  const cast = st && Array.isArray(st.cast) ? st.cast : [];
+  h += `<button class="runeCastBtn" id="runeCastBtn"${st && st.alreadyCast ? ' disabled' : ''}>ᚱ ${st && st.alreadyCast ? 'The staves are cast for today' : 'Cast the runes'}</button>`;
+  for (const s of cast) {
+    h += `<div class="runeRow"><div class="runeSym${s.reversed ? ' rev' : ''}">${esc(s.sym || '')}</div><div class="runeMeta"><div class="runePos">${esc(s.pos || '')}</div><div class="runeNm">${esc(s.name || '')}${s.reversed ? ' <span class="rr">reversed</span>' : ''}</div><div class="runeMn">${esc(s.meaning || '')}</div></div></div>`;
+  }
+  if (cast.length && st.synthesis) h += `<div class="runeSyn">${esc(st.synthesis)}</div>`;
+  if (cast.length && st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — every stave falls true tonight.</div>';
+  if (cast.length && st.alreadyCast) h += '<div class="runeDrawn">Return at the turn of the day for a new cast.</div>';
+  el.innerHTML = h;
+  const btn = document.getElementById('runeCastBtn');
+  if (btn && !(st && st.alreadyCast)) btn.addEventListener('click', () => send({ type: 'rune_cast' }));
+}
+function openRuneModal() {
+  const modal = document.getElementById('runeModal');
+  if (!modal) return;
+  renderRuneModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('runeOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rune_state' })); // peek today's cast without consuming the daily cast
+}
+function closeRuneModal() {
+  const modal = document.getElementById('runeModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('runeOpen', false);
 }
 
 // ── Witch path picker ───────────────────────────────────────────────────────
@@ -17486,6 +17525,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('pendulumOpen') && e.key === 'Escape' && !e.repeat) {
     closePendulumModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('runeOpen') && e.key === 'Escape' && !e.repeat) {
+    closeRuneModal();
     if (window.__fromMenu) backToMenu();
     return;
   }

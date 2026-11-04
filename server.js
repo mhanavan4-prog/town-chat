@@ -3011,6 +3011,8 @@ const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosm
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
+const { RUNES, RUNE_POSITIONS, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination)
+const RUNE_BY_KEY = Object.fromEntries(RUNES.map((r) => [r.key, r]));
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
@@ -4828,6 +4830,18 @@ function tarotSpreadView(stored) {
     meaning: s.reversed ? s.card.reversed : s.card.reading,
   }));
   return { spread, synthesis: tarotSynthesis(spreadCards) };
+}
+// The rune cast's view for the client — mirrors tarotSpreadView. `stored` is
+// [{ key, rev }]; builds the three staves with their position + reading.
+function runeCastView(stored) {
+  const byKey = (k) => RUNE_BY_KEY[k] || RUNES[0];
+  const castRunes = stored.map((s) => ({ rune: byKey(s.key), reversed: !!s.rev }));
+  const cast = castRunes.map((s, i) => ({
+    pos: (RUNE_POSITIONS[i] || {}).label || '', hint: (RUNE_POSITIONS[i] || {}).hint || '',
+    key: s.rune.key, name: s.rune.name, sym: s.rune.sym, aett: s.rune.aett, reversed: s.reversed,
+    meaning: s.reversed ? s.rune.reversed : s.rune.reading,
+  }));
+  return { cast, synthesis: runeSynthesis(castRunes) };
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14666,6 +14680,41 @@ wss.on('connection', (ws, req) => {
       const seed = player.accountKey || player.id || 'wanderer';
       const ans = pendulumAnswer(seed, q, Math.floor(now / 86400000), veilThin);
       send(ws, { type: 'pendulum_reading', question: q, verdict: ans.verdict, line: ans.line, samhain: veilThin, now });
+      return;
+    }
+
+    // ── Rune casting — the daily three-stave cast (Root · Crossing · Outcome),
+    // stable per UTC day like the tarot. The runes fall true (no merkstave) while
+    // the veil of Samhain is thin.
+    if (msg.type === 'rune_cast') {
+      if (!player.accountKey) { send(ws, { type: 'rune_result', cast: [], message: 'Log into an account to keep a daily cast.' }); return; }
+      const a = accounts[player.accountKey];
+      const today = Math.floor(Date.now() / 86400000);
+      let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+      let stored, alreadyCast = false;
+      if (a.lastRuneDay === today && Array.isArray(a.lastRuneCast) && a.lastRuneCast.length === 3) {
+        stored = a.lastRuneCast; alreadyCast = true;
+      } else {
+        const bag = RUNES.slice();
+        for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+        stored = bag.slice(0, 3).map((r) => ({ key: r.key, rev: veilThin ? false : (Math.random() < 0.5) }));
+        a.lastRuneDay = today; a.lastRuneCast = stored;
+        saveAccounts();
+      }
+      const { cast, synthesis } = runeCastView(stored);
+      send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, now: Date.now() });
+      return;
+    }
+    if (msg.type === 'rune_state') {
+      if (!player.accountKey) { send(ws, { type: 'rune_result', cast: [], peek: true }); return; }
+      const a = accounts[player.accountKey];
+      const today = Math.floor(Date.now() / 86400000);
+      let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
+      const out = { type: 'rune_result', cast: [], synthesis: '', alreadyCast: false, samhain: veilThin, peek: true };
+      if (a.lastRuneDay === today && Array.isArray(a.lastRuneCast) && a.lastRuneCast.length === 3) {
+        const v = runeCastView(a.lastRuneCast); out.cast = v.cast; out.synthesis = v.synthesis; out.alreadyCast = true;
+      }
+      send(ws, out);
       return;
     }
 
