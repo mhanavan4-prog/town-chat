@@ -38,4 +38,42 @@ function omenFor(seedStr, dayIndex, count) {
   return h % n;
 }
 
-module.exports = { OMENS, omenFor };
+// The DEEP reading — drawn only when a gazer pours a vial of moon water into the
+// bowl. Where the daily omen is one day-stable line, this is a three-fold scry
+// (the tide behind you, the water now, the shore ahead) drawn FRESH each time,
+// from a richer, more specific pool. Still flavor, never a concrete promise.
+const DEEP_OMENS = [
+  'A name you have not spoken in years is about to be spoken back to you.',
+  'Three roads open this season; the muddiest of them carries the gold.',
+  'Someone counts you an enemy who ought to be a friend. Speak first.',
+  'What you buried did not stay buried. Better to meet it in daylight.',
+  'A door closes behind you — do not waste your strength prying it open again.',
+  'The coin you lend now returns as something you cannot yet name.',
+  'You have been reading the room wrong. The quiet one is the one to watch.',
+  'A journey you keep putting off is the very thing you have been waiting for.',
+  'The wound you hide is plain to the one who loves you. Let them see it.',
+  'Luck is pooling under your feet like groundwater. Dig where you already stand.',
+  'An old promise comes due. Keeping it will cost far less than you fear.',
+  'What you call a failure, the water calls a turning. Walk through it.',
+  'You will be asked to choose between being right and being kind. Choose well.',
+  'What ends this season was always meant to end. Thank it, and let the water take it.',
+];
+
+// Three distinct deep omens, seeded by the gazer + a salt (the moment of
+// gazing), so each pour of moon water draws a fresh reading. Pure + deterministic
+// for a given (seed, salt) so the server and tests agree.
+function deepReading(seedStr, salt) {
+  const n = DEEP_OMENS.length;
+  let h = 2166136261 >>> 0;
+  const s = String(seedStr == null ? '' : seedStr) + '|' + String(salt == null ? 0 : salt);
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const picks = [];
+  while (picks.length < 3 && picks.length < n) {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; // xorshift-ish advance
+    const idx = h % n;
+    if (picks.indexOf(idx) === -1) picks.push(idx);
+  }
+  return picks.map((i) => DEEP_OMENS[i]);
+}
+
+module.exports = { OMENS, omenFor, DEEP_OMENS, deepReading };

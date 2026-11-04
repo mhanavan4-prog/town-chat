@@ -3009,7 +3009,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
-const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen
+const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
@@ -14630,8 +14630,27 @@ wss.on('connection', (ws, req) => {
         },
         samhain: season.key === 'samhain',
         omen: omen || '',
+        moonWater: player.accountKey ? countItemQty(getInventory(player), 'moon_water') : 0, // for the deep-reading button
         now
       });
+      return;
+    }
+
+    // ── The deep reading — pour a vial of moon water into the bowl for a
+    // three-fold scry (fresh each pour). Reuses the moon-water consume pattern
+    // the Ancestor Altar already uses; the thin veil of Samhain makes it clearer.
+    if (msg.type === 'scry_deep') {
+      if (!player.accountKey) { send(ws, { type: 'toast', message: 'Log into an account to pour moon water into the bowl.' }); return; }
+      const inv = getInventory(player);
+      if (countItemQty(inv, 'moon_water') < 1) { send(ws, { type: 'toast', message: 'You need a vial of moon water to draw a deeper reading.' }); return; }
+      removeItemFromAccount(inv, 'moon_water', 1);
+      saveInventories();
+      const now = Date.now();
+      let isSamhain = false; try { isSamhain = (seasonWindow(now).key === 'samhain'); } catch (e) { /* noop */ }
+      const seed = player.accountKey || player.id || 'wanderer';
+      const lines = deepReading(seed, now); // [tide behind, water now, shore ahead] — fresh each pour
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'scry_deep_reading', lines, samhain: isSamhain, moonWater: countItemQty(inv, 'moon_water'), now });
       return;
     }
 
