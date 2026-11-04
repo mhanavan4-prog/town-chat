@@ -400,6 +400,7 @@ const KK = (() => {
     guise_antlers: 'kk/guises/antlered_hood.glb',
     guise_hat:     'kk/guises/witch_hat.glb', // Mystery Series 5 Witch's pointed hat
     guise_devil:   'kk/guises/tiefling_head.glb', // Mystery Series 5 Tiefling's horned head
+    guise_frank:   'kk/Monstrosity.glb', // Mystery Series 6 Monstrosity — Frankenstein's-monster head (guise clones just Monstrosity_Head)
     prop_shrine:   'kk/props/shrine_candles.gltf',
     prop_deadtree: 'kk/props/tree_dead_large.gltf',
     prop_deadtree2:'kk/props/tree_dead_medium.gltf',
@@ -533,7 +534,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil',
+  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil', 'guise_frank',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
