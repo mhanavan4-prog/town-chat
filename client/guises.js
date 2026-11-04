@@ -110,6 +110,13 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     stag:    { key: 'guise_antlers', scale: 1.00, y: 0.00, ry: 0 },
     witch:   { key: 'guise_hat',     scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Witch's hat, baked exact
     devil:   { key: 'guise_devil',   scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Tiefling's horned head
+    // ── The Monsters' Masque (collectible). Unlike the baked head props above,
+    // these clone just the named head mesh out of a full KayKit character already
+    // loaded for its NPC, then auto-centre it on the wearer's head bone (`node`
+    // + `center:true`). scale/y fine-tune the fit; bump y to raise the head.
+    werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, scale: 1.15, y: 0.10, ry: 0 },
+    vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, scale: 1.15, y: 0.10, ry: 0 },
+    frankenstein: { key: 'mon_beast',    node: 'Monster_Head',       center: true, scale: 1.10, y: 0.10, ry: 0 },
   };
   // Procedural → head-bone-local transform: shrink CHAR-space builders (head at
   // y≈62, radius 8) down onto the KayKit head (radius ≈0.5, centre ≈0.4).
@@ -131,10 +138,38 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     const onBone = !!(v.kk && v.kk.headBone);
     const spec = GLB[type];
     if (onBone && spec && KK && KK.has && KK.has(spec.key) && KK.models[spec.key]) {
-      const inst = KK.models[spec.key].scene.clone(true);
-      // a scaled clone's cached bounding sphere can be wrong → keep it drawn
-      inst.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
-      const g = new THREE.Group(); g.add(inst);
+      const src = KK.models[spec.key].scene;
+      const g = new THREE.Group();
+      if (spec.node) {
+        // Collectible character-head guise: pull just the named head mesh(es) out
+        // of the full character rig and draw them un-skinned at bind pose (a plain
+        // Mesh sharing the source geometry/material — no skeleton, no deform), then
+        // auto-centre on the head bone so a head authored up at the model's neck
+        // sits on the wearer's head without a hand-measured offset.
+        const names = Array.isArray(spec.node) ? spec.node : [spec.node];
+        src.traverse((o) => {
+          if ((o.isMesh || o.isSkinnedMesh) && names.indexOf(o.name) !== -1) {
+            // Clone the material with skinning off so the shared KayKit atlas still
+            // textures it, but it draws as a static mesh (no skeleton to deform it).
+            const mat = (o.material && o.material.clone) ? o.material.clone() : o.material;
+            if (mat) { mat.skinning = false; }
+            const m = new THREE.Mesh(o.geometry, mat);
+            m.frustumCulled = false;
+            g.add(m);
+          }
+        });
+        if (!g.children.length) return null; // asset not fully streamed yet — retry next frame
+        if (spec.center) {
+          const box = new THREE.Box3().setFromObject(g);
+          const c = box.getCenter(new THREE.Vector3());
+          for (const m of g.children) m.position.sub(c); // centre the head on the socket origin
+        }
+      } else {
+        const inst = src.clone(true);
+        // a scaled clone's cached bounding sphere can be wrong → keep it drawn
+        inst.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+        g.add(inst);
+      }
       g.scale.setScalar(spec.scale); g.position.y = spec.y; g.rotation.y = spec.ry || 0;
       return { group: g, glb: true };
     }
@@ -203,7 +238,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
   // For these, the player's own head — skull/jaw/eyes on a skeleton body, the
   // face/hair mesh on the others — must hide too, or it bleeds through the
   // smaller guise head. The witch hat sits ON your head, so it is NOT here.
-  const COVERS_HEAD = new Set(['skull', 'pumpkin', 'devil', 'stag', 'raven']);
+  const COVERS_HEAD = new Set(['skull', 'pumpkin', 'devil', 'stag', 'raven', 'werewolf', 'vampire', 'frankenstein']);
   const RE_HEADWEAR = /_(Hat|Helmet|Hood)$/;                 // your own hat — hidden by ANY guise
   const RE_HEADCORE = /(_Head(_Hooded)?|_Skull|_Jaw|_Eyes)$/; // your own head — hidden by a head-covering guise
 

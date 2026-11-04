@@ -3007,7 +3007,7 @@ app.get('/api/coven', (req, res) => {
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
-const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
+const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
@@ -10536,9 +10536,15 @@ wss.on('connection', (ws, req) => {
         goldAuctionFee: AUCTION_GOLD_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
         itemCatalog: ITEM_CATALOG,
-        // 🎃 Samhain guise catalog (name/emoji/blurb) — the one authoritative
+        // 🎃 Samhain guise catalog (name/emoji/blurb/ms) — the one authoritative
         // copy, so the Disguise menu renders from it with no hand-synced list.
+        // owned = the collectible Otherworld guises this account has bought;
+        // msBalance so the picker can show prices + afford state.
         guises: GUISES,
+        guiseCos: {
+          owned: getProgress(player).guiseUnlocks || [],
+          msBalance: player.accountKey ? msBalance(player.accountKey) : 0
+        },
         // The Artificer's Workshop crafting tree (Session N) — authoritative
         // recipe list so the client renders the tree with no hand-synced copy.
         craftRecipes: CRAFT_RECIPES,
@@ -14668,17 +14674,43 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    // ── Don / change / doff a Samhain guise (account-scoped, free, cosmetic) ──
+    // ── Don / change / doff a guise (account-scoped, cosmetic). The free six are
+    // worn for nothing; the Otherworld set (GUISES[id].ms) is bought once with
+    // Moonstones on first wear — owned account-wide in prog.guiseUnlocks — and
+    // gathering all three earns the Spirit-Clad title. Mirrors the aura buy-on-
+    // first-pick flow; 'none'/null doffs for free. ──
     if (msg.type === 'choose_guise') {
       if (!player.accountKey) { send(ws, { type: 'guise_error', message: 'Log into an account to keep a costume.' }); return; }
       const gid = msg.guiseId ? String(msg.guiseId) : null;
       if (gid && !GUISES[gid]) { send(ws, { type: 'guise_error', message: 'No such guise.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.guiseUnlocks) prog.guiseUnlocks = [];
+      let titleNews = null;
+      if (gid) {
+        const def = GUISES[gid];
+        // A priced guise must be bought the first time it is worn.
+        if (def.ms && prog.guiseUnlocks.indexOf(gid) === -1) {
+          if (msBalance(player.accountKey) < def.ms) { send(ws, { type: 'guise_error', message: `The ${def.name} is ${def.ms} 💎 — you carry ${msBalance(player.accountKey)}.` }); return; }
+          msAdjust(player.accountKey, -def.ms);
+          analytics.bump('buy.msn.guise:' + gid);
+          analytics.bump('buy.msg.guise:' + gid, def.ms);
+          prog.guiseUnlocks.push(gid);
+          // Gathering the whole Otherworld set earns the Spirit-Clad title.
+          if (GUISE_SET_TITLE && GUISE_COLLECTIBLE.length && GUISE_COLLECTIBLE.every((id) => prog.guiseUnlocks.indexOf(id) !== -1)) {
+            const had = (prog.riteTitles || []).includes(GUISE_SET_TITLE);
+            grantRiteTitle(player.accountKey, GUISE_SET_TITLE);
+            if (!had) { titleNews = titleNameOf(GUISE_SET_TITLE); try { send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) }); } catch (e) { /* noop */ } }
+          }
+        }
+      }
       accounts[player.accountKey].guise = gid;
       player.guise = gid;
-      saveAccounts();
-      send(ws, { type: 'guise_state', guise: gid });
+      try { saveAccounts(); saveProgress(); } catch (e) { /* noop */ }
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'guise_state', guise: gid, owned: prog.guiseUnlocks, balance: msBalance(player.accountKey) });
       if (gid) send(ws, { type: 'toast', message: `${GUISES[gid].emoji} You pull on the ${GUISES[gid].name}. ${GUISES[gid].blurb}` });
       else send(ws, { type: 'toast', message: 'You shed your disguise.' });
+      if (titleNews) send(ws, { type: 'toast', message: `👻 The Otherworld set is complete — you earn the title “${titleNews}”.` });
       return;
     }
 
