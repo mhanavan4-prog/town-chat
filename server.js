@@ -9348,6 +9348,9 @@ function minionHostilePools(room) {
   if (room === 'outside') return [[mobs, 'mob', () => MOB_MAX_HEALTH]];
   if (room === 'wilds') return [[mobs2, 'mob2', (m) => (MOB2_TYPES[m.mobType] || {}).maxHealth || 60], [mobs3, 'mob3', (m) => (MOB3_TYPES[m.mobType] || {}).maxHealth || 60]];
   if (room === 'ember_wastes') return [[emberMobs, 'ember_mob', (m) => (EMBER_MOB_TYPES[m.mobType] || {}).maxHealth || 80]];
+  // The crypt guardian is the only hostile in its room — summoned undead that
+  // follow you in should hunt it (applyDamage resolves 'crypt_mob' via POOLS).
+  if (room === 'crypt') return [[cryptMobs, 'crypt_mob', (m) => (MOB2_TYPES[m.mobType] || {}).maxHealth || 120]];
   // A Delve floor uses that run's OWN instanced mobs (run.mobs), not the shared
   // dungeonMobs arena array — so undead summoned inside a delve must hunt the
   // run's mobs or they'd find nothing and just idle. targetType stays 'dungeon'

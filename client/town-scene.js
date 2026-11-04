@@ -362,31 +362,24 @@ function kkTownDressing(scene, w) {
   kkPlace(scene, 'prop_shrine', 2450, 890, 24, -0.5);
 
   // ── Samhain cobwebs + candles ────────────────────────────────────────────
-  // Drape a cobweb high in a corner of every building — a tall hanging web on
-  // one upper corner, a flat drape tucked into the eave of the adjacent one, so
-  // the whole town reads strung-up for the season. kkPlace grounds at y=0, so we
-  // raise each web to roughly eave height after placing it.
-  // Strung into the upper CORNER of each building, nudged inward so a wall face
-  // always sits behind the web (otherwise it reads as floating in mid-air off
-  // the roofline) and kept low enough that it tucks under the ~110u eave rather
-  // than poking above it into the sky. kkPlace grounds at y=0, so we raise each
-  // web after placing it.
-  const WEB_INSET = 24; // push the web in from the footprint corner, onto the wall
+  // One cobweb strung in a corner of every building. The model (cobweb_C) is
+  // anchored at its TOP and hangs downward; staticInstance drops its base to the
+  // floor, so placed GROUNDED (no y-offset) it climbs the building's corner from
+  // the ground up — which means it can never float. Earlier versions raised the
+  // web to "eave height", but since the base is what gets grounded, lifting it
+  // just hung the whole web in mid-air. The flat cobweb_A "drape" is dropped
+  // entirely: it's a near-flat HORIZONTAL sheet (2.18 x 0.05 x 2.18), so off the
+  // ground it only ever read as a pane hovering in the air.
   w.buildings.forEach((b, i) => {
-    // rotate which corners get dressed per building so it doesn't look stamped.
-    // dx/dz point inward (toward the building centre) so the inset lands the web
-    // against the wall, not out over open air.
+    // rotate which corner gets the web per building so it doesn't look stamped
     const cs = [
-      { x: b.x,        z: b.y,        r: Math.PI * 0.25, dx:  1, dz:  1 },
-      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75, dx: -1, dz:  1 },
-      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25, dx: -1, dz: -1 },
-      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75, dx:  1, dz: -1 },
+      { x: b.x,        z: b.y,        r: Math.PI * 0.25 },
+      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75 },
+      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25 },
+      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75 },
     ];
-    const c1 = cs[i % 4], c2 = cs[(i + 1) % 4];
-    const web = kkPlace(scene, 'prop_web_c', c1.x + c1.dx * WEB_INSET, c1.z + c1.dz * WEB_INSET, 38, c1.r);
-    if (web) web.position.y = 50;   // tall web hangs from mid-wall down
-    const web2 = kkPlace(scene, 'prop_web_a', c2.x + c2.dx * WEB_INSET, c2.z + c2.dz * WEB_INSET, 34, c2.r);
-    if (web2) web2.position.y = 64; // flat drape tucked just under the eave
+    const c = cs[i % 4];
+    kkPlace(scene, 'prop_web_c', c.x, c.z, 46, c.r); // grounded — rises from the floor up the corner, never floats
   });
   // low funnel webs in the Town Hall churchyard corners (dressing the fence)
   const hall2 = w.buildings.find(b => b.id === 'hall');
