@@ -32,7 +32,7 @@ const CLASSES = [
   },
   {
     id: 1, key: 'werewolf', name: 'Werewolf', model: 'kk/Barbarian.glb',
-    tagline: 'Unleashes a dozen ferocious attacks.',
+    tagline: 'Unleashes fourteen ferocious attacks.',
     blurb: 'Fangs, fear and the hunt — the most aggressive kit in town, built to chase down and run down prey.',
     abilities: [
       { icon: '🦷', name: 'Savage Bite', description: 'Sink your fangs in for real damage — players, animals, and mobs alike, same death/respawn/loot flow as a melee Strike.' },
