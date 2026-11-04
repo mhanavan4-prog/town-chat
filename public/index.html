@@ -773,6 +773,15 @@
   .scryDeepBtn:disabled { opacity:0.45; cursor:default; }
   .scryDeepBtn .sdbc { opacity:0.7; font-size:11px; }
   .scryDeepHint { text-align:center; font-size:10.5px; color:rgba(200,220,255,0.6); margin-top:6px; }
+  .penGaze { font-size:11.5px; color:#dcccb0; line-height:1.45; margin-bottom:9px; }
+  .penAsk { width:100%; box-sizing:border-box; padding:9px 11px; border-radius:10px; border:1px solid rgba(230,190,120,0.26); background:rgba(0,0,0,0.25); color:#efe6cf; font-size:12.5px; margin-bottom:9px; }
+  .penSwing { width:100%; padding:9px 12px; border-radius:10px; border:1px solid rgba(230,190,120,0.4); background:rgba(230,190,120,0.12); color:#ffe9c2; font-size:12.5px; cursor:pointer; }
+  .penSwing:disabled { opacity:0.45; cursor:default; }
+  .penAnswer { margin-top:12px; border:1px solid rgba(230,190,120,0.3); background:rgba(255,255,255,0.04); border-radius:10px; padding:13px; text-align:center; }
+  .penV { font-size:22px; font-weight:800; letter-spacing:0.04em; }
+  .penV.yes { color:#9be38a; } .penV.no { color:#ff8a8a; } .penV.unclear { color:#cdbf8f; }
+  .penQ { font-size:10.5px; color:#b9a37a; margin-bottom:6px; font-style:italic; }
+  .penL { font-size:12.5px; color:#efe6cf; font-style:italic; line-height:1.5; margin-top:6px; }
   .famRow { display:flex; align-items:center; gap:10px; padding:9px 11px; margin:6px 0; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); cursor:pointer; }
   .famRow:hover { background:rgba(255,255,255,0.07); }
   .famRow.cur { border-color:rgba(255,220,130,0.55); background:rgba(255,220,130,0.1); }
@@ -2724,6 +2733,7 @@
       <button class="menuRow" id="menuBook">📖 Book of Shadows</button>
       <button class="menuRow" id="menuTarot">🔮 Daily Tarot</button>
       <button class="menuRow" id="menuScry">🪞 Scrying Bowl</button>
+      <button class="menuRow" id="menuPendulum">🪡 The Pendulum</button>
 
       <div class="menuSection"><span class="hudGi" data-hudicon="s_samhain"></span>Samhain</div>
       <button class="menuRow" id="menuAncestor">🕯️ Ancestor Altar</button>
@@ -3789,6 +3799,13 @@
   </div>
   <div id="scryContent"></div>
   <button class="btn" id="scryCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+<div id="pendulumModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🪡 The Pendulum</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="pendulumContent"></div>
+  <button class="btn" id="pendulumCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="tarotModal" class="floatPanel hidden">
