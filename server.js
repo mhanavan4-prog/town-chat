@@ -2897,6 +2897,16 @@ app.get('/api/covens', (req, res) => {
 // Live population — connected players right now. Public, tiny, read-only.
 app.get('/api/online', (req, res) => res.json({ online: players.size }));
 
+// 💬 Community — every "Discord" link on the site and in-game points here, so the
+// destination lives in ONE place. Set DISCORD_URL on the server to override.
+// Keep it a discord.gg INVITE — a /channels/ URL only works for people already
+// in the server.
+const DISCORD_URL = process.env.DISCORD_URL || 'https://discord.gg/GTVh4wCphR';
+app.get('/discord', (req, res) => {
+  try { analytics.bump('community.discord_click'); } catch (e) { /* noop */ }
+  res.redirect(302, DISCORD_URL);
+});
+
 // Liveness for the join screen — makes a quiet town feel inviting rather than
 // dead: who's online now, how many walked the town today, active covens, and
 // the next big gathering (Blood Moon / Tournament / Festival) to rally around.
