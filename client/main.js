@@ -11493,41 +11493,47 @@ function renderAncestorModal() {
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   const st = lastAncestorState;
   if (!st) { el.innerHTML = '<div style="opacity:.8;font-size:12px;">The candle gutters…</div>'; send({ type: 'ancestor_state' }); return; }
-  if (st.needAccount) { el.innerHTML = '<div class="ancClosed">Log into an account to keep a forebear’s blessing across your characters.</div>'; return; }
+  if (st.needAccount) { el.innerHTML = '<div class="ancClosed">Log into an account to keep a seasonal blessing across your characters.</div>'; return; }
+  // The one panel serves whichever sabbat's observance is live — flavor comes
+  // from the server (st.title/glyph/text); the strings below are the Samhain
+  // fallbacks for an older payload with no `text`.
+  const t = st.text || {};
+  const titleEl = document.getElementById('ancestorTitle');
+  if (titleEl) titleEl.textContent = `${st.glyph || '🕯️'} ${st.title || 'Ancestor Altar'}`;
   let h = '';
   // A live blessing, whatever the season — it was earned and still holds.
   if (st.active && st.active.until > Date.now()) {
     const v = (st.virtues || []).find((x) => x.id === st.active.id);
     const mins = Math.max(1, Math.round((st.active.until - Date.now()) / 60000));
     const left = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
-    h += `<div class="ancActive">${v ? v.emoji : '🕯️'} ${v ? v.name + '’s' : 'A forebear’s'} blessing watches over you${st.lastName ? ` — ${esc(st.lastName)} remembered` : ''}. ${left} left.</div>`;
+    h += `<div class="ancActive">${v ? v.emoji : '🕯️'} ${v ? v.name + '’s' : 'A'} blessing holds over you${st.lastName ? ` — ${esc(st.lastName)}` : ''}. ${left} left.</div>`;
   }
   if (!st.veilThin) {
-    h += '<div class="ancClosed">The veil is not yet thin. The Ancestor Altar wakes only at Samhain, when the dead walk closer to the torchlight.</div>';
+    h += `<div class="ancClosed">${esc(t.closed || 'The veil is not yet thin. The Ancestor Altar wakes only at Samhain, when the dead walk closer to the torchlight.')}</div>`;
     el.innerHTML = h;
     return;
   }
   if (st.todayKept) {
-    h += '<div class="ancClosed">You have set a place today, and kept the silence. Return tomorrow to keep the rite again.</div>';
+    h += `<div class="ancClosed">${esc(t.keptToday || 'You have set a place today, and kept the silence. Return tomorrow to keep the rite again.')}</div>`;
     el.innerHTML = h;
     return;
   }
-  h += '<div class="ancHint">Set a place at the table for your dead. Lay down an offering in silence — the dumb supper — name a forebear and the virtue you carry forward, and receive their blessing (lasts ' + (st.hours || 6) + 'h). Once a day.</div>';
-  h += `<input class="ancName" id="ancNameIn" maxlength="40" placeholder="a name to remember (optional)" value="${esc(st.lastName || '')}">`;
-  h += '<div class="ancLabel">The offering</div><div class="ancOfferRow">';
+  h += `<div class="ancHint">${esc(t.hint || ('Set a place at the table for your dead. Lay down an offering in silence — the dumb supper — name a forebear and the virtue you carry forward, and receive their blessing (lasts ' + (st.hours || 6) + 'h). Once a day.'))}</div>`;
+  h += `<input class="ancName" id="ancNameIn" maxlength="40" placeholder="${esc(t.namePlaceholder || 'a name to remember (optional)')}" value="${esc(st.lastName || '')}">`;
+  h += `<div class="ancLabel">${esc(t.offeringLabel || 'The offering')}</div><div class="ancOfferRow">`;
   for (const o of (st.offerings || [])) {
     const out = (o.have || 0) < 1;
     const cls = 'ancOffer' + (out ? ' out' : '') + (ancestorPick.offeringId === o.id ? ' pick' : '');
     h += `<div class="${cls}" ${out ? '' : `data-offer="${o.id}"`}>${o.icon || '🕯️'} ${o.name}<span class="ao0">×${o.have || 0}</span></div>`;
   }
   h += '</div>';
-  h += '<div class="ancLabel">The virtue you carry forward</div>';
+  h += `<div class="ancLabel">${esc(t.virtueLabel || 'The virtue you carry forward')}</div>`;
   for (const v of (st.virtues || [])) {
     const cls = 'ancVirtue' + (ancestorPick.virtueId === v.id ? ' pick' : '');
     h += `<div class="${cls}" data-virtue="${v.id}"><div class="avh"><span class="ave">${v.emoji}</span><span class="avn">${v.name}</span></div><div class="avl">${esc(v.line || '')}</div></div>`;
   }
   const ready = !!ancestorPick.offeringId && !!ancestorPick.virtueId;
-  h += `<button id="ancSetBtn"${ready ? '' : ' disabled'}>🕯️ Set a place &amp; keep the silence</button>`;
+  h += `<button id="ancSetBtn"${ready ? '' : ' disabled'}>${esc(t.setButton || '🕯️ Set a place & keep the silence')}</button>`;
   el.innerHTML = h;
   // Preserve a half-typed name across re-renders triggered by selection clicks.
   const nameIn = document.getElementById('ancNameIn');
