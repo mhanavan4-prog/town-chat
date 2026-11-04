@@ -2909,6 +2909,7 @@ function onWsMessage(ev) {
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
+  if (msg.type === 'pendulum_reading') { lastPendulum = msg; if (Modals.isOpen('pendulumOpen')) renderPendulumModal(); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -3799,6 +3800,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('familiarModal'),   document.querySelector('#familiarModal .floatPanelHandle'));
   makeDraggable(document.getElementById('guiseModal'),      document.querySelector('#guiseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('pendulumModal'),   document.querySelector('#pendulumModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bonfireModal'),    document.querySelector('#bonfireModal .floatPanelHandle'));
@@ -7044,6 +7046,8 @@ function hydrateMenuRows() {
   on('guiseCloseBtn', closeGuiseModal);
   on('menuScry', closeSheetAnd(() => { if (!Modals.isOpen('scryOpen')) openScryModal(); }));
   on('scryCloseBtn', closeScryModal);
+  on('menuPendulum', closeSheetAnd(() => { if (!Modals.isOpen('pendulumOpen')) openPendulumModal(); }));
+  on('pendulumCloseBtn', closePendulumModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('showcaseCloseBtn', closeShowcaseModal);
@@ -10650,6 +10654,47 @@ function closeScryModal() {
   const modal = document.getElementById('scryModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('scryOpen', false);
+}
+
+// ── The Pendulum — a yes/no reading ─────────────────────────────────────────
+let lastPendulum = null;
+let pendulumQ = '';
+function renderPendulumModal() {
+  const el = document.getElementById('pendulumContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastPendulum;
+  let h = '<div class="penGaze">Hold a yes-or-no question in mind, steady the thread, and let it swing. The same question answers the same all day.</div>';
+  h += `<input class="penAsk" id="penAskIn" maxlength="120" placeholder="a yes-or-no question…" value="${esc(pendulumQ || (st && st.question) || '')}">`;
+  h += '<button class="penSwing" id="penSwingBtn">🪡 Swing the pendulum</button>';
+  if (st && st.verdict) {
+    const vlabel = st.verdict === 'yes' ? 'YES' : st.verdict === 'no' ? 'NO' : 'UNCLEAR';
+    h += `<div class="penAnswer">${st.question ? `<div class="penQ">“${esc(st.question)}”</div>` : ''}<div class="penV ${esc(st.verdict)}">${vlabel}</div><div class="penL">“${esc(st.line || '')}”</div></div>`;
+    if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the thread barely wavers.</div>';
+  }
+  el.innerHTML = h;
+  const input = document.getElementById('penAskIn');
+  if (input) input.addEventListener('input', () => { pendulumQ = input.value; });
+  const btn = document.getElementById('penSwingBtn');
+  if (btn) btn.addEventListener('click', () => {
+    const q = (document.getElementById('penAskIn') || {}).value || '';
+    pendulumQ = q;
+    if (!q.trim()) { setUnlockToast('Hold a yes-or-no question in mind first.'); return; }
+    send({ type: 'pendulum_ask', question: q });
+  });
+}
+function openPendulumModal() {
+  const modal = document.getElementById('pendulumModal');
+  if (!modal) return;
+  renderPendulumModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('pendulumOpen', true);
+}
+function closePendulumModal() {
+  const modal = document.getElementById('pendulumModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('pendulumOpen', false);
 }
 
 // ── Witch path picker ───────────────────────────────────────────────────────
@@ -17436,6 +17481,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('scryOpen') && e.key === 'Escape' && !e.repeat) {
     closeScryModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('pendulumOpen') && e.key === 'Escape' && !e.repeat) {
+    closePendulumModal();
     if (window.__fromMenu) backToMenu();
     return;
   }

@@ -3010,6 +3010,7 @@ const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/famil
 const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay)
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
+const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
@@ -14651,6 +14652,20 @@ wss.on('connection', (ws, req) => {
       const lines = deepReading(seed, now); // [tide behind, water now, shore ahead] — fresh each pour
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'scry_deep_reading', lines, samhain: isSamhain, moonWater: countItemQty(inv, 'moon_water'), now });
+      return;
+    }
+
+    // ── The Pendulum — the lightest reading. Ask a yes/no question and the
+    // thread answers; day-stable per question so it can't be re-rolled, surer
+    // while the veil of Samhain is thin. Free, no account needed.
+    if (msg.type === 'pendulum_ask') {
+      const now = Date.now();
+      const q = String(msg.question || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 120);
+      if (!q) { send(ws, { type: 'toast', message: 'Hold a yes-or-no question in mind, then swing.' }); return; }
+      let veilThin = false; try { veilThin = (seasonWindow(now).key === 'samhain'); } catch (e) { /* noop */ }
+      const seed = player.accountKey || player.id || 'wanderer';
+      const ans = pendulumAnswer(seed, q, Math.floor(now / 86400000), veilThin);
+      send(ws, { type: 'pendulum_reading', question: q, verdict: ans.verdict, line: ans.line, samhain: veilThin, now });
       return;
     }
 
