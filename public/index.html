@@ -2816,6 +2816,7 @@
 
       <div class="menuSection">Settings</div>
       <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
+      <button class="menuRow" id="menuControlScheme" title="Classic: A/D turn, drag orbits the camera · Modern: A/D strafe, drag steers">🎮 Controls: <span id="menuControlSchemeVal">Classic</span></button>
       <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>
       <a class="menuRow" id="menuDiscord" href="/discord" target="_blank" rel="noopener" style="text-decoration:none;display:block;">💬 Join the Discord</a>
@@ -2904,7 +2905,7 @@
     <div class="subtitle" style="margin:4px 0 12px; font-size:12.5px;">A living town on the edge of the Wilds — and your story starts here.</div>
     <div id="welcomeSteps">
       <div class="welcomeStep"><span class="welcomeNum">📍</span><div><b>Follow the gold pin.</b> Your Chapter 1 objective is marked on screen and on the map (<b>M</b>). The <b>📜 Journal</b> (<b>J</b>) holds your whole story.</div></div>
-      <div class="welcomeStep"><span class="welcomeNum">🎮</span><div id="welcomeCtlDesktop"><b>W/S</b> walk · <b>A/D</b> turn · <b>Q/E</b> strafe · <b>drag</b> to look · <b>F</b> talk / enter · <b>1–9</b> abilities</div><div id="welcomeCtlMobile" class="hidden"><b>Joystick</b> to move · <b>drag</b> to look · tap the <b>glowing prompt</b> to talk or enter · the <b>action wheel</b> casts</div></div>
+      <div class="welcomeStep"><span class="welcomeNum">🎮</span><div id="welcomeCtlDesktop"><b>W/S</b> walk · <b>A/D</b> <span class="ctlAD">turn</span> · <b>Q/E</b> <span class="ctlQE">strafe</span> · <b>drag</b> <span class="ctlDrag">to look</span> · <b>F</b> talk / enter · <b>1–9</b> abilities</div><div id="welcomeCtlMobile" class="hidden"><b>Joystick</b> to move · <b>drag</b> to look · tap the <b>glowing prompt</b> to talk or enter · the <b>action wheel</b> casts</div></div>
       <div class="welcomeStep"><span class="welcomeNum">🏮</span><div><b>First Steps</b> (bottom corner) — say hello, use an ability, fell a night creature, harvest something. All four earn <b>50 gold</b>.</div></div>
     </div>
     <button class="btn" id="welcomeStartBtn" style="margin-top:10px;">📖 Begin Chapter 1 →</button>
@@ -2932,8 +2933,8 @@
       <div class="ctlRow"><span class="ctlIcon">💬</span><span><b>Chat</b> — indoors only; the bubble shows what you missed.</span></div>
     </div>
     <div id="controlsDesktop" class="ctlList hidden">
-      <div class="ctlRow"><span class="ctlIcon">⌨️</span><span><b>W/S</b> walk · <b>A/D</b> turn · <b>Q/E</b> strafe · <b>Space</b> jump</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🖱️</span><span><b>Drag</b> to look around · <b>click</b> a creature to strike, a plant to harvest, a player for options</span></div>
+      <div class="ctlRow"><span class="ctlIcon">⌨️</span><span><b>W/S</b> walk · <b>A/D</b> <span class="ctlAD">turn</span> · <b>Q/E</b> <span class="ctlQE">strafe</span> · <b>Space</b> jump</span></div>
+      <div class="ctlRow"><span class="ctlIcon">🖱️</span><span><b>Drag</b> <span class="ctlDragLong">to look around</span> · <b>click</b> a creature to strike, a plant to harvest, a player for options</span></div>
       <div class="ctlRow"><span class="ctlIcon">⚔️</span><span><b>R</b> — attack the nearest enemy</span></div>
       <div class="ctlRow"><span class="ctlIcon">✋</span><span><b>F</b> — interact: sit, portals, NPCs, kiosks</span></div>
       <div class="ctlRow"><span class="ctlIcon">✨</span><span><b>1–9, 0, -, =</b> — your ability hotbar, in the order YOU choose (customize below)</span></div>

@@ -6325,6 +6325,14 @@ if (joyZone && MOBILE_UI) {
 // A/D and the joystick) and the character model's own rotation are
 // completely unaffected.
 // ---------------------------------------------------------------------------
+// 🎮 Control scheme (playtest P3). 'classic': W/S walk, A/D turn, Q/E strafe, and
+// a mouse-drag orbits the camera (snapping back when you walk). 'modern': W/S
+// walk, A/D strafe, Q/E turn, and a mouse-drag STEERS the character — the
+// camera stays behind you, the usual MMO feel. Desktop only (touch + gamepad are
+// already camera-relative). Stored per browser.
+let controlScheme = 'classic';
+try { if (localStorage.getItem('tc_control_scheme') === 'modern') controlScheme = 'modern'; } catch (e) {}
+function isModernControls() { return controlScheme === 'modern' && !MOBILE_UI; }
 let cameraYawOffset = 0;
 let cameraPitchOffset = 0; // radians; +ve = looking up, -ve = looking down
 const CAMERA_PITCH_LIMIT = 1.2; // ~69°, short of straight up/down to avoid a degenerate orbit
@@ -6348,7 +6356,10 @@ canvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
   dragMoved += Math.abs(e.clientX - lastDragX) + Math.abs(e.clientY - lastDragY);
-  cameraYawOffset -= (e.clientX - lastDragX) * 0.006;
+  // Modern controls: a horizontal drag turns the character itself (the camera
+  // rides behind). Seated or dead, it falls back to orbiting the camera.
+  if (isModernControls() && me && !seatedAt && !me.isDead) { me.facing -= (e.clientX - lastDragX) * 0.006; cameraYawOffset = 0; }
+  else cameraYawOffset -= (e.clientX - lastDragX) * 0.006;
   cameraPitchOffset -= (e.clientY - lastDragY) * 0.006; // drag up = look up
   cameraPitchOffset = Math.max(-CAMERA_PITCH_LIMIT, Math.min(CAMERA_PITCH_LIMIT, cameraPitchOffset));
   lastDragX = e.clientX;
@@ -7771,6 +7782,28 @@ function closeWelcomeModal(beginStory) {
   document.addEventListener('fullscreenchange', fsLabel);
   document.addEventListener('webkitfullscreenchange', fsLabel);
   fsLabel();
+  // 🎮 Classic ↔ Modern control scheme (desktop). Every scheme-dependent word in
+  // the welcome card and the controls sheet is tagged, so the help text always
+  // matches the keys.
+  function applyControlSchemeText() {
+    const modern = controlScheme === 'modern';
+    document.querySelectorAll('.ctlAD').forEach((el) => { el.textContent = modern ? 'strafe' : 'turn'; });
+    document.querySelectorAll('.ctlQE').forEach((el) => { el.textContent = modern ? 'turn' : 'strafe'; });
+    document.querySelectorAll('.ctlDrag').forEach((el) => { el.textContent = modern ? 'to steer' : 'to look'; });
+    document.querySelectorAll('.ctlDragLong').forEach((el) => { el.textContent = modern ? 'to steer your character' : 'to look around'; });
+    const v = document.getElementById('menuControlSchemeVal'); if (v) v.textContent = modern ? 'Modern' : 'Classic';
+    const row = document.getElementById('menuControlScheme'); if (row) row.classList.toggle('hidden', MOBILE_UI);
+  }
+  applyControlSchemeText();
+  on('menuControlScheme', () => {
+    controlScheme = controlScheme === 'modern' ? 'classic' : 'modern';
+    try { localStorage.setItem('tc_control_scheme', controlScheme); } catch (e) {}
+    cameraYawOffset = 0;
+    applyControlSchemeText();
+    setUnlockToast(controlScheme === 'modern'
+      ? '🎮 Modern controls — A/D strafe, Q/E turn, drag the mouse to steer.'
+      : '🎮 Classic controls — A/D turn, Q/E strafe, drag the mouse to look around.');
+  });
   on('welcomeStartBtn', () => closeWelcomeModal(true));
   on('welcomeExploreBtn', () => closeWelcomeModal(false));
   const overlay = document.getElementById('controlsModal');
@@ -18189,10 +18222,19 @@ function update(dt) {
   if (!typing && !seatedAt && !Modals.isOpen('passModalOpen') && !Modals.isOpen('arcadeModalOpen') && !Modals.isOpen('bankModalOpen') && !Modals.isOpen('auctionModalOpen') && !Modals.isOpen('sendMoneyModalOpen') && !Modals.isOpen('spellConsentOpen')) {
     if (keys.up) moveInput += 1;
     if (keys.down) moveInput -= 1;
-    if (keys.left) turnInput += 1;
-    if (keys.right) turnInput -= 1;
-    if (keys.strafeRight) strafeInput += 1;
-    if (keys.strafeLeft) strafeInput -= 1;
+    // (Sign note: strafeInput +1 steps to the LEFT on screen — the Q key's
+    // `strafeRight` flag is historically misnamed — and turnInput +1 turns left.)
+    if (isModernControls()) {
+      if (keys.left) strafeInput += 1;        // A — sidestep left
+      if (keys.right) strafeInput -= 1;       // D — sidestep right
+      if (keys.strafeRight) turnInput += 1;   // Q — turn left
+      if (keys.strafeLeft) turnInput -= 1;    // E — turn right
+    } else {
+      if (keys.left) turnInput += 1;
+      if (keys.right) turnInput -= 1;
+      if (keys.strafeRight) strafeInput += 1;
+      if (keys.strafeLeft) strafeInput -= 1;
+    }
     // 🎮 Controller left stick (Session L) rides the same camera-relative
     // math as the touch joystick — one steering model everywhere. Touch
     // input wins if both are somehow live at once.
@@ -18680,7 +18722,7 @@ if (location.search.includes('testdrive=1')) {
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
-    me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId } : null; },
+    me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
     simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
     spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
