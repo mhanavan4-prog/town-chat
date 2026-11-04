@@ -1103,6 +1103,9 @@
     pointer-events:auto;
   }
   #questTracker.hidden { display:none !important; }
+  /* Pulse the story tracker when a chapter begins, so the new objective is seen. */
+  @keyframes trackerFlash { 0%,100% { box-shadow:0 0 0 0 rgba(255,214,120,0); } 30%,70% { box-shadow:0 0 0 3px rgba(255,214,120,0.85), 0 0 22px 6px rgba(255,190,90,0.45); } }
+  #storyTracker.trackerFlash { animation:trackerFlash 1.2s ease-in-out 2; }
   #questTrackerName { font-weight:700; font-size:12.5px; margin-bottom:6px; color:#9ee37d; }
   #questTrackerBar {
     height:5px; background:rgba(255,255,255,0.12); border-radius:3px; margin-bottom:4px;
@@ -2813,7 +2816,7 @@
 
 <div id="guestNudge" class="hidden" style="position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:38;width:min(440px,calc(100vw - 28px));background:linear-gradient(180deg,#201a3a,#17122b);border:1px solid #4a3f7a;border-radius:14px;padding:16px 18px;box-shadow:0 14px 44px rgba(0,0,0,0.5);color:#eae4f6;">
   <div style="font:700 15px Georgia,serif;color:#9ee37d;margin-bottom:6px;">⚔️ You're getting the hang of it!</div>
-  <div style="font-size:13px;color:#c6bce0;line-height:1.5;margin-bottom:12px;">You're playing as a <b>guest</b>, so your progress won't be saved once you leave. Make a <b>free account</b> to save your progress, earn daily login rewards, and join a coven with friends.</div>
+  <div style="font-size:13px;color:#c6bce0;line-height:1.5;margin-bottom:12px;">You're playing as a <b>guest</b>. Make a <b>free account</b> before you leave and everything you've earned so far carries straight over — guests who leave without one start fresh next time. Accounts also earn daily login rewards and can join a coven with friends.</div>
   <div style="display:flex;gap:8px;">
     <button id="guestNudgeYes" class="btn" style="flex:1;margin:0;">Create a free account</button>
     <button id="guestNudgeNo" class="btn" style="flex:0 0 auto;margin:0;width:auto;padding:11px 14px;background:#2a2446;color:#c6bce0;">Keep playing</button>
@@ -2886,7 +2889,7 @@
     <div class="title" style="font-size:21px;">🏮 Welcome to Thornreach</div>
     <div class="subtitle" style="margin:4px 0 12px; font-size:12.5px;">A living town on the edge of the Wilds. Here's the lay of the land:</div>
     <div id="welcomeSteps">
-      <div class="welcomeStep"><span class="welcomeNum">1</span><div><b>Explore & chat.</b> The open square has no chat — walk through any building's door to step inside and talk to whoever's there. Six buildings, each its own room.</div></div>
+      <div class="welcomeStep"><span class="welcomeNum">1</span><div><b>Explore & chat.</b> <b>World chat</b> (bottom-left) reaches everyone in Thornreach. Step through any building's door for a room chat with whoever's inside — six buildings, each its own room.</div></div>
       <div class="welcomeStep"><span class="welcomeNum">2</span><div><b>Begin your story.</b> Every class has a nine-chapter campaign. Open the <b>📜 Journal</b> to start Chapter 1, and <span id="welcomeQuestDesktop">press <b>F</b> at the townsfolk</span><span id="welcomeQuestMobile" class="hidden">walk up to a townsperson and <b>tap the glowing prompt that pops up</b></span> for side quests.</div></div>
       <div class="welcomeStep"><span class="welcomeNum">3</span><div><b>Hunt & grow.</b> Creatures roam after dark — fight them for XP and loot. Harvest herbs out in the Wilds through the north portal.</div></div>
       <div class="welcomeStep"><span class="welcomeNum">4</span><div><b>Shape your character.</b> Each level-up earns a skill point — spend it in <b>🌟 Skills</b>, and check <b>🎒 Inventory → 📊 Stats</b> to see how your gear and skills stack up.</div></div>
@@ -4465,7 +4468,7 @@
   <span id="xpStripLevel">Lv 1</span>
   <div id="xpBarWrap"><div id="xpBarFill"></div></div>
   <span id="xpStripSP">0 SP</span>
-  <span id="xpStripRested" class="hidden" title="Rested: bonus XP for a while after joining">😴 <span id="xpStripRestedTime"></span></span>
+  <span id="xpStripRested" class="hidden" title="Rested: +50% XP for a while after joining">😴 +50% XP · <span id="xpStripRestedTime"></span></span>
 </div>
 
 <div id="joystick"><div id="stick"></div></div>

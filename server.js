@@ -8233,7 +8233,7 @@ const FIRST_STEPS = [
   { id: 'talked',    label: 'Speak with a townsperson',       icon: '💬' },
   { id: 'ability',   label: 'Use a class ability',            icon: '✨' },
   { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' },
-  { id: 'harvested', label: 'Harvest something in the Wilds', icon: '🌿' }
+  { id: 'harvested', label: 'Harvest something — a town tree or a Wilds plant', icon: '🌿' }
 ];
 const FIRST_STEPS_REWARD_GOLD = 50;
 function firstStepsState(prog) {
@@ -8269,7 +8269,7 @@ function noteFirstStep(player, stepId) {
   if (player.accountKey) saveProgress();
   send(player.ws, firstStepsPayload(player, stepId));
   if (allDone) {
-    send(player.ws, { type: 'announce_soft', message: `🏮 First Steps complete!${player.accountKey ? ` ${FIRST_STEPS_REWARD_GOLD} gold waits in your bank.` : ' (With an account, rewards like this would follow you.)'} Next: open your Journal (J) to begin your six-chapter campaign — and find the Hagstone in town to found or join a coven.` });
+    send(player.ws, { type: 'announce_soft', message: `🏮 First Steps complete!${player.accountKey ? ` ${FIRST_STEPS_REWARD_GOLD} gold waits in your bank.` : ' (With an account, rewards like this would follow you.)'} Next: open your Journal (J) to begin your nine-chapter campaign — and find the Hagstone in town to found or join a coven.` });
   }
 }
 
@@ -12796,6 +12796,7 @@ wss.on('connection', (ws, req) => {
           : `Harvested 🪵 Holly Wood${bonusYield ? ' ×2' : ''} (${total}/${WAND_WOOD_COST}) — collect ${WAND_WOOD_COST - total} more and you can build a wand.`;
       }
       send(ws, { type: 'harvest_result', message });
+      noteFirstStep(player, 'harvested'); // any harvest counts — a town tree as much as a Wilds herb
       // Regrowth is per player, so only THIS client's plants change looks.
       pushDecorState(player);
       // XP for Wilds plants only (not town trees/shrubs/flowers)
@@ -16466,6 +16467,7 @@ global.__testHooks = {
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
+  WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)
