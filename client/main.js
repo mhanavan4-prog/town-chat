@@ -17671,8 +17671,14 @@ function updateOutdoor(stepX, stepY) {
     const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : inCottage ? COTTAGE_WORLD.height : inCrypt ? CRYPT_WORLD.height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
+    // One mutually-exclusive chain: each sub-room claims me.room, and the final
+    // `else` only falls through to 'wilds' when NONE matched. inCrypt must be an
+    // `else if` (not a fresh `if`) — as a standalone `if` it split the chain, so
+    // in the cave me.room was set to 'witch_cave' and then immediately stomped
+    // back to 'wilds' by the trailing `else if (world !== DUNGEON_WORLD)`, which
+    // hid the player's own body (contextMatches read room 'wilds' in caveScene).
     if (inCave) { me.room = 'witch_cave'; }
-    if (inCrypt) { me.room = 'crypt'; }
+    else if (inCrypt) { me.room = 'crypt'; }
     else if (inVault) { me.room = 'bank_vault'; }
     else if (inEmber) { me.room = 'ember_wastes'; }
     else if (inRefuge) { me.room = 'ember_refuge'; }
