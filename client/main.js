@@ -16130,9 +16130,25 @@ function loadLoadout() {
     if (Array.isArray(raw) && raw.every(x => typeof x === 'string')) myLoadout = raw;
   } catch (e) {}
 }
+// The default order when the player hasn't arranged their own: lead with a
+// damage ability, and push consent-based abilities (Open 3rd Eye's camera ask,
+// the howl's location ask) to the end — a new player's first keypress should
+// never send a permission request to a stranger.
+const CONSENT_EFFECTS = new Set(['camera', 'howl_location']);
+function defaultAbilityOrder(cat) {
+  const ids = Object.keys(cat);
+  const consent = ids.filter((id) => CONSENT_EFFECTS.has(cat[id] && cat[id].effect));
+  const rest = ids.filter((id) => consent.indexOf(id) === -1);
+  const lead = cat[rest[0]] && (cat[rest[0]].effect === 'damage' || cat[rest[0]].effect === 'summon');
+  if (!lead) {
+    const dmg = rest.findIndex((id) => cat[id] && cat[id].effect === 'damage');
+    if (dmg > 0) rest.unshift(rest.splice(dmg, 1)[0]);
+  }
+  return rest.concat(consent);
+}
 function orderedAbilityIds() {
   if (!myActionCatalog) return [];
-  const all = Object.keys(myActionCatalog);
+  const all = defaultAbilityOrder(myActionCatalog);
   if (!myLoadout) return all;
   const seen = new Set();
   const out = [];

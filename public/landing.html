@@ -338,7 +338,7 @@
   <div class="wrap">
     <div class="band">
       <h2 class="grad-text serif">The lanterns are lit</h2>
-      <p>Jump straight in as a guest — then make a free account whenever you like and your character, coven, and standing all carry over, saved to your name on every device.</p>
+      <p>Jump straight in as a guest — make a free account before you leave and your character and progress carry straight over, saved to your name on every device.</p>
       <div class="hero-cta">
         <a class="btn" href="/profile">Create your account</a>
         <a class="btn ghost" href="/play">Play as guest</a>
@@ -383,13 +383,19 @@
       box.appendChild(s);
     }
   })();
-  // Live population — a quiet sign of life. Hidden if nobody's on (or it fails).
+  // Live population — a quiet sign of life, shown only when it reads as busy.
+  // A single "1 soul in town" makes the town look empty, so below the
+  // threshold fall back to how many walked the town today, and hide entirely
+  // if that's small too (or the request fails).
   (function(){
-    fetch('/api/online').then(function(r){ return r.json(); }).then(function(d){
-      var n = d && d.online || 0; if(!n) return;
-      var el=document.getElementById('onlineNow');
-      document.getElementById('onlineText').innerHTML = '<b>'+n+'</b> '+(n===1?'soul':'souls')+' in town right now';
-      el.hidden=false;
+    var MIN = 5;
+    fetch('/api/live').then(function(r){ return r.json(); }).then(function(d){
+      var now = d && d.online || 0, today = d && d.today || 0, html = '';
+      if (now >= MIN) html = '<b>'+now+'</b> souls in town right now';
+      else if (today >= MIN) html = '<b>'+today+'</b> souls walked the town today';
+      if (!html) return;
+      document.getElementById('onlineText').innerHTML = html;
+      document.getElementById('onlineNow').hidden = false;
     }).catch(function(){});
   })();
 

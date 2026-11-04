@@ -289,6 +289,15 @@ function renderJournal() {
         begin.addEventListener('click', () => {
           setStoryLastOutro(null);
           getWs().send(JSON.stringify({ type: 'story_begin' }));
+          // Get out of the way and point at the objective: close the Journal and
+          // pulse the story tracker once it has picked up the new chapter.
+          closeJournal();
+          setTimeout(() => {
+            const t = document.getElementById('storyTracker');
+            if (!t) return;
+            t.classList.remove('trackerFlash'); void t.offsetWidth; t.classList.add('trackerFlash');
+            setTimeout(() => t.classList.remove('trackerFlash'), 2600);
+          }, 350);
         });
       }
       c.appendChild(begin);
