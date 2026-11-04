@@ -7027,6 +7027,18 @@ function hydrateMenuRows() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
   };
+  // Action-cluster buttons are pressed by the right thumb WHILE the left thumb
+  // holds the joystick. Mobile browsers don't synthesize a `click` for a second
+  // touch while another finger is down, so click-only buttons (Jump!) did
+  // nothing mid-run. Fire on touchstart instead; preventDefault suppresses the
+  // follow-up synthetic click so a lone tap doesn't fire twice. `click` stays
+  // for mouse/keyboard/gamepad activation.
+  const onTap = (id, fn) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
+  };
   // Swap the cluster's emoji glyphs for the custom carved-icon set.
   const setIcon = (id, key) => {
     const el = document.getElementById(id);
@@ -7041,11 +7053,11 @@ function hydrateMenuRows() {
   // Inject the static HUD icons (heart / moonstone / chat / day-night).
   hydrateIcons(document);
   hydrateMenuRows();
-  on('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
-  on('btnJump', tryJump);
-  on('btnEmote', () => toggleEmoteWheel());
-  on('btnCm', fireVoiceCountermeasure);
-  on('btnKit', () => {
+  onTap('btnStrike', () => { if (me && !me.isDead) strikeNearestEnemy(); });
+  onTap('btnJump', tryJump);
+  onTap('btnEmote', () => toggleEmoteWheel());
+  onTap('btnCm', fireVoiceCountermeasure);
+  onTap('btnKit', () => {
     // Mobile: fan out the overflow abilities as a radial. The full panel
     // (descriptions + loadout) still lives on the ☰ menu's Abilities row.
     if (MOBILE_UI) { toggleAbilityWheel(); return; }
@@ -18776,6 +18788,7 @@ if (location.search.includes('testdrive=1')) {
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
+    jumping() { return jumpActive; },
     hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
     simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
     spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
