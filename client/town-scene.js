@@ -366,20 +366,27 @@ function kkTownDressing(scene, w) {
   // one upper corner, a flat drape tucked into the eave of the adjacent one, so
   // the whole town reads strung-up for the season. kkPlace grounds at y=0, so we
   // raise each web to roughly eave height after placing it.
-  const WEB_Y = 92; // just under the ~110u wall top
+  // Strung into the upper CORNER of each building, nudged inward so a wall face
+  // always sits behind the web (otherwise it reads as floating in mid-air off
+  // the roofline) and kept low enough that it tucks under the ~110u eave rather
+  // than poking above it into the sky. kkPlace grounds at y=0, so we raise each
+  // web after placing it.
+  const WEB_INSET = 24; // push the web in from the footprint corner, onto the wall
   w.buildings.forEach((b, i) => {
-    // rotate which corners get dressed per building so it doesn't look stamped
+    // rotate which corners get dressed per building so it doesn't look stamped.
+    // dx/dz point inward (toward the building centre) so the inset lands the web
+    // against the wall, not out over open air.
     const cs = [
-      { x: b.x,        z: b.y,        r: Math.PI * 0.25 },
-      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75 },
-      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25 },
-      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75 },
+      { x: b.x,        z: b.y,        r: Math.PI * 0.25, dx:  1, dz:  1 },
+      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75, dx: -1, dz:  1 },
+      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25, dx: -1, dz: -1 },
+      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75, dx:  1, dz: -1 },
     ];
     const c1 = cs[i % 4], c2 = cs[(i + 1) % 4];
-    const web = kkPlace(scene, 'prop_web_c', c1.x, c1.z, 46, c1.r);
-    if (web) web.position.y = WEB_Y - 26;              // tall web hangs from the eave down
-    const web2 = kkPlace(scene, 'prop_web_a', c2.x, c2.z, 40, c2.r);
-    if (web2) web2.position.y = WEB_Y;                  // flat drape sits in the eave angle
+    const web = kkPlace(scene, 'prop_web_c', c1.x + c1.dx * WEB_INSET, c1.z + c1.dz * WEB_INSET, 38, c1.r);
+    if (web) web.position.y = 50;   // tall web hangs from mid-wall down
+    const web2 = kkPlace(scene, 'prop_web_a', c2.x + c2.dx * WEB_INSET, c2.z + c2.dz * WEB_INSET, 34, c2.r);
+    if (web2) web2.position.y = 64; // flat drape tucked just under the eave
   });
   // low funnel webs in the Town Hall churchyard corners (dressing the fence)
   const hall2 = w.buildings.find(b => b.id === 'hall');
@@ -402,11 +409,16 @@ function kkTownDressing(scene, w) {
   // An autumn tree line behind the Torchkeepers' temple (back of the map, away
   // from the roads) plus a few accents at the quiet town edges, so the season
   // reads in the canopy. Walk-through dressing like the churchyard's dead trees.
+  // The temple altar platform spans x[856,1264], z[1746,2054] (incl. plinth);
+  // the whole line sits at z>=2100 so it reads as a backdrop BEHIND the altar
+  // rather than trees growing up through it. The two former mid-line pines that
+  // landed on the platform are relocated to the back corners, clear of its
+  // x-footprint.
   const pines = [
-    ['prop_pine_o_l', 918,  2062, 100, 0.3],  ['prop_pine_y_m', 1002, 2082, 76, -0.4],
-    ['prop_pine_o_m', 1090, 2072, 82, 0.8],   ['prop_pine_y_l', 1172, 2056, 98, -0.2],
-    ['prop_deadtree_dec', 1246, 2076, 54, 0.5],
-    ['prop_pine_y_l', 902,  1932, 92, 0.6],   ['prop_pine_o_l', 1232, 1942, 96, -0.5],
+    ['prop_pine_o_l', 918,  2108, 100, 0.3],  ['prop_pine_y_m', 1002, 2128, 76, -0.4],
+    ['prop_pine_o_m', 1090, 2118, 82, 0.8],   ['prop_pine_y_l', 1172, 2104, 98, -0.2],
+    ['prop_deadtree_dec', 1246, 2122, 54, 0.5],
+    ['prop_pine_y_l', 822,  2102, 92, 0.6],   ['prop_pine_o_l', 1298, 2112, 96, -0.5],
     ['prop_pine_o_m', 688,  292,  80, 0.2],   ['prop_pine_y_m', 2512, 418, 78, -0.7],
     ['prop_deadtree_sm', 556, 1706, 34, 0.9], ['prop_deadtree_sm', 2604, 1748, 32, -0.3],
   ];
