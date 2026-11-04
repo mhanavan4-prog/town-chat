@@ -1464,6 +1464,47 @@ const M_HANDSHAKE = S(`
   <path d="M6 18 L14 15 L22 19 L21 26 Q14 29 9 24 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.6"/>
   <path d="M38 18 L30 15 L22 19 L23 26 Q30 29 35 24 Z" fill="${C.bone2}" stroke="#a39a86" stroke-width="1.6"/>
   <path d="M16 22 L24 22" stroke="#8a7a5a" stroke-width="2.4"/>`);
+// ── Controls guide ("How to play") ──────────────────────────────────────────
+const C_JOYSTICK = S(`
+  <ellipse cx="22" cy="34" rx="14" ry="5" fill="#4a3a5e" stroke="${C.plum}" stroke-width="1.8"/>
+  <path d="M22 33 L22 17" stroke="${C.bone2}" stroke-width="3.4"/>
+  <circle cx="22" cy="13" r="6.5" fill="${C.red}" stroke="${C.red2}" stroke-width="1.8"/>
+  <path d="M19.5 11 q1.5 -2 3.5 -1.6" stroke="${C.bone}" stroke-width="1.6" opacity="0.8"/>`);
+const C_EYE = S(`
+  <path d="M5 22 Q22 6 39 22 Q22 38 5 22 Z" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <circle cx="22" cy="22" r="7" fill="${C.teal}" stroke="${C.teal2}" stroke-width="1.6"/>
+  <circle cx="22" cy="22" r="3" fill="${C.plum}"/>
+  <circle cx="24.5" cy="19.5" r="1.4" fill="${C.bone}"/>`);
+const C_TAP = S(`
+  <circle cx="20" cy="11" r="6" stroke="${C.amber}" stroke-width="1.8" opacity="0.85"/>
+  <path d="M17 12 Q17 9 20 9 Q23 9 23 12 L23 22 L30 23 Q34 24 33 28 L31 36 Q30 38 27 38 L19 38 L13 30 Q11 27 14 26 L17 28 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>`);
+const C_DOOR = S(`
+  <path d="M10 39 L10 15 Q10 5 22 5 Q34 5 34 15 L34 39 Z" fill="#8a6244" stroke="#5e4028" stroke-width="2"/>
+  <path d="M16 39 L16 16 Q16 11 22 11 Q28 11 28 16 L28 39" fill="${C.amber}" stroke="${C.amber2}" stroke-width="1.6" opacity="0.9"/>
+  <circle cx="25" cy="27" r="1.6" fill="#5e4028"/>
+  <path d="M6 39 L38 39" stroke="#5e4028" stroke-width="2.2"/>`);
+const C_MENU = S(`
+  <path d="M9 13 L35 13 M9 22 L35 22 M9 31 L35 31" stroke="${C.bone}" stroke-width="3.2"/>`);
+const C_MIC = S(`
+  <rect x="16" y="5" width="12" height="20" rx="6" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M16 14 L28 14 M16 18 L28 18" stroke="${C.bone2}" stroke-width="1.4"/>
+  <path d="M11 20 Q11 31 22 31 Q33 31 33 20 M22 31 L22 38 M16 38 L28 38" stroke="${C.teal}" stroke-width="2.4"/>`);
+const C_KEYS = S(`
+  <rect x="5" y="12" width="34" height="21" rx="3.5" fill="#4a3a5e" stroke="${C.plum}" stroke-width="1.8"/>
+  <path d="M10 18 h3 M16 18 h3 M22 18 h3 M28 18 h6 M10 23 h5 M18 23 h3 M24 23 h3 M30 23 h4 M14 28 h16"
+    stroke="${C.bone}" stroke-width="2.4"/>`);
+const C_MOUSE = S(`
+  <rect x="12" y="6" width="20" height="32" rx="10" fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>
+  <path d="M12 18 L32 18 M22 6 L22 18" stroke="${C.bone2}" stroke-width="1.6"/>
+  <rect x="20.5" y="9.5" width="3" height="6" rx="1.5" fill="${C.amber}"/>`);
+const C_HAND = S(`
+  <path d="M13 24 L13 13 Q13 10.5 15.5 10.5 Q18 10.5 18 13 L18 21 L18 9 Q18 6.5 20.5 6.5 Q23 6.5 23 9 L23 21 L23 10 Q23 7.5 25.5 7.5 Q28 7.5 28 10 L28 22 L28 14 Q28 11.5 30.5 11.5 Q33 11.5 33 14 L33 27 Q33 38 23 38 Q16 38 12 31 L8 25 Q7 22 10 22 Z"
+    fill="${C.bone}" stroke="${C.bone2}" stroke-width="1.8"/>`);
+const C_HELP = S(`
+  <circle cx="22" cy="22" r="16" fill="${C.plum}" stroke="${C.teal2}" stroke-width="2"/>
+  <path d="M16.5 17 Q16.5 11 22 11 Q27.5 11 27.5 16.5 Q27.5 20 22 22.5 L22 26" stroke="${C.teal}" stroke-width="3.2"/>
+  <circle cx="22" cy="32" r="2.2" fill="${C.teal}"/>`);
 const BLOODMOON_DOT = S(`
   <circle cx="22" cy="22" r="13" fill="#d2556a" stroke="#9a3048" stroke-width="2"/>
   <circle cx="18" cy="18" r="2.4" fill="#b84058" opacity="0.7"/><circle cx="26" cy="25" r="3" fill="#b84058" opacity="0.6"/>`);
@@ -1604,6 +1645,8 @@ export const UI_ICONS = {
   s_lughnasadh: S_WHEAT, s_mabon: S_LEAF, s_samhain: M_CANDLE, s_yule: S_SNOW,
   m_bow: M_BOW, m_festival: M_FESTIVAL, m_speaker: M_SPEAKER, m_muted: M_MUTED,
   m_shop: M_SHOP, m_handshake: M_HANDSHAKE, bloodmoon_dot: BLOODMOON_DOT,
+  c_joystick: C_JOYSTICK, c_eye: C_EYE, c_tap: C_TAP, c_door: C_DOOR, c_menu: C_MENU, c_mic: C_MIC,
+  c_keys: C_KEYS, c_mouse: C_MOUSE, c_hand: C_HAND, c_help: C_HELP,
 };
 
 // Plain-emoji → icon-key aliases, so UI render sites that carry a raw emoji

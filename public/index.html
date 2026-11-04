@@ -1988,7 +1988,8 @@
   .ctlList.hidden { display:none; }
   .ctlRow { display:flex; gap:10px; align-items:flex-start; color:#e8dcc0; font-size:13.5px; line-height:1.45; }
   .ctlRow b { color:#ffe9c2; }
-  .ctlIcon { font-size:20px; flex:0 0 26px; text-align:center; }
+  .ctlIcon { font-size:20px; flex:0 0 26px; text-align:center; display:flex; justify-content:center; padding-top:1px; }
+  .ctlIcon .uiIcon { width:24px; height:24px; display:block; }
   #loadoutSlots { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .loSlot {
     position:relative; width:56px; height:56px; border-radius:10px;
@@ -2916,36 +2917,36 @@
 
 <div id="controlsModal" class="overlay hidden">
   <div class="card" id="controlsCard">
-    <div class="title" style="font-size:20px;">❓ How to play</div>
+    <div class="title" style="font-size:20px;">How to play</div>
     <div id="controlsMobile" class="ctlList hidden">
-      <div class="ctlRow"><span class="ctlIcon">🕹️</span><span><b>Move</b> — touch anywhere on the LEFT half and drag. Your character runs where you point.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">👁️</span><span><b>Look</b> — drag on the right side to swing the camera. Dragging while running re-aims your run.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">👆</span><span><b>Tap</b> a creature to strike it, a plant to harvest, a player to see who they are.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">⚔️</span><span><b>Big button</b> — attack the nearest enemy.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🦘</span><span><b>Jump</b>, purely for style.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">✨</span><span><b>Ability slots</b> — your three chosen abilities, cooldowns and all. The ✨/📖 button opens the full kit.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🎛️</span><span><b>Make it yours</b> — swap which abilities sit on the wheel (button below).</span></div>
-      <div class="ctlRow"><span class="ctlIcon">😀</span><span><b>Emotes</b> — a ring of quick reactions everyone nearby sees.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">📢</span><span><b>Voice clip</b> — appears while something is attacking you; play a saved clip to slip away (everyone in earshot hears it!).</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🎙️</span><span><b>Coven voice</b> — tap <b>Join voice</b> in the Coven panel, then press &amp; hold the mic button to talk to your coven.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🚪</span><span><b>Glowing pill</b> — enter buildings, portals, seats, and conversations. It appears when something is close enough.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">☰</span><span><b>Menu</b> — inventory, journal, Hard Drive, Town Pass, snapshots, and the rest.</span></div>
-      <div class="ctlRow"><span class="ctlIcon">💬</span><span><b>Chat</b> — indoors only; the bubble shows what you missed.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_joystick"></span><span><b>Move</b> — touch anywhere on the LEFT half and drag. Your character runs where you point.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_eye"></span><span><b>Look</b> — drag on the right side to swing the camera. Dragging while running re-aims your run.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_tap"></span><span><b>Tap</b> a creature to strike it, a plant to harvest, a player to see who they are.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="attack"></span><span><b>Big button</b> — attack the nearest enemy.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="jump"></span><span><b>Jump</b>, purely for style.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="m_skills"></span><span><b>Ability slots</b> — your three chosen abilities, cooldowns and all. The abilities button opens the full kit.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="m_loadout"></span><span><b>Make it yours</b> — swap which abilities sit on the wheel (button below).</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="emote"></span><span><b>Emotes</b> — a ring of quick reactions everyone nearby sees.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="callout"></span><span><b>Voice clip</b> — appears while something is attacking you; play a saved clip to slip away (everyone in earshot hears it!).</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_mic"></span><span><b>Coven voice</b> — tap <b>Join voice</b> in the Coven panel, then press &amp; hold the mic button to talk to your coven.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_door"></span><span><b>Glowing pill</b> — enter buildings, portals, seats, and conversations. It appears when something is close enough.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_menu"></span><span><b>Menu</b> — inventory, journal, Hard Drive, Town Pass, snapshots, and the rest.</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="chat"></span><span><b>Chat</b> — indoors only; the bubble shows what you missed.</span></div>
     </div>
     <div id="controlsDesktop" class="ctlList hidden">
-      <div class="ctlRow"><span class="ctlIcon">⌨️</span><span><b>W/S</b> walk · <b>A/D</b> <span class="ctlAD">turn</span> · <b>Q/E</b> <span class="ctlQE">strafe</span> · <b>Space</b> jump</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🖱️</span><span><b>Drag</b> <span class="ctlDragLong">to look around</span> · <b>click</b> a creature to strike, a plant to harvest, a player for options</span></div>
-      <div class="ctlRow"><span class="ctlIcon">⚔️</span><span><b>R</b> — attack the nearest enemy</span></div>
-      <div class="ctlRow"><span class="ctlIcon">✋</span><span><b>F</b> — interact: sit, portals, NPCs, kiosks</span></div>
-      <div class="ctlRow"><span class="ctlIcon">✨</span><span><b>1–9, 0, -, =</b> — your ability hotbar, in the order YOU choose (customize below)</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🎒</span><span><b>I</b> — inventory · <b>K</b> — skills · <b>J</b> — journal & campaign</span></div>
-      <div class="ctlRow"><span class="ctlIcon">😀</span><span><b>T</b> — emote wheel · <b>P</b> — snapshot a player · <b>B</b> — bless a nearby player</span></div>
-      <div class="ctlRow"><span class="ctlIcon">🎙️</span><span><b>Coven voice</b> — tap <b>Join voice</b> in the Coven panel, then <b>hold C</b> to talk to your coven</span></div>
-      <div class="ctlRow"><span class="ctlIcon">📢</span><span><b>V</b> — play your armed voice clip to evade while under attack</span></div>
-      <div class="ctlRow"><span class="ctlIcon">☰</span><span><b>`</b> — open/close the menu (works in fullscreen; <b>Esc</b> does too but leaves fullscreen)</span></div>
-      <div class="ctlRow"><span class="ctlIcon">❓</span><span><b>H</b> — this screen</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_keys"></span><span><b>W/S</b> walk · <b>A/D</b> <span class="ctlAD">turn</span> · <b>Q/E</b> <span class="ctlQE">strafe</span> · <b>Space</b> jump</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_mouse"></span><span><b>Drag</b> <span class="ctlDragLong">to look around</span> · <b>click</b> a creature to strike, a plant to harvest, a player for options</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="attack"></span><span><b>R</b> — attack the nearest enemy</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_hand"></span><span><b>F</b> — interact: sit, portals, NPCs, kiosks</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="m_skills"></span><span><b>1–9, 0, -, =</b> — your ability hotbar, in the order YOU choose (customize below)</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="m_bag"></span><span><b>I</b> — inventory · <b>K</b> — skills · <b>J</b> — journal & campaign</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="emote"></span><span><b>T</b> — emote wheel · <b>P</b> — snapshot a player · <b>B</b> — bless a nearby player</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_mic"></span><span><b>Coven voice</b> — tap <b>Join voice</b> in the Coven panel, then <b>hold C</b> to talk to your coven</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="callout"></span><span><b>V</b> — play your armed voice clip to evade while under attack</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_menu"></span><span><b>`</b> — open/close the menu (works in fullscreen; <b>Esc</b> does too but leaves fullscreen)</span></div>
+      <div class="ctlRow"><span class="ctlIcon" data-hudicon="c_help"></span><span><b>H</b> — this screen</span></div>
     </div>
-    <button class="btn" id="controlsLoadoutBtn">🎛️ Customize your ability slots</button>
+    <button class="btn" id="controlsLoadoutBtn">Customize your ability slots</button>
     <button class="btn" id="controlsCloseBtn">Got it</button>
   </div>
 </div>
