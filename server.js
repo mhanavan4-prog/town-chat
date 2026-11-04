@@ -3011,7 +3011,7 @@ const { GUISES } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosm
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
-const { RUNES, RUNE_POSITIONS, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination)
+const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination) + The Futhark codex
 const RUNE_BY_KEY = Object.fromEntries(RUNES.map((r) => [r.key, r]));
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
@@ -4842,6 +4842,71 @@ function runeCastView(stored) {
     meaning: s.reversed ? s.rune.reversed : s.rune.reading,
   }));
   return { cast, synthesis: runeSynthesis(castRunes) };
+}
+// ── The Futhark — the collectible arc of the runes (parallel to The Arcanum).
+// Each rune is carved into the codex the first time it falls in a daily cast;
+// completing one of the three aettir pays its purse, and carving all 24 earns the
+// Runecaster aura. State is account-wide in prog.futhark.
+function runeFutharkOf(player) {
+  const prog = getProgress(player);
+  if (!prog.futhark) prog.futhark = { carved: [], aetts: [], done: false };
+  if (!Array.isArray(prog.futhark.carved)) prog.futhark.carved = [];
+  if (!Array.isArray(prog.futhark.aetts)) prog.futhark.aetts = [];
+  return prog.futhark;
+}
+// Record the keys that fell in today's cast. Returns the newly-carved runes, any
+// aettir completed by this cast (with their purse), and whether the finale (all
+// 24) just closed — so the cast handler can pay gold and toast the milestones.
+function recordRunes(player, keys) {
+  if (!player || !player.accountKey) return { newKeys: [], aettsDone: [], finale: false };
+  const fu = runeFutharkOf(player);
+  const newKeys = [];
+  for (const k of keys) {
+    if (RUNE_BY_KEY[k] && fu.carved.indexOf(k) === -1) { fu.carved.push(k); newKeys.push(k); }
+  }
+  const aettsDone = [];
+  if (newKeys.length) {
+    for (const aett of RUNE_AETTIR) {
+      if (fu.aetts.indexOf(aett.id) !== -1) continue;
+      if (aettKeys(aett.id).every((k) => fu.carved.indexOf(k) !== -1)) { fu.aetts.push(aett.id); aettsDone.push(aett); }
+    }
+  }
+  let finale = false;
+  if (!fu.done && RUNES.every((r) => fu.carved.indexOf(r.key) !== -1)) {
+    fu.done = true; finale = true;
+    // Carving the whole Futhark earns the Runecaster aura (the collection's capstone).
+    const prog = getProgress(player);
+    if (!prog.auraUnlocks) prog.auraUnlocks = [];
+    if (prog.auraUnlocks.indexOf('runecaster') === -1) {
+      prog.auraUnlocks.push('runecaster');
+      const auraId = (accounts[player.accountKey] && accounts[player.accountKey].auraId) || 'none';
+      try { send(player.ws, { type: 'aura_set', auraId, owned: prog.auraUnlocks }); } catch (e) {}
+    }
+  }
+  try { saveProgress(); } catch (e) {}
+  return { newKeys, aettsDone, finale };
+}
+// The Futhark page: the 24 runes grouped by aett, each rune revealed (sym + name
+// + upright reading) once carved or stone-blank until then, plus per-aett and
+// overall progress and which aettir's purses are already claimed.
+function runeFutharkBody(player) {
+  if (!player || !player.accountKey) return null;
+  const fu = runeFutharkOf(player);
+  const has = (k) => fu.carved.indexOf(k) !== -1;
+  const aetts = RUNE_AETTIR.map((aett) => {
+    const keys = aettKeys(aett.id);
+    return {
+      id: aett.id, name: aett.name, lore: aett.lore, gold: aett.gold,
+      claimed: fu.aetts.indexOf(aett.id) !== -1,
+      count: keys.filter(has).length, total: keys.length,
+      runes: keys.map((k) => {
+        const r = RUNE_BY_KEY[k] || {};
+        const got = has(k);
+        return { key: k, sym: got ? r.sym : null, discovered: got, name: got ? r.name : null, reading: got ? r.reading : null };
+      }),
+    };
+  });
+  return { aetts, carved: fu.carved.length, total: RUNES.length, done: !!fu.done };
 }
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
@@ -14691,7 +14756,8 @@ wss.on('connection', (ws, req) => {
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
       let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
-      let stored, alreadyCast = false;
+      let stored, alreadyCast = false, gold = 0, balance = null;
+      const futharkNews = [];
       if (a.lastRuneDay === today && Array.isArray(a.lastRuneCast) && a.lastRuneCast.length === 3) {
         stored = a.lastRuneCast; alreadyCast = true;
       } else {
@@ -14699,10 +14765,17 @@ wss.on('connection', (ws, req) => {
         for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
         stored = bag.slice(0, 3).map((r) => ({ key: r.key, rev: veilThin ? false : (Math.random() < 0.5) }));
         a.lastRuneDay = today; a.lastRuneCast = stored;
+        // Carve today's three runes into The Futhark. Aett purses pay out here;
+        // carving all 24 earns the Runecaster aura. (No flat daily gold — the
+        // runes reward the slow collection, not the daily cast.)
+        const rec = recordRunes(player, stored.map((s) => s.key));
+        for (const aett of rec.aettsDone) { gold += aett.gold; futharkNews.push(`ᛉ Aett carved — "${aett.name}" (+${aett.gold}🪙)`); }
+        if (rec.finale) futharkNews.push('ᛟ✨ The Futhark is whole — all 24 runes carved. You gain the Runecaster aura.');
+        if (gold > 0) { const account = ensureBankAccount(player.accountKey); account.balance += gold; balance = account.balance; saveBankAccounts(); }
         saveAccounts();
       }
       const { cast, synthesis } = runeCastView(stored);
-      send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, now: Date.now() });
+      send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, gold, balance, futhark: runeFutharkBody(player), futharkNews, now: Date.now() });
       return;
     }
     if (msg.type === 'rune_state') {
@@ -14710,7 +14783,7 @@ wss.on('connection', (ws, req) => {
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
       let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
-      const out = { type: 'rune_result', cast: [], synthesis: '', alreadyCast: false, samhain: veilThin, peek: true };
+      const out = { type: 'rune_result', cast: [], synthesis: '', alreadyCast: false, samhain: veilThin, futhark: runeFutharkBody(player), peek: true };
       if (a.lastRuneDay === today && Array.isArray(a.lastRuneCast) && a.lastRuneCast.length === 3) {
         const v = runeCastView(a.lastRuneCast); out.cast = v.cast; out.synthesis = v.synthesis; out.alreadyCast = true;
       }
@@ -16234,6 +16307,7 @@ global.__testHooks = {
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
+  runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
 
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,

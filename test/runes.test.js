@@ -4,7 +4,7 @@
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 
-const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, runeSynthesis } = require('../data/runes.js');
+const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis } = require('../data/runes.js');
 
 check('the full Elder Futhark — 24 runes', RUNES.length === 24, RUNES.length);
 check('three staves in a cast', RUNE_POSITIONS.length === 3, RUNE_POSITIONS.map((p) => p.key));
@@ -31,6 +31,18 @@ check('synthesis is a non-empty line', typeof syn === 'string' && syn.length > 2
 check('synthesis names each rune', syn.indexOf(RUNES[0].name) !== -1 && syn.indexOf(RUNES[5].name) !== -1 && syn.indexOf(RUNES[16].name) !== -1, syn);
 check('a reversed stave is marked reversed', syn.indexOf(RUNES[5].name + ' reversed') !== -1, syn);
 check('synthesis guards a short cast', runeSynthesis([]) === '' && runeSynthesis(null) === '');
+
+// The collectible arc: each aett carries a purse, and aettKeys partitions the 24.
+check('each aett carries a gold purse', RUNE_AETTIR.every((a) => Number.isFinite(a.gold) && a.gold > 0), RUNE_AETTIR.map((a) => a.gold));
+let partitionOk = true, allAettKeys = [];
+for (const a of RUNE_AETTIR) {
+  const ks = aettKeys(a.id);
+  if (ks.length !== 8) partitionOk = false;
+  allAettKeys = allAettKeys.concat(ks);
+}
+check('aettKeys gives eight runes per aett', partitionOk);
+check('the three aettir partition all 24 runes exactly once', allAettKeys.length === 24 && new Set(allAettKeys).size === 24 && RUNES.every((r) => allAettKeys.indexOf(r.key) !== -1));
+check('aettKeys of an unknown aett is empty', aettKeys('nope').length === 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

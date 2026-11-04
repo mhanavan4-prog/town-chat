@@ -2910,7 +2910,15 @@ function onWsMessage(ev) {
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'pendulum_reading') { lastPendulum = msg; if (Modals.isOpen('pendulumOpen')) renderPendulumModal(); return; }
-  if (msg.type === 'rune_result') { lastRunes = msg; if (Modals.isOpen('runeOpen')) renderRuneModal(); return; }
+  if (msg.type === 'rune_result') {
+    if (msg.futhark) _lastFuthark = msg.futhark; // The Futhark (the rune codex)
+    if (!msg.peek || (msg.cast && msg.cast.length)) lastRunes = msg;
+    if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
+    try { updateGoldReadouts(); } catch (e) { /* readouts not ready */ }
+    for (const line of (msg.futharkNews || [])) { try { setUnlockToast(line); } catch (e) {} }
+    if (Modals.isOpen('runeOpen')) renderRuneModal();
+    return;
+  }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -10703,12 +10711,27 @@ function closePendulumModal() {
 
 // ── Rune casting — the daily three-stave cast ───────────────────────────────
 let lastRunes = null;
+let _lastFuthark = null; // The Futhark (the rune codex) collection
+let runeView = 'cast';   // 'cast' | 'futhark'
 function renderRuneModal() {
   const el = document.getElementById('runeContent');
   if (!el) return;
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   const st = lastRunes;
-  let h = '<div class="runeGaze">Cast three staves — the Root, the Crossing, and the Outcome. One cast a day; the runes hold until the day turns.</div>';
+  // Two-page panel: the daily Cast, and The Futhark codex (mirrors the tarot's
+  // Reading | Arcanum). The Futhark tab shows a running count.
+  const fu = _lastFuthark;
+  const tabs = `<div class="gardenTabs">`
+    + `<button class="gtab${runeView === 'cast' ? ' on' : ''}" data-rview="cast">ᚱ Cast</button>`
+    + (fu ? `<button class="gtab${runeView === 'futhark' ? ' on' : ''}" data-rview="futhark">ᚠ The Futhark <span class="gtabCount">${fu.carved}/${fu.total}</span></button>` : '')
+    + `</div>`;
+  const wireTabs = () => el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
+    const v = b.getAttribute('data-rview');
+    if (v && v !== runeView) { runeView = v; renderRuneModal(); }
+  }));
+  if (runeView === 'futhark' && fu) { renderFutharkInto(el, tabs, fu); wireTabs(); return; }
+  let h = tabs;
+  h += '<div class="runeGaze">Cast three staves — the Root, the Crossing, and the Outcome. One cast a day; the runes hold until the day turns.</div>';
   const cast = st && Array.isArray(st.cast) ? st.cast : [];
   h += `<button class="runeCastBtn" id="runeCastBtn"${st && st.alreadyCast ? ' disabled' : ''}>ᚱ ${st && st.alreadyCast ? 'The staves are cast for today' : 'Cast the runes'}</button>`;
   for (const s of cast) {
@@ -10720,10 +10743,46 @@ function renderRuneModal() {
   el.innerHTML = h;
   const btn = document.getElementById('runeCastBtn');
   if (btn && !(st && st.alreadyCast)) btn.addEventListener('click', () => send({ type: 'rune_cast' }));
+  wireTabs();
+}
+// The Futhark — the 24 runes grouped by aett. A rune is revealed (sym + name +
+// upright reading) once it has fallen in a daily cast; uncarved runes stay blank
+// stone. Completing an aett pays its purse; all 24 earns the Runecaster aura.
+// Lore is authored constant text (safe to inject).
+function renderFutharkInto(el, tabs, fu) {
+  const pct = fu.total ? Math.round((fu.carved / fu.total) * 100) : 0;
+  let h = tabs;
+  h += `<div class="almIntro">The Elder Futhark carved rune by rune as the daily cast turns them up. `
+    + `<b>${fu.carved} of ${fu.total}</b> carved.`
+    + `<div class="almBar"><span style="width:${pct}%"></span></div>`
+    + (fu.done ? `<div class="tArcDone">ᛟ The Futhark is whole — you bear the <b>Runecaster</b> aura.</div>` : '')
+    + `</div>`;
+  for (const aett of (fu.aetts || [])) {
+    const aettDone = aett.count >= aett.total;
+    h += `<div class="almCat">`
+      + `<div class="almCatHead">${esc(aett.name)} <span class="almCatN">${aett.count}/${aett.total}${aett.claimed ? ' ✓' : ''}</span></div>`
+      + `<div class="almCatLore">${esc(aett.lore)}</div>`
+      + `<div class="tArcPurse${aettDone ? ' got' : ''}">${aettDone ? `Aett complete · +${aett.gold}🪙 claimed` : `Complete this aett for +${aett.gold}🪙`}</div>`
+      + `<div class="almGrid">`;
+    for (const r of aett.runes) {
+      if (r.discovered) {
+        h += `<div class="almCell"><div class="almIcon runeGlyph">${esc(r.sym || '')}</div>`
+          + `<div class="almName">${esc(r.name)}</div>`
+          + `<div class="almLore">${esc(r.reading)}</div></div>`;
+      } else {
+        h += `<div class="almCell locked"><div class="almIcon runeGlyph">ᛝ</div>`
+          + `<div class="almName">Uncarved</div>`
+          + `<div class="almLore">Let this rune fall in a daily cast to carve it.</div></div>`;
+      }
+    }
+    h += `</div></div>`;
+  }
+  el.innerHTML = h;
 }
 function openRuneModal() {
   const modal = document.getElementById('runeModal');
   if (!modal) return;
+  runeView = 'cast'; // always open to the cast
   renderRuneModal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 130);

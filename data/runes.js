@@ -47,12 +47,19 @@ const RUNE_POSITIONS = [
 ];
 
 // The three aettir — the collectible arc (the codex records each rune the first
-// time it falls; completing an aett is a leg, all three the full Futhark).
+// time it falls; completing an aett is a leg that pays a purse, and carving all
+// three — the whole Futhark — earns the Runecaster aura). Parallel to the tarot's
+// Fool's Journey. `gold` is the purse for finishing the aett; the member runes are
+// read off RUNES by their `aett`, so there is one list to keep.
 const RUNE_AETTIR = [
-  { id: 'freyr', name: "Freyr's Aett", lore: 'The first eight — cattle and ox, thorn and gift; the runes of the world and its getting.' },
-  { id: 'hagal', name: "Hagal's Aett", lore: 'The middle eight — hail and need, ice and sun; the runes of what befalls and what endures.' },
-  { id: 'tyr',   name: "Tyr's Aett",   lore: 'The last eight — the spear and the birch, the horse and the hearth; the runes of self and belonging.' },
+  { id: 'freyr', name: "Freyr's Aett", lore: 'The first eight — cattle and ox, thorn and gift; the runes of the world and its getting.', gold: 70 },
+  { id: 'hagal', name: "Hagal's Aett", lore: 'The middle eight — hail and need, ice and sun; the runes of what befalls and what endures.', gold: 110 },
+  { id: 'tyr',   name: "Tyr's Aett",   lore: 'The last eight — the spear and the birch, the horse and the hearth; the runes of self and belonging.', gold: 170 },
 ];
+
+// The keys of the runes that make up one aett, in Futhark order — the codex's
+// per-leg roster, derived from RUNES so membership lives in one place.
+function aettKeys(aettId) { return RUNES.filter((r) => r.aett === aettId).map((r) => r.key); }
 
 // Read the three together — one authored line tracing the cast, pointing to the
 // center stave as the counsel of the hour. Pure, so server and tests agree.
@@ -65,4 +72,4 @@ function runeSynthesis(cast) {
     `${nm(o)} is where it falls. Mind the middle rune and act with it.`;
 }
 
-module.exports = { RUNES, RUNE_POSITIONS, RUNE_AETTIR, runeSynthesis };
+module.exports = { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis };

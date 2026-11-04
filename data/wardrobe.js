@@ -242,6 +242,8 @@ const AURAS = [
   { id: 'hearthfire', label: 'Hearthfire', hex: 0xff8a3a, earned: true },
   // Earned: granted for gathering all 22 Major Arcana — The Fool's Journey whole.
   { id: 'oracle',   label: 'Oracle',   hex: 0x8f7bff, earned: true },
+  // Earned: granted for carving all 24 runes of the Elder Futhark into the codex.
+  { id: 'runecaster', label: 'Runecaster', hex: 0x8fb3cf, earned: true },
 ];
 const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
 function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }
