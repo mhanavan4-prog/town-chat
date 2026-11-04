@@ -7,6 +7,10 @@
 // reassigned lets injected as getters.
 // ---------------------------------------------------------------------------
 export default function createCryptMobs({ lerpAngle, makeMob2, kkSetState, kkOneShot, updateHealthBar, mobAttackLungeAmount, MOB_ATTACK_LUNGE_DIST, getCryptScene, getCryptMobVisuals, getMe }) {
+  // How long a slain mob's death collapse stays on screen before it's hidden
+  // (it remains `dead` server-side for its whole respawn window, so there's
+  // plenty of time to play the fall).
+  const MOB_DEATH_VIS_MS = 1100;
   function getOrCreateCryptMobVisual(id, mobType) {
     let v = getCryptMobVisuals()[id];
     if (!v) {
@@ -31,6 +35,11 @@ export default function createCryptMobs({ lerpAngle, makeMob2, kkSetState, kkOne
       const v = getOrCreateCryptMobVisual(m.id, m.mobType);
       v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing;
       v.dead = !!m.dead; v.dormant = !!m.dormant; v.hasLoot = !!m.hasLoot;
+      // Stamp the moment of death (alive -> dead) so the driver can time the
+      // collapse; on respawn (dead -> alive) clear it and restore any blob scale.
+      if (m.dead && v._wasDead === false) v.deathAt = performance.now();
+      else if (!m.dead && v._wasDead) { v.deathAt = 0; if (v._baseScale != null) v.mesh.scale.setScalar(v._baseScale); }
+      v._wasDead = !!m.dead;
       if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
       if (m.health !== undefined) {
         const hpBar = v.mesh.getObjectByName('healthBar');
@@ -57,6 +66,15 @@ export default function createCryptMobs({ lerpAngle, makeMob2, kkSetState, kkOne
         // with a one-shot on attack and a Hit_A flinch when struck.
         const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
         const now = performance.now();
+        if (v.dead) {
+          // Death collapse — play the fall (clamps on its final collapsed frame),
+          // hold it, then hide once the window elapses.
+          if (kkSetState) kkSetState(v.kk, 'Death_A');
+          v.mesh.position.set(v.x, 0, v.y);
+          v.mesh.rotation.y = v.facing;
+          v.mesh.visible = !!inCrypt && (now - (v.deathAt || 0) < MOB_DEATH_VIS_MS);
+          continue;
+        }
         if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
           v._lastAtkFired = v.attackAnimStartAt;
           if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
@@ -80,6 +98,15 @@ export default function createCryptMobs({ lerpAngle, makeMob2, kkSetState, kkOne
       }
 
       // Fallback (model still streaming): blob lunge-tilt.
+      if (v.dead) {
+        // Crumble away — shrink and sink into the ground, then hide.
+        if (v._baseScale == null) v._baseScale = v.mesh.scale.x || 1;
+        const t = Math.min(1, (performance.now() - (v.deathAt || 0)) / MOB_DEATH_VIS_MS);
+        v.mesh.scale.setScalar(v._baseScale * Math.max(0.02, 1 - t * t));
+        v.mesh.position.set(v.x, -t * 12, v.y);
+        v.mesh.visible = !!inCrypt && t < 1;
+        continue;
+      }
       const lungeFactor = mobAttackLungeAmount(v);
       const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
       v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);
