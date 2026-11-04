@@ -225,6 +225,20 @@ const ADMIN_ACCOUNTS = new Set(
 function isAdmin(player) {
   return !!(player && player.accountKey && ADMIN_ACCOUNTS.has(player.accountKey));
 }
+// Moonstone floor topped up for admin/test accounts on login, so paid cosmetics
+// can be tested without a purchase. Override with ADMIN_MS_FLOOR; default 1000.
+const ADMIN_MS_FLOOR = Math.max(0, parseInt(process.env.ADMIN_MS_FLOOR, 10) || 1000);
+// Top an admin account up to the floor (never above it, so repeated logins don't
+// run the balance away, and a non-admin is never touched). Returns true if it
+// credited anything. Safe to call with no account.
+function adminMoonstoneTopUp(player) {
+  if (ADMIN_MS_FLOOR <= 0 || !isAdmin(player)) return false;
+  try {
+    const bal = msBalance(player.accountKey);
+    if (bal < ADMIN_MS_FLOOR) { msAdjust(player.accountKey, ADMIN_MS_FLOOR - bal); return true; }
+  } catch (e) { /* noop */ }
+  return false;
+}
 
 function hasTownPass(player) {
   if (isAdmin(player)) return true; // admins walk through every locked door
@@ -10581,6 +10595,10 @@ wss.on('connection', (ws, req) => {
       // elevated access (all locked doors open, free coven founding).
       if (isAdmin(player)) {
         audit.log({ level: 'warn', type: 'admin_session', ip: ws._ip, account: player.accountKey, name: player.name });
+        // Dev convenience: keep admin/test accounts stocked with Moonstones so the
+        // paid cosmetics (auras, the collectible guises) can be exercised without
+        // buying a pack.
+        if (adminMoonstoneTopUp(player)) { try { send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) }); } catch (e) { /* noop */ } }
       }
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
@@ -16427,6 +16445,7 @@ global.__testHooks = {
   townPasses, passSessions, hasTownPass, isAdmin, grantForSession,
   // 💎 Moonstones + the Peddler (Session I) — exported for the test suite.
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
+  adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)
