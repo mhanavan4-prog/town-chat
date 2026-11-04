@@ -5010,6 +5010,35 @@ function ancestorBuffContrib(player, statKey) {
   if (!b || !b.until || b.until <= Date.now()) return 0;
   return (b.stat === statKey) ? (b.amount || 0) : 0;
 }
+// ── The derived-stat stack (buff-slot audit, roadmap #5) ────────────────────
+// Every derived stat a player has is the SUM of eight independent contributors,
+// each in its own slot so none ever overwrites another — add a new buff by adding
+// a term here, never by mutating an existing one. The contributors, and what each
+// may touch:
+//   skill    skillStatContrib    permanent   any stat (the only source that can
+//                                             LOWER one, via a pact's negative mod)
+//   gear     gearStatContrib     permanent   any stat carried by equipped items
+//   delve    delveBoonContrib    run-scoped  drafted boons; 0 outside a delve run
+//   ritual   ritualBuffContrib   timed 20m   one stat, from an altar blessing
+//   familiar familiarBuffContrib account     one stat, the bonded familiar's perk
+//   tea      teaBuffContrib      timed ~1h   one stat, the sipped kitchen tea
+//   path     pathBuffContrib     account     one stat, the chosen witch path's perk
+//   ancestor ancestorBuffContrib timed       one stat, a Samhain observance blessing
+// Independence: each term reads a distinct source (a skill alloc, equip slots, the
+// delve run, or a named account field — ritual/familiar/teaBuff/witchPath/
+// ancestorBuff), so two buffs on the SAME stat add rather than clobber, and a buff
+// on one stat never leaks into another. The timed slots (ritual/tea/ancestor) read
+// 0 once expired. `cvBuff`/activeSeasonBuff is deliberately NOT in this sum — it is
+// a separate coven XP-multiplier axis applied where XP is awarded, not a stat.
+//
+// Caps: there is intentionally no blanket cap on this sum. The real progression
+// (skill + gear + delve) is meant to grow, so a global ceiling would nerf earned
+// builds. Instead the ceilings live at the point of USE, where a runaway value
+// would actually break play — haste is clamped to 70% faster cooldowns, incoming
+// damage to a 75% floor (see below). The "gentle, never build-defining" ritual
+// buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
+// a single small per-source amount, not a ladder, so they add texture without a
+// stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
 function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
