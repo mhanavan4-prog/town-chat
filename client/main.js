@@ -8109,7 +8109,13 @@ const OUTDOOR_CAM = { back: 182, height: 138, lookUp: 50 };
 // left you looking up at furniture. height stays safely under the 150 ceiling
 // of the shortest interiors (town buildings, the Vault) with headroom for
 // pitch; the wall-clip shrink in updateCamera() keeps it off the walls.
-const INDOOR_CAM  = { back: 100, height: 100, lookUp: 30 };
+// `back` bumped 100→118 so rooms with spare floor pull the camera a little
+// further out (the wall-clip shrink caps it again in the tightest rooms);
+// height stays at 100 — `back` is horizontal, so this adds no ceiling risk.
+// The real de-cramping in the small rooms comes from the wider scene FOV
+// (72 vs the old 60–62) set per-scene, which shrinks the character without
+// moving the camera toward a wall.
+const INDOOR_CAM  = { back: 118, height: 100, lookUp: 32 };
 // The Coven Manor is a big hall with a taller (200) ceiling, so it gets its own
 // higher, further-back framing to take in the open floor.
 const MANOR_CAM   = { back: 150, height: 150, lookUp: 40 };

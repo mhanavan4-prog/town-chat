@@ -10,7 +10,9 @@ function buildVaultScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1408);
   scene.fog = new THREE.Fog(0x1a1408, 250, 700);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
+  // Wide FOV (72) keeps the player small in this tight vault room; the walls
+  // cap the follow-cam's pull-back, so the lens does the de-cramping.
+  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 1, 1400);
   setVaultScene(scene);
   setVaultCamera(camera);
 

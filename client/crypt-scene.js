@@ -12,7 +12,10 @@ function buildCryptScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0a0710);
   scene.fog = new THREE.Fog(0x0a0710, 320, 820);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
+  // Wide FOV (72) so the player's own character stays small in this tight
+  // stone room — the walls cap how far the follow-cam can pull back, so the
+  // lens does the de-cramping instead of camera distance.
+  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 1, 1400);
   // Assign early so swapToCryptMap works even if geometry building throws below.
   setCryptScene(scene);
   setCryptCamera(camera);
