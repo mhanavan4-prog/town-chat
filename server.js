@@ -14830,6 +14830,10 @@ wss.on('connection', (ws, req) => {
       if (nameRaw) accounts[player.accountKey].lastAncestorName = nameRaw;
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
       saveAccounts(); saveInventories();
+      // Leave a mark on the town's Dumb Supper register, shown at the bonfire —
+      // the solitary rite's visible communal footprint.
+      const supOfferIcon = (ITEM_CATALOG[offerId] && ITEM_CATALOG[offerId].icon) || (PLANT_CATALOG[offerId] && PLANT_CATALOG[offerId].icon) || '🕯️';
+      recordDumbSupper({ keeper: String(player.name || 'A witch').slice(0, 24), forName: nameRaw || null, offerIcon: supOfferIcon, virtueEmoji: virtue.emoji, virtueName: virtue.name, altarGlyph: obs.glyph || '🕯️', at: Date.now() });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'ancestor_state', ...ancestorAltarBody(player) });
@@ -15701,6 +15705,26 @@ let townBonfire = { seasonKey: null, target: BONFIRE_TARGET, progress: 0, lit: f
 persistRegister('townBonfire', BONFIRE_FILE, () => townBonfire);
 function saveBonfire() { try { persistSave('townBonfire', BONFIRE_FILE, townBonfire); } catch (e) {} }
 function bonfireSeasonName(key) { const s = SABBATS.find((x) => x.key === key); return s ? s.name : 'Season'; }
+
+// ── The Dumb Supper — a shared, ephemeral register of who kept the solitary
+// seasonal observance (the Ancestor Altar at Samhain) tonight, shown at the
+// town bonfire so the quiet rite leaves a visible communal mark. Not persisted
+// (a live vigil, like the Hollow Vigil's shared candles): entries age out after
+// 12h and the list is capped.
+const DUMB_SUPPER_TTL_MS = 12 * 3600 * 1000;
+const DUMB_SUPPER_MAX = 24;
+let dumbSuppers = [];
+function dumbSupperList() {
+  const cut = Date.now() - DUMB_SUPPER_TTL_MS;
+  dumbSuppers = dumbSuppers.filter((s) => s && s.at >= cut);
+  if (dumbSuppers.length > DUMB_SUPPER_MAX) dumbSuppers = dumbSuppers.slice(-DUMB_SUPPER_MAX);
+  return dumbSuppers.slice().reverse(); // newest first for the panel
+}
+function recordDumbSupper(entry) {
+  dumbSuppers.push(entry);
+  if (dumbSuppers.length > DUMB_SUPPER_MAX) dumbSuppers = dumbSuppers.slice(-DUMB_SUPPER_MAX);
+  try { broadcastAll({ type: 'dumb_supper', suppers: dumbSupperList() }); } catch (e) {}
+}
 function ensureTownBonfire() {
   let key = null; try { key = seasonWindow(Date.now()).key; } catch (e) {}
   if (townBonfire.seasonKey !== key) { // the wheel turned — a fresh fire to build
@@ -15722,7 +15746,7 @@ function townBonfireState(player) {
     seasonKey: b.seasonKey, seasonName: bonfireSeasonName(b.seasonKey),
     target: b.target, progress: Math.min(b.progress, b.target), lit: !!b.lit, litAt: b.litAt || 0,
     youGave: (player && player.accountKey && b.contribs[player.accountKey]) || 0,
-    givers: Object.keys(b.contribs).length, offer, now: Date.now(),
+    givers: Object.keys(b.contribs).length, offer, suppers: dumbSupperList(), now: Date.now(),
   };
 }
 function bonfireProgressBroadcast() {
