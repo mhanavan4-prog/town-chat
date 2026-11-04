@@ -55,7 +55,10 @@ function getInteriorScene(buildingId) {
   scene.background = new THREE.Color(bgCol);
   scene.fog = new THREE.Fog(bgCol, 380, 900);
 
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 3000);
+  // Wide FOV (72) so the player's character doesn't fill the frame in these
+  // small building interiors; the walls cap the follow-cam's pull-back, so a
+  // wider lens — not more distance — is what de-cramps the room.
+  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 1, 3000);
 
   scene.add(new THREE.AmbientLight(
     theme.ambient != null ? theme.ambient : 0xffd9a0,

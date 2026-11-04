@@ -10,7 +10,9 @@ function buildCaveScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d0520);
   scene.fog = new THREE.Fog(0x0d0520, 350, 900);
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 1400);
+  // Wide FOV (72) keeps the player small in this cramped cave; the walls cap
+  // the follow-cam's pull-back, so the lens does the de-cramping.
+  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 1, 1400);
   // Assign early so swapToCaveMap works even if geometry building throws below
   setCaveScene(scene);
   setCaveCamera(camera);
