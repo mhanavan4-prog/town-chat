@@ -97,24 +97,48 @@ function ensureAudio() {
   } catch (e) { /* Web Audio unavailable — music simply won't play */ }
 }
 
-// Fetch the generated SFX manifest and decode each file into memory once. Best
-// effort: a missing index.json or a failed decode just leaves that id on the
-// synth fallback, so the game never breaks for want of an audio file.
+// Recorded SFX load LAZILY. The manifest (index.json) is fetched once at audio
+// init; only a small CORE set of general sounds — the ones nearly every session
+// hears in its first minute — is decoded up front. Everything else (each class's
+// ability sounds, the arcade, séance, forge, …) is fetched + decoded the first
+// time it's asked for, and played the moment it lands if that's still within
+// SFX_LATE_MS of the request. After joining, main.js prefetches the player's own
+// kit via preloadSfx(), so their own abilities are ready before the first cast.
+// (This used to decode all ~120 files at startup — mostly other classes' sounds.)
+const SFX_CORE = [
+  'footstep', 'jump', 'hit', 'hurt', 'kill', 'death', 'swing', 'slash', 'thud', 'rend',
+  'cast', 'summon', 'curse', 'ward', 'buff', 'heal',
+  'ui_click', 'error', 'coin', 'loot', 'equip', 'door', 'portal', 'harvest',
+  'levelup', 'quest_accept', 'quest_fanfare', 'drink',
+];
+const SFX_LATE_MS = 700; // a lazily-loaded sound that takes longer than this is skipped, not played late
+let sfxIndex = null;          // id -> [{ f, v } | 'file.mp3', ...]
+const sfxLoading = {};        // id -> Promise while fetching/decoding
+
 async function loadSfxFiles() {
   if (sfxLoadStarted || !audioCtx) return;
   sfxLoadStarted = true;
-  let index;
   try {
     // index.json is tiny and the source of truth for which sounds + which
     // versions exist — always fetch it fresh so a regenerated sound is picked
-    // up (the MP3s below are themselves cache-busted by ?v=).
+    // up (the MP3s themselves are cache-busted by ?v=).
     const res = await fetch('/audio/sfx/index.json', { cache: 'no-store' });
     if (!res.ok) return;
-    index = await res.json();
+    sfxIndex = await res.json();
   } catch (e) { return; }
-  for (const id of Object.keys(index || {})) {
-    const entries = index[id] || [];
-    for (const entry of entries) {
+  for (const id of SFX_CORE) { if (sfxIndex[id]) await loadSfxId(id); } // one at a time — no burst
+  if (pendingPreload.length) { const ids = pendingPreload.splice(0); for (const id of ids) await loadSfxId(id); }
+}
+
+// Fetch + decode every variant of one id (once). Best effort: a missing file or
+// a failed decode just leaves that id silent.
+function loadSfxId(id) {
+  if (sfxBuffers[id]) return Promise.resolve(true);
+  if (sfxLoading[id]) return sfxLoading[id];
+  if (!sfxIndex || !sfxIndex[id] || !audioCtx) return Promise.resolve(false);
+  sfxLoading[id] = (async () => {
+    const out = [];
+    for (const entry of sfxIndex[id] || []) {
       // Accept both the versioned shape ({ f, v }) and the old flat string.
       const fn = (typeof entry === 'string') ? entry : (entry && entry.f);
       const ver = (entry && entry.v) ? ('?v=' + entry.v) : '';
@@ -125,11 +149,23 @@ async function loadSfxFiles() {
         // on a stale recording.
         const r = await fetch('/audio/sfx/' + fn + ver, { cache: 'force-cache' });
         if (!r.ok) continue;
-        const buf = await audioCtx.decodeAudioData(await r.arrayBuffer());
-        (sfxBuffers[id] = sfxBuffers[id] || []).push(buf);
-      } catch (e) { /* skip this variant; synth covers the id */ }
+        out.push(await audioCtx.decodeAudioData(await r.arrayBuffer()));
+      } catch (e) { /* skip this variant */ }
     }
-  }
+    if (out.length) sfxBuffers[id] = out;
+    delete sfxLoading[id];
+    return out.length > 0;
+  })();
+  return sfxLoading[id];
+}
+
+// Warm a list of ids (e.g. the player's own ability kit) in the background.
+// Safe to call before audio exists: the list waits for the manifest.
+let pendingPreload = [];
+function preloadSfx(ids) {
+  const list = (ids || []).filter((x) => typeof x === 'string');
+  if (!sfxIndex) { for (const id of list) if (pendingPreload.indexOf(id) === -1) pendingPreload.push(id); return; }
+  (async () => { for (const id of list) await loadSfxId(id); })();
 }
 
 // Play a recorded SFX for `name` if one is loaded; returns true if it did. Picks
@@ -137,6 +173,12 @@ async function loadSfxFiles() {
 // routes through the clean file bus with an optional per-id trim.
 function playSfxFile(name, vol) {
   const bufs = sfxBuffers[name];
+  if ((!bufs || !bufs.length) && sfxIndex && sfxIndex[name] && audioCtx) {
+    // Not decoded yet: fetch it now and play it on arrival if that's prompt.
+    const asked = performance.now();
+    loadSfxId(name).then((ok) => { if (ok && performance.now() - asked <= SFX_LATE_MS && !sfxMuted) playSfxFile(name, vol); });
+    return true; // claimed — don't also fire the synth fallback for this id
+  }
   if (!bufs || !bufs.length || !sfxFileGain || !audioCtx) return false;
   const buf = bufs.length === 1 ? bufs[0] : bufs[(Math.random() * bufs.length) | 0];
   try {
@@ -530,7 +572,9 @@ if (muteBtn) {
     playNarration, stopNarration, narrationAvailable,
     // True once a recorded file for `id` is loaded — lets callers prefer a
     // specific new sound but fall back (e.g. per-class melee → generic 'hit').
-    sfxAvailable: (id) => !!(sfxBuffers[id] && sfxBuffers[id].length),
+    // True when a recorded file for `id` exists (loaded now, or on first play).
+    sfxAvailable: (id) => !!((sfxBuffers[id] && sfxBuffers[id].length) || (sfxIndex && sfxIndex[id])),
+    preloadSfx,
     // Snapshot for the __testDrive.music() probe (kept identical to the old
     // inline reads of this module's private state).
     musicState: () => ({

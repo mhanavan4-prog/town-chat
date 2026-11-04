@@ -1462,6 +1462,9 @@ function onWsMessage(ev) {
       }
       loadLoadout(); // per-class slot order, chosen by the player
       buildHotbar();
+      // Sound effects load lazily; warm this character's own ability sounds now
+      // so their first cast isn't silent (everyone else's load on first hearing).
+      if (myActionCatalog && typeof preloadSfx === 'function') preloadSfx(Object.keys(myActionCatalog));
       maybeShowFirstRunControls();
       if (isTouchDevice()) {
         document.getElementById('joystick').classList.add('show');
@@ -3474,7 +3477,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, playNarration, stopNarration, narrationAvailable } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, narrationAvailable } = _audio;
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
 // sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/
@@ -18705,6 +18708,7 @@ if (location.search.includes('testdrive=1')) {
     },
     isNight() { return getDayNightState().isNight; },
     music() { return _audio.musicState(); },
+    sfx(id) { playSfx(id); return true; }, // fire one sound (lazy-load probe)
     // Session I QA probes: collision registries + direct status-visual pokes
     wallsCount() { return { active: walls.length, town: TOWN_WALLS ? TOWN_WALLS.length : -1, wilds: WILDS_WALLS.length }; },
     applyStatus(type) { applyStatusVisual(myId, type ? { type, expiresAt: Date.now() + 10000 } : null); },
