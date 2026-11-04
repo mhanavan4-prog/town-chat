@@ -27,6 +27,12 @@
   .brand{display:flex;align-items:center;gap:10px}.brand .sigil{width:28px;height:28px}.brand .name{font-size:18px}
   .nav .right{margin-left:auto;display:flex;align-items:center;gap:14px}
   .nav .right a.link{color:var(--mut);font-size:14px}.nav .right a.link:hover{color:var(--ink);text-decoration:none}
+  .nav .right a{white-space:nowrap}
+  /* Phones: keep just the brand + "Enter the Town" — the text links live in the footer too. */
+  @media(max-width:560px){ .nav .right a.link{display:none} .nav .wrap{gap:10px} }
+  /* Smallest phones: tighten the wordmark + button so brand and button share one row,
+     and let the footer links wrap instead of running off the edge. */
+  @media(max-width:380px){ .nav .wordmark{letter-spacing:1.5px;font-size:15px} .nav .btn{padding:8px 11px} footer nav{flex-wrap:wrap;gap:10px 14px;margin-left:0} }
   .head{padding:44px 0 6px}
   .head h1{font-family:'Cinzel Decorative','Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,44px);letter-spacing:3px;margin:0 0 10px}
   .dates{color:var(--mut2);font-size:13px;letter-spacing:.5px}
