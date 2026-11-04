@@ -782,6 +782,19 @@
   .penV.yes { color:#9be38a; } .penV.no { color:#ff8a8a; } .penV.unclear { color:#cdbf8f; }
   .penQ { font-size:10.5px; color:#b9a37a; margin-bottom:6px; font-style:italic; }
   .penL { font-size:12.5px; color:#efe6cf; font-style:italic; line-height:1.5; margin-top:6px; }
+  .mwGaze { font-size:11.5px; color:#cdd6ea; line-height:1.45; margin-bottom:10px; }
+  .mwMoon { font-size:14px; color:#dfe7fb; text-align:center; margin:4px 0 8px; }
+  .mwGlyph { font-size:17px; }
+  .mwBlood { color:#ff8a8a; font-size:11.5px; }
+  .mwHold { font-size:11.5px; color:#b9c2d8; text-align:center; margin-bottom:10px; }
+  .mwDraw { width:100%; padding:9px 12px; border-radius:10px; border:1px solid rgba(150,180,220,0.42); background:rgba(120,160,215,0.14); color:#e4eeff; font-size:12.5px; cursor:pointer; }
+  .mwDraw:disabled { opacity:0.45; cursor:default; }
+  .mwNote { font-size:10.5px; color:#9fb0cc; text-align:center; margin-top:7px; line-height:1.4; }
+  .mwClosed { font-size:12px; color:#aeb9d2; text-align:center; padding:10px; border:1px dashed rgba(150,170,210,0.3); border-radius:10px; line-height:1.45; }
+  .mwUses { margin-top:13px; border-top:1px solid rgba(150,170,210,0.18); padding-top:10px; }
+  .mwUsesHead { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8f9bb6; margin-bottom:7px; }
+  .mwUse { display:flex; gap:9px; align-items:flex-start; font-size:11.5px; color:#cfd7e9; line-height:1.4; margin:5px 0; }
+  .mwUse span { font-size:14px; }
   .runeGaze { font-size:11.5px; color:#dcccb0; line-height:1.45; margin-bottom:10px; }
   .runeCastBtn { width:100%; padding:9px 12px; border-radius:10px; border:1px solid rgba(180,150,220,0.4); background:rgba(150,110,210,0.14); color:#e9ddff; font-size:12.5px; cursor:pointer; margin-bottom:4px; }
   .runeCastBtn:disabled { opacity:0.5; cursor:default; }
@@ -2750,6 +2763,7 @@
       <button class="menuRow" id="menuScry">🪞 Scrying Bowl</button>
       <button class="menuRow" id="menuPendulum">🪡 The Pendulum</button>
       <button class="menuRow" id="menuRunes">ᚱ Rune Cast</button>
+      <button class="menuRow" id="menuMoonWell">🌙 The Moon Well</button>
 
       <div class="menuSection"><span class="hudGi" data-hudicon="s_samhain"></span>Samhain</div>
       <button class="menuRow" id="menuAncestor">🕯️ Ancestor Altar</button>
@@ -3822,6 +3836,14 @@
   </div>
   <div id="pendulumContent"></div>
   <button class="btn" id="pendulumCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+
+<div id="moonWellModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🌙 The Moon Well</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="moonWellContent"></div>
+  <button class="btn" id="moonWellCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 <div id="runeModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
