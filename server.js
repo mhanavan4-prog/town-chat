@@ -3013,7 +3013,7 @@ const { OMENS, omenFor } = require('./data/omens'); // Tier 3.5: the Scrying Bow
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
-const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES } = require('./data/ancestors'); // Tier 3.5: the Ancestor Altar (solitary Samhain rite)
+const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES, observanceForSeason } = require('./data/ancestors'); // Tier 3.5 → Wheel of the Year: the solitary seasonal observance (Samhain = the Ancestor Altar)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
 // holly_wand is excluded from the random-starter pool — it's the Holly Wood
@@ -4832,19 +4832,39 @@ function tarotSpreadView(stored) {
 // (Samhain season), whether today's rite is already kept, the active blessing,
 // the virtues on offer, the offerings the altar accepts, and the name last
 // remembered (private — echoed only to this player).
+// The live solitary observance for the current season (Samhain's Ancestor Altar
+// is the only one populated so far; the Wheel of the Year adds the rest as data
+// in data/ancestors.js). null off-season / for a sabbat with no observance yet.
+function currentObservance() {
+  let seasonKey = null; try { seasonKey = seasonWindow(Date.now()).key; } catch (e) { /* noop */ }
+  return observanceForSeason(seasonKey);
+}
 function ancestorAltarBody(player) {
   const key = player && player.accountKey;
   const acct = key && accounts[key];
-  const veilThin = (() => { try { return seasonWindow(Date.now()).key === 'samhain'; } catch (e) { return false; } })();
+  const obs = currentObservance();
+  const live = !!obs;                                   // the altar is awake only in its season
+  const hours = obs ? obs.blessingHours : ANCESTOR_BLESSING_HOURS;
+  const virtueList = obs ? obs.virtues : ANCESTOR_VIRTUES;
+  const offerList = obs ? obs.offerings : ANCESTOR_OFFERINGS;
   const b = acct && acct.ancestorBuff;
   const active = (b && b.until && b.until > Date.now()) ? { id: b.id, stat: b.stat, amount: b.amount, until: b.until } : null;
   const todayKept = !!(acct && acct.lastAncestorDay === Math.floor(Date.now() / 86400000));
-  const virtues = ANCESTOR_VIRTUES.map((v) => ({ id: v.id, name: v.name, emoji: v.emoji, line: v.line }));
+  const virtues = virtueList.map((v) => ({ id: v.id, name: v.name, emoji: v.emoji, line: v.line }));
   const offerName = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;
   const offerIcon = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].icon) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].icon) || '🕯️';
   const inv = key ? getInventory(player) : null;
-  const offerings = ANCESTOR_OFFERINGS.map((id) => ({ id, name: offerName(id), icon: offerIcon(id), have: inv ? countItemQty(inv, id) : 0 }));
-  return { veilThin, todayKept, active, virtues, offerings, lastName: (acct && acct.lastAncestorName) || '', hours: ANCESTOR_BLESSING_HOURS, now: Date.now() };
+  const offerings = offerList.map((id) => ({ id, name: offerName(id), icon: offerIcon(id), have: inv ? countItemQty(inv, id) : 0 }));
+  // Generic flavor for the one shared panel (the client falls back to its
+  // Samhain strings if these are absent, so an older client still reads fine).
+  const text = obs && obs.text
+    ? { ...obs.text, hint: String(obs.text.hint || '').replace('{hours}', String(hours)) }
+    : null;
+  return {
+    veilThin: live, todayKept, active, virtues, offerings,
+    lastName: (acct && acct.lastAncestorName) || '', hours, now: Date.now(),
+    title: obs ? obs.altarName : null, glyph: obs ? obs.glyph : null, text,
+  };
 }
 // Combined skill + gear + (during a delve run) boon contribution — the
 // single source of truth every derived stat (and the client stats panel)
@@ -14769,21 +14789,22 @@ wss.on('connection', (ws, req) => {
     }
     if (msg.type === 'ancestor_offering') {
       if (!player.accountKey) { send(ws, { type: 'ancestor_error', message: 'Log into an account to keep a forebear\'s blessing.' }); return; }
-      let isSamhain = false; try { isSamhain = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
-      if (!isSamhain) { send(ws, { type: 'ancestor_error', message: 'The veil is not thin enough. The altar wakes only at Samhain.' }); return; }
+      const obs = currentObservance();
+      if (!obs) { send(ws, { type: 'ancestor_error', message: 'The veil is not thin enough. The altar wakes only at Samhain.' }); return; }
       const today = Math.floor(Date.now() / 86400000);
       if (accounts[player.accountKey].lastAncestorDay === today) { send(ws, { type: 'ancestor_error', message: 'You have already set a place today. Keep the rite again tomorrow.' }); return; }
-      const virtue = ANCESTOR_VIRTUES.find((v) => v.id === String(msg.virtueId || ''));
+      const virtue = obs.virtues.find((v) => v.id === String(msg.virtueId || ''));
       if (!virtue) { send(ws, { type: 'ancestor_error', message: 'Name the virtue you carry forward.' }); return; }
       const offerId = String(msg.offeringId || '');
-      if (!ANCESTOR_OFFERINGS.includes(offerId)) { send(ws, { type: 'ancestor_error', message: 'The altar does not accept that.' }); return; }
+      if (!obs.offerings.includes(offerId)) { send(ws, { type: 'ancestor_error', message: 'The altar does not accept that.' }); return; }
       const inv = getInventory(player);
       if (countItemQty(inv, offerId) < 1) {
         const nm = (ITEM_CATALOG[offerId] && ITEM_CATALOG[offerId].name) || (PLANT_CATALOG[offerId] && PLANT_CATALOG[offerId].name) || offerId;
         send(ws, { type: 'ancestor_error', message: `You have no ${nm} to lay down.` }); return;
       }
       removeItemFromAccount(inv, offerId, 1);
-      const until = Date.now() + Math.round(ANCESTOR_BLESSING_HOURS * 3600000);
+      const hours = obs.blessingHours;
+      const until = Date.now() + Math.round(hours * 3600000);
       accounts[player.accountKey].ancestorBuff = { stat: virtue.stat, amount: virtue.amount, until, id: virtue.id };
       accounts[player.accountKey].lastAncestorDay = today;
       const nameRaw = String(msg.rememberName || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40);
@@ -14794,7 +14815,8 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'ancestor_state', ...ancestorAltarBody(player) });
       const forWhom = nameRaw ? ` for ${nameRaw}` : '';
-      send(ws, { type: 'toast', message: `${virtue.emoji} You set a place${forWhom} and keep the silence. ${virtue.line} (${ANCESTOR_BLESSING_HOURS}h)` });
+      const verb = (obs.text && obs.text.toast ? obs.text.toast : 'You set a place{forWhom} and keep the silence.').replace('{forWhom}', forWhom);
+      send(ws, { type: 'toast', message: `${virtue.emoji} ${verb} ${virtue.line} (${hours}h)` });
       return;
     }
 
