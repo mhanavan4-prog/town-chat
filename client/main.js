@@ -2902,7 +2902,8 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
-  if (msg.type === 'scry_reading') { lastScry = msg; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
+  if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
+  if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
@@ -10613,11 +10614,27 @@ function renderScryModal() {
   // The day's omen
   if (st.omen) h += `<div class="scryOmen"><div class="sol">The water whispers</div><div class="sot">“${esc(st.omen)}”</div></div>`;
   if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the water shows more than it should.</div>';
+  // ── The deep reading — pour a vial of moon water for a three-fold scry ──
+  const mw = (typeof st.moonWater === 'number') ? st.moonWater : 0;
+  if (st.deep && Array.isArray(st.deep.lines) && st.deep.lines.length) {
+    const labels = ['The tide behind you', 'The water now', 'The shore ahead'];
+    h += '<div class="scryDeep"><div class="sdh">💧 The water opens — a three-fold reading</div>';
+    st.deep.lines.forEach((ln, i) => {
+      h += `<div class="scryDeepRow"><div class="sdl">${esc(labels[i] || '')}</div><div class="sdt">“${esc(ln)}”</div></div>`;
+    });
+    if (st.deep.samhain) h += '<div class="scrySamhain">🕯️ The thin veil makes the reading clearer still.</div>';
+    h += '</div>';
+  }
+  h += `<button id="scryDeepBtn" class="scryDeepBtn"${mw < 1 ? ' disabled' : ''}>💧 ${st.deep ? 'Pour again' : 'Pour moon water for a deep reading'} <span class="sdbc">×${mw}</span></button>`;
+  if (mw < 1) h += '<div class="scryDeepHint">Brew moon water from a glass vial under the full moon, then pour it here.</div>';
   el.innerHTML = h;
+  const dbtn = document.getElementById('scryDeepBtn');
+  if (dbtn && mw >= 1) dbtn.addEventListener('click', () => { send({ type: 'scry_deep' }); });
 }
 function openScryModal() {
   const modal = document.getElementById('scryModal');
   if (!modal) return;
+  if (lastScry) lastScry.deep = null; // a fresh gaze — last pour's reading doesn't linger
   renderScryModal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 130);
