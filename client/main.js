@@ -1771,6 +1771,7 @@ function onWsMessage(ev) {
   if (msg.type === 'story_state') {
     storyState = msg.storyline;
     updateStoryTracker();
+    { const wm = document.getElementById('welcomeModal'); if (wm && !wm.classList.contains('hidden')) openWelcomeModal(); } // refresh its Begin button
     if (Modals.isOpen('journalOpen')) renderJournal();
     return;
   }
@@ -7705,34 +7706,44 @@ function toggleControlsModal() {
   if (el.classList.contains('hidden')) openControlsModal(); else closeControlsModal();
 }
 function maybeShowFirstRunControls() {
-  // First-ever visit: lead with the Welcome guide (the "what do I do" throughline),
-  // which then hands off to the controls reference. Returning players (who've
-  // seen the welcome) just get nothing — controls stay one keypress away (H).
-  let welcomeSeen = null, controlsSeen = null;
-  try { welcomeSeen = localStorage.getItem('tc_welcome_seen'); controlsSeen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
-  if (!welcomeSeen) { setTimeout(openWelcomeModal, 900); return; }
-  if (!controlsSeen) setTimeout(openControlsModal, 900); // let the world land first
+  // First-ever visit: ONE short welcome card (the goal, the core controls, First
+  // Steps) — it no longer hands off to the full controls sheet, which made new
+  // players click through three screens before they could move. The full sheet
+  // stays one keypress away (H / ☰ → Controls). Returning players get nothing.
+  let welcomeSeen = null;
+  try { welcomeSeen = localStorage.getItem('tc_welcome_seen'); } catch (e) {}
+  if (!welcomeSeen) setTimeout(openWelcomeModal, 900);
 }
 function openWelcomeModal() {
-  // Step 2's "talk to townsfolk" instruction, in the platform's own words:
-  // desktop players press F, touch players tap the glowing interact prompt.
-  const qd = document.getElementById('welcomeQuestDesktop');
-  const qm = document.getElementById('welcomeQuestMobile');
-  if (qd) qd.classList.toggle('hidden', MOBILE_UI);
-  if (qm) qm.classList.toggle('hidden', !MOBILE_UI);
+  // Show the control line in the platform's own words.
+  const cd = document.getElementById('welcomeCtlDesktop');
+  const cm = document.getElementById('welcomeCtlMobile');
+  if (cd) cd.classList.toggle('hidden', MOBILE_UI);
+  if (cm) cm.classList.toggle('hidden', !MOBILE_UI);
+  // Only offer "Begin Chapter 1" when there's a first chapter waiting to start.
+  const ch = storyState && storyState.chapter;
+  const canBegin = !!(storyState && !storyState.active && !storyState.complete && storyState.chapterIndex === 0 && ch && ch.levelOk !== false);
+  const start = document.getElementById('welcomeStartBtn');
+  const explore = document.getElementById('welcomeExploreBtn');
+  if (start) start.textContent = canBegin ? '📖 Begin Chapter 1 →' : 'Enter the town →';
+  if (explore) explore.classList.toggle('hidden', !canBegin);
   const el = document.getElementById('welcomeModal');
-  if (el) el.classList.remove('hidden');
+  if (el) { el.dataset.canBegin = canBegin ? '1' : ''; el.classList.remove('hidden'); }
 }
-function closeWelcomeModal(thenControls) {
+function closeWelcomeModal(beginStory) {
   const el = document.getElementById('welcomeModal');
+  const canBegin = !!(el && el.dataset.canBegin);
   if (el) el.classList.add('hidden');
-  try { localStorage.setItem('tc_welcome_seen', '1'); } catch (e) {}
-  // Offer the full controls once, right after, so new players get both the
-  // "why" (welcome) and the "how" (controls) on their first run.
-  if (thenControls) {
-    let controlsSeen = null;
-    try { controlsSeen = localStorage.getItem('tc_controls_seen'); } catch (e) {}
-    if (!controlsSeen) setTimeout(openControlsModal, 250);
+  // The welcome covers the basics, so the controls sheet counts as seen too.
+  try { localStorage.setItem('tc_welcome_seen', '1'); localStorage.setItem('tc_controls_seen', '1'); } catch (e) {}
+  if (beginStory && canBegin && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'story_begin' })); // the waypoint pin appears with the new objective
+    setTimeout(() => {
+      const t = document.getElementById('storyTracker');
+      if (!t) return;
+      t.classList.remove('trackerFlash'); void t.offsetWidth; t.classList.add('trackerFlash');
+      setTimeout(() => t.classList.remove('trackerFlash'), 2600);
+    }, 400);
   }
 }
 (function wireControlsModal() {
@@ -7758,10 +7769,11 @@ function closeWelcomeModal(thenControls) {
   document.addEventListener('webkitfullscreenchange', fsLabel);
   fsLabel();
   on('welcomeStartBtn', () => closeWelcomeModal(true));
+  on('welcomeExploreBtn', () => closeWelcomeModal(false));
   const overlay = document.getElementById('controlsModal');
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeControlsModal(); });
   const welcome = document.getElementById('welcomeModal');
-  if (welcome) welcome.addEventListener('click', (e) => { if (e.target === welcome) closeWelcomeModal(true); });
+  if (welcome) welcome.addEventListener('click', (e) => { if (e.target === welcome) closeWelcomeModal(false); });
 })();
 
 // ---------------------------------------------------------------------------
@@ -7770,6 +7782,49 @@ function closeWelcomeModal(thenControls) {
 // ---------------------------------------------------------------------------
 const chatInput = document.getElementById('chatInput');
 const chatLog = document.getElementById('chatLog');
+// Keep the left column from colliding: the chat panel grows down from the top
+// and the First Steps card grows up from the bottom, and when both were tall the
+// card covered the chat's own input. Cap the chat LOG's height (it scrolls
+// inside) so the panel always stops just above the card. Re-fit whenever either
+// one changes size or the window resizes.
+(function fitLeftColumn() {
+  const panel = document.getElementById('chatPanel');
+  const chip = document.getElementById('firstStepsChip');
+  if (!panel || !chatLog || !chip) return;
+  const GAP = 10, MIN_LOG = 56;
+  let busy = false;
+  function fit() {
+    if (busy) return; busy = true;
+    try {
+      const atBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 30;
+      chatLog.style.maxHeight = ''; chatLog.style.minHeight = ''; // back to the stylesheet, then measure
+      const chipShown = !chip.classList.contains('hidden') && !chip.classList.contains('fsMini');
+      if (panel.classList.contains('hidden') || panel.classList.contains('minimized') || !chipShown) { if (typeof setFirstStepsCompact === 'function') setFirstStepsCompact(false); return; }
+      const pr = panel.getBoundingClientRect(), cr = chip.getBoundingClientRect();
+      if (pr.right <= cr.left || cr.right <= pr.left) { setFirstStepsCompact(false); return; } // side by side: no conflict
+      const logH = chatLog.getBoundingClientRect().height;
+      const chromeH = pr.height - logH;               // header + input + padding
+      const fullH = _fsFullH || cr.height;
+      // Too short for the chat (at its smallest useful log) AND the full card?
+      // Then the card goes compact — just its title and the one next step.
+      setFirstStepsCompact((cr.bottom - pr.top) < chromeH + MIN_LOG + GAP + fullH);
+      const top = chip.getBoundingClientRect().top;
+      const allowedLog = Math.max(MIN_LOG, Math.floor(top - GAP - pr.top - chromeH));
+      if (logH > allowedLog) {
+        chatLog.style.maxHeight = allowedLog + 'px';
+        chatLog.style.minHeight = '0px'; // the stylesheet's 90px floor would otherwise win
+        if (atBottom) chatLog.scrollTop = chatLog.scrollHeight; // keep the newest line in view (unless they've scrolled up)
+      }
+    } finally { busy = false; }
+  }
+  try {
+    const ro = new ResizeObserver(() => requestAnimationFrame(fit));
+    ro.observe(chip); ro.observe(panel);
+  } catch (e) { setInterval(fit, 800); } // very old browsers: poll instead
+  window.addEventListener('resize', fit);
+  new MutationObserver(fit).observe(chip, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(fit).observe(panel, { attributes: true, attributeFilter: ['class'] });
+})();
 chatInput.addEventListener('focus', () => { typing = true; });
 chatInput.addEventListener('blur', () => { typing = false; });
 chatInput.addEventListener('keydown', (e) => {
@@ -14935,6 +14990,12 @@ function shortWhen(ts) {
 // shows for a few seconds at join, whenever a step completes, or on tap —
 // otherwise it collapses to a tiny 🏮 n/3 pill docked out of every input zone.
 let _fsExpanded = false;
+// Desktop compact mode: just the title + the one next step, used only when the
+// left column is too short for the chat and the full card together (see
+// fitLeftColumn). _fsFullH caches the full card's height so the decision is
+// stable instead of flip-flopping between modes.
+let _fsCompact = false, _fsFullH = 0;
+function setFirstStepsCompact(on) { if (on === _fsCompact) return; _fsCompact = on; renderFirstSteps(); }
 let _fsCollapseTimer = null;
 function fsSetExpanded(on, autoCollapseMs) {
   _fsExpanded = on;
@@ -14980,6 +15041,7 @@ function renderFirstSteps() {
     next.innerHTML = `<span class="fsNextLabel">👉 ${current.icon} ${current.label}</span><span class="fsNextHint">${fsHint(current.id)}</span>`;
     chip.appendChild(next);
   }
+  if (_fsCompact) { chip.classList.remove('hidden'); return; } // short window: the next step is enough
   for (const s of steps) {
     const row = document.createElement('div');
     row.className = s.done ? 'fsDone' : (current && s.id === current.id ? 'fsCur' : '');
@@ -14991,6 +15053,7 @@ function renderFirstSteps() {
   note.textContent = `Finish all ${steps.length} for ${firstStepsState.rewardGold} gold`;
   chip.appendChild(note);
   chip.classList.remove('hidden');
+  _fsFullH = chip.offsetHeight;
 }
 (function () {
   const chip = document.getElementById('firstStepsChip');
