@@ -41,6 +41,7 @@ import createMobsWilds from './mobs-wilds.js';
 import createEmberMobs from './ember-mobs.js';
 import createEmberNodes from './ember-nodes.js';
 import createDungeonMobs from './dungeon-mobs.js';
+import createCryptMobs from './crypt-mobs.js';
 import createVillageNpcs from './village-npcs.js';
 import createHumanoidBuilder from './humanoid.js';
 import { WARDROBE, resolveLook, weaponUnlock, DYES, dyeUnlock } from './wardrobe.js';
@@ -219,6 +220,7 @@ const WILDS_NPCS = [
 let DUNGEON_KIOSKS = []; // interact points in the dungeon — the exit portal, rebuilt per-entry
 const DUNGEON_WORLD = { width: 1200, height: 1200, buildings: [], spawn: { x: 600, y: 1080 } };
 let dungeonMobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, dead, initialized }
+let cryptMobVisuals = {};   // id -> { ... } the lone Crypt Warden guardian (Phase 2)
 let walls = [];           // generated collision rects, derived from world.buildings
 let players = {};         // id -> {id,name,color,x,y,room,targetX,targetY,...visual state}
 let me = null;            // convenience pointer to players[myId]
@@ -1612,6 +1614,7 @@ function onWsMessage(ev) {
     if (msg.mobs3) applyMob3State(msg.mobs3);
     if (msg.decor) applyDecorState(msg.decor);
     if (msg.dungeonMobs) { applyDungeonMobState(msg.dungeonMobs); reconcileDungeonMobVisuals(msg.dungeonMobs); }
+    if (msg.cryptMobs) applyCryptMobState(msg.cryptMobs);
     if (msg.villageNpcs) applyVillageNpcState(msg.villageNpcs);
     if (msg.torchNpcs) applyTownTorchNpcState(msg.torchNpcs);
     if (msg.torches) applyTownTorchState(msg.torches);
@@ -6595,7 +6598,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob', 'world_boss']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob', 'world_boss', 'crypt_mob']);
 
 function isValidArmedTarget(hit) {
   return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
@@ -6690,7 +6693,7 @@ function mobRenderPos(targetType, targetId) {
   const visualsMap = {
     animal: animalVisuals, mob: mobVisuals,
     animal2: animalVisuals2, mob2: mobVisuals2, mob3: mobVisuals3,
-    dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals
+    dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals, crypt_mob: cryptMobVisuals
   }[targetType];
   if (targetType === 'world_boss') { const p = worldBossVisualPos(); return p ? { x: p.x, z: p.y } : null; }
   const v = visualsMap && visualsMap[targetId];
@@ -12530,6 +12533,7 @@ function flashCreatureHit(kind, targetId) {
   else if (kind === 'animal2') v = animalVisuals2[targetId];
   else if (kind === 'dungeon') v = dungeonMobVisuals[targetId];
   else if (kind === 'ember_mob') v = emberMobVisuals[targetId];
+  else if (kind === 'crypt_mob') v = cryptMobVisuals[targetId];
   const root = v && (v.mesh || v.group); // ember mobs are humanoid (group), everything else is a bare mesh
   if (!root) return;
   root.traverse(child => {
@@ -12582,7 +12586,11 @@ const MOB2_VISUALS = {
   // The Grimoire Mimic wears a static KayKit book (no rig) — animated procedurally
   // in mobs-wilds (dormant book → spring → hopping chase). color/eyeColor are the
   // blob fallback if the model hasn't streamed in yet.
-  grimoire_mimic: { color: 0x5a3a1a, eyeColor: 0xff6a2a, scale: 1.0, propModel: 'prop_book_mimic', propSize: 40 }
+  grimoire_mimic: { color: 0x5a3a1a, eyeColor: 0xff6a2a, scale: 1.0, propModel: 'prop_book_mimic', propSize: 40 },
+  // Crypt Warden (Phase 2) — the tomb guardian. A tall armored skeleton warrior
+  // (skel_warrior rig, 2H attack) tinted cold stone-grey with a pale blue grave
+  // glow, so it reads as risen-from-the-slab rather than a Wilds bone-walker.
+  crypt_warden: { color: 0x7a8a9a, eyeColor: 0x9fe0ff, scale: 1.3, kkKey: 'skel_warrior', kkHeight: 104, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x8894a2, amt: 0.4, emissive: 0x1a3040, ei: 0.34 } }
 };
 
 // Visual data for all 32 dungeon mob types (color, eyeColor, scale match server's DUNGEON_MOB_TYPES)
@@ -12661,7 +12669,7 @@ const MOB_ATTACK_ANIM_MS = 380;
 const MOB_ATTACK_LUNGE_DIST = 16;
 function triggerMobAttackAnim(mobId) {
   if (!mobId) return;
-  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
+  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId] || cryptMobVisuals[mobId];
   if (v) v.attackAnimStartAt = performance.now();
 }
 // Flinch a struck mob — the KayKit mob drivers watch hitAnimStartAt and fire a
@@ -12669,7 +12677,7 @@ function triggerMobAttackAnim(mobId) {
 // this; mobs didn't). Resolves across every mob pool, same as the attack poke.
 function triggerMobHitAnim(mobId) {
   if (!mobId) return;
-  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId];
+  const v = mobVisuals[mobId] || mobVisuals2[mobId] || mobVisuals3[mobId] || dungeonMobVisuals[mobId] || emberMobVisuals[mobId] || cryptMobVisuals[mobId];
   if (v && !v.dead) v.hitAnimStartAt = performance.now();
 }
 // 0 -> 1 -> 0 over the animation's duration, or 0 once it's done/not attacking.
@@ -12742,6 +12750,14 @@ const { applyDungeonMobState, updateDungeonMobVisuals } = createDungeonMobs({
   getMe: () => me,
 });
 
+// Crypt guardian visuals (Phase 2) — the Crypt Warden, scoped to the crypt scene.
+const { applyCryptMobState, updateCryptMobVisuals } = createCryptMobs({
+  lerpAngle, makeMob2, kkSetState, kkOneShot, updateHealthBar, mobAttackLungeAmount, MOB_ATTACK_LUNGE_DIST,
+  getCryptScene: () => cryptScene,
+  getCryptMobVisuals: () => cryptMobVisuals,
+  getMe: () => me,
+});
+
 // ---------------------------------------------------------------------------
 // Loot icons — a clickable floating icon over any defeated mob/animal/player
 // that still has unclaimed loot (see hasLoot in wildlife_state/state,
@@ -12811,6 +12827,12 @@ function updateLootIcons() {
     const key = 'ember_mob:' + id;
     const v = emberMobVisuals[id];
     if (v.hasLoot && emberScene) showLootIcon(key, emberScene, v.x, LOOT_ICON_HEIGHT, v.y, 'ember_mob', id);
+    else hideLootIcon(key);
+  }
+  for (const id in cryptMobVisuals) {
+    const key = 'crypt_mob:' + id;
+    const v = cryptMobVisuals[id];
+    if (v.hasLoot && cryptScene && me && me.room === 'crypt') showLootIcon(key, cryptScene, v.x, LOOT_ICON_HEIGHT, v.y, 'crypt_mob', id);
     else hideLootIcon(key);
   }
   for (const id in players) {
@@ -17922,6 +17944,7 @@ function update(dt) {
   updateVillageNpcVisuals(dt);
   updateTownTorchNpcVisuals(dt);
   updateDungeonMobVisuals(dt);
+  updateCryptMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updateEmberAmbient(dt);
   if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
