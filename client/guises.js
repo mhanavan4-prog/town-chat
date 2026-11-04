@@ -160,9 +160,15 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
         });
         if (!g.children.length) return null; // asset not fully streamed yet — retry next frame
         if (spec.center) {
-          const box = new THREE.Box3().setFromObject(g);
-          const c = box.getCenter(new THREE.Vector3());
-          for (const m of g.children) m.position.sub(c); // centre the head on the socket origin
+          // Anchor the head on the SOURCE character's own head bone, so it mounts
+          // on the wearer's head bone exactly as it sits on the body. Centring on
+          // the head's geometric middle instead dropped it into the chest (the
+          // middle of a head is well below where the neck joins it).
+          src.updateMatrixWorld(true);
+          let anchor = null;
+          src.traverse((o) => { if (!anchor && o.name === 'head') anchor = o.getWorldPosition(new THREE.Vector3()); });
+          if (!anchor) { const box = new THREE.Box3().setFromObject(g); anchor = box.getCenter(new THREE.Vector3()); } // fallback
+          for (const m of g.children) m.position.sub(anchor);
         }
       } else {
         const inst = src.clone(true);
