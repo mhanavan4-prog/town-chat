@@ -92,7 +92,7 @@ const CLASSES = [
   },
   {
     id: 4, key: 'wanderer', name: 'Wanderer', model: 'kk/Rogue.glb',
-    tagline: 'Unleashes a dozen wandering skills.',
+    tagline: 'Unleashes fifteen wandering skills.',
     blurb: 'The road-worn traveller: thrown blades, stealth, pickpocketing, and a spyglass into any room in town.',
     abilities: [
       { icon: '🔪', name: 'Knife Throw', description: 'A travel-worn blade thrown hard and true — real damage to players, animals, and mobs alike.' },
