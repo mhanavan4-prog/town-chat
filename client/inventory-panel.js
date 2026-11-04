@@ -285,6 +285,29 @@ function selectInvSlot(idx) {
     note.textContent = "Can't be equipped — visit the Bank to deposit or auction it.";
     buttons.appendChild(note);
   }
+  // 🗑️ Destroy — always available, so a full satchel can always be cleared. Two
+  // taps to confirm (and it disarms itself after a moment) so a stack is never
+  // binned by a stray click.
+  {
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn invDestroyBtn';
+    let armed = false, armTimer = null;
+    const disarm = () => { armed = false; delBtn.textContent = '🗑️ Destroy'; delBtn.classList.remove('armed'); if (armTimer) { clearTimeout(armTimer); armTimer = null; } };
+    disarm();
+    delBtn.addEventListener('click', () => {
+      if (!armed) {
+        armed = true;
+        delBtn.textContent = `🗑️ Destroy all ${slot.qty}? Tap again`;
+        delBtn.classList.add('armed');
+        armTimer = setTimeout(disarm, 3000);
+        return;
+      }
+      disarm();
+      const err = document.getElementById('invModalErr'); if (err) err.textContent = '';
+      getWs().send(JSON.stringify({ type: 'destroy_item', slotIdx: idx }));
+    });
+    buttons.appendChild(delBtn);
+  }
   panel.classList.remove('hidden');
   // The action panel sits below the item grid, so its button can land below the
   // fold — a hidden "Build Holly Wand" button confused a tester into thinking

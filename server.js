@@ -12897,6 +12897,26 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── Destroy an inventory stack — free a slot when the satchel is full. The
+    // client two-taps to confirm; the server just bins the stack at slotIdx (or a
+    // qty of it). Only touches unequipped pack slots, never worn gear or the bank.
+    if (msg.type === 'destroy_item') {
+      if (!player.accountKey) { send(ws, { type: 'use_error', message: 'Log into an account to manage your satchel.' }); return; }
+      const inv = getInventory(player);
+      const slotIdx = Math.floor(Number(msg.slotIdx));
+      const stack = inv.slots[slotIdx];
+      if (!stack) { send(ws, { type: 'use_error', message: 'Nothing there to destroy.' }); return; }
+      const itemId = stack.itemId;
+      let qty = Math.floor(Number(msg.qty));
+      if (!(qty >= 1) || qty > stack.qty) qty = stack.qty; // default / clamp: the whole stack
+      const name = (ITEM_CATALOG[itemId] && ITEM_CATALOG[itemId].name) || (PLANT_CATALOG[itemId] && PLANT_CATALOG[itemId].name) || itemId;
+      removeItemFromAccount(inv, itemId, qty);
+      saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'use_result', message: `🗑️ Discarded ${qty}× ${name}.` });
+      return;
+    }
+
     if (msg.type === 'cast_attack') {
       const catalog = ATTACK_CATALOGS[player.charId];
       if (!catalog) {
