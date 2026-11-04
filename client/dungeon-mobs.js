@@ -8,6 +8,8 @@
 // LEGEND_FX are globals; the data tables + helpers are injected by reference.
 // ---------------------------------------------------------------------------
 export default function createDungeonMobs({ DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getActiveScene, getDungeonScene, getDungeonMobVisuals, getMe }) {
+// How long a slain mob's death collapse lingers before it's hidden.
+const MOB_DEATH_VIS_MS = 1100;
 // Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
 // reads as a rot-green wight) + a dim flavour emissive. Bodies from
 // createKayKitByKey have per-instance cloned materials, so this is safe.
@@ -203,6 +205,11 @@ function applyDungeonMobState(list) {
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
     v.room = m.room;
+    // Stamp death (alive -> dead) for the collapse timer; clear + restore blob
+    // scale on respawn (dead -> alive).
+    if (m.dead && v._wasDead === false) v.deathAt = performance.now();
+    else if (!m.dead && v._wasDead) { v.deathAt = 0; if (v._baseScale != null) v.mesh.scale.setScalar(v._baseScale); }
+    v._wasDead = !!m.dead;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -242,6 +249,14 @@ function updateDungeonMobVisuals(dt) {
       // the mixer globally.
       const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
       const now = performance.now();
+      if (v.dead) {
+        // Death collapse — play the fall (clamps on its final frame), then hide.
+        if (kkSetState) kkSetState(v.kk, 'Death_A');
+        v.mesh.position.set(v.x, 0, v.y);
+        v.mesh.rotation.y = v.facing;
+        v.mesh.visible = inDungeon && getMe() && v.room === getMe().room && (now - (v.deathAt || 0) < MOB_DEATH_VIS_MS);
+        continue;
+      }
       if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
         v._lastAtkFired = v.attackAnimStartAt;
         if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
@@ -266,6 +281,16 @@ function updateDungeonMobVisuals(dt) {
       continue;
     }
 
+    if (v.dead) {
+      // Blob death — crumble: shrink and sink into the ground, then hide.
+      if (v._baseScale == null) v._baseScale = v.mesh.scale.x || 1;
+      const t = Math.min(1, (performance.now() - (v.deathAt || 0)) / MOB_DEATH_VIS_MS);
+      v.mesh.scale.setScalar(v._baseScale * Math.max(0.02, 1 - t * t));
+      v.mesh.position.set(v.x, -t * 12, v.y);
+      v.mesh.rotation.x = 0;
+      v.mesh.visible = inDungeon && getMe() && v.room === getMe().room && t < 1;
+      continue;
+    }
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, 0, v.y + Math.cos(v.facing) * lungeDist);

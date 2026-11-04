@@ -8,6 +8,8 @@
 // ---------------------------------------------------------------------------
 export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
 const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
+// How long a slain mob's death collapse lingers before it's hidden.
+const MOB_DEATH_VIS_MS = 1100;
 
 // Ember-scorch a KayKit skeleton: multiply the bone-white materials toward the
 // type's ember hue and give them a dim molten emissive so they read as risen
@@ -79,6 +81,11 @@ function applyEmberMobState(list) {
     const v = getOrCreateEmberMobVisual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
+    // Stamp death (alive -> dead) for the collapse timer; clear + restore the
+    // humanoid scale on respawn (dead -> alive).
+    if (m.dead && v._wasDead === false) v.deathAt = performance.now();
+    else if (!m.dead && v._wasDead) { v.deathAt = 0; if (v._baseScale != null) v.group.scale.setScalar(v._baseScale); }
+    v._wasDead = !!m.dead;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.group.getObjectByName('healthBar');
@@ -132,6 +139,14 @@ function updateEmberMobVisuals(dt) {
     // the mixer globally) instead of hand-rotating limbs. ──
     if (v.isKK) {
       const now = performance.now();
+      if (v.dead) {
+        // Death collapse — play the fall (clamps on its final frame), then hide.
+        if (kkSetState) kkSetState(v.kk, 'Death_A');
+        v.group.position.set(v.x, groundY(v.x, v.y), v.y);
+        v.group.rotation.y = v.facing;
+        v.group.visible = (now - (v.deathAt || 0) < MOB_DEATH_VIS_MS);
+        continue;
+      }
       // A fresh attack (server stamped attackAnimStartAt) fires a one-shot swing.
       if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
         v._lastAtkFired = v.attackAnimStartAt;
@@ -159,6 +174,15 @@ function updateEmberMobVisuals(dt) {
       continue;
     }
 
+    if (v.dead) {
+      // Humanoid death — crumble: shrink and sink into the ash, then hide.
+      if (v._baseScale == null) v._baseScale = v.group.scale.x || 1;
+      const t = Math.min(1, (performance.now() - (v.deathAt || 0)) / MOB_DEATH_VIS_MS);
+      v.group.scale.setScalar(v._baseScale * Math.max(0.02, 1 - t * t));
+      v.group.position.set(v.x, groundY(v.x, v.y) - t * 12, v.y);
+      v.group.visible = t < 1;
+      continue;
+    }
     const atk = mobAttackLungeAmount(v);
     const moving = actualSpeed > 4;
     if (atk === 0) v.walkPhase += dt * actualSpeed * MOB_WALK_RADIANS_PER_UNIT;

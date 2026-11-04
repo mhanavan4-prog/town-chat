@@ -11,6 +11,8 @@ export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, l
 // flat y=0 plane (without this, hovering mobs sink beneath raised ground and
 // walkers float over valleys). v.x is world-x, v.y is world-z.
 function groundUnder(x, z) { const fn = getWildsHeightAt && getWildsHeightAt(); return (typeof fn === 'function') ? fn(x, z) : 0; }
+// How long a slain mob's death collapse lingers before it's hidden.
+const MOB_DEATH_VIS_MS = 1100;
 function addMobs2(scene) {
   for (const id in getMobVisuals2()) scene.remove(getMobVisuals2()[id].mesh);
   setMobVisuals2({});
@@ -36,6 +38,11 @@ function applyMob2State(list) {
     const v = getOrCreateMob2Visual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
+    // Stamp death (alive -> dead) so the driver can time the collapse; clear it
+    // and restore any blob scale on respawn (dead -> alive).
+    if (m.dead && v._wasDead === false) v.deathAt = performance.now();
+    else if (!m.dead && v._wasDead) { v.deathAt = 0; if (v._baseScale != null) v.mesh.scale.setScalar(v._baseScale); }
+    v._wasDead = !!m.dead;
     v.hidden = !!m.hidden; // buried Barrow Maw / dormant Old Marrowe
     // Grimoire Mimic: visible-but-dormant (a book) until it springs. Stamp the
     // moment it wakes so the driver can pop it open.
@@ -65,6 +72,14 @@ function updateMob2Visuals(dt) {
       // Animated KayKit body: drive the shared-rig clips instead of the blob
       // lunge-tilt. KK.tick advances the mixer globally.
       const now = performance.now();
+      if (v.dead) {
+        // Death collapse — play the fall (clamps on its final frame), then hide.
+        if (kkSetState) kkSetState(v.kk, 'Death_A');
+        v.mesh.position.set(v.x, hover, v.y);
+        v.mesh.rotation.y = v.facing;
+        v.mesh.visible = getLastWildlifeIsNight() && !v.hidden && (now - (v.deathAt || 0) < MOB_DEATH_VIS_MS);
+        continue;
+      }
       if (v.attackAnimStartAt != null && v.attackAnimStartAt !== v._lastAtkFired) {
         v._lastAtkFired = v.attackAnimStartAt;
         if (v.kkAttack && kkOneShot) kkOneShot(v.kk, v.kkAttack);
@@ -93,6 +108,16 @@ function updateMob2Visuals(dt) {
       continue;
     }
 
+    if (v.dead) {
+      // Blob/prop death — crumble: shrink and sink into the ground, then hide.
+      if (v._baseScale == null) v._baseScale = v.mesh.scale.x || 1;
+      const t = Math.min(1, (performance.now() - (v.deathAt || 0)) / MOB_DEATH_VIS_MS);
+      v.mesh.scale.setScalar(v._baseScale * Math.max(0.02, 1 - t * t));
+      v.mesh.position.set(v.x, hover - t * 12, v.y);
+      v.mesh.rotation.x = 0;
+      v.mesh.visible = getLastWildlifeIsNight() && !v.hidden && t < 1;
+      continue;
+    }
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
     let bobY = 0, tilt = -0.5 * lungeFactor, popScale = 1;
