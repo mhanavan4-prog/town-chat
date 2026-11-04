@@ -4908,6 +4908,34 @@ function runeFutharkBody(player) {
   });
   return { aetts, carved: fu.carved.length, total: RUNES.length, done: !!fu.done };
 }
+// ── The Moon Well (reagent economy): the one place to draw moon water. Under a
+// full (or blood) moon a witch catches a glass vial of it from the well; a
+// blood-moon draw fills the vial twice over. A nightly cap keeps moon water a
+// reagent, not a second gold. The well also names moon water's sinks so the whole
+// little loop (gold → vial → moon water → gentle magic) is visible in one place.
+const MOON_WELL_NIGHTLY_CAP = 5;
+function moonWellDrawsLeft(a, today) {
+  if (!a) return 0;
+  const used = (a.lastMoonDrawDay === today) ? (a.moonDrawsToday || 0) : 0;
+  return Math.max(0, MOON_WELL_NIGHTLY_CAP - used);
+}
+function moonWellBody(player) {
+  const now = Date.now();
+  const m = moonPhaseWindow(now);
+  const a = player.accountKey ? accounts[player.accountKey] : null;
+  const inv = player.accountKey ? getInventory(player) : null;
+  const today = Math.floor(now / 86400000);
+  const vials = inv ? countItemQty(inv, 'glass_vial') : 0;
+  const water = inv ? countItemQty(inv, 'moon_water') : 0;
+  const open = !!m.isFull; // the well yields only at the full (or blood) moon
+  const left = a ? moonWellDrawsLeft(a, today) : 0;
+  return {
+    moonKey: m.key, moonName: m.name, moonGlyph: m.glyph, isFull: m.isFull, isBlood: !!m.isBlood,
+    open, perDraw: m.isBlood ? 2 : 1, drawsLeft: left, nightlyCap: MOON_WELL_NIGHTLY_CAP,
+    vials, water, nextFullAt: m.nextFullAt, now,
+    canDraw: !!(a && open && vials >= 1 && left > 0),
+  };
+}
 // 🕯️ The Ancestor Altar's live state for one player: whether the veil is thin
 // (Samhain season), whether today's rite is already kept, the active blessing,
 // the virtues on offer, the offerings the altar accepts, and the name last
@@ -14748,6 +14776,38 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── The Moon Well (reagent economy): peek the well's live state, and draw
+    // moon water from it under the full moon (one glass vial → one moon water,
+    // ×2 under a blood moon), capped per night so it stays a reagent. ──
+    if (msg.type === 'moon_well_state') {
+      send(ws, { type: 'moon_well_state', ...moonWellBody(player) });
+      return;
+    }
+    if (msg.type === 'moon_well_draw') {
+      if (!player.accountKey) { send(ws, { type: 'toast', message: '🌙 Log into an account to draw from the well.' }); return; }
+      const now = Date.now();
+      const m = moonPhaseWindow(now);
+      const refresh = () => send(ws, { type: 'moon_well_state', ...moonWellBody(player) });
+      if (!m.isFull) { send(ws, { type: 'toast', message: '🌙 The well yields only under the full moon. Come back when it rises.' }); refresh(); return; }
+      const a = accounts[player.accountKey];
+      const today = Math.floor(now / 86400000);
+      if (moonWellDrawsLeft(a, today) <= 0) { send(ws, { type: 'toast', message: `🌙 You've drawn your fill tonight — the well rests till the next full moon.` }); refresh(); return; }
+      const inv = getInventory(player);
+      if (countItemQty(inv, 'glass_vial') < 1) { send(ws, { type: 'toast', message: '🌙 You need an empty glass vial to catch the moon water — the apothecary stocks them.' }); refresh(); return; }
+      const want = m.isBlood ? 2 : 1;
+      let got = 0;
+      for (let i = 0; i < want; i++) { if (addItemToAccount(inv, 'moon_water', 1)) got++; else break; }
+      if (got === 0) { send(ws, { type: 'toast', message: '🌙 Your satchel is full — clear a slot for the moon water.' }); refresh(); return; }
+      removeItemFromAccount(inv, 'glass_vial', 1);
+      if (a.lastMoonDrawDay !== today) { a.lastMoonDrawDay = today; a.moonDrawsToday = 0; }
+      a.moonDrawsToday = (a.moonDrawsToday || 0) + 1;
+      saveAccounts(); saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      refresh();
+      send(ws, { type: 'toast', message: m.isBlood ? `🔴 The blood moon fills your vial twice over — +${got} moon water.` : `🌙 You draw a vial of moon water from the well. +${got} moon water.` });
+      return;
+    }
+
     // ── Rune casting — the daily three-stave cast (Root · Crossing · Outcome),
     // stable per UTC day like the tarot. The runes fall true (no merkstave) while
     // the veil of Samhain is thin.
@@ -16308,6 +16368,7 @@ global.__testHooks = {
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
+  moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)
 
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,

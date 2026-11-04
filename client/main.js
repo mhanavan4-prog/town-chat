@@ -2910,6 +2910,7 @@ function onWsMessage(ev) {
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'pendulum_reading') { lastPendulum = msg; if (Modals.isOpen('pendulumOpen')) renderPendulumModal(); return; }
+  if (msg.type === 'moon_well_state') { lastMoonWell = msg; if (Modals.isOpen('moonWellOpen')) renderMoonWellModal(); return; }
   if (msg.type === 'rune_result') {
     if (msg.futhark) _lastFuthark = msg.futhark; // The Futhark (the rune codex)
     if (!msg.peek || (msg.cast && msg.cast.length)) lastRunes = msg;
@@ -3811,6 +3812,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('scryModal'),       document.querySelector('#scryModal .floatPanelHandle'));
   makeDraggable(document.getElementById('pendulumModal'),   document.querySelector('#pendulumModal .floatPanelHandle'));
   makeDraggable(document.getElementById('runeModal'),       document.querySelector('#runeModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('moonWellModal'),   document.querySelector('#moonWellModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
   makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bonfireModal'),    document.querySelector('#bonfireModal .floatPanelHandle'));
@@ -7060,6 +7062,8 @@ function hydrateMenuRows() {
   on('pendulumCloseBtn', closePendulumModal);
   on('menuRunes', closeSheetAnd(() => { if (!Modals.isOpen('runeOpen')) openRuneModal(); }));
   on('runeCloseBtn', closeRuneModal);
+  on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
+  on('moonWellCloseBtn', closeMoonWellModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('showcaseCloseBtn', closeShowcaseModal);
@@ -10793,6 +10797,50 @@ function closeRuneModal() {
   const modal = document.getElementById('runeModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('runeOpen', false);
+}
+
+// ── The Moon Well — draw moon water under the full moon, and see its uses ────
+let lastMoonWell = null;
+function renderMoonWellModal() {
+  const el = document.getElementById('moonWellContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  const st = lastMoonWell;
+  let h = '<div class="mwGaze">Still water under a full moon catches the light and keeps it. Bring an empty glass vial and draw — moon water for the gentle magics.</div>';
+  if (st) {
+    h += `<div class="mwMoon"><span class="mwGlyph">${esc(st.moonGlyph || '🌙')}</span> <b>${esc(st.moonName || '')}</b>${st.isBlood ? ' <span class="mwBlood">· blood moon</span>' : ''}</div>`;
+    h += `<div class="mwHold">You carry <b>${st.vials}</b> glass vial${st.vials === 1 ? '' : 's'} and <b>${st.water}</b> moon water.</div>`;
+    if (st.open) {
+      const label = st.isBlood ? 'Draw moon water (×2 tonight)' : 'Draw moon water';
+      h += `<button class="mwDraw" id="mwDrawBtn"${st.canDraw ? '' : ' disabled'}>🌙 ${esc(label)}</button>`;
+      if (st.vials < 1) h += '<div class="mwNote">You need an empty glass vial — the apothecary stocks them for 6🪙.</div>';
+      else if (st.drawsLeft <= 0) h += '<div class="mwNote">You\'ve drawn your fill tonight. The well rests till the next full moon.</div>';
+      else h += `<div class="mwNote">The well is brimming — <b>${st.drawsLeft}</b> of ${st.nightlyCap} draws left tonight.</div>`;
+    } else {
+      h += `<div class="mwClosed">The well sleeps until the full moon${st.nextFullAt ? ` — about <b>${scryDur(st.nextFullAt - (st.now || Date.now()))}</b> away` : ''}.</div>`;
+    }
+  }
+  h += '<div class="mwUses"><div class="mwUsesHead">What moon water is for</div>'
+    + '<div class="mwUse"><span>🪞</span> A deeper scrying — a longer, truer omen at the bowl.</div>'
+    + '<div class="mwUse"><span>🌙</span> The Moonwell Draught — moon water + 2 healing herb, the strongest heal there is.</div>'
+    + '<div class="mwUse"><span>🕯️</span> The altar — the full moon\'s blessing lifts a rite\'s alignment.</div></div>';
+  el.innerHTML = h;
+  const btn = document.getElementById('mwDrawBtn');
+  if (btn && st && st.canDraw) btn.addEventListener('click', () => { btn.disabled = true; send({ type: 'moon_well_draw' }); });
+}
+function openMoonWellModal() {
+  const modal = document.getElementById('moonWellModal');
+  if (!modal) return;
+  renderMoonWellModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 400, 130);
+  Modals.set('moonWellOpen', true);
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moon_well_state' }));
+}
+function closeMoonWellModal() {
+  const modal = document.getElementById('moonWellModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('moonWellOpen', false);
 }
 
 // ── Witch path picker ───────────────────────────────────────────────────────
@@ -17589,6 +17637,11 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('runeOpen') && e.key === 'Escape' && !e.repeat) {
     closeRuneModal();
+    if (window.__fromMenu) backToMenu();
+    return;
+  }
+  if (Modals.isOpen('moonWellOpen') && e.key === 'Escape' && !e.repeat) {
+    closeMoonWellModal();
     if (window.__fromMenu) backToMenu();
     return;
   }
