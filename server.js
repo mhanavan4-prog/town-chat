@@ -3670,7 +3670,8 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
     animal2: { list: animals2, room: 'wilds', respawnMs: ANIMAL2_RESPAWN_MS },
     mob2: { list: mobs2, room: 'wilds', respawnMs: MOB2_RESPAWN_MS },
     mob3: { list: mobs3, room: 'wilds', respawnMs: MOB3_RESPAWN_MS },
-    ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS }
+    ember_mob: { list: emberMobs, room: 'ember_wastes', respawnMs: EMBER_MOB_RESPAWN_MS },
+    crypt_mob: { list: cryptMobs, room: 'crypt', respawnMs: CRYPT_GUARDIAN_RESPAWN_MS }
   };
   const poolInfo = POOLS[targetType];
   if (!poolInfo || player.room !== poolInfo.room) return { ok: false };
@@ -3718,6 +3719,20 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       t.lootKillerId = t.pendingLoot.length ? player.id : null;
       if (preset.elite) broadcastAll({ type: 'announce', message: `🌒 ${player.name} felled ${preset.name} beneath the Blood Moon!` });
       return { ok: true, dead: true, dmg, name: preset.name, xp, lootHint: t.pendingLoot.length ? '  Loot is on the body — go claim it!' : '' };
+    }
+    if (targetType === 'crypt_mob') {
+      // The crypt guardian — a tomb mini-boss. Pays its own (generous) XP and
+      // drops the clear-it haul on its body; reuses the mob2 kill-credit shape.
+      const preset = MOB2_TYPES[t.mobType];
+      const xp = preset.xp || 60;
+      grantXP(player, xp);
+      advanceQuestProgress(player, 'kill_mob', null);
+      advanceQuestProgress(player, 'kill_creature', t.mobType);
+      riteCredit(player, 'kill_creature', t.mobType, 1);
+      storyEvent(player, 'kill_mob', { pool: 'crypt_mob', mobType: t.mobType });
+      t.pendingLoot = rollPendingLoot(LOOT_TABLES[t.mobType] || LOOT_TABLES.barrow_wight);
+      t.lootKillerId = t.pendingLoot.length ? player.id : null;
+      return { ok: true, dead: true, dmg, name: preset.name, xp, lootHint: t.pendingLoot.length ? '  Grave-goods lie on the Warden — claim them!' : '' };
     }
     if (targetType === 'mob3') {
       const preset = MOB3_TYPES[t.mobType];
@@ -7233,6 +7248,7 @@ setInterval(() => {
   lastWildlifeTick = now;
   tickWildlife(dt);
   tickWilds(dt);
+  tickCrypt(dt);
   tickWorldBoss(dt);
   tickVillageNpcs(dt);
   tickDungeon(dt);
@@ -7260,13 +7276,14 @@ setInterval(() => {
   // Wilds) this skips rebuilding the Ember Wastes', the dungeons' and the
   // unused zones' arrays 6-7×/second — the pools are only ever read for an
   // occupied room anyway (see wildlifeFor), so an unused one stays EMPTY.
-  let hasOutside = false, hasWilds = false, hasEmber = false, hasDungeon = false;
+  let hasOutside = false, hasWilds = false, hasEmber = false, hasDungeon = false, hasCrypt = false;
   for (const p of players.values()) {
     const r = p.room;
     if (r === 'outside') hasOutside = true;
     else if (r === 'wilds') hasWilds = true;
     else if (r === 'ember_wastes') hasEmber = true;
     else if (r && r.startsWith('dungeon_')) hasDungeon = true;
+    else if (r === 'crypt') hasCrypt = true;
   }
   const P = {
     animals: hasOutside ? animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })) : EMPTY,
@@ -7290,18 +7307,20 @@ setInterval(() => {
     torches: hasOutside ? townTorchPublicState() : EMPTY,
     ember: hasEmber ? emberMobs.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: EMBER_MOB_TYPES[m.mobType].maxHealth, dead: m.dead, boss: !!m.boss, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
     emberNodes: hasEmber ? emberNodeStates(now) : EMPTY,
+    crypt: hasCrypt ? cryptMobs.map(cryptMobPublic) : EMPTY,
     worldBoss: hasWilds ? worldBossPublic() : null // null unless a world boss is up in the Wilds
   };
   const wildlifeFor = (room) => {
     const o = {
       type: 'wildlife_state', isNight, groundTraps: traps, templePortalOpen: portalOpen,
       animals: EMPTY, mobs: EMPTY, animals2: EMPTY, mobs2: EMPTY, mobs3: EMPTY,
-      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, emberNodes: EMPTY, worldBoss: null, minions: EMPTY
+      dungeonMobs: EMPTY, villageNpcs: EMPTY, torchNpcs: EMPTY, torches: EMPTY, emberMobs: EMPTY, emberNodes: EMPTY, cryptMobs: EMPTY, worldBoss: null, minions: EMPTY
     };
     if (room === 'outside') { o.animals = P.animals; o.mobs = P.mobs; o.villageNpcs = P.village; o.torchNpcs = P.torchNpcs; o.torches = P.torches; }
     else if (room === 'wilds') { o.animals2 = P.animals2; o.mobs2 = P.mobs2; o.mobs3 = P.mobs3; o.worldBoss = P.worldBoss; }
     else if (room && room.startsWith('dungeon_')) { o.dungeonMobs = P.dungeon.filter(m => m.room === room); }
     else if (room === 'ember_wastes') { o.emberMobs = P.ember; o.emberNodes = P.emberNodes; }
+    else if (room === 'crypt') { o.cryptMobs = P.crypt; }
     o.minions = minionsInRoom(room); // the Necromancer's undead live in whatever room their summoner is in
     return o;
   };
@@ -8307,6 +8326,78 @@ const WITCH_CAVE_SPAWN = { x: 400, y: 450 };
 // (No fixed entrance: the client only offers the door when you're beside a
 // crypt, and you exit back to wherever you went in, stored per-player.)
 const CRYPT_SPAWN = { x: 320, y: 470 };
+
+// ── Crypt Warden (Phase 2) — the tomb's guardian ────────────────────────────
+// One mini-boss stands at the sarcophagus of the shared crypt room, dormant at
+// its post until a delver strays within wakeRange, then it gives chase. Lives
+// in its own tiny pool (not the Wilds mobs2), ticked by tickCrypt, fought
+// through the 'crypt_mob' strike/loot pool, and respawns a while after it falls
+// so the next visitor faces it too. Coords are in the crypt room's own 640×560
+// space; the sarcophagus sits at (320, 250) (see client/crypt-scene.js), north
+// of the (320,470) entrance spawn so you see the Warden before you reach it.
+const CRYPT_GUARDIAN_RESPAWN_MS = 90 * 1000;
+const CRYPT_DIMS = { width: 640, height: 560 };
+const cryptMobs = [{
+  id: 'crypt_warden_0', mobType: 'crypt_warden', room: 'crypt',
+  spawnX: 320, spawnY: 250, x: 320, y: 250,
+  facing: Math.PI, // facing south, toward whoever climbs in
+  health: MOB2_TYPES.crypt_warden.maxHealth, dead: false, respawnAt: 0,
+  lastHitAt: 0, awake: false,
+  pendingLoot: null, lootKillerId: null,
+}];
+function nearestCryptPlayer(x, y) {
+  let best = null, bestD = Infinity;
+  for (const p of players.values()) {
+    if (p.room !== 'crypt' || p.isDead) continue;
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return { player: best, dist: bestD };
+}
+function tickCrypt(dt) {
+  const now = Date.now();
+  const margin = 46;
+  for (const m of cryptMobs) {
+    if (m.dead) {
+      if (now >= m.respawnAt) {
+        m.dead = false; m.health = MOB2_TYPES[m.mobType].maxHealth;
+        m.x = m.spawnX; m.y = m.spawnY; m.facing = Math.PI; m.awake = false;
+        m.pendingLoot = null; m.lootKillerId = null;
+      }
+      continue;
+    }
+    const preset = MOB2_TYPES[m.mobType];
+    const { player: nearestP, dist } = nearestCryptPlayer(m.x, m.y);
+    if (!nearestP) { m.awake = false; continue; } // crypt emptied — settle back to post
+    // Stand guard until a delver strays close, then stay roused until it dies.
+    if (!m.awake) {
+      if (dist < (preset.wakeRange || 180)) m.awake = true;
+      else continue;
+    }
+    if (dist > preset.strikeRange) {
+      const inv = dist > 0.01 ? 1 / dist : 0;
+      const vx = (nearestP.x - m.x) * inv * preset.speed;
+      const vy = (nearestP.y - m.y) * inv * preset.speed;
+      const nx = m.x + vx * dt, ny = m.y + vy * dt;
+      if (nx > margin && nx < CRYPT_DIMS.width - margin) m.x = nx;
+      if (ny > margin && ny < CRYPT_DIMS.height - margin) m.y = ny;
+      m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
+    } else {
+      m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
+      if (now - m.lastHitAt >= preset.hitCooldownMs) {
+        const dmgRaw = preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1));
+        creatureStrike(m, preset, nearestP, now, dmgRaw); // sends 'struck'/'you_died' with mobId → drives the attack lunge
+      }
+    }
+  }
+}
+function cryptMobPublic(m) {
+  return {
+    id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing,
+    health: m.health, maxHealth: MOB2_TYPES[m.mobType].maxHealth,
+    dead: m.dead, dormant: !m.awake, hasLoot: !!(m.pendingLoot && m.pendingLoot.length),
+  };
+}
 
 // ── The Coven Manor (Session N) ─────────────────────────────────────────────
 // An 8-bedroom mansion that stands in the Wilds of a COVEN'S PRIVATE WORLD (only
@@ -12400,7 +12491,7 @@ wss.on('connection', (ws, req) => {
       // handler above — distance alone isn't enough, since e.g. dungeon
       // tiers and building interiors can share overlapping coordinate
       // ranges despite being different rooms entirely.
-      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', mob3: 'wilds', animal2: 'wilds', ember_mob: 'ember_wastes' };
+      const LOOT_ROOMS = { mob: 'outside', mob2: 'wilds', mob3: 'wilds', animal2: 'wilds', ember_mob: 'ember_wastes', crypt_mob: 'crypt' };
       let t = null;
       if (targetType === 'player') {
         t = players.get(targetId) || null;
@@ -12412,7 +12503,7 @@ wss.on('connection', (ws, req) => {
         if (t && t.room !== player.room) t = null;
       } else if (LOOT_ROOMS[targetType]) {
         if (player.room === LOOT_ROOMS[targetType]) {
-          const pool = { mob: mobs, mob2: mobs2, mob3: mobs3, animal2: animals2, ember_mob: emberMobs }[targetType];
+          const pool = { mob: mobs, mob2: mobs2, mob3: mobs3, animal2: animals2, ember_mob: emberMobs, crypt_mob: cryptMobs }[targetType];
           t = pool.find(x => x.id === targetId) || null;
         }
       }

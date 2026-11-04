@@ -246,6 +246,17 @@ const LOOT_TABLES = {
     { itemId: 'dread_helm',     qty: 1, chance: 0.10 },
     { itemId: 'cursed_blade',   qty: 1, chance: 0.08 },
   ],
+  // Crypt Warden — the tomb-guardian mini-boss. A generous "you cleared it"
+  // haul: guaranteed grave-treasure + gold every time, with a real shot at a
+  // gem or a piece of gear so a crypt run always feels worth the fight.
+  crypt_warden: [
+    { itemId: 'shadow_essence', qty: 2, chance: 1.00 },
+    { itemId: 'bone_shard',     qty: 2, chance: 0.80 },
+    { gold: true, min: 22, max: 48, chance: 1.00 },
+    { itemId: 'enchanted_gem',  qty: 1, chance: 0.35 },
+    { itemId: 'silver_ring',    qty: 1, chance: 0.15 },
+    { itemId: 'iron_sword',     qty: 1, chance: 0.10 },
+  ],
   // Dungeon keyed by xp tier
   dungeon_t1: [ // xp=8
     { itemId: 'bone_shard',  qty: 1, chance: 0.55 },

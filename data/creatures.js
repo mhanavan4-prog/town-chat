@@ -32,7 +32,14 @@ const MOB2_TYPES = {
   // A mid-tier undead risen from the barrows — relentless melee, a notch tougher
   // than the Night Howler but no elite. Uses the recolored base blob (no rig).
   barrow_wight:{ name: 'Barrow Wight', color: 0x6a7a6a, scale: 1.1, maxHealth: 60, speed: 46, aggroRadius: 210, strikeRange: 52, dmgMin: 9, dmgMax: 14, hitCooldownMs: 1700, xp: 18 },
-  old_marrowe: { name: 'Old Marrowe, the Gallows Warden', color: 0x8a3a2a, scale: 1.7, maxHealth: 340, speed: 34, aggroRadius: 240, strikeRange: 62, dmgMin: 18, dmgMax: 28, hitCooldownMs: 2000, xp: 220, elite: true, bloodMoonOnly: true }
+  old_marrowe: { name: 'Old Marrowe, the Gallows Warden', color: 0x8a3a2a, scale: 1.7, maxHealth: 340, speed: 34, aggroRadius: 240, strikeRange: 62, dmgMin: 18, dmgMax: 28, hitCooldownMs: 2000, xp: 220, elite: true, bloodMoonOnly: true },
+  // Crypt Warden — the tomb's guardian. NOT part of the Wilds spawn table
+  // (never in MOB2_SPAWNS); it lives only in the instanced crypt room, one per
+  // crypt, handled by the dedicated cryptMobs pool + tickCrypt. Stats sit a
+  // notch under Old Marrowe: a tanky mini-boss a mid-level delver can solo but
+  // not shrug off. `wakeRange` is how close you must come before it stirs from
+  // its post at the sarcophagus and gives chase.
+  crypt_warden: { name: 'Crypt Warden', color: 0x7a8a9a, scale: 1.3, maxHealth: 210, speed: 44, aggroRadius: 320, strikeRange: 58, dmgMin: 12, dmgMax: 20, hitCooldownMs: 1850, xp: 90, guardian: true, wakeRange: 180 }
 };
 
 const MOB3_TYPES = {
