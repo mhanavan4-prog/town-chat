@@ -4987,29 +4987,31 @@ function familiarBuffContrib(player, statKey) {
   const f = fid && FAMILIARS[fid];
   return (f && f.stat === statKey) ? (f.amount || 0) : 0;
 }
+// Shared read for a timed account-buff slot — the one shape behind the tea,
+// ancestor, and ritual contributors. Reads accounts[key][slot] = { stat, amount,
+// until }; returns the amount when the buff is live and matches statKey, else 0.
+// Each buff keeps its own named slot so they stack rather than overwrite (see the
+// stat-stack audit above statContrib); this just centralizes the expiry + match
+// so a new timed rite buff is a one-line contributor, not another copy.
+function timedBuffContrib(player, slot, statKey) {
+  const key = player && player.accountKey;
+  const b = key && accounts[key] && accounts[key][slot];
+  if (!b || !b.until || b.until <= Date.now()) return 0;
+  return (b.stat === statKey) ? (b.amount || 0) : 0;
+}
 // 🍵 A sipped tea's buff (kitchen witchcraft), in its own slot so it stacks with
 // an altar blessing rather than overwriting it.
-function teaBuffContrib(player, statKey) {
-  const key = player && player.accountKey;
-  const t = key && accounts[key] && accounts[key].teaBuff;
-  if (!t || !t.until || t.until <= Date.now()) return 0;
-  return (t.stat === statKey) ? (t.amount || 0) : 0;
-}
-// 🧙‍♀️ A chosen witch path's one small passive perk (account-scoped).
+function teaBuffContrib(player, statKey) { return timedBuffContrib(player, 'teaBuff', statKey); }
+// 🧙‍♀️ A chosen witch path's one small passive perk (account-scoped, untimed).
 function pathBuffContrib(player, statKey) {
   const key = player && player.accountKey;
   const pid = key && accounts[key] && accounts[key].witchPath;
   const w = pid && WITCH_PATHS[pid];
   return (w && w.stat === statKey) ? (w.amount || 0) : 0;
 }
-// 🕯️ An ancestor's blessing (the solitary Samhain rite), in its own slot so it
-// stacks with a tea rather than overwriting it. Timed; set by the dumb supper.
-function ancestorBuffContrib(player, statKey) {
-  const key = player && player.accountKey;
-  const b = key && accounts[key] && accounts[key].ancestorBuff;
-  if (!b || !b.until || b.until <= Date.now()) return 0;
-  return (b.stat === statKey) ? (b.amount || 0) : 0;
-}
+// 🕯️ An ancestor's blessing (a solitary sabbat rite), in its own slot so it
+// stacks with a tea rather than overwriting it. Timed; set by the altar offering.
+function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 'ancestorBuff', statKey); }
 // ── The derived-stat stack (buff-slot audit, roadmap #5) ────────────────────
 // Every derived stat a player has is the SUM of eight independent contributors,
 // each in its own slot so none ever overwrites another — add a new buff by adding
@@ -8626,11 +8628,9 @@ function ritualOf(key) {
   return a.ritual;
 }
 // A ritual blessing's additive contribution to one derived stat (0 if the
-// account has no live blessing for that stat).
-function ritualBuffContrib(player, statKey) {
-  const r = player && ritualOf(player.accountKey);
-  return (r && r.stat === statKey) ? (r.amount || 0) : 0;
-}
+// account has no live blessing for that stat) — the same timed-slot shape as the
+// tea + ancestor buffs. (ritualOf() stays for callers that need the live object.)
+function ritualBuffContrib(player, statKey) { return timedBuffContrib(player, 'ritual', statKey); }
 // Apply a blessing to an account (fresh 20-min duration). Recomputes the live
 // player's max-health if they're online so the HP bar updates at once.
 function grantBlessing(key, ritualId, mult) {
