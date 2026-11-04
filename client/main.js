@@ -2865,6 +2865,11 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bonfireOpen')) renderBonfireModal();
     return;
   }
+  if (msg.type === 'dumb_supper') {
+    if (_lastBonfire) _lastBonfire.suppers = msg.suppers || [];
+    if (Modals.isOpen('bonfireOpen')) renderBonfireModal();
+    return;
+  }
   if (msg.type === 'manor_state') {
     applyManorState(msg);
     return;
@@ -10862,6 +10867,17 @@ function renderBonfireModal() {
     } else {
       h += `<div class="bfEmpty">You hold no herbs to give — grow some in your garden or forage the Wilds, then come warm the fire.</div>`;
     }
+  }
+  // ── The Dumb Supper — the solitary altar's communal footprint: who set a
+  // place at the altar tonight, gathered at the fire.
+  const sup = s.suppers || [];
+  if (sup.length) {
+    h += `<div class="bfSupperHead">🕯️ The Dumb Supper — places set tonight</div><div class="bfSupper">`;
+    for (const u of sup) {
+      const forStr = u.forName ? ` <span class="bfSupFor">for ${esc(u.forName)}</span>` : '';
+      h += `<div class="bfSupRow"><span class="bfSupIc">${esc(u.offerIcon || '🕯️')}</span><span class="bfSupTx"><b>${esc(u.keeper || 'A witch')}</b> set a place${forStr} — ${esc(u.virtueEmoji || '')} ${esc(u.virtueName || '')}</span></div>`;
+    }
+    h += `</div>`;
   }
   el.innerHTML = h;
   el.querySelectorAll('.bfFeedBtn').forEach((b) => b.addEventListener('click', () => send({ type: 'bonfire_offer', herb: b.getAttribute('data-herb'), qty: +b.getAttribute('data-qty') })));
