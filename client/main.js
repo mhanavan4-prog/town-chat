@@ -8551,6 +8551,54 @@ const GFX = (() => {
     fireflies: [], lightAmount: 1, isNight: false
   };
 
+  // ── Smooth, radius-aware soft shadows ──
+  // three r128's PCFSoftShadowMap ignores light.shadow.radius entirely: it is a
+  // fixed ~1-texel bilinear kernel, so every `radius` set below was a no-op and
+  // shadow edges stair-stepped one texel at a time — the "sawtooth" that
+  // shimmers as an animated character's silhouette sweeps across the texel
+  // grid. Swap that branch for a radius-scaled grid of bilinear-filtered taps
+  // (spacing radius/2 texels). Bilinear taps give a smooth ramp, not the hard
+  // bands plain PCF shows at wide radii. Point-light shadows keep their own
+  // path. Patched before any material compiles; if the chunk text ever
+  // differs it's a no-op and stock PCFSoft stays.
+  (function patchSoftShadowChunk() {
+    const C = THREE.ShaderChunk;
+    const src = C && C.shadowmap_pars_fragment;
+    if (!src || src.indexOf('trShadowBilinear') !== -1) return;
+    const head = 'float getShadow( sampler2D shadowMap';
+    const a = src.indexOf('#elif defined( SHADOWMAP_TYPE_PCF_SOFT )');
+    const b = a === -1 ? -1 : src.indexOf('#elif defined( SHADOWMAP_TYPE_VSM )', a);
+    const h = src.indexOf(head);
+    if (a === -1 || b === -1 || h === -1 || h > a) return;
+    const helper =
+      'float trShadowBilinear( sampler2D shadowMap, vec2 size, vec2 uv, float z ) {\n' +
+      '  vec2 ts = vec2( 1.0 ) / size;\n' +
+      '  vec2 f = fract( uv * size + 0.5 );\n' +
+      '  vec2 c = uv - f * ts;\n' +
+      '  float a = texture2DCompare( shadowMap, c, z );\n' +
+      '  float b = texture2DCompare( shadowMap, c + vec2( ts.x, 0.0 ), z );\n' +
+      '  float d = texture2DCompare( shadowMap, c + vec2( 0.0, ts.y ), z );\n' +
+      '  float e = texture2DCompare( shadowMap, c + ts, z );\n' +
+      '  return mix( mix( a, b, f.x ), mix( d, e, f.x ), f.y );\n' +
+      '}\n';
+    // Desktop: 3x3 tent-weighted grid of bilinear taps (36 compares) — the
+    // taps overlap, so the penumbra is a continuous ramp with no ghost bands.
+    // Mobile: centre + 4 diagonals (20 compares) to keep fill cost down.
+    const tap = (dx, dy) => 'trShadowBilinear( shadowMap, shadowMapSize, shadowCoord.xy + trO * vec2( ' + dx + ', ' + dy + ' ), shadowCoord.z )';
+    const wide = !(typeof MOBILE_UI !== 'undefined' && MOBILE_UI);
+    const sum = wide
+      ? '( ' + tap('0.0', '0.0') + ' * 4.0 + ( ' + tap('-1.0', '0.0') + ' + ' + tap('1.0', '0.0') + ' + ' + tap('0.0', '-1.0') + ' + ' + tap('0.0', '1.0') + ' ) * 2.0 + '
+        + tap('-1.0', '-1.0') + ' + ' + tap('1.0', '-1.0') + ' + ' + tap('-1.0', '1.0') + ' + ' + tap('1.0', '1.0') + ' ) * ( 1.0 / 16.0 )'
+      : '( ' + tap('0.0', '0.0') + ' + ' + tap('-1.0', '-1.0') + ' + ' + tap('1.0', '-1.0') + ' + ' + tap('-1.0', '1.0') + ' + ' + tap('1.0', '1.0') + ' ) * 0.2';
+    const body =
+      '#elif defined( SHADOWMAP_TYPE_PCF_SOFT )\n' +
+      // the sparse mobile pattern leaves gaps past ~1 texel spacing (ghosted
+      // double edges), so its spread is capped
+      '  vec2 trO = ( vec2( 1.0 ) / shadowMapSize ) * ' + (wide ? 'max( shadowRadius, 1.0 )' : 'clamp( shadowRadius, 1.0, 2.0 )') + ' * 0.5;\n' +
+      '  shadow = ' + sum + ';\n';
+    C.shadowmap_pars_fragment = src.slice(0, h) + helper + src.slice(h, a) + body + src.slice(b);
+  })();
+
   function resolveQuality() {
     if (st.pref === 'auto') return (typeof MOBILE_UI !== 'undefined' && MOBILE_UI) ? 'medium' : 'high';
     return st.pref;
@@ -8684,7 +8732,11 @@ const GFX = (() => {
     // there — the follow (outdoor) map covers the whole town and stays modest.
     // The old 2048 over the interior's ~1240-unit span gave ~0.6 units/texel,
     // which stair-stepped the cast shadow on the floor; 4096 roughly halves that.
-    const mapSize = info.follow ? (q === 'high' ? 2048 : 1024) : (q === 'high' ? 4096 : 2048);
+    // Outdoors the one follow map spans the whole visible town (±720), so at
+    // 2048 a texel was ~0.7 units — chunky steps on a ~70-unit character's
+    // shadow. 4096 on desktop (one shared outdoor map) halves that; mobile
+    // ('medium') steps up 1024 → 2048.
+    const mapSize = info.follow ? (q === 'high' ? 4096 : 2048) : (q === 'high' ? 4096 : 2048);
     light.shadow.mapSize.set(mapSize, mapSize);
     if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
     const span = info.follow ? 720 : 620;
@@ -8702,10 +8754,11 @@ const GFX = (() => {
     light.shadow.bias = info.follow ? -0.0006 : -0.0009;
     light.shadow.normalBias = info.follow ? 4 : 6;
     // Soften the edge. Resolution (above) shrinks the texel; radius widens the
-    // PCF kernel so the shadow boundary gets a real penumbra instead of a hard,
-    // stair-stepped line — the interior "sawtooth". Interiors can take a wide,
-    // soft radius; the outdoor follow map stays crisp.
-    light.shadow.radius = info.follow ? 2 : 7;
+    // filter (see patchSoftShadowChunk — stock r128 PCFSoft ignored radius,
+    // so these only take effect now) so the shadow boundary gets a real
+    // penumbra instead of a hard, stair-stepped line. Interiors take a wider
+    // radius; the outdoor follow map stays fairly crisp.
+    light.shadow.radius = info.follow ? 4 : 5;
     c.updateProjectionMatrix();
     if (!light.target.parent && light.parent) light.parent.add(light.target);
   }

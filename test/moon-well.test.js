@@ -37,6 +37,13 @@ setTimeout(() => {
   function waterOf(p) { return h.countItemQty(h.getInventory(p), 'moon_water'); }
   function vialsOf(p) { return h.countItemQty(h.getInventory(p), 'glass_vial'); }
 
+  // Blood nights are time-derived and override TC_MOON (→ full, double draw),
+  // so on a real blood night the ordinary-moon sections below would fail. Probe
+  // the live calendar; if tonight is blood, run those sections a day later.
+  const realNow = Date.now;
+  const liveBlood = !!h.bloodMoonWindow(realNow()).active;
+  if (liveBlood) Date.now = () => realNow() + 86400000;
+
   // ── Not the full moon: the well is closed, a draw yields nothing ───────────
   process.env.TC_MOON = 'new';
   const dark = join('Dark', 'mw_dark');
@@ -76,6 +83,7 @@ setTimeout(() => {
   // ── Blood moon: a draw fills the vial twice over. Blood nights are purely
   // time-derived (no env override), so exercise it only if tonight is one;
   // otherwise assert the ordinary single-draw invariant. ───────────────────
+  Date.now = realNow;
   const bm = join('Blood', 'mw_blood');
   bm.s.emit('message', JSON.stringify({ type: 'moon_well_state' }));
   const stBlood = bm.s.lastOfType('moon_well_state');
