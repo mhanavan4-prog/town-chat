@@ -361,26 +361,14 @@ function kkTownDressing(scene, w) {
   // a candle shrine at the fae-touched fairy ring
   kkPlace(scene, 'prop_shrine', 2450, 890, 24, -0.5);
 
-  // ── Samhain cobwebs + candles ────────────────────────────────────────────
-  // One cobweb strung in a corner of every building. The model (cobweb_C) is
-  // anchored at its TOP and hangs downward; staticInstance drops its base to the
-  // floor, so placed GROUNDED (no y-offset) it climbs the building's corner from
-  // the ground up — which means it can never float. Earlier versions raised the
-  // web to "eave height", but since the base is what gets grounded, lifting it
-  // just hung the whole web in mid-air. The flat cobweb_A "drape" is dropped
-  // entirely: it's a near-flat HORIZONTAL sheet (2.18 x 0.05 x 2.18), so off the
-  // ground it only ever read as a pane hovering in the air.
-  w.buildings.forEach((b, i) => {
-    // rotate which corner gets the web per building so it doesn't look stamped
-    const cs = [
-      { x: b.x,        z: b.y,        r: Math.PI * 0.25 },
-      { x: b.x + b.w,  z: b.y,        r: Math.PI * 0.75 },
-      { x: b.x + b.w,  z: b.y + b.h,  r: Math.PI * 1.25 },
-      { x: b.x,        z: b.y + b.h,  r: Math.PI * 1.75 },
-    ];
-    const c = cs[i % 4];
-    kkPlace(scene, 'prop_web_c', c.x, c.z, 46, c.r); // grounded — rises from the floor up the corner, never floats
-  });
+  // ── Samhain candles ───────────────────────────────────────────────────────
+  // (Per-building cobwebs were removed: cobweb_C hangs from a TOP anchor, but
+  // the town buildings are open-air boxes with no eave/ceiling to pin it to, so
+  // it could only ever float at the roofline or stand planted in the grass —
+  // neither reads right. The season still shows through the door pumpkins, the
+  // fenced graveyard, the altar candles and the dead trees. Cobwebs that DO have
+  // a surface to sit on are kept: the churchyard funnel web below and the ones
+  // in the enclosed crypt corners.)
   // low funnel webs in the Town Hall churchyard corners (dressing the fence)
   const hall2 = w.buildings.find(b => b.id === 'hall');
   if (hall2) {
