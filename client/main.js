@@ -1362,7 +1362,10 @@ function onWsMessage(ev) {
     }
     world2 = msg.world2 || world2;
     if (world2) schedulePrebuildWilds(); // build the Wilds in the background so the first portal trip is instant
-    walls = buildWalls(world);
+    // First join builds raw town walls (initScene refits them). A reconnect must
+    // NOT: that threw away the fitted colliders + tree colliders and left the raw
+    // data-rect walls (bigger than the models) standing until the next map swap.
+    if (!wasStarted || !TOWN_WALLS.length) walls = buildWalls(world);
     // Clear all existing remote-player meshes before rebuilding the list,
     // whether this is the first join or a reconnect after a dropped connection.
     for (const id of Object.keys(players)) removePlayer(id);
@@ -1378,6 +1381,7 @@ function onWsMessage(ev) {
         currentRoom = 'outside';
         swapToTownMap();
       }
+      if (TOWN_WALLS.length) walls = TOWN_WALLS;
     }
     for (const p of msg.players) addPlayer(p);
     if (Array.isArray(msg.echoes)) reconcileEchoes(msg.echoes);
@@ -3364,13 +3368,23 @@ const ROUND_TOWER_INSET = { lounge: 0.8, bank: 0.82 };
 // and small buildings behave the same and you never clip deep into a wall.
 const BUILDING_WALL_INSET = 20;
 function refitBuildingColliders() {
-  walls = walls.filter((r) => !r.bld);
+  // Always refit the TOWN collision list — never whatever `walls` happens to
+  // point at. On a cold load the building models settle late, and if that was
+  // after you'd already portalled out, this used to run against WILDS_WALLS:
+  // the Wilds' tree/rock colliders were copied into the town snapshot and
+  // stood around town as invisible obstacles (playtest: "something small and
+  // invisible in front of me"). Wilds rects are also scrubbed by identity, so
+  // a session that already caught the leak heals on the next refit.
+  const townActive = world === TOWN_WORLD || !TOWN_WALLS.length;
+  const wildSet = new Set(WILDS_WALLS);
+  const src = townActive ? walls : TOWN_WALLS;
+  const out = src.filter((r) => !r.bld && !wildSet.has(r));
   // Opt-in diagnostic: load the game with ?colliderdebug=1 to print each
   // building's data rect, its measured model box, and the fitted collider — so a
   // mismatch can be read off the console instead of guessed at.
   let dbg = false;
   try { dbg = typeof location !== 'undefined' && !!location.search && location.search.includes('colliderdebug'); } catch (e) { /* noop */ }
-  for (const b of world.buildings) {
+  for (const b of (TOWN_WORLD || world).buildings) {
     const bb = KK_BLD_BOXES[b.id];
     const box = bb ? { minx: bb.min.x, minz: bb.min.z, maxx: bb.max.x, maxz: bb.max.z } : null;
     const fit = fitBuildingFootprint(b, box);
@@ -3404,8 +3418,10 @@ function refitBuildingColliders() {
       ...b, x: fit.x, y: fit.y, w: fit.w, h: fit.h,
       _doorC: (doorSide === 'east' || doorSide === 'west') ? b.y + b.h / 2 : b.x + b.w / 2
     };
-    for (const r of buildWallsForOne(fb, world)) walls.push({ ...r, bld: b.id });
+    for (const r of buildWallsForOne(fb, TOWN_WORLD || world)) out.push({ ...r, bld: b.id });
   }
+  TOWN_WALLS = out;
+  if (townActive) walls = out;
 }
 
 // Which wall a building's door is cut into. Defaults to 'south'; a building
@@ -3422,6 +3438,42 @@ function getDoorWorldPos(b) {
   if (side === 'west') return { x: b.x, y: b.y + b.h / 2 };
   if (side === 'north') return { x: b.x + b.w / 2, y: b.y };
   return { x: b.x + b.w / 2, y: b.y + b.h };
+}
+
+// ── Door approach zones ──────────────────────────────────────────────────────
+// Room entry keys off the FITTED footprint (b._fit), but the fit sits inside the
+// model — and on the stepped/round models (Bank, Lounge) the stairs run ~80u out
+// from it. So you climbed the steps, stood at the door you could see, and
+// nothing happened until you'd walked deep "into" the building; F did nothing.
+// Each door now has an approach corridor: door-width wide, running out from the
+// fit edge across the stairs to the model's front (KK_BLD_BOXES). Walking into
+// the inner part enters; the whole corridor (+ a bit) offers "F enter".
+// Returns { id, dist } (dist = how far out from the fit edge) or null.
+function doorApproach(x, y, extra) {
+  if (world !== TOWN_WORLD || !world || !world.buildings) return null;
+  const half = (world.doorWidth || 60) / 2 + 6;
+  for (const b of world.buildings) {
+    const f = b._fit; if (!f) continue;
+    const box = KK_BLD_BOXES[b.id];
+    const side = getDoorSide(b);
+    let lateral, dist, stair;
+    if (side === 'north') { lateral = x - (b.x + b.w / 2); dist = f.y - y; stair = box ? f.y - box.min.z : 0; }
+    else if (side === 'east') { lateral = y - (b.y + b.h / 2); dist = x - (f.x + f.w); stair = box ? box.max.x - (f.x + f.w) : 0; }
+    else if (side === 'west') { lateral = y - (b.y + b.h / 2); dist = f.x - x; stair = box ? f.x - box.min.x : 0; }
+    else { lateral = x - (b.x + b.w / 2); dist = y - (f.y + f.h); stair = box ? box.max.z - (f.y + f.h) : 0; }
+    // Auto-enter once you're past the bottom step; F reaches the foot of the stairs.
+    const reach = Math.max(24, Math.min(110, stair - 12)) + (extra || 0);
+    if (Math.abs(lateral) <= half && dist >= -4 && dist <= reach) return { id: b.id, dist, reach };
+  }
+  return null;
+}
+// How far outside the door exitBuilding should drop you: clear of the
+// auto-enter corridor, so leaving never re-enters.
+function doorExitOffset(b) {
+  const f = b._fit || b, box = KK_BLD_BOXES[b.id], side = getDoorSide(b);
+  let stair = 0;
+  if (box) stair = side === 'north' ? f.y - box.min.z : side === 'east' ? box.max.x - (f.x + f.w) : side === 'west' ? f.x - box.min.x : box.max.z - (f.y + f.h);
+  return Math.max(30, Math.min(110, stair - 12) + 20);
 }
 
 // Collision & room predicates — extracted to client/collision.js (Phase C M2).
@@ -9536,8 +9588,7 @@ function initScene(w) {
   const finalizeTownCollision = () => {
     if (collisionFinalized || !townBuilt || !decorBuilt) return;
     collisionFinalized = true;
-    refitBuildingColliders(); // re-cut building walls to the now-placed model boxes
-    TOWN_WALLS = walls;        // re-snapshot so swapToTownMap() restores the fit collision
+    refitBuildingColliders(); // re-cut building walls to the now-placed model boxes (also re-snapshots TOWN_WALLS)
   };
   const bldScene = scene; // capture the town scene; `scene` may be swapped later
   const buildTownBuildings = () => {
@@ -9659,8 +9710,7 @@ function initScene(w) {
   indoorBuildingId = null;
   setActiveContext(outdoorScene, outdoorCamera, null);
   refreshBuildingLockVisuals();
-  refitBuildingColliders(); // tighten building colliders to their placed KayKit models (no "invisible walls")
-  TOWN_WALLS = walls; // snapshot now that tree colliders from addNatureDecor are in place
+  refitBuildingColliders(); // tighten building colliders to their placed KayKit models (no "invisible walls"); snapshots TOWN_WALLS with the tree colliders in place
 
   buildDungeonScene();
   // Wilds / Cave / Vault / Ember are built LAZILY on first entry (see
@@ -17518,6 +17568,15 @@ function tryInteract() {
   // you can never get stranded inside. (Phase 2 will gate this on the doorway.)
   if (me.room === 'crypt') { exitCrypt(); return; }
   const kiosk = findNearestKiosk();
+  // F at a building door enters it (nothing used to happen outdoors).
+  if (!kiosk && mode === 'outdoor' && me.room === 'outside') {
+    const d = doorApproach(me.x, me.y, 40);
+    if (d) {
+      if (isLockedRoom(d.id)) showLockMessage(d.id);
+      else { justExitedRoom = null; enterBuilding(d.id); }
+      return;
+    }
+  }
   if (kiosk && kiosk.exitDoor) {
     const b = world.buildings.find(bb => bb.id === indoorBuildingId);
     if (b) exitBuilding(b);
@@ -17629,6 +17688,16 @@ function updateInteractHint() {
     return;
   }
   const kiosk = findNearestKiosk();
+  if (!kiosk && mode === 'outdoor' && me.room === 'outside') {
+    const d = doorApproach(me.x, me.y, 40);
+    if (d) {
+      hint.classList.remove('hidden');
+      document.getElementById('interactHintText').textContent = isLockedRoom(d.id)
+        ? `🔒 ${roomLabel(d.id)} — locked`
+        : `${interactVerb()} enter ${roomLabel(d.id)}`;
+      return;
+    }
+  }
   if (kiosk && kiosk.exitDoor) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} pass through the door`;
@@ -18224,10 +18293,11 @@ function exitBuilding(b) {
   // overhang the data edge — dropping the player at data-edge+26 could land them
   // back inside the entry zone and re-enter in a loop (got stuck in the Bank).
   const f = b._fit || b;
-  if (side === 'east') { me.x = f.x + f.w + 30; me.y = f.y + f.h / 2; }
-  else if (side === 'west') { me.x = f.x - 30; me.y = f.y + f.h / 2; }
-  else if (side === 'north') { me.x = f.x + f.w / 2; me.y = f.y - 30; }
-  else { me.x = f.x + f.w / 2; me.y = f.y + f.h + 30; }
+  const out = doorExitOffset(b); // clear of the door's auto-enter corridor
+  if (side === 'east') { me.x = f.x + f.w + out; me.y = b.y + b.h / 2; }
+  else if (side === 'west') { me.x = f.x - out; me.y = b.y + b.h / 2; }
+  else if (side === 'north') { me.x = b.x + b.w / 2; me.y = f.y - out; }
+  else { me.x = b.x + b.w / 2; me.y = f.y + f.h + out; }
   justExitedRoom = b.id; // backstop: block auto re-entry until we read 'outside'
   me.room = 'outside';
   stopMusic({ roomTune: true }); // a player-picked track keeps playing outdoors
@@ -18326,7 +18396,12 @@ function updateOutdoor(stepX, stepY) {
   me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
   me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
 
-  const room = roomAt(me.x, me.y);
+  let room = roomAt(me.x, me.y);
+  // Standing in a door's approach corridor (on the stairs, at the door you can
+  // see) counts as walking in — see doorApproach().
+  let viaDoor = false;
+  if (room === 'outside') { const d = doorApproach(me.x, me.y, 0); if (d) { room = d.id; viaDoor = true; } }
+  if (viaDoor && isLockedRoom(room)) { showLockMessage(room); room = 'outside'; }
   // Re-entry guard: right after leaving a building, exitBuilding drops us just
   // outside its door. If that spot still reads as inside (tight geometry), don't
   // get sucked straight back in — wait until we've stepped fully clear.
@@ -18940,6 +19015,14 @@ if (location.search.includes('testdrive=1')) {
     jumping() { return jumpActive; },
     toast(text, level) { setUnlockToast(text, level ? { level } : undefined); },
     msgLog() { return msgLog.map(m => ({ text: m.text, level: m.level })); },
+    wildsWallsNear(x, y, r) { return WILDS_WALLS.filter(w => w.x - r < x && w.x + w.w + r > x && w.y - r < y && w.y + w.h + r > y).map(w => ({ ...w })); },
+    doorApproach(x, y, extra) { return doorApproach(x, y, extra); },
+    room() { return me ? me.room : null; },
+    walk(dx, dy) { updateOutdoor(dx, dy); return { x: me.x, y: me.y, room: me.room }; },
+    refitWhileIn(which) { if (which === 'wilds') swapToWildsMap(); refitBuildingColliders(); swapToTownMap(); return walls === TOWN_WALLS; },
+    leave() { const b = world.buildings.find(bb => bb.id === indoorBuildingId); if (b) exitBuilding(b); return me ? { x: me.x, y: me.y, room: me.room } : null; },
+    bldInfo() { return world.buildings.map(b => ({ id: b.id, door: getDoorSide(b), data: { x: b.x, y: b.y, w: b.w, h: b.h }, fit: b._fit, box: KK_BLD_BOXES[b.id] ? { minx: KK_BLD_BOXES[b.id].min.x, maxx: KK_BLD_BOXES[b.id].max.x, minz: KK_BLD_BOXES[b.id].min.z, maxz: KK_BLD_BOXES[b.id].max.z } : null })); },
+    wallsNear(x, y, r) { return walls.filter(w => w.x - r < x && w.x + w.w + r > x && w.y - r < y && w.y + w.h + r > y).map(w => ({ ...w })); },
     hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
     simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
     spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
