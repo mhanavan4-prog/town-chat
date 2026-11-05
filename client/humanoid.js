@@ -427,6 +427,10 @@ function createKayKitByKey(key, heightScale) {
   }
   const kk = { mixer, act, inst, baseScale: s, cur: null, busyUntil: 0,
     handR: inst.getObjectByName('handslotr') || null, handL: inst.getObjectByName('handslotl') || null };
+  // Same mark createHumanoid() applies: these are characters, so the shadow
+  // tagger lets them cast ground shadows without receiving (and self-shadowing
+  // into saw-tooth acne). Every mob, minion and KayKit NPC comes through here.
+  group.userData.isHumanoid = true;
   kkSetState(kk, 'Idle');
   return { group, kk, dispose() { try { mixer.stopAllAction(); } catch (e) {} KK.mixers.delete(mixer); } };
 }
