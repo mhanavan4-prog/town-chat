@@ -5713,6 +5713,34 @@ function objectiveWhere(obj) {
 
 // Ensure prog.story exists (backfills accounts saved before the campaign
 // system existed, same pattern as the pickpocketSuccesses backfill).
+// A campaign finished BEFORE the capstone bag existed never handed one over:
+// the grant fires at the moment the final chapter completes, and for anyone
+// already finished that moment has passed. Catch them up on login. Checks
+// every character on the account, since the bag is account-wide and granted
+// once. Idempotent — the packCapstone flag is set either way.
+function backfillPackCapstone(player) {
+  if (!player || !player.accountKey) return false;
+  let prog;
+  try { prog = getProgress(player); } catch (e) { return false; }
+  if (!prog || prog.packCapstone) return false;
+  const story = prog.story || {};
+  let finished = null;
+  for (const charId of Object.keys(story)) {
+    const line = STORYLINES[charId];
+    const st = story[charId];
+    if (line && st && (st.chapter || 0) >= line.chapters.length) { finished = line; break; }
+  }
+  if (!finished) return false;
+  prog.packCapstone = true;
+  const res = grantRewardItems(player, [{ itemId: 'pack_witchwoven', qty: 1 }], finished.title);
+  try {
+    send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+    send(player.ws, { type: 'toast', level: 'important',
+      message: `🧳 Owed to you for finishing "${finished.title}" — a Witchwoven Pack. Use it for +32 pack slots.${heldNote(res.held)}` });
+  } catch (e) {}
+  return true;
+}
+
 function getStoryState(player) {
   const prog = getProgress(player);
   if (!prog.story) prog.story = {};
@@ -10867,7 +10895,9 @@ wss.on('connection', (ws, req) => {
         // paid cosmetics (auras, the collectible guises) can be exercised without
         // buying a pack.
         if (adminMoonstoneTopUp(player)) { try { send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) }); } catch (e) { /* noop */ } }
-        // Anything a full pack held from an earlier session arrives now.
+        // Anything a full pack held from an earlier session arrives now, and
+        // a campaign finished before the capstone bag existed is settled up.
+        try { backfillPackCapstone(player); } catch (e) { /* noop */ }
         try { flushHeldRewards(player); } catch (e) { /* noop */ }
       }
       // Restore whatever notes were already sitting in their inbox from a
@@ -16815,7 +16845,7 @@ global.__testHooks = {
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
   objectiveGoal, objectiveWhere, NPC_ROOM,
-  grantRewardItems, flushHeldRewards, applyPackUpgrade, packCapacity, packBonusOf, PACK_UPGRADES, PACK_BASE_SLOTS, ensurePackSize, giveOrHold, heldRewardsOf, HELD_REWARDS_MAX, // quest waypoint goals
+  grantRewardItems, flushHeldRewards, applyPackUpgrade, backfillPackCapstone, packCapacity, packBonusOf, PACK_UPGRADES, PACK_BASE_SLOTS, ensurePackSize, giveOrHold, heldRewardsOf, HELD_REWARDS_MAX, // quest waypoint goals
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)

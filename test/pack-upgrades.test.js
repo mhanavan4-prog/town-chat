@@ -110,6 +110,44 @@ setTimeout(() => {
   const undescribed = Object.keys(h.PACK_UPGRADES).filter((id) => !(h.ITEM_CATALOG[id] || {}).desc);
   check('every bag says what it gives you', undescribed.length === 0, undescribed);
 
+  // ── A campaign finished before the capstone bag existed ───────────────────
+  // The grant fires when the last chapter completes. Anyone already finished
+  // passed that moment, so login has to settle up (reported from playtest:
+  // "i dont have the largest bag and ive completed the story line").
+  {
+    const f = join('Finished', 'pack_done');
+    const prog = h.getProgress(f.p);
+    const lines = h.STORYLINES;
+    const charId = Object.keys(lines)[0];
+    prog.story = { [charId]: { chapter: lines[charId].chapters.length, progress: 0, active: false } };
+    delete prog.packCapstone;
+    check('a finished campaign with no capstone yet', !prog.packCapstone);
+    check('the backfill grants the bag', h.backfillPackCapstone(f.p) === true);
+    check('the bag is really in the pack', h.countItemQty(h.getInventory(f.p), 'pack_witchwoven') === 1,
+      h.countItemQty(h.getInventory(f.p), 'pack_witchwoven'));
+    check('it is announced', /Witchwoven/.test((f.s.lastOfType('toast') || {}).message || ''), (f.s.lastOfType('toast') || {}).message);
+    // Idempotent: a second login must not mint another one.
+    check('it does not grant twice', h.backfillPackCapstone(f.p) === false && h.countItemQty(h.getInventory(f.p), 'pack_witchwoven') === 1);
+
+    // A half-finished campaign gets nothing.
+    const g2 = join('Midway', 'pack_mid');
+    const p2 = h.getProgress(g2.p);
+    p2.story = { [charId]: { chapter: Math.max(0, lines[charId].chapters.length - 1), progress: 0, active: true } };
+    delete p2.packCapstone;
+    check('an unfinished campaign gets nothing', h.backfillPackCapstone(g2.p) === false && h.countItemQty(h.getInventory(g2.p), 'pack_witchwoven') === 0);
+
+    // A full pack must not eat it: a bag with nowhere to go applies itself.
+    const g3 = join('Stuffed', 'pack_stuffed');
+    const p3 = h.getProgress(g3.p);
+    p3.story = { [charId]: { chapter: lines[charId].chapters.length, progress: 0, active: false } };
+    delete p3.packCapstone;
+    const i3 = h.getInventory(g3.p);
+    for (let i = 0; i < i3.slots.length; i++) i3.slots[i] = { itemId: 'junk' + i, qty: 1 };
+    h.backfillPackCapstone(g3.p);
+    check('with a full pack the capstone bag is shouldered, not lost',
+      h.packCapacity(g3.p) === BASE + 32, h.packCapacity(g3.p));
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 500);
