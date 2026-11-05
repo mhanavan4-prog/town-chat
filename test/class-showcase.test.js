@@ -37,6 +37,27 @@ check('byId returns a class and null for unknown', !!showcase.byId(0) && showcas
 // KEEP list, so the model doesn't render overlapping hand props (staff/book).
 check('PROP_MESHES is exported and non-empty', Array.isArray(showcase.PROP_MESHES) && showcase.PROP_MESHES.length > 0);
 check('every class carries a keep list', showcase.CLASSES.every(c => Array.isArray(c.keep)));
+// ── The website's kit order matches the game's ────────────────────────────────
+// The class pages show "slot 1, 2, 3…" for each kit. That order has to be the
+// one the game actually gives a new player, or the site advertises a kit nobody
+// gets (it drifted once: the Witch's consent-gated Open 3rd Eye was slot 1 on
+// the site long after the game moved it to the end).
+const { CONSENT_EFFECTS, defaultAbilityOrder } = require('../data/abilityOrder');
+check('every showcase ability carries an id', showcase.CLASSES.every(c => c.abilities.every(a => typeof a.id === 'string' && a.id)));
+{
+  const ids = showcase.CLASSES.flatMap(c => c.abilities.map(a => c.id + ':' + a.id));
+  check('ability ids are unique within each class', new Set(ids).size === ids.length);
+}
+// The client keeps its own copy of the rule (it can't require() CommonJS from
+// the bundled ES modules), so pin the consent list the two share.
+{
+  const clientSrc = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  const m = /const CONSENT_EFFECTS = new Set\(\[([^\]]*)\]\)/.exec(clientSrc);
+  const clientList = m ? m[1].split(',').map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean).sort() : null;
+  check('client/main.js consent list matches data/abilityOrder.js',
+    !!clientList && clientList.join() === [...CONSENT_EFFECTS].sort().join(), { clientList, shared: [...CONSENT_EFFECTS] });
+}
+
 check("the Witch keeps the staff (not the spellbook)", showcase.byId(0).keep.includes('2H_Staff') && !showcase.byId(0).keep.includes('Spellbook') && showcase.PROP_MESHES.includes('Spellbook'));
 
 require('../server.js');
@@ -59,6 +80,34 @@ require('../server.js');
     check('it is the Knight with its model', data.name === 'Knight' && data.model === 'kk/Knight.glb', data.name);
     check('abilities come through with display fields', data.abilities.length > 0 && data.abilities.every(a => a.icon && a.name && a.description));
     check('the API includes prop-culling data (keep + propMeshes)', Array.isArray(data.keep) && Array.isArray(data.propMeshes) && data.propMeshes.length > 0);
+
+    // The real thing: each class page's slot order must equal the order the
+    // game hands a new player, computed from the live ability catalogs.
+    {
+      const h = global.__testHooks;
+      const cats = Object.assign({ 0: h.SPELL_CATALOG }, h.ATTACK_CATALOGS);
+      let allMatch = true;
+      const diffs = [];
+      for (const cls of showcase.CLASSES) {
+        const cat = cats[cls.id];
+        if (!cat) { allMatch = false; diffs.push({ cls: cls.id, why: 'no catalog' }); continue; }
+        // The showcase lists a curated subset of the kit, so compare the shown
+        // abilities in the order the game would place them.
+        const want = defaultAbilityOrder(cat).filter((id) => cls.abilities.some((a) => a.id === id));
+        const got = cls.abilities.map((a) => a.id);
+        const unknown = got.filter((id) => !cat[id]);
+        if (unknown.length) { allMatch = false; diffs.push({ cls: cls.id, unknown }); continue; }
+        if (want.join() !== got.join()) { allMatch = false; diffs.push({ cls: cls.id, want, got }); }
+      }
+      check('every class page lists its kit in the order the game gives it', allMatch, diffs);
+      // A consent ability (camera / rough location) is opt-in, never the
+      // headline — it must never be slot 1 on a class page.
+      const leadsWithConsent = showcase.CLASSES.filter((cls) => {
+        const cat = cats[cls.id]; const first = cls.abilities[0];
+        return cat && first && cat[first.id] && CONSENT_EFFECTS.has(cat[first.id].effect);
+      }).map((c) => c.key);
+      check('no class page leads with a consent-gated ability', leadsWithConsent.length === 0, leadsWithConsent);
+    }
 
     const bad = await get(port, '/api/class/9');
     check('GET /api/class/9 (unknown) is a 404', bad.status === 404, bad.status);

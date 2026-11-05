@@ -175,16 +175,10 @@
 
   var esc = function(s){ return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); };
 
-  // Ability-id order per class (matches classShowcase) → custom icon lookup in
-  // window.TR_ICONS. Falls back to the ability's emoji if the set isn't loaded.
-  var CLASS_KEYS = [
-    ['open_third_eye','toads_tongue','stumble_hex','fireball','withering_hex','leech_hex','monstrous_form','gourd_ward','ravens_cloak','bone_knit','scrying_orb','nightwing_augury'],
-    ['savage_bite','iron_pelt','moonlit_mending','rapid_swipe','lunar_howl','terrifying_roar','alpha_bite','feral_dash','blood_frenzy','wolf_mark','feral_haze','snarl','scent_trail','hunters_read'],
-    ['spirit_lash','soul_siphon','banshee_wail','ethereal_veil','spirit_ward','ghost_step','seance_of_mending','mending_spirits','whispered_secret','spirit_walk','haunting','graveyard_chill'],
-    ['smite','shield_bash','rallying_wrath','oath_of_iron','guardians_pledge','field_dressing','lay_on_hands','sentinels_watch','heralds_muster','challenge','steadfast_march','banner_of_dread','guardians_veil'],
-    ['knife_throw','trail_remedy','packmule_guard','spy_glass','sleight_of_hand','echo_canyon','deep_meditation','heavy_pack','endless_road','featherlight_pack','shadow_owls','wanderlust','campfire_tale','nightwatch_cloak','compass_trick'],
-    ['raise_skeleton','raise_boneknight','raise_wight','life_siphon','bone_ward','grave_chill']
-  ];
+  // Each ability carries its own id (data/classShowcase.js), so the custom icon
+  // is looked up BY ID in window.TR_ICONS. It used to be a parallel array keyed
+  // by slot position, which meant any reorder of the kit silently shifted every
+  // icon by one.
   function abIcon(a){ return a && a._svg ? '<span class="gi">'+a._svg+'</span>' : esc((a&&a.icon)||'✦'); }
 
   // ── Data + DOM render ──────────────────────────────────────────────────────
@@ -199,9 +193,8 @@
     var KEYS = ['1','2','3','4','5','6','7','8','9','0'];
     var bar = document.getElementById('bar');
     var tip = document.getElementById('tip');
-    // Stamp each ability with its custom icon SVG (by class-ordered key).
-    var CK = CLASS_KEYS[id] || [];
-    (cls.abilities||[]).forEach(function(a, i){ var k = CK[i]; a._svg = (window.TR_ICONS && k) ? window.TR_ICONS[k] : null; });
+    // Stamp each ability with its custom icon SVG (by its own id).
+    (cls.abilities||[]).forEach(function(a){ a._svg = (window.TR_ICONS && a.id) ? window.TR_ICONS[a.id] : null; });
     function setDetail(a){ document.getElementById('dIcon').innerHTML=abIcon(a); document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description; }
     function showTip(a, el){
       document.getElementById('tipIcon').innerHTML=abIcon(a);
