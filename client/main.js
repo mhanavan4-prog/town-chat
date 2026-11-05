@@ -7756,10 +7756,17 @@ function openWelcomeModal() {
   const el = document.getElementById('welcomeModal');
   if (el) { el.dataset.canBegin = canBegin ? '1' : ''; el.classList.remove('hidden'); }
 }
-function closeWelcomeModal(beginStory) {
+function closeWelcomeModal(beginStory, how) {
   const el = document.getElementById('welcomeModal');
   const canBegin = !!(el && el.dataset.canBegin);
   if (el) el.classList.add('hidden');
+  // Funnel: report the choice on a player's FIRST welcome only (reopening it
+  // later from the menu isn't an onboarding decision).
+  let firstTime = false;
+  try { firstTime = !localStorage.getItem('tc_welcome_seen'); } catch (e) {}
+  if (firstTime && canBegin && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'welcome_choice', choice: beginStory ? 'begin' : (how || 'dismiss') }));
+  }
   // The welcome covers the basics, so the controls sheet counts as seen too.
   try { localStorage.setItem('tc_welcome_seen', '1'); localStorage.setItem('tc_controls_seen', '1'); } catch (e) {}
   if (beginStory && canBegin && ws && ws.readyState === WebSocket.OPEN) {
@@ -7817,7 +7824,7 @@ function closeWelcomeModal(beginStory) {
       : '🎮 Classic controls — A/D turn, Q/E strafe, drag the mouse to look around.');
   });
   on('welcomeStartBtn', () => closeWelcomeModal(true));
-  on('welcomeExploreBtn', () => closeWelcomeModal(false));
+  on('welcomeExploreBtn', () => closeWelcomeModal(false, 'explore'));
   const overlay = document.getElementById('controlsModal');
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeControlsModal(); });
   const welcome = document.getElementById('welcomeModal');
