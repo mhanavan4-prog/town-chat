@@ -19136,6 +19136,38 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    guiseFit(id) {
+      // QA: where a guise actually lands on the wearer's head bone, measured
+      // in head-bone-local units so the free baked props and the collectible
+      // character heads can be compared directly — "does it line up with the
+      // free ones" becomes a number rather than a judgement call.
+      if (!me || !me.id) return { ready: false, why: 'no player' };
+      const v = visuals[me.id];
+      if (!v || !v.kk || !v.kk.headBone) return { ready: false, why: 'no head bone yet' };
+      players[me.id].guise = id;
+      updateGuises();
+      const slot = v.kk.slots && v.kk.slots.slot_guise;
+      if (!slot || !slot.children.length) return { ready: false, why: 'guise not built (asset still streaming?)' };
+      const bone = v.kk.headBone;
+      bone.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(bone.matrixWorld).invert();
+      const box = new THREE.Box3();
+      const tmp = new THREE.Matrix4();
+      slot.children[slot.children.length - 1].traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        o.updateMatrixWorld(true);
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        box.union(o.geometry.boundingBox.clone().applyMatrix4(tmp.multiplyMatrices(inv, o.matrixWorld)));
+      });
+      if (box.isEmpty()) return { ready: false, why: 'no geometry' };
+      const r = (n) => +n.toFixed(3);
+      return {
+        ready: true, id,
+        center: box.getCenter(new THREE.Vector3()).toArray().map(r),
+        size: box.getSize(new THREE.Vector3()).toArray().map(r),
+        bottom: r(box.min.y), top: r(box.max.y)
+      };
+    },
     enterRoom(id) {
       // QA: drop straight into a named building interior, so a shadow or
       // decor check doesn't depend on walking to the right door first.
