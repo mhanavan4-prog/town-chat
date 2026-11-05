@@ -7,7 +7,7 @@
 // layout constants, the canvas, createHumanoid, the sign/name sprites and the
 // wall-painting helper are injected. makeBarrel is re-used by the town props.
 // ---------------------------------------------------------------------------
-export default function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK, wallFaceDepth }) {
+export default function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK, wallFaceDepth, fitCanvasText }) {
 // ── Hanging things on walls ─────────────────────────────────────────────────
 // A perimeter wall is a SOLID BOX wallThickness*INDOOR_SCALE deep — 14*1.8 =
 // 25.2 render units — not a flat plane at the room's edge. So a painting "on
@@ -819,8 +819,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // per-name so charts differ from each other but never between visits.
     const makeStarChart = (glyph, name, seed) => {
       const cw = 96, ch = 128;
-      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-      const ctx = c.getContext('2d');
+      // 4x through ctx.scale — same trick as the Parlor portraits, so the
+      // constellation names are legible without touching any star's position.
+      const S = 4;
+      const c = document.createElement('canvas'); c.width = cw * S; c.height = ch * S;
+      const ctx = c.getContext('2d'); ctx.scale(S, S);
       const grad = ctx.createLinearGradient(0, 0, 0, ch);
       grad.addColorStop(0, '#050b1e'); grad.addColorStop(1, '#0b1836');
       ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
@@ -854,8 +857,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       ctx.textAlign = 'center';
       ctx.font = '20px serif'; ctx.fillStyle = '#bfe0ff';
       ctx.fillText(glyph, cw / 2, 28);
-      ctx.font = 'bold 8px sans-serif'; ctx.fillStyle = '#8fb0d8';
-      ctx.fillText(name, cw / 2, ch - 16);
+      ctx.fillStyle = '#8fb0d8';
+      fitCanvasText(ctx, name, { cx: cw / 2, y: ch - 16, maxW: cw - 36, size: 8, weight: 'bold', maxLines: 1, min: 4.2 });
       const mat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), emissive: 0x0d1f4a, emissiveIntensity: 0.55 });
       return new THREE.Mesh(new THREE.PlaneGeometry(62, 84), mat);
     };
@@ -1192,10 +1195,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // A haunted portrait — the tarot-card technique grown up: ornate
     // silver-green frame, a pale hooded spirit painted inside, a memorial
     // plaque line. Each sitter gets their own hunch via the seed.
-    const makeHauntedPortrait = (name, epitaph, seed) => {
+    const makeHauntedPortrait = (name, epitaph, seed, sitter) => {
       const cw = 96, ch = 128;
-      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-      const ctx = c.getContext('2d');
+      // 4x resolution through ctx.scale, so the plaque lettering is readable
+      // from across the room without rewriting a single drawing coordinate.
+      const S = 4;
+      const c = document.createElement('canvas'); c.width = cw * S; c.height = ch * S;
+      const ctx = c.getContext('2d'); ctx.scale(S, S);
       const grad = ctx.createLinearGradient(0, 0, 0, ch);
       grad.addColorStop(0, '#04120c'); grad.addColorStop(1, '#0a241a');
       ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
@@ -1207,35 +1213,147 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         ctx.fillStyle = '#7fc9a0'; ctx.beginPath();
         ctx.arc(ox, oy, 2.5, 0, Math.PI * 2); ctx.fill();
       }
-      // The sitter: a translucent hooded figure, softly glowing, slightly
-      // off-center and tilted per portrait so the gallery feels peopled.
-      const px = cw / 2 + Math.sin(seed * 7.3) * 6;
-      const tilt = Math.sin(seed * 3.1) * 0.18;
+      // The sitter. Every portrait used to draw the SAME hooded figure with
+      // only a few pixels of tilt between them, so a wall of six read as one
+      // picture repeated. Each sitter now gets their own silhouette, chosen to
+      // match the name on the plaque — the Earl keeps his hat on, the Twins are
+      // two, and the Unknown Guest never turned up for the sitting at all.
+      const ectoplasm = 'rgba(190,255,220,0.5)';
+      const shade = 'rgba(6,20,14,0.9)';
+      const eyes = (ex, ey, r = 1.3, spread = 3) => {
+        ctx.fillStyle = '#b8ffd8';
+        ctx.beginPath(); ctx.arc(ex - spread, ey, r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ex + spread, ey, r, 0, Math.PI * 2); ctx.fill();
+      };
+      const hem = (halfW, shoulderY, hemY) => {
+        // The ragged, trailing bottom every spirit here shares.
+        ctx.quadraticCurveTo(halfW + 4, shoulderY, halfW, hemY);
+        ctx.quadraticCurveTo(halfW * 0.6, hemY - 6, halfW * 0.3, hemY + 2);
+        ctx.quadraticCurveTo(0, hemY - 8, -halfW * 0.3, hemY + 2);
+        ctx.quadraticCurveTo(-halfW * 0.6, hemY - 6, -halfW, hemY);
+      };
+      const SITTERS = {
+        // A hooded mourner — the original figure, now one of six.
+        hooded() {
+          ctx.fillStyle = ectoplasm;
+          ctx.beginPath();
+          ctx.arc(0, -14, 13, Math.PI, 0);
+          hem(13, 8, 26);
+          ctx.quadraticCurveTo(-17, 8, -13, -14);
+          ctx.closePath(); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = shade;
+          ctx.beginPath(); ctx.arc(0, -12, 8.5, 0, Math.PI * 2); ctx.fill();
+          eyes(0, -13);
+        },
+        // A tall gentleman who kept his hat on.
+        tophat() {
+          ctx.fillStyle = ectoplasm;
+          ctx.beginPath();
+          ctx.arc(0, -12, 10, Math.PI, 0);
+          hem(15, 6, 27);
+          ctx.quadraticCurveTo(-19, 6, -10, -12);
+          ctx.closePath(); ctx.fill();
+          ctx.fillRect(-13, -24, 26, 3);           // brim
+          ctx.fillRect(-8, -40, 16, 17);           // crown
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = shade;
+          ctx.beginPath(); ctx.arc(0, -11, 7, 0, Math.PI * 2); ctx.fill();
+          eyes(0, -12, 1.2, 2.6);
+          ctx.fillStyle = ectoplasm;               // a thin pale collar
+          ctx.fillRect(-4, -3, 8, 2);
+        },
+        // A veiled sister, hands folded, humming.
+        veiled() {
+          ctx.fillStyle = ectoplasm;
+          ctx.beginPath();
+          ctx.arc(0, -13, 11, Math.PI, 0);
+          ctx.quadraticCurveTo(20, 4, 16, 27);     // the veil falls wide
+          ctx.quadraticCurveTo(8, 21, 0, 28);
+          ctx.quadraticCurveTo(-8, 21, -16, 27);
+          ctx.quadraticCurveTo(-20, 4, -11, -13);
+          ctx.closePath(); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = shade;
+          ctx.beginPath(); ctx.ellipse(0, -11, 6.5, 8, 0, 0, Math.PI * 2); ctx.fill();
+          eyes(0, -13, 1.1, 2.4);
+          ctx.fillStyle = ectoplasm;               // folded hands
+          ctx.beginPath(); ctx.ellipse(0, 11, 5, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+        },
+        // A musician mid-phrase, both hands raised over keys that aren't there.
+        player() {
+          ctx.fillStyle = ectoplasm;
+          ctx.beginPath();
+          ctx.arc(0, -15, 10, Math.PI, 0);
+          hem(14, 7, 26);
+          ctx.quadraticCurveTo(-18, 7, -10, -15);
+          ctx.closePath(); ctx.fill();
+          for (const sx of [-1, 1]) {              // arms out to the keyboard
+            ctx.beginPath();
+            ctx.moveTo(sx * 6, -2);
+            ctx.quadraticCurveTo(sx * 19, 2, sx * 16, 13);
+            ctx.lineTo(sx * 11, 12);
+            ctx.quadraticCurveTo(sx * 13, 3, sx * 4, 2);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = shade;
+          ctx.beginPath(); ctx.arc(0, -14, 6.8, 0, Math.PI * 2); ctx.fill();
+          eyes(0, -15, 1.1, 2.6);
+        },
+        // Two of them, shoulder to shoulder, keeping the watch.
+        twins() {
+          for (const sx of [-7.5, 7.5]) {
+            ctx.fillStyle = ectoplasm;
+            ctx.beginPath();
+            ctx.arc(sx, -10, 8, Math.PI, 0);
+            ctx.quadraticCurveTo(sx + 11, 6, sx + 8, 25);
+            ctx.quadraticCurveTo(sx + 4, 19, sx, 26);
+            ctx.quadraticCurveTo(sx - 4, 19, sx - 8, 25);
+            ctx.quadraticCurveTo(sx - 11, 6, sx - 8, -10);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+          for (const sx of [-7.5, 7.5]) {
+            ctx.fillStyle = shade;
+            ctx.beginPath(); ctx.arc(sx, -9, 5.2, 0, Math.PI * 2); ctx.fill();
+            eyes(sx, -10, 1, 2);
+          }
+        },
+        // Nobody sat for this one: an empty chair and the coat left on it.
+        absent() {
+          ctx.strokeStyle = 'rgba(150,230,185,0.55)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();                          // chair back
+          ctx.moveTo(-10, 4); ctx.lineTo(-10, -20);
+          ctx.lineTo(10, -20); ctx.lineTo(10, 4);
+          ctx.moveTo(-10, -10); ctx.lineTo(10, -10);
+          ctx.moveTo(-11, 5); ctx.lineTo(11, 5);    // seat
+          ctx.moveTo(-9, 5); ctx.lineTo(-11, 24);   // legs
+          ctx.moveTo(9, 5); ctx.lineTo(11, 24);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(190,255,220,0.32)'; // a coat slung over it
+          ctx.beginPath();
+          ctx.moveTo(-9, -18);
+          ctx.quadraticCurveTo(0, -22, 9, -18);
+          ctx.quadraticCurveTo(13, -2, 7, 8);
+          ctx.quadraticCurveTo(0, 2, -7, 8);
+          ctx.quadraticCurveTo(-13, -2, -9, -18);
+          ctx.closePath(); ctx.fill();
+        },
+      };
+      const px = cw / 2 + Math.sin(seed * 7.3) * 5;
+      const tilt = Math.sin(seed * 3.1) * 0.12;
       ctx.save();
       ctx.translate(px, 62); ctx.rotate(tilt);
       ctx.shadowColor = '#8fffbe'; ctx.shadowBlur = 12;
-      ctx.fillStyle = 'rgba(190,255,220,0.5)';
-      ctx.beginPath(); // hood + shoulders
-      ctx.arc(0, -14, 13, Math.PI, 0);
-      ctx.quadraticCurveTo(17, 8, 13, 26);
-      // trailing wisp hem
-      ctx.quadraticCurveTo(8, 20, 4, 28);
-      ctx.quadraticCurveTo(0, 20, -4, 28);
-      ctx.quadraticCurveTo(-8, 20, -13, 26);
-      ctx.quadraticCurveTo(-17, 8, -13, -14);
-      ctx.closePath(); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(6,20,14,0.9)'; // the dark under the hood
-      ctx.beginPath(); ctx.arc(0, -12, 8.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#b8ffd8'; // two faint eyes
-      ctx.beginPath(); ctx.arc(-3, -13, 1.3, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(3, -13, 1.3, 0, Math.PI * 2); ctx.fill();
+      (SITTERS[sitter] || SITTERS.hooded)();
       ctx.restore();
-      ctx.textAlign = 'center';
-      ctx.font = 'bold 8px sans-serif'; ctx.fillStyle = '#7fc9a0';
-      ctx.fillText(name, cw / 2, ch - 24);
-      ctx.font = 'italic 6.5px serif'; ctx.fillStyle = '#5a9a78';
-      ctx.fillText(epitaph, cw / 2, ch - 14);
+      ctx.fillStyle = '#7fc9a0';
+      fitCanvasText(ctx, name, { cx: cw / 2, y: ch - 24, maxW: cw - 36, size: 8, weight: 'bold', maxLines: 1, min: 5 });
+      ctx.fillStyle = '#5a9a78';
+      fitCanvasText(ctx, epitaph, { cx: cw / 2, y: ch - 13, maxW: cw - 36, size: 6.5, style: 'italic', family: 'serif', maxLines: 1, min: 4 });
       const mat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), emissive: 0x0c2418, emissiveIntensity: 0.55 });
       return new THREE.Mesh(new THREE.PlaneGeometry(62, 84), mat);
     };
@@ -1370,15 +1488,15 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
-      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: WALL.northZ(), rotY: 0 },
-      { name: 'THE GREY EARL', epitaph: 'never left', x: roomW * 0.5, z: WALL.northZ(), rotY: 0 },
-      { name: 'SISTER OPALINE', epitaph: 'still humming', x: roomW * 0.78, z: WALL.northZ(), rotY: 0 },
-      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: roomW * 0.22, z: WALL.southZ(roomD), rotY: Math.PI },
-      { name: 'THE TWINS', epitaph: 'they keep the watch', x: roomW * 0.5, z: WALL.southZ(roomD), rotY: Math.PI },
-      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: roomW * 0.78, z: WALL.southZ(roomD), rotY: Math.PI }
+      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', sitter: 'hooded', x: roomW * 0.22, z: WALL.northZ(), rotY: 0 },
+      { name: 'THE GREY EARL', epitaph: 'never left', sitter: 'tophat', x: roomW * 0.5, z: WALL.northZ(), rotY: 0 },
+      { name: 'SISTER OPALINE', epitaph: 'still humming', sitter: 'veiled', x: roomW * 0.78, z: WALL.northZ(), rotY: 0 },
+      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', sitter: 'player', x: roomW * 0.22, z: WALL.southZ(roomD), rotY: Math.PI },
+      { name: 'THE TWINS', epitaph: 'they keep the watch', sitter: 'twins', x: roomW * 0.5, z: WALL.southZ(roomD), rotY: Math.PI },
+      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', sitter: 'absent', x: roomW * 0.78, z: WALL.southZ(roomD), rotY: Math.PI }
     ];
-    PORTRAITS.forEach(({ name, epitaph, x, z, rotY }, i) => {
-      const p = makeHauntedPortrait(name, epitaph, i + 1);
+    PORTRAITS.forEach(({ name, epitaph, sitter, x, z, rotY }, i) => {
+      const p = makeHauntedPortrait(name, epitaph, i + 1, sitter);
       p.position.set(x, 92, z);
       p.rotation.y = rotY;
       scene.add(p);

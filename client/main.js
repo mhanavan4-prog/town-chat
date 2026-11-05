@@ -13612,6 +13612,7 @@ const {
 } = createFurniture({
   INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC,
   canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK,
+  fitCanvasText,
   // How deep a perimeter wall is in render units. Read lazily, not captured
   // here: createFurniture runs at module setup, before the world has loaded.
   wallFaceDepth: () => ((world && world.wallThickness) || 14) * INDOOR_SCALE,
@@ -14056,11 +14057,71 @@ function refreshBuildingLockVisuals() {
 // symbol/title), generalized with a color/text config so every building
 // can hang a few without hand-rolling canvas art per theme. bg1/bg2 are
 // the background gradient, border/accent are the frame + text colors.
+// Draw centred text that actually fits inside its frame.
+//
+// Canvas text neither wraps nor clips — it runs straight off the edge of the
+// texture. That is why a long title like "PHASES OF HER MAJESTY" bled past both
+// sides of its plaque in the Library while shorter ones looked fine: nothing in
+// the drawing code ever asked how wide the words were.
+//
+// So: lay the words out at the intended size, wrap on word boundaries to at
+// most maxLines, and step the size down until every line fits maxW. The block
+// is centred on `y`, so a title that still fits on one line lands exactly where
+// it always did and only the long ones move. Returns the lines drawn.
+function fitCanvasText(ctx, text, opts) {
+  const { cx, y, maxW, maxLines = 2, size, family = 'sans-serif', weight = '', style = '' } = opts;
+  const min = opts.min == null ? size * 0.62 : opts.min;
+  const words = String(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const setFont = (s) => { ctx.font = `${style} ${weight} ${s}px ${family}`.replace(/\s+/g, ' ').trim(); };
+  const wrap = () => {
+    const lines = []; let cur = '';
+    for (const word of words) {
+      const next = cur ? cur + ' ' + word : word;
+      if (!cur || ctx.measureText(next).width <= maxW) cur = next;
+      else { lines.push(cur); cur = word; }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  let chosen = null;
+  for (let s = size; s >= min - 1e-6; s -= Math.max(0.25, size * 0.04)) {
+    setFont(s);
+    const lines = wrap();
+    if (lines.length <= maxLines && lines.every((l) => ctx.measureText(l).width <= maxW)) {
+      chosen = { s, lines }; break;
+    }
+  }
+  if (!chosen) {
+    // Even at the floor it does not fit: keep the floor size and end the last
+    // line with an ellipsis rather than let it run off the frame.
+    setFont(min);
+    const lines = wrap().slice(0, maxLines);
+    let last = lines[lines.length - 1] || '';
+    while (last.length > 1 && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[lines.length - 1] = last + '…';
+    chosen = { s: min, lines };
+  }
+  setFont(chosen.s);
+  const gap = chosen.s * 1.18;
+  const top = y - ((chosen.lines.length - 1) * gap) / 2;
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = 'center';
+  chosen.lines.forEach((line, i) => ctx.fillText(line, cx, top + i * gap));
+  ctx.textAlign = prevAlign;
+  return chosen.lines;
+}
+
 function makeWallPainting(opts) {
   const { symbol, title, subtitle, bg1, bg2, border, accent, w = 60, h = 84 } = opts;
   const cw = 64, ch = 90;
-  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  const ctx = c.getContext('2d');
+  // Drawn at 4x into the same 64x90 coordinate space via ctx.scale, so the
+  // lettering is crisp without a single coordinate changing. At 1x a 7px title
+  // had barely four pixels of stroke, which is why these read as smudges even
+  // before the long ones overflowed.
+  const S = 4;
+  const c = document.createElement('canvas'); c.width = cw * S; c.height = ch * S;
+  const ctx = c.getContext('2d'); ctx.scale(S, S);
   const grad = ctx.createLinearGradient(0, 0, 0, ch);
   grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
   ctx.fillStyle = grad; ctx.fillRect(0, 0, cw, ch);
@@ -14074,16 +14135,20 @@ function makeWallPainting(opts) {
   ctx.textAlign = 'center';
   ctx.font = '26px serif';
   ctx.fillStyle = accent;
-  ctx.fillText(symbol, cw / 2, ch * 0.5);
+  ctx.fillText(symbol, cw / 2, ch * 0.48);
+  // Inside the inner rule (7..cw-7) with a margin. The corner studs sit at
+  // y=10 and y=ch-10, so the text lines below are placed to pass above the
+  // bottom pair rather than squeeze between them — squeezing is what forced
+  // "do not read aloud" down to an ellipsis.
+  const maxW = cw - 20;
   if (title) {
-    ctx.font = 'bold 7px sans-serif';
     ctx.fillStyle = border;
-    ctx.fillText(title, cw / 2, ch * 0.73);
+    fitCanvasText(ctx, title, { cx: cw / 2, y: ch * 0.72, maxW, size: 7, weight: 'bold', maxLines: 2 });
   }
   if (subtitle) {
-    ctx.font = 'italic 5.5px serif';
     ctx.fillStyle = accent;
-    ctx.fillText(subtitle, cw / 2, ch * 0.85);
+    // One line: a wrapped subtitle would run into the frame's bottom rule.
+    fitCanvasText(ctx, subtitle, { cx: cw / 2, y: ch * 0.85, maxW, size: 5.5, style: 'italic', family: 'serif', maxLines: 1, min: 3 });
   }
   const tex = new THREE.CanvasTexture(c);
   const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0x000000, emissiveIntensity: 0.3 });
@@ -19187,6 +19252,23 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    wallArt(max) {
+      // QA: pull the painted canvases out of the room you're standing in, so
+      // the lettering can be read at full size instead of squinted at across a
+      // dim room at an angle. Returns PNG data URLs.
+      if (!activeScene) return [];
+      const out = [];
+      activeScene.traverse((o) => {
+        if (out.length >= (max || 12)) return;
+        const m = o.material;
+        const tex = m && m.map;
+        const img = tex && tex.image;
+        if (!img || typeof img.toDataURL !== 'function') return;
+        if (img.width < 40 || img.height < 40) return;
+        out.push({ w: img.width, h: img.height, at: o.position.toArray().map(Math.round), png: img.toDataURL() });
+      });
+      return out;
+    },
     decorInWalls() {
       // QA: find decorations buried inside a wall. The perimeter walls are
       // solid boxes ~25 units deep, so a piece hung at z=4 "on the north wall"
