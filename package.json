@@ -14,6 +14,7 @@
     "test:ci": "npm run build:client && npm run test:boot && npm run lint && npm run typecheck && npm run check:parity && npm test && npm run test:smoke",
     "sync:mobile": "cp public/client.js ../town-chat-android/www/client.js && cp public/client.js ../town-chat-ios/www/client.js",
     "check:parity": "node test/check-client-parity.cjs",
+    "audit:colliders": "node tools/audit-colliders.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
