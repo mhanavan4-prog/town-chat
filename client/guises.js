@@ -111,13 +111,36 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     witch:   { key: 'guise_hat',     scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Witch's hat, baked exact
     devil:   { key: 'guise_devil',   scale: 1.00, y: 0.00, ry: 0 }, // Series 5 Tiefling's horned head
     // ── The Monsters' Masque (collectible). Unlike the baked head props above,
-    // these clone just the named head mesh out of a full KayKit character already
-    // loaded for its NPC, then auto-centre it on the wearer's head bone (`node`
-    // + `center:true`). scale/y fine-tune the fit; bump y to raise the head.
-    werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, scale: 0.80, y: -0.15, ry: 0 },
-    vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, scale: 0.80, y: -0.15, ry: 0 },
-    frankenstein: { key: 'guise_frank',  node: 'Monstrosity_Head',   center: true, scale: 0.80, y: -0.15, ry: 0 },
+    // these clone just the named head mesh out of a full KayKit character
+    // already loaded for its NPC (`node`), anchor it on that character's own
+    // head bone (`center:true`), and are then fitted to HEAD_FIT below — they
+    // carry no hand-tuned scale/y, because hand-tuned numbers are exactly what
+    // left them sitting low and small next to the free six.
+    werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, ry: 0 },
+    vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, ry: 0 },
+    frankenstein: { key: 'guise_frank',  node: 'Monstrosity_Head',   center: true, ry: 0 },
   };
+  // Where a head sits on the head bone, in head-bone-local units.
+  //
+  // Every free guise is a baked prop authored to drop straight onto the bone,
+  // and all three full-head ones land in the same place — box centre y 0.537 /
+  // 0.582 / 0.492 and height 1.03 / 1.17 / 1.20 for the skull, pumpkin and
+  // devil. The masque heads are carved out of character rigs instead, where
+  // the head is authored wherever that character's neck happens to be, so a
+  // fixed scale/offset could only ever be right for one of them: measured on
+  // the head bone they came out at centre y 0.25 / 0.19 / 0.08 and about 20%
+  // undersized — reading as sunken into the chest.
+  //
+  // So they are fitted to the free props' own box instead of guessed at. A new
+  // masque head lines up with no measuring, and "it sits where the free ones
+  // sit" is a number this can be held to (see guiseFit in the test hooks).
+  // backZ is where the free props' skulls END at the back (their min.z runs
+  // -0.53 / -0.63 / -0.50). Anchoring the back of the head there rather than
+  // centring it means a muzzle or a beak still projects forward, while a head
+  // the source rig authored out past its own neck — the Monstrosity sat 0.36
+  // forward on a head only 0.87 deep, i.e. floating in front of the face —
+  // gets seated back onto it.
+  const HEAD_FIT = { centerY: 0.537, height: 1.136, backZ: -0.55 };
   // Procedural → head-bone-local transform: shrink CHAR-space builders (head at
   // y≈62, radius 8) down onto the KayKit head (radius ≈0.5, centre ≈0.4).
   const PROC_SCALE = 0.0625;
@@ -169,6 +192,30 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
           src.traverse((o) => { if (!anchor && o.name === 'head') anchor = o.getWorldPosition(new THREE.Vector3()); });
           if (!anchor) { const box = new THREE.Box3().setFromObject(g); anchor = box.getCenter(new THREE.Vector3()); } // fallback
           for (const m of g.children) m.position.sub(anchor);
+          // Now measure what we actually have and sit it where the free props
+          // sit. The children carry plain position offsets at this point, so
+          // their geometry boxes shifted by those offsets give the real extent.
+          const fit = new THREE.Box3();
+          for (const m of g.children) {
+            if (!m.geometry) continue;
+            if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+            fit.union(m.geometry.boundingBox.clone().translate(m.position));
+          }
+          if (!fit.isEmpty()) {
+            const size = fit.getSize(new THREE.Vector3());
+            const ctr = fit.getCenter(new THREE.Vector3());
+            const s = size.y > 1e-6 ? HEAD_FIT.height / size.y : 1;
+            // x centres on the bone (a head is symmetrical), y matches the free
+            // props' centre, z seats the BACK of the head where theirs ends.
+            g.scale.setScalar(s);
+            g.position.set(
+              -ctr.x * s,
+              HEAD_FIT.centerY - ctr.y * s,
+              HEAD_FIT.backZ - fit.min.z * s
+            );
+            g.rotation.y = spec.ry || 0;
+            return { group: g, glb: true };
+          }
         }
       } else {
         const inst = src.clone(true);
@@ -176,7 +223,9 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
         inst.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
         g.add(inst);
       }
-      g.scale.setScalar(spec.scale); g.position.y = spec.y; g.rotation.y = spec.ry || 0;
+      g.scale.setScalar(spec.scale == null ? 1 : spec.scale);
+      g.position.y = spec.y || 0;
+      g.rotation.y = spec.ry || 0;
       return { group: g, glb: true };
     }
     const mk = PROC[type]; if (!mk) return null;
