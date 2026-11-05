@@ -1981,6 +1981,27 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'afk_logout') {
+    // Idle too long: the server is closing this socket. Don't auto-reconnect
+    // (that would just make an idle tab immortal again); say what happened.
+    sessionTakenOver = true;
+    liveResumeToken = null;
+    try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
+    try { sessionStorage.removeItem('tc_resume'); } catch (e) {}
+    showSessionTakeover(msg.message, 'Logged out for inactivity');
+    return;
+  }
+
+  if (msg.type === 'kicked') {
+    // Removed by an admin: same no-reconnect path as a takeover, different words.
+    sessionTakenOver = true;
+    liveResumeToken = null;
+    try { sessionStorage.removeItem('tc_live_resume'); } catch (e) {}
+    try { sessionStorage.removeItem('tc_resume'); } catch (e) {}
+    showSessionTakeover(msg.message, 'You were removed from the town');
+    return;
+  }
+
   if (msg.type === 'session_takeover') {
     // The same account just joined from another device — the server closed
     // THIS copy (one account, one body). Stop the auto-reconnect (it would
@@ -4271,6 +4292,19 @@ if (_playerCtxCottageBtn) _playerCtxCottageBtn.addEventListener('click', () => {
   const id = playerContextMenuId;
   hidePlayerContextMenu();
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'cottage_invite', targetId: id }));
+});
+// Admin kick: two taps (the first arms it) so a stray tap can't boot someone.
+const _playerCtxKickBtn = document.getElementById('playerContextKick');
+if (_playerCtxKickBtn) _playerCtxKickBtn.addEventListener('click', () => {
+  if (!playerContextMenuId || !amAdmin) return;
+  if (!_playerCtxKickBtn.dataset.armed) {
+    _playerCtxKickBtn.dataset.armed = '1';
+    _playerCtxKickBtn.textContent = 'Tap again to kick';
+    return;
+  }
+  const id = playerContextMenuId;
+  hidePlayerContextMenu();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'admin_kick', targetId: id }));
 });
 // Click anywhere else to dismiss the context menu. The menu opens on
 // mouseup/touchend, and the browser then fires a `click` on the canvas from
@@ -6794,6 +6828,9 @@ function showPlayerContextMenu(targetId, x, y) {
     // otherwise the server would just bounce it back as "you have no coven."
     const covenBtn = document.getElementById('playerContextCoven');
     if (covenBtn) covenBtn.classList.toggle('hidden', !covenState);
+    // Admin-only: kick. The server re-checks admin, so this is just visibility.
+    const kickBtn = document.getElementById('playerContextKick');
+    if (kickBtn) { kickBtn.classList.toggle('hidden', !amAdmin); kickBtn.dataset.armed = ''; kickBtn.textContent = 'Kick from town (admin)'; }
     // Position so it doesn't clip off screen
     menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
@@ -14849,7 +14886,7 @@ function accountAuth() {
 // ── One account, one body ────────────────────────────────────────────────────
 // sessionTakenOver is declared up by setupWs() (it's read by onWsClose, which
 // can fire during early load); the takeover UI lives here.
-function showSessionTakeover(message) {
+function showSessionTakeover(message, titleText) {
   const wrap = document.createElement('div');
   wrap.id = 'takeoverOverlay';
   wrap.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(8,5,14,0.92);display:flex;align-items:center;justify-content:center;padding:22px;';
@@ -14857,7 +14894,7 @@ function showSessionTakeover(message) {
   card.style.cssText = 'background:linear-gradient(180deg,#241a3b,#170f2a);border:1px solid #5ee7c0;border-radius:16px;max-width:380px;padding:24px 22px;text-align:center;color:#e8dcc8;font-size:14.5px;line-height:1.65;';
   const title = document.createElement('div');
   title.style.cssText = 'font-size:19px;font-weight:800;color:#ffe9c2;margin-bottom:8px;';
-  title.textContent = '🌒 Someone walked in as you';
+  title.textContent = titleText || '🌒 Someone walked in as you';
   const body = document.createElement('div');
   body.textContent = message || 'Your account entered the town from another device, so this visit has been closed — there is only ever one of you in Thornreach.';
   const btn = document.createElement('button');
