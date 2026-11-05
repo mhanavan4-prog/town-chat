@@ -4457,7 +4457,8 @@ function greenPathStateBody(player) {
   const level = getProgress(player).level || 1;
   return {
     done: false, chapter: gp.chapter, total, title: ch.title, band: ch.band,
-    label: ch.objective.label, progress: gp.progress || 0, target: ch.objective.target,
+    label: ch.objective.label, where: objectiveWhere(ch.objective),
+    progress: gp.progress || 0, target: ch.objective.target,
     requiresLevel: ch.requiresLevel || 1, levelOk: level >= (ch.requiresLevel || 1)
   };
 }
@@ -5517,12 +5518,24 @@ const NPC_ROOM = {
 // A structured waypoint for the current objective — what the client needs to
 // draw a "go here" arrow: the target kind, the room it lives in, and (for an
 // NPC) who. Null for objectives with no single place (fight at night, cast).
+// The on-screen pin for an objective. Only rooms waypointTarget() can actually
+// route to get a goal — 'wilds', 'witch_cave' and town buildings (see
+// client/waypoint.js). Anywhere else it would point at the wrong thing (from
+// the Wilds it assumes an unknown room is back in town), and a confidently
+// wrong arrow is worse than none — those objectives lean on objectiveWhere's
+// text instead.
 function objectiveGoal(obj) {
   if (!obj) return null;
   if (obj.type === 'talk_npc') return { kind: 'npc', npcId: obj.npcId, room: NPC_ROOM[obj.npcId] || null };
   if (obj.type === 'visit_room') return { kind: 'room', room: obj.room };
   if (obj.type === 'harvest_plant' || obj.type === 'harvest_specific') return { kind: 'room', room: 'wilds' };
-  if (obj.type === 'kill_creature' && obj.targetCreature === 'old_marrowe') return { kind: 'room', room: 'wilds' };
+  // Brewing happens at Hazel's cauldron, in the cave.
+  if (obj.type === 'craft_potion' || obj.type === 'garden_brew') return { kind: 'room', room: 'witch_cave' };
+  // Out in the Wilds: every creature hunt, the Artificer's forge (Wildlands
+  // Village) and the World Boss.
+  if (obj.type === 'kill_creature' || obj.type === 'craft_item' || obj.type === 'defeat_world_boss' || obj.type === 'seed_found') {
+    return { kind: 'room', room: 'wilds' };
+  }
   return null;
 }
 function objectiveWhere(obj) {
@@ -5548,6 +5561,13 @@ function objectiveWhere(obj) {
     case 'craft_item': return "the Artificer's forge in the Wildlands Village (the Wilds) — gather materials, then forge";
     case 'defeat_world_boss': return 'the Blighted Hollow, far north in the Wilds — rally when a World Boss rises';
     case 'pvp_defeat': return '🔥 the Ember Wastes — out past the refuge haven, where every player is fair game (or call a duel if the flats are quiet)';
+    // The Green Path (data/greenPath.js). Sowing and harvesting happen in the
+    // 🌿 Garden panel rather than at a spot on the map, so these say which
+    // panel — the two that DO have a place (the cauldron, the Wilds) name it.
+    case 'garden_plant': return 'the 🌿 Garden (☰ menu) — sow a seed in any empty bed; your cottage beds work too, from inside your cottage';
+    case 'garden_harvest': return 'the 🌿 Garden (☰ menu) — harvest a bed once it has ripened';
+    case 'garden_brew': return "Hazel's cauldron, inside the Witch's Cave — take the 🌀 Wilds portal at the north edge of town, then head north-west to the cave mouth";
+    case 'seed_found': return 'the Wilds — wild cuttings drop from the creatures you fell there, so hunt and loot the bodies (common herbs from any Wilds creature; the rarer ones from the night hunters)';
     default: return '';
   }
 }
@@ -16613,7 +16633,7 @@ global.__testHooks = {
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
-  objectiveGoal, NPC_ROOM, // quest waypoint goals
+  objectiveGoal, objectiveWhere, NPC_ROOM, // quest waypoint goals
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)
