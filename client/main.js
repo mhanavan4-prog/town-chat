@@ -5471,6 +5471,29 @@ const MSG_LOG_MAX = 80;
 const msgLog = []; // newest last: { text, at, level }
 let quietToasts = false;
 try { quietToasts = localStorage.getItem('tc_quiet_toasts') === '1'; } catch (e) {}
+// Notices used to stack up as pills across the middle of the screen. They go to
+// the chat panel's Log tab now, which badges when something lands — so nothing
+// is lost, it just stops covering the game. Anyone who preferred the pills can
+// put them back in Settings; this only governs whether they ALSO appear there.
+let screenNotices = false;
+try { screenNotices = localStorage.getItem('tc_screen_notices') === '1'; } catch (e) {}
+(function wireScreenNotices() {
+  const btn = document.getElementById('screenNoticesToggle');
+  if (!btn) return;
+  const show = () => { btn.textContent = screenNotices ? 'ON' : 'OFF'; btn.classList.toggle('on', screenNotices); };
+  btn.addEventListener('click', () => { setScreenNotices(!screenNotices); show(); });
+  show();
+})();
+function setScreenNotices(on) {
+  screenNotices = !!on;
+  try { localStorage.setItem('tc_screen_notices', screenNotices ? '1' : '0'); } catch (e) {}
+  if (!screenNotices) {
+    const wrap = document.getElementById('unlockToast');
+    if (wrap) { wrap.textContent = ''; wrap.classList.add('hidden'); }
+    document.body.classList.remove('toastVisible');
+  }
+  if (activeChatTab === 'log') renderChatMsgLog();
+}
 const TOAST_ROUTINE_RE = /^(?:\S+\s+)?You (?:step|climb|leave|enter|duck|exit)\b|^Reconnected\.?$/;
 const TOAST_FLAVOR_RE = /A mournful howl|Now playing:/;
 const TOAST_IMPORTANT_RE = /^⚠️|Slain by|hit you for|added to your inventory|Looted:|First Steps:|Chapter \d|is yours|Rested!|Still there\?|logged out|Level \d|level \d/;
@@ -5482,11 +5505,17 @@ function classifyToast(text) {
   return 'normal';
 }
 function logMessage(text, level) {
+  // A repeat inside 15s rolls into the previous line with a xN rather than
+  // filling the log with the same sentence.
   const last = msgLog[msgLog.length - 1];
-  if (last && last.text === String(text) && Date.now() - last.at < 15000) { last.count = (last.count || 1) + 1; last.at = Date.now(); if (Modals.isOpen('msgLogOpen')) renderMsgLog(); return; }
-  msgLog.push({ text: String(text), at: Date.now(), level });
-  if (msgLog.length > MSG_LOG_MAX) msgLog.splice(0, msgLog.length - MSG_LOG_MAX);
-  if (Modals.isOpen('msgLogOpen')) renderMsgLog();
+  const repeat = last && last.text === String(text) && Date.now() - last.at < 15000;
+  if (repeat) { last.count = (last.count || 1) + 1; last.at = Date.now(); }
+  else {
+    msgLog.push({ text: String(text), at: Date.now(), level });
+    if (msgLog.length > MSG_LOG_MAX) msgLog.splice(0, msgLog.length - MSG_LOG_MAX);
+  }
+  if (activeChatTab === 'log') renderChatMsgLog();
+  else if (!repeat && typeof bumpChatBadge === 'function') bumpChatBadge('log');
 }
 function _scheduleToastFade(el, wrap, ms) {
   clearTimeout(el._fadeT);
@@ -5509,6 +5538,7 @@ function setUnlockToast(text, opts) {
   // Remember the latest line so systemChatNotif() doesn't repeat it as a banner
   // (even when this one is suppressed, the banner would just be the same noise).
   lastToastText = text; lastToastAt = Date.now();
+  if (!screenNotices) return;   // it is in the Log; that is the point
   if (level === 'routine') return;
   if (level === 'flavor' && quietToasts) return;
   const life = TOAST_LIFE_MS[level] || TOAST_LIFE_MS.normal;
@@ -5536,48 +5566,17 @@ function setUnlockToast(text, opts) {
 
 // ── Message log ──────────────────────────────────────────────────────────────
 // Every notice from this session, newest first, plus the Quiet mode switch.
-function renderMsgLog() {
-  const rows = document.getElementById('msgLogRows');
-  if (!rows) return;
-  rows.textContent = '';
-  if (!msgLog.length) {
-    const e = document.createElement('div'); e.className = 'msgLogEmpty'; e.textContent = 'Nothing yet — notices from this visit will collect here.';
-    rows.appendChild(e);
-  }
-  for (let i = msgLog.length - 1; i >= 0; i--) {
-    const m = msgLog[i];
-    const r = document.createElement('div');
-    r.className = 'msgLogRow lv-' + m.level;
-    const t = document.createElement('span'); t.className = 'msgLogTime';
-    t.textContent = new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const x = document.createElement('span'); x.className = 'msgLogText'; x.textContent = m.text + (m.count > 1 ? '  ×' + m.count : '');
-    r.appendChild(t); r.appendChild(x);
-    rows.appendChild(r);
-  }
-  const q = document.getElementById('msgLogQuiet');
-  if (q) { q.classList.toggle('on', quietToasts); q.textContent = quietToasts ? 'ON' : 'OFF'; }
-}
+
+// The menu's "Message log" now opens the Log tab rather than a modal showing
+// the same lines — one place to read notices, not two.
 function openMsgLog() {
-  Modals.set('msgLogOpen', true);
-  renderMsgLog();
-  document.getElementById('msgLogModal').classList.remove('hidden');
+  if (typeof setChatHidden === 'function') setChatHidden(false);
+  setActiveChatTab('log');
+  return;
 }
-function closeMsgLog() {
-  Modals.set('msgLogOpen', false);
-  document.getElementById('msgLogModal').classList.add('hidden');
-}
-(function wireMsgLog() {
-  const close = document.getElementById('msgLogCloseBtn');
-  if (close) close.addEventListener('click', closeMsgLog);
-  const quiet = document.getElementById('msgLogQuiet');
-  if (quiet) quiet.addEventListener('click', () => {
-    quietToasts = !quietToasts;
-    try { localStorage.setItem('tc_quiet_toasts', quietToasts ? '1' : '0'); } catch (e) {}
-    renderMsgLog();
-  });
-  const ov = document.getElementById('msgLogModal');
-  if (ov) ov.addEventListener('click', (e) => { if (e.target === ov) closeMsgLog(); });
-})();
+// quietToasts still hides ambient flavour (howls, music) from the on-screen
+// pills when those are turned on; it never hid anything from the log.
+
 
 // Persistent banner shown while inside a coven's private Moot instance (Session
 // N). Created lazily so no HTML change is needed; pass null to hide it.
@@ -8210,7 +8209,8 @@ function sendChatMessage() {
 
 // ── Chat tabs (World ⟷ the building you're in) ──────────────────────────────
 function bumpChatBadge(which) {
-  if (which !== 'world' && which !== 'room') return;
+  if (which !== 'world' && which !== 'room' && which !== 'log') return;
+  if (which === activeChatTab) return;
   chatUnread[which] = (chatUnread[which] || 0) + 1;
   syncChatTabs();
 }
@@ -8219,8 +8219,42 @@ function setActiveChatTab(which) {
   if (which === 'room' && !isBuildingRoom(currentRoom)) which = 'world';
   activeChatTab = which;
   clearChatBadge(which);
+  if (which === 'log') { renderChatMsgLog(); syncChatTabs(); return; }
   renderChatLog();
+  syncChatTabs();
   try { if (!MOBILE_UI) chatInput.focus(); } catch (e) {}
+}
+// ── The Log tab ─────────────────────────────────────────────────────────────
+// Notices land here instead of stacking up as pills over the middle of the
+// screen. The badge is what tells you something arrived, so a quiet screen
+// never means a missed message.
+function renderChatMsgLog() {
+  const box = document.getElementById('chatMsgLog');
+  if (!box) return;
+  box.textContent = '';
+  if (!msgLog.length) {
+    const e = document.createElement('div');
+    e.className = 'msgLogEmpty';
+    e.textContent = 'Nothing yet — notices from this visit collect here.';
+    box.appendChild(e);
+    return;
+  }
+  for (let i = msgLog.length - 1; i >= 0; i--) {
+    const m = msgLog[i];
+    const r = document.createElement('div');
+    r.className = 'msgLogRow lv-' + m.level;
+    const t = document.createElement('span'); t.className = 'msgLogTime';
+    t.textContent = new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const x = document.createElement('span'); x.className = 'msgLogText';
+    x.textContent = m.text + (m.count > 1 ? '  ×' + m.count : '');
+    r.appendChild(t); r.appendChild(x); box.appendChild(r);
+  }
+  const hint = document.createElement('div');
+  hint.className = 'msgLogHint';
+  hint.textContent = screenNotices
+    ? 'Notices also appear on screen — turn that off in Settings → Notices.'
+    : 'Notices come here rather than over the screen. Settings → Notices to change that.';
+  box.appendChild(hint);
 }
 // Reflect current tab state into the DOM (active highlight, room tab label +
 // visibility, unread badges). Safe to call on every render.
@@ -8244,6 +8278,20 @@ function syncChatTabs() {
   const canImage = activeChatTab === 'room' && inBuilding;
   if (chatImageBtn) chatImageBtn.classList.toggle('show', canImage);
   if (!canImage && typeof clearPendingImage === 'function' && pendingImage) clearPendingImage();
+  const onLog = activeChatTab === 'log';
+  const tL = document.getElementById('chatTabLog');
+  if (tL) tL.classList.toggle('on', onLog);
+  // The Log is read-only, so the composer and the picture button step aside
+  // for it rather than sitting there inert.
+  const logBox = document.getElementById('chatMsgLog');
+  if (logBox) logBox.classList.toggle('hidden', !onLog);
+  const chatBox = document.getElementById('chatLog');
+  if (chatBox) chatBox.classList.toggle('hidden', onLog);
+  const inputRow = document.getElementById('chatInputRow');
+  if (inputRow) inputRow.classList.toggle('hidden', onLog);
+  if (onLog) { tW.classList.remove('on'); tR.classList.remove('on'); }
+  const bL = document.getElementById('chatBadgeLog');
+  if (bL) { bL.textContent = chatUnread.log > 9 ? '9+' : String(chatUnread.log || ''); bL.classList.toggle('hidden', !chatUnread.log || onLog); }
   const bW = document.getElementById('chatBadgeWorld');
   const bR = document.getElementById('chatBadgeRoom');
   if (bW) { bW.textContent = chatUnread.world > 9 ? '9+' : String(chatUnread.world || ''); bW.classList.toggle('hidden', !chatUnread.world || activeChatTab === 'world'); }
@@ -8390,6 +8438,8 @@ if (chatShowBtn) chatShowBtn.addEventListener('click', () => setChatHidden(false
   const tR = document.getElementById('chatTabRoom');
   if (tW) tW.addEventListener('click', () => setActiveChatTab('world'));
   if (tR) tR.addEventListener('click', () => setActiveChatTab('room'));
+  const tL = document.getElementById('chatTabLog');
+  if (tL) tL.addEventListener('click', () => setActiveChatTab('log'));
 }
 
 let lastRoom = null; // null (not 'outside') so the FIRST room-UI pass always runs — otherwise spawning into the town short-circuits it and the chat panel never un-hides there
