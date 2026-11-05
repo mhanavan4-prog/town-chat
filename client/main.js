@@ -18982,8 +18982,56 @@ function renderTownPulse() {
   }
 }
 
+// ── Field of view ───────────────────────────────────────────────────────────
+// Every scene picks its own lens on purpose — the town sits at 62, the small
+// building interiors at 72 so your character doesn't fill the frame in a
+// cramped room. So the player's preference is stored as the TOWN number and
+// applied to every other camera as the same offset from its own base, which
+// keeps each room's relative framing intact however far the slider is pushed.
+const FOV_BASE = 62;              // the town camera's authored lens
+const FOV_MIN = 50, FOV_MAX = 100; // narrow/zoomed-in … wide/sees-more
+let fovPref = FOV_BASE;
+try {
+  const saved = parseFloat(localStorage.getItem('tc_fov'));
+  if (isFinite(saved)) fovPref = Math.min(FOV_MAX, Math.max(FOV_MIN, saved));
+} catch (e) {}
+
+function setFovPref(v) {
+  fovPref = Math.min(FOV_MAX, Math.max(FOV_MIN, Math.round(v)));
+  try { localStorage.setItem('tc_fov', String(fovPref)); } catch (e) {}
+  return fovPref;
+}
+
+(function wireFovSlider() {
+  const slider = document.getElementById('fovSlider');
+  const readout = document.getElementById('fovValue');
+  const reset = document.getElementById('fovResetBtn');
+  if (!slider) return;
+  const show = () => {
+    slider.value = String(fovPref);
+    if (readout) readout.textContent = fovPref + '°' + (fovPref === FOV_BASE ? ' (default)' : '');
+  };
+  slider.min = String(FOV_MIN); slider.max = String(FOV_MAX);
+  // 'input' not 'change': the view widens as the slider is dragged, so the
+  // player picks their lens by looking at the game rather than at a number.
+  slider.addEventListener('input', () => { setFovPref(parseFloat(slider.value)); show(); });
+  if (reset) reset.addEventListener('click', () => { setFovPref(FOV_BASE); show(); });
+  show();
+})();
+
+// Applied per frame rather than pushed to every camera on change: scenes are
+// built lazily (a room you have never entered has no camera yet), so a camera
+// that appears later still picks the preference up with nothing to remember.
+function applyFov(cam) {
+  if (!cam || !cam.isPerspectiveCamera) return;
+  if (cam.userData.baseFov === undefined) cam.userData.baseFov = cam.fov;
+  const want = Math.min(130, Math.max(30, cam.userData.baseFov + (fovPref - FOV_BASE)));
+  if (Math.abs(cam.fov - want) > 0.01) { cam.fov = want; cam.updateProjectionMatrix(); }
+}
+
 function render() {
   if (!me || !world || !renderer || !activeScene || !activeCamera) return;
+  applyFov(activeCamera);
   GFX.beforeRender();
   if (GFX.composerActive()) {
     GFX.renderPass.scene = activeScene;
@@ -19136,6 +19184,17 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    fovState() {
+      // QA: the field-of-view preference and what the camera you're actually
+      // looking through ended up at — the two differ by that scene's own
+      // authored lens, which is the point of applying an offset.
+      return activeCamera ? {
+        pref: fovPref,
+        cameraFov: +activeCamera.fov.toFixed(2),
+        baseFov: activeCamera.userData.baseFov,
+        stored: (() => { try { return localStorage.getItem('tc_fov'); } catch (e) { return null; } })()
+      } : null;
+    },
     guiseFit(id) {
       // QA: where a guise actually lands on the wearer's head bone, measured
       // in head-bone-local units so the free baked props and the collectible
