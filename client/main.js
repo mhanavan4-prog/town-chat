@@ -19021,6 +19021,30 @@ if (location.search.includes('testdrive=1')) {
     walk(dx, dy) { updateOutdoor(dx, dy); return { x: me.x, y: me.y, room: me.room }; },
     refitWhileIn(which) { if (which === 'wilds') swapToWildsMap(); refitBuildingColliders(); swapToTownMap(); return walls === TOWN_WALLS; },
     leave() { const b = world.buildings.find(bb => bb.id === indoorBuildingId); if (b) exitBuilding(b); return me ? { x: me.x, y: me.y, room: me.room } : null; },
+    auditColliders() {
+      // Every town collider vs the visible geometry it should stand for. A rect
+      // with no visible (non-floor) mesh overlapping it is an invisible obstacle.
+      const boxes = [];
+      outdoorScene.updateMatrixWorld(true);
+      outdoorScene.traverse((o) => {
+        if (!o.isMesh || o.isInstancedMesh || !o.geometry) return;
+        let vis = true; for (let q = o; q; q = q.parent) if (q.visible === false) { vis = false; break; }
+        if (!vis) return;
+        const bb = new THREE.Box3().setFromObject(o);
+        if (!isFinite(bb.min.x)) return;
+        const sx = bb.max.x - bb.min.x, sz = bb.max.z - bb.min.z;
+        if (sx > 1500 || sz > 1500 || (bb.max.y - bb.min.y) < 2 && bb.max.y < 3) return; // ground / sky / flat decals
+        boxes.push(bb);
+      });
+      const wildSet = new Set(WILDS_WALLS);
+      const bad = [];
+      for (const r of TOWN_WALLS) {
+        if (r.bld) continue; // building walls are cut from the measured model box
+        const hit = boxes.some((bb) => bb.min.x < r.x + r.w + 2 && bb.max.x > r.x - 2 && bb.min.z < r.y + r.h + 2 && bb.max.z > r.y - 2 && bb.max.y > 3);
+        if (!hit) bad.push({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), wilds: wildSet.has(r) });
+      }
+      return { townWalls: TOWN_WALLS.length, active: walls === TOWN_WALLS, wildsLeak: TOWN_WALLS.filter((r) => wildSet.has(r)).length, invisible: bad, meshes: boxes.length };
+    },
     bldInfo() { return world.buildings.map(b => ({ id: b.id, door: getDoorSide(b), data: { x: b.x, y: b.y, w: b.w, h: b.h }, fit: b._fit, box: KK_BLD_BOXES[b.id] ? { minx: KK_BLD_BOXES[b.id].min.x, maxx: KK_BLD_BOXES[b.id].max.x, minz: KK_BLD_BOXES[b.id].min.z, maxz: KK_BLD_BOXES[b.id].max.z } : null })); },
     wallsNear(x, y, r) { return walls.filter(w => w.x - r < x && w.x + w.w + r > x && w.y - r < y && w.y + w.h + r > y).map(w => ({ ...w })); },
     hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
