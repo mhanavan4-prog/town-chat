@@ -8904,10 +8904,18 @@ const GFX = (() => {
       const gt = g && g.type || '';
       const flat = gt.indexOf('Plane') === 0 || gt.indexOf('Circle') === 0;
       // Characters cast ground shadows but DON'T receive them: self-shadowing on
-      // the small humanoid models under the wide follow shadow map stair-stepped
-      // into saw-tooth acne across the body. Walk up for the isHumanoid flag.
-      let isChar = false;
-      for (let p = o; p; p = p.parent) { if (p.userData && p.userData.isHumanoid) { isChar = true; break; } }
+      // the small humanoid models under the wide follow shadow map stair-steps
+      // into saw-tooth acne across the body and face.
+      //
+      // This used to rely solely on the isHumanoid flag, which only
+      // createHumanoid() sets — so every body built by createKayKitByKey (all
+      // the mobs, minions, the Artificer, Mother Yarrow, the great werewolf)
+      // still received shadows and still showed the acne (reported on the
+      // village knights). Any SKINNED mesh is an animated character by
+      // definition, so test for that too: a new character path cannot forget
+      // to opt in, because there is nothing to remember.
+      let isChar = !!o.isSkinnedMesh;
+      if (!isChar) for (let p = o; p; p = p.parent) { if (p.userData && p.userData.isHumanoid) { isChar = true; break; } }
       o.receiveShadow = !isChar;
       o.castShadow = !flat;
     });
@@ -19072,6 +19080,24 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    shadowTags(which) {
+      // QA: which character meshes are set to RECEIVE shadows (the cause of
+      // self-shadow acne on faces), grouped by how they were built.
+      const sc = which === 'wilds' ? wildsScene : outdoorScene;
+      const out = { skinnedReceiving: 0, skinnedTotal: 0, flaggedTotal: 0, receivingNames: [] };
+      if (!sc) return out;
+      sc.traverse((o) => {
+        if (!o.isMesh) return;
+        let flagged = false;
+        for (let p = o; p; p = p.parent) if (p.userData && p.userData.isHumanoid) { flagged = true; break; }
+        if (o.isSkinnedMesh) {
+          out.skinnedTotal++;
+          if (o.receiveShadow) { out.skinnedReceiving++; if (out.receivingNames.length < 8) out.receivingNames.push(o.name || '(unnamed)'); }
+        }
+        if (flagged) out.flaggedTotal++;
+      });
+      return out;
+    },
     drawColliders(which) {
       // QA: lay a translucent red plate over every collider so a top-down shot
       // shows exactly where they sit against the buildings.
