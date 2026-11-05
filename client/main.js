@@ -19080,6 +19080,13 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    enterRoom(id) {
+      // QA: drop straight into a named building interior, so a shadow or
+      // decor check doesn't depend on walking to the right door first.
+      if (!world || !world.buildings.some(b => b.id === id)) return null;
+      enterBuilding(id);
+      return me ? { x: me.x, y: me.y, room: me.room } : null;
+    },
     shadowTags(which) {
       // QA: which character meshes are set to RECEIVE shadows (the cause of
       // self-shadow acne on faces), grouped by how they were built.
@@ -19097,6 +19104,39 @@ if (location.search.includes('testdrive=1')) {
         if (flagged) out.flaggedTotal++;
       });
       return out;
+    },
+    shadowRig() {
+      // QA: the numbers that decide whether shadows stair-step in the room
+      // you're standing in — how slanted the caster is, how much world space
+      // one shadow-map texel covers, and how deep a range the map spans.
+      // Striping scales with unitsPerTexel and with the caster's slant.
+      let light = null;
+      const lights = [];
+      if (activeScene) activeScene.traverse((o) => {
+        if (!o.isDirectionalLight) return;
+        if (!light && o.castShadow) light = o;
+        lights.push({
+          cast: !!o.castShadow, skipped: !!(o.userData && o.userData.noShadowCaster),
+          pos: o.position.toArray().map(Math.round), intensity: +o.intensity.toFixed(2)
+        });
+      });
+      if (!light) return { caster: false, lights };
+      const c = light.shadow.camera;
+      const dir = new THREE.Vector3().subVectors(light.target.position, light.position);
+      const len = dir.length() || 1;
+      return {
+        caster: true, lights,
+        pos: light.position.toArray().map(Math.round),
+        tgt: light.target.position.toArray().map(Math.round),
+        mapSize: light.shadow.mapSize.x,
+        halfX: Math.round(c.right), halfZ: Math.round(c.top),
+        unitsPerTexel: +((c.right - c.left) / light.shadow.mapSize.x).toFixed(3),
+        depthRange: Math.round(c.far - c.near),
+        near: Math.round(c.near), far: Math.round(c.far),
+        // 1 = straight down (no slope to alias), 0 = horizontal
+        downness: +(Math.abs(dir.y) / len).toFixed(3),
+        bias: light.shadow.bias, normalBias: light.shadow.normalBias
+      };
     },
     drawColliders(which) {
       // QA: lay a translucent red plate over every collider so a top-down shot
