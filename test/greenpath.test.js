@@ -166,12 +166,14 @@ setTimeout(() => {
 
   // ── Chapter 6: brew a hedge remedy, level-gated at 14 → on to the Poison Path
   h.getProgress(g.p).level = 14;
-  h.greenPathEvent(g.p, 'garden_brew');
+  // Chapters that name a herb band check it now, so pass what was brewed/sown.
+  const recipeFor = (id) => require('../data/gameConstants').POTION_RECIPES.find((r) => r.id === id);
+  h.greenPathEvent(g.p, 'garden_brew', { recipe: recipeFor('rue_water') }); // a hedge remedy
   const s6 = h.greenPathStateBody(g.p);
   check('finishing Chapter 6 advances to Chapter 7 (The Beautiful Lady)', s6 && s6.done === false && s6.chapter === 6 && s6.title === 'The Beautiful Lady', s6);
   check('Chapter 6 grants st_johns_wort + rowan_berry', h.countItemQty(h.getInventory(g.p), 'st_johns_wort') === 3 && h.countItemQty(h.getInventory(g.p), 'rowan_berry') === 3);
 
-  // ── Chapter 7: tend the dark beds — harvest 7×, level-gated at 17 ─────────────
+  // ── Chapter 7: harvest 7×, level-gated at 17 ─────────────
   h.getProgress(g.p).level = 17;
   for (let i = 0; i < 6; i++) h.greenPathEvent(g.p, 'garden_harvest');
   check('six of seven harvests leaves Chapter 7 in progress', h.greenPathStateBody(g.p).chapter === 6 && h.greenPathStateBody(g.p).progress === 6);
@@ -182,7 +184,7 @@ setTimeout(() => {
 
   // ── Chapter 8: sow a nightshade (garden_plant), level-gated at 19 ─────────────
   h.getProgress(g.p).level = 19;
-  h.greenPathEvent(g.p, 'garden_plant');
+  h.greenPathEvent(g.p, 'garden_plant', { herb: 'belladonna' }); // a real nightshade
   const s8 = h.greenPathStateBody(g.p);
   check('Chapter 8 completes to Chapter 9 (The Witch’s Garden)', s8 && s8.chapter === 8 && s8.title === "The Witch's Garden", s8);
   check('Chapter 8 grants mandrake + wolfsbane + datura', (() => {
@@ -192,7 +194,7 @@ setTimeout(() => {
 
   // ── Chapter 9: the final working (garden_brew), level-gated at 20 → completes all
   h.getProgress(g.p).level = 20;
-  h.greenPathEvent(g.p, 'garden_brew');
+  h.greenPathEvent(g.p, 'garden_brew', { recipe: recipeFor('mandrake_draught') }); // a baneful draught
   const s9 = h.greenPathStateBody(g.p);
   check('brewing completes Chapter 9 — the whole nine-chapter Green Path', s9 && s9.done === true && s9.chapter === GREEN_PATH.length && GREEN_PATH.length === 9, s9);
   check('Chapter 9 grants hemlock + foxglove + black_hellebore', (() => {

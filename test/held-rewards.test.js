@@ -109,7 +109,11 @@ setTimeout(() => {
     prog.level = Math.max(prog.level || 1, ch.requiresLevel || 1);
     gp.chapter = idx; gp.progress = (ch.objective.target || 1) - 1;
     fillPack(g.p);
-    h.greenPathEvent(g.p, ch.objective.type);
+    // That chapter asks for a hedge brew specifically, so hand the event one.
+    const detail = ch.objective.requires
+      ? { recipe: require('../data/gameConstants').POTION_RECIPES.find((r) => (r.ingredients || []).some((i) => (h.HERB_BANDS[ch.objective.requires] || []).includes(i.id))) }
+      : undefined;
+    h.greenPathEvent(g.p, ch.objective.type, detail);
     const after = h.greenPathOf(g.p);
     check('the chapter still completes with a full pack', after.chapter === idx + 1, { was: idx, now: after.chapter });
     check('its seeds are held, not destroyed', h.heldRewardsOf(g.p).length === (ch.itemRewards || []).length, h.heldRewardsOf(g.p));

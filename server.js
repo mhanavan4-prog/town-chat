@@ -3098,7 +3098,7 @@ const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum
 const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination) + The Futhark codex
 const RUNE_BY_KEY = Object.fromEntries(RUNES.map((r) => [r.key, r]));
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
-const { GREEN_PATH, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
+const { GREEN_PATH, HERB_BANDS, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
 const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); // Tier 3.5: kitchen witchcraft (brew-and-sip teas) — The Hearth Path
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES, observanceForSeason } = require('./data/ancestors'); // Tier 3.5 → Wheel of the Year: the solitary seasonal observance (Samhain = the Ancestor Altar)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
@@ -4020,7 +4020,12 @@ persistRegister('playerProgress', PROGRESS_FILE, () => playerProgress);
 
 // XP needed to reach each level (index = level). Level cap at 20.
 const { XP_THRESHOLDS } = require('./data/gameConstants'); // Tier 3.4 Phase A: extracted to data/
-const MAX_LEVEL = XP_THRESHOLDS.length - 1;
+// Reaching level L costs XP_THRESHOLDS[L-1], so a 20-entry table (indices
+// 0..19) tops out at level 20. This was `length - 1`, which capped play at 19
+// and left the last threshold (87000) unreachable — and with it the Green
+// Path's final chapter, which gates on level 20. Nobody could finish it, so
+// the Verdant aura and the fifth garden bed were unobtainable.
+const MAX_LEVEL = XP_THRESHOLDS.length;
 // 😴 Rested XP: the first REST_MS of a session pays REST_XP_MULT, granted at
 // most once per REST_COOLDOWN_MS per account so relogging can't farm it.
 const REST_MS = 10 * 60 * 1000;         // 10 minutes of boosted XP per session
@@ -4553,13 +4558,27 @@ function greenPathStateBody(player) {
 // is met). On completion: grant XP/gold/seeds, move to the next chapter, and
 // toast the outro. The caller (garden handlers) re-sends inventory + garden
 // state afterwards, so this only emits the narrative toast.
-function greenPathEvent(player, type) {
+// Does what the player just did satisfy the chapter's herb band? `detail`
+// carries the herb that was sown or harvested, or the recipe that was brewed.
+// An objective with no `requires` accepts anything, as before.
+function greenPathQualifies(obj, detail) {
+  const band = obj && obj.requires && HERB_BANDS[obj.requires];
+  if (!band) return true;
+  if (!detail) return false;
+  if (detail.herb) return band.includes(detail.herb);
+  if (detail.recipe) return (detail.recipe.ingredients || []).some((i) => band.includes(i.id));
+  return false;
+}
+function greenPathEvent(player, type, detail) {
   if (!player || !player.accountKey) return;
   const gp = greenPathOf(player);
   if (gp.chapter >= GREEN_PATH.length) return;
   const ch = GREEN_PATH[gp.chapter];
   if (!ch || ch.objective.type !== type) return;
   if ((getProgress(player).level || 1) < (ch.requiresLevel || 1)) return;
+  // "Sow a nightshade" used to tick for any seed at all — rue included
+  // (reported from playtest). A chapter that names a herb band now checks it.
+  if (!greenPathQualifies(ch.objective, detail)) return;
   gp.progress = (gp.progress || 0) + 1;
   if (gp.progress < ch.objective.target) { try { saveProgress(); } catch (e) {} return; }
   // Chapter complete — advance and pay out.
@@ -5599,6 +5618,15 @@ function objectiveGoal(obj) {
   }
   return null;
 }
+// The herbs in a band, by display name — so an objective that demands a
+// "nightshade" can say which plants actually count.
+function bandHerbNames(band) {
+  const ids = HERB_BANDS[band] || [];
+  return ids.map((id) => {
+    const m = ITEM_CATALOG[id] || PLANT_CATALOG[id];
+    return (m && m.name) || id;
+  }).join(', ');
+}
 function objectiveWhere(obj) {
   if (obj.where) return obj.where;
   switch (obj.type) {
@@ -5625,9 +5653,15 @@ function objectiveWhere(obj) {
     // The Green Path (data/greenPath.js). Sowing and harvesting happen in the
     // 🌿 Garden panel rather than at a spot on the map, so these say which
     // panel — the two that DO have a place (the cauldron, the Wilds) name it.
-    case 'garden_plant': return 'the 🌿 Garden (☰ menu) — sow a seed in any empty bed; your cottage beds work too, from inside your cottage';
+    case 'garden_plant': return obj.requires
+      ? `the 🌿 Garden (☰ menu) — sow one of the ${obj.requires === 'bane' ? 'baneful' : 'hedge'} herbs in an empty bed: ${bandHerbNames(obj.requires)}`
+      : 'the 🌿 Garden (☰ menu) — sow a seed in any empty bed; your cottage beds work too, from inside your cottage';
     case 'garden_harvest': return 'the 🌿 Garden (☰ menu) — harvest a bed once it has ripened';
-    case 'garden_brew': return "Hazel's cauldron, inside the Witch's Cave — take the 🌀 Wilds portal at the north edge of town, then head north-west to the cave mouth";
+    case 'garden_brew': {
+      const route = "Hazel's cauldron, inside the Witch's Cave — take the 🌀 Wilds portal at the north edge of town, then head north-west to the cave mouth";
+      if (!obj.requires) return route;
+      return `${route}. It must be a brew made from the ${obj.requires === 'bane' ? 'baneful' : 'hedge'} herbs: ${bandHerbNames(obj.requires)}`;
+    }
     case 'seed_found': return 'the Wilds — wild cuttings drop from the creatures you fell there, so hunt and loot the bodies (common herbs from any Wilds creature; the rarer ones from the night hunters)';
     default: return '';
   }
@@ -15486,7 +15520,7 @@ wss.on('connection', (ws, req) => {
       if (countItemQty(inv, herb) < 1) { send(ws, { type: 'garden_error', message: `You hold no ${ITEM_CATALOG[herb] ? ITEM_CATALOG[herb].name : herb} to sow.` }); return; }
       removeItemFromAccount(inv, herb, 1);
       g[idx] = { herb, plantedAt: Date.now(), moonTier: moonTierAtPlant(moonPhaseWindow(Date.now())) };
-      greenPathEvent(player, 'garden_plant'); // may grant a chapter reward into inv
+      greenPathEvent(player, 'garden_plant', { herb }); // may grant a chapter reward into inv
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
@@ -15509,7 +15543,7 @@ wss.on('connection', (ws, req) => {
       for (let i = 0; i < amount; i++) { if (addItemToAccount(inv, p.herb, 1)) got++; else break; }
       if (got === 0) { send(ws, { type: 'garden_error', message: 'Your inventory is full — clear a slot first.' }); return; }
       g[idx] = null;
-      greenPathEvent(player, 'garden_harvest'); // may grant a chapter reward into inv
+      greenPathEvent(player, 'garden_harvest', { herb: p.herb }); // may grant a chapter reward into inv
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
@@ -15797,7 +15831,7 @@ wss.on('connection', (ws, req) => {
       // Green Path ch.3 — brewing any remedy completes it; a chapter payout adds
       // seeds to the pack, so refresh inventory again to show them.
       const gpBefore = greenPathOf(player).chapter;
-      greenPathEvent(player, 'garden_brew');
+      greenPathEvent(player, 'garden_brew', { recipe });
       if (greenPathOf(player).chapter !== gpBefore) send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       noteMilestone(player, 'craft');
       return;
@@ -16679,7 +16713,7 @@ global.__testHooks = {
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
-  greenPathEvent, greenPathStateBody, GREEN_PATH, greenPathOf,
+  greenPathEvent, greenPathStateBody, GREEN_PATH, greenPathOf, greenPathQualifies, HERB_BANDS,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
   homeGardenOf, homeGardenStateBody, inOwnCottage, COTTAGE_GARDEN_PLOTS, HOME_GARDEN_YIELD_BONUS, // Cottage Garden (housing ↔ gardening)
@@ -16718,7 +16752,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
