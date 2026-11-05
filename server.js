@@ -10801,6 +10801,8 @@ wss.on('connection', (ws, req) => {
         if (changedRoom) exitBuildingIfAny(player);
         player.room = msg.room;
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
+        // Funnel: did this player ever leave town for the Wilds? Once per account / guest session.
+        if (changedRoom && msg.room === 'wilds' && !player._synthetic) { try { noteMilestone(player, 'wilds'); } catch (e) {} }
         // Entering a building: replay its recent private chat so the room feels
         // alive instead of empty. Occupants-only channel, so this is the one
         // place a newcomer catches up. Guests never receive images.
@@ -12318,6 +12320,18 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // Funnel: what a first-time player does with the welcome card — begin the
+    // story, explore freely, or dismiss it. Sent once by the client (first
+    // ever welcome only); deduped per session here too.
+    if (msg.type === 'welcome_choice') {
+      const c = msg.choice;
+      if ((c === 'begin' || c === 'explore' || c === 'dismiss') && !player._welcomeChoice && !player._synthetic) {
+        player._welcomeChoice = c;
+        try { analytics.bump('welcome.' + c); } catch (e) {}
+      }
+      return;
+    }
+
     if (msg.type === 'story_begin') {
       const line = STORYLINES[player.charId];
       if (!line) return;
@@ -12341,6 +12355,10 @@ wss.on('connection', (ws, req) => {
       st.active = true;
       st.progress = 0;
       if (player.accountKey) saveProgress();
+      // Funnel: chapter STARTS (completions are counted separately in
+      // completeChapter). 'beganN' is once per account / guest session, so the
+      // dashboard can show who began Chapter 1 vs who finished it.
+      try { if (!player._synthetic) { analytics.bump('chapter.begin'); noteMilestone(player, 'began' + (st.chapter + 1)); } } catch (e) {}
       // "Set foot in X" must count feet that are ALREADY in X — without
       // this, beginning a visit-chapter while standing in the target room
       // (e.g. the Wanderer finishing ch2 in the Wilds, then beginning
