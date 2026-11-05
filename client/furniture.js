@@ -7,7 +7,33 @@
 // layout constants, the canvas, createHumanoid, the sign/name sprites and the
 // wall-painting helper are injected. makeBarrel is re-used by the town props.
 // ---------------------------------------------------------------------------
-export default function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK }) {
+export default function createFurniture({ INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC, canvas, createHumanoid, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK, wallFaceDepth }) {
+// ── Hanging things on walls ─────────────────────────────────────────────────
+// A perimeter wall is a SOLID BOX wallThickness*INDOOR_SCALE deep — 14*1.8 =
+// 25.2 render units — not a flat plane at the room's edge. So a painting "on
+// the north wall at z=8" is not on the wall, it is seventeen units INSIDE it:
+// the wall reads blank from the room, and the piece shows through from the far
+// side if you turn the right way. That is what players hit in the Phantom
+// Parlor, and every themed room was doing it — the café's chalk board (z=36)
+// and the library's shelves (roomW-26) were the only two that had been found
+// and fixed one at a time, with the reason written in a comment each time
+// instead of in a function.
+//
+// So: ask WALL for the coordinate instead of writing a number. `proud` is the
+// clearance beyond the wall's inner face — the default suits a flat painting
+// or banner; pass more for something with real depth.
+// A banner is 26 wide, so a north-wall one in the corner needs its CENTRE at
+// least half that clear of the side wall's inner face or it hangs inside the
+// side wall instead — which is how the hall's and bank's pair ended up buried
+// even after their z was right.
+const BANNER_CORNER = 22;
+const WALL = {
+  depth: () => (wallFaceDepth ? wallFaceDepth() : 25.2),
+  northZ: (proud = 10) => WALL.depth() + proud,
+  southZ: (roomD, proud = 10) => roomD - WALL.depth() - proud,
+  westX: (proud = 10) => WALL.depth() + proud,
+  eastX: (roomW, proud = 10) => roomW - WALL.depth() - proud,
+};
 // KayKit Furniture Bits helper: return a positioned static instance of a furn_*
 // model if it has streamed in (FURN_KEYS load after spawn), else null so the
 // caller drops back to its procedural mesh. mode 'fit' sizes by max(x,z),
@@ -417,7 +443,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
   const cx = roomW / 2, cz = roomD / 2;
   if (type === 'tavern') {
     scene.add(makeRug(cx, cz, roomW * 0.6, roomD * 0.55, 0x4a2440));
-    scene.add(makeFireplace(cx, 14, Math.PI));
+    // The hearth is 18 deep, so at z=14 it sat entirely within the 25-deep
+    // north wall — a fireplace you could not see. Mount it with its back to
+    // the wall's inner face so the whole thing stands proud in the room.
+    scene.add(makeFireplace(cx, WALL.northZ(10), Math.PI));
     // bar runs along the west wall, clear of the (east-facing) doorway
     scene.add(makeBarCounter(50, 50, 210));
     // 3 columns x 2 rows of dining sets, in neat aligned rows, with a
@@ -472,8 +501,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // the hearth. Gone rather than fought further.)
     scene.add(makeBarrel(24, roomD - 28));
     scene.add(makeBarrel(24, roomD - 64));
-    scene.add(makeBanner(28, 100, 8, 0, 0xff9a3c));
-    scene.add(makeBanner(roomW - 28, 100, 8, 0, 0xff9a3c));
+    scene.add(makeBanner(WALL.westX(BANNER_CORNER), 100, WALL.northZ(), 0, 0xff9a3c));
+    scene.add(makeBanner(WALL.eastX(roomW, BANNER_CORNER), 100, WALL.northZ(), 0, 0xff9a3c));
 
     // ── Witchy dressing: the Cauldron Café earns its name ──
     // A bubbling cauldron beside the bar (decor only — Joss still runs the shop)
@@ -527,10 +556,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       stem.position.set(px, pr * 1.6 + 2, pz);
       scene.add(stem);
     }
-    scene.add(makeShield(60, 82, 6, 0, 0xb0392b));
-    scene.add(makeShield(roomW - 90, 82, 6, 0, 0x3b5fb0));
-    scene.add(makeWindowGlow(6, 80, roomD * 0.18, Math.PI / 2));
-    scene.add(makeWindowGlow(roomW - 6, 80, roomD * 0.85, -Math.PI / 2));
+    scene.add(makeShield(60, 82, WALL.northZ(6), 0, 0xb0392b));
+    scene.add(makeShield(roomW - 90, 82, WALL.northZ(6), 0, 0x3b5fb0));
+    // Window glow sits almost flush — it reads as light coming through the
+    // wall, so it wants the inner FACE, not a hand's breadth into the room.
+    scene.add(makeWindowGlow(WALL.westX(1), 80, roomD * 0.18, Math.PI / 2));
+    scene.add(makeWindowGlow(WALL.eastX(roomW, 1), 80, roomD * 0.85, -Math.PI / 2));
 
     // Framed paintings on the (otherwise bare) south wall, facing north
     // into the room.
@@ -544,7 +575,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         ...tavernPaintings[i],
         bg1: '#2a140c', bg2: '#3c1e10', border: '#c87a3a', accent: '#ffb060'
       });
-      p.position.set(x, 90, roomD - 4);
+      p.position.set(x, 90, WALL.southZ(roomD));
       p.rotation.y = Math.PI;
       scene.add(p);
     });
@@ -647,7 +678,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(makeBookshelf(roomW - 20, cz + 10, -Math.PI / 2));
     }
     scene.add(makeTable(cx, cz - 10)); // reading table — the crystal ball sits on it
-    scene.add(makeBanner(cx, 90, 8, 0, 0x9a7ad9));
+    scene.add(makeBanner(cx, 90, WALL.northZ(), 0, 0x9a7ad9));
     // A scholar's desk against the south wall: KayKit desk + desk chair + a
     // lamp and a book stack. A cosy reading armchair + side table in the SW
     // corner (clear of the west-wall door). All additive; no-ops until streamed.
@@ -727,7 +758,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       { symbol: '🌙', title: 'PHASES OF HER', subtitle: 'as above, so below', x: roomW * 0.7 }
     ].forEach(({ symbol, title, subtitle, x }) => {
       const p = makeWallPainting({ symbol, title, subtitle, bg1: '#160f2e', bg2: '#241a42', border: '#8a6ad0', accent: '#d0baff' });
-      p.position.set(x, 90, roomD - 4);
+      p.position.set(x, 90, WALL.southZ(roomD));
       p.rotation.y = Math.PI;
       scene.add(p);
     });
@@ -928,9 +959,9 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(g);
     })();
 
-    scene.add(makeBanner(cx, 90, 8, 0, 0x4fa8ff));
-    scene.add(makeBanner(roomW - 8, 95, 120, Math.PI / 2, 0x4fa8ff));
-    scene.add(makeBanner(roomW - 8, 95, 366, Math.PI / 2, 0x4fa8ff));
+    scene.add(makeBanner(cx, 90, WALL.northZ(), 0, 0x4fa8ff));
+    scene.add(makeBanner(WALL.eastX(roomW), 95, 120, Math.PI / 2, 0x4fa8ff));
+    scene.add(makeBanner(WALL.eastX(roomW), 95, 366, Math.PI / 2, 0x4fa8ff));
     makeShardCluster(26, cz);
     makeShardCluster(roomW - 26, 420);
 
@@ -1024,7 +1055,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         { glyph: '♓', name: 'THE FISHES',   x: 630 }
       ].forEach(({ glyph, name, x }, i) => {
         const chart = makeStarChart(glyph, name, i + 1);
-        chart.position.set(x, 92, 4);
+        chart.position.set(x, 92, WALL.northZ());
         scene.add(chart);
       });
       // South wall: three more, facing back into the room
@@ -1034,30 +1065,30 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         { glyph: '♊', name: 'THE TWINS',        x: 580 }
       ].forEach(({ glyph, name, x }, i) => {
         const chart = makeStarChart(glyph, name, i + 5);
-        chart.position.set(x, 92, roomD - 4);
+        chart.position.set(x, 92, WALL.southZ(roomD));
         chart.rotation.y = Math.PI;
         scene.add(chart);
       });
       // East wall: one each side of the door
       [{ glyph: '♑', name: 'THE SEA-GOAT', z: 110 }, { glyph: '♋', name: 'THE CRAB', z: 376 }].forEach(({ glyph, name, z }, i) => {
         const chart = makeStarChart(glyph, name, i + 8);
-        chart.position.set(roomW - 4, 92, z);
+        chart.position.set(WALL.eastX(roomW), 92, z);
         chart.rotation.y = -Math.PI / 2;
         scene.add(chart);
       });
       // West wall: the moon's whole cycle, new to full
       [0, 1, 2, 3, 4].forEach((phase, i) => {
         const moon = makeMoonPhase(phase);
-        moon.position.set(4, 100, 100 + i * 72);
+        moon.position.set(WALL.westX(), 100, 100 + i * 72);
         moon.rotation.y = Math.PI / 2;
         scene.add(moon);
       });
       // Free-floating glyphs scattered between everything
       [
-        ['✶', 170, 122, 6, 0], ['☾', 410, 60, 6, 0], ['☄', 550, 122, 6, 0],
-        ['⚝', 250, 125, roomD - 6, Math.PI], ['✷', 470, 125, roomD - 6, Math.PI],
-        ['☿', 6, 60, 150, Math.PI / 2], ['✦', 6, 130, 243, Math.PI / 2], ['♄', 6, 60, 340, Math.PI / 2],
-        ['☽', roomW - 6, 125, 90, -Math.PI / 2], ['✶', roomW - 6, 125, 400, -Math.PI / 2]
+        ['✶', 170, 122, WALL.northZ(6), 0], ['☾', 410, 60, WALL.northZ(6), 0], ['☄', 550, 122, WALL.northZ(6), 0],
+        ['⚝', 250, 125, WALL.southZ(roomD, 6), Math.PI], ['✷', 470, 125, WALL.southZ(roomD, 6), Math.PI],
+        ['☿', WALL.westX(6), 60, 150, Math.PI / 2], ['✦', WALL.westX(6), 130, 243, Math.PI / 2], ['♄', WALL.westX(6), 60, 340, Math.PI / 2],
+        ['☽', WALL.eastX(roomW, 6), 125, 90, -Math.PI / 2], ['✶', WALL.eastX(roomW, 6), 125, 400, -Math.PI / 2]
       ].forEach(([glyph, x, y, z, rotY]) => {
         const gl = makeGlowGlyphMesh(glyph, 24);
         gl.position.set(x, y, z);
@@ -1270,12 +1301,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       }
       const glow = new THREE.PointLight(0x3fe88a, 1.2, 260);
       glow.position.set(0, 24, 12); g.add(glow);
-      g.position.set(roomW * 0.5, 0, 14); g.rotation.y = Math.PI;
+      // Same as the café hearth: z=14 is inside the north wall, not on it.
+      g.position.set(roomW * 0.5, 0, WALL.northZ(10)); g.rotation.y = Math.PI;
       scene.add(g);
     })();
 
-    scene.add(makeBanner(30, 90, 8, 0, 0x54e8a8));
-    scene.add(makeBanner(roomW - 30, 90, 8, 0, 0x54e8a8));
+    scene.add(makeBanner(WALL.westX(BANNER_CORNER), 90, WALL.northZ(), 0, 0x54e8a8));
+    scene.add(makeBanner(WALL.eastX(roomW, BANNER_CORNER), 90, WALL.northZ(), 0, 0x54e8a8));
 
     // Dining sets spread around the open floor, kept clear of the séance
     // circle in the middle and the doorway on the west wall.
@@ -1338,12 +1370,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
     // ── The portrait gallery of the departed, all over the walls ────────
     const PORTRAITS = [
-      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: 4, rotY: 0 },
-      { name: 'THE GREY EARL', epitaph: 'never left', x: roomW * 0.5, z: 4, rotY: 0 },
-      { name: 'SISTER OPALINE', epitaph: 'still humming', x: roomW * 0.78, z: 4, rotY: 0 },
-      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: roomW * 0.22, z: roomD - 4, rotY: Math.PI },
-      { name: 'THE TWINS', epitaph: 'they keep the watch', x: roomW * 0.5, z: roomD - 4, rotY: Math.PI },
-      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: roomW * 0.78, z: roomD - 4, rotY: Math.PI }
+      { name: 'LADY MIRTHWOOD', epitaph: 'departed 1802', x: roomW * 0.22, z: WALL.northZ(), rotY: 0 },
+      { name: 'THE GREY EARL', epitaph: 'never left', x: roomW * 0.5, z: WALL.northZ(), rotY: 0 },
+      { name: 'SISTER OPALINE', epitaph: 'still humming', x: roomW * 0.78, z: WALL.northZ(), rotY: 0 },
+      { name: 'MASTER HOLLOWAY', epitaph: 'plays at midnight', x: roomW * 0.22, z: WALL.southZ(roomD), rotY: Math.PI },
+      { name: 'THE TWINS', epitaph: 'they keep the watch', x: roomW * 0.5, z: WALL.southZ(roomD), rotY: Math.PI },
+      { name: 'UNKNOWN GUEST', epitaph: 'checked in forever', x: roomW * 0.78, z: WALL.southZ(roomD), rotY: Math.PI }
     ];
     PORTRAITS.forEach(({ name, epitaph, x, z, rotY }, i) => {
       const p = makeHauntedPortrait(name, epitaph, i + 1);
@@ -1357,17 +1389,17 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       { name: 'CAPTAIN VANE', epitaph: 'lost at moonrise', z: roomD * 0.66 }
     ].forEach(({ name, epitaph, z }, i) => {
       const p = makeHauntedPortrait(name, epitaph, i + 7);
-      p.position.set(roomW - 4, 92, z);
+      p.position.set(WALL.eastX(roomW), 92, z);
       p.rotation.y = -Math.PI / 2;
       scene.add(p);
     });
 
     // Free-floating glyphs between the portraits, ghost-green
     [
-      ['☾', roomW * 0.36, 125, 6, 0], ['🕯️', roomW * 0.64, 60, 6, 0],
-      ['✧', roomW * 0.36, 128, roomD - 6, Math.PI], ['👻', roomW * 0.64, 128, roomD - 6, Math.PI],
-      ['✦', 6, 120, roomD * 0.3, Math.PI / 2], ['☽', 6, 120, roomD * 0.7, Math.PI / 2],
-      ['✶', roomW - 6, 120, roomD * 0.3, -Math.PI / 2], ['🕯️', roomW - 6, 120, roomD * 0.7, -Math.PI / 2]
+      ['☾', roomW * 0.36, 125, WALL.northZ(6), 0], ['🕯️', roomW * 0.64, 60, WALL.northZ(6), 0],
+      ['✧', roomW * 0.36, 128, WALL.southZ(roomD, 6), Math.PI], ['👻', roomW * 0.64, 128, WALL.southZ(roomD, 6), Math.PI],
+      ['✦', WALL.westX(6), 120, roomD * 0.3, Math.PI / 2], ['☽', WALL.westX(6), 120, roomD * 0.7, Math.PI / 2],
+      ['✶', WALL.eastX(roomW, 6), 120, roomD * 0.3, -Math.PI / 2], ['🕯️', WALL.eastX(roomW, 6), 120, roomD * 0.7, -Math.PI / 2]
     ].forEach(([glyph, x, y, z, rotY]) => {
       const gl = makeGlowGlyphMesh(glyph, 24, '#5fffae', '#d8ffe8');
       gl.position.set(x, y, z);
@@ -1490,8 +1522,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(makeBench(cx - 26, cz + 30, 0));
       scene.add(makeBench(cx + 26, cz + 30, 0));
     }
-    scene.add(makeBanner(20, 95, 6, 0, 0xd84a5a));
-    scene.add(makeBanner(roomW - 20, 95, 6, 0, 0xd84a5a));
+    scene.add(makeBanner(WALL.westX(BANNER_CORNER), 95, WALL.northZ(6), 0, 0xd84a5a));
+    scene.add(makeBanner(WALL.eastX(roomW, BANNER_CORNER), 95, WALL.northZ(6), 0, 0xd84a5a));
     // KayKit side dressing: a sideboard cabinet with a book stack against each
     // of the long side walls (facing into the hall).
     for (const [cxp, ry] of [[58, Math.PI / 2], [roomW - 58, -Math.PI / 2]]) {
@@ -1543,8 +1575,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
     // Framed paintings on the west/east walls, clear of the throne/table.
     [
-      { symbol: '🌙', title: 'THE FIRST COVEN', subtitle: 'thirteen chairs, one empty', x: 4, rotY: Math.PI / 2 },
-      { symbol: '🕯️', title: 'THE ACCORD', subtitle: 'signed thrice, in wax', x: roomW - 4, rotY: -Math.PI / 2 }
+      { symbol: '🌙', title: 'THE FIRST COVEN', subtitle: 'thirteen chairs, one empty', x: WALL.westX(), rotY: Math.PI / 2 },
+      { symbol: '🕯️', title: 'THE ACCORD', subtitle: 'signed thrice, in wax', x: WALL.eastX(roomW), rotY: -Math.PI / 2 }
     ].forEach(({ symbol, title, subtitle, x, rotY }) => {
       const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a1218', bg2: '#3c1a22', border: '#c8506a', accent: '#ffb9c8' });
       p.position.set(x, 90, cz);
@@ -1574,8 +1606,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
   } else { // bank — door is north, so "deeper into the room" means higher z
     // (No floor rug here: a flat untextured plane read as a hard red/brown
     // square on the wood rather than a carpet, so the bare floor looks better.)
-    scene.add(makeBanner(30, 100, 6, 0, 0xd4af37));
-    scene.add(makeBanner(roomW - 30, 100, 6, 0, 0xd4af37));
+    scene.add(makeBanner(WALL.westX(BANNER_CORNER), 100, WALL.northZ(6), 0, 0xd4af37));
+    scene.add(makeBanner(WALL.eastX(roomW, BANNER_CORNER), 100, WALL.northZ(6), 0, 0xd4af37));
 
     // The vault door used to just sit flush and closed on the back wall —
     // now it's swung open on a hinge at its left edge, revealing a
@@ -1669,8 +1701,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     scene.add(chamberTop);
 
     const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x4a3a10, emissiveIntensity: 0.4 });
+    // The hoard below was laid out from roomD — the wall's OUTER edge — so its
+    // back row sat inside the south wall, with half of each coin stack
+    // swallowed. Clamp to the inner face instead; anything already clear of it
+    // keeps the position it was composed at.
+    const hoardZ = (z, proud = 12) => Math.min(z, WALL.southZ(roomD, proud));
     // Coin piles: a few short wide cylinders stacked slightly askew
-    for (const [px, pz] of [[cx - 45, roomD - 20], [cx - 10, roomD - 15], [cx + 35, roomD - 22]]) {
+    for (const [px, pz] of [[cx - 45, hoardZ(roomD - 20)], [cx - 10, hoardZ(roomD - 15)], [cx + 35, hoardZ(roomD - 22)]]) {
       for (let i = 0; i < 3; i++) {
         const r = 20 - i * 3;
         const coin = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 4, 14), goldMat);
@@ -1680,7 +1717,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       }
     }
     // Gold bars
-    for (const [px, pz, rotY] of [[cx + 15, roomD - 35, 0.3], [cx - 25, roomD - 40, -0.4]]) {
+    for (const [px, pz, rotY] of [[cx + 15, hoardZ(roomD - 35), 0.3], [cx - 25, hoardZ(roomD - 40), -0.4]]) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(20, 9, 11), goldMat);
       bar.position.set(px, 15, pz);
       bar.rotation.y = rotY;
@@ -1693,7 +1730,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         new THREE.OctahedronGeometry(4 + Math.random() * 2),
         new THREE.MeshLambertMaterial({ color: gemColors[i % gemColors.length], emissive: gemColors[i % gemColors.length], emissiveIntensity: 0.35 })
       );
-      gem.position.set(cx + (Math.random() - 0.5) * 110, 8 + Math.random() * 20, roomD - 15 - Math.random() * 30);
+      gem.position.set(cx + (Math.random() - 0.5) * 110, 8 + Math.random() * 20, hoardZ(roomD - 15) - Math.random() * 30);
       scene.add(gem);
     }
     // Two open treasure chests flanking the coin piles
@@ -1850,7 +1887,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         { symbol: '🐦‍⬛', title: 'THE AUDITOR', subtitle: 'sees every ledger' }
       ].forEach(({ symbol, title, subtitle }, i) => {
         const p = makeWallPainting({ symbol, title, subtitle, bg1: '#2a2418', bg2: '#3a3220', border: '#d4af37', accent: '#e8d9a0' });
-        p.position.set(roomW - 4, 90, roomD * (i === 0 ? 0.32 : 0.46));
+        p.position.set(WALL.eastX(roomW), 90, roomD * (i === 0 ? 0.32 : 0.46));
         p.rotation.y = -Math.PI / 2;
         scene.add(p);
       });
