@@ -313,6 +313,8 @@ function getInteriorScene(buildingId) {
     const geo = new THREE.BoxGeometry(r.w * INDOOR_SCALE, INDOOR_WALL_HEIGHT, r.h * INDOOR_SCALE);
     const mesh = new THREE.Mesh(geo, wallMat);
     mesh.position.set((r.x + r.w / 2) * INDOOR_SCALE, INDOOR_WALL_HEIGHT / 2, (r.y + r.h / 2) * INDOOR_SCALE);
+    // Tagged so the decor audit can tell a wall from something buried in one.
+    mesh.userData.isWall = true;
     scene.add(mesh);
   }
 
