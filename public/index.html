@@ -4184,6 +4184,20 @@
   </div>
 
   <div id="invSettingsView" class="hidden">
+    <h3>🎥 View</h3>
+    <div class="optInRow">
+      <label class="optInLabel" for="fovSlider" style="display:block; margin-bottom:6px;">
+        <span>Field of view — how much of the world fits on screen. Higher sees wider and pushes your character further away; lower zooms in close.</span>
+      </label>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:11px; color:#8fae8f;">Close</span>
+        <input type="range" id="fovSlider" min="50" max="100" step="1" style="flex:1;">
+        <span style="font-size:11px; color:#8fae8f;">Wide</span>
+        <span id="fovValue" style="min-width:3.5em; text-align:right; font-variant-numeric:tabular-nums; color:#cfe9cf; font-size:12px;">62°</span>
+      </div>
+      <button class="btn" id="fovResetBtn" style="margin-top:8px; padding:4px 12px; font-size:12px; width:auto; display:inline-block; background:none; border:1px solid #3c5a46; color:#9fd0a8;">Reset to default</button>
+    </div>
+
     <h3>👁️ Privacy</h3>
     <div class="optInRow">
       <label class="optInLabel">
