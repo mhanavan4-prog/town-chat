@@ -7751,7 +7751,7 @@ function openWelcomeModal() {
   const canBegin = !!(storyState && !storyState.active && !storyState.complete && storyState.chapterIndex === 0 && ch && ch.levelOk !== false);
   const start = document.getElementById('welcomeStartBtn');
   const explore = document.getElementById('welcomeExploreBtn');
-  if (start) start.textContent = canBegin ? '📖 Begin Chapter 1 →' : 'Enter the town →';
+  if (start) start.textContent = canBegin ? 'Begin Chapter 1 →' : 'Enter the town →';
   if (explore) explore.classList.toggle('hidden', !canBegin);
   const el = document.getElementById('welcomeModal');
   if (el) { el.dataset.canBegin = canBegin ? '1' : ''; el.classList.remove('hidden'); }
