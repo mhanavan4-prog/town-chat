@@ -2913,7 +2913,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'toast') {
-    if (msg.message) setUnlockToast(msg.message);
+    if (msg.message) setUnlockToast(msg.message, msg.level ? { level: msg.level } : undefined);
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
@@ -5402,24 +5402,43 @@ let lastToastText = '', lastToastAt = 0; // shared with systemChatNotif's de-dup
 // every pill fades on its own timer. This stops the old pile-up where a burst of
 // notices (load-in: admin access, respawn, a bell toll…) all landed on the same
 // top-centre spot and smeared together.
-const UNLOCK_TOAST_LIFE_MS = 4200;
-const UNLOCK_TOAST_MAX = 4;
-function setUnlockToast(text) {
-  const wrap = document.getElementById('unlockToast');
-  if (!wrap) return;
-  wrap.classList.remove('hidden');
-  const el = document.createElement('div');
-  el.className = 'unlockToastItem';
-  el.textContent = text;
-  wrap.appendChild(el);
-  // keep the lane short — drop the oldest (top) once it's too tall
-  while (wrap.children.length > UNLOCK_TOAST_MAX) wrap.firstChild.remove();
-  // The mobile message banners duck out of the toast's lane while any pill is up
-  // (body.toastVisible → #chatNotifStack shifts down), and remember the latest
-  // line so systemChatNotif() doesn't repeat it as a banner.
-  lastToastText = text; lastToastAt = Date.now();
-  document.body.classList.add('toastVisible');
-  setTimeout(() => {
+// Triage (playtest: "the text is getting a bit much"). Every notice now has a
+// level, picked by the caller ({ level }) or classified from its text:
+//   important — warnings, damage/death, loot, story beats: full pill, 5.2s
+//   normal    — everything else: full pill, 3.6s
+//   flavor    — ambience (the Ancient One's howl, now-playing): faint pill, 3s,
+//               hidden entirely in Quiet mode
+//   routine   — place transitions ("You step into the vault…"): no pill at all;
+//               the location chip already says where you are
+// Identical text still on screen merges into one pill with a ×N count instead
+// of stacking. At most 3 pills show. EVERY notice (routine included) is kept
+// in the Message log (☰ → Message log), so nothing a player missed is lost.
+const TOAST_LIFE_MS = { important: 5200, normal: 3600, flavor: 3000 };
+const UNLOCK_TOAST_MAX = 3;
+const MSG_LOG_MAX = 80;
+const msgLog = []; // newest last: { text, at, level }
+let quietToasts = false;
+try { quietToasts = localStorage.getItem('tc_quiet_toasts') === '1'; } catch (e) {}
+const TOAST_ROUTINE_RE = /^(?:\S+\s+)?You (?:step|climb|leave|enter|duck|exit)\b|^Reconnected\.?$/;
+const TOAST_FLAVOR_RE = /A mournful howl|Now playing:/;
+const TOAST_IMPORTANT_RE = /^⚠️|Slain by|hit you for|added to your inventory|Looted:|First Steps:|Chapter \d|is yours|Rested!|Still there\?|logged out|Level \d|level \d/;
+function classifyToast(text) {
+  const t = String(text || '');
+  if (TOAST_ROUTINE_RE.test(t)) return 'routine';
+  if (TOAST_FLAVOR_RE.test(t)) return 'flavor';
+  if (TOAST_IMPORTANT_RE.test(t)) return 'important';
+  return 'normal';
+}
+function logMessage(text, level) {
+  const last = msgLog[msgLog.length - 1];
+  if (last && last.text === String(text) && Date.now() - last.at < 15000) { last.count = (last.count || 1) + 1; last.at = Date.now(); if (Modals.isOpen('msgLogOpen')) renderMsgLog(); return; }
+  msgLog.push({ text: String(text), at: Date.now(), level });
+  if (msgLog.length > MSG_LOG_MAX) msgLog.splice(0, msgLog.length - MSG_LOG_MAX);
+  if (Modals.isOpen('msgLogOpen')) renderMsgLog();
+}
+function _scheduleToastFade(el, wrap, ms) {
+  clearTimeout(el._fadeT);
+  el._fadeT = setTimeout(() => {
     el.classList.add('fading');
     setTimeout(() => {
       el.remove();
@@ -5428,8 +5447,85 @@ function setUnlockToast(text) {
         document.body.classList.remove('toastVisible');
       }
     }, 550);
-  }, UNLOCK_TOAST_LIFE_MS);
+  }, ms);
 }
+function setUnlockToast(text, opts) {
+  const wrap = document.getElementById('unlockToast');
+  if (!wrap || !text) return;
+  const level = (opts && opts.level) || classifyToast(text);
+  logMessage(text, level);
+  // Remember the latest line so systemChatNotif() doesn't repeat it as a banner
+  // (even when this one is suppressed, the banner would just be the same noise).
+  lastToastText = text; lastToastAt = Date.now();
+  if (level === 'routine') return;
+  if (level === 'flavor' && quietToasts) return;
+  const life = TOAST_LIFE_MS[level] || TOAST_LIFE_MS.normal;
+  // Same text already up: bump its count and restart its clock.
+  for (const ex of wrap.children) {
+    if (ex._text === text && !ex.classList.contains('fading')) {
+      ex._count = (ex._count || 1) + 1;
+      ex.textContent = text + '  ×' + ex._count;
+      _scheduleToastFade(ex, wrap, life);
+      return;
+    }
+  }
+  wrap.classList.remove('hidden');
+  const el = document.createElement('div');
+  el.className = 'unlockToastItem' + (level === 'flavor' ? ' flavor' : level === 'important' ? ' important' : '');
+  el.textContent = text;
+  el._text = text; el._count = 1;
+  wrap.appendChild(el);
+  // keep the lane short — drop the oldest once it's too tall
+  while (wrap.children.length > UNLOCK_TOAST_MAX) { clearTimeout(wrap.firstChild._fadeT); wrap.firstChild.remove(); }
+  // The mobile message banners duck out of the toast's lane while any pill is up.
+  document.body.classList.add('toastVisible');
+  _scheduleToastFade(el, wrap, life);
+}
+
+// ── Message log ──────────────────────────────────────────────────────────────
+// Every notice from this session, newest first, plus the Quiet mode switch.
+function renderMsgLog() {
+  const rows = document.getElementById('msgLogRows');
+  if (!rows) return;
+  rows.textContent = '';
+  if (!msgLog.length) {
+    const e = document.createElement('div'); e.className = 'msgLogEmpty'; e.textContent = 'Nothing yet — notices from this visit will collect here.';
+    rows.appendChild(e);
+  }
+  for (let i = msgLog.length - 1; i >= 0; i--) {
+    const m = msgLog[i];
+    const r = document.createElement('div');
+    r.className = 'msgLogRow lv-' + m.level;
+    const t = document.createElement('span'); t.className = 'msgLogTime';
+    t.textContent = new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const x = document.createElement('span'); x.className = 'msgLogText'; x.textContent = m.text + (m.count > 1 ? '  ×' + m.count : '');
+    r.appendChild(t); r.appendChild(x);
+    rows.appendChild(r);
+  }
+  const q = document.getElementById('msgLogQuiet');
+  if (q) { q.classList.toggle('on', quietToasts); q.textContent = quietToasts ? 'ON' : 'OFF'; }
+}
+function openMsgLog() {
+  Modals.set('msgLogOpen', true);
+  renderMsgLog();
+  document.getElementById('msgLogModal').classList.remove('hidden');
+}
+function closeMsgLog() {
+  Modals.set('msgLogOpen', false);
+  document.getElementById('msgLogModal').classList.add('hidden');
+}
+(function wireMsgLog() {
+  const close = document.getElementById('msgLogCloseBtn');
+  if (close) close.addEventListener('click', closeMsgLog);
+  const quiet = document.getElementById('msgLogQuiet');
+  if (quiet) quiet.addEventListener('click', () => {
+    quietToasts = !quietToasts;
+    try { localStorage.setItem('tc_quiet_toasts', quietToasts ? '1' : '0'); } catch (e) {}
+    renderMsgLog();
+  });
+  const ov = document.getElementById('msgLogModal');
+  if (ov) ov.addEventListener('click', (e) => { if (e.target === ov) closeMsgLog(); });
+})();
 
 // Persistent banner shown while inside a coven's private Moot instance (Session
 // N). Created lazily so no HTML change is needed; pass null to hide it.
@@ -7041,6 +7137,7 @@ const MENU_ICONS = {
   menuGuise: 'm_guise', menuMap: 'm_map', menuBoard: 'm_board', menuCrier: 'callout', menuDelve: 'm_delve',
   menuCoven: 'm_coven', menuAchievements: 'm_medal', menuCodex: 'm_codex',
   menuPass: 'm_ticket', menuMoonstones: 'moonstone', menuNotifs: 'bell', menuInvite: 'm_handshake',
+  menuMsgLog: 'magic_scroll',
 };
 function hydrateMenuRows() {
   for (const id in MENU_ICONS) {
@@ -15341,6 +15438,7 @@ const { openNotifModal } = _notif;
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
+  wire('menuMsgLog', openMsgLog);
 })();
 
 // ── Wardrobe (Phase 1 cosmetics) ─────────────────────────────────────────────
@@ -18840,6 +18938,8 @@ if (location.search.includes('testdrive=1')) {
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     jumping() { return jumpActive; },
+    toast(text, level) { setUnlockToast(text, level ? { level } : undefined); },
+    msgLog() { return msgLog.map(m => ({ text: m.text, level: m.level })); },
     hint() { updateInteractHint(); const h = document.getElementById('interactHint'); return h.classList.contains('hidden') ? null : document.getElementById('interactHintText').textContent; },
     simulateStruck(dmg) { flashDamage(); spawnDmgNum(window.innerWidth / 2, window.innerHeight / 2, dmg || 7, 'selfHit'); shakeScreen('S'); },
     spawnNum(x, y, dmg, kind) { spawnDmgNum(x, y, dmg, kind); },
