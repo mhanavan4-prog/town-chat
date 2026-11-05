@@ -252,6 +252,46 @@ function getInteriorScene(buildingId) {
     scene.add(torch2);
   }
 
+  // ── the shadow caster ─────────────────────────────────────────────────
+  // Every themed room above lights itself with a *slanted* directional fill
+  // sitting 260 units up and off to one side. The renderer adopts a room's
+  // first directional light as its shadow caster (see sceneInfo in main.js),
+  // so that decorative fill was the thing casting — and a slanted light over
+  // the fixed, far-too-wide interior shadow box is exactly the geometry that
+  // stair-steps: the floor banded, and anything standing on it (the knights
+  // in the Phantom Parlor) saw-toothed along with it.
+  //
+  // So the fills stop casting and a dedicated light does it from straight
+  // overhead. Pointing straight down at a flat floor there is no depth slope
+  // left to alias, and configureShadow can then fit the shadow box to this
+  // one room instead of guessing a span that has to cover every room.
+  //
+  // The overhead light takes a share of the brightest fill's intensity (and
+  // its colour) rather than adding light, so the room is as bright as before:
+  // on a near-horizontal surface like the floor a 67-degree light and a
+  // vertical one land within a few percent of each other.
+  let castColor = 0xffffff, castIntensity = 0;
+  scene.traverse(o => {
+    if (!o.isDirectionalLight) return;
+    o.userData.noShadowCaster = true;
+    if (o.intensity > castIntensity) { castIntensity = o.intensity; castColor = o.color.getHex(); }
+  });
+  if (castIntensity > 0) {
+    const share = 0.45;
+    scene.traverse(o => { if (o.isDirectionalLight) o.intensity *= (1 - share); });
+    const caster = new THREE.DirectionalLight(castColor, castIntensity * share);
+    caster.position.set(roomW / 2, 900, roomD / 2);
+    caster.target.position.set(roomW / 2, 0, roomD / 2);
+    // Ride the player like the outdoor sun does, with a box a fraction of
+    // the room's size: these rooms run to 2500 units across, so one box
+    // covering the whole room costs ~0.6 units per shadow texel, while a
+    // 520-unit box around the player costs ~0.25 and gets the outdoor rig's
+    // texel snapping (which is what stops shadow edges crawling as you walk).
+    caster.userData.followShadow = true;
+    caster.userData.shadowSpan = 520;
+    scene.add(caster); scene.add(caster.target);
+  }
+
   // stone floor, tinted per theme so each building's interior reads as its
   // own space rather than the same room repainted
   const floorTex = makeStoneTexture();

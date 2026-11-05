@@ -15,6 +15,7 @@
     "sync:mobile": "cp public/client.js ../town-chat-android/www/client.js && cp public/client.js ../town-chat-ios/www/client.js",
     "check:parity": "node test/check-client-parity.cjs",
     "audit:colliders": "node tools/audit-colliders.mjs",
+    "audit:shadows": "node tools/audit-shadows.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
