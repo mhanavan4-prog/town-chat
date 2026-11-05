@@ -9340,12 +9340,19 @@ function initScene(w) {
     const WATER = new Set(['10,7', '11,7', '10,8', '9,8', '9,7', '10,6', '11,6']);
     const waterGM = meshOf('tile_water', 0x8fb0c4);
     const waterM = [];
-    const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), scl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
+    // Vertical scale: the KayKit road band is recessed 0.05 model units below the
+    // grass top, which at a uniform ×100 put the dirt path 5 world units below
+    // y=0 — and the town's walk height is a flat 0, so on every path your feet
+    // hovered above the dirt. Squash the tiles vertically (grass/road only —
+    // the pond keeps its depth) so the recess is ~1 unit: the road still reads
+    // as a worn strip, and you stand on it.
+    const TILE_Y = S * 0.2;
+    const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), scl = new THREE.Vector3(S, TILE_Y, S), waterScl = new THREE.Vector3(S, S, S), pos = new THREE.Vector3();
     for (let r = -4; r <= 17; r++) {
       for (let q = Math.floor(-2 - r / 2); q <= Math.ceil(18 - r / 2); q++) {
         const k = key(q, r), wld = axToWorld(q, r);
         pos.set(wld.x, 0, wld.z);
-        if (WATER.has(k) && waterGM) { qt.identity(); m4.compose(pos, qt, scl); waterM.push(m4.clone()); continue; }
+        if (WATER.has(k) && waterGM) { qt.identity(); m4.compose(pos, qt, waterScl); waterM.push(m4.clone()); continue; }
         const pick = roadEdges.has(k) ? pickTile(roadEdges.get(k)) : null;
         if (pick && KK.has(pick[0])) {
           const [tk, kRot] = pick;
