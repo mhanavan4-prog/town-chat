@@ -725,6 +725,7 @@
   body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card,
   body:not(.touchMode) #delveModal > .card, body:not(.touchMode) #msModal > .card,
   body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
+  body:not(.touchMode) #msgLogModal > .card,
   body:not(.touchMode) #controlsModal > .card, body:not(.touchMode) #bedChestCard {
     width:min(720px, 94vw); height:min(840px, 86vh); overflow-y:auto;
   }
@@ -1233,6 +1234,23 @@
     transition:opacity 0.5s ease, transform 0.5s ease;
   }
   .unlockToastItem.fading { opacity:0; transform:translateY(-6px); }
+  /* Levels (see setUnlockToast): flavor is a faint whisper, important a touch brighter. */
+  .unlockToastItem.flavor { background:rgba(20,10,8,0.5); border-color:rgba(230,190,120,0.15); color:rgba(255,233,194,0.72); font-style:italic; font-size:11.5px; padding:5px 13px; }
+  .unlockToastItem.important { border-color:rgba(255,205,120,0.65); }
+  /* Desktop: notices sit just above the XP strip, out of the middle of the view.
+     Newest nearest the HUD. Touch mode keeps the top lane. */
+  body:not(.touchMode) #unlockToast {
+    position:fixed; left:50%; bottom:132px; transform:translateX(-50%); z-index:65;
+    flex-direction:column; justify-content:flex-end;
+  }
+  body:not(.touchMode) .unlockToastItem.fading { transform:translateY(6px); }
+  /* Message log */
+  #msgLogRows { display:flex; flex-direction:column; gap:4px; margin-top:10px; text-align:left; }
+  .msgLogRow { display:flex; gap:10px; align-items:baseline; padding:6px 8px; border-radius:7px; background:rgba(255,255,255,0.035); font-size:12.5px; color:#e8dcc8; }
+  .msgLogRow.lv-important { background:rgba(255,205,120,0.08); }
+  .msgLogRow.lv-routine, .msgLogRow.lv-flavor { color:#b9ab95; }
+  .msgLogTime { flex:0 0 auto; color:#8f80b0; font-size:11px; font-variant-numeric:tabular-nums; min-width:52px; }
+  .msgLogEmpty { color:#9a8ac0; font-size:12.5px; padding:10px 4px; }
   @keyframes unlockToastIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
 
   .passInfo {
@@ -2815,6 +2833,7 @@
       <button class="menuRow" id="menuMoonstones">💎 Moonstones: <span id="menuMsVal">0</span></button>
       <button class="menuRow" id="menuInvite">🤝 Invite a Friend</button>
       <button class="menuRow" id="menuNotifs">🔔 Notifications</button>
+      <button class="menuRow" id="menuMsgLog" title="Every notice from this visit, and Quiet mode">📜 Message log</button>
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
 
       <div class="menuSection">Settings</div>
@@ -3629,6 +3648,16 @@
     <div class="title" style="font-size:20px;" id="rapSheetTitle">🐺 Rap Sheet</div>
     <div id="rapSheetBody" style="text-align:left; margin:10px 0 4px;"></div>
     <button class="btn" id="rapSheetCloseBtn">Let them run ✨</button>
+  </div>
+</div>
+
+<div id="msgLogModal" class="overlay hidden">
+  <div class="card">
+    <div class="title" style="font-size:20px;">Message log</div>
+    <div class="subtitle">Every notice from this visit, newest first — including the quiet ones that don't pop up.</div>
+    <div class="notifRow"><div><div class="nLabel">Quiet mode</div><div class="nSub">Hide ambient flavor (howls, music) from the screen. It still lands here.</div></div><button class="notifToggle" id="msgLogQuiet">OFF</button></div>
+    <div id="msgLogRows"></div>
+    <button class="btn" id="msgLogCloseBtn" style="margin-top:12px;">Close (Esc)</button>
   </div>
 </div>
 
