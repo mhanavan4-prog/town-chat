@@ -14,6 +14,12 @@ module.exports = {
   ancient_coin:   { name: 'Ancient Coin',   icon: '🪙', slot: null },
   golden_chalice: { name: 'Golden Chalice', icon: '🏆', slot: null },
   hard_drive:     { name: 'Hard Drive',     icon: '💽', slot: null },
+  // Pack upgrades — used once for a permanent bigger satchel, then spent (see
+  // PACK_UPGRADES in server.js). A better bag replaces a lesser one rather
+  // than stacking, so the ladder is +8 → +16 → +32 over the base 24.
+  pack_satchel:   { name: 'Roughspun Satchel', icon: '🎒', slot: null, desc: 'Use for +8 permanent pack slots. A plain canvas satchel, stitched by a hunter who carries too much.' },
+  pack_hide:      { name: 'Hidebound Pack',    icon: '🧰', slot: null, desc: 'Use for +16 permanent pack slots (replaces a lesser bag). Cured leather over an ash frame — it will outlive you.' },
+  pack_witchwoven:{ name: 'Witchwoven Pack',   icon: '🧳', slot: null, desc: 'Use for +32 permanent pack slots (replaces a lesser bag). The inside is larger than the outside. Do not ask how.' },
   wood:           { name: 'Holly Wood',     icon: '🪵', slot: null },
   berries:        { name: 'Berries',        icon: '🍓', slot: null },
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null },

@@ -3279,6 +3279,12 @@ function rewardLabel(itemId, qty) {
 // Put one earned item in the player's hands, or in the holding queue. Returns
 // 'got' | 'held' | 'lost' ('lost' only once the queue itself is full).
 function giveOrHold(player, inv, itemId, qty, from) {
+  // Chicken and egg: a pack is full precisely when you most want a bigger bag.
+  // Rather than hold a bag you could not use, apply it right away.
+  if (PACK_UPGRADES[itemId] && !inv.slots.some((sl) => !sl)) {
+    const up = applyPackUpgrade(player, itemId);
+    if (up && up.applied) return 'applied';
+  }
   if (addItemToAccount(inv, itemId, qty)) {
     try { noteAlmanacDiscovery(player, itemId); } catch (e) {}
     return 'got';
@@ -3345,6 +3351,41 @@ persistRegister('bankAccounts', BANK_FILE, () => bankAccounts);
 
 function emptySlots() {
   return new Array(BANK_SLOT_COUNT).fill(null);
+}
+
+// ── Pack size ────────────────────────────────────────────────────────────────
+// The satchel starts at PACK_BASE_SLOTS and grows permanently when a player
+// uses a bag item. A better bag REPLACES a lesser one (the bonuses do not
+// stack), so the ladder is 24 → 32 → 40 → 56. The upgrade lives on the
+// account's progress, not in a carried item, so it cannot be lost or stolen
+// and never costs a slot to hold.
+const PACK_BASE_SLOTS = 24;
+const PACK_UPGRADES = { pack_satchel: 8, pack_hide: 16, pack_witchwoven: 32 };
+function packBonusOf(player) {
+  try { return Math.max(0, getProgress(player).packBonus || 0); } catch (e) { return 0; }
+}
+function packCapacity(player) { return PACK_BASE_SLOTS + packBonusOf(player); }
+// Resize a pack to its owner's capacity. Only ever grows: shrinking could strand
+// items past the end, so a pack that is somehow too long is left alone.
+// Apply a bag permanently. Returns null if the item is not a bag, or
+// { applied:false, reason:'lesser' } when it would shrink the pack.
+// Applying never needs a free slot — a bag is an upgrade, not cargo.
+function applyPackUpgrade(player, itemId) {
+  const gain = PACK_UPGRADES[itemId];
+  if (!gain) return null;
+  const prog = getProgress(player);
+  const have = Math.max(0, prog.packBonus || 0);
+  if (gain <= have) return { applied: false, reason: 'lesser', capacity: packCapacity(player) };
+  prog.packBonus = gain;
+  ensurePackSize(player, getInventory(player));
+  if (player.accountKey) { try { saveInventories(); saveProgress(); } catch (e) {} }
+  return { applied: true, capacity: packCapacity(player) };
+}
+function ensurePackSize(player, inv) {
+  if (!inv || !Array.isArray(inv.slots)) return inv;
+  const want = packCapacity(player);
+  while (inv.slots.length < want) inv.slots.push(null);
+  return inv;
 }
 
 function ensureBankAccount(key) {
@@ -3424,7 +3465,7 @@ const { STARTER_GEAR } = require('./data/gameConstants'); // Tier 3.4 Phase A: e
 function starterInventory(charId) {
   const gear = STARTER_GEAR[charId] || STARTER_GEAR[0];
   return {
-    slots: emptySlots(),
+    slots: new Array(PACK_BASE_SLOTS).fill(null),
     equippedWeapon: gear.weapon || null,
     equippedHead:   gear.head   || null,
     equippedChest:  gear.chest  || null,
@@ -3445,10 +3486,12 @@ function getInventory(player) {
       inventories[player.accountKey] = starterInventory(player.charId);
       saveInventories();
     }
-    return inventories[player.accountKey];
+    // Packs saved before bags existed are the base size; grow them to whatever
+    // this account has unlocked.
+    return ensurePackSize(player, inventories[player.accountKey]);
   }
   if (!player.guestInventory) player.guestInventory = starterInventory(player.charId);
-  return player.guestInventory;
+  return ensurePackSize(player, player.guestInventory);
 }
 
 function invEquipField(slotKind) {
@@ -3463,6 +3506,7 @@ function invEquipField(slotKind) {
 function inventoryStatePayload(player) {
   const inv = getInventory(player);
   return {
+    packCapacity: packCapacity(player), packBase: PACK_BASE_SLOTS, packBonus: packBonusOf(player),
     slots: inv.slots,
     equippedWeapon: inv.equippedWeapon || null,
     equippedHead:   inv.equippedHead   || null,
@@ -5863,6 +5907,20 @@ function storyEvent(player, eventType, detail = {}) {
   // (Public recognition is half the reward; it also quietly advertises
   // that the campaigns exist to players who haven't started theirs.)
   if (storyDone) {
+    // The ladder's top rung: finishing a class campaign. Granted here rather
+    // than on each storyline's last chapter so all six stay in step, and it
+    // goes through grantRewardItems so a full pack holds it instead of eating
+    // it. Once only — a second campaign on another class does not re-grant.
+    const sProg = getProgress(player);
+    if (!sProg.packCapstone) {
+      sProg.packCapstone = true;
+      const capstone = grantRewardItems(player, [{ itemId: 'pack_witchwoven', qty: 1 }], line.title);
+      try {
+        send(player.ws, { type: 'toast', level: 'important',
+          message: `🧳 A Witchwoven Pack is pressed into your hands for finishing "${line.title}" — use it for +32 pack slots.${heldNote(capstone.held)}` });
+        send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      } catch (e) {}
+    }
     broadcastAll({
       type: 'announce',
       message: `${line.icon} ${player.name} has completed "${line.title}" and claimed its relic!`
@@ -8553,7 +8611,8 @@ const NPC_SHOPS = {
   ]},
   npc_dex: { name: 'Hunter Dex', items: [
     { id: 'iron_sword', price: 50 }, { id: 'beast_crown', price: 35 },
-    { id: 'beast_hide', price: 40 }, { id: 'paw_boots', price: 30 }
+    { id: 'beast_hide', price: 40 }, { id: 'paw_boots', price: 30 },
+    { id: 'pack_satchel', price: 250 }
   ]},
   npc_lyra: { name: 'Scholar Lyra', items: [
     { id: 'spell_tome', price: 60 }, { id: 'wizard_hat', price: 35 },
@@ -13093,6 +13152,24 @@ wss.on('connection', (ws, req) => {
       // 📘 Tome of Insight — read once for a permanent skill point, then it's
       // spent. Handled ahead of the plant path since it's a crafted item, not a
       // herb. The rarity of its ingredients is what keeps this finite.
+      // 🎒 Pack upgrades — used once for permanently more slots, then spent.
+      // A better bag replaces a lesser one; a lesser one is refused and kept.
+      if (stack && PACK_UPGRADES[stack.itemId]) {
+        const gain = PACK_UPGRADES[stack.itemId];
+        const prog = getProgress(player);
+        const have = Math.max(0, prog.packBonus || 0);
+        const meta = ITEM_CATALOG[stack.itemId];
+        if (gain <= have) {
+          send(ws, { type: 'use_result', message: `🎒 Your pack is already roomier than the ${meta ? meta.name : 'bag'} — keeping it would be a downgrade, so it stays in your satchel.` });
+          return;
+        }
+        removeItemFromAccount(inv, stack.itemId, 1);
+        applyPackUpgrade(player, stack.itemId);
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'use_result', level: 'important',
+          message: `🎒 You shoulder the ${meta ? meta.name : 'bag'}. Your pack now holds ${packCapacity(player)} — ${have ? `up from ${PACK_BASE_SLOTS + have}` : `${gain} more than before`}.` });
+        return;
+      }
       if (stack && stack.itemId === 'tome_insight') {
         removeItemFromAccount(inv, 'tome_insight', 1);
         const tprog = getProgress(player);
@@ -14006,7 +14083,17 @@ wss.on('connection', (ws, req) => {
         return;
       }
       const inv = getInventory(player);
-      if (!addItemToAccount(inv, itemId, 1)) { send(ws, { type: 'shop_error', message: 'Inventory full.' }); return; }
+      if (!addItemToAccount(inv, itemId, 1)) {
+        // A bag bought with no room to put it is simply shouldered there and then.
+        const up = applyPackUpgrade(player, itemId);
+        if (up && up.applied) {
+          send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+          send(ws, { type: 'use_result', level: 'important', message: `🎒 Your pack was too full to even hold the bag, so you shoulder it on the spot — it now holds ${up.capacity}.` });
+        } else {
+          send(ws, { type: 'shop_error', message: 'Inventory full.' });
+          return;
+        }
+      }
       account.balance -= price;
       saveBankAccounts();
       if (player.accountKey) saveInventories();
@@ -16728,7 +16815,7 @@ global.__testHooks = {
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
   objectiveGoal, objectiveWhere, NPC_ROOM,
-  grantRewardItems, flushHeldRewards, giveOrHold, heldRewardsOf, HELD_REWARDS_MAX, // quest waypoint goals
+  grantRewardItems, flushHeldRewards, applyPackUpgrade, packCapacity, packBonusOf, PACK_UPGRADES, PACK_BASE_SLOTS, ensurePackSize, giveOrHold, heldRewardsOf, HELD_REWARDS_MAX, // quest waypoint goals
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)

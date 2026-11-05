@@ -2275,6 +2275,9 @@
   .equipSlotWrap .itemSlot { width:100%; font-size:26px; margin-bottom:4px; }
   .equipSlotLabel { font-size:11px; color:#9bc49a; }
   #invSlotsGrid.itemSlotsGrid { margin-top:0; }
+  #invPackLine { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin:2px 0 6px; font-size:11.5px; color:#b9ab95; }
+  #invPackLine b { color:#ffe9c2; font-weight:700; }
+  #invPackLine .packFull { color:#ffb3a0; }
   #invActionPanel .passTitle { margin-bottom:8px; }
   #invActionButtons { display:flex; flex-direction:column; gap:6px; }
   #invActionButtons .btn { margin-top:0; }
@@ -4123,6 +4126,7 @@
       <span id="gearRepairText" style="flex:1; color:#e0d2b8;"></span>
       <button id="gearRepairBtn" style="background:#3a2a12; color:#ffe9a8; border:1px solid #6a5a3b; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px; white-space:nowrap;">🔧 Repair</button>
     </div>
+    <div id="invPackLine"></div>
     <div id="invSlotsGrid" class="itemSlotsGrid"></div>
     <div id="invActionPanel" class="hidden">
       <div class="passInfo">

@@ -66,7 +66,13 @@ const SECONDARY = {
 
 const CRAFT_SHOP_ITEMS = {};
 const CRAFT_SHOP_EQUIP = {};
-const CRAFT_SHOP_RECIPES = [];
+const CRAFT_SHOP_RECIPES = [
+  // The pack ladder's middle rung: learned at the forge, then stitched from
+  // what the Wilds already drops. Deliberately cheaper than the gear tiers —
+  // it carries nothing into a fight.
+  { id: 'pack_hide', tier: 2, category: 'Artisan — Packs', result: 'pack_hide', gold: 600,
+    ingredients: [{ id: 'cured_leather', qty: 3 }, { id: 'fur_scrap', qty: 4 }],
+    desc: 'Learn for 600🪙, then stitch from 3× cured_leather + 4× fur_scrap' },];
 
 for (const school of SCHOOLS) {
   SLOTS.forEach((slotDef, lvl) => {
