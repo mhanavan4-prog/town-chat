@@ -8929,7 +8929,18 @@ const GFX = (() => {
       // whatever directional its builder gave it.
       if (scene === outdoorScene || scene === wildsScene) { info.sun = outdoorSun; info.follow = true; }
       else {
-        scene.traverse(o => { if (!info.sun && o.isDirectionalLight) info.sun = o; });
+        // Interiors flag their decorative fills noShadowCaster and add a
+        // dedicated overhead caster (see interior-scene.js) — picking a
+        // slanted fill here is what banded their floors.
+        scene.traverse(o => {
+          if (info.sun || !o.isDirectionalLight) return;
+          if (o.userData && o.userData.noShadowCaster) return;
+          info.sun = o;
+        });
+        // A builder that placed a deliberate overhead caster (the interiors)
+        // opts into the player-following, texel-snapped rig rather than the
+        // one-time static fit below.
+        if (info.sun && info.sun.userData && info.sun.userData.followShadow) { info.follow = true; info.overhead = true; }
         if (scene === emberScene) info.follow = true;
       }
       if (info.sun) configureShadow(info.sun, scene, info);
@@ -8952,10 +8963,38 @@ const GFX = (() => {
     const mapSize = info.follow ? (q === 'high' ? 4096 : 2048) : (q === 'high' ? 4096 : 2048);
     light.shadow.mapSize.set(mapSize, mapSize);
     if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
-    const span = info.follow ? 720 : 620;
     const c = light.shadow.camera;
-    c.left = -span; c.right = span; c.top = span; c.bottom = -span;
-    c.near = 40; c.far = 3200;
+    if (info.follow) {
+      const span = (light.userData && light.userData.shadowSpan) || 720;
+      c.left = -span; c.right = span; c.top = span; c.bottom = -span;
+      c.near = 40; c.far = 3200;
+    } else {
+      // A non-follow scene is one room, so fit the box to it. The old fixed
+      // ±620 box spent most of a 1240-unit square on empty space outside a
+      // ~500-unit room, and every stair-step artifact scales directly with
+      // the texel that buys: ~0.3 units/texel at 4096, ~0.6 on mobile.
+      // Fitting the room gets that down to ~0.15 / ~0.3 for free, which is
+      // what actually removes the striping — the bias values below only ever
+      // hid it, at the cost of shadows creeping away from their casters.
+      const box = new THREE.Box3().setFromObject(scene);
+      const sph = box.getBoundingSphere(new THREE.Sphere());
+      const dir = new THREE.Vector3().subVectors(light.target.position, light.position);
+      const len = dir.length();
+      const pad = 40;
+      if (len > 0 && Math.abs(dir.y) > 0.98 * len) {
+        // Straight down: light space is world XZ, so fit each axis exactly.
+        c.left = -((box.max.x - box.min.x) / 2 + pad); c.right = -c.left;
+        c.bottom = -((box.max.z - box.min.z) / 2 + pad); c.top = -c.bottom;
+      } else {
+        // Any other angle: the box rotates with the light, so only a
+        // direction-independent sphere fit is safe.
+        const r = sph.radius + pad;
+        c.left = -r; c.right = r; c.top = r; c.bottom = -r;
+      }
+      const reach = sph.radius + pad;
+      c.near = Math.max(1, light.position.distanceTo(sph.center) - reach);
+      c.far = light.position.distanceTo(sph.center) + reach;
+    }
     // Bias nudged up to stop surfaces shadow-acne'ing themselves (the "zebra
     // striping" seen on building doors/walls under the wide follow shadow map).
     // normalBias especially helps grazing-angle faces like a vertical door.
@@ -8964,8 +9003,15 @@ const GFX = (() => {
     // Interiors (non-follow) are small rooms lit by a near light, which acnes
     // walls and curved surfaces (helmets) more — and a touch of peter-panning
     // there is far less visible than the zebra striping, so bias harder.
-    light.shadow.bias = info.follow ? -0.0006 : -0.0009;
-    light.shadow.normalBias = info.follow ? 4 : 6;
+    // Interiors used to need -0.0009 / 6 to bully their acne into submission.
+    // Now that their caster points straight down over a small box, the
+    // slope-scaled depth error it was covering is largely gone — depth error
+    // scales with both the texel and the surface's slope to the light, and a
+    // vertical light on a flat floor has neither left. Keeping the old numbers
+    // would only detach shadows from their casters (peter-panning), so they
+    // come back down; normalBias stays as the direction-independent backstop.
+    light.shadow.bias = info.overhead ? -0.00035 : (info.follow ? -0.0006 : -0.0009);
+    light.shadow.normalBias = info.overhead ? 2 : (info.follow ? 4 : 6);
     // Soften the edge. Resolution (above) shrinks the texel; radius widens the
     // filter (see patchSoftShadowChunk — stock r128 PCFSoft ignored radius,
     // so these only take effect now) so the shadow boundary gets a real
@@ -9236,19 +9282,29 @@ const GFX = (() => {
       info.sun.position.copy(_anchor).addScaledVector(dir, 1150);
       info.sun.target.updateMatrixWorld();
     } else if (!info.sized) {
-      // static scenes: one-time fit of the shadow box around the scene bounds
+      // Static scenes: one-time fit of the shadow box, now that the scene is
+      // fully built (configureShadow ran at first sight of it, before the
+      // furniture was in).
+      //
+      // This used to RE-AIM the light as well — it normalised the light's
+      // world POSITION, treated the result as a direction and shoved the
+      // light 800 units along it. For a room whose coordinates start near the
+      // origin that turns any deliberate placement into a near-grazing slant:
+      // the building interiors' light came out at roughly 33 degrees of
+      // elevation, and a grazing light is what saw-toothed their floors and
+      // everything standing on them. Depth error scales with the surface's
+      // slope to the light, so no bias value was ever going to fix that — the
+      // light itself was wrong. Where a builder placed its light is the
+      // intent; honour it and only size the box.
       info.sized = true;
-      const box = new THREE.Box3().setFromObject(activeScene);
-      const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
-      const span = Math.min(900, Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.62 + 60);
-      const c = info.sun.shadow.camera;
-      c.left = -span; c.right = span; c.top = span; c.bottom = -span;
-      c.updateProjectionMatrix();
-      info.sun.target.position.set(cx, 0, cz);
-      const dir = info.sun.position.clone().normalize();
-      info.sun.position.set(cx + dir.x * 800, Math.max(500, info.sun.position.y), cz + dir.z * 800);
       if (!info.sun.target.parent) activeScene.add(info.sun.target);
+      // Only a light that never chose a target gets aimed at the scene.
+      if (info.sun.target.position.lengthSq() < 1) {
+        const box = new THREE.Box3().setFromObject(activeScene);
+        info.sun.target.position.set((box.min.x + box.max.x) / 2, 0, (box.min.z + box.max.z) / 2);
+      }
       info.sun.target.updateMatrixWorld();
+      configureShadow(info.sun, activeScene, info);
     }
   }
 
