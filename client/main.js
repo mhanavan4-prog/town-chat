@@ -11544,7 +11544,10 @@ function renderGardenModal() {
       const sub = !gp.levelOk
         ? `🔒 Unlocks at Level ${gp.requiresLevel}`
         : `${gp.label} · <b>${gp.progress}/${gp.target}</b>`;
-      h += `<div class="gpQuest"><div class="gpqHead">🌿 The Green Path · Ch. ${gp.chapter + 1}/${gp.total}: ${gp.title}</div><div class="gpqObj">${sub}</div></div>`;
+      // Where to go. The objective line alone ("Brew a hedge remedy at the
+      // cauldron") assumes you know where the cauldron is; new gardeners don't.
+      const gpWhere = (gp.levelOk && gp.where) ? `<div class="gpqWhere">📍 ${esc(gp.where)}</div>` : '';
+      h += `<div class="gpQuest"><div class="gpqHead">🌿 The Green Path · Ch. ${gp.chapter + 1}/${gp.total}: ${gp.title}</div><div class="gpqObj">${sub}</div>${gpWhere}</div>`;
     }
   }
   // The Cottage Garden — your home beds, tendable only inside your own cottage.
@@ -19013,6 +19016,7 @@ if (location.search.includes('testdrive=1')) {
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     jumping() { return jumpActive; },
+    gardenPanel(state) { lastGardenState = state; renderGardenModal(); const e = document.getElementById('gardenContent'); return e ? e.innerText : null; },
     toast(text, level) { setUnlockToast(text, level ? { level } : undefined); },
     msgLog() { return msgLog.map(m => ({ text: m.text, level: m.level })); },
     wildsWallsNear(x, y, r) { return WILDS_WALLS.filter(w => w.x - r < x && w.x + w.w + r > x && w.y - r < y && w.y + w.h + r > y).map(w => ({ ...w })); },
