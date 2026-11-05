@@ -25,7 +25,7 @@ function updateHealthHud() {
 // the server is authoritative; this is purely cosmetic interpolation.
 const CLIENT_XP_THRESHOLDS = [0,100,250,500,900,1400,2100,3000,4200,6000,
                                8200,11000,14500,19000,25000,32500,42000,54000,69000,87000];
-const CLIENT_MAX_LEVEL = CLIENT_XP_THRESHOLDS.length - 1;
+const CLIENT_MAX_LEVEL = CLIENT_XP_THRESHOLDS.length; // mirrors server MAX_LEVEL (level 20)
 
 function updateXPDisplay() {
   const strip = document.getElementById('xpStrip');
