@@ -152,6 +152,23 @@ function renderInventoryItemsPanel() {
   renderEquipSlot('equipRingSlot',   getLastInventoryState().equippedRing,   'ring');
   updateGearRepairLine();
 
+  // Pack size readout — a bag upgrade is permanent and invisible otherwise, so
+  // say plainly how full the satchel is and what is still available.
+  const packLine = document.getElementById('invPackLine');
+  if (packLine) {
+    const st = getLastInventoryState();
+    const used = st.slots.filter(Boolean).length;
+    const cap = st.packCapacity || st.slots.length;
+    const bonus = st.packBonus || 0;
+    packLine.innerHTML = '';
+    const left = document.createElement('span');
+    left.innerHTML = `🎒 Pack <b class="${used >= cap ? 'packFull' : ''}">${used}/${cap}</b>`;
+    const right = document.createElement('span');
+    right.textContent = bonus ? `+${bonus} from your bag` : 'A bigger bag adds slots for good';
+    packLine.appendChild(left);
+    packLine.appendChild(right);
+  }
+
   const grid = document.getElementById('invSlotsGrid');
   if (!grid) return;
   grid.innerHTML = '';

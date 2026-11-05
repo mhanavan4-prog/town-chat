@@ -19016,6 +19016,7 @@ if (location.search.includes('testdrive=1')) {
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     jumping() { return jumpActive; },
+    inventoryPanel(state) { lastInventoryState = state; renderInventoryItemsPanel(); return true; },
     gardenPanel(state) { lastGardenState = state; renderGardenModal(); const e = document.getElementById('gardenContent'); return e ? e.innerText : null; },
     toast(text, level) { setUnlockToast(text, level ? { level } : undefined); },
     msgLog() { return msgLog.map(m => ({ text: m.text, level: m.level })); },
