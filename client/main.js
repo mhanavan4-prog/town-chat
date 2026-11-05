@@ -10276,6 +10276,21 @@ function addInstancedDecor(scene, key, mode, placements) {
 // sees the same floor. Keeps spawn and the campfires clear. Emitted as one
 // InstancedMesh per model (see addInstancedDecor) rather than ~300 separate
 // prop groups — same look, a fraction of the draw calls.
+// The Wildlands Village plots — where wilds-scene.js later stands its
+// buildings (placeSolid, same offsets from VX/VZ = 5000/3000). Declared here
+// because the decor scatter runs BEFORE those buildings are placed, and
+// without it a bush can end up growing through a wall (reported in playtest).
+// Radii are the placed size, halved, plus a little room to walk.
+const VILLAGE_PLOTS = [
+  { x: 5000, y: 3000, r: 290 },  // Village Hall (440)
+  { x: 4280, y: 2960, r: 265 },  // Barn (390)
+  { x: 4850, y: 2340, r: 270 },  // Guard tower (400)
+  { x: 4380, y: 3560, r: 255 },  // Cottage A (375)
+  { x: 5640, y: 3560, r: 255 },  // Cottage B (375)
+  { x: 5330, y: 3330, r: 150 },  // Market stall (220)
+  { x: 5000, y: 3360, r: 70 },   // Well (60)
+  { x: 5720, y: 2850, r: 245 },  // the Artificer's forge-tower (360)
+];
 function kkWildsGroundDetail(scene, w2) {
   if (!KK.settled) return;
   let seed = 0x9e3779b1 >>> 0;
@@ -10287,7 +10302,9 @@ function kkWildsGroundDetail(scene, w2) {
   };
   const rng = (a, b) => a + rand() * (b - a);
   const W2 = w2.width || 10000, H2 = w2.height || 10000;
-  const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, { x: 5000, y: 3000, r: 560 }, ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
+  const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, { x: 5000, y: 3000, r: 560 },
+    ...VILLAGE_PLOTS, // the outlying plots reach past that 560 circle
+    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   // Gather placements per model key, then emit one InstancedMesh each.
@@ -10411,6 +10428,7 @@ function addSpookyDecor(scene, w2) {
   const rng = (a, b) => a + rand() * (b - a);
   const keepClear = [ // spawn + portal approach + campfires stay walkable
     { x: w2.spawn.x, y: w2.spawn.y, r: 320 },
+    ...VILLAGE_PLOTS, // and nothing grows through a village wall
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 }))
   ];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
@@ -19053,6 +19071,67 @@ if (location.search.includes('testdrive=1')) {
       else if (!on && i !== -1) TOWN_WALLS.splice(i, 1);
       return TOWN_WALLS.length;
     },
+    enterWilds() { enterWilds(); return true; },
+    drawColliders(which) {
+      // QA: lay a translucent red plate over every collider so a top-down shot
+      // shows exactly where they sit against the buildings.
+      const sc = which === 'wilds' ? wildsScene : outdoorScene;
+      const list = which === 'wilds' ? WILDS_WALLS : TOWN_WALLS;
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff2040, transparent: true, opacity: 0.45, depthTest: false });
+      const grp = new THREE.Group(); grp.name = '__colliderDebug';
+      for (const r of list) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.h), mat);
+        m.rotation.x = -Math.PI / 2;
+        const gy = which === 'wilds' ? wildsHeightAt(r.x + r.w / 2, r.y + r.h / 2) : 0;
+        m.position.set(r.x + r.w / 2, gy + 3, r.y + r.h / 2);
+        m.renderOrder = 999;
+        grp.add(m);
+      }
+      sc.add(grp);
+      return list.length;
+    },
+    lookDown(x, z, height) {
+      const cam = activeCamera;
+      cam.position.set(x, (height || 900), z);
+      cam.lookAt(x, 0, z + 0.01);
+      cam.updateProjectionMatrix();
+      return true;
+    },
+    probeSpot(x, z) {
+      // What is actually blocking a given spot in the Wilds, and how much of
+      // that collider is open ground?
+      const g = wildsHeightAt(x, z);
+      const R = 260; // look around the spot, not just under it
+      const hits = WILDS_WALLS.filter((r) => r.x - R < x && r.x + r.w + R > x && r.y - R < z && r.y + r.h + R > z)
+        .filter((r) => r.w >= 40 || r.h >= 40);
+      const solid = [];
+      wildsScene.updateMatrixWorld(true);
+      wildsScene.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        const bb = new THREE.Box3().setFromObject(o);
+        if (!isFinite(bb.min.x) || bb.max.x - bb.min.x > 1500) return;
+        if (bb.max.y - bb.min.y < 2) return;
+        solid.push(o);
+      });
+      const rc = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3();
+      const atPoint = (px, pz) => {
+        from.set(px, g + 800, pz); rc.set(from, down);
+        const h2 = rc.intersectObjects(solid, false).filter((hh) => hh.point.y > g + 3);
+        return h2.length ? Math.round(h2[0].point.y - g) : 0;
+      };
+      return {
+        ground: Math.round(g),
+        standingUnder: atPoint(x, z),   // 0 = nothing above this spot
+        blockers: hits.map((r) => {
+          let miss = 0, n = 0;
+          for (let i = 1; i <= 5; i++) for (let j = 1; j <= 5; j++) {
+            if (!atPoint(r.x + (r.w * i) / 6, r.y + (r.h * j) / 6)) miss++;
+            n++;
+          }
+          return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), emptyPct: Math.round((miss / n) * 100) };
+        }),
+      };
+    },
     auditColliders(which) {
       // Every collider on a map vs the visible geometry it should stand for. A
       // rect with no visible (non-floor) mesh overlapping it is an invisible
@@ -19075,8 +19154,44 @@ if (location.search.includes('testdrive=1')) {
         if (bb.max.y - bb.min.y < 2) return;         // flat decals (sigils, shadows)
         boxes.push(bb);
       });
+      // Overhang: a collider can sit on visible geometry and STILL be wrong if
+      // it reaches past the walls. A roof's bounding box blocks open ground
+      // beside a building (reported in the Wilds village) and the "is anything
+      // here" test above cannot see it. Raycast straight down at a grid of
+      // points inside each rect and measure how much of its footprint has
+      // nothing standing on it.
+      const solid = [];
+      sceneOf.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        let vis = true; for (let q = o; q; q = q.parent) if (q.visible === false) { vis = false; break; }
+        if (!vis) return;
+        const bb = new THREE.Box3().setFromObject(o);
+        if (!isFinite(bb.min.x)) return;
+        if (bb.max.x - bb.min.x > 1500 || bb.max.z - bb.min.z > 1500) return; // the ground plane
+        if (bb.max.y - bb.min.y < 2) return;                                   // flat decals
+        solid.push(o);
+      });
+      const _rc = new THREE.Raycaster();
+      const _down = new THREE.Vector3(0, -1, 0);
+      const _from = new THREE.Vector3();
+      const uncoveredFraction = (r) => {
+        const g = wilds ? wildsHeightAt(r.x + r.w / 2, r.y + r.h / 2) : 0;
+        let miss = 0, n = 0;
+        // 5x5 out to 1/6 of the edges. A 3x3 grid samples only the middle and
+        // misses the corners — which is precisely where an axis-aligned box
+        // around a rotated building sticks out into open grass, so it scored
+        // the reported invisible wall as fine.
+        for (let i = 1; i <= 5; i++) for (let j = 1; j <= 5; j++) {
+          _from.set(r.x + (r.w * i) / 6, g + 800, r.y + (r.h * j) / 6);
+          _rc.set(_from, _down);
+          const hits = _rc.intersectObjects(solid, false);
+          if (!hits.some((hh) => hh.point.y > g + 3)) miss++;
+          n++;
+        }
+        return n ? miss / n : 0;
+      };
       const wildSet = wilds ? new Set() : new Set(WILDS_WALLS);
-      const bad = [];
+      const bad = [], overhang = [];
       for (const r of listOf) {
         if (r.bld) continue; // building walls are cut from the measured model box
         // "Visible" means it rises above the LOCAL ground, not above y=0: the
@@ -19085,9 +19200,16 @@ if (location.search.includes('testdrive=1')) {
         const cx = r.x + r.w / 2, cz = r.y + r.h / 2;
         const ground = wilds ? wildsHeightAt(cx, cz) : 0;
         const hit = boxes.some((bb) => bb.min.x < r.x + r.w + 2 && bb.max.x > r.x - 2 && bb.min.z < r.y + r.h + 2 && bb.max.z > r.y - 2 && bb.max.y > ground + 3);
-        if (!hit) bad.push({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), wilds: wildSet.has(r) });
+        if (!hit) { bad.push({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), wilds: wildSet.has(r) }); continue; }
+        // Only worth measuring on the big rects — a 12x12 tree collider is all
+        // trunk, and sampling it says nothing useful. The bar is deliberately
+        // low: the collider players kept hitting was only 20% open ground.
+        if (r.w >= 60 || r.h >= 60) {
+          const f = uncoveredFraction(r);
+          if (f > 0.12) overhang.push({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), empty: Math.round(f * 100) });
+        }
       }
-      return { map: wilds ? 'wilds' : 'town', townWalls: listOf.length, active: walls === listOf, wildsLeak: listOf.filter((r) => wildSet.has(r)).length, invisible: bad, meshes: boxes.length };
+      return { map: wilds ? 'wilds' : 'town', townWalls: listOf.length, active: walls === listOf, wildsLeak: listOf.filter((r) => wildSet.has(r)).length, invisible: bad, overhang, meshes: boxes.length };
     },
     bldInfo() { return world.buildings.map(b => ({ id: b.id, door: getDoorSide(b), data: { x: b.x, y: b.y, w: b.w, h: b.h }, fit: b._fit, box: KK_BLD_BOXES[b.id] ? { minx: KK_BLD_BOXES[b.id].min.x, maxx: KK_BLD_BOXES[b.id].max.x, minz: KK_BLD_BOXES[b.id].min.z, maxz: KK_BLD_BOXES[b.id].max.z } : null })); },
     wallsNear(x, y, r) { return walls.filter(w => w.x - r < x && w.x + w.w + r > x && w.y - r < y && w.y + w.h + r > y).map(w => ({ ...w })); },

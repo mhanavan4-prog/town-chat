@@ -397,12 +397,49 @@ function addVillageBuildings(scene) {
   // tightens its colliders to the placed model with refitBuildingColliders; this
   // does the lightweight equivalent: measure the real bounds and shrink a touch
   // so you can brush the eaves without an invisible wall out in the yard.
+  // The XZ footprint of the geometry that actually sits near the GROUND, not
+  // the model's whole bounding box. A roof overhangs its walls, so a box-based
+  // collider blocks open grass beside the building — that is the invisible wall
+  // players kept walking into around the village. Walks the real vertices of
+  // the lowest `frac` of the model's height. Returns null if it cannot tell.
+  function groundFootprint(group, frac) {
+    const full = new THREE.Box3().setFromObject(group);
+    if (!isFinite(full.min.x)) return null;
+    const cut = full.min.y + (full.max.y - full.min.y) * (frac || 0.3);
+    let minx = Infinity, maxx = -Infinity, minz = Infinity, maxz = -Infinity, seen = 0;
+    const v = new THREE.Vector3();
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        if (v.y > cut) continue;
+        seen++;
+        if (v.x < minx) minx = v.x; if (v.x > maxx) maxx = v.x;
+        if (v.z < minz) minz = v.z; if (v.z > maxz) maxz = v.z;
+      }
+    });
+    if (seen < 8 || !isFinite(minx) || maxx - minx < 1 || maxz - minz < 1) return null;
+    return { minx, maxx, minz, maxz };
+  }
+
   function placeSolid(key, px, pz, size, rot, mode, shrink) {
     const g = kkPlace(scene, key, px, pz, size, rot, mode || 'fit');
     if (!g) return null;
     g.updateWorldMatrix(true, true);
-    const b = new THREE.Box3().setFromObject(g);
-    const s = shrink == null ? 0.82 : shrink;
+    // Collide with the walls, not the eaves. Falls back to the full box only
+    // when the model is too odd to measure.
+    const foot = groundFootprint(g, 0.3);
+    const b = foot ? { min: { x: foot.minx, z: foot.minz }, max: { x: foot.maxx, z: foot.maxz } }
+                   : new THREE.Box3().setFromObject(g);
+    // Collision is axis-aligned (see client/collision.js), but several of these
+    // buildings are placed at an angle. An AABB around a rotated rectangle is
+    // up to 1.41x its size, and those corners are open grass you cannot walk
+    // through — the invisible walls around the village. Shrink to the rect that
+    // fits INSIDE the rotated footprint: brushing a corner of the wall beats
+    // being stopped in the open.
+    const rotFit = 1 / (Math.abs(Math.cos(rot || 0)) + Math.abs(Math.sin(rot || 0)));
+    const s = shrink == null ? Math.min(foot ? 0.94 : 0.82, rotFit) : shrink;
     const hw = (b.max.x - b.min.x) / 2 * s, hh = (b.max.z - b.min.z) / 2 * s;
     const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
     if (hw > 1 && hh > 1) WILDS_WALLS.push({ x: cx - hw, y: cz - hh, w: hw * 2, h: hh * 2 });

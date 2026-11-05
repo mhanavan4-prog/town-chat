@@ -58,7 +58,9 @@ try {
   const afterRace = await page.evaluate(() => window.__testDrive.auditColliders());
   const wilds = await page.evaluate(() => window.__testDrive.auditColliders('wilds'));
 
+  const ovCount = (x) => (x.overhang || []).length;
   const bad = fresh.invisible.length + afterRace.invisible.length + wilds.invisible.length
+    + ovCount(fresh) + ovCount(afterRace) + ovCount(wilds)
     + fresh.wildsLeak + afterRace.wildsLeak + errors.length + (probeWorks ? 0 : 1);
   if (asJson) {
     console.log(JSON.stringify({ probeWorks, fresh, afterRace, wilds, errors }, null, 2));
@@ -72,9 +74,12 @@ try {
       if (a.map === 'town') console.log(`  Wilds colliders leaked into town: ${a.wildsLeak}`);
       console.log(`  colliders with nothing visible in them: ${a.invisible.length}`);
       for (const r of a.invisible) console.log(`    - ${r.w}x${r.h} at (${r.x}, ${r.y})${r.wilds ? ' [from the Wilds]' : ''}`);
+      const ov = a.overhang || [];
+      console.log(`  colliders reaching past what you can see: ${ov.length}`);
+      for (const r of ov) console.log(`    - ${r.w}x${r.h} at (${r.x}, ${r.y}) — ${r.empty}% of it is open ground`);
     }
     if (errors.length) console.log('\npage errors:', errors.slice(0, 5));
-    console.log(bad ? '\nFAIL — invisible obstacles found.' : '\nPASS — every collider on both maps has visible geometry.');
+    console.log(bad ? '\nFAIL — invisible obstacles found.' : '\nPASS — every collider on both maps matches what you can see.');
   }
   code = bad ? 1 : 0;
 } finally {
