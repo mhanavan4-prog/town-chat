@@ -19184,6 +19184,45 @@ if (location.search.includes('testdrive=1')) {
       return TOWN_WALLS.length;
     },
     enterWilds() { enterWilds(); return true; },
+    decorInWalls() {
+      // QA: find decorations buried inside a wall. The perimeter walls are
+      // solid boxes ~25 units deep, so a piece hung at z=4 "on the north wall"
+      // is actually inside it — the wall reads blank and the piece shows
+      // through from the far side. This measures against the REAL wall meshes
+      // (tagged isWall in interior-scene.js) rather than an assumed thickness.
+      if (!activeScene) return null;
+      const walls = [];
+      const decor = [];
+      for (const o of activeScene.children) {
+        if (o.isLight || o.isCamera || !o.visible) continue;
+        const box = new THREE.Box3().setFromObject(o);
+        if (box.isEmpty()) continue;
+        let wall = false;
+        o.traverse((c) => { if (c.userData && c.userData.isWall) wall = true; });
+        (wall ? walls : decor).push({ o, box });
+      }
+      if (!walls.length) return { room: null, walls: 0, buried: [] };
+      const buried = [];
+      for (const d of decor) {
+        const c = d.box.getCenter(new THREE.Vector3());
+        // The floor and the ceiling beams legitimately run wall to wall.
+        if (d.box.getSize(new THREE.Vector3()).x > 300 && d.box.max.y - d.box.min.y < 30) continue;
+        for (const w of walls) {
+          if (!w.box.containsPoint(c)) continue;
+          buried.push({
+            type: d.o.type, name: d.o.name || '(unnamed)',
+            at: c.toArray().map((n) => Math.round(n)),
+            // How far past the wall's inner face it would need to move.
+            depth: Math.round(Math.min(
+              Math.abs(c.z - w.box.min.z), Math.abs(c.z - w.box.max.z),
+              Math.abs(c.x - w.box.min.x), Math.abs(c.x - w.box.max.x)
+            ))
+          });
+          break;
+        }
+      }
+      return { walls: walls.length, decor: decor.length, buried };
+    },
     fovState() {
       // QA: the field-of-view preference and what the camera you're actually
       // looking through ended up at — the two differ by that scene's own
