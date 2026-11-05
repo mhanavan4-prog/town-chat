@@ -3226,7 +3226,7 @@ const WILDS_SEED_IDS = new Set((() => {
 // just deferred to loot time. Returns label strings for the result toast.
 function grantLoot(pending, player) {
   const inv = getInventory(player);
-  const earned = [];
+  const earned = [], held = [];
   for (const drop of pending) {
     if (drop.kind === 'gold') {
       if (player.accountKey) {
@@ -3236,18 +3236,101 @@ function grantLoot(pending, player) {
       }
       earned.push(`🪙 ${drop.amount}g`);
     } else if (drop.kind === 'item') {
-      if (addItemToAccount(inv, drop.itemId, drop.qty)) {
-        if (player.accountKey) saveInventories();
+      // The corpse is cleared either way (see the loot handler), so anything
+      // that will not fit is HELD rather than destroyed.
+      const where = giveOrHold(player, inv, drop.itemId, drop.qty, 'loot');
+      if (where === 'got') {
         const meta = ITEM_CATALOG[drop.itemId];
         earned.push(`${meta?.icon || '?'} ${meta?.name || drop.itemId}`);
-        noteAlmanacDiscovery(player, drop.itemId); // a looted plant enters the almanac
-        // Green Path ch.4 — finding a wild cutting (the caller re-sends inventory
-        // after grantLoot, so any chapter-reward seeds display too).
-        if (WILDS_SEED_IDS.has(drop.itemId)) greenPathEvent(player, 'seed_found');
+      } else if (where === 'held') {
+        held.push(rewardLabel(drop.itemId, drop.qty));
       }
+      // Finding the cutting is what the Green Path chapter asks for — it counts
+      // whether it landed in the pack or in the holding queue.
+      if (where !== 'lost' && WILDS_SEED_IDS.has(drop.itemId)) greenPathEvent(player, 'seed_found');
     }
   }
+  if (player.accountKey) { try { saveInventories(); saveProgress(); } catch (e) {} }
+  earned.held = held;
   return earned;
+}
+
+// ── Rewards that do not fit ──────────────────────────────────────────────────
+// Earned items used to be destroyed by a full pack. Every reward site read
+//   if (addItemToAccount(...)) { report it }
+// with no else — and the chapter/quest had already been marked complete, so the
+// player was told they had earned something and simply never received it
+// (playtest: a full pack ate the Green Path's St John's Wort and rowan berries).
+// Anything that will not fit is held here instead and handed over the moment a
+// slot frees up. Held items live on the player's progress, so they survive a
+// logout.
+const HELD_REWARDS_MAX = 60;
+function heldRewardsOf(player) {
+  const prog = getProgress(player);
+  if (!Array.isArray(prog.heldRewards)) prog.heldRewards = [];
+  return prog.heldRewards;
+}
+function rewardLabel(itemId, qty) {
+  const m = ITEM_CATALOG[itemId] || PLANT_CATALOG[itemId];
+  const name = (m && m.name) || itemId;
+  const icon = (m && m.icon) ? m.icon + ' ' : '';
+  return `${icon}${name}${(qty || 1) > 1 ? ' ×' + qty : ''}`;
+}
+// Put one earned item in the player's hands, or in the holding queue. Returns
+// 'got' | 'held' | 'lost' ('lost' only once the queue itself is full).
+function giveOrHold(player, inv, itemId, qty, from) {
+  if (addItemToAccount(inv, itemId, qty)) {
+    try { noteAlmanacDiscovery(player, itemId); } catch (e) {}
+    return 'got';
+  }
+  const q = heldRewardsOf(player);
+  if (q.length >= HELD_REWARDS_MAX) return 'lost';
+  q.push({ itemId, qty, from: from || '', at: Date.now() });
+  return 'held';
+}
+// Grant a list of { itemId, qty }. Returns label arrays for the result toast.
+function grantRewardItems(player, rewards, from) {
+  const inv = getInventory(player);
+  const got = [], held = [];
+  for (const r of (rewards || [])) {
+    const qty = r.qty || 1;
+    const where = giveOrHold(player, inv, r.itemId, qty, from);
+    if (where === 'got') got.push(rewardLabel(r.itemId, qty));
+    else if (where === 'held') held.push(rewardLabel(r.itemId, qty));
+  }
+  try { if (player.accountKey) saveInventories(); saveProgress(); } catch (e) {}
+  return { got, held };
+}
+// One line to append to a reward toast when something had to wait.
+function heldNote(held) {
+  if (!held || !held.length) return '';
+  return ` · 🎒 Pack full — ${held.join(', ')} ${held.length === 1 ? 'is' : 'are'} being held for you; free a slot and it arrives.`;
+}
+// Hand over whatever now fits. Cheap no-op when nothing is waiting, so it is
+// safe to call on every join and every time the pack is opened or emptied.
+function flushHeldRewards(player) {
+  if (!player) return [];
+  let prog;
+  try { prog = getProgress(player); } catch (e) { return []; }
+  const q = prog && Array.isArray(prog.heldRewards) ? prog.heldRewards : null;
+  if (!q || !q.length) return [];
+  const inv = getInventory(player);
+  const delivered = [], left = [];
+  for (const r of q) {
+    if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
+      delivered.push(rewardLabel(r.itemId, r.qty || 1));
+      try { noteAlmanacDiscovery(player, r.itemId); } catch (e) {}
+    } else left.push(r);
+  }
+  if (!delivered.length) return [];
+  prog.heldRewards = left;
+  try { if (player.accountKey) saveInventories(); saveProgress(); } catch (e) {}
+  try {
+    send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+    send(player.ws, { type: 'toast', level: 'important',
+      message: `🎁 Delivered from your held rewards: ${delivered.join(', ')}${left.length ? ` · ${left.length} still waiting on space.` : ''}` });
+  } catch (e) {}
+  return delivered;
 }
 
 const BANK_SLOT_COUNT = 24;
@@ -4143,7 +4226,11 @@ function grantXP(player, amount) {
   // feature instead of relying purely on finding or buying one.
   if (wasLevelOne && leveled) {
     const inv = getInventory(player);
-    if (addItemToAccount(inv, 'hard_drive', 1)) {
+    const hdWhere = giveOrHold(player, inv, 'hard_drive', 1, 'first level up');
+    if (hdWhere === 'held') {
+      try { send(player.ws, { type: 'toast', level: 'important', message: '💽 First level up! Your pack was full, so the Hard Drive is being held — free a slot and it arrives.' }); } catch (e) {}
+    }
+    if (hdWhere === 'got') {
       if (player.accountKey) saveInventories();
       send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(player.ws, { type: 'hard_drive_awarded', message: '💽 First level up! A Hard Drive materializes in your pack — open it once to bind it to your account (it becomes the 💽 tab and frees the slot).' });
@@ -4479,17 +4566,8 @@ function greenPathEvent(player, type) {
   gp.chapter += 1; gp.progress = 0;
   if (ch.xpReward) grantXP(player, ch.xpReward);
   if (ch.goldReward) { try { const a = ensureBankAccount(player.accountKey); a.balance += ch.goldReward; saveBankAccounts(); } catch (e) {} }
-  const inv = getInventory(player);
-  const got = [];
-  for (const r of (ch.itemRewards || [])) {
-    if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
-      const m = ITEM_CATALOG[r.itemId] || PLANT_CATALOG[r.itemId];
-      got.push(`${m ? m.icon : ''} ${m ? m.name : r.itemId}${(r.qty || 1) > 1 ? ' ×' + (r.qty || 1) : ''}`);
-      noteAlmanacDiscovery(player, r.itemId); // a granted plant enters the almanac
-    }
-  }
-  try { saveInventories(); saveProgress(); } catch (e) {}
-  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
+  const { got, held } = grantRewardItems(player, ch.itemRewards, ch.title);
+  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ') + heldNote(held);
   try { send(player.ws, { type: 'toast', message: `🌿 Green Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
 
   // ── Capstone: finishing the whole path earns the trophies ──
@@ -4816,17 +4894,8 @@ function hearthPathEvent(player, tea) {
   hp.chapter += 1; hp.progress = 0;
   if (ch.xpReward) grantXP(player, ch.xpReward);
   if (ch.goldReward) { try { const a = ensureBankAccount(player.accountKey); a.balance += ch.goldReward; saveBankAccounts(); } catch (e) {} }
-  const inv = getInventory(player);
-  const got = [];
-  for (const r of (ch.itemRewards || [])) {
-    if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
-      const m = ITEM_CATALOG[r.itemId] || PLANT_CATALOG[r.itemId];
-      got.push(`${m ? m.icon : ''} ${m ? m.name : r.itemId}${(r.qty || 1) > 1 ? ' ×' + (r.qty || 1) : ''}`);
-      noteAlmanacDiscovery(player, r.itemId);
-    }
-  }
-  try { saveInventories(); saveProgress(); } catch (e) {}
-  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ');
+  const { got, held } = grantRewardItems(player, ch.itemRewards, ch.title);
+  const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ') + heldNote(held);
   try { send(player.ws, { type: 'toast', message: `🍵 Hearth Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
 
   // ── Finale: finishing the whole path earns the Hearthfire aura ──
@@ -5349,17 +5418,9 @@ function advanceQuestProgress(player, eventType, itemId) {
     }
 
     // Item rewards → inventory
-    const inv = getInventory(player);
-    const itemsGranted = [];
-    if (quest.itemRewards) {
-      for (const r of quest.itemRewards) {
-        if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
-          const meta = ITEM_CATALOG[r.itemId];
-          itemsGranted.push(`${meta?.icon || '?'} ${meta?.name || r.itemId}`);
-        }
-      }
-      if (player.accountKey) saveInventories();
-    }
+    const questReward = grantRewardItems(player, quest.itemRewards, quest.title);
+    const itemsGranted = questReward.got;
+    const questHeld = questReward.held;
 
     const rewardParts = [`+${quest.xpReward} XP`];
     if (quest.goldReward) rewardParts.push(`+${quest.goldReward}🪙`);
@@ -5386,7 +5447,7 @@ function advanceQuestProgress(player, eventType, itemId) {
       xpReward: quest.xpReward,
       goldReward: quest.goldReward || 0,
       itemsGranted,
-      message: `✅ "${quest.name}" complete — ${rewardParts.join(' · ')}`
+      message: `✅ "${quest.name}" complete — ${rewardParts.join(' · ')}${heldNote(questHeld)}`
     });
   } else {
     const remaining = quest.target - aq.progress;
@@ -5721,18 +5782,10 @@ function storyEvent(player, eventType, detail = {}) {
     acct.balance += chapter.goldReward;
     saveBankAccounts();
   }
-  const inv = getInventory(player);
-  const itemsGranted = [];
-  if (chapter.itemRewards) {
-    for (const r of chapter.itemRewards) {
-      if (addItemToAccount(inv, r.itemId, r.qty || 1)) {
-        const meta = ITEM_CATALOG[r.itemId];
-        itemsGranted.push(`${meta ? meta.icon : '?'} ${meta ? meta.name : r.itemId}`);
-        send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      }
-    }
-    if (player.accountKey) saveInventories();
-  }
+  const chapterReward = grantRewardItems(player, chapter.itemRewards, chapter.title);
+  const itemsGranted = chapterReward.got;
+  const chapterHeld = chapterReward.held;
+  if (itemsGranted.length) { try { send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) }); } catch (e) {} }
   // Story capstone: each chapter completed grants ONE permanent skill point —
   // a finite, non-grindable way past the level cap's ~19 points (bounded by the
   // number of chapters), so campaign progress widens the build you can afford.
@@ -5769,8 +5822,8 @@ function storyEvent(player, eventType, detail = {}) {
     totalChapters: line.chapters.length,
     nextRequiresLevel: nextCh ? nextCh.requiresLevel : null,
     message: storyDone
-      ? `📖 "${chapter.title}" complete — ${rewardParts.join(' · ')} · ${line.icon} THE STORY IS COMPLETE.`
-      : `📖 Chapter ${st.chapter}/${line.chapters.length} complete: "${chapter.title}" — ${rewardParts.join(' · ')}.${nextHint}`
+      ? `📖 "${chapter.title}" complete — ${rewardParts.join(' · ')}${heldNote(chapterHeld)} · ${line.icon} THE STORY IS COMPLETE.`
+      : `📖 Chapter ${st.chapter}/${line.chapters.length} complete: "${chapter.title}" — ${rewardParts.join(' · ')}${heldNote(chapterHeld)}.${nextHint}`
   });
   // Finishing a whole campaign is town news — everyone hears the bell.
   // (Public recognition is half the reward; it also quietly advertises
@@ -10721,6 +10774,8 @@ wss.on('connection', (ws, req) => {
         // paid cosmetics (auras, the collectible guises) can be exercised without
         // buying a pack.
         if (adminMoonstoneTopUp(player)) { try { send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) }); } catch (e) { /* noop */ } }
+        // Anything a full pack held from an earlier session arrives now.
+        try { flushHeldRewards(player); } catch (e) { /* noop */ }
       }
       // Restore whatever notes were already sitting in their inbox from a
       // prior session (account holders only — guests start empty above).
@@ -11968,6 +12023,7 @@ wss.on('connection', (ws, req) => {
       saveInventories();
       send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      if (msg.type === 'bank_deposit') flushHeldRewards(player); // banking makes room
       return;
     }
 
@@ -12850,6 +12906,9 @@ wss.on('connection', (ws, req) => {
       t.lootKillerId = null;
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       if (earned.length) send(ws, { type: 'loot_drop', items: earned });
+      if (earned.held && earned.held.length) {
+        send(ws, { type: 'toast', level: 'important', message: `🎒 Pack full —${heldNote(earned.held).replace(' · 🎒 Pack full —', '')}` });
+      }
       return;
     }
 
@@ -13055,6 +13114,7 @@ wss.on('connection', (ws, req) => {
       saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'use_result', message: `🗑️ Discarded ${qty}× ${name}.` });
+      flushHeldRewards(player); // that slot may be what a held reward was waiting for
       return;
     }
 
@@ -16619,7 +16679,7 @@ global.__testHooks = {
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
   players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
-  greenPathEvent, greenPathStateBody, GREEN_PATH,
+  greenPathEvent, greenPathStateBody, GREEN_PATH, greenPathOf,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
   homeGardenOf, homeGardenStateBody, inOwnCottage, COTTAGE_GARDEN_PLOTS, HOME_GARDEN_YIELD_BONUS, // Cottage Garden (housing ↔ gardening)
@@ -16633,7 +16693,8 @@ global.__testHooks = {
   msData, msBalance, msAdjust, grantMoonstones, MS_PACKS, broadcastCottageLayout, cottageInvites, teaStateBody,
   adminMoonstoneTopUp, ADMIN_MS_FLOOR, // dev: admin Moonstone floor for testing paid items
   WORLD, HARVEST_TYPES, // town decor for the harvest / First Steps test
-  objectiveGoal, objectiveWhere, NPC_ROOM, // quest waypoint goals
+  objectiveGoal, objectiveWhere, NPC_ROOM,
+  grantRewardItems, flushHeldRewards, giveOrHold, heldRewardsOf, HELD_REWARDS_MAX, // quest waypoint goals
   tarotArcanaOf, recordArcana, tarotCollectionBody, TAROT_CARDS, ARCANA_LEGS, // Tier 3.5: The Fool's Journey
   runeFutharkOf, recordRunes, runeFutharkBody, RUNES, RUNE_AETTIR, aettKeys, // Tier 3.5: The Futhark
   moonWellBody, moonWellDrawsLeft, MOON_WELL_NIGHTLY_CAP, // Tier 3.5: The Moon Well (reagent economy)
