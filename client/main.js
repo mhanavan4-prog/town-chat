@@ -13612,6 +13612,9 @@ const {
 } = createFurniture({
   INDOOR_WALL_HEIGHT, LOUNGE_PLATFORM_HEIGHT, LOUNGE_STAIR_END_FRAC, LOUNGE_STAIR_START_FRAC,
   canvas, createHumanoid: createStaticNpc, makeNpcNameSprite, makeSignSprite, makeWallPainting, KK,
+  // How deep a perimeter wall is in render units. Read lazily, not captured
+  // here: createFurniture runs at module setup, before the world has loaded.
+  wallFaceDepth: () => ((world && world.wallThickness) || 14) * INDOOR_SCALE,
 });
 // ── Town-decor props — extracted to client/props-town.js (Phase C, first prop
 // library slice). Pure THREE-group builders; makeGlowTexture/makeBarrel injected. ──
