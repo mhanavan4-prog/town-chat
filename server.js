@@ -225,6 +225,66 @@ const ADMIN_ACCOUNTS = new Set(
 function isAdmin(player) {
   return !!(player && player.accountKey && ADMIN_ACCOUNTS.has(player.accountKey));
 }
+// Admin kick: removes a player from the town and blocks them (by account and
+// by network) from rejoining for a short cooldown, so "Back to the join screen"
+// isn't an instant way back in. In-memory on purpose — a kick is a time-out,
+// not a ban (bans live in the admin console). Admin accounts are never blocked,
+// so kicking a test account on your own wifi can't lock YOU out.
+const KICK_COOLDOWN_MS = 10 * 60 * 1000;
+const kickBlocks = new Map(); // 'acct:<key>' | 'ip:<ip>' -> until (ms)
+function kickBlockedUntil(accountKey, ip) {
+  if (accountKey && ADMIN_ACCOUNTS.has(accountKey)) return 0;
+  const now = Date.now();
+  let until = 0;
+  for (const k of [accountKey ? 'acct:' + accountKey : null, ip ? 'ip:' + ip : null]) {
+    if (!k) continue;
+    const u = kickBlocks.get(k);
+    if (u && u > now) until = Math.max(until, u); else if (u) kickBlocks.delete(k);
+  }
+  return until;
+}
+// AFK auto-logout. The client streams a 'move' every 50ms even standing still,
+// so a move only counts as activity when the position or room actually
+// changes; background chatter (ping/heartbeat/resync polls) never counts;
+// anything else the player does (chat, typing, camera turns, casting, menus)
+// does. A minute before the cutoff they get a warning toast; at the cutoff the
+// socket closes and the client shows why (no auto-reconnect). AFK_MINUTES
+// tunes it; 0 turns it off. Load-test bots are exempt.
+const AFK_MS = (() => { const m = parseFloat(process.env.AFK_MINUTES); return (Number.isFinite(m) ? Math.max(0, m) : 15) * 60000; })();
+const AFK_WARN_MS = 60 * 1000;
+const AFK_PASSIVE_TYPES = new Set(['ping', 'pong', 'heartbeat', 'cursor', 'pos', 'world_resync', 'scry']);
+function noteActivity(player, msg) {
+  if (!player || !msg) return;
+  if (msg.type === 'move') {
+    const moved = msg.room !== player._actRoom || Math.abs((Number(msg.x) || 0) - (player._actX || 0)) > 1 || Math.abs((Number(msg.y) || 0) - (player._actY || 0)) > 1;
+    if (!moved) return;
+    player._actRoom = msg.room; player._actX = Number(msg.x) || 0; player._actY = Number(msg.y) || 0;
+  } else if (AFK_PASSIVE_TYPES.has(msg.type)) return;
+  player.lastActiveAt = Date.now();
+  player._afkWarned = false;
+}
+// One sweep: warn, then log out, anyone idle past the limit. Returns the ids
+// logged out (for tests). `now` is injectable for the same reason.
+function afkSweep(now) {
+  if (!AFK_MS) return [];
+  now = now || Date.now();
+  const out = [];
+  for (const p of players.values()) {
+    if (p._synthetic || !p.ws) continue;
+    const idle = now - (p.lastActiveAt || p.joinedAt || now);
+    if (idle >= AFK_MS) {
+      try { send(p.ws, { type: 'afk_logout', message: `You were logged out after ${Math.round(AFK_MS / 60000)} minutes without activity.` + (p.accountKey ? ' Your progress is saved.' : '') }); } catch (e) {}
+      const pws = p.ws;
+      setTimeout(() => { try { pws.close(4005, 'afk'); } catch (e) {} }, 60);
+      try { analytics.bump('afk.logout'); } catch (e) {}
+      out.push(p.id);
+    } else if (idle >= AFK_MS - AFK_WARN_MS && !p._afkWarned) {
+      p._afkWarned = true;
+      try { send(p.ws, { type: 'toast', message: '💤 Still there? You’ll be logged out for inactivity in about a minute — move or tap to stay.' }); } catch (e) {}
+    }
+  }
+  return out;
+}
 // Moonstone floor topped up for admin/test accounts on login, so paid cosmetics
 // can be tested without a purchase. Override with ADMIN_MS_FLOOR; default 1000.
 const ADMIN_MS_FLOOR = Math.max(0, parseInt(process.env.ADMIN_MS_FLOOR, 10) || 1000);
@@ -10165,6 +10225,7 @@ wss.on('connection', (ws, req) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
     if (!msg || typeof msg.type !== 'string') return;
+    if (player) noteActivity(player, msg); // AFK auto-logout clock
 
     // Bot / macro signal: one costly action blasted at an inhuman rate from a
     // single connection. Logged once when it crosses the line (=== threshold),
@@ -10225,6 +10286,13 @@ wss.on('connection', (ws, req) => {
       // restart) fall back to the old behavior: whatever name they typed,
       // with the next color in the round-robin.
       const accountKey = msg.accountToken ? sessions.get(String(msg.accountToken)) : null;
+      // Recently kicked by an admin: refuse until the cooldown ends.
+      const kickedUntil = kickBlockedUntil(accountKey, ws._ip);
+      if (kickedUntil) {
+        const mins = Math.max(1, Math.ceil((kickedUntil - Date.now()) / 60000));
+        send(ws, { type: 'join_error', message: `You were removed from the town. You can return in about ${mins} minute${mins === 1 ? '' : 's'}.` });
+        return;
+      }
       // Account-level ban (Session M): refuse even with a valid session token.
       if (accountKey && bans.isBanned(accountKey, ws._ip)) {
         audit.log({ level: 'warn', type: 'join_blocked_banned', ip: ws._ip, account: accountKey });
@@ -14476,6 +14544,29 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── General cottage invites (anyone online, no coven needed) ─────────────
+    // Admin kick — only for ADMIN_ACCOUNTS. Disconnects the target (their
+    // client stops auto-reconnecting and shows why) and starts the rejoin
+    // cooldown above. Other admins can't be kicked.
+    if (msg.type === 'admin_kick') {
+      if (!isAdmin(player)) return;
+      const target = players.get(String(msg.targetId || ''));
+      if (!target || target.id === player.id) return;
+      if (isAdmin(target)) { send(ws, { type: 'toast', message: "Admins can't be kicked." }); return; }
+      const until = Date.now() + KICK_COOLDOWN_MS;
+      if (target.accountKey) kickBlocks.set('acct:' + target.accountKey, until);
+      const tip = target.ws && target.ws._ip;
+      if (tip) kickBlocks.set('ip:' + tip, until);
+      try {
+        audit.log({ level: 'alert', type: 'moderation_kick', ip: tip || null, account: target.accountKey || null,
+          detail: { name: target.name, by: player.accountKey, minutes: KICK_COOLDOWN_MS / 60000 } });
+      } catch (e) {}
+      try { send(target.ws, { type: 'kicked', message: 'An admin removed you from the town. You can come back in about 10 minutes.' }); } catch (e) {}
+      const tws = target.ws;
+      setTimeout(() => { try { tws.close(4004, 'kicked'); } catch (e) {} }, 60);
+      send(ws, { type: 'toast', message: `Kicked ${target.name} (rejoin blocked for 10 minutes).` });
+      return;
+    }
+
     if (msg.type === 'cottage_invite') {
       if (!player.accountKey) { send(ws, { type: 'home_error', message: 'Sign in with an account to invite visitors.' }); return; }
       const target = players.get(String(msg.targetId || ''));
@@ -16450,6 +16541,8 @@ setInterval(() => {
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
+  afkSweep, noteActivity, AFK_MS,
+  kickBlockedUntil, KICK_COOLDOWN_MS,
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
   bugReports, // test-only: inspect the in-game bug-report store
@@ -16567,6 +16660,9 @@ server.on('error', (err) => {
   console.error('FATAL listen error — exiting for supervisor restart:', err);
   process.exit(1);
 });
+
+// AFK auto-logout sweep (see afkSweep).
+setInterval(() => { try { afkSweep(); } catch (e) {} }, 30000);
 
 server.listen(PORT, () => {
   console.log(`Town Chat listening on http://localhost:${PORT}`);
