@@ -709,7 +709,7 @@ app.get('/', (req, res) => {
 // with hover tooltips. Linked from the landing character grid. The page is one
 // static file (public/class.html) that reads its data from /api/class/:id.
 const classShowcase = require('./data/classShowcase');
-const { WARDROBE, weaponUnlock, DYES, dyeUnlock, sanitizeAppearance, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID } = require('./data/wardrobe'); // cosmetics
+const { WARDROBE, weaponUnlock, DYES, DYE_UNLOCKS, PLANT_DYE_LORE, dyeUnlock, sanitizeAppearance, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID } = require('./data/wardrobe'); // cosmetics
 
 // Is a weapon look unlocked for this player? Free looks always are; level/chapter
 // looks unlock automatically once earned; Moonstone looks require a purchase
@@ -732,9 +732,16 @@ function dyeUnlocked(player, dyeId) {
   if (u.lvl) return (player.level || 1) >= u.lvl;
   if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
   if (u.quest) { const prog = getProgress(player); return !!(prog.questsDone && prog.questsDone[u.quest]); }
-  // Moonstone AND gold purchases both record ownership in progress.dyeUnlocks.
-  if (u.ms || u.gold) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
+  // Moonstone and gold purchases, and steeped plant dyes, all record
+  // ownership in progress.dyeUnlocks.
+  if (u.ms || u.gold || u.steep) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
+}
+
+// Quest-earned dyes (Ember) this player has earned — the client can't see
+// questsDone, so init tells it.
+function dyesEarnedFor(player) {
+  return DYES.filter((d) => { const u = dyeUnlock(d.id); return u && u.quest && dyeUnlocked(player, d.id); }).map((d) => d.id);
 }
 
 // Has this player LEARNED a purchasable (gold-priced) crafting recipe? Free
@@ -11258,6 +11265,14 @@ wss.on('connection', (ws, req) => {
           // Phase 3: Moonstone dyes bought on this account (level/chapter dyes
           // the client gates from the live level + chaptersDone above).
           dyesPurchased: getProgress(player).dyeUnlocks || [],
+          // The dye catalog itself, server-sourced: the client's hand-kept
+          // copy had drifted (it never got the Finery line or Ember), so
+          // those swatches were missing from the wardrobe entirely.
+          dyes: DYES,
+          dyeUnlocks: DYE_UNLOCKS,
+          dyeLore: PLANT_DYE_LORE,
+          // Quest-earned dyes (Ember) this player has earned.
+          dyesEarned: dyesEarnedFor(player),
           // Name-color flair: the palette, what this account owns, and the
           // currently-worn id (server-sourced so the client never drifts).
           nameColors: NAME_COLORS,
@@ -11693,6 +11708,39 @@ wss.on('connection', (ws, req) => {
       try { saveProgress(); } catch (e) {}
       send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
       send(ws, { type: 'dye_bought', dye: dyeId });
+      return;
+    }
+
+    // Steep a plant dye (the Hedge line): spend the dyestuff from your pack and
+    // a little gold for the mordant, once; the colour is then yours on every
+    // character, like a bought dye. Account only — dyes live on the account.
+    if (msg.type === 'steep_dye') {
+      if (!player) return;
+      if (!player.accountKey) { send(ws, { type: 'craft_error', message: 'Sign in with an account to steep dyes — they are kept on your account.' }); return; }
+      const dyeId = String(msg.dye || '');
+      const d = DYES.find((x) => x.id === dyeId);
+      const u = d ? dyeUnlock(dyeId) : null;
+      if (!d || !u || !u.steep) { send(ws, { type: 'craft_error', message: 'That colour isn’t one you can steep.' }); return; }
+      const prog = getProgress(player);
+      if (!prog.dyeUnlocks) prog.dyeUnlocks = [];
+      if (prog.dyeUnlocks.indexOf(dyeId) !== -1) { send(ws, { type: 'dye_bought', dye: dyeId }); return; }
+      const st = u.steep;
+      const inv = getInventory(player);
+      const have = countItemQty(inv, st.item);
+      const itemName = (ITEM_CATALOG[st.item] && ITEM_CATALOG[st.item].name) || st.item;
+      const lore = PLANT_DYE_LORE[dyeId] || {};
+      if (have < st.qty) { send(ws, { type: 'craft_error', message: `${d.label} takes ${st.qty} ${itemName} — you have ${have}. Gather more in the Wilds.` }); return; }
+      const acct = ensureBankAccount(player.accountKey);
+      if (st.gold && acct.balance < st.gold) { send(ws, { type: 'craft_error', message: `The ${lore.mordant || 'mordant'} for ${d.label} costs ${st.gold} gold — you have ${acct.balance} banked.` }); return; }
+      removeItemFromAccount(inv, st.item, st.qty);
+      if (st.gold) { acct.balance -= st.gold; saveBankAccounts(); }
+      prog.dyeUnlocks.push(dyeId);
+      saveInventories();
+      try { saveProgress(); } catch (e) {}
+      analytics.bump('steep.dye:' + dyeId);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      if (st.gold) send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      send(ws, { type: 'dye_bought', dye: dyeId, message: `🎨 ${d.label} — steeped with ${lore.mordant || 'a mordant'}. ${lore.lore || ''}`.trim() });
       return;
     }
 

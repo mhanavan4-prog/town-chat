@@ -49,7 +49,7 @@ import createDungeonMobs from './dungeon-mobs.js';
 import createCryptMobs from './crypt-mobs.js';
 import createVillageNpcs from './village-npcs.js';
 import createHumanoidBuilder from './humanoid.js';
-import { WARDROBE, resolveLook, weaponUnlock, DYES, dyeUnlock } from './wardrobe.js';
+import { WARDROBE, resolveLook, weaponUnlock, DYES, dyeUnlock, setDyeCatalog } from './wardrobe.js';
 import createJournalSkills from './journal-skills.js';
 import createBankAuction from './bank-auction.js';
 import createNotesDrive from './notes-drive.js';
@@ -1324,7 +1324,8 @@ function onWsMessage(ev) {
     if (msg.potionRecipes) setPotionRecipes(msg.potionRecipes);
     if (msg.witchPaths) witchPathsFromServer = msg.witchPaths;
     myMoonstones = msg.moonstones || 0;
-    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
+    if (msg.wardrobe && msg.wardrobe.dyes) setDyeCatalog(msg.wardrobe.dyes, msg.wardrobe.dyeUnlocks);
+    if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], dyesEarned: msg.wardrobe.dyesEarned || [], dyeLore: msg.wardrobe.dyeLore || {}, nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
     if (msg.familiarCos) myFamiliarCos = { skins: msg.familiarCos.skins || [], owned: msg.familiarCos.owned || [], skin: msg.familiarCos.skin || 'default' };
     if (msg.auraCos) myAuraCos = { auras: msg.auraCos.auras || [], owned: msg.auraCos.owned || [], aura: msg.auraCos.aura || 'none' };
     if (msg.msPacks) msPacksCatalog = msg.msPacks;
@@ -1969,7 +1970,7 @@ function onWsMessage(ev) {
     // the shop so the new swatch becomes selectable (don't force-wear a color).
     if (!myWardrobe.dyesPurchased) myWardrobe.dyesPurchased = [];
     if (myWardrobe.dyesPurchased.indexOf(msg.dye) === -1) myWardrobe.dyesPurchased.push(msg.dye);
-    setUnlockToast('🎨 New dye unlocked!');
+    setUnlockToast(msg.message || '🎨 New dye unlocked!');
     if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
@@ -16015,6 +16016,10 @@ const { openNotifModal } = _notif;
     // Finery line (roadmap #7): a gold-priced cosmetic sink. Ownership rides the
     // same account-wide dyesPurchased list as the Moonstone dyes.
     if (u.gold) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'buygold', gold: u.gold };
+    // Quest-earned (Ember): the server tells us which ones we've earned.
+    if (u.quest) return (myWardrobe.dyesEarned || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'locked', why: 'Quest' };
+    // The Hedge line: steeped from gathered dyestuff + gold for the mordant.
+    if (u.steep) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'steep', steep: u.steep };
     return { k: 'locked', why: 'Locked' };
   }
   // One row of dye swatches for a slot ('dyeBody' | 'dyeAccent'). Owned dyes are
@@ -16029,6 +16034,12 @@ const { openNotifModal } = _notif;
       const on = (cur || 'none') === d.id;
       if (s.k === 'locked') return '<button class="wrDye locked" disabled title="' + d.label + ' · ' + s.why + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.why + '</span></button>';
       if (s.k === 'buy') return '<button class="wrDye buy" data-buydye="' + d.id + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.ms + '💎</span></button>';
+      if (s.k === 'steep') {
+        const it = ITEM_CATALOG[s.steep.item] || {};
+        const lore = (myWardrobe.dyeLore || {})[d.id] || {};
+        const tip = d.label + ' — steep ' + s.steep.qty + ' ' + (it.name || s.steep.item) + ' with ' + (lore.mordant || 'a mordant') + ' (' + s.steep.gold + 'g)';
+        return '<button class="wrDye steep" data-steepdye="' + d.id + '" title="' + tip + '" aria-label="' + tip + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + (it.icon || '🌿') + s.steep.qty + ' · ' + s.steep.gold + 'g</span></button>';
+      }
       if (s.k === 'buygold') return '<button class="wrDye buygold" data-buydye="' + d.id + '" title="' + d.label + ' — Finery (gold)"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.gold + 'g</span></button>';
       return '<button class="wrDye' + (on ? ' on' : '') + '" data-dye="' + d.id + '" data-slot="' + slot + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + d.label + '</span></button>';
     }).join('');
@@ -16096,7 +16107,7 @@ const { openNotifModal } = _notif;
     h += '<div class="wrSec">Name color</div><div class="wrDyes">' + nameColorRow() + '</div>';
     // Aura (a glow at your feet, seen in-world) — account-wide, server-sourced.
     h += '<div class="wrSec">Aura</div><div class="wrDyes">' + auraRow() + '</div>';
-    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. The <b>Finery</b> line (gold swatches) is bought with gold. 💎 ' + myMoonstones + '</div>';
+    h += '<div class="slNote" style="margin-top:12px">Looks are pure cosmetics — they never change your stats. Dyes are account-wide. The <b>Finery</b> line (gold swatches) is bought with gold. The <b>Hedge</b> line is steeped from plants you gather in the Wilds, plus gold for the alum or copperas. 💎 ' + myMoonstones + '</div>';
     list.innerHTML = h;
     list.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => applyWardrobe({ weapon: b.getAttribute('data-w') })));
     list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
@@ -16109,6 +16120,9 @@ const { openNotifModal } = _notif;
     }));
     list.querySelectorAll('[data-dye]').forEach((b) => b.addEventListener('click', () => {
       const ch = {}; ch[b.getAttribute('data-slot')] = b.getAttribute('data-dye'); applyWardrobe(ch);
+    }));
+    list.querySelectorAll('[data-steepdye]').forEach((b) => b.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'steep_dye', dye: b.getAttribute('data-steepdye') }));
     }));
     list.querySelectorAll('[data-buydye]').forEach((b) => b.addEventListener('click', () => {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'buy_dye', dye: b.getAttribute('data-buydye') }));
