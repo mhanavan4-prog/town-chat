@@ -9359,6 +9359,12 @@ const GFX = (() => {
     ensureTagged(activeScene);
     const info = st.scenes.get(activeScene);
     if (!info || !info.sun || st.quality === 'low') return;
+    // A light contributing nothing casts nothing you can see — a shadow only
+    // darkens its OWN light's contribution. The outdoor sun sits at intensity 0
+    // for the whole night (the moon lights the world and never casts), so the
+    // renderer was drawing a 4096x4096 depth pass every frame, half the time,
+    // for an invisible result.
+    info.sun.castShadow = info.sun.intensity > 0.02;
     if (info.follow && me) {
       const rp = getRenderPos(me);
       _anchor.set(rp.x, 0, rp.z);

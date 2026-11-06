@@ -102,7 +102,17 @@ function updateDayNightCycle() {
   const sunAngle = Math.PI * dayProgress;
   // The directional light's arc; its position anchors near the player each
   // frame (see GFX.beforeRender) so the shadow frustum stays tight.
-  const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.1, Math.sin(sunAngle) * 0.6), z: 0.4 };
+  // The floor on y is what keeps the sun from lying flat on the horizon. It
+  // used to be 0.1 — about 5 degrees of elevation — and the sunrise ramp runs
+  // entirely at that floor, so the light reached 0.9 intensity while still
+  // raking across the ground. Grazing light is the worst case for shadow acne:
+  // depth error scales with a surface's slope to the light, and at 5 degrees
+  // every flat surface is nearly edge-on. That is what striped the knights.
+  //
+  // 0.4 puts the floor at about 21 degrees. The visible sun DISC is a separate
+  // mesh with its own arc (skyAlt below), so a sunrise still looks like one —
+  // only the direction the light comes FROM is lifted off the horizon.
+  const sunDir = { x: Math.cos(sunAngle), y: Math.max(0.4, Math.sin(sunAngle) * 0.6), z: 0.4 };
   getOutdoorSun().position.set(sunDir.x * 1150, sunDir.y * 1150, sunDir.z * 1150);
   if (getOutdoorSun().target) getOutdoorSun().target.position.set(0, 0, 0);
   getOutdoorSun().intensity = effLight * 0.9; // sun goes dark in the Hagstone world
