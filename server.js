@@ -3151,7 +3151,7 @@ const { HOUR_LORE, planetaryHourAt, planetaryHourSchedule } = require('./data/pl
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
 const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
-const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES } = require('./data/wards'); // blueprint B: threshold & hearth
+const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
@@ -4838,15 +4838,17 @@ function teaGiftsBody(player) {
 function wardsOfKey(key) {
   const a = key && accounts[key];
   if (!a) return null;
-  if (!a.wards) a.wards = { bottle: null, bottleSpent: 0, hexafoil: null, shoe: null };
+  if (!a.wards) a.wards = { bottle: null, bottleSpent: 0, hexafoil: null, shoe: null, ladder: null };
   return a.wards;
 }
 function isHearthWitch(key) { return !!(key && accounts[key] && accounts[key].witchPath === 'hearth'); }
 function wardContrib(player, statKey) {
-  if (statKey !== 'guard') return 0;
+  if (statKey !== 'guard' && statKey !== 'forage') return 0;
   const key = player && player.accountKey;
   const w = key && accounts[key] && accounts[key].wards;
   if (!w) return 0;
+  // The witch's ladder: harvest luck (the neighbours' plenty), never guard.
+  if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
   return (w.hexafoil ? each : 0) + (w.shoe ? each : 0);
 }
@@ -4857,6 +4859,7 @@ function wardsPublic(key) {
     charges: w.bottle ? w.bottle.charges : 0,
     hexafoil: !!w.hexafoil,
     shoe: !!w.shoe,
+    ladder: !!w.ladder,
   };
 }
 function wardsStateBody(player) {
@@ -4871,6 +4874,8 @@ function wardsStateBody(player) {
     maxCharges: hearth ? BOTTLE_CHARGES_HEARTH : BOTTLE_CHARGES,
     guardEach: hearth ? WARD_GUARD_HEARTH : WARD_GUARD,
     haveBottle: inv ? countItemQty(inv, 'witch_bottle') : 0,
+    ladderParts: LADDER_PARTS.map((pt) => ({ id: pt.id, qty: pt.qty, name: (ITEM_CATALOG[pt.id] && ITEM_CATALOG[pt.id].name) || pt.id, have: inv ? countItemQty(inv, pt.id) : 0 })),
+    ladderForage: hearth ? LADDER_FORAGE_HEARTH : LADDER_FORAGE,
     feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
     atHome: inOwnCottage(player),
     lore: WARDS,
@@ -9125,7 +9130,8 @@ const NPC_SHOPS = {
     { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
     { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 },
     { id: 'bent_pins', price: 4 }, // a paper of pins — bent, for a witch bottle
-    { id: 'hemp_cord', price: 5 } // a length of cord — to tie a wind into
+    { id: 'hemp_cord', price: 5 }, // a length of cord — to tie a wind into
+    { id: 'cock_feathers', price: 6 } // milliner's stock — for a witch's ladder
   ]},
   npc_armorer: { name: 'Armorer Beck', items: [
     { id: 'steel_shield', price: 45 }, { id: 'knights_helm', price: 40 },
@@ -15974,7 +15980,7 @@ wss.on('connection', (ws, req) => {
 
     // ── Threshold & Hearth (blueprint B): ward your own cottage ──────────────
     if (msg.type === 'wards_state') { send(ws, { type: 'wards_state', ...wardsStateBody(player) }); return; }
-    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe') {
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
       if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
@@ -15992,6 +15998,14 @@ wss.on('connection', (ws, req) => {
         if (w.hexafoil) { fail('A daisy wheel is already cut over your door.'); return; }
         w.hexafoil = { at: Date.now() };
         toast = '✡ The sixth arc closes. A daisy wheel sits over your door, one unbroken line with no way out.';
+      } else if (msg.type === 'hang_witch_ladder') {
+        if (w.ladder) { fail("A witch's ladder already hangs in your rafters."); return; }
+        const short = LADDER_PARTS.find((pt) => countItemQty(inv, pt.id) < pt.qty);
+        if (short) { fail(`You need ${short.qty} ${(ITEM_CATALOG[short.id] && ITEM_CATALOG[short.id].name) || short.id} — Tailor Ines sells both cord and feathers.`); return; }
+        for (const pt of LADDER_PARTS) removeItemFromAccount(inv, pt.id, pt.qty);
+        w.ladder = { at: Date.now() };
+        saveInventories();
+        toast = "🪶 You knot the cord and work a cock's feather in at every knot, then climb into the rafters and hang it in the dark. What it's for, nobody ever did agree — but your harvests come in a little fuller.";
       } else {
         if (w.shoe) { fail('A shoe already lies hidden by your chimney — one is enough.'); return; }
         const itemId = String(msg.itemId || '');
@@ -17600,6 +17614,7 @@ global.__testHooks = {
 // Hooks added on their own lines so parallel PRs don't conflict on the shared line above.
 global.__testHooks.charmBookStateBody = charmBookStateBody;
 global.__testHooks.noteSabbatSeen = noteSabbatSeen;
+global.__testHooks.wardsPublic = wardsPublic;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 

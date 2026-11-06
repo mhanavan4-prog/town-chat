@@ -122,6 +122,22 @@ export default function createWards({ send }) {
       card.appendChild(loreBox(state.lore.shoe));
       body.appendChild(card);
     }
+    // 🪶 The witch's ladder (harvest luck, not a guard)
+    if (state.lore.ladder) {
+      const fpct = Math.round((state.ladderForage || 0) * 100);
+      const card = wardCard('ladder', state.ladder ? `Hanging in the rafters · +${fpct}% harvest luck` : 'None hung', state.ladder);
+      if (!state.ladder) {
+        const parts = state.ladderParts || [];
+        const ready = parts.length && parts.every((pt) => pt.have >= pt.qty);
+        const b = el('button', 'btn wardBtn', ready ? "Tie and hang a witch's ladder" : "Need cord and feathers");
+        b.disabled = !state.atHome || !ready;
+        b.addEventListener('click', () => { b.disabled = true; send({ type: 'hang_witch_ladder' }); });
+        card.appendChild(b);
+        card.appendChild(el('div', 'wardHow', parts.map((pt) => `${pt.name} ${Math.min(pt.have, pt.qty)}/${pt.qty}`).join(' · ') + ' — both from Tailor Ines.'));
+      }
+      card.appendChild(loreBox(state.lore.ladder));
+      body.appendChild(card);
+    }
   }
 
   // ── The compass: draw a hexafoil the way a carpenter did ──────────────────

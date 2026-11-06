@@ -46,7 +46,24 @@ const WARDS = {
     tier: 'record',
     source: 'June Swann, "Shoes Concealed in Buildings" · Northampton Museum concealed-shoe index',
   },
+  // Not a protection — nobody who wrote about it thought so. Honest to the
+  // museum's own label (milk drawn from the neighbours' cows), in the game it
+  // draws a little of the neighbours' plenty: harvest luck, not guard.
+  ladder: {
+    name: "Witch's Ladder",
+    icon: '🪶',
+    where: 'hung in the roof space',
+    blurb: "Not a ward at all, as far as anyone knows. Tie cock's feathers into a length of cord and hang it in the rafters; it draws a little of the neighbours' plenty — harvest luck.",
+    lore: "In 1878–9 workmen pulling down an old house in Wellington, Somerset, found in the roof space a cord about a metre and a half long with cock's feathers worked into it, along with brooms and an old chair. Dr Abraham Colles wrote it up as \"A Witches' Ladder\" in 1887, and it is now in the Pitt Rivers Museum. What it was for is honestly unknown: the workmen said it was a ladder for witches to cross the roof; the museum's label says for getting milk away from neighbours' cows; at the British Association that same year two men said it was a sewel, hung to turn deer in a hunt; and a local woman said it was a string of feathers to scare birds off the peas. Tylor, who showed it there, wrote in 1891 that opinion alone could not settle it.",
+    tier: 'record',
+    source: 'Pitt Rivers Museum 1911.32.7 · A. Colles, "A Witches\' Ladder", The Folk-Lore Journal (1887)',
+  },
 };
+
+// The ladder's pull: harvest luck while it hangs (more for a Hearth Witch).
+const LADDER_FORAGE = 0.05;
+const LADDER_FORAGE_HEARTH = 0.08;
+const LADDER_PARTS = [{ id: 'hemp_cord', qty: 1 }, { id: 'cock_feathers', qty: 1 }];
 
 // The ingredients a cunning person would have put in. (The bottle's other
 // contents — the householder's own hair, nail parings and urine — are the
@@ -63,4 +80,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { WARDS, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES };
+module.exports = { WARDS, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
