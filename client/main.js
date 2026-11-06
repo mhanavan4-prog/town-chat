@@ -16031,6 +16031,8 @@ const { openNotifModal } = _notif;
     if (u.quest) return (myWardrobe.dyesEarned || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'locked', why: 'Quest' };
     // The Hedge line: steeped from gathered dyestuff + gold for the mordant.
     if (u.steep) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'steep', steep: u.steep };
+    // Given by the Charm Book when it is u.book per cent written (Woad Blue).
+    if (u.book) return (myWardrobe.dyesPurchased || []).indexOf(dyeId) !== -1 ? { k: 'ok' } : { k: 'locked', why: '📜 ' + u.book + '%' };
     return { k: 'locked', why: 'Locked' };
   }
   // One row of dye swatches for a slot ('dyeBody' | 'dyeAccent'). Owned dyes are

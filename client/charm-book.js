@@ -48,6 +48,7 @@ export default function createCharmBook({ send, place }) {
     key.appendChild(tierBadge('folk')); key.appendChild(el('span', null, ' gathered from living custom  '));
     key.appendChild(tierBadge('revival')); key.appendChild(el('span', null, ' modern'));
     body.appendChild(key);
+    if (state.rewards) renderRewards(body, state.rewards);
     const cols = el('div', 'menuCols'); // chapters in two columns in the wide frame
     body.appendChild(cols);
     for (const ch of state.chapters) {
@@ -64,6 +65,22 @@ export default function createCharmBook({ send, place }) {
       row.addEventListener('click', () => { openChapter = ch.key; render(); });
       cols.appendChild(row);
     }
+  }
+
+  // What writing the book up earns: a chip per milestone (ticked once given)
+  // and the purse for each finished chapter.
+  function renderRewards(body, r) {
+    const box = el('div', 'cbRewards');
+    for (const m of r.milestones) {
+      const chip = el('span', 'cbMilestone' + (m.given ? ' given' : ''));
+      chip.title = `${m.label}: the title ${m.title}, ${m.gold} gold` + (m.dye ? ', and Woad Blue for your wardrobe' : '');
+      chip.appendChild(el('span', 'cbMsAt', `${m.given ? '✓ ' : ''}${m.at}%`));
+      chip.appendChild(el('span', 'cbMsTitle', `${m.glyph} ${m.title}`));
+      chip.appendChild(el('span', 'cbMsGold', `${m.gold}g${m.dye ? ' · 🎨' : ''}`));
+      box.appendChild(chip);
+    }
+    body.appendChild(box);
+    body.appendChild(el('div', 'cbHint', `${r.pct}% written. Every chapter you finish pays ${r.chapterPurse} gold; each milestone gives a title to wear.`));
   }
 
   function renderChapter(body, ch) {

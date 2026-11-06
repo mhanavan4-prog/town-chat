@@ -78,6 +78,27 @@ const TITLES = {
     id: 'reliquary_keeper', name: 'Keeper of the Reliquary', glyph: '🗝️',
     desc: 'Stood before every relic under glass in Thornreach and read it down to the last line — and now knows which of them is listening back.',
     from: 'The Reliquary — the Arcade & the Parlor'
+  },
+  // The Charm Book milestones (data/charmRewards.js).
+  charm_keeper: {
+    id: 'charm_keeper', name: 'Keeper of a Charm Book', glyph: '📜',
+    desc: 'Wrote a quarter of the Charm Book: charms, cures and customs copied out, each with where it really comes from.',
+    from: 'The Charm Book — a quarter written'
+  },
+  cunning_hand: {
+    id: 'cunning_hand', name: 'Of the Cunning Folk', glyph: '🌿',
+    desc: 'Wrote half the Charm Book. The parish knows where to come with a trouble now.',
+    from: 'The Charm Book — half written'
+  },
+  parish_charmer: {
+    id: 'parish_charmer', name: 'Charmer of the Parish', glyph: '🗝️',
+    desc: 'Wrote three quarters of the Charm Book, and learned to keep a woad vat besides.',
+    from: 'The Charm Book — three quarters written'
+  },
+  whole_book: {
+    id: 'whole_book', name: 'Keeper of the Whole Book', glyph: '📖',
+    desc: 'Wrote every page of the Charm Book: every caller answered, every ward set, every season kept.',
+    from: 'The Charm Book — every page'
   }
 };
 
