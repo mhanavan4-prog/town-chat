@@ -18,7 +18,7 @@
 //   • Nothing here is a preparation method for anything harmful.
 //
 // Step kinds (each satisfied by a real action, see lib/callers.js):
-//   pendulum · tarot · runes · scry   — a reading taken while the caller waits
+//   pendulum · tarot · runes · scry · leaves — a reading taken while the caller waits
 //                                       (a pendulum step's `ask` pre-fills the question)
 //   deliver { item, qty }             — handed over (and consumed) at the end
 // ---------------------------------------------------------------------------
@@ -159,9 +159,25 @@ const CALLERS = [
     source: 'Tacitus, Germania ch. 10 (AD 98)',
     reward: { gold: 60, xp: 40 },
   },
+  {
+    id: 'letter_from_abroad',
+    caller: 'Mrs Penhallow',
+    icon: '✉️',
+    title: 'No Letter from America',
+    plea: "My Davey sailed for America at Candlemas and not a line since. Sit with me and read my cup, would you? I can bear it, whatever it is.",
+    steps: [
+      { kind: 'leaves', label: 'Drink a cup with her, then read the leaves' },
+      { kind: 'pendulum', label: 'Ask the pendulum: is Davey well?', ask: 'Is Davey well across the water?' },
+    ],
+    resolution: "You turn her cup three times and set it to drain, and read what is there gently — the good sign first. She keeps the cup on the dresser, unwashed, for a week. The letter, when it comes, has a dollar folded in it.",
+    lore: "Tea-leaf reading was a kitchen art, done between neighbours and by paid readers alike. Its printed dictionaries are Victorian and Edwardian: A Highland Seer's guide (early 1900s) reads a square leaf as a letter and a fish as good news from abroad, with the handle standing for the drinker and the rim for what comes soon. Emigrants' families were among the most faithful customers of fortune-tellers.",
+    tier: 'folk',
+    source: "A Highland Seer, Tea-Cup Reading and Fortune-Telling by Tea Leaves (early 1900s)",
+    reward: { gold: 55, xp: 35 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry'];
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };

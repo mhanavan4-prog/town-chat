@@ -10,6 +10,8 @@ process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-callers-');
 
 let pass = 0, fail = 0;
+// A throw inside the timer would leave the server listening and hang the run.
+process.on('uncaughtException', (e) => { console.log('FAIL - threw:', e && e.message); process.exit(1); });
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 
 function makeMockSocket(tag) {
@@ -111,6 +113,7 @@ setTimeout(() => {
       else if (s.kind === 'tarot') say(w.s, { type: 'tarot_draw' });
       else if (s.kind === 'runes') say(w.s, { type: 'rune_cast' });
       else if (s.kind === 'scry') say(w.s, { type: 'scry' });
+      else if (s.kind === 'leaves') { h.addItemToAccount(inv, 'chamomile', 1); say(w.s, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(w.s, { type: 'read_leaves' }); }
       else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
     }
     say(w.s, { type: 'callers_state' }); // the Board re-reads the pack when opened
@@ -142,6 +145,24 @@ setTimeout(() => {
   // so the purse is at least what the callers paid, never less.)
   check('the purse grew by at least what the callers paid', h.ensureBankAccount(w.p.accountKey).balance >= goldBefore + paid);
   check(`the town counts ${st.offered.length} workings`, w.s.lastOfType('callers_state').total === st.offered.length);
+
+  // ── Every caller in the book can be finished, not just today's three ─────
+  for (const c of CALLERS) {
+    const x = join('Every_' + c.id, 'callers_every_' + c.id);
+    const xinv = h.getInventory(x.p);
+    h.accounts[x.p.accountKey].callers = { day: Math.floor(Date.now() / 86400000), served: [], active: { id: c.id, done: {} }, total: 0, byId: {} };
+    for (const s of c.steps) {
+      if (s.kind === 'pendulum') say(x.s, { type: 'pendulum_ask', question: s.ask || 'Well?' });
+      else if (s.kind === 'tarot') say(x.s, { type: 'tarot_draw' });
+      else if (s.kind === 'runes') say(x.s, { type: 'rune_cast' });
+      else if (s.kind === 'scry') say(x.s, { type: 'scry' });
+      else if (s.kind === 'leaves') { h.addItemToAccount(xinv, 'chamomile', 1); say(x.s, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(x.s, { type: 'read_leaves' }); }
+      else if (s.kind === 'deliver') h.addItemToAccount(xinv, s.item, s.qty);
+    }
+    x.s.sent.length = 0;
+    say(x.s, { type: 'caller_finish' });
+    check(`every caller: ${c.id} can be worked to the end`, !!x.s.lastOfType('caller_result'), x.s.lastOfType('caller_error'));
+  }
 
   // ── A reading with no working in hand changes nothing ────────────────────
   w.s.sent.length = 0;
