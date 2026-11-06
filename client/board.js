@@ -155,15 +155,17 @@ function renderCallers(list, meNote) {
         });
         if (s.charm.use) box.appendChild(el('div', 'callerStepNote', s.charm.use));
         body.appendChild(box);
-      } else if (s.kind === 'sieve' && !s.done) {
+      } else if ((s.kind === 'sieve' || s.kind === 'key') && !s.done) {
         // Name them one by one; the sieve turns at one.
-        body.appendChild(el('div', 'callerStepNote', 'The shears' + "'" + ' points in the sieve' + "'" + 's rim, held up on two fingertips. Name them, one by one:'));
+        body.appendChild(el('div', 'callerStepNote', s.kind === 'key'
+          ? 'The key bound into the Bible at the 50th Psalm, the book held on two fingers. Read \u201cWhen thou sawest a thief\u2026\u201d and name them, one by one:'
+          : 'The shears\u2019 points in the sieve\u2019s rim, held up on two fingertips. Name them, one by one:'));
         const names = el('div', 'sieveNames');
         for (const n of s.suspects || []) {
           const tried = (s.tried || []).includes(n);
           const b = el('button', 'btn sieveName' + (tried ? ' still' : ''), tried ? `${n} — still` : n);
           b.disabled = tried;
-          b.addEventListener('click', () => { b.disabled = true; send({ type: 'sieve_turn', name: n }); });
+          b.addEventListener('click', () => { b.disabled = true; send({ type: s.kind === 'key' ? 'key_turn' : 'sieve_turn', name: n }); });
           names.appendChild(b);
         }
         body.appendChild(names);

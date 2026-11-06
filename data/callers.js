@@ -403,12 +403,30 @@ const CALLERS = [
     source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732)',
     reward: { gold: 45, xp: 35 },
   },
+  // ── The key and Bible ──
+  {
+    id: 'cheese_and_herrings',
+    caller: 'Rab Ferguson',
+    icon: '🗝️',
+    title: 'A Sack of Cheese and Herrings',
+    plea: "A whole sack — two cheeses and a barrel's worth of salt herrings — gone from my byre the night of the fair. Three men knew it was there. My father would have tied the house key into the Bible and read the psalm over it. Will you do it, and see where it turns?",
+    steps: [
+      { kind: 'key', label: 'Bind the key in the Bible and read the psalm over the names', suspects: ['the drover who stayed the night', 'his neighbour across the burn', 'his own herd-boy'] },
+      { kind: 'tarot', label: 'Draw for what comes of it' },
+    ],
+    resolution: "You don't take the key's word to the kirk session — men have been hauled before the session for less, and some of them were the ones who turned the key. You tell Rab to say at the market that the Bible's been read over it. The cheeses are back in the byre within the week, a little the worse for the journey. The herrings are not.",
+    lore: "The key and Bible found thieves: a door key was bound into a Bible with its bow sticking out, the book held up on two people's fingers, and the 50th Psalm read over it — at \"When thou sawest a thief, then thou consentedst with him\" it was meant to turn toward the culprit. Tylor called it \"still in frequent use\" in 1871. In Dumfriesshire in 1697 John Fergusson of Cummertrees was accused for doing exactly this over a stolen sack of cheese and herrings: the Bible and key, it was said, moved at the name of William M'Kinnel of Bankend.",
+    tier: 'record',
+    source: 'E. B. Tylor, Primitive Culture (1871), vol. 1 · Brewer, Dictionary of Phrase and Fable (1895), "Key and the Bible" · Dumfries Museum, key in a Bible (DUMFM:1948.78.1) and the 1697 Cummertrees case',
+    reward: { gold: 60, xp: 45 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
 // 'sieve' — the sieve and shears: done right on the Town Board, naming the
 // step's suspects one by one until the sieve turns (lib/callers.js sieve_turn).
 // 'charm' — a spoken charm (data/charms.js), said line by line on the Board.
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm'];
+// 'key' — the key and Bible: like the sieve, the suspects named on the Board.
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
