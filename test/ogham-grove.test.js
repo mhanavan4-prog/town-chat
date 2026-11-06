@@ -49,7 +49,11 @@ setTimeout(() => {
     check(`${letter.name} (${letter.tree}): ten ${type} stand in the Wilds`, trees.length === 10 && trees.every((d) => d.id.startsWith('wgrove_')));
     // Harvest two of them through the real handler.
     const before = h.countItemQty(inv, letter.wood);
-    for (const t of trees.slice(0, OGHAM_CARVE_QTY)) { p.x = t.x; p.y = t.y; say(s, { type: 'harvest', decorId: t.id }); }
+    // Pin the bonus-yield roll high: the forage bonus swells with the waxing
+    // and full moon (and some sabbats), so an unpinned roll makes this check
+    // pass or fail with the calendar. We're testing the tree→wood mapping.
+    const realRandom = Math.random; Math.random = () => 0.999999;
+    try { for (const t of trees.slice(0, OGHAM_CARVE_QTY)) { p.x = t.x; p.y = t.y; say(s, { type: 'harvest', decorId: t.id }); } } finally { Math.random = realRandom; }
     check(`  …harvesting gives ${letter.wood}, the wood its letter is carved from`, h.countItemQty(inv, letter.wood) === before + OGHAM_CARVE_QTY, { got: h.countItemQty(inv, letter.wood) - before, err: s.lastOfType('harvest_error') });
     say(s, { type: 'ogham_carve', key });
     check(`  …and it carves ${letter.name}`, h.accounts.grove_a.ogham && h.accounts.grove_a.ogham.carved.includes(key), s.lastOfType('ogham_error'));
