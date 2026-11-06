@@ -518,8 +518,13 @@
     /* Lower-left, bottom-anchored by the stack: a tall log now grows UPWARDS
        into empty sky rather than down through the HUD. */
     position:relative;
-    width:360px; max-width:100%;
-    max-height:calc(100vh - 260px); overflow-y:auto;
+    /* Wider than it is tall. A notice like "Killed Night Howler for 23! (+15
+       XP) Loot is on the body" wrapped to three lines at 360px, so the log
+       climbed the screen to show the same handful of events. Width is the
+       cheaper axis here — the right of the screen is empty, the sky above the
+       panel is not. */
+    width:460px; max-width:100%;
+    max-height:calc(100vh - 300px); overflow-y:auto;
     display:flex; flex-direction:column;
     pointer-events:none;
     background:linear-gradient(160deg, rgba(28,20,14,0.88), rgba(16,12,8,0.92));
@@ -1262,7 +1267,7 @@
     pointer-events:auto;
     display:flex; flex-direction:column; gap:3px;
     margin-top:8px; padding-right:4px;
-    max-height:300px; min-height:120px; overflow-y:auto;
+    max-height:190px; min-height:100px; overflow-y:auto;
     font-size:12px; line-height:1.45; text-align:left;
   }
   #chatMsgLog .msgLogRow { display:flex; gap:7px; align-items:baseline; padding:3px 2px; border-bottom:1px solid rgba(255,255,255,0.05); }
