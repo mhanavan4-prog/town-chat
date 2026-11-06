@@ -17557,6 +17557,8 @@ global.__testHooks = {
   skillLifestealFrac, skillHarvestExtraChance, skillXpMult, skillSpeedMult, skillMendingRate,
   computeStatBlock, statContrib, gearStatContrib, invEquipField
 };
+// Hooks added on their own lines so parallel PRs don't conflict on the line above.
+global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
