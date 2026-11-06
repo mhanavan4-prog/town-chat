@@ -11289,6 +11289,14 @@ function renderScryModal() {
   let wheelLine = w.seasonName ? `<b>${esc(w.seasonName)}</b>${w.epithet ? ', ' + esc(w.epithet) + ',' : ''} holds.` : '';
   if (w.nextName) wheelLine += ` ${sabbatGlyph(w.nextKey, w.nextGlyph)} <b>${esc(w.nextName)}</b> turns in <b>${scryDur(w.turnsMs)}</b>.`;
   h += `<div class="scryRow"><span class="sge">${sabbatGlyph(w.seasonKey, w.seasonGlyph)}</span><span class="sgt"><div class="sgh">The Wheel of the Year</div><div class="sgs">${wheelLine}</div></span></div>`;
+  // How old is it really? Each sabbat's own provenance, and the wheel's.
+  if (w.provenance || w.wheelProvenance) {
+    const tierName = { record: 'Genuinely old', folk: 'Folk tradition', revival: 'Modern revival' };
+    h += '<details class="scryProv"><summary>How old is this, really?</summary>';
+    if (w.provenance) h += `<div class="spRow"><span class="callerTier callerTier-${esc(w.provenance.tier)}">${esc(w.seasonName)} · ${esc(tierName[w.provenance.tier] || w.provenance.tier)}</span><div class="callerLoreText">${esc(w.provenance.line)}</div><div class="callerSource">Source: ${esc(w.provenance.source)}</div></div>`;
+    if (w.wheelProvenance) h += `<div class="spRow"><span class="callerTier callerTier-revival">The wheel itself · Modern revival</span><div class="callerLoreText">${esc(w.wheelProvenance.line)}</div><div class="callerSource">Source: ${esc(w.wheelProvenance.source)}</div></div>`;
+    h += '</details>';
+  }
   // The day's omen
   if (st.omen) h += `<div class="scryOmen"><div class="sol">The water whispers</div><div class="sot">“${esc(st.omen)}”</div></div>`;
   if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the water shows more than it should.</div>';
