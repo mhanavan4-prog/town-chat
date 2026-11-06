@@ -175,6 +175,22 @@ const CALLERS = [
     source: "A Highland Seer, Tea-Cup Reading and Fortune-Telling by Tea Leaves (early 1900s)",
     reward: { gold: 55, xp: 35 },
   },
+  {
+    id: 'becalmed',
+    caller: 'Skipper Quilliam',
+    icon: '⛵',
+    title: 'Becalmed',
+    plea: "Three days sat in the bay with the sails hanging like washing, and the herring won't wait. My father bought his winds from a woman on the Calf of Man. You'll sell me one, won't you? Three knots, mind.",
+    steps: [
+      { kind: 'deliver', item: 'wind_cord_3', qty: 1, label: 'A wind tied into a cord — three knots, none loosed' },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the wind hold to the fishing grounds?', ask: 'Will the wind hold to the fishing grounds?' },
+    ],
+    resolution: "He takes the cord like it might bite, counts the knots twice, and pays in silver. \"The first when we clear the headland. The second if we must. The third—\" He shakes his head. \"Nobody looses the third.\"",
+    lore: "Selling the wind was a real trade along the northern seaboard: a cord with three knots — the first for a moderate wind, the second for half a gale, the third for a hurricane. Frazer gathers it from Finland and Lapland and from witches in Shetland, Lewis and the Isle of Man, where a medieval account already has the wind sold under three knots of thread.",
+    tier: 'folk',
+    source: 'J. G. Frazer, The Golden Bough (1890)',
+    reward: { gold: 70, xp: 40 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
