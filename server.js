@@ -5086,7 +5086,9 @@ function charmBookNotice(player) {
   let message = `📜 Written in your Charm Book: ${first.title}` + (fresh.length > 1 ? ` — and ${fresh.length - 1} more` : ` (${first.chapter})`);
   if (!a.charmToldWhere) { a.charmToldWhere = true; message += ' · Menu → 📜 Charm Book'; }
   saveAccounts();
-  if (player.ws) send(player.ws, { type: 'toast', message });
+  // always: shown on screen even with screen notices off — it's how players
+  // find out the book exists and watch it fill.
+  if (player.ws) send(player.ws, { type: 'toast', message, always: true });
   return message;
 }
 function scheduleCharmNotice(player) {

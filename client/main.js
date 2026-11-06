@@ -2958,7 +2958,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'toast') {
-    if (msg.message) setUnlockToast(msg.message, msg.level ? { level: msg.level } : undefined);
+    if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
     return;
   }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
@@ -5602,9 +5602,12 @@ function setUnlockToast(text, opts) {
   // Remember the latest line so systemChatNotif() doesn't repeat it as a banner
   // (even when this one is suppressed, the banner would just be the same noise).
   lastToastText = text; lastToastAt = Date.now();
-  if (!screenNotices) return;   // it is in the Log; that is the point
-  if (level === 'routine') return;
-  if (level === 'flavor' && quietToasts) return;
+  // opts.always: a rare line that shows on screen whatever the notice
+  // settings (a new Charm Book entry) — it is still logged like the rest.
+  const always = !!(opts && opts.always);
+  if (!screenNotices && !always) return;   // it is in the Log; that is the point
+  if (level === 'routine' && !always) return;
+  if (level === 'flavor' && quietToasts && !always) return;
   const life = TOAST_LIFE_MS[level] || TOAST_LIFE_MS.normal;
   // Same text already up: bump its count and restart its clock.
   for (const ex of wrap.children) {
