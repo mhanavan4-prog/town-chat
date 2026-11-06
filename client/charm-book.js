@@ -48,6 +48,8 @@ export default function createCharmBook({ send, place }) {
     key.appendChild(tierBadge('folk')); key.appendChild(el('span', null, ' gathered from living custom  '));
     key.appendChild(tierBadge('revival')); key.appendChild(el('span', null, ' modern'));
     body.appendChild(key);
+    const cols = el('div', 'menuCols'); // chapters in two columns in the wide frame
+    body.appendChild(cols);
     for (const ch of state.chapters) {
       const row = el('button', 'cbChapter' + (ch.met === ch.total && ch.total ? ' done' : ''));
       row.dataset.chapter = ch.key;
@@ -60,7 +62,7 @@ export default function createCharmBook({ send, place }) {
       fill.style.width = (ch.total ? Math.round((ch.met / ch.total) * 100) : 0) + '%';
       bar.appendChild(fill); row.appendChild(bar);
       row.addEventListener('click', () => { openChapter = ch.key; render(); });
-      body.appendChild(row);
+      cols.appendChild(row);
     }
   }
 

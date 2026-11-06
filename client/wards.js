@@ -73,6 +73,8 @@ export default function createWards({ send }) {
     body.appendChild(intro);
     if (state.hearthWitch) body.appendChild(el('div', 'wardHearth', '🛡️ You walk the Hearth Path — your wards hold stronger: a bottle turns more curses, and each mark guards more.'));
     const pct = Math.round(state.guardEach * 100);
+    const cols = el('div', 'menuCols'); // the four marks in two columns in the wide frame
+    body.appendChild(cols);
 
     // 🍶 The witch bottle
     {
@@ -87,7 +89,7 @@ export default function createWards({ send }) {
         if (!state.haveBottle) card.appendChild(el('div', 'wardHow', "Hazel brews one at her cauldron from a Bellarmine Jug (Apothecary Vex), Bent Pins (Tailor Ines) and Iron Nails (Armorer Beck)."));
       }
       card.appendChild(loreBox(state.lore.bottle));
-      body.appendChild(card);
+      cols.appendChild(card);
     }
     // ✡ The daisy wheel
     {
@@ -99,7 +101,7 @@ export default function createWards({ send }) {
         card.appendChild(b);
       }
       card.appendChild(loreBox(state.lore.hexafoil));
-      body.appendChild(card);
+      cols.appendChild(card);
     }
     // 👞 The concealed shoe
     {
@@ -120,7 +122,7 @@ export default function createWards({ send }) {
         }
       }
       card.appendChild(loreBox(state.lore.shoe));
-      body.appendChild(card);
+      cols.appendChild(card);
     }
     // 🪶 The witch's ladder (harvest luck, not a guard)
     if (state.lore.ladder) {
@@ -136,7 +138,7 @@ export default function createWards({ send }) {
         card.appendChild(el('div', 'wardHow', parts.map((pt) => `${pt.name} ${Math.min(pt.have, pt.qty)}/${pt.qty}`).join(' · ') + ' — both from Tailor Ines.'));
       }
       card.appendChild(loreBox(state.lore.ladder));
-      body.appendChild(card);
+      cols.appendChild(card);
     }
   }
 
