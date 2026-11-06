@@ -102,7 +102,8 @@ function buildCottageScene() {
 // ── Threshold & Hearth (blueprint B) — the house's wards, made visible ───────
 // The daisy wheel is cut into the inner face of the door lintel; a buried witch
 // bottle shows as a sealed hearthstone at the north wall (cracked once spent).
-// The concealed shoe is, as it should be, not shown at all.
+// The concealed shoe is, as it should be, not shown at all. A witch's ladder
+// hangs from the rafters in the north-east corner.
 function setWards(w) {
   pendingWards = w || null;
   if (!builtScene) return;
@@ -126,6 +127,25 @@ function setWards(w) {
     stone.rotation.x = -Math.PI / 2;
     stone.position.set(W / 2, 0.6, 46);                   // before the north wall, where the hearth sits
     wardGroup.add(stone);
+  }
+  if (w.ladder) {
+    // The witch's ladder: a cord hung from the rafters in the north-east corner,
+    // a cock's feather worked in at every knot (after the Wellington ladder).
+    const ladder = new THREE.Group();
+    ladder.name = 'witchLadder';
+    const top = WALL_H - 6, len = 92;
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, len, 5), new THREE.MeshLambertMaterial({ color: 0x8a7350 }));
+    cord.position.y = top - len / 2; ladder.add(cord);
+    const featherCols = [0x2b2622, 0x8a4a22, 0xd8d0c0, 0x3a3a3a, 0xb06a2a];
+    for (let i = 0; i < 9; i++) {
+      const y = top - 8 - i * 9.5, side = i % 2 ? 1 : -1;
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 5), new THREE.MeshLambertMaterial({ color: 0x6e5a3e }));
+      knot.position.y = y; ladder.add(knot);
+      const f = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 5), new THREE.MeshLambertMaterial({ color: featherCols[i % featherCols.length] }));
+      f.scale.set(2.2, 6.5, 0.5); f.position.set(side * 5.5, y - 3, 0); f.rotation.z = side * 0.7; ladder.add(f);
+    }
+    ladder.position.set(W - 46, 0, 46);
+    wardGroup.add(ladder);
   }
   builtScene.add(wardGroup);
 }
