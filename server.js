@@ -4602,7 +4602,9 @@ function gardenStateBody(player) {
   const plots = g.map((p) => p ? {
     herb: p.herb, plantedAt: p.plantedAt, moonTier: p.moonTier,
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
-    yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
+    // What a harvest right now would give — including the herb's planetary
+    // hour, so the bed never advertises less than it pays.
+    yield: (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + greenHourBonus(player, p.herb)
   } : null);
   return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player), homeGarden: homeGardenStateBody(player), rulers: CULPEPER_RULERS };
 }
@@ -4634,7 +4636,7 @@ function homeGardenStateBody(player) {
   const plots = g.map((p) => p ? {
     herb: p.herb, plantedAt: p.plantedAt, moonTier: p.moonTier,
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
-    yield: (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + HOME_GARDEN_YIELD_BONUS
+    yield: (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + HOME_GARDEN_YIELD_BONUS + greenHourBonus(player, p.herb)
   } : null);
   return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, bonus: HOME_GARDEN_YIELD_BONUS, plotCount: COTTAGE_GARDEN_PLOTS, canTend: inOwnCottage(player) };
 }

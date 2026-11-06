@@ -69,12 +69,17 @@ setTimeout(() => {
   h.addItemToAccount(ginv, 'yarrow', 1);
   at(venus.start + 1000, () => say(g.s, { type: 'garden_plant', plotIndex: 0, herb: 'yarrow' }));
   const before = h.countItemQty(ginv, 'yarrow');
+  let advertised = null;
   at(venus.start + 1000 + 3600001 > venus.end ? venus.start + 2000 : venus.start + 2000, () => {
     // mature the bed, then harvest inside the hour
     const plots = h.gardenOf ? h.gardenOf('pr_green', 4) : null;
     if (plots && plots[0]) plots[0].plantedAt -= 2 * 3600000;
+    // The bed advertises what it will actually pay: the hour bonus included.
+    const adv = h.gardenStateBody(g.p).plots[0];
+    advertised = adv && adv.yield;
     say(g.s, { type: 'garden_harvest', plotIndex: 0 });
   });
+  check('in its hour the bed advertises exactly what the harvest pays', advertised === h.countItemQty(ginv, 'yarrow') - before, { advertised, got: h.countItemQty(ginv, 'yarrow') - before });
   const toast = g.s.lastOfType('toast');
   check('the harvest handler pays the hour bonus, and says so', h.countItemQty(ginv, 'yarrow') > before && toast && /planet's hour/.test(toast.message), { got: h.countItemQty(ginv, 'yarrow') - before, toast: toast && toast.message });
 
