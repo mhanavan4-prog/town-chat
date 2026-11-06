@@ -26,6 +26,7 @@ import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
 import createOgham from './ogham.js';
 import createCords from './cords.js';
+import createPractices from './practices.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
@@ -2903,6 +2904,8 @@ function onWsMessage(ev) {
   if (msg.type === 'wards_state') { _wards.setState(msg); return; }
   if (msg.type === 'ogham_state') { _ogham.setState(msg); return; }
   if (msg.type === 'cords_state') { _cords.setState(msg); return; }
+  if (msg.type === 'practice_state') { _practices.setState(msg); return; }
+  if (msg.type === 'practice_error') { if (msg.message) setUnlockToast(`🌿 ${msg.message}`); return; }
   if (msg.type === 'cords_error') { if (msg.message) setUnlockToast(`🪢 ${msg.message}`); return; }
   if (msg.type === 'ogham_cast') { _ogham.setCast(msg.cast); if (!msg.already) setUnlockToast(`🌳 The staves fall: ${(msg.cast || []).map((o) => o.name).join(' · ')}`); return; }
   if (msg.type === 'ogham_error') { if (msg.message) setUnlockToast(`🌳 ${msg.message}`); return; }
@@ -7410,6 +7413,7 @@ function hydrateMenuRows() {
   on('menuRunes', closeSheetAnd(() => { if (!Modals.isOpen('runeOpen')) openRuneModal(); }));
   on('menuOgham', closeSheetAnd(() => { if (!Modals.isOpen('oghamOpen')) _ogham.open(); }));
   on('menuCords', closeSheetAnd(() => { if (!Modals.isOpen('cordsOpen')) _cords.open(); }));
+  on('menuPractices', closeSheetAnd(() => { if (!Modals.isOpen('practicesOpen')) _practices.open(); }));
   on('runeCloseBtn', closeRuneModal);
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
@@ -11851,8 +11855,12 @@ function gardenBedsBlock(plots, plantable, where, rushCost) {
     } else {
       const meta = ITEM_CATALOG[p.herb];
       const ready = p.ready || (now - p.plantedAt >= p.growMs);
-      if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div><button class="gpReady" data-harvest="${i}"${wa}>🌿 Harvest ${p.yield}×</button>`;
-      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div><div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div><button class="gpRush" data-rush="${i}"${wa}>💎 Grow now · ${rushCost || 5}</button>`;
+      // 🌿 Wort-cunning: Culpeper's ruler, and whether it is that planet's hour now.
+      const ruler = lastGardenState && lastGardenState.rulers ? lastGardenState.rulers[p.herb] : undefined;
+      const hrNow = currentPlanetaryHour();
+      const rulerLine = ruler === undefined ? '' : `<div class="gpRuler${hrNow && hrNow.planetDay === ruler ? ' now' : ''}">${escHtml(PLANET_GLYPH[ruler] || '')} ${escHtml(TEA_DAY_PLANET[ruler] || '')}'s herb${hrNow && hrNow.planetDay === ruler ? ' — its hour now: harvest for more' : ' — richer gathered in its hour'}</div>`;
+      if (ready) h += `<div class="gpTitle">${meta ? meta.icon : '🌿'} ${meta ? meta.name : p.herb} — ready!</div>${rulerLine}<button class="gpReady" data-harvest="${i}"${wa}>🌿 Harvest ${p.yield}×</button>`;
+      else h += `<div class="gpTitle">${meta ? meta.icon : '🌱'} ${meta ? meta.name : p.herb} — growing</div>${rulerLine}<div class="gpGrow">ready in ${gardenFmtLeft(p.growMs - (now - p.plantedAt))} · yields ${p.yield}×</div><button class="gpRush" data-rush="${i}"${wa}>💎 Grow now · ${rushCost || 5}</button>`;
     }
     h += '</div>';
   });
@@ -15500,6 +15508,8 @@ function applyCalendarState(cal) {
 // ── The planetary hour (blueprint D) ─────────────────────────────────────────
 // The server ships a run of upcoming hours in the calendar state; the chip just
 // picks the one in force, so it ticks over without a message every hour.
+const PLANET_GLYPH = ['☉', '☽', '♂', '☿', '♃', '♀', '♄'];
+const TEA_DAY_PLANET = ['The Sun', 'The Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 function currentPlanetaryHour() {
   const hrs = calendarState && calendarState.hours;
@@ -15836,6 +15846,8 @@ const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === We
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 🪢 Knots & the Wind — cord magic (blueprint F).
 const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
+// 🌿 The Witch Paths' practices (Green, Lunar, Hedge, Kitchen).
+const _practices = createPractices({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 
 const _seance = createSeance({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -18460,6 +18472,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('oghamOpen') && e.key === 'Escape' && !e.repeat) { _ogham.close(); return; }
   if (Modals.isOpen('cordsOpen') && e.key === 'Escape' && !e.repeat) { _cords.close(); return; }
+  if (Modals.isOpen('practicesOpen') && e.key === 'Escape' && !e.repeat) { _practices.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
     return;
@@ -19563,6 +19576,7 @@ if (location.search.includes('testdrive=1')) {
     wards() { _wards.open(); return true; },
     ogham() { _ogham.open(); return true; },
     cords() { _cords.open(); return true; },
+    practices() { _practices.open(); return true; },
     recital(r) { showRecital(r); return true; },
     compass() { return _wards.compassPoints(); },
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },

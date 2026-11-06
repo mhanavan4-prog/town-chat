@@ -311,5 +311,7 @@ expansion of the Cottage Garden plant list.
 
 The through-line, if only one thing is taken from this document: **give the six
 Witch Paths verbs.** (Done for two so far: the Hearth Witch wards her house, the
-Sea Witch sells the wind. The Green, Lunar, Hedge and Kitchen paths are next.) Each one is named for a real tradition full of things
+Sea Witch sells the wind — and, in data/practices.js, the Green Witch gathers each
+herb in its Culpeper planet's hour, the Lunar Witch draws down the moon, the Hedge
+Witch rides the hedge, and the Kitchen Witch crosses the loaf. All six now have a verb.) Each one is named for a real tradition full of things
 people did. Right now each is a number.

@@ -2883,6 +2883,7 @@
       <button class="menuRow" id="menuPendulum">🪡 The Pendulum</button>
       <button class="menuRow" id="menuRunes">ᚱ Rune Cast</button>
       <button class="menuRow" id="menuOgham">🌳 Tree Alphabet</button>
+      <button class="menuRow" id="menuPractices">🌿 Your Craft</button>
       <button class="menuRow" id="menuCords">🪢 Knots &amp; Cords</button>
       <button class="menuRow" id="menuMoonWell">🌙 The Moon Well</button>
 
@@ -3265,6 +3266,21 @@
   .hourHint { color:#ffe9c2 !important; }
   .teaPlanet.hour .tpDay { color:#ffd9a0; }
   .almIntro.hourLore { font-size:12px; color:#d8ccb8; margin-bottom:8px; }
+  /* The Witch Paths' practices */
+  #practicesContent { max-height:64vh; overflow-y:auto; text-align:left; }
+  .prCard { background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.25); border-radius:9px; padding:8px 10px; margin:0 0 8px; }
+  .prCard.onPath { border-color:rgba(158,227,125,0.6); background:rgba(30,46,26,0.5); }
+  .prHead { color:#ffe9c2; font-weight:800; font-size:13.5px; }
+  .prPath { color:#9ee37d; font-size:11px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; }
+  .prHow { color:#e8dcc8; font-size:12.5px; margin:4px 0; }
+  .prNote { color:#d9b86a; font-size:12px; }
+  .prCard.ready .prNote { color:#9ee37d; }
+  .prBtn { width:auto; margin-top:6px; padding:6px 12px; font-size:13px; }
+  .prBtn:disabled { opacity:0.5; cursor:default; }
+  .prFold { margin-top:6px; }
+  .prSummary { color:#d9b86a; font-size:12px; cursor:pointer; }
+  .gpRuler { color:#c9b89a; font-size:11.5px; margin:2px 0; }
+  .gpRuler.now { color:#9ee37d; font-weight:700; }
   /* Knots & the Wind — cord magic */
   #cordsContent { max-height:64vh; overflow-y:auto; text-align:left; }
   .cordBlowing { color:#9ee37d; font-size:13px; font-weight:700; margin:4px 2px 8px; }
@@ -4152,6 +4168,13 @@
   </div>
   <div id="moonWellContent"></div>
   <button class="btn" id="moonWellCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+<div id="practicesModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🌿 Your Craft</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="practicesContent"></div>
+  <button class="btn" id="practicesCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 <div id="cordsModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
