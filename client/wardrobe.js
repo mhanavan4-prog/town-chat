@@ -83,7 +83,9 @@ export const UNLOCKS = {
 };
 export function weaponUnlock(charId, weaponId) { return (UNLOCKS[charId] && UNLOCKS[charId][weaponId]) || null; }
 
-// Phase 3 DYES — MUST STAY IN SYNC with data/wardrobe.js. A second cosmetic axis:
+// Phase 3 DYES — a FALLBACK copy only: the server ships the real catalog in
+// init (wardrobe.dyes / dyeUnlocks) and setDyeCatalog() swaps it in, because
+// this copy drifted once (it never got the Finery line or Ember). A second cosmetic axis:
 // tint the OUTFIT (body/arms/legs) and ACCENT (hat/helmet/cape) with a color
 // multiplied over the KayKit atlas. `hex: null` is the natural look. Account-wide
 // (shared across every class); head / face / skin and props are never tinted.
@@ -106,6 +108,19 @@ export const DYE_UNLOCKS = {
   rose: { ms: 150 }, gold: { ms: 250 }, void: { ms: 200 }, arcane: { ms: 300 }
 };
 export function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
+// Replace the dye catalog in place with the server's (exported bindings stay
+// valid, so every importer sees the new list).
+export function setDyeCatalog(dyes, unlocks) {
+  if (Array.isArray(dyes) && dyes.length) {
+    DYES.length = 0; for (const d of dyes) DYES.push(d);
+    for (const k of Object.keys(DYE_BY_ID)) delete DYE_BY_ID[k];
+    for (const d of DYES) DYE_BY_ID[d.id] = d;
+  }
+  if (unlocks && typeof unlocks === 'object') {
+    for (const k of Object.keys(DYE_UNLOCKS)) delete DYE_UNLOCKS[k];
+    Object.assign(DYE_UNLOCKS, unlocks);
+  }
+}
 export function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
 
 // Resolve an appearance into concrete render instructions (see data/wardrobe.js).

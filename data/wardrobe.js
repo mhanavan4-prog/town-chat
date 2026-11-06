@@ -126,7 +126,17 @@ const DYES = [
   { id: 'oxblood',  label: 'Oxblood',  hex: 0x6e1f2a },
   { id: 'viridian', label: 'Viridian', hex: 0x1f7a6a },
   { id: 'amethyst', label: 'Amethyst', hex: 0x8e44c8 },
-  { id: 'pearl',    label: 'Pearl',    hex: 0xdfe6f0 }
+  { id: 'pearl',    label: 'Pearl',    hex: 0xdfe6f0 },
+  // ── The Hedge line — plant dyes. Not bought: STEEPED, from dyestuff you
+  // gathered in the Wilds, plus a little gold for the mordant (alum or
+  // copperas came from the pedlar or the chemist, never from the hedge).
+  // Colours and mordants follow the recorded Highland dye lists and Grieve;
+  // see PLANT_DYE_LORE below.
+  { id: 'alder_black',  label: 'Alder Black',  hex: 0x26252a },
+  { id: 'heather_moss', label: 'Heather Moss', hex: 0x5d6b30 },
+  { id: 'bramble_rust', label: 'Bramble Rust', hex: 0xa9582a },
+  { id: 'elder_violet', label: 'Elder Violet', hex: 0x6a4c8e },
+  { id: 'whin_gold',    label: 'Whin Gold',    hex: 0xdcb22a }
 ];
 const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
 
@@ -153,7 +163,36 @@ const DYE_UNLOCKS = {
   oxblood:  { gold: 700 },
   viridian: { gold: 700 },
   amethyst: { gold: 900 },
-  pearl:    { gold: 1200 }
+  pearl:    { gold: 1200 },
+  // The Hedge line — { steep: { item, qty, gold } }: the dyestuff from your
+  // pack plus gold for the mordant, charged once; ownership is recorded in
+  // progress.dyeUnlocks like the bought dyes. See the steep_dye handler.
+  alder_black:  { steep: { item: 'alder_bark',    qty: 4, gold: 40 } },
+  heather_moss: { steep: { item: 'heather_sprig', qty: 4, gold: 30 } },
+  bramble_rust: { steep: { item: 'bramble_vine',  qty: 4, gold: 30 } },
+  elder_violet: { steep: { item: 'elderberry',    qty: 4, gold: 30 } },
+  whin_gold:    { steep: { item: 'gorse_bloom',   qty: 4, gold: 30 } }
+};
+
+// What each plant dye really is, shown when you steep it. tier follows the
+// game's provenance badges: 'record' = written down at the time, 'folk' =
+// gathered later from living practice.
+const PLANT_DYE_LORE = {
+  alder_black: { mordant: 'copperas', tier: 'record',
+    lore: 'Alder bark, steeped and "saddened" with copperas (iron sulphate), gave the Highland dyers their finest black — oak and hawthorn bark did the same. It is the black of mourning clothes.',
+    source: 'Highland dye lists (alder, oak and hawthorn bark with copperas, for black)' },
+  heather_moss: { mordant: 'alum', tier: 'record',
+    lore: 'Bell heather (fraoch bhadain) boiled with alum gave a dark green; the young tops alone give yellows. Heather was a working dye of the hill farms, not a luxury.',
+    source: 'Highland dye lists (Erica cinerea with alum, dark green)' },
+  bramble_rust: { mordant: 'alum', tier: 'record',
+    lore: 'The Highland lists set bramble down for a dark orange. They name no mordant for it; alum was the common one, and the game uses it.',
+    source: 'Highland dye lists (Rubus fruticosus, dark orange)' },
+  elder_violet: { mordant: 'alum', tier: 'record',
+    lore: 'Elderberries dye blue and purple, and their juice with alum gives violet — with alum and salt, lilac. Dyers have always warned that berry colours fade in the sun.',
+    source: 'M. Grieve, A Modern Herbal (1931), "Elder"' },
+  whin_gold: { mordant: 'alum', tier: 'folk',
+    lore: 'Whin (gorse) blossom boiled with the eggs turned them gold for Easter in Ireland and Scotland. On wool, with alum, it gives the same warm yellow.',
+    source: 'Irish and Scottish Easter custom (whin-blossom eggs)' }
 };
 function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
 function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
@@ -248,4 +287,4 @@ const AURAS = [
 const AURA_BY_ID = AURAS.reduce((o, a) => { o[a.id] = a; return o; }, {});
 function auraHex(id) { const a = AURA_BY_ID[id]; return (a && a.hex != null) ? a.hex : null; }
 
-module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID, auraHex };
+module.exports = { WARDROBE, UNLOCKS, weaponUnlock, DYES, DYE_UNLOCKS, PLANT_DYE_LORE, dyeUnlock, dyeHex, sanitizeAppearance, resolveLook, NAME_COLORS, NAME_COLOR_BY_ID, nameColorHexCss, AURAS, AURA_BY_ID, auraHex };
