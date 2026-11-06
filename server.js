@@ -3093,6 +3093,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
 const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
@@ -4810,6 +4811,62 @@ function bottleTurnsCurse(p, statusType) {
   try { if (p.ws) send(p.ws, { type: 'toast', message: msg }); } catch (e) { /* noop */ }
   return true;
 }
+// ── The Tree Alphabet (blueprint C) — ogham few-staves ─────────────────────
+// Carve a stave from the wood its letter names (2 pieces; Hazel's rod is one),
+// then cast three of the staves you hold — once a day, stable like the runes.
+// acct.ogham = { carved: [keys], hazelGiven, lastDay, lastCast: [keys], groveDone }
+const OGHAM_BY_KEY = Object.fromEntries(OGHAM.map((o) => [o.key, o]));
+const OGHAM_CARVABLE = OGHAM.filter((o) => o.wood);
+const OGHAM_GROVE_PURSE = 100;
+function oghamOf(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  if (!a.ogham) a.ogham = { carved: [], hazelGiven: false, lastDay: null, lastCast: null, groveDone: false };
+  if (!Array.isArray(a.ogham.carved)) a.ogham.carved = [];
+  return a.ogham;
+}
+function oghamCarveQty(o) { return o.wood === 'hazel_rod' ? 1 : OGHAM_CARVE_QTY; }
+function oghamCastView(keys) {
+  return (keys || []).map((k) => OGHAM_BY_KEY[k]).filter(Boolean).map((o) => ({ key: o.key, letter: o.letter, name: o.name, tree: o.tree, aicme: o.aicme, n: o.n, kenning: o.kenning, reading: o.reading }));
+}
+function oghamStateBody(player) {
+  const key = player && player.accountKey;
+  const og = key ? oghamOf(key) : null;
+  const inv = key ? getInventory(player) : null;
+  const today = Math.floor(Date.now() / 86400000);
+  return {
+    isGuest: !key,
+    letters: OGHAM.map((o) => {
+      const have = (inv && o.wood) ? countItemQty(inv, o.wood) : 0;
+      const need = o.wood ? oghamCarveQty(o) : 0;
+      return {
+        key: o.key, letter: o.letter, name: o.name, tree: o.tree, aicme: o.aicme, n: o.n,
+        meaningOrig: o.meaningOrig, kenning: o.kenning, reading: o.reading,
+        wood: o.wood, woodName: o.wood ? ((ITEM_CATALOG[o.wood] || {}).name || o.wood) : null, woodIcon: o.wood ? ((ITEM_CATALOG[o.wood] || {}).icon || '🪵') : null,
+        have, need, carved: !!(og && og.carved.includes(o.key)), canCarve: !!(og && o.wood && !og.carved.includes(o.key) && have >= need),
+      };
+    }),
+    carved: og ? og.carved.length : 0,
+    carvable: OGHAM_CARVABLE.length,
+    castSize: OGHAM_CAST,
+    today: (og && og.lastDay === today && Array.isArray(og.lastCast)) ? oghamCastView(og.lastCast) : null,
+    lore: OGHAM_LORE,
+  };
+}
+// Hazel's gift: the first time she brews for you after the staves came to town,
+// she gives you a rod from her own tree — Coll, the letter she is named for.
+function maybeGiveHazelRod(player) {
+  const og = player && player.accountKey && oghamOf(player.accountKey);
+  if (!og || og.hazelGiven) return false;
+  const inv = getInventory(player);
+  if (!addItemToAccount(inv, 'hazel_rod', 1)) return false;
+  og.hazelGiven = true;
+  saveAccounts(); saveInventories();
+  send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+  send(player.ws, { type: 'toast', message: "🪄 Hazel snaps a straight rod from the tree by her door and presses it into your hand. \"Coll. My letter — the hazel of wisdom. Carve it.\"" });
+  return true;
+}
+
 function homeStateBody(player) {
   const home = homeOf(player);
   if (!home) return null;
@@ -5150,6 +5207,10 @@ function tarotCollectionBody(player) {
 }
 // Render a stored spread ([{key,rev},…]) into the client-facing seats + synthesis.
 // One-line notes of a reading, for a caller's working (lib/callers.js).
+function oghamCallerNote(keys) {
+  const names = (keys || []).map((k) => { const o = OGHAM.find((x) => x.key === k); return o ? `${o.name} (${o.tree.toLowerCase()})` : k; });
+  return names.length ? `The staves: ${names.join(' · ')}.` : 'The staves were cast.';
+}
 function callerTarotNote(spread) {
   const last = (spread || [])[spread.length - 1];
   return last ? `The cards: ${last.emoji || ''} ${last.name}${last.reversed ? ' (reversed)' : ''} in ${last.pos || 'the last place'}.` : 'The cards were turned.';
@@ -15492,6 +15553,57 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // ── The Tree Alphabet (blueprint C): carve ogham staves, cast three ──────
+    if (msg.type === 'ogham_state') {
+      send(ws, { type: 'ogham_state', ...oghamStateBody(player) });
+      const og0 = player.accountKey && oghamOf(player.accountKey);
+      if (og0 && og0.lastDay === Math.floor(Date.now() / 86400000) && Array.isArray(og0.lastCast)) callers.callerEvent(player, 'ogham', oghamCallerNote(og0.lastCast));
+      return;
+    }
+    if (msg.type === 'ogham_carve' || msg.type === 'ogham_cast') {
+      const fail = (m) => { send(ws, { type: 'ogham_error', message: m }); send(ws, { type: 'ogham_state', ...oghamStateBody(player) }); };
+      if (!player.accountKey) { fail('Log into an account to keep your staves.'); return; }
+      const og = oghamOf(player.accountKey);
+      if (msg.type === 'ogham_carve') {
+        const o = OGHAM_BY_KEY[String(msg.key || '')];
+        if (!o) { fail('No such letter.'); return; }
+        if (!o.wood) { fail(`No ${o.tree.toLowerCase()} grows in the Wilds yet — ${o.name} can't be carved.`); return; }
+        if (og.carved.includes(o.key)) { fail(`You already hold a ${o.name} stave.`); return; }
+        const inv = getInventory(player);
+        const need = oghamCarveQty(o);
+        if (!removeItemFromAccount(inv, o.wood, need)) { fail(`You need ${need}× ${(ITEM_CATALOG[o.wood] || {}).name || o.wood} to carve ${o.name}.`); return; }
+        og.carved.push(o.key);
+        let purse = 0;
+        if (!og.groveDone && OGHAM_CARVABLE.every((x) => og.carved.includes(x.key))) {
+          og.groveDone = true; purse = OGHAM_GROVE_PURSE;
+          const bank = ensureBankAccount(player.accountKey); bank.balance += purse; saveBankAccounts();
+          send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+        }
+        saveAccounts(); saveInventories();
+        grantXP(player, 15);
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'ogham_state', ...oghamStateBody(player) });
+        send(ws, { type: 'toast', message: `🌳 You carve ${o.name} — ${o.tree.toLowerCase()} — ${o.n} stroke${o.n === 1 ? '' : 's'} against the stem. (${og.carved.length}/${OGHAM_CARVABLE.length} staves)${purse ? ` Every tree in the Wilds is in your hand: +${purse}🪙.` : ''}` });
+        return;
+      }
+      // ogham_cast
+      const today = Math.floor(Date.now() / 86400000);
+      if (og.lastDay === today && Array.isArray(og.lastCast)) {
+        send(ws, { type: 'ogham_cast', cast: oghamCastView(og.lastCast), already: true });
+        callers.callerEvent(player, 'ogham', oghamCallerNote(og.lastCast));
+        return;
+      }
+      if (og.carved.length < OGHAM_CAST) { fail(`Carve at least ${OGHAM_CAST} staves to cast — you hold ${og.carved.length}.`); return; }
+      const bag = og.carved.slice();
+      for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      og.lastDay = today; og.lastCast = bag.slice(0, OGHAM_CAST);
+      saveAccounts();
+      send(ws, { type: 'ogham_cast', cast: oghamCastView(og.lastCast), already: false });
+      send(ws, { type: 'ogham_state', ...oghamStateBody(player) });
+      callers.callerEvent(player, 'ogham', oghamCallerNote(og.lastCast));
+      return;
+    }
+
     // ── Threshold & Hearth (blueprint B): ward your own cottage ──────────────
     if (msg.type === 'wards_state') { send(ws, { type: 'wards_state', ...wardsStateBody(player) }); return; }
     if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe') {
@@ -16173,6 +16285,7 @@ wss.on('connection', (ws, req) => {
       });
       // Brewing at Hazel's cauldron is the Witch campaign's finale objective.
       storyEvent(player, 'craft_potion', { recipeId });
+      maybeGiveHazelRod(player); // Coll — Hazel's own letter (blueprint C)
       // Green Path ch.3 — brewing any remedy completes it; a chapter payout adds
       // seeds to the pack, so refresh inventory again to show them.
       const gpBefore = greenPathOf(player).chapter;
@@ -17019,7 +17132,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
