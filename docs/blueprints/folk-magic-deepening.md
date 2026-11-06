@@ -12,8 +12,9 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **IN PROGRESS.** A (Callers at the Door) and E (Reading the Leaves)
-> are built. The rest are proposals, ordered by value at the bottom.
+> Status: **IN PROGRESS.** A (Callers at the Door), E (Reading the Leaves) and
+> B (Threshold & Hearth) are built. The rest are proposals, ordered by value at
+> the bottom.
 
 ---
 
@@ -98,7 +99,15 @@ village witch rather than an adventurer in a hat.
 
 ---
 
-### B. Threshold & Hearth — *apotropaic housecraft*
+### B. Threshold & Hearth — *apotropaic housecraft* ✅ BUILT
+
+> **Wards of the House**, from the cottage hearth panel. Hazel brews a witch
+> bottle from a bellarmine jug, bent pins and iron nails (all sold in town);
+> buried under your hearth it turns hostile curses — player hexes and hex traps
+> — back on their sender, and cracks when spent. The daisy wheel is a real
+> compass construction minigame and is cut over your door (visible to
+> visitors); the concealed shoe is one worn shoe of yours, hidden for good. Both
+> marks add damage resist; a Hearth Witch works all three more strongly.
 
 **The lore.** Genuinely archaeological, and startlingly common:
 
@@ -108,7 +117,7 @@ village witch rather than an adventurer in a hat.
 - **Hexafoils / daisy wheels** — compass-drawn six-petalled marks scratched on
   beams, doorframes and church porches to snare harm. Thousands survive.
 - **Concealed shoes** — a single worn shoe walled up near a chimney or door.
-  Over 1,900 recorded by the Northampton Museum index.
+  Well over a thousand recorded in the Northampton Museum concealed-shoe index.
 - **Besom at the threshold**, iron at the door, salt at the sill.
 
 **The gap.** The game has player cottages, buildings with real beams, and a

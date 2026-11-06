@@ -23,6 +23,7 @@ import createCaveScene from './cave-scene.js';
 import createCryptScene from './crypt-scene.js';
 import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
+import createWards from './wards.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
@@ -2874,6 +2875,7 @@ function onWsMessage(ev) {
     cottageHostName = msg.host || null;
     swapToCottageMap();
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
+    setCottageWards(msg.wards || null); // the daisy wheel over the door, the sealed hearthstone
     if (Modals.isOpen('homeOpen')) closeHomeModal(); // get out of the way — show the room
     // The cottage wears the season — name the dressing on the way in.
     const _sk = (calendarState && calendarState.season && calendarState.season.key) || null;
@@ -2896,8 +2898,11 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
+  if (msg.type === 'wards_state') { _wards.setState(msg); return; }
+  if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); return; }
   if (msg.type === 'cottage_layout') {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
+    setCottageWards(msg.wards || null);
     return;
   }
   if (msg.type === 'cottage_showcase') {
@@ -11963,7 +11968,7 @@ function renderHomeModal() {
   // steeped here holds longer; the bonus is applied server-side when you brew.)
   if (me && me.room === 'cottage') {
     h += `<div class="homeHearth"><div class="homeHearthHead">${hhIco('m_hearth', '🔥')}At your hearth</div>`
-      + `<div class="homeHearthBtns"><button class="btn hhBrew">${hhIco('trail_remedy', '🍵')}Brew a tea</button><button class="btn hhTarot">${hhIco('m_tarot', '🔮')}Lay the tarot</button><button class="btn hhScry">${hhIco('m_mirror', '🪞')}Scrying bowl</button></div>`
+      + `<div class="homeHearthBtns"><button class="btn hhBrew">${hhIco('trail_remedy', '🍵')}Brew a tea</button><button class="btn hhTarot">${hhIco('m_tarot', '🔮')}Lay the tarot</button><button class="btn hhScry">${hhIco('m_mirror', '🪞')}Scrying bowl</button><button class="btn hhWards">🛡️ Ward the house</button></div>`
       + `<div class="homeHint" style="opacity:.78;margin-top:4px">Your daily rituals, at home — and a tea steeped at your own hearth holds longer.</div></div>`;
   }
   // Tea a visitor left for you — accept it for the buff (and an almanac entry).
@@ -12076,6 +12081,7 @@ function renderHomeModal() {
   { const b = el.querySelector('.hhBrew'); if (b) b.addEventListener('click', () => openKitchenModal()); }
   { const b = el.querySelector('.hhTarot'); if (b) b.addEventListener('click', () => openTarotModal()); }
   { const b = el.querySelector('.hhScry'); if (b) b.addEventListener('click', () => openScryModal()); }
+  { const b = el.querySelector('.hhWards'); if (b) b.addEventListener('click', () => { closeHomeModal(); _wards.open(); }); }
   el.querySelectorAll('.hgAccept').forEach((b) => b.addEventListener('click', () => send({ type: 'claim_tea_gift', index: +b.getAttribute('data-gift-idx') })));
   // Wire the visit rows.
   el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
@@ -12536,7 +12542,7 @@ function exitManor() {
 }
 
 // ── The cottage (player housing, slice 2) ───────────────────────────────────
-const { buildCottageScene } = createCottageScene({
+const { buildCottageScene, setWards: setCottageWards } = createCottageScene({
   makeSignSprite, COTTAGE_WORLD,
   setCottageScene: (s) => { cottageScene = s; },
   setCottageCamera: (c) => { cottageCamera = c; },
@@ -15734,6 +15740,8 @@ const _board = createBoard({
   shortWhen,
 });
 const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
+// 🛡️ Threshold & Hearth — the Wards of the House (blueprint B).
+const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 
 const _seance = createSeance({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -18348,6 +18356,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) { closeBoardModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
+  if (Modals.isOpen('wardsOpen')) {
+    if (e.key === 'Escape' && !e.repeat) _wards.close();
+    return;
+  }
   if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
     return;
@@ -19448,6 +19460,9 @@ if (location.search.includes('testdrive=1')) {
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
+    wards() { _wards.open(); return true; },
+    compass() { return _wards.compassPoints(); },
+    cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },
     inventoryPanel(state) { lastInventoryState = state; renderInventoryItemsPanel(); return true; },
     gardenPanel(state) { lastGardenState = state; renderGardenModal(); const e = document.getElementById('gardenContent'); return e ? e.innerText : null; },

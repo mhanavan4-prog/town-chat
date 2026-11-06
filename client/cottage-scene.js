@@ -10,8 +10,12 @@
 // that throws mid-way still leaves a usable (if bare) room.
 
 export default function createCottageScene({ makeSignSprite, COTTAGE_WORLD, setCottageScene, setCottageCamera }) {
+let builtScene = null;
+let wardGroup = null;
+let pendingWards = null;
 function buildCottageScene() {
   const scene = new THREE.Scene();
+  builtScene = scene;
   // A warm hearth-lit gloom — deep brown rather than the manor's cold violet.
   scene.background = new THREE.Color(0x1c130b);
   scene.fog = new THREE.FogExp2(0x1c130b, 0.0012);
@@ -91,7 +95,67 @@ function buildCottageScene() {
   sign.position.set(W / 2, 128, D - 18);
   scene.add(sign);
 
+  if (pendingWards) setWards(pendingWards);
   return scene;
+}
+
+// ── Threshold & Hearth (blueprint B) — the house's wards, made visible ───────
+// The daisy wheel is cut into the inner face of the door lintel; a buried witch
+// bottle shows as a sealed hearthstone at the north wall (cracked once spent).
+// The concealed shoe is, as it should be, not shown at all.
+function setWards(w) {
+  pendingWards = w || null;
+  if (!builtScene) return;
+  if (wardGroup) { builtScene.remove(wardGroup); wardGroup.traverse((o) => { if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } if (o.geometry) o.geometry.dispose(); }); wardGroup = null; }
+  if (!w) return;
+  const W = COTTAGE_WORLD.width, D = COTTAGE_WORLD.height, WALL_H = 150;
+  wardGroup = new THREE.Group();
+  wardGroup.name = 'cottageWards';
+  if (w.hexafoil) {
+    const mat = new THREE.MeshBasicMaterial({ map: makeHexafoilTexture(), transparent: true, depthWrite: false });
+    const mark = new THREE.Mesh(new THREE.PlaneGeometry(34, 34), mat);
+    mark.name = 'hexafoil';
+    mark.rotation.y = Math.PI;                            // faces into the room (−z)
+    mark.position.set(W / 2, WALL_H - WALL_H * 0.13, D - 7.4); // the lintel's inner face
+    wardGroup.add(mark);
+  }
+  if (w.bottle && w.bottle !== 'none') {
+    const mat = new THREE.MeshLambertMaterial({ map: makeHearthstoneTexture(w.bottle === 'spent'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const stone = new THREE.Mesh(new THREE.PlaneGeometry(56, 56), mat);
+    stone.name = 'hearthstone';
+    stone.rotation.x = -Math.PI / 2;
+    stone.position.set(W / 2, 0.6, 46);                   // before the north wall, where the hearth sits
+    wardGroup.add(stone);
+  }
+  builtScene.add(wardGroup);
+}
+function makeHexafoilTexture() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const cx = S / 2, cy = S / 2, r = S * 0.4;
+  g.strokeStyle = 'rgba(240,222,190,0.9)'; g.lineWidth = 6; g.lineCap = 'round';
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+  // Six arcs of the same radius, each centred on the circle — the real construction.
+  for (let k = 0; k < 6; k++) {
+    const t = k * Math.PI / 3, px = cx + r * Math.cos(t), py = cy + r * Math.sin(t);
+    g.beginPath(); g.arc(px, py, r, t + Math.PI * 2 / 3, t + Math.PI * 4 / 3); g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+function makeHearthstoneTexture(cracked) {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#4a4038'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = '#2a221c'; g.lineWidth = 6; g.strokeRect(3, 3, S - 6, S - 6);
+  g.strokeStyle = 'rgba(255,190,110,0.55)'; g.lineWidth = 3;
+  g.beginPath(); g.arc(S / 2, S / 2, S * 0.22, 0, Math.PI * 2); g.stroke();   // the bottle's mark
+  if (cracked) {
+    g.strokeStyle = '#140e0a'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(S * 0.2, S * 0.15); g.lineTo(S * 0.48, S * 0.5); g.lineTo(S * 0.42, S * 0.7); g.lineTo(S * 0.8, S * 0.9); g.stroke();
+  }
+  return new THREE.CanvasTexture(c);
 }
 
 // A warm plank-floor texture — base wood with darker seam lines and a touch of
@@ -116,5 +180,5 @@ function makeCottageFloorTexture() {
   return tex;
 }
 
-  return { buildCottageScene };
+  return { buildCottageScene, setWards };
 }
