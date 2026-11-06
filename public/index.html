@@ -2151,6 +2151,15 @@
     justify-content:flex-start; gap:12px;
   }
   body.touchMode .floatPanelDrag { display:none; }
+  /* Phones: the folk-magic panels fill the screen between their header and
+     Close, instead of a 64vh box scrolling inside a full-screen panel (which
+     left a dead band under Close and made long chapters scroll twice). */
+  body.touchMode #charmBookModal, body.touchMode #oghamModal,
+  body.touchMode #cordsModal, body.touchMode #practicesModal { display:flex; flex-direction:column; overflow:hidden; }
+  body.touchMode #charmBookContent, body.touchMode #oghamContent,
+  body.touchMode #cordsContent, body.touchMode #practicesContent { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  body.touchMode #charmBookModal > .btn, body.touchMode #oghamModal > .btn,
+  body.touchMode #cordsModal > .btn, body.touchMode #practicesModal > .btn { flex:0 0 auto; }
   .mobPanelBack { display:none; }
   body.touchMode .mobPanelBack {
     display:inline-flex; align-items:center; flex:0 0 auto;
