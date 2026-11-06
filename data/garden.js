@@ -21,7 +21,9 @@ const PLANTABLE_HERBS = ['healing_herb', 'regen_root', 'swift_root', 'cleansing_
   // Hedge & Wild band (granted by Green Path chapters 4–6).
   'vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry',
   // The Poison Path band (granted by Green Path chapters 7–9).
-  'belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore'];
+  'belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore',
+  // The Lacnunga herbs (Mother Yarrow's packet after the Cottage Garden chapters).
+  'plantain', 'lambs_cress', 'nettle', 'betony', 'crab_apple', 'chervil', 'fennel'];
 
 // Yield is set by the moon phase AT PLANTING — sow as the moon waxes or fills
 // for a richer crop. You always sow one seed, so even 'other' nets a gain.
