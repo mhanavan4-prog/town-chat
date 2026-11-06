@@ -1687,6 +1687,21 @@ const OGHAM_GROVE_HARVEST = { alder: 'alder_bark', ash_tree: 'ash_key', hawthorn
 Object.assign(WILDS_FLORA_HARVEST, OGHAM_GROVE_HARVEST);
 WILDS_FLORA_TYPES.push(...OGHAM_GROVE_TYPES);
 
+// ── Crotal stones: boulders crusted with crotal, the dye-lichen of the
+// Highlands and Islands (Parmelia saxatilis and kin), scraped off the rock
+// for the Hedge line's Crotal Brown. Their own scatter seed, so nothing
+// already placed moves.
+const CROTAL_STONE_COUNT = 12;
+{
+  const pos = makeWildsScatter(0x0c07, 22, CROTAL_STONE_COUNT);
+  for (let k = 0; k < CROTAL_STONE_COUNT; k++) {
+    const [gx, gy] = pos[k];
+    WORLD2.natureDecor.push({ id: `wstone_crotal_${k}`, type: 'crotal_stone', x: gx, y: gy, scale: 1 });
+  }
+}
+WILDS_FLORA_HARVEST.crotal_stone = 'crotal';
+WILDS_FLORA_TYPES.push('crotal_stone');
+
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS, ...WILDS_FLORA_TYPES]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
@@ -11740,7 +11755,7 @@ wss.on('connection', (ws, req) => {
       analytics.bump('steep.dye:' + dyeId);
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       if (st.gold) send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
-      send(ws, { type: 'dye_bought', dye: dyeId, message: `🎨 ${d.label} — steeped with ${lore.mordant || 'a mordant'}. ${lore.lore || ''}`.trim() });
+      send(ws, { type: 'dye_bought', dye: dyeId, message: `🎨 ${d.label} — ${lore.mordant === 'none' ? 'boiled straight with the wool' : 'steeped with ' + (lore.mordant || 'a mordant')}. ${lore.lore || ''}`.trim() });
       return;
     }
 

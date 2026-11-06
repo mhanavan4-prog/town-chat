@@ -33,6 +33,7 @@ import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { OGHAM_GROVE_BUILDERS, OGHAM_GROVE_TYPES_CLIENT } from './props-ogham.js';
+import { STONE_BUILDERS, STONE_TYPES_CLIENT } from './props-stone.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
@@ -13927,7 +13928,7 @@ function makePlant(type, x, z) {
 // you can't walk through them; shrubs, rocks, flower patches, and the
 // Wilds' 16 plants are purely decorative ground cover (walk-through).
 // tree/shrub/flower/(any plant key) are harvestable; rocks are scenery.
-const WILDS_FLORA_TYPES_CLIENT = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring', ...OGHAM_GROVE_TYPES_CLIENT];
+const WILDS_FLORA_TYPES_CLIENT = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring', ...OGHAM_GROVE_TYPES_CLIENT, ...STONE_TYPES_CLIENT];
 const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower', ...Object.keys(PLANT_VISUALS), ...WILDS_FLORA_TYPES_CLIENT]);
 let decorVisuals = {};  // town (world.natureDecor) decorId -> { group, type, harvested, originalMaterials }
 let decorVisuals2 = {}; // Wilds (world2.natureDecor), same shape, separate pool/scene
@@ -14017,7 +14018,9 @@ const PROP_BUILDERS = {
   fenfern:         { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null },
   toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null },
   // The ogham grove — the ten trees the Tree Alphabet lacked (props-ogham.js).
-  ...OGHAM_GROVE_BUILDERS
+  ...OGHAM_GROVE_BUILDERS,
+  // Crotal stones — lichen-crusted boulders (props-stone.js).
+  ...STONE_BUILDERS
 };
 
 function addNatureDecor(scene, w, pool, wallsOut) {
@@ -16037,8 +16040,8 @@ const { openNotifModal } = _notif;
       if (s.k === 'steep') {
         const it = ITEM_CATALOG[s.steep.item] || {};
         const lore = (myWardrobe.dyeLore || {})[d.id] || {};
-        const tip = d.label + ' — steep ' + s.steep.qty + ' ' + (it.name || s.steep.item) + ' with ' + (lore.mordant || 'a mordant') + ' (' + s.steep.gold + 'g)';
-        return '<button class="wrDye steep" data-steepdye="' + d.id + '" title="' + tip + '" aria-label="' + tip + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + (it.icon || '🌿') + s.steep.qty + ' · ' + s.steep.gold + 'g</span></button>';
+        const tip = d.label + ' — steep ' + s.steep.qty + ' ' + (it.name || s.steep.item) + (lore.mordant === 'none' ? ' (no mordant needed)' : ' with ' + (lore.mordant || 'a mordant') + ' (' + s.steep.gold + 'g)');
+        return '<button class="wrDye steep" data-steepdye="' + d.id + '" title="' + tip + '" aria-label="' + tip + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + (it.icon || '🌿') + s.steep.qty + (s.steep.gold ? ' · ' + s.steep.gold + 'g' : '') + '</span></button>';
       }
       if (s.k === 'buygold') return '<button class="wrDye buygold" data-buydye="' + d.id + '" title="' + d.label + ' — Finery (gold)"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + s.gold + 'g</span></button>';
       return '<button class="wrDye' + (on ? ' on' : '') + '" data-dye="' + d.id + '" data-slot="' + slot + '" title="' + d.label + '"><span class="wrSw" style="' + sw + '"></span><span class="wrDyeLbl">' + d.label + '</span></button>';

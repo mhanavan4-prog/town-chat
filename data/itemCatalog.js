@@ -51,6 +51,7 @@ module.exports = {
   elderberry:     { name: 'Elderberries',   icon: '🫐', slot: null },
   gorse_bloom:    { name: 'Gorse Bloom',    icon: '🌼', slot: null },
   heather_sprig:  { name: 'Heather Sprig',  icon: '💜', slot: null },
+  crotal:         { name: 'Crotal Lichen',  icon: '🪨', slot: null }, // scraped from the Wilds' crotal stones — the brown of Harris tweed
   aspen_leaf:     { name: 'Aspen Leaf',     icon: '🍂', slot: null },
   yew_wood:       { name: 'Yew Wood',       icon: '🪵', slot: null },
   hemp_cord:      { name: 'Hemp Cord',      icon: '🧶', slot: null },
