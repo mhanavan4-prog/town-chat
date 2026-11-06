@@ -12,9 +12,9 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **IN PROGRESS.** A (Callers at the Door), E (Reading the Leaves) and
-> B (Threshold & Hearth) are built. The rest are proposals, ordered by value at
-> the bottom.
+> Status: **IN PROGRESS.** A (Callers at the Door), E (Reading the Leaves),
+> B (Threshold & Hearth) and C (The Tree Alphabet) are built. The rest are
+> proposals, ordered by value at the bottom.
 
 ---
 
@@ -138,7 +138,15 @@ revisited.
 
 ---
 
-### C. The Tree Alphabet — *ogham, and the name you already chose*
+### C. The Tree Alphabet — *ogham, and the name you already chose* ✅ BUILT
+
+> All twenty feda in their four aicmí, drawn as real staves (SVG, no font
+> needed). Ten letters carve from woods the game already yields — birch bark,
+> rowan, willow, oak (hex acorn), holly wood, bramble, fern, blackthorn, pine —
+> and Coll from the hazel rod Hazel gives you the first time she brews for you.
+> Cast three of your staves once a day. The honesty line ships with it: only
+> some letter-names were trees (McManus), ogham divination is modern, and the
+> "Celtic tree calendar" is Graves (1948) and is not used.
 
 **The lore.** Ogham is a real Early Medieval Irish script, c. 4th–6th century,
 cut on standing stones. The medieval tree-names tradition (*Auraicept na
