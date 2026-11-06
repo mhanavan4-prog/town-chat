@@ -160,6 +160,16 @@ function syncVisuals(dt) {
     const moveDx = p.x - p.renderPrevX, moveDy = p.y - p.renderPrevY;
     const moveDist = Math.hypot(moveDx, moveDy);
     const isMoving = moveDist > 0.08;
+    // How far the body appears to move, which is not the same as how far it
+    // moved. A town building interior is drawn at INDOOR_SCALE, so one logical
+    // unit is nearly two on screen. The walk/run choice and the animation's
+    // playback rate have to read the ON-SCREEN stride or the legs come loose
+    // from the ground — under-cranked indoors, where the body covers the most
+    // visible distance. (Facing below stays on the raw delta: uniform scaling
+    // preserves the angle, so it does not care which space it is measured in.)
+    const rNow = getRenderPos(p);
+    const rPrev = getRenderPos({ x: p.renderPrevX, y: p.renderPrevY, room: p.room });
+    const renderDist = Math.hypot(rNow.x - rPrev.x, rNow.z - rPrev.z);
 
     // The local player's facing is driven directly by turn input (see update()).
     // Remote getPlayers() never send us a facing angle over the wire — only x/y —
@@ -171,7 +181,7 @@ function syncVisuals(dt) {
       p.facing = lerpAngle(p.facing, targetFacing, Math.min(1, dt * 10));
     }
 
-    if (v.kk) kkDrivePlayer(v, p, id, dt, isMoving, moveDist);
+    if (v.kk) kkDrivePlayer(v, p, id, dt, isMoving, renderDist);
     // Attack animation — overrides walk/idle arms for ~0.35s
     const ATTACK_DUR = 0.35;
     if (!v.kk) {
