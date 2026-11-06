@@ -473,6 +473,59 @@ const CALLERS = [
     source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
     reward: { gold: 50, xp: 40 },
   },
+  // ── Yule (the Yule season only) ──
+  {
+    id: 'yule_wassail',
+    season: 'yule',
+    caller: 'Old Jacob Venn',
+    icon: '🍏',
+    title: 'Wassail the Old Tree',
+    plea: "The big tree by the gate bore nothing this autumn but leaves and wasps, and my grandfather never let a Twelfth Night go by without wassailing it. My voice is gone and my sons laugh at me. Will you come and do it properly, toast and cider and all, and make a din?",
+    steps: [
+      { kind: 'rite', rite: 'wassail', label: 'Wassail the oldest tree' },
+      { kind: 'deliver', item: 'crab_apple', qty: 1, label: 'A wild apple for the cider-cup' },
+    ],
+    resolution: "You sing to the old tree, put the toast in its fork, pour the cider at its roots, and the sons, who came out to laugh, end up banging the pans loudest of anyone. Jacob says nothing all the way home and then says it was just like his grandfather's. What you don't tell him: the tree bore nothing because it was a heavy year the one before, and apples often crop every other year. It will likely bear next autumn, with the wassail or without it.",
+    lore: "Wassailing the orchard was a West Country Twelfth Night custom: toast soaked in cider laid in the branches for the robins, cider poured on the roots, songs sung to the oldest tree and guns let off to scare away anything ill. Herrick knew it in 1648: \"Wassail the trees, that they may bear / You many a plum, and many a pear.\" Carhampton and Whimple still do it on Old Twelvey Night, 17 January.",
+    tier: 'record',
+    source: 'Robert Herrick, Hesperides (1648), "Another" ("Wassail the trees…") · 19th-century Devon and Somerset wassail records',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'yule_first_foot',
+    season: 'yule',
+    caller: 'Widow Elspeth Rennie',
+    icon: '🚪',
+    title: 'A First-Foot for Elspeth',
+    plea: "My Wullie always first-footed for us, dark as a crow he was, and this is the first Hogmanay without him. Nobody's crossed my step since the funeral. I'll not have the year come in with nobody. Will you be my first-foot, and bring the salt, and come in after the bells?",
+    steps: [
+      { kind: 'rite', rite: 'firstfoot', label: 'Be first over the step after the bells' },
+      { kind: 'deliver', item: 'salt', qty: 1, label: 'Salt for the house' },
+      { kind: 'deliver', item: 'wood', qty: 1, label: 'Fuel for her fire' },
+    ],
+    resolution: "You knock just after the bells. She has the good glasses out and the black bun cut already. You put the fuel on her fire and the salt on her table, and she gives you Wullie's toast to the New Year, and then she cries a little and then she laughs. The luck, you think, was mostly in someone coming at all. You tell her you will come again next year, and you mean it.",
+    lore: "The first-foot was the first person over the threshold after midnight at Hogmanay, and the year took after them. A tall, dark-haired man was luckiest almost everywhere; a woman, or a red-haired man, was not. They must never come empty-handed: coal for the fire, salt, black bun or shortbread, and whisky to toast the house.",
+    tier: 'record',
+    source: 'J. Simpson & S. Roud, A Dictionary of English Folklore (2000), "first-foot" · A. W. Moore, The Folk-Lore of the Isle of Man (1891), on the qualtagh',
+    reward: { gold: 55, xp: 40 },
+  },
+  {
+    id: 'yule_log',
+    season: 'yule',
+    caller: 'The Kemp children',
+    icon: '🪵',
+    title: 'The Yule Log',
+    plea: "Mother's ill and Father's away with the boats, and we've got last year's brand wrapped up in the press where she keeps it, but we don't know how to do the log properly. Will you help us bring it in and light it, and show us which bit to save?",
+    steps: [
+      { kind: 'deliver', item: 'wood', qty: 3, label: 'The great log, and kindling to start it' },
+      { kind: 'rite', rite: 'yulelog', label: "Light the log from last year's brand" },
+    ],
+    resolution: "The four of you drag the log in, shouting as Herrick says you should, and you show the eldest how to touch last year's brand to the new one and nurse it till it takes. In the morning you pull a sound piece from the ashes and she wraps it up herself, very seriously, to put in the press for next year. Their mother, listening from the box bed, says it's the best-kept Yule the house has had.",
+    lore: "Herrick's \"Ceremonies for Christmas\" bring the log in with a noise and light it \"with the last year's brand\"; his \"Ceremonies for Candlemas Day\" burn the brand again till sunset, quench it, and lay it up \"Till Christmas next return\", for \"where 'tis safely kept, the fiend / Can do no mischief there.\"",
+    tier: 'record',
+    source: 'Robert Herrick, Hesperides (1648), "Ceremonies for Christmas" and "The Ceremonies for Candlemas Day"',
+    reward: { gold: 50, xp: 40 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',
@@ -497,8 +550,8 @@ const CALLERS_PER_DAY = 3;
 // step's suspects one by one until the sieve turns (lib/callers.js sieve_turn).
 // 'charm' — a spoken charm (data/charms.js), said line by line on the Board.
 // 'key' — the key and Bible: like the sieve, the suspects named on the Board.
-// 'rite' — a Hallowe'en love divination (data/halloween.js); callers with
-// season: 'samhain' come only in that season.
+// 'rite' — a seasonal rite: a Hallowe'en love divination (data/halloween.js)
+// or a Yule custom (data/yule.js); callers with a season come only in it.
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
 const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots'];
 
