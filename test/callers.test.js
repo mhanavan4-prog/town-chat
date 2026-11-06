@@ -160,6 +160,7 @@ setTimeout(() => {
       else if (s.kind === 'runes') say(x.s, { type: 'rune_cast' });
       else if (s.kind === 'scry') say(x.s, { type: 'scry' });
       else if (s.kind === 'leaves') { h.addItemToAccount(xinv, 'chamomile', 1); say(x.s, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(x.s, { type: 'read_leaves' }); }
+      else if (s.kind === 'charm') { const { CHARMS } = require('../data/charms'); CHARMS[s.charm].lines.forEach((_, li) => say(x.s, { type: 'charm_say', line: li })); }
       else if (s.kind === 'sieve') { for (const n of s.suspects) say(x.s, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
       else if (s.kind === 'deliver') h.addItemToAccount(xinv, s.item, s.qty);
     }

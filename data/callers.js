@@ -354,11 +354,61 @@ const CALLERS = [
     source: 'Ben Jonson, The Alchemist (1610), I.i · Agrippa, De occulta philosophia (1533) · Brewer, Dictionary of Phrase and Fable (1895) · K. Thomas, Religion and the Decline of Magic (1971)',
     reward: { gold: 65, xp: 45 },
   },
+  // ── The charmer's craft ──
+  {
+    id: 'the_scald',
+    caller: 'Annie Polglase',
+    icon: '🔥',
+    title: 'The Scald',
+    plea: "The kettle went over and caught my Jory's arm — he's screaming the house down. Old Ma Tregear used to charm burns but she's gone these two winters. You know the words, don't you? Please.",
+    steps: [
+      { kind: 'charm', charm: 'burn', label: 'Charm the burn' },
+      { kind: 'deliver', item: 'plantain', qty: 1, label: 'Cool green leaves to lay on it' },
+    ],
+    resolution: "You hold the little arm under the cold pump while you say the words — the cold water is doing the real work and you both know it — then lay the wet leaves on lightly. By the time you've said \"in frost\" he's stopped screaming and started hiccupping. Annie says the charm worked. You don't argue.",
+    lore: "Charmers for burns were found in nearly every parish: the words were passed on quietly, often only to someone of the opposite sex, and were never charged for. Robert Hunt recorded the Cornish burn charm with its three angels — one bringing fire and two bringing frost.",
+    tier: 'record',
+    source: 'Robert Hunt, Popular Romances of the West of England (1865), "Charms"',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'the_axe_slipped',
+    caller: 'Will Ashdown',
+    icon: '🪓',
+    title: 'The Axe Slipped',
+    plea: "Ned's axe glanced off a knot and went into his shin. We've bound it with his shirt and it's still coming through. The surgeon's six mile off. My grandmother had a verse that stopped blood — do you have it?",
+    steps: [
+      { kind: 'charm', charm: 'blood', label: 'Say the blood verse' },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the leg mend clean?', ask: 'Will the leg mend clean?' },
+    ],
+    resolution: "You say the verse while you press down on the wound with both hands and Will rides for the surgeon. Pressure, and holding still, and the verse to keep everyone calm — the bleeding slows. The surgeon sews it that night and says whoever bound it saved the leg.",
+    lore: "Bloodstopping by a Bible verse — Ezekiel 16:6, \"I said unto thee when thou wast in thy blood, Live\" — is one of the most widely recorded charms in English. Richard Dorson found bloodstoppers still trusted in the lumber country of Michigan’s Upper Peninsula in the 1940s.",
+    tier: 'record',
+    source: 'Ezekiel 16:6 (King James Version) · Richard M. Dorson, Bloodstoppers and Bearwalkers (1952)',
+    reward: { gold: 60, xp: 45 },
+  },
+  {
+    id: 'the_toothache',
+    caller: 'Elspeth Gow',
+    icon: '🦷',
+    title: 'Peter on the Marble Stone',
+    plea: "Three nights I've not slept for this tooth. The barber wants a shilling to pull it and I'd as soon keep it. My mother wore a paper charm for her teeth all her life. Will you write me one?",
+    steps: [
+      { kind: 'charm', charm: 'tooth', label: 'Write out the charm for her to wear' },
+      { kind: 'deliver', item: 'feverfew', qty: 1, label: 'Something for the pain in the meantime' },
+    ],
+    resolution: "You write the lines out in your best hand, fold the paper small, and she ties it round her neck on a thread. You give her feverfew for the night, too, and tell her that if it hasn't eased by Sunday, the shilling is cheaper than another week of this. She sleeps, she says. She keeps the tooth until Michaelmas.",
+    lore: "\"Peter sat on a marble stone weeping\" opens the commonest toothache charm in Britain and Ireland — written out on paper, folded, and worn. A Scottish one made between 1860 and 1880 is in the Science Museum; it promises that whoever carries the lines \"shall never have the toothache.\"",
+    tier: 'record',
+    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732)',
+    reward: { gold: 45, xp: 35 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
 // 'sieve' — the sieve and shears: done right on the Town Board, naming the
 // step's suspects one by one until the sieve turns (lib/callers.js sieve_turn).
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve'];
+// 'charm' — a spoken charm (data/charms.js), said line by line on the Board.
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
