@@ -147,7 +147,7 @@ function renderCallers(list, meNote) {
       if (!s.done && TOOL_LABEL[s.kind]) {
         const go = el('button', 'callerGo', TOOL_LABEL[s.kind]);
         go.dataset.tool = s.kind;
-        go.addEventListener('click', () => openTool(s.kind));
+        go.addEventListener('click', () => openTool(s.kind, s));
         row.appendChild(go);
       }
       steps.appendChild(row);

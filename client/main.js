@@ -15682,9 +15682,11 @@ const _board = createBoard({
   getCallerResult: () => callerResult,
   clearCallerResult: () => { callerResult = null; },
   // A step's button closes the Board and opens the tool that does the step.
-  openTool: (kind) => {
+  openTool: (kind, step) => {
     const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal }[kind];
     if (!open) return;
+    // The caller's own question, ready on the thread.
+    if (kind === 'pendulum' && step && step.ask) pendulumQ = step.ask;
     closeBoardModal();
     open();
   },
@@ -19405,6 +19407,7 @@ if (location.search.includes('testdrive=1')) {
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
+    callerResult(r) { callerResult = r; openBoardModal(); return true; },
     jumping() { return jumpActive; },
     inventoryPanel(state) { lastInventoryState = state; renderInventoryItemsPanel(); return true; },
     gardenPanel(state) { lastGardenState = state; renderGardenModal(); const e = document.getElementById('gardenContent'); return e ? e.innerText : null; },
