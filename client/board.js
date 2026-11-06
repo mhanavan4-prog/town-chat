@@ -142,6 +142,19 @@ function renderCallers(list, meNote) {
         body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
+      } else if (s.kind === 'charm' && !s.done && s.charm) {
+        // Say it line by line: the lines already said, then the next to say.
+        const box = el('div', 'charmBox');
+        s.charm.lines.forEach((ln, li) => {
+          if (li < s.said) box.appendChild(el('div', 'charmLine said', ln));
+          else if (li === s.said) {
+            const b = el('button', 'btn charmSay', `Say: “${ln}”`);
+            b.addEventListener('click', () => { b.disabled = true; send({ type: 'charm_say', line: li }); });
+            box.appendChild(b);
+          }
+        });
+        if (s.charm.use) box.appendChild(el('div', 'callerStepNote', s.charm.use));
+        body.appendChild(box);
       } else if (s.kind === 'sieve' && !s.done) {
         // Name them one by one; the sieve turns at one.
         body.appendChild(el('div', 'callerStepNote', 'The shears' + "'" + ' points in the sieve' + "'" + 's rim, held up on two fingertips. Name them, one by one:'));
