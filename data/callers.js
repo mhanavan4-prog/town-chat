@@ -337,9 +337,28 @@ const CALLERS = [
     source: 'Charles Dickens, David Copperfield (1850), ch. 1',
     reward: { gold: 50, xp: 40 },
   },
+  // ── The sieve and shears ──
+  {
+    id: 'silver_spoons',
+    caller: 'Mistress Hale',
+    icon: '🥄',
+    title: 'The Silver Spoons',
+    plea: "Six silver spoons, my mother's, gone from the dresser drawer since Sunday. Three people have been in my kitchen this week, and I'll not name any of them to the constable on a guess. Will you turn the sieve for me? My grandmother swore by it.",
+    steps: [
+      { kind: 'sieve', label: 'Turn the sieve and shears over the names', suspects: ['the new kitchen girl', 'the tinker who called on Tuesday', 'her nephew Tom'] },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the spoons come home?', ask: 'Will the spoons come home?' },
+    ],
+    resolution: "You don't hand anyone to the constable on a sieve's say-so, and you tell her so. Instead you tell her to mention at supper — loudly — that the cunning woman has turned the sieve and knows the name. The spoons are back in the drawer by morning, wrapped in a clean cloth, and nobody says a word about it ever again.",
+    lore: "The sieve and shears found thieves: the points of a pair of shears were stuck into the rim of a sieve, two people held it up on their fingertips, and the suspects were named one by one — when the guilty name was spoken, the sieve turned. Ben Jonson's Alchemist (1610) mocks those \"searching for things lost with a sieve and shears\"; it went to New England with the settlers. As Keith Thomas showed, cunning folk rarely caught a thief by it — but word that the sieve had been turned often brought the goods quietly home.",
+    tier: 'record',
+    source: 'Ben Jonson, The Alchemist (1610), I.i · Agrippa, De occulta philosophia (1533) · Brewer, Dictionary of Phrase and Fable (1895) · K. Thomas, Religion and the Decline of Magic (1971)',
+    reward: { gold: 65, xp: 45 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham'];
+// 'sieve' — the sieve and shears: done right on the Town Board, naming the
+// step's suspects one by one until the sieve turns (lib/callers.js sieve_turn).
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
