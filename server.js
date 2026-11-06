@@ -3093,6 +3093,8 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { HOUR_LORE, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
+const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
 const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
 const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES } = require('./data/wards'); // blueprint B: threshold & hearth
@@ -5126,7 +5128,7 @@ function teaStateBody(player) {
     };
   });
   const sabbats = {}; for (const s of SABBATS) sabbats[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet };
-  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), leaves: leavesStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, hearthBonus: HEARTH_BREW_BONUS, atHearth: inOwnCottage(player), now: Date.now() };
+  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), leaves: leavesStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, hourBonus: TEA_HOUR_BONUS, hour: planetaryHourAt(Date.now()), hearthBonus: HEARTH_BREW_BONUS, atHearth: inOwnCottage(player), now: Date.now() };
 }
 
 // ── The Hearth Path — a brewing questline (parallel to the Green Path). Chapters
@@ -8283,7 +8285,16 @@ const { MOON_PHASES, FULL_MOON_INDEX } = require('./data/moon');
 // LUNAR_MONTH_MS/8 (2.5h at 20h), with the full moon up that long each cycle.
 const LUNAR_MONTH_MS = 20 * 3600 * 1000;
 const calendar = require('./lib/calendar')({ CYCLE_MS, DAY_MS, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, legendaryWeekIndex, SABBATS, MOON_PHASES, FULL_MOON_INDEX, LUNAR_MONTH_MS });
-const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, moonPhaseWindow, calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
+const { tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, moonPhaseWindow, calendarPublicState: _calendarPublicState, BLOOD_MOON_EVERY_NIGHTS } = calendar;
+// The calendar the clients see carries the planetary hours too (blueprint D):
+// the hour in force and the run of hours after it, so the HUD can tick over
+// on its own without a message every hour.
+function calendarPublicState(now) {
+  const t = now != null ? now : Date.now();
+  const cal = _calendarPublicState(t);
+  try { cal.hours = planetaryHourSchedule(t); cal.hourLore = HOUR_LORE; } catch (e) { /* noop */ }
+  return cal;
+}
 const FESTIVAL_XP_MULT = 1.25;
 const FESTIVAL_FORAGE_BONUS = 0.15;
 
@@ -15613,6 +15624,10 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // A fresh calendar on request — the client asks when its run of planetary
+    // hours is nearly spent (blueprint D).
+    if (msg.type === 'calendar_state') { send(ws, { type: 'calendar_state', calendar: calendarPublicState() }); return; }
+
     // ── Knots & the Wind (blueprint F): tie a wind into a cord, loose it later ──
     if (msg.type === 'cords_state') { send(ws, { type: 'cords_state', ...cordsStateBody(player) }); return; }
     if (msg.type === 'tie_wind_cord' || msg.type === 'untie_knot') {
@@ -15783,8 +15798,9 @@ wss.on('connection', (ws, req) => {
       }
       for (const ing of tea.herbs) removeItemFromAccount(inv, ing.id, ing.qty);
       const onDay = (new Date().getUTCDay() === tea.day);
+      const onHour = tea.day != null && planetaryHourAt(Date.now()).planetDay === tea.day; // ✨ in its planet's own hour
       const atHearth = inOwnCottage(player); // brewing in your own cottage holds longer
-      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1) * (atHearth ? HEARTH_BREW_BONUS : 1));
+      const durMs = Math.round(tea.hours * 3600000 * (onDay ? TEA_DAY_BONUS : 1) * (onHour ? TEA_HOUR_BONUS : 1) * (atHearth ? HEARTH_BREW_BONUS : 1));
       const acct = accounts[player.accountKey] || (accounts[player.accountKey] = {});
       acct.teaBuff = { stat: tea.stat, amount: tea.amount, until: Date.now() + durMs, id: tea.id };
       // Record it in the Teas Almanac (first brew reveals its page).
@@ -15797,7 +15813,7 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
-      const longer = [onDay ? 'on its day' : '', atHearth ? 'at your hearth' : ''].filter(Boolean).join(' and ');
+      const longer = [onDay ? 'on its day' : '', onHour ? 'in its hour' : '', atHearth ? 'at your hearth' : ''].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1');
       send(ws, { type: 'toast', message: `${tea.emoji} You sip ${tea.name}${longer ? ` — steeped ${longer}, it holds longer` : ''}. ${tea.blurb} (${Math.round(durMs / 60000)} min)` });
       return;
     }
@@ -17223,7 +17239,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
