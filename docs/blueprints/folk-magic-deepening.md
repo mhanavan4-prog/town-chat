@@ -12,8 +12,8 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **IN PROGRESS.** A is built (Callers at the Door). The rest are
-> proposals, ordered by value at the bottom.
+> Status: **IN PROGRESS.** A (Callers at the Door) and E (Reading the Leaves)
+> are built. The rest are proposals, ordered by value at the bottom.
 
 ---
 
@@ -180,7 +180,13 @@ the mechanic teaches the player why Wednesday is Mercury's.
 
 ---
 
-### E. Reading the Leaves — *tasseomancy, nearly free*
+### E. Reading the Leaves — *tasseomancy, nearly free* ✅ BUILT
+
+> Every cup drunk (brewed, or a friend's gift) leaves dregs readable once for
+> two hours: one sign of 26 from A Highland Seer's dictionary, placed rim /
+> side / bottom for soon / later / far off, with place-dependent meanings where
+> the seer gives them. Signs collect into a Leaves page of the Almanac; a new
+> caller ("No Letter from America") is worked with a cup.
 
 **The lore.** Tea-leaf reading as a popular practice follows tea into Europe in
 the 1600s–1700s, with a large Victorian literature of symbol dictionaries

@@ -2981,6 +2981,13 @@ function onWsMessage(ev) {
   if (msg.type === 'furniture_bought') { homePendBuy = null; setUnlockToast('✨ New decor unlocked!'); return; }
   if (msg.type === 'home_error') { setUnlockToast(`🏠 ${msg.message}`); return; }
   if (msg.type === 'tea_state') { lastTeaState = msg; if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); return; }
+  if (msg.type === 'leaves_reading') {
+    lastLeavesReading = msg;
+    const s0 = msg.symbol || {};
+    setUnlockToast(`☕ The leaves: ${s0.glyph || ''} ${s0.name || ''} ${msg.place || ''}${msg.isNew ? ` — a new sign (${msg.seen}/${msg.total})` : ''}${msg.purse ? ` · every sign read! +${msg.purse}🪙` : ''}`);
+    if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); else openKitchenModal();
+    return;
+  }
   if (msg.type === 'ancestor_state') { lastAncestorState = msg; if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); renderStatusEffects(); return; }
   if (msg.type === 'ancestor_error') { setUnlockToast(msg.message || 'The altar is silent.'); return; }
   if (msg.type === 'release_state') { lastReleaseState = msg; if (Modals.isOpen('releaseOpen')) renderReleaseModal(); return; }
@@ -12176,6 +12183,27 @@ function mabelGreeting(hp) {
   return "Keep the kettle warm, dear. The hearth rewards a patient hand.";
 }
 const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// ☕ Reading the Leaves (blueprint E) — the cup's dregs, read after drinking.
+let lastLeavesReading = null;
+function leavesPanelHtml(st) {
+  const L = st.leaves;
+  if (!L) return '';
+  let h = '';
+  const r = lastLeavesReading;
+  if (r && r.symbol) {
+    const tone = r.symbol.tone === 'good' ? 'good' : r.symbol.tone === 'ill' ? 'ill' : 'mixed';
+    h += `<div class="leavesRead ${tone}"><div class="lrHead"><span class="lrGlyph">${escHtml(r.symbol.glyph)}</span><div><div class="lrName">${escHtml(r.symbol.name)}, ${escHtml(r.place)}${r.nearHandle ? ', close by the handle' : ''}</div>`
+      + `<div class="lrWhen">${escHtml(r.nearHandle ? 'Close to home, and ' + r.when : r.when.charAt(0).toUpperCase() + r.when.slice(1))}${r.tea ? ` · from a cup of ${escHtml(r.tea.name)}` : ''}</div></div></div>`
+      + `<div class="lrMeaning">${escHtml(r.symbol.meaning)}</div>`
+      + (r.isNew ? `<div class="lrNew">A new sign for your Almanac — ${r.seen}/${r.total}${r.xp ? ` · +${r.xp} XP` : ''}${r.purse ? ` · every sign read, +${r.purse}🪙` : ''}</div>` : '')
+      + `<button class="lrDone" id="leavesDoneBtn">Rinse the cup</button></div>`;
+  } else if (L.cup) {
+    const mins = Math.max(1, Math.round((L.cup.until - Date.now()) / 60000));
+    h += `<div class="leavesCup"><div class="lcText">☕ <b>The dregs are settling${L.cup.from ? ` in ${escHtml(L.cup.from)}'s cup` : ''}.</b> Swirl the last half-spoonful three times, turn the cup over on its saucer, and read what the leaves leave behind. <span class="lcWhen">(${mins} min before they dry)</span></div>`
+      + `<button class="lcBtn" id="readLeavesBtn">☕ Read the leaves</button></div>`;
+  }
+  return h;
+}
 function renderKitchenModal() {
   const el = document.getElementById('kitchenContent');
   if (!el) return;
@@ -12225,6 +12253,15 @@ function renderKitchenModal() {
       }
       h += `</div></div>`;
     }
+    // ☕ The Leaves — every sign read in a cup's dregs.
+    if (st.leaves) {
+      const L = st.leaves;
+      h += `<div class="almCat"><div class="almCatHead">☕ The Leaves <span class="almCatN">${L.seen.length}/${L.total}</span></div>`
+        + `<div class="almCatLore">${escHtml(L.method)}</div><div class="almGrid">`;
+      for (const sg of L.seen) h += `<div class="almCell"><div class="almIcon">${escHtml(sg.glyph)}</div><div class="almName">${escHtml(sg.name)}</div><div class="almLore">${escHtml(sg.meaning)}</div></div>`;
+      if (L.seen.length < L.total) h += `<div class="almCell locked"><div class="almIcon">?</div><div class="almName">${L.total - L.seen.length} signs unread</div><div class="almLore">Read the leaves after each cup to find them.</div></div>`;
+      h += `</div><div class="almProv">${escHtml(L.provenance)}</div></div>`;
+    }
     // The capstone(s) — their own crowned category at the foot of the Almanac.
     const masteryA = st.teas.filter((t) => t.requires);
     if (masteryA.length) {
@@ -12261,6 +12298,7 @@ function renderKitchenModal() {
       h += `<div class="hpQuest"><div class="hpqHead">🍵 The Hearth Path · Ch. ${hp.chapter + 1}/${hp.total}: ${escHtml(hp.title)}</div><div class="hpqObj">${sub}</div></div>`;
     }
   }
+  h += leavesPanelHtml(st);
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
   if (cottageVisiting && me && me.room === 'cottage') h += `<div class="gardenHint" style="color:#ffc48a">🍵 You're in ${escHtml(cottageHostName || 'their')}'s cottage — brew a cup to <b>leave as a gift</b>. They'll find it when they're home.</div>`;
   else if (st.atHearth) h += `<div class="gardenHint" style="color:#ffc48a">🔥 You're at your own hearth — this steep holds <b>×${st.hearthBonus || 1.25}</b> longer, and stacks with the day bonus.</div>`;
@@ -12294,6 +12332,8 @@ function renderKitchenModal() {
   }
   el.innerHTML = h;
   el.querySelectorAll('.teaBrewBtn').forEach((b) => { if (!b.disabled) b.addEventListener('click', () => send({ type: b.getAttribute('data-gift') ? 'leave_tea' : 'brew_tea', teaId: b.getAttribute('data-tea') })); });
+  { const b = el.querySelector('#readLeavesBtn'); if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning the cup…'; send({ type: 'read_leaves' }); }); }
+  { const b = el.querySelector('#leavesDoneBtn'); if (b) b.addEventListener('click', () => { lastLeavesReading = null; renderKitchenModal(); }); }
   wireKitchenTabs(el);
 }
 // One tea's brew card. Shows a "greater" badge for two-herb draughts, a "sabbat"
@@ -15683,7 +15723,7 @@ const _board = createBoard({
   clearCallerResult: () => { callerResult = null; },
   // A step's button closes the Board and opens the tool that does the step.
   openTool: (kind, step) => {
-    const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal }[kind];
+    const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal, leaves: openKitchenModal }[kind];
     if (!open) return;
     // The caller's own question, ready on the thread.
     if (kind === 'pendulum' && step && step.ask) pendulumQ = step.ask;
