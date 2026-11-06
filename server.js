@@ -10066,6 +10066,18 @@ function veiled(p) { return !!(p && p.veiledUntil && p.veiledUntil > Date.now())
 // character's record, never the person. Called from every death site.
 function noteDeath(victim) {
   if (!victim) return;
+  // Death is a clean slate. Statuses used to survive the body they were on, so
+  // you could respawn at full health in the town haven with `wither` still
+  // ticking — it drains to a 1 HP floor in about half a minute, and then the
+  // first thing that touches you finishes the job. From the player's side that
+  // reads as "I came back alive and died again", which is exactly how it was
+  // reported. Buffs go with the debuffs: nothing should outlive the body.
+  victim.activeStatus = null;
+  // Damage-over-time aimed at this player goes too. The tick drops a DoT once
+  // its target is out of reach, but it should not take a room change to do it.
+  for (const [key, e] of activeDots) {
+    if (e.targetType === 'player' && e.targetId === victim.id) activeDots.delete(key);
+  }
   try { const p = getProgress(victim); p.deaths = (p.deaths || 0) + 1; } catch (e) {}
   checkAchievements(victim); // Survivor ladder — scars worn as honors
 }
@@ -16772,7 +16784,7 @@ setInterval(() => {
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
-  afkSweep, noteActivity, AFK_MS,
+  afkSweep, noteActivity, AFK_MS, noteDeath,
   kickBlockedUntil, KICK_COOLDOWN_MS,
   server, // test-only: live http.Server so route tests can read the bound port
   analytics, // test-only: inspect aggregate counters (retention metrics, etc.)
