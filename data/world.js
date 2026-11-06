@@ -336,6 +336,8 @@ const PLANT_CATALOG = {
   chervil:                { name: 'Chervil',                icon: '🌿', effect: 'heal',    amount: 25 },
   fennel:                 { name: 'Fennel',                 icon: '🌾', effect: 'status',  statusType: 'regen',      durationMs: 16000 },
   nine_herbs_salve:       { name: 'The Nine Herbs Salve',   icon: '⚕️', effect: 'heal',    amount: 250 },
+  // The Kitchen Witch's practice (data/practices.js) — appended, ids stay stable.
+  hearth_loaf:            { name: 'Hearth Loaf',            icon: '🍞', effect: 'heal',    amount: 70 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

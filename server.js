@@ -1621,7 +1621,9 @@ const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomi
   'flying_ointment', 'henbane_smoke', 'mandrake_draught', 'wolfsbane_draught', 'datura_trance',
   'hemlock_philter', 'foxglove_cordial', 'hellebore_ward', 'draught_of_the_green_path',
   // The Lacnunga herbs + their salve (garden-grown from Mother Yarrow's packet).
-  'plantain', 'lambs_cress', 'nettle', 'betony', 'crab_apple', 'chervil', 'fennel', 'nine_herbs_salve']);
+  'plantain', 'lambs_cress', 'nettle', 'betony', 'crab_apple', 'chervil', 'fennel', 'nine_herbs_salve',
+  // Baked at the hearth (the Kitchen Witch's practice), never foraged.
+  'hearth_loaf']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -3095,6 +3097,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { PRACTICES, CULPEPER_RULERS, GREEN_HOUR_BONUS, GREEN_HOUR_BONUS_PATH, DRAW_DOWN, HEDGE_DRAUGHTS, HEDGE_GIFTS, HEDGE_GIFTS_PATH, HEDGE_VISIONS, LOAVES_PER_DAY, LOAVES_PER_DAY_PATH } = require('./data/practices'); // the Witch Paths' practices
 const { NINE_HERBS, WODEN_LINES, NEW_GARDEN_HERBS, LACNUNGA_SEEDS_PER_HERB, NINE_HERBS_LORE } = require('./data/nineHerbs'); // blueprint G: the Nine Herbs Charm
 const { HOUR_LORE, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
@@ -4549,7 +4552,7 @@ function gardenStateBody(player) {
     growMs: GARDEN_GROW_MS, ready: (now - p.plantedAt) >= GARDEN_GROW_MS,
     yield: MOON_YIELD[p.moonTier] || MOON_YIELD.other
   } : null);
-  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player), homeGarden: homeGardenStateBody(player) };
+  return { plots, plantable: PLANTABLE_HERBS, now, rushCost: GARDEN_RUSH_MS_COST, greenPath: greenPathStateBody(player), almanac: almanacStateBody(player), homeGarden: homeGardenStateBody(player), rulers: CULPEPER_RULERS };
 }
 
 // ── The Cottage Garden (housing ↔ gardening cross-feed) ─────────────────────
@@ -4955,6 +4958,102 @@ function untieKnot(player, knots) {
     if (p && p.ws) { try { send(p.ws, { type: 'skill_state', ...skillStatePayload(p) }); send(p.ws, { type: 'cords_state', ...cordsStateBody(p) }); } catch (e) { /* noop */ } }
   }, ms + 250);
   return { knot, ms, hpLost };
+}
+
+// ── The Witch Paths' practices (data/practices.js) ──────────────────────────
+// Green: harvest in the herb's ruling planet's hour. Lunar: draw down the moon
+// (night, open sky, once a night). Hedge: ride the hedge (night, the Wilds, a
+// trance draught, once a night). Kitchen: bake a crossed loaf at your hearth.
+// Open to all; the matching path makes each stronger.
+const HEDGE_CUTTINGS = require('./data/gameConstants').HEDGE_SEED_DROPS; // what grows on the other side of the hedge
+function onPath(player, pathId) { return !!(player && player.accountKey && accounts[player.accountKey] && accounts[player.accountKey].witchPath === pathId); }
+function nightIndex(now) { return Math.floor(now / CYCLE_MS); }
+function greenHourBonus(player, herb) {
+  const ruler = CULPEPER_RULERS[herb];
+  if (ruler === undefined) return 0;
+  if (planetaryHourAt(Date.now()).planetDay !== ruler) return 0;
+  return onPath(player, 'green') ? GREEN_HOUR_BONUS_PATH : GREEN_HOUR_BONUS;
+}
+function practicesOf(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  if (!a.practices) a.practices = {};
+  return a.practices;
+}
+function practiceStateBody(player) {
+  const key = player && player.accountKey;
+  const pr = key ? practicesOf(key) : {};
+  const now = Date.now();
+  const night = isNightNow();
+  const ni = nightIndex(now);
+  const today = Math.floor(now / 86400000);
+  const moon = moonPhaseWindow(now);
+  const inv = key ? getInventory(player) : null;
+  const openSky = OPEN_SKY_ROOMS.includes(player.room);
+  const hr = planetaryHourAt(now);
+  const loavesMax = onPath(player, 'kitchen') ? LOAVES_PER_DAY_PATH : LOAVES_PER_DAY;
+  const loavesToday = (pr && pr.loafDay === today) ? (pr.loaves || 0) : 0;
+  const draught = inv ? HEDGE_DRAUGHTS.find((d) => countItemQty(inv, d) > 0) : null;
+  const status = {
+    green: { ready: true, note: `It is the hour of ${hr.name}. Herbs it rules: ${Object.keys(CULPEPER_RULERS).filter((h) => CULPEPER_RULERS[h] === hr.planetDay).map((h) => (ITEM_CATALOG[h] || {}).name || h).join(', ') || 'none in the garden'}.` },
+    lunar: (pr && pr.drawNight === ni) ? { ready: false, note: 'You have drawn the moon down tonight.' }
+      : !night ? { ready: false, note: 'Wait for nightfall.' }
+      : !openSky ? { ready: false, note: 'Go out under the open sky.' }
+      : { ready: true, note: moon.isFull ? `The ${moon.name} is full — tonight it pours.` : `The ${moon.name || 'moon'} is up.` },
+    hedge: (pr && pr.hedgeNight === ni) ? { ready: false, note: 'You have ridden the hedge tonight.' }
+      : !night ? { ready: false, note: 'Wait for nightfall.' }
+      : player.room !== 'wilds' ? { ready: false, note: 'Go out to the Wilds — the hedge is at the edge of things.' }
+      : !draught ? { ready: false, note: 'You need a trance draught: Mugwort Draught or Flying Ointment (Hazel brews both).' }
+      : { ready: true, note: `You have ${(ITEM_CATALOG[draught] || {}).name || draught} to cross on.` },
+    kitchen: loavesToday >= loavesMax ? { ready: false, note: `You have baked ${loavesMax === 1 ? 'today\'s loaf' : `${loavesMax} loaves today`}.` }
+      : !inOwnCottage(player) ? { ready: false, note: 'Bake at your own hearth — step inside your cottage.' }
+      : { ready: true, note: `${loavesMax - loavesToday} loaf${loavesMax - loavesToday === 1 ? '' : 'ves'} left to bake today.` },
+  };
+  const buff = key && accounts[key] && accounts[key].moonBuff;
+  return {
+    isGuest: !key,
+    path: (key && accounts[key] && accounts[key].witchPath) || null,
+    practices: PRACTICES.map((p) => ({ ...p, onPath: onPath(player, p.path), ...status[p.id] })),
+    moonBuff: (buff && buff.until > now) ? { amount: buff.amount, until: buff.until } : null,
+  };
+}
+// Do a practice. Returns a toast string, or { error }.
+function doPractice(player, id, rand) {
+  const r = rand || Math.random;
+  const key = player.accountKey;
+  if (!key) return { error: 'Log into an account to keep a practice.' };
+  const st = practiceStateBody(player).practices.find((p) => p.id === id);
+  if (!st || id === 'green') return { error: 'That practice is done in the garden, not here.' };
+  if (!st.ready) return { error: st.note };
+  const pr = practicesOf(key);
+  const now = Date.now();
+  const inv = getInventory(player);
+  if (id === 'lunar') {
+    const moon = moonPhaseWindow(now);
+    const amount = (onPath(player, 'lunar') ? DRAW_DOWN.xpPath : DRAW_DOWN.xp) * (moon.isFull ? DRAW_DOWN.fullMoonMult : 1);
+    accounts[key].moonBuff = { stat: 'xp', amount, until: now + DRAW_DOWN.ms };
+    pr.drawNight = nightIndex(now);
+    return { toast: `🌕 You raise your hands to the ${moon.name || 'moon'} and draw it down. Its light settles on you — +${Math.round(amount * 100)}% XP for ${Math.round(DRAW_DOWN.ms / 60000)} minutes.` };
+  }
+  if (id === 'hedge') {
+    const draught = HEDGE_DRAUGHTS.find((d) => countItemQty(inv, d) > 0);
+    if (!draught || !removeItemFromAccount(inv, draught, 1)) return { error: 'You need a trance draught to cross on.' };
+    const gifts = onPath(player, 'hedge') ? HEDGE_GIFTS_PATH : HEDGE_GIFTS;
+    const got = [];
+    for (let i = 0; i < gifts; i++) {
+      const pick = HEDGE_CUTTINGS[Math.floor(r() * HEDGE_CUTTINGS.length)];
+      if (pick && addItemToAccount(inv, pick.itemId, 1)) got.push((ITEM_CATALOG[pick.itemId] || {}).name || pick.itemId);
+    }
+    pr.hedgeNight = nightIndex(now);
+    const vision = HEDGE_VISIONS[Math.floor(r() * HEDGE_VISIONS.length)];
+    return { toast: `🦉 ${vision} You come back over the hedge at dawn's edge${got.length ? ` with a cutting in your hand: ${got.join(', ')}` : ' — your pack too full to carry anything back'}.`, gifts: got };
+  }
+  // kitchen
+  if (!addItemToAccount(inv, 'hearth_loaf', 1)) return { error: 'Your pack is full — clear a slot for the loaf.' };
+  const today = Math.floor(now / 86400000);
+  if (pr.loafDay !== today) { pr.loafDay = today; pr.loaves = 0; }
+  pr.loaves = (pr.loaves || 0) + 1;
+  return { toast: '🍞 You knead, shape, and cut a cross in the top — to let the devil out — and bake it at your hearth. A Hearth Loaf, warm in your hands.' };
 }
 
 function homeStateBody(player) {
@@ -5528,7 +5627,7 @@ function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 
 // buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
 // a single small per-source amount, not a ladder, so they add texture without a
 // stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey); }
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey) + timedBuffContrib(player, 'moonBuff', statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -15653,6 +15752,19 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // ── The Witch Paths' practices ─────────────────────────────────────────
+    if (msg.type === 'practice_state') { send(ws, { type: 'practice_state', ...practiceStateBody(player) }); return; }
+    if (msg.type === 'practice_do') {
+      const out = doPractice(player, String(msg.id || ''));
+      if (out.error) { send(ws, { type: 'practice_error', message: out.error }); send(ws, { type: 'practice_state', ...practiceStateBody(player) }); return; }
+      saveAccounts(); saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'practice_state', ...practiceStateBody(player) });
+      send(ws, { type: 'toast', message: out.toast });
+      return;
+    }
+
     // A fresh calendar on request — the client asks when its run of planetary
     // hours is nearly spent (blueprint D).
     if (msg.type === 'calendar_state') { send(ws, { type: 'calendar_state', calendar: calendarPublicState() }); return; }
@@ -16131,7 +16243,8 @@ wss.on('connection', (ws, req) => {
       const p = g[idx];
       if (!p) return;
       if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
-      const amount = (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + (atHome ? HOME_GARDEN_YIELD_BONUS : 0);
+      const inHerbHour = greenHourBonus(player, p.herb); // 🌿 wort-cunning: gathered in its planet's hour
+      const amount = (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + (atHome ? HOME_GARDEN_YIELD_BONUS : 0) + inHerbHour;
       const inv = getInventory(player);
       let got = 0;
       for (let i = 0; i < amount; i++) { if (addItemToAccount(inv, p.herb, 1)) got++; else break; }
@@ -16141,7 +16254,7 @@ wss.on('connection', (ws, req) => {
       saveAccounts(); if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
-      send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your ${atHome ? 'cottage garden — the hearth\'s blessing' : 'garden'}.` });
+      send(ws, { type: 'toast', message: `🌿 You harvest ${got}× ${ITEM_CATALOG[p.herb] ? ITEM_CATALOG[p.herb].name : p.herb} from your ${atHome ? 'cottage garden — the hearth\'s blessing' : 'garden'}${inHerbHour ? ` — gathered in its planet's hour (+${inHerbHour})` : ''}.` });
       return;
     }
     // 💎 Grow a bed instantly for Moonstones — the premium convenience sink on
@@ -17271,7 +17384,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2, practiceStateBody, doPractice, greenHourBonus, nightIndex, gardenOf,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
