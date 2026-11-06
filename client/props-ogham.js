@@ -44,12 +44,23 @@ export function makeAlder(x, z, scale) {
   _dots(g, s, 12, 66, 24, 2.6, 0x4a3122);
   return _done(g, x, z, true);
 }
-// Nion — ash: tall, open, light-grey bark; feathery canopy hung with bunches of keys.
+// Nion — ash: tall, open, light-grey bark; a loose, layered canopy with
+// bunches of pale keys hanging BELOW the leaves, where a walker looks up at them.
 export function makeAshTree(x, z, scale) {
   const g = new THREE.Group(); const s = scale || 1;
-  _trunk(g, s, 70, 4.5, 6.5, 0x8e8a80);
-  _blob(g, s, 0, 84, 0, 24, 0x6f9a4c, 0.7); _blob(g, s, -18, 76, 4, 15, 0x7aa556, 0.7); _blob(g, s, 18, 78, -4, 15, 0x65904a, 0.7);
-  _dots(g, s, 14, 84, 16, 2.6, 0xc7b46a);
+  _trunk(g, s, 72, 4.5, 6.5, 0x8e8a80);
+  _blob(g, s, 0, 88, 0, 20, 0x6f9a4c, 0.8); _blob(g, s, -16, 78, 6, 15, 0x7aa556, 0.8);
+  _blob(g, s, 16, 80, -6, 15, 0x65904a, 0.8); _blob(g, s, 2, 74, 14, 12, 0x739f50, 0.8);
+  const keyMat = _ogLam(0xd9c178, 0x3a3010);
+  for (let i = 0; i < 9; i++) {
+    const a = i * 0.7, rr = 13 + (i % 3) * 5, by = 66 + (i % 2) * 4;
+    for (let k = 0; k < 3; k++) {
+      const key = new THREE.Mesh(new THREE.SphereGeometry(1.6 * s, 5, 4), keyMat);
+      key.scale.set(0.7, 2.2, 0.7);
+      key.position.set((Math.cos(a) * rr + (k - 1) * 1.6) * s, (by - k * 1.5) * s, (Math.sin(a) * rr) * s);
+      g.add(key);
+    }
+  }
   return _done(g, x, z, true);
 }
 // Úath — hawthorn: a squat, crooked thorn with bright red haws.
@@ -68,31 +79,43 @@ export function makeWildApple(x, z, scale) {
   _dots(g, s, 12, 46, 20, 3.6, 0xc9c14a); _dots(g, s, 6, 44, 19, 3.6, 0xc2502e);
   return _done(g, x, z, false);
 }
-// Gort — ivy: a dead stump wrapped and buried in dark glossy ivy.
+// Gort — ivy: a dead stump wrapped and buried in dark glossy ivy, a few
+// bare snags poking out the top.
 export function makeIvyBank(x, z, scale) {
   const g = new THREE.Group(); const s = scale || 1;
-  _trunk(g, s, 26, 7, 9, 0x4a3a2c);
-  for (let i = 0; i < 7; i++) {
-    const a = i * 0.9, y = 6 + i * 3.4;
-    _blob(g, s, Math.cos(a) * 8, y, Math.sin(a) * 8, 6.5, i % 2 ? 0x1f4a2a : 0x245533);
+  _trunk(g, s, 40, 8, 10, 0x4a3a2c);
+  for (let i = 0; i < 10; i++) {
+    const a = i * 0.95, y = 6 + i * 3.6;
+    _blob(g, s, Math.cos(a) * 9, y, Math.sin(a) * 9, 7.5, i % 2 ? 0x1f4a2a : 0x2a5f36);
   }
-  _blob(g, s, 0, 28, 0, 10, 0x1f4a2a, 0.7);
+  _blob(g, s, 0, 40, 0, 12, 0x1f4a2a, 0.75);
+  for (const [lx, lz, rz] of [[-4, 2, 0.5], [5, -2, -0.6]]) {
+    const snag = new THREE.Mesh(new THREE.CylinderGeometry(0.9 * s, 1.6 * s, 14 * s, 4), _ogLam(0x5a4a3a));
+    snag.position.set(lx * s, 50 * s, lz * s); snag.rotation.z = rz; g.add(snag);
+  }
   return _done(g, x, z, false);
 }
-// Ruis — elder: a many-stemmed shrubby tree with flat cream flower heads and dark berries.
+// Ruis — elder: a many-stemmed shrubby tree, stems splaying out from the
+// ground, flat cream flower heads (umbels) sitting on TOP of the leaves, and
+// a few dark berry clusters.
 export function makeElder(x, z, scale) {
   const g = new THREE.Group(); const s = scale || 1;
-  for (const [tx, tz, th, lean] of [[-5, 0, 36, -0.2], [4, 3, 40, 0.15], [1, -5, 32, 0.05]]) {
+  for (const [tx, tz, th, lean] of [[-4, 0, 36, 0.22], [4, 3, 40, -0.18], [1, -5, 32, -0.05]]) {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(2.2 * s, 3 * s, th * s, 5), _ogLam(0x6b5a46));
     t.position.set(tx * s, th * s / 2, tz * s); t.rotation.z = lean; g.add(t);
   }
-  _blob(g, s, 0, 42, 0, 20, 0x3e6e3a, 0.75);
-  for (let i = 0; i < 6; i++) {
-    const a = i * 1.05, rr = 15;
-    const head = new THREE.Mesh(new THREE.CylinderGeometry(4.5 * s, 4.5 * s, 1.4 * s, 10), _ogLam(0xf1ead2));
-    head.position.set(Math.cos(a) * rr * s, (50 + (i % 2) * 3) * s, Math.sin(a) * rr * s); g.add(head);
+  _blob(g, s, 0, 44, 0, 23, 0x3e6e3a, 0.7); _blob(g, s, -15, 38, 4, 13, 0x447640, 0.75); _blob(g, s, 15, 40, -3, 13, 0x3a6836, 0.75);
+  // Umbels on the outer surface of the crown, tipped to face outward, so they
+  // read from a walking camera as well as from above.
+  const headMat = _ogLam(0xf6f0da, 0x4a4434);
+  for (let i = 0; i < 11; i++) {
+    const t = (i + 0.5) / 11, yN = 1 - t * 1.1, ring = Math.sqrt(Math.max(0, 1 - yN * yN)), a = i * 2.39996 + 1.2; // phase-shifted off the berries
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(4.6 * s, 3.6 * s, 1.8 * s, 10), headMat);
+    head.position.set(Math.cos(a) * ring * 23.5 * s, (44 + yN * 23 * 0.7) * s, Math.sin(a) * ring * 23.5 * s);
+    head.lookAt(head.position.x * 3, head.position.y + 30 * s, head.position.z * 3); head.rotateX(Math.PI / 2);
+    g.add(head);
   }
-  _dots(g, s, 10, 42, 15, 2.2, 0x2a1b3a);
+  _dots(g, s, 12, 42, 22, 2.4, 0x2a1b3a);
   return _done(g, x, z, false);
 }
 // Onn — gorse: a spiny low bush blazing with yellow.
@@ -140,7 +163,7 @@ export const OGHAM_GROVE_BUILDERS = {
   ash_tree: { make: (d) => makeAshTree(d.x, d.y, d.scale), collide: () => ({ w: 16, h: 16 }) },
   hawthorn: { make: (d) => makeHawthorn(d.x, d.y, d.scale), collide: () => null },
   wild_apple: { make: (d) => makeWildApple(d.x, d.y, d.scale), collide: () => ({ w: 16, h: 16 }) },
-  ivy_bank: { make: (d) => makeIvyBank(d.x, d.y, d.scale), collide: () => ({ w: 18, h: 18 }) },
+  ivy_bank: { make: (d) => makeIvyBank(d.x, d.y, d.scale), collide: () => ({ w: 22, h: 22 }) },
   elder: { make: (d) => makeElder(d.x, d.y, d.scale), collide: () => null },
   gorse: { make: (d) => makeGorse(d.x, d.y, d.scale), collide: () => null },
   heather: { make: (d) => makeHeather(d.x, d.y, d.scale), collide: () => null },
