@@ -24,6 +24,7 @@ import createCryptScene from './crypt-scene.js';
 import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
+import createOgham from './ogham.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
@@ -2899,6 +2900,9 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
   if (msg.type === 'wards_state') { _wards.setState(msg); return; }
+  if (msg.type === 'ogham_state') { _ogham.setState(msg); return; }
+  if (msg.type === 'ogham_cast') { _ogham.setCast(msg.cast); if (!msg.already) setUnlockToast(`🌳 The staves fall: ${(msg.cast || []).map((o) => o.name).join(' · ')}`); return; }
+  if (msg.type === 'ogham_error') { if (msg.message) setUnlockToast(`🌳 ${msg.message}`); return; }
   if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); return; }
   if (msg.type === 'cottage_layout') {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
@@ -7400,6 +7404,7 @@ function hydrateMenuRows() {
   on('menuPendulum', closeSheetAnd(() => { if (!Modals.isOpen('pendulumOpen')) openPendulumModal(); }));
   on('pendulumCloseBtn', closePendulumModal);
   on('menuRunes', closeSheetAnd(() => { if (!Modals.isOpen('runeOpen')) openRuneModal(); }));
+  on('menuOgham', closeSheetAnd(() => { if (!Modals.isOpen('oghamOpen')) _ogham.open(); }));
   on('runeCloseBtn', closeRuneModal);
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
@@ -15729,7 +15734,7 @@ const _board = createBoard({
   clearCallerResult: () => { callerResult = null; },
   // A step's button closes the Board and opens the tool that does the step.
   openTool: (kind, step) => {
-    const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal, leaves: openKitchenModal }[kind];
+    const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal, leaves: openKitchenModal, ogham: () => _ogham.open() }[kind];
     if (!open) return;
     // The caller's own question, ready on the thread.
     if (kind === 'pendulum' && step && step.ask) pendulumQ = step.ask;
@@ -15742,6 +15747,8 @@ const _board = createBoard({
 const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 // 🛡️ Threshold & Hearth — the Wards of the House (blueprint B).
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
+// 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
+const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 
 const _seance = createSeance({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -18360,6 +18367,7 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) _wards.close();
     return;
   }
+  if (Modals.isOpen('oghamOpen') && e.key === 'Escape' && !e.repeat) { _ogham.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
     return;
@@ -19461,6 +19469,7 @@ if (location.search.includes('testdrive=1')) {
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
     wards() { _wards.open(); return true; },
+    ogham() { _ogham.open(); return true; },
     compass() { return _wards.compassPoints(); },
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },
