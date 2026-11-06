@@ -136,7 +136,8 @@ const DYES = [
   { id: 'heather_moss', label: 'Heather Moss', hex: 0x5d6b30 },
   { id: 'bramble_rust', label: 'Bramble Rust', hex: 0xa9582a },
   { id: 'elder_violet', label: 'Elder Violet', hex: 0x6a4c8e },
-  { id: 'whin_gold',    label: 'Whin Gold',    hex: 0xdcb22a }
+  { id: 'whin_gold',    label: 'Whin Gold',    hex: 0xdcb22a },
+  { id: 'crotal_brown', label: 'Crotal Brown', hex: 0x8a5232 }
 ];
 const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
 
@@ -171,7 +172,9 @@ const DYE_UNLOCKS = {
   heather_moss: { steep: { item: 'heather_sprig', qty: 4, gold: 30 } },
   bramble_rust: { steep: { item: 'bramble_vine',  qty: 4, gold: 30 } },
   elder_violet: { steep: { item: 'elderberry',    qty: 4, gold: 30 } },
-  whin_gold:    { steep: { item: 'gorse_bloom',   qty: 4, gold: 30 } }
+  whin_gold:    { steep: { item: 'gorse_bloom',   qty: 4, gold: 30 } },
+  // Lichen dyes need no mordant — nothing to buy, so no gold.
+  crotal_brown: { steep: { item: 'crotal',        qty: 4, gold: 0 } }
 };
 
 // What each plant dye really is, shown when you steep it. tier follows the
@@ -192,7 +195,10 @@ const PLANT_DYE_LORE = {
     source: 'M. Grieve, A Modern Herbal (1931), "Elder"' },
   whin_gold: { mordant: 'alum', tier: 'folk',
     lore: 'Whin (gorse) blossom boiled with the eggs turned them gold for Easter in Ireland and Scotland. On wool, with alum, it gives the same warm yellow.',
-    source: 'Irish and Scottish Easter custom (whin-blossom eggs)' }
+    source: 'Irish and Scottish Easter custom (whin-blossom eggs)' },
+  crotal_brown: { mordant: 'none', tier: 'record',
+    lore: 'Crotal, the lichen scraped from the rocks, boiled with the wool gave the rich red-brown of homespun and Harris tweed — no mordant needed. West-coast fishermen would not wear it at sea, nor take aboard anyone who did: what came from the rocks, they said, seeks the rocks again.',
+    source: 'Dictionary of the Scots Language, "crottle" (1927 rock-lichen brown for homespuns; 1941 Angus fishermen\'s belief)' }
 };
 function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
 function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }

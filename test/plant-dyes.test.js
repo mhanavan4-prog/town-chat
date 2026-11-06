@@ -22,11 +22,13 @@ function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', na
 
 // ── Catalog ──────────────────────────────────────────────────────────────────
 const PLANT = Object.keys(DYE_UNLOCKS).filter((k) => DYE_UNLOCKS[k].steep);
-check('five plant dyes are steepable', PLANT.length === 5, PLANT);
+check('six plant dyes are steepable', PLANT.length === 6, PLANT);
 check('every plant dye is in the palette with a colour', PLANT.every((id) => { const d = DYES.find((x) => x.id === id); return d && typeof d.hex === 'number'; }));
 check('every dyestuff is a real item', PLANT.every((id) => !!ITEM_CATALOG[DYE_UNLOCKS[id].steep.item]), PLANT.map((id) => DYE_UNLOCKS[id].steep.item));
-check('every plant dye has lore, a mordant, a source and a tier', PLANT.every((id) => { const l = PLANT_DYE_LORE[id]; return l && l.lore && l.source && /^(alum|copperas)$/.test(l.mordant) && /^(record|folk|revival)$/.test(l.tier); }));
+check('every plant dye has lore, a mordant, a source and a tier', PLANT.every((id) => { const l = PLANT_DYE_LORE[id]; return l && l.lore && l.source && /^(alum|copperas|none)$/.test(l.mordant) && /^(record|folk|revival)$/.test(l.tier); }));
 check('alder black uses copperas (iron), the recorded mordant for black', PLANT_DYE_LORE.alder_black.mordant === 'copperas');
+check('crotal needs no mordant, so costs no gold', PLANT_DYE_LORE.crotal_brown.mordant === 'none' && DYE_UNLOCKS.crotal_brown.steep.gold === 0);
+check('crotal carries the fishermen\'s belief from the record', /fishermen/.test(PLANT_DYE_LORE.crotal_brown.lore) && /Scots Language/.test(PLANT_DYE_LORE.crotal_brown.source));
 
 require('../server.js');
 
@@ -98,6 +100,20 @@ setTimeout(() => {
   check('buy_dye refuses a plant dye', (() => { const e = a.s.lastOfType('ms_error'); return e && /sale/.test(e.message); })());
   a.s.emit('message', JSON.stringify({ type: 'steep_dye', dye: 'obsidian' }));
   check('steep_dye refuses a Finery dye', (() => { const e = a.s.lastOfType('craft_error'); return e && /steep/.test(e.message); })());
+
+  // ── Crotal: stones in the Wilds, scraped for lichen, steeped free of gold ───
+  const stones = h.WORLD2.natureDecor.filter((d) => d.type === 'crotal_stone');
+  check('twelve crotal stones stand in the Wilds', stones.length === 12, stones.length);
+  check('crotal stones have unique ids', new Set(stones.map((d) => d.id)).size === 12);
+  check('a crotal stone yields crotal lichen', h.WILDS_FLORA_HARVEST.crotal_stone === 'crotal');
+  check('crotal lichen is a real item', !!ITEM_CATALOG.crotal && ITEM_CATALOG.crotal.name === 'Crotal Lichen');
+  h.addItemToAccount(inv, 'crotal', 4);
+  const goldBefore = bank.balance;
+  a.s.emit('message', JSON.stringify({ type: 'steep_dye', dye: 'crotal_brown' }));
+  const cb = a.s.lastOfType('dye_bought');
+  check('crotal brown steeps', cb && cb.dye === 'crotal_brown' && (h.playerProgress.hedgedyer.dyeUnlocks || []).includes('crotal_brown'));
+  check('crotal brown takes the lichen and no gold', h.countItemQty(inv, 'crotal') === 0 && bank.balance === goldBefore, { crotal: h.countItemQty(inv, 'crotal'), bank: bank.balance });
+  check('its message says it needs no mordant', cb && /boiled straight/.test(cb.message) && !/steeped with none/.test(cb.message), cb && cb.message);
 
   // ── Ember shows as earned once the Trials are done ──────────────────────────
   check('Ember is not earned before the Trials', !h.dyesEarnedFor(a.p).includes('ember'));
