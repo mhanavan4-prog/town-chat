@@ -769,6 +769,94 @@
        world dim itself is #menuScrim, matching the ☰ sheet and .overlay. */
     box-shadow:0 8px 30px rgba(0,0,0,0.55) !important; z-index:60 !important;
   }
+  /* Close is pinned to EXACTLY the same spot in every uniform menu (desktop):
+     each frame is a column, Close is pushed to the bottom (margin-top:auto)
+     and stays there while long content scrolls behind it (sticky). The
+     overlay cards' Close is widened to the float panels' exact inset, and
+     their bottom padding matched, so it lands at the same pixels — x 16px
+     inside the frame, bottom 16px above it — whichever menu is open. Error
+     lines that followed Close in the markup now sit just above it. */
+  body:not(.touchMode) #bookModal, body:not(.touchMode) #familiarModal, body:not(.touchMode) #guiseModal,
+  body:not(.touchMode) #pathModal, body:not(.touchMode) #kitchenModal, body:not(.touchMode) #gardenModal,
+  body:not(.touchMode) #homeModal, body:not(.touchMode) #tarotModal, body:not(.touchMode) #ancestorModal,
+  body:not(.touchMode) #releaseModal, body:not(.touchMode) #scryModal, body:not(.touchMode) #pendulumModal,
+  body:not(.touchMode) #moonWellModal, body:not(.touchMode) #runeModal, body:not(.touchMode) #journalModal,
+  body:not(.touchMode) #skillsModal, body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
+  body:not(.touchMode) #bonfireModal, body:not(.touchMode) #showcaseModal, body:not(.touchMode) #oghamModal,
+  body:not(.touchMode) #cordsModal, body:not(.touchMode) #practicesModal, body:not(.touchMode) #charmBookModal,
+  body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card, body:not(.touchMode) #wardrobeModal > .card,
+  body:not(.touchMode) #achModal > .card, body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
+  body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card, body:not(.touchMode) #delveModal > .card,
+  body:not(.touchMode) #msModal > .card, body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
+  body:not(.touchMode) #controlsModal > .card, body:not(.touchMode) #wardsModal > .card, body:not(.touchMode) #bedChestCard {
+    display:flex; flex-direction:column;
+  }
+  body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card, body:not(.touchMode) #wardrobeModal > .card,
+  body:not(.touchMode) #achModal > .card, body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
+  body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card, body:not(.touchMode) #delveModal > .card,
+  body:not(.touchMode) #msModal > .card, body:not(.touchMode) #notifModal > .card, body:not(.touchMode) #bugModal > .card,
+  body:not(.touchMode) #controlsModal > .card, body:not(.touchMode) #wardsModal > .card, body:not(.touchMode) #bedChestCard { padding-bottom:15px; }
+  body:not(.touchMode) #bookCloseBtn, body:not(.touchMode) #familiarCloseBtn, body:not(.touchMode) #guiseCloseBtn,
+  body:not(.touchMode) #pathCloseBtn, body:not(.touchMode) #kitchenCloseBtn, body:not(.touchMode) #gardenCloseBtn,
+  body:not(.touchMode) #homeCloseBtn, body:not(.touchMode) #tarotCloseBtn, body:not(.touchMode) #ancestorCloseBtn,
+  body:not(.touchMode) #releaseCloseBtn, body:not(.touchMode) #scryCloseBtn, body:not(.touchMode) #pendulumCloseBtn,
+  body:not(.touchMode) #moonWellCloseBtn, body:not(.touchMode) #runeCloseBtn, body:not(.touchMode) #journalCloseBtn,
+  body:not(.touchMode) #skillsCloseBtn, body:not(.touchMode) #attackCloseBtn, body:not(.touchMode) #spellbookCloseBtn,
+  body:not(.touchMode) #bonfireCloseBtn, body:not(.touchMode) #showcaseCloseBtn, body:not(.touchMode) #oghamCloseBtn,
+  body:not(.touchMode) #cordsCloseBtn, body:not(.touchMode) #practicesCloseBtn, body:not(.touchMode) #charmBookCloseBtn,
+  body:not(.touchMode) #titlesCloseBtn, body:not(.touchMode) #loadoutCloseBtn, body:not(.touchMode) #wardrobeCloseBtn,
+  body:not(.touchMode) #achCloseBtn, body:not(.touchMode) #codexCloseBtn, body:not(.touchMode) #passModalCloseBtn,
+  body:not(.touchMode) #boardCloseBtn, body:not(.touchMode) #covenCloseBtn, body:not(.touchMode) #delveCloseBtn,
+  body:not(.touchMode) #msModalCloseBtn, body:not(.touchMode) #notifCloseBtn, body:not(.touchMode) #controlsCloseBtn,
+  body:not(.touchMode) #wardsCloseBtn, body:not(.touchMode) #bedChestCloseBtn,
+  body:not(.touchMode) #bugCard > div:last-child {
+    order:9; margin-top:auto !important; margin-bottom:0 !important;
+    position:sticky; bottom:0; z-index:5; flex-shrink:0;
+    box-shadow:0 14px 0 0 rgb(21, 16, 11), 14px 14px 0 0 rgb(21, 16, 11), -14px 14px 0 0 rgb(21, 16, 11),
+      14px 0 0 0 rgb(21, 16, 11), -14px 0 0 0 rgb(21, 16, 11); /* sides + below: content scrolling under it stays hidden */
+  }
+  body:not(.touchMode) #titlesCloseBtn, body:not(.touchMode) #loadoutCloseBtn, body:not(.touchMode) #wardrobeCloseBtn,
+  body:not(.touchMode) #achCloseBtn, body:not(.touchMode) #codexCloseBtn, body:not(.touchMode) #passModalCloseBtn,
+  body:not(.touchMode) #boardCloseBtn, body:not(.touchMode) #covenCloseBtn, body:not(.touchMode) #delveCloseBtn,
+  body:not(.touchMode) #msModalCloseBtn, body:not(.touchMode) #notifCloseBtn, body:not(.touchMode) #controlsCloseBtn,
+  body:not(.touchMode) #wardsCloseBtn, body:not(.touchMode) #bedChestCloseBtn,
+  body:not(.touchMode) #bugCard > div:last-child {
+    margin-left:-11px !important; margin-right:-11px !important; width:auto !important; align-self:stretch;
+  }
+  /* A 12px band above the pinned Close (content scrolls under it) and a 12px
+     spacer just before Close in the flow, so at the end of a long menu the
+     last line stops clear of the button instead of under it. */
+  body:not(.touchMode) #bookCloseBtn::before, body:not(.touchMode) #familiarCloseBtn::before, body:not(.touchMode) #guiseCloseBtn::before,
+  body:not(.touchMode) #pathCloseBtn::before, body:not(.touchMode) #kitchenCloseBtn::before, body:not(.touchMode) #gardenCloseBtn::before,
+  body:not(.touchMode) #homeCloseBtn::before, body:not(.touchMode) #tarotCloseBtn::before, body:not(.touchMode) #ancestorCloseBtn::before,
+  body:not(.touchMode) #releaseCloseBtn::before, body:not(.touchMode) #scryCloseBtn::before, body:not(.touchMode) #pendulumCloseBtn::before,
+  body:not(.touchMode) #moonWellCloseBtn::before, body:not(.touchMode) #runeCloseBtn::before, body:not(.touchMode) #journalCloseBtn::before,
+  body:not(.touchMode) #skillsCloseBtn::before, body:not(.touchMode) #attackCloseBtn::before, body:not(.touchMode) #spellbookCloseBtn::before,
+  body:not(.touchMode) #bonfireCloseBtn::before, body:not(.touchMode) #showcaseCloseBtn::before, body:not(.touchMode) #oghamCloseBtn::before,
+  body:not(.touchMode) #cordsCloseBtn::before, body:not(.touchMode) #practicesCloseBtn::before, body:not(.touchMode) #charmBookCloseBtn::before,
+  body:not(.touchMode) #titlesCloseBtn::before, body:not(.touchMode) #loadoutCloseBtn::before, body:not(.touchMode) #wardrobeCloseBtn::before,
+  body:not(.touchMode) #achCloseBtn::before, body:not(.touchMode) #codexCloseBtn::before, body:not(.touchMode) #passModalCloseBtn::before,
+  body:not(.touchMode) #boardCloseBtn::before, body:not(.touchMode) #covenCloseBtn::before, body:not(.touchMode) #delveCloseBtn::before,
+  body:not(.touchMode) #msModalCloseBtn::before, body:not(.touchMode) #notifCloseBtn::before, body:not(.touchMode) #controlsCloseBtn::before,
+  body:not(.touchMode) #wardsCloseBtn::before, body:not(.touchMode) #bedChestCloseBtn::before, body:not(.touchMode) #bugCard > div:last-child::before {
+    content:''; position:absolute; left:-14px; right:-14px; top:-12px; height:12px;
+    background:rgb(21, 16, 11); pointer-events:none;
+  }
+  body:not(.touchMode) #bookModal::after, body:not(.touchMode) #familiarModal::after, body:not(.touchMode) #guiseModal::after,
+  body:not(.touchMode) #pathModal::after, body:not(.touchMode) #kitchenModal::after, body:not(.touchMode) #gardenModal::after,
+  body:not(.touchMode) #homeModal::after, body:not(.touchMode) #tarotModal::after, body:not(.touchMode) #ancestorModal::after,
+  body:not(.touchMode) #releaseModal::after, body:not(.touchMode) #scryModal::after, body:not(.touchMode) #pendulumModal::after,
+  body:not(.touchMode) #moonWellModal::after, body:not(.touchMode) #runeModal::after, body:not(.touchMode) #journalModal::after,
+  body:not(.touchMode) #skillsModal::after, body:not(.touchMode) #attackModal::after, body:not(.touchMode) #spellbookModal::after,
+  body:not(.touchMode) #bonfireModal::after, body:not(.touchMode) #showcaseModal::after, body:not(.touchMode) #oghamModal::after,
+  body:not(.touchMode) #cordsModal::after, body:not(.touchMode) #practicesModal::after, body:not(.touchMode) #charmBookModal::after,
+  body:not(.touchMode) #titlesModal > .card::after, body:not(.touchMode) #loadoutModal > .card::after, body:not(.touchMode) #wardrobeModal > .card::after,
+  body:not(.touchMode) #achModal > .card::after, body:not(.touchMode) #codexModal > .card::after, body:not(.touchMode) #passModal > .card::after,
+  body:not(.touchMode) #boardModal > .card::after, body:not(.touchMode) #covenModal > .card::after, body:not(.touchMode) #delveModal > .card::after,
+  body:not(.touchMode) #msModal > .card::after, body:not(.touchMode) #notifModal > .card::after, body:not(.touchMode) #bugModal > .card::after,
+  body:not(.touchMode) #controlsModal > .card::after, body:not(.touchMode) #wardsModal > .card::after, body:not(.touchMode) #bedChestCard::after {
+    content:''; order:8; flex:0 0 12px;
+  }
   /* The wider inventory spreads its items across more columns. */
   body:not(.touchMode) #inventoryPanel .itemSlotsGrid { grid-template-columns:repeat(8, 1fr); }
   /* The overlay-style menus (Titles, Loadout, Codex, Collection Log, Coven,
