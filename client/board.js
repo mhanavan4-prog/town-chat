@@ -142,6 +142,12 @@ function renderCallers(list, meNote) {
         body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
+      } else if (s.kind === 'rite' && !s.done && s.rite) {
+        // A Hallowe'en rite: how it's done (after Burns's notes), then do it.
+        body.appendChild(el('div', 'callerStepNote', s.rite.how));
+        const b = el('button', 'btn charmSay', `${s.rite.icon} ${s.rite.name}`);
+        b.addEventListener('click', () => { b.disabled = true; send({ type: 'rite_do' }); });
+        body.appendChild(b);
       } else if (s.kind === 'charm' && !s.done && s.charm) {
         // Say it line by line: the lines already said, then the next to say.
         const box = el('div', 'charmBox');

@@ -420,6 +420,59 @@ const CALLERS = [
     source: 'E. B. Tylor, Primitive Culture (1871), vol. 1 · Brewer, Dictionary of Phrase and Fable (1895), "Key and the Bible" · Dumfries Museum, key in a Bible (DUMFM:1948.78.1) and the 1697 Cummertrees case',
     reward: { gold: 60, xp: 45 },
   },
+  // ── Hallowe'en night (Samhain season only) ──
+  {
+    id: 'hallowe_en_nuts',
+    season: 'samhain',
+    caller: 'Jenny and Nell Gibb',
+    icon: '🌰',
+    title: "Hallowe'en at the Gibbs'",
+    plea: "It's Hallowe'en, and Mother says we're too old for it and too young to stop. Nell's set her heart on Rab the miller's lad and won't hear a word. Will you come and do the nuts and the luggies properly, the way Granny did?",
+    steps: [
+      { kind: 'rite', rite: 'nuts', label: 'Burn the nuts for Nell and her lad' },
+      { kind: 'rite', rite: 'luggies', label: 'Set out the three luggies' },
+    ],
+    resolution: "Whatever the fire says, the kitchen's full of laughing by the end of it, and Nell has burnt her fingers fishing her nut back out. You tell them what every Hallowe'en has always been for: a night to say aloud who you like, and blame it on the nuts.",
+    lore: "Burns wrote \"Halloween\" in 1785 and gave it his own notes on the charms of a west-of-Scotland Hallowe'en: nuts named for a lad and a lass and laid in the fire — whether they burned quietly together or started apart foretold the courtship — and the three luggies, clean water, foul and empty, dipped into blindfold with the left hand.",
+    tier: 'record',
+    source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'hallowe_en_kail',
+    season: 'samhain',
+    caller: 'Davie Muir',
+    icon: '🥬',
+    title: 'The Kail Yard at Midnight',
+    plea: "Everyone's out in the kail yard with their eyes shut, pulling stocks and screaming. I'm not doing it in front of them. Will you do it with me — the stock and then the apple at the glass, properly — and not tell a soul?",
+    steps: [
+      { kind: 'rite', rite: 'kail', label: 'Pull a kail stock with your eyes shut' },
+      { kind: 'rite', rite: 'apple', label: 'Eat an apple at the glass by candlelight' },
+      { kind: 'deliver', item: 'crab_apple', qty: 1, label: 'An apple for the glass' },
+    ],
+    resolution: "He reads his kail stock very seriously, eats the apple at the glass very seriously, and goes very red at whatever he does or doesn't see over his shoulder. You keep your word and tell nobody. He comes back at Martinmas to say it was the coat on the door after all, and also that he's walking out with the schoolmaster's daughter.",
+    lore: "Two of the charms Burns explained in his notes to \"Halloween\": pulling the first kail stalk you meet with your eyes shut — its size and shape the shape of your future spouse, earth at the root a dowry, the taste of the heart their temper — and eating an apple alone before a looking-glass by candlelight, to see a face over your shoulder.",
+    tier: 'record',
+    source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
+    reward: { gold: 55, xp: 40 },
+  },
+  {
+    id: 'hallowe_en_clue',
+    season: 'samhain',
+    caller: 'Meg Haddow',
+    icon: '🧶',
+    title: 'The Blue Clue',
+    plea: "I've a clue of blue yarn and the key of the kiln, and I've not the nerve to go alone. Granny says you have to be alone or it doesn't hold. Will you wait by the door while I wind it — and tell me true what you hear?",
+    steps: [
+      { kind: 'rite', rite: 'clue', label: 'Wind the blue clue at the kiln-pot' },
+      { kind: 'scry', label: 'Look in the bowl for what she heard' },
+    ],
+    resolution: "You stand outside in the frost while she winds. When she comes out she won't say what she heard, or whether she heard anything, only that she's glad she went. That's the whole of it, and it's enough. You walk her home past the kirkyard the long way.",
+    lore: "Burns's note on the blue clue: go alone to the kiln, throw a clue of blue yarn into the pot and wind it on to a new clue; towards the end something will hold the thread — ask \"Wha hauds?\" and an answer from the kiln-pot will name your future spouse.",
+    tier: 'record',
+    source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
+    reward: { gold: 50, xp: 40 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
@@ -427,6 +480,8 @@ const CALLERS_PER_DAY = 3;
 // step's suspects one by one until the sieve turns (lib/callers.js sieve_turn).
 // 'charm' — a spoken charm (data/charms.js), said line by line on the Board.
 // 'key' — the key and Bible: like the sieve, the suspects named on the Board.
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key'];
+// 'rite' — a Hallowe'en love divination (data/halloween.js); callers with
+// season: 'samhain' come only in that season.
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
