@@ -12,9 +12,10 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **IN PROGRESS.** A, E, B, C, F and D are built (Callers at the Door,
-> Reading the Leaves, Threshold & Hearth, The Tree Alphabet, Knots & the Wind,
-> Planetary Hours). G is a proposal.
+> Status: **BUILT.** All seven proposals are in: A Callers at the Door, E Reading
+> the Leaves, B Threshold & Hearth, C The Tree Alphabet, F Knots & the Wind,
+> D Planetary Hours, G The Nine Herbs Charm. Each section below notes what
+> shipped and where it differs from the proposal.
 
 ---
 
@@ -253,7 +254,15 @@ game currently does.
 
 ---
 
-### G. The Nine Herbs Charm — *a real recipe as a capstone*
+### G. The Nine Herbs Charm — *a real recipe as a capstone* ✅ BUILT
+
+> The seven herbs the garden lacked — waybread, lamb's cress, nettle, betony,
+> crab apple, chervil, fennel — arrive in a packet from Mother Yarrow once the
+> Cottage Garden chapters are done (held if the pack is full). With mugwort and
+> chamomile they make the nine; Hazel compounds the Nine Herbs Salve from one of
+> each, and the charm is recited line by line as she works — the herbs under
+> their Old English names, the uncertain identifications marked (?), then
+> Woden's nine glory-twigs. Source line: Lacnunga, Harley MS 585.
 
 **The lore.** From the *Lacnunga*, an Old English manuscript of c. 1000 AD: a
 metrical charm naming nine herbs against poison and infection — mugwort,
@@ -301,5 +310,6 @@ expansion of the Cottage Garden plant list.
 | 7 | **G — Nine Herbs Charm** | A gentle capstone, once the Cottage Garden grows |
 
 The through-line, if only one thing is taken from this document: **give the six
-Witch Paths verbs.** Each one is named for a real tradition full of things
+Witch Paths verbs.** (Done for two so far: the Hearth Witch wards her house, the
+Sea Witch sells the wind. The Green, Lunar, Hedge and Kitchen paths are next.) Each one is named for a real tradition full of things
 people did. Right now each is a number.

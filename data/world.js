@@ -325,6 +325,17 @@ const PLANT_CATALOG = {
   foxglove_cordial:       { name: 'Foxglove Cordial',       icon: '🍷', effect: 'heal',    amount: 100 },
   hellebore_ward:         { name: 'Hellebore Ward',         icon: '🕯️', effect: 'ward',   durationMs: 75000 },
   draught_of_the_green_path: { name: 'Draught of the Green Path', icon: '🏵️', effect: 'status', statusType: 'ravencloak', durationMs: 300000 },
+  // ── The Nine Herbs Charm (blueprint G): the Lacnunga herbs new to the
+  // Cottage Garden, and the salve they make. Appended at the END so every
+  // existing wdecor_<i>_<n> id (indexed by PLANT_KEYS order) stays stable.
+  plantain:               { name: 'Waybread (Plantain)',    icon: '🌱', effect: 'heal',    amount: 35 },
+  lambs_cress:            { name: "Lamb's Cress",           icon: '🥬', effect: 'heal',    amount: 30 },
+  nettle:                 { name: 'Nettle',                 icon: '🌿', effect: 'status',  statusType: 'regen',      durationMs: 14000 },
+  betony:                 { name: 'Betony',                 icon: '🪻', effect: 'cleanse' },
+  crab_apple:             { name: 'Crab Apple',             icon: '🍏', effect: 'heal',    amount: 40 },
+  chervil:                { name: 'Chervil',                icon: '🌿', effect: 'heal',    amount: 25 },
+  fennel:                 { name: 'Fennel',                 icon: '🌾', effect: 'status',  statusType: 'regen',      durationMs: 16000 },
+  nine_herbs_salve:       { name: 'The Nine Herbs Salve',   icon: '⚕️', effect: 'heal',    amount: 250 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

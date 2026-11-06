@@ -1619,7 +1619,9 @@ const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomi
   // Poison Path band (chapter-granted + garden-grown).
   'belladonna', 'henbane', 'mandrake', 'wolfsbane', 'datura', 'hemlock', 'foxglove', 'black_hellebore',
   'flying_ointment', 'henbane_smoke', 'mandrake_draught', 'wolfsbane_draught', 'datura_trance',
-  'hemlock_philter', 'foxglove_cordial', 'hellebore_ward', 'draught_of_the_green_path']);
+  'hemlock_philter', 'foxglove_cordial', 'hellebore_ward', 'draught_of_the_green_path',
+  // The Lacnunga herbs + their salve (garden-grown from Mother Yarrow's packet).
+  'plantain', 'lambs_cress', 'nettle', 'betony', 'crab_apple', 'chervil', 'fennel', 'nine_herbs_salve']);
 WORLD2.natureDecor = PLANT_KEYS.flatMap((type, i) => {
   if (BREW_RESULT_KEYS.has(type) || NON_WILD_CONSUMABLES.has(type)) return [];
   const out = [];
@@ -3093,6 +3095,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { NINE_HERBS, WODEN_LINES, NEW_GARDEN_HERBS, LACNUNGA_SEEDS_PER_HERB, NINE_HERBS_LORE } = require('./data/nineHerbs'); // blueprint G: the Nine Herbs Charm
 const { HOUR_LORE, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
@@ -4619,6 +4622,31 @@ function greenPathQualifies(obj, detail) {
   if (detail.recipe) return (detail.recipe.ingredients || []).some((i) => band.includes(i.id));
   return false;
 }
+// ── The Nine Herbs Charm (blueprint G) — Mother Yarrow's packet ─────────────
+// Once the Cottage Garden chapters are done (the first three), Mother Yarrow
+// gives the seven Lacnunga herbs the garden lacked, once. Checked when the
+// garden opens and after each chapter, so players already past it get theirs.
+const LACNUNGA_AFTER_CHAPTER = 3;
+function maybeGiveLacnungaSeeds(player, opts) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  if (!a || a.lacnungaGiven) return false;
+  if (greenPathOf(player).chapter < LACNUNGA_AFTER_CHAPTER) return false;
+  const inv = getInventory(player);
+  const free = inv.slots.filter((x) => !x).length;
+  const newStacks = NEW_GARDEN_HERBS.filter((id) => countItemQty(inv, id) === 0).length;
+  if (free < newStacks) {
+    // A full pack keeps it for later. Say so only when the garden is opened —
+    // not on top of a chapter toast that is already telling them about room.
+    if (!(opts && opts.quietIfFull)) send(player.ws, { type: 'toast', message: '🌿 Mother Yarrow has a packet of seed for you — clear some room in your pack and open the garden again.' });
+    return false;
+  }
+  for (const id of NEW_GARDEN_HERBS) addItemToAccount(inv, id, LACNUNGA_SEEDS_PER_HERB);
+  a.lacnungaGiven = true;
+  saveAccounts(); saveInventories();
+  send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+  send(player.ws, { type: 'toast', message: '🌿 Mother Yarrow presses a twist of paper into your hand. "Waybread, lamb\'s cress, nettle, betony, crab apple, chervil, fennel. With the mugwort and the chamomile you\'ve already got — that\'s the nine. The old book has a charm for them. Hazel knows it."' });
+  return true;
+}
 function greenPathEvent(player, type, detail) {
   if (!player || !player.accountKey) return;
   const gp = greenPathOf(player);
@@ -4638,6 +4666,7 @@ function greenPathEvent(player, type, detail) {
   const { got, held } = grantRewardItems(player, ch.itemRewards, ch.title);
   const rewards = [`+${ch.xpReward || 0} XP`, ch.goldReward ? `+${ch.goldReward}🪙` : '', got.join(', ')].filter(Boolean).join(' · ') + heldNote(held);
   try { send(player.ws, { type: 'toast', message: `🌿 Green Path — "${ch.title}" complete! ${ch.outro}  (${rewards})` }); } catch (e) {}
+  try { maybeGiveLacnungaSeeds(player, { quietIfFull: true }); } catch (e) { /* noop */ } // the Nine Herbs packet, once the Cottage Garden is done
 
   // ── Capstone: finishing the whole path earns the trophies ──
   if (gp.chapter >= GREEN_PATH.length) {
@@ -15998,6 +16027,7 @@ wss.on('connection', (ws, req) => {
     // ── Green-witch gardening: plant a herb, let it grow, harvest more ──
     if (msg.type === 'garden_state') {
       if (!player.accountKey) { send(ws, { type: 'garden_state', plots: [], plantable: PLANTABLE_HERBS }); return; }
+      maybeGiveLacnungaSeeds(player); // the Nine Herbs (blueprint G) — once, after the Cottage Garden
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
       return;
     }
@@ -16388,7 +16418,9 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'witch_craft_result',
         resultIcon: resultItem?.icon || '🧪',
         resultName: resultItem?.name || recipe.result,
-        message: `🧪 Hazel brews your herbs into ${resultItem?.name || recipe.result}!`
+        message: `🧪 Hazel brews your herbs into ${resultItem?.name || recipe.result}!`,
+        // The Nine Herbs Charm is spoken as it is made (blueprint G).
+        ...(recipe.id === 'nine_herbs_salve' ? { recital: { herbs: NINE_HERBS.map((h) => ({ name: h.name, oe: h.oe, line: h.line, uncertain: !!h.uncertain })), woden: WODEN_LINES, lore: NINE_HERBS_LORE } } : {}),
       });
       // Brewing at Hazel's cauldron is the Witch campaign's finale objective.
       storyEvent(player, 'craft_potion', { recipeId });
@@ -17239,7 +17271,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,

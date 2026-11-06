@@ -3193,6 +3193,7 @@ function onWsMessage(ev) {
     if (errEl) errEl.textContent = '';
     if (typeof playSfx === 'function') playSfx('brew');
     setUnlockToast(msg.message);
+    if (msg.recital) showRecital(msg.recital); // the Nine Herbs Charm, spoken as it is made
     return;
   }
 
@@ -12198,6 +12199,49 @@ function mabelGreeting(hp) {
   return "Keep the kettle warm, dear. The hearth rewards a patient hand.";
 }
 const TEA_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// ⚕️ The Nine Herbs Charm (blueprint G) — recited line by line as Hazel works.
+let _recitalTimer = null;
+function showRecital(r) {
+  const modal = document.getElementById('recitalModal');
+  const body = document.getElementById('recitalBody');
+  if (!modal || !body || !r) return;
+  if (_recitalTimer) { clearInterval(_recitalTimer); _recitalTimer = null; }
+  body.innerHTML = '';
+  const lines = [];
+  for (const h of r.herbs || []) lines.push({ cls: 'rcHerb', head: `${h.name} · ${h.oe}${h.uncertain ? ' (?)' : ''}`, text: h.line });
+  for (const w of r.woden || []) lines.push({ cls: 'rcWoden', text: w });
+  const add = (ln) => {
+    const row = document.createElement('div'); row.className = 'rcLine ' + ln.cls;
+    if (ln.head) { const hd = document.createElement('div'); hd.className = 'rcHead'; hd.textContent = ln.head; row.appendChild(hd); }
+    const tx = document.createElement('div'); tx.className = 'rcText'; tx.textContent = ln.text; row.appendChild(tx);
+    body.appendChild(row); body.scrollTop = body.scrollHeight;
+  };
+  const addLore = () => {
+    const lore = document.createElement('div'); lore.className = 'ogLore';
+    const tier = document.createElement('span'); tier.className = 'callerTier callerTier-record'; tier.textContent = 'Archaeological / documentary'; lore.appendChild(tier);
+    const t = document.createElement('div'); t.className = 'callerLoreText'; t.textContent = r.lore && r.lore.text || ''; lore.appendChild(t);
+    const src = document.createElement('div'); src.className = 'callerSource'; src.textContent = `Source: ${(r.lore && r.lore.source) || ''}`; lore.appendChild(src);
+    body.appendChild(lore);
+    body.scrollTop = body.scrollHeight;
+  };
+  modal.classList.remove('hidden');
+  Modals.set('recitalOpen', true);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { lines.forEach(add); addLore(); return; }
+  let i = 0;
+  add(lines[i++]);
+  _recitalTimer = setInterval(() => {
+    if (i < lines.length) add(lines[i++]);
+    else { clearInterval(_recitalTimer); _recitalTimer = null; addLore(); }
+  }, 1700);
+}
+function closeRecital() {
+  if (_recitalTimer) { clearInterval(_recitalTimer); _recitalTimer = null; }
+  const modal = document.getElementById('recitalModal'); if (modal) modal.classList.add('hidden');
+  Modals.set('recitalOpen', false);
+}
+(function () { const b = document.getElementById('recitalCloseBtn'); if (b) b.addEventListener('click', closeRecital); })();
+
 // ☕ Reading the Leaves (blueprint E) — the cup's dregs, read after drinking.
 let lastLeavesReading = null;
 function leavesPanelHtml(st) {
@@ -18406,6 +18450,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.repeat) { closeBoardModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
+  if (Modals.isOpen('recitalOpen')) {
+    if (e.key === 'Escape' && !e.repeat) closeRecital();
+    return;
+  }
   if (Modals.isOpen('wardsOpen')) {
     if (e.key === 'Escape' && !e.repeat) _wards.close();
     return;
@@ -19515,6 +19563,7 @@ if (location.search.includes('testdrive=1')) {
     wards() { _wards.open(); return true; },
     ogham() { _ogham.open(); return true; },
     cords() { _cords.open(); return true; },
+    recital(r) { showRecital(r); return true; },
     compass() { return _wards.compassPoints(); },
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },

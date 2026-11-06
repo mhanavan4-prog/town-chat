@@ -110,6 +110,10 @@ const POTION_RECIPES = [
   { id: 'rowan_charm', result: 'rowan_charm',
     ingredients: [{ id: 'rowan_berry', qty: 2 }],
     desc: '2× Rowan Berry → Rowan Charm (the witch-tree ward — curse immunity 60s)' },
+  // ── The Nine Herbs Charm (Lacnunga, c. AD 1000): the Cottage Garden capstone ──
+  { id: 'nine_herbs_salve', result: 'nine_herbs_salve',
+    ingredients: [{ id: 'mugwort', qty: 1 }, { id: 'plantain', qty: 1 }, { id: 'lambs_cress', qty: 1 }, { id: 'nettle', qty: 1 }, { id: 'betony', qty: 1 }, { id: 'chamomile', qty: 1 }, { id: 'crab_apple', qty: 1 }, { id: 'chervil', qty: 1 }, { id: 'fennel', qty: 1 }],
+    desc: 'The nine herbs of the Lacnunga → The Nine Herbs Salve (heals 250 — recited as it is made)' },
   // ── Threshold & Hearth: the witch bottle, buried under your cottage hearth ──
   { id: 'witch_bottle', result: 'witch_bottle',
     ingredients: [{ id: 'bellarmine_jug', qty: 1 }, { id: 'bent_pins', qty: 1 }, { id: 'iron_nails', qty: 1 }],
