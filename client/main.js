@@ -12240,6 +12240,7 @@ function renderKitchenModal() {
 
   let h = tabs;
   if (kitchenView === 'almanac') {
+    if (calendarState && calendarState.hourLore) h += `<div class="almIntro hourLore"><b>⏳ The planetary hours.</b> ${escHtml(calendarState.hourLore)}</div>`;
     h += `<div class="almIntro">A hearth-witch's record of every tea she has steeped. <b>${discovered} of ${st.teas.length}</b> brewed.`
       + `<div class="almBar"><span style="width:${st.teas.length ? Math.round(discovered / st.teas.length * 100) : 0}%"></span></div></div>`;
     for (const pl of planets) {
@@ -12314,6 +12315,9 @@ function renderKitchenModal() {
     }
   }
   h += leavesPanelHtml(st);
+  // ✨ The planetary hour (blueprint D): the hour's own planet steeps truer still.
+  { const hr = currentPlanetaryHour() || st.hour;
+    if (hr) h += `<div class="gardenHint hourHint">✨ <b>${escHtml(hr.glyph)} The hour of ${escHtml(hr.name)}</b> — the ${escHtml(planetaryHourLabel(hr))}. A ${escHtml(TEA_DAY_NAMES[hr.planetDay])} tea brewed now holds <b>×${st.hourBonus || 1.25}</b> longer — and stacks with its day.</div>`; }
   h += `<div class="gardenHint">Steep a herb into a tea and sip it on the spot. Each day is ruled by a planet; brew a tea on its day and it holds half again as long (×${st.dayBonus || 1.5}). Most brew from herbs you grow on the Green Path.</div>`;
   if (cottageVisiting && me && me.room === 'cottage') h += `<div class="gardenHint" style="color:#ffc48a">🍵 You're in ${escHtml(cottageHostName || 'their')}'s cottage — brew a cup to <b>leave as a gift</b>. They'll find it when they're home.</div>`;
   else if (st.atHearth) h += `<div class="gardenHint" style="color:#ffc48a">🔥 You're at your own hearth — this steep holds <b>×${st.hearthBonus || 1.25}</b> longer, and stacks with the day bonus.</div>`;
@@ -12322,7 +12326,9 @@ function renderKitchenModal() {
     const group = byDay[pl.day] || [];
     if (!group.length) continue;
     const onDay = st.today === pl.day;
-    h += `<div class="teaPlanet${onDay ? ' today' : ''}"><span class="tpGlyph">${pl.glyph}</span><span class="tpName">${escHtml(pl.planet)}</span><span class="tpDay">${escHtml(TEA_DAY_NAMES[pl.day])}${onDay ? ' · ✨ today' : ''}</span></div>`;
+    const _hr = currentPlanetaryHour() || st.hour;
+    const onHour = !!(_hr && _hr.planetDay === pl.day);
+    h += `<div class="teaPlanet${onDay ? ' today' : ''}${onHour ? ' hour' : ''}"><span class="tpGlyph">${pl.glyph}</span><span class="tpName">${escHtml(pl.planet)}</span><span class="tpDay">${escHtml(TEA_DAY_NAMES[pl.day])}${onDay ? ' · ✨ today' : ''}${onHour ? ' · ⏳ this hour' : ''}</span></div>`;
     h += '<div class="menuCols">';
     for (const tea of group) h += teaBrewCard(tea, ingText, st);
     h += '</div>';
@@ -15438,6 +15444,7 @@ function applyCalendarState(cal) {
   calendarState = cal || calendarState;
   renderEventTag();
   renderMoonTag();
+  renderHourTag();
   if (Modals.isOpen('bookOpen')) renderBookModal();
   // If the sabbat turns while you're standing in the cottage, re-dress the room.
   if (activeScene === cottageScene) { try { applyCottageDressing(); } catch (e) { /* cosmetic */ } }
@@ -15446,6 +15453,36 @@ function applyCalendarState(cal) {
 // phase is readable at a glance — the full moon glows gold (esbat / charge moon
 // water), a blood moon glows red. Phase + flavor come from the server's
 // calendar_state (calendarState.moon); the client only displays it.
+// ── The planetary hour (blueprint D) ─────────────────────────────────────────
+// The server ships a run of upcoming hours in the calendar state; the chip just
+// picks the one in force, so it ticks over without a message every hour.
+const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+function currentPlanetaryHour() {
+  const hrs = calendarState && calendarState.hours;
+  if (!Array.isArray(hrs)) return null;
+  const now = Date.now();
+  return hrs.find((x) => now >= x.start && now < x.end) || null;
+}
+function planetaryHourLabel(h) {
+  const nth = ORDINAL[h.isDay ? h.n : h.n - 12] || '';
+  return `${nth} hour of the ${h.isDay ? 'day' : 'night'} at Greenwich`;
+}
+let _hoursAskedAt = 0;
+function renderHourTag() {
+  const el = document.getElementById('hourTag');
+  if (!el) return;
+  // Ask for a fresh run before this one is spent (at most every ten minutes).
+  const hrs = calendarState && calendarState.hours;
+  const left = Array.isArray(hrs) ? hrs.filter((x) => x.end > Date.now()).length : 0;
+  if (left < 4 && Date.now() - _hoursAskedAt > 600000 && ws && ws.readyState === WebSocket.OPEN) { _hoursAskedAt = Date.now(); ws.send(JSON.stringify({ type: 'calendar_state' })); }
+  const h = currentPlanetaryHour();
+  if (!h || !me) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.textContent = `${h.glyph} Hour of ${h.name.replace(/^the /, '')}`;
+  const mins = Math.max(1, Math.round((h.end - Date.now()) / 60000));
+  el.title = `${h.glyph} The hour of ${h.name} — the ${planetaryHourLabel(h)} (${mins} min left).\n${TEA_DAY_NAMES[h.planetDay]}'s planet: a ${TEA_DAY_NAMES[h.planetDay]} tea brewed now holds longer.\n\n${calendarState.hourLore || ''}`;
+}
+(function () { const t = document.getElementById('hourTag'); if (t) t.addEventListener('click', () => { if (!Modals.isOpen('kitchenOpen')) openKitchenModal(); }); })();
 function renderMoonTag() {
   const el = document.getElementById('moonTag');
   if (!el) return;
@@ -15572,7 +15609,7 @@ function renderEventTag() {
     _eventTagFadeTimer = setTimeout(() => el.classList.add('tagFaded'), 6500);
   }
 }
-setInterval(() => { renderEventTag(); renderMoonTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); if (Modals.isOpen('releaseOpen')) renderReleaseModal(); if (Modals.isOpen('scryOpen') && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'scry' })); }, 20000);
+setInterval(() => { renderEventTag(); renderMoonTag(); renderHourTag(); if (Modals.isOpen('gardenOpen')) renderGardenModal(); if (Modals.isOpen('kitchenOpen')) renderKitchenModal(); if (Modals.isOpen('ancestorOpen')) renderAncestorModal(); if (Modals.isOpen('releaseOpen')) renderReleaseModal(); if (Modals.isOpen('scryOpen') && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'scry' })); }, 20000);
 setInterval(renderStatusEffects, 1000); // active-effect squares + countdowns
 (function () {
   const el = document.getElementById('eventTag');
