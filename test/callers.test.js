@@ -35,6 +35,23 @@ setTimeout(() => {
   const wss = global.__wssInstances[0];
   const connHandler = (wss._handlers && wss._handlers.connection) || wss.listeners('connection')[0];
   const say = (s, m) => s.emit('message', JSON.stringify(m));
+  // Work one step through the game's REAL handler — the one place every reading
+  // kind is driven, for both today's callers and the every-caller sweep. (They
+  // used to be two lists; a kind added to one and not the other made this test
+  // fail only on days the town happened to offer that caller.)
+  const { CHARMS } = require('../data/charms');
+  function doStep(sock, inv, s) {
+    if (s.kind === 'pendulum') say(sock, { type: 'pendulum_ask', question: s.ask || 'Well?' });
+    else if (s.kind === 'tarot') say(sock, { type: 'tarot_draw' });
+    else if (s.kind === 'runes') say(sock, { type: 'rune_cast' });
+    else if (s.kind === 'scry') say(sock, { type: 'scry' });
+    else if (s.kind === 'leaves') { h.addItemToAccount(inv, 'chamomile', 1); say(sock, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(sock, { type: 'read_leaves' }); }
+    else if (s.kind === 'charm') CHARMS[s.charm].lines.forEach((_, li) => say(sock, { type: 'charm_say', line: li }));
+    else if (s.kind === 'sieve') { for (const n of s.suspects) say(sock, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
+    else if (s.kind === 'key') { for (const n of s.suspects) say(sock, { type: 'key_turn', name: n }); }
+    else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
+    else throw new Error('callers.test: no driver for step kind ' + s.kind + ' — add it to doStep');
+  }
 
   function join(tag, key) {
     const s = makeMockSocket(tag); connHandler(s);
@@ -111,14 +128,7 @@ setTimeout(() => {
     check(`${c.id}: cannot be finished before the work is done`, !!w.s.lastOfType('caller_error') && !w.s.lastOfType('caller_result') && h.ensureBankAccount(w.p.accountKey).balance === balEarly);
 
     // Do each reading through the REAL handler.
-    for (const s of c.steps) {
-      if (s.kind === 'pendulum') say(w.s, { type: 'pendulum_ask', question: 'Is it ill-wished?' });
-      else if (s.kind === 'tarot') say(w.s, { type: 'tarot_draw' });
-      else if (s.kind === 'runes') say(w.s, { type: 'rune_cast' });
-      else if (s.kind === 'scry') say(w.s, { type: 'scry' });
-      else if (s.kind === 'leaves') { h.addItemToAccount(inv, 'chamomile', 1); say(w.s, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(w.s, { type: 'read_leaves' }); }
-      else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
-    }
+    for (const s of c.steps) doStep(w.s, inv, s);
     say(w.s, { type: 'callers_state' }); // the Board re-reads the pack when opened
     cs = w.s.lastOfType('callers_state');
     const notDone = cs.active.steps.filter((s) => !s.done);
@@ -154,17 +164,7 @@ setTimeout(() => {
     const x = join('Every_' + c.id, 'callers_every_' + c.id);
     const xinv = h.getInventory(x.p);
     h.accounts[x.p.accountKey].callers = { day: Math.floor(Date.now() / 86400000), served: [], active: { id: c.id, done: {} }, total: 0, byId: {} };
-    for (const s of c.steps) {
-      if (s.kind === 'pendulum') say(x.s, { type: 'pendulum_ask', question: s.ask || 'Well?' });
-      else if (s.kind === 'tarot') say(x.s, { type: 'tarot_draw' });
-      else if (s.kind === 'runes') say(x.s, { type: 'rune_cast' });
-      else if (s.kind === 'scry') say(x.s, { type: 'scry' });
-      else if (s.kind === 'leaves') { h.addItemToAccount(xinv, 'chamomile', 1); say(x.s, { type: 'brew_tea', teaId: 'chamomile_tea' }); say(x.s, { type: 'read_leaves' }); }
-      else if (s.kind === 'charm') { const { CHARMS } = require('../data/charms'); CHARMS[s.charm].lines.forEach((_, li) => say(x.s, { type: 'charm_say', line: li })); }
-      else if (s.kind === 'sieve') { for (const n of s.suspects) say(x.s, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
-      else if (s.kind === 'key') { for (const n of s.suspects) say(x.s, { type: 'key_turn', name: n }); }
-      else if (s.kind === 'deliver') h.addItemToAccount(xinv, s.item, s.qty);
-    }
+    for (const s of c.steps) doStep(x.s, xinv, s);
     x.s.sent.length = 0;
     say(x.s, { type: 'caller_finish' });
     check(`every caller: ${c.id} can be worked to the end`, !!x.s.lastOfType('caller_result'), x.s.lastOfType('caller_error'));
