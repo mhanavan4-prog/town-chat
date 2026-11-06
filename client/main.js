@@ -25,6 +25,7 @@ import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
 import createOgham from './ogham.js';
+import createCords from './cords.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
@@ -2901,6 +2902,8 @@ function onWsMessage(ev) {
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
   if (msg.type === 'wards_state') { _wards.setState(msg); return; }
   if (msg.type === 'ogham_state') { _ogham.setState(msg); return; }
+  if (msg.type === 'cords_state') { _cords.setState(msg); return; }
+  if (msg.type === 'cords_error') { if (msg.message) setUnlockToast(`🪢 ${msg.message}`); return; }
   if (msg.type === 'ogham_cast') { _ogham.setCast(msg.cast); if (!msg.already) setUnlockToast(`🌳 The staves fall: ${(msg.cast || []).map((o) => o.name).join(' · ')}`); return; }
   if (msg.type === 'ogham_error') { if (msg.message) setUnlockToast(`🌳 ${msg.message}`); return; }
   if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); return; }
@@ -7405,6 +7408,7 @@ function hydrateMenuRows() {
   on('pendulumCloseBtn', closePendulumModal);
   on('menuRunes', closeSheetAnd(() => { if (!Modals.isOpen('runeOpen')) openRuneModal(); }));
   on('menuOgham', closeSheetAnd(() => { if (!Modals.isOpen('oghamOpen')) _ogham.open(); }));
+  on('menuCords', closeSheetAnd(() => { if (!Modals.isOpen('cordsOpen')) _cords.open(); }));
   on('runeCloseBtn', closeRuneModal);
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
@@ -15749,6 +15753,8 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
+// 🪢 Knots & the Wind — cord magic (blueprint F).
+const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 
 const _seance = createSeance({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -18368,6 +18374,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('oghamOpen') && e.key === 'Escape' && !e.repeat) { _ogham.close(); return; }
+  if (Modals.isOpen('cordsOpen') && e.key === 'Escape' && !e.repeat) { _cords.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
     return;
@@ -19470,6 +19477,7 @@ if (location.search.includes('testdrive=1')) {
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
     wards() { _wards.open(); return true; },
     ogham() { _ogham.open(); return true; },
+    cords() { _cords.open(); return true; },
     compass() { return _wards.compassPoints(); },
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },

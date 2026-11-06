@@ -41,6 +41,11 @@ module.exports = {
   witch_bottle:   { name: 'Witch Bottle',   icon: '🍶', slot: null },
   // ---- The Tree Alphabet (blueprint C): Coll, Hazel's own letter ----
   hazel_rod:      { name: 'Hazel Rod',      icon: '🪄', slot: null },
+  // ---- Knots & the Wind (blueprint F): a wind tied into a cord ----
+  hemp_cord:      { name: 'Hemp Cord',      icon: '🧶', slot: null },
+  wind_cord_3:    { name: 'Wind Cord (three knots)', icon: '🪢', slot: null },
+  wind_cord_2:    { name: 'Wind Cord (two knots)',   icon: '🪢', slot: null },
+  wind_cord_1:    { name: 'Wind Cord (one knot)',    icon: '🪢', slot: null },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },
