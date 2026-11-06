@@ -19,6 +19,7 @@
 //
 // Step kinds (each satisfied by a real action, see lib/callers.js):
 //   pendulum · tarot · runes · scry   — a reading taken while the caller waits
+//                                       (a pendulum step's `ask` pre-fills the question)
 //   deliver { item, qty }             — handed over (and consumed) at the end
 // ---------------------------------------------------------------------------
 
@@ -36,7 +37,7 @@ const CALLERS = [
     title: "The Butter Won't Come",
     plea: "Three days I've churned and the cream only sloshes. Old Marrow leaned on my gate Tuesday and looked a long while at the churn. Something's been put on it — I'd swear to it.",
     steps: [
-      { kind: 'pendulum', label: 'Dowse the churn — ask the pendulum if it is ill-wished' },
+      { kind: 'pendulum', label: 'Dowse the churn — ask the pendulum if it is ill-wished', ask: "Is Goodwife Ashby's churn ill-wished?" },
       { kind: 'deliver', item: 'rowan_charm', qty: 1, label: 'A rowan charm to hang over the dairy door' },
     ],
     resolution: "You have her heat the poker red and plunge it hissing into the cream — \"to burn the witch out,\" as her mother would have said — and you hang the rowan over the dairy door. By evening the butter comes. Whether it was the iron or the warming of cream gone too cold, Goodwife Ashby pays gladly.",
@@ -52,7 +53,7 @@ const CALLERS = [
     title: 'The Ring Is Gone',
     plea: "My wife's wedding ring, off the sill where she sets it to knead. Gone since Thursday. I've a notion who — but a notion's no proof, and I'll not name a neighbour wrongly.",
     steps: [
-      { kind: 'pendulum', label: 'Ask the pendulum: taken, or only lost?' },
+      { kind: 'pendulum', label: 'Ask the pendulum: taken, or only lost?', ask: "Was the ring taken, not lost?" },
       { kind: 'tarot', label: 'Turn the cards for where it went' },
     ],
     resolution: "You turn the sieve on the shears with Tom and name no names — only quarters of the village. Then you tell him the true trick: let it be known the cunning woman has been consulted. Two mornings later the ring is back on his step, wrapped in a dock leaf.",
@@ -69,7 +70,7 @@ const CALLERS = [
     plea: "There's a flower scratched into the beam over my door — six petals, round as a coin. I never saw it till I whitewashed. Somebody has put a sign on my house.",
     steps: [
       { kind: 'scry', label: 'Scry the bowl for whose hand cut it' },
-      { kind: 'pendulum', label: 'Ask the pendulum whether it means her harm' },
+      { kind: 'pendulum', label: 'Ask the pendulum whether it means her harm', ask: "Does the mark on the lintel mean her harm?" },
     ],
     resolution: "The water shows an older house and an older hand — a carpenter with a pair of compasses, long dead. You tell the widow plainly: it is no curse. It is a daisy wheel, cut to snare whatever would cross her threshold. \"And don't you dare whitewash it again.\"",
     lore: "Hexafoils — \"daisy wheels\" — are compass-drawn six-petalled marks found by the thousand on English doorways, windows, fireplaces, barns and church porches, from the medieval period into the 1800s. Historic England notes the purpose is debated, but ritual protection is the most widely accepted reading. A mark that frightens a householder was most likely put there to guard the house.",
@@ -84,7 +85,7 @@ const CALLERS = [
     title: "The Boy Won't Sleep",
     plea: "Since Lammas he wakes screaming and won't settle. My mother says the fairies have been at the cradle. I only want him to sleep.",
     steps: [
-      { kind: 'pendulum', label: 'Ask the pendulum over the cradle: is it fairy-work?' },
+      { kind: 'pendulum', label: 'Ask the pendulum over the cradle: is it fairy-work?', ask: "Is the boy's crying fairy-work?" },
       { kind: 'deliver', item: 'chamomile_tisane', qty: 1, label: 'A chamomile tisane, warm, at bedtime' },
       { kind: 'deliver', item: 'salt', qty: 1, label: 'Salt, for under the cradle' },
     ],
@@ -102,7 +103,7 @@ const CALLERS = [
     plea: "It's near May Eve and the other girls say there's a way to dream him. Will you show me? Mother mustn't know.",
     steps: [
       { kind: 'deliver', item: 'yarrow', qty: 3, label: 'Yarrow — three sprigs make nine leaves for the pillow' },
-      { kind: 'pendulum', label: 'Ask the pendulum: wed within the year?' },
+      { kind: 'pendulum', label: 'Ask the pendulum: wed within the year?', ask: "Will Nell be wed within the year?" },
     ],
     resolution: "Nine yarrow leaves under her pillow, picked on May Eve, and not a word spoken between the picking and the sleeping. She dreams of somebody. She will not say who. She blushes for a week.",
     lore: "Yarrow was a love-divination herb across Britain and Ireland. Folklorists recorded a yarrow sod under the pillow on May Eve to dream of a sweetheart in Donegal (1884), and nine leaves under the pillow in Ulster; in Suffolk a leaf went up the nose with a rhyme — if your love was true, your nose would bleed. Love divination was a steady earner for cunning folk.",
@@ -150,7 +151,7 @@ const CALLERS = [
     plea: "I'm a northern man, ma'am. My grandmother cast lots before every voyage. They tell me you keep the staves. Will the Marta come home?",
     steps: [
       { kind: 'runes', label: 'Cast three staves for the voyage' },
-      { kind: 'pendulum', label: 'Ask the pendulum: will the Marta come home?' },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the Marta come home?', ask: "Will the Marta come home?" },
     ],
     resolution: "Three staves, drawn one at a time, the way his grandmother did it. You read them to him honestly, the hard one too. He nods, pays you in foreign silver, and goes down to the harbour whistling.",
     lore: "Tacitus (Germania, ch. 10, AD 98) describes Germanic lot-casting: slips of fruit-tree wood marked with signs, scattered on a white cloth and drawn three at a time. Whether those signs were runes nobody knows — the earliest runic inscriptions come about a century later — and rune-reading as practised today is a 20th-century revival. Sailors and their wives were faithful customers of cunning folk for the fortunes of a voyage.",
