@@ -137,7 +137,9 @@ const DYES = [
   { id: 'bramble_rust', label: 'Bramble Rust', hex: 0xa9582a },
   { id: 'elder_violet', label: 'Elder Violet', hex: 0x6a4c8e },
   { id: 'whin_gold',    label: 'Whin Gold',    hex: 0xdcb22a },
-  { id: 'crotal_brown', label: 'Crotal Brown', hex: 0x8a5232 }
+  { id: 'crotal_brown', label: 'Crotal Brown', hex: 0x8a5232 },
+  // Earned from the Charm Book (three quarters written), not steeped.
+  { id: 'woad_blue', label: 'Woad Blue', hex: 0x3b5f8a }
 ];
 const DYE_BY_ID = DYES.reduce((o, d) => { o[d.id] = d; return o; }, {});
 
@@ -174,7 +176,10 @@ const DYE_UNLOCKS = {
   elder_violet: { steep: { item: 'elderberry',    qty: 4, gold: 30 } },
   whin_gold:    { steep: { item: 'gorse_bloom',   qty: 4, gold: 30 } },
   // Lichen dyes need no mordant — nothing to buy, so no gold.
-  crotal_brown: { steep: { item: 'crotal',        qty: 4, gold: 0 } }
+  crotal_brown: { steep: { item: 'crotal',        qty: 4, gold: 0 } },
+  // { book: pct } — given when the Charm Book is that far written
+  // (data/charmRewards.js); recorded in progress.dyeUnlocks.
+  woad_blue: { book: 75 }
 };
 
 // What each plant dye really is, shown when you steep it. tier follows the

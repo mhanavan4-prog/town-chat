@@ -732,9 +732,9 @@ function dyeUnlocked(player, dyeId) {
   if (u.lvl) return (player.level || 1) >= u.lvl;
   if (u.chapter) { try { return getStoryState(player).chapter >= u.chapter; } catch (e) { return false; } }
   if (u.quest) { const prog = getProgress(player); return !!(prog.questsDone && prog.questsDone[u.quest]); }
-  // Moonstone and gold purchases, and steeped plant dyes, all record
-  // ownership in progress.dyeUnlocks.
-  if (u.ms || u.gold || u.steep) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
+  // Moonstone and gold purchases, steeped plant dyes, and dyes given by the
+  // Charm Book all record ownership in progress.dyeUnlocks.
+  if (u.ms || u.gold || u.steep || u.book) { const prog = getProgress(player); return !!(prog.dyeUnlocks && prog.dyeUnlocks.indexOf(dyeId) !== -1); }
   return false;
 }
 
@@ -5065,8 +5065,8 @@ function noteHourKept(key, planetDay) {
 // it's been told (charmNoted) — the first check for an account notes what's
 // already met silently, so nobody gets a backlog of fifty toasts.
 const CHARM_NOTICE_DELAY_MS = 400; // coalesce a burst; runs after the handler
-function charmMetIds(player) {
-  const book = charmBookStateBody(player);
+function charmMetIds(player, bookIn) {
+  const book = bookIn || charmBookStateBody(player);
   const out = [];
   for (const c of book.chapters) for (const e of c.entries) if (e.met) out.push({ id: c.key + ':' + e.id, title: e.title, chapter: c.title });
   return out;
@@ -5075,8 +5075,9 @@ function charmBookNotice(player) {
   const key = player && player.accountKey;
   const a = key && accounts[key];
   if (!a) return null;
-  let met;
-  try { met = charmMetIds(player); } catch (e) { return null; }
+  let met, book;
+  try { book = charmBookStateBody(player); met = charmMetIds(player, book); } catch (e) { return null; }
+  try { charmBookRewards(player, book); } catch (e) { /* never break play */ }
   if (!Array.isArray(a.charmNoted)) { a.charmNoted = met.map((m) => m.id); saveAccounts(); return null; }
   const noted = new Set(a.charmNoted);
   const fresh = met.filter((m) => !noted.has(m.id));
@@ -5091,6 +5092,49 @@ function charmBookNotice(player) {
   if (player.ws) send(player.ws, { type: 'toast', message, always: true });
   return message;
 }
+// Charm Book rewards (data/charmRewards.js): a purse for every chapter
+// finished, and a title and a larger purse at a quarter, half, three quarters
+// and the whole book (Woad Blue at three quarters). Each is given once, and
+// they are given even for a backlog, so an old account is paid for what it
+// had already written. Gold goes to the bank, so it works however you got here.
+function charmBookRewards(player, bookIn) {
+  const key = player && player.accountKey;
+  const a = key && accounts[key];
+  if (!a) return null;
+  const book = bookIn || charmBookStateBody(player);
+  if (!a.charmRewards) a.charmRewards = { chapters: [], milestones: [] };
+  const due = charmRewardsLib.dueRewards(book, a.charmRewards);
+  if (!due.chapters.length && !due.milestones.length) return null;
+  const account = ensureBankAccount(key);
+  const lines = [];
+  for (const c of due.chapters) {
+    a.charmRewards.chapters.push(c.key);
+    account.balance += c.gold;
+    lines.push(`📜 Charm Book: ${c.icon} ${c.title} is complete. ${c.gold} gold to your bank.`);
+  }
+  let newDye = null, newTitle = false;
+  for (const m of due.milestones) {
+    a.charmRewards.milestones.push(m.key);
+    account.balance += m.gold;
+    grantRiteTitle(key, m.title); newTitle = true;
+    let line = `📜 ${m.label} written: you are ${titleNameOf(m.title)} (a title to wear). ${m.gold} gold to your bank`;
+    if (m.dye) {
+      const prog = getProgress(player);
+      if (!Array.isArray(prog.dyeUnlocks)) prog.dyeUnlocks = [];
+      if (prog.dyeUnlocks.indexOf(m.dye) === -1) { prog.dyeUnlocks.push(m.dye); newDye = m.dye; }
+      line += `, and ${(DYES.find((d) => d.id === m.dye) || {}).label || m.dye} in your wardrobe`;
+    }
+    lines.push(line + '.');
+  }
+  saveBankAccounts(); saveAccounts(); saveProgress();
+  if (player.ws) {
+    for (const message of lines) send(player.ws, { type: 'toast', message, always: true });
+    if (newTitle) send(player.ws, { type: 'titles_state', ...titlesPayloadFor(key) });
+    if (newDye) send(player.ws, { type: 'dye_bought', dye: newDye, message: `🎨 ${(DYES.find((d) => d.id === newDye) || {}).label || newDye}: ${WOAD_LORE.lore}` });
+    send(player.ws, { type: 'bank_state', ...bankStatePayload(key) });
+  }
+  return lines;
+}
 function scheduleCharmNotice(player) {
   if (!player || !player.accountKey || player._charmT) return;
   player._charmT = setTimeout(() => { player._charmT = null; try { charmBookNotice(player); } catch (e) { /* never break play */ } }, CHARM_NOTICE_DELAY_MS);
@@ -5098,7 +5142,9 @@ function scheduleCharmNotice(player) {
 function charmBookStateBody(player) {
   const key = player && player.accountKey;
   let seasonKey = null; try { const se = calendarPublicState().season; seasonKey = se && se.key; } catch (e) { /* noop */ }
-  return buildCharmBook({ acct: key ? accounts[key] : null, prog: key ? getProgress(player) : null, seasonKey });
+  const book = buildCharmBook({ acct: key ? accounts[key] : null, prog: key ? getProgress(player) : null, seasonKey });
+  book.rewards = charmRewardsLib.rewardsView(book, key && accounts[key] ? accounts[key].charmRewards : null);
+  return book;
 }
 function practiceStateBody(player) {
   const key = player && player.accountKey;
@@ -8516,6 +8562,8 @@ function boardStatePayload(player) {
 // cunning-folk working, solved with the pendulum / cards / staves / bowl and
 // the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
+const charmRewardsLib = require('./lib/charmRewards'); // 📜 what writing the book up earns
+const { WOAD_LORE } = require('./data/charmRewards');
 const callers = require('./lib/callers')({
   accounts, saveAccounts, send, getInventory, countItemQty, removeItemFromAccount,
   saveInventories, inventoryStatePayload, ensureBankAccount, saveBankAccounts, mulberry32,
@@ -11361,7 +11409,7 @@ wss.on('connection', (ws, req) => {
           // those swatches were missing from the wardrobe entirely.
           dyes: DYES,
           dyeUnlocks: DYE_UNLOCKS,
-          dyeLore: PLANT_DYE_LORE,
+          dyeLore: { ...PLANT_DYE_LORE, woad_blue: WOAD_LORE },
           // Quest-earned dyes (Ember) this player has earned.
           dyesEarned: dyesEarnedFor(player),
           // Name-color flair: the palette, what this account owns, and the
@@ -17671,6 +17719,7 @@ global.__testHooks.wardsPublic = wardsPublic;
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 global.__testHooks.noteHourKept = noteHourKept; // the Charm Book's planetary hours
 global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
+global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would

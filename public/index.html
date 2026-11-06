@@ -4327,6 +4327,13 @@
   .cbEntry.unmet .cbEntryTitle.named { letter-spacing:normal; opacity:0.75; }
   .cbHint { color:#8f8270; font-size:11.5px; font-style:italic; margin-top:2px; }
   .cbNote { color:#a8977a; font-size:11.5px; margin-top:10px; border-top:1px solid rgba(217,184,106,0.2); padding-top:8px; }
+  .cbRewards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:6px; margin:0 0 4px; }
+  .cbMilestone { display:flex; flex-direction:column; gap:1px; background:rgba(0,0,0,0.22); border:1px dashed rgba(217,184,106,0.25); border-radius:8px; padding:6px 9px; font-size:11.5px; color:#a8977a; }
+  .cbMilestone.given { border-style:solid; border-color:rgba(217,184,106,0.6); background:rgba(60,44,20,0.5); color:#d8ccb8; }
+  .cbMsAt { color:#d9b86a; font-weight:800; font-size:12px; }
+  .cbMsTitle { color:#f1e3c4; font-weight:700; }
+  .cbMilestone:not(.given) .cbMsTitle { color:#a8977a; }
+  .cbRewards + .cbHint { margin:0 0 12px; }
 </style>
 <div id="oghamModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
