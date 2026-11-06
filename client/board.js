@@ -5,12 +5,15 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createBoard({ send, getBoardState, getMe, shortWhen }) {
-let boardActiveTab = 'hunt';
+export default function createBoard({ send, getBoardState, getCallersState, getCallerResult, clearCallerResult, openTool, getMe, shortWhen }) {
+// Callers at the Door is the Board's first page: the town's work comes before
+// its scores.
+let boardActiveTab = 'callers';
 function openBoardModal() {
   Modals.set('boardModalOpen', true);
   document.getElementById('boardModal').classList.remove('hidden');
   send({ type: 'board_state' });
+  send({ type: 'callers_state' });
   renderBoardModal();
 }
 function closeBoardModal() {
@@ -27,6 +30,14 @@ function renderBoardModal() {
   document.querySelectorAll('#boardTabs .slTab').forEach(b =>
     b.classList.toggle('active', b.dataset.board === boardActiveTab));
   list.innerHTML = '';
+  const honorsWrapEl = document.getElementById('boardHonors');
+  if (boardActiveTab === 'callers') {
+    tNote.classList.add('hidden');
+    if (honorsWrapEl) honorsWrapEl.classList.add('hidden');
+    weekNote.textContent = 'Callers at the Door — the town brings its troubles to the witch';
+    renderCallers(list, meNote);
+    return;
+  }
   if (!getBoardState()) { list.innerHTML = '<div class="slNote">Consulting the board…</div>'; return; }
   weekNote.textContent = `This week's deeds — new page ${shortWhen(getBoardState().weekEndsAt)}`;
   const board = getBoardState().boards[boardActiveTab];
@@ -76,6 +87,101 @@ function renderBoardModal() {
   } else {
     honorsWrap.classList.add('hidden');
   }
+}
+
+// ── Callers at the Door ──────────────────────────────────────────────────────
+// A townsperson's working: the plea, the steps (each with a button that opens
+// the tool that does it), then the finish. All text lands via textContent.
+const TOOL_LABEL = { pendulum: '🪢 Pendulum', tarot: '🃏 Cards', runes: 'ᚱ Staves', scry: '🥣 Bowl' };
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+function renderCallerResult(list, r) {
+  const card = el('div', 'callerCard callerResult');
+  card.appendChild(el('div', 'callerHead', `${r.icon} ${r.title} — done`));
+  card.appendChild(el('div', 'callerWho', `for ${r.caller}`));
+  for (const line of r.readings || []) card.appendChild(el('div', 'callerReading', line));
+  card.appendChild(el('div', 'callerTale', r.resolution));
+  const lore = el('div', 'callerLore');
+  lore.appendChild(el('span', 'callerTier callerTier-' + r.tier, r.tierLabel));
+  lore.appendChild(el('div', 'callerLoreText', r.lore));
+  if (r.source) lore.appendChild(el('div', 'callerSource', `Source: ${r.source}`));
+  card.appendChild(lore);
+  card.appendChild(el('div', 'callerPay', `+${r.gold}🪙${r.xp ? ` · +${r.xp} XP` : ''} · workings done: ${r.total}`));
+  const ok = el('button', 'btn callerBtn', 'Back to the door');
+  ok.addEventListener('click', () => { clearCallerResult(); renderBoardModal(); });
+  card.appendChild(ok);
+  list.appendChild(card);
+}
+function renderCallers(list, meNote) {
+  const result = getCallerResult && getCallerResult();
+  if (result) { renderCallerResult(list, result); meNote.textContent = ''; return; }
+  const st = getCallersState && getCallersState();
+  if (!st) { list.appendChild(el('div', 'slNote', 'Someone is knocking…')); meNote.textContent = ''; return; }
+  if (st.isGuest) {
+    list.appendChild(el('div', 'slNote', 'Townsfolk only bring their troubles to a witch they can find again — log in and they will come knocking.'));
+    meNote.textContent = '';
+    return;
+  }
+  if (st.active) {
+    const a = st.active;
+    const card = el('div', 'callerCard callerActive');
+    card.appendChild(el('div', 'callerHead', `${a.icon} ${a.title}`));
+    card.appendChild(el('div', 'callerWho', a.caller));
+    card.appendChild(el('div', 'callerPlea', `“${a.plea}”`));
+    const steps = el('div', 'callerSteps');
+    for (const s of a.steps) {
+      const row = el('div', 'callerStep' + (s.done ? ' done' : ''));
+      row.appendChild(el('span', 'callerTick', s.done ? '✓' : '○'));
+      const body = el('div', 'callerStepBody');
+      body.appendChild(el('div', 'callerStepLabel', s.label));
+      if (s.kind === 'deliver') {
+        body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
+      } else if (s.done && s.note) {
+        body.appendChild(el('div', 'callerStepNote', s.note));
+      }
+      row.appendChild(body);
+      if (!s.done && TOOL_LABEL[s.kind]) {
+        const go = el('button', 'callerGo', TOOL_LABEL[s.kind]);
+        go.dataset.tool = s.kind;
+        go.addEventListener('click', () => openTool(s.kind));
+        row.appendChild(go);
+      }
+      steps.appendChild(row);
+    }
+    card.appendChild(steps);
+    const btns = el('div', 'callerBtns');
+    const fin = el('button', 'btn callerBtn callerFinish', a.ready ? `Finish the working · ${a.reward.gold}🪙` : 'Finish the working');
+    fin.disabled = !a.ready;
+    fin.addEventListener('click', () => { fin.disabled = true; send({ type: 'caller_finish' }); });
+    const drop = el('button', 'btn callerBtn callerDrop', 'Set it aside');
+    drop.addEventListener('click', () => send({ type: 'caller_abandon' }));
+    btns.appendChild(fin); btns.appendChild(drop);
+    card.appendChild(btns);
+    list.appendChild(card);
+  }
+  const waiting = (st.offered || []).filter((o) => !st.active || o.id !== st.active.id);
+  if (waiting.length) list.appendChild(el('div', 'callerSub', st.active ? 'Also at the door today' : 'At the door today'));
+  for (const o of waiting) {
+    const card = el('div', 'callerCard' + (o.served ? ' served' : ''));
+    card.appendChild(el('div', 'callerHead', `${o.icon} ${o.title}`));
+    card.appendChild(el('div', 'callerWho', o.caller));
+    card.appendChild(el('div', 'callerPlea', `“${o.plea}”`));
+    if (o.served) {
+      card.appendChild(el('div', 'callerStepNote', 'Served today — they went home grateful.'));
+    } else {
+      const take = el('button', 'btn callerBtn callerTake', st.active ? 'One working at a time' : `Take the working · ${o.reward.gold}🪙`);
+      take.disabled = !!st.active;
+      take.addEventListener('click', () => send({ type: 'caller_take', id: o.id }));
+      card.appendChild(take);
+    }
+    list.appendChild(card);
+  }
+  if (!st.active && !waiting.some((o) => !o.served)) list.appendChild(el('div', 'slNote', 'No one else at the door today. They come again tomorrow.'));
+  meNote.textContent = st.total ? `Workings done for the town: ${st.total}` : 'Cunning folk were hired, paid and trusted. The town is learning your name.';
 }
 (function () {
   const tabs = document.getElementById('boardTabs');

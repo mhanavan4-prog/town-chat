@@ -12,7 +12,8 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **PROPOSAL.** Nothing below is built. Ordered by value at the bottom.
+> Status: **IN PROGRESS.** A is built (Callers at the Door). The rest are
+> proposals, ordered by value at the bottom.
 
 ---
 
@@ -61,7 +62,13 @@ down as a rule rather than left to instinct.
 
 ## 3. The proposals
 
-### A. The Cunning Woman's Work — *the missing job*
+### A. The Cunning Woman's Work — *the missing job* ✅ BUILT
+
+> Shipped as **Callers at the Door**, the Town Board's first tab. Eight
+> callers (`data/callers.js`), three at the door per day; each working is
+> done with the pendulum / cards / staves / bowl plus a hand-over from the
+> garden or Hazel's cauldron, and finishes with the tale, the real lore, its
+> provenance tier and a source line.
 
 **The lore.** Cunning folk's actual trade, documented in court records and
 chapbooks across England from the 1500s to the 1900s: thief-detection,

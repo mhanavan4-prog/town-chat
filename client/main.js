@@ -2058,6 +2058,22 @@ function onWsMessage(ev) {
     if (Modals.isOpen('boardModalOpen')) renderBoardModal();
     return;
   }
+  // Callers at the Door — the Board's cunning-folk workings.
+  if (msg.type === 'callers_state') {
+    callersState = msg;
+    if (Modals.isOpen('boardModalOpen')) renderBoardModal();
+    return;
+  }
+  if (msg.type === 'caller_result') {
+    callerResult = msg;
+    setUnlockToast(`${msg.icon} ${msg.caller} pays you ${msg.gold}🪙 — "${msg.title}" is done.`);
+    if (Modals.isOpen('boardModalOpen')) renderBoardModal();
+    return;
+  }
+  if (msg.type === 'caller_error') {
+    if (msg.message) setUnlockToast(`🚪 ${msg.message}`);
+    return;
+  }
 
   if (msg.type === 'achievements_state') {
     achState = msg;
@@ -2405,6 +2421,8 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'inventory_state') {
+    // A caller's hand-over counts what is in the pack — keep the Board honest.
+    if (Modals.isOpen('boardModalOpen') && callersState && callersState.active && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'callers_state' }));
     lastInventoryState = {
       slots: msg.slots,
       equippedWeapon: msg.equippedWeapon || null,
@@ -4054,6 +4072,8 @@ let covenChatLines = [];            // [{ who, sigil, text }] (in-memory, last 6
 let delveState = null;              // last delve_state payload
 let delveSpeedMult = 1;             // swift boons — applied only inside delve rooms
 let boardState = null;
+let callersState = null;
+let callerResult = null;
 let achState = null;
 let titlesState = null;             // server titles_state / init.titles (earned + active)
 let firstStepsState = null;
@@ -15658,6 +15678,16 @@ function renderFirstSteps() {
 const _board = createBoard({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
   getBoardState: () => boardState,
+  getCallersState: () => callersState,
+  getCallerResult: () => callerResult,
+  clearCallerResult: () => { callerResult = null; },
+  // A step's button closes the Board and opens the tool that does the step.
+  openTool: (kind) => {
+    const open = { pendulum: openPendulumModal, tarot: openTarotModal, runes: openRuneModal, scry: openScryModal }[kind];
+    if (!open) return;
+    closeBoardModal();
+    open();
+  },
   getMe: () => me,
   shortWhen,
 });

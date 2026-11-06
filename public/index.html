@@ -3250,6 +3250,37 @@
   .slNote { color:#c9b89a; font-size:12px; margin-top:8px; }
   .slSection { margin-top:12px; text-align:left; }
   .slSection h4 { color:#ffe9c2; margin:0 0 6px; font-size:13.5px; }
+  /* Callers at the Door — the Board's cunning-folk workings */
+  .callerCard { background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.28); border-radius:10px; padding:10px 12px; margin:0 0 10px; }
+  .callerCard.callerActive { border-color:rgba(255,220,130,0.65); background:rgba(70,48,22,0.45); }
+  .callerCard.served { opacity:0.55; }
+  .callerHead { color:#ffe9c2; font-weight:800; font-size:14.5px; }
+  .callerWho { color:#d9b86a; font-size:12px; margin:1px 0 6px; }
+  .callerPlea { color:#e8dcc8; font-style:italic; font-size:13px; line-height:1.5; }
+  .callerSub { color:#c9b89a; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; margin:12px 2px 6px; }
+  .callerSteps { margin:10px 0 6px; }
+  .callerStep { display:flex; align-items:flex-start; gap:8px; padding:6px 0; border-top:1px dashed rgba(217,184,106,0.18); }
+  .callerStep.done .callerStepLabel { color:#9ee37d; }
+  .callerTick { width:16px; color:#d9b86a; font-weight:800; flex:none; }
+  .callerStep.done .callerTick { color:#9ee37d; }
+  .callerStepBody { flex:1; min-width:0; }
+  .callerStepLabel { color:#e8dcc8; font-size:13px; }
+  .callerStepNote { color:#c9b89a; font-size:12px; margin-top:2px; }
+  .callerGo { flex:none; background:#2a1f14; color:#ffd9a0; border:1px solid #d9b86a88; border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
+  .callerGo:hover { background:#3a2a18; }
+  .callerBtns { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .callerBtn { margin:8px 0 0; padding:7px 12px; font-size:13px; }
+  .callerBtn:disabled { opacity:0.5; cursor:default; }
+  .callerDrop { background:transparent; border:1px solid rgba(217,184,106,0.35); color:#c9b89a; }
+  .callerReading { color:#cfc1ff; font-size:12.5px; margin:2px 0; }
+  .callerTale { color:#e8dcc8; font-size:13.5px; line-height:1.55; margin:8px 0; }
+  .callerLore { background:rgba(0,0,0,0.25); border-left:3px solid #d9b86a; border-radius:6px; padding:8px 10px; margin:8px 0; }
+  .callerLoreText { color:#d8ccb8; font-size:12.5px; line-height:1.55; margin-top:5px; }
+  .callerSource { color:#a8977a; font-size:11.5px; font-style:italic; margin-top:5px; }
+  .callerTier { display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; padding:2px 7px; border-radius:999px; background:#3a2a18; color:#ffd9a0; }
+  .callerTier-record { background:#1d3a33; color:#9ee37d; }
+  .callerTier-revival { background:#2c2244; color:#cfc1ff; }
+  .callerPay { color:#ffd9a0; font-weight:800; font-size:13px; }
   /* Collection Log — a trophy shelf with progress bars */
   .achCat { color:#9a8ac0; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; margin:12px 2px 4px; }
   .achRow {
@@ -3409,7 +3440,8 @@
     <div class="title" style="font-size:20px;">🏆 The Town Board</div>
     <div class="subtitle" id="boardWeekNote">This week's deeds — resets Monday</div>
     <div class="slTabs" id="boardTabs">
-      <button class="slTab active" data-board="hunt">🔥 Hunts</button>
+      <button class="slTab active" data-board="callers">🚪 Callers</button>
+      <button class="slTab" data-board="hunt">🔥 Hunts</button>
       <button class="slTab" data-board="boss">⚔️ Bosses</button>
       <button class="slTab" data-board="delve">🕳️ Delve</button>
       <button class="slTab" data-board="tourney">🏹 Tournament</button>
