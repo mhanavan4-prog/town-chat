@@ -287,6 +287,7 @@ const PLANT_CATALOG = {
   lemon_balm:             { name: 'Lemon Balm',             icon: '🍃', effect: 'status',  statusType: 'regen',      durationMs: 16000 },
   feverfew:               { name: 'Feverfew',               icon: '🌼', effect: 'cleanse' },
   lavender:               { name: 'Lavender',               icon: '💜', effect: 'status',  statusType: 'regen',      durationMs: 18000 },
+  calendula_salve:        { name: 'Calendula Salve',        icon: '🧡', effect: 'heal',    amount: 75 },
   comfrey_salve:          { name: 'Comfrey Salve',          icon: '🩹', effect: 'heal',    amount: 85 },
   lemon_balm_cordial:     { name: 'Lemon Balm Cordial',     icon: '🍵', effect: 'status',  statusType: 'regen',      durationMs: 45000 },
   feverfew_tincture:      { name: 'Feverfew Tincture',      icon: '🧪', effect: 'ward',    durationMs: 45000 },

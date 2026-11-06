@@ -1612,7 +1612,7 @@ const NON_WILD_CONSUMABLES = new Set(['salt', 'chamomile', 'calendula', 'chamomi
   'mugwort', 'yarrow', 'mugwort_draught', 'yarrow_salve',
   // Cottage Garden band (chapter-granted + garden-grown, never wild-scattered).
   'comfrey', 'lemon_balm', 'feverfew', 'lavender',
-  'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil',
+  'calendula_salve', 'comfrey_salve', 'lemon_balm_cordial', 'feverfew_tincture', 'lavender_oil',
   // Hedge & Wild band (chapter-granted + garden-grown).
   'vervain', 'wormwood', 'rue', 'st_johns_wort', 'rowan_berry',
   'vervain_charm', 'wormwood_bitters', 'rue_water', 'st_johns_oil', 'rowan_charm',
@@ -10858,6 +10858,12 @@ wss.on('connection', (ws, req) => {
         goldAuctionFee: AUCTION_GOLD_FEE,
         legendaryCatalog: LEGENDARY_CATALOG,
         itemCatalog: ITEM_CATALOG,
+        // Hazel's recipe book. The client used to keep its own hand-maintained
+        // copy of this list, and it had drifted by 21 recipes — every cottage,
+        // hedge and Poison Path brew the garden grows was missing from her
+        // menu, which is why the Green Path's final chapter could not be
+        // finished. One authoritative copy now, like legendaryCatalog.
+        potionRecipes: POTION_RECIPES,
         // 🎃 Samhain guise catalog (name/emoji/blurb/ms) — the one authoritative
         // copy, so the Disguise menu renders from it with no hand-synced list.
         // owned = the collectible Otherworld guises this account has bought;

@@ -1315,6 +1315,8 @@ function onWsMessage(ev) {
         }
       }
     }
+    // After the item catalog merge above, so every recipe can name its result.
+    if (msg.potionRecipes) setPotionRecipes(msg.potionRecipes);
     myMoonstones = msg.moonstones || 0;
     if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
     if (msg.familiarCos) myFamiliarCos = { skins: msg.familiarCos.skins || [], owned: msg.familiarCos.owned || [], skin: msg.familiarCos.skin || 'default' };
@@ -4452,26 +4454,31 @@ if (_partyChatSend) _partyChatSend.addEventListener('click', sendPartyChatMsg);
 // ---------------------------------------------------------------------------
 let witchShopItems = [];
 
-const POTION_RECIPES_CLIENT = [
-  { id: 'health_potion_ii', icon: '❤️‍🔥', name: 'Greater Healing Potion', desc: '2× Healing Herb',            ingredients: [{ id: 'healing_herb', qty: 2 }] },
-  { id: 'regen_brew',       icon: '🫧',  name: 'Regen Brew',             desc: 'Regen Root + Healing Herb',   ingredients: [{ id: 'regen_root', qty: 1 }, { id: 'healing_herb', qty: 1 }] },
-  { id: 'swift_brew',       icon: '💨',  name: 'Swift Brew',             desc: '2× Swift Root',               ingredients: [{ id: 'swift_root', qty: 2 }] },
-  { id: 'shadow_draught',   icon: '🌘',  name: 'Shadow Draught',         desc: 'Wolfsbane + Raven\'s Feather',ingredients: [{ id: 'wolfsbane_bloom', qty: 1 }, { id: 'ravens_feather_plant', qty: 1 }] },
-  { id: 'giants_elixir',    icon: '🍄‍🟫', name: "Giant's Elixir",         desc: "2× Giant's Cap",             ingredients: [{ id: 'giants_cap', qty: 2 }] },
-  { id: 'bat_swarm_potion', icon: '🦇',  name: 'Bat Swarm Potion',       desc: "2× Bat's Breath",            ingredients: [{ id: 'bats_breath', qty: 2 }] },
-  { id: 'clarity_draught',  icon: '✨',  name: 'Clarity Draught',        desc: 'Lotus + Cleansing Clover',    ingredients: [{ id: 'meditation_lotus', qty: 1 }, { id: 'cleansing_clover', qty: 1 }] },
-  { id: 'chaos_brew',       icon: '🌈',  name: 'Chaos Brew',             desc: 'Rainbow + Pumpkin + Toadstool',ingredients: [{ id: 'rainbow_petal', qty: 1 }, { id: 'pumpkin_blossom', qty: 1 }, { id: 'toadstool', qty: 1 }] },
-  // --- Wilds-flora crafts (from the new trees' & bushes' materials) ---
-  { id: 'barkbind_salve',     icon: '🩹',  name: 'Barkbind Salve',     desc: 'Birch Bark + Pine Pitch',     ingredients: [{ id: 'birch_bark', qty: 2 }, { id: 'pine_pitch', qty: 1 }] },
-  { id: 'capwood_elixir',     icon: '🍄‍🟫', name: 'Capwood Elixir',     desc: 'Toadcap + Ring Cap',          ingredients: [{ id: 'toadcap', qty: 2 }, { id: 'ring_cap', qty: 1 }] },
-  { id: 'nightsight_draught', icon: '🌘',  name: 'Nightsight Draught', desc: 'Nightberry + Willow Frond',   ingredients: [{ id: 'nightberry', qty: 2 }, { id: 'willow_frond', qty: 1 }] },
-  { id: 'fernstep_philtre',   icon: '🌀',  name: 'Fernstep Philtre',   desc: 'Fern Frond + Blackthorn',     ingredients: [{ id: 'fern_frond', qty: 2 }, { id: 'blackthorn', qty: 1 }] },
-  { id: 'bramble_poultice',   icon: '💚',  name: 'Bramble Poultice',   desc: 'Bramble Vine + Hex Acorn',    ingredients: [{ id: 'bramble_vine', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
-  { id: 'witchwood_balm',     icon: '✨',  name: 'Witchwood Balm',     desc: 'Witchwood + Hex Acorn',       ingredients: [{ id: 'witchwood', qty: 2 }, { id: 'hex_acorn', qty: 1 }] },
-  // --- Moon water (Tier 3.5): the full-moon ritual + what it unlocks ---
-  { id: 'moon_water',         icon: '💧',  name: 'Moon Water',         desc: 'Glass Vial (full moon only)', ingredients: [{ id: 'glass_vial', qty: 1 }], requiresMoon: 'full' },
-  { id: 'moonwell_draught',   icon: '💙',  name: 'Moonwell Draught',   desc: 'Moon Water + 2× Healing Herb',ingredients: [{ id: 'moon_water', qty: 1 }, { id: 'healing_herb', qty: 2 }] },
-];
+// Hazel's recipe book, shipped whole from the server at init (like
+// legendaryCatalog). This used to be a second, hand-maintained copy of
+// data/gameConstants' POTION_RECIPES, and it had drifted by 21 recipes: every
+// cottage, hedge and Poison Path brew the garden grows was missing, so Hazel
+// never offered a nightshade draught and the Green Path's final chapter had
+// nothing that could complete it. Display fields are derived from the item each
+// recipe makes, so there is nothing left to keep in sync by hand.
+let POTION_RECIPES_CLIENT = [];
+
+function setPotionRecipes(list) {
+  const label = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || id;
+  POTION_RECIPES_CLIENT = (list || []).map((r) => {
+    const out = ITEM_CATALOG[r.result] || {};
+    return {
+      id: r.id,
+      result: r.result,
+      icon: out.icon || '🧪',
+      name: out.name || r.result,
+      // "2× Chamomile" · "Belladonna + Henbane + Mandrake"
+      desc: (r.ingredients || []).map((i) => (i.qty > 1 ? i.qty + '× ' : '') + label(i.id)).join(' + '),
+      ingredients: r.ingredients || [],
+      requiresMoon: r.requiresMoon,
+    };
+  });
+}
 
 let _witchActiveTab = 'shop';
 
@@ -19503,6 +19510,10 @@ if (location.search.includes('testdrive=1')) {
         queued: announceQueue.length,
         overlayUp: blockingOverlayUp(),
       };
+    },
+    recipes() {
+      // QA: exactly what Hazel's cauldron will offer, after the catalog ships.
+      return POTION_RECIPES_CLIENT.map((r) => ({ id: r.id, name: r.name, icon: r.icon, desc: r.desc, ingredients: r.ingredients }));
     },
     fovState() {
       // QA: the field-of-view preference and what the camera you're actually
