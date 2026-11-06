@@ -2901,6 +2901,7 @@
       <button class="menuRow" id="menuCoven">🕸️ Coven<span id="menuCovenBadge" class="menuMiniBadge hidden"></span></button>
       <button class="menuRow" id="menuAchievements">🏅 Collection Log</button>
       <button class="menuRow" id="menuCodex">📘 Codex</button>
+      <button class="menuRow" id="menuCharmBook">📜 Charm Book</button>
 
       <div class="menuSection">More</div>
       <button class="menuRow" id="menuPass">🎟️ Town Pass</button>
@@ -4190,6 +4191,35 @@
   <div id="cordsContent"></div>
   <button class="btn" id="cordsCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
+<div id="charmBookModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>📜 The Charm Book</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="charmBookContent"></div>
+  <button class="btn" id="charmBookCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+<style>
+  #charmBookModal { width:min(440px, calc(100vw - 32px)); }
+  #charmBookContent { max-height:64vh; overflow-y:auto; text-align:left; }
+  .cbIntro { color:#d8ccb8; font-size:12.5px; line-height:1.5; margin:2px 0 10px; }
+  .cbKey { font-size:11px; color:#a8977a; margin:0 0 12px; line-height:2; }
+  .cbChapter { display:grid; grid-template-columns:28px 1fr; grid-template-rows:auto 6px; column-gap:10px; row-gap:6px; align-items:center; width:100%; text-align:left; background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.25); border-radius:9px; padding:9px 11px; margin:0 0 8px; color:inherit; font:inherit; cursor:pointer; }
+  .cbChapter.done { border-color:rgba(217,184,106,0.6); }
+  .cbChIcon { grid-row:1 / span 2; font-size:20px; text-align:center; }
+  .cbChText { display:flex; justify-content:space-between; gap:8px; }
+  .cbChTitle { color:#f1e3c4; font-weight:700; font-size:13.5px; }
+  .cbChCount { color:#d9b86a; font-size:12px; font-weight:700; }
+  .cbChBar { height:6px; border-radius:3px; background:rgba(0,0,0,0.35); overflow:hidden; }
+  .cbChFill { display:block; height:100%; background:linear-gradient(90deg,#b8893a,#e6c46a); }
+  .cbBack { padding:4px 10px; font-size:12px; margin:0 0 8px; }
+  .cbChHead { color:#f1e3c4; font-weight:800; font-size:15px; margin:0 0 6px; }
+  .cbEntryHead { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .cbEntryTitle { color:#f1e3c4; font-weight:700; font-size:13px; }
+  .cbEntry.unmet { background:rgba(0,0,0,0.18); border:1px dashed rgba(217,184,106,0.2); border-radius:6px; padding:6px 10px; margin:6px 0; }
+  .cbEntry.unmet .cbEntryTitle { color:#7d6f5a; letter-spacing:0.2em; }
+  .cbHint { color:#8f8270; font-size:11.5px; font-style:italic; margin-top:2px; }
+  .cbNote { color:#a8977a; font-size:11.5px; margin-top:10px; border-top:1px solid rgba(217,184,106,0.2); padding-top:8px; }
+</style>
 <div id="oghamModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
     <span>🌳 The Tree Alphabet</span><span class="floatPanelDrag">⠿</span>

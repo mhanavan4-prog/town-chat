@@ -25,6 +25,7 @@ import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
 import createOgham from './ogham.js';
+import createCharmBook from './charm-book.js';
 import createCords from './cords.js';
 import createPractices from './practices.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
@@ -2906,6 +2907,7 @@ function onWsMessage(ev) {
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
   if (msg.type === 'wards_state') { _wards.setState(msg); return; }
   if (msg.type === 'ogham_state') { _ogham.setState(msg); return; }
+  if (msg.type === 'charm_book_state') { _charmBook.setState(msg); return; }
   if (msg.type === 'cords_state') { _cords.setState(msg); return; }
   if (msg.type === 'practice_state') { _practices.setState(msg); return; }
   if (msg.type === 'practice_error') { if (msg.message) setUnlockToast(`🌿 ${msg.message}`); return; }
@@ -15860,6 +15862,8 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
+// 📜 The Charm Book — every piece of lore you've met, with its source.
+const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 460, 130) });
 // 🪢 Knots & the Wind — cord magic (blueprint F).
 const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 🌿 The Witch Paths' practices (Green, Lunar, Hedge, Kitchen).
@@ -15982,6 +15986,7 @@ const { openNotifModal } = _notif;
   // Village (see the 'artificer' kiosk) — no menu entry.
   wire('menuAchievements', openAchModal);
   wire('menuCodex', openCodexModal);
+  wire('menuCharmBook', () => _charmBook.open());
   wire('menuTitles', openTitlesModal);
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
@@ -18500,6 +18505,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (Modals.isOpen('oghamOpen') && e.key === 'Escape' && !e.repeat) { _ogham.close(); return; }
+  if (Modals.isOpen('charmBookOpen') && e.key === 'Escape' && !e.repeat) { _charmBook.close(); return; }
   if (Modals.isOpen('cordsOpen') && e.key === 'Escape' && !e.repeat) { _cords.close(); return; }
   if (Modals.isOpen('practicesOpen') && e.key === 'Escape' && !e.repeat) { _practices.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
@@ -19604,6 +19610,7 @@ if (location.search.includes('testdrive=1')) {
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
     wards() { _wards.open(); return true; },
     ogham() { _ogham.open(); return true; },
+    charmBook() { _charmBook.open(); return true; },
     cords() { _cords.open(); return true; },
     practices() { _practices.open(); return true; },
     recital(r) { showRecital(r); return true; },
