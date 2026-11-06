@@ -41,6 +41,8 @@ export default function createPractices({ send, place }) {
       body.appendChild(el('div', 'cordBlowing', `🌕 The moon is on you — +${Math.round(state.moonBuff.amount * 100)}% XP for ${mins} more min.`));
     }
     const ordered = state.practices.slice().sort((a, b) => (b.onPath ? 1 : 0) - (a.onPath ? 1 : 0));
+    const cols = el('div', 'menuCols'); // two columns in the wide desktop frame, one on phones
+    body.appendChild(cols);
     for (const p of ordered) {
       const card = el('div', 'prCard' + (p.onPath ? ' onPath' : '') + (p.ready && p.id !== 'green' ? ' ready' : ''));
       card.dataset.practice = p.id;
@@ -65,7 +67,7 @@ export default function createPractices({ send, place }) {
       lore.appendChild(el('div', 'callerSource', `Source: ${p.source}`));
       fold.appendChild(lore);
       card.appendChild(fold);
-      body.appendChild(card);
+      cols.appendChild(card);
     }
   }
 

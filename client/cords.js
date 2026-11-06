@@ -54,6 +54,8 @@ export default function createCords({ send, place }) {
     // Cords you hold
     const held = state.cords.filter((c) => c.qty > 0);
     body.appendChild(el('div', 'ogSub', held.length ? 'Your cords' : 'You hold no tied cords'));
+    const cols = el('div', 'menuCols');
+    body.appendChild(cols);
     for (const c of held) {
       const card = el('div', 'cordCard' + (c.knots === 1 ? ' last' : ''));
       card.dataset.knots = String(c.knots);
@@ -62,7 +64,7 @@ export default function createCords({ send, place }) {
       const ub = el('button', 'btn cordBtn cordUntieBtn' + (c.next.hpCostFrac ? ' peril' : ''), c.next.hpCostFrac ? '⚠️ Loose the third knot' : `Loose ${c.next.name.toLowerCase()}`);
       ub.addEventListener('click', () => { ub.disabled = true; send({ type: 'untie_knot', knots: c.knots }); });
       card.appendChild(ub);
-      body.appendChild(card);
+      cols.appendChild(card);
     }
 
     const lore = el('div', 'ogLore');
