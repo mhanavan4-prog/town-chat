@@ -5038,6 +5038,14 @@ function tarotCollectionBody(player) {
   return { legs, drawn: ar.drawn.length, total: TAROT_CARDS.length, done: !!ar.done };
 }
 // Render a stored spread ([{key,rev},…]) into the client-facing seats + synthesis.
+// One-line notes of a reading, for a caller's working (lib/callers.js).
+function callerTarotNote(spread) {
+  const last = (spread || [])[spread.length - 1];
+  return last ? `The cards: ${last.emoji || ''} ${last.name}${last.reversed ? ' (reversed)' : ''} in ${last.pos || 'the last place'}.` : 'The cards were turned.';
+}
+function callerRuneNote(cast) {
+  return (cast && cast.length) ? `The staves: ${cast.map((r) => `${r.sym || ''} ${r.name}${r.reversed ? ' (merkstave)' : ''}`).join(' · ')}.` : 'The staves were cast.';
+}
 function tarotSpreadView(stored) {
   const byKey = (k) => TAROT_CARDS.find((c) => c.key === k) || TAROT_CARDS[0];
   const spreadCards = stored.map((s) => ({ card: byKey(s.key), reversed: !!s.rev }));
@@ -8021,6 +8029,17 @@ function boardStatePayload(player) {
     isGuest: !player.accountKey
   };
 }
+
+// Callers at the Door (blueprint A) — townsfolk hire the player for a real
+// cunning-folk working, solved with the pendulum / cards / staves / bowl and
+// the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
+const callers = require('./lib/callers')({
+  accounts, saveAccounts, send, getInventory, countItemQty, removeItemFromAccount,
+  saveInventories, inventoryStatePayload, ensureBankAccount, saveBankAccounts, mulberry32,
+  grantXP: (player, n) => grantXP(player, n),
+  itemInfo: (id) => ITEM_CATALOG[id] || null,
+  isBrewable: (id) => POTION_RECIPES.some((r) => r.result === id),
+});
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
 const { SABBATS } = require('./data/seasons');
@@ -13931,6 +13950,9 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // ── Callers at the Door (the Board's cunning-folk commissions) ─────────
+    if (callers.handle(player, msg)) return;
+
     // ── Session L: the town board ───────────────────────────────────────────
     if (msg.type === 'board_state') {
       send(ws, boardStatePayload(player));
@@ -15190,6 +15212,7 @@ wss.on('connection', (ws, req) => {
       }
       const { spread, synthesis } = tarotSpreadView(stored);
       send(ws, { type: 'tarot_result', spread, synthesis, gold, alreadyDrawn, secret, balance, arcana: tarotCollectionBody(player), arcanaNews });
+      callers.callerEvent(player, 'tarot', callerTarotNote(spread));
       return;
     }
     if (msg.type === 'tarot_state') {
@@ -15204,6 +15227,8 @@ wss.on('connection', (ws, req) => {
         out.spread = v.spread; out.synthesis = v.synthesis; out.alreadyDrawn = true;
       }
       send(ws, out);
+      // Today's spread is already laid — showing it to the caller is the reading.
+      if (out.alreadyDrawn) callers.callerEvent(player, 'tarot', callerTarotNote(out.spread));
       return;
     }
 
@@ -15233,6 +15258,7 @@ wss.on('connection', (ws, req) => {
         moonWater: player.accountKey ? countItemQty(getInventory(player), 'moon_water') : 0, // for the deep-reading button
         now
       });
+      callers.callerEvent(player, 'scry', `The bowl, under the ${moon.name || 'moon'}: ${String(omen || 'dark water, and a turning wheel').slice(0, 100)}`);
       return;
     }
 
@@ -15251,6 +15277,7 @@ wss.on('connection', (ws, req) => {
       const lines = deepReading(seed, now); // [tide behind, water now, shore ahead] — fresh each pour
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'scry_deep_reading', lines, samhain: isSamhain, moonWater: countItemQty(inv, 'moon_water'), now });
+      callers.callerEvent(player, 'scry', `The bowl, three-fold: ${String((lines || [])[1] || '').slice(0, 100)}`);
       return;
     }
 
@@ -15265,6 +15292,7 @@ wss.on('connection', (ws, req) => {
       const seed = player.accountKey || player.id || 'wanderer';
       const ans = pendulumAnswer(seed, q, Math.floor(now / 86400000), veilThin);
       send(ws, { type: 'pendulum_reading', question: q, verdict: ans.verdict, line: ans.line, samhain: veilThin, now });
+      callers.callerEvent(player, 'pendulum', `The pendulum, asked "${q.slice(0, 60)}", swung ${ans.verdict === 'unclear' ? 'in circles — unclear' : ans.verdict}.`);
       return;
     }
 
@@ -15328,6 +15356,7 @@ wss.on('connection', (ws, req) => {
       }
       const { cast, synthesis } = runeCastView(stored);
       send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, gold, balance, futhark: runeFutharkBody(player), futharkNews, now: Date.now() });
+      callers.callerEvent(player, 'runes', callerRuneNote(cast));
       return;
     }
     if (msg.type === 'rune_state') {
@@ -15340,6 +15369,7 @@ wss.on('connection', (ws, req) => {
         const v = runeCastView(a.lastRuneCast); out.cast = v.cast; out.synthesis = v.synthesis; out.alreadyCast = true;
       }
       send(ws, out);
+      if (out.alreadyCast) callers.callerEvent(player, 'runes', callerRuneNote(out.cast));
       return;
     }
 
@@ -16809,7 +16839,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
