@@ -5969,7 +5969,48 @@ function appendSystemChatLine(text) {
 }
 
 let announceTimer = null;
+// Is a full-screen takeover up right now? Asked of the DOM — every one of them
+// carries .overlay — rather than of a list of flags, because anyOverlayOpen()
+// enumerates ~16 modals by name and the welcome card is not among them. That is
+// how a town-wide banner ended up painted straight across the title of the
+// first screen a new player ever sees. Asking the DOM covers an overlay added
+// later without anyone remembering to come back here.
+//
+// Side panels the player opened themselves (the inventory, chat) deliberately
+// do NOT count: they do not own the screen, and holding every announcement
+// until all of them were shut would mean never showing one.
+function blockingOverlayUp() {
+  for (const el of document.querySelectorAll('.overlay')) {
+    if (!el.classList.contains('hidden')) return true;
+  }
+  return false;
+}
+
+// A banner that waited out a long menu session is not news any more.
+const ANNOUNCE_STALE_MS = 90000;
+const announceQueue = [];
+let announceDrain = null;
+
 function showAnnounceBanner(text) {
+  // On the record first. A town-wide moment should be readable afterwards even
+  // if it was never painted — the Log is where notices live now.
+  logMessage(text, 'important');
+  if (blockingOverlayUp() || document.body.classList.contains('announceUp')) {
+    announceQueue.push({ text, at: Date.now() });
+    if (!announceDrain) {
+      announceDrain = setInterval(() => {
+        if (blockingOverlayUp() || document.body.classList.contains('announceUp')) return;
+        const next = announceQueue.shift();
+        if (!next) { clearInterval(announceDrain); announceDrain = null; return; }
+        if (Date.now() - next.at < ANNOUNCE_STALE_MS) paintAnnounceBanner(next.text);
+      }, 600);
+    }
+    return;
+  }
+  paintAnnounceBanner(text);
+}
+
+function paintAnnounceBanner(text) {
   const el = document.getElementById('announceBanner');
   if (!el) return;
   el.textContent = text;
@@ -19421,6 +19462,17 @@ if (location.search.includes('testdrive=1')) {
         }
       }
       return { walls: walls.length, decor: decor.length, buried };
+    },
+    announce(text) {
+      // QA: drive a town-wide banner the way a server 'announce' does, and
+      // report whether it painted or was held back behind a full-screen card.
+      showAnnounceBanner(text || 'Test announcement');
+      const el = document.getElementById('announceBanner');
+      return {
+        painted: !!(el && !el.classList.contains('hidden')),
+        queued: announceQueue.length,
+        overlayUp: blockingOverlayUp(),
+      };
     },
     fovState() {
       // QA: the field-of-view preference and what the camera you're actually
