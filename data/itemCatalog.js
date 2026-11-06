@@ -39,6 +39,8 @@ module.exports = {
   bent_pins:      { name: 'Bent Pins',      icon: '📍', slot: null },
   iron_nails:     { name: 'Iron Nails',     icon: '🔩', slot: null },
   witch_bottle:   { name: 'Witch Bottle',   icon: '🍶', slot: null },
+  // ---- The Tree Alphabet (blueprint C): Coll, Hazel's own letter ----
+  hazel_rod:      { name: 'Hazel Rod',      icon: '🪄', slot: null },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },

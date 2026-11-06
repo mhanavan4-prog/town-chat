@@ -24,6 +24,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
+import vm from 'node:vm';
 
 const ROOT = path.resolve(url.fileURLToPath(import.meta.url), '..', '..');
 const ENTRY = path.join(ROOT, 'client', 'main.js');
@@ -73,6 +74,16 @@ function process(file) {
 process(ENTRY);
 const bundle = '(() => {\n"use strict";\n' + chunks.join('\n') + '\n})();\n';
 fs.writeFileSync(OUT, bundle);
+
+// Compile (don't run) the bundle. Every module shares ONE scope here, so a
+// top-level name declared in two modules is a SyntaxError at load — "Identifier
+// 'X' has already been declared" — and the whole client dies on a blank screen.
+// That uniqueness was an unchecked invariant; fail the build instead.
+try {
+  new vm.Script(bundle, { filename: 'public/client.js' });
+} catch (e) {
+  throw new Error(`bundle-client: the bundle does not compile — ${e.message}. (Two client/ modules declaring the same top-level name is the usual cause: they share one scope.)`);
+}
 
 // Cache-busting is now applied at SERVE time, not build time: the server reads
 // public/client.js, hashes it, and injects `client.js?v=HASH` into the shell it

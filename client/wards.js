@@ -9,8 +9,8 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const TIER_LABEL = { record: 'Archaeological / documentary', folk: 'Folk tradition', revival: 'Modern revival' };
+const WARDS_SVGNS = 'http://www.w3.org/2000/svg';
+const WARDS_TIER_LABEL = { record: 'Archaeological / documentary', folk: 'Folk tradition', revival: 'Modern revival' };
 
 export default function createWards({ send }) {
   let state = null;
@@ -39,7 +39,7 @@ export default function createWards({ send }) {
 
   function loreBox(w) {
     const box = el('div', 'wardLore');
-    box.appendChild(el('span', 'callerTier callerTier-' + w.tier, TIER_LABEL[w.tier] || w.tier));
+    box.appendChild(el('span', 'callerTier callerTier-' + w.tier, WARDS_TIER_LABEL[w.tier] || w.tier));
     box.appendChild(el('div', 'callerLoreText', w.lore));
     box.appendChild(el('div', 'callerSource', `Source: ${w.source}`));
     return box;
@@ -167,11 +167,11 @@ export default function createWards({ send }) {
   }
   function renderCompass(body) {
     body.appendChild(el('div', 'wardIntro', 'Scribing a daisy wheel over the door — one circle, six arcs, one radius.'));
-    const svg = document.createElementNS(SVGNS, 'svg');
+    const svg = document.createElementNS(WARDS_SVGNS, 'svg');
     svg.setAttribute('viewBox', '0 0 260 260');
     svg.setAttribute('class', 'hexCanvas');
     svg.id = 'hexCanvas';
-    const add = (tag, attrs) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); svg.appendChild(n); return n; };
+    const add = (tag, attrs) => { const n = document.createElementNS(WARDS_SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); svg.appendChild(n); return n; };
     add('rect', { x: 0, y: 0, width: 260, height: 260, rx: 12, class: 'hexBeam' });
     if (compass.stage === 'centre') add('circle', { cx: C, cy: C, r: 4, class: 'hexCentre' });
     if (compass.stage !== 'centre') add('circle', { cx: C, cy: C, r: R, class: 'hexLine' });

@@ -178,6 +178,6 @@ const CALLERS = [
 ];
 
 const CALLERS_PER_DAY = 3;
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves'];
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
