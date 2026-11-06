@@ -3093,6 +3093,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
 const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
 const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
@@ -4867,6 +4868,64 @@ function maybeGiveHazelRod(player) {
   return true;
 }
 
+// ── Knots & the Wind (blueprint F) — cord magic ───────────────────────────
+// Tie a wind into a hemp cord under the open sky (one a day; two for a Sea
+// Witch), then loose its knots later, in order: a breeze, half a gale, and a
+// hurricane that takes a quarter of your health. The buff rides its own slot
+// (acct.cordBuff) so it stacks with a tea. acct.cords = { day, tied }.
+function isSeaWitch(key) { return !!(key && accounts[key] && accounts[key].witchPath === 'sea'); }
+function cordsOf(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  const today = Math.floor(Date.now() / 86400000);
+  if (!a.cords || a.cords.day !== today) a.cords = { day: today, tied: 0 };
+  return a.cords;
+}
+function cordsStateBody(player) {
+  const key = player && player.accountKey;
+  const inv = key ? getInventory(player) : null;
+  const c = key ? cordsOf(key) : null;
+  const sea = isSeaWitch(key);
+  const buff = key && accounts[key] && accounts[key].cordBuff;
+  return {
+    isGuest: !key,
+    cords: [3, 2, 1].map((k) => ({ knots: k, itemId: CORD_BY_KNOTS[k], qty: inv ? countItemQty(inv, CORD_BY_KNOTS[k]) : 0, next: KNOTS[3 - k] })),
+    material: inv ? countItemQty(inv, CORD_MATERIAL) : 0,
+    tiedToday: c ? c.tied : 0,
+    perDay: sea ? CORDS_PER_DAY_SEA : CORDS_PER_DAY,
+    seaWitch: sea,
+    openSky: OPEN_SKY_ROOMS.includes(player.room),
+    blowing: (buff && buff.until > Date.now()) ? { swift: buff.amount, until: buff.until, knot: buff.knot } : null,
+    lore: CORD_LORE,
+  };
+}
+// Loose the next knot of a cord with `knots` still tied. Returns the knot
+// loosed, or an error string.
+function untieKnot(player, knots) {
+  const key = player.accountKey;
+  const itemId = CORD_BY_KNOTS[knots];
+  if (!itemId) return 'No such cord.';
+  const inv = getInventory(player);
+  if (!removeItemFromAccount(inv, itemId, 1)) return 'You have no cord with that many knots.';
+  if (knots > 1) addItemToAccount(inv, CORD_BY_KNOTS[knots - 1], 1); // the same cord, one knot fewer (a slot was just freed)
+  const knot = KNOTS[3 - knots];
+  const ms = Math.round(knot.ms * (isSeaWitch(key) ? SEA_WITCH_KNOT_MULT : 1));
+  accounts[key].cordBuff = { stat: 'swift', amount: knot.swift, until: Date.now() + ms, knot: knot.n };
+  let hpLost = 0;
+  if (knot.hpCostFrac && !player.isDead) {
+    const before = player.health || 0;
+    player.health = Math.max(1, before - Math.round(playerMaxHealth(player) * knot.hpCostFrac));
+    hpLost = before - player.health;
+  }
+  // When the wind drops, tell the client so its speed falls back.
+  const pid = player.id;
+  setTimeout(() => {
+    const p = players.get(pid);
+    if (p && p.ws) { try { send(p.ws, { type: 'skill_state', ...skillStatePayload(p) }); send(p.ws, { type: 'cords_state', ...cordsStateBody(p) }); } catch (e) { /* noop */ } }
+  }, ms + 250);
+  return { knot, ms, hpLost };
+}
+
 function homeStateBody(player) {
   const home = homeOf(player);
   if (!home) return null;
@@ -5438,7 +5497,7 @@ function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 
 // buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
 // a single small per-source amount, not a ladder, so they add texture without a
 // stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey); }
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -8856,7 +8915,8 @@ const NPC_SHOPS = {
   npc_tailor: { name: 'Tailor Ines', items: [
     { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
     { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 },
-    { id: 'bent_pins', price: 4 } // a paper of pins — bent, for a witch bottle
+    { id: 'bent_pins', price: 4 }, // a paper of pins — bent, for a witch bottle
+    { id: 'hemp_cord', price: 5 } // a length of cord — to tie a wind into
   ]},
   npc_armorer: { name: 'Armorer Beck', items: [
     { id: 'steel_shield', price: 45 }, { id: 'knights_helm', price: 40 },
@@ -15553,6 +15613,37 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // ── Knots & the Wind (blueprint F): tie a wind into a cord, loose it later ──
+    if (msg.type === 'cords_state') { send(ws, { type: 'cords_state', ...cordsStateBody(player) }); return; }
+    if (msg.type === 'tie_wind_cord' || msg.type === 'untie_knot') {
+      const fail = (m) => { send(ws, { type: 'cords_error', message: m }); send(ws, { type: 'cords_state', ...cordsStateBody(player) }); };
+      if (!player.accountKey) { fail('Log into an account to keep a cord.'); return; }
+      const inv = getInventory(player);
+      if (msg.type === 'tie_wind_cord') {
+        const c = cordsOf(player.accountKey);
+        const perDay = isSeaWitch(player.accountKey) ? CORDS_PER_DAY_SEA : CORDS_PER_DAY;
+        if (!OPEN_SKY_ROOMS.includes(player.room)) { fail('A wind is tied under the open sky — go outside.'); return; }
+        if (c.tied >= perDay) { fail(perDay > 1 ? `You have tied ${perDay} winds today. The air is still — tomorrow.` : 'You have tied a wind today. The air is still — tomorrow.'); return; }
+        if (countItemQty(inv, CORD_MATERIAL) < 1) { fail('You need a hemp cord — Tailor Ines sells them.'); return; }
+        removeItemFromAccount(inv, CORD_MATERIAL, 1);
+        if (!addItemToAccount(inv, CORD_BY_KNOTS[3], 1)) { addItemToAccount(inv, CORD_MATERIAL, 1); fail('Your pack is full.'); return; }
+        c.tied++;
+        saveAccounts(); saveInventories();
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'cords_state', ...cordsStateBody(player) });
+        send(ws, { type: 'toast', message: '🪢 You face into the wind and tie it down — one knot, two, three. The cord hums in your hand.' });
+        return;
+      }
+      const r = untieKnot(player, Number(msg.knots));
+      if (typeof r === 'string') { fail(r); return; }
+      saveAccounts(); saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'cords_state', ...cordsStateBody(player) });
+      send(ws, { type: 'toast', message: `🌬️ ${r.knot.name}: ${r.knot.line} (+${Math.round(r.knot.swift * 100)}% speed, ${Math.round(r.ms / 1000)}s${r.hpLost ? ` · −${r.hpLost} HP` : ''})` });
+      return;
+    }
+
     // ── The Tree Alphabet (blueprint C): carve ogham staves, cast three ──────
     if (msg.type === 'ogham_state') {
       send(ws, { type: 'ogham_state', ...oghamStateBody(player) });
@@ -17132,7 +17223,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
