@@ -34,6 +34,11 @@ module.exports = {
   // is a potent brewing reagent and a sellable good gathered on full-moon nights.
   glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null },
   moon_water:     { name: 'Moon Water',     icon: '💧', slot: null },
+  // ---- Threshold & Hearth (blueprint B): the makings of a witch bottle ----
+  bellarmine_jug: { name: 'Bellarmine Jug', icon: '🏺', slot: null },
+  bent_pins:      { name: 'Bent Pins',      icon: '📍', slot: null },
+  iron_nails:     { name: 'Iron Nails',     icon: '🔩', slot: null },
+  witch_bottle:   { name: 'Witch Bottle',   icon: '🍶', slot: null },
   // ---- Witch starter set ----
   witch_robe:     { name: "Witch's Robe",   icon: '👘', slot: 'chest' },
   hexed_boots:    { name: 'Hexed Boots',    icon: '🌒', slot: 'feet'  },

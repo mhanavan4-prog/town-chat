@@ -3250,6 +3250,31 @@
   .slNote { color:#c9b89a; font-size:12px; margin-top:8px; }
   .slSection { margin-top:12px; text-align:left; }
   .slSection h4 { color:#ffe9c2; margin:0 0 6px; font-size:13.5px; }
+  /* Threshold & Hearth — Wards of the House */
+  #wardsCard { max-width:560px; width:min(560px, 94vw); }
+  #wardsBody { max-height:62vh; overflow-y:auto; text-align:left; margin:8px 0; }
+  .wardIntro { color:#c9b89a; font-size:12.5px; margin:2px 2px 10px; }
+  .wardHearth { color:#9ee37d; font-size:12.5px; margin:0 2px 10px; }
+  .wardCard { background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.28); border-radius:10px; padding:10px 12px; margin:0 0 10px; }
+  .wardCard.done { border-color:rgba(158,227,125,0.5); }
+  .wardHead { display:flex; gap:10px; align-items:center; }
+  .wardIcon { font-size:28px; line-height:1; }
+  .wardTitle { color:#ffe9c2; font-weight:800; font-size:14px; }
+  .wardStatus { color:#d9b86a; font-size:12px; }
+  .wardCard.done .wardStatus { color:#9ee37d; }
+  .wardBlurb { color:#e8dcc8; font-size:12.5px; margin:6px 0; }
+  .wardHow { color:#c9b89a; font-size:12px; margin:6px 0; font-style:italic; }
+  .wardBtn { margin:6px 6px 2px 0; padding:7px 12px; font-size:13px; width:auto; }
+  .wardBtn:disabled { opacity:0.5; cursor:default; }
+  .wardShoes { display:flex; flex-wrap:wrap; }
+  .wardLore { background:rgba(0,0,0,0.25); border-left:3px solid #d9b86a; border-radius:6px; padding:8px 10px; margin-top:8px; }
+  .hexCanvas { display:block; width:min(300px, 80vw); height:auto; margin:6px auto; cursor:crosshair; touch-action:manipulation; }
+  .hexBeam { fill:#5a4128; stroke:#2a1c10; stroke-width:4; }
+  .hexLine { fill:none; stroke:#f0deb8; stroke-width:2.6; stroke-linecap:round; }
+  .hexCentre { fill:#ffd9a0; }
+  .hexNote { color:#ffe9c2; font-size:13px; text-align:center; margin:4px 0; }
+  .hexSlips { color:#a8977a; font-size:11.5px; text-align:center; }
+  .wardBack { display:block; margin:8px auto 0; }
   /* Reading the Leaves — the cup's dregs on the kitchen panel */
   .leavesCup, .leavesRead { background:rgba(60,40,20,0.5); border:1px solid rgba(217,184,106,0.4); border-radius:10px; padding:10px 12px; margin:8px 0 10px; text-align:left; }
   .lcText { color:#e8dcc8; font-size:13px; line-height:1.5; }
@@ -3466,6 +3491,15 @@
     <div class="slNote" id="boardMeNote"></div>
     <div class="slSection hidden" id="boardHonors"><h4>🎖️ Your honors</h4><div id="boardHonorsList"></div></div>
     <button class="btn" id="boardCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="wardsModal" class="overlay hidden">
+  <div class="card" id="wardsCard">
+    <div class="title" style="font-size:20px;">🛡️ Wards of the House</div>
+    <div class="subtitle">Threshold &amp; hearth — the old ways of keeping a house</div>
+    <div id="wardsBody"></div>
+    <button class="btn" id="wardsCloseBtn">Close</button>
   </div>
 </div>
 
