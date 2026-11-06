@@ -8404,7 +8404,7 @@ const callers = require('./lib/callers')({
 });
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
-const { SABBATS } = require('./data/seasons');
+const { SABBATS, WHEEL_PROVENANCE } = require('./data/seasons');
 const { MOON_PHASES, FULL_MOON_INDEX } = require('./data/moon');
 // Compressed lunar month: one full new→full→new cycle. 20h is deliberately not
 // a divisor of 24h, so the full moon drifts across the time of day (a player
@@ -15630,6 +15630,7 @@ wss.on('connection', (ws, req) => {
         bloodMoon: { active: !!bm.active, nextRiseMs: Math.max(0, (bm.nextRiseAt || now) - now), nextNights: Math.max(0, Math.round(((bm.nextRiseAt || now) - now) / CYCLE_MS)) },
         wheel: {
           seasonKey: season.key || null, seasonName: season.name || '', seasonGlyph: season.glyph || '🎡', epithet: season.epithet || '', blurb: season.blurb || '',
+          provenance: season.provenance || null, wheelProvenance: WHEEL_PROVENANCE,
           nextKey: next.key || null, nextName: next.name || '', nextGlyph: next.glyph || '🎡', turnsMs: Math.max(0, (season.endsAt || now) - now)
         },
         samhain: season.key === 'samhain',

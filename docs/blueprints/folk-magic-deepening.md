@@ -281,6 +281,12 @@ expansion of the Cottage Garden plant list.
 
 ---
 
+> **Sabbats — labelled.** Each sabbat now carries its provenance (data/seasons.js),
+> shown under the Wheel of the Year in the scrying bowl: Imbolc, Beltane,
+> Lughnasadh, Samhain and Yule as genuinely old; Ostara, Litha and Mabon as
+> modern names on old customs; and the eight-fold wheel itself as a 1950s–70s
+> assembly (Hutton).
+
 ## 4. Rules for keeping it accurate
 
 1. **Name the tier.** Codex entries carry provenance: artifact, attested
