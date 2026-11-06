@@ -50,7 +50,9 @@ setTimeout(() => {
   const brewed = new Set(POTION_RECIPES.map((r) => r.result));
   const grown = new Set();
   for (const cat of GREEN_PATH_CATEGORIES) for (const p of cat.plants) grown.add(p.id);
-  const sold = new Set(['salt', 'wind_cord_3']); // the apothecary's shelf, and a wind you tie yourself
+  const sold = new Set(['salt', 'wind_cord_3', 'wood']); // the apothecary's shelf, a wind you tie yourself, holly from the town trees
+  // …and anything a Wilds tree drops (the ogham grove included).
+
   for (const c of CALLERS) {
     check(`${c.id}: names its provenance tier and a source`, !!TIERS[c.tier] && !!c.source && c.lore.length > 80, { tier: c.tier, source: c.source });
     check(`${c.id}: has a plea, a resolution and a reward`, !!c.plea && !!c.resolution && c.reward && c.reward.gold > 0);
@@ -58,7 +60,8 @@ setTimeout(() => {
     for (const s of c.steps) {
       if (s.kind === 'deliver') {
         check(`  ${c.id}: hands over ${s.item}, which the catalog knows`, !!h.ITEM_CATALOG[s.item], s.item);
-        check(`  ${c.id}: and ${s.item} comes from somewhere (brewed, grown or sold)`, brewed.has(s.item) || grown.has(s.item) || sold.has(s.item), s.item);
+        const wildTree = Object.values((global.__testHooks && global.__testHooks.WILDS_FLORA_HARVEST) || {}).includes(s.item);
+        check(`  ${c.id}: and ${s.item} comes from somewhere (brewed, grown, sold, or a Wilds tree)`, brewed.has(s.item) || grown.has(s.item) || sold.has(s.item) || wildTree, s.item);
       } else {
         check(`  ${c.id}: step kind "${s.kind}" is a reading the server credits`, READING_KINDS.includes(s.kind), s.kind);
       }

@@ -287,6 +287,26 @@ function selectInvSlot(idx) {
       buttons.appendChild(note);
     }
     buttons.appendChild(btn);
+  } else if (slot.itemId === 'yew_wood') {
+    // Yew Wood → Yew Wand (5 pieces; server re-validates)
+    const total = getLastInventoryState().slots.reduce((n, s) => n + (s && s.itemId === 'yew_wood' ? s.qty : 0), 0);
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '🪄 Build Yew Wand (5 Yew Wood)';
+    if (total >= 5) {
+      btn.addEventListener('click', () => {
+        document.getElementById('invModalErr').textContent = '';
+        getWs().send(JSON.stringify({ type: 'craft_wand', wood: 'yew_wood' }));
+      });
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+      const note = document.createElement('div');
+      note.id = 'invEquippableNote';
+      note.textContent = `${total}/5 Yew Wood — the dark yews grow in the Wilds' ogham grove.`;
+      buttons.appendChild(note);
+    }
+    buttons.appendChild(btn);
   } else if (PLANT_EFFECTS.has(slot.itemId)) {
     const btn = document.createElement('button');
     btn.className = 'btn';
