@@ -7937,11 +7937,14 @@ function maybeShowFirstRunControls() {
   if (!welcomeSeen) setTimeout(openWelcomeModal, 900);
 }
 function openWelcomeModal() {
-  // Show the control line in the platform's own words.
-  const cd = document.getElementById('welcomeCtlDesktop');
-  const cm = document.getElementById('welcomeCtlMobile');
-  if (cd) cd.classList.toggle('hidden', MOBILE_UI);
-  if (cm) cm.classList.toggle('hidden', !MOBILE_UI);
+  // Every line that names a control has a desktop twin and a mobile one; show
+  // whichever matches the device. This used to cover only the movement line, so
+  // a phone player's very first screen still told them to press M for the map,
+  // J for the journal and H for the controls — three keys they do not have.
+  // The pairs stay as sibling elements rather than strings built in JS, so the
+  // wording lives in the markup where it can be read and edited.
+  for (const el of document.querySelectorAll('#welcomeCard .ctlDesktop')) el.classList.toggle('hidden', MOBILE_UI);
+  for (const el of document.querySelectorAll('#welcomeCard .ctlMobile')) el.classList.toggle('hidden', !MOBILE_UI);
   // Only offer "Begin Chapter 1" when there's a first chapter waiting to start.
   const ch = storyState && storyState.chapter;
   const canBegin = !!(storyState && !storyState.active && !storyState.complete && storyState.chapterIndex === 0 && ch && ch.levelOk !== false);
@@ -11827,7 +11830,9 @@ function renderHomeModal() {
   // While you're standing in someone else's cottage, the editor is a guest view —
   // you can't rearrange their furniture. Show a banner and the way out instead.
   if (cottageVisiting && me && me.room === 'cottage') {
-    el.innerHTML = `<div class="homeVisitBanner">👋 You're visiting <b>${escHtml(cottageHostName || 'a covenmate')}</b>'s cottage.<br>Look around — press <b>F</b> at the door to head home.</div>`
+    // Phrased per input type, like FS_HINTS — "press F" means nothing on a phone.
+    const wayOut = MOBILE_UI ? 'tap the prompt at the door' : 'press <b>F</b> at the door';
+    el.innerHTML = `<div class="homeVisitBanner">👋 You're visiting <b>${escHtml(cottageHostName || 'a covenmate')}</b>'s cottage.<br>Look around — ${wayOut} to head home.</div>`
       + `<button class="btn homeShowcaseBtn" style="margin-top:10px;">🏆 See their Trophy Wall</button>`;
     const sb = el.querySelector('.homeShowcaseBtn'); if (sb) sb.addEventListener('click', () => openShowcaseModal());
     return;
