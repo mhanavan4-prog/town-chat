@@ -1321,6 +1321,7 @@ function onWsMessage(ev) {
     }
     // After the item catalog merge above, so every recipe can name its result.
     if (msg.potionRecipes) setPotionRecipes(msg.potionRecipes);
+    if (msg.witchPaths) witchPathsFromServer = msg.witchPaths;
     myMoonstones = msg.moonstones || 0;
     if (msg.wardrobe) myWardrobe = { purchased: msg.wardrobe.purchased || [], chaptersDone: msg.wardrobe.chaptersDone || 0, dyesPurchased: msg.wardrobe.dyesPurchased || [], nameColors: msg.wardrobe.nameColors || [], nameColorsOwned: msg.wardrobe.nameColorsOwned || [], nameColor: msg.wardrobe.nameColor || 'default' };
     if (msg.familiarCos) myFamiliarCos = { skins: msg.familiarCos.skins || [], owned: msg.familiarCos.owned || [], skin: msg.familiarCos.skin || 'default' };
@@ -11505,6 +11506,7 @@ const WITCH_PATHS_CLIENT = {
   hearth: { name: 'Hearth Witch', emoji: '🛡️', blurb: '+8% damage resist · altar & warding' },
 };
 let myWitchPath = null;
+let witchPathsFromServer = null; // shipped in init: perk + practice per path
 function renderPathModal() {
   const el = document.getElementById('pathContent');
   if (!el) return;
@@ -11512,8 +11514,10 @@ function renderPathModal() {
   const cur = myWitchPath || null;
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Walk a tradition — a small gift, and a sense of which craft is yours. Change it any time.</div><div class="menuCols">';
   for (const id of ['green', 'lunar', 'hedge', 'kitchen', 'sea', 'hearth']) {
+    const sp = witchPathsFromServer && witchPathsFromServer[id];
     const p = WITCH_PATHS_CLIENT[id];
-    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-pid="${id}"><span class="fe">${p.emoji}</span><span style="flex:1"><div class="fn">${p.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${p.blurb}</div></span></div>`;
+    const blurb = sp && sp.practice ? `${escHtml(sp.perk || '')} · ${escHtml(sp.practice)}` : p.blurb;
+    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-pid="${id}"><span class="fe">${p.emoji}</span><span style="flex:1"><div class="fn">${p.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${blurb}</div></span></div>`;
   }
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-pid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No path${!cur ? ' ✓' : ''}</div><div class="fb">Walk your own way.</div></span></div></div>`;
   el.innerHTML = h;

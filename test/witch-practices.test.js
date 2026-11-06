@@ -139,6 +139,10 @@ setTimeout(() => {
   const wild = new Set((h.WORLD2.natureDecor || []).map((d) => d.type));
   check('loaves do not grow in the Wilds', !wild.has('hearth_loaf'));
 
+  // ── The path picker tells the truth ──────────────────────────────────────
+  const init = kw.s.sent.find((m) => m.type === 'init');
+  check('init ships every path with its practice', init && init.witchPaths && Object.values(init.witchPaths).length === 6 && Object.values(init.witchPaths).every((p) => p.practice && p.perk));
+
   // ── The panel ─────────────────────────────────────────────────────────────
   say(kw.s, { type: 'practice_state' });
   const ps = kw.s.lastOfType('practice_state');
