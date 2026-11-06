@@ -70,7 +70,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.charmer, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'charms');
-  check('the Charm Book has a Spoken Charms chapter of three', ch && ch.total === 3);
+  check('the Charm Book has a Spoken Charms chapter: three said, and the wart charm worked', ch && ch.total === 4 && ch.entries.some((e) => e.id === 'warts'));
   check('…with the burn charm written in, words and all', ch && ch.entries.find((e) => e.id === 'burn').met && /three angels/.test(ch.entries.find((e) => e.id === 'burn').lore));
 
   console.log(`\n${pass} passed, ${fail} failed`);

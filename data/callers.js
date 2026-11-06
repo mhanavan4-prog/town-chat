@@ -473,6 +473,23 @@ const CALLERS = [
     source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
     reward: { gold: 50, xp: 40 },
   },
+  // ── Charming warts ──
+  {
+    id: 'charming_warts',
+    caller: 'Tam Lumsden',
+    icon: '🪢',
+    title: 'Five Warts',
+    plea: "I've five warts on my hand and they won't go, and the lasses at the school won't hold it at the dancing. My granny says you charm them. Will you? I'll not look while you do it.",
+    steps: [
+      { kind: 'knots', count: 5, label: 'Tie a knot for every wart' },
+      { kind: 'deliver', item: 'crab_apple', qty: 1, label: 'An apple to cut, rub and bury' },
+    ],
+    resolution: "You count them solemnly, one, two, three, four, five, and tie a knot for each, touching every wart with its knot. Then the apple, cut in two, rubbed on them, tied together and buried by the midden. \"As it rots, they go,\" you tell him. You don't tell him the other half: most warts go by themselves in a year or two anyway. By Candlemas his hand is clean and he swears you're the best charmer in the parish.",
+    lore: "Wart charming was everywhere: a knot in a hair or a thread for every wart, thrown away or buried; in Devonshire an apple cut in two, rubbed on the warts, tied together again and buried — as it rotted, the warts went. William Henderson collected a whole page of such cures from the north of England. They worked so often because most common warts clear up on their own.",
+    tier: 'record',
+    source: 'William Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. 5',
+    reward: { gold: 40, xp: 35 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
@@ -482,6 +499,7 @@ const CALLERS_PER_DAY = 3;
 // 'key' — the key and Bible: like the sieve, the suspects named on the Board.
 // 'rite' — a Hallowe'en love divination (data/halloween.js); callers with
 // season: 'samhain' come only in that season.
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite'];
+// 'knots' — the wart charm: a knot tied for every wart, one by one (count).
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots'];
 
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
