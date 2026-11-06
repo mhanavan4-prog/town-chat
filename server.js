@@ -4982,6 +4982,8 @@ function untieKnot(player, knots) {
   const knot = KNOTS[3 - knots];
   const ms = Math.round(knot.ms * (isSeaWitch(key) ? SEA_WITCH_KNOT_MULT : 1));
   accounts[key].cordBuff = { stat: 'swift', amount: knot.swift, until: Date.now() + ms, knot: knot.n };
+  if (!Array.isArray(accounts[key].cordsUntied)) accounts[key].cordsUntied = [];
+  if (accounts[key].cordsUntied.indexOf(knot.n) === -1) accounts[key].cordsUntied.push(knot.n); // for the Charm Book
   let hpLost = 0;
   if (knot.hpCostFrac && !player.isDead) {
     const before = player.health || 0;
@@ -5016,6 +5018,21 @@ function practicesOf(key) {
   if (!a) return null;
   if (!a.practices) a.practices = {};
   return a.practices;
+}
+// The Charm Book: remember which sabbats an account has lived through (the
+// season it was online in), then build the book from what it's done.
+function noteSabbatSeen(player) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  if (!a) return;
+  let k = null; try { const se = calendarPublicState().season; k = se && se.key; } catch (e) { return; }
+  if (!k) return;
+  if (!Array.isArray(a.sabbatsSeen)) a.sabbatsSeen = [];
+  if (a.sabbatsSeen.indexOf(k) === -1) { a.sabbatsSeen.push(k); saveAccounts(); }
+}
+function charmBookStateBody(player) {
+  const key = player && player.accountKey;
+  let seasonKey = null; try { const se = calendarPublicState().season; seasonKey = se && se.key; } catch (e) { /* noop */ }
+  return buildCharmBook({ acct: key ? accounts[key] : null, prog: key ? getProgress(player) : null, seasonKey });
 }
 function practiceStateBody(player) {
   const key = player && player.accountKey;
@@ -8432,6 +8449,7 @@ function boardStatePayload(player) {
 // Callers at the Door (blueprint A) — townsfolk hire the player for a real
 // cunning-folk working, solved with the pendulum / cards / staves / bowl and
 // the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
+const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const callers = require('./lib/callers')({
   accounts, saveAccounts, send, getInventory, countItemQty, removeItemFromAccount,
   saveInventories, inventoryStatePayload, ensureBankAccount, saveBankAccounts, mulberry32,
@@ -11232,6 +11250,7 @@ wss.on('connection', (ws, req) => {
       // exact same character in the exact same spot. Single-use, same
       // account-guarded restore path as the checkout flow.
       player.liveResumeToken = crypto.randomBytes(24).toString('hex');
+      noteSabbatSeen(player); // the Charm Book's Wheel: this season, lived through
 
       send(ws, {
         type: 'init',
@@ -15883,6 +15902,11 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── The Tree Alphabet (blueprint C): carve ogham staves, cast three ──────
+    if (msg.type === 'charm_book_state') {
+      noteSabbatSeen(player);
+      send(ws, { type: 'charm_book_state', ...charmBookStateBody(player) });
+      return;
+    }
     if (msg.type === 'ogham_state') {
       send(ws, { type: 'ogham_state', ...oghamStateBody(player) });
       const og0 = player.accountKey && oghamOf(player.accountKey);
@@ -16326,6 +16350,7 @@ wss.on('connection', (ws, req) => {
       if (!p) return;
       if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
       const inHerbHour = greenHourBonus(player, p.herb); // 🌿 wort-cunning: gathered in its planet's hour
+      if (inHerbHour > 0 && player.accountKey) { const prG = practicesOf(player.accountKey); if (prG && !prG.greenDone) { prG.greenDone = true; saveAccounts(); } } // the Charm Book's Wort-Cunning entry
       const amount = (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + (atHome ? HOME_GARDEN_YIELD_BONUS : 0) + inHerbHour;
       const inv = getInventory(player);
       let got = 0;
@@ -17557,6 +17582,9 @@ global.__testHooks = {
   skillLifestealFrac, skillHarvestExtraChance, skillXpMult, skillSpeedMult, skillMendingRate,
   computeStatBlock, statContrib, gearStatContrib, invEquipField
 };
+// Hooks added on their own lines so parallel PRs don't conflict on the shared line above.
+global.__testHooks.charmBookStateBody = charmBookStateBody;
+global.__testHooks.noteSabbatSeen = noteSabbatSeen;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 
