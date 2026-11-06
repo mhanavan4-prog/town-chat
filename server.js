@@ -1683,6 +1683,12 @@ WILDS_FLORA_TYPES.push(...OGHAM_GROVE_TYPES);
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS, ...WILDS_FLORA_TYPES]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
+// The woods a wand can be bound from. Yew — the churchyard tree and the
+// longbow wood, Idad of the ogham — grows in the Wilds' ogham grove.
+const WAND_KINDS = {
+  wood: { wood: 'wood', wand: 'holly_wand', woodLabel: '🪵 Holly Wood', made: '🎇 You bind five holly hearts into a wand. Equip it — it glows, and it will light your way at night.' },
+  yew_wood: { wood: 'yew_wood', wand: 'yew_wand', woodLabel: '🪵 Yew Wood', made: '🪄 You bind five lengths of yew into a wand — dark heartwood, pale sapwood, the same wood as the old longbows. It hits harder and drinks a little of what it strikes.' },
+};
 const HARVEST_ITEM_BY_TYPE = { tree: 'wood', shrub: 'berries', flower: 'flower_bloom' };
 for (const key of PLANT_KEYS) HARVEST_ITEM_BY_TYPE[key] = key; // a plant's decor type IS its item id
 Object.assign(HARVEST_ITEM_BY_TYPE, WILDS_FLORA_HARVEST); // trees & bushes -> their harvest materials
@@ -3135,9 +3141,13 @@ const { TEAS, TEA_DAY_BONUS, PLANETS, HEARTH_PATH } = require('./data/teas'); //
 const { ANCESTOR_BLESSING_HOURS, ANCESTOR_OFFERINGS, ANCESTOR_VIRTUES, observanceForSeason } = require('./data/ancestors'); // Tier 3.5 → Wheel of the Year: the solitary seasonal observance (Samhain = the Ancestor Altar)
 const { RELEASE_XP, RELEASE_PROMPTS } = require('./data/release'); // Tier 3.5: the Release Fire (letting-go Samhain rite)
 const { WITCH_PATHS } = require('./data/paths'); // Tier 3.5: witch paths (identity + small perk)
-// holly_wand is excluded from the random-starter pool — it's the Holly Wood
-// crafting reward (5 tree harvests), never random loot.
-const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => id !== 'holly_wand');
+// The random-starter pool (a new bank's few starting items) leaves out things
+// that are EARNED: the Holly Wand (5 tree harvests), the witch bottle (Hazel
+// brews it), a tied wind cord (tied under the open sky, once a day), and
+// Hazel's own rod (her gift, which carves Coll). A random starter used to be
+// able to hand any of those out for free.
+const STARTER_EXCLUDED = new Set(['holly_wand', 'yew_wand', 'witch_bottle', 'wind_cord_3', 'wind_cord_2', 'wind_cord_1', 'hazel_rod']);
+const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => !STARTER_EXCLUDED.has(id));
 
 // ── Selling to shopkeepers (Session M) ──────────────────────────────────────
 // Gold used to have only faucets (loot + quests) and almost no way to turn a
@@ -13567,23 +13577,25 @@ wss.on('connection', (ws, req) => {
     }
 
     if (msg.type === 'craft_wand') {
-      // 5 Holly Wood → 1 Holly Wand. Validated here regardless of what the
-      // client shows; the wood is only consumed if the wand actually fits.
+      // 5 wood → 1 wand: Holly Wood → Holly Wand (the default), or Yew Wood →
+      // Yew Wand. Validated here regardless of what the client shows; the wood
+      // is only consumed if the wand actually fits.
+      const kind = WAND_KINDS[String(msg.wood || 'wood')] || WAND_KINDS.wood;
       const inv = getInventory(player);
-      const total = countItemQty(inv, 'wood');
+      const total = countItemQty(inv, kind.wood);
       if (total < WAND_WOOD_COST) {
-        send(ws, { type: 'craft_error', message: `You need ${WAND_WOOD_COST} 🪵 Holly Wood to bind a wand — you have ${total}.` });
+        send(ws, { type: 'craft_error', message: `You need ${WAND_WOOD_COST} ${kind.woodLabel} to bind a wand — you have ${total}.` });
         return;
       }
-      removeItemFromAccount(inv, 'wood', WAND_WOOD_COST);
-      if (!addItemToAccount(inv, 'holly_wand', 1)) {
-        addItemToAccount(inv, 'wood', WAND_WOOD_COST); // full pack — put the wood back
+      removeItemFromAccount(inv, kind.wood, WAND_WOOD_COST);
+      if (!addItemToAccount(inv, kind.wand, 1)) {
+        addItemToAccount(inv, kind.wood, WAND_WOOD_COST); // full pack — put the wood back
         send(ws, { type: 'craft_error', message: 'Your pack is full — make room for the wand first.' });
         return;
       }
       if (player.accountKey) saveInventories();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'craft_result', message: '🎇 You bind five holly hearts into a wand. Equip it — it glows, and it will light your way at night.' });
+      send(ws, { type: 'craft_result', message: kind.made });
       noteMilestone(player, 'craft');
       return;
     }
@@ -16053,7 +16065,7 @@ wss.on('connection', (ws, req) => {
       ensureTownBonfire();
       if (townBonfire.lit) { send(ws, { type: 'toast', message: '🔥 The fire already blazes this season — come back when the wheel turns.' }); send(ws, { type: 'town_bonfire', ...townBonfireState(player) }); return; }
       const herb = String(msg.herb || '');
-      if (!ALMANAC_PLANT_SET.has(herb)) { send(ws, { type: 'toast', message: 'The fire takes herbs you\'ve grown or foraged.' }); return; }
+      if (!ALMANAC_PLANT_SET.has(herb) && !BONFIRE_EXTRA_FUEL.includes(herb)) { send(ws, { type: 'toast', message: 'The fire takes herbs you\'ve grown or foraged, and gorse.' }); return; }
       let qty = Math.floor(Number(msg.qty)); if (!(qty >= 1)) qty = 1; qty = Math.min(qty, BONFIRE_MAX_PER_OFFER);
       const inv = getInventory(player);
       const have = countItemQty(inv, herb);
@@ -17020,12 +17032,15 @@ function ensureTownBonfire() {
   if (!townBonfire.contribs) townBonfire.contribs = {};
   return townBonfire;
 }
+// Gorse was the traditional fuel of the May and Midsummer fires — it burns
+// fast and fierce — so the town fire takes gorse bloom as well as herbs.
+const BONFIRE_EXTRA_FUEL = ['gorse_bloom'];
 function townBonfireState(player) {
   ensureTownBonfire();
   const b = townBonfire;
   const inv = (player && player.accountKey) ? getInventory(player) : null;
   // What this player can feed the fire right now — Green Path herbs they hold.
-  const offer = inv ? ALMANAC_PLANT_IDS
+  const offer = inv ? [...ALMANAC_PLANT_IDS, ...BONFIRE_EXTRA_FUEL]
     .map((id) => ({ id, name: (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id, have: countItemQty(inv, id) }))
     .filter((o) => o.have > 0) : [];
   return {
@@ -17406,7 +17421,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2, practiceStateBody, doPractice, greenHourBonus, nightIndex, gardenOf,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2, practiceStateBody, doPractice, greenHourBonus, nightIndex, gardenOf, ITEM_IDS, STARTER_EXCLUDED, WAND_KINDS,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,

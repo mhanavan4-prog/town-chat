@@ -26,6 +26,7 @@ module.exports = {
   // Built (not found): 5 Holly Wood at the craft_wand handler. Equipping it
   // makes the bearer glow and light their way at night (client visual).
   holly_wand:     { name: 'Holly Wand',     icon: '🎇', slot: 'weapon' },
+  yew_wand:       { name: 'Yew Wand',       icon: '🪄', slot: 'weapon' },
   bloodmoon_shard:   { name: 'Bloodmoon Shard',   icon: '🩸', slot: null },
   bloodmoon_circlet: { name: 'Bloodmoon Circlet', icon: '🔻', slot: 'head' },
   // ---- Witchcraft reagents (Tier 3.5) ----

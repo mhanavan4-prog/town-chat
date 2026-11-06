@@ -110,6 +110,19 @@ const POTION_RECIPES = [
   { id: 'rowan_charm', result: 'rowan_charm',
     ingredients: [{ id: 'rowan_berry', qty: 2 }],
     desc: '2× Rowan Berry → Rowan Charm (the witch-tree ward — curse immunity 60s)' },
+  // ── From the ogham grove's harvest ──
+  // Elder rob: the cottage syrup of boiled-down elderberries, kept for winter colds.
+  { id: 'elder_rob', result: 'elder_rob',
+    ingredients: [{ id: 'elderberry', qty: 2 }],
+    desc: '2× Elderberries → Elder Rob (the cottage winter syrup — regeneration 40s)' },
+  // Haws, the hawthorn's berries, steeped into a cordial for the heart.
+  { id: 'haw_cordial', result: 'haw_cordial',
+    ingredients: [{ id: 'haw', qty: 2 }],
+    desc: '2× Haws → Haw Cordial (the hawthorn\'s heart-cordial — heals 90)' },
+  // Lucky white heather, bound into a charm.
+  { id: 'white_heather_charm', result: 'white_heather_charm',
+    ingredients: [{ id: 'heather_sprig', qty: 2 }],
+    desc: '2× Heather Sprig → White Heather Charm (Scottish luck — a ward for 45s)' },
   // ── The Nine Herbs Charm (Lacnunga, c. AD 1000): the Cottage Garden capstone ──
   { id: 'nine_herbs_salve', result: 'nine_herbs_salve',
     ingredients: [{ id: 'mugwort', qty: 1 }, { id: 'plantain', qty: 1 }, { id: 'lambs_cress', qty: 1 }, { id: 'nettle', qty: 1 }, { id: 'betony', qty: 1 }, { id: 'chamomile', qty: 1 }, { id: 'crab_apple', qty: 1 }, { id: 'chervil', qty: 1 }, { id: 'fennel', qty: 1 }],

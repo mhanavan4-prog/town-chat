@@ -338,6 +338,10 @@ const PLANT_CATALOG = {
   nine_herbs_salve:       { name: 'The Nine Herbs Salve',   icon: '⚕️', effect: 'heal',    amount: 250 },
   // The Kitchen Witch's practice (data/practices.js) — appended, ids stay stable.
   hearth_loaf:            { name: 'Hearth Loaf',            icon: '🍞', effect: 'heal',    amount: 70 },
+  // Brewed from the ogham grove's harvest — appended, ids stay stable.
+  elder_rob:              { name: 'Elder Rob',              icon: '🫙', effect: 'status',  statusType: 'regen',      durationMs: 40000 },
+  haw_cordial:            { name: 'Haw Cordial',            icon: '🍷', effect: 'heal',    amount: 90 },
+  white_heather_charm:    { name: 'White Heather Charm',    icon: '🤍', effect: 'ward',    durationMs: 45000 },
 };
 
 module.exports = { WORLD, WORLD2, PLANT_CATALOG };

@@ -4,6 +4,7 @@ module.exports = {
   // ── basic shop gear (weak, early) ──
   iron_sword:    { power: 0.10 },
   holly_wand:    { power: 0.07, haste: 0.04 },  // crafted from 5 Holly Wood; its real prize is the light it casts
+  yew_wand:      { power: 0.09, leech: 0.03 },  // crafted from 5 Yew Wood — the churchyard tree, the longbow wood
   bloodmoon_circlet: { power: 0.05, leech: 0.03 }, // 5 Blood Moon shards; an event trophy you wear (within relic caps)
   spell_tome:    { power: 0.08, haste: 0.05 },
   steel_shield:  { guard: 0.10, vitality: 10 },
