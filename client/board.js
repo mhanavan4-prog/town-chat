@@ -142,6 +142,18 @@ function renderCallers(list, meNote) {
         body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
+      } else if (s.kind === 'sieve' && !s.done) {
+        // Name them one by one; the sieve turns at one.
+        body.appendChild(el('div', 'callerStepNote', 'The shears' + "'" + ' points in the sieve' + "'" + 's rim, held up on two fingertips. Name them, one by one:'));
+        const names = el('div', 'sieveNames');
+        for (const n of s.suspects || []) {
+          const tried = (s.tried || []).includes(n);
+          const b = el('button', 'btn sieveName' + (tried ? ' still' : ''), tried ? `${n} — still` : n);
+          b.disabled = tried;
+          b.addEventListener('click', () => { b.disabled = true; send({ type: 'sieve_turn', name: n }); });
+          names.appendChild(b);
+        }
+        body.appendChild(names);
       }
       row.appendChild(body);
       if (!s.done && TOOL_LABEL[s.kind]) {
