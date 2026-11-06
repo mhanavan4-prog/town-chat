@@ -288,6 +288,55 @@ const CALLERS = [
     source: 'Traditional household dyeing in Britain and Ireland',
     reward: { gold: 55, xp: 35 },
   },
+  // ── Fisherfolk ──
+  {
+    id: 'brown_gansey',
+    caller: 'Kirsty Mair',
+    icon: '🧶',
+    title: 'The Brown Gansey',
+    plea: "I knitted Ewan a new gansey and dyed the wool with crotal off the rocks, good and brown, the way my mother did. Now the crew won't have him aboard in it. They say crotal goes back to the rocks — and takes the man wearing it. Is that nonsense, or isn't it?",
+    steps: [
+      { kind: 'deliver', item: 'heather_sprig', qty: 2, label: 'Heather — for a fresh dye-pot' },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the boat come home full?', ask: 'Will the boat come home full?' },
+    ],
+    resolution: "You don't tell a crew they're fools; a man who isn't trusted aboard is a danger whatever he's wearing. You set a heather pot with her, and alum, and the brown wool comes out a deep moss-green. Ewan goes to sea in that. The crotal gansey stays home for the peat-cutting, where the rocks are welcome to it.",
+    lore: "Crotal, the rock-lichen, was the great brown dye of Highland and Island homespun. But on the west coast, fishermen held that crotal \"seeks its native rocks\": they would not wear a crotal-dyed garment at sea, nor take aboard anyone who did.",
+    tier: 'record',
+    source: 'Dictionary of the Scots Language, "crottle" (Angus, 1941)',
+    reward: { gold: 55, xp: 40 },
+  },
+  {
+    id: 'sea_words',
+    caller: 'Magnie Isbister',
+    icon: '🎣',
+    title: 'Words for the Haaf',
+    plea: "My grandson goes out to the haaf this summer — the far fishing, forty mile off. The old men won't have him in the boat if he talks land-talk at sea. There are things you don't call by their names out there. I've forgotten half of them. Will you look and see if he'll do?",
+    steps: [
+      { kind: 'runes', label: "Cast the staves for the boy's first season" },
+      { kind: 'pendulum', label: 'Ask the pendulum: will the sea take to him?', ask: 'Will the sea take to him?' },
+    ],
+    resolution: "The staves are kind. You sit the old man down and between you, with a pot of tea, you put back together what you can of the sea-words — and the ones neither of you can remember, you tell the boy to listen for and never guess at. He'll learn them in the boat, the way they always were learned.",
+    lore: "Shetland fishermen kept a sea language: set words used at sea in place of the ordinary names for 'unlucky' things, so that the thing itself was never named on the water. Many of the older ones come from Norn, the Scandinavian tongue spoken in the isles until the 1700s. The Faroese scholar Jakob Jakobsen gathered Shetland Norn in the 1890s, and a full glossary of the sea language was compiled only in 2023.",
+    tier: 'record',
+    source: 'J. Jakobsen, fieldwork in Shetland 1893–95 (The Dialect and Place Names of Shetland, 1897) · I. Humberstone, Shetland sea language (Edinburgh, 2023)',
+    reward: { gold: 60, xp: 45 },
+  },
+  {
+    id: 'the_caul',
+    caller: 'Mrs Pengelly',
+    icon: '🌊',
+    title: 'A Caul for Sale',
+    plea: "My Davey ships out Monday. There's a woman at the market with a child's caul — born over a baby's face, dried and folded in paper — and she swears no man that carries one ever drowned. Two guineas. That's near everything I have. Should I?",
+    steps: [
+      { kind: 'scry', label: 'Look in the bowl for the voyage' },
+      { kind: 'tarot', label: 'Draw for the Monday sailing' },
+    ],
+    resolution: "The bowl shows nothing to fear and nothing promised. You tell her the truth as you see it: a caul is a scrap of birth-membrane and a frightened mother's two guineas, and the woman at the market knows it. Spend it on a sound oilskin and a letter for him to carry. She cries a bit, and laughs a bit, and goes to buy the oilskin.",
+    lore: "A child born with the caul — the amniotic membrane — over its face was thought lucky and safe from drowning, and the dried caul was sold to seafarers as a charm against it. Dickens opens David Copperfield with the joke: \"I was born with a caul, which was advertised for sale, in the newspapers, at the low price of fifteen guineas.\"",
+    tier: 'folk',
+    source: 'Charles Dickens, David Copperfield (1850), ch. 1',
+    reward: { gold: 50, xp: 40 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
