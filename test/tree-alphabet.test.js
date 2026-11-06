@@ -54,7 +54,7 @@ setTimeout(() => {
   const yielded = new Set(['wood', 'rowan_berry', 'hazel_rod']);
   for (const v of Object.values(h.WILDS_FLORA_HARVEST || {})) yielded.add(v);
   const carvable = OGHAM.filter((o) => o.wood);
-  check(`${carvable.length} letters can be carved from woods in the game`, carvable.length >= 10);
+  check(`${carvable.length} letters can be carved from woods in the game`, carvable.length === 20);
   for (const o of carvable) {
     check(`  ${o.name}: ${o.wood} is in the catalog and comes from somewhere`, !!h.ITEM_CATALOG[o.wood] && yielded.has(o.wood), o.wood);
   }
@@ -71,9 +71,7 @@ setTimeout(() => {
   a.s.sent.length = 0;
   say(a.s, { type: 'ogham_carve', key: 'beith' });
   check('a letter is carved once', !!a.s.lastOfType('ogham_error') && h.countItemQty(inv, 'birch_bark') === OGHAM_CARVE_QTY);
-  a.s.sent.length = 0;
-  say(a.s, { type: 'ogham_carve', key: 'idad' });
-  check('a letter whose tree does not grow here cannot be carved', !!a.s.lastOfType('ogham_error'));
+  check('every letter\'s tree grows somewhere now — all twenty can be carved', OGHAM.every((o) => o.wood));
 
   // ── Hazel's gift ──────────────────────────────────────────────────────────
   const r = POTION_RECIPES.find((x) => x.id === 'chamomile_tisane');
