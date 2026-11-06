@@ -110,6 +110,10 @@ const POTION_RECIPES = [
   { id: 'rowan_charm', result: 'rowan_charm',
     ingredients: [{ id: 'rowan_berry', qty: 2 }],
     desc: '2× Rowan Berry → Rowan Charm (the witch-tree ward — curse immunity 60s)' },
+  // ── Threshold & Hearth: the witch bottle, buried under your cottage hearth ──
+  { id: 'witch_bottle', result: 'witch_bottle',
+    ingredients: [{ id: 'bellarmine_jug', qty: 1 }, { id: 'bent_pins', qty: 1 }, { id: 'iron_nails', qty: 1 }],
+    desc: 'Bellarmine Jug + Bent Pins + Iron Nails → Witch Bottle (bury it under your cottage hearth)' },
   // ── Green Path (Poison Path band): baneful draughts & the flying ointment ──
   // Trance / warding effects only — the folklore, never anything depicting harm.
   { id: 'flying_ointment', result: 'flying_ointment',

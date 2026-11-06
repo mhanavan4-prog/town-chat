@@ -3093,6 +3093,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
@@ -4741,6 +4742,74 @@ function teaGiftsBody(player) {
   const gifts = (a && Array.isArray(a.teaGifts)) ? a.teaGifts : [];
   return gifts.map((g) => { const t = TEAS.find((x) => x.id === g.teaId); return { from: g.from, teaId: g.teaId, teaName: (t && t.name) || g.teaId, emoji: (t && t.emoji) || '🍵', at: g.at }; });
 }
+// ── Threshold & Hearth (blueprint B) — wards worked into your own cottage ────
+// acct.wards = { bottle: { charges, buriedAt } | null, bottleSpent, hexafoil:
+// { at } | null, shoe: { itemId, at } | null }. The two permanent wards add
+// damage resist (statContrib 'guard'); the buried bottle turns hostile curses
+// back until it is spent. A Hearth Witch works all three more strongly.
+function wardsOfKey(key) {
+  const a = key && accounts[key];
+  if (!a) return null;
+  if (!a.wards) a.wards = { bottle: null, bottleSpent: 0, hexafoil: null, shoe: null };
+  return a.wards;
+}
+function isHearthWitch(key) { return !!(key && accounts[key] && accounts[key].witchPath === 'hearth'); }
+function wardContrib(player, statKey) {
+  if (statKey !== 'guard') return 0;
+  const key = player && player.accountKey;
+  const w = key && accounts[key] && accounts[key].wards;
+  if (!w) return 0;
+  const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0);
+}
+function wardsPublic(key) {
+  const w = (key && accounts[key] && accounts[key].wards) || {};
+  return {
+    bottle: w.bottle ? 'buried' : (w.bottleSpent ? 'spent' : 'none'),
+    charges: w.bottle ? w.bottle.charges : 0,
+    hexafoil: !!w.hexafoil,
+    shoe: !!w.shoe,
+  };
+}
+function wardsStateBody(player) {
+  const key = player && player.accountKey;
+  const inv = key ? getInventory(player) : null;
+  const feet = inv ? inv.slots.filter((s) => s && ITEM_CATALOG[s.itemId] && ITEM_CATALOG[s.itemId].slot === 'feet')
+    .map((s) => ({ itemId: s.itemId, name: ITEM_CATALOG[s.itemId].name, icon: ITEM_CATALOG[s.itemId].icon })) : [];
+  const hearth = isHearthWitch(key);
+  return {
+    ...wardsPublic(key),
+    hearthWitch: hearth,
+    maxCharges: hearth ? BOTTLE_CHARGES_HEARTH : BOTTLE_CHARGES,
+    guardEach: hearth ? WARD_GUARD_HEARTH : WARD_GUARD,
+    haveBottle: inv ? countItemQty(inv, 'witch_bottle') : 0,
+    feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
+    atHome: inOwnCottage(player),
+    lore: WARDS,
+  };
+}
+// A hostile curse is about to land on `p`. If their buried witch bottle holds,
+// it turns the curse and spends a charge; for a breath afterwards the house
+// holds without spending more (so a lingering hex trap can't drain it in one).
+function bottleTurnsCurse(p, statusType) {
+  if (!p || !p.accountKey || !TURNABLE_CURSES.includes(statusType)) return false;
+  const now = Date.now();
+  if (p.bottleTurnUntil && p.bottleTurnUntil > now) return true;
+  const w = accounts[p.accountKey] && accounts[p.accountKey].wards;
+  if (!w || !w.bottle || w.bottle.charges <= 0) return false;
+  w.bottle.charges--;
+  p.bottleTurnUntil = now + BOTTLE_TURN_GRACE_MS;
+  let msg;
+  if (w.bottle.charges <= 0) {
+    w.bottle = null; w.bottleSpent = (w.bottleSpent || 0) + 1;
+    msg = '🍶 Your witch bottle turns the curse back on its sender — and cracks under the hearth. It is spent; bury another.';
+  } else {
+    msg = `🍶 Your witch bottle turns the curse back on its sender. (${w.bottle.charges} left in it)`;
+  }
+  saveAccounts();
+  try { if (p.ws) send(p.ws, { type: 'toast', message: msg }); } catch (e) { /* noop */ }
+  return true;
+}
 function homeStateBody(player) {
   const home = homeOf(player);
   if (!home) return null;
@@ -4750,6 +4819,7 @@ function homeStateBody(player) {
     catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, ms: f.ms || 0, plant: f.plant, cost: f.cost, tint: f.tint, bloom: f.bloom, berry: f.berry, hang: f.hang, owned: ownsFurniture(player, f.id) })),
     msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
     teaGifts: teaGiftsBody(player),
+    wards: player.accountKey ? wardsPublic(player.accountKey) : null,
   };
 }
 // A read-only layout for ANY account (used when visiting someone's cottage): the
@@ -4762,6 +4832,7 @@ function homeLayoutForKey(key) {
     grid: HOME_GRID,
     pieces: pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, rot: p.rot || 0 })),
     catalog: FURNITURE.map((f) => ({ id: f.id, name: f.name, icon: f.icon, w: f.w, h: f.h, source: f.source, tint: f.tint, bloom: f.bloom, berry: f.berry, hang: f.hang })),
+    wards: wardsPublic(key), // a visitor sees the daisy wheel over the door too
   };
 }
 // ── The Cottage Showcase (the Trophy Wall) — a read-only board of what an
@@ -5306,7 +5377,7 @@ function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 
 // buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
 // a single small per-source amount, not a ladder, so they add texture without a
 // stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey); }
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -7875,6 +7946,7 @@ function tickGroundTraps(now) {
       if (p.room !== trap.room || p.isDead) continue;
       if (Math.hypot(p.x - trap.x, p.y - trap.y) > trap.radius) continue;
       if (isWarded(p)) continue; // 🧂 a Circle of Salt turns the hex aside
+      if (!(p.activeStatus && p.activeStatus.type === trap.statusType && p.activeStatus.expiresAt > now) && bottleTurnsCurse(p, trap.statusType)) continue; // 🍶
       p.activeStatus = { type: trap.statusType, expiresAt: now + trap.statusDurationMs };
     }
   }
@@ -8717,15 +8789,18 @@ const NPC_SHOPS = {
   npc_apothecary: { name: 'Apothecary Vex', items: [
     { id: 'healing_potion', price: 14 }, { id: 'magic_scroll', price: 22 },
     { id: 'regen_root', price: 18 }, { id: 'berries', price: 5 },
-    { id: 'glass_vial', price: 6 }, { id: 'salt', price: 8 }
+    { id: 'glass_vial', price: 6 }, { id: 'salt', price: 8 },
+    { id: 'bellarmine_jug', price: 20 } // a stoneware jar — for a witch bottle
   ]},
   npc_tailor: { name: 'Tailor Ines', items: [
     { id: 'silver_ring', price: 30 }, { id: 'travelers_vest', price: 30 },
-    { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 }
+    { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 },
+    { id: 'bent_pins', price: 4 } // a paper of pins — bent, for a witch bottle
   ]},
   npc_armorer: { name: 'Armorer Beck', items: [
     { id: 'steel_shield', price: 45 }, { id: 'knights_helm', price: 40 },
-    { id: 'leather_boots', price: 20 }, { id: 'order_signet', price: 40 }
+    { id: 'leather_boots', price: 20 }, { id: 'order_signet', price: 40 },
+    { id: 'iron_nails', price: 6 } // iron against witchcraft — for a witch bottle
   ]}
 };
 
@@ -12789,6 +12864,8 @@ wss.on('connection', (ws, req) => {
         const warded = (recipient !== player && isWarded(recipient) && VULNERABLE_STATUSES.has(spell.statusType));
         if (warded) {
           try { if (recipient.ws) send(recipient.ws, { type: 'toast', message: '🧂 Your Circle of Salt turns the curse aside.' }); } catch (e) { /* noop */ }
+        } else if (recipient !== player && bottleTurnsCurse(recipient, spell.statusType)) {
+          // 🍶 the target's buried witch bottle turned it (and told them so)
         } else {
           recipient.activeStatus = { type: spell.statusType, expiresAt: now + spell.durationMs };
           // The Withering Hex actually hurts (see tickPlayerStatusHealth) —
@@ -13547,6 +13624,7 @@ wss.on('connection', (ws, req) => {
           wolfmark: "You're marked — you take extra damage until it fades."
         };
         for (const t of targets) {
+          if (t.id !== player.id && bottleTurnsCurse(t, attack.statusType)) continue; // 🍶 turned by their witch bottle
           const st = { type: attack.statusType, expiresAt: now + attack.durationMs };
           if (attack.statusType === 'bloodcurse') st.casterId = player.id; // the life drained flows to the caster
           t.activeStatus = st;
@@ -15414,6 +15492,45 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // ── Threshold & Hearth (blueprint B): ward your own cottage ──────────────
+    if (msg.type === 'wards_state') { send(ws, { type: 'wards_state', ...wardsStateBody(player) }); return; }
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe') {
+      const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
+      if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
+      if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
+      const w = wardsOfKey(player.accountKey);
+      const inv = getInventory(player);
+      let toast = '';
+      if (msg.type === 'bury_witch_bottle') {
+        if (w.bottle) { fail(`A witch bottle already lies under your hearth (${w.bottle.charges} curse${w.bottle.charges === 1 ? '' : 's'} left in it).`); return; }
+        if (!removeItemFromAccount(inv, 'witch_bottle', 1)) { fail("You have no witch bottle. Hazel can make one: a bellarmine jug, bent pins and iron nails."); return; }
+        const charges = isHearthWitch(player.accountKey) ? BOTTLE_CHARGES_HEARTH : BOTTLE_CHARGES;
+        w.bottle = { charges, buriedAt: Date.now() };
+        saveInventories();
+        toast = `🍶 You lift the hearthstone and bury the witch bottle, neck down, where the fire will keep it warm. It will turn ${charges} curses.`;
+      } else if (msg.type === 'scribe_hexafoil') {
+        if (w.hexafoil) { fail('A daisy wheel is already cut over your door.'); return; }
+        w.hexafoil = { at: Date.now() };
+        toast = '✡ The sixth arc closes. A daisy wheel sits over your door, one unbroken line with no way out.';
+      } else {
+        if (w.shoe) { fail('A shoe already lies hidden by your chimney — one is enough.'); return; }
+        const itemId = String(msg.itemId || '');
+        const meta = ITEM_CATALOG[itemId];
+        if (!meta || meta.slot !== 'feet') { fail('That is not a shoe.'); return; }
+        if (!removeItemFromAccount(inv, itemId, 1)) { fail('That shoe is not in your pack.'); return; }
+        w.shoe = { itemId, at: Date.now() };
+        saveInventories();
+        toast = `👞 You work one of your ${meta.name} into the gap beside the chimney and mortar it in. It keeps the shape of your foot — and the house knows you.`;
+      }
+      saveAccounts();
+      const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'wards_state', ...wardsStateBody(player) });
+      send(ws, { type: 'toast', message: toast });
+      broadcastCottageLayout(player.accountKey); // the mark shows on the house for anyone inside
+      return;
+    }
     if (msg.type === 'read_leaves') {
       if (!player.accountKey) { send(ws, { type: 'tea_error', message: 'Log into an account to keep a cup.' }); return; }
       const acct = accounts[player.accountKey];
@@ -16902,7 +17019,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
