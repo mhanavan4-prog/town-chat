@@ -156,7 +156,30 @@
     font-size:11.5px; color:#b9a8cf; line-height:1.4;
   }
   .optInLabel input { margin-top:2px; flex-shrink:0; cursor:pointer; }
-  #invSettingsView .optInRow { margin:0 0 4px; }
+  /* ── The Settings overlay ──────────────────────────────────────────────
+     Settings used to be a tab inside the inventory panel, which put them in
+     a pocket of the bag rather than anywhere you would look for them. They
+     live in the ☰ menu now, which already had a Settings section.
+
+     The text also went unstyled: .optInLabel sets a colour but the plain
+     <span> rows inherited the page default, which is near-black on this dark
+     card — readable nowhere. Everything here is given the game's own
+     parchment palette explicitly. */
+  #settingsCard { max-width:520px; width:92vw; text-align:left; }
+  #settingsBody { max-height:62vh; overflow-y:auto; padding-right:4px; }
+  #settingsBody h3 {
+    color:#ffe9c2; font-size:13px; letter-spacing:0.02em;
+    margin:16px 0 8px; padding-bottom:5px;
+    border-bottom:1px solid rgba(217,138,79,0.22);
+  }
+  #settingsBody h3:first-child { margin-top:4px; }
+  #settingsBody, #settingsBody span, #settingsBody label { color:#e4d6bf; }
+  #settingsBody .optInRow { margin:0 0 6px; font-size:12px; line-height:1.5; }
+  #settingsBody .optInLabel { color:#cbbba1; font-size:12px; }
+  #settingsBody strong { color:#ffe9c2; }
+  #settingsBody .settingsRows { display:flex; flex-direction:column; gap:6px; }
+  #settingsBody .menuRow { width:100%; text-align:left; }
+  #settingsBody input[type=range] { accent-color:#d98a4f; }
   .charOption {
     flex:1 1 0; min-width:0; box-sizing:border-box;
     display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px;
@@ -2875,8 +2898,7 @@
       <button class="menuRow" id="menuSnap">📷 Snap a photo</button>
 
       <div class="menuSection">Settings</div>
-      <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
-      <button class="menuRow" id="menuControlScheme" title="Classic: A/D turn, drag orbits the camera · Modern: A/D strafe, drag steers">🎮 Controls: <span id="menuControlSchemeVal">Classic</span></button>
+      <button class="menuRow" id="menuSettings" title="View, display, notices and privacy">⚙️ Settings</button>
       <button class="menuRow" id="menuFullscreen">⛶ Fullscreen</button>
       <button class="menuRow" id="menuControls">❓ Controls</button>
       <a class="menuRow" id="menuDiscord" href="/discord" target="_blank" rel="noopener" style="text-decoration:none;display:block;">💬 Join the Discord</a>
@@ -3695,6 +3717,50 @@
 </div>
 
 
+<div id="settingsModal" class="overlay hidden">
+  <div class="card" id="settingsCard">
+    <div class="title" style="font-size:20px;">⚙️ Settings</div>
+    <div class="subtitle">How the game looks, what it tells you, and what it may use.</div>
+    <div id="settingsBody">
+    <h3>🎥 View</h3>
+    <div class="optInRow">
+      <label class="optInLabel" for="fovSlider" style="display:block; margin-bottom:6px;">
+        <span>Field of view — how much of the world fits on screen. Higher sees wider and pushes your character further away; lower zooms in close.</span>
+      </label>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:11px; color:#b9a384;">Close</span>
+        <input type="range" id="fovSlider" min="50" max="100" step="1" style="flex:1;">
+        <span style="font-size:11px; color:#b9a384;">Wide</span>
+        <span id="fovValue" style="min-width:3.5em; text-align:right; font-variant-numeric:tabular-nums; color:#ffe9c2; font-weight:700; font-size:12px;">62°</span>
+      </div>
+      <button class="btn" id="fovResetBtn" style="margin-top:8px; padding:4px 12px; font-size:12px; width:auto; display:inline-block; background:none; border:1px solid rgba(217,138,79,0.45); color:#e9c9a4;">Reset to default</button>
+    </div>
+
+      <h3>✨ Display</h3>
+      <div class="settingsRows">
+        <button class="menuRow" id="menuGraphics" title="Graphics quality (shadows, glow, ambience)">✨ Graphics: <span id="menuGraphicsVal">Auto</span></button>
+        <button class="menuRow" id="menuControlScheme" title="Classic: A/D turn, drag orbits the camera · Modern: A/D strafe, drag steers">🎮 Controls: <span id="menuControlSchemeVal">Classic</span></button>
+      </div>
+    <h3>🔔 Notices</h3>
+    <div class="optInRow">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <span>Also show notices on screen. They always collect in the chat panel's <strong>📜 Log</strong> tab, which badges when something lands — turn this on if you want them popping up over the game as well.</span>
+        <button class="notifToggle" id="screenNoticesToggle" style="flex:0 0 auto;">OFF</button>
+      </div>
+    </div>
+
+    <h3>👁️ Privacy</h3>
+    <div class="optInRow">
+      <label class="optInLabel">
+        <input type="checkbox" id="thirdEyeOptInCheckboxInGame">
+        <span>Skip the prompt for a Witch's Open 3rd Eye spell — let it use my camera without asking each time. Off by default; your own choice, change it anytime.</span>
+      </label>
+    </div>
+    </div>
+    <button class="btn" id="settingsCloseBtn" style="margin-top:12px;">Close</button>
+  </div>
+</div>
+
 <div id="notifModal" class="overlay hidden">
   <div class="card">
     <div class="title" style="font-size:20px;"><span class="hudGi" data-hudicon="bell"></span>Notifications</div>
@@ -4119,7 +4185,6 @@
     <button id="invTabStats">📊 Stats</button>
     <button id="invTabNotes">✉️ Notes</button>
     <button id="invTabHardDrive">💽 Hard Drive</button>
-    <button id="invTabSettings">⚙️ Settings</button>
     <button id="invCloseBtn" title="Close inventory" aria-label="Close inventory">✕</button>
   </div>
 
@@ -4213,37 +4278,6 @@
     </div>
   </div>
 
-  <div id="invSettingsView" class="hidden">
-    <h3>🎥 View</h3>
-    <div class="optInRow">
-      <label class="optInLabel" for="fovSlider" style="display:block; margin-bottom:6px;">
-        <span>Field of view — how much of the world fits on screen. Higher sees wider and pushes your character further away; lower zooms in close.</span>
-      </label>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:11px; color:#8fae8f;">Close</span>
-        <input type="range" id="fovSlider" min="50" max="100" step="1" style="flex:1;">
-        <span style="font-size:11px; color:#8fae8f;">Wide</span>
-        <span id="fovValue" style="min-width:3.5em; text-align:right; font-variant-numeric:tabular-nums; color:#cfe9cf; font-size:12px;">62°</span>
-      </div>
-      <button class="btn" id="fovResetBtn" style="margin-top:8px; padding:4px 12px; font-size:12px; width:auto; display:inline-block; background:none; border:1px solid #3c5a46; color:#9fd0a8;">Reset to default</button>
-    </div>
-
-    <h3>🔔 Notices</h3>
-    <div class="optInRow">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <span>Also show notices on screen. They always collect in the chat panel's <strong>📜 Log</strong> tab, which badges when something lands — turn this on if you want them popping up over the game as well.</span>
-        <button class="notifToggle" id="screenNoticesToggle" style="flex:0 0 auto;">OFF</button>
-      </div>
-    </div>
-
-    <h3>👁️ Privacy</h3>
-    <div class="optInRow">
-      <label class="optInLabel">
-        <input type="checkbox" id="thirdEyeOptInCheckboxInGame">
-        <span>Skip the prompt for a Witch's Open 3rd Eye spell — let it use my camera without asking each time. Off by default; your own choice, change it anytime.</span>
-      </label>
-    </div>
-  </div>
 </div>
 
 <div id="hotbar" class="hidden"></div>

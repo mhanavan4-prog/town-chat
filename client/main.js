@@ -3653,9 +3653,8 @@ const invTabItemsBtn = document.getElementById('invTabItems');
 const invTabStatsBtn = document.getElementById('invTabStats');
 const invTabNotesBtn = document.getElementById('invTabNotes');
 const invTabHardDriveBtn = document.getElementById('invTabHardDrive');
-const invTabSettingsBtn = document.getElementById('invTabSettings');
-const INV_VIEW_IDS = ['invItemsView', 'invStatsView', 'invNotesView', 'invHardDriveView', 'invSettingsView'];
-const INV_TAB_BTNS = { invItemsView: invTabItemsBtn, invStatsView: invTabStatsBtn, invNotesView: invTabNotesBtn, invHardDriveView: invTabHardDriveBtn, invSettingsView: invTabSettingsBtn };
+const INV_VIEW_IDS = ['invItemsView', 'invStatsView', 'invNotesView', 'invHardDriveView'];
+const INV_TAB_BTNS = { invItemsView: invTabItemsBtn, invStatsView: invTabStatsBtn, invNotesView: invTabNotesBtn, invHardDriveView: invTabHardDriveBtn };
 function showInvTab(viewId) {
   invItemsTabActive = viewId === 'invItemsView';
   for (const id of INV_VIEW_IDS) {
@@ -3669,12 +3668,10 @@ function showInvTab(viewId) {
 function showInvItemsTab() { showInvTab('invItemsView'); }
 function showInvStatsTab() { showInvTab('invStatsView'); }
 function showInvNotesTab() { showInvTab('invNotesView'); }
-function showInvSettingsTab() { showInvTab('invSettingsView'); }
 if (invTabItemsBtn) invTabItemsBtn.addEventListener('click', showInvItemsTab);
 if (invTabStatsBtn) invTabStatsBtn.addEventListener('click', showInvStatsTab);
 if (invTabNotesBtn) invTabNotesBtn.addEventListener('click', showInvNotesTab);
 if (invTabHardDriveBtn) invTabHardDriveBtn.addEventListener('click', () => showInvTab('invHardDriveView'));
-if (invTabSettingsBtn) invTabSettingsBtn.addEventListener('click', showInvSettingsTab);
 
 // ── Character stats panel (📊 Stats tab) ──
 // The 8 derived stats, how each is displayed, and which items feed them.
@@ -5580,6 +5577,28 @@ function setUnlockToast(text, opts) {
 
 // The menu's "Message log" now opens the Log tab rather than a modal showing
 // the same lines — one place to read notices, not two.
+// Settings used to be a tab inside the inventory panel — a pocket of the bag
+// rather than anywhere a player would look. The menu already had a Settings
+// section, so they live there now, in one place, with the graphics and control
+// rows moved in beside them (same element ids, so their handlers are unchanged).
+function openSettingsModal() {
+  Modals.set('settingsModalOpen', true);
+  const el = document.getElementById('settingsModal');
+  if (el) el.classList.remove('hidden');
+}
+function closeSettingsModal() {
+  Modals.set('settingsModalOpen', false);
+  const el = document.getElementById('settingsModal');
+  if (el) el.classList.add('hidden');
+}
+(function wireSettingsModal() {
+  const close = document.getElementById('settingsCloseBtn');
+  if (close) close.addEventListener('click', closeSettingsModal);
+  const back = document.getElementById('settingsModal');
+  // Clicking the dark surround closes it, like the other overlays.
+  if (back) back.addEventListener('click', (e) => { if (e.target === back) closeSettingsModal(); });
+})();
+
 function openMsgLog() {
   if (typeof setChatHidden === 'function') setChatHidden(false);
   setActiveChatTab('log');
@@ -15758,6 +15777,7 @@ const { openNotifModal } = _notif;
   wire('menuCoven', openCovenModal);
   wire('menuNotifs', openNotifModal);
   wire('menuMsgLog', openMsgLog);
+  wire('menuSettings', openSettingsModal);
 })();
 
 // ── Wardrobe (Phase 1 cosmetics) ─────────────────────────────────────────────
@@ -17925,7 +17945,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -18263,6 +18283,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('bedChestModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) closeManorChest();
+    return;
+  }
+  if (Modals.isOpen('settingsModalOpen')) {
+    if (e.key === 'Escape' && !e.repeat) { closeSettingsModal(); if (window.__fromMenu) backToMenu(); }
     return;
   }
   if (Modals.isOpen('notifModalOpen')) {
@@ -18762,7 +18786,7 @@ function pollGamepad(dt) {
   const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
   const sheet = document.getElementById('menuSheet');
   const sheetOpen = sheet && !sheet.classList.contains('hidden');
-  const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
+  const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
   if (justPressed(9)) { // Start → ☰
     if (sheet) sheet.classList.toggle('hidden');
   }
