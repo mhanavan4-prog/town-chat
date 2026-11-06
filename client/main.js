@@ -14305,6 +14305,9 @@ const EMOTE_BODY = {
 };
 
 // per-frame driver for a kk player visual (called from syncVisuals)
+// moveDist is the distance the body COVERED ON SCREEN this frame (see
+// player-visuals.js) — the clip choice and playback rate below are tuned
+// against what the eye sees, not against logical world units.
 function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   const kk = v.kk;
   const now = performance.now();
@@ -18537,6 +18540,22 @@ if (leaveBtn) leaveBtn.addEventListener('click', leaveCurrentBuilding);
 let last = performance.now();
 let moveSendTimer = 0;
 const SPEED = 230;       // world units/sec, forward/back
+// One walking speed for every space you can stand in.
+//
+// Steps are applied in LOGICAL units, but a town building interior is drawn at
+// INDOOR_SCALE — so the same logical speed covers 1.8x as much of what you can
+// actually see. Town interiors carried a 0.9 throttle on top of that, which
+// still worked out to 1.62x the apparent speed of the street outside; and the
+// throttle only ever applied to town buildings, so the witch cave, the manor,
+// the crypt, the vault, the cottage and the delve rooms all ran at full speed
+// regardless. Three different walking speeds, depending on which door you went
+// through.
+//
+// Dividing by the render scale is what makes it uniform: the same ground
+// covered per second in every room, measured in the units you can see.
+function baseMoveSpeed() {
+  return mode === 'indoor' ? SPEED / INDOOR_SCALE : SPEED;
+}
 const TURN_SPEED = 3.0;  // radians/sec
 const FOOT_STRIDE = 110; // world units walked per footstep sound — cadence scales with speed
 let _footAccum = 0;      // distance banked toward the next step (primed when standing still)
@@ -18802,11 +18821,10 @@ function update(dt) {
   me.facing += turnInput * TURN_SPEED * dt;
   const fx = Math.sin(me.facing), fy = Math.cos(me.facing);
   const rx = Math.cos(me.facing), ry = -Math.sin(me.facing); // perpendicular "right" vector
-  // Indoors is cramped and decorated with furniture underfoot, so movement
-  // is throttled slightly compared to the open town square. Stumble Hex is
-  // self-enforced client-side like everything else movement-related in
-  // this game — there's no server-side anti-cheat anywhere to back it up.
-  let speed = mode === 'indoor' ? SPEED * 0.9 : SPEED;
+  // Stumble Hex and friends are self-enforced client-side like everything else
+  // movement-related in this game — there's no server-side anti-cheat anywhere
+  // to back it up.
+  let speed = baseMoveSpeed();
   if (me.activeStatus && me.activeStatus.type === 'rooted') speed = 0; // Heavy Pack — pinned in place
   if (me.activeStatus && me.activeStatus.type === 'stumble') speed *= 0.5;
   if (me.activeStatus && me.activeStatus.type === 'speedboost') speed *= 2;
@@ -19272,6 +19290,36 @@ if (location.search.includes('testdrive=1')) {
     doorApproach(x, y, extra) { return doorApproach(x, y, extra); },
     room() { return me ? me.room : null; },
     walk(dx, dy) { updateOutdoor(dx, dy); return { x: me.x, y: me.y, room: me.room }; },
+    strideProbe(secs) {
+      // QA: how fast you move here, in BOTH coordinate systems. Steps are
+      // applied in LOGICAL units but a town interior is drawn at INDOOR_SCALE,
+      // so matching the logical number across rooms is NOT the same as matching
+      // the speed you see — `renderPerSec` is the one that has to agree from
+      // room to room.
+      //
+      // `configured` is what the movement code intends; `measured` walks the
+      // real update loop for a second and reports what was actually covered,
+      // which is the intent minus whatever furniture got in the way. Intent is
+      // the assertion; the measurement is the sanity check on it.
+      const t = secs || 1;
+      const scale = mode === 'indoor' ? INDOOR_SCALE : 1;
+      const before = { x: me.x, y: me.y };
+      const r0 = getRenderPos(me);
+      const held = keys.up; keys.up = true;
+      const steps = Math.round(60 * t), dt = 1 / 60;
+      for (let i = 0; i < steps; i++) update(dt);
+      keys.up = held;
+      const r1 = getRenderPos(me);
+      const d = (a, b) => Math.hypot(a.x - b.x, (a.z === undefined ? a.y : a.z) - (b.z === undefined ? b.y : b.z));
+      return {
+        room: me.room, indoor: mode === 'indoor', renderScale: scale,
+        configured: { logicalPerSec: +baseMoveSpeed().toFixed(1), renderPerSec: +(baseMoveSpeed() * scale).toFixed(1) },
+        measured: {
+          logicalPerSec: +(Math.hypot(me.x - before.x, me.y - before.y) / t).toFixed(1),
+          renderPerSec: +(d(r1, r0) / t).toFixed(1),
+        },
+      };
+    },
     refitWhileIn(which) { if (which === 'wilds') swapToWildsMap(); refitBuildingColliders(); swapToTownMap(); return walls === TOWN_WALLS; },
     leave() { const b = world.buildings.find(bb => bb.id === indoorBuildingId); if (b) exitBuilding(b); return me ? { x: me.x, y: me.y, room: me.room } : null; },
     // QA: drop a collider in open ground (or take it away) so the audit tool can
