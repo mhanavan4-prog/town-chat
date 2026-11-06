@@ -3147,7 +3147,7 @@ const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises');
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { PRACTICES, CULPEPER_RULERS, GREEN_HOUR_BONUS, GREEN_HOUR_BONUS_PATH, DRAW_DOWN, HEDGE_DRAUGHTS, HEDGE_GIFTS, HEDGE_GIFTS_PATH, HEDGE_VISIONS, LOAVES_PER_DAY, LOAVES_PER_DAY_PATH } = require('./data/practices'); // the Witch Paths' practices
 const { NINE_HERBS, WODEN_LINES, NEW_GARDEN_HERBS, LACNUNGA_SEEDS_PER_HERB, NINE_HERBS_LORE } = require('./data/nineHerbs'); // blueprint G: the Nine Herbs Charm
-const { HOUR_LORE, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
+const { HOUR_LORE, CHALDEAN, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
 const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
@@ -5048,6 +5048,15 @@ function noteSabbatSeen(player) {
   if (!k) return;
   if (!Array.isArray(a.sabbatsSeen)) a.sabbatsSeen = [];
   if (a.sabbatsSeen.indexOf(k) === -1) { a.sabbatsSeen.push(k); saveAccounts(); }
+}
+// The Charm Book's planetary hours: note a planet whose hour you worked in
+// (a herb gathered in its ruler's hour, a tea brewed in its planet's hour).
+function noteHourKept(key, planetDay) {
+  const a = key && accounts[key];
+  const pl = a && CHALDEAN.find((c) => c.day === planetDay);
+  if (!pl) return;
+  if (!Array.isArray(a.hoursKept)) a.hoursKept = [];
+  if (a.hoursKept.indexOf(pl.key) === -1) a.hoursKept.push(pl.key);
 }
 function charmBookStateBody(player) {
   const key = player && player.accountKey;
@@ -16082,6 +16091,7 @@ wss.on('connection', (ws, req) => {
       // Record it in the Teas Almanac (first brew reveals its page).
       if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
       if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id);
+      if (onHour) noteHourKept(player.accountKey, tea.day); // the Charm Book's planetary hours
       acct.teaCup = { teaId: tea.id, at: Date.now() }; // the dregs wait to be read
       hearthPathEvent(player, tea); // may advance the questline + grant a chapter reward
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
@@ -16379,7 +16389,7 @@ wss.on('connection', (ws, req) => {
       if (!p) return;
       if (Date.now() - p.plantedAt < GARDEN_GROW_MS) { send(ws, { type: 'garden_error', message: 'It is not grown yet.' }); return; }
       const inHerbHour = greenHourBonus(player, p.herb); // 🌿 wort-cunning: gathered in its planet's hour
-      if (inHerbHour > 0 && player.accountKey) { const prG = practicesOf(player.accountKey); if (prG && !prG.greenDone) { prG.greenDone = true; saveAccounts(); } } // the Charm Book's Wort-Cunning entry
+      if (inHerbHour > 0 && player.accountKey) { const prG = practicesOf(player.accountKey); if (prG && !prG.greenDone) prG.greenDone = true; noteHourKept(player.accountKey, CULPEPER_RULERS[p.herb]); saveAccounts(); } // the Charm Book's Wort-Cunning entry
       const amount = (MOON_YIELD[p.moonTier] || MOON_YIELD.other) + (atHome ? HOME_GARDEN_YIELD_BONUS : 0) + inHerbHour;
       const inv = getInventory(player);
       let got = 0;
@@ -17617,6 +17627,7 @@ global.__testHooks.noteSabbatSeen = noteSabbatSeen;
 global.__testHooks.wardsPublic = wardsPublic;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
+global.__testHooks.noteHourKept = noteHourKept; // the Charm Book's planetary hours
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
