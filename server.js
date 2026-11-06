@@ -5058,6 +5058,39 @@ function noteHourKept(key, planetDay) {
   if (!Array.isArray(a.hoursKept)) a.hoursKept = [];
   if (a.hoursKept.indexOf(pl.key) === -1) a.hoursKept.push(pl.key);
 }
+// The Charm Book notices: when something you did writes a new entry into the
+// book, say so ("📜 Written in your Charm Book: …"). The account remembers what
+// it's been told (charmNoted) — the first check for an account notes what's
+// already met silently, so nobody gets a backlog of fifty toasts.
+const CHARM_NOTICE_DELAY_MS = 400; // coalesce a burst; runs after the handler
+function charmMetIds(player) {
+  const book = charmBookStateBody(player);
+  const out = [];
+  for (const c of book.chapters) for (const e of c.entries) if (e.met) out.push({ id: c.key + ':' + e.id, title: e.title, chapter: c.title });
+  return out;
+}
+function charmBookNotice(player) {
+  const key = player && player.accountKey;
+  const a = key && accounts[key];
+  if (!a) return null;
+  let met;
+  try { met = charmMetIds(player); } catch (e) { return null; }
+  if (!Array.isArray(a.charmNoted)) { a.charmNoted = met.map((m) => m.id); saveAccounts(); return null; }
+  const noted = new Set(a.charmNoted);
+  const fresh = met.filter((m) => !noted.has(m.id));
+  if (!fresh.length) return null;
+  for (const m of fresh) a.charmNoted.push(m.id);
+  const first = fresh[0];
+  let message = `📜 Written in your Charm Book: ${first.title}` + (fresh.length > 1 ? ` — and ${fresh.length - 1} more` : ` (${first.chapter})`);
+  if (!a.charmToldWhere) { a.charmToldWhere = true; message += ' · Menu → 📜 Charm Book'; }
+  saveAccounts();
+  if (player.ws) send(player.ws, { type: 'toast', message });
+  return message;
+}
+function scheduleCharmNotice(player) {
+  if (!player || !player.accountKey || player._charmT) return;
+  player._charmT = setTimeout(() => { player._charmT = null; try { charmBookNotice(player); } catch (e) { /* never break play */ } }, CHARM_NOTICE_DELAY_MS);
+}
 function charmBookStateBody(player) {
   const key = player && player.accountKey;
   let seasonKey = null; try { const se = calendarPublicState().season; seasonKey = se && se.key; } catch (e) { /* noop */ }
@@ -10911,6 +10944,9 @@ wss.on('connection', (ws, req) => {
     try { msg = JSON.parse(raw); } catch (e) { return; }
     if (!msg || typeof msg.type !== 'string') return;
     if (player) noteActivity(player, msg); // AFK auto-logout clock
+    // 📜 After anything but movement-class chatter, see if it wrote a new
+    // Charm Book entry (scheduled, so it runs after this message's handler).
+    if (player && !RATE_EXEMPT_TYPES.has(msg.type) && msg.type !== 'charm_book_state') scheduleCharmNotice(player);
 
     // Bot / macro signal: one costly action blasted at an inhuman rate from a
     // single connection. Logged once when it crosses the line (=== threshold),
@@ -11281,6 +11317,7 @@ wss.on('connection', (ws, req) => {
       // account-guarded restore path as the checkout flow.
       player.liveResumeToken = crypto.randomBytes(24).toString('hex');
       noteSabbatSeen(player); // the Charm Book's Wheel: this season, lived through
+      if (player.accountKey && accounts[player.accountKey] && !Array.isArray(accounts[player.accountKey].charmNoted)) charmBookNotice(player); // note what's already in the book, silently
 
       send(ws, {
         type: 'init',
@@ -17628,6 +17665,7 @@ global.__testHooks.wardsPublic = wardsPublic;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 global.__testHooks.noteHourKept = noteHourKept; // the Charm Book's planetary hours
+global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
