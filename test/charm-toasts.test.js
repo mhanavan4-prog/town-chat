@@ -47,6 +47,7 @@ setTimeout(async () => {
   await wait(600);
   const t1 = bookToasts();
   check('loosing a knot writes it into the book, and says so', t1.length === 1 && /^📜 Written in your Charm Book: The first knot/.test(t1[0].message), t1.map((m) => m.message));
+  check('notices are marked to show on screen whatever the notice setting', t1.length === 1 && t1[0].always === true);
   check('the first notice tells you where the book is', t1.length === 1 && /Menu → 📜 Charm Book/.test(t1[0].message), t1[0] && t1[0].message);
 
   // The same thing again: nothing new, no toast.
