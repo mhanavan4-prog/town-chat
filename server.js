@@ -3093,6 +3093,7 @@ const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: corre
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
 const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination) + The Futhark codex
@@ -4865,6 +4866,45 @@ function homeRemove(player, idx) {
 }
 
 // ── Kitchen witchcraft (Tier 3.5): the tea menu + the live sipped buff ───────
+// ── Reading the Leaves (blueprint E) ─────────────────────────────────────────
+// Every cup drunk (brewed or a friend's gift) leaves dregs that can be read once,
+// within CUP_WINDOW_MS. One sign per cup, placed rim / side / bottom (soon / later
+// / far off), from a Highland Seer's dictionary. Signs seen are kept in
+// acct.leavesSeen; the first sight of each pays a little XP, the whole set a purse.
+function leavesCupReadable(acct, now) {
+  return !!(acct && acct.teaCup && !acct.teaCup.read && (now - acct.teaCup.at) <= CUP_WINDOW_MS);
+}
+function leavesStateBody(player) {
+  const acct = player && player.accountKey && accounts[player.accountKey];
+  const seen = (acct && Array.isArray(acct.leavesSeen)) ? acct.leavesSeen : [];
+  const now = Date.now();
+  const cup = acct && leavesCupReadable(acct, now)
+    ? { teaId: acct.teaCup.teaId, from: acct.teaCup.from || null, until: acct.teaCup.at + CUP_WINDOW_MS }
+    : null;
+  return {
+    cup,
+    seen: LEAF_SYMBOLS.filter((x) => seen.includes(x.key)).map((x) => ({ key: x.key, glyph: x.glyph, name: x.name, meaning: x.meaning, tone: x.tone })),
+    total: LEAF_SYMBOLS.length,
+    method: LEAVES_LORE.method, provenance: LEAVES_LORE.provenance,
+  };
+}
+function readLeaves(player, rand) {
+  const r = rand || Math.random;
+  const acct = accounts[player.accountKey];
+  const sym = LEAF_SYMBOLS[Math.floor(r() * LEAF_SYMBOLS.length)];
+  const place = LEAF_PLACES[Math.floor(r() * LEAF_PLACES.length)];
+  const nearHandle = r() < 0.35;
+  acct.teaCup.read = true;
+  if (!Array.isArray(acct.leavesSeen)) acct.leavesSeen = [];
+  const isNew = !acct.leavesSeen.includes(sym.key);
+  let xp = 0, purse = 0;
+  if (isNew) {
+    acct.leavesSeen.push(sym.key);
+    xp = LEAVES_NEW_SIGN_XP;
+    if (acct.leavesSeen.length === LEAF_SYMBOLS.length && !acct.leavesSetPaid) { acct.leavesSetPaid = true; purse = LEAVES_SET_PURSE; }
+  }
+  return { sym, place, nearHandle, isNew, xp, purse };
+}
 function teaStateBody(player) {
   const key = player && player.accountKey;
   const t = key && accounts[key] && accounts[key].teaBuff;
@@ -4899,7 +4939,7 @@ function teaStateBody(player) {
     };
   });
   const sabbats = {}; for (const s of SABBATS) sabbats[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet };
-  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, hearthBonus: HEARTH_BREW_BONUS, atHearth: inOwnCottage(player), now: Date.now() };
+  return { active, teas, planets: PLANETS, sabbats, season: seasonKey, daysBrewed: daysBrewed.size, allPlanets, hearthPath: hearthPathStateBody(player), leaves: leavesStateBody(player), today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS, hearthBonus: HEARTH_BREW_BONUS, atHearth: inOwnCottage(player), now: Date.now() };
 }
 
 // ── The Hearth Path — a brewing questline (parallel to the Green Path). Chapters
@@ -15374,6 +15414,27 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    if (msg.type === 'read_leaves') {
+      if (!player.accountKey) { send(ws, { type: 'tea_error', message: 'Log into an account to keep a cup.' }); return; }
+      const acct = accounts[player.accountKey];
+      if (!leavesCupReadable(acct, Date.now())) { send(ws, { type: 'tea_error', message: 'There are no wet leaves to read — drink a cup of tea first.' }); return; }
+      const { sym, place, nearHandle, isNew, xp, purse } = readLeaves(player);
+      let balance = null;
+      if (purse) { const bank = ensureBankAccount(player.accountKey); bank.balance += purse; balance = bank.balance; saveBankAccounts(); }
+      saveAccounts();
+      if (xp) grantXP(player, xp);
+      const tea = TEAS.find((t) => t.id === acct.teaCup.teaId);
+      send(ws, {
+        type: 'leaves_reading',
+        tea: tea ? { name: tea.name, emoji: tea.emoji } : null,
+        symbol: { key: sym.key, glyph: sym.glyph, name: sym.name, ...((sym.byPlace && sym.byPlace[place.key]) || { meaning: sym.meaning, tone: sym.tone }) },
+        place: place.label, when: place.when, nearHandle,
+        isNew, xp, purse, balance, seen: acct.leavesSeen.length, total: LEAF_SYMBOLS.length,
+      });
+      send(ws, { type: 'tea_state', ...teaStateBody(player) });
+      callers.callerEvent(player, 'leaves', `The leaves: ${sym.glyph} ${sym.name.replace(/^An? /, '').toLowerCase()} ${place.label} — ${place.when}.`);
+      return;
+    }
     if (msg.type === 'tea_state') {
       if (!player.accountKey) { let sk0 = null; try { sk0 = seasonWindow(Date.now()).key; } catch (e) {} const sb0 = {}; for (const s of SABBATS) sb0[s.key] = { name: s.name, glyph: s.glyph, epithet: s.epithet }; send(ws, { type: 'tea_state', active: null, teas: TEAS.map((x) => ({ id: x.id, name: x.name, emoji: x.emoji, blurb: x.blurb, lore: x.lore, day: x.day, stat: x.stat, amount: x.amount, herbs: x.herbs.map((hh) => ({ id: hh.id, qty: hh.qty, name: (ITEM_CATALOG[hh.id] && ITEM_CATALOG[hh.id].name) || (PLANT_CATALOG[hh.id] && PLANT_CATALOG[hh.id].name) || hh.id, have: 0 })), greater: !!x.greater, requires: x.requires || null, sabbat: x.sabbat || null, inSeason: x.sabbat ? (x.sabbat === sk0) : null, locked: (x.requires === 'allPlanets') || (!!x.sabbat && x.sabbat !== sk0), canBrew: false, discovered: false })), planets: PLANETS, sabbats: sb0, season: sk0, daysBrewed: 0, allPlanets: false, today: new Date().getUTCDay(), dayBonus: TEA_DAY_BONUS }); return; }
       send(ws, { type: 'tea_state', ...teaStateBody(player) });
@@ -15409,6 +15470,7 @@ wss.on('connection', (ws, req) => {
       // Record it in the Teas Almanac (first brew reveals its page).
       if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
       if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id);
+      acct.teaCup = { teaId: tea.id, at: Date.now() }; // the dregs wait to be read
       hearthPathEvent(player, tea); // may advance the questline + grant a chapter reward
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
       saveAccounts(); if (player.accountKey) saveInventories();
@@ -15470,6 +15532,7 @@ wss.on('connection', (ws, req) => {
       if (!Array.isArray(acct.teasBrewed)) acct.teasBrewed = [];
       if (acct.teasBrewed.indexOf(tea.id) === -1) acct.teasBrewed.push(tea.id); // a received cup fills its almanac page
       acct.teaGifts.splice(idx, 1);
+      acct.teaCup = { teaId: tea.id, at: Date.now(), from: gift.from }; // a friend's cup can be read too
       const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
       saveAccounts();
       send(ws, { type: 'skill_state', ...skillStatePayload(player) });
@@ -16839,7 +16902,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
@@ -16877,7 +16940,7 @@ global.__testHooks = {
   townBonfireState, ensureTownBonfire, lightTownBonfire, getTownBonfire: () => townBonfire, BONFIRE_TARGET, // test-only: the Town Bonfire
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
+  players, storyEvent, advanceQuestProgress, getProgress, getInventory, inventoryStatePayload, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
   greenPathEvent, greenPathStateBody, GREEN_PATH, greenPathOf, greenPathQualifies, HERB_BANDS,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,

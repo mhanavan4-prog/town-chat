@@ -92,7 +92,7 @@ function renderBoardModal() {
 // ── Callers at the Door ──────────────────────────────────────────────────────
 // A townsperson's working: the plea, the steps (each with a button that opens
 // the tool that does it), then the finish. All text lands via textContent.
-const TOOL_LABEL = { pendulum: '🪢 Pendulum', tarot: '🃏 Cards', runes: 'ᚱ Staves', scry: '🥣 Bowl' };
+const TOOL_LABEL = { pendulum: '🪢 Pendulum', tarot: '🃏 Cards', runes: 'ᚱ Staves', scry: '🥣 Bowl', leaves: '☕ Teacup' };
 function el(tag, cls, text) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
