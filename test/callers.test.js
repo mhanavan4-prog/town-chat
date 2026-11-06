@@ -50,6 +50,7 @@ setTimeout(() => {
     else if (s.kind === 'sieve') { for (const n of s.suspects) say(sock, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
     else if (s.kind === 'key') { for (const n of s.suspects) say(sock, { type: 'key_turn', name: n }); }
     else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
+    else if (s.kind === 'knots') { for (let k = 0; k < s.count; k++) say(sock, { type: 'knot_tie' }); }
     else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
     else throw new Error('callers.test: no driver for step kind ' + s.kind + ' — add it to doStep');
   }

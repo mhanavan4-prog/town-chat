@@ -61,4 +61,18 @@ const CHARMS = {
   },
 };
 
-module.exports = { CHARMS };
+// Charming warts — not words but a working: a knot for every wart, the thread
+// thrown away or buried, and the warts go as it rots. Worked as a caller's
+// 'knots' step (one knot per wart); remembered in charmsSaid as 'warts'.
+const WART_CHARM = {
+  key: 'warts',
+  name: 'the wart charm',
+  icon: '🪢',
+  title: 'Charming Warts',
+  use: 'Count the warts; tie as many knots in a hair or a thread, touching a wart with each; then throw it away or bury it — as it rots, they go.',
+  lore: 'Henderson set down a whole page of wart cures from the north of England: a knot in a hair for every wart, thrown away; in Devonshire an apple cut in two, rubbed on the wart, tied together again and buried, the warts going as the apple rots; a black snail rubbed on them and stuck on a thorn. The honest secret of every wart charm is that most common warts go away on their own in a year or two — so the charm nearly always "worked".',
+  tier: 'record',
+  source: 'William Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. 5',
+};
+
+module.exports = { CHARMS, WART_CHARM };

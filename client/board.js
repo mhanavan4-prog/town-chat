@@ -142,6 +142,15 @@ function renderCallers(list, meNote) {
         body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
+      } else if (s.kind === 'knots' && !s.done) {
+        // The wart charm: a knot for every wart.
+        if (s.use) body.appendChild(el('div', 'callerStepNote', s.use));
+        const row = el('div', 'knotRow');
+        for (let k = 0; k < s.count; k++) row.appendChild(el('span', 'knotMark' + (k < s.tied ? ' tied' : ''), k < s.tied ? '●' : '○'));
+        body.appendChild(row);
+        const b = el('button', 'btn charmSay', `🪢 Tie a knot (${s.tied + 1} of ${s.count})`);
+        b.addEventListener('click', () => { b.disabled = true; send({ type: 'knot_tie' }); });
+        body.appendChild(b);
       } else if (s.kind === 'rite' && !s.done && s.rite) {
         // A Hallowe'en rite: how it's done (after Burns's notes), then do it.
         body.appendChild(el('div', 'callerStepNote', s.rite.how));
