@@ -42,6 +42,16 @@ module.exports = {
   // ---- The Tree Alphabet (blueprint C): Coll, Hazel's own letter ----
   hazel_rod:      { name: 'Hazel Rod',      icon: '🪄', slot: null },
   // ---- Knots & the Wind (blueprint F): a wind tied into a cord ----
+  // ---- The ogham grove (the ten trees the Tree Alphabet lacked) ----
+  alder_bark:     { name: 'Alder Bark',     icon: '🟫', slot: null },
+  ash_key:        { name: 'Ash Keys',       icon: '🔑', slot: null },
+  haw:            { name: 'Haws',           icon: '🔴', slot: null },
+  ivy_leaf:       { name: 'Ivy Leaf',       icon: '🍃', slot: null },
+  elderberry:     { name: 'Elderberries',   icon: '🫐', slot: null },
+  gorse_bloom:    { name: 'Gorse Bloom',    icon: '🌼', slot: null },
+  heather_sprig:  { name: 'Heather Sprig',  icon: '💜', slot: null },
+  aspen_leaf:     { name: 'Aspen Leaf',     icon: '🍂', slot: null },
+  yew_wood:       { name: 'Yew Wood',       icon: '🪵', slot: null },
   hemp_cord:      { name: 'Hemp Cord',      icon: '🧶', slot: null },
   wind_cord_3:    { name: 'Wind Cord (three knots)', icon: '🪢', slot: null },
   wind_cord_2:    { name: 'Wind Cord (two knots)',   icon: '🪢', slot: null },

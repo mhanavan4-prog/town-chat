@@ -32,6 +32,7 @@ import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
+import { OGHAM_GROVE_BUILDERS, OGHAM_GROVE_TYPES_CLIENT } from './props-ogham.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
 import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
@@ -13917,7 +13918,7 @@ function makePlant(type, x, z) {
 // you can't walk through them; shrubs, rocks, flower patches, and the
 // Wilds' 16 plants are purely decorative ground cover (walk-through).
 // tree/shrub/flower/(any plant key) are harvestable; rocks are scenery.
-const WILDS_FLORA_TYPES_CLIENT = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring'];
+const WILDS_FLORA_TYPES_CLIENT = ['watchpine', 'deadwood', 'mourning_willow', 'capwood', 'hexoak', 'palebirch', 'bramblebush', 'nightberry', 'thornsnarl', 'fenfern', 'toadring', ...OGHAM_GROVE_TYPES_CLIENT];
 const HARVESTABLE_DECOR_TYPES = new Set(['tree', 'shrub', 'flower', ...Object.keys(PLANT_VISUALS), ...WILDS_FLORA_TYPES_CLIENT]);
 let decorVisuals = {};  // town (world.natureDecor) decorId -> { group, type, harvested, originalMaterials }
 let decorVisuals2 = {}; // Wilds (world2.natureDecor), same shape, separate pool/scene
@@ -14005,7 +14006,9 @@ const PROP_BUILDERS = {
   nightberry:      { make: (d) => makeNightberry(d.x, d.y, d.scale),     collide: () => null },
   thornsnarl:      { make: (d) => makeKKFlora('fl_thornsnarl', d, 30) || makeThornsnarl(d.x, d.y, d.scale),      collide: () => null },
   fenfern:         { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null },
-  toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null }
+  toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null },
+  // The ogham grove — the ten trees the Tree Alphabet lacked (props-ogham.js).
+  ...OGHAM_GROVE_BUILDERS
 };
 
 function addNatureDecor(scene, w, pool, wallsOut) {

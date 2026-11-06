@@ -1660,6 +1660,26 @@ const WILDS_FLORA_POSITIONS = makeWildsScatter(0x5eed, 22, WILDS_FLORA_TOTAL);
   }
 }
 
+// ── The ogham grove: the ten trees the Tree Alphabet lacked (data/ogham.js) ──
+// Alder, ash, hawthorn, apple, ivy, elder, gorse, heather, aspen and yew, each
+// harvestable for the material its letter is carved from. A separate scatter
+// (own seed) so every existing wflora_* tree keeps its place.
+const OGHAM_GROVE_TYPES = ['alder', 'ash_tree', 'hawthorn', 'wild_apple', 'ivy_bank', 'elder', 'gorse', 'heather', 'aspen', 'yew'];
+const OGHAM_GROVE_COUNT = 10; // of each
+const OGHAM_GROVE_HARVEST = { alder: 'alder_bark', ash_tree: 'ash_key', hawthorn: 'haw', wild_apple: 'crab_apple', ivy_bank: 'ivy_leaf', elder: 'elderberry', gorse: 'gorse_bloom', heather: 'heather_sprig', aspen: 'aspen_leaf', yew: 'yew_wood' };
+{
+  const pos = makeWildsScatter(0x06a3, 26, OGHAM_GROVE_TYPES.length * OGHAM_GROVE_COUNT);
+  let gi = 0;
+  for (const type of OGHAM_GROVE_TYPES) {
+    for (let k = 0; k < OGHAM_GROVE_COUNT; k++) {
+      const [gx, gy] = pos[gi++];
+      WORLD2.natureDecor.push({ id: `wgrove_${type}_${k}`, type, x: gx, y: gy, scale: 1 });
+    }
+  }
+}
+Object.assign(WILDS_FLORA_HARVEST, OGHAM_GROVE_HARVEST);
+WILDS_FLORA_TYPES.push(...OGHAM_GROVE_TYPES);
+
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS, ...WILDS_FLORA_TYPES]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
