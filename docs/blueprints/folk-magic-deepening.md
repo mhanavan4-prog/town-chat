@@ -13,8 +13,8 @@
 > a person actually **did**, and none of those things are in the game yet.
 >
 > Status: **IN PROGRESS.** A (Callers at the Door), E (Reading the Leaves),
-> B (Threshold & Hearth) and C (The Tree Alphabet) are built. The rest are
-> proposals, ordered by value at the bottom.
+> B (Threshold & Hearth), C (The Tree Alphabet) and F (Knots & the Wind) are
+> built. The rest are proposals, ordered by value at the bottom.
 
 ---
 
@@ -219,7 +219,14 @@ nothing to build, closes a loop that is already open, and it is the single most
 
 ---
 
-### F. Knots, and Selling the Wind — *the Sea Witch's actual trade*
+### F. Knots, and Selling the Wind — *the Sea Witch's actual trade* ✅ BUILT
+
+> **🪢 Knots & Cords** in the ☰ menu. Tie a wind into a hemp cord (Tailor
+> Ines) under the open sky, once a day — twice for a Sea Witch, whose knots
+> also blow longer. Loose the knots later, in order: +15% speed for 3 min,
+> +30% for 2 min, then +60% for 45 s at the cost of a quarter of your health
+> (never fatal). Its own buff slot, so it stacks with a tea. A new caller,
+> Skipper Quilliam, buys a three-knot cord — selling the wind, literally.
 
 **The lore.** Attested across Scotland, the Isle of Man and Scandinavia into the
 19th century: witches sold sailors a cord with **three knots**. Undo the first
