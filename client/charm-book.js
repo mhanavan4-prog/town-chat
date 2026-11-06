@@ -73,7 +73,7 @@ export default function createCharmBook({ send, place }) {
     for (const e of ch.entries) {
       if (!e.met) {
         const row = el('div', 'cbEntry unmet');
-        row.appendChild(el('span', 'cbEntryTitle', '· · ·'));
+        row.appendChild(el('span', 'cbEntryTitle' + (ch.showNames ? ' named' : ''), ch.showNames ? (e.icon ? e.icon + ' ' : '') + e.title : '· · ·'));
         row.appendChild(el('div', 'cbHint', e.hint || 'Not yet met.'));
         body.appendChild(row);
         continue;
