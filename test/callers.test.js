@@ -49,6 +49,7 @@ setTimeout(() => {
     else if (s.kind === 'charm') CHARMS[s.charm].lines.forEach((_, li) => say(sock, { type: 'charm_say', line: li }));
     else if (s.kind === 'sieve') { for (const n of s.suspects) say(sock, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
     else if (s.kind === 'key') { for (const n of s.suspects) say(sock, { type: 'key_turn', name: n }); }
+    else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
     else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
     else throw new Error('callers.test: no driver for step kind ' + s.kind + ' — add it to doStep');
   }

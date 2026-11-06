@@ -8520,6 +8520,7 @@ const callers = require('./lib/callers')({
   grantXP: (player, n) => grantXP(player, n),
   itemInfo: (id) => ITEM_CATALOG[id] || null,
   isBrewable: (id) => POTION_RECIPES.some((r) => r.result === id),
+  seasonKey: () => { const se = calendarPublicState().season; return se && se.key; }, // Hallowe'en callers come only at Samhain
 });
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
