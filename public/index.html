@@ -3299,6 +3299,15 @@
   .ogCastBtn { margin-top:6px; width:auto; padding:7px 14px; }
   .ogCastBtn:disabled { opacity:0.5; }
   .ogLore { background:rgba(0,0,0,0.25); border-left:3px solid #d9b86a; border-radius:6px; padding:8px 10px; margin-top:12px; }
+  /* The Nine Herbs Charm — the recital */
+  #recitalCard { max-width:560px; width:min(560px, 94vw); }
+  #recitalBody { max-height:60vh; overflow-y:auto; text-align:left; margin:8px 0; }
+  .rcLine { margin:0 0 9px; animation:rcIn .8s ease both; }
+  .rcHead { color:#9ee37d; font-size:11.5px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; }
+  .rcText { color:#ffe9c2; font-family:Georgia, 'Times New Roman', serif; font-style:italic; font-size:15px; line-height:1.5; }
+  .rcWoden .rcText { color:#ffd9a0; font-size:15.5px; }
+  @keyframes rcIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .rcLine { animation:none; } }
   /* Threshold & Hearth — Wards of the House */
   #wardsCard { max-width:560px; width:min(560px, 94vw); }
   #wardsBody { max-height:62vh; overflow-y:auto; text-align:left; margin:8px 0; }
@@ -3540,6 +3549,15 @@
     <div class="slNote" id="boardMeNote"></div>
     <div class="slSection hidden" id="boardHonors"><h4>🎖️ Your honors</h4><div id="boardHonorsList"></div></div>
     <button class="btn" id="boardCloseBtn">Close</button>
+  </div>
+</div>
+
+<div id="recitalModal" class="overlay hidden">
+  <div class="card" id="recitalCard">
+    <div class="title" style="font-size:20px;">⚕️ The Nine Herbs Charm</div>
+    <div class="subtitle">Hazel pounds the herbs to dust, and you say the words over them</div>
+    <div id="recitalBody"></div>
+    <button class="btn" id="recitalCloseBtn">Close</button>
   </div>
 </div>
 

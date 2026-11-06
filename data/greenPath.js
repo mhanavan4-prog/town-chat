@@ -32,7 +32,15 @@ const GREEN_PATH_CATEGORIES = [
       { id: 'comfrey',     name: 'Comfrey (Knitbone)', lore: 'mending bone and flesh' },
       { id: 'lemon_balm',  name: 'Lemon Balm',         lore: 'uplift, ease, clarity' },
       { id: 'feverfew',    name: 'Feverfew',           lore: 'fever, headache, warding sickness' },
-      { id: 'lavender',    name: 'Lavender',           lore: 'peace, cleansing, sleep' }
+      { id: 'lavender',    name: 'Lavender',           lore: 'peace, cleansing, sleep' },
+      // The Lacnunga herbs of the Nine Herbs Charm (data/nineHerbs.js).
+      { id: 'plantain',    name: 'Waybread (Plantain)', lore: 'mother of herbs, trodden and unbroken' },
+      { id: 'lambs_cress', name: "Lamb's Cress",       lore: 'Stune, who grew on a stone' },
+      { id: 'nettle',      name: 'Nettle',             lore: 'drives out the hostile one' },
+      { id: 'betony',      name: 'Betony',             lore: 'venom-loather, against the serpent' },
+      { id: 'crab_apple',  name: 'Crab Apple',         lore: 'sent over the sea against poison' },
+      { id: 'chervil',     name: 'Chervil',            lore: 'one of the two very mighty ones' },
+      { id: 'fennel',      name: 'Fennel',             lore: 'set in the seven worlds, a help to all' }
     ]
   },
   {
