@@ -11258,6 +11258,7 @@ wss.on('connection', (ws, req) => {
         // menu, which is why the Green Path's final chapter could not be
         // finished. One authoritative copy now, like legendaryCatalog.
         potionRecipes: POTION_RECIPES,
+        witchPaths: WITCH_PATHS, // the path picker reads perks + practices from here
         // 🎃 Samhain guise catalog (name/emoji/blurb/ms) — the one authoritative
         // copy, so the Disguise menu renders from it with no hand-synced list.
         // owned = the collectible Otherworld guises this account has bought;
