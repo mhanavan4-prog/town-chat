@@ -76,6 +76,12 @@ const POTION_RECIPES = [
     ingredients: [{ id: 'mugwort', qty: 2 }],
     desc: "2× Mugwort → Mugwort Dream-Draught (cross the hedge unseen — Raven's Cloak for 60s)" },
   // ── Green Path (Cottage Garden band): the hearth-and-healing remedies ──
+  // Calendula had a tea but nothing at the cauldron, which left a Green Path
+  // plant with nothing to brew. Marigold is the sun's own wound-herb in the
+  // folk tradition, so it makes a salve like its siblings.
+  { id: 'calendula_salve', result: 'calendula_salve',
+    ingredients: [{ id: 'calendula', qty: 2 }],
+    desc: "2× Calendula → Calendula Salve (the marigold's solar mending — heals 75 HP)" },
   { id: 'comfrey_salve', result: 'comfrey_salve',
     ingredients: [{ id: 'comfrey', qty: 2 }],
     desc: '2× Comfrey → Comfrey Salve (knitbone — heals 85 HP)' },
