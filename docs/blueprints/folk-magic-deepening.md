@@ -12,9 +12,9 @@
 > — and is +8% move speed. The traditions behind both names are full of things
 > a person actually **did**, and none of those things are in the game yet.
 >
-> Status: **IN PROGRESS.** A (Callers at the Door), E (Reading the Leaves),
-> B (Threshold & Hearth), C (The Tree Alphabet) and F (Knots & the Wind) are
-> built. The rest are proposals, ordered by value at the bottom.
+> Status: **IN PROGRESS.** A, E, B, C, F and D are built (Callers at the Door,
+> Reading the Leaves, Threshold & Hearth, The Tree Alphabet, Knots & the Wind,
+> Planetary Hours). G is a proposal.
 
 ---
 
@@ -178,7 +178,16 @@ materials matter and gives Hazel a second teaching role.
 
 ---
 
-### D. Planetary Hours — *deepening what already exists*
+### D. Planetary Hours — *deepening what already exists* ✅ BUILT
+
+> Reckoned by the **real sun at Greenwich** (sunrise/sunset from solar
+> declination and the equation of time), so the hours are truly unequal — ~83
+> minutes by day at midsummer, ~39 at midwinter — and the planetary day lines
+> up with the UTC weekday the teas already use. A planetary day begins at
+> sunrise. HUD chip beside the moon ("♀ Hour of Venus"); a tea brewed in its
+> planet's hour holds ×1.25 longer, stacking with its day. The game's own
+> 40-minute day/night was not stretched — the blueprint's "needs the day/night
+> work first" turned out unnecessary once the hours follow the real sun.
 
 **The lore.** The classical and medieval system: day and night are each divided
 into twelve **unequal** hours (long in summer daylight, short in winter), and
