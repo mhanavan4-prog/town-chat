@@ -3118,7 +3118,18 @@ function onWsMessage(ev) {
     if (msg.items && msg.items.length) {
       if (typeof playSfx === 'function') playSfx('loot');
       if (visuals[myId] && visuals[myId].kk) kkOneShot(visuals[myId].kk, 'PickUp', { timeScale: 1.4 }); // crouch-and-grab
-      setUnlockToast('💰 Looted: ' + msg.items.join('  '));
+      // loot_drop carries display labels. One emitter (the world boss) was
+      // sending item RECORDS instead, and join() turned each into the literal
+      // text "[object Object]" in the log. That is fixed at the source, but a
+      // line the player reads should degrade to something nameable rather than
+      // to that, so anything record-shaped is unwrapped here too.
+      const lootLabel = (it) => {
+        if (typeof it === 'string') return it;
+        if (!it || typeof it !== 'object') return '';
+        return String(it.label || it.name || it.itemId || '');
+      };
+      const labels = msg.items.map(lootLabel).filter(Boolean);
+      if (labels.length) setUnlockToast('💰 Looted: ' + labels.join('  '));
     }
     return;
   }
