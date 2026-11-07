@@ -814,6 +814,23 @@ const CALLERS = [
     source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book (1826–27), 14 February',
     reward: { gold: 40, xp: 35 },
   },
+  // Shrove Tuesday only (data/shroveTuesday.js), dated by Easter through the old calendar.
+  {
+    id: 'shrove_tuesday_shroving',
+    caller: 'Will and Lizzie Dyer',
+    icon: '🥞',
+    title: 'Shrove Tuesday',
+    when: { calendar: 'shrove_tuesday', days: 2, label: 'Shrove Tuesday' },
+    plea: "It's Shrove Tuesday and we want to go a-shrovin'! Mother says only if somebody grown comes, because last year the Harding boys threw crocks at old Mrs Pike's door when she'd nothing to give, and she cried. And Mother's no time, she's frying. Will you come round with us?",
+    steps: [
+      { kind: 'rite', rite: 'shroving', label: 'Pancakes at the bell, then round the doors a-shrovin\', and no crocks thrown' },
+    ],
+    resolution: "Two full baskets and not a crock thrown. Then the practical half, which is the frying pan. Never leave the pan while the heat's on, and keep the children and the dog back from the fire. If the fat catches, don't try to carry the pan out and never throw water on it, for burning fat and water make a fireball. Turn the heat off only if you safely can, get everyone out, shut the door behind you and send for the fire brigade. And the cock in the yard stays in the yard: nobody throws a thing at an animal today, or any day.",
+    lore: "Shrove Tuesday: the bell that called the parish to be shriven became the Pancake Bell, and the day was pancakes, football and, till it was put down, throwing at cocks; in Dorset and Wiltshire children went a-shrovin' for food (Hone, 1826; Chambers, 1864).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
+    reward: { gold: 40, xp: 35 },
+  },
   // Good Friday only (data/goodFriday.js), dated by Easter through the old calendar.
   {
     id: 'good_friday_bun',
