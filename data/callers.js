@@ -763,6 +763,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 7 January · Nottingham Guardian (13 January 1886)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
+  {
+    id: 'st_marks_watch',
+    caller: 'Sam Dawes',
+    icon: '⛪',
+    title: "St Mark's Eve",
+    when: { calendar: 'st_marks_eve', days: 2, label: "St Mark's Eve" },
+    plea: "Me and Joe have said we'll watch the church porch tonight, eleven till one, the way the old ones did, to see who'll be buried this year. Joe's all bluster. I'm frightened, if I'm honest, and I'd sooner someone with sense sat with us. Will you?",
+    steps: [
+      { kind: 'rite', rite: 'porch_watch', label: 'The porch from eleven till one, two of you, and no sleeping' },
+    ],
+    resolution: "One o'clock comes and you all go home. Then the practical half, which is about what a cold porch at midnight does to you. In the dark the corners of your eyes see movement that isn't there; cold and tired, you nod off and dream with your eyes half open; and fright does the rest. Hone's clergyman said men had died of their own fears on this night. So wrap up warm, bring a lantern and something hot, take turns, and whatever you think you saw, never tell anyone they were among the dead. A man told that has a bad year of it, whether he dies or not.",
+    lore: "St Mark's Eve: watchers sat in the church porch from eleven till one to see the ghosts of those who would die that year go in; whoever fell asleep would die himself (Hone, 1827; Morris, 1892).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 April · M. C. F. Morris, Yorkshire Folk-Talk (1892)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── The house and the hive (data/household.js) ──
   {
     id: 'tell_the_bees',

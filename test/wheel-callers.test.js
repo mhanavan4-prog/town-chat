@@ -96,7 +96,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.reeve, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'feasts');
-  check('the Charm Book has a Turning Year chapter of twelve, all written in (and Martinmas and Plough Monday after them)', ch && ch.total === 14 && ch.met === 12 && ch.entries[12].id === 'martin_blood' && ch.entries[13].id === 'plough_monday');
+  check('the Charm Book has a Turning Year chapter of twelve, all written in (and Martinmas, Plough Monday and St Mark\'s Eve after them)', ch && ch.total === 15 && ch.met === 12 && ch.entries[12].id === 'martin_blood' && ch.entries[13].id === 'plough_monday' && ch.entries[14].id === 'porch_watch');
   check('…in Wheel order, each naming its festival', ch && ch.entries[0].id === 'bridesbed' && /Imbolc/.test(ch.entries[0].title) && ch.entries[11].id === 'michaelmas' && /Mabon/.test(ch.entries[11].title));
   check('…right after Yuletide', book.chapters.findIndex((c) => c.key === 'feasts') === book.chapters.findIndex((c) => c.key === 'yule') + 1);
 
