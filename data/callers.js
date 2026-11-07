@@ -865,6 +865,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Thomas's Day only (data/stThomas.js), dated by the old calendar.
+  {
+    id: 'st_thomas_gooding',
+    caller: 'Widow Ann Bagshaw',
+    icon: '🧺',
+    title: "St Thomas's Day",
+    when: { calendar: 'st_thomas', days: 2, label: "St Thomas's Day" },
+    plea: "St Thomas's Day, and it's gooding day. My mother went a-gooding every year with the other widows, round the big houses for a shilling and a bit of corn for Christmas, with a sprig of green for every door. I never had to go, and I'm ashamed to go now. Would you come round with me, so it's two of us?",
+    steps: [
+      { kind: 'rite', rite: 'gooding', label: 'Round the better houses with the bag, a sprig of green at every door' },
+    ],
+    resolution: "The bag is heavy by dark, and Ann holds her head up at the last door. Then the practical half, for gooding was the poor having to ask, and asking is hard. Give where nobody has to ask. If you give to a charity, look its name and number up on the Charity Commission's register, and never let a collector at the door hurry you. A food bank wants tins and long-life things in winter (tinned meat and fish, tinned meals, soup, long-life milk), not fresh food, and your own will tell you what it's short of. And in a cold spell go round the old folk on the lane yourself: are they warm enough at night, and have they food and their medicines in?",
+    lore: "Going a-gooding: on St Thomas's Day, the shortest day, women went round the better houses for money and the poor for corn, giving sprigs of green in return; the parson gave a shilling a head (Hone; Chambers, 1864).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 21 December · R. Chambers, The Book of Days (1864), 21 December',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
