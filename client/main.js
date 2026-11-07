@@ -1743,7 +1743,17 @@ function onWsMessage(ev) {
 
   if (msg.type === 'forbidden_book') { showForbiddenBook(msg); return; }
   if (msg.type === 'real_shelf') { shelfState = msg; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
-  if (msg.type === 'myth_quiz_result') { if (mythRun) mythRun.result = msg; if (shelfState && shelfState.myth && msg.best != null) shelfState.myth.best = msg.best; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
+  if (msg.type === 'myth_quiz_result') {
+    if (mythRun) mythRun.result = msg;
+    const m = shelfState && shelfState.myth;
+    if (m && msg.best != null) {
+      const set = (m.sets || []).find((x) => x.key === (msg.set || 'first'));
+      if (set) set.best = msg.best;
+      if ((msg.set || 'first') === 'first') m.best = msg.best;
+    }
+    if (Modals.isOpen('shelfOpen')) renderShelfModal();
+    return;
+  }
   if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
   if (msg.type === 'cafe_special') { showCafeSpecial(msg); return; }
   if (msg.type === 'cafe_menu') { renderCafeMenu(msg); return; }
@@ -4808,22 +4818,32 @@ function checkLineHtml(key, fallback) {
     + parts.map((p) => (p.work ? `<button class="checkIt" data-work="${esc(p.work)}">${esc(p.text)}</button>` : esc(p.text))).join('; ')
     + '</div>';
 }
+// The quiz's sets of ten (data/mythOrRecord.js MYTH_SETS); an older server
+// sends only the first, as items and best.
+function mythSets(m) {
+  return (m && m.sets && m.sets.length) ? m.sets : [{ key: 'first', title: 'Myth or record?', items: (m && m.items) || [], best: m ? m.best : null }];
+}
 function mythQuizHtml(m) {
-  const items = m.items || [];
+  const sets = mythSets(m);
   const label = (x) => (x === 'myth' ? 'Myth' : 'On the record');
   if (!mythRun) {
-    return `<div class="mythCard"><div class="mythHead">❓ Myth or record?</div><div class="cbIntro">${esc(m.intro || '')}</div>`
-      + `<div class="mythFoot">${m.best != null ? `Your best: <b>${m.best} of ${items.length}</b>` : 'Not tried yet.'}</div>`
-      + '<button class="btn mythStart">Take it</button></div>';
+    let h = `<div class="mythCard"><div class="mythHead">❓ Myth or record?</div><div class="cbIntro">${esc(m.intro || '')}</div>`;
+    sets.forEach((set, k) => {
+      h += `<div class="mythSet"><div class="mythSetText"><b>${esc(set.title)}</b><div class="mythFoot">${set.best != null ? `Your best: <b>${set.best} of ${set.items.length}</b>` : 'Not tried yet.'}</div></div>`
+        + `<button class="btn mythStart" data-set="${k}">Take it</button></div>`;
+    });
+    return h + '</div>';
   }
+  const set = sets[mythRun.set] || sets[0];
+  const items = set.items || [];
   if (mythRun.i >= items.length) {
     const r = mythRun.result;
-    return `<div class="mythCard"><div class="mythHead">❓ Myth or record? · done</div>`
+    return `<div class="mythCard"><div class="mythHead">❓ ${esc(set.title)} · done</div>`
       + (r ? `<div class="mythScore">${r.score} of ${r.of}</div>${r.best != null ? `<div class="mythFoot">Your best: <b>${r.best} of ${r.of}</b></div>` : '<div class="mythFoot">Log in to keep your best.</div>'}` : '<div class="mythFoot">Counting…</div>')
-      + '<button class="btn mythStart">Again</button> <button class="btn mythClose">Back to the shelf</button></div>';
+      + `<button class="btn mythStart" data-set="${mythRun.set}">Again</button> <button class="btn mythClose">Back to the shelf</button></div>`;
   }
   const q = items[mythRun.i];
-  let h = `<div class="mythCard"><div class="mythHead">❓ Myth or record? · ${mythRun.i + 1} of ${items.length}</div><div class="mythClaim">“${esc(q.claim)}”</div>`;
+  let h = `<div class="mythCard"><div class="mythHead">❓ ${esc(set.title)} · ${mythRun.i + 1} of ${items.length}</div><div class="mythClaim">“${esc(q.claim)}”</div>`;
   if (!mythRun.shown) {
     h += '<div class="mythBtns"><button class="btn mythPick" data-a="myth">Myth</button><button class="btn mythPick" data-a="record">On the record</button></div>';
   } else {
@@ -4882,8 +4902,9 @@ function renderShelfModal() {
     h += '</div>';
   }
   el.innerHTML = h;
-  const mItems = (shelfState.myth && shelfState.myth.items) || [];
-  el.querySelectorAll('.mythStart').forEach((b) => b.addEventListener('click', () => { mythRun = { i: 0, answers: {}, shown: false, result: null }; renderShelfModal(); }));
+  const mSets = mythSets(shelfState.myth);
+  const mItems = mythRun ? ((mSets[mythRun.set] || mSets[0]).items || []) : [];
+  el.querySelectorAll('.mythStart').forEach((b) => b.addEventListener('click', () => { mythRun = { set: Number(b.getAttribute('data-set')) || 0, i: 0, answers: {}, shown: false, result: null }; renderShelfModal(); }));
   el.querySelectorAll('.mythClose').forEach((b) => b.addEventListener('click', () => { mythRun = null; renderShelfModal(); }));
   el.querySelectorAll('.mythPick').forEach((b) => b.addEventListener('click', () => {
     const q = mItems[mythRun.i]; if (!q) return;
@@ -4891,7 +4912,7 @@ function renderShelfModal() {
   }));
   el.querySelectorAll('.mythNext').forEach((b) => b.addEventListener('click', () => {
     mythRun.i += 1; mythRun.shown = false;
-    if (mythRun.i >= mItems.length) send({ type: 'myth_quiz_done', answers: mythRun.answers });
+    if (mythRun.i >= mItems.length) send({ type: 'myth_quiz_done', set: (mSets[mythRun.set] || mSets[0]).key, answers: mythRun.answers });
     renderShelfModal();
   }));
   // A work on the Charm Book's Sources page: close the shelf and open it there.
