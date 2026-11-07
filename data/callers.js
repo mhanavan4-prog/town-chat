@@ -882,6 +882,23 @@ const CALLERS = [
     source: 'Act of 1660, Statutes of the Realm, vol. 5 (1819), p. 237 · W. Andrews, Old Church Lore (1891), p. 179',
     reward: { gold: 40, xp: 35 },
   },
+  // St Swithin's Day only (data/stSwithin.js), dated by the old calendar.
+  {
+    id: 'st_swithin_hay',
+    caller: 'Josiah Mead, with his hay down',
+    icon: '🌧️',
+    title: "St Swithin's Day",
+    when: { calendar: 'st_swithin', days: 2, label: "St Swithin's Day" },
+    plea: "St Swithin's, and it's raining, and my father would have said forty days of it and sat down and wept. The long meadow's half cut and lying. I can't afford to lose it, and I can't afford to believe him. Will you help me read the sky, and get it in when it lets us?",
+    steps: [
+      { kind: 'rite', rite: 'swithin_sky', label: 'The sky watched, morning and evening, and the hay got in between the showers' },
+    ],
+    resolution: "The hay's in, most of it dry. Then the practical half, which is what the old sayings are good for. A red sky at night is worth something here, because the weather comes from the west: it means clear air coming. A mackerel sky and mares' tails can come before a storm. Swallows flying low only tell you the insects are low in damp air now; they don't foretell tomorrow. And the saint is no forecaster: Chambers counted, and the Met Office says forty days of rain has never happened. What a warm wet July does bring is blight on the potatoes and tomatoes. Cut blighted potato tops down, and wait two weeks before you lift them. And, as Poor Robin's Almanac had it in 1697, \"make hay while sun doth shine\".",
+    lore: "St Swithin's Day: rain on 15 July was said to bring forty days of rain, because, the story went, rain stopped the monks moving his body into the church (Chambers, 1864); it has never happened.",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 15 July · Met Office, "Red sky at night and other weather lore"',
+    reward: { gold: 40, xp: 35 },
+  },
   // St John's Eve only (data/fernSeed.js): the fern seed at midnight.
   {
     id: 'fern_seed_eve',
