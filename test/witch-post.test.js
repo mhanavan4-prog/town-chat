@@ -47,9 +47,9 @@ setTimeout(() => {
   s.emit('message', JSON.stringify({ type: 'rite_do' }));
   const step = h.callers.callersStatePayload(p).active.steps[0];
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
-  const ch = buildCharmBook({ acct: h.accounts.moors, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'household');
+  const ch = buildCharmBook({ acct: h.accounts.moors, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'against');
   const e = ch.entries.find((x) => x.id === 'witch_post');
-  check('…and writes the Witch Post into The House and the Hive, badged folk', e && e.met && e.tier === 'folk');
+  check('…and writes the Witch Post into Against the Witch, badged folk', e && e.met && e.tier === 'folk');
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

@@ -47,8 +47,8 @@ setTimeout(() => {
   s.emit('message', JSON.stringify({ type: 'rite_do' }));
   const step = h.callers.callersStatePayload(p).active.steps[0];
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
-  const ch = buildCharmBook({ acct: h.accounts.glass, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'household');
-  check('…and writes the Shewstone into The House and the Hive', ch.entries.find((e) => e.id === 'shewstone').met);
+  const ch = buildCharmBook({ acct: h.accounts.glass, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'against');
+  check('…and writes the Shewstone into Against the Witch', ch.entries.find((e) => e.id === 'shewstone').met);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

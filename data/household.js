@@ -14,6 +14,9 @@
 // R. Kirk, The Secret Common-Wealth (1691); Pitcairn (1833) for Isobel Gowdie;
 // M. Dowd, "Bewitched by an Elf Dart" (2018).
 // ---------------------------------------------------------------------------
+// `against: true` marks counter-magic: what people did against a witch they
+// believed had harmed them. Those are written into the Charm Book's own
+// chapter, Against the Witch, whose intro names what it could cost.
 const HOUSEHOLD_RITES = {
   telling_bees: {
     key: 'telling_bees', name: 'Telling the Bees', icon: '🐝',
@@ -57,7 +60,7 @@ const HOUSEHOLD_RITES = {
   // and the 1895 death of Bridget Cleary, which is what the belief could do.
   // Nothing harmful is ever done in the game.
   changeling_wife: {
-    key: 'changeling_wife', name: 'Ask Her Name', icon: '🧚',
+    key: 'changeling_wife', against: true, name: 'Ask Her Name', icon: '🧚',
     how: 'Sit by her bed in daylight, with the door open and her mother there, and ask her plainly who she is. Ask once. Nothing else is done.',
     outcomes: [
       '"I\'m Kathleen Doyle, and who else would I be?" she says, and asks for a drink of water.',
@@ -110,7 +113,7 @@ const HOUSEHOLD_RITES = {
   // beasts (Elworthy, 1895), told with the harm it led to and what really
   // kills a run of pigs.
   pinned_heart: {
-    key: 'pinned_heart', name: 'The Pinned Heart', icon: '📌',
+    key: 'pinned_heart', against: true, name: 'The Pinned Heart', icon: '📌',
     how: 'Stick the heart full of pins and white thorns, as Elworthy\'s Somerset people did, and hang it up the chimney to wither in the smoke.',
     outcomes: [
       'The heart goes up the chimney on a nail. Nobody comes to the door that night, or the next.',
@@ -150,7 +153,7 @@ const HOUSEHOLD_RITES = {
   // The shewstone: scrying in a stone, glass or water, from Dee's obsidian
   // mirror to the village cunning man's glass, and the harm a name could do.
   shewstone: {
-    key: 'shewstone', name: 'The Shewstone', icon: '🔮',
+    key: 'shewstone', against: true, name: 'The Shewstone', icon: '🔮',
     how: 'Set the glass on a dark cloth by one candle, and let the one who asks look into it, not you. Say nothing, and ask only: what do you see?',
     outcomes: [
       'She sees a face in the glass, and it is the face she came in suspecting. She has the name out before you can stop her.',
@@ -177,7 +180,7 @@ const HOUSEHOLD_RITES = {
   // real and in museums; what they were for is honestly not known, and the
   // stories of the witch and the crooked sixpence were written down late.
   witch_post: {
-    key: 'witch_post', name: 'The Witch Post', icon: '🪵',
+    key: 'witch_post', against: true, name: 'The Witch Post', icon: '🪵',
     how: 'Wash the last of the lime off the post by the hearth, read what is cut in it, the cross and whatever else, and put the crooked sixpence back in its hole.',
     outcomes: [
       'A cross like St Andrew\'s, three bands under it, and a worn date. The sixpence goes back in its hole, bent as it came.',
