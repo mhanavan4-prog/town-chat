@@ -229,6 +229,41 @@ function buildMemorialStone(scene) {
   label.position.set(MEMORIAL_SPOT.x, 92, MEMORIAL_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MEMORIAL_SPOT.x, z: MEMORIAL_SPOT.y, npc: 'waymark', markerId: 'way_memorial', npcName: '🕯️ the memorial' });
+  buildAfterTheLawStone(scene, stoneMat, cut);
+}
+
+// ── After the Law — a smaller, lower stone just east of the memorial, for those
+// killed as witches by their neighbours after the laws were repealed in 1736
+// (data/memorial.js). One candle. Same dressing rules: no collider; the spot
+// is 55 east of the memorial and 75 clear of the Town Hall.
+const AFTER_LAW_SPOT = { x: 1815, y: 415 };
+function buildAfterTheLawStone(scene, stoneMat, cut) {
+  const g = new THREE.Group();
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(24, 34, 7), stoneMat);
+  slab.position.y = 22;
+  g.add(slab);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(32, 5, 16), new THREE.MeshLambertMaterial({ color: 0x6d6a64 }));
+  plinth.position.y = 2.5;
+  g.add(plinth);
+  for (let i = 0; i < 4; i++) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(i === 0 ? 12 : 17, 1.2, 0.6), cut);
+    line.position.set(0, 33 - i * 5.5, 3.7);
+    g.add(line);
+  }
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 6, 8), new THREE.MeshLambertMaterial({ color: 0xefe6cf }));
+  c.position.set(0, 8, 7);
+  g.add(c);
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: 0xffc46a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  flame.scale.set(6, 8, 1);
+  flame.position.set(0, 13, 7);
+  g.add(flame);
+  g.rotation.y = Math.atan2(1600 - AFTER_LAW_SPOT.x, 1100 - AFTER_LAW_SPOT.y);
+  g.position.set(AFTER_LAW_SPOT.x, 0, AFTER_LAW_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🕯️ After the Law');
+  label.position.set(AFTER_LAW_SPOT.x, 64, AFTER_LAW_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: AFTER_LAW_SPOT.x, z: AFTER_LAW_SPOT.y, npc: 'waymark', markerId: 'way_after_law', npcName: '🕯️ After the Law' });
 }
 
 // ── The Midnight Peddler's stall (Session I) — a cloaked figure under a
