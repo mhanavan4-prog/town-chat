@@ -4799,6 +4799,15 @@ let shelfOpenId = null;
 // ❓ Myth or record? — the shelf's quiz (data/mythOrRecord.js). null = not
 // running; else { i, answers: { id: 'myth'|'record' }, shown: bool, result }.
 let mythRun = null;
+// "Check it" (lib/checkIt.js): a source line with each work the Charm Book
+// cites as a link to it on the book's Sources page; anything else stays text.
+function checkLineHtml(key, fallback) {
+  const parts = (shelfState && shelfState.checks && shelfState.checks[key]) || null;
+  if (!parts || !parts.some((p) => p.work)) return `<div class="shelfSrc">${esc(fallback)}</div>`;
+  return '<div class="shelfSrc"><span class="checkLbl">Check it:</span> '
+    + parts.map((p) => (p.work ? `<button class="checkIt" data-work="${esc(p.work)}">${esc(p.text)}</button>` : esc(p.text))).join('; ')
+    + '</div>';
+}
 function mythQuizHtml(m) {
   const items = m.items || [];
   const label = (x) => (x === 'myth' ? 'Myth' : 'On the record');
@@ -4820,7 +4829,7 @@ function mythQuizHtml(m) {
   } else {
     const right = mythRun.answers[q.id] === q.answer;
     h += `<div class="mythVerdict ${right ? 'right' : 'wrong'}">${right ? '✓ Right' : '✗ Not so'}: ${label(q.answer)}.</div>`
-      + `<div class="shelfText">${esc(q.verdict)}</div><div class="shelfSrc">${esc(q.source)}</div>`
+      + `<div class="shelfText">${esc(q.verdict)}</div>${checkLineHtml('myth:' + q.id, q.source)}`
       + `<button class="btn mythNext">${mythRun.i + 1 < items.length ? 'Next ›' : 'See how you did'}</button>`;
   }
   return h + '</div>';
@@ -4843,7 +4852,8 @@ function renderShelfModal() {
       h += `<div class="shelfText">${esc(b.summary)}</div>`
         + (b.fact ? `<div class="shelfFact">${esc(b.fact)}</div>` : '')
         + (b.quote ? `<div class="shelfQuote">“${esc(b.quote)}”</div>` : '')
-        + (b.source ? `<div class="shelfSrc">${esc(b.source)}</div>` : '');
+        + (b.source ? `<div class="shelfSrc">${esc(b.source)}</div>` : '')
+        + (((shelfState.checks || {})['book:' + b.id] || []).filter((p) => p.work).slice(0, 1).map((p) => `<button class="checkIt checkBook" data-work="${esc(p.work)}">📖 Check it: what the Charm Book takes from it</button>`).join(''));
     }
     h += '</div>';
   }
@@ -4865,7 +4875,7 @@ function renderShelfModal() {
           + (f.fact ? `<div class="shelfFact">${esc(f.fact)}</div>` : '')
           + (f.legend ? `<div class="shelfLegend">${esc(f.legend)}</div>` : '')
           + (f.quote ? `<div class="shelfQuote">“${esc(f.quote)}”</div>` : '')
-          + (f.source ? `<div class="shelfSrc">${esc(f.source)}</div>` : '');
+          + (f.source ? checkLineHtml('folk:' + f.id, f.source) : '');
       }
       h += '</div>';
     }
@@ -4883,6 +4893,12 @@ function renderShelfModal() {
     mythRun.i += 1; mythRun.shown = false;
     if (mythRun.i >= mItems.length) send({ type: 'myth_quiz_done', answers: mythRun.answers });
     renderShelfModal();
+  }));
+  // A work on the Charm Book's Sources page: close the shelf and open it there.
+  el.querySelectorAll('.checkIt').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeShelfModal();
+    _charmBook.openSource(b.getAttribute('data-work'));
   }));
   el.querySelectorAll('.shelfBook[data-bid]').forEach((row) => row.addEventListener('click', () => {
     const id = row.getAttribute('data-bid');

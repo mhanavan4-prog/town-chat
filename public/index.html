@@ -4339,6 +4339,11 @@
   .shelfFact { color:#e6c46a; font-size:12px; line-height:1.45; margin-top:6px; }
   .shelfQuote { color:#cdbfa6; font-style:italic; font-size:12px; line-height:1.45; margin-top:6px; }
   .shelfSrc { color:#a8977a; font-style:italic; font-size:11px; margin-top:4px; }
+  /* "Check it": a cited work, linked to the Charm Book's Sources page */
+  .shelfSrc .checkLbl { font-style:normal; color:#c9b68a; }
+  .checkIt { background:none; border:none; padding:0; font:inherit; color:#d8c08a; text-decoration:underline; text-underline-offset:2px; cursor:pointer; text-align:left; }
+  .checkIt:hover { color:#f0dca8; }
+  .checkIt.checkBook { display:block; margin-top:6px; font-style:normal; font-size:12px; }
 </style>
 <div id="charmBookModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
@@ -4421,6 +4426,7 @@
   .cbSourceList { display:grid; grid-template-columns:1fr; gap:7px; }
   body:not(.touchMode) #charmBookModal .cbSourceList { grid-template-columns:1fr 1fr; align-items:start; }
   .cbSource { background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.2); border-radius:8px; padding:8px 10px; }
+  .cbSource.focus { border-color:#e0c27a; box-shadow:0 0 0 2px rgba(224,194,122,0.35); }
   .cbSourceCite { color:#f1e4c8; font-size:13px; line-height:1.4; }
   .cbSourceCited { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
   .cbSourceEntry { background:rgba(0,0,0,0.25); border:1px dashed rgba(217,184,106,0.25); border-radius:6px; padding:3px 7px; color:#a8987c; font:inherit; font-size:11.5px; text-align:left; cursor:pointer; }

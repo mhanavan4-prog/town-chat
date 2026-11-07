@@ -34,7 +34,7 @@ check('the Wheel agrees with the Wheel\'s own provenance line (20th century, 195
 check('the Malleus agrees with its Real Shelf entry (no authority from the Inquisition)', /gave it no authority/.test(q('malleus_approved').verdict) && /gave it no authority/.test(REAL_BOOKS.find((b) => b.id === 'malleus').fact));
 
 const MAIN = fs.readFileSync(path.join(__dirname, '../client/main.js'), 'utf8');
-check('the shelf draws the quiz, escaping every claim, verdict and source', /function mythQuizHtml\(m\)/.test(MAIN) && /esc\(q\.claim\)/.test(MAIN) && /esc\(q\.verdict\)/.test(MAIN) && /esc\(q\.source\)/.test(MAIN) && /type: 'myth_quiz_done'/.test(MAIN));
+check('the shelf draws the quiz, escaping every claim, verdict and source', /function mythQuizHtml\(m\)/.test(MAIN) && /esc\(q\.claim\)/.test(MAIN) && /esc\(q\.verdict\)/.test(MAIN) && /checkLineHtml\('myth:' \+ q\.id, q\.source\)/.test(MAIN) && /type: 'myth_quiz_done'/.test(MAIN));
 
 require('../server.js');
 

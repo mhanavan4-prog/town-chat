@@ -23,6 +23,7 @@ export default function createCharmBook({ send, place, openBoard }) {
   let openChapter = null; // key of the expanded chapter, or null = contents page
   let sourceFilter = ''; // what's typed in the Sources page's search box
   let bookQuery = ''; // what's typed in the contents page's search box
+  let focusWork = null; // a Sources work to show first (from "Check it")
 
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 
@@ -39,6 +40,11 @@ export default function createCharmBook({ send, place, openBoard }) {
     const m = document.getElementById('charmBookModal');
     if (m) m.classList.add('hidden');
     Modals.set('charmBookOpen', false);
+  }
+  // Open the book at the Sources page, at one work (the shelf's "Check it").
+  function openSource(id) {
+    openChapter = SOURCES; sourceFilter = ''; focusWork = id || null;
+    open();
   }
   function setState(s) { state = s; if (Modals.isOpen('charmBookOpen')) render(); }
 
@@ -225,7 +231,7 @@ export default function createCharmBook({ send, place, openBoard }) {
   // it (lib/sources.js). Tap an entry to open its chapter.
   function renderSources(body) {
     const back = el('button', 'btn cbBack', '‹ Contents');
-    back.addEventListener('click', () => { openChapter = null; render(); });
+    back.addEventListener('click', () => { openChapter = null; focusWork = null; render(); });
     body.appendChild(back);
     const src = state.sources || { works: [] };
     body.appendChild(el('div', 'cbChHead', `📖 Sources · ${src.works.length} works`));
@@ -242,23 +248,26 @@ export default function createCharmBook({ send, place, openBoard }) {
       list.textContent = '';
       const q = sourceFilter.trim().toLowerCase();
       const shown = src.works.filter((w) => !q || w.cite.toLowerCase().includes(q) || w.entries.some((e) => e.title && e.title.toLowerCase().includes(q)));
+      let focusRow = null;
       for (const w of shown) {
-        const row = el('div', 'cbSource');
+        const row = el('div', 'cbSource' + (focusWork && w.id === focusWork ? ' focus' : ''));
+        if (focusWork && w.id === focusWork) focusRow = row;
         row.appendChild(el('div', 'cbSourceCite', w.cite));
         const cited = el('div', 'cbSourceCited');
         for (const e of w.entries) {
           const b = el('button', 'cbSourceEntry' + (e.met ? ' met' : ''), e.title ? `${e.icon ? e.icon + ' ' : ''}${e.title}` : '· · ·');
           b.title = titleOf(e.chapter);
           b.appendChild(el('span', 'cbSourceCh', ` · ${titleOf(e.chapter)}`));
-          b.addEventListener('click', () => { openChapter = e.chapter; render(); });
+          b.addEventListener('click', () => { openChapter = e.chapter; focusWork = null; render(); });
           cited.appendChild(b);
         }
         row.appendChild(cited);
         list.appendChild(row);
       }
       if (!shown.length) list.appendChild(el('div', 'cbHint', 'Nothing in the book cites that.'));
+      if (focusRow) requestAnimationFrame(() => { focusRow.scrollIntoView({ block: 'center' }); });
     };
-    search.addEventListener('input', () => { sourceFilter = search.value; draw(); });
+    search.addEventListener('input', () => { sourceFilter = search.value; focusWork = null; draw(); });
     draw();
     if (src.note) body.appendChild(el('div', 'cbNote', src.note));
   }
@@ -313,5 +322,5 @@ export default function createCharmBook({ send, place, openBoard }) {
     if (c) c.addEventListener('click', close);
   })();
 
-  return { open, close, setState, render };
+  return { open, openSource, close, setState, render };
 }
