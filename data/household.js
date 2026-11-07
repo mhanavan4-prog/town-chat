@@ -80,6 +80,20 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'Popular Science Monthly, vol. 34 (1889) · J. G. Campbell (1902) · Kelso Chronicle (10 July 1863)',
   },
+  // Dried cats: found sealed in walls, floors and roofs. The finds are real and
+  // in museums; why they were put there nobody wrote down.
+  dried_cat: {
+    key: 'dried_cat', name: 'The Dried Cat', icon: '🐈',
+    how: 'Look at how it lay and which way it faced, mark the place exactly, and lay it back under the stone as it was found. Do not clean it.',
+    outcomes: [
+      'It lay curled toward the hearth, a rat between its teeth. You mark the place, and it goes back under the stone.',
+      'Only a cat, flat as old leather, no rat and no sign of hands. Perhaps it crept in; perhaps not. It goes back.',
+      'Its legs are set out as if it were stalking, which no cat does dying. Somebody placed it. It goes back.',
+    ],
+    lore: 'Dried cats turn up in the walls, under the floors and in the roofs of old buildings: well over a hundred are on record, and many more are told of. In 1951 Margaret Howard weighed three reasons: a sacrifice for the building, a scare for the rats and mice, or a cat that crept into a cavity and died. Some certainly crept in; one at Worcester seems to have crawled in to give birth. Others were posed after death as if hunting, which no cat does by itself: Sir John Soane kept two cats and a rat in a glass case, one cat from a house at Lothbury pulled down in 1803. At the Mill Hotel in Sudbury a cat found in 1971 was put back in 1975 "after four years of eventful absence". Nobody wrote down why a cat was put in a wall. That is the honest gap.',
+    tier: 'record',
+    source: 'M. M. Howard, "Dried Cats", Man 51 (1951) · B. Hoggard, Magical House Protection (2019) · Sir John Soane\'s Museum, BL1 · Mill Hotel, Sudbury, plaque (1975)',
+  },
   hagstone: {
     key: 'hagstone', name: 'The Hagstone', icon: '🪨',
     how: 'Find a stone with a hole worn right through it and hang it on a nail by the stable door, or over the bed, so that the hag cannot ride the horses, or you, by night.',
