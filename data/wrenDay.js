@@ -12,7 +12,7 @@
 // RTÉ Archives, "Day of the Wren" (1964); Amgueddfa Cymru – Museum Wales,
 // wren house 98.333. Legends of the wren's betrayal are told as legend.
 // ---------------------------------------------------------------------------
-const WREN_WHEN = { month: 12, from: 26, to: 27 };
+const WREN_WHEN = { month: 12, from: 26, to: 27, label: 'St Stephen\'s Day' };
 
 const WREN_RITES = {
   wren_hunt: {
