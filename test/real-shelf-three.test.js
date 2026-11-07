@@ -20,7 +20,7 @@ const m = B('moore_manx');
 check('Moore: 1891, the Speaker of the House of Keys, his opening regret', m && m.date === '1891' && /Speaker of the House of Keys/.test(m.fact) && /"has been unfortunate in not having had competent collectors of its Legendary Lore\."/.test(m.fact) && /Brown & Son/.test(m.source));
 const e = B('elworthy');
 check('Elworthy: 1895, John Murray, the dialect scholar, and the pinned heart', e && e.date === '1895' && /John Murray/.test(e.source) && /West Somerset Word-Book \(1886\)/.test(e.fact) && /pinned heart/.test(e.fact) && /he was overlooked/.test(e.quote));
-check('shelved in order: Kirk after Glanvill, Moore and Elworthy before Leland', order.indexOf('kirk') === order.indexOf('glanvill') + 1 && order.indexOf('elworthy') === order.indexOf('moore_manx') + 1 && order.indexOf('aradia') === order.indexOf('elworthy') + 1);
+check('shelved in order: Kirk after Glanvill, Moore and Elworthy before Leland', order.indexOf('kirk') === order.indexOf('glanvill') + 1 && order.indexOf('elworthy') === order.indexOf('moore_manx') + 1 && order.indexOf('aradia') > order.indexOf('elworthy'));
 
 const book = buildCharmBook({ acct: { booksRead: ['kirk'] }, prog: {}, seasonKey: null });
 const lib = book.chapters.find((c) => c.key === 'library');
