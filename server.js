@@ -17765,11 +17765,11 @@ global.__testHooks.noteSabbatSeen = noteSabbatSeen;
 global.__testHooks.wardsPublic = wardsPublic;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
+global.__testHooks.whereNextFor = whereNextFor; // the Charm Book's Where next page
+global.__testHooks.charmBookStateBody = charmBookStateBody;
 global.__testHooks.noteHourKept = noteHourKept; // the Charm Book's planetary hours
 global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
 global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
-global.__testHooks.whereNextFor = whereNextFor; // the Charm Book's Where next page
-global.__testHooks.charmBookStateBody = charmBookStateBody;
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
