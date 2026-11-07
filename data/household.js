@@ -53,6 +53,21 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'J. G. Campbell, Witchcraft and Second Sight in the Highlands (1902) · A. Carmichael, notes (John Cameron of Barra)',
   },
+  // The changeling wife: the old test, "who are you?", asked once and gently,
+  // and the 1895 death of Bridget Cleary, which is what the belief could do.
+  // Nothing harmful is ever done in the game.
+  changeling_wife: {
+    key: 'changeling_wife', name: 'Ask Her Name', icon: '🧚',
+    how: 'Sit by her bed in daylight, with the door open and her mother there, and ask her plainly who she is. Ask once. Nothing else is done.',
+    outcomes: [
+      '"I\'m Kathleen Doyle, and who else would I be?" she says, and asks for a drink of water.',
+      'She answers to her name, hoarse with the cough, and turns her face to the wall, worn out.',
+      'She laughs at the question, coughs, and laughs again. "Is it himself put you up to this?"',
+    ],
+    lore: 'Changelings: the fairies were believed to take people, young wives and children above all, and leave something in their place that was sickly and not itself. The test was to ask in God\'s name who they were, and some went further, with herbs, threats and fire. In March 1895, at Ballyvadlea in Co. Tipperary, Bridget Cleary, a dressmaker of twenty-six who kept hens, fell ill with bronchitis. The doctor found "nervous excitement and a slight bronchitis" and nothing likely to cause death. Her husband Michael came to believe she was a fairy. She was forced to take herbs from a fairy doctor, held over the fire and asked "Are you Bridget Cleary, wife of Michael Cleary, in the name of the Father, Son, and Holy Ghost?", and on the night of 15 March he set her clothes alight and she died. He said she would come riding out of the fort at Kylenagranagh among the fairies. He was convicted of manslaughter and given twenty years. Tipperary children made a rhyme of it: "are you a witch, or are you a fairy, or are you the wife of Michael Cleary?"',
+    tier: 'record',
+    source: 'A. Bourke, "Cleary, Bridget", Dictionary of Irish Biography (2009) · M. J. F. McCarthy, Five Years in Ireland, 1895–1900 (1901) · National Folklore Collection, Schools\' Collection, vol. 0583, p. 161 · A. Bourke, The Burning of Bridget Cleary (1999)',
+  },
   rowan_thread: {
     key: 'rowan_thread', name: 'Rowan and Red Thread', icon: '🔴',
     how: 'Bind a sprig of rowan with red thread and hang it over the byre door; tie another into the cow\'s tail.',
