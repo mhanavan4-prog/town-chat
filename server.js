@@ -8677,6 +8677,33 @@ const callers = require('./lib/callers')({
   onRite: (player, key) => { if (key === 'need_fire') lightFromNeedFire(player); }, // the need-fire relights your own hearth
 });
 
+// 🚪 A knock at the door: the dated callers (Martinmas, the wren boys, Good
+// Friday…) come only on their own days and are easy to miss, so a player who
+// comes in on such a day is told, once a day, who is at the door. Not if
+// that caller is already being worked or has been served today.
+const { CALLERS: ALL_CALLERS } = require('./data/callers');
+function doorKnock(player, nowIn) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  if (!a || !player.ws) return null;
+  const now = nowIn != null ? nowIn : Date.now();
+  const st = callers.stateOf(player);
+  if (!st) return null;
+  const today = Math.floor(now / 86400000);
+  if (st.knockedDay === today) return null;
+  const first = (callers.offeredIds(player, st) || [])[0];
+  const c = first && ALL_CALLERS.find((x) => x.id === first);
+  if (!c || !c.when) return null;
+  if ((st.active && st.active.id === c.id) || (st.served || []).includes(c.id)) return null;
+  st.knockedDay = today;
+  saveAccounts();
+  const label = require('./lib/callers').whenLabel(c.when);
+  const message = `${c.icon} ${c.caller} ${/ and /.test(c.caller) ? 'are' : 'is'} at your door today${label ? `: ${label} only` : ''}. The Board in the square has them.`;
+  // always: shown on screen even with screen notices off (as the Charm Book's
+  // notices are); a one-day caller is exactly what a player would miss.
+  send(player.ws, { type: 'toast', level: 'important', always: true, message });
+  return message;
+}
+
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
 const { SABBATS, WHEEL_PROVENANCE, seasonEffectLines } = require('./data/seasons');
 const { oldCalendarDay } = require('./data/oldCalendar'); // 📅 the customs of the old year, by date
@@ -11482,6 +11509,7 @@ wss.on('connection', (ws, req) => {
       // account-guarded restore path as the checkout flow.
       player.liveResumeToken = crypto.randomBytes(24).toString('hex');
       noteSabbatSeen(player); // the Charm Book's Wheel: this season, lived through
+      if (!resume) setTimeout(() => { try { doorKnock(player); } catch (e) { /* never break a join */ } }, 2500); // a dated caller at the door today
       if (player.accountKey && accounts[player.accountKey] && !Array.isArray(accounts[player.accountKey].charmNoted)) charmBookNotice(player); // note what's already in the book, silently
 
       send(ws, {
@@ -17875,6 +17903,7 @@ global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
 global.__testHooks.tendHearth = tendHearth; // smooring and kindling the fire
 global.__testHooks.hearthFireBody = hearthFireBody;
 global.__testHooks.lightFromNeedFire = lightFromNeedFire; // the need-fire relights your hearth
+global.__testHooks.doorKnock = doorKnock; // a dated caller at the door today, said once
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
