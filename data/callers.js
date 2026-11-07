@@ -770,6 +770,23 @@ const CALLERS = [
     source: 'T. F. Thiselton Dyer, The Ghost World (1893) and Domestic Folk-Lore (1881)',
     reward: { gold: 40, xp: 40 },
   },
+  // The need-fire (data/household.js): fire made new against the murrain.
+  {
+    id: 'need_fire_murrain',
+    caller: 'Ewan MacPhail',
+    icon: '🔥',
+    title: 'The Murrain',
+    plea: "Two of my cows are down with the murrain, and Calum next door has lost one already. The old men of the township want the need-fire: every hearth put out, and new fire made by rubbing wood, and the beasts driven through the smoke. They want wood for it, and they want you there to see it done right. Will you come?",
+    steps: [
+      { kind: 'deliver', item: 'wood', qty: 3, label: 'Wood for the planks and the fire' },
+      { kind: 'rite', rite: 'need_fire', label: 'Put out the hearths, make the new fire, drive the cattle through' },
+    ],
+    resolution: "The new fire takes, the cattle go through the smoke, and every hearth in the township is lit again from it, yours too. Then the practical half: the sick beasts go to the far park, away from the rest; nobody moves cattle in or out of the township till it passes; the dead are buried deep, not left for the dogs; and the cow doctor comes tomorrow. When the cattle plague came in 1865 it was slaughter and keeping cattle still that ended it, not fire.",
+    lore: "The need-fire (tein-éigin), \"a forced fire, or fire of necessity\" (Martin, 1703): every fire put out, new fire made by friction, the cattle driven through its smoke and each hearth lit again from it. It was used against murrain into the 19th century.",
+    tier: 'record',
+    source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913)',
+    reward: { gold: 45, xp: 40 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',

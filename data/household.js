@@ -8,7 +8,9 @@
 // Sources were checked against: Chambers, Book of Days (1864); Notes and
 // Queries (1851); J. G. Campbell, Witchcraft and Second Sight in the Highlands
 // (1902); the Carmichael Watson papers; the Pitt Rivers Museum (1884.56.3);
-// T. F. Thiselton Dyer, Domestic Folk-Lore (1881) and The Ghost World (1893).
+// T. F. Thiselton Dyer, Domestic Folk-Lore (1881) and The Ghost World (1893);
+// M. Martin, A Description of the Western Islands of Scotland (1703); J. G.
+// Frazer, Balder the Beautiful (1913); the Indiculus superstitionum (8th c.).
 // ---------------------------------------------------------------------------
 const HOUSEHOLD_RITES = {
   telling_bees: {
@@ -70,6 +72,18 @@ const HOUSEHOLD_RITES = {
     lore: 'Locks and bolts were unfastened and the doors opened "so that the struggle between life and death may not be prolonged" (Thiselton Dyer, 1893). A plate of salt went on the breast; Pennant saw a wooden platter of earth and salt in Scotland in 1769. Stopping the clocks and covering the mirrors are recorded later, from the 1890s and after.',
     tier: 'record',
     source: 'T. F. Thiselton Dyer, The Ghost World (1893) and Domestic Folk-Lore (1881) · T. Pennant, A Tour in Scotland (1771)',
+  },
+  need_fire: {
+    key: 'need_fire', name: 'The Need-Fire', icon: '🔥',
+    how: 'Put out every fire in the township, your own hearth too. Rub two planks together, the men taking turns, until the wood catches; drive the sick cattle through the smoke, and carry the new fire home to light every hearth again.',
+    outcomes: [
+      'The planks smoke, then catch. The cattle go through the reek, the sick ones twice, and every hearth is lit anew.',
+      'Three changes of men before the wood catches. Then the beasts are driven through, and embers carried home in pots.',
+      'The fire comes fast. The smoke lies low over the byres, and the children carry new fire home in a clay pot.',
+    ],
+    lore: 'The need-fire, in Gaelic tein-éigin, was "a forced fire, or fire of necessity" against plague or murrain (Martin, 1703). Every fire in the parish was put out; eighty-one married men, by turns, rubbed two planks together till they kindled; each family took new fire home, and water heated on it was sprinkled on the sick people and cattle. Frazer gathered cases from Scotland, England, Ireland and Germany into the 19th century; on Mull a sick heifer was cut in pieces and burnt in it. The word is old: "nodfyr" stands in a list of pagan practices from the 740s.',
+    tier: 'record',
+    source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913), vol. 1 · Indiculus superstitionum, no. 15',
   },
 };
 

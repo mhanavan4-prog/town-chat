@@ -5258,12 +5258,35 @@ function hearthFireBody(player) {
   if (night) {
     if (smooredTonight) note = 'The fire is smoored for the night.';
     else { canSmoor = true; note = 'Night has come: smoor the fire, and keep the embers till morning.'; }
-  } else if (kindledToday) note = 'The fire is kindled for the day.';
+  } else if (kindledToday) note = (h.needFireAt && nightIndex(h.needFireAt) === n) ? 'The fire was lit today from the need-fire.' : 'The fire is kindled for the day.';
   else if (embersKept) { canKindle = true; note = 'The embers you smoored last night are still alive under the ash.'; }
   else note = 'No embers were kept last night. Smoor the fire tonight, and kindle it again in the morning.';
   return { night, canSmoor, canKindle, note, smoorCount: h.smoorCount || 0, kindleCount: h.kindleCount || 0,
     smooring: { name: SMOORING.name, icon: SMOORING.icon, how: SMOORING.how, verse: SMOORING.verse, source: SMOORING.source },
     kindling: { name: KINDLING.name, icon: KINDLING.icon, how: KINDLING.how, verse: KINDLING.verse, source: KINDLING.source } };
+}
+// The need-fire (a caller rite, data/household.js): every hearth was put out
+// and lit again from the new fire, yours too. Counts as the day's kindling by
+// day; at night the new fire is in the grate, ready to smoor.
+function lightFromNeedFire(player, nowIn) {
+  const key = player && player.accountKey;
+  const a = key && accounts[key];
+  if (!a) return null;
+  const now = nowIn != null ? nowIn : Date.now();
+  const n = nightIndex(now);
+  const night = (now % CYCLE_MS) >= DAY_MS;
+  if (!a.hearth) a.hearth = {};
+  a.hearth.needFireCount = (a.hearth.needFireCount || 0) + 1;
+  a.hearth.needFireAt = now;
+  if (!night) a.hearth.kindledDay = n;
+  a.hearthBuff = { ...HEARTH_BUFFS.kindle, until: night ? (n + 1) * CYCLE_MS : n * CYCLE_MS + DAY_MS };
+  saveAccounts();
+  const toast = `🔥 Your own hearth is lit again from the need-fire: +${HEARTH_BUFFS.kindle.amount} vitality till ${night ? 'dawn' : 'dusk'}.`;
+  if (player.ws) {
+    send(player.ws, { type: 'toast', message: toast });
+    send(player.ws, { type: 'skill_state', ...skillStatePayload(player) });
+  }
+  return toast;
 }
 function tendHearth(player, act) {
   const key = player && player.accountKey;
@@ -8643,6 +8666,7 @@ const callers = require('./lib/callers')({
   itemInfo: (id) => ITEM_CATALOG[id] || null,
   isBrewable: (id) => POTION_RECIPES.some((r) => r.result === id),
   seasonKey: () => { const se = calendarPublicState().season; return se && se.key; }, // Hallowe'en callers come only at Samhain
+  onRite: (player, key) => { if (key === 'need_fire') lightFromNeedFire(player); }, // the need-fire relights your own hearth
 });
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
@@ -17833,6 +17857,7 @@ global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
 global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
 global.__testHooks.tendHearth = tendHearth; // smooring and kindling the fire
 global.__testHooks.hearthFireBody = hearthFireBody;
+global.__testHooks.lightFromNeedFire = lightFromNeedFire; // the need-fire relights your hearth
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
