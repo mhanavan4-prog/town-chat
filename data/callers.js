@@ -848,6 +848,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), Good Friday · NHS, "Diarrhoea and vomiting" (2023)',
     reward: { gold: 40, xp: 35 },
   },
+  // Oak Apple Day only (data/oakApple.js), dated by the old calendar.
+  {
+    id: 'oak_apple_boys',
+    caller: 'Sam Hobday and the village lads',
+    icon: '🌳',
+    title: 'Oak Apple Day',
+    when: { calendar: 'oak_apple_day', days: 2, label: 'Oak Apple Day' },
+    plea: "It's Oak Apple Day! We're cutting oak for every door, and any lad without a sprig gets the nettles. Only Jem Pritchard's got none, because his dad won't have oak in the house, and the big lads are waiting for him by the pound with a fistful of nettles. Will you help us get the boughs up, and keep Jem out of it?",
+    steps: [
+      { kind: 'rite', rite: 'royal_oak', label: 'Oak boughs over the doors, a sprig for every hat, and nobody nettled' },
+    ],
+    resolution: "Jem wears a sprig like everyone else, and the nettles go on the midden. Then the practical half, which is the nettles. Nobody stings anybody, for whatever reason. If you're stung, wash it with soap and water as soon as you can, don't rub it, and hold a cold wet cloth on it; a dock leaf may cool it a little, or it may only be a comfort. And the young nettle tops are good eating in spring: pick the tops with gloves on, away from the road, before they go tough in summer, and cooking takes the sting out.",
+    lore: "Oak Apple Day: from 1660 to 1859 the King's birthday and the Restoration were kept by law on 29 May, and everyone wore oak for the Boscobel oak; a lad without was stung with nettles (Hone; Chambers, 1864; Andrews, 1891).",
+    tier: 'record',
+    source: 'Act of 1660, Statutes of the Realm, vol. 5 (1819), p. 237 · W. Andrews, Old Church Lore (1891), p. 179',
+    reward: { gold: 40, xp: 35 },
+  },
   // St John's Eve only (data/fernSeed.js): the fern seed at midnight.
   {
     id: 'fern_seed_eve',

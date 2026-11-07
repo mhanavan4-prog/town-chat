@@ -144,8 +144,8 @@ const OLD_CALENDAR = [
     text: 'At Tissington the wells were dressed with pictures of flower petals pressed into clay, and a psalm was read at each — in thanks, they say, for pure water in the Black Death.',
     source: 'D. & S. Lysons, Magna Britannia, vol. 5 (1817)' },
   { key: 'oak_apple_day', month: 5, day: 29, icon: '🌳', title: 'Oak Apple Day', tier: 'record',
-    text: "A thanksgiving by Act of 1660 for the Restoration and Charles II's escape in the Boscobel oak. Everyone wore an oak sprig or oak apple; anyone without was nettled or pinched. Abolished in 1859.",
-    source: 'Act of 1660; R. Chambers, Book of Days (1879 ed.)' },
+    text: "A thanksgiving by Act of 1660 for the Restoration and Charles II's escape in the Boscobel oak. Everyone wore an oak sprig or oak apple; a lad without might be stung with nettles, or in East Yorkshire pelted with eggs. The Act was repealed in 1859.",
+    source: 'Act of 1660; R. Chambers, Book of Days (1879 ed.); W. Andrews, Old Church Lore (1891)' },
   // ── June ──
   { key: 'barnaby_bright', month: 6, day: 11, icon: '☀️', title: 'Barnaby Bright', tier: 'record',
     text: "St Barnabas fell near the old midsummer before the calendar changed, hence the saying.",
