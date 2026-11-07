@@ -75,6 +75,20 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'T. F. Thiselton Dyer, The Ghost World (1893) and Domestic Folk-Lore (1881) · T. Pennant, A Tour in Scotland (1771)',
   },
+  // The second sight (taibhsearachd): M. Martin, "An Account of the Second-Sight"
+  // (1703); R. Kirk (1691); S. Johnson, Journey to the Western Islands (1775).
+  second_sight: {
+    key: 'second_sight', name: 'The Second Sight', icon: '👁️',
+    how: 'Hear the seer out, and do not scoff. Ask where the shroud reached: below the middle, Martin says, no death is looked for within the year; up toward the head, within days. Then counsel her to keep it to herself.',
+    outcomes: [
+      'She saw it to his knee and no higher. By the old reckoning, a year and more. She will keep it to herself.',
+      'It was only a mist about him at the peat-stack, she says now. Not a shroud. Not yet anything at all.',
+      'The vision fades as she tells it. She cries a little, and says it is a relief to have told someone.',
+    ],
+    lore: 'The second sight, Martin wrote in 1703, "is a singular faculty of seeing an otherwise invisible object, without any previous means used by the person that sees it". "When a shroud is perceived about one, it is a sure prognostic of death": below the middle, not within the year; toward the head, within days. It did not run in families, he found, and could not be passed on. A seer (taibhsear) often wanted rid of it; Kirk says one would be "glaid … quite of such, for the hideous Spectacles". Samuel Johnson went looking for it in 1773 and "came away at last only willing to believe."',
+    tier: 'record',
+    source: 'M. Martin, A Description of the Western Islands of Scotland (1703), "An Account of the Second-Sight" · R. Kirk, The Secret Common-Wealth (1691) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
+  },
   need_fire: {
     key: 'need_fire', name: 'The Need-Fire', icon: '🔥',
     how: 'Put out every fire in the township, your own hearth too. Rub two planks together, the men taking turns, until the wood catches; drive the sick cattle through the smoke, and carry the new fire home to light every hearth again.',
