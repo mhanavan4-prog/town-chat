@@ -797,6 +797,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), Good Friday · NHS, "Diarrhoea and vomiting" (2023)',
     reward: { gold: 40, xp: 35 },
   },
+  // St John's Eve only (data/fernSeed.js): the fern seed at midnight.
+  {
+    id: 'fern_seed_eve',
+    caller: 'Hal Pritchard',
+    icon: '🍃',
+    title: "St John's Eve",
+    when: require('./fernSeed').FERN_WHEN,
+    plea: "The lads say if you catch fern seed at midnight on St John's Eve you walk invisible. Jem means to use it to get into the squire's orchard. I only want to see if it's true. Will you hold the plate with me?",
+    steps: [
+      { kind: 'rite', rite: 'fern_seed', label: 'The pewter plate under the fern at midnight, and no hands on it' },
+    ],
+    resolution: "Midnight passes under the fern. Then the practical half: there is no seed to catch. What falls is spores, a dust too fine to feel, and nobody ever walked invisible on it, Shakespeare's thief included. The squire's man knows every lad in the parish by his walk, so tell Jem to keep out of the orchard. And bracken in June is thick with ticks: look over your legs when you get home, and pull any off whole.",
+    lore: "Fern seed: caught on a plate at midnight on St John's Eve, it was said to make you invisible (\"we walk invisible\", Henry IV, Part 1). Ferns have no seed: they grow from spores.",
+    tier: 'record',
+    source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
