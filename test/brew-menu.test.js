@@ -72,7 +72,7 @@ setTimeout(() => {
 
   // The chapter outro names a specific draught; it should be real and offered.
   const named = (init.potionRecipes || []).find((r) => r.id === 'draught_of_the_green_path');
-  check('the Draught of the Green Path the finale names is in the menu', !!named, shipped.filter((x) => x.includes('green')));
+  check('the Unguent of the Green Path the finale names is in the menu', !!named, shipped.filter((x) => x.includes('green')));
 
   // ── Every garden plant is worth growing ───────────────────────────────────
   // A plant that nothing brews is a dead end in a questline whose whole point

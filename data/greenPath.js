@@ -45,29 +45,29 @@ const GREEN_PATH_CATEGORIES = [
   },
   {
     id: 'hedge', name: 'The Hedge & Wild', band: 'rare', chapters: [4, 5, 6],
-    lore: "The cunning folk's herbs — for warding the home and crossing the hedge to see. Gathered wild and rare, not coaxed easily from a bed.",
+    lore: "The cunning folk's herbs — for warding the home and healing on the road. Gathered wild and rare, not coaxed easily from a bed.",
     plants: [
-      { id: 'mugwort',       name: 'Mugwort',          lore: "dreams, divination, the traveller's herb" },
-      { id: 'vervain',       name: 'Vervain',          lore: 'protection, the all-heal, enchantment' },
-      { id: 'yarrow',        name: 'Yarrow',           lore: 'courage, warding, staunching wounds' },
-      { id: 'wormwood',      name: 'Wormwood',         lore: 'the sight, calling spirits, bitter protection' },
-      { id: 'rue',           name: 'Rue',              lore: 'banishing, breaking curses, the herb of grace' },
-      { id: 'st_johns_wort', name: "St. John's Wort",  lore: "the sun's guard against the dark" },
+      { id: 'mugwort',       name: 'Mugwort',          lore: "the traveller's herb, first of the Nine Herbs" },
+      { id: 'vervain',       name: 'Vervain',          lore: "herba sacra, the Romans' holy herb; Venus's in Culpeper" },
+      { id: 'yarrow',        name: 'Yarrow',           lore: "Achilles' herb, soldiers' woundwort; staunching wounds" },
+      { id: 'wormwood',      name: 'Wormwood',         lore: "the bitterest herb, Mars's in Culpeper; against fleas and moths" },
+      { id: 'rue',           name: 'Rue',              lore: 'the herb of grace; against the evil eye' },
+      { id: 'st_johns_wort', name: "St. John's Wort",  lore: "fuga daemonum, the devil-chaser; gathered on St John's Eve" },
       { id: 'rowan_berry',   name: 'Rowan Berry',      lore: "the witch-tree's ward against ill" }
     ]
   },
   {
     id: 'baneful', name: 'The Poison Path', band: 'mythic', chapters: [7, 8, 9],
-    lore: "The baneful herbs — the witch's dark art. Nightshades and toxins, powerful and perilous; the climax of the Green Path. (In-game they brew debuffs, baneful draughts and the famed flying ointment — never real harm.)",
+    lore: "The baneful herbs, deadly and the stuff of the old flying-ointment recipes; the climax of the Green Path. (\"The Poison Path\" is a modern name, from Dale Pendell's 1995 book. In-game they make charms, wards and the famed flying ointment — never anything to eat or drink.)",
     plants: [
       { id: 'belladonna',     name: 'Belladonna (Deadly Nightshade)', lore: 'the beautiful lady; sight, flight, the long sleep' },
-      { id: 'henbane',        name: 'Henbane',          lore: 'oracular madness, calling the storm' },
+      { id: 'henbane',        name: 'Henbane',          lore: "Apollo's herb; the rain-charm in Burchard of Worms (c. 1012)" },
       { id: 'mandrake',       name: 'Mandrake',         lore: 'the screaming root; power, fertility, command' },
-      { id: 'wolfsbane',      name: 'Wolfsbane (Aconite / Monkshood)', lore: "against the wolf; the shapeshifter's bane" },
+      { id: 'wolfsbane',      name: 'Wolfsbane (Aconite / Monkshood)', lore: 'lycoctonum, the wolf-slayer, once laid in wolf-baits' },
       { id: 'datura',         name: 'Datura (Thornapple)', lore: "the devil's trumpet; deep trance, danger" },
       { id: 'hemlock',        name: 'Hemlock',          lore: 'the philosophers’ poison; stilling, endings' },
-      { id: 'foxglove',       name: 'Foxglove',         lore: "the folk's glove; the heart, the fae" },
-      { id: 'black_hellebore', name: 'Black Hellebore',  lore: 'the winter rose; banishing, the underworld' }
+      { id: 'foxglove',       name: 'Foxglove',         lore: "fox's glove (Old English foxes glofa); the fairies' thimble" },
+      { id: 'black_hellebore', name: 'Black Hellebore',  lore: "the Christmas rose; the ancients' purge for madness" }
     ]
   }
 ];
@@ -134,14 +134,14 @@ const GREEN_PATH = [
   {
     id: 'gp8', title: 'The Screaming Root', band: 'baneful', requiresLevel: 19,
     objective: { type: 'garden_plant', target: 1, requires: 'bane', label: 'Sow a nightshade of your own' },
-    outro: 'The seed goes down and the ground seems to listen. "Now the deep ones," says Yarrow — "mandrake, the screaming root, for power and command; wolfsbane for the shapeshifter; datura for the deepest trance. And the old recipe: the flying ointment itself."',
+    outro: 'The seed goes down and the ground seems to listen. "Now the deep ones," says Yarrow — "mandrake, the screaming root, for power and command; wolfsbane, the wolf-slayer; datura for the deepest trance. And the old recipe: the flying ointment itself."',
     xpReward: 380, goldReward: 190,
     itemRewards: [{ itemId: 'mandrake', qty: 3 }, { itemId: 'wolfsbane', qty: 3 }, { itemId: 'datura', qty: 3 }]
   },
   {
     id: 'gp9', title: "The Witch's Garden", band: 'baneful', requiresLevel: 20,
-    objective: { type: 'garden_brew', target: 1, requires: 'bane', label: 'Brew a baneful draught — the final working' },
-    outro: 'The cauldron settles, and so does something in you. Mother Yarrow presses the last three seeds into your palm — hemlock, foxglove, black hellebore — and steps back. "There’s nothing left to teach you. The whole green path is yours now, cottage to poison. You’re a green witch true." Brew Belladonna, Henbane and Mandrake together for the Draught of the Green Path — the green witch sees all.',
+    objective: { type: 'garden_brew', target: 1, requires: 'bane', label: 'Make a baneful charm or unguent — the final working' },
+    outro: 'The cauldron settles, and so does something in you. Mother Yarrow presses the last three seeds into your palm — hemlock, foxglove, black hellebore — and steps back. "There’s nothing left to teach you. The whole green path is yours now, cottage to poison. You’re a green witch true." Bind Belladonna, Henbane and Mandrake together into the Unguent of the Green Path — the green witch sees all.',
     xpReward: 500, goldReward: 250,
     itemRewards: [{ itemId: 'hemlock', qty: 3 }, { itemId: 'foxglove', qty: 3 }, { itemId: 'black_hellebore', qty: 3 }]
   }
