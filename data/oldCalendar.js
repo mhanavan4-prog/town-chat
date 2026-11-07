@@ -244,7 +244,7 @@ const OLD_CALENDAR = [
     text: 'Under the old calendar St Lucy fell at the solstice, the shortest day.',
     quote: "'Tis the year's midnight, and it is the day's", source: 'Donne, "A Nocturnal upon St. Lucy\'s Day" (1633)' },
   { key: 'st_thomas', month: 12, day: 21, icon: '🧺', title: "St Thomas's Day: going a-gooding", tier: 'record',
-    text: 'Poor women went a-gooding for money, giving sprigs of palm and primroses back; in Warwickshire they took a bag round the farms and went a-corning.',
+    text: 'Women went a-gooding for money, giving sprigs of palm and primroses back; in Warwickshire the poor took a bag round the farms and went a-corning.',
     quote: 'go with a bag to beg corn of the farmers, which they call going a corning', source: `${HONE}, 21 December` },
   { key: 'oxen_kneel', month: 12, day: 24, icon: '🐂', title: 'Christmas Eve: the oxen kneel', tier: 'record',
     text: 'In Devon and Cornwall the cattle were said to kneel in their stalls at midnight, and in Yorkshire the bees to hum in their hives; after the calendar changed, it was on Old Christmas Eve that they knelt.',
