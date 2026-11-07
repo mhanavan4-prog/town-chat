@@ -3258,7 +3258,7 @@ function dungeonLootTable(xp) {
 // loot icon on its body (see the loot_corpse handler), rather than being
 // auto-granted to whoever landed the killing blow the instant it died.
 function rollPendingLoot(table) {
-  // 🎡 Mabon — the second harvest lifts every drop's odds all season long
+  // 🎡 Mabon — the second harvest lifts every drop's odds on Mabon's own day
   // (lootBonus in data/seasons.js). Only Mabon carries it, so lootMul is 1 the
   // rest of the year and every loot path (incl. the boss "double roll") is
   // unchanged outside that window.
@@ -5806,7 +5806,8 @@ function skillMendingRate(player)   {
   const delve = delveMendingBonus(player);
   if (delve === -Infinity) return 0;
   // 🎡 Imbolc's healing (Brigid) and Yule's hearth mend everyone a little out of
-  // combat — a flat HP/s all season, even for players with no mending skill.
+  // combat — a flat HP/s on the sabbat's own day (seasonWindow carries a
+  // season's effects only on its day), even for players with no mending skill.
   // Added AFTER the Starving-Moon sentinel so that delve curse still wins, and
   // the tick only ever heals out of combat, so it can't turn a live fight.
   const _s = seasonWindow(Date.now());
@@ -5816,7 +5817,7 @@ function skillMendingRate(player)   {
 function skillHarvestExtraChance(player) {
   // 🏮 Festival day sweetens every forager's odds (Session L); 🎡 and the
   // harvest/fertility sabbats (Ostara, Mabon, Imbolc, Lughnasadh) do the same
-  // all season long — added on top like the festival bonus, so nothing that
+  // on the sabbat's own day — added on top like the festival bonus, so nothing that
   // asserts the raw forage stat contribution is affected.
   const now = Date.now();
   const season = seasonWindow(now);
@@ -8574,7 +8575,7 @@ const callers = require('./lib/callers')({
 });
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
-const { SABBATS, WHEEL_PROVENANCE } = require('./data/seasons');
+const { SABBATS, WHEEL_PROVENANCE, seasonEffectLines } = require('./data/seasons');
 const { MOON_PHASES, FULL_MOON_INDEX } = require('./data/moon');
 // Compressed lunar month: one full new→full→new cycle. 20h is deliberately not
 // a divisor of 24h, so the full moon drifts across the time of day (a player
@@ -8591,6 +8592,11 @@ function calendarPublicState(now) {
   const t = now != null ? now : Date.now();
   const cal = _calendarPublicState(t);
   try { cal.hours = planetaryHourSchedule(t); cal.hourLore = HOUR_LORE; } catch (e) { /* noop */ }
+  // What each season actually does, in words (the HUD tag and the Commonplace Book).
+  try {
+    if (cal.season) cal.season = { ...cal.season, effectLines: seasonEffectLines(cal.season.effects) };
+    cal.wheelEffects = Object.fromEntries(SABBATS.map((s) => [s.key, seasonEffectLines(s.effects)]));
+  } catch (e) { /* noop */ }
   return cal;
 }
 const FESTIVAL_XP_MULT = 1.25;
@@ -13405,7 +13411,7 @@ wss.on('connection', (ws, req) => {
         const targetId = targetsMob ? String(msg.targetId || '') : target.id;
         let dmg = spell.dmgMin + Math.floor(Math.random() * (spell.dmgMax - spell.dmgMin + 1));
         // 🎡 Beltane — Bel's bright fire makes the Witch's Fireball (the only
-        // 'damage' spell; leech hexes stay untouched) burn harder all season.
+        // 'damage' spell; leech hexes stay untouched) burn harder on Beltane day.
         const _fireSeason = seasonWindow(now);
         if (spell.effect === 'damage' && _fireSeason && _fireSeason.effects && _fireSeason.effects.fireBonus) {
           dmg = Math.round(dmg * (1 + _fireSeason.effects.fireBonus));

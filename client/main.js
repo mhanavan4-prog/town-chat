@@ -11113,7 +11113,8 @@ function renderBookModal() {
   const phaseName = {}; BOOK_MOON.forEach((m) => { phaseName[m.key] = m.n; });
   let h = '';
   h += '<div class="bookSec"><h4>🎡 The Wheel of the Year</h4><div class="bookGrid">';
-  for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${sabbatGlyph(s.key, s.g)}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span></div>`;
+  const wheelFx = (calendarState && calendarState.wheelEffects) || {};
+  for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${sabbatGlyph(s.key, s.g)}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span>${(wheelFx[s.key] || []).length ? `<span class="bfx">On the day: ${esc(wheelFx[s.key].join(' · '))}</span>` : ''}</div>`;
   h += '</div></div>';
   h += '<div class="bookSec"><h4>🌙 The Moon</h4><div class="bookGrid">';
   for (const m of BOOK_MOON) h += `<div class="bookCell${m.key === curMoon ? ' cur' : ''}"><span class="bg">${m.g}</span><b>${esc(m.n)}</b><span class="bi">${esc(m.i)}</span></div>`;
@@ -15701,7 +15702,9 @@ function renderEventTag() {
     const se = calendarState.season.effects || {};
     // Leading token is the sabbat's icon key so iconizeStripPart swaps in the sigil.
     let tag = (calendarState.season.key ? 'sabbat_' + calendarState.season.key : calendarState.season.glyph) + ' ' + calendarState.season.name;
-    if (se.xpMult) tag += ' — +' + Math.round((se.xpMult - 1) * 100) + '% XP';
+    const lines = Array.isArray(calendarState.season.effectLines) ? calendarState.season.effectLines : [];
+    if (lines.length) tag += ' — ' + lines.join(', ');
+    else if (se.xpMult) tag += ' — +' + Math.round((se.xpMult - 1) * 100) + '% XP';
     else if (se.forageBonus) tag += ' — +' + Math.round(se.forageBonus * 100) + '% foraging';
     parts.push(tag);
   }
