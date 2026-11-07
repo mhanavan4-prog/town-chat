@@ -115,6 +115,21 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913), vol. 1 · Indiculus superstitionum, no. 15',
   },
+  // Witch posts: carved oak heck posts of the North York Moors. The objects are
+  // real and in museums; what they were for is honestly not known, and the
+  // stories of the witch and the crooked sixpence were written down late.
+  witch_post: {
+    key: 'witch_post', name: 'The Witch Post', icon: '🪵',
+    how: 'Wash the last of the lime off the post by the hearth, read what is cut in it, the cross and whatever else, and put the crooked sixpence back in its hole.',
+    outcomes: [
+      'A cross like St Andrew\'s, three bands under it, and a worn date. The sixpence goes back in its hole, bent as it came.',
+      'Under the lime, oak gone black with three hundred years of smoke. The cross is there, and the coin.',
+      'The cross, a heart below it, and the hole. The family stand round the hearth and nobody says anything.',
+    ],
+    lore: 'Witch posts are oak posts beside the hearth in old farmhouses of the North York Moors: the heck post, at the end of the screen by the fire, which carried the smoke hood, carved at the top with a St Andrew\'s cross. Only about twenty are known, nearly all from the Moors and Cleveland; Ryedale Folk Museum has three. One at Postgate Farm, Glaisdale, was dated 1664. The Pitt Rivers Museum took one from near Scarborough in 1884, carved, its entry says, with a cross, a heart stuck with pins and phases of the moon, "for the purpose of keeping off fairies". Later tellers said a witch could not pass the cross, and that a crooked sixpence kept in a hole in the post was dug out and dropped in the churn when the butter would not come. What they were really for is not known: some think them the marks of Catholic households in the 1600s, others plain decoration.',
+    tier: 'folk',
+    source: 'Ryedale Folk Museum, "Witch Posts" (2020) · Pitt Rivers Museum 1884.56.1 · Whitby Museum, "The Witch Post" (2020) · Historic England, list entry 1148581 (Postgate Farmhouse, Glaisdale)',
+  },
   elf_shot: {
     key: 'elf_shot', name: 'Elf-Shot', icon: '🏹',
     how: 'Find the hole in the hide with your finger, as Kirk says the cure is. Then drop the elf-arrow, a little flint arrowhead turned up in the field, into a bowl of water, and give the beast the water to drink.',

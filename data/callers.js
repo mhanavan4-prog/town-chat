@@ -869,6 +869,22 @@ const CALLERS = [
     source: 'G. E. Evans, The Pattern Under the Plough (1966) · J. W. Axe, The Horse: Its Treatment in Health and Disease (c. 1905), "Sore Shoulders"',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The witch post (data/household.js) ──
+  {
+    id: 'witch_post_longhouse',
+    caller: 'Annie Dowson',
+    icon: '🪵',
+    title: 'The Post by the Hearth',
+    plea: "We're doing up the old longhouse at Low Rigg, and under the lime by the hearth there's a post with a great cross cut in it, and a hole with a bent sixpence in. Jack wants it out to open up the fire. My mother says leave it, or the witch will come down the chimney. Will you come and look at it?",
+    steps: [
+      { kind: 'rite', rite: 'witch_post', label: 'Wash the post, read the cross, put the sixpence back' },
+    ],
+    resolution: "You put the sixpence back and tell her what is known, which isn't much. There are about twenty posts like it, nearly all on these moors. The stories of the witch and the churn were written down long after the posts were cut, and some think the cross marked a Catholic house in the bad times. Then the practical half: that is the heck post, and it carries the smoke hood. Take it out to open up the fire and the hood comes down on Jack's head. Leave it, wash it, and let the folk museum come and draw it. There are only about twenty in the world.",
+    lore: "The witch post: a carved oak post by the hearth of a North York Moors farmhouse, with a St Andrew's cross at the top. About twenty are known. Stories say a witch could not pass it; what it was really for is not known.",
+    tier: 'folk',
+    source: 'Ryedale Folk Museum, "Witch Posts" (2020) · Whitby Museum, "The Witch Post" (2020)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',
