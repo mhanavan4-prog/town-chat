@@ -170,7 +170,8 @@ export default function createCharmBook({ send, place, openBoard }) {
       box.appendChild(chip);
     }
     body.appendChild(box);
-    body.appendChild(el('div', 'cbHint', `${r.pct}% written. Every chapter you finish pays ${r.chapterPurse} gold; each milestone gives a title to wear.`));
+    const unpaid = state.chapters.filter((c) => c.noPurse).map((c) => c.title);
+    body.appendChild(el('div', 'cbHint', `${r.pct}% written. Every chapter you finish pays ${r.chapterPurse} gold${unpaid.length ? ` (not ${unpaid.join(' or ')}, which is for the dead)` : ''}; each milestone gives a title to wear.`));
   }
 
   function renderChapter(body, ch) {
