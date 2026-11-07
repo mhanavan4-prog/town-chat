@@ -16012,7 +16012,7 @@ const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === We
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 📜 The Charm Book — every piece of lore you've met, with its source.
-const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 460, 130) });
+const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 460, 130), openBoard: () => openBoardModal() });
 // 🪢 Knots & the Wind — cord magic (blueprint F).
 const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 🌿 The Witch Paths' practices (Green, Lunar, Hedge, Kitchen).

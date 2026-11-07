@@ -12,8 +12,9 @@
 import { Modals } from './modals.js';
 
 const CHARM_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
+const NEXT = '__whereNext'; // the Where next page (not a chapter)
 
-export default function createCharmBook({ send, place }) {
+export default function createCharmBook({ send, place, openBoard }) {
   let state = null;
   let openChapter = null; // key of the expanded chapter, or null = contents page
 
@@ -48,6 +49,19 @@ export default function createCharmBook({ send, place }) {
     key.appendChild(tierBadge('folk')); key.appendChild(el('span', null, ' gathered from living custom  '));
     key.appendChild(tierBadge('revival')); key.appendChild(el('span', null, ' modern'));
     body.appendChild(key);
+    if (Array.isArray(state.whereNext) && state.whereNext.length) {
+      const wn = state.whereNext;
+      const row = el('button', 'cbChapter cbNextRow');
+      row.appendChild(el('span', 'cbChIcon', '✒️'));
+      const txt = el('span', 'cbChText');
+      txt.appendChild(el('span', 'cbChTitle', 'Where next'));
+      const nowN = wn.filter((x) => x.now).length;
+      txt.appendChild(el('span', 'cbChCount', nowN ? `${nowN} to do now` : `${wn.length} ideas`));
+      row.appendChild(txt);
+      row.appendChild(el('span', 'cbNextSub', wn[0].title));
+      row.addEventListener('click', () => { openChapter = NEXT; render(); });
+      body.appendChild(row);
+    }
     if (state.rewards) renderRewards(body, state.rewards);
     const cols = el('div', 'menuCols'); // chapters in two columns in the wide frame
     body.appendChild(cols);
@@ -109,13 +123,41 @@ export default function createCharmBook({ send, place }) {
     if (ch.note) body.appendChild(el('div', 'cbNote', ch.note));
   }
 
+  // ✒️ Where next: what you can write in today (lib/whereNext.js on the server).
+  function renderNext(body) {
+    const back = el('button', 'btn cbBack', '‹ Contents');
+    back.addEventListener('click', () => { openChapter = null; render(); });
+    body.appendChild(back);
+    body.appendChild(el('div', 'cbChHead', '✒️ Where next'));
+    body.appendChild(el('div', 'cbIntro', 'What you can write in today. Some of it only lasts the hour or the day.'));
+    const list = el('div', 'cbNextList');
+    for (const it of state.whereNext || []) {
+      const row = el(it.chapter || it.action ? 'button' : 'div', 'cbNextItem' + (it.now ? ' now' : ''));
+      const head = el('div', 'cbNextHead');
+      head.appendChild(el('span', 'cbNextIcon', it.icon || '📜'));
+      head.appendChild(el('span', 'cbNextTitle', it.title));
+      if (it.now) head.appendChild(el('span', 'cbNextNow', 'Now'));
+      row.appendChild(head);
+      for (const line of it.lines || []) row.appendChild(el('div', 'cbNextLine', line));
+      if (it.action === 'board' && openBoard) {
+        row.appendChild(el('div', 'cbNextGo', 'Open the Board ›'));
+        row.addEventListener('click', () => { close(); openBoard(); });
+      } else if (it.chapter && state.chapters.some((c) => c.key === it.chapter)) {
+        row.appendChild(el('div', 'cbNextGo', 'Open the chapter ›'));
+        row.addEventListener('click', () => { openChapter = it.chapter; render(); });
+      }
+      list.appendChild(row);
+    }
+    body.appendChild(list);
+  }
+
   function render() {
     const body = document.getElementById('charmBookContent');
     if (!body) return;
     body.textContent = '';
     if (!state || !Array.isArray(state.chapters)) { body.appendChild(el('div', 'cbIntro', 'Opening the book…')); return; }
     const ch = openChapter && state.chapters.find((c) => c.key === openChapter);
-    if (ch) renderChapter(body, ch); else renderContents(body);
+    if (openChapter === NEXT) renderNext(body); else if (ch) renderChapter(body, ch); else renderContents(body);
     body.scrollTop = 0;
   }
 
