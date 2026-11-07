@@ -99,6 +99,10 @@ function el(tag, cls, text) {
   if (text !== undefined) n.textContent = text;
   return n;
 }
+// The result replaces the working in the same list. "Finish" sits at the
+// bottom of a long card, so a fresh result starts the list back at the top
+// (the "— done" line and the reading), not wherever the working was scrolled.
+let resultShown = null;
 function renderCallerResult(list, r) {
   const card = el('div', 'callerCard callerResult');
   card.appendChild(el('div', 'callerHead', `${r.icon} ${r.title} — done`));
@@ -115,6 +119,7 @@ function renderCallerResult(list, r) {
   ok.addEventListener('click', () => { clearCallerResult(); renderBoardModal(); });
   card.appendChild(ok);
   list.appendChild(card);
+  if (r !== resultShown) { resultShown = r; list.scrollTop = 0; }
 }
 function renderCallers(list, meNote) {
   const result = getCallerResult && getCallerResult();

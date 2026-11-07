@@ -1392,6 +1392,9 @@
   /* Levels (see setUnlockToast): flavor is a faint whisper, important a touch brighter. */
   .unlockToastItem.flavor { background:rgba(20,10,8,0.5); border-color:rgba(230,190,120,0.15); color:rgba(255,233,194,0.72); font-style:italic; font-size:11.5px; padding:5px 13px; }
   .unlockToastItem.important { border-color:rgba(255,205,120,0.65); }
+  /* Over an open menu the toast sits on the panel's own text (the Board's
+     title, on a phone): solid, so the words underneath don't show through. */
+  body.panelOpen .unlockToastItem, body.panelOpen .unlockToastItem.flavor { background:rgb(28,16,12); box-shadow:0 4px 14px rgba(0,0,0,0.55); }
   /* Desktop: notices sit just above the XP strip, out of the middle of the view.
      Newest nearest the HUD. Touch mode keeps the top lane. */
   body:not(.touchMode) #unlockToast {
