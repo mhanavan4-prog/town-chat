@@ -63,6 +63,21 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'Pitt Rivers Museum, 1884.56.3 (Rushmore, 1880–81) · S. Butler, Hudibras ("sickle, horse-shoe, hollow flint")',
   },
+  // The pinned heart: Somerset counter-magic against a witch blamed for dead
+  // beasts (Elworthy, 1895), told with the harm it led to and what really
+  // kills a run of pigs.
+  pinned_heart: {
+    key: 'pinned_heart', name: 'The Pinned Heart', icon: '📌',
+    how: 'Stick the heart full of pins and white thorns, as Elworthy\'s Somerset people did, and hang it up the chimney to wither in the smoke.',
+    outcomes: [
+      'The heart goes up the chimney on a nail. Nobody comes to the door that night, or the next.',
+      'Old Mrs Hext does come by, for the loan of some salt. Ellen goes white. You give the woman her salt.',
+      'The thorns go in hard. Ellen says the words her grandmother said over it, then sits down and cries.',
+    ],
+    lore: 'Somerset counter-magic, as F. T. Elworthy recorded it in 1895: when beasts died and a witch was blamed, the heart of one of them was "stuck full of pins and white thorns" and put up the chimney, "in the belief that as the heart dried and withered so would that of the malignant person". Others threw it on the fire and sat waiting for the witch to come and ask why they were hurting her; on Mendip a sheep\'s heart was roasted with "It is not this heart I mean to burn, / But the person\'s heart I wish to turn". One was found in a chimney at Ashbrittle in 1882, and the county museum at Taunton had "more than one heart, said to be those of pigs". The Pitt Rivers keeps a sheep\'s heart stuck with pins and nails, a model of those used in South Devon for "breaking evil spells".',
+    tier: 'record',
+    source: 'F. T. Elworthy, The Evil Eye (1895), ch. II · Pitt Rivers Museum 1911.75.1',
+  },
   death_house: {
     key: 'death_house', name: 'Opening the Door', icon: '🕯️',
     how: 'When the dying are struggling, unfasten every lock and bolt and set the doors open; when they are gone, set a plate of salt on the breast, stop the clock and cover the looking-glass.',

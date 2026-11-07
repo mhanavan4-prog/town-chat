@@ -804,6 +804,22 @@ const CALLERS = [
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The pinned heart (data/household.js) ──
+  {
+    id: 'pinned_heart_pigs',
+    caller: 'Ellen Vowles',
+    icon: '📌',
+    title: 'Three Pigs in a Week',
+    plea: "Three of my pigs dead in a week, and old Mrs Hext stood at the gate on Sunday and said what fine pigs they were. My grandmother would have had the heart of the last one stuck full of pins and thorns and up the chimney, and then we'd see who came knocking. I've the heart here in a bowl. Will you do it with me?",
+    steps: [
+      { kind: 'rite', rite: 'pinned_heart', label: 'Pins and white thorns in the heart, and up the chimney' },
+    ],
+    resolution: "You hang it up, and then you tell her the rest. The heart was meant to hurt a neighbour until she came to the door, and when she came, that was taken for proof. In 1823 a family near Wiveliscombe, on the word of a Devon conjuror, cut old Ann Burges's arms \"with pins, nails and scissars\" to draw a witch's blood. So whoever comes to the door gets what she came for, and nothing else. Then the practical half: three pigs in a week is sickness or poison, not a witch. A dairyman in Bethnal Green once pinned a dead cow's heart for a witch, and a man owned after that he had poisoned the cows with yew. Look along the hedge for yew clippings, keep the living pigs apart, scald the trough, and fetch the pig doctor.",
+    lore: "The pinned heart: in Somerset a dead beast's heart was stuck with pins and thorns and hung in the chimney or roasted, to make the witch who killed it suffer and come to the door (Elworthy, 1895).",
+    tier: 'record',
+    source: 'F. T. Elworthy, The Evil Eye (1895) · Stamford Mercury (24 January 1823) · Cuming Collection, Southwark, C05275',
+    reward: { gold: 45, xp: 40 },
+  },
   // ── The shewstone (data/household.js) ──
   {
     id: 'shewstone_litter',
