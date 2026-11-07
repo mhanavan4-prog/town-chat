@@ -74,7 +74,7 @@ const POTION_RECIPES = [
     desc: '2× Yarrow → Yarrow Salve (staunches wounds — heals 70 HP)' },
   { id: 'mugwort_draught', result: 'mugwort_draught',
     ingredients: [{ id: 'mugwort', qty: 2 }],
-    desc: "2× Mugwort → Mugwort Dream-Draught (cross the hedge unseen — Raven's Cloak for 60s)" },
+    desc: "2× Mugwort → Mugwort Dream-Draught (the traveller's herb, against the weariness of the road — Raven's Cloak for 60s)" },
   // ── Green Path (Cottage Garden band): the hearth-and-healing remedies ──
   // Calendula had a tea but nothing at the cauldron, which left a Green Path
   // plant with nothing to brew. Marigold is the sun's own wound-herb in the
@@ -118,7 +118,7 @@ const POTION_RECIPES = [
   // Haws, the hawthorn's berries, steeped into a cordial for the heart.
   { id: 'haw_cordial', result: 'haw_cordial',
     ingredients: [{ id: 'haw', qty: 2 }],
-    desc: '2× Haws → Haw Cordial (the hawthorn\'s heart-cordial — heals 90)' },
+    desc: '2× Haws → Haw Cordial (the hawthorn\'s berries, a 19th-century heart remedy — heals 90)' },
   // Lucky white heather, bound into a charm.
   { id: 'white_heather_charm', result: 'white_heather_charm',
     ingredients: [{ id: 'heather_sprig', qty: 2 }],
@@ -131,36 +131,36 @@ const POTION_RECIPES = [
   { id: 'witch_bottle', result: 'witch_bottle',
     ingredients: [{ id: 'bellarmine_jug', qty: 1 }, { id: 'bent_pins', qty: 1 }, { id: 'iron_nails', qty: 1 }],
     desc: 'Bellarmine Jug + Bent Pins + Iron Nails → Witch Bottle (bury it under your cottage hearth)' },
-  // ── Green Path (Poison Path band): baneful draughts & the flying ointment ──
+  // ── Green Path (Poison Path band): baneful charms, wards & the flying ointment (never drunk) ──
   // Trance / warding effects only — the folklore, never anything depicting harm.
   { id: 'flying_ointment', result: 'flying_ointment',
     ingredients: [{ id: 'belladonna', qty: 2 }],
     desc: "2× Belladonna → Flying Ointment (the witch's flight — Raven's Cloak 90s)" },
   { id: 'henbane_smoke', result: 'henbane_smoke',
     ingredients: [{ id: 'henbane', qty: 2 }],
-    desc: '2× Henbane → Henbane Smoke (oracular madness — a 60s haze)' },
+    desc: '2× Henbane → Henbane Rain-Charm (Burchard of Worms\'s rain-charm, c. 1012 — a 60s haze)' },
   { id: 'mandrake_draught', result: 'mandrake_draught',
     ingredients: [{ id: 'mandrake', qty: 2 }],
-    desc: "2× Mandrake → Mandrake Draught (the screaming root's power — Giant form 45s)" },
+    desc: "2× Mandrake → Mandrake Poppet (the screaming root carved as a little man — Giant form 45s)" },
   { id: 'wolfsbane_draught', result: 'wolfsbane_draught',
     ingredients: [{ id: 'wolfsbane', qty: 2 }],
-    desc: "2× Wolfsbane → Wolfsbane Draught (the shapeshifter's herb — Wolf's Pact 60s)" },
+    desc: "2× Wolfsbane → Wolfsbane Charm (lycoctonum, the wolf-slayer — Wolf's Pact 60s)" },
   { id: 'datura_trance', result: 'datura_trance',
     ingredients: [{ id: 'datura', qty: 2 }],
     desc: "2× Datura → Datura Trance (the devil's trumpet — a 75s trance)" },
   { id: 'hemlock_philter', result: 'hemlock_philter',
     ingredients: [{ id: 'hemlock', qty: 2 }],
-    desc: '2× Hemlock → Hemlock Philter (a stilling ward — curse immunity 60s)' },
+    desc: '2× Hemlock → Hemlock Ward (a stilling ward — curse immunity 60s)' },
   { id: 'foxglove_cordial', result: 'foxglove_cordial',
     ingredients: [{ id: 'foxglove', qty: 2 }],
-    desc: "2× Foxglove → Foxglove Cordial (digitalis, for the heart — heals 100 HP)" },
+    desc: "2× Foxglove → Foxglove Charm (the fairies' thimble — a ward for 75s. Digitalis is a physician's drug, deadly in a home cup.)" },
   { id: 'hellebore_ward', result: 'hellebore_ward',
     ingredients: [{ id: 'black_hellebore', qty: 2 }],
-    desc: '2× Black Hellebore → Hellebore Ward (banishes the underworld — curse immunity 75s)' },
+    desc: '2× Black Hellebore → Hellebore Ward (the Christmas rose — curse immunity 75s)' },
   // The capstone: the signature draught that crowns the whole Green Path.
   { id: 'draught_of_the_green_path', result: 'draught_of_the_green_path',
     ingredients: [{ id: 'belladonna', qty: 1 }, { id: 'henbane', qty: 1 }, { id: 'mandrake', qty: 1 }],
-    desc: 'Belladonna + Henbane + Mandrake → Draught of the Green Path (the green witch sees all — Raven’s Cloak 5 min)' },
+    desc: 'Belladonna + Henbane + Mandrake → Unguent of the Green Path (the flying ointment perfected, rubbed on, never drunk — Raven’s Cloak 5 min)' },
 ];
 
 const LOOT_TABLES = {

@@ -28,14 +28,15 @@ const RITUAL_DECOS = {
 
 // The planetary day that favours each blessing (0 Sun … 6 Sat, UTC getUTCDay).
 // Sun→vigor, Moon→forage (intuition/nature), Mars→ward, Mercury→quicken,
-// Jupiter→fortune (prosperity), Venus→swiftness (grace), Saturn→ward (binding).
+// Jupiter→fortune (prosperity), Venus→quicken (life), Saturn→ward (binding).
+// Mercury, the swift messenger, has swiftness (Agrippa, Three Books, 1531–33).
 const DAY_RITUAL = {
   0: 'vigor',     // Sunday — the Sun
   1: 'forage',    // Monday — the Moon
   2: 'ward',      // Tuesday — Mars
-  3: 'quicken',   // Wednesday — Mercury
+  3: 'swiftness', // Wednesday — Mercury
   4: 'fortune',   // Thursday — Jupiter
-  5: 'swiftness', // Friday — Venus
+  5: 'quicken',   // Friday — Venus
   6: 'ward',      // Saturday — Saturn
 };
 

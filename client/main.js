@@ -11041,7 +11041,7 @@ let ritualCdUntil = 0;     // local-clock timestamp the altar is free again
 // authoritative on the actual bonus. Keep these three maps in sync with the
 // data module.
 const RITUAL_DECOS = { vigor: ['chalice', 'candles'], swiftness: ['raven', 'incense'], ward: ['pentacle', 'skull'], fortune: ['grimoire', 'crystals'], forage: ['cauldron', 'runes'], quicken: ['bell', 'mirror'] };
-const DAY_RITUAL = { 0: 'vigor', 1: 'forage', 2: 'ward', 3: 'quicken', 4: 'fortune', 5: 'swiftness', 6: 'ward' };
+const DAY_RITUAL = { 0: 'vigor', 1: 'forage', 2: 'ward', 3: 'swiftness', 4: 'fortune', 5: 'quicken', 6: 'ward' };
 const MOON_RITUAL = { waxing_crescent: ['forage', 'fortune'], waxing_gibbous: ['forage', 'fortune'], waning_gibbous: ['ward'], last_quarter: ['ward'], waning_crescent: ['ward'] };
 let altarOfferMoonWater = false;   // toggle: spend 1 moon water on the next rite
 function moonWaterCount() { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === 'moon_water') n += (it.qty || 1); return n; }

@@ -38,7 +38,7 @@ setTimeout(() => {
   check('planting belladonna does', greenPathQualifies(nightshade.objective, { herb: 'belladonna' }));
   check('planting nothing does not', !greenPathQualifies(nightshade.objective, null));
 
-  const baneBrew = GREEN_PATH.find((c) => /baneful draught/i.test(c.objective.label));
+  const baneBrew = GREEN_PATH.find((c) => c.objective.requires === 'bane');
   const hedgeBrew = GREEN_PATH.find((c) => /hedge remedy/i.test(c.objective.label));
   const byId = (id) => POTION_RECIPES.find((r) => r.id === id);
   check('a healing brew does not pass for a baneful draught', !greenPathQualifies(baneBrew.objective, { recipe: byId('regen_brew') }));
