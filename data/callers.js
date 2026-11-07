@@ -728,6 +728,24 @@ const CALLERS = [
     source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891)',
     reward: { gold: 40, xp: 35 },
   },
+  // Plough Monday only (data/ploughMonday.js), dated by the old calendar.
+  {
+    id: 'plough_boys',
+    caller: 'Will Gotobed and the ploughboys',
+    icon: '🐂',
+    title: 'Plough Monday',
+    when: { calendar: 'plough_monday', days: 2 },
+    plea: "Plough Monday, and we're a man short on the ropes, and nobody'll be Bessy. And we've nothing for the feast after. Old Harker says he'll set the dogs on us if we come to his step blacked up like plough witches. Will you come round with us?",
+    steps: [
+      { kind: 'deliver', item: 'hearth_loaf', qty: 1, label: 'A loaf for the ploughboys\' feast' },
+      { kind: 'rite', rite: 'plough_monday', label: 'The plough round the parish, Bessy, the Fool and the box' },
+    ],
+    resolution: "The box is full by dark. Then the practical half: the soot is there so nobody minds whose son was asking, but it hides bad behaviour as well as shyness. Ask, don't take, and plough nobody's step, whatever the old tale says; a ploughed-up step is a broken ankle for an old man by morning. Wash your faces before you go in the alehouse. And put a share of the box by for whatever stands for the plough-light now: the poor box will do.",
+    lore: "Plough Monday: on the first Monday after Twelfth Day the ploughboys, faces blacked and called plough witches in parts, drew a plough from door to door for money (Hone, 1826).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826), 7 January · Nottingham Guardian (13 January 1886)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── The house and the hive (data/household.js) ──
   {
     id: 'tell_the_bees',
