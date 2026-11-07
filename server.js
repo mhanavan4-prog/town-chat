@@ -8634,6 +8634,7 @@ function boardStatePayload(player) {
 // the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
+const { CUNNING_FOLK, CUNNING_FOLK_INTRO } = require('./data/cunningFolk'); // 🗝️ the cunning folk of the record, on the same shelf
 const charmRewardsLib = require('./lib/charmRewards'); // 📜 what writing the book up earns
 const { WOAD_LORE } = require('./data/charmRewards');
 const callers = require('./lib/callers')({
@@ -12962,7 +12963,7 @@ wss.on('connection', (ws, req) => {
     //    player's Forbidden Archive codex; reading all of them grants a title. ──
     // ── The Real Shelf (Library): real books of witchcraft and herb-lore. Opening
     //    the case lists them; reading one records it for the Charm Book. ──
-    if (msg.type === 'real_shelf' || msg.type === 'read_real_book') {
+    if (msg.type === 'real_shelf' || msg.type === 'read_real_book' || msg.type === 'read_cunning') {
       const a = player.accountKey && accounts[player.accountKey];
       if (msg.type === 'read_real_book' && a) {
         const id = String(msg.id || '');
@@ -12971,7 +12972,16 @@ wss.on('connection', (ws, req) => {
           if (!a.booksRead.includes(id)) { a.booksRead.push(id); saveAccounts(); }
         }
       }
-      send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [] });
+      // The cunning folk of the record, read on the same shelf (Charm Book: The Cunning Folk).
+      if (msg.type === 'read_cunning' && a) {
+        const id = String(msg.id || '');
+        if (CUNNING_FOLK.some((f) => f.id === id)) {
+          if (!Array.isArray(a.cunningRead)) a.cunningRead = [];
+          if (!a.cunningRead.includes(id)) { a.cunningRead.push(id); saveAccounts(); }
+        }
+      }
+      send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [],
+        folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [] });
       return;
     }
     if (msg.type === 'read_forbidden_book') {
