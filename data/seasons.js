@@ -10,12 +10,18 @@
 // solstice/equinox dates are the conventional fixed observances). Ordered around
 // the wheel; the list wraps (Yule → Imbolc across the New Year).
 //
-// `effects` are DECLARED here as the season's intended gameplay tie-in. They are
-// intentionally NOT yet applied to combat/XP/forage math in this slice: those
-// paths are covered by deterministic pacing tests, and an always-on seasonal
-// multiplier would make the suite depend on which sabbat is live when CI runs.
-// A follow-up wires them on test-isolated paths. Flavor (name/epithet/glyph/
-// blurb/blessing) ships live now and is broadcast to clients for display.
+// `effects` are live on the sabbat's own day — a full UTC day; seasonWindow()
+// carries them only then — and a coven that completes the season's Rite keeps
+// the XP blessing for the rest of the season (lib/rites activeSeasonBuff).
+// Where each is applied (server.js):
+//   xpMult       grantXP — the player's XP gain (or a coven's Rite buff, whichever is greater)
+//   forageBonus  skillHarvestExtraChance — extra-yield odds when gathering
+//   regenBonus / restBonus   skillMendRate — HP/s mended out of combat (Imbolc, Yule)
+//   fireBonus    the Witch's Fireball damage (Beltane)
+//   lootBonus    rollPendingLoot — every drop's odds (Mabon)
+//   veilThin     hostile respawn-time multiplier (< 1: the slain rise sooner; Samhain)
+// seasonEffectLines() below turns them into the words players see on the HUD tag
+// and in the Commonplace Book.
 
 const SABBATS = [
   {
@@ -92,4 +98,19 @@ const WHEEL_PROVENANCE = {
   source: 'R. Hutton, The Stations of the Sun (1996) and The Triumph of the Moon (1999)',
 };
 
-module.exports = { SABBATS, WHEEL_PROVENANCE };
+// What a season's effects do, in plain words (HUD tag + Commonplace Book).
+function seasonEffectLines(effects) {
+  const e = effects || {};
+  const pct = (x) => Math.round(x * 100);
+  const out = [];
+  if (e.xpMult && e.xpMult !== 1) out.push(`+${pct(e.xpMult - 1)}% XP`);
+  if (e.forageBonus) out.push(`+${pct(e.forageBonus)}% foraging`);
+  const mend = e.regenBonus || e.restBonus;
+  if (mend) out.push(`+${mend} HP/s mending out of combat`);
+  if (e.fireBonus) out.push(`+${pct(e.fireBonus)}% Fireball damage`);
+  if (e.lootBonus) out.push(`+${pct(e.lootBonus)}% loot odds`);
+  if (e.veilThin && e.veilThin < 1) out.push(`the slain rise ${pct(1 - e.veilThin)}% sooner`);
+  return out;
+}
+
+module.exports = { SABBATS, WHEEL_PROVENANCE, seasonEffectLines };
