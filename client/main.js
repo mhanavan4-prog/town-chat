@@ -1743,6 +1743,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'forbidden_book') { showForbiddenBook(msg); return; }
   if (msg.type === 'real_shelf') { shelfState = msg; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
+  if (msg.type === 'myth_quiz_result') { if (mythRun) mythRun.result = msg; if (shelfState && shelfState.myth && msg.best != null) shelfState.myth.best = msg.best; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
   if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
   if (msg.type === 'cafe_special') { showCafeSpecial(msg); return; }
   if (msg.type === 'cafe_menu') { renderCafeMenu(msg); return; }
@@ -4795,13 +4796,43 @@ if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal
 // writes it into the Charm Book's Library chapter (data/realBooks.js).
 let shelfState = null;
 let shelfOpenId = null;
+// ❓ Myth or record? — the shelf's quiz (data/mythOrRecord.js). null = not
+// running; else { i, answers: { id: 'myth'|'record' }, shown: bool, result }.
+let mythRun = null;
+function mythQuizHtml(m) {
+  const items = m.items || [];
+  const label = (x) => (x === 'myth' ? 'Myth' : 'On the record');
+  if (!mythRun) {
+    return `<div class="mythCard"><div class="mythHead">❓ Myth or record?</div><div class="cbIntro">${esc(m.intro || '')}</div>`
+      + `<div class="mythFoot">${m.best != null ? `Your best: <b>${m.best} of ${items.length}</b>` : 'Not tried yet.'}</div>`
+      + '<button class="btn mythStart">Take it</button></div>';
+  }
+  if (mythRun.i >= items.length) {
+    const r = mythRun.result;
+    return `<div class="mythCard"><div class="mythHead">❓ Myth or record? · done</div>`
+      + (r ? `<div class="mythScore">${r.score} of ${r.of}</div>${r.best != null ? `<div class="mythFoot">Your best: <b>${r.best} of ${r.of}</b></div>` : '<div class="mythFoot">Log in to keep your best.</div>'}` : '<div class="mythFoot">Counting…</div>')
+      + '<button class="btn mythStart">Again</button> <button class="btn mythClose">Back to the shelf</button></div>';
+  }
+  const q = items[mythRun.i];
+  let h = `<div class="mythCard"><div class="mythHead">❓ Myth or record? · ${mythRun.i + 1} of ${items.length}</div><div class="mythClaim">“${esc(q.claim)}”</div>`;
+  if (!mythRun.shown) {
+    h += '<div class="mythBtns"><button class="btn mythPick" data-a="myth">Myth</button><button class="btn mythPick" data-a="record">On the record</button></div>';
+  } else {
+    const right = mythRun.answers[q.id] === q.answer;
+    h += `<div class="mythVerdict ${right ? 'right' : 'wrong'}">${right ? '✓ Right' : '✗ Not so'}: ${label(q.answer)}.</div>`
+      + `<div class="shelfText">${esc(q.verdict)}</div><div class="shelfSrc">${esc(q.source)}</div>`
+      + `<button class="btn mythNext">${mythRun.i + 1 < items.length ? 'Next ›' : 'See how you did'}</button>`;
+  }
+  return h + '</div>';
+}
 function renderShelfModal() {
   const el = document.getElementById('shelfContent');
   if (!el) return;
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   if (!shelfState) { el.innerHTML = '<div class="cbIntro">Taking the books down…</div>'; return; }
   const read = new Set(shelfState.read || []);
-  let h = `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div><div class="shelfGrid">`;
+  let h = shelfState.myth && (shelfState.myth.items || []).length ? mythQuizHtml(shelfState.myth) : '';
+  h += `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div><div class="shelfGrid">`;
   for (const b of (shelfState.books || [])) {
     const tier = PROV_TIER_LABEL[b.tier] ? b.tier : 'record';
     const open = shelfOpenId === b.id;
@@ -4841,6 +4872,18 @@ function renderShelfModal() {
     h += '</div>';
   }
   el.innerHTML = h;
+  const mItems = (shelfState.myth && shelfState.myth.items) || [];
+  el.querySelectorAll('.mythStart').forEach((b) => b.addEventListener('click', () => { mythRun = { i: 0, answers: {}, shown: false, result: null }; renderShelfModal(); }));
+  el.querySelectorAll('.mythClose').forEach((b) => b.addEventListener('click', () => { mythRun = null; renderShelfModal(); }));
+  el.querySelectorAll('.mythPick').forEach((b) => b.addEventListener('click', () => {
+    const q = mItems[mythRun.i]; if (!q) return;
+    mythRun.answers[q.id] = b.getAttribute('data-a'); mythRun.shown = true; renderShelfModal();
+  }));
+  el.querySelectorAll('.mythNext').forEach((b) => b.addEventListener('click', () => {
+    mythRun.i += 1; mythRun.shown = false;
+    if (mythRun.i >= mItems.length) send({ type: 'myth_quiz_done', answers: mythRun.answers });
+    renderShelfModal();
+  }));
   el.querySelectorAll('.shelfBook[data-bid]').forEach((row) => row.addEventListener('click', () => {
     const id = row.getAttribute('data-bid');
     shelfOpenId = shelfOpenId === id ? null : id;

@@ -8665,6 +8665,7 @@ function boardStatePayload(player) {
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
 const { CUNNING_FOLK, CUNNING_FOLK_INTRO } = require('./data/cunningFolk'); // 🗝️ the cunning folk of the record, on the same shelf
+const { MYTH_QUIZ, MYTH_QUIZ_INTRO } = require('./data/mythOrRecord'); // ❓ the shelf's quiz: myth or record?
 const charmRewardsLib = require('./lib/charmRewards'); // 📜 what writing the book up earns
 const { WOAD_LORE } = require('./data/charmRewards');
 const callers = require('./lib/callers')({
@@ -13040,7 +13041,24 @@ wss.on('connection', (ws, req) => {
         }
       }
       send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [],
-        folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [] });
+        folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [],
+        myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: a && Number.isFinite(a.mythBest) ? a.mythBest : null } });
+      return;
+    }
+    // ❓ Myth or record? (data/mythOrRecord.js): the shelf's quiz. The client
+    // shows each answer as it goes; the server scores the whole run from its
+    // own data and keeps the account's best.
+    if (msg.type === 'myth_quiz_done') {
+      const a = player.accountKey && accounts[player.accountKey];
+      const given = (msg.answers && typeof msg.answers === 'object') ? msg.answers : {};
+      const score = MYTH_QUIZ.filter((q) => given[q.id] === q.answer).length;
+      let best = null;
+      if (a) {
+        const was = Number.isFinite(a.mythBest) ? a.mythBest : -1;
+        if (score > was) { a.mythBest = score; saveAccounts(); }
+        best = a.mythBest;
+      }
+      send(ws, { type: 'myth_quiz_result', score, of: MYTH_QUIZ.length, best });
       return;
     }
     if (msg.type === 'read_forbidden_book') {
