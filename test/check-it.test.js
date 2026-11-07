@@ -11,7 +11,8 @@ const path = require('path');
 const { buildCharmBook } = require('../lib/charmBook.js');
 const { buildSources, findWork } = require('../lib/sources.js');
 const { checksFor, partsOf } = require('../lib/checkIt.js');
-const { MYTH_QUIZ } = require('../data/mythOrRecord.js');
+const { MYTH_QUIZ, MYTH_SETS } = require('../data/mythOrRecord.js');
+const ALL_MYTH = MYTH_SETS.flatMap((x) => x.items);
 const { REAL_BOOKS } = require('../data/realBooks.js');
 const { CUNNING_FOLK } = require('../data/cunningFolk.js');
 const MAIN = fs.readFileSync(path.join(__dirname, '../client/main.js'), 'utf8');
@@ -41,11 +42,11 @@ check('a body is found by its name and document', findWork(src, 'Pitt Rivers Mus
 check('a work the book does not cite finds nothing', findWork(src, 'W. Behringer, Witches and Witch-Hunts (2004)') === null && findWork(src, 'the memorial by the Town Hall') === null);
 check('a source line splits at "; " and " · "', JSON.stringify(partsOf('A (1); B · C')) === JSON.stringify(['A (1)', 'B', 'C']));
 
-const checks = checksFor(src, { myth: MYTH_QUIZ, books: REAL_BOOKS, folk: CUNNING_FOLK });
+const checks = checksFor(src, { myth: ALL_MYTH, books: REAL_BOOKS, folk: CUNNING_FOLK });
 const byWork = Object.fromEntries(src.works.map((w) => [w.id, w]));
 const all = Object.values(checks).flat();
 check('every link goes to a work on the Sources page', all.filter((p) => p.work).every((p) => byWork[p.work]));
-check('every citation is kept, linked or not, in its order', MYTH_QUIZ.every((q) => checks['myth:' + q.id].map((p) => p.text).join('; ') === partsOf(q.source).join('; ')));
+check('every citation is kept, linked or not, in its order', ALL_MYTH.every((q) => checks['myth:' + q.id].map((p) => p.text).join('; ') === partsOf(q.source).join('; ')));
 const linked = MYTH_QUIZ.filter((q) => checks['myth:' + q.id].some((p) => p.work)).map((q) => q.id);
 check('most verdicts link to a work the book cites', linked.length >= 8, linked);
 check('the Malleus verdict links to the Malleus on the Sources page', (() => { const p = checks['myth:malleus_approved'].find((x) => x.work); return p && /Malleus Maleficarum/.test(byWork[p.work].cite) && byWork[p.work].entries.some((e) => e.chapter === 'library' && e.id === 'malleus'); })());

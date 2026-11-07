@@ -8666,7 +8666,15 @@ function boardStatePayload(player) {
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
 const { CUNNING_FOLK, CUNNING_FOLK_INTRO } = require('./data/cunningFolk'); // 🗝️ the cunning folk of the record, on the same shelf
-const { MYTH_QUIZ, MYTH_QUIZ_INTRO } = require('./data/mythOrRecord'); // ❓ the shelf's quiz: myth or record?
+const { MYTH_QUIZ, MYTH_QUIZ_INTRO, MYTH_SETS } = require('./data/mythOrRecord'); // ❓ the shelf's quiz: myth or record?
+// An account's best for one set of the quiz; the first set's was once kept as a.mythBest.
+function mythBestOf(a, key) {
+  if (!a) return null;
+  const v = a.mythBests && a.mythBests[key];
+  if (Number.isFinite(v)) return v;
+  if (key === 'first' && Number.isFinite(a.mythBest)) return a.mythBest;
+  return null;
+}
 const charmRewardsLib = require('./lib/charmRewards'); // 📜 what writing the book up earns
 const { WOAD_LORE } = require('./data/charmRewards');
 const callers = require('./lib/callers')({
@@ -13050,10 +13058,11 @@ wss.on('connection', (ws, req) => {
       }
       // "Check it": each verdict's and book's works on the Charm Book's Sources page (lib/checkIt.js).
       let checks = {};
-      try { checks = checksFor(buildSources(buildCharmBook({ acct: a || null, prog: null, seasonKey: null }).chapters), { myth: MYTH_QUIZ, books: REAL_BOOKS, folk: CUNNING_FOLK }); } catch (e) { checks = {}; }
+      try { checks = checksFor(buildSources(buildCharmBook({ acct: a || null, prog: null, seasonKey: null }).chapters), { myth: MYTH_SETS.flatMap((x) => x.items), books: REAL_BOOKS, folk: CUNNING_FOLK }); } catch (e) { checks = {}; }
       send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [],
         folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [],
-        myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: a && Number.isFinite(a.mythBest) ? a.mythBest : null },
+        myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: mythBestOf(a, 'first'),
+          sets: MYTH_SETS.map((x) => ({ key: x.key, title: x.title, items: x.items, best: mythBestOf(a, x.key) })) },
         checks });
       return;
     }
@@ -13062,15 +13071,21 @@ wss.on('connection', (ws, req) => {
     // own data and keeps the account's best.
     if (msg.type === 'myth_quiz_done') {
       const a = player.accountKey && accounts[player.accountKey];
+      const set = MYTH_SETS.find((x) => x.key === msg.set) || MYTH_SETS[0];
       const given = (msg.answers && typeof msg.answers === 'object') ? msg.answers : {};
-      const score = MYTH_QUIZ.filter((q) => given[q.id] === q.answer).length;
+      const score = set.items.filter((q) => given[q.id] === q.answer).length;
       let best = null;
       if (a) {
-        const was = Number.isFinite(a.mythBest) ? a.mythBest : -1;
-        if (score > was) { a.mythBest = score; saveAccounts(); }
-        best = a.mythBest;
+        if (!a.mythBests || typeof a.mythBests !== 'object') a.mythBests = {};
+        const was = mythBestOf(a, set.key);
+        if (was === null || score > was) {
+          a.mythBests[set.key] = score;
+          if (set.key === 'first') a.mythBest = score; // kept for older saves
+          saveAccounts();
+        }
+        best = mythBestOf(a, set.key);
       }
-      send(ws, { type: 'myth_quiz_result', score, of: MYTH_QUIZ.length, best });
+      send(ws, { type: 'myth_quiz_result', set: set.key, score, of: set.items.length, best });
       return;
     }
     if (msg.type === 'read_forbidden_book') {
