@@ -4772,7 +4772,10 @@ function showNpcHintDialogue(msg) {
   currentHintNpcName = msg.npcName || null;
   const isStone = typeof msg.npcId === 'string' && msg.npcId.startsWith('way_');
   document.getElementById('npcHintName').textContent = isStone ? msg.npcName : `💬 ${msg.npcName}`;
-  document.getElementById('npcHintText').textContent = msg.message || '';
+  const hintText = document.getElementById('npcHintText');
+  hintText.textContent = msg.message || '';
+  // Long lore (the memorial, the longer stones) reads better left-aligned.
+  hintText.classList.toggle('longText', (msg.message || '').length > 320);
   // A standing stone has lore, not errands — no quest button on waymarkers.
   const qBtn = document.getElementById('npcHintQuestBtn');
   if (qBtn) qBtn.classList.toggle('hidden', isStone);
@@ -4798,7 +4801,7 @@ function renderShelfModal() {
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   if (!shelfState) { el.innerHTML = '<div class="cbIntro">Taking the books down…</div>'; return; }
   const read = new Set(shelfState.read || []);
-  let h = `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div>`;
+  let h = `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div><div class="shelfGrid">`;
   for (const b of (shelfState.books || [])) {
     const tier = PROV_TIER_LABEL[b.tier] ? b.tier : 'record';
     const open = shelfOpenId === b.id;
@@ -4813,6 +4816,7 @@ function renderShelfModal() {
     }
     h += '</div>';
   }
+  h += '</div>';
   el.innerHTML = h;
   el.querySelectorAll('.shelfBook').forEach((row) => row.addEventListener('click', () => {
     const id = row.getAttribute('data-bid');
