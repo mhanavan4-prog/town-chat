@@ -8563,6 +8563,7 @@ function boardStatePayload(player) {
 // cunning-folk working, solved with the pendulum / cards / staves / bowl and
 // the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
+const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
 const charmRewardsLib = require('./lib/charmRewards'); // 📜 what writing the book up earns
 const { WOAD_LORE } = require('./data/charmRewards');
 const callers = require('./lib/callers')({
@@ -12889,6 +12890,20 @@ wss.on('connection', (ws, req) => {
     // ── The Forbidden Shelf (roadmap #6): read today's date-seeded book at the
     //    Library's locked case. First read of a given book is logged to the
     //    player's Forbidden Archive codex; reading all of them grants a title. ──
+    // ── The Real Shelf (Library): real books of witchcraft and herb-lore. Opening
+    //    the case lists them; reading one records it for the Charm Book. ──
+    if (msg.type === 'real_shelf' || msg.type === 'read_real_book') {
+      const a = player.accountKey && accounts[player.accountKey];
+      if (msg.type === 'read_real_book' && a) {
+        const id = String(msg.id || '');
+        if (REAL_BOOKS.some((b) => b.id === id)) {
+          if (!Array.isArray(a.booksRead)) a.booksRead = [];
+          if (!a.booksRead.includes(id)) { a.booksRead.push(id); saveAccounts(); }
+        }
+      }
+      send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [] });
+      return;
+    }
     if (msg.type === 'read_forbidden_book') {
       const book = forbiddenBookToday();
       const read = forbiddenReadMap(player);

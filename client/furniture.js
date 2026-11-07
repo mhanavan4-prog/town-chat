@@ -803,6 +803,29 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       shelfLabel.position.set(shelfX, 86, shelfZ);
       scene.add(shelfLabel);
       kiosksOut.push({ x: shelfX, z: shelfZ, npc: 'forbidden_book', npcName: '📖 The Forbidden Shelf' });
+
+      // ── The Real Shelf — a plain oak bookcase beside the forbidden lectern,
+      // holding real books of witchcraft and herb-lore (data/realBooks.js).
+      const realX = shelfX + 120, realZ = roomD - 40;
+      const caseG = new THREE.Group();
+      const oak = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
+      const back = new THREE.Mesh(new THREE.BoxGeometry(70, 80, 6), oak); back.position.set(0, 40, -9); caseG.add(back);
+      for (const sx of [-34, 34]) { const side = new THREE.Mesh(new THREE.BoxGeometry(4, 80, 22), oak); side.position.set(sx, 40, 0); caseG.add(side); }
+      const SPINES = [0x7a2e2e, 0x2e4a7a, 0x3d6b3a, 0x7a6a2e, 0x4a2e6b, 0x6b3d2a, 0x2e6b66];
+      for (let row = 0; row < 3; row++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(64, 3, 20), oak); shelf.position.set(0, 8 + row * 24, 0); caseG.add(shelf);
+        for (let i = 0; i < 8; i++) {
+          const h = 14 + ((i * 7 + row * 3) % 6);
+          const book = new THREE.Mesh(new THREE.BoxGeometry(6, h, 14), new THREE.MeshLambertMaterial({ color: SPINES[(i + row * 3) % SPINES.length] }));
+          book.position.set(-26 + i * 7.4, 9.5 + row * 24 + h / 2, 0); caseG.add(book);
+        }
+      }
+      caseG.position.set(realX, 0, realZ);
+      scene.add(caseG);
+      const realLabel = makeNpcNameSprite('📚 The Real Shelf', 'witch-books of the record');
+      realLabel.position.set(realX, 104, realZ);
+      scene.add(realLabel);
+      kiosksOut.push({ x: realX, z: realZ - 20, npc: 'real_shelf', npcName: '📚 The Real Shelf' });
     }
   } else if (type === 'alchemist') {
     // ── The Starlit Arcade ──────────────────────────────────────────────
