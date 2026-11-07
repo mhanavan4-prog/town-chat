@@ -933,6 +933,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 21 December · R. Chambers, The Book of Days (1864), 21 December',
     reward: { gold: 40, xp: 35 },
   },
+  // Rogationtide only (data/rogation.js), dated by Easter through the old calendar.
+  {
+    id: 'rogation_bounds',
+    caller: 'Thomas Ridley, the parish clerk',
+    icon: '🪵',
+    title: 'Rogationtide',
+    when: { calendar: 'beating_bounds', days: 2, label: 'Rogationtide' },
+    plea: "We beat the bounds tomorrow, and there's a new man on the Upper Ground who's moved the hedge and swears the old stone by the ford was never ours. I'm the last one living who was bumped on that stone as a boy, and I'm too old to walk the whole round. Will you walk it for me, and see the boys learn every mark?",
+    steps: [
+      { kind: 'rite', rite: 'beat_bounds', label: 'The whole round of the bounds, the willow wands at every mark' },
+    ],
+    resolution: "The boys know every mark now, and the new man has put the hedge back. Then the practical half: a boundary kept only in old men's heads dies with them, so write it down. A public path is safe in law if it is on the council's definitive map; in England there is still a cut-off date, 1 January 2031, after which old paths not yet claimed may be lost (the government has said it will repeal it, but until it does, get them claimed). And the Land Registry's plans show only the general line of a boundary, not the exact one, and the Registry won't settle a quarrel: walk it with your neighbour, talk it through, and put what you agree in writing.",
+    lore: "Beating the bounds: in Rogation week the parson, officers and boys walked the parish boundary, the boys striking the marks with willow wands, so the bounds would be remembered (Injunctions, 1559; Hone, 1826).",
+    tier: 'record',
+    source: 'Royal Injunctions of 1559, XVIII–XIX · W. Hone, The Every-Day Book, vol. I (1826), 12 May',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
