@@ -34,8 +34,8 @@ const nov14 = datedComing(Date.UTC(2026, 10, 14, 12), 400);
 check('once the window has closed it is next year\'s', nov14.find((x) => x.id === 'martinmas_cock').inDays === 360, nov14.find((x) => x.id === 'martinmas_cock'));
 const w = nextWindow({ calendar: 'plough_monday', days: 2 }, Date.UTC(2027, 0, 12, 18));
 check('a moving day\'s window is still open on its second day', w && w.start === Date.UTC(2027, 0, 11) && w.end === Date.UTC(2027, 0, 13));
-// 1 June: nothing comes to the door till Martinmas, more than 120 days off.
-const spring = datedComing(Date.UTC(2026, 5, 1, 12));
+// 1 July: nothing comes to the door till Martinmas, more than 120 days off.
+const spring = datedComing(Date.UTC(2026, 6, 1, 12));
 check('nothing more than 120 days off, but when none is that near, still the next one', datedComing(NOV7).every((x) => x.inDays <= 120) && spring.length === 1 && spring[0].id === 'martinmas_cock' && spring[0].inDays > 120, spring);
 
 // Where next.
