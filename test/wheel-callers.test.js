@@ -76,7 +76,9 @@ setTimeout(() => {
       if (r.season !== k) continue;
       days++;
       const seasonOf = (id) => (CALLERS.find((c) => c.id === id) || {}).season;
-      if (seasonOf(r.ids[0]) === k) first++;
+      // A dated caller (Good Friday, which can fall in Ostara) comes first on its days, the season's second.
+      const dated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
+      if (seasonOf(r.ids[0]) === k || (dated(r.ids[0]) && seasonOf(r.ids[1]) === k)) first++;
       strays += r.ids.filter((id) => seasonOf(id) && seasonOf(id) !== k).length;
     }
     check(`${k}: one of its callers is always first at the door, and no other season's caller comes`, days === 10 && first === 10 && strays === 0, { days, first, strays });
@@ -96,7 +98,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.reeve, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'feasts');
-  check('the Charm Book has a Turning Year chapter of twelve, all written in (and Martinmas, Plough Monday, St Mark\'s Eve and Valentine\'s Eve after them)', ch && ch.total === 16 && ch.met === 12 && ch.entries[12].id === 'martin_blood' && ch.entries[13].id === 'plough_monday' && ch.entries[14].id === 'porch_watch' && ch.entries[15].id === 'valentine_bay');
+  check('the Charm Book has a Turning Year chapter of twelve, all written in (and Martinmas, Plough Monday, St Mark\'s Eve, Valentine\'s Eve and Good Friday after them)', ch && ch.total === 17 && ch.met === 12 && ch.entries[12].id === 'martin_blood' && ch.entries[13].id === 'plough_monday' && ch.entries[14].id === 'porch_watch' && ch.entries[15].id === 'valentine_bay' && ch.entries[16].id === 'cross_bun');
   check('…in Wheel order, each naming its festival', ch && ch.entries[0].id === 'bridesbed' && /Imbolc/.test(ch.entries[0].title) && ch.entries[11].id === 'michaelmas' && /Mabon/.test(ch.entries[11].title));
   check('…right after Yuletide', book.chapters.findIndex((c) => c.key === 'feasts') === book.chapters.findIndex((c) => c.key === 'yule') + 1);
 

@@ -780,6 +780,23 @@ const CALLERS = [
     source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book (1826–27), 14 February',
     reward: { gold: 40, xp: 35 },
   },
+  // Good Friday only (data/goodFriday.js), dated by Easter through the old calendar.
+  {
+    id: 'good_friday_bun',
+    caller: 'Ann Tilley',
+    icon: '🍞',
+    title: 'The Good Friday Bun',
+    when: { calendar: 'good_friday_bun', days: 2, label: 'Good Friday' },
+    plea: "It's Good Friday, and I've the buns to bake. And my little Joe has had the flux three days. Mother always grated a bit of last year's bun into water for it, but ours went to the pig. Will you help me bake them, and help me with the cure?",
+    steps: [
+      { kind: 'rite', rite: 'cross_bun', label: 'The buns baked, one hung up, a little grated into water' },
+    ],
+    resolution: "The buns are baked and one hangs from the beam. Then the practical half, and it matters more than the bun: a child three days with the flux is drying out. Small sips of water, often, even if he brings some back; the chemist's salts for it if you can get them; and if he is wetting less, or can't keep anything down, the doctor today, not tomorrow. The grated bun does no harm in the water. It's the water that does the good.",
+    lore: "The Good Friday bun: bread baked on Good Friday was kept all year, said never to go mouldy, and grated into water as a cure, \"particularly for diarrhea\" (Chambers, 1864).",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), Good Friday · NHS, "Diarrhoea and vomiting" (2023)',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
