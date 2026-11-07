@@ -526,6 +526,172 @@ const CALLERS = [
     source: 'Robert Herrick, Hesperides (1648), "Ceremonies for Christmas" and "The Ceremonies for Candlemas Day"',
     reward: { gold: 50, xp: 40 },
   },
+  // ── The turning year (each only in its own festival's season; data/wheelRites.js) ──
+  {
+    id: 'imbolc_brides_bed', season: 'imbolc', caller: 'Mór MacNeil', icon: '🌾',
+    title: "Bride's Bed",
+    plea: "My mother made Briid's bed every Candlemas of her life, out in the islands, and I've never once made it in this house. The oats are in the barn. Will you help me dress the sheaf and say the words, and look in the ashes with me in the morning?",
+    steps: [
+      { kind: 'deliver', item: 'wood', qty: 1, label: 'Wood to whittle a club to lay by the bed' },
+      { kind: 'rite', rite: 'bridesbed', label: "Make Briid's bed and cry her welcome" },
+    ],
+    resolution: "You dress the sheaf in her mother's old shawl and lay it in the peat basket with the club beside it, and the two of you cry \"Briid is come, Briid is welcome\" three times and feel foolish and then not foolish at all. In the morning she is at the hearth before you. Whatever the ashes said, she tells you the house feels like her mother's again.",
+    lore: "Martin Martin found it in the Western Isles around 1695: on the second of February a sheaf of oats dressed in women's clothes, laid in a large basket with a wooden club, and the cry \"Briid is come, Briid is welcome\"; in the morning the print of the club in the ashes promised a good crop.",
+    tier: 'record',
+    source: 'Martin Martin, A Description of the Western Islands of Scotland (1703)',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'imbolc_brigid_cross', season: 'imbolc', caller: 'Nora Keane', icon: '✚',
+    title: "A Cross for the Rafters",
+    plea: "The chimney caught twice this winter and himself says it's the flue, and I say it's that we never put up Brigid's cross this year. The rushes are down at the bog. Will you weave one with me, a proper one, and help me get the old one down?",
+    steps: [
+      { kind: 'rite', rite: 'brigidcross', label: "Weave and hang St Brigid's cross" },
+    ],
+    resolution: "You weave it together at her table and hang it over the door, and the old black one goes out to be buried at the top of the field. Then, because he is right as well, you send for the sweep. A cross over the door and a clean flue: between the two of them the house is as safe as a house can be.",
+    lore: "Across Ireland, rush crosses were woven for Brigid's feast and hung in the rafters or over the door, above all to keep the house from fire; the old one was burned or buried in the fields. Schoolchildren wrote it down for the Irish Folklore Commission in 1937–38.",
+    tier: 'folk',
+    source: "National Folklore Collection, Schools' Collection (1937–38) · K. Danaher, The Year in Ireland (1972)",
+    reward: { gold: 45, xp: 35 },
+  },
+  {
+    id: 'ostara_sun_dance', season: 'ostara', caller: 'Little Bridie Flynn', icon: '🌅',
+    title: 'To See the Sun Dance',
+    plea: "Grandda says the sun dances on Easter morning, for joy, and if you get up early enough you can see it in the water. Mam says I'm not to go out in the dark on my own. Will you come? I'll bring the pail.",
+    steps: [
+      { kind: 'rite', rite: 'sundance', label: 'Watch the sun rise on Easter morning' },
+    ],
+    resolution: "You sit on the wall with the pail between you in the grey before dawn, and when the sun comes up over the hill the water shivers and the light dances in it, and she grips your arm and says \"There!\" You don't tell her it's the water moving. Sir Thomas Browne said as much in 1646, and nobody listened to him either.",
+    lore: "It was a common belief in Britain and Ireland that the sun danced on Easter morning for the Resurrection. People rose before four to see it, often in a vessel of water. Browne, in 1646, ventured that \"the Sun doth not dance on Easter day\".",
+    tier: 'record',
+    source: 'Sir Thomas Browne, Pseudodoxia Epidemica (1646), Book V ch. 22 · W. Hone, The Every-Day Book (1826–27), 5 April',
+    reward: { gold: 40, xp: 35 },
+  },
+  {
+    id: 'ostara_pace_eggs', season: 'ostara', caller: 'The Dobson twins', icon: '🥚',
+    title: 'Pace Eggs',
+    plea: "Everybody's rolling pace eggs down the brae on Easter Monday and ours have to be the best, because last year the Hartleys' won and they haven't shut up since. Will you help us dye them? We've got the onion skins. We need something for yellow.",
+    steps: [
+      { kind: 'deliver', item: 'gorse_bloom', qty: 2, label: 'Whin blossom to dye them yellow' },
+      { kind: 'rite', rite: 'paceeggs', label: 'Dye the eggs and roll them down the brae' },
+    ],
+    resolution: "Onion-brown and whin-yellow, hard as stones, they go bowling down the brae with half the village shrieking after them. Win or lose, the twins eat every broken one on the way home and declare it the best Easter there ever was. The Hartleys, they report, cried.",
+    lore: "Pace eggs are Pasch (Easter) eggs. Hone describes one boiled \"within the coat of an onion\"; in 1827 eggs were dyed \"for the bairns to … row on the braes on Pasch Sunday\". Whin blossom dyed them yellow, and Preston still rolls them in Avenham Park.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826–27), 5 April · Scottish National Dictionary, "Pace"',
+    reward: { gold: 45, xp: 35 },
+  },
+  {
+    id: 'beltane_may_dew', season: 'beltane', caller: 'Kitty Turner', icon: '💧',
+    title: 'The May Dew',
+    plea: "I'm to be married at midsummer and my face is a fright, freckles all over. My aunt swears by the May dew. Will you wake me before sunrise on May morning and come out to the meadow? I'll never get up on my own.",
+    steps: [
+      { kind: 'rite', rite: 'maydew', label: 'Wash in the dew on May morning' },
+    ],
+    resolution: "You haul her out of bed in the dark and down to the meadow, and she washes her face in the cold dew, shrieking. Whether the freckles go is between her and the sun, and the sun gave her them in the first place. But she is pink and laughing all the way home, and that, on the whole, is the look a bride wants.",
+    lore: "Washing the face in the dew of May morning was for beauty. In 1667 Pepys's wife went out of town to gather it, Mrs Turner having taught her it was \"the only thing in the world to wash her face with\".",
+    tier: 'record',
+    source: 'Samuel Pepys, Diary, 28 May 1667',
+    reward: { gold: 40, xp: 35 },
+  },
+  {
+    id: 'beltane_cake', season: 'beltane', caller: 'Old Duncan the herd', icon: '🔥',
+    title: 'The Beltane Cake',
+    plea: "The lambs are coming and there's a fox at the top of the glen that's had two already. My father kept the Bel-tein, the trench and the caudle and the cake with the nine knobs. I'm too stiff to cut turf now. Will you keep it with me?",
+    steps: [
+      { kind: 'deliver', item: 'wood', qty: 2, label: 'Wood for the fire in the trench' },
+      { kind: 'rite', rite: 'beltanecake', label: 'Keep the Bel-tein: the caudle and the cake' },
+    ],
+    resolution: "You cut the square trench, light the fire and stir the caudle, and spill some on the ground first, the way his father did. He breaks the knobs and throws them over his shoulder one by one, naming every one, the fox last and loudest. Then, because a cake won't stop a fox, the two of you mend the gap in the fold wall before dark.",
+    lore: "Pennant saw it in Highland Perthshire in 1769: on the first of May the herdsmen cut a square trench, made a fire and cooked a caudle, spilled some \"by way of libation\", and broke a nine-knobbed oatmeal cake, throwing each knob over the shoulder to the protectors of the flocks and to the fox, the hooded crow and the eagle.",
+    tier: 'record',
+    source: 'Thomas Pennant, A Tour in Scotland, 1769 (1771)',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'litha_st_johns_door', season: 'litha', caller: 'Master Giles Pewterer', icon: '🚪',
+    title: "St John's Eve",
+    plea: "When I was a boy every door in the street was green on St John's Eve, birch and fennel and St John's wort, with a lamp burning all night. Now it's only mine, and I can't reach the lintel any more. Will you dress it for me, the old way?",
+    steps: [
+      { kind: 'deliver', item: 'birch_bark', qty: 1, label: 'Green birch for the door' },
+      { kind: 'deliver', item: 'fennel', qty: 1, label: 'Long fennel' },
+      { kind: 'deliver', item: 'st_johns_wort', qty: 1, label: "St John's wort" },
+      { kind: 'rite', rite: 'midsummerdoor', label: 'Dress the door and light the lamp' },
+    ],
+    resolution: "You put up the birch, the fennel and the bright St John's wort, and light the glass lamp in the doorway. By dark, two of his neighbours have come out to look, and by midnight one of them has done his own door too. Master Giles sits on his step till late and tells you about the marching watch.",
+    lore: "Stow, in 1603: on St John's Eve \"euery mans doore being shadowed with greene Birch, long Fennel, Saint Iohns wort, Orpin, white Lillies\", with garlands of flowers and lamps of glass burning in them all the night.",
+    tier: 'record',
+    source: 'John Stow, A Survey of London (2nd ed., 1603)',
+    reward: { gold: 55, xp: 40 },
+  },
+  {
+    id: 'litha_hemp_seed', season: 'litha', caller: 'Hester Lowe', icon: '🌱',
+    title: 'Hemp-Seed at Midnight',
+    plea: "It's Midsummer Eve and I've got the hemp-seed, and I know the words, but I'm not going out in the field at midnight on my own, whatever the rhyme says. Will you stand by the gate? You're not to look either.",
+    steps: [
+      { kind: 'rite', rite: 'hempseed', label: 'Sow the hemp-seed at midnight' },
+    ],
+    resolution: "You stand at the gate with your back to the field while she sows it and says the words. She comes back very quiet and won't say what she heard behind her. Three weeks later the hemp is up in a green line across the corner of the field, and so, most evenings, is the miller's son.",
+    lore: "Gay put it in verse in 1714: \"This hemp-seed with my virgin hand I sow, / Who shall my true-love be, the crop shall mow.\" Hunt took down the Cornish words in 1865, the sowing and hoeing gone through deliberately: \"Hemp-seed I sow, / Hemp-seed I hoe.\"",
+    tier: 'record',
+    source: 'John Gay, The Shepherd\'s Week (1714) · R. Hunt, Popular Romances of the West of England (1865)',
+    reward: { gold: 40, xp: 35 },
+  },
+  {
+    id: 'lughnasadh_lammas_loaf', season: 'lughnasadh', caller: 'Farmer Ashdown', icon: '🍞',
+    title: 'The Lammas Loaf',
+    plea: "The mice had a third of my oats last winter. The first of the new wheat is threshed. My grandmother's book says a Lammas loaf in the four corners of the barn. Will you bring a loaf and do it right?",
+    steps: [
+      { kind: 'deliver', item: 'hearth_loaf', qty: 1, label: 'A loaf of the new grain' },
+      { kind: 'rite', rite: 'lammasloaf', label: 'Crumble the loaf in the four corners of the barn' },
+    ],
+    resolution: "You crumble the loaf into the four corners of the barn and say the words over it. Then you tell him the other half: a cat, and the grain kept off the floor on staddle stones where the mice can't climb. He gets both. That winter he loses hardly a sack, and he is never sure which to thank.",
+    lore: "Lammas is hlāf-mæsse, \"loaf-mass\". An 11th-century charm in a Winchester psalter directs four pieces of the bread hallowed on Lammas Day to be crumbled into the four corners of the barn to keep the stored grain safe.",
+    tier: 'record',
+    source: 'British Library, Cotton Vitellius E xviii (mid-11th c.), barn charm',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
+    id: 'lughnasadh_bilberry_sunday', season: 'lughnasadh', caller: 'Seán Óg Hennessy', icon: '🫐',
+    title: 'Bilberry Sunday',
+    plea: "Everyone's going up the mountain for the fraughans on Sunday, and Máire Rua will be there, and I'm meant to give her a bracelet of them and I can't thread a bilberry to save my life. Will you come up and help me pick, and show me?",
+    steps: [
+      { kind: 'deliver', item: 'berries', qty: 3, label: 'Bilberries for the bracelet' },
+      { kind: 'rite', rite: 'bilberries', label: 'Climb the hill on Bilberry Sunday' },
+    ],
+    resolution: "The whole parish is on the mountain with purple hands. You show him how to thread them on a rush without bursting them, and he gives her the bracelet at the top, beside the cairn, and goes the colour of the berries. She wears it down the mountain. You are not needed for the rest of the afternoon.",
+    lore: "On Garland Sunday (Bilberry or Fraughan Sunday) at the end of July, people across Ireland climbed the hills, picked bilberries, and the boys strung them into bracelets for their sweethearts. MacNeill traced it to the old festival of Lughnasa.",
+    tier: 'folk',
+    source: 'M. MacNeill, The Festival of Lughnasa (1962)',
+    reward: { gold: 45, xp: 35 },
+  },
+  {
+    id: 'mabon_crying_the_neck', season: 'mabon', caller: 'Jory Pascoe', icon: '🌾',
+    title: 'Crying the Neck',
+    plea: "We're cutting the last of the big field tomorrow and old Tregear always held up the neck, but he's gone to his daughter's. Somebody's got to plait it and cry it, and somebody's got to run it in past Loveday at the dairy door. Will you?",
+    steps: [
+      { kind: 'rite', rite: 'neck', label: 'Plait the neck and cry it' },
+    ],
+    resolution: "You plait the last handful and hold it high while the reapers cry \"The neck!\" three times, long and slow, and then \"We yen!\", and it rolls right across the valley. Then you run. However it goes at the dairy door, the neck goes up on the farmhouse beam for next year, and the harvest supper is the best you've eaten.",
+    lore: "In Devon and Cornwall the last sheaf, \"the neck\", was held up while the reapers cried \"the neck!\" three times, then \"wee yen!\" (Hunt thought \"we end\"). The runner who got it into the house unseen could kiss the dairymaid; if not, he was soused from a pail.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826) · R. Hunt, Popular Romances of the West of England (1865)',
+    reward: { gold: 45, xp: 35 },
+  },
+  {
+    id: 'mabon_michaelmas_brambles', season: 'mabon', caller: 'Mother Furlong', icon: '🫐',
+    title: 'Before Michaelmas',
+    plea: "I've the jars washed and the sugar bought and my legs won't take me down the lane to the brambles, and Michaelmas is on us. Once it's past, you know who'll have spoiled them. Will you pick for me while there's time?",
+    steps: [
+      { kind: 'deliver', item: 'bramble_vine', qty: 2, label: 'Brambles, picked in time' },
+      { kind: 'rite', rite: 'michaelmas', label: 'Pick the last blackberries before Michaelmas' },
+    ],
+    resolution: "You strip the lane hedge just in time and she makes the jam with the windows steamed up. You tell her the honest half too: by October the berries are wet and mouldy, which is reason enough not to eat them, Devil or no Devil. She says she knew that, and that it was the Devil anyway.",
+    lore: "No blackberries after Michaelmas: Threlkeld wrote in 1727 that after Michaelmas \"the D—l casts his club over them\"; in Sussex the Devil spat on them after Old Michaelmas Day (10 October), in Scotland he threw his cloak over them.",
+    tier: 'record',
+    source: 'C. Threlkeld, Synopsis Stirpium Hibernicarum (1727) · Opie & Tatem, A Dictionary of Superstitions (1989)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',
@@ -551,7 +717,8 @@ const CALLERS_PER_DAY = 3;
 // 'charm' — a spoken charm (data/charms.js), said line by line on the Board.
 // 'key' — the key and Bible: like the sieve, the suspects named on the Board.
 // 'rite' — a seasonal rite: a Hallowe'en love divination (data/halloween.js)
-// or a Yule custom (data/yule.js); callers with a season come only in it.
+// a Yule custom (data/yule.js) or another festival's custom
+// (data/wheelRites.js); callers with a season come only in it.
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
 const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots'];
 

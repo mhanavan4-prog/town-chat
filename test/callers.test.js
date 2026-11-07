@@ -69,7 +69,7 @@ setTimeout(() => {
   const brewed = new Set(POTION_RECIPES.map((r) => r.result));
   const grown = new Set();
   for (const cat of GREEN_PATH_CATEGORIES) for (const p of cat.plants) grown.add(p.id);
-  const sold = new Set(['salt', 'wind_cord_3', 'wood']); // the apothecary's shelf, a wind you tie yourself, holly from the town trees
+  const sold = new Set(['salt', 'wind_cord_3', 'wood', 'berries', 'hearth_loaf']); // the apothecary's shelf, a wind you tie yourself, holly from the town trees, berries from the town shrubs (and the shop), a loaf baked at your own hearth
   // …and anything a Wilds tree drops (the ogham grove included).
 
   for (const c of CALLERS) {
