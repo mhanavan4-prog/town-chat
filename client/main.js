@@ -11090,6 +11090,38 @@ const BOOK_MOON = [
   { key: 'last_quarter', g: '🌗', n: 'Last Quarter', i: 'banishing & cleansing' },
   { key: 'waning_crescent', g: '🌘', n: 'Waning Crescent', i: 'rest & deep divination' },
 ];
+// 📅 The old calendar in the Commonplace Book: today's custom (if any) and the
+// next one coming, each with its source and tier (data/oldCalendar.js).
+const OLD_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function oldCalendarEntryHtml(e, when) {
+  const tier = PROV_TIER_LABEL[e.tier] ? e.tier : 'folk';
+  return `<div class="oldDay"><div class="oldDayHead">${esc(e.icon || '📅')} <b>${esc(e.title)}</b>${when ? ` <span class="oldWhen">${esc(when)}</span>` : ''}</div>`
+    + `<div class="oldText">${esc(e.text)}</div>`
+    + (e.quote ? `<div class="oldQuote">“${esc(e.quote)}”</div>` : '')
+    + `<div class="oldSrc"><span class="callerTier callerTier-${tier}">${PROV_TIER_LABEL[tier]}</span> ${esc(e.source)}</div></div>`;
+}
+function renderOldCalendarSec() {
+  const od = calendarState && calendarState.oldDay;
+  if (!od) return '';
+  let h = '<div class="bookSec"><h4>📅 The Old Calendar</h4>';
+  if (od.today && od.today.length) for (const e of od.today) h += oldCalendarEntryHtml(e, 'today');
+  else h += '<div class="bookNote">Nothing kept today in the old calendar.</div>';
+  if (od.next) h += oldCalendarEntryHtml(od.next, `${od.next.day} ${OLD_MONTHS[od.next.month - 1]}${od.next.inDays === 1 ? ' — tomorrow' : ` — in ${od.next.inDays} days`}`);
+  h += '<div class="bookNote">From Hone\'s Every-Day Book (1826–27), Chambers\'s Book of Days (1864) and others: one custom for nearly every week of the year.</div></div>';
+  return h;
+}
+// Once a day, say what the old calendar keeps today.
+let _oldDayToasted = '';
+function maybeToastOldDay() {
+  const od = calendarState && calendarState.oldDay;
+  if (!od || !od.today || !od.today.length) return;
+  const stamp = new Date().toISOString().slice(0, 10) + ':' + od.today.map((e) => e.key).join(',');
+  if (_oldDayToasted === stamp) return; // once a session, even with storage off
+  _oldDayToasted = stamp;
+  try { if (localStorage.getItem('tc_oldday') === stamp) return; localStorage.setItem('tc_oldday', stamp); } catch (e) { /* storage off: once a session */ }
+  const e = od.today[0];
+  setUnlockToast(`📅 Today in the old calendar: ${e.icon} ${e.title}. ${e.text}`);
+}
 const BOOK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 // Where a practice really comes from: a tier badge, the line and its source
@@ -11116,6 +11148,7 @@ function renderBookModal() {
   const wheelFx = (calendarState && calendarState.wheelEffects) || {};
   for (const s of BOOK_SABBATS) h += `<div class="bookCell${s.key === curSeason ? ' cur' : ''}"><span class="bg">${sabbatGlyph(s.key, s.g)}</span><b>${esc(s.n)}</b><span class="bi">${esc(s.e)}</span>${(wheelFx[s.key] || []).length ? `<span class="bfx">On the day: ${esc(wheelFx[s.key].join(' · '))}</span>` : ''}</div>`;
   h += '</div></div>';
+  h += renderOldCalendarSec();
   h += '<div class="bookSec"><h4>🌙 The Moon</h4><div class="bookGrid">';
   for (const m of BOOK_MOON) h += `<div class="bookCell${m.key === curMoon ? ' cur' : ''}"><span class="bg">${m.g}</span><b>${esc(m.n)}</b><span class="bi">${esc(m.i)}</span></div>`;
   h += '</div><div class="bookNote">Charge moon water and work the esbat at the full moon.</div>';
@@ -15555,6 +15588,7 @@ function applyCalendarState(cal) {
   renderEventTag();
   renderMoonTag();
   renderHourTag();
+  try { maybeToastOldDay(); } catch (e) { /* cosmetic */ }
   if (Modals.isOpen('bookOpen')) renderBookModal();
   // If the sabbat turns while you're standing in the cottage, re-dress the room.
   if (activeScene === cottageScene) { try { applyCottageDressing(); } catch (e) { /* cosmetic */ } }
@@ -15708,6 +15742,8 @@ function renderEventTag() {
     else if (se.forageBonus) tag += ' — +' + Math.round(se.forageBonus * 100) + '% foraging';
     parts.push(tag);
   }
+  const od = calendarState.oldDay && calendarState.oldDay.today;
+  if (od && od.length) parts.push(od.map((e) => `${e.icon} ${e.title}`).join(' · '));
   if (calendarState.bloodMoon && bloodMoonActiveClient(now)) parts.push('🔴 BLOOD MOON');
   if (calendarState.festival && now >= calendarState.festival.startsAt && now < calendarState.festival.endsAt) parts.push('🏮 Hearthmoon Festival — +25% XP');
   if (calendarState.tourney && now >= calendarState.tourney.startsAt && now < calendarState.tourney.endsAt) parts.push('🏹 Hunt Tournament');

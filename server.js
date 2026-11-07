@@ -8576,6 +8576,7 @@ const callers = require('./lib/callers')({
 
 // Event calendar (Session L) — extracted to lib/calendar.js (Tier 3.4 Phase B).
 const { SABBATS, WHEEL_PROVENANCE, seasonEffectLines } = require('./data/seasons');
+const { oldCalendarDay } = require('./data/oldCalendar'); // 📅 the customs of the old year, by date
 const { MOON_PHASES, FULL_MOON_INDEX } = require('./data/moon');
 // Compressed lunar month: one full new→full→new cycle. 20h is deliberately not
 // a divisor of 24h, so the full moon drifts across the time of day (a player
@@ -8597,6 +8598,8 @@ function calendarPublicState(now) {
     if (cal.season) cal.season = { ...cal.season, effectLines: seasonEffectLines(cal.season.effects) };
     cal.wheelEffects = Object.fromEntries(SABBATS.map((s) => [s.key, seasonEffectLines(s.effects)]));
   } catch (e) { /* noop */ }
+  // 📅 The old calendar: today's custom (if any) and the next one coming.
+  try { cal.oldDay = oldCalendarDay(t); } catch (e) { /* noop */ }
   return cal;
 }
 const FESTIVAL_XP_MULT = 1.25;
@@ -11516,7 +11519,7 @@ wss.on('connection', (ws, req) => {
       if (!resume) {
         try {
           if (seasonWindow().key === 'samhain') {
-            send(ws, { type: 'announce', message: '🕯️ Samhain is come — the veil between the living and the dead hangs thin. The dead walk near, and the sight runs clear.' });
+            send(ws, { type: 'announce', message: '🕯️ Samhain is come — the hollow hills stand open. The dead walk near, and the sight runs clear.' });
           }
         } catch (e) { /* noop */ }
       }
