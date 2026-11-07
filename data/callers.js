@@ -848,6 +848,23 @@ const CALLERS = [
     source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87) · Notes and Queries (15 November 1851)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Clement's Day only (data/stClement.js), dated by the old calendar.
+  {
+    id: 'old_clem_smiths',
+    caller: 'Tom Ashby, the smith\'s apprentice',
+    icon: '⚒️',
+    title: "St Clement's Day",
+    when: { calendar: 'old_clem', days: 2, label: "St Clement's Day" },
+    plea: "St Clement's night, and the shop's chosen me to be Old Clem: the oakum wig, the mask, the long white beard, and the chair on six men's shoulders round the public houses with the box. I'm to say the speech and I can't keep it in my head, and Master says if we're short for the supper it comes out of my wages. Will you come round with us?",
+    steps: [
+      { kind: 'rite', rite: 'old_clem', label: 'Old Clem in his chair round the public houses, the speech and the box' },
+    ],
+    resolution: "The box pays for the supper and some over. Then the practical half, for a forge is a dangerous place to be merry in. Eyes first: wear something over them at the anvil, and so should anyone watching. Wear cotton or wool at the fire, never anything that melts. Hot scale flies, so keep good boots on and keep it out of your gloves. Iron can look cold and still burn you to the bone: treat everything on or near the forge as hot. Never cool a gloved hand in the slack tub, for the water turns to steam inside the glove. Keep the door open while the coal burns, for the fumes have no smell. A burn goes under cold water for ten minutes. And no gunpowder on the anvil, whatever your grandfather did.",
+    lore: "Old Clem: on St Clement's Day the blacksmiths' apprentices carried one of their seniors, dressed as Old Clem, round the public houses with a speech and a money-box, for their supper (Hone, 1826; Hills, after Sawyer, 1884).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 23 November · G. P. G. Hills, "Notes on Some Blacksmiths\' Legends and the Observance of St. Clement\'s Day", Hampshire Field Club Papers, vol. 8',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Catherine's Day only (data/catterning.js), dated by the old calendar.
   {
     id: 'cattern_lacemakers',
