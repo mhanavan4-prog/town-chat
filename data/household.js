@@ -10,7 +10,9 @@
 // (1902); the Carmichael Watson papers; the Pitt Rivers Museum (1884.56.3);
 // T. F. Thiselton Dyer, Domestic Folk-Lore (1881) and The Ghost World (1893);
 // M. Martin, A Description of the Western Islands of Scotland (1703); J. G.
-// Frazer, Balder the Beautiful (1913); the Indiculus superstitionum (8th c.).
+// Frazer, Balder the Beautiful (1913); the Indiculus superstitionum (8th c.);
+// R. Kirk, The Secret Common-Wealth (1691); Pitcairn (1833) for Isobel Gowdie;
+// M. Dowd, "Bewitched by an Elf Dart" (2018).
 // ---------------------------------------------------------------------------
 const HOUSEHOLD_RITES = {
   telling_bees: {
@@ -84,6 +86,18 @@ const HOUSEHOLD_RITES = {
     lore: 'The need-fire, in Gaelic tein-éigin, was "a forced fire, or fire of necessity" against plague or murrain (Martin, 1703). Every fire in the parish was put out; eighty-one married men, by turns, rubbed two planks together till they kindled; each family took new fire home, and water heated on it was sprinkled on the sick people and cattle. Frazer gathered cases from Scotland, England, Ireland and Germany into the 19th century; on Mull a sick heifer was cut in pieces and burnt in it. The word is old: "nodfyr" stands in a list of pagan practices from the 740s.',
     tier: 'record',
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913), vol. 1 · Indiculus superstitionum, no. 15',
+  },
+  elf_shot: {
+    key: 'elf_shot', name: 'Elf-Shot', icon: '🏹',
+    how: 'Find the hole in the hide with your finger, as Kirk says the cure is. Then drop the elf-arrow, a little flint arrowhead turned up in the field, into a bowl of water, and give the beast the water to drink.',
+    outcomes: [
+      'Your finger finds no hole, only hot, tight skin. The cow drinks the elf-water slowly, then lows once.',
+      'There is a little sore on her flank, as if from a dart. She drinks the arrow-water and gets to her feet.',
+      'The flint goes into the bowl with a click. The heifer drinks it all, and the household breathes again.',
+    ],
+    lore: 'A beast that dropped suddenly was "Elf-shot": the fairies\' arrows, Kirk wrote in 1691, were "solid earthly Bodies, nothing of Iron, but much of Stone, like to yellow soft Flint Spa, shaped like a barbed Arrow-head". Isobel Gowdie confessed in 1662 that "we haw no bow to shoot with, but spang them from the naillis of our thowmbes." The cure was to find the hole, or touch the beast with an elf-arrow, or make it drink water one had been dipped in; some were set in silver as amulets. The arrows were real: Neolithic and Bronze Age flint arrowheads, turned up by the plough. "Ylfa gescot", elves\' shot, is already in an Old English charm.',
+    tier: 'record',
+    source: 'R. Kirk, The Secret Common-Wealth (1691) · I. Gowdie (1662), in R. Pitcairn, Ancient Criminal Trials, vol. 3 (1833) · T. Pennant, A Tour in Scotland (1771) · M. Dowd, Cambridge Archaeological Journal 28 (2018) · Lacnunga, "Wið færstice"',
   },
 };
 
