@@ -9,7 +9,7 @@
 // RTÉ Brainstorm (2019), on the Schools' Collection; Dictionary of the Scots
 // Language, "mart"; W. Hone, The Every-Day Book, 11 November.
 // ---------------------------------------------------------------------------
-const MARTINMAS_WHEN = { month: 11, from: 9, to: 13 }; // Martinmas Eve-week: the 9th to the 13th of November
+const MARTINMAS_WHEN = { month: 11, from: 9, to: 13, label: 'Martinmas week' }; // Martinmas Eve-week: the 9th to the 13th of November
 
 const MARTINMAS_RITES = {
   martin_blood: {

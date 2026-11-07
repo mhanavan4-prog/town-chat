@@ -9,7 +9,7 @@
 // st. VI; on hunger and vivid dreams, Nielsen & Powell, Frontiers in
 // Psychology 6 (2015), a survey, not a trial.
 // ---------------------------------------------------------------------------
-const AGNES_WHEN = { month: 1, from: 20, to: 21 };
+const AGNES_WHEN = { month: 1, from: 20, to: 21, label: 'St Agnes\' Eve' };
 
 const AGNES_RITES = {
   st_agnes_pins: {

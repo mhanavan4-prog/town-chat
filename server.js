@@ -5166,7 +5166,9 @@ function whereNextFor(player, book, nowIn) {
     hourHerbs[pl.key] = Object.keys(CULPEPER_RULERS).filter((h) => CULPEPER_RULERS[h] === pl.day)
       .map((h) => (ITEM_CATALOG[h] && ITEM_CATALOG[h].name) || h);
   }
-  return whereNext({ book, offeredIds: key ? offeredIds : [], season: cal.season, nextSeason, oldDay: cal.oldDay, hours: planetaryHourSchedule(now, 26), hourHerbs, now });
+  let coming = [];
+  if (key && accounts[key]) { try { coming = require('./lib/callers').datedComing(now); } catch (e) { coming = []; } }
+  return whereNext({ book, offeredIds: key ? offeredIds : [], coming, season: cal.season, nextSeason, oldDay: cal.oldDay, hours: planetaryHourSchedule(now, 26), hourHerbs, now });
 }
 function practiceStateBody(player) {
   const key = player && player.accountKey;
