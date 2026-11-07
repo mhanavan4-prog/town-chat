@@ -24,7 +24,7 @@ function makeMockSocket(tag) {
 }
 const rites = Object.values(R);
 check('at least the five first household rites, none clashing with a seasonal rite', rites.length >= 5 && rites.every((r) => !HALLOWEEN_RITES[r.key] && !YULE_RITES[r.key] && !WHEEL_RITES[r.key]));
-check('every rite is badged, sourced, says how and has three signs that fit the Board', rites.every((r) => r.tier === 'record' && r.source && r.how && r.lore && r.outcomes.length === 3 && r.outcomes.every((o) => `${r.icon} ${r.name}: ${o}`.length <= 140)));
+check('every rite is badged, sourced, says how and has three signs that fit the Board', rites.every((r) => /^(record|folk)$/.test(r.tier) && r.source && r.how && r.lore && r.outcomes.length === 3 && r.outcomes.every((o) => `${r.icon} ${r.name}: ${o}`.length <= 140)));
 check('telling the bees is Chambers\'s Suffolk custom, with crape and the funeral', /formally impart the fact to the bees/.test(R.telling_bees.lore) && /crape/.test(R.telling_bees.how) && /Book of Days \(1864\)/.test(R.telling_bees.source));
 check('silver water is Campbell\'s sixpence test, sprinkled three times', /silver sixpence/.test(R.silver_water.how) && /three times/.test(R.silver_water.how) && /Campbell/.test(R.silver_water.source));
 check('rowan and red thread, and "scoring above the breath" called a crime', /Rowan-tree and red thread/.test(R.rowan_thread.lore) && /was a crime/.test(R.rowan_thread.lore));

@@ -113,6 +113,22 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'R. Kirk, The Secret Common-Wealth (1691) · I. Gowdie (1662), in R. Pitcairn, Ancient Criminal Trials, vol. 3 (1833) · T. Pennant, A Tour in Scotland (1771) · M. Dowd, Cambridge Archaeological Journal 28 (2018) · Lacnunga, "Wið færstice"',
   },
+  // The toadman's bone: East Anglian horsemen's magic, gathered by George Ewart
+  // Evans from the last of the horsemen, with the Scots Horseman's Word beside
+  // it. Tier "folk": it comes to us from living memory, written down in the
+  // 20th century. The working secret, most think, was the horse's nose.
+  toad_bone: {
+    key: 'toad_bone', name: "The Toadman's Bone", icon: '🐸',
+    how: "Take the bone from the twist of cloth the old horseman left, rub a little of his oil on your palm, and stand at the mare's head, quiet, with your hand where she can smell it.",
+    outcomes: [
+      'The mare blows at your hand, smells the oil, and stands. Tom lets out the breath he was holding.',
+      'She throws her head and backs; then, slowly, puts her nose to your palm and lets you take the collar.',
+      'Nothing at first. Then her ears come round to you, and she leans her head on your shoulder.',
+    ],
+    lore: 'The toadmen of East Anglia had power over horses by a bone. A toad was killed and left on a whitethorn or an anthill till it was picked clean, and the bones were put in a running stream at midnight: "All will sink but one single bone and that will swim up stream" (Rolfe, 1935). Whoever kept it must not look away, whatever noises came. Carried, or ground and mixed with oils, it could stop a horse dead or draw it. In the north-east of Scotland the Society of the Horseman\'s Word took lads in by night, usually at Martinmas, gave them the Word, "Both in One", and a shake of "the Devil\'s hand", a stick covered with hairy skin. Most who have looked at it since George Ewart Evans, who talked to the last horsemen, think the working secret was the horse\'s nose: scents to draw it, smells to stop it.',
+    tier: 'folk',
+    source: 'G. E. Evans, The Pattern Under the Plough (1966) and Horse Power and Magic (1979) · F. Rolfe, I Walked by Night, ed. L. Rider Haggard (1935) · J. Porter, "Popular Traditions in the Modern Period", Northern Folk (Elphinstone Institute, Aberdeen) · Museum of English Rural Life (2021)',
+  },
 };
 
 module.exports = { HOUSEHOLD_RITES };
