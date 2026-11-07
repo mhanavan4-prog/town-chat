@@ -763,6 +763,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 7 January · Nottingham Guardian (13 January 1886)',
     reward: { gold: 40, xp: 35 },
   },
+  // Valentine's Eve only (data/valentine.js): the bay leaves and the salted egg.
+  {
+    id: 'valentines_eve',
+    caller: 'Kitty Ash',
+    icon: '🌿',
+    title: "Valentine's Eve",
+    when: require('./valentine').VALENTINE_WHEN,
+    plea: "It's Valentine's Eve. Betty says five bay leaves on the pillow and an egg filled with salt, and not a word or a drop after, and I'll dream of the one I'll marry. And tomorrow I'm keeping my eyes shut till Dick Pryor comes by, so he's the first I see. Will you help me pin the leaves right?",
+    steps: [
+      { kind: 'rite', rite: 'valentine_bay', label: 'Five bay leaves on the pillow, the salted egg, not a word after' },
+    ],
+    resolution: "The leaves go on, and she eats the egg. Then the practical half: a salted egg and nothing to drink makes for a thirsty, broken night, and you remember your dreams best from broken sleep. So she will dream, and of whoever is in her head already. Leave the shell; it will scrape her throat. Keep a cup of water by the bed and drink it if she wakes parched; that breaks no charm worth keeping. And shutting her eyes till Dick comes is a fine plan, so long as Dick knows to come: have a word with his sister.",
+    lore: "Valentine's Eve: five bay leaves pinned to the pillow and a salted egg eaten without a word or a drink, to dream of your sweetheart; your valentine was the first you saw next morning (The Connoisseur, 1755).",
+    tier: 'record',
+    source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book (1826–27), 14 February',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',

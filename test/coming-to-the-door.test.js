@@ -25,7 +25,7 @@ function makeMockSocket(tag) {
 const NOV7 = Date.UTC(2026, 10, 7, 18);
 const c1 = datedComing(NOV7);
 const ids = c1.map((x) => x.id);
-check('on 7 November: Martinmas in 2 days, the wren boys in 49, Plough Monday in 65, St Agnes\' Eve in 74', JSON.stringify(c1.map((x) => [x.id, x.inDays])) === JSON.stringify([['martinmas_cock', 2], ['wren_boys', 49], ['plough_boys', 65], ['st_agnes_eve', 74]]), c1.map((x) => [x.id, x.inDays]));
+check('on 7 November, first: Martinmas in 2 days, the wren boys in 49, Plough Monday in 65, St Agnes\' Eve in 74', JSON.stringify(c1.slice(0, 4).map((x) => [x.id, x.inDays])) === JSON.stringify([['martinmas_cock', 2], ['wren_boys', 49], ['plough_boys', 65], ['st_agnes_eve', 74]]), c1.map((x) => [x.id, x.inDays]));
 check('each with the name of its day', c1.find((x) => x.id === 'martinmas_cock').label === 'Martinmas week' && c1.find((x) => x.id === 'wren_boys').label === "St Stephen's Day" && c1.find((x) => x.id === 'plough_boys').label === 'Plough Monday' && c1.find((x) => x.id === 'st_agnes_eve').label === "St Agnes' Eve");
 check('every dated caller is counted', CALLERS.filter((c) => c.when).every((c) => ids.includes(c.id) || datedComing(NOV7, 400).some((x) => x.id === c.id)));
 const nov10 = datedComing(Date.UTC(2026, 10, 10, 12)).map((x) => x.id);
