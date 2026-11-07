@@ -804,6 +804,22 @@ const CALLERS = [
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The shewstone (data/household.js) ──
+  {
+    id: 'shewstone_litter',
+    caller: 'Hannah Pratt',
+    icon: '🔮',
+    title: 'The Face in the Glass',
+    plea: "My sow farrowed nine and there's five left, and she's off her food. Old Nance at the lane end leaned over the sty wall on Sunday and looked at them. I want to see it in the glass, the way the cunning man at Brook End used to show it. Then I'll know for certain.",
+    steps: [
+      { kind: 'rite', rite: 'shewstone', label: 'The glass on a dark cloth, one candle, and let her look' },
+    ],
+    resolution: "Then you tell her the truth about the glass: it shows the face you bring to it. The cunning folk let the client look so that they never had to say a name themselves. And a name said out loud can kill: at Tring in 1751 a farmer called Butterfield went to a cunning woman, who agreed old Ruth Osborne had bewitched him; a crowd ducked Ruth in a pond and she died of it, and Thomas Colley was hanged. So the name stays in this house. Then the practical half: a sow that has just farrowed can run a fever, and in a cold sty she lies on her young. Deep dry straw, a rail along the wall so the piglets can get out from under her, a warm mash, and the farrier if she still won't eat tomorrow. Nance only wanted to see the piglets.",
+    lore: "The shewstone: cunning folk let the client look into a glass, crystal or bowl of water to see who had done them harm, so the client named the culprit and they never had to. From John Dee's obsidian mirror down to the village glass.",
+    tier: 'record',
+    source: 'O. Davies, Cunning-Folk (2003) · British Museum 1966,1001.1 · Dictionary of National Biography, vol. 42, "Osborne, Ruth"',
+    reward: { gold: 45, xp: 40 },
+  },
   // The need-fire (data/household.js): fire made new against the murrain.
   {
     id: 'need_fire_murrain',

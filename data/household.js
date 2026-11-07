@@ -89,6 +89,20 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703), "An Account of the Second-Sight" · R. Kirk, The Secret Common-Wealth (1691) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
   },
+  // The shewstone: scrying in a stone, glass or water, from Dee's obsidian
+  // mirror to the village cunning man's glass, and the harm a name could do.
+  shewstone: {
+    key: 'shewstone', name: 'The Shewstone', icon: '🔮',
+    how: 'Set the glass on a dark cloth by one candle, and let the one who asks look into it, not you. Say nothing, and ask only: what do you see?',
+    outcomes: [
+      'She sees a face in the glass, and it is the face she came in suspecting. She has the name out before you can stop her.',
+      'Only the candle, and her own eyes looking back. She is angry at first, then quiet.',
+      'A shape like a woman in a shawl, that could be anyone in the parish. She wants it to be one woman.',
+    ],
+    lore: 'Scrying is looking into a stone, glass or water until something shows. John Dee\'s "shew-stone", a polished mirror of black obsidian, is in the British Museum: it was made in Mexico, of obsidian from Pachuca, and Horace Walpole labelled it "The Black Stone into which Dr Dee used to call his Spirits". Dee did not look himself; his scryers did, Edward Kelley above all. Reginald Scot (1584) copied out "How to enclose a spirit in a christall stone" only to expose it. Village cunning folk used a mirror, a crystal or a bowl of water and let the client look, so the client saw the culprit and they never had to name anyone. Finding lost or stolen goods by such arts was an offence under the Witchcraft Acts from 1542; from 1736 it was punished as a pretence.',
+    tier: 'record',
+    source: 'British Museum 1966,1001.1, and S. Campbell et al., Antiquity 95 (2021) · R. Scot, The Discoverie of Witchcraft (1584), XV.12 · O. Davies, Cunning-Folk (2003) · Witchcraft Acts 1542, 1563, 1604 and 1736',
+  },
   need_fire: {
     key: 'need_fire', name: 'The Need-Fire', icon: '🔥',
     how: 'Put out every fire in the township, your own hearth too. Rub two planks together, the men taking turns, until the wood catches; drive the sick cattle through the smoke, and carry the new fire home to light every hearth again.',
