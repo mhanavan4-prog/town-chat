@@ -885,6 +885,22 @@ const CALLERS = [
     source: 'G. E. Evans, The Pattern Under the Plough (1966) · J. W. Axe, The Horse: Its Treatment in Health and Disease (c. 1905), "Sore Shoulders"',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The changeling wife (data/household.js) ──
+  {
+    id: 'changeling_wife',
+    caller: 'Tom Doyle',
+    icon: '🧚',
+    title: "She Isn't Herself",
+    plea: "Since the fever came on her, Kathleen isn't herself. She's cross and strange, she looks at me like a stranger, and she won't eat. My aunt says it isn't Kathleen at all, that she was taken at the fort and this is something left in her place. My aunt knows a man over the mountain with a cure. Will you come first?",
+    steps: [
+      { kind: 'rite', rite: 'changeling_wife', label: 'Ask her, once and gently, who she is' },
+    ],
+    resolution: "She is herself. She answered to her own name, and that is the end of the question; you tell Tom so, and you tell him why it matters. In 1895 in Tipperary a sick young woman, Bridget Cleary, was asked that same question, and her husband and her own family did not believe her answer, and she died of what they did to her. So the man over the mountain is not sent for. Then the practical half: she has a fever and a cough, and fever makes anyone cross and strange. Send for the doctor today, keep her warm, give her plenty to drink and let her sleep. If she still seems a stranger to him when she is well, that is for the two of them to talk about, not a thing to cure.",
+    lore: "The changeling wife: the belief that the fairies took a young wife and left something in her place. In 1895 it killed Bridget Cleary of Ballyvadlea, Co. Tipperary.",
+    tier: 'record',
+    source: 'A. Bourke, "Cleary, Bridget", Dictionary of Irish Biography (2009)',
+    reward: { gold: 45, xp: 40 },
+  },
   // ── The witch post (data/household.js) ──
   {
     id: 'witch_post_longhouse',
