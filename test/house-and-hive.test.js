@@ -23,16 +23,20 @@ function makeMockSocket(tag) {
   };
 }
 const rites = Object.values(R);
-check('six household rites, none clashing with a seasonal rite', rites.length === 6 && rites.every((r) => !HALLOWEEN_RITES[r.key] && !YULE_RITES[r.key] && !WHEEL_RITES[r.key]));
+check('at least the five first household rites, none clashing with a seasonal rite', rites.length >= 5 && rites.every((r) => !HALLOWEEN_RITES[r.key] && !YULE_RITES[r.key] && !WHEEL_RITES[r.key]));
 check('every rite is badged, sourced, says how and has three signs that fit the Board', rites.every((r) => r.tier === 'record' && r.source && r.how && r.lore && r.outcomes.length === 3 && r.outcomes.every((o) => `${r.icon} ${r.name}: ${o}`.length <= 140)));
 check('telling the bees is Chambers\'s Suffolk custom, with crape and the funeral', /formally impart the fact to the bees/.test(R.telling_bees.lore) && /crape/.test(R.telling_bees.how) && /Book of Days \(1864\)/.test(R.telling_bees.source));
 check('silver water is Campbell\'s sixpence test, sprinkled three times', /silver sixpence/.test(R.silver_water.how) && /three times/.test(R.silver_water.how) && /Campbell/.test(R.silver_water.source));
 check('rowan and red thread, and "scoring above the breath" called a crime', /Rowan-tree and red thread/.test(R.rowan_thread.lore) && /was a crime/.test(R.rowan_thread.lore));
 check('the hagstone is the Pitt Rivers stone, and witch balls are called late', /Pitt Rivers/.test(R.hagstone.lore) && /until the 1930s/.test(R.hagstone.lore));
 check('clocks and mirrors are honestly dated later than the doors and the salt', /recorded later, from the 1890s/.test(R.death_house.lore));
-const ids = ['tell_the_bees', 'overlooked_child', 'byre_rowan', 'hagridden', 'death_in_house', 'need_fire_murrain'];
+// The first five, in order (the practical-half checks below index them); then every
+// other caller that works a household rite. Counts come from the data, so a new
+// household rite only needs its own test.
+const FIRST = ['tell_the_bees', 'overlooked_child', 'byre_rowan', 'hagridden', 'death_in_house'];
+const ids = [...FIRST, ...CALLERS.filter((c) => !FIRST.includes(c.id) && c.steps.some((s) => s.kind === 'rite' && R[s.rite])).map((c) => c.id)];
 const callers = ids.map((id) => CALLERS.find((c) => c.id === id));
-check('six callers, any time of year, each working its rite', callers.every((c, i) => c && !c.season && c.steps.some((s) => s.kind === 'rite' && R[s.rite])) && new Set(callers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === 6);
+check('every household rite has its caller, any time of year', callers.every((c) => c && !c.season && c.steps.some((s) => s.kind === 'rite' && R[s.rite])) && new Set(callers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === rites.length);
 check('each is told the practical half: a tooth, a sore udder, water and a draught', /tooth coming through/.test(callers[1].resolution) && /doctor/.test(callers[1].resolution) && /sore udder/.test(callers[2].resolution) && /Leave Elspet be/.test(callers[2].resolution) && /water bucket/.test(callers[3].resolution));
 
 require('../server.js');
@@ -56,7 +60,7 @@ setTimeout(() => {
   }
   check('every household rite gives one of its signs through the real handler', fail === 0);
   const ch = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'household');
-  check('the Charm Book\'s House and the Hive chapter: the six rites written in (and the hearth\'s two to come)', ch && ch.total === 8 && ch.met === 6);
+  check('the Charm Book\'s House and the Hive chapter: every rite written in (and the hearth\'s two to come)', ch && ch.total === rites.length + 2 && ch.met === rites.length);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

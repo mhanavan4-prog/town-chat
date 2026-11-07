@@ -770,6 +770,22 @@ const CALLERS = [
     source: 'T. F. Thiselton Dyer, The Ghost World (1893) and Domestic Folk-Lore (1881)',
     reward: { gold: 40, xp: 40 },
   },
+  // The second sight (data/household.js): a seer who saw a shroud.
+  {
+    id: 'second_sight_shroud',
+    caller: 'Seonaid MacInnes',
+    icon: '👁️',
+    title: 'What She Saw',
+    plea: "I've had the sight since I was a girl and I never once asked for it. Last night at the peat-stack I saw a shroud about old Angus Bàn, plain as I see you. I can't sleep for it. Do I tell his wife? Will you hear it, and tell me what it means?",
+    steps: [
+      { kind: 'rite', rite: 'second_sight', label: 'Hear the vision, and ask where the shroud reached' },
+    ],
+    resolution: "You hear her out and read it by the old rule. Then the practical half: nobody has ever shown the sight foretelling anything. Johnson went looking for it in 1773 and came away \"only willing to believe\". Telling Angus's wife would frighten a household for nothing. If she is worried for him, the kind thing is a visit: is he eating, is he warm, has he seen the doctor this winter? As for the sight, it frightened most of those who had it. She needn't carry it alone; she can come and tell you when it comes.",
+    lore: "The second sight: Martin (1703) records that a shroud seen about someone foretold death, nearer the higher it reached. It did not run in families, and many seers wanted rid of it.",
+    tier: 'record',
+    source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
+    reward: { gold: 40, xp: 35 },
+  },
   // The need-fire (data/household.js): fire made new against the murrain.
   {
     id: 'need_fire_murrain',
