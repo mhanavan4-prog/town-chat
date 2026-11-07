@@ -1,0 +1,62 @@
+// The house and the hive: telling the bees, silver water for the evil eye,
+// rowan and red thread, the hagstone, and the customs of a death in the house,
+// each worked for a caller, each told honestly.
+process.env.PORT = '0';
+process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-house-');
+process.on('uncaughtException', (e) => { console.log('FAIL - threw:', e && e.stack); process.exit(1); });
+
+const { HOUSEHOLD_RITES: R } = require('../data/household.js');
+const { HALLOWEEN_RITES } = require('../data/halloween.js');
+const { YULE_RITES } = require('../data/yule.js');
+const { WHEEL_RITES } = require('../data/wheelRites.js');
+const { CALLERS } = require('../data/callers.js');
+const { buildCharmBook } = require('../lib/charmBook.js');
+let pass = 0, fail = 0;
+function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
+function makeMockSocket(tag) {
+  return {
+    OPEN: 1, readyState: 1, sent: [], _handlers: {}, _tag: tag,
+    on(e, cb) { this._handlers[e] = cb; },
+    send(d) { this.sent.push(JSON.parse(d)); },
+    emit(e, ...a) { if (this._handlers[e]) this._handlers[e](...a); },
+    lastOfType(t) { for (let i = this.sent.length - 1; i >= 0; i--) if (this.sent[i].type === t) return this.sent[i]; return null; },
+  };
+}
+const rites = Object.values(R);
+check('five household rites, none clashing with a seasonal rite', rites.length === 5 && rites.every((r) => !HALLOWEEN_RITES[r.key] && !YULE_RITES[r.key] && !WHEEL_RITES[r.key]));
+check('every rite is badged, sourced, says how and has three signs that fit the Board', rites.every((r) => r.tier === 'record' && r.source && r.how && r.lore && r.outcomes.length === 3 && r.outcomes.every((o) => `${r.icon} ${r.name}: ${o}`.length <= 140)));
+check('telling the bees is Chambers\'s Suffolk custom, with crape and the funeral', /formally impart the fact to the bees/.test(R.telling_bees.lore) && /crape/.test(R.telling_bees.how) && /Book of Days \(1864\)/.test(R.telling_bees.source));
+check('silver water is Campbell\'s sixpence test, sprinkled three times', /silver sixpence/.test(R.silver_water.how) && /three times/.test(R.silver_water.how) && /Campbell/.test(R.silver_water.source));
+check('rowan and red thread, and "scoring above the breath" called a crime', /Rowan-tree and red thread/.test(R.rowan_thread.lore) && /was a crime/.test(R.rowan_thread.lore));
+check('the hagstone is the Pitt Rivers stone, and witch balls are called late', /Pitt Rivers/.test(R.hagstone.lore) && /until the 1930s/.test(R.hagstone.lore));
+check('clocks and mirrors are honestly dated later than the doors and the salt', /recorded later, from the 1890s/.test(R.death_house.lore));
+const ids = ['tell_the_bees', 'overlooked_child', 'byre_rowan', 'hagridden', 'death_in_house'];
+const callers = ids.map((id) => CALLERS.find((c) => c.id === id));
+check('five callers, any time of year, each working its rite', callers.every((c, i) => c && !c.season && c.steps.some((s) => s.kind === 'rite' && R[s.rite])) && new Set(callers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === 5);
+check('each is told the practical half: a tooth, a sore udder, water and a draught', /tooth coming through/.test(callers[1].resolution) && /doctor/.test(callers[1].resolution) && /sore udder/.test(callers[2].resolution) && /Leave Elspet be/.test(callers[2].resolution) && /water bucket/.test(callers[3].resolution));
+
+require('../server.js');
+
+setTimeout(() => {
+  const h = global.__testHooks;
+  const wss = global.__wssInstances[0];
+  const connHandler = (wss._handlers && wss._handlers.connection) || wss.listeners('connection')[0];
+  const s = makeMockSocket('Wise'); connHandler(s);
+  s.emit('message', JSON.stringify({ type: 'join', name: 'Wise', charId: 0 }));
+  const p = h.players.get(s.lastOfType('init').id);
+  p.accountKey = 'wise'; h.accounts.wise = {}; h.playerProgress.wise = { level: 1, xp: 0 };
+  h.callers.stateOf(p);
+  for (const c of callers) {
+    h.accounts.wise.callers.active = { id: c.id, done: {} };
+    s.emit('message', JSON.stringify({ type: 'rite_do' }));
+    const idx = c.steps.findIndex((st) => st.kind === 'rite');
+    const step = h.callers.callersStatePayload(p).active.steps[idx];
+    const r = R[c.steps[idx].rite];
+    if (!(step.done && r.outcomes.some((o) => step.note.endsWith(o)))) check(`${c.id}: the rite gives one of its signs`, false, step);
+  }
+  check('every household rite gives one of its signs through the real handler', fail === 0);
+  const ch = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'household');
+  check('the Charm Book\'s House and the Hive chapter: five, all written in', ch && ch.total === 5 && ch.met === 5);
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+}, 300);
