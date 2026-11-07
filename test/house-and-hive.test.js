@@ -56,7 +56,7 @@ setTimeout(() => {
   }
   check('every household rite gives one of its signs through the real handler', fail === 0);
   const ch = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'household');
-  check('the Charm Book\'s House and the Hive chapter: five, all written in', ch && ch.total === 5 && ch.met === 5);
+  check('the Charm Book\'s House and the Hive chapter: the five rites written in (and the hearth\'s two to come)', ch && ch.total === 7 && ch.met === 5);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
