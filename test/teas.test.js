@@ -75,11 +75,14 @@ setTimeout(() => {
   check('the sipped tea sets a live buff on its stat', after.active && after.active.id === gpTea.id && after.active.stat === gpTea.stat);
   check('brewing records the tea in the Almanac', after.teas.find((t) => t.id === gpTea.id).discovered === true);
 
-  // Day bonus: a tea brewed ON its planetary day steeps ×TEA_DAY_BONUS longer.
-  // (We can't pick the weekday, but the buff duration must be positive + bounded.)
+  // Day bonus: a tea brewed ON its planetary day steeps ×TEA_DAY_BONUS longer,
+  // and one brewed in its planet's own HOUR ×TEA_HOUR_BONUS more (they stack).
+  // (We can't pick the weekday or the hour, but the buff must be positive and
+  // no longer than both bonuses together; this failed on the rare brew that
+  // landed on its planet's day AND hour.)
   const dur = after.active.until - Date.now();
   const base = gpTea.hours * 3600000;
-  check('the buff duration is the base, or the day-bonus multiple', dur > 0 && dur <= base * TEA_DAY_BONUS + 2000);
+  check('the buff duration is the base, or the day- and hour-bonus multiple', dur > 0 && dur <= base * TEA_DAY_BONUS * h.TEA_HOUR_BONUS + 2000, { dur, base });
 
   // ── Greater brews + the capstone (slice 2) ─────────────────────────────────
   const greaters = TEAS.filter((t) => t.greater);
