@@ -14,6 +14,10 @@ const FAMILIARS = {
   toad:  { name: 'Toad',      emoji: '🐸',  stat: 'vitality', amount: 25,   blurb: "A toad's old patience steadies the blood — +25 max health." },
   hare:  { name: 'Hare',      emoji: '🐇',  stat: 'swift',    amount: 0.10, blurb: 'Quick as a moonlit hare — +10% move speed.' },
   bat:   { name: 'Bat',       emoji: '🦇',  stat: 'leech',    amount: 0.06, blurb: 'It drinks what you spill, and shares — heal 6% of the damage you deal.' },
+  // From the trial records (FAMILIAR_LORE below says whose).
+  dog:     { name: 'Brown Dog',    emoji: '🐕', stat: 'guard', amount: 0.08, blurb: 'Tibb, Old Demdike\'s familiar, came to her as a brown dog — he keeps between you and harm: +8% damage resist.' },
+  rabbit:  { name: 'Black Rabbit', emoji: '🐰', stat: 'haste', amount: 0.08, blurb: 'Sack and Sugar, "like a black Rabbet" — quick at your heel: abilities come round 8% sooner.' },
+  polecat: { name: 'Polecat',      emoji: '🦡', stat: 'power', amount: 0.08, blurb: 'Newes, "like a Polcat" — small, fierce and biting: +8% attack.' },
 };
 
 // What the trial records really say about each familiar — shown in the
@@ -32,20 +36,27 @@ const FAMILIAR_LORE = {
   raven: { tier: 'record',
     lore: 'Ravens hardly appear in the English trial records. Their name for knowing things comes from Norse myth: Odin\'s two ravens, Huginn and Muninn, Thought and Memory, fly over the world each day and bring him news.',
     source: 'Poetic Edda, Grímnismál 20' },
+  dog: { tier: 'record',
+    lore: 'Elizabeth Southerns, called Old Demdike, said her spirit Tibb came to her first "in the shape of a Boy, the one halfe of his Coate blacke, and the other browne", and afterwards "in the likenes of a browne Dogg". She died in Lancaster gaol before her trial in 1612.',
+    source: 'Thomas Potts, The Wonderfull Discoverie of Witches in the Countie of Lancaster (1613)' },
+  rabbit: { tier: 'record',
+    lore: 'At Manningtree in 1645, Matthew Hopkins said he watched the imps come to an accused woman, among them "Sack and Sugar, like a black Rabbet". She was Elizabeth Clarke, and she was hanged.',
+    source: 'Matthew Hopkins, The Discovery of Witches (1647); the 1645 depositions' },
+  polecat: { tier: 'record',
+    lore: 'Of the same imps at Manningtree, Hopkins wrote of "Newes, like a Polcat". The names, he said, were ones "which no mortall could invent"; what they show is what a woman kept awake for nights would say.',
+    source: 'Matthew Hopkins, The Discovery of Witches (1647)' },
   bat: { tier: 'revival',
     lore: 'Bats are not among the familiars the trial pamphlets name. They flew into witch pictures later, with the Hallowe\'en of the 19th and 20th centuries.',
     source: 'The English trial pamphlets, 1566–1647' },
 };
 
-// Familiars named in the records that the game has no follower for (yet).
+// Familiars named in the records that the game has no follower for. (Tibb,
+// Sack and Sugar and Newes are bondable: the dog, the rabbit, the polecat.)
 const FAMILIAR_RECORDS = [
-  { name: 'Tibb', shape: 'a boy in a coat half black and half brown, and later a brown dog', who: "Elizabeth Southerns (Demdike), Pendle, 1612" },
   { name: 'Fancie', shape: 'a man, about midnight', who: 'Anne Whittle (Chattox), Pendle, 1612' },
   { name: 'Tittey, Tyffin, Pigine and Jacke', shape: 'a little grey cat, a white lamb, a toad and a black cat', who: 'Ursula Kemp, St Osyth, 1582' },
   { name: 'Vinegar Tom', shape: 'like a long-legged greyhound with an ox\'s head, a long tail and broad eyes', who: 'Manningtree, 1645 (Hopkins)' },
   { name: 'Holt', shape: 'like a white kitten', who: 'Manningtree, 1645 (Hopkins)' },
-  { name: 'Sack and Sugar', shape: 'like a black rabbit', who: 'Manningtree, 1645 (Hopkins)' },
-  { name: 'Newes', shape: 'like a polecat', who: 'Manningtree, 1645 (Hopkins)' },
   { name: 'Elemanzer, Pyewacket, Peckin the Crown, Grizzel, Greedigut', shape: 'names, Hopkins wrote, "which no mortall could invent"', who: 'Manningtree, 1645 (Hopkins)' },
 ];
 const FAMILIAR_RECORDS_NOTE = 'Familiars ("imps") are an English and Scottish feature of the trials, recorded from the accused under questioning, often after days kept from sleep. They tell us what was said, and what was done to make people say it.';

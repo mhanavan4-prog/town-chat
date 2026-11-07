@@ -7,8 +7,8 @@ function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', na
 const { FAMILIARS, FAMILIAR_SKINS } = require('../data/familiars.js');
 
 const ids = Object.keys(FAMILIARS);
-check('five familiars defined', ids.length === 5, ids);
-check('all of cat/raven/toad/hare/bat present', ['cat', 'raven', 'toad', 'hare', 'bat'].every((k) => FAMILIARS[k]), ids);
+check('eight familiars defined', ids.length === 8, ids);
+check('all of cat/raven/toad/hare/bat and the recorded dog/rabbit/polecat present', ['cat', 'raven', 'toad', 'hare', 'bat', 'dog', 'rabbit', 'polecat'].every((k) => FAMILIARS[k]), ids);
 check('the Bat lends lifesteal (leech)', FAMILIARS.bat.stat === 'leech' && FAMILIARS.bat.amount > 0, FAMILIARS.bat);
 
 // Every perk targets a real derived stat the stat system knows.

@@ -67,7 +67,54 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
     }
     return g;
   }
-  const BUILDERS = { cat: makeCat, raven: makeRaven, toad: makeToad, hare: makeHare, bat: makeBat };
+  // ── From the trial records: Tibb the brown dog (Pendle, 1612), and Sack and
+  // Sugar the black rabbit and Newes the polecat (Manningtree, 1645). ──
+  function makeDog(coat) {
+    const g = new THREE.Group();
+    const fur = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x7a5232) });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x3a2618 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(3.4, 8, 8), fur); body.scale.set(1, 0.9, 1.7); body.position.y = 6; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), fur); head.position.set(0, 8.6, 4.6); g.add(head);
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.5, 2.4), fur); snout.position.set(0, 8, 6.8); g.add(snout);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 6), dark); nose.position.set(0, 8.3, 8); g.add(nose);
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.6, 1.6), dark); ear.position.set(s * 2, 8.6, 4.2); ear.rotation.z = s * 0.35; g.add(ear);
+      const e = glow(0xffd36a, 0.45); e.position.set(s * 0.9, 9.2, 6.3); g.add(e);
+      for (const fz of [-3.4, 3.2]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.6, 4.4, 5), fur); leg.position.set(s * 1.6, 2.2, fz); g.add(leg); }
+    }
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 4.5, 5), fur); tail.position.set(0, 7.8, -5.6); tail.rotation.x = -0.9; g.add(tail);
+    return g;
+  }
+  function makeRabbit(coat) {
+    const g = new THREE.Group();
+    const fur = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x1c1a1e) });
+    const pale = new THREE.MeshLambertMaterial({ color: 0xe8e0d4 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(2.8, 8, 8), fur); body.scale.set(1, 0.95, 1.25); body.position.y = 3.4; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.9, 8, 8), fur); head.position.set(0, 5.6, 2.4); g.add(head);
+    for (const s of [-1, 1]) {
+      // Shorter ears than the hare, laid back.
+      const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.45, 3.6, 5), fur); ear.position.set(s * 0.8, 7.6, 1.4); ear.rotation.x = -0.5; ear.rotation.z = s * 0.15; g.add(ear);
+      const e = glow(0xff9a9a, 0.4); e.position.set(s * 0.8, 5.9, 3.9); g.add(e);
+    }
+    const tail = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 6), pale); tail.position.set(0, 3.4, -3.3); g.add(tail);
+    return g;
+  }
+  function makePolecat(coat) {
+    const g = new THREE.Group();
+    const fur = new THREE.MeshLambertMaterial({ color: coatColor(coat, 0x2a2018) });
+    const mask = new THREE.MeshLambertMaterial({ color: 0xe6dcc8 });
+    // A long, low body.
+    const body = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 8), fur); body.scale.set(1, 0.8, 2.6); body.position.y = 2.6; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.6, 8, 8), fur); head.position.set(0, 3.4, 5.4); g.add(head);
+    const face = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 8), mask); face.scale.set(1.2, 0.7, 0.8); face.position.set(0, 3.2, 6.4); g.add(face);
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 6), mask); ear.position.set(s * 1.1, 4.6, 5); g.add(ear);
+      const e = glow(0xffe08a, 0.3); e.position.set(s * 0.6, 3.8, 6.9); g.add(e);
+    }
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.4, 5, 6), fur); tail.position.set(0, 2.6, -6.6); tail.rotation.x = 1.3; g.add(tail);
+    return g;
+  }
+  const BUILDERS = { cat: makeCat, raven: makeRaven, toad: makeToad, hare: makeHare, bat: makeBat, dog: makeDog, rabbit: makeRabbit, polecat: makePolecat };
 
   function removeRec(id) {
     const r = pool[id];
@@ -116,7 +163,7 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
       r.y += (gp.y - r.y) * f;
       r.phase += dt * 6;
       const flyer = p.familiar === 'raven' || p.familiar === 'bat';
-      const hop = p.familiar === 'hare' ? Math.abs(Math.sin(r.phase)) * 3 : flyer ? 6 + Math.sin(r.phase) * 1.5 : Math.abs(Math.sin(r.phase)) * 1.2;
+      const hop = (p.familiar === 'hare' || p.familiar === 'rabbit') ? Math.abs(Math.sin(r.phase)) * (p.familiar === 'rabbit' ? 2 : 3) : flyer ? 6 + Math.sin(r.phase) * 1.5 : Math.abs(Math.sin(r.phase)) * 1.2;
       r.group.position.set(r.x, r.y + hop, r.z);
       // Face the way it's heading.
       const dx = gp.x - r.x, dz = gp.z - r.z;
