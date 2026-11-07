@@ -53,10 +53,12 @@ setTimeout(() => {
     const summer = at(MIDSUMMER + d * 86400000, () => h.callers.callersStatePayload(p).offered.map((o) => o.id));
     summerSeasonal += summer.filter((id) => seasonal.some((c) => c.id === id)).length;
     const hallow = at(HALLOWEEN - 10 * 86400000 + d * 86400000, () => ({ season: h.calendarPublicState().season.key, ids: h.callers.callersStatePayload(p).offered.map((o) => o.id) }));
-    if (hallow.season === 'samhain') { days++; if (seasonal.some((c) => c.id === hallow.ids[0])) samhainFirst++; }
+    // A dated caller (Martinmas week, 9–13 Nov) goes first of all; then the season's.
+    const lead = hallow.ids[0] === 'martinmas_cock' ? hallow.ids[1] : hallow.ids[0];
+    if (hallow.season === 'samhain') { days++; if (seasonal.some((c) => c.id === lead)) samhainFirst++; }
   }
   check('no Hallowe\'en caller ever comes at midsummer (20 days)', summerSeasonal === 0, summerSeasonal);
-  check('in the Samhain season one is always first at the door', days > 0 && samhainFirst === days, { days, samhainFirst });
+  check('in the Samhain season one is always first at the door (after Martinmas\'s, in its week)', days > 0 && samhainFirst === days, { days, samhainFirst });
 
   // ── Working a rite ──
   h.accounts.guiser.callers.active = { id: 'hallowe_en_nuts', done: {} };
