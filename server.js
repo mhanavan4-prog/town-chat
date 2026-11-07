@@ -5147,6 +5147,8 @@ function charmBookStateBody(player) {
   try { book.whereNext = whereNextFor(player, book); } catch (e) { book.whereNext = []; }
   // Every work the book cites, A to Z, with the entries citing it (lib/sources.js).
   try { book.sources = buildSources(book.chapters); } catch (e) { book.sources = null; }
+  // The whole year at a glance (lib/yearCalendar.js).
+  try { book.calendar = require('./lib/yearCalendar').buildYearCalendar(Date.now()); } catch (e) { book.calendar = null; }
   return book;
 }
 const { buildSources } = require('./lib/sources');

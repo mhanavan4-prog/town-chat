@@ -4372,6 +4372,22 @@
   .cbNextRow { grid-template-rows:auto auto; row-gap:2px; border-color:rgba(230,196,106,0.55); background:rgba(70,48,22,0.6); margin-bottom:12px; }
   .cbNextRow .cbNextSub { grid-column:2; color:#cdbd9e; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .cbNextList { display:grid; grid-template-columns:1fr; gap:8px; }
+  /* 🗓️ The Calendar: the year at a glance (client/charm-book.js renderCalendar). */
+  .cbCalendarRow { grid-template-rows:auto auto; row-gap:2px; margin-bottom:12px; }
+  .cbCalendarRow .cbNextSub { grid-column:2; color:#cdbd9e; font-size:12px; }
+  .cbMonth { background:rgba(40,28,18,0.45); border:1px solid rgba(217,184,106,0.18); border-radius:9px; padding:8px 10px; margin:8px 0; scroll-margin-top:8px; }
+  .cbMonth.now { border-color:rgba(230,196,106,0.6); background:rgba(70,48,22,0.5); }
+  .cbMonthHead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+  .cbMonthName { color:#f1e4c8; font-weight:700; font-size:14px; }
+  .cbMonthSeasons { color:#a8987c; font-size:12px; }
+  .cbDay { display:grid; grid-template-columns:24px 22px 1fr; column-gap:6px; align-items:baseline; font-size:12.5px; padding:2px 0; color:#d8c9aa; }
+  .cbDay .cbDayNum { color:#8a7a66; text-align:right; font-variant-numeric:tabular-nums; }
+  .cbDay .cbDayNote { grid-column:3; color:#8a7a66; font-size:11.5px; }
+  .cbDay.season .cbDayTitle { color:#e6d3a8; font-weight:600; }
+  .cbDay.caller .cbDayTitle { color:#f3dfa8; }
+  .cbDay.today { color:#ffd9a0; }
+  .cbDay.today .cbDayTitle { grid-column:2 / 4; font-weight:700; color:#ffd9a0; }
+  .cbDay.isToday .cbDayNum { color:#ffd9a0; font-weight:700; }
   /* 📖 Sources: the bibliography, A to Z (client/charm-book.js renderSources). */
   .cbSourcesRow { grid-template-rows:auto auto; row-gap:2px; margin-top:12px; }
   .cbSourcesRow .cbNextSub { grid-column:2; color:#cdbd9e; font-size:12px; }

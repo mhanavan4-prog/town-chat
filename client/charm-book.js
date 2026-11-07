@@ -14,6 +14,7 @@ import { Modals } from './modals.js';
 const CHARM_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
 const NEXT = '__whereNext'; // the Where next page (not a chapter)
 const SOURCES = '__sources'; // the Sources page (not a chapter)
+const CALENDAR = '__calendar'; // the Calendar page (not a chapter)
 
 export default function createCharmBook({ send, place, openBoard }) {
   let state = null;
@@ -62,6 +63,19 @@ export default function createCharmBook({ send, place, openBoard }) {
       row.appendChild(txt);
       row.appendChild(el('span', 'cbNextSub', wn[0].title));
       row.addEventListener('click', () => { openChapter = NEXT; render(); });
+      body.appendChild(row);
+    }
+    if (state.calendar && Array.isArray(state.calendar.months)) {
+      const cal = state.calendar;
+      const row = el('button', 'cbChapter cbCalendarRow');
+      row.appendChild(el('span', 'cbChIcon', '🗓️'));
+      const txt = el('span', 'cbChText');
+      txt.appendChild(el('span', 'cbChTitle', 'The Calendar'));
+      const mo = cal.months[cal.today.month - 1];
+      txt.appendChild(el('span', 'cbChCount', mo ? mo.name : ''));
+      row.appendChild(txt);
+      row.appendChild(el('span', 'cbNextSub', 'The year at a glance: its seasons, its callers, its days'));
+      row.addEventListener('click', () => { openChapter = CALENDAR; render(); });
       body.appendChild(row);
     }
     if (state.rewards) renderRewards(body, state.rewards);
@@ -206,13 +220,48 @@ export default function createCharmBook({ send, place, openBoard }) {
     if (src.note) body.appendChild(el('div', 'cbNote', src.note));
   }
 
+  // 🗓️ The Calendar: the whole year, month by month (lib/yearCalendar.js), with
+  // today marked and the page opened at this month.
+  function renderCalendar(body) {
+    const back = el('button', 'btn cbBack', '‹ Contents');
+    back.addEventListener('click', () => { openChapter = null; render(); });
+    body.appendChild(back);
+    const cal = state.calendar;
+    body.appendChild(el('div', 'cbChHead', `🗓️ The Calendar · ${cal.year}`));
+    body.appendChild(el('div', 'cbIntro', 'The year at a glance: which festival season each month lies in, the days a caller comes only then (🚪), and the old calendar\'s customs. Dates are this year\'s; some move with Easter or the weekday.'));
+    let here = null;
+    for (const mo of cal.months) {
+      const box = el('div', 'cbMonth' + (mo.month === cal.today.month ? ' now' : ''));
+      const head = el('div', 'cbMonthHead');
+      head.appendChild(el('span', 'cbMonthName', mo.name));
+      head.appendChild(el('span', 'cbMonthSeasons', mo.seasons.map((s) => `${s.glyph} ${s.name}`).join(' · ')));
+      box.appendChild(head);
+      let todayShown = mo.month !== cal.today.month;
+      const todayRow = () => { const r = el('div', 'cbDay today'); r.appendChild(el('span', 'cbDayNum', String(cal.today.day))); r.appendChild(el('span', 'cbDayTitle', '◆ Today')); return r; };
+      for (const d of mo.days) {
+        if (!todayShown && d.day > cal.today.day) { box.appendChild(todayRow()); todayShown = true; }
+        const row = el('div', 'cbDay ' + d.kind + (mo.month === cal.today.month && d.day === cal.today.day ? ' isToday' : ''));
+        row.appendChild(el('span', 'cbDayNum', String(d.day)));
+        row.appendChild(el('span', 'cbDayIcon', d.kind === 'caller' ? '🚪' : (d.icon || '·')));
+        const t = el('span', 'cbDayTitle', d.kind === 'caller' ? `${d.icon || ''} ${d.title}`.trim() : d.title);
+        row.appendChild(t);
+        if (d.note) row.appendChild(el('span', 'cbDayNote', d.note));
+        box.appendChild(row);
+      }
+      if (!todayShown) box.appendChild(todayRow());
+      body.appendChild(box);
+      if (mo.month === cal.today.month) here = box;
+    }
+    if (here) requestAnimationFrame(() => { here.scrollIntoView({ block: 'start' }); });
+  }
+
   function render() {
     const body = document.getElementById('charmBookContent');
     if (!body) return;
     body.textContent = '';
     if (!state || !Array.isArray(state.chapters)) { body.appendChild(el('div', 'cbIntro', 'Opening the book…')); return; }
     const ch = openChapter && state.chapters.find((c) => c.key === openChapter);
-    if (openChapter === NEXT) renderNext(body); else if (openChapter === SOURCES) renderSources(body); else if (ch) renderChapter(body, ch); else renderContents(body);
+    if (openChapter === NEXT) renderNext(body); else if (openChapter === SOURCES) renderSources(body); else if (openChapter === CALENDAR && state.calendar) renderCalendar(body); else if (ch) renderChapter(body, ch); else renderContents(body);
     body.scrollTop = 0;
   }
 
