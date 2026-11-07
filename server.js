@@ -3144,7 +3144,7 @@ const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extract
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
 const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
-const { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
+const { TAROT_CARDS, TAROT_POSITIONS, TAROT_PROVENANCE, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { PRACTICES, CULPEPER_RULERS, GREEN_HOUR_BONUS, GREEN_HOUR_BONUS_PATH, DRAW_DOWN, HEDGE_DRAUGHTS, HEDGE_GIFTS, HEDGE_GIFTS_PATH, HEDGE_VISIONS, LOAVES_PER_DAY, LOAVES_PER_DAY_PATH } = require('./data/practices'); // the Witch Paths' practices
 const { NINE_HERBS, WODEN_LINES, NEW_GARDEN_HERBS, LACNUNGA_SEEDS_PER_HERB, NINE_HERBS_LORE } = require('./data/nineHerbs'); // blueprint G: the Nine Herbs Charm
 const { HOUR_LORE, CHALDEAN, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
@@ -3155,7 +3155,7 @@ const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEA
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
-const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, aettKeys, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination) + The Futhark codex
+const { RUNES, RUNE_POSITIONS, RUNE_AETTIR, RUNE_PROVENANCE, aettKeys, runeSynthesis } = require('./data/runes'); // Tier 3.5: rune casting (Elder Futhark divination) + The Futhark codex
 const RUNE_BY_KEY = Object.fromEntries(RUNES.map((r) => [r.key, r]));
 const { GARDEN_PLOTS, GARDEN_GROW_MS, GARDEN_RUSH_MS_COST, PLANTABLE_HERBS, MOON_YIELD, moonTierAtPlant } = require('./data/garden'); // Tier 3.5: green-witch gardening
 const { GREEN_PATH, HERB_BANDS, GREEN_PATH_CATEGORIES } = require('./data/greenPath'); // the gardening questline + plant taxonomy
@@ -5571,7 +5571,7 @@ function callerTarotNote(spread) {
   return last ? `The cards: ${last.emoji || ''} ${last.name}${last.reversed ? ' (reversed)' : ''} in ${last.pos || 'the last place'}.` : 'The cards were turned.';
 }
 function callerRuneNote(cast) {
-  return (cast && cast.length) ? `The staves: ${cast.map((r) => `${r.sym || ''} ${r.name}${r.reversed ? ' (merkstave)' : ''}`).join(' · ')}.` : 'The staves were cast.';
+  return (cast && cast.length) ? `The staves: ${cast.map((r) => `${r.sym || ''} ${r.name}${r.reversed ? ' (reversed)' : ''}`).join(' · ')}.` : 'The staves were cast.';
 }
 function tarotSpreadView(stored) {
   const byKey = (k) => TAROT_CARDS.find((c) => c.key === k) || TAROT_CARDS[0];
@@ -15809,7 +15809,7 @@ wss.on('connection', (ws, req) => {
         try { if (Math.random() < 0.125) { const h = seance.pickLoreHint(); if (h && h.line) secret = h.line; } } catch (e) { /* noop */ }
       }
       const { spread, synthesis } = tarotSpreadView(stored);
-      send(ws, { type: 'tarot_result', spread, synthesis, gold, alreadyDrawn, secret, balance, arcana: tarotCollectionBody(player), arcanaNews });
+      send(ws, { type: 'tarot_result', spread, synthesis, gold, alreadyDrawn, secret, balance, arcana: tarotCollectionBody(player), arcanaNews, provenance: TAROT_PROVENANCE });
       callers.callerEvent(player, 'tarot', callerTarotNote(spread));
       return;
     }
@@ -15819,7 +15819,7 @@ wss.on('connection', (ws, req) => {
       if (!player.accountKey) { send(ws, { type: 'tarot_result', spread: [], arcana: null, peek: true }); return; }
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
-      let out = { type: 'tarot_result', spread: [], synthesis: '', alreadyDrawn: false, arcana: tarotCollectionBody(player), peek: true };
+      let out = { type: 'tarot_result', spread: [], synthesis: '', alreadyDrawn: false, arcana: tarotCollectionBody(player), peek: true, provenance: TAROT_PROVENANCE };
       if (a.lastTarotDay === today && Array.isArray(a.lastTarotSpread) && a.lastTarotSpread.length === 3) {
         const v = tarotSpreadView(a.lastTarotSpread);
         out.spread = v.spread; out.synthesis = v.synthesis; out.alreadyDrawn = true;
@@ -15942,7 +15942,7 @@ wss.on('connection', (ws, req) => {
       } else {
         const bag = RUNES.slice();
         for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
-        stored = bag.slice(0, 3).map((r) => ({ key: r.key, rev: veilThin ? false : (Math.random() < 0.5) }));
+        stored = bag.slice(0, 3).map((r) => ({ key: r.key, rev: (veilThin || r.same) ? false : (Math.random() < 0.5) })); // a rune that looks the same upside down never falls reversed
         a.lastRuneDay = today; a.lastRuneCast = stored;
         // Carve today's three runes into The Futhark. Aett purses pay out here;
         // carving all 24 earns the Runecaster aura. (No flat daily gold — the
@@ -15954,7 +15954,7 @@ wss.on('connection', (ws, req) => {
         saveAccounts();
       }
       const { cast, synthesis } = runeCastView(stored);
-      send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, gold, balance, futhark: runeFutharkBody(player), futharkNews, now: Date.now() });
+      send(ws, { type: 'rune_result', cast, synthesis, alreadyCast, samhain: veilThin, gold, balance, futhark: runeFutharkBody(player), futharkNews, now: Date.now(), provenance: RUNE_PROVENANCE });
       callers.callerEvent(player, 'runes', callerRuneNote(cast));
       return;
     }
@@ -15963,7 +15963,7 @@ wss.on('connection', (ws, req) => {
       const a = accounts[player.accountKey];
       const today = Math.floor(Date.now() / 86400000);
       let veilThin = false; try { veilThin = (seasonWindow(Date.now()).key === 'samhain'); } catch (e) { /* noop */ }
-      const out = { type: 'rune_result', cast: [], synthesis: '', alreadyCast: false, samhain: veilThin, futhark: runeFutharkBody(player), peek: true };
+      const out = { type: 'rune_result', cast: [], synthesis: '', alreadyCast: false, samhain: veilThin, futhark: runeFutharkBody(player), peek: true, provenance: RUNE_PROVENANCE };
       if (a.lastRuneDay === today && Array.isArray(a.lastRuneCast) && a.lastRuneCast.length === 3) {
         const v = runeCastView(a.lastRuneCast); out.cast = v.cast; out.synthesis = v.synthesis; out.alreadyCast = true;
       }

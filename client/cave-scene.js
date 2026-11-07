@@ -148,7 +148,7 @@ function buildCaveScene() {
     { sym: '🔮', name: 'HIGH PRIESTESS',  num: 'II'   },
     { sym: '💫', name: 'THE WORLD',       num: 'XXI'  },
     { sym: '🌑', name: 'THE DEVIL',       num: 'XV'   },
-    { sym: '♾️', name: 'WHEEL OF FATE',   num: 'X'    },
+    { sym: '♾️', name: 'WHEEL OF FORTUNE', num: 'X'    },
     { sym: '🌿', name: 'THE HERMIT',      num: 'IX'   },
     { sym: '🔥', name: 'THE CHARIOT',     num: 'VII'  },
     { sym: '🌊', name: 'HANGED MAN',      num: 'XII'  },
