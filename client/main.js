@@ -1939,7 +1939,7 @@ function onWsMessage(ev) {
     // Town-wide news (campaign finales, etc.) — banner + a system chat line.
     if (typeof playSfx === 'function' && /Champions. Table/i.test(msg.message || '')) playSfx('coven_crown');
     showAnnounceBanner(msg.message);
-    appendSystemChatLine(msg.message);
+    appendSystemChatLine(msg.message, { noNotif: true }); // the banner already shows it
     return;
   }
 
@@ -6094,12 +6094,14 @@ function claimPassOnConnection(force) {
 // the chat log (missed a toast? it's in the log), and campaign finales get
 // a whole-town banner moment.
 // ---------------------------------------------------------------------------
-function appendSystemChatLine(text) {
+function appendSystemChatLine(text, opts) {
   if (!currentRoom) return;
   if (!messagesByRoom[currentRoom]) messagesByRoom[currentRoom] = [];
   messagesByRoom[currentRoom].push({ system: true, text, ts: Date.now() });
   if (typeof renderChatLog === 'function') renderChatLog();
-  systemChatNotif(text); // phones have no log — banner it (unless a toast just said it)
+  // Phones have no log — banner it (unless a toast just said it, or the caller
+  // is already painting the town-wide banner with the same words).
+  if (!(opts && opts.noNotif)) systemChatNotif(text);
 }
 
 let announceTimer = null;

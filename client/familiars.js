@@ -9,7 +9,11 @@
 // Same chibi language as client/creatures.js — Lambert bodies, a couple of
 // distinguishing shapes, small unlit "glow" eyes.
 // ---------------------------------------------------------------------------
-export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkinHex }) {
+const FAMILIAR_SCALE = 1.4; // the chibi models are ~10 units tall beside a ~70-unit witch
+const FAMILIAR_SIDE = 34;   // how far to the owner's side it walks (clear of the body)
+const FAMILIAR_BACK = -12;  // and how far behind (negative: ahead, where the chase camera can see it past you)
+
+export default function createFamiliars({ getPlayers, getVisuals, getSkinHex }) {
   let pool = {}; // playerId -> { group, type, skin, x, y, z, phase }
 
   function glow(color, r) { return new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color })); }
@@ -127,7 +131,6 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
   function updateFamiliars(dt) {
     const players = getPlayers() || {};
     const visuals = getVisuals() || {};
-    const me = getMe();
     const f = 1 - Math.exp(-dt * 4); // lag factor — a trailing, not rigid, follow
     // Drop familiars whose owner left, dropped the familiar, or left the scene.
     for (const id in pool) {
@@ -147,7 +150,8 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
       if (!r) {
         const coat = (typeof getSkinHex === 'function') ? getSkinHex(skin) : null;
         const group = BUILDERS[p.familiar](coat);
-        group.scale.setScalar(me && me.id === id ? 1.0 : 1.0);
+        // A touch larger than life so it reads on a phone screen beside its owner.
+        group.scale.setScalar(FAMILIAR_SCALE);
         v.group.parent.add(group);
         r = pool[id] = { group, type: p.familiar, skin, x: gp.x, y: gp.y, z: gp.z, phase: Math.random() * 6 };
       } else if (r.group.parent !== v.group.parent) {
@@ -155,9 +159,13 @@ export default function createFamiliars({ getPlayers, getVisuals, getMe, getSkin
         if (r.group.parent) r.group.parent.remove(r.group);
         v.group.parent.add(r.group);
       }
-      // Trail to a point just behind-left of the owner (behind = -facing a touch;
-      // simplest stable offset is a fixed world nudge, since the familiar lags).
-      const tx = gp.x - 10, tz = gp.z - 6;
+      // Trail to a point at the owner's side and a little behind, turned with
+      // the owner, so the chase camera (which sits behind you) sees it beside
+      // you rather than hidden behind your back. (A fixed world offset put it
+      // straight between you and the camera whenever you walked one way.)
+      const ry = v.group.rotation ? v.group.rotation.y : 0;
+      const tx = gp.x + Math.cos(ry) * FAMILIAR_SIDE - Math.sin(ry) * FAMILIAR_BACK;
+      const tz = gp.z - Math.sin(ry) * FAMILIAR_SIDE - Math.cos(ry) * FAMILIAR_BACK;
       r.x += (tx - r.x) * f;
       r.z += (tz - r.z) * f;
       r.y += (gp.y - r.y) * f;
