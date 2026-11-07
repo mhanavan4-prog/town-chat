@@ -837,6 +837,22 @@ const CALLERS = [
     source: 'R. Kirk, The Secret Common-Wealth (1691) · T. Pennant, A Tour in Scotland (1771) · M. Dowd (2018)',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The toadman's bone (data/household.js) ──
+  {
+    id: 'toad_bone_mare',
+    caller: 'Tom Garrod',
+    icon: '🐸',
+    title: "The Mare Won't Stand",
+    plea: "The bay mare won't stand to be harnessed for me. She backs off the collar and throws her head, and the head horseman laughs. My grandfather was a toadman; he left me his bone in a twist of cloth and a little bottle of his oil. I daren't use it alone. Will you stand with me?",
+    steps: [
+      { kind: 'rite', rite: 'toad_bone', label: "The bone in your pocket, the oil on your hand, at the mare's head" },
+    ],
+    resolution: "She stands for you, and then the practical half: lift the collar and look under it. There is a raw place on her shoulder. A collar that fits badly galls a horse, and a galled horse will not throw her weight into it; she backs off the pain. Bathe the place, rest her a few days, and have the saddler re-stuff the collar. Then go to her quietly: a horse has a better nose than a dog and reads a nervous hand at once. That was most of your grandfather's secret, his oil and his patience. Keep the bone. He meant you to have it.",
+    lore: "The toadman's bone: East Anglian horsemen kept a toad's bone, won at a stream at midnight, to stop or draw a horse; in the north-east of Scotland the Society of the Horseman's Word gave its own secret. Collected by George Ewart Evans from the last horsemen.",
+    tier: 'folk',
+    source: 'G. E. Evans, The Pattern Under the Plough (1966) · J. W. Axe, The Horse: Its Treatment in Health and Disease (c. 1905), "Sore Shoulders"',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',
