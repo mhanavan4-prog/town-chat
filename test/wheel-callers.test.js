@@ -98,7 +98,10 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.reeve, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'feasts');
-  check('the Charm Book has a Turning Year chapter of twelve, all written in (and Martinmas, Plough Monday, St Mark\'s Eve, Valentine\'s Eve, Good Friday, St John\'s Eve, All Souls\' Day and St Catherine\'s Day after them)', ch && ch.total === 20 && ch.met === 12 && ch.entries[12].id === 'martin_blood' && ch.entries[13].id === 'plough_monday' && ch.entries[14].id === 'porch_watch' && ch.entries[15].id === 'valentine_bay' && ch.entries[16].id === 'cross_bun' && ch.entries[17].id === 'fern_seed' && ch.entries[18].id === 'soul_cakes' && ch.entries[19].id === 'cattern_cakes');
+  // After the twelve, the rites of the dated callers (Martinmas first), each once.
+  const datedRites = new Set(CALLERS.filter((c) => c.when).flatMap((c) => c.steps.filter((x) => x.kind === 'rite').map((x) => x.rite)));
+  const tail = ch ? ch.entries.slice(12).map((e) => e.id) : [];
+  check('the Charm Book has a Turning Year chapter of twelve, all written in, and after them the dated callers\' rites, Martinmas first', ch && ch.met === 12 && ch.total === 12 + tail.length && tail[0] === 'martin_blood' && tail.length >= 8 && tail.every((id) => datedRites.has(id)) && new Set(tail).size === tail.length, tail);
   check('…in Wheel order, each naming its festival', ch && ch.entries[0].id === 'bridesbed' && /Imbolc/.test(ch.entries[0].title) && ch.entries[11].id === 'michaelmas' && /Mabon/.test(ch.entries[11].title));
   check('…right after Yuletide', book.chapters.findIndex((c) => c.key === 'feasts') === book.chapters.findIndex((c) => c.key === 'yule') + 1);
 

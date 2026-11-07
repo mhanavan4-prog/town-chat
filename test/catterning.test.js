@@ -61,7 +61,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.lace, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'cattern_cakes');
-  check('…and writes Keeping Cattern into The Turning Year, after Souling', e && e.met && /· St Catherine's Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'cattern_cakes') === ch.entries.findIndex((x) => x.id === 'soul_cakes') + 1);
+  check('…and writes Keeping Cattern into The Turning Year, after Old Clem', e && e.met && /· St Catherine's Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'cattern_cakes') === ch.entries.findIndex((x) => x.id === 'old_clem') + 1);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
