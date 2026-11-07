@@ -351,7 +351,7 @@ const CALLERS = [
     resolution: "You don't hand anyone to the constable on a sieve's say-so, and you tell her so. Instead you tell her to mention at supper — loudly — that the cunning woman has turned the sieve and knows the name. The spoons are back in the drawer by morning, wrapped in a clean cloth, and nobody says a word about it ever again.",
     lore: "The sieve and shears found thieves: the points of a pair of shears were stuck into the rim of a sieve, two people held it up on their fingertips, and the suspects were named one by one — when the guilty name was spoken, the sieve turned. Ben Jonson's Alchemist (1610) mocks those \"searching for things lost with a sieve and shears\"; it went to New England with the settlers. As Keith Thomas showed, cunning folk rarely caught a thief by it — but word that the sieve had been turned often brought the goods quietly home.",
     tier: 'record',
-    source: 'Ben Jonson, The Alchemist (1610), I.i · Agrippa, De occulta philosophia (1533) · Brewer, Dictionary of Phrase and Fable (1895) · K. Thomas, Religion and the Decline of Magic (1971)',
+    source: 'Ben Jonson, The Alchemist (1610), I.i · Agrippa, De occulta philosophia (1531–33) · Brewer, Dictionary of Phrase and Fable (1895) · K. Thomas, Religion and the Decline of Magic (1971)',
     reward: { gold: 65, xp: 45 },
   },
   // ── The charmer's craft ──

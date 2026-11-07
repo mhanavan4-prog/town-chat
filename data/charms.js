@@ -73,7 +73,7 @@ const CHARMS = {
     use: 'Said low, so the bystanders cannot hear, while a thread of black wool cast with nine knots is tied round the sprained leg or arm.',
     lore: 'The Shetland minister of Sandsting and Aithsting set it down about 1841; Orkney records call the thread a "wresting threed" in 1616. Grimm saw in it the oldest charm in German: the Second Merseburg Charm, written in the 10th century, where Wodan heals Balder\'s foal with "ben zi bena, bluot zi bluoda, lid zi geliden": bone to bone, blood to blood, limb to limb, as if glued.',
     tier: 'record',
-    source: 'New Statistical Account of Scotland, vol. 15 (1845), Sandsting and Aithsting · Merseburg, Domstiftsbibliothek Cod. 136 (10th c.) · J. Grimm, Teutonic Mythology',
+    source: 'New Statistical Account of Scotland, vol. 15 (1845), Sandsting and Aithsting · Merseburg, Domstiftsbibliothek Cod. 136 (10th c.) · J. Grimm, Deutsche Mythologie (1835), in English as Teutonic Mythology',
   },
   cramp: {
     key: 'cramp',
