@@ -143,12 +143,12 @@ function renderCallers(list, meNote) {
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
       } else if (s.kind === 'knots' && !s.done) {
-        // The wart charm: a knot for every wart.
+        // A counted working: a knot for every wart, nine strokes for a stye…
         if (s.use) body.appendChild(el('div', 'callerStepNote', s.use));
         const row = el('div', 'knotRow');
         for (let k = 0; k < s.count; k++) row.appendChild(el('span', 'knotMark' + (k < s.tied ? ' tied' : ''), k < s.tied ? '●' : '○'));
         body.appendChild(row);
-        const b = el('button', 'btn charmSay', `🪢 Tie a knot (${s.tied + 1} of ${s.count})`);
+        const b = el('button', 'btn charmSay', `${s.icon || '🪢'} ${s.verb || 'Tie a knot'} (${s.tied + 1} of ${s.count})`);
         b.addEventListener('click', () => { b.disabled = true; send({ type: 'knot_tie' }); });
         body.appendChild(b);
       } else if (s.kind === 'rite' && !s.done && s.rite) {

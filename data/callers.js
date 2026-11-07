@@ -709,6 +709,53 @@ const CALLERS = [
     source: 'William Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. 5',
     reward: { gold: 40, xp: 35 },
   },
+  // ── More of the charmer's craft: a sprain, the cramp, a stye ──
+  {
+    id: 'the_sprain',
+    caller: 'Magnie Leask',
+    icon: '🦶',
+    title: 'The Wresting Thread',
+    plea: "I went over on my ankle coming down the banks with the peats, and it's up like a turnip. My mother always had the wresting thread done, and there's nobody left on this side of the voe that knows the words. Will you cast the knots and say it? Low, mind. It doesn't work if folk hear.",
+    steps: [
+      { kind: 'knots', count: 9, charm: 'sprain', verb: 'Cast a knot', icon: '🧶', doneNote: 'Nine knots cast on a thread of black wool and tied round the ankle', label: 'Cast nine knots on a black wool thread' },
+      { kind: 'charm', charm: 'sprain', label: 'Say the charm, too low for anyone to hear' },
+    ],
+    resolution: "You tie the knotted thread round his ankle and say the words under your breath while his sister pretends not to listen. Then the other half, which his mother also did: bind it firm, sit him by the fire with the foot up on a stool, and cold water on it from the burn. A sprain mends itself in a week or two if it's let; the thread stays on till it falls off.",
+    lore: "The wresting thread: a thread of black wool cast with nine knots, tied round a sprain while a charm was said too low to be heard. A Shetland minister recorded it about 1841; Orkney records name it in 1616. Its words echo the oldest charm in German, the Second Merseburg Charm, where Wodan heals a foal's sprained foot: bone to bone, blood to blood.",
+    tier: 'record',
+    source: 'New Statistical Account of Scotland, vol. 15 (1845), Sandsting and Aithsting · Merseburg, Domstiftsbibliothek Cod. 136 (10th c.)',
+    reward: { gold: 45, xp: 35 },
+  },
+  {
+    id: 'the_cramp',
+    caller: 'Jemmy Pratt',
+    icon: '🦵',
+    title: 'The Devil in My Leg',
+    plea: "Every night it gets me, a knot in the calf like a fist, and I'm up hopping round the room. The lads say the old charm and swear by it. I can't remember how it goes past Matthew, Mark, Luke and John. Will you say it over me?",
+    steps: [
+      { kind: 'charm', charm: 'cramp', label: 'Say the charm and make the three crosses' },
+    ],
+    resolution: "You say it and make the three crosses over his leg, and he insists on the eel-skin garter too, which smells. Then you show him what actually unties it: stand on the leg, pull the toes up towards the knee, stretch the calf, rub it warm. He tries it next time it comes on. He keeps the garter anyway.",
+    lore: "\"The devil is tying a knot in my leg\": a schoolboys' cramp charm Coleridge remembered from Christ's Hospital, printed by Henderson with the eel-skin garter and the sheep's \"cramp-bone\". English kings blessed gold and silver cramp rings on Good Friday for the same complaint, from Edward II to Mary I.",
+    tier: 'record',
+    source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1879), ch. 5 · Andrew Borde (1542)',
+    reward: { gold: 35, xp: 30 },
+  },
+  {
+    id: 'the_stye',
+    caller: 'Mrs Penrose',
+    icon: '👁️',
+    title: 'A Stye on Wenna',
+    plea: "Wenna's got a stye on her eyelid, red and sore, and she won't stop rubbing it. My mother would have had the black cat's tail over it, nine times, and we've got the cat. He won't sit still for me. Will you do it, while I hold him?",
+    steps: [
+      { kind: 'knots', count: 9, charm: 'stye', verb: 'Pass the tail over it', icon: '🐈‍⬛', doneNote: "The black cat's tail passed nine times over the stye", label: "Pass the black cat's tail over the stye, nine times" },
+    ],
+    resolution: "Nine strokes of the tail, the cat complaining at every one and Wenna giggling. Then the half that works: a clean cloth wrung out in hot water, held to the eye a few times a day, and no rubbing or squeezing. A stye comes to a head and goes in a few days. The cat leaves the room and does not come back until supper.",
+    lore: "In Cornwall a stye, a \"whilk\", was cured by the tail of a black cat passed nine times over it, \"if a ram cat, the cure is more certain\" (Hunt, 1865). Gold was the older cure: in a play of about 1617 a lover complains he has a sty and \"no gold to cure it\".",
+    tier: 'record',
+    source: 'R. Hunt, Popular Romances of the West of England (1865) · Beaumont & Fletcher, The Mad Lover (c. 1617)',
+    reward: { gold: 35, xp: 30 },
+  },
 ];
 
 const CALLERS_PER_DAY = 3;
