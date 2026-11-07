@@ -22,8 +22,8 @@ const metIds = (b, k) => chap(b, k).entries.filter((e) => e.met).map((e) => e.id
 
 // ── An empty book ────────────────────────────────────────────────────────────
 const empty = buildCharmBook({ acct: {}, prog: {}, seasonKey: null });
-const KEYS = ['callers', 'wards', 'ogham', 'leaves', 'nine', 'practices', 'cords', 'wheel', 'charms', 'halloween', 'yule', 'feasts', 'household', 'library', 'hours', 'dyes'];
-check('the book has its sixteen chapters in order', JSON.stringify(empty.chapters.map((c) => c.key)) === JSON.stringify(KEYS), empty.chapters.map((c) => c.key));
+const KEYS = ['callers', 'wards', 'ogham', 'leaves', 'nine', 'practices', 'cords', 'wheel', 'charms', 'halloween', 'yule', 'feasts', 'household', 'library', 'cunning', 'hours', 'dyes'];
+check('the book has its seventeen chapters in order', JSON.stringify(empty.chapters.map((c) => c.key)) === JSON.stringify(KEYS), empty.chapters.map((c) => c.key));
 check('a fresh account has met nothing', empty.chapters.every((c) => c.met === 0), empty.chapters.map((c) => c.key + ':' + c.met));
 const all = empty.chapters.flatMap((c) => c.entries);
 check('every entry has a title, a hint and a real tier', all.every((e) => e.title && e.hint && /^(record|folk|revival)$/.test(e.tier)), all.filter((e) => !(e.title && e.hint && /^(record|folk|revival)$/.test(e.tier))).map((e) => e.id));
