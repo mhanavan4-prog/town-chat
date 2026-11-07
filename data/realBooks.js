@@ -1,10 +1,91 @@
 // ---------------------------------------------------------------------------
 // The Real Shelf — real books of witchcraft and herb-lore, in the Library
 // beside the fictional Forbidden Shelf. Each has an honest summary, its date
-// and author, and a provenance tier. (Entries are being verified; filled in
-// the next commit.)
+// and author (with the doubts about authorship), one verified fact, a short
+// quotation where the text is public domain, and a provenance tier:
+//   record   a historical primary text (whatever we now think of it)
+//   revival  a modern text of the witchcraft revival whose history is rejected
+// Reading one writes it into the Charm Book's Library chapter. Ids are stable
+// (they are on accounts).
 // ---------------------------------------------------------------------------
-const REAL_SHELF_INTRO = 'Real books, honestly told: the charms and herbals people used, the books that hunted witches, the sceptics who argued back, and the modern revival.';
-const REAL_BOOKS = [];
+const REAL_SHELF_INTRO = 'Real books, honestly told: the charms and herbals people used, the books that hunted witches, the sceptics who argued back, and the modern revival. Tap a book to read it.';
+
+const REAL_BOOKS = [
+  { id: 'lacnunga', title: 'Lacnunga', author: 'anonymous (named by its editor Oswald Cockayne)', date: 'c. 1000', tier: 'record',
+    summary: 'An English book of remedies, charms and prayers in Old English and Latin, with a few garbled Old Irish charms (British Library, Harley MS 585). It holds the Nine Herbs Charm and the charm against a sudden stitch.',
+    fact: 'Its title is not in the manuscript: it is Old English for "remedies", given by its 19th-century editor. The Nine Herbs Charm in it names Woden, striking a serpent with nine glory-twigs.',
+    quote: 'ða genam Woden VIIII wuldortanas, sloh ða þa næddran',
+    source: 'British Library, Harley MS 585' },
+  { id: 'balds_leechbook', title: "Bald's Leechbook", author: 'compiled by Cild for its owner, Bald', date: 'c. 950', tier: 'record',
+    summary: 'An Old English medical book in three parts, outer ailments, inner ailments and a third collection, surviving in one copy (British Library, Royal MS 12 D xvii). It even records a repair for a cleft lip.',
+    fact: 'In 2015 researchers at Nottingham remade its eyesalve (garlic and onion or leek, wine and ox-gall, left nine nights in a brass vessel) and found it killed MRSA in the laboratory, though only all together, not the ingredients alone.',
+    quote: 'Bald habet hunc librum Cild quem conscribere iussit',
+    source: 'British Library, Royal MS 12 D xvii; F. Harrison et al., mBio 6(4) (2015)' },
+  { id: 'malleus', title: 'Malleus Maleficarum', author: 'Heinrich Kramer (Institoris); Jacob Sprenger\'s share is doubted', date: '1486–87', tier: 'record',
+    summary: 'The "Hammer of Witches": a Dominican inquisitor\'s handbook arguing that witches are real and setting out how to find, try and convict them, printed at Speyer with Innocent VIII\'s bull of 1484. It ran to some 28 editions by 1600, though how much it drove the trials is argued over.',
+    fact: 'The Cologne theologians\' "unanimous" approval appears in only some copies; two of the men named in it denied approving the book, and many historians think Kramer forged it. The Inquisition gave it no authority, and Sprenger banned Kramer from preaching in his houses.',
+    quote: null,
+    source: 'Speyer: Peter Drach, c. 1486–87' },
+  { id: 'agrippa', title: 'Three Books of Occult Philosophy', author: 'Heinrich Cornelius Agrippa', date: '1531–33', tier: 'record',
+    summary: 'The great Renaissance compendium of magic: natural, celestial and ceremonial, in a three-tier cosmos where everything below answers to what is above. It is where most later tables of correspondences, planets, herbs, stones and days, come from.',
+    fact: 'Before it was even printed Agrippa had seemed to renounce the occult arts in On the Vanity of the Sciences (1526); scholars still argue whether he meant it. His pupil Johann Weyer called the "Fourth Book" printed under his name a forgery.',
+    quote: 'Seeing there is a Three-fold World: Elementary, Celestial and Intellectual',
+    source: 'De occulta philosophia libri tres (Cologne, 1533); English translation by J.F. (1651)' },
+  { id: 'scot', title: 'The Discoverie of Witchcraft', author: 'Reginald Scot', date: '1584', tier: 'record',
+    summary: 'A Kentish gentleman\'s attack on the witch trials, written to stop the persecution of "poor, aged, and simple persons". Shakespeare and Middleton drew on it for their witches.',
+    fact: 'Its chapters exposing conjurors\' tricks with balls, coins, cards and confederates are counted the first printed book of stage magic. The story that James I had every copy burned is a later tradition, not a fact.',
+    quote: 'the lewde dealing of witches and witchmongers is notablie detected',
+    source: 'London: William Brome, 1584' },
+  { id: 'daemonologie', title: 'Daemonologie', author: 'James VI of Scotland', date: '1597', tier: 'record',
+    summary: 'A king\'s dialogue in three books defending the reality of witchcraft and its punishment, written after the North Berwick trials of 1590–91, in which he took part himself. It is thought one of the sources of Macbeth.',
+    fact: 'The preface attacks Reginald Scot by name, "not ashamed in publike print to deny, that ther can be such a thing", and the physician Johann Weyer with him.',
+    quote: 'THE fearefull aboundinge at this time in this countrie, of these detestable slaues of the Deuill',
+    source: 'Edinburgh: Robert Waldegrave, 1597' },
+  { id: 'gerard', title: 'The Herball', author: 'John Gerard (largely Dodoens, translated)', date: '1597', tier: 'record',
+    summary: 'A great English herbal of nearly 1,500 pages, illustrated with woodblocks rented from Frankfurt. Most of it is an unacknowledged translation of Rembert Dodoens, begun by Dr Robert Priest, who died before he finished.',
+    fact: 'It has the first English account of the potato (which Gerard thought came from Virginia) and the "barnacle tree" whose fruit, he said, drops into the sea and becomes geese.',
+    quote: null,
+    source: 'London: John Norton, 1597; revised by Thomas Johnson, 1633' },
+  { id: 'potts', title: 'The Wonderfull Discoverie of Witches in the Countie of Lancaster', author: 'Thomas Potts, clerk to the Lancaster assizes', date: '1613', tier: 'record',
+    summary: 'The account of the Pendle and Samlesbury trials of August 1612, written at the judges\' order and revised by one of them. It reads like a transcript but is not one; historians think it was shaped to serve the judges\' careers.',
+    fact: 'Potts dedicated it to Thomas Knyvet, the man who caught Guy Fawkes, and one charge was a plot to blow up Lancaster Castle, which may have been the magistrates\' invention.',
+    quote: 'She was a very old woman, about the age of Fourescore yeares, and had been a Witch for fiftie yeares.',
+    source: 'London: W. Stansby for John Barnes, 1613' },
+  { id: 'hopkins', title: 'The Discovery of Witches', author: 'Matthew Hopkins, "Witch-finder"', date: '1647', tier: 'record',
+    summary: 'A short defence of his own methods, in answers to questions put to the Norfolk assize judges: the watching, the searching for marks, and the swimming of suspects.',
+    fact: 'Hopkins and John Stearne sent more people to the gallows than every other English witch-hunter of the previous 160 years. He died at Manningtree in August 1647, probably of tuberculosis; the story that he was swum himself is a legend.',
+    quote: 'in March 1644 he had some seven or eight of that horrible sect of Witches living in the Towne where he lived',
+    source: 'London, 1647' },
+  { id: 'culpeper', title: 'The English Physitian', author: 'Nicholas Culpeper', date: '1652', tier: 'record',
+    summary: 'A cheap herbal in plain English for people who could not pay a physician, giving every common herb its planet. Culpeper had already angered the College of Physicians by translating their Latin pharmacopoeia.',
+    fact: 'It has been in print continually since 1652, later as Culpeper\'s Complete Herbal; this game\'s planetary herbs follow it.',
+    quote: 'It is an Herb under the Dominion of the Moon in Cancer',
+    source: 'London: Peter Cole, 1652' },
+  { id: 'glanvill', title: 'Saducismus Triumphatus', author: 'Joseph Glanvill (with Henry More)', date: '1681', tier: 'record',
+    summary: 'A Fellow of the Royal Society\'s defence of belief in witches and spirits against the sceptics he called Sadducees, published after his death. It shaped Cotton Mather\'s thinking and the Salem trials.',
+    fact: 'It tells of the Drummer of Tedworth, a poltergeist Glanvill went to hear himself in 1663, and has one of the earliest descriptions of a witch bottle.',
+    quote: "It put a long pike Iron into Mr. Mompesson's Bed",
+    source: 'London, 1681' },
+  { id: 'key_of_solomon', title: 'The Key of Solomon', author: 'anonymous, falsely given to King Solomon', date: '14th–15th c. (Mathers\'s edition 1888)', tier: 'record',
+    summary: 'A ceremonial magician\'s manual of conjurations, pentacles, purifications and tools, for summoning spirits, invisibility, love and finding stolen goods. It goes back to Latin or Italian texts of the late Middle Ages; most copies are 16th to 18th century.',
+    fact: 'Its English editor, MacGregor Mathers of the Golden Dawn, wrote that he saw "no reason to doubt" that Solomon wrote it; he did not.',
+    quote: "I see no reason to doubt the tradition which assigns the authorship of the 'Key' to King Solomon.",
+    source: 'S. L. MacGregor Mathers (ed.), The Key of Solomon the King (London: Redway, 1888)' },
+  { id: 'aradia', title: 'Aradia, or the Gospel of the Witches', author: 'Charles Godfrey Leland', date: '1899', tier: 'revival',
+    summary: 'An American folklorist\'s "gospel" of Tuscan witches, said to come from an informant called Maddalena: Diana sends her daughter Aradia to teach witchcraft to the poor against their lords and the Church. Most historians doubt there was ever such a religion.',
+    fact: 'Passages from it went into early Wiccan ritual, and Doreen Valiente reworked them into the Charge of the Goddess.',
+    quote: 'Thus do I seek Aradia! Aradia! Aradia!',
+    source: 'London: David Nutt, 1899' },
+  { id: 'murray', title: 'The Witch-Cult in Western Europe', author: 'Margaret Murray', date: '1921', tier: 'revival',
+    summary: 'An Egyptologist\'s argument that the accused witches were members of a surviving pagan fertility religion, meeting in covens of thirteen. Historians have rejected it for its selective use of the trial records.',
+    fact: 'She coined the "esbat" this game\'s moon page mentions, and wrote the Encyclopaedia Britannica\'s article on witchcraft from 1929 to 1968, presenting her theory there as fact.',
+    quote: 'Ritual Witchcraft—or, as I propose to call it, the Dianic cult',
+    source: 'Oxford: Clarendon Press, 1921' },
+  { id: 'gardner', title: 'Witchcraft Today', author: 'Gerald Gardner', date: '1954', tier: 'revival',
+    summary: 'The founding book of Wicca, published three years after the last Witchcraft Act was repealed, with an introduction by Margaret Murray. Gardner wrote as an outside observer of a New Forest coven he had in fact joined, and presented it as an ancient survival.',
+    fact: 'It repeats the old claim of nine million witch-hunt dead; historians put the real figure at about forty to sixty thousand. (No quotation: it is still in copyright.)',
+    quote: null,
+    source: 'London: Rider, 1954' },
+];
 
 module.exports = { REAL_BOOKS, REAL_SHELF_INTRO };
