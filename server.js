@@ -5144,7 +5144,26 @@ function charmBookStateBody(player) {
   let seasonKey = null; try { const se = calendarPublicState().season; seasonKey = se && se.key; } catch (e) { /* noop */ }
   const book = buildCharmBook({ acct: key ? accounts[key] : null, prog: key ? getProgress(player) : null, seasonKey });
   book.rewards = charmRewardsLib.rewardsView(book, key && accounts[key] ? accounts[key].charmRewards : null);
+  try { book.whereNext = whereNextFor(player, book); } catch (e) { book.whereNext = []; }
   return book;
+}
+// The Charm Book's "Where next" page (lib/whereNext.js): what you can write in
+// today, from today's callers, the season, the planetary hour and the old calendar.
+const { whereNext } = require('./lib/whereNext');
+function whereNextFor(player, book, nowIn) {
+  const now = nowIn != null ? nowIn : Date.now();
+  const key = player && player.accountKey;
+  const cal = calendarPublicState(now);
+  let offeredIds = [];
+  if (key && accounts[key]) { try { offeredIds = callers.offeredIds(player, callers.stateOf(player)); } catch (e) { offeredIds = []; } }
+  let nextSeason = null;
+  try { if (cal.season && cal.season.endsAt) nextSeason = seasonWindow(cal.season.endsAt + 1); } catch (e) { /* noop */ }
+  const hourHerbs = {};
+  for (const pl of CHALDEAN) {
+    hourHerbs[pl.key] = Object.keys(CULPEPER_RULERS).filter((h) => CULPEPER_RULERS[h] === pl.day)
+      .map((h) => (ITEM_CATALOG[h] && ITEM_CATALOG[h].name) || h);
+  }
+  return whereNext({ book, offeredIds: key ? offeredIds : [], season: cal.season, nextSeason, oldDay: cal.oldDay, hours: planetaryHourSchedule(now, 26), hourHerbs, now });
 }
 function practiceStateBody(player) {
   const key = player && player.accountKey;
@@ -17803,7 +17822,6 @@ global.__testHooks = {
   computeStatBlock, statContrib, gearStatContrib, invEquipField
 };
 // Hooks added on their own lines so parallel PRs don't conflict on the shared line above.
-global.__testHooks.charmBookStateBody = charmBookStateBody;
 global.__testHooks.noteSabbatSeen = noteSabbatSeen;
 global.__testHooks.wardsPublic = wardsPublic;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
@@ -17813,6 +17831,8 @@ global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
 global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
 global.__testHooks.tendHearth = tendHearth; // smooring and kindling the fire
 global.__testHooks.hearthFireBody = hearthFireBody;
+global.__testHooks.whereNextFor = whereNextFor; // the Charm Book's Where next page
+global.__testHooks.charmBookStateBody = charmBookStateBody;
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would
