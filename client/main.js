@@ -2961,6 +2961,7 @@ function onWsMessage(ev) {
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
     return;
   }
+  if (msg.type === 'familiar_lore') { familiarLore = msg; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'familiar_skin_set') {
     myFamiliarCos.owned = msg.owned || myFamiliarCos.owned || [];
@@ -11163,6 +11164,7 @@ const FAMILIARS_CLIENT = {
 // null = explicitly dismissed. Distinguishing them keeps "No familiar" from
 // being overridden by the stale stream value in the tick before it updates.
 let myFamiliar; // last known from familiar_state (account-scoped)
+let familiarLore = null; // what the trial records say (familiar_lore, asked for on open)
 // Numeric coat hex for a skin id (null = natural), used by client/familiars.js
 // to recolor the follower's body material.
 function familiarSkinHex(id) {
@@ -11178,9 +11180,19 @@ function renderFamiliarModal() {
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div><div class="menuCols">';
   for (const id of ['cat', 'raven', 'toad', 'hare', 'bat']) {
     const f = FAMILIARS_CLIENT[id];
-    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div></span></div>`;
+    const fl = familiarLore && familiarLore.lore && familiarLore.lore[id];
+    const tierLbl = fl ? (PROV_TIER_LABEL[fl.tier] || 'Folk') : '';
+    h += `<div class="famRow${cur === id ? ' cur' : ''}" data-fid="${id}"><span class="fe">${f.emoji}</span><span style="flex:1"><div class="fn">${f.name}${cur === id ? ' ✓' : ''}</div><div class="fb">${f.blurb}</div>`
+      + (fl ? `<div class="famLore"><span class="callerTier callerTier-${esc(fl.tier)}">${tierLbl}</span> ${esc(fl.lore)} <i>${esc(fl.source)}</i></div>` : '')
+      + `</span></div>`;
   }
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-fid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No familiar${!cur ? ' ✓' : ''}</div><div class="fb">Walk alone.</div></span></div></div>`;
+  // Familiars named in the trial records, with the shapes the accused gave them.
+  if (familiarLore && Array.isArray(familiarLore.records) && familiarLore.records.length) {
+    h += '<div class="famCoatSec">In the records</div><div class="famRecords">';
+    for (const r of familiarLore.records) h += `<div class="famRec"><b>${esc(r.name)}</b> — ${esc(r.shape)}. <span class="famRecWho">${esc(r.who)}</span></div>`;
+    h += `<div class="famRecNote">${esc(familiarLore.note || '')}</div></div>`;
+  }
   // Coat picker — recolors whichever familiar you've bonded. Account-wide,
   // server-sourced palette; owned/default equip on click, locked show 💎 price.
   if ((myFamiliarCos.skins || []).length) {
@@ -11207,6 +11219,7 @@ function renderFamiliarModal() {
 function openFamiliarModal() {
   const modal = document.getElementById('familiarModal');
   if (!modal) return;
+  if (!familiarLore && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'familiar_lore' }));
   renderFamiliarModal();
   modal.classList.remove('hidden');
   setDefaultFloatPos(modal, 400, 140);

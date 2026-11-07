@@ -117,4 +117,9 @@ const TREE_COLLIDERS = [
   { x: 760, y: 1470, r: 16 }
 ];
 
+// The memorial to the accused stands by the Town Hall and reads like a
+// waymarker (its id starts 'way_' so the dialogue treats it as a stone).
+const { MEMORIAL } = require('./memorial');
+WAYMARKER_LORE.way_memorial = { name: MEMORIAL.name, text: `${MEMORIAL.text}\n\nSources: ${MEMORIAL.sources}.` };
+
 module.exports = { TOWN_TORCHES, TEMPLE_ALTAR, TEMPLE_RECT, TEMPLE_GATE, TEMPLE_STAND_OFFSETS, TORCH_NPCS, WILDS_CAMPFIRES, WAYMARKER_LORE, TREE_COLLIDERS };

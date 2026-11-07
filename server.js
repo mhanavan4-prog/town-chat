@@ -3142,7 +3142,7 @@ app.get('/api/coven', (req, res) => {
 // this to decide what a given item can actually do.
 const ITEM_CATALOG = require('./data/itemCatalog'); // Tier 3.4 Phase A: extracted to data/
 const { altarAlignment } = require('./data/correspondences'); // Tier 3.5: correspondences engine (altar attunement)
-const { FAMILIARS, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
+const { FAMILIARS, FAMILIAR_LORE, FAMILIAR_RECORDS, FAMILIAR_RECORDS_NOTE, FAMILIAR_SKINS, FAMILIAR_SKIN_BY_ID } = require('./data/familiars'); // Tier 3.5: bonded companions (passive perk + follower) + coat skins
 const { GUISES, GUISE_COLLECTIBLE, GUISE_SET_TITLE } = require('./data/guises'); // Tier 3.5: Samhain costumes (cosmetic disguise overlay) + the Otherworld collectible set
 const { TAROT_CARDS, TAROT_POSITIONS, TAROT_PROVENANCE, tarotSynthesis, ARCANA_LEGS } = require('./data/tarot'); // Tier 3.5: daily tarot (three-card spread) + The Fool's Journey collection
 const { PRACTICES, CULPEPER_RULERS, GREEN_HOUR_BONUS, GREEN_HOUR_BONUS_PATH, DRAW_DOWN, HEDGE_DRAUGHTS, HEDGE_GIFTS, HEDGE_GIFTS_PATH, HEDGE_VISIONS, LOAVES_PER_DAY, LOAVES_PER_DAY_PATH } = require('./data/practices'); // the Witch Paths' practices
@@ -15654,6 +15654,12 @@ wss.on('connection', (ws, req) => {
 
     // ── Bestow your active blessing on a nearby player (any player, coven or
     // not). Purely positive, so no consent gate; a short cooldown stops spam. ──
+    // What the trial records say about each familiar (the familiar panel asks
+    // when it opens; static lore, guests too).
+    if (msg.type === 'familiar_lore') {
+      send(ws, { type: 'familiar_lore', lore: FAMILIAR_LORE, records: FAMILIAR_RECORDS, note: FAMILIAR_RECORDS_NOTE });
+      return;
+    }
     // ── Bond / change / dismiss a familiar (account-scoped, free) ──
     if (msg.type === 'choose_familiar') {
       if (!player.accountKey) { send(ws, { type: 'familiar_error', message: 'Log into an account to bond a familiar.' }); return; }
