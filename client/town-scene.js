@@ -23,6 +23,7 @@ function buildTownNPCs(scene) {
   buildTownBoard(scene);
   buildDelveStone(scene);
   buildMootStone(scene);
+  buildMemorialStone(scene);
   buildLocksmith(scene);
 }
 
@@ -183,6 +184,51 @@ function buildMootStone(scene) {
   label.position.set(MOOT_STONE_SPOT.x, 152, MOOT_STONE_SPOT.y);
   scene.add(label);
   OUTDOOR_KIOSKS.push({ x: MOOT_STONE_SPOT.x, z: MOOT_STONE_SPOT.y, npc: 'moot' });
+}
+
+// ── The memorial to the accused — a plain dressed stone by the Town Hall,
+// unlit but for two candles at its foot. Read like a waymarker (F): the id
+// 'way_memorial' is in the server's WAYMARKER_LORE (data/memorial.js).
+// Client-only dressing, no collider; the spot was checked clear of props.
+const MEMORIAL_SPOT = { x: 1760, y: 410 };
+function buildMemorialStone(scene) {
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8780 });
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(34, 50, 8), stoneMat);
+  slab.position.y = 31;
+  g.add(slab);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 8, 16, 1, false, 0, Math.PI), stoneMat);
+  top.rotation.z = Math.PI / 2; top.rotation.y = Math.PI / 2;
+  top.position.y = 56;
+  g.add(top);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(46, 6, 20), new THREE.MeshLambertMaterial({ color: 0x6d6a64 }));
+  plinth.position.y = 3;
+  g.add(plinth);
+  // Incised lines on the face, standing in for the names.
+  const cut = new THREE.MeshBasicMaterial({ color: 0x4e4c48 });
+  for (let i = 0; i < 6; i++) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(i === 0 ? 18 : 24, 1.4, 0.6), cut);
+    line.position.set(0, 48 - i * 6, 4.2);
+    g.add(line);
+  }
+  // Two candles at the foot, with a small steady glow.
+  for (const dx of [-14, 14]) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 7, 8), new THREE.MeshLambertMaterial({ color: 0xefe6cf }));
+    c.position.set(dx, 9.5, 8);
+    g.add(c);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: 0xffc46a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+    flame.scale.set(7, 9, 1);
+    flame.position.set(dx, 15, 8);
+    g.add(flame);
+  }
+  // Face the square.
+  g.rotation.y = Math.atan2(1600 - MEMORIAL_SPOT.x, 1100 - MEMORIAL_SPOT.y);
+  g.position.set(MEMORIAL_SPOT.x, 0, MEMORIAL_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🕯️ In Memory of the Accused');
+  label.position.set(MEMORIAL_SPOT.x, 92, MEMORIAL_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: MEMORIAL_SPOT.x, z: MEMORIAL_SPOT.y, npc: 'waymark', markerId: 'way_memorial', npcName: '🕯️ the memorial' });
 }
 
 // ── The Midnight Peddler's stall (Session I) — a cloaked figure under a
