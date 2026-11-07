@@ -57,7 +57,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.martin, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'martin_blood');
-  check('…and writes St Martin\'s Blood into The Turning Year, after the festivals', e && e.met && /· Martinmas$/.test(e.title) && ch.entries[ch.entries.length - 1].id === 'martin_blood');
+  check('…and writes St Martin\'s Blood into The Turning Year, after the festivals', e && e.met && /· Martinmas$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'martin_blood') === 12);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
