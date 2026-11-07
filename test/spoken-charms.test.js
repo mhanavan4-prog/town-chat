@@ -21,7 +21,7 @@ function makeMockSocket(tag) {
 }
 
 // ── The words, as recorded ──
-check('three charms: burn, blood, toothache', JSON.stringify(Object.keys(CHARMS)) === '["burn","blood","tooth"]');
+check('the spoken charms: burn, blood, toothache, sprain, cramp', JSON.stringify(Object.keys(CHARMS)) === '["burn","blood","tooth","sprain","cramp"]');
 check('the burn charm is Hunt\'s: three angels, fire and frost', /three angels out of the east/.test(CHARMS.burn.lines[0]) && /One brought fire and two brought frost/.test(CHARMS.burn.lines[1]) && /Out fire and in frost/.test(CHARMS.burn.lines[2]) && /Hunt.*1865/.test(CHARMS.burn.source));
 check('the blood charm is Ezekiel 16:6 word for word', CHARMS.blood.lines.join(' ') === 'And when I passed by thee, and saw thee polluted in thine own blood, I said unto thee when thou wast in thy blood, Live.' && /Ezekiel 16:6/.test(CHARMS.blood.source) && /Dorson.*1952/.test(CHARMS.blood.source));
 check('the toothache charm opens and closes as the Scottish paper does, and says the middle is shortened', /Peter sat on a marble stone weeping/.test(CHARMS.tooth.lines[1]) && /shall never have the toothache/.test(CHARMS.tooth.lines[3]) && /shortened/.test(CHARMS.tooth.lore) && /co106732/.test(CHARMS.tooth.source));
@@ -70,7 +70,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.charmer, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'charms');
-  check('the Charm Book has a Spoken Charms chapter: three said, and the wart charm worked', ch && ch.total === 4 && ch.entries.some((e) => e.id === 'warts'));
+  check('the Charm Book has a Spoken Charms chapter: five said, and the wart and stye workings', ch && ch.total === 7 && ch.entries.some((e) => e.id === 'warts') && ch.entries.some((e) => e.id === 'stye'));
   check('…with the burn charm written in, words and all', ch && ch.entries.find((e) => e.id === 'burn').met && /three angels/.test(ch.entries.find((e) => e.id === 'burn').lore));
 
   console.log(`\n${pass} passed, ${fail} failed`);
