@@ -101,7 +101,7 @@ const HOUSEHOLD_RITES = {
     ],
     lore: 'Scrying is looking into a stone, glass or water until something shows. John Dee\'s "shew-stone", a polished mirror of black obsidian, is in the British Museum: it was made in Mexico, of obsidian from Pachuca, and Horace Walpole labelled it "The Black Stone into which Dr Dee used to call his Spirits". Dee did not look himself; his scryers did, Edward Kelley above all. Reginald Scot (1584) copied out "How to enclose a spirit in a christall stone" only to expose it. Village cunning folk used a mirror, a crystal or a bowl of water and let the client look, so the client saw the culprit and they never had to name anyone. Finding lost or stolen goods by such arts was an offence under the Witchcraft Acts from 1542; from 1736 it was punished as a pretence.',
     tier: 'record',
-    source: 'British Museum 1966,1001.1, and S. Campbell et al., Antiquity 95 (2021) · R. Scot, The Discoverie of Witchcraft (1584), XV.12 · O. Davies, Cunning-Folk (2003) · Witchcraft Acts 1542, 1563, 1604 and 1736',
+    source: 'British Museum 1966,1001.1 · S. Campbell et al., Antiquity 95 (2021) · R. Scot, The Discoverie of Witchcraft (1584), XV.12 · O. Davies, Cunning-Folk (2003) · Witchcraft Acts 1542, 1563, 1604 and 1736',
   },
   need_fire: {
     key: 'need_fire', name: 'The Need-Fire', icon: '🔥',

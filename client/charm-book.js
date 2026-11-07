@@ -13,10 +13,12 @@ import { Modals } from './modals.js';
 
 const CHARM_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
 const NEXT = '__whereNext'; // the Where next page (not a chapter)
+const SOURCES = '__sources'; // the Sources page (not a chapter)
 
 export default function createCharmBook({ send, place, openBoard }) {
   let state = null;
   let openChapter = null; // key of the expanded chapter, or null = contents page
+  let sourceFilter = ''; // what's typed in the Sources page's search box
 
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 
@@ -78,6 +80,17 @@ export default function createCharmBook({ send, place, openBoard }) {
       bar.appendChild(fill); row.appendChild(bar);
       row.addEventListener('click', () => { openChapter = ch.key; render(); });
       cols.appendChild(row);
+    }
+    if (state.sources && state.sources.works && state.sources.works.length) {
+      const row = el('button', 'cbChapter cbSourcesRow');
+      row.appendChild(el('span', 'cbChIcon', '📖'));
+      const txt = el('span', 'cbChText');
+      txt.appendChild(el('span', 'cbChTitle', 'Sources'));
+      txt.appendChild(el('span', 'cbChCount', `${state.sources.works.length} works`));
+      row.appendChild(txt);
+      row.appendChild(el('span', 'cbNextSub', 'Every work this book cites, A to Z'));
+      row.addEventListener('click', () => { openChapter = SOURCES; render(); });
+      body.appendChild(row);
     }
   }
 
@@ -151,13 +164,55 @@ export default function createCharmBook({ send, place, openBoard }) {
     body.appendChild(list);
   }
 
+  // 📖 Sources: every work the book cites, A to Z, with the entries that cite
+  // it (lib/sources.js). Tap an entry to open its chapter.
+  function renderSources(body) {
+    const back = el('button', 'btn cbBack', '‹ Contents');
+    back.addEventListener('click', () => { openChapter = null; render(); });
+    body.appendChild(back);
+    const src = state.sources || { works: [] };
+    body.appendChild(el('div', 'cbChHead', `📖 Sources · ${src.works.length} works`));
+    body.appendChild(el('div', 'cbIntro', 'Every work this book cites, A to Z, and the entries that cite it, so you can check any of it for yourself. An entry you have not met yet shows as · · ·. Tap one to open its chapter.'));
+    const search = el('input', 'cbSourceSearch');
+    search.type = 'search';
+    search.placeholder = 'Find an author, a book, a year…';
+    search.value = sourceFilter;
+    body.appendChild(search);
+    const list = el('div', 'cbSourceList');
+    body.appendChild(list);
+    const titleOf = (k) => (state.chapters.find((c) => c.key === k) || {}).title || k;
+    const draw = () => {
+      list.textContent = '';
+      const q = sourceFilter.trim().toLowerCase();
+      const shown = src.works.filter((w) => !q || w.cite.toLowerCase().includes(q) || w.entries.some((e) => e.title && e.title.toLowerCase().includes(q)));
+      for (const w of shown) {
+        const row = el('div', 'cbSource');
+        row.appendChild(el('div', 'cbSourceCite', w.cite));
+        const cited = el('div', 'cbSourceCited');
+        for (const e of w.entries) {
+          const b = el('button', 'cbSourceEntry' + (e.met ? ' met' : ''), e.title ? `${e.icon ? e.icon + ' ' : ''}${e.title}` : '· · ·');
+          b.title = titleOf(e.chapter);
+          b.appendChild(el('span', 'cbSourceCh', ` · ${titleOf(e.chapter)}`));
+          b.addEventListener('click', () => { openChapter = e.chapter; render(); });
+          cited.appendChild(b);
+        }
+        row.appendChild(cited);
+        list.appendChild(row);
+      }
+      if (!shown.length) list.appendChild(el('div', 'cbHint', 'Nothing in the book cites that.'));
+    };
+    search.addEventListener('input', () => { sourceFilter = search.value; draw(); });
+    draw();
+    if (src.note) body.appendChild(el('div', 'cbNote', src.note));
+  }
+
   function render() {
     const body = document.getElementById('charmBookContent');
     if (!body) return;
     body.textContent = '';
     if (!state || !Array.isArray(state.chapters)) { body.appendChild(el('div', 'cbIntro', 'Opening the book…')); return; }
     const ch = openChapter && state.chapters.find((c) => c.key === openChapter);
-    if (openChapter === NEXT) renderNext(body); else if (ch) renderChapter(body, ch); else renderContents(body);
+    if (openChapter === NEXT) renderNext(body); else if (openChapter === SOURCES) renderSources(body); else if (ch) renderChapter(body, ch); else renderContents(body);
     body.scrollTop = 0;
   }
 
