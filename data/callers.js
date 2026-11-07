@@ -814,6 +814,23 @@ const CALLERS = [
     source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
     reward: { gold: 40, xp: 35 },
   },
+  // All Souls' Day only (data/souling.js), dated by the old calendar.
+  {
+    id: 'all_souls_souling',
+    caller: 'Margery Dutton',
+    icon: '🍪',
+    title: "All Souls' Day",
+    when: { calendar: 'souling', days: 2, label: "All Souls' Day" },
+    plea: "It's All Souls', and the children will be round souling by noon. My mother always had a heap of soul cakes on the board for them, and a prayer said for every cake, and I've never once baked them. Will you help me?",
+    steps: [
+      { kind: 'rite', rite: 'soul_cakes', label: 'A heap of soul cakes on the board, one for every child who sings' },
+    ],
+    resolution: "The heap goes down cake by cake. Then the practical half: soul cakes were charity before they were a game, a bit of food for the poorest at the start of winter in return for a prayer. Keep a few back for the old folk on the lane who don't come to the door any more, and take them round yourself. And the children have been at every house: go easy with the spice, or they'll all be sick by dark.",
+    lore: "Souling: on All Souls' Day children and the poor went from door to door for soul cakes, praying for the household's dead in return (Aubrey, 1680s; Burne, 1883).",
+    tier: 'record',
+    source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87) · Notes and Queries (15 November 1851)',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
