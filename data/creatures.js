@@ -31,7 +31,7 @@ const MOB2_TYPES = {
   gloom_bat:   { name: 'Gloom Bat',   color: 0x1c1c26, scale: 0.7, maxHealth: 26, speed: 78, aggroRadius: 200, strikeRange: 44, dmgMin: 5, dmgMax: 9, hitCooldownMs: 1300, xp: 12, flyer: true, lifesteal: 0.5 },
   // A mid-tier undead risen from the barrows — relentless melee, a notch tougher
   // than the Night Howler but no elite. Uses the recolored base blob (no rig).
-  barrow_wight:{ name: 'Barrow Wight', color: 0x6a7a6a, scale: 1.1, maxHealth: 60, speed: 46, aggroRadius: 210, strikeRange: 52, dmgMin: 9, dmgMax: 14, hitCooldownMs: 1700, xp: 18 },
+  barrow_wight:{ name: 'Draugr', color: 0x6a7a6a, scale: 1.1, maxHealth: 60, speed: 46, aggroRadius: 210, strikeRange: 52, dmgMin: 9, dmgMax: 14, hitCooldownMs: 1700, xp: 18 },
   old_marrowe: { name: 'Old Marrowe, the Gallows Warden', color: 0x8a3a2a, scale: 1.7, maxHealth: 340, speed: 34, aggroRadius: 240, strikeRange: 62, dmgMin: 18, dmgMax: 28, hitCooldownMs: 2000, xp: 220, elite: true, bloodMoonOnly: true },
   // Crypt Warden — the tomb's guardian. NOT part of the Wilds spawn table
   // (never in MOB2_SPAWNS); it lives only in the instanced crypt room, one per

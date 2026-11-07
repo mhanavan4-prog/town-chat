@@ -11,10 +11,10 @@ const GUISES = {
   // The free six — worn by anyone, changed or doffed for nothing.
   skull:   { name: 'Bone Mask',    emoji: '💀', blurb: 'A bleached skull over your face. The dead nod to their own.' },
   pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved pumpkin for a head, candle-lit from within.' },
-  devil:   { name: 'Little Devil',  emoji: '😈', blurb: 'Red-skinned and sharp-horned — the mummers’ devil of the Samhain play.' },
+  devil:   { name: 'Little Devil',  emoji: '😈', blurb: 'Red-skinned and sharp-horned — the devil of the English mummers’ play, Beelzebub with his club.' },
   raven:   { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask, for crossing between worlds.' },
   witch:   { name: 'Pointed Hat',  emoji: '🧙', blurb: 'The tall, wide-brimmed hat of the old stories. Lean into it.' },
-  stag:    { name: 'The Horned',   emoji: '🦌', blurb: 'A crown of antlers — the hunter of the wild Samhain night.' },
+  stag:    { name: 'The Horned',   emoji: '🦌', blurb: 'A crown of antlers — Herne, the antlered hunter Shakespeare sets in Windsor Forest.' },
   // ── The Monsters' Masque — a collectible set: wear the real heads of the
   // night's own monsters, cloned from the KayKit character meshes already in the
   // world (the werewolf on the balcony, the Artificer's vampire, the Wilds beast).

@@ -5974,7 +5974,7 @@ const CREATURE_LABEL = {
   bramble_boar: 'Bramble Boars', mossback_tortoise: 'Mossback Tortoises', gravewing_crow: 'Gravewing Crows',
   fen_hexer: 'Fen Hexers', rot_swarm: 'Grave-Mites', barrow_maw: 'Barrow Maws', gloom_bat: 'Gloom Bats',
   grimoire_mimic: 'Grimoire Mimics',
-  barrow_wight: 'Barrow Wights',
+  barrow_wight: 'Draugar',
   old_marrowe: 'Old Marrowe, the Gallows Warden',
 };
 
