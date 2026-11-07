@@ -831,6 +831,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
     reward: { gold: 40, xp: 35 },
   },
+  // Mothering Sunday only (data/mothering.js), dated by Easter through the old calendar.
+  {
+    id: 'mothering_sunday_simnel',
+    caller: 'Nan Elcock, the scullery maid at the Hall',
+    icon: '💐',
+    title: 'Mothering Sunday',
+    when: { calendar: 'mothering_sunday', days: 2, label: 'Mothering Sunday' },
+    plea: "It's Mothering Sunday, the one day in the year Mistress lets us go home, and it's eleven miles. I want to take Mother a simnel, the way the others do. Cook says I may have the oven before five if I'm quick about it, but I've never made one. Will you help me, and walk part of the way?",
+    steps: [
+      { kind: 'rite', rite: 'simnel', label: 'A simnel baked before five, and carried home to her mother' },
+    ],
+    resolution: "Nan's mother cries when she sees her, and then the cake. Then the practical half, which is two things. A servant's day off was a rare thing: sixteen hours a day, six and a half days a week, was not unusual, and going home once a year was a treat. If anyone works for you, let them have their days. And not everyone has a mother to go home to, or one they can: the day is hard for those whose mother has died, for mothers whose children have died, and for those who were never easy with theirs. Don't take it for granted at anyone's door. If the day is hard for you, saying so to someone is no shame.",
+    lore: "Mothering Sunday: on Mid-Lent Sunday servants and apprentices went home to their mothers with a cake or a trinket, a simnel at Shrewsbury or Gloucester, and were given furmity and a blessing (Hone, 1826; Herrick, 1648).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 13 March · R. Herrick, Hesperides (1648), p. 278',
+    reward: { gold: 40, xp: 35 },
+  },
   // Good Friday only (data/goodFriday.js), dated by Easter through the old calendar.
   {
     id: 'good_friday_bun',
