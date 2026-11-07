@@ -787,6 +787,22 @@ const CALLERS = [
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913)',
     reward: { gold: 45, xp: 40 },
   },
+  // Elf-shot (data/household.js): the fairy arrow and the flint in the water.
+  {
+    id: 'elf_shot_cow',
+    caller: 'Morag Grant',
+    icon: '🏹',
+    title: 'The Red Cow Is Down',
+    plea: "The red cow was well at milking and now she's down in the byre, blown up like a drum and groaning. Old Duncan says she's elf-shot, and he's given me the elf-arrow he turned up with the plough last spring. He says you'll know the cure. Will you come quick?",
+    steps: [
+      { kind: 'rite', rite: 'elf_shot', label: 'Feel for the hole, then the elf-arrow in the water' },
+    ],
+    resolution: "You do the cure, and then the practical half: she is blown, not shot. She got into the wet clover, and the gas is trapped. Get her up and walking with her front end uphill, a stick tied in her mouth to set her chewing and belching, a drench of oil if there is any; and if she is still swelling, the cow doctor with his trocar, and quickly. The elf-arrow is a flint arrowhead made by people four thousand years ago and more. Keep it. It is older than the kirk.",
+    lore: "Elf-shot: a beast that dropped suddenly had been shot by the fairies. Kirk (1691) describes their stone arrows; the cure was to find the hole, or give the beast water an elf-arrow had been dipped in. The arrows were Neolithic and Bronze Age flint arrowheads.",
+    tier: 'record',
+    source: 'R. Kirk, The Secret Common-Wealth (1691) · T. Pennant, A Tour in Scotland (1771) · M. Dowd (2018)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── Charming warts ──
   {
     id: 'charming_warts',
