@@ -62,8 +62,9 @@ setTimeout(() => {
   for (let d = 0; d < 20; d++) {
     for (const t of [MIDSUMMER, HALLOWEEN]) offSeason += at(t + d * 86400000, () => h.callers.callersStatePayload(p).offered.filter((o) => isYule(o.id)).length);
     const yule = at(Date.UTC(2026, 11, 22, 12) + d * 86400000, () => ({ season: h.calendarPublicState().season.key, ids: h.callers.callersStatePayload(p).offered.map((o) => o.id) }));
-    // On St Stephen's Day the wren boys (a dated caller) come first, and a Yule caller second.
-    if (yule.season === 'yule') { days++; if (isYule(yule.ids[0]) || (yule.ids[0] === 'wren_boys' && isYule(yule.ids[1]))) yuleFirst++; }
+    // On a dated caller's day (Christmas Eve, St Stephen's Day) that caller comes first, and a Yule caller second.
+    const isDated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
+    if (yule.season === 'yule') { days++; if (isYule(yule.ids[0]) || (isDated(yule.ids[0]) && isYule(yule.ids[1]))) yuleFirst++; }
   }
   check('no Yule caller comes at midsummer or at Samhain (20 days each)', offSeason === 0, offSeason);
   check('in the Yule season one is always first at the door', days === 20 && yuleFirst === days, { days, yuleFirst });
@@ -93,7 +94,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.wassailer, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'yule');
-  check('the Charm Book has a Yuletide chapter of the three Yule rites (then Wren Day and St Agnes\' Eve), the three written in', ch && ch.total === 5 && ch.met === 3 && ch.entries[3].id === 'wren_hunt' && ch.entries[4].id === 'st_agnes_pins');
+  check('the Charm Book has a Yuletide chapter of the three Yule rites (then Christmas Eve, Wren Day and St Agnes\' Eve), the three written in', ch && ch.total === 6 && ch.met === 3 && ch.entries[3].id === 'midnight_oxen' && ch.entries[4].id === 'wren_hunt' && ch.entries[5].id === 'st_agnes_pins');
   check('…after Hallowe\'en, which the Yule rites don\'t touch', book.chapters.findIndex((c) => c.key === 'yule') === book.chapters.findIndex((c) => c.key === 'halloween') + 1 && book.chapters.find((c) => c.key === 'halloween').met === 0);
 
   console.log(`\n${pass} passed, ${fail} failed`);

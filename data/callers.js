@@ -727,6 +727,23 @@ const CALLERS = [
     source: 'J. Aubrey, Miscellanies (1696), ch. XIII · Nielsen & Powell, Frontiers in Psychology 6 (2015)',
     reward: { gold: 40, xp: 35 },
   },
+  // Christmas Eve only (data/christmasEve.js), dated by the old calendar.
+  {
+    id: 'christmas_eve_oxen',
+    caller: 'Old Jacob Penhale',
+    icon: '🐂',
+    title: 'Christmas Eve',
+    when: { calendar: 'oxen_kneel', days: 2, label: 'Christmas Eve' },
+    plea: "Christmas Eve. When I was a boy my grandfather sat up in the shippon every year to see the oxen kneel at twelve, and I never once sat with him. I'm too stiff now to sit up out there on my own, and my daughter laughs at me. Will you sit up with me, the once?",
+    steps: [
+      { kind: 'rite', rite: 'midnight_oxen', label: 'The shippon at twelve with a lantern, and then an ear to the hives' },
+    ],
+    resolution: "You walk him back to the house at half past twelve. Then the practical half, for the beasts and the bees are real whatever they do at midnight. A beast burns more keeping warm in a frost, and more again with a wet coat: give them extra fodder, and break the ice on the trough morning and night, for they won't eat well without water. And leave the hives shut, for opening one chills the bees. Lift the back of each to feel the weight of stores; if one is light, put a block of fondant over the cluster on the next mild day. Clear the dead bees from the entrance with a bent wire, and see the mouse guards are on.",
+    lore: "Christmas Eve: in Devon and Cornwall the oxen were said to kneel in their stalls at midnight, and in Yorkshire people sat up by the hives to hear the bees hum; after 1752 many said it was only on Old Christmas Eve (Brand, via Hone; Ditchfield, 1896).",
+    tier: 'record',
+    source: 'J. Brand, Observations on Popular Antiquities, ed. H. Ellis (1813), quoted in W. Hone, The Every-Day Book, 24 December · P. H. Ditchfield, Old English Customs Extant at the Present Time (1896), p. 52',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Stephen's Day only (data/wrenDay.js): the wren boys, with a straw wren.
   {
     id: 'wren_boys',
