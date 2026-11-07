@@ -35,9 +35,12 @@ const wn = whereNext({
 const door = item(wn, 'door');
 check('today\'s callers who would write something new, with what they\'d write', door && door.action === 'board' && door.lines.some((l) => l.includes(gibbs.caller) && /Burning the Nuts/.test(l)) && door.lines.some((l) => l.includes(leask.caller) && /Sprain/.test(l)));
 check('…each entry named once', door && (door.lines.find((l) => l.includes(leask.caller)).match(/Wresting Thread/g) || []).length <= 2);
+const blue = CALLERS.find((c) => c.steps.some((s) => s.rite === 'clue'));
+const wnBlue = whereNext({ book: fresh, offeredIds: [blue.id] });
+check('a rite named like its caller ("The Blue Clue") is not named twice', item(wnBlue, 'door') && !item(wnBlue, 'door').lines.some((l) => /\(The Blue Clue\)/.test(l)), item(wnBlue, 'door') && item(wnBlue, 'door').lines);
 check('the planetary hour now, with its herbs and time left', item(wn, 'hour') && /The hour of Venus is now/.test(item(wn, 'hour').title) && /Mugwort, Feverfew and 1 more/.test(item(wn, 'hour').lines[0]) && /20 minutes left/.test(item(wn, 'hour').lines[0]));
 const season = item(wn, 'season');
-check('this festival\'s customs still to work, and how long its callers come', season && season.chapter === 'halloween' && /Samhain: 5 of its 5 customs/.test(season.title) && /until Yule/.test(season.lines[1]));
+check('this festival\'s customs still to work, and how long its callers come', season && season.chapter === 'halloween' && /^Samhain: 5 customs to work$/.test(season.title) && /until Yule/.test(season.lines[1]));
 check('today in the old calendar, first sentence only', item(wn, 'old') && /Today in the old calendar: Martinmas/.test(item(wn, 'old').title) && item(wn, 'old').lines[0] === 'Cattle were killed and salted.');
 check('unread books on the Real Shelf', item(wn, 'library') && /books unread on the Real Shelf/.test(item(wn, 'library').title) && item(wn, 'library').chapter === 'library');
 const charms = item(wn, 'charms');
