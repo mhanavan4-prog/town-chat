@@ -11,6 +11,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 import { searchBook } from './charm-search.js';
+import { tierTally } from './charm-tally.js';
 
 const CHARM_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
 const NEXT = '__whereNext'; // the Where next page (not a chapter)
@@ -55,10 +56,18 @@ export default function createCharmBook({ send, place, openBoard }) {
     key.appendChild(tierBadge('folk')); key.appendChild(el('span', null, ' gathered from living custom  '));
     key.appendChild(tierBadge('revival')); key.appendChild(el('span', null, ' modern'));
     body.appendChild(key);
+    // Where the book's knowledge comes from: of what you've written in, and of it all.
+    const tally = tierTally(state);
+    const tl = el('div', 'cbTally');
+    const part = (o, t) => { const sp = el('span', 'cbTallyPart'); sp.appendChild(tierBadge(t)); sp.appendChild(el('span', null, ` ${o[t]}`)); return sp; };
+    const line = (label, o) => { const r = el('div', 'cbTallyLine'); r.appendChild(el('span', 'cbTallyLabel', label)); for (const t of ['record', 'folk', 'revival']) r.appendChild(part(o, t)); return r; };
+    if (tally.metTotal) tl.appendChild(line(`Yours (${tally.metTotal})`, tally.met));
+    tl.appendChild(line(`All (${tally.total})`, tally.all));
+    body.appendChild(tl);
     // 🔎 Search the whole book: results replace the contents while there is a query.
     const search = el('input', 'cbBookSearch');
     search.type = 'search';
-    search.placeholder = 'Search the book: a charm, a herb, a name, a source…';
+    search.placeholder = 'Search: a charm, a herb, a name…';
     search.value = bookQuery;
     body.appendChild(search);
     const results = el('div', 'cbSearchResults');
