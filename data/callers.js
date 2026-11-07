@@ -692,6 +692,24 @@ const CALLERS = [
     source: 'C. Threlkeld, Synopsis Stirpium Hibernicarum (1727) · Opie & Tatem, A Dictionary of Superstitions (1989)',
     reward: { gold: 40, xp: 35 },
   },
+  // Martinmas week only (data/martinmas.js): St Martin's blood, and salt for the meat.
+  {
+    id: 'martinmas_cock',
+    caller: 'Bridget Cullinan',
+    icon: '🐓',
+    title: "St Martin's Eve",
+    when: require('./martinmas').MARTINMAS_WHEN,
+    plea: "St Martin's is upon us, and himself has the cockerel picked out for the dinner. My mother always did the blood on the step and in the four corners, for luck through the winter, and nothing turned on a wheel the next day. I've forgotten the half of it. Will you do it with me? We'll want salt for the meat, too.",
+    steps: [
+      { kind: 'deliver', item: 'salt', qty: 1, label: 'Salt for the meat' },
+      { kind: 'rite', rite: 'martin_blood', label: "St Martin's blood on the step and in the corners; no wheel turns" },
+    ],
+    resolution: "You mark the step and the four corners, and the wheel is put by for the day. Then the practical half: scrub the step tomorrow, for blood left out brings rats and flies; pluck and draw the bird while it's warm and keep the meat cold; and salt what won't be eaten this week. The real luck of Martinmas was meat in the house before winter, and a day off for whoever sits at the spinning wheel.",
+    lore: "St Martin's blood: in Ireland a cock or goose was killed on St Martin's Eve and its blood sprinkled on the threshold and in the corners, and on the day no wheel turned (Mooney, 1889, quoting Lady Wilde).",
+    tier: 'record',
+    source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── The house and the hive (data/household.js) ──
   {
     id: 'tell_the_bees',
