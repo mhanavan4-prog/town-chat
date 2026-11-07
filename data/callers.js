@@ -804,6 +804,22 @@ const CALLERS = [
     source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · S. Johnson, A Journey to the Western Islands of Scotland (1775)',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The king's evil (data/household.js) ──
+  {
+    id: 'kings_evil_child',
+    caller: 'Hester Pike',
+    icon: '🪙',
+    title: "The King's Evil",
+    plea: "My Nell has lumps come up in her neck, both sides, and one has broken and runs. My grandmother kept a gold piece on a ribbon, from the touching for the king's evil long ago. And Davy Rudd at the mill is a seventh son of a seventh son. Will you bring him to her, and put the ribbon on her?",
+    steps: [
+      { kind: 'rite', rite: 'kings_evil', label: "The seventh son's hand, and the touch-piece on its ribbon" },
+    ],
+    resolution: "Davy does it, shy as a calf, and the ribbon goes on. Then the practical half: the touch did nothing for Samuel Johnson, and it will do nothing for Nell's neck. Swelling like that is the consumption in the glands, and in a child it most often comes in the milk. Boil every drop she drinks from now on, have the cow looked at, and take her to the doctor this week. Let her keep the coin; it does no harm on its ribbon.",
+    lore: "The king's evil: scrofula, the swollen glands of the neck, touched by the monarchs of England until Queen Anne, and in the villages by the seventh son. Samuel Johnson was touched as a child, \"without any effect\".",
+    tier: 'record',
+    source: 'J. Boswell, Life of Johnson (1791) · Petel, Waters & Kitai, CMAJ 195 (2023), on bovine tuberculosis',
+    reward: { gold: 45, xp: 40 },
+  },
   // ── The pinned heart (data/household.js) ──
   {
     id: 'pinned_heart_pigs',
