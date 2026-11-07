@@ -4808,8 +4808,8 @@ function renderShelfModal() {
     if (open) {
       h += `<div class="shelfText">${esc(b.summary)}</div>`
         + (b.fact ? `<div class="shelfFact">${esc(b.fact)}</div>` : '')
-        + (b.quote ? `<div class="oldQuote">“${esc(b.quote)}”</div>` : '')
-        + (b.source ? `<div class="provSrc">${esc(b.source)}</div>` : '');
+        + (b.quote ? `<div class="shelfQuote">“${esc(b.quote)}”</div>` : '')
+        + (b.source ? `<div class="shelfSrc">${esc(b.source)}</div>` : '');
     }
     h += '</div>';
   }
@@ -19715,6 +19715,7 @@ if (location.search.includes('testdrive=1')) {
     wards() { _wards.open(); return true; },
     ogham() { _ogham.open(); return true; },
     charmBook() { _charmBook.open(); return true; },
+    realShelf() { openShelfModal(); return true; },
     cords() { _cords.open(); return true; },
     practices() { _practices.open(); return true; },
     recital(r) { showRecital(r); return true; },
