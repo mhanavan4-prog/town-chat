@@ -196,7 +196,7 @@ const OLD_CALENDAR = [
     text: 'Six men carry reindeer antlers round the parish from morning to night, with a hobby horse, Maid Marian, a fool and a boy with a bow. Robert Plot recorded it in 1686; one antler dates to about 1065.',
     source: 'R. Plot, Natural History of Staffordshire (1686)' },
   { key: 'holy_rood', month: 9, day: 14, icon: '🌰', title: 'Holy Rood Day: nutting', tier: 'record',
-    text: 'The young went nutting in the hedges, and Eton boys got the day off to do the same, after writing verses on the autumn.',
+    text: 'The young went nutting in the hedges, and Eton boys had a day off in September, perhaps this one, to do the same, after writing verses on the autumn.',
     quote: 'This day, they say, is called Holy-rood day, / And all the youth are now a nutting gone', source: `${HONE}, 14 September` },
   { key: 'michaelmas_goose', month: 9, day: 29, icon: '🪿', title: 'Michaelmas: goose and rents', tier: 'folk',
     text: 'A quarter day, when accounts were settled (a gale day for Irish rents), and the stubble goose, fattened on the harvest fields, was eaten: eat goose at Michaelmas and you would not want for money all year.',
