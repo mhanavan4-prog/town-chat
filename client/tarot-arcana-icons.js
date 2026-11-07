@@ -107,7 +107,7 @@ const TAROT_ARCANA_ICONS = {
     <path d="M9.4 19 a3.6 2.2 0 0 0 7.2 0 Z" fill="none" stroke="#78e8c8" stroke-width="1.2"/>
     <path d="M27.4 19 a3.6 2.2 0 0 0 7.2 0 Z" fill="none" stroke="#78e8c8" stroke-width="1.2"/>
     <circle cx="22" cy="13.6" r="1.4" fill="#ffd76a"/>`, SELF),
-  // XII — The Hanged One: a figure suspended by one foot, haloed, serene.
+  // XII — The Hanged Man: a figure suspended by one foot, haloed, serene.
   hanged: taCard(`
     <path d="M12 12.5 L32 12.5 M27 12.5 L27 16.5" stroke="#bf9d6e" stroke-width="2"/>
     <path d="M27 16.5 L22.5 18.5" stroke="#bf9d6e" stroke-width="1.4"/>

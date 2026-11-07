@@ -18,7 +18,7 @@ const TAROT_CARDS = [
   { key: 'hermit',     num: 'IX',   name: 'The Hermit',         emoji: '🕯️', reading: 'Step back from the noise. The lantern you need is your own.',                      reversed: 'You have withdrawn too far. The lantern is meant to be carried back.' },
   { key: 'wheel',      num: 'X',    name: 'Wheel of Fortune',   emoji: '🎡', reading: 'The wheel turns. What was down comes up — be ready to ride it.',                  reversed: 'A turn against you — but the wheel keeps turning. Hold on.' },
   { key: 'justice',    num: 'XI',   name: 'Justice',            emoji: '⚖️', reading: 'The scales find their level. Speak true and the truth holds you up.',             reversed: 'A thing left unsquared. Honesty now spares a reckoning later.' },
-  { key: 'hanged',     num: 'XII',  name: 'The Hanged One',     emoji: '🙃', reading: 'Surrender the struggle. Seen upside-down, the knot comes loose.',                 reversed: 'Stalling dressed up as patience. The sacrifice has become avoidance.' },
+  { key: 'hanged',     num: 'XII',  name: 'The Hanged Man',     emoji: '🙃', reading: 'Surrender the struggle. Seen upside-down, the knot comes loose.',                 reversed: 'Stalling dressed up as patience. The sacrifice has become avoidance.' },
   { key: 'death',      num: 'XIII', name: 'Death',              emoji: '💀', reading: 'An ending clears the ground. Let the dead thing go and something new roots.',     reversed: 'You are clinging to what is already gone. Let the ending finish.' },
   { key: 'temperance', num: 'XIV',  name: 'Temperance',         emoji: '⚗️', reading: 'Blend, do not force. The slow mixture is the strong one.',                        reversed: 'Something is out of balance — too much, too fast, too hot.' },
   { key: 'devil',      num: 'XV',   name: 'The Devil',          emoji: '⛓️', reading: 'A chain you could slip if you looked at it. What holds you only because you let it?', reversed: 'The chain is loosening. You are seeing the hold for what it is.' },
@@ -49,7 +49,8 @@ function tarotSynthesis(spread) {
 }
 
 // ── The Fool's Journey — the collectible arc of the Major Arcana. The 22 cards
-// are the Fool's road from 0 to the World, traditionally three legs. You record a
+// as the Fool's road from 0 to the World is a 20th-century reading (Eden Gray,
+// 1970), and the three legs are the game's. You record a
 // card in The Arcanum the first time it falls in a daily spread; completing a leg
 // pays a purse, and completing all 22 earns the Oracle aura. (The parallel to the
 // garden's Green Path and the kitchen's Hearth Path — a slow daily collection.)
@@ -62,4 +63,11 @@ const ARCANA_LEGS = [
     keys: ['devil', 'tower', 'star', 'moon', 'sun', 'judgement', 'world'], gold: 160 },
 ];
 
-module.exports = { TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS };
+// Where all this really comes from — shown with every spread.
+const TAROT_PROVENANCE = {
+  tier: 'revival',
+  line: "Tarot cards are 15th-century Italian playing cards (tarocchi), for a trick-taking game. Reading them for fortunes began in 18th-century France: Court de Gébelin (1781) invented their Egyptian origin, and Etteilla read them reversed. The names and order here (Strength VIII, Justice XI) are the Rider–Waite–Smith deck of 1909; the meanings follow 20th-century practice, and the Fool's Journey is Eden Gray's (1970).",
+  source: 'M. Dummett, The Game of Tarot (1980); R. Decker, T. Depaulis & M. Dummett, A Wicked Pack of Cards (1996)',
+};
+
+module.exports = { TAROT_PROVENANCE, TAROT_CARDS, TAROT_POSITIONS, tarotSynthesis, ARCANA_LEGS };

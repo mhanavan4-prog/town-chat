@@ -2986,6 +2986,7 @@ function onWsMessage(ev) {
   if (msg.type === 'moon_well_state') { lastMoonWell = msg; if (Modals.isOpen('moonWellOpen')) renderMoonWellModal(); return; }
   if (msg.type === 'rune_result') {
     if (msg.futhark) _lastFuthark = msg.futhark; // The Futhark (the rune codex)
+    if (msg.provenance) _runeProvenance = msg.provenance;
     if (!msg.peek || (msg.cast && msg.cast.length)) lastRunes = msg;
     if (msg.balance != null && lastBankState) lastBankState.balance = msg.balance;
     try { updateGoldReadouts(); } catch (e) { /* readouts not ready */ }
@@ -3016,6 +3017,7 @@ function onWsMessage(ev) {
   if (msg.type === 'tea_error') { setUnlockToast(`🍵 ${msg.message}`); return; }
   if (msg.type === 'tarot_result') {
     if (msg.arcana) _lastArcana = msg.arcana; // The Arcanum (The Fool's Journey)
+    if (msg.provenance) _tarotProvenance = msg.provenance;
     // A read-only peek carries the collection + today's spread without a new draw;
     // only a real draw/reading replaces the reading page's content.
     if (!msg.peek || (msg.spread && msg.spread.length)) _lastTarotResult = msg;
@@ -11089,6 +11091,16 @@ const BOOK_MOON = [
 ];
 const BOOK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// Where a practice really comes from: a tier badge, the line and its source
+// (sent by the server with the tarot spread and the rune cast).
+const PROV_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
+function provenanceNote(p) {
+  if (!p || !p.line) return '';
+  const tier = PROV_TIER_LABEL[p.tier] ? p.tier : 'revival';
+  return `<div class="provNote"><span class="callerTier callerTier-${tier}">${PROV_TIER_LABEL[tier]}</span> ${esc(p.line)}${p.source ? `<div class="provSrc">${esc(p.source)}</div>` : ''}</div>`;
+}
+// The pendulum's provenance lives with its panel (the server sends none).
+const PENDULUM_PROVENANCE = { tier: 'revival', line: 'A ring swung on a thread to answer questions is old: Ammianus Marcellinus tells of one held over a dish of letters at Antioch in AD 371. Reading yes and no from the way it swings is 20th-century dowsing.', source: 'Ammianus Marcellinus, Res Gestae 29.1' };
 function renderBookModal() {
   const el = document.getElementById('bookContent');
   if (!el) return;
@@ -11104,7 +11116,9 @@ function renderBookModal() {
   h += '</div></div>';
   h += '<div class="bookSec"><h4>🌙 The Moon</h4><div class="bookGrid">';
   for (const m of BOOK_MOON) h += `<div class="bookCell${m.key === curMoon ? ' cur' : ''}"><span class="bg">${m.g}</span><b>${esc(m.n)}</b><span class="bi">${esc(m.i)}</span></div>`;
-  h += '</div><div class="bookNote">Charge moon water and work the esbat at the full moon.</div></div>';
+  h += '</div><div class="bookNote">Charge moon water and work the esbat at the full moon.</div>';
+  h += provenanceNote({ tier: 'revival', line: 'Doing things that should grow while the moon waxes, and things that should lessen while it wanes, is old farming and charm lore. The eight phases with their intentions, and moon water, are 20th-century; "esbat" is Margaret Murray\'s word (1921), taken from a French trial record.', source: 'Pliny, Natural History 18; M. Murray, The Witch-Cult in Western Europe (1921)' });
+  h += '</div>';
   h += '<div class="bookSec"><h4>🔮 The Altar — Correspondences</h4><table class="bookTable"><tr><th>Blessing</th><th>Symbols</th><th>Day</th><th>Moon</th></tr>';
   for (const r of RITUALS) {
     const syms = (RITUAL_DECOS[r.id] || []).map((d) => decoEmoji[d] || '•').join(' ');
@@ -11357,6 +11371,7 @@ function renderPendulumModal() {
     h += `<div class="penAnswer">${st.question ? `<div class="penQ">“${esc(st.question)}”</div>` : ''}<div class="penV ${esc(st.verdict)}">${vlabel}</div><div class="penL">“${esc(st.line || '')}”</div></div>`;
     if (st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — the thread barely wavers.</div>';
   }
+  h += provenanceNote(PENDULUM_PROVENANCE);
   el.innerHTML = h;
   const input = document.getElementById('penAskIn');
   if (input) input.addEventListener('input', () => { pendulumQ = input.value; });
@@ -11385,6 +11400,7 @@ function closePendulumModal() {
 // ── Rune casting — the daily three-stave cast ───────────────────────────────
 let lastRunes = null;
 let _lastFuthark = null; // The Futhark (the rune codex) collection
+let _runeProvenance = null; // where rune casting really comes from (server-sent)
 let runeView = 'cast';   // 'cast' | 'futhark'
 function renderRuneModal() {
   const el = document.getElementById('runeContent');
@@ -11413,6 +11429,7 @@ function renderRuneModal() {
   if (cast.length && st.synthesis) h += `<div class="runeSyn">${esc(st.synthesis)}</div>`;
   if (cast.length && st.samhain) h += '<div class="scrySamhain">🕯️ The veil is thin — every stave falls true tonight.</div>';
   if (cast.length && st.alreadyCast) h += '<div class="runeDrawn">Return at the turn of the day for a new cast.</div>';
+  h += provenanceNote(_runeProvenance);
   el.innerHTML = h;
   const btn = document.getElementById('runeCastBtn');
   if (btn && !(st && st.alreadyCast)) btn.addEventListener('click', () => send({ type: 'rune_cast' }));
@@ -11425,7 +11442,7 @@ function renderRuneModal() {
 function renderFutharkInto(el, tabs, fu) {
   const pct = fu.total ? Math.round((fu.carved / fu.total) * 100) : 0;
   let h = tabs;
-  h += `<div class="almIntro">The Elder Futhark carved rune by rune as the daily cast turns them up. `
+  h += `<div class="almIntro">The Elder Futhark carved rune by rune as the daily cast turns them up. (The aettir are named Freyr's, Hagal's and Tyr's in later Icelandic usage.) `
     + `<b>${fu.carved} of ${fu.total}</b> carved.`
     + `<div class="almBar"><span style="width:${pct}%"></span></div>`
     + (fu.done ? `<div class="tArcDone">ᛟ The Futhark is whole — you bear the <b>Runecaster</b> aura.</div>` : '')
@@ -11556,6 +11573,7 @@ function closePathModal() {
 // ── Daily Tarot ─────────────────────────────────────────────────────────────
 let _lastTarotResult = null; // today's spread once drawn this session
 let _lastArcana = null;      // The Arcanum (The Fool's Journey) collection
+let _tarotProvenance = null; // where tarot reading really comes from (server-sent)
 let tarotView = 'reading';   // 'reading' | 'arcanum' — the tarot modal's two pages
 // Each arcana's hand-drawn card icon (uiIcon('arcana_<key>')), falling back to
 // its emoji if the key is missing.
@@ -11582,6 +11600,7 @@ function renderTarotModal(result) {
   if (!result || !result.spread || !result.spread.length) {
     if (result && result.message) { h += `<div style="font-size:12.5px;opacity:0.85;">${esc(result.message)}</div>`; el.innerHTML = h; wireTabs(); return; }
     h += '<div class="tarotBack">🂠 🂠 🂠</div><div style="font-size:12.5px;opacity:0.9;margin-bottom:14px;">Lay the spread — <b>The Past</b>, <b>The Present</b>, and <b>What Comes</b>.</div><button id="tarotDrawBtn">Lay your spread</button>';
+    h += provenanceNote(_tarotProvenance);
     el.innerHTML = h;
     const b = document.getElementById('tarotDrawBtn');
     if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = 'Turning the cards…'; send({ type: 'tarot_draw' }); });
@@ -11601,6 +11620,7 @@ function renderTarotModal(result) {
   if (result.secret) h += `<div class="tsecret">🕯️ The cards whisper: "${esc(result.secret)}"</div>`;
   if (result.alreadyDrawn) h += '<div style="font-size:11.5px;opacity:0.72;text-align:center;margin-top:10px;">Today\'s spread. Return tomorrow for a new one.</div>';
   else if (result.gold) h += `<div id="tarotReward"><span class="coin"></span> +${result.gold} gold</div><div style="font-size:11px;opacity:0.72;text-align:center;">Return tomorrow for a new spread.</div>`;
+  h += provenanceNote(_tarotProvenance);
   el.innerHTML = h;
   wireTabs();
 }
@@ -11611,7 +11631,7 @@ function renderTarotModal(result) {
 function renderArcanumInto(el, tabs, arc) {
   const pct = arc.total ? Math.round((arc.drawn / arc.total) * 100) : 0;
   let h = tabs;
-  h += `<div class="almIntro">The Fool's road from the leap to the whole world — recorded card by card as the daily spread turns them up. `
+  h += `<div class="almIntro">The Fool's road from the leap to the whole world (a 20th-century way of reading the trumps) — recorded card by card as the daily spread turns them up. `
     + `<b>${arc.drawn} of ${arc.total}</b> gathered.`
     + `<div class="almBar"><span style="width:${pct}%"></span></div>`
     + (arc.done ? `<div class="tArcDone">🔮 The Journey is whole — you bear the <b>Oracle</b> aura.</div>` : '')
