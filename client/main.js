@@ -1742,6 +1742,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'forbidden_book') { showForbiddenBook(msg); return; }
+  if (msg.type === 'real_shelf') { shelfState = msg; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
   if (msg.type === 'forbidden_codex') { renderForbiddenCodex(msg); return; }
   if (msg.type === 'cafe_special') { showCafeSpecial(msg); return; }
   if (msg.type === 'cafe_menu') { renderCafeMenu(msg); return; }
@@ -4786,6 +4787,58 @@ const npcHintCloseBtn = document.getElementById('npcHintCloseBtn');
 if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal);
 
 // ── The Forbidden Shelf (roadmap #6): the Library's daily book + the codex ──
+// ── The Real Shelf: real books of witchcraft and herb-lore, beside the
+// fictional Forbidden Shelf. Each card opens to an honest summary; reading one
+// writes it into the Charm Book's Library chapter (data/realBooks.js).
+let shelfState = null;
+let shelfOpenId = null;
+function renderShelfModal() {
+  const el = document.getElementById('shelfContent');
+  if (!el) return;
+  const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
+  if (!shelfState) { el.innerHTML = '<div class="cbIntro">Taking the books down…</div>'; return; }
+  const read = new Set(shelfState.read || []);
+  let h = `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div>`;
+  for (const b of (shelfState.books || [])) {
+    const tier = PROV_TIER_LABEL[b.tier] ? b.tier : 'record';
+    const open = shelfOpenId === b.id;
+    h += `<div class="shelfBook${open ? ' open' : ''}${read.has(b.id) ? ' read' : ''}" data-bid="${esc(b.id)}">`
+      + `<div class="shelfHead"><span class="shelfTitle">${esc(b.title)}</span> <span class="callerTier callerTier-${tier}">${PROV_TIER_LABEL[tier]}</span>${read.has(b.id) ? ' <span class="shelfRead">✓</span>' : ''}</div>`
+      + `<div class="shelfBy">${esc(b.author)} · ${esc(b.date)}</div>`;
+    if (open) {
+      h += `<div class="shelfText">${esc(b.summary)}</div>`
+        + (b.fact ? `<div class="shelfFact">${esc(b.fact)}</div>` : '')
+        + (b.quote ? `<div class="oldQuote">“${esc(b.quote)}”</div>` : '')
+        + (b.source ? `<div class="provSrc">${esc(b.source)}</div>` : '');
+    }
+    h += '</div>';
+  }
+  el.innerHTML = h;
+  el.querySelectorAll('.shelfBook').forEach((row) => row.addEventListener('click', () => {
+    const id = row.getAttribute('data-bid');
+    shelfOpenId = shelfOpenId === id ? null : id;
+    if (shelfOpenId) send({ type: 'read_real_book', id: shelfOpenId });
+    renderShelfModal();
+  }));
+}
+function openShelfModal() {
+  const modal = document.getElementById('shelfModal');
+  if (!modal) return;
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'real_shelf' }));
+  renderShelfModal();
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 460, 130);
+  Modals.set('shelfOpen', true);
+}
+function closeShelfModal() {
+  const modal = document.getElementById('shelfModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('shelfOpen', false);
+}
+(function wireShelfModal() {
+  const b = document.getElementById('shelfCloseBtn');
+  if (b) b.addEventListener('click', closeShelfModal);
+})();
 function showForbiddenBook(msg) {
   document.getElementById('forbiddenBookTitle').textContent = msg.title || 'A Forbidden Book';
   document.getElementById('forbiddenBookAuthor').textContent = msg.author ? `— ${msg.author}` : '';
@@ -18189,6 +18242,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
+  if (kiosk && kiosk.npc === 'real_shelf') { openShelfModal(); return; }
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
   if (kiosk && kiosk.npc === 'arcade_scores') { ws.send(JSON.stringify({ type: 'arcade_board' })); return; }
   if (kiosk && kiosk.npc === 'midnight_vigil') { ws.send(JSON.stringify({ type: 'sit_vigil' })); return; }
@@ -18271,6 +18325,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'seance') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} gather at the Séance Board`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'real_shelf') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} browse the Real Shelf`;
     return;
   }
   if (kiosk && kiosk.npc === 'forbidden_book') {
@@ -18550,6 +18609,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (Modals.isOpen('oghamOpen') && e.key === 'Escape' && !e.repeat) { _ogham.close(); return; }
   if (Modals.isOpen('charmBookOpen') && e.key === 'Escape' && !e.repeat) { _charmBook.close(); return; }
+  if (Modals.isOpen('shelfOpen') && e.key === 'Escape' && !e.repeat) { closeShelfModal(); return; }
   if (Modals.isOpen('cordsOpen') && e.key === 'Escape' && !e.repeat) { _cords.close(); return; }
   if (Modals.isOpen('practicesOpen') && e.key === 'Escape' && !e.repeat) { _practices.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
