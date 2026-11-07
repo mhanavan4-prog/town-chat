@@ -56,8 +56,8 @@ const OBSERVANCES = {
     offerings: ANCESTOR_OFFERINGS,
     virtues: ANCESTOR_VIRTUES,
     text: {
-      hint: 'Set a place at the table for your dead. Lay down an offering in silence — the dumb supper — name a forebear and the virtue you carry forward, and receive their blessing (lasts {hours}h). Once a day.',
-      closed: 'The veil is not yet thin. The Ancestor Altar wakes only at Samhain, when the dead walk closer to the torchlight.',
+      hint: 'Set a place at the table for your dead, as households in Ireland and Brittany did on November Eve, banking the fire and leaving food out for them. Lay down an offering in silence, name a forebear and the virtue you carry forward, and receive their blessing (lasts {hours}h). Once a day. (Modern pagans call this a "dumb supper", borrowing the name of an old love divination: a silent meal eaten backwards to see your future husband.)',
+      closed: 'Not yet. The Ancestor Altar wakes only at Samhain, when the old tales say the dead come home.',
       keptToday: 'You have set a place today, and kept the silence. Return tomorrow to keep the rite again.',
       setButton: '🕯️ Set a place & keep the silence',
       offeringLabel: 'The offering',
@@ -158,7 +158,7 @@ const OBSERVANCES = {
       { id: 'longlight', name: 'Longlight', emoji: '🦉', stat: 'xp',    amount: 0.10, line: 'The longest day holds the most to learn. +10% XP.' },
     ],
     text: {
-      hint: 'Gather the sun-herbs at midsummer noon. Lay down an offering, name what you would bring into the light, and receive the solstice blessing (lasts {hours}h). Once a day.',
+      hint: 'Gather the sun-herbs on St John\'s Eve. Lay down an offering, name what you would bring into the light, and receive the solstice blessing (lasts {hours}h). Once a day.',
       closed: 'The sun has not yet reached its height. The Sun’s Height wakes only at Litha, the longest day.',
       keptToday: 'You have gathered in the sun today. Return tomorrow to gather again.',
       setButton: '☀️ Gather the sun-herbs',

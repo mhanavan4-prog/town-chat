@@ -11062,7 +11062,7 @@ function altarAttunePreview(ritualId) {
   return { pct: Math.round(bonus * 100), reasons };
 }
 
-// ── Book of Shadows ─────────────────────────────────────────────────────────
+// ── The Commonplace Book (not a "Book of Shadows": that is Gardner's 1950s term) ──
 // The witch's working reference: the Wheel of the Year, the Moon's phases and
 // their intentions, the altar correspondences, and the cauldron's brews. A
 // read-only grimoire assembled from the client mirrors (the systems' own data);
@@ -11074,7 +11074,7 @@ const BOOK_SABBATS = [
   { key: 'litha', g: '☀️', n: 'Litha', e: 'the Sun at its Height' },
   { key: 'lughnasadh', g: '🌾', n: 'Lughnasadh', e: 'the First Harvest' },
   { key: 'mabon', g: '🍂', n: 'Mabon', e: 'the Second Harvest' },
-  { key: 'samhain', g: '🕯️', n: 'Samhain', e: "the Witches' New Year" },
+  { key: 'samhain', g: '🕯️', n: 'Samhain', e: 'the Start of Winter' },
   { key: 'yule', g: '❄️', n: 'Yule', e: 'the Longest Night' },
 ];
 const BOOK_MOON = [
@@ -11228,7 +11228,7 @@ function renderGuiseModal() {
     const tag = locked ? ` <span class="guisePrice">${g.ms} 💎</span>` : '';
     return `<div class="famRow${cur === id ? ' cur' : ''}${locked ? ' locked' : ''}" data-gid="${id}"><span class="fe">${g.emoji}</span><span style="flex:1"><div class="fn">${g.name}${cur === id ? ' ✓' : ''}${tag}</div><div class="fb">${g.blurb}</div></span></div>`;
   };
-  let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — don a disguise so the wandering dead pass you by. Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
+  let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Guising — going door to door in disguise at Hallowe’en, recorded in Scotland and Ireland from the 1800s (that the masks fooled the dead is a later explanation). Everyone sees your costume. Free to change or doff.</div><div class="menuCols">';
   for (const id of freeIds) h += rowFor(id);
   h += `<div class="famRow${!cur ? ' cur' : ''}" data-gid=""><span class="fe">—</span><span style="flex:1"><div class="fn">No disguise${!cur ? ' ✓' : ''}</div><div class="fb">Show your own face.</div></span></div></div>`;
   if (setIds.length) {
@@ -11735,7 +11735,7 @@ function renderBonfireModal() {
   // place at the altar tonight, gathered at the fire.
   const sup = s.suppers || [];
   if (sup.length) {
-    h += `<div class="bfSupperHead">🕯️ The Dumb Supper — places set tonight</div><div class="bfSupper">`;
+    h += `<div class="bfSupperHead">🕯️ Places set for the dead tonight</div><div class="bfSupper">`;
     for (const u of sup) {
       const forStr = u.forName ? ` <span class="bfSupFor">for ${esc(u.forName)}</span>` : '';
       h += `<div class="bfSupRow"><span class="bfSupIc">${esc(u.offerIcon || '🕯️')}</span><span class="bfSupTx"><b>${esc(u.keeper || 'A witch')}</b> set a place${forStr} — ${esc(u.virtueEmoji || '')} ${esc(u.virtueName || '')}</span></div>`;
@@ -12506,7 +12506,7 @@ function renderAncestorModal() {
     el.innerHTML = h;
     return;
   }
-  h += `<div class="ancHint">${esc(t.hint || ('Set a place at the table for your dead. Lay down an offering in silence — the dumb supper — name a forebear and the virtue you carry forward, and receive their blessing (lasts ' + (st.hours || 6) + 'h). Once a day.'))}</div>`;
+  h += `<div class="ancHint">${esc(t.hint || ('Set a place at the table for your dead, as households in Ireland and Brittany did on November Eve. Lay down an offering in silence, name a forebear and the virtue you carry forward, and receive their blessing (lasts ' + (st.hours || 6) + 'h). Once a day.'))}</div>`;
   h += `<input class="ancName" id="ancNameIn" maxlength="40" placeholder="${esc(t.namePlaceholder || 'a name to remember (optional)')}" value="${esc(st.lastName || '')}">`;
   h += `<div class="ancLabel">${esc(t.offeringLabel || 'The offering')}</div><div class="ancOfferRow">`;
   for (const o of (st.offerings || [])) {
@@ -12573,7 +12573,7 @@ function renderReleaseModal() {
     el.innerHTML = h;
     return;
   }
-  h += '<div class="relHint">The year turns, and the veil thins. Name what you carry — a grief, a fear, an old anger — and give it to the flames. The fire burns away a curse that clings to you, and you grow a little, <span class="relName">lighter now</span> (+' + (st.xp || 40) + ' XP). Once a day.</div>';
+  h += '<div class="relHint">The year turns toward the dark. Name what you carry — a grief, a fear, an old anger — and give it to the flames. The fire burns away a curse that clings to you, and you grow a little, <span class="relName">lighter now</span> (+' + (st.xp || 40) + ' XP). Once a day.</div>';
   const ph = (st.prompts && st.prompts.length) ? st.prompts[Math.floor(Math.random() * st.prompts.length)] : 'what you are ready to set down';
   h += `<textarea class="relBurden" id="relBurdenIn" maxlength="80" placeholder="${esc(ph)}…"></textarea>`;
   h += '<button id="relBurnBtn">🔥 Give it to the flames</button>';

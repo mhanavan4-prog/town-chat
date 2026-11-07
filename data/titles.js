@@ -26,8 +26,8 @@ const TITLES = {
   },
   bright_fire: {
     id: 'bright_fire', name: 'Keeper of the Bright Fire', glyph: '🔥',
-    desc: 'Lit the bale-fire and guarded the thinning veil through Beltane eve.',
-    from: 'The Bale-Fire Rite — Beltane'
+    desc: 'Lit the Beltane fire and kept the watch through May Eve.',
+    from: 'The Bel-Fire Rite — Beltane'
   },
   midsummer_crown: {
     id: 'midsummer_crown', name: 'Bearer of the Midsummer Crown', glyph: '☀️',

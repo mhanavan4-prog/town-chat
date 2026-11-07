@@ -31,13 +31,13 @@ const GATE_HOURS = (() => {
 })();
 
 const RITES = {
-  // ── Samhain — the Witches' New Year, the veil at its thinnest ──────────────
+  // ── Samhain — the start of winter, when the tales have the sídhe open ──────
   samhain: {
     id: 'rite_samhain',
     seasonKey: 'samhain',
     name: 'The Hollow Vigil',
     glyph: '🕯️',
-    blurb: "Samhain thins the veil to nothing. The coven keeps the old vigil — gather the offering, light the watch, and hold the dead at the threshold until dawn.",
+    blurb: "At Samhain the hollow hills stand open, as the old Irish tales have it. The coven keeps the vigil — gather the offering, light the watch, and hold the dead at the threshold until dawn.",
     // Coven-wide reward: the Samhain blessing (its seasons.js effects) held for
     // the REST of the season, earned rather than merely dated. Granted once, to
     // the whole coven, on completion.
@@ -121,11 +121,11 @@ const RITES = {
       {
         id: 'sunrise', title: 'Kindle the Returning Sun', glyph: '☀️',
         gateHours: GATE_HOURS,
-        blurb: "As the light climbs back, the restless dead claw at the dawn. Put the barrow-wights down so the new sun rises clean.",
+        blurb: "As the light climbs back, the restless dead claw at the dawn. Put the draugar back in their mounds so the new sun rises clean.",
         minContributors: 2,
         objectives: [
           { key: 'wights', kind: 'kill_creature', match: 'barrow_wight',
-            label: 'Barrow-wights laid to rest', base: 7, perMember: 5, maxShare: 0.5 }
+            label: 'Draugar laid to rest', base: 7, perMember: 5, maxShare: 0.5 }
         ]
       }
     ]
@@ -191,28 +191,28 @@ const RITES = {
     ]
   },
 
-  // ── Beltane — the Bright Fire, the veil thin again ─────────────────────────
+  // ── Beltane — the Bright Fire, when the fair folk are abroad ───────────────
   beltane: {
-    id: 'rite_beltane', seasonKey: 'beltane', name: 'The Bale-Fire Rite', glyph: '🔥',
-    blurb: "Bel's fires leap and the veil thins. The coven gathers the green, lights the bale-fire, and guards the thinning veil until the dawn.",
+    id: 'rite_beltane', seasonKey: 'beltane', name: 'The Bel-Fire Rite', glyph: '🔥',
+    blurb: "Bel's fires leap (Cormac's Glossary has the cattle driven between two of them), and the fair folk are abroad. The coven gathers the green, lights the Beltane fire, and keeps the watch until the dawn.",
     seasonBuff: true,
     reward: { xpBase: 400, xpPerMember: 60, goldBase: 250, goldPerMember: 40, titleId: 'bright_fire' },
     phases: [
       {
         id: 'greenwood', title: 'Gather the Green', glyph: '🌼', gateHours: 0,
-        blurb: "Cut green for the garlands, and scatter the will-o'-wisps — wild fire-sprites that would steal the bale-fire's spark.",
+        blurb: "Cut green for the garlands, and scatter the will-o'-wisps — wild fire-sprites that would steal the Beltane fire's spark.",
         minContributors: 2,
         objectives: [
           { key: 'green', kind: 'harvest_specific', match: 'healing_herb', label: 'Green gathered for garlands', base: 6, perMember: 4, maxShare: 0.5 },
           { key: 'wisps', kind: 'kill_creature', match: 'will_o_wisp', label: "Will-o'-wisps scattered", base: 8, perMember: 6, maxShare: 0.5 }
         ]
       },
-      { id: 'balefire', title: 'Leap the Bale-Fire', glyph: '🔥', gateHours: GATE_HOURS,
-        blurb: "Light the great fire. Each witch leaps it and sets a flame at the séance altar — the bale-fire burns in every hearth.",
-        candles: true, label: 'Bale-fire flames lit', candleBase: 2, candlePerMember: 0.5 },
+      { id: 'balefire', title: 'Leap the Beltane Fire', glyph: '🔥', gateHours: GATE_HOURS,
+        blurb: "Light the great fire. Each witch leaps it and sets a flame at the séance altar — the Beltane fire burns in every hearth.",
+        candles: true, label: 'Beltane flames lit', candleBase: 2, candlePerMember: 0.5 },
       {
-        id: 'veilguard', title: 'Guard the Thinning Veil', glyph: '👁️', gateHours: GATE_HOURS,
-        blurb: "On Beltane eve the veil thins and things cross over. Put down the night-howlers before they reach the fires.",
+        id: 'veilguard', title: 'Keep the May Eve Watch', glyph: '👁️', gateHours: GATE_HOURS,
+        blurb: "On May Eve the fair folk ride and things cross over. Put down the night-howlers before they reach the fires.",
         minContributors: 2,
         objectives: [
           { key: 'howlers', kind: 'kill_creature', match: 'night_howler', label: 'Night-howlers put down', base: 7, perMember: 5, maxShare: 0.5 }
@@ -254,7 +254,7 @@ const RITES = {
   // ── Lughnasadh — the First Harvest, Lugh's games ───────────────────────────
   lughnasadh: {
     id: 'rite_lughnasadh', seasonKey: 'lughnasadh', name: "Lugh's Reaping", glyph: '🌾',
-    blurb: "The first grain is cut. The coven reaps the first fruits, lights the Lugh-fire, and proves its strength in the god's own games.",
+    blurb: "The first grain is cut. The coven climbs the hill, eats the first fruits, and proves its strength in games like Lugh's own at Tailtiu.",
     seasonBuff: true,
     reward: { xpBase: 400, xpPerMember: 60, goldBase: 250, goldPerMember: 40, titleId: 'first_harvest' },
     phases: [
@@ -267,9 +267,9 @@ const RITES = {
           { key: 'fawn', kind: 'kill_creature', match: 'duskfawn', label: 'Harvest hunt taken', base: 8, perMember: 6, maxShare: 0.5 }
         ]
       },
-      { id: 'lughfire', title: 'Light the Lugh-Fire', glyph: '🔥', gateHours: GATE_HOURS,
-        blurb: "Each witch lights a fire at the séance altar in thanks for the first fruits of the year's labor.",
-        candles: true, label: 'Thanks-fires lit', candleBase: 2, candlePerMember: 0.5 },
+      { id: 'lughfire', title: 'Give Thanks for the First Fruits', glyph: '🔥', gateHours: GATE_HOURS,
+        blurb: "Each witch lights a candle at the séance altar in thanks for the first fruits of the year's labor.",
+        candles: true, label: 'Thanks-candles lit', candleBase: 2, candlePerMember: 0.5 },
       {
         id: 'games', title: "Win Lugh's Games", glyph: '🏅', gateHours: GATE_HOURS,
         blurb: "Lugh's festival is a trial of skill and strength. Best the bog-brutes in the god's own contest.",

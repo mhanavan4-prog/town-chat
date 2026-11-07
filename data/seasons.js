@@ -37,7 +37,7 @@ const SABBATS = [
   {
     key: 'beltane', name: 'Beltane', epithet: 'the Bright Fire', glyph: '🔥',
     month: 5, day: 1,
-    blurb: "Bel's fires blaze and life runs at full flood. Fertility, passion and the leap over the flame into summer — one of the two nights the veil also thins.",
+    blurb: "Bel's fires blaze and life runs at full flood. Fertility, passion and the leap over the flame into summer — and, with Samhain, one of the two nights the fair folk are most abroad.",
     blessing: "🔥 Beltane blazes over Thornreach — Bel's bright fire leaps, and every living thing burns brighter. Summer is coming in.",
     provenance: { tier: 'record', line: "Old Irish Bealtaine, 1 May — a Gaelic quarter-day. Cormac's Glossary (c. 900) describes two fires lit on it, between which cattle were driven for protection. Genuinely old.", source: "Sanas Cormaic (Cormac's Glossary, c. 900) · R. Hutton, The Stations of the Sun (1996)" },
     effects: { xpMult: 1.10, fireBonus: 0.30 }
@@ -67,10 +67,10 @@ const SABBATS = [
     effects: { forageBonus: 0.15, lootBonus: 0.20 }
   },
   {
-    key: 'samhain', name: 'Samhain', epithet: "the Witches' New Year", glyph: '🕯️',
+    key: 'samhain', name: 'Samhain', epithet: 'the Start of Winter', glyph: '🕯️',
     month: 10, day: 31,
-    blurb: "The final harvest, and the turning of the year. The veil between the living and the dead thins to nothing — a season to honor the ancestors, practice divination, and beware what crosses over.",
-    blessing: "🕯️ Samhain has come to Thornreach — the veil thins, and the dead walk closer to the torchlight. Honor them, and guard your lantern.",
+    blurb: "The final harvest, and the turning of the year. The hollow hills stand open and the dead come home — a season to honor the ancestors, practice divination, and beware what crosses over.",
+    blessing: "🕯️ Samhain has come to Thornreach — the hollow hills stand open, and the dead walk closer to the torchlight. Honor them, and guard your lantern.",
     provenance: { tier: 'record', line: "Old Irish Samain, 1 November — the Gaelic year's end and its greatest quarter-day, when early Irish tales have the otherworld open. Genuinely old; the 'witches' new year' is a modern framing.", source: 'Early Irish literature (e.g. Echtra Nerai) · R. Hutton, The Stations of the Sun (1996)' },
     effects: { xpMult: 1.15, veilThin: 0.6 }
   },
