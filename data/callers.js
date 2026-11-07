@@ -831,6 +831,23 @@ const CALLERS = [
     source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87) · Notes and Queries (15 November 1851)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Catherine's Day only (data/catterning.js), dated by the old calendar.
+  {
+    id: 'cattern_lacemakers',
+    caller: 'Hannah Odell, lacemaker',
+    icon: '🎡',
+    title: "St Catherine's Day",
+    when: { calendar: 'catterning', days: 2, label: "St Catherine's Day" },
+    plea: "It's Cattern, and the lace girls want their holiday: the pillows put away, tea and seed cake, and the gossip of the year. Mistress always kept it for us, and Mistress is gone, and I'm the eldest now. I can work lace in the dark but I can't bake. Will you help me keep it?",
+    steps: [
+      { kind: 'rite', rite: 'cattern_cakes', label: 'Seed cakes, the kettle on, the pillows put away; apples for the children at the door' },
+    ],
+    resolution: "The pot's empty by dark and nobody has touched a bobbin. Then the practical half, which is about what the other days of the year do to a lacemaker. Pillow lace by candlelight wears out the eyes: work by daylight while you can, sit by the window, and look up from the pillow now and then at something across the room. Get up and walk about every hour, for your back's sake. Don't keep the little ones at the pillow all day, whatever the lace schools did. And when the children come singing for apples and beer, give them the apples and the cake, and send the beer home to their mothers.",
+    lore: "Catterning: St Catherine's Day was the spinners' and the lacemakers' holiday, kept with tea, gossip and Cattern cakes, while in Worcestershire children went round for apples and beer (Hone; Channer & Roberts, 1900; Halliwell, 1849).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900)',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
