@@ -848,6 +848,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. I (1826), 13 March · R. Herrick, Hesperides (1648), p. 278',
     reward: { gold: 40, xp: 35 },
   },
+  // Holy Rood Day only (data/holyRood.js), dated by the old calendar.
+  {
+    id: 'holy_rood_nutting',
+    caller: 'Kit Lambourne',
+    icon: '🌰',
+    title: 'Holy Rood Day',
+    when: { calendar: 'holy_rood', days: 2, label: 'Holy Rood Day' },
+    plea: "It's Holy Rood Day and all the young ones are off nutting to Long Copse. Granny says the Devil goes a-nutting today, and holds the boughs down for you if you let him, and I'm not to go. Mother says that's nonsense and the nuts won't pick themselves. Will you come with us, so Granny's easy?",
+    steps: [
+      { kind: 'rite', rite: 'nutting', label: 'Nutting in Long Copse, the ripe ones only, and plenty left' },
+    ],
+    resolution: "Full bags, and Granny's easy. Then the practical half. Pick only nuts whose papery husk is pulling back; they're ripe in September and October. Take no more than you'll eat, and leave plenty for the birds and beasts, for a hazel copse feeds more than you. If you find a shell with a smooth round hole and tooth marks slanting round it on the outside, a dormouse has been there: they're protected by law, so leave the place be, and tell the People's Trust for Endangered Species, which counts them. Picking wild nuts for yourself is no theft, but picking them to sell can be. And hazelnuts are one of the commonest things people are allergic to: ask before you hand them round, and if someone's lips or throat swell, use their injector if they have one and send for help at once.",
+    lore: "Holy Rood Day: on 14 September the young went nutting, and the Devil was said to go a-nutting too and hold the boughs down for the unwary (Hone; Poor Robin, 1709; Folkard, 1884).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 14 September · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Nut"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Good Friday only (data/goodFriday.js), dated by Easter through the old calendar.
   {
     id: 'good_friday_bun',
