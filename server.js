@@ -5222,6 +5222,56 @@ function doPractice(player, id, rand) {
   return { toast: '🍞 You knead, shape, and cut a cross in the top — to let the devil out — and bake it at your hearth. A Hearth Loaf, warm in your hands.' };
 }
 
+// ── Smooring and kindling the fire (data/hearth.js; Carmina Gadelica, 1900).
+// At your own cottage hearth: smoor the fire once a night (a small guard till
+// dawn); next morning kindle it from the kept embers (a little vitality till
+// dusk). Kindling needs last night's smooring, so the fire never goes out.
+const { SMOORING, KINDLING, HEARTH_BUFFS } = require('./data/hearth');
+function hearthFireBody(player) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  if (!a) return null;
+  const now = Date.now(), n = nightIndex(now), night = isNightNow();
+  const h = a.hearth || {};
+  const smooredTonight = night && h.smooredNight === n;
+  const kindledToday = !night && h.kindledDay === n;
+  const embersKept = !night && h.smooredNight === n - 1;
+  let canSmoor = false, canKindle = false, note = '';
+  if (night) {
+    if (smooredTonight) note = 'The fire is smoored for the night.';
+    else { canSmoor = true; note = 'Night has come: smoor the fire, and keep the embers till morning.'; }
+  } else if (kindledToday) note = 'The fire is kindled for the day.';
+  else if (embersKept) { canKindle = true; note = 'The embers you smoored last night are still alive under the ash.'; }
+  else note = 'No embers were kept last night. Smoor the fire tonight, and kindle it again in the morning.';
+  return { night, canSmoor, canKindle, note, smoorCount: h.smoorCount || 0, kindleCount: h.kindleCount || 0,
+    smooring: { name: SMOORING.name, icon: SMOORING.icon, how: SMOORING.how, verse: SMOORING.verse, source: SMOORING.source },
+    kindling: { name: KINDLING.name, icon: KINDLING.icon, how: KINDLING.how, verse: KINDLING.verse, source: KINDLING.source } };
+}
+function tendHearth(player, act) {
+  const key = player && player.accountKey;
+  const a = key && accounts[key];
+  if (!a) return { error: 'Log into an account to keep a hearth.' };
+  if (!inOwnCottage(player)) return { error: 'You smoor and kindle the fire at your own hearth, in your cottage.' };
+  const st = hearthFireBody(player);
+  const now = Date.now(), n = nightIndex(now);
+  if (!a.hearth) a.hearth = {};
+  if (act === 'smoor') {
+    if (!st.canSmoor) return { error: st.note };
+    a.hearth.smooredNight = n;
+    a.hearth.smoorCount = (a.hearth.smoorCount || 0) + 1;
+    a.hearthBuff = { ...HEARTH_BUFFS.smoor, until: (n + 1) * CYCLE_MS };
+    saveAccounts();
+    return { toast: `🔥 Three peats round the embers, in the name of Life, of Peace and of Grace, and the ashes over all. "The sacred Three / To save, / To shield, / To surround / The hearth…" The house is guarded till dawn (+${Math.round(HEARTH_BUFFS.smoor.amount * 100)}% damage resist).` };
+  }
+  if (act === 'kindle') {
+    if (!st.canKindle) return { error: st.note };
+    a.hearth.kindledDay = n;
+    a.hearth.kindleCount = (a.hearth.kindleCount || 0) + 1;
+    a.hearthBuff = { ...HEARTH_BUFFS.kindle, until: n * CYCLE_MS + DAY_MS };
+    saveAccounts();
+    return { toast: `🌅 You rake back the ash and blow last night's embers into flame. "I will kindle my fire this morning / In presence of the holy angels of heaven…" The fire never went out (+${HEARTH_BUFFS.kindle.amount} max health till dusk).` };
+  }
+  return { error: 'Smoor or kindle?' };
+}
 function homeStateBody(player) {
   const home = homeOf(player);
   if (!home) return null;
@@ -5232,6 +5282,7 @@ function homeStateBody(player) {
     msBalance: player.accountKey ? msBalance(player.accountKey) : 0,
     teaGifts: teaGiftsBody(player),
     wards: player.accountKey ? wardsPublic(player.accountKey) : null,
+    hearthFire: hearthFireBody(player),
   };
 }
 // A read-only layout for ANY account (used when visiting someone's cottage): the
@@ -5793,7 +5844,7 @@ function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 
 // buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
 // a single small per-source amount, not a ladder, so they add texture without a
 // stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey) + timedBuffContrib(player, 'moonBuff', statKey); }
+function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey) + timedBuffContrib(player, 'moonBuff', statKey) + timedBuffContrib(player, 'hearthBuff', statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -16410,6 +16461,16 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Player housing (slice 1): the cottage layout editor ──
+    if (msg.type === 'smoor_fire' || msg.type === 'kindle_fire') {
+      const out = tendHearth(player, msg.type === 'smoor_fire' ? 'smoor' : 'kindle');
+      if (out.error) { send(ws, { type: 'toast', message: `🔥 ${out.error}` }); }
+      else {
+        send(ws, { type: 'toast', message: out.toast });
+        send(ws, { type: 'skill_state', ...skillStatePayload(player) }); // the buff refreshes stats/HP
+      }
+      if (player.accountKey) send(ws, { type: 'home_state', ...homeStateBody(player) });
+      return;
+    }
     if (msg.type === 'home_state') {
       if (!player.accountKey) { send(ws, { type: 'home_state', grid: HOME_GRID, pieces: [], catalog: [] }); return; }
       send(ws, { type: 'home_state', ...homeStateBody(player) });
@@ -17750,6 +17811,8 @@ global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 global.__testHooks.noteHourKept = noteHourKept; // the Charm Book's planetary hours
 global.__testHooks.charmBookNotice = charmBookNotice; // Charm Book notices
 global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
+global.__testHooks.tendHearth = tendHearth; // smooring and kindling the fire
+global.__testHooks.hearthFireBody = hearthFireBody;
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)
 // is emitted as an 'error' event on the server. Without this listener it would

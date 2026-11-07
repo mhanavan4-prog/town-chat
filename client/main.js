@@ -12133,6 +12133,17 @@ function renderHomeModal() {
     h += `<div class="homeHearth"><div class="homeHearthHead">${hhIco('m_hearth', '🔥')}At your hearth</div>`
       + `<div class="homeHearthBtns"><button class="btn hhBrew">${hhIco('trail_remedy', '🍵')}Brew a tea</button><button class="btn hhTarot">${hhIco('m_tarot', '🔮')}Lay the tarot</button><button class="btn hhScry">${hhIco('m_mirror', '🪞')}Scrying bowl</button><button class="btn hhWards">🛡️ Ward the house</button></div>`
       + `<div class="homeHint" style="opacity:.78;margin-top:4px">Your daily rituals, at home — and a tea steeped at your own hearth holds longer.</div></div>`;
+    // Smooring at night, kindling in the morning (Carmina Gadelica, 1900).
+    const hf = st.hearthFire;
+    if (hf) {
+      const rite = hf.night ? hf.smooring : hf.kindling;
+      h += `<div class="homeHearth hearthFire"><div class="homeHearthHead">${escHtml(rite.icon)} ${escHtml(rite.name)}</div>`
+        + `<div class="homeHint">${escHtml(rite.how)}</div>`
+        + `<div class="hearthVerse${rite.verse.length > 6 ? ' long' : ''}">${rite.verse.map((l) => `<div>${escHtml(l)}</div>`).join('')}</div>`
+        + (hf.night ? (hf.canSmoor ? '<button class="btn hhSmoor">🔥 Smoor the fire</button>' : '') : (hf.canKindle ? '<button class="btn hhKindle">🌅 Kindle the fire</button>' : ''))
+        + `<div class="homeHint" style="opacity:.8">${escHtml(hf.note)}</div>`
+        + `<div class="hearthSrc">${escHtml(rite.source)}</div></div>`;
+    }
   }
   // Tea a visitor left for you — accept it for the buff (and an almanac entry).
   if (st.teaGifts && st.teaGifts.length) {
@@ -12245,6 +12256,8 @@ function renderHomeModal() {
   { const b = el.querySelector('.hhTarot'); if (b) b.addEventListener('click', () => openTarotModal()); }
   { const b = el.querySelector('.hhScry'); if (b) b.addEventListener('click', () => openScryModal()); }
   { const b = el.querySelector('.hhWards'); if (b) b.addEventListener('click', () => { closeHomeModal(); _wards.open(); }); }
+  { const b = el.querySelector('.hhSmoor'); if (b) b.addEventListener('click', () => { b.disabled = true; send({ type: 'smoor_fire' }); }); }
+  { const b = el.querySelector('.hhKindle'); if (b) b.addEventListener('click', () => { b.disabled = true; send({ type: 'kindle_fire' }); }); }
   el.querySelectorAll('.hgAccept').forEach((b) => b.addEventListener('click', () => send({ type: 'claim_tea_gift', index: +b.getAttribute('data-gift-idx') })));
   // Wire the visit rows.
   el.querySelectorAll('.homeVisitRow').forEach((b) => b.addEventListener('click', () => { send({ type: 'visit_cottage', idx: +b.getAttribute('data-visit') }); }));
