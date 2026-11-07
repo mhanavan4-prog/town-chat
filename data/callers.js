@@ -710,6 +710,23 @@ const CALLERS = [
     source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
     reward: { gold: 40, xp: 35 },
   },
+  // Twelfth Night only (data/twelfthNight.js), dated by the old calendar.
+  {
+    id: 'twelfth_night_cake',
+    caller: 'Mrs Fenn of the Bell',
+    icon: '👑',
+    title: 'Twelfth Night',
+    when: { calendar: 'twelfth_night', days: 2, label: 'Twelfth Night' },
+    plea: "Twelfth Night, and the whole parish is coming to the Bell for the cake, and Fenn's put me in charge of it. There's to be a bean for the king and a pea for the queen, and last year there was a fight over who'd had the bean first. Will you bake it in with me, and cut it fair?",
+    steps: [
+      { kind: 'rite', rite: 'twelfth_cake', label: 'The Twelfth Cake, the bean and the pea, cut fair, and a king crowned' },
+    ],
+    resolution: "The miller's king, and nobody fights. Then the practical half, which is that a dried bean is just the size to stop a child's throat. Tell everyone there's a bean and a pea in it before you cut. Give the little ones, under five, a slice you've cut through yourself, and draw a king for them out of a hat instead, the way Pepys did \"to prevent spoiling the cake\". Nobody eats walking about or laughing with their mouth full, and no child eats out of sight. And whoever's king, the night should end the way Herrick wished it: everyone parted \"As free from offence / As when ye innocent met here.\"",
+    lore: "Twelfth Night: the Twelfth Cake had a bean in it for the king and a pea for the queen, and whoever found them reigned for the night (Herrick, 1648; Fosbroke, in Hone, 1826).",
+    tier: 'record',
+    source: 'R. Herrick, Hesperides (1648), ed. A. W. Pollard (1891) · W. Hone, The Every-Day Book, vol. I (1826), 6 January',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Agnes' Eve only (data/stAgnes.js): the row of pins and the fast.
   {
     id: 'st_agnes_eve',
