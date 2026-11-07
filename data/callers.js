@@ -984,6 +984,23 @@ const CALLERS = [
     source: 'Royal Injunctions of 1559, XVIII–XIX · W. Hone, The Every-Day Book, vol. I (1826), 12 May',
     reward: { gold: 40, xp: 35 },
   },
+  // Grotto Day only (data/grotto.js), dated by the old calendar.
+  {
+    id: 'grotto_day_shells',
+    caller: 'Polly and Dick Sweeting, up from Lambeth',
+    icon: '🐚',
+    title: 'Grotto Day',
+    when: { calendar: 'grotto_day', days: 2, label: 'Grotto Day' },
+    plea: "It's Old St James's! At home we'd have a grotto up by now, oyster shells from the stalls and a candle in the top, and everybody gives a penny: 'Mind the grotto!' Nobody here's ever seen one, and Aunt says the shells stink. Will you help us build it, and light it at dusk?",
+    steps: [
+      { kind: 'rite', rite: 'grotto', label: 'A grotto of oyster shells in the corner, a candle in the top, lit at dusk' },
+    ],
+    resolution: "The grotto glows till bedtime and the cap is full of pennies. Then the practical half, which is the oysters and the candle. The old rule of eating oysters only when there's an R in the month keeps you off the native oysters while they spawn in summer, when by law they may not be sold; it doesn't keep you safe. Raw oysters can carry the winter vomiting bug, and more in the cold months than the warm, so the very young, the old, anyone unwell and anyone with child shouldn't eat them raw; cooked through, they're safe. And a candle among a crowd of children wants a grown-up by it, out of reach of small hands, and never left burning alone.",
+    lore: "Grotto Day: on Old St James's Day London children built grottoes of oyster shells with a candle in the top and begged a penny to \"Mind the grotto!\" (Chambers, 1864).",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 25 July · W. Hone, The Every-Day Book, vol. II (1827), 25 July',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
