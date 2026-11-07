@@ -5145,8 +5145,11 @@ function charmBookStateBody(player) {
   const book = buildCharmBook({ acct: key ? accounts[key] : null, prog: key ? getProgress(player) : null, seasonKey });
   book.rewards = charmRewardsLib.rewardsView(book, key && accounts[key] ? accounts[key].charmRewards : null);
   try { book.whereNext = whereNextFor(player, book); } catch (e) { book.whereNext = []; }
+  // Every work the book cites, A to Z, with the entries citing it (lib/sources.js).
+  try { book.sources = buildSources(book.chapters); } catch (e) { book.sources = null; }
   return book;
 }
+const { buildSources } = require('./lib/sources');
 // The Charm Book's "Where next" page (lib/whereNext.js): what you can write in
 // today, from today's callers, the season, the planetary hour and the old calendar.
 const { whereNext } = require('./lib/whereNext');
