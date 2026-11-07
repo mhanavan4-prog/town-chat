@@ -10,6 +10,7 @@
 // textContent.
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
+import { searchBook } from './charm-search.js';
 
 const CHARM_TIER_LABEL = { record: 'Record', folk: 'Folk', revival: 'Revival' };
 const NEXT = '__whereNext'; // the Where next page (not a chapter)
@@ -20,6 +21,7 @@ export default function createCharmBook({ send, place, openBoard }) {
   let state = null;
   let openChapter = null; // key of the expanded chapter, or null = contents page
   let sourceFilter = ''; // what's typed in the Sources page's search box
+  let bookQuery = ''; // what's typed in the contents page's search box
 
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 
@@ -43,7 +45,8 @@ export default function createCharmBook({ send, place, openBoard }) {
     return el('span', 'callerTier callerTier-' + (tier || 'folk'), CHARM_TIER_LABEL[tier] || 'Folk');
   }
 
-  function renderContents(body) {
+  function renderContents(bodyIn) {
+    let body = bodyIn;
     const met = state.chapters.reduce((n, c) => n + c.met, 0);
     const total = state.chapters.reduce((n, c) => n + c.total, 0);
     body.appendChild(el('div', 'cbIntro', `${met} of ${total} charms written in. Cunning folk kept a book like this — charms, cures and receipts copied out by hand. Every entry says where it really comes from.`));
@@ -52,6 +55,36 @@ export default function createCharmBook({ send, place, openBoard }) {
     key.appendChild(tierBadge('folk')); key.appendChild(el('span', null, ' gathered from living custom  '));
     key.appendChild(tierBadge('revival')); key.appendChild(el('span', null, ' modern'));
     body.appendChild(key);
+    // 🔎 Search the whole book: results replace the contents while there is a query.
+    const search = el('input', 'cbBookSearch');
+    search.type = 'search';
+    search.placeholder = 'Search the book: a charm, a herb, a name, a source…';
+    search.value = bookQuery;
+    body.appendChild(search);
+    const results = el('div', 'cbSearchResults');
+    body.appendChild(results);
+    const rest = el('div', 'cbContentsRest');
+    const drawResults = () => {
+      results.textContent = '';
+      const hits = searchBook(state, bookQuery);
+      rest.classList.toggle('hidden', bookQuery.trim().length >= 2);
+      if (bookQuery.trim().length < 2) return;
+      results.appendChild(el('div', 'cbHint', hits.length ? `${hits.length}${hits.length === 60 ? '+' : ''} found` : 'Nothing in the book matches that yet.'));
+      for (const h of hits) {
+        const row = el('button', 'cbSearchHit' + (h.met ? ' met' : ''));
+        const head = el('div', 'cbEntryHead');
+        head.appendChild(el('span', 'cbEntryTitle', `${h.icon ? h.icon + ' ' : ''}${h.title}`));
+        if (h.met) head.appendChild(tierBadge(h.tier));
+        row.appendChild(head);
+        row.appendChild(el('div', 'cbSearchCh', `${h.chapterIcon} ${h.chapterTitle}${h.met ? '' : ' · not yet written in'}`));
+        if (h.snippet) row.appendChild(el('div', 'cbSearchSnip', h.snippet));
+        row.addEventListener('click', () => { openChapter = h.chapter; render(); });
+        results.appendChild(row);
+      }
+    };
+    search.addEventListener('input', () => { bookQuery = search.value; drawResults(); });
+    body.appendChild(rest);
+    body = rest; // the rest of the contents page goes under the search
     if (Array.isArray(state.whereNext) && state.whereNext.length) {
       const wn = state.whereNext;
       const row = el('button', 'cbChapter cbNextRow');
@@ -106,6 +139,7 @@ export default function createCharmBook({ send, place, openBoard }) {
       row.addEventListener('click', () => { openChapter = SOURCES; render(); });
       body.appendChild(row);
     }
+    drawResults(); // a query kept from before (re-opened, or the book refreshed)
   }
 
   // What writing the book up earns: a chip per milestone (ticked once given)
