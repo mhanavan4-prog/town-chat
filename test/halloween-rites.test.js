@@ -54,7 +54,9 @@ setTimeout(() => {
     summerSeasonal += summer.filter((id) => seasonal.some((c) => c.id === id)).length;
     const hallow = at(HALLOWEEN - 10 * 86400000 + d * 86400000, () => ({ season: h.calendarPublicState().season.key, ids: h.callers.callersStatePayload(p).offered.map((o) => o.id) }));
     // A dated caller (Martinmas week, 9–13 Nov) goes first of all; then the season's.
-    const lead = hallow.ids[0] === 'martinmas_cock' ? hallow.ids[1] : hallow.ids[0];
+    // A dated caller (Martinmas week, All Souls' Day) comes first on its days; the season's after it.
+    const isDated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
+    const lead = isDated(hallow.ids[0]) ? hallow.ids[1] : hallow.ids[0];
     if (hallow.season === 'samhain') { days++; if (seasonal.some((c) => c.id === lead)) samhainFirst++; }
   }
   check('no Hallowe\'en caller ever comes at midsummer (20 days)', summerSeasonal === 0, summerSeasonal);
