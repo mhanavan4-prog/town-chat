@@ -710,6 +710,24 @@ const CALLERS = [
     source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Stephen's Day only (data/wrenDay.js): the wren boys, with a straw wren.
+  {
+    id: 'wren_boys',
+    caller: 'Denny Sheehan and the wren boys',
+    icon: '🐦',
+    title: 'The Wren Boys',
+    when: require('./wrenDay').WREN_WHEN,
+    plea: "We're out with the wren, but there's no wren. Nobody kills the wren now, and Father says it was a cruel old thing anyway. Grandad made us one of straw with a few feathers in it, and we have the masks. We're short of ivy for the bush, and short of someone who knows the words. Will you come round the houses with us?",
+    steps: [
+      { kind: 'deliver', item: 'ivy_leaf', qty: 1, label: 'Ivy for the wren bush, with the holly' },
+      { kind: 'rite', rite: 'wren_hunt', label: 'The straw wren on the bush, the masks, the song at every door' },
+    ],
+    resolution: "You go the round of the houses, and the box is heavy by dark. Then the practical half: count the money out fair in front of everyone before the dance, so there's no row over it after. Keep to the lit road in the straw masks, for the carts can't see you. And the real wrens have a hard time of it in a frost like this; put out crumbs and a bit of fat on the sill, and leave the ivy on the wall for them to roost in.",
+    lore: "Wren Day: on St Stephen's Day the wren boys carried a wren on a holly bush from house to house, singing and collecting money (Frazer; Moore, 1891). The wren is protected now; the wren on the bush is a straw one.",
+    tier: 'record',
+    source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── The house and the hive (data/household.js) ──
   {
     id: 'tell_the_bees',
