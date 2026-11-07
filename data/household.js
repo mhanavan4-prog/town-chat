@@ -27,6 +27,20 @@ const HOUSEHOLD_RITES = {
     tier: 'record',
     source: 'R. Chambers, The Book of Days (1864), 7 June · Notes and Queries (25 October 1851)',
   },
+  // The king's evil: scrofula, touched by the monarch till Queen Anne, and in
+  // the villages by the seventh son. The practical half is the milk.
+  kings_evil: {
+    key: 'kings_evil', name: "The Seventh Son's Touch", icon: '🪙',
+    how: "Bring the seventh son to stroke the swelling with his hand, and hang the old touch-piece round the child's neck on its ribbon, as the kings and queens did.",
+    outcomes: [
+      'He strokes the swelling three times, red to the ears. The child laughs at him.',
+      'The old gold angel goes round her neck on its ribbon. Her mother breathes as if a weight has gone.',
+      'Nothing to see and nothing to feel; the swelling is as it was. Her mother holds the coin tight.',
+    ],
+    lore: 'The king\'s evil was scrofula, "swollen and discharging tuberculous lymph glands of the neck". For centuries the kings and queens of England touched for it: the sufferer knelt, the monarch touched the swelling and hung a gold angel, "pierced and threaded on a ribbon", round their neck. Charles II is reckoned to have touched over 105,000 people. Queen Anne was the last; the Hanoverians did not touch. Samuel Johnson, not yet three, was taken to London on a physician\'s advice and "actually touched by Queen Anne"; he kept "a confused, but somehow a sort of solemn recollection of a lady in diamonds, and a long black hood". "This touch, however, was without any effect." The gift was said to pass to the seventh son as well: a 17th-century note says the kings of England and France cure the evil by touching, "and so doth the seaventh sonne".',
+    tier: 'record',
+    source: 'Royal College of Physicians, "Touching for \'the King\'s evil\': a short history" (2019) · Royal Collection Trust, RCIN 443149 · J. Boswell, Life of Johnson (1791), ed. G. B. Hill (1887), vol. I · Notes and Queries (22 February 1851)',
+  },
   silver_water: {
     key: 'silver_water', name: 'Silver Water', icon: '🥈',
     how: 'Fill a bowl with clean water and put a silver sixpence in it. If the coin sticks to the bowl, the eye has been on the child. Sprinkle the child three times with the silver water.',
