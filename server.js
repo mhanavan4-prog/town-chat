@@ -5152,6 +5152,7 @@ function charmBookStateBody(player) {
   return book;
 }
 const { buildSources } = require('./lib/sources');
+const { checksFor } = require('./lib/checkIt');
 // The Charm Book's "Where next" page (lib/whereNext.js): what you can write in
 // today, from today's callers, the season, the planetary hour and the old calendar.
 const { whereNext } = require('./lib/whereNext');
@@ -13040,9 +13041,13 @@ wss.on('connection', (ws, req) => {
           if (!a.cunningRead.includes(id)) { a.cunningRead.push(id); saveAccounts(); }
         }
       }
+      // "Check it": each verdict's and book's works on the Charm Book's Sources page (lib/checkIt.js).
+      let checks = {};
+      try { checks = checksFor(buildSources(buildCharmBook({ acct: a || null, prog: null, seasonKey: null }).chapters), { myth: MYTH_QUIZ, books: REAL_BOOKS, folk: CUNNING_FOLK }); } catch (e) { checks = {}; }
       send(ws, { type: 'real_shelf', intro: REAL_SHELF_INTRO, books: REAL_BOOKS, read: (a && a.booksRead) || [],
         folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [],
-        myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: a && Number.isFinite(a.mythBest) ? a.mythBest : null } });
+        myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: a && Number.isFinite(a.mythBest) ? a.mythBest : null },
+        checks });
       return;
     }
     // ❓ Myth or record? (data/mythOrRecord.js): the shelf's quiz. The client

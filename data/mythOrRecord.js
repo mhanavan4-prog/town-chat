@@ -33,7 +33,7 @@ const MYTH_QUIZ = [
     source: 'A. Sneddon and V. Devlin (eds), The Islandmagee Witches documents (2022)' },
   { id: 'malleus_approved', claim: 'The Inquisition gave its official approval to the Malleus Maleficarum, the "Hammer of Witches".', answer: 'myth',
     verdict: 'The Inquisition gave it no authority. The theologians\' approval printed in some copies was denied by two of the men named, and many historians think its author forged it.',
-    source: 'The Real Shelf: Malleus Maleficarum (1486–87)' },
+    source: 'H. Kramer, Malleus Maleficarum (1486–87), on the Real Shelf' },
   { id: 'good_friday_bun', claim: 'People kept a bun baked on Good Friday for a whole year, as a cure.', answer: 'record',
     verdict: 'Good Friday bread was kept "all through the ensuing year" and grated into water against illness. The Pitt Rivers Museum keeps one baked in 1976.',
     source: 'R. Chambers, The Book of Days (1864); Pitt Rivers Museum 1981.11.2' },
