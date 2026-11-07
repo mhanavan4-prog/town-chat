@@ -201,7 +201,7 @@ const HOUSEHOLD_RITES = {
     ],
     lore: 'A beast that dropped suddenly was "Elf-shot": the fairies\' arrows, Kirk wrote in 1691, were "solid earthly Bodies, nothing of Iron, but much of Stone, like to yellow soft Flint Spa, shaped like a barbed Arrow-head". Isobel Gowdie confessed in 1662 that "we haw no bow to shoot with, but spang them from the naillis of our thowmbes." The cure was to find the hole, or touch the beast with an elf-arrow, or make it drink water one had been dipped in; some were set in silver as amulets. The arrows were real: Neolithic and Bronze Age flint arrowheads, turned up by the plough. "Ylfa gescot", elves\' shot, is already in an Old English charm.',
     tier: 'record',
-    source: 'R. Kirk, The Secret Common-Wealth (1691) · I. Gowdie (1662), in R. Pitcairn, Ancient Criminal Trials, vol. 3 (1833) · T. Pennant, A Tour in Scotland (1771) · M. Dowd, Cambridge Archaeological Journal 28 (2018) · Lacnunga, "Wið færstice"',
+    source: 'R. Kirk, The Secret Common-Wealth (1691) · I. Gowdie (1662), in R. Pitcairn, Ancient Criminal Trials, vol. 3 (1833) · T. Pennant, A Tour in Scotland (1771) · M. Dowd, Cambridge Archaeological Journal 28 (2018) · Lacnunga (c. AD 1000), "Wið færstice"',
   },
   // The toadman's bone: East Anglian horsemen's magic, gathered by George Ewart
   // Evans from the last of the horsemen, with the Scots Horseman's Word beside
