@@ -869,6 +869,22 @@ const CALLERS = [
     source: 'R. Kirk, The Secret Common-Wealth (1691) · T. Pennant, A Tour in Scotland (1771) · M. Dowd (2018)',
     reward: { gold: 40, xp: 35 },
   },
+  // ── The dried cat (data/household.js) ──
+  {
+    id: 'dried_cat_hearth',
+    caller: 'Sarah Fenn',
+    icon: '🐈',
+    title: 'Under the Hearthstone',
+    plea: "The men lifting the old hearthstone found a cat under it, dried flat as leather. My husband says burn it. The men won't touch it; they say it's bad luck to move it at all, and worse to throw it out. What do I do with the poor thing?",
+    steps: [
+      { kind: 'rite', rite: 'dried_cat', label: 'Mark how it lay, and lay it back as it was found' },
+    ],
+    resolution: "It goes back, and then the practical half, which is most of it: don't burn it and don't clean it. If it has to come out, mark exactly where it was and how it lay before you move it, and send word to the museum. Finds like this are still being recorded, and each one tells a little more about why people did it. Wash your hands after; it is old and dusty. Whether it brings luck nobody can say. It has kept the house this long.",
+    lore: "The dried cat: cats are found sealed in the walls, floors and roofs of old buildings. Some crept in and died; some were placed, posed as if hunting. Why, nobody wrote down.",
+    tier: 'record',
+    source: 'C. Houlbrook, "Guidance for Finders", The Concealed Revealed (University of Hertfordshire) · M. M. Howard, "Dried Cats", Man 51 (1951)',
+    reward: { gold: 40, xp: 35 },
+  },
   // ── The toadman's bone (data/household.js) ──
   {
     id: 'toad_bone_mare',
