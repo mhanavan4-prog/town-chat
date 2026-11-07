@@ -93,7 +93,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.wassailer, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'yule');
-  check('the Charm Book has a Yuletide chapter of the three Yule rites (and Wren Day), the three written in', ch && ch.total === 4 && ch.met === 3 && ch.entries[3].id === 'wren_hunt');
+  check('the Charm Book has a Yuletide chapter of the three Yule rites (then Wren Day and St Agnes\' Eve), the three written in', ch && ch.total === 5 && ch.met === 3 && ch.entries[3].id === 'wren_hunt' && ch.entries[4].id === 'st_agnes_pins');
   check('…after Hallowe\'en, which the Yule rites don\'t touch', book.chapters.findIndex((c) => c.key === 'yule') === book.chapters.findIndex((c) => c.key === 'halloween') + 1 && book.chapters.find((c) => c.key === 'halloween').met === 0);
 
   console.log(`\n${pass} passed, ${fail} failed`);

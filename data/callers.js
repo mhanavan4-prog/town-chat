@@ -710,6 +710,23 @@ const CALLERS = [
     source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Agnes' Eve only (data/stAgnes.js): the row of pins and the fast.
+  {
+    id: 'st_agnes_eve',
+    caller: 'Lucy Tranter',
+    icon: '🕯️',
+    title: "St Agnes' Eve",
+    when: require('./stAgnes').AGNES_WHEN,
+    plea: "It's St Agnes' Eve, and I've fasted since morning and I'm that hungry. Gran says a row of pins and a Paternoster over each, and I'll dream of the man I'll marry. There's two I might, and I want to know which. Will you show me the pins right?",
+    steps: [
+      { kind: 'rite', rite: 'st_agnes_pins', label: 'The row of pins, a Paternoster over each, one in her sleeve' },
+    ],
+    resolution: "She goes to bed supperless with a pin in her sleeve. Then the practical half: a hungry girl dreams vivid dreams, as people have said for centuries, and a survey in 2015 found vivid dreams went with long gaps between meals. So she will dream, and most likely of whoever she already has in mind. Eat something in the morning; a day's fast is no good to anyone with work to do. And if it is Tom she dreams of, the surer charm is asking him to the next dance.",
+    lore: "St Agnes' Eve: girls fasted all day and, with a row of pins and a Paternoster over each, went supperless to bed to dream of the one they would marry (Aubrey, 1696; Hone, 1826; Keats, 1820).",
+    tier: 'record',
+    source: 'J. Aubrey, Miscellanies (1696), ch. XIII · Nielsen & Powell, Frontiers in Psychology 6 (2015)',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Stephen's Day only (data/wrenDay.js): the wren boys, with a straw wren.
   {
     id: 'wren_boys',

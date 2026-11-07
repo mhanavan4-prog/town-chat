@@ -56,7 +56,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.wren, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'yule');
   const e = ch.entries.find((x) => x.id === 'wren_hunt');
-  check('…and writes Hunting the Wren into Yuletide, after the Yule rites', e && e.met && /· St Stephen's Day$/.test(e.title) && ch.entries[ch.entries.length - 1].id === 'wren_hunt' && /wren carried round on St Stephen's Day/.test(ch.intro));
+  check('…and writes Hunting the Wren into Yuletide, after the Yule rites', e && e.met && /· St Stephen's Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'wren_hunt') === 3 && /wren carried round on St Stephen's Day/.test(ch.intro));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
