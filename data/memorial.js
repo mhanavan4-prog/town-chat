@@ -16,14 +16,23 @@
 //   names     Chelmsford 1566 pamphlet; Potts, Wonderfull Discoverie (1613);
 //             Hopkins, Discovery of Witches (1647) and the 1645 depositions;
 //             the Bideford trial (1682); Dornoch (1727, some say 1722).
+//   Ireland   few trials (the Witchcraft Act of 1586, repealed 1821). The last,
+//             and the only mass trial: Carrickfergus assizes, 31 March 1711,
+//             eight women of Islandmagee accused by Mary Dunbar; Judge Upton
+//             told the jury to acquit, Judge MacCartney argued to convict;
+//             a year in prison and the pillory four times (A. Sneddon and
+//             V. Devlin's edition of the trial documents, w1711.org, 2022; the
+//             1822 pamphlet). Names in Sneddon's spelling. That one lost an
+//             eye in the pillory is local tradition, so not on the stone.
 // ---------------------------------------------------------------------------
 const MEMORIAL = {
   id: 'memorial',
   name: '🕯️ In Memory of the Accused',
   text: 'Between about 1450 and 1750, some forty to sixty thousand people were put to death in Europe as witches — not the "nine million" of a 1784 guess that later writers repeated. Most were poor women, and few were healers or midwives. In England about five hundred were hanged; witches there were hanged, not burned. In Scotland over fifteen hundred died, strangled at the stake and then burned.\n\n'
     + 'Remember Agnes Waterhouse, hanged at Chelmsford on 29 July 1566. Ursula Kemp, hanged in 1582. Elizabeth Southerns, called Demdike, who died in Lancaster gaol, and the ten hanged at Lancaster in August 1612: Anne Whittle, Elizabeth, James and Alizon Device, Anne Redferne, Alice Nutter, Katherine Hewitt, John and Jane Bulcock, and Isabel Robey. Elizabeth Clarke of Manningtree, and the hundred and more hanged on Matthew Hopkins\'s word in 1645–47. Temperance Lloyd, Mary Trembles and Susanna Edwards, hanged at Exeter in 1682, the last in England. The woman remembered as Janet Horne, put to death at Dornoch in 1727, the last in Scotland.\n\n'
-    + 'In 2022 Scotland formally apologised to all of them. The cunning folk of this town were their neighbours; this stone is theirs.',
-  sources: 'B. Levack, The Witch-Hunt in Early Modern Europe (2006); Survey of Scottish Witchcraft (2003); J. Sharpe, Instruments of Darkness (1996); D. Harley (1990); the trial pamphlets of 1566, 1582, 1613 and 1647',
+    + 'In Ireland, where there were few trials, the last and the largest was at Carrickfergus on 31 March 1711. Eight women of Islandmagee, Catherine McCalmond, Janet Liston, Elizabeth Sellor, Janet Carson, Janet Main, Janet Millar, Janet Latimer and Margaret Mitchell, were convicted on the word of a young woman, Mary Dunbar, who said they tormented her, though one of the two judges told the jury the evidence was not enough. They were imprisoned for a year and stood four times in the pillory. A memorial stone to them now stands in Islandmagee.\n\n'
+    + 'In 2022 Scotland formally apologised to all those accused there. The cunning folk of this town were their neighbours; this stone is theirs.',
+  sources: 'B. Levack, The Witch-Hunt in Early Modern Europe (2006); Survey of Scottish Witchcraft (2003); J. Sharpe, Instruments of Darkness (1996); D. Harley (1990); the trial pamphlets of 1566, 1582, 1613 and 1647; A. Sneddon and V. Devlin (eds), The Islandmagee Witches documents (2022); A. Sneddon, Possessed by the Devil (2013)',
 };
 
 // ---------------------------------------------------------------------------
