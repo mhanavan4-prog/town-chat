@@ -38,7 +38,7 @@ check('…and what it matches by is not sent with it', !('match' in JSON.parse(J
 const davies = findWork(src, 'Owen Davies, Cunning-Folk (2003), ch. 4');
 check('a fuller form of a cited work finds it', davies && /Davies, Cunning-Folk \(2003\)/.test(davies.cite), davies && davies.cite);
 check('a body is found by its name and document', findWork(src, 'Pitt Rivers Museum 1981.11.2') && !findWork(src, 'Pitt Rivers Museum 1999.1.1'));
-check('a work the book does not cite finds nothing', findWork(src, 'B. Levack, The Witch-Hunt in Early Modern Europe (2006)') === null && findWork(src, 'the memorial by the Town Hall') === null);
+check('a work the book does not cite finds nothing', findWork(src, 'W. Behringer, Witches and Witch-Hunts (2004)') === null && findWork(src, 'the memorial by the Town Hall') === null);
 check('a source line splits at "; " and " · "', JSON.stringify(partsOf('A (1); B · C')) === JSON.stringify(['A (1)', 'B', 'C']));
 
 const checks = checksFor(src, { myth: MYTH_QUIZ, books: REAL_BOOKS, folk: CUNNING_FOLK });

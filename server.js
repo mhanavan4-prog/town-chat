@@ -13015,7 +13015,14 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'read_waymarker') {
       const marker = WAYMARKER_LORE[String(msg.markerId || '')];
       if (!marker) return;
-      send(ws, { type: 'npc_hint_dialogue', npcId: String(msg.markerId), npcName: marker.name, message: marker.text });
+      // The two memorial stones are written into the Charm Book's In Memory.
+      const way = String(msg.markerId);
+      const acc = player.accountKey && accounts[player.accountKey];
+      if (acc && (way === 'way_memorial' || way === 'way_after_law')) {
+        if (!Array.isArray(acc.stonesRead)) acc.stonesRead = [];
+        if (!acc.stonesRead.includes(way)) { acc.stonesRead.push(way); saveAccounts(); }
+      }
+      send(ws, { type: 'npc_hint_dialogue', npcId: way, npcName: marker.name, message: marker.text });
       return;
     }
 
