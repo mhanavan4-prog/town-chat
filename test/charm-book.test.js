@@ -86,7 +86,7 @@ setTimeout(() => {
   const g = join('Reader');
   g.s.emit('message', JSON.stringify({ type: 'charm_book_state' }));
   const gs = g.s.lastOfType('charm_book_state');
-  check('the server answers charm_book_state', gs && Array.isArray(gs.chapters) && gs.chapters.length === 16, gs && gs.chapters && gs.chapters.length);
+  check('the server answers charm_book_state', gs && Array.isArray(gs.chapters) && gs.chapters.length === 17, gs && gs.chapters && gs.chapters.length);
   check('a guest has met no callers', gs && chap(gs, 'callers').met === 0);
   const season = h.calendarPublicState().season;
   check('a guest sees the current sabbat as met', gs && season && metIds(gs, 'wheel').includes(season.key), { season: season && season.key, met: gs && metIds(gs, 'wheel') });

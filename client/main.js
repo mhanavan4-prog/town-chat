@@ -4817,11 +4817,40 @@ function renderShelfModal() {
     h += '</div>';
   }
   h += '</div>';
+  // The cunning folk of the record, on the same shelf.
+  const folk = shelfState.folk || [];
+  if (folk.length) {
+    const fread = new Set(shelfState.folkRead || []);
+    h += `<div class="shelfFolkHead">🗝️ The Cunning Folk</div><div class="cbIntro">${esc(shelfState.folkIntro || '')} <b>${fread.size} of ${folk.length}</b> read.</div><div class="shelfGrid">`;
+    for (const f of folk) {
+      const tier = PROV_TIER_LABEL[f.tier] ? f.tier : 'record';
+      const oid = 'folk:' + f.id;
+      const open = shelfOpenId === oid;
+      h += `<div class="shelfBook shelfFolk${open ? ' open' : ''}${fread.has(f.id) ? ' read' : ''}" data-fid="${esc(f.id)}">`
+        + `<div class="shelfHead"><span class="shelfTitle">${esc(f.name)}</span> <span class="callerTier callerTier-${tier}">${PROV_TIER_LABEL[tier]}</span>${fread.has(f.id) ? ' <span class="shelfRead">✓</span>' : ''}</div>`
+        + `<div class="shelfBy">${esc(f.place)} · ${esc(f.dates)}</div>`;
+      if (open) {
+        h += `<div class="shelfText">${esc(f.summary)}</div>`
+          + (f.fact ? `<div class="shelfFact">${esc(f.fact)}</div>` : '')
+          + (f.legend ? `<div class="shelfLegend">${esc(f.legend)}</div>` : '')
+          + (f.quote ? `<div class="shelfQuote">“${esc(f.quote)}”</div>` : '')
+          + (f.source ? `<div class="shelfSrc">${esc(f.source)}</div>` : '');
+      }
+      h += '</div>';
+    }
+    h += '</div>';
+  }
   el.innerHTML = h;
-  el.querySelectorAll('.shelfBook').forEach((row) => row.addEventListener('click', () => {
+  el.querySelectorAll('.shelfBook[data-bid]').forEach((row) => row.addEventListener('click', () => {
     const id = row.getAttribute('data-bid');
     shelfOpenId = shelfOpenId === id ? null : id;
     if (shelfOpenId) send({ type: 'read_real_book', id: shelfOpenId });
+    renderShelfModal();
+  }));
+  el.querySelectorAll('.shelfBook[data-fid]').forEach((row) => row.addEventListener('click', () => {
+    const id = row.getAttribute('data-fid');
+    shelfOpenId = shelfOpenId === 'folk:' + id ? null : 'folk:' + id;
+    if (shelfOpenId) send({ type: 'read_cunning', id });
     renderShelfModal();
   }));
 }
