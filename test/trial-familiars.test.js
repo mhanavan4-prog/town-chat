@@ -30,8 +30,9 @@ check('the hare is the witch herself: Isobel Gowdie\'s charm, her fate unrecorde
 check('the raven says it is hardly in the records, and where its name comes from', /hardly appear/.test(FAMILIAR_LORE.raven.lore) && /Huginn and Muninn/.test(FAMILIAR_LORE.raven.lore));
 check('the bat is honest: not a trial familiar, badged revival', FAMILIAR_LORE.bat.tier === 'revival' && /not among the familiars/.test(FAMILIAR_LORE.bat.lore));
 const rec = JSON.stringify(FAMILIAR_RECORDS);
-check('the records name Tibb, Fancie and Kemp\'s four', /Tibb/.test(rec) && /Fancie/.test(rec) && /Tittey, Tyffin, Pigine and Jacke/.test(rec));
-check('Hopkins\'s imps as he spelled them, and his "no mortall could invent"', /Vinegar Tom/.test(rec) && /Sack and Sugar/.test(rec) && /Elemanzer/.test(rec) && /Peckin the Crown/.test(rec) && /no mortall could invent/.test(rec));
+check('the records name Fancie and Kemp\'s four', /Fancie/.test(rec) && /Tittey, Tyffin, Pigine and Jacke/.test(rec));
+check('Tibb, Sack and Sugar and Newes are bondable, each with its record', /browne Dogg/.test(FAMILIAR_LORE.dog.lore) && /Sack and Sugar, like a black Rabbet/.test(FAMILIAR_LORE.rabbit.lore) && /Newes, like a Polcat/.test(FAMILIAR_LORE.polecat.lore) && /Potts/.test(FAMILIAR_LORE.dog.source));
+check('Hopkins\'s imps as he spelled them, and his "no mortall could invent"', /Vinegar Tom/.test(rec) && /Elemanzer/.test(rec) && /Peckin the Crown/.test(rec) && /no mortall could invent/.test(rec));
 check('the records note says how the confessions were got', /kept from sleep/.test(FAMILIAR_RECORDS_NOTE));
 
 // ── The memorial ──
@@ -54,7 +55,7 @@ setTimeout(() => {
   s.emit('message', JSON.stringify({ type: 'join', name: 'Reader', charId: 0 }));
   s.emit('message', JSON.stringify({ type: 'familiar_lore' }));
   const fl = s.lastOfType('familiar_lore');
-  check('the server answers familiar_lore, to guests too', fl && fl.lore && fl.lore.cat && Array.isArray(fl.records) && fl.records.length >= 6 && fl.note);
+  check('the server answers familiar_lore, to guests too', fl && fl.lore && fl.lore.cat && Array.isArray(fl.records) && fl.records.length >= 5 && fl.note);
   s.emit('message', JSON.stringify({ type: 'read_waymarker', markerId: 'way_memorial' }));
   const d = s.lastOfType('npc_hint_dialogue');
   check('reading the memorial shows its text', d && d.npcId === 'way_memorial' && /Agnes Waterhouse/.test(d.message));

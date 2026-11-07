@@ -11160,6 +11160,9 @@ const FAMILIARS_CLIENT = {
   toad: { name: 'Toad', emoji: '🐸', blurb: '+25 max health' },
   hare: { name: 'Hare', emoji: '🐇', blurb: '+10% move speed' },
   bat: { name: 'Bat', emoji: '🦇', blurb: '+6% lifesteal' },
+  dog: { name: 'Brown Dog (Tibb)', emoji: '🐕', blurb: '+8% damage resist' },
+  rabbit: { name: 'Black Rabbit (Sack and Sugar)', emoji: '🐰', blurb: '-8% ability cooldowns' },
+  polecat: { name: 'Polecat (Newes)', emoji: '🦡', blurb: '+8% attack' },
 };
 // undefined = not yet heard from the server (fall back to the live stream);
 // null = explicitly dismissed. Distinguishing them keeps "No familiar" from
@@ -11179,7 +11182,7 @@ function renderFamiliarModal() {
   const send = (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); };
   const cur = (myFamiliar !== undefined) ? myFamiliar : ((me && players[me.id] && players[me.id].familiar) || null);
   let h = '<div style="font-size:12px;opacity:0.92;margin-bottom:8px;">Bond a familiar — it follows you everywhere and lends you its gift.</div><div class="menuCols">';
-  for (const id of ['cat', 'raven', 'toad', 'hare', 'bat']) {
+  for (const id of ['cat', 'raven', 'toad', 'hare', 'bat', 'dog', 'rabbit', 'polecat']) {
     const f = FAMILIARS_CLIENT[id];
     const fl = familiarLore && familiarLore.lore && familiarLore.lore[id];
     const tierLbl = fl ? (PROV_TIER_LABEL[fl.tier] || 'Folk') : '';
