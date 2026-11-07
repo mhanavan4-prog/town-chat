@@ -60,7 +60,10 @@ setTimeout(() => {
   }
   check('every household rite gives one of its signs through the real handler', fail === 0);
   const ch = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'household');
-  check('the Charm Book\'s House and the Hive chapter: every rite written in (and the hearth\'s two to come)', ch && ch.total === rites.length + 2 && ch.met === rites.length);
+  const home = rites.filter((r) => !r.against).length;
+  check('the Charm Book\'s House and the Hive chapter: every rite of the house written in (and the hearth\'s two to come)', ch && ch.total === home + 2 && ch.met === home);
+  const ag = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'against');
+  check('…and the counter-magic in Against the Witch, every one written in', ag && ag.total === rites.length - home && ag.met === ag.total);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
