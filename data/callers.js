@@ -863,6 +863,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 31 December · A. Mitchell, Proceedings of the Society of Antiquaries of Scotland 10 (1875)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Paul's Day only (data/stPaulsDay.js), dated by the old calendar.
+  {
+    id: 'st_pauls_day',
+    caller: 'Ada Rowe, from the end cottage',
+    icon: '🌤️',
+    title: "St Paul's Day",
+    when: { calendar: 'st_pauls_day', days: 2, label: "St Paul's Day" },
+    plea: "It's St Paul's Day and it's come up fair and clear, and my nan always said that means a happy year. But I've not seen old Mr Hartley next door since the frost came, and his chimney's not smoking. He'll not thank me for fussing. Will you knock with me?",
+    steps: [
+      { kind: 'rite', rite: 'st_pauls_day', label: "The sky read for the year, and the neighbour's door knocked" },
+    ],
+    resolution: "Mr Hartley answers at last, in two coats, with the fire out and his speech slow. You get him into Ada's warm kitchen, wrap him in a blanket with his head covered, and give him hot sweet tea, and by evening his chimney's smoking again. A happy year, maybe. Then the practical half. In cold weather keep in touch with older neighbours, and ask whether they're unwell or need practical help, with food or medicine when bad weather is forecast. Heat the rooms you live in to at least 18 degrees. Hypothermia shows as shivering, pale cold skin, slurred speech, slow breathing, and tiredness or confusion: if you think someone has it, ring 999 or go to A&E. Meanwhile move them somewhere warm, take off any wet clothes, wrap them in a blanket with the head covered, and give a warm drink, not alcohol, and something sugary if they're fully awake. Stay with them and keep them talking. Don't use a hot bath, a hot-water bottle or a heat lamp, and don't rub their arms and legs.",
+    lore: "St Paul's Day: 'If Saint Paul's day be fair and clear, / It does betide a happy year' (Willsford, 1658), who printed it all the same as what 'old Wives do dream'.",
+    tier: 'record',
+    source: 'T. Willsford, Natures Secrets (1658), p. 145 · UKHSA, "Keeping warm and well" · NHS, "Hypothermia"',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Distaff's Day only (data/stDistaff.js), dated by the old calendar.
   {
     id: 'st_distaff',
