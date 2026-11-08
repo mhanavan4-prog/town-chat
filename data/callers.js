@@ -1156,6 +1156,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 14 September · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Nut"',
     reward: { gold: 40, xp: 35 },
   },
+  // Easter Monday and Tuesday only (data/easterLifting.js), dated by Easter through the old calendar.
+  {
+    id: 'lifting',
+    caller: 'Nell Bradbury, from Walsall',
+    icon: '🙌',
+    title: 'Easter Lifting',
+    when: { calendar: 'lifting', days: 2, label: 'Easter Monday and Tuesday' },
+    plea: "It's lifting day, and I'd not stop it for the world, it's the best fun of the year when it's done right: the chair with the ribbons, up three times and a sixpence. But my sister Lizzie's twenty and she hates it, and last year she said no and they had her up anyway, and she cried all the way home. They're on our street now with the chair. Will you come out with me and help me see it's done the right way?",
+    steps: [
+      { kind: 'rite', rite: 'lifting', label: 'The chair dressed and the willing lifted three times, and a no taken for an answer' },
+    ],
+    resolution: "Out on the step, the girls who want it go up laughing, and when Lizzie shakes her head the chair goes past her. Then the practical half. Lifting someone who has said no is assault, however old the custom, and a forced kiss or touch with it can be sexual assault. Consent means she agrees by choice, with the freedom to choose, and she can take it back at any moment, halfway up included. If it's already happening, tell them plainly to put her down, feet first, now, and don't pull at her while she's in the air. Call 999 if she's in danger or it's still going on, and 101 to report it after. Rape Crisis is free on 0808 500 2222, day and night, for anyone 16 or over, and Victim Support on 08 08 16 89 111.",
+    lore: "Easter lifting: in Lancashire, Staffordshire and Warwickshire everyone lifted three times at Easter paid a contribution, and in Warwickshire the men lifted the women on Monday and the women the men on Tuesday (Hone, 1826). In Walsall in 1896 a court was told that once she objected, it was assault.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 5 April · Walsall Advertiser (2 May 1896), in D. C. Woods, The Blackcountryman 12.2 (1979) · Sexual Offences Act 2003, ss. 3, 74 · CPS, "What are rape and sexual assault?" · Rape Crisis England & Wales · Victim Support',
+    reward: { gold: 40, xp: 35 },
+  },
   // The first of April only (data/huntTheGowk.js), dated by the old calendar.
   {
     id: 'hunt_the_gowk',
