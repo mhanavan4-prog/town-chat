@@ -1121,6 +1121,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 15 July · Met Office, "Red sky at night and other weather lore"',
     reward: { gold: 40, xp: 35 },
   },
+  // Midsummer Eve only (data/midsummerMen.js), dated by the old calendar.
+  {
+    id: 'midsummer_men',
+    caller: 'Hester Bligh, dairymaid',
+    icon: '🌱',
+    title: 'Midsummer Men',
+    when: { calendar: 'midsummer_men', days: 2, label: 'Midsummer Eve' },
+    plea: "Midsummer Eve, and the dairy's done. Cook says set up two Midsummer Men in the beam, one for me and one for Will, and see if they lean together by morning. Only he's been strange lately, quiet, and I want to know where I stand. Will you help me find the orpine and set them up?",
+    steps: [
+      { kind: 'rite', rite: 'midsummer_men', label: 'Two slips of orpine set up in the beam, and looked at in the morning' },
+    ],
+    resolution: "By morning Will's leans towards Hester's, and she pretends not to care. Then the practical half. A slip of orpine can't tell you whether he's true; only he can. Find a calm time and say it plainly: what you've noticed, and how it makes you feel. And if it were the other way about, if he were the one watching your time, going through your things, jealous and possessive, that isn't love but control, and the National Domestic Abuse Helpline is free and there day and night on 0808 2000 247. As for the orpine: pick a slip, never pull up the plant, take no more than one in twenty, or grow your own from a cutting.",
+    lore: "Midsummer Men: slips of orpine stuck up in pairs on Midsummer Eve, one for a maid and one for her sweetheart, leaned together for love or apart for aversion (Aubrey, 1680s); later, leaves bent right for true (Brewer).",
+    tier: 'record',
+    source: 'J. Aubrey, Remaines of Gentilisme (1686–87) · Relate · Women\'s Aid, "Coercive control" · National Domestic Abuse Helpline · Wildlife and Countryside Act 1981, s. 13 · RHS, Hylotelephium telephium',
+    reward: { gold: 40, xp: 35 },
+  },
   // St John's Eve only (data/fernSeed.js): the fern seed at midnight.
   {
     id: 'fern_seed_eve',
