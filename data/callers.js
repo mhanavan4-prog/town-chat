@@ -985,6 +985,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
     reward: { gold: 40, xp: 35 },
   },
+  // Lady Day only (data/ladyDay.js), dated by the old calendar.
+  {
+    id: 'lady_day',
+    caller: 'Will Durbin, carter',
+    icon: '🧳',
+    title: 'Lady Day',
+    when: { calendar: 'lady_day', days: 2, label: 'Lady Day' },
+    plea: "Lady Day, and our term's up at Hollow Farm. The quarter's rent to pay to the old landlord, the waggon coming at six, and the new place at Stoke Abbas wants us in by dark. And it's coming on to rain, and my wife says a wet Lady Day is the worst there is. Will you help us load, and see we're paid up and square?",
+    steps: [
+      { kind: 'rite', rite: 'lady_day', label: 'The quarter\'s rent paid with a receipt, the waggon loaded, and in at the new door by dark' },
+    ],
+    resolution: "The Durbins are in by dark, rent paid, receipt in Will's pocket, and the bedding airing by the fire. Then the practical half, for anyone renting now. A landlord must put your deposit in a government-approved scheme within 30 days of getting it, and must give it back within 10 days of you both agreeing how much. To leave a periodic tenancy you give two months' notice in writing, on or the day before a rent day. Check the inventory before you sign it, and photograph every mark and crack, even ones it already lists. The rent can go up only once a year. And keep a receipt for every rent you pay.",
+    lore: "Lady Day: the first quarter day, when rents fell due and terms ended, and until 1752 the first day of England's legal year; Old Lady Day was the farm workers' moving day (Hone, 1827; Hardy, Tess, 1891).",
+    tier: 'record',
+    source: 'Calendar (New Style) Act 1750 · gov.uk, "Tenancy deposit protection" · gov.uk, "Renters\' Rights Act: overview for tenants" · Shelter, "How to check and agree an inventory"',
+    reward: { gold: 40, xp: 35 },
+  },
   // The Borrowing Days only (data/borrowedDays.js), the last three of March.
   {
     id: 'borrowed_days',
