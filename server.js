@@ -8722,14 +8722,18 @@ function doorKnock(player, nowIn) {
   if (!st) return null;
   const today = Math.floor(now / 86400000);
   if (st.knockedDay === today) return null;
-  const first = (callers.offeredIds(player, st) || [])[0];
-  const c = first && ALL_CALLERS.find((x) => x.id === first);
-  if (!c || !c.when) return null;
-  if ((st.active && st.active.id === c.id) || (st.served || []).includes(c.id)) return null;
+  // Every dated caller at the door today (two when their days fall together),
+  // leaving out one already being worked or served.
+  const here = (callers.offeredIds(player, st) || []).map((id) => ALL_CALLERS.find((x) => x.id === id))
+    .filter((c) => c && c.when && !(st.active && st.active.id === c.id) && !(st.served || []).includes(c.id));
+  if (!here.length) return null;
   st.knockedDay = today;
   saveAccounts();
-  const label = require('./lib/callers').whenLabel(c.when);
-  const message = `${c.icon} ${c.caller} ${/ and /.test(c.caller) ? 'are' : 'is'} at your door today${label ? `: ${label} only` : ''}. The Board in the square has them.`;
+  const { whenLabel } = require('./lib/callers');
+  const who = here.map((c) => `${c.icon} ${c.caller}`).join(' and ');
+  const plural = here.length > 1 || / and /.test(here[0].caller);
+  const labels = [...new Set(here.map((c) => whenLabel(c.when)).filter(Boolean))];
+  const message = `${who} ${plural ? 'are' : 'is'} at your door today${labels.length ? `: ${labels.join(' and ')} only` : ''}. The Board in the square has them.`;
   // always: shown on screen even with screen notices off (as the Charm Book's
   // notices are); a one-day caller is exactly what a player would miss.
   send(player.ws, { type: 'toast', level: 'important', always: true, message });

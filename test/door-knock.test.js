@@ -57,6 +57,14 @@ setTimeout(() => {
   // stateOf resets "served" on a new day, so serve her on the day itself.
   Date.now = () => NOV10; try { h.callers.stateOf(e.p).served = ['martinmas_cock']; } finally { Date.now = realNow; }
   check('nothing if she has been served today', knock(e.p, NOV10) === null);
+  // Old Hogmanay is Plough Monday in 2027: the knock names both.
+  const two = join('Burghead', 'burghead');
+  const m3 = knock(two.p, Date.UTC(2027, 0, 11, 12));
+  check('when two old days fall together, the knock names both, and their days', /🔥 Kirsty Main, up from Burghead/.test(m3) && /🐂 Will Gotobed and the ploughboys/.test(m3) && /\) and |Burghead and 🐂|ploughboys and 🔥/.test(m3) && / are at your door today: /.test(m3) && /Old Hogmanay/.test(m3) && /Plough Monday/.test(m3), m3);
+  const half = join('Half', 'half');
+  Date.now = () => Date.UTC(2027, 0, 11, 12); try { h.callers.stateOf(half.p).served = ['plough_boys']; } finally { Date.now = realNow; }
+  const m4 = knock(half.p, Date.UTC(2027, 0, 11, 12));
+  check('…and only the one not yet served', /^🔥 Kirsty Main, up from Burghead is at your door today: Old Hogmanay only\./.test(m4), m4);
   const g = join('Guest');
   check('nothing for a guest, who can\'t take callers', knock(g.p, NOV10) === null);
   console.log(`\n${pass} passed, ${fail} failed`);
