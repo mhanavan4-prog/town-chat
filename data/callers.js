@@ -1019,6 +1019,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), Good Friday · NHS, "Diarrhoea and vomiting" (2023)',
     reward: { gold: 40, xp: 35 },
   },
+  // Ascension Day only (data/wellDressing.js), dated by Easter through the old calendar.
+  {
+    id: 'well_dressing',
+    caller: 'Hannah Brindley, from Tissington',
+    icon: '⛲',
+    title: 'Ascension Day',
+    when: { calendar: 'well_dressing', days: 2, label: 'Ascension Day' },
+    plea: "Holy Thursday, and at home they'll have the boards up over all five wells by now. There's a spring at the end of our lane here that's never once run dry, and my father always said a well that serves you that faithful wants thanking. I've a board soaking in the brook and the clay dug, and I can't make the petals stay. Will you help me dress it?",
+    steps: [
+      { kind: 'rite', rite: 'well_dressing', label: 'The board clayed and set with petals, put up over the spring, and the Gospel read there' },
+    ],
+    resolution: "The board goes up over the spring, and folk come down the lane to look at it. Then the practical half. A spring can run clear as glass and still not be safe: you can't tell by looking, and untreated water can carry germs that make the old and the very young badly ill. Don't drink it untreated, and if a house drinks from it, have the council test it. Keep small children away from open water, and put a stout grille over the well. And for the petals, pick, never dig a plant up, and take no more than one flower in twenty.",
+    lore: "Well-dressing: at Tissington on Holy Thursday the five wells were dressed with boards of clay set with petals, and the psalms, Epistle and Gospel read at each (Lysons, 1817). Why it began nobody knows.",
+    tier: 'record',
+    source: 'D. and S. Lysons, Magna Britannia, vol. V (1817) · UKHSA, "Cryptosporidium: public advice" · Drinking Water Inspectorate, private water supplies',
+    reward: { gold: 40, xp: 35 },
+  },
   // Oak Apple Day only (data/oakApple.js), dated by the old calendar.
   {
     id: 'oak_apple_boys',
