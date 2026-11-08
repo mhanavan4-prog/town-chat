@@ -50,7 +50,9 @@ setTimeout(() => {
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const on = [Date.UTC(2027, 2, 7, 12), Date.UTC(2027, 2, 8, 12), Date.UTC(2028, 2, 26, 12)].map(offered);
   const season = at(Date.UTC(2027, 2, 7, 12), () => h.calendarPublicState().season.key);
-  check('on Mothering Sunday she comes first, a caller of the season after her', on.every((o) => o[0] === 'mothering_sunday_simnel' && o.length === 3) && CALLERS.find((x) => x.id === on[0][1]).season === season, [season, on]);
+  // On some Mothering Sundays another dated caller comes too (Lady Day, data/ladyDay.js): the dated callers first.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on Mothering Sunday she comes first (with any other caller of the day), a caller of the season after her', on.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('mothering_sunday_simnel')) && CALLERS.find((x) => x.id === on[0][datedN(on[0])]).season === season, [season, on]);
   const outside = [Date.UTC(2027, 2, 6, 12), Date.UTC(2027, 2, 9, 12), Date.UTC(2028, 2, 7, 12)].map(offered);
   check('on other days she never comes (not on 7 March 2028)', outside.every((o) => !o.includes('mothering_sunday_simnel') && o.length === 3), outside);
   at(Date.UTC(2027, 2, 7, 12), () => {

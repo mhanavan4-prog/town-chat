@@ -44,7 +44,8 @@ setTimeout(() => {
   const realNow = Date.now;
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
-  const first = (y, m, d) => offered(Date.UTC(y, m - 1, d, 12))[0] === 'good_friday_bun';
+  // "First" counts any place among the day's dated callers (26 March 2027 is Lady Day's second day too).
+  const first = (y, m, d) => { const o = offered(Date.UTC(y, m - 1, d, 12)); const n = o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length; return o.slice(0, n).includes('good_friday_bun'); };
   // Easter 2026 is 5 April, 2027 28 March, 2028 16 April.
   check('she comes first on Good Friday and the day after, as Easter moves: 3 April 2026, 26 March 2027, 14 April 2028', first(2026, 4, 3) && first(2026, 4, 4) && !first(2026, 4, 2) && !first(2026, 4, 5) && first(2027, 3, 26) && first(2028, 4, 14));
   const outside = [Date.UTC(2027, 3, 3, 12), Date.UTC(2027, 8, 26, 12)].map(offered);
