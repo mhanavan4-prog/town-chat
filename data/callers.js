@@ -395,12 +395,11 @@ const CALLERS = [
     plea: "Three nights I've not slept for this tooth. The barber wants a shilling to pull it and I'd as soon keep it. My mother wore a paper charm for her teeth all her life. Will you write me one?",
     steps: [
       { kind: 'charm', charm: 'tooth', label: 'Write out the charm for her to wear' },
-      { kind: 'deliver', item: 'feverfew', qty: 1, label: 'Something for the pain in the meantime' },
     ],
-    resolution: "You write the lines out in your best hand, fold the paper small, and she ties it round her neck on a thread. You give her feverfew for the night, too, and tell her that if it hasn't eased by Sunday, the shilling is cheaper than another week of this. She sleeps, she says. She keeps the tooth until Michaelmas.",
-    lore: "\"Peter sat on a marble stone weeping\" opens the commonest toothache charm in Britain and Ireland — written out on paper, folded, and worn. A Scottish one made between 1860 and 1880 is in the Science Museum; it promises that whoever carries the lines \"shall never have the toothache.\"",
+    resolution: "You write the lines out in your best hand, fold the paper small, and she ties it round her neck on a thread. You tell her that if it hasn't eased in two days, the shilling is cheaper than another week of this. She sleeps, she says. Then the practical half. Toothache that lasts more than two days, or won't go with painkillers, wants a dentist, not the doctor, who can't treat teeth. Until then: ibuprofen or paracetamol, and no aspirin for anyone under sixteen; rinse with salt water, though not the children; soft food, chewed on the other side, and nothing sweet, very hot or very cold. If you can't get a dentist, ring 111. And if the swelling reaches the eye or the neck, or makes it hard to breathe, swallow or speak, go to A&E, and don't drive yourself there.",
+    lore: "\"Peter sat on a marble stone weeping\" opens one of the most widespread toothache charms, written out on paper and worn: in Latin it is a thousand years old, and it was taken down in Lancashire, Scotland and Ireland. A Scottish one, written for a Mary McLeod between 1860 and 1880 and given by a churchman from Mull, is in the Science Museum; it promises that all who carry the lines \"shall never have the toothache.\"",
     tier: 'record',
-    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732)',
+    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732) · Harland and Wilkinson, Lancashire Folk-lore (1867) · NHS, "Toothache"',
     reward: { gold: 45, xp: 35 },
   },
   // ── The key and Bible ──
