@@ -76,9 +76,11 @@ setTimeout(() => {
       if (r.season !== k) continue;
       days++;
       const seasonOf = (id) => (CALLERS.find((c) => c.id === id) || {}).season;
-      // A dated caller (Good Friday, which can fall in Ostara) comes first on its days, the season's second.
+      // Dated callers (Good Friday, which can fall in Ostara; St Brigid's Eve and
+      // Candlemas Eve together in Imbolc) come first on their days, the season's next.
       const dated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
-      if (seasonOf(r.ids[0]) === k || (dated(r.ids[0]) && seasonOf(r.ids[1]) === k)) first++;
+      const n = r.ids.findIndex((id) => !dated(id));
+      if (n >= 0 && seasonOf(r.ids[n]) === k) first++;
       strays += r.ids.filter((id) => seasonOf(id) && seasonOf(id) !== k).length;
     }
     check(`${k}: one of its callers is always first at the door, and no other season's caller comes`, days === 10 && first === 10 && strays === 0, { days, first, strays });

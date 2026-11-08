@@ -75,8 +75,8 @@ const OLD_CALENDAR = [
     quote: "If Saint Paul's Day be fair and clear, / It does betide a happy year", source: `${HONE}, 25 January (Willsford, Nature's Secrets)` },
   // ── February ──
   { key: 'candlemas_eve', month: 2, day: 1, icon: '🌿', title: 'Candlemas Eve: down with the green', tier: 'record',
-    text: 'Every leaf of the Christmas greenery came down, for any left behind would bring goblins; the Christmas brand was lit again and a piece laid up for next year.',
-    quote: 'Down with the Rosemary, and so / Down with the Baies and Misletoe', source: 'Herrick, Hesperides (1648), in Hone, 2 February' },
+    text: 'Every leaf of the Christmas greenery came down, for any left behind would bring goblins, and box went up in its place till Easter; on the day the Christmas brand was lit again and laid up for next year.',
+    quote: 'Down with the Rosemary, and so / Down with the Baies, & misletoe', source: 'Herrick, Hesperides (1648), in Hone, 2 February' },
   { key: 'brigid_eve', month: 2, day: 1, icon: '✚', title: "St Brigid's Eve", tier: 'folk',
     text: "In Ireland, crosses of rushes for the house and byre; a cloth, the brat Bríde, left out overnight for the saint to bless and kept for healing; and the biddy boys carrying the Brídeóg from door to door.",
     source: 'National Museum of Ireland, Irish Folklife Collection' },
