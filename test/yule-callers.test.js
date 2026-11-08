@@ -32,8 +32,8 @@ check('the first-foot names its sources, the Manx qualtagh among them', /Simpson
 check('the Yule log is lit from last year\'s brand, kept "Till Christmas next return"', /last year's brand/.test(YULE_RITES.yulelog.lore) && /Till Christmas next return/.test(YULE_RITES.yulelog.lore) && /Candlemas Day/.test(YULE_RITES.yulelog.source));
 
 const yuleCallers = CALLERS.filter((c) => c.season === 'yule');
-check('three Yule callers, all Yule-only', yuleCallers.length === 3 && yuleCallers.every((c) => c.steps.some((s) => s.kind === 'rite')));
-check('between them they work all three rites', new Set(yuleCallers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === 3);
+check('four Yule callers (the Mari Lwyd too), all Yule-only', yuleCallers.length === 4 && yuleCallers.every((c) => c.steps.some((s) => s.kind === 'rite')));
+check('between them they work all three Yule rites, and the pwnco', JSON.stringify([...new Set(yuleCallers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite)))].sort()) === JSON.stringify([...Object.keys(YULE_RITES), 'pwnco'].sort()));
 check('every caller cites a source and is badged', yuleCallers.every((c) => c.source && c.tier === 'record' && c.lore && c.resolution));
 check('the wassail caller is told the honest half (apples often crop every other year)', /every other year/.test(CALLERS.find((c) => c.id === 'yule_wassail').resolution));
 
