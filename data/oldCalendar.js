@@ -77,8 +77,8 @@ const OLD_CALENDAR = [
     text: "Girls kept St Agnes' fast all day to dream of their future husbands. Aubrey's charm: pull out a row of pins one by one, saying a Paternoster over each.",
     quote: "They told her how, upon St. Agnes' Eve, / Young virgins might have visions of delight", source: `${HONE}, 20 January (Aubrey); Keats, "The Eve of St. Agnes" (1820)` },
   { key: 'st_pauls_day', month: 1, day: 25, icon: '🌤️', title: "St Paul's Day weather", tier: 'record',
-    text: "The day foretold the year: fair for plenty, rain or snow for dear corn, mist for dying cattle, wind for war.",
-    quote: "If Saint Paul's Day be fair and clear, / It does betide a happy year", source: `${HONE}, 25 January (Willsford, Nature's Secrets)` },
+    text: "The day foretold the year: fair for plenty, rain or snow for dear grain, mist for dying birds and beasts, wind for war; though Willsford, who printed the rhyme, called it what 'old Wives do dream'.",
+    quote: "If Saint Paul's day be fair and clear, / It does betide a happy year", source: `T. Willsford, Natures Secrets (1658), p. 145; ${HONE}, 25 January` },
   // ── February ──
   { key: 'candlemas_eve', month: 2, day: 1, icon: '🌿', title: 'Candlemas Eve: down with the green', tier: 'record',
     text: 'Every leaf of the Christmas greenery came down, for any left behind would bring goblins, and box went up in its place till Easter; on the day the Christmas brand was lit again and laid up for next year.',
