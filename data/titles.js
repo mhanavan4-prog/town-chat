@@ -102,7 +102,7 @@ const TITLES = {
   },
   years_round: {
     id: 'years_round', name: "Keeper of the Year's Round", glyph: '🗓️',
-    desc: 'Answered the door on every one of the old days, from Plough Monday to St Thomas\'s, and kept the year round.',
+    desc: 'Answered the door on every one of the old days, from New Year\'s morning to St Stephen\'s, and kept the year round.',
     from: 'Callers at the Door — every dated day'
   }
 };
