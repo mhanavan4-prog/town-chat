@@ -922,7 +922,8 @@ const CALLERS = [
     caller: 'Mistress Cole',
     icon: '🌿',
     title: 'Candlemas Eve',
-    when: { calendar: 'candlemas_eve', days: 2, label: 'Candlemas Eve' },
+    // One day now, the eve itself: Candlemas Day has its own caller (data/candlemasWeather.js).
+    when: { calendar: 'candlemas_eve', days: 1, label: 'Candlemas Eve' },
     plea: "Candlemas Eve, and there's the date on the wall in chalk, where I wrote it the day you hung the green. The holly's dropping and the ivy's gone brown, and I'll not have a goblin for every leaf. Will you help me take it all down and find every last sprig? And tell me what goes up in its place, for the walls look bare already.",
     steps: [
       { kind: 'rite', rite: 'candlemas_green', label: 'Every leaf of the green down, box up in its place, the brand laid by' },
@@ -931,6 +932,24 @@ const CALLERS = [
     lore: "Candlemas Eve: every leaf of the Christmas green came down, for 'how many leaves there be / Neglected there … So many Goblins you shall see', and box went up in its place till Easter (Herrick, Hesperides, 1648).",
     tier: 'record',
     source: 'R. Herrick, Hesperides (1648) · W. Hone, The Every-Day Book (1826), 2 February',
+    reward: { gold: 40, xp: 35 },
+  },
+  // Candlemas Day only (data/candlemasWeather.js), dated by the old calendar;
+  // one day, between Candlemas Eve's caller and St Blaise's.
+  {
+    id: 'candlemas_weather',
+    caller: 'Mary Teasdale, from the fell farm',
+    icon: '🕯️',
+    title: 'Candlemas Weather',
+    when: { calendar: 'candlemas', days: 1, label: 'Candlemas Day' },
+    plea: "It's Candlemas, and if the sun comes out there's more winter coming, and the ewes have started lambing early besides. John wants me in the shed to help, the way his mother always did, and I'm six months gone with our first. His mother says it never did her any harm. Will you come up and tell me what's right?",
+    steps: [
+      { kind: 'rite', rite: 'candlemas_weather', label: 'The sky watched for Candlemas, and a candle lit for the year' },
+    ],
+    resolution: "You sit with Mary by the window and watch the sky, and by noon it's fair and bright: more winter, then. You tell her, and then John at the lambing-shed door, that she's not to set foot in it this year, and you light a candle for the year to come. Then the practical half. A woman with child should not help to lamb or milk ewes, and should keep away from newborn lambs, from aborted lambs and from the afterbirth: sheep can carry infections, chlamydia and toxoplasma among them, that can harm her and the baby. She shouldn't handle clothes or boots that have been among the ewes until they've been washed on a hot cycle; whoever does the lambing should wear protective clothing and wash thoroughly with soap and water, because hand gel alone isn't enough. If she has a fever or anything like flu after being near sheep, she should tell her doctor or midwife straight away.",
+    lore: "Candlemas weather: 'If Candle-mas day be fair and bright, / Winter will have another flight' (an almanac rhyme, as Hone gives it), and the hind 'had as lief see his wife on the bier' as see the day fine.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, 2 February · NHS, "Infections in pregnancy that may affect your baby" · UKHSA, "Chlamydia abortus" · Public Health Wales (6 February 2025)',
     reward: { gold: 40, xp: 35 },
   },
   // St Blaise's Day only (data/stBlaise.js), dated by the old calendar.

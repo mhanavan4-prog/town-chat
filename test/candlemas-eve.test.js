@@ -32,7 +32,7 @@ check('Hone, and English Heritage on Twelfth Night as the newer rule; no burning
 const cal = OLD_CALENDAR.find((e) => e.key === 'candlemas_eve');
 check('the Commonplace Book\'s Candlemas Eve: box till Easter, Herrick\'s spelling', cal && cal.month === 2 && cal.day === 1 && /box went up in its place till Easter/.test(cal.text) && cal.quote === 'Down with the Rosemary, and so / Down with the Baies, & misletoe');
 const c = CALLERS.find((x) => x.id === 'candlemas_green');
-check('Mistress Cole, dated by it, for two days', c && c.caller === 'Mistress Cole' && c.when && c.when.calendar === 'candlemas_eve' && c.when.days === 2 && c.steps[0].rite === 'candlemas_green');
+check('Mistress Cole, dated by it, for the eve alone', c && c.caller === 'Mistress Cole' && c.when && c.when.calendar === 'candlemas_eve' && c.when.days === 1 && c.steps[0].rite === 'candlemas_green');
 check('…the same Mistress Cole who brought the green in, and her chalk', CALLERS.some((x) => x.id === 'bringing_in_green' && x.caller === 'Mistress Cole' && /chalk/.test(x.resolution)) && /chalk/.test(c.plea));
 check('the practical half: the berries swept up; doctor or vet; gloves; no tree on the fire, the council\'s collection; only the brand burned', /Sweep up the fallen berries/.test(c.resolution) && /box is bad for dogs/.test(c.resolution) && /ring the doctor or the vet/.test(c.resolution) && /gloves for the holly/.test(c.resolution) && /doesn't go on the fire/.test(c.resolution) && /council's collection/.test(c.resolution) && /only till sunset/.test(c.resolution));
 
@@ -52,8 +52,8 @@ setTimeout(() => {
   const eve = offered(Date.UTC(2027, 1, 1, 12));
   check('1 February is St Brigid\'s Eve too: both come, before anyone else', eve.slice(0, 2).sort().join() === 'brigid_eve_brideog,candlemas_green' && eve.length === 3, eve);
   const next = offered(Date.UTC(2027, 1, 2, 12));
-  check('…and on the 2nd she is still at the door', next.includes('candlemas_green') && next.length === 3, next);
-  const outside = [Date.UTC(2027, 0, 31, 12), Date.UTC(2027, 1, 3, 12), Date.UTC(2027, 7, 1, 12)].map(offered);
+  check('…and on the 2nd, Candlemas Day, she has gone: the day has its own caller now', !next.includes('candlemas_green') && next.includes('candlemas_weather') && next.length === 3, next);
+  const outside = [Date.UTC(2027, 0, 31, 12), Date.UTC(2027, 1, 2, 12), Date.UTC(2027, 1, 3, 12), Date.UTC(2027, 7, 1, 12)].map(offered);
   check('on other days she never comes on this errand', outside.every((o) => !o.includes('candlemas_green') && o.length === 3), outside);
   at(Date.UTC(2027, 1, 1, 12), () => {
     h.accounts.cole.callers.active = { id: c.id, done: {} };
