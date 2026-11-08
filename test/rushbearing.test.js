@@ -48,7 +48,9 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [Date.UTC(2027, 6, 3, 12), Date.UTC(2027, 6, 4, 12), Date.UTC(2029, 6, 7, 12)].map(offered);
-  check('on the Saturday (and the Sunday after) she comes first', days.every((o) => o[0] === 'rushbearing_ambleside' && o.length === 3), days);
+  // In 2027 the Saturday is 3 July, the first of the Dog Days (data/dogDays.js): both dated callers first.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on the Saturday (and the Sunday after) she comes first (with any other caller of the day)', days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('rushbearing_ambleside')), days);
   const outside = [Date.UTC(2027, 6, 2, 12), Date.UTC(2027, 6, 5, 12), Date.UTC(2027, 6, 26, 12), Date.UTC(2029, 6, 1, 12)].map(offered);
   check('on other days, 26 July among them, she never comes', outside.every((o) => !o.includes('rushbearing_ambleside') && o.length === 3), outside);
   at(Date.UTC(2027, 6, 3, 12), () => {

@@ -1172,6 +1172,23 @@ const CALLERS = [
     source: 'Act of 1660, Statutes of the Realm, vol. 5 (1819), p. 237 · W. Andrews, Old Church Lore (1891), p. 179',
     reward: { gold: 40, xp: 35 },
   },
+  // The first of the Dog Days only (data/dogDays.js), dated by the old calendar.
+  {
+    id: 'dog_days',
+    caller: 'Sukey Hale, the carrier\'s girl',
+    icon: '🐕',
+    title: 'The Dog Days',
+    when: { calendar: 'dog_days', days: 2, label: 'the first of the Dog Days' },
+    plea: "The dog days have begun and it's cruel hot. Father says Rufus must be tied up or he'll go mad, it's the dog-star, and Mother won't take her medicine till August. And now Father's gone into the inn and left Rufus shut in the covered cart in the yard, with the sun full on it. Will you help me?",
+    steps: [
+      { kind: 'rite', rite: 'dog_days', label: 'Rufus out of the cart into the shade, the heat waited out, and the old cautions kept' },
+    ],
+    resolution: "Rufus is out of the cart, lying in the shade with his water, and Sukey's father gets a piece of her mind. Then the practical half. Never leave a dog, a child or anyone in a closed vehicle in the heat: on a warm day of 22 degrees a car can reach 47 within the hour, and if you see a dog in distress in a hot car, ring 999. Before you walk a dog, lay the back of your hand on the pavement for five seconds; if it's too hot for you, it's too hot for paws. Keep out of the sun between eleven and three. If someone is faint and clammy from the heat, move them somewhere cool, take off the extra layers, give them plenty of water and cool their skin; they should feel better within half an hour, and if they don't, or they're hot and dry or confused, ring 999. As for the medicine, the dog-star has nothing to do with it: take what the doctor gave you.",
+    lore: "The Dog Days: 3 July to 11 August in the later almanacs, when the dog-star rose with the sun and added its heat, dogs went mad and physic was dangerous (Brewer, 1895; Vaughan, 1612; Hone, 1826).",
+    tier: 'record',
+    source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · NHS, "Heat exhaustion and heatstroke" · British Veterinary Association, Dogs Die in Hot Cars · Dogs Trust · UKHSA',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Swithin's Day only (data/stSwithin.js), dated by the old calendar.
   {
     id: 'st_swithin_hay',

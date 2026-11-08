@@ -164,8 +164,8 @@ const OLD_CALENDAR = [
     quote: 'the other on the even of the Feast of St. Peter the Apostle', source: 'Newcastle cooks\' ordinary (1575), in Brand, Popular Antiquities (1849); Courtney, Cornish Feasts and Folk-Lore (1890)' },
   // ── July ──
   { key: 'dog_days', month: 7, day: 3, icon: '🐕', title: 'The Dog Days begin', tier: 'record',
-    text: 'The hottest stretch of the year, 3 July to 11 August, when the Romans thought the dog-star rose with the sun and added its heat.',
-    quote: 'the combined heat of the dog-star and the sun', source: `${BREWER}, "Dog-days"` },
+    text: 'The hottest stretch of the year, 3 July to 11 August in the later almanacs, when the Romans thought the dog-star rose with the sun and added its heat, and dogs went mad. Older almanacs set other days, and the star itself now rises at dawn only at the end of August.',
+    quote: 'the combined heat of the dog-star and the sun', source: `${BREWER}, "Dog-days"; ${HONE}, 3 July` },
   { key: 'tynwald', month: 7, day: 5, icon: '🌿', title: 'Tynwald Day', tier: 'folk',
     text: "The Manx parliament meets in the open air on Tynwald Hill to proclaim the laws, as it once did on Midsummer Day (Old Midsummer is 5 July), and those who take part wear mugwort, bollan bane.",
     source: 'Tynwald Day (Isle of Man)' },
