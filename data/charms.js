@@ -22,10 +22,10 @@ const CHARMS = {
       'Out fire and in frost,',
       'In the name of the Father, Son, and Holy Ghost.',
     ],
-    use: 'Said over the burn, with bramble or dock leaves wetted in spring water laid on it.',
-    lore: 'Robert Hunt took this down in Cornwall, where charmers were still consulted in his day. The pattern — angels from the east, fire driven out and frost brought in — turns up across Britain in slightly different words.',
+    use: 'Said over the burn, with bramble or dock leaves wetted in spring water passed over it: "Bramble-leaves, or sometimes the leaves of the common dock, wetted with spring water, are employed in this charm" (Hunt).',
+    lore: 'Robert Hunt took this down in Cornwall, where charmers were still consulted in his day. The pattern, angels from the east, fire driven out and frost brought in, turns up across Britain in slightly different words: Courtney (1890) has "Three ladies (or virgins) come from the east", "often said nine times over a scald", and Wright (1913) "Three wise men came from the east" in Shropshire, Devon and Cornwall. The words were kept close: at Zennor "A man would not on any account tell his charm to a woman, or a woman communicate hers to a man", while Courtney heard that a charmer "must never communicate them to one of the same sex". Charmers traditionally took no money, though Courtney knew a Penzance charmer who "made a great deal of money by her profession".',
     tier: 'record',
-    source: 'Robert Hunt, Popular Romances of the West of England (1865), "Charms"',
+    source: 'Robert Hunt, Popular Romances of the West of England, 2nd series (1865), §132 "For a Scald or Burn", p. 213, and §125 · M. A. Courtney, Cornish Feasts and Folk-Lore (1890), pp. 146–56 · J. Wright, Rustic Speech and Folk-Lore (1913)',
   },
   blood: {
     key: 'blood',
