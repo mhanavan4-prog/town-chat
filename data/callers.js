@@ -2151,10 +2151,10 @@ const CALLERS = [
     steps: [
       { kind: 'knots', count: 9, charm: 'stye', verb: 'Pass the tail over it', icon: '🐈‍⬛', doneNote: "The black cat's tail passed nine times over the stye", label: "Pass the black cat's tail over the stye, nine times" },
     ],
-    resolution: "Nine strokes of the tail, the cat complaining at every one and Wenna giggling. Then the half that works: a clean cloth wrung out in hot water, held to the eye a few times a day, and no rubbing or squeezing. A stye comes to a head and goes in a few days. The cat leaves the room and does not come back until supper.",
-    lore: "In Cornwall a stye, a \"whilk\", was cured by the tail of a black cat passed nine times over it, \"if a ram cat, the cure is more certain\" (Hunt, 1865). Gold was the older cure: in a play of about 1617 a lover complains he has a sty and \"no gold to cure it\".",
+    resolution: "Nine strokes of the tail, the cat complaining at every one and Wenna giggling. Then the practical half, the half that works: a clean flannel soaked in warm water, not hot, held to the eye for five to ten minutes, two to four times a day. Don't squeeze it or try to burst it, which spreads the infection, and no rubbing it with hands that haven't been washed; she has her own towel and flannel, not shared. Paracetamol or ibuprofen for the pain, and never aspirin for a child under sixteen. A stye comes to a head and should be gone within a week. Get an urgent GP appointment or ring 111 if it's very painful or swollen, if it affects her sight, if the eye is producing pus, or if it spreads to the eye or the eyelid; and see the GP if it isn't better in a few weeks. A hard lump that doesn't hurt much is more likely a chalazion, which the GP can look at too. The cat leaves the room and does not come back until supper.",
+    lore: "In Cornwall the little gatherings on children's eyelids, \"locally called 'wilks'\", were cured by a black cat's tail passed nine times over the place: \"If a ram cat, the cure is more certain\" (Hunt, 1865). Gold was the older cure: in Fletcher's Mad Lover (1617) the Fool says \"I have a Stye here\", hoping for a coin, and is told \"I have no Gold to cure it\".",
     tier: 'record',
-    source: 'R. Hunt, Popular Romances of the West of England (1865) · Beaumont & Fletcher, The Mad Lover (c. 1617)',
+    source: 'R. Hunt, Popular Romances of the West of England (1865), "The Black Cat\'s Tail" · J. Fletcher, The Mad Lover (acted 1617; Beaumont and Fletcher folio, 1647), Act V · NHS, "Stye"',
     reward: { gold: 35, xp: 30 },
   },
 ];
