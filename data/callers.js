@@ -766,7 +766,7 @@ const CALLERS = [
     caller: 'Mrs Fenn of the Bell',
     icon: '👑',
     title: 'Twelfth Night',
-    when: { calendar: 'twelfth_night', days: 2, label: 'Twelfth Night' },
+    when: { calendar: 'twelfth_night', days: 1, label: 'Twelfth Night' },
     plea: "Twelfth Night, and the whole parish is coming to the Bell for the cake, and Fenn's put me in charge of it. There's to be a bean for the king and a pea for the queen, and last year there was a fight over who'd had the bean first. Will you bake it in with me, and cut it fair?",
     steps: [
       { kind: 'rite', rite: 'twelfth_cake', label: 'The Twelfth Cake, the bean and the pea, cut fair, and a king crowned' },
@@ -1791,7 +1791,7 @@ const CALLERS = [
     caller: 'Bridget Fahy',
     icon: '🍃',
     title: 'May Eve',
-    when: { calendar: 'may_eve', days: 2, label: 'May Eve' },
+    when: { calendar: 'may_eve', days: 1, label: 'May Eve' },
     plea: "It's May Eve, and the cow's only just calved, and the butter's all we'll have to sell this year. My mother had the rowan over the byre and the primroses on the step before dusk every year of her life, and a woman she knew had the butter go out of her churn one May morning and never come back. Will you help me do it the way she did?",
     steps: [
       { kind: 'rite', rite: 'may_eve_rowan', label: 'Rowan crosses over the doors, primroses on the step, nothing given out of the house' },
