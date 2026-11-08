@@ -710,6 +710,23 @@ const CALLERS = [
     source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
     reward: { gold: 40, xp: 35 },
   },
+  // New Year's Day only (data/calennig.js): calennig, the Welsh New Year gift.
+  {
+    id: 'calennig_children',
+    caller: 'Gwenno and Dai Prosser',
+    icon: '🍎',
+    title: "New Year's Day",
+    when: require('./calennig').CALENNIG_WHEN,
+    plea: "Blwyddyn newydd dda! We're going round for calennig before noon, and Mam's in bed with her chest and there's nobody to make our apples, the ones on three sticks with the corn stuck in and the bit of green on top. Will you make them with us, and come round the doors?",
+    steps: [
+      { kind: 'rite', rite: 'calennig', label: 'The calennig apples made, and round the doors before noon' },
+    ],
+    resolution: "Two pockets full, and home by noon. Then the practical half. New Year's morning is dark and cold and the roads are often icy: send children out in daylight, in pairs or more, on the roads they know, and only to doors they know. The sticks in a calennig apple are sharp, so keep them short and blunt the points, and don't let the little ones run with them. And if you're the one at the door, bread and cheese was always as welcome as a coin, and still is.",
+    lore: "Calennig: on New Year's morning in Wales children went from door to door until noon with a decorated apple on three sticks, singing for a gift of bread and cheese or a new coin (T. M. Owen; Museum Wales).",
+    tier: 'record',
+    source: 'Amgueddfa Cymru – Museum Wales, "Christmas customs: Hel Calennig" (2014) · T. M. Owen, Welsh Folk Customs (1959)',
+    reward: { gold: 40, xp: 35 },
+  },
   // Twelfth Night only (data/twelfthNight.js), dated by the old calendar.
   {
     id: 'twelfth_night_cake',

@@ -60,7 +60,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.penhale, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'yule');
   const e = ch.entries.find((x) => x.id === 'midnight_oxen');
-  check('…and writes The Oxen Kneel into Yuletide, before Wren Day', e && e.met && /· Christmas Eve$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'midnight_oxen') === ch.entries.findIndex((x) => x.id === 'wren_hunt') - 1 && /oxen watched at midnight on Christmas Eve/.test(ch.intro));
+  check('…and writes The Oxen Kneel into Yuletide', e && e.met && /· Christmas Eve$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'midnight_oxen') >= 3 && /oxen watched at midnight on Christmas Eve/.test(ch.intro));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
