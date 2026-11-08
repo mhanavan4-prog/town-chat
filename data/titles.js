@@ -99,6 +99,11 @@ const TITLES = {
     id: 'whole_book', name: 'Keeper of the Whole Book', glyph: '📖',
     desc: 'Wrote every page of the Charm Book: every caller answered, every ward set, every season kept.',
     from: 'The Charm Book — every page'
+  },
+  years_round: {
+    id: 'years_round', name: "Keeper of the Year's Round", glyph: '🗓️',
+    desc: 'Answered the door on every one of the old days, from Plough Monday to St Thomas\'s, and kept the year round.',
+    from: 'Callers at the Door — every dated day'
   }
 };
 

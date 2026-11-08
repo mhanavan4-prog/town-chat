@@ -284,6 +284,9 @@ export default function createCharmBook({ send, place, openBoard }) {
     const cal = state.calendar;
     body.appendChild(el('div', 'cbChHead', `🗓️ The Calendar · ${cal.year}`));
     body.appendChild(el('div', 'cbIntro', 'The year at a glance: which festival season each month lies in, the days a caller comes only then (🚪), and the old calendar\'s customs. Dates are this year\'s; some move with Easter or the weekday.'));
+    // The Year's Round: the dated callers you've answered (✓ on their days).
+    const kept = new Set((cal.round && cal.round.kept) || []);
+    if (cal.round) body.appendChild(el('div', 'cbRound', `🗓️ The Year's Round: ${kept.size} of ${cal.round.total} old days kept${kept.size === cal.round.total ? '. Every one.' : ''}`));
     let here = null;
     for (const mo of cal.months) {
       const box = el('div', 'cbMonth' + (mo.month === cal.today.month ? ' now' : ''));
@@ -298,7 +301,8 @@ export default function createCharmBook({ send, place, openBoard }) {
         const row = el('div', 'cbDay ' + d.kind + (mo.month === cal.today.month && d.day === cal.today.day ? ' isToday' : ''));
         row.appendChild(el('span', 'cbDayNum', String(d.day)));
         row.appendChild(el('span', 'cbDayIcon', d.kind === 'caller' ? '🚪' : (d.icon || '·')));
-        const t = el('span', 'cbDayTitle', d.kind === 'caller' ? `${d.icon || ''} ${d.title}`.trim() : d.title);
+        const t = el('span', 'cbDayTitle', d.kind === 'caller' ? `${d.icon || ''} ${d.title}`.trim() + (kept.has(d.key) ? ' ✓' : '') : d.title);
+        if (d.kind === 'caller' && kept.has(d.key)) row.classList.add('kept');
         row.appendChild(t);
         if (d.note) row.appendChild(el('span', 'cbDayNote', d.note));
         box.appendChild(row);
