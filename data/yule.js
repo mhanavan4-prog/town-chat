@@ -49,9 +49,9 @@ const YULE_RITES = {
       'It hisses, damp from the woodpile, and has to be coaxed. It catches: the luck is there, but wants working for.',
       'By morning it is a sound brand. You pull it from the ashes and lay it up: the luck kept safe till next year.',
     ],
-    lore: 'Herrick, "Ceremonies for Christmas": "Come, bring with a noise, / My merry, merry boys, / The Christmas Log to the firing," and "With the last year\'s brand / Light the new block." In "The Ceremonies for Candlemas Day" the brand is kindled again at Candlemas, burned till sunset, then quenched and laid up "Till Christmas next return": "And where \'tis safely kept, the fiend / Can do no mischief there." Herrick\'s poems are the classic early English account of the custom.',
+    lore: 'Herrick, "Ceremonies for Christmas": "Come, bring with a noise, / My merry, merry boys, / The Christmas Log to the firing," and "With the last year\'s brand / Light the new block." In "The Ceremonies for Candlemas Day" the brand is kindled again at Candlemas, burned till sunset, then quenched and laid up "Till Christmas next return": "And where \'tis safely kept, the fiend / Can do no mischief there." Two centuries on, Chambers gives the Christmas reason: "it was believed that the preservation of last year\'s Christmas log was a most effectual security to the house against fire."',
     tier: 'record',
-    source: `${HERRICK}, "Ceremonies for Christmas" and "The Ceremonies for Candlemas Day"`,
+    source: `${HERRICK}, "Ceremonies for Christmas" and "The Ceremonies for Candlemas Day" · R. Chambers, The Book of Days (1864), 24 December`,
   },
 };
 
