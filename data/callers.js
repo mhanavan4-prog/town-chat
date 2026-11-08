@@ -1273,6 +1273,23 @@ const CALLERS = [
     source: 'M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · The Countryside Code · Swansea Bay University Health Board, beach barbecues · NHS, "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
+  // Barnaby Bright only (data/barnabyBright.js), dated by the old calendar.
+  {
+    id: 'barnaby_bright',
+    caller: 'Ellen Dawe, from the hay meadows',
+    icon: '☀️',
+    title: 'Barnaby Bright',
+    when: { calendar: 'barnaby_bright', days: 2, label: "St Barnabas's Day" },
+    plea: "It's Barnaby Bright, the longest day, and Will has the men in the meadow since first light, and says they'll mow till the light goes, which is near ten. Last year young Sam went down in the swathes at noon, grey as ash. Will only laughs at me. Will you come out to the field?",
+    steps: [
+      { kind: 'rite', rite: 'barnaby_bright', label: 'The scythe in the grass, and a rose garland for the church' },
+    ],
+    resolution: "You go out with the cider and the bread at noon, and get every man under the hedge in the shade for the worst of the heat, whether Will likes it or not; Sam wears a hat. The meadow's down by dark, and nobody falls. Then the practical half. Out in the sun all day, keep to the shade between 11am and 3pm where you can; cover up with clothes, a hat and sunglasses; and use a sunscreen of at least factor 30, with at least 4-star UVA protection, put on well and again every two hours. Never burn, and keep babies under 6 months out of direct sun. Drink plenty. If someone turns dizzy, pale and clammy and sweats hard, move them to a cool place, take off what clothing you can, give them plenty of water, and spray or sponge them with cool water and fan them. They should start to feel better within 30 minutes; if they don't, ring 999.",
+    lore: "Barnaby Bright: 'Barnaby bright, the longest day and the shortest night' (Ray, 1678), for under the old calendar St Barnabas's Day was the summer solstice, and the clog almanacs marked it with a rake for hay-harvest.",
+    tier: 'record',
+    source: 'J. Ray, A Collection of English Proverbs (1678), p. 51 · W. Hone, The Every-Day Book, vol. II (1827), Preface · NHS, "Sunscreen and sun safety" and "Heat exhaustion and heatstroke"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Midsummer Eve only (data/midsummerMen.js), dated by the old calendar.
   {
     id: 'midsummer_men',
