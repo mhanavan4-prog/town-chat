@@ -47,7 +47,8 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [Date.UTC(2027, 5, 23, 12), Date.UTC(2027, 5, 24, 12)].map(offered);
-  check('on Midsummer Eve and the 24th she and the fern-seed seeker both come first', days.every((o) => o.length === 3 && o.slice(0, 2).sort().join() === 'fern_seed_eve,midsummer_men'), days);
+  // On the eve the fern-seed seeker comes with her; on the 24th, Midsummer Day, the quarter-day caller.
+  check('on Midsummer Eve she comes first with the fern-seed seeker, and on the 24th with the quarter-day caller', days[0].length === 3 && days[0].slice(0, 2).sort().join() === 'fern_seed_eve,midsummer_men' && days[1].length === 3 && days[1].slice(0, 2).sort().join() === 'midsummer_men,midsummer_quarter', days);
   const outside = [Date.UTC(2027, 5, 22, 12), Date.UTC(2027, 5, 25, 12), Date.UTC(2027, 11, 23, 12)].map(offered);
   check('on other days she never comes', outside.every((o) => !o.includes('midsummer_men') && o.length === 3), outside);
   at(Date.UTC(2027, 5, 23, 12), () => {

@@ -1343,6 +1343,23 @@ const CALLERS = [
     source: 'J. Ray, A Collection of English Proverbs (1678), p. 51 · W. Hone, The Every-Day Book, vol. II (1827), Preface · NHS, "Sunscreen and sun safety" and "Heat exhaustion and heatstroke"',
     reward: { gold: 40, xp: 35 },
   },
+  // Midsummer quarter day only (data/midsummerQuarter.js), dated by the old calendar.
+  {
+    id: 'midsummer_quarter',
+    caller: 'Sarah Pound, from Mint Street',
+    icon: '🗝️',
+    title: 'Quarter Day',
+    when: { calendar: 'midsummer_quarter', days: 1, label: 'Midsummer quarter day' },
+    plea: "It's quarter day, and I've counted the rent twice and it's still four pound short. Mr Coombe says he'll have me out if it's not paid by tonight, and I've nothing left to sell but Mother's ring. Will you come with me? I can't think straight.",
+    steps: [
+      { kind: 'rite', rite: 'midsummer_quarter', label: 'The quarter\'s rent faced, and the landlord gone to before he comes' },
+    ],
+    resolution: "You sit with Sarah while she counts it once more, and it's still short; then you go with her to the landlord's office before he can come to her, and she offers part now and the rest by Michaelmas, in writing. The ring stays on her mother's hand. Then the practical half. Speak to your landlord as soon as you can, and offer a plan to clear the arrears that you can truly afford. Check you're getting the housing help you're due through Universal Credit or Housing Benefit, and ask the council for a Housing Payment, which you don't pay back. A debt adviser can arrange Breathing Space: 60 days in which the arrears can't be chased or charged, though the rent itself must still be paid. Since 1 May 2026 a landlord in England can't evict without a reason: they need a valid notice, a court order, and court bailiffs, and for the main arrears ground the arrears must be at least three months' rent, with four weeks' notice. Changing the locks or putting you out without a court order is illegal eviction, a criminal offence: ring the police. And Shelter's free helpline is 0808 800 4444, Monday to Friday, 8am to 5pm.",
+    lore: "Quarter day: Midsummer was one of the four English rent days, and 'all must pay—that can! Alas, that there should be some unable!' (Hone's Every-Day Book, 1825).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1825), 24 June, "Quarter-day" · Citizens Advice, "Dealing with rent arrears" · Shelter, "Eviction for rent arrears" and helpline · GOV.UK, Renters\' Rights Act 2025 and "Harassment and illegal evictions" · Protection from Eviction Act 1977, s. 1',
+    reward: { gold: 40, xp: 35 },
+  },
   // Midsummer Eve only (data/midsummerMen.js), dated by the old calendar.
   {
     id: 'midsummer_men',
