@@ -1613,6 +1613,23 @@ const CALLERS = [
     source: 'Ben Jonson, Bartholomew Fair (1614), as Hone quotes it · City of London Police, "Pickpocketing" · Metropolitan Police, "Staying safe in London" · Notting Hill Carnival, "Safety" · RBKC, "How to be safe at Carnival"',
     reward: { gold: 40, xp: 35 },
   },
+  // The Ould Lammas Fair only (data/ouldLammasFair.js), dated by the old calendar.
+  {
+    id: 'ould_lammas_fair',
+    caller: 'Dan McCurdy, from Rathlin',
+    icon: '🍬',
+    title: 'The Ould Lammas Fair',
+    when: { calendar: 'ould_lammas_fair', days: 2, label: 'the Ould Lammas Fair' },
+    plea: "It's the Lammas Fair, and there's a dealer on Fairhill Street with a wee grey pony he swears is Rathlin-bred and quiet as a lamb, and he wants my hand on it before dinner. My girl has her heart set on it. I've the money in my pocket. Will you come and look at it with me before I shake?",
+    steps: [
+      { kind: 'rite', rite: 'ould_lammas_fair', label: 'Dulse and yellowman bought, and the pony looked over before any hand is shaken' },
+    ],
+    resolution: "You watch the pony caught, led up and down the street, and handled, and Dan asks for the papers. The dealer's passport is for a different pony entirely. Dan keeps his money, buys his girl yellowman instead, and goes home to find a pony the right way. Then the practical half. In Northern Ireland every horse, pony and donkey must have a passport, and one born on or after 1 July 2009 must be microchipped too. Ask to see the passport in person, and check that the chip matches it; be very wary of a seller who can't produce one. Have the pony vetted before you buy, take someone experienced with you, watch it caught, groomed, tacked up and handled, and don't buy on impulse. Once it's yours, update the ownership on the Central Equine Database; you can be fined up to £5,000 for a passport that isn't up to date.",
+    lore: "The Ould Lammas Fair: by 1831 the last Tuesday in August at Ballycastle, for 'Raghery ponies, horses, cattle, sheep' (Lewis, 1837), and for dulse and yellowman.",
+    tier: 'record',
+    source: 'S. Lewis, A Topographical Dictionary of Ireland (1837) · DAERA, "Horse passports" · British Horse Society, "Buying a horse" · World Horse Welfare, "Buying or selling a horse"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Puck Fair only (data/puckFair.js), dated by the old calendar.
   {
     id: 'puck_fair',
