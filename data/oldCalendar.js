@@ -113,7 +113,7 @@ const OLD_CALENDAR = [
     quote: "The first o' them wus wind and weet", source: `${BREWER}, "Borrowed Days"` },
   // ── April ──
   { key: 'hunt_the_gowk', month: 4, day: 1, icon: '🐦', title: 'Hunting the Gowk', tier: 'record',
-    text: 'In Scotland the April fool was sent from house to house with a letter, each reader sending him further. A gowk is a cuckoo.',
+    text: 'In Scotland the April fool was sent from place to place with a letter that said only to send him further. A gowk is a cuckoo, and a fool.',
     quote: 'On the first day of April / Hunt the gowk another mile', source: `${HONE}, 1 April` },
   { key: 'good_friday_bun', rule: easterPlus(-2), icon: '🍞', title: 'The Good Friday bun', tier: 'record',
     text: 'A cross bun baked on Good Friday was said never to go mouldy, and was kept from year to year as a cure.',

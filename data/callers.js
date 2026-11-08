@@ -985,6 +985,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 14 September · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Nut"',
     reward: { gold: 40, xp: 35 },
   },
+  // The first of April only (data/huntTheGowk.js), dated by the old calendar.
+  {
+    id: 'hunt_the_gowk',
+    caller: 'Elspeth Reid',
+    icon: '🐦',
+    title: 'Hunting the Gowk',
+    when: { calendar: 'hunt_the_gowk', days: 2, label: 'the first of April' },
+    plea: "There's a new boy at the school, Wullie, up from the town, and the big ones mean to make him the gowk and send him the whole length of the parish and laugh at him after. I'd rather it was done the old way, kindly, with a scone at the end of it. Will you help me write the letter, and walk the round with him so he's not on his own?",
+    steps: [
+      { kind: 'rite', rite: 'hunt_the_gowk', label: 'The gowk\'s letter written, carried door to door, and a scone at the end of the round' },
+    ],
+    resolution: "Wullie runs the round, comes home with a scone and a laugh, and is one of them by teatime. Then the practical half. A gowk's errand is only a joke if the gowk laughs too. If he's being made small, or picked on, or frightened, or left out, it has stopped being a joke and become bullying, whether anyone meant it or not; and it doesn't have to happen twice to hurt. Keep it one short round, and finish it before noon, as the old rule says. And the gowk's errand of our own day is the false message, a text or letter made to look real so you'll click or pay: never send one for a joke, never click one that comes, and forward a scam text free to 7726. Read past the headline before you pass anything on.",
+    lore: "Hunting the gowk: on the first of April in Scotland the fool was sent from place to place with a letter reading 'On the first day of April / Hunt the gowk another mile' (Hone, 1826, after Brand). A gowk is a cuckoo, and a fool.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 1 April · respectme, "What is bullying?" · National Cyber Security Centre, reporting scam texts',
+    reward: { gold: 40, xp: 35 },
+  },
   // Good Friday only (data/goodFriday.js), dated by Easter through the old calendar.
   {
     id: 'good_friday_bun',
