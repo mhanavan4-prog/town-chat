@@ -57,11 +57,11 @@ const HALLOWEEN_RITES = {
     key: 'luggies', name: 'The Three Luggies', icon: '🥣',
     how: 'Three dishes on the hearth — clean water, foul water, and empty. Blindfolded, dip your left hand; the dishes are moved and you try three times.',
     outcomes: [
-      'Your fingers find the clean water — you will marry, and marry young.',
-      'Your fingers find the foul water — a widow, or a widower, before you are wed.',
+      'Your fingers find the clean water — the one you marry will come to you a maid.',
+      'Your fingers find the foul water — the one you marry will have been widowed before.',
       'Your fingers find the empty dish — no marriage at all, which some call luck.',
     ],
-    lore: 'Burns: the clean water foretells marriage to a maid, the foul a widow, the empty dish no marriage at all; the dishes are altered and it is done three times.',
+    lore: 'Burns: if the left hand finds the clean water, "the future (husband or) wife will come to the bar of matrimony a maid"; the foul, a widow; the empty dish "foretells, with equal certainty, no marriage at all." "It is repeated three times, and every time the arrangement of the dishes is altered."',
   },
 };
 for (const r of Object.values(HALLOWEEN_RITES)) { r.tier = 'record'; r.source = BURNS_SOURCE; }
