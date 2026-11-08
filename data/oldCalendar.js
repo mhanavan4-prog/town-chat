@@ -129,7 +129,7 @@ const OLD_CALENDAR = [
     source: `${HONE}, 5 April` },
   { key: 'lifting', rule: easterPlus(1), icon: '🙌', title: 'Easter Lifting', tier: 'record',
     text: 'In Lancashire, Staffordshire and Warwickshire, Hone wrote, people were lifted three times into the air at Easter, and each one paid a contribution; in Warwickshire the men lifted and kissed the women on Easter Monday, and the women the men on Tuesday. In Walsall in 1896 a court was told that lifting a woman who objected was assault.',
-    quote: 'is incomplete without three distinct elevations', source: `${HONE}, 5 April (Easter Tuesday, 1825)` },
+    quote: 'is incomplete without three distinct elevations', source: `${HONE}, 5 April (Easter Tuesday)` },
   { key: 'st_george', month: 4, day: 23, icon: '🐉', title: "St George's Day", tier: 'record',
     text: "Fashionable gentlemen wore blue coats for the saint. In Norwich the Gild of St George chose its George; the saint was put down in 1552, but the guild's dragon, Snap, walked on Guild Day in June until 1835.",
     quote: "So late as 1614, it was the custom for fashionable gentlemen to wear blue coats on St. George's day", source: `${CHAMBERS}, 23 April; Mackie, Norfolk Annals, vol. I (1901), 16 June 1835; Norfolk Record Office` },
