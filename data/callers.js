@@ -1596,6 +1596,24 @@ const CALLERS = [
     source: 'J. G. Frazer, The Golden Bough (1922) · Folk-Lore 4 (1893) · Plantlife, code for picking wild flowers · Wildlife and Countryside Act 1981, s. 13',
     reward: { gold: 40, xp: 35 },
   },
+  // St George's Day only (data/stGeorge.js), dated by the old calendar. One day,
+  // not two, so that it never stands in St Mark's Eve's way on the 24th.
+  {
+    id: 'st_george',
+    caller: 'Ned Thurlow, from Norwich',
+    icon: '🐉',
+    title: "St George's Day",
+    when: { calendar: 'st_george', days: 1, label: "St George's Day" },
+    plea: "It's St George's Day, and the guild has met to choose its George. And I'm to go inside the dragon again at Guild Day in June, the way my father did. Last year I went down in it by the cathedral gate, hot as an oven in there, and the frame near broke my back getting it up the loft stairs. Will you help me bring it down and make it sound?",
+    steps: [
+      { kind: 'rite', rite: 'st_george', label: 'A blue coat for the saint, a George chosen, and the dragon brought down from the loft' },
+    ],
+    resolution: "You help Ned bring the dragon down and let the straps out, and the guild chooses its George. Come June, Snap will clear the way to the cathedral again. Then the practical half. A costume like that is hot work. If he's tired, dizzy, sweating hard, pale and clammy, that's heat exhaustion: get him out of it and into a cool place, spray or sponge his skin with cool water and fan him, and give him something to drink. He should start to feel better within 30 minutes; if he's still unwell after half an hour resting, being cooled and drinking, ring 999. For the frame, keep the load close to your waist as you lift, don't twist or lean sideways with your back bent, and don't lift more than you can easily manage. And in the crowd, agree a meeting point with your family in case you're separated; if someone's lost, find a steward or a police officer.",
+    lore: "St George's Day: the Norwich guild chose its George, and its dragon, Snap, 'all glittering in green and gold', outlived the saint by nearly three centuries, walking on the June Guild Day until 1835.",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 23 April · C. Mackie, Norfolk Annals, vol. I (1901) · NHS, "Heat exhaustion and heatstroke" · HSE, "Manual handling at work: good handling technique" · RBKC, "How to be safe at Carnival"',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
