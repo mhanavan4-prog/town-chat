@@ -105,9 +105,9 @@ const HOUSEHOLD_RITES = {
       'One mare is still sweating at dawn. You hang a second stone, and a horseshoe besides.',
       'You sleep the whole night through without the weight on your chest. The stone stays.',
     ],
-    lore: 'A horse found sweating and tangle-maned in the morning had been ridden in the night by the hag, the mare that also sat on sleepers\' chests. A "self-holed" stone kept her off. One hung "on a nail to the cottage-door … to keep away witches" in Dorset was collected in 1880–81 and is in the Pitt Rivers Museum. Witch balls are later: nobody called them protective in print until the 1930s.',
+    lore: 'A horse found sweating and tangle-maned in the morning had been ridden in the night by the hag, the mare that also sat on sleepers\' chests. A "self-holed" stone kept her off. Aubrey (1696) has the flint "with a hole in it (naturally)" hung "by the Manger" to keep "the Hag from riding their Horses, who will sometimes sweat all Night". One "found fixed on a nail to the cottage-door" of a carter at Rushmore, on the Wiltshire–Dorset border, "to keep away witches", was collected in 1880–81 and is in the Pitt Rivers Museum. Witch balls are later: nobody called them protective in print until the 1930s.',
     tier: 'record',
-    source: 'Pitt Rivers Museum, 1884.56.3 (Rushmore, 1880–81) · S. Butler, Hudibras ("sickle, horse-shoe, hollow flint")',
+    source: 'Pitt Rivers Museum, 1884.56.3 (Rushmore, 1880–81) · J. Aubrey, Miscellanies (1696), ch. XIII · S. Butler, Hudibras ("sickle, horse-shoe, hollow flint")',
   },
   // The pinned heart: Somerset counter-magic against a witch blamed for dead
   // beasts (Elworthy, 1895), told with the harm it led to and what really
