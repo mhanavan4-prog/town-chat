@@ -94,8 +94,8 @@ const OLD_CALENDAR = [
     source: `${HONE}, 15 February` },
   // ── March ──
   { key: 'st_david', month: 3, day: 1, icon: '🥬', title: "St David's Day", tier: 'record',
-    text: 'The Welsh wore the leek. In London, less kindly, effigies of Welshmen were hung up; Pepys saw one in 1667.',
-    source: 'Pepys, Diary, 1 March 1667' },
+    text: 'The Welsh wore the leek. In London, less kindly, effigies of Welshmen were hung up; Pepys saw one in Mark Lane in 1667, and thought it "one of the oddest sights".',
+    quote: 'the picture of a man dressed like a Welchman, hanging by the neck', source: 'Pepys, Diary, 1 March 1666/67; Shakespeare, Henry V (First Folio, 1623); Hone, Every-Day Book, vol. I, 1 March' },
   { key: 'mothering_sunday', rule: easterPlus(-21), icon: '💐', title: 'Going a-mothering', tier: 'record',
     text: 'Servants and apprentices went home to their mothers with a cake or a trinket, and were given frumenty and a blessing; the older custom was an offering at the mother church.',
     quote: "I'le to thee a simnell bring / 'Gainst thou go'st a mothering", source: `${HONE}, 13 March (Herrick)` },
