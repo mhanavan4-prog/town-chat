@@ -21,7 +21,8 @@ check('the Golden Bough and its abridgement are one; Balder the Beautiful is its
 check('Grimm\'s Deutsche Mythologie and its English Teutonic Mythology are one', one(/^grimm\|/, 2));
 check('Lacnunga is one, its charm against a stitch included', one(/^lacnunga\|/, 10));
 check('Carmichael\'s undated notes join Carmina Gadelica', one(/^carmichael\|/, 6));
-check('Agrippa\'s Three Books and his De occulta philosophia are one', one(/^agrippa\|/, 2));
+// (The silver spoons no longer cite De occulta philosophia: the sieve is not in its 1651 English text.)
+check('Agrippa\'s Three Books are one work', one(/^agrippa\|/));
 check('the Schools\' Collection, and Notes and Queries, are one each', one(/^national folklore collection, schools' collection\|/, 3) && one(/^notes and queries\|/, 3));
 
 // The guard: no two works by one author with one title, and no paper, museum or archive twice.
