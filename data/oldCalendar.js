@@ -84,7 +84,7 @@ const OLD_CALENDAR = [
     text: 'A fair Candlemas meant more winter to come; a foul one, that winter was done. Candles were blessed and carried in procession, until an order in council stopped it.',
     quote: 'If Candle-mas day be fair and bright, / Winter will have another flight', source: `${HONE}, 2 February` },
   { key: 'st_blaise', month: 2, day: 3, icon: '🫁', title: 'St Blaise: a charm for the throat', tier: 'record',
-    text: 'Blaise was called on for throats; candles offered to him were good for toothache and sick cattle. The charm: hold the throat and command it in his name. He was the woolcombers\' patron too.',
+    text: 'Blaise was called on for throats, after the boy he saved from a fishbone, and candles offered to him were said to be good for toothache and sick cattle. An old physician\'s charm held the sufferer by the throat and bade the bone move in his name. In England he was the woolcombers\' saint, and Bradford kept his festival every seven years.',
     quote: 'BLASE, the martyr and servant of Jesus Christ, commands thee to pass up or down!', source: `${HONE}, 3 February` },
   { key: 'st_valentine', month: 2, day: 14, icon: '💌', title: 'St Valentine: first seen, first chosen', tier: 'record',
     text: 'Your valentine was the first of the other sex you saw that morning (your own household did not count), or was drawn by lot. Bay leaves on the pillow, or an egg filled with salt, brought dreams of a sweetheart. Pepys kept out of sight of Batten\'s daughter so as not to be hers.',
