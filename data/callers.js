@@ -1324,6 +1324,23 @@ const CALLERS = [
     source: 'W. Pare, in W. Hone, The Table Book (1827) · gov.uk, employment contracts, holiday entitlement and agricultural workers\' rights · Modern Slavery & Exploitation Helpline',
     reward: { gold: 40, xp: 35 },
   },
+  // St Simon and St Jude only (data/simonJude.js), dated by the old calendar.
+  {
+    id: 'simon_jude',
+    caller: 'Martha Pickering, by the ford',
+    icon: '☔',
+    title: 'St Simon and St Jude',
+    when: { calendar: 'simon_jude', days: 2, label: 'St Simon and St Jude' },
+    plea: "It's Simon and Jude's, and it's rained since dawn, as it always does. Tom means to take the cart over the ford to Doncaster market regardless, and the water's brown and over the second stone already. He won't hear it from me. Will you come and talk sense into him?",
+    steps: [
+      { kind: 'rite', rite: 'simon_jude', label: "Simon and Jude's rain watched for, and the ford waited out from the bank" },
+    ],
+    resolution: "You walk Tom down to the ford and stand with him on the bank. The water is over the third stone now, and moving. He looks at it a long while, and takes the cart back to the yard; market will keep. Then the practical half. Don't walk, ride or drive through flood water: 15cm of flowing water could knock over an adult, and 30cm could move the average family car. Flood water may carry sewage and hide holes, wreckage and lifted drain covers, so wash your hands after touching it. Sign up for free flood warnings by text, phone or email, or ring Floodline on 0345 988 1188, day or night. If the water's coming in, turn off the gas, electricity and water if it's safe, and never touch an electrical switch while you're standing in water. And ring 999 if anyone is in immediate danger.",
+    lore: "St Simon and St Jude's was 'deemed as rainy as St. Swithin's' (Hone, 1827): 'As well as I know 'twill rain upon Simon and Jude's day next' (The Roaring Girl, 1611).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 28 October · T. Middleton & T. Dekker, The Roaring Girl (1611), I.ii · GOV.UK, "What to do before or during a flood" · SEPA, Floodline leaflet · UKHSA, "Flooding and health"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Allantide only (data/allantide.js), dated by the old calendar.
   {
     id: 'allantide',
