@@ -38,10 +38,10 @@ const CHARMS = {
       'I said unto thee when thou wast in thy blood,',
       'Live.',
     ],
-    use: 'Ezekiel 16:6, said over the wound — by tradition the gift was passed on only to someone of the opposite sex.',
-    lore: 'The best-known bloodstopping charm in English is a single Bible verse. The folklorist Richard Dorson still found bloodstoppers using it in the lumber country of Michigan’s Upper Peninsula in the 1940s.',
+    use: 'Ezekiel 16:6, said over the wound. American bloodstoppers say it three times with the bleeder\'s full name, and hand it on man to woman to man; the Cornish charmers of Zennor kept theirs from the other sex altogether.',
+    lore: 'In American folk tradition the bloodstopper\'s charm is a single Bible verse, Ezekiel 16:6, "I said unto thee when thou wast in thy blood, Live", and the folklorist Richard Dorson, working in Michigan’s Upper Peninsula in 1946, still found people gifted, as his publisher puts it, "with the lifesaving power to stop the flow of blood". English charmers had their own words. In Cornwall, Hunt\'s Zennor charmers said "Christ was born in Bethlehem; / Baptized in the river Jordan" over a wound, naming the patient, and "A man would not on any account tell his charm to a woman, or a woman communicate hers to a man."',
     tier: 'record',
-    source: 'Ezekiel 16:6 (King James Version) · Richard M. Dorson, Bloodstoppers and Bearwalkers (1952)',
+    source: 'Ezekiel 16:6 (King James Version) · Richard M. Dorson, Bloodstoppers and Bearwalkers (1952) · R. Hunt, Popular Romances of the West of England (1865; 3rd ed. 1903), "The Zennor Charmers"',
   },
   tooth: {
     key: 'tooth',
