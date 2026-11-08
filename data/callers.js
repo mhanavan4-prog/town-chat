@@ -526,6 +526,23 @@ const CALLERS = [
     source: 'Robert Herrick, Hesperides (1648), "Ceremonies for Christmas" and "The Ceremonies for Candlemas Day"',
     reward: { gold: 50, xp: 40 },
   },
+  // The Mari Lwyd (data/mariLwyd.js), at Yule.
+  {
+    id: 'mari_lwyd',
+    season: 'yule',
+    caller: 'Elin Rees of Ty\'n-y-coed',
+    icon: '🐴',
+    title: 'The Mari Lwyd',
+    plea: "The Mari Lwyd's coming tonight, and Mam says this year we must answer them at the door properly, verse for verse, the way her father did, not just open up straight away like Dada does. I can't make a rhyme to save my life. Will you stand at the door with me and help me hold them off?",
+    steps: [
+      { kind: 'rite', rite: 'pwnco', label: 'The pwnco at the door, verse for verse, and then the Mari let in' },
+    ],
+    resolution: "The Mari's in by the fire and the party's eating you out of house and home. Then the practical half. The man under the sheet can't see his own feet: someone sober walks beside him with a lantern, on the lanes in the dark and ice of the Christmas weeks, and leads him by the arm. Small children can be truly frightened by the snapping skull; let them see it's a horse's bones and a neighbour under a sheet, and let them touch the ribbons. And the pwnco is play, not a fight: whoever wins, the door opens in the end, and the party is fed.",
+    lore: "The Mari Lwyd: in south Wales between Christmas and Twelfth Night a horse's skull in ribbons and a white sheet was carried to each house, and the household had to answer the party's verses in the pwnco before letting it in (Museum Wales; first recorded 1798).",
+    tier: 'record',
+    source: 'Amgueddfa Cymru – Museum Wales, "Christmas traditions" (2014) · J. Evans, A Tour Through Part of North Wales, in the Year 1798 (1800)',
+    reward: { gold: 50, xp: 40 },
+  },
   // ── The turning year (each only in its own festival's season; data/wheelRites.js) ──
   {
     id: 'imbolc_brides_bed', season: 'imbolc', caller: 'Mór MacNeil', icon: '🌾',

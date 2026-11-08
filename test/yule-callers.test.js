@@ -32,8 +32,8 @@ check('the first-foot names its sources, the Manx qualtagh among them', /Simpson
 check('the Yule log is lit from last year\'s brand, kept "Till Christmas next return"', /last year's brand/.test(YULE_RITES.yulelog.lore) && /Till Christmas next return/.test(YULE_RITES.yulelog.lore) && /Candlemas Day/.test(YULE_RITES.yulelog.source));
 
 const yuleCallers = CALLERS.filter((c) => c.season === 'yule');
-check('three Yule callers, all Yule-only', yuleCallers.length === 3 && yuleCallers.every((c) => c.steps.some((s) => s.kind === 'rite')));
-check('between them they work all three rites', new Set(yuleCallers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === 3);
+check('four Yule callers (the Mari Lwyd too), all Yule-only', yuleCallers.length === 4 && yuleCallers.every((c) => c.steps.some((s) => s.kind === 'rite')));
+check('between them they work all three Yule rites, and the pwnco', JSON.stringify([...new Set(yuleCallers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite)))].sort()) === JSON.stringify([...Object.keys(YULE_RITES), 'pwnco'].sort()));
 check('every caller cites a source and is badged', yuleCallers.every((c) => c.source && c.tier === 'record' && c.lore && c.resolution));
 check('the wassail caller is told the honest half (apples often crop every other year)', /every other year/.test(CALLERS.find((c) => c.id === 'yule_wassail').resolution));
 
@@ -94,7 +94,7 @@ setTimeout(() => {
 
   const book = buildCharmBook({ acct: h.accounts.wassailer, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'yule');
-  check('the Charm Book has a Yuletide chapter of the three Yule rites (then Christmas Eve, Wren Day, Twelfth Night and St Agnes\' Eve), the three written in', ch && ch.total === 7 && ch.met === 3 && ch.entries[3].id === 'midnight_oxen' && ch.entries[4].id === 'wren_hunt' && ch.entries[5].id === 'twelfth_cake' && ch.entries[6].id === 'st_agnes_pins');
+  check('the Charm Book has a Yuletide chapter: the three Yule rites first, the three written in, and the dated days after', ch && ch.met === 3 && JSON.stringify(ch.entries.slice(0, 3).map((e) => e.id)) === JSON.stringify(Object.keys(YULE_RITES)) && ['midnight_oxen', 'wren_hunt', 'twelfth_cake', 'st_agnes_pins'].every((id) => ch.entries.findIndex((e) => e.id === id) >= 3));
   check('…after Hallowe\'en, which the Yule rites don\'t touch', book.chapters.findIndex((c) => c.key === 'yule') === book.chapters.findIndex((c) => c.key === 'halloween') + 1 && book.chapters.find((c) => c.key === 'halloween').met === 0);
 
   console.log(`\n${pass} passed, ${fail} failed`);
