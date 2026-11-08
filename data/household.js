@@ -46,15 +46,15 @@ const HOUSEHOLD_RITES = {
   },
   silver_water: {
     key: 'silver_water', name: 'Silver Water', icon: '🥈',
-    how: 'Fill a bowl with clean water and put a silver sixpence in it. If the coin sticks to the bowl, the eye has been on the child. Sprinkle the child three times with the silver water.',
+    how: 'Fill a bowl with clean water and put a silver sixpence in it, then turn the bowl quickly upside down. If the coin sticks to the bottom, the eye has been on the child. Then sprinkle the silver water over her head and backbone.',
     outcomes: [
-      'The sixpence slides free when you tip the bowl. No eye has been on her; it will be her teeth.',
-      'The coin will not slide; it clings to the bottom. Overlooked, they say. You sprinkle her three times.',
-      'The water clouds a little as the coin goes in. You sprinkle her three times, to be sure.',
+      'The sixpence drops free when you turn the bowl. No eye has been on her; it will be her teeth.',
+      'The coin clings to the upturned bowl: air a chronachadh, struck by the eye. You sprinkle her head and back.',
+      'The water clouds a little as the coin goes in. You sprinkle her head and back, to be sure.',
     ],
-    lore: 'In the Highlands a child or a cow that sickened might be "forspoken" or overlooked: harmed by a look or by too much praise. The test, as J. G. Campbell gives it: "She fills a bowl with clean water, into which she puts a silver sixpence"; if it sticks, "the child is the victim of an evil eye". In Barra the cure was to "place silver in the dish & sprinkle this 3 times".',
+    lore: 'In the Highlands a thriving child that sickened might be air a chronachadh, struck by the evil eye, which Campbell says "is one animated by a discontented and unhappy mind" and "may exist in man or woman, in friend or foe": "A mother can hurt her own child". The test, as he gives it: "She fills a bowl with clean water, into which she puts a silver sixpence. The bowl is then quickly, and dexterously turned upside down. If the sixpence stick to its bottom, the child is the victim of an evil eye". His cure was another water, one the cat\'s paws had been dipped in, with a red thread round the child\'s neck. Carmichael gives the silver water itself (1900): water lifted from a stream "in name of the Holy Trinity", gold, silver and copper put in the ladle, and the water "given as a draught, and sprinkled over the head and backbone". In Barra in 1872 it was a cure for cattle: "Place silver in the dish & sprinkle this 3 times on the cow." In the Lowlands and the Northern Isles the harm was "forspeaking", "any extravagant commendation of a good property in a child or animal" (Scott, 1811), and was warded off by adding "God bless it".',
     tier: 'record',
-    source: 'J. G. Campbell, Witchcraft and Second Sight in the Highlands (1902) · A. Carmichael, notes (John Cameron of Barra)',
+    source: 'J. G. Campbell, Witchcraft and Second Sight in the Highlands (1902), ch. II · A. Carmichael, Carmina Gadelica, vol. II (1900), no. 140 · A. Carmichael, notes (John Cameron of Barra) · Scottish National Dictionary, "Forspeak"',
   },
   // The changeling wife: the old test, "who are you?", asked once and gently,
   // and the 1895 death of Bridget Cleary, which is what the belief could do.

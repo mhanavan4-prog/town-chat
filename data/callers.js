@@ -1703,14 +1703,14 @@ const CALLERS = [
     caller: 'Shona MacRae',
     icon: '🥈',
     title: 'Overlooked',
-    plea: "Since the tinker woman stopped at the door and said what a bonny wee thing she was, the bairn has done nothing but girn and won't take her feed. My granny would have said she'd been forspoken. Will you try the silver water on her?",
+    plea: "Since the tinker woman stopped at the door and said what a bonny wee thing she was, the bairn has done nothing but girn and won't take her feed. My granny would have said the eye was on her. Will you try the silver water on her?",
     steps: [
       { kind: 'rite', rite: 'silver_water', label: 'Try the sixpence in the bowl' },
     ],
-    resolution: "You do the silver water and sprinkle the baby three times, and Shona breathes again. Then you look in the baby's mouth and find what you half expected: a tooth coming through, red and angry. A cold crust to chew, and patience. You tell her too that a fever or a baby that won't feed for a day means the doctor, eye or no eye.",
-    lore: "To be \"forspoken\" or overlooked was to be harmed by a look, or by too much praise. In the Highlands a silver sixpence in a bowl of water showed it, if the coin stuck; the silver water was sprinkled on the child three times.",
+    resolution: "You do the silver water and sprinkle the baby's head and back, and Shona breathes again. Then you look in the baby's mouth and find what you half expected: a tooth coming through, red and angry. And you tell her it was likely no fault of the tinker woman's: the old charmers held that the eye could be in friend or foe, even a mother's own. Then the practical half. A teething ring cooled in the fridge, never the freezer, gives her something safe to chew; if she's six months or more and weaning, soft fruit like melon, and always watch her while she eats. Not rusks, which nearly all have sugar, and not a hard crust she could choke on. A tooth can make her fretful, with one flushed cheek and a temperature a little raised, but under 38. A baby that isn't feeding means the doctor, eye or no eye: ring 111 or the GP if she's not feeding, has had no wet nappy for 12 hours or fewer than usual, has a sunken soft spot on her head, or you're worried. Ring 999 or go to A&E if she's under three months with a temperature of 38 or more, or three to six months with 39 or more, if she's hard to wake, or if her skin, lips or tongue turn blue, grey, pale or blotchy.",
+    lore: "To be overlooked was to be harmed by a look, or by too much praise. In the Highlands a wise woman put a silver sixpence in a bowl of water and turned it over; if the coin stuck, the child was air a chronachadh, struck by the eye (Campbell, 1902). Carmichael (1900) has the silver water given as a draught and sprinkled 'over the head and backbone'.",
     tier: 'record',
-    source: 'J. G. Campbell, Witchcraft and Second Sight in the Highlands (1902) · A. Carmichael, notes',
+    source: 'J. G. Campbell, Witchcraft and Second Sight in the Highlands (1902), ch. II · A. Carmichael, Carmina Gadelica, vol. II (1900), no. 140 · NHS, "When to get urgent medical help for babies and children under 5", "Tips for helping your teething baby" and "Dehydration"',
     reward: { gold: 40, xp: 35 },
   },
   {
