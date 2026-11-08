@@ -10,8 +10,12 @@
 // of Scottish Witchcraft; L. Henderson (2009) and R. Pitcairn, Ancient
 // Criminal Trials in Scotland (1833); the Dictionary of Welsh Biography and
 // the National Library of Wales; Art UK and J. Semmens, The Witch of the West
-// (2004). General: O. Davies, Cunning-Folk: Popular Magic in English History
-// (2003).
+// (2004); The Examination of John Walsh (1566), as printed by M. Murray
+// (1921); the two pamphlets on Joan Peterson (1652) and the Folger Library on
+// the prosecution's accounts; E. Bower, Doctor Lamb Revived (1653), and M.
+// Gaskill (2007) on Anne Bodenham; the Prophesie of Mother Shipton (1641), the
+// DNB, and Notes and Queries (1873) on Hindley's forgeries. General: O.
+// Davies, Cunning-Folk: Popular Magic in English History (2003).
 // ---------------------------------------------------------------------------
 const CUNNING_FOLK_INTRO = 'The cunning folk themselves: paid charmers, healers and finders of stolen goods whose names are on the record, with what is only legend marked as such. Tap a name to read it.';
 
@@ -52,6 +56,30 @@ const CUNNING_FOLK = [
     legend: 'Unsure: her birth year (1793 or 1798) and much of what is told of her charms.',
     quote: null,
     source: 'Art UK (Cornwall Museum and Art Gallery) · J. Semmens, The Witch of the West (2004)' },
+  { id: 'john_walsh', name: 'John Walsh', place: 'Netherbury, Dorset', dates: 'examined 1566', tier: 'record',
+    summary: 'A cunning man of Netherbury, examined on 23 August 1566 by Thomas Williams, commissary to the Bishop of Exeter, "touchyng Wytchcrafte and Sorcerye". He said he had learned his craft from his master, a priest, Sir Robert of Drayton, and that he knew when someone was bewitched "partlye by the Feries".',
+    fact: 'He told his examiner there were three kinds of fairies, and "the blacke Feries be the woorst"; he spoke with them "vpon hyls, where as there is great heapes of earth", and used them "betwene the houres of xii. and one at noone, or at midnight". He kept a book of his master\'s with great circles in it, and practised physic and surgery.',
+    legend: 'Unknown: what became of him. No sentence is on the record.',
+    quote: 'ther be iii. kindes of Feries, white, greene, and black.',
+    source: 'The Examination of John Walsh (London: John Awdely, 1566), as printed in M. Murray, The Witch-Cult in Western Europe (1921), App. I · O. Davies, Cunning-Folk (2003)' },
+  { id: 'joan_peterson', name: 'Joan Peterson, "the Witch of Wapping"', place: 'Wapping, London', dates: 'hanged 12 April 1652', tier: 'record',
+    summary: 'A cunning woman of Wapping who cured her neighbours, hanged in April 1652 for bewitching to death an old woman, Lady Powel.',
+    fact: 'A pamphlet of 1652 said the case was a plot: Lady Powel had left her estate to Anne Levingston, and the men who wanted it offered witnesses money and promised Peterson a pardon if she would say Levingston had employed her. The justices Okey and Berkstead were not satisfied with the proof; she was hanged all the same. A hostile pamphlet of the same year, The Witch of Wapping, tells it the other way.',
+    legend: null,
+    quote: 'she had done many Cures, and much good amongst the neighbours, but never knew that she did any ill',
+    source: 'A Declaration in Answer to several lying Pamphlets concerning the Witch of Wapping (1652) · The Witch of Wapping (1652) · Folger Shakespeare Library, "The Witch of Wapping", The Collation (2022)' },
+  { id: 'anne_bodenham', name: 'Anne Bodenham', place: 'Fisherton Anger, Salisbury', dates: 'hanged 1653', tier: 'record',
+    summary: 'An old cunning woman by Salisbury who found lost and stolen goods and showed people things in a glass. She said she had once been a servant of Dr John Lambe, the astrologer killed by a London mob in 1628.',
+    fact: 'In March 1653, aged about eighty, she was hanged at Salisbury on the evidence of Anne Styles, a maidservant of the Goddard family. Edmond Bower, who called himself "an eye and ear witness of her examination and confession", wrote it up as Doctor Lamb Revived.',
+    legend: null,
+    quote: null,
+    source: 'E. Bower, Doctor Lamb Revived, or, Witchcraft Condemn\'d in Anne Bodenham (1653) · M. Gaskill, "Witchcraft, Politics, and Memory in Seventeenth-Century England", Historical Journal 50 (2007) · Wiltshire Museum' },
+  { id: 'mother_shipton', name: 'Mother Shipton', place: 'Knaresborough, Yorkshire', dates: 'first in print 1641', tier: 'folk',
+    summary: 'The prophetess of Knaresborough, said to have foretold the fall of Cardinal Wolsey. She first appears in print in 1641, a century after she is supposed to have lived, and the Dictionary of National Biography thought her "in all likelihood a wholly mythical personage".',
+    fact: 'Her life was largely made in print: Richard Head\'s Life and Death of Mother Shipton (1667) invented most of it, and in 1873 Charles Hindley confessed that he had forged her most famous prophecies, "Carriages without horses shall go" among them, for his edition of 1862.',
+    legend: 'Legend: her birth in a cave by the Nidd, her marriage, and her foretelling the end of the world. The cave at Knaresborough is shown to visitors; its owners say it has been since 1630.',
+    quote: 'Yea, said shee, I said hee might see Yorke, but never come at it;',
+    source: 'The Prophesie of Mother Shipton (1641), in W. H. Harrison, Mother Shipton Investigated (1881) · Dictionary of National Biography, "Shipton, Mother" · Notes and Queries, 4th ser., vol. XI (1873), p. 355' },
 ];
 
 module.exports = { CUNNING_FOLK, CUNNING_FOLK_INTRO };
