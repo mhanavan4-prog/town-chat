@@ -1426,6 +1426,23 @@ const CALLERS = [
     source: 'J. Gregory, Gregorii Posthuma (1649) · NSPCC, "Recommended adult to child ratios" and "Example consent form" · NSPCC Helpline · Childline',
     reward: { gold: 40, xp: 35 },
   },
+  // St Andrew's Day only (data/stAndrew.js), dated by the old calendar.
+  {
+    id: 'st_andrew',
+    caller: 'Hannah Gilbert, from Easling in Kent',
+    icon: '🐿️',
+    title: "St Andrew's Day",
+    when: { calendar: 'st_andrew', days: 2, label: "St Andrew's Day" },
+    plea: "It's St Andrew's, and the men are off squirrel hunting, the way they do every year, with guns and poles and clubs, and my Jem among them. Last year they broke down half the hedges in the parish, shot the squire's pheasants, and came home roaring from the alehouse, Jem with a black eye. Will you go out with them, and bring him home whole?",
+    steps: [
+      { kind: 'rite', rite: 'st_andrew', label: 'The squirrel hunt walked, and brought home without a death or a broken hedge' },
+    ],
+    resolution: "You walk with the hunt all day. There's shouting enough, but the squirrels are left in their oaks, the hedges stand, and Jem is home by dark. Then the practical half. The red squirrel is protected by law: in England and Wales it's an offence under the Wildlife and Countryside Act to intentionally kill, injure or take one, and in Scotland to do it intentionally or recklessly, or to disturb one in its drey. The grey squirrel, from North America, is an invasive species, and it's an offence to release one or let one escape into the wild, so a grey caught in the loft can't just be let go in the next wood.",
+    lore: "St Andrew's Day: in Kent, Hasted wrote in 1798, the labourers went squirrel hunting as 'a lawless rabble', with 'guns, poles, clubs', and finished at the alehouse 'in drunkenness'; the Scots far from home met for their saint.",
+    tier: 'record',
+    source: 'E. Hasted, The History and Topographical Survey of the County of Kent, vol. 6 (1798), "Easling" · Wildlife and Countryside Act 1981, sch. 5 · NatureScot, "Red squirrel" · Natural Resources Wales, red and grey squirrel licensing · Invasive Alien Species (Enforcement and Permitting) Order 2019, art. 3',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Lucy's Day only (data/stLucy.js), dated by the old calendar.
   {
     id: 'st_lucy',
