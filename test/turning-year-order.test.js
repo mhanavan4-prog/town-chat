@@ -12,8 +12,14 @@ function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', na
 
 const ch = buildCharmBook({ acct: {}, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'feasts');
 const tail = ch.entries.slice(12);
-const ORDER = ['plough_monday', 'shroving', 'valentine_bay', 'simnel', 'cross_bun', 'porch_watch', 'beat_bounds', 'royal_oak', 'fern_seed', 'swithin_sky', 'grotto', 'nutting', 'soul_cakes', 'martin_blood', 'old_clem', 'cattern_cakes', 'gooding'];
-check('the dated rites run through the year, Plough Monday to St Thomas\'s', JSON.stringify(tail.map((e) => e.id)) === JSON.stringify(ORDER), tail.map((e) => e.id));
+// The dated rites in the order their callers come in a middling year (2027),
+// whatever days are added later; the known ones all there, Plough Monday first
+// of these and St Thomas's last of them.
+const { nextWindow } = require('../lib/callers.js');
+const startOf = (id) => { const c = CALLERS.find((x) => x.when && x.steps.some((s) => s.kind === 'rite' && s.rite === id)); return c ? nextWindow(c.when, Date.UTC(2027, 0, 1)).start : Infinity; };
+const KNOWN = ['plough_monday', 'shroving', 'valentine_bay', 'simnel', 'cross_bun', 'porch_watch', 'beat_bounds', 'royal_oak', 'fern_seed', 'swithin_sky', 'grotto', 'nutting', 'soul_cakes', 'martin_blood', 'old_clem', 'cattern_cakes', 'gooding'];
+const ids = tail.map((e) => e.id);
+check('the dated rites run through the year, in their callers\' order', ids.every((id, i) => !i || startOf(ids[i - 1]) <= startOf(id)) && KNOWN.every((id) => ids.includes(id)) && ids.indexOf('plough_monday') < ids.indexOf('shroving') && ids.indexOf('cattern_cakes') < ids.indexOf('gooding'), ids);
 check('…and the festivals\' twelve come first, untouched', ch.entries[0].id === 'bridesbed' && ch.entries[11].id === 'michaelmas' && ch.entries.slice(0, 12).every((e) => !e.date));
 const date = (id) => (tail.find((e) => e.id === id) || {}).date;
 check('each has its date: fixed days by the day', date('valentine_bay') === '13 February' && date('porch_watch') === '24 April' && date('royal_oak') === '29 May' && date('soul_cakes') === '2 November' && date('gooding') === '21 December');

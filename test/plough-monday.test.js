@@ -46,7 +46,9 @@ setTimeout(() => {
   const realNow = Date.now;
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
-  const first = (y, m, d) => offered(Date.UTC(y, m - 1, d, 12))[0] === 'plough_boys';
+  // First at the door, or second after another dated caller on a shared day (old Hogmanay).
+  const { CALLERS: ALL } = require('../data/callers.js');
+  const first = (y, m, d) => { const o = offered(Date.UTC(y, m - 1, d, 12)); const k = o.indexOf('plough_boys'); return k >= 0 && o.slice(0, k).every((id) => (ALL.find((c) => c.id === id) || {}).when); };
   // Twelfth Day 2027 is a Wednesday (Plough Monday the 11th); 2026 a Tuesday (the 12th);
   // 2025 itself a Monday, so Plough Monday is the week after (the 13th).
   check('they come first on Plough Monday and the day after: 11–12 January 2027', first(2027, 1, 11) && first(2027, 1, 12) && !first(2027, 1, 10) && !first(2027, 1, 13));

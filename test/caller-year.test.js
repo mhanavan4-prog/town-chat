@@ -29,7 +29,7 @@ const everyday = CALLERS.filter((c) => !c.when && !c.season);
 check('every caller is everyday, seasonal or dated, never both', CALLERS.every((c) => !(c.when && c.season)));
 check('caller ids are unique', new Set(CALLERS.map((c) => c.id)).size === CALLERS.length);
 
-// No two dated windows overlap, in either year (one would hide the other).
+// Which dated windows overlap, in either year.
 const overlaps = [];
 for (const y of [2027, 2028]) {
   const wins = dated.map((c) => ({ id: c.id, ...nextWindow(c.when, Date.UTC(y, 0, 1)) }));
@@ -37,7 +37,9 @@ for (const y of [2027, 2028]) {
     if (wins[i].start < wins[j].end && wins[j].start < wins[i].end) overlaps.push([y, wins[i].id, wins[j].id]);
   }
 }
-check('no two dated callers share a day', overlaps.length === 0, overlaps);
+// Two dated days can fall together (Plough Monday on old Hogmanay); then both
+// callers come, which the day-by-day walk below checks.
+console.log(`  dated days falling together in 2027–28: ${overlaps.map((o) => o.join(' ')).join('; ') || 'none'}`);
 
 // Everything a caller's working writes is in the Charm Book: the caller's own
 // entry, and every charm and rite on the way.
@@ -85,10 +87,10 @@ setTimeout(() => {
       }
       const datedToday = dated.filter((c) => { const w = nextWindow(c.when, t); return w && w.start <= t && t < w.end; }).map((c) => c.id);
       for (const id of ids) if (byId[id].when && !datedToday.includes(id)) bad.datedOff.push([day, id]);
-      if (datedToday.length && !datedToday.includes(ids[0])) bad.datedNotFirst.push([day, ids, datedToday]);
+      if (datedToday.length && !datedToday.every((id, k) => ids.slice(0, datedToday.length).includes(id) && k >= 0)) bad.datedNotFirst.push([day, ids, datedToday]);
       const hasSeasonal = seasonal.some((c) => c.season === season);
       if (hasSeasonal) {
-        const slot = datedToday.length ? 1 : 0;
+        const slot = datedToday.length;
         if (!byId[ids[slot]] || byId[ids[slot]].season !== season) bad.seasonNotFirst.push([day, ids]);
       }
     }
@@ -99,7 +101,7 @@ setTimeout(() => {
   check('nobody at the door twice in one day', bad.dupe.length === 0, bad.dupe.slice(0, 3));
   check('a seasonal caller comes only in its season', bad.season.length === 0, bad.season.slice(0, 3));
   check('a dated caller comes only on its days', bad.datedOff.length === 0, bad.datedOff.slice(0, 3));
-  check('…and on its days, first at the door', bad.datedNotFirst.length === 0, bad.datedNotFirst.slice(0, 3));
+  check('…and on its days, first at the door (all of them, when two fall together)', bad.datedNotFirst.length === 0, bad.datedNotFirst.slice(0, 3));
   check('in a season, one of its callers comes every day (after a dated one, if any)', bad.seasonNotFirst.length === 0, bad.seasonNotFirst.slice(0, 3));
   const never = CALLERS.filter((c) => !seen[c.id]).map((c) => c.id);
   check(`all ${CALLERS.length} callers reach the door in two years`, never.length === 0, never);
