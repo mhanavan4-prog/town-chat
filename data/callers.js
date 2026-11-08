@@ -363,12 +363,12 @@ const CALLERS = [
     plea: "The kettle went over and caught my Jory's arm — he's screaming the house down. Old Ma Tregear used to charm burns but she's gone these two winters. You know the words, don't you? Please.",
     steps: [
       { kind: 'charm', charm: 'burn', label: 'Charm the burn' },
-      { kind: 'deliver', item: 'plantain', qty: 1, label: 'Cool green leaves to lay on it' },
+      { kind: 'deliver', item: 'bramble_vine', qty: 1, label: 'Bramble leaves, wetted in spring water for the charm' },
     ],
-    resolution: "You hold the little arm under the cold pump while you say the words — the cold water is doing the real work and you both know it — then lay the wet leaves on lightly. By the time you've said \"in frost\" he's stopped screaming and started hiccupping. Annie says the charm worked. You don't argue.",
-    lore: "Charmers for burns were found in nearly every parish: the words were passed on quietly, often only to someone of the opposite sex, and were never charged for. Robert Hunt recorded the Cornish burn charm with its three angels — one bringing fire and two bringing frost.",
+    resolution: "You hold the little arm under the cold pump while you say the words — the cold water is doing the real work and you both know it, so you keep it there a good twenty minutes. The wet bramble leaves you pass over the burn for the charm's sake, and lay nothing on it after. By the time you've said \"in frost\" he's stopped screaming and started hiccupping. Annie says the charm worked. You don't argue. Then the practical half. Cool a burn under cool running water for twenty minutes, as soon as you can and within three hours; take off clothes or rings near it, but nothing stuck to it. Then lay cling film over it, not round it, and put nothing else on: no butter, oil or cream, and no leaves either. Don't burst the blisters; paracetamol or ibuprofen for the pain. Always get a burned baby or child seen: ring 111 for a child under five, and 999 if the burn is large or deep, on the face, or from a chemical or electricity. And keep the kettle on a short flex, well back from the edge; a hot drink can still scald a little one fifteen minutes after it's made.",
+    lore: "Robert Hunt recorded the Cornish burn charm with its three angels, one bringing fire and two bringing frost; bramble or dock leaves wetted in spring water were 'employed in this charm'. Charmers kept the words close, passing them across the sexes (though Zennor's rule and Courtney's run opposite ways), and traditionally took nothing for it, though Courtney knew some who did.",
     tier: 'record',
-    source: 'Robert Hunt, Popular Romances of the West of England (1865), "Charms"',
+    source: 'Robert Hunt, Popular Romances of the West of England, 2nd series (1865), §132 "For a Scald or Burn", p. 213 · M. A. Courtney, Cornish Feasts and Folk-Lore (1890), pp. 146–56 · NHS, "Burns and scalds" · British Red Cross, burns · nidirect, burns and scalds',
     reward: { gold: 50, xp: 40 },
   },
   {
