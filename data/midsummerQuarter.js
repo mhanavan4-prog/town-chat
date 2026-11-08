@@ -3,7 +3,7 @@
 // quarter's rent fell due. The caller is dated by the Commonplace Book's own
 // entry (when: { calendar: 'midsummer_quarter' }), for the one day.
 //
-// Sources: W. Hone, The Every-Day Book (1825), 24 June, "Quarter-day",
+// Sources: W. Hone, The Every-Day Book, vol. I (1826), 24 June, "Quarter-day",
 // signed "Sigma", read first-hand in the Hone archive; R. Chambers, The Book
 // of Days (1864), 29 September, for Gascoigne's verse (1575; second-hand);
 // Encyclopaedia Britannica (1911), "Quarter"; J. Stow, A Survey of London
@@ -28,7 +28,7 @@ const QUARTER_RITES = {
     ],
     lore: 'Midsummer Day was one of the four English quarter days, "the days on which it is usually contracted that rents should be paid, and houses or lands entered upon or quitted" (Britannica, 1911). Gascoigne\'s tenants, as Chambers gives him, "bring some fowl at Midsummer, a dish of fish in Lent, / At Christmas a capon, at Michaelmas a goose". A writer in Hone\'s Every-Day Book (1825) saw what the day meant in London: "This is quarter-day!—what a variety of thought and feeling it calls up in the minds of thousands in this great metropolis", for "some may quit, some may remain; all must pay—that can! Alas, that there should be some unable!" He begged: "Landlord! ponder o[n] these consequences ere you distrain for rent, and let your heart, rather than the law, be the guide of your conduct." The fires of St John\'s Eve had burned the night before, bonfires "aswell of good amitie amongest neighbours" as "to purge the infection of the ayre" (Stow, 1603).',
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1825), 24 June, "Quarter-day" · R. Chambers, The Book of Days (1864), 29 September · Encyclopaedia Britannica (1911), "Quarter" · J. Stow, A Survey of London (1603)',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 24 June, "Quarter-day" · R. Chambers, The Book of Days (1864), 29 September · Encyclopaedia Britannica (1911), "Quarter" · J. Stow, A Survey of London (1603)',
   },
 };
 
