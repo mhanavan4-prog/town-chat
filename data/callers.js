@@ -1121,6 +1121,23 @@ const CALLERS = [
     source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI · Culture Vannin, "Hop tu Naa"',
     reward: { gold: 40, xp: 35 },
   },
+  // The Fifth of November only (data/fifthNovember.js), dated by the old calendar.
+  {
+    id: 'fifth_november',
+    caller: 'Ned and Polly Sparrow',
+    icon: '🎆',
+    title: 'The Fifth of November',
+    when: { calendar: 'guy_fawkes', days: 2, label: 'the Fifth of November' },
+    plea: "We've made a Guy! Well, we've got Father's old coat and a sack of straw and a paper cap, and we've been collecting sticks for the bonfire all week, they're in a heap at the back of the wash-house. But Ned's Guy keeps falling out of the chair, and nobody'll let us light the fire on our own. Will you help us?",
+    steps: [
+      { kind: 'rite', rite: 'fifth_november', label: 'The Guy made and carried round, and burned on the bonfire at nightfall' },
+    ],
+    resolution: "The Guy burns, the sparks go up, and Ned and Polly are sent to bed smelling of smoke. Then the practical half. That heap behind the wash-house has had a week for hedgehogs to crawl into: build a bonfire on the day you light it, or move the whole pile to a fresh spot just before, and light it from one side only. Build it well away from sheds, fences and trees, never use petrol or paraffin on it, keep the children and the dog back, and have a bucket of water or a hose by. Fireworks are for the grown-ups: nobody under eighteen may buy them, they're never set off or thrown in the street, and not after eleven at night, though on the Fifth it's midnight. Light them at arm's length, stand well back, and never go back to one that's been lit. If a burn happens, hold it under cool running water for twenty minutes, put no butter or cream on it, and lay cling film over it loosely.",
+    lore: "The Fifth of November: children carried a Guy of straw with a dark lantern and matches round the streets in a chair, crying 'Please to remember Guy!', and burned him at nightfall (Hone, 1826; Chambers, 1864).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826), 5 November · Merseyside Fire and Rescue Service, bonfire safety · British Hedgehog Preservation Society · London Fire Brigade, the Firework Code · Fireworks Regulations 2004, reg. 7 · NHS, "Burns and scalds"',
+    reward: { gold: 40, xp: 35 },
+  },
   // All Souls' Day only (data/souling.js), dated by the old calendar.
   {
     id: 'all_souls_souling',
