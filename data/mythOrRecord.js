@@ -4,7 +4,7 @@
 // Real Shelf, the Charm Book). Five are myths and five are on the record. Ids
 // are stable (best scores are on accounts).
 // ---------------------------------------------------------------------------
-const MYTH_QUIZ_INTRO = 'Things people say about witches, ten at a time. Is each a myth, or on the record? Every answer gives its source, and you can check most of them in the Charm Book.';
+const MYTH_QUIZ_INTRO = 'Things people say about witches and the old remedies, ten at a time. Is each a myth, or on the record? Every answer gives its source, and you can check most of them in the Charm Book.';
 
 const MYTH_QUIZ = [
   { id: 'nine_million', claim: 'Nine million people were burned as witches in Europe.', answer: 'myth',
@@ -77,10 +77,50 @@ const MYTH_QUIZ_2 = [
     source: 'T. D. Murray (ed.), Jeanne d\'Arc (1902); Encyclopaedia Britannica, "Saint Joan of Arc"' },
 ];
 
+// Herbs and healing: the King's Evil, "eye of newt", the toadstone, the
+// doctrine of signatures, willow bark, the plague doctor, vervain,
+// bloodletting, rosemary and the apple a day. Checked for this game; where a
+// common telling claims more than the record holds (Culpeper "tried" for
+// witchcraft, beaked doctors "common" in London in 1665), it is left out or
+// the verdict says only what the record shows.
+const MYTH_QUIZ_3 = [
+  { id: 'kings_evil', claim: 'English kings and queens touched the sick to cure scrofula, the "King\'s Evil".', answer: 'record',
+    verdict: 'Charles II touched tens of thousands, perhaps more than ninety thousand, each given a gold touch-piece. Queen Anne touched the infant Samuel Johnson in 1712; he remembered "a lady in diamonds, and a long black hood."',
+    source: 'Royal Collection Trust, RCIN 443149; J. Boswell, Life of Johnson (1791)' },
+  { id: 'eye_of_newt', claim: '"Eye of newt" in Macbeth was an old herbalists\' name for mustard seed.', answer: 'myth',
+    verdict: 'No herbal or dictionary before 1900 has been found that says so; the idea is modern. Some of the witches\' ingredients are plants ("Root of Hemlocke"), but nothing early makes the newt\'s eye one.',
+    source: 'W. Shakespeare, Macbeth (First Folio, 1623), 4.1' },
+  { id: 'toadstone', claim: 'People wore "toadstones", believed to come from a toad\'s head, against poison.', answer: 'record',
+    verdict: 'Toadstones were set in rings and amulets to draw out poison. They are really the fossil teeth of an extinct fish. Shakespeare\'s toad "Wears yet a precious jewel in his head".',
+    source: 'National Museums Scotland, "Toadstones"; W. Shakespeare, As You Like It, 2.1' },
+  { id: 'signatures_peasant', claim: 'The doctrine of signatures, that a plant shaped like an organ treats that organ, was a peasant belief.', answer: 'myth',
+    verdict: 'Not a peasant invention: learned writers gave it its name and theory, Paracelsus, della Porta (1588) and William Coles, whose Adam in Eden (1657) sets out plants\' "Signatures".',
+    source: 'W. Coles, Adam in Eden (1657); G. della Porta, Phytognomonica (1588)' },
+  { id: 'willow_bark', claim: 'Willow bark was used against fevers long before aspirin.', answer: 'record',
+    verdict: 'In 1763 the Rev. Edward Stone told the Royal Society of his success with dried willow bark against agues, reasoning that "remedies lie not far from their causes". Aspirin came from the same family of compounds in 1899.',
+    source: 'E. Stone, Philosophical Transactions 53 (1763), 195–200' },
+  { id: 'plague_doctor', claim: 'Plague doctors in beaked masks were a common sight in London\'s Great Plague of 1665.', answer: 'myth',
+    verdict: 'The beaked costume is recorded in France and Italy; the famous print of "Doctor Schnabel" is from Rome in 1656. No London source of 1665 is known to show it.',
+    source: 'British Museum, "Doctor Schnabel von Rom" (1656), P_1876-0510-512' },
+  { id: 'vervain_charm', claim: 'Vervain was picked with a spoken charm, as a holy herb against harm.', answer: 'record',
+    verdict: 'The charm was "Hallowed be thou, Vervein, / As thou growest on the ground, / For in the Mount of Calvary, / There thou wast first found." A Protestant writer mocked it in 1624, so it was older.',
+    source: 'J. White, The Way to the True Church (1624), in Notes and Queries (24 December 1853)' },
+  { id: 'bloodletting', claim: 'Bloodletting was given up after the Middle Ages.', answer: 'myth',
+    verdict: 'It went on for centuries. George Washington was bled four times as he lay dying in 1799, and in 1833 France alone imported some forty-two million leeches.',
+    source: 'Mount Vernon, "The Death of George Washington"; James Lind Library' },
+  { id: 'rosemary_memory', claim: 'Rosemary was believed to strengthen the memory.', answer: 'record',
+    verdict: 'Ophelia: "There\'s rosemary, that\'s for remembrance." Gerard\'s Herball (1597) says rosemary "comforteth the brain, the memory, the inward senses".',
+    source: 'W. Shakespeare, Hamlet, 4.5; J. Gerard, The Herball (1597)' },
+  { id: 'apple_a_day', claim: '"An apple a day keeps the doctor away" is an old medieval saying.', answer: 'myth',
+    verdict: 'The earliest known form is a Pembrokeshire proverb printed in 1866, "Eat an apple on going to bed, / And you\'ll keep the doctor from earning his bread." The modern wording turns up by the late 1880s.',
+    source: 'Notes and Queries, 3rd ser., vol. 9 (1866), p. 153' },
+];
+
 // The quiz's sets of ten, each with its own best score on the account.
 const MYTH_SETS = [
   { key: 'first', title: 'The first ten', items: MYTH_QUIZ },
   { key: 'second', title: 'Ten more', items: MYTH_QUIZ_2 },
+  { key: 'third', title: 'Herbs and healing', items: MYTH_QUIZ_3 },
 ];
 
-module.exports = { MYTH_QUIZ, MYTH_QUIZ_2, MYTH_QUIZ_INTRO, MYTH_SETS };
+module.exports = { MYTH_QUIZ, MYTH_QUIZ_2, MYTH_QUIZ_3, MYTH_QUIZ_INTRO, MYTH_SETS };

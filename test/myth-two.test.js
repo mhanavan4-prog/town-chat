@@ -26,7 +26,7 @@ const q = (id) => Q.find((x) => x.id === id);
 
 check('ten more, five myths and five on the record, alternating', Q.length === 10 && Q.filter((x) => x.answer === 'myth').length === 5 && Q.every((x, i) => i === 0 || x.answer !== Q[i - 1].answer) && Q.every((x) => x.claim && x.verdict && x.source));
 const ids = MYTH_SETS.flatMap((s) => s.items.map((x) => x.id));
-check('two sets, and no id used twice across them', MYTH_SETS.map((s) => s.key).join() === 'first,second' && MYTH_SETS[0].items === MYTH_QUIZ && new Set(ids).size === ids.length && ids.length === 20);
+check('the first two sets, and no id used twice across all of them', MYTH_SETS.slice(0, 2).map((s) => s.key).join() === 'first,second' && MYTH_SETS[0].items === MYTH_QUIZ && new Set(ids).size === ids.length && ids.length === MYTH_SETS.length * 10);
 check('familiars: Chelmsford 1566, the white spotted cat', q('familiars').answer === 'record' && /1566/.test(q('familiars').verdict) && /"in the likeness of a white spotted Cat"/.test(q('familiars').verdict));
 check('"ancient" Wicca: Gardner in the 1950s, on Murray\'s rejected witch-cult', q('ancient_wicca').answer === 'myth' && /Gardner/.test(q('ancient_wicca').verdict) && /Murray/.test(q('ancient_wicca').verdict) && /Witchcraft Today \(1954\)/.test(q('ancient_wicca').source));
 check('the broomstick: Le Champion des Dames, Arras, 1451, BnF fr. 12476', q('broomstick_1451').answer === 'record' && /1451/.test(q('broomstick_1451').verdict) && /fr\. 12476, fol\. 105v/.test(q('broomstick_1451').source));
@@ -56,7 +56,7 @@ setTimeout(() => {
   const a = join('Reader', 'reader', { mythBest: 7 });
   a.s.emit('message', JSON.stringify({ type: 'real_shelf' }));
   const sh = a.s.lastOfType('real_shelf');
-  check('the shelf sends both sets; the older save\'s 7 is the first set\'s best', sh.myth.sets.length === 2 && sh.myth.sets[0].best === 7 && sh.myth.best === 7 && sh.myth.sets[1].best === null && sh.myth.sets[1].items.length === 10);
+  check('the shelf sends both sets; the older save\'s 7 is the first set\'s best', sh.myth.sets.length === MYTH_SETS.length && sh.myth.sets[0].best === 7 && sh.myth.best === 7 && sh.myth.sets[1].best === null && sh.myth.sets[1].items.length === 10);
   check('…and a "Check it" for the second set\'s verdicts too', sh.checks['myth:witch_marks'] && sh.checks['myth:witch_marks'].some((p) => p.work));
   const right2 = Object.fromEntries(Q.map((x) => [x.id, x.answer]));
   a.s.emit('message', JSON.stringify({ type: 'myth_quiz_done', set: 'second', answers: right2 }));
