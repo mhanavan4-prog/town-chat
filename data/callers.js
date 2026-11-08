@@ -984,6 +984,23 @@ const CALLERS = [
     source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
     reward: { gold: 40, xp: 35 },
   },
+  // Hop-tu-Naa only (data/hopTuNaa.js), dated by the old calendar.
+  {
+    id: 'hop_tu_naa_moots',
+    caller: 'Juan and Breesha Quayle',
+    icon: '🏮',
+    title: 'Hop-tu-Naa',
+    when: { calendar: 'hop_tu_naa', days: 2, label: 'Hollantide Eve' },
+    plea: "It's Hop-tu-Naa! Everyone's going round with their moots tonight and singing, and we've got the turnips but Dada's away at the herring and Mam says we're not to touch the big knife. Will you hollow them out for us, and come round the doors?",
+    steps: [
+      { kind: 'rite', rite: 'hop_tu_naa', label: 'The moots hollowed and lit, and round the doors singing Hop-tu-Naa' },
+    ],
+    resolution: "Two moots grinning and a bag full of nuts and coins. Then the practical half. The grown-up does the knife work, cutting slowly and away from the body; a turnip is harder than a pumpkin and the knife slips. Put a battery light in the moot rather than a candle, and keep a lit one off the doorstep where skirts and coats brush by. Costumes should be marked safe for children, and a child in costume shouldn't carry a candle at all. And never leave a lit moot burning on its own.",
+    lore: "Hop-tu-Naa: on the Isle of Man, on Hollantide Eve, the last night of the Celtic year, children went from door to door singing, once with turnips on sticks, now with turnip lanterns (Moore, 1891; Culture Vannin).",
+    tier: 'record',
+    source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI · Culture Vannin, "Hop tu Naa"',
+    reward: { gold: 40, xp: 35 },
+  },
   // All Souls' Day only (data/souling.js), dated by the old calendar.
   {
     id: 'all_souls_souling',
