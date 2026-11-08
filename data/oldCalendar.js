@@ -175,8 +175,8 @@ const OLD_CALENDAR = [
   { key: 'st_james', month: 7, day: 25, icon: '🦪', title: "St James's Day: the first oysters", tier: 'record',
     text: "London ate its first, dear oysters on St James's Day.",
     quote: "Whoever eats oysters on St. James's Day, will never want money.", source: `${CHAMBERS}, 25 July` },
-  { key: 'rushbearing', month: 7, day: 26, icon: '🌾', title: 'Rush-bearing at Ambleside', tier: 'record',
-    text: 'Some forty girls carried rush-bearings to church behind a band, set them about the pulpit and pews, and took them home after the Sunday service.',
+  { key: 'rushbearing', rule: firstWeekdayAfter(6, 6, 30), moves: 'the first Saturday in July', icon: '🌾', title: 'Rush-bearing at Ambleside', tier: 'record',
+    text: 'Some forty girls carried rush-bearings to church behind a band, set them about the pulpit and pews, and took them home after the Sunday service. In 1823 it fell on 26 July; Ambleside keeps it now on the first Saturday in July.',
     source: "The Gentleman's Magazine (1823)" },
   // ── August ──
   { key: 'lammas_term', month: 8, day: 1, icon: '🌾', title: 'Lammas: the term day', tier: 'folk',
