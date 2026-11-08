@@ -1274,6 +1274,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 21 December · R. Chambers, The Book of Days (1864), 21 December',
     reward: { gold: 40, xp: 35 },
   },
+  // Helston Furry Day only (data/furryDay.js), dated by the old calendar.
+  {
+    id: 'furry_day',
+    caller: 'Kitto Pascoe, from Helston',
+    icon: '💃',
+    title: 'Furry Day',
+    when: { calendar: 'helston_furry', days: 2, label: 'Furry Day' },
+    plea: "It's Furry Day at home, and I'm away from it for the first time in my life. Grandfer says you go out early with the drums to bring home the summer, and dance in at one door and out at the next all down the street, and anyone caught working gets made to leap the river. I can't dance the Furry on my own. Will you dance it with me?",
+    steps: [
+      { kind: 'rite', rite: 'furry_day', label: 'The summer brought home, the Furry danced through the streets, and a worker made to leap' },
+    ],
+    resolution: "Kitto dances the Furry from one end of the street to the other, and won't stop talking about it. Then the practical half. If you wear lily of the valley, keep it from children and pets: it's poisonous if eaten, and wear gloves to pick it. A day's dancing in May sun is hot work: drink plenty of water through the day, even before you're thirsty, and keep out of the strongest sun between eleven and three. If someone's faint and clammy, get them somewhere cool, lying down with their feet up, and give them water; they should feel better within half an hour, and if not, ring 999. In a big crowd, children should carry a parent's phone number, a wristband is best, and know where the lost children are taken. And no one need leap a river for a forfeit: a narrow place can still be deep.",
+    lore: "Helston Furry Day: the town went out early to bring home 'the Summer and the May, O!', danced the Furry through the streets, and made anyone found at work leap the river (The Gentleman's Magazine, 1790; Hone, 1827).",
+    tier: 'record',
+    source: "The Gentleman's Magazine (1790) · RHS, Convallaria majalis · NHS, \"Heat exhaustion and heatstroke\" · Met Office, keeping cool in the heat",
+    reward: { gold: 40, xp: 35 },
+  },
   // Rogationtide only (data/rogation.js), dated by Easter through the old calendar.
   {
     id: 'rogation_bounds',
