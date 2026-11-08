@@ -52,9 +52,9 @@ const wakesMonday = (y) => { const [m, d] = firstWeekdayAfter(0, 9, 4)(y); retur
 
 const OLD_CALENDAR = [
   // ── January ──
-  { key: 'cream_of_the_well', month: 1, day: 1, icon: '💧', title: 'Cream of the Well', tier: 'record',
-    text: 'In Scotland the first water drawn from a well on New Year\'s morning was the "cream", and brought luck to whoever was first. In Fife in 1723 a woman was accused of using it to take her neighbour\'s milk.',
-    source: 'Scottish National Dictionary, "cream" (1723–1940)' },
+  { key: 'cream_of_the_well', month: 1, day: 1, icon: '💧', title: 'Cream of the Well', tier: 'folk',
+    text: 'In Scotland the first water drawn from a well on New Year\'s morning was the "flower" or "cream" of the well, and brought luck, or a lad, to whoever got it first; a wisp of straw left in the well showed it had been creamed. (A Fife woman in 1723 complained she had been slandered as taking "the cream of the water" for her neighbours\' milk, but that was on Rood-day.)',
+    quote: "The flower o' the well to our house gaes", source: 'Scottish National Dictionary, "Cream" and "Flour" (1800–1939); J. M. Mackinlay, Folklore of Scottish Lochs and Springs (1893)' },
   { key: 'twelfth_night', month: 1, day: 6, icon: '👑', title: 'Twelfth Night: the Bean King', tier: 'record',
     text: 'The Twelfth Cake was cut, and whoever found the bean was king for the night, and the pea, queen.',
     quote: 'the cake was full of plums, with a bean in it for the king, and a pea for the queen', source: `${HONE}, 6 January` },

@@ -45,7 +45,9 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [1, 2].map((d) => offered(Date.UTC(2027, 0, d, 12)));
-  check('on New Year\'s Day they come first, a Yule caller after them', days.every((o) => o[0] === 'calennig_children' && o.length === 3 && CALLERS.find((x) => x.id === o[1]).season === 'yule'), days);
+  // Isobel Rennie's Cream of the Well (data/creamOfTheWell.js) is the same morning: both dated callers first, a Yule caller after.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on New Year\'s Day they come first (with any other caller of the day), a Yule caller after them', days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('calennig_children') && CALLERS.find((x) => x.id === o[datedN(o)]).season === 'yule'), days);
   const outside = [Date.UTC(2026, 11, 31, 12), Date.UTC(2027, 0, 3, 12), Date.UTC(2027, 6, 1, 12)].map(offered);
   check('on other days they never come', outside.every((o) => !o.includes('calennig_children') && o.length === 3), outside);
   at(Date.UTC(2027, 0, 1, 12), () => {
