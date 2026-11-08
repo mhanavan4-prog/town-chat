@@ -259,7 +259,7 @@ const OLD_CALENDAR = [
     text: 'In Ireland the wren, king of the birds, was hunted and carried from door to door in a bush of holly and ivy, with songs for money and food; on Man its feathers were kept against shipwreck.',
     source: 'E. A. Armstrong, The Folklore of Birds (1958); G. Waldron, Description of the Isle of Man (1731)' },
   { key: 'childermas', month: 12, day: 28, icon: '⚠️', title: 'Childermas: the unluckiest day', tier: 'record',
-    text: "Holy Innocents' was the unluckiest day of the year, and nothing was begun on it that could wait; Edward IV's coronation was put off a day to avoid it.",
+    text: "Holy Innocents' was the unluckiest day of the year, and nothing was begun on it that could wait; the weekday it fell on was unlucky all the next year. In 1461 a rumour had Edward IV's coronation put off a day for it, but only the pageants waited.",
     quote: 'about the most unlucky through-out the year', source: `${CHAMBERS}, 28 December` },
 ];
 

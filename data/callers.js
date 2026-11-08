@@ -813,6 +813,23 @@ const CALLERS = [
     source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891)',
     reward: { gold: 40, xp: 35 },
   },
+  // Childermas only (data/childermas.js), dated by the old calendar.
+  {
+    id: 'childermas_carrier',
+    caller: 'Joss Wardle the carrier',
+    icon: '🐴',
+    title: 'Childermas',
+    when: { calendar: 'childermas', days: 2, label: 'Childermas' },
+    plea: "I've the new round to Kendal to start, and I meant to be on the road this morning with the cart loaded. Mother's stood in the yard door and says it's Childermas and I'll not stir, and whatever day it falls on is cursed all next year besides. I can't lose a day's carrying for an old wives' tale, can I? Will you tell me what's true in it, and keep the day with her if I must?",
+    steps: [
+      { kind: 'rite', rite: 'childermas', label: 'Nothing begun, and the weekday marked by the door' },
+    ],
+    resolution: "The cart stays in the yard till morning, and his mother gives him his dinner. Then the practical half, for there's sense in a day's thought before a winter road. Look at the weather before you go, and if ice or snow is coming, don't go unless you must. Tell someone at the far end which road you're taking and when you'll be in. Carry what you'd want if you were stuck: a lamp, warm clothes and boots, a shovel, food and something hot to drink, and keep the lamp oil full. On ice it can take ten times as far to stop, so go slow. And the tale they tell of the king is wrong: he was crowned on the Sunday after all.",
+    lore: "Childermas: on Holy Innocents' Day nothing that could wait was begun, and the weekday it fell on was unlucky all the following year (Melton, 1620; the Paston Letters, 1461; The Spectator, 1711).",
+    tier: 'record',
+    source: 'J. Melton, Astrologaster (1620) · The Paston Letters, ed. J. Gairdner (1904), letter 460 · The Highway Code, rules 228 and 230',
+    reward: { gold: 40, xp: 35 },
+  },
   // Old Hogmanay only (data/clavie.js): the Burning of the Clavie, dated by the old calendar.
   {
     id: 'clavie_burghead',
