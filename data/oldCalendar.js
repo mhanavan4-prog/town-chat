@@ -160,8 +160,8 @@ const OLD_CALENDAR = [
     text: 'One of the four English quarter days, with Lady Day, Michaelmas and Christmas, when rents fell due and accounts were settled; the bonfires of St John\'s Eve burned the night before.',
     source: 'The English quarter days; Stow, Survey of London (1603), on the Midsummer fires' },
   { key: 'st_peters_eve', month: 6, day: 28, icon: '🔥', title: "St Peter's Eve fires", tier: 'record',
-    text: 'A Newcastle ordinance of 1575 bound the cooks to two bonfires: one on Midsummer Eve, the other on the eve of St Peter.',
-    quote: 'the other on the Even of the Feast of St. Peter the Apostle', source: 'Newcastle cooks\' ordinance (1575), in Brand, Popular Antiquities' },
+    text: 'A Newcastle ordinance of 1575 bound the cooks to keep the old bonfires on the Sand-hill: one on Midsummer Eve, the other on the eve of St Peter, if the Mayor and Aldermen pleased. In west Cornwall lines of tar-barrels were lit in the streets on both eves.',
+    quote: 'the other on the even of the Feast of St. Peter the Apostle', source: 'Newcastle cooks\' ordinary (1575), in Brand, Popular Antiquities (1849); Courtney, Cornish Feasts and Folk-Lore (1890)' },
   // ── July ──
   { key: 'dog_days', month: 7, day: 3, icon: '🐕', title: 'The Dog Days begin', tier: 'record',
     text: 'The hottest stretch of the year, 3 July to 11 August, when the Romans thought the dog-star rose with the sun and added its heat.',

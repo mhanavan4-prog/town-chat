@@ -1155,6 +1155,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 15 July · Met Office, "Red sky at night and other weather lore"',
     reward: { gold: 40, xp: 35 },
   },
+  // St Peter's Eve only (data/stPetersEve.js), dated by the old calendar.
+  {
+    id: 'st_peters_eve',
+    caller: 'Jacky Pengelly, of Newlyn',
+    icon: '🔥',
+    title: "St Peter's Eve",
+    when: { calendar: 'st_peters_eve', days: 2, label: "St Peter's Eve" },
+    plea: "St Peter's Eve, and he's the fishermen's saint. At home in Newlyn the pile's on the beach by now, and we'd be going house to house for faggots and pence. The lads here want a fire too, only they mean to have it up on the moor, where it's not rained for a month and the furze is dry as tinder. I'd sooner do it right. Will you help me?",
+    steps: [
+      { kind: 'rite', rite: 'st_peters_eve', label: 'Faggots begged from every house, the tables set out, and the fire lit where it is safe' },
+    ],
+    resolution: "The fire is lit on the beach, not the moor, and the moor is still there in the morning. Then the practical half. In the countryside, don't light fires, and have a barbecue only where the signs say you can; in a dry summer one spark in the furze can take a whole hillside. If you see a fire nobody is watching, ring 999. On a beach, find out first whether fires are allowed there, and put it out with water, plenty of it, over the embers and the sand under them: never bury a fire or a barbecue in sand, which keeps the heat for hours and burns the next bare foot. And for a burn: cool running water for twenty minutes, no butter or cream, and cling film laid over it loosely.",
+    lore: "St Peter's Eve: the last of the midsummer fires; Newcastle's cooks kept one on the Sand-hill (1575), and west Cornwall lit lines of tar-barrels in the streets for the fishermen's saint (Courtney, 1890).",
+    tier: 'record',
+    source: 'M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · The Countryside Code · Swansea Bay University Health Board, beach barbecues · NHS, "Burns and scalds"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Midsummer Eve only (data/midsummerMen.js), dated by the old calendar.
   {
     id: 'midsummer_men',
