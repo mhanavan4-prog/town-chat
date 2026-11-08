@@ -1087,6 +1087,23 @@ const CALLERS = [
     source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
     reward: { gold: 40, xp: 35 },
   },
+  // Old Michaelmas only (data/mopFair.js), dated by the old calendar.
+  {
+    id: 'mop_fair',
+    caller: 'Sam Hewins, the carter\'s lad',
+    icon: '🎀',
+    title: 'The Mop',
+    when: { calendar: 'mop_fair', days: 2, label: 'Old Michaelmas' },
+    plea: "It's the mop at Stratford, and my year's up at Lower Farm, and I'll not stop another under that man. I've never stood at a mop. Mother says whipcord in the hat and look a farmer in the eye, but I don't know what to ask, nor what to say when they ask me. Will you come and stand with me?",
+    steps: [
+      { kind: 'rite', rite: 'mop_fair', label: 'Whipcord in the hat, stood in the street, hired for the year, and ribbons after' },
+    ],
+    resolution: "Sam is hired by a fair-spoken farmer from Wilmcote, and comes back with ribbons in his hat. Then the practical half, which is the law now and not just luck. Get the terms written down: a master must give a written statement of them on the first day. Farm work must pay at least the National Minimum Wage, and almost every worker is owed 5.6 weeks' paid holiday a year. And know the bad master by the signs: one who keeps your papers, says you owe him for your keep or your travel and must work it off, or keeps your wages from you, is exploiting you. The Modern Slavery & Exploitation Helpline is 08000 121 700.",
+    lore: "The mop: at Old Michaelmas farm servants stood in the street with the sign of their trade in their hats, were hired for the year with an earnest shilling, and wore ribbons after (W. Pare, in Hone, 1827; Howitt, 1840).",
+    tier: 'record',
+    source: 'W. Pare, in W. Hone, The Table Book (1827) · gov.uk, employment contracts, holiday entitlement and agricultural workers\' rights · Modern Slavery & Exploitation Helpline',
+    reward: { gold: 40, xp: 35 },
+  },
   // Hop-tu-Naa only (data/hopTuNaa.js), dated by the old calendar.
   {
     id: 'hop_tu_naa_moots',
