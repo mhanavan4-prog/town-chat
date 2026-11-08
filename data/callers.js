@@ -831,6 +831,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 7 January · Nottingham Guardian (13 January 1886)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Brigid's Eve only (data/brigidEve.js), dated by the old calendar.
+  {
+    id: 'brigid_eve_brideog',
+    caller: 'Síle and Peig Donovan',
+    icon: '🌾',
+    title: "St Brigid's Eve",
+    when: { calendar: 'brigid_eve', days: 2, label: "St Brigid's Eve" },
+    plea: "It's St Brigid's Eve and we've no Brídeóg! Mam's churn-dash is cracked down the middle, and Granny says we can't go round without the saint, and she wants the brat Bríde out on the sill tonight for her head. Will you help us make her, and come round the houses?",
+    steps: [
+      { kind: 'rite', rite: 'brideog', label: 'The Brídeóg dressed and carried round, the rushes let in, the cloth on the sill' },
+    ],
+    resolution: "The basket's full of eggs and Granny's cloth is on the sill. Then the practical half. The brat Bríde is a blessing and a comfort, not a medicine: a ribbon can't heal. Most sore throats are gone within a week. One that's still there after two weeks, or comes with a very high temperature, wants a doctor; and trouble breathing, or not being able to swallow your own spit, wants help at once. And the girls going round in the dark of a February night: two together at least, and home before the late houses.",
+    lore: "St Brigid's Eve: in Ireland a figure of the saint, the Brídeóg, was carried from house to house for pennies or eggs, and a cloth, the brat Bríde, was left out for her to bless (Kildare Archaeological Society, 1890s; Schools' Collection).",
+    tier: 'folk',
+    source: 'Journal of the County Kildare Archaeological Society, vol. I (1891–95) · National Folklore Collection, Schools\' Collection (1937–39), via dúchas.ie',
+    reward: { gold: 40, xp: 35 },
+  },
   // Valentine's Eve only (data/valentine.js): the bay leaves and the salted egg.
   {
     id: 'valentines_eve',
