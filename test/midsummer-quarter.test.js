@@ -1,4 +1,4 @@
-// Midsummer quarter day (Hone's Every-Day Book, 1825, "Quarter-day";
+// Midsummer quarter day (Hone's Every-Day Book, vol. I, 1826, "Quarter-day";
 // Gascoigne as Chambers gives him; Britannica, 1911; Stow, 1603): Sarah Pound
 // comes on the Commonplace Book's own day, 24 June, for the one day, with a
 // practical half on rent arrears and eviction in England after the Renters'
