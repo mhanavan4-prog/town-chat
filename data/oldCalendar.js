@@ -61,7 +61,7 @@ const OLD_CALENDAR = [
   { key: 'st_distaff', month: 1, day: 7, icon: '🧶', title: "St Distaff's Day", tier: 'record',
     text: 'The women went back to their spinning after Christmas; in the evening the men set fire to their flax and tow, and the women drenched them for it.',
     source: `${HONE}, 7 January` },
-  { key: 'plough_monday', rule: firstWeekdayAfter(1, 1, 6), icon: '🚜', title: 'Plough Monday', tier: 'record',
+  { key: 'plough_monday', rule: firstWeekdayAfter(1, 1, 6), moves: 'the Monday after Twelfth Day', icon: '🚜', title: 'Plough Monday', tier: 'record',
     text: 'The ploughmen, in ribbons, dragged a plough from door to door for money, with "Bessy" (a man dressed as an old woman) and a fool in skins with a tail. Before the Reformation "plough lights" burned in the churches.',
     quote: 'they draw the plough in procession to the doors of the villagers', source: `${HONE}, 7 January` },
   { key: 'st_agnes_eve', month: 1, day: 20, icon: '🕯️', title: "St Agnes' Eve", tier: 'record',

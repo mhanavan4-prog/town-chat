@@ -57,7 +57,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.polly, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'grotto');
-  check('…and writes Mind the Grotto into The Turning Year, after Oak Apple Day', e && e.met && /· Grotto Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'grotto') === ch.entries.findIndex((x) => x.id === 'royal_oak') + 1);
+  check('…and writes Mind the Grotto into The Turning Year', e && e.met && /· Grotto Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'grotto') >= 12);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

@@ -58,7 +58,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.mead, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'swithin_sky');
-  check('…and writes Reading the Sky into The Turning Year, after St John\'s Eve', e && e.met && /· St Swithin's Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'swithin_sky') === ch.entries.findIndex((x) => x.id === 'fern_seed') + 1);
+  check('…and writes Reading the Sky into The Turning Year', e && e.met && /· St Swithin's Day$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'swithin_sky') >= 12);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

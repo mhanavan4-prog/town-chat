@@ -62,7 +62,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.plough, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'plough_monday');
-  check('…and writes Drawing the Plough into The Turning Year, after Martinmas', e && e.met && /· Plough Monday$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'plough_monday') === 13);
+  check('…and writes Drawing the Plough into The Turning Year, first of the dated days', e && e.met && /· Plough Monday$/.test(e.title) && ch.entries.findIndex((x) => x.id === 'plough_monday') === 12);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
