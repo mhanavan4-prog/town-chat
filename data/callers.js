@@ -917,6 +917,23 @@ const CALLERS = [
     source: 'R. Herrick, Hesperides (1648) · W. Hone, The Every-Day Book (1826), 2 February',
     reward: { gold: 40, xp: 35 },
   },
+  // St Blaise's Day only (data/stBlaise.js), dated by the old calendar.
+  {
+    id: 'st_blaise',
+    caller: 'Jonas Firth, woolcomber',
+    icon: '🐑',
+    title: "St Blaise's Day",
+    when: { calendar: 'st_blaise', days: 2, label: "St Blaise's Day" },
+    plea: "It's Bishop Blaise's day, our saint, the woolcombers', and the whole trade'll be out in the street. But our Sally's got a throat like sandpaper and won't eat, and my mother says hold her by the neck and say the old words over her. Is that right? Will you help me do it proper, and tell me what's sense in it?",
+    steps: [
+      { kind: 'rite', rite: 'st_blaise', label: 'A candle for Bishop Blaise, the old words said, and the woolcombers seen by' },
+    ],
+    resolution: "Sally has her candle and her charm and watches the woolcombers go by from her father's shoulders. Then the practical half. Most sore throats get better by themselves within a week; if hers hasn't, take her to the doctor, and sooner if she's very hot or shivery. If ever a child can't breathe or can't swallow, or is drooling because she can't, that's 999, not a charm. And if something is truly stuck and she's choking: up to five sharp blows between the shoulder blades, then up to five abdominal thrusts, and if that doesn't clear it, ring 999 straight away.",
+    lore: "St Blaise's Day: Blaise was called on for throats, after the boy he saved from a fishbone, and was the woolcombers' saint; Bradford kept his festival every seven years (Hone, 1826).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826), 3 February · NHS, "Sore throat" · North East Ambulance Service, "Choking"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Valentine's Eve only (data/valentine.js): the bay leaves and the salted egg.
   {
     id: 'valentines_eve',
