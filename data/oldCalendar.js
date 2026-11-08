@@ -157,8 +157,8 @@ const OLD_CALENDAR = [
     source: 'Act of 1660; R. Chambers, Book of Days (1879 ed.); W. Andrews, Old Church Lore (1891)' },
   // ── June ──
   { key: 'barnaby_bright', month: 6, day: 11, icon: '☀️', title: 'Barnaby Bright', tier: 'record',
-    text: "St Barnabas fell near the old midsummer before the calendar changed, hence the saying.",
-    quote: 'Barnaby Bright, Barnaby Bright, / The longest day and the shortest night', source: `${HONE}, 11 June` },
+    text: "Before Britain changed its calendar in 1752, St Barnabas's Day fell at the summer solstice itself, hence the saying. The clog almanacs marked it with a rake for hay-harvest, and London churches bought rose garlands for it.",
+    quote: 'Barnaby Bright, Barnaby Bright, / The longest day and the shortest night', source: `${HONE}, 11 June; ${CHAMBERS}, 11 June; J. Ray, English Proverbs (1678)` },
   { key: 'midsummer_men', month: 6, day: 23, icon: '🌱', title: 'Midsummer Men', tier: 'record',
     text: "Slips of orpine were stuck up in pairs on Midsummer Eve, one for a maid and one for her sweetheart: leaning together meant love, apart aversion. Later one plant served, its leaves bending right for true and left for false.",
     quote: 'If the leaves bent to the right, it was a sign of fidelity', source: `Aubrey, Remaines of Gentilisme (1686–87); ${HONE}, 24 June; ${BREWER}, "Midsummer Men"` },
