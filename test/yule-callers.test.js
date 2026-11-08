@@ -64,7 +64,9 @@ setTimeout(() => {
     const yule = at(Date.UTC(2026, 11, 22, 12) + d * 86400000, () => ({ season: h.calendarPublicState().season.key, ids: h.callers.callersStatePayload(p).offered.map((o) => o.id) }));
     // On a dated caller's day (Christmas Eve, St Stephen's Day) that caller comes first, and a Yule caller second.
     const isDated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
-    if (yule.season === 'yule') { days++; if (isYule(yule.ids[0]) || (isDated(yule.ids[0]) && isYule(yule.ids[1]))) yuleFirst++; }
+    // (On the 7th of January, Twelfth Night's second day, St Distaff's comes too: then both dated callers first.)
+    const n = yule.ids.findIndex((id) => !isDated(id));
+    if (yule.season === 'yule') { days++; if (n >= 0 && isYule(yule.ids[n])) yuleFirst++; }
   }
   check('no Yule caller comes at midsummer or at Samhain (20 days each)', offSeason === 0, offSeason);
   check('in the Yule season one is always first at the door', days === 20 && yuleFirst === days, { days, yuleFirst });

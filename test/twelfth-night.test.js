@@ -47,7 +47,9 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [6, 7].map((d) => offered(Date.UTC(2027, 0, d, 12)));
-  check('on Twelfth Night she comes first, a Yule caller after her', days.every((o) => o[0] === 'twelfth_night_cake' && o.length === 3 && CALLERS.find((x) => x.id === o[1]).season === 'yule'), days);
+  // On the 7th St Distaff's caller (data/stDistaff.js) comes too: the dated callers first, a Yule caller after.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on Twelfth Night she comes first (with any other caller of the day), a Yule caller after', days[0][0] === 'twelfth_night_cake' && days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('twelfth_night_cake') && CALLERS.find((x) => x.id === o[datedN(o)]).season === 'yule'), days);
   const outside = [Date.UTC(2027, 0, 5, 12), Date.UTC(2027, 0, 8, 12), Date.UTC(2027, 6, 6, 12)].map(offered);
   check('on other days she never comes', outside.every((o) => !o.includes('twelfth_night_cake') && o.length === 3), outside);
   at(Date.UTC(2027, 0, 6, 12), () => {

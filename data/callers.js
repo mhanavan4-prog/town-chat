@@ -847,6 +847,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 31 December · A. Mitchell, Proceedings of the Society of Antiquaries of Scotland 10 (1875)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Distaff's Day only (data/stDistaff.js), dated by the old calendar.
+  {
+    id: 'st_distaff',
+    caller: 'Maud Pyke',
+    icon: '🧶',
+    title: "St Distaff's Day",
+    when: { calendar: 'st_distaff', days: 2, label: "St Distaff's Day" },
+    plea: "It's St Distaff's, and Mother's set me to the spinning again now Christmas is done. But my brothers have been on all morning about firing the tow tonight, the way the old poem says, and I've a new dress and long hair. If they're going to do it, I want the pails ready and it done safe. Will you help me keep it a game?",
+    steps: [
+      { kind: 'rite', rite: 'st_distaff', label: 'The distaff dressed, the tow fired, the pails thrown, and Christmas bid good-night' },
+    ],
+    resolution: "The tow flares, the pails fly, and Maud's brothers go home soaked and laughing. Then the practical half, for flax and tow catch like paper. Loose fibre like that burns very easily, so keep it, and dresses and hair, well away from any flame, and use a fireguard on an open fire against sparks. If clothes catch, stop, drop and roll: running fans it; cover your face with your hands and roll over and over. Put the fire right out before bed. For a burn, cool running water for twenty minutes; take off clothes or rings near it, but nothing that's stuck; lay cling film over it loosely, and no butter or cream.",
+    lore: "St Distaff's Day: on the morrow after Twelfth Day, in Herrick's poem, the men fired the maids' flax and tow and the maids drenched them with pails of water (Hesperides, 1648; Hone, 1826).",
+    tier: 'record',
+    source: 'R. Herrick, Hesperides (1648) · HSE, textiles: fire and explosion · Cheshire Fire and Rescue, "Stop, drop and roll" · NHS, "Burns and scalds"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Plough Monday only (data/ploughMonday.js), dated by the old calendar.
   {
     id: 'plough_boys',
