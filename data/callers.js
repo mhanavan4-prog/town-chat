@@ -1205,6 +1205,23 @@ const CALLERS = [
     source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · NHS, "Heat exhaustion and heatstroke" · British Veterinary Association, Dogs Die in Hot Cars · Dogs Trust · UKHSA',
     reward: { gold: 40, xp: 35 },
   },
+  // St James's Day only (data/stJames.js), dated by the old calendar.
+  {
+    id: 'st_james',
+    caller: 'Polly Briggs, from Billingsgate',
+    icon: '🦪',
+    title: "St James's Day",
+    when: { calendar: 'st_james', days: 2, label: "St James's Day" },
+    plea: "It's St James's, and Father will have his first oysters raw off the barrow, because whoever eats them today will never want money. He's eighty-one and had the gripes half the spring. And our Joe's out on the step building a grotto of the shells and crying 'Mind the grotto!' at everybody. Will you come and talk Father round?",
+    steps: [
+      { kind: 'rite', rite: 'st_james', label: 'The first oysters eaten for luck, and a penny for the grotto' },
+    ],
+    resolution: "You sit with old Mr Briggs while the oysters go in the pot with butter and are cooked through, and he grumbles but eats them, and swears he'll never want money now. Joe's grotto has its candle lit and three pennies by dark. Then the practical half. Buy oysters from a reputable fishmonger; shellfish sold to eat come from classified waters. Older people, pregnant women, very young children and anyone who is unwell should not eat raw or lightly cooked shellfish, because it can be hard to get viruses out of live shellfish. If sickness or diarrhoea comes, wash hands with soap and water, because alcohol gel doesn't kill norovirus; keep drinking, and stay off work or school until two days after it stops; ring 111 if someone is drying out. And if the knife slips when shucking, press a clean, dry cloth on the cut for several minutes, and go to A&E if it won't stop bleeding.",
+    lore: "St James's Day: 'Whoever eats oysters on St. James's Day, will never want money', though they were 'necessarily somewhat dearer' (Chambers, 1864), and the children built shell grottoes and cried 'Mind the grotto!'",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 25 July · Food Standards Agency, raw shellfish and shellfish classification · NHS 111 Wales, "Norovirus" · nidirect, "Cuts and grazes"',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Swithin's Day only (data/stSwithin.js), dated by the old calendar.
   {
     id: 'st_swithin_hay',
