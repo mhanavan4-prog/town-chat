@@ -48,7 +48,9 @@ setTimeout(() => {
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [1, 2].map((d) => offered(Date.UTC(2027, 1, d, 12)));
   const season = at(Date.UTC(2027, 1, 1, 12), () => h.calendarPublicState().season.key);
-  check('on St Brigid\'s Eve they come first, a caller of the season after them', days.every((o) => o[0] === 'brigid_eve_brideog' && o.length === 3 && CALLERS.find((x) => x.id === o[1]).season === season), [season, days]);
+  // Mistress Cole comes on Candlemas Eve, the same day (data/candlemasEve.js):
+  // then the two dated callers come first, and the season's after them.
+  check('on St Brigid\'s Eve they come first (with any other caller of the day), a caller of the season after them', days.every((o) => { const d = o.filter((id) => CALLERS.find((x) => x.id === id).when); return o.length === 3 && d.includes('brigid_eve_brideog') && o.slice(0, d.length).every((id) => d.includes(id)) && CALLERS.find((x) => x.id === o[d.length]).season === season; }), [season, days]);
   const outside = [Date.UTC(2027, 0, 31, 12), Date.UTC(2027, 1, 3, 12), Date.UTC(2027, 7, 1, 12)].map(offered);
   check('on other days they never come', outside.every((o) => !o.includes('brigid_eve_brideog') && o.length === 3), outside);
   at(Date.UTC(2027, 1, 1, 12), () => {

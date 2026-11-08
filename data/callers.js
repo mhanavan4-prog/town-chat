@@ -865,6 +865,24 @@ const CALLERS = [
     source: 'Journal of the County Kildare Archaeological Society, vol. I (1891–95) · National Folklore Collection, Schools\' Collection (1937–39), via dúchas.ie',
     reward: { gold: 40, xp: 35 },
   },
+  // Candlemas Eve only (data/candlemasEve.js), dated by the old calendar: the
+  // green Mistress Cole brought in at midwinter comes down again.
+  {
+    id: 'candlemas_green',
+    caller: 'Mistress Cole',
+    icon: '🌿',
+    title: 'Candlemas Eve',
+    when: { calendar: 'candlemas_eve', days: 2, label: 'Candlemas Eve' },
+    plea: "Candlemas Eve, and there's the date on the wall in chalk, where I wrote it the day you hung the green. The holly's dropping and the ivy's gone brown, and I'll not have a goblin for every leaf. Will you help me take it all down and find every last sprig? And tell me what goes up in its place, for the walls look bare already.",
+    steps: [
+      { kind: 'rite', rite: 'candlemas_green', label: 'Every leaf of the green down, box up in its place, the brand laid by' },
+    ],
+    resolution: "Every leaf down, box over the door, and Mistress Cole rubs the chalk off the wall. Then the practical half. Sweep up the fallen berries before a child or the dog finds them: holly berries upset the stomach, mistletoe's are worse, ivy is harmful eaten, and box is bad for dogs; if one has been eaten, ring the doctor or the vet. Wear gloves for the holly. And if there was a Christmas tree, it doesn't go on the fire: pine and fir tar the chimney, and the tar can catch and carry the fire up to the roof. It goes to the council's collection. The only thing burned tonight is the brand, and that only till sunset.",
+    lore: "Candlemas Eve: every leaf of the Christmas green came down, for 'how many leaves there be / Neglected there … So many Goblins you shall see', and box went up in its place till Easter (Herrick, Hesperides, 1648).",
+    tier: 'record',
+    source: 'R. Herrick, Hesperides (1648) · W. Hone, The Every-Day Book (1826), 2 February',
+    reward: { gold: 40, xp: 35 },
+  },
   // Valentine's Eve only (data/valentine.js): the bay leaves and the salted egg.
   {
     id: 'valentines_eve',
