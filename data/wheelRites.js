@@ -24,7 +24,7 @@ const WHEEL_RITES = {
       'The ashes lie smooth and grey. No print; the old folk call it an ill omen, and bank the fire higher.',
       'Something has marked the ashes, a club or the cat. The mistress decides it was the club.',
     ],
-    lore: 'Martin Martin, of the Western Isles: "The mistress and servants of each family take a sheaf of oats and dress it up in women\'s apparel, put it in a large basket, and lay a wooden club by it, and this they call Briid\'s-bed." They cried three times, "Briid is come, Briid is welcome," and in the morning looked among the ashes for the impression of the club: "a true presage of a good crop and prosperous year," and no print an ill omen. Carmichael found it still kept in the 1890s.',
+    lore: 'Martin Martin, of the Western Isles: "The mistress and servants of each family take a sheaf of oats and dress it up in women\'s apparel, put it in a large basket, and lay a wooden club by it, and this they call Briid\'s-bed." They cried three times, "Briid is come, Briid is welcome," and in the morning looked among the ashes for the impression of the club: "a true presage of a good crop and prosperous year," and no print an ill omen. Carmichael, in 1900, gives it as still kept on the Eve of Bride, with "a small straight white wand (the bark being peeled off)" in place of the club, and the ashes searched for its marks or, better, for "the footprint of Bride".',
     tier: 'record',
     source: 'Martin Martin, A Description of the Western Islands of Scotland (1703) · A. Carmichael, Carmina Gadelica vol. 1 (1900)',
   },
