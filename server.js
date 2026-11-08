@@ -13107,7 +13107,22 @@ wss.on('connection', (ws, req) => {
         }
         best = mythBestOf(a, set.key);
       }
-      send(ws, { type: 'myth_quiz_result', set: set.key, score, of: set.items.length, best });
+      // 🔍 Ten out of ten on every set: Keeper of the Record, once.
+      let titled = false;
+      if (a && player.accountKey && MYTH_SETS.every((x) => mythBestOf(a, x.key) === x.items.length)) {
+        const prog = playerProgress[player.accountKey];
+        const had = !!(prog && Array.isArray(prog.riteTitles) && prog.riteTitles.includes('keeper_of_record'));
+        if (!had) {
+          grantRiteTitle(player.accountKey, 'keeper_of_record');
+          saveProgress();
+          titled = true;
+        }
+      }
+      send(ws, { type: 'myth_quiz_result', set: set.key, score, of: set.items.length, best, title: titled ? titleNameOf('keeper_of_record') : null });
+      if (titled) {
+        send(ws, { type: 'toast', always: true, message: `🔍 Ten out of ten on every set: you are ${titleNameOf('keeper_of_record')}.` });
+        send(ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+      }
       return;
     }
     if (msg.type === 'read_forbidden_book') {

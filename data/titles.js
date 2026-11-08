@@ -104,6 +104,11 @@ const TITLES = {
     id: 'years_round', name: "Keeper of the Year's Round", glyph: '🗓️',
     desc: 'Answered the door on every one of the old days, from Plough Monday to St Thomas\'s, and kept the year round.',
     from: 'Callers at the Door — every dated day'
+  },
+  keeper_of_record: {
+    id: 'keeper_of_record', name: 'Keeper of the Record', glyph: '🔍',
+    desc: 'Told myth from record without a slip: ten out of ten on every set of the Real Shelf\'s quiz.',
+    from: 'Myth or record? — every set, ten out of ten'
   }
 };
 
