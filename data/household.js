@@ -79,9 +79,9 @@ const HOUSEHOLD_RITES = {
       'The cow flicks her tail and the rowan stays put. She lets down her milk like a lamb.',
       'A neighbour passing sees the red thread over the door and says nothing at all, which tells you plenty.',
     ],
-    lore: '"Rowan-tree and red thread / Put the witches to their speed," the Scottish rhyme ran; in the Highlands it "gars a\' the witches dance to dead". The rowan and red thread were the gentle cure. The other was a crime: "scoring above the breath", cutting the suspected witch\'s forehead to draw her blood. A man was tried for it in 1700, and a woman was cut so in 1831.',
+    lore: '"Rowan-tree and red thread / Put the witches to their speed," the Scottish rhyme ran; in the Highlands it "gars a\' the witches dance to dead". The rowan and red thread were the gentle cure. The other was a crime: "scoring above the breath", cutting the suspected witch\'s forehead to draw her blood. In May 1700 Thomas Cook was indicted "for scoring a woman in Auchencraw above the breath" (Chambers). In Peeblesshire in 1814 a shepherd "dissatisfied with the quantity of milk which some of his cows yielded" blamed an old woman, "scoring aboon the breath being the only remedy prescribed by the superstition" (Scots Magazine). Campbell thought it "unknown in the Highlands", but at Obsdale in Easter Ross in 1750 two women had their foreheads "scored and cut … with an iron tool to the effusion of blood".',
     tier: 'record',
-    source: 'Popular Science Monthly, vol. 34 (1889) · J. G. Campbell (1902) · Kelso Chronicle (10 July 1863)',
+    source: 'Popular Science Monthly, vol. 34 (1889) · J. G. Campbell, Witchcraft & Second Sight in the Scottish Highlands (1902) · R. Chambers, Popular Rhymes of Scotland (1870) · Scots Magazine (October 1814) · Tain Museum, Tain Presbytery records (1750)',
   },
   // Dried cats: found sealed in walls, floors and roofs. The finds are real and
   // in museums; why they were put there nobody wrote down.
