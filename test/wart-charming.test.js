@@ -20,11 +20,13 @@ function makeMockSocket(tag) {
 }
 
 check('the wart charm cites Henderson and says why charms "worked"', /Henderson, Notes on the Folk-Lore of the Northern Counties/.test(WART_CHARM.source) && /go away on their own/.test(WART_CHARM.lore) && WART_CHARM.tier === 'record');
-check('…a knot for every wart, and the Devonshire apple', /as many knots/.test(WART_CHARM.use) && /Devonshire an apple cut in two/.test(WART_CHARM.lore));
+check('…a knot for every wart, and the apple: the North\'s, "This, too, is done in Devonshire"; Hunt\'s Cornish knot touched to each wart', /as many knots/.test(WART_CHARM.use) && /an apple cut in two/.test(WART_CHARM.lore) && /"This, too, is done in Devonshire"/.test(WART_CHARM.lore) && !/in Devonshire an apple/.test(WART_CHARM.lore) && /"each wart being carefully touched with the knot dedicated to it"/.test(WART_CHARM.lore) && /Hunt, Popular Romances/.test(WART_CHARM.source));
 check('knots is a reading kind', READING_KINDS.includes('knots'));
 const c = CALLERS.find((x) => x.id === 'charming_warts');
 check('Tam Lumsden has five warts, and brings an apple step', c && c.steps[0].kind === 'knots' && c.steps[0].count === 5 && c.steps[1].item === 'crab_apple');
-check('the resolution keeps the honest half', c && /most warts go by themselves/.test(c.resolution));
+check('the resolution keeps the honest half, now the NHS\'s: months or even years, not "a year or two"', c && /usually go away on their own, though it can take months or even years/.test(c.resolution) && !/year or two/.test(c.resolution + WART_CHARM.lore) && !/midden/.test(c.resolution));
+check('the practical half: a virus, not harmful; wash, don\'t pick, don\'t bite, don\'t share towels; the pharmacist\'s three months; when to see a GP', /Then the practical half/.test(c.resolution) && /Warts are caused by a virus\. They're not harmful/.test(c.resolution) && /wash your hands after touching them, don't scratch or pick them, don't bite your nails, and don't share towels or flannels/.test(c.resolution) && /can take up to three months, may irritate the skin, and don't always work/.test(c.resolution) && /bleeds or changes how it looks/.test(c.resolution) && /on the face/.test(c.resolution) && /NHS/.test(c.source));
+check('the lore: Henderson\'s "choice of several modes of relief", Devonshire as an also, Hunt\'s knot, Bacon\'s own warts, Cochrane\'s three in ten', /"the choice of several modes of relief"/.test(c.lore) && /"This, too, is done in Devonshire"/.test(c.lore) && /"each wart being carefully touched with the knot dedicated to it"/.test(c.lore) && /"because of mine own experience"/.test(c.lore) && /about three cases in ten/.test(c.lore) && /"a very reasonable option"/.test(c.lore) && /Cochrane/.test(c.source) && /Bacon/.test(c.source));
 
 require('../server.js');
 

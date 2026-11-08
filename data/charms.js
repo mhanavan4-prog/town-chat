@@ -102,9 +102,9 @@ const WART_CHARM = {
   icon: '🪢',
   title: 'Charming Warts',
   use: 'Count the warts; tie as many knots in a hair or a thread, touching a wart with each; then throw it away or bury it — as it rots, they go.',
-  lore: 'Henderson set down a whole page of wart cures from the north of England: a knot in a hair for every wart, thrown away; in Devonshire an apple cut in two, rubbed on the wart, tied together again and buried, the warts going as the apple rots; a black snail rubbed on them and stuck on a thorn. The honest secret of every wart charm is that most common warts go away on their own in a year or two — so the charm nearly always "worked".',
+  lore: 'Henderson\'s Northumbrian schoolboy had "the choice of several modes of relief": "as many knots in a hair as there are warts on the hands", thrown away; a large black snail rubbed on them and thrown against a thorn hedge; an apple cut in two, rubbed on, tied together and buried, "confident that as the apple decays the warts will disappear", and "This, too, is done in Devonshire". In Cornwall, Hunt found, the knots were tied in a string, "each wart being carefully touched with the knot dedicated to it", and the string was buried. The honest secret of every wart charm is that warts usually go away on their own, though it can take months or even years, so the charm nearly always "worked".',
   tier: 'record',
-  source: 'William Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. 5',
+  source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. V · R. Hunt, Popular Romances of the West of England (1865; 3rd ed. 1903), "Cures for Warts" · F. Bacon, Sylva Sylvarum (1626), no. 997, as Henderson quotes it · Cochrane review CD001781 (2003, 2012) · NHS, "Warts and verrucas"',
 };
 
 // Charming a stye — another counted working (like the wart knots): stroke it
