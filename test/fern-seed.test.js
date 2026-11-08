@@ -26,7 +26,7 @@ check('Gadshill and the Chamberlain, as printed (Henry IV, Part 1, 2.1)', /"We h
 check('Jonson\'s Ferret: "No fern-seed in my pocket"', /"No fern-seed in my pocket"/.test(R.lore) && /The New Inn \(1629\), 1\.6/.test(R.source));
 check('the honest botany: no seed, spores; Malpighi in the late 1600s; the life cycle in the 1840s', /There was no seed to catch/.test(R.lore) && /spores/.test(R.lore) && /Malpighi/.test(R.lore) && /1840s/.test(R.lore) && /Moran/.test(R.source) && /Hofmeister/.test(R.source));
 check('every sign is an empty plate or dust, and nobody invisible', R.outcomes.every((o) => /empty|dust/.test(o)));
-check('the 23rd and the 24th', FERN_WHEN.month === 6 && FERN_WHEN.from === 23 && FERN_WHEN.to === 24 && FERN_WHEN.label === "St John's Eve");
+check('the 23rd alone, the eve itself', FERN_WHEN.month === 6 && FERN_WHEN.from === 23 && FERN_WHEN.to === 23 && FERN_WHEN.label === "St John's Eve");
 const c = CALLERS.find((x) => x.id === 'fern_seed_eve');
 check('Hal Pritchard: the plate under the fern, on his night', c && c.when === FERN_WHEN && c.steps.length === 1 && c.steps[0].rite === 'fern_seed');
 check('the practical half: no seed, keep out of the orchard, ticks in the bracken', /there is no seed to catch/.test(c.resolution) && /keep out of the orchard/.test(c.resolution) && /ticks/.test(c.resolution));
@@ -44,11 +44,12 @@ setTimeout(() => {
   const realNow = Date.now;
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
-  const days = [23, 24].map((d) => offered(Date.UTC(2027, 5, d, 12)));
+  const days = [23].map((d) => offered(Date.UTC(2027, 5, d, 12)));
   // Hester Bligh's Midsummer Men (data/midsummerMen.js) come the same two days: both dated callers first, a midsummer caller after.
   const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
   check('on St John\'s Eve he comes first (with any other caller of the day), a midsummer caller after', days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('fern_seed_eve') && CALLERS.find((x) => x.id === o[datedN(o)]).season === 'litha'), days);
-  const outside = [Date.UTC(2027, 5, 22, 12), Date.UTC(2027, 5, 25, 12), Date.UTC(2027, 11, 23, 12)].map(offered);
+  // The eve alone: on Midsummer Day itself the quarter-day caller comes instead.
+  const outside = [Date.UTC(2027, 5, 22, 12), Date.UTC(2027, 5, 24, 12), Date.UTC(2027, 5, 25, 12), Date.UTC(2027, 11, 23, 12)].map(offered);
   check('on other days he never comes', outside.every((o) => !o.includes('fern_seed_eve') && o.length === 3), outside);
   at(Date.UTC(2027, 5, 23, 12), () => {
     h.accounts.hal.callers.active = { id: c.id, done: {} };

@@ -1,14 +1,15 @@
 // ---------------------------------------------------------------------------
 // Fern seed: gathered at midnight on St John's Eve (23 June) to walk
 // invisible. There was no seed to gather: ferns grow from spores. A caller
-// comes on the 23rd and 24th only (FERN_WHEN, by calendar date, UTC).
+// comes on the 23rd only (FERN_WHEN, by calendar date, UTC).
 //
 // Sources: Shakespeare, Henry IV, Part 1 (c. 1597), 2.1; Jonson, The New Inn
 // (1629), 1.6; on the "seed", R. C. Moran, Fiddlehead Forum 22 (1995), and J.
 // Sachs, History of Botany (trans. 1890), on Hofmeister's work of 1849–51.
 // Brand, Hone and Chambers could not be read directly, so they are not cited.
 // ---------------------------------------------------------------------------
-const FERN_WHEN = { month: 6, from: 23, to: 24, label: "St John's Eve" };
+// The eve alone since Midsummer Day has a caller of its own (data/midsummerQuarter.js).
+const FERN_WHEN = { month: 6, from: 23, to: 23, label: "St John's Eve" };
 
 const FERN_RITES = {
   fern_seed: {
