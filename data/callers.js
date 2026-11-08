@@ -431,10 +431,10 @@ const CALLERS = [
       { kind: 'rite', rite: 'nuts', label: 'Burn the nuts for Nell and her lad' },
       { kind: 'rite', rite: 'luggies', label: 'Set out the three luggies' },
     ],
-    resolution: "Whatever the fire says, the kitchen's full of laughing by the end of it, and Nell has burnt her fingers fishing her nut back out. You tell them what every Hallowe'en has always been for: a night to say aloud who you like, and blame it on the nuts.",
-    lore: "Burns wrote \"Halloween\" in 1785 and gave it his own notes on the charms of a west-of-Scotland Hallowe'en: nuts named for a lad and a lass and laid in the fire — whether they burned quietly together or started apart foretold the courtship — and the three luggies, clean water, foul and empty, dipped into blindfold with the left hand.",
+    resolution: "Whatever the fire says, the kitchen's full of laughing by the end of it, and Nell has burnt her fingers fishing her nut back out. You tell them what every Hallowe'en has always been for: a night to say aloud who you like, and blame it on the nuts. Then the practical half, for Nell's fingers. Hold them under cool running water for twenty minutes, straight away, and take her ring off before the fingers swell, but leave anything that's stuck to the skin. No butter, no ice, no creams, and don't burst the blister. Lay cling film loosely over it, or put the hand in a clean plastic bag, and paracetamol or ibuprofen for the pain. Get any burn that blisters looked at, and a burn on the hand, or one that's deep, white or charred, or bigger than her own hand, goes to A&E; for a child under five, ring 111 for advice. And next year, the tongs: the nut has said its piece once it's in the fire.",
+    lore: "Burns wrote \"Halloween\" in 1785 for the night \"thought to be a night when witches, devils, and other mischief-making beings are abroad\", and gave it his own notes on the charms of \"the peasantry in the west of Scotland\": nuts named for a lad and a lass and laid in the fire, and \"according as they burn quietly together, or start from beside one another, the course and issue of the courtship will be\"; and the three luggies, clean water, foul and empty, dipped into blindfold with the left hand.",
     tier: 'record',
-    source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
+    source: 'Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes · NHS, "Burns and scalds" (nhs.uk and NHS 111 Wales) · British Red Cross, "Burns"',
     reward: { gold: 50, xp: 40 },
   },
   {
