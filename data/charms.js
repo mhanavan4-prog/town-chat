@@ -55,9 +55,9 @@ const CHARMS = {
       'and whoever carries these lines shall never have the toothache.',
     ],
     use: 'Written out on paper, folded, and worn round the neck — a charm to carry rather than to say once.',
-    lore: 'One of the commonest charms in Britain and Ireland, written out on scraps of paper and carried or worn. A Scottish example, made between 1860 and 1880, is in the Science Museum, mounted under glass. Its first and last lines are given here as written; the dialogue between them is shortened.',
+    lore: 'One of the most widespread charms of all, written out on scraps of paper and carried or worn. Its Latin forms go back to the eleventh century, "Christus super marmoreum sedebat, Petrus tristes ante eum stabat". A Scottish example, made between 1860 and 1880 for a Mary McLeod, is in the Science Museum, mounted under glass; "this charm was to be worn around the neck". In the Fylde in 1867 it was "a foolish charm, yet much accredited amongst us", and Lady Wilde (1887) has an Irish rhyming version "to be sewn on the clothes". Its first and last lines are given here as the Scottish paper has them; the dialogue between them is shortened.',
     tier: 'record',
-    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732)',
+    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732) · J. Harland and T. T. Wilkinson, Lancashire Folk-lore (1867) · Lady Wilde, Ancient Legends of Ireland (1887) · T. Ķencis, Incantatio 3 (2013)',
   },
   sprain: {
     key: 'sprain',
