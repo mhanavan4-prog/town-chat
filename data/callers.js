@@ -1138,6 +1138,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 25 July · W. Hone, The Every-Day Book, vol. II (1827), 25 July',
     reward: { gold: 40, xp: 35 },
   },
+  // May Day only (data/mayGarland.js), dated by the old calendar.
+  {
+    id: 'may_garland',
+    caller: 'Mrs Hayward and her girls',
+    icon: '🌼',
+    title: 'May Day',
+    when: { calendar: 'going_a_maying', days: 2, label: 'May Day' },
+    plea: "They've been on at me since Easter for a May garland like I carried as a girl, hoops and flowers and a doll in the middle. I've two hoops off an old barrel and Ellen's doll in a white frock, but I can't remember how it all goes together, and they want to take it round the doors this morning. Will you help us make it, and come round with us?",
+    steps: [
+      { kind: 'rite', rite: 'may_garland', label: 'The hoops crossed and wound, the doll in white, the garland shown at every door' },
+    ],
+    resolution: "The garland goes round the doors and the girls come home with pennies and flowers in their hair. Then the practical half. Pick the flowers, never dig them up: uprooting a wild plant is against the law without the landowner's leave, and Plantlife's rule is to take no more than one flower in twenty, and if in doubt, don't pick. Leave the bluebells' bulbs where they are. Lily of the valley is poisonous if eaten, bluebells and buttercups are harmful, and buttercup sap stings the skin, so the girls wash their hands after and nothing from the garland goes in a mouth. And at the doors: their mother goes with them, and they go only to houses they know.",
+    lore: "The May garland: on May morning children carried garlands of crossed hoops wound with flowers, a doll in white in the middle, from door to door for pennies (Frazer, 1922; Folk-Lore, 1893).",
+    tier: 'record',
+    source: 'J. G. Frazer, The Golden Bough (1922) · Folk-Lore 4 (1893) · Plantlife, code for picking wild flowers · Wildlife and Countryside Act 1981, s. 13',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Mark's Eve only (data/stMarksEve.js), dated by the old calendar.
   {
     id: 'st_marks_watch',
