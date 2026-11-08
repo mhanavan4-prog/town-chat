@@ -121,10 +121,10 @@ const CALLERS = [
       { kind: 'deliver', item: 'st_johns_wort', qty: 2, label: "St John's wort, for over the door" },
       { kind: 'scry', label: 'Scry the turning of the wheel for him' },
     ],
-    resolution: "St John's wort over the lintel, as his grandfather did, and a sprig at the window for good measure. The bowl shows the wheel turning on regardless. The dog comes back to the hearth by the week's end — though Hobb also finds his pipe behind the settle.",
-    lore: "St John's wort flowers about Midsummer and was hung over doors and windows on St John's Eve (23 June) against evil spirits. John Stow's Survey of London (1598) describes Midsummer Eve doors hung with green birch, fennel, St John's wort, orpine and white lilies.",
+    resolution: "St John's wort over the lintel, as his grandfather did, and a sprig at the window for good measure. The bowl shows the wheel turning on regardless. The dog comes back to the hearth by the week's end, though Hobb also finds his pipe behind the settle. Then the practical half. St John's wort over the door is one thing; taken as a remedy it's another. It interacts with a great many medicines: it makes the contraceptive pill and the morning-after pill less reliable, and it must not be taken with medicines for depression or anxiety, with warfarin or other blood thinners, or with medicines for epilepsy, among others, so ask a pharmacist first. It can make the skin burn in strong sun. And it's registered only for slightly low mood and mild anxiety, not for depression: if low mood is affecting your life, ring 111 or talk to a GP, and the Samaritans are on 116 123, free, at any time.",
+    lore: "St John's wort flowers from June, about Midsummer. Stow, in the 1603 edition of his Survey of London, saw London's doors on the vigils of St John Baptist and of St Peter and Paul 'shadowed with greene Birch, long Fennel, Saint Iohns wort, Orpin, white Lillies, and such like, garnished vpon with Garlands of beautifull flowers', with 'Lampes of glasse, with oyle burning in them all the night'. He gave a reason only for the bonfires, 'to purge the infection of the ayre'. Later writers had the wort hung up 'to drive away witches', and called it fuga daemonum, the devils' flight; Horwood (about 1919) even put the witches in Stow, who never mentions them.",
     tier: 'record',
-    source: 'John Stow, A Survey of London (1598)',
+    source: 'J. Stow, A Survey of London (1603), ed. C. L. Kingsford (1908), "Watches in London" · A. R. Horwood, British Wild Flowers in Their Natural Haunts (c. 1919) · M. Grieve, A Modern Herbal (1931) · MHRA, Drug Safety Update (2014) · St John\'s wort THR leaflet (2021) · NHS, "Low mood" · Samaritans',
     reward: { gold: 55, xp: 35 },
   },
   {
