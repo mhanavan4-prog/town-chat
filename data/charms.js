@@ -71,9 +71,9 @@ const CHARMS = {
       'Heal in the Holy Ghost\'s name.',
     ],
     use: 'Said low, so the bystanders cannot hear, while a thread of black wool cast with nine knots is tied round the sprained leg or arm.',
-    lore: 'The Shetland minister of Sandsting and Aithsting set it down about 1841; Orkney records call the thread a "wresting threed" in 1616. Grimm saw in it the oldest charm in German: the Second Merseburg Charm, written in the 10th century, where Wodan heals Balder\'s foal with "ben zi bena, bluot zi bluoda, lid zi geliden": bone to bone, blood to blood, limb to limb, as if glued.',
+    lore: 'The New Statistical Account (1845) records it in Sandsting and Aithsting, Shetland: "a thread spun from black wool, on which are cast nine knots", tied round the sprain while the operator speaks "in such a tone of voice as not to be heard by the bystanders". In Orkney in 1616 Katherine Caray was tried for making "a wresting thread" in the name of the Trinity, which "wald mak ony wrest of man or beast haill" (Dalyell, from the Orkney records). Grimm, reading the wresting thread in Chambers (1842), set it beside the Second Merseburg Charm, a heathen spell written into a manuscript in the 10th century, where Phol and Wodan ride to the wood, Balder\'s foal sprains its foot, and the goddesses charm it and then Wodan, "so he uuola conda", as he well knew how: "ben zi bena, bluot zi bluoda, lid zi geliden, sose gelimida sin": bone to bone, blood to blood, limb to limb, as if glued. What was "told in a heathen spell in Thuringia before the tenth century", Grimm wrote, was still found "in conjuring formulas known to the country folk of Scotland and Denmark".',
     tier: 'record',
-    source: 'New Statistical Account of Scotland, vol. 15 (1845), Sandsting and Aithsting · Merseburg, Domstiftsbibliothek Cod. 136 (10th c.) · J. Grimm, Deutsche Mythologie (1835), in English as Teutonic Mythology',
+    source: 'New Statistical Account of Scotland, vol. 15 (1845), Sandsting and Aithsting · J. G. Dalyell, The Darker Superstitions of Scotland (1834) · Merseburg, Domstiftsbibliothek Cod. 136 (10th c.) · J. Grimm, Deutsche Mythologie (1835), in English as Teutonic Mythology',
   },
   cramp: {
     key: 'cramp',
