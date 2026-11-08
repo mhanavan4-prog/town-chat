@@ -1222,6 +1222,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 25 July · Food Standards Agency, raw shellfish and shellfish classification · NHS 111 Wales, "Norovirus" · nidirect, "Cuts and grazes"',
     reward: { gold: 40, xp: 35 },
   },
+  // Tynwald Day only (data/tynwald.js), dated by the old calendar.
+  {
+    id: 'tynwald',
+    caller: 'Juan Kinvig, from Peel',
+    icon: '🌿',
+    title: 'Tynwald Day',
+    when: { calendar: 'tynwald', days: 1, label: 'Tynwald Day' },
+    plea: "It's Tynwald Day. The harbour light at Peel's been out since the winter storm, and the boats come in blind; the Harbour Board says it's no business of theirs, and I've had nothing but letters. My father said any man can take a grievance to the foot of the Hill. I've written it out. Will you walk to St John's with me and see I do it right?",
+    steps: [
+      { kind: 'rite', rite: 'tynwald', label: 'Bollan bane pinned on, the Acts heard from the Hill, and the petition taken to its foot' },
+    ],
+    resolution: "You pin bollan bane on Juan's coat and walk with him up the processional path. At the foot of the Hill he hands his petition to the Clerk, and it goes up to the President. By autumn a committee has been to Peel to look at the harbour. Then the practical half. A Petition for Redress can be presented only at St John's on Tynwald Day, by the petitioner or someone they authorise, three people at most, walking the processional path and handing it to the Clerk of Tynwald at the foot of the Hill. It must be typed, not handwritten, headed 'In Tynwald' and addressed 'To the Honourable Members of Tynwald Court', with your name and address; respectful, decorous and temperate; ending with a prayer, and signed on that page. It must be a matter of public interest that falls within Tynwald's province, and not a case a court, tribunal or complaints procedure could deal with: a quarrel over a neighbour's wall belongs in court, not on the Hill. Ask the Clerk of Tynwald's office for advice beforehand, and go to the petitioners' briefing at the Lych Gate of the Royal Chapel on the morning.",
+    lore: "Tynwald Day: on Old Midsummer Day the Manx parliament sits on Tynwald Hill, and 'Any person may approach Tynwald Hill on Tynwald Day and present a Petition for Redress'; everyone wears bollan bane, once worn 'to protect them from witchcraft' (Moore, 1891).",
+    tier: 'record',
+    source: 'Tynwald, "Tynwald Day" · Standing Orders of Tynwald Court (2023), 6.1, 6.5–6.11 · A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Swithin's Day only (data/stSwithin.js), dated by the old calendar.
   {
     id: 'st_swithin_hay',
