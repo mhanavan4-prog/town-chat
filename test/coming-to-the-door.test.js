@@ -35,10 +35,12 @@ const nov14 = datedComing(Date.UTC(2026, 10, 14, 12), 400);
 check('once the window has closed it is next year\'s', nov14.find((x) => x.id === 'martinmas_cock').inDays === 360, nov14.find((x) => x.id === 'martinmas_cock'));
 const w = nextWindow({ calendar: 'plough_monday', days: 2 }, Date.UTC(2027, 0, 12, 18));
 check('a moving day\'s window is still open on its second day', w && w.start === Date.UTC(2027, 0, 11) && w.end === Date.UTC(2027, 0, 13));
-// With a short horizon (the dated days are now close together all year): 1
-// July has nothing within 5 days, so it gives just the next one.
-const spring = datedComing(Date.UTC(2026, 6, 1, 12), 5);
-check('nothing beyond the horizon, but when none is that near, still the next one', datedComing(NOV7).every((x) => x.inDays <= 120) && spring.length === 1 && spring[0].id === datedComing(Date.UTC(2026, 6, 1, 12), 400)[0].id && spring[0].inDays > 5, spring);
+// With a short horizon (the dated days are now close together all year): the
+// first day from 1 June with nothing within 5 days gives just the next one.
+let quiet = Date.UTC(2026, 5, 1, 12);
+while (datedComing(quiet, 400)[0].inDays <= 5) quiet += 86400000;
+const spring = datedComing(quiet, 5);
+check('nothing beyond the horizon, but when none is that near, still the next one', datedComing(NOV7).every((x) => x.inDays <= 120) && spring.length === 1 && spring[0].id === datedComing(quiet, 400)[0].id && spring[0].inDays > 5, [new Date(quiet).toISOString(), spring]);
 
 // Where next.
 const book = buildCharmBook({ acct: {}, prog: {}, seasonKey: null });

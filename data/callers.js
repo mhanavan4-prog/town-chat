@@ -1103,6 +1103,23 @@ const CALLERS = [
     source: 'Royal Injunctions of 1559, XVIII–XIX · W. Hone, The Every-Day Book, vol. I (1826), 12 May',
     reward: { gold: 40, xp: 35 },
   },
+  // The Rush-bearing Saturday only (data/rushbearing.js), dated by the old calendar.
+  {
+    id: 'rushbearing_ambleside',
+    caller: 'Annie Fleming, from Ambleside',
+    icon: '💐',
+    title: 'The Rush-bearing',
+    when: { calendar: 'rushbearing', days: 2, label: 'the Rush-bearing Saturday' },
+    plea: "It's the rush-bearing at home today, and I'm here instead. I promised our Bella I'd make her a bearing the way Grandmother did, a harp of rushes with flowers wound in, and I don't know how the rushes go, nor where you'd cut any here. Will you help me make it, and walk behind the band with her?",
+    steps: [
+      { kind: 'rite', rite: 'rushbearing', label: 'The bearing made, carried to church behind the band, and set by the pulpit' },
+    ],
+    resolution: "Bella's harp is the best in the procession, and she has her gingerbread. Then the practical half. Cut the rushes, never pull them up: uprooting a wild plant is against the law, and the field is somebody's, so ask first. Leave the rushy corners alone from April to June, for lapwing, curlew and snipe nest in the rushes and a nest in use is protected; Gilbert White says the rush is best in the height of summer anyway. If you'd make rushlights of the leavings, as he did at Selborne: peel the soft rush, leaving 'one regular, narrow, even rib' to hold the pith, bleach it in the dew, dry it, and dip it in scalding fat, with the pan on a steady hob and the children out of the way. A rushlight is a naked flame, so never leave one burning in an empty room, keep it out of reach of children and pets, and put it out before you sleep.",
+    lore: "Rush-bearing: at Ambleside some forty girls carried bearings of rushes and flowers to church behind a band and set them round the pulpit and pews, and had gingerbread at the church door (The Gentleman's Magazine, 1823 and 1843).",
+    tier: 'record',
+    source: "The Gentleman's Magazine (1823), pt 2, p. 173, and (1843), pt 2, p. 572 · G. White, The Natural History of Selborne (1789), Letter XXVI to Barrington",
+    reward: { gold: 40, xp: 35 },
+  },
   // Grotto Day only (data/grotto.js), dated by the old calendar.
   {
     id: 'grotto_day_shells',
