@@ -2136,10 +2136,10 @@ const CALLERS = [
     steps: [
       { kind: 'charm', charm: 'cramp', label: 'Say the charm and make the three crosses' },
     ],
-    resolution: "You say it and make the three crosses over his leg, and he insists on the eel-skin garter too, which smells. Then you show him what actually unties it: stand on the leg, pull the toes up towards the knee, stretch the calf, rub it warm. He tries it next time it comes on. He keeps the garter anyway.",
-    lore: "\"The devil is tying a knot in my leg\": a schoolboys' cramp charm Coleridge remembered from Christ's Hospital, printed by Henderson with the eel-skin garter and the sheep's \"cramp-bone\". English kings blessed gold and silver cramp rings on Good Friday for the same complaint, from Edward II to Mary I.",
+    resolution: "You say it and make the three crosses over his leg, and he insists on the eel-skin round his leg too, which smells. Then the practical half, and the Christ's Hospital boys had part of it: they got out of bed and stood firm on the leg. Standing and putting his weight on it helps; so does stretching and rubbing the muscle. Straighten the leg and pull the foot up at the ankle so the toes point at the shin, and stretch the calf. Paracetamol or ibuprofen can ease the soreness after, but they're too slow to help while it's on. To have it less often, stretch the calves against a wall a few times a day, the last just before bed, and drink enough. See a doctor if the cramps are spoiling his sleep, last longer than ten minutes, or come with numbness or swelling, and ask whether any medicine he takes, statins or water tablets among them, could be bringing them on. But pain and swelling in one calf, with red or darkened skin, that doesn't go off isn't cramp: it may be a clot, and wants an urgent doctor or 111 the same day, and 999 if he's short of breath or has chest pain with it. He tries the stretch next time it comes on. He keeps the eel-skin anyway.",
+    lore: "\"The devil is tying a knot in my leg\": a schoolboys' cramp charm Coleridge recorded from Christ's Hospital, where the boy would \"stand firmly on the leg affected\" and cross it thrice (Henderson, 1879), who adds the Durham garter below the knee, the eel's skin and the mutton \"cramp-bone\". English kings blessed cramp rings on Good Friday for the same complaint, from Edward II to Mary I.",
     tier: 'record',
-    source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1879), ch. 5 · Andrew Borde (1542)',
+    source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1879), chs. 1 and 5 · A. Borde, The Fyrst Boke of the Introduction of Knowledge (1542), ch. 1 · NHS, "Leg cramps" and "Deep vein thrombosis (DVT)"',
     reward: { gold: 35, xp: 30 },
   },
   {
