@@ -1002,6 +1002,23 @@ const CALLERS = [
     source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · Farm Advisory Service, "Treating chilled lambs" and "Rules of colostrum for lambs" · NHS Greater Glasgow and Clyde, cold weather',
     reward: { gold: 40, xp: 35 },
   },
+  // St Patrick's Day only (data/stPatrick.js), dated by the old calendar.
+  {
+    id: 'st_patrick',
+    caller: 'Owen Keogh',
+    icon: '☘️',
+    title: "St Patrick's Day",
+    when: { calendar: 'st_patrick', days: 2, label: "St Patrick's Day" },
+    plea: "St Patrick's Day, and I've the shamrock in my hat and a cross for each of the children. Tonight the lads are for drowning the shamrock, and the last time, my wife says, it was me got drowned along with it, and I walked home by way of the ditch. I want to keep the day right and keep my feet. Will you see me through it?",
+    steps: [
+      { kind: 'rite', rite: 'st_patrick', label: 'Shamrock in the hat, crosses for the children, and the shamrock drowned in the last glass' },
+    ],
+    resolution: "Owen drowns the shamrock in the last glass, throws it over his shoulder, and walks home on the road. Then the practical half. Ireland's low-risk limits are under 11 standard drinks a week for a woman and 17 for a man, never more than 6 at one sitting, with two or three days a week with none; in the UK, no more than 14 units a week, spread over three days or more. Eat before and while you drink, sip, and have water or a soft drink between. And never drink and drive: in Ireland the limit is 50 milligrams to 100 millilitres of blood, and 20 for learners, new drivers and professional drivers; the only safe amount is none.",
+    lore: "St Patrick's Day: in 1681 the common people wore shamrock in their hats (Dinely); by 1827 it was drowned in the last glass of the Patrick's pot (Hone).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1827), 17 March · HSE, "Weekly low-risk alcohol guidelines" · NHS, "The risks of drinking too much" · Road Safety Authority, Rules of the Road',
+    reward: { gold: 40, xp: 35 },
+  },
   // Carling Sunday only (data/carlingSunday.js), dated by Easter through the old calendar.
   {
     id: 'carling_sunday',
