@@ -205,9 +205,9 @@ const OLD_CALENDAR = [
     text: 'A quarter day, when accounts were settled (a gale day for Irish rents), and tenants brought the landlord a goose with the rent; the stubble goose, fattened on the harvest fields, was eaten: eat goose at Michaelmas and you would not want for money all year.',
     quote: 'At Christmasse a capon, at Mighelmasse a goose', source: 'G. Gascoigne, A Hundreth Sundrie Flowres (1573); J. Simpson & S. Roud, A Dictionary of English Folklore (2000)' },
   // ── October ──
-  { key: 'mop_fair', month: 10, day: 10, icon: '🧹', title: 'Old Michaelmas: the mop fairs', tier: 'folk',
-    text: 'Farm servants stood for hire with a token of their trade (a crook, a tuft of wool, a pail, a mop) and, once hired, wore ribbons instead.',
-    source: 'Brand, Popular Antiquities (1849); Simpson & Roud (2000)' },
+  { key: 'mop_fair', month: 10, day: 11, icon: '🧹', title: 'Old Michaelmas: the mop fairs', tier: 'record',
+    text: 'Farm servants stood in the street to be hired for the year with the sign of their trade in their hats (whipcord for a carter, wool for a shepherd, cow-hair for a cowman) and, once hired and paid the earnest shilling, wore ribbons instead.',
+    quote: 'the emblems in the hats are exchanged for ribbons of almost every hue', source: 'W. Pare, in Hone, The Table Book (1827); Howitt, The Rural Life of England (1840)' },
   { key: 'horn_fair', month: 10, day: 18, icon: '🐂', title: "St Luke's Day: Horn Fair", tier: 'record',
     text: "Revellers with horns in their hats went three times round Charlton church; Hone thought the horns came from St Luke's ox. A fine spell about now is St Luke's little summer.",
     quote: 'all is fair at Horn Fair', source: `${HONE}, 18 October` },
