@@ -1240,6 +1240,23 @@ const CALLERS = [
     source: "The Gentleman's Magazine (1823), pt 2, p. 173, and (1843), pt 2, p. 572 · G. White, The Natural History of Selborne (1789), Letter XXVI to Barrington",
     reward: { gold: 40, xp: 35 },
   },
+  // Wakes Monday at Abbots Bromley only (data/hornDance.js), dated by the old calendar.
+  {
+    id: 'horn_dance',
+    caller: 'Arthur Bentley, a deer-man',
+    icon: '🦌',
+    title: 'The Horn Dance',
+    when: { calendar: 'horn_dance', days: 2, label: 'Wakes Monday' },
+    plea: "It's Wakes Monday, and I'm one of the six this year for the first time: the white horns my grandfather carried. It's ten mile round the parish with them on my shoulder, and I've never carried them past the end of the street. Will you walk the round with me, and see I don't drop them in front of the Hall?",
+    steps: [
+      { kind: 'rite', rite: 'horn_dance', label: 'The horns fetched from the church, carried round the parish, and brought home after dark' },
+    ],
+    resolution: "Arthur brings the white horns home with the others after dark, and never once dropped them. Then the practical half, for a day on your feet. Wear comfortable boots that fit, and change your socks if your feet sweat; if a blister comes, don't burst it, but cover it with a soft plaster. Where the lanes have no pavement, a procession keeps to the left, close in, with someone watching at the front and back, and in poor light wears something bright. And for the horns: keep the load close in, don't twist or lean under it, and carry no more than you can easily manage. Hand it on before you have to drop it.",
+    lore: "The Horn Dance: on Wakes Monday six deer-men carry reindeer antlers round Abbots Bromley all day; Plot (1686) knew it as a Christmas hobby-horse dance, already only 'within memory'.",
+    tier: 'record',
+    source: 'R. Plot, The Natural History of Stafford-shire (1686) · NHS, "Blisters" · The Highway Code, rules 3 and 5 · HSE, "Good handling technique"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Grotto Day only (data/grotto.js), dated by the old calendar.
   {
     id: 'grotto_day_shells',
