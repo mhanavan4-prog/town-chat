@@ -195,9 +195,9 @@ const OLD_CALENDAR = [
     text: 'Chartered in 1606 for "the last Tuesday in August": dulse and yellowman, and nearly four hundred years of it.',
     source: 'Ould Lammas Fair (charter of 1606)' },
   // ── September ──
-  { key: 'horn_dance', rule: wakesMonday, icon: '🦌', title: 'The Abbots Bromley Horn Dance', tier: 'record',
-    text: 'Six men carry reindeer antlers round the parish from morning to night, with a hobby horse, Maid Marian, a fool and a boy with a bow. Robert Plot recorded it in 1686; one antler dates to about 1065.',
-    source: 'R. Plot, Natural History of Staffordshire (1686)' },
+  { key: 'horn_dance', rule: wakesMonday, moves: 'Wakes Monday, early in September', icon: '🦌', title: 'The Abbots Bromley Horn Dance', tier: 'record',
+    text: 'Six men carry reindeer antlers round the parish from morning to night, with a hobby horse, Maid Marian, a fool and a boy with a bow. Robert Plot recorded it in 1686 as a Christmas hobby-horse dance, already only "within memory"; one antler has been dated to 1065, give or take eighty years.',
+    quote: 'as many Rain deers heads, 3 of them painted white, and 3 red', source: 'R. Plot, Natural History of Staffordshire (1686), p. 434' },
   { key: 'holy_rood', month: 9, day: 14, icon: '🌰', title: 'Holy Rood Day: nutting', tier: 'record',
     text: 'The young went nutting in the hedges, and Eton boys had a day off in September, perhaps this one, to do the same, after writing verses on the autumn.',
     quote: 'This day, they say, is called Holy-rood day, / And all the youth are now a nutting gone', source: `${HONE}, 14 September` },
