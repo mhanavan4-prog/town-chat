@@ -47,7 +47,9 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [Date.UTC(2027, 9, 31, 12), Date.UTC(2027, 10, 1, 12)].map(offered);
-  check('on Hollantide Eve they come first, a Samhain caller after them', days.every((o) => o[0] === 'hop_tu_naa_moots' && o.length === 3 && CALLERS.find((x) => x.id === o[1]).season === 'samhain'), days);
+  // Wenna Trewhella's Allantide (data/allantide.js) is the same night: both dated callers first, a Samhain caller after.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on Hollantide Eve they come first (with any other caller of the day), a Samhain caller after them', days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('hop_tu_naa_moots') && CALLERS.find((x) => x.id === o[datedN(o)]).season === 'samhain'), days);
   const outside = [Date.UTC(2027, 9, 30, 12), Date.UTC(2027, 10, 3, 12), Date.UTC(2027, 3, 30, 12)].map(offered);
   check('on other days they never come', outside.every((o) => !o.includes('hop_tu_naa_moots') && o.length === 3), outside);
   at(Date.UTC(2027, 9, 31, 12), () => {
@@ -58,7 +60,9 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.juan, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'hop_tu_naa');
-  check('…and writes Hop-tu-Naa into The Turning Year, dated 31 October, just before Souling', e && e.met && /· Hollantide Eve$/.test(e.title) && e.date === '31 October' && ch.entries.findIndex((x) => x.id === 'soul_cakes') === ch.entries.findIndex((x) => x.id === 'hop_tu_naa') + 1);
+  // Only other 31 October days (Allantide) may stand between it and Souling.
+  const hi = ch.entries.findIndex((x) => x.id === 'hop_tu_naa'), si = ch.entries.findIndex((x) => x.id === 'soul_cakes');
+  check('…and writes Hop-tu-Naa into The Turning Year, dated 31 October, just before Souling', e && e.met && /· Hollantide Eve$/.test(e.title) && e.date === '31 October' && si > hi && ch.entries.slice(hi + 1, si).every((x) => x.date === '31 October'));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

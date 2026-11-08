@@ -220,8 +220,9 @@ const OLD_CALENDAR = [
   { key: 'hop_tu_naa', month: 10, day: 31, icon: '🏮', title: 'Hop-tu-Naa', tier: 'record',
     text: 'On the Isle of Man, Hollantide Eve, the last night of the old Celtic year: children went round the doors singing Hop-tu-Naa, and still do, with turnip lanterns.',
     source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI; Culture Vannin' },
-  { key: 'allantide', month: 10, day: 31, icon: '🍎', title: 'Allantide: the Allan apple', tier: 'record',
-    text: 'In Cornwall great polished Allan apples were given for luck; the girls of Penzance slept with one under the pillow to dream of their husbands.',
+  { key: 'allantide', month: 10, day: 31, icon: '🍎', title: 'Allantide: the Allan apple', tier: 'folk',
+    text: 'In west Cornwall every child had a big Allan apple from the Allan market to hide beneath the pillow; at Penzance one each was eaten for luck, and the elder girls slept on theirs first to dream of their sweethearts.',
+    quote: 'the time-honoured Allan apple to hide beneath their pillows',
     source: 'R. Hunt, Popular Romances of the West of England (1865); M. A. Courtney, Cornish Feasts and Folk-Lore (1890)' },
   // ── November ──
   { key: 'souling', month: 11, day: 2, icon: '🍪', title: 'All Souls: souling', tier: 'folk',
