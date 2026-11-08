@@ -185,9 +185,9 @@ const OLD_CALENDAR = [
     text: 'Some forty girls carried rush-bearings to church behind a band, set them about the pulpit and pews, and took them home after the Sunday service. In 1823 it fell on 26 July; Ambleside keeps it now on the first Saturday in July.',
     source: "The Gentleman's Magazine (1823)" },
   // ── August ──
-  { key: 'lammas_term', month: 8, day: 1, icon: '🌾', title: 'Lammas: the term day', tier: 'folk',
-    text: 'In Scotland Lammas was a quarter day until 1886 and the end of the hay; Lammas fairs still run at St Andrews and Inverkeithing.',
-    quote: 'It fell about the Lammas tide / When the muir-men win their hay', source: 'The Battle of Otterburn (ballad); Lammas' },
+  { key: 'lammas_term', month: 8, day: 1, icon: '🌾', title: 'Lammas: the term day', tier: 'record',
+    text: 'In Scotland Lammas is a quarter day, a money-term for rents and fees: 1 August by old law, 28 August since 1990. It falls in hay-time, and Lammas fairs still run at St Andrews and Inverkeithing.',
+    quote: 'It fell about the Lammas tide / When the muir-men win their hay', source: 'The Battle of Otterbourne, Child 161C (Scott, Minstrelsy of the Scottish Border); Scottish National Dictionary, "Term"; Term and Quarter Days (Scotland) Act 1990' },
   { key: 'grotto_day', month: 8, day: 5, icon: '🐚', title: 'Old St James: the shell grottoes', tier: 'record',
     text: 'Poor London children built little grottoes of oyster shells with a candle on top, and begged a penny "to keep up the candle".',
     quote: 'Mind the grotto!', source: `${CHAMBERS}, 25 July` },

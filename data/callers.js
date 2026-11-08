@@ -1700,6 +1700,23 @@ const CALLERS = [
     source: 'S. Lewis, A Topographical Dictionary of Ireland (1837) · DAERA, "Horse passports" · British Horse Society, "Buying a horse" · World Horse Welfare, "Buying or selling a horse"',
     reward: { gold: 40, xp: 35 },
   },
+  // The Lammas term only (data/lammasTerm.js), dated by the old calendar.
+  {
+    id: 'lammas_term',
+    caller: 'Jamie Lumsden, from Kingsbarns',
+    icon: '🌾',
+    title: 'Lammas Term',
+    when: { calendar: 'lammas_term', days: 2, label: 'Lammas' },
+    plea: "It's Lammas, and I've been feed at the market to a farmer out by Crail, my first place since I left the school. I'm eighteen. He's to give me ten pound an hour, he says, 'because you're young', and there's nothing on paper, only his hand. Will you come and see it's right before I start?",
+    steps: [
+      { kind: 'rite', rite: 'lammas_term', label: 'The hay-time seen in, the Lammas fair walked, and the term set right' },
+    ],
+    resolution: "You go with Jamie to the farm, and before he lifts a fork the terms are put on paper, at the proper rate. The farmer grumbles that it was never so in his day; it was, near enough. Then the practical half. An employer must give a written statement of the main terms of the job on the first day, and a fuller one within two months. On a farm in Scotland the Agricultural Wages Order sets the minimum: from 1 April 2026, £12.71 an hour at any age, with more for a qualified worker and a lower rate only for apprentices; overtime is time and a half after 8 hours in a day or 48 in a week. Off the farm the national minimum for 18- to 20-year-olds is lower, £10.85, so it matters which kind of work it is. Keep your payslips; the Scottish Agricultural Wages Board can be reached at sawb@gov.scot.",
+    lore: "Lammas term: 'It fell about the Lammas tide, / When the muir-men win their hay'; in Scotland Lammas was one of the old term-days, a money-term, and at the St Andrews Lammas fair the country folk came 'feeing'.",
+    tier: 'record',
+    source: 'Scottish National Dictionary, "Term" and "Fee" · GOV.UK, "Employment contracts and conditions" and "National Minimum Wage rates" · Agricultural Wages (Scotland) Order (No. 73) 2026',
+    reward: { gold: 40, xp: 35 },
+  },
   // Puck Fair only (data/puckFair.js), dated by the old calendar.
   {
     id: 'puck_fair',
