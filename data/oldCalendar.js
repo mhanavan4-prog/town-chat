@@ -47,6 +47,12 @@ const helston = (y) => {
   const t = Date.UTC(y, 4, 8), wd = new Date(t).getUTCDay();
   return md(wd === 0 ? t - DAY : wd === 1 ? t - 2 * DAY : t);
 };
+// Tynwald Day: 5 July, or the Monday after if it falls at a weekend
+// (Interpretation Act 2015, s. 47).
+const tynwaldDay = (y) => {
+  const t = Date.UTC(y, 6, 5), wd = new Date(t).getUTCDay();
+  return md(wd === 6 ? t + 2 * DAY : wd === 0 ? t + DAY : t);
+};
 // Abbots Bromley Wakes Monday: the Monday after the first Sunday after 4 Sept.
 const wakesMonday = (y) => { const [m, d] = firstWeekdayAfter(0, 9, 4)(y); return md(Date.UTC(y, m - 1, d) + DAY); };
 
@@ -166,9 +172,9 @@ const OLD_CALENDAR = [
   { key: 'dog_days', month: 7, day: 3, icon: '🐕', title: 'The Dog Days begin', tier: 'record',
     text: 'The hottest stretch of the year, 3 July to 11 August in the later almanacs, when the Romans thought the dog-star rose with the sun and added its heat, and dogs went mad. Older almanacs set other days, and the star itself now rises at dawn only at the end of August.',
     quote: 'the combined heat of the dog-star and the sun', source: `${BREWER}, "Dog-days"; ${HONE}, 3 July` },
-  { key: 'tynwald', month: 7, day: 5, icon: '🌿', title: 'Tynwald Day', tier: 'folk',
-    text: "The Manx parliament meets in the open air on Tynwald Hill to proclaim the laws, as it once did on Midsummer Day (Old Midsummer is 5 July), and those who take part wear mugwort, bollan bane.",
-    source: 'Tynwald Day (Isle of Man)' },
+  { key: 'tynwald', rule: tynwaldDay, moves: '5 July, or the Monday after', icon: '🌿', title: 'Tynwald Day', tier: 'record',
+    text: "On Old Midsummer Day Tynwald sits in the open air on Tynwald Hill at St John's, as it has since before 1417: new Acts are promulgated in English and Manx, anyone may bring a petition for redress to the foot of the Hill, and everyone wears bollan bane, mugwort, once gathered on Midsummer Eve against witches.",
+    quote: "on old midsummer's day, at Tynwald Hill in St John's", source: 'Act of Tynwald for the new Calendar (1753); Tynwald, "1417: A Year of Records"; A. W. Moore, Folk-Lore of the Isle of Man (1891)' },
   { key: 'st_swithin', month: 7, day: 15, icon: '🌧️', title: "St Swithin's Day", tier: 'record',
     text: "Rain on St Swithin's meant forty days of it, because, the story goes, rain stopped the monks moving his body into the church. Chambers checked twenty years of Greenwich records and found nothing in it.",
     quote: "St Swithin's Day, if thou dost rain, For forty days it will remain", source: `${CHAMBERS}, 15 July; ${HONE}, 15 July` },
