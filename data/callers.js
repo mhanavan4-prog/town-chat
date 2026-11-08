@@ -1206,6 +1206,23 @@ const CALLERS = [
     source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Crispin's Day only (data/stCrispin.js), dated by the old calendar.
+  {
+    id: 'st_crispin',
+    caller: 'Davy Tegg, shoemaker\'s apprentice',
+    icon: '👞',
+    title: "St Crispin's Day",
+    when: { calendar: 'st_crispin', days: 2, label: "St Crispin's Day" },
+    plea: "It's St Crispin's, our day, the gentle craft's! Master's given us the afternoon, there's a procession with King Crispin, and I'm to carry the banner. Only I've cut my thumb on the knife twice this week, and Master says I'll make up every hour of the afternoon after, and that an apprentice has no say in anything. Is that right? Will you walk with me, and tell me straight?",
+    steps: [
+      { kind: 'rite', rite: 'st_crispin', label: 'The banner carried in King Crispin\'s procession, his will read, and the saints toasted' },
+    ],
+    resolution: "Davy carries the banner the whole way and never once drops it. Then the practical half, for an apprentice now. You should have signed an apprenticeship agreement and a training plan, and your training happens in your paid working hours, in an amount agreed between you, your employer and your trainer. You must be paid at least the apprentice rate of the minimum wage, which gov.uk will tell you, and you get at least 20 days' paid holiday a year, with the bank holidays on top. And the knife: cut away from your body, keep the blade sharp, for a blunt one slips, and never leave it loose on the bench.",
+    lore: "St Crispin's Day: the shoemakers kept holiday for their saints with a procession of King Crispin and his court (Chambers, 1864), and Agincourt was fought on it: 'This day is call'd the Feast of Crispian' (Henry V, 1623).",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 25 October · gov.uk, "Become an apprentice" · apprenticeships.gov.uk, rights and responsibilities · HSE, "Hand knives"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Old Michaelmas only (data/mopFair.js), dated by the old calendar.
   {
     id: 'mop_fair',
