@@ -20,15 +20,15 @@
 const HOUSEHOLD_RITES = {
   telling_bees: {
     key: 'telling_bees', name: 'Telling the Bees', icon: '🐝',
-    how: 'Go to every hive, knock on it with the house key, and tell the bees who has died; pin a piece of black crape to each, and ask them to the funeral.',
+    how: 'Go to every hive, knock on it three times with the house key, and tell the bees who has died; pin a piece of black crape to each, and ask them to the funeral.',
     outcomes: [
       'The hum rises at your knock, then settles low and steady. They have heard, and they will stay.',
       'A single bee walks out onto the crape and sits a while. The old folk would call that an answer.',
       'Nothing for a long moment; then, deep in the hive, the hum begins again. They are in mourning too.',
     ],
-    lore: 'In Suffolk, Chambers wrote in 1864, people would "formally impart the fact to the bees", invite them to the funeral and "fix a piece of crape upon their hives"; bees bought at a dead man\'s sale sickened until someone put them in mourning. In Yorkshire the funeral messenger asked the bees too (1851), and in Devon in 1790 the hives were turned round as the coffin left. Untold, they would leave or die.',
+    lore: 'The Book of Days (1864), under a Suffolk heading, gives it as "customary in many parts of England, when a death takes place, to go and formally impart the fact to the bees, to ask them to the funeral, and to fix a piece of crape upon their hives". Its contributor, "C. W. J.", knew of a hive bought "at an auction of the goods of a farmer who had recently died": the bees sickened until a servant put them in mourning, and then "the bees recovered". The way of telling them, as the Magazine of Natural History gave it in 1828, was "to take the key of the house, and knock with it three times against the hive", telling them their master or mistress was dead, or they would "dwindle and die". At Bradfield, near Sheffield, the funeral messenger asked the bees too, "because it is considered that, if this compliment be omitted, the bees will die" (Notes and Queries, 1851); in Devonshire, a London paper said in 1790, the hives were turned "at the moment the corpse is carrying out of the house". Whittier heard of it in New England: "For I knew she was telling the bees of one / Gone on the journey we all must go!"',
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 7 June · Notes and Queries (25 October 1851)',
+    source: 'R. Chambers, The Book of Days (1864), 7 June · Magazine of Natural History, in The Mirror (20 September 1828) · Notes and Queries (25 October 1851) · The Argus (13 September 1790) · J. G. Whittier, "Telling the Bees" (1858)',
   },
   // The king's evil: scrofula, touched by the monarch till Queen Anne, and in
   // the villages by the seventh son. The practical half is the milk.
