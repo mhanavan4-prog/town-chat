@@ -4840,6 +4840,7 @@ function mythQuizHtml(m) {
     const r = mythRun.result;
     return `<div class="mythCard"><div class="mythHead">❓ ${esc(set.title)} · done</div>`
       + (r ? `<div class="mythScore">${r.score} of ${r.of}</div>${r.best != null ? `<div class="mythFoot">Your best: <b>${r.best} of ${r.of}</b></div>` : '<div class="mythFoot">Log in to keep your best.</div>'}` : '<div class="mythFoot">Counting…</div>')
+      + (r && r.title ? `<div class="mythFoot">🔍 Ten out of ten on every set: you are <b>${esc(r.title)}</b>.</div>` : '')
       + `<button class="btn mythStart" data-set="${mythRun.set}">Again</button> <button class="btn mythClose">Back to the shelf</button></div>`;
   }
   const q = items[mythRun.i];
