@@ -109,8 +109,8 @@ const OLD_CALENDAR = [
     text: 'The first quarter day, when tenancies began and ended, and New Year\'s Day in England from 1155 to 1752. After the calendar changed, Old Lady Day (5 April) kept the reckoning, which is why the tax year still ends on 5 April.',
     source: `${CHAMBERS}, 25 March` },
   { key: 'borrowed_days', month: 3, day: 29, icon: '🌨️', title: 'The Borrowed Days', tier: 'record',
-    text: 'The last three days of March were borrowed from April to kill three sheep: one of wind and wet, one of snow and sleet, one of hard frost.',
-    quote: "The first o' them wus wind and weet", source: `${BREWER}, "Borrowed Days"` },
+    text: 'The last three days of March, old style, were borrowed from April, the fable said, to kill three young sheep, with wind and wet, snow and sleet, and hard frost; but when they were past, the hoggs came limping home.',
+    quote: "The first o' them wus wind and weet", source: `The Complaynt of Scotland (1549); ${BREWER}, "Borrowed days of March"` },
   // ── April ──
   { key: 'hunt_the_gowk', month: 4, day: 1, icon: '🐦', title: 'Hunting the Gowk', tier: 'record',
     text: 'In Scotland the April fool was sent from place to place with a letter that said only to send him further. A gowk is a cuckoo, and a fool.',

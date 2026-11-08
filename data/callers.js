@@ -968,6 +968,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
     reward: { gold: 40, xp: 35 },
   },
+  // The Borrowing Days only (data/borrowedDays.js), the last three of March.
+  {
+    id: 'borrowed_days',
+    caller: 'Jean Elliot, the shepherd\'s wife',
+    icon: '🌨️',
+    title: 'The Borrowing Days',
+    when: { calendar: 'borrowed_days', days: 3, label: 'the Borrowing Days' },
+    plea: "It's the borrowing days, and the lambing's started on the hill. My man says March has three days yet to kill us a hogg or two, and he's out with the ewes, and I've three wee lambs in the kitchen already, cold as stones. Will you help me get them warm, and see the hoggs home?",
+    steps: [
+      { kind: 'rite', rite: 'borrowed_days', label: 'The hoggs and lambs brought in to shelter, and counted home when the three days are gone' },
+    ],
+    resolution: "The three days blow over, and every hogg comes hirpling home. Then the practical half, from the farm advisers. Ewes and lambs lose heat fast in cold, wet, windy weather, so give them shelter. A lamb's right temperature is 39 to 40 degrees; under 37 it is badly chilled. Dry it first, then warm it in a box kept at 37 degrees at the lamb's level. Make sure it gets colostrum, 50 millilitres for every kilo of its weight in the first few hours, and 200 by the time it's a day old; the glucose injection for a weak lamb is for a vet to show you. And for yourselves: dress in layers, keep the rooms you live in at 18 degrees if you can, and look in on the neighbours who live alone.",
+    lore: "The Borrowing Days: March borrowed the last three days from April to kill three young sheep, with wind, snow and frost, but 'the 3 silly hoggs came hirpling hame' (The Complaynt of Scotland, 1549; Brewer, 1895).",
+    tier: 'record',
+    source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · Farm Advisory Service, "Treating chilled lambs" and "Rules of colostrum for lambs" · NHS Greater Glasgow and Clyde, cold weather',
+    reward: { gold: 40, xp: 35 },
+  },
   // Carling Sunday only (data/carlingSunday.js), dated by Easter through the old calendar.
   {
     id: 'carling_sunday',
