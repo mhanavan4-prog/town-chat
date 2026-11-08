@@ -116,9 +116,9 @@ const STYE_CHARM = {
   icon: '🐈‍⬛',
   title: 'Charming a Stye',
   use: 'Pass the tail of a black cat nine times over the stye (a tom cat\'s is surer); or, the older way, rub it with gold.',
-  lore: 'In Cornwall, Hunt found, the little gatherings on children\'s eyelids were cured by the black cat\'s tail passed nine times over the place, "if a ram cat, the cure is more certain". Gold is older: Beaumont and Fletcher\'s lover complains, about 1617, "I have a sty here, Chilax, / I have no gold to cure it."',
+  lore: 'Hunt, in Cornwall: "Those little gatherings which occur on the eye-lids of children, locally called \'wilks,\' are cured by passing a black cat\'s tail nine times over the place. If a ram cat, the cure is more certain." Gold is older. In Fletcher\'s Mad Lover, played at court in January 1617, the Fool angles for a coin: "I have a Stye here, Chilax." Chilax, who has gold in his purse, won\'t take the hint: "I have no Gold to cure it, not a penny."',
   tier: 'record',
-  source: 'R. Hunt, Popular Romances of the West of England (1865), "The Black Cat\'s Tail" · Beaumont & Fletcher, The Mad Lover (c. 1617), Act V',
+  source: 'R. Hunt, Popular Romances of the West of England (1865), "The Black Cat\'s Tail" · J. Fletcher, The Mad Lover (acted 1617; Beaumont and Fletcher folio, 1647), Act V',
 };
 
 // The counted workings (a 'knots' caller step names its `charm`; a wart step

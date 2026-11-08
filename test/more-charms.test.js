@@ -25,10 +25,10 @@ check('the sprain charm is the 1845 Shetland wording, "Set joint to joint"', /Th
 check('…on a thread of black wool with nine knots, said too low to be heard', /black wool/.test(CHARMS.sprain.use) && /nine knots/.test(CHARMS.sprain.use) && /cannot hear/.test(CHARMS.sprain.use));
 check('…and its Merseburg ancestor, as written in the manuscript', /ben zi bena, bluot zi bluoda, lid zi geliden/.test(CHARMS.sprain.lore) && /Cod\. 136/.test(CHARMS.sprain.source));
 check('the cramp charm is the Christ\'s Hospital one, with the eel-skin and the cramp rings', /The devil is tying a knot in my leg/.test(CHARMS.cramp.lines[0]) && /eel-skin/.test(CHARMS.cramp.use) && /cramp rings/.test(CHARMS.cramp.lore) && /Henderson/.test(CHARMS.cramp.source));
-check('the stye: nine strokes of a black cat\'s tail (Hunt), and the older gold', /nine times/.test(STYE_CHARM.use) && /Hunt/.test(STYE_CHARM.source) && /no gold to cure it/.test(STYE_CHARM.lore));
+check('the stye: nine strokes of a black cat\'s tail (Hunt), and the older gold', /nine times/.test(STYE_CHARM.use) && /Hunt/.test(STYE_CHARM.source) && /no gold to cure it/i.test(STYE_CHARM.lore));
 const sprain = CALLERS.find((c) => c.id === 'the_sprain'), cramp = CALLERS.find((c) => c.id === 'the_cramp'), stye = CALLERS.find((c) => c.id === 'the_stye');
 check('three callers: nine knots then the words; the words alone; nine strokes', sprain && sprain.steps[0].count === 9 && sprain.steps[1].charm === 'sprain' && cramp && cramp.steps[0].charm === 'cramp' && stye && stye.steps[0].count === 9 && stye.steps[0].charm === 'stye');
-check('each is told the practical half (bind and rest; stretch; a hot cloth)', /foot up/.test(sprain.resolution) && /stretch the calf/.test(cramp.resolution) && /hot water/.test(stye.resolution));
+check('each is told the practical half (bind and rest; stretch; a warm cloth)', /foot up/.test(sprain.resolution) && /stretch the calf/.test(cramp.resolution) && /warm water/.test(stye.resolution));
 
 require('../server.js');
 
