@@ -1155,6 +1155,23 @@ const CALLERS = [
     source: 'R. Chambers, The Book of Days (1864), 25 July · W. Hone, The Every-Day Book, vol. II (1827), 25 July',
     reward: { gold: 40, xp: 35 },
   },
+  // May Eve only (data/mayEve.js), dated by the old calendar.
+  {
+    id: 'may_eve_rowan',
+    caller: 'Bridget Fahy',
+    icon: '🍃',
+    title: 'May Eve',
+    when: { calendar: 'may_eve', days: 2, label: 'May Eve' },
+    plea: "It's May Eve, and the cow's only just calved, and the butter's all we'll have to sell this year. My mother had the rowan over the byre and the primroses on the step before dusk every year of her life, and a woman she knew had the butter go out of her churn one May morning and never come back. Will you help me do it the way she did?",
+    steps: [
+      { kind: 'rite', rite: 'may_eve_rowan', label: 'Rowan crosses over the doors, primroses on the step, nothing given out of the house' },
+    ],
+    resolution: "The rowan is up, the primroses are down, and in the morning the churn comes good. Then the practical half. Break or cut the twigs only where you have the owner's leave, and take a little from each tree. Leave the rowan berries be in autumn unless they're cooked; raw, they're not to be eaten. If you use kingcups instead of primroses, as some do, wear gloves and wash your hands after, for the leaves are poisonous. And burn no gorse for the witches: by May Eve the burning season is over, and setting gorse alight is against the law in England after mid-April at the latest, and in Ireland from the first of March to the end of August.",
+    lore: "May Eve: rowan crosses made without a knife went over the house and byre doors and primroses on the threshold, and no fire, milk or salt was given out of the house, to keep the witches from the milk (Moore, 1891; Lady Wilde, 1887).",
+    tier: 'record',
+    source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891) · Lady Wilde, Ancient Legends of Ireland (1887) · RHS, Sorbus aucuparia and Caltha palustris · SI 2007/2003, reg. 2',
+    reward: { gold: 40, xp: 35 },
+  },
   // May Day only (data/mayGarland.js), dated by the old calendar.
   {
     id: 'may_garland',

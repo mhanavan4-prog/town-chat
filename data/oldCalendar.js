@@ -131,7 +131,7 @@ const OLD_CALENDAR = [
     text: 'Sit in the church porch from eleven till one and you would see the ghosts of all who would be buried there that year. Ashes sifted on the hearth showed the footprint of whoever would die. A Nottinghamshire woman was censured for the porch watch in 1608.',
     quote: 'the apparitions of all those who are to be buried in the churchyard during the ensuing year', source: `${CHAMBERS}, 25 April` },
   { key: 'may_eve', month: 4, day: 30, icon: '🌼', title: 'May Eve: rowan and yellow flowers', tier: 'folk',
-    text: 'In Ireland, Scotland and Man, rowan, hawthorn and yellow flowers (primrose, gorse, marsh marigold) went at doors and windows and on cows and churns, to keep the milk; cattle were driven between fires against disease.',
+    text: 'In Ireland, Scotland and Man, rowan, hawthorn and yellow flowers (primrose, gorse, marsh marigold) went at doors and windows and on cows and churns, to keep the milk; cattle were driven between fires against disease. Man kept it on Old May Eve, 11 May.',
     source: 'R. Hutton, The Stations of the Sun (1996); K. Danaher, The Year in Ireland (1972)' },
   // ── May ──
   { key: 'going_a_maying', month: 5, day: 1, icon: '🌸', title: 'Going a-Maying', tier: 'record',

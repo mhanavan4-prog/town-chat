@@ -47,7 +47,10 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [Date.UTC(2027, 4, 1, 12), Date.UTC(2027, 4, 2, 12)].map(offered);
-  check('on May Day and the 2nd they come first', days.every((o) => o[0] === 'may_garland' && o.length === 3), days);
+  // Bridget Fahy's May Eve (data/mayEve.js) runs into May Day, so on the 1st
+  // both dated callers come first.
+  const dated = (id) => !!(CALLERS.find((x) => x.id === id) || {}).when;
+  check('on May Day and the 2nd they come first (with any other caller of the day)', days.every((o) => { const n = o.findIndex((id) => !dated(id)); return o.length === 3 && o.indexOf('may_garland') >= 0 && (n < 0 || o.indexOf('may_garland') < n); }), days);
   const outside = [Date.UTC(2027, 3, 30, 12), Date.UTC(2027, 4, 3, 12), Date.UTC(2027, 10, 1, 12)].map(offered);
   check('on other days they never come', outside.every((o) => !o.includes('may_garland') && o.length === 3), outside);
   at(Date.UTC(2027, 4, 1, 12), () => {
