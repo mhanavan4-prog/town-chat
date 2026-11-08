@@ -1692,10 +1692,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'telling_bees', label: 'Knock on each hive and tell them' },
     ],
-    resolution: "You knock on every hive with the house key, tell the bees that Samuel Thorne is dead, and pin a scrap of black crape to each. Abigail watches from the door. When you come back up the path she says it was the only thing all week that felt finished. Bees do fret when their keeper changes; somebody has to keep them now, and she thinks it might be her.",
-    lore: "Telling the bees: after a death in the family the bees were told, put in mourning with black crape, and asked to the funeral, or they would leave or die. Chambers recorded it in Suffolk (1864); a Yorkshire funeral messenger asked the bees too (1851).",
+    resolution: "You knock three times on every hive with the house key, tell the bees that Samuel Thorne is dead, and pin a scrap of black crape to each. Abigail watches from the door. When you come back up the path she says it was the only thing all week that felt finished. 'They'll fret, with Samuel gone,' she says; somebody has to keep them now, and she thinks it might be her. Then the practical half. If she takes them on, she should find her local beekeepers' association, which runs taster days and may find her a mentor, and register the hives on BeeBase, which is free and sends alerts of disease nearby. American and European foulbrood, the small hive beetle and Tropilaelaps mites must by law be reported to the National Bee Unit at once if she so much as suspects them, and a yellow-legged (Asian) hornet should be reported through the Asian Hornet Watch app. For a sting, scrape the stinger out sideways with a fingernail or the edge of a card; tweezers can squeeze more poison in. Wash it, and hold a cold cloth on it for at least 20 minutes. Ring 999 if the lips, mouth, throat or tongue swell, if breathing is hard or the throat feels tight, if the skin or lips turn blue, grey or pale, or if someone faints and can't be woken.",
+    lore: "Telling the bees: after a death the hives were knocked on 'three times' with the house key and told, put in mourning with crape, and asked to the funeral, or the bees would 'dwindle and die' (Magazine of Natural History, 1828; the Book of Days, 1864; Notes and Queries, 1851).",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 7 June · Notes and Queries (1851)',
+    source: 'R. Chambers, The Book of Days (1864), 7 June · Magazine of Natural History, in The Mirror (20 September 1828) · National Bee Unit, BeeBase · Bee Diseases and Pests Control (England) Order 2006, art. 3 · British Beekeepers Association · NHS, "Insect bites and stings"',
     reward: { gold: 40, xp: 35 },
   },
   {
