@@ -184,6 +184,7 @@ export default function createCharmBook({ send, place, openBoard }) {
       if (!e.met) {
         const row = el('div', 'cbEntry unmet');
         row.appendChild(el('span', 'cbEntryTitle' + (ch.showNames ? ' named' : ''), ch.showNames ? (e.icon ? e.icon + ' ' : '') + e.title : '· · ·'));
+        if (e.date) row.appendChild(el('span', 'cbEntryDate', e.date));
         row.appendChild(el('div', 'cbHint', e.hint || 'Not yet met.'));
         body.appendChild(row);
         continue;
@@ -191,6 +192,7 @@ export default function createCharmBook({ send, place, openBoard }) {
       const row = el('div', 'callerLore cbEntry');
       const head = el('div', 'cbEntryHead');
       head.appendChild(el('span', 'cbEntryTitle', (e.icon ? e.icon + ' ' : '') + e.title));
+      if (e.date) head.appendChild(el('span', 'cbEntryDate', e.date));
       head.appendChild(tierBadge(e.tier));
       row.appendChild(head);
       if (e.lore) row.appendChild(el('div', 'callerLoreText', e.lore));
