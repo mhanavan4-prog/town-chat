@@ -1291,6 +1291,23 @@ const CALLERS = [
     source: 'R. Plot, The Natural History of Stafford-shire (1686) · NHS, "Blisters" · The Highway Code, rules 3 and 5 · HSE, "Good handling technique"',
     reward: { gold: 40, xp: 35 },
   },
+  // Puck Fair only (data/puckFair.js), dated by the old calendar.
+  {
+    id: 'puck_fair',
+    caller: 'Nora Foley, the Queen of Puck',
+    icon: '🐐',
+    title: 'Puck Fair',
+    when: { calendar: 'puck_fair', days: 2, label: 'the Gathering of Puck Fair' },
+    plea: "I'm the Queen of Puck this year, and I'm to crown him at the Gathering, and I'm proud fit to burst. But I saw him in his pen this morning and he's frightened, and the big lads were poking at him through the bars. Will you help me see him right through it, up and down and back to his mountain?",
+    steps: [
+      { kind: 'rite', rite: 'puck_fair', label: 'King Puck crowned and raised, brought down at the Scattering, and back to the mountain' },
+    ],
+    resolution: "King Puck is crowned, comes down sound, and goes back up the mountain at a trot. Then the practical half. A goat in your keeping, even for three days, is yours to look after: the law says he must be kept so his health and welfare are safe, and causing him needless suffering is an offence. So no poking through bars, shade and water for him, and if the day turns hot he comes down, as the vet ordered in 2022. And with wild goats on the mountain, keep thirty metres back from a grazing herd, keep the dog on its lead, and leave a kid on its own well alone.",
+    lore: "Puck Fair: at Killorglin a wild goat is crowned King Puck and raised over the square for the fair; the goat is first written of in 1837 (Lewis), the fair rests on a patent of 1613.",
+    tier: 'folk',
+    source: 'S. Lewis, A Topographical Dictionary of Ireland (1837) · Animal Health and Welfare Act 2013, ss. 11–12 · Old Irish Goat Society',
+    reward: { gold: 40, xp: 35 },
+  },
   // Grotto Day only (data/grotto.js), dated by the old calendar.
   {
     id: 'grotto_day_shells',
