@@ -191,9 +191,9 @@ const OLD_CALENDAR = [
   { key: 'bartholomew_fair', month: 8, day: 24, icon: '🎪', title: 'Bartholomew Fair', tier: 'record',
     text: "Smithfield's fair, chartered by Henry I to Rahere's priory in 1133: the great cloth market, later London's rowdiest. From 1753 it opened on 3 September; it was last proclaimed in 1853 and last held in 1855.",
     quote: 'I grant also my firm peace to all persons coming to and returning from The Fair', source: "H. Morley, Memoirs of Bartholomew Fair (1859; 4th ed. 1892); E. A. Webb, Records of St Bartholomew's Priory (1921)" },
-  { key: 'ould_lammas_fair', rule: lastWeekdayOf(2, 8), icon: '🍬', title: 'The Ould Lammas Fair, Ballycastle', tier: 'folk',
-    text: 'Chartered in 1606 for "the last Tuesday in August": dulse and yellowman, and nearly four hundred years of it.',
-    source: 'Ould Lammas Fair (charter of 1606)' },
+  { key: 'ould_lammas_fair', rule: lastWeekdayOf(2, 8), moves: 'the last Tuesday in August', icon: '🍬', title: 'The Ould Lammas Fair, Ballycastle', tier: 'record',
+    text: 'A Tuesday market chartered to Sir Randal MacDonnell in 1606; by 1831 the fair fell on the last Tuesday in August, with ponies, cattle and sheep from Rathlin, and dulse and yellowman. Over four hundred years of it.',
+    quote: 'last Tuesday in May, July, August, October and November', source: "Ordnance Survey Memoir, Ballycastle (1831); J. O'Laverty, Diocese of Down and Connor, vol. IV (1887); S. Lewis, Topographical Dictionary of Ireland (1837)" },
   // ── September ──
   { key: 'horn_dance', rule: wakesMonday, moves: 'Wakes Monday, early in September', icon: '🦌', title: 'The Abbots Bromley Horn Dance', tier: 'record',
     text: 'Six men carry reindeer antlers round the parish from morning to night, with a hobby horse, Maid Marian, a fool and a boy with a bow. Robert Plot recorded it in 1686 as a Christmas hobby-horse dance, already only "within memory"; one antler has been dated to 1065, give or take eighty years.',
