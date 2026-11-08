@@ -813,6 +813,23 @@ const CALLERS = [
     source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891)',
     reward: { gold: 40, xp: 35 },
   },
+  // Old Hogmanay only (data/clavie.js): the Burning of the Clavie, dated by the old calendar.
+  {
+    id: 'clavie_burghead',
+    caller: 'Kirsty Main, up from Burghead',
+    icon: '🔥',
+    title: 'Old Hogmanay',
+    when: { calendar: 'clavie', days: 2, label: 'Old Hogmanay' },
+    plea: "It's the eleventh, old Hogmanay, and at home they'll be burning the Clavie tonight. I've never missed one, and I've a half barrel and a pole and the smith's made me a nail, and nobody here knows how it's done. Will you help me build her, and carry her up the hill?",
+    steps: [
+      { kind: 'rite', rite: 'clavie', label: 'The clavie built, lit with a peat, carried round and set on the hill' },
+    ],
+    resolution: "It burned like home, Kirsty says, and she has her ember. Then the practical half, for this is a barrel of burning tar among a crowd. Never use petrol or any such liquid to light a fire; a peat or a taper is the way, and the old way besides. Keep the crowd well back, and keep the fire away from houses, carts and hedges. A burn goes under cool running water for twenty minutes, straight away. And an ember to take home goes in something that can't burn, carried with a thick cloth; at home, never tip hot ashes into anything that can melt or catch, and wet them down and leave them to cool overnight.",
+    lore: "The Burning of the Clavie: at Burghead on old Hogmanay, 11 January, a half tar-barrel on a pole, lit with a peat, is carried burning round the town and set on the Doorie hill, and its embers are kept for luck (the Banffshire Journal, in Chambers, 1864).",
+    tier: 'record',
+    source: 'R. Chambers, The Book of Days (1864), 31 December · A. Mitchell, Proceedings of the Society of Antiquaries of Scotland 10 (1875)',
+    reward: { gold: 40, xp: 35 },
+  },
   // Plough Monday only (data/ploughMonday.js), dated by the old calendar.
   {
     id: 'plough_boys',
