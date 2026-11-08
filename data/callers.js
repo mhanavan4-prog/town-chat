@@ -1273,6 +1273,23 @@ const CALLERS = [
     source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
     reward: { gold: 40, xp: 35 },
   },
+  // Horn Fair, St Luke's Day only (data/hornFair.js), dated by the old calendar.
+  {
+    id: 'horn_fair',
+    caller: 'Sukey Turner, from Deptford',
+    icon: '📯',
+    title: 'Horn Fair',
+    when: { calendar: 'horn_fair', days: 2, label: "St Luke's Day" },
+    plea: "It's St Luke's, Horn Fair, and our Dick went off from Cuckold's Point this morning in rams' horns and Mother's best gown. Now he's slumped against the churchyard wall at Charlton, being sick, and he won't answer me proper. The others have gone on to the fair without him. Will you come?",
+    steps: [
+      { kind: 'rite', rite: 'horn_fair', label: 'Horns on, three times round the church, and everyone brought home' },
+    ],
+    resolution: "You find Dick by the churchyard wall, horns askew, and stay with him till he can walk, then see him home along the river. The fair goes on without him. Then the practical half. If someone is confused, being sick, breathing slowly or unevenly, having a fit, or can't be woken, it may be alcohol poisoning: ring 999. Stay with them, because they could choke on their own sick or stop breathing. Sit them up if they're awake. If they've passed out, put them in the recovery position: legs straight, the near arm out at a right angle, the back of the other hand against their cheek, the far knee pulled up, roll them towards you onto their side, and tilt the head back to keep the airway open. Give sips of water only if they can swallow and aren't being sick, and keep them warm. No more drink, no coffee, and no cold shower or bath. And next fair: drink more slowly, with food, and water in between.",
+    lore: "Horn Fair: the mob met at Cuckold's Point and went to Charlton in horns, 'all is fair at Horn Fair', and Defoe would have had it 'suppress'd, as a nusance and offence to all sober people'.",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 18 October · D. Defoe, A Tour thro\' the Whole Island of Great Britain (1724–27), Letter II · NHS, "Alcohol poisoning" · NHS, "The risks of drinking too much" · St John Ambulance, "Recovery position"',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Crispin's Day only (data/stCrispin.js), dated by the old calendar.
   {
     id: 'st_crispin',
