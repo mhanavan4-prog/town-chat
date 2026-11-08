@@ -29,7 +29,7 @@ check('telling the bees is Chambers\'s Suffolk custom, with crape and the funera
 check('silver water is Campbell\'s sixpence test, sprinkled three times', /silver sixpence/.test(R.silver_water.how) && /three times/.test(R.silver_water.how) && /Campbell/.test(R.silver_water.source));
 check('rowan and red thread, and "scoring above the breath" called a crime', /Rowan-tree and red thread/.test(R.rowan_thread.lore) && /was a crime/.test(R.rowan_thread.lore));
 check('the hagstone is the Pitt Rivers stone, and witch balls are called late', /Pitt Rivers/.test(R.hagstone.lore) && /until the 1930s/.test(R.hagstone.lore));
-check('clocks and mirrors are honestly dated later than the doors and the salt', /recorded later, from the 1890s/.test(R.death_house.lore));
+check('clocks and mirrors are dated as they are recorded, with Napier, Henderson and Gregor (1879–81), not "from the 1890s"; the soul-catching glass is Frazer\'s', /"The clock was stopped, the looking-glass was covered with a cloth"/.test(R.death_house.lore) && !/from the 1890s/.test(R.death_house.lore) && /Frazer\'s, in 1890/.test(R.death_house.lore));
 // The first five, in order (the practical-half checks below index them); then every
 // other caller that works a household rite. Counts come from the data, so a new
 // household rite only needs its own test.
