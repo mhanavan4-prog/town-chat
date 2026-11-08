@@ -1223,6 +1223,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Lucy's Day only (data/stLucy.js), dated by the old calendar.
+  {
+    id: 'st_lucy',
+    caller: 'Thomasin Gale',
+    icon: '🕯️',
+    title: "St Lucy's Day",
+    when: { calendar: 'st_lucy', days: 2, label: "St Lucy's Day" },
+    plea: "It's St Lucy's, the shortest day, my grandmother called it. Every year about now I go grey inside like the weather and can't shake it, and it's dark by four. Grandmother used to say 'Lucy light' over a candle, and that it all turned from here. Will you sit with me while the dark comes, and tell me if there's anything in it?",
+    steps: [
+      { kind: 'rite', rite: 'st_lucy', label: 'Out in the short light, and one candle in the window at dusk' },
+    ],
+    resolution: "Thomasin sits by the candle a while and says she feels a little lighter for the company. Then the practical half. If the dark months bring you low every year, with low mood, no joy in what you usually love, sleeping more and still tired, that has a name, seasonal affective disorder, and it can be treated: see a GP. Get out into the daylight every day you can, and a light box helps some people. From October to March we don't make enough vitamin D from the sun, so a daily supplement of 10 micrograms is worth taking. If the low ever turns to thoughts of harming yourself, tell someone straight away: a GP, NHS 111, or the Samaritans on 116 123. And the candle: never leave it burning in an empty room, keep it away from curtains and hair, or use a battery one, which gives the same light.",
+    lore: "St Lucy's Day: reckoned the shortest day under the old calendar, 'the yeares midnight' (Donne, 1633), and 'Lucy light, the shortest day and the longest night' (Ray, 1678).",
+    tier: 'record',
+    source: 'J. Donne, Poems (1633) · J. Ray, English Proverbs (1678) · NHS, "Seasonal affective disorder (SAD)" and "Vitamin D" · Greater Manchester Fire and Rescue, candle safety',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Thomas's Day only (data/stThomas.js), dated by the old calendar.
   {
     id: 'st_thomas_gooding',
