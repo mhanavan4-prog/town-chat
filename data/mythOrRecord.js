@@ -116,11 +116,51 @@ const MYTH_QUIZ_3 = [
     source: 'Notes and Queries, 3rd ser., vol. 9 (1866), p. 153' },
 ];
 
+// Feasts and festivals: lanterns, the Windsor tree, mistletoe, Eostre, hot
+// cross buns, the 1647 ban, Santa's red, a Valentine of 1477, the bonfires
+// and the plum pudding. Checked for this game; where a common telling is
+// wrong in a detail (Bede names the month, not the feast; the street cry for
+// hot cross buns can't be checked in its first printing), the verdict says
+// only what the record holds.
+const MYTH_QUIZ_4 = [
+  { id: 'pumpkin_lanterns', claim: 'Jack-o\'-lanterns were first carved from pumpkins.', answer: 'myth',
+    verdict: 'In Ireland and the Isle of Man they were turnips, and sometimes potatoes; the National Museum of Ireland keeps a "ghost turnip" from Donegal. "Jack-o\'-lantern" first meant a will-o\'-the-wisp, and the carved pumpkin is American.',
+    source: 'C. Doyle, National Museum of Ireland, "The Ghost Turnip"; Culture Vannin, "Hop tu Naa"' },
+  { id: 'windsor_tree', claim: 'A Christmas tree was lit at Windsor decades before Prince Albert came.', answer: 'record',
+    verdict: '"It was in fact Queen Charlotte who introduced Christmas trees to Britain", with candles and sweetmeats at Windsor by 1800. The Illustrated London News picture of Victoria and Albert\'s tree in 1848 made it everyone\'s.',
+    source: 'Royal Collection Trust, "Christmas at Windsor Castle"; J. Watkins, Memoirs of Queen Charlotte (1819)' },
+  { id: 'mistletoe_druids', claim: 'Kissing under the mistletoe is an ancient Druid custom.', answer: 'myth',
+    verdict: 'Pliny has the Druids cut mistletoe "with a golden sickle", but no kissing. The kiss first turns up in the 18th century, in a comedy of 1784; Irving wrote it up in 1820.',
+    source: 'Pliny, Natural History 16.95; W. Irving, The Sketch Book (1820)' },
+  { id: 'eostre_bede', claim: 'The Venerable Bede wrote that Easter took its name from a goddess, Eostre.', answer: 'record',
+    verdict: 'In 725 Bede wrote that Eosturmonath, the Easter month, was "once called after a goddess of theirs named Eostre". Whether she was ever worshipped is argued; Hutton thinks the name may just mean "the month of opening".',
+    source: 'Bede, The Reckoning of Time (725), ch. 15, tr. F. Wallis (1999); R. Hutton, The Stations of the Sun (1996)' },
+  { id: 'buns_eostre', claim: 'Hot cross buns began as a pagan offering to Eostre.', answer: 'myth',
+    verdict: 'No evidence at all: the name "hot cross buns" is first recorded in 1733. The pagan story was told by Victorian writers, who called the buns a relic of cakes eaten for the spring goddess.',
+    source: 'Oxford English Dictionary; Foods of England, "Hot Cross Buns"' },
+  { id: 'christmas_banned', claim: 'Parliament abolished Christmas in 1647.', answer: 'record',
+    verdict: 'An ordinance of 8 June 1647 ruled that Christmas, Easter and Whitsun "be no longer observed as Festivals or Holy-dayes". There were riots at Canterbury that Christmas, and the feast came back with the King in 1660.',
+    source: 'C. H. Firth & R. S. Rait (eds), Acts and Ordinances of the Interregnum (1911)' },
+  { id: 'santa_red', claim: 'Santa wears red because of Coca-Cola\'s adverts.', answer: 'myth',
+    verdict: 'Haddon Sundblom\'s Coca-Cola Santa began in 1931, but a red-coated Santa is in a sweets advert of 1868. Coca-Cola itself says "Santa appeared in a red coat before Sundblom painted him".',
+    source: 'The Coca-Cola Company, "Haddon Sundblom and the Coca-Cola Santas"' },
+  { id: 'valentine_1477', claim: 'A woman called her husband-to-be her "Valentine" in a letter of 1477.', answer: 'record',
+    verdict: 'In February 1477 Margery Brews wrote to John Paston, "my ryght wele-beloved Voluntyne", among the Paston letters now in the British Library.',
+    source: 'J. Gairdner (ed.), The Paston Letters, vol. V (1904), no. 897; British Library, Add MS 43490' },
+  { id: 'bonfires_law', claim: 'Bonfires on the Fifth of November were required by law.', answer: 'myth',
+    verdict: 'The Act of 1605 ordered churches to "say Morning Prayer, and give unto Almighty God Thanks" every 5 November; it said nothing of bonfires, which people lit of their own accord. It was repealed in 1859.',
+    source: 'Observance of 5th November Act 1605 (3 Jac. I c. 1)' },
+  { id: 'plum_porridge', claim: 'The Christmas pudding began as a porridge.', answer: 'record',
+    verdict: 'Plum pottage, beef or mutton stewed with dried fruit and spices, was the Christmas dish; Hannah Glasse\'s "Plum-Porridge for Christmas" (1747) still begins "Take a Leg and Shin of Beef". The boiled pudding grew from it.',
+    source: 'H. Glasse, The Art of Cookery (1747); A. Jotischky, Lancaster University' },
+];
+
 // The quiz's sets of ten, each with its own best score on the account.
 const MYTH_SETS = [
   { key: 'first', title: 'The first ten', items: MYTH_QUIZ },
   { key: 'second', title: 'Ten more', items: MYTH_QUIZ_2 },
   { key: 'third', title: 'Herbs and healing', items: MYTH_QUIZ_3 },
+  { key: 'fourth', title: 'Feasts and festivals', items: MYTH_QUIZ_4 },
 ];
 
-module.exports = { MYTH_QUIZ, MYTH_QUIZ_2, MYTH_QUIZ_3, MYTH_QUIZ_INTRO, MYTH_SETS };
+module.exports = { MYTH_QUIZ, MYTH_QUIZ_2, MYTH_QUIZ_3, MYTH_QUIZ_4, MYTH_QUIZ_INTRO, MYTH_SETS };
