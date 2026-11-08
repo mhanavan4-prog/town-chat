@@ -1189,6 +1189,23 @@ const CALLERS = [
     source: 'W. Pare, in W. Hone, The Table Book (1827) · gov.uk, employment contracts, holiday entitlement and agricultural workers\' rights · Modern Slavery & Exploitation Helpline',
     reward: { gold: 40, xp: 35 },
   },
+  // Allantide only (data/allantide.js), dated by the old calendar.
+  {
+    id: 'allantide',
+    caller: 'Wenna Trewhella, from St Ives',
+    icon: '🍎',
+    title: 'Allantide',
+    when: { calendar: 'allantide', days: 2, label: 'Allan-night' },
+    plea: "It's Allan-night, and at home in St Ives there's not a child goes to bed without a big Allan apple under the pillow. Mine have never had one, we're so far from home, and I'll not let them miss it again. Will you help me find big apples enough, and set up the candle cross my granny hung in the kitchen?",
+    steps: [
+      { kind: 'rite', rite: 'allantide', label: 'An Allan apple for every head, one under each pillow, and the apple cross spun' },
+    ],
+    resolution: "Every child goes to bed with an Allan apple under the pillow, and the kitchen smells of apples and candle. Then the practical half. Wash the apples under running water before they're eaten. Hang the spinning cross with little battery lights instead of candles, for a child's face and hair go straight at it. Keep costumes well away from any flame, buy ones with the UKCA or CE mark, and don't let the little ones carry a pumpkin with a lit candle in it. And if there's a tub of water for ducking apples, watch the smallest every minute and empty it after: a baby can drown in five centimetres of water, silently.",
+    lore: "Allantide: in west Cornwall every child had a big Allan apple to hide beneath the pillow on Allan-night (Hunt, 1865); at Penzance one each was eaten for luck, and the elder girls slept on theirs to dream of their sweethearts (Courtney, 1890).",
+    tier: 'folk',
+    source: 'R. Hunt, Popular Romances of the West of England (1865) · M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · NHS, baby and toddler safety · London Fire Brigade, Halloween costumes',
+    reward: { gold: 40, xp: 35 },
+  },
   // Hop-tu-Naa only (data/hopTuNaa.js), dated by the old calendar.
   {
     id: 'hop_tu_naa_moots',

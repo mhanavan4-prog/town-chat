@@ -56,7 +56,8 @@ setTimeout(() => {
     // A dated caller (Martinmas week, 9–13 Nov) goes first of all; then the season's.
     // A dated caller (Martinmas week, All Souls' Day) comes first on its days; the season's after it.
     const isDated = (id) => !!(CALLERS.find((c) => c.id === id) || {}).when;
-    const lead = isDated(hallow.ids[0]) ? hallow.ids[1] : hallow.ids[0];
+    // (On 31 October and 1 November Hop-tu-Naa and Allantide both come: every dated caller first.)
+    const lead = hallow.ids.find((id) => !isDated(id));
     if (hallow.season === 'samhain') { days++; if (seasonal.some((c) => c.id === lead)) samhainFirst++; }
   }
   check('no Hallowe\'en caller ever comes at midsummer (20 days)', summerSeasonal === 0, summerSeasonal);
