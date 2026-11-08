@@ -727,6 +727,23 @@ const CALLERS = [
     source: 'J. Mooney, "The Holiday Customs of Ireland" (1889)',
     reward: { gold: 40, xp: 35 },
   },
+  // New Year's morning only (data/creamOfTheWell.js), dated by the old calendar.
+  {
+    id: 'cream_of_the_well',
+    caller: 'Isobel Rennie, from Peebles',
+    icon: '💧',
+    title: "New Year's Morning",
+    when: { calendar: 'cream_of_the_well', days: 2, label: "New Year's morning" },
+    plea: "It's New Year's morning and still black dark, and I mean to be first at the well, for the first pailful's the flower o' the well and brings the luck, and maybe a lad. But the path to the well's a sheet of ice, and Mother says if I break my neck there'll be no lad at all. Will you come with me and help me carry it home?",
+    steps: [
+      { kind: 'rite', rite: 'cream_of_the_well', label: 'First at the well, the first pailful drawn, and a wisp of straw left in it' },
+    ],
+    resolution: "Isobel gets the flower of the well and carries it home singing, and nobody falls. Then the practical half. On ice, wear boots with a good grip, take short steps, go slowly and walk like a penguin, with your weight over your feet; it looks daft, but a broken wrist looks worse. Wear something light or reflective in the dark. Water from a private well can be dirty however clear it looks, so boil it before anyone drinks it. And after a long Hogmanay, watch for the cold: shivering, pale skin, slurred words and muddle mean bring the person indoors, get wet clothes off, wrap them in blankets and give a warm drink without alcohol, if they can swallow; no hot bath, and no rubbing their arms and legs.",
+    lore: "The Cream of the Well: on New Year's morning in Scotland the first pailful from the well, the 'flower' or 'cream', brought luck or a lad to whoever got it, and a wisp of straw showed it had been creamed (Mackinlay, 1893; Mowat, 1921).",
+    tier: 'folk',
+    source: 'J. M. Mackinlay, Folklore of Scottish Lochs and Springs (1893) · NHS Lanarkshire, walking in icy weather · Argyll and Bute Council, private water supplies · NI Direct, "Hypothermia"',
+    reward: { gold: 40, xp: 35 },
+  },
   // New Year's Day only (data/calennig.js): calennig, the Welsh New Year gift.
   {
     id: 'calennig_children',
