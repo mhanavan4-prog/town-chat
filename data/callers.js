@@ -934,6 +934,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
     reward: { gold: 40, xp: 35 },
   },
+  // Carling Sunday only (data/carlingSunday.js), dated by Easter through the old calendar.
+  {
+    id: 'carling_sunday',
+    caller: 'Old Mrs Charlton, from Shields',
+    icon: '🫛',
+    title: 'Carling Sunday',
+    when: { calendar: 'carling_sunday', days: 2, label: 'Carling Sunday' },
+    plea: "It's Carlin' Sunday, hinny, and nobody down here's ever heard of it. At home in Shields every house had the peas steeping on the Saturday night and frying after chapel, and you'd not go past a door without a handful. I've the peas soaked, but my hands shake too much now for a hot pan. Will you fry them for me, and hand them round?",
+    steps: [
+      { kind: 'rite', rite: 'carling_sunday', label: 'The steeped peas fried in butter, and handed round the doors' },
+    ],
+    resolution: "The carlings go round the doors hot, and Mrs Charlton sits by the window to watch folk eat them. Then the practical half. Whole dried peas want a long soak in cold water and cooking right through; and never swap dried kidney beans in, for those are poisonous undercooked. Don't give whole peas to the little ones: small round foods are what children choke on, so mash them for the under-fives. And the pan: never leave hot fat alone, not for a minute. If it catches, turn off the heat only if it's safe to, never throw water on it, for it goes up like a fireball; get everyone out, shut the door, and ring 999.",
+    lore: "Carling Sunday: in the north on the second Sunday before Easter, peas steeped overnight were fried in butter with pepper and salt and given away (Hone, 1826, after Brand; The Gentleman's Magazine, 1786).",
+    tier: 'record',
+    source: 'W. Hone, The Every-Day Book (1826), 20 March · NHS East Lancashire, "Pulses" · NHS, on choking · London Fire Brigade, "Pan fires"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Mothering Sunday only (data/mothering.js), dated by Easter through the old calendar.
   {
     id: 'mothering_sunday_simnel',
