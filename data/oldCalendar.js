@@ -201,9 +201,9 @@ const OLD_CALENDAR = [
   { key: 'holy_rood', month: 9, day: 14, icon: '🌰', title: 'Holy Rood Day: nutting', tier: 'record',
     text: 'The young went nutting in the hedges, and Eton boys had a day off in September, perhaps this one, to do the same, after writing verses on the autumn.',
     quote: 'This day, they say, is called Holy-rood day, / And all the youth are now a nutting gone', source: `${HONE}, 14 September` },
-  { key: 'michaelmas_goose', month: 9, day: 29, icon: '🪿', title: 'Michaelmas: goose and rents', tier: 'folk',
-    text: 'A quarter day, when accounts were settled (a gale day for Irish rents), and the stubble goose, fattened on the harvest fields, was eaten: eat goose at Michaelmas and you would not want for money all year.',
-    source: 'J. Simpson & S. Roud, A Dictionary of English Folklore (2000)' },
+  { key: 'michaelmas_goose', month: 9, day: 29, icon: '🪿', title: 'Michaelmas: goose and rents', tier: 'record',
+    text: 'A quarter day, when accounts were settled (a gale day for Irish rents), and tenants brought the landlord a goose with the rent; the stubble goose, fattened on the harvest fields, was eaten: eat goose at Michaelmas and you would not want for money all year.',
+    quote: 'At Christmasse a capon, at Mighelmasse a goose', source: 'G. Gascoigne, A Hundreth Sundrie Flowres (1573); J. Simpson & S. Roud, A Dictionary of English Folklore (2000)' },
   // ── October ──
   { key: 'mop_fair', month: 10, day: 10, icon: '🧹', title: 'Old Michaelmas: the mop fairs', tier: 'folk',
     text: 'Farm servants stood for hire with a token of their trade (a crook, a tuft of wool, a pail, a mop) and, once hired, wore ribbons instead.',

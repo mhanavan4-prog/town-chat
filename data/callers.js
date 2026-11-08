@@ -934,6 +934,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. I (1826), 13 March · R. Herrick, Hesperides (1648), p. 278',
     reward: { gold: 40, xp: 35 },
   },
+  // Michaelmas only (data/michaelmasGoose.js), dated by the old calendar.
+  {
+    id: 'michaelmas_goose',
+    caller: 'Widow Pask',
+    icon: '🪿',
+    title: 'Michaelmas',
+    when: { calendar: 'michaelmas_goose', days: 2, label: 'Michaelmas Day' },
+    plea: "Michaelmas, and the rent's due, and I've the money, just. And I've two geese fat off the stubble since harvest: one for the squire with the rent, the way my husband always took it, and one for our dinner, for my mother swore if you eat goose today you'll want no money all the year. I've never dressed a goose in my life. Will you help me?",
+    steps: [
+      { kind: 'rite', rite: 'michaelmas_goose', label: 'The rent paid with a goose, and a goose roasted for the house' },
+    ],
+    resolution: "The rent is paid with a goose on top, and there's goose for dinner and some over. Then the practical half. A goose isn't done till it's steaming hot right through: pierce the thickest part, the leg where it meets the breast, and the juices should run clear with no pink left. Don't wash the bird under the tap, for the splashes carry the sickness about the kitchen. If it was frozen, thaw it in the cold, a day or more for every two kilos, and cook it within the day after. Pour the fat off as it roasts, slowly and away from you, for hot fat burns badly; a burn goes under cool running water for twenty minutes. Keep the fat in a jar for the potatoes, and never pour it down the sink, where it sets and blocks the drain. As for the money all year: no bird promises that, but a paid rent book helps.",
+    lore: "The Michaelmas goose: at the quarter day tenants brought the landlord a goose with the rent, 'at Mighelmasse a goose' (Gascoigne, 1573), and whoever ate goose on Michaelmas Day would want no money all the year (The Mirror, 1832).",
+    tier: 'record',
+    source: 'G. Gascoigne, A Hundreth Sundrie Flowres (1573) · Food Standards Agency, "Cooking your food" · safefood, on defrosting',
+    reward: { gold: 40, xp: 35 },
+  },
   // Holy Rood Day only (data/holyRood.js), dated by the old calendar.
   {
     id: 'holy_rood_nutting',
