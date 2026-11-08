@@ -245,8 +245,8 @@ const OLD_CALENDAR = [
     quote: 'regarded, from time immemorial, as the patron saint of Scotland', source: `${CHAMBERS}, 30 November` },
   // ── December ──
   { key: 'boy_bishop', month: 12, day: 6, icon: '🧒', title: 'St Nicholas: the Boy Bishop', tier: 'record',
-    text: 'A boy was made bishop in the cathedrals and schools and held a mock rule till Childermas; Henry VIII abolished it in 1542, Mary brought it back, and the Reformation ended it.',
-    source: `${CHAMBERS}, 6 December` },
+    text: 'The choristers chose one of their own for bishop, in the cathedrals and some schools, and he held a mock rule till Childermas; Henry VIII suppressed it in 1541, Mary brought it back, and under Elizabeth it fell out of use.',
+    quote: 'chosen by his fellow Children upon S. Nicholas daie', source: `J. Gregory, Gregorii Posthuma (1649); ${CHAMBERS}, 6 December` },
   { key: 'st_lucy', month: 12, day: 13, icon: '🌑', title: "St Lucy: the year's midnight", tier: 'record',
     text: 'Under the old calendar St Lucy\'s Day was reckoned the shortest day: "Lucy light, the shortest day and the longest night."',
     quote: "'Tis the year's midnight, and it is the day's", source: 'Donne, "A Nocturnal upon St. Lucy\'s Day" (1633); Ray, English Proverbs (1678)' },
