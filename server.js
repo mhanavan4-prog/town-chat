@@ -5149,6 +5149,10 @@ function charmBookStateBody(player) {
   try { book.sources = buildSources(book.chapters); } catch (e) { book.sources = null; }
   // The whole year at a glance (lib/yearCalendar.js).
   try { book.calendar = require('./lib/yearCalendar').buildYearCalendar(Date.now()); } catch (e) { book.calendar = null; }
+  // …with the Year's Round: which of the dated callers this account has worked.
+  if (book.calendar && key && accounts[key]) {
+    try { const r = yearsRound(accounts[key].callers && accounts[key].callers.byId); book.calendar.round = { kept: r.kept, total: r.total }; } catch (e) { /* noop */ }
+  }
   return book;
 }
 const { buildSources } = require('./lib/sources');
@@ -8685,7 +8689,25 @@ const callers = require('./lib/callers')({
   isBrewable: (id) => POTION_RECIPES.some((r) => r.result === id),
   seasonKey: () => { const se = calendarPublicState().season; return se && se.key; }, // Hallowe'en callers come only at Samhain
   onRite: (player, key) => { if (key === 'need_fire') lightFromNeedFire(player); }, // the need-fire relights your own hearth
+  onFinish: (player, c, st) => yearsRoundOnFinish(player, c, st), // 🗓️ the Year's Round
 });
+// 🗓️ The Year's Round (lib/yearsRound.js): working every caller who comes only
+// on their own day earns Keeper of the Year's Round, once, when the last is done.
+const { yearsRound } = require('./lib/yearsRound');
+function yearsRoundOnFinish(player, c, st) {
+  if (!c || !c.when || !player || !player.accountKey) return null;
+  const round = yearsRound(st && st.byId);
+  const prog = playerProgress[player.accountKey];
+  const had = !!(prog && Array.isArray(prog.riteTitles) && prog.riteTitles.includes('years_round'));
+  if (!round.done || had) return null;
+  grantRiteTitle(player.accountKey, 'years_round');
+  saveProgress();
+  if (player.ws) {
+    send(player.ws, { type: 'toast', always: true, message: `🗓️ Every old day kept, ${round.total} of ${round.total}: you are Keeper of the Year's Round.` });
+    send(player.ws, { type: 'titles_state', ...titlesPayloadFor(player.accountKey) });
+  }
+  return 'years_round';
+}
 
 // 🚪 A knock at the door: the dated callers (Martinmas, the wren boys, Good
 // Friday…) come only on their own days and are easy to miss, so a player who
