@@ -87,9 +87,9 @@ const CHARMS = {
       'Two for the thieves, and one for Christ Jesus.',
     ],
     use: 'Said with three crosses made over the leg. Schoolboys bathing in the Wear tied an eel-skin round the left leg as well.',
-    lore: 'Coleridge remembered the schoolboys of Christ\'s Hospital saying it; Henderson printed it with the north-country cures, the eel-skin garter and the "cramp-bone" (a sheep\'s knee-cap) carried in the pocket. Kings did it in gold: from Edward II to Mary I, English monarchs blessed cramp rings on Good Friday, "ye whyche rynges worne on ones finger doth helpe them whyche hath the Crampe".',
+    lore: 'Coleridge, in his Table-Talk, recorded "the approved mode of procedure in Christ\'s Hospital": the boy would "get out of bed, stand firmly on the leg affected", and cross it, "thrice repeating this formula". Henderson printed it with the north-country cures: "For cramp our Durham remedy is to garter the left leg below the knee"; "An eel\'s skin worn about the naked leg is deemed a preventive too, especially by schoolboys"; and the "cramp-bone" of a leg of mutton, "the patella or knee-cap". Kings blessed cramp rings in silver and gold. Edward II\'s household already offered on Good Friday "to make rings to give for medicine to divers folk", and Borde wrote in 1542 that "The Kinges of Englande doth halowe euery yere Crampe rynges", worn on the finger; Mary I was the last to bless them.',
     tier: 'record',
-    source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1879), ch. 5 (from Coleridge, Table-Talk) · Andrew Borde (1542), on the cramp rings',
+    source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1879), chs. 1 and 5 (from Coleridge, Table-Talk) · A. Borde, The Fyrst Boke of the Introduction of Knowledge (1542), ch. 1 · H. Farquhar, "Royal Charities", British Numismatic Journal 12 (1916)',
   },
 };
 
