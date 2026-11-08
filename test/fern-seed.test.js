@@ -45,7 +45,9 @@ setTimeout(() => {
   const at = (ms, fn) => { Date.now = () => ms; try { return fn(); } finally { Date.now = realNow; } };
   const offered = (t) => at(t, () => { const st = h.callers.stateOf(p); st.active = null; return h.callers.offeredIds(p, st); });
   const days = [23, 24].map((d) => offered(Date.UTC(2027, 5, d, 12)));
-  check('on St John\'s Eve he comes first, a midsummer caller after him', days.every((o) => o[0] === 'fern_seed_eve' && o.length === 3 && CALLERS.find((x) => x.id === o[1]).season === 'litha'), days);
+  // Hester Bligh's Midsummer Men (data/midsummerMen.js) come the same two days: both dated callers first, a midsummer caller after.
+  const datedN = (o) => o.filter((id) => !!(CALLERS.find((x) => x.id === id) || {}).when).length;
+  check('on St John\'s Eve he comes first (with any other caller of the day), a midsummer caller after', days.every((o) => o.length === 3 && o.slice(0, datedN(o)).includes('fern_seed_eve') && CALLERS.find((x) => x.id === o[datedN(o)]).season === 'litha'), days);
   const outside = [Date.UTC(2027, 5, 22, 12), Date.UTC(2027, 5, 25, 12), Date.UTC(2027, 11, 23, 12)].map(offered);
   check('on other days he never comes', outside.every((o) => !o.includes('fern_seed_eve') && o.length === 3), outside);
   at(Date.UTC(2027, 5, 23, 12), () => {
