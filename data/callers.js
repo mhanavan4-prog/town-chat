@@ -968,6 +968,23 @@ const CALLERS = [
     source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book (1826–27), 14 February',
     reward: { gold: 40, xp: 35 },
   },
+  // St David's Day only (data/stDavid.js), dated by the old calendar.
+  {
+    id: 'st_david',
+    caller: 'Gwen Pritchard, from Carmarthen',
+    icon: '🥬',
+    title: "St David's Day",
+    when: { calendar: 'st_david', days: 2, label: "St David's Day" },
+    plea: "It's Gŵyl Dewi, St David's Day, and I've a leek for my hat, the way we always wore it at home. But down the street they've hung a stuffed Welshman from a pole, and the delivery boys jeer at my voice every time I pass. I mean to wear my leek all the same. Will you walk to the market with me?",
+    steps: [
+      { kind: 'rite', rite: 'st_david', label: 'The leek worn through the street, and the little things done' },
+    ],
+    resolution: "Gwen wears her leek to the market and back, and the delivery boys find something else to do. Then the practical half. Being mocked for where you're from is a hurt, and sometimes it's worse: the police and the Crown Prosecution Service treat any crime that the victim, or anyone else, thinks was driven by hostility to their race as a hate crime, and in that law race includes nationality and national origins. Write down what happened and when. In an emergency ring 999; otherwise ring 101, or report it online through True Vision. And in Wales, the Welsh language has official status.",
+    lore: "St David's Day: the Welsh wore the leek, 'an honourable badge of the seruice' (Henry V, 1623), and in London effigies of Welshmen were hung up; Pepys saw one in Mark Lane in 1667.",
+    tier: 'record',
+    source: 'S. Pepys, Diary, 1 March 1666/67 · Crown Prosecution Service, "Hate crime" · Crime and Disorder Act 1998, s. 28 · Citizens Advice Wales, reporting hate crime · Welsh Language (Wales) Measure 2011',
+    reward: { gold: 40, xp: 35 },
+  },
   // Shrove Tuesday only (data/shroveTuesday.js), dated by Easter through the old calendar.
   {
     id: 'shrove_tuesday_shroving',
