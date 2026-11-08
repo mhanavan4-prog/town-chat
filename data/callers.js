@@ -1579,6 +1579,23 @@ const CALLERS = [
     source: 'R. Plot, The Natural History of Stafford-shire (1686) · NHS, "Blisters" · The Highway Code, rules 3 and 5 · HSE, "Good handling technique"',
     reward: { gold: 40, xp: 35 },
   },
+  // Bartholomew Fair only (data/bartholomewFair.js), dated by the old calendar.
+  {
+    id: 'bartholomew_fair',
+    caller: 'Nan Hobbs, from Cow Lane',
+    icon: '🎪',
+    title: 'Bartholomew Fair',
+    when: { calendar: 'bartholomew_fair', days: 2, label: "St Bartholomew's Day" },
+    plea: "It's Bartholomew Fair, and I stopped to hear the ballad-singer, and when he'd done my purse was cut clean off my girdle, and our Kit, she's six, was gone from my hand. Someone said they saw a little lass making for the pig booths. Will you help me find her?",
+    steps: [
+      { kind: 'rite', rite: 'bartholomew_fair', label: 'Roast pig, the ballad heard with a hand on the purse, and everyone brought home' },
+    ],
+    resolution: "You find Kit by the pig booths, nose to the roasting, and Nan holds her hand the rest of the day. The purse is gone for good. Then the practical half. If the thief is still about, or anyone is in danger, ring 999; otherwise report it on 101 or online, and shout out to warn others. If there were cards in it, ring your bank straight away. Keep your wallet and valuables close: pickpockets work by distraction, or by bumping into you in a crowd, and a zipped bag doesn't mean you're totally safe. Before you go in, agree a meeting point in case you're separated, and take a photo of the children as you leave home, so you can show a steward or a police officer what they look like; if anyone is lost, find a steward or a police officer at once.",
+    lore: "Bartholomew Fair: chartered in 1133, the great cloth fair and later London's rowdiest, where Jonson's ballad-singer warned against 'cutting a purse' while the purses were cut.",
+    tier: 'record',
+    source: 'Ben Jonson, Bartholomew Fair (1614), as Hone quotes it · City of London Police, "Pickpocketing" · Metropolitan Police, "Staying safe in London" · Notting Hill Carnival, "Safety" · RBKC, "How to be safe at Carnival"',
+    reward: { gold: 40, xp: 35 },
+  },
   // Puck Fair only (data/puckFair.js), dated by the old calendar.
   {
     id: 'puck_fair',
