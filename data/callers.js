@@ -1257,6 +1257,23 @@ const CALLERS = [
     source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900)',
     reward: { gold: 40, xp: 35 },
   },
+  // St Nicholas' Day only (data/boyBishop.js), dated by the old calendar.
+  {
+    id: 'boy_bishop',
+    caller: 'Mistress Ashby',
+    icon: '🧒',
+    title: "St Nicholas' Day",
+    when: { calendar: 'boy_bishop', days: 2, label: "St Nicholas' Day" },
+    plea: "The choristers have chosen my Ned for boy bishop, and he's beside himself: a mitre and a sermon and going round the houses with the whole choir behind him till Childermas. I'm proud as anything. But it's a crowd of little boys out in the dark, knocking on strangers' doors, and I want it done right. Will you help me see it through?",
+    steps: [
+      { kind: 'rite', rite: 'boy_bishop', label: 'The boy bishop chosen and robed, his sermon preached, and his company seen round the houses' },
+    ],
+    resolution: "Ned preaches his sermon without a stumble and comes home with his mitre over one eye. Then the practical half, for any time children are given a part and sent out. Have at least two grown-ups with them, even for a small group, and enough of them: one to every six of the little ones, one to eight of the older. Anyone who hasn't been properly checked shouldn't be left alone with the children. Ask every parent's leave before their child goes. And if anything ever worries you, or a child, the NSPCC Helpline is 0808 800 5000, and a child can ring Childline on 0800 1111.",
+    lore: "The Boy Bishop: the choristers chose one of their own on St Nicholas' Day, and he kept the state of a bishop till Childermas (Gregory, 1649); Henry VIII suppressed it in 1541, and Mary brought it back.",
+    tier: 'record',
+    source: 'J. Gregory, Gregorii Posthuma (1649) · NSPCC, "Recommended adult to child ratios" and "Example consent form" · NSPCC Helpline · Childline',
+    reward: { gold: 40, xp: 35 },
+  },
   // St Lucy's Day only (data/stLucy.js), dated by the old calendar.
   {
     id: 'st_lucy',
