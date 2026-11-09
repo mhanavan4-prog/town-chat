@@ -3,7 +3,7 @@
 // caller is dated by the Commonplace Book's own entry
 // (when: { calendar: 'simon_jude' }).
 //
-// Sources: W. Hone, The Every-Day Book, vol. II (1827), 28 October, read
+// Sources: W. Hone, The Every-Day Book, vol. I (1826), 28 October, read
 // first-hand in the Hone archive transcription; T. Middleton & T. Dekker, The
 // Roaring Girl (1611), I.ii and II.i, read first-hand in the Folger EMED
 // transcription of the quarto (regularised spelling); R. Holinshed,
@@ -28,9 +28,9 @@ const SIMON_JUDE_RITES = {
       'The ford is a brown flood by noon. Nobody crosses, and the cart waits in the yard till it falls.',
       'The rain stops by evening. The old folk say the saints were only clearing their throats.',
     ],
-    lore: '"This anniversary was deemed as rainy as St. Swithin\'s," Hone wrote (1827). In The Roaring Girl (1611) Trapdoor swears by it, "As well as I know \'twill rain upon Simon and Jude\'s day next", and Jack Dapper wishes on a feather-seller "a continual Simon and Jude\'s rain" to "Beat all your feathers as flat down as pancakes". Hone tied it to 1536, when the king\'s army and the Pilgrimage of Grace faced each other at Doncaster: "on the eve of this day in 1536, when a battle was to have been fought", he says, "there fell so great a rain" that it "could not take place". The chronicle tells it otherwise, with no saint\'s day: the night before the battle "there fell a raine not great to speake of, but yet as it were by miracle, the riuer of Dun rose suddenlie" (Holinshed), and the armies talked instead. Historians put the meeting at Doncaster on 27 October; the saints\' day seems to have been fitted to the story afterwards.',
+    lore: '"This anniversary was deemed as rainy as St. Swithin\'s," Hone wrote (1826). In The Roaring Girl (1611) Trapdoor swears by it, "As well as I know \'twill rain upon Simon and Jude\'s day next", and Jack Dapper wishes on a feather-seller "a continual Simon and Jude\'s rain" to "Beat all your feathers as flat down as pancakes". Hone tied it to 1536, when the king\'s army and the Pilgrimage of Grace faced each other at Doncaster: "on the eve of this day in 1536, when a battle was to have been fought", he says, "there fell so great a rain" that it "could not take place". Holinshed, from whom Hone took it, marks the day in his margin, "The euen of Simon and Iude": the night before the battle "there fell a raine not great to speake of, but yet as it were by miracle, the riuer of Dun rose suddenlie" (Holinshed), and the armies talked instead. Historians put the meeting at Doncaster on 27 October, the eve itself.',
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 28 October · T. Middleton & T. Dekker, The Roaring Girl (1611), I.ii and II.i · R. Holinshed, Chronicles (1587) · M. Bush, The Pilgrimage of Grace (1996)',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 28 October · T. Middleton & T. Dekker, The Roaring Girl (1611), I.ii and II.i · R. Holinshed, Chronicles (1587) · M. Bush, The Pilgrimage of Grace (1996)',
   },
 };
 

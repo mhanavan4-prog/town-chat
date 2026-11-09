@@ -1,5 +1,5 @@
 // All Souls' Day: souling for soul cakes (Aubrey, 1680s; Notes and Queries,
-// 1851; Burne, 1883; Shakespeare), a caller dated by the Commonplace Book's own
+// 1851; Burne, 1883–86; Shakespeare), a caller dated by the Commonplace Book's own
 // entry (2 November, and the 3rd), first at the door, and the Charm Book.
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-souling-');
@@ -25,7 +25,7 @@ const R = SOUL_RITES.soul_cakes;
 check('souling: badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('Aubrey in Shropshire: the heap of soul cakes on the board', /"There is sett on the Board a high heap of Soule-cakes"/.test(R.lore) && /"n'ly all the visitants that day take one\."/.test(R.lore) && /Aubrey, Remaines of Gentilisme and Judaisme \(1686–87\)/.test(R.source));
 check('…the children still souling in 1851 (Notes and Queries)', /"the custom for the village children to go round to all their neighbours souling"/.test(R.lore) && /Notes and Queries \(15 November 1851\)/.test(R.source));
-check('…the song as Burne printed it, and Shakespeare\'s beggar at Hallowmas', /"Soul! Soul! For a soul-cake! \/ I pray, good missis, a soul-cake!"/.test(R.lore) && /Burne, Shropshire Folk-Lore \(1883\)/.test(R.source) && /"to speak puling, like a beggar at Hallowmas"/.test(R.lore) && /Two Gentlemen of Verona, 2\.1/.test(R.source));
+check('…the song as Burne printed it, and Shakespeare\'s beggar at Hallowmas', /"Soul! Soul! For a soul-cake! \/ I pray, good missis, a soul-cake!"/.test(R.lore) && /Burne, Shropshire Folk-Lore \(1883–86\)/.test(R.source) && /"to speak puling, like a beggar at Hallowmas"/.test(R.lore) && /Two Gentlemen of Verona, 2\.1/.test(R.source));
 check('…the Antrobus soul-cakers still playing; and no unchecked "1511"', /Antrobus/.test(R.lore) && !/1511/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'all_souls_souling');
 check('Margery Dutton, dated by the old calendar\'s souling day, for two days', c && c.when && c.when.calendar === 'souling' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'souling' && e.month === 11 && e.day === 2) && c.steps[0].rite === 'soul_cakes');
