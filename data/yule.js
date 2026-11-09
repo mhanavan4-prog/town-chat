@@ -37,9 +37,9 @@ const YULE_RITES = {
       'First, but she looks hard at your fair hair. She takes the coal anyway; the salt makes up for it.',
       'A lad beat you over the step, but empty-handed. Your coal goes on the fire, and it is your luck they keep.',
     ],
-    lore: 'The first-foot was the first person to cross the threshold after midnight, and whatever they were, the year would be. A tall, dark-haired man was best; a woman, or a red- or fair-haired man, was unlucky in most places (East Yorkshire wanted dark, the North York Moors fair). The first-foot must not come empty: coal for warmth, salt, shortbread or black bun for food, and whisky to toast the house. In the Isle of Man the same visitor was the qualtagh, and dark was luckier there too.',
+    lore: 'The first-foot was "the first to enter the house since twelve o\'clock" (Chambers, 1864), and whatever they were, the year would be. In Aberdeenshire the unlucky ones were "women generally", "those whose eyebrows met, and males who had red hair"; in Edinburgh "A dark-complexioned young man was always considered lucky" (Folk-Lore, 1893). "In most places the first footer must be dark haired," Simpson and Roud found, "but some insisted on a fair haired or light complexion." The first-foot must not come "empty-handed": shortbread, oatcakes and a whisky-bottle in Aberdeenshire, bread and coal most of all elsewhere, and in later lists salt. In the Isle of Man the same visitor was the qualtagh, lucky "of dark complexion"; Moore thought Scotland had it the other way about.',
     tier: 'record',
-    source: 'J. Simpson & S. Roud, A Dictionary of English Folklore (2000), "first-foot" · A. W. Moore, The Folk-Lore of the Isle of Man (1891), on the qualtagh',
+    source: 'R. Chambers, The Book of Days (1864), 1 January · Folk-Lore 4 (1893), "First-footing in Aberdeenshire" and "First-footing in Edinburgh" · J. Simpson & S. Roud, A Dictionary of English Folklore (2000), "first-foot" · A. W. Moore, The Folk-Lore of the Isle of Man (1891), on the qualtagh',
   },
   yulelog: {
     key: 'yulelog', name: 'The Yule Log', icon: '🪵',
