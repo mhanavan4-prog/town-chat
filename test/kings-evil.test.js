@@ -23,7 +23,7 @@ function makeMockSocket(tag) {
 const R = HOUSEHOLD_RITES.kings_evil;
 check('the seventh son\'s touch is a household rite, badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('what the king\'s evil was, in the Royal College of Physicians\' words', /"swollen and discharging tuberculous lymph glands of the neck"/.test(R.lore) && /Royal College of Physicians/.test(R.source));
-check('the touch-piece on its ribbon; Charles II\'s 105,000; Anne the last', /"pierced and threaded on a ribbon"/.test(R.lore) && /over 105,000 people/.test(R.lore) && /RCIN 443149/.test(R.source) && /Queen Anne was the last; the Hanoverians did not touch/.test(R.lore));
+check('the touch-piece on its ribbon; Charles II\'s 105,000; Anne the last', /"pierced and threaded on a ribbon"/.test(R.lore) && /over 105,000 people/.test(R.lore) && /RCIN 443149/.test(R.source) && /Queen Anne was the last: "The death of Anne in 1714 marked the end of this ceremony in England\."/.test(R.lore) && !/Hanoverians/.test(R.lore) && !/17th-century note/.test(R.lore));
 check('Johnson, in Boswell\'s words: the lady in diamonds, and "without any effect"', /"actually touched by Queen Anne"/.test(R.lore) && /"a confused, but somehow a sort of solemn recollection of a lady in diamonds, and a long black hood"/.test(R.lore) && /"This touch, however, was without any effect\."/.test(R.lore) && /Boswell, Life of Johnson \(1791\)/.test(R.source));
 check('the seventh son, from Notes and Queries', /"and so doth the seaventh sonne"/.test(R.lore) && /Notes and Queries \(22 February 1851\)/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'kings_evil_child');

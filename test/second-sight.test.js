@@ -21,7 +21,7 @@ function makeMockSocket(tag) {
 
 const R = HOUSEHOLD_RITES.second_sight;
 check('the second sight is a household rite, badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
-check('Martin\'s definition, word for word', /"is a singular faculty of seeing an otherwise invisible object, without any previous means used by the person that sees it"/.test(R.lore) && /Account of the Second-Sight/.test(R.source));
+check('Martin\'s definition, word for word', /"is a singular faculty of seeing an otherwise invisible object, without any previous means used by the person that sees it for that end"/.test(R.lore) && /Account of the Second-Sight/.test(R.source));
 check('…and his rule of the shroud: below the middle a year, toward the head days', /"When a shroud is perceived about one, it is a sure prognostic of death"/.test(R.lore) && /below the middle/.test(R.how) && /within days/.test(R.how));
 check('not hereditary, not passed on (Martin); seers wanted rid of it (Kirk)', /did not run in families/.test(R.lore) && /taibhsear/.test(R.lore) && /hideous Spectacles/.test(R.lore) && /Kirk, The Secret Common-Wealth \(1691\)/.test(R.source));
 check('Johnson\'s verdict of 1773: "only willing to believe"', /"came away at last only willing to believe\."/.test(R.lore) && /Johnson, A Journey to the Western Islands of Scotland \(1775\)/.test(R.source));
