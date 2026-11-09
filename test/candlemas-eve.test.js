@@ -25,7 +25,7 @@ function makeMockSocket(tag) {
 
 const R = CANDLEMAS_RITES.candlemas_green;
 check('down with the green: badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
-check('Herrick\'s goblins, in the 1648 words', /"Down with the Holly, Ivie, all, \/ Wherewith ye drest the Christmas Hall"/.test(R.lore) && /"look how many leaves there be \/ Neglected there \(maids trust to me\) \/ So many Goblins you shall see\."/.test(R.lore) && /pp\. 337–38 and 361/.test(R.source));
+check('Herrick\'s goblins, in the 1648 words', /"Down with the Holly, Ivie, all, \/ Wherewith ye drest the Christmas Hall"/.test(R.lore) && /"looke how many leaves there be \/ Neglected there \(maids trust to me\) \/ So many Goblins you shall see\."/.test(R.lore) && /pp\. 337–38 and 361/.test(R.source));
 check('…box up in the holly\'s place till Easter, then yew, birch, rushes', /"In stead of Holly, now up-raise \/ The greener Box \(for show\.\)"/.test(R.lore) && /"Unto the crisped Yew"/.test(R.lore) && /"Green Rushes"/.test(R.lore) && /"Thus times do shift; each thing his turne do's hold"/.test(R.lore));
 check('…the brand till sunset, kept for next year\'s log', /"Part must be kept wherewith to teend \/ The Christmas Log next yeare"/.test(R.lore) && /till sunset/.test(R.how));
 check('Hone, and English Heritage on Twelfth Night as the newer rule; no burning of the green', /"severely he enjoins the removal of the last greens of the old year"/.test(R.lore) && /"a modern invention"/.test(R.lore) && !/burn(ed|t)? the (green|holly|ivy)/i.test(R.lore + R.how));
