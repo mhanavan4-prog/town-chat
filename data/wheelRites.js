@@ -130,7 +130,7 @@ const WHEEL_RITES = {
   },
   bilberries: {
     key: 'bilberries', season: 'lughnasadh', name: 'Bilberry Sunday', icon: '🫐',
-    how: 'On the last Sunday of July or the first of August, climb the hill with everyone else and pick bilberries, and thread some on a straw or a rush for a bracelet for your sweetheart.',
+    how: 'On the last Sunday of July or the first Sunday of August, climb the hill with everyone else and pick bilberries, and thread some on a straw or a rush for a bracelet for your sweetheart.',
     outcomes: [
       'The hill is blue with them. Everyone comes down with purple mouths; a good sign for the crops, the old ones say.',
       'Thin pickings this year, and the rain comes on. You thread what you have, and it is enough for one bracelet.',
