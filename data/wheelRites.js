@@ -49,9 +49,9 @@ const WHEEL_RITES = {
       'Cloud over the east. No dance this year; you go home cold, and laughed at, and glad you went.',
       'It quivers in the pail, or the pail quivers in your hands. The children are sure it danced.',
     ],
-    lore: 'It was a common belief that the sun danced on Easter Day for the Resurrection. Sir Thomas Browne, collecting vulgar errors in 1646, hoped he would not disparage the Resurrection "if we say the Sun doth not dance on Easter day". Hone records people in Ireland rising about four to see it, and an older English account of watching for "the lamb-playing" in clear spring water at sunrise, which is, it says, nothing but the reflection.',
+    lore: 'It was a common belief that the sun danced on Easter Day for the Resurrection. Sir Thomas Browne, collecting vulgar errors in 1646, hoped he would not disparage the Resurrection "if we say the Sun doth not dance on Easter day". In Ireland, a correspondent told Hone, people would "rise about four o\'clock to see the sun dance in honour of the resurrection"; and Dunton\'s Athenian Oracle, which Hone quotes, says that in some parts of England "they call it the lamb-playing, which they look for, as soon as the sun rises, in some clear or spring water, and is nothing but the pretty reflection it makes from the water". In South Uist old Barbara Macphie told Carmichael she had seen it once from the top of Benmore: "It was dancing up and down in exultation at the joyous resurrection".',
     tier: 'record',
-    source: 'Sir Thomas Browne, Pseudodoxia Epidemica (1646), Book V ch. 22 · W. Hone, The Every-Day Book (1826–27), 5 April',
+    source: 'Sir Thomas Browne, Pseudodoxia Epidemica (1646), Book V ch. 21 (ch. 22 in later editions) · W. Hone, The Every-Day Book (1826–27), 5 April, with J. Dunton\'s Athenian Oracle · A. Carmichael, Carmina Gadelica vol. 2 (1900), "Domhnach Ceusda"',
   },
   paceeggs: {
     key: 'paceeggs', season: 'ostara', name: 'Pace Eggs', icon: '🥚',

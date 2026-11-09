@@ -577,10 +577,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'sundance', label: 'Watch the sun rise on Easter morning' },
     ],
-    resolution: "You sit on the wall with the pail between you in the grey before dawn, and when the sun comes up over the hill the water shivers and the light dances in it, and she grips your arm and says \"There!\" You don't tell her it's the water moving. Sir Thomas Browne said as much in 1646, and nobody listened to him either.",
-    lore: "It was a common belief in Britain and Ireland that the sun danced on Easter morning for the Resurrection. People rose before four to see it, often in a vessel of water. Browne, in 1646, ventured that \"the Sun doth not dance on Easter day\".",
+    resolution: "You sit on the wall with the pail between you in the grey before dawn, and when the sun comes up over the hill the water shivers and the light dances in it, and she grips your arm and says \"There!\" You don't tell her it's the water moving. The Athenian Oracle said it was \"nothing but the pretty reflection\" three hundred years ago, and nobody listened to it either. Then the practical half, and it's for her eyes. Never look straight at the sun, not even at sunrise, when it looks soft and red: it can burn the back of the eye, and because the eye feels no pain there you may not know for hours. A child's eyes take more harm than a grown-up's. Watching it in the pail is the old way and the better one, but don't stare long at the bright spot either: sunlight off water is strong. If afterwards things look blurred or bent, the colours are wrong, or there's a dark spot in the middle of what she sees, take her to an optician straight away.",
+    lore: "It was a common belief in Britain and Ireland that the sun danced on Easter morning for the Resurrection. In Ireland people would \"rise about four o'clock to see the sun dance\", and in England some watched for \"the lamb-playing\" in a vessel of water (Hone, 1826, quoting Dunton's Athenian Oracle). Browne, in 1646, ventured that \"the Sun doth not dance on Easter day\".",
     tier: 'record',
-    source: 'Sir Thomas Browne, Pseudodoxia Epidemica (1646), Book V ch. 22 · W. Hone, The Every-Day Book (1826–27), 5 April',
+    source: 'Sir Thomas Browne, Pseudodoxia Epidemica (1646), Book V ch. 21 (ch. 22 in later editions) · W. Hone, The Every-Day Book (1826–27), 5 April · College of Optometrists, eye safety (2026) · Royal College of Ophthalmologists (2026) · NHS, "Sunscreen and sun safety"',
     reward: { gold: 40, xp: 35 },
   },
   {
