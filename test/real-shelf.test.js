@@ -28,8 +28,8 @@ check('the modern revival is badged revival: Leland, Murray, Gardner', ['aradia'
 check('no quotation from a book still in copyright (Gardner)', B('gardner').quote === null);
 check('quotations are short', REAL_BOOKS.every((b) => !b.quote || b.quote.split(/\s+/).length <= 25));
 check('the Malleus gives Kramer, doubts Sprenger, and calls the Cologne approval likely forged', /Kramer/.test(B('malleus').author) && /doubted/.test(B('malleus').author) && /forged/.test(B('malleus').fact));
-check('Scot\'s burning is called a tradition, not a fact', /later tradition, not a fact/.test(B('scot').fact));
-check('Bald\'s eyesalve and the 2015 MRSA study, with its caveat', /2015/.test(B('balds_leechbook').fact) && /MRSA/.test(B('balds_leechbook').fact) && /only all together/.test(B('balds_leechbook').fact));
+check('Scot\'s burning is called a later tradition, with no contemporary record', /later tradition, with no contemporary record of it/.test(B('scot').fact));
+check('Bald\'s eyesalve and the 2015 MRSA study, with its caveat', /2015/.test(B('balds_leechbook').fact) && /MRSA/.test(B('balds_leechbook').fact) && /not by any single ingredient alone/.test(B('balds_leechbook').fact));
 check('the Key of Solomon is not Solomon\'s', /falsely given to King Solomon/.test(B('key_of_solomon').author));
 check('Gerard is honest about Dodoens', /Dodoens/.test(B('gerard').author) && /unacknowledged translation/.test(B('gerard').summary));
 check('Gardner\'s nine million is corrected', /nine million/.test(B('gardner').fact) && /forty to sixty thousand/.test(B('gardner').fact));
