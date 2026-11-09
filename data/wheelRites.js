@@ -61,9 +61,9 @@ const WHEEL_RITES = {
       'It hits a stone halfway and that is the end of it. You eat the pieces, which is the other half of the fun.',
       'It wobbles, stops, and is overtaken by a smaller egg. A good egg, all the same; onion-brown and whole.',
     ],
-    lore: 'Pace eggs are Pasch (Easter) eggs, from the Latin pascha. Hone describes one boiled hard "within the coat of an onion", and in 1827 a Scots writer has eggs "for the bairns to dye, and row on the braes on Pasch Sunday". Children in the north-east gathered whin blossom to dye them yellow. The rolling still goes on at Avenham Park in Preston, recorded there in 1867.',
+    lore: 'Pace eggs are Pasch (Easter) eggs, from the Latin pascha. Hone describes one boiled hard "within the coat of an onion", and in 1827 a Scots writer has eggs "for the bairns to dye, and row on the braes on Pasch Sunday". In Banffshire in 1834 children played with coloured eggs on "Pace Saturday", and flowers gave the colours: "We eest tae gaither the flooers tae colour oor pess eggs" (Aberdeen, 1958); whin, or gorse, gives yellow. In Preston the rolling moved to Easter Monday, at Avenham Park, where it is said to have begun in 1867 and still goes on.',
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826–27), 5 April · Scottish National Dictionary, "Pace" (1827, 1834 citations)',
+    source: 'W. Hone, The Every-Day Book (1826–27), 5 April · Scottish National Dictionary, "Pace" (1827, 1834, 1958 citations) · Preston City Council, "Egg Rolling in Avenham Park" (2024)',
   },
   // ── Beltane ──
   maydew: {

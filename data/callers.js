@@ -591,10 +591,10 @@ const CALLERS = [
       { kind: 'deliver', item: 'gorse_bloom', qty: 2, label: 'Whin blossom to dye them yellow' },
       { kind: 'rite', rite: 'paceeggs', label: 'Dye the eggs and roll them down the brae' },
     ],
-    resolution: "Onion-brown and whin-yellow, hard as stones, they go bowling down the brae with half the village shrieking after them. Win or lose, the twins eat every broken one on the way home and declare it the best Easter there ever was. The Hartleys, they report, cried.",
-    lore: "Pace eggs are Pasch (Easter) eggs. Hone describes one boiled \"within the coat of an onion\"; in 1827 eggs were dyed \"for the bairns to … row on the braes on Pasch Sunday\". Whin blossom dyed them yellow, and Preston still rolls them in Avenham Park.",
+    resolution: "Onion-brown and whin-yellow, hard as stones, they go bowling down the brae with half the village shrieking after them. Win or lose, the twins eat every broken one on the way home and declare it the best Easter there ever was. The Hartleys, they report, cried. Then the practical half, for eggs that have been rolled through the grass. Wash hands before anyone eats one: dogs use that brae too, and the NHS warns that worm eggs in soil and dog mess get in by the mouth. Peel a cracked one with clean hands, and throw away any with muck in the crack. What isn't eaten goes in the fridge within two hours and is finished within two days. The whin is for the colour, not the eating: only its flowers are harmless, and the pods and seeds are poison. And mind any child at the bottom of the brae who can't have egg: it is one of the commonest allergies in small children.",
+    lore: "Pace eggs are Pasch (Easter) eggs. Hone describes one boiled hard \"within the coat of an onion\" and boys who \"roll them on the grass\"; in 1827 eggs were dyed \"for the bairns to … row on the braes on Pasch Sunday\"; flowers coloured them, whin for yellow. Preston has rolled them on Easter Monday in Avenham Park since, it says, 1867.",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826–27), 5 April · Scottish National Dictionary, "Pace"',
+    source: 'W. Hone, The Every-Day Book (1826–27), 5 April · Scottish National Dictionary, "Pace" · Preston City Council (2024) · NHS, "Toxocariasis" · Food Standards Agency, "How to chill, freeze and defrost food safely" · NHS Scotland CYANS, "Egg allergy"',
     reward: { gold: 45, xp: 35 },
   },
   {
