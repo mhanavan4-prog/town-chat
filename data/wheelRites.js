@@ -161,9 +161,9 @@ const WHEEL_RITES = {
       'You are a day late, and the berries are watery and sour. Whatever the Devil did, he did it.',
       'You leave the last ones on the bush, which is the safest thing; the birds can argue with the Devil.',
     ],
-    lore: 'Not to eat blackberries after Michaelmas is one of the most widespread beliefs in Britain and Ireland. Threlkeld, in Ireland in 1727, wrote that "after Michaelmas the D—l casts his club over them"; in Sussex the Devil went round after Old Michaelmas Day and spat on them, in Scotland he threw his cloak over them. The berries are, in fact, poor by then: wet weather and mould get into them.',
+    lore: 'Not to eat blackberries after Michaelmas is a belief found all over Britain and Ireland. Threlkeld, in Ireland in 1727, wrote that "after Michaelmas the D—l casts his club over them"; in Sussex the Devil went round after Old Michaelmas Day and spat on them, in Scotland he threw his cloak over them. In Ireland the berries were good till Samhain, when "the pooka crawls on them". The berries are, in fact, poor by then: grey mould gets into over-ripe fruit "particularly in wet, humid and cool conditions".',
     tier: 'record',
-    source: 'C. Threlkeld, Synopsis Stirpium Hibernicarum (1727) · 19th-century Sussex and Scottish records (Opie & Tatem, A Dictionary of Superstitions, 1989)',
+    source: 'C. Threlkeld, Synopsis Stirpium Hibernicarum (1727) · 19th-century Sussex and Scottish records (Opie & Tatem, A Dictionary of Superstitions, 1989) · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Bramble" · R. Sexton, RTÉ Brainstorm (2025), from the Schools\' Collection',
   },
 };
 
