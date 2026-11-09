@@ -41,7 +41,7 @@ const HALLOWEEN_RITES = {
       'Nothing but your own face and the candle — whoever it is, they are not thinking of you tonight.',
       'A shape behind you that might be a face, or might be the coat on the door.',
     ],
-    lore: 'Burns: the face of your future companion will be seen in the glass, as if peeping over your shoulder.',
+    lore: 'Burns: "Take a candle, and go, alone, to a looking glass: eat an apple before it, and some traditions say you should comb your hair all the time: the face of your conjugal companion, to be, will be seen in the glass, as if peeping over your shoulder."',
   },
   clue: {
     key: 'clue', name: 'The Blue Clue', icon: '🧶',
