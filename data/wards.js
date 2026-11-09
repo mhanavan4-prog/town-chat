@@ -35,7 +35,7 @@ const WARDS = {
     blurb: 'A permanent ward on the threshold.',
     lore: "Hexafoils — \"daisy wheels\" — were drawn with a pair of compasses: one circle, then six arcs of the same radius, each set from where the last crossed the circle. They are very common on doorways, windows, fireplaces, barns and church porches, \"from the early medieval period, up into the 19th century\". \"The purpose of hexafoils is disputed\", Historic England says, but \"their interpretation as a ritual protection mark is the most widely accepted theory at present\": one idea is that a spirit would follow the \"single, endless line\" and be caught in it. Others read them as masons' practice in drawing with compasses. If you find one, record it and leave it be: removing marks from a listed building usually needs consent.",
     tier: 'record',
-    source: "Historic England, 'Discovering Witches' Marks' and \"Help hunt for witches' marks\" · Historic England, Graffiti on Historic Buildings (2018) · J. Alexander, in The Guardian (2026)",
+    source: "Historic England, 'Discovering Witches' Marks' · Historic England, \"Help hunt for witches' marks\" · Historic England, Graffiti on Historic Buildings (2018) · J. Alexander, in The Guardian (2026)",
   },
   shoe: {
     name: 'Concealed Shoe',
