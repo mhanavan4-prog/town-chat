@@ -22,9 +22,9 @@ function makeMockSocket(tag) {
 
 const R = HOUSEHOLD_RITES.dried_cat;
 check('the dried cat is a household rite, badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
-check('Howard\'s three reasons (1951): sacrifice, vermin-scare, or a cat that crept in', /1951 Margaret Howard weighed three reasons/.test(R.lore) && /sacrifice/.test(R.lore) && /scare for the rats/.test(R.lore) && /crept into a cavity/.test(R.lore) && /Howard, "Dried Cats", Man 51 \(1951\)/.test(R.source));
-check('some crept in (Worcester), some were posed after death (Soane\'s Lothbury cat, 1803)', /Worcester/.test(R.lore) && /posed after death/.test(R.lore) && /Lothbury pulled down in 1803/.test(R.lore) && /Soane's Museum, BL1/.test(R.source));
-check('the Sudbury cat put back "after four years of eventful absence"', /"after four years of eventful absence"/.test(R.lore) && /Mill Hotel, Sudbury/.test(R.source));
+check('Howard\'s two explanations (1951): sacrifice, or a scarecrow for the vermin; some crept in', /Margaret Howard\'s of 1951, offered two explanations/.test(R.lore) && !/three reasons/.test(R.lore) && /sacrifice/.test(R.lore) && /scarecrow for the rats/.test(R.lore) && /crawled into a cavity/.test(R.lore) && /Howard, "Dried Cats", Man 51 \(1951\)/.test(R.source));
+check('some crept in (Worcester); Soane\'s Lothbury cat found with the rat in its mouth, not "posed"', /Worcester/.test(R.lore) && !/posed/.test(R.lore) && /"between the wall and the wainscoting of a Room with the Rat in its mouth"/.test(R.lore) && /Soane's Museum, BL1/.test(R.source));
+check('the Sudbury cat put back "after four years eventful absence", as the plaque has it', /"after four years eventful absence"/.test(R.lore) && /Mill Hotel, Sudbury/.test(R.source));
 check('honest about the gap: nobody wrote down why', /Nobody wrote down why a cat was put in a wall/.test(R.lore));
 check('the rite does not clean it and puts it back as found', /Do not clean it/.test(R.how) && /as it was found/.test(R.how));
 const c = CALLERS.find((x) => x.id === 'dried_cat_hearth');

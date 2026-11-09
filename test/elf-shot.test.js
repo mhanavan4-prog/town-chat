@@ -22,7 +22,7 @@ function makeMockSocket(tag) {
 const R = HOUSEHOLD_RITES.elf_shot;
 check('elf-shot is a household rite, badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('Kirk\'s words on the fairy arrows, as printed', /"solid earthly Bodies, nothing of Iron, but much of Stone, like to yellow soft Flint Spa, shaped like a barbed Arrow-head"/.test(R.lore) && /Kirk, The Secret Common-Wealth \(1691\)/.test(R.source));
-check('Isobel Gowdie\'s "spang them from the naillis of our thowmbes" (1662, Pitcairn)', /spang them from the naillis of our thowmbes/.test(R.lore) && /Gowdie \(1662\), in R\. Pitcairn/.test(R.source));
+check('Isobel Gowdie\'s "We haw no bow to shoot with" and "spang" (1662, Pitcairn), the disputed rest of the line paraphrased', /"We haw no bow to shoot with": the witches flicked, or "spang"/.test(R.lore) && !/naillis/.test(R.lore) && /Gowdie \(1662\), in R\. Pitcairn/.test(R.source));
 check('the cures of the record: find the hole, and water the elf-arrow was dipped in', /find the hole/i.test(R.how) && /bowl of water/.test(R.how) && /dipped in/.test(R.lore));
 check('honest about what the arrows were: Neolithic and Bronze Age flints', /Neolithic and Bronze Age flint arrowheads/.test(R.lore) && /Dowd/.test(R.source));
 check('…and that "ylfa gescot" is already Old English', /Ylfa gescot/.test(R.lore) && /Wið færstice/.test(R.source));

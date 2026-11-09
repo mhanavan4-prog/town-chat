@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // Smooring and kindling the fire — the Hebridean hearth, from Alexander
 // Carmichael's Carmina Gadelica (1900), vol. 1, "Smooring the Fire" (no. 84)
-// and "Kindling the Fire". A nightly practice at your own cottage hearth:
+// and "Blessing of the Kindling" (no. 82). A nightly practice at your own cottage hearth:
 // smoor the fire at night with the blessing, and in the morning kindle it again
-// from the kept embers, so the fire never goes out.
+// from the kept embers.
 // ---------------------------------------------------------------------------
 const SMOORING = {
   key: 'smooring', name: 'Smooring the Fire', icon: '🔥',
@@ -17,9 +17,9 @@ const KINDLING = {
   key: 'kindling', name: 'Kindling the Fire', icon: '🌅',
   how: 'In the morning, rake back the ashes and blow the kept embers into flame, with the kindling blessing.',
   verse: ['I will kindle my fire this morning', 'In presence of the holy angels of heaven'],
-  lore: 'The fire was not let go out from one year\'s end to the next: smoored at night, it was kindled again in the morning from the same embers, with a blessing for the day. Carmichael collected several; the women said them low, as they worked.',
+  lore: 'The fire was kept in: "Where wood is not obtainable the fire is kept in during the night", Carmichael wrote, and smoored at night it was kindled again in the morning from the same embers, with a blessing for the day. Carmichael collected several; the women said them low, as they worked.',
   tier: 'record',
-  source: 'A. Carmichael, Carmina Gadelica, vol. 1 (1900), "Kindling the Fire"',
+  source: 'A. Carmichael, Carmina Gadelica, vol. 1 (1900), no. 82, "Blessing of the Kindling", and no. 84',
 };
 // Small, honest buffs: the smoored hearth guards the house till dawn; the fire
 // kindled from the kept embers warms you through the day.
