@@ -33,10 +33,10 @@ const SEA_WITCH_KNOT_MULT = 1.5; // a Sea Witch's knots blow half again as long
 const OPEN_SKY_ROOMS = ['outside', 'wilds']; // a wind is tied under the open sky
 
 const CORD_LORE = {
-  wind: "Wind-sellers tied the wind into a cord with three knots and sold it to sailors: loose the first for a moderate wind, the second for half a gale — and the third for a hurricane. Frazer's Golden Bough (1890) records it among Finnish and Lapp wizards and the witches of Shetland, Lewis and the Isle of Man, where a 14th-century account already has the wind sold 'under three knots of thread'; in his day there were still old women in Lerwick selling winds.",
-  ladder: "The best-known knot-charm that survives is the Wellington 'witch's ladder' — a cord about a metre and a half long, with cock's feathers worked into it — found in the roof of a house demolished in Wellington, Somerset, in 1878–9 and now in the Pitt Rivers Museum, Oxford. What it was for is honestly unknown: the 1911 note says it was thought to draw milk from neighbours' cows.",
+  wind: "Wind-sellers tied the wind into a cord with three knots and sold it to sailors. \"In Finnland wizards used to sell wind to storm-staid mariners. The wind was enclosed in three knots; if they undid the first knot, a moderate wind sprang up; if the second, it blew half a gale; if the third, a hurricane\" (Frazer, The Golden Bough, 1890); the same, he says, was told of Lappland, Lewis and the Isle of Man, and \"There are now in Lerwick old women who live by selling wind.\" The Isle of Man has the oldest record: Higden's 14th-century Polychronicon has the women there selling shipmen wind \"as it were closed under three knottes of threde\". At Stromness, Bessie Millie sold sailors winds for sixpence when Scott met her in 1814.",
+  ladder: "The best-known knot-charm that survives is the Wellington 'witch's ladder' — a cord about a metre and a half long, with cock's feathers worked into it — found in the roof of a house demolished in Wellington, Somerset, in 1878–9 and now in the Pitt Rivers Museum, Oxford. What it was for is honestly unknown: the museum's label says it was used for getting away the milk from neighbours' cows, and for causing deaths.",
   tier: 'folk',
-  source: "J. G. Frazer, The Golden Bough (1890) · Pitt Rivers Museum 1911.32.7 (the Wellington witch's ladder)",
+  source: "J. G. Frazer, The Golden Bough (1890), vol. I · R. Higden, Polychronicon (14th c.), in A. W. Moore, The Folk-Lore of the Isle of Man (1891) · Stromness Museum, on Bessie Millie · Pitt Rivers Museum 1911.32.7 (the Wellington witch's ladder)",
 };
 
 module.exports = { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE };
