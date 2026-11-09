@@ -1,7 +1,9 @@
 const globals = require('globals');
 
-// Bug-catching rules. Errors have ~zero false positives on real code; the rest
-// are a non-blocking warning backlog to burn down over time.
+// Bug-catching rules. Errors have ~zero false positives on real code. The rest
+// are warnings: the old backlog was cleared in November 2026, and `npm run lint`
+// now runs with --max-warnings 0, so a new warning fails CI too. Fix it, or for
+// a deliberate unused name, prefix it with _.
 const bugRules = {
   'no-redeclare': 'error',
   'no-dupe-keys': 'error',
@@ -15,8 +17,8 @@ const bugRules = {
   'no-self-assign': 'error',
   'no-unsafe-negation': 'error',
   'valid-typeof': 'error',
-  // Unused vars are informational. Ignore catch params + function args (common,
-  // harmless) and _-prefixed intentionals; the rest are a backlog, not a gate.
+  // Unused vars: catch params, function args and _-prefixed names are ignored
+  // (common, harmless); anything else is dead code, and fails the lint.
   'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }],
 };
 
