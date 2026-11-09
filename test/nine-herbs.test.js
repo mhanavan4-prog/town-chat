@@ -31,7 +31,7 @@ const { GREEN_PATH_CATEGORIES } = require('../data/greenPath');
 // ── The nine ─────────────────────────────────────────────────────────────
 check('nine herbs', NINE_HERBS.length === 9);
 check("the Lacnunga's nine, by their Old English names", NINE_HERBS.map((h) => h.oe).join(',') === 'Mucgwyrt,Wegbrade,Stune,Stiðe,Attorlaðe,Mægðe,Wergulu,Fille,Finule');
-check('uncertain identifications are flagged, not hidden', NINE_HERBS.filter((h) => h.uncertain).map((h) => h.oe).sort().join(',') === ['Attorlaðe', 'Stiðe', 'Stune', 'Wergulu'].sort().join(','));
+check('uncertain identifications are flagged, not hidden (fille too: chervil, or thyme)', NINE_HERBS.filter((h) => h.uncertain).map((h) => h.oe).sort().join(',') === ['Attorlaðe', 'Fille', 'Stiðe', 'Stune', 'Wergulu'].sort().join(','));
 check("Woden's nine glory-twigs are in the recital", WODEN_LINES.some((l) => /Woden/.test(l) && /nine glory-twigs/.test(l)));
 check('the lore names the manuscript', /Harley MS 585/.test(NINE_HERBS_LORE.source));
 const recipe = POTION_RECIPES.find((r) => r.result === 'nine_herbs_salve');

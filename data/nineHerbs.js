@@ -22,11 +22,11 @@ const NINE_HERBS = [
   { id: 'mugwort', oe: 'Mucgwyrt', name: 'Mugwort', line: 'Remember, Mugwort, what you made known — Una you are called, oldest of herbs, strong against three and against thirty.' },
   { id: 'plantain', oe: 'Wegbrade', name: 'Waybread (Plantain)', line: 'And you, Waybread, mother of herbs — carts creaked over you, queens rode over you, and you withstood them all.' },
   { id: 'lambs_cress', oe: 'Stune', name: "Lamb's Cress", uncertain: true, line: 'This herb is called Stune; she grew on a stone, she stands against poison, she strikes against pain.' },
-  { id: 'nettle', oe: 'Stiðe', name: 'Nettle', uncertain: true, line: 'Stiðe it is called; it drives out the hostile one, it casts out the venom.' },
-  { id: 'betony', oe: 'Attorlaðe', name: 'Betony', uncertain: true, line: 'Venom-loather, this is the herb that fought against the serpent.' },
+  { id: 'nettle', oe: 'Stiðe', name: 'Nettle', uncertain: true, line: 'Stiðe it is called; it drives out the hostile one, it casts out the venom. This is the herb that fought against the serpent.' },
+  { id: 'betony', oe: 'Attorlaðe', name: 'Betony', uncertain: true, line: 'Flee now, Venom-loather, the lesser from the greater, the greater from the lesser, until there is a cure for him from both.' },
   { id: 'chamomile', oe: 'Mægðe', name: 'Chamomile (Mayweed)', line: 'Remember, Mayweed, what you made known, what you brought about at Alorford.' },
   { id: 'crab_apple', oe: 'Wergulu', name: 'Crab Apple', uncertain: true, line: 'This is the one the seal sent over the sea\'s back, to right the harm of other poison.' },
-  { id: 'chervil', oe: 'Fille', name: 'Chervil', line: 'Chervil and Fennel, two very mighty ones — the wise Lord shaped them, holy in the heavens.' },
+  { id: 'chervil', oe: 'Fille', name: 'Chervil', uncertain: true, line: 'Chervil and Fennel, two very mighty ones — the wise Lord shaped them, holy in the heavens.' },
   { id: 'fennel', oe: 'Finule', name: 'Fennel', line: 'He set them in the seven worlds, for the wretched and the fortunate, a help to all.' },
 ];
 
