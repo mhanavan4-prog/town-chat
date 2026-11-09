@@ -12,12 +12,12 @@ const order = REAL_BOOKS.map((b) => b.id);
 const h = B('hone');
 check('Hone: The Every-Day Book, 1826–27, record', h && h.title === 'The Every-Day Book' && h.date === '1826–27' && h.tier === 'record' && /Hunt and Clarke/.test(h.source));
 check('…the "Everlasting Calendar", in weekly parts from 1825', /"Everlasting Calendar"/.test(h.summary) && /weekly parts from 1825/.test(h.summary));
-check('…the three trials of 1817 and the three acquittals; Lamb\'s dedication and poem', /December 1817/.test(h.fact) && /acquitted by all three juries/.test(h.fact) && /dedicated to Charles Lamb/.test(h.fact) && /"I like you and your book, ingenuous Hone"/.test(h.fact));
+check('…the three trials of 1817 and the three acquittals; Lamb\'s dedication and poem', /December 1817/.test(h.fact) && /acquitted by all three juries/.test(h.fact) && /dedicated to Charles Lamb and his sister Mary/.test(h.fact) && /"I like you, and your book ingenuous Hone!"/.test(h.fact));
 check('…quoted from his preface', /^This volume is a specimen of a work undertaken/.test(h.quote));
 const c = B('carmichael');
 check('Carmichael: Carmina Gadelica, 1900, Constable, record', c && c.title === 'Carmina Gadelica' && c.date === '1900' && c.tier === 'record' && /Constable/.test(c.source));
 check('…the exciseman and the hearth blessings', /exciseman/.test(c.fact) && /smooring and kindling/.test(c.summary));
-check('…and the honest caveat: Robertson (1976) on the touching up', /Hamish Robertson/.test(c.fact) && /1976/.test(c.fact) && /touched up nearly every text/.test(c.fact));
+check('…and the honest caveat: Robertson (1976) on the touching up', /Hamish Robertson/.test(c.fact) && /1976/.test(c.fact) && /hardly a text he checked had not been touched up/.test(c.fact));
 check('…quoted from his introduction', c.quote === 'This work consists of old lore collected during the last forty-four years.');
 check('shelved by date among the record books, before the revival', order.indexOf('hone') < order.indexOf('moore_manx') && order.indexOf('carmichael') > order.indexOf('elworthy') && order.indexOf('carmichael') < order.indexOf('aradia'));
 
