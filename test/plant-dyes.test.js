@@ -81,7 +81,7 @@ setTimeout(() => {
   a.s.emit('message', JSON.stringify({ type: 'steep_dye', dye: 'alder_black' }));
   const ok = a.s.lastOfType('dye_bought');
   check('steeping confirms with dye_bought', ok && ok.dye === 'alder_black' && a.s.sent.indexOf(ok) >= sentBefore);
-  check('the confirmation carries the lore', ok && /copperas/.test(ok.message) && /mourning/.test(ok.message), ok && ok.message);
+  check('the confirmation carries the lore', ok && /copperas/.test(ok.message) && /Dwelly/.test(ok.message), ok && ok.message);
   check('it uses exactly four bark', h.countItemQty(inv, 'alder_bark') === 1, h.countItemQty(inv, 'alder_bark'));
   check('it charges the mordant from the bank', bank.balance === 60, bank.balance);
   check('the dye is recorded account-wide', (h.playerProgress.hedgedyer.dyeUnlocks || []).includes('alder_black'));

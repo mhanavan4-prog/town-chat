@@ -187,23 +187,23 @@ const DYE_UNLOCKS = {
 // gathered later from living practice.
 const PLANT_DYE_LORE = {
   alder_black: { mordant: 'copperas', tier: 'record',
-    lore: 'Alder bark, steeped and "saddened" with copperas (iron sulphate), gave the Highland dyers their finest black — oak and hawthorn bark did the same. It is the black of mourning clothes.',
-    source: 'Highland dye lists (alder, oak and hawthorn bark with copperas, for black)' },
+    lore: 'Alder bark "with copperas" (iron sulphate), the dyers\' "saddening" agent, gave the Highland dyers a black; so did oak bark and acorns, and hawthorn bark, each with copperas. At the head of Dwelly\'s list, as "Black (finest)", is common dock root.',
+    source: 'E. Dwelly, Illustrated Gaelic-English Dictionary (1911), "dath": Black · E. Mairet, Vegetable Dyes (1916)' },
   heather_moss: { mordant: 'alum', tier: 'record',
-    lore: 'Bell heather (fraoch bhadain) boiled with alum gave a dark green; the young tops alone give yellows. Heather was a working dye of the hill farms, not a luxury.',
-    source: 'Highland dye lists (Erica cinerea with alum, dark green)' },
+    lore: 'Bell heather (Erica cinerea, fraoch bhadain in the list) boiled with alum gave a dark green: "The heather must be pulled before flowering and from a dark shady place." The tops and flowers of the common heather, ling, gave yellows.',
+    source: 'E. Dwelly, Illustrated Gaelic-English Dictionary (1911), "dath": Green and Yellow · E. Mairet, Vegetable Dyes (1916)' },
   bramble_rust: { mordant: 'alum', tier: 'record',
-    lore: 'The Highland lists set bramble down for a dark orange. They name no mordant for it; alum was the common one, and the game uses it.',
-    source: 'Highland dye lists (Rubus fruticosus, dark orange)' },
+    lore: 'Dwelly\'s list sets bramble (preas smeur) down for a dark orange. It names no mordant for it; alum was the common one, and the game uses it.',
+    source: 'E. Dwelly, Illustrated Gaelic-English Dictionary (1911), "dath": Orange' },
   elder_violet: { mordant: 'alum', tier: 'record',
-    lore: 'Elderberries dye blue and purple, and their juice with alum gives violet — with alum and salt, lilac. Dyers have always warned that berry colours fade in the sun.',
-    source: 'M. Grieve, A Modern Herbal (1931), "Elder"' },
+    lore: 'Elderberries "dye blue and purple, the Juice yielding with alum, violet; with alum and salt, a lilac colour."',
+    source: 'M. Grieve, A Modern Herbal (1931), "Elder" · E. Dwelly, Illustrated Gaelic-English Dictionary (1911), "dath": Blue' },
   whin_gold: { mordant: 'alum', tier: 'folk',
-    lore: 'Whin (gorse) blossom boiled with the eggs turned them gold for Easter in Ireland and Scotland. On wool, with alum, it gives the same warm yellow.',
-    source: 'Irish and Scottish Easter custom (whin-blossom eggs)' },
+    lore: 'In Ulster children boiled their Easter eggs with "whin blossoms, tea leaves, or coloured rags" to colour them. Mairet lists gorse, "Bark, flowers and young shoots", among the yellows; alum on wool is the modern dyer\'s way, and the game\'s.',
+    source: 'G. Kennedy, Ulster Folklife, as cited by the Ulster American Folk Park, "Easter traditions" · E. Mairet, Vegetable Dyes (1916)' },
   crotal_brown: { mordant: 'none', tier: 'record',
-    lore: 'Crotal, the lichen scraped from the rocks, boiled with the wool gave the rich red-brown of homespun and Harris tweed — no mordant needed. West-coast fishermen would not wear it at sea, nor take aboard anyone who did: what came from the rocks, they said, seeks the rocks again.',
-    source: 'Dictionary of the Scots Language, "crottle" (1927 rock-lichen brown for homespuns; 1941 Angus fishermen\'s belief)' }
+    lore: 'Crotal, the lichen "gathered off the rocks", boiled with the wool gave the "rich brown" of homespun. "No mordant is needed, and the colours produced are the fastest known," Mairet wrote, and "The well-known Harris tweed smell is partly due to the use of this dye." There was "a superstition among fishermen on the West Coast that crottal seeks its native rocks": they would not wear it at sea, nor take aboard anyone who did.',
+    source: 'Dictionary of the Scots Language, "crottle" (1927, homespuns; 1941, an Angus correspondent on West Coast fishermen) · E. Mairet, Vegetable Dyes (1916)' }
 };
 function dyeUnlock(dyeId) { return DYE_UNLOCKS[dyeId] || null; }
 function dyeHex(dyeId) { const d = DYE_BY_ID[dyeId]; return d ? d.hex : null; }
