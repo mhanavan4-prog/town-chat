@@ -105,15 +105,15 @@ const WHEEL_RITES = {
   },
   hempseed: {
     key: 'hempseed', season: 'litha', name: 'Sowing the Hemp-Seed', icon: '🌱',
-    how: 'At midnight on Midsummer Eve, go alone and scatter hemp-seed, going through the motions of hoeing it in, and say: "Hemp-seed I sow, hemp-seed I hoe, and he who will my true love be, come after me and mow."',
+    how: 'After dark on Midsummer Eve, go alone and scatter hemp-seed, going through the motions of hoeing it in, and say: "Hemp-seed I sow, hemp-seed I hoe, and he who will my true love be, come after me and mow."',
     outcomes: [
       'You do not look back. You hear, or think you hear, a scythe in the grass behind you, slow and steady.',
       'Nothing behind you but the hedge and the moon. The seed will grow, at least.',
       'You look back too soon, and there is only the farm dog, very pleased to see you.',
     ],
-    lore: 'Gay\'s Hobnelia, in 1714: "At eve last Midsummer no sleep I sought, / But to the field a bag of hemp-seed brought," and sowed it saying "This hemp-seed with my virgin hand I sow, / Who shall my true-love be, the crop shall mow." Hunt took down the Cornish words in 1865: "Hemp-seed I sow, / Hemp-seed I hoe," the sowing and hoeing to be gone through deliberately, "And he / Who will my true love be, / Come after me and mow."',
+    lore: 'Gay\'s Hobnelia, in 1714: "At eve last Midsummer no sleep I sought, / But to the field a bag of hemp-seed brought," and sowed it saying "This hemp-seed with my virgin hand I sow, / Who shall my true-love be, the crop shall mow." Then: "I strait look\'d back, and if my eyes speak truth, / With his keen scythe behind me came the youth." Hunt (1865), who says it "is not especially a Cornish superstition", gives the words: "Hemp-seed I sow, / Hemp-seed I hoe," the sowing and hoeing to be gone through deliberately, "And he / Who will my true love be, / Come after me and mow." In Scotland it was a Hallowe\'en charm: Burns\'s note has the sower look "over your left shoulder" to see the one invoked "in the attitude of pulling hemp".',
     tier: 'record',
-    source: 'John Gay, The Shepherd\'s Week (1714), "Thursday; or, The Spell" · R. Hunt, Popular Romances of the West of England (1865)',
+    source: 'John Gay, The Shepherd\'s Week (1714), "Thursday; or, The Spell" · R. Hunt, Popular Romances of the West of England (1865), "Midsummer Superstitious Customs" · Robert Burns, "Halloween" (1785; Kilmarnock edition 1786), with his own notes',
   },
   // ── Lughnasadh ──
   lammasloaf: {
