@@ -1,4 +1,4 @@
-// St Mark's Eve: the church-porch watch (Hone, 1827; Morris, 1892; Chambers,
+// St Mark's Eve: the church-porch watch (Hone, 1826; O'Donnell, 1939; Chambers,
 // 1864), a caller dated by the Commonplace Book's own entry (24 April, and the
 // 25th), first at the door, and the Charm Book; the practical half is what a
 // cold porch at midnight does to the eye, and what a name can do.
@@ -24,9 +24,9 @@ function makeMockSocket(tag) {
 
 const R = MARK_RITES.porch_watch;
 check('the porch watch: badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
-check('Hone\'s Yorkshire clergyman: the porch, eleven till one, thrice, the ghosts of the year\'s dead', /"sit and watch in the church porch"/.test(R.lore) && /"from eleven o'clock at night till one in the morning"/.test(R.lore) && /"for this must be done thrice"/.test(R.lore) && /"the ghosts of all those who … are to die the next year, pass by into the church\."/.test(R.lore) && /Hone, The Every-Day Book, vol\. II \(1827\), 25 April/.test(R.source));
+check('Hone\'s Yorkshire clergyman: the porch, eleven till one, thrice, the ghosts of the year\'s dead', /"sit and watch in the church porch"/.test(R.lore) && /"from eleven o'clock at night till one in the morning"/.test(R.lore) && /"for this must be done thrice"/.test(R.lore) && /"the ghosts of all those who are to die the next year, pass by into the church\."/.test(R.lore) && /Hone, The Every-Day Book, vol\. I \(1826\), 25 April/.test(R.source));
 check('…and the deaths from fear, in his words', /"Many are said to have actually died by their imaginary fears on the occasion\."/.test(R.lore));
-check('Morris on the watcher who falls asleep; the Burton story of 1631; the ash-riddling (Chambers)', /fell asleep would die within the year himself \(Morris, Yorkshire Folk-Talk, 1892\)/.test(R.lore) && /1631/.test(R.lore) && /"exceedingly ill, by reason of the affrightment"/.test(R.lore) && /riddled the hearth ashes/.test(R.lore) && /Chambers, The Book of Days \(1864\), 25 April/.test(R.source));
+check('the watcher who falls asleep, as later Yorkshire tellers (O\'Donnell, 1939) had it; the Burton story of 1631; the ash-riddling (Chambers)', /fell asleep would die within the year himself \(E\. O'Donnell, Haunted Churches, 1939\)/.test(R.lore) && /1631/.test(R.lore) && /"exceedingly ill, by reason of the affrightment"/.test(R.lore) && /riddled the hearth ashes/.test(R.lore) && /Chambers, The Book of Days \(1864\), 25 April/.test(R.source));
 check('Keats\'s poem called unfinished', /Keats began a poem on the eve in 1819 and never finished it/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'st_marks_watch');
 check('Sam Dawes, dated by the old calendar\'s St Mark\'s Eve, for two days', c && c.when && c.when.calendar === 'st_marks_eve' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'st_marks_eve' && e.month === 4 && e.day === 24) && c.steps[0].rite === 'porch_watch');
