@@ -41,7 +41,7 @@ check('the memorial gives the real number, and calls nine million a guess', /for
 check('…most were poor women, few healers or midwives', /poor women/.test(m) && /few were healers or midwives/.test(m));
 check('…hanged, not burned, in England; strangled then burned in Scotland', /hanged, not burned/.test(m) && /strangled at the stake and then burned/.test(m));
 check('…names the dead of Chelmsford, St Osyth, Pendle, Manningtree, Exeter and Dornoch', ['Agnes Waterhouse', 'Ursula Kemp', 'Alizon Device', 'Alice Nutter', 'Isabel Robey', 'Elizabeth Clarke', 'Temperance Lloyd', 'Janet Horne'].every((n) => m.includes(n)));
-check('…and Scotland\'s apology of 2022', /In 2022 Scotland formally apologised/.test(m));
+check('…and Scotland\'s apology of 2022', /In 2022 Scotland's First Minister formally apologised/.test(m));
 check('the stone is read like a waymarker, with its sources', WAYMARKER_LORE.way_memorial && WAYMARKER_LORE.way_memorial.name === MEMORIAL.name && /Sources: B\. Levack/.test(WAYMARKER_LORE.way_memorial.text));
 check('the town builds the stone by the Town Hall and makes it readable', /buildMemorialStone\(scene\)/.test(TOWN) && /markerId: 'way_memorial'/.test(TOWN));
 

@@ -30,7 +30,7 @@ const MYTH_QUIZ = [
     source: 'R. Hutton, The Stations of the Sun (1996) and The Triumph of the Moon (1999)' },
   { id: 'islandmagee', claim: "Ireland's last witch trial was in the 1700s.", answer: 'record',
     verdict: 'At Carrickfergus on 31 March 1711 eight women of Islandmagee were convicted on the word of Mary Dunbar, though one of the two judges said the evidence was not enough.',
-    source: 'A. Sneddon and V. Devlin (eds), The Islandmagee Witches documents (2022)' },
+    source: 'A. Sneddon and S. Devlin (eds), The Islandmagee Witches documents (2022)' },
   { id: 'malleus_approved', claim: 'The Inquisition gave its official approval to the Malleus Maleficarum, the "Hammer of Witches".', answer: 'myth',
     verdict: 'The Inquisition gave it no authority. The theologians\' approval printed in some copies was denied by two of the men named, and many historians think its author forged it.',
     source: 'H. Kramer, Malleus Maleficarum (1486–87), on the Real Shelf' },
