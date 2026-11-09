@@ -23,7 +23,7 @@ function makeMockSocket(tag) {
 check('five rites: nuts, kail, apple, clue, luggies', JSON.stringify(Object.keys(HALLOWEEN_RITES)) === '["nuts","kail","apple","clue","luggies"]');
 check('every rite cites Burns\'s "Halloween" and his notes, and is badged record', Object.values(HALLOWEEN_RITES).every((r) => /Burns, "Halloween" \(1785; Kilmarnock edition 1786\), with his own notes/.test(r.source) && r.tier === 'record'));
 check('every rite says how it was done and has signs to give', Object.values(HALLOWEEN_RITES).every((r) => r.how && r.lore && r.outcomes.length >= 3));
-check('the blue clue keeps its question: "Wha hauds?"', /Wha hauds\?/.test(HALLOWEEN_RITES.clue.lore));
+check('the blue clue keeps its question: "Wha hauds?"', /wha hauds\?/i.test(HALLOWEEN_RITES.clue.lore));
 check('the rite is a reading kind', READING_KINDS.includes('rite'));
 const seasonal = CALLERS.filter((c) => c.season === 'samhain');
 check('three Hallowe\'en callers, all Samhain-only', seasonal.length === 3 && seasonal.every((c) => c.steps.some((s) => s.kind === 'rite')));

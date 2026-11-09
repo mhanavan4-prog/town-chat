@@ -51,7 +51,7 @@ const HALLOWEEN_RITES = {
       'The thread runs free to the very end. Nobody holds it; not this year.',
       'Something holds it — and lets go before you can ask.',
     ],
-    lore: 'Burns: "Steal out, all alone, to the kiln, and, darkling, throw into the pot a clue of blue yarn"; when something holds the thread, demand "Wha hauds?" — an answer will be returned from the kiln-pot, naming the Christian and surname of your future spouse. The kiln-pot was "the heating chamber under a corn-kiln" (Dictionary of the Scots Language).',
+    lore: 'Burns: "Steal out, all alone, to the kiln, and, darkling, throw into the pot, a clew of blue yarn"; when something holds the thread, demand "wha hauds?" ("i.e. who holds?") — an answer will be returned from the kiln-pot, naming the Christian and surname of your future spouse. The kiln-pot was "the heating chamber under a corn-kiln" (Dictionary of the Scots Language).',
   },
   luggies: {
     key: 'luggies', name: 'The Three Luggies', icon: '🥣',
@@ -61,7 +61,7 @@ const HALLOWEEN_RITES = {
       'Your fingers find the foul water — the one you marry will have been widowed before.',
       'Your fingers find the empty dish — no marriage at all, which some call luck.',
     ],
-    lore: 'Burns: if the left hand finds the clean water, "the future (husband or) wife will come to the bar of matrimony a maid"; the foul, a widow; the empty dish "foretells, with equal certainty, no marriage at all." "It is repeated three times, and every time the arrangement of the dishes is altered."',
+    lore: 'Burns: if the left hand finds the clean water, "the future husband or wife will come to the bar of Matrimony, a Maid"; the foul, a widow; the empty dish "foretells, with equal certainty, no marriage at all." "It is repeated three times; and every time the arrangement of the dishes is altered."',
   },
 };
 for (const r of Object.values(HALLOWEEN_RITES)) { r.tier = 'record'; r.source = BURNS_SOURCE; }
