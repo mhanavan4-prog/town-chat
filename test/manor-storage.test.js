@@ -23,7 +23,6 @@ setTimeout(() => {
     const wss = global.__wssInstances[0];
     const connHandler = (wss._handlers && wss._handlers.connection) || wss.listeners('connection')[0];
     const hooks = global.__testHooks;
-    const SPOT = hooks.MANOR_WILDS_SPOT;
     const ITEM = Object.keys(hooks.ITEM_CATALOG)[0]; // any real item id
 
     const join = (name, accountKey) => {

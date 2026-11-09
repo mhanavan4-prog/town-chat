@@ -35,8 +35,8 @@ setTimeout(() => {
     check('ensureCovenRite builds a live Samhain rite', cv.rite && !cv.rite.none && cv.rite.seasonKey === 'samhain', cv.rite && cv.rite.seasonKey);
     check('member scale snapshot = roster size (3)', cv.rite.memberScale === 3, cv.rite.memberScale);
 
-    const crowObj = data.phases[0].objectives[0], featherObj = data.phases[0].objectives[1];
-    const crowT = srv.rites.targetFor(crowObj, 3), featherT = srv.rites.targetFor(featherObj, 3);
+    const crowObj = data.phases[0].objectives[0];
+    const crowT = srv.rites.targetFor(crowObj, 3);
 
     // Upkeep gate: a lapsed coven earns nothing.
     const lapsed = mkCoven('lapsed', ['b0', 'b1'], Date.now() - 1000);
@@ -59,7 +59,6 @@ setTimeout(() => {
 
     // Phase 2 (veil): completing this via riteCredit should fire the server's
     // completion path — gold to bank + season buff.
-    const hexObj = data.phases[2].objectives[0], hexT = srv.rites.targetFor(hexObj, 3);
     const reward = srv.rites.individualReward(data, cv.rite);
     const a2BankBefore = srv.ensureBankAccount('a2').balance;
     // Titles are stored on the account progress record — give two contributors

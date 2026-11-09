@@ -77,7 +77,6 @@ setTimeout(() => {
   // The real join block: `if (consumeRecentGuest(ws._ip)) bump`. We can't call
   // the private fn, so assert via a full account join instead:
   acctSock.emit('message', JSON.stringify({ type: 'join', name: 'ConvAcct', charId: 0 }));
-  const p2 = hooks.players.get(acctSock.lastOfType('init').id);
   // A real token join would set accountKey; a plain join leaves it null, so the
   // conversion counter only moves for genuine account joins. We therefore only
   // assert the guest IP was remembered (counter unchanged for a guest re-join).
