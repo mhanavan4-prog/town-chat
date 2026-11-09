@@ -4698,9 +4698,34 @@ function maybeGiveLacnungaSeeds(player, opts) {
   send(player.ws, { type: 'toast', message: '🌿 Mother Yarrow presses a twist of paper into your hand. "Waybread, lamb\'s cress, nettle, betony, crab apple, chervil, fennel. With the mugwort and the chamomile you\'ve already got — that\'s the nine. The old book has a charm for them. Hazel knows it."' });
   return true;
 }
+// The Poison Path chapters (7–9) came in on 1 November, but a full pack
+// destroyed earned rewards until 5 November, so some players finished "The
+// Beautiful Lady" and never got the belladonna and henbane — and then could not
+// sow a nightshade for chapter 8. Once per account, Mother Yarrow restocks the
+// seed of every baneful chapter already passed. Anyone who passes chapter 7
+// from now on is paid in the ordinary way and is marked so they are not paid
+// twice.
+const BANE_FIRST_CHAPTER = GREEN_PATH.findIndex((c) => c.band === 'baneful');
+function maybeRestockBaneful(player) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  if (!a || a.baneRestockGiven) return false;
+  a.baneRestockGiven = true;
+  const gp = greenPathOf(player);
+  const passed = GREEN_PATH.slice(BANE_FIRST_CHAPTER, gp.chapter).filter((c) => c.band === 'baneful');
+  if (!passed.length) { try { saveAccounts(); } catch (e) {} return false; }
+  const rewards = passed.flatMap((c) => c.itemRewards || []);
+  const { got, held } = grantRewardItems(player, rewards, "Mother Yarrow's black cabinet");
+  try { saveAccounts(); } catch (e) {}
+  try { send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) }); } catch (e) {}
+  try { send(player.ws, { type: 'toast', message: `🌿 Mother Yarrow unlocks the black cabinet again. "Some of the baneful seed I owed you went astray. Here — grow it with respect."  (${got.join(', ') || 'held for you'})${heldNote(held)}` }); } catch (e) {}
+  return true;
+}
 function greenPathEvent(player, type, detail) {
   if (!player || !player.accountKey) return;
   const gp = greenPathOf(player);
+  // Still short of the Poison Path under this code: its rewards will come the
+  // ordinary way, so no restock is owed.
+  if (gp.chapter <= BANE_FIRST_CHAPTER && accounts[player.accountKey]) accounts[player.accountKey].baneRestockGiven = true;
   if (gp.chapter >= GREEN_PATH.length) return;
   const ch = GREEN_PATH[gp.chapter];
   if (!ch || ch.objective.type !== type) return;
@@ -16624,6 +16649,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'garden_state') {
       if (!player.accountKey) { send(ws, { type: 'garden_state', plots: [], plantable: PLANTABLE_HERBS }); return; }
       maybeGiveLacnungaSeeds(player); // the Nine Herbs (blueprint G) — once, after the Cottage Garden
+      maybeRestockBaneful(player); // once: the Poison Path seed some players never received
       send(ws, { type: 'garden_state', ...gardenStateBody(player) });
       return;
     }
@@ -17882,7 +17908,7 @@ global.__testHooks = {
   DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs, dungeonMobMaxHealth, bossEngagedScale, bossEnrageMult,
   DUNGEON_AFFIXES, weeklyDungeonAffixes, dungeonAffix, dungeonAffixPublic, applyDungeonLootAffix,
   PARTY_BOSS_HP_PER_ALLY, DUNGEON_BOSS_RESPAWN_MS, findDungeonTarget,
-  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, WORLD2, practiceStateBody, doPractice, greenHourBonus, nightIndex, gardenOf, ITEM_IDS, STARTER_EXCLUDED, WAND_KINDS,
+  leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, weekKey, boardStatePayload, callers, readLeaves, wardContrib, bottleTurnsCurse, wardsStateBody, groundTraps, tickGroundTraps, oghamStateBody, maybeGiveHazelRod, WILDS_FLORA_HARVEST, untieKnot, cordsStateBody, TEA_HOUR_BONUS, maybeGiveLacnungaSeeds, maybeRestockBaneful, WORLD2, practiceStateBody, doPractice, greenHourBonus, nightIndex, gardenOf, ITEM_IDS, STARTER_EXCLUDED, WAND_KINDS,
   tourneyWindow, festivalWindow, bloodMoonWindow, bloodMoonActive, seasonWindow, calendarPublicState,
   BLOOD_MOON_EVERY_NIGHTS, FESTIVAL_XP_MULT, maybeDropBloodShard, BLOODMOON_CIRCLET_COST,
   DELVE_MODS, DELVE_BOONS, weeklyDelveMods, delveRuns, delveRunsByRoom, delveStart,
