@@ -23,14 +23,14 @@ const t = MEMORIAL.text;
 const paras = t.split('\n\n');
 const ire = paras.find((p) => /^In Ireland/.test(p));
 check('the memorial has a paragraph for Ireland', !!ire);
-check('Carrickfergus, 31 March 1711: the last and the largest', /Carrickfergus on 31 March 1711/.test(ire) && /the last and the largest/.test(ire) && /few trials/.test(ire));
+check('Carrickfergus, 31 March 1711: the largest, its only mass trial (Sellor was tried after it)', /Carrickfergus on 31 March 1711/.test(ire) && /the largest, its only mass trial/.test(ire) && !/the last and the largest/.test(ire) && /few trials/.test(ire));
 const NAMES = ['Catherine McCalmond', 'Janet Liston', 'Elizabeth Sellor', 'Janet Carson', 'Janet Main', 'Janet Millar', 'Janet Latimer', 'Margaret Mitchell'];
 check('the eight women of Islandmagee, each named', NAMES.every((n) => ire.includes(n)) && /Eight women of Islandmagee/.test(ire));
 check('…accused by Mary Dunbar, and one judge told the jury the evidence was not enough', /Mary Dunbar/.test(ire) && /one of the two judges told the jury the evidence was not enough/.test(ire));
-check('…a year in prison and the pillory four times; the memorial stone in Islandmagee', /imprisoned for a year and stood four times in the pillory/.test(ire) && /memorial stone to them now stands in Islandmagee/.test(ire));
+check('…a year in prison and the pillory four times; the 2023 plaque at the Gobbins', /imprisoned for a year and stood four times in the pillory/.test(ire) && /In 2023 a plaque to them, and to William Sellor, tried that September, was unveiled at the Gobbins in Islandmagee\./.test(ire) && !/memorial stone/.test(ire));
 check('nothing from tradition carved as fact (the lost eye), and no misspelt names', !/eye/.test(ire) && !/Mean|Margaret Latimer/.test(ire));
-check('it comes after the English and Scottish dead, before the Scottish apology, which is now Scotland\'s own', paras.indexOf(ire) === 2 && /^In 2022 Scotland formally apologised to all those accused there\./.test(paras[3]));
-check('its sources are on the stone: Sneddon and Devlin\'s documents, and Sneddon\'s book', /Sneddon and V\. Devlin \(eds\), The Islandmagee Witches documents \(2022\)/.test(MEMORIAL.sources) && /Possessed by the Devil \(2013\)/.test(MEMORIAL.sources) && /Islandmagee Witches/.test(WAYMARKER_LORE.way_memorial.text));
+check('it comes after the English and Scottish dead, before the Scottish apology, which is now Scotland\'s own', paras.indexOf(ire) === 2 && /^In 2022 Scotland's First Minister formally apologised "to all those accused, convicted, vilified or executed" under its Witchcraft Act\./.test(paras[3]));
+check('its sources are on the stone: Sneddon and Devlin\'s documents, and Sneddon\'s book', /Sneddon and S\. Devlin \(eds\), The Islandmagee Witches documents \(2022\)/.test(MEMORIAL.sources) && /Possessed by the Devil \(2013\)/.test(MEMORIAL.sources) && /Islandmagee Witches/.test(WAYMARKER_LORE.way_memorial.text));
 
 require('../server.js');
 

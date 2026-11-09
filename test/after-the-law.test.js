@@ -31,8 +31,8 @@ check('Ann Tennant: seventy-nine, Long Compton, 15 September 1875, the inquest w
 check('…and the man is not named, since the reports spell it two ways', !/Hayward|Haywood/.test(t));
 check('Bridget Cleary: twenty-six, 15 March 1895, manslaughter', /Bridget Cleary, twenty-six/.test(t) && /15 March 1895/.test(t) && /convicted of manslaughter/.test(t));
 check('it ends on who killed them', /None of them was tried as a witch\. They were killed as witches, by people who knew them\./.test(t));
-check('the sources: the Act, DNB, the 1751 account, the 1864 and 1875 papers, the DIB', /Witchcraft Act 1736/.test(A.sources) && /Osborne, Ruth/.test(A.sources) && /Hone/.test(A.sources) && /Bury and Norwich Post \(15 March 1864\)/.test(A.sources) && /Stratford upon Avon Herald/.test(A.sources) && /Dictionary of Irish Biography/.test(A.sources));
-check('it is read like a waymarker, with its sources', WAYMARKER_LORE.way_after_law && WAYMARKER_LORE.way_after_law.name === A.name && /Sources: Witchcraft Act 1736/.test(WAYMARKER_LORE.way_after_law.text));
+check('the sources: the Act, DNB, the 1751 account, the 1864 and 1875 papers, the DIB', /Witchcraft Act 1735 \(9 Geo\. 2 c\. 5\), passed in March 1736/.test(A.sources) && /Osborne, Ruth/.test(A.sources) && /Hone/.test(A.sources) && /Bury and Norwich Post \(15 March 1864\)/.test(A.sources) && /Stratford upon Avon Herald/.test(A.sources) && /Dictionary of Irish Biography/.test(A.sources));
+check('it is read like a waymarker, with its sources', WAYMARKER_LORE.way_after_law && WAYMARKER_LORE.way_after_law.name === A.name && /Sources: Witchcraft Act 1735/.test(WAYMARKER_LORE.way_after_law.text));
 
 // The stone itself: built beside the memorial, readable, on clear ground.
 const spot = TOWN.match(/const AFTER_LAW_SPOT = \{ x: (\d+), y: (\d+) \}/);
