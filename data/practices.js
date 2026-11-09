@@ -13,14 +13,16 @@
 // ---------------------------------------------------------------------------
 
 // ── Green: Culpeper's planetary rulers ──────────────────────────────────────
-// Nicholas Culpeper, The Complete Herbal (1653), gives most herbs a ruling
-// planet. Only herbs he (or the herbal tradition he codified) clearly assigns
+// Nicholas Culpeper, The English Physitian (1652) and The Complete Herbal
+// (1653), gives most herbs a ruling planet. Deadly nightshade is not among
+// them: his Saturnine "Nightshade" is the common one, and he warns "Have a
+// care you mistake not the deadly Nightshade for this." Only herbs he (or the herbal tradition he codified) clearly assigns
 // are listed; garden herbs with no clear ruler simply have none.
 // Values are weekday numbers, matching data/teas.js and data/planetaryHours.js
 // (0 Sun · 1 Moon · 2 Mars · 3 Mercury · 4 Jupiter · 5 Venus · 6 Saturn).
 const CULPEPER_RULERS = {
   chamomile: 0, calendula: 0, st_johns_wort: 0, rue: 0,
-  comfrey: 6, belladonna: 6, henbane: 6, hemlock: 6, black_hellebore: 6,
+  comfrey: 6, henbane: 6, hemlock: 6, black_hellebore: 6,
   lemon_balm: 4, betony: 4, chervil: 4,
   feverfew: 5, mugwort: 5, vervain: 5, yarrow: 5, foxglove: 5, plantain: 5, crab_apple: 5,
   lavender: 3, fennel: 3,
