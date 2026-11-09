@@ -149,9 +149,9 @@ const WHEEL_RITES = {
       'The maid is waiting at the door with a pail. You are soaked to the skin, and the neck too.',
       'The cry carries right across the valley, and another farm answers. The harvest is in.',
     ],
-    lore: 'In Devon and Cornwall the last sheaf, "the neck", was held up while the reapers cried "the neck!" three times "in a very prolonged and harmonious tone", then "wee yen!", which Hunt guessed was "we end". One of them ran it to the farmhouse: if he got in unseen he might kiss the dairymaid, and if not, he was soused from a pail. "The neck" was hung up in the farmhouse, "where it often remains for three or four years."',
+    lore: 'In Devon and Cornwall the last sheaf, "the neck", was held up while the reapers cried "the neck!" three times "in a very prolonged and harmonious tone", then "wee yen!", which an old man told the Devon correspondent meant "we have ended". One of them ran it to the farmhouse: if he got in unseen he might kiss the dairymaid, and if not, he was soused from a pail. "The neck" was hung up in the farmhouse, "where it often remains for three or four years" (Hunt). In 1826 the custom was "beginning to decline"; the Old Cornwall Societies revived it in 1928, and still cry the neck at the end of every summer.',
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826) · R. Hunt, Popular Romances of the West of England (1865)',
+    source: 'W. Hone, The Every-Day Book, vol. II (1827), 31 August, a letter from north Devon signed R. A. R. · R. Hunt, Popular Romances of the West of England (1865), "Crying the Neck" · St Ives Old Cornwall Society, "Crying the Neck" (2018)',
   },
   michaelmas: {
     key: 'michaelmas', season: 'mabon', name: 'Brambles Before Michaelmas', icon: '🫐',
