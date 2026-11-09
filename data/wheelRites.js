@@ -136,9 +136,9 @@ const WHEEL_RITES = {
       'Thin pickings this year, and the rain comes on. You thread what you have, and it is enough for one bracelet.',
       'Somebody gives you a bracelet before you have finished making yours. You give yours back. The whole hill sees.',
     ],
-    lore: 'All over Ireland, on Garland Sunday (also called Bilberry or Fraughan Sunday) at the end of July, people climbed the hills, ate the first of the new food, and picked bilberries; boys strung them on straw or rushes as bracelets for their sweethearts. Máire MacNeill found 195 places where it was kept, from the Irish Folklore Commission\'s 1942 questionnaire, and traced the gatherings back to the old festival of Lughnasa.',
+    lore: 'All over Ireland, on Garland Sunday (also called Bilberry or Fraughan Sunday) at the end of July, people climbed the hills, ate the first of the new food, and picked bilberries; boys strung them on straw or rushes as bracelets for their sweethearts. Máire MacNeill, working from the Irish Folklore Commission\'s questionnaire on Domhnach Chrom Dubh, gathered more than eighty local names for the day, and wrote that "no custom has been more lasting than the picking of bilberries"; she traced the gatherings back to the old festival of Lughnasa.',
     tier: 'folk',
-    source: 'M. MacNeill, The Festival of Lughnasa (1962), from the Irish Folklore Commission questionnaire of 1942',
+    source: 'M. MacNeill, The Festival of Lughnasa (1962), from the Irish Folklore Commission\'s questionnaire, as R. Sexton gives it (RTÉ Brainstorm, 2025)',
   },
   // ── Mabon ──
   neck: {
