@@ -174,7 +174,7 @@ const OLD_CALENDAR = [
     quote: 'the combined heat of the dog-star and the sun', source: `${BREWER}, "Dog-days"; ${HONE}, 3 July` },
   { key: 'tynwald', rule: tynwaldDay, moves: '5 July, or the Monday after', icon: '🌿', title: 'Tynwald Day', tier: 'record',
     text: "On Old Midsummer Day Tynwald sits in the open air on Tynwald Hill at St John's, as it has since before 1417: new Acts are promulgated in English and Manx, anyone may bring a petition for redress to the foot of the Hill, and everyone wears bollan bane, mugwort, once gathered on Midsummer Eve against witches.",
-    quote: "on old midsummer's day, at Tynwald Hill in St John's", source: 'Act of Tynwald for the new Calendar (1753); Tynwald, "1417: A Year of Records"; A. W. Moore, Folk-Lore of the Isle of Man (1891)' },
+    quote: "in the open air once a year, on old midsummer's day", source: 'Act of Tynwald for the new Calendar (1753); Tynwald, "1417: A Year of Records"; A. W. Moore, Folk-Lore of the Isle of Man (1891)' },
   { key: 'st_swithin', month: 7, day: 15, icon: '🌧️', title: "St Swithin's Day", tier: 'record',
     text: "Rain on St Swithin's meant forty days of it, because, the story goes, rain stopped the monks moving his body into the church. Chambers checked twenty years of Greenwich records and found nothing in it.",
     quote: "St Swithin's Day, if thou dost rain, For forty days it will remain", source: `${CHAMBERS}, 15 July; ${HONE}, 15 July` },

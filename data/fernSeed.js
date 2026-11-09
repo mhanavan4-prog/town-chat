@@ -14,7 +14,7 @@ const FERN_WHEN = { month: 6, from: 23, to: 23, label: "St John's Eve" };
 const FERN_RITES = {
   fern_seed: {
     key: 'fern_seed', name: 'The Fern Seed', icon: '🍃',
-    how: 'At midnight on St John\'s Eve, slide a pewter plate under the fern and catch the seed as it falls, without touching the plant.',
+    how: 'At midnight on St John\'s Eve, slide a pewter plate under the fern and catch the seed as it falls.',
     outcomes: [
       'Midnight comes and goes. The plate is empty, but for a fine brown dust where the fronds hang over it.',
       'Something rustles in the bracken behind you. It is the wind, or a hedgehog. The plate stays empty.',
