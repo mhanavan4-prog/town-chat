@@ -23,10 +23,10 @@ function makeMockSocket(tag) {
 const R = HOUSEHOLD_RITES.witch_post;
 check('the witch post is a household rite, badged folk, three signs that fit the Board', R && R.tier === 'folk' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('what it is: the heck post by the hearth, carrying the smoke hood, a St Andrew\'s cross', /heck post/.test(R.lore) && /smoke hood/.test(R.lore) && /St Andrew's cross/.test(R.lore));
-check('about twenty known, three at Ryedale, one dated 1664 at Glaisdale', /about twenty are known/.test(R.lore) && /Ryedale Folk Museum has three/.test(R.lore) && /Glaisdale, was dated 1664/.test(R.lore) && /Ryedale Folk Museum, "Witch Posts" \(2020\)/.test(R.source) && /list entry 1148581/.test(R.source));
+check('about twenty to twenty-five known, three at Ryedale, one dated 1664 at Glaisdale', /about twenty to twenty-five are known/.test(R.lore) && /Ryedale Folk Museum has three/.test(R.lore) && /Glaisdale, was dated 1664/.test(R.lore) && /Ryedale Folk Museum, "Witch Posts" \(2020\)/.test(R.source) && /list entry 1148581/.test(R.source));
 check('the Pitt Rivers post of 1884, "for the purpose of keeping off fairies"', /"for the purpose of keeping off fairies"/.test(R.lore) && /Pitt Rivers Museum 1884\.56\.1/.test(R.source));
 check('the crooked sixpence and the churn are told as later tellers\' stories', /Later tellers said/.test(R.lore) && /crooked sixpence/.test(R.lore) && /churn/.test(R.lore));
-check('honest that the purpose is not known (Catholic households, or decoration)', /What they were really for is not known/.test(R.lore) && /Catholic households/.test(R.lore) && /decoration/.test(R.lore) && /Whitby Museum/.test(R.source));
+check('honest that the purpose is not known (one idea: a house where mass was safe; no unsourced "decoration")', /What they were really for is not known/.test(R.lore) && /"in which it was safe to celebrate mass"/.test(R.lore) && !/decoration/.test(R.lore) && /Whitby Museum, "Do you know about witch posts\?"/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'witch_post_longhouse');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'witch_post'));
 check('the practical half: it carries the smoke hood, so leave it in, and let the museum draw it', /heck post, and it carries the smoke hood/.test(c.resolution) && /hood comes down/.test(c.resolution) && /folk museum/.test(c.resolution));
