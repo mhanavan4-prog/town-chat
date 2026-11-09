@@ -3625,7 +3625,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, narrationAvailable } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration } = _audio;
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
 // sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/
@@ -7974,7 +7974,6 @@ function buildMobileQuickSlots() {
 // works outdoors, which is exactly where you pass people.
 // Eight keyed emotes, each drawn as a custom carved-talisman icon (ui-icons.js)
 // rather than a system emoji, so the wheel stays in the game's visual language.
-const EMOTES = EMOTE_DEFS.map((d) => d.key);
 let emoteWheelTimer = null;
 
 function buildEmoteWheel() {
@@ -8950,7 +8949,6 @@ function getFloorHeight(roomId, rx, rz) {
     const halfW = TEMPLE_PLATFORM_W / 2, halfD = TEMPLE_PLATFORM_D / 2;
     const dx = Math.abs(rx - TEMPLE_PLATFORM_X), dz = Math.abs((rz ?? TEMPLE_PLATFORM_Z) - TEMPLE_PLATFORM_Z);
     if (dx <= halfW && dz <= halfD) {
-      const depth = Math.min(halfW - dx, halfD - dz);
       // Flat to the platform top: the visible dais is a flat box (top at
       // platformH), so ramping the collision height up over the outer edge left
       // a standing player BELOW the visible floor near the rim — sinking through
@@ -10649,20 +10647,10 @@ function makeKayRock(x, z, scale) {
   return g;
 }
 
-// KayKit grass tuft (teal) — Wilds ground detail. Sized by HEIGHT so the thin
-// blade variants don't balloon the way a horizontal 'fit' would. Short, so no
-// camFade and no collision (walk-through). Null → caller skips it.
+// KayKit grass tufts (teal), the Wilds' ground detail, scattered as instanced
+// decor below. Sized by HEIGHT so the thin blade variants don't balloon the
+// way a horizontal 'fit' would; short, so no camFade and no collision.
 const KAY_GRASS = ['grass1', 'grass2', 'grass3', 'grass4'];
-function makeKayGrass(x, z, scale) {
-  const key = KAY_GRASS[Math.floor(Math.random() * KAY_GRASS.length)];
-  const h = (20 + Math.random() * 14) * (scale || 1);
-  const g = KK.staticInstance(key, h, 'height');
-  if (!g) return null;
-  g.rotation.y = Math.random() * Math.PI * 2;
-  g.position.set(x, 0, z);
-  return g;
-}
-
 // Collapse a crowd of identical KayKit decor props into ONE InstancedMesh per
 // model (a single draw call for the whole scatter instead of one per prop),
 // baking each prop's size, terrain height and random turn into its instance
@@ -14342,23 +14330,6 @@ const {
   getAnimalVisuals2: () => animalVisuals2, setAnimalVisuals2: (v) => { animalVisuals2 = v; },
 });
 
-function buildPathSegment(x1, y1, x2, y2, width, sharedTex, hubRadius) {
-  const dx = x2 - x1, dz = y2 - y1;
-  const fullLen = Math.hypot(dx, dz);
-  const len = Math.max(10, fullLen - hubRadius * 0.55); // stop short, into the hub circle
-  const tex = sharedTex.clone();
-  tex.needsUpdate = true;
-  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(width / 40, len / 40);
-  const geo = new THREE.BoxGeometry(width, 0.55, len);
-  const mat = new THREE.MeshLambertMaterial({ map: tex });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.y = Math.atan2(dx, dz);
-  const midFrac = len / 2 / fullLen;
-  mesh.position.set(x1 + dx * midFrac, 0.18, y1 + dz * midFrac);
-  return mesh;
-}
-
 // A glowing rectangular window for an OUTDOOR building wall. `onEastWest`
 // picks the long axis: false = wide along x (north/south wall), true = wide
 // along z (east/west wall) — matching the inline pattern used for the
@@ -16137,18 +16108,18 @@ const _seance = createSeance({
   getMe: () => me,
   shortWhen,
 });
-const { openSeanceModal, closeSeanceModal, handleSeanceMessage } = _seance;
+const { openSeanceModal, handleSeanceMessage } = _seance;
 
 const _ach = createAchievements({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
   getAchState: () => achState,
 });
-const { openAchModal, closeAchModal, renderAchModal } = _ach;
+const { openAchModal, renderAchModal } = _ach;
 const _titles = createTitles({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
   getTitlesState: () => titlesState,
 });
-const { openTitlesModal, closeTitlesModal, renderTitlesModal } = _titles;
+const { openTitlesModal, renderTitlesModal } = _titles;
 
 const _workshop = createWorkshop({
   send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); },
@@ -16160,7 +16131,7 @@ const _workshop = createWorkshop({
   getGold: () => (lastBankState ? lastBankState.balance : 0),
   showItemTooltip, hideTooltip,
 });
-const { openWorkshopModal, closeWorkshopModal, renderWorkshopModal } = _workshop;
+const { openWorkshopModal, renderWorkshopModal } = _workshop;
 
 // ── The Weekly Delve UI ──────────────────────────────────────────────────────
 const _delve = createDelve({
