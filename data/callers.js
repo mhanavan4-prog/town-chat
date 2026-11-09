@@ -564,10 +564,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'brigidcross', label: "Weave and hang St Brigid's cross" },
     ],
-    resolution: "You weave it together at her table and hang it over the door, and the old black one goes out to be buried at the top of the field. Then, because he is right as well, you send for the sweep. A cross over the door and a clean flue: between the two of them the house is as safe as a house can be.",
-    lore: "Across Ireland, rush crosses were woven for Brigid's feast and hung in the rafters or over the door, above all to keep the house from fire; the old one was burned or buried in the fields. Schoolchildren wrote it down for the Irish Folklore Commission in 1937–38.",
+    resolution: "You weave it together at her table and hang it over the door, and the old black one goes out to be buried at the top of the field. Then, because he is right as well, you send for the sweep. A cross over the door and a clean flue: between the two of them the house is as safe as a house can be. Then the practical half, because a chimney that has caught twice is telling you something. Have it swept at least once a year, and more by the fuel: the government's guide says coal twice a year and wood four times. Burn dry, seasoned wood, and never rubbish or damp scraps. If it catches again you'll know it: a roar like a jet engine, sparks or flames out of the top, embers falling down. Get everyone out, stay out, and ring 112 or 999; put a spark guard in front of the fire as you go, try to put it out only if it's safe, and never throw water on it, which turns to scalding steam. A smoke alarm on every floor, tested every week, and a carbon monoxide alarm in any room with a fire: a headache, dizziness, sickness or tiredness by the fire means get outside into the air.",
+    lore: "Across Ireland, rush crosses were woven for Brigid's feast and hung in the rafters or over the door, and \"the most commonly mentioned belief is that these crosses offered protection from fires\" (Ó Longáin, 2024). The old one was burned, or buried in the fields to bless the harvest. Schoolchildren wrote it down for the Irish Folklore Commission in 1937–39.",
     tier: 'folk',
-    source: "National Folklore Collection, Schools' Collection (1937–38) · K. Danaher, The Year in Ireland (1972)",
+    source: "National Folklore Collection, Schools' Collection (1937–39) · D. Ó Longáin, RTÉ Brainstorm (2024) · gov.ie, \"Fire safety in the living room\" · Dublin Fire Brigade, chimney fires · HSE, \"Carbon monoxide poisoning\"",
     reward: { gold: 45, xp: 35 },
   },
   {
