@@ -8859,10 +8859,10 @@ const INTERIOR_THEMES = {
   // green, café ember amber, archive violet, court crimson, vault gold).
   cafe:    { label: 'The Cauldron Café', wall: 0x4a2418, banner: 0xff9a3c, furniture: 'tavern',  floorTint: 0xd8a578,
              bg: 0x160b05, ambient: 0xffa060, ambientIntensity: 1.15, fill: 0xffc890,
-             lightsStyle: 'lantern', lightColor: 0xff9a3c, beamColor: 0x2a1408 },
+             lightsStyle: 'lantern', lightColor: 0xff9a3c },
   library: { label: 'The Midnight Archive', wall: 0x2c2445, banner: 0x9a7ad9, furniture: 'library', floorTint: 0xa39ad0,
              bg: 0x0b0818, ambient: 0x9a8ae0, ambientIntensity: 1.45, fill: 0xd0c4ff,
-             lightsStyle: 'candle', lightColor: 0xffd9a0, beamColor: 0x171030 },
+             lightsStyle: 'candle', lightColor: 0xffd9a0 },
   // The Arcade is the one interior styled like Witch Hazel's lair — same
   // tricks (glowing crystals for light, painted canvas cards on the walls,
   // a glyph ring on the floor), but cold starlight blue with a celestial
@@ -8871,19 +8871,19 @@ const INTERIOR_THEMES = {
   // defaults (see getInteriorScene()).
   arcade:  { label: 'Starlight Arcade', wall: 0x22335e, banner: 0x4fa8ff, furniture: 'alchemist',  floorTint: 0x9db8f0,
              bg: 0x070f22, ambient: 0x4d6fd8, ambientIntensity: 1.7, fill: 0x8fb8ff,
-             lightsStyle: 'crystal', beamColor: 0x16223f },
+             lightsStyle: 'crystal' },
   // The Phantom Parlor — third of the witchy trilogy (cave purple, arcade
   // blue, parlor ghost-green): séance-parlor haunt lit by drifting spirit
   // wisps instead of crystals or fire.
   lounge:  { label: "Phantom Parlor & Widow's Watch", wall: 0x1f3a2e, banner: 0x54e8a8, furniture: 'parlor', floorTint: 0x9fd8b8,
              bg: 0x061410, ambient: 0x3fa87a, ambientIntensity: 1.55, fill: 0x9fffd0,
-             lightsStyle: 'wisp', wispColor: 0x8fffbe, lightColor: 0x3fd98a, beamColor: 0x122921 },
+             lightsStyle: 'wisp', wispColor: 0x8fffbe, lightColor: 0x3fd98a },
   hall:    { label: 'The Coven Court', wall: 0x40202a, banner: 0xd84a5a, furniture: 'greathall', floorTint: 0xd0a0a8,
              bg: 0x140609, ambient: 0xe08070, ambientIntensity: 1.25, fill: 0xffb9a0,
-             lightsStyle: 'brazier', lightColor: 0xff6a3c, beamColor: 0x200a10 },
+             lightsStyle: 'brazier', lightColor: 0xff6a3c },
   bank:    { label: 'The Gilded Vault', wall: 0x2a3320, banner: 0xd4af37, furniture: 'bank',      floorTint: 0xd0c890,
              bg: 0x0e1408, ambient: 0xb8c878, ambientIntensity: 1.25, fill: 0xffe9a0,
-             lightsStyle: 'vaultlamp', lightColor: 0xffc84a, beamColor: 0x161c0c }
+             lightsStyle: 'vaultlamp', lightColor: 0xffc84a }
 };
 
 // A building's visual/walkable interior can be larger than its literal
@@ -19967,7 +19967,7 @@ if (location.search.includes('testdrive=1')) {
       const buried = [];
       for (const d of decor) {
         const c = d.box.getCenter(new THREE.Vector3());
-        // The floor and the ceiling beams legitimately run wall to wall.
+        // The floor legitimately runs wall to wall.
         if (d.box.getSize(new THREE.Vector3()).x > 300 && d.box.max.y - d.box.min.y < 30) continue;
         for (const w of walls) {
           if (!w.box.containsPoint(c)) continue;

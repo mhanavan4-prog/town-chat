@@ -129,17 +129,11 @@ function buildManorScene() {
   seg(sideW, WALL_H, 12, W - sideW / 2, WALL_H / 2, D);
   seg(DOOR_W, WALL_H * 0.28, 12, W / 2, WALL_H - WALL_H * 0.14, D);           // lintel over the door
 
-  // ── Ceiling + beams ──
+  // ── Ceiling ── (no cross-beams: they cut across the overhead camera's view)
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshLambertMaterial({ color: 0x15102a }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(W / 2, WALL_H, D / 2);
   scene.add(ceil);
-  const beamMat = new THREE.MeshLambertMaterial({ color: 0x1c1430 });
-  for (let x = 90; x < W; x += 110) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(14, 16, D - 20), beamMat);
-    beam.position.set(x, WALL_H - 10, D / 2);
-    scene.add(beam);
-  }
 
   // ── Coven banner on the north wall ──
   const bannerC = document.createElement('canvas');

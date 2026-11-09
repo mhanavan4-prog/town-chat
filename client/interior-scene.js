@@ -121,7 +121,7 @@ function getInteriorScene(buildingId) {
     });
   } else if (theme.lightsStyle === 'lantern') {
     // Hanging witch-lanterns (the Cauldron Café): amber glass orbs in iron
-    // fittings, chained down from the beams, each carrying a warm light.
+    // fittings, chained down from the ceiling, each carrying a warm light.
     const fill = new THREE.DirectionalLight(theme.fill != null ? theme.fill : 0xffc890, 0.65);
     fill.position.set(roomW * 0.55, 260, roomD * 0.6);
     fill.target.position.set(roomW / 2, 0, roomD / 2); scene.add(fill); scene.add(fill.target); // aim down at room centre (not the corner) to kill grazing shadow acne
@@ -318,14 +318,8 @@ function getInteriorScene(buildingId) {
     scene.add(mesh);
   }
 
-  // exposed ceiling beams — dark wood by default, cold blue stone when the
-  // theme overrides it (the arcade)
-  const beamMat = new THREE.MeshLambertMaterial({ color: theme.beamColor != null ? theme.beamColor : 0x3c2a1a });
-  for (let i = 1; i <= 3; i++) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(roomW - 10, 8, 10), beamMat);
-    beam.position.set(roomW / 2, INDOOR_WALL_HEIGHT - 12, (roomD / 4) * i);
-    scene.add(beam);
-  }
+  // (No ceiling beams: the camera looks down from above the walls, and beams
+  // running wall to wall cut across the view of the player.)
 
   // torches near the point lights (crystal- and wisp-lit rooms already got
   // their own glowing fixtures at every light spot — fire would clash)
