@@ -533,12 +533,12 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     cauldron.add(brewGlow);
     cauldron.position.set(150, 0, 42);
     scene.add(cauldron);
-    // Herb bundles drying from the beams
+    // Herb bundles drying, hung on twine from the ceiling
     const herbMat = new THREE.MeshLambertMaterial({ color: 0x4a6a2a });
     const twineMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3a });
     for (const [hx, hz] of [[roomW * 0.35, roomD / 4], [roomW * 0.62, roomD / 4], [roomW * 0.45, roomD / 2], [roomW * 0.7, (roomD / 4) * 3]]) {
-      const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 8, 4), twineMat);
-      tie.position.set(hx, INDOOR_WALL_HEIGHT - 20, hz);
+      const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 24, 4), twineMat);
+      tie.position.set(hx, INDOOR_WALL_HEIGHT - 12, hz);
       scene.add(tie);
       const bundle = new THREE.Mesh(new THREE.ConeGeometry(5, 14, 6), herbMat);
       bundle.rotation.x = Math.PI; // hung tip-down

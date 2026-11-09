@@ -1,7 +1,7 @@
 // Player housing (slice 2) — the cottage interior. A warm, cozy, timber-framed
 // one-room cottage that every account can step into (instanced per account) and
 // furnish with the pieces they place in the Home grid editor (slice 1). This
-// module builds only the SHELL — floor, walls, hearth glow, beams, the exit
+// module builds only the SHELL — floor, walls, hearth glow, the exit
 // door sign; the furniture itself is placed onto the scene by main.js
 // (renderCottageFurniture), which owns the KayKit loader + the catalog→prop map.
 //
@@ -66,16 +66,12 @@ function buildCottageScene() {
     post.position.set(tx, WALL_H / 2, tz); scene.add(post);
   }
 
-  // ── Ceiling + a few beams ──
+  // ── Ceiling ── (no cross-beams: the camera looks down from above the walls,
+  // and beams running across the room cut through the view of the player)
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshLambertMaterial({ color: 0x2a1c10 }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(W / 2, WALL_H, D / 2);
   scene.add(ceil);
-  for (let x = 120; x < W; x += 150) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(16, 14, D - 28), timberMat);
-    beam.position.set(x, WALL_H - 9, D / 2);
-    scene.add(beam);
-  }
 
   // (No built-in fireplace — the player places their own Stone Hearth from the
   // Home catalog, so a fixed one here would just double up. The warm north-wall
