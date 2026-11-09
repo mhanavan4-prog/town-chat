@@ -36,9 +36,9 @@ const WHEEL_RITES = {
       'One arm is longer than the others, whatever you do. It goes up in the rafters all the same; Brigid is not particular.',
       "Last year's cross comes down black with smoke. You bury it in the field, for Brigid's sake and the crops'.",
     ],
-    lore: "In Ireland, rushes were gathered on the eve of Brigid's feast (31 January) and woven into crosses that were hung in the rafters or over the doors of the house, the byre and the stable. The most commonly mentioned belief was that the cross protected the house from fire. The old cross was burned or, better, buried in the fields. The custom was recorded across the country by schoolchildren for the Irish Folklore Commission in 1937–38.",
+    lore: "In Ireland, rushes were gathered on the eve of Brigid's feast (31 January) and woven into crosses that were hung in the rafters or over the doors of the house, the byre and the stable. \"The most commonly mentioned belief is that these crosses offered protection from fires\" (Ó Longáin); in Kilcullen a child wrote that \"nobody in that house can die of poisoning or fire\". The old cross was burned, left in the rafters, or buried in the fields to bless the harvest. The custom was recorded across the country by schoolchildren for the Irish Folklore Commission in 1937–39.",
     tier: 'folk',
-    source: "National Folklore Collection, Schools' Collection (1937–38) · K. Danaher, The Year in Ireland (1972)",
+    source: "National Folklore Collection, Schools' Collection (1937–39) · D. Ó Longáin, RTÉ Brainstorm (2024) · National Museum of Ireland, St Brigid's crosses",
   },
   // ── Ostara ──
   sundance: {
