@@ -8,7 +8,7 @@
     "start": "node server.js",
     "build:client": "node tools/bundle-client.mjs && node tools/build-icons.mjs",
     "test": "node --test test/*.test.js",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "test:boot": "node test/eval-boot.mjs",
     "test:smoke": "node test/smoke.browser.mjs",
     "test:ci": "npm run build:client && npm run test:boot && npm run lint && npm run typecheck && npm run check:parity && npm test && npm run test:smoke",
