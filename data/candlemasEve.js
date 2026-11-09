@@ -8,7 +8,7 @@
 // of the 1648 printing (Wing H1596): "Ceremonies for Candlemasse Eve" and "The
 // Ceremonies for Candlemasse day" (pp. 337–38), "Ceremony upon Candlemas Eve"
 // (p. 361); W. Hone, The Every-Day Book (1826), 2 February; English Heritage,
-// "Leaving up Christmas decorations"; the PDSA and the RHS on the plants; the
+// "Why you should leave up your Christmas decorations until February"; the PDSA and the RHS on the plants; the
 // London Fire Brigade on burning Christmas trees. Left out: any burning of the
 // old green (the sources burn only the brand), and a "devil on every spray"
 // rhyme no source gives.
@@ -24,7 +24,7 @@ const CANDLEMAS_RITES = {
     ],
     lore: 'Herrick\'s "Ceremony upon Candlemas Eve" (1648) gives the rule: "Down with the Holly, Ivie, all, / Wherewith ye drest the Christmas Hall", for "look how many leaves there be / Neglected there (maids trust to me) / So many Goblins you shall see." His "Ceremonies for Candlemasse Eve" put box in their place: "In stead of Holly, now up-raise / The greener Box (for show.)" Box holds the house until Easter, then gives way "Unto the crisped Yew"; birch and flowers come in for Whitsun, and then "Green Rushes" and oak boughs, for "Thus times do shift; each thing his turne do\'s hold". On Candlemas Day the Christmas brand burns till sunset and is laid up again, for "Part must be kept wherewith to teend / The Christmas Log next yeare". Hone, reprinting him in 1826, admired how "severely he enjoins the removal of the last greens of the old year". Taking it all down at Twelfth Night instead is the newer rule: English Heritage calls the bad luck of leaving it up past Twelfth Night "a modern invention".',
     tier: 'record',
-    source: 'R. Herrick, Hesperides (1648), pp. 337–38 and 361 · W. Hone, The Every-Day Book (1826), 2 February · English Heritage, "Leaving up Christmas decorations"',
+    source: 'R. Herrick, Hesperides (1648), pp. 337–38 and 361 · W. Hone, The Every-Day Book (1826), 2 February · English Heritage, "Why you should leave up your Christmas decorations until February"',
   },
 };
 

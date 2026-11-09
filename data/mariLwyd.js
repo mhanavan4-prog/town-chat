@@ -5,10 +5,10 @@
 // contest of improvised verses at the door, before they were let in to eat
 // and drink. A Yule caller (the Yule season only).
 //
-// Sources: Amgueddfa Cymru – Museum Wales, "Christmas traditions" (2014), the
+// Sources: Amgueddfa Cymru – Museum Wales, "Winter Folklore and Tradition: The Mari Lwyd" (2014), the
 // folk song "Can y Fari Lwyd" (St Fagans, 1953) and the skull 49.347
 // (Cowbridge); the Horniman Museum, "The mystery of Mari Lwyd" (2022); Trac
-// Cymru on the Mari Lwyd; J. Evans, A Tour Through Part of North Wales, in the
+// Cymru, "Mari Lwyd: the winter horse"; J. Evans, A Tour Through Part of North Wales, in the
 // Year 1798 (1800), the first account, as the museums give it. The name is
 // most likely "Grey Mare"; "Holy Mary" was once proposed and is told as such.
 // No pwnco verse is quoted, as none could be checked against its source.
@@ -24,7 +24,7 @@ const MARI_RITES = {
     ],
     lore: 'The Mari Lwyd was "a real horse\'s skull, usually decorated with coloured ribbons and rosettes", on a pole; "A long white cloth is draped down the carrier which hides him from view" (Museum Wales). She went the rounds from Christmas Day "through to Twelfth Night and Hen Galan", and was "especially popular in Glamorgan, Monmouthshire and Carmarthenshire". At each door came the pwnco, "an improvised rhyme and verse contest between the Mari party and the inhabitants of the house", which could last an hour, before the party was let in. The first account is of 1798, in Evans\'s Tour Through Part of North Wales (1800). The name most likely means "Grey Mare"; the folklorist Iorwerth Peate once thought it "Holy Mary". Of all the horse customs of Britain, the Hooden Horse of Kent and the Obby Oss of Padstow among them, "only the Mari Lwyd has a poetry competition at its heart" (Trac Cymru). Llangynwyd has kept it longest, and it is kept again across south Wales.',
     tier: 'record',
-    source: 'Amgueddfa Cymru – Museum Wales, "Christmas traditions" (2014) · Horniman Museum, "The mystery of Mari Lwyd" (2022) · Trac Cymru, "The Mari Lwyd" · J. Evans, A Tour Through Part of North Wales, in the Year 1798 (1800)',
+    source: 'Amgueddfa Cymru – Museum Wales, "Winter Folklore and Tradition: The Mari Lwyd" (2014) · Horniman Museum, "The mystery of Mari Lwyd" (2022) · Trac Cymru, "Mari Lwyd: the winter horse" · J. Evans, A Tour Through Part of North Wales, in the Year 1798 (1800)',
   },
 };
 

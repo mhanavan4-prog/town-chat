@@ -22,8 +22,8 @@ function makeMockSocket(tag) {
 
 const R = AGNES_RITES.st_agnes_pins;
 check('St Agnes\' pins: badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
-check('Hone\'s words on the night, and "St. Agnes\' fast"', /"a night of great import to maidens who desired to know who they should marry"/.test(R.lore) && /"St\. Agnes' fast"/.test(R.lore) && /Hone, The Every-Day Book \(1826\), 20 January/.test(R.source));
-check('Aubrey\'s charm in his own spelling: the row of pins, the Pater Noster, the dream', /"on St\. Agnes Night, 21 Day of Ianuary, Take a row of Pins"/.test(R.lore) && /"and pull out every one, one after another, saying a Pater Noster"/.test(R.lore) && /"and you will Dream of him or her you shall Marry\."/.test(R.lore) && /Aubrey, Miscellanies \(1696\), ch\. XIII/.test(R.source));
+check('Hone\'s words on the night, and "St. Agnes\' fast"', /"a night of great import to maidens who desired to know who they should marry"/.test(R.lore) && /"St\. Agnes' fast"/.test(R.lore) && /Hone, The Every-Day Book, vol\. I \(1826\), 20 January/.test(R.source));
+check('Aubrey\'s charm as Hone quotes it (the 1696 page not seen): the row of pins, the Pater Noster, the dream', /"Upon St\. Agnes' night you take a row of pins"/.test(R.lore) && /"saying Pater Noster, sticking a pin in your sleeve, and you will dream of him or her you shall marry\."/.test(R.lore) && !/Ianuary/.test(R.lore) && /Aubrey, Miscellanies \(1696\), as Hone quotes it/.test(R.source));
 check('Keats, stanza VI: "visions of delight", "supperless to bed"', /"They told her how, upon St\. Agnes' Eve, \/ Young virgins might have visions of delight"/.test(R.lore) && /"supperless to bed they must retire"/.test(R.lore) && /Keats, "The Eve of St\. Agnes" \(1820\)/.test(R.source));
 check('the 20th and the 21st (Aubrey keeps it on the 21st)', AGNES_WHEN.month === 1 && AGNES_WHEN.from === 20 && AGNES_WHEN.to === 21);
 const c = CALLERS.find((x) => x.id === 'st_agnes_eve');

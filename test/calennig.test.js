@@ -1,5 +1,5 @@
 // Calennig: New Year's Day in Wales, children round the doors until noon with
-// an apple on three sticks, for bread and cheese or a new coin (T. M. Owen;
+// an apple on three sticks, for a gift of food or money (T. M. Owen;
 // Museum Wales), a caller dated New Year's Day, first at the door, and the
 // Charm Book's Yuletide.
 process.env.PORT = '0';
@@ -24,8 +24,8 @@ function makeMockSocket(tag) {
 const R = CALENNIG_RITES.calennig;
 check('calennig: badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('Owen: "early in the day and continued until noon"', /"the collecting of calennig began early in the day and continued until noon"/.test(R.lore) && /Owen, Welsh Folk Customs \(1959\)/.test(R.source));
-check('…the apple of 1819 and Museum Wales\'s three sticks, box and hazelnuts; bread and cheese or a new coin', /"an apple stuck full of corn, variously coloured and decorated with a sprig of some evergreen"/.test(R.lore) && /"three short skewers"/.test(R.lore) && /"a decorated apple, pierced with three sticks and adorned with a sprig of box and hazelnuts"/.test(R.lore) && /"bread and cheese or a new coin"/.test(R.lore) && /Museum Wales, "Christmas customs: Hel Calennig" \(2014\)/.test(R.source));
-check('…the Gwaun Valley\'s song and Hen Galan in mid-January (not a contested exact day); calan from calendae', /Deffrwch Benteulu/.test(R.lore) && /Hen Galan/.test(R.lore) && /mid-January/.test(R.lore) && /calendae/.test(R.lore));
+check('…the apple of 1819 and Museum Wales\'s three sticks, box and hazelnuts; a gift or food or money', /"an apple stuck full of corn, variously coloured and decorated with a sprig of some evergreen"/.test(R.lore) && /"three short skewers"/.test(R.lore) && /"a decorated apple, pierced with three sticks and adorned with a sprig of box and hazelnuts"/.test(R.lore) && /"received a gift or food or money for their troubles"/.test(R.lore) && !/bread and cheese or a new coin/.test(R.lore) && /Museum Wales, "New Year Traditions: Collecting Calennig" \(2014\)/.test(R.source));
+check('…the Gwaun Valley\'s Hen Galan on 13 January (Visit Pembrokeshire); the unfound song and OED citation left out; calan from calendae', !/Deffrwch Benteulu/.test(R.lore + R.source) && /Hen Galan, the old New Year of the old calendar, on 13 January/.test(R.lore) && /Visit Pembrokeshire, "Celebrating Hen Galan"/.test(R.source) && !/Oxford English Dictionary/.test(R.source) && /calendae/.test(R.lore));
 check('…and nothing unfound: no hot pennies, no "Ac i bawb" rhyme', !/hot penn|Ac i bawb/i.test(R.lore + R.how + R.outcomes.join(' ')));
 const c = CALLERS.find((x) => x.id === 'calennig_children');
 check('Gwenno and Dai Prosser, on New Year\'s Day (and the 2nd)', c && c.when === CALENNIG_WHEN && CALENNIG_WHEN.month === 1 && CALENNIG_WHEN.from === 1 && CALENNIG_WHEN.to === 2 && c.steps[0].rite === 'calennig');

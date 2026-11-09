@@ -27,8 +27,8 @@ check('every rite is badged record, sourced, says how it was done and has signs 
 check('every sign fits whole on the Board (step notes are cut at 140)', [...Object.values(YULE_RITES), ...Object.values(HALLOWEEN_RITES)].every((r) => r.outcomes.every((o) => `${r.icon} ${r.name}: ${o}`.length <= 140)));
 check('the wassail quotes Herrick (1648) and keeps the robins\' toast', /Wassail the trees, that they may bear/.test(YULE_RITES.wassail.lore) && /Herrick, Hesperides \(1648\)/.test(YULE_RITES.wassail.source) && /toast/.test(YULE_RITES.wassail.how) && /robins/.test(YULE_RITES.wassail.how));
 check('the wassail gives Old Twelvey Night its date', /Old Twelvey Night \(17 January\)/.test(YULE_RITES.wassail.lore));
-check('the first-foot is dark, comes after midnight, and brings coal and salt', /dark[- ]haired/.test(YULE_RITES.firstfoot.lore) && /midnight/.test(YULE_RITES.firstfoot.how) && /coal/.test(YULE_RITES.firstfoot.how) && /salt/.test(YULE_RITES.firstfoot.how));
-check('the first-foot names its sources, the Manx qualtagh among them', /Simpson & S\. Roud/.test(YULE_RITES.firstfoot.source) && /qualtagh/.test(YULE_RITES.firstfoot.source));
+check('the first-foot is dark, comes after midnight, and brings coal and salt', /dark-complexioned/.test(YULE_RITES.firstfoot.lore) && /midnight/.test(YULE_RITES.firstfoot.how) && /coal/.test(YULE_RITES.firstfoot.how) && /salt/.test(YULE_RITES.firstfoot.how));
+check('the first-foot names its sources, the Manx qualtagh among them', /Chambers, The Book of Days/.test(YULE_RITES.firstfoot.source) && /qualtagh/.test(YULE_RITES.firstfoot.source));
 check('the Yule log is lit from last year\'s brand, kept "Till Christmas next return"', /last year's brand/.test(YULE_RITES.yulelog.lore) && /Till Christmas next return/.test(YULE_RITES.yulelog.lore) && /Candlemas Day/.test(YULE_RITES.yulelog.source));
 
 const yuleCallers = CALLERS.filter((c) => c.season === 'yule');
