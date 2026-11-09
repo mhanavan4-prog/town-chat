@@ -56,7 +56,6 @@ setTimeout(() => {
     h.ringBell();
     check('ring broadcasts to everyone', !!acct.s.lastOfType('town_bell') && acct.s.lastOfType('town_bell').phase === 'ring', acct.s.lastOfType('town_bell'));
 
-    const bankBefore = (h.__bank && 0) || 0;
     h.closeBell();
 
     // Two answered -> gold = base(15) + perHead(10)*(2-1) = 25 for the account.

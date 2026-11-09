@@ -71,8 +71,7 @@ check('a candle lights', c1.lit === true && c1.count === 1);
 const c1again = R.lightCandle(data, cv.rite, 'm0', now);
 check('the same member cannot light twice', c1again.lit === false && c1again.already === true);
 check('phase 1 not complete with one candle', !cv.rite.phases[1].completedAt);
-let lastCandle;
-for (let i = 1; i < candleT; i++) lastCandle = R.lightCandle(data, cv.rite, 'm' + i, now);
+for (let i = 1; i < candleT; i++) R.lightCandle(data, cv.rite, 'm' + i, now);
 check('phase 1 completes at the candle target', cv.rite.phases[1].completedAt != null, { target: candleT });
 
 // ── Hold the Veil → whole Rite completes → season buff minted ───────────────
@@ -93,7 +92,6 @@ check('season buff expires with the season', R.activeSeasonBuff(cv, SEASON.endsA
 const cv2 = freshCoven(keys(4));
 let t2 = T0 + 1000;
 R.ensureRite(cv2, SEASON, cv2.members.length, t2);
-const cObj = data.phases[0].objectives[0], cT = R.targetFor(cObj, cv2.rite.memberScale);
 R.contribute(data, cv2.rite, 'm0', 'kill_creature', 'gravewing_crow', 999, t2);
 R.contribute(data, cv2.rite, 'm1', 'kill_creature', 'gravewing_crow', 999, t2);  // some progress, phase not finished
 const exp = R.expireIfEnded(data, cv2.rite, SEASON.endsAt + 1);

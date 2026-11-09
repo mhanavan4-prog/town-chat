@@ -58,7 +58,7 @@ setTimeout(() => {
   g.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'wand', hat: false } }));
   check('set_appearance applies to the live player', g.p.appearance && g.p.appearance.weapon === 'wand' && g.p.appearance.hat === false, g.p.appearance);
   check('the server acks the (sanitized) look', (() => { const a = g.s.lastOfType('appearance_set'); return a && a.appearance.weapon === 'wand'; })());
-  check('the look persists onto progress (per class)', (() => { const prog = h.getStoryState ? null : null; return g.p.guestProgress && g.p.guestProgress.appearance && g.p.guestProgress.appearance[0] && g.p.guestProgress.appearance[0].weapon === 'wand'; })(), g.p.guestProgress && g.p.guestProgress.appearance);
+  check('the look persists onto progress (per class)', (() => { return g.p.guestProgress && g.p.guestProgress.appearance && g.p.guestProgress.appearance[0] && g.p.guestProgress.appearance[0].weapon === 'wand'; })(), g.p.guestProgress && g.p.guestProgress.appearance);
 
   // ── A bogus weapon is clamped, not trusted ────────────────────────────────────
   g.s.emit('message', JSON.stringify({ type: 'set_appearance', appearance: { weapon: 'rocket_launcher' } }));
