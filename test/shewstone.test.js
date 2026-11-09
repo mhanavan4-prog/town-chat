@@ -23,10 +23,10 @@ function makeMockSocket(tag) {
 const R = HOUSEHOLD_RITES.shewstone;
 check('the shewstone is a household rite, badged record, three signs that fit the Board', R && R.tier === 'record' && R.outcomes.length === 3 && R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 check('Dee\'s mirror: British Museum, Mexican obsidian from Pachuca, Walpole\'s label', /British Museum/.test(R.lore) && /Pachuca/.test(R.lore) && /"The Black Stone into which Dr Dee used to call his Spirits"/.test(R.lore) && /1966,1001\.1/.test(R.source) && /Antiquity 95 \(2021\)/.test(R.source));
-check('Kelley looked, not Dee', /Dee did not look himself/.test(R.lore) && /Edward Kelley/.test(R.lore));
+check('Dee relied on scryers, Kelley above all', /Dee relied on scryers/.test(R.lore) && /Edward Kelley/.test(R.lore));
 check('Scot\'s chapter, as he printed it, and why he printed it', /"How to enclose a spirit in a christall stone"/.test(R.lore) && /to expose it/.test(R.lore) && /Scot, The Discoverie of Witchcraft \(1584\), XV\.12/.test(R.source));
 check('the cunning folk let the client look, and never named anyone', /let the one who asks look into it, not you/.test(R.how) && /never had to name anyone/.test(R.lore) && /Davies, Cunning-Folk \(2003\)/.test(R.source));
-check('the law: an offence from 1542, a pretence from 1736', /from 1542/.test(R.lore) && /from 1736 it was punished as a pretence/.test(R.lore));
+check('the law: an offence in 1542, repealed 1547, named again 1563 and 1604; a pretence from 1736', /Witchcraft Act of 1542, repealed in 1547/.test(R.lore) && /1563 and 1604 named it again/.test(R.lore) && /from 1736 it was punished as a pretence/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'shewstone_litter');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'shewstone'));
 check('the honest half: the glass shows the face you bring, and a name can kill (Tring, 1751)', /shows the face you bring to it/.test(c.resolution) && /Tring in 1751/.test(c.resolution) && /Ruth Osborne/.test(c.resolution) && /Colley was hanged/.test(c.resolution) && /Osborne, Ruth/.test(c.source));
