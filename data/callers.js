@@ -1849,9 +1849,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'porch_watch', label: 'The porch from eleven till one, two of you, and no sleeping' },
     ],
     resolution: "One o'clock comes and you all go home. Then the practical half, which is about what a cold porch at midnight does to you. In the dark the corners of your eyes see movement that isn't there; cold and tired, you nod off and dream with your eyes half open; and fright does the rest. Hone's clergyman said men had died of their own fears on this night. So wrap up warm, bring a lantern and something hot, take turns, and whatever you think you saw, never tell anyone they were among the dead. A man told that has a bad year of it, whether he dies or not.",
-    lore: "St Mark's Eve: watchers sat in the church porch from eleven till one to see the ghosts of those who would die that year go in; whoever fell asleep would die himself (Hone, 1827; Morris, 1892).",
+    lore: "St Mark's Eve: watchers sat in the church porch from eleven till one to see the ghosts of those who would die that year go in; whoever fell asleep, later Yorkshire tellers said, would die himself (Hone, 1826; O'Donnell, 1939).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 April · M. C. F. Morris, Yorkshire Folk-Talk (1892)',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 25 April · E. O\'Donnell, Haunted Churches (1939)',
     reward: { gold: 40, xp: 35 },
   },
   // ── The house and the hive (data/household.js) ──
