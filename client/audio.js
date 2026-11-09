@@ -503,7 +503,6 @@ const NARRATION_LEVEL = 0.9;
 let narrationIndex = {};        // { questId: { f, v } }
 let narrationLoadStarted = false;
 let narrationEl = null;         // the single reused <audio> player
-let narrationCurId = null;
 
 async function loadNarrationIndex() {
   if (narrationLoadStarted) return;
@@ -519,7 +518,6 @@ function narrationAvailable(id) { return !!(narrationIndex && narrationIndex[id]
 
 function stopNarration() {
   if (narrationEl) { try { narrationEl.pause(); narrationEl.currentTime = 0; } catch (e) {} }
-  narrationCurId = null;
 }
 
 function playNarration(id) {
@@ -532,7 +530,6 @@ function playNarration(id) {
     narrationEl.volume = NARRATION_LEVEL;
     const ver = entry.v ? `?v=${entry.v}` : '';
     narrationEl.src = `/audio/narration/${entry.f}${ver}`;
-    narrationCurId = id;
     const p = narrationEl.play();
     if (p && p.catch) p.catch(() => {}); // autoplay block / interrupted — ignore
     return true;

@@ -269,8 +269,8 @@ function buildBuildingMesh(b, w) {
     getKkCamBlockers().push({ minX: b.x, minZ: b.y, maxX: b.x + b.w, maxZ: b.y + b.h, maxY: Math.max(60, bb.max.y * 0.96) });
   }
   // One siding texture per building, cloned per wall segment so each gets
-  // its own repeat tuned to its own size — same pattern buildPathSegment()
-  // uses for road tiles. White-based texture multiplies with b.color, so
+  // its own repeat tuned to its own size. White-based texture multiplies
+  // with b.color, so
   // every building keeps its own tint instead of one shared flat material.
   const sidingBase = useKK ? null : makeWoodSidingTexture();
   for (const r of (useKK ? [] : wallRects)) {
