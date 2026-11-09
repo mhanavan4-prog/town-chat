@@ -27,7 +27,7 @@ const LUCY_RITES = {
     ],
     lore: 'Donne\'s "Nocturnall upon S. Lucies day, Being the shortest day" (printed 1633) opens "Tis the yeares midnight, and it is the dayes, / Lucies, who scarce seaven houres herself unmaskes, / The Sunne is spent", and ends "Both the yeares, and the dayes deep midnight is." Ray\'s proverbs (1678) set the two ends of the year side by side: "Barnaby bright, the longest day and the shortest night", and "Lucy light, the shortest day and the longest night." Under the old calendar that was nearly so; "Prior to the adoption of the Gregorian calendar in the sixteenth century, St. Lucy\'s Day fell on the winter solstice" (Crump), though by Donne\'s time the true solstice had slipped a day or two before it. England wrote down no custom of its own for the day: Hone gives only the saint, a young lady of Syracuse who "gave away all her fortune to the poor". The crown of candles is Sweden\'s, and young there too: a white-clad Lucia is first recorded in 1764, and Stockholm crowned its first in 1927.',
     tier: 'record',
-    source: 'J. Donne, Poems (1633), pp. 187–88 · J. Ray, A Collection of English Proverbs (1678), pp. 51–52 · W. Hone, The Every-Day Book, vol. I (1826), 13 December, col. 1570 · Swedish Institute, "Lucia in Sweden"',
+    source: 'J. Donne, Poems (1633), pp. 187–88 · J. Ray, A Collection of English Proverbs (1678), pp. 51–52 · W. Hone, The Every-Day Book, vol. I (1826), 13 December, col. 1570 · W. D. Crump, The Christmas Encyclopedia (2006) · Swedish Institute, "Lucia in Sweden"',
   },
 };
 
