@@ -3,7 +3,7 @@
 //
 // The commonest cunning folk of all were charmers: someone in the parish who
 // could "charm" a burn, stop blood or ease a toothache with a few memorised
-// words, usually for no fee. The words below are as recorded; a caller's
+// words, some for nothing and some for a fee. The words below are as recorded; a caller's
 // working has you say a charm line by line, in order, on the Town Board.
 //
 // Honesty line: the game's callers pair every charm with the sound practical
@@ -18,14 +18,14 @@ const CHARMS = {
     title: 'For a Scald or Burn',
     lines: [
       'There came three angels out of the east,',
-      'One brought fire and two brought frost.',
+      'One brought fire and two brought frost;',
       'Out fire and in frost,',
       'In the name of the Father, Son, and Holy Ghost.',
     ],
-    use: 'Said over the burn, with bramble or dock leaves wetted in spring water passed over it: "Bramble-leaves, or sometimes the leaves of the common dock, wetted with spring water, are employed in this charm" (Hunt).',
-    lore: 'Robert Hunt took this down in Cornwall, where charmers were still consulted in his day. The pattern, angels from the east, fire driven out and frost brought in, turns up across Britain in slightly different words: Courtney (1890) has "Three ladies (or virgins) come from the east", "often said nine times over a scald", and Wright (1913) "Three wise men came from the east" in Shropshire, Devon and Cornwall. The words were kept close: at Zennor "A man would not on any account tell his charm to a woman, or a woman communicate hers to a man", while Courtney heard that a charmer "must never communicate them to one of the same sex". Charmers traditionally took no money, though Courtney knew a Penzance charmer who "made a great deal of money by her profession".',
+    use: 'Said over the burn, with bramble or dock leaves wetted in spring water: "Bramble-leaves, or sometimes the leaves of the common dock, wetted with spring water, are employed in this charm" (Hunt, who ends it "Amen!").',
+    lore: 'Robert Hunt took this down in Cornwall, where charmers were still consulted in his day. The pattern, angels from the east, fire driven out and frost brought in, turns up across the West Country in slightly different words: Bottrell (1873) and Courtney (1887) have "Three ladies come from the east, / One with fire and two with frost", and Courtney\'s charmer said it "nine times over a scald". The words were kept close: at Zennor "A man would not on any account tell his charm to a woman, or a woman communicate hers to a man", while Courtney heard that a charmer "must never communicate them to one of the same sex". Nor was it always done for nothing. Courtney\'s Uncle Will Jelbart "made a good income by charming warts, wildfire (erysipelas), cataracts, &c.", and a Penzance charmer "made a great deal of money by her profession".',
     tier: 'record',
-    source: 'Robert Hunt, Popular Romances of the West of England, 2nd series (1865), §132 "For a Scald or Burn", p. 213, and §125 · M. A. Courtney, Cornish Feasts and Folk-Lore (1890), pp. 146–56 · J. Wright, Rustic Speech and Folk-Lore (1913)',
+    source: 'Robert Hunt, Popular Romances of the West of England, 2nd series (1865), §132 "For a Scald or Burn", p. 213, and §125 "The Zennor Charmers" · W. Bottrell, Traditions and Hearthside Stories of West Cornwall, vol. 2 (1873) · M. A. Courtney, "Cornish Folk-Lore", The Folk-Lore Journal 5 (1887), the basis of her Cornish Feasts and Folk-Lore (1890)',
   },
   blood: {
     key: 'blood',
@@ -52,12 +52,12 @@ const CHARMS = {
       'In the name of the Lord God,',
       'Peter sat on a marble stone weeping.',
       'Christ came by, and asked him what ailed him, and healed him;',
-      'and whoever carries these lines shall never have the toothache.',
+      'and not only thee but all them that carries these lines for my sake shall never have the toothache.',
     ],
-    use: 'Written out on paper, folded, and worn round the neck — a charm to carry rather than to say once.',
-    lore: 'One of the most widespread charms of all, written out on scraps of paper and carried or worn. Its Latin forms go back to the eleventh century, "Christus super marmoreum sedebat, Petrus tristes ante eum stabat". A Scottish example, made between 1860 and 1880 for a Mary McLeod, is in the Science Museum, mounted under glass; "this charm was to be worn around the neck". In the Fylde in 1867 it was "a foolish charm, yet much accredited amongst us", and Lady Wilde (1887) has an Irish rhyming version "to be sewn on the clothes". Its first and last lines are given here as the Scottish paper has them; the dialogue between them is shortened.',
+    use: 'Written out on paper and worn round the neck — a charm to carry rather than to say once.',
+    lore: 'One of the most widespread charms of all, written out on scraps of paper and carried or worn. The oldest complete Latin texts are of the eleventh century; an English one, as Ķencis prints it from Roper, runs "Christus super marmoreum sedebat petrus tristes ante eum stabat". A Scottish example, made between 1860 and 1880 for a Mary McLeod, is in the Science Museum, mounted under glass; "this charm was to be worn around the neck". Harland and Wilkinson\'s Lancashire Folk-lore (1867) gives a section to "Charms for the Toothache", and Lady Wilde (1887) has an Irish rhyming version, "As Peter sat on a marble stone, / The Lord came to him all alone", "to be sewn on the clothes". Its first and last lines are given here as the Scottish paper has them; the dialogue between them is shortened.',
     tier: 'record',
-    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732) · J. Harland and T. T. Wilkinson, Lancashire Folk-lore (1867) · Lady Wilde, Ancient Legends of Ireland (1887) · T. Ķencis, Incantatio 3 (2013)',
+    source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732) · J. Harland and T. T. Wilkinson, Lancashire Folk-lore (1867), "Charms for the Toothache", p. 75 · Lady Wilde, Ancient Legends, Mystic Charms, and Superstitions of Ireland (1887) · T. Ķencis, "St. Peter\'s Routes in Latvia: The Case of Super Petram Charm-Type", Incantatio 3 (2013), pp. 100–108',
   },
   sprain: {
     key: 'sprain',
@@ -104,7 +104,7 @@ const WART_CHARM = {
   use: 'Count the warts; tie as many knots in a hair or a thread, touching a wart with each; then throw it away or bury it — as it rots, they go.',
   lore: 'Henderson\'s Northumbrian schoolboy had "the choice of several modes of relief": "as many knots in a hair as there are warts on the hands", thrown away; a large black snail rubbed on them and thrown against a thorn hedge; an apple cut in two, rubbed on, tied together and buried, "confident that as the apple decays the warts will disappear", and "This, too, is done in Devonshire". In Cornwall, Hunt found, the knots were tied in a string, "each wart being carefully touched with the knot dedicated to it", and the string was buried. The honest secret of every wart charm is that warts usually go away on their own, though it can take months or even years, so the charm nearly always "worked".',
   tier: 'record',
-  source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. V · R. Hunt, Popular Romances of the West of England (1865; 3rd ed. 1903), "Cures for Warts" · F. Bacon, Sylva Sylvarum (1626), no. 997, as Henderson quotes it · Cochrane review CD001781 (2003, 2012) · NHS, "Warts and verrucas"',
+  source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1866; 1879 ed.), ch. V · R. Hunt, Popular Romances of the West of England (1865; 3rd ed. 1903), "Cures for Warts" · F. Bacon, Sylva Sylvarum (1626), no. 997, as Henderson quotes it · Cochrane review CD001781 (2003, as "Local treatments for cutaneous warts"; 2012, Kwok et al.) · NHS, "Warts and verrucas"',
 };
 
 // Charming a stye — another counted working (like the wart knots): stroke it
