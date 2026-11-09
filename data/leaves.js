@@ -5,7 +5,7 @@
 // parlour art, and the printed symbol dictionaries that fixed its vocabulary are
 // Victorian and Edwardian. The method and meanings here follow one of the best
 // known, A Highland Seer's "Tea-Cup Reading and Fortune-Telling by Tea Leaves"
-// (early 1900s, now public domain), paraphrased:
+// (New York: George Sully, c. 1920; now public domain), paraphrased:
 //
 //   • Drink until about half a teaspoon is left. Hold the cup by the handle in
 //     the left hand, swirl it three times left to right, turn it over on the
@@ -38,7 +38,7 @@ const LEAF_SYMBOLS = [
   { key: 'house', glyph: '🏠', name: 'A house', meaning: 'Success in business.', tone: 'good' },
   { key: 'key', glyph: '🗝️', name: 'A key', meaning: 'Money, growing trade, and a good partner.', tone: 'good' },
   { key: 'ladder', glyph: '🪜', name: 'A ladder', meaning: 'Travel.', tone: 'good' },
-  { key: 'letter', glyph: '✉️', name: 'A square leaf — a letter', meaning: 'News is coming. Clouded, it is bad news.', tone: 'mixed' },
+  { key: 'letter', glyph: '✉️', name: 'A square leaf — a letter', meaning: 'News is coming; with dots about it, there is money in it. Clouded, it is bad news.', tone: 'mixed' },
   { key: 'moon', glyph: '🌙', name: 'A crescent moon', meaning: 'Prosperity and fortune.', tone: 'good' },
   { key: 'owl', glyph: '🦉', name: 'An owl', meaning: 'An ill omen — sickness or want; begin nothing new for a while.', tone: 'ill' },
   { key: 'ring', glyph: '💍', name: 'A ring', meaning: 'Marriage. At the very bottom of the cup, a wedding that will not happen.', tone: 'mixed',
@@ -69,7 +69,7 @@ const LEAVES_NEW_SIGN_XP = 10;
 
 const LEAVES_LORE = {
   method: 'Swirl the last half-spoonful three times, left to right, holding the handle in your left hand; turn the cup over on the saucer to drain; then read. The handle is you — signs near it come close to home. Rim is soon, sides are later, the bottom is far off.',
-  provenance: "Tea reached England in the 1650s and leaf-reading became a kitchen art; its printed symbol dictionaries are Victorian and Edwardian. These meanings follow A Highland Seer's Tea-Cup Reading and Fortune-Telling by Tea Leaves (early 1900s).",
+  provenance: "Tea reached England in the 1650s and leaf-reading became a kitchen art; its printed symbol dictionaries are Victorian and Edwardian. These meanings follow A Highland Seer's Tea-Cup Reading and Fortune-Telling by Tea Leaves (New York, c. 1920).",
   tier: 'folk',
 };
 
