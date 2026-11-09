@@ -221,7 +221,7 @@ const OLD_CALENDAR = [
     text: "The shoemakers' saints: processions with King Crispin and his court; at Tenby an effigy of the saint hung from the steeple on the eve, his will read at every craftsman's door next day, and its stuffing made into a football. Agincourt was fought on it in 1415.",
     quote: "This day is call'd the Feast of Crispian", source: `${CHAMBERS}, 25 October; Shakespeare, Henry V (First Folio, 1623)` },
   { key: 'simon_jude', month: 10, day: 28, icon: '☔', title: 'St Simon and St Jude: the rainy day', tier: 'record',
-    text: "Deemed 'as rainy as St. Swithin's'. Hone ties it to 1536, when the river Don rose the night before a battle set at Doncaster and the armies could not meet; the chronicle gives no saint's day, and calls the rain 'not great to speake of'.",
+    text: "Deemed 'as rainy as St. Swithin's'. Hone ties it to 1536, when the river Don rose the night before a battle set at Doncaster and the armies could not meet; Holinshed marks the day 'The euen of Simon and Iude' in his margin, and calls the rain 'not great to speake of'.",
     quote: "As well as I know 'twill rain upon Simon and Jude's day next", source: `Middleton & Dekker, The Roaring Girl (1611), I.ii; ${HONE}, 28 October; Holinshed, Chronicles (1587)` },
   { key: 'hop_tu_naa', month: 10, day: 31, icon: '🏮', title: 'Hop-tu-Naa', tier: 'record',
     text: 'On the Isle of Man, Hollantide Eve, the last night of the old Celtic year: children went round the doors singing Hop-tu-Naa, and still do, with turnip lanterns.',
