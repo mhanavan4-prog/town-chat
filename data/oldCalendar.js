@@ -68,7 +68,7 @@ const OLD_CALENDAR = [
     text: 'Rock Day: the first day back at work after Christmas, but only partly; in Herrick\'s poem the men set fire to the maids\' flax and tow, and the maids drenched them for it.',
     quote: 'Burne the flax, and fire the tow', source: `Herrick, Hesperides (1648); ${HONE}, 7 January` },
   { key: 'plough_monday', rule: firstWeekdayAfter(1, 1, 6), moves: 'the Monday after Twelfth Day', icon: '🚜', title: 'Plough Monday', tier: 'record',
-    text: 'The ploughmen, in ribbons, dragged a plough from door to door for money, with "Bessy" (a man dressed as an old woman) and a fool in skins with a tail. Before the Reformation "plough lights" burned in the churches.',
+    text: 'The ploughmen, in ribbons, dragged a plough from door to door for money, with "Bessy" (an old woman, or a boy dressed as one) and a fool in skins with a tail. Before the Reformation "plough lights" burned in the churches.',
     quote: 'they draw the plough in procession to the doors of the villagers', source: `${HONE}, 7 January` },
   { key: 'clavie', month: 1, day: 11, icon: '🔥', title: 'Burning the Clavie', tier: 'record',
     text: 'At Burghead in Moray, old Hogmanay: a half tar-barrel on a pole, lit with a peat, is carried burning round the town and set on the Doorie hill, and its embers taken home for luck.',

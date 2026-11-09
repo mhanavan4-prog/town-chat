@@ -30,7 +30,7 @@ const WHEEL_RITES = {
   },
   brigidcross: {
     key: 'brigidcross', season: 'imbolc', name: "St Brigid's Cross", icon: '✚',
-    how: 'Gather rushes on the eve of the feast and weave the four-armed cross. Hang it in the rafters or over the door, and take down last year\'s to burn or bury in the field.',
+    how: 'Gather rushes on the eve of the feast and weave the four-armed cross. Hang it in the rafters or over the door, and take down last year\'s to bury in the field or scatter over the land.',
     outcomes: [
       'The arms come out even and the weave holds tight. It goes up over the door; no fire will take this house this year.',
       'One arm is longer than the others, whatever you do. It goes up in the rafters all the same; Brigid is not particular.',
