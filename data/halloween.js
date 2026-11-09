@@ -51,7 +51,7 @@ const HALLOWEEN_RITES = {
       'The thread runs free to the very end. Nobody holds it; not this year.',
       'Something holds it — and lets go before you can ask.',
     ],
-    lore: 'Burns: demand "Wha hauds?" — an answer will be returned from the kiln-pot, naming the Christian and surname of your future spouse.',
+    lore: 'Burns: "Steal out, all alone, to the kiln, and, darkling, throw into the pot a clue of blue yarn"; when something holds the thread, demand "Wha hauds?" — an answer will be returned from the kiln-pot, naming the Christian and surname of your future spouse. The kiln-pot was "the heating chamber under a corn-kiln" (Dictionary of the Scots Language).',
   },
   luggies: {
     key: 'luggies', name: 'The Three Luggies', icon: '🥣',
