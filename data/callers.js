@@ -642,15 +642,15 @@ const CALLERS = [
   },
   {
     id: 'litha_hemp_seed', season: 'litha', caller: 'Hester Lowe', icon: '🌱',
-    title: 'Hemp-Seed at Midnight',
-    plea: "It's Midsummer Eve and I've got the hemp-seed, and I know the words, but I'm not going out in the field at midnight on my own, whatever the rhyme says. Will you stand by the gate? You're not to look either.",
+    title: 'Hemp-Seed on Midsummer Eve',
+    plea: "It's Midsummer Eve and I've got the hemp-seed, and I know the words, but I'm not going out in the field in the dark on my own, whatever the rhyme says. Will you stand by the gate? You're not to look either.",
     steps: [
-      { kind: 'rite', rite: 'hempseed', label: 'Sow the hemp-seed at midnight' },
+      { kind: 'rite', rite: 'hempseed', label: 'Sow the hemp-seed on Midsummer Eve' },
     ],
-    resolution: "You stand at the gate with your back to the field while she sows it and says the words. She comes back very quiet and won't say what she heard behind her. Three weeks later the hemp is up in a green line across the corner of the field, and so, most evenings, is the miller's son.",
-    lore: "Gay put it in verse in 1714: \"This hemp-seed with my virgin hand I sow, / Who shall my true-love be, the crop shall mow.\" Hunt took down the Cornish words in 1865, the sowing and hoeing gone through deliberately: \"Hemp-seed I sow, / Hemp-seed I hoe.\"",
+    resolution: "You stand at the gate with your back to the field while she sows it and says the words. She comes back very quiet and won't say what she heard behind her. Three weeks later the hemp is up in a green line across the corner of the field, and so, most evenings, is the miller's son. Then the practical half, which is the law's: hemp is cannabis. Hemp-seed for the birds or the kitchen is lawful to buy and keep, but to grow any cannabis plant, hemp included, needs a Home Office licence; without one, sowing it and letting it come up is cultivation, and an offence. So if she'd try it now, she says the words over a different seed, or keeps to Burns's way and only looks over her left shoulder.",
+    lore: "Gay put it in verse in 1714: \"This hemp-seed with my virgin hand I sow, / Who shall my true-love be, the crop shall mow.\" Hunt gave the words in 1865, noting it \"is not especially a Cornish superstition\", the sowing and hoeing to be gone through deliberately: \"Hemp-seed I sow, / Hemp-seed I hoe.\" In Scotland Burns made it a Hallowe'en charm.",
     tier: 'record',
-    source: 'John Gay, The Shepherd\'s Week (1714) · R. Hunt, Popular Romances of the West of England (1865)',
+    source: 'John Gay, The Shepherd\'s Week (1714) · R. Hunt, Popular Romances of the West of England (1865), "Midsummer Superstitious Customs" · Misuse of Drugs Act 1971, s. 6 · Home Office, "Industrial hemp licensing" (2025)',
     reward: { gold: 40, xp: 35 },
   },
   {
