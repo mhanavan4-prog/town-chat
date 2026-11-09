@@ -4399,12 +4399,6 @@ function hasPact(player, pactId) {
   const alloc = getSkillAlloc(player);
   return (alloc[pactId] || 0) > 0;
 }
-// Look up a pact definition's `behavior` block (combat hooks keyed by pact id).
-function pactBehavior(player, pactId) {
-  if (!hasPact(player, pactId)) return null;
-  const s = skillTreeFor(player.charId).find(k => k.id === pactId);
-  return (s && s.behavior) || null;
-}
 // The behavior block of whichever keystone pact this player has sworn (any
 // class), or null. Every combat hook reads its own field off this, so a pact's
 // play-changing behavior lives entirely in its data definition — adding one to
@@ -8862,7 +8856,7 @@ const worldBossMod = require('./lib/worldboss')({
   grantXP, getInventory, addItemToAccount, saveInventories, inventoryStatePayload,
   ITEM_CATALOG, lbBump, noteBossKill, mulberry32, storyEvent,
 });
-const { tickWorldBoss, worldBossHit, worldBossPublic, worldBossRenderPos, worldBossWindow } = worldBossMod;
+const { tickWorldBoss, worldBossHit, worldBossPublic, worldBossWindow } = worldBossMod;
 
 // ── Covens ───────────────────────────────────────────────────────────────────
 // Small, named, home-based — Diablo's Warbands minus everything else. Up to
