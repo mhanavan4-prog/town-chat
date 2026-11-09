@@ -485,7 +485,7 @@ const CALLERS = [
       { kind: 'deliver', item: 'crab_apple', qty: 1, label: 'A wild apple for the cider-cup' },
     ],
     resolution: "You sing to the old tree, put the toast in its fork, pour the cider at its roots, and the sons, who came out to laugh, end up banging the pans loudest of anyone. Jacob says nothing all the way home and then says it was just like his grandfather's. What you don't tell him: the tree bore nothing because it was a heavy year the one before, and apples often crop every other year. It will likely bear next autumn, with the wassail or without it. Then the practical half, which is the tree's and the night's. To break the every-other-year habit, in the spring of a heavy year rub off half to three-quarters of the fruit buds, leaving one or two to a spur, or thin the fruit after the June drop; clear the grass from its foot, mulch it, water it in a dry spell, and feed it in early spring. A late frost on the blossom is the commonest thief of a crop, and most apples want another apple nearby to pollinate them. As for the din: a shotgun wants a shotgun certificate, and firing near a road so that anyone on it is hurt, held up or put in danger is an offence. Fireworks stop at eleven at night, and Twelfth Night is no exception. And it's a cold night for an old man: shivering, pale cold skin, slurred speech or muddle mean get him in and warm, with a warm drink that isn't cider, since the NHS says not to give alcohol to someone that cold.",
-    lore: "Wassailing the orchard was a West Country Twelfth Night custom: toast soaked in cider laid in the branches for the robins, cider poured on the roots, and the oldest tree sung to, \"Here's to thee, old apple-tree\"; some believed \"if they neglect this custom, the trees will bear no apples that year\" (Hone, 1826). Pans were banged, and by 1890 \"guns are often fired\". Herrick knew it in 1648: \"Wassail the trees, that they may bear / You many a plum, and many a pear.\" Carhampton and Whimple still do it on Old Twelvey Night, 17 January.",
+    lore: "Wassailing the orchard was a West Country Twelfth Night custom: toast soaked in cider laid in the branches for the robins, cider poured on the roots, and the oldest tree sung to, \"Here's to thee, old apple-tree\"; some believed \"if they neglect this custom, the trees will bear no apples that year\" (Hone, 1826). Pans were banged, and by 1890 \"guns are often fired\". Herrick knew it in 1648: \"Wassail the trees, that they may bear / You many a plum and many a pear.\" Carhampton and Whimple still do it on Old Twelvey Night, 17 January.",
     tier: 'record',
     source: 'Robert Herrick, Hesperides (1648), "Another" ("Wassail the trees…") · W. Hone, The Every-Day Book, vol. I (1826), 5 January, after the Gentleman\'s Magazine (1791) · D. & S. Lysons, Magna Britannia, vol. VI (1822), Devonshire · All the Year Round (30 August 1890), "About Cider" · RHS, "Biennial bearing" · Firearms Act 1968, s. 2 · Highways Act 1980, s. 161 · GOV.UK, "Fireworks: the law" · NHS, "Hypothermia"',
     reward: { gold: 50, xp: 40 },
@@ -539,7 +539,7 @@ const CALLERS = [
     resolution: "The Mari's in by the fire and the party's eating you out of house and home. Then the practical half. The man under the sheet can't see his own feet: someone sober walks beside him with a lantern, on the lanes in the dark and ice of the Christmas weeks, and leads him by the arm. Small children can be truly frightened by the snapping skull; let them see it's a horse's bones and a neighbour under a sheet, and let them touch the ribbons. And the pwnco is play, not a fight: whoever wins, the door opens in the end, and the party is fed.",
     lore: "The Mari Lwyd: in south Wales between Christmas and Twelfth Night a horse's skull in ribbons and a white sheet was carried to each house, and the household had to answer the party's verses in the pwnco before letting it in (Museum Wales; first recorded 1798).",
     tier: 'record',
-    source: 'Amgueddfa Cymru – Museum Wales, "Christmas traditions" (2014) · J. Evans, A Tour Through Part of North Wales, in the Year 1798 (1800)',
+    source: 'Amgueddfa Cymru – Museum Wales, "Winter Folklore and Tradition: The Mari Lwyd" (2014) · J. Evans, A Tour Through Part of North Wales, in the Year 1798 (1800)',
     reward: { gold: 50, xp: 40 },
   },
   // ── The turning year (each only in its own festival's season; data/wheelRites.js) ──
@@ -755,9 +755,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'calennig', label: 'The calennig apples made, and round the doors before noon' },
     ],
     resolution: "Two pockets full, and home by noon. Then the practical half. New Year's morning is dark and cold and the roads are often icy: send children out in daylight, in pairs or more, on the roads they know, and only to doors they know. The sticks in a calennig apple are sharp, so keep them short and blunt the points, and don't let the little ones run with them. And if you're the one at the door, bread and cheese was always as welcome as a coin, and still is.",
-    lore: "Calennig: on New Year's morning in Wales children went from door to door until noon with a decorated apple on three sticks, singing for a gift of bread and cheese or a new coin (T. M. Owen; Museum Wales).",
+    lore: "Calennig: on New Year's morning in Wales children went from door to door until noon with a decorated apple on three sticks, singing for calennig, and \"received a gift or food or money for their troubles\" (T. M. Owen; Museum Wales).",
     tier: 'record',
-    source: 'Amgueddfa Cymru – Museum Wales, "Christmas customs: Hel Calennig" (2014) · T. M. Owen, Welsh Folk Customs (1959)',
+    source: 'Amgueddfa Cymru – Museum Wales, "New Year Traditions: Collecting Calennig" (2014) · Amgueddfa Cymru – Museum Wales, "Calennig" (blog, 22 December 2009) · T. M. Owen, Welsh Folk Customs (1959)',
     reward: { gold: 40, xp: 35 },
   },
   // Twelfth Night only (data/twelfthNight.js), dated by the old calendar.
@@ -808,7 +808,7 @@ const CALLERS = [
     resolution: "You walk him back to the house at half past twelve. Then the practical half, for the beasts and the bees are real whatever they do at midnight. A beast burns more keeping warm in a frost, and more again with a wet coat: give them extra fodder, and break the ice on the trough morning and night, for they won't eat well without water. And leave the hives shut, for opening one chills the bees. Lift the back of each to feel the weight of stores; if one is light, put a block of fondant over the cluster on the next mild day. Clear the dead bees from the entrance with a bent wire, and see the mouse guards are on.",
     lore: "Christmas Eve: in Devon and Cornwall the oxen were said to kneel in their stalls at midnight, and in Yorkshire people sat up by the hives to hear the bees hum; after 1752 many said it was only on Old Christmas Eve (Brand, via Hone; Ditchfield, 1896).",
     tier: 'record',
-    source: 'J. Brand, Observations on Popular Antiquities, ed. H. Ellis (1813), quoted in W. Hone, The Every-Day Book, 24 December · P. H. Ditchfield, Old English Customs Extant at the Present Time (1896), p. 52',
+    source: 'J. Brand, Observations on Popular Antiquities, quoted in W. Hone, The Every-Day Book, vol. I (1826), 24 December · P. H. Ditchfield, Old English Customs Extant at the Present Time (1896), p. 52',
     reward: { gold: 40, xp: 35 },
   },
   // St Stephen's Day only (data/wrenDay.js): the wren boys, with a straw wren.

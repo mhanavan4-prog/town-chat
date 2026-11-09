@@ -25,7 +25,7 @@ check('hunting the wren: badged record, three signs that fit the Board', R && R.
 check('Frazer\'s words: the holly and ivy on a broomstick, and the rhyme', /"in the middle of a mass of holly and ivy on the top of a broomstick"/.test(R.lore) && /"The wren, the wren, the king of all birds, \/ St\. Stephen's Day was caught in the furze"/.test(R.lore) && /Frazer, The Golden Bough \(abridged 1922\), ch\. LIV/.test(R.source));
 check('Moore on the Manx hunt: "cruel but curious", the feathers against witchcraft', /"the cruel but curious custom of Hunting the Wren"/.test(R.lore) && /"an effectual preservative against witchcraft"/.test(R.lore) && /Moore, The Folk-Lore of the Isle of Man \(1891\)/.test(R.source));
 check('the straw costumes (RTÉ, 1964) and the Pembrokeshire wren house (Museum Wales)', /straw costumes/.test(R.lore) && /RTÉ Archives/.test(R.source) && /wren house/.test(R.lore) && /98\.333/.test(R.source));
-check('the betrayal stories told as legend, and the wren a straw one now', /Legend says it betrayed St Stephen/.test(R.lore) && /protected bird now/.test(R.lore) && /straw wren/.test(R.how) && !/kill/i.test(R.how));
+check('the unsourced betrayal legend left out, and the wren a straw one now', !/betrayed/.test(R.lore) && /protected bird now/.test(R.lore) && /straw wren/.test(R.how) && !/kill/i.test(R.how));
 check('St Stephen\'s Day: the 26th, and the 27th for the evening across the Atlantic', WREN_WHEN.month === 12 && WREN_WHEN.from === 26 && WREN_WHEN.to === 27);
 const c = CALLERS.find((x) => x.id === 'wren_boys');
 check('the wren boys: ivy for the bush, then the round of the houses', c && c.when === WREN_WHEN && c.steps[0].item === 'ivy_leaf' && c.steps[1].rite === 'wren_hunt' && /Nobody kills the wren now/.test(c.plea));
