@@ -61,7 +61,7 @@ const HALLOWEEN_RITES = {
       'Your fingers find the foul water — the one you marry will have been widowed before.',
       'Your fingers find the empty dish — no marriage at all, which some call luck.',
     ],
-    lore: 'Burns: if the left hand finds the clean water, "the future husband or wife will come to the bar of Matrimony, a Maid"; the foul, a widow; the empty dish "foretells, with equal certainty, no marriage at all." "It is repeated three times; and every time the arrangement of the dishes is altered."',
+    lore: 'Burns: if the left hand finds the clean water, "the future husband or wife will come to the bar of Matrimony, a Maid"; "if in the foul, a widow; if in the empty dish, it foretells, with equal certainty, no marriage at all." "It is repeated three times; and every time the arrangement of the dishes is altered."',
   },
 };
 for (const r of Object.values(HALLOWEEN_RITES)) { r.tier = 'record'; r.source = BURNS_SOURCE; }
