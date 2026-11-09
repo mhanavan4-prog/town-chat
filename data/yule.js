@@ -25,9 +25,9 @@ const YULE_RITES = {
       'Nothing stirs but the frost. A quiet tree, they say, is only resting; it will bear next year if not this.',
       'The din sends every rook out of the elms. Whatever was lurking in the orchard is gone now.',
     ],
-    lore: 'Herrick, among his Christmas ceremonies: "Wassail the trees, that they may bear / You many a plum, and many a pear: / For more or less fruits they will bring, / As you do give them wassailing." In the cider country of the West Country it was done at Twelfth Night, or on Old Twelvey Night (17 January) where the old calendar was kept. Toast soaked in cider went into the branches for the robins, cider went on the roots, and guns and pans were let off to frighten away anything ill. Devon verses sung to the tree ended "Hats full! caps full!" Carhampton in Somerset and Whimple in Devon still wassail on the 17th.',
+    lore: 'Herrick, among his Christmas ceremonies: "Wassail the trees, that they may bear / You many a plum, and many a pear: / For more or less fruits they will bring, / As you do give them wassailing." In the cider country of the West Country it was done at Twelfth Night, or on Old Twelvey Night (17 January) where the old calendar was kept. Toast soaked in cider went into the branches for the robins and cider on the roots; Hone gives the Devon toast "Here\'s to thee, old apple-tree," ending "Hats full! caps full!", and "Some are so superstitious as to believe, that if they neglect this custom, the trees will bear no apples that year." Pans were banged, and by 1890 "guns are often fired". Carhampton in Somerset, "a rare survivor", still wassails on the 17th with shotguns and pans, and Whimple in Devon has since its revival in 1993.',
     tier: 'record',
-    source: `${HERRICK}, "Another" ("Wassail the trees…"), among his Christmas ceremonies · 19th-century Devon and Somerset wassail records`,
+    source: `${HERRICK}, "Another" ("Wassail the trees…"), among his Christmas ceremonies · W. Hone, The Every-Day Book, vol. I (1826), 5 January, after the Gentleman\'s Magazine (1791) · D. & S. Lysons, Magna Britannia, vol. VI (1822), Devonshire · All the Year Round (30 August 1890), "About Cider" · West Somerset Free Press (January 2026), Carhampton · Calendar Customs, "Carhampton Wassail"`,
   },
   firstfoot: {
     key: 'firstfoot', name: 'First-Footing', icon: '🚪',
