@@ -17,6 +17,6 @@ check('…jars sterilised ten minutes at 160°C, lids on hot; low-sugar jam in t
 check('…cited: the FSA, Trading Standards, the NHS once', /Food Standards Agency/.test(c.source) && /Trading Standards/.test(c.source) && /NHS, "Burns and scalds" and "Falls"/.test(c.source) && (c.source.match(/NHS,/g) || []).length === 1);
 check('the lore: Threlkeld\'s club; Sussex on Old Michaelmas and Folkard\'s spitting; the Scottish cloak in Folkard\'s words; Ireland till Samhain', /"the D—l casts his club over them"/.test(c.lore) && /Old Michaelmas Day \(10 October\)/.test(c.lore) && /"goes round the county and spits on the Blackberries"/.test(c.lore) && /"throws his cloak over the Blackberries, and renders them unwholesome"/.test(c.lore) && /Samhain/.test(c.lore) && /Folkard/.test(c.source));
 const R = WHEEL_RITES.michaelmas;
-check('the rite: no "most widespread"; the pooka at Samhain; the grey mould "particularly in wet, humid and cool conditions"', !/most widespread/.test(R.lore) && /"the pooka crawls on them"/.test(R.lore) && /"particularly in wet, humid and cool conditions"/.test(R.lore) && /Folkard/.test(R.source) && /Threlkeld.*1727/.test(R.source));
+check('the rite: no "most widespread"; the pooka at Samhain; the grey mould "particularly in wet, humid and cool conditions"', !/most widespread/.test(R.lore) && /the "pooka crawls on them"/.test(R.lore) && /"particularly in wet, humid and cool conditions"/.test(R.lore) && /Folkard/.test(R.source) && /Threlkeld.*1727/.test(R.source));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
