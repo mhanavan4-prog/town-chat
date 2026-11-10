@@ -29,7 +29,7 @@ check('…"not grow mouldy" (Poor Robin, 1733), and Hone\'s bun against fire', /
 check('the Pitt Rivers bun of 1976, and the Widow\'s Son at Bow', /"Grated & mixed with a hot drink to cure colds"/.test(R.lore) && /1981\.11\.2/.test(R.source) && /Widow's Son in Bow/.test(R.lore) && /1065801/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'good_friday_bun');
 check('Ann Tilley, dated by the old calendar\'s Good Friday (Easter less two days), for two days', c && c.when && c.when.calendar === 'good_friday_bun' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'good_friday_bun' && e.rule) && c.steps[0].rite === 'cross_bun');
-check('the practical half: the child is drying out; small sips, the salts, the doctor if he wets less; the water does the good', /drying out/.test(c.resolution) && /Small sips of water/.test(c.resolution) && /wetting less/.test(c.resolution) && /doctor today/.test(c.resolution) && /It's the water that does the good/.test(c.resolution) && /NHS/.test(c.source));
+check('the practical half: the child is drying out; small sips, rehydration powder, 111 now if he wets fewer nappies; the water does the good', /drying out/.test(c.resolution) && /Small sips of water/.test(c.resolution) && /wetting fewer nappies/.test(c.resolution) && /ring 111 now/.test(c.resolution) && /It's the water that does the good/.test(c.resolution) && /NHS/.test(c.source));
 
 require('../server.js');
 
