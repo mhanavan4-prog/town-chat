@@ -38,7 +38,7 @@ export default function createWards({ send }) {
   }
   function setState(s) {
     state = s;
-    if (draw && state && state[draw.kind]) { draw.done = true; draw.pending = false; }
+    if (draw && state && (draw.kind === 'bottle' ? state.bottle === 'buried' : state[draw.kind])) { draw.done = true; draw.pending = false; }
     if (Modals.isOpen('wardsOpen')) render();
   }
   // The server turned a drawing down: say why, and let the hand try again.
@@ -80,7 +80,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
-    if (draw) { if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
+    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -97,9 +97,9 @@ export default function createWards({ send }) {
         : state.bottle === 'spent' ? 'Spent — the last one cracked. Bury another.' : 'None buried';
       const card = wardCard('bottle', status, state.bottle === 'buried');
       if (state.bottle !== 'buried') {
-        const b = el('button', 'btn wardBtn', state.haveBottle ? `Bury a witch bottle (holds ${state.maxCharges})` : 'Need a witch bottle');
+        const b = el('button', 'btn wardBtn', state.haveBottle ? `Fill and bury a witch bottle (holds ${state.maxCharges})` : 'Need a witch bottle');
         b.disabled = !state.atHome || !state.haveBottle;
-        b.addEventListener('click', () => { b.disabled = true; send({ type: 'bury_witch_bottle' }); });
+        b.addEventListener('click', () => { draw = { kind: 'bottle', contents: [], bent: 0, corked: false, place: null, inverted: null, slips: 0, note: 'What goes in it? Urine first, then something sharp, as Blagrave has it.' }; render(); });
         card.appendChild(b);
         if (!state.haveBottle) card.appendChild(el('div', 'wardHow', "Hazel brews one at her cauldron from a Bellarmine Jug (Apothecary Vex), Bent Pins (Tailor Ines) and Iron Nails (Armorer Beck)."));
       }
@@ -243,6 +243,57 @@ export default function createWards({ send }) {
   }
   const NEAR = 16;
   const nearest = (pts, x, y) => { let best = -1, bd = NEAR; pts.forEach((p, i) => { const d = Math.hypot(x - p[0], y - p[1]); if (d <= bd) { bd = d; best = i; } }); return best; };
+
+  // ── The witch bottle, filled and set by hand (data/wards.js bottleProblem) ─
+  function renderBottle(body) {
+    const f = state.bottleFill || { fillings: [], places: {}, pins: 3 };
+    body.appendChild(el('div', 'wardIntro', '🍶 Fill the bottle, cork it fast, and bury it'));
+    // The jug, with what is in it so far, and the pins as they lie.
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 160 170'); svg.setAttribute('class', 'bottleJug');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `The jug: ${draw.contents.length ? draw.contents.map((k) => (f.fillings.find((x) => x.key === k) || {}).label).join(', ') : 'empty'}${draw.corked ? ', corked' : ''}.`);
+    const add = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); svg.appendChild(n); return n; };
+    add('path', { d: 'M62 18 h36 v22 q34 14 34 62 q0 52 -52 56 q-52 -4 -52 -56 q0 -48 34 -62 z', class: 'bottleBody' });
+    add('path', { d: 'M64 50 q16 6 32 0 q-2 14 -16 30 q-14 -16 -16 -30 z', class: 'bottleBeard' }); // the bearded face of a Bartmann jug
+    add('path', { d: 'M70 58 l4 14 M80 60 l0 16 M90 58 l-4 14', class: 'bottleBeardLine' });
+    add('circle', { cx: 72, cy: 46, r: 2.2, class: 'bottleFace' }); add('circle', { cx: 88, cy: 46, r: 2.2, class: 'bottleFace' });
+    if (draw.corked) add('rect', { x: 64, y: 8, width: 32, height: 12, rx: 3, class: 'bottleCork' });
+    if (draw.contents.includes('urine')) add('path', { d: 'M34 108 q46 8 92 0 q-4 44 -46 48 q-42 -4 -46 -48 z', class: 'bottleLiquid' });
+    draw.contents.filter((k) => k !== 'urine').forEach((k, i) => { const t = add('text', { x: 50 + (i % 3) * 30, y: 100 + Math.floor(i / 3) * 22, class: 'bottleThing' }); t.textContent = { nails: '📍', pins: '📌', salt: '🧂', hair: '✂️', heart: '❤️', brimstone: '🟡' }[k] || '•'; });
+    body.appendChild(svg);
+    // What goes in.
+    const items = f.fillings.map((x) => {
+      const on = draw.contents.includes(x.key);
+      return { text: `${on ? '✓ ' : ''}${x.label}`, aria: `${x.label}${on ? ', in' : ''}. ${x.src}`, disabled: draw.corked || draw.pending,
+        on: () => { draw.contents = on ? draw.contents.filter((k) => k !== x.key) : [...draw.contents, x.key]; if (x.key === 'pins' && on) draw.bent = 0; draw.note = x.src; render(); } };
+    });
+    keysPanel(body, 'What goes in it', items);
+    // The pins: bend them, or not (found "sometimes bent").
+    if (draw.contents.includes('pins')) {
+      const pins = el('div', 'bottlePins');
+      pins.appendChild(el('div', 'kbLabel', 'The pins, found "sometimes bent": bend them if you like.'));
+      for (let i = 0; i < f.pins; i++) {
+        const bentIt = i < draw.bent;
+        const b = el('button', 'btn kbBtn bottlePin' + (bentIt ? ' bent' : ''), bentIt ? `Pin ${i + 1}: bent ⌐` : `Bend pin ${i + 1}`);
+        b.disabled = bentIt || i !== draw.bent || draw.corked || draw.pending;
+        b.addEventListener('click', () => { draw.bent = i + 1; draw.note = `${draw.bent} of ${f.pins} pins bent.`; render(); });
+        pins.appendChild(b);
+      }
+      body.appendChild(pins);
+    }
+    // Cork it fast.
+    keysPanel(body, 'Then', [{ text: draw.corked ? '✓ Corked fast' : 'Cork it fast', disabled: draw.corked || draw.pending, on: () => { draw.corked = true; draw.note = 'Corked fast. In Glanvill\'s tale the cork flew out by the fire; this one will hold.'; render(); } }]);
+    // Where, and which way up.
+    keysPanel(body, 'Where to bury it', Object.entries(f.places).map(([k, p]) => ({ text: `${draw.place === k ? '✓ ' : ''}${p.label} (${p.note})`, disabled: draw.pending, on: () => { draw.place = k; render(); } })));
+    keysPanel(body, 'Which way up', [
+      { text: `${draw.inverted === true ? '✓ ' : ''}Neck down (as at Greenwich)`, disabled: draw.pending, on: () => { draw.inverted = true; render(); } },
+      { text: `${draw.inverted === false ? '✓ ' : ''}Upright (as at Dukes Place, Aldgate)`, disabled: draw.pending, on: () => { draw.inverted = false; render(); } },
+    ]);
+    keysPanel(body, 'And', [{ text: '⛏️ Bury it', disabled: draw.pending, on: () => { draw.pending = true; draw.note = 'You lift the stone…'; send({ type: 'bury_witch_bottle', contents: draw.contents.slice(), bent: draw.bent, corked: draw.corked, place: draw.place, inverted: draw.inverted }); render(); } }]);
+    drawFooter(body, 'Put the bottle back');
+  }
 
   // ── The Marian mark: four knife cuts between the nicks ────────────────────
   function marianNicks() {

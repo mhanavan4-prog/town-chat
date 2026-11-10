@@ -3561,6 +3561,17 @@
   /* A written charm on the Town Board: the slip narrowing line by line */
   .scribeSlip { font:700 15px/1.25 Georgia, serif; letter-spacing:3px; color:#3a2410; background:#efe3c6; border-radius:6px; padding:6px 10px; margin:6px 0; width:max-content; min-width:10em; }
   .scribeSlip:empty { display:none; }
+  /* The witch bottle, filled by hand: a bearded stoneware jug. */
+  .bottleJug { display:block; width:150px; margin:4px auto; }
+  .bottleBody { fill:#8a6a44; stroke:#3b2814; stroke-width:2; }
+  .bottleBeard { fill:#5e4428; stroke:#3b2814; stroke-width:1.5; }
+  .bottleBeardLine { fill:none; stroke:#3b2814; stroke-width:1.2; stroke-linecap:round; }
+  .bottleFace { fill:#3b2814; }
+  .bottleCork { fill:#c9a36a; stroke:#3b2814; stroke-width:1.5; }
+  .bottleLiquid { fill:#d9b34a; opacity:0.55; }
+  .bottleThing { font-size:16px; }
+  .bottlePins { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0; }
+  .bottlePin.bent { opacity:0.7; }
   /* Counting the Nine-and-Twenty: a small panel at the ring. */
   .countPanel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(420px, calc(100vw - 32px)); max-height:80vh; overflow:auto; background:#21170f; color:#efe3c6; border:1px solid #8a6a3a; border-radius:12px; padding:14px 16px; z-index:60; box-shadow:0 10px 40px rgba(0,0,0,.6); }
   .countHead { font-weight:700; font-size:16px; color:#e6c46a; margin-bottom:6px; }

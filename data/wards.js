@@ -24,9 +24,9 @@ const WARDS = {
     icon: '🍶',
     where: 'beneath the hearth',
     blurb: 'Turns the next hostile curse back on its sender. Holds a few, then it is spent.',
-    lore: "Some two to two and a half hundred witch bottles are recorded, mostly in England, and most of them from the mid-to-late 1600s: \"most bottles post-date the Restoration of Charles II in 1660\". Half are found about the hearth and a quarter beneath thresholds. The bent pins were meant to snare the witch, the heat of the fire to torment her until the spell was broken. The Greenwich bottle, a late 17th-century stoneware jar found by builders in the mid-2000s, still held urine, twelve iron nails, \"one of which was driven through a leather heart\", eight brass pins, hair and fingernail clippings. If you find one in an old house: leave it where it is, don't take the stopper out, since it may still hold its contents, photograph it in place, and tell your local Finds Liaison Officer.",
+    lore: "Some two to two and a half hundred witch bottles are recorded, mostly in England, and most of them from after 1660: \"most bottles post-date the Restoration of Charles II in 1660\". Half are found about the hearth and a quarter beneath thresholds. In 1671 the physician Joseph Blagrave advised: \"stop the urine of the Patient, close up in a bottle, and put into it three nails, pins, or needles, with a little white salt, keeping the urine always warm\". In Glanvill's Suffolk tale (1681) a man put his wife's urine \"together with Pins and Needles and Nails\" into a bottle, corked it and set it to the fire; the cork flew out, and he was told instead to \"bury it in the Earth\". The pins in finds are \"sometimes bent\" (MOLA), and nobody wrote down why. The Greenwich bottle, a late 17th-century stoneware jar found by builders in the mid-2000s, had been buried upside down and was still corked: urine, twelve iron nails, \"one of which was driven through a leather heart\", eight brass pins, hair, nail clippings and brimstone. Others stood upright. If you find one in an old house: \"Treat it as an archaeological find: if you can, please don't move it\", and \"if it is corked or stoppered then please don't remove this\" (MOLA), so don't take the stopper out; tell your local Finds Liaison Officer. Historic England's man who shook one was \"later advised that if you did this they sometimes exploded!\" And if an old nail or a shard cuts you, the NHS says to get help from NHS 111 or an urgent GP appointment if \"you've not been fully vaccinated against tetanus (or you're not sure if you have)\".",
     tier: 'record',
-    source: "B. Hoggard, Apotropaios, \"Witch-bottles\" · MOLA, \"Bottles Concealed and Revealed\", British Archaeology (September 2019) · A. Massey, British Archaeology 107 (2009), the Greenwich bottle · JSTOR Daily, \"Is There a Witch Bottle in Your House?\" (2019)",
+    source: "J. Blagrave, Astrological Practice of Physick (1671), as quoted by Thwaite (2020) and the Museum of Witchcraft and Magic · J. Glanvill, Saducismus Triumphatus (1681) · MOLA, \"Bottles Concealed and Revealed\" (2019) and its advice on finds · B. Hoggard, Apotropaios, \"Witch-bottles\" · British Archaeology (September 2019) · Historic England, \"The mysterious case of the witch bottle\" (2016) · Archaeology, \"Opening a Witch Bottle\" (the Greenwich bottle, A. Massey) · NHS, \"Tetanus\"",
   },
   hexafoil: {
     name: 'Daisy Wheel',
@@ -203,6 +203,40 @@ const LADDER_PARTS = [{ id: 'hemp_cord', qty: 1 }, { id: 'cock_feathers', qty: 1
 // player's to imagine; the game does not inventory them.)
 const WITCH_BOTTLE_PARTS = ['bellarmine_jug', 'bent_pins', 'iron_nails'];
 
+// Filling it, as the record has it (Blagrave 1671, Glanvill 1681, and the
+// finds). Urine and iron or pins are what both writers agree on; the rest turn
+// up in bottles that have been opened. Each says where it comes from.
+const BOTTLE_FILLINGS = [
+  { key: 'urine', label: 'The householder\'s urine', src: 'Blagrave: "stop the urine of the Patient"; urine in every bottle tested', need: true },
+  { key: 'nails', label: 'Iron nails', src: 'Blagrave: "three nails, pins, or needles"; iron in nearly all finds' },
+  { key: 'pins', label: 'Pins', src: 'Glanvill: "Pins and Needles and Nails"; pins in finds "sometimes bent"' },
+  { key: 'salt', label: 'A little white salt', src: 'Blagrave: "with a little white salt"' },
+  { key: 'hair', label: 'Hair and nail parings', src: 'in the Greenwich bottle, and others' },
+  { key: 'heart', label: 'A heart of cloth or leather, a nail through it', src: 'cloth and leather hearts in finds; at Greenwich a nail "driven through a leather heart"' },
+  { key: 'brimstone', label: 'A pinch of brimstone', src: 'sulphur in the Greenwich bottle' },
+];
+const BOTTLE_PLACES = {
+  hearth: { label: 'Under the hearthstone', note: 'about half of all finds' },
+  threshold: { label: 'Beneath the threshold', note: 'about a quarter' },
+  floor: { label: 'Under the floor', note: 'found there too' },
+};
+const BOTTLE_PINS = 3; // pins to bend, if pins go in
+
+// null if the bottle is filled and set as the record allows, else why not.
+function bottleProblem(m) {
+  if (!m || typeof m !== 'object') return 'Fill the bottle first.';
+  const contents = Array.isArray(m.contents) ? [...new Set(m.contents.map(String))] : [];
+  if (contents.some((k) => !BOTTLE_FILLINGS.some((f) => f.key === k))) return 'That does not go in a witch bottle.';
+  if (!contents.includes('urine')) return 'Begin with the urine: Blagrave\'s first words are "stop the urine of the Patient".';
+  if (!contents.includes('nails') && !contents.includes('pins')) return 'Something sharp: Blagrave\'s "three nails, pins, or needles".';
+  if (m.corked !== true) return 'Cork it fast first: in Glanvill\'s tale the cork flew out.';
+  if (!BOTTLE_PLACES[m.place]) return 'Choose where it goes: under the hearth, beneath the threshold, or under the floor.';
+  if (typeof m.inverted !== 'boolean') return 'Neck down or upright? Both are found.';
+  const bent = Number(m.bent) || 0;
+  if (bent < 0 || bent > BOTTLE_PINS) return 'There are only three pins.';
+  return null;
+}
+
 const BOTTLE_CHARGES = 3;           // curses a buried bottle turns before it is spent
 const BOTTLE_CHARGES_HEARTH = 5;    // …for a Hearth Witch, whose practice this is
 const WARD_GUARD = 0.03;            // damage resist from each permanent ward
@@ -213,4 +247,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
+module.exports = { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem, WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };

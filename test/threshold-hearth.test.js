@@ -9,6 +9,8 @@
 // a visitor's view of the cottage carries the wards so the marks show.
 process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-wards-');
+// A bottle filled and set as the record allows (data/wards.js bottleProblem).
+const BOTTLE_FILL = { contents: ['urine', 'nails', 'pins'], bent: 3, corked: true, place: 'hearth', inverted: true };
 
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
@@ -63,20 +65,20 @@ setTimeout(() => {
   // ── Worked only at your own hearth ───────────────────────────────────────
   goOut(a.p);
   a.s.sent.length = 0;
-  say(a.s, { type: 'bury_witch_bottle' });
+  say(a.s, { type: 'bury_witch_bottle', ...BOTTLE_FILL });
   check('a bottle cannot be buried away from home', !!a.s.lastOfType('wards_error') && h.countItemQty(inv, 'witch_bottle') === 1);
   const v = join('Visitor', 'wards_v');
   h.addItemToAccount(h.getInventory(v.p), 'witch_bottle', 1);
   v.p.room = 'cottage'; v.p.instance = 'home_wards_a'; // standing in SOMEONE ELSE's cottage
-  say(v.s, { type: 'bury_witch_bottle' });
+  say(v.s, { type: 'bury_witch_bottle', ...BOTTLE_FILL });
   check("…nor under someone else's hearth", !!v.s.lastOfType('wards_error') && !(h.accounts.wards_a.wards && h.accounts.wards_a.wards.bottle));
 
   goHome(a.p);
   a.s.sent.length = 0;
-  say(a.s, { type: 'bury_witch_bottle' });
+  say(a.s, { type: 'bury_witch_bottle', ...BOTTLE_FILL });
   let ws = a.s.lastOfType('wards_state');
   check(`buried at home, it holds ${BOTTLE_CHARGES} curses`, ws && ws.bottle === 'buried' && ws.charges === BOTTLE_CHARGES && h.countItemQty(inv, 'witch_bottle') === 0, ws);
-  say(a.s, { type: 'bury_witch_bottle' });
+  say(a.s, { type: 'bury_witch_bottle', ...BOTTLE_FILL });
   check('only one bottle at a time', !!a.s.lastOfType('wards_error'));
 
   // ── It turns curses, spends, and breaks ──────────────────────────────────
@@ -123,7 +125,7 @@ setTimeout(() => {
   h.accounts.wards_a.witchPath = 'hearth';
   check(`a Hearth Witch's marks guard +${WARD_GUARD_HEARTH * 100}% each`, Math.abs(h.wardContrib(a.p, 'guard') - 2 * WARD_GUARD_HEARTH) < 1e-9);
   h.addItemToAccount(inv, 'witch_bottle', 1);
-  say(a.s, { type: 'bury_witch_bottle' });
+  say(a.s, { type: 'bury_witch_bottle', ...BOTTLE_FILL });
   check(`…and her bottle turns ${BOTTLE_CHARGES_HEARTH}`, h.accounts.wards_a.wards.bottle && h.accounts.wards_a.wards.bottle.charges === BOTTLE_CHARGES_HEARTH);
 
   // ── The marks show on the house — for visitors too ───────────────────────
