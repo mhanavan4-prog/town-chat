@@ -3558,6 +3558,16 @@
   /* A written charm on the Town Board: the slip narrowing line by line */
   .scribeSlip { font:700 15px/1.25 Georgia, serif; letter-spacing:3px; color:#3a2410; background:#efe3c6; border-radius:6px; padding:6px 10px; margin:6px 0; width:max-content; min-width:10em; }
   .scribeSlip:empty { display:none; }
+  /* Counting the Nine-and-Twenty: a small panel at the ring. */
+  .countPanel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(420px, calc(100vw - 32px)); max-height:80vh; overflow:auto; background:#21170f; color:#efe3c6; border:1px solid #8a6a3a; border-radius:12px; padding:14px 16px; z-index:60; box-shadow:0 10px 40px rgba(0,0,0,.6); }
+  .countHead { font-weight:700; font-size:16px; color:#e6c46a; margin-bottom:6px; }
+  .countHow { font-size:13px; margin-bottom:8px; }
+  .countRow { display:flex; gap:8px; align-items:center; }
+  .countInput { width:70px; font:700 18px Georgia, serif; text-align:center; padding:4px; border-radius:6px; border:2px solid #8a6a3a; background:#efe3c6; color:#3a2410; }
+  .countPanel .btn { width:auto; margin:0; padding:6px 12px; font-size:13px; }
+  .countNote { min-height:1em; font-size:13px; color:#9fe0a0; margin:8px 0; }
+  .countLore { font-size:12px; line-height:1.45; color:#d9c79a; margin-top:8px; }
+  .countSrc { font-size:11px; color:#8f8270; margin:6px 0 10px; }
   /* Caerdroia: chalk walls on turf, the loose ends to tap. */
   .troyBoard { display:block; width:100%; max-width:300px; aspect-ratio:1; margin:6px auto; touch-action:manipulation; }
   .troyTurf { fill:#2f4a2a; }
