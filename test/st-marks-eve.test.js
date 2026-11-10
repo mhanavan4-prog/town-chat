@@ -30,7 +30,7 @@ check('the watcher who falls asleep, as later Yorkshire tellers (O\'Donnell, 193
 check('Keats\'s poem called unfinished', /Keats began a poem on the eve in 1819 and never finished it/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'st_marks_watch');
 check('Sam Dawes, dated by the old calendar\'s St Mark\'s Eve, for two days', c && c.when && c.when.calendar === 'st_marks_eve' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'st_marks_eve' && e.month === 4 && e.day === 24) && c.steps[0].rite === 'porch_watch');
-check('the practical half: the eye in the dark, cold and half-sleep, fright; warm, a lantern, turns', /corners of your eyes see movement that isn't there/.test(c.resolution) && /dream with your eyes half open/.test(c.resolution) && /lantern/.test(c.resolution) && /take turns/.test(c.resolution));
+check('the practical half: Hone\'s sick men who despaired on hearing they were seen; warm, a lantern, turns', /almost despair of recovery/.test(c.resolution) && /actually died by their imaginary fears/.test(c.resolution) && !/corners of your eyes|eyes half open/.test(c.resolution) && /lantern/.test(c.resolution) && /take turns/.test(c.resolution));
 check('…and never tell anyone they were among the dead', /never tell anyone they were among the dead/.test(c.resolution));
 
 require('../server.js');
