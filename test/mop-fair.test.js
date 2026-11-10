@@ -32,7 +32,7 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'mop_fair');
 check('the Commonplace Book\'s mop now on 11 October, badged record, signs in the hats and no mop or pail', cal && cal.month === 10 && cal.day === 11 && cal.tier === 'record' && /whipcord for a carter/.test(cal.text) && !/a pail, a mop/.test(cal.text) && /Pare/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'mop_fair');
 check('Sam Hewins, dated by it, for two days', c && c.when && c.when.calendar === 'mop_fair' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'mop_fair');
-check('the practical half: written terms on the first day; the minimum wage for farm work; 5.6 weeks\' holiday; the signs of exploitation and the helpline', /written statement of them on the first day/.test(c.resolution) && /at least the National Minimum Wage/.test(c.resolution) && /5\.6 weeks' paid holiday/.test(c.resolution) && /keeps your papers/.test(c.resolution) && /work it off/.test(c.resolution) && /08000 121 700/.test(c.resolution));
+check('the practical half: the main terms in writing on the first day, the rest within two months; the minimum wage for farm work; 5.6 weeks\' holiday; the signs of exploitation and the helpline', /the main terms in writing on your first day, and the rest within two months/.test(c.resolution) && /at least the National Minimum Wage/.test(c.resolution) && /5\.6 weeks' paid holiday/.test(c.resolution) && /keeps your papers/.test(c.resolution) && /work it off/.test(c.resolution) && /08000 121 700/.test(c.resolution));
 
 require('../server.js');
 
