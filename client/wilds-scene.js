@@ -3,9 +3,11 @@
 // via the portal: buildWildsScene assembles the terrain, then its sub-builders
 // drop in the ruined village, the unbound circle, the Thornwarden camp, and the
 // giant werewolf tree (Lexton's), and buildWildsNPCs spawns the faction NPCs +
-// quest kiosks. THREE is a global; layout tables, prop makers, and mob/decor
+// quest kiosks, and the Shepherd's Race (props-troy-town.js). THREE is a global; layout tables, prop makers, and mob/decor
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
+import { makeTroyTown } from './props-troy-town.js';
+
 export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
@@ -358,6 +360,12 @@ function buildWildsScene(w2) {
   for (const m of WILDS_WAYMARKERS) {
     scene.add(makeWaymarkerStone(m.x, m.y));
     WILDS_KIOSKS.push({ x: m.x, z: m.y, npc: 'waymark', markerId: m.id, radius: 95 });
+  }
+  // The Shepherd's Race: a Troy Town cut in the turf, walked in and out for
+  // real (the server follows the steps). Its gate stone reads like a waymarker.
+  if (w2.troyTown) {
+    scene.add(makeTroyTown(w2.troyTown, makeSignSprite));
+    WILDS_KIOSKS.push({ x: w2.troyTown.gate[0], z: w2.troyTown.gate[1] + 40, npc: 'waymark', markerId: 'troy_town', npcName: "the Shepherd's Race", radius: 80 });
   }
 
   kkWildsDressing(scene, w2);
