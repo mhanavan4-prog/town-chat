@@ -53,6 +53,7 @@ setTimeout(() => {
   say(s, { type: 'move', x, y: 3000, room: 'wilds' });
   say(s, { type: 'dowse_dig' });
   check('dug where it dipped: water', view().dowse.dug.length === 1 && view().dowse.dug[0].dipped === true && s.sent.some((m) => m.type === 'toast' && /Where the twig dipped, you strike water at \d+ feet/.test(m.message)));
+  check('…and the client is told where the hole is, to draw it (client/dowse-marks.js)', view().dowse.dug[0].x === Math.round(p.x) && view().dowse.dug[0].y === Math.round(p.y), view().dowse.dug[0]);
   say(s, { type: 'dowse_dig' });
   check('the same kind of dig twice is refused', /Now dig well away/.test(s.lastOfType('caller_error').message));
   p.x = 8000; p.y = 8000; p._dowse = null;
