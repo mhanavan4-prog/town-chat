@@ -49,6 +49,7 @@ setTimeout(() => {
     else if (s.kind === 'charm') CHARMS[s.charm].lines.forEach((_, li) => say(sock, { type: 'charm_say', line: li }));
     else if (s.kind === 'sieve') { for (const n of s.suspects) say(sock, { type: 'sieve_turn', name: n }); } // name them all; it turns at one
     else if (s.kind === 'key') { for (const n of s.suspects) say(sock, { type: 'key_turn', name: n }); }
+    else if (s.kind === 'troy') { for (let k = 0; k < 8; k++) say(sock, { type: 'troy_join', a: 8 - k, b: (9 + k) % 16 }); }
     else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
     else if (s.kind === 'knots') { for (let k = 0; k < s.count; k++) say(sock, { type: 'knot_tie' }); }
     else if (s.kind === 'scribe') { for (const ln of require('../data/charms').SCRIBINGS[s.charm].lines) say(sock, { type: 'scribe_line', text: ln }); }

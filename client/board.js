@@ -4,6 +4,7 @@
 // state (injected via getBoardState).
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
+import { renderTroy } from './troy.js';
 
 export default function createBoard({ send, getBoardState, getCallersState, getCallerResult, clearCallerResult, openTool, getMe, shortWhen }) {
 // Callers at the Door is the Board's first page: the town's work comes before
@@ -156,6 +157,9 @@ function renderCallers(list, meNote) {
         const b = el('button', 'btn charmSay', `${s.icon || '🪢'} ${s.verb || 'Tie a knot'} (${s.tied + 1} of ${s.count})`);
         b.addEventListener('click', () => { b.disabled = true; send({ type: 'knot_tie' }); });
         body.appendChild(b);
+      } else if (s.kind === 'troy' && !s.done && s.troy) {
+        // Caerdroia, wall by wall (client/troy.js).
+        renderTroy(body, s, send, el, renderBoardModal);
       } else if (s.kind === 'rite' && !s.done && s.rite) {
         // A Hallowe'en rite: how it's done (after Burns's notes), then do it.
         body.appendChild(el('div', 'callerStepNote', s.rite.how));

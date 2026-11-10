@@ -403,6 +403,21 @@ const CALLERS = [
     source: 'Science Museum Group, paper charm against toothache, Scotland, 1860–1880 (co106732) · G. F. Black, "Scottish Charms and Amulets", PSAS 27 (1893), pp. 492–93 · W. Henderson, Folk-Lore of the Northern Counties (1879), p. 172 · Harland and Wilkinson, Lancashire Folk-lore (1867) · NHS, "Toothache"',
     reward: { gold: 45, xp: 35 },
   },
+  {
+    id: 'caerdroia',
+    caller: 'Dafydd Pugh',
+    icon: '🐑',
+    title: 'The Walls of Troy',
+    plea: "My taid cut Caerdroia in the turf on the mountain while he minded the ewes, the walls of Troy, and he'd draw it on a slate for us of an evening. He's gone, and not one of us can remember how it starts. Will you draw it with me, so I can show my sister?",
+    steps: [
+      { kind: 'troy', label: 'Draw Caerdroia from its seed, wall by wall' },
+    ],
+    resolution: "You draw the seed first, as the old drawers did: a cross, four corners, four dots. Then from the top of the cross you swing the first wall over to the end beside it, and every wall after over the top of the last, till the outermost closes by the foot of the cross. Dafydd runs his finger in at the gate, round and back and round, never once at a choice, and into the citadel. 'There's no losing the way,' he says, which is just what Roberts complained of in 1815. Then the practical half. Draw it in sand or chalk anywhere, and cut it in turf only on ground that's yours or where you have leave. The old ones are protected: the turf mazes at Wing, Alkborough, Hilton, Saffron Walden and Breamore, and the Troy Town of stones on St Agnes in Scilly, are scheduled monuments, and 'It is a criminal offence to destroy or damage a scheduled monument either intentionally or through recklessness', Historic England says, and an offence too to carry out unauthorised works on one. So walk them, and run them in and out, but don't recut the turf, move a stone, or lay a new maze beside one.",
+    lore: "Welsh shepherds called the figure they cut in the turf Caerdroia, the walls or citadel of Troy; a Welsh history of 1740, Drych y Prif Oesoedd, describes the custom. Roberts's Cambrian Popular Antiquities (1815) gave its plan, which, as Matthews summed him up, was 'sometimes cut out in the turf by shepherd boys whilst they are tending their flocks on the mountains of Wales', and 'sometimes drawn and presented as a puzzle by boys to exercise the ingenuity of their school-fellows', in finding the way to the centre 'or in drawing the plan'. The tradition with it was 'that the city of Troy was defended by seven walls', and Roberts grumbled that there were 'no means of losing the way into the citadel'. In 1858 the herdsmen of Burgh and Rockcliffe were still cutting it and calling it 'the Walls of Troy'. English turf mazes went by 'Mizmaze,' 'Julian's Bower,' 'Troy Town,' or 'Shepherd's Race', and at Alkborough a man remembered 'running it in and out' and the villagers' May-eve games about it (Notes and Queries, 1866); but Alkborough's and Wing's are of 'very similar design' (Matthews), an eleven-ring medieval pattern like the floor at Chartres, not this seven-circuit one. The figure itself is far older: there is one on a clay tablet from Pylos, and 'Pylos was destroyed around 1180 BC' (Kraft). On St Agnes in Scilly, local tradition says a lighthouse keeper, Amor Clarke, laid its Troy Town of stones in 1729 (Historic England).",
+    tier: 'record',
+    source: 'W. H. Matthews, Mazes and Labyrinths (1922), chs. X and XII, after P. Roberts, Cambrian Popular Antiquities (1815), and W. H. Mounsey (1858) · J. Kraft, The Walls of Troy (2024) · Historic England, list entries 1015697 (St Agnes), 1019306 (Wing), 1016428 (Alkborough), 1006825 (Hilton), 1002194 (Saffron Walden), 1003451 (Breamore) · Historic England, "Scheduled Monuments: A Guide for Owners and Occupiers"',
+    reward: { gold: 55, xp: 45 },
+  },
   // ── The key and Bible ──
   {
     id: 'cheese_and_herrings',
@@ -2171,4 +2186,6 @@ const CALLERS_PER_DAY = 3;
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
 const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe'];
 
+// Caerdroia is drawn on the Board, wall by wall (data/troy.js).
+READING_KINDS.push('troy');
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
