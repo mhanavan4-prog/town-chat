@@ -8702,6 +8702,7 @@ function boardStatePayload(player) {
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
 const { MONAS_LATTICE, monasProblem, MONAS_XP, MONAS_LORE, MONAS_SOURCE } = require('./data/monas'); // Dee's Monad, constructed at the shelf
+const { KAMEA, kameaProblem, kameaWhich, KAMEA_LORE, KAMEA_SOURCE } = require('./data/kamea'); // Agrippa's tables of the planets, filled in at the shelf
 const { CUNNING_FOLK, CUNNING_FOLK_INTRO } = require('./data/cunningFolk'); // 🗝️ the cunning folk of the record, on the same shelf
 const { MYTH_QUIZ, MYTH_QUIZ_INTRO, MYTH_SETS } = require('./data/mythOrRecord'); // ❓ the shelf's quiz: myth or record?
 // An account's best for one set of the quiz; the first set's was once kept as a.mythBest.
@@ -13109,6 +13110,23 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'toast', message: `☉ Sun, Moon, cross and the horns of Aries, nine parts from foot to horns: Dee's Monad stands on the page.${xp ? ` +${xp} XP` : ''}` });
       return;
     }
+    // Agrippa's tables of Saturn and Jupiter, filled in at the shelf (data/kamea.js).
+    if (msg.type === 'fill_kamea') {
+      const key = String(msg.key || '');
+      const problem = kameaProblem(key, msg.grid);
+      if (problem) { send(ws, { type: 'kamea_result', key, ok: false, problem }); return; }
+      const k = KAMEA[key];
+      const which = kameaWhich(key, msg.grid);
+      const a = player.accountKey && accounts[player.accountKey];
+      let xp = 0;
+      if (a) {
+        if (!a.kameas || typeof a.kameas !== 'object') a.kameas = {};
+        if (!a.kameas[key]) { a.kameas[key] = { at: Date.now() }; saveAccounts(); xp = k.xp; grantXP(player, xp); }
+      }
+      send(ws, { type: 'kamea_result', key, ok: true, which, xp, done: Object.keys((a && a.kameas) || {}) });
+      send(ws, { type: 'toast', message: `${k.symbol} ${k.name}: every line makes ${k.sum}.${xp ? ` +${xp} XP` : ''}` });
+      return;
+    }
     if (msg.type === 'real_shelf' || msg.type === 'read_real_book' || msg.type === 'read_cunning') {
       const a = player.accountKey && accounts[player.accountKey];
       if (msg.type === 'read_real_book' && a) {
@@ -13133,7 +13151,12 @@ wss.on('connection', (ws, req) => {
         folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [],
         myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: mythBestOf(a, 'first'),
           sets: MYTH_SETS.map((x) => ({ key: x.key, title: x.title, items: x.items, best: mythBestOf(a, x.key) })) },
-        checks, monas: { lattice: MONAS_LATTICE, lore: MONAS_LORE, source: MONAS_SOURCE, built: !!(a && a.monas) } });
+        checks, monas: { lattice: MONAS_LATTICE, lore: MONAS_LORE, source: MONAS_SOURCE, built: !!(a && a.monas) },
+        kamea: {
+          tables: Object.entries(KAMEA).map(([key, k]) => ({ key, name: k.name, symbol: k.symbol, n: k.n, sum: k.sum, total: k.total, says: k.says, use: k.use,
+            givens: k.givens.map(([i, j]) => [i, j, k.table[i][j]]) })),
+          lore: KAMEA_LORE, source: KAMEA_SOURCE, done: Object.keys((a && a.kameas) || {}),
+        } });
       return;
     }
     // ❓ Myth or record? (data/mythOrRecord.js): the shelf's quiz. The client

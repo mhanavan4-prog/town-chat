@@ -28,7 +28,7 @@ const REAL_BOOKS = [
     source: 'Speyer: Peter Drach, c. 1486–87' },
   { id: 'agrippa', title: 'Three Books of Occult Philosophy', author: 'Heinrich Cornelius Agrippa', date: '1531–33', tier: 'record',
     summary: 'The great Renaissance compendium of magic: natural, celestial and ceremonial, in a three-tier cosmos where everything below answers to what is above. Later occultists, the Golden Dawn among them, built their tables of correspondences, planets, herbs, stones and days, on it.',
-    fact: 'Before it was even printed Agrippa had seemed to renounce the occult arts in On the Vanity of the Sciences (1526); scholars still argue whether he meant it. His pupil Johann Weyer called the "Fourth Book" printed under his name a forgery.',
+    fact: 'Before it was even printed Agrippa had seemed to renounce the occult arts in On the Vanity of the Sciences (1526); scholars still argue whether he meant it. His pupil Johann Weyer called the "Fourth Book" printed under his name a forgery. You can fill in his tables of Saturn and Jupiter at the shelf.',
     quote: 'Seeing there is a Three-fold World: Elementary, Celestial and Intellectual',
     source: 'De occulta philosophia libri tres (Cologne, 1533); English translation by J.F. (1651)' },
   { id: 'scot', title: 'The Discoverie of Witchcraft', author: 'Reginald Scot', date: '1584', tier: 'record',
