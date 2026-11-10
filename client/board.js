@@ -370,6 +370,19 @@ function renderCallers(list, meNote) {
     list.appendChild(card);
   }
   if (!st.active && !waiting.some((o) => !o.served)) list.appendChild(el('div', 'slNote', 'No one else at the door today. They come again tomorrow.'));
+  // Out past the portal: the old places in the Wilds, so a new witch can find them.
+  if (Array.isArray(st.places) && st.places.length) {
+    const card = el('div', 'callerCard wildsPlaces');
+    card.appendChild(el('div', 'callerHead', '🌀 Out past the portal, in the Wilds'));
+    for (const pl of st.places) {
+      const row = el('div', 'wildsPlace' + (pl.done ? ' done' : ''));
+      row.appendChild(el('span', 'callerTick', pl.done ? '✓' : '○'));
+      row.appendChild(el('span', '', `${pl.icon} ${pl.name}, ${pl.where}: ${pl.what}.`));
+      card.appendChild(row);
+    }
+    card.appendChild(el('div', 'callerStepNote', 'They are on the map (M) in the Wilds, and in the Charm Book under Drawn & Walked.'));
+    list.appendChild(card);
+  }
   meNote.textContent = st.total ? `Workings done for the town: ${st.total}` : 'Cunning folk were hired, paid and trusted. The town is learning your name.';
 }
 (function () {
