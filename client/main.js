@@ -2927,7 +2927,7 @@ function onWsMessage(ev) {
   if (msg.type === 'cords_error') { if (msg.message) setUnlockToast(`🪢 ${msg.message}`); return; }
   if (msg.type === 'ogham_cast') { _ogham.setCast(msg.cast); if (!msg.already) setUnlockToast(`🌳 The staves fall: ${(msg.cast || []).map((o) => o.name).join(' · ')}`); return; }
   if (msg.type === 'ogham_error') { if (msg.message) setUnlockToast(`🌳 ${msg.message}`); return; }
-  if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); return; }
+  if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); _wards.error(msg.message); return; }
   if (msg.type === 'cottage_layout') {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
     setCottageWards(msg.wards || null);

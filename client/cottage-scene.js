@@ -127,6 +127,23 @@ function setWards(w) {
     stone.position.set(W / 2, 0.6, 46);                   // before the north wall, where the hearth sits
     wardGroup.add(stone);
   }
+  if (w.marian) {
+    // The Marian mark: two interlocking Vs cut into the north wall's beam,
+    // beside where the hearth sits.
+    const mat = new THREE.MeshBasicMaterial({ map: makeMarianTexture(), transparent: true, depthWrite: false });
+    const mark = new THREE.Mesh(new THREE.PlaneGeometry(30, 22), mat);
+    mark.name = 'marianMark';
+    mark.position.set(W / 2 - 70, WALL_H * 0.62, 7.4);    // the north wall's inner face, faces into the room (+z)
+    wardGroup.add(mark);
+  }
+  if (w.sator) {
+    // The SATOR plate, propped on the wall by the hearth.
+    const mat = new THREE.MeshLambertMaterial({ map: makeSatorTexture() });
+    const plate = new THREE.Mesh(new THREE.CircleGeometry(15, 28), mat);
+    plate.name = 'satorPlate';
+    plate.position.set(W / 2 + 70, 58, 7.6);
+    wardGroup.add(plate);
+  }
   if (w.ladder) {
     // The witch's ladder: a cord hung from the rafters in the north-east corner,
     // a cock's feather worked in at every knot (after the Wellington ladder).
@@ -159,6 +176,30 @@ function makeHexafoilTexture() {
     const t = k * Math.PI / 3, px = cx + r * Math.cos(t), py = cy + r * Math.sin(t);
     g.beginPath(); g.arc(px, py, r, t + Math.PI * 2 / 3, t + Math.PI * 4 / 3); g.stroke();
   }
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+function makeMarianTexture() {
+  const W2 = 256, H2 = 188, c = document.createElement('canvas'); c.width = W2; c.height = H2;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(240,222,190,0.9)'; g.lineWidth = 7; g.lineCap = 'round';
+  // Two Vs, the second's first arm crossing the first's second.
+  const V = (l, b, r) => { g.beginPath(); g.moveTo(l, 20); g.lineTo(b, H2 - 20); g.lineTo(r, 20); g.stroke(); };
+  V(24, 76, 140); V(100, 160, 232);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+function makeSatorTexture() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(S / 2, S / 2, 10, S / 2, S / 2, S / 2);
+  grad.addColorStop(0, '#efe3c6'); grad.addColorStop(0.8, '#d2bd90'); grad.addColorStop(1, '#8a6a3a');
+  g.fillStyle = grad; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#3a2410'; g.font = 'bold 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const rows = ['SATOR', 'AREPO', 'TENET', 'OPERA', 'ROTAS'];
+  rows.forEach((row, r) => { for (let i = 0; i < 5; i++) g.fillText(row[i], 68 + i * 30, 68 + r * 30); });
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 4;
   return tex;
