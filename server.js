@@ -4873,7 +4873,7 @@ function wardContrib(player, statKey) {
   // The witch's ladder: harvest luck (the neighbours' plenty), never guard.
   if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
-  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0);
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0);
 }
 function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
@@ -4885,9 +4885,12 @@ function wardsPublic(key) {
     ladder: !!w.ladder,
     marian: !!w.marian,
     sator: !!w.sator,
+    burn: !!w.burn,
     pentangle: !!w.pentangle,
   };
 }
+// The taper burn mark's window (data/wards.js).
+const { BURN_ANGLE, BURN_HOLD, burnProblem } = require('./data/wards');
 function wardsStateBody(player) {
   const key = player && player.accountKey;
   const inv = key ? getInventory(player) : null;
@@ -4905,6 +4908,7 @@ function wardsStateBody(player) {
     feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
     atHome: inOwnCottage(player),
     pentangleVitality: PENTANGLE_VITALITY,
+    burnAngle: BURN_ANGLE, burnHold: BURN_HOLD,
     boards: { marian: { tops: MARIAN_TOPS, bottoms: MARIAN_BOTTOMS }, pentangle: { points: PENTANGLE_POINTS } },
     lore: WARDS,
   };
@@ -16376,7 +16380,7 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'toast', message: `🛡️ Five lines and no end at any corner: the endless knot, gold on red. +${PENTANGLE_VITALITY} max health while you bear it.` });
       return;
     }
-    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator') {
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
       if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
@@ -16400,6 +16404,12 @@ wss.on('connection', (ws, req) => {
         if (problem) { fail(problem); return; }
         w.marian = { at: Date.now() };
         toast = 'Ⓜ️ Four cuts in the hearth beam: two Vs, the second crossing the first. Virgo Virginum, or M for Mary; nobody wrote down which.';
+      } else if (msg.type === 'burn_mark') {
+        if (w.burn) { fail('A burn mark is already on your door frame.'); return; }
+        const problem = burnProblem(msg.angle, msg.seconds);
+        if (problem) { fail(problem); return; }
+        w.burn = { at: Date.now() };
+        toast = '🕯️ The flame leans into the grain, and a tear of char forms, deepest at its foot. Nobody wrote down why they did this. You did it anyway.';
       } else if (msg.type === 'write_sator') {
         if (w.sator) { fail('A SATOR plate already stands by your hearth.'); return; }
         const problem = satorProblem(msg.rows);

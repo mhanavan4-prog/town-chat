@@ -35,7 +35,7 @@ const WARDS = {
     blurb: 'A permanent ward on the threshold.',
     lore: "Hexafoils — \"daisy wheels\" — were drawn with a pair of compasses: one circle, then six arcs of the same radius, each set from where the last crossed the circle. They are very common on doorways, windows, fireplaces, barns and church porches, \"from the early medieval period, up into the 19th century\". \"The purpose of hexafoils is disputed\", Historic England says, but \"their interpretation as a ritual protection mark is the most widely accepted theory at present\": one idea is that a spirit would follow the \"single, endless line\" and be caught in it. Others read them as masons' practice in drawing with compasses. If you find one, record it and leave it be: removing marks from a listed building usually needs consent.",
     tier: 'record',
-    source: "Historic England, 'Discovering Witches' Marks' · Historic England, \"Help hunt for witches' marks\" · Historic England, Graffiti on Historic Buildings (2018) · J. Alexander, in The Guardian (2026)",
+    source: "Historic England, 'Discovering Witches' Marks' · Historic England, \"Help hunt for witches' marks\" · Historic England, Graffiti on Historic Buildings, HEAG288 (2021) · J. Alexander, in The Guardian (2026)",
   },
   shoe: {
     name: 'Concealed Shoe',
@@ -79,6 +79,17 @@ const WARDS = {
     lore: "Gawain's shield was red, with \"þe pentangel de-paynt of pure golde hweȝ\": \"a syngne þat Salamon set sum-quyle, / In bytoknyng of trawþe\". Each line \"vmbe-lappeȝ & loukeȝ in oþer\", and \"Englych hit callen / Ouer-al, as I here, þe endeles knot\". Its five fives were his five wits, his five fingers, Christ's five wounds, Mary's five joys and five virtues, \"With-outen ende at any noke\"; on the inside of the shield was Mary's image, so that when he looked at it \"his belde neuer payred\". The poem makes it an emblem of keeping faith, not a charm. Historic England counts pentangles among the ritual marks cut in old buildings, and they turn up in medieval church graffiti, far more likely medieval than satanic (Champion); the Wiccan pentacle is a modern revival. If you find one, photograph it and report it; never scrub it off, and never cut one into old fabric.",
     tier: 'record',
     source: "Sir Gawain and the Green Knight (BL Cotton Nero A.x), ll. 619–65, ed. R. Morris, EETS (1864; rev. 1869) · Historic England, \"Help hunt for witches' marks\" (2016) · J. Wright, \"Mediaeval Mythbusting #11: The Pentagram\" (2021), after M. Champion, Medieval Graffiti (2015) · Historic England, Graffiti on Historic Buildings, HEAG288",
+  },
+  // Scorched, not cut: a taper held at an angle to the beam until the flame
+  // burns a tear-shaped mark, deepest at its foot (Dean & Hill's experiments).
+  burn: {
+    name: 'Taper Burn Mark',
+    icon: '🕯️',
+    where: 'scorched on the door frame',
+    blurb: 'A permanent ward at the door. Hold the taper at a slant, its flame just touching, until the tear-shape forms.',
+    lore: "Tear-shaped scorches mark the timbers of many old houses, by doors, windows and hearths, and \"even hidden beneath floors\" (Historic England). They were blamed on tapers left burning, but Dean and Hill's experiments (2014) found unattended lights left only \"linear burns or amorphous scorches\"; a flame held \"at a 45° angle\" so its hottest part \"lightly touched the timber\" made the tear-shape in 5 or 10 minutes. They date from the later thirteenth century to the mid-nineteenth, and at Knole carpenters burned them during building in 1606. Why is not known: perhaps \"a ritual protection against lightening and fire\", in Historic England's words. Never put a flame to real timber: a candle goes in a heat-resistant holder, on a stable surface, away from anything that could catch, and is never left burning unattended. If you find a mark, leave it and record it.",
+    tier: 'record',
+    source: "Historic England, 'Discovering Witches' Marks: types of marks' · J. Dean & N. Hill, \"Burn marks on buildings: accidental or deliberate?\", Vernacular Architecture 45 (2014) · J. Wright, \"Mediaeval Mythbusting #8: Burn Marks\" (2021) · London Fire Brigade, on candle safety (2025) · Historic England, Graffiti on Historic Buildings, HEAG288 (2021)",
   },
   // Not a protection — nobody who wrote about it thought so. Honest to the
   // museum's own label (milk drawn from the neighbours' cows), in the game it
@@ -149,7 +160,22 @@ function pentangleProblem(seq) {
   if (s[0] !== s[s.length - 1] || s.length !== 6) return 'The knot isn\'t closed: five lines, and back to where you began.';
   return null;
 }
-const PENTANGLE_VITALITY = 10; // + max health while it is borne
+const PENTANGLE_VITALITY = 10;
+
+// The taper burn: the flame held at a slant (about 45° from upright, Dean &
+// Hill) for long enough to char a tear-shape. The game compresses their 5–10
+// minutes into seconds of holding.
+const BURN_ANGLE = [30, 60];   // degrees from upright that make the tear-shape
+const BURN_HOLD = [3, 8];      // seconds held
+function burnProblem(angle, seconds) {
+  const a = Number(angle), t = Number(seconds);
+  if (!Number.isFinite(a) || !Number.isFinite(t)) return 'Set the taper to the beam and hold it there.';
+  if (a < BURN_ANGLE[0]) return 'Held straight up under the beam, the flame only smokes it. Slant the taper so the hottest part of the flame lightly touches the wood.';
+  if (a > BURN_ANGLE[1]) return 'Laid nearly flat, the flame spreads into an amorphous scorch. Slant it, about halfway between upright and flat.';
+  if (t < BURN_HOLD[0]) return 'A faint brown smudge: hold the flame there longer.';
+  if (t > BURN_HOLD[1]) return 'Held too long, the char catches and spreads. That is how houses burn: start again, and take the taper away in time.';
+  return null;
+} // + max health while it is borne
 
 // The SATOR square: five rows of five. Either order is the old one (ROTAS
 // first at Pompeii, SATOR first later).
@@ -187,4 +213,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { WARDS, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
+module.exports = { WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
