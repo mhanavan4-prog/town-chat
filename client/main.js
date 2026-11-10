@@ -9032,6 +9032,7 @@ function wildsFlatZones() {
     ...WILDS_NPCS.map((n) => ({ x: n.x, y: n.y, r: 170 })),
     // The Shepherd's Race: dead level across the whole maze, easing out beyond it.
     ...(world2 && world2.troyTown ? [{ x: world2.troyTown.hub[0], y: world2.troyTown.hub[1], core: world2.troyTown.radius + 40, r: world2.troyTown.radius + 360 }] : []),
+    ...(world2 && world2.menAnTol ? [{ x: world2.menAnTol.x, y: world2.menAnTol.y, core: 260, r: 520 }] : []), // the Crick-stone, level to crawl round
   ];
   if (world2) _wildsFlatZones = zones; // keep it only once the Wilds (and its maze) are known
   return zones;
@@ -10868,6 +10869,7 @@ function addSpookyDecor(scene, w2) {
     ...VILLAGE_PLOTS, // and nothing grows through a village wall
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 })),
     ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 80 }] : []), // nothing grows across the Shepherd's Race
+    ...(w2.menAnTol ? [{ x: w2.menAnTol.x, y: w2.menAnTol.y, r: 300 }] : []), // …or round the Crick-stone
   ];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Spooky trees — thick clusters near the cave and scattered throughout.
