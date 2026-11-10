@@ -481,6 +481,10 @@ const KK = (() => {
     rock1:         'kk/nature/Rock_3_H_Color1.gltf',
     rock2:         'kk/nature/Rock_5_D_Color1.gltf',
     rock3:         'kk/nature/Rock_6_C_Color1.gltf',
+    // Standing stones for the Wilds' old places (props-countless.js, props-menantol.js):
+    // a rounded pillar (stands, or lies fallen) and a squat stump.
+    stone_pillar:  'kk/nature/Rock_6_D_Color1.gltf',
+    stone_low:     'kk/nature/Rock_3_E_Color1.gltf',
     // Grass tufts (teal) — scattered as Wilds ground detail (kkWildsGroundDetail).
     grass1:        'kk/nature/Grass_1_A_Color4.gltf',
     grass2:        'kk/nature/Grass_1_C_Color4.gltf',
