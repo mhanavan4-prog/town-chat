@@ -8695,6 +8695,7 @@ function boardStatePayload(player) {
 // the garden + cauldron. Data in data/callers.js; logic in lib/callers.js.
 const { buildCharmBook } = require('./lib/charmBook'); // 📜 the Charm Book
 const { REAL_BOOKS, REAL_SHELF_INTRO } = require('./data/realBooks'); // 📚 the Real Shelf in the Library
+const { MONAS_LATTICE, monasProblem, MONAS_XP, MONAS_LORE, MONAS_SOURCE } = require('./data/monas'); // Dee's Monad, constructed at the shelf
 const { CUNNING_FOLK, CUNNING_FOLK_INTRO } = require('./data/cunningFolk'); // 🗝️ the cunning folk of the record, on the same shelf
 const { MYTH_QUIZ, MYTH_QUIZ_INTRO, MYTH_SETS } = require('./data/mythOrRecord'); // ❓ the shelf's quiz: myth or record?
 // An account's best for one set of the quiz; the first set's was once kept as a.mythBest.
@@ -13091,6 +13092,17 @@ wss.on('connection', (ws, req) => {
     //    player's Forbidden Archive codex; reading all of them grants a title. ──
     // ── The Real Shelf (Library): real books of witchcraft and herb-lore. Opening
     //    the case lists them; reading one records it for the Charm Book. ──
+    // Dee's Monad, built by straight line and circle at the shelf (data/monas.js).
+    if (msg.type === 'construct_monas') {
+      const problem = monasProblem(msg.elements);
+      if (problem) { send(ws, { type: 'monas_result', ok: false, problem }); return; }
+      const a = player.accountKey && accounts[player.accountKey];
+      let xp = 0;
+      if (a && !a.monas) { a.monas = { at: Date.now() }; if (!Array.isArray(a.booksRead)) a.booksRead = []; if (!a.booksRead.includes('monas')) a.booksRead.push('monas'); saveAccounts(); xp = MONAS_XP; grantXP(player, xp); }
+      send(ws, { type: 'monas_result', ok: true, xp, built: !!(a && a.monas) });
+      send(ws, { type: 'toast', message: `☉ Sun, Moon, cross and the horns of Aries, nine parts from foot to horns: Dee's Monad stands on the page.${xp ? ` +${xp} XP` : ''}` });
+      return;
+    }
     if (msg.type === 'real_shelf' || msg.type === 'read_real_book' || msg.type === 'read_cunning') {
       const a = player.accountKey && accounts[player.accountKey];
       if (msg.type === 'read_real_book' && a) {
@@ -13115,7 +13127,7 @@ wss.on('connection', (ws, req) => {
         folkIntro: CUNNING_FOLK_INTRO, folk: CUNNING_FOLK, folkRead: (a && a.cunningRead) || [],
         myth: { intro: MYTH_QUIZ_INTRO, items: MYTH_QUIZ, best: mythBestOf(a, 'first'),
           sets: MYTH_SETS.map((x) => ({ key: x.key, title: x.title, items: x.items, best: mythBestOf(a, x.key) })) },
-        checks });
+        checks, monas: { lattice: MONAS_LATTICE, lore: MONAS_LORE, source: MONAS_SOURCE, built: !!(a && a.monas) } });
       return;
     }
     // ❓ Myth or record? (data/mythOrRecord.js): the shelf's quiz. The client
