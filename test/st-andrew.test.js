@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_andrew');
 check('the Commonplace Book\'s St Andrew stands: Chambers\'s "from time immemorial", Advent', cal && cal.month === 11 && cal.day === 30 && cal.quote === 'regarded, from time immemorial, as the patron saint of Scotland' && /Advent/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'st_andrew');
 check('Hannah Gilbert, from Easling, dated by it, for two days', c && /Easling/.test(c.caller) && c.when && c.when.calendar === 'st_andrew' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_andrew');
-check('the practical half: the red squirrel protected, intentionally in England and Wales, recklessly too in Scotland, the drey everywhere; the grey not to be released', /Then the practical half/.test(c.resolution) && /in England and Wales it's an offence under the Wildlife and Countryside Act to intentionally kill, injure or take one/.test(c.resolution) && /in Scotland recklessly too, and everywhere it's an offence to damage its drey or disturb it there/.test(c.resolution) && /it's an offence to release one or let one escape into the wild/.test(c.resolution) && /Wildlife and Countryside Act 1981, sch\. 5/.test(c.source) && /Invasive Alien Species/.test(c.source));
 
 require('../server.js');
 

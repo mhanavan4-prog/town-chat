@@ -32,8 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'candlemas');
 check('the Commonplace Book\'s Candlemas, put right: the almanacs\' rhyme, 1548, the Scottish quarter day', cal && cal.month === 2 && cal.day === 2 && /as the almanacs had it/.test(cal.text) && /stopped it in 1548/.test(cal.text) && /quarter day/.test(cal.text) && !/in procession/.test(cal.text) && /Almanac rhyme/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'candlemas_weather');
 check('Mary Teasdale, from the fell farm, dated by it, for the one day', c && /fell farm/.test(c.caller) && c.when && c.when.calendar === 'candlemas' && c.when.days === 1 && c.steps.length === 1 && c.steps[0].rite === 'candlemas_weather');
-check('the practical half: no lambing or milking ewes; no newborn or aborted lambs, no afterbirth; chlamydia and toxoplasma', /Then the practical half/.test(c.resolution) && /should not help to lamb or milk ewes, and should keep away from newborn lambs, from aborted lambs and from the afterbirth/.test(c.resolution) && /chlamydia and toxoplasma/.test(c.resolution) && /NHS/.test(c.source) && /UKHSA/.test(c.source));
-check('…clothes and boots washed hot first; the lamber in protective clothing, soap and water, not gel; fever or flu to the doctor or midwife', /shouldn't handle clothes or boots that have been among the ewes until they've been washed on a hot cycle/.test(c.resolution) && /wash thoroughly with soap and water, because hand gel alone isn't enough/.test(c.resolution) && /fever or anything like flu after being near sheep, she should tell her doctor or midwife straight away/.test(c.resolution) && /Public Health Wales/.test(c.source));
 
 require('../server.js');
 

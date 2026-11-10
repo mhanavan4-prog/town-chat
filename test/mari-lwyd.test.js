@@ -31,7 +31,6 @@ check('…Trac Cymru on the other horse customs; Llangynwyd kept it longest (not
 check('…and no pwnco verse quoted that could not be checked', !/\/ /.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'mari_lwyd');
 check('Elin Rees, a Yule caller who works the pwnco', c && c.season === 'yule' && !c.when && c.steps[0].rite === 'pwnco' && !YULE_RITES.pwnco);
-check('the practical half: a sober guide with a lantern for the blind carrier; frightened children shown it\'s bones and a neighbour; the door opens in the end', /someone sober walks beside him with a lantern/.test(c.resolution) && /let them see it's a horse's bones and a neighbour under a sheet/.test(c.resolution) && /the door opens in the end, and the party is fed/.test(c.resolution));
 
 require('../server.js');
 

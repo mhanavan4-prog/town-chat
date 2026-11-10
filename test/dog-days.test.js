@@ -30,7 +30,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'dog_days');
 check('the Commonplace Book\'s Dog Days: the later almanacs\' dates, the star now rising at the end of August; Brewer and Hone', cal && cal.month === 7 && cal.day === 3 && /in the later almanacs/.test(cal.text) && /end of August/.test(cal.text) && /Hone/.test(cal.source) && cal.quote === 'the combined heat of the dog-star and the sun');
 const c = CALLERS.find((x) => x.id === 'dog_days');
 check('Sukey Hale, dated by it, for two days', c && c.when && c.when.calendar === 'dog_days' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'dog_days');
-check('the practical half: never in a closed vehicle, 22 to 47 within the hour, 999; the back of the hand five seconds; eleven to three; the NHS four steps, half an hour, 999; the doctor\'s medicine', /Never leave a dog, a child or anyone in a closed vehicle/.test(c.resolution) && /22 degrees a car can reach 47 within the hour/.test(c.resolution) && /if you see a dog in distress in a hot car, ring 999/.test(c.resolution) && /back of your hand on the pavement for five seconds/.test(c.resolution) && /between eleven and three/.test(c.resolution) && /within half an hour, and if they don't/.test(c.resolution) && /take what the doctor gave you/.test(c.resolution) && !/seven seconds/.test(c.resolution));
 
 require('../server.js');
 

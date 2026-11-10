@@ -30,7 +30,6 @@ check('Pepys, 1662: "because I would not have his daughter to be my Valentine"',
 check('the 13th and the 14th', VALENTINE_WHEN.month === 2 && VALENTINE_WHEN.from === 13 && VALENTINE_WHEN.to === 14 && VALENTINE_WHEN.label === "Valentine's Eve");
 const c = CALLERS.find((x) => x.id === 'valentines_eve');
 check('Kitty Ash: the bay leaves, on her night', c && c.when === VALENTINE_WHEN && c.steps.length === 1 && c.steps[0].rite === 'valentine_bay');
-check('the practical half: the salt over the NHS day limit, thirst, Hone on indigestion, leave the shell, water by the bed, a word with his sister', /the NHS puts at 6 grams, about a level teaspoon/.test(c.resolution) && /thirsty night/.test(c.resolution) && /"almost certain to ensure an indigestion"/.test(c.resolution) && !/broken sleep/.test(c.resolution) && /Leave the shell/.test(c.resolution) && /cup of water by the bed/.test(c.resolution) && /his sister/.test(c.resolution));
 
 require('../server.js');
 

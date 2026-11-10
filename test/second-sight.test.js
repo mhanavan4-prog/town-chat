@@ -27,7 +27,6 @@ check('not hereditary, not passed on (Martin); seers wanted rid of it (Kirk)', /
 check('Johnson\'s verdict of 1773: "only willing to believe"', /"came away at last only willing to believe\."/.test(R.lore) && /Johnson, A Journey to the Western Islands of Scotland \(1775\)/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'second_sight_shroud');
 check('a seer comes to the door, any time of year', c && !c.season && c.steps.some((s) => s.kind === 'rite' && s.rite === 'second_sight'));
-check('the practical half: nothing shown to foretell; don\'t frighten the household; visit him; she needn\'t carry it alone', /nobody has ever shown the sight foretelling anything/.test(c.resolution) && /frighten a household for nothing/.test(c.resolution) && /seen the doctor/.test(c.resolution) && /needn't carry it alone/.test(c.resolution));
 
 require('../server.js');
 

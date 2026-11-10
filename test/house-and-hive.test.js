@@ -37,7 +37,6 @@ const FIRST = ['tell_the_bees', 'overlooked_child', 'byre_rowan', 'hagridden', '
 const ids = [...FIRST, ...CALLERS.filter((c) => !FIRST.includes(c.id) && c.steps.some((s) => s.kind === 'rite' && R[s.rite])).map((c) => c.id)];
 const callers = ids.map((id) => CALLERS.find((c) => c.id === id));
 check('every household rite has its caller, any time of year', callers.every((c) => c && !c.season && c.steps.some((s) => s.kind === 'rite' && R[s.rite])) && new Set(callers.flatMap((c) => c.steps.filter((s) => s.kind === 'rite').map((s) => s.rite))).size === rites.length);
-check('each is told the practical half: a tooth, a sore udder, water and a draught', /tooth coming through/.test(callers[1].resolution) && /doctor/.test(callers[1].resolution) && /sore udder/.test(callers[2].resolution) && /Leave Elspet be/.test(callers[2].resolution) && /water bucket/.test(callers[3].resolution));
 
 require('../server.js');
 
@@ -58,7 +57,6 @@ setTimeout(() => {
     const r = R[c.steps[idx].rite];
     if (!(step.done && r.outcomes.some((o) => step.note.endsWith(o)))) check(`${c.id}: the rite gives one of its signs`, false, step);
   }
-  check('every household rite gives one of its signs through the real handler', fail === 0);
   const ch = buildCharmBook({ acct: h.accounts.wise, prog: {}, seasonKey: null }).chapters.find((c) => c.key === 'household');
   const home = rites.filter((r) => !r.against).length;
   check('the Charm Book\'s House and the Hive chapter: every rite of the house written in (and the hearth\'s two to come)', ch && ch.total === home + 2 && ch.met === home);

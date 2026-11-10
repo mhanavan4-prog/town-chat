@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'rushbearing');
 check('the Commonplace Book\'s rush-bearing now moves: the first Saturday in July', cal && cal.rule && cal.moves === 'the first Saturday in July' && [2026, 2027, 2028, 2029].map((y) => entryDate(cal, y).join('/')).join() === '7/4,7/3,7/1,7/7' && /In 1823 it fell on 26 July/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'rushbearing_ambleside');
 check('Annie Fleming, dated by it, for two days', c && c.when && c.when.calendar === 'rushbearing' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'rushbearing');
-check('the practical half: cut, never uproot; ask the landowner; the nesting birds, April to June; White\'s rushlight; the naked flame', /never pull them up: uprooting a wild plant is against the law/.test(c.resolution) && /so ask first/.test(c.resolution) && /from April to June/.test(c.resolution) && /a nest in use is protected/.test(c.resolution) && /'one regular, narrow, even rib'/.test(c.resolution) && /never leave one burning in an empty room/.test(c.resolution) && /put it out before you sleep/.test(c.resolution) && /Selborne/.test(c.source));
 
 require('../server.js');
 

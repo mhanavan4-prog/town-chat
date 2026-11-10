@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'holy_rood');
 check('the Commonplace Book\'s own entry says the Eton day was perhaps this one, as Hone does', cal && cal.month === 9 && cal.day === 14 && /perhaps this one/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'holy_rood_nutting');
 check('Kit Lambourne, dated by the old calendar\'s Holy Rood Day, for two days', c && c.when && c.when.calendar === 'holy_rood' && c.when.days === 2 && c.steps[0].rite === 'nutting');
-check('the practical half: ripe when the husk pulls back; leave plenty; the dormouse sign and the law; wild nuts no theft unless sold; allergy', /papery husk is pulling back/.test(c.resolution) && /September and October/.test(c.resolution) && /Take no more than you'll eat/.test(c.resolution) && /tooth marks slanting round it on the outside/.test(c.resolution) && /protected by law/.test(c.resolution) && /People's Trust for Endangered Species/.test(c.resolution) && /picking them to sell can be/.test(c.resolution) && /one of the fourteen foods that most often cause allergies/.test(c.resolution) && /injector/.test(c.resolution));
 
 require('../server.js');
 

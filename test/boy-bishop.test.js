@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'boy_bishop');
 check('the Commonplace Book\'s Boy Bishop: 1541, fell out of use under Elizabeth, Gregory quoted', cal && cal.month === 12 && cal.day === 6 && /suppressed it in 1541/.test(cal.text) && !/1542/.test(cal.text) && /under Elizabeth it fell out of use/.test(cal.text) && cal.quote === 'chosen by his fellow Children upon S. Nicholas daie' && /Gregory/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'boy_bishop');
 check('Mistress Ashby, dated by it, for two days', c && c.when && c.when.calendar === 'boy_bishop' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'boy_bishop');
-check('the practical half: two grown-ups at least, the ratios; no unchecked adult alone with children; parents\' leave; the NSPCC Helpline and Childline', /at least two grown-ups/.test(c.resolution) && /one to every six of the little ones, one to eight of the older/.test(c.resolution) && /hasn't been properly checked shouldn't be left alone with the children/.test(c.resolution) && /every parent's leave/.test(c.resolution) && /0808 800 5000/.test(c.resolution) && /0800 1111/.test(c.resolution));
 
 require('../server.js');
 

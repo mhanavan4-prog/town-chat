@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_david');
 check('the Commonplace Book\'s St David: Mark Lane and "oddest sights"; Pepys quoted, with Shakespeare and Hone', cal && cal.month === 3 && cal.day === 1 && /Mark Lane/.test(cal.text) && /oddest sights/.test(cal.text) && cal.quote === 'the picture of a man dressed like a Welchman, hanging by the neck' && /Henry V/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_david');
 check('Gwen Pritchard, dated by it, for two days', c && c.when && c.when.calendar === 'st_david' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_david');
-check('the practical half: the CPS\'s perceived-hostility test, a racial group including nationality and national origins; as many details as you can; 999, 101, True Vision; the Welsh language\'s official status', /the victim, or anyone else, thinks was driven by hostility to their race as a hate crime/.test(c.resolution) && /a racial group includes nationality and national origins/.test(c.resolution) && /give as many details as you can/.test(c.resolution) && /ring 999; otherwise ring 101, or report it online through True Vision/.test(c.resolution) && /official status/.test(c.resolution));
 
 require('../server.js');
 

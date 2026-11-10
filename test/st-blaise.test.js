@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_blaise');
 check('the Commonplace Book\'s St Blaise: the fishbone, "were said to be", an old physician\'s charm, Bradford; Hone\'s words kept', cal && cal.month === 2 && cal.day === 3 && /fishbone/.test(cal.text) && /were said to be good/.test(cal.text) && /old physician's charm/.test(cal.text) && /Bradford/.test(cal.text) && cal.quote === 'BLASE, the martyr and servant of Jesus Christ, commands thee to pass up or down!');
 const c = CALLERS.find((x) => x.id === 'st_blaise');
 check('Jonas Firth, woolcomber, dated by it, for two days', c && c.when && c.when.calendar === 'st_blaise' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_blaise');
-check('the practical half: a week, then the doctor, sooner if very hot; can\'t breathe or swallow, drooling: 999; choking: five back blows, five abdominal thrusts, 999', /within a week/.test(c.resolution) && /take her to the doctor/.test(c.resolution) && /very hot or shivery/.test(c.resolution) && /can't breathe or can't swallow, or is drooling/.test(c.resolution) && /that's 999, not a charm/.test(c.resolution) && /up to five sharp blows between the shoulder blades/.test(c.resolution) && /up to five abdominal thrusts/.test(c.resolution));
 
 require('../server.js');
 

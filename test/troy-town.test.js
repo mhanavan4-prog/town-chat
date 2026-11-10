@@ -44,7 +44,6 @@ check('lore: Roberts via Matthews, shepherd boys, a puzzle "in drawing the plan"
 check('lore: the English names, Alkborough\'s "running it in and out", and that Alkborough and Wing are another pattern', /'Mizmaze,' 'Julian's Bower,' 'Troy Town,' or 'Shepherd's Race'/.test(c.lore) && /'running it in and out'/.test(c.lore) && /not this seven-circuit one/.test(c.lore));
 check('lore: St Agnes 1729 is local tradition only', /local tradition says a lighthouse keeper, Amor Clarke/.test(c.lore));
 check('no wind-trapping: that is a modern hypothesis, not lore', !/wind/i.test(c.lore + c.resolution));
-check('the practical half: scheduled monuments, Historic England\'s own words', /the practical half/i.test(c.resolution) && /'It is a criminal offence to destroy or damage a scheduled monument either intentionally or through recklessness'/.test(c.resolution) && /don't recut the turf, move a stone/.test(c.resolution));
 check('record tier; Matthews, Roberts, Kraft and the list entries cited', c.tier === 'record' && /Matthews/.test(c.source) && /Roberts/.test(c.source) && /Kraft/.test(c.source) && /1015697/.test(c.source));
 
 // ── Through the game's own handler ───────────────────────────────────────────

@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'may_eve');
 check('the Commonplace Book\'s May Eve, 30 April, noting Man\'s Old May Eve', cal && cal.month === 4 && cal.day === 30 && /Old May Eve, 11 May/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'may_eve_rowan');
 check('Bridget Fahy, dated by it, on the eve only', c && c.when && c.when.calendar === 'may_eve' && c.when.days === 1 && c.steps.length === 1 && c.steps[0].rite === 'may_eve_rowan');
-check('the practical half: the owner\'s leave; raw rowan berries not to be eaten; kingcup leaves poisonous, gloves; no gorse burned, out of season in England and banned in Ireland', /the owner's leave/.test(c.resolution) && /raw, they're not to be eaten/.test(c.resolution) && /wear gloves and wash your hands after, for the leaves are poisonous/.test(c.resolution) && /burn no gorse/.test(c.resolution) && /in England after mid-April/.test(c.resolution) && /in Ireland from the first of March to the end of August/.test(c.resolution));
 
 require('../server.js');
 

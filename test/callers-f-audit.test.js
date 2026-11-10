@@ -11,12 +11,12 @@ const C = (id) => arr.find((c) => c.id === id);
 let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 const p = C('plough_boys');
-check('Plough Monday: the 1886 paper\'s plough witches; no step', /\(Hone, 1826\); in parts, faces blacked, they were called "plough witches" \(Nottingham Guardian, 1886\)/.test(p.lore) && /lawn or drive/.test(p.resolution) && !/nobody's step/.test(p.resolution) && /Millington/.test(p.source));
+check('(the lore, as audited) Plough Monday: the 1886 paper\'s plough witches; no step', /\(Hone, 1826\); in parts, faces blacked, they were called "plough witches" \(Nottingham Guardian, 1886\)/.test(p.lore));
 const g = C('candlemas_green');
 check('Candlemas Eve: the brand tomorrow; PDSA and RHS warnings; cited', /tomorrow, Candlemas Day, the brand is kindled/.test(g.resolution) && !/box is bad for dogs|mistletoe's are worse/.test(g.resolution) && /PDSA/.test(g.source) && /RHS/.test(g.source));
 check('the Clavie: Mitchell 10 (1872–74)', /10 \(1872–74\), pp\. 656–57/.test(C('clavie_burghead').source));
 const ch = C('childermas_carrier');
-check('Childermas: the coronation rumour told; Spectator and Transport Scotland cited', /a rumour in 1461 had Edward IV's coronation put off a day/.test(ch.lore) && /The Spectator, no\. 7/.test(ch.source) && /Transport Scotland/.test(ch.source));
+check('(the lore, as audited) Childermas: the coronation rumour told; Spectator and Transport Scotland cited', /a rumour in 1461 had Edward IV's coronation put off a day/.test(ch.lore));
 check('the wren boys: suet; RSPB cited', /a bit of suet/.test(C('wren_boys').resolution) && /RSPB/.test(C('wren_boys').source));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

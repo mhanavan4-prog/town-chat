@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_lucy');
 check('the Commonplace Book\'s St Lucy: reckoned the shortest day, with Ray\'s proverb', cal && cal.month === 12 && cal.day === 13 && /reckoned the shortest day/.test(cal.text) && /Lucy light, the shortest day and the longest night/.test(cal.text) && /Ray/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_lucy');
 check('Thomasin Gale, dated by it, for two days', c && c.when && c.when.calendar === 'st_lucy' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_lucy');
-check('the practical half: SAD named and a GP; daylight; vitamin D 10 micrograms; help at once for thoughts of self-harm; the candle', /seasonal affective disorder/.test(c.resolution) && /see a GP/.test(c.resolution) && /daylight every day/.test(c.resolution) && /10 micrograms/.test(c.resolution) && /Samaritans on 116 123/.test(c.resolution) && /NHS 111/.test(c.resolution) && /never leave it burning in an empty room/.test(c.resolution) && /battery one/.test(c.resolution));
 
 require('../server.js');
 

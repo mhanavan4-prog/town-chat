@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 import { renderTroy } from './troy.js';
+import { nowNoteEl } from './now-note.js';
 
 export default function createBoard({ send, getBoardState, getCallersState, getCallerResult, clearCallerResult, openTool, getMe, shortWhen }) {
 // Callers at the Door is the Board's first page: the town's work comes before
@@ -193,6 +194,7 @@ function renderCallerResult(list, r) {
   lore.appendChild(el('div', 'callerLoreText', r.lore));
   if (r.source) lore.appendChild(el('div', 'callerSource', `Source: ${r.source}`));
   card.appendChild(lore);
+  if (r.note) card.appendChild(nowNoteEl(r.note));
   card.appendChild(el('div', 'callerPay', `+${r.gold}🪙${r.xp ? ` · +${r.xp} XP` : ''} · workings done: ${r.total}`));
   const ok = el('button', 'btn callerBtn', 'Back to the door');
   ok.addEventListener('click', () => { clearCallerResult(); renderBoardModal(); });

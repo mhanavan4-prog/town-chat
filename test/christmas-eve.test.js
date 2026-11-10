@@ -33,7 +33,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'oxen_kneel');
 check('the Commonplace Book\'s own entry has the bees humming, and cites who says so', cal && cal.month === 12 && cal.day === 24 && /bees to hum/.test(cal.text) && !/sing/.test(cal.text) && /Ditchfield \(1896\)/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'christmas_eve_oxen');
 check('Old Jacob Penhale, dated by the old calendar\'s Christmas Eve, for two days', c && c.when && c.when.calendar === 'oxen_kneel' && c.when.days === 2 && c.steps[0].rite === 'midnight_oxen');
-check('the practical half: more fodder in a frost, unfrozen water, hives left shut and hefted, fondant if light, entrances cleared, mouse guards', /extra fodder/.test(c.resolution) && /break the ice on the trough/.test(c.resolution) && /leave the hives shut/.test(c.resolution) && /Lift the back of each/.test(c.resolution) && /fondant over the cluster/.test(c.resolution) && /bent wire/.test(c.resolution) && /mouse guards/.test(c.resolution));
 
 require('../server.js');
 

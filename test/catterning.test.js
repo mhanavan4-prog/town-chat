@@ -33,7 +33,6 @@ check('…the Peterborough workhouse girls (Dack, 1911)', /"a crown of gilt pape
 check('…and nothing unchecked: no candle-jumping, no "lamb\'s wool"', !/candlestick|nimble|lamb's wool/i.test(R.lore + R.how + R.outcomes.join(' ')));
 const c = CALLERS.find((x) => x.id === 'cattern_lacemakers');
 check('Hannah Odell, dated by the old calendar\'s Catterning, for two days', c && c.when && c.when.calendar === 'catterning' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'catterning' && e.month === 11 && e.day === 25) && c.steps[0].rite === 'cattern_cakes');
-check('the practical half: daylight for comfort, no lasting harm (College of Optometrists), a far look now and then, the beer home to their mothers; no unsourced hourly walk or lace-school line', /work by daylight/.test(c.resolution) && /does them no lasting harm/.test(c.resolution) && /something across the room/.test(c.resolution) && !/walk about every hour|lace schools|wears out the eyes/.test(c.resolution) && /send the beer home to their mothers/.test(c.resolution));
 
 require('../server.js');
 

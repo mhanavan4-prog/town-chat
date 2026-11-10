@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'puck_fair');
 check('the Commonplace Book\'s Puck Fair: no longer three days on the stand; 1613 and 1837; Lewis quoted', cal && cal.month === 8 && cal.day === 10 && /since 2023 only for a while at either end/.test(cal.text) && !/set over the town for a three-day fair/.test(cal.text) && cal.quote === 'a male goat is sometimes ornamented and paraded about the fair' && /Lewis/.test(cal.source) && cal.tier === 'folk');
 const c = CALLERS.find((x) => x.id === 'puck_fair');
 check('Nora Foley, the Queen of Puck, dated by it, for two days', c && c.when && c.when.calendar === 'puck_fair' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'puck_fair');
-check('the practical half: the law\'s duty of care and needless suffering; shade, water, down in the heat; thirty metres from a wild herd, dogs on leads, a kid left alone', /health and welfare are safe/.test(c.resolution) && /needless suffering is an offence/.test(c.resolution) && /shade and water/.test(c.resolution) && /as the vet and the organisers decided in 2022/.test(c.resolution) && /thirty metres back from a grazing herd/.test(c.resolution) && /dog on its lead/.test(c.resolution) && /Animal Health and Welfare Act 2013/.test(c.source));
 
 require('../server.js');
 

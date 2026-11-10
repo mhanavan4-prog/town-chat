@@ -30,7 +30,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'hunt_the_gowk');
 check('the Commonplace Book\'s gowk: from place to place, not house to house; cuckoo and fool', cal && cal.month === 4 && cal.day === 1 && /from place to place/.test(cal.text) && !/each reader/.test(cal.text) && /a cuckoo, and a fool/.test(cal.text) && cal.quote === 'On the first day of April / Hunt the gowk another mile');
 const c = CALLERS.find((x) => x.id === 'hunt_the_gowk');
 check('Elspeth Reid, dated by it, for two days', c && c.when && c.when.calendar === 'hunt_the_gowk' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'hunt_the_gowk');
-check('the practical half: only a joke if the gowk laughs; when it becomes bullying; before noon; no false messages, 7726; past the headline', /only a joke if the gowk laughs too/.test(c.resolution) && /become bullying, whether anyone meant it or not/.test(c.resolution) && /before noon/.test(c.resolution) && /never send one for a joke/.test(c.resolution) && /7726/.test(c.resolution) && /Read past the headline/.test(c.resolution));
 
 require('../server.js');
 

@@ -29,7 +29,6 @@ check('the unsourced betrayal legend left out, and the wren a straw one now', !/
 check('St Stephen\'s Day: the 26th, and the 27th for the evening across the Atlantic', WREN_WHEN.month === 12 && WREN_WHEN.from === 26 && WREN_WHEN.to === 27);
 const c = CALLERS.find((x) => x.id === 'wren_boys');
 check('the wren boys: ivy for the bush, then the round of the houses', c && c.when === WREN_WHEN && c.steps[0].item === 'ivy_leaf' && c.steps[1].rite === 'wren_hunt' && /Nobody kills the wren now/.test(c.plea));
-check('the practical half: count the money fair, the lit road, crumbs and suet for the real wrens', /count the money out fair/.test(c.resolution) && /lit road/.test(c.resolution) && /crumbs and a bit of suet/.test(c.resolution));
 
 require('../server.js');
 

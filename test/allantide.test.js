@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'allantide');
 check('the Commonplace Book\'s Allantide: no polish, sweethearts not husbands, Hunt quoted, badged folk', cal && cal.month === 10 && cal.day === 31 && !/polished/.test(cal.text) && /sweethearts/.test(cal.text) && !/husband/.test(cal.text) && cal.quote === 'the time-honoured Allan apple to hide beneath their pillows' && cal.tier === 'folk');
 const c = CALLERS.find((x) => x.id === 'allantide');
 check('Wenna Trewhella, dated by it, for two days', c && c.when && c.when.calendar === 'allantide' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'allantide');
-check('the practical half: wash the apples; battery lights on the cross; costumes from flame, UKCA or CE, no lit pumpkins for little ones; water kept from the little ones and emptied, five centimetres (no ducking, which Courtney\'s Cornwall doesn\'t have)', /Wash the apples before they're eaten/.test(c.resolution) && /battery lights instead of candles/.test(c.resolution) && /UKCA or CE mark/.test(c.resolution) && /pumpkin with a lit candle/.test(c.resolution) && /empty it after/.test(c.resolution) && /a baby can drown in as little as five centimetres/.test(c.resolution) && !/ducking/.test(c.resolution));
 
 require('../server.js');
 

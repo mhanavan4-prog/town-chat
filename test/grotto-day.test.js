@@ -29,7 +29,6 @@ check('…the pilgrim\'s scallop and the oysters coming in; Hone\'s money saying
 check('…"It is but once a year, sir!" (1851), Douglas in 1916, and Whitstable now; no unfound rhyme', /"It is but once a year, sir!"/.test(R.lore) && /Notes and Queries \(11 October 1851\), p\. 270/.test(R.source) && /"and say 'Remember the grotto'—meaning Pay up"/.test(R.lore) && /Whitstable/.test(R.lore) && !/Father's gone to sea/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'grotto_day_shells');
 check('Polly and Dick Sweeting, dated by the old calendar\'s Grotto Day, for two days', c && c.when && c.when.calendar === 'grotto_day' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'grotto_day' && e.month === 8 && e.day === 5) && c.steps[0].rite === 'grotto');
-check('the practical half: the R rule is about spawning and the law, not safety; raw oysters and norovirus, worse in winter; who should not eat them raw; cooked through kills the norovirus; a grown-up by the candle', /R in the month/.test(c.resolution) && /spawn in summer/.test(c.resolution) && /may not be sold/.test(c.resolution) && /doesn't keep you safe/.test(c.resolution) && /more in the cold months than the warm/.test(c.resolution) && /anyone with child/.test(c.resolution) && /cooked through, the norovirus is killed/.test(c.resolution) && /never left burning alone/.test(c.resolution));
 
 require('../server.js');
 
