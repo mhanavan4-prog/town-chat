@@ -16779,6 +16779,20 @@ const { openNotifModal } = _notif;
       ctx.beginPath(); ctx.moveTo(gx, gy - s * 0.42); ctx.lineTo(gx, gy - s * 0.42 - 0.44 * s); ctx.stroke();
       return;
     }
+    if (kind === 'holed_stone') {
+      // The Crick-stone: a ring stone on edge between two uprights.
+      shadow(s * 0.5);
+      post(gx - s * 0.34, gy, s * 0.1, s * 0.34, '#8a877c'); post(gx + s * 0.34, gy, s * 0.1, s * 0.34, '#8a877c');
+      ctx.strokeStyle = '#8a877c'; ctx.lineWidth = s * 0.12; ctx.beginPath(); ctx.arc(gx, gy - s * 0.24, s * 0.17, 0, 7); ctx.stroke();
+      return;
+    }
+    if (kind === 'stone_ring') {
+      // The Nine-and-Twenty: a ring of small grey stones.
+      shadow(s * 0.5);
+      ctx.fillStyle = '#8a877c';
+      for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; ctx.fillRect(gx + Math.cos(a) * s * 0.38 - s * 0.04, gy - s * 0.3 + Math.sin(a) * s * 0.2 - s * 0.1, s * 0.08, s * 0.12); }
+      return;
+    }
     if (kind === 'rag_well') {
       // The clootie well: a spring, a thorn, and its rags.
       shadow(s * 0.45);
@@ -16984,6 +16998,9 @@ const { openNotifModal } = _notif;
     const oldPlaces = [];
     if (world2.troyTown) oldPlaces.push({ x: world2.troyTown.hub[0], y: world2.troyTown.hub[1], kind: 'maze', label: "🌀 Shepherd's Race" });
     if (world2.clootieWell) oldPlaces.push({ x: world2.clootieWell.x, y: world2.clootieWell.y, kind: 'rag_well', label: '🎀 Clootie well' });
+    // …and, when the server has them, the Crick-stone and the Nine-and-Twenty.
+    if (world2.menAnTol) oldPlaces.push({ x: world2.menAnTol.x, y: world2.menAnTol.y, kind: 'holed_stone', label: '🪨 Crick-stone' });
+    if (world2.countless) oldPlaces.push({ x: world2.countless.x, y: world2.countless.y, kind: 'stone_ring', label: '🪨 Nine-and-Twenty' });
     for (const poi of oldPlaces) {
       propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#e6d6a8', propS);
       placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
