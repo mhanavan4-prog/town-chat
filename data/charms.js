@@ -121,8 +121,27 @@ const STYE_CHARM = {
   source: 'R. Hunt, Popular Romances of the West of England (1865), "The Black Cat\'s Tail" · J. Fletcher, The Mad Lover (acted 1617; Beaumont and Fletcher folio, 1647), Act V',
 };
 
+// Written charms — a 'scribe' caller step names one, and the player writes it
+// out line by line. ABRACADABRA as Quintus Serenus set it down (Liber
+// Medicinalis, ch. 51): the word written "saepius et subter", the last letter
+// taken off each time ("detrahe summam") "donec in angustum redigatur littera
+// conum", then bound with linen and hung round the neck.
+const ABRACADABRA = 'ABRACADABRA';
+const SCRIBINGS = {
+  abracadabra: {
+    key: 'abracadabra',
+    name: 'the ABRACADABRA slip',
+    icon: '📜',
+    title: 'The ABRACADABRA Slip',
+    word: ABRACADABRA,
+    lines: ABRACADABRA.split('').map((_, i) => ABRACADABRA.slice(0, ABRACADABRA.length - i)),
+    use: 'Write the word; then write it again beneath, with the last letter taken off; and again, till it narrows to a single A. Then bind it with linen and hang it round the neck.',
+    doneNote: 'Eleven lines, narrowing to an A, bound with a linen thread',
+  },
+};
+
 // The counted workings (a 'knots' caller step names its `charm`; a wart step
 // without one is the wart charm).
 const WORKINGS = { warts: WART_CHARM, stye: STYE_CHARM, sprain: null };
 
-module.exports = { CHARMS, WART_CHARM, STYE_CHARM, WORKINGS };
+module.exports = { CHARMS, WART_CHARM, STYE_CHARM, WORKINGS, SCRIBINGS };

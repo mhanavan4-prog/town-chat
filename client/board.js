@@ -175,6 +175,25 @@ function renderCallers(list, meNote) {
         });
         if (s.charm.use) box.appendChild(el('div', 'callerStepNote', s.charm.use));
         body.appendChild(box);
+      } else if (s.kind === 'scribe' && !s.done && s.scribe) {
+        // Write it out: the lines so far, narrowing, then the next to write.
+        const box = el('div', 'scribeBox');
+        if (s.scribe.use) box.appendChild(el('div', 'callerStepNote', s.scribe.use));
+        const slip = el('div', 'scribeSlip');
+        for (let li = 0; li < s.written; li++) slip.appendChild(el('div', 'scribeLine', s.scribe.lines[li]));
+        box.appendChild(slip);
+        const row = el('div', 'scribeRow');
+        const inp = document.createElement('input');
+        inp.className = 'scribeInput'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.maxLength = 20;
+        inp.placeholder = s.written === 0 ? 'Write the whole word' : 'The line above, its last letter off';
+        inp.setAttribute('aria-label', `Line ${s.written + 1} of ${s.scribe.lines.length}`);
+        const write = () => { const t = inp.value.trim(); if (!t) return; b.disabled = true; send({ type: 'scribe_line', text: t }); };
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') write(); });
+        const b = el('button', 'btn charmSay', `✍️ Write line ${s.written + 1} of ${s.scribe.lines.length}`);
+        b.addEventListener('click', write);
+        row.appendChild(inp); row.appendChild(b);
+        box.appendChild(row);
+        body.appendChild(box);
       } else if ((s.kind === 'sieve' || s.kind === 'key') && !s.done) {
         // Name them one by one; the sieve turns at one.
         body.appendChild(el('div', 'callerStepNote', s.kind === 'key'
