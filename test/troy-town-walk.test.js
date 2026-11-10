@@ -29,7 +29,7 @@ check('inside the 1300-unit ring round the Wilds spawn that no tree or plant is 
 
 // ── The words ────────────────────────────────────────────────────────────────
 check('lore: Matthews\'s names, the treading at Boughton Green, "running it in and out", the wagers; Simpkinson marked as a novel', /'Mizmaze,' 'Julian's Bower,' 'Troy Town,' or 'Shepherd's Race'/.test(T.TROY_TOWN_LORE) && /three days' fair in June/.test(T.TROY_TOWN_LORE) && /'running it in and out'/.test(T.TROY_TOWN_LORE) && /gallons of beer/.test(T.TROY_TOWN_LORE) && /Simpkinson's novel of 1860/.test(T.TROY_TOWN_LORE));
-check('lore: Titania\'s lines, and the scheduled-monument law in Historic England\'s words', /'the quaint mazes in the wanton green, \/ For lack of tread, are undistinguishable\.'/.test(T.TROY_TOWN_LORE) && /'It is a criminal offence to destroy or damage a scheduled monument either intentionally or through recklessness'/.test(T.TROY_TOWN_LORE));
+check('lore: Titania\'s lines; the law left out of the lore, and one plain line folded under it instead', /'the quaint mazes in the wanton green, \/ For lack of tread, are undistinguishable\.'/.test(T.TROY_TOWN_LORE) && !/criminal offence/.test(T.TROY_TOWN_LORE) && /protected monuments/.test(T.TROY_TOWN_NOTE) && /Historic England/.test(T.TROY_TOWN_SOURCE));
 const ned = CALLERS.find((c) => c.id === 'shepherds_race');
 check('Old Ned\'s working: run it for real; J.F. and de la Pryme from Matthews; the practical half', ned && ned.steps[0].kind === 'troywalk' && /'running it in and out'/.test(ned.lore) && /de la Pryme/.test(ned.lore) && /the practical half/i.test(ned.resolution) && ned.tier === 'record');
 // ── The client ───────────────────────────────────────────────────────────────
