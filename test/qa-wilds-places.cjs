@@ -154,7 +154,7 @@ function nameOfferedTo(callerId) {
   await sleep(400);
   const l3 = await log();
   check('nine times through, against the sun: counted to nine, and done', l3.some((t) => /Through the Crick-stone: 8 of 9/.test(t)) && l3.some((t) => /Nine times through, against the sun/.test(t)), l3.filter((t) => /🪨/.test(t)).slice(-3));
-  check('…and its practical half comes up as a stone\'s lore: no 💬, no quest button', await page.evaluate(() => !document.getElementById('npcHintModal').classList.contains('hidden') && /^🪨/.test(document.getElementById('npcHintName').textContent) && document.getElementById('npcHintQuestBtn').classList.contains('hidden')));
+  check('…and the stone answers in its own lore, the one plain line folded shut under it: no 💬, no quest button, no NHS', await page.evaluate(() => { const n = document.getElementById('npcHintNote'); return !document.getElementById('npcHintModal').classList.contains('hidden') && /^🪨/.test(document.getElementById('npcHintName').textContent) && document.getElementById('npcHintQuestBtn').classList.contains('hidden') && /Bottrell had it/.test(document.getElementById('npcHintText').textContent) && !/NHS|numbness/.test(document.getElementById('npcHintText').textContent) && !!n && n.tagName === 'DETAILS' && !n.open && /A word from now/.test(n.textContent); }));
   await page.evaluate(() => document.getElementById('npcHintCloseBtn').click());
 
   console.log('── The Nine-and-Twenty ──');

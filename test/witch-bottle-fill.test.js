@@ -27,7 +27,7 @@ const L = WARDS.bottle.lore;
 check('lore: Blagrave 1671, Glanvill\'s Suffolk tale with the cork that flew out, two to two and a half hundred recorded', /Blagrave advised: "stop the urine of the Patient, close up in a bottle, and put into it three nails, pins, or needles, with a little white salt/.test(L) && /Glanvill's Suffolk tale \(1681\)/.test(L) && /"bury it in the Earth"/.test(L) && /two to two and a half hundred/.test(L));
 check('lore: the Greenwich bottle buried upside down, still corked, mid-2000s, with brimstone; and others upright', /found by builders in the mid-2000s, had been buried upside down and was still corked/.test(L) && /brimstone/.test(L) && /Others stood upright/.test(L));
 check('nobody knows why the pins were bent, and the lore says so', /"sometimes bent" \(MOLA\), and nobody wrote down why/.test(L) && !/meant to snare/.test(L));
-check('the practical half: MOLA on finds, the cork left in, Historic England\'s exploding bottles, NHS on tetanus', /"Treat it as an archaeological find/.test(L) && /please don't remove this/.test(L) && /sometimes exploded/.test(L) && /tetanus/.test(L));
+check('if you find one: MOLA on finds, the cork left in, Historic England\'s exploding bottles; and no leaflet tacked on', /"Treat it as an archaeological find/.test(L) && /please don't remove this/.test(L) && /sometimes exploded/.test(L) && !/NHS|tetanus/.test(L));
 const wards = fs.readFileSync(__dirname + '/../client/wards.js', 'utf8');
 check('the panel fills it by hand: what goes in, the pins to bend, the cork, where, which way up', /function renderBottle/.test(wards) && /Bend pin/.test(wards) && /Cork it fast/.test(wards) && /Neck down \(as at Greenwich\)/.test(wards) && /Upright \(as at Dukes Place, Aldgate\)/.test(wards));
 

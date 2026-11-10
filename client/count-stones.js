@@ -4,6 +4,8 @@
 // and whether they're right). All text is textContent. (Top-level names carry
 // the countStones prefix: the client bundle shares one scope.)
 // ---------------------------------------------------------------------------
+import { nowNoteEl } from './now-note.js';
+
 export default function createCountStones({ send }) {
   let countStonesEl = null, countStonesInfo = null, countStonesNote = '', countStonesStage = 'first';
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
@@ -30,7 +32,7 @@ export default function createCountStones({ send }) {
     countStonesEl.appendChild(note);
     if (countStonesInfo) {
       countStonesEl.appendChild(el('div', 'countLore', countStonesInfo.lore));
-      countStonesEl.appendChild(el('div', 'countLore', countStonesInfo.practical));
+      if (countStonesInfo.note) countStonesEl.appendChild(nowNoteEl(countStonesInfo.note));
       countStonesEl.appendChild(el('div', 'countSrc', countStonesInfo.source));
     }
     const shut = el('button', 'btn countClose', 'Close');

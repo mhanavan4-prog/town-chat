@@ -44,6 +44,7 @@ import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
 import createCountStones from './count-stones.js';
+import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
@@ -4794,6 +4795,14 @@ function showNpcHintDialogue(msg) {
   document.getElementById('npcHintName').textContent = isStone ? msg.npcName : `💬 ${msg.npcName}`;
   const hintText = document.getElementById('npcHintText');
   hintText.textContent = msg.message || '';
+  // A stone may carry one modern line, folded away under its lore.
+  const oldNote = document.getElementById('npcHintNote');
+  if (oldNote) oldNote.remove();
+  if (msg.note) {
+    const noteEl = nowNoteEl(msg.note);
+    noteEl.id = 'npcHintNote';
+    hintText.after(noteEl);
+  }
   // Long lore (the memorial, the longer stones) reads better left-aligned.
   hintText.classList.toggle('longText', (msg.message || '').length > 320);
   // A standing stone has lore, not errands — no quest button on waymarkers.
