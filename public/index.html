@@ -3534,6 +3534,19 @@
   /* A written charm on the Town Board: the slip narrowing line by line */
   .scribeSlip { font:700 15px/1.25 Georgia, serif; letter-spacing:3px; color:#3a2410; background:#efe3c6; border-radius:6px; padding:6px 10px; margin:6px 0; width:max-content; min-width:10em; }
   .scribeSlip:empty { display:none; }
+  /* Caerdroia: chalk walls on turf, the loose ends to tap. */
+  .troyBoard { display:block; width:100%; max-width:300px; aspect-ratio:1; margin:6px auto; touch-action:manipulation; }
+  .troyTurf { fill:#2f4a2a; }
+  .troyWall { stroke:#efe6cf; stroke-width:3; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .troyDot { fill:#efe6cf; }
+  .troyEnd { fill:#e6c46a; stroke:#3a2410; stroke-width:1; }
+  .troyEnd.on { fill:#f08a5d; }
+  .troyHit { fill:transparent; cursor:pointer; }
+  .troySel { display:flex; align-items:center; gap:6px; font-size:12px; margin:3px 0; flex-wrap:wrap; }
+  .troySel select { max-width:100%; font-size:12px; }
+  .troyKeys { border:1px dashed rgba(230,196,106,.35); border-radius:8px; padding:6px 8px; margin:6px 0; }
+  .troyKeysLabel { font-size:12px; color:#d9c79a; margin-bottom:2px; }
+  .troyNote { font-size:12px; color:#d9c79a; margin:4px 0; min-height:1em; }
   .scribeCopy { color:#e8d9b4; font-style:italic; font-size:13px; margin:2px 0 6px; }
   .scribeSlip.copy { letter-spacing:0; font-size:13px; font-weight:400; }
   .scribeRow { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
