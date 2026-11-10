@@ -1,4 +1,5 @@
 import { makeClootieWell } from './props-clootie.js';
+import { makeCountlessRing } from './props-countless.js';
 // ---------------------------------------------------------------------------
 // The Wilds scene (Tier 3.4 Phase C, 3D slice). A second outdoor map reached
 // via the portal: buildWildsScene assembles the terrain, then its sub-builders
@@ -363,6 +364,12 @@ function buildWildsScene(w2) {
   scene.add(caveSign);
   WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
 
+  // The Nine-and-Twenty, a stone circle no one counts the same twice
+  // (props-countless.js); the counting is done at a stone outside the ring.
+  if (w2.countless) {
+    scene.add(makeCountlessRing(w2.countless, WILDS_WALLS));
+    WILDS_KIOSKS.push({ x: w2.countless.x, z: w2.countless.y + w2.countless.radius + 55, npc: 'count_stones', npcName: 'the Nine-and-Twenty', radius: 70 });
+  }
   // The clootie well: a spring and a thorn hung with rags (props-clootie.js).
   // The spring is the interact point: tie a cloot there, or read its lore.
   if (w2.clootieWell) {

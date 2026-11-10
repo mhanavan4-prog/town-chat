@@ -43,6 +43,7 @@ import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } f
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
+import createCountStones from './count-stones.js';
 import createTownScene from './town-scene.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
@@ -1738,6 +1739,7 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'count_stones_result') { _countStones.result(msg); return; }
   if (msg.type === 'npc_hint_dialogue') {
     showNpcHintDialogue(msg);
     return;
@@ -9020,6 +9022,7 @@ function wildsFlatZones() {
   const zones = [
     { x: sx, y: sy, r: 440 },              // arrival spawn
     { x: sx + 170, y: sy + 20, r: 210 },   // return portal
+    ...(world2 && world2.countless ? [{ x: world2.countless.x, y: world2.countless.y, core: world2.countless.radius + 60, r: world2.countless.radius + 320 }] : []), // the Nine-and-Twenty
     ...(world2 && world2.clootieWell ? [{ x: world2.clootieWell.x, y: world2.clootieWell.y, r: 300 }] : []), // the clootie well's spring
     { x: 5000, y: 3000, r: 780 },          // the village
     { x: 2200, y: 5000, r: 540 },          // western ritual circle (Unbound camp)
@@ -10865,6 +10868,7 @@ function addSpookyDecor(scene, w2) {
   const rng = (a, b) => a + rand() * (b - a);
   const keepClear = [ // spawn + portal approach + campfires stay walkable
     { x: w2.spawn.x, y: w2.spawn.y, r: 320 },
+    ...(w2.countless ? [{ x: w2.countless.x, y: w2.countless.y, r: w2.countless.radius + 120 }] : []), // the Nine-and-Twenty
     ...(w2.clootieWell ? [{ x: w2.clootieWell.x, y: w2.clootieWell.y, r: 160 }] : []), // the clootie well
     ...VILLAGE_PLOTS, // and nothing grows through a village wall
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 })),
@@ -16120,6 +16124,7 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _monas = createMonas({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
+const _countStones = createCountStones({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 const _kamea = createKamea({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 📜 The Charm Book — every piece of lore you've met, with its source.
@@ -18451,6 +18456,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
   if (kiosk && kiosk.npc === 'clootie') { ws.send(JSON.stringify({ type: 'cloot_tie' })); return; }
+  if (kiosk && kiosk.npc === 'count_stones') { _countStones.open(world2 && world2.countless); return; }
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
   if (kiosk && kiosk.npc === 'real_shelf') { openShelfModal(); return; }
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
@@ -18755,6 +18761,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'wolf_pact') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} howl with Lexton Greyfur`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'count_stones') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} count the stones`;
     return;
   }
   if (kiosk && kiosk.npc === 'clootie') {

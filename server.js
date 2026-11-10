@@ -1565,6 +1565,9 @@ WORLD2.menAnTol = { x: MEN.MEN_AN_TOL.x, y: MEN.MEN_AN_TOL.y, hole: MEN.MEN_HOLE
 const { PLANT_CATALOG } = require('./data/world'); // Tier 3.4 Phase A: extracted to data/
 // The clootie well in the Wilds, west of the portal (data/clootie.js; the rounds and the tying are in lib/callers.js).
 WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
+// The Nine-and-Twenty, a stone circle no one counts the same twice (data/countlessStones.js).
+const COUNT = require('./data/countlessStones');
+WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, practical: COUNT.COUNTLESS_PRACTICAL, source: COUNT.COUNTLESS_SOURCE };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
 const PLANT_KEYS = Object.keys(PLANT_CATALOG);
@@ -13175,6 +13178,32 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // Counting the Nine-and-Twenty (data/countlessStones.js): a count, then
+    // another; twice alike and right beats the record, and pays once a day.
+    if (msg.type === 'count_stones') {
+      const near = player.room === 'wilds' && Math.hypot(player.x - COUNT.COUNTLESS.x, player.y - COUNT.COUNTLESS.y) <= COUNT.COUNTLESS.radius + 260;
+      if (!near) { send(ws, { type: 'count_stones_result', ok: false, text: 'Count them at the ring itself, in the Wilds.' }); return; }
+      const n = Math.floor(Number(msg.n));
+      if (!Number.isFinite(n) || n < 1 || n > 500) { send(ws, { type: 'count_stones_result', ok: false, text: 'Give your count as a number.' }); return; }
+      if (player._countFirst === undefined || player._countFirst === null) {
+        player._countFirst = n;
+        send(ws, { type: 'count_stones_result', ok: true, stage: 'first', first: n, text: `You make it ${n}. Now walk round and count them again.` });
+        return;
+      }
+      const first = player._countFirst; player._countFirst = null;
+      const v = COUNT.countlessVerdict(first, n);
+      let xp = 0;
+      const a = player.accountKey && accounts[player.accountKey];
+      if (v.key === 'beaten' && a) {
+        const today = Math.floor(Date.now() / 86400000);
+        if (!a.countless || typeof a.countless !== 'object') a.countless = { beaten: 0, day: -1 };
+        a.countless.beaten = (a.countless.beaten || 0) + 1;
+        if (a.countless.day !== today) { a.countless.day = today; xp = COUNT.COUNTLESS_XP; grantXP(player, xp); }
+        saveAccounts();
+      }
+      send(ws, { type: 'count_stones_result', ok: true, stage: 'second', first, second: n, verdict: v.key, text: v.text + (xp ? ` +${xp} XP` : ''), xp });
+      return;
+    }
     // ── The Forbidden Shelf (roadmap #6): read today's date-seeded book at the
     //    Library's locked case. First read of a given book is logged to the
     //    player's Forbidden Archive codex; reading all of them grants a title. ──
