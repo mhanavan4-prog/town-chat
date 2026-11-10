@@ -15,5 +15,7 @@ check('…and well clear of the sign across the doorway', burn && Number(burn[1]
 check('the SATOR plate is unlit, so the hearth light can\'t wash it out', /const mat = new THREE\.MeshBasicMaterial\(\{ map: makeSatorTexture\(\) \}\);/.test(src));
 check('…and big enough to read', /new THREE\.CircleGeometry\(18, 28\)/.test(src));
 check('the VV is cut large enough to see across the room', /new THREE\.PlaneGeometry\(44, 32\), mat\);\s*mark\.name = 'marianMark'/.test(src));
+const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+check('the Monad board\'s buttons are small and side by side, not the game\'s full-width blocks', /\.monasTools \.btn \{ width:auto;/.test(html) && /#shelfContent \.monasStart \{ width:auto;/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

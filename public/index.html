@@ -4393,7 +4393,10 @@
   .monasSteps { font-size:12.5px; color:#d9c9a8; padding-left:18px; margin:4px 0 8px; }
   .monasSteps li { margin:2px 0; }
   .monasTools { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:6px 0; }
-  .monasTool.on { border-color:#ffd9a0; background:#4a3520; }
+  /* The game's .btn is a full-width block; the board's buttons are small, side by side */
+  .monasTools .btn { width:auto; margin:0; padding:5px 10px; font-size:12.5px; }
+  .monasTool.on { border-color:#ffd9a0; background:#4a3520; color:#ffe9c2; }
+  #shelfContent .monasStart { width:auto; margin-top:6px; padding:5px 12px; font-size:12.5px; }
   .monasBoard { display:block; width:min(300px, 100%); margin:0 auto; touch-action:manipulation; cursor:crosshair; }
   .monasPage { fill:#efe3c6; }
   .monasGrid { fill:#9b8460; }
