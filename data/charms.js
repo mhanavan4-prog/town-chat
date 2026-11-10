@@ -138,6 +138,27 @@ const SCRIBINGS = {
     use: 'Write the word; then write it again beneath, with the last letter taken off; and again, till it narrows to a single A. Then bind it with linen and hang it round the neck.',
     doneNote: 'Eleven lines, narrowing to an A, bound with a linen thread',
   },
+  // The toothache paper, copied out in full as the Science Museum's Scottish
+  // one has it (co106732), then folded eight times, as Kate M'Aulay's was at
+  // Kishorn in 1855 (Black, 1893). Remembered as the spoken charm 'tooth'.
+  tooth: {
+    key: 'tooth',
+    name: 'the toothache paper',
+    icon: '🦷',
+    title: 'Peter on the Marble Stone',
+    copy: true,
+    lines: [
+      'In the Name of the Lord God,',
+      'Peter sat on a marble stone weeping,',
+      'Christ came by and asked what aileth thee Peter?',
+      'Peter said, O Lord God my teeth doth ache,',
+      'Christ said arise Peter and be whole',
+      'and not only thee but all them that carries these lines for my sake',
+      'shall never have the toothache.',
+    ],
+    use: 'Copy the lines out as the Scottish paper has them, line by line, in your best hand.',
+    doneNote: 'The seven lines written out and the paper folded eight times, not to be opened',
+  },
 };
 
 // The counted workings (a 'knots' caller step names its `charm`; a wart step
