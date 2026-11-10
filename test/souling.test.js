@@ -29,7 +29,7 @@ check('…the song as Burne printed it, and Shakespeare\'s beggar at Hallowmas',
 check('…the Antrobus soul-cakers still playing; and no unchecked "1511"', /Antrobus/.test(R.lore) && !/1511/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'all_souls_souling');
 check('Margery Dutton, dated by the old calendar\'s souling day, for two days', c && c.when && c.when.calendar === 'souling' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'souling' && e.month === 11 && e.day === 2) && c.steps[0].rite === 'soul_cakes');
-check('the practical half: charity for the poorest at winter\'s start; take cakes to the old folk; go easy with the spice', /charity before they were a game/.test(c.resolution) && /old folk on the lane/.test(c.resolution) && /go easy with the spice/.test(c.resolution));
+check('the practical half: cakes for the children and the poor for a prayer; take cakes to the old folk; no unsourced spice warning', /given to the children and the poor in return for a prayer for your dead/.test(c.resolution) && /old folk on the lane/.test(c.resolution) && !/spice/.test(c.resolution));
 
 require('../server.js');
 

@@ -1405,10 +1405,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'horn_fair', label: 'Horns on, three times round the church, and everyone brought home' },
     ],
-    resolution: "You find Dick by the churchyard wall, horns askew, and stay with him till he can walk, then see him home along the river. The fair goes on without him. Then the practical half. If someone is confused, being sick, breathing slowly or unevenly, having a fit, or can't be woken, it may be alcohol poisoning: ring 999. Stay with them, because they could choke on their own sick or stop breathing. Sit them up if they're awake. If they've passed out, put them in the recovery position: legs straight, the near arm out at a right angle, the back of the other hand against their cheek, the far knee pulled up, roll them towards you onto their side, and tilt the head back to keep the airway open. Give sips of water only if they can swallow and aren't being sick, and keep them warm. No more drink, no coffee, and no cold shower or bath. And next fair: drink more slowly, with food, and water in between.",
+    resolution: "You find Dick by the churchyard wall, horns askew, and stay with him till he can walk, then see him home along the river. The fair goes on without him. Then the practical half. If someone is confused, being sick, breathing slowly or unevenly, having a fit, or can't be woken, it may be alcohol poisoning: ring 999. Stay with them, because they could choke on their own sick or stop breathing. Sit them up if they're awake. If they've passed out, put them in the recovery position: legs straight, the near arm out at a right angle, the back of the other hand against their cheek, the far knee pulled up, roll them towards you onto their side, and tilt the head back to keep the airway open. Give them sips of water if they can swallow, and keep them warm. No more drink, no coffee, and no cold shower or bath. And next fair: drink more slowly, with food, and water in between.",
     lore: "Horn Fair: the mob met at Cuckold's Point and went to Charlton in horns, 'all is fair at Horn Fair', and Defoe would have had it 'suppress'd, as a nusance and offence to all sober people'.",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 18 October · D. Defoe, A Tour thro\' the Whole Island of Great Britain (1724–27), Letter II · NHS, "Alcohol poisoning" and "The risks of drinking too much" · St John Ambulance, "Recovery position"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 18 October · D. Defoe, A Tour thro\' the Whole Island of Great Britain (1724–27), Letter II · NHS, "Alcohol poisoning" and "The risks of drinking too much" · St John Ambulance, "Recovery position"',
     reward: { gold: 40, xp: 35 },
   },
   // St Crispin's Day only (data/stCrispin.js), dated by the old calendar.
@@ -1422,10 +1422,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'st_crispin', label: 'The banner carried in King Crispin\'s procession, his will read, and the saints toasted' },
     ],
-    resolution: "Davy carries the banner the whole way and never once drops it. Then the practical half, for an apprentice now. You should have signed an apprenticeship agreement and a training plan, and your training happens in your paid working hours, in an amount agreed between you, your employer and your trainer. You must be paid at least the apprentice rate of the minimum wage, which gov.uk will tell you, and you get at least 20 days' paid holiday a year, with the bank holidays on top. And the knife: cut away from your body, keep the blade sharp, for a blunt one slips, and never leave it loose on the bench.",
+    resolution: "Davy carries the banner the whole way and never once drops it. Then the practical half, for an apprentice now. You should have signed an apprenticeship agreement and a training plan, and your training happens in your paid working hours, in an amount agreed between you, your employer and your trainer. You must be paid at least the minimum wage for apprentices, or the full rate if your age and year entitle you to it, and you get at least 20 days' paid holiday a year, with the bank holidays on top. And the knife: cut away from your body, keep the blade sharp, for a blunt one slips, and never leave it loose on the bench.",
     lore: "St Crispin's Day: the shoemakers kept holiday for their saints with a procession of King Crispin and his court (Chambers, 1864), and Agincourt was fought on it: 'This day is call'd the Feast of Crispian' (Henry V, 1623).",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 25 October · gov.uk, "Become an apprentice" · apprenticeships.gov.uk, rights and responsibilities · HSE, "Hand knives"',
+    source: 'W. Shakespeare, Henry V, IV.iii, First Folio (1623) · R. Chambers, The Book of Days (1864), 25 October · gov.uk, "Become an apprentice" · apprenticeships.gov.uk, rights and responsibilities · HSE, "Hand knives"',
     reward: { gold: 40, xp: 35 },
   },
   // Old Michaelmas only (data/mopFair.js), dated by the old calendar.
@@ -1439,10 +1439,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'mop_fair', label: 'Whipcord in the hat, stood in the street, hired for the year, and ribbons after' },
     ],
-    resolution: "Sam is hired by a fair-spoken farmer from Wilmcote, and comes back with ribbons in his hat. Then the practical half, which is the law now and not just luck. Get the terms written down: a master must give a written statement of them on the first day. Farm work must pay at least the National Minimum Wage, and almost every worker is owed 5.6 weeks' paid holiday a year. And know the bad master by the signs: one who keeps your papers, says you owe him for your keep or your travel and must work it off, or keeps your wages from you, is exploiting you. The Modern Slavery & Exploitation Helpline is 08000 121 700.",
+    resolution: "Sam is hired by a fair-spoken farmer from Wilmcote, and comes back with ribbons in his hat. Then the practical half, which is the law now and not just luck. Get the terms written down: a master must give you the main terms in writing on your first day, and the rest within two months. Farm work must pay at least the National Minimum Wage, and almost every worker is owed 5.6 weeks' paid holiday a year. And know the bad master by the signs: one who keeps your papers, says you owe him for your keep or your travel and must work it off, or keeps your wages from you, is exploiting you. The Modern Slavery & Exploitation Helpline is 08000 121 700.",
     lore: "The mop: at Old Michaelmas farm servants stood in the street with the sign of their trade in their hats, were hired for the year with an earnest shilling, and wore ribbons after (W. Pare, in Hone, 1827; Howitt, 1840).",
     tier: 'record',
-    source: 'W. Pare, in W. Hone, The Table Book (1827) · gov.uk, employment contracts, holiday entitlement and agricultural workers\' rights · Modern Slavery & Exploitation Helpline',
+    source: 'W. Pare, in W. Hone, The Table Book, vol. I (1827), cols. 171–78 · W. Howitt, The Rural Life of England (1840) · gov.uk, employment contracts, holiday entitlement and agricultural workers\' rights · Gangmasters and Labour Abuse Authority, "Spot the signs" · Modern Slavery & Exploitation Helpline',
     reward: { gold: 40, xp: 35 },
   },
   // St Simon and St Jude only (data/simonJude.js), dated by the old calendar.
@@ -1457,9 +1457,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'simon_jude', label: "Simon and Jude's rain watched for, and the ford waited out from the bank" },
     ],
     resolution: "You walk Tom down to the ford and stand with him on the bank. The water is over the third stone now, and moving. He looks at it a long while, and takes the cart back to the yard; market will keep. Then the practical half. Don't walk, ride or drive through flood water: 15cm of flowing water could knock over an adult, and 30cm could move the average family car. Flood water may carry sewage and hide holes, wreckage and lifted drain covers, so wash your hands after touching it. Sign up for free flood warnings by text, phone or email, or ring Floodline on 0345 988 1188, day or night. If the water's coming in, turn off the gas, electricity and water if it's safe, and never touch an electrical switch while you're standing in water. And ring 999 if anyone is in immediate danger.",
-    lore: "St Simon and St Jude's was 'deemed as rainy as St. Swithin's' (Hone, 1827): 'As well as I know 'twill rain upon Simon and Jude's day next' (The Roaring Girl, 1611).",
+    lore: "St Simon and St Jude's was 'deemed as rainy as St. Swithin's' (Hone, 1826): 'As well as I know 'twill rain upon Simon and Jude's day next' (The Roaring Girl, 1611).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 28 October · T. Middleton & T. Dekker, The Roaring Girl (1611), I.ii · GOV.UK, "What to do before or during a flood" · SEPA, Floodline leaflet · UKHSA, "Flooding and health"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 28 October · T. Middleton & T. Dekker, The Roaring Girl (1611), I.ii · GOV.UK, "What to do before or during a flood" · SEPA, Floodline leaflet · UKHSA, "Flooding and health"',
     reward: { gold: 40, xp: 35 },
   },
   // Allantide only (data/allantide.js), dated by the old calendar.
@@ -1473,10 +1473,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'allantide', label: 'An Allan apple for every head, one under each pillow, and the apple cross spun' },
     ],
-    resolution: "Every child goes to bed with an Allan apple under the pillow, and the kitchen smells of apples and candle. Then the practical half. Wash the apples under running water before they're eaten. Hang the spinning cross with little battery lights instead of candles, for a child's face and hair go straight at it. Keep costumes well away from any flame, buy ones with the UKCA or CE mark, and don't let the little ones carry a pumpkin with a lit candle in it. And if there's a tub of water for ducking apples, watch the smallest every minute and empty it after: a baby can drown in five centimetres of water, silently.",
-    lore: "Allantide: in west Cornwall every child had a big Allan apple to hide beneath the pillow on Allan-night (Hunt, 1865); at Penzance one each was eaten for luck, and the elder girls slept on theirs to dream of their sweethearts (Courtney, 1890).",
+    resolution: "Every child goes to bed with an Allan apple under the pillow, and the kitchen smells of apples and candle. Then the practical half. Wash the apples before they're eaten. Hang the spinning cross with little battery lights instead of candles, for a child's face and hair go straight at it. Keep costumes well away from any flame, buy ones with the UKCA or CE mark, and don't let the little ones carry a pumpkin with a lit candle in it. And keep the little ones away from any bucket or bowl of water, and empty it after: a baby can drown in as little as five centimetres.",
+    lore: "Allantide: at St Ives every child had a big Allan apple to hide beneath the pillow on Allan-night (Hunt, 1865); at Penzance one each was eaten for luck, and the elder girls slept on theirs to dream of their sweethearts (Courtney, 1890).",
     tier: 'folk',
-    source: 'R. Hunt, Popular Romances of the West of England (1865) · M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · NHS, baby and toddler safety · London Fire Brigade, Halloween costumes',
+    source: 'R. Hunt, Popular Romances of the West of England (1865) · M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · NHS, baby and toddler water safety · Food Standards Agency, on washing fruit · London Fire Brigade, Halloween costumes',
     reward: { gold: 40, xp: 35 },
   },
   // Hop-tu-Naa only (data/hopTuNaa.js), dated by the old calendar.
@@ -1490,10 +1490,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'hop_tu_naa', label: 'The moots hollowed and lit, and round the doors singing Hop-tu-Naa' },
     ],
-    resolution: "Two moots grinning and a bag full of nuts and coins. Then the practical half. The grown-up does the knife work, cutting slowly and away from the body; a turnip is harder than a pumpkin and the knife slips. Put a battery light in the moot rather than a candle, and keep a lit one off the doorstep where skirts and coats brush by. Costumes should be marked safe for children, and a child in costume shouldn't carry a candle at all. And never leave a lit moot burning on its own.",
+    resolution: "Two moots grinning and a bag full of nuts and coins. Then the practical half. The grown-up does the knife work, cutting slowly and away from the body. Put a battery light in the moot rather than a candle, and keep a lit one off the doorstep where skirts and coats brush by. Costumes should be marked safe for children, and a child in costume shouldn't carry a candle at all. And never leave a lit moot burning on its own.",
     lore: "Hop-tu-Naa: on the Isle of Man, on Hollantide Eve, the last night of the Celtic year, children went from door to door singing, once with turnips on sticks, now with turnip lanterns (Moore, 1891; Culture Vannin).",
     tier: 'record',
-    source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI · Culture Vannin, "Hop tu Naa"',
+    source: 'A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI · Culture Vannin, "Hop tu Naa" · S. Miller, Manx Notes 144 (2013) · Buckinghamshire Fire & Rescue Service, Halloween candle safety · London Fire Brigade, Halloween costumes',
     reward: { gold: 40, xp: 35 },
   },
   // The Fifth of November only (data/fifthNovember.js), dated by the old calendar.
@@ -1510,7 +1510,7 @@ const CALLERS = [
     resolution: "The Guy burns, the sparks go up, and Ned and Polly are sent to bed smelling of smoke. Then the practical half. That heap behind the wash-house has had a week for hedgehogs to crawl into: build a bonfire on the day you light it, or move the whole pile to a fresh spot just before, and light it from one side only. Build it well away from sheds, fences and trees, never use petrol or paraffin on it, keep the children and the dog back, and have a bucket of water or a hose by. Fireworks are for the grown-ups: nobody under eighteen may buy them, they're never set off or thrown in the street, and not after eleven at night, though on the Fifth it's midnight. Light them at arm's length, stand well back, and never go back to one that's been lit. If a burn happens, hold it under cool running water for twenty minutes, put no butter or cream on it, and lay cling film over it loosely.",
     lore: "The Fifth of November: children carried a Guy of straw with a dark lantern and matches round the streets in a chair, crying 'Please to remember Guy!', and burned him at nightfall (Hone, 1826; Chambers, 1864).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826), 5 November · Merseyside Fire and Rescue Service, bonfire safety · British Hedgehog Preservation Society · London Fire Brigade, the Firework Code · Fireworks Regulations 2004, reg. 7 · NHS, "Burns and scalds"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 5 November, col. 1430 · R. Chambers, The Book of Days (1864), 5 November · Merseyside Fire and Rescue Service, bonfire safety · British Hedgehog Preservation Society · London Fire Brigade, the Firework Code · Fireworks Regulations 2004, reg. 7 · NHS, "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
   // All Souls' Day only (data/souling.js), dated by the old calendar.
@@ -1524,10 +1524,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'soul_cakes', label: 'A heap of soul cakes on the board, one for every child who sings' },
     ],
-    resolution: "The heap goes down cake by cake. Then the practical half: soul cakes were charity before they were a game, a bit of food for the poorest at the start of winter in return for a prayer. Keep a few back for the old folk on the lane who don't come to the door any more, and take them round yourself. And the children have been at every house: go easy with the spice, or they'll all be sick by dark.",
+    resolution: "The heap goes down cake by cake. Then the practical half: soul cakes were given to the children and the poor in return for a prayer for your dead. Keep a few back for the old folk on the lane who don't come to the door any more, and take them round yourself.",
     lore: "Souling: on All Souls' Day children and the poor went from door to door for soul cakes, praying for the household's dead in return (Aubrey, 1680s; Burne, 1883).",
     tier: 'record',
-    source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87) · Notes and Queries (15 November 1851)',
+    source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87) · Notes and Queries (15 November 1851) · C. S. Burne, Shropshire Folk-Lore (1883–86)',
     reward: { gold: 40, xp: 35 },
   },
   // St Clement's Day only (data/stClement.js), dated by the old calendar.
@@ -1541,10 +1541,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'old_clem', label: 'Old Clem in his chair round the public houses, the speech and the box' },
     ],
-    resolution: "The box pays for the supper and some over. Then the practical half, for a forge is a dangerous place to be merry in. Eyes first: wear something over them at the anvil, and so should anyone watching. Wear cotton or wool at the fire, never anything that melts. Hot scale flies, so keep good boots on and keep it out of your gloves. Iron can look cold and still burn you to the bone: treat everything on or near the forge as hot. Never cool a gloved hand in the slack tub, for the water turns to steam inside the glove. Keep the door open while the coal burns, for the fumes have no smell. A burn goes under cold water for ten minutes. And no gunpowder on the anvil, whatever your grandfather did.",
-    lore: "Old Clem: on St Clement's Day the blacksmiths' apprentices carried one of their seniors, dressed as Old Clem, round the public houses with a speech and a money-box, for their supper (Hone, 1826; Hills, after Sawyer, 1884).",
+    resolution: "The box pays for the supper and some over. Then the practical half, for a forge is a dangerous place to be merry in. Eyes first: wear something over them at the anvil, and so should anyone watching. Wear nothing at the fire that melts, and keep good leather boots on. Iron can look cold and still burn you to the bone: treat everything on or near the forge as hot. Never cool a gloved hand in the slack tub, for the water turns to steam inside the glove. Keep the door open while the coal burns, and a carbon monoxide alarm by it, for the fumes have no smell. A burn goes under cool running water for twenty minutes, never ice, and then cling film laid loosely over it. And no gunpowder on the anvil, whatever your grandfather did.",
+    lore: "Old Clem: on St Clement's Day the blacksmiths' apprentices carried one of their seniors, dressed as Old Clem, round the public houses with a speech and a money-box, for their supper (Hone, 1826).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. I (1826), 23 November · G. P. G. Hills, "Notes on Some Blacksmiths\' Legends and the Observance of St. Clement\'s Day", Hampshire Field Club Papers, vol. 8',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 23 November · G. P. G. Hills, "Notes on Some Blacksmiths\' Legends and the Observance of St. Clement\'s Day", Hampshire Field Club Papers, vol. 8 · ABANA, Safety Policy · NHS, "Carbon monoxide poisoning" · NHS, "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
   // St Catherine's Day only (data/catterning.js), dated by the old calendar.
@@ -1558,10 +1558,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'cattern_cakes', label: 'Seed cakes, the kettle on, the pillows put away; apples for the children at the door' },
     ],
-    resolution: "The pot's empty by dark and nobody has touched a bobbin. Then the practical half, which is about what the other days of the year do to a lacemaker. Pillow lace by candlelight wears out the eyes: work by daylight while you can, sit by the window, and look up from the pillow now and then at something across the room. Get up and walk about every hour, for your back's sake. Don't keep the little ones at the pillow all day, whatever the lace schools did. And when the children come singing for apples and beer, give them the apples and the cake, and send the beer home to their mothers.",
-    lore: "Catterning: St Catherine's Day was the spinners' and the lacemakers' holiday, kept with tea, gossip and Cattern cakes, while in Worcestershire children went round for apples and beer (Hone; Channer & Roberts, 1900; Halliwell, 1849).",
+    resolution: "The pot's empty by dark and nobody has touched a bobbin. Then the practical half, which is about what the other days of the year do to a lacemaker. Close work by candlelight tires the eyes, though the College of Optometrists says it does them no lasting harm: work by daylight while you can, for comfort, sit by the window, and look up from the pillow now and then at something across the room. And when the children come singing for apples and beer, give them the apples and the cake, and send the beer home to their mothers.",
+    lore: "Catterning: St Catherine was the 'patroness of spinsters' (Hone), and the lacemakers kept her day with tea, gossip and Cattern cakes (Channer & Roberts, 1900), while in Worcestershire children went round for apples and beer (Halliwell, 1849).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900)',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900) · J. O. Halliwell, Popular Rhymes and Nursery Tales (1849) · College of Optometrists, "Eye facts and fiction"',
     reward: { gold: 40, xp: 35 },
   },
   // St Nicholas' Day only (data/boyBishop.js), dated by the old calendar.
