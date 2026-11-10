@@ -7,7 +7,7 @@
 // (when: { calendar: 'grotto_day' }).
 //
 // Sources: R. Chambers, The Book of Days (1864), 25 July; W. Hone, The
-// Every-Day Book, vol. II (1827), 25 July; Notes and Queries (11 October
+// Every-Day Book, vol. I (1826), 25 July; Notes and Queries (11 October
 // 1851), p. 270; The Leisure Hour (1856), as transcribed; N. Douglas, London
 // Street Games (1916; 1931 ed.); the Whitstable Oyster Festival; the Sea
 // Fisheries (Shellfish) Act 1967, s. 16; the Food Standards Agency; the

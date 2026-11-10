@@ -1592,7 +1592,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'st_andrew', label: 'The squirrel hunt walked, and brought home without a death or a broken hedge' },
     ],
-    resolution: "You walk with the hunt all day. There's shouting enough, but the squirrels are left in their oaks, the hedges stand, and Jem is home by dark. Then the practical half. The red squirrel is protected by law: in England and Wales it's an offence under the Wildlife and Countryside Act to intentionally kill, injure or take one, and in Scotland to do it intentionally or recklessly, or to disturb one in its drey. The grey squirrel, from North America, is an invasive species, and it's an offence to release one or let one escape into the wild, so a grey caught in the loft can't just be let go in the next wood.",
+    resolution: "You walk with the hunt all day. There's shouting enough, but the squirrels are left in their oaks, the hedges stand, and Jem is home by dark. Then the practical half. The red squirrel is protected by law: in England and Wales it's an offence under the Wildlife and Countryside Act to intentionally kill, injure or take one, in Scotland recklessly too, and everywhere it's an offence to damage its drey or disturb it there. The grey squirrel is an invasive species, and it's an offence to release one or let one escape into the wild, so a grey caught in the loft can't just be let go in the next wood.",
     lore: "St Andrew's Day: in Kent, Hasted wrote in 1798, the labourers went squirrel hunting as 'a lawless rabble', with 'guns, poles, clubs', and finished at the alehouse 'in drunkenness'; the Scots far from home met for their saint.",
     tier: 'record',
     source: 'E. Hasted, The History and Topographical Survey of the County of Kent, vol. 6 (1798), "Easling" · Wildlife and Countryside Act 1981, sch. 5 · NatureScot, "Red squirrel" · Natural Resources Wales, red and grey squirrel licensing · Invasive Alien Species (Enforcement and Permitting) Order 2019, art. 3',
@@ -1609,7 +1609,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'st_lucy', label: 'Out in the short light, and one candle in the window at dusk' },
     ],
-    resolution: "Thomasin sits by the candle a while and says she feels a little lighter for the company. Then the practical half. If the dark months bring you low every year, with low mood, no joy in what you usually love, sleeping more and still tired, that has a name, seasonal affective disorder, and it can be treated: see a GP. Get out into the daylight every day you can, and a light box helps some people. From October to March we don't make enough vitamin D from the sun, so a daily supplement of 10 micrograms is worth taking. If the low ever turns to thoughts of harming yourself, tell someone straight away: a GP, NHS 111, or the Samaritans on 116 123. And the candle: never leave it burning in an empty room, keep it away from curtains and hair, or use a battery one, which gives the same light.",
+    resolution: "Thomasin sits by the candle a while and says she feels a little lighter for the company. Then the practical half. If the dark months bring you low every year, with low mood, no joy in what you usually love, sleeping more and still tired, that has a name, seasonal affective disorder, and it can be treated: see a GP. Get out into the daylight every day you can, and a light box helps some people. From October to early March we don't make enough vitamin D from the sun, so a daily supplement of 10 micrograms is worth taking. If the low ever turns to thoughts of harming yourself, tell someone straight away: a GP, NHS 111, or the Samaritans on 116 123; and if someone is about to act on them, ring 999. And the candle: never leave it burning in an empty room, keep it away from curtains and hair, or use a battery one, which gives the same light.",
     lore: "St Lucy's Day: reckoned the shortest day under the old calendar, 'the yeares midnight' (Donne, 1633), and 'Lucy light, the shortest day and the longest night' (Ray, 1678).",
     tier: 'record',
     source: 'J. Donne, Poems (1633) · J. Ray, English Proverbs (1678) · NHS, "Seasonal affective disorder (SAD)" and "Vitamin D" · Greater Manchester Fire and Rescue, candle safety',
@@ -1627,9 +1627,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'gooding', label: 'Round the better houses with the bag, a sprig of green at every door' },
     ],
     resolution: "The bag is heavy by dark, and Ann holds her head up at the last door. Then the practical half, for gooding was the poor having to ask, and asking is hard. Give where nobody has to ask. If you give to a charity, look its name and number up on the Charity Commission's register, and never let a collector at the door hurry you. A food bank wants tins and long-life things in winter (tinned meat and fish, tinned meals, soup, long-life milk), not fresh food, and your own will tell you what it's short of. And in a cold spell go round the old folk on the lane yourself: are they warm enough at night, and have they food and their medicines in?",
-    lore: "Going a-gooding: on St Thomas's Day, the shortest day, women went round the better houses for money and the poor for corn, giving sprigs of green in return; the parson gave a shilling a head (Hone; Chambers, 1864).",
+    lore: "Going a-gooding: on St Thomas's Day, the shortest day, women went round the better houses for money and the poor for corn, giving sprigs of green in return; in Staffordshire the parson gave a shilling a head (Hone; Chambers, 1864).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 21 December · R. Chambers, The Book of Days (1864), 21 December',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 21 December, col. 1586 · R. Chambers, The Book of Days (1864), 21 December · Charity Commission, giving with confidence · The Trussell Trust, food donations',
     reward: { gold: 40, xp: 35 },
   },
   // Helston Furry Day only (data/furryDay.js), dated by the old calendar.
@@ -1643,10 +1643,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'furry_day', label: 'The summer brought home, the Furry danced through the streets, and a worker made to leap' },
     ],
-    resolution: "Kitto dances the Furry from one end of the street to the other, and won't stop talking about it. Then the practical half. If you wear lily of the valley, keep it from children and pets: it's poisonous if eaten, and wear gloves to pick it. A day's dancing in May sun is hot work: drink plenty of water through the day, even before you're thirsty, and keep out of the strongest sun between eleven and three. If someone's faint and clammy, get them somewhere cool, lying down with their feet up, and give them water; they should feel better within half an hour, and if not, ring 999. In a big crowd, children should carry a parent's phone number, a wristband is best, and know where the lost children are taken. And no one need leap a river for a forfeit: a narrow place can still be deep.",
+    resolution: "Kitto dances the Furry from one end of the street to the other, and won't stop talking about it. Then the practical half. If you wear lily of the valley, keep it from children and pets: it's poisonous if eaten, and wear gloves to pick it. A day's dancing in May sun is hot work: drink plenty of water through the day, even before you're thirsty, and keep out of the strongest sun between eleven and three. If someone's faint and clammy, get them somewhere cool, take off any extra layers, give them plenty of water, and cool their skin with a wet cloth and a fan; they should feel better within half an hour, and if not, ring 999. In a big crowd, write a parent's phone number on each child's arm, take a photo of them as you set out, and if one goes missing tell a steward or a police officer at once.",
     lore: "Helston Furry Day: the town went out early to bring home 'the Summer and the May, O!', danced the Furry through the streets, and made anyone found at work leap the river (The Gentleman's Magazine, 1790; Hone, 1827).",
     tier: 'record',
-    source: "The Gentleman's Magazine (1790) · RHS, Convallaria majalis · NHS, \"Heat exhaustion and heatstroke\" · Met Office, keeping cool in the heat",
+    source: "The Gentleman's Magazine (1790) · W. Hone, The Every-Day Book, vol. II (1827), 8 May, col. 648 · RHS, Convallaria majalis · NHS, \"Heat exhaustion and heatstroke\" · Met Office, keeping cool in the heat · Notting Hill Carnival, \"Safety\"",
     reward: { gold: 40, xp: 35 },
   },
   // Rogationtide only (data/rogation.js), dated by Easter through the old calendar.
@@ -1663,7 +1663,7 @@ const CALLERS = [
     resolution: "The boys know every mark now, and the new man has put the hedge back. Then the practical half: a boundary kept only in old men's heads dies with them, so write it down. A public path is safe in law if it is on the council's definitive map; in England there is still a cut-off date, 1 January 2031, after which old paths not yet claimed may be lost (the government has said it will repeal it, but until it does, get them claimed). And the Land Registry's plans show only the general line of a boundary, not the exact one, and the Registry won't settle a quarrel: walk it with your neighbour, talk it through, and put what you agree in writing.",
     lore: "Beating the bounds: in Rogation week the parson, officers and boys walked the parish boundary, the boys striking the marks with willow wands, so the bounds would be remembered (Injunctions, 1559; Hone, 1826).",
     tier: 'record',
-    source: 'Royal Injunctions of 1559, XVIII–XIX · W. Hone, The Every-Day Book, vol. I (1826), 12 May',
+    source: 'Royal Injunctions of 1559, XVIII–XIX · W. Hone, The Every-Day Book, vol. I (1826), 12 May · Gloucestershire County Council, "The 2031 cut-off of the definitive map" · HM Land Registry, "Boundaries and boundary disputes"',
     reward: { gold: 40, xp: 35 },
   },
   // The Rush-bearing Saturday only (data/rushbearing.js), dated by the old calendar.
@@ -1677,10 +1677,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'rushbearing', label: 'The bearing made, carried to church behind the band, and set by the pulpit' },
     ],
-    resolution: "Bella's harp is the best in the procession, and she has her gingerbread. Then the practical half. Cut the rushes, never pull them up: uprooting a wild plant is against the law, and the field is somebody's, so ask first. Leave the rushy corners alone from April to June, for lapwing, curlew and snipe nest in the rushes and a nest in use is protected; Gilbert White says the rush is best in the height of summer anyway. If you'd make rushlights of the leavings, as he did at Selborne: peel the soft rush, leaving 'one regular, narrow, even rib' to hold the pith, bleach it in the dew, dry it, and dip it in scalding fat, with the pan on a steady hob and the children out of the way. A rushlight is a naked flame, so never leave one burning in an empty room, keep it out of reach of children and pets, and put it out before you sleep.",
+    resolution: "Bella's harp is the best in the procession, and she has her gingerbread. Then the practical half. Cut the rushes, never pull them up: uprooting a wild plant is against the law, and the field is somebody's, so ask first. Leave the rushy corners alone from April to June, for wading birds nest in the rushes and a nest in use is protected; Gilbert White says the rush is best in the height of summer anyway. If you'd make rushlights of the leavings, as he did at Selborne: peel the soft rush, leaving 'one regular, narrow, even rib' to hold the pith, bleach it in the dew, dry it, and dip it in scalding fat, with the children out of the way. A rushlight is a naked flame, so never leave one burning in an empty room, keep it out of reach of children and pets, and put it out before you sleep.",
     lore: "Rush-bearing: at Ambleside some forty girls carried bearings of rushes and flowers to church behind a band and set them round the pulpit and pews, and had gingerbread at the church door (The Gentleman's Magazine, 1823 and 1843).",
     tier: 'record',
-    source: "The Gentleman's Magazine (1823), pt 2, p. 173, and (1843), pt 2, p. 572 · G. White, The Natural History of Selborne (1789), Letter XXVI to Barrington",
+    source: "The Gentleman's Magazine (1823), pt 2, p. 173, and (1843), pt 2, p. 572 · G. White, The Natural History of Selborne (1789), Letter XXVI to Barrington · Wildlife and Countryside Act 1981, ss. 1 and 13 · Game & Wildlife Conservation Trust, on rush management · Greater Manchester Fire and Rescue, candle safety",
     reward: { gold: 40, xp: 35 },
   },
   // Wakes Monday at Abbots Bromley only (data/hornDance.js), dated by the old calendar.
@@ -1694,7 +1694,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'horn_dance', label: 'The horns fetched from the church, carried round the parish, and brought home after dark' },
     ],
-    resolution: "Arthur brings the white horns home with the others after dark, and never once dropped them. Then the practical half, for a day on your feet. Wear comfortable boots that fit, and change your socks if your feet sweat; if a blister comes, don't burst it, but cover it with a soft plaster. Where the lanes have no pavement, a procession keeps to the left, close in, with someone watching at the front and back, and in poor light wears something bright. And for the horns: keep the load close in, don't twist or lean under it, and carry no more than you can easily manage. Hand it on before you have to drop it.",
+    resolution: "Arthur brings the white horns home with the others after dark, and never once dropped them. Then the practical half, for a day on your feet. Wear comfortable boots that fit, and change your socks if your feet sweat; if a blister comes, don't burst it, but cover it with a soft plaster. Where the lanes have no pavement, a procession keeps to the left, with look-outs at the front and back, in bright clothes by day and reflective ones in the dark. And for the horns: keep the load close in, don't twist or lean under it, and carry no more than you can easily manage. Hand it on before you have to drop it.",
     lore: "The Horn Dance: on Wakes Monday six deer-men carry reindeer antlers round Abbots Bromley all day; Plot (1686) knew it as a Christmas hobby-horse dance, already only 'within memory'.",
     tier: 'record',
     source: 'R. Plot, The Natural History of Stafford-shire (1686) · NHS, "Blisters" · The Highway Code, rules 3 and 5 · HSE, "Good handling technique"',
@@ -1711,10 +1711,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'bartholomew_fair', label: 'Roast pig, the ballad heard with a hand on the purse, and everyone brought home' },
     ],
-    resolution: "You find Kit by the pig booths, nose to the roasting, and Nan holds her hand the rest of the day. The purse is gone for good. Then the practical half. If the thief is still about, or anyone is in danger, ring 999; otherwise report it on 101 or online, and shout out to warn others. If there were cards in it, ring your bank straight away. Keep your wallet and valuables close: pickpockets work by distraction, or by bumping into you in a crowd, and a zipped bag doesn't mean you're totally safe. Before you go in, agree a meeting point in case you're separated, and take a photo of the children as you leave home, so you can show a steward or a police officer what they look like; if anyone is lost, find a steward or a police officer at once.",
-    lore: "Bartholomew Fair: chartered in 1133, the great cloth fair and later London's rowdiest, where Jonson's ballad-singer warned against 'cutting a purse' while the purses were cut.",
+    resolution: "You find Kit by the pig booths, nose to the roasting, and Nan holds her hand the rest of the day. The purse is gone for good. Then the practical half. If the thief is still about, or anyone is in danger, ring 999; otherwise report it on 101, and shout out to warn others. Keep your wallet and valuables close: pickpockets work by distraction, or by bumping into you in a crowd, and a zipped bag doesn't mean you're totally safe. Before you go in, agree a meeting point in case you're separated, and take a photo of the children as you leave home, so you can show a steward or a police officer what they look like; if anyone is lost, find a steward or a police officer at once.",
+    lore: "Bartholomew Fair: chartered, Morley gives it, in 1133, the great cloth fair and later London's rowdiest, where Jonson's ballad-singer warned against 'cutting a purse' while the purses were cut.",
     tier: 'record',
-    source: 'Ben Jonson, Bartholomew Fair (1614), as Hone quotes it · City of London Police, "Pickpocketing" · Metropolitan Police, "Staying safe in London" · Notting Hill Carnival, "Safety" · RBKC, "How to be safe at Carnival"',
+    source: 'H. Morley, Memoirs of Bartholomew Fair (1859) · E. A. Webb, Records of St Bartholomew\'s Priory, vol. 1 (1921) · Ben Jonson, Bartholomew Fair (1614), as Hone quotes it · City of London Police, "Pickpocketing" · Metropolitan Police, "Staying safe in London" · Notting Hill Carnival, "Safety" · RBKC, "How to be safe at Carnival"',
     reward: { gold: 40, xp: 35 },
   },
   // The Ould Lammas Fair only (data/ouldLammasFair.js), dated by the old calendar.
@@ -1728,10 +1728,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'ould_lammas_fair', label: 'Dulse and yellowman bought, and the pony looked over before any hand is shaken' },
     ],
-    resolution: "You watch the pony caught, led up and down the street, and handled, and Dan asks for the papers. The dealer's passport is for a different pony entirely. Dan keeps his money, buys his girl yellowman instead, and goes home to find a pony the right way. Then the practical half. In Northern Ireland every horse, pony and donkey must have a passport, and one born on or after 1 July 2009 must be microchipped too. Ask to see the passport in person, and check that the chip matches it; be very wary of a seller who can't produce one. Have the pony vetted before you buy, take someone experienced with you, watch it caught, groomed, tacked up and handled, and don't buy on impulse. Once it's yours, update the ownership on the Central Equine Database; you can be fined up to £5,000 for a passport that isn't up to date.",
-    lore: "The Ould Lammas Fair: by 1831 the last Tuesday in August at Ballycastle, for 'Raghery ponies, horses, cattle, sheep' (Lewis, 1837), and for dulse and yellowman.",
+    resolution: "You watch the pony caught, led up and down the street, and handled, and Dan asks for the papers. The dealer's passport is for a different pony entirely. Dan keeps his money, buys his girl yellowman instead, and goes home to find a pony the right way. Then the practical half. In Northern Ireland every horse, pony and donkey must have a passport, and one born on or after 1 July 2009 must be microchipped too. Ask to see the passport in person, and check that the chip matches it; be very wary of a seller who can't produce one. Have the pony vetted before you buy, take someone experienced with you, watch it caught, groomed, tacked up and handled, and don't buy on impulse. Once it's yours, tell the passport office, so the Central Equine Database is updated; you can be fined up to £5,000 for a passport that isn't up to date.",
+    lore: "The Ould Lammas Fair: by 1831 a fair on the last Tuesday in August at Ballycastle (Ordnance Survey Memoir), for 'Raghery ponies, horses, cattle, sheep' (Lewis, 1837); and now for dulse and yellowman.",
     tier: 'record',
-    source: 'S. Lewis, A Topographical Dictionary of Ireland (1837) · DAERA, "Horse passports" · British Horse Society, "Buying a horse" · World Horse Welfare, "Buying or selling a horse"',
+    source: 'Ordnance Survey Memoir, Ballycastle (1831) · S. Lewis, A Topographical Dictionary of Ireland (1837) · Ulster-Scots Agency, "Yellowman" · DAERA, "Horse passports" · British Horse Society, "Buying a horse" · World Horse Welfare, "Buying or selling a horse"',
     reward: { gold: 40, xp: 35 },
   },
   // The Lammas term only (data/lammasTerm.js), dated by the old calendar.
@@ -1745,10 +1745,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'lammas_term', label: 'The hay-time seen in, the Lammas fair walked, and the term set right' },
     ],
-    resolution: "You go with Jamie to the farm, and before he lifts a fork the terms are put on paper, at the proper rate. The farmer grumbles that it was never so in his day; it was, near enough. Then the practical half. An employer must give a written statement of the main terms of the job on the first day, and a fuller one within two months. On a farm in Scotland the Agricultural Wages Order sets the minimum: from 1 April 2026, £12.71 an hour at any age, with more for a qualified worker and a lower rate only for apprentices; overtime is time and a half after 8 hours in a day or 48 in a week. Off the farm the national minimum for 18- to 20-year-olds is lower, £10.85, so it matters which kind of work it is. Keep your payslips; the Scottish Agricultural Wages Board can be reached at sawb@gov.scot.",
+    resolution: "You go with Jamie to the farm, and before he lifts a fork the terms are put on paper, at the proper rate. The farmer grumbles that it was never so in his day; it was, near enough. Then the practical half. An employer must give a written statement of the main terms of the job on the first day, and a fuller one within two months. On a farm in Scotland the Agricultural Wages Order sets the minimum: from 1 April 2026, £12.71 an hour at any age, with more for a qualified worker and a lower rate only for apprentices; overtime is time and a half after 8 hours in a day or 48 in a week (39 once you've worked there 26 weeks). Off the farm the national minimum for 18- to 20-year-olds is lower, £10.85, so it matters which kind of work it is. Keep your payslips; the Scottish Agricultural Wages Board can be reached at sawb@gov.scot.",
     lore: "Lammas term: 'It fell about the Lammas tide, / When the muir-men win their hay'; in Scotland Lammas was one of the old term-days, a money-term, and at the St Andrews Lammas fair the country folk came 'feeing'.",
     tier: 'record',
-    source: 'Scottish National Dictionary, "Term" and "Fee" · GOV.UK, "Employment contracts and conditions" and "National Minimum Wage rates" · Agricultural Wages (Scotland) Order (No. 73) 2026',
+    source: 'The Battle of Otterbourne, Child 161C (Scott, Minstrelsy of the Scottish Border) · Scottish National Dictionary, "Term" and "Fee" · GOV.UK, "Employment contracts and conditions" and "National Minimum Wage rates" · Agricultural Wages (Scotland) Order (No. 73) 2026',
     reward: { gold: 40, xp: 35 },
   },
   // Puck Fair only (data/puckFair.js), dated by the old calendar.
@@ -1762,10 +1762,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'puck_fair', label: 'King Puck crowned and raised, brought down at the Scattering, and back to the mountain' },
     ],
-    resolution: "King Puck is crowned, comes down sound, and goes back up the mountain at a trot. Then the practical half. A goat in your keeping, even for three days, is yours to look after: the law says he must be kept so his health and welfare are safe, and causing him needless suffering is an offence. So no poking through bars, shade and water for him, and if the day turns hot he comes down, as the vet ordered in 2022. And with wild goats on the mountain, keep thirty metres back from a grazing herd, keep the dog on its lead, and leave a kid on its own well alone.",
-    lore: "Puck Fair: at Killorglin a wild goat is crowned King Puck and raised over the square for the fair; the goat is first written of in 1837 (Lewis), the fair rests on a patent of 1613.",
+    resolution: "King Puck is crowned, comes down sound, and goes back up the mountain at a trot. Then the practical half. A goat in your keeping, even for three days, is yours to look after: the law says he must be kept so his health and welfare are safe, and causing him needless suffering is an offence. So no poking through bars, shade and water for him, and if the day turns hot he comes down, as the vet and the organisers decided in 2022. And with wild goats on the mountain, keep thirty metres back from a grazing herd, keep the dog on its lead, and leave a kid on its own well alone.",
+    lore: "Puck Fair: at Killorglin a wild goat is crowned King Puck and raised over the square; the goat is first written of in 1837 (Lewis), and the fair is said to rest on a patent of 1613.",
     tier: 'folk',
-    source: 'S. Lewis, A Topographical Dictionary of Ireland (1837) · Animal Health and Welfare Act 2013, ss. 11–12 · Old Irish Goat Society',
+    source: 'S. Lewis, A Topographical Dictionary of Ireland (1837), "Killorglin" · S. Moraghan, Puck Fair: A History (2013) · Irish Examiner (12 August 2022) · Animal Health and Welfare Act 2013, ss. 11–12 · Old Irish Goat Society',
     reward: { gold: 40, xp: 35 },
   },
   // Grotto Day only (data/grotto.js), dated by the old calendar.
@@ -1779,10 +1779,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'grotto', label: 'A grotto of oyster shells in the corner, a candle in the top, lit at dusk' },
     ],
-    resolution: "The grotto glows till bedtime and the cap is full of pennies. Then the practical half, which is the oysters and the candle. The old rule of eating oysters only when there's an R in the month keeps you off the native oysters while they spawn in summer, when by law they may not be sold; it doesn't keep you safe. Raw oysters can carry the winter vomiting bug, and more in the cold months than the warm, so the very young, the old, anyone unwell and anyone with child shouldn't eat them raw; cooked through, they're safe. And a candle among a crowd of children wants a grown-up by it, out of reach of small hands, and never left burning alone.",
+    resolution: "The grotto glows till bedtime and the cap is full of pennies. Then the practical half, which is the oysters and the candle. The old rule of eating oysters only when there's an R in the month keeps you off the native oysters while they spawn in summer, when by law they may not be sold; it doesn't keep you safe. Raw oysters can carry the winter vomiting bug, and more in the cold months than the warm, so the very young, the old, anyone unwell and anyone with child shouldn't eat them raw; cooked through, the norovirus is killed. And a candle among a crowd of children wants a grown-up by it, out of reach of small hands, and never left burning alone.",
     lore: "Grotto Day: on Old St James's Day London children built grottoes of oyster shells with a candle in the top and begged a penny to \"Mind the grotto!\" (Chambers, 1864).",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 25 July · W. Hone, The Every-Day Book, vol. II (1827), 25 July',
+    source: 'R. Chambers, The Book of Days (1864), 25 July · W. Hone, The Every-Day Book, vol. I (1826), 25 July · Sea Fisheries (Shellfish) Act 1967, s. 16 · Food Standards Agency, norovirus in oysters · Greater Manchester Fire and Rescue, candle safety',
     reward: { gold: 40, xp: 35 },
   },
   // May Eve only (data/mayEve.js), dated by the old calendar.
