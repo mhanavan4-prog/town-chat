@@ -367,7 +367,7 @@ function buildWildsScene(w2) {
   // The Nine-and-Twenty, a stone circle no one counts the same twice
   // (props-countless.js); the counting is done at a stone outside the ring.
   if (w2.countless) {
-    scene.add(makeCountlessRing(w2.countless, WILDS_WALLS));
+    scene.add(makeCountlessRing(w2.countless, WILDS_WALLS, KK));
     WILDS_KIOSKS.push({ x: w2.countless.x, z: w2.countless.y + w2.countless.radius + 55, npc: 'count_stones', npcName: 'the Nine-and-Twenty', radius: 70 });
   }
   // The clootie well: a spring and a thorn hung with rags (props-clootie.js).
@@ -391,7 +391,7 @@ function buildWildsScene(w2) {
   // The Crick-stone: crawl through it nine times against the sun (the server
   // counts); its lore, and the brass pins, at the stone like a waymarker.
   if (w2.menAnTol) {
-    scene.add(makeMenAnTol(w2.menAnTol, WILDS_WALLS, makeSignSprite));
+    scene.add(makeMenAnTol(w2.menAnTol, WILDS_WALLS, makeSignSprite, KK));
     WILDS_KIOSKS.push({ x: w2.menAnTol.x, z: w2.menAnTol.y + 80, npc: 'waymark', markerId: 'men_an_tol', npcName: 'the Crick-stone', radius: 60 });
   }
 

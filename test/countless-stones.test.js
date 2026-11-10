@@ -28,7 +28,7 @@ check('one plain line, folded under the count: protected, don\'t climb, take not
 const X = C.COUNTLESS.x, Y = C.COUNTLESS.y, R = C.COUNTLESS.radius;
 check('clear of the clootie well, the Crick-stone, the Shepherd\'s Race and the portal, and inside the ring no tree is scattered into', Math.hypot(X - 4400, Y - 8200) > R + 200 && Math.hypot(X - 5100, Y - 7800) > R + 300 && Math.hypot(X - 5600, Y - 8400) > R + 445 && Math.hypot(X - 5000, Y - 8800) + R < 1300);
 const scene = fs.readFileSync(__dirname + '/../client/wilds-scene.js', 'utf8'), main = fs.readFileSync(__dirname + '/../client/main.js', 'utf8');
-check('the Wilds draws the ring and puts the counting stone outside it', /makeCountlessRing\(w2\.countless, WILDS_WALLS\)/.test(scene) && /npc: 'count_stones'/.test(scene) && /kiosk\.npc === 'count_stones'\) \{ _countStones\.open/.test(main));
+check('the Wilds draws the ring and puts the counting stone outside it', /makeCountlessRing\(w2\.countless, WILDS_WALLS(, KK)?\)/.test(scene) && /npc: 'count_stones'/.test(scene) && /kiosk\.npc === 'count_stones'\) \{ _countStones\.open/.test(main));
 
 require('../server.js');
 setTimeout(() => {
