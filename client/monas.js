@@ -73,6 +73,10 @@ export default function createMonas({ send }) {
         if (x < lat.xMin || x > lat.xMax || y < lat.yMin || y > lat.yMax) return;
         const [gx, gy] = px([x, y]);
         if (Math.hypot(bx - gx, by - gy) > 9) return;
+        tapPoint(x, y);
+      });
+    }
+    function tapPoint(x, y) {
         taps.push([x, y]);
         const t = TOOLS.find((q) => q.key === tool);
         if (taps.length >= t.taps) {
@@ -82,10 +86,31 @@ export default function createMonas({ send }) {
           taps = [];
         }
         render(container, info, onBack);
-      });
     }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `The page: ${elements.length} mark${elements.length === 1 ? '' : 's'} drawn${taps.length ? `, a point chosen at ${taps[0][0]} across, ${taps[0][1]} up` : ''}.`);
     container.appendChild(svg);
-    container.appendChild(el('div', 'hexNote', done ? 'The Monad stands on the page.' : note));
+    if (!pending && !done) {
+      // By keys: choose a point by its parts across and up from A, and use it.
+      const kb = el('div', 'kbPanel');
+      kb.setAttribute('role', 'group');
+      kb.setAttribute('aria-label', 'Or choose points by keys');
+      kb.appendChild(el('div', 'kbLabel', 'Or choose points by keys, in parts from A:'));
+      const sel = (label, lo, hi, val) => {
+        const w = el('label', 'kbSlider'); w.appendChild(el('span', '', label + ' '));
+        const s2 = document.createElement('select'); s2.setAttribute('aria-label', label);
+        for (let v = lo; v <= hi; v++) { const o = document.createElement('option'); o.value = String(v); o.textContent = String(v); if (v === val) o.selected = true; s2.appendChild(o); }
+        w.appendChild(s2); kb.appendChild(w); return s2;
+      };
+      const sx = sel('Across (left is minus)', lat.xMin, lat.xMax, 0), sy = sel('Up (down is minus)', lat.yMin, lat.yMax, 0);
+      const use = el('button', 'btn kbBtn', 'Use this point');
+      use.addEventListener('click', () => tapPoint(Number(sx.value), Number(sy.value)));
+      kb.appendChild(use);
+      container.appendChild(kb);
+    }
+    const noteEl = el('div', 'hexNote', done ? 'The Monad stands on the page.' : note);
+    noteEl.setAttribute('aria-live', 'polite');
+    container.appendChild(noteEl);
     const row = el('div', 'monasTools');
     if (!done) {
       const undo = el('button', 'btn', 'Undo');

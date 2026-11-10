@@ -183,11 +183,38 @@ export default function createOgham({ send, place }) {
       svg.addEventListener('pointerup', lift);
       svg.addEventListener('pointercancel', lift);
     }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `The stave, its edge running up the middle: ${carving.cuts.length} cut${carving.cuts.length === 1 ? '' : 's'} made.`);
     bench.appendChild(svg);
     const side = el('div', 'ogBenchSide');
     side.appendChild(el('div', 'ogNote', 'The letter, as it should read:'));
     side.appendChild(oghamStaveSvg(o.aicme, o.n, 96));
-    side.appendChild(el('div', 'ogNote', carving.done ? `${o.name} is cut. The stave is yours.` : carving.note));
+    const noteEl = el('div', 'ogNote', carving.done ? `${o.name} is cut. The stave is yours.` : carving.note);
+    noteEl.setAttribute('aria-live', 'polite');
+    side.appendChild(noteEl);
+    if (!carving.pending && !carving.done) {
+      // By keys: each button cuts one stroke of that kind, the next one up the
+      // stave, evenly spaced, as a steady hand would.
+      const kb = el('div', 'ogKeys');
+      kb.setAttribute('role', 'group');
+      kb.setAttribute('aria-label', 'Or cut by keys');
+      kb.appendChild(el('div', 'ogNote', 'Or cut by keys:'));
+      const S = B.stemX;
+      const nextY = () => 200 - carving.cuts.length * 12;
+      const kinds = [
+        ['Cut to the right of the edge', (y) => ({ x1: S, y1: y, x2: S + 35, y2: y })],
+        ['Cut to the left of the edge', (y) => ({ x1: S, y1: y, x2: S - 35, y2: y })],
+        ['Cut slanting across the edge', (y) => ({ x1: S - 25, y1: y + 8, x2: S + 25, y2: y - 8 })],
+        ['Notch the edge', (y) => ({ x1: S, y1: y, x2: S, y2: y })],
+      ];
+      for (const [label, mk] of kinds) {
+        const b = el('button', 'btn ogCastBtn', label);
+        b.disabled = carving.cuts.length >= 12;
+        b.addEventListener('click', () => { carving.cuts.push(mk(nextY())); carving.note = `${carving.cuts.length} cut${carving.cuts.length === 1 ? '' : 's'} on the stave.`; render(); });
+        kb.appendChild(b);
+      }
+      side.appendChild(kb);
+    }
     if (!carving.done) {
       const undo = el('button', 'btn ogCastBtn', 'Undo the last cut');
       undo.disabled = !carving.cuts.length || !!carving.pending;

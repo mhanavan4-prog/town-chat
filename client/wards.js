@@ -216,8 +216,26 @@ export default function createWards({ send }) {
     const at = (e) => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) * 260 / r.width, (e.clientY - r.top) * 260 / r.height]; };
     return { svg, add, at };
   }
+  // The same drawing by keys: a row of buttons a keyboard or screen reader can
+  // reach, each doing what a tap on the board would.
+  function keysPanel(body, label, items) {
+    const box = el('div', 'kbPanel');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', label);
+    box.appendChild(el('div', 'kbLabel', label));
+    for (const it of items) {
+      if (it.node) { box.appendChild(it.node); continue; }
+      const b = el('button', 'btn kbBtn', it.text);
+      if (it.aria) b.setAttribute('aria-label', it.aria);
+      b.disabled = !!it.disabled;
+      b.addEventListener('click', it.on);
+      box.appendChild(b);
+    }
+    body.appendChild(box);
+  }
+  const live = (node) => { node.setAttribute('aria-live', 'polite'); return node; };
   function drawFooter(body, idleLabel) {
-    body.appendChild(el('div', 'hexNote', draw.done ? 'Done.' : draw.note));
+    body.appendChild(live(el('div', 'hexNote', draw.done ? 'Done.' : draw.note)));
     if (draw.slips && !draw.done) body.appendChild(el('div', 'hexSlips', `Tried ${draw.slips} time${draw.slips === 1 ? '' : 's'} so far.`));
     const back = el('button', 'btn wardBtn wardBack', draw.done ? 'Back to the house' : idleLabel);
     back.addEventListener('click', () => { draw = null; render(); });
@@ -285,7 +303,13 @@ export default function createWards({ send }) {
       svg.addEventListener('pointerup', lift);
       svg.addEventListener('pointercancel', lift);
     }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `The hearth beam: ${draw.cuts.length} of 4 cuts made${draw.anchor ? `; the knife waits on the ${draw.anchor.t} nick ${draw.anchor.i + 1}` : ''}.`);
     body.appendChild(svg);
+    if (!draw.done && !draw.pending) {
+      const tapNick = (n) => { if (draw.anchor && (draw.anchor.t !== n.t || draw.anchor.i !== n.i)) marianCut(draw.anchor, n); else { draw.anchor = n; draw.note = `The knife is on the ${n.t} nick ${n.i + 1}. Choose the other end of the cut.`; } render(); };
+      keysPanel(body, 'Or cut by keys: choose a nick, then the other end', marianNicks().map((n) => ({ text: `${n.t === 'top' ? 'Top' : 'Bottom'} ${n.i + 1}`, aria: `${n.t} nick ${n.i + 1} of ${n.t === 'top' ? 5 : 4}, counting from the left`, on: () => tapNick(n) })));
+    }
     drawFooter(body, 'Put the knife down');
   }
 
@@ -344,7 +368,15 @@ export default function createWards({ send }) {
       svg.addEventListener('pointerup', lift);
       svg.addEventListener('pointercancel', lift);
     }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `The shield: ${Math.max(0, draw.seq.length - 1)} of 5 lines drawn${draw.drawing ? ', the brush still down' : ''}.`);
     body.appendChild(svg);
+    if (!draw.done && !draw.pending) {
+      const names = ['top', 'upper right', 'lower right', 'lower left', 'upper left'];
+      const items = pts.map((p, i) => ({ text: `${i + 1} · ${names[i]}`, aria: `Point ${i + 1}, ${names[i]}`, on: () => { if (!draw.drawing) pentStart(p[0], p[1]); else pentMove(p[0], p[1]); render(); } }));
+      items.push({ text: 'Lift the brush', disabled: !draw.drawing, on: () => { pentLift(); render(); } });
+      keysPanel(body, 'Or by keys: the points in order, brush down from the first, then lift', items);
+    }
     drawFooter(body, 'Put the brush down');
   }
 
@@ -411,7 +443,37 @@ export default function createWards({ send }) {
       svg.addEventListener('pointerup', lift);
       svg.addEventListener('pointercancel', lift);
     }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', draw.done ? 'The door frame, with a tear-shaped burn mark.' : 'The door frame and a lit taper beneath it.');
     body.appendChild(svg);
+    if (!draw.done && !draw.pending) {
+      // By keys: set the slant, then hold the flame to the wood and take it away.
+      if (draw.kbAngle === undefined) draw.kbAngle = 0;
+      const wrap = el('label', 'kbSlider');
+      wrap.appendChild(el('span', '', 'Slant from upright: '));
+      const rng = document.createElement('input');
+      rng.type = 'range'; rng.min = '0'; rng.max = '90'; rng.step = '5'; rng.value = String(draw.kbAngle);
+      rng.setAttribute('aria-label', 'Slant of the taper, in degrees from upright');
+      const val = el('span', '', `${draw.kbAngle}°`);
+      rng.addEventListener('input', () => { draw.kbAngle = Number(rng.value); val.textContent = `${draw.kbAngle}°`; });
+      wrap.appendChild(rng); wrap.appendChild(val);
+      const readout = live(el('div', 'kbReadout', ''));
+      let t0 = null, timer = null;
+      const hold = el('button', 'btn kbBtn', 'Hold the flame to the wood');
+      hold.addEventListener('click', () => {
+        if (t0 === null) {
+          t0 = performance.now(); hold.textContent = 'Take the taper away'; rng.disabled = true;
+          timer = setInterval(() => { const t = (performance.now() - t0) / 1000; readout.textContent = `${t.toFixed(0)} s held` + (t >= ((state.burnHold || [3, 8])[0]) && t <= ((state.burnHold || [3, 8])[1]) ? ', the tear has formed' : t > ((state.burnHold || [3, 8])[1]) ? ", it's catching!" : ''); }, 1000);
+        } else {
+          clearInterval(timer);
+          const seconds = Math.round((performance.now() - t0) / 100) / 10; t0 = null;
+          draw.pending = true; draw.note = 'You take the taper away and look…';
+          send({ type: 'burn_mark', angle: draw.kbAngle, seconds });
+          render();
+        }
+      });
+      keysPanel(body, 'Or by keys: set the slant, then hold the flame and take it away', [{ node: wrap }, { node: hold }, { node: readout }]);
+    }
     drawFooter(body, 'Snuff the taper');
   }
 
@@ -420,6 +482,7 @@ export default function createWards({ send }) {
     body.appendChild(el('div', 'wardIntro', 'Writing the SATOR square on a plate for the hearth.'));
     body.appendChild(el('div', 'satorWords', 'The five words: SATOR · AREPO · TENET · OPERA · ROTAS'));
     const grid = el('div', 'satorGrid');
+    grid.setAttribute('aria-hidden', 'true');
     const cells = [];
     for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) { const d = el('div', 'satorCell', (draw.rows[r] || '')[c] || ''); grid.appendChild(d); cells.push(d); }
     const refresh = () => { for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) cells[r * 5 + c].textContent = (draw.rows[r] || '')[c] || ''; };
@@ -500,8 +563,18 @@ export default function createWards({ send }) {
       const r = svg.getBoundingClientRect();
       compassClick((e.clientX - r.left) * 260 / r.width, (e.clientY - r.top) * 260 / r.height);
     });
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', compass.stage === 'centre' ? 'The lintel, with a centre mark.' : `The lintel: a circle and ${compass.used.length} of 6 arcs.`);
     body.appendChild(svg);
-    body.appendChild(el('div', 'hexNote', compass.note));
+    if (compass.stage !== 'done') {
+      const clock = (x, y) => { const h = Math.round((Math.atan2(x - C, -(y - C)) * 6 / Math.PI + 12) % 12) || 12; return `${h} o'clock`; };
+      let items;
+      if (compass.stage === 'centre') items = [{ text: 'Set the point on the centre mark', on: () => compassClick(C, C) }];
+      else if (compass.stage === 'first') items = [[C, C - R], [C + R, C], [C, C + R], [C - R, C]].map(([x, y]) => ({ text: `On the circle at ${clock(x, y)}`, on: () => compassClick(x, y) }));
+      else items = [0, 1, 2, 3, 4, 5].filter((k) => !compass.used.includes(k) && (compass.used.includes((k + 1) % 6) || compass.used.includes((k + 5) % 6))).map((k) => { const [x, y] = ptAt(k); return { text: `Where it crosses at ${clock(x, y)}`, on: () => compassClick(x, y) }; });
+      keysPanel(body, 'Or by keys', items);
+    }
+    body.appendChild(live(el('div', 'hexNote', compass.note)));
     if (compass.slips) body.appendChild(el('div', 'hexSlips', `The compass slipped ${compass.slips} time${compass.slips === 1 ? '' : 's'}.`));
     const back = el('button', 'btn wardBtn wardBack', compass.stage === 'done' ? 'Back to the house' : 'Put the compasses down');
     back.addEventListener('click', () => { compass = null; render(); });
