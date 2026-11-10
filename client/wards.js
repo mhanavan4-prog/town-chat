@@ -15,6 +15,7 @@ const WARDS_TIER_LABEL = { record: 'Archaeological / documentary', folk: 'Folk t
 export default function createWards({ send }) {
   let state = null;
   let compass = null; // the hexafoil minigame in progress
+  let draw = null;    // the other drawn marks in progress: { kind: 'marian' | 'pentangle' | 'sator', … }
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -26,16 +27,29 @@ export default function createWards({ send }) {
   function open() {
     Modals.set('wardsOpen', true);
     document.getElementById('wardsModal').classList.remove('hidden');
-    compass = null;
+    compass = null; draw = null;
     send({ type: 'wards_state' });
     render();
   }
   function close() {
     Modals.set('wardsOpen', false);
     document.getElementById('wardsModal').classList.add('hidden');
-    compass = null;
+    compass = null; draw = null;
   }
-  function setState(s) { state = s; if (Modals.isOpen('wardsOpen')) render(); }
+  function setState(s) {
+    state = s;
+    if (draw && state && state[draw.kind]) { draw.done = true; draw.pending = false; }
+    if (Modals.isOpen('wardsOpen')) render();
+  }
+  // The server turned a drawing down: say why, and let the hand try again.
+  function error(message) {
+    if (!draw || !draw.pending) return;
+    draw.pending = false; draw.slips++;
+    draw.note = message || 'Not quite. Try again.';
+    if (draw.kind === 'marian') { draw.cuts = []; draw.anchor = null; }
+    if (draw.kind === 'pentangle') { draw.seq = []; draw.trail = []; }
+    if (Modals.isOpen('wardsOpen')) render();
+  }
 
   function loreBox(w) {
     const box = el('div', 'wardLore');
@@ -66,6 +80,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
+    if (draw) { if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -101,6 +116,30 @@ export default function createWards({ send }) {
         card.appendChild(b);
       }
       card.appendChild(loreBox(state.lore.hexafoil));
+      cols.appendChild(card);
+    }
+    // Ⓜ️ The Marian mark, cut on the hearth beam
+    if (state.lore.marian) {
+      const card = wardCard('marian', state.marian ? `Cut on the hearth beam · +${pct}% damage resist` : 'Not yet cut', state.marian);
+      if (!state.marian) {
+        const b = el('button', 'btn wardBtn', 'Take up the knife');
+        b.disabled = !state.atHome;
+        b.addEventListener('click', () => { draw = { kind: 'marian', cuts: [], anchor: null, drag: null, slips: 0, note: 'Four cuts, each from a nick on the top edge to one on the bottom. Two Vs, the second crossing the first.' }; render(); });
+        card.appendChild(b);
+      }
+      card.appendChild(loreBox(state.lore.marian));
+      cols.appendChild(card);
+    }
+    // 🍽️ The SATOR plate, kept by the hearth
+    if (state.lore.sator) {
+      const card = wardCard('sator', state.sator ? `Kept by the hearth · +${pct}% damage resist` : 'Not yet written', state.sator);
+      if (!state.sator) {
+        const b = el('button', 'btn wardBtn', 'Write the square');
+        b.disabled = !state.atHome;
+        b.addEventListener('click', () => { draw = { kind: 'sator', rows: ['', '', '', '', ''], slips: 0, note: 'Five words of five letters. Set them so the square reads the same across, down, and from either end.' }; render(); });
+        card.appendChild(b);
+      }
+      card.appendChild(loreBox(state.lore.sator));
       cols.appendChild(card);
     }
     // 👞 The concealed shoe
@@ -140,6 +179,189 @@ export default function createWards({ send }) {
       card.appendChild(loreBox(state.lore.ladder));
       cols.appendChild(card);
     }
+    pentangleCard(cols);
+  }
+
+  // 🛡️ Gawain's pentangle: not a house mark, so drawn anywhere, and shown last.
+  function pentangleCard(cols) {
+    if (!state.lore.pentangle) return;
+    const card = wardCard('pentangle', state.pentangle ? `Borne on shield and coat · +${state.pentangleVitality || 10} max health` : 'Not yet painted', state.pentangle);
+    if (!state.pentangle) {
+      const b = el('button', 'btn wardBtn', 'Take up the brush');
+      b.addEventListener('click', () => { draw = { kind: 'pentangle', seq: [], trail: [], drawing: false, slips: 0, note: 'Set the brush on any point and draw the star in one stroke. Don\'t lift it until the knot is closed.' }; render(); });
+      card.appendChild(b);
+    }
+    card.appendChild(loreBox(state.lore.pentangle));
+    cols.appendChild(card);
+  }
+
+  // ── Shared bits for the drawn marks ───────────────────────────────────────
+  function svgBoard(cls) {
+    const svg = document.createElementNS(WARDS_SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 260 260');
+    svg.setAttribute('class', 'hexCanvas ' + cls);
+    const add = (tag, attrs) => { const n = document.createElementNS(WARDS_SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); svg.appendChild(n); return n; };
+    const at = (e) => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) * 260 / r.width, (e.clientY - r.top) * 260 / r.height]; };
+    return { svg, add, at };
+  }
+  function drawFooter(body, idleLabel) {
+    body.appendChild(el('div', 'hexNote', draw.done ? 'Done.' : draw.note));
+    if (draw.slips && !draw.done) body.appendChild(el('div', 'hexSlips', `Tried ${draw.slips} time${draw.slips === 1 ? '' : 's'} so far.`));
+    const back = el('button', 'btn wardBtn wardBack', draw.done ? 'Back to the house' : idleLabel);
+    back.addEventListener('click', () => { draw = null; render(); });
+    body.appendChild(back);
+  }
+  const NEAR = 16;
+  const nearest = (pts, x, y) => { let best = -1, bd = NEAR; pts.forEach((p, i) => { const d = Math.hypot(x - p[0], y - p[1]); if (d <= bd) { bd = d; best = i; } }); return best; };
+
+  // ── The Marian mark: four knife cuts between the nicks ────────────────────
+  function marianNicks() {
+    const b = state.boards && state.boards.marian;
+    return b ? [...b.tops.map((p, i) => ({ t: 'top', i, p })), ...b.bottoms.map((p, i) => ({ t: 'bottom', i, p }))] : [];
+  }
+  function marianPress(x, y) {
+    const nicks = marianNicks();
+    const k = nearest(nicks.map((n) => n.p), x, y);
+    if (k < 0) return false;
+    const n = nicks[k];
+    if (draw.anchor && (draw.anchor.t !== n.t || draw.anchor.i !== n.i) && !draw.dragging) { marianCut(draw.anchor, n); return true; }
+    draw.anchor = n; draw.dragging = true; draw.drag = n.p.slice();
+    return true;
+  }
+  function marianCut(a, n) {
+    draw.dragging = false; draw.drag = null;
+    if (a.t === n.t) { draw.anchor = n; draw.note = 'A cut runs from the top edge to the bottom edge.'; return; }
+    const top = a.t === 'top' ? a.i : n.i, bottom = a.t === 'bottom' ? a.i : n.i;
+    draw.anchor = null;
+    if (draw.cuts.some((c) => c[0] === top && c[1] === bottom)) { draw.note = 'That line is already cut.'; return; }
+    draw.cuts.push([top, bottom]);
+    const left = 4 - draw.cuts.length;
+    draw.note = left ? `${left} cut${left === 1 ? '' : 's'} to go.` : 'The fourth cut…';
+    if (!left) { draw.pending = true; send({ type: 'cut_marian', cuts: draw.cuts }); }
+  }
+  function renderMarian(body) {
+    body.appendChild(el('div', 'wardIntro', 'Cutting a Marian mark into the hearth beam: two Vs, the second crossing the first.'));
+    const { svg, add, at } = svgBoard('markCanvas');
+    svg.id = 'marianCanvas';
+    add('rect', { x: 0, y: 0, width: 260, height: 260, rx: 12, class: 'hexBeam' });
+    const b = state.boards && state.boards.marian;
+    if (b) for (const [t, bt] of draw.cuts) add('line', { x1: b.tops[t][0], y1: b.tops[t][1], x2: b.bottoms[bt][0], y2: b.bottoms[bt][1], class: 'hexLine' });
+    if (draw.anchor && draw.drag) add('line', { x1: draw.anchor.p[0], y1: draw.anchor.p[1], x2: draw.drag[0], y2: draw.drag[1], class: 'markGuide' });
+    for (const n of marianNicks()) add('circle', { cx: n.p[0], cy: n.p[1], r: draw.anchor && draw.anchor.t === n.t && draw.anchor.i === n.i ? 6 : 4, class: 'hexCentre' });
+    if (!draw.done && !draw.pending) {
+      // Drawn in place while the knife moves (re-rendering mid-drag would drop
+      // the pointer); the board is rebuilt only when a cut lands.
+      let guide = null;
+      svg.addEventListener('pointerdown', (e) => {
+        const [x, y] = at(e);
+        const before = draw.cuts.length;
+        if (!marianPress(x, y)) return;
+        if (draw.cuts.length !== before || !draw.dragging) { render(); return; }
+        try { svg.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
+        guide = add('line', { x1: draw.anchor.p[0], y1: draw.anchor.p[1], x2: x, y2: y, class: 'markGuide' });
+      });
+      svg.addEventListener('pointermove', (e) => { if (!draw.dragging || !guide) return; const [x, y] = at(e); guide.setAttribute('x2', x); guide.setAttribute('y2', y); });
+      const lift = (e) => {
+        if (!draw.dragging) return;
+        const [x, y] = at(e);
+        const nicks = marianNicks();
+        const k = nearest(nicks.map((n) => n.p), x, y);
+        if (k >= 0 && (nicks[k].t !== draw.anchor.t || nicks[k].i !== draw.anchor.i)) marianCut(draw.anchor, nicks[k]);
+        else { draw.dragging = false; draw.drag = null; } // a tap: the knife waits on that nick for the next
+        render();
+      };
+      svg.addEventListener('pointerup', lift);
+      svg.addEventListener('pointercancel', lift);
+    }
+    body.appendChild(svg);
+    drawFooter(body, 'Put the knife down');
+  }
+
+  // ── Gawain's pentangle: one stroke, no lift ───────────────────────────────
+  function pentPoints() { return (state.boards && state.boards.pentangle && state.boards.pentangle.points) || []; }
+  function pentStart(x, y) {
+    const k = nearest(pentPoints(), x, y);
+    if (k < 0) { draw.note = 'Set the brush on one of the five points.'; return false; }
+    draw.seq = [k]; draw.trail = [[x, y]]; draw.drawing = true;
+    draw.note = 'Keep the brush down…';
+    return true;
+  }
+  function pentMove(x, y) {
+    if (!draw.drawing) return;
+    draw.trail.push([x, y]);
+    const k = nearest(pentPoints(), x, y);
+    if (k >= 0 && k !== draw.seq[draw.seq.length - 1]) draw.seq.push(k);
+  }
+  function pentLift() {
+    if (!draw.drawing) return;
+    draw.drawing = false;
+    if (draw.seq.length < 2) { draw.note = 'Draw without lifting the brush: five lines, one stroke.'; draw.seq = []; draw.trail = []; return; }
+    draw.pending = true;
+    draw.note = 'The brush lifts…';
+    send({ type: 'paint_pentangle', seq: draw.seq });
+  }
+  function renderPentangle(body) {
+    body.appendChild(el('div', 'wardIntro', 'Painting the pentangle on your shield: gold on red, one unbroken stroke, the endless knot.'));
+    const { svg, add, at } = svgBoard('markCanvas');
+    svg.id = 'pentangleCanvas';
+    add('rect', { x: 0, y: 0, width: 260, height: 260, rx: 12, class: 'pentField' });
+    const pts = pentPoints();
+    if (draw.trail.length > 1) add('polyline', { points: draw.trail.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '), class: 'markGuide' });
+    for (let i = 1; i < draw.seq.length; i++) { const a = pts[draw.seq[i - 1]], b = pts[draw.seq[i]]; if (a && b) add('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'pentLine' }); }
+    pts.forEach((p) => add('circle', { cx: p[0], cy: p[1], r: 5, class: 'pentPoint' }));
+    if (!draw.done && !draw.pending) {
+      // The stroke is drawn in place as the brush moves; the board is rebuilt
+      // only once it lifts.
+      let trail = null;
+      svg.addEventListener('pointerdown', (e) => {
+        const [x, y] = at(e);
+        if (!pentStart(x, y)) { render(); return; }
+        try { svg.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
+        trail = add('polyline', { points: `${x.toFixed(1)},${y.toFixed(1)}`, class: 'markGuide' });
+        const note = body.querySelector('.hexNote'); if (note) note.textContent = draw.note;
+      });
+      svg.addEventListener('pointermove', (e) => {
+        if (!draw.drawing) return;
+        const [x, y] = at(e);
+        const before = draw.seq.length;
+        pentMove(x, y);
+        if (trail) trail.setAttribute('points', trail.getAttribute('points') + ` ${x.toFixed(1)},${y.toFixed(1)}`);
+        if (draw.seq.length !== before) { const a = pts[draw.seq[draw.seq.length - 2]], b = pts[draw.seq[draw.seq.length - 1]]; add('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'pentLine' }); }
+      });
+      const lift = () => { if (!draw.drawing) return; pentLift(); render(); };
+      svg.addEventListener('pointerup', lift);
+      svg.addEventListener('pointercancel', lift);
+    }
+    body.appendChild(svg);
+    drawFooter(body, 'Put the brush down');
+  }
+
+  // ── The SATOR square: five words, written row by row ──────────────────────
+  function renderSator(body) {
+    body.appendChild(el('div', 'wardIntro', 'Writing the SATOR square on a plate for the hearth.'));
+    body.appendChild(el('div', 'satorWords', 'The five words: SATOR · AREPO · TENET · OPERA · ROTAS'));
+    const grid = el('div', 'satorGrid');
+    const cells = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) { const d = el('div', 'satorCell', (draw.rows[r] || '')[c] || ''); grid.appendChild(d); cells.push(d); }
+    const refresh = () => { for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) cells[r * 5 + c].textContent = (draw.rows[r] || '')[c] || ''; };
+    const form = el('div', 'satorRows');
+    draw.rows.forEach((v, r) => {
+      const inp = document.createElement('input');
+      inp.className = 'satorRow'; inp.maxLength = 5; inp.value = v; inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.setAttribute('aria-label', `Row ${r + 1}`);
+      inp.disabled = !!(draw.done || draw.pending);
+      inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5); draw.rows[r] = inp.value; refresh(); });
+      form.appendChild(inp);
+    });
+    body.appendChild(form);
+    body.appendChild(grid);
+    if (!draw.done) {
+      const go = el('button', 'btn wardBtn wardBack', 'Write it on the plate');
+      go.disabled = !!draw.pending;
+      go.addEventListener('click', () => { draw.pending = true; send({ type: 'write_sator', rows: draw.rows.slice() }); render(); });
+      body.appendChild(go);
+    }
+    drawFooter(body, 'Put the pen down');
   }
 
   // ── The compass: draw a hexafoil the way a carpenter did ──────────────────
@@ -220,5 +442,6 @@ export default function createWards({ send }) {
     return out;
   }
 
-  return { open, close, setState, render, compassPoints };
+  function drawing() { return draw ? { kind: draw.kind, done: !!draw.done, pending: !!draw.pending, note: draw.note, cuts: draw.cuts, seq: draw.seq } : null; }
+  return { open, close, setState, render, error, compassPoints, drawing };
 }

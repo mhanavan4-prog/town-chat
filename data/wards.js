@@ -46,6 +46,40 @@ const WARDS = {
     tier: 'record',
     source: "J. Swann, \"Shoes Concealed in Buildings\", Costume 30 (1996) · Northampton Museum concealed-shoe index",
   },
+  // ── Marks you draw yourself (after the daisy wheel) ──────────────────────
+  // The commonest scratched mark in old English houses after the hexafoil:
+  // four knife cuts, two Vs side by side, the second's first arm crossing the
+  // first's second. Read upside down it is an M.
+  marian: {
+    name: 'Marian Mark',
+    icon: 'Ⓜ️',
+    where: 'cut on the hearth beam',
+    blurb: 'A permanent ward at the hearth. Four straight cuts: two Vs, the second crossing the first.',
+    lore: "Cut \"on hearth beams, doors, and around windows\" (Easton), the VV is among the commonest marks in old English houses. Historic England reads it as \"VV for Virgin of Virgins\", or M for Mary, calling on her protection, but warns that such marks \"are however difficult to interpret and there is some academic dispute as to their meaning\". At Knole, in Kent, double Vs were cut on a fire surround and on floor joists in timber felled in the winter of 1605–06; at Creswell Crags in 2019 \"the most popular design seen is the double 'VV'\". Cut yours in your own new wood or on paper, never in old fabric: graffiti on a listed building or scheduled monument without consent is illegal. If you find one, photograph it with a torch held low to one side and tell your county's Historic Environment Record.",
+    tier: 'record',
+    source: "Historic England, 'Discovering Witches' Marks: types of marks' and \"Help hunt for witches' marks\" (2016) · T. Easton, \"Four Spiritual Middens in Mid Suffolk\", Historical Archaeology (2014) · J. Wright, \"Ritual Protection Marks and Witchcraft at Knole, Kent\", Gresham College (2015) · Historic England, \"Witches' Marks Discovery 'Largest in Britain'\" (2019) · Historic England, Graffiti on Historic Buildings, HEAG288",
+  },
+  // A word square, not a drawing: you set the five words so it reads the same
+  // four ways. Written on a plate and kept by the hearth.
+  sator: {
+    name: 'SATOR Plate',
+    icon: '🍽️',
+    where: 'kept by the hearth',
+    blurb: 'A permanent ward at the hearth. Set the five words so the square reads the same four ways.',
+    lore: "SATOR AREPO TENET OPERA ROTAS reads the same across, down, backwards and up. The oldest were scratched at Pompeii before AD 79; four more were cut on the walls of a military office at Dura-Europos before about 256; another was scratched on Roman wall-plaster in Victoria Road, Cirencester, found in 1868. In medieval England it is \"most commonly found in medical collections as a charm for childbirth\", written out and tied to the mother; in Germany it was held to put out fires, and Hohman's Long Lost Friend (1820) says to write it \"on each side of a plate, and throw it into the fire\". A plate puts out no fire: in a fire, get out, stay out, and call 999.",
+    tier: 'record',
+    source: "D. Fishwick, \"An Early Christian Cryptogram?\", CCHA Report 26 (1959) · Corinium Museum, the Cirencester word square · H. Taylor, \"Place, period and purpose: migration(s) of the SATOR AREPO formula\", Kent Material Studies Network (2023) · J. G. Hohman, The Long Lost Friend (1820) · GOV.UK, Fire Kills",
+  },
+  // Not a house mark: borne on Gawain's shield and coat. One unbroken stroke.
+  pentangle: {
+    name: "Gawain's Pentangle",
+    icon: '🛡️',
+    where: 'borne on shield and coat',
+    blurb: 'Drawn in one unbroken stroke, the endless knot of keeping faith. It goes with you, not the house: +max health.',
+    lore: "Gawain's shield was red, with \"þe pentangel de-paynt of pure golde hweȝ\": \"a syngne þat Salamon set sum-quyle, / In bytoknyng of trawþe\". Each line \"vmbe-lappeȝ & loukeȝ in oþer\", and \"Englych hit callen / Ouer-al, as I here, þe endeles knot\". Its five fives were his five wits, his five fingers, Christ's five wounds, Mary's five joys and five virtues, \"With-outen ende at any noke\"; on the inside of the shield was Mary's image, so that when he looked at it \"his belde neuer payred\". The poem makes it an emblem of keeping faith, not a charm. Historic England counts pentangles among the ritual marks cut in old buildings, and they turn up in medieval church graffiti, far more likely medieval than satanic (Champion); the Wiccan pentacle is a modern revival. If you find one, photograph it and report it; never scrub it off, and never cut one into old fabric.",
+    tier: 'record',
+    source: "Sir Gawain and the Green Knight (BL Cotton Nero A.x), ll. 619–65, ed. R. Morris, EETS (1864; rev. 1869) · Historic England, \"Help hunt for witches' marks\" (2016) · J. Wright, \"Mediaeval Mythbusting #11: The Pentagram\" (2021), after M. Champion, Medieval Graffiti (2015) · Historic England, Graffiti on Historic Buildings, HEAG288",
+  },
   // Not a protection — nobody who wrote about it thought so. Honest to the
   // museum's own label (milk drawn from the neighbours' cows), in the game it
   // draws a little of the neighbours' plenty: harvest luck, not guard.
@@ -59,6 +93,79 @@ const WARDS = {
     source: "Pitt Rivers Museum 1911.32.7 · A. Colles, \"A Witches' Ladder\", The Folk-Lore Journal 5 (1887) · E. B. Tylor, International Folk-Lore Congress, Papers and Transactions (1892)",
   },
 };
+
+// ── The drawing boards (one source of truth: the server sends these to the
+// panel, and checks what comes back against them) ─────────────────────────
+// The hearth beam, 260 units square: five nicks along the top edge and four
+// along the bottom. A V is a top nick, a bottom nick to its right, and a top
+// nick to the right of that.
+const MARIAN_TOPS = [[40, 55], [85, 55], [130, 55], [175, 55], [220, 55]];
+const MARIAN_BOTTOMS = [[62, 205], [107, 205], [152, 205], [197, 205]];
+// Four cuts, each [topIndex, bottomIndex]. Valid when they make two Vs and the
+// second V's first arm crosses the first V's second arm. Returns null if good,
+// else a reason the player can act on.
+function marianProblem(cuts) {
+  if (!Array.isArray(cuts) || cuts.length !== 4) return 'Four cuts make the mark: two Vs.';
+  const seen = new Set();
+  for (const c of cuts) {
+    if (!Array.isArray(c) || c.length !== 2) return 'Every cut runs from a nick on the top edge to one on the bottom.';
+    const [t, b] = c.map(Number);
+    if (!Number.isInteger(t) || !Number.isInteger(b) || t < 0 || t >= MARIAN_TOPS.length || b < 0 || b >= MARIAN_BOTTOMS.length) return 'Every cut runs from a nick on the top edge to one on the bottom.';
+    const k = t + ':' + b;
+    if (seen.has(k)) return 'You cut the same line twice.';
+    seen.add(k);
+  }
+  const byBottom = new Map();
+  for (const [t, b] of cuts) { if (!byBottom.has(b)) byBottom.set(b, []); byBottom.get(b).push(t); }
+  if (byBottom.size !== 2 || [...byBottom.values()].some((ts) => ts.length !== 2)) return 'Each V meets at one point at the bottom: two arms to a point, two points.';
+  const vs = [...byBottom.entries()].map(([b, ts]) => { const [l, r] = ts.slice().sort((x, y) => x - y); return { b, l, r }; }).sort((x, y) => x.b - y.b);
+  for (const v of vs) if (!(MARIAN_TOPS[v.l][0] < MARIAN_BOTTOMS[v.b][0] && MARIAN_BOTTOMS[v.b][0] < MARIAN_TOPS[v.r][0])) return 'A V opens upward: one arm to the left of its point, one to the right.';
+  const [v1, v2] = vs;
+  if (!(v1.l < v2.l && v2.l < v1.r && v1.r < v2.r)) return 'Two Vs, but they stand apart. The second V\'s first arm should cross the first V\'s second.';
+  return null;
+}
+
+// The pentangle: five points on a circle, the first at the top. One unbroken
+// stroke visits them; it must make the star (each step skips one point), use
+// each of its five lines once, and close where it began.
+const PENTANGLE_POINTS = [0, 1, 2, 3, 4].map((i) => {
+  const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+  return [Math.round(130 + 95 * Math.cos(a)), Math.round(135 + 95 * Math.sin(a))];
+});
+function pentangleProblem(seq) {
+  if (!Array.isArray(seq) || seq.length < 2) return 'Set the brush on a point and draw without lifting it.';
+  const s = seq.map(Number);
+  if (s.some((i) => !Number.isInteger(i) || i < 0 || i > 4)) return 'Draw from point to point.';
+  const edges = new Set();
+  for (let i = 1; i < s.length; i++) {
+    const d = (s[i] - s[i - 1] + 5) % 5;
+    if (d === 1 || d === 4) return 'That is the side of a pentagon. The pentangle\'s lines cross: skip a point each time.';
+    if (d === 0) return 'Draw from point to point.';
+    const e = Math.min(s[i], s[i - 1]) + '-' + Math.max(s[i], s[i - 1]);
+    if (edges.has(e)) return 'You went back over a line. Each of the five is drawn once.';
+    edges.add(e);
+  }
+  if (edges.size < 5) return 'The knot isn\'t closed: five lines, and back to where you began.';
+  if (s[0] !== s[s.length - 1] || s.length !== 6) return 'The knot isn\'t closed: five lines, and back to where you began.';
+  return null;
+}
+const PENTANGLE_VITALITY = 10; // + max health while it is borne
+
+// The SATOR square: five rows of five. Either order is the old one (ROTAS
+// first at Pompeii, SATOR first later).
+const SATOR_WORDS = ['SATOR', 'AREPO', 'TENET', 'OPERA', 'ROTAS'];
+function satorProblem(rows) {
+  if (!Array.isArray(rows) || rows.length !== 5) return 'Five rows of five letters.';
+  const g = rows.map((r) => String(r || '').toUpperCase().replace(/[^A-Z]/g, ''));
+  if (g.some((r) => r.length !== 5)) return 'Five rows of five letters.';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    if (g[r][c] !== g[c][r]) return `Row ${r + 1} and column ${r + 1} should read the same: the square reads alike across and down.`;
+    if (g[r][c] !== g[4 - r][4 - c]) return `Row ${r + 1} should read row ${5 - r} backwards: the square reads alike from either end.`;
+  }
+  const joined = g.join('');
+  if (joined !== SATOR_WORDS.join('') && joined !== SATOR_WORDS.slice().reverse().join('')) return 'It reads the same four ways, but those are not the old five words.';
+  return null;
+}
 
 // The ladder's pull: harvest luck while it hangs (more for a Hearth Witch).
 const LADDER_FORAGE = 0.05;
@@ -80,4 +187,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { WARDS, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
+module.exports = { WARDS, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };

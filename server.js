@@ -3151,7 +3151,7 @@ const { HOUR_LORE, CHALDEAN, planetaryHourAt, planetaryHourSchedule } = require(
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
 const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
-const { WARDS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS } = require('./data/wards'); // blueprint B: threshold & hearth
+const { WARDS, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, satorProblem, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
 const { pendulumAnswer } = require('./data/pendulum'); // Tier 3.5: the Pendulum (yes/no divination)
@@ -4864,14 +4864,16 @@ function wardsOfKey(key) {
 }
 function isHearthWitch(key) { return !!(key && accounts[key] && accounts[key].witchPath === 'hearth'); }
 function wardContrib(player, statKey) {
-  if (statKey !== 'guard' && statKey !== 'forage') return 0;
+  if (statKey !== 'guard' && statKey !== 'forage' && statKey !== 'vitality') return 0;
   const key = player && player.accountKey;
   const w = key && accounts[key] && accounts[key].wards;
   if (!w) return 0;
+  // Gawain's pentangle goes with you, not the house: max health.
+  if (statKey === 'vitality') return w.pentangle ? PENTANGLE_VITALITY : 0;
   // The witch's ladder: harvest luck (the neighbours' plenty), never guard.
   if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
-  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0);
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0);
 }
 function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
@@ -4881,6 +4883,9 @@ function wardsPublic(key) {
     hexafoil: !!w.hexafoil,
     shoe: !!w.shoe,
     ladder: !!w.ladder,
+    marian: !!w.marian,
+    sator: !!w.sator,
+    pentangle: !!w.pentangle,
   };
 }
 function wardsStateBody(player) {
@@ -4899,6 +4904,8 @@ function wardsStateBody(player) {
     ladderForage: hearth ? LADDER_FORAGE_HEARTH : LADDER_FORAGE,
     feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
     atHome: inOwnCottage(player),
+    pentangleVitality: PENTANGLE_VITALITY,
+    boards: { marian: { tops: MARIAN_TOPS, bottoms: MARIAN_BOTTOMS }, pentangle: { points: PENTANGLE_POINTS } },
     lore: WARDS,
   };
 }
@@ -16353,7 +16360,23 @@ wss.on('connection', (ws, req) => {
 
     // ── Threshold & Hearth (blueprint B): ward your own cottage ──────────────
     if (msg.type === 'wards_state') { send(ws, { type: 'wards_state', ...wardsStateBody(player) }); return; }
-    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder') {
+    if (msg.type === 'paint_pentangle') {
+      // Borne on shield and coat, not the house: worked anywhere, once.
+      const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
+      if (!player.accountKey) { fail('Log into an account — a mark you bear needs a name to bear it.'); return; }
+      const w = wardsOfKey(player.accountKey);
+      if (w.pentangle) { fail('The pentangle is already on your shield and coat.'); return; }
+      const problem = pentangleProblem(msg.seq);
+      if (problem) { fail(problem); return; }
+      w.pentangle = { at: Date.now() };
+      saveAccounts();
+      const pOnline = playerByAccount(player.accountKey); if (pOnline) pOnline.maxHealth = playerMaxHealth(pOnline);
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'wards_state', ...wardsStateBody(player) });
+      send(ws, { type: 'toast', message: `🛡️ Five lines and no end at any corner: the endless knot, gold on red. +${PENTANGLE_VITALITY} max health while you bear it.` });
+      return;
+    }
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
       if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
@@ -16371,6 +16394,18 @@ wss.on('connection', (ws, req) => {
         if (w.hexafoil) { fail('A daisy wheel is already cut over your door.'); return; }
         w.hexafoil = { at: Date.now() };
         toast = '✡ The sixth arc closes. A daisy wheel sits over your door, one unbroken line with no way out.';
+      } else if (msg.type === 'cut_marian') {
+        if (w.marian) { fail('A Marian mark is already cut on your hearth beam.'); return; }
+        const problem = marianProblem(msg.cuts);
+        if (problem) { fail(problem); return; }
+        w.marian = { at: Date.now() };
+        toast = 'Ⓜ️ Four cuts in the hearth beam: two Vs, the second crossing the first. Virgo Virginum, or M for Mary; nobody wrote down which.';
+      } else if (msg.type === 'write_sator') {
+        if (w.sator) { fail('A SATOR plate already stands by your hearth.'); return; }
+        const problem = satorProblem(msg.rows);
+        if (problem) { fail(problem); return; }
+        w.sator = { at: Date.now() };
+        toast = '🍽️ SATOR AREPO TENET OPERA ROTAS, written on both faces of the plate, and the plate set by the hearth. It reads the same whichever way you hold it.';
       } else if (msg.type === 'hang_witch_ladder') {
         if (w.ladder) { fail("A witch's ladder already hangs in your rafters."); return; }
         const short = LADDER_PARTS.find((pt) => countItemQty(inv, pt.id) < pt.qty);

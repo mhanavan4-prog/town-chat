@@ -3473,6 +3473,17 @@
   .hexNote { color:#ffe9c2; font-size:13px; text-align:center; margin:4px 0; }
   .hexSlips { color:#a8977a; font-size:11.5px; text-align:center; }
   .wardBack { display:block; margin:8px auto 0; }
+  /* The drawn marks: knife cuts, the pentangle's one stroke, the SATOR square */
+  .markCanvas { touch-action:none; cursor:crosshair; }
+  .markGuide { fill:none; stroke:#ffd9a0; stroke-width:2; stroke-dasharray:4 4; stroke-linecap:round; opacity:0.8; }
+  .pentField { fill:#8a1f1a; stroke:#3a0d0a; stroke-width:4; }
+  .pentLine { fill:none; stroke:#e8c25a; stroke-width:5; stroke-linecap:round; }
+  .pentPoint { fill:#ffe9a8; stroke:#5a3a10; stroke-width:1.5; }
+  .satorWords { color:#d9b86a; font-size:12.5px; text-align:center; margin:4px 0 8px; letter-spacing:0.5px; }
+  .satorRows { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .satorRow { width:9em; text-align:center; font:700 16px/1.4 Georgia, serif; letter-spacing:6px; text-transform:uppercase; background:#2a1f14; color:#ffe9c2; border:1px solid #d9b86a88; border-radius:6px; padding:3px 6px; }
+  .satorGrid { display:grid; grid-template-columns:repeat(5, 30px); gap:3px; justify-content:center; margin:10px auto 6px; padding:8px; width:max-content; background:radial-gradient(circle, #efe3c6 0%, #d8c59c 70%, #b49a68 100%); border-radius:22px; box-shadow:0 0 0 3px #7a5f34 inset; }
+  .satorCell { width:30px; height:30px; display:flex; align-items:center; justify-content:center; font:700 17px Georgia, serif; color:#3a2410; }
   /* Reading the Leaves — the cup's dregs on the kitchen panel */
   .leavesCup, .leavesRead { background:rgba(60,40,20,0.5); border:1px solid rgba(217,184,106,0.4); border-radius:10px; padding:10px 12px; margin:8px 0 10px; text-align:left; }
   .lcText { color:#e8dcc8; font-size:13px; line-height:1.5; }
