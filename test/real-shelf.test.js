@@ -22,7 +22,7 @@ function makeMockSocket(tag) {
 }
 const B = (id) => REAL_BOOKS.find((b) => b.id === id);
 
-check('twenty-two real books with unique ids', REAL_BOOKS.length === 22 && new Set(REAL_BOOKS.map((b) => b.id)).size === 22);
+check('twenty-three real books with unique ids', REAL_BOOKS.length === 23 && new Set(REAL_BOOKS.map((b) => b.id)).size === 23);
 check('every book has a title, author, date, summary, fact, source and tier', REAL_BOOKS.every((b) => b.title && b.author && b.date && b.summary && b.fact && b.source && /^(record|revival)$/.test(b.tier)));
 check('the modern revival is badged revival: Leland, Murray, Gardner', ['aradia', 'murray', 'gardner'].every((id) => B(id).tier === 'revival') && REAL_BOOKS.filter((b) => b.tier === 'revival').length === 3);
 check('no quotation from a book still in copyright (Gardner)', B('gardner').quote === null);
@@ -46,7 +46,7 @@ setTimeout(() => {
   const p = h.players.get(s.lastOfType('init').id);
   s.emit('message', JSON.stringify({ type: 'real_shelf' }));
   const g = s.lastOfType('real_shelf');
-  check('a guest can browse the shelf', g && g.books.length === 22 && g.read.length === 0 && g.intro);
+  check('a guest can browse the shelf', g && g.books.length === 23 && g.read.length === 0 && g.intro);
   s.emit('message', JSON.stringify({ type: 'read_real_book', id: 'scot' }));
   check('…but a guest\'s reading is not kept', s.lastOfType('real_shelf').read.length === 0);
 
@@ -59,7 +59,7 @@ setTimeout(() => {
   check('the shelf shows what you have read', JSON.stringify(s.lastOfType('real_shelf').read) === '["scot","culpeper"]');
   const book = buildCharmBook({ acct: h.accounts.reader, prog: {}, seasonKey: null });
   const ch = book.chapters.find((c) => c.key === 'library');
-  check('the Charm Book has a Library chapter of twenty-two, two written in', ch && ch.total === 22 && ch.met === 2 && ch.entries.find((e) => e.id === 'scot').met);
+  check('the Charm Book has a Library chapter of twenty-three, two written in', ch && ch.total === 23 && ch.met === 2 && ch.entries.find((e) => e.id === 'scot').met);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
