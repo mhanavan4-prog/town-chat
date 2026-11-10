@@ -10,6 +10,19 @@ process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-ogham-');
 
 let pass = 0, fail = 0;
+// A true carving of a letter, as a player would cut it against the stem.
+function trueCuts(key) {
+  const o = require('../data/ogham').OGHAM.find((x) => x.key === key);
+  const cuts = [];
+  for (let i = 0; i < o.n; i++) {
+    const y = 120 + i * 12;
+    if (o.aicme === 'B') cuts.push({ x1: 60, y1: y, x2: 95, y2: y });
+    else if (o.aicme === 'H') cuts.push({ x1: 60, y1: y, x2: 25, y2: y });
+    else if (o.aicme === 'M') cuts.push({ x1: 35, y1: y + 8, x2: 85, y2: y - 8 });
+    else cuts.push({ x1: 60, y1: y, x2: 60, y2: y });
+  }
+  return cuts;
+}
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 process.on('uncaughtException', (e) => { console.log('FAIL - threw:', e && e.stack); process.exit(1); });
 
@@ -62,14 +75,14 @@ setTimeout(() => {
   // ── Carving ───────────────────────────────────────────────────────────────
   const a = join('Carver', 'og_a');
   const inv = h.getInventory(a.p);
-  say(a.s, { type: 'ogham_carve', key: 'beith' });
+  say(a.s, { type: 'ogham_carve', key: 'beith', cuts: trueCuts('beith') });
   check('no bark, no stave', !!a.s.lastOfType('ogham_error') && !(h.accounts.og_a.ogham && h.accounts.og_a.ogham.carved.includes('beith')));
   h.addItemToAccount(inv, 'birch_bark', OGHAM_CARVE_QTY);
-  say(a.s, { type: 'ogham_carve', key: 'beith' });
+  say(a.s, { type: 'ogham_carve', key: 'beith', cuts: trueCuts('beith') });
   check('birch bark carves Beith, and the bark is used', h.accounts.og_a.ogham.carved.includes('beith') && h.countItemQty(inv, 'birch_bark') === 0);
   h.addItemToAccount(inv, 'birch_bark', OGHAM_CARVE_QTY);
   a.s.sent.length = 0;
-  say(a.s, { type: 'ogham_carve', key: 'beith' });
+  say(a.s, { type: 'ogham_carve', key: 'beith', cuts: trueCuts('beith') });
   check('a letter is carved once', !!a.s.lastOfType('ogham_error') && h.countItemQty(inv, 'birch_bark') === OGHAM_CARVE_QTY);
   check('every letter\'s tree grows somewhere now — all twenty can be carved', OGHAM.every((o) => o.wood));
 
@@ -81,7 +94,7 @@ setTimeout(() => {
   check('Hazel gives a hazel rod the first time she brews for you', h.countItemQty(inv, 'hazel_rod') === 1);
   say(a.s, { type: 'witch_craft', recipeId: r.id });
   check('…only once', h.countItemQty(inv, 'hazel_rod') === 1);
-  say(a.s, { type: 'ogham_carve', key: 'coll' });
+  say(a.s, { type: 'ogham_carve', key: 'coll', cuts: trueCuts('coll') });
   check('the rod carves Coll', h.accounts.og_a.ogham.carved.includes('coll') && h.countItemQty(inv, 'hazel_rod') === 0);
 
   // ── Casting ───────────────────────────────────────────────────────────────
@@ -89,7 +102,7 @@ setTimeout(() => {
   say(a.s, { type: 'ogham_cast' });
   check(`casting needs ${OGHAM_CAST} staves`, !!a.s.lastOfType('ogham_error') && !a.s.lastOfType('ogham_cast'));
   h.addItemToAccount(inv, 'blackthorn', OGHAM_CARVE_QTY);
-  say(a.s, { type: 'ogham_carve', key: 'straif' });
+  say(a.s, { type: 'ogham_carve', key: 'straif', cuts: trueCuts('straif') });
   a.s.sent.length = 0;
   say(a.s, { type: 'ogham_cast' });
   const c = a.s.lastOfType('ogham_cast');
@@ -108,7 +121,7 @@ setTimeout(() => {
   const binv = h.getInventory(b.p);
   const bal0 = h.ensureBankAccount('og_b').balance;
   for (const o of carvable) h.addItemToAccount(binv, o.wood, o.wood === 'hazel_rod' ? 1 : OGHAM_CARVE_QTY);
-  for (const o of carvable) say(b.s, { type: 'ogham_carve', key: o.key });
+  for (const o of carvable) say(b.s, { type: 'ogham_carve', key: o.key, cuts: trueCuts(o.key) });
   check('every carvable stave can be carved', carvable.every((o) => h.accounts.og_b.ogham.carved.includes(o.key)), h.accounts.og_b.ogham.carved);
   check('the whole grove pays a purse, once', h.ensureBankAccount('og_b').balance > bal0 && h.accounts.og_b.ogham.groveDone === true);
 

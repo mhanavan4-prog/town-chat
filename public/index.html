@@ -3425,6 +3425,15 @@
   .ogCard.carved { border-color:rgba(158,227,125,0.5); }
   .ogCard.cast { border-color:rgba(255,220,130,0.6); background:rgba(70,48,22,0.45); }
   .ogCard.absent { opacity:0.55; }
+  /* The carving bench: cut the letter against the stave's edge */
+  .ogBench { display:flex; gap:12px; align-items:flex-start; justify-content:center; flex-wrap:wrap; margin:6px 0; }
+  .ogStave { width:150px; height:375px; max-height:60vh; touch-action:none; cursor:crosshair; }
+  .ogWood { fill:#7a5a36; stroke:#3b2814; stroke-width:3; }
+  .ogArris { stroke:#e9d3a8; stroke-width:2; }
+  .ogCut { stroke:#2a1a0c; stroke-width:4; stroke-linecap:round; }
+  .ogNotch { fill:#2a1a0c; }
+  .ogGuide { stroke:#ffd9a0; stroke-width:2; stroke-dasharray:3 3; }
+  .ogBenchSide { display:flex; flex-direction:column; gap:6px; max-width:220px; }
   .ogText { flex:1; min-width:0; }
   .ogName { color:#ffe9c2; font-weight:800; font-size:13px; }
   .ogTree { color:#9ee37d; font-size:12px; }
