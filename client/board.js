@@ -294,6 +294,18 @@ function renderCallers(list, meNote) {
         body.appendChild(box);
       } else if (s.kind === 'tablet' && !s.done && s.tablet) {
         renderTablet(body, s);
+      } else if (s.kind === 'dowse' && !s.done && s.dowse) {
+        // Dowsing for the well: walk the Wilds with the fork, dig where it
+        // dips, and once well away from every dip, to test it.
+        const box = el('div', 'clootBox');
+        box.appendChild(el('div', 'callerStepNote', 'Hold the fork palms up, fists clenched, as the old dowsers did, and walk the Wilds. When it twists down, dig there. Then dig once well away from every place it dipped, to test it.'));
+        const dug = s.dowse.dug || [];
+        const w = dug.find((g) => g.dipped), n = dug.find((g) => !g.dipped);
+        box.appendChild(el('div', 'callerStepNote', `The fork has dipped ${s.dowse.dips} time${s.dowse.dips === 1 ? '' : 's'}. Where it dipped: ${w ? `water at ${w.feet} ft` : 'not dug yet'}. Well away from it: ${n ? `water at ${n.feet} ft` : 'not dug yet'}.`));
+        const b = el('button', 'btn charmSay', s.dowse.dipNow ? '⛏️ Dig here, where it dipped' : '⛏️ Dig here');
+        b.addEventListener('click', () => { b.disabled = true; send({ type: 'dowse_dig' }); });
+        box.appendChild(b);
+        body.appendChild(box);
       } else if (s.kind === 'cloot' && !s.done && s.cloot) {
         // A cloot for the clootie well: the cloth chosen here; the rounds and
         // the knot are walked and tied at the well in the Wilds.

@@ -53,6 +53,15 @@ setTimeout(() => {
     else if (s.kind === 'troywalk') { const pl = [...h.players.values()].find((q) => q.ws === sock); pl.room = 'wilds'; for (const [x, y] of require('./troy-walk-path').troyRunMoves(2)) say(sock, { type: 'move', x, y, room: 'wilds' }); }
     else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
     else if (s.kind === 'knots') { for (let k = 0; k < s.count; k++) say(sock, { type: 'knot_tie' }); }
+    else if (s.kind === 'dowse') {
+      const pl = [...h.players.values()].find((q) => q.ws === sock); pl.room = 'wilds';
+      // walk until the twig dips, dig there; then walk well away and dig again
+      let x = 3000, y = 3000;
+      for (let k = 0; k < 200 && !(pl._dowse && h.accounts[pl.accountKey].callers.active.dowse && Object.values(h.accounts[pl.accountKey].callers.active.dowse)[0].lastDip); k++) { x += 20; say(sock, { type: 'move', x, y, room: 'wilds' }); }
+      say(sock, { type: 'dowse_dig' });
+      say(sock, { type: 'move', x: 7000, y: 7000, room: 'wilds' });
+      say(sock, { type: 'dowse_dig' });
+    }
     else if (s.kind === 'cloot') {
       const W = require('../data/clootie').CLOOTIE_WELL; const pl = [...h.players.values()].find((q) => q.ws === sock); pl.room = 'wilds';
       say(sock, { type: 'cloot_cloth', cloth: 'wool' });

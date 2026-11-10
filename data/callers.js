@@ -78,6 +78,21 @@ const CALLERS = [
     reward: { gold: 70, xp: 50 },
   },
   {
+    id: 'dowse_well',
+    caller: 'Tobias Hext, from the downs',
+    icon: '🪄',
+    title: 'Where to Sink the Well',
+    plea: "I'm to sink a well for the new cottage on the rough ground past the portal, and my father swore by a hazel fork. Here's one from my hedge. Will you walk the ground with it, and tell me where to dig?",
+    steps: [
+      { kind: 'dowse', label: 'Walk the Wilds with the hazel fork; dig where it dips, and once where it does not' },
+    ],
+    resolution: "You hold the fork as the old dowsers did, palms up and fists clenched, and walk the ground until it twists down; you dig there and strike water. Then, as Agricola would have wanted, you dig again well away from where it dipped, and strike water there too. Tobias laughs and sinks his well by the door, where it's handiest. Then the practical half. To know what's under your ground, look it up: the British Geological Survey's aquifer maps, 'created by the Environment Agency (EA), Natural Resources Wales (NRW) and BGS', show the water-bearing rocks, and its WellMaster archive of old wells is 'available for free' to search. In England, 'If you plan to take more than 20 cubic metres (20,000 litres) a day, you are likely to need an abstraction licence' (GOV.UK). And before anyone drinks from a new well, have it tested: for a private supply the council 'should be your first point of contact for testing and identified risks' (Drinking Water Inspectorate); in 2024 'E. coli was found in 4.46% of tests' of private supplies in England, against about 0.02% for the mains; and 'a test result at any given time is not necessarily representative of the water quality at all other times.'",
+    lore: require('./dowsing').DOWSE_LORE,
+    tier: 'record',
+    source: require('./dowsing').DOWSE_SOURCE,
+    reward: { gold: 55, xp: 40 },
+  },
+  {
     id: 'clootie',
     caller: 'Morag Fraser, from the Black Isle',
     icon: '🎀',
@@ -2229,7 +2244,7 @@ const CALLERS_PER_DAY = 3;
 // a Yule custom (data/yule.js) or another festival's custom
 // (data/wheelRites.js); callers with a season come only in it.
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet', 'cloot'];
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet', 'cloot', 'dowse'];
 
 // Caerdroia is drawn on the Board, wall by wall (data/troy.js).
 READING_KINDS.push('troy', 'troywalk'); // …and the Shepherd's Race is run for real in the Wilds (data/troyTown.js).
