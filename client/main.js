@@ -9010,7 +9010,7 @@ let _wildsFlatZones = null;
 function wildsFlatZones() {
   if (_wildsFlatZones) return _wildsFlatZones;
   const sx = world2 ? world2.spawn.x : 5000, sy = world2 ? world2.spawn.y : 8800;
-  _wildsFlatZones = [
+  const zones = [
     { x: sx, y: sy, r: 440 },              // arrival spawn
     { x: sx + 170, y: sy + 20, r: 210 },   // return portal
     { x: 5000, y: 3000, r: 780 },          // the village
@@ -9022,8 +9022,11 @@ function wildsFlatZones() {
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 150 })),
     ...WILDS_WAYMARKERS.map((m) => ({ x: m.x, y: m.y, r: 150 })),
     ...WILDS_NPCS.map((n) => ({ x: n.x, y: n.y, r: 170 })),
+    // The Shepherd's Race: dead level across the whole maze, easing out beyond it.
+    ...(world2 && world2.troyTown ? [{ x: world2.troyTown.hub[0], y: world2.troyTown.hub[1], core: world2.troyTown.radius + 40, r: world2.troyTown.radius + 360 }] : []),
   ];
-  return _wildsFlatZones;
+  if (world2) _wildsFlatZones = zones; // keep it only once the Wilds (and its maze) are known
+  return zones;
 }
 function wildsNoise(x, z) {
   const vn = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -9046,7 +9049,8 @@ function wildsHeightAt(x, z) {
   for (let i = 0; i < zones.length; i++) {
     const c = zones[i];
     const d = Math.hypot(x - c.x, z - c.y);
-    if (d < c.r) { const t = d / c.r; flat = Math.min(flat, t * t * (3 - 2 * t)); }
+    if (c.core && d < c.core) { flat = 0; continue; }
+    if (d < c.r) { const t = c.core ? (d - c.core) / (c.r - c.core) : d / c.r; flat = Math.min(flat, t * t * (3 - 2 * t)); }
   }
   return flat <= 0 ? 0 : wildsNoise(x, z) * flat;
 }
@@ -10853,7 +10857,8 @@ function addSpookyDecor(scene, w2) {
   const keepClear = [ // spawn + portal approach + campfires stay walkable
     { x: w2.spawn.x, y: w2.spawn.y, r: 320 },
     ...VILLAGE_PLOTS, // and nothing grows through a village wall
-    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 }))
+    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 })),
+    ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 80 }] : []), // nothing grows across the Shepherd's Race
   ];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   // Spooky trees — thick clusters near the cave and scattered throughout.

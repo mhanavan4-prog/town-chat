@@ -1550,6 +1550,9 @@ const { WORLD } = require('./data/world'); // Tier 3.4 Phase A: extracted to dat
 // peer of 'outside', not nested under it — see ROOM_IDS.
 // ---------------------------------------------------------------------------
 const { WORLD2 } = require('./data/world'); // Tier 3.4 Phase A: extracted to data/
+// The Shepherd's Race, a Troy Town cut in the Wilds turf and walked for real (data/troyTown.js).
+const { troyTownGeometry, troyTownStep, TROY_TOWN_XP, TROY_TOWN_LORE, TROY_TOWN_SOURCE } = require('./data/troyTown');
+WORLD2.troyTown = { ...troyTownGeometry(), lore: TROY_TOWN_LORE, source: TROY_TOWN_SOURCE };
 
 // 16 harvestable plants, each a one-shot consumable with a distinct effect
 // applied when used from the inventory (see 'use_item' below) rather than
@@ -4260,6 +4263,37 @@ function noteDelveDepth(player, depth) {
   storyEvent(player, 'delve_depth', { depth }); // Episode II ch7 — descend the Delve
 }
 
+// Running the Shepherd's Race in and out (data/troyTown.js follows the steps).
+// Near the figure, each move is a step along its one path; far away, the run
+// is forgotten. A whole run, in and out without a false step, pays once a day.
+function troyTownMove(player) {
+  const T = WORLD2.troyTown;
+  if (Math.hypot(player.x - T.hub[0], player.y - T.hub[1]) > T.radius + 240) { player._troy = null; return; }
+  const { st, event } = troyTownStep(player._troy, player.x, player.y);
+  const was = player._troy && player._troy.phase;
+  player._troy = st;
+  if (!event || !player.ws) return;
+  if (event === 'left' && was !== 'in' && was !== 'back') return;
+  const a = player.accountKey && accounts[player.accountKey];
+  let xp = 0, runs = 0;
+  if (event === 'done' && a) {
+    const today = Math.floor(Date.now() / 86400000);
+    if (!a.troyTown || typeof a.troyTown !== 'object') a.troyTown = { runs: 0, day: -1 };
+    a.troyTown.runs = (a.troyTown.runs || 0) + 1; runs = a.troyTown.runs;
+    if (a.troyTown.day !== today) { a.troyTown.day = today; xp = TROY_TOWN_XP; grantXP(player, xp); }
+    saveAccounts();
+    callers.callerEvent(player, 'troywalk', 'Ran the Shepherd\'s Race in at the gate, to the centre and out again, without a false step');
+  }
+  const words = {
+    start: '🌀 In at the gate of the Shepherd\'s Race. Follow the windings to the centre, and don\'t step over a bank.',
+    centre: '🌀 The centre! Now run it out again.',
+    false: '🌀 A false step: you crossed a bank. Back to the gate, and start again.',
+    left: '🌀 You\'re off the maze. Start again at the gate.',
+    done: `🌀 In and out without a false step!${xp ? ` +${xp} XP` : ''}${runs > 1 ? ` (run ${runs})` : ''}`,
+  };
+  send(player.ws, { type: 'troy_walk', event, phase: st && st.phase, xp, runs });
+  send(player.ws, { type: 'toast', message: words[event] });
+}
 // Award XP to a player, leveling up as many times as thresholds are crossed,
 // and broadcasting the change so their HUD updates immediately.
 function grantXP(player, amount) {
@@ -11845,6 +11879,7 @@ wss.on('connection', (ws, req) => {
           }
         }
         player._lastMoveAt = _now;
+        if (msg.room === 'wilds' && player.room === 'wilds') troyTownMove(player);
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
         // The Town Pass gate, enforced here and not just in the client's
@@ -13080,6 +13115,10 @@ wss.on('connection', (ws, req) => {
     // Reading a Wilds waymarker — reuses the hint-dialogue modal shape the
     // client already renders; the "NPC" is the stone itself.
     if (msg.type === 'read_waymarker') {
+      if (String(msg.markerId) === 'troy_town') {
+        send(ws, { type: 'npc_hint_dialogue', npcId: 'troy_town', npcName: "🌀 The Shepherd's Race", message: `Run it in and out: in at the gate, round every winding to the centre, and out again, without one false step over a bank. ${WORLD2.troyTown.lore} (${WORLD2.troyTown.source})` });
+        return;
+      }
       const marker = WAYMARKER_LORE[String(msg.markerId || '')];
       if (!marker) return;
       // The two memorial stones are written into the Charm Book's In Memory.

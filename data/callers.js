@@ -433,6 +433,21 @@ const CALLERS = [
     source: 'W. H. Matthews, Mazes and Labyrinths (1922), chs. X and XII, after P. Roberts, Cambrian Popular Antiquities (1815), and W. H. Mounsey (1858) · J. Kraft, The Walls of Troy (2024) · Historic England, list entries 1015697 (St Agnes), 1019306 (Wing), 1016428 (Alkborough), 1006825 (Hilton), 1002194 (Saffron Walden), 1003451 (Breamore) · Historic England, "Scheduled Monuments: A Guide for Owners and Occupiers"',
     reward: { gold: 55, xp: 45 },
   },
+  {
+    id: 'shepherds_race',
+    caller: 'Old Ned Ashby',
+    icon: '🌀',
+    title: 'Run It In and Out',
+    plea: "Sixty year back we ran the Troy Town in and out of a May-eve, and the whole village sat up on the bank to watch the sport. My legs won't do it now. There's one cut in the turf out in the Wilds, east of the portal. Run it for me: in at the gate, to the middle and out again, and never a foot over a bank. Then come and tell me.",
+    steps: [
+      { kind: 'troywalk', label: "Run the Shepherd's Race in the Wilds, in and out, without a false step (east of the portal)" },
+    ],
+    resolution: "You come back with grass on your knees and tell him: in at the gate, round and back and round, to the middle, and out the way you came, and not one false step. He laughs, and says that's how it was done, though they did it in boots, at a run, with half the village shouting. Then the practical half. The old turf mazes are scheduled monuments, Wing, Alkborough, Hilton, Saffron Walden and Breamore among them, and 'It is a criminal offence to destroy or damage a scheduled monument either intentionally or through recklessness', Historic England says, and an offence too to carry out unauthorised works on one. Walk them, run them if you like; but don't recut the turf, dig, light a fire on one, or move a stone.",
+    lore: "In 1866 a correspondent, 'J. F.', wrote to Notes and Queries of the Julian's Bower at Alkborough, and of the pleasure of 'running it in and out' with others sixty years before, and of the villagers' May-eve games about it, 'under an indefinite persuasion of something unseen and unknown co-operating with them' (Matthews). Abraham de la Pryme's diary, written between 1671 and 1704, called such mazes Roman games, 'nothing but great labarinths cut upon the ground with a hill cast up round them for the spectators to sit round about on to behold the sport'. At Boughton Green 'the \"treading\" of it was formerly a great feature of the three days' fair in June'; at Saffron Walden there were 'rules and wagers (in gallons of beer)'. Matthews thought the game 'rather simple in character, unless we imagine the participants to have been blindfolded'. Alkborough's own maze is a larger medieval pattern; the one in the Wilds is the seven-circuit figure of the Welsh shepherds' Caerdroia.",
+    tier: 'record',
+    source: 'W. H. Matthews, Mazes and Labyrinths (1922), chs. X–XII, quoting Notes and Queries (1866) and A. de la Pryme\'s Diary · Historic England, "Scheduled Monuments: A Guide for Owners and Occupiers" (2014)',
+    reward: { gold: 55, xp: 40 },
+  },
   // ── The key and Bible ──
   {
     id: 'cheese_and_herrings',
@@ -2202,5 +2217,5 @@ const CALLERS_PER_DAY = 3;
 const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet'];
 
 // Caerdroia is drawn on the Board, wall by wall (data/troy.js).
-READING_KINDS.push('troy');
+READING_KINDS.push('troy', 'troywalk'); // …and the Shepherd's Race is run for real in the Wilds (data/troyTown.js).
 module.exports = { CALLERS, TIERS, CALLERS_PER_DAY, READING_KINDS };
