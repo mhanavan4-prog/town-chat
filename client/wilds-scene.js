@@ -373,7 +373,7 @@ function buildWildsScene(w2) {
   // The clootie well: a spring and a thorn hung with rags (props-clootie.js).
   // The spring is the interact point: tie a cloot there, or read its lore.
   if (w2.clootieWell) {
-    scene.add(makeClootieWell(w2.clootieWell.x, w2.clootieWell.y));
+    scene.add(makeClootieWell(w2.clootieWell.x, w2.clootieWell.y, KK));
     WILDS_KIOSKS.push({ x: w2.clootieWell.x, z: w2.clootieWell.y, npc: 'clootie', npcName: 'the clootie well', radius: 110 });
   }
   // Campfires (server-healing rest stops) + lore waymarkers
