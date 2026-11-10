@@ -34,7 +34,7 @@ check('the Commonplace Book\'s Candlemas Eve: box till Easter, Herrick\'s spelli
 const c = CALLERS.find((x) => x.id === 'candlemas_green');
 check('Mistress Cole, dated by it, for the eve alone', c && c.caller === 'Mistress Cole' && c.when && c.when.calendar === 'candlemas_eve' && c.when.days === 1 && c.steps[0].rite === 'candlemas_green');
 check('…the same Mistress Cole who brought the green in, and her chalk', CALLERS.some((x) => x.id === 'bringing_in_green' && x.caller === 'Mistress Cole' && /chalk/.test(x.resolution)) && /chalk/.test(c.plea));
-check('the practical half: the berries swept up; doctor or vet; gloves; no tree on the fire, the council\'s collection; only the brand burned', /Sweep up the fallen berries/.test(c.resolution) && /box is bad for dogs/.test(c.resolution) && /ring the doctor or the vet/.test(c.resolution) && /gloves for the holly/.test(c.resolution) && /doesn't go on the fire/.test(c.resolution) && /council's collection/.test(c.resolution) && /only till sunset/.test(c.resolution));
+check('the practical half: the berries swept up; NHS 111 or A&E, the vet; gloves; no tree on the fire, the council\'s collection; the brand on Candlemas Day', /Sweep up the fallen berries/.test(c.resolution) && /ivy and box are harmful eaten/.test(c.resolution) && /ring NHS 111, or go to A&E with a bit of the plant/.test(c.resolution) && /gloves for the holly/.test(c.resolution) && /doesn't go on the fire/.test(c.resolution) && /council's collection/.test(c.resolution) && /tomorrow, Candlemas Day, the brand is kindled and burns till sunset/.test(c.resolution));
 
 require('../server.js');
 

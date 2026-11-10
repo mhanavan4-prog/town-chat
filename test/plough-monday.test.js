@@ -31,7 +31,7 @@ const pm = OLD_CALENDAR.find((e) => e.key === 'plough_monday');
 const c = CALLERS.find((x) => x.id === 'plough_boys');
 check('the ploughboys are dated by the old calendar\'s Plough Monday, for two days', pm && c && c.when && c.when.calendar === 'plough_monday' && c.when.days === 2);
 check('…a loaf for the feast (Hone: "on Plough Monday they had a feast"), then the plough round the parish', c.steps[0].item === 'hearth_loaf' && c.steps[1].rite === 'plough_monday');
-check('the practical half: ask, don\'t take; plough nobody\'s step; the poor box for the plough-light', /Ask, don't take/.test(c.resolution) && /plough nobody's step/.test(c.resolution) && /broken ankle/.test(c.resolution) && /poor box/.test(c.resolution));
+check('the practical half: ask, don\'t take; plough nobody\'s lawn or drive; the poor box for the plough-light', /Ask, don't take/.test(c.resolution) && /plough nobody's lawn or drive/.test(c.resolution) && /broken ankle/.test(c.resolution) && /poor box/.test(c.resolution));
 
 require('../server.js');
 

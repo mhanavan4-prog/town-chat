@@ -808,7 +808,7 @@ const CALLERS = [
     resolution: "You walk him back to the house at half past twelve. Then the practical half, for the beasts and the bees are real whatever they do at midnight. A beast burns more keeping warm in a frost, and more again with a wet coat: give them extra fodder, and break the ice on the trough morning and night, for they won't eat well without water. And leave the hives shut, for opening one chills the bees. Lift the back of each to feel the weight of stores; if one is light, put a block of fondant over the cluster on the next mild day. Clear the dead bees from the entrance with a bent wire, and see the mouse guards are on.",
     lore: "Christmas Eve: in Devon and Cornwall the oxen were said to kneel in their stalls at midnight, and in Yorkshire people sat up by the hives to hear the bees hum; after 1752 many said it was only on Old Christmas Eve (Brand, via Hone; Ditchfield, 1896).",
     tier: 'record',
-    source: 'J. Brand, Observations on Popular Antiquities, quoted in W. Hone, The Every-Day Book, vol. I (1826), 24 December · P. H. Ditchfield, Old English Customs Extant at the Present Time (1896), p. 52',
+    source: 'J. Brand, Observations on Popular Antiquities, quoted in W. Hone, The Every-Day Book, vol. I (1826), 24 December · P. H. Ditchfield, Old English Customs Extant at the Present Time (1896), p. 52 · National Bee Unit, Fact Sheet 19, "Preparing your hives for winter"',
     reward: { gold: 40, xp: 35 },
   },
   // St Stephen's Day only (data/wrenDay.js): the wren boys, with a straw wren.
@@ -823,10 +823,10 @@ const CALLERS = [
       { kind: 'deliver', item: 'ivy_leaf', qty: 1, label: 'Ivy for the wren bush, with the holly' },
       { kind: 'rite', rite: 'wren_hunt', label: 'The straw wren on the bush, the masks, the song at every door' },
     ],
-    resolution: "You go the round of the houses, and the box is heavy by dark. Then the practical half: count the money out fair in front of everyone before the dance, so there's no row over it after. Keep to the lit road in the straw masks, for the carts can't see you. And the real wrens have a hard time of it in a frost like this; put out crumbs and a bit of fat on the sill, and leave the ivy on the wall for them to roost in.",
+    resolution: "You go the round of the houses, and the box is heavy by dark. Then the practical half: count the money out fair in front of everyone before the dance, so there's no row over it after. Keep to the lit road in the straw masks, for the carts can't see you. And the real wrens have a hard time of it in a frost like this; put out crumbs and a bit of suet on the sill, and leave the ivy on the wall for them to roost in.",
     lore: "Wren Day: on St Stephen's Day the wren boys carried a wren on a holly bush from house to house, singing and collecting money (Frazer; Moore, 1891). The wren is protected now; the wren on the bush is a straw one.",
     tier: 'record',
-    source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891)',
+    source: 'J. G. Frazer, The Golden Bough (abridged 1922), ch. LIV · A. W. Moore, The Folk-Lore of the Isle of Man (1891) · RSPB, "Wren" and on helping birds in a cold snap',
     reward: { gold: 40, xp: 35 },
   },
   // Childermas only (data/childermas.js), dated by the old calendar.
@@ -841,9 +841,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'childermas', label: 'Nothing begun, and the weekday marked by the door' },
     ],
     resolution: "The cart stays in the yard till morning, and his mother gives him his dinner. Then the practical half, for there's sense in a day's thought before a winter road. Look at the weather before you go, and if ice or snow is coming, don't go unless you must. Tell someone at the far end which road you're taking and when you'll be in. Carry what you'd want if you were stuck: a lamp, warm clothes and boots, a shovel, food and something hot to drink, and keep the lamp oil full. On ice it can take ten times as far to stop, so go slow. And the tale they tell of the king is wrong: he was crowned on the Sunday after all.",
-    lore: "Childermas: on Holy Innocents' Day nothing that could wait was begun, and the weekday it fell on was unlucky all the following year (Melton, 1620; the Paston Letters, 1461; The Spectator, 1711).",
+    lore: "Childermas: on Holy Innocents' Day nothing that could wait was begun, and the weekday it fell on was unlucky all the following year (Melton, 1620; The Spectator, 1711); a rumour in 1461 had Edward IV's coronation put off a day for it (the Paston Letters), though he was crowned on the Sunday.",
     tier: 'record',
-    source: 'J. Melton, Astrologaster (1620) · The Paston Letters, ed. J. Gairdner (1904), letter 460 · The Highway Code, rules 228 and 230',
+    source: 'J. Melton, Astrologaster (1620) · The Paston Letters, ed. J. Gairdner (1904), vol. III, letter 460 · The Spectator, no. 7 (8 March 1711) · The Highway Code, rules 228 and 230 · Transport Scotland, "Driving in bad weather"',
     reward: { gold: 40, xp: 35 },
   },
   // Old Hogmanay only (data/clavie.js): the Burning of the Clavie, dated by the old calendar.
@@ -860,7 +860,7 @@ const CALLERS = [
     resolution: "It burned like home, Kirsty says, and she has her ember. Then the practical half, for this is a barrel of burning tar among a crowd. Never use petrol or any such liquid to light a fire; a peat or a taper is the way, and the old way besides. Keep the crowd well back, and keep the fire away from houses, carts and hedges. A burn goes under cool running water for twenty minutes, straight away. And an ember to take home goes in something that can't burn, carried with a thick cloth; at home, never tip hot ashes into anything that can melt or catch, and wet them down and leave them to cool overnight.",
     lore: "The Burning of the Clavie: at Burghead on old Hogmanay, 11 January, a half tar-barrel on a pole, lit with a peat, is carried burning round the town and set on the Doorie hill, and its embers are kept for luck (the Banffshire Journal, in Chambers, 1864).",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 31 December · A. Mitchell, Proceedings of the Society of Antiquaries of Scotland 10 (1875)',
+    source: 'R. Chambers, The Book of Days (1864), 31 December · A. Mitchell, Proceedings of the Society of Antiquaries of Scotland 10 (1872–74), pp. 656–57 · Scottish Fire and Rescue Service, bonfire safety · NHS, "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
   // St Paul's Day only (data/stPaulsDay.js), dated by the old calendar.
@@ -909,10 +909,10 @@ const CALLERS = [
       { kind: 'deliver', item: 'hearth_loaf', qty: 1, label: 'A loaf for the ploughboys\' feast' },
       { kind: 'rite', rite: 'plough_monday', label: 'The plough round the parish, Bessy, the Fool and the box' },
     ],
-    resolution: "The box is full by dark. Then the practical half: the soot is there so nobody minds whose son was asking, but it hides bad behaviour as well as shyness. Ask, don't take, and plough nobody's step, whatever the old tale says; a ploughed-up step is a broken ankle for an old man by morning. Wash your faces before you go in the alehouse. And put a share of the box by for whatever stands for the plough-light now: the poor box will do.",
-    lore: "Plough Monday: on the first Monday after Twelfth Day the ploughboys, faces blacked and called plough witches in parts, drew a plough from door to door for money (Hone, 1826).",
+    resolution: "The box is full by dark. Then the practical half: the soot is there so nobody minds whose son was asking, but it hides bad behaviour as well as shyness. Ask, don't take, and plough nobody's lawn or drive, whatever the old tale says; a furrow across a path is a broken ankle for an old man by morning. Wash your faces before you go in the alehouse. And put a share of the box by for whatever stands for the plough-light now: the poor box will do.",
+    lore: "Plough Monday: on the first Monday after Twelfth Day the ploughboys drew a plough from door to door for money (Hone, 1826); in parts, faces blacked, they were called \"plough witches\" (Nottingham Guardian, 1886).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826), 7 January · Nottingham Guardian (13 January 1886)',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 7 January · Nottingham Guardian (13 January 1886) · P. Millington, on Plough Monday',
     reward: { gold: 40, xp: 35 },
   },
   // St Brigid's Eve only (data/brigidEve.js), dated by the old calendar.
@@ -929,7 +929,7 @@ const CALLERS = [
     resolution: "The basket's full of eggs and Granny's cloth is on the sill. Then the practical half. The brat Bríde is a blessing and a comfort, not a medicine: a ribbon can't heal. Most sore throats are gone within a week. One that's still there after two weeks, or comes with a very high temperature, wants a doctor; and trouble breathing, or not being able to swallow your own spit, wants help at once. And the girls going round in the dark of a February night: two together at least, and home before the late houses.",
     lore: "St Brigid's Eve: in Ireland a figure of the saint, the Brídeóg, was carried from house to house for pennies or eggs, and a cloth, the brat Bríde, was left out for her to bless (Kildare Archaeological Society, 1890s; Schools' Collection).",
     tier: 'folk',
-    source: 'Journal of the County Kildare Archaeological Society, vol. I (1891–95) · National Folklore Collection, Schools\' Collection (1937–39), via dúchas.ie',
+    source: 'Journal of the County Kildare Archaeological Society, vol. I (1891–95) · National Folklore Collection, Schools\' Collection (1937–39), via dúchas.ie · Dúchas, "1 February – St Brigid\'s Day" · HSE (Ireland), "Sore throat"',
     reward: { gold: 40, xp: 35 },
   },
   // Candlemas Eve only (data/candlemasEve.js), dated by the old calendar: the
@@ -945,10 +945,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'candlemas_green', label: 'Every leaf of the green down, box up in its place, the brand laid by' },
     ],
-    resolution: "Every leaf down, box over the door, and Mistress Cole rubs the chalk off the wall. Then the practical half. Sweep up the fallen berries before a child or the dog finds them: holly berries upset the stomach, mistletoe's are worse, ivy is harmful eaten, and box is bad for dogs; if one has been eaten, ring the doctor or the vet. Wear gloves for the holly. And if there was a Christmas tree, it doesn't go on the fire: pine and fir tar the chimney, and the tar can catch and carry the fire up to the roof. It goes to the council's collection. The only thing burned tonight is the brand, and that only till sunset.",
+    resolution: "Every leaf down, box over the door, and Mistress Cole rubs the chalk off the wall. Then the practical half. Sweep up the fallen berries before a child or the dog finds them: holly berries upset the stomach, mistletoe can make a person or a pet very unwell, and ivy and box are harmful eaten; if a child has eaten some, ring NHS 111, or go to A&E with a bit of the plant, and never try to make them sick; for the dog, the vet at once. Wear gloves for the holly. And if there was a Christmas tree, it doesn't go on the fire: pine and fir tar the chimney, and the tar can catch and carry the fire up to the roof. It goes to the council's collection. Nothing is burned tonight; tomorrow, Candlemas Day, the brand is kindled and burns till sunset, then is quenched and kept.",
     lore: "Candlemas Eve: every leaf of the Christmas green came down, for 'how many leaves there be / Neglected there … So many Goblins you shall see', and box went up in its place till Easter (Herrick, Hesperides, 1648).",
     tier: 'record',
-    source: 'R. Herrick, Hesperides (1648) · W. Hone, The Every-Day Book (1826), 2 February',
+    source: 'R. Herrick, Hesperides (1648) · W. Hone, The Every-Day Book, vol. I (1826), 2 February · PDSA, "Poisonous plants" · RHS, "Potentially harmful garden plants" · London Fire Brigade, on Christmas trees',
     reward: { gold: 40, xp: 35 },
   },
   // Candlemas Day only (data/candlemasWeather.js), dated by the old calendar;
