@@ -4962,6 +4962,8 @@ function wardsPublic(key) {
 }
 // The taper burn mark's window (data/wards.js).
 const { BURN_ANGLE, BURN_HOLD, burnProblem } = require('./data/wards');
+// Filling and setting a witch bottle, as the record has it (data/wards.js).
+const { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem } = require('./data/wards');
 function wardsStateBody(player) {
   const key = player && player.accountKey;
   const inv = key ? getInventory(player) : null;
@@ -4982,6 +4984,7 @@ function wardsStateBody(player) {
     burnAngle: BURN_ANGLE, burnHold: BURN_HOLD,
     boards: { marian: { tops: MARIAN_TOPS, bottoms: MARIAN_BOTTOMS }, pentangle: { points: PENTANGLE_POINTS } },
     lore: WARDS,
+    bottleFill: (() => { const wb = key && accounts[key] && accounts[key].wards && accounts[key].wards.bottle; return { fillings: BOTTLE_FILLINGS, places: BOTTLE_PLACES, pins: BOTTLE_PINS, set: wb ? { contents: wb.contents || null, place: wb.place || null, inverted: wb.inverted } : null }; })(),
   };
 }
 // A hostile curse is about to land on `p`. If their buried witch bottle holds,
@@ -16540,11 +16543,19 @@ wss.on('connection', (ws, req) => {
       let toast = '';
       if (msg.type === 'bury_witch_bottle') {
         if (w.bottle) { fail(`A witch bottle already lies under your hearth (${w.bottle.charges} curse${w.bottle.charges === 1 ? '' : 's'} left in it).`); return; }
-        if (!removeItemFromAccount(inv, 'witch_bottle', 1)) { fail("You have no witch bottle. Hazel can make one: a bellarmine jug, bent pins and iron nails."); return; }
+        if (countItemQty(inv, 'witch_bottle') < 1) { fail("You have no witch bottle. Hazel can make one: a bellarmine jug, bent pins and iron nails."); return; }
+        // Filled and set by hand: what goes in, the pins bent or not, corked,
+        // where it is buried and which way up (data/wards.js bottleProblem).
+        const problem = bottleProblem(msg);
+        if (problem) { fail(problem); return; }
+        if (!removeItemFromAccount(inv, 'witch_bottle', 1)) { fail("You have no witch bottle."); return; }
         const charges = isHearthWitch(player.accountKey) ? BOTTLE_CHARGES_HEARTH : BOTTLE_CHARGES;
-        w.bottle = { charges, buriedAt: Date.now() };
+        const contents = [...new Set(msg.contents.map(String))];
+        const bent = contents.includes('pins') ? Math.max(0, Math.min(BOTTLE_PINS, Number(msg.bent) || 0)) : 0;
+        w.bottle = { charges, buriedAt: Date.now(), contents, bent, place: msg.place, inverted: msg.inverted };
         saveInventories();
-        toast = `🍶 You lift the hearthstone and bury the witch bottle, neck down, where the fire will keep it warm. It will turn ${charges} curses.`;
+        const where = { hearth: 'lift the hearthstone and bury it', threshold: 'take up the doorstone and bury it beneath the threshold', floor: 'lift a board and bury it under the floor' }[msg.place];
+        toast = `🍶 Corked fast, you ${where}, ${msg.inverted ? 'neck down' : 'upright'}${bent ? `, its pins bent` : ''}. It will turn ${charges} curses.`;
       } else if (msg.type === 'scribe_hexafoil') {
         if (w.hexafoil) { fail('A daisy wheel is already cut over your door.'); return; }
         w.hexafoil = { at: Date.now() };
