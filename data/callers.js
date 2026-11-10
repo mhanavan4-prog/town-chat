@@ -1201,10 +1201,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'cross_bun', label: 'The buns baked, one hung up, a little grated into water' },
     ],
-    resolution: "The buns are baked and one hangs from the beam. Then the practical half, and it matters more than the bun: a child three days with the flux is drying out. Small sips of water, often, even if he brings some back; the chemist's salts for it if you can get them; and if he is wetting less, or can't keep anything down, the doctor today, not tomorrow. The grated bun does no harm in the water. It's the water that does the good.",
-    lore: "The Good Friday bun: bread baked on Good Friday was kept all year, said never to go mouldy, and grated into water as a cure, \"particularly for diarrhea\" (Chambers, 1864).",
+    resolution: "The buns are baked and one hangs from the beam. Then the practical half, and it matters more than the bun: a child three days with the flux is drying out. Small sips of water, often, even if he brings some back; rehydration powder from the chemist if you can get it; and if he is wetting fewer nappies, or can't keep anything down, ring 111 now, not tomorrow. The grated bun does no harm in the water. It's the water that does the good.",
+    lore: "The Good Friday bun: bread baked on Good Friday was kept all year and grated into water as a cure, \"particularly for diarrhea\" (Chambers, 1864); it would \"not grow mouldy like the common bread\" (Poor Robin's Almanack, 1733).",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), Good Friday · NHS, "Diarrhoea and vomiting" (2023)',
+    source: 'R. Chambers, The Book of Days (1864), Good Friday · Poor Robin\'s Almanack (1733), in E. C. Brewer, Dictionary of Phrase and Fable (1895), "Bun" · NHS, "Diarrhoea and vomiting" (2023)',
     reward: { gold: 40, xp: 35 },
   },
   // Ascension Day only (data/wellDressing.js), dated by Easter through the old calendar.
@@ -1218,10 +1218,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'well_dressing', label: 'The board clayed and set with petals, put up over the spring, and the Gospel read there' },
     ],
-    resolution: "The board goes up over the spring, and folk come down the lane to look at it. Then the practical half. A spring can run clear as glass and still not be safe: you can't tell by looking, and untreated water can carry germs that make the old and the very young badly ill. Don't drink it untreated, and if a house drinks from it, have the council test it. Keep small children away from open water, and put a stout grille over the well. And for the petals, pick, never dig a plant up, and take no more than one flower in twenty.",
-    lore: "Well-dressing: at Tissington on Holy Thursday the five wells were dressed with boards of clay set with petals, and the psalms, Epistle and Gospel read at each (Lysons, 1817). Why it began nobody knows.",
+    resolution: "The board goes up over the spring, and folk come down the lane to look at it. Then the practical half. A spring can run clear as glass and still not be safe: you can't tell by looking, and untreated water can carry germs that make young children, and anyone whose immune system is weak, badly ill. Don't drink it untreated, and if a house drinks from it, have the council test it. Keep small children away from open water, and put a stout grille over the well. And for the petals, pick, never dig a plant up, and take no more than one flower in twenty.",
+    lore: "Well-dressing: at Tissington on Holy Thursday the five wells were dressed with boards of clay set with petals, and the three psalms of the day, the Epistle and the Gospel read, one at each well (Lysons, 1817). Why it began nobody knows.",
     tier: 'record',
-    source: 'D. and S. Lysons, Magna Britannia, vol. V (1817) · UKHSA, "Cryptosporidium: public advice" · Drinking Water Inspectorate, private water supplies',
+    source: 'D. and S. Lysons, Magna Britannia, vol. V (1817) · UKHSA, "Cryptosporidium: public advice" · Drinking Water Inspectorate, private water supplies · Derbyshire Dales District Council, private water supplies · Plantlife, Code of Conduct for wild flowers · Wildlife and Countryside Act 1981, s. 13',
     reward: { gold: 40, xp: 35 },
   },
   // Oak Apple Day only (data/oakApple.js), dated by the old calendar.
@@ -1235,10 +1235,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'royal_oak', label: 'Oak boughs over the doors, a sprig for every hat, and nobody nettled' },
     ],
-    resolution: "Jem wears a sprig like everyone else, and the nettles go on the midden. Then the practical half, which is the nettles. Nobody stings anybody, for whatever reason. If you're stung, wash it with soap and water as soon as you can, don't rub it, and hold a cold wet cloth on it; a dock leaf may cool it a little, or it may only be a comfort. And the young nettle tops are good eating in spring: pick the tops with gloves on, away from the road, before they go tough in summer, and cooking takes the sting out.",
-    lore: "Oak Apple Day: from 1660 to 1859 the King's birthday and the Restoration were kept by law on 29 May, and everyone wore oak for the Boscobel oak; a lad without was stung with nettles (Hone; Chambers, 1864; Andrews, 1891).",
+    resolution: "Jem wears a sprig like everyone else, and the nettles go on the midden. Then the practical half, which is the nettles. Nobody stings anybody, for whatever reason. If you're stung, wash it with soap and water as soon as you can, don't rub it, and hold a cold wet cloth on it; a dock leaf may cool it a little, or it may only be a comfort. And the young nettle tops are good eating in spring: pick the young tops with gloves on, before they go tough in summer, and cooking takes the sting out.",
+    lore: "Oak Apple Day: from 1660 to 1859 the King's birthday and the Restoration were kept by law on 29 May, and everyone wore oak for the Boscobel oak; in Derbyshire a lad without was stung with nettles (Hone; Chambers, 1864; Andrews, 1891).",
     tier: 'record',
-    source: 'Act of 1660, Statutes of the Realm, vol. 5 (1819), p. 237 · W. Andrews, Old Church Lore (1891), p. 179',
+    source: 'Act of 1660, Statutes of the Realm, vol. 5 (1819), p. 237 · W. Hone, The Every-Day Book (1826–27), 29 May · R. Chambers, The Book of Days (1864), 29 May · W. Andrews, Old Church Lore (1891), p. 179 · St John Ambulance, "Nettle sting" · Hampshire & Isle of Wight Wildlife Trust, on nettle tops',
     reward: { gold: 40, xp: 35 },
   },
   // The first of the Dog Days only (data/dogDays.js), dated by the old calendar.
@@ -1255,7 +1255,7 @@ const CALLERS = [
     resolution: "Rufus is out of the cart, lying in the shade with his water, and Sukey's father gets a piece of her mind. Then the practical half. Never leave a dog, a child or anyone in a closed vehicle in the heat: on a warm day of 22 degrees a car can reach 47 within the hour, and if you see a dog in distress in a hot car, ring 999. Before you walk a dog, lay the back of your hand on the pavement for five seconds; if it's too hot for you, it's too hot for paws. Keep out of the sun between eleven and three. If someone is faint and clammy from the heat, move them somewhere cool, take off the extra layers, give them plenty of water and cool their skin; they should feel better within half an hour, and if they don't, or they're hot and dry or confused, ring 999. As for the medicine, the dog-star has nothing to do with it: take what the doctor gave you.",
     lore: "The Dog Days: 3 July to 11 August in the later almanacs, when the dog-star rose with the sun and added its heat, dogs went mad and physic was dangerous (Brewer, 1895; Vaughan, 1612; Hone, 1826).",
     tier: 'record',
-    source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · NHS, "Heat exhaustion and heatstroke" · British Veterinary Association, Dogs Die in Hot Cars · Dogs Trust · UKHSA',
+    source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · W. Vaughan, Approved Directions for Health (1612), p. 126 · W. Hone, The Every-Day Book, vol. I (1826), 3 July · NHS, "Heat exhaustion and heatstroke" · British Veterinary Association, Dogs Die in Hot Cars · Dogs Trust · UKHSA',
     reward: { gold: 40, xp: 35 },
   },
   // St James's Day only (data/stJames.js), dated by the old calendar.
@@ -1286,8 +1286,8 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'tynwald', label: 'Bollan bane pinned on, the Acts heard from the Hill, and the petition taken to its foot' },
     ],
-    resolution: "You pin bollan bane on Juan's coat and walk with him up the processional path. At the foot of the Hill he hands his petition to the Clerk, and it goes up to the President. By autumn a committee has been to Peel to look at the harbour. Then the practical half. A Petition for Redress can be presented only at St John's on Tynwald Day, by the petitioner or someone they authorise, three people at most, walking the processional path and handing it to the Clerk of Tynwald at the foot of the Hill. It must be typed, not handwritten, headed 'In Tynwald' and addressed 'To the Honourable Members of Tynwald Court', with your name and address; respectful, decorous and temperate; ending with a prayer, and signed on that page. It must be a matter of public interest that falls within Tynwald's province, and not a case a court, tribunal or complaints procedure could deal with: a quarrel over a neighbour's wall belongs in court, not on the Hill. Ask the Clerk of Tynwald's office for advice beforehand, and go to the petitioners' briefing at the Lych Gate of the Royal Chapel on the morning.",
-    lore: "Tynwald Day: on Old Midsummer Day the Manx parliament sits on Tynwald Hill, and 'Any person may approach Tynwald Hill on Tynwald Day and present a Petition for Redress'; everyone wears bollan bane, once worn 'to protect them from witchcraft' (Moore, 1891).",
+    resolution: "You pin bollan bane on Juan's coat and walk with him up the processional path. At the foot of the Hill he hands his petition to the Clerk, who takes it up to the Lieutenant Governor. By autumn a committee has been to Peel to look at the harbour. Then the practical half. A Petition for Redress can be presented only at St John's on Tynwald Day, by the petitioner or someone they authorise, three people at most, walking the processional path and handing it to the Clerk of Tynwald at the foot of the Hill. It must be typed, not handwritten, headed 'In Tynwald' and addressed 'To the Honourable Members of Tynwald Court', with your name and address; respectful, decorous and temperate; ending with a prayer, and signed on that page. It must be a matter of public interest that falls within Tynwald's province, and not a case a court, tribunal or complaints procedure could deal with: a quarrel over a neighbour's wall belongs in court, not on the Hill. Ask the Clerk of Tynwald's office for advice beforehand, and go to the petitioners' briefing at the Lych Gate of the Royal Chapel on the morning.",
+    lore: "Tynwald Day: on Old Midsummer Day the Manx parliament sits on Tynwald Hill, and 'Any person may approach Tynwald Hill on Tynwald Day and present a Petition for Redress'; everyone wears bollan bane, which on Midsummer Eve was once made into wreaths 'to protect them from witchcraft' (Moore, 1891).",
     tier: 'record',
     source: 'Tynwald, "Tynwald Day" · Standing Orders of Tynwald Court (2023), 6.1, 6.5–6.11 · A. W. Moore, The Folk-Lore of the Isle of Man (1891), ch. VI',
     reward: { gold: 40, xp: 35 },
@@ -1303,10 +1303,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'swithin_sky', label: 'The sky watched, morning and evening, and the hay got in between the showers' },
     ],
-    resolution: "The hay's in, most of it dry. Then the practical half, which is what the old sayings are good for. A red sky at night is worth something here, because the weather comes from the west: it means clear air coming. A mackerel sky and mares' tails can come before a storm. Swallows flying low only tell you the insects are low in damp air now; they don't foretell tomorrow. And the saint is no forecaster: Chambers counted, and the Met Office says forty days of rain has never happened. What a warm wet July does bring is blight on the potatoes and tomatoes. Cut blighted potato tops down, and wait two weeks before you lift them. And, as Poor Robin's Almanac had it in 1697, \"make hay while sun doth shine\".",
-    lore: "St Swithin's Day: rain on 15 July was said to bring forty days of rain, because, the story went, rain stopped the monks moving his body into the church (Chambers, 1864); it has never happened.",
+    resolution: "The hay's in, most of it dry. Then the practical half, which is what the old sayings are good for. A red sky at night is worth something here, because the weather comes from the west: it means clear air coming. A mackerel sky and mares' tails can come before a storm. Swallows flying low only tell you the insects are low in damp air now; they don't foretell tomorrow. And the saint is no forecaster: Chambers counted, and the Met Office says that since records began it has never once rained for forty days on end. What a warm wet July does bring is blight on the potatoes and tomatoes. Cut blighted potato tops down, and wait two weeks before you lift them. And, as Poor Robin's Almanac had it in 1697, \"make hay while sun doth shine\".",
+    lore: "St Swithin's Day: rain on 15 July was said to bring forty days of rain, because, the story went, rain stopped the monks moving his body into the church (Chambers, 1864); no such forty days has ever been recorded.",
     tier: 'record',
-    source: 'R. Chambers, The Book of Days (1864), 15 July · Met Office, "Red sky at night and other weather lore"',
+    source: 'R. Chambers, The Book of Days (1864), 15 July · W. Hone, The Every-Day Book, vol. I (1826), 15 July · Met Office, "Red sky at night and other weather lore" · Royal Meteorological Society, "Behind the folklore: swallows" (2010) · RHS, "Potato blight"',
     reward: { gold: 40, xp: 35 },
   },
   // St Peter's Eve only (data/stPetersEve.js), dated by the old calendar.
@@ -1316,14 +1316,14 @@ const CALLERS = [
     icon: '🔥',
     title: "St Peter's Eve",
     when: { calendar: 'st_peters_eve', days: 2, label: "St Peter's Eve" },
-    plea: "St Peter's Eve, and he's the fishermen's saint. At home in Newlyn the pile's on the beach by now, and we'd be going house to house for faggots and pence. The lads here want a fire too, only they mean to have it up on the moor, where it's not rained for a month and the furze is dry as tinder. I'd sooner do it right. Will you help me?",
+    plea: "St Peter's Eve, and he's the fishermen's saint. At home in Polperro the pile's on the beach by now, and we'd be going house to house for faggots and pence. The lads here want a fire too, only they mean to have it up on the moor, where it's not rained for a month and the furze is dry as tinder. I'd sooner do it right. Will you help me?",
     steps: [
       { kind: 'rite', rite: 'st_peters_eve', label: 'Faggots begged from every house, the tables set out, and the fire lit where it is safe' },
     ],
-    resolution: "The fire is lit on the beach, not the moor, and the moor is still there in the morning. Then the practical half. In the countryside, don't light fires, and have a barbecue only where the signs say you can; in a dry summer one spark in the furze can take a whole hillside. If you see a fire nobody is watching, ring 999. On a beach, find out first whether fires are allowed there, and put it out with water, plenty of it, over the embers and the sand under them: never bury a fire or a barbecue in sand, which keeps the heat for hours and burns the next bare foot. And for a burn: cool running water for twenty minutes, no butter or cream, and cling film laid over it loosely.",
+    resolution: "The fire is lit on the beach, not the moor, and the moor is still there in the morning. Then the practical half. In the countryside, don't light fires, and have a barbecue only where the signs say you can; in a dry summer one spark in the furze can take a whole hillside. If you see a fire nobody is watching, ring 999. On a beach, put a fire out with water, plenty of it, over the embers and the sand under them: never bury a fire or a barbecue in sand, which keeps the heat for hours and burns the next bare foot. And for a burn: cool running water for twenty minutes, no butter or cream, and cling film laid over it loosely.",
     lore: "St Peter's Eve: the last of the midsummer fires; Newcastle's cooks kept one on the Sand-hill (1575), and west Cornwall lit lines of tar-barrels in the streets for the fishermen's saint (Courtney, 1890).",
     tier: 'record',
-    source: 'M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · The Countryside Code · Swansea Bay University Health Board, beach barbecues · NHS, "Burns and scalds"',
+    source: 'the Newcastle cooks\' ordinary (1575), in J. Brand, Popular Antiquities (1849), as T. F. Thiselton Dyer gives it (1876) · M. A. Courtney, Cornish Feasts and Folk-Lore (1890) · The Countryside Code · Swansea Bay University Health Board, beach barbecues · NHS, "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
   // Barnaby Bright only (data/barnabyBright.js), dated by the old calendar.
@@ -1354,8 +1354,8 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'midsummer_quarter', label: 'The quarter\'s rent faced, and the landlord gone to before he comes' },
     ],
-    resolution: "You sit with Sarah while she counts it once more, and it's still short; then you go with her to the landlord's office before he can come to her, and she offers part now and the rest by Michaelmas, in writing. The ring stays on her mother's hand. Then the practical half. Speak to your landlord as soon as you can, and offer a plan to clear the arrears that you can truly afford. Check you're getting the housing help you're due through Universal Credit or Housing Benefit, and ask the council for a Housing Payment, which you don't pay back. A debt adviser can arrange Breathing Space: 60 days in which the arrears can't be chased or charged, though the rent itself must still be paid. Since 1 May 2026 a landlord in England can't evict without a reason: they need a valid notice, a court order, and court bailiffs, and for the main arrears ground the arrears must be at least three months' rent, with four weeks' notice. Changing the locks or putting you out without a court order is illegal eviction, a criminal offence: ring the police. And Shelter's free helpline is 0808 800 4444, Monday to Friday, 8am to 5pm.",
-    lore: "Quarter day: Midsummer was one of the four English rent days, and 'all must pay—that can! Alas, that there should be some unable!' (Hone's Every-Day Book, 1825).",
+    resolution: "You sit with Sarah while she counts it once more, and it's still short; then you go with her to the landlord's office before he can come to her, and she offers part now and the rest by Michaelmas, in writing. The ring stays on her mother's hand. Then the practical half. Speak to your landlord as soon as you can, and offer a plan to clear the arrears that you can truly afford. Check you're getting the housing help you're due through Universal Credit or Housing Benefit, and ask the council for a Housing Payment, which you don't pay back. A debt adviser can arrange Breathing Space: 60 days in which the arrears can't be chased or charged, though the rent itself must still be paid. Since 1 May 2026 a landlord in England can't evict without a reason: they need a valid notice, a court order, and court bailiffs, and for the main arrears ground the arrears must be at least three months' rent, with four weeks' notice. Changing the locks or putting you out without a court order is illegal eviction, a criminal offence: ring the police, and tell the council. And Shelter's free helpline is 0808 800 4444, Monday to Friday, 8am to 5pm.",
+    lore: "Quarter day: Midsummer was one of the four English rent days, and 'all must pay—that can! Alas, that there should be some unable!' (Hone, The Every-Day Book, vol. I, 1826).",
     tier: 'record',
     source: 'W. Hone, The Every-Day Book, vol. I (1826), 24 June, "Quarter-day" · Citizens Advice, "Dealing with rent arrears" · Shelter, "Eviction for rent arrears" and helpline · GOV.UK, Renters\' Rights Act 2025 and "Harassment and illegal evictions" · Protection from Eviction Act 1977, s. 1',
     reward: { gold: 40, xp: 35 },
@@ -1371,10 +1371,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'midsummer_men', label: 'Two slips of orpine set up in the beam, and looked at in the morning' },
     ],
-    resolution: "By morning Will's leans towards Hester's, and she pretends not to care. Then the practical half. A slip of orpine can't tell you whether he's true; only he can. Find a calm time and say it plainly: what you've noticed, and how it makes you feel. And if it were the other way about, if he were the one watching your time, going through your things, jealous and possessive, that isn't love but control, and the National Domestic Abuse Helpline is free and there day and night on 0808 2000 247. As for the orpine: pick a slip, never pull up the plant, take no more than one in twenty, or grow your own from a cutting.",
+    resolution: "By morning Will's leans towards Hester's, and she pretends not to care. Then the practical half. A slip of orpine can't tell you whether he's true; only he can. Find a calm time and say it plainly: what you've noticed, and how it makes you feel. And if it were the other way about, if he were the one watching your time, checking your messages, jealous and possessive, that isn't love but control, and the National Domestic Abuse Helpline is free and there day and night on 0808 2000 247. As for the orpine: pick a slip, never pull up the plant, take no more than one in twenty, or grow your own from a cutting.",
     lore: "Midsummer Men: slips of orpine stuck up in pairs on Midsummer Eve, one for a maid and one for her sweetheart, leaned together for love or apart for aversion (Aubrey, 1680s); later, leaves bent right for true (Brewer).",
     tier: 'record',
-    source: 'J. Aubrey, Remaines of Gentilisme (1686–87) · Relate · Women\'s Aid, "Coercive control" · National Domestic Abuse Helpline · Wildlife and Countryside Act 1981, s. 13 · RHS, Hylotelephium telephium',
+    source: 'J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87), in R. Vickery, Folk Flora (2019) · E. C. Brewer, Dictionary of Phrase and Fable (1895), "Midsummer Men" · Relate · Women\'s Aid, "Coercive control" · Refuge, "How to identify abuse" · National Domestic Abuse Helpline · Wildlife and Countryside Act 1981, s. 13 · RHS, Hylotelephium telephium',
     reward: { gold: 40, xp: 35 },
   },
   // St John's Eve only (data/fernSeed.js): the fern seed at midnight.
@@ -1388,10 +1388,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'fern_seed', label: 'The pewter plate under the fern at midnight, and no hands on it' },
     ],
-    resolution: "Midnight passes under the fern. Then the practical half: there is no seed to catch. What falls is spores, a dust too fine to feel, and nobody ever walked invisible on it, Shakespeare's thief included. The squire's man knows every lad in the parish by his walk, so tell Jem to keep out of the orchard. And bracken in June is thick with ticks: look over your legs when you get home, and pull any off whole.",
+    resolution: "Midnight passes under the fern. Then the practical half: there is no seed to catch. What falls is spores, a dust too fine to feel, and nobody ever walked invisible on it, Shakespeare's thief included. The squire's man knows every lad in the parish by his walk, so tell Jem to keep out of the orchard. And the long grass and the woods are where ticks live: check your skin and clothes when you get home, and take any off with fine tweezers, gripped close to the skin and pulled slowly upwards without squeezing; then wash the bite.",
     lore: "Fern seed: caught on a plate at midnight on St John's Eve, it was said to make you invisible (\"we walk invisible\", Henry IV, Part 1). Ferns have no seed: they grow from spores.",
     tier: 'record',
-    source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995)',
+    source: 'W. Shakespeare, Henry IV, Part 1 (c. 1597), 2.1 · R. C. Moran, Fiddlehead Forum 22 (1995) · NHS, "Lyme disease"',
     reward: { gold: 40, xp: 35 },
   },
   // Horn Fair, St Luke's Day only (data/hornFair.js), dated by the old calendar.

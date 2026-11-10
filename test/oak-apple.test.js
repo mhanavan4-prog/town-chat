@@ -34,7 +34,7 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'oak_apple_day');
 check('the Commonplace Book\'s own entry: nettles and eggs as the sources have them, no pinching, the Act repealed', cal && cal.month === 5 && cal.day === 29 && /stung with nettles/.test(cal.text) && /eggs/.test(cal.text) && !/pinch/.test(cal.text) && /repealed in 1859/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'oak_apple_boys');
 check('Sam Hobday and the village lads, dated by the old calendar\'s Oak Apple Day, for two days', c && c.when && c.when.calendar === 'oak_apple_day' && c.when.days === 2 && c.steps[0].rite === 'royal_oak');
-check('the practical half: nobody stung; soap and water, don\'t rub, a cold cloth; dock maybe only a comfort; nettle tops with gloves, away from the road, cooked', /Nobody stings anybody/.test(c.resolution) && /soap and water/.test(c.resolution) && /don't rub it/.test(c.resolution) && /cold wet cloth/.test(c.resolution) && /dock leaf may cool it a little, or it may only be a comfort/.test(c.resolution) && /gloves on, away from the road/.test(c.resolution) && /cooking takes the sting out/.test(c.resolution));
+check('the practical half: nobody stung; soap and water, don\'t rub, a cold cloth; dock maybe only a comfort; young nettle tops with gloves, cooked', /Nobody stings anybody/.test(c.resolution) && /soap and water/.test(c.resolution) && /don't rub it/.test(c.resolution) && /cold wet cloth/.test(c.resolution) && /dock leaf may cool it a little, or it may only be a comfort/.test(c.resolution) && /pick the young tops with gloves on/.test(c.resolution) && /cooking takes the sting out/.test(c.resolution));
 
 require('../server.js');
 
