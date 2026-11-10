@@ -1557,6 +1557,8 @@ const { WORLD2 } = require('./data/world'); // Tier 3.4 Phase A: extracted to da
 // system already renders client-side; heal/regen/cleanse are new, simple
 // effects that don't need a new visual.
 const { PLANT_CATALOG } = require('./data/world'); // Tier 3.4 Phase A: extracted to data/
+// The clootie well in the Wilds, west of the portal (data/clootie.js; the rounds and the tying are in lib/callers.js).
+WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
 const PLANT_KEYS = Object.keys(PLANT_CATALOG);
@@ -11894,6 +11896,8 @@ wss.on('connection', (ws, req) => {
           send(ws, { type: 'coven_table_state', table: covenTableFor('cafe'), champions: covenChampionBody() });
         }
       }
+      // Round the clootie well, sunways (lib/callers.js counts the rounds).
+      if (player.room === 'wilds') callers.clootMove(player);
       return;
     }
 

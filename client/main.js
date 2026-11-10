@@ -9013,6 +9013,7 @@ function wildsFlatZones() {
   _wildsFlatZones = [
     { x: sx, y: sy, r: 440 },              // arrival spawn
     { x: sx + 170, y: sy + 20, r: 210 },   // return portal
+    ...(world2 && world2.clootieWell ? [{ x: world2.clootieWell.x, y: world2.clootieWell.y, r: 300 }] : []), // the clootie well's spring
     { x: 5000, y: 3000, r: 780 },          // the village
     { x: 2200, y: 5000, r: 540 },          // western ritual circle (Unbound camp)
     { x: 7800, y: 5000, r: 540 },          // eastern ritual circle (Thornwarden camp)
@@ -10852,6 +10853,7 @@ function addSpookyDecor(scene, w2) {
   const rng = (a, b) => a + rand() * (b - a);
   const keepClear = [ // spawn + portal approach + campfires stay walkable
     { x: w2.spawn.x, y: w2.spawn.y, r: 320 },
+    ...(w2.clootieWell ? [{ x: w2.clootieWell.x, y: w2.clootieWell.y, r: 160 }] : []), // the clootie well
     ...VILLAGE_PLOTS, // and nothing grows through a village wall
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 120 }))
   ];
@@ -18389,6 +18391,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
   if (kiosk && kiosk.npc === 'waymark') { ws.send(JSON.stringify({ type: 'read_waymarker', markerId: kiosk.markerId })); return; }
+  if (kiosk && kiosk.npc === 'clootie') { ws.send(JSON.stringify({ type: 'cloot_tie' })); return; }
   if (kiosk && kiosk.npc === 'forbidden_book') { ws.send(JSON.stringify({ type: 'read_forbidden_book' })); return; }
   if (kiosk && kiosk.npc === 'real_shelf') { openShelfModal(); return; }
   if (kiosk && kiosk.npc === 'cafe_special') { ws.send(JSON.stringify({ type: 'order_special' })); return; }
@@ -18693,6 +18696,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'wolf_pact') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} howl with Lexton Greyfur`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'clootie') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} tie a cloot at the clootie well`;
     return;
   }
   if (kiosk && kiosk.npc === 'waymark') {

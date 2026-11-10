@@ -282,6 +282,29 @@ function renderCallers(list, meNote) {
         body.appendChild(box);
       } else if (s.kind === 'tablet' && !s.done && s.tablet) {
         renderTablet(body, s);
+      } else if (s.kind === 'cloot' && !s.done && s.cloot) {
+        // A cloot for the clootie well: the cloth chosen here; the rounds and
+        // the knot are walked and tied at the well in the Wilds.
+        const box = el('div', 'clootBox');
+        box.appendChild(el('div', 'callerStepNote', s.cloot.use));
+        if (!s.cloot.cloth) {
+          const row = el('div', 'clootCloths');
+          for (const c of s.cloot.cloths) {
+            const b = el('button', 'btn charmSay', c.label);
+            b.addEventListener('click', () => { b.disabled = true; send({ type: 'cloot_cloth', cloth: c.key }); });
+            row.appendChild(b);
+          }
+          box.appendChild(row);
+        } else {
+          const chosen = (s.cloot.cloths.find((c) => c.key === s.cloot.cloth) || {}).label || '';
+          box.appendChild(el('div', 'callerStepNote', `🎀 ${chosen}, ready.`));
+          const r = el('div', 'knotRow');
+          r.setAttribute('aria-label', `${s.cloot.rounds} of ${s.cloot.need} rounds sunways`);
+          for (let k = 0; k < s.cloot.need; k++) r.appendChild(el('span', 'knotMark' + (k < s.cloot.rounds ? ' tied' : ''), k < s.cloot.rounds ? '●' : '○'));
+          box.appendChild(r);
+          box.appendChild(el('div', 'callerStepNote', s.cloot.rounds >= s.cloot.need ? 'Three times round. Now tie it on the thorn, at the spring.' : `Round the well sunways: ${s.cloot.rounds} of ${s.cloot.need}.`));
+        }
+        body.appendChild(box);
       } else if ((s.kind === 'sieve' || s.kind === 'key') && !s.done) {
         // Name them one by one; the sieve turns at one.
         body.appendChild(el('div', 'callerStepNote', s.kind === 'key'

@@ -52,6 +52,12 @@ setTimeout(() => {
     else if (s.kind === 'troy') { for (let k = 0; k < 8; k++) say(sock, { type: 'troy_join', a: 8 - k, b: (9 + k) % 16 }); }
     else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
     else if (s.kind === 'knots') { for (let k = 0; k < s.count; k++) say(sock, { type: 'knot_tie' }); }
+    else if (s.kind === 'cloot') {
+      const W = require('../data/clootie').CLOOTIE_WELL; const pl = [...h.players.values()].find((q) => q.ws === sock); pl.room = 'wilds';
+      say(sock, { type: 'cloot_cloth', cloth: 'wool' });
+      for (let k = 0; k <= 3 * 24 + 2; k++) { const a = (k / 24) * 2 * Math.PI; say(sock, { type: 'move', x: W.x + 120 * Math.cos(a), y: W.y + 120 * Math.sin(a), room: 'wilds' }); }
+      say(sock, { type: 'cloot_tie' });
+    }
     else if (s.kind === 'scribe') { for (const ln of require('../data/charms').SCRIBINGS[s.charm].lines) say(sock, { type: 'scribe_line', text: ln }); }
     else if (s.kind === 'tablet') say(sock, { type: 'tablet_write', parts: ['suli_minervae', 'name', 'dono', 'sanitatem', 'si_vir', 'nissi'], backwards: 'none' });
     else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
