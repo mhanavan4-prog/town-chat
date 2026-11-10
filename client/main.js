@@ -44,6 +44,7 @@ import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
 import createCountStones from './count-stones.js';
+import createDowseMarks from './dowse-marks.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
 import createMobsTown from './mobs-town.js';
@@ -486,6 +487,10 @@ const KK = (() => {
     grass2:        'kk/nature/Grass_1_C_Color4.gltf',
     grass3:        'kk/nature/Grass_2_A_Color4.gltf',
     grass4:        'kk/nature/Grass_2_C_Color4.gltf',
+    // Where you dug for Tobias Hext's well (client/dowse-marks.js): the Farmers
+    // pack's turned earth and the Medieval pack's bucket of water.
+    dig_plot:      'kk/props/dirt_plot.gltf',
+    dig_bucket:    'kk/bld/bucket_water.gltf',
     // KayKit Furniture Bits — interior dressing. These stream in AFTER spawn
     // (see FURN_KEYS, excluded from the gate) and are only consumed when you
     // step into a furnished interior, which falls back to the procedural
@@ -2087,6 +2092,7 @@ function onWsMessage(ev) {
   // Callers at the Door — the Board's cunning-folk workings.
   if (msg.type === 'callers_state') {
     callersState = msg;
+    try { _dowseMarks.update(msg); } catch (e) { /* the marks are dressing; the working goes on */ }
     if (Modals.isOpen('boardModalOpen')) renderBoardModal();
     return;
   }
@@ -10206,7 +10212,7 @@ function initScene(w) {
 function swapToWildsMap() {
   if (!wildsScene && world2) {
     try {
-      buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); // lazy: built on first entry, not at boot
+      buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); // lazy: built on first entry, not at boot
       // If the KayKit models hadn't all streamed in yet — e.g. a reload/resume
       // straight into the Wilds on a cold load — this build used placeholder
       // NPCs (a procedural Artificer, no Lexton) and skipped the KayKit
@@ -10301,7 +10307,7 @@ let wildsPrebuildScheduled = false;
 function prebuildWilds() {
   if (wildsScene || !world2 || !KK.settled) return;
   try {
-    buildWildsScene(world2); applyDrawDistanceTier(GFX.quality);
+    buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place();
     // Prebuild runs as soon as the GATING town settles, which is typically
     // before the character/NPC bodies finish streaming — so the Artificer,
     // Lexton and the Wilds quest NPCs would be baked as procedural stand-ins.
@@ -10347,7 +10353,7 @@ function scheduleWildsUpgrade() {
     for (const light of sharedLights) wildsScene.remove(light); // free the shared lights from the stale scene
     manorExteriorGroup = null; // force ensureManorExterior to re-add to the fresh scene
     wildsScene = null;         // force a full rebuild on the next call
-    try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); } catch (e) { console.error('Wilds upgrade rebuild failed:', e); return; }
+    try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); } catch (e) { console.error('Wilds upgrade rebuild failed:', e); return; }
     if (wasActive && wildsScene) {
       for (const light of sharedLights) wildsScene.add(light);
       world = world2; walls = WILDS_WALLS; cameraYawOffset = 0; cameraPitchOffset = 0;
@@ -16142,6 +16148,8 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _monas = createMonas({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
+// Where you dug for the well, in the Wilds (client/dowse-marks.js).
+const _dowseMarks = createDowseMarks({ KK, getWildsScene: () => wildsScene, heightAt: (x, z) => (typeof wildsHeightAt === 'function' ? wildsHeightAt(x, z) : 0) });
 const _countStones = createCountStones({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 const _kamea = createKamea({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
