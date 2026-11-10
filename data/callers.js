@@ -63,6 +63,21 @@ const CALLERS = [
     reward: { gold: 70, xp: 45 },
   },
   {
+    id: 'bath_cloak',
+    caller: 'Jonah Wellow',
+    icon: '🧥',
+    title: 'The Cloak off the Peg',
+    plea: "My good hooded cloak, gone off the peg at the bath-house while I was in the water. I've seen the old lead curses in the museum at Bath, where the Romans asked their goddess to get their things back. Write me one of those, the old way.",
+    steps: [
+      { kind: 'tablet', label: 'Write him a tablet to Sulis, clause by clause' },
+    ],
+    resolution: "You write it the old way, with a stylus on a square of soft pewter, and read it back to Jonah: the goddess, his name, the cloak, the thief nobody knows, what she is to deny him, and the way out, which is to bring it back. He wants to drop it down the town well; you stop him, because the town drinks that water, and do as Docilianus did instead: leave it flat and nail it up over the empty peg, where every bather will read it. On the third day the cloak is back on the peg. Then the practical half. If a theft is happening now, or anyone is in danger, ring 999; otherwise report it to the police on 101 or online, or anonymously to Crimestoppers on 0800 555 111, and keep the crime reference number. Solinus cursed the one 'who has done me wrong', and if yours was a cheat rather than a thief, a scam online or a sale that never came, tell Report Fraud, which replaced Action Fraud in December 2025 as 'the place to tell the police about cyber crime and fraud', at reportfraud.police.uk or on 0300 123 2040. And don't cut a tablet of your own from old lead. You take lead in if you 'eat, drink, smoke or bite your nails without washing your hands and face' (HSE), so wash your hands, forearms and face before you eat, and keep it from children and anyone pregnant: 'Pregnant women, infants and young children are particularly sensitive to the harmful effects of lead' (UKHSA). If you're worried, ask your GP or ring NHS 111.",
+    lore: "In 1979–80 about 130 small sheets of lead and pewter came out of the sacred spring at Bath, prayers 'dating from the 2nd-4th century AD' (UNESCO UK). Tomlin called them 'the largest published dossier of petty theft in Roman Britain'. Docilianus son of Brucerus wrote: 'I curse him who has stolen my hooded cloak, whether man or woman, whether slave or free', that Sulis allow him neither sleep nor children 'until he has brought my hooded cloak to the temple of her divinity' (Tab. Sulis 10); his tablet was left flat, with a nail through it. Solinus gave his stolen 'bathing tunic and cloak' to the goddess herself (Tab. Sulis 32). 'Whether slave or free' is on sixteen of them. Some were written backwards: the whole text (98), each line (44, 62), or the letters of each word (4). Few are true lead: of the 75 whose metal is known 'only four are in fact lead', the rest mostly pewter, written with a stylus, and 'folded' is a better word for them than rolled, 'once or several times'. About 80 of the names are Celtic and about 70 Roman, and one tablet (14) may be a Celtic text 'written down in Latin letters'.",
+    tier: 'record',
+    source: 'R. S. O. Tomlin, "Tabellae Sulis", in B. Cunliffe (ed.), The Temple of Sulis Minerva at Bath, vol. 2 (1988), as abridged on RIB Online: Tab. Sulis 4, 10, 14, 32, 44, 62, 98, and "Formulas", "Manufacture and preparation", "Handwriting", "Names" · UNESCO UK, "The Roman Curse Tablets from Bath" (Memory of the World, 2014) · GOV.UK, "Report a crime" · Report Fraud, "What is Report Fraud?" · techUK, "Report Fraud service replaces Action Fraud" (2025) · UKHSA, "Lead: information for the public" · HSE, "Lead: who is most at risk"',
+    reward: { gold: 70, xp: 50 },
+  },
+  {
     id: 'lintel_mark',
     caller: 'Widow Garrow',
     icon: '🚪',
@@ -2184,7 +2199,7 @@ const CALLERS_PER_DAY = 3;
 // a Yule custom (data/yule.js) or another festival's custom
 // (data/wheelRites.js); callers with a season come only in it.
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe'];
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet'];
 
 // Caerdroia is drawn on the Board, wall by wall (data/troy.js).
 READING_KINDS.push('troy');

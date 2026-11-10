@@ -2094,6 +2094,7 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'caller_error') {
     if (msg.message) setUnlockToast(`🚪 ${msg.message}`);
+    if (_board && _board.callerError) _board.callerError(msg.message);
     return;
   }
 
