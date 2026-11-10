@@ -131,7 +131,7 @@ function setWards(w) {
     // The Marian mark: two interlocking Vs cut into the north wall's beam,
     // beside where the hearth sits.
     const mat = new THREE.MeshBasicMaterial({ map: makeMarianTexture(), transparent: true, depthWrite: false });
-    const mark = new THREE.Mesh(new THREE.PlaneGeometry(30, 22), mat);
+    const mark = new THREE.Mesh(new THREE.PlaneGeometry(44, 32), mat);
     mark.name = 'marianMark';
     mark.position.set(W / 2 - 70, WALL_H * 0.62, 7.4);    // the north wall's inner face, faces into the room (+z)
     wardGroup.add(mark);
@@ -142,13 +142,16 @@ function setWards(w) {
     const mark = new THREE.Mesh(new THREE.PlaneGeometry(10, 22), mat);
     mark.name = 'burnMark';
     mark.rotation.y = Math.PI;
-    mark.position.set(W / 2 + 80, WALL_H * 0.5, D - 7.4);   // the south wall's inner face, beside the door
+    // Well clear of the door, so the 'Leave Your Cottage' sign hung across the
+    // doorway (about 100 either side of the middle) never covers it.
+    mark.position.set(W / 2 + 135, WALL_H * 0.5, D - 7.4);   // the south wall's inner face, beside the door
     wardGroup.add(mark);
   }
   if (w.sator) {
     // The SATOR plate, propped on the wall by the hearth.
-    const mat = new THREE.MeshLambertMaterial({ map: makeSatorTexture() });
-    const plate = new THREE.Mesh(new THREE.CircleGeometry(15, 28), mat);
+    // Unlit, so the hearth light right in front of it doesn't wash the letters out.
+    const mat = new THREE.MeshBasicMaterial({ map: makeSatorTexture() });
+    const plate = new THREE.Mesh(new THREE.CircleGeometry(18, 28), mat);
     plate.name = 'satorPlate';
     plate.position.set(W / 2 + 70, 58, 7.6);
     wardGroup.add(plate);
@@ -214,9 +217,9 @@ function makeSatorTexture() {
   const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(S / 2, S / 2, 10, S / 2, S / 2, S / 2);
-  grad.addColorStop(0, '#efe3c6'); grad.addColorStop(0.8, '#d2bd90'); grad.addColorStop(1, '#8a6a3a');
+  grad.addColorStop(0, '#a89b7c'); grad.addColorStop(0.8, '#8f7c58'); grad.addColorStop(1, '#5a4326');
   g.fillStyle = grad; g.fillRect(0, 0, S, S);
-  g.fillStyle = '#3a2410'; g.font = 'bold 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#1e1208'; g.font = 'bold 28px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   const rows = ['SATOR', 'AREPO', 'TENET', 'OPERA', 'ROTAS'];
   rows.forEach((row, r) => { for (let i = 0; i < 5; i++) g.fillText(row[i], 68 + i * 30, 68 + r * 30); });
   const tex = new THREE.CanvasTexture(c);
