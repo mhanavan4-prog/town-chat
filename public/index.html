@@ -3484,6 +3484,14 @@
   .wardBack { display:block; margin:8px auto 0; }
   /* The drawn marks: knife cuts, the pentangle's one stroke, the SATOR square */
   .markCanvas { touch-action:none; cursor:crosshair; }
+  /* The same drawings by keys (keyboard and screen readers) */
+  .kbPanel { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center; margin:6px 0 2px; }
+  .kbLabel { width:100%; text-align:center; color:#c9b89a; font-size:12px; }
+  .kbBtn { width:auto; padding:4px 9px; font-size:12px; margin:0; }
+  .kbSlider { display:flex; align-items:center; gap:6px; color:#e8d9b4; font-size:12.5px; }
+  .kbReadout { width:100%; text-align:center; color:#ffd9a0; font-size:12.5px; min-height:1.2em; }
+  .ogKeys { display:flex; flex-direction:column; gap:4px; }
+  .kbBtn:focus-visible, .ogCastBtn:focus-visible, .monasTool:focus-visible { outline:2px solid #ffd9a0; outline-offset:2px; }
   .markGuide { fill:none; stroke:#ffd9a0; stroke-width:2; stroke-dasharray:4 4; stroke-linecap:round; opacity:0.8; }
   .pentField { fill:#8a1f1a; stroke:#3a0d0a; stroke-width:4; }
   .pentLine { fill:none; stroke:#e8c25a; stroke-width:5; stroke-linecap:round; }
