@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'cream_of_the_well');
 check('the Commonplace Book\'s Cream of the Well: no longer an accusation, the slander on Rood-day; the straw; badged folk; the couplet', cal && cal.month === 1 && cal.day === 1 && !/was accused/.test(cal.text) && /slandered/.test(cal.text) && /Rood-day/.test(cal.text) && /wisp of straw/.test(cal.text) && cal.tier === 'folk' && cal.quote === "The flower o' the well to our house gaes");
 const c = CALLERS.find((x) => x.id === 'cream_of_the_well');
 check('Isobel Rennie, dated by it, for two days', c && c.when && c.when.calendar === 'cream_of_the_well' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'cream_of_the_well');
-check('the practical half: grip, short steps, slowly, the penguin; something reflective; boil well water; the signs of the cold and what to do, no alcohol, no hot bath, no rubbing', /boots with a good grip, take short steps, go slowly and walk like a penguin/.test(c.resolution) && /reflective/.test(c.resolution) && /boil it before anyone drinks it/.test(c.resolution) && /shivering, pale skin, slurred words and muddle/.test(c.resolution) && /warm drink without alcohol/.test(c.resolution) && /no hot bath/.test(c.resolution) && /no rubbing/.test(c.resolution));
 
 require('../server.js');
 

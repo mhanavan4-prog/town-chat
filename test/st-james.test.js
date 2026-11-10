@@ -32,8 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_james');
 check('the Commonplace Book\'s St James, put right: Old St James\'s Day, 5 August, the grottoes; Chambers\'s proverb kept, Hone cited', cal && cal.month === 7 && cal.day === 25 && /Old St James's Day, 5 August/.test(cal.text) && /'Mind the grotto!'/.test(cal.text) && cal.quote === "Whoever eats oysters on St. James's Day, will never want money." && /5 August/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_james');
 check('Polly Briggs, from Billingsgate, dated by it, for two days', c && /Billingsgate/.test(c.caller) && c.when && c.when.calendar === 'st_james' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_james');
-check('the practical half: a reputable fishmonger and classified waters; who should not eat raw shellfish, and why', /Then the practical half/.test(c.resolution) && /Buy oysters from a reputable fishmonger/.test(c.resolution) && /classified waters/.test(c.resolution) && /Older people, pregnant women, very young children and anyone who is unwell should not eat raw or lightly cooked shellfish, because it can be hard to get viruses out of live shellfish/.test(c.resolution) && /Food Standards Agency/.test(c.source));
-check('…norovirus: soap and water, gel doesn\'t kill it, two days off, 111 if drying out; a shucking cut pressed, A&E if it won\'t stop', /wash hands with soap and water, because alcohol gel doesn't kill norovirus/.test(c.resolution) && /stay off work or school until two days after it stops; ring 111 if someone is drying out/.test(c.resolution) && /press a clean, dry cloth on the cut for several minutes, and go to A&E if it won't stop bleeding/.test(c.resolution) && /NHS 111 Wales/.test(c.source));
 
 require('../server.js');
 

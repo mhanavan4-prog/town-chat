@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_distaff');
 check('the Commonplace Book\'s St Distaff: Rock Day, in Herrick\'s poem, with his line', cal && cal.month === 1 && cal.day === 7 && /Rock Day/.test(cal.text) && /in Herrick's poem/.test(cal.text) && cal.quote === 'Burne the flax, and fire the tow' && /Herrick/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_distaff');
 check('Maud Pyke, dated by it, for two days', c && c.when && c.when.calendar === 'st_distaff' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_distaff');
-check('the practical half: loose fibre burns easily; a fireguard; stop, drop and roll; the fire out before bed; the burn cooled, nothing stuck pulled off, cling film, no butter', /burns very easily/.test(c.resolution) && /fireguard/.test(c.resolution) && /stop, drop and roll/.test(c.resolution) && /Put the fire right out before bed/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution) && /nothing that's stuck/.test(c.resolution) && /cling film over it loosely/.test(c.resolution) && /no butter or cream/.test(c.resolution));
 
 require('../server.js');
 

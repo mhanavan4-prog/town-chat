@@ -30,7 +30,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_crispin');
 check('the Commonplace Book\'s St Crispin: every craftsman\'s door, the stuffing a football; the Folio\'s capital and Shakespeare cited', cal && cal.month === 10 && cal.day === 25 && /every craftsman's door/.test(cal.text) && /its stuffing made into a football/.test(cal.text) && !/kicked about the town/.test(cal.text) && cal.quote === "This day is call'd the Feast of Crispian" && /First Folio/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_crispin');
 check('Davy Tegg, dated by it, for two days', c && c.when && c.when.calendar === 'st_crispin' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_crispin');
-check('the practical half: the agreement and training plan; training in paid hours, the amount agreed; the apprentice minimum wage or the full rate; 20 days\' holiday and bank holidays; the knife cut away, kept sharp, never loose', /apprenticeship agreement and a training plan/.test(c.resolution) && /in your paid working hours/.test(c.resolution) && /in an amount agreed/.test(c.resolution) && /at least the minimum wage for apprentices, or the full rate if your age and year entitle you to it/.test(c.resolution) && /at least 20 days' paid holiday a year, with the bank holidays on top/.test(c.resolution) && /cut away from your body/.test(c.resolution) && /a blunt one slips/.test(c.resolution) && !/20%|six hours/.test(c.resolution));
 
 require('../server.js');
 

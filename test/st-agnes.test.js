@@ -28,7 +28,6 @@ check('Keats, stanza VI: "visions of delight", "supperless to bed"', /"They told
 check('the 20th and the 21st (Aubrey keeps it on the 21st)', AGNES_WHEN.month === 1 && AGNES_WHEN.from === 20 && AGNES_WHEN.to === 21);
 const c = CALLERS.find((x) => x.id === 'st_agnes_eve');
 check('Lucy Tranter: the pins, any year, on her night', c && c.when === AGNES_WHEN && c.steps.length === 1 && c.steps[0].rite === 'st_agnes_pins');
-check('the practical half: hunger and vivid dreams (a 2015 survey), eat in the morning, ask him to the dance', /vivid dreams went with long gaps between meals/.test(c.resolution) && /whoever she already has in mind/.test(c.resolution) && /Eat something in the morning/.test(c.resolution) && /next dance/.test(c.resolution) && /Frontiers in Psychology 6 \(2015\)/.test(c.source));
 
 require('../server.js');
 

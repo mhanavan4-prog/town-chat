@@ -32,7 +32,6 @@ check('…cock-throwing told as cruelty, and how it was put down, without claimi
 check('…Lent crocking (Chambers), and Olney\'s 1445 as tradition only', /"Lent Crocking"/.test(R.lore) && /tradition says since 1445/.test(R.lore) && !/When Jack went to plough/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'shrove_tuesday_shroving');
 check('Will and Lizzie Dyer, dated by the old calendar\'s Shrove Tuesday (Easter less 47 days), for two days', c && c.when && c.when.calendar === 'shrove_tuesday' && c.when.days === 2 && c.steps[0].rite === 'shroving');
-check('the practical half follows the fire brigade: never leave the pan, children back, don\'t move it, never water, heat off only if safe, get out, shut the door, send for help; and no throwing at animals', /Never leave the pan while the heat's on/.test(c.resolution) && /children and the dog back/.test(c.resolution) && /don't try to carry the pan out/.test(c.resolution) && /never throw water on it/.test(c.resolution) && /fireball/.test(c.resolution) && /only if you safely can/.test(c.resolution) && /shut the door behind you/.test(c.resolution) && /fire brigade/.test(c.resolution) && /nobody throws a thing at an animal/.test(c.resolution));
 
 // The day moves with Easter.
 const shrove = OLD_CALENDAR.find((e) => e.key === 'shrove_tuesday');

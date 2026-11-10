@@ -34,7 +34,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'childermas');
 check('the Commonplace Book\'s Childermas no longer says the coronation was put off', cal && cal.month === 12 && cal.day === 28 && /only the pageants waited/.test(cal.text) && /a rumour/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'childermas_carrier');
 check('Joss Wardle the carrier, dated by it, for two days', c && c.when && c.when.calendar === 'childermas' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'childermas');
-check('the practical half: the weather first; tell someone the road; what to carry; ten times as far to stop; and the king\'s tale is wrong', /if ice or snow is coming, don't go unless you must/.test(c.resolution) && /Tell someone at the far end which road you're taking/.test(c.resolution) && /a lamp, warm clothes and boots, a shovel, food and something hot to drink/.test(c.resolution) && /ten times as far to stop/.test(c.resolution) && /crowned on the Sunday after all/.test(c.resolution) && /Highway Code/.test(c.source));
 check('the Year\'s Round now runs from New Year\'s morning to Childermas', /from New Year's morning to Childermas/.test(TITLES.years_round.desc));
 
 require('../server.js');

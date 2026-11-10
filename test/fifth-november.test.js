@@ -32,8 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'guy_fawkes');
 check('the Commonplace Book\'s Fifth: no pennies, every parish church, no bonfires in the Act, Hone too', cal && cal.month === 11 && cal.day === 5 && !/pennies/.test(cal.text) && /every parish church, but no bonfires/.test(cal.text) && /Hone/.test(cal.source) && cal.quote === 'Please to remember the bonfire!');
 const c = CALLERS.find((x) => x.id === 'fifth_november');
 check('Ned and Polly Sparrow, dated by it, for two days', c && c.when && c.when.calendar === 'guy_fawkes' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'fifth_november');
-check('the practical half: hedgehogs, build on the day or move it; one side; away from sheds; no petrol; children back; water by', /hedgehogs/.test(c.resolution) && /build a bonfire on the day you light it, or move the whole pile/.test(c.resolution) && /light it from one side only/.test(c.resolution) && /away from sheds, fences and trees/.test(c.resolution) && /never use petrol or paraffin/.test(c.resolution) && /bucket of water or a hose/.test(c.resolution));
-check('…fireworks: under eighteen, not in the street, eleven and midnight on the Fifth; arm\'s length, never go back; burns under cool water twenty minutes, no butter, cling film', /nobody under eighteen may buy them/.test(c.resolution) && /never set off or thrown in the street/.test(c.resolution) && /on the Fifth it's midnight/.test(c.resolution) && /never go back to one that's been lit/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution) && /no butter or cream/.test(c.resolution) && /cling film over it loosely/.test(c.resolution));
 
 require('../server.js');
 

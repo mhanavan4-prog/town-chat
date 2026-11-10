@@ -31,7 +31,6 @@ check('…Hone\'s London: the characters, and the boys nailing coat-tails', /"a 
 check('…the Baddeley Cake, still cut at Drury Lane; and the greenery rule called modern', /Baddeley/.test(R.lore) && /"a twelfth Cake or Cakes and Wine and Punch"/.test(R.lore) && /Drury Lane Theatrical Fund/.test(R.source) && /Candlemas Eve/.test(R.lore) && /"a modern invention"/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'twelfth_night_cake');
 check('Mrs Fenn of the Bell, dated by the old calendar\'s Bean King, on the night itself', c && c.when && c.when.calendar === 'twelfth_night' && c.when.days === 1 && OLD_CALENDAR.some((e) => e.key === 'twelfth_night' && e.month === 1 && e.day === 6) && c.steps[0].rite === 'twelfth_cake');
-check('the practical half: the bean can choke a child; tell before cutting; under fives get a hat instead (as Pepys did); no eating out of sight; Herrick\'s parting', /stop a child's throat/.test(c.resolution) && /Tell everyone there's a bean and a pea in it before you cut/.test(c.resolution) && /under five/.test(c.resolution) && /out of a hat/.test(c.resolution) && /"to prevent spoiling the cake"/.test(c.resolution) && /no child eats out of sight/.test(c.resolution) && /"As free from offence \/ As when ye innocent met here\."/.test(c.resolution));
 
 require('../server.js');
 

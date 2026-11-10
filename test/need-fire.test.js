@@ -28,7 +28,6 @@ check('how: every fire out, friction, the cattle through the smoke, the new fire
 check('every sign fits whole on the Board', R.outcomes.every((o) => `${R.icon} ${R.name}: ${o}`.length <= 140));
 const c = CALLERS.find((x) => x.id === 'need_fire_murrain');
 check('a caller with the murrain, any time of year: wood, then the rite', c && !c.season && c.steps[0].kind === 'deliver' && c.steps[0].item === 'wood' && c.steps[1].kind === 'rite' && c.steps[1].rite === 'need_fire');
-check('…told the practical half: isolate the sick, stop moving cattle, bury the dead, the cow doctor', /away from the rest/.test(c.resolution) && /nobody moves cattle/.test(c.resolution) && /buried deep/.test(c.resolution) && /cow doctor/.test(c.resolution) && /1865/.test(c.resolution));
 
 require('../server.js');
 

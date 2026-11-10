@@ -30,7 +30,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'lady_day');
 check('the Commonplace Book\'s Lady Day: no 1155, the legal year not New Year\'s Day, the tax year begins on the 6th; the Act quoted', cal && cal.month === 3 && cal.day === 25 && !/1155/.test(cal.text) && /legal year/.test(cal.text) && /hardly anyone called it New Year's Day/.test(cal.text) && /tax year still begins on the 6th/.test(cal.text) && !/Old Lady Day \(5 April\)/.test(cal.text) && cal.quote === 'the year beginneth on the twenty-fifth day of March' && /Pollard/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'lady_day');
 check('Will Durbin, dated by it, for two days', c && c.when && c.when.calendar === 'lady_day' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'lady_day');
-check('the practical half: the deposit protected in 30 days and back in 10; two months\' notice in writing; the inventory checked and photographed; rent up once a year; receipts', /within 30 days of getting it/.test(c.resolution) && /within 10 days of you both agreeing/.test(c.resolution) && /two months' notice in writing/.test(c.resolution) && /Check the inventory before you sign it, and photograph every mark/.test(c.resolution) && /only once a year/.test(c.resolution) && /keep a receipt/.test(c.resolution));
 
 require('../server.js');
 

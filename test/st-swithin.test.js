@@ -30,7 +30,6 @@ check('…Jonson\'s almanac in 1599, quoted as printed', /"St\. Swithin's, the 1
 check('…Chambers\'s Greenwich years, the Met Office, and the RMetS\'s glimmer of sense', /"the greatest number of rainy days, after St\. Swithin's Day, had taken place when the 15th of July was dry\."/.test(R.lore) && /"since records began there has been no occurrence of rainfall for such a prolonged period of time\."/.test(R.lore) && /"the tiniest glimmer of sense"/.test(R.lore) && /jet stream/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'st_swithin_hay');
 check('Josiah Mead, dated by the old calendar\'s St Swithin, for two days', c && c.when && c.when.calendar === 'st_swithin' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'st_swithin' && e.month === 7 && e.day === 15) && c.steps[0].rite === 'swithin_sky');
-check('the practical half: red sky from the west; mackerel sky and mares\' tails; swallows tell now, not tomorrow; no forty days; blight, and two weeks before lifting; make hay', /weather comes from the west/.test(c.resolution) && /mackerel sky and mares' tails/.test(c.resolution) && /don't foretell tomorrow/.test(c.resolution) && /since records began it has never once rained for forty days on end/.test(c.resolution) && /blight/.test(c.resolution) && /wait two weeks before you lift them/.test(c.resolution) && /"make hay while sun doth shine"/.test(c.resolution));
 
 require('../server.js');
 

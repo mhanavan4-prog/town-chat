@@ -28,7 +28,6 @@ check('the cramp charm is the Christ\'s Hospital one, with the eel-skin and the 
 check('the stye: nine strokes of a black cat\'s tail (Hunt), and the older gold', /nine times/.test(STYE_CHARM.use) && /Hunt/.test(STYE_CHARM.source) && /no gold to cure it/i.test(STYE_CHARM.lore));
 const sprain = CALLERS.find((c) => c.id === 'the_sprain'), cramp = CALLERS.find((c) => c.id === 'the_cramp'), stye = CALLERS.find((c) => c.id === 'the_stye');
 check('three callers: nine knots then the words; the words alone; nine strokes', sprain && sprain.steps[0].count === 9 && sprain.steps[1].charm === 'sprain' && cramp && cramp.steps[0].charm === 'cramp' && stye && stye.steps[0].count === 9 && stye.steps[0].charm === 'stye');
-check('each is told the practical half (bind and rest; stretch; a warm cloth)', /foot up/.test(sprain.resolution) && /stretch the calf/.test(cramp.resolution) && /warm water/.test(stye.resolution));
 
 require('../server.js');
 

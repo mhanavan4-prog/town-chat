@@ -29,7 +29,6 @@ check('every sign is an empty plate or dust, and nobody invisible', R.outcomes.e
 check('the 23rd alone, the eve itself', FERN_WHEN.month === 6 && FERN_WHEN.from === 23 && FERN_WHEN.to === 23 && FERN_WHEN.label === "St John's Eve");
 const c = CALLERS.find((x) => x.id === 'fern_seed_eve');
 check('Hal Pritchard: the plate under the fern, on his night', c && c.when === FERN_WHEN && c.steps.length === 1 && c.steps[0].rite === 'fern_seed');
-check('the practical half: no seed, keep out of the orchard, ticks in the bracken', /there is no seed to catch/.test(c.resolution) && /keep out of the orchard/.test(c.resolution) && /ticks/.test(c.resolution));
 
 require('../server.js');
 

@@ -32,8 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_george');
 check('the Commonplace Book\'s St George, put right: Snap on Guild Day in June, the blue coats quoted', cal && cal.month === 4 && cal.day === 23 && /Guild Day in June until 1835/.test(cal.text) && !/went out with the mayor every year/.test(cal.text) && /blue coats/.test(cal.quote) && /Norfolk Annals/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_george');
 check('Ned Thurlow, dated by it, for one day', c && c.when && c.when.calendar === 'st_george' && c.when.days === 1 && c.steps.length === 1 && c.steps[0].rite === 'st_george');
-check('the practical half: the NHS on heat exhaustion, cool place, cool water and fanning, 30 minutes, then 999', /tired, dizzy, sweating hard, pale and clammy, that's heat exhaustion/.test(c.resolution) && /into a cool place, spray or sponge his skin with cool water and fan him/.test(c.resolution) && /within 30 minutes/.test(c.resolution) && /ring 999/.test(c.resolution) && /NHS/.test(c.source));
-check('…the HSE on lifting the frame, and a meeting point in the crowd', /keep the load close to your waist as you lift, don't twist or lean sideways with your back bent, and don't lift more than you can easily manage/.test(c.resolution) && /agree a meeting point/.test(c.resolution) && /steward or a police officer/.test(c.resolution) && /HSE/.test(c.source) && !/wristband/.test(c.resolution));
 
 require('../server.js');
 

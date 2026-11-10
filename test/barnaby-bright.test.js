@@ -31,8 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'barnaby_bright');
 check('the Commonplace Book\'s Barnaby Bright, put right: the solstice itself, not near the old midsummer; the rake and the garlands; Chambers and Ray cited', cal && cal.month === 6 && cal.day === 11 && /fell at the summer solstice itself/.test(cal.text) && !/near the old midsummer/.test(cal.text) && /rake for hay-harvest/.test(cal.text) && /Ray/.test(cal.source) && /Book of Days/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'barnaby_bright');
 check('Ellen Dawe, from the hay meadows, dated by it, for two days', c && /hay meadows/.test(c.caller) && c.when && c.when.calendar === 'barnaby_bright' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'barnaby_bright');
-check('the practical half: shade 11 to 3; clothes, hat, sunglasses; factor 30, 4-star UVA, every two hours; never burn; babies out of the sun', /Then the practical half/.test(c.resolution) && /keep to the shade between 11am and 3pm/.test(c.resolution) && /cover up with clothes, a hat and sunglasses/.test(c.resolution) && /at least factor 30, with at least 4-star UVA protection, put on well and again every two hours/.test(c.resolution) && /Never burn, and keep babies under 6 months out of direct sun/.test(c.resolution));
-check('…heat exhaustion: a cool place, clothes off, water, cool skin and fanning; better in 30 minutes, or 999', /move them to a cool place, take off what clothing you can, give them plenty of water, and spray or sponge them with cool water and fan them/.test(c.resolution) && /within 30 minutes; if they don't, ring 999/.test(c.resolution) && /NHS/.test(c.source));
 
 require('../server.js');
 

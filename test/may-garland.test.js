@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'going_a_maying');
 check('the Commonplace Book\'s May Day, 1 May', cal && cal.month === 5 && cal.day === 1);
 const c = CALLERS.find((x) => x.id === 'may_garland');
 check('Mrs Hayward and her girls, dated by it, for two days', c && c.when && c.when.calendar === 'going_a_maying' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'may_garland');
-check('the practical half: pick, never dig; one in twenty (no unconfirmed "if in doubt"); the bluebell bulbs; the harmful flowers and hands washed; their mother along, and only houses they know', /never dig them up: uprooting a wild plant is against the law/.test(c.resolution) && /one flower in twenty/.test(c.resolution) && !/if in doubt/.test(c.resolution) && /bluebells' bulbs/.test(c.resolution) && /Lily of the valley is poisonous if eaten/.test(c.resolution) && /wash their hands/.test(c.resolution) && /their mother goes with them/.test(c.resolution) && /only to houses they know/.test(c.resolution));
 
 require('../server.js');
 

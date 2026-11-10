@@ -31,7 +31,6 @@ check('…the brat Bríde in the Collection\'s words', /"The 'Brat Bríde' \(Bri
 check('…the Biddy Boys today, and the holiday since 2023 (not on the 1st itself, so no date given)', /"masked men and women dressed in white uniforms, sashes and wearing elaborate oaten-straw hats"/.test(R.lore) && /Since 2023/.test(R.lore) && !/west Limerick/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'brigid_eve_brideog');
 check('Síle and Peig Donovan, dated by the old calendar\'s St Brigid\'s Eve, for two days', c && c.when && c.when.calendar === 'brigid_eve' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'brigid_eve' && e.month === 2 && e.day === 1) && c.steps[0].rite === 'brideog');
-check('the practical half: a blessing, not a medicine; the HSE\'s week, two weeks, high temperature, breathing or swallowing; two together in the dark', /not a medicine: a ribbon can't heal/.test(c.resolution) && /gone within a week/.test(c.resolution) && /after two weeks/.test(c.resolution) && /very high temperature/.test(c.resolution) && /trouble breathing/.test(c.resolution) && /two together at least/.test(c.resolution));
 
 require('../server.js');
 

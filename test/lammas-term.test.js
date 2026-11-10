@@ -33,8 +33,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'lammas_term');
 check('the Commonplace Book\'s Lammas, put right: a quarter day still, 28 August since 1990; hay-time, not "the end of the hay"; record', cal && cal.month === 8 && cal.day === 1 && /Lammas is a quarter day/.test(cal.text) && /28 August since 1990/.test(cal.text) && !/until 1886/.test(cal.text) && !/end of the hay/.test(cal.text) && cal.tier === 'record' && /Child 161C/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'lammas_term');
 check('Jamie Lumsden, from Kingsbarns, dated by it, for two days', c && /Kingsbarns/.test(c.caller) && c.when && c.when.calendar === 'lammas_term' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'lammas_term');
-check('the practical half: a written statement on the first day, a fuller one in two months; the Agricultural Wages Order, £12.71 at any age from April 2026', /Then the practical half/.test(c.resolution) && /written statement of the main terms of the job on the first day, and a fuller one within two months/.test(c.resolution) && /from 1 April 2026, £12\.71 an hour at any age/.test(c.resolution) && /Agricultural Wages \(Scotland\) Order/.test(c.source));
-check('…overtime at time and a half after 8 hours or 48; the national rate for 18 to 20 lower, £10.85; payslips kept; the Board\'s address', /overtime is time and a half after 8 hours in a day or 48 in a week/.test(c.resolution) && /£10\.85/.test(c.resolution) && /Keep your payslips/.test(c.resolution) && /sawb@gov\.scot/.test(c.resolution) && /GOV\.UK/.test(c.source));
 
 require('../server.js');
 

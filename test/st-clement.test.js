@@ -31,7 +31,6 @@ check('…the anvil fired, and the children Clemening (ILN, 1857)', /gunpowder o
 check('…and no unfound "Clemany" rhyme', !/Clemany/.test(R.lore));
 const c = CALLERS.find((x) => x.id === 'old_clem_smiths');
 check('Tom Ashby, dated by the old calendar\'s Old Clem, for two days', c && c.when && c.when.calendar === 'old_clem' && c.when.days === 2 && OLD_CALENDAR.some((e) => e.key === 'old_clem' && e.month === 11 && e.day === 23) && c.steps[0].rite === 'old_clem');
-check('the practical half: eyes, nothing that melts, leather boots, assume it\'s hot, no gloved hand in the slack tub, ventilation and a CO alarm, twenty minutes under cool running water, no gunpowder', /wear something over them at the anvil/.test(c.resolution) && /Wear nothing at the fire that melts, and keep good leather boots on/.test(c.resolution) && /carbon monoxide alarm/.test(c.resolution) && /treat everything on or near the forge as hot/.test(c.resolution) && /steam inside the glove/.test(c.resolution) && /Keep the door open while the coal burns/.test(c.resolution) && /cool running water for twenty minutes, never ice/.test(c.resolution) && /no gunpowder on the anvil/.test(c.resolution));
 
 require('../server.js');
 

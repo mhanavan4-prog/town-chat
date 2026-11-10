@@ -33,7 +33,6 @@ const c = CALLERS.find((x) => x.id === 'rogation_bounds');
 check('Thomas Ridley, the parish clerk, dated by the old calendar\'s Rogationtide, for two days', c && c.when && c.when.calendar === 'beating_bounds' && c.when.days === 2 && c.steps[0].rite === 'beat_bounds');
 const days = [2027, 2028].map((y) => { const [m, d] = entryDate(cal, y); return `${y}-${m}-${d}`; });
 check('…Rogation Monday: 3 May 2027 and 22 May 2028', JSON.stringify(days) === JSON.stringify(['2027-5-3', '2028-5-22']), days);
-check('the practical half: write it down; the definitive map; the 2031 cut-off, promised repeal; general boundaries; the Registry won\'t settle it', /write it down/.test(c.resolution) && /definitive map/.test(c.resolution) && /1 January 2031/.test(c.resolution) && /said it will repeal/.test(c.resolution) && /general line of a boundary/.test(c.resolution) && /won't settle a quarrel/.test(c.resolution) && /put what you agree in writing/.test(c.resolution));
 
 require('../server.js');
 

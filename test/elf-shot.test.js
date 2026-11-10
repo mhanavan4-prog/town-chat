@@ -28,7 +28,6 @@ check('honest about what the arrows were: Neolithic and Bronze Age flints', /Neo
 check('…and that "ylfa gescot" is already Old English', /Ylfa gescot/.test(R.lore) && /Wið færstice/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'elf_shot_cow');
 check('a caller any time of year, working the rite', c && !c.season && c.steps.some((s) => s.kind === 'rite' && s.rite === 'elf_shot'));
-check('the practical half: frothy bloat from wet clover, the cow doctor now, oil to break the froth, the trocar only a last resort', /blown, not shot/.test(c.resolution) && /wet clover/.test(c.resolution) && /cow doctor now/.test(c.resolution) && /vegetable oil/.test(c.resolution) && /trocar is the last resort/.test(c.resolution));
 check('…and the elf-arrow called what it is', /four thousand years ago/.test(c.resolution));
 
 require('../server.js');

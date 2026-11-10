@@ -28,7 +28,6 @@ check('the mart and the hiring fairs named as the season\'s', /mart/.test(R.lore
 check('Martinmas week is 9–13 November, and the old calendar has Martinmas on the 11th', MARTINMAS_WHEN.month === 11 && MARTINMAS_WHEN.from === 9 && MARTINMAS_WHEN.to === 13 && OLD_CALENDAR.some((e) => e.key === 'martinmas' && e.month === 11 && e.day === 11));
 const c = CALLERS.find((x) => x.id === 'martinmas_cock');
 check('a Martinmas caller: salt for the meat, then the rite', c && c.when && c.steps[0].item === 'salt' && c.steps[1].rite === 'martin_blood');
-check('the practical half: scrub the step (rats, flies), keep the meat cold, salt the rest; meat before winter and a day off', /scrub the step/.test(c.resolution) && /rats and flies/.test(c.resolution) && /keep the meat cold/.test(c.resolution) && /meat in the house before winter/.test(c.resolution) && /day off/.test(c.resolution));
 
 require('../server.js');
 

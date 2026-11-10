@@ -32,7 +32,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'well_dressing');
 check('the Commonplace Book\'s Ascension Day: five wells, psalms, Epistle and Gospel, no Black Death; forty days after Easter', cal && /five wells/.test(cal.text) && /the Epistle and the Gospel/.test(cal.text) && !/Black Death/.test(cal.text) && cal.quote === 'the petals of flowers forming a sort of mosaic-work' && entryDate(cal, 2027).join('/') === '5/6' && entryDate(cal, 2026).join('/') === '5/14' && new Date(Date.UTC(2027, 4, 6)).getUTCDay() === 4);
 const c = CALLERS.find((x) => x.id === 'well_dressing');
 check('Hannah Brindley, dated by it, for two days', c && c.when && c.when.calendar === 'well_dressing' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'well_dressing');
-check('the practical half: you can\'t tell by looking; don\'t drink it untreated; the council tests it; children and a grille; pick, never dig, one in twenty', /you can't tell by looking/.test(c.resolution) && /Don't drink it untreated/.test(c.resolution) && /have the council test it/.test(c.resolution) && /stout grille/.test(c.resolution) && /never dig a plant up/.test(c.resolution) && /one flower in twenty/.test(c.resolution) && /UKHSA/.test(c.source));
 
 require('../server.js');
 

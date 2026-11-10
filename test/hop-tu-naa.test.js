@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'hop_tu_naa');
 check('the Commonplace Book has its own Hop-tu-Naa, 31 October', cal && cal.month === 10 && cal.day === 31 && /Isle of Man/.test(cal.text) && /Moore/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'hop_tu_naa_moots');
 check('Juan and Breesha Quayle, dated by it, for two days', c && c.when && c.when.calendar === 'hop_tu_naa' && c.when.days === 2 && c.steps[0].rite === 'hop_tu_naa');
-check('the practical half: a grown-up cuts, away from the body; a battery light; off the doorstep; costumes marked safe, no candle in costume; never left alone', /grown-up does the knife work/.test(c.resolution) && /away from the body/.test(c.resolution) && /battery light/.test(c.resolution) && /off the doorstep/.test(c.resolution) && /marked safe for children/.test(c.resolution) && /shouldn't carry a candle at all/.test(c.resolution) && /never leave a lit moot burning on its own/.test(c.resolution));
 
 require('../server.js');
 

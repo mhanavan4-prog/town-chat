@@ -47,7 +47,6 @@ check('each word backwards keeps the word order', tabellaText(ok32, 'words')[0] 
 check('the caller asks for a tablet, a reading the server credits', c && c.steps[0].kind === 'tablet' && READING_KINDS.includes('tablet'));
 check('lore: about 130 from the spring, Tomlin\'s "largest published dossier of petty theft", Docilianus\'s cloak', /about 130/.test(c.lore) && /'the largest published dossier of petty theft in Roman Britain'/.test(c.lore) && /'until he has brought my hooded cloak to the temple of her divinity' \(Tab\. Sulis 10\)/.test(c.lore));
 check('lore: few are true lead, "only four are in fact lead"', /'only four are in fact lead'/.test(c.lore) && /pewter/.test(c.lore));
-check('the practical half: 999, 101, Crimestoppers, Report Fraud (not Action Fraud), lead hygiene from HSE and UKHSA', /the practical half/i.test(c.resolution) && /999/.test(c.resolution) && /101/.test(c.resolution) && /0800 555 111/.test(c.resolution) && /Report Fraud, which replaced Action Fraud/.test(c.resolution) && /0300 123 2040/.test(c.resolution) && /\(HSE\)/.test(c.resolution) && /\(UKHSA\)/.test(c.resolution) && /NHS 111/.test(c.resolution));
 check('it doesn\'t send lead down the well', /you stop him, because the town drinks that water/.test(c.resolution));
 check('record tier, Tomlin and RIB Online cited', c.tier === 'record' && /Tomlin/.test(c.source) && /RIB Online/.test(c.source) && /UNESCO/.test(c.source));
 

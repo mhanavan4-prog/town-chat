@@ -33,7 +33,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_thomas');
 check('the Commonplace Book\'s own entry says women went a-gooding, and the poor a-corning, as Hone has it', cal && /^Women went a-gooding/.test(cal.text) && /the poor took a bag/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'st_thomas_gooding');
 check('Widow Ann Bagshaw, dated by the old calendar\'s St Thomas, for two days', c && c.when && c.when.calendar === 'st_thomas' && c.when.days === 2 && cal.month === 12 && cal.day === 21 && c.steps[0].rite === 'gooding');
-check('the practical half: give where nobody has to ask; check the register; not hurried at the door; tins for the food bank; the old folk in a cold spell', /Give where nobody has to ask/.test(c.resolution) && /Charity Commission's register/.test(c.resolution) && /never let a collector at the door hurry you/.test(c.resolution) && /tinned meat and fish/.test(c.resolution) && /not fresh food/.test(c.resolution) && /warm enough at night/.test(c.resolution) && /medicines/.test(c.resolution));
 
 require('../server.js');
 

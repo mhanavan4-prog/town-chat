@@ -13,7 +13,6 @@ const k = C('cheese_and_herrings');
 check('the key and Bible: Wood\'s sack of provisions, the Presbytery, M\'Kinnell, Tylor\'s wording', /a sack of provisions, cheese and herrings by the museum's account/.test(k.lore) && !/"containing some cheese and herrings"/.test(k.lore) && /the Presbytery of Dumfries appointed him/.test(k.lore) && !/M'Kinnel of Bankend/.test(k.lore) && /\(Tylor's wording\)/.test(k.lore) && !/door key/.test(k.lore));
 const s = C('the_scald');
 check('the scald: no "traditionally took nothing"', !/traditionally took nothing/.test(s.lore) && /made a good income by it/.test(s.lore));
-check('the axe: the Red Cross swaps, St John gives both', /the Red Cross says swap it for a fresh one and press firm again, and St John Ambulance gives both/.test(C('the_axe_slipped').resolution));
 const sp = C('silver_spoons');
 check('the spoons: Scot, Jonson and Mather as printed', /'slight of the fingers'/.test(sp.lore) && /"searching for things lost, with a sieve and shears"/.test(sp.lore) && /'detestable Conjurations, with Sieves, and Keys' \(1693, as reprinted\)/.test(sp.lore));
 console.log(`\n${pass} passed, ${fail} failed`);

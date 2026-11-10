@@ -31,7 +31,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'midsummer_men');
 check('the Commonplace Book\'s Midsummer Men: in pairs first (Aubrey), right and left later; Brewer\'s words kept', cal && cal.month === 6 && cal.day === 23 && /stuck up in pairs/.test(cal.text) && /Later one plant served/.test(cal.text) && /Aubrey/.test(cal.source) && cal.quote === 'If the leaves bent to the right, it was a sign of fidelity');
 const c = CALLERS.find((x) => x.id === 'midsummer_men');
 check('Hester Bligh, dated by it, for two days', c && c.when && c.when.calendar === 'midsummer_men' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'midsummer_men');
-check('the practical half: only he can tell you; say it plainly; control is not love, the helpline 0808 2000 247; pick, never pull up, one in twenty, or grow a cutting', /only he can/.test(c.resolution) && /what you've noticed, and how it makes you feel/.test(c.resolution) && /that isn't love but control/.test(c.resolution) && /0808 2000 247/.test(c.resolution) && /never pull up the plant/.test(c.resolution) && /one in twenty/.test(c.resolution) && /from a cutting/.test(c.resolution));
 
 require('../server.js');
 

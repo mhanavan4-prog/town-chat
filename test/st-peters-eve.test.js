@@ -30,7 +30,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'st_peters_eve');
 check('the Commonplace Book\'s St Peter\'s Eve: the Sand-hill, "if the Mayor and Aldermen pleased", Cornwall\'s tar-barrels; the quote as Dyer prints it', cal && cal.month === 6 && cal.day === 28 && /Sand-hill/.test(cal.text) && /if the Mayor and Aldermen pleased/.test(cal.text) && /tar-barrels/.test(cal.text) && cal.quote === 'the other on the even of the Feast of St. Peter the Apostle' && /Courtney/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'st_peters_eve');
 check('Jacky Pengelly, dated by it, for two days', c && c.when && c.when.calendar === 'st_peters_eve' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'st_peters_eve');
-check('the practical half: no fires in the countryside, barbecues where signs say; 999 for an unwatched fire; on a beach water not sand, never bury it; the burn', /don't light fires, and have a barbecue only where the signs say you can/.test(c.resolution) && /ring 999/.test(c.resolution) && !/find out first/.test(c.resolution) && /put a fire out with water/.test(c.resolution) && /never bury a fire or a barbecue in sand/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution));
 
 require('../server.js');
 

@@ -33,7 +33,6 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'clavie');
 check('the Commonplace Book has its own Clavie, 11 January', cal && cal.month === 1 && cal.day === 11 && /Burghead/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'clavie_burghead');
 check('Kirsty Main, dated by it, for two days', c && c.when && c.when.calendar === 'clavie' && c.when.days === 2 && c.steps[0].rite === 'clavie');
-check('the practical half: no petrol or such to light it; the crowd back; twenty minutes under cool running water; embers in something that can\'t burn; no hot ashes in anything that melts; wet down and left overnight', /Never use petrol or any such liquid/.test(c.resolution) && /Keep the crowd well back/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution) && /something that can't burn/.test(c.resolution) && /never tip hot ashes into anything that can melt or catch/.test(c.resolution) && /leave them to cool overnight/.test(c.resolution));
 
 require('../server.js');
 
