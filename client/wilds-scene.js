@@ -149,6 +149,12 @@ function buildWildsScene(w2) {
     { x: 5000, z: 3000, r: 620 }, // the village (town-scale buildings spread wider)
     { x: 6500, z: 6200, r: 220 }, // the giant werewolf tree
     { x: 7800, z: 5000, r: 230 }, // the Thornwarden camp
+    // The old places by the portal (found in a playtest: a glowing pentacle
+    // had landed on the clootie well's spring). Each only when the server has it.
+    ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], z: w2.troyTown.hub[1], r: w2.troyTown.radius + 60 }] : []),
+    ...(w2.clootieWell ? [{ x: w2.clootieWell.x, z: w2.clootieWell.y, r: 170 }] : []),
+    ...(w2.menAnTol ? [{ x: w2.menAnTol.x, z: w2.menAnTol.y, r: 300 }] : []),
+    ...(w2.countless ? [{ x: w2.countless.x, z: w2.countless.y, r: w2.countless.radius + 120 }] : []),
   ];
   const nudgeOffLandmarks = (x, z) => {
     for (const c of glyphKeepClear) {

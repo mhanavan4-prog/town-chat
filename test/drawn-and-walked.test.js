@@ -18,5 +18,7 @@ check('the hints say where to go', /Wilds, east of the portal/.test(empty.entrie
 const main = fs.readFileSync(__dirname + '/../client/main.js', 'utf8');
 check('the Wilds map marks the Shepherd\'s Race and the clootie well where the server puts them', /kind: 'maze', label: "🌀 Shepherd's Race"/.test(main) && /kind: 'rag_well', label: '🎀 Clootie well'/.test(main) && /if \(kind === 'maze'\)/.test(main) && /if \(kind === 'rag_well'\)/.test(main) && /world2\.troyTown\.hub\[0\]/.test(main) && /world2\.clootieWell\.x/.test(main));
 check('…and the Crick-stone and the Nine-and-Twenty, when the server has them', /if \(world2\.menAnTol\) oldPlaces\.push/.test(main) && /if \(world2\.countless\) oldPlaces\.push/.test(main) && /if \(kind === 'holed_stone'\)/.test(main) && /if \(kind === 'stone_ring'\)/.test(main));
+const scene = fs.readFileSync(__dirname + '/../client/wilds-scene.js', 'utf8');
+check('no glowing ground sigil lands on the old places (a playtest found one on the clootie well)', /w2\.clootieWell \? \[\{ x: w2\.clootieWell\.x, z: w2\.clootieWell\.y, r: 170 \}\]/.test(scene) && /w2\.troyTown \? \[\{ x: w2\.troyTown\.hub\[0\]/.test(scene));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
