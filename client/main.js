@@ -26,6 +26,7 @@ import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
 import createOgham from './ogham.js';
 import createMonas from './monas.js';
+import createKamea from './kamea.js';
 import createCharmBook from './charm-book.js';
 import createCords from './cords.js';
 import createPractices from './practices.js';
@@ -2921,6 +2922,7 @@ function onWsMessage(ev) {
   }
   if (msg.type === 'cottage_visit_list') { lastVisitList = Array.isArray(msg.members) ? msg.members : []; if (Modals.isOpen('homeOpen')) renderHomeModal(); return; }
   if (msg.type === 'wards_state') { _wards.setState(msg); return; }
+  if (msg.type === 'kamea_result') { _kamea.result(msg); if (msg.ok && shelfState && shelfState.kamea) shelfState.kamea.done = msg.done || shelfState.kamea.done; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
   if (msg.type === 'monas_result') { _monas.result(msg); if (msg.ok && shelfState && shelfState.monas) shelfState.monas.built = true; if (Modals.isOpen('shelfOpen')) renderShelfModal(); return; }
   if (msg.type === 'ogham_state') { _ogham.setState(msg); return; }
   if (msg.type === 'charm_book_state') { _charmBook.setState(msg); return; }
@@ -4810,6 +4812,7 @@ if (npcHintCloseBtn) npcHintCloseBtn.addEventListener('click', closeNpcHintModal
 let shelfState = null;
 let shelfOpenId = null;
 let monasBuilding = false; // Dee's Monad on the board instead of the shelf
+let kameaFilling = false; // Agrippa's tables on the board instead of the shelf
 // ❓ Myth or record? — the shelf's quiz (data/mythOrRecord.js). null = not
 // running; else { i, answers: { id: 'myth'|'record' }, shown: bool, result }.
 let mythRun = null;
@@ -4865,6 +4868,7 @@ function renderShelfModal() {
   const send = (p) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)); };
   if (!shelfState) { el.innerHTML = '<div class="cbIntro">Taking the books down…</div>'; return; }
   if (monasBuilding) { _monas.render(el, shelfState.monas, () => { monasBuilding = false; renderShelfModal(); }); return; }
+  if (kameaFilling) { _kamea.render(el, shelfState.kamea, () => { kameaFilling = false; renderShelfModal(); }); return; }
   const read = new Set(shelfState.read || []);
   let h = shelfState.myth && (shelfState.myth.items || []).length ? mythQuizHtml(shelfState.myth) : '';
   h += `<div class="cbIntro">${esc(shelfState.intro || '')} <b>${read.size} of ${(shelfState.books || []).length}</b> read.</div><div class="shelfGrid">`;
@@ -4879,6 +4883,7 @@ function renderShelfModal() {
         + (b.fact ? `<div class="shelfFact">${esc(b.fact)}</div>` : '')
         + (b.quote ? `<div class="shelfQuote">“${esc(b.quote)}”</div>` : '')
         + (b.source ? `<div class="shelfSrc">${esc(b.source)}</div>` : '')
+        + (b.id === 'agrippa' && shelfState.kamea ? `<button class="btn kameaStart">🔢 ${(shelfState.kamea.done || []).length ? 'Fill in the tables again' : 'Fill in the tables of Saturn and Jupiter'}</button>` : '')
         + (b.id === 'monas' && shelfState.monas ? `<button class="btn monasStart">📐 ${shelfState.monas.built ? 'Construct it again' : 'Construct the Monad'}</button>` : '')
         + (((shelfState.checks || {})['book:' + b.id] || []).filter((p) => p.work).slice(0, 1).map((p) => `<button class="checkIt checkBook" data-work="${esc(p.work)}">📖 Check it: what the Charm Book takes from it</button>`).join(''));
     }
@@ -4912,6 +4917,7 @@ function renderShelfModal() {
   const mSets = mythSets(shelfState.myth);
   const mItems = mythRun ? ((mSets[mythRun.set] || mSets[0]).items || []) : [];
   el.querySelectorAll('.mythStart').forEach((b) => b.addEventListener('click', () => { mythRun = { set: Number(b.getAttribute('data-set')) || 0, i: 0, answers: {}, shown: false, result: null }; renderShelfModal(); }));
+  el.querySelectorAll('.kameaStart').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); _kamea.reset(); kameaFilling = true; renderShelfModal(); }));
   el.querySelectorAll('.monasStart').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); _monas.reset(); monasBuilding = true; renderShelfModal(); }));
   el.querySelectorAll('.mythClose').forEach((b) => b.addEventListener('click', () => { mythRun = null; renderShelfModal(); }));
   el.querySelectorAll('.mythPick').forEach((b) => b.addEventListener('click', () => {
@@ -4953,6 +4959,7 @@ function openShelfModal() {
 }
 function closeShelfModal() {
   monasBuilding = false;
+  kameaFilling = false;
   const modal = document.getElementById('shelfModal');
   if (modal) modal.classList.add('hidden');
   Modals.set('shelfOpen', false);
@@ -16104,6 +16111,7 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _monas = createMonas({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
+const _kamea = createKamea({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 const _ogham = createOgham({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 📜 The Charm Book — every piece of lore you've met, with its source.
 const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 460, 130), openBoard: () => openBoardModal() });
