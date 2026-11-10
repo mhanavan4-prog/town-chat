@@ -87,8 +87,11 @@ function buildCottageScene() {
   }
 
   // ── Door marker so the way out is unmistakable ──
+  // Hung across the dark door opening, below the lintel (whose underside is at
+  // WALL_H * 0.74 = 111), not on it: the lintel's inner face carries the daisy
+  // wheel ward (setWards, below), and a sign at lintel height covered it.
   const sign = makeSignSprite('🚪 Leave Your Cottage — Press F');
-  sign.position.set(W / 2, 128, D - 18);
+  sign.position.set(W / 2, 78, D - 18);
   scene.add(sign);
 
   if (pendingWards) setWards(pendingWards);
