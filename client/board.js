@@ -226,6 +226,18 @@ function renderCallers(list, meNote) {
       body.appendChild(el('div', 'callerStepLabel', s.label));
       if (s.kind === 'deliver') {
         body.appendChild(el('div', 'callerStepNote', `${s.icon} ${s.name} — ${Math.min(s.have, s.qty)}/${s.qty}${s.done ? '' : ` · ${s.where}`}`));
+      } else if (s.done && s.kind === 'troy' && s.troy) {
+        // The finished Caerdroia stays on the Board, all eight walls.
+        if (s.note) body.appendChild(el('div', 'callerStepNote', s.note));
+        renderTroy(body, s, send, el, renderBoardModal);
+      } else if (s.done && s.kind === 'tablet' && s.tablet && s.tablet.written) {
+        // …and so does the tablet, as it was written.
+        if (s.note) body.appendChild(el('div', 'callerStepNote', s.note));
+        const plate = el('div', 'tabletPlate');
+        plate.setAttribute('role', 'group');
+        plate.setAttribute('aria-label', 'The finished tablet');
+        for (const ln of s.tablet.written) plate.appendChild(el('div', 'tabletLine', ln));
+        body.appendChild(plate);
       } else if (s.done && s.note) {
         body.appendChild(el('div', 'callerStepNote', s.note));
       } else if (s.kind === 'knots' && !s.done) {
