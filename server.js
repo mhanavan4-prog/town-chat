@@ -3150,7 +3150,7 @@ const { NINE_HERBS, WODEN_LINES, NEW_GARDEN_HERBS, LACNUNGA_SEEDS_PER_HERB, NINE
 const { HOUR_LORE, CHALDEAN, planetaryHourAt, planetaryHourSchedule } = require('./data/planetaryHours'); // blueprint D: planetary hours
 const TEA_HOUR_BONUS = 1.25; // a tea steeped in its planet's own hour holds longer still (stacks with the day)
 const { KNOTS, CORD_BY_KNOTS, CORD_MATERIAL, CORDS_PER_DAY, CORDS_PER_DAY_SEA, SEA_WITCH_KNOT_MULT, OPEN_SKY_ROOMS, CORD_LORE } = require('./data/cords'); // blueprint F: knots & the wind
-const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
+const { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE, OGHAM_BOARD, oghamProblem, OGHAM_CARVING_LORE } = require('./data/ogham'); // blueprint C: the tree alphabet
 const { WARDS, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, satorProblem, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS } = require('./data/wards'); // blueprint B: threshold & hearth
 const { LEAF_SYMBOLS, LEAF_PLACES, CUP_WINDOW_MS, LEAVES_SET_PURSE, LEAVES_NEW_SIGN_XP, LEAVES_LORE } = require('./data/leaves'); // blueprint E: reading the leaves
 const { OMENS, omenFor, deepReading } = require('./data/omens'); // Tier 3.5: the Scrying Bowl's daily omen + moon-water deep reading
@@ -4971,6 +4971,8 @@ function oghamStateBody(player) {
     castSize: OGHAM_CAST,
     today: (og && og.lastDay === today && Array.isArray(og.lastCast)) ? oghamCastView(og.lastCast) : null,
     lore: OGHAM_LORE,
+    board: OGHAM_BOARD,
+    carvingLore: OGHAM_CARVING_LORE,
   };
 }
 // Hazel's gift: the first time she brews for you after the staves came to town,
@@ -16325,6 +16327,10 @@ wss.on('connection', (ws, req) => {
         if (og.carved.includes(o.key)) { fail(`You already hold a ${o.name} stave.`); return; }
         const inv = getInventory(player);
         const need = oghamCarveQty(o);
+        if (countItemQty(inv, o.wood) < need) { fail(`You need ${need}× ${(ITEM_CATALOG[o.wood] || {}).name || o.wood} to carve ${o.name}.`); return; }
+        // You cut the letter yourself, against the edge; the wood is only spent on a true one.
+        const problem = oghamProblem(o.aicme, o.n, msg.cuts);
+        if (problem) { fail(problem); return; }
         if (!removeItemFromAccount(inv, o.wood, need)) { fail(`You need ${need}× ${(ITEM_CATALOG[o.wood] || {}).name || o.wood} to carve ${o.name}.`); return; }
         og.carved.push(o.key);
         let purse = 0;

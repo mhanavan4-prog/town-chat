@@ -7,6 +7,19 @@ process.env.PORT = '0';
 process.env.DATA_DIR = require('fs').mkdtempSync(require('os').tmpdir() + '/tc-grove-');
 
 let pass = 0, fail = 0;
+// A true carving of a letter, as a player would cut it against the stem.
+function trueCuts(key) {
+  const o = require('../data/ogham').OGHAM.find((x) => x.key === key);
+  const cuts = [];
+  for (let i = 0; i < o.n; i++) {
+    const y = 120 + i * 12;
+    if (o.aicme === 'B') cuts.push({ x1: 60, y1: y, x2: 95, y2: y });
+    else if (o.aicme === 'H') cuts.push({ x1: 60, y1: y, x2: 25, y2: y });
+    else if (o.aicme === 'M') cuts.push({ x1: 35, y1: y + 8, x2: 85, y2: y - 8 });
+    else cuts.push({ x1: 60, y1: y, x2: 60, y2: y });
+  }
+  return cuts;
+}
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 process.on('uncaughtException', (e) => { console.log('FAIL - threw:', e && e.stack); process.exit(1); });
 
@@ -55,7 +68,7 @@ setTimeout(() => {
     const realRandom = Math.random; Math.random = () => 0.999999;
     try { for (const t of trees.slice(0, OGHAM_CARVE_QTY)) { p.x = t.x; p.y = t.y; say(s, { type: 'harvest', decorId: t.id }); } } finally { Math.random = realRandom; }
     check(`  …harvesting gives ${letter.wood}, the wood its letter is carved from`, h.countItemQty(inv, letter.wood) === before + OGHAM_CARVE_QTY, { got: h.countItemQty(inv, letter.wood) - before, err: s.lastOfType('harvest_error') });
-    say(s, { type: 'ogham_carve', key });
+    say(s, { type: 'ogham_carve', key, cuts: trueCuts(key) });
     check(`  …and it carves ${letter.name}`, h.accounts.grove_a.ogham && h.accounts.grove_a.ogham.carved.includes(key), s.lastOfType('ogham_error'));
   }
 

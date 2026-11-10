@@ -61,4 +61,62 @@ const OGHAM_LORE = {
   tier: 'revival',
 };
 
-module.exports = { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE };
+// ── Carving a stave yourself ────────────────────────────────────────────────
+// The board is a stave 120 wide and 300 tall; its arris (the stem) runs up the
+// middle at x = 60. As on the stones, the B group is cut to the right of the
+// edge, the H group to the left, the M group slants across it, and the vowels
+// are notches on the edge (or, in the manuscripts, short strokes straight
+// across). The server classifies each cut and checks the letter against it.
+const OGHAM_STEM_X = 60;
+const OGHAM_BOARD = { w: 120, h: 300, stemX: OGHAM_STEM_X, top: 20, bottom: 280 };
+function classifyOghamCut(c) {
+  if (!c || typeof c !== 'object') return 'stray';
+  const x1 = Number(c.x1), y1 = Number(c.y1), x2 = Number(c.x2), y2 = Number(c.y2);
+  if (![x1, y1, x2, y2].every(Number.isFinite)) return 'stray';
+  if ([y1, y2].some((y) => y < OGHAM_BOARD.top - 6 || y > OGHAM_BOARD.bottom + 6)) return 'stray';
+  const a = x1 - OGHAM_STEM_X, b = x2 - OGHAM_STEM_X;
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+  if (len < 6) return Math.abs(a) <= 6 && Math.abs(b) <= 6 ? 'notch' : 'stray';
+  // From the edge out to one side.
+  const near = Math.min(Math.abs(a), Math.abs(b)), far = Math.abs(a) > Math.abs(b) ? a : b;
+  if (near <= 6 && Math.abs(far) >= 14 && Math.abs(dy) <= 0.5 * Math.abs(dx)) return far > 0 ? 'right' : 'left';
+  // Right across the edge.
+  if (a * b < 0 && Math.min(Math.abs(a), Math.abs(b)) >= 4) {
+    return Math.abs(dy) >= 0.3 * Math.abs(dx) ? 'across' : 'straight';
+  }
+  return 'stray';
+}
+const OGHAM_CUT_FOR = { B: ['right'], H: ['left'], M: ['across'], A: ['notch', 'straight'] };
+const OGHAM_CUT_WORDS = { B: 'to the right of the edge', H: 'to the left of the edge', M: 'slanting right across the edge', A: 'as notches on the edge' };
+// Returns null if the cuts make this letter, else a reason the carver can act on.
+function oghamProblem(aicme, n, cuts) {
+  if (!OGHAM_CUT_FOR[aicme]) return 'No such letter.';
+  if (!Array.isArray(cuts) || !cuts.length) return 'Cut the letter against the edge first.';
+  if (cuts.length > 12) return 'Too many cuts for one letter.';
+  const kinds = cuts.map(classifyOghamCut);
+  if (kinds.includes('stray')) return 'A cut wandered off the edge: every stroke starts on it, crosses it, or is a notch in it.';
+  const ok = OGHAM_CUT_FOR[aicme];
+  if (kinds.some((k) => !ok.includes(k))) return `This letter's strokes go ${OGHAM_CUT_WORDS[aicme]}.`;
+  if (aicme === 'A' && new Set(kinds).size > 1) return 'Keep the vowel one way: all notches, or all short strokes across.';
+  if (cuts.length !== n) return `${n} stroke${n === 1 ? '' : 's'} for this letter, not ${cuts.length}.`;
+  if (n > 1) {
+    const ys = cuts.map((c) => (Number(c.y1) + Number(c.y2)) / 2).sort((p, q) => p - q);
+    const gaps = ys.slice(1).map((y, i) => y - ys[i]);
+    if (Math.min(...gaps) < 5) return 'Two strokes run into each other: space them out.';
+    if (Math.max(...gaps) > 45 || Math.max(...gaps) > 2.2 * Math.min(...gaps)) return 'Space the strokes evenly, close together, so they read as one letter.';
+    if (aicme !== 'A') {
+      const ang = cuts.map((c) => { const dx = Number(c.x2) - Number(c.x1), dy = Number(c.y2) - Number(c.y1); let t = Math.atan2(dy, dx); if (t > Math.PI / 2) t -= Math.PI; if (t <= -Math.PI / 2) t += Math.PI; return t; }); // a line's direction, either way along it
+      if (Math.max(...ang) - Math.min(...ang) > 0.45) return 'Keep the strokes parallel.';
+    }
+  }
+  return null;
+}
+
+// What carving is, as the record has it (shown on the carving board).
+const OGHAM_CARVING_LORE = {
+  text: "Ogham was cut on standing stones in Ireland and western Britain from about the fourth century: strokes and notches \"relative to a stemline, generally the natural angle or edge of the stone\", read \"vertically up one side, across the top and down the other\" (White). The B group sits to the right of the edge, the H group to the left; the M group slants across; the vowels are notches on the edge itself. Nearly every stone carries a name, \"X MAQI Y\", \"of X son of Y\". The tree-names came later, from medieval scholars; the Book of Ballymote copy is of about 1390. Cut ogham only in your own new wood: in Ireland \"defacement or damage to a designated monument\" is an offence, and in Wales \"it is a criminal offence to destroy or damage a scheduled monument without scheduled monument consent\".",
+  tier: 'record',
+  source: 'N. White, "The 360 stones which show off the earliest writing in Ireland", Maynooth University · D. Hayden, "Ogam script in the RIA Library collections", Royal Irish Academy (Book of Ballymote, RIA MS 23 P 12) · D. McManus, A Guide to Ogam (1991) · National Monuments Service · Cadw, "Damage to scheduled monuments"',
+};
+
+module.exports = { OGHAM, OGHAM_CARVE_QTY, OGHAM_CAST, OGHAM_LORE, OGHAM_BOARD, classifyOghamCut, oghamProblem, OGHAM_CARVING_LORE };
