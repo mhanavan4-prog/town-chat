@@ -33,7 +33,7 @@ const c = CALLERS.find((x) => x.id === 'mothering_sunday_simnel');
 check('Nan Elcock, dated by the old calendar\'s Mothering Sunday (Easter less 21 days), for two days', c && c.when && c.when.calendar === 'mothering_sunday' && c.when.days === 2 && cal && c.steps[0].rite === 'simnel');
 const days = [2027, 2028].map((y) => { const [m, d] = entryDate(cal, y); return `${y}-${m}-${d}`; });
 check('…which falls on 7 March 2027 and 26 March 2028', JSON.stringify(days) === JSON.stringify(['2027-3-7', '2028-3-26']), days);
-check('the practical half: a servant\'s scarce day off; and the day is hard for some, so take nothing for granted', /sixteen hours a day, six and a half days a week/.test(c.resolution) && /let them have their days/.test(c.resolution) && /whose mother has died/.test(c.resolution) && /mothers whose children have died/.test(c.resolution) && /never easy with theirs/.test(c.resolution) && /no shame/.test(c.resolution));
+check('the practical half: a servant\'s scarce day off (no unsourced hours); and the day is hard for some, so take nothing for granted; Cruse', /A servant's day off was a rare thing/.test(c.resolution) && !/sixteen hours/.test(c.resolution) && /0808 808 1677/.test(c.resolution) && /let them have their days/.test(c.resolution) && /whose mother has died/.test(c.resolution) && /mothers whose children have died/.test(c.resolution) && /never easy with theirs/.test(c.resolution) && /no shame/.test(c.resolution));
 
 require('../server.js');
 

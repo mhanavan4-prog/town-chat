@@ -31,7 +31,7 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'carling_sunday');
 check('the Commonplace Book\'s Carling Sunday: steeped and fried, Hone behind it; two Sundays before Easter', cal && /steeped overnight and fried in butter/.test(cal.text) && cal.quote === 'peas, called carlings, fried in butter, pepper, and salt' && /20 March and 4 August/.test(cal.source) && entryDate(cal, 2027).join('/') === '3/14' && entryDate(cal, 2026).join('/') === '3/22');
 const c = CALLERS.find((x) => x.id === 'carling_sunday');
 check('old Mrs Charlton, dated by it, for two days', c && c.when && c.when.calendar === 'carling_sunday' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'carling_sunday');
-check('the practical half: a long soak, cooked through; no kidney beans; no whole peas for the under-fives; never leave the fat, never water on it, out and 999', /long soak in cold water and cooking right through/.test(c.resolution) && /dried kidney beans/.test(c.resolution) && /mash them for the under-fives/.test(c.resolution) && /never leave hot fat alone/.test(c.resolution) && /never throw water on it/.test(c.resolution) && /ring 999/.test(c.resolution));
+check('the practical half: pulses soaked and cooked through; kidney beans soaked 12 hours and boiled hard 10 minutes (FSA); no whole peas for the under-fives; never leave the fat, never water on it, out and 999', /Soak dried pulses well and cook them right through/.test(c.resolution) && /at least twelve hours' soak and a hard boil for at least ten minutes/.test(c.resolution) && /mash them for the under-fives/.test(c.resolution) && /never leave hot fat alone/.test(c.resolution) && /never throw water on it/.test(c.resolution) && /ring 999/.test(c.resolution));
 
 require('../server.js');
 

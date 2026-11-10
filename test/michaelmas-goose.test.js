@@ -32,7 +32,7 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'michaelmas_goose');
 check('the Commonplace Book\'s Michaelmas now has Gascoigne behind it, badged record', cal && cal.month === 9 && cal.day === 29 && cal.tier === 'record' && cal.quote === 'At Christmasse a capon, at Mighelmasse a goose' && /Gascoigne/.test(cal.source));
 const c = CALLERS.find((x) => x.id === 'michaelmas_goose');
 check('Widow Pask, dated by it, for two days', c && c.when && c.when.calendar === 'michaelmas_goose' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'michaelmas_goose');
-check('the practical half: steaming hot, clear juices, no pink; no washing; thawed in the cold; the hot fat and the burn; no fat down the sink', /steaming hot right through/.test(c.resolution) && /juices should run clear with no pink/.test(c.resolution) && /Don't wash the bird/.test(c.resolution) && /thaw it in the cold/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution) && /never pour it down the sink/.test(c.resolution) && /Food Standards Agency/.test(c.source));
+check('the practical half: steaming hot, clear juices, no pink; no washing; thawed in the fridge; the hot fat and the burn; no fat down the sink', /steaming hot right through/.test(c.resolution) && /juices should run clear with no pink/.test(c.resolution) && /Don't wash the bird/.test(c.resolution) && /thaw it in the fridge, at least a day for every two kilos/.test(c.resolution) && /pierce the thickest part of the leg/.test(c.resolution) && /cool running water for twenty minutes/.test(c.resolution) && /never pour it down the sink/.test(c.resolution) && /Food Standards Agency/.test(c.source));
 
 require('../server.js');
 

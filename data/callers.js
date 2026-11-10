@@ -997,10 +997,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'valentine_bay', label: 'Five bay leaves on the pillow, the salted egg, not a word after' },
     ],
-    resolution: "The leaves go on, and she eats the egg. Then the practical half: a salted egg and nothing to drink makes for a thirsty, broken night, and you remember your dreams best from broken sleep. So she will dream, and of whoever is in her head already. Leave the shell; it will scrape her throat. Keep a cup of water by the bed and drink it if she wakes parched; that breaks no charm worth keeping. And shutting her eyes till Dick comes is a fine plan, so long as Dick knows to come: have a word with his sister.",
+    resolution: "The leaves go on, and she eats the egg. Then the practical half: an egg filled with salt is more salt than the whole day's limit, which the NHS puts at 6 grams, about a level teaspoon, and nothing to drink after makes for a thirsty night; Hone thought the egg \"almost certain to ensure an indigestion\". So she will dream, and of whoever is in her head already. Leave the shell; it will scrape her throat. Keep a cup of water by the bed and drink it if she wakes parched; that breaks no charm worth keeping. And shutting her eyes till Dick comes is a fine plan, so long as Dick knows to come: have a word with his sister.",
     lore: "Valentine's Eve: five bay leaves pinned to the pillow and a salted egg eaten without a word or a drink, to dream of your sweetheart; your valentine was the first you saw next morning (The Connoisseur, 1755).",
     tier: 'record',
-    source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book (1826–27), 14 February',
+    source: 'The Connoisseur, No. 56 (20 February 1755), in W. Hone, The Every-Day Book, vol. I (1826), 14 February · NHS, "Salt: the facts"',
     reward: { gold: 40, xp: 35 },
   },
   // St David's Day only (data/stDavid.js), dated by the old calendar.
@@ -1014,10 +1014,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'st_david', label: 'The leek worn through the street, and the little things done' },
     ],
-    resolution: "Gwen wears her leek to the market and back, and the delivery boys find something else to do. Then the practical half. Being mocked for where you're from is a hurt, and sometimes it's worse: the police and the Crown Prosecution Service treat any crime that the victim, or anyone else, thinks was driven by hostility to their race as a hate crime, and in that law race includes nationality and national origins. Write down what happened and when. In an emergency ring 999; otherwise ring 101, or report it online through True Vision. And in Wales, the Welsh language has official status.",
+    resolution: "Gwen wears her leek to the market and back, and the delivery boys find something else to do. Then the practical half. Being mocked for where you're from is a hurt, and sometimes it's worse: the police and the Crown Prosecution Service treat any crime that the victim, or anyone else, thinks was driven by hostility to their race as a hate crime; and in the law on racially aggravated crime, a racial group includes nationality and national origins. When you report it, give as many details as you can. In an emergency ring 999; otherwise ring 101, or report it online through True Vision. And in Wales, the Welsh language has official status.",
     lore: "St David's Day: the Welsh wore the leek, 'an honourable badge of the seruice' (Henry V, 1623), and in London effigies of Welshmen were hung up; Pepys saw one in Mark Lane in 1667.",
     tier: 'record',
-    source: 'S. Pepys, Diary, 1 March 1666/67 · Crown Prosecution Service, "Hate crime" · Crime and Disorder Act 1998, s. 28 · Citizens Advice Wales, reporting hate crime · Welsh Language (Wales) Measure 2011',
+    source: 'W. Shakespeare, Henry V, First Folio (1623) · S. Pepys, Diary, 1 March 1666/67 · Crown Prosecution Service, public statement on prosecuting racist and religious hate crime · Crime and Disorder Act 1998, s. 28 · Citizens Advice Wales, reporting hate crime · Welsh Language (Wales) Measure 2011',
     reward: { gold: 40, xp: 35 },
   },
   // Shrove Tuesday only (data/shroveTuesday.js), dated by Easter through the old calendar.
@@ -1034,7 +1034,7 @@ const CALLERS = [
     resolution: "Two full baskets and not a crock thrown. Then the practical half, which is the frying pan. Never leave the pan while the heat's on, and keep the children and the dog back from the fire. If the fat catches, don't try to carry the pan out and never throw water on it, for burning fat and water make a fireball. Turn the heat off only if you safely can, get everyone out, shut the door behind you and send for the fire brigade. And the cock in the yard stays in the yard: nobody throws a thing at an animal today, or any day.",
     lore: "Shrove Tuesday: the bell that called the parish to be shriven became the Pancake Bell, and the day was pancakes, football and, till it was put down, throwing at cocks; in Dorset and Wiltshire children went a-shrovin' for food (Hone, 1826; Chambers, 1864).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 15 February · R. Chambers, The Book of Days (1864), Shrove Tuesday · London Fire Brigade, "Pan fires" · Animal Welfare Act 2006',
     reward: { gold: 40, xp: 35 },
   },
   // Lady Day only (data/ladyDay.js), dated by the old calendar.
@@ -1048,10 +1048,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'lady_day', label: 'The quarter\'s rent paid with a receipt, the waggon loaded, and in at the new door by dark' },
     ],
-    resolution: "The Durbins are in by dark, rent paid, receipt in Will's pocket, and the bedding airing by the fire. Then the practical half, for anyone renting now. A landlord must put your deposit in a government-approved scheme within 30 days of getting it, and must give it back within 10 days of you both agreeing how much. To leave a periodic tenancy you give two months' notice in writing, on or the day before a rent day. Check the inventory before you sign it, and photograph every mark and crack, even ones it already lists. The rent can go up only once a year. And keep a receipt for every rent you pay.",
-    lore: "Lady Day: the first quarter day, when rents fell due and terms ended, and until 1752 the first day of England's legal year; Old Lady Day was the farm workers' moving day (Hone, 1827; Hardy, Tess, 1891).",
+    resolution: "The Durbins are in by dark, rent paid, receipt in Will's pocket, and the bedding airing by the fire. Then the practical half, for anyone renting in England now. A landlord must put your deposit in a government-approved scheme within 30 days of getting it, and must give it back within 10 days of you both agreeing how much. To leave a periodic tenancy you give two months' notice in writing, on or the day before a rent day. Check the inventory before you sign it, and photograph every mark and crack, even ones it already lists. The rent can go up only once a year. And keep a receipt for every rent you pay.",
+    lore: "Lady Day: the first quarter day, when rents fell due and terms ended, and until 1752 the first day of England's legal year; Old Lady Day was the farm workers' moving day (Hone, 1826; Hardy, Tess, 1891).",
     tier: 'record',
-    source: 'Calendar (New Style) Act 1750 · gov.uk, "Tenancy deposit protection" · gov.uk, "Renters\' Rights Act: overview for tenants" · Shelter, "How to check and agree an inventory"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 25 March · T. Hardy, Tess of the d\'Urbervilles (1891), chs. L–LII · Calendar (New Style) Act 1750 · gov.uk, "Tenancy deposit protection" · gov.uk, "Renters\' Rights Act: overview for tenants" · Shelter, "How to check and agree an inventory"',
     reward: { gold: 40, xp: 35 },
   },
   // The Borrowing Days only (data/borrowedDays.js), the last three of March.
@@ -1065,10 +1065,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'borrowed_days', label: 'The hoggs and lambs brought in to shelter, and counted home when the three days are gone' },
     ],
-    resolution: "The three days blow over, and every hogg comes hirpling home. Then the practical half, from the farm advisers. Ewes and lambs lose heat fast in cold, wet, windy weather, so give them shelter. A lamb's right temperature is 39 to 40 degrees; under 37 it is badly chilled. Dry it first, then warm it in a box kept at 37 degrees at the lamb's level. Make sure it gets colostrum, 50 millilitres for every kilo of its weight in the first few hours, and 200 by the time it's a day old; the glucose injection for a weak lamb is for a vet to show you. And for yourselves: dress in layers, keep the rooms you live in at 18 degrees if you can, and look in on the neighbours who live alone.",
-    lore: "The Borrowing Days: March borrowed the last three days from April to kill three young sheep, with wind, snow and frost, but 'the 3 silly hoggs came hirpling hame' (The Complaynt of Scotland, 1549; Brewer, 1895).",
+    resolution: "The three days blow over, and every hogg comes hirpling home. Then the practical half, from the farm advisers. Lambs lose heat fast in cold, wet, windy weather, so give them shelter. A lamb's right temperature is 39 to 40 degrees; under 37 it is badly chilled. Dry it first. A lamb more than five hours old that is under 37 degrees and can't hold its head up needs a glucose injection before it is warmed, and that injection is for a vet to show you. Then warm it in a box kept at 37 degrees at the lamb's level. Make sure it gets colostrum, 50 millilitres for every kilo of its weight in the first few hours, and 200 millilitres a kilo by the time it's a day old. And for yourselves: dress in layers, keep the rooms you live in at 18 degrees or more if you can, and look in on older and frail neighbours.",
+    lore: "The Borrowing Days: 'the thre borouing dais of marche' (The Complaynt of Scotland, 1549), which March borrowed from April to kill three young sheep with wind, snow and frost; but in the rhyme 'the 3 silly hoggs came hirpling hame' (Brewer, 1895).",
     tier: 'record',
-    source: 'E. C. Brewer, Dictionary of Phrase and Fable (1895) · Farm Advisory Service, "Treating chilled lambs" and "Rules of colostrum for lambs" · NHS Greater Glasgow and Clyde, cold weather',
+    source: 'The Complaynt of Scotland (1549), in the Dictionary of the Older Scottish Tongue, "Borowing" · E. C. Brewer, Dictionary of Phrase and Fable (1895) · Farm Advisory Service, "Treating chilled lambs" and "Rules of colostrum for lambs" · NHS Greater Glasgow and Clyde, cold weather',
     reward: { gold: 40, xp: 35 },
   },
   // St Patrick's Day only (data/stPatrick.js), dated by the old calendar.
@@ -1082,10 +1082,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'st_patrick', label: 'Shamrock in the hat, crosses for the children, and the shamrock drowned in the last glass' },
     ],
-    resolution: "Owen drowns the shamrock in the last glass, throws it over his shoulder, and walks home on the road. Then the practical half. Ireland's low-risk limits are under 11 standard drinks a week for a woman and 17 for a man, never more than 6 at one sitting, with two or three days a week with none; in the UK, no more than 14 units a week, spread over three days or more. Eat before and while you drink, sip, and have water or a soft drink between. And never drink and drive: in Ireland the limit is 50 milligrams to 100 millilitres of blood, and 20 for learners, new drivers and professional drivers; the only safe amount is none.",
-    lore: "St Patrick's Day: in 1681 the common people wore shamrock in their hats (Dinely); by 1827 it was drowned in the last glass of the Patrick's pot (Hone).",
+    resolution: "Owen drowns the shamrock in the last glass, throws it over his shoulder, and walks home on the road. Then the practical half. Ireland's low-risk limits are no more than 11 standard drinks a week for a woman and 17 for a man, never more than 6 at one sitting, with two or three days a week with none; in the UK, no more than 14 units a week, spread over three days or more. Eat before and while you drink, sip, and have water or a soft drink between. And never drink and drive: in Ireland the limit is 50 milligrams to 100 millilitres of blood, and 20 for learners, new drivers and professional drivers; and the Road Safety Authority's word is never, ever.",
+    lore: "St Patrick's Day: in 1681 the Irish wore crosses in their hats and the common people wore shamrock (Dinely); by 1827 it was drowned in the last glass (Hone).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1827), 17 March · HSE, "Weekly low-risk alcohol guidelines" · NHS, "The risks of drinking too much" · Road Safety Authority, Rules of the Road',
+    source: 'T. Dinely (1681), in the Journal of the Kilkenny Archaeological Society (1856–57) · W. Hone, The Every-Day Book, vol. II (1827), 17 March · HSE, "Weekly low-risk alcohol guidelines" · NHS, "The risks of drinking too much" · Road Safety Authority, "Using the roads in Ireland" (2023)',
     reward: { gold: 40, xp: 35 },
   },
   // Carling Sunday only (data/carlingSunday.js), dated by Easter through the old calendar.
@@ -1099,10 +1099,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'carling_sunday', label: 'The steeped peas fried in butter, and handed round the doors' },
     ],
-    resolution: "The carlings go round the doors hot, and Mrs Charlton sits by the window to watch folk eat them. Then the practical half. Whole dried peas want a long soak in cold water and cooking right through; and never swap dried kidney beans in, for those are poisonous undercooked. Don't give whole peas to the little ones: small round foods are what children choke on, so mash them for the under-fives. And the pan: never leave hot fat alone, not for a minute. If it catches, turn off the heat only if it's safe to, never throw water on it, for it goes up like a fireball; get everyone out, shut the door, and ring 999.",
-    lore: "Carling Sunday: in the north on the second Sunday before Easter, peas steeped overnight were fried in butter with pepper and salt and given away (Hone, 1826, after Brand; The Gentleman's Magazine, 1786).",
+    resolution: "The carlings go round the doors hot, and Mrs Charlton sits by the window to watch folk eat them. Then the practical half. Soak dried pulses well and cook them right through; and dried kidney beans are poisonous undercooked, so they want at least twelve hours' soak and a hard boil for at least ten minutes. Don't give whole peas to the little ones: small round foods are more of a choking risk, so mash them for the under-fives. And the pan: never leave hot fat alone, not for a minute. If it catches, turn off the heat only if it's safe to, never throw water on it, for it goes up like a fireball; get everyone out, shut the door, and ring 999.",
+    lore: "Carling Sunday: in the north on the second Sunday before Easter, peas steeped a night in water were fried and given away (Brand, in Hone, 1826) or parched and eaten in the afternoon (The Gentleman's Magazine, 1786); in 1825 the north ate 'immense quantities of small peas, called carlings, fried in butter, pepper, and salt' (Hone, 4 August).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book (1826), 20 March · NHS East Lancashire, "Pulses" · NHS, on choking · London Fire Brigade, "Pan fires"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 20 March and 4 August · The Gentleman\'s Magazine (1786) · Food Standards Agency, natural toxins factsheet · NHS, on choking · London Fire Brigade, "Pan fires"',
     reward: { gold: 40, xp: 35 },
   },
   // Mothering Sunday only (data/mothering.js), dated by Easter through the old calendar.
@@ -1116,10 +1116,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'simnel', label: 'A simnel baked before five, and carried home to her mother' },
     ],
-    resolution: "Nan's mother cries when she sees her, and then the cake. Then the practical half, which is two things. A servant's day off was a rare thing: sixteen hours a day, six and a half days a week, was not unusual, and going home once a year was a treat. If anyone works for you, let them have their days. And not everyone has a mother to go home to, or one they can: the day is hard for those whose mother has died, for mothers whose children have died, and for those who were never easy with theirs. Don't take it for granted at anyone's door. If the day is hard for you, saying so to someone is no shame.",
+    resolution: "Nan's mother cries when she sees her, and then the cake. Then the practical half, which is two things. A servant's day off was a rare thing, and going home was a treat. If anyone works for you, let them have their days. And not everyone has a mother to go home to, or one they can: the day is hard for those whose mother has died, for mothers whose children have died, and for those who were never easy with theirs. Don't take it for granted at anyone's door. If the day is hard for you, saying so to someone is no shame; Cruse Bereavement Support is free on 0808 808 1677.",
     lore: "Mothering Sunday: on Mid-Lent Sunday servants and apprentices went home to their mothers with a cake or a trinket, a simnel at Shrewsbury or Gloucester, and were given furmity and a blessing (Hone, 1826; Herrick, 1648).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. I (1826), 13 March · R. Herrick, Hesperides (1648), p. 278',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 13 March · R. Chambers, The Book of Days (1864), Mid-Lent Sunday · R. Herrick, Hesperides (1648), p. 278 · Cruse Bereavement Support',
     reward: { gold: 40, xp: 35 },
   },
   // Michaelmas only (data/michaelmasGoose.js), dated by the old calendar.
@@ -1133,10 +1133,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'michaelmas_goose', label: 'The rent paid with a goose, and a goose roasted for the house' },
     ],
-    resolution: "The rent is paid with a goose on top, and there's goose for dinner and some over. Then the practical half. A goose isn't done till it's steaming hot right through: pierce the thickest part, the leg where it meets the breast, and the juices should run clear with no pink left. Don't wash the bird under the tap, for the splashes carry the sickness about the kitchen. If it was frozen, thaw it in the cold, a day or more for every two kilos, and cook it within the day after. Pour the fat off as it roasts, slowly and away from you, for hot fat burns badly; a burn goes under cool running water for twenty minutes. Keep the fat in a jar for the potatoes, and never pour it down the sink, where it sets and blocks the drain. As for the money all year: no bird promises that, but a paid rent book helps.",
+    resolution: "The rent is paid with a goose on top, and there's goose for dinner and some over. Then the practical half. A goose isn't done till it's steaming hot right through: pierce the thickest part of the leg, and the juices should run clear with no pink left. Don't wash the bird under the tap, for the splashes carry the sickness about the kitchen. If it was frozen, thaw it in the fridge, at least a day for every two kilos, and cook it within the day after. Pour the fat off as it roasts, slowly and away from you, for hot fat burns badly; a burn goes under cool running water for twenty minutes. Keep the fat in a jar for the potatoes, and never pour it down the sink, where it sets and blocks the drain. As for the money all year: no bird promises that, but a paid rent book helps.",
     lore: "The Michaelmas goose: at the quarter day tenants brought the landlord a goose with the rent, 'at Mighelmasse a goose' (Gascoigne, 1573), and whoever ate goose on Michaelmas Day would want no money all the year (The Mirror, 1832).",
     tier: 'record',
-    source: 'G. Gascoigne, A Hundreth Sundrie Flowres (1573) · Food Standards Agency, "Cooking your food" · safefood, on defrosting',
+    source: 'G. Gascoigne, A Hundreth Sundrie Flowres (1573), in W. Hone, The Every-Day Book, vol. I (1826), 29 September · The Mirror of Literature, no. 568 (29 September 1832) · Food Standards Agency, "Cooking safely" · safefood, on defrosting · NHS, "Burns and scalds" · NI Water, on fat and drains',
     reward: { gold: 40, xp: 35 },
   },
   // Holy Rood Day only (data/holyRood.js), dated by the old calendar.
@@ -1150,10 +1150,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'nutting', label: 'Nutting in Long Copse, the ripe ones only, and plenty left' },
     ],
-    resolution: "Full bags, and Granny's easy. Then the practical half. Pick only nuts whose papery husk is pulling back; they're ripe in September and October. Take no more than you'll eat, and leave plenty for the birds and beasts, for a hazel copse feeds more than you. If you find a shell with a smooth round hole and tooth marks slanting round it on the outside, a dormouse has been there: they're protected by law, so leave the place be, and tell the People's Trust for Endangered Species, which counts them. Picking wild nuts for yourself is no theft, but picking them to sell can be. And hazelnuts are one of the commonest things people are allergic to: ask before you hand them round, and if someone's lips or throat swell, use their injector if they have one and send for help at once.",
-    lore: "Holy Rood Day: on 14 September the young went nutting, and the Devil was said to go a-nutting too and hold the boughs down for the unwary (Hone; Poor Robin, 1709; Folkard, 1884).",
+    resolution: "Full bags, and Granny's easy. Then the practical half. Pick only nuts whose papery husk is pulling back; they're ripe in September and October. Take no more than you'll eat, and leave plenty for the birds and beasts, for a hazel copse feeds more than you. If you find a shell with a smooth round hole and tooth marks slanting round it on the outside, a dormouse has been there: they're protected by law, so leave the place be, and tell the People's Trust for Endangered Species, which counts them. Picking wild nuts for yourself is no theft, but picking them to sell can be. And hazelnuts are a tree nut, one of the fourteen foods that most often cause allergies: ask before you hand them round, and if someone's lips or throat swell, use their injector if they have one and send for help at once.",
+    lore: "Holy Rood Day: on 14 September the young went nutting, and 'The devil, as the common people say, / Doth go a nutting on Holy-rood day' (Poor Robin, 1709); in Sussex he held the boughs down for Sunday nutters (Folkard, 1884).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. II (1827), 14 September · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Nut"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 14 September · Poor Robin\'s Almanack (1709) · R. Folkard, Plant Lore, Legends, and Lyrics (1884), "Nut" · Woodland Trust, "Hazelnuts: where and when to forage" · People\'s Trust for Endangered Species, hazel dormouse · Theft Act 1968, s. 4(3) · NHS, "Anaphylaxis" · Food Standards Agency, allergens',
     reward: { gold: 40, xp: 35 },
   },
   // Easter Monday and Tuesday only (data/easterLifting.js), dated by Easter through the old calendar.
@@ -1167,7 +1167,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'lifting', label: 'The chair dressed and the willing lifted three times, and a no taken for an answer' },
     ],
-    resolution: "Out on the step, the girls who want it go up laughing, and when Lizzie shakes her head the chair goes past her. Then the practical half. Lifting someone who has said no is assault, however old the custom, and a forced kiss or touch with it can be sexual assault. Consent means she agrees by choice, with the freedom to choose, and she can take it back at any moment, halfway up included. If it's already happening, tell them plainly to put her down, feet first, now, and don't pull at her while she's in the air. Call 999 if she's in danger or it's still going on, and 101 to report it after. Rape Crisis is free on 0808 500 2222, day and night, for anyone 16 or over, and Victim Support on 08 08 16 89 111.",
+    resolution: "Out on the step, the girls who want it go up laughing, and when Lizzie shakes her head the chair goes past her. Then the practical half. Lifting someone who has said no is assault, however old the custom, and a forced kiss or touch with it can be sexual assault. Consent means she agrees by choice, with the freedom and capacity to choose, and she can take it back at any moment, halfway up included. If it's already happening, tell them plainly to put her down, now. Call 999 if she's in danger or it's still going on, and 101 to report it after. Rape Crisis is free on 0808 500 2222, day and night, for anyone 16 or over, and Victim Support on 08 08 16 89 111.",
     lore: "Easter lifting: in Lancashire, Staffordshire and Warwickshire everyone lifted three times at Easter paid a contribution, and in Warwickshire the men lifted the women on Monday and the women the men on Tuesday (Hone, 1826). In Walsall in 1896 a court was told that once she objected, it was assault.",
     tier: 'record',
     source: 'W. Hone, The Every-Day Book, vol. I (1826), 5 April · Walsall Advertiser (2 May 1896), in D. C. Woods, The Blackcountryman 12.2 (1979) · Sexual Offences Act 2003, ss. 3, 74 · CPS, "What are rape and sexual assault?" · Rape Crisis England & Wales · Victim Support',
@@ -1184,7 +1184,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'hunt_the_gowk', label: 'The gowk\'s letter written, carried door to door, and a scone at the end of the round' },
     ],
-    resolution: "Wullie runs the round, comes home with a scone and a laugh, and is one of them by teatime. Then the practical half. A gowk's errand is only a joke if the gowk laughs too. If he's being made small, or picked on, or frightened, or left out, it has stopped being a joke and become bullying, whether anyone meant it or not; and it doesn't have to happen twice to hurt. Keep it one short round, and finish it before noon, as the old rule says. And the gowk's errand of our own day is the false message, a text or letter made to look real so you'll click or pay: never send one for a joke, never click one that comes, and forward a scam text free to 7726. Read past the headline before you pass anything on.",
+    resolution: "Wullie runs the round, comes home with a scone and a laugh, and is one of them by teatime. Then the practical half. A gowk's errand is only a joke if the gowk laughs too. If he's being made small, or picked on, or frightened, or left out, it has stopped being a joke and become bullying, whether anyone meant it or not; and it doesn't have to happen twice to hurt. Keep it one short round, and finish it before noon, as the old English rule has it. And the gowk's errand of our own day is the false message, a text or letter made to look real so you'll click or pay: never send one for a joke, never click one that comes, and forward a scam text free to 7726. Read past the headline before you pass anything on.",
     lore: "Hunting the gowk: on the first of April in Scotland the fool was sent from place to place with a letter reading 'On the first day of April / Hunt the gowk another mile' (Hone, 1826, after Brand). A gowk is a cuckoo, and a fool.",
     tier: 'record',
     source: 'W. Hone, The Every-Day Book, vol. I (1826), 1 April · respectme, "What is bullying?" · National Cyber Security Centre, reporting scam texts',
