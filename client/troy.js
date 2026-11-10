@@ -38,7 +38,8 @@ export function renderTroy(body, s, send, el, rerender) {
   const used = new Set(joins.flat());
   if (troyPicked !== null && used.has(troyPicked)) troyPicked = null;
   const box = el('div', 'troyBox');
-  if (t.use) box.appendChild(el('div', 'callerStepNote', t.use));
+  const done = joins.length >= t.total;
+  if (t.use && !done) box.appendChild(el('div', 'callerStepNote', t.use));
   const svg = document.createElementNS(TROY_NS, 'svg');
   // The page zooms out as the walls go on: the bare seed fills it, so its
   // ends are easy to tap, and the finished figure just fits.
@@ -53,7 +54,6 @@ export function renderTroy(body, s, send, el, rerender) {
   for (const d of t.seed.dots) { const [cx, cy] = troyPt(...d); add('circle', { cx, cy, r: 0.2 * TROY_U, class: 'troyDot' }); }
   joins.forEach((_, k) => add('path', { d: troyArchPath(t.ends, k, t.hand), class: 'troyWall', 'vector-effect': 'non-scaling-stroke' }));
   // The loose ends: tap one, then its partner.
-  const done = joins.length >= t.total;
   t.ends.forEach((e, i) => {
     if (used.has(i) || done) return;
     const [cx, cy] = troyPt(...e);
@@ -87,7 +87,7 @@ export function renderTroy(body, s, send, el, rerender) {
     kb.appendChild(go);
     box.appendChild(kb);
   }
-  const note = el('div', 'troyNote', t.note || (troyPicked !== null ? `From ${t.names[troyPicked]}: now tap the end to join it to.` : `${joins.length} of ${t.total} walls drawn.`));
+  const note = el('div', 'troyNote', t.note || (troyPicked !== null ? `From ${t.names[troyPicked]}: now tap the end to join it to.` : (done ? 'All eight walls drawn: run your finger in at the gate, and you never once come to a choice.' : `${joins.length} of ${t.total} walls drawn.`)));
   note.setAttribute('aria-live', 'polite');
   box.appendChild(note);
   if (joins.length && !done) {
