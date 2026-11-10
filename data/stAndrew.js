@@ -6,7 +6,7 @@
 //
 // Sources: E. Hasted, The History and Topographical Survey of the County of
 // Kent, vol. 6 (1798), "Easling", read first-hand in British History Online;
-// W. Hone, The Every-Day Book, vol. II, 30 November, read first-hand (Hone
+// W. Hone, The Every-Day Book, vol. I (1826), 30 November, read first-hand (Hone
 // archive transcription), who reprints Hasted; R. Chambers, The Book of Days
 // (1864), 30 November, read first-hand; W. Henderson, Notes on the Folk-Lore
 // of the Northern Counties (1879), index, read first-hand, for the lace-makers
