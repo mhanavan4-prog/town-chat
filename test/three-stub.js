@@ -54,7 +54,9 @@
     project() { this.x = Math.max(-0.9, Math.min(0.9, this.x / 3000)); this.y = Math.max(-0.9, Math.min(0.9, this.y / 3000)); this.z = 0.5; return this; }
   }
   class Color {
-    constructor(c) { this.value = c; }
+    constructor(c) {
+      this.value = c; this.r = 1; this.g = 1; this.b = 1;
+    }
     set(c) { this.value = c; return this; }
     setHex(h) { this.value = h; return this; }
     getHex() { return typeof this.value === 'number' ? this.value : 0; }
@@ -66,8 +68,19 @@
     clone() { return new Color(this.value); }
   }
   class Euler {
-    constructor() { this.x = 0; this.y = 0; this.z = 0; }
+    constructor() { this.x = 0; this.y = 0; this.z = 0; this.order = 'XYZ'; }
     set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+    copy(e) { this.x = e.x || 0; this.y = e.y || 0; this.z = e.z || 0; return this; }
+    reorder() { return this; } setFromQuaternion() { return this; } setFromRotationMatrix() { return this; }
+  }
+  // Quaternions are only carried about, never used for drawing here.
+  class Quaternion {
+    constructor() { this.x = 0; this.y = 0; this.z = 0; this.w = 1; }
+    set(x, y, z, w) { this.x = x; this.y = y; this.z = z; this.w = w; return this; }
+    copy(q) { if (q) { this.x = q.x || 0; this.y = q.y || 0; this.z = q.z || 0; this.w = q.w === undefined ? 1 : q.w; } return this; }
+    clone() { return new Quaternion().copy(this); }
+    setFromAxisAngle() { return this; } setFromEuler() { return this; } setFromUnitVectors() { return this; } setFromRotationMatrix() { return this; }
+    multiply() { return this; } premultiply() { return this; } slerp() { return this; } normalize() { return this; } invert() { return this; } identity() { return this; }
   }
   let _idc = 1;
   class Object3D {
@@ -82,6 +95,9 @@
       this.userData = {};
       this.material = null;
       this.geometry = null;
+      this.quaternion = new Quaternion();
+      this.up = new Vector3(0, 1, 0);
+      this.matrixAutoUpdate = true;
     }
     add(...objs) { for (const o of objs) { if (!o) continue; o.parent = this; this.children.push(o); } return this; }
     remove(...objs) { for (const o of objs) { const i = this.children.indexOf(o); if (i >= 0) { this.children.splice(i, 1); o.parent = null; } } return this; }
@@ -105,7 +121,9 @@
     dispose() {}
   }
   class Geometry {
-    constructor() { this.attributes = { position: { count: 0, array: [], setXYZ() {}, needsUpdate: false } }; this.parameters = {}; }
+    constructor() {
+      this.attributes = { position: { count: 0, array: [], setXYZ() {}, needsUpdate: false } }; this.parameters = {};
+    }
     dispose() {}
     clone() { return new Geometry(); }
     setAttribute() { return this; }
@@ -137,6 +155,7 @@
       this.domElement.width = window.innerWidth; this.domElement.height = window.innerHeight;
       this.shadowMap = { enabled: false, type: 0 };
       this.outputEncoding = 0;
+      this.info = { render: { calls: 0, triangles: 0 }, memory: { geometries: 0, textures: 0 } };
     }
     setSize(w, h) { this.domElement.width = w; this.domElement.height = h; }
     setPixelRatio() {}
@@ -165,6 +184,15 @@
     intersectObject() { return []; }
   }
   class Fog { constructor(c, n, f) { this.color = new Color(c); this.near = n; this.far = f; } }
+  // Shape/Path: the 2D outlines some props extrude (e.g. a THREE.Shape drawn
+  // with moveTo/lineTo). The catch-all would make them bare Object3Ds with no
+  // moveTo, and the first prop to draw one threw out of the scene build.
+  class Path {
+    constructor() { this.holes = []; this.curves = []; }
+    moveTo() { return this; } lineTo() { return this; } quadraticCurveTo() { return this; } bezierCurveTo() { return this; }
+    splineThru() { return this; } arc() { return this; } absarc() { return this; } ellipse() { return this; } absellipse() { return this; }
+    closePath() { return this; } getPoints() { return []; } getSpacedPoints() { return []; }
+  }
 
   // Loader chain — enough for the REAL GLTFLoader.js/SkeletonUtils.js (loaded
   // as separate <script>s, not stubbed) to construct and run against this
@@ -201,9 +229,19 @@
     }
   }
 
+  // The transform and bookkeeping calls props make (translateY, rotateZ,
+  // applyMatrix4, computeBoundingBox, multiplyScalar…) are chainable no-ops,
+  // added to the prototypes (not per-instance proxies: the frame loop walks
+  // thousands of objects, and a proxy on each made a frame take seconds).
+  const chain = function () { return this; };
+  for (const m of ['translateX', 'translateY', 'translateZ', 'rotateX', 'rotateY', 'rotateZ', 'rotateOnAxis', 'rotateOnWorldAxis', 'applyMatrix4', 'applyQuaternion', 'updateMatrix', 'updateWorldMatrix', 'attach', 'setRotationFromEuler', 'setRotationFromQuaternion', 'localToWorld', 'worldToLocal']) if (!Object3D.prototype[m]) Object3D.prototype[m] = chain;
+  for (const m of ['translate', 'rotateX', 'rotateY', 'rotateZ', 'scale', 'center', 'computeBoundingBox', 'computeBoundingSphere', 'computeVertexNormals', 'applyMatrix4', 'applyQuaternion', 'merge', 'normalizeNormals', 'setAttribute', 'deleteAttribute', 'setIndex', 'addGroup', 'clearGroups', 'setDrawRange', 'lookAt', 'toNonIndexed', 'setFromPoints']) if (!Geometry.prototype[m]) Geometry.prototype[m] = chain;
+  for (const m of ['multiplyScalar', 'multiply', 'add', 'addColors', 'addScalar', 'sub', 'lerp', 'lerpColors', 'lerpHSL', 'setScalar', 'setStyle', 'copy', 'convertSRGBToLinear', 'convertLinearToSRGB', 'offsetHSL', 'setRGB', 'setHSL', 'setHex', 'set']) if (!Color.prototype[m]) Color.prototype[m] = chain;
+  Color.prototype.getHexString = function () { return '000000'; };
   const named = {
-    Vector3, Color, Euler, Object3D, Group: class extends Object3D {}, Mesh, Sprite, Scene, Fog,
+    Vector3, Color, Euler, Quaternion, Object3D, Group: class extends Object3D {}, Mesh, Sprite, Scene, Fog,
     Points, Line, LineSegments: class extends Line {}, LineLoop: class extends Line {},
+    Shape: Path, Path, ShapePath: Path,
     PerspectiveCamera: Camera, OrthographicCamera: Camera, WebGLRenderer, CanvasTexture, Texture: CanvasTexture,
     Raycaster, DoubleSide: 2, FrontSide: 0, BackSide: 1, PCFSoftShadowMap: 1, sRGBEncoding: 3001,
     MathUtils: { lerp: (a, b, t) => a + (b - a) * t, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), degToRad: (d) => d * Math.PI / 180 },
@@ -246,7 +284,7 @@
       let cls;
       if (/Geometry$/.test(name)) cls = class extends Geometry { constructor() { super(); } };
       else if (/Material$/.test(name)) cls = class extends Material { constructor(p) { super(p); } };
-      else if (/(Light|Helper)$/.test(name)) cls = class extends Object3D { constructor(c, i) { super(); this.intensity = i; this.color = new Color(c); this.castShadow = false; this.target = new Object3D(); this.shadow = { mapSize: { set() {}, x: 2048, y: 2048, width: 2048, height: 2048 }, camera: { updateProjectionMatrix() {}, left: 0, right: 0, top: 0, bottom: 0, near: 0, far: 0 }, bias: 0, radius: 1, normalBias: 0 }; } };
+      else if (/(Light|Helper)$/.test(name)) cls = class extends Object3D { constructor(c, i) { super(); this.intensity = i; this.color = new Color(c); this.groundColor = new Color(i); this.castShadow = false; this.target = new Object3D(); this.shadow = { mapSize: { set() {}, x: 2048, y: 2048, width: 2048, height: 2048 }, camera: { updateProjectionMatrix() {}, left: 0, right: 0, top: 0, bottom: 0, near: 0, far: 0 }, bias: 0, radius: 1, normalBias: 0 }; } };
       else cls = class extends Object3D {};
       target[prop] = cls; // cache so instanceof stays consistent
       return cls;
