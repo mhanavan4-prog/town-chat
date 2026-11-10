@@ -28,7 +28,7 @@ check('Johnson, in Boswell\'s words: the lady in diamonds, and "without any effe
 check('the seventh son, from Notes and Queries', /"and so doth the seaventh sonne"/.test(R.lore) && /Notes and Queries \(22 February 1851\)/.test(R.source));
 const c = CALLERS.find((x) => x.id === 'kings_evil_child');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'kings_evil'));
-check('the practical half: the touch did nothing; the milk; boil it; the doctor', /did nothing for Samuel Johnson/.test(c.resolution) && /comes in the milk/.test(c.resolution) && /Boil every drop/.test(c.resolution) && /doctor/.test(c.resolution) && /CMAJ/.test(c.source));
+check('the practical half: the touch did nothing; the milk; boil it; the doctor', /did nothing for Samuel Johnson/.test(c.resolution) && /can come in the milk/.test(c.resolution) && /Boil every drop/.test(c.resolution) && /doctor/.test(c.resolution) && /CMAJ/.test(c.source));
 
 require('../server.js');
 
