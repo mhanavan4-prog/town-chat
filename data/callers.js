@@ -78,6 +78,21 @@ const CALLERS = [
     reward: { gold: 70, xp: 50 },
   },
   {
+    id: 'clootie',
+    caller: 'Morag Fraser, from the Black Isle',
+    icon: '🎀',
+    title: 'A Cloot for the Thorn',
+    plea: "My boy sails out of Leith on Monday, his first ship. At home we'd go to the well at first light, go round it three times with the sun, and tie a rag on the bush for luck, and I've no well here to go to. They say there's one in the Wilds with a thorn hung full of cloots. Will you tie one for him, the right way?",
+    steps: [
+      { kind: 'cloot', label: 'Tie a cloot at the clootie well in the Wilds, three times round sunways first' },
+    ],
+    resolution: "You tie it as her mother would have: the cloth dipped in the spring, three times round sunways, east, south and west, and knotted on the thorn among the others, and you touch none of theirs. Morag says the boy will do fine, and he does. Then the practical half. Bring only pure wool or pure cotton: Forestry and Land Scotland, who keep the well at Munlochy, ask for cloots that are 'small, appropriate and biodegradable', because 'plastics and polyesters won't rot away so they won't be much help!' Don't drink from a spring because it looks clear: the Drinking Water Inspectorate warns that 'Wells and springs although derived from groundwater, are very often influenced by surface water', and 'Microbiological contamination from faecal material can lead to illness.' And mind the tree: the Scottish Outdoor Access Code says 'Never cut down or damage trees', and 'Remember to take your rubbish home with you.'",
+    lore: "Rag wells in the record: in 1618 Dr Patrick Anderson wrote of wells 'all tapestried about with old rags'; on Skye in 1703 Martin Martin saw folk drink and then 'move thrice round the well, proceeding sunways from east to west'; and at Craigie Well near Munlochy Bay they came 'early in the morning of the first Sunday in May', and 'No one went away without leaving a thread, or patch of cloth on a large briar bush near the spring' (Mackinlay, 1893). That the ailment fades as the rag rots is recorded on the Isle of Man in 1890, 'When the cloth had rotted away the cure was supposed to be effected', and is said in Scotland now; and taking another's rag was to take their trouble: 'Whoever carried off one, of such relics contracted the disease of the one who left it.' Forestry and Land Scotland says of Culloden's St Mary's Well that 'dipping a cloot in the well and tying it to a tree brings good luck.'",
+    tier: 'record',
+    source: 'J. M. Mackinlay, Folklore of Scottish Lochs and Springs (1893), chs. XII and XVII · M. Martin, A Description of the Western Islands of Scotland (1703) · Forestry and Land Scotland, "Munlochy Clootie Well" and "Culloden"; Inverness Courier (15 Oct 2019) · Drinking Water Inspectorate, "Protecting your private water supply" · Scottish Outdoor Access Code',
+    reward: { gold: 50, xp: 40 },
+  },
+  {
     id: 'lintel_mark',
     caller: 'Widow Garrow',
     icon: '🚪',
@@ -2214,7 +2229,7 @@ const CALLERS_PER_DAY = 3;
 // a Yule custom (data/yule.js) or another festival's custom
 // (data/wheelRites.js); callers with a season come only in it.
 // 'knots' — the wart charm: a knot tied for every wart, one by one (count).
-const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet'];
+const READING_KINDS = ['pendulum', 'tarot', 'runes', 'scry', 'leaves', 'ogham', 'sieve', 'charm', 'key', 'rite', 'knots', 'scribe', 'tablet', 'cloot'];
 
 // Caerdroia is drawn on the Board, wall by wall (data/troy.js).
 READING_KINDS.push('troy', 'troywalk'); // …and the Shepherd's Race is run for real in the Wilds (data/troyTown.js).

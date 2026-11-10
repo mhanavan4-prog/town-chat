@@ -1,3 +1,4 @@
+import { makeClootieWell } from './props-clootie.js';
 // ---------------------------------------------------------------------------
 // The Wilds scene (Tier 3.4 Phase C, 3D slice). A second outdoor map reached
 // via the portal: buildWildsScene assembles the terrain, then its sub-builders
@@ -355,6 +356,12 @@ function buildWildsScene(w2) {
   scene.add(caveSign);
   WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
 
+  // The clootie well: a spring and a thorn hung with rags (props-clootie.js).
+  // The spring is the interact point: tie a cloot there, or read its lore.
+  if (w2.clootieWell) {
+    scene.add(makeClootieWell(w2.clootieWell.x, w2.clootieWell.y));
+    WILDS_KIOSKS.push({ x: w2.clootieWell.x, z: w2.clootieWell.y, npc: 'clootie', npcName: 'the clootie well', radius: 110 });
+  }
   // Campfires (server-healing rest stops) + lore waymarkers
   for (const f of WILDS_CAMPFIRES) scene.add(makeWildsCampfire(f.x, f.y));
   for (const m of WILDS_WAYMARKERS) {
