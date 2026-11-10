@@ -745,6 +745,22 @@
   .charmSay { width:auto; text-align:left; white-space:normal; padding:6px 10px; font-size:12.5px; margin:4px 0; }
   .sieveName { padding:5px 10px; font-size:12px; width:auto; }
   .sieveName.still { opacity:0.55; text-decoration:line-through; }
+  /* A curse tablet, after Bath: pewter-grey metal, scratched capitals. */
+  .tabletBox { margin-top:6px; }
+  .tabletPlate { background:linear-gradient(135deg,#8d9196,#6f7378); color:#24272b; border-radius:4px; padding:8px 10px; margin:6px 0; font:600 12.5px/1.5 Georgia, serif; letter-spacing:1.5px; text-transform:uppercase; box-shadow:inset 0 0 6px rgba(0,0,0,.45); overflow-wrap:anywhere; }
+  .tabletLine + .tabletLine { margin-top:3px; }
+  .tabletEmpty { font-style:italic; text-transform:none; letter-spacing:0; color:#33373c; }
+  .tabletEnglish { margin:2px 0 6px 18px; padding:0; font-size:12px; color:#d9c79a; line-height:1.4; }
+  .tabletTiles { display:flex; flex-direction:column; gap:4px; margin:6px 0; }
+  .tabletTile { width:100%; text-align:left; white-space:normal; padding:6px 10px; margin:0; display:flex; flex-direction:column; gap:2px; }
+  .tabletTile:disabled { opacity:0.45; }
+  .tabletLatin { font:italic 13px Georgia, serif; }
+  .tabletEn { font-size:11.5px; opacity:0.8; }
+  .tabletWay { display:flex; align-items:center; gap:6px; font-size:12px; flex-wrap:wrap; }
+  .tabletWaySel { max-width:100%; font-size:12px; }
+  .tabletNote { min-height:1em; font-size:12px; color:#f0b38a; margin:4px 0; }
+  .tabletNote:empty { min-height:0; margin:0; }
+  .tabletBtns { display:flex; flex-wrap:wrap; gap:6px; }
   /* Centered rectangular menu format (desktop): the craft panels open centered,
      wider, and lay their options out in two columns so they stop scrolling.
      Touch mode keeps the existing fullscreen treatment below. */

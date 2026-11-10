@@ -52,6 +52,7 @@ setTimeout(() => {
     else if (s.kind === 'rite') say(sock, { type: 'rite_do' });
     else if (s.kind === 'knots') { for (let k = 0; k < s.count; k++) say(sock, { type: 'knot_tie' }); }
     else if (s.kind === 'scribe') { for (const ln of require('../data/charms').SCRIBINGS[s.charm].lines) say(sock, { type: 'scribe_line', text: ln }); }
+    else if (s.kind === 'tablet') say(sock, { type: 'tablet_write', parts: ['suli_minervae', 'name', 'dono', 'sanitatem', 'si_vir', 'nissi'], backwards: 'none' });
     else if (s.kind === 'deliver') h.addItemToAccount(inv, s.item, s.qty);
     else throw new Error('callers.test: no driver for step kind ' + s.kind + ' — add it to doStep');
   }

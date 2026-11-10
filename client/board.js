@@ -103,6 +103,84 @@ function el(tag, cls, text) {
 // bottom of a long card, so a fresh result starts the list back at the top
 // (the "— done" line and the reading), not wherever the working was scrolled.
 let resultShown = null;
+// The curse tablet being put together on the Board: the clauses chosen so far,
+// in order, which way it is written, and the last thing the server said.
+let tablet = { picks: [], backwards: 'none', note: '', pending: false };
+function callerError(message) {
+  if (tablet.pending) { tablet.pending = false; tablet.note = message || ''; renderBoardModal(); }
+}
+const revStr = (t) => [...t].reverse().join('');
+function tabletLines(tiles, picks, way) {
+  const lines = picks.map((k) => (tiles.find((t) => t.key === k) || {}).latin).filter(Boolean);
+  if (way === 'whole') return lines.map(revStr).reverse();
+  if (way === 'lines') return lines.map(revStr);
+  if (way === 'words') return lines.map((l) => l.split(' ').map(revStr).join(' '));
+  return lines;
+}
+function renderTablet(body, s) {
+  const tb = s.tablet;
+  const box = el('div', 'tabletBox');
+  if (tb.use) box.appendChild(el('div', 'callerStepNote', tb.use));
+  // The metal, with the clauses on it so far (backwards, if that's the way).
+  const plate = el('div', 'tabletPlate');
+  plate.setAttribute('role', 'group');
+  plate.setAttribute('aria-label', `The tablet: ${tablet.picks.length} of 6 clauses written`);
+  const lines = tabletLines(tb.tiles, tablet.picks, tablet.backwards);
+  if (!lines.length) plate.appendChild(el('div', 'tabletEmpty', 'Bare pewter, waiting for the stylus.'));
+  for (const ln of lines) plate.appendChild(el('div', 'tabletLine', ln));
+  box.appendChild(plate);
+  // In English, in the order chosen, whichever way the metal reads.
+  if (tablet.picks.length) {
+    const eng = el('ol', 'tabletEnglish');
+    for (const k of tablet.picks) { const t = tb.tiles.find((q) => q.key === k); if (t) eng.appendChild(el('li', '', t.en)); }
+    box.appendChild(eng);
+  }
+  // The clauses to choose from: one of each part, any of its wordings.
+  const usedParts = new Set(tablet.picks.map((k) => (tb.tiles.find((t) => t.key === k) || {}).part));
+  const tiles = el('div', 'tabletTiles');
+  for (const t of tb.tiles) {
+    const b = el('button', 'btn tabletTile');
+    b.appendChild(el('span', 'tabletLatin', t.latin));
+    b.appendChild(el('span', 'tabletEn', `${t.en} (${t.src})`));
+    b.disabled = tablet.pending || tablet.picks.length >= 6 || usedParts.has(t.part);
+    b.setAttribute('aria-label', `${t.latin}: ${t.en}. From ${t.src}. ${tb.parts[t.part] || ''}.`);
+    b.addEventListener('click', () => { tablet.picks.push(t.key); tablet.note = ''; renderBoardModal(); });
+    tiles.appendChild(b);
+  }
+  box.appendChild(tiles);
+  // Which way round to write it.
+  const way = el('label', 'tabletWay');
+  way.appendChild(el('span', '', 'Written: '));
+  const sel = document.createElement('select');
+  sel.className = 'tabletWaySel';
+  sel.setAttribute('aria-label', 'Which way round to write it');
+  for (const w of tb.backwards || []) {
+    const o = document.createElement('option'); o.value = w.key; o.textContent = w.label + (w.src ? ` (${w.src})` : '');
+    if (w.key === tablet.backwards) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.disabled = tablet.pending;
+  sel.addEventListener('change', () => { tablet.backwards = sel.value; renderBoardModal(); });
+  way.appendChild(sel);
+  box.appendChild(way);
+  const note = el('div', 'tabletNote', tablet.note);
+  note.setAttribute('aria-live', 'polite');
+  box.appendChild(note);
+  const row = el('div', 'tabletBtns');
+  const undo = el('button', 'btn charmSay', 'Scratch out the last clause');
+  undo.disabled = tablet.pending || !tablet.picks.length;
+  undo.addEventListener('click', () => { tablet.picks.pop(); tablet.note = ''; renderBoardModal(); });
+  const fin = el('button', 'btn charmSay tabletFinish', '🪙 Finish the tablet');
+  fin.disabled = tablet.pending || tablet.picks.length < 6;
+  fin.addEventListener('click', () => {
+    tablet.pending = true; tablet.note = '';
+    send({ type: 'tablet_write', parts: tablet.picks.slice(), backwards: tablet.backwards });
+    renderBoardModal();
+  });
+  row.appendChild(undo); row.appendChild(fin);
+  box.appendChild(row);
+  body.appendChild(box);
+}
 function renderCallerResult(list, r) {
   const card = el('div', 'callerCard callerResult');
   card.appendChild(el('div', 'callerHead', `${r.icon} ${r.title} — done`));
@@ -131,6 +209,8 @@ function renderCallers(list, meNote) {
     meNote.textContent = '';
     return;
   }
+  // A tablet finished (or a working set aside) starts the next one clean.
+  if (!st.active || !st.active.steps.some((s) => s.kind === 'tablet' && !s.done)) tablet = { picks: [], backwards: 'none', note: '', pending: false };
   if (st.active) {
     const a = st.active;
     const card = el('div', 'callerCard callerActive');
@@ -196,6 +276,8 @@ function renderCallers(list, meNote) {
         row.appendChild(inp); row.appendChild(b);
         box.appendChild(row);
         body.appendChild(box);
+      } else if (s.kind === 'tablet' && !s.done && s.tablet) {
+        renderTablet(body, s);
       } else if ((s.kind === 'sieve' || s.kind === 'key') && !s.done) {
         // Name them one by one; the sieve turns at one.
         body.appendChild(el('div', 'callerStepNote', s.kind === 'key'
@@ -263,5 +345,5 @@ function renderCallers(list, meNote) {
   if (close) close.addEventListener('click', closeBoardModal);
 })();
 
-  return { openBoardModal, closeBoardModal, renderBoardModal };
+  return { openBoardModal, closeBoardModal, renderBoardModal, callerError, tabletState: () => ({ ...tablet, picks: tablet.picks.slice() }) };
 }
