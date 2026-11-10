@@ -1990,7 +1990,7 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'shewstone', label: 'The glass on a dark cloth, one candle, and let her look' },
     ],
-    resolution: "Then you tell her the truth about the glass: it shows the face you bring to it. The cunning folk let the client look so that they never had to say a name themselves. And a name said out loud can kill: at Tring in 1751 a farmer called Butterfield went to a cunning woman, who agreed old Ruth Osborne had bewitched him; a crowd ducked Ruth in a pond and she died of it, and Thomas Colley was hanged. So the name stays in this house. Then the practical half: a sow that has just farrowed can run a fever, and in a cold sty she lies on her young. Deep dry straw, a rail along the wall so the piglets can get out from under her, a warm mash, and the farrier if she still won't eat tomorrow. Nance only wanted to see the piglets.",
+    resolution: "Then you tell her the truth about the glass: it shows the face you bring to it. The cunning folk let the client look so that they never had to say a name themselves. And a name said out loud can kill: at Tring in 1751 a farmer called Butterfield went to a cunning woman, who agreed old Ruth Osborne had bewitched him; a crowd ducked Ruth in a pond and she died of it, and Thomas Colley was hanged. So the name stays in this house. Then the practical half: a sow that has just farrowed can run a fever and lose her milk. Clean dry straw, not so deep the piglets are lost in it, a rail along the wall so they can get out from under her, a warm mash, and the pig doctor today: she's off her food, and the little ones may be going hungry already. Nance only wanted to see the piglets.",
     lore: "The shewstone: cunning folk let the client look into a glass, crystal or bowl of water to see who had done them harm, so the client named the culprit and they never had to. From John Dee's obsidian mirror down to the village glass.",
     tier: 'record',
     source: 'O. Davies, Cunning-Folk (2003) · British Museum 1966,1001.1 · Dictionary of National Biography, vol. 42, "Osborne, Ruth" · Defra, Code of Practice for the Welfare of Pigs (2020) · AHDB, "Mastitis, metritis and agalactia (MMA) in sows"',
@@ -2008,9 +2008,9 @@ const CALLERS = [
       { kind: 'rite', rite: 'need_fire', label: 'Put out the hearths, make the new fire, drive the cattle through' },
     ],
     resolution: "The new fire takes, the cattle go through the smoke, and every hearth in the township is lit again from it, yours too. Then the practical half: the sick beasts go to the far park, away from the rest; nobody moves cattle in or out of the township till it passes; the dead are buried deep, not left for the dogs; and the cow doctor comes tomorrow. When the cattle plague came in 1865 it was slaughter and keeping cattle still that ended it, not fire.",
-    lore: "The need-fire (tein-éigin), \"a forced fire, or fire of necessity\" (Martin, 1703): every fire put out, new fire made by friction, the cattle driven through its smoke and each hearth lit again from it. It was used against murrain into the 19th century.",
+    lore: "The need-fire (tein-éigin), \"a forced fire, or fire of necessity\" (Martin, 1703): every fire put out, new fire made by friction, and water heated on it sprinkled on the sick cattle; elsewhere, Frazer found, the beasts were driven through its smoke, and each hearth was lit again from it. It was used against murrain into the 19th century.",
     tier: 'record',
-    source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913)',
+    source: 'M. Martin, A Description of the Western Islands of Scotland (1703) · J. G. Frazer, Balder the Beautiful (1913) · S. A. Hall, "The Cattle Plague of 1865", Medical History 6 (1962)',
     reward: { gold: 45, xp: 40 },
   },
   // Elf-shot (data/household.js): the fairy arrow and the flint in the water.
@@ -2023,10 +2023,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'elf_shot', label: 'Feel for the hole, then the elf-arrow in the water' },
     ],
-    resolution: "You do the cure, and then the practical half: she is blown, not shot. She got into the wet clover, and the gas is trapped. Get her up and walking with her front end uphill, a stick tied in her mouth to set her chewing and belching, a drench of oil if there is any; and if she is still swelling, the cow doctor with his trocar, and quickly. The elf-arrow is a flint arrowhead made by people four thousand years ago and more. Keep it. It is older than the kirk.",
+    resolution: "You do the cure, and then the practical half: she is blown, not shot. She got into the wet clover, and the froth has trapped the gas. Send for the cow doctor now, not later: a blown cow can die within a quarter of an hour. A quarter to half a litre of vegetable oil down her breaks the froth, by his stomach tube if he has one; clover bloat is froth, and the trocar is the last resort and little use on it. The elf-arrow is a flint arrowhead made by people four thousand years ago and more. Keep it. It is older than the kirk.",
     lore: "Elf-shot: a beast that dropped suddenly had been shot by the fairies. Kirk (1691) describes their stone arrows; the cure was to find the hole, or give the beast water an elf-arrow had been dipped in. The arrows were Neolithic and Bronze Age flint arrowheads.",
     tier: 'record',
-    source: 'R. Kirk, The Secret Common-Wealth (1691) · T. Pennant, A Tour in Scotland (1771) · M. Dowd (2018)',
+    source: 'R. Kirk, The Secret Common-Wealth (1691) · T. Pennant, A Tour in Scotland (1771) · M. Dowd, Cambridge Archaeological Journal 28(3) (2018) · NADIS, "Bloat" · MSD Veterinary Manual, "Bloat in ruminants"',
     reward: { gold: 40, xp: 35 },
   },
   // ── The dried cat (data/household.js) ──
@@ -2055,10 +2055,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'toad_bone', label: "The bone in your pocket, the oil on your hand, at the mare's head" },
     ],
-    resolution: "She stands for you, and then the practical half: lift the collar and look under it. There is a raw place on her shoulder. A collar that fits badly galls a horse, and a galled horse will not throw her weight into it; she backs off the pain. Bathe the place, rest her a few days, and have the saddler re-stuff the collar. Then go to her quietly: a horse has a better nose than a dog and reads a nervous hand at once. That was most of your grandfather's secret, his oil and his patience. Keep the bone. He meant you to have it.",
-    lore: "The toadman's bone: East Anglian horsemen kept a toad's bone, won at a stream at midnight, to stop or draw a horse; in the north-east of Scotland the Society of the Horseman's Word gave its own secret. Collected by George Ewart Evans from the last horsemen.",
+    resolution: "She stands for you, and then the practical half: lift the collar and look under it. There is a raw place on her shoulder. A collar that fits badly galls a horse, and a galled horse will not throw her weight into it; she backs off the pain. Bathe the place, rest her a few days, and have the saddler re-stuff the collar. Then go to her quietly: a horse has a keen nose and smells a nervous hand at once. That was most of your grandfather's secret, his oil and his patience. Keep the bone. He meant you to have it.",
+    lore: "The toadman's bone: East Anglian horsemen kept a toad's bone, won at a stream at midnight, to stop or draw a horse; in the north-east of Scotland the Society of the Horseman's Word gave its own secret. The East Anglian lore was collected by George Ewart Evans from the last horsemen.",
     tier: 'folk',
-    source: 'G. E. Evans, The Pattern Under the Plough (1966) · J. W. Axe, The Horse: Its Treatment in Health and Disease (c. 1905), "Sore Shoulders"',
+    source: 'G. E. Evans, The Pattern Under the Plough (1966) · F. Rolfe, I Walked by Night, ed. L. Rider Haggard (1935) · J. W. Axe, The Horse: Its Treatment in Health and Disease (c. 1905), "Sore Shoulders and Shoulder Abscesses" · Anglia Ruskin University, "Horses can smell fear" (2026)',
     reward: { gold: 40, xp: 35 },
   },
   // ── The changeling wife (data/household.js) ──
@@ -2071,10 +2071,10 @@ const CALLERS = [
     steps: [
       { kind: 'rite', rite: 'changeling_wife', label: 'Ask her, once and gently, who she is' },
     ],
-    resolution: "She is herself. She answered to her own name, and that is the end of the question; you tell Tom so, and you tell him why it matters. In 1895 in Tipperary a sick young woman, Bridget Cleary, was asked that same question, and her husband and her own family did not believe her answer, and she died of what they did to her. So the man over the mountain is not sent for. Then the practical half: she has a fever and a cough, and fever makes anyone cross and strange. Send for the doctor today, keep her warm, give her plenty to drink and let her sleep. If she still seems a stranger to him when she is well, that is for the two of them to talk about, not a thing to cure.",
-    lore: "The changeling wife: the belief that the fairies took a young wife and left something in her place. In 1895 it killed Bridget Cleary of Ballyvadlea, Co. Tipperary.",
+    resolution: "She is herself, and she always was. A fever doesn't make anyone into someone else, and no answer to a question could prove it either way. You tell Tom so, and you tell him why it matters. In 1895 in Tipperary a sick young woman, Bridget Cleary, gave the right answer in God's name, and her husband still didn't believe her: the next night he set her alight, and she died. So the man over the mountain is not sent for. Then the practical half: she has a fever and a cough. Send for the doctor today, let her rest, give her plenty to drink, and paracetamol if she's uncomfortable. If she doesn't know where she is or who you are, or she's fighting for breath, that isn't temper: send for help that hour. If she still seems a stranger to him when she is well, tell the doctor.",
+    lore: "The changeling wife: the belief that the fairies took a young wife and left something in her place. In 1895 her husband, believing it, killed Bridget Cleary of Ballyvadlea, Co. Tipperary.",
     tier: 'record',
-    source: 'A. Bourke, "Cleary, Bridget", Dictionary of Irish Biography (2009)',
+    source: 'A. Bourke, "Cleary, Bridget", Dictionary of Irish Biography (2009) · M. J. F. McCarthy, Five Years in Ireland, 1895–1900 (1901) · NHS, "Sepsis" and "High temperature (fever) in adults"',
     reward: { gold: 45, xp: 40 },
   },
   // ── The witch post (data/household.js) ──

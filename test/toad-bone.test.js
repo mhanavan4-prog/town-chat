@@ -29,7 +29,7 @@ check('the rite itself kills nothing: the bone was left to the boy', /the old ho
 const c = CALLERS.find((x) => x.id === 'toad_bone_mare');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'toad_bone'));
 check('the practical half: a galled shoulder under a bad collar, rest, the saddler', /raw place on her shoulder/.test(c.resolution) && /galls a horse/.test(c.resolution) && /saddler/.test(c.resolution) && /Axe/.test(c.source));
-check('…and a quiet hand, because a horse reads it by the nose', /better nose than a dog/.test(c.resolution) && /nervous hand/.test(c.resolution));
+check('…and a quiet hand, because a horse smells fear', /a horse has a keen nose and smells a nervous hand/.test(c.resolution) && /nervous hand/.test(c.resolution));
 check('the caller is badged folk too', c.tier === 'folk');
 
 require('../server.js');
