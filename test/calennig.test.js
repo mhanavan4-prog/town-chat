@@ -29,7 +29,7 @@ check('…the Gwaun Valley\'s Hen Galan on 13 January (Visit Pembrokeshire); the
 check('…and nothing unfound: no hot pennies, no "Ac i bawb" rhyme', !/hot penn|Ac i bawb/i.test(R.lore + R.how + R.outcomes.join(' ')));
 const c = CALLERS.find((x) => x.id === 'calennig_children');
 check('Gwenno and Dai Prosser, on New Year\'s Day (and the 2nd)', c && c.when === CALENNIG_WHEN && CALENNIG_WHEN.month === 1 && CALENNIG_WHEN.from === 1 && CALENNIG_WHEN.to === 2 && c.steps[0].rite === 'calennig');
-check('the practical half: daylight, pairs, known roads and doors; blunt short sticks; bread and cheese as welcome as a coin', /in daylight, in pairs or more/.test(c.resolution) && /only to doors they know/.test(c.resolution) && /blunt the points/.test(c.resolution) && /bread and cheese was always as welcome as a coin/.test(c.resolution));
+check('the practical half: daylight, pairs, known roads and doors; blunt short sticks; the verse asks for bread and cheese', /in daylight, in pairs or more/.test(c.resolution) && /only to doors they know/.test(c.resolution) && /blunt the points/.test(c.resolution) && /listen to the verse: it asks for bread and cheese/.test(c.resolution) && !/always as welcome as a coin/.test(c.resolution));
 
 require('../server.js');
 
