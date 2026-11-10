@@ -77,6 +77,8 @@ function classifyOghamCut(c) {
   const a = x1 - OGHAM_STEM_X, b = x2 - OGHAM_STEM_X;
   const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
   if (len < 6) return Math.abs(a) <= 6 && Math.abs(b) <= 6 ? 'notch' : 'stray';
+  // Along the edge itself: the stem line is the stave's corner, already there.
+  if (Math.abs(a) <= 6 && Math.abs(b) <= 6 && Math.abs(dy) >= 6 && Math.abs(dy) > Math.abs(dx)) return 'edge';
   // From the edge out to one side.
   const near = Math.min(Math.abs(a), Math.abs(b)), far = Math.abs(a) > Math.abs(b) ? a : b;
   if (near <= 6 && Math.abs(far) >= 14 && Math.abs(dy) <= 0.5 * Math.abs(dx)) return far > 0 ? 'right' : 'left';
@@ -94,6 +96,7 @@ function oghamProblem(aicme, n, cuts) {
   if (!Array.isArray(cuts) || !cuts.length) return 'Cut the letter against the edge first.';
   if (cuts.length > 12) return 'Too many cuts for one letter.';
   const kinds = cuts.map(classifyOghamCut);
+  if (kinds.includes('edge')) return 'One cut runs along the edge itself. The edge is already there (it is the stem line), so undo that cut and cut only the strokes against it.';
   if (kinds.includes('stray')) return 'A cut wandered off the edge: every stroke starts on it, crosses it, or is a notch in it.';
   const ok = OGHAM_CUT_FOR[aicme];
   if (kinds.some((k) => !ok.includes(k))) return `This letter's strokes go ${OGHAM_CUT_WORDS[aicme]}.`;

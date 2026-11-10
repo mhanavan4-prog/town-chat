@@ -18,6 +18,8 @@ check('a cut from the edge out to the right is a B stroke', classifyOghamCut(c(6
 check('…to the left an H stroke', classifyOghamCut(c(60, 100, 25, 102)) === 'left');
 check('…slanting across the edge an M stroke', classifyOghamCut(c(35, 110, 85, 94)) === 'across');
 check('…a tap on the edge a vowel notch; a short stroke straight across the manuscripts\' vowel', classifyOghamCut(c(60, 100, 60, 100)) === 'notch' && classifyOghamCut(c(50, 100, 70, 100)) === 'straight');
+check('a cut run along the edge itself is told apart, and the letter refused with the reason', classifyOghamCut(c(60, 30, 60, 270)) === 'edge' && classifyOghamCut(c(58, 40, 62, 120)) === 'edge' && /runs along the edge itself\. The edge is already there/.test(oghamProblem('B', 1, [c(60, 30, 60, 270), c(60, 150, 95, 150)]) || ''));
+check('…but a short stroke straight across the edge is still a vowel, not the edge', classifyOghamCut(c(56, 100, 64, 100)) === 'straight');
 check('…and a cut that never meets the edge is a stray', classifyOghamCut(c(80, 100, 110, 100)) === 'stray' && classifyOghamCut(c(70, 100, 70, 100)) === 'stray');
 check('Fearn: three to the right, even and parallel', oghamProblem('B', 3, [c(60, 140, 95, 140), c(60, 152, 95, 152), c(60, 164, 95, 164)]) === null);
 check('…cut to the wrong side is the wrong letter', /right of the edge/.test(oghamProblem('B', 3, [c(60, 140, 25, 140), c(60, 152, 25, 152), c(60, 164, 25, 164)]) || ''));

@@ -141,7 +141,7 @@ export default function createOgham({ send, place }) {
 
   // ── The carving bench: cut the letter against the stave's edge yourself ──
   const AICME_HOW = { B: 'to the right of the edge', H: 'to the left of the edge', M: 'slanting across the edge', A: 'as notches on the edge (tap it)' };
-  function carveHint(o) { return `${o.name}: ${o.n} stroke${o.n === 1 ? '' : 's'} ${AICME_HOW[o.aicme]}, close together and even. Drag to cut; tap the edge for a notch. Read from the bottom up.`; }
+  function carveHint(o) { return `${o.name}: ${o.n} stroke${o.n === 1 ? '' : 's'} ${AICME_HOW[o.aicme]}, close together and even. The light line up the middle is the stave's edge, already there: cut only the strokes. Drag to cut; tap the edge for a notch. Read from the bottom up.`; }
   function renderCarving(body) {
     const o = state.letters.find((x) => x.key === carving.key);
     const B = state.board || { w: 120, h: 300, stemX: 60, top: 20, bottom: 280 };
@@ -177,6 +177,9 @@ export default function createOgham({ send, place }) {
         // A cut that starts or ends right by the edge is taken to meet it.
         if (Math.abs(x0 - B.stemX) <= 6) x0 = B.stemX;
         if (Math.abs(x - B.stemX) <= 6) x = B.stemX;
+        // Drawn along the edge itself: that line is the stave's corner, and is
+        // already there. Don't take it as a cut; say so.
+        if (x0 === B.stemX && x === B.stemX && Math.abs(y - y0) >= 6) { carving.note = 'That runs along the edge itself. The edge is already there, the light line up the middle: cut only the strokes against it.'; render(); return; }
         carving.cuts.push({ x1: Math.round(x0), y1: Math.round(y0), x2: Math.round(x), y2: Math.round(y) });
         render();
       };
