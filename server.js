@@ -11970,6 +11970,7 @@ wss.on('connection', (ws, req) => {
       }
       // Round the clootie well, sunways (lib/callers.js counts the rounds).
       if (player.room === 'wilds') callers.clootMove(player);
+      if (player.room === 'wilds') callers.dowseMove(player); // the hazel twig, dipping as you walk
       return;
     }
 
