@@ -404,7 +404,6 @@ const KK = (() => {
     prop_grave_b:  'kk/props/gravestone.gltf',
     prop_crypt:    'kk/props/crypt.gltf',
     prop_pumpkin:  'kk/props/pumpkin_orange_jackolantern.gltf',
-    prop_pumpkin2: 'kk/props/pumpkin_orange.gltf',
     // 🎃 Samhain guise head-props (client/guises.js) — socketed on the player's
     // KayKit head bone. The pumpkin reuses prop_pumpkin above. antlered_hood is
     // the Adventurers Druid's hooded-antler head, baked to head-bone-local space.

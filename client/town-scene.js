@@ -6,6 +6,8 @@
 // THREE/LEGEND_FX are globals; textures/sprites, createHumanoid, door helpers,
 // and TOWN_NPCS/KK/kiosk data are injected; `me` via getter.
 // ---------------------------------------------------------------------------
+import { makeTurnipLanterns } from './props-turnip.js';
+
 export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, mobileLite, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
@@ -390,16 +392,21 @@ function buildLocksmith(scene) {
 
 function kkTownDressing(scene, w) {
   if (!KK.settled) return;
-  // twin jack-o'-lanterns flanking every door
+  // Twin turnip lanterns flanking every door: in Ireland and on Man the old
+  // Hallowe'en lantern was a turnip, not a pumpkin (client/props-turnip.js).
+  const turnips = [];
   for (const b of w.buildings) {
     const side = getDoorSide(b);
     const dp = getDoorWorldPos(b);
     const pw = (w.doorWidth || 64) * 0.85 + 22;
     const out = side === 'south' ? [0, 18] : side === 'north' ? [0, -18] : side === 'east' ? [18, 0] : [-18, 0];
     const perp = side === 'south' || side === 'north' ? [pw, 0] : [0, pw];
-    kkPlace(scene, 'prop_pumpkin', dp.x + out[0] + perp[0], dp.y + out[1] + perp[1], 12, Math.PI * 0.15);
-    kkPlace(scene, 'prop_pumpkin2', dp.x + out[0] - perp[0], dp.y + out[1] - perp[1], 10, -Math.PI * 0.2);
+    // Faces turned out from the door, toward whoever comes to it.
+    const face = side === 'south' ? 0 : side === 'north' ? Math.PI : side === 'east' ? Math.PI / 2 : -Math.PI / 2;
+    turnips.push({ x: dp.x + out[0] + perp[0], z: dp.y + out[1] + perp[1], size: 11, rot: face + 0.25 });
+    turnips.push({ x: dp.x + out[0] - perp[0], z: dp.y + out[1] - perp[1], size: 9.5, rot: face - 0.3 });
   }
+  try { scene.add(makeTurnipLanterns(turnips)); } catch (e) { /* dressing only: the town stands without it */ }
   // A proper fenced graveyard beside the Town Hall — a landmark to wander. The
   // hall backs onto the map edge, so "behind" would be off-world; beside it
   // reads from the plaza approach. Pure walk-through dressing (like the fairy
@@ -446,7 +453,7 @@ function kkTownDressing(scene, w) {
   // (Per-building cobwebs were removed: cobweb_C hangs from a TOP anchor, but
   // the town buildings are open-air boxes with no eave/ceiling to pin it to, so
   // it could only ever float at the roofline or stand planted in the grass —
-  // neither reads right. The season still shows through the door pumpkins, the
+  // neither reads right. The season still shows through the door turnip lanterns, the
   // fenced graveyard, the altar candles and the dead trees. Cobwebs that DO have
   // a surface to sit on are kept: the churchyard funnel web below and the ones
   // in the enclosed crypt corners.)
