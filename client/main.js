@@ -16771,6 +16771,24 @@ const { openNotifModal } = _notif;
       ctx.fillStyle = '#53934f'; for (const c of [[-0.14, -0.66, 0.16], [0.16, -0.6, 0.14]]) { ctx.beginPath(); ctx.arc(gx + c[0] * s, gy + c[1] * s, c[2] * s, 0, 7); ctx.fill(); }
       return;
     }
+    if (kind === 'maze') {
+      // The Shepherd's Race: a ring of turf banks, open at the foot.
+      shadow(s * 0.5);
+      ctx.strokeStyle = '#d9c79a'; ctx.lineWidth = Math.max(1, s * 0.05);
+      for (const r of [0.14, 0.24, 0.34, 0.44]) { ctx.beginPath(); ctx.arc(gx, gy - s * 0.42, r * s, Math.PI * 0.62, Math.PI * 2.38); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(gx, gy - s * 0.42); ctx.lineTo(gx, gy - s * 0.42 - 0.44 * s); ctx.stroke();
+      return;
+    }
+    if (kind === 'rag_well') {
+      // The clootie well: a spring, a thorn, and its rags.
+      shadow(s * 0.45);
+      ctx.fillStyle = '#4d6b78'; ctx.beginPath(); ctx.ellipse(gx - s * 0.12, gy - s * 0.06, s * 0.2, s * 0.08, 0, 0, 7); ctx.fill();
+      post(gx + s * 0.16, gy - s * 0.04, s * 0.08, s * 0.5, '#4a3a2c');
+      ctx.fillStyle = '#3c5a30'; ctx.beginPath(); ctx.arc(gx + s * 0.16, gy - s * 0.6, s * 0.22, 0, 7); ctx.fill();
+      const rags = ['#e8e2d0', '#b33a2e', '#3d5a8a', '#d9b34a'];
+      rags.forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(gx + s * (0.02 + k * 0.08), gy - s * (0.5 - (k % 2) * 0.06), s * 0.04, s * 0.14); });
+      return;
+    }
     if (kind === 'campfire') {
       shadow(s * 0.4);
       ctx.strokeStyle = '#5f4327'; ctx.lineWidth = s * 0.1; ctx.lineCap = 'round';
@@ -16959,6 +16977,15 @@ const { openNotifModal } = _notif;
     const placed = [];
     for (const poi of WILDS_POI) {
       propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#cbbdf0', propS, { color: poi.color });
+      placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
+    }
+    // The two old places near the portal: the Shepherd's Race (east) and the
+    // clootie well (west). Where they are comes from the server's Wilds.
+    const oldPlaces = [];
+    if (world2.troyTown) oldPlaces.push({ x: world2.troyTown.hub[0], y: world2.troyTown.hub[1], kind: 'maze', label: "🌀 Shepherd's Race" });
+    if (world2.clootieWell) oldPlaces.push({ x: world2.clootieWell.x, y: world2.clootieWell.y, kind: 'rag_well', label: '🎀 Clootie well' });
+    for (const poi of oldPlaces) {
+      propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#e6d6a8', propS);
       placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
     }
     // Campfires: prop only — five identical "Campfire" labels were just noise.

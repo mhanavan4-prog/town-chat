@@ -22,8 +22,8 @@ const metIds = (b, k) => chap(b, k).entries.filter((e) => e.met).map((e) => e.id
 
 // ── An empty book ────────────────────────────────────────────────────────────
 const empty = buildCharmBook({ acct: {}, prog: {}, seasonKey: null });
-const KEYS = ['callers', 'wards', 'ogham', 'leaves', 'nine', 'practices', 'cords', 'wheel', 'charms', 'halloween', 'yule', 'feasts', 'household', 'against', 'library', 'cunning', 'memory', 'hours', 'dyes'];
-check('the book has its nineteen chapters in order', JSON.stringify(empty.chapters.map((c) => c.key)) === JSON.stringify(KEYS), empty.chapters.map((c) => c.key));
+const KEYS = ['callers', 'wards', 'ogham', 'leaves', 'nine', 'practices', 'cords', 'wheel', 'charms', 'halloween', 'yule', 'feasts', 'household', 'against', 'library', 'cunning', 'memory', 'hours', 'dyes', 'figures'];
+check('the book has its twenty chapters in order', JSON.stringify(empty.chapters.map((c) => c.key)) === JSON.stringify(KEYS), empty.chapters.map((c) => c.key));
 check('a fresh account has met nothing', empty.chapters.every((c) => c.met === 0), empty.chapters.map((c) => c.key + ':' + c.met));
 const all = empty.chapters.flatMap((c) => c.entries);
 check('every entry has a title, a hint and a real tier', all.every((e) => e.title && e.hint && /^(record|folk|revival)$/.test(e.tier)), all.filter((e) => !(e.title && e.hint && /^(record|folk|revival)$/.test(e.tier))).map((e) => e.id));
@@ -86,7 +86,7 @@ setTimeout(() => {
   const g = join('Reader');
   g.s.emit('message', JSON.stringify({ type: 'charm_book_state' }));
   const gs = g.s.lastOfType('charm_book_state');
-  check('the server answers charm_book_state', gs && Array.isArray(gs.chapters) && gs.chapters.length === 19, gs && gs.chapters && gs.chapters.length);
+  check('the server answers charm_book_state', gs && Array.isArray(gs.chapters) && gs.chapters.length === 20, gs && gs.chapters && gs.chapters.length);
   check('a guest has met no callers', gs && chap(gs, 'callers').met === 0);
   const season = h.calendarPublicState().season;
   check('a guest sees the current sabbat as met', gs && season && metIds(gs, 'wheel').includes(season.key), { season: season && season.key, met: gs && metIds(gs, 'wheel') });
