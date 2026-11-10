@@ -8,6 +8,7 @@ import { makeClootieWell } from './props-clootie.js';
 // helpers are injected; scene/camera + lextonNpc are written back via setters.
 // ---------------------------------------------------------------------------
 import { makeTroyTown } from './props-troy-town.js';
+import { makeMenAnTol } from './props-menantol.js';
 
 export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
@@ -373,6 +374,12 @@ function buildWildsScene(w2) {
   if (w2.troyTown) {
     scene.add(makeTroyTown(w2.troyTown, makeSignSprite));
     WILDS_KIOSKS.push({ x: w2.troyTown.gate[0], z: w2.troyTown.gate[1] + 40, npc: 'waymark', markerId: 'troy_town', npcName: "the Shepherd's Race", radius: 80 });
+  }
+  // The Crick-stone: crawl through it nine times against the sun (the server
+  // counts); its lore, and the brass pins, at the stone like a waymarker.
+  if (w2.menAnTol) {
+    scene.add(makeMenAnTol(w2.menAnTol, WILDS_WALLS, makeSignSprite));
+    WILDS_KIOSKS.push({ x: w2.menAnTol.x, z: w2.menAnTol.y + 80, npc: 'waymark', markerId: 'men_an_tol', npcName: 'the Crick-stone', radius: 60 });
   }
 
   kkWildsDressing(scene, w2);

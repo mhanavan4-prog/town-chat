@@ -1553,6 +1553,9 @@ const { WORLD2 } = require('./data/world'); // Tier 3.4 Phase A: extracted to da
 // The Shepherd's Race, a Troy Town cut in the Wilds turf and walked for real (data/troyTown.js).
 const { troyTownGeometry, troyTownStep, TROY_TOWN_XP, TROY_TOWN_LORE, TROY_TOWN_SOURCE } = require('./data/troyTown');
 WORLD2.troyTown = { ...troyTownGeometry(), lore: TROY_TOWN_LORE, source: TROY_TOWN_SOURCE };
+// The Crick-stone, a Mên-an-Tol crawled through nine times against the sun (data/menAnTol.js).
+const MEN = require('./data/menAnTol');
+WORLD2.menAnTol = { x: MEN.MEN_AN_TOL.x, y: MEN.MEN_AN_TOL.y, hole: MEN.MEN_HOLE, stone: MEN.MEN_STONE, upright: MEN.MEN_UPRIGHT };
 
 // 16 harvestable plants, each a one-shot consumable with a distinct effect
 // applied when used from the inventory (see 'use_item' below) rather than
@@ -4295,6 +4298,35 @@ function troyTownMove(player) {
   };
   send(player.ws, { type: 'troy_walk', event, phase: st && st.phase, xp, runs });
   send(player.ws, { type: 'toast', message: words[event] });
+}
+// Crawling the Crick-stone (data/menAnTol.js): nine times through the hole
+// from the south, back round by the west each time, against the sun. Nine
+// pays once a day, and is counted.
+function menAnTolMove(player) {
+  const { st, event } = MEN.menAnTolStep(player._men || null, player.x, player.y);
+  player._men = st;
+  if (!event || !player.ws) return;
+  const a = player.accountKey && accounts[player.accountKey];
+  let xp = 0;
+  if (event === 'done') {
+    player._men = st ? { ...st, count: 0, expect: 'round' } : null;
+    if (a) {
+      const today = Math.floor(Date.now() / 86400000);
+      if (!a.menAnTol || typeof a.menAnTol !== 'object') a.menAnTol = { crawls: 0, day: -1 };
+      a.menAnTol.crawls = (a.menAnTol.crawls || 0) + 1;
+      if (a.menAnTol.day !== today) { a.menAnTol.day = today; xp = MEN.MEN_AN_TOL_XP; grantXP(player, xp); }
+      saveAccounts();
+    }
+  }
+  const words = {
+    through: `🪨 Through the Crick-stone: ${st.count} of ${MEN.MEN_TIMES}. Back round by the west, against the sun.`,
+    wrongway: '🪨 Always through from the south, then back round the stones by the west.',
+    sunwise: "🪨 Round by the east is with the sun: 'going against the sun will backen a disease' (Bottrell). Start again from nine.",
+    done: `🪨 Nine times through, against the sun: the Crick-stone's cure, as Bottrell had it.${xp ? ` +${xp} XP` : ''}`,
+  };
+  send(player.ws, { type: 'men_an_tol', event, count: event === 'done' ? MEN.MEN_TIMES : (st ? st.count : 0), xp });
+  send(player.ws, { type: 'toast', message: words[event] });
+  if (event === 'done') send(player.ws, { type: 'npc_hint_dialogue', npcId: 'men_an_tol', npcName: '🪨 The Crick-stone', message: MEN.MEN_AN_TOL_PRACTICAL });
 }
 // Award XP to a player, leveling up as many times as thresholds are crossed,
 // and broadcasting the change so their HUD updates immediately.
@@ -11883,6 +11915,7 @@ wss.on('connection', (ws, req) => {
         }
         player._lastMoveAt = _now;
         if (msg.room === 'wilds' && player.room === 'wilds') troyTownMove(player);
+        if (msg.room === 'wilds' && player.room === 'wilds') menAnTolMove(player);
       }
       if (typeof msg.room === 'string' && ROOM_IDS.has(msg.room)) {
         // The Town Pass gate, enforced here and not just in the client's
@@ -13120,6 +13153,11 @@ wss.on('connection', (ws, req) => {
     // Reading a Wilds waymarker — reuses the hint-dialogue modal shape the
     // client already renders; the "NPC" is the stone itself.
     if (msg.type === 'read_waymarker') {
+      if (String(msg.markerId) === 'men_an_tol') {
+        const stir = Math.random() < 0.5;
+        send(ws, { type: 'npc_hint_dialogue', npcId: 'men_an_tol', npcName: '🪨 The Crick-stone', message: `Crawl through it nine times from the south, coming back round by the west, against the sun. ${MEN.MEN_AN_TOL_LORE} You lay two brass pins crossed on its top edge and ask your question: ${stir ? 'the pins stir.' : 'the pins lie still.'} ${MEN.MEN_AN_TOL_PINS} (${MEN.MEN_AN_TOL_SOURCE})` });
+        return;
+      }
       if (String(msg.markerId) === 'troy_town') {
         send(ws, { type: 'npc_hint_dialogue', npcId: 'troy_town', npcName: "🌀 The Shepherd's Race", message: `Run it in and out: in at the gate, round every winding to the centre, and out again, without one false step over a bank. ${WORLD2.troyTown.lore} (${WORLD2.troyTown.source})` });
         return;
