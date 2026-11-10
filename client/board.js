@@ -179,13 +179,15 @@ function renderCallers(list, meNote) {
         // Write it out: the lines so far, narrowing, then the next to write.
         const box = el('div', 'scribeBox');
         if (s.scribe.use) box.appendChild(el('div', 'callerStepNote', s.scribe.use));
-        const slip = el('div', 'scribeSlip');
+        const slip = el('div', 'scribeSlip' + (s.scribe.copy ? ' copy' : ''));
         for (let li = 0; li < s.written; li++) slip.appendChild(el('div', 'scribeLine', s.scribe.lines[li]));
         box.appendChild(slip);
+        if (s.scribe.copy && s.scribe.lines[s.written]) box.appendChild(el('div', 'scribeCopy', `Copy: ${s.scribe.lines[s.written]}`));
         const row = el('div', 'scribeRow');
         const inp = document.createElement('input');
         inp.className = 'scribeInput'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.maxLength = 20;
-        inp.placeholder = s.written === 0 ? 'Write the whole word' : 'The line above, its last letter off';
+        inp.placeholder = s.scribe.copy ? 'Copy the line' : (s.written === 0 ? 'Write the whole word' : 'The line above, its last letter off');
+        if (s.scribe.copy) inp.maxLength = 120;
         inp.setAttribute('aria-label', `Line ${s.written + 1} of ${s.scribe.lines.length}`);
         const write = () => { const t = inp.value.trim(); if (!t) return; b.disabled = true; send({ type: 'scribe_line', text: t }); };
         inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') write(); });
