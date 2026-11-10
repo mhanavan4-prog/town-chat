@@ -21,7 +21,7 @@ const c = CALLERS.find((x) => x.id === 'cheese_and_herrings');
 check('the key is a reading kind', READING_KINDS.includes('key'));
 check('Rab Ferguson brings the stolen sack, with three named suspects', c && c.steps[0].kind === 'key' && c.steps[0].suspects.length === 3);
 check('the lore quotes Psalm 50:18 (KJV) exactly', c && /When thou sawest a thief, then thou consentedst with him/.test(c.lore));
-check('…cites Tylor 1871 and Brewer, and the 1697 Cummertrees case', c && /Tylor, Primitive Culture \(1871\)/.test(c.source) && /Brewer/.test(c.source) && /1697 Cummertrees/.test(c.source) && /William M'Kinnel of Bankend/.test(c.lore) && c.tier === 'record');
+check('…cites Tylor 1871 and Brewer, and the 1697 Cummertrees case', c && /Tylor, Primitive Culture \(1871\)/.test(c.source) && /Brewer/.test(c.source) && /1697 Cummertrees/.test(c.source) && /William M'Kinnell only/.test(c.lore) && c.tier === 'record');
 check('the resolution accuses nobody on the key\'s word', c && /don't take the key's word/.test(c.resolution));
 
 require('../server.js');
