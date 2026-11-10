@@ -136,6 +136,15 @@ function setWards(w) {
     mark.position.set(W / 2 - 70, WALL_H * 0.62, 7.4);    // the north wall's inner face, faces into the room (+z)
     wardGroup.add(mark);
   }
+  if (w.burn) {
+    // The taper burn: a tear of char on the inside of the door frame.
+    const mat = new THREE.MeshBasicMaterial({ map: makeBurnTexture(), transparent: true, depthWrite: false });
+    const mark = new THREE.Mesh(new THREE.PlaneGeometry(10, 22), mat);
+    mark.name = 'burnMark';
+    mark.rotation.y = Math.PI;
+    mark.position.set(W / 2 + 80, WALL_H * 0.5, D - 7.4);   // the south wall's inner face, beside the door
+    wardGroup.add(mark);
+  }
   if (w.sator) {
     // The SATOR plate, propped on the wall by the hearth.
     const mat = new THREE.MeshLambertMaterial({ map: makeSatorTexture() });
@@ -189,6 +198,16 @@ function makeMarianTexture() {
   V(24, 76, 140); V(100, 160, 232);
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 4;
+  return tex;
+}
+function makeBurnTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 140;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 140, 0, 0);
+  grad.addColorStop(0, 'rgba(20,10,4,0.95)'); grad.addColorStop(0.6, 'rgba(45,25,10,0.8)'); grad.addColorStop(1, 'rgba(60,35,15,0.1)');
+  g.fillStyle = grad;
+  g.beginPath(); g.moveTo(32, 136); g.bezierCurveTo(4, 110, 18, 30, 32, 6); g.bezierCurveTo(46, 30, 60, 110, 32, 136); g.fill();
+  const tex = new THREE.CanvasTexture(c);
   return tex;
 }
 function makeSatorTexture() {

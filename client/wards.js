@@ -80,7 +80,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
-    if (draw) { if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else renderSator(body); return; }
+    if (draw) { if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -128,6 +128,18 @@ export default function createWards({ send }) {
         card.appendChild(b);
       }
       card.appendChild(loreBox(state.lore.marian));
+      cols.appendChild(card);
+    }
+    // 🕯️ The taper burn mark, scorched on the door frame
+    if (state.lore.burn) {
+      const card = wardCard('burn', state.burn ? `Scorched on the door frame · +${pct}% damage resist` : 'Not yet burned', state.burn);
+      if (!state.burn) {
+        const b = el('button', 'btn wardBtn', 'Light the taper');
+        b.disabled = !state.atHome;
+        b.addEventListener('click', () => { draw = { kind: 'burn', slips: 0, note: 'Press and hold to set the flame to the beam; drag to slant the taper. Hold it there until the tear-shape forms, then let go.' }; render(); });
+        card.appendChild(b);
+      }
+      card.appendChild(loreBox(state.lore.burn));
       cols.appendChild(card);
     }
     // 🍽️ The SATOR plate, kept by the hearth
@@ -334,6 +346,73 @@ export default function createWards({ send }) {
     }
     body.appendChild(svg);
     drawFooter(body, 'Put the brush down');
+  }
+
+  // ── The taper burn: slant the flame and hold it ───────────────────────────
+  // The flame's tip touches the underside of the beam at one point; the taper
+  // hangs from it toward the pointer. Time only counts while the button is
+  // held; the mark grows as it does, and turns angry red once it's too long.
+  function renderBurn(body) {
+    body.appendChild(el('div', 'wardIntro', 'Scorching a burn mark into the door frame with a taper.'));
+    const { svg, add, at } = svgBoard('markCanvas');
+    svg.id = 'burnCanvas';
+    const TIP = [130, 118];
+    const [lo, hi] = state.burnAngle || [30, 60];
+    const [hMin, hMax] = state.burnHold || [3, 8];
+    add('rect', { x: 0, y: 0, width: 260, height: 260, rx: 12, class: 'burnRoom' });
+    add('rect', { x: 10, y: 20, width: 240, height: 98, rx: 4, class: 'hexBeam' });
+    const tear = add('path', { d: '', class: 'burnTear' });
+    const taper = add('line', { x1: TIP[0], y1: TIP[1], x2: TIP[0], y2: TIP[1] + 110, class: 'burnTaper' });
+    const flame = add('circle', { cx: TIP[0], cy: TIP[1] + 4, r: 0, class: 'burnFlame' });
+    const read = add('text', { x: 130, y: 245, class: 'burnRead', 'text-anchor': 'middle' });
+    read.textContent = draw.done ? 'The mark is made.' : 'Slant: upright';
+    const tearPath = (t) => {
+      // A tear: deepest at the foot where the flame touches, tapering up the grain.
+      const k = Math.min(1, t / hMax), w = 3 + 9 * k, h = 8 + 52 * k;
+      return `M ${TIP[0]} ${TIP[1]} C ${TIP[0] - w * 1.3} ${TIP[1] - h * 0.25}, ${TIP[0] - w * 0.4} ${TIP[1] - h * 0.8}, ${TIP[0]} ${TIP[1] - h} C ${TIP[0] + w * 0.4} ${TIP[1] - h * 0.8}, ${TIP[0] + w * 1.3} ${TIP[1] - h * 0.25}, ${TIP[0]} ${TIP[1]} Z`;
+    };
+    if (draw.done) tear.setAttribute('d', tearPath((hMin + hMax) / 2));
+    if (!draw.done && !draw.pending) {
+      let held = null; // { t0, angleSum, samples, angle, raf }
+      const angleTo = ([x, y]) => { const dx = x - TIP[0], dy = Math.max(1, y - TIP[1]); return Math.round(Math.atan2(Math.abs(dx), dy) * 180 / Math.PI); };
+      const pose = (p) => {
+        const a = angleTo(p), dir = p[0] < TIP[0] ? -1 : 1, r = a * Math.PI / 180;
+        taper.setAttribute('x2', TIP[0] + dir * 110 * Math.sin(r)); taper.setAttribute('y2', TIP[1] + 110 * Math.cos(r));
+        return a;
+      };
+      const tick = () => {
+        if (!held) return;
+        const t = (performance.now() - held.t0) / 1000;
+        held.angleSum += held.angle; held.samples++;
+        const good = held.angle >= lo && held.angle <= hi;
+        tear.setAttribute('d', tearPath(good ? t : t * 0.3));
+        tear.setAttribute('class', 'burnTear' + (t > hMax ? ' over' : '') + (good ? '' : ' smudge'));
+        read.textContent = `Slant ${held.angle}° · ${t.toFixed(1)}s held` + (good && t >= hMin && t <= hMax ? ' · the tear has formed' : t > hMax ? ' · it\'s catching!' : '');
+        held.raf = requestAnimationFrame(tick);
+      };
+      svg.addEventListener('pointerdown', (e) => {
+        try { svg.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
+        held = { t0: performance.now(), angleSum: 0, samples: 0, angle: pose(at(e)) };
+        flame.setAttribute('r', 6);
+        held.raf = requestAnimationFrame(tick);
+      });
+      svg.addEventListener('pointermove', (e) => { if (held) held.angle = pose(at(e)); });
+      const lift = () => {
+        if (!held) return;
+        cancelAnimationFrame(held.raf);
+        const seconds = (performance.now() - held.t0) / 1000;
+        const angle = held.samples ? Math.round(held.angleSum / held.samples) : held.angle;
+        held = null;
+        flame.setAttribute('r', 0);
+        draw.pending = true; draw.note = 'You take the taper away and look…';
+        send({ type: 'burn_mark', angle, seconds: Math.round(seconds * 10) / 10 });
+        const n = body.querySelector('.hexNote'); if (n) n.textContent = draw.note;
+      };
+      svg.addEventListener('pointerup', lift);
+      svg.addEventListener('pointercancel', lift);
+    }
+    body.appendChild(svg);
+    drawFooter(body, 'Snuff the taper');
   }
 
   // ── The SATOR square: five words, written row by row ──────────────────────
