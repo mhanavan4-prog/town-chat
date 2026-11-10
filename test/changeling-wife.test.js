@@ -29,7 +29,7 @@ check('the rhyme, from the Schools\' Collection', /"are you a witch, or are you 
 const c = CALLERS.find((x) => x.id === 'changeling_wife');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'changeling_wife'));
 check('the honest half: she is herself, and why it matters (Bridget Cleary); no fairy doctor', /She is herself/.test(c.resolution) && /Bridget Cleary/.test(c.resolution) && /man over the mountain is not sent for/.test(c.resolution));
-check('the practical half: fever, the doctor today, warmth, drink, sleep', /fever makes anyone cross and strange/.test(c.resolution) && /doctor today/.test(c.resolution) && /plenty to drink/.test(c.resolution));
+check('the practical half: fever, the doctor today, rest, drink, and the sepsis signs that mean help that hour', /doesn't know where she is or who you are/.test(c.resolution) && /send for help that hour/.test(c.resolution) && /doctor today/.test(c.resolution) && /plenty to drink/.test(c.resolution));
 
 require('../server.js');
 

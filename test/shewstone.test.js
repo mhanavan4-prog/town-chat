@@ -30,7 +30,7 @@ check('the law: an offence in 1542, repealed 1547, named again 1563 and 1604; a 
 const c = CALLERS.find((x) => x.id === 'shewstone_litter');
 check('a caller any time of year, working the rite', c && !c.season && !c.when && c.steps.some((s) => s.kind === 'rite' && s.rite === 'shewstone'));
 check('the honest half: the glass shows the face you bring, and a name can kill (Tring, 1751)', /shows the face you bring to it/.test(c.resolution) && /Tring in 1751/.test(c.resolution) && /Ruth Osborne/.test(c.resolution) && /Colley was hanged/.test(c.resolution) && /Osborne, Ruth/.test(c.source));
-check('the practical half: fever after farrowing, overlying, straw, a rail, the farrier', /fever/.test(c.resolution) && /lies on her young/.test(c.resolution) && /straw/.test(c.resolution) && /rail along the wall/.test(c.resolution) && /farrier/.test(c.resolution));
+check('the practical half: fever after farrowing, clean dry straw not too deep, a rail, the pig doctor today', /fever/.test(c.resolution) && /Clean dry straw, not so deep/.test(c.resolution) && /rail along the wall/.test(c.resolution) && /pig doctor today/.test(c.resolution));
 
 require('../server.js');
 
