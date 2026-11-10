@@ -1544,7 +1544,7 @@ const CALLERS = [
     resolution: "The box pays for the supper and some over. Then the practical half, for a forge is a dangerous place to be merry in. Eyes first: wear something over them at the anvil, and so should anyone watching. Wear nothing at the fire that melts, and keep good leather boots on. Iron can look cold and still burn you to the bone: treat everything on or near the forge as hot. Never cool a gloved hand in the slack tub, for the water turns to steam inside the glove. Keep the door open while the coal burns, and a carbon monoxide alarm by it, for the fumes have no smell. A burn goes under cool running water for twenty minutes, never ice, and then cling film laid loosely over it. And no gunpowder on the anvil, whatever your grandfather did.",
     lore: "Old Clem: on St Clement's Day the blacksmiths' apprentices carried one of their seniors, dressed as Old Clem, round the public houses with a speech and a money-box, for their supper (Hone, 1826).",
     tier: 'record',
-    source: 'W. Hone, The Every-Day Book, vol. I (1826), 23 November · G. P. G. Hills, "Notes on Some Blacksmiths\' Legends and the Observance of St. Clement\'s Day", Hampshire Field Club Papers, vol. 8 · ABANA, Safety Policy · NHS, "Carbon monoxide poisoning" · NHS, "Burns and scalds"',
+    source: 'W. Hone, The Every-Day Book, vol. I (1826), 23 November · G. P. G. Hills, "Notes on Some Blacksmiths\' Legends and the Observance of St. Clement\'s Day", Hampshire Field Club Papers, vol. 8 · ABANA, Safety Policy · NHS, "Carbon monoxide poisoning" and "Burns and scalds"',
     reward: { gold: 40, xp: 35 },
   },
   // St Catherine's Day only (data/catterning.js), dated by the old calendar.
