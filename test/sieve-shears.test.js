@@ -20,7 +20,7 @@ function makeMockSocket(tag) {
 const c = CALLERS.find((x) => x.id === 'silver_spoons');
 check('the sieve is a reading kind', READING_KINDS.includes('sieve'));
 check('Mistress Hale brings the silver spoons, with three named suspects', c && c.steps[0].kind === 'sieve' && c.steps[0].suspects.length === 3);
-check('the lore quotes Jonson exactly and cites Keith Thomas', c && /searching for things lost, with a sieve and shears/.test(c.lore) && /Alchemist \(1610\)/.test(c.source) && /Thomas, Religion and the Decline of Magic \(1971\)/.test(c.source) && c.tier === 'record');
+check('the lore quotes Jonson exactly and drops the unconfirmed Keith Thomas', c && /searching for things lost, with a sieve and shears/.test(c.lore) && /Alchemist \(1610\)/.test(c.source) && !/Thomas/.test(c.source + c.lore) && c.tier === 'record');
 check('the resolution accuses nobody on the sieve\'s word', c && /don't hand anyone to the constable/.test(c.resolution));
 
 require('../server.js');
