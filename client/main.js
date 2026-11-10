@@ -4788,7 +4788,9 @@ let currentHintNpcId = null, currentHintNpcName = null;
 function showNpcHintDialogue(msg) {
   currentHintNpcId = msg.npcId || null;
   currentHintNpcName = msg.npcName || null;
-  const isStone = typeof msg.npcId === 'string' && msg.npcId.startsWith('way_');
+  // Lore read at a stone or an old place (waymarkers, and the Shepherd's Race,
+  // the Crick-stone and the clootie well): no 💬, and no quest button.
+  const isStone = typeof msg.npcId === 'string' && (msg.npcId.startsWith('way_') || ['troy_town', 'men_an_tol', 'clootie_well'].includes(msg.npcId));
   document.getElementById('npcHintName').textContent = isStone ? msg.npcName : `💬 ${msg.npcName}`;
   const hintText = document.getElementById('npcHintText');
   hintText.textContent = msg.message || '';
@@ -9725,6 +9727,13 @@ const GFX = (() => {
 // the small indoor/destination scenes aren't worth tiering. Numbers are
 // deliberately gentle — tune against real devices.
 const DRAW_TIER = { low: { fog: 0.78, cam: 0.75 } };
+// Test harnesses only (?testdrive=1&draw=0.2): pull the far plane and the fog
+// right in, so a software-rendered playtest draws only what is near the player.
+// Without testdrive the parameter does nothing.
+const HARNESS_DRAW = (() => {
+  const m = location.search.match(/[?&]draw=(0?\.\d+|1)\b/);
+  return /[?&]testdrive=1\b/.test(location.search) && m ? { fog: Number(m[1]), cam: Number(m[1]) } : null;
+})();
 const _authoredFar = new WeakMap();
 function _tierFar(target, isCamera, mul) {
   if (!target || typeof target.far !== 'number') return;
@@ -9733,7 +9742,7 @@ function _tierFar(target, isCamera, mul) {
   if (isCamera && target.updateProjectionMatrix) target.updateProjectionMatrix();
 }
 function applyDrawDistanceTier(q) {
-  const t = DRAW_TIER[q] || { fog: 1, cam: 1 };
+  const t = HARNESS_DRAW || DRAW_TIER[q] || { fog: 1, cam: 1 };
   _tierFar(outdoorScene && outdoorScene.fog, false, t.fog);
   _tierFar(outdoorCamera, true, t.cam);
   _tierFar(wildsScene && wildsScene.fog, false, t.fog);
@@ -19933,6 +19942,9 @@ function restoreSceneForRoom(room) {
 // player couldn't already do by walking.
 if (location.search.includes('testdrive=1')) {
   window.__testDrive = {
+    // What the frame costs, for the software-rendered playtests: meshes and
+    // lights in the active scene, and the last frame's draw calls and triangles.
+    sceneStats() { let meshes = 0, lights = 0; if (activeScene) activeScene.traverse((o) => { if (o.isMesh && o.visible) meshes++; if (o.isLight && o.visible) lights++; }); return { meshes, lights, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }; },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
