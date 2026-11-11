@@ -419,6 +419,16 @@ const KK = (() => {
     cr_rabbit: 'kk/critters/rabbit.glb', cr_embermoth: 'kk/critters/embermoth.glb', cr_thistlehog: 'kk/critters/thistlehog.glb',
     cr_duskfawn: 'kk/critters/duskfawn.glb', cr_mirefowl: 'kk/critters/mirefowl.glb', cr_bramble_boar: 'kk/critters/bramble_boar.glb',
     cr_mossback_tortoise: 'kk/critters/mossback_tortoise.glb', cr_gravewing_crow: 'kk/critters/gravewing_crow.glb',
+    // The Wilds' own trees and bushes, the ogham grove and the crotal stone, as the
+    // real trees, shrubs and stones (tools/models/build_grove.py): weeping willow,
+    // a dead beech with dryad's saddle (Capwood), bilberry (Nightberry), royal fern
+    // (Fenfern), a fairy ring; alder, ash, hawthorn, crab apple, ivy, elder, gorse,
+    // heather, aspen, yew; a boulder crusted with crotal.
+    gv_mourning_willow: 'kk/grove/mourning_willow.glb', gv_capwood: 'kk/grove/capwood.glb', gv_nightberry: 'kk/grove/nightberry.glb',
+    gv_fenfern: 'kk/grove/fenfern.glb', gv_toadring: 'kk/grove/toadring.glb', gv_alder: 'kk/grove/alder.glb', gv_ash_tree: 'kk/grove/ash_tree.glb',
+    gv_hawthorn: 'kk/grove/hawthorn.glb', gv_wild_apple: 'kk/grove/wild_apple.glb', gv_ivy_bank: 'kk/grove/ivy_bank.glb', gv_elder: 'kk/grove/elder.glb',
+    gv_gorse: 'kk/grove/gorse.glb', gv_heather: 'kk/grove/heather.glb', gv_aspen: 'kk/grove/aspen.glb', gv_yew: 'kk/grove/yew.glb',
+    gv_crotal_stone: 'kk/grove/crotal_stone.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -594,7 +604,7 @@ const KK = (() => {
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -14359,16 +14369,31 @@ function applyDecorState(list) {
 // forest doesn't read as clones. Returns null if the model hasn't streamed in
 // yet, so the caller falls back to the procedural version. `extra` tacks on
 // per-species detail (e.g. deadwood's harvestable spirit-glint).
-function makeKKFlora(key, d, targetH, extra) {
-  const inst = (KK && KK.staticInstance) ? KK.staticInstance(key, targetH * (d.scale || 1), 'height') : null;
+function makeKKFlora(key, d, targetH, extra, opts) {
+  const o = opts || {};
+  const inst = (KK && KK.staticInstance) ? KK.staticInstance(key, targetH * (d.scale || 1), o.mode || 'height') : null;
   if (!inst) return null;
   let h = 0; const id = d.id || '';
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   inst.rotation.y = (((h % 360) + 360) % 360) * Math.PI / 180;
   inst.position.set(d.x, 0, d.y);
-  inst.userData.camFade = true;
+  if (o.fade !== false) inst.userData.camFade = true; // the low bushes never hide the player
   if (extra) extra(inst, d);
   return inst;
+}
+
+// The real models for the Wilds' own trees and bushes, the ogham grove and the
+// crotal stone: [size, 'height'|'fit', fades for the camera]. The sizes are the
+// hand-built ones', which stand in until the models land.
+const GROVE_MODELS = {
+  mourning_willow: [92, 'height', true], capwood: [100, 'height', true], nightberry: [32, 'height', false], fenfern: [32, 'height', false],
+  toadring: [44, 'fit', false], alder: [90, 'height', true], ash_tree: [104, 'height', true], hawthorn: [58, 'height', false],
+  wild_apple: [68, 'height', false], ivy_bank: [58, 'height', false], elder: [64, 'height', false], gorse: [32, 'height', false],
+  heather: [40, 'fit', false], aspen: [100, 'height', true], yew: [92, 'height', true], crotal_stone: [40, 'fit', false],
+};
+function withGroveModel(type, spec) {
+  const [size, mode, fade] = GROVE_MODELS[type];
+  return { ...spec, make: (d) => makeKKFlora('gv_' + type, d, size, null, { mode, fade }) || spec.make(d) };
 }
 
 // Deadwood's spirit-wisp glint — the cue that THIS dead tree is harvestable
@@ -14399,19 +14424,19 @@ const PROP_BUILDERS = {
   // ── Wilds flora — trees block movement (small collider), bushes walk-through ──
   watchpine:       { make: (d) => makeKKFlora('fl_watchpine', d, 132) || makeWatchpine(d.x, d.y, d.scale),       collide: () => ({ w: 16, h: 16 }) },
   deadwood:        { make: (d) => makeKKFlora('fl_deadwood', d, 92, addDeadwoodGlint) || makeDeadwood(d.x, d.y, d.scale), collide: () => ({ w: 15, h: 15 }) },
-  mourning_willow: { make: (d) => makeMourningWillow(d.x, d.y, d.scale), collide: () => ({ w: 18, h: 18 }) },
-  capwood:         { make: (d) => makeCapwood(d.x, d.y, d.scale),        collide: () => ({ w: 22, h: 22 }) },
+  mourning_willow: withGroveModel('mourning_willow', { make: (d) => makeMourningWillow(d.x, d.y, d.scale), collide: () => ({ w: 18, h: 18 }) }),
+  capwood:         withGroveModel('capwood', { make: (d) => makeCapwood(d.x, d.y, d.scale),        collide: () => ({ w: 22, h: 22 }) }),
   hexoak:          { make: (d) => makeKKFlora('fl_hexoak', d, 112) || makeHexoak(d.x, d.y, d.scale),             collide: () => ({ w: 20, h: 20 }) },
   palebirch:       { make: (d) => makeKKFlora('fl_palebirch', d, 100) || makePalebirch(d.x, d.y, d.scale),       collide: () => ({ w: 18, h: 18 }) },
   bramblebush:     { make: (d) => makeKKFlora('fl_bramble', d, 34) || makeBramblebush(d.x, d.y, d.scale),        collide: () => null },
-  nightberry:      { make: (d) => makeNightberry(d.x, d.y, d.scale),     collide: () => null },
+  nightberry:      withGroveModel('nightberry', { make: (d) => makeNightberry(d.x, d.y, d.scale),     collide: () => null }),
   thornsnarl:      { make: (d) => makeKKFlora('fl_thornsnarl', d, 30) || makeThornsnarl(d.x, d.y, d.scale),      collide: () => null },
-  fenfern:         { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null },
-  toadring:        { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null },
-  // The ogham grove — the ten trees the Tree Alphabet lacked (props-ogham.js).
-  ...OGHAM_GROVE_BUILDERS,
-  // Crotal stones — lichen-crusted boulders (props-stone.js).
-  ...STONE_BUILDERS
+  fenfern:         withGroveModel('fenfern', { make: (d) => makeFenfern(d.x, d.y, d.scale),        collide: () => null }),
+  toadring:        withGroveModel('toadring', { make: (d) => makeToadstoolRing(d.x, d.y, d.scale),  collide: () => null }),
+  // The ogham grove — the ten trees the Tree Alphabet lacked — and the crotal
+  // stones, each the real model, with the hand-built one (props-ogham.js,
+  // props-stone.js) standing in.
+  ...Object.fromEntries(Object.entries({ ...OGHAM_GROVE_BUILDERS, ...STONE_BUILDERS }).map(([t, spec]) => [t, GROVE_MODELS[t] ? withGroveModel(t, spec) : spec])),
 };
 
 function addNatureDecor(scene, w, pool, wallsOut) {
