@@ -790,7 +790,7 @@
   body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
   body:not(.touchMode) #bonfireModal, body:not(.touchMode) #showcaseModal,
   body:not(.touchMode) #oghamModal, body:not(.touchMode) #cordsModal,
-  body:not(.touchMode) #practicesModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
+  body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
   body:not(.touchMode) #inventoryPanel {
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
     transform:translate(-50%, -50%) !important;
@@ -813,7 +813,7 @@
   body:not(.touchMode) #moonWellModal, body:not(.touchMode) #runeModal, body:not(.touchMode) #journalModal,
   body:not(.touchMode) #skillsModal, body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
   body:not(.touchMode) #bonfireModal, body:not(.touchMode) #showcaseModal, body:not(.touchMode) #oghamModal,
-  body:not(.touchMode) #cordsModal, body:not(.touchMode) #practicesModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
+  body:not(.touchMode) #cordsModal, body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
   body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card, body:not(.touchMode) #wardrobeModal > .card,
   body:not(.touchMode) #achModal > .card, body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
   body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card, body:not(.touchMode) #delveModal > .card,
@@ -879,7 +879,7 @@
   body:not(.touchMode) #moonWellModal::after, body:not(.touchMode) #runeModal::after, body:not(.touchMode) #journalModal::after,
   body:not(.touchMode) #skillsModal::after, body:not(.touchMode) #attackModal::after, body:not(.touchMode) #spellbookModal::after,
   body:not(.touchMode) #bonfireModal::after, body:not(.touchMode) #showcaseModal::after, body:not(.touchMode) #oghamModal::after,
-  body:not(.touchMode) #cordsModal::after, body:not(.touchMode) #practicesModal::after, body:not(.touchMode) #charmBookModal::after, body:not(.touchMode) #shelfModal::after,
+  body:not(.touchMode) #cordsModal::after, body:not(.touchMode) #practicesModal::after, body:not(.touchMode) #oldWaysModal::after, body:not(.touchMode) #charmBookModal::after, body:not(.touchMode) #shelfModal::after,
   body:not(.touchMode) #titlesModal > .card::after, body:not(.touchMode) #loadoutModal > .card::after, body:not(.touchMode) #wardrobeModal > .card::after,
   body:not(.touchMode) #achModal > .card::after, body:not(.touchMode) #codexModal > .card::after, body:not(.touchMode) #passModal > .card::after,
   body:not(.touchMode) #boardModal > .card::after, body:not(.touchMode) #covenModal > .card::after, body:not(.touchMode) #delveModal > .card::after,
@@ -2292,10 +2292,10 @@
   /* The folk-magic panels lay out as a column: header, content filling the
      frame, Close at the bottom — in the uniform desktop frame and full-screen
      on phones alike (a 64vh box inside left a dead band under Close). */
-  #charmBookModal, #oghamModal, #cordsModal, #practicesModal, #shelfModal { display:flex; flex-direction:column; overflow:hidden; }
+  #charmBookModal, #oghamModal, #cordsModal, #practicesModal, #oldWaysModal, #shelfModal { display:flex; flex-direction:column; overflow:hidden; }
   #shelfModal > #shelfContent, #charmBookModal > #charmBookContent, #oghamModal > #oghamContent,
-  #cordsModal > #cordsContent, #practicesModal > #practicesContent { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  #charmBookModal > .btn, #oghamModal > .btn, #cordsModal > .btn, #practicesModal > .btn, #shelfModal > .btn { flex:0 0 auto; }
+  #cordsModal > #cordsContent, #practicesModal > #practicesContent, #oldWaysModal > #oldWaysContent { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #charmBookModal > .btn, #oghamModal > .btn, #cordsModal > .btn, #practicesModal > .btn, #oldWaysModal > .btn, #shelfModal > .btn { flex:0 0 auto; }
   .mobPanelBack { display:none; }
   body.touchMode .mobPanelBack {
     display:inline-flex; align-items:center; flex:0 0 auto;
@@ -3029,6 +3029,7 @@
       <button class="menuRow" id="menuRunes">ᚱ Rune Cast</button>
       <button class="menuRow" id="menuOgham">🌳 Tree Alphabet</button>
       <button class="menuRow" id="menuPractices">🌿 Your Craft</button>
+      <button class="menuRow" id="menuOldWays" title="The besom, the poppet, lead-pouring, the bees, the brownie, sin-eating, the toad-bone">🧹 The Old Ways</button>
       <button class="menuRow" id="menuCords">🪢 Knots &amp; Cords</button>
       <button class="menuRow" id="menuMoonWell">🌙 The Moon Well</button>
 
@@ -3443,6 +3444,11 @@
   .prBtn { width:auto; margin-top:6px; padding:6px 12px; font-size:13px; }
   .prBtn:disabled { opacity:0.5; cursor:default; }
   .prFold { margin-top:6px; }
+  /* The Old Ways: a button with, where there is a choice to make, a picker beside it, and the reason it waits. */
+  .owRow { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .owRow .prBtn { margin-top:0; }
+  .owPick { background:#1a120c; color:#f0e6d2; border:1px solid rgba(217,184,106,0.4); border-radius:8px; padding:6px 8px; font-size:13px; flex:0 1 auto; width:auto; max-width:58%; min-height:34px; }
+  .owWhy { color:#b9a98c; font-size:11.5px; margin-top:2px; min-height:0; }
   .prSummary { color:#d9b86a; font-size:12px; cursor:pointer; }
   .gpRuler { color:#c9b89a; font-size:11.5px; margin:2px 0; }
   .gpRuler.now { color:#9ee37d; font-weight:700; }
@@ -4463,6 +4469,13 @@
   </div>
   <div id="moonWellContent"></div>
   <button class="btn" id="moonWellCloseBtn" style="margin-top:8px;">Close (Esc)</button>
+</div>
+<div id="oldWaysModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>🧹 The Old Ways</span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="oldWaysContent"></div>
+  <button class="btn" id="oldWaysCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 <div id="practicesModal" class="floatPanel hidden">
   <div class="floatPanelHandle">

@@ -31,6 +31,7 @@ import createKamea from './kamea.js';
 import createCharmBook from './charm-book.js';
 import createCords from './cords.js';
 import createPractices from './practices.js';
+import createOldWays from './oldways.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
@@ -3043,6 +3044,8 @@ function onWsMessage(ev) {
   if (msg.type === 'charm_book_state') { _charmBook.setState(msg); return; }
   if (msg.type === 'cords_state') { _cords.setState(msg); return; }
   if (msg.type === 'practice_state') { _practices.setState(msg); return; }
+  if (msg.type === 'oldways_state') { _oldWays.setState(msg); return; }
+  if (msg.type === 'broom_flight') { broomFlight(msg); return; }
   if (msg.type === 'practice_error') { if (msg.message) setUnlockToast(`🌿 ${msg.message}`); return; }
   if (msg.type === 'cords_error') { if (msg.message) setUnlockToast(`🪢 ${msg.message}`); return; }
   if (msg.type === 'ogham_cast') { _ogham.setCast(msg.cast); if (!msg.already) setUnlockToast(`🌳 The staves fall: ${(msg.cast || []).map((o) => o.name).join(' · ')}`); return; }
@@ -7737,6 +7740,7 @@ function hydrateMenuRows() {
   on('menuOgham', closeSheetAnd(() => { if (!Modals.isOpen('oghamOpen')) _ogham.open(); }));
   on('menuCords', closeSheetAnd(() => { if (!Modals.isOpen('cordsOpen')) _cords.open(); }));
   on('menuPractices', closeSheetAnd(() => { if (!Modals.isOpen('practicesOpen')) _practices.open(); }));
+  on('menuOldWays', closeSheetAnd(() => { if (!Modals.isOpen('oldWaysOpen')) _oldWays.open(); }));
   on('runeCloseBtn', closeRuneModal);
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
@@ -10526,6 +10530,21 @@ function enterWilds() {
     portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
     ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
     setUnlockToast('🌀 You step through the portal into the Wilds.');
+    return true;
+  });
+}
+
+// The besom has carried you (lib/oldWays.js): the server has already set you
+// down; fade, change to the map you landed in, and stand where it says.
+function broomFlight(msg) {
+  if (!me || !world2 || !outdoorScene) return;
+  _oldWays.close();
+  portalFade('🧹 Up, and over…', () => {
+    if (msg.room === 'wilds') { swapToWildsMap(); if (activeScene !== wildsScene) return false; } else swapToTownMap();
+    me.room = msg.room; me.x = msg.x; me.y = msg.y;
+    portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
+    ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
+    if (typeof playSfx === 'function') playSfx('portal');
     return true;
   });
 }
@@ -16456,6 +16475,7 @@ const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyStat
 // 🪢 Knots & the Wind — cord magic (blueprint F).
 const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 🌿 The Witch Paths' practices (Green, Lunar, Hedge, Kitchen).
+const _oldWays = createOldWays({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 const _practices = createPractices({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 
 const _seance = createSeance({
@@ -19182,6 +19202,7 @@ window.addEventListener('keydown', (e) => {
   if (Modals.isOpen('charmBookOpen') && e.key === 'Escape' && !e.repeat) { _charmBook.close(); return; }
   if (Modals.isOpen('shelfOpen') && e.key === 'Escape' && !e.repeat) { closeShelfModal(); return; }
   if (Modals.isOpen('cordsOpen') && e.key === 'Escape' && !e.repeat) { _cords.close(); return; }
+  if (Modals.isOpen('oldWaysOpen') && e.key === 'Escape' && !e.repeat) { _oldWays.close(); return; }
   if (Modals.isOpen('practicesOpen') && e.key === 'Escape' && !e.repeat) { _practices.close(); return; }
   if (Modals.isOpen('delveModalOpen')) {
     if (e.key === 'Escape' && !e.repeat) { closeDelveModal(); if (window.__fromMenu) backToMenu(); }
