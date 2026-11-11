@@ -8,9 +8,12 @@
 // Keep ids in lockstep with the mesh BUILDERS in client/guises.js.
 
 const GUISES = {
-  // The free six — worn by anyone, changed or doffed for nothing.
+  // The free seven — worn by anyone, changed or doffed for nothing.
   skull:   { name: 'Bone Mask',    emoji: '💀', blurb: 'A bleached skull over your face. The dead nod to their own.' },
   pumpkin: { name: 'Jack-o’-Head', emoji: '🎃', blurb: 'A carved pumpkin for a head, candle-lit from within.' },
+  // The older lantern: in Ireland and on Man it was a turnip (data/mythOrRecord.js,
+  // 'pumpkin_lanterns'; on Man, the Hop-tu-Naa moot).
+  turnip:  { name: 'The Moot',     emoji: '🏮', blurb: 'A hollowed turnip for a head, carved and lit from inside: the Hallowe’en lantern of Ireland and the Isle of Man before the pumpkin.' },
   devil:   { name: 'Little Devil',  emoji: '😈', blurb: 'Red-skinned and sharp-horned — the devil of the English mummers’ play, Beelzebub with his club.' },
   raven:   { name: 'Plague Raven', emoji: '🐦‍⬛', blurb: 'A long-beaked black bird mask, for crossing between worlds.' },
   witch:   { name: 'Pointed Hat',  emoji: '🧙', blurb: 'The tall, wide-brimmed hat of the old stories. Lean into it.' },

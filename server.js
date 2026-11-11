@@ -16161,7 +16161,7 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    // ── Don / change / doff a guise (account-scoped, cosmetic). The free six are
+    // ── Don / change / doff a guise (account-scoped, cosmetic). The free ones are
     // worn for nothing; the Otherworld set (GUISES[id].ms) is bought once with
     // Moonstones on first wear — owned account-wide in prog.guiseUnlocks — and
     // gathering all three earns the Spirit-Clad title. Mirrors the aura buy-on-
