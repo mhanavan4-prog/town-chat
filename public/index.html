@@ -3511,6 +3511,21 @@
   .kbReadout { width:100%; text-align:center; color:#ffd9a0; font-size:12.5px; min-height:1.2em; }
   .ogKeys { display:flex; flex-direction:column; gap:4px; }
   .kbBtn:focus-visible, .ogCastBtn:focus-visible, .monasTool:focus-visible { outline:2px solid #ffd9a0; outline-offset:2px; }
+  /* The ✕ a touch screen gets over a panel whose own Close is scrolled out of
+     sight (client/back-closes.js). */
+  #backCloseFab { position:fixed; top:max(4px, env(safe-area-inset-top)); right:6px; z-index:10000; width:44px; height:44px; padding:0;
+    border-radius:50%; background:rgba(20,14,10,0.94); color:#ffe9c2; border:2px solid #c9a24a; font-size:20px; font-weight:800; line-height:1;
+    box-shadow:0 2px 12px rgba(0,0,0,0.55); cursor:pointer; }
+  #backCloseFab.hidden { display:none; }
+  /* Fingers, not a mouse: every panel's buttons, tabs and toggles tall enough to tap. */
+  @media (pointer:coarse) {
+    .overlay .btn, .floatPanel .btn, [id$="Modal"] .btn,
+    .gtab, .slTab, .notifToggle, .teaBrewBtn, .ogCarve, .prBtn, .cordBtn, .callerBtn, #skillsRespecBtn, #fovResetBtn,
+    #useDungeonTokenBtn, #homeModal button { min-height:44px; }
+    .skillBuy { min-height:44px; min-width:44px; }
+    .overlay input[type=checkbox], .floatPanel input[type=checkbox], [id$="Modal"] input[type=checkbox] { width:24px; height:24px; }
+    .overlay input[type=range], .floatPanel input[type=range], [id$="Modal"] input[type=range] { height:36px; }
+  }
   /* On a touch screen the board keys are fingers, not a mouse: tall enough to tap. */
   @media (pointer:coarse) { .kbBtn { min-height:44px; padding:8px 12px; font-size:14px; } }
   .markGuide { fill:none; stroke:#ffd9a0; stroke-width:2; stroke-dasharray:4 4; stroke-linecap:round; opacity:0.8; }

@@ -166,10 +166,16 @@ try {
       await page.waitForFunction(() => !!(history.state && history.state.thornreachMenu), null, { timeout: 2000 }).catch(() => {});
       await page.evaluate(() => document.getElementById('menuSettings').click());
       await page.waitForSelector('#settingsModal:not(.hidden)', { timeout: 3000 });
-      await sleep(100);
+      await sleep(400);
+      const len0 = await page.evaluate(() => history.length);
+      const depth0 = await page.evaluate(() => (history.state && history.state.thornreachMenu) | 0);
       await back();
-      await sleep(300);
+      await sleep(500);
       check('[char 0] back from a panel opened from the menu goes back to the menu', !(await shown('#settingsModal')) && await shown('#menuSheet'));
+      // Phone browsers skip, on a back gesture, history entries a page adds
+      // without a tap: so the menu's entry must already be there, pushed at the
+      // tap that opened the panel, and nothing pushed after the back.
+      check('[char 0] …with nothing added to the history after the back (its entry was laid down at the tap)', depth0 >= 2 && (await page.evaluate(() => history.length)) === len0 && (await page.evaluate(() => (history.state && history.state.thornreachMenu) | 0)) === depth0 - 1);
       await sleep(100);
       await back();
       await sleep(300);
