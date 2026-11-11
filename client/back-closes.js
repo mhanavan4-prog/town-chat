@@ -41,16 +41,18 @@ export function backOpenMenus(doc) {
   return open.map((el, i) => ({ el, i, z: z(el) })).sort((a, b) => a.z - b.z || a.i - b.i).map((x) => x.el);
 }
 
-// Close one menu: Escape first; then its own close button; then hide it.
+// Close one menu, and only that one: its own close button if it has one (so
+// it tidies up after itself), else Escape, else hide it.
+function backCloseButton(top) {
+  const vis = (b) => (typeof b.checkVisibility === 'function' ? b.checkVisibility() : b.getClientRects().length > 0);
+  return [...top.querySelectorAll('[id$="CloseBtn"], [id$="Close"], .closeBtn, .modalClose, button[aria-label^="Close"]')].find(vis)
+    || [...top.querySelectorAll('button')].find((b) => vis(b) && /^\s*(✕|×|✖|Close)\b/.test(b.textContent));
+}
 function backCloseTop(top) {
-  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-  setTimeout(() => {
-    if (!backShown(top)) return;
-    const btn = top.querySelector('[id$="CloseBtn"], [id$="Close"], .closeBtn, .modalClose, button[aria-label^="Close"]')
-      || [...top.querySelectorAll('button')].find((b) => /^\s*(✕|×|✖|Close)\s*$/.test(b.textContent));
-    if (btn) btn.click();
-    if (backShown(top)) top.classList.add('hidden');
-  }, 0);
+  const btn = backCloseButton(top);
+  if (btn) btn.click();
+  else window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  setTimeout(() => { if (backShown(top)) top.classList.add('hidden'); }, 0);
 }
 
 // Is the panel's own close (or done, or back) button on screen to tap?
@@ -78,13 +80,21 @@ export default function installBackCloses() {
   let ignorePop = 0;
   let settleUntil = 0; // just after a back: let the panels settle before counting
   let queued = false;
+  let order = []; // the open panels, in the order they opened: back closes the newest
+
+  function newestOpen() {
+    const menus = backOpenMenus();
+    order = order.filter((el) => menus.includes(el));
+    for (const el of menus) if (!order.includes(el)) order.push(el);
+    return { menus, top: order[order.length - 1] || null };
+  }
 
   // The ✕ for touch screens, shown over a panel whose own close is out of reach.
   const touch = window.matchMedia ? window.matchMedia('(pointer:coarse)') : { matches: false };
   const fab = document.createElement('button');
   fab.id = 'backCloseFab'; fab.className = 'hidden'; fab.type = 'button';
   fab.textContent = '✕'; fab.setAttribute('aria-label', 'Close this panel');
-  fab.addEventListener('click', () => { const open = backOpenMenus(); if (open.length) backCloseTop(open[open.length - 1]); });
+  fab.addEventListener('click', () => { const { top } = newestOpen(); if (top) backCloseTop(top); });
   document.body.appendChild(fab);
 
   // The levels open now: each open panel, and the ☰ menu a panel came from.
@@ -96,8 +106,8 @@ export default function installBackCloses() {
 
   function sync() {
     queued = false;
-    const menus = backOpenMenus();
-    const wantFab = menus.length > 0 && touch.matches && !backCloseInReach(menus[menus.length - 1]);
+    const { menus, top } = newestOpen();
+    const wantFab = !!top && touch.matches && !backCloseInReach(top);
     if (fab.classList.contains('hidden') === wantFab) fab.classList.toggle('hidden', !wantFab);
     if (Date.now() < settleUntil) { setTimeout(queue, settleUntil - Date.now() + 5); return; }
     const want = wantedDepth(menus);
@@ -121,16 +131,17 @@ export default function installBackCloses() {
     depth = now;
     settleUntil = Date.now() + 250;
     const fromMenu = !!window.__fromMenu;
-    for (let k = 0; k < steps; k++) {
-      const open = backOpenMenus();
-      if (open.length) backCloseTop(open[open.length - 1]);
-    }
+    // Close the newest panel (one per step back); the rest stay as they were.
+    const { top } = newestOpen();
+    if (top) backCloseTop(top);
+    if (steps > 1) for (const el of order.slice(-steps, -1).reverse()) backCloseTop(el);
     // A panel that came from the ☰ menu goes back to it, even one whose own
     // Escape doesn't know to (the menu's history entry is still waiting).
     setTimeout(() => {
-      if (fromMenu && now >= 1 && !backOpenMenus().length) {
-        const pc = document.getElementById('pcMenuBtn'), sheet = document.getElementById('menuSheet');
-        if (pc) pc.click(); else if (sheet) sheet.classList.remove('hidden');
+      const sheet = document.getElementById('menuSheet');
+      if (fromMenu && now >= 1 && sheet && sheet.classList.contains('hidden')) {
+        const pc = document.getElementById('pcMenuBtn');
+        if (pc) pc.click(); else sheet.classList.remove('hidden');
         window.__fromMenu = false;
       }
     }, 120);

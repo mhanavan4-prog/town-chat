@@ -153,16 +153,24 @@ try {
     if (c.charId === 0) {
       // Start from the game with nothing open (the first-visit welcome can pop up
       // late on a slow runner and would add a level of its own).
-      await page.evaluate(() => { for (const id of ['welcomeModal', 'controlsModal']) { const m = document.getElementById(id); if (m) m.classList.add('hidden'); } });
+      // (the Spellbook above is still open, and the welcome may be up): close them all.
+      for (let k = 0; k < 6; k++) {
+        const left = await page.evaluate(() => [...document.querySelectorAll('.overlay, .floatPanel, #menuSheet, [id$="Modal"]')].filter((e) => !e.classList.contains('hidden') && e.checkVisibility() && e.id !== 'joinScreen').length);
+        if (!left) break;
+        await page.keyboard.press('Escape');
+        await sleep(250);
+      }
+      // Let any history step the welcome left be taken back off before starting.
+      await sleep(600);
       await page.waitForFunction(() => !(history.state && history.state.thornreachMenu), null, { timeout: 3000 }).catch(() => {});
       await sleep(300);
       const url0 = page.url();
       const back = () => page.evaluate(() => history.back());
       const shown = (sel) => page.$eval(sel, (el) => !el.classList.contains('hidden'));
-      const guarded = () => page.evaluate(() => !!(history.state && history.state.thornreachMenu));
       await page.evaluate(() => document.getElementById('journalBtn').click());
       await page.waitForSelector('#journalModal:not(.hidden)', { timeout: 3000 });
       await page.waitForFunction(() => !!(history.state && history.state.thornreachMenu), null, { timeout: 2000 }).catch(() => {});
+      await sleep(300);
       await back();
       await page.waitForSelector('#journalModal.hidden', { state: 'attached', timeout: 3000 }).catch(() => {});
       check('[char 0] going back closes the open panel and stays in the game', !(await shown('#journalModal')) && page.url() === url0 && await shown('#hud'));
@@ -189,10 +197,12 @@ try {
       await page.evaluate(() => document.getElementById('journalBtn').click());
       await page.waitForSelector('#journalModal:not(.hidden)', { timeout: 3000 });
       await sleep(100);
-      const wasGuarded = await guarded();
+      const depthOf = () => page.evaluate(() => (history.state && history.state.thornreachMenu) | 0);
+      const before = await depthOf();
       await page.evaluate(() => document.getElementById('journalCloseBtn').click());
-      await sleep(300);
-      check('[char 0] a menu closed by its own button leaves no extra back step behind', wasGuarded && !(await guarded()));
+      await sleep(400);
+      // (Anything else still open, such as the first-visit welcome, keeps its own step.)
+      check('[char 0] a menu closed by its own button leaves no extra back step behind', before >= 1 && (await depthOf()) === before - 1, { before, after: await depthOf() });
     }
 
     const realErrors = errors.filter(e => !/THREE|WebGL|AudioContext/i.test(e));

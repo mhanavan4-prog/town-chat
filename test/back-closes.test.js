@@ -15,7 +15,8 @@ const ids = [...html.matchAll(/<div id="([A-Za-z]+(?:Modal|Panel))"/g)].map((m) 
 check('…the town map and the inventory among them', ids.includes('mapModal') && ids.includes('inventoryPanel'));
 check('a panel inside another counts as one level, not two', /!shown\.some\(\(o\) => o !== el && o\.contains\(el\)\)/.test(src));
 check('every level is pushed at the tap (a panel from the ☰ menu is two), never after a swipe', /menus\.length \+ \(fromMenu \? 1 : 0\)/.test(src) && /for \(let d = depth \+ 1; d <= want; d\+\+\) history\.pushState/.test(src) && /settleUntil/.test(src));
-check('backing out of a panel that came from the menu lands on the menu', /if \(fromMenu && now >= 1 && !backOpenMenus\(\)\.length\)/.test(src));
+check('backing out of a panel that came from the menu lands on the menu', /if \(fromMenu && now >= 1 && sheet && sheet\.classList\.contains\('hidden'\)\)/.test(src));
+check('back closes the newest panel only, by its own close button where it has one', /let order = \[\]/.test(src) && /const btn = backCloseButton\(top\);/.test(src));
 check('on a touch screen, a ✕ over a panel whose own Close is out of sight', /pointer:coarse/.test(src) && /backCloseInReach/.test(src) && /#backCloseFab \{ position:fixed;/.test(html) && /width:44px; height:44px/.test(html));
 check('…and every panel\'s buttons, tabs and toggles at least 44px to a finger', /@media \(pointer:coarse\) \{\s*\.overlay \.btn, \.floatPanel \.btn, \[id\$="Modal"\] \.btn,/.test(html) && /\.skillBuy \{ min-height:44px; min-width:44px; \}/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`);
