@@ -590,9 +590,147 @@ def black_dog():
     return m, '#ff3a10'
 
 
+# ── Familiars. Their coats are pale, shaded greys: the game tints the body to
+# the animal's natural colour, or to the coat its witch has bonded. Eyes, noses,
+# beaks and masks are "trim" and keep their own colour. ─────────────────────
+PALE = ('#8e8e8e', '#ffffff')
+
+
+def trim(p):
+    p.trim = True
+    return p
+
+
+def fam_eye(m, p, r, col=('#b8ff60', '#eaffb0'), look=(1, 0, 0)):
+    e = blob(r, r, r, seg=7, rings=5, colors=col); e.glow = True
+    m.add(e.xf(None, p))
+    d = np.asarray(look, float); d /= np.linalg.norm(d)
+    m.add(trim(blob(r * 0.45, r * 0.3, r * 0.75, seg=5, rings=3, colors=('#000000', '#101010'))).xf(None, np.asarray(p) + d * r * 0.75))
+
+
+def cat():
+    """A cat, sat-backed and lean: pricked ears, a long tail carried up, slit eyes that shine."""
+    m = Model('cat', forward_x=True)
+    m.add(blob(0.3, 0.14, 0.16, seg=10, rings=7, colors=PALE).xf(ry(0.05), (0, 0, 0.36)))
+    m.add(blob(0.15, 0.13, 0.16, seg=8, rings=6, colors=PALE).xf(None, (0.2, 0, 0.38)))
+    with m.node('head', (0.28, 0, 0.46)):
+        m.add(blob(0.13, 0.12, 0.115, seg=9, rings=6, colors=PALE).xf(None, (0.36, 0, 0.52)))
+        m.add(blob(0.06, 0.07, 0.045, seg=7, rings=4, colors=PALE).xf(None, (0.46, 0, 0.48)))
+        m.add(trim(blob(0.016, 0.02, 0.014, seg=5, rings=3, colors=('#3a2a2a', '#6a4a4a'))).xf(None, (0.515, 0, 0.495)))
+        for sgn in (-1, 1):
+            fam_eye(m, (0.44, sgn * 0.058, 0.555), 0.028, look=(1, sgn * 0.4, 0))
+            m.add(lathe([(0.05, 0), (0.0, 0.11)], sides=4, colors=PALE, close_top=False).xf(rx(sgn * -0.25) @ ry(-0.15), (0.33, sgn * 0.075, 0.6)))
+            for k in range(3):
+                m.add(trim(tube([(0.48, sgn * 0.03, 0.48), (0.5, sgn * (0.14 + 0.01 * k), 0.47 + 0.02 * (k - 1))], 0.0025, sides=3, colors=('#e8e8e8', '#ffffff'))))
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for fb, x in (('F', 0.2), ('B', -0.2)):
+            with m.node('leg_' + fb + side, (x, sgn * 0.075, 0.3)):
+                m.add(leg([(x, sgn * 0.075, 0.32), (x + (-0.03 if fb == 'B' else 0.0), sgn * 0.075, 0.15), (x + 0.01, sgn * 0.075, 0.02)], 0.05 if fb == 'B' else 0.04, 0.025, PALE))
+                m.add(blob(0.04, 0.03, 0.02, seg=6, rings=3, colors=PALE).xf(None, (x + 0.03, sgn * 0.075, 0.015)))
+    with m.node('tail', (-0.28, 0, 0.4)):
+        m.add(tube([(-0.28, 0, 0.4), (-0.4, 0, 0.5), (-0.44, 0, 0.68), (-0.38, 0, 0.82)], lambda s_: 0.035 * (1 - 0.3 * s_), sides=6, colors=PALE))
+    return m, '#b8ff60'
+
+
+def toad():
+    """Bufo bufo, the common toad: squat and warty, broad-mouthed, with copper eyes."""
+    m = Model('toad', forward_x=True)
+    m.add(blob(0.26, 0.22, 0.15, seg=10, rings=6, colors=PALE, jitter=0.05, seed=3).xf(ry(-0.2), (0, 0, 0.15)))
+    r = np.random.default_rng(92)
+    for k in range(16):  # warts
+        th = r.uniform(0.1, 1.1); ph = r.uniform(0, TAU)
+        m.add(blob(0.022, 0.022, 0.014, seg=5, rings=3, colors=PALE).xf(None, (0.24 * math.sin(th) * math.cos(ph) - 0.02, 0.2 * math.sin(th) * math.sin(ph), 0.16 + 0.14 * math.cos(th))))
+    with m.node('head', (0.16, 0, 0.16)):
+        m.add(blob(0.15, 0.17, 0.1, seg=9, rings=5, colors=PALE).xf(None, (0.22, 0, 0.18)))
+        m.add(trim(tube([(0.33, -0.12, 0.15), (0.37, 0, 0.14), (0.33, 0.12, 0.15)], 0.006, sides=3, colors=('#1a1a14', '#2a2a20'))))  # the wide mouth
+        for sgn in (-1, 1):
+            m.add(blob(0.05, 0.05, 0.045, seg=7, rings=4, colors=PALE).xf(None, (0.25, sgn * 0.1, 0.26)))
+            fam_eye(m, (0.275, sgn * 0.115, 0.275), 0.03, col=('#c8641a', '#ffb050'), look=(0.6, sgn, 0.2))
+            m.add(blob(0.05, 0.03, 0.03, seg=6, rings=3, colors=PALE).xf(None, (0.14, sgn * 0.15, 0.24)))  # the gland behind the eye
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        with m.node('leg_F' + side, (0.14, sgn * 0.16, 0.1)):
+            m.add(leg([(0.14, sgn * 0.16, 0.1), (0.2, sgn * 0.22, 0.02)], 0.04, 0.03, PALE))
+            m.add(blob(0.05, 0.045, 0.012, seg=6, rings=3, colors=PALE).xf(None, (0.23, sgn * 0.23, 0.01)))
+        with m.node('leg_B' + side, (-0.14, sgn * 0.18, 0.1)):
+            m.add(blob(0.13, 0.07, 0.07, seg=7, rings=4, colors=PALE).xf(rz(sgn * 0.5), (-0.14, sgn * 0.22, 0.08)))
+            m.add(blob(0.09, 0.05, 0.014, seg=6, rings=3, colors=PALE).xf(rz(sgn * -0.3), (-0.04, sgn * 0.3, 0.01)))
+    return m, '#ffb050'
+
+
+def hare():
+    """Lepus europaeus, the brown hare: long black-tipped ears, long hind legs, a lean body built to run."""
+    m = Model('hare', forward_x=True)
+    m.add(blob(0.36, 0.16, 0.2, seg=10, rings=7, colors=PALE).xf(ry(0.2), (0, 0, 0.42)))
+    m.add(blob(0.2, 0.18, 0.22, seg=8, rings=6, colors=PALE).xf(None, (-0.22, 0, 0.36)))
+    with m.node('head', (0.26, 0, 0.56)):
+        m.add(blob(0.15, 0.11, 0.12, seg=9, rings=6, colors=PALE).xf(ry(-0.25), (0.36, 0, 0.66)))
+        m.add(trim(blob(0.02, 0.028, 0.018, seg=5, rings=3, colors=('#2a1a1a', '#4a3030'))).xf(None, (0.5, 0, 0.62)))
+        for sgn in (-1, 1):
+            fam_eye(m, (0.4, sgn * 0.09, 0.71), 0.03, col=('#d89a2a', '#ffd070'), look=(0.3, sgn, 0))
+    for sgn, nm in ((-1, 'ear_R'), (1, 'ear_L')):
+        with m.node(nm, (0.3, sgn * 0.05, 0.76)):
+            m.add(blob(0.055, 0.02, 0.24, seg=7, rings=5, colors=PALE).xf(rx(sgn * -0.14) @ ry(-0.45), (0.24, sgn * 0.065, 0.98)))
+            m.add(trim(blob(0.04, 0.022, 0.05, seg=6, rings=3, colors=('#0a0a0a', '#1a1a1a'))).xf(rx(sgn * -0.14) @ ry(-0.45), (0.155, sgn * 0.085, 1.165)))  # black tips
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        with m.node('leg_B' + side, (-0.22, sgn * 0.13, 0.34)):
+            m.add(blob(0.17, 0.07, 0.17, seg=8, rings=5, colors=PALE).xf(None, (-0.2, sgn * 0.14, 0.26)))
+            m.add(blob(0.2, 0.045, 0.035, seg=7, rings=4, colors=PALE).xf(None, (-0.06, sgn * 0.14, 0.035)))
+        with m.node('leg_F' + side, (0.2, sgn * 0.08, 0.36)):
+            m.add(leg([(0.2, sgn * 0.08, 0.38), (0.24, sgn * 0.08, 0.18), (0.28, sgn * 0.08, 0.02)], 0.04, 0.028, PALE))
+    with m.node('tail', (-0.4, 0, 0.42)):
+        m.add(blob(0.06, 0.06, 0.07, seg=6, rings=4, colors=PALE).xf(None, (-0.43, 0, 0.46)))
+    return m, '#ffd070'
+
+
+def hound():
+    """A plain country dog, the shape Tibb took: lop ears, a deep chest, a long tail."""
+    m = Model('hound', forward_x=True)
+    m.add(blob(0.36, 0.17, 0.2, seg=10, rings=7, colors=PALE).xf(None, (0, 0, 0.5)))
+    m.add(blob(0.2, 0.18, 0.23, seg=8, rings=6, colors=PALE).xf(None, (0.2, 0, 0.53)))
+    with m.node('head', (0.34, 0, 0.62)):
+        m.add(tube([(0.3, 0, 0.58), (0.42, 0, 0.72)], 0.1, sides=8, colors=PALE))
+        m.add(blob(0.13, 0.115, 0.115, seg=9, rings=6, colors=PALE).xf(None, (0.46, 0, 0.78)))
+        m.add(lathe([(0.075, 0), (0.06, 0.1), (0.045, 0.17)], sides=8, colors=PALE, close_top=True).xf(ry(math.pi / 2 + 0.15), (0.52, 0, 0.75)))
+        m.add(trim(blob(0.028, 0.032, 0.024, seg=6, rings=4, colors=('#0a0a0a', '#2a2a2a'))).xf(None, (0.7, 0, 0.735)))
+        for sgn in (-1, 1):
+            fam_eye(m, (0.55, sgn * 0.07, 0.83), 0.024, col=('#6a3a14', '#c88a4a'), look=(0.8, sgn * 0.5, 0))
+            m.add(blob(0.05, 0.02, 0.1, seg=6, rings=4, colors=PALE).xf(rx(sgn * 0.5), (0.42, sgn * 0.13, 0.76)))  # lop ears
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for fb, x in (('F', 0.22), ('B', -0.26)):
+            with m.node('leg_' + fb + side, (x, sgn * 0.1, 0.44)):
+                m.add(leg([(x, sgn * 0.1, 0.46), (x + (-0.05 if fb == 'B' else 0.01), sgn * 0.1, 0.24), (x + 0.02, sgn * 0.1, 0.03)], 0.065 if fb == 'B' else 0.055, 0.032, PALE))
+                m.add(blob(0.05, 0.04, 0.025, seg=6, rings=3, colors=PALE).xf(None, (x + 0.04, sgn * 0.1, 0.02)))
+    with m.node('tail', (-0.38, 0, 0.56)):
+        m.add(tube([(-0.36, 0, 0.56), (-0.5, 0, 0.62), (-0.6, 0, 0.74)], lambda s_: 0.035 * (1 - 0.5 * s_), sides=6, colors=PALE))
+    return m, '#c88a4a'
+
+
+def polecat():
+    """Mustela putorius, the polecat: long and low, dark-furred, with the pale bandit's mask and pale ear-tips."""
+    m = Model('polecat', forward_x=True)
+    m.add(tube([(-0.34, 0, 0.16), (-0.15, 0, 0.21), (0.1, 0, 0.2), (0.3, 0, 0.19)], lambda s_: 0.1 + 0.02 * math.sin(math.pi * s_), sides=9, colors=PALE))
+    m.add(blob(0.11, 0.11, 0.11, seg=7, rings=5, colors=PALE).xf(None, (-0.34, 0, 0.16)))
+    with m.node('head', (0.3, 0, 0.2)):
+        m.add(blob(0.12, 0.1, 0.09, seg=9, rings=6, colors=PALE).xf(None, (0.38, 0, 0.21)))
+        m.add(trim(blob(0.075, 0.085, 0.055, seg=8, rings=5, colors=('#d8ccb4', '#fff6e4'))).xf(None, (0.44, 0, 0.19)))  # the mask
+        m.add(trim(blob(0.018, 0.022, 0.016, seg=5, rings=3, colors=('#1a1010', '#3a2a2a'))).xf(None, (0.515, 0, 0.19)))
+        for sgn in (-1, 1):
+            fam_eye(m, (0.455, sgn * 0.05, 0.235), 0.018, col=('#d8a020', '#ffe08a'), look=(1, sgn * 0.4, 0))
+            m.add(trim(blob(0.03, 0.012, 0.03, seg=6, rings=3, colors=('#d8ccb4', '#fff6e4'))).xf(None, (0.34, sgn * 0.085, 0.28)))
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for fb, x in (('F', 0.22), ('B', -0.28)):
+            with m.node('leg_' + fb + side, (x, sgn * 0.08, 0.14)):
+                m.add(leg([(x, sgn * 0.08, 0.14), (x + 0.02, sgn * 0.09, 0.02)], 0.04, 0.03, PALE))
+                m.add(blob(0.04, 0.03, 0.015, seg=6, rings=3, colors=PALE).xf(None, (x + 0.04, sgn * 0.09, 0.012)))
+    with m.node('tail', (-0.42, 0, 0.16)):
+        m.add(tube([(-0.42, 0, 0.16), (-0.58, 0, 0.14), (-0.74, 0, 0.1)], lambda s_: 0.06 * (1 - 0.35 * s_), sides=7, colors=PALE))
+    return m, '#ffe08a'
+
+
 CRITTERS = {'rabbit': rabbit, 'embermoth': embermoth, 'thistlehog': hedgehog, 'duskfawn': fawn, 'mirefowl': moorhen,
             'bramble_boar': boar, 'mossback_tortoise': tortoise, 'gravewing_crow': crow,
-            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon, 'black_dog': black_dog}
+            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon, 'black_dog': black_dog,
+            'cat': cat, 'toad': toad, 'hare': hare, 'hound': hound, 'polecat': polecat}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
