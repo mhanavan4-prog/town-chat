@@ -4944,7 +4944,8 @@ function wardContrib(player, statKey) {
   // The witch's ladder: harvest luck (the neighbours' plenty), never guard.
   if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
-  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0);
+  // The last sheaf, while it hangs: Campbell's Maiden was hung up "to aid in keeping them out".
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0) + (w.sheaf ? each : 0);
 }
 function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
@@ -4960,12 +4961,16 @@ function wardsPublic(key) {
     sator: !!w.sator,
     burn: !!w.burn,
     pentangle: !!w.pentangle,
+    // Which last sheaf hangs in the house, if one does (drawn in the cottage).
+    sheaf: w.sheaf ? w.sheaf.form : null,
   };
 }
 // The taper burn mark's window (data/wards.js).
 const { BURN_ANGLE, BURN_HOLD, burnProblem } = require('./data/wards');
 // Filling and setting a witch bottle, as the record has it (data/wards.js).
 const { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem } = require('./data/wards');
+// The last sheaf, plaited at harvest and kept in the house (data/lastSheaf.js).
+const { SHEAF_FORMS, SHEAF_ENDS, SHEAF_EARS, SHEAF_PLAIT_SEASONS, SHEAF_END_XP, sheafProblem, sheafCanPlait, sheafEndDue, sheafWhenLabel } = require('./data/lastSheaf');
 function wardsStateBody(player) {
   const key = player && player.accountKey;
   const inv = key ? getInventory(player) : null;
@@ -4986,6 +4991,20 @@ function wardsStateBody(player) {
     burnAngle: BURN_ANGLE, burnHold: BURN_HOLD,
     boards: { marian: { tops: MARIAN_TOPS, bottoms: MARIAN_BOTTOMS }, pentangle: { points: PENTANGLE_POINTS } },
     lore: WARDS,
+    lastSheaf: (() => {
+      const ws = key && accounts[key] && accounts[key].wards;
+      const sh = ws && ws.sheaf;
+      let season = null; try { season = seasonWindow(Date.now()).key; } catch (e) { /* no calendar, no harvest */ }
+      const now = Date.now();
+      return {
+        forms: SHEAF_FORMS, ends: SHEAF_ENDS, ears: SHEAF_EARS, // full or thin: you can see which
+        plaitWhen: sheafWhenLabel(SHEAF_PLAIT_SEASONS),
+        endWhen: Object.fromEntries(Object.entries(SHEAF_ENDS).map(([k, e]) => [k, sheafWhenLabel(e.when)])),
+        season, canPlait: sheafCanPlait(season, sh, now), endDue: sheafEndDue(season, sh, now),
+        hanging: sh ? { form: sh.form, end: sh.end, at: sh.at } : null,
+        ended: (ws && ws.sheafEnded) || null,
+      };
+    })(),
     bottleFill: (() => { const wb = key && accounts[key] && accounts[key].wards && accounts[key].wards.bottle; return { fillings: BOTTLE_FILLINGS, places: BOTTLE_PLACES, pins: BOTTLE_PINS, set: wb ? { contents: wb.contents || null, place: wb.place || null, inverted: wb.inverted } : null }; })(),
   };
 }
@@ -16540,6 +16559,52 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'toast', message: `🛡️ Five lines and no end at any corner: the endless knot, gold on red. +${PENTANGLE_VITALITY} max health while you bear it.` });
       return;
     }
+    // 🌾 The last sheaf: plaited at harvest, kept in the house, given away as
+    // the record has it when its time comes (data/lastSheaf.js).
+    if (msg.type === 'plait_last_sheaf' || msg.type === 'end_last_sheaf') {
+      const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
+      if (!player.accountKey) { fail('Log into an account: a sheaf needs a house to hang in.'); return; }
+      if (!inOwnCottage(player)) { fail('The last sheaf is kept at home. Step inside your own cottage first.'); return; }
+      const w = wardsOfKey(player.accountKey);
+      let season = null; try { season = seasonWindow(Date.now()).key; } catch (e) { /* no calendar, no harvest */ }
+      const now = Date.now();
+      let toast = '';
+      if (msg.type === 'plait_last_sheaf') {
+        if (!sheafCanPlait(season, w.sheaf, now)) {
+          fail(w.sheaf ? `Your ${SHEAF_FORMS[w.sheaf.form].short} is still having its year. The next is plaited at the next harvest.`
+            : `The last sheaf is plaited when the last of the corn is cut: at ${sheafWhenLabel(SHEAF_PLAIT_SEASONS)}.`);
+          return;
+        }
+        const problem = sheafProblem(msg);
+        if (problem) { fail(problem); return; }
+        const form = SHEAF_FORMS[msg.form];
+        const old = w.sheaf ? SHEAF_FORMS[w.sheaf.form] : null;
+        if (w.sheaf) w.sheafEnded = { form: w.sheaf.form, end: 'harvest', at: now };
+        w.sheaf = { form: msg.form, end: msg.end, at: now };
+        toast = `${form.icon} ${old ? `You take down last year's ${old.short}. ` : ''}You plait the ${form.short} from the best ears and ${form.put}. ${SHEAF_ENDS[msg.end].promise}`;
+      } else {
+        if (!w.sheaf) { fail('No sheaf hangs in your house.'); return; }
+        if (!sheafEndDue(season, w.sheaf, now)) {
+          const end = SHEAF_ENDS[w.sheaf.end];
+          fail(end && end.act ? `Not yet: that is done at ${sheafWhenLabel(end.when)}.` : 'This one is kept till the next harvest, when the new one takes its place.');
+          return;
+        }
+        const form = SHEAF_FORMS[w.sheaf.form];
+        const end = w.sheaf.end;
+        w.sheafEnded = { form: w.sheaf.form, end, at: now };
+        w.sheaf = null;
+        toast = end === 'yule'
+          ? `${form.icon} You take the ${form.short} down and carry it out to the stalls, and the beasts have it for their Christmas.`
+          : `${form.icon} On the first day of ploughing you take the ${form.short} down, and the horses have a tuft of it before the plough goes in.`;
+        grantXP(player, SHEAF_END_XP);
+      }
+      saveAccounts();
+      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
+      send(ws, { type: 'wards_state', ...wardsStateBody(player) });
+      send(ws, { type: 'toast', message: toast });
+      broadcastCottageLayout(player.accountKey); // the sheaf shows in the house for anyone inside
+      return;
+    }
     if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
@@ -18212,6 +18277,7 @@ global.__testHooks = {
 // Hooks added on their own lines so parallel PRs don't conflict on the shared line above.
 global.__testHooks.noteSabbatSeen = noteSabbatSeen;
 global.__testHooks.wardsPublic = wardsPublic;
+global.__testHooks.wardsStateBody = wardsStateBody;
 // Hooks added on their own lines so parallel PRs don't conflict on the line above.
 global.__testHooks.dyesEarnedFor = dyesEarnedFor;
 global.__testHooks.whereNextFor = whereNextFor; // the Charm Book's Where next page

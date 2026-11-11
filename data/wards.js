@@ -103,6 +103,17 @@ const WARDS = {
     tier: 'record',
     source: "Pitt Rivers Museum 1911.32.7 · A. Colles, \"A Witches' Ladder\", The Folk-Lore Journal 5 (1887) · E. B. Tylor, International Folk-Lore Congress, Papers and Transactions (1892)",
   },
+  // Not a mark but a keeping: the last of the harvest, plaited and kept in the
+  // house for its year (data/lastSheaf.js has the three forms and endings).
+  sheaf: {
+    name: 'The Last Sheaf',
+    icon: '🌾',
+    where: 'kept in the house',
+    blurb: 'Plaited at harvest from the best ears and kept in the house for its year: a neck, a kern baby or a Maiden. While it hangs it wards the house.',
+    lore: "All over Britain the last handful of corn was kept back from the threshing, plaited or dressed, and carried home. In Devon and Cornwall it was \"the neck\", hung from a kitchen beam; on the Tweed side a little kern baby, \"enshrined at the top of the bink or dresser\"; in the Highlands the Harvest Maiden, \"hung up in the farmer's house to aid in keeping them out till next harvest\", the fairies. That is the one place it is written down as a protection. Most were kept till the next harvest; in East Cornwall and Aberdeenshire they went to the beasts at Christmas, and at Kilmartin a tuft to the horses on the first day of ploughing. The corn dolly sold as a craft is mostly a revival of the mid-twentieth century and after, \"folk revivalism at its finest\" as Ollie Douglas puts it, not the old record.",
+    tier: 'folk',
+    source: "R. Hunt, Popular Romances of the West of England (3rd ed., 1903), \"Crying the Neck\" · M. A. Courtney, Cornish Feasts and Folk-lore (1890) · W. Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1879) · J. G. Campbell, Superstitions of the Highlands and Islands of Scotland (1900) · J. G. Frazer, The Golden Bough, 3rd ed., vol. 7 (1912) · O. Douglas, \"Hello Dolly\", Selvedge 101 (2021)",
+  },
 };
 
 // ── The drawing boards (one source of truth: the server sends these to the

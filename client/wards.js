@@ -38,7 +38,10 @@ export default function createWards({ send }) {
   }
   function setState(s) {
     state = s;
-    if (draw && state && (draw.kind === 'bottle' ? state.bottle === 'buried' : state[draw.kind])) { draw.done = true; draw.pending = false; }
+    if (draw && state && draw.kind === 'sheaf') {
+      const h = state.lastSheaf && state.lastSheaf.hanging;
+      if (h && h.at !== draw.prevAt) { draw.done = true; draw.pending = false; }
+    } else if (draw && state && (draw.kind === 'bottle' ? state.bottle === 'buried' : state[draw.kind])) { draw.done = true; draw.pending = false; }
     if (Modals.isOpen('wardsOpen')) render();
   }
   // The server turned a drawing down: say why, and let the hand try again.
@@ -80,7 +83,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
-    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
+    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'sheaf') { renderSheaf(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -191,7 +194,85 @@ export default function createWards({ send }) {
       card.appendChild(loreBox(state.lore.ladder));
       cols.appendChild(card);
     }
+    sheafCard(cols, pct);
     pentangleCard(cols);
+  }
+
+  // 🌾 The last sheaf: plaited at harvest, kept for its year (data/lastSheaf.js).
+  function sheafCard(cols, pct) {
+    const L = state.lastSheaf;
+    if (!state.lore.sheaf || !L) return;
+    const h = L.hanging, form = h && L.forms[h.form];
+    const card = wardCard('sheaf', form ? `${form.name}, ${form.hangs} · +${pct}% damage resist` : 'None kept', !!form);
+    if (form && L.endDue) {
+      const end = L.ends[h.end];
+      const b = el('button', 'btn wardBtn', `${form.icon} ${end.act}`);
+      b.disabled = !state.atHome;
+      b.addEventListener('click', () => { b.disabled = true; send({ type: 'end_last_sheaf' }); });
+      card.appendChild(b);
+    }
+    if (L.canPlait) {
+      const b = el('button', 'btn wardBtn', form ? 'Take it down and plait this year\'s' : 'Plait the last sheaf');
+      b.disabled = !state.atHome;
+      b.addEventListener('click', () => { draw = { kind: 'sheaf', form: null, end: null, ears: [], prevAt: h ? h.at : null, slips: 0, note: 'Which sheaf will you make? Each is as one part of the country kept it.' }; render(); });
+      card.appendChild(b);
+    }
+    if (form && !L.endDue && !L.canPlait) {
+      card.appendChild(el('div', 'wardHow', h.end === 'harvest' ? `It hangs till the next harvest (${L.endWhen.harvest}), when this year's takes its place.`
+        : `${L.ends[h.end].promise} That comes round at ${L.endWhen[h.end]}.`));
+    } else if (!form && !L.canPlait) {
+      card.appendChild(el('div', 'wardHow', `The last sheaf is plaited when the last of the corn is cut: come back at ${L.plaitWhen}.`));
+    }
+    card.appendChild(loreBox(state.lore.sheaf));
+    cols.appendChild(card);
+  }
+
+  // Picking out the best ears, choosing the form, and how its year will end.
+  function renderSheaf(body) {
+    const L = state.lastSheaf;
+    body.appendChild(el('div', 'wardIntro', '🌾 Plait the last sheaf and keep it'));
+    // Which sheaf: the three forms the collectors wrote down.
+    keysPanel(body, 'Which sheaf', Object.entries(L.forms).map(([k, f]) => ({
+      text: `${draw.form === k ? '✓ ' : ''}${f.icon} ${f.name} (${f.country})`, aria: `${f.name}, ${f.country}. ${f.how}`, disabled: draw.pending || draw.done,
+      on: () => { draw.form = k; if (!f.ends[draw.end]) draw.end = null; draw.note = f.how; render(); },
+    })));
+    // The best ears: full ones and thin ones lie together; take every full one.
+    const NS = WARDS_SVGNS;
+    const row = el('div', 'sheafEars');
+    L.ears.forEach((full, i) => {
+      const on = draw.ears.includes(i);
+      const b = el('button', 'btn sheafEar' + (on ? ' on' : ''));
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.setAttribute('aria-label', `Ear ${i + 1}: ${full ? 'full and heavy' : 'thin'}${on ? ', picked' : ''}`);
+      b.disabled = draw.pending || draw.done;
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 24 64'); svg.setAttribute('aria-hidden', 'true');
+      const add = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const a in attrs) n.setAttribute(a, attrs[a]); svg.appendChild(n); return n; };
+      add('line', { x1: 12, y1: 30, x2: 12, y2: 62, class: 'sheafStalk' });
+      const grains = full ? 7 : 4;
+      for (let g = 0; g < grains; g++) {
+        const y = 6 + g * (full ? 3.6 : 5.5), side = g % 2 ? 1 : -1;
+        add('ellipse', { cx: 12 + side * (full ? 3.2 : 2), cy: y, rx: full ? 3.2 : 1.6, ry: full ? 4.2 : 3, class: full ? 'sheafGrain' : 'sheafGrain thin' });
+      }
+      b.appendChild(svg);
+      b.addEventListener('click', () => { draw.ears = on ? draw.ears.filter((x) => x !== i) : [...draw.ears, i]; draw.note = full ? 'A full ear, heavy in the hand.' : 'A thin ear. Hunt\'s reaper picked out "the best ears he can find".'; render(); });
+      row.appendChild(b);
+    });
+    const earBox = el('div', 'kbPanel');
+    earBox.appendChild(el('div', 'kbLabel', `The best ears (${draw.ears.length} picked)`));
+    earBox.appendChild(row);
+    body.appendChild(earBox);
+    // How its year ends: only the endings recorded for that sheaf.
+    const f = draw.form && L.forms[draw.form];
+    if (f) {
+      keysPanel(body, 'How its year ends', Object.entries(f.ends).map(([k, line]) => ({
+        text: `${draw.end === k ? '✓ ' : ''}${L.ends[k].label}`, aria: `${L.ends[k].label}. ${line}`, disabled: draw.pending || draw.done,
+        on: () => { draw.end = k; draw.note = line; render(); },
+      })));
+    }
+    keysPanel(body, 'And', [{ text: `${f ? f.icon : '🌾'} Plait it and ${f ? f.put : 'keep it'}`, disabled: draw.pending || draw.done || !f || !draw.end,
+      on: () => { draw.pending = true; draw.note = 'You plait the straws…'; send({ type: 'plait_last_sheaf', form: draw.form, end: draw.end, ears: draw.ears.slice() }); render(); } }]);
+    drawFooter(body, 'Leave it for now');
   }
 
   // 🛡️ Gawain's pentangle: not a house mark, so drawn anywhere, and shown last.

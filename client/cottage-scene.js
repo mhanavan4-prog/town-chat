@@ -203,8 +203,78 @@ function setWards(w) {
     ladder.position.set(W - 46, 0, 46);
     wardGroup.add(ladder);
   }
+  if (w.sheaf) {
+    // The last sheaf (data/lastSheaf.js): the neck from a beam, the Maiden hung
+    // up, both by the hearth; the kern baby on a shelf on the west wall, "at
+    // the top of the bink or dresser".
+    const sheaf = makeLastSheaf(w.sheaf);
+    if (w.sheaf === 'kern') {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(14, 3, 46), new THREE.MeshLambertMaterial({ color: 0x6e5236 }));
+      shelf.position.set(14, 92, D * 0.36); shelf.name = 'sheafShelf';
+      wardGroup.add(shelf);
+      sheaf.position.set(14, 93.5, D * 0.36);
+      sheaf.rotation.y = Math.PI / 2; // facing into the room
+    } else {
+      sheaf.position.set(W / 2 + 120, WALL_H - 4, 30);
+    }
+    wardGroup.add(sheaf);
+  }
   builtScene.add(wardGroup);
 }
+// The last sheaf, as each form was kept. A neck or a Maiden is a little
+// bundle of straws tied below the ears, hung ears-down from a cord; the Maiden
+// is dressed (here, with a red ribbon). The kern baby is a small figure of the sheaf,
+// "crowned with wheat-ears and dressed up in gay finery" (Henderson), standing.
+function makeLastSheaf(form) {
+  const g = new THREE.Group();
+  g.name = 'lastSheaf';
+  g.userData.sheafForm = form;
+  const straw = new THREE.MeshLambertMaterial({ color: 0xd9b45a });
+  const ear = new THREE.MeshLambertMaterial({ color: 0xc89a3c });
+  if (form === 'kern') {
+    const body = new THREE.Mesh(new THREE.ConeGeometry(4.2, 20, 8), straw);
+    body.position.y = 10; g.add(body);
+    const dress = new THREE.Mesh(new THREE.ConeGeometry(5.6, 12, 10, 1, true), new THREE.MeshLambertMaterial({ color: 0xb33a3a, side: THREE.DoubleSide }));
+    dress.position.y = 6; dress.name = 'kernDress'; g.add(dress);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(3.2, 8, 6), straw);
+    head.position.y = 22.5; g.add(head);
+    for (let i = 0; i < 7; i++) { // the crown of wheat-ears
+      const a = (i / 7) * Math.PI * 2;
+      const e = new THREE.Mesh(new THREE.ConeGeometry(0.9, 5, 5), ear);
+      e.position.set(Math.cos(a) * 2.6, 26.5, Math.sin(a) * 2.6); e.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35);
+      e.userData.crownEar = true; g.add(e);
+    }
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 9, 5), straw);
+      arm.position.set(side * 4.2, 15, 0); arm.rotation.z = side * 0.9; g.add(arm);
+    }
+    return g;
+  }
+  // Hung from a cord: the cord, the tie, the straws above and the ears below.
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 14, 4), new THREE.MeshLambertMaterial({ color: 0x8a7350 }));
+  cord.position.y = -7; g.add(cord);
+  const tieY = -24;
+  for (let i = 0; i < 13; i++) {
+    const a = (i / 13) * Math.PI * 2, r = 0.9 + (i % 3) * 0.5;
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 12, 4), straw);
+    st.position.set(Math.cos(a) * r, tieY + 6, Math.sin(a) * r); st.rotation.set(Math.sin(a) * 0.12, 0, -Math.cos(a) * 0.12); g.add(st);
+    const e = new THREE.Mesh(new THREE.ConeGeometry(0.85, 6, 5), ear);
+    e.rotation.x = Math.PI; // ears hanging down
+    e.position.set(Math.cos(a) * r * 2.2, tieY - 8, Math.sin(a) * r * 2.2); g.add(e);
+    const st2 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6, 4), straw);
+    st2.position.set(Math.cos(a) * r * 1.6, tieY - 3, Math.sin(a) * r * 1.6); st2.rotation.set(-Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3); g.add(st2);
+  }
+  const tie = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 2.2, 10), new THREE.MeshLambertMaterial({ color: form === 'maiden' ? 0xb33a3a : 0xc9a24a }));
+  tie.position.y = tieY; tie.name = form === 'maiden' ? 'maidenRibbon' : 'neckTie'; g.add(tie);
+  if (form === 'maiden') { // the ribbon's two tails
+    for (const side of [-1, 1]) {
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(1.6, 9, 0.3), new THREE.MeshLambertMaterial({ color: 0xb33a3a, side: THREE.DoubleSide }));
+      tail.position.set(side * 2, tieY - 5, 2.2); tail.rotation.z = side * 0.25; g.add(tail);
+    }
+  }
+  return g;
+}
+
 function makeHexafoilTexture() {
   const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
